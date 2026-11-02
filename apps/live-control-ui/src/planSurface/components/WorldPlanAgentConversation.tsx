@@ -1,4 +1,4 @@
-import {isNativeSourceAuthority,isNativeProviderInput,isSurfaceNativeReceipt,isSurfaceNativeContext,isSurfaceNativeCompletion} from '../../shared/surfaceNativeProtocol';
+import {isNativeSourceAuthority,isNativeProviderInput,isSurfaceNativeReceipt,isSurfaceNativeContext,isSurfaceNativeCompletion,isBuildAuthoringCompletion} from '../../shared/surfaceNativeProtocol';
 import {isNativePlanQuery} from '../../shared/nativeStatementAnswerProtocol';
 import {isNativeStatementContext,nativeStatementDigestsBound,nativeAnswerText} from "../../shared/nativeStatementAnswerProtocol";
 import {NativeStatementAnswer} from "./NativeStatementAnswer";
@@ -1517,18 +1517,6 @@ function hasObjectOnlyBuildReply(turn: WorldAgentConversationHistoryTurn): boole
 
 }
 
-function isBuildAuthoringCompletion(value: unknown, receiptHash: string): value is WorldBuildAuthoringCompletionV1 {
-  return isRecord(value) && hasExactKeys(value, ["schema", "context_receipt_sha256", "answer_basis", "answer_context_status",
-    "answer_segments", "citation_map", "action_id", "reservation_sha256", "proposal_result_sha256", "provider_attempt_id", "envelope_sha256"])
-    && value.schema === "dmb_build_authoring_completion_v1" && value.context_receipt_sha256 === receiptHash
-    && value.answer_basis === "prepared_page_proposal" && value.answer_context_status === "proposal_ready"
-    && value.citation_map === null && Array.isArray(value.answer_segments) && value.answer_segments.length === 1
-    && isRecord(value.answer_segments[0]) && hasExactKeys(value.answer_segments[0], ["kind", "text"])
-    && value.answer_segments[0].kind === "connective"
-    && value.answer_segments[0].text === "A preview is ready. Review it before inserting it into the page. Nothing has been saved or published."
-    && [value.action_id, value.provider_attempt_id].every(id => typeof id === "string" && /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(id))
-    && [value.reservation_sha256, value.proposal_result_sha256, value.envelope_sha256].every(hash => typeof hash === "string" && /^[a-f0-9]{64}$/.test(hash));
-}
 
 function isBuildImageCompletion(value: unknown, receiptHash: string): value is WorldBuildImagePreparationCompletionV1 {
   return isRecord(value) && hasExactKeys(value, ["schema", "context_receipt_sha256", "answer_basis", "answer_context_status",

@@ -522,6 +522,30 @@ describe("one App-level World conversation host across Plan and Play", () => {
 
 
 
+  it('loads an ordinary native Build proposal into the existing page review control without generating again',async()=>{
+    const raw=nativeBuildWire.proposal_wire;
+    const wire=JSON.parse(JSON.stringify(raw).replaceAll(raw.history.world_id,WORLD));
+    const row=wire.history.turns[0],context=row.knowledge_context,basis=context.receipt.work_context.source_basis;
+    basis.content_sha256=SHA;row.provenance.primary_work.content_sha256=SHA;row.provenance.surface_instance_id='build-instance';
+    context.receipt.provenance_sha256=await sha256Hex(canonicalJson(row.provenance));
+    const {context_receipt_sha256:_,...payload}=context.receipt;
+    context.receipt.context_receipt_sha256=await sha256Hex(canonicalJson(payload));
+    context.completion.context_receipt_sha256=context.receipt.context_receipt_sha256;
+    wire.record.reservation.basis.content_sha256=SHA;
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(wire.history);
+    vi.mocked(listBuildProposals).mockResolvedValue([wire.record]);
+    const bridge={captureContext:vi.fn(),capture:vi.fn(),restore:vi.fn(),insert:vi.fn(),insertProposal:vi.fn(),
+      prepareProposal:vi.fn(),applyPrepared:vi.fn(),inspectProposal:vi.fn(),saveProposal:vi.fn()} as BuildComposeBridge;
+    render(<Harness initial='build' buildBridge={bridge} buildSourceId={basis.document_id} buildSourceRevision={basis.registry_revision}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    await screen.findByText(row.user_text);
+    await screen.findByRole('button',{name:'Review suggestion on page'});
+    expect(screen.queryByRole('group',{name:'World history unavailable'})).not.toBeInTheDocument();
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();expect(bridge.restore).not.toHaveBeenCalled();
+    expect(getAgentNativeAssertionSource).not.toHaveBeenCalled();
+    vi.mocked(listBuildProposals).mockResolvedValue([]);
+  });
+
   it.each(['history','fresh','replay','producer','revision','provenance','source','world','extra','interrupted','mixed-approved','mixed-unclaimed','mixed-object','fresh-mixed-object','mixed-question','mixed-unclaimed-question','mixed-object-prose','fresh-answer','fresh-question','fresh-source','fresh-graph'] as const)('consumes ordinary shared native Build HTTP and history: %s',async mode=>{
     const wire=JSON.parse(JSON.stringify(nativeBuildWire).replaceAll(nativeBuildWire.history.world_id,WORLD)) as unknown as {
       request:WorldBuildAgentTurnRequestV1;

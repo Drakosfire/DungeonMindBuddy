@@ -475,6 +475,22 @@ def normalize_native_mixed_output(
     )
 
 
+def verify_shared_native_producer(receipt, graph_execution, rules_execution, proof, capture, *,
+                                 trace, idempotency_key, submitted_intent_fingerprint,
+                                 world_id, conversation_id, turn_id, attempt, provenance, work_proof):
+    """One actual producer proof; answer and editable-object normalization stay owned."""
+    from .source_writer_output import require_captured_answer
+    submission = dict(idempotency_key=idempotency_key,submitted_intent_fingerprint=submitted_intent_fingerprint,
+        world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt,
+        provenance=provenance,work_proof=work_proof)
+    evidence, frame = verify_native_reply(graph_execution,rules_execution,proof,capture,
+        native_context=receipt,native_submission=submission)
+    require_captured_answer(trace,world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,
+        attempt=attempt,provider_attempt_id=proof.producing_provider_attempt_id,
+        context_receipt_sha256=receipt.context_receipt_sha256,raw_output_json=proof.raw_output_json)
+    return evidence, frame
+
+
 def normalize_shared_native_output(receipt, graph_execution, rules_execution, proof, capture, *,
                                    trace, idempotency_key, submitted_intent_fingerprint,
                                    world_id, conversation_id, turn_id, attempt, provenance, work_proof):
@@ -484,16 +500,10 @@ def normalize_shared_native_output(receipt, graph_execution, rules_execution, pr
     the accepted composition atomically. This component does neither operation.
     """
     from .native_completion import normalize_candidate
-    from .source_writer_output import require_captured_answer
-
-    submission = dict(idempotency_key=idempotency_key,submitted_intent_fingerprint=submitted_intent_fingerprint,
+    evidence,frame=verify_shared_native_producer(receipt,graph_execution,rules_execution,proof,capture,
+        trace=trace,idempotency_key=idempotency_key,submitted_intent_fingerprint=submitted_intent_fingerprint,
         world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt,
         provenance=provenance,work_proof=work_proof)
-    evidence, frame = verify_native_reply(graph_execution,rules_execution,proof,capture,
-        native_context=receipt,native_submission=submission)
-    require_captured_answer(trace,world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,
-        attempt=attempt,provider_attempt_id=proof.producing_provider_attempt_id,
-        context_receipt_sha256=receipt.context_receipt_sha256,raw_output_json=proof.raw_output_json)
     auth = next(e for e in graph_execution.events
         if getattr(e,'provider_attempt_id',None) == proof.producing_provider_attempt_id and hasattr(e,'envelope_sha256'))
     included = next(e for e in rules_execution.events if type(e) is RulesProviderIncludedV1

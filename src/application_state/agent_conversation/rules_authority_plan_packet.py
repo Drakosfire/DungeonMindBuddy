@@ -101,7 +101,15 @@ def build_plan_rules_frame(execution: RulesExecutionV1, call_ids: tuple[str, ...
         lookups=tuple(lookups), supports=tuple(supports[key] for key in sorted(supports, key=str)))
 
 
-def _frame_in_actual_request(body) -> PlanRulesEvidenceFrameV1:
+def _frame_in_actual_request(body, *, allow_build=False) -> PlanRulesEvidenceFrameV1:
+    if allow_build and isinstance(body,dict) and isinstance(body.get('input'),str):
+        from .source_writer_output import strict_json
+        packet=strict_json(body['input'])
+        if (body.get('tools',[])!=[] or 'messages' in body or body.get('tool_choice') not in (None,'none')
+                or not isinstance(packet,dict) or packet.get('schema')!='dmb_build_compose_input_v1'):
+            raise ValueError('Build Rules frame requires its exact tool-free proposal packet')
+        return PlanRulesEvidenceFrameV1.model_validate_json(json.dumps(packet.get('rules_evidence')))
+
     if (not isinstance(body, dict) or "messages" in body or not isinstance(body.get("input"), list)
             or body.get("tools", []) != [] or body.get("tool_choice") not in (None, "none")):
         raise ValueError("Plan Rules packet proof requires a tool-free Responses request")
@@ -144,7 +152,7 @@ def packet_input_records(execution, prepared_request_json, *, expected_envelope_
         raise ValueError("Plan Rules envelope differs from the actual request")
     body = json.loads(prepared_request_json, object_pairs_hook=_unique_object,
         parse_constant=lambda _value: (_ for _ in ()).throw(ValueError("Nonfinite Plan request")))
-    frame = _frame_in_actual_request(body)
+    frame = _frame_in_actual_request(body,allow_build=allow_build)
     observed_calls = [event.call_id for event in execution.events if isinstance(event, RulesQueryObservedV1)]
     if any(item.lookup >= len(observed_calls) for item in frame.lookups):
         raise ValueError("Plan Rules frame names an unread lookup")
@@ -258,10 +266,19 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
     auth, included = validate_native_packet_writer(execution,provider_attempt_id)
     body, frame, outputs, supports = packet_input_records(execution,prepared_request_json,
         expected_envelope_sha256=expected_envelope_sha256,allow_build=isinstance(action,NativeBuildActionV1))
+    from .build_intentional_response import selected_action
+    creative=isinstance(action,NativeBuildActionV1) and selected_action(graph_execution).operation=='propose_build_insertion'
+    if creative:
+        from application_state.build_proposal.types import BuildComposeOutput
+        if execution.budget_use.calls or execution.supports or frame.lookups:
+            raise ValueError('Used Rules cannot be silently omitted from a Build proposal')
+        output_format=dict(type='json_schema',name='build_document_proposal',schema=BuildComposeOutput.model_json_schema(),strict=True)
+    else:
+        output_format=native_output_format(evidence.frame,frame,evidence.work_frame)
     if (auth.request_envelope_sha256 != expected_envelope_sha256
             or included.request_envelope_sha256 != expected_envelope_sha256
             or auth.matched_outputs != outputs or included.matched_outputs != outputs
             or ref_map(auth.declared_support_refs) != ref_map(supports) or ref_map(included.support_refs) != ref_map(supports)
-            or canonical_bytes(body.get('text',{}).get('format')) != canonical_bytes(native_output_format(evidence.frame,frame,evidence.work_frame))):
+            or canonical_bytes(body.get('text',{}).get('format')) != canonical_bytes(output_format)):
         raise ValueError('Shared Rules declarations differ from actual sealed writer input')
     return evidence, frame

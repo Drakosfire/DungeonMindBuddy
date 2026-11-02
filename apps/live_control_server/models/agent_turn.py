@@ -775,7 +775,7 @@ class AgentSurfaceNativeContextResponseV1(BaseModel):
     schema_: Literal['dmb_agent_surface_native_context_response_v1'] = Field(
         default='dmb_agent_surface_native_context_response_v1',alias='schema')
     receipt: SurfaceNativeContextReceiptV1
-    completion: SurfaceNativeCompletionV1 | None
+    completion: SurfaceNativeCompletionV1 | BuildAuthoringCompletionV1 | None
     execution: AgentPlanWorldGraphExecutionProjectionV1 | None
     delivery_replay: bool
 

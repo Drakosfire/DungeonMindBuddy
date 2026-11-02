@@ -83,6 +83,20 @@ export function isSurfaceNativeCompletion(v:unknown,r:SurfaceNativeContextReceip
   return v.answer_context_status===status+(partial&&!['creative_proposal','insufficient_evidence','discussion'].includes(status)?'_partial':'');
 }
 
+export function isBuildAuthoringCompletion(value: unknown, receiptHash: string): value is import('../api/types').WorldBuildAuthoringCompletionV1 {
+  return exact(value, ["schema", "context_receipt_sha256", "answer_basis", "answer_context_status",
+    "answer_segments", "citation_map", "action_id", "reservation_sha256", "proposal_result_sha256", "provider_attempt_id", "envelope_sha256"])
+    && value.schema === "dmb_build_authoring_completion_v1" && value.context_receipt_sha256 === receiptHash
+    && value.answer_basis === "prepared_page_proposal" && value.answer_context_status === "proposal_ready"
+    && value.citation_map === null && Array.isArray(value.answer_segments) && value.answer_segments.length === 1
+    && exact(value.answer_segments[0], ["kind", "text"])
+    && value.answer_segments[0].kind === "connective"
+    && value.answer_segments[0].text === "A preview is ready. Review it before inserting it into the page. Nothing has been saved or published."
+    && [value.action_id, value.provider_attempt_id].every(id => typeof id === "string" && /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(id))
+    && [value.reservation_sha256, value.proposal_result_sha256, value.envelope_sha256].every(hash => typeof hash === "string" && /^[a-f0-9]{64}$/.test(hash));
+}
+
+
 /** The shared response envelope is independent of the surface-owned work shape. */
 export function isSurfaceNativeContext(
   v:unknown, validateWork:(work:unknown)=>work is SurfaceNativeWorkContextV1,
@@ -92,7 +106,8 @@ export function isSurfaceNativeContext(
     ||v.schema!=='dmb_agent_surface_native_context_response_v1'
     ||!isSurfaceNativeReceipt(v.receipt,validateWork)
     ||v.execution!==null&&!validateExecution(v.execution)||typeof v.delivery_replay!=='boolean'
-    ||v.completion!==null&&!isSurfaceNativeCompletion(v.completion,v.receipt))return false;
+    ||v.completion!==null&&!(isSurfaceNativeCompletion(v.completion,v.receipt)
+      ||v.receipt.work_context.surface_id==='build'&&isBuildAuthoringCompletion(v.completion,v.receipt.context_receipt_sha256)))return false;
   const execution=v.execution as import('../api/types').WorldPlanGraphExecutionProjectionV1|null;
   return v.completion===null?history&&(execution===null||execution.claimability!=='completed')
     :execution!==null&&execution.claimability==='completed'&&execution.authorization_state==='response_received';

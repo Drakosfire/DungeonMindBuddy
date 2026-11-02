@@ -17,8 +17,8 @@ from application_state.agent_conversation.authored_graph_references import Autho
 from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
 
 
-@pytest.mark.parametrize('failure,with_draft,saved',[(f,d,False) for f in (None,'revision','node','reference_world') for d in (False,True)]+[(None,d,True) for d in (False,True)]+[(f,False,True) for f in ('section_scope','selection_text')])
-def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_support(lane, tmp_path, monkeypatch, failure, with_draft,saved):
+@pytest.mark.parametrize('failure,with_draft,saved,proposal',[(f,d,s,False) for f,d,s in ([(f,d,False) for f in (None,'revision','node','reference_world') for d in (False,True)]+[(None,d,True) for d in (False,True)]+[(f,False,True) for f in ('section_scope','selection_text')])]+[(f,True,False,True) for f in (None,'native_work','rules_frame','attempt_count','sdk_model','stale_rules','used_rules')])
+def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_support(lane, tmp_path, monkeypatch, failure, with_draft,saved,proposal):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -60,6 +60,7 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     monkeypatch.setattr(agent, 'repo_root', lambda: tmp_path)
     monkeypatch.setattr(agent, 'session_dir', lambda: tmp_path / 'sessions')
     monkeypatch.setattr(agent, '_managed_world_root', lambda: tmp_path)
+    monkeypatch.setattr('apps.live_control_server.services.build_document_proposal.managed_world_data_root',lambda:tmp_path)
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE', 'local_operator')
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT', 'local')
     token = 'synthetic-native-build-test-token-1234567890'
@@ -81,11 +82,12 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
             body = json.loads(req.content)
             answers = {}
             candidates=body.get('state',{}).get('candidates',[])
-            selected={i for i,c in enumerate(candidates) if c['kind'].startswith('Saved authored page block')}
+            selected={i for i,c in enumerate(candidates) if (saved and c['kind'].startswith('Saved authored page block'))
+                or (failure=='used_rules' and c['kind']=='public_rules_lookup')}
             for name, question in body['questions'].items():
                 choices = question['criteria']
-                chosen = ('discuss' if name=='requested_work' else ('select_candidates' if saved and selected and 'select_candidates' in choices else 'finish_retrieval') if name=='operation'
-                    else ('include' if saved and int(name.split('_')[-1]) in selected else 'exclude') if name.startswith('candidate_')
+                chosen = (('write_current_page' if proposal else 'discuss') if name=='requested_work' else ('select_candidates' if selected and 'select_candidates' in choices else 'finish_retrieval') if name=='operation'
+                    else ('include' if int(name.split('_')[-1]) in selected else 'exclude') if name.startswith('candidate_')
                     else 'direct_support' if name.startswith('s') and name[1:].isdigit() else 'skip')
                 assert chosen in choices, (name, choices)
                 answers[name] = dict(type='choice', choice=chosen, confidence=1,
@@ -97,20 +99,44 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
         def __init__(self):
             self.calls = []
             self.adapter = None
-        async def handle_async_request(self, req):
+        async def handle_async_request(self,req):
+            try:
+                return await self._handle(req)
+            except Exception as exc:
+                import traceback
+                traceback.print_exception(exc)
+                raise
+        async def _handle(self, req):
             self.calls.append(req)
             body = json.loads(req.content)
             inputs = [json.loads(body['input'])] if isinstance(body['input'], str) else [json.loads(row['content']) for row in body['input'] if row['content'].lstrip().startswith('{')]
+            if proposal:
+                inputs=[inputs[0]['native_evidence'],inputs[0]['surface_work']]
             frame = next(row for row in inputs if row.get('schema') == 'dmb_surface_native_writer_evidence_v1')
             work = next(row for row in inputs if row.get('schema')=='dmb_build_primary_work_evidence_v1')
             if with_draft:
                 assert work['working_draft_context']['draft_markdown']==draft.snapshot.draft_markdown
-                assert sum(draft.snapshot.draft_markdown in row['content'] for row in body['input'])==1
+                if proposal:
+                    assert body['input'].count(json.dumps(draft.snapshot.draft_markdown,ensure_ascii=False)[1:-1])==1
+                else:
+                    assert sum(draft.snapshot.draft_markdown in row['content'] for row in body['input'])==1
             handles = [row['assertion_handle'] for row in frame['native_assertions']['assertions']]
             assert handles and 'DISPLAY ONLY' not in str(frame)
             read_ids=[row['read_id'] for row in work['artifact_under_edit']['sections']]
             if saved:
                 assert read_ids and 'A proposed conversation.' in str(work)
+            if proposal:
+                candidate=dict(destination='current_page',target='captured',replacement_markdown='A proposed copper lamp.',
+                    summary='Proposed detail.',assumptions=['The lamp is invented.'])
+                text=json.dumps(candidate)
+                response=dict(id='resp_native_build_proposal',object='response',created_at=1,status='completed',
+                    model='foreign-model' if failure=='sdk_model' else body['model'],output=[dict(type='message',id='msg_native_build_proposal',role='assistant',
+                        status='completed',content=[dict(type='output_text',text=text,annotations=[])])],
+                    usage=dict(input_tokens=100,output_tokens=40,total_tokens=140))
+                events=[dict(type='response.output_text.delta',sequence_number=1,item_id='msg_native_build_proposal',
+                    output_index=0,content_index=0,delta=text),dict(type='response.completed',sequence_number=2,response=response)]
+                return httpx.Response(200,request=req,headers={'content-type':'text/event-stream'},
+                    content=''.join('data: '+json.dumps(e)+'\n\n' for e in events).encode())
             candidate = dict(schema=frame['answer_policy'],
                 answer_segments=[dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)]+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,supporting_quotes=[r['text'] for r in work['artifact_under_edit']['sections']])] if saved else []),
                 limitations=[], requested_detail_gaps=[], collaboration=None)
@@ -119,6 +145,43 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
                     role='assistant', status='completed', content=[dict(type='output_text', text=json.dumps(candidate), annotations=[])])],
                 usage=dict(input_tokens=100, output_tokens=40, total_tokens=140)))
     decisions, writer = Decisions(), Writer()
+    if proposal and failure in {'native_work','rules_frame'}:
+        from apps.live_control_server.services import build_document_proposal as proposal_owner
+        original_request=proposal_owner._writer_request
+        def changed_request(*args,**kwargs):
+            prepared=original_request(*args,**kwargs)
+            packet=json.loads(prepared['input'])
+            if failure=='native_work':
+                packet['surface_work']['source_basis']['content_sha256']='0'*64
+            else:
+                packet['rules_evidence']['ruleset']='foreign-rules'
+            prepared['input']=json.dumps(packet,ensure_ascii=False,separators=(',',':'))
+            return prepared
+        monkeypatch.setattr(proposal_owner,'_writer_request',changed_request)
+    if proposal and failure=='attempt_count':
+        from generationengine import GenerationClient,TextCompleted
+        from dataclasses import replace
+        original_stream=GenerationClient.stream_text
+        async def changed_stream(self,*args,**kwargs):
+            async for event in original_stream(self,*args,**kwargs):
+                if isinstance(event,TextCompleted):
+                    event=replace(event,observation=event.observation.model_copy(update={'provider_attempt_count':2}))
+                yield event
+        monkeypatch.setattr(GenerationClient,'stream_text',changed_stream)
+    if proposal and failure=='stale_rules':
+        original_complete=AgentConversationService.complete_native_base_turn
+        def stale_complete(self,*args,**kwargs):
+            return original_complete(self,*args,**{**kwargs,'expected_rules_revision':kwargs['expected_rules_revision']+1})
+        monkeypatch.setattr(AgentConversationService,'complete_native_base_turn',stale_complete)
+    rules_reads=[]
+    if proposal and failure=='used_rules':
+        from apps.live_control_server.services import rules_lookup_broker
+        read_rules=rules_lookup_broker.prepare_plan_lookup
+        def completed_rules(*args,**kwargs):
+            result=read_rules(*args,**kwargs)
+            rules_reads.append(result)
+            return result
+        monkeypatch.setattr(rules_lookup_broker,'prepare_plan_lookup',completed_rules)
     actual_harness = factory.BuildJevHarness
     if failure=='selection_text':
         from dataclasses import replace
@@ -159,6 +222,16 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     if draft is not None:
         body['build_draft_context']=draft.model_dump(mode='json',by_alias=True)
         body['client_work_state']='saved_dirty'
+    if proposal:
+        from application_state.build_proposal.types import BuildWriteCapability
+        cap=BuildWriteCapability(idempotency_key=uuid4(),conversation_id=draft.conversation_id,
+            expected_pointer_revision=draft.expected_pointer_revision,draft_markdown=draft.snapshot.draft_markdown,
+            basis=dict(**{k:getattr(draft.snapshot,k) for k in ('world_id','document_id','registry_revision',
+                'content_sha256','visibility','draft_sha256','editor_sha256','draft_generation')},
+                caret=1,selection_generation=0))
+        body['build_write_capability']=cap.model_dump(mode='json')
+        body['message']=('Add a scene about this: Can I end my move in an occupied space?'
+            if failure=='used_rules' else 'Add a proposed copper lamp to this page.')
     response = client.post('/api/live/agent/turn', json=body)
     if failure in {'revision','node','reference_world'}:
         assert response.status_code == (422 if failure=='reference_world' else 409), response.text
@@ -173,6 +246,27 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
         assert not writer.calls and not classic_calls
         if failure=='selection_text':
             assert all('writer_selection' not in req.content.decode() for req in decisions.calls)
+        assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
+        assert lane.repo.get_head(world).head_revision_id==current_revision
+        return
+    if proposal and failure is not None:
+        from application_state.build_proposal.service import BuildProposalService
+        assert response.status_code==503,response.text
+        assert len(writer.calls)==(0 if failure in {'native_work','rules_frame','used_rules'} else 1)
+        assert not classic_calls
+        if failure=='used_rules':
+            from application_state.errors import ApplicationStateNotFoundError
+            assert len(rules_reads)==1 and rules_reads[0].observation.status=='evidence'
+            used=writer.adapter.rules_runtime.native.record.execution
+            assert used.budget_use.calls==1 and used.supports
+            with pytest.raises(ApplicationStateNotFoundError):
+                BuildProposalService().get(world,cap.idempotency_key)
+            assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
+            assert lane.repo.get_head(world).head_revision_id==current_revision
+            return
+        record=BuildProposalService().get(world,cap.idempotency_key)
+        if failure!='stale_rules':
+            assert record.state in {'failed','unknown'} and record.proposal is None
         assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
         assert lane.repo.get_head(world).head_revision_id==current_revision
         return
@@ -196,6 +290,34 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
         for e in turn.graph_context_execution.events)
     captures = [event for event in turn.graph_context_execution.events if isinstance(event, t.BuildAuthoredReferencesCapturedV1)]
     assert len(captures) == 1 and captures[0].references == selected
+    if proposal:
+        from application_state.build_proposal.service import BuildProposalService
+        record=BuildProposalService().get(world,cap.idempotency_key)
+        assert record.state=='proposed' and record.proposal.replacement_markdown=='A proposed copper lamp.'
+        assert context['completion']['schema']=='dmb_build_authoring_completion_v1'
+        assert context['completion']['action_id']==str(record.action_id)
+        assert record.authorization.provider_attempt_id==turn.completion.provider_attempt_id
+        for correlated in (False,True):
+            history=client.get(f'/api/live/agent/worlds/{world}/conversation',params={'include_turn_correlation':str(correlated).lower()})
+            assert history.status_code==200,history.text
+            assert history.json()['turns'][0]['knowledge_context']['completion']==context['completion']
+        import os
+        if destination:=os.environ.get('DMB_NATIVE_BUILD_PROPOSAL_WIRE'):
+            from pathlib import Path
+            path=Path(destination)
+            captured=json.loads(path.read_text())
+            captured['proposal_wire']=dict(request=body,response=payload,history=history.json(),
+                record=record.model_dump(mode='json',exclude={'raw_response'}))
+            path.write_text(json.dumps(captured,indent=2)+'\n')
+        before=len(decisions.calls),len(writer.calls)
+        replay=client.post('/api/live/agent/turn',json=body)
+        assert replay.status_code==200,replay.text
+        assert replay.json()['knowledge_context']['delivery_replay'] is True
+        assert replay.json()['knowledge_context']['completion']==context['completion']
+        assert (len(decisions.calls),len(writer.calls))==before
+        assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
+        assert lane.repo.get_head(world).head_revision_id==current_revision
+        return
     citations = context['completion']['native_assertion_citations']
     assert citations and all(c['read_revision_id'] == current_revision for c in citations)
     opened = client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-assertion-sources/0')

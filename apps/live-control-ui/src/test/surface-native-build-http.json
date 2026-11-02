@@ -1048,5 +1048,935 @@
       "text_sha256": "ed983c9b1c566fa482365e0804077dc22644d16419880e56c70b809a4c8c4013"
     },
     "content": "A proposed conversation.\n"
+  },
+  "proposal_wire": {
+    "request": {
+      "schema": "dmb_agent_turn_request_v1",
+      "client_thread_id": "f7057259-b599-4bc1-b8c5-2ba6ee812f93",
+      "turn_id": "85ddb6bc-cdd5-4a82-a4eb-4b2e503b3a37",
+      "surface": {
+        "surface_id": "build",
+        "instance_id": "bde8c50c-dd9d-455a-b2ea-b212a3a722cc"
+      },
+      "owner_scope": {
+        "kind": "world",
+        "world_id": "statement-fixture-718bc1ad281849629cf97370a39ee7d0"
+      },
+      "primary_work": {
+        "kind": "build",
+        "object_id": "bde8c50c-dd9d-455a-b2ea-b212a3a722cc",
+        "expected_revision": 2,
+        "expected_content_sha256": "ed337f86fe39e9b1d64d0b15ca61fd97889b59a672895ce28ffe093aab42912b"
+      },
+      "client_work_state": "saved_dirty",
+      "graph_request": {
+        "mode": "world",
+        "world_id": "statement-fixture-718bc1ad281849629cf97370a39ee7d0",
+        "campaign_id": null,
+        "revision_pin": null,
+        "focus": {
+          "kind": "none",
+          "session_id": null,
+          "campaign_id": null
+        }
+      },
+      "graph_selection": null,
+      "build_authored_references": {
+        "schema": "dmb_authored_graph_references_v1",
+        "references": [
+          {
+            "schema": "dmb_authored_graph_reference_v1",
+            "managed_world_id": "statement-fixture-718bc1ad281849629cf97370a39ee7d0",
+            "native_world_id": "statement-fixture-718bc1ad281849629cf97370a39ee7d0",
+            "binding_version": 1,
+            "graph_revision": "rev:7064bf3cf88c3503995572abc837c649",
+            "node_id": "ent:47e2876f792418ce4a2e29171466f48f",
+            "label": "DISPLAY ONLY: never evidence"
+          }
+        ]
+      },
+      "message": "Add a proposed copper lamp to this page.",
+      "build_draft_context": {
+        "snapshot": {
+          "schema": "dmb_build_draft_snapshot_v1",
+          "world_id": "statement-fixture-718bc1ad281849629cf97370a39ee7d0",
+          "document_id": "bde8c50c-dd9d-455a-b2ea-b212a3a722cc",
+          "registry_revision": 2,
+          "content_sha256": "ed337f86fe39e9b1d64d0b15ca61fd97889b59a672895ce28ffe093aab42912b",
+          "visibility": "internal",
+          "draft_markdown": "An unsaved orchid possibility. Never a played fact. \ud83c\udf38",
+          "draft_sha256": "7af75665bcd667a91aa38fdd43e4245f80ab33b103dc0ddaba19cdb11f5a8ec7",
+          "editor_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "draft_generation": 3
+        },
+        "conversation_id": "553d5eef-4cba-442e-9db5-8167421768c8",
+        "expected_pointer_revision": 1
+      },
+      "build_write_capability": {
+        "idempotency_key": "2782d2e7-e9f9-452e-b8bd-4756b5332f31",
+        "conversation_id": "553d5eef-4cba-442e-9db5-8167421768c8",
+        "expected_pointer_revision": 1,
+        "basis": {
+          "world_id": "statement-fixture-718bc1ad281849629cf97370a39ee7d0",
+          "document_id": "bde8c50c-dd9d-455a-b2ea-b212a3a722cc",
+          "registry_revision": 2,
+          "content_sha256": "ed337f86fe39e9b1d64d0b15ca61fd97889b59a672895ce28ffe093aab42912b",
+          "visibility": "internal",
+          "draft_sha256": "7af75665bcd667a91aa38fdd43e4245f80ab33b103dc0ddaba19cdb11f5a8ec7",
+          "editor_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "caret": 1,
+          "draft_generation": 3,
+          "selection_generation": 0
+        },
+        "instruction": "",
+        "origin": null,
+        "draft_markdown": "An unsaved orchid possibility. Never a played fact. \ud83c\udf38"
+      }
+    },
+    "response": {
+      "schema": "dmb_agent_turn_response_v1",
+      "client_thread_id": "f7057259-b599-4bc1-b8c5-2ba6ee812f93",
+      "turn_id": "85ddb6bc-cdd5-4a82-a4eb-4b2e503b3a37",
+      "surface": {
+        "surface_id": "build",
+        "instance_id": "bde8c50c-dd9d-455a-b2ea-b212a3a722cc",
+        "status": "resolved"
+      },
+      "owner_scope": {
+        "status": "resolved",
+        "kind": "world",
+        "owner_id": "statement-fixture-718bc1ad281849629cf97370a39ee7d0",
+        "name": "Statement fixture 718bc1ad281849629cf97370a39ee7d0"
+      },
+      "primary_work": {
+        "status": "resolved",
+        "kind": "build",
+        "object_id": "bde8c50c-dd9d-455a-b2ea-b212a3a722cc",
+        "revision_used": 2,
+        "expected_revision": 2,
+        "content_basis": null
+      },
+      "client_work_state_reported": "saved_dirty",
+      "graph": {
+        "status": "replayed",
+        "world_id": "statement-fixture-718bc1ad281849629cf97370a39ee7d0",
+        "campaign_id": null,
+        "scope_mode": "world",
+        "revision_id": "rev:ab854cf452fae876609da9be93beb17f",
+        "focus": {
+          "kind": "none",
+          "session_id": null,
+          "campaign_id": null
+        },
+        "selection_node_id": null,
+        "selection_found": null,
+        "head_revision_id": null,
+        "is_head": null
+      },
+      "conversation": {
+        "client_thread_id": "f7057259-b599-4bc1-b8c5-2ba6ee812f93",
+        "turn_id": "85ddb6bc-cdd5-4a82-a4eb-4b2e503b3a37",
+        "pointer_status": "reused",
+        "pointer_id": null,
+        "conversation_id": "553d5eef-4cba-442e-9db5-8167421768c8"
+      },
+      "answer": {
+        "status": "ok",
+        "text": "A preview is ready. Review it before inserting it into the page. Nothing has been saved or published.",
+        "code": null,
+        "message": null,
+        "graph_grounded": false,
+        "trace": {
+          "schema": "dmb_agent_turn_trace_v1",
+          "trace_id": "agent-trace-abe0f8e1610a",
+          "agent_thread_id": "app-state-segment-ca06324e0254ab9315bf3d28df234619bb1341b9816544014c3ae7918ff5fde0",
+          "turn_id": "85ddb6bc-cdd5-4a82-a4eb-4b2e503b3a37",
+          "runtime": "jev-one-writer",
+          "backend": "generationengine",
+          "mode": "graph",
+          "status": "ok",
+          "started_at": "2026-11-02T15:58:04Z",
+          "completed_at": "2026-11-02T15:58:05Z",
+          "elapsed_ms": 1252,
+          "usage": {
+            "available": true,
+            "status": "reported",
+            "input_tokens": 174,
+            "output_tokens": 58,
+            "total_tokens": 232,
+            "cached_input_tokens": null,
+            "cache_write_input_tokens": null,
+            "uncached_input_tokens": null,
+            "reasoning_tokens": null,
+            "model_call_count": 3,
+            "usage_reported_call_count": 3
+          },
+          "cost": {
+            "status": "unavailable",
+            "usd": null,
+            "priced_call_count": 0,
+            "unpriced_call_count": 3
+          },
+          "model_calls": [
+            {
+              "provider": "typesafe",
+              "requested_model": "jev-1.14.0",
+              "response_model": "jev-1.14.0",
+              "status": "ok",
+              "duration_ms": 282.8820020004059,
+              "api_duration": 0.2828820020004059,
+              "usage": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 37,
+                "cached_input_tokens": null,
+                "output_tokens": 9,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "latency_ms": 282,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null,
+                "status": "reported",
+                "total_tokens": 46
+              },
+              "inference_observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 37,
+                "cached_input_tokens": null,
+                "output_tokens": 9,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "latency_ms": 282,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              },
+              "runtime_api_request_id": "generationengine:ce65b3c0-8f8f-4444-9461-59d823fff31e"
+            },
+            {
+              "provider": "openai",
+              "requested_model": "gpt-6.1-sol",
+              "response_model": "gpt-6.1-sol",
+              "status": "ok",
+              "duration_ms": 347.01635300007183,
+              "api_duration": 0.34701635300007183,
+              "usage": {
+                "state": "completed",
+                "cost_usd": null,
+                "provider": "openai",
+                "latency_ms": 279,
+                "retry_count": 0,
+                "failure_code": null,
+                "input_tokens": 100,
+                "output_tokens": 40,
+                "pricing_source": null,
+                "resolved_model": "gpt-6.1-sol",
+                "response_model": "gpt-6.1-sol",
+                "requested_model": "gpt-6.1-sol",
+                "reasoning_tokens": null,
+                "requested_profile": null,
+                "provider_transport": null,
+                "cached_input_tokens": null,
+                "provider_request_id": null,
+                "provider_response_id": "resp_native_build_proposal",
+                "transport_retry_count": 0,
+                "provider_attempt_count": 1,
+                "conformance_retry_count": 0,
+                "status": "reported",
+                "total_tokens": 140
+              },
+              "inference_observation": {
+                "state": "completed",
+                "cost_usd": null,
+                "provider": "openai",
+                "latency_ms": 279,
+                "retry_count": 0,
+                "failure_code": null,
+                "input_tokens": 100,
+                "output_tokens": 40,
+                "pricing_source": null,
+                "resolved_model": "gpt-6.1-sol",
+                "response_model": "gpt-6.1-sol",
+                "requested_model": "gpt-6.1-sol",
+                "reasoning_tokens": null,
+                "requested_profile": null,
+                "provider_transport": null,
+                "cached_input_tokens": null,
+                "provider_request_id": null,
+                "provider_response_id": "resp_native_build_proposal",
+                "transport_retry_count": 0,
+                "provider_attempt_count": 1,
+                "conformance_retry_count": 0
+              },
+              "runtime_api_request_id": "generationengine:6bf797d1-fdb5-4154-9c5d-4c46d1488d01"
+            },
+            {
+              "provider": "typesafe",
+              "requested_model": "jev-1.14.0",
+              "runtime_api_request_id": "generationengine:88656106-601f-42df-9eb6-04d2b1960cc7",
+              "status": "ok",
+              "usage": {
+                "status": "reported",
+                "input_tokens": 37,
+                "output_tokens": 9,
+                "total_tokens": 46
+              },
+              "response_model": "jev-1.14.0",
+              "duration_ms": 196.46304899652023
+            }
+          ],
+          "spans": [
+            {
+              "span_id": "span-508ec23d0a3b",
+              "parent_span_id": null,
+              "kind": "phase",
+              "name": "route_auth",
+              "status": "ok",
+              "started_at": "2026-11-02T15:58:04Z",
+              "completed_at": "2026-11-02T15:58:04Z",
+              "duration_ms": 0,
+              "attributes": {}
+            },
+            {
+              "span_id": "span-e4ee688300b2",
+              "parent_span_id": null,
+              "kind": "phase",
+              "name": "turn_owner_resolution",
+              "status": "ok",
+              "started_at": "2026-11-02T15:58:04Z",
+              "completed_at": "2026-11-02T15:58:04Z",
+              "duration_ms": 9,
+              "attributes": {}
+            },
+            {
+              "span_id": "span-668484f79998",
+              "parent_span_id": null,
+              "kind": "phase",
+              "name": "durable_turn_reconciliation",
+              "status": "ok",
+              "started_at": "2026-11-02T15:58:04Z",
+              "completed_at": "2026-11-02T15:58:04Z",
+              "duration_ms": 14,
+              "attributes": {}
+            },
+            {
+              "span_id": "span-de93cb932cae",
+              "parent_span_id": null,
+              "kind": "phase",
+              "name": "committed_plan_resolution",
+              "status": "ok",
+              "started_at": "2026-11-02T15:58:04Z",
+              "completed_at": "2026-11-02T15:58:04Z",
+              "duration_ms": 8,
+              "attributes": {}
+            },
+            {
+              "span_id": "span-644adacc9eff",
+              "parent_span_id": null,
+              "kind": "phase",
+              "name": "plan_native_source_authority",
+              "status": "ok",
+              "started_at": "2026-11-02T15:58:04Z",
+              "completed_at": "2026-11-02T15:58:04Z",
+              "duration_ms": 0,
+              "attributes": {}
+            },
+            {
+              "span_id": "span-c6ed3f425e26",
+              "parent_span_id": null,
+              "kind": "phase",
+              "name": "plan_native_statement_query",
+              "status": "ok",
+              "started_at": "2026-11-02T15:58:04Z",
+              "completed_at": "2026-11-02T15:58:04Z",
+              "duration_ms": 2,
+              "attributes": {}
+            },
+            {
+              "span_id": "span-a1509744b9ac",
+              "parent_span_id": null,
+              "kind": "phase",
+              "name": "context_assembly",
+              "status": "ok",
+              "started_at": "2026-11-02T15:58:04Z",
+              "completed_at": "2026-11-02T15:58:04Z",
+              "duration_ms": 0,
+              "attributes": {}
+            },
+            {
+              "span_id": "span-ef9aa7015414",
+              "parent_span_id": null,
+              "kind": "phase",
+              "name": "runtime_creation",
+              "status": "ok",
+              "started_at": "2026-11-02T15:58:04Z",
+              "completed_at": "2026-11-02T15:58:04Z",
+              "duration_ms": 0,
+              "attributes": {}
+            },
+            {
+              "span_id": "span-2dbb843bfd39",
+              "parent_span_id": null,
+              "kind": "phase",
+              "name": "durable_turn_accept",
+              "status": "ok",
+              "started_at": "2026-11-02T15:58:04Z",
+              "completed_at": "2026-11-02T15:58:04Z",
+              "duration_ms": 39,
+              "attributes": {}
+            },
+            {
+              "span_id": "span-18bad1444225",
+              "parent_span_id": null,
+              "kind": "phase",
+              "name": "durable_turn_claim",
+              "status": "ok",
+              "started_at": "2026-11-02T15:58:04Z",
+              "completed_at": "2026-11-02T15:58:04Z",
+              "duration_ms": 31,
+              "attributes": {}
+            },
+            {
+              "span_id": "span-444b3b0a578f",
+              "parent_span_id": null,
+              "kind": "phase",
+              "name": "runtime_to_admission",
+              "status": "ok",
+              "started_at": "2026-11-02T15:58:04Z",
+              "completed_at": "2026-11-02T15:58:04Z",
+              "duration_ms": 112,
+              "attributes": {}
+            },
+            {
+              "span_id": "span-9e0c71be5230",
+              "parent_span_id": null,
+              "kind": "phase",
+              "name": "runtime_dispatch",
+              "status": "ok",
+              "started_at": "2026-11-02T15:58:04Z",
+              "completed_at": "2026-11-02T15:58:05Z",
+              "duration_ms": 1196,
+              "attributes": {}
+            }
+          ],
+          "steps": [],
+          "context_summary": {
+            "context_schema": "dmb_agent_context_summary_v1",
+            "world_id": null,
+            "campaign_id": null,
+            "revision_id": null,
+            "focus_kind": "none",
+            "admissibility": null,
+            "history_message_count": 0,
+            "history_char_count": 0,
+            "retrieval_session_id": null,
+            "retrieval_candidate_count": 0,
+            "retrieval_claim_count": 0,
+            "runtime_continuity_present": false
+          },
+          "artifact_refs": [],
+          "warnings": [],
+          "conversation_context": "structured"
+        }
+      },
+      "knowledge_context": {
+        "schema": "dmb_agent_surface_native_context_response_v1",
+        "receipt": {
+          "schema": "dmb_surface_native_context_receipt_v1",
+          "receipt_serializer_version": "canonical-json-utf8-v1",
+          "context_receipt_sha256": "d263271266bd089144aabef2442cb52d126885fa9a02bbf2b66e71702d168fb3",
+          "provenance_sha256": "739daaa9ef2e395dfdfbc02dc0b7466e4f5c1649f7c574cfebc1058af4aef339",
+          "work_context": {
+            "surface_id": "build",
+            "source_basis": {
+              "world_id": "statement-fixture-718bc1ad281849629cf97370a39ee7d0",
+              "document_id": "bde8c50c-dd9d-455a-b2ea-b212a3a722cc",
+              "registry_revision": 2,
+              "content_sha256": "ed337f86fe39e9b1d64d0b15ca61fd97889b59a672895ce28ffe093aab42912b",
+              "visibility": "internal"
+            }
+          },
+          "source_authority": {
+            "schema_version": "dmb_native_corpus_authority_v1",
+            "managed_world_id": "statement-fixture-718bc1ad281849629cf97370a39ee7d0",
+            "native_world_id": "statement-fixture-718bc1ad281849629cf97370a39ee7d0",
+            "binding_version": 1,
+            "provisioning_id": null,
+            "revision_id": "rev:ab854cf452fae876609da9be93beb17f",
+            "domain_ref": {
+              "authority_id": "dungeonbuddy.world",
+              "revision": "2",
+              "descriptor_sha256": "d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd"
+            },
+            "profile_ref": {
+              "authority_id": "dungeonbuddy.dnd5e",
+              "revision": "2",
+              "descriptor_sha256": "d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339"
+            },
+            "acquisition_epoch": 2,
+            "scope": "gm_world_cross_campaign_source_inspection",
+            "role": "gm"
+          },
+          "native_query": {
+            "schema": "dmb_native_graph_query_v3",
+            "authority": {
+              "schema": "dmb_native_plan_query_authority_v1",
+              "managed_world_id": "statement-fixture-718bc1ad281849629cf97370a39ee7d0",
+              "native_world_id": "statement-fixture-718bc1ad281849629cf97370a39ee7d0",
+              "binding_version": 1,
+              "revision_id": "rev:ab854cf452fae876609da9be93beb17f",
+              "domain_ref": {
+                "authority_id": "dungeonbuddy.world",
+                "revision": "2",
+                "descriptor_sha256": "d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd"
+              },
+              "profile_ref": {
+                "authority_id": "dungeonbuddy.dnd5e",
+                "revision": "2",
+                "descriptor_sha256": "d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339"
+              },
+              "acquisition_epoch": 2,
+              "role": "gm",
+              "scope_mode": "world",
+              "campaign_id": null,
+              "session_id": null
+            },
+            "question": "Add a proposed copper lamp to this page.",
+            "search_result_sha256": "2ffae61f1742e7ff507404aebe83cf35e4546bdf5c95cd1919ab3fa87de5f485",
+            "discovered_entity_ids": [
+              "ent:47e2876f792418ce4a2e29171466f48f",
+              "ent:cc417424b36542018509c1b43b60f3ef"
+            ],
+            "matches": [],
+            "status": "complete",
+            "gap_codes": [],
+            "universal_absence_claimed": false,
+            "assertion_matches": [
+              {
+                "assertion_id": "asrt:3c056f4ec504b39ca6ae19ad49f1dfd6",
+                "subject_entity_id": "ent:cc417424b36542018509c1b43b60f3ef",
+                "discovered_entity_ids": [
+                  "ent:cc417424b36542018509c1b43b60f3ef"
+                ],
+                "assertion_sha256": "77014d777714a484b524f979801f3ac367148952697125ce873e90d3166302a9",
+                "label": "A \u00b7 dnd5e:name"
+              },
+              {
+                "assertion_id": "asrt:9b4d731688975b1c75d38f2e9c52cb60",
+                "subject_entity_id": "ent:47e2876f792418ce4a2e29171466f48f",
+                "discovered_entity_ids": [
+                  "ent:47e2876f792418ce4a2e29171466f48f"
+                ],
+                "assertion_sha256": "b3470eef51cef77ed4428df716d472c866d6b56b11b4ce15cb76f24db3267999",
+                "label": "B \u00b7 dnd5e:name"
+              },
+              {
+                "assertion_id": "asrt:e6d6649f37c53853bd2dfe7846a18430",
+                "subject_entity_id": "ent:47e2876f792418ce4a2e29171466f48f",
+                "discovered_entity_ids": [
+                  "ent:47e2876f792418ce4a2e29171466f48f"
+                ],
+                "assertion_sha256": "ddfdd9c9902a4ff4835c4379f27514e77ba262810f5f553cef8964000953b4e5",
+                "label": "B \u00b7 dnd5e:summary"
+              }
+            ],
+            "authored_targets": [
+              {
+                "node_id": "ent:47e2876f792418ce4a2e29171466f48f",
+                "selection_revision_id": "rev:7064bf3cf88c3503995572abc837c649",
+                "matches": [],
+                "assertion_matches": [
+                  {
+                    "assertion_id": "asrt:9b4d731688975b1c75d38f2e9c52cb60",
+                    "subject_entity_id": "ent:47e2876f792418ce4a2e29171466f48f",
+                    "discovered_entity_ids": [
+                      "ent:47e2876f792418ce4a2e29171466f48f"
+                    ],
+                    "assertion_sha256": "b3470eef51cef77ed4428df716d472c866d6b56b11b4ce15cb76f24db3267999",
+                    "label": "B \u00b7 dnd5e:name"
+                  },
+                  {
+                    "assertion_id": "asrt:e6d6649f37c53853bd2dfe7846a18430",
+                    "subject_entity_id": "ent:47e2876f792418ce4a2e29171466f48f",
+                    "discovered_entity_ids": [
+                      "ent:47e2876f792418ce4a2e29171466f48f"
+                    ],
+                    "assertion_sha256": "ddfdd9c9902a4ff4835c4379f27514e77ba262810f5f553cef8964000953b4e5",
+                    "label": "B \u00b7 dnd5e:summary"
+                  }
+                ],
+                "status": "complete",
+                "gap_codes": []
+              }
+            ]
+          },
+          "assembled_input": {
+            "assembler_version": "surface_native_initial_v1",
+            "provider_model_name": "jev-1.14.0",
+            "provider_model_version": "jev-1.14.0",
+            "tokenizer_name": "o200k_double_plus_4096_adaptive_context_v3",
+            "tokenizer_version": "synthetic-test",
+            "provider_envelope_input_tokens": 9940,
+            "output_token_reserve": 0,
+            "context_window_limit": 64000,
+            "included_history": [],
+            "assembled_input_sha256": "20aa3acb0476af2393cc890614d0208ff0ffc4d3d7d7e528ad98aee6d5650b19"
+          }
+        },
+        "completion": {
+          "schema": "dmb_build_authoring_completion_v1",
+          "context_receipt_sha256": "d263271266bd089144aabef2442cb52d126885fa9a02bbf2b66e71702d168fb3",
+          "answer_basis": "prepared_page_proposal",
+          "answer_context_status": "proposal_ready",
+          "answer_segments": [
+            {
+              "kind": "connective",
+              "text": "A preview is ready. Review it before inserting it into the page. Nothing has been saved or published."
+            }
+          ],
+          "citation_map": null,
+          "action_id": "2782d2e7-e9f9-452e-b8bd-4756b5332f31",
+          "reservation_sha256": "227a0562937cb9924f722889e6c0d3576d7b3db135d40d0a0a56e1ef39c83487",
+          "proposal_result_sha256": "c94db2a170cb8a7bed6636d4095d19993c9a9c31c720a319269d9aaf1827dbfe",
+          "provider_attempt_id": "6bf797d1-fdb5-4154-9c5d-4c46d1488d01",
+          "envelope_sha256": "4ab84e44b0e5740f98c3796e1af4e3401190bcb0d637c8577f9649b8289adabc"
+        },
+        "execution": {
+          "schema": "dmb_agent_plan_world_graph_execution_projection_v1",
+          "claimability": "completed",
+          "authorization_state": "response_received",
+          "automatic_redispatch": false
+        },
+        "delivery_replay": false
+      }
+    },
+    "history": {
+      "schema": "dmb_agent_conversation_history_v3",
+      "world_id": "statement-fixture-718bc1ad281849629cf97370a39ee7d0",
+      "conversation_state": "active",
+      "conversation_id": "553d5eef-4cba-442e-9db5-8167421768c8",
+      "active_conversation_id": "553d5eef-4cba-442e-9db5-8167421768c8",
+      "pointer_revision": 1,
+      "turns": [
+        {
+          "turn_id": "d31a3c19-6cc9-4ea3-a41e-e74b8d6165c0",
+          "sequence": 1,
+          "lifecycle_status": "completed",
+          "user_text": "Add a proposed copper lamp to this page.",
+          "assistant_text": "A preview is ready. Review it before inserting it into the page. Nothing has been saved or published.",
+          "provenance": {
+            "world_id": "statement-fixture-718bc1ad281849629cf97370a39ee7d0",
+            "surface_resolution": "resolved",
+            "surface_id": "build",
+            "surface_instance_id": "bde8c50c-dd9d-455a-b2ea-b212a3a722cc",
+            "primary_work": {
+              "resolution": "resolved",
+              "kind": "build",
+              "object_id": "bde8c50c-dd9d-455a-b2ea-b212a3a722cc",
+              "revision": "2",
+              "content_sha256": "ed337f86fe39e9b1d64d0b15ca61fd97889b59a672895ce28ffe093aab42912b",
+              "object_revision": null,
+              "work_revision_id": null,
+              "revision_n": null
+            },
+            "supporting_work": [
+              {
+                "resolution": "resolved",
+                "kind": "dmb_build_source_visibility_v1",
+                "object_id": "internal",
+                "revision": "1",
+                "content_sha256": null,
+                "object_revision": null,
+                "work_revision_id": null,
+                "revision_n": null
+              }
+            ],
+            "selected_object": {
+              "resolution": "absent",
+              "kind": null,
+              "object_id": null,
+              "revision": null,
+              "content_sha256": null,
+              "object_revision": null,
+              "work_revision_id": null,
+              "revision_n": null
+            }
+          },
+          "idempotency_key": "9b01b5e4-8842-5785-b42e-853dbfeacb35",
+          "knowledge_context": {
+            "schema": "dmb_agent_surface_native_context_response_v1",
+            "receipt": {
+              "schema": "dmb_surface_native_context_receipt_v1",
+              "receipt_serializer_version": "canonical-json-utf8-v1",
+              "context_receipt_sha256": "d263271266bd089144aabef2442cb52d126885fa9a02bbf2b66e71702d168fb3",
+              "provenance_sha256": "739daaa9ef2e395dfdfbc02dc0b7466e4f5c1649f7c574cfebc1058af4aef339",
+              "work_context": {
+                "surface_id": "build",
+                "source_basis": {
+                  "world_id": "statement-fixture-718bc1ad281849629cf97370a39ee7d0",
+                  "document_id": "bde8c50c-dd9d-455a-b2ea-b212a3a722cc",
+                  "registry_revision": 2,
+                  "content_sha256": "ed337f86fe39e9b1d64d0b15ca61fd97889b59a672895ce28ffe093aab42912b",
+                  "visibility": "internal"
+                }
+              },
+              "source_authority": {
+                "schema_version": "dmb_native_corpus_authority_v1",
+                "managed_world_id": "statement-fixture-718bc1ad281849629cf97370a39ee7d0",
+                "native_world_id": "statement-fixture-718bc1ad281849629cf97370a39ee7d0",
+                "binding_version": 1,
+                "provisioning_id": null,
+                "revision_id": "rev:ab854cf452fae876609da9be93beb17f",
+                "domain_ref": {
+                  "authority_id": "dungeonbuddy.world",
+                  "revision": "2",
+                  "descriptor_sha256": "d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd"
+                },
+                "profile_ref": {
+                  "authority_id": "dungeonbuddy.dnd5e",
+                  "revision": "2",
+                  "descriptor_sha256": "d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339"
+                },
+                "acquisition_epoch": 2,
+                "scope": "gm_world_cross_campaign_source_inspection",
+                "role": "gm"
+              },
+              "native_query": {
+                "schema": "dmb_native_graph_query_v3",
+                "authority": {
+                  "schema": "dmb_native_plan_query_authority_v1",
+                  "managed_world_id": "statement-fixture-718bc1ad281849629cf97370a39ee7d0",
+                  "native_world_id": "statement-fixture-718bc1ad281849629cf97370a39ee7d0",
+                  "binding_version": 1,
+                  "revision_id": "rev:ab854cf452fae876609da9be93beb17f",
+                  "domain_ref": {
+                    "authority_id": "dungeonbuddy.world",
+                    "revision": "2",
+                    "descriptor_sha256": "d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd"
+                  },
+                  "profile_ref": {
+                    "authority_id": "dungeonbuddy.dnd5e",
+                    "revision": "2",
+                    "descriptor_sha256": "d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339"
+                  },
+                  "acquisition_epoch": 2,
+                  "role": "gm",
+                  "scope_mode": "world",
+                  "campaign_id": null,
+                  "session_id": null
+                },
+                "question": "Add a proposed copper lamp to this page.",
+                "search_result_sha256": "2ffae61f1742e7ff507404aebe83cf35e4546bdf5c95cd1919ab3fa87de5f485",
+                "discovered_entity_ids": [
+                  "ent:47e2876f792418ce4a2e29171466f48f",
+                  "ent:cc417424b36542018509c1b43b60f3ef"
+                ],
+                "matches": [],
+                "status": "complete",
+                "gap_codes": [],
+                "universal_absence_claimed": false,
+                "assertion_matches": [
+                  {
+                    "assertion_id": "asrt:3c056f4ec504b39ca6ae19ad49f1dfd6",
+                    "subject_entity_id": "ent:cc417424b36542018509c1b43b60f3ef",
+                    "discovered_entity_ids": [
+                      "ent:cc417424b36542018509c1b43b60f3ef"
+                    ],
+                    "assertion_sha256": "77014d777714a484b524f979801f3ac367148952697125ce873e90d3166302a9",
+                    "label": "A \u00b7 dnd5e:name"
+                  },
+                  {
+                    "assertion_id": "asrt:9b4d731688975b1c75d38f2e9c52cb60",
+                    "subject_entity_id": "ent:47e2876f792418ce4a2e29171466f48f",
+                    "discovered_entity_ids": [
+                      "ent:47e2876f792418ce4a2e29171466f48f"
+                    ],
+                    "assertion_sha256": "b3470eef51cef77ed4428df716d472c866d6b56b11b4ce15cb76f24db3267999",
+                    "label": "B \u00b7 dnd5e:name"
+                  },
+                  {
+                    "assertion_id": "asrt:e6d6649f37c53853bd2dfe7846a18430",
+                    "subject_entity_id": "ent:47e2876f792418ce4a2e29171466f48f",
+                    "discovered_entity_ids": [
+                      "ent:47e2876f792418ce4a2e29171466f48f"
+                    ],
+                    "assertion_sha256": "ddfdd9c9902a4ff4835c4379f27514e77ba262810f5f553cef8964000953b4e5",
+                    "label": "B \u00b7 dnd5e:summary"
+                  }
+                ],
+                "authored_targets": [
+                  {
+                    "node_id": "ent:47e2876f792418ce4a2e29171466f48f",
+                    "selection_revision_id": "rev:7064bf3cf88c3503995572abc837c649",
+                    "matches": [],
+                    "assertion_matches": [
+                      {
+                        "assertion_id": "asrt:9b4d731688975b1c75d38f2e9c52cb60",
+                        "subject_entity_id": "ent:47e2876f792418ce4a2e29171466f48f",
+                        "discovered_entity_ids": [
+                          "ent:47e2876f792418ce4a2e29171466f48f"
+                        ],
+                        "assertion_sha256": "b3470eef51cef77ed4428df716d472c866d6b56b11b4ce15cb76f24db3267999",
+                        "label": "B \u00b7 dnd5e:name"
+                      },
+                      {
+                        "assertion_id": "asrt:e6d6649f37c53853bd2dfe7846a18430",
+                        "subject_entity_id": "ent:47e2876f792418ce4a2e29171466f48f",
+                        "discovered_entity_ids": [
+                          "ent:47e2876f792418ce4a2e29171466f48f"
+                        ],
+                        "assertion_sha256": "ddfdd9c9902a4ff4835c4379f27514e77ba262810f5f553cef8964000953b4e5",
+                        "label": "B \u00b7 dnd5e:summary"
+                      }
+                    ],
+                    "status": "complete",
+                    "gap_codes": []
+                  }
+                ]
+              },
+              "assembled_input": {
+                "assembler_version": "surface_native_initial_v1",
+                "provider_model_name": "jev-1.14.0",
+                "provider_model_version": "jev-1.14.0",
+                "tokenizer_name": "o200k_double_plus_4096_adaptive_context_v3",
+                "tokenizer_version": "synthetic-test",
+                "provider_envelope_input_tokens": 9940,
+                "output_token_reserve": 0,
+                "context_window_limit": 64000,
+                "included_history": [],
+                "assembled_input_sha256": "20aa3acb0476af2393cc890614d0208ff0ffc4d3d7d7e528ad98aee6d5650b19"
+              }
+            },
+            "completion": {
+              "schema": "dmb_build_authoring_completion_v1",
+              "context_receipt_sha256": "d263271266bd089144aabef2442cb52d126885fa9a02bbf2b66e71702d168fb3",
+              "answer_basis": "prepared_page_proposal",
+              "answer_context_status": "proposal_ready",
+              "answer_segments": [
+                {
+                  "kind": "connective",
+                  "text": "A preview is ready. Review it before inserting it into the page. Nothing has been saved or published."
+                }
+              ],
+              "citation_map": null,
+              "action_id": "2782d2e7-e9f9-452e-b8bd-4756b5332f31",
+              "reservation_sha256": "227a0562937cb9924f722889e6c0d3576d7b3db135d40d0a0a56e1ef39c83487",
+              "proposal_result_sha256": "c94db2a170cb8a7bed6636d4095d19993c9a9c31c720a319269d9aaf1827dbfe",
+              "provider_attempt_id": "6bf797d1-fdb5-4154-9c5d-4c46d1488d01",
+              "envelope_sha256": "4ab84e44b0e5740f98c3796e1af4e3401190bcb0d637c8577f9649b8289adabc"
+            },
+            "execution": {
+              "schema": "dmb_agent_plan_world_graph_execution_projection_v1",
+              "claimability": "completed",
+              "authorization_state": "response_received",
+              "automatic_redispatch": false
+            },
+            "delivery_replay": true
+          }
+        }
+      ],
+      "next_before_sequence": null
+    },
+    "record": {
+      "schema_version": "dmb_build_document_proposal_v1",
+      "action_id": "2782d2e7-e9f9-452e-b8bd-4756b5332f31",
+      "reservation": {
+        "idempotency_key": "2782d2e7-e9f9-452e-b8bd-4756b5332f31",
+        "conversation_id": "553d5eef-4cba-442e-9db5-8167421768c8",
+        "expected_pointer_revision": 1,
+        "basis": {
+          "world_id": "statement-fixture-718bc1ad281849629cf97370a39ee7d0",
+          "document_id": "bde8c50c-dd9d-455a-b2ea-b212a3a722cc",
+          "registry_revision": 2,
+          "content_sha256": "ed337f86fe39e9b1d64d0b15ca61fd97889b59a672895ce28ffe093aab42912b",
+          "visibility": "internal",
+          "draft_sha256": "7af75665bcd667a91aa38fdd43e4245f80ab33b103dc0ddaba19cdb11f5a8ec7",
+          "editor_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "caret": 1,
+          "draft_generation": 3,
+          "selection_generation": 0
+        },
+        "instruction": "Add a proposed copper lamp to this page.",
+        "origin": {
+          "client_turn_id": "85ddb6bc-cdd5-4a82-a4eb-4b2e503b3a37",
+          "durable_turn_id": "d31a3c19-6cc9-4ea3-a41e-e74b8d6165c0",
+          "turn_attempt": 1,
+          "broker_operation_id": "build-requested-work:8b794ce765a44710e78b0cb4edb15feb8a1a021988710d2c85d2b39835551d58",
+          "arguments_sha256": "f6b88f0c349c752b256bb8a6a88cef7cea1d388bde26123e20de442db0472066"
+        }
+      },
+      "request_fingerprint": "227a0562937cb9924f722889e6c0d3576d7b3db135d40d0a0a56e1ef39c83487",
+      "after_turn_sequence": 1,
+      "revision": 7,
+      "state": "proposed",
+      "created_at": "2026-11-02T15:58:04.953438Z",
+      "updated_at": "2026-11-02T15:58:05.251140Z",
+      "claim_expires_at": "2026-11-02T16:01:04.953438Z",
+      "authorization": {
+        "provider_attempt_id": "6bf797d1-fdb5-4154-9c5d-4c46d1488d01",
+        "provider": "openai",
+        "model": "gpt-6.1-sol",
+        "api_mode": "responses",
+        "payload_sha256": "4ab84e44b0e5740f98c3796e1af4e3401190bcb0d637c8577f9649b8289adabc",
+        "payload_utf8_bytes": 17831,
+        "evidence_id": null,
+        "serializer_version": "openai-sdk-json-v1"
+      },
+      "proposal": {
+        "replacement_markdown": "A proposed copper lamp.",
+        "summary": "Proposed detail.",
+        "assumptions": [
+          "The lamp is invented."
+        ],
+        "target": "captured"
+      },
+      "failure_code": null,
+      "observation": {
+        "state": "completed",
+        "cost_usd": null,
+        "provider": "openai",
+        "latency_ms": 279,
+        "retry_count": 0,
+        "failure_code": null,
+        "input_tokens": 100,
+        "output_tokens": 40,
+        "pricing_source": null,
+        "resolved_model": "gpt-6.1-sol",
+        "response_model": "gpt-6.1-sol",
+        "requested_model": "gpt-6.1-sol",
+        "reasoning_tokens": null,
+        "requested_profile": null,
+        "provider_transport": null,
+        "cached_input_tokens": null,
+        "provider_request_id": null,
+        "provider_response_id": "resp_native_build_proposal",
+        "transport_retry_count": 0,
+        "provider_attempt_count": 1,
+        "conformance_retry_count": 0
+      },
+      "inserted_in_draft": false
+    }
   }
 }

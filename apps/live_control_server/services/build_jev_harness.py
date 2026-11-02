@@ -448,6 +448,8 @@ class BuildJevHarness:
                 asyncio.run(self._decide(adapter,selector))
             else:
                 selector.settle_empty()
+            if work_driver.operation=='propose_build_insertion':
+                return self._proposal(adapter,work_driver,native_rules=rules,native_proof=proof)
             writer = PlanJevWriter(adapter,proof,rules)
             completed = asyncio.run(writer.run(transport=self.writer_transport))
             adapter.turn = completed.envelope if isinstance(completed,MixedCompletedTurnV1) else completed
@@ -747,7 +749,7 @@ class BuildJevHarness:
         finally:
             await client.aclose()
 
-    def _proposal(self, adapter, driver):
+    def _proposal(self, adapter, driver, *, native_rules=None, native_proof=None):
         self.failure_stage = "proposal_prepare"
         capability = adapter.request.build_write_capability
         if capability is None:
@@ -774,15 +776,24 @@ class BuildJevHarness:
             origin=origin,
         )
         history = adapter.build_frozen_history
-        from application_state.agent_conversation.build_related_pages import project as related_page_project
-        related_pages=related_page_project(adapter._broker_execution())
-        from .build_authored_references import writer_material
-        authored_material = writer_material(adapter)
+        native_context=None
+        if native_rules is not None:
+            rule_frame=native_rules.frame()
+            if native_rules.native.record.execution.budget_use.calls or native_rules.native.record.execution.supports:
+                raise ValueError('Used Rules requires an explicit creative acceptance contract')
+            turn=adapter.fence.turn
+            native_context=(turn.graph_context_receipt,turn.graph_context_execution,
+                dict(provenance=turn.provenance,idempotency_key=turn.idempotency_key,work_proof=native_proof,
+                    world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt))
+            inputs=dict(_native_context=native_context,_native_rules_frame=rule_frame)
+        else:
+            from application_state.agent_conversation.build_related_pages import project as related_page_project
+            from .build_authored_references import writer_material
+            inputs=dict(related_authored_pages=related_page_project(adapter._broker_execution()),
+                authored_reference_material=writer_material(adapter))
         writer_model = adapter._broker_execution().policy.provider_roles.writer.model
         expected = proposal_owner.prepare_writer_request(
-            request, writer_model=writer_model, frozen_history=history, related_authored_pages=related_pages,
-            authored_reference_material=authored_material
-        )
+            request, writer_model=writer_model, frozen_history=history, **inputs)
         adapter._build_writer_projection = ProposalWriterProjection(
             json.dumps(
                 expected, ensure_ascii=False, sort_keys=True, separators=(",", ":")
@@ -791,14 +802,55 @@ class BuildJevHarness:
             str(adapter.last_provider_attempt_id) if adapter.last_provider_attempt_id is not None else None,
         )
 
+        prepared_native=received_native=reply_native=None
         async def authorize(prepared):
-            return adapter.authorize_prepared_build_writer(prepared)
+            nonlocal prepared_native
+            if native_rules is None:
+                return adapter.authorize_prepared_build_writer(prepared)
+            from .plan_jev_writer import authorize_native_writer
+            from application_state.agent_conversation.native_writer import model_frame
+            if (prepared_native is not None or adapter.failure is not None
+                    or getattr(adapter,'_build_native_acquisition_services',None) is not None
+                    or getattr(adapter,'_plan_graph_read_services',None) is not None):
+                return False
+            authorize_native_writer(adapter,native_rules,native_proof,prepared,expected,
+                model_frame(native_context[0],native_context[1]))
+            prepared_native=prepared
+            return True
 
         async def record(event):
-            acknowledged = adapter.record_prepared_build_writer(event)
+            nonlocal received_native
+            if native_rules is None:
+                acknowledged=adapter.record_prepared_build_writer(event)
+            else:
+                if prepared_native is None or event.request!=prepared_native:
+                    return False
+                if event.outcome=='response_received':
+                    if received_native is not None:
+                        return False
+                    received_native=event
+                    return True
+                transition={'sending':'sdk_entered','known_not_sent':'known_not_sent','outcome_unknown':'outcome_unknown'}.get(event.outcome)
+                acknowledged=transition is not None and adapter.record_lifecycle(dict(transition=transition,
+                    statusCode=event.http_status,runtimeApiRequestId=f'generationengine:{prepared_native.attempt_id}'))
             if acknowledged:
-                self._entered(event, "writer")
+                self._entered(event,'writer')
             return acknowledged
+
+        def capture_native(event):
+            nonlocal received_native,reply_native
+            from .plan_jev_writer import capture_native_reply
+            observation=event.observation
+            # This raw SDK event precedes GenerationClient's attempt accounting.
+            # Its complete counted result is required before the owner proposes.
+            if (prepared_native is None or reply_native is not None or observation.state.value!='completed'
+                    or observation.retry_count!=0
+                    or observation.provider_attempt_count is not None and observation.provider_attempt_count!=1):
+                raise ValueError('Native proposal requires its one complete producing SDK response')
+            received,received_native=received_native,None
+            reply_native=capture_native_reply(adapter,native_rules,prepared_native,received,event.final_text)
+            adapter.context_capture.answer_draft(event.final_text,
+                producing_provider_attempt_id=UUID(prepared_native.attempt_id))
 
         started = time.perf_counter()
         self.failure_stage = "proposal_compose"
@@ -810,8 +862,8 @@ class BuildJevHarness:
                     writer_model=writer_model,
                     transport=self.writer_transport,
                     frozen_history=history,
-                    related_authored_pages=related_pages,
-                    authored_reference_material=authored_material,
+                    **inputs,
+                    **({'_native_output_capture':capture_native} if native_rules is not None else {}),
                 )
             )
         except Exception as exc:
@@ -838,8 +890,7 @@ class BuildJevHarness:
             )
             adapter.context_capture.answer_context(ledger.BUILD_PROPOSAL_READY_TEXT)
         turn = adapter.stop()
-        adapter.turn = adapter.service.complete_turn(
-            ledger.TurnResult(
+        result=ledger.TurnResult(
                 world_id=turn.world_id,
                 conversation_id=turn.conversation_id,
                 turn_id=turn.turn_id,
@@ -849,5 +900,15 @@ class BuildJevHarness:
                 producing_provider_attempt_id=action.authorization.provider_attempt_id,
                 claim_graph_event_ids={},
             )
-        )
+        if native_rules is None:
+            adapter.turn=adapter.service.complete_turn(result)
+        else:
+            from application_state.agent_conversation.native_rules_output import NativeRulesOutputProofV1
+            if reply_native is None or prepared_native is None:
+                raise ValueError('Native proposal has no acknowledged selected output')
+            proof=NativeRulesOutputProofV1.from_capture(reply_native,
+                prepared_request_json=prepared_native.body.decode(),rules_execution_id=native_rules.native.record.execution.scope.execution_id,
+                producing_provider_attempt_id=action.authorization.provider_attempt_id)
+            adapter.turn=adapter.service.complete_native_base_turn(result,output_proof=proof,
+                expected_rules_revision=native_rules.native.record.revision,work_proof=native_proof)
         return adapter.turn

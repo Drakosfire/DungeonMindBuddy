@@ -48,6 +48,51 @@ def completion_for_proposal(record, receipt):
     )
 
 
+def validate_native_proposal_binding(completion,receipt,execution,producer,bindings):
+    """Stored object acknowledgement uses the actual shared Build action/writer."""
+    from .native_context import BuildWorkContextV1
+    from .native_execution import NativeBuildActionV1, NativeWriterAuthorizedV1
+    from .build_intentional_response import selected_action
+    action=execution.policy.action
+    if (not isinstance(completion,BuildAuthoringCompletionV1) or bindings!={}
+            or not isinstance(receipt.work_context,BuildWorkContextV1) or not isinstance(action,NativeBuildActionV1)
+            or action.write_capability is None or selected_action(execution).operation!='propose_build_insertion'
+            or completion.context_receipt_sha256!=receipt.context_receipt_sha256
+            or completion.action_id!=action.write_capability.idempotency_key):
+        raise ValueError('Native proposal acknowledgement differs from its Build action')
+    writers=[e for e in execution.events if type(e) is NativeWriterAuthorizedV1]
+    if (len(writers)!=1 or completion.provider_attempt_id!=producer
+            or writers[0].provider_attempt_id!=producer or completion.envelope_sha256!=writers[0].envelope_sha256):
+        raise ValueError('Native proposal acknowledgement differs from its actual writer')
+
+
+def normalize_native_proposal(conn,turn,rules_execution,proof,*,trace,work_proof):
+    """Locked producer verification delegates raw-output normalization to this object owner."""
+    from .native_rules_output import sealed_native_producer,verify_shared_native_producer
+    scope=rules_execution.scope
+    if ((scope.world_id,scope.conversation_id,scope.turn_id,scope.product_attempt)
+            !=(turn.world_id,turn.conversation_id,turn.turn_id,turn.attempt)
+            or rules_execution.budget_use.calls or rules_execution.supports):
+        raise ValueError('Build proposal requires its exact unused Rules scope')
+    capture,_=sealed_native_producer(turn,rules_execution,proof)
+    _,frame=verify_shared_native_producer(turn.graph_context_receipt,turn.graph_context_execution,
+        rules_execution,proof,capture,trace=trace,idempotency_key=turn.idempotency_key,
+        submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2,world_id=turn.world_id,
+        conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt,
+        provenance=turn.provenance,work_proof=work_proof)
+    if frame.lookups:
+        raise ValueError('Build proposal cannot omit used Rules')
+    action=turn.graph_context_execution.policy.action
+    row=conn.execute('SELECT payload FROM agent.build_proposal WHERE world_id=%s AND action_id=%s',
+        (turn.world_id,action.write_capability.idempotency_key)).fetchone()
+    record=BuildProposalRecord.model_validate(row[0] if row else None)
+    if record.raw_response!=proof.raw_output_json:
+        raise ValueError('Native proposal differs from its sealed producing output')
+    completion=completion_for_proposal(record,turn.graph_context_receipt)
+    validate_stored_proposal(conn,turn,completion)
+    return completion,{},BUILD_PROPOSAL_READY_TEXT
+
+
 def validate_stored_proposal(conn, turn, completion):
     """Same APP transaction as completion/reload; never call a provider here."""
     from .types import BuildImagePreparationCompletionV1
@@ -67,6 +112,11 @@ def validate_stored_proposal(conn, turn, completion):
         reservation, receipt = record.reservation, turn.graph_context_receipt
         origin, auth = reservation.origin, record.authorization
         basis = reservation.basis
+        from .native_context import SurfaceNativeContextReceiptV1,BuildWorkContextV1
+        shared=type(receipt) is SurfaceNativeContextReceiptV1
+        if shared and not isinstance(receipt.work_context,BuildWorkContextV1):
+            raise ValueError('Native proposal requires its actual Build source')
+        source=receipt.work_context.source_basis if shared else receipt.source_basis
         if (
             record.action_id != completion.action_id
             or reservation.idempotency_key != record.action_id
@@ -79,10 +129,10 @@ def validate_stored_proposal(conn, turn, completion):
             or reservation.conversation_id != turn.conversation_id
             or origin.durable_turn_id != turn.turn_id
             or origin.turn_attempt != turn.attempt
-            or basis.document_id != receipt.source_basis.document_id
-            or basis.registry_revision != receipt.source_basis.registry_revision
-            or basis.content_sha256 != receipt.source_basis.content_sha256
-            or basis.visibility != receipt.source_basis.visibility
+            or basis.document_id != source.document_id
+            or basis.registry_revision != source.registry_revision
+            or basis.content_sha256 != source.content_sha256
+            or basis.visibility != source.visibility
             or completion.reservation_sha256 != record.request_fingerprint
             or completion.proposal_result_sha256 != proposal_result_digest(record)
             or completion.provider_attempt_id != auth.provider_attempt_id
@@ -113,6 +163,23 @@ def validate_stored_proposal(conn, turn, completion):
                 raise ValueError(
                     "Proposal origin differs from the controller-selected operation"
                 )
+        if shared:
+            from .build_intentional_response import selected_action
+            from application_state.build_proposal.types import normalize_proposal_output
+            selected=selected_action(turn.graph_context_execution)
+            validate_native_proposal_binding(completion,receipt,turn.graph_context_execution,completion.provider_attempt_id,{})
+            capability=turn.graph_context_execution.policy.action.write_capability
+            if (origin.broker_operation_id!=selected.broker_operation_id
+                    or origin.arguments_sha256!=selected.arguments_sha256
+                    or reservation.model_dump(mode='json',exclude={'instruction','origin'})
+                        !=capability.model_dump(mode='json',exclude={'draft_markdown','instruction','origin'})
+                    or reservation.instruction!=turn.user_text
+                    or normalize_proposal_output(record.raw_response,reservation.page_body_offer,reservation.page_end_offer)!=record.proposal):
+                raise ValueError('Native proposal result differs from its captured action/editor/output')
+            responses=[e for e in turn.graph_context_execution.events if e.kind=='provider_outcome'
+                and e.provider_attempt_id==completion.provider_attempt_id and e.outcome=='response_received']
+            if len(responses)!=1 or responses[0].response_sha256!=sha256(record.raw_response.encode()).hexdigest():
+                raise ValueError('Native proposal differs from its acknowledged selected output')
         expected_arguments = sha256(
             json.dumps(
                 {"instruction": reservation.instruction},
@@ -135,10 +202,11 @@ def validate_stored_proposal(conn, turn, completion):
             e
             for e in turn.graph_context_execution.events
             if getattr(e, "provider_attempt_id", None) == completion.provider_attempt_id
-            and e.kind == "provider_attempt_authorized_v3"
+            and e.kind == ("native_writer_authorized_v1" if shared else "provider_attempt_authorized_v3")
         )
-        from .authored_graph_references import validate_stored_writer
-        validate_stored_writer(conn, turn, producing)
+        if not shared:
+            from .authored_graph_references import validate_stored_writer
+            validate_stored_writer(conn, turn, producing)
         if (auth.provider, auth.model, auth.api_mode) != (
             producing.provider,
             producing.model,

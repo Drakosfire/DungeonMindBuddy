@@ -1,6 +1,6 @@
 import {it,expect} from 'vitest';
 import wire from '../test/surface-native-http.json';
-import {isSurfaceNativeReceipt,isSurfaceNativeCompletion} from './surfaceNativeProtocol';
+import {isSurfaceNativeReceipt,isSurfaceNativeCompletion,isSurfaceNativeContext} from './surfaceNativeProtocol';
 import type {SurfaceNativeContextReceiptV1,SurfaceNativeWorkContextV1} from '../api/types';
 // Captured from the real provider-free Plan HTTP/APP/Core/SDK boundary test.
 const context=()=>structuredClone(wire.context);
@@ -60,4 +60,17 @@ it.each(['origin','node','members','duplicate','missing-statement','missing-asse
   else if(mutation==='hidden-gap'){target.status='partial';target.gap_codes=[];}
   else Object.assign(target,{provider_attempt_id:'invented-model-origin'});
   expect(isSurfaceNativeReceipt(c.receipt,buildWork)&&isSurfaceNativeCompletion(c.completion,c.receipt as SurfaceNativeContextReceiptV1)).toBe(false);
+});
+
+
+import buildWire from '../test/surface-native-build-http.json';
+it('accepts the actual Build proposal acknowledgement only on its shared Build context',()=>{
+  const c=structuredClone(buildWire.proposal_wire.response.knowledge_context);
+  expect(isSurfaceNativeContext(c,buildWork,()=>true)).toBe(true);
+  expect(isSurfaceNativeCompletion(c.completion,c.receipt as SurfaceNativeContextReceiptV1)).toBe(false);
+  const plan=context();
+  Object.assign(plan,{completion:{...c.completion,context_receipt_sha256:plan.receipt.context_receipt_sha256}});
+  expect(isSurfaceNativeContext(plan,work,()=>true)).toBe(false);
+  c.completion.context_receipt_sha256='0'.repeat(64);
+  expect(isSurfaceNativeContext(c,buildWork,()=>true)).toBe(false);
 });

@@ -143,6 +143,59 @@ class _ReplyRejected(ValueError):
         self.code = code
 
 
+def authorize_native_writer(adapter, rules, proof, prepared, expected, frame):
+    """One native admission for the exact SDK input; output schemas stay owned."""
+    from generationengine.text_dispatch import PreparedTextDispatch
+    from .agent_turn_service import _json_node_count, _require_fresh_execution_append
+    from application_state.agent_conversation.native_execution import NativeWriterAuthorizedV1, native_read_event_ids
+    policy=adapter._broker_execution().policy
+    model=policy.provider_roles.writer.model
+    budget=policy.writer_context_budget
+    reserve=budget.output_reserve_tokens if budget is not None else adapter.budget['outputReserveTokens']
+    limit=budget.context_limit_tokens if budget is not None else adapter.budget['contextLimitTokens']
+    if (not isinstance(prepared,PreparedTextDispatch)
+            or (prepared.provider,prepared.model,prepared.api_mode,prepared.method,prepared.url)
+                !=('openai',model,'responses','POST','https://api.openai.com/v1/responses')
+            or len(prepared.body)!=prepared.body_size or sha256(prepared.body).hexdigest()!=prepared.body_sha256
+            or strict_json(prepared.body.decode())!=expected or expected['max_output_tokens']!=reserve):
+        raise ValueError('Native writer actual request differs from its staged owner request')
+    estimate=len(prepared.body)+64*(1+_json_node_count(expected))
+    if estimate+reserve>limit:
+        raise ValueError('Native writer exceeds the existing provider context allowance')
+    event=NativeWriterAuthorizedV1(event_id=uuid4(),sequence=len(adapter._broker_execution().events),
+        provider_attempt_id=UUID(prepared.attempt_id),envelope_sha256=prepared.body_sha256,
+        serializer_version='openai-sdk-json-v1',provider='openai',model=model,api_mode='responses',
+        tool_schema_sha256=canonical_sha256([]),input_accounting_kind='conservative_upper_bound',
+        input_estimator=adapter.budget['estimator'],input_tokens=estimate,output_token_reserve=reserve,
+        frame_sha256=canonical_sha256(frame),included_graph_event_ids=[],included_source_read_event_ids=[],
+        included_assertion_ids=[],included_relationship_ids=[],included_evidence_ref_ids=[],
+        native_read_event_ids=native_read_event_ids(adapter._broker_execution().events))
+    adapter.turn=_require_fresh_execution_append(adapter.fence.append('authorize_native_writer','authorization',event,
+        expected_rules_revision=rules.native.record.revision,prepared_request_json=prepared.body.decode(),work_proof=proof,
+        **({'authoring_reservation':{'action_id':rules.authoring[0].action_id,'capture':rules.authoring[1]}}
+            if rules.authoring is not None else {})))
+    adapter.last_provider_attempt_id=event.provider_attempt_id
+    view=dict(provider='openai',model=model,apiMode='responses',payloadJson=prepared.body.decode(),
+        payloadSha256=prepared.body_sha256,payloadUtf8Bytes=prepared.body_size)
+    rules.authorize(view)
+    adapter._capture_prepared_prompt(view,event)
+    return event
+
+
+def capture_native_reply(adapter,rules,prepared,received,raw):
+    """Acknowledge only a domain-validated complete selected SDK final."""
+    if received is None or not adapter.record_lifecycle(dict(transition='response_received',
+            statusCode=received.http_status,runtimeApiRequestId=f'generationengine:{prepared.attempt_id}',
+            responseSha256=sha256(raw.encode()).hexdigest())):
+        raise _ReplyRejected('plan_writer_native_capture_unacknowledged','Selected writer output was not acknowledged')
+    reply=NativeProviderReply(str(rules.native.authorization_id),f'generationengine:{prepared.attempt_id}',
+        'openai',prepared.model,'responses',prepared.body_sha256,'stop','answered',raw,
+        sha256(raw.encode()).hexdigest(),len(raw.encode()),())
+    if not rules.capture_reply(reply):
+        raise _ReplyRejected('plan_writer_native_capture_unacknowledged','Writer reply capture was not acknowledged')
+    return reply
+
+
 class PlanJevWriter:
     def __init__(self, adapter, proof, rules):
         self.adapter, self.proof, self.rules = adapter, proof, rules
@@ -235,29 +288,11 @@ class PlanJevWriter:
             raise ValueError('Plan writer exceeds the existing provider context allowance')
         if self.shared:
             from application_state.errors import ApplicationStateConflictError
-            from application_state.agent_conversation.native_execution import NativeWriterAuthorizedV1, native_read_event_ids
-            event=NativeWriterAuthorizedV1(event_id=uuid4(),sequence=len(a._broker_execution().events),
-                provider_attempt_id=UUID(prepared.attempt_id),envelope_sha256=prepared.body_sha256,
-                serializer_version='openai-sdk-json-v1',provider='openai',model=self.model,api_mode='responses',
-                tool_schema_sha256=canonical_sha256([]),input_accounting_kind='conservative_upper_bound',
-                input_estimator=a.budget['estimator'],input_tokens=estimate,
-                output_token_reserve=self.output_reserve,frame_sha256=canonical_sha256(self.frame),
-                included_graph_event_ids=[],included_source_read_event_ids=[],included_assertion_ids=[],
-                included_relationship_ids=[],included_evidence_ref_ids=[],native_read_event_ids=native_read_event_ids(a._broker_execution().events))
             try:
-                a.turn=_require_fresh_execution_append(a.fence.append('authorize_native_writer','authorization',event,
-                    expected_rules_revision=self.rules.native.record.revision,
-                    prepared_request_json=prepared.body.decode(),work_proof=self.proof,
-                    **({'authoring_reservation':{'action_id':self.rules.authoring[0].action_id,'capture':self.rules.authoring[1]}}
-                        if self.rules.authoring is not None else {})))
+                event=authorize_native_writer(a,self.rules,self.proof,prepared,expected,self.frame)
             except ApplicationStateConflictError:
                 self.target_changed=self.rules.authoring is not None
                 raise
-            a.last_provider_attempt_id=event.provider_attempt_id
-            view={'provider':'openai','model':self.model,'apiMode':'responses','payloadJson':prepared.body.decode(),
-                  'payloadSha256':prepared.body_sha256,'payloadUtf8Bytes':prepared.body_size}
-            self.rules.authorize(view)
-            a._capture_prepared_prompt(view,event)
             self.prepared,self.authorization=prepared,event
             return True
         native_plan = isinstance(a._broker_receipt(), t.PlanNativeContextReceiptV1)
@@ -346,11 +381,7 @@ class PlanJevWriter:
         raw = result.text
         if self.shared:
             received,self.received_event=self.received_event,None
-            if received is None or not self.adapter.record_lifecycle({
-                    'transition':'response_received','statusCode':received.http_status,
-                    'runtimeApiRequestId':f'generationengine:{self.prepared.attempt_id}',
-                    'responseSha256':sha256(raw.encode()).hexdigest()}):
-                raise _ReplyRejected('plan_writer_native_capture_unacknowledged','Selected writer output was not acknowledged')
+            return capture_native_reply(self.adapter,self.rules,self.prepared,received,raw)
         native = self.rules.native
         reply = NativeProviderReply(str(native.authorization_id), f'generationengine:{self.prepared.attempt_id}',
             'openai',self.model,'responses',self.prepared.body_sha256,'stop','answered',raw,sha256(raw.encode()).hexdigest(),len(raw.encode()),())
