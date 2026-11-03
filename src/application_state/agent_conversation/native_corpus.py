@@ -1,6 +1,8 @@
 """Native source inspection pins, distinct from Graph and assertion support."""
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from hashlib import sha256
 from typing import Literal
 from uuid import UUID
@@ -205,19 +207,6 @@ def select_native_full_document(catalog, markdown):
         text=markdown, excerpt_sha256=sha256(markdown.encode()).hexdigest())
 
 
-def covers_full_document(intervals, body_bytes):
-    """Union coverage includes disjoint, overlapping and accumulated excerpts."""
-    cursor = 0
-    ordered = sorted(intervals)
-    if body_bytes <= 0 or any(start < 0 or end <= start or end > body_bytes for start, end in ordered):
-        raise ValueError("Source exposure interval exceeds the exact body")
-    for start, end in ordered:
-        if start > cursor:
-            return False
-        cursor = max(cursor, end)
-    return cursor == body_bytes
-
-
 class NativeBodyEvent(Strict):
     event_id: UUID
     sequence: int = Field(ge=0, strict=True)
@@ -350,7 +339,7 @@ def validate_native_body_events(execution):
                 # New native turns carry inclusion once on the actual writer.
                 # The root closes IDs across all families; this owner closes
                 # body grants and explicit whole-document exposure.
-                validate_combined_exposure(execution, tuple(row for row in reads.values()
+                validate_source_exposure(execution, tuple(row for row in reads.values()
                     if row.excerpt is not None))
         elif isinstance(event, t.ProviderOutcomeEventV1) and event.provider_attempt_id == provider:
             outcome = event.outcome
@@ -419,7 +408,7 @@ def validate_native_body_events(execution):
             included = [reads.get(identity) for identity in event.read_event_ids]
             if any(row is None or row.excerpt is None for row in included):
                 raise ValueError("Native body inclusion references unavailable or unknown reads")
-            validate_combined_exposure(execution, included)
+            validate_source_exposure(execution, included)
             expected = sha256(canonical(body_frame(included)).encode()).hexdigest()
             if expected != event.frame_sha256:
                 raise ValueError("Native body inclusion frame differs from selected excerpts")
@@ -528,7 +517,6 @@ def prove_body_writer_input(turn, authorization, raw, *, sequence, event_id):
         frame_sha256=canonical_sha256(body_frame(reads)))
 
 
-from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class NativeBodySupport:
@@ -614,31 +602,32 @@ def body_input_partial(execution):
         or isinstance(event, NativeBodyReadObservedV1) and event.excerpt is None for event in execution.events)
 
 
-def validate_combined_exposure(execution, body_reads):
-    """One source-byte union guard across body and qualified-statement exposures."""
+def validate_source_exposure(execution, body_reads):
+    """Keep source extents consistent across independently authorized read kinds.
+
+    Each read already closes its exact controller grant and source extent. Their
+    union does not need a second grant, even when it covers the complete source.
+    A single whole-body read still requires its explicit full-document selector.
+    """
     from .native_plan_statements import NativePlanStatementReadObservedV1
     searches = [event for event in execution.events if isinstance(event, NativeBodySearchObservedV1)]
     catalogs = {c.catalog_sha256: c for search in searches for c in search.catalogs}
-    exposures, sizes, explicit_full = {}, {}, set()
+    sizes = {}
     def include(pair, start, end, size):
+        if size <= 0 or start < 0 or end <= start or end > size:
+            raise ValueError('Source exposure interval exceeds the exact body')
         if pair in sizes and sizes[pair] != size:
             raise ValueError('Native evidence kinds disagree on original body size')
         sizes[pair] = size
-        exposures.setdefault(pair, []).append((start, end))
     for row in body_reads:
         excerpt = row.excerpt
         catalog = catalogs[excerpt.catalog_sha256]
         pair = (catalog.source.artifact.source_artifact_id, catalog.source.revision.source_revision_id,
             catalog.source.revision.content_sha256)
         include(pair, excerpt.section.byte_start, excerpt.section.byte_end, catalog.body_bytes)
-        if excerpt.selector_policy == 'native_full_document_v1':
-            explicit_full.add(pair)
     for event in execution.events:
         if isinstance(event, NativePlanStatementReadObservedV1):
             for read in event.reads:
                 s = read.support
                 include((s.source_artifact_id, s.source_revision_id, s.source_body_sha256),
                     s.clause_start_byte, s.clause_end_byte, read.source_body_bytes)
-    if any(covers_full_document(ranges, sizes[pair]) and pair not in explicit_full
-            for pair, ranges in exposures.items()):
-        raise ValueError('Accumulated whole-document exposure requires an explicit full-document decision')

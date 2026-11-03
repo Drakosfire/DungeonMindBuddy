@@ -275,18 +275,6 @@ def test_degenerate_whole_body_section_requires_explicit_full_document(lane):
     assert full.text == body and full.selector_policy == "native_full_document_v1"
 
 
-@pytest.mark.parametrize("intervals, expected", [
-    ([(0, 4), (4, 10)], True),
-    ([(0, 6), (4, 10)], True),
-    ([(0, 4), (6, 10)], False),
-    ([(2, 8), (4, 9)], False),
-    ([(0, 5), (0, 5)], False),
-])
-def test_full_document_exposure_uses_interval_union(intervals, expected):
-    from application_state.agent_conversation.native_corpus import covers_full_document
-    assert covers_full_document(intervals, 10) is expected
-
-
 def test_selected_native_read_rechecks_core_at_original_revision_after_epoch_advance(lane):
     from apps.live_control_server.integrations.dungeonmind.native_corpus_source import read_native_corpus_member
     admit(lane)
