@@ -32,14 +32,6 @@ interface LoadedRecapState {
   record: RecapArtifactRecord | null;
 }
 
-/** Legacy Union recap source labels retained for GraphIngestProjectionPanel consumers. */
-export type RecapProjectionSource =
-  | "latest-graph-ingest"
-  | "recap-only"
-  | "default-preview-source"
-  | "legacy"
-  | "unavailable";
-
 interface RecapGraphModuleProps {
   context: PlanContextDescriptor;
 }
