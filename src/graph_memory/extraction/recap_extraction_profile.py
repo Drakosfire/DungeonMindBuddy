@@ -81,15 +81,13 @@ _PASS_SOURCE_FAITHFULNESS: dict[str, str] = {
 
 
 def _with_recap_source_faithfulness(spec: ExtractionPassSpec) -> ExtractionPassSpec:
-    pass_guidance = _PASS_SOURCE_FAITHFULNESS.get(spec.pass_id)
-    if pass_guidance is None:
-        return spec
+    pass_guidance = _PASS_SOURCE_FAITHFULNESS.get(spec.pass_id, "")
     return replace(
         spec,
         instruction=(
             f"{spec.instruction}\n\n"
-            f"Source-faithfulness requirements: {_RECAP_SOURCE_FAITHFULNESS} "
-            f"{pass_guidance}"
+            f"Source-faithfulness requirements: {_RECAP_SOURCE_FAITHFULNESS}"
+            f"{' ' + pass_guidance if pass_guidance else ''}"
         ),
     )
 

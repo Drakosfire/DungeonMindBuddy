@@ -163,3 +163,21 @@ def test_recap_edge_contract_preserves_catalog_schema_and_profile_boundary() -> 
     assert "from_node_id → relationship_type → to_node_id" not in worldbuilding
     assert "label does not qualify" not in worldbuilding
     assert "no catalog predicate faithfully expresses" not in worldbuilding
+
+
+def test_common_faithfulness_reaches_every_ordinary_recap_pass_once() -> None:
+    prompts = render_category_pass_prompts(
+        SYNTHETIC_SOURCE_ROWS, profile=RECAP_EXTRACTION_PROFILE,
+    )
+    common = "Preserve the source's modality, attribution, time, and scope."
+    for name, prompt in prompts.items():
+        assert prompt.count(common) == 1, name
+        assert "anchor_quotes" in prompt, name
+        for row in SYNTHETIC_SOURCE_ROWS:
+            assert row["text"] in prompt, name
+    assert "Extract notable items" in prompts["object_pass.md"]
+    assert "Extract mysteries, clues" in prompts["thread_pass.md"]
+    worldbuilding = render_category_pass_prompts(
+        SYNTHETIC_SOURCE_ROWS, profile=WORLDBUILDING_PLUMBING_PROFILE,
+    )
+    assert all(common not in prompt for prompt in worldbuilding.values())
