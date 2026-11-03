@@ -1,4 +1,4 @@
-"""Native writer capture and cross-family exposure refusal at their owning checks."""
+"""Native writer capture and cross-family source integrity at their owning checks."""
 from threading import RLock
 from types import SimpleNamespace
 from uuid import uuid4
@@ -23,14 +23,17 @@ def test_native_writer_draft_requires_exact_acknowledged_producer(case):
             producing_provider_attempt_id=uuid4() if case == 'foreign_producer' else attempt)
 
 
-@pytest.mark.parametrize('body_end,clause_start,explicit,expected', [
-    (5, 5, False, 'explicit full-document'),
-    (6, 4, False, None),
-    (10, 5, True, None),
+@pytest.mark.parametrize('body_end,clause_start,statement_size,expected', [
+    (5, 5, 10, None),
+    (6, 4, 10, None),
+    (10, 5, 10, None),
+    (5, 5, 11, 'disagree on original body size'),
+    (11, 5, 10, 'Source exposure interval'),
 ])
-def test_body_and_statement_exposure_share_one_original_byte_union(body_end, clause_start, explicit, expected):
+def test_body_and_statement_reads_preserve_original_source_integrity(
+        body_end, clause_start, statement_size, expected):
     from application_state.agent_conversation.native_corpus import (
-        validate_combined_exposure, NativeBodySearchObservedV1)
+        validate_source_exposure, NativeBodySearchObservedV1)
     from application_state.agent_conversation.native_plan_statements import NativePlanStatementReadObservedV1
     catalog = SimpleNamespace(catalog_sha256='catalog', body_bytes=10, source=SimpleNamespace(
         artifact=SimpleNamespace(source_artifact_id='artifact'),
@@ -40,16 +43,15 @@ def test_body_and_statement_exposure_share_one_original_byte_union(body_end, cla
         source_body_sha256='digest', clause_start_byte=clause_start,
         clause_end_byte=10 if clause_start == 5 else 8)
     statement = NativePlanStatementReadObservedV1.model_construct(
-        reads=(SimpleNamespace(support=support, source_body_bytes=10),))
+        reads=(SimpleNamespace(support=support, source_body_bytes=statement_size),))
     body = SimpleNamespace(excerpt=SimpleNamespace(catalog_sha256='catalog',
-        section=SimpleNamespace(byte_start=0, byte_end=body_end),
-        selector_policy='native_full_document_v1' if explicit else 'native_section_v1'))
+        section=SimpleNamespace(byte_start=0, byte_end=body_end)))
     execution = SimpleNamespace(events=(search, statement))
     if expected:
         with pytest.raises(ValueError, match=expected):
-            validate_combined_exposure(execution, (body,))
+            validate_source_exposure(execution, (body,))
     else:
-        validate_combined_exposure(execution, (body,))
+        validate_source_exposure(execution, (body,))
 
 
 @pytest.fixture

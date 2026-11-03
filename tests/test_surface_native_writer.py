@@ -21,7 +21,7 @@ from tests.test_surface_native_execution import (
 BODY = '# Source\n\nThe check revealed an origin beyond this plane.\n\n## Other scene\nUnselected private context.\n'
 
 
-def body_case(surface, lane, *, failed=False, full=False):
+def body_case(surface, lane, *, failed=False, full=False, all_sections=False):
     admit(lane, body=BODY)
     sources = capture(lane)
     catalog = corpus.build_native_body_catalog(sources.authority, sources.members[0], BODY)
@@ -55,26 +55,28 @@ def body_case(surface, lane, *, failed=False, full=False):
     events.append(grant)
     search = corpus.NativeBodySearchObservedV1(event_id=uuid4(), sequence=len(events),
         authorization_event_id=grant.event_id, catalogs=(catalog,), unavailable_source_count=0,
-        matches=(corpus.NativeBodySectionMatchV1(catalog_sha256=catalog.catalog_sha256,
-            section_id=catalog.sections[0].section_id, matched_terms=('check',)),))
+        matches=tuple(corpus.NativeBodySectionMatchV1(catalog_sha256=catalog.catalog_sha256,
+            section_id=section.section_id, matched_terms=('check',))
+            for section in (catalog.sections if all_sections else catalog.sections[:1])))
     events.append(search)
     active = controller(surface, policy, sequence=len(events), semantic=False)
     events.extend([active, *outcomes(active, len(events)+1)])
-    section = catalog.sections[0]
-    handle = corpus.native_full_document_handle(catalog.catalog_sha256) if full else corpus.native_body_handle(
-        catalog.catalog_sha256, section.section_id)
-    events.append(choice(context, record, active, len(events), 'select_candidates', [handle]))
-    read_grant = corpus.NativeBodyReadAuthorizedV1(event_id=uuid4(), sequence=len(events),
-        provider_attempt_id=active.provider_attempt_id, search_event_id=search.event_id,
-        catalog_sha256=catalog.catalog_sha256, retrieval_kind='full_document' if full else 'section',
-        section_id=None if full else section.section_id)
-    events.append(read_grant)
-    read = corpus.NativeBodyReadObservedV1(event_id=uuid4(), sequence=len(events),
-        authorization_event_id=read_grant.event_id,
-        excerpt=None if failed else corpus.select_native_full_document(catalog, BODY) if full else
-            corpus.select_native_body_excerpt(catalog, BODY, section.section_id),
-        failure_code='native_body_unavailable' if failed else None)
-    events.append(read)
+    sections = catalog.sections if all_sections else catalog.sections[:1]
+    handles = [corpus.native_full_document_handle(catalog.catalog_sha256) if full else
+        corpus.native_body_handle(catalog.catalog_sha256, section.section_id) for section in sections]
+    events.append(choice(context, record, active, len(events), 'select_candidates', handles))
+    for section in sections:
+        read_grant = corpus.NativeBodyReadAuthorizedV1(event_id=uuid4(), sequence=len(events),
+            provider_attempt_id=active.provider_attempt_id, search_event_id=search.event_id,
+            catalog_sha256=catalog.catalog_sha256, retrieval_kind='full_document' if full else 'section',
+            section_id=None if full else section.section_id)
+        events.append(read_grant)
+        read = corpus.NativeBodyReadObservedV1(event_id=uuid4(), sequence=len(events),
+            authorization_event_id=read_grant.event_id,
+            excerpt=None if failed else corpus.select_native_full_document(catalog, BODY) if full else
+                corpus.select_native_body_excerpt(catalog, BODY, section.section_id),
+            failure_code='native_body_unavailable' if failed else None)
+        events.append(read)
     active = controller(surface, policy, sequence=len(events), semantic=False)
     events.extend([active, *outcomes(active, len(events)+1)])
     events.append(choice(context, record, active, len(events), 'finish_retrieval'))
@@ -165,6 +167,26 @@ def test_actual_sdk_native_body_input_returns_only_exact_selected_supports(lane,
     finished = execution(context.context_receipt_sha256, stored.policy,
         [*stored.events, *acknowledged])
     assert verify_input_records(context, finished, auth, raw,**work) == supports
+
+
+@pytest.mark.parametrize('surface', ['build','plan'])
+def test_individually_authorized_sections_can_cover_the_complete_source(lane, surface):
+    context, record, _ = body_case(surface, lane, all_sections=True)
+    reads = corpus.acquired_body_reads(record)
+    assert len(reads) == 2
+    assert ''.join(read.excerpt.text for read in reads) == BODY
+    assert all(read.excerpt.selector_policy == 'markdown_sections_v1' for read in reads)
+    frame = model_frame(context, record)
+    work = work_submission(context, record)
+    raw = asyncio.run(actual_sdk_request(frame, work_frame=model_work_frame(context, record, **work)))
+    stored, authorization = authorize(context, record, raw, frame)
+    supports = verify_input_records(context, stored, authorization, raw, **work)
+    assert len(authorization.native_read_event_ids) == len(reads)
+    assert set(authorization.native_read_event_ids) == {read.event_id for read in reads}
+    assert {support.read.event_id: support.read for support in supports.body_excerpts} == {
+        read.event_id: read for read in reads}
+    assert all(row['extent_kind'] == 'section' for row in frame['native_body_evidence']['excerpts'])
+    assert 'The check revealed' in raw and 'Unselected private context.' in raw
 
 
 @pytest.mark.parametrize('surface', ['build','plan'])
