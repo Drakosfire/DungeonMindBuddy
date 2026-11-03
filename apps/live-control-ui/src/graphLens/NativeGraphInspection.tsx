@@ -47,7 +47,7 @@ export function NativeGraphInspection({worldId}:{worldId:string}) {
  }
  const labels=new Map((catalog?.catalogue.entities??[]).map(node=>{
   const names=namesBySubject.get(node.entity_id);
-  return [node.entity_id,names?.size===1?[...names][0]:node.entity_id];
+  return [node.entity_id,names?.size?[...names].sort().join(' / '):node.entity_id];
  }));
  const nodes=(catalog?.catalogue.entities??[]).filter(n=>(labels.get(n.entity_id)??n.entity_id).toLocaleLowerCase().includes(query.toLocaleLowerCase()));
  return <section aria-label="Reviewed Graph inspection">

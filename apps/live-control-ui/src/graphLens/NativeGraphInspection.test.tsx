@@ -53,3 +53,37 @@ it('retains a selected refusal on repeated click and recovers through explicit r
  fireEvent.click(screen.getByRole('button',{name:'Refresh reviewed Graph'}));await screen.findByText(/31 objects/);
  fireEvent.click(screen.getByRole('button',{name:'Object 0'}));expect(await screen.findByText('belief · speculative · provisional')).toBeInTheDocument();expect(inspectNativeGraph).toHaveBeenCalledTimes(2);
 });
+
+it('shows and searches every admitted name while keeping entity and source pins',async()=>{
+ const names:NativeAssertion[]=[{...record(0),value:{kind:'literal',value:'Copper and Quartz Inn'}},
+  {...record(0),assertion_id:'alias',value:{kind:'literal',value:'Copper & Quartz'}},
+  {...record(0),assertion_id:'repeat',value:{kind:'literal',value:'Copper & Quartz'}}];
+ const relation:NativeAssertion={...record(1),assertion_id:'relation',predicate:'custom:owns',value:{kind:'entity_ref',entity_id:'e0'}};
+ const assertions=[...names,record(1),relation];
+ const catalog:NativeGraphCatalog={...packet,assertions,catalogue:{...packet.catalogue,
+  entities:[{entity_id:'e0'},{entity_id:'e1'},{entity_id:'e30'}],admitted_assertion_ids:assertions.map(a=>a.assertion_id)}};
+ const original=JSON.stringify(catalog);
+ vi.mocked(getNativeGraphCatalog).mockResolvedValue(catalog);
+ vi.mocked(inspectNativeGraph).mockImplementation(async(_pin,selection)=>selection.kind==='source'?source:
+  {...detail(),entity:{...detail().entity,assertions:selection.kind==='entity'&&selection.entity_id==='e1'?[relation]:names}});
+ render(<NativeGraphInspection worldId="w"/>);
+ const label='Copper & Quartz / Copper and Quartz Inn';
+ await screen.findByRole('button',{name:label,exact:true});
+ expect(screen.queryByRole('button',{name:'e0',exact:true})).not.toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'e30',exact:true})).toBeInTheDocument();
+ for(const query of ['INN','&']){
+  fireEvent.change(screen.getByRole('searchbox',{name:'Find an object'}),{target:{value:query}});
+  expect(screen.getByRole('button',{name:label,exact:true})).toBeInTheDocument();
+ }
+ fireEvent.click(screen.getByRole('button',{name:label,exact:true}));
+ await waitFor(()=>expect(within(screen.getByRole('article',{name:'Reviewed object details'})).getByRole('heading')).toHaveTextContent(label));
+ expect(inspectNativeGraph).toHaveBeenLastCalledWith(scope,{kind:'entity',entity_id:'e0'},expect.any(AbortSignal));
+ const recordView=screen.getAllByRole('region',{name:'Reviewed Graph record'}).find(r=>r.textContent?.includes('name: Copper and Quartz Inn'))!;
+ fireEvent.click(within(recordView).getByRole('button',{name:'Read supporting source'}));
+ expect(await screen.findByText(source.source.text)).toBeInTheDocument();
+ expect(inspectNativeGraph).toHaveBeenLastCalledWith(scope,{kind:'source',assertion_id:'a0',evidence_ref_id:'ev'});
+ fireEvent.change(screen.getByRole('searchbox',{name:'Find an object'}),{target:{value:''}});
+ fireEvent.click(screen.getByRole('button',{name:'Object 1',exact:true}));
+ expect(await screen.findByText(`Object 1 · owns: ${label}`)).toBeInTheDocument();
+ expect(JSON.stringify(catalog)).toBe(original);
+});
