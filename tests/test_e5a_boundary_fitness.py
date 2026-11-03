@@ -42,7 +42,6 @@ BASELINE_PROVIDER_IMPORTS: frozenset[tuple[str, str]] = frozenset(
         ("src/agent/planner.py", "openai"),
         ("src/cli.py", "openai"),
         ("src/graph_memory/extraction/category_candidate_graph_extractor.py", "openai"),
-        ("src/graph_memory/extraction/preview_candidate_graph_extractor.py", "openai"),
         ("src/graph_memory/extraction/staged_edge_extraction.py", "openai"),
         ("src/ingestion/entity_extractor.py", "openai"),
         ("src/ingestion/openai_batch_pipeline.py", "openai"),

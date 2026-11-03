@@ -13,18 +13,13 @@ Fixture authority ledger: [`FIXTURE-AUTHORITY-LEDGER.md`](FIXTURE-AUTHORITY-LEDG
 | `examples/session_23_candidate_graph_gold/` | 23 | Candidate graph gold (42 nodes); compare live extraction |
 | `examples/session_24_manual_projection_dogfood/` | 24 | Projection gold (36 nodes); **not** LLM extraction benchmark |
 
-## Proven extraction pipeline (target for product runtime)
+## Category extraction owner and historical evaluation
 
 | Path | Notes |
 |------|-------|
-| `category_graph_model_study.py` | `run_category_pipeline`: actor → location → collective → object → thread → beat → edge |
+| `src/graph_memory/extraction/category_candidate_graph_extractor.py` | Product `run_category_pipeline`: actor → location → collective → object → thread → beat → edge |
+| `category_graph_model_study.py` | Eval harness for the product category pipeline |
 | `artifacts/category_graph_model_study/2026-06-26/anchor_quote_n3/` | n=3 validation on Session 22 gold (`gpt-5.4-mini`, node recall ~0.80–0.88) |
-
-## Runtime stub (replace with category pipeline)
-
-| Path | Notes |
-|------|-------|
-| `src/graph_memory/extraction/preview_candidate_graph_extractor.py` | Single compact GPT call (~12-node cap); wired today, not the quality path |
 
 ## Design reference (broader contract)
 
