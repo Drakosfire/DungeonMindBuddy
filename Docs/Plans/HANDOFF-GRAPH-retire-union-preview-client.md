@@ -1,6 +1,6 @@
 # GRAPH: retire the unused Union preview client
 
-Status: ACTIVE under the operator's cleanup and demolition goal.
+Status: MERGED_DELIVERED; implementation and delivery leases RELEASED.
 Owner: PRIME. Base: origin/main@94e969cc68c85e0f6b6514cc245fa408c294e4f6.
 Branch: codex/retire-union-preview-client.
 Checkout: /home/drakosfire/.codex/worktrees/buddy-context-loop/DungeonMindBuddy.
@@ -90,3 +90,15 @@ The consumed authoring projection fixture stays; only one fixture used solely by
 the removed mock was deleted. No alias/stub was introduced. Evidence:
 union-preview-client-author-verification.json and linked original logs/assertion
 proof. Independent review, CI and protected merge/delivery remain required.
+
+## Completed predecessor settlement
+
+Merged ce41c101cd7af7a19d4ab467638bbbbc0c969b7e after independent exact-head and
+actual-merge review plus all seven CI checks. Delivered and conserved8,958source
+blobs,91primarytables,nine sessionfiles,savedPlanHTTP and439nativeobjects. UI
+base/head/serving118file manifests identical; no frontend replacement required.
+API health ready; provider0,DBwrites0,dependencies unchanged. The exact review,
+inherited test failures and delivery limits above remain distinct. Proof:
+retire-union-preview-client-api-delivery-proof.json under the established private
+runtime-evidence/q01-published-graph-authority root. This closes the prior lease;
+it does not claim the larger demolition or ingestion-quality objective complete.
