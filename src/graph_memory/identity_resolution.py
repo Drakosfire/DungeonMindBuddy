@@ -526,13 +526,23 @@ def edge_match_score(
     return round(endpoint_score * (1.0 if family_ok else 0.6), 4)
 
 
+# Exact alignment diagnostics need reciprocal predicates, not broad families.
+# This is comparator policy; it neither canonicalizes nor publishes graph edges.
+_SYMMETRIC_ALIGNMENT_PREDICATES: frozenset[str] = frozenset(
+    {
+        "allied_with", "associated_with", "cooperates_with", "linked_to",
+        "rivals", "works_with", "same_as",
+    }
+)
+
+
 def _edge_endpoint_score(
     gold_edge: Any,
     cand_edge: Any,
     gold_nodes_index: Mapping[str, Any],
     cand_nodes_index: Mapping[str, Any],
 ) -> tuple[float, str, str, str, str]:
-    """Return endpoint score and predicate metadata for diagnostics."""
+    """Return directed endpoint alignment and predicate metadata for diagnostics."""
     g_from, g_to, g_family = _canonical_endpoints(gold_edge, gold_nodes_index)
     c_from, c_to, c_family = _canonical_endpoints(cand_edge, cand_nodes_index)
     g_rel = str(_get(gold_edge, "relationship_type", "") or "")
@@ -542,8 +552,8 @@ def _edge_endpoint_score(
     forward = min(node_match_score(g_from, c_from), node_match_score(g_to, c_to))
     backward = min(node_match_score(g_from, c_to), node_match_score(g_to, c_from))
     if (
-        not (_is_literal_protects(gold_edge) or _is_literal_protects(cand_edge))
-        and (g_family in SYMMETRIC_FAMILIES or c_family in SYMMETRIC_FAMILIES)
+        g_rel.strip().lower() in _SYMMETRIC_ALIGNMENT_PREDICATES
+        and c_rel.strip().lower() in _SYMMETRIC_ALIGNMENT_PREDICATES
     ):
         endpoint_score = max(forward, backward)
     else:

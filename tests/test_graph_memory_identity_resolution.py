@@ -797,7 +797,7 @@ _PROTECTS_LEGACY_GOLDEN = json.loads(r"""{"base": "406cb3e2a5b196a80f8a9b2fc3ff3
   {"gold": {"edge_id": "e", "from_node_id": "a", "to_node_id": "b", "relationship_type": "owns"}, "candidate": {"edge_id": "e", "from_node_id": "a", "to_node_id": "b", "relationship_type": "works_with"}, "score": 0.6, "diagnostic": {"edge_id": "e", "best_live_edge_id": "e", "best_score": 0.6, "endpoint_score": 1.0, "gold_relationship_type": "owns", "gold_predicate_family": "ownership", "live_relationship_type": "works_with", "live_predicate_family": "social_relation", "reason": "family_mismatch", "detail": "relationship predicate family differs between gold and live"}},
   {"gold": {"edge_id": "e", "from_node_id": "a", "to_node_id": "b", "relationship_type": "frobnicates"}, "candidate": {"edge_id": "e", "from_node_id": "a", "to_node_id": "b", "relationship_type": "wibbles"}, "score": 0.6, "diagnostic": {"edge_id": "e", "best_live_edge_id": "e", "best_score": 0.6, "endpoint_score": 1.0, "gold_relationship_type": "frobnicates", "gold_predicate_family": "rel:frobnicates", "live_relationship_type": "wibbles", "live_predicate_family": "rel:wibbles", "reason": "family_mismatch", "detail": "relationship predicate family differs between gold and live"}},
   {"gold": {"edge_id": "e", "from_node_id": "b", "to_node_id": "a", "relationship_type": "located_in"}, "candidate": {"edge_id": "e", "from_node_id": "b", "to_node_id": "a", "relationship_type": "within"}, "score": 1.0, "diagnostic": {"edge_id": "e", "best_live_edge_id": "e", "best_score": 1.0, "endpoint_score": 1.0, "gold_relationship_type": "located_in", "gold_predicate_family": "location_hierarchy", "live_relationship_type": "within", "live_predicate_family": "location_hierarchy", "reason": "exact_predicate_mismatch", "detail": "predicate family matches but exact relationship_type differs"}},
-  {"gold": {"edge_id": "e", "from_node_id": "a", "to_node_id": "b", "relationship_type": "attacks", "predicate_family": "social_relation"}, "candidate": {"edge_id": "e", "from_node_id": "b", "to_node_id": "a", "relationship_type": "parent_of", "predicate_family": "social_relation"}, "score": 1.0, "diagnostic": {"edge_id": "e", "best_live_edge_id": "e", "best_score": 1.0, "endpoint_score": 1.0, "gold_relationship_type": "attacks", "gold_predicate_family": "social_relation", "live_relationship_type": "parent_of", "live_predicate_family": "social_relation", "reason": "exact_predicate_mismatch", "detail": "predicate family matches but exact relationship_type differs"}}
+  {"gold": {"edge_id": "e", "from_node_id": "a", "to_node_id": "b", "relationship_type": "attacks", "predicate_family": "social_relation"}, "candidate": {"edge_id": "e", "from_node_id": "b", "to_node_id": "a", "relationship_type": "parent_of", "predicate_family": "social_relation"}, "score": 1.0, "diagnostic": {"edge_id": "e", "best_live_edge_id": "e", "best_score": 1.0, "endpoint_score": 0.15, "gold_relationship_type": "attacks", "gold_predicate_family": "social_relation", "live_relationship_type": "parent_of", "live_predicate_family": "social_relation", "reason": "endpoint_score_below_threshold", "detail": "live edge endpoints do not align with gold endpoints"}}
  ]}""")
 
 
@@ -888,3 +888,34 @@ def test_preview_dataclass_duplicate_keeps_type_and_unions_evidence():
     assert {ref.source_anchor_id for ref in result['kept'][0].evidence_refs} == {'one', 'two'}
     assert len(first.evidence_refs) == 1
     assert len(ir.dedup_edges([first, replace(first, to_node_id='missing')], [])['kept']) == 2
+
+
+def test_directional_diagnostics_do_not_adopt_coarse_family_symmetry():
+    nodes = [_node("a", "Alpha", "character"), _node("b", "Bravo", "character")]
+    index = ir.node_index(nodes)
+    for predicate in ("trusts", "distrusts", "identified_as", "is_a"):
+        for hint in (None, "social_relation", "alias", "identity"):
+            gold = _edge("gold", "a", "b", predicate)
+            reversed_edge = _edge("candidate", "b", "a", predicate)
+            if hint is not None:
+                gold["predicate_family"] = hint
+                reversed_edge["predicate_family"] = hint
+            # Candidate discovery remains deliberately tolerant; its score is
+            # insufficient to claim a directed relationship aligns.
+            assert ir.edge_match_score(gold, reversed_edge, index, index) >= 0.6
+            diagnostic = ir.classify_edge_alignment(gold, reversed_edge, index, index)
+            assert diagnostic["reason"] == "endpoint_score_below_threshold"
+            assert diagnostic["endpoint_score"] < 0.6
+            assert ir.classify_edge_alignment(gold, gold, index, index)["reason"] == "aligned"
+
+
+def test_reciprocal_predicates_keep_reverse_alignment_diagnostics():
+    nodes = [_node("a", "Alpha", "character"), _node("b", "Bravo", "character")]
+    index = ir.node_index(nodes)
+    for predicate in (
+        "associated_with", "same_as",
+    ):
+        gold = _edge("gold", "a", "b", predicate)
+        reversed_edge = _edge("candidate", "b", "a", predicate)
+        assert ir.edge_match_score(gold, reversed_edge, index, index) >= 0.6
+        assert ir.classify_edge_alignment(gold, reversed_edge, index, index)["reason"] == "aligned"
