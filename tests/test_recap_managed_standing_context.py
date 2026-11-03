@@ -107,7 +107,7 @@ def test_binding_drift_still_refuses_before_output_or_provider(tmp_path, monkeyp
     artifact = create_recap_source_artifact(tmp_path, world_id=context.native_world_id, campaign_id="longmont-c2", session_id="session-21", recap_text="Mira guards the gate.\n")
     monkeypatch.setattr(service, "run_production_extraction", lambda *a, **kw: pytest.fail("must refuse before dispatch"))
     with pytest.raises(SourceArtifactRegistryError, match="binding changed"):
-        service.run_recap_production_extraction(repo_root=tmp_path, campaign_id="longmont-c2", session_id="session-21", source_artifact_id=artifact.source_artifact_id, ingest_context=context, output_dir=tmp_path/"new-output")
+        service.run_recap_production_extraction(repo_root=tmp_path, campaign_id="longmont-c2", session_id="session-21", source_artifact_id=artifact.source_artifact_id, ingest_context=context)
     assert not (tmp_path/"new-output").exists()
 
 
@@ -123,7 +123,7 @@ def test_retired_profile_refuses_before_source_supplement_output_or_provider(tmp
     monkeypatch.setattr(service, "run_production_extraction", forbidden)
     supplement = {"world_id":"managed-a", "sessions":[]} if with_supplement else None
     with pytest.raises(UnknownExtractionProfileError):
-        service.run_recap_production_extraction(repo_root=tmp_path, campaign_id="longmont-c2", session_id="session-21", source_artifact_id="artifact:unopened", ingest_context=SourceScope(managed_world_id="managed-a",native_world_id="native-a",binding_version=1,campaign_id="longmont-c2"),profile="recap_category_v1@1.0",output_dir=tmp_path/"new-output",supplemental_evidence=supplement)
+        service.run_recap_production_extraction(repo_root=tmp_path, campaign_id="longmont-c2", session_id="session-21", source_artifact_id="artifact:unopened", ingest_context=SourceScope(managed_world_id="managed-a",native_world_id="native-a",binding_version=1,campaign_id="longmont-c2"),profile="recap_category_v1@1.0",supplemental_evidence=supplement)
     assert not (tmp_path/"new-output").exists()
 
 

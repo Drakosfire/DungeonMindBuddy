@@ -7,7 +7,6 @@ import os
 import time
 import threading
 from dataclasses import dataclass
-from pathlib import Path
 
 import pytest
 
@@ -15,6 +14,7 @@ from src.graph_memory.extraction.bounded_recap_execution import (
     BoundedRecapPassClient, DEEPSEEK_MODEL, RecapExecutionLimits,
 )
 from src.graph_memory.extraction.category_candidate_graph_extractor import CategoryGraphExtractionError
+from tests.test_bounded_recap_execution import private_capture
 
 
 @dataclass
@@ -139,7 +139,7 @@ class AttemptTextProvider:
             await asyncio.Event().wait()
         if self.mode == "invalid_then_transport" and ordinal == 2:
             raise ProviderError.from_code(FailureCode.RATE_LIMITED)
-        if self.mode in {"invalid_then_valid", "invalid_then_wait", "invalid_then_transport"}:
+        if self.mode in {"invalid_then_valid", "invalid_then_wait", "invalid_then_transport", "sink_failure"}:
             text = "not-json" if ordinal == 1 else '{"observation_nodes": []}'
         elif self.mode == "final_invalid":
             text = "not-json" if ordinal == 1 else '{"observation_nodes": "wrong"}'
@@ -168,7 +168,31 @@ class AttemptGEFactory:
 
     def __call__(self):
         from generationengine import GenerationClient
+        from application_state.ingest import components
+        from application_state.errors import ApplicationStateUnavailableError
 
+        if self.mode in {"sink_failure", "ambiguous_commit"}:
+            persist = components.persist_execution_event
+            def fail_callback(**kwargs):
+                if kwargs["kind"] == "raw_model_response":
+                    if self.mode == "ambiguous_commit":
+                        persist(**kwargs)
+                    raise ApplicationStateUnavailableError("synthetic callback commit uncertainty")
+                return persist(**kwargs)
+            components.persist_execution_event = fail_callback
+        if self.mode == "kill_during_persist":
+            insert = components._persist_payload
+            def blocked_commit(conn, **kwargs):
+                result = insert(conn, **kwargs)
+                if kwargs["kind"].value == "raw_model_response":
+                    threading.Event().wait()
+                return result
+            components._persist_payload = blocked_commit
+        if self.mode == "malformed_receipt":
+            from src.graph_memory.extraction import _recap_inference_worker as worker
+            def malformed(path, receipt):
+                path.write_text("not a receipt")
+            worker._write_receipt = malformed
         return GenerationClient(
             text_providers={"openrouter": AttemptTextProvider(self.calls, self.mode)}
         )
@@ -177,7 +201,6 @@ class AttemptGEFactory:
 def build_attempt_client(tmp_path, mode, *, run_deadline_ms=5000):
     context = multiprocessing.get_context("spawn")
     factory = AttemptGEFactory(context.Value("i", 0), mode)
-    run_dir = tmp_path / "run"
     client = BoundedRecapPassClient(
         RecapExecutionLimits(
             provider="openrouter",
@@ -187,10 +210,11 @@ def build_attempt_client(tmp_path, mode, *, run_deadline_ms=5000):
             run_deadline_ms=run_deadline_ms,
         ),
         engine_factory=factory,
-        response_artifact_dir=run_dir / ".private" / "pass_responses",
         request_context_hashes={"normalized_source": "a" * 64},
     )
-    return client, factory, run_dir
+    from tests.test_bounded_recap_execution import bind_private_client
+    bind_private_client(client)
+    return client, factory, client.execution_binding
 
 
 def build_client(mode="normal", raw='{"observation_nodes": []}', budget=2000):
@@ -262,8 +286,9 @@ def test_completed_receipt_survives_blocked_background_cleanup(mode):
         assert_reaped(factory)
 
 
+@pytest.mark.usefixtures("application_state_dsn")
 def test_real_ge_attempt_hook_persists_invalid_then_valid_before_single_correction(tmp_path):
-    client, factory, run_dir = build_attempt_client(tmp_path, "invalid_then_valid")
+    client, factory, _ = build_attempt_client(tmp_path, "invalid_then_valid")
 
     result = invoke(client)
 
@@ -285,7 +310,7 @@ def test_real_ge_attempt_hook_persists_invalid_then_valid_before_single_correcti
         "conformance",
     ]
     evidence = [
-        json.loads(Path(item["path"]).read_text(encoding="utf-8"))
+        private_capture(client, item["sha256"])
         for item in entry["attempt_evidence"]
     ]
     assert [item["response"]["text"] for item in evidence] == [
@@ -295,12 +320,14 @@ def test_real_ge_attempt_hook_persists_invalid_then_valid_before_single_correcti
     assert evidence[0]["ge_attempt"]["operation_id"] == evidence[1]["ge_attempt"]["operation_id"]
     assert evidence[0]["ge_attempt"]["event_id"] != evidence[1]["ge_attempt"]["event_id"]
     assert evidence[0]["request"]["system_prompt_sha256"]
-    assert evidence[0]["context_sha256"] == {"normalized_source": "a" * 64}
+    assert evidence[0]["context_sha256"]["normalized_source"] == "a" * 64
+    assert evidence[0]["context_sha256"]["source_content"] == client.execution_binding["source_sha256"]
     assert evidence[0]["response"]["sha256"]
     assert "not-json" not in json.dumps(client.ledger())
-    assert (run_dir / ".private" / "pass_responses").is_dir()
+    assert evidence[0]["execution_binding"] == client.execution_binding
 
 
+@pytest.mark.usefixtures("application_state_dsn")
 def test_real_ge_final_invalid_response_keeps_both_attempts_and_failure_observation(tmp_path):
     client, factory, _ = build_attempt_client(tmp_path, "final_invalid")
 
@@ -317,9 +344,10 @@ def test_real_ge_final_invalid_response_keeps_both_attempts_and_failure_observat
     assert entry["observation"]["conformance_retry_count"] == 1
     assert [item["ordinal"] for item in entry["attempt_evidence"]] == [1, 2]
     assert "not-json" not in json.dumps(client.ledger())
-    assert all(Path(item["path"]).is_file() for item in entry["attempt_evidence"])
+    assert all(private_capture(client, item["sha256"]) for item in entry["attempt_evidence"])
 
 
+@pytest.mark.usefixtures("application_state_dsn")
 def test_real_ge_transport_failure_after_initial_response_is_counted_without_event_or_retry(
     tmp_path,
 ):
@@ -337,18 +365,11 @@ def test_real_ge_transport_failure_after_initial_response_is_counted_without_eve
     assert [item["ordinal"] for item in entry["attempt_evidence"]] == [1]
 
 
+@pytest.mark.usefixtures("application_state_dsn")
 def test_real_ge_sink_failure_stops_without_correction_or_replay(tmp_path):
-    client, factory, run_dir = build_attempt_client(tmp_path, "invalid_then_valid")
-    evidence_dir = run_dir / ".private" / "pass_responses"
-    evidence_dir.mkdir(mode=0o700, parents=True)
-    evidence_dir.chmod(0o700)
-    existing = evidence_dir / "01-actor_pass-attempt-01.json"
-    existing.write_text("prior no-overwrite witness", encoding="utf-8")
-    existing.chmod(0o600)
-
+    client, factory, _ = build_attempt_client(tmp_path, "sink_failure")
     with pytest.raises(CategoryGraphExtractionError):
         invoke(client)
-
     entry = client.calls[0]
     assert factory.calls.value == 1
     assert entry["failure_code"] == "ATTEMPT_EVIDENCE_PERSISTENCE_FAILED"
@@ -356,14 +377,14 @@ def test_real_ge_sink_failure_stops_without_correction_or_replay(tmp_path):
     assert entry["observation"]["provider_attempt_count"] == 1
     assert entry["observation"]["conformance_retry_count"] == 0
     assert entry["attempt_evidence"] == []
-    assert existing.read_text(encoding="utf-8") == "prior no-overwrite witness"
-    assert not list(evidence_dir.glob("*.pending"))
-    assert "prior no-overwrite witness" not in json.dumps(client.ledger())
+    assert client.retention_failed
+    assert not [r for r in client._execution_records() if r["kind"] == "raw_model_response"]
 
 
+@pytest.mark.usefixtures("application_state_dsn")
 def test_first_attempt_artifact_survives_worker_termination_during_correction(tmp_path):
-    client, factory, run_dir = build_attempt_client(
-        tmp_path, "invalid_then_wait", run_deadline_ms=1500
+    client, factory, _ = build_attempt_client(
+        tmp_path, "invalid_then_wait", run_deadline_ms=5000
     )
 
     with pytest.raises(CategoryGraphExtractionError, match="outcome unknown"):
@@ -374,11 +395,10 @@ def test_first_attempt_artifact_survives_worker_termination_during_correction(tm
     assert entry["worker_cleanup"] == "terminated"
     assert factory.calls.value == 2
     assert len(entry["attempt_evidence"]) == 1
-    artifact_path = Path(entry["attempt_evidence"][0]["path"])
-    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+    artifact = private_capture(client, entry["attempt_evidence"][0]["sha256"])
     assert artifact["response"]["text"] == "not-json"
     assert artifact["ge_attempt"]["ordinal"] == 1
-    assert artifact_path.is_relative_to(run_dir / ".private" / "pass_responses")
+    assert artifact["execution_binding"] == client.execution_binding
     assert "not-json" not in json.dumps(client.ledger())
 
     with pytest.raises(CategoryGraphExtractionError):
@@ -467,3 +487,54 @@ def test_real_ge_deadline_receipt_survives_blocked_executor_shutdown():
     with pytest.raises(CategoryGraphExtractionError):
         invoke(client)
     assert factory.calls.value == 1
+
+
+@pytest.mark.usefixtures("application_state_dsn")
+def test_committed_response_survives_malformed_temporary_receipt(tmp_path):
+    client, factory, _ = build_attempt_client(tmp_path, "malformed_receipt")
+    with pytest.raises(CategoryGraphExtractionError):
+        invoke(client)
+    assert factory.calls.value == 1
+    entry = client.calls[0]
+    assert entry["external_outcome"] == "unknown"
+    assert len(entry["attempt_evidence"]) == 1
+    assert private_capture(client, entry["attempt_evidence"][0]["sha256"])["response"]["text"] == '{"observation_nodes": []}'
+    assert not any(p.name == "dmb-recap-inference" for p in multiprocessing.active_children())
+
+
+@pytest.mark.usefixtures("application_state_dsn")
+def test_commit_uncertainty_preserves_bytes_without_ack_or_redispatch(tmp_path):
+    client, factory, _ = build_attempt_client(tmp_path, "ambiguous_commit")
+    with pytest.raises(CategoryGraphExtractionError):
+        invoke(client)
+    assert factory.calls.value == 1
+    assert client.retention_failed
+    assert client.calls[0]["failure_code"] == "ATTEMPT_EVIDENCE_PERSISTENCE_FAILED"
+    assert len(client.calls[0]["attempt_evidence"]) == 1
+    with pytest.raises(CategoryGraphExtractionError):
+        invoke(client)
+    assert factory.calls.value == 1
+
+
+@pytest.mark.usefixtures("application_state_dsn")
+def test_kill_during_unacknowledged_commit_reports_unknown(tmp_path):
+    client, factory, _ = build_attempt_client(tmp_path, "kill_during_persist", run_deadline_ms=5000)
+    with pytest.raises(CategoryGraphExtractionError, match="outcome unknown"):
+        invoke(client)
+    assert factory.calls.value == 1
+    assert client.calls[0]["worker_cleanup"] == "terminated"
+    assert client.calls[0]["attempt_evidence"] == []
+    assert client.ledger()["attempt_counts"]["provider_attempts"]["complete"] is False
+    assert not any(p.name == "dmb-recap-inference" for p in multiprocessing.active_children())
+
+
+@pytest.mark.usefixtures("application_state_dsn")
+def test_acknowledged_capture_survives_blocked_worker_cleanup():
+    from tests.test_bounded_recap_execution import bind_private_client
+    client, factory = build_client("blocked_close", budget=5000)
+    bind_private_client(client)
+    assert invoke(client)["raw_text"] == factory.raw
+    assert client.calls[0]["worker_cleanup"] == "terminated"
+    assert len(client.calls[0]["attempt_evidence"]) == 1
+    assert private_capture(client, client.calls[0]["attempt_evidence"][0]["sha256"])["response"]["text"] == factory.raw
+    assert_reaped(factory)

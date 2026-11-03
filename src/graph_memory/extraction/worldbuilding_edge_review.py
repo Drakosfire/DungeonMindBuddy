@@ -158,11 +158,11 @@ class RecordingPassClient:
             observation = call.get("observation")
             row = {"observation": None if observation is None else {
                 key: observation[key] for key in _OBSERVATION_FIELDS if key in observation}}
-            for key in ("pass_name", "external_outcome", "response_artifact_path", "response_artifact_sha256"):
+            for key in ("pass_name", "external_outcome", "response_component"):
                 if key in call:
                     row[key] = call[key]
             row["attempt_evidence"] = [{key: item[key] for key in (
-                "event_id", "ordinal", "kind", "response_status", "path", "sha256"
+                "event_id", "ordinal", "kind", "response_status", "capture_id", "sha256"
             ) if key in item} for item in call.get("attempt_evidence", [])]
             observations.append(row)
         payload = {

@@ -1,9 +1,9 @@
 """Opt-in advisory pipeline, immutable subset and registered evidence boundaries."""
 from copy import deepcopy
+from dataclasses import asdict, replace
 import hashlib
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -39,8 +39,8 @@ def outputs(span="span-1"):
 class Client(BoundedRecapPassClient):
     """Explicit bounded-client test subclass; no provider/network/worker access."""
     def __init__(self, payload=None, retained=None, fail=False):
-        self.limits = SimpleNamespace(provider="openrouter", model=DEEPSEEK_MODEL, max_calls=8)
-        self.calls = []
+        from src.graph_memory.extraction.bounded_recap_execution import RecapExecutionLimits
+        super().__init__(RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL, max_calls=8))
         self.fixture = FixtureCategoryGraphPassClient(payload or outputs())
         self.retained = ["edge:leads"] if retained is None else retained
         self.fail = fail
@@ -118,7 +118,7 @@ def test_invalid_executor_never_calls(bad_client):
     ("openrouter", DEEPSEEK_MODEL, "other")])
 def test_wrong_route_or_model_rejects_before_calls(provider, model, requested):
     client = Client()
-    client.limits.provider, client.limits.model = provider, model
+    client.limits = SimpleNamespace(**{**asdict(client.limits), "provider": provider, "model": model})
     with pytest.raises(CategoryGraphExtractionError):
         run_category_pipeline(client, options(model=requested))
     assert not client.calls
@@ -212,7 +212,7 @@ print('reopened')
 
 def test_existing_budget_is_not_automatically_increased():
     client = Client()
-    client.limits.max_calls = 5
+    client.limits = replace(client.limits, max_calls=5)
     with pytest.raises(CategoryGraphExtractionError, match="existing run budget"):
         run_category_pipeline(client, options())
     assert client.limits.max_calls == 5 and not client.calls
@@ -301,15 +301,15 @@ def test_success_storage_failure_is_not_reviewable_or_replayed(tmp_path, applica
             raise OSError("private success bundle in database error")
         return original(**kwargs)
     monkeypatch.setattr(components, "persist_component_payload", unavailable)
-    with pytest.raises(RuntimeError, match="persist private"):
-        runner.run_production_extraction(runner.ProductionExtractionRequest(repo_root=tmp_path, source=source,
-            profile_id=PROFILE.profile_id, profile_version=PROFILE.profile_version,
-            model_id=DEEPSEEK_MODEL, allow_llm=True, category_client=client))
+    result = runner.run_production_extraction(runner.ProductionExtractionRequest(repo_root=tmp_path, source=source,
+        profile_id=PROFILE.profile_id, profile_version=PROFILE.profile_version,
+        model_id=DEEPSEEK_MODEL, allow_llm=True, category_client=client))
+    assert result.failure_kind == "evidence_retention"
     assert len(client.calls) == 6
     assert not list((tmp_path / "out").rglob("candidate_graph.json"))
     from apps.live_control_server.services.graph_run_registry import get_extraction_run
     run = get_extraction_run(tmp_path, drafts[0].run_id)
-    assert run.status.value == "prepared"
+    assert run.status.value == "incomplete"
     assert "raw_model_response" not in run.components and "candidate_graph" not in run.components
 
 
@@ -327,8 +327,6 @@ def test_real_bounded_attempt_accounting_survives_registered_bundle(
     source, span = _admit_fixture_source(tmp_path)
     fixture = _pass_outputs_for_span(_load_fixture(), span)
     names = [spec.pass_id for spec in PROFILE.node_passes] + ["edge_pass", "edge_review_pass"]
-    evidence_dir = tmp_path / "private" / "attempts"
-    evidence_dir.parent.mkdir(mode=0o700)
     invoked = []
     expected_refs = []
 
@@ -345,18 +343,17 @@ def test_real_bounded_attempt_accounting_survives_registered_bundle(
             provider_response_id="response-known", cost_usd=None)
         payload = obs.model_dump(mode="json")
         for ordinal in (1, 2):
-            event = {"operation_id": name, "event_id": name + str(ordinal),
-                "ordinal": ordinal, "kind": "initial" if ordinal == 1 else "conformance_retry",
+            event = {"operation_id": name, "event_id": f"{name}:{ordinal}",
+                "ordinal": ordinal, "kind": "initial" if ordinal == 1 else "conformance",
                 "response_status": "returned", "provider": "openrouter",
                 "requested_model": DEEPSEEK_MODEL, "resolved_model": DEEPSEEK_MODEL,
-                "response_model": DEEPSEEK_MODEL, "provider_response_id": "response-known"}
-            path, sha = bounded._write_private_response_evidence(evidence_dir,
-                ordinal=len(invoked), pass_name=name, request=request,
-                context_hashes={"source": source.source_sha256}, raw_observation=payload,
-                response_text="first invalid text" if ordinal == 1 else json.dumps(parsed),
-                attempt_event=event)
+                "response_model": DEEPSEEK_MODEL, "provider_request_id": None, "provider_response_id": "response-known"}
+            from generationengine.types import StructuredAttemptCompleted
+            receipt = bounded._persist_attempt_response(attempt_evidence, request,
+                StructuredAttemptCompleted(**event,
+                    text="first invalid text" if ordinal == 1 else json.dumps(parsed)))
             if name == "edge_review_pass":
-                expected_refs.append((str(path), sha))
+                expected_refs.append(receipt["sha256"])
         if fail_review and name == "edge_review_pass":
             return _WorkerOutcome({"kind": "provider_failure", "failure_code": "STRUCTURED_OUTPUT_INVALID",
                 "observation": {**payload, "state": "failed", "failure_code": "STRUCTURED_OUTPUT_INVALID",
@@ -366,7 +363,7 @@ def test_real_bounded_attempt_accounting_survives_registered_bundle(
 
     monkeypatch.setattr(bounded, "_execute_in_owned_process", worker)
     client = BoundedRecapPassClient(bounded.RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL),
-        response_artifact_dir=evidence_dir, request_context_hashes={"source": source.source_sha256})
+        request_context_hashes={"source": source.source_sha256})
     client.private_client_field = "EXCLUDE_PRIVATE_MARKER"
     result = run_production_extraction(ProductionExtractionRequest(repo_root=tmp_path, source=source,
         profile_id=PROFILE.profile_id, profile_version=PROFILE.profile_version,
@@ -388,10 +385,11 @@ def test_real_bounded_attempt_accounting_survives_registered_bundle(
         "input_tokens": 101, "output_tokens": 23, "cached_input_tokens": 17,
         "reasoning_tokens": 5, "latency_ms": 12, "provider_response_id": "response-known", "cost_usd": None}
     refs = bundle["execution_observations"][-1]["attempt_evidence"]
-    assert [(item["path"], item["sha256"]) for item in refs] == expected_refs
+    assert [item["sha256"] for item in refs] == expected_refs
     assert [item["ordinal"] for item in refs] == [1, 2]
-    for path, sha in expected_refs:
-        assert hashlib.sha256(Path(path).read_bytes()).hexdigest() == sha
+    records = {row["sha256"]: row["envelope"] for row in bundle["execution_evidence"]["records"]}
+    for sha in expected_refs:
+        assert hashlib.sha256(bounded._canonical_json_bytes(records[sha]) + b"\n").hexdigest() == sha
     child = subprocess.run([sys.executable, "-c", '''
 import json,hashlib,sys
 from pathlib import Path
@@ -399,9 +397,12 @@ from apps.live_control_server.services.graph_run_registry import get_extraction_
 from application_state.ingest.components import get_component_bytes
 root=Path(sys.argv[1]); run=get_extraction_run(root,sys.argv[2]); ref=run.components['raw_model_response']
 data=get_component_bytes(run_id=run.run_id,kind=ref.kind,content_sha256=ref.sha256); assert hashlib.sha256(data).hexdigest()==ref.sha256
-row=json.loads(data)['execution_observations'][-1]
+bundle=json.loads(data); row=bundle['execution_observations'][-1]
+records={item['sha256']:item['envelope'] for item in bundle['execution_evidence']['records']}
 assert row['observation']['provider_attempt_count']==2 and row['observation']['conformance_retry_count']==1
-for item in row['attempt_evidence']: assert hashlib.sha256(Path(item['path']).read_bytes()).hexdigest()==item['sha256']
+for item in row['attempt_evidence']:
+ raw=json.dumps(records[item['sha256']],sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()+bytes([10])
+ assert hashlib.sha256(raw).hexdigest()==item['sha256']
 print('attempt-evidence-reopened')
 ''', str(tmp_path), result.run.run_id], env=dict(os.environ), text=True, capture_output=True)
     assert child.returncode == 0, child.stderr
@@ -557,7 +558,7 @@ def test_prebound_profile_rejects_before_writer_or_reviewer_inference():
 ])
 def test_advisory_uses_same_explicit_target_and_existing_pass_contract(provider, model):
     client = Client()
-    client.limits.provider, client.limits.model = provider, model
+    client.limits = replace(client.limits, provider=provider, model=model)
     result = run_category_pipeline(client, options(model=model))
     assert [call['pass_name'] for call in client.calls] == [p.pass_id for p in PROFILE.node_passes] + ['edge_pass','edge_review_pass']
     assert result.model_id == model

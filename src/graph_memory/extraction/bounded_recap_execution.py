@@ -6,9 +6,7 @@ import asyncio
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
-import stat
 import time
 from dataclasses import asdict, dataclass
 from functools import partial
@@ -86,7 +84,7 @@ _SAFE_REQUEST_FIELDS = (
 
 def _canonical_json_bytes(value: Any) -> bytes:
     return json.dumps(
-        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
     ).encode("utf-8")
 
 
@@ -96,31 +94,13 @@ def _safe_observation_snapshot(value: Any) -> dict[str, Any]:
     return {key: value[key] for key in _SAFE_OBSERVATION_FIELDS if key in value}
 
 
-def _write_private_response_evidence(
-    directory: Path,
-    *,
-    ordinal: int,
-    pass_name: str,
-    request: Mapping[str, Any],
-    context_hashes: Mapping[str, str],
-    raw_observation: Any,
-    response_text: str | None,
+def _private_response_envelope(
+    *, binding: Mapping[str, Any], ordinal: int, pass_name: str,
+    request: Mapping[str, Any], context_hashes: Mapping[str, str],
+    raw_observation: Any, response_text: str | None,
     attempt_event: Mapping[str, Any] | None = None,
-) -> tuple[Path, str]:
-    """Atomically preserve one returned response without making it public graph data."""
-    if not re.fullmatch(r"[a-z0-9_-]+", pass_name):
-        raise ValueError("invalid recap pass name for response evidence")
-
-    directory = Path(directory)
-    private_root = directory.parent
-    private_root.mkdir(mode=0o700, parents=True, exist_ok=True)
-    for path in (private_root, directory):
-        path.mkdir(mode=0o700, exist_ok=True)
-        if path.is_symlink() or not path.is_dir():
-            raise OSError("private response evidence path is not a directory")
-        if stat.S_IMODE(path.stat().st_mode) & 0o077:
-            raise PermissionError("private response evidence directory is not private")
-
+) -> dict[str, Any]:
+    """Preserve private response bytes/context without inventing source authority."""
     request_bytes = _canonical_json_bytes(request)
     system_prompt = request.get("system_prompt")
     user_prompt = request.get("user_prompt")
@@ -167,71 +147,31 @@ def _write_private_response_evidence(
     }
     if event_facts is not None:
         envelope["ge_attempt"] = event_facts
-    artifact_bytes = _canonical_json_bytes(envelope) + b"\n"
-    filename = (
-        f"{ordinal:02d}-{pass_name}-attempt-{event_facts['ordinal']:02d}.json"
-        if event_facts is not None
-        else f"{ordinal:02d}-{pass_name}.json"
+    envelope["execution_binding"] = dict(binding)
+    envelope["capture_id"] = (
+        f"attempt:{ordinal}:{event_facts['event_id']}"
+        if event_facts is not None else f"normalized:{ordinal}:{pass_name}"
     )
-    destination = directory / filename
-    temporary = directory / f".{filename}.{os.getpid()}.{time.time_ns()}.pending"
-    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    try:
-        with os.fdopen(descriptor, "wb") as stream:
-            stream.write(artifact_bytes)
-            stream.flush()
-            os.fsync(stream.fileno())
-        # Hard-link publication is atomic and fails if the evidence path exists.
-        os.link(temporary, destination)
-        directory_fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-        try:
-            os.fsync(directory_fd)
-        finally:
-            os.close(directory_fd)
-    finally:
-        temporary.unlink(missing_ok=True)
-
-    return destination, hashlib.sha256(artifact_bytes).hexdigest()
+    return envelope
 
 
-def _private_attempt_evidence_index(
-    directory: Path,
-    *,
-    pass_ordinal: int,
-    pass_name: str,
-    exclude_names: set[str] | None = None,
-) -> list[dict[str, Any]]:
-    """Index durable response events without copying their private text into the ledger."""
-    directory = Path(directory)
-    if not directory.is_dir() or directory.is_symlink():
-        return []
-    prefix = f"{pass_ordinal:02d}-{pass_name}-attempt-"
-    excluded = exclude_names or set()
-    entries: list[dict[str, Any]] = []
-    for path in sorted(directory.glob(f"{prefix}*.json")):
-        if path.name in excluded:
-            continue
-        if path.is_symlink() or not path.is_file():
-            continue
-        artifact_bytes = path.read_bytes()
-        try:
-            artifact = json.loads(artifact_bytes)
-            event = artifact.get("ge_attempt")
-            if not isinstance(event, dict):
-                continue
-        except (UnicodeDecodeError, json.JSONDecodeError):
-            continue
-        entries.append(
-            {
-                "event_id": event.get("event_id"),
-                "ordinal": event.get("ordinal"),
-                "kind": event.get("kind"),
-                "response_status": event.get("response_status"),
-                "path": str(path),
-                "sha256": hashlib.sha256(artifact_bytes).hexdigest(),
-            }
-        )
-    return entries
+def _persist_attempt_response(evidence, request, event) -> dict[str, Any]:
+    from application_state.ingest.components import persist_execution_event
+
+    payload = event.model_dump(mode="json")
+    envelope = _private_response_envelope(
+        binding=evidence["binding"], ordinal=evidence["pass_ordinal"],
+        pass_name=evidence["pass_name"], request=request,
+        context_hashes=evidence["context_hashes"], raw_observation=payload,
+        response_text=event.text, attempt_event=payload,
+    )
+    digest = persist_execution_event(
+        binding=evidence["binding"], kind="raw_model_response",
+        payload=_canonical_json_bytes(envelope) + b"\n",
+    )
+    return {key: payload[key] for key in ("event_id", "ordinal", "kind", "response_status")} | {
+        "capture_id": envelope["capture_id"], "sha256": digest,
+    }
 
 
 class NonObjectResponseError(ValueError):
@@ -340,16 +280,11 @@ class BoundedRecapPassClient:
         *,
         engine_factory=None,
         clock=time.monotonic,
-        response_artifact_dir: str | os.PathLike[str] | None = None,
         request_context_hashes: Mapping[str, str] | None = None,
         supplemental_context: str | None = None,
     ):
         from generationengine.types import TextRequest
 
-        if (response_artifact_dir is None) != (request_context_hashes is None):
-            raise ValueError(
-                "private response evidence requires both a sink and context hashes"
-            )
         if request_context_hashes is not None:
             if not request_context_hashes or any(
                 not isinstance(name, str)
@@ -360,19 +295,129 @@ class BoundedRecapPassClient:
             ):
                 raise ValueError("private response context must contain SHA-256 digests")
 
-        if supplemental_context is not None and (not isinstance(supplemental_context,str) or len(supplemental_context)>26000):raise ValueError("Supplemental evidence context exceeds its bound")
+        if supplemental_context is not None and (
+            not isinstance(supplemental_context, str) or len(supplemental_context) > 26000
+        ):
+            raise ValueError("Supplemental evidence context exceeds its bound")
         self.supplemental_context=supplemental_context
         self.limits = limits
         self._engine_factory = engine_factory or partial(_default_engine_for, limits.provider)
         self._request_type = TextRequest
         self._clock = clock
         self._started = clock()
-        self._response_artifact_dir = (
-            Path(response_artifact_dir) if response_artifact_dir is not None else None
-        )
+        self.execution_binding: dict[str, Any] | None = None
+        self.retention_failed = False
         self._request_context_hashes = dict(request_context_hashes or {})
         self.calls: list[dict[str, Any]] = []
         self._stopped = False
+
+    def bind_to_run(self, run) -> None:
+        from application_state.ingest.components import execution_evidence_binding
+
+        if self.calls or self.execution_binding is not None:
+            raise ValueError("bounded client already used or bound")
+        binding = execution_evidence_binding(run_id=run.run_id, expected_revision=run.revision)
+        if binding["model_id"] != self.limits.model:
+            raise ValueError("bounded client model differs from prepared run")
+        expected = self._request_context_hashes.get("source_content")
+        if expected is not None and expected != binding["source_sha256"]:
+            raise ValueError("bounded client context differs from prepared source")
+        self.execution_binding = binding
+        self._request_context_hashes.update({
+            "source_content": binding["source_sha256"],
+            "source_identity": hashlib.sha256(binding["source_artifact_id"].encode()).hexdigest(),
+            "profile_identity": hashlib.sha256(binding["profile_id"].encode()).hexdigest(),
+        })
+
+    def _persist_capture(self, kind, record):
+        from application_state.ingest.components import persist_execution_event
+
+        try:
+            return persist_execution_event(
+                binding=self.execution_binding, kind=kind,
+                payload=_canonical_json_bytes(record) + b"\n",
+            )
+        except Exception:
+            self.retention_failed = True
+            raise
+
+    def _execution_records(self):
+        from application_state.ingest.components import list_private_execution_events
+
+        try:
+            return list_private_execution_events(
+                binding=self.execution_binding,
+                expected_revision=self.execution_binding["prepared_revision"],
+            )
+        except Exception:
+            self.retention_failed = True
+            raise
+
+    def _attempt_index(self, ordinal, pass_name):
+        entries = []
+        for row in self._execution_records():
+            record = row["record"]
+            if (record.get("pass_ordinal") != ordinal or record.get("pass_name") != pass_name
+                    or "ge_attempt" not in record):
+                continue
+            event = record["ge_attempt"]
+            entries.append({key: event[key] for key in ("event_id", "ordinal", "kind", "response_status")} | {
+                "capture_id": record["capture_id"], "sha256": row["sha256"],
+            })
+        return sorted(entries, key=lambda entry: (entry["ordinal"], entry["event_id"]))
+
+    def seal_execution(self, *, private_response=None, error=None):
+        """Compose existing advisory evidence and committed captures before freeze."""
+        if self.execution_binding is None:
+            raise RuntimeError("execution evidence has no prepared binding")
+        binding = self.execution_binding
+        self._persist_capture("pass_telemetry", {
+            "schema": "dmb_bounded_recap_execution_v1",
+            "execution_binding": binding, "capture_id": "execution-outcome",
+            "execution": self.ledger(),
+        })
+        if self.retention_failed:
+            raise RuntimeError("required execution capture needs reconciliation")
+        records = self._execution_records()
+        if private_response is not None:
+            try:
+                bundle = json.loads(private_response)
+            except (ValueError, TypeError):
+                bundle = None
+        else:
+            bundle = None
+        if private_response is not None and error is None and (
+            not isinstance(bundle, dict)
+            or bundle.get("schema") != "dmb_private_extraction_review_bundle_v1"
+        ):
+            raise ValueError("invalid private extraction success evidence")
+        if (isinstance(bundle, dict) and bundle.get("schema") in {
+                "dmb_private_extraction_review_bundle_v1", "dmb_private_extraction_failure_bundle_v1"}):
+            if (bundle.get("source_artifact_id") != binding["source_artifact_id"]
+                    or bundle.get("source_sha256") != binding["source_sha256"]
+                    or bundle.get("profile") != binding["profile_id"]):
+                raise ValueError("private advisory evidence identity mismatch")
+            bundle["original_review_evidence_utf8"] = private_response
+        else:
+            bundle = {
+                "schema": "dmb_private_extraction_failure_bundle_v1" if error else "dmb_private_extraction_review_bundle_v1",
+                "profile": binding["profile_id"],
+                "source_artifact_id": binding["source_artifact_id"],
+                "source_sha256": binding["source_sha256"],
+                "completed_passes": [], "pending_pass": None, "advisory": None,
+                "execution_observations": self.ledger()["calls"],
+            }
+            if error is not None or private_response is not None:
+                bundle["failure"] = {"type": type(error).__name__ if error else None,
+                                     "raw_text": private_response}
+        bundle["execution_evidence"] = {"binding": binding, "records": [
+            {"kind": row["kind"], "sha256": row["sha256"], "envelope": row["record"]}
+            for row in records
+        ]}
+        ledger = {**self.ledger(), "binding": binding, "run_id": binding["run_id"],
+                  "source_artifact_id": binding["source_artifact_id"],
+                  "source_sha256": binding["source_sha256"]}
+        return _canonical_json_bytes(bundle) + b"\n", _canonical_json_bytes(ledger) + b"\n"
 
     def ledger(self) -> dict[str, Any]:
         def aggregate(field: str) -> dict[str, Any]:
@@ -397,6 +442,7 @@ class BoundedRecapPassClient:
             "schema": "dmb_bounded_recap_execution_v1",
             "limits": asdict(self.limits),
             "pass_invocation_count": len(self.calls),
+            "acknowledged_response_count": sum(len(call.get("attempt_evidence", [])) for call in self.calls),
             "pass_invocation_limit": self.limits.max_calls,
             "attempt_counts": {
                 "provider_attempts": aggregate("provider_attempt_count"),
@@ -536,41 +582,38 @@ class BoundedRecapPassClient:
         result = None
         try:
             request_payload = request.model_dump(mode="json")
-            evidence_prefix = f"{len(self.calls):02d}-{pass_name}-attempt-"
-            preexisting_evidence = (
-                {
-                    path.name
-                    for path in self._response_artifact_dir.glob(f"{evidence_prefix}*.json")
-                }
-                if self._response_artifact_dir is not None
-                and self._response_artifact_dir.is_dir()
-                else set()
-            )
-            outcome = _execute_in_owned_process(
-                self._engine_factory, request_payload,
-                deadline=wall_started + request.deadline_ms / 1000,
-                attempt_evidence=(
-                    {
-                        "directory": str(self._response_artifact_dir),
-                        "pass_ordinal": len(self.calls),
-                        "pass_name": pass_name,
-                        "context_hashes": context_hashes,
-                    }
-                    if self._response_artifact_dir is not None
-                    else None
-                ),
-            )
+            if self.execution_binding is not None:
+                try:
+                    self._persist_capture("pass_telemetry", {
+                        "schema": "dmb_private_extraction_invocation_v1",
+                        "execution_binding": self.execution_binding,
+                        "capture_id": f"invocation:{len(self.calls)}",
+                        "request_sha256": hashlib.sha256(_canonical_json_bytes(request_payload)).hexdigest(),
+                        "call": dict(entry),
+                    })
+                except Exception:
+                    entry["external_outcome"] = "not_started"
+                    raise
+            try:
+                outcome = _execute_in_owned_process(
+                    self._engine_factory, request_payload,
+                    deadline=wall_started + request.deadline_ms / 1000,
+                    attempt_evidence=(
+                        {"binding": self.execution_binding,
+                         "pass_ordinal": len(self.calls), "pass_name": pass_name,
+                         "context_hashes": context_hashes}
+                        if self.execution_binding is not None else None
+                    ),
+                )
+            finally:
+                # Database recovery also runs after malformed/missing IPC or a
+                # real child kill. Receipt metadata never substitutes for bytes.
+                if self.execution_binding is not None:
+                    entry["attempt_evidence"] = self._attempt_index(len(self.calls), pass_name)
             entry["wall_clock_ms"] = int((time.monotonic() - wall_started) * 1000)
             entry["worker_cleanup"] = "terminated" if outcome.terminated else "reaped"
             if outcome.terminated:
                 self._stopped = True
-            if self._response_artifact_dir is not None:
-                entry["attempt_evidence"] = _private_attempt_evidence_index(
-                    self._response_artifact_dir,
-                    pass_ordinal=len(self.calls),
-                    pass_name=pass_name,
-                    exclude_names=preexisting_evidence,
-                )
             receipt = outcome.receipt
             if receipt is None:
                 entry["external_outcome"] = "unknown"
@@ -586,6 +629,7 @@ class BoundedRecapPassClient:
                     entry["consumer_outcome"] = "invalid_structured_output"
                 elif receipt["failure_code"] == "ATTEMPT_EVIDENCE_PERSISTENCE_FAILED":
                     entry["consumer_failure"] = "AttemptEvidencePersistenceFailed"
+                    self.retention_failed = True
                 raise CategoryGraphExtractionError(
                     "bounded inference failed: " + receipt["failure_code"],
                     pass_name=pass_name,
@@ -599,8 +643,7 @@ class BoundedRecapPassClient:
                 )
             if entry["attempt_evidence"]:
                 final_attempt = entry["attempt_evidence"][-1]
-                entry["response_artifact_path"] = final_attempt["path"]
-                entry["response_artifact_sha256"] = final_attempt["sha256"]
+                entry["response_component"] = {"kind": "raw_model_response", "sha256": final_attempt["sha256"]}
             result = TextResult.model_validate(receipt["result"])
             observation = result.observation.model_dump(mode="json")
             entry["observation"] = observation
@@ -630,6 +673,8 @@ class BoundedRecapPassClient:
             entry["consumer_failure"] = type(exc).__name__
             if isinstance(exc, _WorkerStartFailure):
                 entry["external_outcome"] = "not_started"
+            else:
+                entry.setdefault("external_outcome", "unknown")
             raise CategoryGraphExtractionError(
                 "bounded extraction pass failed", pass_name=pass_name,
                 raw_model_response=result.text if result is not None else None,
@@ -649,9 +694,9 @@ class BoundedRecapPassClient:
                     expected_packet_id=context_hashes["actor_source_packet"],
                 )
                 validate_json_schema(parsed, canonical_schema)
-                if self._response_artifact_dir is not None:
-                    path, sha = _write_private_response_evidence(
-                        self._response_artifact_dir,
+                if self.execution_binding is not None:
+                    envelope = _private_response_envelope(
+                        binding=self.execution_binding,
                         ordinal=len(self.calls), pass_name=pass_name + "-normalized",
                         request=request_payload, context_hashes=context_hashes,
                         raw_observation=observation,
@@ -660,7 +705,8 @@ class BoundedRecapPassClient:
                             "source_units": [asdict(unit) for unit in source_evidence_packet.units],
                         }, ensure_ascii=False),
                     )
-                    entry["normalized_artifact"] = {"path": str(path), "sha256": sha}
+                    sha = self._persist_capture("raw_model_response", envelope)
+                    entry["normalized_component"] = {"kind": "raw_model_response", "sha256": sha}
         except (json.JSONDecodeError, NonObjectResponseError, JsonSchemaValidationError) as exc:
             self._stopped = True
             entry["consumer_failure"] = type(exc).__name__

@@ -1,6 +1,5 @@
 from __future__ import annotations
-from tests.page_fixtures import create_page_fixture
-from apps.live_control_server.services.workspace_document_registry import get_workspace_document
+from tests.page_fixtures import create_page_fixture, save_page
 
 import hashlib
 import json
@@ -31,10 +30,7 @@ def _registered_source(root: Path):
         authority_state="draft",
         visibility_state="internal",
     )
-    path = root / (record.target_relpath or "")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(SOURCE, encoding="utf-8")
-    committed = get_workspace_document(root, record.document_id)
+    committed = save_page(root, record.document_id, SOURCE)
     artifact = create_source_artifact_from_workspace_document(
         root,
         document_id=committed.document_id,
@@ -61,6 +57,7 @@ class _FakeRun:
 
 
 @pytest.mark.parametrize("profile_version", ["1.5", "1.6", "1.7", "1.8", "1.9", "1.10", "1.11", "1.12", "1.13"])
+@pytest.mark.usefixtures("application_state_dsn")
 def test_generationengine_execution_pins_exact_source_profile_and_provider(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, profile_version: str,
 ) -> None:
@@ -103,17 +100,10 @@ def test_generationengine_execution_pins_exact_source_profile_and_provider(
     assert client.kwargs["request_context_hashes"]["profile_identity"] == hashlib.sha256(
         f"worldbuilding_gazetteer_v1@{profile_version}".encode()
     ).hexdigest()
-    ledger = next((tmp_path / "out/graph_memory/runs/extraction").rglob("inference_call_ledger.json"))
-    ledger_json = json.loads(ledger.read_text(encoding="utf-8"))
-    assert ledger_json["schema_version"] == "dmb_worldbuilding_generationengine_ledger_v1"
-    assert ledger_json["document_revision"] == committed.revision
-    assert ledger_json["source_sha256"] == expected_sha
-    assert ledger_json["profile_id"] == f"worldbuilding_gazetteer_v1@{profile_version}"
-    assert ledger_json["run_id"] == "run-worldbuilding"
-    assert ledger.stat().st_mode & 0o777 == 0o600
-    assert ledger.parent.stat().st_mode & 0o077 == 0
+    assert not (tmp_path / "out").exists()
 
 
+@pytest.mark.usefixtures("application_state_dsn")
 def test_generationengine_execution_rejects_digest_mismatch_before_client(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -238,12 +228,12 @@ class _SchemaAwareFakeProvider:
 
 
 @pytest.mark.parametrize("profile_version", ["1.5", "1.11", "1.12", "1.13"])
-@pytest.mark.parametrize("fail_ledger", [False, True])
+@pytest.mark.parametrize("fail_retention", [False, True])
 def test_real_ge_service_composition_tracks_conformance_and_fails_closed(
     tmp_path: Path,
     application_state_dsn: str,
     monkeypatch: pytest.MonkeyPatch,
-    fail_ledger: bool,
+    fail_retention: bool,
     profile_version: str,
 ) -> None:
     from apps.live_control_server.services import worldbuilding_ge_execution as service
@@ -277,11 +267,14 @@ def test_real_ge_service_composition_tracks_conformance_and_fails_closed(
 
     monkeypatch.setattr(service, "BoundedRecapPassClient", InjectedBoundedClient)
     monkeypatch.setattr(service, "run_production_extraction", capture_runner_result)
-    if fail_ledger:
-        def fail_private_ledger(path: Path, payload: dict[str, Any]) -> None:
-            raise service.WorldbuildingExecutionEvidenceError("simulated ledger failure")
-
-        monkeypatch.setattr(service, "_write_private_json", fail_private_ledger)
+    if fail_retention:
+        from application_state.ingest import components
+        persist = components.persist_component_payload
+        def fail_final_telemetry(**kwargs):
+            if kwargs["kind"].value == "pass_telemetry":
+                raise OSError("synthetic final telemetry failure")
+            return persist(**kwargs)
+        monkeypatch.setattr(components, "persist_component_payload", fail_final_telemetry)
 
     def perform_run() -> Any:
         return service.run_gazetteer_with_generation_engine(
@@ -293,32 +286,35 @@ def test_real_ge_service_composition_tracks_conformance_and_fails_closed(
             profile_version=profile_version,
         )
 
-    if fail_ledger:
-        with pytest.raises(
-            service.WorldbuildingExecutionEvidenceError,
-            match="simulated ledger failure",
-        ):
-            perform_run()
-    else:
+    # All source and capture data are in APP. Persistent extraction directories
+    # are unavailable; temporary child IPC remains a separate transport concern.
+    original_open = Path.open
+    def deny_persistent_output(path, mode="r", *args, **kwargs):
+        if any(flag in mode for flag in "wax+") and path.is_relative_to(tmp_path):
+            raise OSError("persistent extraction output unavailable")
+        return original_open(path, mode, *args, **kwargs)
+    with monkeypatch.context() as guard:
+        guard.setattr(Path, "open", deny_persistent_output)
         result = perform_run()
-        assert result.run.status == ExtractionRunStatus.REVIEWABLE
-        ledger = next(
-            (tmp_path / "out/graph_memory/runs/extraction").rglob(
-                "inference_call_ledger.json"
-            )
-        )
-        ledger_payload = json.loads(ledger.read_text(encoding="utf-8"))
+    if fail_retention:
+        assert result.run.status == ExtractionRunStatus.INCOMPLETE
+        assert result.failure_kind == "evidence_retention"
+    else:
+        from application_state.ingest.components import get_component_bytes
+        assert result.run.status == ExtractionRunStatus.REVIEWABLE, result.diagnostics
+        ref = result.run.components["pass_telemetry"]
+        ledger_payload = json.loads(get_component_bytes(
+            run_id=result.run.run_id, kind=ref.kind, content_sha256=ref.sha256,
+        ))
         assert ledger_payload["run_id"] == result.run.run_id
-        assert ledger_payload["execution"]["attempt_counts"]["conformance_retries"] == {
-            "total": 1,
-            "known_total": 1,
-            "complete": True,
+        assert ledger_payload["binding"]["source_sha256"] == artifact.content_sha256
+        assert ledger_payload["attempt_counts"]["conformance_retries"] == {
+            "total": 1, "known_total": 1, "complete": True,
         }
-        assert ledger_payload["execution"]["attempt_counts"]["transport_retries"] == {
-            "total": 0,
-            "known_total": 0,
-            "complete": True,
+        assert ledger_payload["attempt_counts"]["transport_retries"] == {
+            "total": 0, "known_total": 0, "complete": True,
         }
+    assert not (tmp_path / "out").exists()
 
     assert len(results) == 1
     original = results[0]
@@ -329,12 +325,17 @@ def test_real_ge_service_composition_tracks_conformance_and_fails_closed(
     correction = execution["calls"][0]["attempt_evidence"]
     assert [item["kind"] for item in correction] == ["initial", "conformance"]
 
-    if fail_ledger:
+    if fail_retention:
+        from application_state.ingest.components import list_private_execution_events
         root = service.artifact_data_root(tmp_path)
-        failed = get_extraction_run(root, original.run.run_id)
-        assert failed.status == ExtractionRunStatus.FAILED
-        assert failed.lineage["usage_ledger_state"] == "missing"
-        assert "inference_call_ledger_persistence_failed" in failed.diagnostics.errors
+        incomplete = get_extraction_run(root, original.run.run_id)
+        assert incomplete.status == ExtractionRunStatus.INCOMPLETE
+        assert incomplete.lineage["execution_evidence_state"] == "needs_reconciliation"
+        assert "execution_evidence_retention_failed" in incomplete.diagnostics.errors
+        events = list_private_execution_events(
+            binding=incomplete.lineage["execution_evidence_binding"], expected_revision=incomplete.revision,
+        )
+        assert sum("ge_attempt" in row["record"] for row in events) == provider_calls.value
         with pytest.raises(GraphRunRegistryError, match="not reviewable"):
             get_reviewable_extraction_run(root, original.run.run_id)
 
@@ -354,7 +355,8 @@ def test_unknown_profile_rejects_before_source_or_provider_work(tmp_path, monkey
 
 
 @pytest.mark.parametrize('provider,model', [('vercel','vendor/explicit-model'), ('openai','gpt-6.1-sol')])
-def test_registered_source_owner_preserves_explicit_target_in_request_and_ledger(tmp_path, monkeypatch, provider, model):
+@pytest.mark.usefixtures("application_state_dsn")
+def test_registered_source_owner_preserves_explicit_target_in_request(tmp_path, monkeypatch, provider, model):
     from apps.live_control_server.services import worldbuilding_ge_execution as service
     from src.graph_memory.extraction.bounded_recap_execution import RecapExecutionLimits
     committed, artifact = _registered_source(tmp_path)
@@ -370,9 +372,7 @@ def test_registered_source_owner_preserves_explicit_target_in_request_and_ledger
     assert captured[0].model_id == model
     assert captured[0].source.source_text == SOURCE
     assert _FakeBoundedClient.instances[0].limits is limits
-    ledger = json.loads(next((tmp_path/'out/graph_memory/runs/extraction').rglob('inference_call_ledger.json')).read_text())
-    assert (ledger['provider'], ledger['model']) == (provider, model)
-    assert ledger['source_sha256'] == artifact.content_sha256
+    assert not (tmp_path / "out").exists()
 
 
 def test_registered_owner_rejects_untyped_execution_configuration_before_writes(tmp_path):
