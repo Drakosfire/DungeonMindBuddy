@@ -65,10 +65,17 @@ _PASS_SOURCE_FAITHFULNESS: dict[str, str] = {
         "occurred unless the source says it occurred."
     ),
     "edge_pass": (
-        "Keep broad plural references broad unless the source directly identifies "
-        "the specific listed node or subgroup. Do not bind an event to the nearest "
-        "topically related node by proximity alone. Evidence must support the "
-        "relationship itself, not only the existence of its endpoints."
+        "Read each proposed edge as from_node_id → relationship_type → to_node_id. "
+        "Evidence must support the relationship itself, including its direction "
+        "and the predicate's meaning, not only the existence of its endpoints. "
+        "A cautious label does not qualify the assertion made by the predicate: "
+        "a promise or intention is not a completed action. If no catalog predicate "
+        "faithfully expresses the source's modality, omit that edge rather than "
+        "assert a completed relationship. Keep broad plural references broad "
+        "unless the source directly identifies the specific listed node or "
+        "subgroup. Do not bind an event to the nearest topically related node "
+        "by proximity alone. Retain every supported edge whose listed endpoints "
+        "and catalog predicate faithfully express the source."
     ),
 }
 
