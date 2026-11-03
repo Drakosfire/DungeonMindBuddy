@@ -945,7 +945,6 @@ def _reconstruct_expected_contribution(
         mutation_context=mutation_context,
         expected_parent_revision_id=operation.expected_parent_revision_id,
         assertion_ids=None,
-        verify_source=False,
     )
     return contribution
 

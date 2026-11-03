@@ -2180,7 +2180,6 @@ def _admit_and_build_record(
             mutation_context=_mutation_context_from_view(parent_view),
             expected_parent_revision_id=proposal.expected_parent_revision_id,
             assertion_ids=None,
-            verify_source=False,
         )
     except WorldGraphAuthorityError as exc:
         label: ThreatPublicationCommitResultLabel = (
@@ -2417,7 +2416,6 @@ def _maybe_retry(
             root=world_root,
             expected_parent_revision_id=record.expected_parent_revision_id,
             assertion_ids=None,
-            verify_source=False,
         )
     except OSError as exc:
         return (
@@ -2780,7 +2778,6 @@ def confirm_threat_publication(
                         mutation_context=mutation_context,
                         expected_parent_revision_id=record.expected_parent_revision_id,
                         assertion_ids=None,
-                        verify_source=False,
                     )
                     order_disposition = _contribution_order_disposition(
                         contribution,
@@ -3092,7 +3089,6 @@ def confirm_threat_publication(
                     root=configured_world,
                     expected_parent_revision_id=record.expected_parent_revision_id,
                     assertion_ids=None,
-                    verify_source=False,
                 )
             except Exception as exc:  # noqa: BLE001
                 return CommitOutcome(

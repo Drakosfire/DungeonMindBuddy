@@ -767,6 +767,8 @@ def test_same_token_verified_mirror_reuses_catalog_locator(tmp_path: Path) -> No
     assert sealed["source_locator"] in str(replay_effect["accepted_proposals"])
     from graph_memory.extract_promote_ops import resolve_merged_contribution_from_package
 
+    # The admitted source and sealed selection survive local mirror removal.
+    relocated.unlink()
     _, contribution = resolve_merged_contribution_from_package(
         review_package=replay.review_package,
         confirming_principal="gm@test",
@@ -779,8 +781,6 @@ def test_same_token_verified_mirror_reuses_catalog_locator(tmp_path: Path) -> No
             head_revision_id="rev:d0",
             objects={},
         ),
-        repo_root=tmp_path,
-        verify_source=True,
     )
     assert str(relocated) not in str(contribution.accepted_assertions)
     assert sealed["source_locator"] in str(contribution.accepted_assertions)

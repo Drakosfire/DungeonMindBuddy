@@ -670,8 +670,6 @@ def test_native_recap_genesis_is_atomic_and_replays_exactly(
         mutation_context=mutation_context,
         expected_parent_revision_id=d0,
         assertion_ids=None,
-        verify_source=True,
-        repo_root=repo,
     )
     child = graph_authority.publish(
         WorldGraphPublishRequest(
@@ -1283,8 +1281,6 @@ def test_candidate_admission_real_postgres_sequence(native_first_world_client) -
             expected_parent_revision_id=context.revision_id,
             assertion_ids=None,
             mutation_context=context,
-            verify_source=True,
-            repo_root=repo,
         )
         return confirm_candidate_graph_admission(
             review_package=package,

@@ -1849,10 +1849,9 @@ def _reconstruct_selected_contribution(
     parent_revision_id: str,
     confirming_principal: str,
     assertion_ids: tuple[str, ...] | None,
-    repo_root: Path,
     mutation_context: WorldGraphMutationContext,
 ) -> tuple[Any, Any]:
-    """Rebuild the sealed contribution against an exact DungeonMind parent."""
+    """Rebuild selection; DungeonMind re-proves admitted source authority below."""
     from graph_memory.extract_promote_ops import (
         resolve_merged_contribution_from_package,
     )
@@ -1864,12 +1863,6 @@ def _reconstruct_selected_contribution(
         mutation_context=mutation_context,
         expected_parent_revision_id=parent_revision_id,
         assertion_ids=assertion_ids,
-        repo_root=repo_root,
-        disclose_source_digest=False,
-        # Reconstruct the sealed selection only. Source authority is re-proved
-        # below through DungeonMind's admitted source/revision receipt; a local
-        # file is neither that authority nor the captured database body.
-        verify_source=False,
     )
 
 
@@ -2368,7 +2361,6 @@ def confirm_extract_promote_via_dungeonmind(
         parent_revision_id=parent_revision_id,
         confirming_principal=confirming_principal,
         assertion_ids=assertion_ids,
-        repo_root=repo_root,
         mutation_context=mutation_context,
     )
     accepted_assertion_ids, affected_object_ids = _affected_ids_from_contribution(
