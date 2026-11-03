@@ -1,4 +1,4 @@
-"""Explicit saved Recap review and confirmation of its exact WK preparation."""
+"""Explicit saved candidate review and confirmation of its exact WK preparation."""
 
 from typing import Annotated, Literal
 from datetime import datetime
@@ -82,13 +82,11 @@ class RecordSelection(Closed):
         return self
 
 
-class NativeRecapPrepareRequest(Closed):
+class _CandidatePrepareRequest(Closed):
     managed_world_id: Text
-    campaign_id: Text
     run_id: Text
     expected_run_revision: int = Field(ge=1, strict=True)
     candidate_sha256: Digest
-    source_admission_run_id: Text
     expected_parent_revision_id: Text
     expected_source_authority_epoch: int = Field(ge=1, strict=True)
     selections: list[RecordSelection]
@@ -101,19 +99,32 @@ class NativeRecapPrepareRequest(Closed):
         return self
 
 
+class NativeRecapPrepareRequest(_CandidatePrepareRequest):
+    campaign_id: Text
+    source_admission_run_id: Text
+
+
+class NativeWorldbuildingPrepareRequest(_CandidatePrepareRequest):
+    workspace_document_id: Text
+    workspace_document_revision: int = Field(ge=1, strict=True)
+
+
 class NativeRecapReviewEnvelope(Closed):
-    purpose: Literal["dmb_native_recap_confirm_v1"]
-    producer: Literal["dungeonbuddy:reviewed-recap"]
+    purpose: Literal["dmb_native_recap_confirm_v1", "dmb_native_worldbuilding_confirm_v1"]
+    producer: Literal["dungeonbuddy:reviewed-recap", "dungeonbuddy:reviewed-worldbuilding"]
     principal: Text
     binding: dict[str, JsonValue] = Field(min_length=1)
     parent_context: dict[str, JsonValue] = Field(min_length=1)
-    review: NativeRecapPrepareRequest
+    review: NativeRecapPrepareRequest | NativeWorldbuildingPrepareRequest
     prepared_change_id: Text
     prepared_digest: Digest
     expires_at: datetime
 
     @model_validator(mode="after")
     def aware_expiry(self):
+        domain = "recap" if isinstance(self.review, NativeRecapPrepareRequest) else "worldbuilding"
+        if self.purpose != f"dmb_native_{domain}_confirm_v1" or self.producer != f"dungeonbuddy:reviewed-{domain}":
+            raise ValueError("review purpose and producer must match the reviewed source scope")
         if self.expires_at.utcoffset() is None:
             raise ValueError("review expiry must be timezone-aware")
         return self

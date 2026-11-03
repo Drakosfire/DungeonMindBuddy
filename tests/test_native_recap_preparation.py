@@ -23,6 +23,7 @@ from worldkeeper.application import CreateObject, CreateRelationship, DurableObj
 from apps.live_control_server.routes.extract_promote import router
 from apps.live_control_server.services import native_recap_preparation as service
 from apps.live_control_server.integrations.worldkeeper import registry_standing_consumer as transport
+from application_state.source.service import get_source_markdown as read_actual_source
 from graph_memory.candidate_graph_preview import NODE_TYPES
 from graph_memory.source_span import build_source_span_index_for_text
 from tests.test_con_ready_play_worldkeeper_consumer import (
@@ -652,7 +653,9 @@ def test_first_commit_requires_current_core_source_opening(lane, monkeypatch, fa
     assert len(lane.repo.head_events(SPACE_ID)) == before
 
 
-def test_committed_recovery_survives_expiry_new_head_and_unavailable_sources(lane, monkeypatch):
+@pytest.mark.parametrize("fixture", ["lane", "world_lane"])
+def test_committed_recovery_survives_expiry_new_head_and_unavailable_sources(request, fixture, monkeypatch):
+    lane = request.getfixturevalue(fixture)
     from datetime import timedelta
     packet = confirmation(lane)
     first = confirm(lane, packet)
@@ -676,6 +679,7 @@ def test_committed_recovery_survives_expiry_new_head_and_unavailable_sources(lan
     monkeypatch.setattr(service, "load_reviewable_extraction_data", lambda *_: pytest.fail("APP run reload"))
     monkeypatch.setattr(service.sources, "get_source_markdown", lambda **_: pytest.fail("APP source reload"))
     monkeypatch.setattr(service.native, "access_context", lambda *_: pytest.fail("current source view on recovery"))
+    monkeypatch.setattr(service.world_admission, "get_native_world_source_status", lambda *a, **k: pytest.fail("APP workspace reload on recovery"))
     before = len(lane.repo.head_events(SPACE_ID))
     retry = confirm(lane, packet)
     assert retry.status_code == 200, retry.text
@@ -780,3 +784,234 @@ def test_different_review_cannot_reuse_committed_publication_id(lane, monkeypatc
     assert conflict.json()["detail"]["code"] == "native_recap_commit_conflict"
     assert not conflict.json()["detail"]["retry_original_packet"]
     assert len(lane.repo.head_events(SPACE_ID)) == before
+
+
+@pytest.fixture
+def world_lane(lane, application_state_dsn, monkeypatch):
+    """Real committed APP page/source + existing World admission owner + WK/Core."""
+    from tests.test_demo_j1_native_world_source_admission import _committed_source
+    from tests.application_state.world_catalog_fixtures import change_binding
+    from apps.live_control_server.services.source_artifact_registry import create_source_artifact_from_workspace_document
+    from apps.live_control_server.services.workspace_document_registry import get_committed_page_snapshot
+    monkeypatch.setattr(service.sources, "get_source_markdown", read_actual_source)
+    world, record = _committed_source(lane.tmp_path, markdown=lane.text)
+    change_binding(world.world_id, native_world_id=SPACE_ID, binding_version=3)
+    artifact = create_source_artifact_from_workspace_document(lane.tmp_path,
+        document_id=record.document_id, expected_revision=record.revision)
+    source = read_actual_source(source_artifact_id=artifact.source_artifact_id,
+                               content_sha256=artifact.content_sha256)
+    lane.text = source.markdown
+    lane.data.source_bytes = source.markdown.encode("utf-8")
+    monkeypatch.setattr(service.world_admission, "_repository", lambda: lane.repo)
+    admitted = service.world_admission.admit_native_world_source(lane.tmp_path,
+        record.document_id, expected_revision=record.revision,
+        expected_body_sha256=source.content_sha256)
+    first_end = len(lane.text.splitlines(keepends=True)[0].encode())
+    extension = publish_native_source_evidence_extension(
+        repository=lane.repo, domain_contract=lane.domain, semantic_profile=lane.profile,
+        audience_labels=("dungeonbuddy.visibility:gm",),
+        request=NativeSourceEvidenceExtensionV1(
+            space_id=SPACE_ID, extension_id="world-fixture-support",
+            original_admission_id=admitted.admission_id,
+            source_artifact_id=admitted.source_artifact_id,
+            source_revision_id=admitted.source_revision_id,
+            expected_body_sha256=admitted.body_sha256, created_at=datetime.now(UTC),
+            expected_parent_revision_id=lane.repo.get_head(SPACE_ID).head_revision_id,
+            expected_source_authority_epoch=lane.repo.open_native_source_view(SPACE_ID).epoch,
+            spans=[dict(client_ref="first", evidence_role="support", start_byte=0,
+                end_byte=first_end, expected_slice_sha256=sha256(lane.text.encode()[:first_end]).hexdigest())]))
+    evidence_id = extension.bindings[0].evidence_ref_id
+    lane.world, lane.record = world, record
+    lane.source, lane.artifact, lane.world_admitted = source, artifact, admitted
+    lane.data.source_artifact = artifact
+    lane.run.source_domain, lane.run.campaign_id, lane.run.session_id = "worldbuilding", world.world_id, None
+    lane.run.lineage = {"generation": {"historical": True}}
+    spans = build_source_span_index_for_text(source_artifact_id=artifact.source_artifact_id,
+                                            content_sha256=artifact.content_sha256, text=lane.text)
+    lane.data.span_index = spans
+    lane.payload.update(campaign_id=world.world_id, session_id=None,
+                        source_artifact_ids=[artifact.source_artifact_id])
+    for kind in ("nodes", "edges", "beats", "ignored_items", "deferred_items"):
+        for row in lane.payload[kind]:
+            for ref in row["evidence_refs"]:
+                ref.update(source_artifact_id=artifact.source_artifact_id,
+                           source_span_ref_id=spans.spans[0].source_span_id)
+    lane.refresh()
+    selections = copy.deepcopy(lane.body["selections"])
+    selections = [s for s in selections if s["kind"] != "beat"]
+    for selection in selections:
+        for fact in selection.get("facts", []):
+            fact["metadata"]["evidence_ref_ids"] = [evidence_id]
+        if selection.get("metadata"):
+            selection["metadata"]["evidence_ref_ids"] = [evidence_id]
+    lane.body.update(managed_world_id=world.world_id,
+        workspace_document_id=record.document_id, workspace_document_revision=record.revision,
+        expected_parent_revision_id=lane.repo.get_head(SPACE_ID).head_revision_id,
+        expected_source_authority_epoch=lane.repo.open_native_source_view(SPACE_ID).epoch,
+        selections=selections)
+    del lane.body["campaign_id"], lane.body["source_admission_run_id"]
+    monkeypatch.setattr(service.admission, "inspect", lambda *_: pytest.fail("recap source owner used for World source"))
+    lane.evidence_id = evidence_id
+    lane.saved_page = get_committed_page_snapshot(lane.tmp_path, record.document_id)
+    return lane
+
+
+def test_current_worldbuilding_review_uses_same_native_graph_and_world_scope(world_lane):
+    from apps.live_control_server.services.native_graph_reads import prepare_query, read_selected
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadAuthorizedV1
+    from apps.live_control_server.services.workspace_document_registry import get_committed_page_snapshot
+    x = world_lane
+    before = copy.deepcopy({key: value for key, value in x.repo.__dict__.items() if key != "_lock"})
+    event_count = len(x.repo.head_events(SPACE_ID))
+    packet = confirmation(x)
+    assert {key: value for key, value in x.repo.__dict__.items() if key != "_lock"} == before
+    assert packet["envelope"]["producer"] == "dungeonbuddy:reviewed-worldbuilding"
+    assert packet["envelope"]["purpose"] == "dmb_native_worldbuilding_confirm_v1"
+    prepared = transport.decode_prepared(packet["prepared"])
+    assert all(not f.metadata.scope for op in prepared.prepared_operations[:-1] for f in op.facts)
+    assert not prepared.prepared_operations[-1].metadata.scope
+    first = confirm(x, packet)
+    assert first.status_code == 200, first.text
+    assert confirm(x, packet).json()["result"] == first.json()["result"]
+    assert len(x.repo.head_events(SPACE_ID)) == event_count + 1
+    principal = NativeGraphPrincipal(subject="test:gm", role="gm", auth_method="local_operator")
+    binding = SimpleNamespace(managed_world_id=x.world.world_id, **x.bound)
+    context, query = prepare_query(x.world.world_id, "new", principal, repository=x.repo,
+        resolve_binding=lambda _: binding, scope_mode="world")
+    assert query.assertion_matches
+    grant = NativePlanAssertionReadAuthorizedV1(event_id=uuid4(), sequence=0,
+        provider_attempt_id=uuid4(), query_sha256=query.sha256,
+        assertion_ids=tuple(match.assertion_id for match in query.assertion_matches))
+    reads, unavailable = read_selected(context, grant, principal)
+    assert reads and not unavailable
+    assert all(r.spans[0].evidence_ref_id == x.evidence_id for r in reads)
+    assert all(r.spans[0].text == x.text.splitlines(keepends=True)[0] for r in reads)
+    assert get_committed_page_snapshot(x.tmp_path, x.record.document_id) == x.saved_page
+    assert x.data.source_bytes == x.source.markdown.encode()
+
+
+@pytest.mark.parametrize("fault,code", [
+    ("old_revision", "source_revision_changed"),
+    ("edited_page", "source_revision_changed"),
+    ("unadmitted", "candidate_source_not_admitted"),
+    ("source_world", "candidate_source_mismatch"),
+    ("missing_document", "candidate_workspace_source_required"),
+    ("candidate_bytes", "candidate_bytes_changed"),
+    ("wrong_support", "candidate_support_source_mismatch"),
+    ("parent", "candidate_parent_stale"),
+    ("epoch", "candidate_source_authority_stale"),
+])
+def test_worldbuilding_review_refuses_without_mutation(world_lane, monkeypatch, fault, code):
+    x = world_lane
+    if fault == "old_revision":
+        x.data.source_artifact = x.artifact.model_copy(update={"workspace_document_revision": x.record.revision - 1})
+        x.body["workspace_document_revision"] -= 1
+    elif fault == "edited_page":
+        from apps.live_control_server.services.tiptap_markdown_write import (
+            TiptapMarkdownWritePrepareRequest, TiptapMarkdownWriteCommitRequest,
+            prepare_tiptap_markdown_write, commit_tiptap_markdown_write,
+        )
+        updated = x.source.markdown + "\nNew authored text must be preserved.\n"
+        prepared = prepare_tiptap_markdown_write(root=x.tmp_path,
+            request=TiptapMarkdownWritePrepareRequest(document_id=x.record.document_id,
+                markdown=updated, expected_revision=x.record.revision, write_mode="authoring"))
+        commit_tiptap_markdown_write(root=x.tmp_path,
+            request=TiptapMarkdownWriteCommitRequest(document_id=x.record.document_id,
+                markdown=updated, expected_revision=x.record.revision, write_mode="authoring",
+                writer_confirm_token=prepared.writer_confirm_token))
+    elif fault == "unadmitted":
+        missing = x.world_admitted.model_copy(update={"state": "pending"})
+        monkeypatch.setattr(service.world_admission, "get_native_world_source_status", lambda *a, **k: missing)
+    elif fault == "source_world":
+        x.data.source_artifact = x.artifact.model_copy(update={"world_id": "another-world"})
+    elif fault == "missing_document":
+        x.data.source_artifact = x.artifact.model_copy(update={"workspace_document_id": None})
+    elif fault == "candidate_bytes":
+        x.body["candidate_sha256"] = "0" * 64
+    elif fault == "wrong_support":
+        x.body["selections"][0]["facts"][0]["metadata"]["evidence_ref_ids"] = [x.support_ids["first"]]
+    elif fault == "parent":
+        x.body["expected_parent_revision_id"] = "rev:stale"
+    elif fault == "epoch":
+        x.body["expected_source_authority_epoch"] += 1
+    before = x.repo.get_head(SPACE_ID)
+    response = x.post()
+    assert response.status_code == 409, response.text
+    assert response.json()["detail"]["code"] == code
+    assert x.repo.get_head(SPACE_ID) == before
+
+
+@pytest.mark.parametrize("as_status", [True, False])
+def test_world_source_owner_unavailability_preserves_failure_status(world_lane, monkeypatch, as_status):
+    def unavailable(*args, **kwargs):
+        if as_status:
+            return world_lane.world_admitted.model_copy(update={"state": "pending",
+                "code": "authority_unavailable", "message": "offline"})
+        raise service.world_admission.NativeWorldSourceAdmissionError("authority_unavailable", "offline", status_code=503)
+    monkeypatch.setattr(service.world_admission, "get_native_world_source_status", unavailable)
+    response = world_lane.post()
+    assert response.status_code == 503 and response.json()["detail"]["code"] == "authority_unavailable"
+
+
+def test_recap_cannot_be_broadened_by_omitting_campaign(lane):
+    del lane.body["campaign_id"], lane.body["source_admission_run_id"]
+    lane.body.update(workspace_document_id="not-a-recap-selector", workspace_document_revision=1)
+    before = lane.repo.get_head(SPACE_ID)
+    response = lane.post()
+    assert response.status_code == 409 and response.json()["detail"]["code"] == "candidate_scope_mismatch"
+    assert lane.repo.get_head(SPACE_ID) == before
+
+
+def test_worldbuilding_review_cannot_relabel_signed_recap_envelope(lane):
+    packet = confirmation(lane)
+    packet["envelope"]["producer"] = "dungeonbuddy:reviewed-worldbuilding"
+    packet["envelope"]["purpose"] = "dmb_native_worldbuilding_confirm_v1"
+    packet["token"] = service.sign_publication_intent(packet["envelope"])
+    assert confirm(lane, packet).status_code == 422
+
+
+def test_worldbuilding_request_cannot_inject_campaign_selector(world_lane):
+    world_lane.body.update(campaign_id="foreign", source_admission_run_id="recap")
+    assert world_lane.post().status_code == 422
+
+
+@pytest.mark.parametrize("field,value", [("workspace_document_id", "another-document"),
+                                          ("workspace_document_revision", 999)])
+def test_worldbuilding_request_must_match_saved_typed_source(world_lane, field, value):
+    world_lane.body[field] = value
+    response = world_lane.post()
+    assert response.status_code == 409 and response.json()["detail"]["code"] == "candidate_workspace_source_mismatch"
+
+
+def test_worldbuilding_first_confirmation_refuses_edit_after_preparation(world_lane):
+    from apps.live_control_server.services.tiptap_markdown_write import (
+        TiptapMarkdownWritePrepareRequest, TiptapMarkdownWriteCommitRequest,
+        prepare_tiptap_markdown_write, commit_tiptap_markdown_write,
+    )
+    from apps.live_control_server.services.workspace_document_registry import get_committed_page_snapshot
+    x = world_lane
+    packet = confirmation(x)
+    updated = x.source.markdown + "\nNew authored text must be preserved.\n"
+    edit = prepare_tiptap_markdown_write(root=x.tmp_path,
+        request=TiptapMarkdownWritePrepareRequest(document_id=x.record.document_id,
+            markdown=updated, expected_revision=x.record.revision, write_mode="authoring"))
+    commit_tiptap_markdown_write(root=x.tmp_path,
+        request=TiptapMarkdownWriteCommitRequest(document_id=x.record.document_id,
+            markdown=updated, expected_revision=x.record.revision, write_mode="authoring",
+            writer_confirm_token=edit.writer_confirm_token))
+    current_page = get_committed_page_snapshot(x.tmp_path, x.record.document_id)
+    head = x.repo.get_head(SPACE_ID)
+    epoch = x.repo.open_native_source_view(SPACE_ID).epoch
+    response = confirm(x, packet)
+    assert response.status_code == 409 and response.json()["detail"]["code"] == "source_revision_changed"
+    assert x.repo.get_head(SPACE_ID) == head and x.repo.open_native_source_view(SPACE_ID).epoch == epoch
+    assert x.repo.get_publication_receipt(SPACE_ID, packet["envelope"]["prepared_change_id"]) is None
+    assert get_committed_page_snapshot(x.tmp_path, x.record.document_id) == current_page
+
+
+def test_existing_recap_envelope_wire_shape_has_no_new_world_fields(lane):
+    packet = confirmation(lane)
+    assert set(packet["envelope"]["review"]) == set(lane.body)
+    assert "workspace_document_id" not in packet["envelope"]["review"]
+    assert confirm(lane, packet).status_code == 200
