@@ -1,6 +1,6 @@
 # GRAPH: retire contribution filesystem re-verification
 
-Status: ACTIVE. Owner: PRIME under the operator cleanup/demolition objective.
+Status: MERGED_DELIVERED. Owner: PRIME under the operator cleanup/demolition objective.
 Base: origin/main@2c8ed54d8a84168ec58ca889df7709a75b5578a0.
 Branch: codex/retire-contribution-file-verification; reuse buddy-context-loop.
 Topology: parallel-independent of PR2057@505f39a08d5333fb9cd45cfec2af636718298d0e
@@ -61,3 +61,12 @@ full outputs remain in private runtime-evidence/contribution-file-verification-*
 Native missing-source/fingerprint rejection test bodies remain unchanged; their
 DB integration evidence is required from CI, not claimed from these pure tests.
 Independent review, CI, merge qualification and delivery remain outstanding.
+
+## Settled predecessor
+
+Merged2058 at945e25c04b18d8343a64bf77982d80eed8a463fb after7successful CI
+gates and independent original/projected/actual-merge approvals. Conserved API
+delivery verified8964 source blobs, APP53/Core38 tables,9sessionfiles, savedPlan
+HTTP and UI unchanged; native catalogue439. No provider/Gold/schema/dependency
+changes; native source authority preserved. Private contribution-file-verification-
+api-delivery-proof.json retains exact evidence. Runtime lease RELEASED.

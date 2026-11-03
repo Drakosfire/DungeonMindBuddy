@@ -92,38 +92,6 @@ def normalize_assertion_selection(
     return normalized
 
 
-def _gate_from_verified(verified: Mapping[str, Any]) -> IdentityGateResult:
-    """Rebuild gate state solely from sealed verify() output (no envelope)."""
-    meta = verified["contribution_meta"]
-    placeholder = create_graph_contribution(
-        world_id=str(verified["world_id"]),
-        source_kind=meta["source_kind"],
-        source_artifact_id=meta["source_artifact_id"],
-        source_revision_id=meta["source_revision_id"],
-        extraction_profile=meta["extraction_profile"],
-        campaign_scope=meta.get("campaign_scope"),
-        authored_by=meta["authored_by"],
-    )
-    return IdentityGateResult(
-        parent_revision_id=str(verified["parent_revision_id"]),
-        world_id=str(verified["world_id"]),
-        contribution=placeholder,
-        accepted_proposals=list(verified["accepted_proposals"]),
-        unresolved_mentions=list(verified["unresolved_mentions"]),
-        rejected_assertions=list(verified["rejected_assertions"]),
-        scorer_report={},
-        node_id_map=dict(verified["node_id_map"]),
-        identity_outcome_snapshot=dict(verified["identity_outcome_snapshot"]),
-        diagnostics=[],
-        candidate_preview_id=str(verified["candidate_preview_id"]),
-        candidate_schema=str(verified["candidate_schema"]),
-        candidate_version=str(verified["candidate_version"]),
-        source_revision_id=str(verified["source_revision_id"]),
-        source_artifact_id=str(verified["source_artifact_id"]),
-        verified_source_uri=str(verified["verified_source_uri"]),
-    )
-
-
 def _gate_from_contribution_slice(
     *,
     world_id: str,
