@@ -162,6 +162,141 @@ def test_failed_extraction_keeps_source_and_attempt(client_env, monkeypatch):
     assert raw == process_body()["raw_text"].encode() + b"\n"
 
 
+def test_failed_process_requires_explicit_retry(client_env, monkeypatch):
+    from application_state.ingest.service import get_extraction_run, list_extraction_runs
+    import src.graph_memory.extraction.graph_preview_runner as producer
+
+    client, _ = client_env
+    response = client.post("/api/live/recap-ingest", json=process_body())
+    assert response.status_code == 200, response.text
+    older_success = response.json()["ingest_report"]["graph_preview"]
+    calls = []
+
+    def fail(*a, **kw):
+        calls.append(1)
+        raise RuntimeError("synthetic extraction failure")
+
+    monkeypatch.setattr(producer, "extract_category_candidate_graph", fail)
+
+    def process(**kw):
+        reply = client.post("/api/live/recap-ingest", json=process_body(**kw))
+        assert reply.status_code == 200, reply.text
+        assert reply.json()["status"] == "error"
+        return reply.json()["ingest_report"]["graph_preview"]
+
+    failed = process(force_graph_run=True)
+    before = get_extraction_run(failed["extraction_run_id"])
+    runs_before = list_extraction_runs()
+    repeated = process()
+    assert len(calls) == 1, "ordinary repeat silently executed a new attempt"
+    assert repeated["extraction_run_id"] == failed["extraction_run_id"]
+    assert repeated["extraction_run_id"] != older_success["extraction_run_id"]
+    assert repeated["next_actions"] == ["force_graph_run"]
+    assert get_extraction_run(before.run_id) == before
+    assert list_extraction_runs() == runs_before
+
+    retried = process(force_graph_run=True)
+    assert len(calls) == 2
+    assert retried["extraction_run_id"] != failed["extraction_run_id"]
+    changed = process(raw_text="A keeper returned to the Mireward road.")
+    assert len(calls) == 3
+    assert changed["source_artifact_id"] != failed["source_artifact_id"]
+    assert get_extraction_run(before.run_id) == before
+
+
+@pytest.mark.parametrize("status", ["prepared", "incomplete"])
+def test_pending_process_reopens_saved_attempt_without_dispatch(
+    client_env, monkeypatch, status
+):
+    from application_state.ingest.service import (
+        get_extraction_run, list_extraction_runs, update_extraction_run,
+    )
+    from apps.live_control_server.services.graph_preview_runner import DEEPSEEK_MODEL
+    from graph_memory.ingestion.extraction_run import ExtractionRunStatus
+    import src.graph_memory.extraction.graph_preview_runner as producer
+
+    client, root = client_env
+    saved = _prepare_process_attempt(root)
+    if status == "incomplete":
+        saved = update_extraction_run(
+            saved.run_id, expected_revision=saved.revision,
+            status=ExtractionRunStatus.INCOMPLETE,
+        )
+    before = list_extraction_runs()
+    calls = []
+
+    def fail(*a, **kw):
+        calls.append(1)
+        raise RuntimeError("unexpected duplicate dispatch")
+
+    monkeypatch.setattr(producer, "extract_category_candidate_graph", fail)
+    reply = client.post("/api/live/recap-ingest", json=process_body())
+    assert reply.status_code == 200, reply.text
+    graph = reply.json()["ingest_report"]["graph_preview"]
+    assert not calls, "ordinary repeat silently dispatched while an attempt was saved"
+    assert saved.lineage["model_id"] == DEEPSEEK_MODEL
+    assert graph["extraction_run_id"] == saved.run_id
+    assert graph["extraction_run_status"] == status
+    assert graph["status"] == ("failed" if status == "incomplete" else status)
+    assert graph["next_actions"] == (["force_graph_run"] if status == "incomplete" else [])
+    assert "graph_candidate_ready" not in reply.json()["states"]
+    assert get_extraction_run(saved.run_id) == saved
+    assert list_extraction_runs() == before
+
+
+@pytest.mark.parametrize("change", ["model", "profile"])
+def test_other_saved_configuration_does_not_reuse_pending_attempt(
+    client_env, monkeypatch, change
+):
+    from application_state.ingest.service import get_extraction_run
+    import src.graph_memory.extraction.graph_preview_runner as producer
+
+    client, root = client_env
+    options = {"model_id": "synthetic-other-model"} if change == "model" else {
+        "profile": "category_encounter_job_preview"
+    }
+    saved = _prepare_process_attempt(root, **options)
+    calls = []
+
+    def fail(*a, **kw):
+        calls.append(1)
+        raise RuntimeError("new configuration dispatched")
+
+    monkeypatch.setattr(producer, "extract_category_candidate_graph", fail)
+    reply = client.post("/api/live/recap-ingest", json=process_body())
+    assert reply.status_code == 200, reply.text
+    graph = reply.json()["ingest_report"]["graph_preview"]
+    assert calls == [1]
+    assert graph["extraction_run_id"] != saved.run_id
+    assert graph["extraction_run_status"] == "failed"
+    assert get_extraction_run(saved.run_id) == saved
+
+
+def _prepare_process_attempt(root, **options):
+    from apps.live_control_server.services.graph_preview_runner import (
+        DEEPSEEK_MODEL, run_recap_production_extraction,
+    )
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_recap_source_artifact,
+    )
+
+    # The real prepare-only controller, without a fabricated Build reservation
+    # or a provider call. Its exact configuration must be saved before dispatch.
+    source = create_recap_source_artifact(
+        root, world_id="world:elderwyld", campaign_id="longmont-c2",
+        session_id="session-8", recap_text=process_body()["raw_text"],
+    )
+    return run_recap_production_extraction(
+        repo_root=root, campaign_id="longmont-c2", session_id="session-8",
+        source_artifact_id=source.source_artifact_id, allow_llm=False,
+        ingest_context=SourceScope(
+            managed_world_id="elderwyld", native_world_id="world:elderwyld",
+            binding_version=3, campaign_id="longmont-c2",
+        ),
+        **{"model_id": DEEPSEEK_MODEL, **options},
+    ).run
+
+
 def _write_synthetic_session(tmp_path: Path) -> None:
     """Create minimal synthetic session state for the database-backed route test."""
     packet = {
