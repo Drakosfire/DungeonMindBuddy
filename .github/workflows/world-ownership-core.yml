@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [world-and-content, ingestion-and-review, saved-page-readers]
+        suite: [world-and-content, ingestion-and-review, query-and-answer, saved-page-readers]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     services:
@@ -175,7 +175,7 @@ jobs:
           tests/test_reviewed_corpus_publication.py
 
       - name: Run query answer-authority regressions
-        if: matrix.suite == 'ingestion-and-review'
+        if: matrix.suite == 'query-and-answer'
         run: >-
           uv run --locked pytest -q --tb=short --show-capture=no
           tests/test_agent_context_assembler.py
