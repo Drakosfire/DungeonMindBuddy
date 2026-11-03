@@ -230,3 +230,20 @@ def test_repeated_prose_claims_receive_field_local_qualification_instructions() 
 
     worldbuilding = render_category_pass_prompts(rows, profile=WORLDBUILDING_PLUMBING_PROFILE)
     assert all(rule not in prompt for prompt in worldbuilding.values())
+
+
+def test_meanings_reach_only_recap_edge_prompt():
+    from src.graph_memory.predicate_catalog import recap_predicate_meaning_guidance
+    from src.graph_memory.extraction.worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+
+    guidance = recap_predicate_meaning_guidance()
+    for profile in (RECAP_EXTRACTION_PROFILE, get_extraction_profile(
+        "recap_category_encounter_job_preview", "2.0"
+    )):
+        prompts = render_category_pass_prompts(SYNTHETIC_SOURCE_ROWS, profile=profile)
+        assert guidance in prompts["edge_pass.md"]
+        assert all(guidance not in prompt for key, prompt in prompts.items() if key != "edge_pass.md")
+    for profile in (WORLDBUILDING_PROFILE, WORLDBUILDING_PLUMBING_PROFILE):
+        prompts = render_category_pass_prompts(SYNTHETIC_SOURCE_ROWS, profile=profile)
+        assert all(guidance not in prompt for prompt in prompts.values())
