@@ -1,6 +1,6 @@
 # GRAPH: retire the unreachable Worldbuilding store adapter
 
-Status: ACTIVE. Owner: PRIME under operator cleanup/demolition authority.
+Status: MERGED_DELIVERED; original implementation/delivery leases RELEASED. Owner: PRIME under operator cleanup/demolition authority.
 Base: origin/main@ce41c101cd7af7a19d4ab467638bbbbc0c969b7e.
 Branch: codex/retire-worldbuilding-store-adapter. Reuse buddy-context-loop checkout.
 Topology: serial GRAPH successor to merged/delivered2052; parallel-independent
@@ -52,3 +52,13 @@ remaining Python reference to it. Ruff --no-cache and diff checks pass. Evidence
 worldbuilding-store-adapter-{baseline,after}.log and author-verification.json in
 the established private runtime-evidence root. Independent review, CI, merge and
 conserved delivery remain pending; no mounted DB/full publication claim.
+
+## Completed predecessor settlement
+
+Merged/delivered 0aca7c9ccb4a40eb00f76a53ceeab3f782392cf7 after independent review, actual-merge
+qualification and all seven original-head CI checks. Exact API delivery proof:
+worldbuilding-store-adapter-api-delivery-proof.json under the established private runtime-evidence/
+q01-published-graph-authority root. All91primary tables,nine session files,
+savedPlanHTTP,UI and439nativeobjects conserved; provider0,DBwrites0,dependencies
+unchanged. Existing verification limits remain. This closes the predecessor
+lease and does not claim overall demolition or model/publication acceptance.

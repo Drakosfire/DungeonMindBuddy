@@ -1315,107 +1315,81 @@ def prepare(
         disclose_source_digest=False,
         registry_context_graph=None,
     )
-    if (canonical_run is not None
-        and isinstance(canonical_run.lineage.get("inherited_pc_proof"), dict)
-        and _config.world_graph_authority_mode() != _config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND):
-        raise ExtractPromoteError("inherited PC references require native World authority",
-                                  code="recap_semantic_hold", status_code=409)
     try:
-        if (
-            _config.world_graph_authority_mode()
-            == _config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND
-        ):
-            from apps.live_control_server.integrations.dungeonmind import (
-                world_graph_writes,
+        # The mounted parser admits only DungeonMind and rejects retired modes.
+        _config.world_graph_authority_mode()
+        from apps.live_control_server.integrations.dungeonmind import (
+            world_graph_writes,
+        )
+
+
+        try:
+            mutation_context = world_graph_writes.load_production_mutation_context(
+                target.native_world_id
             )
-
-
-            try:
-                mutation_context = world_graph_writes.load_production_mutation_context(
-                    target.native_world_id
-                )
-            except world_graph_writes.WorldGraphWriteError as exc:
-                raise ExtractPromoteError(
-                    str(exc),
-                    code=exc.code,
-                    status_code=exc.status_code,
-                    diagnostics=[_diagnostic(exc.code, str(exc))],
-                ) from exc
-            operation_basis = _recap_semantic_operation_basis(semantic_assessment)
-            if (canonical_run is not None
-                and _is_pc_reference_operation(canonical_run)
-                and (operation_basis is None
-                     or mutation_context.world_id != operation_basis.get("world_id")
-                     or mutation_context.revision_id != operation_basis.get("expected_head_revision_id")
-                     or mutation_context.head_revision_id != operation_basis.get("expected_head_revision_id"))):
-                raise ExtractPromoteError(
-                    "PC reference native head changed during prepare; semantic review is stale",
-                    code="recap_semantic_hold", status_code=409,
-                )
-            if canonical_run is not None and isinstance(canonical_run.lineage.get("inherited_pc_proof"), dict):
-                from apps.live_control_server.services.recap_semantic_candidate_correction import (
-                    verify_inherited_pc_native_basis,
-                )
-                candidate = json.loads(data.candidate_bytes)
-                if not verify_inherited_pc_native_basis(
-                    candidate, canonical_run.lineage["inherited_pc_proof"], mutation_context,
-                ):
-                    raise ExtractPromoteError("inherited PC native target changed during prepare",
-                                              code="recap_semantic_hold", status_code=409)
-            if prepared_recap_context is not None and getattr(
-                mutation_context, "head_revision_id", None
-            ) != prepared_recap_context.get("head_revision_id"):
-                raise ExtractPromoteError(
-                    "World Graph head changed during review preparation; prepare again.",
-                    code="recap_ingest_context_changed",
-                    status_code=409,
-                )
-            from apps.live_control_server.services.candidate_graph_admission import (
-                prepare_candidate_graph_admission,
+        except world_graph_writes.WorldGraphWriteError as exc:
+            raise ExtractPromoteError(
+                str(exc),
+                code=exc.code,
+                status_code=exc.status_code,
+                diagnostics=[_diagnostic(exc.code, str(exc))],
+            ) from exc
+        operation_basis = _recap_semantic_operation_basis(semantic_assessment)
+        if (canonical_run is not None
+            and _is_pc_reference_operation(canonical_run)
+            and (operation_basis is None
+                 or mutation_context.world_id != operation_basis.get("world_id")
+                 or mutation_context.revision_id != operation_basis.get("expected_head_revision_id")
+                 or mutation_context.head_revision_id != operation_basis.get("expected_head_revision_id"))):
+            raise ExtractPromoteError(
+                "PC reference native head changed during prepare; semantic review is stale",
+                code="recap_semantic_hold", status_code=409,
             )
-
-            result = prepare_candidate_graph_admission(
-                **prepare_kwargs,
-                mutation_context=mutation_context,
+        if canonical_run is not None and isinstance(canonical_run.lineage.get("inherited_pc_proof"), dict):
+            from apps.live_control_server.services.recap_semantic_candidate_correction import (
+                verify_inherited_pc_native_basis,
             )
-            if semantic_assessment is not None:
-                assert canonical_run is not None
-                package = _bind_recap_semantic_effect(
-                    result.review_package, canonical_run, semantic_assessment
-                )
-                result = replace(
-                    result,
-                    review_package=package,
-                    proposal_digest=str(package["proposal_digest"]),
-                )
+            candidate = json.loads(data.candidate_bytes)
+            if not verify_inherited_pc_native_basis(
+                candidate, canonical_run.lineage["inherited_pc_proof"], mutation_context,
+            ):
+                raise ExtractPromoteError("inherited PC native target changed during prepare",
+                                          code="recap_semantic_hold", status_code=409)
+        if prepared_recap_context is not None and getattr(
+            mutation_context, "head_revision_id", None
+        ) != prepared_recap_context.get("head_revision_id"):
+            raise ExtractPromoteError(
+                "World Graph head changed during review preparation; prepare again.",
+                code="recap_ingest_context_changed",
+                status_code=409,
+            )
+        from apps.live_control_server.services.candidate_graph_admission import (
+            prepare_candidate_graph_admission,
+        )
 
-            sealed = world_graph_writes.bind_identity_ledger_to_package(
-                result.review_package, mutation_context
+        result = prepare_candidate_graph_admission(
+            **prepare_kwargs,
+            mutation_context=mutation_context,
+        )
+        if semantic_assessment is not None:
+            assert canonical_run is not None
+            package = _bind_recap_semantic_effect(
+                result.review_package, canonical_run, semantic_assessment
             )
             result = replace(
                 result,
-                review_package=sealed,
-                proposal_digest=str(sealed["proposal_digest"]),
-            )
-        else:
-            from apps.live_control_server.services.candidate_graph_admission import (
-                prepare_candidate_graph_admission,
+                review_package=package,
+                proposal_digest=str(package["proposal_digest"]),
             )
 
-            result = prepare_candidate_graph_admission(
-                **prepare_kwargs,
-                world_root=world_graph_root(),
-            )
-            if semantic_assessment is not None:
-                assert canonical_run is not None
-                package = _bind_recap_semantic_effect(
-                    result.review_package, canonical_run, semantic_assessment
-                )
-                result = replace(
-                    result,
-                    review_package=package,
-                    proposal_digest=str(package["proposal_digest"]),
-                )
+        sealed = world_graph_writes.bind_identity_ledger_to_package(
+            result.review_package, mutation_context
+        )
+        result = replace(
+            result,
+            review_package=sealed,
+            proposal_digest=str(sealed["proposal_digest"]),
+        )
     except CandidateAdmissionIntegrityError as exc:
         raise ExtractPromoteError(
             str(exc),
