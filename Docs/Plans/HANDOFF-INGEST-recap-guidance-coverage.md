@@ -1,6 +1,6 @@
 # INGEST: apply common recap faithfulness to every claim-bearing pass
 
-Status: ACTIVE under the user’s ingestion-quality implementation goal. PRIME
+Status: COMPLETE; implementation lease released. PRIME
 confirmed disjoint profile/test ownership and authorized activation after PR2045
 merge. PR2045 merged as `e7c0ec84508d212c7dc211c7c270393534e7b375`.
 Base: `e7c0ec84508d212c7dc211c7c270393534e7b375`.
@@ -63,3 +63,18 @@ Exact-base prompt replay changes only object_pass.md and thread_pass.md. Existin
 mapped-pass prompts are byte-identical, all ordinary recap prompts have one common
 block, and other profile metadata, shared renderer/catalog and Worldbuilding
 owner files remain unchanged. Actual model and publication effects are unmeasured.
+
+## Settled predecessor
+
+PR2047 merged as bbf71bc2293fa31a4b1931fa39d0352721aa4308 after independent
+approval and all seven original-head CI checks. Its common-guidance code was
+conserved-delivered with PR2048 at ba208e8002413f3aec228d3ac7ec7fe715fe40dc.
+Proof: q01-published-graph-authority/recap-common-and-party-retirement-api-delivery-proof.json
+under the existing private runtime-evidence owner: MERGED_DELIVERED,8956source
+blobs verified, all91primary tables/nine session files/savedPlan/UI conserved,
+zero providers/database writes/dependency changes. PR2049 subsequently delivered
+that predecessor unchanged at1e5ae2d0. Actual S6 capture now exercises the ordinary
+pipeline, but its mixed qualification failures do not imply this routing fix
+failed: common guidance reached the passes and the model still overasserted.
+The bounded prose-qualification successor owns further instruction changes;
+this handoff grants no remaining exclusive write lease or quality acceptance.

@@ -181,3 +181,52 @@ def test_common_faithfulness_reaches_every_ordinary_recap_pass_once() -> None:
         SYNTHETIC_SOURCE_ROWS, profile=WORLDBUILDING_PLUMBING_PROFILE,
     )
     assert all(common not in prompt for prompt in worldbuilding.values())
+
+
+def test_repeated_prose_claims_receive_field_local_qualification_instructions() -> None:
+    """Prove prompt delivery, not model compliance with source distinctions."""
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        render_encounter_job_pass_prompt,
+    )
+
+    rows = [
+        {
+            "source_span_ref_id": "span-belief",
+            "line_start": 1,
+            "line_end": 1,
+            "text": "Nara said the lantern was cursed. It hung in the guild hall.",
+        },
+        {
+            "source_span_ref_id": "span-uncertain-actor",
+            "line_start": 2,
+            "line_end": 2,
+            "text": "Bryn may have calmed the mule's owner; the narrator was unsure.",
+        },
+    ]
+    rule = "Keep attribution and uncertainty in each prose assertion"
+    profiles = (
+        RECAP_EXTRACTION_PROFILE,
+        get_extraction_profile("recap_category_encounter_job_preview", "2.0"),
+    )
+    for profile in profiles:
+        prompts = render_category_pass_prompts(rows, profile=profile)
+        if profile.encounter_job_pass is not None:
+            # This pass is rendered separately in the ordinary extraction loop.
+            prompts["encounter_job_pass.md"] = render_encounter_job_pass_prompt(
+                rows, nodes=[], beats=[], instruction=profile.encounter_job_pass.instruction,
+            )
+        for name, prompt in prompts.items():
+            assert prompt.count(rule) == 1, (profile.qualified_id, name)
+            assert "adjectives" in prompt
+            assert "another entity's description" in prompt
+            assert "an evidence quote or another node" in prompt
+            for row in rows:
+                assert row["text"] in prompt
+            assert "anchor_quotes" in prompt
+        # Qualified wording cannot rescue a stronger edge predicate.
+        assert "a promise or intention is not a completed action" in prompts["edge_pass.md"]
+        assert "If no catalog predicate" in prompts["edge_pass.md"]
+
+    worldbuilding = render_category_pass_prompts(rows, profile=WORLDBUILDING_PLUMBING_PROFILE)
+    assert all(rule not in prompt for prompt in worldbuilding.values())
