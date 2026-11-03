@@ -3,7 +3,7 @@
 
 Buddy-owned pure adaptation logic for mounted DungeonMind publication.
 Does not import ``graph_memory.kernel`` / ``world_supergraph`` / ``union_supergraph``
-at module import time. File-store producers remain lazy and unmounted.
+at module import time. Native mutation contexts carry the governed facts.
 """
 
 
@@ -106,134 +106,6 @@ class WorldGraphMutationContext:
             for alias, owners in self.alias_owners.items()
             if owners
         }
-
-
-def mutation_context_from_store(
-    store: Any,
-    *,
-    world_id: str,
-    revision_id: str,
-    head_revision_id: str,
-) -> WorldGraphMutationContext:
-    """Adapt a file-backed ``UnionSupergraphStore`` into the mutation context."""
-    objects: dict[str, MutationObject] = {}
-    for node_id, node in dict(getattr(store, "nodes", {}) or {}).items():
-        state = dict(getattr(node, "state", None) or {})
-        objects[str(node_id)] = MutationObject(
-            object_id=str(node_id),
-            label=str(getattr(node, "label", "") or ""),
-            kind=str(getattr(node, "kind", "") or ""),
-            aliases=tuple(
-                str(alias)
-                for alias in list(getattr(node, "aliases", None) or [])
-                if str(alias).strip()
-            ),
-            canon_state=str(
-                state.get("identity_canon_state") or state.get("canon_state") or ""
-            ),
-            memory_state=str(state.get("memory_state") or ""),
-        )
-
-
-    alias_owners: dict[str, tuple[str, ...]] = {}
-    for alias, owner in dict(getattr(store, "aliases", {}) or {}).items():
-        key = str(alias)
-        owner_id = str(owner)
-        if not key or not owner_id:
-            continue
-        prior = alias_owners.get(key, ())
-        if owner_id not in prior:
-            alias_owners[key] = (*prior, owner_id)
-
-
-    redirects: dict[str, str] = {}
-    for raw in list(getattr(store, "identity_redirects", None) or []):
-        status = str(getattr(raw, "status", "") or "")
-        if status != "active":
-            continue
-        source = str(getattr(raw, "from_node_id", "") or "")
-        target = str(getattr(raw, "to_node_id", "") or "")
-        if source and target and source != target:
-            redirects[source] = target
-
-
-    decisions: list[IdentityDecisionRecord] = []
-    ledger_records: list[dict[str, Any]] = []
-    for raw in list(getattr(store, "identity_decisions", None) or []):
-        try:
-            record = IdentityDecisionRecord.model_validate(raw)
-        except Exception:
-            continue
-        decisions.append(record)
-        ledger_records.append(record.model_dump(mode="json"))
-
-    relationships: dict[str, MutationRelationship] = {}
-    raw_relationships = getattr(store, "relationships", None)
-    if isinstance(raw_relationships, Mapping):
-        for rel in dict(raw_relationships).values():
-            if isinstance(rel, MutationRelationship):
-                relationships[rel.relationship_id] = rel
-                continue
-            if isinstance(rel, Mapping):
-                relationship_id = str(rel.get("relationship_id") or rel.get("edge_id") or "").strip()
-                source = str(
-                    rel.get("source_object_id")
-                    or rel.get("subject_object_id")
-                    or rel.get("from_node_id")
-                    or ""
-                ).strip()
-                target = str(
-                    rel.get("target_object_id")
-                    or rel.get("object_object_id")
-                    or rel.get("to_node_id")
-                    or ""
-                ).strip()
-                predicate = str(
-                    rel.get("predicate") or rel.get("relationship_type") or ""
-                ).strip()
-            else:
-                relationship_id = str(
-                    getattr(rel, "relationship_id", None)
-                    or getattr(rel, "edge_id", "")
-                    or ""
-                ).strip()
-                source = str(
-                    getattr(rel, "source_object_id", None)
-                    or getattr(rel, "subject_object_id", None)
-                    or getattr(rel, "from_node_id", "")
-                    or ""
-                ).strip()
-                target = str(
-                    getattr(rel, "target_object_id", None)
-                    or getattr(rel, "object_object_id", None)
-                    or getattr(rel, "to_node_id", "")
-                    or ""
-                ).strip()
-                predicate = str(
-                    getattr(rel, "predicate", None)
-                    or getattr(rel, "relationship_type", "")
-                    or ""
-                ).strip()
-            if not relationship_id or not source or not target or not predicate:
-                continue
-            relationships[relationship_id] = MutationRelationship(
-                relationship_id=relationship_id,
-                source_object_id=source,
-                target_object_id=target,
-                predicate=predicate,
-            )
-
-    return WorldGraphMutationContext(
-        world_id=world_id,
-        revision_id=revision_id,
-        head_revision_id=head_revision_id,
-        objects=objects,
-        alias_owners=alias_owners,
-        identity_redirects=redirects,
-        identity_decisions=tuple(decisions),
-        identity_ledger_records=tuple(ledger_records),
-        relationships=relationships,
-    )
 
 
 def identity_snapshot_from_context(
@@ -1179,7 +1051,6 @@ __all__ = [
     "endpoint_available",
     "identity_facts_from_dungeonmind_decisions",
     "identity_snapshot_from_context",
-    "mutation_context_from_store",
     "mutation_context_from_world_root",
     "mutation_context_with_sealed_identity",
     "mutation_objects_as_match_dicts",

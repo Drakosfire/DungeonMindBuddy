@@ -50,7 +50,6 @@ from apps.live_control_server.models.world_graph_mutation_context import (
     MutationObject,
     WorldGraphMutationContext,
     identity_snapshot_from_context,
-    mutation_context_from_store,
 )
 
 
@@ -741,25 +740,10 @@ def _occupied_identity_ids(context: WorldGraphMutationContext) -> set[str]:
 
 
 def _assert_create_new_id_is_free(
-    authority: WorldGraphMutationContext | Any,
+    context: WorldGraphMutationContext,
     node_id: str,
 ) -> None:
-    """Reject create-new when the id is already occupied.
-
-    Existing-world plans pass a ``WorldGraphMutationContext``. First-world
-    materialization still passes the empty in-memory baseline store; adapt it
-    here so that first-world behavior does not have to change in this slice.
-    """
-    context = (
-        authority
-        if isinstance(authority, WorldGraphMutationContext)
-        else mutation_context_from_store(
-            authority,
-            world_id="",
-            revision_id="",
-            head_revision_id="",
-        )
-    )
+    """Reject create-new when the id is already occupied in the admitted context."""
     if node_id in _occupied_identity_ids(context):
         raise WorldbuildingWritePlanError(
             f"create_new node ID {node_id!r} already exists in the pinned parent",
