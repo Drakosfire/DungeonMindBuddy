@@ -311,6 +311,9 @@ def run_production_extraction(
             profile_version=request.profile_version,
         )
 
+    # Persist execution identity before dispatch, including prepare-only and
+    # interrupted runs. A saved attempt must not need a finished call to match.
+    model_id = resolve_category_graph_model(request.model_id)
     draft = _create_draft_run(
         request.repo_root,
         source,
@@ -320,6 +323,7 @@ def run_production_extraction(
             "profile_id": profile.profile_id,
             "profile_version": profile.profile_version,
             "source_sha256": source.source_sha256,
+            "model_id": model_id,
         },
         reserved_run=request.reserved_run,
     )
@@ -337,6 +341,7 @@ def run_production_extraction(
             "profile_id": profile.profile_id,
             "profile_version": profile.profile_version,
             "source_sha256": source.source_sha256,
+            "model_id": model_id,
         },
     )
 
@@ -349,7 +354,6 @@ def run_production_extraction(
             profile_version=profile.profile_version,
         )
 
-    model_id = resolve_category_graph_model(request.model_id)
     options = CategoryGraphExtractionOptions(
         campaign_id=source.campaign_id or "",
         session_id=source.session_id,

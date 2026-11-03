@@ -475,8 +475,7 @@ def reusable_recap_extraction(
         if status is None:
             continue
         if (
-            run.status != ExtractionRunStatus.REVIEWABLE
-            or run.profile_id != profile_id
+            run.profile_id != profile_id
             or run.lineage.get("model_id") != model_id
             or not _same_session_evidence(run, supplemental_evidence)
         ):
