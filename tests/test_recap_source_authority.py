@@ -183,3 +183,75 @@ def test_lazy_quote_maps_to_source_rows_after_unicode_separators(separator):
     kept, withheld, _ = partition_recap_source_rows(source_rows, text)
     assert kept == source_rows and not withheld
     assert text.splitlines()[4] == "Next Beats:"
+
+
+@pytest.mark.parametrize(("heading", "peer"), [
+    ("## Next Beats : A reward.", "## Ordinary scene"),
+    ("#### Looking Ahead: A journey.", "#### Ordinary scene"),
+    ("# Planning Notes: A map.", "# Ordinary scene"),
+    ("###### Prep Notes: A visitor.", "###### Ordinary scene"),
+    ("## nExT\tBeats: A reward.", "## Ordinary scene"),
+    ("## **Next Beats**: A reward.", "## Ordinary scene"),
+])
+def test_planning_heading_payload_uses_existing_heading_depth(heading, peer):
+    text = f"{heading}\n\nMore preparation.\n\n{peer}\nIria arrived."
+    kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+    assert [r["text"] for r in kept] == [peer, "Iria arrived."]
+    assert [r["text"] for r in withheld] == [heading, "More preparation."]
+
+
+@pytest.mark.parametrize("marker", ["**Recap : **", "__Recap:__", "**Recap:** "])
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+def test_marked_recap_with_inside_colon_resumes_same_line_prose(marker, newline):
+    recap = marker + "The team arrived."
+    text = newline.join(["Next Beats:", "", "Future reward.", "", recap, "More played prose."])
+    kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+    assert [r["text"] for r in kept] == [recap, "More played prose."]
+    assert [r["text"] for r in withheld] == ["Next Beats:", "Future reward."]
+
+
+@pytest.mark.parametrize("content", [
+    "**Recap**: proposed future scene.", "Recap: proposed future scene.",
+    "**Recap:__A scene.", "    **Recap:**An indented example.",
+    "> **Recap:**A quoted scene.",
+    "> A quoted example:\n**Recap:**A lazy quoted scene.",
+    "```text\n**Recap:**A fenced scene.\n```",
+])
+def test_inline_recap_boundary_requires_structural_marker(content):
+    text = f"Next Beats:\n\n{content}\n\nStill preparation."
+    kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+    assert not kept and withheld == rows(text)
+
+
+def test_marked_recap_exit_does_not_classify_its_payload_meaning():
+    text = "Next Beats:\nFuture reward.\n**Recap:**A proposed future scene is discussed."
+    kept, _, _ = partition_recap_source_rows(rows(text), text)
+    assert [r["text"] for r in kept] == ["**Recap:**A proposed future scene is discussed."]
+
+
+def test_inline_heading_payload_in_quote_or_code_does_not_start_planning():
+    text = "> ## Next Beats: An example.\n\n```text\n## Next Beats: Another example.\n```\nIria arrived."
+    kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+    assert kept == rows(text) and not withheld
+
+
+def test_inline_planning_heading_does_not_capture_other_heading_titles():
+    text = "## Next Beats are discussed: A report.\n## `Next Beats`: A code label.\nIria arrived."
+    kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+    assert kept == rows(text) and not withheld
+
+
+def test_inline_planning_heading_keeps_nested_details_at_parent_depth():
+    text = "## Next Beats: A reward.\n### Detail\nMore preparation.\n## Ordinary scene\nIria arrived."
+    kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+    assert [r["text"] for r in kept] == ["## Ordinary scene", "Iria arrived."]
+    assert [r["text"] for r in withheld] == ["## Next Beats: A reward.", "### Detail", "More preparation."]
+
+
+def test_marked_inline_recap_in_lazy_quote_after_unicode_is_not_boundary():
+    text = "Intro\u2028detail\u2028more\nNext Beats:\n\n> An example:\n**Recap:**A quoted scene.\n\nStill preparation."
+    kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+    assert [r["text"] for r in kept] == ["Intro", "detail", "more"]
+    assert [r["text"] for r in withheld] == [
+        "Next Beats:", "> An example:", "**Recap:**A quoted scene.", "Still preparation.",
+    ]

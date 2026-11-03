@@ -1,6 +1,10 @@
 # INGEST: preserve standalone recap planning boundaries
 
-Status: ACTIVE implementation, authorized by the user's ingestion/Gold goal.
+Status: COMPLETE predecessor implementation, merged via PR2040 as
+`22a00434c886b5abc57e3725682777e29f21aaf9`. Reviewed head was
+`6101caae593c4afd0671b8acdd3afb922b7aaf24`; all seven CI checks passed, including
+the targeted saved-page retry. The original timeout evidence remains retained.
+Fresh extraction/publication quality is not established by this merge.
 PRIME transferred this bounded follow-up to ADVERSARY and confirmed no competing
 source-code lease. PRIME owns independent review, merge and runtime delivery.
 
@@ -93,8 +97,10 @@ pipeline now verifies that the subsequent played paragraph remains in every
 provider prompt and its returned location survives. Focused checks: 89 passed.
 The retained Session 5 owner replay remains identical to the earlier proof:
 all five played paragraphs kept and the same planning claims deferred. Original
-private evidence is unchanged. Independent review of the corrected head remains
-required before merge/delivery; these checks are not fresh extraction acceptance.
+private evidence is unchanged. Independent review was required at that checkpoint
+and was completed on the final head before merge. PRIME delivered the final patch in combined tree
+`1b729d40784fc29c23cf0400c265536734fb23f2`; these checks and delivery do not
+establish fresh extraction acceptance.
 
 The second independent review held `8b8324776d88a968eef866fe6115b6de9e6cb7eb`:
 CommonMark line maps count CR/LF boundaries while existing source rows also count
