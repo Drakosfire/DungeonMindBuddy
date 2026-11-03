@@ -5424,7 +5424,7 @@ def validate_provider_envelope_accounting(assembled, execution, event) -> None:
             raise ValueError('Human admission provider differs from its frozen role budget')
     else:
         context_limit = assembled.context_window_limit
-    if type(event) is NativeRetrievalAuthorizedV1 and uses_role_accounting(execution.policy):
+    if type(event) in (NativeRetrievalAuthorizedV1, ProviderAttemptAuthorizedEventV5) and uses_role_accounting(execution.policy):
         validate_event(event, execution)
         context_limit = LONG_LIMIT if mode_context(event).context_mode == "long_context" else DEFAULT_REQUEST
     writer_budget = getattr(execution.policy, "writer_context_budget", None) if uses_role_accounting(execution.policy) else None
