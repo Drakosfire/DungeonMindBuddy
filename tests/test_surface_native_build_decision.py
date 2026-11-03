@@ -24,7 +24,7 @@ from tests.test_surface_native_completion import answer
 from tests.test_surface_native_writer import published_lane as published_lane
 
 
-def sdk_case(requested='discuss',*,capable=False,auxiliary=False,probability=1.0,owner=None,context_record=None):
+def sdk_case(requested='discuss',*,capable=False,auxiliary=False,probability=1.0,owner=None,context_record=None,context_note=None):
     context,record=context_record if context_record is not None else component('build',unavailable=True)
     conversation=owner.conversation_id if owner is not None else uuid4()
     if capable:
@@ -43,6 +43,8 @@ def sdk_case(requested='discuss',*,capable=False,auxiliary=False,probability=1.0
     state=dict(user_question=action.intent.message,requested_work_policy=semantic.POLICY,
         interaction=dict(allowed_operations=list(action.capabilities.operations),
             capability_sha256=action.intent.build_write_capability_sha256))
+    if context_note is not None:
+        state['context_note']=context_note
     request_id='select:'+semantic.digest(state)
     questions=[ChoiceDecisionQuestion(kind='choice',name='requested_work',question=semantic.decision_instructions(),
         options=tuple(semantic.WORK))]
@@ -597,3 +599,16 @@ def test_actual_build_native_retrieval_uses_precommitted_sdk_selection_before_co
     finally:
         _turn, error = fence.stop()
         assert error is None
+
+
+def test_large_sdk_wire_passes_native_app_admission_and_retained_reload(application_state_dsn):
+    owner = _DurableBuildOwner()
+    sdk_case(owner=owner,context_note='🌿 café 中文 "escaped" '+" "*300000)
+    assert len(owner.raw.encode())>256000 and len(owner.sent)==1
+    stored=owner.service.inspect_turn(world_id=owner.world_id,turn_id=owner.turn.turn_id)
+    descriptor=stored.graph_context_execution.policy.controller_continuation_accounting
+    assert isinstance(descriptor,t.BuildControllerContinuationAccountingV4)
+    assert descriptor.raw_wire_limit_bytes is None
+    assert owner.raw.encode()==owner.sent[0].content
+    retained=type(stored).model_validate_json(stored.model_dump_json(by_alias=True))
+    assert retained==stored

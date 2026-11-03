@@ -3060,8 +3060,15 @@ class BuildControllerContinuationAccountingV3(BuildControllerContinuationAccount
     context_selection_policy: Literal["build_acquisition_selection_if_default_exceeded_v2"]
 
 
+class BuildControllerContinuationAccountingV4(BuildControllerContinuationAccountingV3):
+    """Token-based admission; older descriptors retain their frozen byte bounds."""
+
+    policy: Literal["o200k_double_plus_4096_adaptive_context_v4"]
+    raw_wire_limit_bytes: None
+
+
 class BuildEstimatedActionControllerWriterPolicyV1(BuildPhaseActionControllerWriterPolicyV1):
-    controller_continuation_accounting: BuildControllerContinuationAccountingV3 | BuildControllerContinuationAccountingV2 | BuildControllerContinuationAccountingV1
+    controller_continuation_accounting: BuildControllerContinuationAccountingV4 | BuildControllerContinuationAccountingV3 | BuildControllerContinuationAccountingV2 | BuildControllerContinuationAccountingV1
 
 
 class BuildJointSupportActionControllerWriterPolicyV1(BuildEstimatedActionControllerWriterPolicyV1):
@@ -3105,7 +3112,7 @@ class BuildSelectedSourceActionControllerWriterPolicyV1(BuildCitedSourceActionCo
 
 
 class BuildInitialEstimatedSelectedSourcePolicyV1(BuildSelectedSourceActionControllerWriterPolicyV1):
-    controller_initial_accounting: BuildControllerContinuationAccountingV3 | BuildControllerContinuationAccountingV2 | BuildControllerContinuationAccountingV1
+    controller_initial_accounting: BuildControllerContinuationAccountingV4 | BuildControllerContinuationAccountingV3 | BuildControllerContinuationAccountingV2 | BuildControllerContinuationAccountingV1
 
     @model_validator(mode="after")
     def validate_initial_accounting(self):

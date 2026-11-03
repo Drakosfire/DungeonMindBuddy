@@ -108,7 +108,7 @@ class SurfaceNativeExecutionPolicyV1(Strict):
     max_provider_attempts: int | None = Field(ge=1, strict=True)
     max_total_provider_input_tokens: int | None = Field(ge=1, strict=True)
     max_total_provider_output_tokens: int | None = Field(ge=1, strict=True)
-    controller_continuation_accounting: t.BuildControllerContinuationAccountingV3 | None
+    controller_continuation_accounting: t.BuildControllerContinuationAccountingV4 | t.BuildControllerContinuationAccountingV3 | None
     writer_context_budget: t.BuildWriterContextBudgetV1 | None
 
     @model_validator(mode="after")

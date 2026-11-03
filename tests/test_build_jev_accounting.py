@@ -10,7 +10,6 @@ import pytest
 from apps.live_control_server.services.build_jev_accounting import (
     DecisionCapacityError,
     ExperimentalAccounting,
-    RAW_WIRE_LIMIT,
 )
 from apps.live_control_server.services.build_jev_dispatch import MODEL, validate_body
 from apps.live_control_server.services.build_jev_transitions import (
@@ -83,15 +82,11 @@ def test_full_question_and_full_request_independent_limits():
     assert refusal.value.code == "decision_request_capacity_exceeded"
 
 
-def test_raw_wire_bound_precedes_tokenizer_and_is_separate():
-    def forbidden(text):
-        raise AssertionError("must not tokenize oversized raw wire")
-
-    policy = ExperimentalAccounting("synthetic-test", forbidden)
-    raw, state = body_for(policy, "x" * RAW_WIRE_LIMIT)
-    with pytest.raises(DecisionCapacityError, match="raw wire") as refusal:
-        validate_body(raw, state, accounting=policy)
-    assert refusal.value.code == "decision_wire_capacity_exceeded"
+def test_large_wire_uses_token_capacity_instead_of_a_byte_bound(accounting):
+    raw,state=body_for(accounting,'🌿 café 中文 "escaped" ' + " "*300000)
+    assert len(raw.encode())>256000
+    assert accounting.estimate(json.loads(raw))<32000
+    validate_body(raw,state,accounting=accounting)
 
 
 def test_explicit_policy_and_exact_state_required(accounting):

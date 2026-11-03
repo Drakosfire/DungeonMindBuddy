@@ -5,12 +5,12 @@ import json
 
 HISTORICAL_POLICY = "o200k_double_plus_4096_adaptive_context_v2"
 HISTORICAL_SELECTION = "build_navigate_assess_if_default_exceeded_v1"
-POLICY = "o200k_double_plus_4096_adaptive_context_v3"
+HISTORICAL_SELECTION_POLICY = "o200k_double_plus_4096_adaptive_context_v3"
+POLICY = "o200k_double_plus_4096_adaptive_context_v4"
 SELECTION = "build_acquisition_selection_if_default_exceeded_v2"
 DEFAULT_QUESTION = 32_000
 DEFAULT_REQUEST = 64_000
 LONG_LIMIT = 262_000
-RAW_LIMIT = 256_000
 
 
 def phase(body):
@@ -25,7 +25,7 @@ def phase(body):
 
 def selected_mode(phase_name, request_estimate, question_estimate, *, policy):
     eligible = {"navigate", "assess"}
-    if policy == POLICY:
+    if policy in {POLICY, HISTORICAL_SELECTION_POLICY}:
         eligible.add("writer_selection")
     elif policy != HISTORICAL_POLICY:
         raise ValueError("Unknown frozen decision context policy")
@@ -56,7 +56,7 @@ def mode_context(event):
 def validate_event(event, execution):
     context = mode_context(event)
     descriptor = getattr(execution.policy, "controller_continuation_accounting", None)
-    if descriptor is None or descriptor.policy not in {POLICY, HISTORICAL_POLICY}:
+    if descriptor is None or descriptor.policy not in {POLICY, HISTORICAL_SELECTION_POLICY, HISTORICAL_POLICY}:
         raise ValueError("Decision context requires its frozen adaptive accounting")
     if (event.provider, event.model, event.api_mode) != execution.policy.provider_roles.controller.identity():
         raise ValueError("Decision context role belongs only to the Build controller")
@@ -110,20 +110,24 @@ def validate_accounting(event, execution, *, provider_index):
     estimator = descriptor.policy if estimated else policy.provider_input_accounting.estimator
     if event.input_accounting_kind != kind or event.input_estimator != estimator:
         raise ValueError("provider attempt accounting differs from accepted role policy")
-    if descriptor.policy in {HISTORICAL_POLICY, POLICY} and role == controller:
+    if descriptor.policy in {HISTORICAL_POLICY, HISTORICAL_SELECTION_POLICY, POLICY} and role == controller:
         mode_context(event)
         validate_event(event, execution)
     elif isinstance(event, t.ProviderAttemptAuthorizedEventV5):
         raise ValueError("Mode-bound authorization requires current Build accounting")
-    if estimated and descriptor.policy not in {HISTORICAL_POLICY,POLICY} and event.input_tokens > descriptor.request_limit_tokens:
+    if estimated and descriptor.policy not in {HISTORICAL_POLICY,HISTORICAL_SELECTION_POLICY,POLICY} and event.input_tokens > descriptor.request_limit_tokens:
         raise ValueError("controller request estimate exceeds frozen policy")
 
 
 def validate_prepared(event, execution, raw):
     validate_event(event, execution)
     context = mode_context(event)
-    if not isinstance(raw, str) or len(raw.encode()) > RAW_LIMIT:
-        raise ValueError("Decision context requires exact bounded prepared bytes")
+    if not isinstance(raw, str):
+        raise ValueError("Decision context requires exact prepared bytes")
+    # Historical records keep the admission contract that was accepted then.
+    byte_limit = execution.policy.controller_continuation_accounting.raw_wire_limit_bytes
+    if byte_limit is not None and len(raw.encode()) > byte_limit:
+        raise ValueError("Decision context exceeds its frozen historical byte bound")
     if hashlib.sha256(raw.encode()).hexdigest() != event.envelope_sha256:
         raise ValueError("Decision context body hash differs")
     def unique(pairs):
