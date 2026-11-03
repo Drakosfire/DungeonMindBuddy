@@ -61,7 +61,12 @@ _PASS_SOURCE_FAITHFULNESS: dict[str, str] = {
         "Include source-mentioned informal populations (for example, children, "
         "refugees, or townsfolk) when they function as meaningful participants "
         "or subjects. Do not invent a name, membership, origin, or continuity "
-        "beyond what the source states."
+        "beyond what the source states. Repeated role labels in different scenes "
+        "do not establish one continuing group. Keep each group's actions within "
+        "its supported scene and participant scope. Do not attach actions from "
+        "another scene to a specifically scoped group merely because the role "
+        "labels match. Preserve continuity when the source supports that these "
+        "are the same participants."
     ),
     "beat_pass": (
         "Describe what happened separately from what was intended or planned. "
