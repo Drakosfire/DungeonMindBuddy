@@ -20,7 +20,8 @@ pr_body_template: |
 # HANDOFF — HERMES: Worldbuilding source-span follow-through
 
 **Created:** 2026-08-12.  
-**Status:** ACTIVE — dispatch exactly one implementation capability.  
+**Status:** MERGED through PR #570 at `b1d10cb712b084a8ea4404de2f05ebbc015f3661`
+on 2026-08-13. Historical implementation contract; no active write lease.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-HERMES-worldbuilding-source-span-follow-through.md`  
 **Conversation / workstream:** `CON-READY`  
 **Flow / agent:** `HERMES`  
