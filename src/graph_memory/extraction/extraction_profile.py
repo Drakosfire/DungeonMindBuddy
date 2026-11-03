@@ -16,7 +16,7 @@ class ExtractionPassSpec:
     default_node_type: str | None
     instruction: str
     progress_label: str
-    kind: str = "node"  # node | beat | encounter_job | edge | claimed_fill | edge_review
+    kind: str = "node"  # node | beat | encounter_job | edge | edge_review
     include_dispositions: bool = False
     allowed_node_types: tuple[str, ...] | None = None
 
