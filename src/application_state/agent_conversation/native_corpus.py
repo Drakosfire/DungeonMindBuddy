@@ -319,10 +319,17 @@ def validate_native_body_events(execution):
     pending = None
     writer = False
     selection = None
+    body_selection = None
     def selected(handle):
         return (selection is not None and selection.controller_attempt_id == provider
             and selection.operation == "select_candidates" and handle in selection.selected_handles)
     for event in execution.events:
+        if body_selection is not None and isinstance(event, (NativeBodySearchAuthorizedV1,
+                NativeBodySearchObservedV1, NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1)):
+            raise ValueError("Native body acquisition cannot change after writer evidence selection")
+        if isinstance(event, t.BuildWriterEvidenceSelectionV2):
+            validate_body_selection(execution, event)
+            body_selection = event
         if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
             if grant is not None and search is None:
                 raise ValueError("Provider cannot proceed with an unresolved native source search")
@@ -419,9 +426,41 @@ def validate_native_body_events(execution):
             pending = event
 
 
-def selected_body_reads(execution):
+def acquired_body_reads(execution):
+    """All successful acquisitions, including those subsequently excluded."""
     return tuple(event for event in execution.events
         if isinstance(event, NativeBodyReadObservedV1) and event.excerpt is not None)
+
+
+def body_selection_unit_id(read):
+    return "body:" + str(read.event_id)
+
+
+def validate_body_selection(execution, selection):
+    """Body relevance cannot manufacture an acquisition or hide an unresolved read."""
+    acquired = {body_selection_unit_id(e) for e in execution.events[:selection.sequence]
+                if isinstance(e, NativeBodyReadObservedV1) and e.excerpt is not None}
+    def body_ids(values):
+        return {key for key in values if key.startswith("body:")}
+    included = {key for key in acquired if selection.judgments.get(key) != "irrelevant"}
+    if (body_ids(selection.judgments) != acquired
+            or body_ids(selection.requested_unit_ids) != included
+            or body_ids(selection.expanded_unit_ids) != included
+            or body_ids(selection.omitted_unit_ids) != acquired - included):
+        raise ValueError("Native body selection differs from its complete acquired extent closure")
+
+
+def selected_body_reads(execution):
+    from .types import BuildWriterEvidenceSelectionV2
+    reads = acquired_body_reads(execution)
+    votes = [event for event in execution.events if isinstance(event, BuildWriterEvidenceSelectionV2)]
+    if not votes:
+        return reads  # Historical V1/Plan inputs retain their original meaning.
+    if len(votes) != 1:
+        raise ValueError("Native body writer requires its unique evidence selection")
+    vote = votes[0]
+    validate_body_selection(execution, vote)
+    return tuple(read for read in reads if body_selection_unit_id(read) in vote.expanded_unit_ids)
 
 
 def body_selector(turn, read):

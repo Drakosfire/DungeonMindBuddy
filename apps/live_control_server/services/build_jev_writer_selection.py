@@ -32,7 +32,7 @@ class WriterSelectionDriver:
         self.state = selection.selection_state(adapter.turn, self.catalog, terminal, continuation_binding(adapter))
         self._questions = selection.questions(self.catalog)
         self.step = DecisionIntent(request_id="writer-selection:" + selection.digest(self.state),
-            phase="writer_selection", state={"writer_selection_policy": selection.POLICY},
+            phase="writer_selection", state={"writer_selection_policy": self.state["writer_selection_policy"]},
             questions=tuple(DecisionQuestion(name=name, kind="choice", question=q["instructions"],
                                              options=selection.JUDGMENTS)
                             for name, q in self._questions.items()))
@@ -114,8 +114,10 @@ class WriterSelectionDriver:
         auth = next(e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV3)
                     and e.provider_attempt_id == a.last_provider_attempt_id)
         closure = selection.close_selection(self.catalog, judgments)
-        event = ledger.BuildWriterEvidenceSelectionV1(kind="build_writer_evidence_selection_v1",
-            event_id=uuid4(), sequence=len(execution.events), policy=selection.POLICY,
+        native = self.state["writer_selection_policy"] == selection.NATIVE_POLICY
+        codec = ledger.BuildWriterEvidenceSelectionV2 if native else ledger.BuildWriterEvidenceSelectionV1
+        event = codec(kind="build_writer_evidence_selection_v2" if native else "build_writer_evidence_selection_v1",
+            event_id=uuid4(), sequence=len(execution.events), policy=self.state["writer_selection_policy"],
             mode="jev" if response_json is not None else "empty_catalog",
             controller_attempt_id=auth.provider_attempt_id, controller_envelope_sha256=auth.envelope_sha256,
             controller_response_sha256=hashlib.sha256(response_json.encode()).hexdigest() if response_json is not None else None,

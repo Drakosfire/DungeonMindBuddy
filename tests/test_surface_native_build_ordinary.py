@@ -28,7 +28,7 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -95,14 +95,15 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             answers = {}
             candidates=body.get('state',{}).get('candidates',[])
             selected={i for i,c in enumerate(candidates) if (saved and c['kind'].startswith('Saved authored page block'))
-                or (failure=='used_rules' and c['kind']=='public_rules_lookup')}
+                or (failure=='used_rules' and c['kind']=='public_rules_lookup')
+                or (native_body and c['kind'] in {'Source lexical navigation; not evidence or semantic completeness','Explicit full-document read'})}
             for name, question in body['questions'].items():
                 if self.deny_routing and name=='requested_work':
                     raise AssertionError('The reviewed operation must not be reselected by a model')
                 choices = question['criteria']
                 chosen = (('review_connected_page' if connected_review else 'prepare_image' if proposal=='image' else 'write_current_page' if proposal else 'discuss') if name=='requested_work' else ('select_candidates' if selected and 'select_candidates' in choices else 'finish_retrieval') if name=='operation'
                     else ('include' if int(name.split('_')[-1]) in selected else 'exclude') if name.startswith('candidate_')
-                    else 'direct_support' if name.startswith('s') and name[1:].isdigit() else 'skip')
+                    else (native_body if native_body and body['state']['sources'][list(body['state']['sources'])[int(name[1:])]]['kind']=='native_body' else 'direct_support') if name.startswith('s') and name[1:].isdigit() else 'skip')
                 assert chosen in choices, (name, choices)
                 answers[name] = dict(type='choice', choice=chosen, confidence=1,
                     probabilities={key: float(key == chosen) for key in choices})
@@ -170,6 +171,18 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             candidate = dict(schema=frame['answer_policy'],
                 answer_segments=[dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)]+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,supporting_quotes=[r['text'] for r in work['artifact_under_edit']['sections']])] if saved else []),
                 limitations=[], requested_detail_gaps=[], collaboration=self.review)
+            if native_body:
+                from application_state.agent_conversation import native_corpus as corpus
+                acquired = corpus.acquired_body_reads(self.adapter._broker_execution())
+                assert acquired
+                exposed = frame['native_body_evidence']['excerpts']
+                assert bool(exposed) == (native_body != 'irrelevant')
+                if exposed:
+                    candidate['answer_segments'].append(dict(kind='native_body_claim',
+                        text='The source describes a source-local episode.',
+                        excerpt_handles=[r['excerpt_handle'] for r in exposed]))
+                else:
+                    assert all(r.excerpt.text not in json.dumps(frame) for r in acquired)
             if connected_review:
                 section=next(row for row in work['artifact_under_edit']['sections'] if 'A proposed conversation.' in row['text'])
                 candidate['answer_segments']=[]
@@ -266,7 +279,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             expected_content_sha256=source.content_sha256), client_work_state='saved_clean',
         graph_request=dict(mode='world', world_id=world, campaign_id=None, revision_pin=None,
             focus=dict(kind='none', session_id=None, campaign_id=None)), graph_selection=None,
-        build_authored_references=selected.model_dump(mode='json', by_alias=True), message='Describe the object I selected.')
+        build_authored_references=selected.model_dump(mode='json', by_alias=True), message='Describe the selected object and source-local episode.' if native_body else 'Describe the object I selected.')
     if draft is not None:
         body['build_draft_context']=draft.model_dump(mode='json',by_alias=True)
         body['client_work_state']='saved_dirty'
@@ -762,3 +775,31 @@ def test_native_failed_discussion_exposes_original_context_and_one_explicit_retr
 @pytest.mark.parametrize('review',['valid','foreign_read','foreign_quote'])
 def test_native_connected_page_review_uses_its_included_saved_origin(lane,tmp_path,monkeypatch,review):
     _fresh_case(lane,tmp_path,monkeypatch,None,True,True,False,connected_review=review)
+
+
+@pytest.mark.parametrize('judgment',['direct_support','qualification_or_conflict','uncertain','irrelevant'])
+def test_ordinary_build_selects_native_body_and_reopens_only_included_support(lane,tmp_path,monkeypatch,judgment):
+    from application_state.agent_conversation import native_corpus as corpus
+    case=_fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,native_body=judgment)
+    events=case.turn.graph_context_execution.events
+    vote,=[e for e in events if type(e) is t.BuildWriterEvidenceSelectionV2]
+    acquired=corpus.acquired_body_reads(case.turn.graph_context_execution)
+    assert acquired and not vote.source_event_ids
+    assert {k:v for k,v in vote.judgments.items() if k.startswith('body:')}=={
+        corpus.body_selection_unit_id(r):judgment for r in acquired}
+    calls=[json.loads(r.content) for r in case.decisions.calls
+           if json.loads(r.content)['state'].get('phase')=='writer_selection']
+    assert len(calls)==1
+    for read in acquired:
+        unit=calls[0]['state']['sources'][corpus.body_selection_unit_id(read)]
+        assert unit['text']==read.excerpt.text
+    citations=case.turn.completion.native_body_citations
+    assert bool(citations)==(judgment!='irrelevant')
+    for index,citation in enumerate(citations):
+        opened=case.client.get(f'/api/live/agent/worlds/{case.world}/conversation/turns/{case.turn.turn_id}/native-body-excerpts/{index}')
+        assert opened.status_code==200,opened.text
+        assert opened.json()['content']
+
+
+def test_ordinary_native_body_selector_rejects_substituted_input_before_dispatch(lane,tmp_path,monkeypatch):
+    _fresh_case(lane,tmp_path,monkeypatch,'selection_text',False,False,False,native_body='direct_support')

@@ -172,7 +172,7 @@ SurfaceNativeEvent = Annotated[
     | t.BuildDraftContextCapturedV1
     | t.BuildSectionReadAuthorizationV1 | t.ValidatedBuildSectionReadV1
     | t.BuildRequestedWorkResolutionV1 | t.BuildReviewedActionSelectionV2 | t.BuildReviewedActionSelectionV1
-    | t.BuildWriterEvidenceSelectionV1 | t.BuildPlanOutputContractV2
+    | t.BuildWriterEvidenceSelectionV1 | t.BuildWriterEvidenceSelectionV2 | t.BuildPlanOutputContractV2
     | t.RelatedPagesSelection | t.RelatedPageRead
     | t.BuildAuthoredReferencesCapturedV1 | BuildAuthoredReferenceAuthorizedV2
     | BuildAuthoredReferenceReadV2,

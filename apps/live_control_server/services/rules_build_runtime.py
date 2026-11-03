@@ -169,9 +169,9 @@ class RulesBuildRuntime:
         body = json.loads(view["payloadJson"])
         writing = getattr(self.adapter, "_active_build_writer_projection", None) is not None
         carrier = json.loads(body["input"]) if writing else body["state"]
-        # This existing selector has no Rules capability or source bodies. Its
+        # This existing source selector has no Rules capability. Its
         # independently verified full request remains under the Graph owner.
-        if not writing and carrier.get("writer_selection_policy") == "source_unit_selection_event_closure_v1":
+        if not writing and carrier.get("writer_selection_policy") in {"source_unit_selection_event_closure_v1", "source_unit_selection_event_closure_v2"}:
             if "rules_projection" in carrier or "rules_capability" in carrier:
                 raise ValueError("Source-unit selector cannot advertise Rules")
             return
