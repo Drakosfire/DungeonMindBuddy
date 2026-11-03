@@ -247,3 +247,49 @@ def test_meanings_reach_only_recap_edge_prompt():
     for profile in (WORLDBUILDING_PROFILE, WORLDBUILDING_PLUMBING_PROFILE):
         prompts = render_category_pass_prompts(SYNTHETIC_SOURCE_ROWS, profile=profile)
         assert all(guidance not in prompt for prompt in prompts.values())
+
+
+def test_collective_scene_scope_guidance_reaches_only_recap_collective_prompt() -> None:
+    """Exercise prompt ownership; actual model scope preservation is separate."""
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+        WORLDBUILDING_PROFILE,
+    )
+
+    rows = [
+        {
+            "source_span_ref_id": "span-observatory",
+            "line_start": 1,
+            "line_end": 1,
+            "text": "Keepers at the observatory greeted the visitors.",
+        },
+        {
+            "source_span_ref_id": "span-quarry",
+            "line_start": 2,
+            "line_end": 2,
+            "text": "Elsewhere, keepers at a quarry restrained a messenger.",
+        },
+        {
+            "source_span_ref_id": "span-continuity",
+            "line_start": 3,
+            "line_end": 3,
+            "text": "The same observatory keepers later guided the visitors across the terrace.",
+        },
+    ]
+    rule = "Repeated role labels in different scenes do not establish one continuing group"
+    for profile in (
+        RECAP_EXTRACTION_PROFILE,
+        get_extraction_profile("recap_category_encounter_job_preview", "2.0"),
+    ):
+        prompts = render_category_pass_prompts(rows, profile=profile)
+        collective = prompts["collective_pass.md"]
+        assert collective.count(rule) == 1
+        assert "a specifically scoped group" in collective
+        assert "Preserve continuity when the source supports" in collective
+        assert all(row["text"] in collective for row in rows)
+        assert "anchor_quotes" in collective
+        assert all(rule not in value for key, value in prompts.items()
+                   if key != "collective_pass.md")
+    for profile in (WORLDBUILDING_PROFILE, WORLDBUILDING_PLUMBING_PROFILE):
+        prompts = render_category_pass_prompts(rows, profile=profile)
+        assert all(rule not in value for value in prompts.values())

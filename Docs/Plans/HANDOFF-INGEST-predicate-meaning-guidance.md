@@ -1,6 +1,6 @@
 # INGEST: explicit predicate meanings for Recap extraction
 
-Status: ACTIVE stacked implementation. Owner: ADVERSARY quality; PRIME reviews, merges and delivers.
+Status: MERGED_DELIVERED as PR2055 at `848c78eb5cc44ae15ca4c7c8d0420919c6a95ebf`; implementation lease closed. Owner: ADVERSARY quality; PRIME reviewed, merged and delivered. The actual Session6 comparison `0e9b37ca-a18b-46d4-bd08-b948b4e3c51a` retained database evidence at revision5 and later supported governed publication, but remaining semantic failures do not establish full Gold acceptance. The collective-scene-scope successor records a separately evidenced collective-pass failure; it does not relabel this milestone as model-quality completion.
 
 ## Authority and topology
 
