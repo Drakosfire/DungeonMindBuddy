@@ -1,6 +1,11 @@
 # INGEST: preserve source modality in party fill
 
-**Status:** Active — PRIME approved the exact four-path write lease, including the shared deterministic provider fixture in `tests/test_party_claimed_fill.py`.
+**Status:** CLOSED historical implementation lease. Modality preservation was
+implemented at `5e107415a2d299b580d6d49c556d3f987e73bd08`, an ancestor of fetched
+main. The current source-only pipeline no longer invokes party claimed-fill;
+unused implementation/schema/test retirement is owned by
+`HANDOFF-INGEST-retire-party-claimed-fill.md`. This document grants no current
+write or runtime authority. Historical evidence below is retained unchanged.
 **Base:** `origin/main@ae394d6d3b98e49a4111c9e268efaa9174d24eca` (fetched 2026-10-17).
 **Branch:** `codex/ingest-pc-fill-modality` in the existing clean `996b` checkout.
 **Topology:** Serial; one Ingestion implementation PR. ARCHITECTURE has reviewed the design; PRIME retains exact-head review, merge, and rollout authority.

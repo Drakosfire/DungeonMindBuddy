@@ -20,12 +20,10 @@ def setup(source_text=TEXT):
 
 
 class Client(module.FixtureCategoryGraphPassClient):
-    def __init__(self, planned, played, fill=False):
+    def __init__(self, planned, played):
         bad = {"node_id": "event:reward", "label": "Golden Map reward", "node_type": "event", "description": "Iria received the Golden Map.", "importance": "medium", "evidence_refs": [{"source_span_ref_id": planned["source_span_ref_id"], "anchor_quotes": ["Iria will receive the Golden Map."]}]}
         good = {"node_id": "loc:larkhaven", "label": "Larkhaven", "node_type": "location", "description": "Iria arrived here.", "importance": "medium", "evidence_refs": [{"source_span_ref_id": played["source_span_ref_id"], "anchor_quotes": ["Iria arrived in Larkhaven."]}]}
         payloads = {"thread_pass": {"observation_nodes": [bad]}, "location_pass": {"observation_nodes": [good]}}
-        if fill:
-            payloads["pc_claimed_fill_pass"] = {"filled_nodes": [{**bad, "node_id": "node:iria", "label": "Iria"}]}
         super().__init__(payloads)
         self.messages = []
 
@@ -57,15 +55,6 @@ def test_pipeline_withholds_planning_prompts_and_rejects_injected_citation():
     assert result.diagnostics["recap_source_authority"]["checked"]
     assert any(d["evidence_refs"][0]["can_open_source"] for d in deferred)
     assert any(d["evidence_refs"][0]["source_span_ref_id"] == planned["source_span_ref_id"] for d in deferred)
-
-
-def test_source_pipeline_has_no_party_fill_to_reintroduce_planning():
-    index, planned, played = setup()
-    client = Client(planned, played, fill=True)
-    result = module.run_category_pipeline(client, options(index))
-    assert all("Golden Map" not in message for _, message in client.messages)
-    assert not any("Golden Map" in n["description"] for n in result.candidate_graph["nodes"])
-    assert all(name != "pc_claimed_fill_pass" for name, _ in client.messages)
 
 
 def test_canonical_spans_keep_literal_recap_marker_inside_planning_fence():
