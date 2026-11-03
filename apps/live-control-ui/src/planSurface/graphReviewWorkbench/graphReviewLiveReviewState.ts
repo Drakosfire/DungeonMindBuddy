@@ -222,8 +222,8 @@ export function useGraphReviewLiveReviewState({
       return;
     }
 
-    // CUTOVER D.3A: store-backed UnionSupergraph preview is retired. Do not
-    // call getUnionSupergraphProjection; committed DungeonMind projection remains.
+    // Store-backed Union preview is retired; committed DungeonMind projection
+    // remains the native authority.
     setProjectionStatus("retired");
   }, [liveRun, liveRunKey]);
 

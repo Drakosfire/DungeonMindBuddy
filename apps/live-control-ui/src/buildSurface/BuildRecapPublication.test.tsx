@@ -25,7 +25,6 @@ beforeEach(()=>{
   localStorage.clear();
   vi.spyOn(api,'prepareExtractPromote').mockResolvedValue(structuredClone(prepared));
   vi.spyOn(api,'confirmExtractPromote').mockRejectedValue(new Error('simulated unknown confirmation outcome'));
-  vi.spyOn(live,'getUnionSupergraphProjection').mockRejectedValue(new Error('catalog projection must not be read'));
   vi.spyOn(live,'postWorldGraphProjection').mockRejectedValue(new Error('not confirming in this test'));
 });
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
@@ -35,7 +34,7 @@ it('uses existing explicit prepare/confirm owner without loading a catalog',asyn
   fireEvent.click(screen.getByRole('button',{name:'Prepare changes for review'}));
   const merge=await screen.findByRole('button',{name:'Merge 1 change into campaign memory'});
   expect(api.prepareExtractPromote).toHaveBeenCalledExactlyOnceWith({runId:'run-a',managedWorldId:'managed-a'});
-  expect(live.getUnionSupergraphProjection).not.toHaveBeenCalled();expect(api.confirmExtractPromote).not.toHaveBeenCalled();
+  expect(api.confirmExtractPromote).not.toHaveBeenCalled();
   fireEvent.click(merge);await waitFor(()=>expect(api.confirmExtractPromote).toHaveBeenCalledExactlyOnceWith({reviewPackage:prepared.reviewPackage,assertionIds:['0:source_extraction::keeper']}));
 });
 it.each(['world','run','campaign','session'])('rejects prepared foreign %s before exposing confirmation',async field=>{

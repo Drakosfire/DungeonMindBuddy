@@ -248,12 +248,10 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
   });
 
   it("does not call Union/latest-ingest selectors", async () => {
-    const getUnion = vi.spyOn(liveApi, "getUnionSupergraphProjection");
     vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue(session23WorldGraphRecapFixture);
 
     render(<RecapGraphModule context={context} />);
     await screen.findByLabelText("Published recap");
-    expect(getUnion).not.toHaveBeenCalled();
   });
 
   it("does not put Continue in Build on the ordinary recap Peek", async () => {

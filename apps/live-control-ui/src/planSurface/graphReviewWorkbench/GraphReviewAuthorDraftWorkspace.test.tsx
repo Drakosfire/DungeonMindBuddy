@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   commitGraphObjectAuthoringWrite,
   getGoldGraphProjection,
-  getUnionSupergraphProjection,
   prepareGraphObjectAuthoringWrite,
 } from "../../api/liveApi";
 import type {
@@ -80,7 +79,6 @@ vi.mock("../../api/liveApi", async () => {
   return {
     ...actual,
     getGoldGraphProjection: vi.fn(),
-    getUnionSupergraphProjection: vi.fn(),
     prepareGraphObjectAuthoringWrite: vi.fn(),
     commitGraphObjectAuthoringWrite: vi.fn(),
   };
@@ -161,7 +159,6 @@ describe("GraphReviewAuthorDraftWorkspace", () => {
   beforeEach(() => {
     writeReadyProjectionOverride.current = projectionWithMentions;
     sessionStorage.removeItem("graph-object-authoring-staged:longmont-c2:session-23");
-    vi.mocked(getUnionSupergraphProjection).mockReset();
     vi.mocked(getGoldGraphProjection).mockReset();
     vi.mocked(getGoldGraphProjection).mockResolvedValue({
       ...projectionWithMentions,
@@ -169,7 +166,6 @@ describe("GraphReviewAuthorDraftWorkspace", () => {
       gold_fixture_id: "fixture-a",
       gold_fixture_relpath: "gold/session-23.json",
     });
-    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projectionWithMentions);
   });
 
   afterEach(() => {
@@ -333,13 +329,6 @@ describe("GraphReviewAuthorDraftWorkspace", () => {
       markdown: "The gang arrived at the gate.",
       node_views: {},
     };
-    vi.mocked(getUnionSupergraphProjection)
-      .mockResolvedValueOnce({
-        ...projectionWithMentions,
-        markdown: "The gang arrived at the gate.",
-        node_views: {},
-      })
-      .mockResolvedValue(projectionAfterCreate);
     vi.mocked(prepareGraphObjectAuthoringWrite).mockResolvedValue({
       prepared: true,
       campaign_id: "longmont-c2",
@@ -437,7 +426,6 @@ describe("GraphReviewAuthorDraftWorkspace", () => {
 describe("GraphReviewAuthorNodePanel", () => {
   beforeEach(() => {
     writeReadyProjectionOverride.current = null;
-    vi.mocked(getUnionSupergraphProjection).mockReset();
     vi.mocked(getGoldGraphProjection).mockReset();
     vi.mocked(getGoldGraphProjection).mockResolvedValue({
       ...projectionWithMentions,
@@ -461,7 +449,6 @@ describe("GraphReviewAuthorNodePanel", () => {
   });
 
   it("does not open authoring workspace from a catalog live run without write-ready projection", async () => {
-    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projectionWithMentions);
 
     renderGraphReviewLiveHarness({
       liveRun: baseRun,
@@ -475,7 +462,6 @@ describe("GraphReviewAuthorNodePanel", () => {
   });
 
   it("returns to review mode when the author node panel unmounts", async () => {
-    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projectionWithMentions);
 
     renderGraphReviewLiveHarness({
       liveRun: baseRun,
