@@ -123,9 +123,6 @@ def prepared_view(prepared: Any, expected_state: Mapping[str, Any], *, accountin
         raise ValueError("Prepared context capability is invalid")
     body = _decode(payload)
     if accounting is not None:
-        from .build_jev_accounting import RAW_WIRE_LIMIT
-        if len(prepared.body) > RAW_WIRE_LIMIT:
-            accounting.validate(body, prepared.body)  # Refuse before tokenizing.
         if mode.value != accounting.context_mode(body):
             raise ValueError("Prepared context mode differs from exact frozen request")
     elif mode is not DecisionContextMode.DEFAULT:

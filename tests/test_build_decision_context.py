@@ -60,21 +60,18 @@ def test_combined_multi_question_request_can_require_long_mode(phase):
     assert view["maxQuestionInputTokens"]==30096
 
 
-def test_selector_disagreement_malformed_mode_and_byte_fence_fail():
+def test_selector_disagreement_and_malformed_mode_fail():
     policy=constant(33000);value=body(policy)
     with pytest.raises(ValueError,match="mode differs"):
         prepared_view(prepared(value),value["state"],accounting=policy)
     with pytest.raises(ValueError,match="capability"):
         prepared_view(prepared(value,"long_context"),value["state"],accounting=policy)
-    value["state"]["text"]="x"*256000
-    with pytest.raises(DecisionCapacityError,match="raw wire"):
-        prepared_view(prepared(value,DecisionContextMode.LONG_CONTEXT),value["state"],accounting=policy)
 
 
 def proof():
     policy=constant(33000);value=body(policy);request=prepared(value,DecisionContextMode.LONG_CONTEXT)
     view=prepared_view(request,value["state"],accounting=policy)
-    descriptor=t.BuildControllerContinuationAccountingV3.model_validate(policy.descriptor)
+    descriptor=t.BuildControllerContinuationAccountingV4.model_validate(policy.descriptor)
     execution=SimpleNamespace(policy=SimpleNamespace(controller_continuation_accounting=descriptor,
         provider_roles=SimpleNamespace(controller=SimpleNamespace(identity=lambda:("typesafe","jev-1.14.0","typesafe_decision")))))
     event=t.ProviderAttemptAuthorizedEventV5(event_id=uuid4(),sequence=0,kind="provider_attempt_authorized_v5",
@@ -98,20 +95,15 @@ def test_retained_proof_roundtrip_and_mode_body_phase_digest_tamper():
             context.validate_prepared(event.model_copy(update={field:value}),execution,raw)
     with pytest.raises(ValueError,match="hash"):
         context.validate_prepared(event,execution,raw+" ")
-    with pytest.raises(ValueError,match="exact bounded"):
+    with pytest.raises(ValueError,match="exact prepared"):
         context.validate_prepared(event,execution,None)
 
 
-def test_raw_fence_does_not_invoke_counter_and_historical_descriptor_stays_exact():
-    def forbidden(_):
-        raise AssertionError("Oversized raw wire must not be tokenized")
-    policy=ExperimentalAccounting("synthetic",forbidden)
-    value=body(policy);value["state"]["text"]="x"*256000
-    with pytest.raises(DecisionCapacityError,match="raw wire"):
-        prepared_view(prepared(value),value["state"],accounting=policy)
+def test_historical_descriptor_stays_exact():
+    policy=constant(33000)
     old={key:value for key,value in policy.descriptor.items()
          if key not in {"long_question_limit_tokens","long_request_limit_tokens","context_selection_policy"}}
-    old["policy"]="o200k_double_plus_4096_experimental_v1"
+    old.update(policy="o200k_double_plus_4096_experimental_v1",raw_wire_limit_bytes=256000)
     historical=t.BuildControllerContinuationAccountingV1.model_validate(old)
     assert historical.model_dump(mode="json")==old
     with pytest.raises(ValueError):
@@ -120,6 +112,36 @@ def test_raw_fence_does_not_invoke_counter_and_historical_descriptor_stays_exact
     execution.policy.controller_continuation_accounting=historical
     with pytest.raises(ValueError,match="adaptive accounting"):
         context.validate_prepared(event,execution,raw)
+
+
+@pytest.mark.parametrize("historical", [False, True])
+def test_prepared_byte_admission_keeps_exact_historical_contract(historical):
+    event,execution,raw=proof()
+    value=json.loads(raw)
+    value["state"]["text"]="🌿 café 中文 \"escaped\" " + " "*300000
+    descriptor=execution.policy.controller_continuation_accounting
+    if historical:
+        descriptor=t.BuildControllerContinuationAccountingV3.model_validate({
+            **descriptor.model_dump(mode="json"), "policy":context.HISTORICAL_SELECTION_POLICY,
+            "raw_wire_limit_bytes":256000})
+    execution.policy.controller_continuation_accounting=descriptor
+    value["state"]["context_accounting"]=descriptor.model_dump(mode="json")
+    raw=json.dumps(value,separators=(",",":"),ensure_ascii=False)
+    assert len(raw.encode())>256000
+    digest=sha256(raw.encode()).hexdigest()
+    event=event.model_copy(update={"envelope_sha256":digest,"input_estimator":descriptor.policy,
+        "dispatch_identity_sha256":context.identity(envelope_sha256=digest,provider=event.provider,
+            model=event.model,api_mode=event.api_mode,context_mode=event.context_mode)})
+    if historical:
+        retained=type(descriptor).model_validate_json(descriptor.model_dump_json())
+        assert retained==descriptor and retained.raw_wire_limit_bytes==256000
+        assert context.selected_mode("writer_selection",33000,33000,policy=retained.policy)=="long_context"
+        with pytest.raises(ValueError,match="historical byte bound"):
+            context.validate_prepared(event,execution,raw)
+    else:
+        context.validate_prepared(event,execution,raw)
+        with pytest.raises(ValueError,match="hash"):
+            context.validate_prepared(event,execution,raw+" ")
 
 
 @pytest.mark.parametrize("estimate,mode,accepted", [(32000,"default",True),(32002,"long_context",True),(262000,"long_context",True),(262002,"long_context",False)])
@@ -138,7 +160,7 @@ def test_historical_v2_authorizations_keep_exact_original_phase_semantics():
     event,execution,raw=proof()
     value=json.loads(raw)
     descriptor={**value["state"]["context_accounting"],"policy":context.HISTORICAL_POLICY,
-                "context_selection_policy":context.HISTORICAL_SELECTION}
+                "context_selection_policy":context.HISTORICAL_SELECTION,"raw_wire_limit_bytes":256000}
     value["state"]["context_accounting"]=descriptor
     historical=t.BuildControllerContinuationAccountingV2.model_validate(descriptor)
     assert historical.model_dump(mode="json")==descriptor
@@ -157,3 +179,41 @@ def test_historical_v2_authorizations_keep_exact_original_phase_semantics():
     # An old descriptor can be read, but the current host never authorizes it.
     with pytest.raises(ValueError,match="descriptor differs"):
         prepared_view(prepared(value,DecisionContextMode.LONG_CONTEXT),value["state"],accounting=constant(33000))
+
+
+def test_harness_selects_long_context_for_large_multi_question_sdk_wire(monkeypatch):
+    """Regression shape: final selector, 50 choices, >256kB, under token budget."""
+    import asyncio
+    import httpx2
+    from generationengine import GenerationEngineError
+    from apps.live_control_server.services.build_jev_harness import BuildJevHarness
+    from apps.live_control_server.services.build_jev_transitions import DecisionQuestion
+
+    monkeypatch.setenv("TYPESAFE_JEV_API_KEY", "synthetic-no-network")
+    policy=constant(156808)
+    state={"phase":"writer_selection","context_accounting":policy.descriptor,
+        "sources":[{"text":'🌿 café 中文 "quoted" \\ '+"evidence. "*32000}]}
+    seen=[]
+
+    def authorize(request):
+        assert len(request.body)>256000
+        view=prepared_view(request,state,accounting=policy)
+        assert view["contextMode"]=="long_context"
+        assert len(json.loads(request.body)["questions"])==50
+        seen.append(view)
+        return False  # Capture the actual SDK projection without entering transport.
+
+    class Forbidden(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self, request):
+            raise AssertionError("Provider must not be called")
+
+    driver=SimpleNamespace(stage=lambda:SimpleNamespace(state=lambda:state),authorize=authorize,
+        step=SimpleNamespace(questions=tuple(DecisionQuestion(name=f"s{i}",kind="choice",
+            question="Judge support",options=("direct_support","qualification_or_conflict","uncertain","irrelevant"))
+            for i in range(50))))
+    adapter=SimpleNamespace(_build_jev_accounting=policy,turn=None,failure=None)
+    harness=BuildJevHarness(decision_transport=Forbidden(),accounting=policy)
+    harness.calls,harness.timings,harness._inflight=[],[],{}
+    with pytest.raises(GenerationEngineError):
+        asyncio.run(harness._decide(adapter,driver))
+    assert len(seen)==1 and not harness.calls
