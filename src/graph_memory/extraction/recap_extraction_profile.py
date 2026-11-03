@@ -194,6 +194,8 @@ def _build_recap_profile(
         enable_encounter_job_pass=enable_encounter_job_pass,
         enable_encounter_job_edge_guidance=enable_encounter_job_edge_guidance,
         enable_dynamic_node_vocabulary_packet=enable_dynamic_node_vocabulary_packet,
+        # Source-local names are candidates, not authority to merge identities.
+        enable_automatic_identity_consolidation=False,
         allow_null_session=False,
         schema_ids={
             "envelope": "dmb_live_extractor_candidate_envelope_v0",

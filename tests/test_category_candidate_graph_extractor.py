@@ -59,6 +59,14 @@ class RecordingClient:
                 "elapsed_ms": 1,
                 "response_id": "r-beat",
             }
+        if pass_name not in {"actor_pass", "location_pass"}:
+            return {
+                "parsed": {"observation_nodes": []},
+                "cost_usd": 0.0,
+                "usage": {},
+                "elapsed_ms": 1,
+                "response_id": f"r-{pass_name}",
+            }
         return {
             "parsed": {
                 "observation_nodes": [
@@ -340,7 +348,7 @@ def test_extraction_retains_distinct_predicates_with_same_endpoints():
         assert all(edge['evidence_refs'] for edge in edges.values())
 
 
-def test_beat_call_receives_consolidated_identity_inventory_and_keeps_source_associations():
+def test_beat_call_receives_source_local_inventory_and_keeps_source_associations():
     import hashlib
     import json
 
@@ -368,7 +376,7 @@ def test_beat_call_receives_consolidated_identity_inventory_and_keeps_source_ass
                 assert 'Generated descriptive claim' not in prompt
                 inventory = json.JSONDecoder().raw_decode(
                     prompt.split('## Node identity inventory\n\n```json\n', 1)[1])[0]
-                assert {n['node_id'] for n in inventory} == {'npc:miri'}
+                assert {n['node_id'] for n in inventory} == {'npc:miri', 'npc:duplicate'}
                 assert inventory[0]['label'] == 'Miri'
                 assert inventory[0]['evidence_refs']
                 response['parsed'] = {'observation_beats': [
@@ -391,4 +399,167 @@ def test_beat_call_receives_consolidated_identity_inventory_and_keeps_source_ass
     beats = result.candidate_graph['beats']
     assert [b['involved_node_ids'] for b in beats] == [['npc:miri'], []]
     assert [b['summary'] for b in beats] == [first, second]
-    assert {node['node_id'] for node in result.candidate_graph['nodes']} == {'npc:miri'}
+    assert {node['node_id'] for node in result.candidate_graph['nodes']} == {'npc:miri', 'npc:duplicate'}
+
+
+class SourceLocalIdentityClient(RecordingClient):
+    """Replay collision shapes without asking a provider to resolve identity."""
+
+    source = (
+        "Stone Bridge is a town with a bridge also called Stone Bridge. "
+        "The Wizard's Tower Brewing Co company operates a brewery of the same name."
+    )
+
+    def __init__(self, *, duplicate_id=False):
+        super().__init__()
+        self.duplicate_id = duplicate_id
+        self.ref = {"source_span_ref_id": "span-1", "anchor_quotes": [self.source]}
+        self.inventory_ids = {"town", "bridge", "brewery", "company", "bridge-item"}
+
+    def run_pass(self, pass_name, **kwargs):
+        response = super().run_pass(pass_name, **kwargs)
+        if pass_name == "location_pass":
+            response["parsed"] = {"observation_nodes": [
+                {"node_id": nid, "label": label, "node_type": "location",
+                 "description": description, "evidence_refs": [self.ref]}
+                for nid, label, description in (
+                    ("town", "Stone Bridge", "The town."),
+                    ("town" if self.duplicate_id else "bridge", "Stone Bridge", "The bridge."),
+                    ("brewery", "The Wizard's Tower Brewing Co", "The premises."),
+                )
+            ]}
+        elif pass_name in {"collective_pass", "object_pass"}:
+            is_company = pass_name == "collective_pass"
+            response["parsed"] = {"observation_nodes": [{
+                "node_id": "company" if is_company else "bridge-item",
+                "label": "The Wizard's Tower Brewing Co" if is_company else "Stone Bridge",
+                "node_type": "organization" if is_company else "item",
+                "description": "The company." if is_company else "The bridge object.",
+                "evidence_refs": [self.ref],
+            }]}
+        elif pass_name in {"beat_pass", "edge_pass"}:
+            if not self.duplicate_id:
+                for nid in self.inventory_ids:
+                    assert f'"node_id": "{nid}"' in kwargs["user_content"], (pass_name, nid)
+            if pass_name == "beat_pass":
+                response["parsed"] = {"observation_beats": []}
+            else:
+                response["parsed"] = {"observation_edges": [
+                    {"edge_id": eid, "from_node_id": start, "to_node_id": end,
+                     "label": label, "relationship_type": predicate,
+                     "evidence_refs": [self.ref]}
+                    for eid, start, end, predicate, label in (
+                        ("bridge-town", "bridge", "town", "located_in", "Bridge in town"),
+                        ("company-premises", "company", "brewery", "associated_with", "Company premises"),
+                        ("bridge-object", "bridge-item", "bridge", "same_as", "Explicit producer proposal"),
+                        ("unknown", "unknown:bridge", "town", "located_in", "Unknown endpoint"),
+                    )
+                ]}
+        else:
+            response["parsed"] = {"observation_nodes": []}
+        return response
+
+
+def _extract_source_local_identity(client):
+    index = _span_index(session_id="session-1")
+    index["spans"][0]["text"] = client.source
+    return extract_category_candidate_graph(CategoryGraphExtractionOptions(
+        campaign_id="synthetic-source-local", session_id="session-1", session_number=1,
+        source_span_index=index, source_text=client.source,
+        profile=RECAP_EXTRACTION_PROFILE,
+    ), client=client)
+
+
+def test_source_local_distinctions_reach_later_passes_and_keep_exact_edge_endpoints():
+    client = SourceLocalIdentityClient()
+    result = _extract_source_local_identity(client)
+    nodes = result.candidate_graph["nodes"]
+    assert {node["node_id"] for node in nodes} == client.inventory_ids
+    assert next(node for node in nodes if node["node_id"] == "town")["description"] == "The town."
+    assert next(node for node in nodes if node["node_id"] == "bridge")["description"] == "The bridge."
+    edges = {edge["edge_id"]: edge for edge in result.candidate_graph["edges"]}
+    assert set(edges) == {"bridge-town", "company-premises", "bridge-object"}
+    assert {(eid, edge["from_node_id"], edge["to_node_id"]) for eid, edge in edges.items()} == {
+        ("bridge-town", "bridge", "town"),
+        ("company-premises", "company", "brewery"),
+        ("bridge-object", "bridge-item", "bridge"),
+    }
+    # Only the explicit producer proposal survives; the host invents no same_as.
+    assert [edge["edge_id"] for edge in edges.values() if edge["relationship_type"] == "same_as"] == ["bridge-object"]
+    from src.graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
+
+    load_typed_candidate_graph(result.candidate_graph)
+    diag = result.consolidation_diagnostics
+    assert diag["merged_nodes"] == diag["cross_class_merged_nodes"] == []
+    assert diag["dropped_edges_missing_endpoints"] == [
+        {"edge_id": "unknown", "from_node_id": "unknown:bridge", "to_node_id": "town"}
+    ]
+
+
+def test_duplicate_source_local_ids_are_exposed_to_existing_preview_validation():
+    from src.graph_memory.candidate_graph_preview import (
+        candidate_graph_preview_from_dict, validate_candidate_graph_preview,
+    )
+
+    result = _extract_source_local_identity(SourceLocalIdentityClient(duplicate_id=True))
+    # Do not mask malformed provider identity reuse with label-based deduplication.
+    assert sum(node["node_id"] == "town" for node in result.candidate_graph["nodes"]) == 2
+    report = validate_candidate_graph_preview(candidate_graph_preview_from_dict(result.candidate_graph))
+    assert any(issue.code == "duplicate_node_id" and issue.severity == "error" for issue in report.issues)
+    import pytest
+    from src.graph_memory.candidate_graph_to_contribution import (
+        CandidateGraphMappingError, load_typed_candidate_graph,
+    )
+
+    with pytest.raises(CandidateGraphMappingError, match="duplicate_node_id"):
+        load_typed_candidate_graph(result.candidate_graph)
+
+
+
+def test_same_label_endpoints_do_not_collapse_separate_relationships():
+    class ParallelEndpointsClient(SourceLocalIdentityClient):
+        source = SourceLocalIdentityClient.source + " A sign stands near both the town and the bridge."
+
+        def run_pass(self, pass_name, **kwargs):
+            response = super().run_pass(pass_name, **kwargs)
+            if pass_name == "object_pass":
+                response["parsed"]["observation_nodes"].append({
+                    "node_id": "sign", "label": "Sign", "node_type": "item",
+                    "description": "A sign near both places.", "evidence_refs": [self.ref],
+                })
+            elif pass_name == "edge_pass":
+                response["parsed"]["observation_edges"].extend([
+                    {"edge_id": f"sign-{target}", "from_node_id": "sign", "to_node_id": target,
+                     "relationship_type": "near", "label": "Near Stone Bridge",
+                     "evidence_refs": [self.ref]}
+                    for target in ("town", "bridge")
+                ])
+            return response
+
+    result = _extract_source_local_identity(ParallelEndpointsClient())
+    assert {edge["edge_id"]: (edge["from_node_id"], edge["to_node_id"])
+            for edge in result.candidate_graph["edges"] if edge["edge_id"].startswith("sign-")} == {
+        "sign-town": ("sign", "town"), "sign-bridge": ("sign", "bridge"),
+    }
+    assert result.consolidation_diagnostics["merged_edges"] == []
+
+
+
+def test_duplicate_source_local_edge_ids_are_not_hidden_by_payload_deduplication():
+    import pytest
+    from src.graph_memory.candidate_graph_to_contribution import (
+        CandidateGraphMappingError, load_typed_candidate_graph,
+    )
+
+    class DuplicateEdgeClient(SourceLocalIdentityClient):
+        def run_pass(self, pass_name, **kwargs):
+            response = super().run_pass(pass_name, **kwargs)
+            if pass_name == "edge_pass":
+                edges = response["parsed"]["observation_edges"]
+                edges.append(dict(edges[0]))
+            return response
+
+    result = _extract_source_local_identity(DuplicateEdgeClient())
+    assert sum(edge["edge_id"] == "bridge-town" for edge in result.candidate_graph["edges"]) == 2
+    with pytest.raises(CandidateGraphMappingError, match="duplicate_edge_id"):
+        load_typed_candidate_graph(result.candidate_graph)
