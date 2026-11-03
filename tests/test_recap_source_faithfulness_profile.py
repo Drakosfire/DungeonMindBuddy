@@ -130,3 +130,36 @@ def test_recap_only_guidance_does_not_leak_into_worldbuilding_profile() -> None:
     compiled = "\n".join(prompts.values())
     assert "An intended action is not a completed action" not in compiled
     assert "Keep broad plural references broad" not in compiled
+
+
+def test_recap_edge_prompt_requires_full_directed_tuple_support() -> None:
+    prompts = render_category_pass_prompts(
+        SYNTHETIC_SOURCE_ROWS, profile=RECAP_EXTRACTION_PROFILE,
+    )
+    edge = prompts["edge_pass.md"]
+    assert "from_node_id → relationship_type → to_node_id" in edge
+    assert "direction" in edge
+    assert "label does not qualify" in edge
+    assert "no catalog predicate faithfully expresses" in edge
+    assert "Keep broad plural references broad" in edge
+    assert edge.count("from_node_id → relationship_type → to_node_id") == 1
+
+
+def test_recap_edge_contract_preserves_catalog_schema_and_profile_boundary() -> None:
+    from src.graph_memory.predicate_catalog import prompt_markdown
+
+    prompts = render_category_pass_prompts(
+        SYNTHETIC_SOURCE_ROWS, profile=RECAP_EXTRACTION_PROFILE,
+    )
+    edge = prompts["edge_pass.md"]
+    assert prompt_markdown() in edge
+    assert "Use exact `node_id` values" in edge
+    assert "Return JSON with key `observation_edges`" in edge
+    for row in SYNTHETIC_SOURCE_ROWS:
+        assert row["text"] in edge
+    worldbuilding = render_category_pass_prompts(
+        SYNTHETIC_SOURCE_ROWS, profile=WORLDBUILDING_PLUMBING_PROFILE,
+    )["edge_pass.md"]
+    assert "from_node_id → relationship_type → to_node_id" not in worldbuilding
+    assert "label does not qualify" not in worldbuilding
+    assert "no catalog predicate faithfully expresses" not in worldbuilding

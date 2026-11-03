@@ -1,9 +1,10 @@
 # INGEST: withhold planning headings carrying inline text
 
-Status: ACTIVE implementation under the user’s ingestion-quality goal and
-PRIME’s adopted bounded source-format contract. PR2040 merged as
-`22a00434c886b5abc57e3725682777e29f21aaf9`; this checkout was re-anchored to that
-fetched `origin/main` before activation. No runtime/resource-effects lease.
+Status: COMPLETE implementation, independently approved at head
+`793b8955df5608f5686e47fc21b5c8fa609a144f` and merged via PR2043 as
+`b1c63f1bb1d0e60f418fe7bbd414f6a540484ddf`. All seven CI checks passed.
+Runtime delivery remains PRIME-owned; this merge does not establish fresh
+extraction, publication quality or completeness.
 
 Base: `1b729d40784fc29c23cf0400c265536734fb23f2`.
 PR2042 merged above PR2040 during regression reproduction; the disjoint
