@@ -1,9 +1,10 @@
 # INGEST: preserve directed relationship meaning and modality
 
-Status: ACTIVE under the user’s ingestion-quality implementation goal. PRIME
-confirmed disjoint profile/test ownership and authorized this serial successor
-after PR2043 merge. PR2043 merged as
-`b1c63f1bb1d0e60f418fe7bbd414f6a540484ddf`; all seven checks passed.
+Status: COMPLETE implementation, independently approved at head
+`3d78104952f742b355da197638f4b96cef32b634` and merged via PR2045 as
+`e7c0ec84508d212c7dc211c7c270393534e7b375`. All seven CI checks passed.
+Runtime delivery remains PRIME-owned; no fresh model or publication quality
+is established by this merge.
 Base: `e4773b18c559e14f95e39c84dc3fcca582784add`.
 PR2044 merged disjoint producer retirement after activation; this lane was
 fast-forwarded to fetched main before final validation and review.
