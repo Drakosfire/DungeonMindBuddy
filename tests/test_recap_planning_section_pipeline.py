@@ -1,5 +1,7 @@
 import hashlib
 
+import pytest
+
 from graph_memory.source_span import build_source_span_index_for_text, source_span_index_to_dict
 from src.graph_memory.extraction import category_candidate_graph_extractor as module
 from src.graph_memory.extraction.worldbuilding_plumbing_profile import WORLDBUILDING_PLUMBING_PROFILE
@@ -128,8 +130,9 @@ def test_plain_label_section_withholds_prompt_and_rejects_injected_planning_clai
     assert planned["text"] == "Iria will receive the Golden Map."
 
 
-def test_lazy_quoted_label_keeps_following_played_source_in_pipeline():
-    text = "> The GM wrote:\nNext Beats:\nIria will receive the Golden Map.\n\nIria arrived in Larkhaven."
+@pytest.mark.parametrize("prefix", ["", "Intro\u2028detail\u2028more\n"])
+def test_lazy_quoted_label_keeps_following_played_source_in_pipeline(prefix):
+    text = prefix + "> The GM wrote:\nNext Beats:\nIria will receive the Golden Map.\n\nIria arrived in Larkhaven."
     index, quoted, played = setup(text)
     client = Client(quoted, played)
     result = module.run_category_pipeline(client, options(index, source_text=text))

@@ -4,7 +4,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from bisect import bisect_left
 from collections.abc import Callable, Mapping, Sequence
+from itertools import accumulate
 from typing import Any
 
 from markdown_it import MarkdownIt
@@ -32,13 +34,20 @@ def partition_recap_source_rows(
     if text is None:
         return list(rows), [], {"checked": False, "reason": "full_source_text_unavailable"}
     lines = text.splitlines()
-    # CommonMark blockquote maps include lazy paragraph continuations without
-    # a leading `>`; those lines cannot introduce or end source authority.
+    # CommonMark counts CR/LF lines; source rows use Python splitlines, which
+    # also counts Unicode separators. Translate through original character
+    # boundaries rather than changing the source row/offset contract.
+    source_boundaries = list(accumulate(map(len, text.splitlines(keepends=True)), initial=0))
+    markdown_boundaries = [0, *(match.end() for match in re.finditer(r"\r\n|\r|\n", text))]
+    if markdown_boundaries[-1] != len(text):
+        markdown_boundaries.append(len(text))
+    source_line_for_boundary = [bisect_left(source_boundaries, offset) + 1 for offset in markdown_boundaries]
+    # Blockquote maps include lazy continuations without a leading `>`.
     quoted_lines = {
         number
         for token in MarkdownIt("commonmark").parse(text)
         if token.type == "blockquote_open" and token.map is not None
-        for number in range(token.map[0] + 1, token.map[1] + 1)
+        for number in range(source_line_for_boundary[token.map[0]], source_line_for_boundary[token.map[1]])
     }
     planned: set[int] = set()
     section_level: int | None = None

@@ -95,3 +95,16 @@ The retained Session 5 owner replay remains identical to the earlier proof:
 all five played paragraphs kept and the same planning claims deferred. Original
 private evidence is unchanged. Independent review of the corrected head remains
 required before merge/delivery; these checks are not fresh extraction acceptance.
+
+The second independent review held `8b8324776d88a968eef866fe6115b6de9e6cb7eb`:
+CommonMark line maps count CR/LF boundaries while existing source rows also count
+Python Unicode line separators. With such separators before a lazy quote, the
+quote mask missed its label. The correction translates CommonMark boundaries
+through original character offsets to the unchanged source-row line basis.
+Eight Unicode separator cases reproduced the failure before correction. LF,
+CRLF and CR controls and a canonical-span pipeline Unicode case now pass along
+with the existing checks: 104 focused tests, Ruff and cumulative diff check.
+The pure retained Session 5 proof remains unchanged. No source bytes, row IDs,
+quote offsets, frozen candidate or Gold were rewritten. The independently found
+heading-with-inline-planning-payload gap is a separate serial successor, not part
+of this PR; edge-guidance work follows that evidence-admission correction.

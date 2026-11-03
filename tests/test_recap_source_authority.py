@@ -156,8 +156,9 @@ def test_plain_recap_inside_planning_code_or_prose_does_not_resume_play():
 
 
 @pytest.mark.parametrize("label", ["Next Beats:", "**Next Beats:**", "__Planning Notes__:"])
-def test_lazy_blockquote_label_does_not_hide_later_played_paragraph(label):
-    text = f"> The GM wrote:\n{label}\nA future reward.\n\nThe party arrived in town."
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+def test_lazy_blockquote_label_does_not_hide_later_played_paragraph(label, newline):
+    text = newline.join(["> The GM wrote:", label, "A future reward.", "", "The party arrived in town."])
     kept, withheld, _ = partition_recap_source_rows(rows(text), text)
     assert kept == rows(text) and not withheld
 
@@ -173,3 +174,12 @@ def test_real_label_after_blockquote_paragraph_still_starts_planning():
     kept, withheld, _ = partition_recap_source_rows(rows(text), text)
     assert [r["text"] for r in kept] == ["> A quoted example.", "Recap:", "Played event."]
     assert [r["text"] for r in withheld] == ["Next Beats:", "A future reward."]
+
+
+@pytest.mark.parametrize("separator", ["\u2028", "\u2029", "\x85", "\v", "\f", "\x1c", "\x1d", "\x1e"])
+def test_lazy_quote_maps_to_source_rows_after_unicode_separators(separator):
+    text = f"Intro{separator}detail{separator}more\n> The GM wrote:\nNext Beats:\nA future reward.\n\nThe party arrived in town."
+    source_rows = rows(text)
+    kept, withheld, _ = partition_recap_source_rows(source_rows, text)
+    assert kept == source_rows and not withheld
+    assert text.splitlines()[4] == "Next Beats:"
