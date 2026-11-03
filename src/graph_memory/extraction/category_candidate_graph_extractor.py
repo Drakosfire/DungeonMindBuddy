@@ -1145,7 +1145,12 @@ def consolidate_category_outputs(
                     "to_node_id": edge["to_node_id"],
                 }
             )
-    edge_dedup = ir.dedup_edges(edges, deduped_nodes)
+    if active_profile.enable_automatic_identity_consolidation:
+        edge_dedup = ir.dedup_edges(edges, deduped_nodes)
+    else:
+        # Label-derived endpoint keys are not source-local identity authority.
+        # Keep exact candidates, including malformed IDs for typed validation.
+        edge_dedup = {"kept": edges, "merged": []}
     edge_predicate_issues = [
         {
             "edge_id": edge["edge_id"],

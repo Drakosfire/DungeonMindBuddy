@@ -513,3 +513,53 @@ def test_duplicate_source_local_ids_are_exposed_to_existing_preview_validation()
 
     with pytest.raises(CandidateGraphMappingError, match="duplicate_node_id"):
         load_typed_candidate_graph(result.candidate_graph)
+
+
+
+def test_same_label_endpoints_do_not_collapse_separate_relationships():
+    class ParallelEndpointsClient(SourceLocalIdentityClient):
+        source = SourceLocalIdentityClient.source + " A sign stands near both the town and the bridge."
+
+        def run_pass(self, pass_name, **kwargs):
+            response = super().run_pass(pass_name, **kwargs)
+            if pass_name == "object_pass":
+                response["parsed"]["observation_nodes"].append({
+                    "node_id": "sign", "label": "Sign", "node_type": "item",
+                    "description": "A sign near both places.", "evidence_refs": [self.ref],
+                })
+            elif pass_name == "edge_pass":
+                response["parsed"]["observation_edges"].extend([
+                    {"edge_id": f"sign-{target}", "from_node_id": "sign", "to_node_id": target,
+                     "relationship_type": "near", "label": "Near Stone Bridge",
+                     "evidence_refs": [self.ref]}
+                    for target in ("town", "bridge")
+                ])
+            return response
+
+    result = _extract_source_local_identity(ParallelEndpointsClient())
+    assert {edge["edge_id"]: (edge["from_node_id"], edge["to_node_id"])
+            for edge in result.candidate_graph["edges"] if edge["edge_id"].startswith("sign-")} == {
+        "sign-town": ("sign", "town"), "sign-bridge": ("sign", "bridge"),
+    }
+    assert result.consolidation_diagnostics["merged_edges"] == []
+
+
+
+def test_duplicate_source_local_edge_ids_are_not_hidden_by_payload_deduplication():
+    import pytest
+    from src.graph_memory.candidate_graph_to_contribution import (
+        CandidateGraphMappingError, load_typed_candidate_graph,
+    )
+
+    class DuplicateEdgeClient(SourceLocalIdentityClient):
+        def run_pass(self, pass_name, **kwargs):
+            response = super().run_pass(pass_name, **kwargs)
+            if pass_name == "edge_pass":
+                edges = response["parsed"]["observation_edges"]
+                edges.append(dict(edges[0]))
+            return response
+
+    result = _extract_source_local_identity(DuplicateEdgeClient())
+    assert sum(edge["edge_id"] == "bridge-town" for edge in result.candidate_graph["edges"]) == 2
+    with pytest.raises(CandidateGraphMappingError, match="duplicate_edge_id"):
+        load_typed_candidate_graph(result.candidate_graph)
