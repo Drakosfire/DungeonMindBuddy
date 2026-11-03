@@ -1,6 +1,6 @@
 # GRAPH: recover native retained Threat verification
 
-Status: ACTIVE. Owner: PRIME runtime repair/cleanup stewardship.
+Status: MERGED_PENDING_DELIVERY. Owner: PRIME runtime repair/cleanup stewardship.
 Base: origin/main@945e25c04b18d8343a64bf77982d80eed8a463fb.
 Original reviewed parent: PR2058@0b416b7d64bf86bb5f0b257799795e400092ba8a.
 Branch: codex/native-retained-threat-verification, reuse buddy-context-loop.
@@ -60,3 +60,12 @@ Only confirm_threat_publication changes among runtime functions/classes; all
 other ASTs identical. Source/test Ruff and diff checks pass. Red/green logs and
 process-local prior experiment retained in private runtime-evidence. Independent
 review and post-parent main integration/CI/merge/delivery remain outstanding.
+
+## Settled implementation predecessor
+
+Merged2060 at851586899f3274db1b68a47914ac021e60438e4c after all7CI and
+independent actual-source approval; treea5b9a8e57b4120d2c0ff8d0eac811d2c378588de
+matches the184-check integration. Implementation lease closed. Runtime delivery
+is staged, not complete:693e/API1922493 remains frozen for ADVERSARY's S7comparison.
+Private native-retained-threat-verification-delivery-contract.json is PREPARED,
+not an active cutover. No claim this fix is live until conserved delivery proves it.

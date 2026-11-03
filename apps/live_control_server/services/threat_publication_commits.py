@@ -2363,13 +2363,12 @@ def _maybe_retry(
     world_root: Path,
     record: ThreatPublicationCommitV1,
     proposal: ThreatPublicationProposalV1,
-    contribution: GraphContribution,
-    merge_fn: MergeFn,
+    authority: WorldGraphAuthority,
     lookup_fn: LookupFn,
     merge_calls: int,
 ) -> tuple[ThreatPublicationCommitV1, int, ThreatPublicationCommitResultLabel, str | None]:
     try:
-        observed_head = _current_head_id(world_root, record.world_id)
+        observed_head = authority.current_head(record.world_id).revision_id
     except Exception:
         return record, merge_calls, "publication_commit_graph_unavailable", None
     if observed_head != record.expected_parent_revision_id:
@@ -2409,14 +2408,26 @@ def _maybe_retry(
 
 
     try:
+        from apps.live_control_server.services.threat_publication_proposals import (
+            _mutation_context_from_view,
+        )
+
+        parent_view = authority.read_revision(record.world_id, record.expected_parent_revision_id)
         _verified, rebuilt = resolve_merged_contribution_from_package(
             review_package=proposal.sealed_proposal,
             confirming_principal=proposal.created_by,
             world_id_hint=record.world_id,
-            root=world_root,
+            mutation_context=_mutation_context_from_view(parent_view),
             expected_parent_revision_id=record.expected_parent_revision_id,
             assertion_ids=None,
         )
+    except WorldGraphAuthorityError as exc:
+        label = (
+            "publication_commit_recovery_pending"
+            if exc.code in {"authority_unavailable", "revision_unavailable"}
+            else "publication_commit_integrity_failure"
+        )
+        return record, merge_calls, label, f"native contribution context unavailable: {exc}"
     except OSError as exc:
         return (
             record,
@@ -2464,24 +2475,32 @@ def _maybe_retry(
         )
         return record, merge_calls, label, str(exc)
     try:
-        result = merge_fn(
-            world_root,
-            world_id=attempt2.world_id,
-            contribution=rebuilt,
-            expected_parent_revision_id=attempt2.expected_parent_revision_id,
+        receipt = authority.publish(
+            WorldGraphPublishRequest(
+                world_id=attempt2.world_id,
+                expected_parent_revision_id=attempt2.expected_parent_revision_id,
+                authority_operation_id=attempt2.expected_contribution_id,
+                actor=attempt2.created_by,
+                contribution=rebuilt,
+                accepted_assertion_ids=tuple(attempt2.accepted_assertion_ids),
+                decision=attempt2.decision,
+                threat_node_id=attempt2.threat_node_id,
+            )
         )
+        result = _receipt_to_merge_result(receipt, fallback_assertion_ids=attempt2.accepted_assertion_ids)
         merge_calls += 1
     except Exception:
         merge_calls += 1
-        updated, merge_calls, label, _allow_retry, message = _reconcile(
+        updated, merge_calls, label, _allow_retry, message = _reconcile_via_authority(
             root=root,
             world_root=world_root,
             record=attempt2,
             proposal=proposal,
             contribution=rebuilt,
             lookup_fn=lookup_fn,
-            merge_fn=merge_fn,
+            authority=authority,
             published_false=False,
+            published_false_message=None,
             merge_calls=merge_calls,
         )
         return updated, merge_calls, label, message
@@ -2508,18 +2527,19 @@ def _maybe_retry(
             proposal=proposal,
             contribution=rebuilt,
             lookup_fn=lookup_fn,
+            authority=authority,
         )
         return verified, merge_calls, label, message
 
 
-    updated, merge_calls, label, _allow_retry, message = _reconcile(
+    updated, merge_calls, label, _allow_retry, message = _reconcile_via_authority(
         root=root,
         world_root=world_root,
         record=attempt2,
         proposal=proposal,
         contribution=rebuilt,
         lookup_fn=lookup_fn,
-        merge_fn=merge_fn,
+        authority=authority,
         published_false=(result.published is False),
         merge_calls=merge_calls,
         published_false_message=_merge_failure_message(result),
@@ -3059,8 +3079,7 @@ def confirm_threat_publication(
                         world_root=configured_world,
                         record=updated,
                         proposal=proposal,
-                        contribution=contribution,
-                        merge_fn=merge,
+                        authority=authority,
                         lookup_fn=lookup,
                         merge_calls=merge_calls,
                     )
@@ -3392,8 +3411,7 @@ def confirm_threat_publication(
                 world_root=configured_world,
                 record=updated,
                 proposal=proposal,
-                contribution=contribution,
-                merge_fn=merge,
+                authority=authority,
                 lookup_fn=lookup,
                 merge_calls=merge_calls,
             )
