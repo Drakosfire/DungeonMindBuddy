@@ -401,7 +401,12 @@ def _explode_buddy_graph_runtime(monkeypatch) -> None:
     monkeypatch.setattr(builtins, "__import__", _guarded_import)
 
 
-def test_mounted_threat_lifecycle_with_buddy_graph_physically_absent(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "verification_recovery", [None, "passed", "failed", "unavailable", "parent_unavailable"]
+)
+def test_mounted_threat_lifecycle_with_buddy_graph_physically_absent(
+    tmp_path, monkeypatch, verification_recovery
+):
     """Handoff §16.10: begin → identity → proposal → confirm with no Buddy graph."""
     import uuid
 
@@ -449,6 +454,21 @@ def test_mounted_threat_lifecycle_with_buddy_graph_physically_absent(tmp_path, m
     monkeypatch.setattr(commit_svc, "world_graph_root", lambda: absent)
     _install_fake_authority(monkeypatch, fake)
     _explode_buddy_graph_runtime(monkeypatch)
+    verification_calls = []
+    original_verify = fake.verify_child
+
+    def verify_child(*, receipt, expected):
+        verification_calls.append(receipt.published_revision_id)
+        if verification_recovery is not None and len(verification_calls) == 1:
+            raise WorldGraphAuthorityError("child proof temporarily unavailable", code="authority_unavailable")
+        if verification_recovery == "unavailable":
+            raise WorldGraphAuthorityError("child proof still unavailable", code="authority_unavailable")
+        if verification_recovery == "failed":
+            return WorldGraphVerificationResult(status="failed", codes=("child_mismatch",))
+        return original_verify(receipt=receipt, expected=expected)
+
+    monkeypatch.setattr(fake, "verify_child", verify_child)
+
 
 
     draft = _create_draft(tmp_path)
@@ -520,7 +540,18 @@ def test_mounted_threat_lifecycle_with_buddy_graph_physically_absent(tmp_path, m
     child = first.response.commit.committed_revision_id
     assert child
     assert fake.publish_calls == 1
+    assert first.response.commit.verification_status == (
+        "passed" if verification_recovery is None else "not_started"
+    )
+    if verification_recovery == "parent_unavailable":
+        original_read = fake.read_revision
 
+        def read_revision(world_id, revision_id):
+            if revision_id == parent:
+                raise WorldGraphAuthorityError("parent unavailable", code="revision_unavailable")
+            return original_read(world_id, revision_id)
+
+        monkeypatch.setattr(fake, "read_revision", read_revision)
 
     retry = commit_svc.confirm_threat_publication(
         tmp_path,
@@ -541,6 +572,19 @@ def test_mounted_threat_lifecycle_with_buddy_graph_physically_absent(tmp_path, m
     assert retry.response.commit.committed_revision_id == child
     assert fake.publish_calls == 1
     assert not absent.exists()
+    expected_status = {
+        None: "passed", "passed": "passed", "failed": "failed",
+        "unavailable": "not_started", "parent_unavailable": "not_started",
+    }[verification_recovery]
+    assert retry.response.commit.verification_status == expected_status
+    assert retry.response.result_label == (
+        "publication_commit_verified" if expected_status == "passed"
+        else "publication_commit_committed_unverified"
+    )
+    expected_calls = 1 if verification_recovery in {None, "parent_unavailable"} else 2
+    assert verification_calls == [child] * expected_calls
+    if verification_recovery == "failed":
+        assert retry.response.commit.verification_codes == ["child_mismatch"]
 
 
 def _publish_request(
