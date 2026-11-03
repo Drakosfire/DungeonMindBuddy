@@ -82,25 +82,31 @@ class RecordSelection(Closed):
         return self
 
 
-class NativeRecapPrepareRequest(Closed):
+class _CandidatePrepareRequest(Closed):
     managed_world_id: Text
-    campaign_id: Text | None = None
     run_id: Text
     expected_run_revision: int = Field(ge=1, strict=True)
     candidate_sha256: Digest
-    source_admission_run_id: Text | None = None
     expected_parent_revision_id: Text
     expected_source_authority_epoch: int = Field(ge=1, strict=True)
     selections: list[RecordSelection]
 
     @model_validator(mode="after")
     def unique_records(self):
-        if (self.campaign_id is None) != (self.source_admission_run_id is None):
-            raise ValueError("recap review requires both campaign and source admission run; World review uses neither")
         keys = [(item.kind, item.record_id) for item in self.selections]
         if len(set(keys)) != len(keys):
             raise ValueError("duplicate record selection")
         return self
+
+
+class NativeRecapPrepareRequest(_CandidatePrepareRequest):
+    campaign_id: Text
+    source_admission_run_id: Text
+
+
+class NativeWorldbuildingPrepareRequest(_CandidatePrepareRequest):
+    workspace_document_id: Text
+    workspace_document_revision: int = Field(ge=1, strict=True)
 
 
 class NativeRecapReviewEnvelope(Closed):
@@ -109,14 +115,14 @@ class NativeRecapReviewEnvelope(Closed):
     principal: Text
     binding: dict[str, JsonValue] = Field(min_length=1)
     parent_context: dict[str, JsonValue] = Field(min_length=1)
-    review: NativeRecapPrepareRequest
+    review: NativeRecapPrepareRequest | NativeWorldbuildingPrepareRequest
     prepared_change_id: Text
     prepared_digest: Digest
     expires_at: datetime
 
     @model_validator(mode="after")
     def aware_expiry(self):
-        domain = "recap" if self.review.campaign_id is not None else "worldbuilding"
+        domain = "recap" if isinstance(self.review, NativeRecapPrepareRequest) else "worldbuilding"
         if self.purpose != f"dmb_native_{domain}_confirm_v1" or self.producer != f"dungeonbuddy:reviewed-{domain}":
             raise ValueError("review purpose and producer must match the reviewed source scope")
         if self.expires_at.utcoffset() is None:

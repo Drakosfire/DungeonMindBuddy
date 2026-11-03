@@ -679,6 +679,7 @@ def test_committed_recovery_survives_expiry_new_head_and_unavailable_sources(req
     monkeypatch.setattr(service, "load_reviewable_extraction_data", lambda *_: pytest.fail("APP run reload"))
     monkeypatch.setattr(service.sources, "get_source_markdown", lambda **_: pytest.fail("APP source reload"))
     monkeypatch.setattr(service.native, "access_context", lambda *_: pytest.fail("current source view on recovery"))
+    monkeypatch.setattr(service.world_admission, "get_native_world_source_status", lambda *a, **k: pytest.fail("APP workspace reload on recovery"))
     before = len(lane.repo.head_events(SPACE_ID))
     retry = confirm(lane, packet)
     assert retry.status_code == 200, retry.text
@@ -844,6 +845,7 @@ def world_lane(lane, application_state_dsn, monkeypatch):
         if selection.get("metadata"):
             selection["metadata"]["evidence_ref_ids"] = [evidence_id]
     lane.body.update(managed_world_id=world.world_id,
+        workspace_document_id=record.document_id, workspace_document_revision=record.revision,
         expected_parent_revision_id=lane.repo.get_head(SPACE_ID).head_revision_id,
         expected_source_authority_epoch=lane.repo.open_native_source_view(SPACE_ID).epoch,
         selections=selections)
@@ -893,7 +895,6 @@ def test_current_worldbuilding_review_uses_same_native_graph_and_world_scope(wor
     ("old_revision", "source_revision_changed"),
     ("edited_page", "source_revision_changed"),
     ("unadmitted", "candidate_source_not_admitted"),
-    ("scope_selector", "candidate_scope_mismatch"),
     ("source_world", "candidate_source_mismatch"),
     ("missing_document", "candidate_workspace_source_required"),
     ("candidate_bytes", "candidate_bytes_changed"),
@@ -905,6 +906,7 @@ def test_worldbuilding_review_refuses_without_mutation(world_lane, monkeypatch, 
     x = world_lane
     if fault == "old_revision":
         x.data.source_artifact = x.artifact.model_copy(update={"workspace_document_revision": x.record.revision - 1})
+        x.body["workspace_document_revision"] -= 1
     elif fault == "edited_page":
         from apps.live_control_server.services.tiptap_markdown_write import (
             TiptapMarkdownWritePrepareRequest, TiptapMarkdownWriteCommitRequest,
@@ -921,8 +923,6 @@ def test_worldbuilding_review_refuses_without_mutation(world_lane, monkeypatch, 
     elif fault == "unadmitted":
         missing = x.world_admitted.model_copy(update={"state": "pending"})
         monkeypatch.setattr(service.world_admission, "get_native_world_source_status", lambda *a, **k: missing)
-    elif fault == "scope_selector":
-        x.body.update(campaign_id=x.world.world_id, source_admission_run_id="recap")
     elif fault == "source_world":
         x.data.source_artifact = x.artifact.model_copy(update={"world_id": "another-world"})
     elif fault == "missing_document":
@@ -956,6 +956,7 @@ def test_world_source_owner_unavailability_preserves_failure_status(world_lane, 
 
 def test_recap_cannot_be_broadened_by_omitting_campaign(lane):
     del lane.body["campaign_id"], lane.body["source_admission_run_id"]
+    lane.body.update(workspace_document_id="not-a-recap-selector", workspace_document_revision=1)
     before = lane.repo.get_head(SPACE_ID)
     response = lane.post()
     assert response.status_code == 409 and response.json()["detail"]["code"] == "candidate_scope_mismatch"
@@ -968,3 +969,49 @@ def test_worldbuilding_review_cannot_relabel_signed_recap_envelope(lane):
     packet["envelope"]["purpose"] = "dmb_native_worldbuilding_confirm_v1"
     packet["token"] = service.sign_publication_intent(packet["envelope"])
     assert confirm(lane, packet).status_code == 422
+
+
+def test_worldbuilding_request_cannot_inject_campaign_selector(world_lane):
+    world_lane.body.update(campaign_id="foreign", source_admission_run_id="recap")
+    assert world_lane.post().status_code == 422
+
+
+@pytest.mark.parametrize("field,value", [("workspace_document_id", "another-document"),
+                                          ("workspace_document_revision", 999)])
+def test_worldbuilding_request_must_match_saved_typed_source(world_lane, field, value):
+    world_lane.body[field] = value
+    response = world_lane.post()
+    assert response.status_code == 409 and response.json()["detail"]["code"] == "candidate_workspace_source_mismatch"
+
+
+def test_worldbuilding_first_confirmation_refuses_edit_after_preparation(world_lane):
+    from apps.live_control_server.services.tiptap_markdown_write import (
+        TiptapMarkdownWritePrepareRequest, TiptapMarkdownWriteCommitRequest,
+        prepare_tiptap_markdown_write, commit_tiptap_markdown_write,
+    )
+    from apps.live_control_server.services.workspace_document_registry import get_committed_page_snapshot
+    x = world_lane
+    packet = confirmation(x)
+    updated = x.source.markdown + "\nNew authored text must be preserved.\n"
+    edit = prepare_tiptap_markdown_write(root=x.tmp_path,
+        request=TiptapMarkdownWritePrepareRequest(document_id=x.record.document_id,
+            markdown=updated, expected_revision=x.record.revision, write_mode="authoring"))
+    commit_tiptap_markdown_write(root=x.tmp_path,
+        request=TiptapMarkdownWriteCommitRequest(document_id=x.record.document_id,
+            markdown=updated, expected_revision=x.record.revision, write_mode="authoring",
+            writer_confirm_token=edit.writer_confirm_token))
+    current_page = get_committed_page_snapshot(x.tmp_path, x.record.document_id)
+    head = x.repo.get_head(SPACE_ID)
+    epoch = x.repo.open_native_source_view(SPACE_ID).epoch
+    response = confirm(x, packet)
+    assert response.status_code == 409 and response.json()["detail"]["code"] == "source_revision_changed"
+    assert x.repo.get_head(SPACE_ID) == head and x.repo.open_native_source_view(SPACE_ID).epoch == epoch
+    assert x.repo.get_publication_receipt(SPACE_ID, packet["envelope"]["prepared_change_id"]) is None
+    assert get_committed_page_snapshot(x.tmp_path, x.record.document_id) == current_page
+
+
+def test_existing_recap_envelope_wire_shape_has_no_new_world_fields(lane):
+    packet = confirmation(lane)
+    assert set(packet["envelope"]["review"]) == set(lane.body)
+    assert "workspace_document_id" not in packet["envelope"]["review"]
+    assert confirm(lane, packet).status_code == 200

@@ -14,7 +14,7 @@ from fastapi.routing import APIRoute
 from application_state.errors import ApplicationStateError
 from apps.live_control_server.integrations.dungeonmind.native_recap_source_admission import NativeRecapError
 from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import NativeWorldSourceAdmissionError
-from apps.live_control_server.models.native_recap_preparation import NativeRecapPrepareRequest, NativeRecapConfirmRequest
+from apps.live_control_server.models.native_recap_preparation import NativeRecapPrepareRequest, NativeWorldbuildingPrepareRequest, NativeRecapConfirmRequest
 from apps.live_control_server.routes.strict_json import StrictJSONRoute
 from apps.live_control_server import config as live_config
 from apps.live_control_server.models.ingest_selection_context import IngestSelectionContextRequest
@@ -664,7 +664,7 @@ def _native_recap_operation(body, request, principal, operation):
 
 
 def prepare_native_recap(
-    body: NativeRecapPrepareRequest,
+    body: NativeRecapPrepareRequest | NativeWorldbuildingPrepareRequest,
     request: Request,
     principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
 ):

@@ -18,7 +18,7 @@ from apps.live_control_server.integrations.dungeonmind import native_world_sourc
 from apps.live_control_server.integrations.worldkeeper import registry_standing_consumer as transport
 from apps.live_control_server.integrations.worldkeeper.graph_authoring_consumer import _predicate
 from apps.live_control_server.services import native_recap_source_admission as admission
-from apps.live_control_server.models.native_recap_preparation import NativeRecapReviewEnvelope
+from apps.live_control_server.models.native_recap_preparation import NativeRecapReviewEnvelope, NativeRecapPrepareRequest, NativeWorldbuildingPrepareRequest
 from apps.live_control_server.services.graph_object_authoring_prepare import (
     PREPARE_TTL, sign_publication_intent, decode_publication_intent,
 )
@@ -68,12 +68,7 @@ def _support_refs(review, witnesses, access, admitted):
                  "candidate_support_required")
         opened = open_admitted_native_text(access, identifier)
         _require(opened.status == "available", "candidate_support_unavailable")
-        _require(
-            opened.source_artifact_id == admitted.source_artifact_id
-            and opened.source_revision_id == admitted.source_revision_id
-            and opened.body_sha256 == admitted.body_sha256,
-            "candidate_support_source_mismatch",
-        )
+        _require_source_match(opened, admitted)
         # Core verified the bytes/visibility. Buddy only checks that this selected
         # native passage belongs to the saved candidate's actual source witness.
         lines = opened.body_text.splitlines(keepends=True)
@@ -181,7 +176,6 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *, pro
     return wk.WorldChangeIntent(space, producer, tuple(operations)), inventory
 
 
-
 @dataclass(frozen=True)
 class _CandidateSource:
     """The existing source owner result needed by the shared evidence join."""
@@ -189,6 +183,32 @@ class _CandidateSource:
     source_artifact_id: str
     source_revision_id: str
     body_sha256: str
+
+
+def _require_source_match(opened, admitted):
+    _require(opened.source_artifact_id == admitted.source_artifact_id
+             and opened.source_revision_id == admitted.source_revision_id
+             and opened.body_sha256 == admitted.body_sha256,
+             "candidate_support_source_mismatch")
+
+
+def _world_source(request, root, bound):
+    # The committed-workspace owner verifies current document revision, bytes,
+    # World binding and Core receipt/opening. Never parse an ID/path or admit
+    # a second source. Reused at first confirmation, never at committed replay.
+    admitted = world_admission.get_native_world_source_status(
+        root, request.workspace_document_id, expected_revision=request.workspace_document_revision,
+    )
+    if admitted.state != "admitted" and admitted.code == "authority_unavailable":
+        raise world_admission.NativeWorldSourceAdmissionError(
+            admitted.code, admitted.message or "Source authority is unavailable", status_code=503,
+        )
+    _require(admitted.state == "admitted", "candidate_source_not_admitted")
+    _require(admitted.world_id == request.managed_world_id
+             and admitted.space_id == bound["native_world_id"]
+             and bool(admitted.evidence_ref_id), "candidate_admission_mismatch")
+    return _CandidateSource(admitted.admission_id, admitted.source_artifact_id,
+                            admitted.source_revision_id, admitted.body_sha256)
 
 
 def _resolve_source(request, root, bound, data):
@@ -210,7 +230,8 @@ def _resolve_source(request, root, bound, data):
     )
     space = bound["native_world_id"]
     if domain == "recap":
-        _require(request.campaign_id is not None and run.campaign_id == request.campaign_id,
+        _require(isinstance(request, NativeRecapPrepareRequest)
+                 and run.campaign_id == request.campaign_id,
                  "candidate_scope_mismatch")
         _require(source.world_id == artifact.world_id == space, "candidate_source_mismatch")
         session = run.session_id or ""
@@ -228,28 +249,17 @@ def _resolve_source(request, root, bound, data):
         )
         return source, _CandidateSource(admitted.admission_id, admitted.source_artifact_id,
                                         admitted.source_revision_id, admitted.app_body_sha256)
-    _require(request.campaign_id is None and request.source_admission_run_id is None,
-             "candidate_scope_mismatch")
+    _require(isinstance(request, NativeWorldbuildingPrepareRequest), "candidate_scope_mismatch")
     _require(source.world_id == artifact.world_id == request.managed_world_id
              and run.session_id is None, "candidate_source_mismatch")
     _require(bool(artifact.workspace_document_id) and artifact.workspace_document_revision is not None,
              "candidate_workspace_source_required")
-    # The committed-workspace owner verifies current document revision, source
-    # bytes, World binding and the Core receipt/opening. Never parse an ID/path
-    # or admit a second source here.
-    admitted = world_admission.get_native_world_source_status(
-        root, artifact.workspace_document_id, expected_revision=artifact.workspace_document_revision,
-    )
-    if admitted.state != "admitted" and admitted.code == "authority_unavailable":
-        raise world_admission.NativeWorldSourceAdmissionError(
-            admitted.code, admitted.message or "Source authority is unavailable", status_code=503,
-        )
-    _require(admitted.state == "admitted", "candidate_source_not_admitted")
-    _require(admitted.world_id == request.managed_world_id and admitted.space_id == space
-             and admitted.body_sha256 == source.content_sha256
-             and bool(admitted.evidence_ref_id), "candidate_admission_mismatch")
-    return source, _CandidateSource(admitted.admission_id, admitted.source_artifact_id,
-                                    admitted.source_revision_id, admitted.body_sha256)
+    _require(request.workspace_document_id == artifact.workspace_document_id
+             and request.workspace_document_revision == artifact.workspace_document_revision,
+             "candidate_workspace_source_mismatch")
+    admitted = _world_source(request, root, bound)
+    _require(admitted.body_sha256 == source.content_sha256, "candidate_admission_mismatch")
+    return source, admitted
 
 
 def prepare(request, principal):
@@ -272,9 +282,10 @@ def prepare(request, principal):
     _require(context["revision_id"] == request.expected_parent_revision_id, "candidate_parent_stale")
     _require(context["source_epoch"] == request.expected_source_authority_epoch,
              "candidate_source_authority_stale")
-    domain_name = "recap" if request.campaign_id is not None else "worldbuilding"
+    domain_name = run.source_domain
+    campaign = request.campaign_id if isinstance(request, NativeRecapPrepareRequest) else None
     producer = f"dungeonbuddy:reviewed-{domain_name}"
-    intent, inventory = _intent(preview, request.selections, space, request.campaign_id,
+    intent, inventory = _intent(preview, request.selections, space, campaign,
                                 admitted, data, access, producer=producer)
     prepared = None
     if intent.operations:
@@ -350,10 +361,16 @@ def confirm(request, principal):
         _require(context["source_epoch"] == envelope.review.expected_source_authority_epoch,
                  "candidate_source_authority_stale")
         transport.verify_prepared_parent(prepared, context)
-        # One current Core opening, no APP/candidate reload or second source validator.
+        # World pages are mutable: first commit must still match the signed
+        # document revision. The existing workspace owner makes that decision;
+        # no candidate reload and no APP dependency on committed recovery.
+        admitted = (_world_source(envelope.review, config.artifact_data_root(), bound)
+                    if isinstance(envelope.review, NativeWorldbuildingPrepareRequest) else None)
         for witness in prepared.evidence_witnesses:
-            _require(open_admitted_native_text(access, witness.evidence_ref_id).status == "available",
-                     "candidate_support_unavailable")
+            opened = open_admitted_native_text(access, witness.evidence_ref_id)
+            _require(opened.status == "available", "candidate_support_unavailable")
+            if admitted is not None:
+                _require_source_match(opened, admitted)
         _require(repo.open_native_source_view(space).epoch == context["source_epoch"],
                  "candidate_source_authority_changed")
     _require(native.binding(envelope.review.managed_world_id) == bound, "candidate_binding_changed")
