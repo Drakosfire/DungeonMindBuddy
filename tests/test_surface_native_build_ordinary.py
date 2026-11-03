@@ -803,3 +803,51 @@ def test_ordinary_build_selects_native_body_and_reopens_only_included_support(la
 
 def test_ordinary_native_body_selector_rejects_substituted_input_before_dispatch(lane,tmp_path,monkeypatch):
     _fresh_case(lane,tmp_path,monkeypatch,'selection_text',False,False,False,native_body='direct_support')
+
+
+def test_native_writer_selector_uses_its_verified_long_context_at_app_boundary(lane,tmp_path,monkeypatch):
+    from dungeonmind.application.vnext import publish_native_text_source_evidence
+    from dungeonmind.contracts.vnext.native_source import NativeTextSourceAdmissionV1
+    from graph_memory.vnext.domain_runtime import dungeonbuddy_world_domain_contract,dungeonbuddy_dnd5e_custom_predicate_profile
+    from tests.test_source_statements import NOW
+    from application_state.agent_conversation.build_decision_context import LONG_LIMIT
+    # Fit the existing raw-wire and long-context allowances while exceeding the
+    # initial64k envelope. Text remains a real, explicitly acquired Core body.
+    text='# Retained source\n\n'+'An unrelated source-local episode was recorded.\n'*3200
+    raw=text.encode()
+    publish_native_text_source_evidence(repository=lane.repo,
+        domain_contract=dungeonbuddy_world_domain_contract(),
+        semantic_profile=dungeonbuddy_dnd5e_custom_predicate_profile(),
+        request=NativeTextSourceAdmissionV1(space_id=lane.world.world_id,admission_id='large-selector-source',
+            expected_parent_revision_id=lane.repo.get_head(lane.world.world_id).head_revision_id,
+            created_at=NOW,body_text=text,expected_body_sha256=sha256(raw).hexdigest(),
+            source_classification='dungeonbuddy.source:session_recap',authority='primary',
+            visibility={'kind':'labels_any','labels':['dungeonbuddy.visibility:gm']},
+            spans=[dict(client_ref='context',evidence_role='context',start_byte=0,end_byte=len(raw),
+                        expected_slice_sha256=sha256(raw).hexdigest())]))
+    case=_fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,native_body='irrelevant')
+    record=case.turn.graph_context_execution
+    event,=[e for e in record.events if type(e) is t.ProviderAttemptAuthorizedEventV5
+            and e.context_phase=='writer_selection']
+    assembled=case.turn.graph_context_receipt.assembled_input
+    assert assembled.context_window_limit==64000
+    assert assembled.context_window_limit < event.input_tokens <= LONG_LIMIT
+    assert event.context_mode=='long_context'
+    prefix=record.model_copy(update={'events':record.events[:event.sequence]})
+    t.validate_provider_envelope_accounting(assembled,prefix,event)
+    request,=[json.loads(req.content) for req in case.decisions.calls
+              if json.loads(req.content)['state'].get('phase')=='writer_selection']
+    assert any(row['text']==text for row in request['state']['sources'].values())
+    assert len(case.writer.calls)==1 and text not in case.writer.calls[0].content.decode()
+    # A mode declaration alone cannot relax scope, phase or accounting. These
+    # are rejected by the same owner used for actual APP authorization above.
+    for update in ({'context_mode':'default'},{'context_phase':'select'},
+                   {'input_tokens':LONG_LIMIT+1},{'output_token_reserve':LONG_LIMIT},
+                   {'dispatch_identity_sha256':'f'*64},{'model':'another-model'}):
+        with pytest.raises(ValueError):
+            t.validate_provider_envelope_accounting(assembled,prefix,event.model_copy(update=update))
+    fields={k:v for k,v in event.model_dump().items() if k in t.ProviderAttemptAuthorizedEventV3.model_fields}
+    fields['kind']='provider_attempt_authorized_v3'
+    unbound=t.ProviderAttemptAuthorizedEventV3.model_validate(fields)
+    with pytest.raises(ValueError,match='frozen context window'):
+        t.validate_provider_envelope_accounting(assembled,prefix,unbound)
