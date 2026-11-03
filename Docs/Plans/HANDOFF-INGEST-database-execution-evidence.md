@@ -7,8 +7,12 @@ independently reviewed/all-green2047 and2048 merged, with disjoint patches.
 Branch: codex/database-execution-evidence.
 Checkout: /home/drakosfire/.codex/worktrees/buddy-context-loop/DungeonMindBuddy.
 Topology: serial after merged/delivered PR2046. PR2047(profile common guidance)
-and2048(orphan party-fill/schema retirement) are now merged predecessors with no
-shared write paths; their runtime delivery remains separate. Existing checkout/dependencies/disposable54329 only.
+and PR2048 (unused party-fill/schema retirement) are merged predecessors with no
+shared write paths. Their separate conserved API delivery completed at ba208e8.
+Proof recap-common-and-party-retirement-api-delivery-proof.json verifies all 91
+primary tables, nine session files, saved Plan HTTP, UI and 439 native objects
+unchanged; lease RELEASED. Reuse the existing checkout/dependencies and disposable
+PostgreSQL on 54329 only.
 No new provider, primary database, runtime, Graph/Gold or publication effect lease.
 
 ## Outcome and design adoption
@@ -134,6 +138,28 @@ failure and pre-terminal retention tests replace it. Five narrow argument-only
 caller files have35pre-existing Ruff diagnostics with no additional rule/message
 occurrences at base/head (database-execution-caller-lint-baseline.json); do not
 remove pytest fixture imports or reformat unrelated tests to conceal this debt.
-Core modified runtime/capture tests pass targeted Ruff/diff checks. Final combined
-caller tests, independent exact-head review/proof, CI and protected delivery still
-remain; this checkpoint grants no live effect lease or quality acceptance.
+Core modified runtime/capture tests pass targeted Ruff/diff checks. This checkpoint
+grants no live effect lease or quality acceptance.
+
+## Exact-head review and final caller evidence
+
+Bugbot independently APPROVED code head b6703ca1fec838fd6c7886c21a99a792c65f8c8b
+against ba208e8 after reviewing all 21 paths and passing 30 storage/default-GE
+checks plus four actual worker failure checks; no actionable findings. ADVERSARY
+independently passed 74 owning checks and one synthetic default-GE → database
+responses → governed native prepare/commit/replay proof at that same head.
+Exact proof, pins and hashes:
+/tmp/pr2026-audit-8779/pr2049-b6703ca-independent-proof.json. Its synthetic
+membership transport seam and disposable-only limits remain explicit. It does
+not establish actual model quality, live 5202 behavior or operator acceptance.
+
+Final author bounded/advisory/caller/ordinary Process/Build cohort: 219 passed and
+four failed. All four failed node IDs and exact exception messages reproduce at
+current base ba208e8: two artifact-root fixtures omit required typed source/World
+owners; two historical session-evidence cases use obsolete recovery/input
+expectations. Original head/base logs and
+database-execution-caller-failure-comparison.json are retained. No assertion was
+relaxed or adjacent fixture debt repaired. The five narrow caller files retain
+35 inherited Ruff diagnostics with zero additional rule/message occurrences.
+CI, final documentation delta qualification and protected delivery remain
+separate required gates.
