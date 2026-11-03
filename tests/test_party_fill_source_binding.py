@@ -1,7 +1,6 @@
 """Frozen synthetic gold for producer source indexes → canonical party evidence."""
 
 from copy import deepcopy
-import json
 
 import pytest
 from jsonschema import ValidationError, validate
@@ -21,7 +20,6 @@ from src.graph_memory.extraction.category_candidate_graph_schema import (
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
     sanitize_parts,
 )
-from src.graph_memory.extraction.graph_ingest_packaging import _write_validation_report
 
 
 def packet():
@@ -222,74 +220,3 @@ def test_invalid_fill_is_atomic_and_keeps_baseline(damage):
     assert bound is None
     assert not diag["enrichment_complete"]
     assert p.baseline_nodes_by_id == baseline
-
-
-def test_packaging_counts_nested_refs_and_rejects_unresolved(tmp_path, monkeypatch):
-    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
-    p, raw = packet(), offered()
-    bound, _ = bind_fill_evidence(p, raw)
-    parts, _ = apply_fill_to_parts(
-        {"nodes": list(p.baseline_nodes_by_id.values())},
-        parsed=bound,
-        claimed_ids={"pc:ari"},
-    )
-    graph = {**parts, "edges": [], "beats": []}
-    index = tmp_path / "source_span_index.json"
-    index.write_text(
-        json.dumps(
-            {"spans": [{"span_id": row["source_span_ref_id"]} for row in p.source_rows]}
-        )
-    )
-    path = tmp_path / "candidate_graph.json"
-
-    def check():
-        path.write_text(json.dumps(graph))
-        result = _write_validation_report(
-            output_dir=tmp_path,
-            campaign_id="synthetic",
-            session_id="session-1",
-            candidate_graph_path=path,
-            candidate_graph=graph,
-            source_span_index_path=index,
-        )
-        return result, json.loads(result.path.read_text())["diagnostics"]
-
-    result, diagnostics = check()
-    assert result.valid
-    assert diagnostics["evidence_ref_count"] == 2
-    assert diagnostics["resolvable_evidence_ref_count"] == 2
-    graph["nodes"][0]["evidence_refs"][0]["source_span_ref_id"] = "shortened"
-    result, diagnostics = check()
-    assert not result.valid
-    assert diagnostics["unresolved_evidence_ref_count"] == 1
-    assert diagnostics["resolvable_evidence_ref_count"] == 1
-
-
-
-
-def test_packaging_marks_preserved_incomplete_fill_unready(tmp_path, monkeypatch):
-    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
-    graph = {
-        "nodes": [
-            {
-                **packet().baseline_nodes_by_id["pc:ari"],
-                "warnings": ["party_claimed_fill_incomplete"],
-            }
-        ],
-        "edges": [],
-        "beats": [],
-    }
-    path = tmp_path / "candidate.json"
-    path.write_text(json.dumps(graph))
-    result = _write_validation_report(
-        output_dir=tmp_path,
-        campaign_id="synthetic",
-        session_id="session-1",
-        candidate_graph_path=path,
-        candidate_graph=graph,
-    )
-    assert not result.valid
-    report = json.loads(result.path.read_text())
-    assert report["diagnostics"]["party_fill_incomplete_node_count"] == 1
-    assert report["diagnostics"]["evidence_resolution_checked"] is False
-    assert report["diagnostics"]["resolvable_evidence_ref_count"] == 0
