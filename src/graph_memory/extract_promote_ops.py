@@ -478,9 +478,6 @@ def resolve_merged_contribution_from_package(
     assertion_ids: Sequence[str] | None,
     mutation_context: WorldGraphMutationContext | None = None,
     root: Path | None = None,
-    repo_root: Path | None = None,
-    disclose_source_digest: bool = True,
-    verify_source: bool = False,
 ) -> tuple[dict[str, Any], Any]:
     """Verify a sealed package and build the ONE atomic merged contribution.
 
@@ -508,18 +505,6 @@ def resolve_merged_contribution_from_package(
 
 
         slices = contribution_slices_from_effect(verified["effect"])
-
-
-    if verify_source:
-        if repo_root is None:
-            raise ValueError("repo_root is required when verify_source=True")
-        for slice_body in slices:
-            verify_source_revision(
-                source_uri=str(slice_body["verified_source_uri"]),
-                source_revision_id=str(slice_body["source_revision_id"]),
-                repo_root=repo_root,
-                disclose_computed_digest=disclose_source_digest,
-            )
 
 
     parent_revision_id = str(verified["parent_revision_id"])
