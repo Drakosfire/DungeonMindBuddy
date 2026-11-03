@@ -309,7 +309,7 @@ def test_category_output_file_cannot_authorize_promotion(
     spref = "session-22:recap:paragraph:001"
     source_text = "Bonogo scouts the Mireward road with the company."
     passes = minimal_category_pass_outputs(spref)
-    # Beat retains standing party collective id (dropped at promote) plus session node.
+    # Unknown party/roster IDs are not invented as source-local participants.
     passes["beat_pass"]["observation_beats"][0]["involved_node_ids"] = [
         "node:bonogo",
         PARTY_COLLECTIVE_NODE_ID,
@@ -347,7 +347,7 @@ def test_category_output_file_cannot_authorize_promotion(
             model_id="gpt-5.4-mini",
         ),
     )
-    assert result.consolidation_diagnostics["inserted_party_anchor_slugs"]
+    assert "inserted_party_anchor_slugs" not in result.consolidation_diagnostics
     graph = result.candidate_graph
     assert PARTY_COLLECTIVE_NODE_ID not in {n["node_id"] for n in graph["nodes"]}
     beats = graph.get("beats") or []
