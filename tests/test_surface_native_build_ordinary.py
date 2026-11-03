@@ -129,6 +129,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             if failure=='retry_unknown':
                 raise httpx.ReadTimeout('synthetic unknown writer outcome',request=req)
             body = json.loads(req.content)
+            assert body['model'] == 'gpt-6.1-sol'
+            if body.get('reasoning', {}).get('effort') != 'low':
+                return httpx.Response(400, request=req, json={'error': {
+                    'message': 'Unsupported reasoning effort for configured writer',
+                    'type': 'invalid_request_error', 'param': 'reasoning.effort',
+                    'code': 'unsupported_value'}})
             inputs = [json.loads(body['input'])] if isinstance(body['input'], str) else [json.loads(row['content']) for row in body['input'] if row['content'].lstrip().startswith('{')]
             if mode:
                 inputs=[inputs[0]['native_evidence'],inputs[0]['surface_work']]
