@@ -1,6 +1,6 @@
 # INGEST: remove runtime dependence on the eval taxonomy file
 
-Status: ACTIVE. Owner: PRIME under the operator cleanup/demolition goal.
+Status: MERGED_DELIVERED; original implementation/delivery leases RELEASED. Owner: PRIME under the operator cleanup/demolition goal.
 Base: origin/main@cb9bc60268d401e098bbbf90bdebfb0f021b3f1e.
 Branch: codex/runtime-predicate-families. Reuse the buddy-context-loop checkout.
 Topology: parallel-independent of PR2052@8190cc850a6be9c35fff95f0939a042f1c00860c;
@@ -58,3 +58,13 @@ read-only sandbox is retained separately; the no-cache run succeeds. Evidence
 lives in runtime-predicate-families-{baseline,comparison}.json and red/green/
 base-profile-failure logs under the established private runtime-evidence root.
 Independent review, CI, merge and delivery remain pending.
+
+## Completed predecessor settlement
+
+Merged/delivered c1b1791ccd5143f5b9f30312cd561504a830d12f after independent review, actual-merge
+qualification and all seven original-head CI checks. Exact API delivery proof:
+runtime-predicate-families-api-delivery-proof.json under the established private runtime-evidence/
+q01-published-graph-authority root. All91primary tables,nine session files,
+savedPlanHTTP,UI and439nativeobjects conserved; provider0,DBwrites0,dependencies
+unchanged. Existing verification limits remain. This closes the predecessor
+lease and does not claim overall demolition or model/publication acceptance.
