@@ -19,6 +19,8 @@ _SECTION_LABEL = re.compile(
     rf"^ {{0,3}}(?:(?P<em>\*\*|__)\s*(?P<marked>{_LABEL_TITLE})\s*:?\s*(?P=em)\s*:?"
     rf"|(?P<plain>{_LABEL_TITLE})\s*:)\s*$", re.I,
 )
+# Same-line prose is structural only when the colon is inside balanced emphasis.
+_MARKED_RECAP_PREFIX = re.compile(r"^ {0,3}(?P<em>\*\*|__)\s*recap\s*:\s*(?P=em)", re.I)
 _FENCE_OPEN = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 _FENCE_CLOSE = re.compile(r"^ {0,3}(`{3,}|~{3,})[ \t]*$")
 
@@ -85,7 +87,7 @@ def partition_recap_source_rows(
         if label_match:
             title = label_match.group("marked") or label_match.group("plain")
             label = " ".join(title.casefold().split())
-        if label == "recap" or split_recap:
+        if label == "recap" or split_recap or _MARKED_RECAP_PREFIX.match(line):
             section_level = None
             label_section = False
             inline = False
@@ -102,12 +104,14 @@ def partition_recap_source_rows(
             inline = False
             level = len(heading.group(1))
             title = heading.group(2).strip(" *_:").casefold()
+            # Inspect the heading label, never the meaning of its inline payload.
+            planning_title = " ".join(title.partition(":")[0].strip(" *_").split())
             if label_section and title == "recap":
                 label_section = False
                 section_level = None
             if section_level is not None and level <= section_level:
                 section_level = None
-            if title in _PLANNING_TITLES and section_level is None:
+            if planning_title in _PLANNING_TITLES and section_level is None:
                 section_level = level
         elif not line.strip():
             inline = False

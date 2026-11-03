@@ -139,3 +139,26 @@ def test_lazy_quoted_label_keeps_following_played_source_in_pipeline(prefix):
     assert all("Iria arrived in Larkhaven." in message for _, message in client.messages)
     assert any(n["node_id"] == "loc:larkhaven" for n in result.candidate_graph["nodes"])
     assert result.diagnostics["recap_source_authority"]["withheld_span_ids"] == []
+
+
+def test_inline_planning_headings_and_marked_recap_exit_in_ordinary_pipeline():
+    text = (
+        "## Next Beats : Iria will receive the Golden Map.\n\n"
+        "## Looking Ahead: The future festival.\n\n"
+        "**Recap : **Iria arrived in Larkhaven."
+    )
+    index, planned, played = setup(text)
+    client = Client(planned, played)
+    result = module.run_category_pipeline(client, options(index, source_text=text))
+    assert all("Golden Map" not in message for _, message in client.messages)
+    assert all("future festival" not in message for _, message in client.messages)
+    assert all("Iria arrived in Larkhaven." in message for _, message in client.messages)
+    assert any(n["node_id"] == "loc:larkhaven" for n in result.candidate_graph["nodes"])
+    assert not any(n["node_id"] == "event:reward" for n in result.candidate_graph["nodes"])
+    assert planned["source_span_ref_id"] in result.diagnostics["recap_source_authority"]["withheld_span_ids"]
+    assert played["source_span_ref_id"] not in result.diagnostics["recap_source_authority"]["withheld_span_ids"]
+    assert any(
+        ref["source_span_ref_id"] == planned["source_span_ref_id"]
+        for item in result.candidate_graph["deferred_items"]
+        for ref in item.get("evidence_refs", [])
+    )
