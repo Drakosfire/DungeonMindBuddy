@@ -811,15 +811,16 @@ def test_ordinary_native_body_selector_rejects_substituted_input_before_dispatch
     _fresh_case(lane,tmp_path,monkeypatch,'selection_text',False,False,False,native_body='direct_support')
 
 
-def test_native_writer_selector_uses_its_verified_long_context_at_app_boundary(lane,tmp_path,monkeypatch):
+@pytest.mark.parametrize('copies', [3200, 6200])
+def test_native_writer_selector_uses_its_verified_long_context_at_app_boundary(lane,tmp_path,monkeypatch,copies):
     from dungeonmind.application.vnext import publish_native_text_source_evidence
     from dungeonmind.contracts.vnext.native_source import NativeTextSourceAdmissionV1
     from graph_memory.vnext.domain_runtime import dungeonbuddy_world_domain_contract,dungeonbuddy_dnd5e_custom_predicate_profile
     from tests.test_source_statements import NOW
     from application_state.agent_conversation.build_decision_context import LONG_LIMIT
-    # Fit the existing raw-wire and long-context allowances while exceeding the
-    # initial64k envelope. Text remains a real, explicitly acquired Core body.
-    text='# Retained source\n\n'+'An unrelated source-local episode was recorded.\n'*3200
+    # A real acquired body exceeds the initial64k envelope; the larger case also
+    # exceeds the retired256KB request limit while fitting frozen token admission.
+    text='# Retained source\n\n'+'An unrelated source-local episode was recorded.\n'*copies
     raw=text.encode()
     publish_native_text_source_evidence(repository=lane.repo,
         domain_contract=dungeonbuddy_world_domain_contract(),
@@ -831,7 +832,51 @@ def test_native_writer_selector_uses_its_verified_long_context_at_app_boundary(l
             visibility={'kind':'labels_any','labels':['dungeonbuddy.visibility:gm']},
             spans=[dict(client_ref='context',evidence_role='context',start_byte=0,end_byte=len(raw),
                         expected_slice_sha256=sha256(raw).hexdigest())]))
+    from application_state.agent_conversation import writer_evidence_selection as selection
+    from application_state.errors import ApplicationStateValidationError
+    append=AgentConversationService.record_build_writer_evidence_selection
+    checked=[]
+
+    def check_append(self,world,conversation,turn_id,**kwargs):
+        before=self.inspect_turn(world_id=world,turn_id=turn_id)
+        proof=kwargs['producer_proof']
+        vote=kwargs['selection']
+        auth=next(e for e in before.graph_context_execution.events
+                  if isinstance(e,t.ProviderAttemptAuthorizedEventV3)
+                  and e.provider_attempt_id==vote.controller_attempt_id)
+        assert sha256(proof['request_json'].encode()).hexdigest()==auth.envelope_sha256
+        assert (len(proof['request_json'].encode())>256000)==(copies==6200)
+        assert before.graph_context_execution.policy.controller_continuation_accounting.raw_wire_limit_bytes is None
+        for kind in ('request','response','oversized_response'):
+            changed=dict(proof)
+            event=vote
+            if kind=='oversized_response':
+                changed['response_json']+=' '*256001
+                event=vote.model_copy(update={'controller_response_sha256':sha256(changed['response_json'].encode()).hexdigest()})
+            else:
+                changed[kind+'_json']+=' '
+            with pytest.raises(ApplicationStateValidationError,match='Selection producer bytes differ'):
+                append(self,world,conversation,turn_id,**{**kwargs,'selection':event,'producer_proof':changed})
+            assert self.inspect_turn(world_id=world,turn_id=turn_id)==before
+        if copies==6200:
+            # Frozen historical requests retain their bound, independently of the
+            # current producer. No retained row or historical policy is rewritten.
+            execution=before.graph_context_execution
+            old=t.BuildControllerContinuationAccountingV3.model_validate({
+                **execution.policy.controller_continuation_accounting.model_dump(),
+                'policy':'o200k_double_plus_4096_adaptive_context_v3','raw_wire_limit_bytes':256000})
+            historical=before.model_copy(update={'graph_context_execution':execution.model_copy(update={
+                'policy':execution.policy.model_copy(update={'controller_continuation_accounting':old})})})
+            trace,=self.list_context_trace_attempts(world_id=world,turn_id=turn_id)
+            with pytest.raises(ValueError,match='Selection producer bytes differ'):
+                selection.validate_selection_proof(historical,vote,trace.model_dump(mode='json',by_alias=True),proof)
+        result=append(self,world,conversation,turn_id,**kwargs)
+        checked.append(True)
+        return result
+
+    monkeypatch.setattr(AgentConversationService,'record_build_writer_evidence_selection',check_append)
     case=_fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,native_body='irrelevant')
+    assert checked==[True]
     record=case.turn.graph_context_execution
     event,=[e for e in record.events if type(e) is t.ProviderAttemptAuthorizedEventV5
             and e.context_phase=='writer_selection']
