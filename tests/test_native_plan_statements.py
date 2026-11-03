@@ -143,6 +143,9 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
         lane.selection = lane.selection.model_copy(update={'end_byte': len(BODY.encode()),
             'clause_sha256': sha256(BODY.encode()).hexdigest()})
     commit(lane)
+    # A published statement has its own exact selected-read grant, including
+    # when its admitted clause spans the body. It is not a body-section action.
+    expected_quote = BODY if whole_clause else BODY.splitlines(keepends=True)[0]
     world = lane.world.world_id
     binding = SimpleNamespace(managed_world_id=world, native_world_id=world, binding_version=1,
         provisioning_id=None)
@@ -206,11 +209,11 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
                     'requested_detail_gaps': [{'question_phrase': 'What did B do?'}]})
                 return await super().handle_async_request(req)
             row = frame['native_statements']['statements'][0]
-            assert row['payload']['quote'] == BODY.splitlines(keepends=True)[0]
+            assert row['payload']['quote'] == expected_quote
             assert row['payload']['embedded_content_factive'] is False
             assert len(frame['native_statements']['statements']) == 1
             assert 'clause_text' not in row
-            assert json.dumps(frame).count(row['payload']['quote'].strip()) == 1
+            assert json.dumps(frame).count(json.dumps(row['payload']['quote'])) == 1
             self.text = json.dumps({'schema': frame['answer_policy'], 'limitations': [], 'requested_detail_gaps': [],
                 'answer_segments': [{'kind': 'native_statement_report', 'text': 'A reports that B fled, with uncertainty.',
                     'statement_handles': [row['statement_handle']]}]})
@@ -286,7 +289,7 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
     app = FastAPI(); app.include_router(agent.router, prefix='/api/live')
     client = TestClient(app, client=('127.0.0.1', 42000), headers={'Authorization': 'Bearer ' + token})
     response = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
-    assert response.status_code == (503 if whole_clause else 200), response.text + getattr(wire, 'failure', '')
+    assert response.status_code == 200, response.text + getattr(wire, 'failure', '')
     assert native_read_admission_probes
     assert len(examined_inputs) == 1
     assert examined_inputs[0]['label'].startswith('About B [')
@@ -297,10 +300,6 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
         replay = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
         assert replay.json()['plan_context']['completion'] == response.json()['plan_context']['completion']
         assert len(wire.calls) == 1
-        return
-    if whole_clause:
-        assert response.status_code == 503 and not wire.calls
-        assert 'explicit full-document decision' in wire.failure
         return
     assert response.status_code == 200, response.text + getattr(wire, "failure", "")
     data = response.json()
@@ -354,7 +353,7 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
     advance(lane)
     opened = client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-source-clauses/0')
     assert opened.status_code == 200, opened.text
-    assert opened.json()['content'] == BODY.splitlines(keepends=True)[0]
+    assert opened.json()['content'] == expected_quote
     replay = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
     assert replay.status_code == 200, replay.text
     assert replay.json()['plan_context']['completion'] == completion and len(wire.calls) == 1

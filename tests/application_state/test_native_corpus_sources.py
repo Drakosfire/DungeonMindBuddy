@@ -342,11 +342,22 @@ def test_explicit_full_document_choice_is_retained_in_writer_inclusion(lane):
         for row in execution.events)
 
 
-def test_accumulated_section_choices_cannot_expose_whole_document(lane):
-    # Actual partial selections in distinct acknowledged controller decisions
-    # cover the source only when combined for the final writer.
-    with pytest.raises(ValidationError, match="Accumulated whole-document exposure"):
-        native_body_ledger(lane, all_sections=True)
+def test_acknowledged_section_choices_compose_in_writer_inclusion(lane):
+    from application_state.agent_conversation.native_corpus import (
+        NativeBodyProviderIncludedV1, NativeBodyReadObservedV1,
+        NativeBodySearchObservedV1,
+    )
+    execution = native_body_ledger(lane, all_sections=True)
+    reads = [row for row in execution.events if isinstance(row, NativeBodyReadObservedV1)]
+    catalog = next(row.catalogs[0] for row in execution.events
+        if isinstance(row, NativeBodySearchObservedV1))
+    assert len(reads) == len(catalog.sections) > 1
+    assert all(row.excerpt.selector_policy == "markdown_sections_v1" for row in reads)
+    assert reads[0].excerpt.section.byte_start == 0
+    assert reads[-1].excerpt.section.byte_end == catalog.body_bytes
+    included = next(row for row in execution.events if isinstance(row, NativeBodyProviderIncludedV1))
+    assert included.read_event_ids == tuple(row.event_id for row in reads)
+    assert t.PlanSourceExecutionV1.model_validate_json(execution.model_dump_json()) == execution
 
 
 def source_submission(lane, *, unavailable=False, captured=None, question="What did the check reveal?"):

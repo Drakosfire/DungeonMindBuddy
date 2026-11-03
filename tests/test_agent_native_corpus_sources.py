@@ -281,7 +281,7 @@ def test_actual_sdk_writer_receives_only_explicitly_selected_native_body(source_
     assert turn.status == 'running' and turn.completion is None
 
 
-def test_actual_sdk_refuses_accumulated_whole_document_without_full_read(source_adapter, lane):
+def test_actual_sdk_includes_acknowledged_sections_covering_whole_document(source_adapter, lane):
     from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
     from apps.live_control_server.services.plan_jev_rules_runtime import PlanRulesRuntime
     from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
@@ -302,13 +302,24 @@ def test_actual_sdk_refuses_accumulated_whole_document_without_full_read(source_
     reads = selected_body_reads(a.fence.turn.graph_context_execution)
     assert len(reads) == 2 and all(read.excerpt.selector_policy == 'markdown_sections_v1' for read in reads)
     writer = PlanJevWriter(a, proof, rules)
-    wire = WriterWire(a, '{}')
-    with pytest.raises(GenerationEngineError):
+    wire = WriterWire(a, '{}', status='incomplete')
+    # Stop after the real SDK request, before answer normalization. The source
+    # grants compose; an incomplete model reply still must not become an answer.
+    with pytest.raises((ValueError, GenerationEngineError)):
         asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
-    assert wire.calls == []
+    assert len(wire.calls) == 1
+    frame = json.loads(json.loads(wire.calls[0].content)['input'][0]['content'])
+    excerpts = frame['native_body_evidence']['excerpts']
+    assert len(excerpts) == len(reads)
+    assert {row['text'] for row in excerpts} == {read.excerpt.text for read in reads}
+    assert all(row['extent_kind'] == 'section' for row in excerpts)
     turn = AgentConversationService().list_turns(a.world_id, a.turn.conversation_id)[0]
-    assert not any(isinstance(event, (NativeBodyProviderIncludedV1, t.PlanJevWriterAuthorizedV1))
-        for event in turn.graph_context_execution.events)
+    included = [event for event in turn.graph_context_execution.events
+        if isinstance(event, NativeBodyProviderIncludedV1)]
+    assert len(included) == 1
+    assert set(included[0].read_event_ids) == {read.event_id for read in reads}
+    assert any(isinstance(event, t.PlanJevWriterAuthorizedV1) for event in turn.graph_context_execution.events)
+    assert turn.completion is None
 
 
 def stage_source_writer(a):
