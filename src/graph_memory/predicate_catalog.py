@@ -1,22 +1,36 @@
-"""Taxonomy-backed v1 exact-predicate catalog for graph edge extraction.
-
-Seeded from ``identity_resolution.PREDICATE_FAMILY`` and cross-checked against
-``evals/graph_memory_layer/taxonomy_registry.json`` (relationship_predicate_family).
-"""
+"""Runtime-owned v1 exact-predicate catalogue and closed family vocabulary."""
 
 from __future__ import annotations
 
-from functools import lru_cache
-from pathlib import Path
 from typing import Any
 
 from src.graph_memory import identity_resolution as ir
-from src.graph_memory.validation_rules import load_taxonomy_registry
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_TAXONOMY_REGISTRY_PATH = REPO_ROOT / "evals" / "graph_memory_layer" / "taxonomy_registry.json"
+# Preserve the full extraction schema, including families with no exact predicates.
+PREDICATE_FAMILY_IDS = frozenset(
+    {
+        "alias",
+        "authority",
+        "causality",
+        "citation",
+        "hook_relation",
+        "identity",
+        "kinship",
+        "knowledge",
+        "location_hierarchy",
+        "membership",
+        "ownership",
+        "participation",
+        "routing",
+        "social_relation",
+        "source_derivation",
+        "temporal_sequence",
+        "threat_relation",
+        "visibility",
+    }
+)
 
-# v1 exact predicates grouped by registry predicate family.
+# v1 exact predicates grouped by runtime predicate family.
 V1_EXACT_PREDICATES: dict[str, str] = dict(ir.PREDICATE_FAMILY)
 
 PREDICATE_VALIDATION_CODES = frozenset(
@@ -28,17 +42,9 @@ PREDICATE_VALIDATION_CODES = frozenset(
 )
 
 
-@lru_cache(maxsize=1)
-def _registry_predicate_family_ids() -> frozenset[str]:
-    registry = load_taxonomy_registry(DEFAULT_TAXONOMY_REGISTRY_PATH)
-    vocab = registry.get("vocabularies", {}).get("relationship_predicate_family", {})
-    terms = vocab.get("terms") or []
-    return frozenset(str(term["id"]) for term in terms if isinstance(term, dict) and term.get("id"))
-
-
 def predicate_family_ids() -> tuple[str, ...]:
-    """Sorted registry ``relationship_predicate_family`` term ids."""
-    return tuple(sorted(_registry_predicate_family_ids()))
+    """Sorted closed family IDs admitted by the extraction schema."""
+    return tuple(sorted(PREDICATE_FAMILY_IDS))
 
 
 def exact_predicate_ids() -> tuple[str, ...]:
@@ -54,7 +60,7 @@ def predicates_by_family() -> dict[str, tuple[str, ...]]:
 
 
 def predicate_family_for_type(relationship_type: str) -> str:
-    """Registry family for a catalog predicate; unknown verbs use ``rel:<verb>``."""
+    """Catalogue family for a catalog predicate; unknown verbs use ``rel:<verb>``."""
     raw = (relationship_type or "").strip().lower()
     if not raw:
         return "rel:unknown"
@@ -82,7 +88,7 @@ def validate_edge_predicate(
         issues.append("unknown_relationship_type")
 
     if fam:
-        if fam not in _registry_predicate_family_ids():
+        if fam not in PREDICATE_FAMILY_IDS:
             issues.append("unknown_predicate_family")
         elif rel in V1_EXACT_PREDICATES and V1_EXACT_PREDICATES[rel] != fam:
             issues.append("relationship_family_mismatch")
@@ -94,7 +100,7 @@ def validate_edge_predicate(
 
 
 def prompt_markdown(*, max_predicates_per_family: int | None = None) -> str:
-    """Compact markdown catalog grouped by registry predicate family."""
+    """Compact markdown catalog grouped by runtime predicate family."""
     lines = [
         "## Controlled edge predicates (v1)",
         "",
@@ -116,14 +122,14 @@ def prompt_markdown(*, max_predicates_per_family: int | None = None) -> str:
 
 
 def catalog_cross_check_issues() -> list[str]:
-    """Human-readable issues when the v1 catalog diverges from the taxonomy registry."""
-    registry_families = _registry_predicate_family_ids()
+    """Human-readable issues when exact predicates refer to an undefined family."""
+    catalog_families = PREDICATE_FAMILY_IDS
     issues: list[str] = []
     for predicate, family in V1_EXACT_PREDICATES.items():
-        if family not in registry_families:
+        if family not in catalog_families:
             issues.append(f"predicate {predicate!r} maps to unknown family {family!r}")
     used_families = set(V1_EXACT_PREDICATES.values())
     for family in sorted(used_families):
-        if family not in registry_families:
-            issues.append(f"catalog uses family {family!r} missing from taxonomy registry")
+        if family not in catalog_families:
+            issues.append(f"catalog uses family {family!r} missing from runtime catalogue")
     return issues
