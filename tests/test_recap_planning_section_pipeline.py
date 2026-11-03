@@ -106,3 +106,23 @@ def test_worldbuilding_profile_preserves_its_original_source_selection():
     result = module.run_category_pipeline(client, options(index, profile=WORLDBUILDING_PLUMBING_PROFILE))
     assert any("Golden Map" in message for _, message in client.messages)
     assert result.diagnostics["recap_source_authority"]["reason"] == "not_recap_profile"
+
+
+def test_plain_label_section_withholds_prompt_and_rejects_injected_planning_claim():
+    # Same label/blank-line/Recap structure as the retained Session 5 failure.
+    text = "Next Beats :\n\nIria will receive the Golden Map.\n\nRecap :\n\nIria arrived in Larkhaven."
+    index, planned, played = setup(text)
+    client = Client(planned, played)
+    result = module.run_category_pipeline(client, options(index, source_text=text))
+
+    assert all("Golden Map" not in message for _, message in client.messages)
+    assert any(n["node_id"] == "loc:larkhaven" for n in result.candidate_graph["nodes"])
+    assert not any(n["node_id"] == "event:reward" for n in result.candidate_graph["nodes"])
+    assert any(
+        ref["source_span_ref_id"] == planned["source_span_ref_id"]
+        for item in result.candidate_graph["deferred_items"]
+        for ref in item.get("evidence_refs", [])
+    )
+    # Authority partitioning must preserve canonical source bytes and locators.
+    assert planned["source_span_ref_id"] in result.diagnostics["recap_source_authority"]["withheld_span_ids"]
+    assert planned["text"] == "Iria will receive the Golden Map."

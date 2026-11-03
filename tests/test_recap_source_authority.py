@@ -1,3 +1,5 @@
+import pytest
+
 from src.graph_memory.extraction.recap_source_authority import (
     filter_planning_pass_output, partition_recap_source_rows,
 )
@@ -112,5 +114,42 @@ def test_split_bold_recap_marker_resumes_played_content():
 
 def test_unclosed_bold_recap_marker_does_not_resume_played_content():
     text = "## Looking Ahead :\n**Recap:\nA future scene."
+    kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+    assert not kept and withheld == rows(text)
+
+
+@pytest.mark.parametrize("label", [
+    "Next Beats :", "Looking Ahead:", "Planning Notes :", "Prep Notes:",
+    "**Next Beats:**", "**Next Beats**:", "__Planning Notes__:",
+])
+@pytest.mark.parametrize("recap", ["Recap :", "**Recap:**", "## Recap"])
+def test_label_only_planning_section_survives_blank_paragraphs(label, recap):
+    text = f"{label}\n\nFuture reward.\n\nA planned journey.\n\n{recap}\n\nIria arrived."
+    kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+    assert [r["text"] for r in kept] == [recap, "Iria arrived."]
+    assert [r["text"] for r in withheld] == [label, "Future reward.", "A planned journey."]
+
+
+def test_label_only_planning_keeps_details_until_explicit_recap_boundary():
+    text = "Next Beats:\n\n### Detail\nA reward.\n\nAnother reward."
+    kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+    assert not kept and withheld == rows(text)
+
+
+def test_plain_recap_label_resumes_markdown_planning_section():
+    text = "## Next Beats\nFuture reward.\n\nRecap :\n\nIria arrived."
+    kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+    assert [r["text"] for r in kept] == ["Recap :", "Iria arrived."]
+    assert [r["text"] for r in withheld] == ["## Next Beats", "Future reward."]
+
+
+def test_label_only_markers_in_quotes_code_or_prose_do_not_switch_authority():
+    text = '> Next Beats :\n```text\nNext Beats :\n```\nIria says: Next Beats: a reward.'
+    kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+    assert kept == rows(text) and not withheld
+
+
+def test_plain_recap_inside_planning_code_or_prose_does_not_resume_play():
+    text = "Next Beats :\n\n```text\nRecap :\n```\n\nRecap: a proposed scene.\n\nFuture reward."
     kept, withheld, _ = partition_recap_source_rows(rows(text), text)
     assert not kept and withheld == rows(text)
