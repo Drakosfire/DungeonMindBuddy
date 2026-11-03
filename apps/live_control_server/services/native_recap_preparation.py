@@ -1,9 +1,10 @@
-"""Saved Recap review/confirmation via existing WK/Core; no source admission writes."""
+"""Saved candidate review/confirmation via existing WK/Core; no source admission writes."""
 
 import hashlib
 import hmac
 import json
 from datetime import UTC, datetime
+from dataclasses import dataclass
 from uuid import uuid4
 
 import worldkeeper.application as wk
@@ -13,6 +14,7 @@ from fastapi.encoders import jsonable_encoder
 from application_state.source import service as sources
 from apps.live_control_server import config
 from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
+from apps.live_control_server.integrations.dungeonmind import native_world_source_admission as world_admission
 from apps.live_control_server.integrations.worldkeeper import registry_standing_consumer as transport
 from apps.live_control_server.integrations.worldkeeper.graph_authoring_consumer import _predicate
 from apps.live_control_server.services import native_recap_source_admission as admission
@@ -47,7 +49,7 @@ def _require(condition, code):
 
 def _metadata(review, campaign, evidence):
     return wk.AssertionMetadata(
-        scope=(wk.ScopeBinding(CAMPAIGN_SCOPE_AXIS, campaign),),
+        scope=(wk.ScopeBinding(CAMPAIGN_SCOPE_AXIS, campaign),) if campaign is not None else (),
         visibility=review.visibility,
         epistemic_basis=review.epistemic_basis,
         claim_mode=review.claim_mode,
@@ -69,7 +71,7 @@ def _support_refs(review, witnesses, access, admitted):
         _require(
             opened.source_artifact_id == admitted.source_artifact_id
             and opened.source_revision_id == admitted.source_revision_id
-            and opened.body_sha256 == admitted.app_body_sha256,
+            and opened.body_sha256 == admitted.body_sha256,
             "candidate_support_source_mismatch",
         )
         # Core verified the bytes/visibility. Buddy only checks that this selected
@@ -99,7 +101,7 @@ def _fields(kind, record):
     return {"title": record.title, "node_type": "session_beat", "summary": record.summary}
 
 
-def _intent(preview, selections, space, campaign, admitted, data, access):
+def _intent(preview, selections, space, campaign, admitted, data, access, *, producer=PRODUCER):
     records = {
         **{("node", row.node_id): row for row in preview.nodes},
         **{("edge", row.edge_id): row for row in preview.edges},
@@ -176,7 +178,78 @@ def _intent(preview, selections, space, campaign, admitted, data, access):
             identifier = getattr(row, "item_id", None) or getattr(row, "write_id", None) or row.observation_id
             inventory.append({"kind": kind, "record_id": identifier,
                               "disposition": "held", "reason": "not_an_executable_review_selection"})
-    return wk.WorldChangeIntent(space, PRODUCER, tuple(operations)), inventory
+    return wk.WorldChangeIntent(space, producer, tuple(operations)), inventory
+
+
+
+@dataclass(frozen=True)
+class _CandidateSource:
+    """The existing source owner result needed by the shared evidence join."""
+    admission_id: str
+    source_artifact_id: str
+    source_revision_id: str
+    body_sha256: str
+
+
+def _resolve_source(request, root, bound, data):
+    run, artifact = data.run, data.source_artifact
+    domain = run.source_domain
+    _require(domain in {"recap", "worldbuilding"}, "candidate_scope_mismatch")
+    source = sources.get_source_markdown(
+        source_artifact_id=artifact.source_artifact_id, content_sha256=artifact.content_sha256,
+    )
+    _require(source is not None, "candidate_source_unavailable")
+    _require(
+        source.markdown.encode("utf-8") == data.source_bytes
+        and source.content_sha256 == artifact.content_sha256
+        and source.source_domain == artifact.source_domain == domain
+        and source.campaign_id == artifact.campaign_id == run.campaign_id
+        and source.session_id == artifact.session_id == run.session_id
+        and source.media_type == "text/markdown" and source.encoding == "utf-8",
+        "candidate_source_mismatch",
+    )
+    space = bound["native_world_id"]
+    if domain == "recap":
+        _require(request.campaign_id is not None and run.campaign_id == request.campaign_id,
+                 "candidate_scope_mismatch")
+        _require(source.world_id == artifact.world_id == space, "candidate_source_mismatch")
+        session = run.session_id or ""
+        _require(session.startswith("session-") and session[8:].isdigit(), "candidate_session_invalid")
+        admitted = admission.inspect(root, request.source_admission_run_id, request.managed_world_id,
+                                     request.campaign_id, int(session[8:]))
+        _require(admitted.state == "admitted" and admitted.opening.state == "verified",
+                 "candidate_source_not_admitted")
+        _require(
+            admitted.app_source_artifact_id == source.source_artifact_id
+            and admitted.app_source_revision_id == source.source_revision_id
+            and admitted.app_body_sha256 == source.content_sha256
+            and admitted.native_world_id == space and admitted.binding_version == bound["binding_version"]
+            and bool(admitted.evidence_ref_id), "candidate_admission_mismatch",
+        )
+        return source, _CandidateSource(admitted.admission_id, admitted.source_artifact_id,
+                                        admitted.source_revision_id, admitted.app_body_sha256)
+    _require(request.campaign_id is None and request.source_admission_run_id is None,
+             "candidate_scope_mismatch")
+    _require(source.world_id == artifact.world_id == request.managed_world_id
+             and run.session_id is None, "candidate_source_mismatch")
+    _require(bool(artifact.workspace_document_id) and artifact.workspace_document_revision is not None,
+             "candidate_workspace_source_required")
+    # The committed-workspace owner verifies current document revision, source
+    # bytes, World binding and the Core receipt/opening. Never parse an ID/path
+    # or admit a second source here.
+    admitted = world_admission.get_native_world_source_status(
+        root, artifact.workspace_document_id, expected_revision=artifact.workspace_document_revision,
+    )
+    if admitted.state != "admitted" and admitted.code == "authority_unavailable":
+        raise world_admission.NativeWorldSourceAdmissionError(
+            admitted.code, admitted.message or "Source authority is unavailable", status_code=503,
+        )
+    _require(admitted.state == "admitted", "candidate_source_not_admitted")
+    _require(admitted.world_id == request.managed_world_id and admitted.space_id == space
+             and admitted.body_sha256 == source.content_sha256
+             and bool(admitted.evidence_ref_id), "candidate_admission_mismatch")
+    return source, _CandidateSource(admitted.admission_id, admitted.source_artifact_id,
+                                    admitted.source_revision_id, admitted.body_sha256)
 
 
 def prepare(request, principal):
@@ -188,35 +261,7 @@ def prepare(request, principal):
     run, artifact = data.run, data.source_artifact
     _require(run.revision == request.expected_run_revision, "candidate_run_changed")
     _require(hashlib.sha256(data.candidate_bytes).hexdigest() == request.candidate_sha256, "candidate_bytes_changed")
-    _require(run.source_domain == "recap" and run.campaign_id == request.campaign_id, "candidate_scope_mismatch")
-    # Extraction context is generation history. Present publication authority
-    # comes from the current source ownership/admission and reviewed WK change.
-    source = sources.get_source_markdown(
-        source_artifact_id=artifact.source_artifact_id, content_sha256=artifact.content_sha256,
-    )
-    _require(source is not None, "candidate_source_unavailable")
-    _require(
-        source.markdown.encode("utf-8") == data.source_bytes
-        and source.content_sha256 == artifact.content_sha256
-        and source.world_id == artifact.world_id == space
-        and source.source_domain == artifact.source_domain == "recap"
-        and source.campaign_id == artifact.campaign_id == request.campaign_id
-        and source.session_id == artifact.session_id == run.session_id
-        and source.media_type == "text/markdown" and source.encoding == "utf-8",
-        "candidate_source_mismatch",
-    )
-    session = run.session_id or ""
-    _require(session.startswith("session-") and session[8:].isdigit(), "candidate_session_invalid")
-    admitted = admission.inspect(root, request.source_admission_run_id, request.managed_world_id,
-                                 request.campaign_id, int(session[8:]))
-    _require(admitted.state == "admitted" and admitted.opening.state == "verified", "candidate_source_not_admitted")
-    _require(
-        admitted.app_source_artifact_id == source.source_artifact_id
-        and admitted.app_source_revision_id == source.source_revision_id
-        and admitted.app_body_sha256 == source.content_sha256
-        and admitted.native_world_id == space and admitted.binding_version == bound["binding_version"]
-        and bool(admitted.evidence_ref_id), "candidate_admission_mismatch",
-    )
+    source, admitted = _resolve_source(request, root, bound, data)
     classification = classify_candidate_document_integrity(json.loads(data.candidate_bytes))
     _require(not classification.is_document_integrity_failure, "candidate_document_invalid")
     preview = classification.preview
@@ -227,13 +272,15 @@ def prepare(request, principal):
     _require(context["revision_id"] == request.expected_parent_revision_id, "candidate_parent_stale")
     _require(context["source_epoch"] == request.expected_source_authority_epoch,
              "candidate_source_authority_stale")
+    domain_name = "recap" if request.campaign_id is not None else "worldbuilding"
+    producer = f"dungeonbuddy:reviewed-{domain_name}"
     intent, inventory = _intent(preview, request.selections, space, request.campaign_id,
-                                admitted, data, access)
+                                admitted, data, access, producer=producer)
     prepared = None
     if intent.operations:
         domain, profile = native.descriptors(repo, space, context["revision_id"])
         prepared = transport.runtime(repo, domain, profile, now=datetime.now(UTC),
-                                     operation_id=f"recap-review:{uuid4()}").prepare_change(intent)
+                                     operation_id=f"{domain_name}-review:{uuid4()}").prepare_change(intent)
         transport.verify_prepared_parent(prepared, context)
         _require(prepared.prepared_operations == intent.operations, "candidate_preparation_changed")
     _require(native.binding(request.managed_world_id) == bound, "candidate_binding_changed")
@@ -243,7 +290,7 @@ def prepare(request, principal):
              "candidate_source_authority_changed")
     packet = transport.encode_prepared(prepared) if prepared else None
     envelope = NativeRecapReviewEnvelope(
-        purpose="dmb_native_recap_confirm_v1", producer=PRODUCER,
+        purpose=f"dmb_native_{domain_name}_confirm_v1", producer=producer,
         principal=principal.subject, binding=bound, parent_context=context,
         review=request, prepared_change_id=prepared.prepared_change_id,
         prepared_digest=transport.digest(packet), expires_at=prepared.prepared_at + PREPARE_TTL,
@@ -279,7 +326,7 @@ def confirm(request, principal):
     space = bound["native_world_id"]
     prepared = transport.decode_prepared(request.prepared)
     _require(
-        prepared.space_id == space and prepared.producer == PRODUCER
+        prepared.space_id == space and prepared.producer == envelope.producer
         and prepared.prepared_change_id == prepared.dungeonmind_publication_id
         == envelope.prepared_change_id
         and prepared.expected_parent_revision_id == envelope.review.expected_parent_revision_id

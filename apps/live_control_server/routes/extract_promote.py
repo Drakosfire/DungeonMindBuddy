@@ -13,6 +13,7 @@ from fastapi.routing import APIRoute
 
 from application_state.errors import ApplicationStateError
 from apps.live_control_server.integrations.dungeonmind.native_recap_source_admission import NativeRecapError
+from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import NativeWorldSourceAdmissionError
 from apps.live_control_server.models.native_recap_preparation import NativeRecapPrepareRequest, NativeRecapConfirmRequest
 from apps.live_control_server.routes.strict_json import StrictJSONRoute
 from apps.live_control_server import config as live_config
@@ -655,7 +656,7 @@ def _native_recap_operation(body, request, principal, operation):
         raise HTTPException(status, detail=detail) from exc
     except PersistenceUnavailableError as exc:
         raise HTTPException(503, detail={"code": exc.code, "message": str(exc)}) from exc
-    except (ValueError, ApplicationStateError, NativeRecapError, DungeonMindError, InvalidWorldChange) as exc:
+    except (ValueError, ApplicationStateError, NativeRecapError, NativeWorldSourceAdmissionError, DungeonMindError, InvalidWorldChange) as exc:
         raise HTTPException(getattr(exc, "status_code", 409), detail={
             "code": getattr(exc, "code", "native_recap_review_refused"),
             "message": str(exc),
