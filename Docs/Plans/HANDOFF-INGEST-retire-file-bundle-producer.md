@@ -94,3 +94,22 @@ and now uses the existing literal matcher against the exact cited span. Ruff and
 diff checks pass after correction. The other 19 failures concern old page-file
 fixtures and a profile-version expectation; baseline comparison is pending and
 must not be reported as inherited until measured. No primary/provider/Graph effects.
+
+## Final author verification
+
+The corrected current quote-boundary test passes. The 19 other failures reproduce
+with identical node IDs, phases and error messages at fetched base 1b729d4 and
+candidate 99c4a11 (only pytest temporary-directory numbering normalized). Sixteen
+Build route tests fail before dispatch because their page fixture still writes a
+retired file path. Two artifact-root tests lack current explicit source/World
+scope; one alias test expects profile v1 instead of shipped v2. Preserve this
+baseline debt rather than weakening current guards or absorbing fixture repairs.
+Exact reports and stack traces are retained in private runtime evidence as
+retire-file-bundle-{base,head}-failures.{json,log} and their comparison receipt.
+
+The first broader cohort's other 116 tests passed; the corrected quote/public-run
+case passed separately, and all three ordinary recap Process API tests passed.
+Ruff and cumulative diff checks pass; no executable legacy producer/shim callers
+remain. Existing registration/extraction, exact-run review/output, literal-quote,
+source binding and data-root contracts stay exercised. This is bounded removal
+verification, not a claim that the whole test suite is green or quality improved.
