@@ -1,5 +1,7 @@
 import hashlib
 
+import pytest
+
 from graph_memory.source_span import build_source_span_index_for_text, source_span_index_to_dict
 from src.graph_memory.extraction import category_candidate_graph_extractor as module
 from src.graph_memory.extraction.worldbuilding_plumbing_profile import WORLDBUILDING_PLUMBING_PROFILE
@@ -106,3 +108,34 @@ def test_worldbuilding_profile_preserves_its_original_source_selection():
     result = module.run_category_pipeline(client, options(index, profile=WORLDBUILDING_PLUMBING_PROFILE))
     assert any("Golden Map" in message for _, message in client.messages)
     assert result.diagnostics["recap_source_authority"]["reason"] == "not_recap_profile"
+
+
+def test_plain_label_section_withholds_prompt_and_rejects_injected_planning_claim():
+    # Same label/blank-line/Recap structure as the retained Session 5 failure.
+    text = "Next Beats :\n\nIria will receive the Golden Map.\n\nRecap :\n\nIria arrived in Larkhaven."
+    index, planned, played = setup(text)
+    client = Client(planned, played)
+    result = module.run_category_pipeline(client, options(index, source_text=text))
+
+    assert all("Golden Map" not in message for _, message in client.messages)
+    assert any(n["node_id"] == "loc:larkhaven" for n in result.candidate_graph["nodes"])
+    assert not any(n["node_id"] == "event:reward" for n in result.candidate_graph["nodes"])
+    assert any(
+        ref["source_span_ref_id"] == planned["source_span_ref_id"]
+        for item in result.candidate_graph["deferred_items"]
+        for ref in item.get("evidence_refs", [])
+    )
+    # Authority partitioning must preserve canonical source bytes and locators.
+    assert planned["source_span_ref_id"] in result.diagnostics["recap_source_authority"]["withheld_span_ids"]
+    assert planned["text"] == "Iria will receive the Golden Map."
+
+
+@pytest.mark.parametrize("prefix", ["", "Intro\u2028detail\u2028more\n"])
+def test_lazy_quoted_label_keeps_following_played_source_in_pipeline(prefix):
+    text = prefix + "> The GM wrote:\nNext Beats:\nIria will receive the Golden Map.\n\nIria arrived in Larkhaven."
+    index, quoted, played = setup(text)
+    client = Client(quoted, played)
+    result = module.run_category_pipeline(client, options(index, source_text=text))
+    assert all("Iria arrived in Larkhaven." in message for _, message in client.messages)
+    assert any(n["node_id"] == "loc:larkhaven" for n in result.candidate_graph["nodes"])
+    assert result.diagnostics["recap_source_authority"]["withheld_span_ids"] == []
