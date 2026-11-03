@@ -145,21 +145,24 @@ The durable package home should be `src/graph_memory/vocabulary/`, as a sibling 
 
 ## Current graph ingest workflow
 
-Current runtime path:
+The ordinary recap Process path uses the saved-run owner:
 
 ```text
-raw recap or existing recap
-→ apps/live_control_server/routes/recap_ingest.py
-→ stage/apply/normalize through recap ingest pipeline as needed
+registered recap source in APP
 → apps/live_control_server/services/recap_graph_preview_ingest.py
-→ evals/graph_memory_layer/graph_preview_runner.py
-→ source span bundle + provenance index
-→ category-decomposed extraction when LLM extraction is enabled
-→ candidate graph JSON
-→ candidate validation report
-→ preview union supergraph materialization
-→ projection payload for /plan
+→ apps/live_control_server/services/graph_preview_runner.py
+→ src/graph_memory/extraction/graph_preview_runner.py
+→ saved ExtractionRun and exact source-span components in APP
+→ category-decomposed extraction
+→ saved candidate, validation and diagnostic components in APP
+→ exact-run Graph Review / selection
+→ governed Graph publication
 ```
+
+The unused file-bundle producer and its eval compatibility shim have been removed.
+Historical artifact bundles remain evidence, not an alternate Process authority.
+Older file-discovery/developer projection consumers have separate retirement
+work; this producer deletion does not certify their removal.
 
 Current category extraction path:
 

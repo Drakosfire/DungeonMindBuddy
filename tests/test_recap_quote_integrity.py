@@ -21,9 +21,6 @@ from graph_memory.source_span import (
     source_span_index_to_dict,
 )
 from src.graph_memory.extraction import graph_preview_runner
-from src.graph_memory.extraction.graph_ingest_packaging import (
-    _quotes_match_source_span,
-)
 from src.graph_memory.extraction.recap_extraction_profile import (
     RECAP_PROFILE_ID,
     RECAP_PROFILE_VERSION,
@@ -644,10 +641,14 @@ def test_recap_runner_persists_sanitized_candidate_and_unchanged_private_respons
         for item in saved_graph.get(collection, []):
             for ref in item["evidence_refs"]:
                 positive_refs += 1
-                assert find_anchor_quote_matches(
-                    SOURCE.splitlines()[0], ref["anchor_quotes"]
-                )
                 span = spans.get(ref["source_span_ref_id"])
                 assert span is not None
-                assert _quotes_match_source_span(ref, span, source.source_text)
+                span_text = "\n".join(
+                    source.source_text.splitlines()[span["start_line"] - 1 : span["end_line"]]
+                )
+                assert ref["anchor_quotes"]
+                assert all(
+                    find_anchor_quote_matches(span_text, [quote])
+                    for quote in ref["anchor_quotes"]
+                )
     assert positive_refs == 1

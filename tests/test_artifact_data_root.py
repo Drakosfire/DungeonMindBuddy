@@ -353,25 +353,6 @@ def test_normal_workspace_commit_and_source_share_data_and_lock_owner(split_root
     assert sorted(p.name for p in (code / "out").iterdir()) == ["hermes-agent"]
 
 
-def test_packaging_writes_only_under_declared_root(split_roots, monkeypatch, tmp_path):
-    code, data, hermes = split_roots
-    monkeypatch.chdir(code)
-    from src.graph_memory.extraction import graph_ingest_packaging as packaging
-    output = packaging.ensure_output_dir(Path("out/graph_memory/runs/new"))
-    assert output == data / "out/graph_memory/runs/new"
-    packaging.write_json(output / "candidate.json", {"unchanged": "payload"})
-    assert json.loads((output / "candidate.json").read_text()) == {"unchanged": "payload"}
-    outside = tmp_path / "outside"
-    outside.mkdir()
-    (output / "escape").symlink_to(outside, target_is_directory=True)
-    with pytest.raises(ValueError, match="outside"):
-        packaging.write_json(output / "escape/never.json", {})
-    with pytest.raises(ValueError, match="outside"):
-        packaging.ensure_output_dir(Path("out/graph_memory/runs/new/escape/nested"))
-    assert not list(outside.iterdir())
-    assert hermes.read_bytes() == b"unchanged code dependency"
-
-
 def test_unreadable_explicit_root_does_not_fallback(split_roots, monkeypatch):
     code, _data, _ = split_roots
     monkeypatch.setattr(config.os, "access", lambda *_args: False)
