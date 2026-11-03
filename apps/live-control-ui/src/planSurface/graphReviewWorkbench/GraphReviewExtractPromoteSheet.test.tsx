@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as extractPromoteApi from "../../api/extractPromoteApi";
 import * as liveApi from "../../api/liveApi";
-import { getUnionSupergraphProjection, postWorldGraphProjection } from "../../api/liveApi";
+import { postWorldGraphProjection } from "../../api/liveApi";
 import type {
   ExtractPromoteConfirmReceipt,
   ExtractPromotePrepareResponse,
@@ -33,7 +33,6 @@ vi.mock("../../api/liveApi", async () => {
     await vi.importActual<typeof import("../../api/liveApi")>("../../api/liveApi");
   return {
     ...actual,
-    getUnionSupergraphProjection: vi.fn(),
     getGoldGraphProjection: vi.fn(),
     postWorldGraphProjection: vi.fn(),
   };
@@ -266,7 +265,6 @@ function renderSheet(
 
 describe("GraphReviewExtractPromoteSheet", () => {
   beforeEach(() => {
-    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
     vi.mocked(postWorldGraphProjection).mockResolvedValue({
       schema: "dmb_world_graph_projection_v1",
       snapshot: {
@@ -862,8 +860,6 @@ describe("GraphReviewSessionToolbar", () => {
       schema_version: "dmb_world_container_registry_v1",
       records: managedWorlds,
     }), { headers: { "Content-Type": "application/json" } }));
-    vi.mocked(getUnionSupergraphProjection).mockReset();
-    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
     vi.mocked(extractPromoteApi.prepareExtractPromote).mockReset();
     const useLiveState = graphReviewLiveStateContext.useGraphReviewLiveState;
     vi.spyOn(graphReviewLiveStateContext, "useGraphReviewLiveState").mockImplementation(

@@ -1,6 +1,12 @@
 # GRAPH: retire the orphan Union recap renderer
 
-Status: ACTIVE under the operator's cleanup and demolition goal.
+Status: MERGED_DELIVERED as PR2050 at
+94e969cc68c85e0f6b6514cc245fa408c294e4f6; implementation lease closed. Original
+reviewed head 5f9606e6 passed independent review and all seven CI checks; actual
+merge qualification matched the approved four-path projection. Conserved proof:
+retire-union-recap-renderer-api-delivery-proof.json. All 91 primary tables, nine
+session files, saved Plan HTTP, UI and catalogue stayed unchanged. The separate
+retired-client handoff owns the next GRAPH slice.
 Owner: PRIME. Base: origin/main@ba208e8002413f3aec228d3ac7ec7fe715fe40dc.
 Branch: codex/retire-union-recap-renderer.
 Checkout: /home/drakosfire/.codex/worktrees/buddy-context-loop/DungeonMindBuddy.

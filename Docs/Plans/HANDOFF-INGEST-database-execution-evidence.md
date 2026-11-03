@@ -1,6 +1,14 @@
 # INGEST: database-owned private execution evidence
 
-Status: ACTIVE under the operator's code cleanup/runtime-repair goal.
+Status: MERGED_DELIVERED as PR2049 at
+1e5ae2d0d432f141ce5a411d0a368909233ebd9f; implementation lease closed. Exact
+reviewed head 9e0dddde passed independent review and all seven CI checks; the
+actual merge tree/patch matched. Conserved delivery proof:
+database-execution-evidence-api-delivery-proof.json. All 91 primary tables,
+nine session files, saved Plan HTTP and UI stayed unchanged. ADVERSARY's later
+isolated S6 run retained seven responses with no retries and reopened exact DB
+components; that is lifecycle evidence, not semantic-quality acceptance. Gold
+and ingestion quality remain independently owned by ADVERSARY.
 Owner: PRIME. Base: origin/main@ba208e8002413f3aec228d3ac7ec7fe715fe40dc.
 Design/initial implementation started from delivered2046@783980f28; rebased after
 independently reviewed/all-green2047 and2048 merged, with disjoint patches.

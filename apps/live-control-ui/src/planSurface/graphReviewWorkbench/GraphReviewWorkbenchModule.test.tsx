@@ -322,61 +322,6 @@ function mockWorkbenchApis() {
     object_index: { gold: {}, live: {} },
     match_pairs: {},
   });
-  vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue({
-    campaign_id: "longmont-c2",
-    session_id: "session-23",
-    graph_id: "graph-a",
-    markdown: "[Alden](dmb-node:alden) watched [Bera](dmb-node:bera).",
-    focus: {
-      focus_session_id: "session-23",
-      focused_evidence_ref_ids: [],
-      focused_edge_ids: [],
-      focused_node_ids: [],
-    },
-    node_views: {
-      alden: {
-        node_id: "alden",
-        label: "Alden",
-        kind: "npc",
-        role: "gate warden",
-        summary: "Alden guards the western gate.",
-        aliases: [],
-        source_domains: [],
-        evidence_badges: [],
-        adjacency: [],
-      },
-      bera: {
-        node_id: "bera",
-        label: "Bera",
-        kind: "npc",
-        role: "scout",
-        summary: "Bera scouts the old road.",
-        aliases: [],
-        source_domains: [],
-        evidence_badges: [],
-        adjacency: [],
-      },
-    },
-    source_spans: [],
-    mentions: [
-      {
-        mention_id: "m-alden",
-        node_id: "alden",
-        label: "Alden",
-        start_offset: 0,
-        end_offset: 5,
-        anchor_status: "anchored",
-      },
-      {
-        mention_id: "m-bera",
-        node_id: "bera",
-        label: "Bera",
-        start_offset: 14,
-        end_offset: 18,
-        anchor_status: "anchored",
-      },
-    ],
-  });
   vi.spyOn(liveApi, "getGoldGraphProjection").mockResolvedValue({
     campaign_id: "longmont-c2",
     session_id: "session-23",
@@ -1561,21 +1506,6 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
   });
 
   it("clears committed authority when catalog binding identity changes", async () => {
-    vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue({
-      campaign_id: "longmont-c2",
-      session_id: "session-23",
-      graph_id: "graph-a",
-      markdown: "# Candidate",
-      focus: {
-        focus_session_id: "session-23",
-        focused_evidence_ref_ids: [],
-        focused_edge_ids: [],
-        focused_node_ids: [],
-      },
-      node_views: {},
-      source_spans: [],
-      mentions: [],
-    });
     vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(
       committedProjection("Hesta Ironroot"),
     );

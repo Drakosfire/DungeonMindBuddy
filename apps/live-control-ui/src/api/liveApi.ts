@@ -128,7 +128,6 @@ import type {
   RecapArtifactsListResponse,
   RecapGraphPresentationResponse,
   RecapGraphQuery,
-  UnionSupergraphProjectionResponse,
   WorldGraphProjection,
   WorldGraphProjectionRequest,
   ManagedWorldGraphProjectionRequest,
@@ -433,10 +432,6 @@ function nativeGraphHeaders(
   }
   return headers;
 }
-const defaultUnionSupergraphPreviewSource =
-  (import.meta.env.VITE_UNION_SUPERGRAPH_PREVIEW_SOURCE as string | undefined)?.trim() ||
-  "s22-anchor-quote-n3-s23-gold";
-
 /** Repo-relative path passed to POST /api/live/query for context_lookup grounding. */
 export const DEFAULT_PLANNING_MANIFEST_PATH =
   (import.meta.env.VITE_LIVE_PLANNING_MANIFEST_PATH as string | undefined)?.trim() ||
@@ -1502,46 +1497,6 @@ export async function getManualReviewBed(bedId: string): Promise<ManualReviewBed
   );
 }
 
-export interface UnionSupergraphProjectionQuery {
-  sessionId: string;
-  campaignId?: string;
-  previewSource?: string | null;
-  graphRunManifestPath?: string | null;
-  previewUnionStorePath?: string | null;
-  useLatestGraphIngest?: boolean;
-  allowRecapOnly?: boolean;
-  sourceRecapPath?: string | null;
-  sourceRecapSha256?: string | null;
-}
-
-export async function getUnionSupergraphProjection(
-  query: UnionSupergraphProjectionQuery,
-): Promise<UnionSupergraphProjectionResponse>;
-export async function getUnionSupergraphProjection(
-  sessionId: string,
-  previewSource?: string,
-): Promise<UnionSupergraphProjectionResponse>;
-export async function getUnionSupergraphProjection(
-  queryOrSessionId: UnionSupergraphProjectionQuery | string,
-  previewSource = defaultUnionSupergraphPreviewSource,
-): Promise<UnionSupergraphProjectionResponse> {
-  const query = typeof queryOrSessionId === "string"
-    ? { sessionId: queryOrSessionId, previewSource }
-    : queryOrSessionId;
-  const params = new URLSearchParams({ session_id: query.sessionId });
-  if (query.campaignId) params.set("campaign_id", query.campaignId);
-  if (query.useLatestGraphIngest) params.set("use_latest_graph_ingest", "true");
-  if (query.allowRecapOnly) params.set("allow_recap_only", "true");
-  if (query.previewSource) params.set("preview_source", query.previewSource);
-  if (query.graphRunManifestPath) params.set("graph_run_manifest_path", query.graphRunManifestPath);
-  if (query.previewUnionStorePath) params.set("preview_union_store_path", query.previewUnionStorePath);
-  if (query.sourceRecapPath) params.set("source_recap_path", query.sourceRecapPath);
-  if (query.sourceRecapSha256) params.set("source_recap_sha256", query.sourceRecapSha256);
-  return apiFetch<UnionSupergraphProjectionResponse>(
-    `/api/live/graph-preview/union-supergraph/projection?${params.toString()}`,
-  );
-}
-
 let projectionInvalidationTarget: Window | null = null;
 
 /** Retire pre-commit sharing, without retaining projection values or refetching owners. */
@@ -1612,13 +1567,6 @@ export async function postWorldGraphRecapProjection(
     method: "POST",
     body: JSON.stringify(request),
   });
-}
-
-export async function getDefaultUnionSupergraphProjection(
-  sessionId: string,
-  previewSource = defaultUnionSupergraphPreviewSource,
-): Promise<UnionSupergraphProjectionResponse> {
-  return getUnionSupergraphProjection({ sessionId, previewSource });
 }
 
 export async function resolveGraphReviewExistingObjectCandidates(
