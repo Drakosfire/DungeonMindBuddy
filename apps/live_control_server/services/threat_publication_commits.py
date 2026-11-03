@@ -3082,11 +3082,18 @@ def confirm_threat_publication(
 
 
             try:
+                from apps.live_control_server.services.threat_publication_proposals import (
+                    _mutation_context_from_view,
+                )
+
+                parent_view = authority.read_revision(
+                    record.world_id, record.expected_parent_revision_id
+                )
                 _v, contribution = resolve_merged_contribution_from_package(
                     review_package=proposal.sealed_proposal,
                     confirming_principal=proposal.created_by,
                     world_id_hint=record.world_id,
-                    root=configured_world,
+                    mutation_context=_mutation_context_from_view(parent_view),
                     expected_parent_revision_id=record.expected_parent_revision_id,
                     assertion_ids=None,
                 )
@@ -3212,37 +3219,25 @@ def confirm_threat_publication(
             contribution = matched_contribution
 
 
-            verified = _verify_committed(
+            verified, label, verify_message = _advance_committed_verification(
                 root=root,
                 world_root=configured_world,
                 record=record,
                 proposal=proposal,
                 contribution=contribution,
                 lookup_fn=lookup,
+                authority=authority,
             )
-            try:
-                _save_commit(root, verified)
-            except ThreatPublicationCommitStorageError:
-                return CommitOutcome(
-                    _response(
-                        safe_draft,
-                        safe_op,
-                        safe_proposal,
-                        safe_commit,
-                        "publication_commit_committed_unverified",
-                        commit=record,
-                        retry_allowed=False,
-                        message="verification could not persist",
-                    )
-                )
             return CommitOutcome(
                 _response(
                     safe_draft,
                     safe_op,
                     safe_proposal,
                     safe_commit,
-                    _label_for_state(verified),
+                    label,
                     commit=verified,
+                    retry_allowed=False,
+                    message=verify_message,
                 )
             )
 
