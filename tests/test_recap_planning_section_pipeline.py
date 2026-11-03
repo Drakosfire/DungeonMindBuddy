@@ -126,3 +126,13 @@ def test_plain_label_section_withholds_prompt_and_rejects_injected_planning_clai
     # Authority partitioning must preserve canonical source bytes and locators.
     assert planned["source_span_ref_id"] in result.diagnostics["recap_source_authority"]["withheld_span_ids"]
     assert planned["text"] == "Iria will receive the Golden Map."
+
+
+def test_lazy_quoted_label_keeps_following_played_source_in_pipeline():
+    text = "> The GM wrote:\nNext Beats:\nIria will receive the Golden Map.\n\nIria arrived in Larkhaven."
+    index, quoted, played = setup(text)
+    client = Client(quoted, played)
+    result = module.run_category_pipeline(client, options(index, source_text=text))
+    assert all("Iria arrived in Larkhaven." in message for _, message in client.messages)
+    assert any(n["node_id"] == "loc:larkhaven" for n in result.candidate_graph["nodes"])
+    assert result.diagnostics["recap_source_authority"]["withheld_span_ids"] == []

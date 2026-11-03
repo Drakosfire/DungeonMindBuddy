@@ -7,6 +7,8 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
+from markdown_it import MarkdownIt
+
 _PLANNING_TITLES = {"looking ahead", "next beats", "planning notes", "prep notes"}
 _HEADING = re.compile(r"^ {0,3}(#{1,6})\s+(.+?)\s*#*\s*$")
 _INLINE = re.compile(r"^\s*(?:\*\*|__)?\s*(?:looking\s+ahead|next\s+beats|planning\s+notes|prep\s+notes)\s*:\s*(?:\*\*|__)?", re.I)
@@ -30,12 +32,24 @@ def partition_recap_source_rows(
     if text is None:
         return list(rows), [], {"checked": False, "reason": "full_source_text_unavailable"}
     lines = text.splitlines()
+    # CommonMark blockquote maps include lazy paragraph continuations without
+    # a leading `>`; those lines cannot introduce or end source authority.
+    quoted_lines = {
+        number
+        for token in MarkdownIt("commonmark").parse(text)
+        if token.type == "blockquote_open" and token.map is not None
+        for number in range(token.map[0] + 1, token.map[1] + 1)
+    }
     planned: set[int] = set()
     section_level: int | None = None
     label_section = False
     inline = False
     fence: str | None = None
     for number, line in enumerate(lines, 1):
+        if number in quoted_lines:
+            if section_level is not None or label_section or inline:
+                planned.add(number)
+            continue
         if fence is not None:
             closing = _FENCE_CLOSE.match(line)
             if closing:

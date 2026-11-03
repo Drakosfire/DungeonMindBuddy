@@ -153,3 +153,23 @@ def test_plain_recap_inside_planning_code_or_prose_does_not_resume_play():
     text = "Next Beats :\n\n```text\nRecap :\n```\n\nRecap: a proposed scene.\n\nFuture reward."
     kept, withheld, _ = partition_recap_source_rows(rows(text), text)
     assert not kept and withheld == rows(text)
+
+
+@pytest.mark.parametrize("label", ["Next Beats:", "**Next Beats:**", "__Planning Notes__:"])
+def test_lazy_blockquote_label_does_not_hide_later_played_paragraph(label):
+    text = f"> The GM wrote:\n{label}\nA future reward.\n\nThe party arrived in town."
+    kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+    assert kept == rows(text) and not withheld
+
+
+def test_lazy_quoted_recap_does_not_end_real_planning_section():
+    text = "Next Beats:\n\n> A quoted example:\nRecap:\nAn example scene.\n\nActual future reward."
+    kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+    assert not kept and withheld == rows(text)
+
+
+def test_real_label_after_blockquote_paragraph_still_starts_planning():
+    text = "> A quoted example.\n\nNext Beats:\n\nA future reward.\n\nRecap:\nPlayed event."
+    kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+    assert [r["text"] for r in kept] == ["> A quoted example.", "Recap:", "Played event."]
+    assert [r["text"] for r in withheld] == ["Next Beats:", "A future reward."]

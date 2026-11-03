@@ -75,3 +75,23 @@ Gold or candidate bytes changed. Private proof SHA256:
 `deb585b99aea12522925ee0f02c0c05b6c8b4450b460f359f7fdc169fc45da10`.
 This proves the deterministic authority boundary only; fresh inference and
 publication quality remain unproven until coordinated post-review verification.
+
+## Independent review correction
+
+PRIME held head `20a26cd71183ca54d792bcf2b9a931be59ffdadb` because a
+CommonMark lazy blockquote continuation containing `Next Beats:` could start a
+persistent planning section and hide the next played paragraph. A lazy quoted
+`Recap:` could also prematurely end real planning. Four new parser cases
+reproduced these failures before the correction. The existing pinned
+`markdown-it-py` dependency now supplies blockquote line ranges, including lazy
+continuations; quoted lines cannot change authority, while existing outer
+planning still covers them. No new dependency or Markdown heuristic was added.
+
+Parser controls include plain/bold lazy labels, lazy quoted Recap, and a genuine
+standalone planning label after the quote ends. The ordinary canonical-span
+pipeline now verifies that the subsequent played paragraph remains in every
+provider prompt and its returned location survives. Focused checks: 89 passed.
+The retained Session 5 owner replay remains identical to the earlier proof:
+all five played paragraphs kept and the same planning claims deferred. Original
+private evidence is unchanged. Independent review of the corrected head remains
+required before merge/delivery; these checks are not fresh extraction acceptance.
