@@ -1,6 +1,7 @@
 # INGEST: remove the unused compact preview extractor
 
-Status: ACTIVE under the operator's code cleanup and demolition goal.
+Status: MERGED and API-delivered through PR2041 at
+0ca2eba73adeffb9a4a2bfe80a204647686c6faf. Implementation and delivery leases released.
 Owner: PRIME. Base: origin/main@e3878370db6a8c87e0be4f9bfdc3a465aa1800bd.
 Branch: codex/remove-compact-preview-extractor.
 Checkout: /home/drakosfire/.codex/worktrees/buddy-context-loop/DungeonMindBuddy.
@@ -49,3 +50,12 @@ architecture-baseline tests already fail identically on the fetched base and
 this change (GenerationEngine imports and three DungeonMind import baselines).
 Their assertion messages were compared exactly; do not rebaseline that unrelated
 architecture debt in this deletion PR. No PRIMARY, provider or Graph effects.
+
+## Settlement
+
+Independent Bugbot approved exact head 667c834fbba920a5ed2d138d9cc39a89b39c3fb7;
+all seven CI checks passed before merge. The unchanged reviewed conserved delivery
+recipe verified 8,955 source blobs, all 91 retained primary tables and nine session
+files, unchanged saved Plan HTTP and UI, and API readiness. No provider calls,
+database writes or Graph changes. This proves removal and conserved delivery,
+not new ingestion quality or operator acceptance.
