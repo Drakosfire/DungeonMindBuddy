@@ -321,7 +321,11 @@ def validate_selection_proof(turn, selection, trace, proof):
         if not catalog or not isinstance(proof, dict) or set(proof) != {"request_json", "response_json"}:
             raise ValueError("Nonempty selection requires exact producer proof")
         request_text, response_text = proof["request_json"], proof["response_json"]
-        if (not isinstance(request_text, str) or len(request_text.encode()) > 256000
+        # Request capacity belongs to its frozen accounting policy. The response
+        # acceptance bound is separate and remains unchanged.
+        request_limit = execution.policy.controller_continuation_accounting.raw_wire_limit_bytes
+        if (not isinstance(request_text, str)
+            or request_limit is not None and len(request_text.encode()) > request_limit
             or not isinstance(response_text, str) or len(response_text.encode()) > 256000
             or hashlib.sha256(request_text.encode()).hexdigest() != auth.envelope_sha256
             or hashlib.sha256(response_text.encode()).hexdigest() != selection.controller_response_sha256):
