@@ -5,7 +5,7 @@ import pytest
 from tests.test_candidate_graph_to_contribution import _minimal_graph
 from graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph, CandidateGraphMappingError
 from graph_memory.extract_identity_gate import (
-    gate_candidate_graph_against_head, build_accepted_contribution_from_proposals,
+    gate_candidate_graph_against_head,
     build_accepted_contribution_from_multi_slice_proposals,
 )
 from graph_memory.extract_promote_review_projection import project_promote_review
@@ -51,8 +51,6 @@ def test_create_new_companions_are_separate_default_off_and_source_exact():
         assert item.selectable and not item.selected_by_default
         assert observation.value["summary"] in item.summary
         assert item.depends_on_slice_qualified_ids==["0:source::"+node.assertion_id]
-    default=build_accepted_contribution_from_proposals(gate,mutation_context=context)
-    assert all(a.assertion_kind=="node" for a in default.accepted_assertions)
     multi=build_accepted_contribution_from_multi_slice_proposals(
         [(gate,None,"0:source")],mutation_context=context,
     )
@@ -65,13 +63,10 @@ def test_attribute_subject_selection_is_enforced_single_and_multi_slice():
     node=next(a for a in gate.accepted_proposals if a.assertion_kind=="node"
         and a.subject_node_id==observation.subject_node_id)
     with pytest.raises(CandidateGraphMappingError,match="attribute subject"):
-        build_accepted_contribution_from_proposals(
-            gate,mutation_context=context,accepted_assertion_ids=[observation.assertion_id])
-    with pytest.raises(CandidateGraphMappingError,match="attribute subject"):
         build_accepted_contribution_from_multi_slice_proposals(
             [(gate,[observation.assertion_id],"source")],mutation_context=context)
-    selected=build_accepted_contribution_from_proposals(
-        gate,mutation_context=context,accepted_assertion_ids=[node.assertion_id,observation.assertion_id])
+    selected=build_accepted_contribution_from_multi_slice_proposals(
+        [(gate,[node.assertion_id,observation.assertion_id],"source")],mutation_context=context)
     assert {a.assertion_kind for a in selected.accepted_assertions}=={"node","attribute"}
     node_gate=replace(gate,accepted_proposals=[node])
     observation_gate=replace(gate,accepted_proposals=[observation])

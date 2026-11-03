@@ -1,6 +1,6 @@
 # GRAPH: directed edge alignment diagnostics
 
-Status: ACTIVE. Owner: PRIME for confirmed runtime/comparison diagnostic defect.
+Status: MERGED_DELIVERED. Owner: PRIME for confirmed runtime/comparison diagnostic defect.
 Base: origin/main@0aca7c9ccb4a40eb00f76a53ceeab3f782392cf7.
 Branch: codex/directed-edge-alignment. Reuse buddy-context-loop checkout.
 Topology: parallel-independent of2056@7e608adcc26fcd1c25f9f81e3e2636a8ab9e4453
@@ -61,3 +61,12 @@ coarse score and exact dedup. Source Ruff and diff checks pass. Four existing
 E701/E702 findings in the test file reproduce at exact base and remain outside
 this slice; no new finding claimed. No Gold/source/provider/DB/runtime effects.
 Independent review, CI, merge and conserved delivery remain required.
+
+## Settled predecessor
+
+Merged2057 at26ba5231c67aa0a4779cce99876a773a8457dd7c after all7 CI gates and
+independent original/projected/actual-merge approvals. Integration cohort73passed.
+Conserved API delivery verified8963 source blobs; all91 primary tables,9session
+files, saved Plan HTTP and UI unchanged; native catalogue439. No provider/Gold/
+publication effects. Private directed-edge-alignment-api-delivery-proof.json
+retains exact delivery evidence. Runtime lease RELEASED.
