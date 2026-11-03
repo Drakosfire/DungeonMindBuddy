@@ -293,3 +293,55 @@ def test_collective_scene_scope_guidance_reaches_only_recap_collective_prompt() 
     for profile in (WORLDBUILDING_PROFILE, WORLDBUILDING_PLUMBING_PROFILE):
         prompts = render_category_pass_prompts(rows, profile=profile)
         assert all(rule not in value for value in prompts.values())
+
+
+def test_source_form_authority_reaches_every_recap_claim_bearing_pass() -> None:
+    """Verify instruction delivery; source authority in model output is assessed separately."""
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        render_encounter_job_pass_prompt,
+    )
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+        WORLDBUILDING_PROFILE,
+    )
+
+    rows = [
+        {
+            "source_span_ref_id": "span-handout",
+            "line_start": 1,
+            "line_end": 1,
+            "text": "(The GM gave the players a printed constellation chart.)",
+        },
+        {
+            "source_span_ref_id": "span-rhetoric",
+            "line_start": 2,
+            "line_end": 2,
+            "text": "Can the envoy pull another victory out of her hat?",
+        },
+        {
+            "source_span_ref_id": "span-world-object",
+            "line_start": 3,
+            "line_end": 3,
+            "text": "(The envoy put a brass compass into her satchel.)",
+        },
+    ]
+    rule = "Distinguish in-world assertions from table presentation and rhetorical language"
+    for profile in (
+        RECAP_EXTRACTION_PROFILE,
+        get_extraction_profile("recap_category_encounter_job_preview", "2.0"),
+    ):
+        prompts = render_category_pass_prompts(rows, profile=profile)
+        if profile.encounter_job_pass is not None:
+            prompts["encounter_job_pass.md"] = render_encounter_job_pass_prompt(
+                rows, nodes=[], beats=[], instruction=profile.encounter_job_pass.instruction,
+            )
+        for name, prompt in prompts.items():
+            assert prompt.count(rule) == 1, name
+            assert "does not establish a physical object" in prompt
+            assert "Preserve supported table observations as such" in prompt
+            assert "Parentheses alone do not determine authority" in prompt
+            assert all(row["text"] in prompt for row in rows)
+            assert "anchor_quotes" in prompt
+    for profile in (WORLDBUILDING_PROFILE, WORLDBUILDING_PLUMBING_PROFILE):
+        prompts = render_category_pass_prompts(rows, profile=profile)
+        assert all(rule not in prompt for prompt in prompts.values())

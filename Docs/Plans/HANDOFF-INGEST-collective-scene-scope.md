@@ -1,6 +1,6 @@
 # INGEST: preserve scene scope in collective extraction
 
-Status: ACTIVE implementation. Owner: ADVERSARY quality; PRIME independently reviews, merges and delivers. Explicit operator assignment owns the ingestion/Gold implementation loop. PRIME acknowledged this bounded, disjoint lease in chat 01a0ef89-ca57-7b82-9c9c-215b02d0fc3b.
+Status: MERGED and delivered; implementation write lease CLOSED. Owner: ADVERSARY quality; PRIME independently reviews, merges and delivers. Explicit operator assignment owns the ingestion/Gold implementation loop. PRIME acknowledged this bounded, disjoint lease in chat 01a0ef89-ca57-7b82-9c9c-215b02d0fc3b.
 
 ## Outcome, authority and topology
 
@@ -39,3 +39,10 @@ Tests prove instruction delivery, not model obedience. After independent code re
 The new owning regression first failed because the rendered collective prompt lacked the rule; original red output is retained at `/tmp/pr2026-audit-8779/collective-scene-scope-red.log`. After implementation, the source-faithfulness/profile and predicate-catalogue cohort passed22checks. Targeted Ruff and cumulative whitespace checks passed.
 
 An AST comparison against exact26ba proves that the only profile-module change is the collective guidance literal. Rendered comparison for both Recap profiles changes only `collective_pass.md`; all other profile fields stay identical. Proof `/tmp/pr2026-audit-8779/collective-scene-scope-prompt-conservation.json`, SHA `913f639291f283c4c1ba78d3a15b0c81209b3fe21e585d4ec061cebd70a918e3`. Both Worldbuilding profiles remain outside this guidance in the owning render regression. These checks make no model-quality, delivery or publication claim.
+
+
+## Successor settlement
+
+PR2061 author head278095af5f15d5875ba797b7f265c4d533d4a66a independently approved, merged and delivered as `693e79975c395df8745978c9fb39a40c6d46d467`. Actual source tree `5f4d8683fcb379d1432a53305499fde56c12043e` matched the reviewed projection. All seven CI checks passed; conserved API delivery used API1922493/UI1088995 and8966verified source blobs.
+
+The later ordinary Session7 comparison `cfae1855-a3cb-487d-be83-8a2e4821a057` at693e retained separate gate guards/captors and removed the previous specific scene conflation in that output. Original ea16/source/model/Gold failures remain preserved. One stochastic comparison is not causal/generalized quality evidence; other structured gaps and source-authority errors remain. No full Gold, suite, publication or benchmark acceptance follows. The next source-form authority slice owns its own bounded lease; this predecessor lease is closed.

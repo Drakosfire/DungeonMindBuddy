@@ -44,7 +44,13 @@ _RECAP_SOURCE_FAITHFULNESS = (
     "dropping the whole entity. Do not treat similar names, spelling, "
     "possessives, topic proximity, or a shared location as proof that two "
     "mentions identify the same entity. Resolve references only as specifically "
-    "as the source supports; do not add unstated membership, identity, or events."
+    "as the source supports; do not add unstated membership, identity, or events. "
+    "Distinguish in-world assertions from table presentation and rhetorical language. "
+    "A table handout or figurative mention does not establish a physical object, "
+    "character attribute, possession, or in-world event. Preserve supported table "
+    "observations as such without promoting them into world facts. Parentheses "
+    "alone do not determine authority: retain explicitly narrated in-world "
+    "objects and actions even when parenthetical."
 )
 
 _PASS_SOURCE_FAITHFULNESS: dict[str, str] = {
