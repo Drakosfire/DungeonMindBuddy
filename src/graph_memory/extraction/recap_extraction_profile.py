@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+from src.graph_memory.predicate_catalog import recap_predicate_meaning_guidance
+
 from src.graph_memory.extraction.extraction_profile import (
     ExtractionPassSpec,
     ExtractionProfile,
@@ -88,6 +90,8 @@ _PASS_SOURCE_FAITHFULNESS: dict[str, str] = {
 
 def _with_recap_source_faithfulness(spec: ExtractionPassSpec) -> ExtractionPassSpec:
     pass_guidance = _PASS_SOURCE_FAITHFULNESS.get(spec.pass_id, "")
+    if spec.pass_id == "edge_pass":
+        pass_guidance = f"{pass_guidance}\n\n{recap_predicate_meaning_guidance()}"
     return replace(
         spec,
         instruction=(

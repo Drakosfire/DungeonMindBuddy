@@ -127,3 +127,28 @@ def test_prompt_and_schema_generation_do_not_read_eval_files(monkeypatch):
     assert predicate_catalog.validate_edge_predicate("parent_of", "kinship") == []
     assert predicate_catalog.validate_edge_predicate("parent_of", "citation") == ["relationship_family_mismatch"]
     assert predicate_catalog.validate_edge_predicate("parent_of", "not_a_family") == ["unknown_predicate_family"]
+
+
+def test_recap_meaning_guidance_covers_exact_catalogue_without_changing_common_prompt():
+    from src.graph_memory.predicate_catalog import (
+        RECAP_PREDICATE_MEANINGS, recap_predicate_meaning_guidance,
+    )
+
+    assert set(RECAP_PREDICATE_MEANINGS) == set(exact_predicate_ids())
+    guidance = recap_predicate_meaning_guidance()
+    assert "subject → predicate → object" in guidance
+    for predicate, meaning in RECAP_PREDICATE_MEANINGS.items():
+        assert f"- `{predicate}`: {meaning}" in guidance
+        assert meaning not in prompt_markdown()
+
+
+def test_recap_predicate_roles_preserve_distinctions_and_ambiguous_source_scope():
+    from src.graph_memory.predicate_catalog import RECAP_PREDICATE_MEANINGS as meanings
+
+    assert "possessed item does not possess its holder" in meanings["possesses"]
+    assert "a visit" in meanings["attacks"]
+    assert "traveling with someone" in meanings["travels_to"]
+    assert "communications" in meanings["controls_comms_with"]
+    assert "mission or mission-directing actor" in meanings["mission_focus"]
+    assert "not that object is missing" in meanings["missing_contact"]
+    assert "device changing hands alone" in meanings["replaced_contact"]
