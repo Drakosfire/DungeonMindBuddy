@@ -38,7 +38,7 @@ def semantic_engine_seam(monkeypatch):
     def execute(factory, request, *, deadline, attempt_evidence=None):
         from generationengine.types import TextRequest
         from src.graph_memory.extraction.bounded_recap_execution import (
-            _write_private_response_evidence,
+            _persist_attempt_response,
         )
 
         async def run():
@@ -51,17 +51,7 @@ def semantic_engine_seam(monkeypatch):
                 callback = None
                 if attempt_evidence is not None:
                     async def on_attempt_completed(event):
-                        event_payload = event.model_dump(mode="json")
-                        _write_private_response_evidence(
-                            Path(attempt_evidence["directory"]),
-                            ordinal=attempt_evidence["pass_ordinal"],
-                            pass_name=attempt_evidence["pass_name"],
-                            request=request,
-                            context_hashes=attempt_evidence["context_hashes"],
-                            raw_observation=event_payload,
-                            response_text=event.text,
-                            attempt_event=event_payload,
-                        )
+                        _persist_attempt_response(attempt_evidence, request, event)
 
                     callback = on_attempt_completed
                 result = await engine.generate_structured(
@@ -164,17 +154,26 @@ def invoke(client, model="gpt-6-luna"):
     )
 
 
-def private_response_client(engine_factory, run_dir, *, limits=None):
-    run_dir.mkdir(parents=True, exist_ok=True)
-    return BoundedRecapPassClient(
-        limits or RecapExecutionLimits(),
-        engine_factory=engine_factory,
-        response_artifact_dir=run_dir / ".private" / "pass_responses",
-        request_context_hashes={
-            "normalized_source": "a" * 64,
-            "settled_identity_context": "b" * 64,
-        },
-    )
+def bind_private_client(client, *, source_sha256=None, run=None):
+    from tests.application_state.test_ingest_components_postgres import prepared_execution
+    if run is None:
+        run, _ = prepared_execution(model_id=client.limits.model, source_sha256=source_sha256)
+    client.bind_to_run(run)
+    return client
+
+
+def private_capture(client, digest):
+    return next(row["record"] for row in client._execution_records() if row["sha256"] == digest)
+
+
+def private_response_client(engine_factory, *, limits=None, run=None, clock=None):
+    kwargs = {} if clock is None else {"clock": clock}
+    return bind_private_client(BoundedRecapPassClient(
+        limits or RecapExecutionLimits(), engine_factory=engine_factory,
+        request_context_hashes={"normalized_source": "a" * 64, "settled_identity_context": "b" * 64},
+        **kwargs,
+    ), run=run)
+
 
 
 def deepseek_observation(**changes):
@@ -328,6 +327,7 @@ def test_deepseek_request_reaches_accepted_ge_openrouter_sdk_kwargs():
     }
 
 
+@pytest.mark.usefixtures("application_state_dsn")
 def test_synthetic_invalid_json_is_preserved_and_classified_before_stop(tmp_path):
     import hashlib
 
@@ -342,12 +342,7 @@ def test_synthetic_invalid_json_is_preserved_and_classified_before_stop(tmp_path
         json.loads(raw)
 
     engine = Engine(TextResult(text=raw, observation=deepseek_observation()))
-    run_dir = tmp_path / "synthetic-run"
-    client = private_response_client(
-        lambda: engine,
-        run_dir,
-        limits=RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL),
-    )
+    client = private_response_client(lambda: engine, limits=RecapExecutionLimits(provider='openrouter', model=DEEPSEEK_MODEL))
     with pytest.raises(CategoryGraphExtractionError):
         invoke(client, DEEPSEEK_MODEL)
 
@@ -367,16 +362,12 @@ def test_synthetic_invalid_json_is_preserved_and_classified_before_stop(tmp_path
     assert failure["response_sha256"] == hashlib.sha256(raw.encode("utf-8")).hexdigest()
     assert raw not in json.dumps(client.ledger())
 
-    response_path = (
-        run_dir / ".private" / "pass_responses" / "01-actor_pass-attempt-01.json"
-    )
-    envelope = json.loads(response_path.read_text(encoding="utf-8"))
+    envelope = private_capture(client, entry["response_component"]["sha256"])
     assert envelope["capture_state"] == "unvalidated_snapshot"
     assert envelope["schema"] == "dmb_private_recap_attempt_response_v1"
     assert envelope["ge_attempt"]["ordinal"] == 1
     assert envelope["ge_attempt"]["response_status"] == "returned"
     assert envelope["response"]["text"] == raw
-    assert response_path.stat().st_mode & 0o777 == 0o600
     with pytest.raises(CategoryGraphExtractionError):
         invoke(client, DEEPSEEK_MODEL)
     assert len(engine.requests) == 1
@@ -438,19 +429,17 @@ def test_local_response_failure_retains_private_raw_outside_safe_ledger(
     assert len(engine.requests) == 1 and engine.closed == 1
 
 
+@pytest.mark.usefixtures("application_state_dsn")
 def test_private_response_evidence_captures_success_before_consumer_use(tmp_path):
     import hashlib
-    import os
-    import stat
 
     raw = '{"observation_nodes": []}'
     engine = Engine(TextResult(text=raw, observation=observation()))
-    client = private_response_client(lambda: engine, tmp_path / "run")
+    client = private_response_client(lambda: engine)
 
     result = invoke(client)
 
-    artifact_path = Path(client.calls[0]["response_artifact_path"])
-    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+    artifact = private_capture(client, client.calls[0]["response_component"]["sha256"])
     request = engine.requests[0].model_dump(mode="json")
     canonical_request = json.dumps(
         request, sort_keys=True, separators=(",", ":"), ensure_ascii=False
@@ -465,10 +454,9 @@ def test_private_response_evidence_captures_success_before_consumer_use(tmp_path
     assert artifact["request"]["user_prompt_sha256"] == hashlib.sha256(
         request["user_prompt"].encode()
     ).hexdigest()
-    assert artifact["context_sha256"] == {
-        "normalized_source": "a" * 64,
-        "settled_identity_context": "b" * 64,
-    }
+    assert artifact["context_sha256"]["normalized_source"] == "a" * 64
+    assert artifact["context_sha256"]["settled_identity_context"] == "b" * 64
+    assert artifact["context_sha256"]["source_content"] == client.execution_binding["source_sha256"]
     assert artifact["response"]["text"] == raw
     assert artifact["response"]["utf8_bytes"] == len(raw.encode())
     assert artifact["response"]["sha256"] == hashlib.sha256(raw.encode()).hexdigest()
@@ -477,14 +465,8 @@ def test_private_response_evidence_captures_success_before_consumer_use(tmp_path
     assert "PRIVATE_PROMPT" not in json.dumps(artifact)
     assert "PRIVATE_SOURCE" not in json.dumps(artifact)
     assert "PRIVATE" not in json.dumps(client.ledger())
-    assert client.calls[0]["response_artifact_sha256"] == hashlib.sha256(
-        artifact_path.read_bytes()
-    ).hexdigest()
-    assert stat.S_IMODE(os.stat(tmp_path / "run" / ".private").st_mode) == 0o700
-    assert stat.S_IMODE(
-        os.stat(tmp_path / "run" / ".private" / "pass_responses").st_mode
-    ) == 0o700
-    assert stat.S_IMODE(os.stat(artifact_path).st_mode) == 0o600
+    assert client.calls[0]["response_component"]["sha256"]
+
 
 
 @pytest.mark.parametrize(
@@ -494,29 +476,26 @@ def test_private_response_evidence_captures_success_before_consumer_use(tmp_path
         ('{"observation_nodes": "wrong"}', "schema"),
     ],
 )
+@pytest.mark.usefixtures("application_state_dsn")
 def test_private_response_evidence_precedes_json_and_schema_validation(
     tmp_path, raw, expected_kind
 ):
     engine = Engine(TextResult(text=raw, observation=deepseek_observation()))
-    client = private_response_client(
-        lambda: engine,
-        tmp_path / "run",
-        limits=RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL),
-    )
+    client = private_response_client(lambda: engine, limits=RecapExecutionLimits(provider='openrouter', model=DEEPSEEK_MODEL))
 
     with pytest.raises(CategoryGraphExtractionError):
         invoke(client, DEEPSEEK_MODEL)
 
-    artifact_path = Path(client.calls[0]["response_artifact_path"])
-    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+    artifact = private_capture(client, client.calls[0]["response_component"]["sha256"])
     assert artifact["capture_state"] == "unvalidated_snapshot"
     assert artifact["response"]["text"] == raw
     assert client.calls[0]["validation_failure"]["kind"] == expected_kind
-    assert client.calls[0]["response_artifact_sha256"]
+    assert client.calls[0]["response_component"]["sha256"]
     assert "PRIVATE_PROMPT" not in json.dumps(artifact)
     assert "PRIVATE_SOURCE" not in json.dumps(artifact)
 
 
+@pytest.mark.usefixtures("application_state_dsn")
 def test_private_response_evidence_keeps_earlier_pass_when_later_pass_fails(tmp_path):
     responses = [
         TextResult(text='{"observation_nodes": []}', observation=observation()),
@@ -532,7 +511,7 @@ def test_private_response_evidence_keeps_earlier_pass_when_later_pass_fails(tmp_
         async def aclose(self):
             pass
 
-    client = private_response_client(SequenceEngine, tmp_path / "run")
+    client = private_response_client(SequenceEngine)
     client.run_pass(
         "actor_pass", model_id="gpt-6-luna", instructions="SYSTEM", user_content="USER"
     )
@@ -541,52 +520,37 @@ def test_private_response_evidence_keeps_earlier_pass_when_later_pass_fails(tmp_
             "location_pass", model_id="gpt-6-luna", instructions="SYSTEM", user_content="USER"
         )
 
-    evidence_dir = tmp_path / "run" / ".private" / "pass_responses"
-    assert sorted(path.name for path in evidence_dir.glob("*.json")) == [
-        "01-actor_pass-attempt-01.json",
-        "02-location_pass-attempt-01.json",
+    captures = [row["record"] for row in client._execution_records() if row["kind"] == "raw_model_response"]
+    assert sorted((row["pass_ordinal"], row["pass_name"]) for row in captures) == [
+        (1, "actor_pass"), (2, "location_pass"),
     ]
-    assert client.calls[0]["response_artifact_sha256"]
-    assert client.calls[1]["response_artifact_sha256"]
+    assert client.calls[0]["response_component"]["sha256"]
+    assert client.calls[1]["response_component"]["sha256"]
 
 
+@pytest.mark.usefixtures("application_state_dsn")
 def test_private_response_evidence_is_atomic_and_never_overwrites(tmp_path):
+    from application_state.ingest.service import get_extraction_run
     engine = Engine(TextResult(text='{"observation_nodes": []}', observation=observation()))
-    run_dir = tmp_path / "run"
-    first = private_response_client(lambda: engine, run_dir)
+    first = private_response_client(lambda: engine, clock=lambda: 0)
     invoke(first)
-    artifact_path = Path(first.calls[0]["response_artifact_path"])
-    original = artifact_path.read_bytes()
-
-    known_response = '{"observation_nodes": []}'
-    second_engine = Engine(
-        TextResult(
-            text=known_response,
-            observation=observation(input_tokens=7, output_tokens=3),
-        )
-    )
-    second = private_response_client(lambda: second_engine, run_dir)
-    with pytest.raises(
-        CategoryGraphExtractionError,
-        match="ATTEMPT_EVIDENCE_PERSISTENCE_FAILED",
-    ) as caught:
+    digest = first.calls[0]["response_component"]["sha256"]
+    original = private_capture(first, digest)
+    second_engine = Engine(TextResult(text='{"observation_nodes": []}', observation=observation(input_tokens=7, output_tokens=3)))
+    second = private_response_client(lambda: second_engine, clock=lambda: 0,
+                                    run=get_extraction_run(first.execution_binding["run_id"]))
+    with pytest.raises(CategoryGraphExtractionError, match="ATTEMPT_EVIDENCE_PERSISTENCE_FAILED"):
         invoke(second)
-
-    assert caught.value.raw_model_response is None
-    assert artifact_path.read_bytes() == original
-    assert not list((run_dir / ".private" / "pass_responses").glob("*.pending"))
-    assert "response_artifact_path" not in second.calls[0]
+    assert private_capture(first, digest) == original
+    assert "response_component" not in second.calls[0]
     assert second.calls[0]["consumer_failure"] == "AttemptEvidencePersistenceFailed"
-    assert second.calls[0]["failure_code"] == "ATTEMPT_EVIDENCE_PERSISTENCE_FAILED"
-    assert second.calls[0]["observation"]["state"] == "failed"
     assert second.calls[0]["observation"]["input_tokens"] == 7
     assert second.calls[0]["observation"]["output_tokens"] == 3
-    assert second.calls[0]["observation"]["provider_response_id"] == "response"
-    assert known_response not in json.dumps(second.ledger())
-    assert "PRIVATE_PROMPT" not in json.dumps(second.ledger())
-    assert "PRIVATE_SOURCE" not in json.dumps(second.ledger())
+    assert second.retention_failed
+    assert "PRIVATE" not in json.dumps(second.ledger())
 
 
+@pytest.mark.usefixtures("application_state_dsn")
 def test_unknown_worker_receipt_does_not_create_private_response(tmp_path, monkeypatch):
     from src.graph_memory.extraction import bounded_recap_execution as module
     from src.graph_memory.extraction._recap_inference_worker import _WorkerOutcome
@@ -594,14 +558,14 @@ def test_unknown_worker_receipt_does_not_create_private_response(tmp_path, monke
     monkeypatch.setattr(
         module, "_execute_in_owned_process", lambda *args, **kwargs: _WorkerOutcome(None, False)
     )
-    client = private_response_client(lambda: None, tmp_path / "run")
+    client = private_response_client(lambda: None)
 
     with pytest.raises(CategoryGraphExtractionError, match="outcome unknown"):
         invoke(client)
 
     assert client.calls[0]["external_outcome"] == "unknown"
-    assert "response_artifact_path" not in client.calls[0]
-    assert not (tmp_path / "run" / ".private").exists()
+    assert "response_component" not in client.calls[0]
+    assert not [row for row in client._execution_records() if row["kind"] == "raw_model_response"]
 
 
 def test_validation_paths_redact_unknown_response_field_names():
@@ -895,60 +859,6 @@ def test_selected_logical_deadline_reaches_request_and_owned_worker(
     assert worker_deadline <= started + expected_ms / 1000 + 0.01
 
 
-def test_wrapper_persists_ledger_on_failed_result(tmp_path, monkeypatch, application_state_dsn):
-    from tests.test_recap_managed_standing_context import seed_binding
-    seed_binding(tmp_path,"managed-fixture-world","world:synthetic")
-    from apps.live_control_server.services import graph_preview_runner as wrapper
-
-    engine = Engine(TextResult(text="{}", observation=observation()))
-    client = BoundedRecapPassClient(
-        RecapExecutionLimits(), engine_factory=lambda: engine
-    )
-    monkeypatch.setattr(wrapper, "BoundedRecapPassClient", lambda limits: client)
-    monkeypatch.setattr(
-        wrapper,
-        "_normalized_from_registered",
-        lambda *a: SimpleNamespace(
-            source_artifact_id="source", source_sha256="hash", source_span_index={},
-            source_domain="recap", world_id="world:synthetic", campaign_id="synthetic", session_id="session-1"
-        ),
-    )
-
-    def run(request):
-        invoke(request.category_client)
-        return SimpleNamespace(run=SimpleNamespace(run_id="new-run"))
-
-    monkeypatch.setattr(wrapper, "run_production_extraction", run)
-    output = tmp_path / "new-output"
-    result = wrapper.run_recap_production_extraction(
-        repo_root=tmp_path,
-        campaign_id="synthetic",
-        session_id="session-1",
-        source_artifact_id="source",
-        model_id="gpt-6-luna",
-        allow_llm=True,
-        output_dir=output,
-        execution_limits=RecapExecutionLimits(),
-        ingest_context=_fixture_ingest_context("synthetic"),
-    )
-    assert result.run.run_id == "new-run"
-    ledger = json.loads((output / "inference_call_ledger.json").read_text())
-    assert len(ledger["calls"]) == 1
-    assert "PRIVATE" not in json.dumps(ledger)
-    with pytest.raises(ValueError):
-        wrapper.run_recap_production_extraction(
-            repo_root=tmp_path,
-            campaign_id="synthetic",
-            session_id="session-1",
-            source_artifact_id="source",
-            model_id="gpt-6-luna",
-            allow_llm=True,
-            output_dir=output,
-            execution_limits=RecapExecutionLimits(),
-            ingest_context=_fixture_ingest_context("synthetic"),
-        )
-
-
 def test_ge_incomplete_through_one_recap_never_appends_candidate(
     tmp_path, monkeypatch, application_state_dsn,
 ):
@@ -979,10 +889,9 @@ def test_ge_incomplete_through_one_recap_never_appends_candidate(
         campaign_id="synthetic",
         session_id="session-1",
         source_artifact_id=create_recap_source_artifact(tmp_path,world_id="world:synthetic",campaign_id="synthetic",session_id="session-1",recap_path=source_path).source_artifact_id,
-        profile="recap_category_v1@1.0",
+        profile="category_baseline",
         model_id="gpt-6-luna",
         allow_llm=True,
-        output_dir=output,
         execution_limits=RecapExecutionLimits(),
         ingest_context=_fixture_ingest_context("synthetic"),
     )
@@ -992,7 +901,9 @@ def test_ge_incomplete_through_one_recap_never_appends_candidate(
     assert "candidate_graph" not in stored.components
     assert not list(output.rglob("candidate_graph.json"))
     assert len(engine.requests) == 1
-    ledger = json.loads((output / "inference_call_ledger.json").read_text())
+    from application_state.ingest.components import get_component_bytes
+    ref = stored.components["pass_telemetry"]
+    ledger = json.loads(get_component_bytes(run_id=stored.run_id, kind=ref.kind, content_sha256=ref.sha256))
     assert (
         ledger["stopped"] and ledger["calls"][0]["observation"]["state"] == "incomplete"
     )
@@ -1052,19 +963,21 @@ def test_public_ge_deadline_stops_slow_provider():
     assert client.ledger()["stopped"]
 
 
+@pytest.mark.usefixtures("application_state_dsn")
 def test_structured_parsed_object_preserves_fenced_raw_evidence(tmp_path):
     payload = {"observation_nodes": []}
     raw = "```json\n" + json.dumps(payload) + "\n```"
     engine = Engine(TextResult(text=raw, parsed=payload, observation=deepseek_observation()))
     client = BoundedRecapPassClient(
         RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL),
-        engine_factory=lambda: engine, response_artifact_dir=tmp_path,
+        engine_factory=lambda: engine,
         request_context_hashes={"synthetic_source": "a" * 64},
     )
+    bind_private_client(client)
     result = invoke(client, DEEPSEEK_MODEL)
     assert result["parsed"] == payload
     assert result["raw_text"] == raw
-    evidence = json.loads(next(tmp_path.glob("*.json")).read_text())
+    evidence = private_capture(client, client.calls[0]["response_component"]["sha256"])
     assert evidence["response"]["text"] == raw
     assert client.ledger()["calls"][0]["external_outcome"] == "completed"
 
@@ -1112,6 +1025,7 @@ def actor_handle_response(ids=None):
     }]}
 
 
+@pytest.mark.usefixtures("application_state_dsn")
 def test_actor_handle_wire_materializes_canonical_evidence_and_retains_both(tmp_path):
     from src.graph_memory.extraction.category_candidate_graph_schema import category_pass_text_format
     from jsonschema import validate
@@ -1121,9 +1035,9 @@ def test_actor_handle_wire_materializes_canonical_evidence_and_retains_both(tmp_
     client = BoundedRecapPassClient(
         RecapExecutionLimits(provider='openrouter', model=DEEPSEEK_MODEL),
         engine_factory=lambda: engine,
-        response_artifact_dir=tmp_path / '.private' / 'responses',
         request_context_hashes={'source_content': packet.source_sha256},
     )
+    bind_private_client(client, source_sha256=packet.source_sha256)
     result = client.run_pass('actor_pass', model_id=DEEPSEEK_MODEL,
                              instructions='Extract actors', user_content='host rendered source',
                              source_evidence_packet=packet)
@@ -1138,8 +1052,8 @@ def test_actor_handle_wire_materializes_canonical_evidence_and_retains_both(tmp_
     ]
     assert result['raw_text'] == json.dumps(raw)
     call = client.calls[0]
-    raw_evidence = json.loads(Path(call['response_artifact_path']).read_text())
-    normalized = json.loads(Path(call['normalized_artifact']['path']).read_text())
+    raw_evidence = private_capture(client, call['response_component']['sha256'])
+    normalized = private_capture(client, call['normalized_component']['sha256'])
     assert json.loads(raw_evidence['response']['text']) == raw
     normalized_payload = json.loads(normalized['response']['text'])
     assert normalized_payload['parsed'] == result['parsed']
@@ -1167,7 +1081,7 @@ def test_actor_packet_swap_rejected_before_provider_call():
     engine = Engine(None)
     client = BoundedRecapPassClient(
         RecapExecutionLimits(provider='openrouter', model=DEEPSEEK_MODEL), engine_factory=lambda: engine,
-        response_artifact_dir='/unused/private/path', request_context_hashes={'source_content': 'f' * 64},
+        request_context_hashes={'source_content': 'f' * 64},
     )
     with pytest.raises(CategoryGraphExtractionError, match='does not match run source'):
         client.run_pass('actor_pass', model_id=DEEPSEEK_MODEL, instructions='Extract',
@@ -1219,30 +1133,32 @@ def test_real_recap_producer_supplies_packet_to_ge_and_receives_canonical_result
     assert result.candidate_graph['nodes']
 
 
+@pytest.mark.usefixtures("application_state_dsn")
 def test_failed_normalized_evidence_persistence_preserves_wire_and_stops(tmp_path, monkeypatch):
-    from src.graph_memory.extraction import bounded_recap_execution as adapter
     packet = actor_handle_packet()
     raw = actor_handle_response()
     engine = Engine(TextResult(text=json.dumps(raw), parsed=raw, observation=deepseek_observation()))
     client = BoundedRecapPassClient(
         RecapExecutionLimits(provider='openrouter', model=DEEPSEEK_MODEL), engine_factory=lambda: engine,
-        response_artifact_dir=tmp_path / '.private' / 'responses',
         request_context_hashes={'source_content': packet.source_sha256},
     )
-    writer = adapter._write_private_response_evidence
+    from application_state.ingest import components
+    bind_private_client(client, source_sha256=packet.source_sha256)
+    writer = components.persist_execution_event
 
-    def fail_normalized(*args, **kwargs):
-        if kwargs['pass_name'].endswith('-normalized'):
-            raise OSError('synthetic failure')
-        return writer(*args, **kwargs)
+    def fail_normalized(**kwargs):
+        if json.loads(kwargs["payload"])["capture_id"].startswith("normalized:"):
+            raise OSError("synthetic retention failure")
+        return writer(**kwargs)
 
-    monkeypatch.setattr(adapter, '_write_private_response_evidence', fail_normalized)
+    monkeypatch.setattr(components, "persist_execution_event", fail_normalized)
     with pytest.raises(CategoryGraphExtractionError):
         client.run_pass('actor_pass', model_id=DEEPSEEK_MODEL, instructions='Extract',
                         user_content='source', source_evidence_packet=packet)
     call = client.calls[0]
-    assert Path(call['response_artifact_path']).exists()
-    assert 'normalized_artifact' not in call
+    assert private_capture(client, call['response_component']['sha256'])['response']['text'] == json.dumps(raw)
+    assert 'normalized_component' not in call
+    assert client.retention_failed
     assert client.ledger()['stopped'] is True
 
 

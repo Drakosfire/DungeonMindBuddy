@@ -41,14 +41,16 @@ def launch_build_recap(root: Path, body: BuildRecapLaunchRequest, *, category_cl
         try:
             run = recover_build_recap_launch(root,request_id=body.request_id,document_id=body.document_id,managed_world_id=body.managed_world_id)
         except GraphRunRegistryError as exc:
-            if exc.status_code == 404: return None
+            if exc.status_code == 404:
+                return None
             raise
         if run.lineage["build_launch"].get("request_sha256") != fingerprint:
             raise GraphRunRegistryError("Build launch request identity was reused with different configuration",status_code=409)
         return run
 
     prior = existing()
-    if prior is not None: return prior
+    if prior is not None:
+        return prior
     context = resolve_recap_source_scope(managed_world_id=body.managed_world_id,campaign_id=body.campaign_id)
     supplement = None
     if body.session_evidence:
@@ -68,14 +70,15 @@ def launch_build_recap(root: Path, body: BuildRecapLaunchRequest, *, category_cl
         reserved = create_extraction_run(root,run_id=run_id,source_artifact_id=artifact.source_artifact_id,source_domain="recap",
             campaign_id=body.campaign_id,session_id=f"session-{body.session}",profile_id=f"{profile_id}@{profile_version}",lineage=lineage)
     except GraphRunRegistryError as exc:
-        if exc.status_code != 409: raise
+        if exc.status_code != 409:
+            raise
         winner = existing()
-        if winner is None: raise
+        if winner is None:
+            raise
         return winner
     # Only the unique reservation winner enters the production controller.
     # A crashed/unknown attempt is recovered as-is, never silently re-executed.
     result = run_recap_production_extraction(repo_root=root,campaign_id=body.campaign_id,session_id=f"session-{body.session}",
         source_artifact_id=artifact.source_artifact_id,profile="category_baseline",allow_llm=True,model_id=DEEPSEEK_MODEL,category_client=category_client,
-        ingest_context=context,supplemental_evidence=supplement,reserved_run=reserved,
-        output_dir=Path("out")/"graph_memory"/"runs"/"extraction"/f"build-recap-{run_id}")
+        ingest_context=context,supplemental_evidence=supplement,reserved_run=reserved)
     return result.run

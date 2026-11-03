@@ -102,7 +102,7 @@ def test_runner_uses_registered_build_source_and_retains_exact_lineage(tmp_path,
     from apps.live_control_server.services.graph_run_registry import get_extraction_run
     client=FixtureClient(span_ref=_first_paragraph_span_id(runner._normalized_from_registered(tmp_path,artifact.source_artifact_id)))
     result=runner.run_recap_production_extraction(repo_root=tmp_path,campaign_id="longmont-c2",session_id="session-30",
-        source_artifact_id=artifact.source_artifact_id,allow_llm=True,category_client=client,profile="category_baseline",ingest_context=context,output_dir=tmp_path/"run")
+        source_artifact_id=artifact.source_artifact_id,allow_llm=True,category_client=client,profile="category_baseline",ingest_context=context)
     assert result.failure_kind is None
     assert result.run.status.value=="reviewable"
     assert get_extraction_run(tmp_path,result.run.run_id).lineage==result.run.lineage

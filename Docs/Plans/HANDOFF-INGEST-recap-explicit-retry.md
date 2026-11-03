@@ -1,6 +1,11 @@
 # INGEST: require explicit retry of saved recap execution
 
-Status: ACTIVE under the operator's code cleanup/runtime-repair goal.
+Status: MERGED_DELIVERED as PR2046 at
+783980f2809a7e7c93cd9e67faf0132e3f997d12; implementation lease closed. Exact PR-head
+independent approval/all7CI plus actual-merge source qualification and33owning
+checks passed. Conserved API delivery preserved all91primarytables,9sessionfiles,
+savedPlanHTTP/UI/native439objects; proof recap-explicit-retry-api-delivery-proof.json.
+The database-execution-evidence handoff owns the separate diagnostics successor.
 Owner: PRIME. Base: origin/main@e4773b18c559e14f95e39c84dc3fcca582784add.
 Branch: codex/recap-explicit-retry.
 Checkout: /home/drakosfire/.codex/worktrees/buddy-context-loop/DungeonMindBuddy.

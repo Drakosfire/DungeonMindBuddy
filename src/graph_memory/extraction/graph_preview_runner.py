@@ -142,6 +142,41 @@ def _retain_private_json_component(
         raise RuntimeError("Could not persist private extraction diagnostics") from None
 
 
+
+def _retain_execution_components(client, run, *, private_response=None, error=None):
+    raw, telemetry = client.seal_execution(private_response=private_response, error=error)
+    return {
+        kind.value: _component(
+            kind, run=run, data=data,
+            uri=f"urn:dmb:ingest-output:{run.run_id}:{kind.value}",
+        )
+        for kind, data in (
+            (ExtractionRunComponentKind.RAW_MODEL_RESPONSE, raw),
+            (ExtractionRunComponentKind.PASS_TELEMETRY, telemetry),
+        )
+    }
+
+
+def _execution_reconciliation(request, prepared, span_payload, client, error):
+    """Retention uncertainty stays mutable/inspectable; never finalize or retry."""
+    message = "Required private execution evidence needs reconciliation."
+    run = _advance_run(
+        request.repo_root, prepared, status=ExtractionRunStatus.INCOMPLETE,
+        diagnostics=ExtractionRunDiagnostics(
+            messages=[message], errors=["execution_evidence_retention_failed"],
+        ),
+        lineage={
+            "reviewable": False, "execution_evidence_state": "needs_reconciliation",
+            "execution_evidence_error": type(error).__name__,
+            "execution_evidence_binding": client.execution_binding,
+        },
+    )
+    return ProductionExtractionResult(
+        run=run, source_span_index=span_payload, failure_kind="evidence_retention",
+        diagnostics=[message], model_id=prepared.lineage.get("model_id"),
+        profile_id=request.profile_id, profile_version=request.profile_version,
+    )
+
 def _create_draft_run(
     repo_root: Path,
     source: NormalizedExtractionSource,
@@ -387,76 +422,61 @@ def run_production_extraction(
         ),
     )
 
+    from src.graph_memory.extraction.bounded_recap_execution import BoundedRecapPassClient
+
+    bounded = request.category_client if isinstance(request.category_client, BoundedRecapPassClient) else None
+    if bounded is not None:
+        try:
+            bounded.bind_to_run(prepared)
+        except Exception as exc:
+            return _execution_reconciliation(request, prepared, span_payload, bounded, exc)
     try:
-        extraction = extract_category_candidate_graph(
-            options,
-            client=request.category_client,
-        )
-    except CategoryGraphExtractionError as exc:
-        if isinstance(exc.raw_model_response, str):
-            components = {
-                **components,
-                "raw_model_response": _retain_private_response(
-                    exc.raw_model_response, run=prepared,
-                ),
-            }
+        extraction = extract_category_candidate_graph(options, client=request.category_client)
+    except Exception as exc:  # persist provider/model failures only after required capture
+        raw = getattr(exc, "raw_model_response", None)
+        if bounded is not None:
+            try:
+                components = {**components, **_retain_execution_components(
+                    bounded, prepared, private_response=raw, error=exc,
+                )}
+            except Exception as retention:
+                return _execution_reconciliation(request, prepared, span_payload, bounded, retention)
+        elif isinstance(raw, str):
+            components = {**components, "raw_model_response": _retain_private_response(raw, run=prepared)}
         message = str(exc)
-        failure_kind = "extraction"
-        lowered = message.lower()
-        if "refus" in lowered:
-            failure_kind = "refusal"
-        elif "incomplete" in lowered:
-            failure_kind = "incomplete"
-        elif "schema" in lowered or "json" in lowered:
-            failure_kind = "schema"
+        failure_kind = "model"
+        if isinstance(exc, CategoryGraphExtractionError):
+            failure_kind = "extraction"
+            lowered = message.lower()
+            if "refus" in lowered:
+                failure_kind = "refusal"
+            elif "incomplete" in lowered:
+                failure_kind = "incomplete"
+            elif "schema" in lowered or "json" in lowered:
+                failure_kind = "schema"
         failed = _fail_run(
-            request.repo_root,
-            prepared,
-            message=message,
-            failure_kind=failure_kind,
-            components=components,
-            lineage={
-                "profile_id": profile.profile_id,
-                "profile_version": profile.profile_version,
+            request.repo_root, prepared, message=message, failure_kind=failure_kind,
+            components=components, lineage={
+                "profile_id": profile.profile_id, "profile_version": profile.profile_version,
                 "model_id": model_id,
             },
         )
-        loaded = get_extraction_run(request.repo_root, failed.run_id)
         return ProductionExtractionResult(
-            run=loaded,
-            source_span_index=span_payload,
-            failure_kind=failure_kind,
-            diagnostics=[message],
-            model_id=model_id,
-            profile_id=profile.profile_id,
-            profile_version=profile.profile_version,
-        )
-    except Exception as exc:  # noqa: BLE001 - persist unexpected model/API failures
-        message = str(exc)
-        failed = _fail_run(
-            request.repo_root,
-            prepared,
-            message=message,
-            failure_kind="model",
-            components=components,
-            lineage={
-                "profile_id": profile.profile_id,
-                "profile_version": profile.profile_version,
-                "model_id": model_id,
-            },
-        )
-        loaded = get_extraction_run(request.repo_root, failed.run_id)
-        return ProductionExtractionResult(
-            run=loaded,
-            source_span_index=span_payload,
-            failure_kind="model",
-            diagnostics=[message],
-            model_id=model_id,
-            profile_id=profile.profile_id,
-            profile_version=profile.profile_version,
+            run=get_extraction_run(request.repo_root, failed.run_id),
+            source_span_index=span_payload, failure_kind=failure_kind,
+            diagnostics=[message], model_id=model_id,
+            profile_id=profile.profile_id, profile_version=profile.profile_version,
         )
 
-    if extraction.private_response_evidence is not None:
+    if bounded is not None:
+        try:
+            components = {**components, **_retain_execution_components(
+                bounded, prepared, private_response=extraction.private_response_evidence,
+            )}
+        except Exception as retention:
+            return _execution_reconciliation(request, prepared, span_payload, bounded, retention)
+
+    if extraction.private_response_evidence is not None and bounded is None:
         # Validate the versioned success bundle before storing private evidence
         # or advancing a candidate.
         from src.graph_memory.extraction.worldbuilding_edge_review import json_copy
