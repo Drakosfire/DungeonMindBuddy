@@ -345,3 +345,47 @@ def test_source_form_authority_reaches_every_recap_claim_bearing_pass() -> None:
     for profile in (WORLDBUILDING_PROFILE, WORLDBUILDING_PLUMBING_PROFILE):
         prompts = render_category_pass_prompts(rows, profile=profile)
         assert all(rule not in prompt for prompt in prompts.values())
+
+
+def test_node_description_coverage_changes_only_existing_recap_node_prompts() -> None:
+    """Check actual prompt delivery/scope; this does not prove model compliance."""
+    import hashlib
+    import json
+    from pathlib import Path
+
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        render_encounter_job_pass_prompt,
+    )
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    from src.graph_memory.extraction.recap_extraction_profile import (
+        _NODE_DESCRIPTION_COVERAGE,
+    )
+    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+        WORLDBUILDING_PROFILE,
+    )
+
+    fixture = json.loads((Path(__file__).parent / "fixtures" /
+                          "recap_prompt_scope_before_description_coverage.json").read_text())
+    eligible = {"actor_pass.md", "location_pass.md", "collective_pass.md",
+                "object_pass.md", "thread_pass.md"}
+    for profile in (
+        RECAP_EXTRACTION_PROFILE,
+        get_extraction_profile("recap_category_encounter_job_preview", "2.0"),
+        WORLDBUILDING_PROFILE,
+        WORLDBUILDING_PLUMBING_PROFILE,
+    ):
+        prompts = render_category_pass_prompts(fixture["source_rows"], profile=profile)
+        if profile.encounter_job_pass is not None:
+            prompts["encounter_job_pass.md"] = render_encounter_job_pass_prompt(
+                fixture["source_rows"], nodes=[], beats=[],
+                instruction=profile.encounter_job_pass.instruction,
+            )
+        before = fixture["rendered_prompt_sha256"][profile.qualified_id]
+        assert set(prompts) == set(before)
+        for name, prompt in prompts.items():
+            changes = profile.admitted_source_domains == frozenset({"recap"}) and name in eligible
+            assert prompt.count(_NODE_DESCRIPTION_COVERAGE) == int(changes), (profile.qualified_id, name)
+            # All other content remains byte-identical to the independently
+            # captured pre-change renderer output, including source/evidence rules.
+            unchanged = prompt.replace(_NODE_DESCRIPTION_COVERAGE + "\n\n", "") if changes else prompt
+            assert hashlib.sha256(unchanged.encode()).hexdigest() == before[name], (profile.qualified_id, name)

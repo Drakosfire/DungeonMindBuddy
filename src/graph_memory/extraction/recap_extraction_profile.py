@@ -30,6 +30,17 @@ EVIDENCE_RULE = (
     "Copy exact words from the source packet."
 )
 
+_NODE_DESCRIPTION_COVERAGE = (
+    "For each extracted node, use its description to retain the source-supported "
+    "observations about that exact referent: its actions and experiences, states "
+    "and properties, outcomes and changes, and the circumstances needed to "
+    "understand them. Include explicit negative findings and descriptive details "
+    "that contribute knowledge about the referent. Retain these observations even "
+    "when they also belong in a scene or beat summary. Keep the observations "
+    "within their supported referent and scene, using the existing evidence and "
+    "source-faithfulness requirements."
+)
+
 # These instructions belong to recap extraction only. Keep them out of the
 # shared EVIDENCE_RULE, which is also used by Worldbuilding profiles.
 _RECAP_SOURCE_FAITHFULNESS = (
@@ -101,12 +112,14 @@ _PASS_SOURCE_FAITHFULNESS: dict[str, str] = {
 
 def _with_recap_source_faithfulness(spec: ExtractionPassSpec) -> ExtractionPassSpec:
     pass_guidance = _PASS_SOURCE_FAITHFULNESS.get(spec.pass_id, "")
+    coverage = f"{_NODE_DESCRIPTION_COVERAGE}\n\n" if spec.kind == "node" else ""
     if spec.pass_id == "edge_pass":
         pass_guidance = f"{pass_guidance}\n\n{recap_predicate_meaning_guidance()}"
     return replace(
         spec,
         instruction=(
             f"{spec.instruction}\n\n"
+            f"{coverage}"
             f"Source-faithfulness requirements: {_RECAP_SOURCE_FAITHFULNESS}"
             f"{' ' + pass_guidance if pass_guidance else ''}"
         ),
