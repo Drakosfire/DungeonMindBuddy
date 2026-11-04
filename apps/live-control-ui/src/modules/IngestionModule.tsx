@@ -104,7 +104,7 @@ type IngestionPaneState =
   | { status: "error"; result?: RecapIngestStatus; message?: string };
 
 function draftStorageKey(campaignId: string, session: number): string {
-  return `dmb.ingestion.${campaignId}.session.${session}`;
+  return `dmb.ingestion.source.${campaignId}.session.${session}`;
 }
 
 function derivePaneStateFromResult(result: RecapIngestStatus): IngestionPaneState {
@@ -287,14 +287,11 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   function getIngestTargetIdentity(campaignId: string, sessionNumber: number): string {
     return JSON.stringify([managedWorldId ?? null, routeTargetGenerationRef.current, campaignId, sessionNumber]);
   }
-  const storageKey = useMemo(
-    () => draftStorageKey(ingestCampaignId, session),
-    [ingestCampaignId, session],
-  );
   const initialRecapSession = requestedRecapSession ?? (freshRecapEntry ? 0 : initialSourceSession ?? defaultRecapSession(session));
   const [rawText, setRawText] = useState("");
   const rawRecapTextAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const [recapSession, setRecapSession] = useState<number>(() => initialRecapSession);
+  const storageKey = useMemo(() => draftStorageKey(ingestCampaignId, recapSession), [ingestCampaignId, recapSession]);
   const selectedIngestTarget = getIngestTargetIdentity(ingestCampaignId, recapSession);
   const [sessionSupplements,setSessionSupplements]=useState<{identity:string;refs:SessionEvidenceRef[]}>({identity:"",refs:[]});
   const evidenceTargetKey=JSON.stringify([managedWorldId??null,ingestCampaignId,recapSession]);
@@ -376,7 +373,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   function preserveCurrentDraftForTargetChange() {
-    if (!rawText.trim()) return;
     const draft = {
       version: INGESTION_DRAFT_STORAGE_VERSION,
       rawText,
@@ -387,7 +383,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
     } satisfies IngestionModuleDraft;
     writeDraft(storageKey, draft);
-    const preserved = { storageKey, campaignId: ingestCampaignId, draft };
+    const preserved = rawText.trim() ? { storageKey, campaignId: ingestCampaignId, draft } : null;
     preservedRouteDraftRef.current = preserved;
     setReturnableDraft(preserved);
   }
@@ -428,6 +424,12 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     recapSessionRef.current = nextSession;
     invalidateDraftHydration();
     setRecapSession(nextSession);
+    const params = new URLSearchParams(window.location.search);
+    if (Number.isInteger(nextSession) && nextSession > 0) params.set("session", `session-${nextSession}`);
+    else params.delete("session");
+    params.delete("view");
+    params.delete("recapReviewRunId");
+    window.history.replaceState({}, "", `${ingestRoutePath()}?${params.toString()}`);
     setLatestResult(null);
     setState({ status: "idle" });
     setSourceMode("raw");
@@ -690,7 +692,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
     async function hydrateDraft() {
       const hydrationEpoch = draftHydrationEpochRef.current;
-      const draft = readDraft(storageKey);
+      // Legacy drafts were stored under the live session, despite containing a
+      // different source session. Keep that original record as recovery evidence.
+      const legacy = readDraft(`dmb.ingestion.${ingestCampaignId}.session.${session}`);
+      const legacyOwnerKey = legacy ? draftStorageKey(ingestCampaignId, legacy.recapSession) : null;
+      const scopedLegacy = legacyOwnerKey ? readDraft(legacyOwnerKey) : null;
+      if (legacy && legacyOwnerKey && !scopedLegacy) writeDraft(legacyOwnerKey, legacy);
+      const draft = readDraft(storageKey) ?? scopedLegacy ?? legacy;
       const routeTransition = targetSelectionTransitionRef.current?.identity === selectedIngestTarget
         ? targetSelectionTransitionRef.current
         : null;
@@ -825,7 +833,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }, [ingestCampaignId, managedWorldId, hydrated, savedRunRefresh, savedRunKey]);
 
   useEffect(() => {
-    if (!selectionHydrated || readerMode || returnableDraft) {
+    if (!selectionHydrated || readerMode) {
       return;
     }
     writeDraft(storageKey, {
@@ -952,7 +960,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     draftHydrationEpochRef.current += 1;
     closeSavedReader();
     lastToastKeyRef.current = null;
-    window.localStorage.removeItem(storageKey);
+    writeDraft(storageKey, { version: INGESTION_DRAFT_STORAGE_VERSION, rawText: "", recapSession, slug: "", title: "" });
+    preservedRouteDraftRef.current = null;
     setRawText("");
     setSlug("");
     setTitle("");
@@ -1368,10 +1377,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                   className="ingest-local-nav__primary-action"
                   onClick={returnToDraft}
                 >
-                  Return to draft
+                  {returnableDraft ? `Return to Session ${returnableDraft.draft.recapSession} draft` : "Return to draft"}
                 </button>
               ) : null}
-              {canReturnToDraft && !returnableDraft ? (
+              {canReturnToDraft ? (
                 <button
                   type="button"
                   onClick={() => showRecapWelcome ? rawRecapTextAreaRef.current?.focus() : startNewRecap()}
@@ -1594,14 +1603,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                 <p role="status" className="module-muted">Choose an exact saved extraction to read.</p>
               ) : null}
             </section>
-          ) : returnableDraft ? (
-            <div className="ingestion-prepared-source-notice" role="status">
-              <strong>Draft preserved · Session {returnableDraft.draft.recapSession}</strong>
-              <p>Return to this draft to continue editing under its original session.</p>
-            </div>
           ) : (
             <div className="ingestion-source-grid">
               <div className="ingestion-raw-block">
+                {returnableDraft ? <p role="status">Session {returnableDraft.draft.recapSession} draft saved. You can write this session’s recap here.</p> : null}
                 <label htmlFor="ingestion-raw-text">
                   Write or paste a recap <RequiredBadge satisfied={rawTextSatisfied} />
                 </label>
