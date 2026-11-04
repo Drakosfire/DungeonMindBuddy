@@ -174,6 +174,7 @@ it("sends attached session evidence separately from unchanged external source te
 it("ignores a late Process result after changing the source session and preserves the original draft",async()=>{
  const gate=deferred<RecapIngestStatus>();vi.mocked(rawApi.postRecapIngest).mockReturnValue(gate.promise);mount();await input("Original session draft.");await process();fireEvent.change(screen.getByLabelText("Recap/source session"),{target:{value:"29"}});
  await act(async()=>{gate.resolve(result());await gate.promise;});expect(new URLSearchParams(window.location.search).has("recapReviewRunId")).toBe(false);
+ expect(screen.queryByRole("region",{name:"Extraction activity"})).not.toBeInTheDocument();
  fireEvent.click(screen.getByRole("button",{name:"Return to Session 22 draft"}));expect(await screen.findByRole("textbox",{name:/Write or paste a recap/})).toHaveValue("Original session draft.");
 });
 it("does not attach an old same-session completion to a new draft",async()=>{
@@ -221,4 +222,25 @@ it("restores legacy source ownership without resurrecting a cleared draft",async
  expect(await screen.findByRole("textbox",{name:/Write or paste a recap/})).toHaveValue("");
  expect(new URLSearchParams(location.search).get("session")).toBe("session-30");
  expect(rawApi.postRecapIngest).not.toHaveBeenCalled();
+});
+
+it("shows request activity while waiting and removes it after a failed response",async()=>{
+ const gate=deferred<RecapIngestStatus>();vi.mocked(rawApi.postRecapIngest).mockReturnValue(gate.promise);
+ mount();expect(screen.queryByRole("region",{name:"Extraction activity"})).not.toBeInTheDocument();
+ await input("A keeper scouts Mireward.");await process();
+ expect(await screen.findByRole("region",{name:"Extraction activity"})).toHaveTextContent("Working on Session 22");
+ expect(screen.getByRole("region",{name:"Extraction activity"})).toHaveTextContent("nothing is published automatically");
+ await act(async()=>{gate.reject(new Error("Connection lost"));await gate.promise.catch(()=>undefined);});
+ await waitFor(()=>expect(screen.queryByRole("region",{name:"Extraction activity"})).not.toBeInTheDocument());
+ expect(screen.getByRole("textbox",{name:/Write or paste a recap/})).toHaveValue("A keeper scouts Mireward.");
+});
+
+it("replaces pending activity with the exact completed candidate",async()=>{
+ const gate=deferred<RecapIngestStatus>();vi.mocked(rawApi.postRecapIngest).mockReturnValue(gate.promise);
+ mount();await input("A keeper scouts Mireward.");await process();
+ expect(await screen.findByRole("region",{name:"Extraction activity"})).toBeInTheDocument();
+ await act(async()=>{offerSavedRun("run-session-22",22);gate.resolve(result());await gate.promise;});
+ await waitFor(()=>expect(screen.queryByRole("region",{name:"Extraction activity"})).not.toBeInTheDocument());
+ expect(new URLSearchParams(window.location.search).get("recapReviewRunId")).toBe("run-session-22");
+ expect(rawApi.postRecapIngest).toHaveBeenCalledOnce();
 });
