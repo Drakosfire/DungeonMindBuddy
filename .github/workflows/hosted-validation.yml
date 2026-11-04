@@ -85,6 +85,7 @@ jobs:
             tests/test_trusted_cookie_origin.py \
             tests/test_agent_graph_auth.py \
             tests/test_native_graph_inspection.py \
+            tests/test_native_source_inspection.py \
             tests/test_native_recap_preparation.py
 
   production-image-build:
