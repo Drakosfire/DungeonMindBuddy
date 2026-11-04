@@ -24,9 +24,9 @@ from apps.live_control_server.services.graph_run_registry import create_extracti
 from apps.live_control_server.services.source_artifact_registry import (
     get_source_artifact,
 )
-from apps.live_control_server.services.reviewed_corpus_publication_store import (
-    PublicationProgressStore,
-    ProgressConflict,
+from apps.live_control_server.services.native_recap_execution_lock import (
+    NativeRecapExecutionLock,
+    NativeRecapExecutionConflict,
 )
 from apps.live_control_server.integrations.dungeonmind.native_recap_source_admission import (
     NativeRecapAuthority,
@@ -370,7 +370,7 @@ def resume_admission(
     root = config.artifact_data_root(root)
     run, record, source = _load(resume.run_id, world, campaign, session)
     authority = NativeRecapAuthority(managed_root)
-    lock = PublicationProgressStore(root / "out/native_recap_source_locks")
+    lock = NativeRecapExecutionLock(root / "out/native_recap_source_locks")
     try:
         with lock.exclusive(record.admission_id):
             # Re-read under the mutex, then let the exact revision/hash gate and
@@ -379,7 +379,7 @@ def resume_admission(
             return _execute(
                 root, run, record, source, actor, authority_basis, resume, authority
             )
-    except ProgressConflict as exc:
+    except NativeRecapExecutionConflict as exc:
         if str(exc) != "operation_busy":
             raise NativeRecapError(
                 "native_recap_execution_unavailable", status_code=503
@@ -463,7 +463,7 @@ def admit(
         created_at=source.created_at,
     )
     authority = NativeRecapAuthority(managed_root)
-    lock = PublicationProgressStore(root / "out/native_recap_source_locks")
+    lock = NativeRecapExecutionLock(root / "out/native_recap_source_locks")
     try:
         with lock.exclusive(candidate.admission_id):
             existing = ingest.get_extraction_run_optional(candidate.run_id)
@@ -496,7 +496,7 @@ def admit(
             return _execute(
                 root, run, record, source, actor, authority_basis, None, authority
             )
-    except ProgressConflict as exc:
+    except NativeRecapExecutionConflict as exc:
         if str(exc) != "operation_busy":
             raise NativeRecapError(
                 "native_recap_execution_unavailable", status_code=503
