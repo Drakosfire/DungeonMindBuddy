@@ -18,6 +18,26 @@ The proposed experience:
 
 The Graph browser's **Use as context** action, a source reader's **Reference this source**, and a passage's **Reference selection** should feed the same selection contract. They do not each build another picker or execution path.
 
+## Existing work to adopt before adding infrastructure
+
+This proposal is principally consolidation and missing integration, not a new search engine. The inventory below is grounded in current Buddy/Core code; an implementation must verify the selected callers and contracts again at its pinned base.
+
+| Existing implementation | Adoptable work | Boundary or required change |
+| --- | --- | --- |
+| `GraphReferenceSearch`, `searchGraphReferences`, `BuildReferenceSearchProjection`, `PlanWorldGraphObjectsPanel` | A search component is already shared by the composer and Build/Plan tools; retain useful selection/view/accessibility behavior. | Its item adapters depend on the old projection and its display hides results after 40. Replace that dependency; do not introduce a third general reference search control alongside it. Verify which panels still have production callers. |
+| `GraphObjectAuthoringObjectRefPicker` and `graphObjectAuthoringSearch` | Existing grouped picker, fuzzy label/alias ranking, keyboard/outside dismissal and show-more behavior; used by authoring relationship forms. | Candidate/proposal/manual references are authoring intent, not admitted object identities. Choose one shared presentation/search-interaction basis; do not copy the whole authoring protocol into evidence selection. Keep any distinct authoring workflow with its named callers. |
+| Core `application/vnext/search.py::SearchReadService` | Indexed deterministic native object search, native candidate admission, exact read identity, match witnesses and result digest. Buddy native queries already call it. | Reuse this owner. Current search returns bounded hits with a limit and no cursor/total-count field. Its completeness is not proof that every matching object was returned. Any continuation/filter gap belongs in the owning contract, not a competing Buddy search index. |
+| `NativeGraphInspection` and `services/native_graph_inspection.py` | Verified native catalogue, admitted name variants, object inspection and source opening. | Reuse identity and read semantics; do not load every assertion or every object for each keystroke. The Graph browser can adopt the shared discovery presentation while retaining its inspection behavior. |
+| `NativeBodyNavigation`, `native_corpus_source.py`, `native_corpus.py` and `native_source_catalog.py` | Existing source ownership, coherent source context, source/section identities, full-document and passage reads, durable navigation/read records. These already support agent source navigation. | Reuse the native readers and identifiers beneath the model-tool wrapper. Do not manufacture a provider/model grant for human selection. `capture_native_sources` opens bodies after authorized search; do not call it across the corpus merely to populate a typeahead list. Metadata-first human discovery remains a qualified integration gap. |
+| Existing Graph-reference and source-citation renderers/contracts | Stable identity presentation, source opening and actual read/citation records. | An author selection is input intent; a citation is output backed by a read. Reuse their identity/read primitives without accepting a pasted citation or discovery hit as a new read grant or another evidence ledger. |
+| Older `build_source_discovery`, classic corpus-navigation branches and archived static preview models | Useful interaction lessons and explicit separation of discovery pointers from claim support. | These use older projection/source DTOs or fixture-only data. They are not the native search authority to restore. Audit current dispatch before retiring live branches; do not promote archived preview data into published truth. |
+
+Human discovery and Jev's retrieval may share native query/read primitives. Their authorization origins and execution policies remain explicit. Proposed candidate graphs, published Graph objects and retained original sources also remain distinct domains even when they share a visual search control.
+
+Work that can adopt the resulting shared layer includes the native Graph browser, Build/Plan object panels, all three composers, and work-plan context inputs. Candidate authoring can adopt its search interaction and row presentation without treating unpublished candidates as admitted evidence. Agent retrieval can adopt improvements to native filtering/continuation; it must not inherit UI display limits or substitute fuzzy label matching for source support.
+
+Before implementing a new discovery endpoint, DTO or helper, record which existing primitive it reuses, the concrete contract gap, and whether extension is needed at that owner. A thin presentation adapter may normalize existing results; it must not become another search engine, store, authority or parallel live protocol. There must be one selected general-picker implementation after cutover.
+
 ## Architecture
 
 ```mermaid
@@ -219,6 +239,9 @@ Baseline: Buddy `04d9d6793e197f50069b5b77ea89b3db3d26c9af`. These anchors descri
 
 - `src/surface/SurfaceGraphReferenceInput.tsx` and `src/graphReference/GraphReferenceSearch.tsx` under `apps/live-control-ui`: old projection input and local result filtering.
 - `apps/live-control-ui/src/graphLens/NativeGraphInspection.tsx`: current native Graph catalogue and source inspection.
+- `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringObjectRefPicker.tsx` and `graphObjectAuthoringSearch.ts`: existing authoring picker and fuzzy ranking.
+- `apps/live_control_server/services/corpus_source_navigation.py`, `apps/live_control_server/integrations/dungeonmind/native_corpus_source.py` and `src/application_state/agent_conversation/native_corpus.py`: existing native source navigation and source/section identities.
+- DungeonMind `466c5433e103f474b431d2a4a2632877f60ff45d`, `src/dungeonmind/application/vnext/search.py`: existing native indexed search and bounded result contract.
 - `apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx`: Build-only composer reference scope and dispatch.
 - `apps/live_control_server/models/agent_turn.py`: Build-only request restriction.
 - `src/application_state/agent_conversation/authored_graph_references.py`: existing author selection, read records and replay contracts.
