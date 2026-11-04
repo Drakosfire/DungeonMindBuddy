@@ -194,6 +194,7 @@ jobs:
           tests/test_build_document_proposal.py
           tests/test_build_related_pages.py::test_source_owner_refuses_changed_or_foreign_saved_page
           tests/test_connected_page_authoring.py::test_saved_excerpt_uses_coherent_committed_owner_projection
+          tests/test_connected_page_native_qualification.py
           tests/test_connected_page_authoring.py::test_saved_origin_refuses_mismatch_before_reservation
           tests/test_authored_page_database_cutover.py
           tests/test_workspace_document_registry.py
