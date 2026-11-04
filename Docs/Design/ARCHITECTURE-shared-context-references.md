@@ -117,6 +117,23 @@ Labels, titles, session numbers, quotes and thumbnails are display metadata. The
 
 On Send, existing server context acquisition validates the selection and freezes the effective read context. Its manifest refers to the existing native authority/read receipts; it does not copy sources into a second evidence ledger. Surface identity and primary work stay explicit in the ordinary turn envelope. Remove the Build-only reference field and validation restriction when the shared contract is delivered; do not maintain parallel live Build and general reference executors.
 
+### Future chronology extension
+
+Chronology is an explicit extension requirement, not an implemented capability or an additional initial delivery slice. Accommodate two separate uses:
+
+- **Reference an occurrence:** an event already represented by a native object can use the existing object target. A chronology view may offer that same identity through its own surface interaction; do not create a second event identity or a fourth target kind by default.
+- **Request a temporal context:** a view such as **before this occurrence**, **during this interval** or **known by this point** needs a separately adopted, versioned domain selector. It is a constraint on acquisition/interpretation, not merely another object chip. Event order and knowledge-at-a-point are distinct semantics.
+
+Keep these independent of Graph revision and source filters. A Graph revision identifies the stored knowledge snapshot; a recap/session filter identifies source material. Neither establishes fictional event time, the order of events, or when an actor learned a fact. Publication timestamps and paragraph order cannot supply those meanings.
+
+The extension seam is the typed selection/context boundary plus the existing acquisition owner. A future chronology selector must name its adopted domain contract, exact occurrence/interval identities and applicable native assertion/evidence revision. Its owner defines ordering, overlap, uncertainty and any derived proof; Core retains native admissibility, scope, revision and evidence integrity. Reuse the same draft persistence, frozen dispatch, read receipts, citations and recovery behavior. Do not add another chronology Graph, provenance ledger, generic plug-in engine or arbitrary JSON payload to prepare for it.
+
+Temporal context must compose explicitly with **Only selected sources** and ordinary access constraints; it cannot widen them. Freeze and display the chosen temporal meaning, distinguish partial/unresolved order from a total timeline, and preserve the selector during retry. A typed chronology view that is not supported stays unavailable with an explanation; it cannot silently become a current-World query or a session-number filter. Ordinary source-backed questions about event order may still be answered as source questions without claiming that a chronology query ran.
+
+Plan, Play and Build may present chronology differently: preparation may choose a knowledge boundary, Play may inspect a nearby occurrence without leaving the Run, and Build may use a temporal context while writing. Shared contracts do not prescribe identical timeline controls.
+
+Extensibility acceptance is a documented, closed, versioned addition point with a named resolver/consumer owner. Before any chronology implementation, prove that it can use the existing selection/acquisition contracts without duplicating search, persistence or authority, and define its capability/unsupported-state tests. Existing object/source/passage behavior must remain usable when chronology is absent. Implement no unused chronology handler or speculative compatibility path in the reference slices.
+
 ### Revisions, drafts and retries
 
 - Object selection follows the chosen identity at Send by default. Retain the selection revision as provenance; freeze one effective Graph revision for the turn. The UI says **Current when sent**. This is not a request for the object's historical state.
@@ -206,6 +223,8 @@ The floating picker must fit above the composer, escape nested scrolling/error p
 | A source or object changes before Send. | The UI and server apply the declared revision policy. Unavailable or ambiguous targets remain recoverable and never silently rebind. |
 | A request is interrupted and I retry. | The same frozen references/use policy and idempotent outcome are recovered; a newer draft is not overwritten and a completed request is not executed twice. |
 | I put a recap on a work plan and Fellinor on one step. | Selected step dispatch includes the root recap plus that step's object. Deferred steps contribute no references, and edits require the ordinary review revision. |
+| In a future chronology view, I reference an arrival occurrence. | Use its existing native occurrence identity where available; do not manufacture a separate timeline object or treat a nearby source heading as the event. |
+| In a future chronology-capable request, I choose before that arrival. | The adopted temporal selector is visible and frozen with the request. Its meaning is distinct from source/session and Graph-revision filters; unsupported or unresolved chronology is explicit, and source restrictions remain enforced. |
 | I request a summary of the whole recap. | Completion requires the necessary source coverage. Partial acquisition is explicit and cannot masquerade as a complete summary. |
 
 ## Small delivery slices
