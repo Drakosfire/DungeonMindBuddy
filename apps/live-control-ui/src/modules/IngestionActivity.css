@@ -1,0 +1,22 @@
+.ingestion-activity {
+  padding: 1rem 1.2rem;
+  margin-block: 1rem;
+  border: 1px solid #3a4358;
+  border-left: 3px solid #d9a83f;
+  border-radius: 0.65rem;
+  background: #151d2b;
+  color: #d4dbea;
+  line-height: 1.5;
+}
+.ingestion-activity__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+.ingestion-activity__heading h2 { margin: 0; font-size: 1.1rem; color: #f0d7a9; }
+.ingestion-activity__heading [role="timer"] { font-variant-numeric: tabular-nums; }
+.ingestion-activity p { margin-block: 0.7rem; }
+.ingestion-activity ol { padding-left: 1.4rem; }
+.ingestion-activity__detail { color: #aebbd0; font-size: 0.9rem; }

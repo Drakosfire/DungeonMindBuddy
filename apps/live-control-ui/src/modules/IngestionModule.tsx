@@ -1,3 +1,4 @@
+import { IngestionActivity } from "./IngestionActivity";
 import { RecapSourceAdmission } from "./RecapSourceAdmission";
 import {SessionEvidencePicker} from "../playSurface/review/SessionEvidencePicker";
 import type {SessionEvidenceRef} from "../playSurface/review/sessionEvidenceApi";
@@ -1549,6 +1550,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           </div>
         ) : null}
       </nav>
+
+      {busy ? <IngestionActivity key={selectedIngestTarget} session={recapSession} /> : null}
 
       {showRecapWelcome ? (
         <section className="ingest-welcome-card ingest-welcome-card--world" aria-labelledby="ingest-first-recap-title">
