@@ -598,3 +598,60 @@ def test_sanitizer_keeps_all_invalid_node_rejection_after_dropping_node():
     output, diagnostics = sanitize_parts({'nodes': [{'node_id': 'ride', 'evidence_refs': [{'source_span_ref_id': 'paragraph:45-45', 'anchor_quotes': ['accepted the ride']}]}]}, {'paragraph:45-45'})
     assert 'warnings' not in output['nodes'][0]
     assert diagnostics['rejected_node_evidence_refs'] == []
+
+
+def test_order_edges_cannot_inherit_occurrence_evidence_but_other_edges_still_can():
+    import copy
+    from src.graph_memory.predicate_catalog import RECAP_SOURCE_ORDER
+    from src.graph_memory.extraction.category_candidate_graph_extractor import repair_edge_evidence_refs
+    ref = {"source_span_ref_id": "span-order", "anchor_quotes": ["The arrival was before departure."]}
+    for invalid in ([], [{"source_span_ref_id": "not-advertised", "anchor_quotes": ["invented"]}]):
+        parts = {"nodes": [{"node_id": "a", "evidence_refs": [ref]},
+                           {"node_id": "b", "evidence_refs": [ref]}],
+                 "edges": [{"from_node_id": "a", "to_node_id": "b", "relationship_type": kind,
+                            "evidence_refs": copy.deepcopy(invalid)}
+                           for kind in ("precedes", "participates_in")]}
+        repair_edge_evidence_refs(parts, {"span-order"}, predicate_capabilities=(RECAP_SOURCE_ORDER,))
+        assert parts["edges"][0]["evidence_refs"] == []
+        assert parts["edges"][1]["evidence_refs"] == [ref]
+    parts["edges"][0]["evidence_refs"] = [ref]
+    repair_edge_evidence_refs(parts, {"span-order"}, predicate_capabilities=(RECAP_SOURCE_ORDER,))
+    assert parts["edges"][0]["evidence_refs"] == [ref]
+
+
+
+def test_ordinary_producer_projects_two_direct_order_claims_without_inventing_a_total_order():
+    import jsonschema
+    from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
+    source = "An arrival happened. A discussion happened. Both preceded a departure; their relative order is unstated."
+    ref = {"source_span_ref_id": "span-1", "anchor_quotes": [source]}
+    class OrderClient:
+        def run_pass(self, pass_name, *, model_id, instructions, user_content, pass_spec=None):
+            if pass_name == "thread_pass":
+                parsed = {"observation_nodes": [
+                    {"node_id": name, "label": name, "node_type": "event", "description": f"The {name} occurred.",
+                     "importance": "high", "evidence_refs": [ref]}
+                    for name in ("arrival", "discussion", "departure")], "ignored_items": [], "deferred_items": []}
+            elif pass_name == "edge_pass":
+                assert "`precedes`" in user_content
+                parsed = {"observation_edges": [
+                    {"edge_id": name, "from_node_id": name, "to_node_id": "departure", "label": "earlier",
+                     "relationship_type": "precedes", "predicate_family": "temporal_sequence", "evidence_refs": [ref]}
+                    for name in ("arrival", "discussion")]}
+                jsonschema.validate(parsed, schema_for_pass_spec(pass_spec))
+            elif pass_name == "beat_pass":
+                parsed = {"observation_beats": []}
+            else:
+                parsed = {"observation_nodes": [], "ignored_items": [], "deferred_items": []}
+            return {"parsed": parsed, "cost_usd": 0, "usage": {}, "elapsed_ms": 1, "response_id": pass_name}
+    index = _span_index(session_id="session-1")
+    index["spans"][0]["text"] = source
+    result = extract_category_candidate_graph(CategoryGraphExtractionOptions(
+        campaign_id="synthetic", session_id="session-1", session_number=1,
+        source_span_index=index, source_text=source, profile=RECAP_EXTRACTION_PROFILE,
+    ), client=OrderClient())
+    edges = result.candidate_graph["edges"]
+    assert {(edge["from_node_id"], edge["to_node_id"], edge["relationship_type"]) for edge in edges} == {
+        ("arrival", "departure", "precedes"), ("discussion", "departure", "precedes"),
+    }
+    assert all(not any("predicate_validation:" in warning for warning in edge.get("warnings", [])) for edge in edges)

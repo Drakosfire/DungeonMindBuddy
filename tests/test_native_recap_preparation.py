@@ -52,12 +52,12 @@ def choice(identifier, kind="node", action="create", fields=("label", "node_type
 
 
 @pytest.fixture
-def lane(monkeypatch, tmp_path):
+def lane(monkeypatch, tmp_path, request):
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", TOKEN)
     monkeypatch.setenv("DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY", "synthetic-native-recap-review-key")
-    seed = _repository(evidence=False)
+    seed = _repository(evidence=False, v3=getattr(request, "param", None) != "source_order_closed")
     snapshot = seed.get_revision(SPACE_ID, seed.get_head(SPACE_ID).head_revision_id)
     repo = InMemoryNativeSourceEvidenceRepository()
     repo.publish_revision(PublishKnowledgeRevisionCommand(
@@ -70,12 +70,17 @@ def lane(monkeypatch, tmp_path):
     bound = {"native_world_id": SPACE_ID, "binding_version": 3}
     source_id = "artifact:recap:v2:review-fixture"
     text = "A traveller met Pippa near the towér.\r\n\r\nThe traveller brought a lantern.\r\n\r\nAnother unrelated episode.\r\n"
+    source_order = getattr(request, "param", None) in {"source_order", "source_order_closed"}
+    if source_order:
+        text = ("An arrival happened. A discussion happened. Each occurred before a departure. "
+                "Their relative order is not stated. Pippa is a person.\r\n\r\n"
+                "The traveller brought a lantern.\r\n\r\nAnother unrelated episode.\r\n")
     digest = sha256(text.encode()).hexdigest()
     spans = build_source_span_index_for_text(source_artifact_id=source_id, content_sha256=digest, text=text)
     evidence = [dict(source_ref_id="source:fixture", source_artifact_id=source_id,
                      source_span_ref_id=spans.spans[0].source_span_id,
                      can_open_source=True, can_highlight_span=True,
-                     evidence_role="source_evidence", anchor_quotes=["A traveller met Pippa"])]
+                     evidence_role="source_evidence", anchor_quotes=[text.splitlines()[0] if source_order else "A traveller met Pippa"])]
     state = dict(canon_state="candidate_extraction", lifecycle_state="candidate",
                  evidence_role="source_evidence", authority_state="llm_generated", visibility_state="gm_private")
     def node(identifier, kind):
@@ -1259,3 +1264,164 @@ def test_description_extent_postgres_prepare_confirm_and_fresh_readback(
                    if item["schema"] == service.WORLD_CONTEXT)
     assert context[service.DESCRIPTION_SELECTION] == packet["records"][0]["selected_description_extent"]
     assert confirm(x, confirm_packet).json()["result"] == committed.json()["result"]
+
+
+
+def _source_order_candidate(lane):
+    template = lane.payload["nodes"][0]
+    lane.payload["nodes"] = []
+    lane.payload["beats"] = []  # The original fixture beat references its original nodes.
+    for identifier in ("arrival", "discussion", "departure"):
+        node = copy.deepcopy(template)
+        node.update(node_id=identifier, label=identifier, node_type="event",
+                    description=f"The {identifier} happened as described by this source.")
+        lane.payload["nodes"].append(node)
+    edge_template = lane.payload["edges"][0]
+    lane.payload["edges"] = []
+    for identifier in ("arrival", "discussion"):
+        edge = copy.deepcopy(edge_template)
+        edge.update(edge_id=f"before-{identifier}", from_node_id=identifier,
+                    to_node_id="departure", relationship_type="precedes")
+        lane.payload["edges"].append(edge)
+    lane.body["selections"] = [choice(identifier, fields=("description",))
+                               for identifier in ("arrival", "discussion", "departure")]
+    lane.body["selections"] += [dict(kind="edge", record_id=edge["edge_id"], action="create",
+                                     metadata=copy.deepcopy(META)) for edge in lane.payload["edges"]]
+    lane.refresh()
+    document = service.classify_candidate_document_integrity(lane.payload)
+    assert not document.is_document_integrity_failure, (document.parse_error, document.integrity_issues)
+
+
+@pytest.mark.parametrize("lane", ["source_order"], indirect=True)
+def test_source_order_description_only_events_publish_and_open_real_evidence(lane):
+    _source_order_candidate(lane)
+    packet = confirmation(lane)
+    prepared = transport.decode_prepared(packet["prepared"])
+    assert len([op for op in prepared.prepared_operations if isinstance(op, CreateObject)]) == 3
+    assert all(op.facts[0].predicate == "dnd5e:summary"
+               for op in prepared.prepared_operations if isinstance(op, CreateObject))
+    response = confirm(lane, packet)
+    assert response.status_code == 200, response.text
+    result = response.json()["result"]
+    child = lane.repo.get_revision(SPACE_ID, result["child_revision_id"])
+    order = [a for a in child.graph_payload["assertions"] if a["predicate"] == "dungeonbuddy.custom:precedes"]
+    objects = {row["client_op_id"]: row["durable_object_id"] for row in result["object_results"]}
+    assert {(a["subject_entity_id"], a["value"]["entity_id"]) for a in order} == {
+        (objects["record:0"], objects["record:2"]),
+        (objects["record:1"], objects["record:2"]),
+    }
+    # In particular, neither arrival/discussion direction was invented.
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    from apps.live_control_server.services.native_graph_reads import prepare_query, read_selected
+    from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadAuthorizedV1
+    principal = NativeGraphPrincipal(subject="test:gm", role="gm", auth_method="local_operator")
+    binding = SimpleNamespace(managed_world_id="managed", **lane.bound)
+    context, query = prepare_query("managed", "departure", principal, repository=lane.repo,
+        resolve_binding=lambda _: binding, scope_mode="campaign", campaign_id=CAMPAIGN_ID)
+    ids = tuple(match.assertion_id for match in query.assertion_matches)
+    assert {a["assertion_id"] for a in order} <= set(ids)
+    grant = NativePlanAssertionReadAuthorizedV1(event_id=uuid4(), sequence=0,
+        provider_attempt_id=uuid4(), query_sha256=query.sha256, assertion_ids=ids)
+    reads, unavailable = read_selected(context, grant, principal)
+    assert reads and not unavailable
+    assert all(row.spans[0].evidence_ref_id == lane.support_ids["first"] for row in reads)
+    assert confirm(lane, packet).json()["result"] == result
+
+
+@pytest.mark.parametrize("lane", ["source_order"], indirect=True)
+@pytest.mark.parametrize("fault,code", [
+    ("non_event", "precedence_requires_event_occurrence"),
+    ("no_description", "precedence_requires_selected_description"),
+    ("held", "selected_edge_endpoint_held"),
+    ("canonical_self", "precedence_canonical_self"),
+    ("reverse", "precedence_selected_cycle"),
+    ("cycle", "precedence_selected_cycle"),
+    ("wrong_evidence", "candidate_support_outside_witness"),
+])
+def test_source_order_selected_intent_refuses_without_publication(lane, fault, code):
+    _source_order_candidate(lane)
+    if fault == "non_event":
+        lane.payload["nodes"][0]["node_type"] = "character"
+    elif fault == "no_description":
+        lane.body["selections"][0]["facts"] = [dict(field="label", metadata=copy.deepcopy(META))]
+    elif fault == "held":
+        lane.body["selections"][0] = choice("arrival", action="defer", fields=())
+    elif fault == "canonical_self":
+        for index in (0, 2):
+            lane.body["selections"][index].update(action="use_existing", entity_id="ent:pippa")
+    elif fault in {"reverse", "cycle"}:
+        pairs = [("departure", "arrival")] if fault == "reverse" else [("departure", "discussion")]
+        if fault == "cycle":
+            lane.payload["edges"][1]["to_node_id"] = "arrival"
+        for index, (earlier, later) in enumerate(pairs):
+            edge = copy.deepcopy(lane.payload["edges"][0])
+            edge.update(edge_id=f"extra:{index}", from_node_id=earlier, to_node_id=later)
+            lane.payload["edges"].append(edge)
+            lane.body["selections"].append(dict(kind="edge", record_id=edge["edge_id"], action="create", metadata=copy.deepcopy(META)))
+    elif fault == "wrong_evidence":
+        lane.body["selections"][-1]["metadata"]["evidence_ref_ids"] = [lane.support_ids["unrelated"]]
+    lane.refresh()
+    before = copy.deepcopy({key: value for key, value in lane.repo.__dict__.items() if key != "_lock"})
+    response = lane.post()
+    assert response.status_code == 409, response.text
+    assert code in response.text
+    assert {key: value for key, value in lane.repo.__dict__.items() if key != "_lock"} == before
+
+
+
+@pytest.mark.parametrize("lane", ["source_order"], indirect=True)
+@pytest.mark.parametrize("standing,refused", [("provisional", True), ("retracted", False)])
+def test_precedence_identity_uses_core_admitted_classification(lane, standing, refused):
+    from dungeonmind.contracts.vnext.domain import Assertion
+    snapshot = lane.repo.get_revision(SPACE_ID, lane.repo.get_head(SPACE_ID).head_revision_id)
+    payload = copy.deepcopy(snapshot.graph_payload)
+    metadata = copy.deepcopy(META)
+    metadata.update(standing=standing, scope=[{"axis": "dungeonbuddy.scope:campaign", "value": CAMPAIGN_ID}])
+    classification = Assertion.model_validate({
+        "assertion_id": "asrt:fixture-incompatible-kind", "subject_entity_id": "ent:pippa",
+        "predicate": "dnd5e:classification", "value": {"kind": "term_ref", "term": "dnd5e:npc"},
+        "metadata": metadata,
+    })
+    payload["assertions"].append(classification.model_dump(mode="json"))
+    lane.repo.publish_revision(PublishKnowledgeRevisionCommand(
+        space_id=SPACE_ID, parent_revision_id=snapshot.revision.revision_id,
+        expected_parent_revision_id=snapshot.revision.revision_id,
+        operation_ids=["fixture-incompatible-kind"], graph_schema=snapshot.revision.graph_schema,
+        graph_payload=payload, domain_contract_ref=snapshot.revision.domain_contract_ref,
+        semantic_profile_ref=snapshot.revision.semantic_profile_ref, created_at=datetime.now(UTC),
+    ))
+    lane.body["expected_parent_revision_id"] = lane.repo.get_head(SPACE_ID).head_revision_id
+    _source_order_candidate(lane)
+    lane.body["selections"][0].update(action="use_existing", entity_id="ent:pippa")
+    before = lane.repo.get_head(SPACE_ID).head_revision_id
+    response = lane.post()
+    if refused:
+        assert response.status_code == 409, response.text
+        assert "precedence_incompatible_occurrence_identity" in response.text
+    else:
+        # An excluded standing cannot become an admission shortcut. This does
+        # not establish this hypothetical identity's source-semantic correctness.
+        assert response.status_code == 200, response.text
+    assert lane.repo.get_head(SPACE_ID).head_revision_id == before
+
+
+
+@pytest.mark.parametrize("lane", ["source_order_closed"], indirect=True)
+def test_closed_native_profile_refuses_precedence_without_profile_migration(lane):
+    _source_order_candidate(lane)
+    before = lane.repo.get_head(SPACE_ID).head_revision_id
+    response = lane.post()
+    assert response.status_code == 409, response.text
+    assert lane.repo.get_head(SPACE_ID).head_revision_id == before
+
+
+def test_worldbuilding_native_intent_does_not_adopt_recap_precedence(world_lane):
+    _source_order_candidate(world_lane)
+    for selection in world_lane.body["selections"]:
+        for fact in selection.get("facts", []):
+            fact["metadata"]["evidence_ref_ids"] = [world_lane.evidence_id]
+        if selection.get("metadata"):
+            selection["metadata"]["evidence_ref_ids"] = [world_lane.evidence_id]
+    response = world_lane.post()
+    assert response.status_code == 409, response.text
+    assert "precedence_requires_recap" in response.text

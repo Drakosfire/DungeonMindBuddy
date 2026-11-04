@@ -152,7 +152,7 @@ def test_recap_edge_contract_preserves_catalog_schema_and_profile_boundary() -> 
         SYNTHETIC_SOURCE_ROWS, profile=RECAP_EXTRACTION_PROFILE,
     )
     edge = prompts["edge_pass.md"]
-    assert prompt_markdown() in edge
+    assert prompt_markdown(capabilities=RECAP_EXTRACTION_PROFILE.edge_pass.predicate_capabilities) in edge
     assert "Use exact `node_id` values" in edge
     assert "Return JSON with key `observation_edges`" in edge
     for row in SYNTHETIC_SOURCE_ROWS:
@@ -242,8 +242,9 @@ def test_meanings_reach_only_recap_edge_prompt():
         "recap_category_encounter_job_preview", "2.0"
     )):
         prompts = render_category_pass_prompts(SYNTHETIC_SOURCE_ROWS, profile=profile)
-        assert guidance in prompts["edge_pass.md"]
-        assert all(guidance not in prompt for key, prompt in prompts.items() if key != "edge_pass.md")
+        selected_guidance = recap_predicate_meaning_guidance(capabilities=profile.edge_pass.predicate_capabilities)
+        assert selected_guidance in prompts["edge_pass.md"]
+        assert all(selected_guidance not in prompt for key, prompt in prompts.items() if key != "edge_pass.md")
     for profile in (WORLDBUILDING_PROFILE, WORLDBUILDING_PLUMBING_PROFILE):
         prompts = render_category_pass_prompts(SYNTHETIC_SOURCE_ROWS, profile=profile)
         assert all(guidance not in prompt for prompt in prompts.values())
@@ -388,4 +389,41 @@ def test_node_description_coverage_changes_only_existing_recap_node_prompts() ->
             # All other content remains byte-identical to the independently
             # captured pre-change renderer output, including source/evidence rules.
             unchanged = prompt.replace(_NODE_DESCRIPTION_COVERAGE + "\n\n", "") if changes else prompt
+            if profile.edge_pass.predicate_capabilities and name in {"thread_pass.md", "edge_pass.md"}:
+                # The exact-main precedence fixture below owns these two newly
+                # changed prompts; retain this older coverage baseline elsewhere.
+                continue
             assert hashlib.sha256(unchanged.encode()).hexdigest() == before[name], (profile.qualified_id, name)
+
+
+
+def test_direct_order_changes_only_opted_in_thread_edge_prompts_and_edge_schema():
+    import hashlib
+    import json
+    from pathlib import Path
+    from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
+    from src.graph_memory.extraction.category_candidate_graph_extractor import render_encounter_job_pass_prompt
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    from src.graph_memory.extraction.worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
+    from src.graph_memory.extraction.recap_extraction_profile import _SOURCE_ORDER_OCCURRENCES, _SOURCE_ORDER_EDGES
+    fixture = json.loads((Path(__file__).parent / "fixtures" / "recap_prompt_scope_before_direct_precedence.json").read_text())
+    for profile in (RECAP_EXTRACTION_PROFILE,
+                    get_extraction_profile("recap_category_encounter_job_preview", "2.0"),
+                    WORLDBUILDING_PROFILE, WORLDBUILDING_PLUMBING_PROFILE):
+        prompts = render_category_pass_prompts(fixture["source_rows"], profile=profile)
+        if profile.encounter_job_pass:
+            prompts["encounter_job_pass.md"] = render_encounter_job_pass_prompt(
+                fixture["source_rows"], nodes=[], beats=[], instruction=profile.encounter_job_pass.instruction)
+        opted_in = bool(profile.edge_pass.predicate_capabilities)
+        before = fixture["rendered_prompt_sha256"][profile.qualified_id]
+        assert set(prompts) == set(before)
+        for name, prompt in prompts.items():
+            changed = opted_in and name in {"thread_pass.md", "edge_pass.md"}
+            assert (hashlib.sha256(prompt.encode()).hexdigest() != before[name]) == changed
+            assert prompt.count(_SOURCE_ORDER_OCCURRENCES) == int(opted_in and name == "thread_pass.md")
+            assert prompt.count(_SOURCE_ORDER_EDGES) == int(opted_in and name == "edge_pass.md")
+            assert ("`precedes`" in prompt) == (opted_in and name == "edge_pass.md")
+        specs = [*profile.node_passes, profile.beat_pass, profile.encounter_job_pass, profile.edge_pass]
+        for spec in filter(None, specs):
+            digest = hashlib.sha256(json.dumps(schema_for_pass_spec(spec), sort_keys=True).encode()).hexdigest()
+            assert (digest != fixture["schema_sha256"][profile.qualified_id][spec.pass_id]) == (opted_in and spec.kind == "edge")

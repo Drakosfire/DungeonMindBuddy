@@ -152,3 +152,22 @@ def test_recap_predicate_roles_preserve_distinctions_and_ambiguous_source_scope(
     assert "mission or mission-directing actor" in meanings["mission_focus"]
     assert "not that object is missing" in meanings["missing_contact"]
     assert "device changing hands alone" in meanings["replaced_contact"]
+
+
+def test_recap_order_capability_is_explicit_and_one_catalogue_drives_its_meaning():
+    from src.graph_memory.predicate_catalog import (
+        RECAP_SOURCE_ORDER, recap_predicate_meaning_guidance, requires_relationship_evidence,
+    )
+    caps = (RECAP_SOURCE_ORDER,)
+    assert set(exact_predicate_ids(capabilities=caps)) - set(exact_predicate_ids()) == {"precedes"}
+    assert validate_edge_predicate("precedes", "temporal_sequence") == ["unknown_relationship_type"]
+    assert validate_edge_predicate("precedes", "temporal_sequence", capabilities=caps) == []
+    assert validate_edge_predicate("precedes", "causality", capabilities=caps) == ["relationship_family_mismatch"]
+    assert predicate_family_for_type("precedes", capabilities=caps) == "temporal_sequence"
+    assert "`precedes`" not in prompt_markdown()
+    assert "`precedes`" in prompt_markdown(capabilities=caps)
+    assert "`precedes`" not in recap_predicate_meaning_guidance()
+    assert "endpoint citations alone are insufficient" in recap_predicate_meaning_guidance(capabilities=caps)
+    assert requires_relationship_evidence("precedes", capabilities=caps)
+    assert not requires_relationship_evidence("participates_in", capabilities=caps)
+    assert V1_EXACT_PREDICATES == ir.PREDICATE_FAMILY
