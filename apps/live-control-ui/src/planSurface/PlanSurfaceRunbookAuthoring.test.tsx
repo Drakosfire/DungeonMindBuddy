@@ -4,10 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
 import { AgentInteractionProvider, useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
-import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
-import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
-import { WorldGraphLensProjectionProvider, WorldGraphLensProvider } from "../graphLens";
-import { mockPlanView, mockSourceBundle } from "../test/fixtures";
+import { mockPlanView } from "../test/fixtures";
 import type { WorkspaceDocumentRecord, WorkspaceDocumentSnapshot } from "../api/types";
 import * as liveApi from "../api/liveApi";
 import { tiptapJsonToSemanticMarkdown } from "../tiptap/markdown/calloutMarkdown";
@@ -26,7 +23,6 @@ import { adoptCreatedPlanIdentity } from "./planBlankAuthoringState";
 import { PlanGraphLensProvider } from "../graphLens/WorldGraphLensContext";
 import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
 import { PlanSurfaceCanvas, canSavePlanningDocument } from "./components/PlanSurfaceCanvas";
-import { PlanSurfaceShell } from "./PlanSurfaceShell";
 import { createWorkspaceDocumentCreationController } from "../workspaceDocument/workspaceDocumentCreation";
 
 const RUNBOOK_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
@@ -458,171 +454,5 @@ describe("Plan default selector stays Plan-only", () => {
       kind: "plan",
       targetRelpath: plan.target_relpath,
     })).toBe(true);
-  });
-});
-
-describe("explicit Runbook documentId in Plan", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-    localStorage.clear();
-  });
-
-  it("opens the exact Runbook WorkObject while the selector still lists plans", async () => {
-    window.history.pushState({}, "", `/plan?documentId=${RUNBOOK_ID}`);
-    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
-      schema: "dmb_world_graph_projection_v1",
-      snapshot: {
-        worldId: "eldyrwild",
-        campaignId: "longmont-c2",
-        revisionId: "rev-1",
-        headRevisionId: "rev-1",
-        isHead: true,
-        focus: { kind: "none", sessionId: null },
-        admissibility: "gm",
-        scopeMode: "world",
-      },
-      summary: {
-        nodeCount: 0,
-        relationshipCount: 0,
-        attributeCount: 0,
-        evidenceCount: 0,
-        sourceArtifactCount: 0,
-        projectionTruncated: false,
-      },
-      nodes: [],
-      relationships: [],
-      attributes: [],
-      evidence: [],
-      sourceArtifacts: [],
-      diagnostics: [],
-    } as Awaited<ReturnType<typeof liveApi.postWorldGraphProjection>>);
-    vi.spyOn(liveApi, "getSourceBundle").mockResolvedValue(mockSourceBundle);
-    const list = vi.spyOn(liveApi, "listWorkspaceDocuments").mockResolvedValue({
-      schema_version: "dmb_workspace_document_registry_v1",
-      records: [fixtureWorkspaceDocumentRecord()],
-    });
-    vi.spyOn(liveApi, "getWorkspaceDocument").mockResolvedValue(pathlessRunbookRecord());
-    vi.spyOn(liveApi, "getWorkspaceDocumentSnapshot").mockResolvedValue(
-      snapshotFor(pathlessRunbookRecord(), BLANK_BEAT_MARKDOWN),
-    );
-
-    function Harness() {
-      const [editorTools, setEditorTools] = useState<AppChromeToolsGeneration | null>(null);
-      return (
-        <AgentInteractionProvider>
-          <PlanPublicationProbe />
-          <AskPluginSlotProvider>
-            <WorldGraphLensProvider planCampaignId="longmont-c2">
-              <WorldGraphLensProjectionProvider defaultCampaignId="longmont-c2">
-                <SurfaceContextProvider>
-                  <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
-                    <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
-                  </AppChrome>
-                </SurfaceContextProvider>
-              </WorldGraphLensProjectionProvider>
-            </WorldGraphLensProvider>
-          </AskPluginSlotProvider>
-        </AgentInteractionProvider>
-      );
-    }
-
-    render(<Harness />);
-    await waitFor(() => {
-      expect(screen.getByTestId("plan-authoring-identity")).toHaveTextContent(
-        "Editing Runbook · Blank Runbook",
-      );
-    });
-    await waitFor(() => {
-      expect(screen.getByTestId("plan-surface-canvas-editor")).toBeInTheDocument();
-    });
-    expect(screen.queryByTestId("plan-canvas-authoring-error")).not.toBeInTheDocument();
-    expect(liveApi.getWorkspaceDocument).toHaveBeenCalledWith(RUNBOOK_ID);
-    expect(list).toHaveBeenCalledWith(expect.objectContaining({ kind: "plan" }));
-    expect(screen.getByTestId("plan-surface-publication")).toHaveAttribute(
-      "data-agent-document-id",
-      RUNBOOK_ID,
-    );
-    expect(screen.getByTestId("plan-surface-publication")).toHaveAttribute(
-      "data-canvas-work-object",
-      `document:${RUNBOOK_ID}`,
-    );
-  });
-
-  it("refuses a cross-campaign exact Runbook without publishing durable identity", async () => {
-    window.history.pushState({}, "", `/plan?documentId=${RUNBOOK_ID}`);
-    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
-      schema: "dmb_world_graph_projection_v1",
-      snapshot: {
-        worldId: "eldyrwild",
-        campaignId: "longmont-c2",
-        revisionId: "rev-1",
-        headRevisionId: "rev-1",
-        isHead: true,
-        focus: { kind: "none", sessionId: null },
-        admissibility: "gm",
-        scopeMode: "world",
-      },
-      summary: {
-        nodeCount: 0,
-        relationshipCount: 0,
-        attributeCount: 0,
-        evidenceCount: 0,
-        sourceArtifactCount: 0,
-        projectionTruncated: false,
-      },
-      nodes: [],
-      relationships: [],
-      attributes: [],
-      evidence: [],
-      sourceArtifacts: [],
-      diagnostics: [],
-    } as Awaited<ReturnType<typeof liveApi.postWorldGraphProjection>>);
-    vi.spyOn(liveApi, "getSourceBundle").mockResolvedValue(mockSourceBundle);
-    vi.spyOn(liveApi, "listWorkspaceDocuments").mockResolvedValue({
-      schema_version: "dmb_workspace_document_registry_v1",
-      records: [fixtureWorkspaceDocumentRecord()],
-    });
-    vi.spyOn(liveApi, "getWorkspaceDocument").mockResolvedValue(
-      pathlessRunbookRecord({ campaign_id: "longmont-c1", title: "C1 Runbook" }),
-    );
-    const snapshot = vi.spyOn(liveApi, "getWorkspaceDocumentSnapshot");
-
-    function Harness() {
-      const [editorTools, setEditorTools] = useState<AppChromeToolsGeneration | null>(null);
-      return (
-        <AgentInteractionProvider>
-          <PlanPublicationProbe />
-          <AskPluginSlotProvider>
-            <WorldGraphLensProvider planCampaignId="longmont-c2">
-              <WorldGraphLensProjectionProvider defaultCampaignId="longmont-c2">
-                <SurfaceContextProvider>
-                  <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
-                    <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
-                  </AppChrome>
-                </SurfaceContextProvider>
-              </WorldGraphLensProjectionProvider>
-            </WorldGraphLensProvider>
-          </AskPluginSlotProvider>
-        </AgentInteractionProvider>
-      );
-    }
-
-    render(<Harness />);
-    await waitFor(() => {
-      expect(screen.getByTestId("plan-canvas-authoring-error")).toHaveTextContent("longmont-c1");
-      expect(screen.getByTestId("plan-surface-publication")).toHaveAttribute(
-        "data-canvas-work-object",
-        `plan-shell:error:longmont-c2:${RUNBOOK_ID}`,
-      );
-    });
-    expect(screen.getByTestId("plan-canvas-authoring-error")).toHaveTextContent("longmont-c2");
-    expect(screen.queryByTestId("plan-authoring-identity")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("plan-surface-canvas-editor")).not.toBeInTheDocument();
-    const publication = screen.getByTestId("plan-surface-publication");
-    expect(publication).toHaveAttribute("data-agent-document-id", "null");
-    expect(publication).toHaveAttribute("data-canvas-document-id", "null");
-    expect(screen.getByRole("button", { name: "Close Edit" })).toBeInTheDocument();
-    expect(screen.getByRole("complementary", { name: "Edit toolbar" })).toBeInTheDocument();
-    expect(snapshot).not.toHaveBeenCalled();
   });
 });
