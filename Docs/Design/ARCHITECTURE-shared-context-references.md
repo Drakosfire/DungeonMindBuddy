@@ -54,11 +54,13 @@ Use a closed discriminated union. The following names describe responsibilities,
 
 | Target | Durable identity | Read behavior |
 | --- | --- | --- |
-| Object | Native entity ID, verified World binding and selection Graph revision | Verify the selected origin, then read the object in the turn's frozen effective Graph revision. |
-| Source | Native source artifact ID and exact source revision | Read/search only that selected version. A recap is a source, not an invented Session Graph object. |
-| Passage | Exact source revision plus an existing native span/locator and content witness | Open that exact passage; never locate it again by matching its displayed quote. |
+| Object | Native entity ID, verified active Graph binding and selection Graph revision | Verify the selected origin, then read the object in the turn's frozen effective Graph revision. |
+| Source | Verified source-owner identity, native source artifact ID and exact source revision | Read/search only that selected version. A recap is a source, not an invented Session Graph object. |
+| Passage | Verified source-owner identity and exact source revision plus an existing native span/locator and content witness | Open that exact passage; never locate it again by matching its displayed quote. |
 
 Initial target kinds are objects, sources and passages within the current World. Future page, Plan, Run, image or rule targets require an explicit typed contract and their existing owner's resolver; do not smuggle them through an arbitrary JSON payload or file-path fallback.
+
+Source and passage references do not require an active Graph binding or Graph head. Resolve their existing source-owner identity and admitted source revision/span through the source read owner, which may use its own source-knowledge revision. A provisioning Graph can therefore make object discovery unavailable while source discovery and reads remain usable. Source ownership grants no Graph read or publication authority.
 
 A source may be referenced before its extracted candidates are published, if the source itself is admitted and readable under the existing native contract. Retained-but-unadmitted material may be shown as unavailable with a route to the existing source workflow; selecting it must not silently admit it, ingest it, or publish facts.
 
@@ -66,11 +68,11 @@ Illustrative selection shape:
 
 ```text
 ReferenceSelection
-  verified managed World and native binding
+  verified managed World owner
   targets[]
-    object   { native entity ID, selection revision }
-    source   { existing native source revision reference }
-    passage  { existing native source revision reference, exact span reference }
+    object   { active Graph binding, native entity ID, selection Graph revision }
+    source   { verified source owner, existing native source revision reference }
+    passage  { verified source owner, native source revision reference, exact span }
   use policy: include | selected sources only
 ```
 
@@ -141,7 +143,7 @@ Inspecting a source can read it for the user before Send. Those preview bytes do
 
 ## UI states and performance
 
-The picker distinguishes loading, no results for these filters, no admitted material, partial results, stale selection, permission failure and transport error. **No matching results** is not evidence that a World has no objects. A missing/retired projection must never become an apparently valid empty native catalogue.
+The picker distinguishes loading, no results for these filters, no admitted material, partial results, stale selection, permission failure and transport error. Availability is per target kind: an object-Graph failure must not discard available source results or require a fake Graph initialization. **No matching results** is not evidence that a World has no objects. A missing/retired projection must never become an apparently valid empty native catalogue.
 
 Use native, revision-bound pagination or search continuation. Results carry completeness and continuation information; show more results rather than hiding everything after a fixed first 40. Invalidate a continuation when its scope, filters or native snapshot changes. Cancel stale searches and refuse late responses after a World switch.
 
