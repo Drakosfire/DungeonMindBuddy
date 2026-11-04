@@ -18,7 +18,10 @@ from apps.live_control_server.integrations.dungeonmind import native_world_sourc
 from apps.live_control_server.integrations.worldkeeper import registry_standing_consumer as transport
 from apps.live_control_server.integrations.worldkeeper.graph_authoring_consumer import _predicate
 from apps.live_control_server.services import native_recap_source_admission as admission
-from apps.live_control_server.models.native_recap_preparation import NativeRecapReviewEnvelope, NativeRecapPrepareRequest, NativeWorldbuildingPrepareRequest
+from apps.live_control_server.models.native_recap_preparation import (
+    NativeRecapReviewEnvelope, NativeRecapPrepareRequest, NativeWorldbuildingPrepareRequest,
+    SelectedDescriptionExtent,
+)
 from apps.live_control_server.services.graph_object_authoring_prepare import (
     PREPARE_TTL, sign_publication_intent, decode_publication_intent,
 )
@@ -34,6 +37,8 @@ from graph_memory.vnext.domain_runtime import CAMPAIGN_SCOPE_AXIS
 _KINDS = {kind: f"dungeonbuddy:{kind}" for kind in NODE_TYPES}
 _KINDS["location"] = "dnd5e:location"
 PRODUCER = "dungeonbuddy:reviewed-recap"
+WORLD_CONTEXT = "dungeonbuddy.domain_metadata:world_context_v1"
+DESCRIPTION_SELECTION = "candidate_description_selection"
 
 
 class ReviewRefused(ValueError):
@@ -47,7 +52,26 @@ def _require(condition, code):
         raise ReviewRefused(code)
 
 
-def _metadata(review, campaign, evidence):
+def _metadata(review, campaign, evidence, *, description_selection=None):
+    domain_metadata = []
+    context_found = False
+    for item in review.domain_metadata:
+        if item.schema_term == WORLD_CONTEXT:
+            _require(not isinstance(item.payload, dict) or DESCRIPTION_SELECTION not in item.payload,
+                     "candidate_description_provenance_reserved")
+            if description_selection is not None:
+                _require(not context_found and isinstance(item.payload, dict),
+                         "candidate_description_context_invalid")
+                domain_metadata.append(wk.DomainMetadata.from_json(
+                    WORLD_CONTEXT, {**item.payload, DESCRIPTION_SELECTION: description_selection},
+                ))
+                context_found = True
+                continue
+        domain_metadata.append(item.native())
+    if description_selection is not None and not context_found:
+        domain_metadata.append(wk.DomainMetadata.from_json(
+            WORLD_CONTEXT, {DESCRIPTION_SELECTION: description_selection},
+        ))
     return wk.AssertionMetadata(
         scope=(wk.ScopeBinding(CAMPAIGN_SCOPE_AXIS, campaign),) if campaign is not None else (),
         visibility=review.visibility,
@@ -56,8 +80,24 @@ def _metadata(review, campaign, evidence):
         standing=review.standing,
         evidence_ref_ids=tuple(evidence),
         temporal_scope=review.temporal_scope.native(),
-        domain_metadata=tuple(item.native() for item in review.domain_metadata),
+        domain_metadata=tuple(domain_metadata),
     )
+
+
+def _description_extent(value, extent):
+    raw = value.encode("utf-8")
+    start, end = extent.start_byte, extent.end_byte
+    _require(end <= len(raw), "candidate_description_extent_bounds")
+    _require(start != 0 or end != len(raw), "candidate_description_extent_must_be_partial")
+    selected = raw[start:end]
+    try:
+        text = selected.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ReviewRefused("candidate_description_extent_invalid_utf8") from exc
+    _require(bool(text.strip()), "candidate_description_extent_blank")
+    digest = hashlib.sha256(selected).hexdigest()
+    _require(digest == extent.expected_slice_sha256, "candidate_description_extent_digest_changed")
+    return text, digest, len(raw)
 
 
 def _support_refs(review, witnesses, access, admitted):
@@ -96,7 +136,8 @@ def _fields(kind, record):
     return {"title": record.title, "node_type": "session_beat", "summary": record.summary}
 
 
-def _intent(preview, selections, space, campaign, admitted, data, access, *, producer=PRODUCER):
+def _intent(preview, selections, space, campaign, admitted, data, access, *,
+            candidate_sha256, producer=PRODUCER):
     records = {
         **{("node", row.node_id): row for row in preview.nodes},
         **{("edge", row.edge_id): row for row in preview.edges},
@@ -111,6 +152,8 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *, pro
         action = selection.action if selection else "held"
         values = _fields(kind, record) if kind != "edge" else {}
         selected = []
+        description_selection = None
+        held_description_extents = []
         if selection and action in {"create", "use_existing"}:
             # One shared projector verifies exact APP source/span/quote references.
             witness = project_candidate_record_evidence(
@@ -130,6 +173,23 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *, pro
                     _require(field in values, "unknown_candidate_field")
                     value = values[field]
                     _require(isinstance(value, str) and bool(value.strip()), "blank_candidate_field")
+                    provenance = None
+                    if isinstance(fact, SelectedDescriptionExtent):
+                        value, digest, full_length = _description_extent(value, fact.extent)
+                        provenance = {
+                            "schema_version": "dmb_candidate_description_extent_v1",
+                            "run_id": data.run.run_id, "run_revision": data.run.revision,
+                            "candidate_sha256": candidate_sha256,
+                            "record_id": identifier, "field": "description",
+                            "start_byte": fact.extent.start_byte, "end_byte": fact.extent.end_byte,
+                            "slice_sha256": digest, "whole_field_selected": False,
+                        }
+                        description_selection = provenance
+                        held_description_extents = [
+                            {"start_byte": start, "end_byte": end}
+                            for start, end in ((0, fact.extent.start_byte),
+                                               (fact.extent.end_byte, full_length)) if start < end
+                        ]
                     if fact.field == "node_type":
                         _require(value in _KINDS, "unsupported_candidate_kind")
                         predicate, encoded = "dnd5e:classification", wk.TermRefFactValue(_KINDS[value])
@@ -139,9 +199,11 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *, pro
                     facts.append(wk.CreateFact(
                         f"record:{index}.field:{field_index}", predicate, encoded,
                         _metadata(fact.metadata, campaign,
-                                  _support_refs(fact.metadata, witness.evidence, access, admitted)),
+                                  _support_refs(fact.metadata, witness.evidence, access, admitted),
+                                  description_selection=provenance),
                     ))
-                    selected.append(field)
+                    if provenance is None:
+                        selected.append(field)
                 if action == "create":
                     operation = f"record:{index}"
                     operations.append(wk.CreateObject(operation, tuple(facts)))
@@ -157,6 +219,9 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *, pro
             "held_aliases": list(getattr(record, "aliases", ())),
             "non_executable_hints": [field for field in ("corpus_ref", "enriched_by", "order", "involved_node_ids", "unresolved_thread_node_ids", "source_beat_id") if getattr(record, field, None) is not None],
         })
+        if description_selection is not None:
+            inventory[-1]["selected_description_extent"] = description_selection
+            inventory[-1]["held_description_extents"] = held_description_extents
     for index, edge in enumerate(preview.edges):
         selection = by_key.get(("edge", edge.edge_id))
         if selection and selection.action == "create":
@@ -270,7 +335,8 @@ def prepare(request, principal):
     data = load_reviewable_extraction_data(root, request.run_id)
     run, artifact = data.run, data.source_artifact
     _require(run.revision == request.expected_run_revision, "candidate_run_changed")
-    _require(hashlib.sha256(data.candidate_bytes).hexdigest() == request.candidate_sha256, "candidate_bytes_changed")
+    candidate_sha256 = hashlib.sha256(data.candidate_bytes).hexdigest()
+    _require(candidate_sha256 == request.candidate_sha256, "candidate_bytes_changed")
     source, admitted = _resolve_source(request, root, bound, data)
     classification = classify_candidate_document_integrity(json.loads(data.candidate_bytes))
     _require(not classification.is_document_integrity_failure, "candidate_document_invalid")
@@ -286,7 +352,8 @@ def prepare(request, principal):
     campaign = request.campaign_id if isinstance(request, NativeRecapPrepareRequest) else None
     producer = f"dungeonbuddy:reviewed-{domain_name}"
     intent, inventory = _intent(preview, request.selections, space, campaign,
-                                admitted, data, access, producer=producer)
+                                admitted, data, access, candidate_sha256=candidate_sha256,
+                                producer=producer)
     prepared = None
     if intent.operations:
         domain, profile = native.descriptors(repo, space, context["revision_id"])
