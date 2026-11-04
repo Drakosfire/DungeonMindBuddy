@@ -93,7 +93,7 @@ Changed/deleted live files cannot block or retarget recovery. Ordinary duplicate
 imports are status-only. New admissions still require current committed source
 verification.
 
-Borrow PublicationProgressStore.exclusive as a mutex only, keyed by immutable
+Use NativeRecapExecutionLock.exclusive as the mutex, keyed by immutable
 admission origin under the canonical shared artifact root's
 out/native_recap_source_locks. Hold across reconciliation, CAS, Core I/O and APP
 settlement; never unlink/replace lock files or read/write progress JSON. Busy
