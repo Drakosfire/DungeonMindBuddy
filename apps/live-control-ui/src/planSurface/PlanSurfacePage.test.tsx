@@ -81,11 +81,6 @@ vi.mock("../chrome/AppChrome", async () => {
     },
   };
 });
-vi.mock("./PlanSurfaceShell", () => ({
-  PlanSurfaceShell: ({ planView }: { planView: { campaign_id: string } }) => (
-    <div data-testid="plan-page-campaign">{planView.campaign_id}</div>
-  ),
-}));
 
 const worldId = "of-conks-cons-demo";
 
@@ -2048,7 +2043,6 @@ it("saves a blank managed World Plan through the exact World-scoped V2 contract"
   }));
   expect(getPlanView).not.toHaveBeenCalled();
   expect(liveApi.getManagedWorldPlanContext).toHaveBeenCalledWith(worldId);
-  expect(screen.queryByTestId("plan-page-campaign")).not.toBeInTheDocument();
   const savedJournal = localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`);
   prePromotionControls.changeTitle({ target: { value: "Stale local title" } });
   prePromotionControls.bold();

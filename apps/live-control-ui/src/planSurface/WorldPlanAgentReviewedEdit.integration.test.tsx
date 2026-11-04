@@ -44,10 +44,6 @@ vi.mock("../chrome/AppChrome", async () => {
   };
 });
 
-vi.mock("./PlanSurfaceShell", () => ({
-  PlanSurfaceShell: () => null,
-}));
-
 const worldId = "world-reviewed-edit-integration";
 const documentId = "saved-world-plan-reviewed-edit";
 const initialMarkdown = "# Plan\n\nThe keeper waits beneath the black arch.\n";
