@@ -156,7 +156,20 @@ _NODE_PASSES: tuple[ExtractionPassSpec, ...] = (
         allowed_node_types=("item",),
         default_node_type="item",
         instruction=(
-            "Extract notable items, devices, artifacts, and objects only — not table-mechanics noise."
+            "Extract notable items, devices, and artifacts supported as in-world "
+            "physical objects. A noun mentioned in the text is not sufficient. "
+            "Fees, prices, promises, "
+            "knowledge, and learned abilities are not items. People, creatures, and "
+            "places belong to their own passes; do not emit a building again as an "
+            "item merely because it is physical. A table handout, illustrative aid, "
+            "metaphor, or rhetorical question alone does not establish a world object. "
+            "When that world-object status is unsupported or ambiguous, omit the "
+            "reference from observation_nodes rather than inventing an item to retain "
+            "the phrase. Keep explicitly narrated world objects, including those "
+            "mentioned parenthetically. A physical carrier of information or magic "
+            "remains eligible; do not discard the carrier because its contents are "
+            "knowledge or a spell. Preserve stated quantities, ownership, and "
+            "condition; keep proposed exchanges distinct from completed transfers."
         ),
         progress_label="Extracting notable objects",
     ),

@@ -1,6 +1,6 @@
 # INGEST: bound recap pass node kinds
 
-Status: ACTIVE. ADV owns design and implementation under the user's ingestion-through-publication assignment; PRIME reviews and owns merge/delivery.
+Status: CLOSED. PR2065 merged/delivered c125b91ba9cc297d883dacfe98fcbf48af6909e6; exclusive lease released. Actual S7 run70fcd7d0-9b96-4141-855c-5adb5e3544af produced zero foreign kinds,7attempts0retries; this proves the scoped boundary, not full quality. Successor: HANDOFF-INGEST-recap-object-authority.md. ADV owns design and implementation under the user's ingestion-through-publication assignment; PRIME reviews and owns merge/delivery.
 
 ## Lane and topology
 
