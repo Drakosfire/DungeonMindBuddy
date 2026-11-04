@@ -240,7 +240,7 @@ def test_ordinary_http_admits_exact_APP_version_and_reopens_without_provider(
     assert native(post(lane)) == value
     before_files = tree(lane.root)
     monkeypatch.setattr(
-        service.PublicationProgressStore,
+        service.NativeRecapExecutionLock,
         "exclusive",
         lambda *_: pytest.fail("Read-only inspection acquired a file lock"),
     )
@@ -491,6 +491,8 @@ def test_commit_survives_opening_and_APP_settlement_failure(lane, monkeypatch):
 def test_process_contention_hard_crash_and_exact_same_command_recovery(
     lane, monkeypatch
 ):
+    import fcntl
+    import hashlib
     import multiprocessing
 
     ctx = multiprocessing.get_context("fork")
@@ -511,6 +513,13 @@ def test_process_contention_hard_crash_and_exact_same_command_recovery(
         (run,) = ingest.list_extraction_runs()
         record = Record.model_validate(run.lineage[KEY])
         assert record.state == "entered"
+        # Independently probe the persisted executor identity across the rename.
+        lock_path = lane.root / "out/native_recap_source_locks" / (
+            hashlib.sha256(record.admission_id.encode()).hexdigest() + ".lock"
+        )
+        with lock_path.open("r+b") as handle:
+            with pytest.raises(BlockingIOError):
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         busy = native(
             post(
                 lane,
@@ -614,7 +623,7 @@ def test_status_has_no_file_scan_or_mutation_and_survives_production_router_omis
     value = native(post(lane))
     client = hosted_client(lane, monkeypatch)
     monkeypatch.setattr(
-        service.PublicationProgressStore,
+        service.NativeRecapExecutionLock,
         "exclusive",
         lambda *_: pytest.fail("Status created lock files"),
     )
