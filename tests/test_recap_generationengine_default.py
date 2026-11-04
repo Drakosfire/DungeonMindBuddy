@@ -187,12 +187,16 @@ def test_encounter_profile_budget_finishes_eight_source_invocations(ordinary):
     assert ledger["pass_invocation_limit"] == ledger["pass_invocation_count"] == 8
 
 
-def test_ordinary_reasoning_passes_reserve_json_response_capacity(ordinary):
+def test_ordinary_reasoning_passes_use_explicit_edge_headroom_and_deadlines(ordinary):
     _, engine, _ = ordinary
     result = invoke(ordinary)
     assert len(engine.requests) == 7
-    assert all(request.max_output_tokens == 16384 for request in engine.requests)
-    assert engine.requests[-1].deadline_ms <= 120000
+    assert [request.max_output_tokens for request in engine.requests] == [16384] * 6 + [32768]
+    assert all(120000 < request.deadline_ms <= 240000 for request in engine.requests)
     ledger = component(result, "pass_telemetry")
     assert ledger["limits"]["max_output_tokens"] == 16384
-    assert all(call["max_output_tokens"] == 16384 for call in ledger["calls"])
+    assert ledger["limits"]["edge_max_output_tokens"] == 32768
+    assert ledger["limits"]["per_call_deadline_ms"] == 240000
+    assert ledger["limits"]["run_deadline_ms"] == 900000
+    assert [call["max_output_tokens"] for call in ledger["calls"]] == [16384] * 6 + [32768]
+    assert all(120000 < call["deadline_ms"] <= 240000 for call in ledger["calls"])
