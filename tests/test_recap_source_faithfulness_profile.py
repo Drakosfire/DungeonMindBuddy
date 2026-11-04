@@ -359,6 +359,7 @@ def test_node_description_coverage_changes_only_existing_recap_node_prompts() ->
     from src.graph_memory.extraction.extraction_profile import get_extraction_profile
     from src.graph_memory.extraction.recap_extraction_profile import (
         _NODE_DESCRIPTION_COVERAGE,
+        _THREAD_DESCRIPTION_CHRONOLOGY,
     )
     from src.graph_memory.extraction.worldbuilding_extraction_profile import (
         WORLDBUILDING_PROFILE,
@@ -387,11 +388,12 @@ def test_node_description_coverage_changes_only_existing_recap_node_prompts() ->
             assert prompt.count(_NODE_DESCRIPTION_COVERAGE) == int(changes), (profile.qualified_id, name)
             # All other content remains byte-identical to the independently
             # captured pre-change renderer output, including source/evidence rules.
-            unchanged = prompt.replace(_NODE_DESCRIPTION_COVERAGE + "\n\n", "") if changes else prompt
+            previous = prompt.replace("\n\n" + _THREAD_DESCRIPTION_CHRONOLOGY, "", 1)
+            unchanged = previous.replace(_NODE_DESCRIPTION_COVERAGE + "\n\n", "") if changes else previous
             assert hashlib.sha256(unchanged.encode()).hexdigest() == before[name], (profile.qualified_id, name)
 
 
-def test_description_chronology_changes_only_existing_recap_node_prompts() -> None:
+def test_description_chronology_changes_only_recap_thread_prompt() -> None:
     """Verify actual instruction delivery/scope, not model chronology compliance."""
     import hashlib
     import json
@@ -402,7 +404,7 @@ def test_description_chronology_changes_only_existing_recap_node_prompts() -> No
     )
     from src.graph_memory.extraction.extraction_profile import get_extraction_profile
     from src.graph_memory.extraction.recap_extraction_profile import (
-        _NODE_DESCRIPTION_CHRONOLOGY,
+        _THREAD_DESCRIPTION_CHRONOLOGY,
     )
     from src.graph_memory.extraction.worldbuilding_extraction_profile import (
         WORLDBUILDING_PROFILE,
@@ -410,8 +412,6 @@ def test_description_chronology_changes_only_existing_recap_node_prompts() -> No
 
     fixture = json.loads((Path(__file__).parent / "fixtures" /
                           "recap_prompt_scope_before_description_chronology.json").read_text())
-    eligible = {"actor_pass.md", "location_pass.md", "collective_pass.md",
-                "object_pass.md", "thread_pass.md"}
     for profile in (
         RECAP_EXTRACTION_PROFILE,
         get_extraction_profile("recap_category_encounter_job_preview", "2.0"),
@@ -427,10 +427,10 @@ def test_description_chronology_changes_only_existing_recap_node_prompts() -> No
         before = fixture["rendered_prompt_sha256"][profile.qualified_id]
         assert set(prompts) == set(before)
         for name, prompt in prompts.items():
-            changes = profile.admitted_source_domains == frozenset({"recap"}) and name in eligible
-            assert prompt.count(_NODE_DESCRIPTION_CHRONOLOGY) == int(changes), (profile.qualified_id, name)
+            changes = profile.admitted_source_domains == frozenset({"recap"}) and name == "thread_pass.md"
+            assert prompt.count(_THREAD_DESCRIPTION_CHRONOLOGY) == int(changes), (profile.qualified_id, name)
             assert all(row["text"] in prompt for row in fixture["source_rows"])
             # Removing exactly the new paragraph must recover the unmodified
             # base, including existing coverage, time, scope and evidence rules.
-            unchanged = prompt.replace(" " + _NODE_DESCRIPTION_CHRONOLOGY, "", 1) if changes else prompt
+            unchanged = prompt.replace("\n\n" + _THREAD_DESCRIPTION_CHRONOLOGY, "", 1) if changes else prompt
             assert hashlib.sha256(unchanged.encode()).hexdigest() == before[name], (profile.qualified_id, name)

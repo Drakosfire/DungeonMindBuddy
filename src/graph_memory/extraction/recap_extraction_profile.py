@@ -30,13 +30,15 @@ EVIDENCE_RULE = (
     "Copy exact words from the source packet."
 )
 
-_NODE_DESCRIPTION_CHRONOLOGY = (
-    "Retain source-supported chronological links needed to understand this "
-    "referent’s observations, including links to related actions or events "
-    "described elsewhere. State the supported before/after or overlapping "
-    "relationship in the description itself rather than relying on the order "
-    "of records. Preserve the source’s partial order, attribution and uncertainty; "
-    "do not impose a complete timeline or infer causation from sequence."
+_THREAD_DESCRIPTION_CHRONOLOGY = (
+    "Use these node descriptions to retain source-supported transitions between "
+    "narrated events, discoveries, discussions, plans and actions. When related "
+    "observations are extracted separately, retain enough of both in at least "
+    "one description to make their supported before/after or overlap explicit; "
+    "node order alone is insufficient. Preserve the source’s partial order, "
+    "attribution and uncertainty, including the distinction between making a "
+    "plan and its future event. Do not impose a total timeline or infer "
+    "causation from sequence."
 )
 
 _NODE_DESCRIPTION_COVERAGE = (
@@ -47,8 +49,7 @@ _NODE_DESCRIPTION_COVERAGE = (
     "that contribute knowledge about the referent. Retain these observations even "
     "when they also belong in a scene or beat summary. Keep the observations "
     "within their supported referent and scene, using the existing evidence and "
-    "source-faithfulness requirements. "
-    + _NODE_DESCRIPTION_CHRONOLOGY
+    "source-faithfulness requirements."
 )
 
 # These instructions belong to recap extraction only. Keep them out of the
@@ -211,7 +212,8 @@ _NODE_PASSES: tuple[ExtractionPassSpec, ...] = (
         default_node_type="mystery",
         instruction=(
             "Extract mysteries, clues, warnings, events, unresolved phenomena, and threads. "
-            "Also emit ignored_items and deferred_items when appropriate."
+            "Also emit ignored_items and deferred_items when appropriate.\n\n"
+            + _THREAD_DESCRIPTION_CHRONOLOGY
         ),
         progress_label="Extracting mysteries and threads",
         include_dispositions=True,
