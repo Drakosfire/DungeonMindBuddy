@@ -56,16 +56,38 @@ class SelectedFact(Closed):
         return self
 
 
+class DescriptionExtent(Closed):
+    start_byte: int = Field(ge=0, strict=True)
+    end_byte: int = Field(gt=0, strict=True)
+    expected_slice_sha256: Digest
+
+    @model_validator(mode="after")
+    def nonempty(self):
+        if self.end_byte <= self.start_byte:
+            raise ValueError("description extent must be nonempty")
+        return self
+
+
+class SelectedDescriptionExtent(Closed):
+    # A separate variant keeps old whole-field signed envelopes unchanged.
+    field: Literal["description"]
+    index: None = None
+    extent: DescriptionExtent
+    metadata: ReviewedMetadata
+
+
 class RecordSelection(Closed):
     kind: Literal["node", "edge", "beat"]
     record_id: Text
     action: Literal["create", "use_existing", "defer", "reject"]
     entity_id: Text | None = None
-    facts: list[SelectedFact] = Field(default_factory=list)
+    facts: list[SelectedFact | SelectedDescriptionExtent] = Field(default_factory=list)
     metadata: ReviewedMetadata | None = None
 
     @model_validator(mode="after")
     def explicit_operation(self):
+        if self.kind != "node" and any(isinstance(f, SelectedDescriptionExtent) for f in self.facts):
+            raise ValueError("description extents require a node selection")
         if (self.entity_id is not None) != (self.action == "use_existing"):
             raise ValueError("only use_existing requires an explicit durable entity ID")
         if self.action in {"defer", "reject"}:

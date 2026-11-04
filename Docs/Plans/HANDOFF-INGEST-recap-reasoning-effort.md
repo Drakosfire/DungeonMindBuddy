@@ -1,6 +1,6 @@
 # INGEST: use supported low reasoning for ordinary recap extraction
 
-Status: ACTIVE. ADV owns bounded design/implementation under the user ingestion-quality assignment. Independent review subagent reviews exact head; PRIME coordinates merge/delivery only.
+Status: SETTLED. PR #2068 merged and delivered as `1da4f8f60793103298ae2f2fadd1f30bd379c32f`, reviewed head `c168cec769af88fd2fc400de0ed158a3e2da1483`. Its implementation lease is closed. Independent subagent code review, 97 owning tests and an actual completed standard-v2 Session 7 run verified this allocation slice. Subsequent supported publication passed independent readback for 170 assertions; full Gold quality remains held. The consuming review-granularity lease is `HANDOFF-INGEST-description-extent-review.md`.
 
 Serial successor to merged/delivered PR2067, base697312fedf8836639767c7110a2cdccda5345b81, branch codex/recap-low-reasoning, checkout /home/drakosfire/Projects/.codex/249d/DungeonMindBuddy. No unmerged dependency. Relevant open1853/1855/1868 paths inspected and do not overlap; old1146–1149 extraction stack remains frozen/unadopted. No active provider process or source freeze.
 

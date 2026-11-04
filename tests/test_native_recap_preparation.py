@@ -3,6 +3,14 @@
 Core admission/extension/opening are real in memory; APP reads are stubbed. No DB/provider IO.
 """
 
+from datetime import timedelta
+from pathlib import Path
+from pydantic import ValidationError
+from apps.live_control_server.models.native_recap_preparation import (
+    NativeRecapReviewEnvelope, RecordSelection, SelectedDescriptionExtent, SelectedFact,
+)
+from apps.live_control_server.services.graph_object_authoring_prepare import decode_publication_intent
+
 import copy
 import json
 from hashlib import sha256
@@ -1015,3 +1023,239 @@ def test_existing_recap_envelope_wire_shape_has_no_new_world_fields(lane):
     assert set(packet["envelope"]["review"]) == set(lane.body)
     assert "workspace_document_id" not in packet["envelope"]["review"]
     assert confirm(lane, packet).status_code == 200
+
+
+# Exact retained-description selection through the existing publication boundary.
+PREFIX = "  A traveller met Pippa near the towér."
+DESCRIPTION = PREFIX + " The traveller then bought a castle."
+
+
+def extent_fact(value=DESCRIPTION, start=0, end=None):
+    end = len(PREFIX.encode()) if end is None else end
+    metadata = copy.deepcopy(META)
+    metadata.setdefault("evidence_ref_ids", ["ev:synthetic-selector-shape-test"])
+    return {
+        "field": "description",
+        "extent": {"start_byte": start, "end_byte": end,
+                   "expected_slice_sha256": sha256(value.encode()[start:end]).hexdigest()},
+        "metadata": metadata,
+    }
+
+
+def select_extent(x):
+    x.payload["nodes"][0]["description"] = DESCRIPTION
+    x.refresh()
+    x.body["selections"] = [{"kind": "node", "record_id": "new", "action": "create",
+                              "facts": [extent_fact()]}]
+    if hasattr(x, "evidence_id"):
+        x.body["selections"][0]["facts"][0]["metadata"]["evidence_ref_ids"] = [x.evidence_id]
+
+
+def test_old_and_new_selector_variants_are_unambiguous():
+    fact = extent_fact()
+    fact.pop("extent")
+    whole = RecordSelection.model_validate({"kind": "node", "record_id": "new",
+        "action": "create", "facts": [fact]})
+    assert isinstance(whole.facts[0], SelectedFact)
+    assert "extent" not in whole.model_dump()["facts"][0]
+    partial = RecordSelection.model_validate({"kind": "node", "record_id": "new",
+        "action": "create", "facts": [extent_fact()]})
+    assert isinstance(partial.facts[0], SelectedDescriptionExtent)
+
+
+@pytest.mark.parametrize("change", [
+    {"start_byte": True}, {"end_byte": "4"}, {"start_byte": -1},
+    {"start_byte": 5, "end_byte": 5}, {"end_byte": 0},
+    {"unexpected": 1}, {"expected_slice_sha256": "not-a-digest"},
+])
+def test_invalid_extent_shape_is_refused(change):
+    fact = extent_fact()
+    fact["extent"].update(change)
+    with pytest.raises(ValidationError):
+        RecordSelection.model_validate({"kind": "node", "record_id": "new",
+            "action": "create", "facts": [fact]})
+
+
+@pytest.mark.parametrize("field", ["label", "node_type", "summary", "title", "session_actions"])
+def test_extent_cannot_clip_other_fields(field):
+    fact = extent_fact()
+    fact["field"] = field
+    with pytest.raises(ValidationError):
+        RecordSelection.model_validate({"kind": "node", "record_id": "new",
+            "action": "create", "facts": [fact]})
+
+
+@pytest.mark.parametrize("kind", ["beat", "edge"])
+def test_extent_requires_node_and_cannot_clip_source_beats(kind):
+    with pytest.raises(ValidationError):
+        RecordSelection.model_validate({"kind": kind, "record_id": "new",
+            "action": "create", "facts": [extent_fact()]})
+
+
+@pytest.mark.parametrize("second", ["whole", "same", "disjoint"])
+def test_existing_duplicate_field_rule_limits_one_description_choice(second):
+    fact = extent_fact()
+    other = ({"field": "description", "metadata": extent_fact()["metadata"]} if second == "whole"
+             else extent_fact(start=len(PREFIX.encode()) + 1, end=len(DESCRIPTION.encode()))
+             if second == "disjoint" else copy.deepcopy(fact))
+    with pytest.raises(ValidationError, match="duplicate selected field"):
+        RecordSelection.model_validate({"kind": "node", "record_id": "new",
+            "action": "create", "facts": [fact, other]})
+
+
+@pytest.mark.parametrize("domain", ["recap", "worldbuilding"])
+def test_prechange_signed_envelopes_normalize_exactly(domain, monkeypatch):
+    fixture = json.loads((Path(__file__).parent / "fixtures" /
+        "native_review_envelopes_before_description_extents.json").read_text())["cases"][domain]
+    monkeypatch.setenv("DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY",
+                       "synthetic-description-extent-legacy-test-key")
+    normalized = NativeRecapReviewEnvelope.model_validate(fixture["envelope"]).model_dump(mode="json")
+    assert normalized == fixture["envelope"]
+    assert decode_publication_intent(fixture["token"], allow_expired_recovery=True) == normalized
+
+
+@pytest.mark.parametrize("fixture", ["lane", "world_lane"])
+def test_extent_commits_exact_bytes_and_owner_trace_without_accepting_whole_field(request, fixture):
+    x = request.getfixturevalue(fixture)
+    select_extent(x)
+    fact = x.body["selections"][0]["facts"][0]
+    fact["metadata"]["domain_metadata"] = [{"schema_term": service.WORLD_CONTEXT,
+        "payload": {"source_qualification": "Meeting only; no castle purchase is established."}}]
+    original = copy.deepcopy(x.payload)
+    before = len(x.repo.head_events(SPACE_ID))
+    response = x.post()
+    assert response.status_code == 200, response.text
+    packet = response.json()
+    assert len(x.repo.head_events(SPACE_ID)) == before
+    record = packet["records"][0]
+    assert record["selected_fields"] == []
+    assert "description" in record["unselected_fields"]
+    assert record["held_description_extents"] == [{"start_byte": len(PREFIX.encode()),
+                                                   "end_byte": len(DESCRIPTION.encode())}]
+    trace = record["selected_description_extent"]
+    assert trace == {
+        "schema_version": "dmb_candidate_description_extent_v1", "run_id": x.run.run_id,
+        "run_revision": 5, "candidate_sha256": x.body["candidate_sha256"],
+        "record_id": "new", "field": "description", "start_byte": 0,
+        "end_byte": len(PREFIX.encode()), "slice_sha256": sha256(PREFIX.encode()).hexdigest(),
+        "whole_field_selected": False,
+    }
+    prepared = service.transport.decode_prepared(packet["prepared"])
+    assert len(prepared.prepared_operations) == 1
+    prepared_fact = prepared.prepared_operations[0].facts[0]
+    assert prepared_fact.value.value == PREFIX
+    confirm_packet = {k: packet[k] for k in ["envelope", "prepared", "token"]}
+    committed = confirm(x, confirm_packet)
+    assert committed.status_code == 200, committed.text
+    _, access = service.native.access_context(x.repo, SPACE_ID)
+    added_id = committed.json()["result"]["assertion_results"][0]["durable_assertion_id"]
+    actual = service.native.assertion_contract(access.parsed.assertions_by_id[added_id]).model_dump(mode="json")
+    assert actual["predicate"] == "dnd5e:summary"
+    assert actual["value"] == {"kind": "literal", "value": PREFIX}
+    assert actual["metadata"]["domain_metadata"] == [{"schema": service.WORLD_CONTEXT, "payload": {
+        "source_qualification": "Meeting only; no castle purchase is established.",
+        service.DESCRIPTION_SELECTION: trace}}]
+    assert x.payload == original
+    assert confirm(x, confirm_packet).json()["result"] == committed.json()["result"]
+
+
+@pytest.mark.parametrize("fault,code", [
+    ("bounds", "candidate_description_extent_bounds"),
+    ("unicode", "candidate_description_extent_invalid_utf8"),
+    ("digest", "candidate_description_extent_digest_changed"),
+    ("blank", "candidate_description_extent_blank"),
+    ("whole", "candidate_description_extent_must_be_partial"),
+])
+def test_extent_resolution_refuses_without_writes_or_fallback(lane, fault, code):
+    select_extent(lane)
+    extent = lane.body["selections"][0]["facts"][0]["extent"]
+    if fault == "bounds":
+        extent["end_byte"] = len(DESCRIPTION.encode()) + 1
+    elif fault == "unicode":
+        extent["end_byte"] = DESCRIPTION.encode().index("é".encode()) + 1
+    elif fault == "digest":
+        extent["expected_slice_sha256"] = "f" * 64
+    elif fault == "blank":
+        extent.update(end_byte=2, expected_slice_sha256=sha256(b"  ").hexdigest())
+    else:
+        extent.update(end_byte=len(DESCRIPTION.encode()),
+                      expected_slice_sha256=sha256(DESCRIPTION.encode()).hexdigest())
+    before = copy.deepcopy({k: v for k, v in lane.repo.__dict__.items() if k != "_lock"})
+    response = lane.post()
+    assert response.status_code == 409 and code in response.text
+    assert {k: v for k, v in lane.repo.__dict__.items() if k != "_lock"} == before
+
+
+@pytest.mark.parametrize("extent", [True, False])
+def test_caller_cannot_spoof_owner_provenance(lane, extent):
+    select_extent(lane)
+    fact = lane.body["selections"][0]["facts"][0]
+    if not extent:
+        fact.pop("extent")
+    fact["metadata"]["domain_metadata"] = [{"schema_term": service.WORLD_CONTEXT,
+        "payload": {service.DESCRIPTION_SELECTION: {"run_id": "forged"}}}]
+    before = len(lane.repo.head_events(SPACE_ID))
+    response = lane.post()
+    assert response.status_code == 409 and "candidate_description_provenance_reserved" in response.text
+    assert len(lane.repo.head_events(SPACE_ID)) == before
+
+
+def test_extent_committed_recovery_survives_new_head_expiry_and_missing_APP(lane, monkeypatch):
+    select_extent(lane)
+    packet = lane.post().json()
+    packet = {k: packet[k] for k in ["envelope", "prepared", "token"]}
+    first = confirm(lane, packet)
+    assert first.status_code == 200, first.text
+    from tests.test_native_recap_preparation import choice as old_choice, confirmation
+    lane.body["expected_parent_revision_id"] = first.json()["result"]["child_revision_id"]
+    lane.body["selections"] = [old_choice("new", fields=("label",))]
+    later = confirmation(lane)
+    assert confirm(lane, later).status_code == 200
+    class Later(datetime):
+        @classmethod
+        def now(cls, tz):
+            return datetime.now(tz) + timedelta(hours=2)
+    monkeypatch.setattr(service, "datetime", Later)
+    monkeypatch.setattr(service, "load_reviewable_extraction_data", lambda *_: pytest.fail("APP reload"))
+    monkeypatch.setattr(service.native, "access_context", lambda *_: pytest.fail("source reload"))
+    replay = confirm(lane, packet)
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["recovered"] and replay.json()["result"] == first.json()["result"]
+
+
+@pytest.fixture
+def description_native_core_dsn(monkeypatch):
+    from tests.test_native_recap_source_admission import native_core_dsn
+    yield from native_core_dsn.__wrapped__(monkeypatch)
+
+
+def test_description_extent_postgres_prepare_confirm_and_fresh_readback(
+    description_native_core_dsn, monkeypatch, tmp_path,
+):
+    """Real disposable Core persistence; APP run reads use the synthetic lane seam."""
+    import sys
+    from dungeonmind.infrastructure.postgres import (
+        PostgresDatabase, PostgresNativeSourceEvidenceRepository,
+    )
+    repository = PostgresNativeSourceEvidenceRepository(
+        PostgresDatabase(description_native_core_dsn))
+    monkeypatch.setattr(sys.modules[__name__],
+                        "InMemoryNativeSourceEvidenceRepository", lambda: repository)
+    x = lane.__wrapped__(monkeypatch, tmp_path)
+    select_extent(x)
+    response = x.post()
+    assert response.status_code == 200, response.text
+    packet = response.json()
+    confirm_packet = {key: packet[key] for key in ("envelope", "prepared", "token")}
+    committed = confirm(x, confirm_packet)
+    assert committed.status_code == 200, committed.text
+    fresh = PostgresNativeSourceEvidenceRepository(PostgresDatabase(description_native_core_dsn))
+    _, access = service.native.access_context(fresh, SPACE_ID)
+    identifier = committed.json()["result"]["assertion_results"][0]["durable_assertion_id"]
+    actual = service.native.assertion_contract(
+        access.parsed.assertions_by_id[identifier]).model_dump(mode="json")
+    assert actual["value"] == {"kind": "literal", "value": PREFIX}
+    context = next(item["payload"] for item in actual["metadata"]["domain_metadata"]
+                   if item["schema"] == service.WORLD_CONTEXT)
+    assert context[service.DESCRIPTION_SELECTION] == packet["records"][0]["selected_description_extent"]
+    assert confirm(x, confirm_packet).json()["result"] == committed.json()["result"]
