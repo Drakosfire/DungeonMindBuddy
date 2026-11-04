@@ -1,6 +1,6 @@
 # INGEST: require source-supported world objects
 
-Status: ACTIVE. ADV owns this bounded design/implementation under the human ingestion-through-publication assignment. PRIME independently reviews and owns merge/delivery.
+Status: CLOSED. PR2066 merged/delivered cccebb84df0befef7e352695d75989a8951cc7a5. Actual run11b791b0 failed object semantics despite verified instruction transport. Successor HANDOFF-INGEST-recap-object-dispositions.md addresses the contract. Review now uses independent subagents under user direction.
 
 ## Lane, dependency and outcome
 
