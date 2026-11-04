@@ -1,0 +1,71 @@
+{
+  "schema": "dmb_compact_evidence_offline_comparison_v1",
+  "source_sha256": "e5c7d719b4f19ba0871f1de5fcbddba3cbc975e5671f077de8fda39519997086",
+  "baseline_ref": "04d9d6793e197f50069b5b77ea89b3db3d26c9af",
+  "baseline_prompt_hash_matches_retained_request": {
+    "beat_pass": true,
+    "edge_pass": true
+  },
+  "canonical_candidate_equal": true,
+  "quote_integrity_equal": true,
+  "prompt_sizes": {
+    "beat_pass": {
+      "baseline": {
+        "characters": 71146,
+        "sha256": "82f13e7acb38da441280a1115687e16ec080e9b5b544f7bc9da64844ecc12912",
+        "o200k_estimated_tokens": 21768
+      },
+      "compact": {
+        "characters": 20860,
+        "sha256": "28752139846a9e40c3f8648815d0e3a83a084f645f9a506a1ffbe94721768b47",
+        "o200k_estimated_tokens": 5600
+      }
+    },
+    "edge_pass": {
+      "baseline": {
+        "characters": 106824,
+        "sha256": "8d0f567061643eb2ffc1674a9e2ee51ac6d94bcaa883407136d8e43a6a835c91",
+        "o200k_estimated_tokens": 29727
+      },
+      "compact": {
+        "characters": 56538,
+        "sha256": "b894445488112ab6170a3d19bb280755132f1a45b921c62bed645cce559417f7",
+        "o200k_estimated_tokens": 13559
+      }
+    }
+  },
+  "model_calls": 0,
+  "compact_replay_uses_short_handles": true,
+  "limits": "Retained outputs replayed, not generated again. Token estimates use o200k, not billed DeepSeek usage. Fresh model quality remains unproven.",
+  "baseline_run_id": "7937c77a-e14c-419e-ba82-fc235ad87209",
+  "fresh_model_comparison": "BLOCKED_PENDING_EXPLICIT_SESSION30_OPENROUTER_DEEPSEEK_APPROVAL",
+  "independent_quote_check": {
+    "references": 200,
+    "quotes": 280,
+    "invalid_quotes": 0,
+    "canonical_graph_equals_original_retained_candidate": true
+  },
+  "database_retention": {
+    "status": "PASS_DATABASE_DICTIONARY_AND_FULL_SOURCE_ROUNDTRIP",
+    "database": "dmb_compact_s30_20261104",
+    "port": 55447,
+    "run_id": "2c3a9ded-6082-4783-ac00-51ac37737d93",
+    "run_status": "prepared",
+    "assessment_mode": "offline_dictionary_retention_test_no_provider",
+    "source_sha256": "e5c7d719b4f19ba0871f1de5fcbddba3cbc975e5671f077de8fda39519997086",
+    "paragraph_count": 7,
+    "dictionary_payload_sha256": "bfd8f95123df5587e0e05614f572cfe15daf5c9dad7f4d90993b75e982f871e1",
+    "full_source_retained_exact": true,
+    "provider_calls": 0,
+    "publication": false
+  },
+  "semantic_limits": "Replay keeps all existing semantic strengths and defects. Does not establish newly generated model quality or billed usage.",
+  "validation": {
+    "focused_passed": 135,
+    "expanded_passed": 271,
+    "expanded_failed": 13,
+    "same_failure_cases_reproduced_on_unchanged_main": true,
+    "failures": "Vocabulary party_ctx/source identity fixtures and Worldbuilding uninitialized BoundedFixtureClient",
+    "new_code_lint": "PASS"
+  }
+}

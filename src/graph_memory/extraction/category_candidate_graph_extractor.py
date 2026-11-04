@@ -1815,7 +1815,8 @@ def _run_category_pipeline_impl(
     compact_context = (CompactEvidenceContext(source_rows, source_sha256=hashlib.sha256(
         options.source_text.encode("utf-8")).hexdigest())
         if active_profile.qualified_id == "recap_category_v2@2.0" and options.source_text is not None else None)
-    if compact_context is not None and hasattr(original_client, "retain_compact_evidence_context"):
+    if (compact_context is not None and hasattr(original_client, "retain_compact_evidence_context")
+            and getattr(original_client, "execution_binding", None) is not None):
         original_client.retain_compact_evidence_context(compact_context.record())
     compact_passes = {"beat_pass", "edge_pass"}
 
