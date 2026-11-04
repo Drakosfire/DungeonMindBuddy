@@ -389,3 +389,48 @@ def test_node_description_coverage_changes_only_existing_recap_node_prompts() ->
             # captured pre-change renderer output, including source/evidence rules.
             unchanged = prompt.replace(_NODE_DESCRIPTION_COVERAGE + "\n\n", "") if changes else prompt
             assert hashlib.sha256(unchanged.encode()).hexdigest() == before[name], (profile.qualified_id, name)
+
+
+def test_description_chronology_changes_only_existing_recap_node_prompts() -> None:
+    """Verify actual instruction delivery/scope, not model chronology compliance."""
+    import hashlib
+    import json
+    from pathlib import Path
+
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        render_encounter_job_pass_prompt,
+    )
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    from src.graph_memory.extraction.recap_extraction_profile import (
+        _NODE_DESCRIPTION_CHRONOLOGY,
+    )
+    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+        WORLDBUILDING_PROFILE,
+    )
+
+    fixture = json.loads((Path(__file__).parent / "fixtures" /
+                          "recap_prompt_scope_before_description_chronology.json").read_text())
+    eligible = {"actor_pass.md", "location_pass.md", "collective_pass.md",
+                "object_pass.md", "thread_pass.md"}
+    for profile in (
+        RECAP_EXTRACTION_PROFILE,
+        get_extraction_profile("recap_category_encounter_job_preview", "2.0"),
+        WORLDBUILDING_PROFILE,
+        WORLDBUILDING_PLUMBING_PROFILE,
+    ):
+        prompts = render_category_pass_prompts(fixture["source_rows"], profile=profile)
+        if profile.encounter_job_pass is not None:
+            prompts["encounter_job_pass.md"] = render_encounter_job_pass_prompt(
+                fixture["source_rows"], nodes=[], beats=[],
+                instruction=profile.encounter_job_pass.instruction,
+            )
+        before = fixture["rendered_prompt_sha256"][profile.qualified_id]
+        assert set(prompts) == set(before)
+        for name, prompt in prompts.items():
+            changes = profile.admitted_source_domains == frozenset({"recap"}) and name in eligible
+            assert prompt.count(_NODE_DESCRIPTION_CHRONOLOGY) == int(changes), (profile.qualified_id, name)
+            assert all(row["text"] in prompt for row in fixture["source_rows"])
+            # Removing exactly the new paragraph must recover the unmodified
+            # base, including existing coverage, time, scope and evidence rules.
+            unchanged = prompt.replace(" " + _NODE_DESCRIPTION_CHRONOLOGY, "", 1) if changes else prompt
+            assert hashlib.sha256(unchanged.encode()).hexdigest() == before[name], (profile.qualified_id, name)

@@ -1,6 +1,14 @@
 # INGEST: retain source-local knowledge in node descriptions
 
-Status: ACTIVE. ADV owns design and implementation under the user's ingestion-quality goal. Independent subagent review replaces PRIME review; PRIME sequences merge/delivery only.
+Status: MERGED / DELIVERED. PR2071 delivered `6f450673cc4bd13efc6bac925e20bec2be609315`; its tree equals reviewed integrated head `ed5062ec47f6fe101eb89f16cb480f81a89a5b61`. This implementation/runtime lease is released. Independent subagent review replaces PRIME review; PRIME sequences merge/delivery only.
+
+## Verified settlement
+
+All49 owning tests and independent exact-head review passed (receipt SHA256 `30d8351cab869e3a1d9123acb26d14d039f3d674c7e9760965e32f724c794739`). Actual S7 run `aeadc0dc-0626-48c6-87f8-cb4811c60e0c` remains attributed to its immutable `e1a4f2f41da08928e0c24ae2a3c48ab92e6522b1` capture pin. All147 substantive Gold obligations independently survived governed publication through76new selected assertions; completion SHA256 `4bdb80309a51e3d49d02ca91c9aa6168dfbea46fd675448992b6f8fe867b7a3c`. Producer precision holds and unresolved card presentation remain preserved. No source-owned beat credit or claim of raw-producer perfection.
+
+Subsequent S1 capture `c8b836c7-ff01-478e-b226-e3f91179a775` at integrated `ed5062` restored all8 prior factual omissions. Its53new published assertions independently cover all100 unchanged Gold obligations, receipt `recap-review:5b5dc023-ab8a-4955-bc86-0e45bb1615e7`; fresh conservation/source completion SHA256 `6206178bcaac9af90627379b19a5bf26b70d6de6955ca4fa4cc35745aebe43bf`, actual Gold audit SHA256 `b11afd9cdce08857110ed00ab460fabe09816dd21c61cf10a5077dc9ee075ca1`. Existing source admission/evidence were reused. Primary unchanged; earlier failures, Gold and resources retained.
+
+Actual S9/S10 runs retain all factual components but expose cross-description chronology gaps. The bounded serial successor is `HANDOFF-INGEST-description-chronology.md`; this predecessor is complete only at its stated scope. Remaining Sessions1–10 quality/publication, Worldbuilding and benchmarking are unfinished. The activation and comparison contract below is historical, not permission to repeat consumed operators.
 
 ## Lane and bounded outcome
 

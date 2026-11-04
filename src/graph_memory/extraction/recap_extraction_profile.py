@@ -30,6 +30,15 @@ EVIDENCE_RULE = (
     "Copy exact words from the source packet."
 )
 
+_NODE_DESCRIPTION_CHRONOLOGY = (
+    "Retain source-supported chronological links needed to understand this "
+    "referent’s observations, including links to related actions or events "
+    "described elsewhere. State the supported before/after or overlapping "
+    "relationship in the description itself rather than relying on the order "
+    "of records. Preserve the source’s partial order, attribution and uncertainty; "
+    "do not impose a complete timeline or infer causation from sequence."
+)
+
 _NODE_DESCRIPTION_COVERAGE = (
     "For each extracted node, use its description to retain the source-supported "
     "observations about that exact referent: its actions and experiences, states "
@@ -38,7 +47,8 @@ _NODE_DESCRIPTION_COVERAGE = (
     "that contribute knowledge about the referent. Retain these observations even "
     "when they also belong in a scene or beat summary. Keep the observations "
     "within their supported referent and scene, using the existing evidence and "
-    "source-faithfulness requirements."
+    "source-faithfulness requirements. "
+    + _NODE_DESCRIPTION_CHRONOLOGY
 )
 
 # These instructions belong to recap extraction only. Keep them out of the
