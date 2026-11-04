@@ -123,6 +123,7 @@ DEFAULT_SEMANTIC_STATE = {
 _NODE_PASSES: tuple[ExtractionPassSpec, ...] = (
     ExtractionPassSpec(
         pass_id="actor_pass",
+        allowed_node_types=("character", "creature"),
         default_node_type="character",
         instruction=(
             "Extract source-mentioned characters and creatures as source-local candidates. "
@@ -133,6 +134,7 @@ _NODE_PASSES: tuple[ExtractionPassSpec, ...] = (
     ),
     ExtractionPassSpec(
         pass_id="location_pass",
+        allowed_node_types=("location",),
         default_node_type="location",
         instruction=(
             "Extract regions, towns, cities, roads, routes, sublocations, and named travel zones only."
@@ -141,6 +143,7 @@ _NODE_PASSES: tuple[ExtractionPassSpec, ...] = (
     ),
     ExtractionPassSpec(
         pass_id="collective_pass",
+        allowed_node_types=("faction", "organization", "group"),
         default_node_type="group",
         instruction=(
             "Extract factions, councils, guards, mercenary groups, organizations, and parties (as collectives) only. "
@@ -150,6 +153,7 @@ _NODE_PASSES: tuple[ExtractionPassSpec, ...] = (
     ),
     ExtractionPassSpec(
         pass_id="object_pass",
+        allowed_node_types=("item",),
         default_node_type="item",
         instruction=(
             "Extract notable items, devices, artifacts, and objects only — not table-mechanics noise."
@@ -158,6 +162,10 @@ _NODE_PASSES: tuple[ExtractionPassSpec, ...] = (
     ),
     ExtractionPassSpec(
         pass_id="thread_pass",
+        allowed_node_types=(
+            "event", "clue", "thread", "mystery", "warning", "promise",
+            "debt", "rumor", "unknown_important",
+        ),
         default_node_type="mystery",
         instruction=(
             "Extract mysteries, clues, warnings, events, unresolved phenomena, and threads. "
