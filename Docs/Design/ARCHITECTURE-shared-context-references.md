@@ -182,9 +182,28 @@ Implementation is not authorized by this proposal. If adopted, re-anchor each ow
 | 3. Add source and passage targets | Attach retained recaps and exact passages through existing native source readers, with discovery filters and continuation. | Source version/span binding, unadmitted/foreign sources, changed content, real recap answer/citation and coverage checks. |
 | 4. Enforce selected-source restriction | Expose the restricted use policy only after every evidence path enforces it. Include mode remains independently useful. | Out-of-scope discovery/open/continuation/writer attempts fail closed; unsupported questions do not fall back; primary-work/control context remains correctly separated. |
 
-Keep tests, necessary reader/schema changes and durable contracts with the slice they establish. Do not ship unused source/passage branches or an unenforced restriction toggle in an earlier slice. Do not require a single large PR for the entire design.
+Keep tests, necessary reader/schema changes, durable contracts and the associated adoption/demolition together with the slice they establish. Do not ship unused source/passage branches or an unenforced restriction toggle in an earlier slice. Do not require a single large PR for the entire design.
 
 ## Demolition and acceptance boundary
+
+**Adoption or demolition is a completion requirement, not follow-up cleanup.** Before each slice, inventory the reference-related components, contracts, execution branches, caches and persistence readers it touches. Assign each an owner and a disposition; close that disposition in the slice that replaces its behavior.
+
+- **Adopt:** make the useful implementation part of the single current reference path, with a named exercised caller and verification at its owning boundary. Renaming or wrapping an old path while retaining competing authority does not count.
+- **Demolish:** remove the superseded production path, its exclusive exports/routes/adapters, configuration and dependencies, and tests or documentation that require retired behavior. Check remaining callers before deleting shared code.
+- **Historical read only:** retain a decoder only for identified immutable history or retained data that cannot yet be safely converted. It cannot accept new submissions, dispatch work, authorize reads or become a fallback executor. Name its exact data need; speculative backward compatibility is not sufficient.
+
+The initial inventory must cover at least:
+
+| Existing area | Required disposition |
+| --- | --- |
+| `SurfaceGraphReferenceInput` and `GraphReferenceSearch` | Adopt useful interaction/accessibility behavior into the shared picker, or replace and delete the superseded components. Retire the old projection-based discovery and hidden result ceiling. |
+| Native Graph/source discovery and read services | Adopt the existing owners and their checks. Consolidate product discovery without another catalogue, permission system or provenance store. |
+| Build-only composer/request handling | Adopt useful draft, selection and dispatch logic into the shared path; delete the Build-only reference restriction and duplicated per-surface branches as the shared contract delivers. |
+| `AuthoredGraphReference` persistence, work-plan context and retry records | Adopt identity, retention and replay guarantees. Convert verified writable selections through the declared cutover; restrict necessary old event readers to history. |
+| Mixed native and legacy reference acquisition | Adopt the native acquisition behavior; remove obsolete reference execution/fallback branches and their exclusive machinery after caller verification. |
+| Related tests, fixtures and documentation | Retain tests for adopted behavior, replace mocked-only integration claims with owning-boundary coverage, and delete fixtures/tests/docs whose sole purpose is the retired path. |
+
+A shared dependency still serving another live capability may remain only with that caller, owner and purpose identified; reference traffic must no longer use its obsolete path. If its removal crosses ownership, sequence a bounded owner slice rather than silently dropping the retirement from the objective. No unresolved reference-path disposition counts as complete.
 
 Remove the reference picker's obsolete union-projection dependency and Build-specific live executor restriction as their replacements deliver. Use one generic selection contract and one existing execution acquisition path. Historical selections and audit events remain inspectable; retained drafts are never discarded merely because their shape is older.
 
@@ -192,7 +211,7 @@ Convert an old selection only when its exact native World, identity and revision
 
 Focused identity/recovery tests remain valuable. They must be complemented by owning-boundary tests and ordinary journeys using the actual native catalogue/source services. Do not mock the picker projection into agreement and call the integration proven. Cover long source/result lists, duplicate names, source-only material, stale/foreign bindings, permission changes and failures during retry. Preserve source/Graph separation: a successful source answer does not establish extraction or publication quality.
 
-Completion requires operator dogfood across Build, Plan and Play, correct cited object/recap/passage answers, enforced restriction when offered, and retained-state/recovery evidence. Tests and a new picker alone do not establish acceptance.
+Completion requires operator dogfood across Build, Plan and Play, correct cited object/recap/passage answers, enforced restriction when offered, retained-state/recovery evidence, and closure of the adoption/demolition inventory. Verify the cumulative production caller/route graph, exclusive dependencies and the actual ordinary journeys: there must be one current reference path and no retired live fallback. Tests, deletion counts and a new picker alone do not establish acceptance.
 
 ## Current implementation anchors
 
