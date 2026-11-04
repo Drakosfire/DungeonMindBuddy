@@ -638,7 +638,7 @@ def test_provider_model_pair_is_caller_selected(provider, model):
 
 @pytest.mark.parametrize(
     "edge_override,expected_edge_limit",
-    [(None, 8192), (16384, 16384)],
+    [(None, 8192), (16384, 16384), (32768, 32768)],
 )
 def test_edge_output_allowance_applies_only_to_actual_edge_spec(
     edge_override, expected_edge_limit
@@ -721,15 +721,21 @@ def test_edge_output_allowance_applies_only_to_actual_edge_spec(
     assert "authorization ceiling" in ledger["attempt_counts"]["semantics"]
 
 
-@pytest.mark.parametrize("invalid", [0, 16385, True, 1.5, "16384"])
+@pytest.mark.parametrize("invalid", [0, 32769, True, 1.5, "32768"])
 def test_edge_output_allowance_rejects_invalid_values(invalid):
     with pytest.raises(ValueError, match="edge_max_output_tokens"):
         RecapExecutionLimits(edge_max_output_tokens=invalid)
 
 
-def test_general_output_allowance_remains_capped_at_8192():
+def test_general_output_allowance_supports_reasoning_headroom_without_changing_default():
+    assert RecapExecutionLimits().max_output_tokens == 8192
+    assert RecapExecutionLimits(max_output_tokens=16384).max_output_tokens == 16384
+
+
+@pytest.mark.parametrize("invalid", [0, 16385, True, 1.5, "16384"])
+def test_general_output_allowance_rejects_invalid_values(invalid):
     with pytest.raises(ValueError, match="max_output_tokens"):
-        RecapExecutionLimits(max_output_tokens=8193)
+        RecapExecutionLimits(max_output_tokens=invalid)
 
 
 def test_owning_request_caps_and_unknown_receipt():
@@ -818,11 +824,13 @@ def test_remaining_deadline_shrinks_and_zero_usage_is_known():
 
 
 @pytest.mark.parametrize(
-    "run_deadline_ms,elapsed_ms,expected_ms",
-    [(480_000, 0, 120_000), (480_000, 360_000, 120_000), (1000, 250, 750)],
+    "run_deadline_ms,per_call_deadline_ms,elapsed_ms,expected_ms",
+    [(480_000, 120_000, 0, 120_000), (480_000, 120_000, 360_000, 120_000),
+     (1000, 120_000, 250, 750), (900_000, 240_000, 0, 240_000),
+     (900_000, 240_000, 800_000, 100_000)],
 )
 def test_selected_logical_deadline_reaches_request_and_owned_worker(
-    monkeypatch, run_deadline_ms, elapsed_ms, expected_ms
+    monkeypatch, run_deadline_ms, per_call_deadline_ms, elapsed_ms, expected_ms
 ):
     from src.graph_memory.extraction import bounded_recap_execution as module
 
@@ -831,7 +839,7 @@ def test_selected_logical_deadline_reaches_request_and_owned_worker(
     )
     clock = [0.0]
     client = BoundedRecapPassClient(
-        RecapExecutionLimits(run_deadline_ms=run_deadline_ms),
+        RecapExecutionLimits(run_deadline_ms=run_deadline_ms, per_call_deadline_ms=per_call_deadline_ms),
         engine_factory=lambda: engine,
         clock=lambda: clock[0],
     )
@@ -1215,3 +1223,21 @@ def test_completed_receipt_must_match_selected_execution_target(field, value):
         invoke(client)
     assert client.ledger()['stopped']
     assert engine.closed == 1
+
+
+def test_reasoning_deadline_headroom_preserves_generic_defaults():
+    defaults = RecapExecutionLimits()
+    assert defaults.per_call_deadline_ms == 120000
+    assert defaults.run_deadline_ms == 480000
+    expanded = RecapExecutionLimits(per_call_deadline_ms=240000, run_deadline_ms=900000)
+    assert expanded.per_call_deadline_ms == 240000
+    assert expanded.run_deadline_ms == 900000
+
+
+@pytest.mark.parametrize("field,value", [
+    ("per_call_deadline_ms", 240001), ("run_deadline_ms", 900001),
+    ("per_call_deadline_ms", True), ("run_deadline_ms", 0),
+])
+def test_reasoning_deadline_headroom_rejects_invalid_limits(field, value):
+    with pytest.raises(ValueError, match=field):
+        RecapExecutionLimits(**{field: value})

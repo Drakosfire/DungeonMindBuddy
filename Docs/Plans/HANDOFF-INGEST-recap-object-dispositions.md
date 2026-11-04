@@ -1,6 +1,6 @@
 # INGEST: retain object dispositions
 
-Status: ACTIVE. ADV owns this authorized ingestion implementation; independent subagent review replaces PRIME review. PRIME coordinates delivery.
+Status: CLOSED. PR2067 merged/delivered697312fedf8836639767c7110a2cdccda5345b81, tree equals reviewed68b482a1d. Actual isolated d8c73ac5 retained7attempts0retries/nativeexact, all5priorruns preserved. Disposition contract works, but semantic precision remains held; no full Gold/publication acceptance. Successor HANDOFF-INGEST-recap-reasoning-effort.md changes only ordinary effort selection. Independent subagents own review; PRIME coordinates delivery.
 
 Serial slice on codex/recap-object-dispositions in /home/drakosfire/Projects/.codex/249d/DungeonMindBuddy, base cccebb84df0befef7e352695d75989a8951cc7a5. Open PRs inspected; frozen1148/1149 leases unadopted. No unmerged dependency or competing profile lease identified.
 

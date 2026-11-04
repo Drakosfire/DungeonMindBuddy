@@ -178,7 +178,12 @@ def run_recap_production_extraction(
             provider="openrouter",
             model=DEEPSEEK_MODEL,
             max_calls=pass_budget,
-            edge_max_output_tokens=16384,
+            # Reasoning shares the total output allowance with the JSON result.
+            max_output_tokens=16384,
+            edge_max_output_tokens=32768,
+            per_call_deadline_ms=240_000,
+            run_deadline_ms=900_000,
+            reasoning_effort="low",
         )
     bounded = None
     if execution_limits is not None:

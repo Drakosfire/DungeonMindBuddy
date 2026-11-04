@@ -235,18 +235,18 @@ class RecapExecutionLimits:
         if type(self.max_calls) is not int or self.max_calls < 1:
             raise ValueError("max_calls must be a positive integer")
         for name, ceiling in (
-            ("per_call_deadline_ms", 120_000),
-            ("run_deadline_ms", 480_000),
-            ("max_output_tokens", 8192),
+            ("per_call_deadline_ms", 240_000),
+            ("run_deadline_ms", 900_000),
+            ("max_output_tokens", 16_384),
         ):
             value = getattr(self, name)
             if type(value) is not int or not 1 <= value <= ceiling:
                 raise ValueError(f"{name} must be 1..{ceiling}")
         if self.edge_max_output_tokens is not None and (
             type(self.edge_max_output_tokens) is not int
-            or not 1 <= self.edge_max_output_tokens <= 16_384
+            or not 1 <= self.edge_max_output_tokens <= 32_768
         ):
-            raise ValueError("edge_max_output_tokens must be None or an int in 1..16384")
+            raise ValueError("edge_max_output_tokens must be None or an int in 1..32768")
 
 
 def _default_engine_for(provider: str):
