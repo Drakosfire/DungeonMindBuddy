@@ -165,13 +165,19 @@ _NODE_PASSES: tuple[ExtractionPassSpec, ...] = (
             "metaphor, or rhetorical question alone does not establish a world object. "
             "When that world-object status is unsupported or ambiguous, omit the "
             "reference from observation_nodes rather than inventing an item to retain "
-            "the phrase. Keep explicitly narrated world objects, including those "
+            "the phrase. Retain clearly non-world references in ignored_items when "
+            "worth recording; use deferred_items when world-object status needs "
+            "clarification, explaining the uncertainty and needed evidence. Do not "
+            "also assert that same unresolved referent as an item. These dispositions "
+            "record source observations, not world-object existence. "
+            "Keep explicitly narrated world objects, including those "
             "mentioned parenthetically. A physical carrier of information or magic "
             "remains eligible; do not discard the carrier because its contents are "
             "knowledge or a spell. Preserve stated quantities, ownership, and "
             "condition; keep proposed exchanges distinct from completed transfers."
         ),
         progress_label="Extracting notable objects",
+        include_dispositions=True,
     ),
     ExtractionPassSpec(
         pass_id="thread_pass",
