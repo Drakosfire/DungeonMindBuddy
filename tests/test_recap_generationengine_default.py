@@ -93,11 +93,13 @@ def test_default_ge_route_and_private_evidence(ordinary, monkeypatch):
         assert request.provider_route.order == ("DeepSeek",)
         assert request.provider_route.allow_fallbacks is False
         assert request.max_transport_retries == 0
+        assert request.reasoning_effort == "low"
     ledger = component(result, "pass_telemetry")
     assert ledger["run_id"] == result.run.run_id
     assert ledger["source_sha256"] == artifact.content_sha256
     assert ledger["attempt_counts"]["provider_attempts"]["total"] == 7
     assert ledger["acknowledged_response_count"] == 7
+    assert all(call["reasoning_effort"] == "low" for call in ledger["calls"])
     bundle = component(result, "raw_model_response")
     events = bundle["execution_evidence"]["records"]
     wire = [row["envelope"] for row in events if "ge_attempt" in row["envelope"]]
@@ -117,6 +119,7 @@ def test_direct_process_without_model_override_uses_default_ge(ordinary):
     assert result["status"] == "candidate_validation_ready"
     assert len(engine.requests) == 7
     assert all(request.model == service.DEEPSEEK_MODEL for request in engine.requests)
+    assert all(request.reasoning_effort == "low" for request in engine.requests)
 
 
 @pytest.mark.parametrize("model", ["gpt-5.4-mini", "gpt-6-luna", "unknown"])
