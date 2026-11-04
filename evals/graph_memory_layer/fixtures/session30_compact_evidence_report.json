@@ -38,7 +38,7 @@
   "compact_replay_uses_short_handles": true,
   "limits": "Retained outputs replayed, not generated again. Token estimates use o200k, not billed DeepSeek usage. Fresh model quality remains unproven.",
   "baseline_run_id": "7937c77a-e14c-419e-ba82-fc235ad87209",
-  "fresh_model_comparison": "BLOCKED_PENDING_EXPLICIT_SESSION30_OPENROUTER_DEEPSEEK_APPROVAL",
+  "fresh_model_comparison": "COMPLETED_REVIEWABLE_TRANSPORT_PASS_FULL_SEMANTIC_ATTRIBUTION_HOLD",
   "independent_quote_check": {
     "references": 200,
     "quotes": 280,
@@ -59,7 +59,7 @@
     "provider_calls": 0,
     "publication": false
   },
-  "semantic_limits": "Replay keeps all existing semantic strengths and defects. Does not establish newly generated model quality or billed usage.",
+  "semantic_limits": "Independent review confirms quote/reference transport. Full end-to-end attribution is held for upstream model-generation defects; identical earlier prompt hashes prove earlier prompt inputs did not change, but one stochastic sample does not establish general semantic non-regression.",
   "validation": {
     "focused_passed": 135,
     "expanded_passed": 271,
@@ -67,5 +67,179 @@
     "same_failure_cases_reproduced_on_unchanged_main": true,
     "failures": "Vocabulary party_ctx/source identity fixtures and Worldbuilding uninitialized BoundedFixtureClient",
     "new_code_lint": "PASS"
+  },
+  "actual_run_id": "5f9e5145-29cf-4c70-b35e-bd020fb9643d",
+  "actual_execution_code_sha": "a417f569f55286702fc4e1fd6479809d31f2ceac",
+  "actual_usage": {
+    "baseline": {
+      "input_tokens": 70243,
+      "output_tokens": 99043,
+      "reasoning_tokens": 72646,
+      "provider_latency_ms": 432768,
+      "provider_attempts": 7,
+      "transport_retries": 0,
+      "conformance_retries": 0,
+      "passes": [
+        {
+          "pass_name": "actor_pass",
+          "wall_clock_ms": 65879,
+          "input_tokens": 3089,
+          "output_tokens": 13752,
+          "reasoning_tokens": 10836
+        },
+        {
+          "pass_name": "location_pass",
+          "wall_clock_ms": 44155,
+          "input_tokens": 3012,
+          "output_tokens": 9474,
+          "reasoning_tokens": 6971
+        },
+        {
+          "pass_name": "collective_pass",
+          "wall_clock_ms": 53618,
+          "input_tokens": 3103,
+          "output_tokens": 12078,
+          "reasoning_tokens": 9849
+        },
+        {
+          "pass_name": "object_pass",
+          "wall_clock_ms": 65882,
+          "input_tokens": 3626,
+          "output_tokens": 13625,
+          "reasoning_tokens": 10714
+        },
+        {
+          "pass_name": "thread_pass",
+          "wall_clock_ms": 60189,
+          "input_tokens": 3462,
+          "output_tokens": 15215,
+          "reasoning_tokens": 10435
+        },
+        {
+          "pass_name": "beat_pass",
+          "wall_clock_ms": 58417,
+          "input_tokens": 22766,
+          "output_tokens": 13860,
+          "reasoning_tokens": 8656
+        },
+        {
+          "pass_name": "edge_pass",
+          "wall_clock_ms": 87616,
+          "input_tokens": 31185,
+          "output_tokens": 21039,
+          "reasoning_tokens": 15185
+        }
+      ]
+    },
+    "compact": {
+      "input_tokens": 34896,
+      "output_tokens": 98939,
+      "reasoning_tokens": 74078,
+      "provider_latency_ms": 423707,
+      "provider_attempts": 7,
+      "transport_retries": 0,
+      "conformance_retries": 0,
+      "passes": [
+        {
+          "pass_name": "actor_pass",
+          "wall_clock_ms": 62848,
+          "input_tokens": 3089,
+          "output_tokens": 14075,
+          "reasoning_tokens": 10810
+        },
+        {
+          "pass_name": "location_pass",
+          "wall_clock_ms": 51783,
+          "input_tokens": 3012,
+          "output_tokens": 13443,
+          "reasoning_tokens": 9742
+        },
+        {
+          "pass_name": "collective_pass",
+          "wall_clock_ms": 43276,
+          "input_tokens": 3103,
+          "output_tokens": 10124,
+          "reasoning_tokens": 8236
+        },
+        {
+          "pass_name": "object_pass",
+          "wall_clock_ms": 56407,
+          "input_tokens": 3626,
+          "output_tokens": 12280,
+          "reasoning_tokens": 8935
+        },
+        {
+          "pass_name": "thread_pass",
+          "wall_clock_ms": 52980,
+          "input_tokens": 3462,
+          "output_tokens": 11788,
+          "reasoning_tokens": 7550
+        },
+        {
+          "pass_name": "beat_pass",
+          "wall_clock_ms": 57927,
+          "input_tokens": 5128,
+          "output_tokens": 14511,
+          "reasoning_tokens": 10025
+        },
+        {
+          "pass_name": "edge_pass",
+          "wall_clock_ms": 101568,
+          "input_tokens": 13476,
+          "output_tokens": 22718,
+          "reasoning_tokens": 18780
+        }
+      ]
+    },
+    "run_lifecycle_seconds": 427.096945
+  },
+  "actual_quote_transport": {
+    "raw_beats": {
+      "refs": 14,
+      "quotes": 75,
+      "invalid": 0
+    },
+    "raw_relationships": {
+      "refs": 36,
+      "quotes": 41,
+      "invalid": 0
+    },
+    "final_candidate": {
+      "refs": 193,
+      "quotes": 300,
+      "invalid": 0
+    },
+    "actual_later_prompt_hashes_reconstructed_exact": true,
+    "actual_provider_short_handle_outputs_normalize_to_exact_final_candidate": true
+  },
+  "actual_database_retention": {
+    "full_source_and_seven_paragraph_dictionary": true,
+    "all_component_digests_verified": true,
+    "raw_provider_responses_preserved": true,
+    "original_baseline_run_unchanged": true
+  },
+  "first_five_prompt_hashes_identical_to_baseline": true,
+  "fresh_semantic_hold": [
+    "Unchanged actor pass asserts spelling variants identify same people, contrary to conservative source-identity policy.",
+    "Unchanged location pass strengthens a stated search decision into completed movement.",
+    "Unchanged location pass strengthens what sounds like a scream into a certain scream."
+  ],
+  "actual_semantic_assessment": {
+    "salient_source_facts_retained": 22,
+    "salient_source_facts_assessed": 22,
+    "qualification_checks_assessed": 10,
+    "material_new_unsupported_attribution_in_later_relationships": 0,
+    "upstream_precision_fields_held": 4,
+    "whole_candidate_attribution": "HOLD",
+    "gold_acceptance": false,
+    "nodes": 45,
+    "relationships": 35,
+    "beat_records": 14,
+    "distinct_beat_paragraph_summaries": 6,
+    "persistent_issues": [
+      "Duplicated actor/group representations for collectives",
+      "Repeated paragraph summaries instead of distinct semantic beats"
+    ],
+    "independent_review_artifact": "session30-compact-actual-independent-quality-review.json"
   }
 }
