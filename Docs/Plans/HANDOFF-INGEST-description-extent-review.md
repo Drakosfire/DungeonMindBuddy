@@ -1,6 +1,6 @@
 # INGEST: review an exact candidate-description extent
 
-Status: ACTIVE. ADV owns design and implementation under the user's ingestion-quality goal. Independent subagent review is required; PRIME coordinates merge and delivery only.
+Status: SETTLED. PR2070 merged/delivered as `704b46ebb874e5793d1643a3bda55e6f4fa284b9`, reviewed head `4abb8bc79575f47a598df3fea2f0009a854f1ff0`; one formal exact-head independent code review approved with no findings. All seven CI checks passed. PRIME verified delivery; its proof is `/home/drakosfire/.local/state/dungeonmindbuddy/runtime-evidence/q01-published-graph-authority/description-extent-delivery-2070-proof.json`. Implementation lease closed. The generic node-description coverage successor records its own bounded lease.
 
 ## Lane and outcome
 
@@ -41,3 +41,5 @@ Capture synthetic legacy normalization/signatures before editing the model. Veri
 After reviewed delivery or an exact pinned isolated handoff, reuse the unchanged actual Session 7 run and the already published Inn identity. Select only the retained true prefix, with explicit source-relative metadata. Confirm through the ordinary owner, preserving all prior graph contents and the original whole-field failure. No new model call. Independently verify the added literal, source opening, native provenance and Gold improvement. This is not full Gold or whole-goal completion.
 
 Validation: 165 owning boundary tests passed; the additional disposable pgvector prepare/confirm/fresh-readback test passed separately (166 total). Ruff and diff whitespace checks passed. Preceding fixture/network/migration setup failures are retained in durable chat evidence. Temporary test container removed; no primary or retained evaluator effects.
+
+Actual scoped acceptance: unchanged retained DeepSeek run `a9439d7c-5a07-4429-aa64-159a677ed0ca` supplied one exact70-byte candidate-description prefix. Independently reviewed ordinary confirmation `recap-review:325583b7-3954-4e5d-b7ca-a3719adf496c` committed child `rev:28696d012c5aa24c9b06f385fb16c89b`, epoch12. Independent fresh readback proved187entities unchanged,747priorassertions unchanged,1new assertion, APPtables/candidate/run unchanged and exact paragraph34 source support/native provenance. Completionreviewv2 SHA `0c6b6d9f7cb6d89f5d1d14e7473c0e9cdfa982ac315a1363e2855208014689db`; Goldcoveragev3 SHA `394de088c9eee24959d97dcc140a3544361b7978dd72cac58c7ef4d7de4a37c2` is86/89complete,2absent,1partial. Raw-model-beat-only gaps and full Sessions1–10 goal remain unfinished; no complete-ingestion/benchmark claim. All earlier failures and whole-field hold remain retained.
