@@ -237,7 +237,7 @@ class RecapExecutionLimits:
         for name, ceiling in (
             ("per_call_deadline_ms", 120_000),
             ("run_deadline_ms", 480_000),
-            ("max_output_tokens", 8192),
+            ("max_output_tokens", 16_384),
         ):
             value = getattr(self, name)
             if type(value) is not int or not 1 <= value <= ceiling:

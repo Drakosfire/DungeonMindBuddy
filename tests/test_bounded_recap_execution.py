@@ -727,9 +727,15 @@ def test_edge_output_allowance_rejects_invalid_values(invalid):
         RecapExecutionLimits(edge_max_output_tokens=invalid)
 
 
-def test_general_output_allowance_remains_capped_at_8192():
+def test_general_output_allowance_supports_reasoning_headroom_without_changing_default():
+    assert RecapExecutionLimits().max_output_tokens == 8192
+    assert RecapExecutionLimits(max_output_tokens=16384).max_output_tokens == 16384
+
+
+@pytest.mark.parametrize("invalid", [0, 16385, True, 1.5, "16384"])
+def test_general_output_allowance_rejects_invalid_values(invalid):
     with pytest.raises(ValueError, match="max_output_tokens"):
-        RecapExecutionLimits(max_output_tokens=8193)
+        RecapExecutionLimits(max_output_tokens=invalid)
 
 
 def test_owning_request_caps_and_unknown_receipt():
