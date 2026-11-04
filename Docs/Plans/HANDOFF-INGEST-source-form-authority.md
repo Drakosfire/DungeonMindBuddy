@@ -1,6 +1,6 @@
 # INGEST: preserve source-form authority in Recap extraction
 
-Status: ACTIVE implementation. ADVERSARY owns this bounded quality slice under the operator's explicit ingestion-through-publication assignment. PRIME independently reviews, merges and delivers. Scope was sent to PRIME chat 01a0ef89-ca57-7b82-9c9c-215b02d0fc3b before implementation.
+Status: CLOSED; merged PR2064 as c3d7a0063980878bb1765713e357f838a03f2309 and delivered in 9855ef2ea9c5507247e6fb35c96c4744774b8b88. Write lease released. Actual S7 comparison 810d retained source-form failures; prompt delivery was not semantic acceptance. Successor: HANDOFF-INGEST-recap-pass-node-kinds.md. ADVERSARY owns this bounded quality slice under the operator's explicit ingestion-through-publication assignment. PRIME independently reviews, merges and delivers. Scope was sent to PRIME chat 01a0ef89-ca57-7b82-9c9c-215b02d0fc3b before implementation.
 
 ## Outcome and lane
 
