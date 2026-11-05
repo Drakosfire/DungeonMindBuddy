@@ -1,6 +1,6 @@
 # Conversation library UI pass
 
-Status: ACTIVE — PRIME owns this serial UI-only slice. Base1409297acb31ecfda52c47e8467582feebbe597f; branch codex/conversation-library-ui, existing checkout/dependencies. Operator requested Mobbin-informed usability and delight and chose one focused redesign. Shared ConversationLibrary changes apply to its Build/Plan/Play callers.
+Status: SETTLED — PR2110 merged8c90f30ed7323e558204b67f89348360a53f847a; UI5202 delivered and independently reviewed with desktop/narrow checks and retained-state conservation. Successor HANDOFF-CONVERSATION-toolbar-cleanup.md owns the next bounded slice. PRIME owned this serial UI-only slice. Base1409297acb31ecfda52c47e8467582feebbe597f; branch codex/conversation-library-ui, existing checkout/dependencies. Operator requested Mobbin-informed usability and delight and chose one focused redesign. Shared ConversationLibrary changes apply to its Build/Plan/Play callers.
 
 Job: find a retained chat, read it and deliberately continue. Preserve World/pointer command authority, uncertain retry identities, original drafts/references, preview/full-detail distinction, pagination, rename CAS, exports and recoverable Trash/Restore. No backend, data, routes, schema, dependency or global-theme changes.
 

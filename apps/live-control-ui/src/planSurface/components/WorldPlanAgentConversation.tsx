@@ -2871,6 +2871,7 @@ export function WorldPlanAgentConversation({
   const [pendingCommandLoadError, setPendingCommandLoadError] = useState<string | null>(null);
   const [newConversationSending, setNewConversationSending] = useState(false);
   const [newConversationError, setNewConversationError] = useState<string | null>(null);
+  const [referenceTriggerHost, setReferenceTriggerHost] = useState<HTMLSpanElement | null>(null);
   const [conversationNotice, setConversationNotice] = useState<string | null>(null);
   const confirmedAskNoticeRef = useRef<{
     stored: StoredPendingAsk;
@@ -6369,12 +6370,45 @@ export function WorldPlanAgentConversation({
       historyGenerationRef.current++;historySnapshotRef.current=null;setHistory(null);
       setContinuationOfActionId(null);setConversationActions([]);setSourcePassage(null);
       setHistoryRefreshNonce(v=>v+1);setLibraryOpen(false);
-      setConversationNotice('Refreshing the active conversation. Your unsent message and references were kept.');
+      setConversationNotice(null);
     }catch(reason){if(latestRef.current.mounted&&latestRef.current.verifiedWorldId===owner){setHistoryRefreshNonce(v=>v+1);setConversationNotice('Checking which conversation is current. Your unsent message was kept.');}throw reason;}
     finally{conversationSwitchRef.current=false;if(latestRef.current.mounted)setConversationSwitching(false);}
   }
+  const activityBusy = sending || composing || buildCompose.busy || playCompose.busy;
+  const pendingActivityId = activityBusy ? sharedConversation?.pendingTurn?.turnId
+    ?? pendingPlayTurn?.request.turn_id
+    ?? (submittedMessage?.scopeKey === scopeKey ? submittedMessage.id : null) : null;
+  // Client request UUIDs are not APP turn UUIDs. History admits the durable
+  // identity through the persisted idempotency key, never through row recency.
+  const pendingActivityMatches = pendingActivityId && history?.world_id === verifiedWorldId
+    ? history.turns.filter(turn => {
+      return submittedMessage?.scopeKey === scopeKey && submittedMessage.id === pendingActivityId
+        && (submittedMessage.conversationId === null
+          ? history.active_conversation_id === history.conversation_id
+          : submittedMessage.conversationId === history.conversation_id)
+        && (turn.turn_id === pendingActivityId || Boolean(submittedMessage.idempotencyKey)
+          && "idempotency_key" in turn && turn.idempotency_key === submittedMessage.idempotencyKey)
+        && turn.user_text === submittedMessage.message
+        && turn.provenance.world_id === verifiedWorldId
+        && turn.provenance.surface_id === (isBuild ? "build" : isReadOnly ? "play" : "plan")
+        && turn.provenance.primary_work.object_id === (isBuild ? buildMode?.savedSource?.documentId
+          : isReadOnly ? playMode?.admittedRun?.runId : documentId);
+    }) : [];
+  const activityTurn = activityBusy
+    ? pendingActivityMatches.length === 1 ? pendingActivityMatches[0] : undefined
+    : [...(history?.turns ?? [])].sort((a,b)=>b.sequence-a.sequence)[0];
+  const activityTurnId = activityTurn?.turn_id;
+  const activityLifecycle = activityTurn?.lifecycle_status ?? 'running';
+  const activityInComposer = activityBusy || activityLifecycle !== 'completed'
+    || Boolean(presentationHosts && !presentationHosts.header);
+  const replyActivity = activityTurnId && verifiedWorldId && history?.conversation_id ? <BuddyTurnInspection
+    key={`activity:${verifiedWorldId}:${history.conversation_id}:${activityTurnId}`}
+    worldId={verifiedWorldId} conversationId={history.conversation_id} turnId={activityTurnId}
+    lifecycle={activityLifecycle}>
+    <BuddyActivity worldId={verifiedWorldId} conversationId={history.conversation_id} turnId={activityTurnId} lifecycle={activityLifecycle} />
+  </BuddyTurnInspection> : activityBusy ? <div className="world-plan-agent-conversation__working" role="status">Getting things ready…</div> : null;
   const newConversationButton = (
-    <><button type="button" aria-label="Conversation history" onClick={()=>setLibraryOpen(true)}>Conversations</button><button
+    <><button type="button" className="conversation-dock__icon-button" aria-label="Conversation history" title="Conversations" onClick={()=>setLibraryOpen(true)}><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-9l-5 3v-3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg></button><span ref={setReferenceTriggerHost}/><button
       className={presentationHosts || isReadOnly ? "conversation-dock__icon-button" : undefined}
       type="button"
       onClick={startNewConversation}
@@ -6466,6 +6500,7 @@ export function WorldPlanAgentConversation({
       </section>
   );
   const managementDetails = (<>
+      {!activityInComposer && replyActivity}
       {verifiedWorldId&&<><button type="button" onClick={()=>setLibraryOpen(true)}>Conversations…</button>
         {history?.world_id===verifiedWorldId&&history.conversation_id&&<ConversationExport key={`${verifiedWorldId}:${history.conversation_id}`} worldId={verifiedWorldId} conversationId={history.conversation_id}/>}
         {libraryOpen&&<ConversationLibrary key={verifiedWorldId} worldId={verifiedWorldId} onClose={()=>setLibraryOpen(false)} pointer={history?{revision:history.pointer_revision,activeId:history.active_conversation_id}:undefined} onContinue={continueConversation} onLifecycle={(command,operation)=>continueConversation(command,operation)} continueDisabledReason={newConversationDisabledReason}/>}</>}
@@ -6822,31 +6857,6 @@ export function WorldPlanAgentConversation({
       {!presentationHosts && !isReadOnly ? managementDetails : null}
     </div>
   );
-  const activityBusy = sending || composing || buildCompose.busy || playCompose.busy;
-  const pendingActivityId = activityBusy ? sharedConversation?.pendingTurn?.turnId
-    ?? pendingPlayTurn?.request.turn_id
-    ?? (submittedMessage?.scopeKey === scopeKey ? submittedMessage.id : null) : null;
-  // Client request UUIDs are not APP turn UUIDs. History admits the durable
-  // identity through the persisted idempotency key, never through row recency.
-  const pendingActivityMatches = pendingActivityId && history?.world_id === verifiedWorldId
-    ? history.turns.filter(turn => {
-      return submittedMessage?.scopeKey === scopeKey && submittedMessage.id === pendingActivityId
-        && (submittedMessage.conversationId === null
-          ? history.active_conversation_id === history.conversation_id
-          : submittedMessage.conversationId === history.conversation_id)
-        && (turn.turn_id === pendingActivityId || Boolean(submittedMessage.idempotencyKey)
-          && "idempotency_key" in turn && turn.idempotency_key === submittedMessage.idempotencyKey)
-        && turn.user_text === submittedMessage.message
-        && turn.provenance.world_id === verifiedWorldId
-        && turn.provenance.surface_id === (isBuild ? "build" : isReadOnly ? "play" : "plan")
-        && turn.provenance.primary_work.object_id === (isBuild ? buildMode?.savedSource?.documentId
-          : isReadOnly ? playMode?.admittedRun?.runId : documentId);
-    }) : [];
-  const activityTurn = activityBusy
-    ? pendingActivityMatches.length === 1 ? pendingActivityMatches[0] : undefined
-    : [...(history?.turns ?? [])].sort((a,b)=>b.sequence-a.sequence)[0];
-  const activityTurnId = activityTurn?.turn_id;
-  const activityLifecycle = activityTurn?.lifecycle_status ?? 'running';
   const composer = (
     <section className="world-plan-agent-conversation__composer" aria-label="Conversation composer">
       {requestedSurfaceTurn?.status==='failed'&&<div role="status">
@@ -6856,14 +6866,7 @@ export function WorldPlanAgentConversation({
       {sharedConversation?.worldId === worldId && sharedConversation.composerDraftWarning
         ? <p role="status">{sharedConversation.composerDraftWarning}</p> : null}
 
-      {activityTurnId && verifiedWorldId && history?.conversation_id ? <BuddyTurnInspection
-        key={`activity:${verifiedWorldId}:${history.conversation_id}:${activityTurnId}`}
-        worldId={verifiedWorldId} conversationId={history.conversation_id} turnId={activityTurnId}
-        lifecycle={activityLifecycle}>
-        <BuddyActivity worldId={verifiedWorldId} conversationId={history.conversation_id} turnId={activityTurnId} lifecycle={activityLifecycle} />
-      </BuddyTurnInspection> : activityBusy ? <div className="world-plan-agent-conversation__working" role="status">
-        Getting things ready…
-      </div> : null}
+      {activityInComposer && replyActivity}
 
       {!sending && !composing && !buildCompose.busy && !playCompose.busy
         && Boolean(sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) ? (
@@ -6946,7 +6949,7 @@ export function WorldPlanAgentConversation({
           aria-describedby={`world-plan-agent-composer-hint${buildSourceMissing ? ` ${BUILD_SOURCE_REQUIRED_DESCRIPTION_ID}` : ""}`}
         />
         {referenceWorld&&referencePage&&<>
-          <SurfaceGraphReferenceInput worldId={referenceWorld} label={isBuild?"Message Graph context":"Plan request references"} value={composerReferences} disabled={(isReadOnly?!currentReadOnlyContext:!scopeMatches)||!composerReferencesReady} onChange={changeComposerReferences}/>
+          <SurfaceGraphReferenceInput triggerHost={referenceTriggerHost} worldId={referenceWorld} label={isBuild?"Message Graph context":"Plan request references"} value={composerReferences} disabled={(isReadOnly?!currentReadOnlyContext:!scopeMatches)||!composerReferencesReady} onChange={changeComposerReferences}/>
           {composerReferenceState.error&&<p role="alert">{composerReferenceState.error}</p>}
           {!isBuild&&composerReferences.length>0&&!useWorldGraphForAsk&&<p role="note">Enable World context to include these references, or remove them before sending.</p>}
           {!isBuild&&composerReferences.length>0&&composerIntentCorrection&&<button type="button" onClick={()=>setComposerIntentCorrection(null)}>Use Automatic</button>}
