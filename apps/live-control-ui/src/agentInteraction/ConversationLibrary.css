@@ -47,7 +47,7 @@
 .conversation-library__heading { flex: 1 1 14rem; min-width: 0; }
 .conversation-library__heading h3 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; margin: 0; font-size: 1rem; font-weight: 600; line-height: 1.5; }
 .conversation-library__heading p { margin: var(--ui-space-2) 0 0; color: var(--ui-text-quiet); font-size: .75rem; }
-.conversation-library__actions { display: flex; align-items: center; gap: var(--ui-space-2); }
+.conversation-library__actions { margin-inline-start: auto; display: flex; align-items: center; gap: var(--ui-space-2); }
 .conversation-library .conversation-library__primary { background: var(--ui-accent-action); border-color: var(--ui-accent-action); color: var(--ui-text-on-paper); font-weight: 600; min-height: 2.75rem; }
 .conversation-library .conversation-library__primary:hover:not(:disabled) { background: color-mix(in srgb, var(--ui-accent-action) 88%, var(--ui-text-primary)); }
 .conversation-library__action-menu { position: relative; }
