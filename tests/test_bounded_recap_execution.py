@@ -1386,3 +1386,47 @@ def test_advertised_node_ids_reach_real_ge_conformance_and_retain_invalid_attemp
     assert [json.loads(r['response']['text']) for r in attempts] == [payload('paragraph:45'), payload('paragraph:45-45')]
     wire = wire_requests[0].json_schema
     assert wire['properties']['observation_nodes']['items']['properties']['evidence_refs']['items']['properties']['source_span_ref_id']['enum'] == ['paragraph:45-45']
+
+
+@pytest.mark.parametrize("cleanup_confirmed", [True, False])
+def test_explicit_worker_no_dispatch_and_cleanup_unknown_are_distinct(monkeypatch, cleanup_confirmed):
+    from src.graph_memory.extraction import bounded_recap_execution as module
+    from src.graph_memory.extraction._recap_inference_worker import _WorkerOutcome
+    monkeypatch.setattr(module, "_execute_in_owned_process", lambda *a, **kw:
+                        _WorkerOutcome({"kind": "not_started"}, False, cleanup_confirmed))
+    client = BoundedRecapPassClient(RecapExecutionLimits())
+    with pytest.raises(CategoryGraphExtractionError):
+        invoke(client)
+    entry = client.calls[0]
+    assert entry["external_outcome"] == "not_started"
+    assert entry["observation"] is None
+    assert client.ledger()["stopped"]
+    if not cleanup_confirmed:
+        assert entry["worker_cleanup"] == "unconfirmed"
+
+
+@pytest.mark.parametrize("cleanup_confirmed, late, message", [
+    (True, True, "after execution deadline"),
+    (False, False, "cleanup unconfirmed"),
+])
+def test_authentic_result_is_retained_but_unsafe_candidate_is_rejected(
+    monkeypatch, cleanup_confirmed, late, message,
+):
+    from src.graph_memory.extraction import bounded_recap_execution as module
+    from src.graph_memory.extraction._recap_inference_worker import _WorkerOutcome
+    result = TextResult(text='{"observation_nodes": []}', observation=InferenceObservation(
+        provider="openai", requested_model="gpt-6-luna", resolved_model="gpt-6-luna",
+        response_model="gpt-6-luna", provider_attempt_count=1, latency_ms=12,
+        retry_count=0, state=ObservationState.COMPLETED,
+    ))
+    monkeypatch.setattr(module, "_execute_in_owned_process", lambda *a, **kw:
+                        _WorkerOutcome({"kind": "result", "result": result.model_dump(mode="json")},
+                                       False, cleanup_confirmed, late))
+    client = BoundedRecapPassClient(RecapExecutionLimits())
+    with pytest.raises(CategoryGraphExtractionError, match=message):
+        invoke(client)
+    entry = client.calls[0]
+    assert entry["external_outcome"] == "completed"
+    assert entry["observation"]["provider_attempt_count"] == 1
+    assert entry["consumer_failure"] == ("DeadlineExceeded" if late else "CleanupUnconfirmed")
+    assert client.ledger()["stopped"]

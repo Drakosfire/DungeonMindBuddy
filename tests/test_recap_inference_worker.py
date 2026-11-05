@@ -24,8 +24,10 @@ class FakeGEFactory:
     pid: object
     mode: str = "normal"
     raw: str = '{"observation_nodes": []}'
+    startup_delay: float = 0.0
 
     def __call__(self):
+        time.sleep(self.startup_delay)
         if self.mode == "real_ge_timeout":
             return TimedGEEngine(self)
         return self
@@ -112,10 +114,9 @@ class TimedGEEngine:
         self.engine = GenerationClient(text_providers={"openrouter": BlockingProvider(counters)})
 
     async def generate_structured(self, request, *, on_attempt_completed=None):
-        # Short GE timer leaves time to observe the real failure receipt before
-        # the outer process timer. No SDK/client/network is constructed.
+        # Exercise the actual inherited remaining budget, without a test override.
         return await self.engine.generate_structured(
-            request.model_copy(update={"deadline_ms": 50}),
+            request,
             on_attempt_completed=on_attempt_completed,
         )
 
@@ -319,6 +320,8 @@ def test_real_ge_attempt_hook_persists_invalid_then_valid_before_single_correcti
     ]
     assert evidence[0]["ge_attempt"]["operation_id"] == evidence[1]["ge_attempt"]["operation_id"]
     assert evidence[0]["ge_attempt"]["event_id"] != evidence[1]["ge_attempt"]["event_id"]
+    assert 0 < evidence[0]["request"]["facts"]["deadline_ms"] < entry["deadline_ms"]
+    assert evidence[0]["request"]["facts"]["deadline_ms"] == evidence[1]["request"]["facts"]["deadline_ms"]
     assert evidence[0]["request"]["system_prompt_sha256"]
     assert evidence[0]["context_sha256"]["normalized_source"] == "a" * 64
     assert evidence[0]["context_sha256"]["source_content"] == client.execution_binding["source_sha256"]
@@ -382,17 +385,17 @@ def test_real_ge_sink_failure_stops_without_correction_or_replay(tmp_path):
 
 
 @pytest.mark.usefixtures("application_state_dsn")
-def test_first_attempt_artifact_survives_worker_termination_during_correction(tmp_path):
+def test_first_attempt_artifact_survives_real_ge_timeout_during_correction(tmp_path):
     client, factory, _ = build_attempt_client(
         tmp_path, "invalid_then_wait", run_deadline_ms=5000
     )
 
-    with pytest.raises(CategoryGraphExtractionError, match="outcome unknown"):
+    with pytest.raises(CategoryGraphExtractionError, match="PROVIDER_TIMEOUT"):
         invoke(client)
 
     entry = client.calls[0]
-    assert entry["external_outcome"] == "unknown"
-    assert entry["worker_cleanup"] == "terminated"
+    assert entry["external_outcome"] == "known_failure"
+    assert entry["worker_cleanup"] in {"reaped", "terminated"}
     assert factory.calls.value == 2
     assert len(entry["attempt_evidence"]) == 1
     artifact = private_capture(client, entry["attempt_evidence"][0]["sha256"])
@@ -471,12 +474,13 @@ def test_remaining_run_budget_bounds_child_cleanup_too():
 
 def test_real_ge_deadline_receipt_survives_blocked_executor_shutdown():
     client, factory = build_client("real_ge_timeout")
+    factory.startup_delay = 0.3
     started = time.monotonic()
     with pytest.raises(CategoryGraphExtractionError, match="PROVIDER_TIMEOUT"):
         invoke(client)
     assert time.monotonic() - started < 2.25
     obs = client.calls[0]["observation"]
-    assert 40 <= obs["latency_ms"] < 1000
+    assert 100 <= obs["latency_ms"] < 1700
     assert obs["provider_attempt_count"] == 1 and obs["retry_count"] == 0
     assert obs["input_tokens"] is None and obs["output_tokens"] is None
     assert obs["cost_usd"] is None and obs.get("provider_request_id") is None
@@ -538,3 +542,102 @@ def test_acknowledged_capture_survives_blocked_worker_cleanup():
     assert len(client.calls[0]["attempt_evidence"]) == 1
     assert private_capture(client, client.calls[0]["attempt_evidence"][0]["sha256"])["response"]["text"] == factory.raw
     assert_reaped(factory)
+
+
+def test_expired_parent_budget_never_starts_worker():
+    from src.graph_memory.extraction._recap_inference_worker import (
+        _execute_in_owned_process, _WorkerStartFailure,
+    )
+    client, factory = build_client("normal")
+    with pytest.raises(_WorkerStartFailure):
+        _execute_in_owned_process(factory, {"deadline_ms": 1000}, deadline=time.monotonic() - 1)
+    assert factory.calls.value == factory.closed.value == factory.pid.value == 0
+
+
+def test_factory_consumes_budget_without_ge_dispatch():
+    # Factory returns in the settlement window, leaving no GE milliseconds.
+    from src.graph_memory.extraction._recap_inference_worker import _worker_entry
+    from tempfile import TemporaryDirectory
+    from pathlib import Path
+    _, factory = build_client("normal")
+    factory.startup_delay = 0.08
+    with TemporaryDirectory() as directory:
+        path = Path(directory) / "receipt.json"
+        _worker_entry(factory, {"deadline_ms": 1000}, str(path),
+                      deadline=time.monotonic() + 0.1, phase_reserve=0.02)
+        assert json.loads(path.read_text())["kind"] == "not_started"
+    assert factory.calls.value == 0
+    assert factory.closed.value == 1
+
+
+def test_atomic_receipt_observed_after_hard_deadline_is_not_on_time(monkeypatch):
+    from types import SimpleNamespace
+    from pathlib import Path
+    from src.graph_memory.extraction import _recap_inference_worker as worker
+    clock = [100.0]
+
+    class SettledProcess:
+        pid = 123
+        def __init__(self, **kwargs):
+            self.path = Path(kwargs["args"][2])
+        def start(self):
+            # Genuine completed GE response, but settlement/observation was late.
+            self.path.write_text(json.dumps({"kind": "result", "completed_at": 100.1}))
+            clock[0] = 101.01
+        def join(self, timeout):
+            assert timeout >= 0
+        def is_alive(self):
+            return False
+        def close(self):
+            pass
+
+    monkeypatch.setattr(worker, "time", SimpleNamespace(monotonic=lambda: clock[0]))
+    monkeypatch.setattr(worker.multiprocessing, "get_context", lambda _: SimpleNamespace(Process=SettledProcess))
+    outcome = worker._execute_in_owned_process(None, {"deadline_ms": 1000}, deadline=101.0)
+    assert outcome.receipt["completed_at"] == 100.1
+    assert outcome.deadline_exceeded
+    assert outcome.cleanup_confirmed
+
+
+def test_unconfirmed_cleanup_retains_handle_receipt_and_blocks_new_dispatch(monkeypatch):
+    from types import SimpleNamespace
+    from pathlib import Path
+    from src.graph_memory.extraction import _recap_inference_worker as worker
+    processes = []
+    clock = [100.0]
+
+    class UnreapedProcess:
+        pid = 456
+        alive = True
+        def __init__(self, **kwargs):
+            self.path = Path(kwargs["args"][2])
+            processes.append(self)
+        def start(self):
+            self.path.write_text(json.dumps({"kind": "provider_failure", "failure_code": "PROVIDER_TIMEOUT"}))
+        def join(self, timeout):
+            assert timeout >= 0
+            clock[0] += timeout
+        def is_alive(self):
+            return self.alive
+        def kill(self):
+            pass  # Synthetic OS failure to confirm SIGKILL/reap.
+        def close(self):
+            assert not self.alive
+
+    monkeypatch.setattr(worker, "time", SimpleNamespace(monotonic=lambda: clock[0]))
+    monkeypatch.setattr(worker.multiprocessing, "get_context", lambda _: SimpleNamespace(Process=UnreapedProcess))
+    try:
+        outcome = worker._execute_in_owned_process(None, {"deadline_ms": 1000}, deadline=101)
+        assert not outcome.cleanup_confirmed
+        assert outcome.receipt["kind"] == "provider_failure"
+        assert processes[0].path.exists()
+        with pytest.raises(worker._WorkerStartFailure, match="dispatch blocked"):
+            worker._execute_in_owned_process(None, {"deadline_ms": 1000}, deadline=102)
+        assert len(processes) == 1
+    finally:
+        processes[0].alive = False
+        # Reap retained ownership without granting another worker budget.
+        with pytest.raises(worker._WorkerStartFailure, match="expired"):
+            worker._execute_in_owned_process(None, {"deadline_ms": 1000}, deadline=99)
+    assert not processes[0].path.exists()
+    assert not worker._UNREAPED_WORKERS
