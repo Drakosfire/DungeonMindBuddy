@@ -374,6 +374,9 @@ def test_exact_native_support_without_published_assertion_is_inspectable(context
     assert packet["source_admission"] == {
         "state": "admitted", "run_id": recap_admission.record.run_id,
         "run_revision": 4, "opening_state": "verified", "failure_code": None,
+        "admission_id": recap_admission.receipt.admission_id,
+        "source_artifact_id": recap_admission.receipt.source_artifact_id,
+        "source_revision_id": recap_admission.receipt.source_revision_id,
     }
     refs = packet["source_evidence"]
     assert {ref["evidence_role"] for ref in refs} == {"support"}
@@ -505,3 +508,134 @@ def test_native_support_body_digest_mismatch_is_not_an_identity_fallback(context
     with pytest.raises(ExtractPromoteError, match="saved source bytes") as error:
         source_tests.resolve(context, inspect_source_support=True)
     assert error.value.status_code == 409
+
+
+def test_repeated_nodes_open_each_identity_and_evidence_once_per_pinned_request(native_world, monkeypatch):
+    calls = {"entity": [], "preview": [], "search": []}
+    original_entity = native.EntityReadService.get_entity
+    original_preview = native._preview
+    original_search = native.SearchReadService.search_entities
+
+    def entity(self, context, identifier):
+        calls["entity"].append(identifier)
+        return original_entity(self, context, identifier)
+
+    def preview(access, identifier):
+        calls["preview"].append(identifier)
+        return original_preview(access, identifier)
+
+    def search(self, context, query):
+        calls["search"].append(query)
+        return original_search(self, context, query)
+
+    monkeypatch.setattr(native.EntityReadService, "get_entity", entity)
+    monkeypatch.setattr(native.SearchReadService, "search_entities", search)
+    monkeypatch.setattr(native, "_preview", preview)
+    packet = native.resolve_native_review_context(
+        scope={"native_world_id": "native-a", "campaign_id": "c1", "session_id": "s1"},
+        nodes=[{"node_id": f"candidate-{i}", "label": "Ari"} for i in range(20)],
+        source_admission=None, inspect_source_support=False,
+    )
+    assert len(packet["selections"]) == 20
+    assert all(len(row["alternatives"]) == 2 for row in packet["selections"])
+    assert sorted(calls["entity"]) == ["ari", "ari-other"]
+    # Both entities cite the same admitted exact span; open it only once.
+    assert len(calls["preview"]) == 1
+    assert calls["search"].count("Ari") == 1
+    # Another campaign/request must get fresh admitted facts and source reads.
+    other = read("c2")
+    assert len(calls["preview"]) == 2
+    assert [a["assertion_id"] for a in other["selections"][0]["alternatives"][0]["entity_result"]["assertions"]] == ["name-c2-ari"]
+
+
+def test_request_memo_does_not_hide_a_later_source_integrity_failure(native_world, monkeypatch):
+    from dungeonmind.domain.errors import PersistenceIntegrityError
+    read("c2")
+
+    def damaged(*args):
+        raise PersistenceIntegrityError("synthetic changed source")
+
+    monkeypatch.setattr(native, "_preview", damaged)
+    with pytest.raises(PersistenceIntegrityError, match="changed source"):
+        read("c2")
+
+
+def test_database_failure_returns_actionable_nonpublication_error(context, monkeypatch):
+    import asyncio
+    import httpx
+    from fastapi import FastAPI
+    from dungeonmind.domain.errors import PersistenceUnavailableError
+    from apps.live_control_server.routes.extract_promote import router
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal, native_graph_gm_dependency
+
+    def unavailable(*args, **kwargs):
+        raise PersistenceUnavailableError("synthetic private database address")
+
+    monkeypatch.setattr(source_tests.service, "resolve_ingest_selection_context", unavailable)
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[native_graph_gm_dependency] = lambda: NativeGraphPrincipal(
+        subject="operator:integration", role="gm", auth_method="local_operator",
+    )
+
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/live/extract-promote/runs/test-run/selection-context", json=context.body)
+            assert response.status_code == 503
+            assert response.json()["code"] == "ingest_selection_database_unavailable"
+            assert "Nothing was merged" in response.json()["message"]
+            assert "private database address" not in response.text
+
+    asyncio.run(exercise())
+
+
+def _publish_identity_fixture(world, mutate):
+    payload = deepcopy(world.payload)
+    mutate(payload)
+    head = world.repository.get_head("native-a").head_revision_id
+    world.repository.publish_revision(world.command.model_copy(update={
+        "parent_revision_id": head, "expected_parent_revision_id": head,
+        "operation_ids": ["identity-fixture"], "graph_payload": payload,
+    }))
+
+
+def test_exact_identity_ignores_other_entities_that_merely_mention_the_name(native_world):
+    def add_mention(payload):
+        claim = deepcopy(payload["assertions"][1])  # C2 admitted metadata
+        claim.update(assertion_id="event-mentions-ari", subject_entity_id="bare", predicate="dnd5e:summary", value={"kind": "literal", "value": "Ari visits the warehouse."})
+        payload["assertions"].append(claim)
+    _publish_identity_fixture(native_world, add_mention)
+    row = read("c2")["selections"][0]
+    assert len(row["alternatives"]) == 2  # Broad comparison remains available.
+    assert row["identity_matches"] == [{"entity_id": "ari", "identity_approved": False,
+                                       "matched_names": ["Ari"], "matched_aliases": []}]
+
+
+def test_two_admitted_exact_names_remain_genuinely_ambiguous(native_world):
+    assert {m["entity_id"] for m in read("c1")["selections"][0]["identity_matches"]} == {"ari", "ari-other"}
+
+
+def test_alias_identity_outside_text_search_results_is_not_missed(native_world):
+    def add_alias(payload):
+        payload["aliases"] = [{"schema_version": "dm_identity_alias_v1", "alias_id": "alias-nickname",
+                                        "entity_id": "ari", "alias_text": "Silver Warden",
+                                        "evidence_ref_ids": [], "standing": "established"}]
+    _publish_identity_fixture(native_world, add_alias)
+    row = read("c2", node_id="candidate-warden", label="Silver Warden")["selections"][0]
+    assert row["alternatives"] == []
+    assert row["identity_matches"] == [{"entity_id": "ari", "identity_approved": False,
+                                       "matched_names": [], "matched_aliases": ["Silver Warden"]}]
+
+
+def test_alias_collision_with_an_exact_name_preserves_both_identities(native_world):
+    def add_collision(payload):
+        payload["assertions"][-1]["value"]["value"] = "Another name"
+        payload["aliases"] = [{"schema_version": "dm_identity_alias_v1", "alias_id": "alias-collision",
+                                        "entity_id": "ari-other", "alias_text": "Ari",
+                                        "evidence_ref_ids": [], "standing": "established"}]
+    _publish_identity_fixture(native_world, add_collision)
+    row = read("c1")["selections"][0]
+    assert {m["entity_id"] for m in row["identity_matches"]} == {"ari", "ari-other"}
+    assert next(m for m in row["identity_matches"] if m["entity_id"] == "ari-other")["matched_aliases"] == ["Ari"]
+    # Alias alone cannot leak presence from a different campaign.
+    assert [m["entity_id"] for m in read("c2")["selections"][0]["identity_matches"]] == ["ari"]

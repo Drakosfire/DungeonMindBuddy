@@ -1259,3 +1259,59 @@ def test_description_extent_postgres_prepare_confirm_and_fresh_readback(
                    if item["schema"] == service.WORLD_CONTEXT)
     assert context[service.DESCRIPTION_SELECTION] == packet["records"][0]["selected_description_extent"]
     assert confirm(x, confirm_packet).json()["result"] == committed.json()["result"]
+
+
+def test_context_only_recap_extends_exact_support_then_prepares_confirms_and_recovers(lane, monkeypatch):
+    """No preinstalled paragraph support may substitute for the ordinary source."""
+    from apps.live_control_server.models.source_statements import ExtendSourceEvidence
+    from apps.live_control_server.services import source_statements
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    gm = NativeGraphPrincipal(subject="local-operator", role="gm", auth_method="local_operator")
+    root = publish_native_text_source_evidence(
+        repository=lane.repo, domain_contract=lane.domain, semantic_profile=lane.profile,
+        request=NativeTextSourceAdmissionV1(
+            space_id=SPACE_ID, admission_id="context-only-ordinary-source",
+            expected_parent_revision_id=lane.repo.get_head(SPACE_ID).head_revision_id,
+            created_at=lane.now, body_text=lane.text, expected_body_sha256=lane.digest,
+            source_classification="dungeonbuddy.source:session_recap", authority="primary",
+            visibility=META["visibility"],
+            origin=dict(namespace="test.recap",object_id=lane.source_id,revision_id=str(lane.source.source_revision_id)),
+            spans=[lane.span("context", "context", 0, len(lane.text.encode()))],
+        ),
+    )
+    lane.admitted.admission_id=root.admission_id
+    lane.admitted.source_artifact_id=root.source_artifact_id
+    lane.admitted.source_revision_id=root.source_revision_id
+    lane.admitted.evidence_ref_id=root.bindings[0].evidence_ref_id
+    # Whole-source context must fail even though every source byte is present.
+    lane.body["selections"]=[choice("new")]
+    lane.body["selections"][0]["facts"][0]["metadata"]["evidence_ref_ids"]=[root.bindings[0].evidence_ref_id]
+    lane.body.update(expected_parent_revision_id=lane.repo.get_head(SPACE_ID).head_revision_id,
+                     expected_source_authority_epoch=lane.repo.open_native_source_view(SPACE_ID).epoch)
+    assert "candidate_support_required" in lane.post().text
+    monkeypatch.setattr(source_statements.native, "binding", lambda _: copy.deepcopy(lane.bound))
+    monkeypatch.setattr(source_statements.native, "repository", lambda: lane.repo)
+    end=len(lane.text.splitlines(keepends=True)[0].rstrip("\r\n").encode())
+    request=ExtendSourceEvidence(
+        managed_world_id="managed",extension_id="ordinary-recap-paragraphs",
+        original_admission_id=root.admission_id,source_artifact_id=root.source_artifact_id,
+        source_revision_id=root.source_revision_id,expected_body_sha256=lane.digest,
+        expected_parent_revision_id=lane.repo.get_head(SPACE_ID).head_revision_id,
+        expected_source_authority_epoch=lane.repo.open_native_source_view(SPACE_ID).epoch,
+        created_at=lane.now.isoformat(),spans=[lane.span("paragraph:0", "support",0,end)],
+    )
+    extended=source_statements.extend_source_evidence(request,gm)
+    assert source_statements.extend_source_evidence(request,gm)==extended  # lost-response replay
+    support=extended["receipt"]["bindings"][0]["evidence_ref_id"]
+    lane.body["selections"]=[choice("new", fields=("label","node_type","description"))]
+    for fact in lane.body["selections"][0]["facts"]:fact["metadata"]["evidence_ref_ids"]=[support]
+    lane.body.update(expected_parent_revision_id=lane.repo.get_head(SPACE_ID).head_revision_id,
+                     expected_source_authority_epoch=lane.repo.open_native_source_view(SPACE_ID).epoch)
+    prepared=lane.post();assert prepared.status_code==200,prepared.text
+    packet=prepared.json()
+    result=lane.client.post('/api/live/extract-promote/native-confirm',json={key:packet[key] for key in ['envelope','prepared','token']},headers={'Authorization':'Bearer '+TOKEN})
+    assert result.status_code==200,result.text
+    assert result.json()['result']['verification']['exact_child_read_back'] is True
+    again=lane.client.post('/api/live/extract-promote/native-confirm',json={key:packet[key] for key in ['envelope','prepared','token']},headers={'Authorization':'Bearer '+TOKEN})
+    assert again.status_code==200,again.text
+    assert again.json()['recovered'] is True

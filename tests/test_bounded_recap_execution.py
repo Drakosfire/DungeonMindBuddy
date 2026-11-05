@@ -876,6 +876,11 @@ def test_ge_incomplete_through_one_recap_never_appends_candidate(
     from graph_memory.ingestion.extraction_run import ExtractionRunStatus
 
     seed_binding(tmp_path, "managed-fixture-world", "world:synthetic")
+    monkeypatch.setattr(
+        "apps.live_control_server.services.known_character_context.read_known_character_catalog",
+        lambda *args: {"status": "no_native_head", "entities": [],
+                       "native_pin": {"native_world_id": "world:synthetic", "binding_version": 1}},
+    )
     code = FailureCode.PROVIDER_INCOMPLETE
     obs = observation().model_copy(
         update={"state": ObservationState.INCOMPLETE, "failure_code": code}

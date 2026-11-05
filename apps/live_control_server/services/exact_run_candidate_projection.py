@@ -282,6 +282,56 @@ def _build(
                 if mapped is not None:
                     owners.setdefault(mapped, set()).add(node.view_key)
                     surfaces[mapped] = node.label
+    known_intervals = set()
+    context = (run.lineage or {}).get("known_character_bindings")
+    if context is not None:
+        from src.graph_memory.extraction.known_character_bindings import candidate_bindings
+        captured = dict(context)
+        expected = captured.pop("sha256", None)
+        if (captured.get("schema") != "dmb_known_character_bindings_v1"
+                or captured.get("source_sha256") != _sha(source.encode("utf-8"))
+                or _sha(json.dumps(captured, sort_keys=True, separators=(",", ":")).encode()) != expected):
+            _fail("Known character bindings differ from the retained source context.")
+        bindings = candidate_bindings([{"node_id": n.view_key, "label": n.label, "node_type": n.node_type} for n in nodes], context)
+        for mention in context["mentions"]:
+            captured_span = span_map.get(mention["source_span_ref_id"])
+            if captured_span is None:
+                _fail("Known character mention has no retained source paragraph.")
+            _, start, end = captured_span
+            # Matcher offsets refer to LF-joined source lines, like the extractor.
+            span_text = "\n".join(source[start:end].splitlines())
+            a, b = mention["start_offset"], mention["end_offset"]
+            if not (0 <= a < b <= len(span_text)) or span_text[a:b] != mention["surface"]:
+                _fail("Known character mention does not match exact source text.")
+            # Translate line-normalized positions to original source coordinates.
+            before = span_text[:a]
+            line_index = before.count("\n")
+            source_lines = source[start:end].splitlines(keepends=True)
+            offset = sum(len(line) for line in source_lines[:line_index]) + len(before.rsplit("\n", 1)[-1])
+            absolute = start + offset
+            if source[absolute:absolute + b-a] != mention["surface"]:
+                _fail("Known character mention source coordinates disagree.")
+            key = bindings.get(mention["entity_id"])
+            mapped = _map_span(absolute, absolute + b-a, segments)
+            if key is not None and mapped is not None:
+                owners.setdefault(mapped, set()).add(key)
+                surfaces[mapped] = mention["surface"]
+                known_intervals.add(mapped)
+        diagnostics.append("known_character_literal_mentions_projected")
+    # A literal group list can contain several independently pinned character
+    # mentions. Keep those precise name links; the group remains inspectable in
+    # the full node list. Equal spans, duplicate identities, and non-group
+    # overlaps still fail closed through the ordinary ambiguity guard below.
+    kinds = {n.view_key: n.node_type for n in nodes}
+    broader_groups = {
+        interval for interval, keys_at_span in owners.items()
+        if keys_at_span and all(kinds.get(key) == "group" for key in keys_at_span)
+        and any(interval != precise and interval[0] <= precise[0] and precise[1] <= interval[1]
+                and len(owners[precise]) == 1 for precise in known_intervals)
+    }
+    if broader_groups:
+        owners = {interval: keys_at_span for interval, keys_at_span in owners.items() if interval not in broader_groups}
+        diagnostics.append("known_character_links_preferred_over_group_label")
     located = []
     # The shared mention engine protects fences/inline code, but not indented
     # source. Preserve these lines conservatively (including list continuations)

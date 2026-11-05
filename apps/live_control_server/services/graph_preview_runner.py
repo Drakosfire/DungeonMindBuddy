@@ -101,6 +101,8 @@ def run_recap_production_extraction(
     ingest_context: Any | None = None,
     supplemental_evidence: dict | None = None,
     reserved_run: Any | None = None,
+    reviewed_character_catalog: dict | None = None,
+    name_review_record: dict | None = None,
 ) -> ProductionExtractionResult:
     profile_id, profile_version = resolve_legacy_graph_extraction_profile(profile)
     from src.graph_memory.extraction.extraction_profile import get_extraction_profile
@@ -226,10 +228,20 @@ def run_recap_production_extraction(
         if not isinstance(category_client, BoundedRecapPassClient):
             raise ValueError("Session supplements require the owned bounded recap client")
         category_client.supplemental_context=supplement_context
+    from apps.live_control_server.services.known_character_context import read_known_character_catalog
+    known_characters = reviewed_character_catalog or (read_known_character_catalog(frozen_context["managed_world_id"], campaign_id)
+                        if allow_llm and selected_profile.qualified_id == "recap_category_v2@2.0" else None)
+    if known_characters is not None:
+        pin = known_characters["native_pin"]
+        if (pin["native_world_id"], pin["binding_version"]) != (
+            frozen_context["native_world_id"], frozen_context["binding_version"]
+        ):
+            raise SourceArtifactRegistryError("Known characters belong to a changed World binding", status_code=409)
     return run_production_extraction(
         ProductionExtractionRequest(
             repo_root=repo_root,
             source=source,
+            known_character_catalog=known_characters,
             profile_id=profile_id,
             profile_version=profile_version,
             model_id=model_id,
@@ -239,7 +251,8 @@ def run_recap_production_extraction(
             enable_node_vocabulary_packet=enable_node_vocabulary_packet,
             enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
             initial_lineage={**(reserved_run.lineage if reserved_run is not None else {}),
-                "world_campaign_ingest_context": frozen_context,**supplement_lineage},
+                "world_campaign_ingest_context": frozen_context,**supplement_lineage,
+                **({"name_review": name_review_record} if name_review_record is not None else {})},
             reserved_run=reserved_run,
         )
     )
