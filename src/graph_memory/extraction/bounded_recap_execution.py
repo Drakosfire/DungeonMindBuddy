@@ -697,6 +697,9 @@ class BoundedRecapPassClient:
                     entry["attempt_evidence"] = self._attempt_index(len(self.calls), pass_name)
             entry["wall_clock_ms"] = int((time.monotonic() - wall_started) * 1000)
             entry["worker_cleanup"] = "terminated" if outcome.terminated else "reaped"
+            if not outcome.cleanup_confirmed:
+                entry["worker_cleanup"] = "unconfirmed"
+                self._stopped = True
             if outcome.terminated:
                 self._stopped = True
             receipt = outcome.receipt
@@ -705,6 +708,11 @@ class BoundedRecapPassClient:
                 raise CategoryGraphExtractionError(
                     "bounded inference outcome unknown: worker ended without receipt",
                     pass_name=pass_name,
+                )
+            if receipt["kind"] == "not_started":
+                entry["external_outcome"] = "not_started"
+                raise CategoryGraphExtractionError(
+                    "inference budget expired before GE dispatch", pass_name=pass_name,
                 )
             if receipt["kind"] == "provider_failure":
                 entry["observation"] = _safe_observation_snapshot(receipt["observation"])
@@ -750,6 +758,16 @@ class BoundedRecapPassClient:
                     raw_model_response=result.text,
                 )
             entry["external_outcome"] = "completed"
+            if not outcome.cleanup_confirmed:
+                entry["consumer_failure"] = "CleanupUnconfirmed"
+                raise CategoryGraphExtractionError(
+                    "bounded inference worker cleanup unconfirmed", pass_name=pass_name,
+                )
+            if outcome.deadline_exceeded:
+                entry["consumer_failure"] = "DeadlineExceeded"
+                raise CategoryGraphExtractionError(
+                    "inference result arrived after execution deadline", pass_name=pass_name,
+                )
         except CategoryGraphExtractionError:
             self._stopped = True
             raise
