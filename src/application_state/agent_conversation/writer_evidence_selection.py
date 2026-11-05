@@ -126,10 +126,11 @@ def acquired_catalog(execution, trace, *, policy=None):
             units[key] = {"id": key, "kind": "saved_section",
                           "section": event.model_dump(mode="json", by_alias=True)}
     if (policy or policy_for(execution)) == NATIVE_POLICY:
-        from .native_corpus import acquired_body_reads, body_selection_unit_id, NativeBodySearchObservedV1
-        catalogs = {c.catalog_sha256: c for e in execution.events
-                    if isinstance(e, NativeBodySearchObservedV1) for c in e.catalogs}
+        from .native_corpus import acquired_body_reads, body_selection_unit_id, acquired_body_catalogs, NativeAuthoredSourceReadV1
+        catalogs = acquired_body_catalogs(execution)
         for read in acquired_body_reads(execution):
+            if isinstance(read, NativeAuthoredSourceReadV1):
+                continue  # Explicit author context is required, not a model relevance vote.
             excerpt = read.excerpt
             catalog = catalogs[excerpt.catalog_sha256]
             key = body_selection_unit_id(read)

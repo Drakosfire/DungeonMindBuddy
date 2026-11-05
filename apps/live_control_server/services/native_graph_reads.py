@@ -173,8 +173,8 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
                   scope_mode='world', campaign_id=None, authored_references=None):
     _require_gm(principal)
     if authored_references is not None:
-        from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferencesV1
-        if type(authored_references) is not AuthoredGraphReferencesV1 or scope_mode != 'world' or campaign_id is not None:
+        from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferencesV1, AuthoredReferencesV2, object_selections
+        if type(authored_references) not in {AuthoredGraphReferencesV1, AuthoredReferencesV2} or scope_mode != 'world' or campaign_id is not None:
             raise ValueError('Authored references require their exact World-scoped human input')
         authored_references.require_world(managed_world_id)
     resolve = resolve_binding or resolve_managed_world_binding
@@ -190,7 +190,7 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
         raise ValueError('Active query binding differs from requested World')
     if authored_references is not None and any(
             (ref.native_world_id, ref.binding_version) != (bound.native_world_id, bound.binding_version)
-            for ref in authored_references.references):
+            for ref in object_selections(authored_references)):
         raise ValueError('Authored reference World binding changed')
     repo = repository if repository is not None else statements.native.repository()
     space = bound.native_world_id
@@ -233,7 +233,7 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
             entities_by_revision[key] = entity
         return entities_by_revision[key]
     if authored_references is not None:
-        for ref in authored_references.references:
+        for ref in object_selections(authored_references):
             if repo.get_revision(space, ref.graph_revision) is None:
                 raise ValueError('Authored selection snapshot is unavailable')
             origin = (pinned if ref.graph_revision == revision_id else
@@ -252,7 +252,7 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
     gaps.extend(entity_gaps)
     targets = []
     if authored_references is not None:
-        for ref in authored_references.references:
+        for ref in object_selections(authored_references):
             target_matches, target_assertions, target_gaps, entities = _entity_catalog(
                 (ref.node_id,), pinned, space=space, revision_id=revision_id,
                 scope_mode=scope_mode, campaign_id=campaign_id, read_entity=read_entity)

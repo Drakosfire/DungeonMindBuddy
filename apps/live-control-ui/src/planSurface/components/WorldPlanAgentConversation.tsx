@@ -6,8 +6,8 @@ import {useGuidedTour,type TourDispatchScope} from '../../guidedTour/GuidedTour'
 import {PlanPageProposal} from '../agentEdit/PlanPageProposal';
 import {isPlanAuthoringCapture,isPlanAuthoredProposal,planProposalDigestsBound} from '../../api/planAuthoringReviewApi';
 import {SurfaceGraphReferenceInput} from '../../surface/SurfaceGraphReferenceInput';
-import {isAuthoredGraphReferences,authoredGraphReferences,readComposerReferences,writeComposerReferences,composerReferenceKey,recoverComposerReferences,readComposerReferenceRecoveries,type ComposerReferenceDraft} from '../../agentInteraction/authoredGraphReferences';
-import type {AuthoredGraphReferenceV1} from '../../api/types';
+import {isAuthoredReferences,authoredReferences,readComposerReferences,writeComposerReferences,composerReferenceKey,recoverComposerReferences,readComposerReferenceRecoveries,type ComposerReferenceDraft} from '../../agentInteraction/authoredGraphReferences';
+import type {AuthoredReference} from '../../api/types';
 import {decodeRetryContext,readDiscussionRetryInput,type TurnRetryContext} from '../../api/conversationRetryApi';
 import {ConversationRetryAttempts} from '../../agentInteraction/ConversationRetryAttempts';
 import {StagedWorkPlan} from '../../surface/workPlans/StagedWorkPlan';
@@ -392,7 +392,7 @@ function readPendingPlayTurn(worldId: string, serialized: string|null = window.l
       || !isRecord(value.request.build_draft_context)||value.request.reviewed_step.conversation_id!==value.request.build_draft_context.conversation_id))
     || ("build_authored_references" in value.request && (value.request.surface.surface_id!=='build'
       || !isRecord(value.request.graph_request)||value.request.graph_request.mode!=='world'
-      || !isAuthoredGraphReferences(value.request.build_authored_references,worldId)))
+      || !isAuthoredReferences(value.request.build_authored_references,worldId)))
     || value.request.graph_selection !== null || typeof value.request.message !== "string"
     || !value.request.message.trim()) {
     throw new Error("The saved Play request is malformed. It was retained and cannot be retried automatically.");
@@ -2786,7 +2786,7 @@ export function WorldPlanAgentConversation({
     }catch(reason){if(referenceRecoveryScope.current===original.key)setError(String(reason));}
     finally{setReferenceRecoveryBusy(false);}
   }
-  function changeComposerReferences(references:AuthoredGraphReferenceV1[]){
+  function changeComposerReferences(references:AuthoredReference[]){
     if(!referenceWorld||!referencePage||composerReferenceState.key!==referenceScopeKey||!composerReferenceState.draft)throw new Error('Reopen the current page composer before choosing references.');
     try{
       const draft=writeComposerReferences(sessionStorage,referenceWorld,referencePage,composerReferenceState.draft.serialized,references);
@@ -4391,11 +4391,11 @@ export function WorldPlanAgentConversation({
         || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) return;
       if (discussionOnly && !visibleBuildPlacementFailure) return;
       if(explicitRequest?.reviewedStep&&!useWorldGraphForAsk)throw new Error('Enable World context, then resume this step from its saved plan. Nothing was sent.');
-      if(!retryOf&&!explicitRequest&&!composerReferencesReady){setError('The local Graph reference selection needs recovery; no request was sent.');return;}
+      if(!retryOf&&!explicitRequest&&!composerReferencesReady){setError('The local reference selection needs recovery; no request was sent.');return;}
       const referenceInput=retryOf?.schema==='dmb_turn_retry_context_row_v2'?retryOf.authored_references
         :retryOf?undefined:explicitRequest?explicitRequest.authoredReferences
-        :composerReferences.length?authoredGraphReferences(composerReferences):undefined;
-      if(referenceInput&&!useWorldGraphForAsk){setError('Enable World context to read the selected Graph references. Nothing was sent.');return;}
+        :composerReferences.length?authoredReferences(composerReferences):undefined;
+      if(referenceInput&&!useWorldGraphForAsk){setError('Enable World context to read the selected references. Nothing was sent.');return;}
       const referenceDraftAtSubmit=composerReferenceState.draft;
       const request: WorldBuildAgentTurnRequestV1 = {
         ...(referenceInput?{build_authored_references:referenceInput}:{}),

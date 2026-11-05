@@ -14,7 +14,7 @@ from .service import _ready_dsn, _lock_pointer
 from . import repository as repo
 from .types import Turn
 from .reviewed_action import ReviewedDiscussionScopeV1, ReviewedDiscussionTask, ReviewedSiblingContext
-from .authored_graph_references import AuthoredGraphReferenceV1, AuthoredGraphReferencesV1, effective_references, source_references
+from .authored_graph_references import effective_references, source_references, AuthoredReference, AuthoredReferenceInput, AuthoredReferencesV2
 
 
 class Closed(BaseModel):
@@ -61,13 +61,13 @@ class Dispatch(Closed):
 
 class DispatchV2(Dispatch):
     schema_: Literal['dmb_work_plan_dispatch_v2'] = Field(default='dmb_work_plan_dispatch_v2', alias='schema')
-    authored_references: AuthoredGraphReferencesV1
+    authored_references: AuthoredReferenceInput
 
 
 class DispatchV3(Dispatch):
     schema_: Literal['dmb_work_plan_dispatch_v3'] = Field(default='dmb_work_plan_dispatch_v3', alias='schema')
     scope: ReviewedDiscussionScopeV1
-    authored_references: AuthoredGraphReferencesV1 | None
+    authored_references: AuthoredReferenceInput | None
 
 
 class Plan(Closed):
@@ -121,26 +121,26 @@ class PlanV2(Plan):
 
 
 class StepV2(Step):
-    references: tuple[AuthoredGraphReferenceV1, ...]
+    references: tuple[AuthoredReference, ...]
 
 
 class ReviewV3(ReviewV2):
     schema_: Literal['dmb_reviewed_work_plan_review_v3'] = Field(default='dmb_reviewed_work_plan_review_v3', alias='schema')
-    root_references: tuple[AuthoredGraphReferenceV1, ...]
+    root_references: tuple[AuthoredReference, ...]
     steps: list[StepV2] = Field(min_length=1)
 
 
 class PlanV3(PlanV2):
     schema_: Literal['dmb_reviewed_work_plan_v3'] = Field(default='dmb_reviewed_work_plan_v3', alias='schema')
-    root_references: tuple[AuthoredGraphReferenceV1, ...]
+    root_references: tuple[AuthoredReference, ...]
     steps: list[StepV2] = Field(min_length=1)
     dispatches: list[DispatchV3 | DispatchV2 | Dispatch] = Field(default_factory=list)
 
     @model_validator(mode='after')
     def reference_worlds(self):
-        AuthoredGraphReferencesV1(references=self.root_references).require_world(self.world_id)
+        AuthoredReferencesV2(references=self.root_references).require_world(self.world_id)
         for step in self.steps:
-            AuthoredGraphReferencesV1(references=step.references).require_world(self.world_id)
+            AuthoredReferencesV2(references=step.references).require_world(self.world_id)
             effective_references(self.root_references, step.references)
         for dispatch in self.dispatches:
             if isinstance(dispatch, (DispatchV2, DispatchV3)) and dispatch.authored_references is not None:
@@ -469,8 +469,8 @@ def continue_step(world, conversation, source, command: Continue):
                 objective_context=p.objective,sibling_context=tuple(siblings))
             message = 'Discuss only this selected reviewed step:\n\n' + step.text
         d = (DispatchV3 if scope else DispatchV2 if isinstance(p, PlanV3) else Dispatch)(
-            **({'scope': scope, 'authored_references': AuthoredGraphReferencesV1(references=effective_references(p.root_references,step.references)) if isinstance(p,PlanV3) else None} if scope else {}),
-            **({"authored_references": AuthoredGraphReferencesV1(references=effective_references(p.root_references, step.references))} if isinstance(p, PlanV3) and scope is None else {}),
+            **({'scope': scope, 'authored_references': AuthoredReferencesV2(references=effective_references(p.root_references,step.references)) if isinstance(p,PlanV3) else None} if scope else {}),
+            **({"authored_references": AuthoredReferencesV2(references=effective_references(p.root_references, step.references))} if isinstance(p, PlanV3) and scope is None else {}),
             command_id=command.command_id,
             step_id=step.step_id,
             client_thread_id=uuid4(),

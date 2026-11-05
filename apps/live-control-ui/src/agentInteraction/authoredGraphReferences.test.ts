@@ -1,6 +1,6 @@
 import {expect,it} from 'vitest';
 import type {AuthoredGraphReferenceV1} from '../api/types';
-import {isAuthoredGraphReferences,mergeAuthoredReferences,authoredGraphReferences} from './authoredGraphReferences';
+import {isAuthoredReferences,mergeAuthoredReferences,authoredReferences} from './authoredGraphReferences';
 const ref:AuthoredGraphReferenceV1={schema:'dmb_authored_graph_reference_v1',managed_world_id:'workshop',native_world_id:'native-world',binding_version:1,graph_revision:'revision-a',node_id:'cedar-box',label:'Cedar box'};
 it('deduplicates scoped identities without treating labels as authority',()=>{
  expect(mergeAuthoredReferences([ref],[{...ref,label:'Renamed display'}])).toEqual([ref]);
@@ -11,12 +11,12 @@ it.each([{graph_revision:'revision-b'},{binding_version:2}])('refuses conflictin
  expect(()=>mergeAuthoredReferences([ref],[{...ref,...delta}])).toThrow('conflicting');
 });
 it('checks closed identities, tenancy and duplicate inputs at reload',()=>{
- const value=authoredGraphReferences([ref]);expect(isAuthoredGraphReferences(value,'workshop')).toBe(true);
- expect(isAuthoredGraphReferences(value,'foreign')).toBe(false);
- expect(isAuthoredGraphReferences({...value,references:[ref,ref]})).toBe(false);
- expect(isAuthoredGraphReferences({...value,references:[{...ref,extra:'untrusted'}]})).toBe(false);
- expect(isAuthoredGraphReferences({...value,references:[{...ref,binding_version:1.5}]})).toBe(false);
- expect(isAuthoredGraphReferences({...value,references:[{...ref,node_id:' '}]})).toBe(false);
+ const value=authoredReferences([ref]);expect(isAuthoredReferences(value,'workshop')).toBe(true);
+ expect(isAuthoredReferences(value,'foreign')).toBe(false);
+ expect(isAuthoredReferences({...value,references:[ref,ref]})).toBe(false);
+ expect(isAuthoredReferences({...value,references:[{...ref,extra:'untrusted'}]})).toBe(false);
+ expect(isAuthoredReferences({...value,references:[{...ref,binding_version:1.5}]})).toBe(false);
+ expect(isAuthoredReferences({...value,references:[{...ref,node_id:' '}]})).toBe(false);
 });
 
 import {readComposerReferences,writeComposerReferences,composerReferenceKey} from './authoredGraphReferences';
@@ -77,4 +77,17 @@ it('refuses resetting a readable selection and refuses a conflicting retained re
  const key=composerReferenceKey('workshop','page');sessionStorage.setItem(key,'broken');await recoverComposerReferences(sessionStorage,'workshop','page','broken');
  const retained=readComposerReferenceRecoveries(sessionStorage,'workshop','page')[0];sessionStorage.setItem(retained.key,'different archived bytes');sessionStorage.setItem(key,'broken');
  await expect(recoverComposerReferences(sessionStorage,'workshop','page','broken')).rejects.toThrow('differs');expect(sessionStorage.getItem(key)).toBe('broken');expect(sessionStorage.getItem(retained.key)).toBe('different archived bytes');
+});
+
+const sourceRef:import('../api/types').AuthoredSourceReferenceV1={schema:'dmb_authored_source_reference_v1',managed_world_id:'workshop',native_world_id:'native-world',binding_version:1,knowledge_revision:'revision-a',source_artifact_id:'source-a',source_revision_id:'source-version-a',evidence_ref_id:'opening-a',content_sha256:'a'.repeat(64),selection_kind:'section',section_id:'b'.repeat(64),label:'Session 8 recap'};
+it('retains mixed object/source selections through the single composer owner',()=>{
+ sessionStorage.clear();const selected=authoredReferences([ref,sourceRef]);
+ expect(selected.schema).toBe('dmb_authored_references_v2');expect(isAuthoredReferences(selected,'workshop')).toBe(true);
+ const saved=writeComposerReferences(sessionStorage,'workshop','page',null,[ref,sourceRef]);
+ expect(readComposerReferences(sessionStorage,'workshop','page')).toEqual(saved);
+ expect(mergeAuthoredReferences([sourceRef],[{...sourceRef,selection_kind:'full_document',section_id:null}])).toHaveLength(2);
+ expect(()=>mergeAuthoredReferences([sourceRef],[{...sourceRef,knowledge_revision:'other'}])).toThrow('conflicting');
+ expect(isAuthoredReferences({schema:'dmb_authored_graph_references_v1',references:[sourceRef]})).toBe(false);
+ expect(isAuthoredReferences({...selected,references:[{...sourceRef,selection_kind:'full_document'}]})).toBe(false);
+ expect(isAuthoredReferences(selected,'foreign')).toBe(false);
 });

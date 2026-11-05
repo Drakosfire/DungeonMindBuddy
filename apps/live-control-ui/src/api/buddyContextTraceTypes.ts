@@ -1,4 +1,4 @@
-import type {AuthoredGraphReferencesV1} from './types'
+import type {AuthoredReferenceInput} from './types'
 /** APP-STATE context-trace consumer shape. Observations grant no evidence authority. */
 export interface WorldAgentTurnContextTraceResponse {
   schema: 'dmb_agent_turn_context_trace_response_v1'
@@ -55,7 +55,7 @@ export interface BuddyTraceSourcePassage extends Observation {
   returned_chars: number; content_sha256: string; text: string
 }
 export type BuddyAuthoredTraceEvent = {event_id:string;sequence:number} & (
-  | {kind:'build_authored_references_captured_v1';references:AuthoredGraphReferencesV1;read_graph_revision:string;turn_id:string;conversation_id:string;attempt:number;submitted_intent_fingerprint:string}
+  | {kind:'build_authored_references_captured_v1';references:AuthoredReferenceInput;read_graph_revision:string;turn_id:string;conversation_id:string;attempt:number;submitted_intent_fingerprint:string}
   | {kind:'build_authored_reference_authorized_v1';capture_event_id:string;node_id:string;arguments_sha256:string}
   | {kind:'build_authored_reference_read_v1';capture_event_id:string;authorization_event_id:string;node_id:string;operation_event_ids:string[];source_read_event_ids:string[];returned_node_ids:string[];outcome:'read'|'read_partial'|'source_gap'}
   | {kind:'build_authored_provider_inclusion_v1';capture_event_id:string;references_sha256:string;source_read_event_ids:string[];provider_attempt_id:string;envelope_sha256:string;material_sha256:string}

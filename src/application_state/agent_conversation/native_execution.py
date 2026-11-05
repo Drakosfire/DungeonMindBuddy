@@ -155,7 +155,7 @@ def native_read_event_ids(events):
     """One inclusion inventory for the current native writer."""
     return tuple(sorted((event.event_id for event in events if isinstance(event, (
         t.NativePlanStatementReadObservedV1, t.NativePlanAssertionReadObservedV1,
-        t.NativeBodyReadObservedV1, BuildAuthoredReferenceReadV2))), key=str))
+        t.NativeBodyReadObservedV1, t.NativeAuthoredSourceReadV1, BuildAuthoredReferenceReadV2))), key=str))
 
 
 # Current owner event codecs are reused. Classic Graph operations/scopes and
@@ -166,7 +166,7 @@ SurfaceNativeEvent = Annotated[
     | NativeWriterAuthorizedV1 | t.ProviderOutcomeEventV1 | t.CompletionBindingEventV1
     | t.PlanJevRetrievalSelectionV1 | NativeRetrievalSelectedV1 | t.PlanRequestedWorkSelectedV2
     | t.NativeBodySearchAuthorizedV1 | t.NativeBodySearchObservedV1
-    | t.NativeBodyReadAuthorizedV1 | t.NativeBodyReadObservedV1
+    | t.NativeBodyReadAuthorizedV1 | t.NativeBodyReadObservedV1 | t.NativeAuthoredSourceReadV1
     | t.NativePlanStatementReadAuthorizedV1 | t.NativePlanStatementReadObservedV1
     | t.NativePlanAssertionReadAuthorizedV1 | t.NativePlanAssertionReadObservedV1
     | t.BuildDraftContextCapturedV1

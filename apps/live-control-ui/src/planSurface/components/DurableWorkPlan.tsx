@@ -1,7 +1,7 @@
 import {SurfaceNavbarIconButton} from '../../surfaceInteraction/contextHost/SurfaceNavbarIconButton'
 import {SurfaceGraphReferenceInput} from '../../surface/SurfaceGraphReferenceInput'
-import {isAuthoredGraphReferenceList,mergeAuthoredReferences} from '../../agentInteraction/authoredGraphReferences'
-import type {AuthoredGraphReferenceV1,ReviewedStepReference} from '../../api/types'
+import {isAuthoredReferenceList,mergeAuthoredReferences} from '../../agentInteraction/authoredGraphReferences'
+import type {AuthoredReference,ReviewedStepReference} from '../../api/types'
 import {useEffect,useRef,useState,type ReactNode} from 'react'
 import {getWorkPlan,saveWorkPlan,continueWorkPlan,planObjective,type WorkPlan,type WorkStep,type WorkDispatch,type WorkPlanScope,type WorkExecution} from '../../api/conversationWorkPlanApi'
 export type WorkPlanToolbarControls={add:ReactNode;save:ReactNode}
@@ -9,7 +9,7 @@ export type ReviewedRow={text:string;include:boolean;kind?:'discuss'|'prepare_in
 export function DurableWorkPlan({scope,disabled,onContinue,renderDraft,saveLabel="Save reviewed plan",renderResult,continuationDisabled=false,beginContinuation,renderToolbar}:{renderToolbar?:(controls:WorkPlanToolbarControls)=>ReactNode;continuationDisabled?:boolean;beginContinuation?:(plan:WorkPlan)=>()=>boolean;saveLabel?:string;renderResult?:(execution:WorkExecution)=>ReactNode;scope:WorkPlanScope;disabled:boolean;onContinue:(plan:WorkPlan,dispatch:WorkDispatch,reference:ReviewedStepReference|null)=>void;renderDraft:(save:(rows:ReviewedRow[])=>Promise<void>,busy:boolean)=>ReactNode}){
  const [plan,setPlan]=useState<WorkPlan|null>(null),[steps,setSteps]=useState<WorkStep[]>([]),[loaded,setLoaded]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null)
  const [objective,setObjective]=useState('')
- const [rootReferences,setRootReferences]=useState<AuthoredGraphReferenceV1[]|undefined>(undefined)
+ const [rootReferences,setRootReferences]=useState<AuthoredReference[]|undefined>(undefined)
  const [staleDraft,setStaleDraft]=useState(false),[blockedDraft,setBlockedDraft]=useState(false)
  const identity=JSON.stringify([scope.worldId,scope.conversationId,scope.turnId,scope.source??{sha256:scope.sourceSha256,documentId:scope.documentId}]);const current=useRef<string|null>(null)
  const lifecycle=useRef({identity,disabled,continuationDisabled,epoch:0});
@@ -27,7 +27,7 @@ export function DurableWorkPlan({scope,disabled,onContinue,renderDraft,saveLabel
   try{
    const raw=sessionStorage.getItem(draftKey);if(!raw)return p.steps
    const v=JSON.parse(raw);if(!['dmb_reviewed_plan_edit_v1','dmb_reviewed_plan_edit_v2','dmb_reviewed_plan_edit_v3'].includes(v.schema)||v.schema!=='dmb_reviewed_plan_edit_v1'&&typeof v.objective!=='string'||v.identity!==identity||!Array.isArray(v.steps)||!v.steps.every((s:WorkStep)=>s&&typeof s.step_id==='string'&&typeof s.text==='string'&&typeof s.selected==='boolean'&&['discuss','prepare_insertion'].includes(s.kind)))throw new Error('Invalid local plan copy')
-   if(v.schema==='dmb_reviewed_plan_edit_v3'){if(!isAuthoredGraphReferenceList(v.root_references,scope.worldId)||!v.steps.every((row:WorkStep)=>isAuthoredGraphReferenceList(row.references,scope.worldId)))throw new Error('Invalid local Graph reference copy');for(const row of v.steps)mergeAuthoredReferences(v.root_references,row.references);setRootReferences(v.root_references)}else if(v.steps.some((row:WorkStep)=>row.references!==undefined))throw new Error('Unversioned local Graph references');
+   if(v.schema==='dmb_reviewed_plan_edit_v3'){if(!isAuthoredReferenceList(v.root_references,scope.worldId)||!v.steps.every((row:WorkStep)=>isAuthoredReferenceList(row.references,scope.worldId)))throw new Error('Invalid local Graph reference copy');for(const row of v.steps)mergeAuthoredReferences(v.root_references,row.references);setRootReferences(v.root_references)}else if(v.steps.some((row:WorkStep)=>row.references!==undefined))throw new Error('Unversioned local Graph references');
    setObjective(v.schema!=='dmb_reviewed_plan_edit_v1'?v.objective:'');edited.current=true;if(v.base_revision!==p.revision){setStaleDraft(true);setError('The saved plan changed. Your local edits were restored; compare them before saving.')}
    // A pre-reference local copy edits wording/selection, not unseen saved Graph context.
    return v.schema!=='dmb_reviewed_plan_edit_v3'&&p.schema==='dmb_reviewed_work_plan_v3'

@@ -264,6 +264,15 @@ class NativeBodyReadObservedV1(NativeBodyEvent):
         return self
 
 
+class NativeAuthoredSourceReadV1(NativeBodyEvent):
+    """A human-selected read; its retained input is the grant, never a provider vote."""
+    kind: Literal['native_authored_source_read_v1'] = 'native_authored_source_read_v1'
+    capture_event_id: UUID
+    reference_index: int = Field(ge=0, strict=True)
+    catalog: NativeCorpusCatalogV1
+    excerpt: NativeCorpusExcerptV1
+
+
 class NativeBodyProviderIncludedV1(NativeBodyEvent):
     kind: Literal["native_body_provider_included_v1"] = "native_body_provider_included_v1"
     provider_attempt_id: UUID
@@ -273,7 +282,7 @@ class NativeBodyProviderIncludedV1(NativeBodyEvent):
 
 
 NATIVE_BODY_EVENTS = (NativeBodySearchAuthorizedV1, NativeBodySearchObservedV1,
-    NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1, NativeBodyProviderIncludedV1)
+    NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1, NativeBodyProviderIncludedV1, NativeAuthoredSourceReadV1)
 
 
 def native_body_handle(catalog_sha256, section_id):
@@ -314,7 +323,7 @@ def validate_native_body_events(execution):
             and selection.operation == "select_candidates" and handle in selection.selected_handles)
     for event in execution.events:
         if body_selection is not None and isinstance(event, (NativeBodySearchAuthorizedV1,
-                NativeBodySearchObservedV1, NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1)):
+                NativeBodySearchObservedV1, NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1, NativeAuthoredSourceReadV1)):
             raise ValueError("Native body acquisition cannot change after writer evidence selection")
         if isinstance(event, t.BuildWriterEvidenceSelectionV2):
             validate_body_selection(execution, event)
@@ -322,7 +331,7 @@ def validate_native_body_events(execution):
         if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
             if grant is not None and search is None:
                 raise ValueError("Provider cannot proceed with an unresolved native source search")
-            if set(authorizations) != {row.authorization_event_id for row in reads.values()}:
+            if set(authorizations) != {row.authorization_event_id for row in reads.values() if isinstance(row, NativeBodyReadObservedV1)}:
                 raise ValueError("Provider cannot proceed with an unresolved native body read")
             if pending is not None:
                 if (event.provider_attempt_id != pending.provider_attempt_id
@@ -345,6 +354,15 @@ def validate_native_body_events(execution):
             outcome = event.outcome
         elif isinstance(event, t.PlanJevRetrievalSelectionV1):
             selection = event
+        elif isinstance(event, NativeAuthoredSourceReadV1):
+            if writer:
+                raise ValueError('Human source acquisition cannot follow the writer')
+            from .authored_graph_references import validate_native_source_read
+            validate_native_source_read(execution, event)
+            if any(isinstance(row, NativeAuthoredSourceReadV1) and row.reference_index == event.reference_index
+                    for row in reads.values()):
+                raise ValueError('The selected source extent was acquired twice')
+            reads[event.event_id] = event
         elif isinstance(event, NativeBodySearchAuthorizedV1):
             if (grant is not None or writer or provider != event.provider_attempt_id
                     or outcome != "response_received"
@@ -388,7 +406,7 @@ def validate_native_body_events(execution):
             authorized = authorizations.get(event.authorization_event_id)
             if (authorized is None or writer or outcome != "response_received"
                     or authorized.provider_attempt_id != provider
-                    or any(row.authorization_event_id == event.authorization_event_id for row in reads.values())):
+                    or any(isinstance(row, NativeBodyReadObservedV1) and row.authorization_event_id == event.authorization_event_id for row in reads.values())):
                 raise ValueError("Native body observation lacks its current unique authorization")
             if event.excerpt is not None:
                 catalog = next(row for row in search.catalogs if row.catalog_sha256 == authorized.catalog_sha256)
@@ -418,7 +436,15 @@ def validate_native_body_events(execution):
 def acquired_body_reads(execution):
     """All successful acquisitions, including those subsequently excluded."""
     return tuple(event for event in execution.events
-        if isinstance(event, NativeBodyReadObservedV1) and event.excerpt is not None)
+        if isinstance(event, (NativeBodyReadObservedV1, NativeAuthoredSourceReadV1)) and event.excerpt is not None)
+
+
+def acquired_body_catalogs(execution):
+    catalogs = {catalog.catalog_sha256: catalog for event in execution.events
+        if isinstance(event, NativeBodySearchObservedV1) for catalog in event.catalogs}
+    catalogs.update({event.catalog.catalog_sha256: event.catalog for event in execution.events
+                    if isinstance(event, NativeAuthoredSourceReadV1)})
+    return catalogs
 
 
 def body_selection_unit_id(read):
@@ -449,7 +475,8 @@ def selected_body_reads(execution):
         raise ValueError("Native body writer requires its unique evidence selection")
     vote = votes[0]
     validate_body_selection(execution, vote)
-    return tuple(read for read in reads if body_selection_unit_id(read) in vote.expanded_unit_ids)
+    return tuple(read for read in reads if isinstance(read, NativeAuthoredSourceReadV1)
+                 or body_selection_unit_id(read) in vote.expanded_unit_ids)
 
 
 def body_selector(turn, read):
@@ -474,7 +501,7 @@ def model_body_frame_records(source_authority, execution, selector):
     """Expose only selected body extents; producing-prefix admission is caller-owned."""
     searches = [event for event in execution.events if isinstance(event, NativeBodySearchObservedV1)]
     search = searches[0] if searches else None
-    catalogs = {catalog.catalog_sha256: catalog for catalog in search.catalogs} if search else {}
+    catalogs = acquired_body_catalogs(execution)
     rows = []
     for read in selected_body_reads(execution):
         excerpt = read.excerpt
@@ -521,7 +548,7 @@ def prove_body_writer_input(turn, authorization, raw, *, sequence, event_id):
 @dataclass(frozen=True)
 class NativeBodySupport:
     handle: str
-    read: NativeBodyReadObservedV1
+    read: NativeBodyReadObservedV1 | NativeAuthoredSourceReadV1
     catalog: NativeCorpusCatalogV1
 
 
@@ -538,8 +565,7 @@ def producing_bodies(turn, authorization, raw):
     stored = witnesses[0]
     if prove_body_writer_input(turn, authorization, raw, sequence=stored.sequence, event_id=stored.event_id) != stored:
         raise ValueError('Native body output differs from actual producing bytes')
-    catalogs = {catalog.catalog_sha256: catalog for event in execution.events
-        if isinstance(event, NativeBodySearchObservedV1) for catalog in event.catalogs}
+    catalogs = acquired_body_catalogs(execution)
     reads = {event.event_id: event for event in selected_body_reads(execution)}
     return tuple(NativeBodySupport(body_selector(turn, reads[identity]), reads[identity],
         catalogs[reads[identity].excerpt.catalog_sha256]) for identity in stored.read_event_ids)
@@ -573,8 +599,7 @@ def validate_body_citations(completion, receipt, execution, producer):
     if len(witnesses) != 1:
         raise ValueError('Native body completion lacks its unique producing inclusion')
     witness = witnesses[0]
-    catalogs = {catalog.catalog_sha256: catalog for event in execution.events
-        if isinstance(event, NativeBodySearchObservedV1) for catalog in event.catalogs}
+    catalogs = acquired_body_catalogs(execution)
     reads = {event.event_id: event for event in selected_body_reads(execution)}
     supports = tuple(NativeBodySupport('', read, catalogs[read.excerpt.catalog_sha256])
         for identity, read in reads.items() if identity in witness.read_event_ids)
@@ -610,8 +635,7 @@ def validate_source_exposure(execution, body_reads):
     A single whole-body read still requires its explicit full-document selector.
     """
     from .native_plan_statements import NativePlanStatementReadObservedV1
-    searches = [event for event in execution.events if isinstance(event, NativeBodySearchObservedV1)]
-    catalogs = {c.catalog_sha256: c for search in searches for c in search.catalogs}
+    catalogs = acquired_body_catalogs(execution)
     sizes = {}
     def include(pair, start, end, size):
         if size <= 0 or start < 0 or end <= start or end > size:

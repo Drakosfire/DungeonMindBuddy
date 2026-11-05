@@ -4,7 +4,7 @@ import json
 from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from .authored_graph_references import AuthoredGraphReferencesV1
+from .authored_graph_references import AuthoredReferenceInput
 
 
 class ReviewedStepReference(BaseModel):
@@ -39,7 +39,7 @@ def admission_manifest(intent):
 
 class ReviewedStepBindingV2(ReviewedStepBinding):
     schema_: Literal['dmb_reviewed_step_binding_v2'] = Field(default='dmb_reviewed_step_binding_v2', alias='schema')
-    authored_references: AuthoredGraphReferencesV1
+    authored_references: AuthoredReferenceInput
 
 
 class ReviewedDiscussionTask(BaseModel):
@@ -79,7 +79,7 @@ class ReviewedDiscussionScopeV1(BaseModel):
 class ReviewedStepBindingV3(ReviewedStepBinding):
     schema_: Literal['dmb_reviewed_step_binding_v3'] = Field(default='dmb_reviewed_step_binding_v3', alias='schema')
     kind: Literal['discuss']
-    authored_references: AuthoredGraphReferencesV1 | None
+    authored_references: AuthoredReferenceInput | None
     scope: ReviewedDiscussionScopeV1
 
 

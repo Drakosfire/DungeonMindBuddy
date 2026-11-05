@@ -341,9 +341,11 @@ def validate_decision_phases(execution):
     request_ids = set()
     pending_sources = set()
     from .authored_graph_references import (
-        native_references, BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2)
+        native_references, object_selections, AuthoredSourceReferenceV1, BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2)
     references = native_references(execution) if native_build else None
-    pending_author_nodes = {ref.node_id for ref in references.references} if references is not None else set()
+    pending_author_nodes = {ref.node_id for ref in object_selections(references)}
+    pending_author_sources = {index for index, ref in enumerate(() if references is None else references.references)
+                              if isinstance(ref, AuthoredSourceReferenceV1)}
     retrieval_started = False
     retrieval_finished = False
     for event in execution.events:
@@ -383,7 +385,7 @@ def validate_decision_phases(execution):
                     raise ValueError(
                         "Build retrieval requires its actual semantic or reviewed work selection"
                     )
-                if pending_author_nodes:
+                if pending_author_nodes or pending_author_sources:
                     raise ValueError('Native retrieval requires settled author-requested reads')
                 semantic_auth = isinstance(event, t.PlanRequestedWorkAuthorizedV1)
                 if semantic_auth != (semantic_policy and intent is None):
@@ -419,7 +421,7 @@ def validate_decision_phases(execution):
                 )
                 if (
                     not isinstance(event, writer_type)
-                    or pending_author_nodes
+                    or pending_author_nodes or pending_author_sources
                     or pending_sources
                     or retrieval_started
                     and not retrieval_finished
@@ -499,6 +501,10 @@ def validate_decision_phases(execution):
             selected = event
             if event.operation == "finish_retrieval":
                 retrieval_finished = True
+        elif isinstance(event, t.NativeAuthoredSourceReadV1):
+            if not native_build or writer is not None or retrieval_finished:
+                raise ValueError('Human source acquisition cannot resume after retrieval or writing')
+            pending_author_sources.discard(event.reference_index)
         elif isinstance(event, (BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2)):
             if not native_build or writer is not None or retrieval_finished:
                 raise ValueError('Human acquisition cannot resume after native retrieval or writing')

@@ -31,7 +31,7 @@ from .native_statement_input import NativeStatementContextReceiptV1, NativeState
 from .native_statement_answer import NativeStatementCompletionV1
 from .native_corpus import (NativeCorpusAuthorityV1, NativeBodySearchAuthorizedV1,
     NativeBodySearchObservedV1, NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1,
-    NativeBodyProviderIncludedV1, NATIVE_BODY_EVENTS)
+    NativeBodyProviderIncludedV1, NativeAuthoredSourceReadV1 as NativeAuthoredSourceReadV1, NATIVE_BODY_EVENTS)
 
 Resolution = Literal["resolved", "absent", "unresolved", "unavailable"]
 ConversationStatus = Literal["active", "archived"]
@@ -1020,7 +1020,7 @@ class PlanContextPolicyV2(PlanContextPolicyV1):
 
 
 from .reviewed_action import ReviewedStepBinding, ReviewedStepBindingV2, ReviewedStepBindingV3
-from .authored_graph_references import AuthoredGraphReferencesV1
+from .authored_graph_references import AuthoredReferenceInput
 
 
 class RetryTurnReference(StrictModel):
@@ -1082,7 +1082,7 @@ class BuildGraphIntentV1(SubmittedTurnIntentV1):
 
 class BuildGraphIntentV2(BuildGraphIntentV1):
     schema_: Literal['dmb_build_graph_intent_v2'] = Field(default='dmb_build_graph_intent_v2', alias='schema')
-    authored_references: AuthoredGraphReferencesV1
+    authored_references: AuthoredReferenceInput
     reviewed_step: ReviewedStepBindingV3 | ReviewedStepBindingV2 | ReviewedStepBinding | None = None
 
 
@@ -3332,7 +3332,7 @@ class GraphExecutionEventBaseV1(StrictModel):
 
 class BuildAuthoredReferencesCapturedV1(GraphExecutionEventBaseV1):
     kind: Literal['build_authored_references_captured_v1']
-    references: AuthoredGraphReferencesV1
+    references: AuthoredReferenceInput
     read_graph_revision: str
     turn_id: UUID
     conversation_id: UUID

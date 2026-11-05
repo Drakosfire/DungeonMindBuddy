@@ -1,18 +1,18 @@
-import type {AuthoredGraphReferencesV1} from './types';
-import {isAuthoredGraphReferences} from '../agentInteraction/authoredGraphReferences';
+import type {AuthoredReferenceInput} from './types';
+import {isAuthoredReferences} from '../agentInteraction/authoredGraphReferences';
 import {authenticatedApiFetch,LiveApiError} from './liveApi';
 interface TurnRetryContextBase {
  world_id:string;conversation_id:string;turn_id:string;revision:number;root_id:string;
  predecessor_id:string|null;successor_id:string|null;ordinal:number;eligible:boolean;
  reason:'ready'|'not_terminal'|'unknown_outcome'|'existing_result'|'reviewed_step'|'retried'|'inactive'|'unverified';
 }
-export type TurnRetryContext=TurnRetryContextBase&({schema?:never;authored_references?:never}|{schema:'dmb_turn_retry_context_row_v2';authored_references:AuthoredGraphReferencesV1});
+export type TurnRetryContext=TurnRetryContextBase&({schema?:never;authored_references?:never}|{schema:'dmb_turn_retry_context_row_v2';authored_references:AuthoredReferenceInput});
 export const retryUuid=(v:unknown):v is string=>typeof v==='string'&&/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(v);
 const exact=(v:unknown,keys:string[]):v is Record<string,any>=>!!v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
 export function decodeRetryContext(value:unknown,world:string,conversation:string,turn:string):TurnRetryContext|null {
  if(value===null)return null;
  if(!exact(value,['world_id','conversation_id','turn_id','revision','root_id','predecessor_id','successor_id','ordinal','eligible','reason',...(value&&typeof value==='object'&&'schema' in value?['schema','authored_references']:[])])
-  ||('schema' in value&&(value.schema!=='dmb_turn_retry_context_row_v2'||!isAuthoredGraphReferences(value.authored_references,world)))
+  ||('schema' in value&&(value.schema!=='dmb_turn_retry_context_row_v2'||!isAuthoredReferences(value.authored_references,world)))
   ||value.world_id!==world||value.conversation_id!==conversation||value.turn_id!==turn
   ||!retryUuid(conversation)||!retryUuid(turn)||!retryUuid(value.root_id)
   ||!Number.isSafeInteger(value.revision)||value.revision<1||!Number.isSafeInteger(value.ordinal)||value.ordinal<0
@@ -46,7 +46,7 @@ export async function readRetryAttempts(world:string,conversation:string,turn:st
 export interface DiscussionRetryInput {
  schema:'dmb_build_retained_discussion_retry_input_v1';world_id:string;conversation_id:string;turn_id:string;
  revision:number;pointer_revision:number;surface_instance_id:string;message:string;client_work_state:'saved_clean'|'saved_dirty';
- snapshot:import('./types').WorldBuildDraftSnapshotV1;snapshot_sha256:string;authored_references:AuthoredGraphReferencesV1|null;
+ snapshot:import('./types').WorldBuildDraftSnapshotV1;snapshot_sha256:string;authored_references:AuthoredReferenceInput|null;
 }
 export async function readDiscussionRetryInput(world:string,conversation:string,turn:string,revision:number):Promise<DiscussionRetryInput>{
  if(!retryUuid(conversation)||!retryUuid(turn)||!Number.isSafeInteger(revision)||revision<1)throw new Error('Select a saved failed request.');
@@ -58,7 +58,7 @@ export async function readDiscussionRetryInput(world:string,conversation:string,
   ||v.schema!=='dmb_build_retained_discussion_retry_input_v1'||v.world_id!==world||v.conversation_id!==conversation||v.turn_id!==turn||v.revision!==revision
   ||!Number.isSafeInteger(v.pointer_revision)||v.pointer_revision<1||typeof v.surface_instance_id!=='string'||!v.surface_instance_id.trim()
   ||!['saved_clean','saved_dirty'].includes(v.client_work_state)||typeof v.message!=='string'||!v.message.trim()||!sha(v.snapshot_sha256)
-  ||!(v.authored_references===null||isAuthoredGraphReferences(v.authored_references,world))
+  ||!(v.authored_references===null||isAuthoredReferences(v.authored_references,world))
   ||!exact(v.snapshot,['schema','world_id','document_id','registry_revision','content_sha256','visibility','draft_markdown','draft_sha256','editor_sha256','draft_generation'])
   ||v.snapshot.schema!=='dmb_build_draft_snapshot_v1'||v.snapshot.world_id!==world||typeof v.snapshot.document_id!=='string'||!v.snapshot.document_id.trim()
   ||!Number.isSafeInteger(v.snapshot.registry_revision)||v.snapshot.registry_revision<1||!['internal','player_safe'].includes(v.snapshot.visibility)

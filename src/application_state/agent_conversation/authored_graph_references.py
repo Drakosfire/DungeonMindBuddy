@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from hashlib import sha256
 import json
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from .native_plan_assertions import NativePlanAssertionReadV1
@@ -51,7 +51,7 @@ def effective_references(*groups):
         for ref in group:
             old = chosen.get(ref.identity())
             if old is not None and old.basis() != ref.basis():
-                raise ValueError('The same Graph object has conflicting selection snapshots; choose it again')
+                raise ValueError('The same reference has conflicting selection snapshots; choose it again')
             chosen.setdefault(ref.identity(), ref)
     return tuple(chosen.values())
 
@@ -63,7 +63,7 @@ class AuthoredGraphReferencesV1(Closed):
     @model_validator(mode='after')
     def distinct(self):
         if effective_references(self.references) != self.references:
-            raise ValueError('Graph reference inputs must contain distinct scoped objects')
+            raise ValueError('Reference inputs must contain distinct scoped objects')
         return self
 
     @property
@@ -72,7 +72,59 @@ class AuthoredGraphReferencesV1(Closed):
 
     def require_world(self, world):
         if any(ref.managed_world_id != world for ref in self.references):
-            raise ValueError('Graph reference belongs to a different managed World')
+            raise ValueError('Reference belongs to a different managed World')
+
+
+class AuthoredSourceReferenceV1(Closed):
+    """An author-selected exact native body/section; never source admission."""
+    schema_: Literal['dmb_authored_source_reference_v1'] = Field(default='dmb_authored_source_reference_v1', alias='schema')
+    managed_world_id: str = Field(min_length=1)
+    native_world_id: str = Field(min_length=1)
+    binding_version: int = Field(strict=True, ge=1)
+    knowledge_revision: str = Field(min_length=1)
+    source_artifact_id: str = Field(min_length=1)
+    source_revision_id: str = Field(min_length=1)
+    evidence_ref_id: str = Field(min_length=1)
+    content_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    selection_kind: Literal['section', 'full_document']
+    section_id: str | None = Field(default=None, pattern=r'^[a-f0-9]{64}$')
+    label: str = Field(min_length=1)
+
+    @model_validator(mode='after')
+    def exact_selection(self):
+        if (self.selection_kind == 'section') != (self.section_id is not None):
+            raise ValueError('A source reference requires an explicit section or full-document selector')
+        if any(not value.strip() for value in (self.managed_world_id, self.native_world_id,
+                self.knowledge_revision, self.source_artifact_id, self.source_revision_id,
+                self.evidence_ref_id, self.label)):
+            raise ValueError('Source reference identity and label must be nonblank')
+        return self
+
+    def identity(self):
+        return (self.managed_world_id, self.native_world_id, 'source',
+                self.source_artifact_id, self.source_revision_id, self.section_id)
+
+    def basis(self):
+        return self.model_dump(mode='json', by_alias=True, exclude={'label'})
+
+
+AuthoredReference = Annotated[AuthoredGraphReferenceV1 | AuthoredSourceReferenceV1,
+                              Field(discriminator='schema_')]
+
+
+class AuthoredReferencesV2(AuthoredGraphReferencesV1):
+    """One current selection bundle; object and source owners stay distinct."""
+    schema_: Literal['dmb_authored_references_v2'] = Field(default='dmb_authored_references_v2', alias='schema')
+    references: tuple[AuthoredReference, ...]
+
+
+AuthoredReferenceInput = Annotated[AuthoredGraphReferencesV1 | AuthoredReferencesV2,
+                                  Field(discriminator='schema_')]
+
+
+def object_selections(references):
+    return tuple(ref for ref in (() if references is None else references.references)
+                 if isinstance(ref, AuthoredGraphReferenceV1))
 
 
 class BuildAuthoredReferenceAuthorizedV2(Closed):
@@ -147,7 +199,7 @@ def validate_native_execution(execution):
             or captured.submitted_intent_fingerprint != t.submitted_turn_intent_fingerprint_v2(execution.policy.action.intent)):
         raise ValueError('Native author input differs from its submitted intent')
     grants, reads = {}, set()
-    nodes = {ref.node_id for ref in references.references}
+    nodes = {ref.node_id for ref in object_selections(references)}
     for event in rows:
         if event is captured:
             continue
@@ -174,7 +226,7 @@ def validate_native_context(query, execution):
     from .native_plan_statements import validate_record_reads
     references = native_references(execution)
     if not isinstance(query, NativeGraphQueryV3):
-        if references is not None and references.references:
+        if object_selections(references):
             raise ValueError('Native authored selections require their Core target catalog')
         return
     if references is None:
@@ -183,11 +235,11 @@ def validate_native_context(query, execution):
     if authority.scope_mode != 'world' or authority.campaign_id is not None:
         raise ValueError('Authored targets require their exact World scope')
     if [(target.node_id, target.selection_revision_id) for target in query.authored_targets] != [
-            (ref.node_id, ref.graph_revision) for ref in references.references]:
+            (ref.node_id, ref.graph_revision) for ref in object_selections(references)]:
         raise ValueError('Native authored catalog changed its original selection snapshots')
     if any((ref.managed_world_id, ref.native_world_id, ref.binding_version) !=
             (authority.managed_world_id, authority.native_world_id, authority.binding_version)
-            for ref in references.references):
+            for ref in object_selections(references)):
         raise ValueError('Native authored catalog differs from its selected World binding')
     targets = {target.node_id: target for target in query.authored_targets}
     for event in execution.events:
@@ -227,7 +279,7 @@ def capture_native_input(turn, *, event_id):
         raise ValueError('Native capture requires actual nonempty authored selections')
     event = t.BuildAuthoredReferencesCapturedV1(kind='build_authored_references_captured_v1',
         event_id=event_id, sequence=len(execution.events), references=references,
-        read_graph_revision=receipt.native_query.authority.revision_id,
+        read_graph_revision=receipt.source_authority.revision_id,
         turn_id=turn.turn_id, conversation_id=turn.conversation_id, attempt=turn.attempt,
         submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2)
     validate_execution_binding(receipt, execution.model_copy(update={'events': [*execution.events, event]}))
@@ -262,6 +314,54 @@ def observe_native_reference(turn, *, event_id, authorization_event_id, material
         capture_event_id=grant.capture_event_id, authorization_event_id=grant.event_id,
         **{name: getattr(support, name) for name in ('node_id', 'statement_reads', 'assertion_reads',
             'unavailable_statement_ids', 'unavailable_assertion_ids', 'status')})
+    validate_execution_binding(receipt, execution.model_copy(update={'events': [*execution.events, event]}))
+    return event
+
+
+def validate_native_source_read(execution, event):
+    from .native_corpus import full_document_section
+    captured = capture(execution)
+    if event.capture_event_id != captured.event_id or event.sequence <= captured.sequence:
+        raise ValueError('Human source read lacks its exact earlier input')
+    if event.reference_index >= len(captured.references.references):
+        raise ValueError('Human source read names an absent selection')
+    ref = captured.references.references[event.reference_index]
+    if not isinstance(ref, AuthoredSourceReferenceV1):
+        raise ValueError('Human source read cannot borrow an object selection')
+    catalog, excerpt = event.catalog, event.excerpt
+    authority, member = catalog.authority, catalog.source
+    if (digest(authority.model_dump(mode='json', by_alias=True)) != execution.policy.source_authority_sha256
+            or (ref.managed_world_id, ref.native_world_id, ref.binding_version) != (
+                authority.managed_world_id, authority.native_world_id, authority.binding_version)
+            or (ref.source_artifact_id, ref.source_revision_id, ref.content_sha256, ref.evidence_ref_id) != (
+                member.artifact.source_artifact_id, member.revision.source_revision_id,
+                member.revision.content_sha256, member.evidence_ref_id)):
+        raise ValueError('Human source acquisition changed its frozen scope or selected source')
+    full = ref.selection_kind == 'full_document'
+    section = full_document_section(catalog) if full else next(
+        (row for row in catalog.sections if row.section_id == ref.section_id), None)
+    if (section is None or excerpt.catalog_sha256 != catalog.catalog_sha256
+            or excerpt.section != section
+            or excerpt.selector_policy != ('native_full_document_v1' if full else 'markdown_sections_v1')
+            or not full and section.byte_start == 0 and section.byte_end == catalog.body_bytes):
+        raise ValueError('Human source acquisition changed its explicitly selected extent')
+
+
+def observe_native_source_reference(turn, *, event_id, reference_index, materialize):
+    from .native_reads import _owner, validate_execution_binding
+    from .native_corpus import NativeAuthoredSourceReadV1
+    receipt, execution = _owner(turn, require_source=True)
+    captured = capture(execution)
+    if not 0 <= reference_index < len(captured.references.references):
+        raise ValueError('Selected source index is outside its frozen input')
+    reference = captured.references.references[reference_index]
+    if not isinstance(reference, AuthoredSourceReferenceV1):
+        raise ValueError('Selected source read requires its actual source input')
+    catalog, excerpt = materialize(reference)
+    event = NativeAuthoredSourceReadV1(event_id=event_id, sequence=len(execution.events),
+        capture_event_id=captured.event_id, reference_index=reference_index,
+        catalog=catalog, excerpt=excerpt)
+    validate_native_source_read(execution, event)
     validate_execution_binding(receipt, execution.model_copy(update={'events': [*execution.events, event]}))
     return event
 

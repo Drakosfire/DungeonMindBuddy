@@ -1,12 +1,14 @@
 import {useState} from 'react';
-import type {AuthoredGraphReferenceV1} from '../api/types';
+import type {AuthoredReference} from '../api/types';
 import {mergeAuthoredReferences,referenceIdentity} from '../agentInteraction/authoredGraphReferences';
+import {NativeSourceInspection} from '../graphLens/NativeSourceInspection';
 import {NativeGraphInspection} from '../graphLens/NativeGraphInspection';
 import type {InspectionPin} from '../api/nativeGraphInspection';
 import './SurfaceGraphReferenceInput.css';
 
 /** One input renderer for composer, plan roots and pending steps. Selection is unread. */
-export function SurfaceGraphReferenceInput({worldId,value,onChange,disabled=false,readOnly=false,label='Graph context'}:{worldId:string;value:AuthoredGraphReferenceV1[];onChange:(next:AuthoredGraphReferenceV1[])=>void;disabled?:boolean;readOnly?:boolean;label?:string}) {
+export function SurfaceGraphReferenceInput({worldId,value,onChange,disabled=false,readOnly=false,label='References'}:{worldId:string;value:AuthoredReference[];onChange:(next:AuthoredReference[])=>void;disabled?:boolean;readOnly?:boolean;label?:string}) {
+ const [kind,setKind]=useState<'objects'|'sources'>('objects');
  const [open,setOpen]=useState(false),[error,setError]=useState<string|null>(null);
  function choose(pin:InspectionPin,entityId:string,label:string){
   if(disabled||readOnly||pin.managed_world_id!==worldId)return;
@@ -18,7 +20,8 @@ export function SurfaceGraphReferenceInput({worldId,value,onChange,disabled=fals
   </div>
   {error&&<p role="alert">{error}</p>}
   {open&&!readOnly&&<div className="surface-graph-reference-input__picker">
-   <NativeGraphInspection key={worldId} worldId={worldId} onChoose={choose} disabled={disabled}/>
+   <div role="group" aria-label="Reference type"><button type="button" aria-pressed={kind==='objects'} onClick={()=>setKind('objects')}>Objects</button><button type="button" aria-pressed={kind==='sources'} onClick={()=>setKind('sources')}>Sources</button></div>
+   {kind==='objects'?<NativeGraphInspection key={worldId} worldId={worldId} onChoose={choose} disabled={disabled}/>:<NativeSourceInspection key={worldId} worldId={worldId} disabled={disabled} onChoose={ref=>{if(disabled||readOnly||ref.managed_world_id!==worldId)return;try{onChange(mergeAuthoredReferences(value,[ref]));setError(null);setOpen(false);}catch(e){setError(String(e));}}}/>}
   </div>}
  </section>;
 }

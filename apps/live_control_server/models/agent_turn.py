@@ -245,7 +245,7 @@ class AgentTurnGraphSelection(BaseModel):
         return cleaned
 
 
-from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferencesV1
+from application_state.agent_conversation.authored_graph_references import AuthoredReferenceInput
 
 from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV1
 
@@ -267,7 +267,7 @@ class AgentTurnRequest(BaseModel):
     native_statement_selection: NativeStatementSelectionV1 | None = None
     build_write_capability: BuildWriteCapability | None = None
     build_draft_context: BuildDraftContextRequestV1 | None = None
-    build_authored_references: AuthoredGraphReferencesV1 | None = None
+    build_authored_references: AuthoredReferenceInput | None = None
     retry_of: RetryTurnReference | None = None
     reviewed_step: ReviewedStepReference | None = None
     plan_context_policy: PlanContextPolicyV2 | PlanContextPolicyV1 | None = None

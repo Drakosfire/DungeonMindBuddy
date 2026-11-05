@@ -145,3 +145,14 @@ it('uses native line boundaries for all splitlines separators, not just LF',asyn
  fireEvent.change(await screen.findByRole('combobox',{name:'Read passage'}),{target:{value:'b'.repeat(64)}});
  expect(screen.getByText('def\u2028ghi\x1c',{exact:true,normalizer:v=>v})).toBeVisible();
 });
+
+it('includes the exact opened source or native section as unread author input',async()=>{
+ const packet=passageBody(),choose=vi.fn();vi.mocked(readNativeSource).mockResolvedValue(packet);
+ render(<NativeSourceInspection worldId="w" onChoose={choose}/>);fireEvent.click(await screen.findByRole('button',{name:/Session 8 recap/}));
+ fireEvent.click(await screen.findByRole('button',{name:'Include source'}));
+ expect(choose).toHaveBeenLastCalledWith({schema:'dmb_authored_source_reference_v1',managed_world_id:'w',native_world_id:'n',binding_version:1,knowledge_revision:'r1',source_artifact_id:'sc18',source_revision_id:'src18',evidence_ref_id:'ec18',content_sha256:'a'.repeat(64),selection_kind:'full_document',section_id:null,label:'Session 8 recap'});
+ fireEvent.change(screen.getByRole('combobox',{name:'Read passage'}),{target:{value:'b'.repeat(64)}});
+ fireEvent.click(screen.getByRole('button',{name:'Include passage'}));
+ expect(choose).toHaveBeenLastCalledWith(expect.objectContaining({selection_kind:'section',section_id:'b'.repeat(64),source_revision_id:'src18'}));
+ expect(readNativeSource).toHaveBeenCalledTimes(1);
+});

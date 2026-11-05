@@ -1,5 +1,5 @@
-import type {AuthoredGraphReferenceV1} from '../../api/types';
-import {isAuthoredGraphReferenceList,mergeAuthoredReferences} from '../../agentInteraction/authoredGraphReferences';
+import type {AuthoredReference} from '../../api/types';
+import {isAuthoredReferenceList,mergeAuthoredReferences} from '../../agentInteraction/authoredGraphReferences';
 import type {BuildProposalBasis} from '../../api/buildDocumentProposalApi';
 import {planObjective,type WorkPlan,type WorkStep} from '../../api/conversationWorkPlanApi';
 import {canonical,exact} from '../../shared/sourcePassageProtocol';
@@ -12,7 +12,7 @@ export interface PlacementTransaction {
 }
 interface RetiredPlacement {
   command_id:string;basis:BuildProposalBasis;reference:WorkPlanReference;reference_markdown:string;reference_sha256:string;
-  review_snapshot?:{rows:WorkStep[];objective:string|null;root_references?:AuthoredGraphReferenceV1[];schema:WorkPlanPlacement['schema'];phase:PlacementPhase;expected_review_revision:number;acknowledged_review_revision:number|null};
+  review_snapshot?:{rows:WorkStep[];objective:string|null;root_references?:AuthoredReference[];schema:WorkPlanPlacement['schema'];phase:PlacementPhase;expected_review_revision:number;acknowledged_review_revision:number|null};
   prepared:PlacementTransaction|null;disposition:'superseded_unresolved'|'superseded_unapplied';
 }
 interface PlacementBase {
@@ -21,7 +21,7 @@ interface PlacementBase {
   expected_review_revision:number;acknowledged_review_revision:number|null;prepared:PlacementTransaction|null;
   phase:PlacementPhase;saved:{revision:number;content_sha256:string}|null;retired_placements:RetiredPlacement[];
 }
-export type WorkPlanPlacement = PlacementBase & ({schema:'dmb_surface_work_plan_placement_v1'}|{schema:'dmb_surface_work_plan_placement_v2';objective:string}|{schema:'dmb_surface_work_plan_placement_v3';objective:string;root_references:AuthoredGraphReferenceV1[]});
+export type WorkPlanPlacement = PlacementBase & ({schema:'dmb_surface_work_plan_placement_v1'}|{schema:'dmb_surface_work_plan_placement_v2';objective:string}|{schema:'dmb_surface_work_plan_placement_v3';objective:string;root_references:AuthoredReference[]});
 export const placementObjective=(p:WorkPlanPlacement)=>p.schema!=='dmb_surface_work_plan_placement_v1'?p.objective:null;
 export const placementReferences=(p:WorkPlanPlacement)=>p.schema==='dmb_surface_work_plan_placement_v3'?p.root_references:undefined;
 export type PlacementStorage=Pick<Storage,'getItem'|'setItem'>;
@@ -44,13 +44,13 @@ function validBasis(value:unknown,ref:WorkPlanReference):value is BuildProposalB
     &&typeof v.editor_sha256==='string'&&digest.test(v.editor_sha256)&&integer(v.caret)&&integer(v.draft_generation)&&integer(v.selection_generation)
     &&(v.selection===undefined||v.selection===null);
 }
-function validRows(value:unknown,world?:string,roots?:AuthoredGraphReferenceV1[]):value is WorkStep[]{
+function validRows(value:unknown,world?:string,roots?:AuthoredReference[]):value is WorkStep[]{
   if(!Array.isArray(value)||!value.length)return false;
   const ids=new Set<string>();
   return value.every(row=>{
     if(!exact(row,['step_id','text','selected','kind',...(roots===undefined?[]:['references'])])||typeof row.step_id!=='string'||!uuid.test(row.step_id)||ids.has(row.step_id)
       ||typeof row.text!=='string'||!row.text.trim()||typeof row.selected!=='boolean'||!['discuss','prepare_insertion'].includes(String(row.kind)))return false;
-    if(roots!==undefined){if(!isAuthoredGraphReferenceList(row.references,world))return false;try{mergeAuthoredReferences(roots,row.references);}catch{return false;}}
+    if(roots!==undefined){if(!isAuthoredReferenceList(row.references,world))return false;try{mergeAuthoredReferences(roots,row.references);}catch{return false;}}
     ids.add(row.step_id);return true;
   });
 }
@@ -74,14 +74,14 @@ function validReviewSnapshot(v:NonNullable<RetiredPlacement['review_snapshot']>,
   &&['dmb_surface_work_plan_placement_v1','dmb_surface_work_plan_placement_v2','dmb_surface_work_plan_placement_v3'].includes(v.schema)
   &&integer(v.expected_review_revision)&&(v.acknowledged_review_revision===null||integer(v.acknowledged_review_revision,1))
   &&['staged','review_saving','review_saved','applying','page_save_uncertain','saved','discarded'].includes(v.phase)
-  &&(v.objective===null||typeof v.objective==='string')&&(!aware||isAuthoredGraphReferenceList(v.root_references,world))
+  &&(v.objective===null||typeof v.objective==='string')&&(!aware||isAuthoredReferenceList(v.root_references,world))
   &&validRows(v.rows,world,aware?v.root_references:undefined);
 }
 /** Never repair retained bytes into apparent success. */
 export async function checkedPlacement(value:unknown,owner:WorkPlanReference):Promise<WorkPlanPlacement>{
   if(!exact(value,['schema','reference','command_id','basis','pointer_revision','reference_markdown','reference_sha256','rows','expected_review_revision','acknowledged_review_revision','prepared','phase','saved','retired_placements',...(value&&typeof value==='object'&&'schema' in value&&['dmb_surface_work_plan_placement_v2','dmb_surface_work_plan_placement_v3'].includes(String(value.schema))?['objective',...(value.schema==='dmb_surface_work_plan_placement_v3'?['root_references']:[])]:[])])
-    ||!['dmb_surface_work_plan_placement_v1','dmb_surface_work_plan_placement_v2','dmb_surface_work_plan_placement_v3'].includes(String(value.schema))||value.schema!=='dmb_surface_work_plan_placement_v1'&&typeof value.objective!=='string'||value.schema==='dmb_surface_work_plan_placement_v3'&&!isAuthoredGraphReferenceList(value.root_references,owner.world_id)||typeof value.command_id!=='string'||!uuid.test(value.command_id)
-    ||!validBasis(value.basis,owner)||!integer(value.pointer_revision,1)||!validRows(value.rows,owner.world_id,value.schema==='dmb_surface_work_plan_placement_v3'?value.root_references as AuthoredGraphReferenceV1[]:undefined)
+    ||!['dmb_surface_work_plan_placement_v1','dmb_surface_work_plan_placement_v2','dmb_surface_work_plan_placement_v3'].includes(String(value.schema))||value.schema!=='dmb_surface_work_plan_placement_v1'&&typeof value.objective!=='string'||value.schema==='dmb_surface_work_plan_placement_v3'&&!isAuthoredReferenceList(value.root_references,owner.world_id)||typeof value.command_id!=='string'||!uuid.test(value.command_id)
+    ||!validBasis(value.basis,owner)||!integer(value.pointer_revision,1)||!validRows(value.rows,owner.world_id,value.schema==='dmb_surface_work_plan_placement_v3'?value.root_references as AuthoredReference[]:undefined)
     ||!integer(value.expected_review_revision)||!(value.acknowledged_review_revision===null||integer(value.acknowledged_review_revision,1))
     ||!['staged','review_saving','review_saved','applying','page_save_uncertain','saved','discarded'].includes(String(value.phase))
     ||!(value.prepared===null||validTransaction(value.prepared,value.basis))||!Array.isArray(value.retired_placements)
@@ -123,7 +123,7 @@ export async function withPlacementLock<T>(ref:WorkPlanReference,action:()=>Prom
 }
 /** Lock BEFORE the first read/write, so a new tab cannot replace an uncertain attempt. */
 export async function stagePlacement(ref:WorkPlanReference,basis:BuildProposalBasis,pointerRevision:number,rows:WorkStep[],expectedRevision=0,
-  storage:PlacementStorage=localStorage,locks:PlacementLocks|undefined=navigator.locks,objective:string|null=null,rootReferences?:AuthoredGraphReferenceV1[]):Promise<WorkPlanPlacement>{
+  storage:PlacementStorage=localStorage,locks:PlacementLocks|undefined=navigator.locks,objective:string|null=null,rootReferences?:AuthoredReference[]):Promise<WorkPlanPlacement>{
   return withPlacementLock(ref,async()=>{
     const existing=await readPlacement(ref,storage);
     if(existing)return existing;
@@ -185,10 +185,10 @@ export async function placementSession<T>(ref:WorkPlanReference,action:(session:
 
 export interface PlacementPageIO<Prepared> {
  objective?:string;
- rootReferences?:AuthoredGraphReferenceV1[];
+ rootReferences?:AuthoredReference[];
  assertCurrent:()=>void;
  readReview:()=>Promise<import('../../api/conversationWorkPlanApi').WorkPlan|null>;
- saveReview:(revision:number,rows:WorkStep[],objective:string,rootReferences?:AuthoredGraphReferenceV1[])=>Promise<import('../../api/conversationWorkPlanApi').WorkPlan>;
+ saveReview:(revision:number,rows:WorkStep[],objective:string,rootReferences?:AuthoredReference[])=>Promise<import('../../api/conversationWorkPlanApi').WorkPlan>;
  findSaved:()=>Promise<{revision:number;content_sha256:string;body_sha256:string}|null>;
  prepare:(placement:WorkPlanPlacement)=>Promise<{value:Prepared;after_editor_sha256:string;after_draft_sha256:string}>;
  inspect:(placement:WorkPlanPlacement)=>Promise<'before'|'after'|'changed'>;
@@ -274,7 +274,7 @@ export async function savePlacementOnPage<T>(expected:WorkPlanPlacement,rows:Wor
 }
 
 /** Explicit review adoption retains local edits and replaces the receipt in one locked write. */
-export async function adoptPlacementReview(expected:WorkPlanPlacement,local:{rows:WorkStep[];objective:string;rootReferences?:AuthoredGraphReferenceV1[]},review:Extract<WorkPlan,{schema:'dmb_reviewed_work_plan_v3'}>,
+export async function adoptPlacementReview(expected:WorkPlanPlacement,local:{rows:WorkStep[];objective:string;rootReferences?:AuthoredReference[]},review:Extract<WorkPlan,{schema:'dmb_reviewed_work_plan_v3'}>,
  storage:PlacementStorage=localStorage,locks:PlacementLocks|undefined=navigator.locks):Promise<WorkPlanPlacement>{
  return withPlacementLock(expected.reference,async()=>{
   const current=await readPlacement(expected.reference,storage);

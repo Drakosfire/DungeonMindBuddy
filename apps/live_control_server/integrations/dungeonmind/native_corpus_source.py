@@ -83,6 +83,72 @@ def prepare_native_source_context(*, managed_world_id, principal, revision_id=No
     return NativeCorpusContext(authority, bound, access, resolve_identity, principal, repo)
 
 
+def open_native_corpus_member(prepared, evidence_ref_id):
+    """Open one exact Core member; shared by selected and corpus-search callers."""
+    authority, access = prepared.authority, prepared.access
+    evidence = access.parsed.get_evidence(evidence_ref_id)
+    if evidence is None or evidence.source_revision_id is None:
+        return None
+    opened = open_admitted_native_text(access, evidence_ref_id)
+    if opened.status != "available":
+        return None
+    pair = (evidence.source_artifact_id, evidence.source_revision_id)
+    snapshot = access.source_view.get_provenance_snapshot(artifact_ids=[pair[0]], revision_ids=[pair[1]])
+    artifact, revision = snapshot.get_artifact(pair[0]), snapshot.get_revision(pair[1])
+    if artifact is None or revision is None:
+        raise ValueError("Authorized native corpus provenance is unavailable")
+    member = NativeCorpusMemberV1(artifact_json=canonical(artifact), revision_json=canonical(revision),
+        evidence_ref_id=evidence.evidence_ref_id, access_span_id=evidence.source_span_ref_id,
+        access_start_byte=opened.span_start_byte, access_end_byte=opened.span_end_byte,
+        access_slice_sha256=opened.span_sha256, proof_epoch=opened.source_authority_epoch)
+    if ((opened.source_artifact_id, opened.source_revision_id) != pair
+            or member.proof_epoch > authority.acquisition_epoch):
+        raise ValueError("Native corpus access differs from its coherent selected source")
+    member.verify_body(opened.body_text)
+    if prepared.resolve_identity(authority.managed_world_id) != prepared.binding:
+        raise ValueError("Native source ownership changed during opening")
+    return member, opened.body_text
+
+
+def read_authored_source(prepared, reference):
+    """Current human input names an exact original selector; Core admits the read."""
+    from dungeonmind.application.vnext import list_admitted_native_text_sources
+    from application_state.agent_conversation.native_corpus import (
+        build_native_body_catalog, select_native_full_document, select_native_body_excerpt,
+    )
+    authority = prepared.authority
+    if (reference.managed_world_id, reference.native_world_id, reference.binding_version) != (
+            authority.managed_world_id, authority.native_world_id, authority.binding_version):
+        raise ValueError("Selected source World binding changed; choose it again")
+    original = prepare_native_source_context(managed_world_id=authority.managed_world_id,
+        principal=prepared.principal, revision_id=reference.knowledge_revision,
+        repository=prepared.repository, resolve_identity=prepared.resolve_identity)
+    eligible = [row for row in list_admitted_native_text_sources(original.access).sources
+        if row.source_artifact.source_artifact_id == reference.source_artifact_id
+        and row.source_revision.source_revision_id == reference.source_revision_id
+        and row.source_revision.content_sha256 == reference.content_sha256
+        and reference.evidence_ref_id in row.evidence_ref_ids]
+    if len(eligible) != 1:
+        raise ValueError("Selected source is absent from its original revision; choose it again")
+    fresh = prepare_native_source_context(managed_world_id=authority.managed_world_id,
+        principal=prepared.principal, revision_id=authority.revision_id,
+        repository=prepared.repository, resolve_identity=prepared.resolve_identity)
+    if fresh.authority.model_dump(exclude={'acquisition_epoch'}) != authority.model_dump(exclude={'acquisition_epoch'}):
+        raise ValueError("Selected source authority changed")
+    result = open_native_corpus_member(fresh, reference.evidence_ref_id)
+    if result is None:
+        raise ValueError("The exact selected source is unavailable; no newer source was substituted")
+    member, text = result
+    if (member.artifact.source_artifact_id, member.revision.source_revision_id,
+            member.revision.content_sha256) != (reference.source_artifact_id,
+                reference.source_revision_id, reference.content_sha256):
+        raise ValueError("Selected source opening returned a different exact version")
+    catalog = build_native_body_catalog(authority, member, text)
+    excerpt = (select_native_full_document(catalog, text) if reference.selection_kind == 'full_document'
+               else select_native_body_excerpt(catalog, text, reference.section_id))
+    return catalog, excerpt
+
+
 def capture_native_sources(*, managed_world_id, principal, revision_id=None,
                            repository=None, resolve_identity=None, prepared=None):
     """Acquire bodies only after the caller has durably authorized source search."""
@@ -108,28 +174,12 @@ def capture_native_sources(*, managed_world_id, principal, revision_id=None,
     members, bodies, unavailable = [], {}, 0
     for pair, candidates in sorted(pairs.items()):
         for evidence in sorted(candidates, key=lambda row: row.evidence_ref_id):
-            opened = open_admitted_native_text(access, evidence.evidence_ref_id)
-            if opened.status != "available":
+            result = open_native_corpus_member(prepared, evidence.evidence_ref_id)
+            if result is None:
                 continue
-            snapshot = access.source_view.get_provenance_snapshot(
-                artifact_ids=[pair[0]], revision_ids=[pair[1]])
-            artifact, revision = snapshot.get_artifact(pair[0]), snapshot.get_revision(pair[1])
-            if artifact is None or revision is None:
-                raise ValueError("Authorized native corpus provenance is unavailable")
-            member = NativeCorpusMemberV1(artifact_json=canonical(artifact), revision_json=canonical(revision),
-                evidence_ref_id=evidence.evidence_ref_id,
-                access_span_id=evidence.source_span_ref_id,
-                access_start_byte=opened.span_start_byte,
-                access_end_byte=opened.span_end_byte,
-                access_slice_sha256=opened.span_sha256,
-                proof_epoch=opened.source_authority_epoch)
-            if (opened.source_artifact_id, opened.source_revision_id) != pair:
-                raise ValueError("Native corpus access returned a different source pair")
-            if member.proof_epoch > authority.acquisition_epoch:
-                raise ValueError("Native corpus proof postdates its coherent source view")
-            member.verify_body(opened.body_text)
+            member, text = result
             members.append(member)
-            bodies[pair] = opened.body_text
+            bodies[pair] = text
             break
         else:
             unavailable += 1

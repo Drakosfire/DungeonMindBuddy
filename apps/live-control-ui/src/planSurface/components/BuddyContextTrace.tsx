@@ -114,7 +114,7 @@ function Event({ event, passages, trace }: { event: BuddyTraceObservation; passa
       {['denied', 'unavailable'].includes(event.result.outcome) && <p className="buddy-context-trace__failure">This result supplies no admitted evidence.</p>}</details>
     case 'authored_graph_reference_v1': return <details><summary>{authoredTraceLabel(event.execution_event)}</summary>
       {'node_id' in event.execution_event&&<p>Selected object: {event.execution_event.node_id}</p>}
-      {event.execution_event.kind==='build_authored_references_captured_v1'&&<ul>{event.execution_event.references.references.map(ref=><li key={`${ref.native_world_id}:${ref.node_id}`}>@{ref.label} · {ref.node_id}</li>)}</ul>}
+      {event.execution_event.kind==='build_authored_references_captured_v1'&&<ul>{event.execution_event.references.references.map(ref=><li key={`${ref.native_world_id}:${ref.schema==='dmb_authored_graph_reference_v1'?ref.node_id:`${ref.source_revision_id}:${ref.section_id??'full'}`}`}>@{ref.label} · {ref.schema==='dmb_authored_graph_reference_v1'?ref.node_id:ref.source_revision_id}</li>)}</ul>}
       {event.execution_event.kind==='build_authored_reference_read_v1'&&<p>{event.execution_event.outcome==='read'?'Object acquisition completed.':event.execution_event.outcome==='read_partial'?'Object acquisition was incomplete.':'Complete source support was not acquired.'} This status does not establish a claim.</p>}
       {event.execution_event.kind==='build_authored_provider_inclusion_v1'&&<p>The exact Graph context was prepared for this writer request. See provider lifecycle records for transmission and response.</p>}
       <JsonDetails label="Recorded APP event" value={event.execution_event}/>

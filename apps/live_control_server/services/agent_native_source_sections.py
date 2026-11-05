@@ -106,12 +106,10 @@ def open_native_body_excerpt(*, world_id, turn_id, citation_index, principal, se
     if citation_index >= len(turn.completion.native_body_citations):
         raise SourcePassageOpenError('native_body_not_found', 404)
     citation = turn.completion.native_body_citations[citation_index]
-    from application_state.agent_conversation.native_corpus import NativeBodyReadObservedV1, NativeBodySearchObservedV1
+    from application_state.agent_conversation.native_corpus import acquired_body_reads, acquired_body_catalogs
     execution = turn.graph_context_execution
-    read = next(event for event in execution.events if isinstance(event, NativeBodyReadObservedV1)
-        and event.event_id == citation.read_event_id)
-    catalog = next(catalog for event in execution.events if isinstance(event, NativeBodySearchObservedV1)
-        for catalog in event.catalogs if catalog.catalog_sha256 == read.excerpt.catalog_sha256)
+    read = next(event for event in acquired_body_reads(execution) if event.event_id == citation.read_event_id)
+    catalog = acquired_body_catalogs(execution)[read.excerpt.catalog_sha256]
     from ..integrations.dungeonmind.native_corpus_source import read_native_corpus_member
     try:
         body = read_native_corpus_member(authority=turn.graph_context_receipt.source_authority,
