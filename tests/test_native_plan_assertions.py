@@ -236,6 +236,11 @@ def _ordinary_native_case(
                 if 'requested_work' in body['questions']:
                     assert body['state']['author_selected_references']==selected_references.model_dump(mode='json',by_alias=True)
                 native=set()  # Explicit human inclusion cannot depend on a model relevance vote.
+            if authored_source and 'operation' in body['questions']:
+                examined = body['state']['examined_subjects']
+                assert any(c['kind'].startswith('Acquired user-selected source text; mandatory writer input')
+                    and ('Full document' if authored_source == 'full_document' else 'Episode') in c['label'] for c in examined)
+                assert human_text not in req.content.decode()
             assert BODY not in req.content.decode()
             answers={}
             for name,entry in body['questions'].items():
