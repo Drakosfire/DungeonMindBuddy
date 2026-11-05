@@ -75,6 +75,17 @@ def resolve_native_review_context(*, scope: dict, nodes: list[dict], source_admi
     search_service = SearchReadService()
     entities = EntityReadService()
     evidence_service = EvidenceReadService()
+    # Memoize only inside this exact revision/campaign/source-epoch request.
+    # Core remains the admission/opening authority; failures are never cached.
+    search_results = {}
+    alternatives_by_entity = {}
+    evidence_previews = {}
+
+    def preview(evidence_ref_id):
+        if evidence_ref_id not in evidence_previews:
+            evidence_previews[evidence_ref_id] = _preview(access, evidence_ref_id)
+        return evidence_previews[evidence_ref_id]
+
     selections = []
     for node in sorted(nodes, key=lambda item: item["node_id"]):
         # A matching label or even an exact ID is advisory. It never merges a
@@ -83,31 +94,39 @@ def resolve_native_review_context(*, scope: dict, nodes: list[dict], source_admi
             value for value in (node["node_id"], node.get("label"))
             if isinstance(value, str) and value.strip()
         ))
-        searches = [search_service.search_entities(context, query) for query in queries]
+        for query in queries:
+            if query not in search_results:
+                search_results[query] = search_service.search_entities(context, query)
+        searches = [search_results[query] for query in queries]
         ids = sorted({hit.entity.entity_id for result in searches for hit in result.hits})
         alternatives = []
         for entity_id in ids:
+            if entity_id in alternatives_by_entity:
+                alternatives.append(alternatives_by_entity[entity_id])
+                continue
             entity = entities.get_entity(context, entity_id)
             support = [
                 evidence_service.get_assertion_evidence(context, assertion.assertion_id)
                 for assertion in entity.assertions
             ]
             previews = {
-                evidence.evidence_ref_id: _preview(access, evidence.evidence_ref_id)
+                evidence.evidence_ref_id: preview(evidence.evidence_ref_id)
                 for result in support if result.available
                 for evidence in result.evidence
             }
             supported = bool(entity.assertions) and all(
                 result.available and bool(result.evidence) for result in support
             )
-            alternatives.append({
+            alternative = {
                 "entity_id": entity_id,
                 "status": "supported_facts" if supported else "insufficient_support",
                 "identity_approved": False,
                 "entity_result": jsonable_encoder(entity),
                 "assertion_support": jsonable_encoder(support),
                 "source_inspection": [previews[key] for key in sorted(previews)],
-            })
+            }
+            alternatives_by_entity[entity_id] = alternative
+            alternatives.append(alternative)
         selections.append({
             "candidate_node_id": node["node_id"],
             "status": (
@@ -131,12 +150,12 @@ def resolve_native_review_context(*, scope: dict, nodes: list[dict], source_admi
                     or evidence.source_artifact_id != source_admission.source_artifact_id
                     or evidence.source_revision_id != source_admission.source_revision_id):
                 continue
-            preview = _preview(access, evidence.evidence_ref_id)
-            if (preview["status"] == "available"
-                    and preview["body_sha256"] != source_admission.app_body_sha256):
+            opened = preview(evidence.evidence_ref_id)
+            if (opened["status"] == "available"
+                    and opened["body_sha256"] != source_admission.app_body_sha256):
                 raise NativeReviewConflict("admitted source does not match saved source bytes")
             source_evidence.append({"evidence_ref_id": evidence.evidence_ref_id,
-                                    "evidence_role": evidence.evidence_role, "opening": preview})
+                                    "evidence_role": evidence.evidence_role, "opening": opened})
     if repository.open_native_source_view(world_id).epoch != access.source_view.epoch:
         raise NativeReviewConflict("native source authority changed during review")
     if repository.get_head(world_id) != head:
