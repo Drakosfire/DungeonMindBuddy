@@ -1,6 +1,6 @@
 # Native execution limits at their owning boundaries
 
-Status: ACTIVE. Owner/designer: PRIME. Authority: reference integration goal and
+Status: MERGED_AND_DELIVERED; Plan acceptance remains open. Owner/designer: PRIME. Authority: reference integration goal and
 ordinary Plan retry65083a20-002a-4a42-b890-c483d1c0db0d. Serial after merged
 #2097 d541f6f689b8eea06b259d28c1be3c276f1334d5. Branch
 codex/native-ledger-owning-bounds, existing buddy-context-loop checkout/dependencies.
@@ -67,3 +67,13 @@ source admission and citation tamper/player rejection still pass. The storage
 fixture uses synthetic assertion IDs; it is not a full Core-publication proof.
 Broader ordinary Build/Plan and writer regressions are running; CI and review
 remain merge/delivery gates. Private corpus replay is retained outside Git.
+
+Merged #2098 as e99c2ecba073ac1beb348c1d386b3a413fd94b0f; live compatible
+runtime0b5c33bcd742947063d55814a9781db065a09ae7 / APP0111. Independent review,
+all7CI,46owning/161broader/59union checks passed. API1951165 healthy; UI1851454
+unchanged; retained APP/Core/session conservation verified. Runtime lease released.
+Ordinary retry86505136-a4c2-47aa-b303-fc3068b2f03a completed with1.4MiB history.
+Its citation opens the original Session29 lines17–47; saved Plan and newer draft
+remain unchanged through reload.56reads/408.7seconds and one geographic attribution
+remain quality concerns; operator acceptance is not claimed. Native navigation omission
+is a separate bounded successor in HANDOFF-REFERENCE-acquired-source-navigation.md.

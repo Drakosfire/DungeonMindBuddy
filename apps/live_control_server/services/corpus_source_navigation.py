@@ -260,6 +260,12 @@ class NativeBodyNavigation:
         return (native_full_document_handle(auth.catalog_sha256) if auth.retrieval_kind == "full_document"
             else native_body_handle(auth.catalog_sha256, auth.section_id))
 
+    def _acquired_extents(self):
+        from application_state.agent_conversation.native_corpus import acquired_body_reads, acquired_body_catalogs
+        execution = self.adapter.fence.turn.graph_context_execution
+        catalogs = acquired_body_catalogs(execution)
+        return tuple((read, catalogs[read.excerpt.catalog_sha256]) for read in acquired_body_reads(execution))
+
     def offered(self):
         from application_state.agent_conversation.native_corpus import (
             NativeCorpusAuthorityV1, native_corpus_search_handle, native_body_handle, native_full_document_handle,
@@ -277,6 +283,11 @@ class NativeBodyNavigation:
         if search is None:
             raise ValueError("Native source search has an unresolved durable grant")
         attempted = {self._handle(auth) for auth in auths}
+        acquired = self._acquired_extents()
+        def opened(catalog, start, end):
+            return any(read.excerpt.catalog_sha256 == catalog.catalog_sha256
+                and read.excerpt.section.byte_start <= start and read.excerpt.section.byte_end >= end
+                for read, _ in acquired)
         rows = []
         hits = {(row.catalog_sha256, row.section_id): row.matched_terms for row in search.matches}
         for catalog in search.catalogs:
@@ -288,12 +299,12 @@ class NativeBodyNavigation:
                 if section.byte_start == 0 and section.byte_end == catalog.body_bytes:
                     continue
                 handle = native_body_handle(catalog.catalog_sha256, section.section_id)
-                if handle not in attempted:
+                if handle not in attempted and not opened(catalog, section.byte_start, section.byte_end):
                     rows.append(RetrievalCandidate(handle=handle,
                         label=name + " · " + section.label + " · matched terms: " + ", ".join(hits[(catalog.catalog_sha256, section.section_id)]),
                         kind="Exact source section"))
             handle = native_full_document_handle(catalog.catalog_sha256)
-            if matched and handle not in attempted:
+            if matched and handle not in attempted and not opened(catalog, 0, catalog.body_bytes):
                 terms = sorted({term for section in matched
                                 for term in hits[(catalog.catalog_sha256, section.section_id)]})
                 rows.append(RetrievalCandidate(handle=handle,
@@ -315,11 +326,24 @@ class NativeBodyNavigation:
                 label="Admitted native source search", kind=(
                     f"Navigation scan: {len(search.catalogs)} accessible revisions, {search.unavailable_source_count} unavailable; semantic/global completeness not established"
                     if search is not None else "Unresolved source search")))
+        from application_state.agent_conversation.native_corpus import (
+            NativeAuthoredSourceReadV1, native_body_handle, native_full_document_handle,
+        )
+        for read, catalog in self._acquired_extents():
+            excerpt = read.excerpt
+            full = excerpt.section.byte_start == 0 and excerpt.section.byte_end == catalog.body_bytes
+            handle = (native_full_document_handle(catalog.catalog_sha256) if full
+                else native_body_handle(catalog.catalog_sha256, excerpt.section.section_id))
+            rows.append(RetrievalCandidate(handle=handle,
+                label=catalog.sections[0].label + " · " + excerpt.section.label
+                    + f" · lines {excerpt.section.line_start}–{excerpt.section.line_end}",
+                kind=("Acquired user-selected source text; mandatory writer input" if isinstance(read, NativeAuthoredSourceReadV1)
+                    else "Acquired exact source text") + "; not an answer-sufficiency verdict"))
         for auth in auths:
             read = reads.get(auth.event_id)
-            rows.append(RetrievalCandidate(handle=self._handle(auth), label="Previously selected native source extent",
-                kind=("Acquired exact source text" if read is not None and read.excerpt is not None
-                    else "Unavailable source read" if read is not None else "Unresolved source read")))
+            if read is None or read.excerpt is None:
+                rows.append(RetrievalCandidate(handle=self._handle(auth), label="Previously selected native source extent",
+                    kind="Unavailable source read" if read is not None else "Unresolved source read"))
         return tuple(rows)
 
     def _commit(self, method, **fields):
