@@ -69,7 +69,7 @@ def test_actual_production_pipeline_dispatches_new_profile_without_provider(
     dispatched = {}
 
     class Recorder(BoundedRecapPassClient):
-        supports_actor_source_handles = False
+        supports_node_source_handles = False
 
         def __init__(self):
             super().__init__(

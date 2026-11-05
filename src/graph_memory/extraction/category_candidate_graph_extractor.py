@@ -390,11 +390,20 @@ def _source_packet_md(rows: Sequence[dict[str, Any]]) -> str:
     return "\n\n".join(parts)
 
 
+def _source_handle_node_passes(profile: ExtractionProfile) -> frozenset[str]:
+    if profile.admitted_source_domains != frozenset({"recap"}):
+        return frozenset()
+    if profile.qualified_id == RECAP_EXTRACTION_PROFILE.qualified_id:
+        return frozenset(p.pass_id for p in profile.node_passes)
+    # Other recap profiles already used actor handles before this expansion.
+    return frozenset({"actor_pass"})
+
+
 def render_category_pass_prompts(
     source_rows: Sequence[dict[str, Any]],
     *,
     profile: ExtractionProfile | None = None,
-    actor_source_packet: Any | None = None,
+    node_source_packet: Any | None = None,
 ) -> dict[str, str]:
     active_profile = profile or RECAP_EXTRACTION_PROFILE
     evidence_rule = active_profile.evidence_rule
@@ -415,11 +424,12 @@ def render_category_pass_prompts(
                 "Each item: `item_id`, `label`, `reason`, `evidence_refs`; deferred may include `suggested_next_step`."
             )
         pass_source, pass_evidence_rule = src, evidence_rule
-        if pass_name == "actor_pass" and actor_source_packet is not None:
+        if (node_source_packet is not None
+                and pass_name in _source_handle_node_passes(active_profile)):
             from src.graph_memory.extraction.source_sentence_evidence import (
                 SENTENCE_EVIDENCE_RULE, render_source_sentence_packet,
             )
-            pass_source = render_source_sentence_packet(actor_source_packet)
+            pass_source = render_source_sentence_packet(node_source_packet)
             pass_evidence_rule = SENTENCE_EVIDENCE_RULE
         prompts[_prompt_key(pass_name)] = (
             f"# Category Graph Extraction — {pass_name}\n\n{safety}\n\n"
@@ -1998,19 +2008,19 @@ def _run_category_pipeline_impl(
                 if isinstance(val, str):
                     allowed_span_refs.add(val)
 
-    actor_source_packet = None
+    node_source_packet = None
     if (
-        active_profile.admitted_source_domains == frozenset({"recap"})
-        and getattr(original_client, "supports_actor_source_handles", False) is True
+        bool(_source_handle_node_passes(active_profile))
+        and getattr(original_client, "supports_node_source_handles", False) is True
         and options.source_text is not None
         and source_rows
     ):
         from src.graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
-        actor_source_packet = compile_source_sentence_packet(options.source_text, source_rows)
+        node_source_packet = compile_source_sentence_packet(options.source_text, source_rows)
     prompts = render_category_pass_prompts(
         source_rows,
         profile=active_profile,
-        actor_source_packet=actor_source_packet,
+        node_source_packet=node_source_packet,
     )
     later_prompts = (render_category_pass_prompts(compact_context.prompt_rows(), profile=active_profile)
                      if compact_context is not None else prompts)
@@ -2041,8 +2051,8 @@ def _run_category_pipeline_impl(
             instructions=system,
             user_content=node_prompt,
             pass_spec=pass_spec,
-            **({"source_evidence_packet": actor_source_packet}
-               if pass_name == "actor_pass" and actor_source_packet is not None else {}),
+            **({"source_evidence_packet": node_source_packet}
+               if node_source_packet is not None and pass_name in _source_handle_node_passes(active_profile) else {}),
         )
         pass_outputs[pass_name] = result["parsed"]
         pass_telemetry[pass_name] = {

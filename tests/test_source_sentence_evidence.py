@@ -3,13 +3,13 @@ import pytest
 from dataclasses import replace
 from src.graph_memory.extraction.source_sentence_evidence import (
     compile_source_sentence_packet as compile_packet,
-    materialize_actor_evidence,
+    materialize_node_evidence,
     render_source_sentence_packet,
 )
 
 
 def materialize(p, source, parsed, *, expected_packet_id):
-    return materialize_actor_evidence(
+    return materialize_node_evidence(
         replace(p, source=source), parsed, expected_packet_id=expected_packet_id
     )
 
@@ -125,4 +125,37 @@ def test_damaged_offsets_cannot_keep_old_packet_digest():
     p = packet('Ari waits. Bea returns.')
     bad = replace(p, units=(replace(p.units[0], end=len(p.source) + 1),))
     with pytest.raises(ValueError, match='source_revision_mismatch'):
-        materialize_actor_evidence(bad, response(p, ['Q001']), expected_packet_id=p.packet_id)
+        materialize_node_evidence(bad, response(p, ['Q001']), expected_packet_id=p.packet_id)
+
+
+def test_node_dispositions_share_exact_handle_wire_and_preserve_empty_refs():
+    from jsonschema import validate
+    from src.graph_memory.extraction.source_sentence_evidence import node_wire_schema
+    from src.graph_memory.extraction.category_candidate_graph_schema import category_node_pass_json_schema
+    p = packet("It did have a job board. The town was hardly known.")
+    base = category_node_pass_json_schema(include_dispositions=True)
+    wire = node_wire_schema(base, p)
+    node = {"node_id": "town", "label": "Town", "node_type": "location",
+            "description": "The town was hardly known.", "importance": "high",
+            "evidence_refs": [{"source_quote_ids": ["Q001", "Q002"]}]}
+    disposition = {"item_id": "held", "label": "Unknown", "reason": "No claim",
+                   "suggested_next_step": None, "evidence_refs": []}
+    raw = {"observation_nodes": [node], "ignored_items": [disposition],
+           "deferred_items": [{**disposition, "evidence_refs": [{"source_quote_ids": ["Q001"]}]}]}
+    validate(raw, wire)
+    normalized = materialize_node_evidence(p, raw, expected_packet_id=p.packet_id)
+    validate(normalized, base)
+    assert normalized["observation_nodes"][0]["evidence_refs"][0]["anchor_quotes"] == ["It did have a job board."]
+    assert normalized["ignored_items"][0]["evidence_refs"] == []
+    assert normalized["deferred_items"][0]["evidence_refs"][0]["anchor_quotes"] == ["It did have a job board."]
+    assert raw["observation_nodes"][0]["evidence_refs"] == [{"source_quote_ids": ["Q001", "Q002"]}]
+
+
+@pytest.mark.parametrize("collection", ["ignored_items", "deferred_items"])
+def test_unknown_disposition_handle_rejects_without_partial_materialization(collection):
+    p = packet("The gate stayed closed.")
+    raw = {"observation_nodes": [], collection: [{"evidence_refs": [{"source_quote_ids": ["Q999"]}]}]}
+    original = deepcopy(raw)
+    with pytest.raises(ValueError, match="unknown_or_duplicate_unit"):
+        materialize_node_evidence(p, raw, expected_packet_id=p.packet_id)
+    assert raw == original
