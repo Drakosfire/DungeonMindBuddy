@@ -1,3 +1,4 @@
+import type {NativeSourceCatalog,NativeSourceBody,NativeSourceSelection} from './nativeSourceInspection';
 import type {InspectionScope,InspectionPin,InspectionSelection,NativeGraphCatalog,NativeGraphEntity,NativeGraphSource} from "./nativeGraphInspection";
 import {readBuildConstructionStream,ConstructionStreamError,type BuildObjectConstructionProgress} from './buildConstructionStream';
 import type {
@@ -369,7 +370,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     || /^\/api\/live\/agent\/worlds\/[^/]+\/build-proposals(?:\/[^/]+(?:\/(?:prompt|inserted|review))?)?$/.test(pathname)
     || /^\/api\/live\/agent\/worlds\/[^/]+\/plan-proposals\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/review$/i.test(pathname)
     || pathname === "/api/live/agent/turn"
-    || /^\/api\/live\/native-graph-inspection\/(?:catalog|read)$/.test(pathname)
+    || /^\/api\/live\/native-(?:graph|source)-inspection\/(?:catalog|read)$/.test(pathname)
     || pathname === "/api/live/world-graph/projection"
     || pathname === "/api/live/world-graph/managed-projection"
     || pathname === "/api/live/world-graph/recap-projection"
@@ -593,7 +594,7 @@ function canRetryLocalSessionRequest(path: string, init?: RequestInit): boolean 
       && typeof body.turn_id === "string" && Boolean(body.turn_id);
   }
   return isRecapSelectionContextPath(pathname)
-    || /^\/api\/live\/native-graph-inspection\/(?:catalog|read)$/.test(pathname)
+    || /^\/api\/live\/native-(?:graph|source)-inspection\/(?:catalog|read)$/.test(pathname)
     || pathname === "/api/live/world-graph/projection"
     || pathname === "/api/live/world-graph/managed-projection"
     || pathname === "/api/live/world-graph/recap-projection"
@@ -3196,4 +3197,11 @@ export function getNativeGraphCatalog(scope:InspectionScope,signal?:AbortSignal)
 }
 export function inspectNativeGraph(scope:InspectionPin,selection:InspectionSelection,signal?:AbortSignal):Promise<NativeGraphEntity|NativeGraphSource> {
  return apiFetch('/api/live/native-graph-inspection/read',{method:'POST',signal,body:JSON.stringify({scope,selection})});
+}
+
+export function getNativeSourceCatalog(scope:InspectionScope,signal?:AbortSignal):Promise<NativeSourceCatalog> {
+ return apiFetch('/api/live/native-source-inspection/catalog',{method:'POST',cache:'no-store',signal,body:JSON.stringify(scope)});
+}
+export function readNativeSource(scope:InspectionPin,selection:NativeSourceSelection,signal?:AbortSignal):Promise<NativeSourceBody> {
+ return apiFetch('/api/live/native-source-inspection/read',{method:'POST',cache:'no-store',signal,body:JSON.stringify({scope,...selection})});
 }

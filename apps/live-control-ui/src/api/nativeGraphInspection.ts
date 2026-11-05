@@ -16,3 +16,6 @@ export type NativeGraphEntity={schema:'dmb_native_graph_entity_v1';scope:Inspect
 export type NativeGraphSource={schema:'dmb_native_graph_source_v1';scope:InspectionPin;source:{status:'available';
  text:string;source_artifact_id:string;source_revision_id:string;body_sha256:string;span_sha256:string;
  span_start_byte:number;span_end_byte:number;source_authority_epoch:number}};
+
+/** Exact transport pin shared by native object and source inspection. */
+export const sameInspectionPin=(a:InspectionPin,b:InspectionPin)=>a.managed_world_id===b.managed_world_id&&a.native_world_id===b.native_world_id&&a.revision_id===b.revision_id&&a.binding_version===b.binding_version&&a.scope_mode===b.scope_mode&&a.campaign_id===b.campaign_id;

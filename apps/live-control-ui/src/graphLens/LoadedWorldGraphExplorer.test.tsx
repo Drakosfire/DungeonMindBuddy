@@ -17,6 +17,7 @@ vi.mock("../ui/deferredComponent", async importOriginal => {
     }, label) };
 });
 vi.mock("./NativeGraphInspection", () => ({ NativeGraphInspection: ({ worldId }: { worldId: string }) => <section aria-label="Native inspector">{worldId}</section> }));
+vi.mock("./NativeSourceInspection", () => ({ NativeSourceInspection: ({worldId}:{worldId:string}) => <section aria-label="Native source browser">{worldId}</section> }));
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
   HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
@@ -79,4 +80,14 @@ it("contains a failed inspector download and retries inside the same modal", asy
     fireEvent.click(screen.getByRole("button", { name: "Close graph" }));
     expect(launcher).toHaveFocus();
   } finally { errorLog.mockRestore(); }
+});
+
+
+it("opens the source-only browser through the shared World dialog", async () => {
+ render(<LoadedWorldGraphExplorer/>);fireEvent.click(screen.getByRole('button',{name:'Explore graph'}));
+ fireEvent.click(screen.getByRole('button',{name:'Sources'}));
+ expect(await screen.findByRole('region',{name:'Native source browser'})).toHaveTextContent('elderwyld');
+ expect(screen.queryByRole('region',{name:'Native inspector'})).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Objects'}));await screen.findByRole('region',{name:'Native inspector'});
+ expect(screen.queryByRole('region',{name:'Native source browser'})).not.toBeInTheDocument();
 });
