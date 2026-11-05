@@ -19,6 +19,7 @@ def client(monkeypatch):
         list_library=Mock(return_value={"items": []}),
         get_name=Mock(return_value={"title": "Synthetic"}),
         read_turns=Mock(return_value={"turns": []}),
+        read_messages=Mock(return_value={"messages": []}),
         rename=Mock(return_value={"title": "Saved"}),
     )
     for name in vars(service):
@@ -43,6 +44,7 @@ def client(monkeypatch):
         ("", "GET"),
         ("/" + str(uuid4()) + "/name", "GET"),
         ("/" + str(uuid4()) + "/turns", "GET"),
+        ("/" + str(uuid4()) + "/messages", "GET"),
         ("/" + str(uuid4()) + "/name", "PUT"),
     ],
 )
@@ -181,3 +183,13 @@ def test_lifecycle_auth_and_exact_target(client, monkeypatch, operation):
     native.assert_not_called()
     assert client.client.post(url, json=body).status_code == 200
     assert native.call_args.kwargs == {"restore": operation == "restore"}
+
+
+def test_message_preview_is_scoped_and_does_not_request_execution_details(client):
+    cid = uuid4()
+    url = f"/api/live/agent/worlds/world-one/conversations/{cid}/messages"
+    assert client.client.get(url, params={"limit": 25, "before_sequence": 12}).status_code == 200
+    client.service.read_messages.assert_called_once_with("world-one", cid, limit=25, before_sequence=12)
+    client.service.read_turns.assert_not_called()
+    assert client.client.get(url + "?limit=2&limit=3").status_code == 422
+    assert client.client.get(url + "?unknown=1").status_code == 422

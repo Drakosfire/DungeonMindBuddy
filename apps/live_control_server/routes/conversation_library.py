@@ -42,6 +42,13 @@ def list_conversations(
     return call(library.list_library, world, status=status, limit=limit, before=before)
 
 
+@router.get("/{conversation_id}/messages")
+def messages(world_id: str, conversation_id: UUID, request: Request,
+             limit: int = Query(50, ge=1, le=100), before_sequence: int | None = Query(None, gt=0)):
+    world = scope(request, world_id, {"limit", "before_sequence"})
+    return call(library.read_messages, world, conversation_id, limit=limit, before_sequence=before_sequence)
+
+
 @router.get("/{conversation_id}/turns")
 def turns(
     world_id: str,

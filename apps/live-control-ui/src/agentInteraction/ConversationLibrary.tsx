@@ -5,12 +5,13 @@ import {groupRetryLineage} from './conversationAttemptGroups';
 import {ConversationRetryAttempts} from './ConversationRetryAttempts';
 import {useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {listConversations,readConversationName,readConversationTurns,renameConversation,type ConversationSummary,type LibraryTurn,type ResumeConversationCommand,type ConversationLifecycleOperation} from '../api/conversationLibraryApi';
+import {listConversations,readConversationName,readConversationTurns,readConversationMessages,renameConversation,type ConversationSummary,type LibraryTurn,type ResumeConversationCommand,type ConversationLifecycleOperation} from '../api/conversationLibraryApi';
 import {WorldPlanAgentAnswer} from '../planSurface/components/WorldPlanAgentAnswer';
 import {BuddyContextTraceLoader} from '../planSurface/components/BuddyContextTraceLoader';
 import './ConversationLibrary.css';
 const message=(error:unknown)=>error instanceof Error?error.message:'The conversation could not be read.';
 export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecycle,continueDisabledReason}:{worldId:string;onClose:()=>void;pointer?:{revision:number;activeId:string|null};onContinue?:(command:ResumeConversationCommand)=>Promise<void>;onLifecycle?:(command:ResumeConversationCommand,operation:ConversationLifecycleOperation)=>Promise<void>;continueDisabledReason?:string|null}){
+ const [fullDetails,setFullDetails]=useState(false);
  const [continuing,setContinuing]=useState(false);
  const pendingOperation=useRef<'reopen'|ConversationLifecycleOperation|null>(null);
  const pendingResume=useRef<ResumeConversationCommand|null>(null),continueInFlight=useRef(false);
@@ -25,10 +26,15 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
  const [title,setTitle]=useState(''),[saving,setSaving]=useState(false),[notice,setNotice]=useState('');
  useEffect(()=>{mounted.current=true;dialog.current?.showModal();return()=>{mounted.current=false;listEpoch.current++;detailEpoch.current++;};},[]);
  const alive=(owner:typeof scope.current)=>mounted.current&&scope.current===owner;
- async function select(id:string){
+ async function readPage(id:string,before?:number,details=fullDetails){
+  if(details)return readConversationTurns(worldId,id,before);
+  const page=await readConversationMessages(worldId,id,before);
+  return {turns:page.messages.map(row=>({...row,reply_object:null,retry_context:null})),next_before_sequence:page.next_before_sequence};
+ }
+ async function select(id:string,details=fullDetails){
   const owner=scope.current,epoch=++detailEpoch.current;
   setSelected(id);setDetail(null);setTurns([]);setBefore(null);setLoading(true);setSaving(false);setError('');setNotice('');
-  try{const [meta,page]=await Promise.all([readConversationName(worldId,id),readConversationTurns(worldId,id)]);
+  try{const [meta,page]=await Promise.all([readConversationName(worldId,id),readPage(id,undefined,details)]);
    if(!alive(owner)||epoch!==detailEpoch.current)return;setDetail(meta);setTitle(meta.title);setTurns(page.turns);setBefore(page.next_before_sequence);
   }catch(reason){if(alive(owner)&&epoch===detailEpoch.current)setError(message(reason));}
   finally{if(alive(owner)&&epoch===detailEpoch.current)setLoading(false);}
@@ -47,7 +53,7 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
  async function olderTurns(){
   if(!selected||before===null||loading)return;
   const owner=scope.current,epoch=detailEpoch.current,id=selected,cursor=before;setLoading(true);setError('');
-  try{const page=await readConversationTurns(worldId,id,cursor);if(!alive(owner)||epoch!==detailEpoch.current)return;
+  try{const page=await readPage(id,cursor);if(!alive(owner)||epoch!==detailEpoch.current)return;
    setTurns(old=>[...new Map([...page.turns,...old].map(turn=>[turn.turn_id,turn])).values()].sort((a,b)=>a.sequence-b.sequence));setBefore(page.next_before_sequence);
   }catch(reason){if(alive(owner)&&epoch===detailEpoch.current)setError(message(reason));}
   finally{if(alive(owner)&&epoch===detailEpoch.current)setLoading(false);}
@@ -93,6 +99,7 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
   </nav><section className="conversation-library__reader" aria-label="Selected conversation">
    {ownDetail&&<><form onSubmit={event=>{event.preventDefault();void save();}}><label>Conversation name<input value={title} onChange={event=>setTitle(event.target.value)} maxLength={160} disabled={saving}/></label>
     <button type="submit" disabled={saving||!title.trim()}>{saving?'Saving…':'Save name'}</button>{error&&<button type="button" onClick={()=>void reloadName()}>Reload saved name</button>}</form>
+    <p>{fullDetails?'Full saved details':'Saved-message preview. References, objects and prior attempts load with details.'}</p><button type="button" disabled={loading||continuing} onClick={()=>{const details=!fullDetails;setFullDetails(details);void select(ownDetail.conversation_id,details);}}>{fullDetails?'Show message preview':'Load saved details'}</button>
     <ConversationExport key={`${worldId}:${ownDetail.conversation_id}`} worldId={worldId} conversationId={ownDetail.conversation_id}/>
     {onContinue&&ownDetail.status==='archived'&&<><button type="button" disabled={continuing||!pointer||Boolean(continueDisabledReason)} onClick={()=>void continueSelected()}>{continuing?'Continuing…':'Continue conversation'}</button><p>{continueDisabledReason??'Continue here with your unsent message kept. Saved pages and previous actions stay unchanged.'}</p></>}
     {onLifecycle&&<><button type="button" disabled={continuing||!pointer||Boolean(continueDisabledReason)} onClick={()=>void continueSelected(ownDetail.status==='trashed'?'restore':'trash')}>{continuing?'Updating…':ownDetail.status==='trashed'?'Restore conversation':'Move to Trash'}</button><p>{ownDetail.status==='trashed'?'Restore to history, then choose Continue when ready.':'Messages remain recoverable in Trash. Saved pages and documents are kept.'}</p></>}
@@ -105,9 +112,9 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
     {turn.assistant_text&&<WorldPlanAgentAnswer answer={turn.assistant_text}/>}
     {turn.reply_object?.kind==='questions'&&<section aria-label="Saved clarifying questions"><h4>Clarifying questions</h4><ol>{turn.reply_object.questions.map((q,i)=><li key={i}>{q.text}</li>)}</ol></section>}
     {turn.reply_object?.kind==='page_object'&&<p>{turn.reply_object.object_kind==='plan'?'Work plan proposed on page.':turn.reply_object.object_kind==='connected_page'?'Connected-page review prepared.':'Relationship review prepared.'}{' '}<a href={'/build?'+new URLSearchParams({world:turn.reply_object.source.world_id,documentId:turn.reply_object.source.document_id})}>Open source page</a></p>}
-    {!turn.assistant_text&&!turn.reply_object&&<p>{['failed','interrupted'].includes(turn.status)?'This reply did not finish.':['accepted','running'].includes(turn.status)?'Reply in progress.':'No saved reply.'}</p>}
-    {turn.retry_context&&<ConversationRetryAttempts context={turn.retry_context}/>}
-    <SavedTurnTrace worldId={worldId} conversationId={ownDetail.conversation_id} turnId={turn.turn_id}/>
+    {!turn.assistant_text&&!turn.reply_object&&<p>{!fullDetails&&turn.status==='completed'?'Load saved details to inspect this reply.':['failed','interrupted'].includes(turn.status)?'This reply did not finish.':['accepted','running'].includes(turn.status)?'Reply in progress.':'No saved reply.'}</p>}
+    {fullDetails&&turn.retry_context&&<ConversationRetryAttempts context={turn.retry_context}/>}
+    {fullDetails&&<SavedTurnTrace worldId={worldId} conversationId={ownDetail.conversation_id} turnId={turn.turn_id}/>}
 
    </article>;return historical?<details key={turn.turn_id}><summary>Earlier attempt of a request with a later response</summary>{content}</details>:content;})}
    {ownDetail&&!loading&&!turns.length&&<p>No messages in this conversation yet.</p>}
