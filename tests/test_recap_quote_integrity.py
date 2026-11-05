@@ -652,3 +652,62 @@ def test_recap_runner_persists_sanitized_candidate_and_unchanged_private_respons
                     for quote in ref["anchor_quotes"]
                 )
     assert positive_refs == 1
+
+
+def test_actual_category_nomination_pipeline_binds_before_unchanged_strict_guard():
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        CategoryGraphExtractionOptions, extract_category_candidate_graph,
+    )
+    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    text = "The crew of five met a courier.\n\nThe courier paid ten coins.\n\n## Looking Ahead: They will find a sapphire.\n"
+    artifact, digest, index, spans = _case(text)
+
+    class NominationClient:
+        def __init__(self): self.raw = {}
+        def run_pass(self, pass_name, **kwargs):
+            parsed = {"observation_nodes": []}
+            if pass_name == "actor_pass":
+                parsed = {"observation_nodes": [{"node_id": "courier", "label": "Courier",
+                    "node_type": "character", "description": "The courier paid ten coins.",
+                    "evidence_refs": [{"source_span_ref_id": spans[3], "anchor_quotes": ["paid ten coins"]}]}]}
+            if pass_name == "collective_pass":
+                parsed = {"observation_nodes": [
+                    {"node_id": "crew", "label": "The crew of five", "node_type": "group",
+                     "description": "The crew of five met a courier.",
+                     "evidence_refs": [{"source_span_ref_id": spans[1],
+                                        "anchor_quotes": ["crew of five", "paid ten coins"]}]},
+                    {"node_id": "unsafe", "label": "Unproved finding", "node_type": "group",
+                     "description": "They will find a sapphire.",
+                     "evidence_refs": [{"source_span_ref_id": spans[1],
+                                        "anchor_quotes": ["find a sapphire"]}]},
+                ]}
+            if pass_name == "beat_pass": parsed = {"observation_beats": []}
+            if pass_name == "edge_pass":
+                parsed = {"observation_edges": [{"edge_id": "met", "from_node_id": "crew",
+                    "to_node_id": "courier", "relationship_type": "associated_with", "label": "Met courier",
+                    "evidence_refs": [{"source_span_ref_id": spans[1], "anchor_quotes": ["met a courier"]}]}]}
+            self.raw[pass_name] = parsed
+            return {"parsed": parsed, "cost_usd": 0.0, "usage": {}, "elapsed_ms": 1, "response_id": pass_name}
+
+    client = NominationClient()
+    result = extract_category_candidate_graph(CategoryGraphExtractionOptions(
+        campaign_id="synthetic", session_id="session-1", session_number=1,
+        source_span_index=index, source_text=text, profile=RECAP_EXTRACTION_PROFILE,
+    ), client=client)
+    assert client.raw["collective_pass"]["observation_nodes"][0]["evidence_refs"][0]["anchor_quotes"] == ["crew of five", "paid ten coins"]
+    assert client.raw["collective_pass"]["observation_nodes"][0]["evidence_refs"][0]["source_span_ref_id"] == spans[1]
+    bindings = result.consolidation_diagnostics["canonical_quote_bindings"]
+    assert len(bindings) == 1 and bindings[0]["pass_name"] == "collective_pass"
+    assert bindings[0]["nominated_span_ref_id"] == spans[1]
+    assert bindings[0]["canonical_span_ref_id"] == spans[3]
+    guarded, diagnostic = validate_and_defer_nonliteral_recap_items(
+        result.candidate_graph, source_text=text, source_artifact_id=artifact,
+        source_sha256=digest, source_span_index=index,
+    )
+    assert {n["node_id"] for n in guarded["nodes"]} == {"crew", "courier"}
+    assert [e["edge_id"] for e in guarded["edges"]] == ["met"]
+    assert any(x["item_id"] == "unsafe" for x in diagnostic["deferred_item_ids"])
+    crew = next(n for n in guarded["nodes"] if n["node_id"] == "crew")
+    assert crew["description"] == "The crew of five met a courier."
+    assert [r["source_span_ref_id"] for r in crew["evidence_refs"]] == [spans[1], spans[3]]
+    assert all(m["quote"] == m["match_text"] for r in crew["evidence_refs"] for m in r["anchor_quote_matches"])
