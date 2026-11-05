@@ -46,10 +46,21 @@ def review_names(text, catalog, scope):
             start,end=tokens[i].start(),tokens[i+size-1].end()
             if any(start<b and end>a for a,b in exact):continue
             surface=text[start:end]
-            if near_name(surface,name):windows.setdefault((start,end,surface),set()).add(name)
+            if near_name(surface,name):
+                options=windows.setdefault((start,end,surface),set())
+                options.add(name)
+                if surface.casefold()==name.casefold()+'s':
+                    options.add(name+"'s")
+
     suggestions=[]
     for (start,end,surface),options in sorted(windows.items()):
-        item={'start':start,'end':end,'surface':surface,'options':sorted(options)}
+        # Exact, bounded source context; no model interpretation or source rewrite.
+        left=max(text.rfind('\n',0,start)+1,start-160)
+        right=min((text.find('\n',end) if text.find('\n',end)>=0 else len(text)),end+160)
+        item={'start':start,'end':end,'surface':surface,'options':sorted(options),
+              'context_before':text[left:start],'context_after':text[end:right],
+              'source_line':text[:start].count('\n')+1}
+
         item['id']=digest(item)
         suggestions.append(item)
     result={'schema':'dmb_recap_name_review_v1','scope':scope,'source_sha256':hashlib.sha256(text.encode()).hexdigest(),

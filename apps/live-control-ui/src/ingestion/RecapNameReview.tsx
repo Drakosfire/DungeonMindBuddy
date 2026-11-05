@@ -11,10 +11,12 @@ export function RecapNameReview({review,onProceed,onCancel}:{review: Review;onPr
     <p>Approved corrections apply to the extraction copy. Your original text and decisions are retained.</p>
     {review.suggestions.map((s,i)=><label key={s.id} style={{display:"block",marginBottom:"1rem"}}>
       Name {i+1}: <strong>{s.surface}</strong>
+      <blockquote aria-label={`Source context for ${s.surface} (${i+1})`} style={{whiteSpace:"pre-wrap"}}>{s.context_before}<mark>{s.surface}</mark>{s.context_after}</blockquote>
+      <small>Source line {s.source_line}</small>
       <select aria-label={`Correction for ${s.surface} (${i+1})`} value={decisions[s.id]??""} onChange={e=>setDecisions(d=>({...d,[s.id]:e.target.value}))}>
         <option value="" disabled>Choose a correction or keep original</option>
         <option value="keep">Keep original: {s.surface}</option>
-        {s.options.map(option=><option key={option} value={`apply:${option}`}>Change to {option}</option>)}
+        {s.options.map(option=><option key={option} value={`apply:${option}`}>Change to {option}{option.endsWith("'s") || option.endsWith("’s") ? " (possessive)" : ""}</option>)}
       </select>
     </label>)}
     <button type="button" onClick={onCancel}>Back to editing</button>{" "}

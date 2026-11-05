@@ -199,7 +199,7 @@ it("drops a late Process result across World A to B to A without deleting the dr
 });
 
 it("stops before extraction for name review and sends only explicit decisions",async()=>{
- vi.mocked(rawApi.postRecapNameReview).mockResolvedValue({schema:"dmb_recap_name_review_v1",scope:{managed_world_id:"elderwyld",native_world_id:"world:elderwyld",binding_version:3,campaign_id:"longmont-c2"},source_sha256:"a".repeat(64),catalog_sha256:"b".repeat(64),review_id:"c".repeat(64),exact_mention_count:0,suggestions:[{id:"d".repeat(64),start:0,end:7,surface:"Marlena",options:["Marlene"]}]});
+ vi.mocked(rawApi.postRecapNameReview).mockResolvedValue({schema:"dmb_recap_name_review_v1",scope:{managed_world_id:"elderwyld",native_world_id:"world:elderwyld",binding_version:3,campaign_id:"longmont-c2"},source_sha256:"a".repeat(64),catalog_sha256:"b".repeat(64),review_id:"c".repeat(64),exact_mention_count:0,suggestions:[{id:"d".repeat(64),start:0,end:7,surface:"Marlena",options:["Marlene"],context_before:"They saw ",context_after:" waiting.",source_line:3}]});
  mount();await input("Marlena waits.");await process();await screen.findByRole("region",{name:"Review character names"});
  expect(rawApi.postRecapIngest).not.toHaveBeenCalled();
  fireEvent.change(screen.getByRole("combobox",{name:"Correction for Marlena (1)"}),{target:{value:"apply:Marlene"}});

@@ -38,7 +38,7 @@ export interface RecapNameReview {
   schema: "dmb_recap_name_review_v1";
   scope: {managed_world_id: string; native_world_id: string; binding_version: number; campaign_id: string};
   source_sha256: string; catalog_sha256: string; review_id: string; exact_mention_count: number;
-  suggestions: Array<{id: string; start: number; end: number; surface: string; options: string[]}>;
+  suggestions: Array<{id: string; start: number; end: number; surface: string; options: string[]; context_before: string; context_after: string; source_line: number}>;
 }
 export async function postRecapNameReview(body: RecapIngestRequest): Promise<RecapNameReview> {
   const {response} = await authenticatedApiFetch("/api/live/recap-name-review", {
@@ -48,7 +48,7 @@ export async function postRecapNameReview(body: RecapIngestRequest): Promise<Rec
   const result = await response.json() as RecapNameReview;
   if (result.schema !== "dmb_recap_name_review_v1" || result.scope?.managed_world_id !== body.managed_world_id || result.scope?.campaign_id !== body.campaign_id
       || !/^[a-f0-9]{64}$/.test(result.review_id) || !Array.isArray(result.suggestions)
-      || !result.suggestions.every(s => /^[a-f0-9]{64}$/.test(s.id) && Number.isSafeInteger(s.start) && Number.isSafeInteger(s.end) && s.start >= 0 && s.end > s.start && typeof s.surface === "string" && Array.isArray(s.options) && s.options.length > 0 && s.options.every(o => typeof o === "string" && o.length > 0)))
+      || !result.suggestions.every(s => /^[a-f0-9]{64}$/.test(s.id) && Number.isSafeInteger(s.start) && Number.isSafeInteger(s.end) && s.start >= 0 && s.end > s.start && typeof s.surface === "string" && typeof s.context_before === "string" && typeof s.context_after === "string" && Number.isSafeInteger(s.source_line) && s.source_line > 0 && Array.isArray(s.options) && s.options.length > 0 && s.options.every(o => typeof o === "string" && o.length > 0)))
     throw new Error("Name review does not match this source. Check names again.");
   return result;
 }

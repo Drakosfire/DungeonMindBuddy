@@ -35,3 +35,7 @@ Final source-only strengthening excludes unmentioned historical names from actor
 ## Dogfood authentication repair
 
 User-reported403 on the live name check exposed a missing client transport registration. This PR additionally owns the exact recap-name-review path classification and read-only session-renewal entry in apps/live-control-ui/src/api/liveApi.ts, its actual-wrapper transport tests, and hosted-validation.yml selection (prior2086 lease is merged/released). Server auth remains unchanged.25 UI/transport/orchestration tests pass; independent subagent APPROVE_CODE for this repair. Deploy only the corrected UI; no extraction, provider call, dependency sync or API restart is needed. Preserve prior immutable assets so already-open tabs retain lazy chunks.
+
+## Source context and possessive review
+
+User requested surrounding context and identified Dustwalkers as a missing possessive apostrophe. Same serial PR adds exact bounded source context and line numbers to each hashed suggestion, rendered literally with the occurrence highlighted. Generic known-name+s candidates offer both the bare name and apostrophe-s form, with explicit keep/correct decisions; no corpus-specific grammar map or automatic correction. Server/client/tests stay within the existing lease. Independent subagent APPROVE_CODE; focused backend possessive test and UI context tests pass. User will initiate extraction after delivery; no model call is part of this fix.

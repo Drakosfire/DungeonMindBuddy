@@ -81,3 +81,16 @@ def test_http_name_review_authenticates_before_identity_read(monkeypatch):
     with TestClient(app) as client:
         r=client.post('/api/live/recap-name-review',json={'operation':'generate_recap_memory','campaign_id':'c','managed_world_id':'m','session':1,'raw_text':'Berenwld waits.'})
     assert r.status_code==403
+
+
+def test_possessive_choice_preserves_ownership_and_exact_context():
+    text="First line.\nMarlens intentions were unclear."
+    catalog={'entities':[{'entity_id':'m','names':['Marlen']}]}
+    review=review_names(text,catalog,SCOPE)
+    s=review['suggestions'][0]
+    assert s['surface']=='Marlens' and s['options']==['Marlen',"Marlen's"]
+    assert s['context_before']+s['surface']+s['context_after']=='Marlens intentions were unclear.'
+    assert s['source_line']==2
+    corrected,record=apply_review(text,review,{'review_id':review['review_id'],'decisions':[{'id':s['id'],'replacement':"Marlen's"}]})
+    assert corrected=="First line.\nMarlen's intentions were unclear."
+    assert review_names("Marlen's intentions",catalog,SCOPE)['suggestions']==[]
