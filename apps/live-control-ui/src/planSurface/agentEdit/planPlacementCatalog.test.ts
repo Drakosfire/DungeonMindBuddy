@@ -35,7 +35,7 @@ describe('captured Plan placement catalog',()=>{
   withEditor([h(2,'Objective'),p('Text'),h(2,'Named table'),table,h(2,'Beat')],editor=>{
    const snapshot=JSON.stringify(editor.getJSON()),before=editor.getJSON().content!;
    const entries=compilePlanPlacementOptions(editor,snapshot,'insert_at_caret');
-   expect(entries.some(row=>row.selector==='before:2'||row.selector==='after:2')).toBe(false);
+   expect(entries.some(row=>row.selector==='before:2'||row.selector==='under:2'||row.selector==='after:2')).toBe(false);
    expect(entries.some(row=>row.root_boundary===3)).toBe(false);
    const after=entries.find(row=>row.selector==='after:0')!;
    expect(after.root_boundary).toBe(4);
@@ -46,7 +46,7 @@ describe('captured Plan placement catalog',()=>{
  it('distinguishes duplicate headings and preserves every offered location without a cap',()=>{
   withEditor(Array.from({length:70},()=>h(2,'Repeated')),editor=>{
    const entries=compilePlanPlacementOptions(editor,JSON.stringify(editor.getJSON()),'insert_at_caret');
-   expect(entries).toHaveLength(142);
+   expect(entries).toHaveLength(212);
    expect(new Set(entries.map(row=>row.selector)).size).toBe(entries.length);
    expect(entries.find(row=>row.selector==='before:0')?.label).toContain('1 of 70');
    expect(entries.find(row=>row.selector==='before:69')?.label).toContain('70 of 70');
@@ -70,5 +70,23 @@ describe('captured Plan placement catalog',()=>{
    editor.commands.insertContentAt(editor.state.doc.content.size,p('Newer draft'));
    expect(()=>resolvePlanPlacementOption(editor,json,'insert_at_caret',entry)).toThrow(/page changed/);
   });
+ });
+});
+
+it.each([
+ [h(2,'Preparation 🐑'),p('Existing body.'),h(3,'Nested notes'),p('Keep nested text.'),h(2,'Next')],
+ [h(2,'Preparation'),h(3,'Nested notes'),p('Keep nested text.'),h(2,'Next')],
+ [h(2,'Preparation')],
+])('inserts directly below the heading before any existing body or nested section',(...content)=>{
+ withEditor(content,editor=>{
+  const before=editor.getJSON().content!,snapshot=JSON.stringify(editor.getJSON());
+  const options=compilePlanPlacementOptions(editor,snapshot,'insert_at_caret');
+  const under=options.find(row=>row.selector==='under:0')!;
+  expect(under.root_boundary).toBe(1);
+  expect(under.position).toBe(editor.state.doc.child(0).nodeSize);
+  expect(editor.state.doc.resolve(under.position!).depth).toBe(0);
+  expect(resolvePlanPlacementOption(editor,snapshot,'insert_at_caret',under)).toEqual(under);
+  expect(editor.commands.insertContentAt(under.position!,p('New briefing.'))).toBe(true);
+  expect(editor.getJSON().content).toEqual([before[0],p('New briefing.'),...before.slice(1)]);
  });
 });

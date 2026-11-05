@@ -13,7 +13,7 @@ from .plan_authoring import (
 
 class PlanPlacementOptionV1(Frozen):
     selector: str = Field(min_length=1)
-    kind: Literal["captured_target", "before_heading", "after_section", "end_page"]
+    kind: Literal["captured_target", "before_heading", "after_heading", "after_section", "end_page"]
     label: str = Field(min_length=1)
     root_boundary: int | None = Field(strict=True, ge=0)
     position: int | None = Field(strict=True, ge=0)
@@ -30,7 +30,7 @@ class PlanPlacementOptionV1(Frozen):
             if self.selector != "end":
                 raise ValueError("End placement differs from its offered selector")
         else:
-            prefix = "before:" if self.kind == "before_heading" else "after:"
+            prefix = {"before_heading": "before:", "after_heading": "under:", "after_section": "after:"}[self.kind]
             suffix = self.selector.removeprefix(prefix)
             if (not self.selector.startswith(prefix) or not suffix.isascii()
                     or not suffix.isdecimal() or str(int(suffix)) != suffix):
@@ -80,10 +80,11 @@ class PlanPlacementCatalogV1(Frozen):
                 raise ValueError("Placement target differs from its frozen offered digest")
             if entry.kind == "end_page" and entry.root_boundary != len(content):
                 raise ValueError("End placement differs from the captured page end")
-            if entry.kind in {"before_heading", "after_section"}:
+            if entry.kind in {"before_heading", "after_heading", "after_section"}:
                 index = int(entry.selector.split(":", 1)[1])
                 if (index >= len(content) or content[index].get("type") != "heading"
                         or entry.kind == "before_heading" and entry.root_boundary != index
+                        or entry.kind == "after_heading" and entry.root_boundary != index + 1
                         or entry.kind == "after_section" and entry.root_boundary <= index):
                     raise ValueError("Section placement differs from its captured root heading")
         return self

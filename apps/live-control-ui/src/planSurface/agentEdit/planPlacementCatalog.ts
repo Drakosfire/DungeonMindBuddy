@@ -6,7 +6,7 @@ import {isTableCaptionAt} from '../../tiptap/markdown/tableCaption';
 /** Navigation over one frozen editor snapshot. Positions never enter model state. */
 export interface PlanPlacementOption {
   selector: string;
-  kind: 'captured_target'|'before_heading'|'after_section'|'end_page';
+  kind: 'captured_target'|'before_heading'|'after_heading'|'after_section'|'end_page';
   label: string;
   root_boundary: number|null;
   position: number|null;
@@ -48,6 +48,8 @@ export function compilePlanPlacementOptions(
     const end=headings.slice(index+1).find(next=>next.level<=heading.level)?.index??doc.childCount;
     options.push({selector:`before:${heading.index}`,kind:'before_heading',label:`Before ${label}`,
       root_boundary:heading.index,position:offsets[heading.index]!});
+    options.push({selector:`under:${heading.index}`,kind:'after_heading',label:`Directly below the heading ${label}, before its existing body`,
+      root_boundary:heading.index+1,position:offsets[heading.index+1]!});
     options.push({selector:`after:${heading.index}`,kind:'after_section',label:`After the entire section ${label}`,
       root_boundary:end,position:offsets[end]!});
   });

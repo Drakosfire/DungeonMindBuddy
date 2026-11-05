@@ -154,3 +154,66 @@ def test_current_intent_projection_preserves_frozen_v2_wire_and_location_choices
             validate_requested_work_wire(parent, substituted)
     with pytest.raises(ValueError, match="requires the V3"):
         validate_prepared_requested_work(old, None)
+
+
+def under_heading_catalog(original, root_boundary=1):
+    captured = catalog_for(original).entries[0]
+    entry = PlanPlacementOptionV1(selector="under:0", kind="after_heading",
+        label="Directly below the heading Objective, before its existing body",
+        root_boundary=root_boundary, position=11, target_capture_sha256="0" * 64)
+    entry = entry.model_copy(update={"target_capture_sha256": entry.derived_target(original).sha256})
+    return PlanPlacementCatalogV1(original_capture_sha256=original.sha256,
+        editor_sha256=original.editor_sha256, entries=(captured, entry))
+
+
+def test_under_heading_resolves_inside_section_and_preserves_frozen_original():
+    original = original_capture()
+    catalog = under_heading_catalog(original)
+    resolved = catalog.resolve(original, "under:0")
+    assert resolved.root_boundary == 1
+    assert resolved.from_ == resolved.to == 11
+    assert resolved.editor_json == original.editor_json
+    assert resolved.selection_json == original.selection_json
+    assert original.from_ == original.to == 14
+    assert catalog.resolve(original, "captured") == original
+    assert PlanPlacementCatalogV1.model_validate_json(catalog.model_dump_json(by_alias=True)).sha256 == catalog.sha256
+
+
+@pytest.mark.parametrize("root_boundary", [0, 2, 3])
+def test_under_heading_cannot_substitute_before_or_after_whole_section_even_with_matching_digest(root_boundary):
+    original = original_capture()
+    with pytest.raises(ValueError, match="captured root heading"):
+        under_heading_catalog(original, root_boundary).require_original(original)
+
+
+@pytest.mark.parametrize("selector", ["after:0", "under:00", "under:-1", "under:1"])
+def test_under_heading_rejects_wrong_selector_or_nonheading(selector):
+    original = original_capture()
+    payload = under_heading_catalog(original).model_dump(mode="json", by_alias=True)
+    payload["entries"][1]["selector"] = selector
+    with pytest.raises(ValueError):
+        catalog = PlanPlacementCatalogV1.model_validate(payload)
+        entry = catalog.entries[1]
+        entry = entry.model_copy(update={"target_capture_sha256": entry.derived_target(original).sha256})
+        catalog.model_copy(update={"entries": (catalog.entries[0], entry)}).require_original(original)
+
+
+def test_under_heading_decision_exposes_exact_location_without_offsets_or_new_save_authority():
+    from application_state.agent_conversation.plan_authoring import prepare_requested_work_decision
+    from application_state.agent_conversation.plan_placement import PlanRequestedWorkInputV3, work_choice
+    from pathlib import Path
+    frozen = json.loads((Path(__file__).parents[1] / "fixtures/plan_requested_work_v2_wire.json").read_text())
+    original = original_capture()
+    catalog = under_heading_catalog(original)
+    parent = frozen["parent"] | {"schema": "dmb_plan_requested_work_input_v3",
+        "original_capture": original.model_dump(mode="json", by_alias=True),
+        "target_capture_sha256": original.sha256,
+        "placement_catalog": catalog.model_dump(mode="json", by_alias=True)}
+    request = PlanRequestedWorkInputV3.model_validate(parent)
+    decision = prepare_requested_work_decision(request)
+    assert "write:under:0" in decision.questions[0].options
+    assert "inside that section before its existing body" in decision.state["placement_policy"]
+    assert all(set(row) == {"selector", "label"} for row in decision.state["offered_page_locations"])
+    choice = work_choice(request, "write:under:0")
+    assert choice["placement_selector"] == "under:0"
+    assert choice["target_capture_sha256"] == catalog.resolve(original, "under:0").sha256

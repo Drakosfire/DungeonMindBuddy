@@ -398,7 +398,11 @@ def prepare_requested_work_decision(request: PlanRequestedWorkInputV1):
         "Choose clarify if the named location is missing, ambiguous, or conflicts with another placement constraint. "
         "Never select an arbitrary substitute or broaden a captured replacement. A request explicitly at the caret uses captured. "
         "When no page location is available, requested writing is write_unavailable, never ordinary discussion. "
-        "This selection does not Save or execute deferred work."} if placement else {}
+        "This selection does not Save or execute deferred work." + (
+            " Directly below a heading means inside that section before its existing body, not before the heading "
+            "or after its entire section. Use the offered under:<selector> location for writing under a named heading."
+            if request.placement_catalog is not None
+            and any(entry.kind == "after_heading" for entry in request.placement_catalog.entries) else "")} if placement else {}
     return DecisionRequest(
         provider=PROVIDER,
         model=MODEL,
