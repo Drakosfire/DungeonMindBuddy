@@ -564,3 +564,21 @@ def test_duplicate_source_local_edge_ids_are_not_hidden_by_payload_deduplication
     assert sum(edge["edge_id"] == "bridge-town" for edge in result.candidate_graph["edges"]) == 2
     with pytest.raises(CandidateGraphMappingError, match="duplicate_edge_id"):
         load_typed_candidate_graph(result.candidate_graph)
+
+
+def test_known_character_omitted_by_actor_model_still_reaches_later_passes():
+    from src.graph_memory.extraction.known_character_bindings import bind_characters
+    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    text='Mara waits at Mirathorn.'
+    context=bind_characters({'entities':[{'entity_id':'native:mara','label':'Mara','names':['Mara']}], 'native_pin':{'revision_id':'r1'}},[{'source_span_ref_id':'span-1','text':text}], 'x')
+    class Client(RecordingClient):
+        def run_pass(self,pass_name,**kwargs):
+            if pass_name=='actor_pass':
+                assert 'Mara' in kwargs['user_content'] and 'identity hints only' in kwargs['user_content']
+            if pass_name in {'beat_pass','edge_pass'}:
+                assert 'known-character:' in kwargs['user_content']
+            return super().run_pass(pass_name,**kwargs)
+    result=extract_category_candidate_graph(CategoryGraphExtractionOptions(campaign_id='c',session_id='session-1',session_number=1,source_span_index=_span_index(session_id='session-1'),source_text=text,profile=RECAP_EXTRACTION_PROFILE,known_character_context=context),client=Client())
+    mara=[n for n in result.candidate_graph['nodes'] if n['label']=='Mara']
+    assert len(mara)==1 and mara[0]['description'] is None
+    assert mara[0]['evidence_refs'][0]['anchor_quotes']==['Mara']
