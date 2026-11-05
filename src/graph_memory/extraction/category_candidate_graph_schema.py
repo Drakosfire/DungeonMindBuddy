@@ -175,7 +175,7 @@ def category_beat_pass_json_schema() -> dict[str, Any]:
     }
 
 
-def category_edge_pass_json_schema() -> dict[str, Any]:
+def category_edge_pass_json_schema(*, capabilities: tuple[str, ...] = ()) -> dict[str, Any]:
     return {
         "type": "object",
         "additionalProperties": False,
@@ -192,7 +192,7 @@ def category_edge_pass_json_schema() -> dict[str, Any]:
                         "label": {"type": "string"},
                         "relationship_type": {
                             "type": "string",
-                            "enum": list(exact_predicate_ids()),
+                            "enum": list(exact_predicate_ids(capabilities=capabilities)),
                         },
                         "predicate_family": {
                             "type": "string",
@@ -237,7 +237,9 @@ def schema_for_pass_spec(pass_spec: Any) -> dict[str, Any]:
         return {"type": "object", "properties": {"retained_edge_ids": selection},
                 "required": ["retained_edge_ids"], "additionalProperties": False}
     if kind == "edge":
-        return category_edge_pass_json_schema()
+        return category_edge_pass_json_schema(
+            capabilities=getattr(pass_spec, "predicate_capabilities", ()),
+        )
     if kind == "encounter_job":
         return category_node_pass_json_schema(
             include_dispositions=False,

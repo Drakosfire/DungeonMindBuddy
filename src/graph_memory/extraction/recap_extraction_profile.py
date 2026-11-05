@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from src.graph_memory.predicate_catalog import recap_predicate_meaning_guidance
+from src.graph_memory.predicate_catalog import RECAP_SOURCE_ORDER, recap_predicate_meaning_guidance
 
 from src.graph_memory.extraction.extraction_profile import (
     ExtractionPassSpec,
@@ -114,7 +114,7 @@ def _with_recap_source_faithfulness(spec: ExtractionPassSpec) -> ExtractionPassS
     pass_guidance = _PASS_SOURCE_FAITHFULNESS.get(spec.pass_id, "")
     coverage = f"{_NODE_DESCRIPTION_COVERAGE}\n\n" if spec.kind == "node" else ""
     if spec.pass_id == "edge_pass":
-        pass_guidance = f"{pass_guidance}\n\n{recap_predicate_meaning_guidance()}"
+        pass_guidance = f"{pass_guidance}\n\n{recap_predicate_meaning_guidance(capabilities=spec.predicate_capabilities)}"
     return replace(
         spec,
         instruction=(
@@ -132,6 +132,26 @@ DEFAULT_SEMANTIC_STATE = {
     "authority_state": "system_derived",
     "visibility_state": "gm_private",
 }
+
+_SOURCE_ORDER_OCCURRENCES = (
+    "Retain specific occurred events needed to express source-supported before/after "
+    "relationships as event nodes. These can be actual discoveries, discussions, "
+    "decisions or planning acts; a proposed future outcome is a different occurrence. "
+    "Bind each description to its source-supported episode, journey or situation so "
+    "relative references remain understandable without paragraph or node order. "
+    "Do not turn persistent people, places or topics into events. Keep concurrent "
+    "or unresolved occurrences distinct without imposing an order."
+)
+
+_SOURCE_ORDER_EDGES = (
+    "Retain explicit source-supported occurrence order using the adopted precedence "
+    "predicate and event endpoints. Review linked events systematically, preserving "
+    "attribution and uncertainty; do not derive order from paragraph position, infer "
+    "causation or complete a total timeline. If two events precede a third, their "
+    "relative order may remain unresolved. Supply evidence for each ordering claim "
+    "itself; endpoint evidence cannot substitute."
+)
+
 
 _NODE_PASSES: tuple[ExtractionPassSpec, ...] = (
     ExtractionPassSpec(
@@ -201,7 +221,8 @@ _NODE_PASSES: tuple[ExtractionPassSpec, ...] = (
         default_node_type="mystery",
         instruction=(
             "Extract mysteries, clues, warnings, events, unresolved phenomena, and threads. "
-            "Also emit ignored_items and deferred_items when appropriate."
+            "Also emit ignored_items and deferred_items when appropriate. "
+            + _SOURCE_ORDER_OCCURRENCES
         ),
         progress_label="Extracting mysteries and threads",
         include_dispositions=True,
@@ -228,9 +249,10 @@ _ENCOUNTER_JOB_PASS = ExtractionPassSpec(
 _EDGE_PASS = ExtractionPassSpec(
     pass_id="edge_pass",
     default_node_type=None,
-    instruction="Extract durable relationship edges among consolidated nodes.",
+    instruction="Extract durable relationship edges among consolidated nodes. " + _SOURCE_ORDER_EDGES,
     progress_label="Extracting relationship edges",
     kind="edge",
+    predicate_capabilities=(RECAP_SOURCE_ORDER,),
 )
 
 
