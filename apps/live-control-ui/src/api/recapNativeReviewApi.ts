@@ -4,7 +4,7 @@ import type { ExactRunCandidateProjection } from "./exactRunCandidateProjectionA
 export type ReviewSourceAdmission = { state: "not_found" } | {
   state: "reserved" | "dispatching" | "admitted" | "unknown" | "conflict" | "unavailable";
   run_id: string; run_revision: number; opening_state: "not_checked" | "verified" | "unavailable" | "integrity_error";
-  failure_code: string | null;
+  failure_code: string | null; admission_id?:string;source_artifact_id?:string;source_revision_id?:string;
 };
 export type ReviewSupportOpening = { status: "unavailable" } | {
   status: "available"; source_artifact_id: string; source_revision_id: string; body_sha256: string;
@@ -19,7 +19,8 @@ export interface RecapNativeReview {
     source_admission: ReviewSourceAdmission;
     source_evidence: Array<{ evidence_ref_id: string; evidence_role: "support"; opening: ReviewSupportOpening }>;
     selections: Array<{ candidate_node_id: string; status: string; search_is_advisory: true;
-      alternatives: Array<{ entity_id: string; identity_approved: false; status: string }> }>;
+      identity_matches?: Array<{entity_id:string;identity_approved:false;matched_names:string[];matched_aliases:string[]}>;
+      alternatives: Array<{ entity_id: string; identity_approved: false; status: string; entity_result?: {assertions?: Array<{predicate?: string; value?: {value?: unknown}}>}; source_inspection?: Array<{status?:string;span_text?:string}> }> }>;
   };
 }
 const record = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -31,22 +32,28 @@ function invalid(): never { throw new LiveApiError("This comparison no longer ma
 
 /** Display/scope guards only. The existing server and Core own source acceptance. */
 export async function getRecapNativeReview(projection: ExactRunCandidateProjection, nodeId: string, signal?: AbortSignal): Promise<RecapNativeReview> {
+  return getRecapNativeReviews(projection,[nodeId],signal);
+}
+/** Batch the existing bounded read contract; no admission or approval effects. */
+export async function getRecapNativeReviews(projection: ExactRunCandidateProjection, nodeIds: string[], signal?: AbortSignal): Promise<RecapNativeReview> {
+  const ids=[...nodeIds].sort();
+  if(!ids.length||ids.length>32||new Set(ids).size!==ids.length) invalid();
   // Capture dispatched scalar coordinates; never reinterpret a late response using changed props.
   const p = { runId: projection.runId, revision: projection.runRevision, status: projection.runStatus,
     source: projection.sourceArtifactId, sourceHash: projection.sourceSha256.slice(7),
     candidateHash: projection.candidateSha256.slice(7), spanHash: projection.spanIndexSha256.slice(7),
     world: projection.managedWorldId, native: projection.nativeWorldId, binding: projection.bindingVersion,
     campaign: projection.campaignId, session: projection.sessionId };
-  if (p.status !== "reviewable" || ![p.runId, p.source, p.world, p.native, p.campaign, p.session, nodeId].every(text)
+  if (p.status !== "reviewable" || ![p.runId, p.source, p.world, p.native, p.campaign, p.session, ...ids].every(text)
       || !integer(p.revision) || p.revision < 1 || !integer(p.binding) || p.binding < 1
       || ![projection.sourceSha256, projection.candidateSha256, projection.spanIndexSha256].every(v => /^sha256:[a-f0-9]{64}$/.test(v))
-      || !projection.nodes.some(n => n.candidateNodeId === nodeId)) invalid();
+      || !ids.every(id=>projection.nodes.some(n => n.candidateNodeId === id))) invalid();
   const { response } = await authenticatedApiFetch(`/api/live/extract-promote/runs/${encodeURIComponent(p.runId)}/selection-context`, {
     method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, ...(signal ? { signal } : {}),
     body: JSON.stringify({ schema: "dmb_ingest_native_review_request_v2", expected_run_revision: p.revision,
       expected_candidate_sha256: p.candidateHash, expected_source_sha256: p.sourceHash,
       expected_span_index_sha256: p.spanHash, expected_world_id: p.world,
-      node_ids: [nodeId], edge_ids: [], inspect_source_support: true }),
+      node_ids: ids, edge_ids: [], inspect_source_support: true }),
   });
   let body: unknown;
   try { body = JSON.parse(await response.text()); }
@@ -64,7 +71,7 @@ export async function getRecapNativeReview(projection: ExactRunCandidateProjecti
       || body.candidate_sha256 !== p.candidateHash || body.span_index_sha256 !== p.spanHash || !record(body.scope)
       || body.scope.managed_world_id !== p.world || body.scope.native_world_id !== p.native || body.scope.binding_version !== p.binding
       || body.scope.campaign_id !== p.campaign || body.scope.session_id !== p.session
-      || !Array.isArray(body.selected_node_ids) || body.selected_node_ids.length !== 1 || body.selected_node_ids[0] !== nodeId
+      || !Array.isArray(body.selected_node_ids) || body.selected_node_ids.length !== ids.length || !ids.every((id,i)=>(body.selected_node_ids as unknown[])[i]===id)
       || !Array.isArray(body.selected_edge_ids) || body.selected_edge_ids.length !== 0 || !record(body.native_context)) invalid();
   const native = body.native_context;
   if (!text(native.revision_id) || !integer(native.source_authority_epoch) || native.identity_approval !== false || native.semantic_support_verified !== false
@@ -89,7 +96,12 @@ export async function getRecapNativeReview(projection: ExactRunCandidateProjecti
   for (const selection of native.selections) {
     if (!record(selection) || !text(selection.candidate_node_id) || !text(selection.status) || selection.search_is_advisory !== true || !Array.isArray(selection.alternatives)
         || selection.alternatives.some(a => !record(a) || !text(a.entity_id) || !text(a.status) || a.identity_approved !== false)) invalid();
+    if (selection.identity_matches !== undefined && (!Array.isArray(selection.identity_matches)
+      || selection.identity_matches.some(m=>!record(m)||!text(m.entity_id)||m.identity_approved!==false
+        || !Array.isArray(m.matched_names)||!m.matched_names.every(text)||!Array.isArray(m.matched_aliases)||!m.matched_aliases.every(text)
+        || !(m.matched_names.length+m.matched_aliases.length))
+      || new Set(selection.identity_matches.map(m=>(m as Record<string,unknown>).entity_id)).size!==selection.identity_matches.length)) invalid();
   }
-  if (native.selections.filter(s => s.candidate_node_id === nodeId).length !== 1) invalid();
+  if (!ids.every(id=>(native.selections as Record<string,unknown>[]).filter(s=>s.candidate_node_id===id).length===1)) invalid();
   return body as unknown as RecapNativeReview;
 }

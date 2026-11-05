@@ -1,3 +1,4 @@
+import {getExactRunCandidateProjection} from "../api/exactRunCandidateProjectionApi";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getExtractionRun, getPlanView, NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT } from "../api/liveApi";
@@ -84,6 +85,7 @@ function SelectedWorldMemoryIngestPage({ managedWorldId: selectedManagedWorldId 
   > | null>(null);
 
   const [retryGeneration, setRetryGeneration] = useState(0);
+  const [mergeBusy,setMergeBusy]=useState(false),[mergeError,setMergeError]=useState<string|null>(null);
   const accessGeneration = useRef(0);
   const pendingRead = useRef<AbortController | null>(null);
   const navigation = useRef({ key: "", generation: 0 });
@@ -226,6 +228,22 @@ function SelectedWorldMemoryIngestPage({ managedWorldId: selectedManagedWorldId 
     setLocationSearch(search);
   }, []);
 
+  async function openOwnedMerge() {
+    if (!sourceReview || !managedWorldId || mergeBusy) return;
+    const key=requestKey, epoch=generation;
+    setMergeBusy(true);setMergeError(null);
+    try {
+      const p=await getExactRunCandidateProjection(sourceReview.run_id,managedWorldId);
+      if(navigation.current.key!==key||navigation.current.generation!==epoch)return;
+      if(p.runStatus!=="reviewable")throw new Error("Select a reviewable extraction to merge.");
+      const params=new URLSearchParams(window.location.search);
+      for(const name of ["extractionRunId","sourceArtifactId","documentId","revision"])params.delete(name);
+      params.set("world",p.managedWorldId);params.set("campaign",p.campaignId);params.set("session",p.sessionId);params.set("view","recap");params.set("recapReviewRunId",p.runId);params.set("merge","1");
+      window.history.pushState({},"",`${window.location.pathname}?${params}`);window.dispatchEvent(new Event("popstate"));
+    } catch(e) {if(navigation.current.key===key&&navigation.current.generation===epoch)setMergeError(e instanceof Error?e.message:"This source is unavailable for merge in the selected World.");}
+    finally {if(navigation.current.key===key&&navigation.current.generation===epoch)setMergeBusy(false);}
+  }
+
   const context = useMemo(
     () => (coherent && planView ? buildIngestContextFromPlanView(planView) : null),
     [coherent, planView],
@@ -326,6 +344,8 @@ function SelectedWorldMemoryIngestPage({ managedWorldId: selectedManagedWorldId 
             aria-label="Read-only source review"
             data-testid="source-review-scope"
           >
+            <nav aria-label="Ingest navigation"><button type="button" className="primary" disabled={mergeBusy} onClick={()=>void openOwnedMerge()}>{mergeBusy?"Opening merge review…":"Merge"}</button></nav>
+            {mergeError?<p role="alert">{mergeError}</p>:null}
             <h1>Read-only source review</h1>
             <dl className="ingest-source-review-metadata">
               <dt>Source artifact</dt>
