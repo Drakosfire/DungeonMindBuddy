@@ -525,6 +525,47 @@ describe("one App-level World conversation host across Plan and Play", () => {
 
 
 
+  it('freezes Plan references into the saved pending request before dispatch',async()=>{
+    const references=authoredReferences([authoredRef('plan-selected')]);
+    writeComposerReferences(sessionStorage,WORLD,'plan-one',null,references.references,null,'plan');
+    vi.mocked(postWorldPlanAgentTurn).mockImplementation(()=>new Promise(()=>{}));
+    render(<Harness initial="plan"/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open'}));
+    const input=await screen.findByLabelText('Message DungeonBuddy');
+    fireEvent.change(input,{target:{value:'Use the selected context'}});
+    fireEvent.click(screen.getByRole('button',{name:'Send message',exact:true}));
+    await waitFor(()=>expect(postWorldPlanAgentTurn).toHaveBeenCalledTimes(1));
+    const request=vi.mocked(postWorldPlanAgentTurn).mock.calls[0]![0];
+    expect(request.authored_references).toEqual(references);
+    const pending=Object.values(localStorage).map(value=>{try{return JSON.parse(value);}catch{return null;}})
+      .find(value=>value?.request?.turn_id===request.turn_id);
+    expect(pending.request.authored_references).toEqual(references);
+    expect(readComposerReferences(sessionStorage,WORLD,'plan-one','plan')?.references).toEqual([]);
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+  });
+
+  it.each([false,true])('retries Plan using original references and preserves newer input: %s',async(hasReferences)=>{
+    const original=authoredReferences([authoredRef('original-selection')]);
+    const prior=turn('plan',1,'');
+    const terminal={...prior,lifecycle_status:'interrupted' as const,
+      ...(hasReferences?{authored_references:original}:{})};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    const newer=writeComposerReferences(sessionStorage,WORLD,'plan-one',null,[authoredRef('newer-selection')],null,'plan');
+    vi.mocked(postWorldPlanAgentTurn).mockImplementation(()=>new Promise(()=>{}));
+    render(<Harness initial="plan"/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open'}));
+    const input=await screen.findByLabelText('Message DungeonBuddy');
+    fireEvent.change(input,{target:{value:'Keep this newer question'}});
+    const retry=await screen.findByRole('button',{name:'Retry question'});
+    await waitFor(()=>expect(retry).toBeEnabled());fireEvent.click(retry);
+    await waitFor(()=>expect(postWorldPlanAgentTurn).toHaveBeenCalledTimes(1));
+    const request=vi.mocked(postWorldPlanAgentTurn).mock.calls[0]![0];
+    expect(request.authored_references).toEqual(hasReferences?original:undefined);
+    expect(request.message).toBe(prior.user_text);
+    expect(input).toHaveValue('Keep this newer question');
+    expect(sessionStorage.getItem(composerReferenceKey(WORLD,'plan-one','plan'))).toBe(newer.serialized);
+  });
+
   it('loads an ordinary native Build proposal into the existing page review control without generating again',async()=>{
     const raw=nativeBuildWire.proposal_wire;
     const wire=JSON.parse(JSON.stringify(raw).replaceAll(raw.history.world_id,WORLD));

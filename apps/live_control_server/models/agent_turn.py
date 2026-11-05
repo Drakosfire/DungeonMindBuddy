@@ -245,7 +245,7 @@ class AgentTurnGraphSelection(BaseModel):
         return cleaned
 
 
-from application_state.agent_conversation.authored_graph_references import AuthoredReferenceInput
+from application_state.agent_conversation.authored_graph_references import AuthoredReferenceInput, AuthoredReferencesV2
 
 from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV1
 
@@ -268,6 +268,7 @@ class AgentTurnRequest(BaseModel):
     build_write_capability: BuildWriteCapability | None = None
     build_draft_context: BuildDraftContextRequestV1 | None = None
     build_authored_references: AuthoredReferenceInput | None = None
+    authored_references: AuthoredReferencesV2 | None = None
     retry_of: RetryTurnReference | None = None
     reviewed_step: ReviewedStepReference | None = None
     plan_context_policy: PlanContextPolicyV2 | PlanContextPolicyV1 | None = None
@@ -307,6 +308,15 @@ class AgentTurnRequest(BaseModel):
             raise ValueError("Retry requires fresh ordinary World Build context")
         if self.reviewed_step is not None and (self.surface.surface_id != "build" or self.graph_request.mode != "world" or self.build_draft_context is None):
             raise ValueError("A reviewed step requires its captured Build page and World")
+        if self.authored_references is not None:
+            if (self.surface.surface_id != 'plan' or self.plan_context_policy is None
+                    or self.owner_scope is None or self.owner_scope.kind != 'world'
+                    or self.primary_work is None or self.primary_work.kind != 'plan'
+                    or self.graph_request.mode != 'none' or self.graph_selection is not None
+                    or self.native_statement_selection is not None or self.selected_knowledge is not None
+                    or self.build_authored_references is not None or not self.authored_references.references):
+                raise ValueError('Plan references require the actual saved Plan and its native context policy')
+            self.authored_references.require_world(self.owner_scope.world_id)
         if self.build_authored_references is not None:
             if (self.surface.surface_id != 'build' or self.owner_scope is None
                 or self.owner_scope.kind != 'world' or self.graph_request.mode != 'world'):
@@ -997,6 +1007,15 @@ class AgentNativeStatementTurnResponseV1(AgentTurnResponse):
 
 class AgentConversationHistoryTurn(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    authored_references: AuthoredReferenceInput | None = Field(default=None,exclude_if=lambda value:value is None)
+
+    @model_validator(mode='after')
+    def exact_reference_world(self):
+        if self.authored_references is not None:
+            self.authored_references.require_world(self.provenance.world_id)
+            if self.provenance.surface_id not in {'build','plan'}:
+                raise ValueError('Captured references require their actual authoring surface')
+        return self
 
     turn_id: UUID
     sequence: int = Field(ge=1)

@@ -87,6 +87,9 @@ def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_pr
     validate_execution_binding(receipt,execution)
     validate_work_context(receipt,provenance)
     action=execution.policy.action
+    from .authored_graph_references import validate_native_capture_identity
+    validate_native_capture_identity(execution, turn_id=turn_id, conversation_id=conversation_id,
+        attempt=attempt, fingerprint=t.submitted_turn_intent_fingerprint_v2(action.intent))
     if (world_id != action.intent.world_id or provenance.surface_instance_id != action.intent.surface_instance_id
             or any(type(value) is not UUID for value in (idempotency_key,conversation_id,turn_id))
             or type(attempt) is not int or attempt < 1):
@@ -94,9 +97,6 @@ def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_pr
     if any(type(event) is NativeWriterAuthorizedV1 for event in execution.events):
         raise ValueError('Native work projection requires the prefix before its writer')
     if isinstance(receipt.work_context,BuildWorkContextV1):
-        from .authored_graph_references import validate_native_capture_identity
-        validate_native_capture_identity(execution, turn_id=turn_id, conversation_id=conversation_id,
-            attempt=attempt, fingerprint=t.submitted_turn_intent_fingerprint_v2(action.intent))
         from .build_primary_context import native_work_frame
         from .build_draft_context import context_record, validate_native_record
         if not isinstance(work_proof,dict) or work_proof:
@@ -115,8 +115,11 @@ def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_pr
         return frame if authored is None else frame | {'authored_references': authored}
     if isinstance(receipt.work_context,PlanWorkContextV1):
         from .plan_jev_graph_packet import project_native_plan_work, NATIVE_WORK_SCHEMA
-        return dict(schema=NATIVE_WORK_SCHEMA,**project_native_plan_work(receipt,execution,provenance,
+        frame = dict(schema=NATIVE_WORK_SCHEMA,**project_native_plan_work(receipt,execution,provenance,
             idempotency_key,work_proof,conversation_id=conversation_id))
+        from .authored_graph_references import native_writer_context
+        authored = native_writer_context(execution)
+        return frame if authored is None else frame | {'authored_references': authored}
     raise ValueError('Native Play writer requires its actual single-provider work-input owner')
 
 

@@ -52,11 +52,7 @@ def validate_selection_bases(adapter):
 
 def capture_input(adapter):
     if type(adapter.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1:
-        refs = adapter.request.build_authored_references
-        if refs is None or not refs.references:
-            return
-        adapter.turn, _ = adapter.fence.append('capture_native_authored_references','event_id',uuid4())
-        return
+        raise ValueError('Native authored input requires its shared acquisition owner')
     from application_state.agent_conversation.authored_graph_references import AuthoredSourceReferenceV1
     refs = adapter.request.build_authored_references
     if refs is not None and any(isinstance(ref, AuthoredSourceReferenceV1) for ref in refs.references):
@@ -163,27 +159,7 @@ def restore_material(adapter, read):
 
 def acquire(adapter):
     if type(adapter.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1:
-        from .native_graph_reads import read_authored_reference
-        refs = adapter.request.build_authored_references
-        from application_state.agent_conversation.authored_graph_references import AuthoredSourceReferenceV1
-        from ..integrations.dungeonmind.native_corpus_source import read_authored_source
-        for index, reference in enumerate(() if refs is None else refs.references):
-            if isinstance(reference, AuthoredSourceReferenceV1):
-                from application_state.errors import ApplicationStateValidationError
-                try:
-                    adapter.turn, _ = adapter.fence.append('observe_native_authored_source', 'event_id', uuid4(),
-                        reference_index=index, materialize=lambda selected: read_authored_source(adapter.native_corpus_context, selected))
-                except (ValueError, ApplicationStateValidationError) as exc:
-                    from .agent_turn_service import AgentTurnServiceError
-                    raise AgentTurnServiceError('The exact selected source or passage could not be read. Your request is retained; choose it again. No newer source was substituted.',
-                        code='build_authored_source_unavailable',status_code=409,provider_dispatched=None) from exc
-                continue
-            adapter.turn, _ = adapter.fence.append('authorize_native_authored_reference','event_id',uuid4(),node_id=reference.node_id)
-            grant = adapter.fence.turn.graph_context_execution.events[-1]
-            adapter.turn, _ = adapter.fence.append('observe_native_authored_reference','event_id',uuid4(),
-                authorization_event_id=grant.event_id,materialize=lambda admitted: read_authored_reference(
-                    adapter.native_query_context,admitted,adapter.native_query_context.principal))
-        return
+        raise ValueError('Native authored input requires its shared acquisition owner')
     refs = adapter.request.build_authored_references
     if refs is None:
         return

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Literal
 from pydantic import Field, model_validator
+from .authored_graph_references import AuthoredReferencesV2
 
 from .plan_authoring import (
     Frozen, PlanAuthoringCaptureV1, PlanAuthoringBoundaryCaptureV1,
@@ -125,6 +126,21 @@ class PlanRequestedWorkInputV3(PlanRequestedWorkInputV2):
     """Current request precedence; same captured placement authority as V2."""
     schema_: Literal["dmb_plan_requested_work_input_v3"] = Field(
         default="dmb_plan_requested_work_input_v3", alias="schema")
+
+
+
+
+class PlanRequestedWorkInputV4(PlanRequestedWorkInputV3):
+    """Current Plan destination decision with its exact authored selections."""
+    schema_: Literal["dmb_plan_requested_work_input_v4"] = Field(
+        default="dmb_plan_requested_work_input_v4", alias="schema")
+    authored_references: AuthoredReferencesV2
+
+    @model_validator(mode="after")
+    def nonempty_references(self):
+        if not self.authored_references.references:
+            raise ValueError('Plan reference decision requires actual author selections')
+        return self
 
 
 def work_choice(request: PlanRequestedWorkInputV2, selected: str):

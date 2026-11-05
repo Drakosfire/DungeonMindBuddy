@@ -585,6 +585,9 @@ function parsePendingAsk(
         && !isPlanPlayableTarget(request.playable_target))
       || (Object.prototype.hasOwnProperty.call(request, "plan_context_policy")
         && !isWorldPlanContextPolicy(request.plan_context_policy))
+      || (Object.hasOwn(request,'authored_references')&&(!isAuthoredReferences(request.authored_references,worldId)
+        ||request.authored_references.schema!=='dmb_authored_references_v2'||request.authored_references.references.length===0
+        ||!isRecord(request.plan_context_policy)||request.plan_context_policy.schema!=='dmb_plan_context_policy_v2'))
       || (Object.hasOwn(request,'plan_authoring_capture')&&(!isPlanAuthoringCapture(request.plan_authoring_capture)
         ||request.plan_authoring_capture.world_id!==worldId||request.plan_authoring_capture.document_id!==documentId
         ||request.plan_authoring_capture.base_revision!==primary.expected_revision
@@ -1681,6 +1684,11 @@ function isHistoryTurn(
       &&(!Object.hasOwn(value,'idempotency_key')||value.idempotency_key===proposal.origin.idempotency_key)
       &&isHistoryTurn(envelope,schema,worldId);
   }
+  if(Object.hasOwn(value,'authored_references')){
+    const {authored_references:references,...envelope}=value;
+    return isAuthoredReferences(references,worldId)&&isRecord(value.provenance)
+      &&['plan','build'].includes(String(value.provenance.surface_id))&&isHistoryTurn(envelope,schema,worldId);
+  }
   if(Object.hasOwn(value,'retry_context')){
     const {retry_context:retry,...envelope}=value;
     if(!isRecord(retry)||typeof retry.conversation_id!=='string'||typeof value.turn_id!=='string')return false;
@@ -2705,6 +2713,7 @@ export function WorldPlanAgentConversation({
   const [submittedMessage, setSubmittedMessage] = useState<{
     id: string; scopeKey: string; conversationId: string | null; pointerRevision: number | null;
     message: string; kind: "discuss" | "propose";
+    authoredReferences?: import("../../api/types").AuthoredReferencesV2;
     idempotencyKey?: string | null;
   } | null>(null);
   const confirmedResetRef = useRef<{ commandId: string; worldId: string; conversationId: string; pointerRevision: number } | null>(null);
@@ -2756,8 +2765,9 @@ export function WorldPlanAgentConversation({
   }, [verifiedWorldId]);
   const [graphCredentialStatus, setGraphCredentialStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const referenceWorld=isBuild?verifiedWorldId:null,referencePage=isBuild?buildMode?.savedSource?.documentId:null;
-  const referenceScopeKey=referenceWorld&&referencePage?composerReferenceKey(referenceWorld,referencePage):null;
+  const referenceSurface=isBuild?'build' as const:'plan' as const;
+  const referenceWorld=(isBuild||!isReadOnly)?verifiedWorldId:null,referencePage=isBuild?buildMode?.savedSource?.documentId:!isReadOnly?documentId:null;
+  const referenceScopeKey=referenceWorld&&referencePage?composerReferenceKey(referenceWorld,referencePage,referenceSurface):null;
   const [composerReferenceState,setComposerReferenceState]=useState<{key:string|null;draft:ComposerReferenceDraft|null;error:string|null}>({key:null,draft:null,error:null});
   const composerReferences=composerReferenceState.key===referenceScopeKey?composerReferenceState.draft?.references??[]:[];
   const composerReferencesReady=!referenceScopeKey||composerReferenceState.key===referenceScopeKey&&!!composerReferenceState.draft&&!composerReferenceState.error;
@@ -2770,26 +2780,26 @@ export function WorldPlanAgentConversation({
   useLayoutEffect(()=>{
     setUnreadableReferenceCopy(null);setReferenceRecoveryCopies(null);
     if(!referenceWorld||!referencePage){setComposerReferenceState({key:null,draft:null,error:null});return;}
-    try{setReferenceRecoveryCopies({key:referenceScopeKey!,copies:readComposerReferenceRecoveries(sessionStorage,referenceWorld,referencePage)});}catch(reason){setError(String(reason));}
-    try{setComposerReferenceState({key:referenceScopeKey,draft:readComposerReferences(sessionStorage,referenceWorld,referencePage),error:null});}
+    try{setReferenceRecoveryCopies({key:referenceScopeKey!,copies:readComposerReferenceRecoveries(sessionStorage,referenceWorld,referencePage,referenceSurface)});}catch(reason){setError(String(reason));}
+    try{setComposerReferenceState({key:referenceScopeKey,draft:readComposerReferences(sessionStorage,referenceWorld,referencePage,referenceSurface),error:null});}
     catch(reason){setComposerReferenceState({key:referenceScopeKey,draft:null,error:String(reason)});try{const raw=sessionStorage.getItem(referenceScopeKey!);if(raw!==null)setUnreadableReferenceCopy({key:referenceScopeKey!,raw});}catch{/* Unavailable storage grants no recovery write. */}}
-  },[referenceWorld,referencePage,referenceScopeKey]);
+  },[referenceWorld,referencePage,referenceScopeKey,referenceSurface]);
   async function recoverUnreadableReferences(){
     const original=unreadableReferenceCopy,world=referenceWorld,page=referencePage;
     if(!original||!world||!page||original.key!==referenceScopeKey||referenceRecoveryBusy)return;
     setReferenceRecoveryBusy(true);
     try{
-      const draft=await recoverComposerReferences(sessionStorage,world,page,original.raw);
+      const draft=await recoverComposerReferences(sessionStorage,world,page,original.raw,referenceSurface);
       if(referenceRecoveryScope.current!==original.key)return;
       setComposerReferenceState({key:original.key,draft,error:null});setUnreadableReferenceCopy(null);
-      setReferenceRecoveryCopies({key:original.key,copies:readComposerReferenceRecoveries(sessionStorage,world,page)});
+      setReferenceRecoveryCopies({key:original.key,copies:readComposerReferenceRecoveries(sessionStorage,world,page,referenceSurface)});
     }catch(reason){if(referenceRecoveryScope.current===original.key)setError(String(reason));}
     finally{setReferenceRecoveryBusy(false);}
   }
   function changeComposerReferences(references:AuthoredReference[]){
     if(!referenceWorld||!referencePage||composerReferenceState.key!==referenceScopeKey||!composerReferenceState.draft)throw new Error('Reopen the current page composer before choosing references.');
     try{
-      const draft=writeComposerReferences(sessionStorage,referenceWorld,referencePage,composerReferenceState.draft.serialized,references);
+      const draft=writeComposerReferences(sessionStorage,referenceWorld,referencePage,composerReferenceState.draft.serialized,references,null,referenceSurface);
       composerEditGenerationRef.current+=1;setComposerReferenceState({key:referenceScopeKey,draft,error:null});
     }catch(reason){
       if(composerReferenceState.draft.submittedTurnId)failedReferenceRetirements.current.add(composerReferenceState.draft.submittedTurnId);
@@ -3936,7 +3946,7 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  async function submit(event: Pick<FormEvent<HTMLFormElement>, "preventDefault">, intent = composerIntent, questionOverride?: string) {
+  async function submit(event: Pick<FormEvent<HTMLFormElement>, "preventDefault">, intent = composerIntent, questionOverride?: string, retryReferences?: import("../../api/types").AuthoredReferencesV2 | null) {
     event.preventDefault();
     if (questionOverride === undefined) setRetryPresentationOrigin(null);
     const composerSnapshotAtSubmit = questionOverride ?? composerMessage;
@@ -3944,6 +3954,11 @@ export function WorldPlanAgentConversation({
     let pointerSnapshot = historySnapshotRef.current;
     const targetAtSubmit = playableTarget;
     const targetBasisAtSubmit = playableTargetBasis;
+    const isRetry = questionOverride !== undefined;
+    if(!isRetry&&!composerReferencesReady){setError('The local reference selection needs recovery; no request was sent.');return;}
+    const planReferenceInput=isRetry ? retryReferences ?? undefined : composerReferences.length?authoredReferences(composerReferences):undefined;
+    if(planReferenceInput&&!useWorldGraphForAsk){setError('Enable World context to include this request’s references. No request was sent.');return;}
+    const planReferenceDraft=isRetry ? null : composerReferenceState.draft;
     if (intent !== "discuss" || !planReady || !scopeMatches || !namespace || !documentId || !surfaceInstanceId
       || !isPositiveRevision(revision) || saveInFlight || !message || sending || requestRef.current
       || sharedConversation?.pendingTurn
@@ -3957,8 +3972,8 @@ export function WorldPlanAgentConversation({
     const composerGenerationAtSubmit = composerEditGenerationRef.current;
     const submittedPresentationFenceKey = askPresentationFenceKey;
     setSubmittedMessage({ id: submittedTurnId, scopeKey, conversationId: pointerSnapshot.conversation_id,
-      pointerRevision: pointerSnapshot.pointer_revision, message, kind: "discuss" });
-    if (!sharedConversation && composerEditGenerationRef.current === composerGenerationAtSubmit) setComposerMessage((current) => current === composerSnapshotAtSubmit ? "" : current);
+      pointerRevision: pointerSnapshot.pointer_revision, message, kind: "discuss", authoredReferences: planReferenceInput });
+    if (!isRetry && !sharedConversation && composerEditGenerationRef.current === composerGenerationAtSubmit) setComposerMessage((current) => current === composerSnapshotAtSubmit ? "" : current);
     setSending(true);
     setError(null);
     setConversationNotice(null);
@@ -4003,7 +4018,7 @@ export function WorldPlanAgentConversation({
         const existing=historySnapshotRef.current;
         if(existing&&existing.conversation_id!==null&&!sameHistoryPointer(existing,fresh))throw new Error('Another conversation became active while preparing this request.');
         pointerSnapshot=fresh;historySnapshotRef.current=fresh;setHistory(fresh);setHistoryLoading(false);
-        setSubmittedMessage({id:submittedTurnId,scopeKey,conversationId:fresh.conversation_id,pointerRevision:fresh.pointer_revision,message,kind:'discuss'});
+        setSubmittedMessage({id:submittedTurnId,scopeKey,conversationId:fresh.conversation_id,pointerRevision:fresh.pointer_revision,message,kind:'discuss',authoredReferences:planReferenceInput});
       }
       if(!stillPreparing())return;
       const committedRevision: unknown = await getWorldOwnedPlanCommittedRevision(documentId);
@@ -4035,6 +4050,7 @@ export function WorldPlanAgentConversation({
           throw new Error('The captured draft no longer belongs to this committed Plan. Your request was not sent.');
       }
       const request: WorldPlanAgentTurnRequestV1 = {
+        ...(planReferenceInput?{authored_references:planReferenceInput}:{}),
         schema: "dmb_agent_turn_request_v1",
         client_thread_id: submittedClientThreadId,
         turn_id: submittedTurnId,
@@ -4090,8 +4106,13 @@ export function WorldPlanAgentConversation({
         throw new Error(`The Ask was not sent because its recovery envelope could not be saved. ${reason instanceof Error ? reason.message : "Browser storage is unavailable."}`);
       }
       refreshPendingAskList();
+      if(planReferenceInput&&planReferenceDraft&&referenceWorld&&referencePage
+        &&sessionStorage.getItem(referenceScopeKey!)===planReferenceDraft.serialized){
+        const draft=writeComposerReferences(sessionStorage,referenceWorld,referencePage,planReferenceDraft.serialized,[],request.turn_id,'plan');
+        setComposerReferenceState({key:referenceScopeKey,draft,error:null});
+      }
       sharedConversation?.setPendingTurn({ surface: "plan", turnId: request.turn_id });
-      if (sharedConversation && composerEditGenerationRef.current === composerGenerationAtSubmit) setComposerMessage((current) => current === composerSnapshotAtSubmit ? "" : current);
+      if (!isRetry && sharedConversation && composerEditGenerationRef.current === composerGenerationAtSubmit) setComposerMessage((current) => current === composerSnapshotAtSubmit ? "" : current);
       if(tourDispatch){
         const correlationKey=await worldTurnIdempotencyKey(worldId,request.turn_id);
         if(!stillPreparing())return;
@@ -4099,10 +4120,10 @@ export function WorldPlanAgentConversation({
       }
       requestRef.current = null;
       setSending(false);
-      await sendPendingAsk({ storageKey, serialized, envelope, error: null }, true, composerSnapshotAtSubmit, composerGenerationAtSubmit);
+      await sendPendingAsk({ storageKey, serialized, envelope, error: null }, true, isRetry ? undefined : composerSnapshotAtSubmit, isRetry ? undefined : composerGenerationAtSubmit);
     } catch (reason) {
       if (requestRef.current?.token === preparationToken) {
-        if (latestRef.current.presentationFenceKey === submittedPresentationFenceKey) restoreSubmittedDraft(composerSnapshotAtSubmit, composerGenerationAtSubmit);
+        if (!isRetry && latestRef.current.presentationFenceKey === submittedPresentationFenceKey) restoreSubmittedDraft(composerSnapshotAtSubmit, composerGenerationAtSubmit);
         requestRef.current = null;
         setSending(false);
         setError(reason instanceof Error ? reason.message : "The Ask could not be prepared.");
@@ -5511,6 +5532,7 @@ export function WorldPlanAgentConversation({
 
   async function composeEdit(event: FormEvent<HTMLFormElement>, intent = composerIntent) {
     event.preventDefault();
+    if(composerReferences.length){setEditError('Selected references are available in Automatic Plan messages. Remove the references to continue this edit request, or use Automatic.');return;}
     const composerSnapshotAtSubmit = composerMessage;
     const instruction = composerSnapshotAtSubmit.trim();
     if (intent !== "propose" || !planReady || !scopeMatches || !namespace || !documentId || !editBridge
@@ -6090,6 +6112,7 @@ export function WorldPlanAgentConversation({
     previousAttempts: WorldConversationDisplayEvent[] = [], historicalAttempt = false): React.ReactNode => {
     if (event.kind === "proposal") return renderProposalEvent(event.turn, event.position, false);
     const turn = event.turn;
+    const turnReferences=turn.authored_references??(turn.retry_context?.schema==='dmb_turn_retry_context_row_v2'?turn.retry_context.authored_references:null);
     const replyText = turn.assistant_text ?? '';
     const completed=graphContextForTurn(turn)?.completion;
     const collaboration=completed&&'collaboration' in completed?completed.collaboration:undefined;
@@ -6131,7 +6154,7 @@ export function WorldPlanAgentConversation({
         <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--user">
           <span className="world-plan-agent-conversation__speaker">You</span>
           <p>{turn.user_text}</p>
-          {turn.retry_context?.schema==='dmb_turn_retry_context_row_v2'&&<SurfaceGraphReferenceInput worldId={turn.retry_context.world_id} label="Message references" readOnly value={turn.retry_context.authored_references.references} onChange={()=>{}}/>}
+          {turnReferences&&<SurfaceGraphReferenceInput worldId={verifiedWorldId??''} label="Message references" readOnly value={turnReferences.references} onChange={()=>{}}/>}
         </div>
         {turn.assistant_text || hasObjectOnlyBuildReply(turn) ? (
           <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
@@ -6237,7 +6260,7 @@ export function WorldPlanAgentConversation({
                 onRetry={async(question)=>{
                   setRetryPresentationOrigin({scopeKey,turnId:turn.turn_id});
                   if(isReadOnly)await submitPlay(undefined,false,question,undefined,isBuild?turn.retry_context??undefined:undefined);
-                  else await submit({preventDefault:()=>undefined},"discuss",question);
+                  else await submit({preventDefault:()=>undefined},"discuss",question,turnReferences?.schema==='dmb_authored_references_v2'?turnReferences:null);
                 }} /> : null : null}
           </div>
         ) : null}
@@ -6548,6 +6571,8 @@ export function WorldPlanAgentConversation({
                     {graphAsk ? "Graph Ask" : "Ask"} · {item.envelope.request.turn_id}
                     {terminalFailureConfirmed ? " · failure confirmed" : ""}
                   </summary>
+                  <p>{item.envelope.request.message}</p>
+                  {item.envelope.request.authored_references&&<SurfaceGraphReferenceInput worldId={item.envelope.origin.worldId} label="Saved request references" readOnly value={item.envelope.request.authored_references.references} onChange={()=>{}}/>}
                   <p>Turn ID · <code>{item.envelope.request.turn_id}</code></p>
                   <p>Status · {terminalFailureConfirmed
                     ? "terminal failure confirmed in saved World history"
@@ -6730,6 +6755,7 @@ export function WorldPlanAgentConversation({
         {unmatchedSubmittedMessage && submittedMessage && !pendingRetryTurnId ? (
           <article aria-label="Submitted message">
             <p><strong>You:</strong> {submittedMessage.message}</p>
+            {submittedMessage.authoredReferences&&<SurfaceGraphReferenceInput worldId={verifiedWorldId??''} label="Message references" readOnly value={submittedMessage.authoredReferences.references} onChange={()=>{}}/>}
             {uncertainPlayNoticeRef.current?.turnId === submittedMessage.id ? <div className="world-plan-agent-conversation__reply-failure" role="alert">
               <p>Buddy couldn’t finish this reply. Your message is saved. Open Conversation options to check its status or retry.</p>
               <details className="world-plan-agent-conversation__technical-details"><summary>Technical details</summary><p>{uncertainPlayNoticeRef.current.message}</p></details>
@@ -6816,7 +6842,8 @@ export function WorldPlanAgentConversation({
       {visibleBuildPlacementFailure ? <section aria-label="Page proposal unavailable">
         <p role="alert">Buddy could not prepare a page proposal. {visibleBuildPlacementFailure.reason} Your message has not been sent.</p>
         <p>You can correct the page or insertion point and send again. Discussion includes your current draft. It won’t place writing on the page.</p>
-        <button type="button" disabled={composerBusy || !composerMessage.trim()}
+        <button type="button" disabled={composerBusy || !composerMessage.trim() || !composerReferencesReady
+            || (!isBuild&&!isReadOnly&&composerReferences.length>0&&!useWorldGraphForAsk)}
           onClick={() => { void submitPlay(undefined, true); }}>Send as discussion</button>
       </section> : null}
       <form onSubmit={isReadOnly ? (event) => { void submitPlay(event); } : submitComposer}>
@@ -6879,9 +6906,11 @@ export function WorldPlanAgentConversation({
           placeholder={isReadOnly ? (isBuild ? "Ask about your World, or ask me to add something to this page…" : playEditMode ? "Tell Buddy what to change in this scene…" : "Ask about this Run…") : "Ask Buddy, or tell it what to change…"}
           aria-describedby={`world-plan-agent-composer-hint${buildSourceMissing ? ` ${BUILD_SOURCE_REQUIRED_DESCRIPTION_ID}` : ""}`}
         />
-        {isBuild&&referenceWorld&&referencePage&&<>
-          <SurfaceGraphReferenceInput worldId={referenceWorld} label="Message Graph context" value={composerReferences} disabled={(isReadOnly?!currentReadOnlyContext:!scopeMatches)||!composerReferencesReady} onChange={changeComposerReferences}/>
+        {referenceWorld&&referencePage&&<>
+          <SurfaceGraphReferenceInput worldId={referenceWorld} label={isBuild?"Message Graph context":"Plan request references"} value={composerReferences} disabled={(isReadOnly?!currentReadOnlyContext:!scopeMatches)||!composerReferencesReady} onChange={changeComposerReferences}/>
           {composerReferenceState.error&&<p role="alert">{composerReferenceState.error}</p>}
+          {!isBuild&&composerReferences.length>0&&!useWorldGraphForAsk&&<p role="note">Enable World context to include these references, or remove them before sending.</p>}
+          {!isBuild&&composerReferences.length>0&&composerIntentCorrection&&<button type="button" onClick={()=>setComposerIntentCorrection(null)}>Use Automatic</button>}
           {unreadableReferenceCopy?.key===referenceScopeKey&&<button type="button" disabled={referenceRecoveryBusy} onClick={()=>void recoverUnreadableReferences()}>Retain unreadable copy and reset references</button>}
         </>}
         <div className="world-plan-agent-conversation__composer-footer">

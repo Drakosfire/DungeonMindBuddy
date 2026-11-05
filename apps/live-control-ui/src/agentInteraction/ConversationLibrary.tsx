@@ -1,3 +1,4 @@
+import {SurfaceGraphReferenceInput} from '../surface/SurfaceGraphReferenceInput';
 import {ConversationExport} from './ConversationExport';
 import {groupRetryLineage} from './conversationAttemptGroups';
 import {ConversationRetryAttempts} from './ConversationRetryAttempts';
@@ -77,7 +78,8 @@ export function ConversationLibrary({worldId,onClose}:{worldId:string;onClose:()
    {error&&<p role="alert">{error}</p>}{loading&&<p role="status">Loading messages…</p>}
    {before!==null&&<button type="button" disabled={loading} onClick={()=>void olderTurns()}>Earlier messages</button>}
    {ownDetail&&groupRetryLineage(turns,t=>t.retry_context).map(({item:turn,historical})=>{const content=<article key={turn.turn_id}>
-    <h3>You</h3><p className="conversation-library__question">{turn.user_text}</p><h3>Buddy</h3>
+    <h3>You</h3><p className="conversation-library__question">{turn.user_text}</p>
+    {turn.authored_references&&<SurfaceGraphReferenceInput worldId={worldId} label="Message references" readOnly value={turn.authored_references.references} onChange={()=>{}}/>}<h3>Buddy</h3>
     {turn.assistant_text&&<WorldPlanAgentAnswer answer={turn.assistant_text}/>}
     {turn.reply_object?.kind==='questions'&&<section aria-label="Saved clarifying questions"><h4>Clarifying questions</h4><ol>{turn.reply_object.questions.map((q,i)=><li key={i}>{q.text}</li>)}</ol></section>}
     {turn.reply_object?.kind==='page_object'&&<p>{turn.reply_object.object_kind==='plan'?'Work plan proposed on page.':turn.reply_object.object_kind==='connected_page'?'Connected-page review prepared.':'Relationship review prepared.'}{' '}<a href={'/build?'+new URLSearchParams({world:turn.reply_object.source.world_id,documentId:turn.reply_object.source.document_id})}>Open source page</a></p>}

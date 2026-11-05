@@ -754,7 +754,7 @@ def _plan_context_resolver(
         try:
             context, query = prepare_query(work.world_id, body.message, native_principal,
                 source_context=native_source_context,
-                authored_references=body.build_authored_references if body.surface.surface_id == 'build' else None,
+                authored_references=body.build_authored_references if body.surface.surface_id == 'build' else body.authored_references,
                 revision_id=frozen_query.authority.revision_id if isinstance(frozen_query, NativePlanQueryV1) else None)
         except ValueError as exc:
             raise AgentTurnServiceError('The selected native Graph scope or reference could not be verified.',
@@ -1457,6 +1457,7 @@ def get_world_conversation_history(
     from apps.live_control_server.services.agent_source_names import source_names_for_turns
     source_names = source_names_for_turns(turns)
     from apps.live_control_server.services.agent_turn_service import project_plan_authoring_proposal
+    from application_state.agent_conversation.authored_graph_references import reference_input
     history_turns = []
     for turn in turns:
         if isinstance(turn, MixedCompletedTurnV1):
@@ -1469,9 +1470,11 @@ def get_world_conversation_history(
                 idempotency_key=envelope.idempotency_key,
                 plan_proposal=project_plan_authoring_proposal(turn, service=service),
                 rules_context=project_rules_answer_context(turn, delivery_replay=True, source_names=source_names),
+                authored_references=reference_input(turn),
                 **({"play_source_context":project_play_source_context(turn,delivery_replay=True)} if source_only_play(turn) else {})))
             continue
         values = {
+            "authored_references": reference_input(turn),
             "plan_proposal": project_plan_authoring_proposal(turn, service=service),
             "turn_id": turn.turn_id,
             "sequence": turn.sequence,
