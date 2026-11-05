@@ -30,8 +30,10 @@ def bind_characters(catalog: dict, rows: list[dict], source_sha256: str) -> dict
     for row in catalog.get('entities', []):
         if row['entity_id'] not in mentioned:
             continue
+        present_terms = {normalize_match_surface(m['surface']) for m in mentions if m['entity_id'] == row['entity_id']}
         safe_names = [name for name in row['names'] if not is_unsafe_match_alias(name)
-                      and normalize_match_surface(name) not in ambiguous]
+                      and normalize_match_surface(name) not in ambiguous
+                      and normalize_match_surface(name) in present_terms]
         if safe_names:
             selected.append({**row, 'names': safe_names, 'label': min(safe_names, key=lambda n: (len(n), n))})
     record = {'schema': 'dmb_known_character_bindings_v1', 'source_sha256': source_sha256,
@@ -59,7 +61,7 @@ def candidate_bindings(nodes: list[dict], context: dict) -> dict[str, str]:
             owners[normalize_match_surface(name)].add(entity['entity_id'])
     matches = defaultdict(list)
     for node in nodes:
-        if node.get('node_type') != 'character':
+        if node.get('node_type') not in {'character', 'creature'}:
             continue
         ids = owners.get(normalize_match_surface(node.get('label', '')), set())
         if len(ids) == 1:

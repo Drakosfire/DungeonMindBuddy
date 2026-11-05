@@ -40,3 +40,11 @@ def test_ambiguous_name_stays_blocked_when_other_owner_has_no_unique_mention():
     assert c['entities'][0]['label']=='Mara Vale'
     assert candidate_bindings([{'node_id':'n','label':'Mara','node_type':'character'}],c)=={}
     assert '"Mara"' not in identity_prompt(c)
+
+
+def test_unmentioned_historical_names_never_reach_actor_prompt_or_candidate_linking():
+    c=bind_characters(catalog(('e1',['Mara','A Different Historical Name'])),[{'source_span_ref_id':'s','text':'Mara waits.'}],'x')
+    assert c['entities'][0]['names']==['Mara']
+    assert 'Historical' not in identity_prompt(c)
+    assert candidate_bindings([{'node_id':'n','label':'A Different Historical Name','node_type':'character'}],c)=={}
+    assert candidate_bindings([{'node_id':'n','label':'Mara','node_type':'creature'}],c)=={'e1':'n'}
