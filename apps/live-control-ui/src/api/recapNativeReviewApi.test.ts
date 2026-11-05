@@ -143,3 +143,11 @@ it('refuses duplicate or over-limit review batches before dispatch',async()=>{
  await expect(c.getRecapNativeReviews(projection(),Array.from({length:33},(_,i)=>'n'+i))).rejects.toMatchObject({status:0});
  expect(fetch).not.toHaveBeenCalled();
 });
+it.each(['approval','duplicate','empty-surface'])('rejects malformed admitted identity result: %s',async change=>{
+ const c=await client(),data=reply();
+ const match={entity_id:'ent:ari',identity_approved:false,matched_names:['Ari'],matched_aliases:[] as string[]};
+ if(change==='approval')match.identity_approved=true;
+ if(change==='empty-surface')match.matched_names=[];
+ Object.assign(data.native_context.selections[0],{identity_matches:change==='duplicate'?[match,match]:[match]});
+ vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json(data));await expect(c.getRecapNativeReview(projection(),'ari')).rejects.toMatchObject({status:0});
+});

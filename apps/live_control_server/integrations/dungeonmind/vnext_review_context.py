@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import unicodedata
+
 from fastapi.encoders import jsonable_encoder
 
 from dungeonmind.application.vnext import (
@@ -39,6 +41,50 @@ def _preview(access, evidence_ref_id):
         ].decode("utf-8")
     packet["purpose"] = "evidence_inspection_only"
     return packet
+
+
+def _identity_matches(context, nodes, entities):
+    """Exact surfaces generate candidates; Core alone admits names and aliases.
+
+    Full-text search is useful comparison context, not evidence of identity.
+    Scan the complete pinned surface index so ranked search limits cannot hide
+    another exact name or alias. Never expose a raw, unadmitted surface.
+    """
+    def normalize(value):
+        return unicodedata.normalize("NFKC", value).strip().casefold()
+
+    candidates = {}
+    for assertion_id in context.parsed.lookup_predicate_assertions("dnd5e:name"):
+        assertion = context.parsed.get_assertion(assertion_id)
+        value = getattr(assertion.value, "value", None)
+        if isinstance(value, str):
+            candidates.setdefault(normalize(value), set()).add(assertion.subject_entity_id)
+    for alias in context.parsed.aliases_by_id.values():
+        candidates.setdefault(normalize(alias.alias_text), set()).add(alias.entity_id)
+
+    complete = {}
+    resolved = {}
+    for node in nodes:
+        surface = normalize(node.get("label", ""))
+        matches = []
+        for identifier in sorted(candidates.get(surface, ())):
+            if identifier not in complete:
+                complete[identifier] = entities.get_complete_entity(context, identifier)
+            entity = complete[identifier]
+            if entity.completeness.status != "complete":
+                raise NativeReviewConflict("native identity inspection is incomplete")
+            subject_facts = [a for a in entity.assertions if a.subject_entity_id == identifier]
+            if not subject_facts:
+                continue  # No admitted presence in this campaign/audience.
+            names = [a.value.value for a in subject_facts
+                     if a.predicate == "dnd5e:name" and isinstance(getattr(a.value, "value", None), str)
+                     and normalize(a.value.value) == surface]
+            aliases = [a.alias_text for a in entity.aliases if normalize(a.alias_text) == surface]
+            if names or aliases:
+                matches.append({"entity_id": identifier, "identity_approved": False,
+                                "matched_names": sorted(set(names)), "matched_aliases": sorted(set(aliases))})
+        resolved[node["node_id"]] = matches
+    return resolved
 
 
 def resolve_native_review_context(*, scope: dict, nodes: list[dict], source_admission,
@@ -86,6 +132,7 @@ def resolve_native_review_context(*, scope: dict, nodes: list[dict], source_admi
             evidence_previews[evidence_ref_id] = _preview(access, evidence_ref_id)
         return evidence_previews[evidence_ref_id]
 
+    identity_matches = _identity_matches(context, nodes, entities)
     selections = []
     for node in sorted(nodes, key=lambda item: item["node_id"]):
         # A matching label or even an exact ID is advisory. It never merges a
@@ -134,6 +181,7 @@ def resolve_native_review_context(*, scope: dict, nodes: list[dict], source_admi
                 else alternatives[0]["status"]
             ),
             "search_is_advisory": True,
+            "identity_matches": identity_matches[node["node_id"]],
             "queries": queries,
             "search_results": jsonable_encoder(searches),
             "alternatives": alternatives,

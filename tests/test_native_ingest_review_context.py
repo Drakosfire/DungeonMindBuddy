@@ -584,3 +584,55 @@ def test_database_failure_returns_actionable_nonpublication_error(context, monke
             assert "private database address" not in response.text
 
     asyncio.run(exercise())
+
+
+def _publish_identity_fixture(world, mutate):
+    payload = deepcopy(world.payload)
+    mutate(payload)
+    head = world.repository.get_head("native-a").head_revision_id
+    world.repository.publish_revision(world.command.model_copy(update={
+        "parent_revision_id": head, "expected_parent_revision_id": head,
+        "operation_ids": ["identity-fixture"], "graph_payload": payload,
+    }))
+
+
+def test_exact_identity_ignores_other_entities_that_merely_mention_the_name(native_world):
+    def add_mention(payload):
+        claim = deepcopy(payload["assertions"][1])  # C2 admitted metadata
+        claim.update(assertion_id="event-mentions-ari", subject_entity_id="bare", predicate="dnd5e:summary", value={"kind": "literal", "value": "Ari visits the warehouse."})
+        payload["assertions"].append(claim)
+    _publish_identity_fixture(native_world, add_mention)
+    row = read("c2")["selections"][0]
+    assert len(row["alternatives"]) == 2  # Broad comparison remains available.
+    assert row["identity_matches"] == [{"entity_id": "ari", "identity_approved": False,
+                                       "matched_names": ["Ari"], "matched_aliases": []}]
+
+
+def test_two_admitted_exact_names_remain_genuinely_ambiguous(native_world):
+    assert {m["entity_id"] for m in read("c1")["selections"][0]["identity_matches"]} == {"ari", "ari-other"}
+
+
+def test_alias_identity_outside_text_search_results_is_not_missed(native_world):
+    def add_alias(payload):
+        payload["aliases"] = [{"schema_version": "dm_identity_alias_v1", "alias_id": "alias-nickname",
+                                        "entity_id": "ari", "alias_text": "Silver Warden",
+                                        "evidence_ref_ids": [], "standing": "established"}]
+    _publish_identity_fixture(native_world, add_alias)
+    row = read("c2", node_id="candidate-warden", label="Silver Warden")["selections"][0]
+    assert row["alternatives"] == []
+    assert row["identity_matches"] == [{"entity_id": "ari", "identity_approved": False,
+                                       "matched_names": [], "matched_aliases": ["Silver Warden"]}]
+
+
+def test_alias_collision_with_an_exact_name_preserves_both_identities(native_world):
+    def add_collision(payload):
+        payload["assertions"][-1]["value"]["value"] = "Another name"
+        payload["aliases"] = [{"schema_version": "dm_identity_alias_v1", "alias_id": "alias-collision",
+                                        "entity_id": "ari-other", "alias_text": "Ari",
+                                        "evidence_ref_ids": [], "standing": "established"}]
+    _publish_identity_fixture(native_world, add_collision)
+    row = read("c1")["selections"][0]
+    assert {m["entity_id"] for m in row["identity_matches"]} == {"ari", "ari-other"}
+    assert next(m for m in row["identity_matches"] if m["entity_id"] == "ari-other")["matched_aliases"] == ["Ari"]
+    # Alias alone cannot leak presence from a different campaign.
+    assert [m["entity_id"] for m in read("c2")["selections"][0]["identity_matches"]] == ["ari"]

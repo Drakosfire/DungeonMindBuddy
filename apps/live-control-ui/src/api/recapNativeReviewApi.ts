@@ -19,6 +19,7 @@ export interface RecapNativeReview {
     source_admission: ReviewSourceAdmission;
     source_evidence: Array<{ evidence_ref_id: string; evidence_role: "support"; opening: ReviewSupportOpening }>;
     selections: Array<{ candidate_node_id: string; status: string; search_is_advisory: true;
+      identity_matches?: Array<{entity_id:string;identity_approved:false;matched_names:string[];matched_aliases:string[]}>;
       alternatives: Array<{ entity_id: string; identity_approved: false; status: string; entity_result?: {assertions?: Array<{predicate?: string; value?: {value?: unknown}}>}; source_inspection?: Array<{status?:string;span_text?:string}> }> }>;
   };
 }
@@ -95,6 +96,11 @@ export async function getRecapNativeReviews(projection: ExactRunCandidateProject
   for (const selection of native.selections) {
     if (!record(selection) || !text(selection.candidate_node_id) || !text(selection.status) || selection.search_is_advisory !== true || !Array.isArray(selection.alternatives)
         || selection.alternatives.some(a => !record(a) || !text(a.entity_id) || !text(a.status) || a.identity_approved !== false)) invalid();
+    if (selection.identity_matches !== undefined && (!Array.isArray(selection.identity_matches)
+      || selection.identity_matches.some(m=>!record(m)||!text(m.entity_id)||m.identity_approved!==false
+        || !Array.isArray(m.matched_names)||!m.matched_names.every(text)||!Array.isArray(m.matched_aliases)||!m.matched_aliases.every(text)
+        || !(m.matched_names.length+m.matched_aliases.length))
+      || new Set(selection.identity_matches.map(m=>(m as Record<string,unknown>).entity_id)).size!==selection.identity_matches.length)) invalid();
   }
   if (!ids.every(id=>(native.selections as Record<string,unknown>[]).filter(s=>s.candidate_node_id===id).length===1)) invalid();
   return body as unknown as RecapNativeReview;
