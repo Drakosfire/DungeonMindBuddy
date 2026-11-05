@@ -183,20 +183,24 @@ def test_encounter_profile_budget_finishes_eight_source_invocations(ordinary):
     result = invoke(ordinary, profile="category_encounter_job_preview")
     assert result.run.status == ExtractionRunStatus.REVIEWABLE, result.diagnostics
     assert len(engine.requests) == 8
+    assert [request.max_output_tokens for request in engine.requests] == [16384] * 7 + [32768]
     ledger = component(result, "pass_telemetry")
     assert ledger["pass_invocation_limit"] == ledger["pass_invocation_count"] == 8
 
 
-def test_ordinary_reasoning_passes_use_explicit_edge_headroom_and_deadlines(ordinary):
+def test_standard_reasoning_passes_retain_shared_output_headroom_and_deadlines(ordinary):
     _, engine, _ = ordinary
     result = invoke(ordinary)
     assert len(engine.requests) == 7
-    assert [request.max_output_tokens for request in engine.requests] == [16384] * 6 + [32768]
+    assert [request.max_output_tokens for request in engine.requests] == [32768] * 7
+    assert all(request.reasoning_effort == 'low' for request in engine.requests)
     assert all(120000 < request.deadline_ms <= 240000 for request in engine.requests)
     ledger = component(result, "pass_telemetry")
-    assert ledger["limits"]["max_output_tokens"] == 16384
+    assert ledger["limits"]["max_output_tokens"] == 32768
     assert ledger["limits"]["edge_max_output_tokens"] == 32768
     assert ledger["limits"]["per_call_deadline_ms"] == 240000
     assert ledger["limits"]["run_deadline_ms"] == 900000
-    assert [call["max_output_tokens"] for call in ledger["calls"]] == [16384] * 6 + [32768]
+    assert [call["max_output_tokens"] for call in ledger["calls"]] == [32768] * 7
+    assert ledger['attempt_counts']['provider_attempts']['total'] == 7
+    assert ledger['attempt_counts']['conformance_retries']['total'] == 0
     assert all(120000 < call["deadline_ms"] <= 240000 for call in ledger["calls"])
