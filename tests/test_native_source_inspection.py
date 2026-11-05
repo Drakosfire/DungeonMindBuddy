@@ -398,3 +398,56 @@ def test_current_page_name_does_not_replace_an_older_selected_source(inspection,
     opened=inspection.client.post(PATH+"/read",json=selection(inspection)).json()
     assert opened["source"]["body_text"]==BODY
     assert opened["source"]["source_revision_id"]==item["source_revision"]["source_revision_id"]
+
+
+@pytest.mark.parametrize("text", [
+    "# Same\r\n🌿 Éphanna\r\n# Same\r\nSecond passage\r\n",
+    "Introduction\n\n# First\nText.\n```md\n# Not a heading\n```\n# Second\nLast.",
+    "No headings, only retained text.\n",
+])
+def test_exact_passages_adopt_the_native_retrieval_selector(inspection, text):
+    from application_state.agent_conversation.native_source_catalog import section_catalog
+    from application_state.agent_conversation.native_corpus import build_native_body_catalog
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import (
+        prepare_native_source_context, capture_native_sources,
+    )
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+
+    admit(inspection.lane, body=text)
+    request = selection(inspection)
+    response = inspection.client.post(PATH + "/read", json=request)
+    assert response.status_code == 200
+    packet = response.json()
+    sections = packet["section_catalog"]
+    assert sections["selector_policy"] == "markdown_sections_v1"
+    expected = section_catalog(text, source_artifact_id=request["source_artifact_id"],
+        native_source_revision_id=request["source_revision_id"], content_sha256=sha256(text.encode()).hexdigest())
+    assert sections["sections"] == [row.model_dump(mode="json") for row in expected]
+    assert "".join(text[row["char_start"]:row["char_end"]] for row in sections["sections"]) == text
+    # Exercise the actual acquisition catalogue, not just a second HTTP serializer.
+    principal = NativeGraphPrincipal(role="gm", subject="operator", auth_method="local_operator")
+    context = prepare_native_source_context(managed_world_id="managed", principal=principal,
+        repository=inspection.lane.repo)
+    captured = capture_native_sources(managed_world_id="managed", principal=principal, prepared=context)
+    catalog = build_native_body_catalog(context.authority, captured.members[0], text)
+    assert [(row.section_id,row.line_start,row.line_end,row.char_start,row.char_end) for row in catalog.sections] == [
+        (row.section_id,row.line_start,row.line_end,row.char_start,row.char_end) for row in expected]
+
+
+def test_passage_identity_stays_on_selected_revision_after_later_admission(inspection):
+    admit(inspection.lane)
+    request = selection(inspection)
+    original = inspection.client.post(PATH + "/read", json=request).json()
+    admit(inspection.lane, "later", body="# Other\nNew text.\n")
+    reopened = inspection.client.post(PATH + "/read", json=request).json()
+    assert reopened["section_catalog"] == original["section_catalog"]
+    assert reopened["scope"] == original["scope"]
+
+
+@pytest.mark.parametrize("text", [" \r\n\t", "\x1c"])
+def test_blank_native_source_remains_readable_without_section_selectors(inspection, text):
+    admit(inspection.lane, body=text)
+    response = inspection.client.post(PATH + "/read", json=selection(inspection))
+    assert response.status_code == 200
+    assert response.json()["source"]["body_text"] == text
+    assert response.json()["section_catalog"] is None
