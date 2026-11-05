@@ -444,6 +444,74 @@ def test_ordered_occurrence_kinds_change_only_recap_thread_instruction() -> None
             assert digest == fixture["schema_sha256"][profile.qualified_id][spec.pass_id]
 
 
+def test_explicit_passage_transitions_change_only_recap_thread_prompt() -> None:
+    """Verify exact delivery/scope, not whether a model follows the instruction."""
+    import hashlib
+    import json
+    from pathlib import Path
+
+    from src.graph_memory.extraction.category_candidate_graph_extractor import render_encounter_job_pass_prompt
+    from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    from src.graph_memory.extraction.recap_extraction_profile import _EXPLICIT_PASSAGE_TRANSITIONS
+    from src.graph_memory.extraction.worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
+
+    fixture = json.loads((Path(__file__).parent / "fixtures" /
+                          "recap_prompt_scope_before_explicit_transitions.json").read_text())
+    assert fixture["base"] == "1b505aa74718d28ec5443f98a59e5ea4af181478"
+    for profile in (RECAP_EXTRACTION_PROFILE,
+                    get_extraction_profile("recap_category_encounter_job_preview", "2.0"),
+                    WORLDBUILDING_PROFILE, WORLDBUILDING_PLUMBING_PROFILE):
+        prompts = render_category_pass_prompts(fixture["source_rows"], profile=profile)
+        if profile.encounter_job_pass:
+            prompts["encounter_job_pass.md"] = render_encounter_job_pass_prompt(
+                fixture["source_rows"], nodes=[], beats=[], instruction=profile.encounter_job_pass.instruction)
+        before = fixture["rendered_prompt_sha256"][profile.qualified_id]
+        assert set(prompts) == set(before)
+        for name, prompt in prompts.items():
+            changes = profile.admitted_source_domains == frozenset({"recap"}) and name == "thread_pass.md"
+            assert prompt.count(_EXPLICIT_PASSAGE_TRANSITIONS) == int(changes)
+            unchanged = prompt.replace(_EXPLICIT_PASSAGE_TRANSITIONS, "") if changes else prompt
+            assert hashlib.sha256(unchanged.encode()).hexdigest() == before[name], (profile.qualified_id, name)
+        for spec in filter(None, [*profile.node_passes, profile.beat_pass,
+                                  profile.encounter_job_pass, profile.edge_pass]):
+            digest = hashlib.sha256(json.dumps(schema_for_pass_spec(spec), sort_keys=True).encode()).hexdigest()
+            assert digest == fixture["schema_sha256"][profile.qualified_id][spec.pass_id]
+
+
+def test_cross_passage_transition_guards_and_source_frames_reach_thread_prompt() -> None:
+    """Positive and misleading cues remain source, alongside explicit guard rules."""
+    rows = [
+        {"source_span_ref_id": "span-completed", "line_start": 1, "line_end": 1,
+         "text": "The envoy signed the accord."},
+        {"source_span_ref_id": "span-transition", "line_start": 3, "line_end": 3,
+         "text": "Next, the envoy entered the market."},
+        {"source_span_ref_id": "span-adjacency", "line_start": 5, "line_end": 5,
+         "text": "The lighthouse was green. The orchard was quiet."},
+        {"source_span_ref_id": "span-future", "line_start": 7, "line_end": 7,
+         "text": "She planned to depart next week; no departure was reported."},
+        {"source_span_ref_id": "span-topic", "line_start": 9, "line_end": 9,
+         "text": "Next topic: the two guards. He waited beside the next door."},
+        {"source_span_ref_id": "span-concurrent", "line_start": 11, "line_end": 11,
+         "text": "Meanwhile the courier waited; the other courier's timing was unknown."},
+    ]
+    prompt = render_category_pass_prompts(rows, profile=RECAP_EXTRACTION_PROFILE)["thread_pass.md"]
+    for row in rows:
+        assert row["text"] in prompt
+        assert row["source_span_ref_id"] in prompt
+    for rule in (
+        "resolve the earlier and later occurrence references across those passages",
+        "state that source-supported before/after relationship in an occurrence description",
+        "Include evidence from both passages when needed to support the referents and transition",
+        "Do not derive time from passage adjacency alone",
+        "treat a next topic as a later occurrence",
+        "guess an ambiguous antecedent",
+        "turn narrative presentation into fictional elapsed time",
+        "Preserve concurrency, future modality and unresolved order",
+    ):
+        assert prompt.count(rule) == 1
+
+
 def test_direct_order_changes_only_opted_in_thread_edge_prompts_and_edge_schema():
     import hashlib
     import json
