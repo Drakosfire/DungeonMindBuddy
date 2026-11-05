@@ -1,7 +1,8 @@
 # Explicit Plan controls adopt native reference execution
 
 Status: ACTIVE. Owner: PRIME. Authority: active reference integration goal.
-Parent PR: #2102, reviewed head 442f2e827ce09b63906d8bec3504b0ab6ce9e319.
+Parent PR: #2102, merged 0e35332a7ddde40a0e4b16755ac36dd0448a55e1
+from independently reviewed head 442f2e827ce09b63906d8bec3504b0ab6ce9e319.
 Branch: codex/plan-explicit-native-ui. Serial merge order: merge #2102,
 rebase this slice onto its exact remote merge, independently review and verify,
 then merge and deliver under an owned runtime lease. Reuse existing checkout.
