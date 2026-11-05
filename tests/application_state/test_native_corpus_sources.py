@@ -937,7 +937,7 @@ def test_native_navigator_uses_ordinary_app_controls_without_classic_registry(ap
     read = adapter.fence.turn.graph_context_execution.events[-1]
     assert read.excerpt.text == (body if whole_document else BODY + "\n")
     assert selected.handle not in {row.handle for row in nav.offered()}
-    assert any(row.handle == selected.handle and row.kind == "Acquired exact source text" for row in nav.examined())
+    assert any(row.handle == selected.handle and row.kind == "Acquired exact source text; not an answer-sufficiency verdict" for row in nav.examined())
 
 
 def test_native_acquisition_refuses_ungranted_or_unselected_io_and_foreign_append(application_state_dsn, lane):

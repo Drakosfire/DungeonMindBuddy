@@ -32,6 +32,7 @@ human read; adopt them rather than adding a store, cache, ledger or authority.
 - apps/live_control_server/services/corpus_source_navigation.py: adopt shared acquired inventory for offered/examined metadata.
 - tests/test_native_reference_navigation.py: exact/full/partial/different-source/failure/recovery projection checks with actual Core catalogs.
 - tests/test_native_plan_assertions.py: existing ordinary authenticated Plan source fixture checks actual controller metadata after mandatory read.
+- tests/application_state/test_native_corpus_sources.py: adopt the qualified acquired-source label in existing database-backed ordinary navigator checks.
 - tests/test_plan_authored_references.py only if existing cases require a direct new scenario.
 - .github/workflows/world-ownership-core.yml: owning regression selection only.
 - This handoff and HANDOFF-REFERENCE-native-ledger-bounds.md predecessor settlement.
