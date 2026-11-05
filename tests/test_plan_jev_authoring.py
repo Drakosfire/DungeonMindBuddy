@@ -1259,7 +1259,7 @@ def _shared_plan_authoring_case(
         async def handle_async_request(self, request):
             rows = json.loads(request.content)["input"]
             native, _, work = [json.loads(row["content"]) for row in rows[:-1]]
-            assert native["schema"] == "dmb_surface_native_writer_evidence_v1"
+            assert native["schema"] == "dmb_surface_native_writer_evidence_v2"
             assert work["current_page_draft"]["markdown"] == capture.draft_markdown
             assert work["focused_edit_target"]["kind"] == (
                 "insert_at_caret" if placement == "captured" else "insert_at_boundary"
