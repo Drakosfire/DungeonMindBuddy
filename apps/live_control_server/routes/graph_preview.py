@@ -770,3 +770,14 @@ def get_build_recap_launch(request_id: UUID, document_id: UUID, managed_world_id
     except Exception as exc:
         raise HTTPException(status_code=getattr(exc,"status_code",503),detail=str(exc)) from exc
     return get_extraction_run_build_context(run.run_id)
+
+
+@router.get("/extraction-runs/{run_id}/usage")
+def get_extraction_usage(run_id: str, request: Request,
+    managed_world_id: Annotated[str, Query(min_length=1)],
+    expected_run_revision: Annotated[int, Query(gt=0)],
+    _principal=Depends(native_graph_gm_dependency)):
+    from apps.live_control_server.services.extraction_usage import read_extraction_usage
+    _saved_run_query(request, {"managed_world_id", "expected_run_revision"})
+    return _saved_run_response(lambda: read_extraction_usage(root=repo_root(),run_id=run_id,
+        managed_world_id=managed_world_id,expected_run_revision=expected_run_revision))

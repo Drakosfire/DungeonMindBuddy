@@ -1,3 +1,4 @@
+import { IngestionUsage } from "./IngestionUsage";
 import { RecapSourceAdmission } from "./RecapSourceAdmission";
 import {SessionEvidencePicker} from "../playSurface/review/SessionEvidencePicker";
 import type {SessionEvidenceRef} from "../playSurface/review/sessionEvidenceApi";
@@ -1625,6 +1626,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         </section>
 
         <aside className="ingestion-evidence-pane" aria-label="Ingestion evidence and proof">
+          {managedWorldId && currentSavedRunLookup?.status === "loaded" ? savedRuns.filter(run => run.runId === (selectedReaderRun ?? exactGraphReviewRunId)).map(run =>
+            <IngestionUsage key={`${managedWorldId}:${run.runId}:${run.runRevision}`} world={managedWorldId} runId={run.runId} revision={run.runRevision} />
+          ) : null}
           <details ref={evidenceDetailsRef} id="ingestion-evidence-details">
             <summary>Evidence &amp; details</summary>
             <NativeGraphAccessControl onChanged={handleNativeGraphAccessChanged}/>

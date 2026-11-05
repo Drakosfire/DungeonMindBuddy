@@ -1,0 +1,8 @@
+.ingestion-usage { border:1px solid #3a4358; border-radius:.65rem; padding:1rem; margin-bottom:1rem; line-height:1.5; }
+.ingestion-usage h3 { margin-top:0; }
+.ingestion-usage dl { display:grid; grid-template-columns:auto 1fr; gap:.3rem 1rem; }
+.ingestion-usage dd { margin:0; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.ingestion-usage p { font-size:.9rem; }
+.ingestion-usage__table { overflow-x:auto; }
+.ingestion-usage table { width:100%; border-collapse:collapse; font-size:.85rem; }
+.ingestion-usage th,.ingestion-usage td { padding:.4rem; text-align:left; border-bottom:1px solid #3a4358; }
