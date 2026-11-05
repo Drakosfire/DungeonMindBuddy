@@ -14,7 +14,7 @@ from typing import Literal
 
 from pydantic import ConfigDict, Field
 from . import types as t
-from .jev_retrieval_contract import NativeRetrievalDecisionInputV1
+from .jev_retrieval_contract import NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInputV2
 
 
 class NativeBuildDecisionContextV1(t.StrictModel):
@@ -131,9 +131,13 @@ def verify_input(turn, auth, proof):
         raise ValueError(
             "Native retrieval requires exact pre-dispatch parent and SDK bytes"
         )
-    parent = NativeRetrievalDecisionInputV1.model_validate(
-        strict_json(proof["parent_request_json"])
-    )
+    raw_parent = strict_json(proof["parent_request_json"])
+    codec = (NativeBuildRetrievalDecisionInputV2
+        if raw_parent.get("schema") == "dmb_native_build_retrieval_decision_input_v2"
+        else NativeRetrievalDecisionInputV1)
+    parent = codec.model_validate(raw_parent)
+    if type(parent) is NativeBuildRetrievalDecisionInputV2 and execution.policy.action.surface_id != "build":
+        raise ValueError("Build authoring relevance belongs only to its actual Build owner")
     role = execution.policy.provider_roles.controller
     if (
         parent.digest != auth.parent_request_sha256
