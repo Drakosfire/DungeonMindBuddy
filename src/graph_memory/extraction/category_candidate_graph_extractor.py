@@ -1242,6 +1242,7 @@ def sanitize_parts(
     drop_empty_evidence_edges: bool = True,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     dropped: dict[str, list[str]] = {}
+    rejected_refs: list[dict[str, Any]] = []
     out: dict[str, Any] = {}
 
     def filter_refs(refs: Any) -> list[dict[str, str]]:
@@ -1253,6 +1254,18 @@ def sanitize_parts(
         for obj in parts.get(key) or []:
             if not isinstance(obj, Mapping):
                 continue
+            rejected_ordinals = []
+            if key in {"nodes", "ignored_items", "deferred_items"}:
+                for ordinal, ref in enumerate(obj.get("evidence_refs") or [], start=1):
+                    if not _normalize_evidence_refs([ref], allowed_span_refs):
+                        rejected_ordinals.append(ordinal)
+                        rejected_refs.append({
+                            "collection": key,
+                            "record_id": obj.get("node_id", obj.get("item_id")),
+                            "reference_ordinal": ordinal,
+                            "reason": "unadvertised_or_invalid_span_ref",
+                            "nominated_ref": deepcopy(ref),
+                        })
             refs = filter_refs(obj.get("evidence_refs"))
             is_context_anchor = bool(obj.get("context_anchor"))
             has_resolved_corpus = (
@@ -1276,6 +1289,10 @@ def sanitize_parts(
                 dropped_ids.append(str(obj.get(id_key, "")))
                 continue
             clone = dict(obj)
+            if rejected_ordinals:
+                clone["warnings"] = list(clone.get("warnings") or []) + [
+                    f"evidence_ref_rejected:{ordinal}" for ordinal in rejected_ordinals
+                ]
             host_excerpt = clone.get("_host_excerpt_text")
             if key == "beats" and isinstance(host_excerpt, str):
                 # Keep the evidence match exact even when the excerpt begins
@@ -1294,7 +1311,10 @@ def sanitize_parts(
         out[key] = kept
         if dropped_ids:
             dropped[key] = dropped_ids
-    return out, {"dropped_no_valid_evidence": dropped}
+    return out, {
+        "dropped_no_valid_evidence": dropped,
+        "rejected_node_evidence_refs": rejected_refs,
+    }
 
 
 def assemble_envelope(

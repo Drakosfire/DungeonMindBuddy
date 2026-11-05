@@ -1241,3 +1241,103 @@ def test_reasoning_deadline_headroom_preserves_generic_defaults():
 def test_reasoning_deadline_headroom_rejects_invalid_limits(field, value):
     with pytest.raises(ValueError, match=field):
         RecapExecutionLimits(**{field: value})
+
+
+def test_advertised_node_ids_require_retention_and_are_local_to_each_client(monkeypatch):
+    from src.graph_memory.extraction.compact_evidence_context import CompactEvidenceContext
+    context = CompactEvidenceContext([
+        {'source_span_ref_id': 'paragraph:45-45', 'text': 'A ferry arrived.', 'line_start': 45, 'line_end': 45},
+    ], source_sha256='a' * 64).record()
+    first = BoundedRecapPassClient(RecapExecutionLimits())
+    first.execution_binding = {'source_sha256': 'a' * 64}
+    captures = []
+    monkeypatch.setattr(first, '_persist_capture', lambda kind, record: captures.append(record))
+    first.retain_compact_evidence_context(context)
+    assert first._advertised_node_span_ids == ('paragraph:45-45',)
+    assert captures[0]['context'] == context
+    second = BoundedRecapPassClient(RecapExecutionLimits())
+    assert second._advertised_node_span_ids is None
+    second.execution_binding = first.execution_binding.copy()
+    def fail(*args):
+        raise OSError('synthetic capture failure')
+    monkeypatch.setattr(second, '_persist_capture', fail)
+    with pytest.raises(OSError):
+        second.retain_compact_evidence_context(context)
+    assert second._advertised_node_span_ids is None
+    with pytest.raises(ValueError):
+        first.retain_compact_evidence_context(context)
+
+
+def test_empty_advertised_node_source_is_retained_and_refused_before_dispatch(monkeypatch):
+    engine = Engine(None)
+    client = BoundedRecapPassClient(RecapExecutionLimits(), engine_factory=lambda: engine)
+    client.execution_binding = {'source_sha256': 'a' * 64}
+    captures = []
+    monkeypatch.setattr(client, '_persist_capture', lambda kind, record: captures.append(record))
+    empty = {'schema': 'dmb_compact_recap_evidence_context_v1', 'source_sha256': 'a' * 64, 'entries': []}
+    with pytest.raises(ValueError, match='advertised source paragraphs'):
+        client.retain_compact_evidence_context(empty)
+    assert captures[0]['node_evidence_status'] == 'no_advertised_paragraphs'
+    assert client.calls == [] and engine.requests == []
+    assert client._advertised_node_span_ids is None
+    with pytest.raises(CategoryGraphExtractionError):
+        invoke(client)
+    assert engine.requests == []
+
+
+@pytest.mark.usefixtures('application_state_dsn')
+def test_advertised_node_ids_reach_real_ge_conformance_and_retain_invalid_attempt():
+    from generationengine import GenerationClient
+    from generationengine.providers.openrouter_text import OpenRouterTextProvider
+    from src.graph_memory.extraction.compact_evidence_context import CompactEvidenceContext
+    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    source = 'A ferry arrived.'
+    import hashlib
+    context = CompactEvidenceContext([
+        {'source_span_ref_id': 'paragraph:45-45', 'text': source, 'line_start': 45, 'line_end': 45},
+    ], source_sha256=hashlib.sha256(source.encode()).hexdigest())
+    def payload(ref):
+        return {'observation_nodes': [{
+            'node_id': 'ferry', 'label': 'Ferry', 'node_type': 'location',
+            'description': source, 'importance': 'low',
+            'evidence_refs': [{'source_span_ref_id': ref, 'anchor_quotes': [source]}],
+        }]}
+    responses = [payload('paragraph:45'), payload('paragraph:45-45')]
+    class Completions:
+        def __init__(self):
+            self.calls = []
+        async def create(self, **kwargs):
+            self.calls.append(kwargs)
+            return SimpleNamespace(
+                id=f'synthetic-{len(self.calls)}', _request_id='synthetic', model=DEEPSEEK_MODEL,
+                choices=[SimpleNamespace(message=SimpleNamespace(content=json.dumps(responses.pop(0)), refusal=None), finish_reason='stop')],
+                usage=None,
+            )
+    completions = Completions()
+    class Client:
+        chat = SimpleNamespace(completions=completions)
+        async def close(self):
+            pass
+    wire_requests = []
+    class RecordingProvider(OpenRouterTextProvider):
+        async def generate(self, call):
+            wire_requests.append(call)
+            return await super().generate(call)
+    engine = GenerationClient(text_providers={'openrouter': RecordingProvider(client=Client())})
+    client = BoundedRecapPassClient(
+        RecapExecutionLimits(provider='openrouter', model=DEEPSEEK_MODEL), engine_factory=lambda: engine,
+    )
+    bind_private_client(client, source_sha256=context.source_sha256)
+    client.retain_compact_evidence_context(context.record())
+    spec = next(p for p in RECAP_EXTRACTION_PROFILE.node_passes if p.pass_id == 'location_pass')
+    result = client.run_pass('location_pass', model_id=DEEPSEEK_MODEL, instructions='Extract', user_content=source, pass_spec=spec)
+    assert result['parsed'] == payload('paragraph:45-45')
+    assert len(completions.calls) == 2
+    ledger = client.ledger()
+    assert ledger['attempt_counts']['provider_attempts']['total'] == 2
+    assert ledger['attempt_counts']['conformance_retries']['total'] == 1
+    records = client._execution_records()
+    attempts = sorted((row['record'] for row in records if row['record']['schema'] == 'dmb_private_recap_attempt_response_v1'), key=lambda r: r['ge_attempt']['ordinal'])
+    assert [json.loads(r['response']['text']) for r in attempts] == [payload('paragraph:45'), payload('paragraph:45-45')]
+    wire = wire_requests[0].json_schema
+    assert wire['properties']['observation_nodes']['items']['properties']['evidence_refs']['items']['properties']['source_span_ref_id']['enum'] == ['paragraph:45-45']
