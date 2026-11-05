@@ -1,7 +1,7 @@
 """Trusted, read-only native corpus composition through existing Core access."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from types import MappingProxyType
 from collections.abc import Callable, Mapping
 from typing import Any
@@ -9,6 +9,7 @@ from typing import Any
 from dungeonmind.application.vnext import (
     open_admitted_native_text,
     open_native_text_source_access_context,
+    refresh_native_text_source_access_context,
 )
 from application_state.agent_conversation.native_statement_input import canonical
 from application_state.agent_conversation.native_corpus import (
@@ -188,15 +189,21 @@ def capture_native_sources(*, managed_world_id, principal, revision_id=None,
     return NativeCorpusCapture(authority, tuple(members), MappingProxyType(bodies), unavailable)
 
 
-def read_native_corpus_member(*, authority, member, principal,
-                              repository=None, resolve_identity=None):
-    """Recheck current Core access to the original R/body without requiring head equality."""
-    fresh = prepare_native_source_context(managed_world_id=authority.managed_world_id,
-        principal=principal, revision_id=authority.revision_id, repository=repository,
-        resolve_identity=resolve_identity)
+def read_native_corpus_member(*, authority, member, principal, prepared):
+    """Refresh Core source access while reusing the prepared exact Graph revision."""
+    if principal is None or principal.role != "gm":
+        raise ValueError("GM authority is required for cross-campaign source inspection")
     original = authority.model_dump(mode="json", exclude={"acquisition_epoch"})
-    if fresh.authority.model_dump(mode="json", exclude={"acquisition_epoch"}) != original:
+    if (prepared.principal != principal
+            or prepared.authority.model_dump(mode="json", exclude={"acquisition_epoch"}) != original
+            or prepared.resolve_identity(authority.managed_world_id) != prepared.binding):
         raise ValueError("Native source authority changed before the selected read")
+    access = refresh_native_text_source_access_context(
+        repository=prepared.repository, context=prepared.access)
+    if access.source_view.epoch < authority.acquisition_epoch:
+        raise ValueError("Native source authority moved backwards before the selected read")
+    fresh = replace(prepared, access=access, authority=authority.model_copy(
+        update={"acquisition_epoch": access.source_view.epoch}))
     evidence = fresh.access.parsed.evidence_by_id.get(member.evidence_ref_id)
     if (evidence is None or evidence.source_artifact_id != member.artifact.source_artifact_id
             or evidence.source_revision_id != member.revision.source_revision_id
