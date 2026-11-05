@@ -329,6 +329,19 @@ class BoundedRecapPassClient:
             "profile_identity": hashlib.sha256(binding["profile_id"].encode()).hexdigest(),
         })
 
+    def retain_compact_evidence_context(self, record: Mapping[str, Any]) -> None:
+        """Seal the request-local dictionary before any provider dispatch."""
+        if (self.execution_binding is None or self.calls
+                or record.get("schema") != "dmb_compact_recap_evidence_context_v1"
+                or record.get("source_sha256") != self.execution_binding["source_sha256"]):
+            raise ValueError("compact evidence context differs from prepared source")
+        self._persist_capture("pass_telemetry", {
+            "schema": "dmb_private_compact_evidence_context_v1",
+            "capture_id": "context:compact-evidence-v1",
+            "execution_binding": dict(self.execution_binding),
+            "context": dict(record),
+        })
+
     def _persist_capture(self, kind, record):
         from application_state.ingest.components import persist_execution_event
 

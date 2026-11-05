@@ -11,6 +11,7 @@ from dataclasses import dataclass, field, replace
 from copy import deepcopy
 from typing import Any, Mapping, Protocol, Sequence
 
+from src.graph_memory.extraction.compact_evidence_context import CompactEvidenceContext, COMPACT_EVIDENCE_GUIDANCE
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv
 from src.graph_memory import identity_resolution as ir
 from src.graph_memory.anchor_quotes import coerce_anchor_quotes
@@ -1420,14 +1421,18 @@ def build_node_pass_prompt(
 def build_beat_pass_prompt(
     beat_prompt_template: str,
     nodes: Sequence[Mapping[str, Any]],
+    *, compact_context: CompactEvidenceContext | None = None,
 ) -> str:
     """Supply resolved candidate identities, without promoting descriptions to facts."""
     inventory = [
         {key: node[key] for key in ("node_id", "label", "node_type", "evidence_refs") if key in node}
         for node in nodes
     ]
+    if compact_context is not None:
+        inventory = compact_context.inventory(nodes, descriptions=False)
     context = (
-        "## Node identity inventory\n\n```json\n"
+        (COMPACT_EVIDENCE_GUIDANCE if compact_context is not None else "")
+        + "## Node identity inventory\n\n```json\n"
         + json.dumps(inventory, indent=2)
         + "\n```\n\n"
         "Use exact inventory node_id values for source-supported involved_node_ids. "
@@ -1447,9 +1452,14 @@ def build_edge_pass_prompt(
     nodes: Sequence[Mapping[str, Any]],
     *,
     options: CategoryGraphExtractionOptions,
+    compact_context: CompactEvidenceContext | None = None,
 ) -> tuple[str, dict[str, Any], dict[str, Any]]:
-    nodes_json = json.dumps([_edge_prompt_node_summary(n) for n in nodes], indent=2)
+    inventory = (compact_context.inventory(nodes, descriptions=True) if compact_context is not None
+                 else [_edge_prompt_node_summary(n) for n in nodes])
+    nodes_json = json.dumps(inventory, indent=2)
     prompt = edge_prompt_template.replace("(injected at runtime)", nodes_json)
+    if compact_context is not None:
+        prompt = COMPACT_EVIDENCE_GUIDANCE + prompt
     diagnostics = {"enabled": False}
     if options.enable_edge_vocabulary_packet and options.edge_vocabulary_packet is not None:
         edge_vocab_context = render_edge_vocabulary_context(options.edge_vocabulary_packet)
@@ -1802,11 +1812,21 @@ def _run_category_pipeline_impl(
     blocked_span_refs = {r["source_span_ref_id"] for r in withheld_rows}
     deferred_planning = deferred_source_rows(withheld_rows)
     original_client = client
+    compact_context = (CompactEvidenceContext(source_rows, source_sha256=hashlib.sha256(
+        options.source_text.encode("utf-8")).hexdigest())
+        if active_profile.qualified_id == "recap_category_v2@2.0" and options.source_text is not None else None)
+    if (compact_context is not None and hasattr(original_client, "retain_compact_evidence_context")
+            and getattr(original_client, "execution_binding", None) is not None):
+        original_client.retain_compact_evidence_context(compact_context.record())
+    compact_passes = {"beat_pass", "edge_pass"}
 
     def _run_pass(*args: Any, **kwargs: Any) -> dict[str, Any]:
         result = original_client.run_pass(*args, **kwargs)
+        parsed_output = result["parsed"]
+        if compact_context is not None and args[0] in compact_passes:
+            parsed_output = compact_context.expand(parsed_output)
         parsed, deferred = filter_planning_pass_output(
-            result["parsed"], blocked_span_refs, _canonical_spref,
+            parsed_output, blocked_span_refs, _canonical_spref,
         )
         deferred_planning.extend(deferred)
         return {**result, "parsed": parsed}
@@ -1838,6 +1858,8 @@ def _run_category_pipeline_impl(
         profile=active_profile,
         actor_source_packet=actor_source_packet,
     )
+    later_prompts = (render_category_pass_prompts(compact_context.prompt_rows(), profile=active_profile)
+                     if compact_context is not None else prompts)
     pass_outputs: dict[str, dict[str, Any]] = {}
     pass_telemetry: dict[str, Any] = {}
     total_cost: float | None = 0.0
@@ -1895,7 +1917,7 @@ def _run_category_pipeline_impl(
             beat.pass_id,
             model_id=model_id,
             instructions=system,
-            user_content=build_beat_pass_prompt(prompts[_prompt_key(beat.pass_id)], beat_nodes),
+            user_content=build_beat_pass_prompt(later_prompts[_prompt_key(beat.pass_id)], beat_nodes, compact_context=compact_context),
             pass_spec=beat,
         )
         pass_outputs[beat.pass_id] = beat_result["parsed"]
@@ -1984,9 +2006,10 @@ def _run_category_pipeline_impl(
         )
     edge = active_profile.edge_pass
     edge_prompt, edge_vocabulary_diag, encounter_job_edge_diag = build_edge_pass_prompt(
-        prompts[_prompt_key(edge.pass_id)],
+        later_prompts[_prompt_key(edge.pass_id)],
         consolidated["nodes"],
         options=options,
+        compact_context=compact_context,
     )
     _notify(edge.pass_id, "running")
     edge_result = _run_pass(
@@ -2040,6 +2063,8 @@ def _run_category_pipeline_impl(
         "profile_id": active_profile.profile_id,
         "profile_version": active_profile.profile_version,
     }
+    if compact_context is not None:
+        merged_diag["compact_evidence_context"] = compact_context.record()
     source_artifact_id, source_ref_id = resolve_source_identity(options)
     envelope = assemble_envelope(
         sanitized,

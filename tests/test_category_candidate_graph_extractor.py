@@ -378,11 +378,12 @@ def test_beat_call_receives_source_local_inventory_and_keeps_source_associations
                     prompt.split('## Node identity inventory\n\n```json\n', 1)[1])[0]
                 assert {n['node_id'] for n in inventory} == {'npc:miri', 'npc:duplicate'}
                 assert inventory[0]['label'] == 'Miri'
-                assert inventory[0]['evidence_refs']
+                assert inventory[0]['evidence_ids'] == ['E1']
+                assert '### E1 / lines 1-1' in prompt
                 response['parsed'] = {'observation_beats': [
                     {'beat_id': f'beat:{n}', 'order': n, 'title': 'Source event',
                      'summary': 'Untrusted model summary', 'involved_node_ids': participants,
-                     'evidence_refs': [{'source_span_ref_id': f'span-{n}', 'anchor_quotes': [text]}]}
+                     'evidence_refs': [{'source_span_ref_id': f'E{n}', 'anchor_quotes': [text]}]}
                     for n, text, participants in ((1, first, ['npc:miri']), (2, second, []))]}
             elif pass_name == 'edge_pass':
                 response['parsed'] = {'observation_edges': []}
