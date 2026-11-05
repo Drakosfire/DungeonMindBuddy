@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import unicodedata
+
 from fastapi.encoders import jsonable_encoder
 
 from dungeonmind.application.vnext import (
@@ -41,6 +43,50 @@ def _preview(access, evidence_ref_id):
     return packet
 
 
+def _identity_matches(context, nodes, entities):
+    """Exact surfaces generate candidates; Core alone admits names and aliases.
+
+    Full-text search is useful comparison context, not evidence of identity.
+    Scan the complete pinned surface index so ranked search limits cannot hide
+    another exact name or alias. Never expose a raw, unadmitted surface.
+    """
+    def normalize(value):
+        return unicodedata.normalize("NFKC", value).strip().casefold()
+
+    candidates = {}
+    for assertion_id in context.parsed.lookup_predicate_assertions("dnd5e:name"):
+        assertion = context.parsed.get_assertion(assertion_id)
+        value = getattr(assertion.value, "value", None)
+        if isinstance(value, str):
+            candidates.setdefault(normalize(value), set()).add(assertion.subject_entity_id)
+    for alias in context.parsed.aliases_by_id.values():
+        candidates.setdefault(normalize(alias.alias_text), set()).add(alias.entity_id)
+
+    complete = {}
+    resolved = {}
+    for node in nodes:
+        surface = normalize(node.get("label", ""))
+        matches = []
+        for identifier in sorted(candidates.get(surface, ())):
+            if identifier not in complete:
+                complete[identifier] = entities.get_complete_entity(context, identifier)
+            entity = complete[identifier]
+            if entity.completeness.status != "complete":
+                raise NativeReviewConflict("native identity inspection is incomplete")
+            subject_facts = [a for a in entity.assertions if a.subject_entity_id == identifier]
+            if not subject_facts:
+                continue  # No admitted presence in this campaign/audience.
+            names = [a.value.value for a in subject_facts
+                     if a.predicate == "dnd5e:name" and isinstance(getattr(a.value, "value", None), str)
+                     and normalize(a.value.value) == surface]
+            aliases = [a.alias_text for a in entity.aliases if normalize(a.alias_text) == surface]
+            if names or aliases:
+                matches.append({"entity_id": identifier, "identity_approved": False,
+                                "matched_names": sorted(set(names)), "matched_aliases": sorted(set(aliases))})
+        resolved[node["node_id"]] = matches
+    return resolved
+
+
 def resolve_native_review_context(*, scope: dict, nodes: list[dict], source_admission,
                                   inspect_source_support: bool) -> dict:
     repository = _repository()
@@ -75,6 +121,18 @@ def resolve_native_review_context(*, scope: dict, nodes: list[dict], source_admi
     search_service = SearchReadService()
     entities = EntityReadService()
     evidence_service = EvidenceReadService()
+    # Memoize only inside this exact revision/campaign/source-epoch request.
+    # Core remains the admission/opening authority; failures are never cached.
+    search_results = {}
+    alternatives_by_entity = {}
+    evidence_previews = {}
+
+    def preview(evidence_ref_id):
+        if evidence_ref_id not in evidence_previews:
+            evidence_previews[evidence_ref_id] = _preview(access, evidence_ref_id)
+        return evidence_previews[evidence_ref_id]
+
+    identity_matches = _identity_matches(context, nodes, entities)
     selections = []
     for node in sorted(nodes, key=lambda item: item["node_id"]):
         # A matching label or even an exact ID is advisory. It never merges a
@@ -83,31 +141,39 @@ def resolve_native_review_context(*, scope: dict, nodes: list[dict], source_admi
             value for value in (node["node_id"], node.get("label"))
             if isinstance(value, str) and value.strip()
         ))
-        searches = [search_service.search_entities(context, query) for query in queries]
+        for query in queries:
+            if query not in search_results:
+                search_results[query] = search_service.search_entities(context, query)
+        searches = [search_results[query] for query in queries]
         ids = sorted({hit.entity.entity_id for result in searches for hit in result.hits})
         alternatives = []
         for entity_id in ids:
+            if entity_id in alternatives_by_entity:
+                alternatives.append(alternatives_by_entity[entity_id])
+                continue
             entity = entities.get_entity(context, entity_id)
             support = [
                 evidence_service.get_assertion_evidence(context, assertion.assertion_id)
                 for assertion in entity.assertions
             ]
             previews = {
-                evidence.evidence_ref_id: _preview(access, evidence.evidence_ref_id)
+                evidence.evidence_ref_id: preview(evidence.evidence_ref_id)
                 for result in support if result.available
                 for evidence in result.evidence
             }
             supported = bool(entity.assertions) and all(
                 result.available and bool(result.evidence) for result in support
             )
-            alternatives.append({
+            alternative = {
                 "entity_id": entity_id,
                 "status": "supported_facts" if supported else "insufficient_support",
                 "identity_approved": False,
                 "entity_result": jsonable_encoder(entity),
                 "assertion_support": jsonable_encoder(support),
                 "source_inspection": [previews[key] for key in sorted(previews)],
-            })
+            }
+            alternatives_by_entity[entity_id] = alternative
+            alternatives.append(alternative)
         selections.append({
             "candidate_node_id": node["node_id"],
             "status": (
@@ -115,6 +181,7 @@ def resolve_native_review_context(*, scope: dict, nodes: list[dict], source_admi
                 else alternatives[0]["status"]
             ),
             "search_is_advisory": True,
+            "identity_matches": identity_matches[node["node_id"]],
             "queries": queries,
             "search_results": jsonable_encoder(searches),
             "alternatives": alternatives,
@@ -131,12 +198,12 @@ def resolve_native_review_context(*, scope: dict, nodes: list[dict], source_admi
                     or evidence.source_artifact_id != source_admission.source_artifact_id
                     or evidence.source_revision_id != source_admission.source_revision_id):
                 continue
-            preview = _preview(access, evidence.evidence_ref_id)
-            if (preview["status"] == "available"
-                    and preview["body_sha256"] != source_admission.app_body_sha256):
+            opened = preview(evidence.evidence_ref_id)
+            if (opened["status"] == "available"
+                    and opened["body_sha256"] != source_admission.app_body_sha256):
                 raise NativeReviewConflict("admitted source does not match saved source bytes")
             source_evidence.append({"evidence_ref_id": evidence.evidence_ref_id,
-                                    "evidence_role": evidence.evidence_role, "opening": preview})
+                                    "evidence_role": evidence.evidence_role, "opening": opened})
     if repository.open_native_source_view(world_id).epoch != access.source_view.epoch:
         raise NativeReviewConflict("native source authority changed during review")
     if repository.get_head(world_id) != head:
@@ -162,6 +229,9 @@ def resolve_native_review_context(*, scope: dict, nodes: list[dict], source_admi
                 "run_revision": source_admission.run_revision,
                 "opening_state": source_admission.opening.state,
                 "failure_code": source_admission.failure_code,
+                "admission_id": source_admission.admission_id,
+                "source_artifact_id": source_admission.source_artifact_id,
+                "source_revision_id": source_admission.source_revision_id,
             } if source_admission is not None else {"state": "not_found"}),
             "source_evidence": source_evidence,
         })
