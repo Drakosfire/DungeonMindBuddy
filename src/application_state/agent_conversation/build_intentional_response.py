@@ -36,7 +36,7 @@ def digest(value):
 POLICY = "build_intentional_response_v2"
 OPERATIONS = ("answer_from_sources", "propose_build_insertion", "prepare_build_image")
 REVIEWS = ("questions", "plan", "connected_page", "relationship")
-GUIDANCE = """Identify what the user requests now, independently of the executable operations.
+_PREVIOUS_GUIDANCE = """Identify what the user requests now, independently of the executable operations.
 The labels describe user intentions, not permission to execute them. Determine Discuss versus
 Create from that requested work. A runnable encounter or mechanics version is not page prose.
 A concrete proposed list, table, section, sentence or revision is current-page writing, including
@@ -50,6 +50,19 @@ paste material already available. Capability absence never changes what the auth
 Do not claim execution. The host separately resolves capabilities. Rules/read questions retain
 their own meanings. A social opener/readiness statement is discuss: it needs an acknowledgment,
 not a fabricated task or a clarifying-question form just because no task has been given yet."""
+
+
+GUIDANCE = _PREVIOUS_GUIDANCE.replace(
+    "A concrete proposed list, table, section, sentence or revision is current-page writing, including\n"
+    "creative names, insects and livelihoods.",
+    "Concrete prose, lists, tables and revisions identify the format, not its writing destination.\n"
+    "Choose current-page writing only when the current instruction or its resolved conversational\n"
+    "reference targets the captured current page. When the user answers clarifying questions,\n"
+    "retain the previously requested artifact and destination unless the user changes them.\n"
+    "Combining previously requested pages into one page does not make it the captured current page.\n"
+    "Use connected-page review for creating that different page, including follow-up answers\n"
+    "that develop it while the current page remains background context.",
+)
 
 
 @dataclass(frozen=True)
@@ -163,10 +176,10 @@ class Capabilities:
             raise ValueError("Invalid captured Surface/manual capability")
 
 
-def question():
+def question(*, guidance=GUIDANCE):
     return {
         "type": "choice",
-        "instructions": GUIDANCE,
+        "instructions": guidance,
         "criteria": {
             name: f"{work.family}: {work.meaning}" for name, work in WORK.items()
         },
@@ -376,6 +389,13 @@ into a compulsory form or invent a task. Preserve temporary/conditional meaning 
 FORMAT = "build_intentional_response_answer_v1"
 COMPLETION = "dmb_build_intentional_response_completion_v1"
 MENU_DIGEST = digest(question())
+# Persisted decisions retain their exact producing instructions. Only the
+# current menu is emitted; the previous digest remains an immutable reader.
+_PREVIOUS_MENU_DIGEST = digest(question(guidance=_PREVIOUS_GUIDANCE))
+_MENU_GUIDANCE = MappingProxyType({
+    MENU_DIGEST: GUIDANCE,
+    _PREVIOUS_MENU_DIGEST: _PREVIOUS_GUIDANCE,
+})
 RESOLVER_DIGEST = digest(
     {
         "policy": POLICY,
@@ -429,7 +449,7 @@ def _captured_semantics(policy):
 
 def resolution_for(policy, label):
     caps,_,menu,resolver=_captured_semantics(policy)
-    if menu != MENU_DIGEST or resolver != RESOLVER_DIGEST:
+    if menu not in _MENU_GUIDANCE or resolver != RESOLVER_DIGEST:
         raise ValueError("Unknown semantic menu or resolver")
     return json.loads(canonical(resolve(label,caps)))
 
@@ -522,7 +542,7 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
     from . import types as t
 
     policy = execution.policy
-    caps,capability,_,_=_captured_semantics(policy)
+    caps,capability,menu,resolver=_captured_semantics(policy)
     if (
         not isinstance(proof, dict)
         or set(proof) != {"request_json", "response_json"}
@@ -549,7 +569,7 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
     # instruction text; the finite options remain genuine semantic alternatives.
     wire_question = {
         "type": "choice",
-        "instructions": decision_instructions(),
+        "instructions": decision_instructions(menu),
         "criteria": {name: None for name in WORK},
     }
     state = request.get("state", {})
@@ -575,8 +595,8 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
         or decision.get("state", {}).get("user_question") != user_text
         or event.requested_work != label
         or event.intent_family != WORK[label].family
-        or event.menu_sha256 != MENU_DIGEST
-        or event.resolver_sha256 != RESOLVER_DIGEST
+        or event.menu_sha256 != menu
+        or event.resolver_sha256 != resolver
         or event.capability_sha256 != capability
         or event.response_capabilities_sha256 != digest(asdict(caps))
         or event.resolution != resolution
@@ -611,9 +631,17 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
         raise ValueError("Semantic provider response was not captured for this attempt")
 
 
-def decision_instructions():
+def known_menu(menu_digest):
+    return menu_digest in _MENU_GUIDANCE
+
+
+def decision_instructions(menu_digest=MENU_DIGEST):
+    try:
+        guidance = _MENU_GUIDANCE[menu_digest]
+    except KeyError as exc:
+        raise ValueError("Unknown frozen Build semantic menu") from exc
     return (
-        GUIDANCE
+        guidance
         + "\n"
         + "\n".join(f"{name}: {w.family}: {w.meaning}" for name, w in WORK.items())
     )
