@@ -1,3 +1,5 @@
+import type {RecapIngestRequest} from "../api/types";
+import {RecapNameReview} from "../ingestion/RecapNameReview";
 import { IngestionUsage } from "./IngestionUsage";
 import { RecapSourceAdmission } from "./RecapSourceAdmission";
 import {SessionEvidencePicker} from "../playSurface/review/SessionEvidencePicker";
@@ -7,7 +9,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { getHistoricalRecapWorldProjection } from "../api/liveApi";
 import { getSavedRecapRuns, getSavedRecapSource, type SavedRecapRun, type SavedRecapRuns, type SavedRecapSource } from "../api/savedRecapRunsApi";
 import { WorldPlanAgentAnswer } from "../planSurface/components/WorldPlanAgentAnswer";
-import { postRecapIngest } from "../api/recapIngestApi";
+import { postRecapNameReview, type RecapNameReview as NameReviewResult, postRecapIngest } from "../api/recapIngestApi";
 import type {
   RecapGraphPreviewReport,
   RecapIngestStatus,
@@ -333,7 +335,11 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const [reviewLoading, setReviewLoading] = useState(false);
   const [forceGraphRun, setForceGraphRun] = useState(false);
   /** Which primary action is in flight — drives spinner / status copy. */
-  const [primaryOp, setPrimaryOp] = useState<"process" | null>(null);
+  const [primaryOp, setPrimaryOp] = useState<"process" | "name_review" | null>(null);
+  const [nameReview,setNameReview]=useState<{key:string;review:NameReviewResult}|null>(null);
+  const nameReviewInputKey=JSON.stringify([managedWorldId,ingestCampaignId,recapSession,rawText]);
+  const nameReviewInputRef=useRef(nameReviewInputKey);
+  nameReviewInputRef.current=nameReviewInputKey;
   const [state, setState] = useState<IngestionPaneState>({ status: "idle" });
   const [latestResult, setLatestResult] = useState<RecapIngestStatus | null>(null);
   // Retain the operation result separately from the selected saved reader.
@@ -684,7 +690,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     if (canOpenGraphReview) return "Candidates are ready for review; publication is a separate step.";
     return "Write or paste a recap, then choose Process.";
   })();
-  const canProcessRecap = !busy && sourceMode === "raw" && !readerMode && validRecapSession && rawTextSatisfied && !!managedWorldId;
+  const canProcessRecap = !busy && primaryOp === null && sourceMode === "raw" && !readerMode && validRecapSession && rawTextSatisfied && !!managedWorldId;
   useEffect(() => {
     if (selectionHydrated) return;
     let cancelled = false;
@@ -1052,7 +1058,22 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     setToast(next);
   }
 
-  async function processRecap() {
+  async function checkRecapNames() {
+    if (!canProcessRecap) return;
+    const key=nameReviewInputKey;
+    setNameReview(null);
+    setPrimaryOp("name_review");
+    try {
+      const review=await postRecapNameReview({operation:"generate_recap_memory",campaign_id:ingestCampaignId,managed_world_id:managedWorldId??undefined,session:recapSession,raw_text:rawText});
+      if (nameReviewInputRef.current !== key) return;
+      if (review.suggestions.length) setNameReview({key,review});
+      else await processRecap({review_id:review.review_id,decisions:[]});
+    } catch(error) {
+      if (nameReviewInputRef.current===key) publishPrimaryToast({tone:"error",title:"Names could not be checked",detail:error instanceof Error?error.message:"Try checking names again.",nextSteps:["Your draft is preserved."],sticky:true});
+    } finally {setPrimaryOp(current=>current==="name_review"?null:current);}
+  }
+
+  async function processRecap(nameReceipt?: NonNullable<RecapIngestRequest["name_review"]>) {
     if (!canProcessRecap) return;
     const targetIdentity = selectedIngestTarget;
     const draftEpoch = recapDraftEpochRef.current;
@@ -1075,6 +1096,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           managed_world_id: managedWorldId,
           session: recapSession,
           raw_text: sourceMode === "raw" ? rawText : undefined,
+          name_review: nameReceipt,
           include_graph_extraction: true,
           graph_model_id: INGESTION_GRAPH_MODEL_ID,
           force_graph_run: forceGraphRun || undefined,
@@ -1089,6 +1111,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       }
 
       if (result.status === "error") {
+        publishPrimaryToast({tone:"error",title:"Processing failed",detail:resultErrorMessage(result,"Ingest failed"),nextSteps:["Your draft is preserved."],sticky:true});
         setState({ status: "error", result, message: resultErrorMessage(result, "Ingest failed") });
         return;
       }
@@ -1456,10 +1479,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                       type="button"
                       aria-label={primaryOp === "process" ? "Processing recap" : "Process recap"}
                       className="primary"
-                      onClick={() => void processRecap()}
+                      onClick={() => void checkRecapNames()}
                       disabled={!canProcessRecap}
                     >
-                      {primaryOp === "process" ? <><span className="button-inline-spinner" aria-hidden="true" /> Processing…</> : "Process"}
+                      {primaryOp === "name_review" ? "Checking names…" : primaryOp === "process" ? <><span className="button-inline-spinner" aria-hidden="true" /> Processing…</> : "Process"}
                     </button>
                   </>
                 ) : null}
@@ -1601,6 +1624,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               <p>Return to this draft to continue editing under its original session.</p>
             </div>
           ) : (
+            <>
+            {nameReview?.key===nameReviewInputKey ? <RecapNameReview key={nameReview.review.review_id} review={nameReview.review} onCancel={()=>setNameReview(null)} onProceed={receipt=>{setNameReview(null);void processRecap(receipt);}}/> : null}
             <div className="ingestion-source-grid">
               <div className="ingestion-raw-block">
                 <label htmlFor="ingestion-raw-text">
@@ -1620,6 +1645,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                 />
               </div>
             </div>
+            </>
           )}
 
           {managedWorldId?<SessionEvidencePicker key={evidenceTargetKey} worldId={managedWorldId} targetKey={evidenceTargetKey} disabled={primaryOp!==null} onChange={refs=>setSessionSupplements({identity:evidenceTargetKey,refs})}/>:null}

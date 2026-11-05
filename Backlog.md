@@ -279,3 +279,10 @@ a prototype is not a new durable authority.
 **Action:** Design a reviewable authoring proposal that names the destination document/passage and proposed nodes/relationships together. A Mirathorn addition discussed while Edge is open should target the appropriate Mirathorn document, preserve the originating conversation reference, and ask when the subject/destination is ambiguous. Distinguish new authored lore from retrieval of already established facts. Commit source text before deriving admitted Graph knowledge; never silently treat conversation prose as canon or edit the wrong page.
 **Surfaces when:** Build Agent authoring, cross-document edit proposals, selection annotations, and authored-source Graph ingestion.
 **Refs:** Operator Build dogfood, Edge document `6e0e35c4-41d7-48a6-9f57-6adbca2a0c19`; `Docs/Plans/HANDOFF-AGENT-full-prompt-inspection.md` (predecessor only).
+
+## [IDEA] Campaign objects with explicit character membership — captured 2026-11-04
+**Context:** Session30 ingestion dogfood and generic known-name review. User requested a campaign object to attach characters to.
+**Insight:** Known-name matching currently reads admitted character names/aliases from the selected campaign's native Graph scope, not a hardcoded cast. Explicit campaign objects and membership should own PC/NPC associations, role, aliases, and effective-session membership rather than inferring a roster from whichever scoped extraction facts exist.
+**Action:** Audit and reuse existing campaign identity/container contracts first; extend the owning native contract with explicit character membership, campaign-scoped listing/editing, and ingestion consumers. Respect shared characters across campaigns; do not infer PC status from mentions or promote source typos into permanent aliases.
+**Surfaces when:** campaign management, party/PC/NPC rosters, ingestion name matching, or cross-campaign identity work begins.
+**Refs:** chat01a17647-5784-7bd3-acf7-924cd6f01968, PR2087, apps/live_control_server/services/known_character_context.py
