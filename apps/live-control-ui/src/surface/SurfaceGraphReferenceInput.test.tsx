@@ -75,3 +75,16 @@ it('includes an exact source passage even when object Graph discovery is unavail
  expect(change).toHaveBeenCalledWith([reference,{schema:'dmb_authored_source_reference_v1',managed_world_id:'quarry',native_world_id:'native',binding_version:3,knowledge_revision:'rev-a',source_artifact_id:'source-8',source_revision_id:'source-8-saved',evidence_ref_id:'evidence-8',content_sha256:'a'.repeat(64),selection_kind:'section',section_id:'b'.repeat(64),label:'Session 8 recap'}]);
  expect(inspectNativeGraph).not.toHaveBeenCalled();expect(screen.queryByRole('combobox',{name:'Read passage'})).toBeNull();
 });
+
+it('uses the toolbar trigger with the existing picker and retains selected chips in the composer',async()=>{
+ const host=document.createElement('span');document.body.append(host);const change=vi.fn();
+ const view=render(<SurfaceGraphReferenceInput worldId="quarry" label="Composer references" value={[]} onChange={change} triggerHost={host}/>);
+ const trigger=within(host).getByRole('button',{name:'@ Reference'});expect(trigger).toHaveTextContent('@');
+ expect(screen.queryByRole('region',{name:'Composer references'})).toBeNull();expect(getNativeGraphCatalog).not.toHaveBeenCalled();
+ fireEvent.click(trigger);expect(await screen.findByRole('searchbox',{name:'Find an object'})).toBeVisible();
+ expect(document.getElementById(trigger.getAttribute('aria-controls')!)).toContainElement(screen.getByRole('searchbox',{name:'Find an object'}));
+ fireEvent.click(screen.getByRole('button',{name:'Use Fellinor as context'}));expect(change).toHaveBeenCalledWith([{...reference,node_id:'fellinor',label:'Fellinor'}]);
+ view.rerender(<SurfaceGraphReferenceInput worldId="quarry" label="Composer references" value={[reference]} onChange={change} triggerHost={host} disabled/>);
+ expect(screen.getByRole('region',{name:'Composer references'})).toHaveTextContent('@Cedar box');expect(within(host).getByRole('button')).toBeDisabled();expect(screen.queryByRole('searchbox')).toBeNull();
+ view.unmount();host.remove();
+});
