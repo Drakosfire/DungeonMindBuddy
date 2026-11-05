@@ -770,6 +770,122 @@ def _recap_source_digest_error(
     return None
 
 
+def _exact_quote_span_occurrences(quote, paragraphs):
+    """Return exact occurrences, including overlapping matches, without guessing."""
+    matches = []
+    for paragraph in paragraphs:
+        start = 0
+        while True:
+            found = paragraph["text"].find(quote, start)
+            if found < 0:
+                break
+            matches.append(paragraph["source_span_ref_id"])
+            if len(matches) > 1:
+                return matches
+            start = found + 1
+    return matches
+
+
+def _canonicalize_recap_quote_nominations(parsed, *, source_rows, source_text, source_span_index):
+    """Bind locations only; unresolved items remain intact for the strict guard.
+
+    Never edit claims or quotations. Source rows are the exact post-authority
+    packet advertised by the caller, not all paragraphs in the document.
+    """
+    from src.graph_memory.extraction.recap_quote_integrity import (
+        RecapQuoteIntegrityError, _validate_source_binding,
+    )
+    from graph_memory.anchor_quotes import find_anchor_quote_matches
+
+    output = deepcopy(parsed)
+    if not isinstance(parsed, Mapping) or not source_text:
+        return output, []
+    try:
+        index, _, digest = _validate_source_binding(
+            source_text=source_text,
+            source_artifact_id=source_span_index.get("source_artifact_id"),
+            source_sha256=source_span_index.get("content_sha256"),
+            source_span_index=source_span_index,
+        )
+    except (RecapQuoteIntegrityError, TypeError, AttributeError):
+        # No binding correction without a proven source. The existing runner's
+        # final strict guard still owns source failure and whole-item deferral.
+        return output, []
+    lines = source_text.splitlines()
+    indexed = {s.source_span_id: s for s in index.spans}
+    paragraphs = []
+    for row in source_rows:
+        span_id = row.get("source_span_ref_id")
+        span = indexed.get(span_id)
+        if span is None:
+            continue
+        text = "\n".join(lines[span.start_line - 1:span.end_line]).strip()
+        if row.get("text") != text:
+            return output, []
+        paragraphs.append({"source_span_ref_id": span_id, "text": text})
+    by_id = {p["source_span_ref_id"]: p for p in paragraphs}
+    changes = []
+    for collection, id_key in (("observation_nodes", "node_id"),
+                               ("observation_edges", "edge_id"),
+                               ("observation_beats", "beat_id")):
+        for ordinal, item in enumerate(output.get(collection) or []):
+            if not isinstance(item, dict) or not isinstance(item.get("evidence_refs"), list):
+                continue
+            refs, pending, unresolved = [], [], False
+            for ref_ordinal, ref in enumerate(item["evidence_refs"]):
+                if not isinstance(ref, Mapping):
+                    unresolved = True
+                    break
+                nominated = ref.get("source_span_ref_id")
+                paragraph = by_id.get(nominated)
+                quotes = ref.get("anchor_quotes")
+                if (paragraph is None or not isinstance(quotes, list) or not quotes
+                        or any(not isinstance(q, str) or not q.strip() for q in quotes)
+                        or ref.get("source_artifact_id", index.source_artifact_id) != index.source_artifact_id
+                        or ref.get("source_ref_id", document_source_ref_id(index.source_artifact_id)) != document_source_ref_id(index.source_artifact_id)
+                        or ref.get("source_anchor_id", f"anchor:{nominated}") != f"anchor:{nominated}"
+                        or ref.get("evidence_role", "source_evidence") != "source_evidence"):
+                    unresolved = True
+                    break
+                groups = {}
+                for quote_ordinal, quote in enumerate(quotes):
+                    target = nominated
+                    # Existing valid nominations are not reinterpreted, even
+                    # when the same quotation appears elsewhere in the source.
+                    if not find_anchor_quote_matches(paragraph["text"], [quote]):
+                        hits = _exact_quote_span_occurrences(quote, paragraphs)
+                        if len(hits) != 1:
+                            unresolved = True
+                            break
+                        target = hits[0]
+                        pending.append({
+                            "collection": collection, "item_id": item.get(id_key),
+                            "item_ordinal": ordinal, "reference_ordinal": ref_ordinal,
+                            "quote_ordinal": quote_ordinal, "quote": quote,
+                            "nominated_span_ref_id": nominated,
+                            "canonical_span_ref_id": target,
+                            "source_sha256": digest,
+                        })
+                    groups.setdefault(target, []).append(quote)
+                if unresolved:
+                    break
+                if list(groups) == [nominated]:
+                    refs.append(deepcopy(ref))
+                else:
+                    for target, bound_quotes in groups.items():
+                        bound = {**deepcopy(ref), "source_span_ref_id": target,
+                                 "anchor_quotes": bound_quotes}
+                        bound.pop("anchor_quote_matches", None)
+                        if "source_anchor_id" in bound:
+                            bound["source_anchor_id"] = f"anchor:{target}"
+                        refs.append(bound)
+            # An unresolved quote must not disappear through partial rebinding.
+            if pending and not unresolved:
+                item["evidence_refs"] = refs
+                changes.extend(pending)
+    return output, changes
+
+
 def _recap_beat_excerpt_candidates(
     raw_beats: Sequence[Any],
     *,
@@ -868,21 +984,7 @@ def _recap_beat_excerpt_candidates(
         quote_spans: set[str] = set()
         anchor_error: str | None = None
         for quote in anchor_quotes:
-            matches: list[str] = []
-            for paragraph in paragraphs:
-                text = str(paragraph["text"])
-                start_at = 0
-                found = 0
-                while True:
-                    found_at = text.find(quote, start_at)
-                    if found_at < 0:
-                        break
-                    found += 1
-                    if found > 1:
-                        break
-                    start_at = found_at + 1
-                if found:
-                    matches.extend([str(paragraph["source_span_ref_id"])] * found)
+            matches = _exact_quote_span_occurrences(quote, paragraphs)
             if not matches:
                 anchor_error = "anchor_not_found"
                 break
@@ -1846,6 +1948,8 @@ def _run_category_pipeline_impl(
         original_client.retain_compact_evidence_context(compact_context.record())
     compact_passes = {"beat_pass", "edge_pass"}
 
+    quote_bindings: list[dict[str, Any]] = []
+
     def _run_pass(*args: Any, **kwargs: Any) -> dict[str, Any]:
         result = original_client.run_pass(*args, **kwargs)
         parsed_output = result["parsed"]
@@ -1855,6 +1959,12 @@ def _run_category_pipeline_impl(
             parsed_output, blocked_span_refs, _canonical_spref,
         )
         deferred_planning.extend(deferred)
+        if active_profile.admitted_source_domains == frozenset({"recap"}):
+            parsed, bindings = _canonicalize_recap_quote_nominations(
+                parsed, source_rows=source_rows, source_text=options.source_text,
+                source_span_index=options.source_span_index,
+            )
+            quote_bindings.extend({"pass_name": args[0], **binding} for binding in bindings)
         return {**result, "parsed": parsed}
 
     allowed_span_refs = {r["source_span_ref_id"] for r in source_rows}
@@ -2090,6 +2200,8 @@ def _run_category_pipeline_impl(
         "profile_id": active_profile.profile_id,
         "profile_version": active_profile.profile_version,
     }
+    if active_profile.admitted_source_domains == frozenset({"recap"}):
+        merged_diag["canonical_quote_bindings"] = quote_bindings
     if compact_context is not None:
         merged_diag["compact_evidence_context"] = compact_context.record()
     source_artifact_id, source_ref_id = resolve_source_identity(options)

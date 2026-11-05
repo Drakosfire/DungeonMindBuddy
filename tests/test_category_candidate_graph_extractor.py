@@ -655,3 +655,93 @@ def test_ordinary_producer_projects_two_direct_order_claims_without_inventing_a_
         ("arrival", "departure", "precedes"), ("discussion", "departure", "precedes"),
     }
     assert all(not any("predicate_validation:" in warning for warning in edge.get("warnings", [])) for edge in edges)
+
+
+def _quote_binding_case(text="The crew of five signed a charter.\n\nThe courier paid ten coins.\n"):
+    import hashlib
+    from graph_memory.source_span import build_source_span_index_for_text, source_span_index_to_dict
+    from src.graph_memory.extraction.category_candidate_graph_extractor import source_packet_rows_from_span_index
+    index = source_span_index_to_dict(build_source_span_index_for_text(
+        source_artifact_id="artifact:recap:binding-test", content_sha256=hashlib.sha256(text.encode()).hexdigest(),
+        text=text,
+    ))
+    return index, source_packet_rows_from_span_index(index, source_text=text), text
+
+
+def test_quote_binding_splits_mixed_refs_without_mutating_claims_or_raw_response():
+    import copy
+    from src.graph_memory.extraction.category_candidate_graph_extractor import _canonicalize_recap_quote_nominations
+    index, rows, text = _quote_binding_case()
+    first, second = [r["source_span_ref_id"] for r in rows]
+    raw = {"observation_nodes": [{"node_id": "crew", "description": "The crew of five signed a charter.",
+        "evidence_refs": [{"source_span_ref_id": first,
+                           "anchor_quotes": ["crew of five", "paid ten coins"]}]}]}
+    before = copy.deepcopy(raw)
+    bound, changes = _canonicalize_recap_quote_nominations(
+        raw, source_rows=rows, source_text=text, source_span_index=index)
+    assert raw == before
+    node = bound["observation_nodes"][0]
+    assert node["description"] == raw["observation_nodes"][0]["description"]
+    assert node["evidence_refs"] == [
+        {"source_span_ref_id": first, "anchor_quotes": ["crew of five"]},
+        {"source_span_ref_id": second, "anchor_quotes": ["paid ten coins"]},
+    ]
+    assert len(changes) == 1
+    assert changes[0]["nominated_span_ref_id"] == first
+    assert changes[0]["canonical_span_ref_id"] == second
+    assert changes[0]["quote"] == "paid ten coins"
+    assert changes[0]["source_sha256"] == index["content_sha256"]
+    rebound, again = _canonicalize_recap_quote_nominations(
+        bound, source_rows=rows, source_text=text, source_span_index=index)
+    assert rebound == bound and again == []
+
+
+@pytest.mark.parametrize("case", ["missing", "ambiguous", "overlap", "typography", "ineligible",
+                                  "forged", "foreign", "digest", "mixed_unresolved", "anchor", "role", "unicode", "row_text"])
+def test_quote_binding_refuses_unproven_locations_atomically(case):
+    import copy
+    from src.graph_memory.extraction.category_candidate_graph_extractor import _canonicalize_recap_quote_nominations
+    text = "The crew signed.\n\nThe courier paid ten coins.\n"
+    quote = "paid ten coins"
+    if case == "missing": quote = "unwritten promise"
+    if case == "ambiguous": text += "\nAnother courier paid ten coins.\n"
+    if case == "overlap": text += "\naaaa\n"; quote = "aaa"
+    if case == "typography": quote = "paid ten COINS"
+    if case == "unicode": text = "The crew signed.\n\nThe courier paid ‘ten coins’.\n"; quote = "paid 'ten coins'"
+    index, rows, text = _quote_binding_case(text)
+    raw = {"observation_nodes": [{"node_id": "crew", "description": "Unchanged claim.",
+                                 "evidence_refs": [{"source_span_ref_id": rows[0]["source_span_ref_id"],
+                                                    "anchor_quotes": [quote]}]}]}
+    if case == "ineligible": rows = rows[:1]
+    if case == "forged": raw["observation_nodes"][0]["evidence_refs"][0]["source_span_ref_id"] = "forged"
+    if case == "foreign": raw["observation_nodes"][0]["evidence_refs"][0]["source_artifact_id"] = "foreign"
+    if case == "digest": index["content_sha256"] = "0" * 64
+    if case == "anchor": raw["observation_nodes"][0]["evidence_refs"][0]["source_anchor_id"] = "forged"
+    if case == "role": raw["observation_nodes"][0]["evidence_refs"][0]["evidence_role"] = "context_only"
+    if case == "row_text": rows[1]["text"] = "forged packet text"
+    if case == "mixed_unresolved": raw["observation_nodes"][0]["evidence_refs"][0]["anchor_quotes"].append("unwritten promise")
+    before = copy.deepcopy(raw)
+    bound, changes = _canonicalize_recap_quote_nominations(
+        raw, source_rows=rows, source_text=text, source_span_index=index)
+    assert bound == before == raw
+    assert changes == []
+
+
+def test_valid_quote_nomination_is_unchanged_when_quote_repeats_elsewhere():
+    from src.graph_memory.extraction.category_candidate_graph_extractor import _canonicalize_recap_quote_nominations
+    index, rows, text = _quote_binding_case("The courier waited.\n\nThe courier waited.\n")
+    raw = {"observation_nodes": [{"node_id": "courier", "evidence_refs": [
+        {"source_span_ref_id": rows[0]["source_span_ref_id"], "anchor_quotes": ["courier waited"]}]}]}
+    bound, changes = _canonicalize_recap_quote_nominations(raw, source_rows=rows, source_text=text, source_span_index=index)
+    assert bound == raw and not changes
+
+
+def test_worldbuilding_does_not_run_recap_nomination_binding(monkeypatch):
+    from src.graph_memory.extraction import category_candidate_graph_extractor as module
+    def forbidden(*args, **kwargs): raise AssertionError("recap binding leaked into worldbuilding")
+    monkeypatch.setattr(module, "_canonicalize_recap_quote_nominations", forbidden)
+    extract_category_candidate_graph(CategoryGraphExtractionOptions(
+        campaign_id="synthetic", session_id=None, session_number=None,
+        source_span_index=_span_index(session_id=None), source_text="Mirathorn is a river city.",
+        profile=WORLDBUILDING_PLUMBING_PROFILE,
+    ), client=RecordingClient())
