@@ -5624,14 +5624,14 @@ def _completed_turn_replay(
                 if request.graph_request.mode == "none"
                 else "replayed"
             ),
-            "world_id": native_authority.native_world_id if native_authority is not None else None if graph_reference is None else graph_reference.object_id,
+            "world_id": None if not graph_requested else native_authority.native_world_id if native_authority is not None else None if graph_reference is None else graph_reference.object_id,
             "campaign_id": (
                 None if not graph_requested else request.graph_request.campaign_id
             ),
             "scope_mode": (
                 None if not graph_requested else request.graph_request.mode
             ),
-            "revision_id": native_authority.revision_id if native_authority is not None else None if graph_reference is None else graph_reference.revision,
+            "revision_id": None if not graph_requested else native_authority.revision_id if native_authority is not None else None if graph_reference is None else graph_reference.revision,
             "focus": (
                 None
                 if not graph_requested
