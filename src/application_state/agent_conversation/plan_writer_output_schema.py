@@ -253,8 +253,8 @@ def _answer_schema(variants, policy, rules, prose):
 
 
 def native_output_format(frame, rules, work_frame):
-    from .native_writer import SCHEMA
-    if (frame.get('schema') != SCHEMA or frame.get('answer_policy') != ASSERTION_POLICY
+    from .native_writer import SCHEMA, LEGACY_SCHEMA
+    if (frame.get('schema') not in {SCHEMA, LEGACY_SCHEMA} or frame.get('answer_policy') != ASSERTION_POLICY
             or not isinstance(rules, PlanRulesEvidenceFrameV1)):
         raise ValueError('Shared native output requires its actual evidence and Rules frames')
     prose = {'type': 'string', 'minLength': 1}

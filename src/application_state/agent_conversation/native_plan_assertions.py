@@ -223,17 +223,20 @@ def model_frame(turn):
     return model_frame_records(turn.graph_context_receipt.native_query, turn.graph_context_execution)
 
 
-def model_frame_records(query, execution):
-    """The caller supplies the admitted query and exact producing prefix."""
-    return {'schema': 'dmb_plan_native_assertion_frame_v1',
+def model_frame_records(query, execution, *, schema='dmb_plan_native_assertion_frame_v1'):
+    """Project admitted facts; full source proofs stay in the read/citation owner."""
+    if schema not in {'dmb_plan_native_assertion_frame_v1', 'dmb_native_assertion_frame_v2'}:
+        raise ValueError('Unknown native assertion presentation')
+    return {'schema': schema,
         'authority': query.authority.model_dump(mode='json', by_alias=True),
         'status': 'partial' if input_partial_records(query, execution) else 'complete',
         'gap_codes': list(query.gap_codes), 'universal_absence_claimed': False,
         'assertions': [{'assertion_handle': 'assertion:' + digest({'query': query.sha256,
             'read': str(event.event_id), 'assertion': read.assertion.assertion_id}),
             'assertion': read.assertion.model_dump(mode='json'),
-            'evidence': [e.model_dump(mode='json') for e in read.evidence],
-            'supporting_sources': [s.model_dump(exclude={'text'}) for s in read.spans]}
+            **({'evidence': [e.model_dump(mode='json') for e in read.evidence],
+                'supporting_sources': [s.model_dump(exclude={'text'}) for s in read.spans]}
+                if schema == 'dmb_plan_native_assertion_frame_v1' else {})}
             for event, read in selected_read_records(execution)]}
 
 

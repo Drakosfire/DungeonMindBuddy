@@ -1,6 +1,12 @@
 # Native object retrieval choices
 
-Status: ACTIVE. Owner/designer: PRIME. Authority: active reference integration goal.
+Status: DELIVERED. Owner/designer: PRIME. Authority: active reference integration goal.
+PR #2091 merged as 9f8e01edecad8e387b99836265cf2fa4e36ff8b9.
+Compatible local runtime 3e238f0626078dec7b31b9d22b63bf211c4e3205, APP fence0107.
+Ordinary Fellinor retry passed retrieval and acquired context, then exposed a
+separate writer-context allowance failure. That successor is bounded in
+HANDOFF-REFERENCE-native-writer-projection.md; answer delivery is not yet proved.
+Original failed attempts and data remain retained. Runtime delivery lease released.
 Topology: serial reference successor to merged #2089 (e965507aebc45d10ce58edae88904c3fe91c6bd7).
 Branch codex/native-retrieval-object-units, existing buddy-context-loop checkout/dependencies.
 No runtime, primary database, package or provider-call mutation lease.
