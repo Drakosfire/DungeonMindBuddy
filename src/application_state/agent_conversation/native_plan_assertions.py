@@ -184,6 +184,20 @@ class NativePlanAssertionReadV1(Strict):
         return self
 
 
+class NativePlanAssertionReadV2(NativePlanAssertionReadV1):
+    """Retain Core support identity, not another copy of its immutable bytes."""
+    spans: tuple[NativeAssertionLocationV1, ...] = Field(min_length=1)
+
+
+def compact_assertion_read(read):
+    """Validate complete Core bytes before their redundant APP copy is removed."""
+    if type(read) is not NativePlanAssertionReadV1:
+        raise ValueError('Assertion capture requires complete native source materialization')
+    checked = NativePlanAssertionReadV1.model_validate_json(read.model_dump_json())
+    return NativePlanAssertionReadV2.model_validate(checked.model_dump(
+        exclude={'spans': {'__all__': {'text'}}}))
+
+
 class NativePlanAssertionReadObservedV1(Strict):
     kind: Literal['native_plan_assertion_read_observed_v1'] = 'native_plan_assertion_read_observed_v1'
     event_id: UUID
@@ -201,6 +215,12 @@ class NativePlanAssertionReadObservedV1(Strict):
                 or (self.status == 'partial') != bool(self.unavailable_assertion_ids)):
             raise ValueError('Native assertion read inventory differs')
         return self
+
+
+class NativePlanAssertionReadObservedV2(NativePlanAssertionReadObservedV1):
+    """Current shared observation, with exact support locations owned by Core."""
+    kind: Literal['native_plan_assertion_read_observed_v2'] = 'native_plan_assertion_read_observed_v2'
+    reads: tuple[NativePlanAssertionReadV2, ...]
 
 
 def validate_execution(receipt, execution):

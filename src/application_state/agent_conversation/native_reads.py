@@ -104,6 +104,12 @@ def observe_read(turn, *, event_id, authorization_event_id, reads, unavailable_i
     event_type, unavailable_field = ((NativePlanAssertionReadObservedV1, "unavailable_assertion_ids")
         if isinstance(grants[0], NativePlanAssertionReadAuthorizedV1)
         else (NativePlanStatementReadObservedV1, "unavailable_statement_ids"))
+    if isinstance(grants[0], NativePlanAssertionReadAuthorizedV1):
+        from .native_context import SurfaceNativeContextReceiptV1
+        if type(receipt) is SurfaceNativeContextReceiptV1:
+            from .native_plan_assertions import NativePlanAssertionReadObservedV2, compact_assertion_read
+            event_type = NativePlanAssertionReadObservedV2
+            reads = tuple(compact_assertion_read(read) for read in reads)
     event = event_type(event_id=event_id, sequence=len(execution.events),
         authorization_event_id=authorization_event_id, reads=tuple(reads),
         status="partial" if unavailable_ids else "complete",

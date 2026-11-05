@@ -186,6 +186,7 @@ jobs:
           tests/test_native_plan_statements.py
           tests/test_native_plan_assertions.py
           tests/test_plan_authored_references.py
+          tests/test_native_assertion_source_locators.py
           tests/test_native_object_retrieval.py
           tests/test_native_writer_projection.py
           tests/test_surface_native_writer.py

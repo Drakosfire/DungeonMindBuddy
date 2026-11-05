@@ -143,9 +143,11 @@ def open_assertion_source(*, world_id, turn_id, citation_index, principal, servi
             if isinstance(e, (NativePlanAssertionReadAuthorizedV1, BuildAuthoredReferenceAuthorizedV2)) and e.event_id == observed.authorization_event_id)
         context = reopen_context(turn.graph_context_receipt.native_query, principal)
         reopened = _reopen_record(context, grant, citation.assertion_id, principal, assertion=True)
-        if reopened != read:
+        from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadV2, compact_assertion_read
+        retained = compact_assertion_read(reopened) if type(read) is NativePlanAssertionReadV2 else reopened
+        if retained != read:
             raise ValueError('Pinned assertion no longer admits its exact original support')
-        span = next(s for s in read.spans if s.evidence_ref_id == citation.evidence_ref_id)
+        span = next(s for s in reopened.spans if s.evidence_ref_id == citation.evidence_ref_id)
     except (ValueError, TypeError, KeyError, AttributeError, StopIteration) as exc:
         raise SourcePassageOpenError('native_assertion_access_or_bytes_unavailable', 409) from exc
     return NativeAssertionSourceReadV1(world_id=world_id, turn_id=str(turn_id), citation_index=citation_index,

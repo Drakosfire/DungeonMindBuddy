@@ -6,7 +6,7 @@ import json
 from typing import Annotated, Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from .native_plan_assertions import NativePlanAssertionReadV1
+from .native_plan_assertions import NativePlanAssertionReadV1, NativePlanAssertionReadV2, compact_assertion_read
 from .native_plan_statements import NativePlanStatementReadV1
 
 POLICY = 'authored_graph_reference_context_v1'
@@ -166,6 +166,12 @@ class BuildAuthoredReferenceReadV2(Closed):
         return self
 
 
+class BuildAuthoredReferenceReadV3(BuildAuthoredReferenceReadV2):
+    """Current shared human read; source text remains with its Core owner."""
+    kind: Literal['build_authored_reference_read_v3'] = 'build_authored_reference_read_v3'
+    assertion_reads: tuple[NativePlanAssertionReadV2, ...]
+
+
 def native_references(execution):
     """Read actual native author intent; no classic policy is projected.
 
@@ -318,9 +324,10 @@ def observe_native_reference(turn, *, event_id, authorization_event_id, material
     support = materialize(grant)
     if support.query_sha256 != grant.query_sha256 or support.node_id != grant.node_id:
         raise ValueError('Native human materialization changed its query or target')
-    event = BuildAuthoredReferenceReadV2(event_id=event_id, sequence=len(execution.events),
+    event = BuildAuthoredReferenceReadV3(event_id=event_id, sequence=len(execution.events),
+        assertion_reads=tuple(compact_assertion_read(read) for read in support.assertion_reads),
         capture_event_id=grant.capture_event_id, authorization_event_id=grant.event_id,
-        **{name: getattr(support, name) for name in ('node_id', 'statement_reads', 'assertion_reads',
+        **{name: getattr(support, name) for name in ('node_id', 'statement_reads',
             'unavailable_statement_ids', 'unavailable_assertion_ids', 'status')})
     validate_execution_binding(receipt, execution.model_copy(update={'events': [*execution.events, event]}))
     return event
