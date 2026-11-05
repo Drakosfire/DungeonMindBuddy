@@ -81,3 +81,15 @@ export async function changeConversationLifecycle(command:ResumeConversationComm
   ||value.pointer_revision!==command.expected_pointer_revision+1||!Number.isFinite(Date.parse(value.recorded_at)))throw new Error('The conversation lifecycle change could not be confirmed. Refresh conversations before retrying.');
  return value;
 }
+
+export type ConversationMessage=Pick<LibraryTurn,'turn_id'|'sequence'|'status'|'user_text'|'assistant_text'>;
+export interface ConversationMessages{schema:'dmb_conversation_messages_v1';world_id:string;conversation_id:string;messages:ConversationMessage[];next_before_sequence:number|null}
+export async function readConversationMessages(world:string,id:string,before?:number):Promise<ConversationMessages>{
+ const q=new URLSearchParams({limit:'50'});if(before!==undefined)q.set('before_sequence',String(before));
+ const value=await read(path(world)+'/'+encodeURIComponent(id)+'/messages?'+q);
+ if(!exactObject(value,['schema','world_id','conversation_id','messages','next_before_sequence'])||value.schema!=='dmb_conversation_messages_v1'||value.world_id!==world||value.conversation_id!==id||!Array.isArray(value.messages)||value.messages.length>50
+  ||!(value.next_before_sequence===null||Number.isInteger(value.next_before_sequence)&&value.next_before_sequence>0))throw new Error('Message preview differs from the selected conversation.');
+ let last=0;for(const t of value.messages){if(!exactObject(t,['turn_id','sequence','status','user_text','assistant_text'])||!uuid(t.turn_id)||!Number.isInteger(t.sequence)||t.sequence<=last||(before!==undefined&&t.sequence>=before)||!['accepted','running','completed','failed','interrupted'].includes(t.status)||typeof t.user_text!=='string'||!(t.assistant_text===null||typeof t.assistant_text==='string'))throw new Error('Message preview order or content is invalid.');last=t.sequence;}
+ if(value.next_before_sequence!==null&&(!value.messages.length||value.next_before_sequence!==value.messages[0].sequence))throw new Error('Message preview cursor differs from its page.');
+ return value;
+}

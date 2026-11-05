@@ -1,6 +1,6 @@
 # Conversation history access and Continue
 
-Status: ACTIVE — PRIME owns this serial slice.
+Status: MERGED AND DELIVERED — #2106 merged at 99c8f367fc2da26a4c1d2b40aa756c4184b449a3. Ordinary Continue/reload and unsent-draft checks passed on 5202; retained data preserved.
 Base: 16499be31ac1b7e40f42723a79524009e66ef0b7.
 Branch: codex/conversation-continue; reuse the existing Buddy checkout.
 
