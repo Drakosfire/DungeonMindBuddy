@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from application_state.errors import ApplicationStateError
@@ -31,6 +31,18 @@ RecapIngestOperation = Literal[
 ]
 
 
+class NameDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(pattern=r"^[a-f0-9]{64}$")
+    replacement: str | None
+
+
+class NameReviewReceipt(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    review_id: str = Field(pattern=r"^[a-f0-9]{64}$")
+    decisions: list[NameDecision] = Field(max_length=1000)
+
+
 class RecapIngestRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -45,6 +57,7 @@ class RecapIngestRequest(BaseModel):
     managed_world_id: str | None = None
     session: Annotated[int, Field(ge=1, strict=True)]
     raw_text: str | None = None
+    name_review: NameReviewReceipt | None = None
     force_graph_run: bool = False
     graph_model_id: str | None = None
     include_graph_extraction: bool = True
@@ -304,6 +317,24 @@ def _native_source_request(body, request):
         ) from exc
 
 
+@router.post("/recap-name-review")
+def post_recap_name_review(body: RecapIngestRequest, request: Request, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    from apps.live_control_server.services import hosted_auth
+    if (hosted_auth.deployment_environment() not in hosted_auth.LOCAL_ENVIRONMENTS
+            or hosted_auth.auth_mode() != hosted_auth.LOCAL_MODE):
+        raise HTTPException(status_code=403, detail="Raw recap name review is local-only.")
+    if body.operation != "generate_recap_memory" or not (body.raw_text or "").strip():
+        raise HTTPException(status_code=422, detail="Select a source recap to check names.")
+    _native_source_actor(body, request)
+    context = _request_recap_context(body)
+    from apps.live_control_server.services.recap_name_review import prepare_name_review
+    try:
+        return prepare_name_review(body.raw_text, context, session_id=f"session-{body.session}")[2]
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @router.post("/recap-ingest", response_model=RecapIngestStatusResponse)
 def post_recap_ingest(
     body: RecapIngestRequest, request: Request = None
@@ -347,6 +378,7 @@ def post_recap_ingest(
             campaign_id=body.campaign_id,
             session=body.session,
             recap_text=body.raw_text,
+            name_review=body.name_review.model_dump() if body.name_review else None,
             graph_model_id=body.graph_model_id,
             force_graph_run=body.force_graph_run,
             ingest_context=context,

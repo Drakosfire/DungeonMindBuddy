@@ -129,3 +129,25 @@ it("rejects comparison JSON obtained before access is revoked", async () => {
   stream.enqueue(new TextEncoder().encode(JSON.stringify(reply()))); stream.close();
   await rejected;
 });
+it('batches actual candidate IDs using the server sorted response order',async()=>{
+ const c=await client(),p=projection();p.nodes.push({...p.nodes[0],candidateNodeId:'zed',viewKey:'candidate:zed'});
+ const data=reply();data.selected_node_ids=['ari','zed'];data.native_context.selections.push({...data.native_context.selections[0],candidate_node_id:'zed'});
+ const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json(data));
+ const result=await c.getRecapNativeReviews(p,['zed','ari']);
+ expect(result.native_context.selections).toHaveLength(2);
+ expect(JSON.parse(String(fetch.mock.calls[0][1]?.body)).node_ids).toEqual(['ari','zed']);
+});
+it('refuses duplicate or over-limit review batches before dispatch',async()=>{
+ const c=await client(),fetch=vi.spyOn(globalThis,'fetch');
+ await expect(c.getRecapNativeReviews(projection(),['ari','ari'])).rejects.toMatchObject({status:0});
+ await expect(c.getRecapNativeReviews(projection(),Array.from({length:33},(_,i)=>'n'+i))).rejects.toMatchObject({status:0});
+ expect(fetch).not.toHaveBeenCalled();
+});
+it.each(['approval','duplicate','empty-surface'])('rejects malformed admitted identity result: %s',async change=>{
+ const c=await client(),data=reply();
+ const match={entity_id:'ent:ari',identity_approved:false,matched_names:['Ari'],matched_aliases:[] as string[]};
+ if(change==='approval')match.identity_approved=true;
+ if(change==='empty-surface')match.matched_names=[];
+ Object.assign(data.native_context.selections[0],{identity_matches:change==='duplicate'?[match,match]:[match]});
+ vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json(data));await expect(c.getRecapNativeReview(projection(),'ari')).rejects.toMatchObject({status:0});
+});
