@@ -8,8 +8,7 @@ import {Editor} from '@tiptap/core';
 import {DEFAULT_MARKDOWN_EDITOR_EXTENSIONS} from '../tiptap/MarkdownEditorCore';
 import {createBuildComposeBridge,type BuildComposeEditorState} from '../buildSurface/buildComposeBridge';
 import type {BuildObjectConstructionProgress} from '../api/buildConstructionStream';
-import * as graphLensProjection from '../graphLens/useWorldGraphLensProjection';
-import {authoredGraphReferences,readComposerReferences,writeComposerReferences,composerReferenceKey} from './authoredGraphReferences';
+import {authoredReferences,readComposerReferences,writeComposerReferences,composerReferenceKey} from './authoredGraphReferences';
 import {getWorkPlan,continueWorkPlan} from '../api/conversationWorkPlanApi';
 vi.mock('../api/conversationWorkPlanApi',async original=>({...await original<typeof import('../api/conversationWorkPlanApi')>(),getWorkPlan:vi.fn(async()=>null),saveWorkPlan:vi.fn(),continueWorkPlan:vi.fn()}));
 vi.mock('../api/conversationLibraryApi',()=>({
@@ -39,7 +38,7 @@ import { useMemo, useState } from "react";
 import { webcrypto } from "node:crypto";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createWorkspaceDocument, getAgentSavedSection, getAgentNativeAssertionSource, getAgentRelatedPage, getWorldAgentTurnContextTrace, getWorkspaceDocumentSnapshot, getCommittedPageSnapshot, getWorldAgentConversationHistory, getHistoricalRulesPassage, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
+import { getNativeGraphCatalog, createWorkspaceDocument, getAgentSavedSection, getAgentNativeAssertionSource, getAgentRelatedPage, getWorldAgentTurnContextTrace, getWorkspaceDocumentSnapshot, getCommittedPageSnapshot, getWorldAgentConversationHistory, getHistoricalRulesPassage, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
 import type { AgentInteractionTurn, WorkspaceDocumentRecord, WorkspaceDocumentSnapshot, WorldAgentConversationHistoryResponseV1, WorldPlanAgentTurnRequestV1, WorldPlayAgentTurnRequestV1, WorldBuildAgentTurnRequestV1, WorldPlanAgentPlanContextV2, WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1, WorldAgentConversationHistoryResponse, WorldBuildKnowledgeContextV1 } from "../api/types";
 import { DocumentConversationDock, type PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
 import type { SavedWorldBuildConversationContext } from "./WorldAgentConversation";
@@ -67,6 +66,7 @@ vi.mock("../selectedWorld/SelectedWorldContext", async (importOriginal) => ({
 vi.mock("../api/liveApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/liveApi")>()),
   getBuddyReadiness: vi.fn(async (surface: string, world_graph: boolean) => ({schema: "dmb_agent_readiness_v1", surface, world_graph, configured: true, issues: []})),
+  getNativeGraphCatalog: vi.fn(),
   createWorkspaceDocument: vi.fn(),
   getWorkspaceDocumentSnapshot: vi.fn(),
   getCommittedPageSnapshot: vi.fn(),
@@ -1367,7 +1367,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const stepId='11111111-1111-4111-8111-111111111111',clientId='22222222-2222-4222-8222-222222222222';
     const p={schema:'dmb_reviewed_work_plan_v3' as const,objective:'Discuss the chosen owner.',root_references:[],world_id:WORLD,conversation_id:history().conversation_id!,source_turn_id:row.turn_id,source_answer_sha256:SHA,document_id:'source-one',revision:1,
       steps:[{step_id:stepId,text:'Discuss the shop owner.',selected:true,kind,references:[]}],dispatches:[],execution:[]};
-    const frozen=authoredGraphReferences([authoredRef('reviewed-box')]);
+    const frozen=authoredReferences([authoredRef('reviewed-box')]);
     writeComposerReferences(sessionStorage,WORLD,'source-one',null,[authoredRef('newer-box')]);
     const dispatch={...(kind==='discuss'?{schema:'dmb_work_plan_dispatch_v3' as const,scope:{schema:'dmb_reviewed_discussion_scope_v1' as const,task:{step_id:stepId,kind:'discuss' as const,text:'Discuss the shop owner.'},objective_context:p.objective,sibling_context:[]}}:{schema:'dmb_work_plan_dispatch_v2' as const}),authored_references:frozen,command_id:stepId,step_id:stepId,client_thread_id:stepId,client_turn_id:clientId,message:'Continue exactly this reviewed discussion step.'};
     vi.mocked(getWorkPlan).mockResolvedValue(p);
@@ -2782,8 +2782,8 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(postWorldPlanAgentTurn).toHaveBeenCalledTimes(1);
   });
 
-  it('serializes composer references and reopens the exact pending snapshot after reload',async()=>{
-    const original=authoredGraphReferences([authoredRef('original-box')]);
+  it.each(['object','source'] as const)('serializes %s references and reopens the exact pending snapshot after reload',async kind=>{
+    const original=authoredReferences([kind==='object'?authoredRef('original-box'):{schema:'dmb_authored_source_reference_v1',managed_world_id:WORLD,native_world_id:'native',binding_version:1,knowledge_revision:'selected-revision',source_artifact_id:'source-8',source_revision_id:'saved-source-8',evidence_ref_id:'opening-8',content_sha256:'a'.repeat(64),selection_kind:'section',section_id:'b'.repeat(64),label:'original-box'}]);
     writeComposerReferences(sessionStorage,WORLD,'source-one',null,original.references);
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history());
     let reject!:(reason:unknown)=>void;
@@ -2811,9 +2811,9 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(readComposerReferences(sessionStorage,WORLD,'source-one').references[0].node_id).toBe('newer-box');
   });
 
-  it('retries from the saved V2 references while preserving unrelated composer references',async()=>{
+  it.each(['object','source'] as const)('retries from saved %s references while preserving unrelated composer references',async kind=>{
     const base=turn('plan',1,''),id='22222222-2222-4222-8222-000000000001',cid=history().conversation_id!;
-    const frozen=authoredGraphReferences([authoredRef('failed-box')]);
+    const frozen=authoredReferences([kind==='object'?authoredRef('failed-box'):{schema:'dmb_authored_source_reference_v1',managed_world_id:WORLD,native_world_id:'native',binding_version:1,knowledge_revision:'selected-revision',source_artifact_id:'source-8',source_revision_id:'saved-source-8',evidence_ref_id:'opening-8',content_sha256:'a'.repeat(64),selection_kind:'section',section_id:'b'.repeat(64),label:'failed-box'}]);
     const terminal={...base,turn_id:id,lifecycle_status:'interrupted' as const,provenance:{...base.provenance,surface_id:'build',primary_work:{...base.provenance.primary_work,kind:'build',object_id:'source-one'}},retry_context:{schema:'dmb_turn_retry_context_row_v2' as const,authored_references:frozen,world_id:WORLD,conversation_id:cid,turn_id:id,revision:4,root_id:id,predecessor_id:null,successor_id:null,ordinal:0,eligible:true,reason:'ready' as const}};
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
     vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise(()=>{}));
@@ -2828,11 +2828,11 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
   it.each(['references','text'])('preserves a deliberate empty composer selection after newer %s edits and rejection',async kind=>{
-    const node={nodeId:'newer-box',label:'newer-box',kind:'object',role:'match',aliases:[],sourceDomains:[],anchoredToFocusSession:false,evidenceBadges:[],adjacency:[],suggestedExpansions:[],evidenceRefIds:[],sourceArtifactIds:[]};
-    const snapshot={worldId:'native',campaignId:'',revisionId:'selected-revision',headRevisionId:'selected-revision',isHead:true,focus:{kind:'none',sessionId:null},admissibility:'gm',scopeMode:'world'};
-    const spy=vi.spyOn(graphLensProjection,'useOptionalWorldGraphLensProjection').mockReturnValue({request:null,requestKey:'managed-world',projectionState:'ready',projectionError:null,nodeCount:1,lastProjectionLoadMs:0,lastProjectionLoadOutcome:'ready',managedBinding:{managedWorldId:WORLD,nativeWorldId:'native',bindingVersion:1},projection:{schema:'dmb_world_graph_projection_v1',snapshot,nodes:[node],relationships:[],attributes:[],evidence:[],sourceArtifacts:[],diagnostics:[],summary:{nodeCount:1,relationshipCount:0,attributeCount:0,evidenceCount:0,sourceArtifactCount:0,projectionTruncated:false}}} as ReturnType<typeof graphLensProjection.useOptionalWorldGraphLensProjection>);
-    try{
-      const original=authoredGraphReferences([authoredRef('original-box')]);writeComposerReferences(sessionStorage,WORLD,'source-one',null,original.references);
+    const scope={managed_world_id:WORLD,native_world_id:'native',binding_version:1,revision_id:'selected-revision',scope_mode:'world' as const,campaign_id:null};
+    vi.mocked(getNativeGraphCatalog).mockResolvedValueOnce({schema:'dmb_native_graph_catalog_v1',scope,
+      catalogue:{identity:{space_id:'native',revision_id:'selected-revision'},entities:[{entity_id:'newer-box'}],
+        admitted_assertion_ids:[],completeness:{status:'complete',reason:null},request_sha256:'hash',result_digest:'digest'},assertions:[]});
+      const original=authoredReferences([authoredRef('original-box')]);writeComposerReferences(sessionStorage,WORLD,'source-one',null,original.references);
       vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history());let reject!:(reason:unknown)=>void;
       vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise((_,r)=>{reject=r}));
       render(<Harness initial="build" buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
@@ -2841,7 +2841,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
       const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0];expect(readComposerReferences(sessionStorage,WORLD,'source-one').submittedTurnId).toBe(request.turn_id);
       if(kind==='references'){
         const composer=within(screen.getByLabelText('Message Graph context'));
-        fireEvent.click(composer.getByRole('button',{name:'@ Reference'}));fireEvent.click(composer.getByRole('button',{name:'Use as context'}));
+        fireEvent.click(composer.getByRole('button',{name:'@ Reference'}));fireEvent.click(await composer.findByRole('button',{name:'Use newer-box as context'}));
         fireEvent.click(composer.getByRole('button',{name:'Remove reference newer-box'}));
       }else{fireEvent.change(input,{target:{value:'A newer thought'}});fireEvent.change(input,{target:{value:''}});}
       const cleared=readComposerReferences(sessionStorage,WORLD,'source-one');expect(cleared.references).toEqual([]);expect(cleared.submittedTurnId).toBeNull();
@@ -2852,11 +2852,10 @@ describe("one App-level World conversation host across Plan and Play", () => {
       vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise(()=>{}));fireEvent.click(screen.getByRole('button',{name:'Send message'}));
       await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(2));const next=vi.mocked(postWorldBuildAgentTurn).mock.calls[1][0];
       expect(next.message).toBe('A new independent draft.');expect(next.turn_id).not.toBe(request.turn_id);expect(next.build_authored_references).toBeUndefined();expect(rejectedReferenceCopies()).toHaveLength(1);
-    }finally{spy.mockRestore();}
   });
 
   it('restores a rejected request only while its exact submission marker owns the composer',async()=>{
-    const original=authoredGraphReferences([authoredRef('original-box')]);writeComposerReferences(sessionStorage,WORLD,'source-one',null,original.references);
+    const original=authoredReferences([authoredRef('original-box')]);writeComposerReferences(sessionStorage,WORLD,'source-one',null,original.references);
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history());let reject!:(reason:unknown)=>void;
     vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise((_,r)=>{reject=r}));
     render(<Harness initial="build" buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
@@ -2869,7 +2868,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
   it.each(['mounted','remounted'])('refuses automatic restoration after failed marker retirement: %s',async mode=>{
-    const original=authoredGraphReferences([authoredRef('original-box')]);writeComposerReferences(sessionStorage,WORLD,'source-one',null,original.references);
+    const original=authoredReferences([authoredRef('original-box')]);writeComposerReferences(sessionStorage,WORLD,'source-one',null,original.references);
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history());let reject!:(reason:unknown)=>void;
     vi.mocked(postWorldBuildAgentTurn).mockImplementation(()=>new Promise((_,r)=>{reject=r}));
     const mounted=render(<Harness initial="build" buildBridge={retryBridge()}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));

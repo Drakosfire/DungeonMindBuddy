@@ -2,9 +2,9 @@ import {act,cleanup,fireEvent,render,screen,within} from '@testing-library/react
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import type {AuthoredGraphReferenceV1} from '../api/types';
 import type {NativeGraphCatalog} from '../api/nativeGraphInspection';
-import {getNativeGraphCatalog,inspectNativeGraph} from '../api/liveApi';
+import {getNativeGraphCatalog,inspectNativeGraph,getNativeSourceCatalog,readNativeSource} from '../api/liveApi';
 import {SurfaceGraphReferenceInput} from './SurfaceGraphReferenceInput';
-vi.mock('../api/liveApi',()=>({getNativeGraphCatalog:vi.fn(),inspectNativeGraph:vi.fn()}));
+vi.mock('../api/liveApi',()=>({getNativeGraphCatalog:vi.fn(),inspectNativeGraph:vi.fn(),getNativeSourceCatalog:vi.fn(),readNativeSource:vi.fn()}));
 const pin={managed_world_id:'quarry',native_world_id:'native',binding_version:3,revision_id:'rev-a',scope_mode:'world' as const,campaign_id:null};
 const ids=['first-box','second-box','fellinor'];
 const catalog:NativeGraphCatalog={schema:'dmb_native_graph_catalog_v1',scope:pin,catalogue:{identity:{space_id:'native',revision_id:'rev-a'},entities:ids.map(entity_id=>({entity_id})),admitted_assertion_ids:ids,completeness:{status:'complete',reason:null},request_sha256:'hash',result_digest:'digest'},assertions:ids.map((id,i)=>({assertion_id:id,subject_entity_id:id,predicate:'dnd5e:name',value:{kind:'literal',value:i===2?'Fellinor':'Cedar box'},metadata:{scope:[],visibility:{kind:'public'},epistemic_basis:'direct',claim_mode:'fact',standing:'admitted',evidence_ref_ids:[],temporal_scope:null,domain_metadata:[]}}))};
@@ -60,4 +60,18 @@ it('keeps all returned objects reachable beyond the old forty-result ceiling and
  const entities=Array.from({length:51},(_,i)=>({entity_id:`entity-${i}`}));vi.mocked(getNativeGraphCatalog).mockResolvedValue({...catalog,catalogue:{...catalog.catalogue,entities,completeness:{status:'partial',reason:'Some records unavailable'}},assertions:[]});
  render(<SurfaceGraphReferenceInput worldId="quarry" value={[]} onChange={vi.fn()}/>);await open();await screen.findByText(/51 objects.*Partial view/);
  expect(within(screen.getByRole('navigation',{name:'Reviewed Graph objects'})).getAllByRole('button',{name:/Use .* as context/})).toHaveLength(51);expect(screen.getByRole('button',{name:'Use entity-50 as context'})).toBeVisible();
+});
+
+it('includes an exact source passage even when object Graph discovery is unavailable',async()=>{
+ vi.mocked(getNativeGraphCatalog).mockRejectedValue(new Error('Object Graph unavailable'));
+ const meta={source_artifact:{source_artifact_id:'source-8',source_classification:'dungeonbuddy.source:session_recap'},source_revision:{source_revision_id:'source-8-saved',content_sha256:'a'.repeat(64)},evidence_ref_ids:['evidence-8'],origin:null,navigation:{label:'Session 8 recap',kind:'recap' as const,campaign_id:'c1',session_id:'session-8',status:'available' as const,metadata_revision:'saved',origin_matches_current_metadata:true}};
+ vi.mocked(getNativeSourceCatalog).mockResolvedValue({schema:'dmb_native_source_catalog_v1',scope:pin,catalogue:{space_id:'native',revision_id:'rev-a',source_authority_epoch:1,sources:[meta],complete:true},navigation_complete:true});
+ vi.mocked(readNativeSource).mockResolvedValue({schema:'dmb_native_source_body_v1',scope:pin,source:{status:'available',source_artifact_id:'source-8',source_revision_id:'source-8-saved',body_text:'# First\nOne.\n# Second\nTwo.\n',body_sha256:'a'.repeat(64),evidence_ref_id:'evidence-8',source_authority_epoch:1},section_catalog:{selector_policy:'markdown_sections_v1',sections:[{section_id:'a'.repeat(64),label:'First',line_start:1,line_end:2,char_start:0,char_end:13},{section_id:'b'.repeat(64),label:'Second',line_start:3,line_end:4,char_start:13,char_end:27}]}});
+ const change=vi.fn();render(<SurfaceGraphReferenceInput worldId="quarry" value={[reference]} onChange={change}/>);
+ fireEvent.click(screen.getByRole('button',{name:'@ Reference'}));await screen.findByRole('alert');
+ fireEvent.click(screen.getByRole('button',{name:'Sources',exact:true}));fireEvent.click(await screen.findByRole('button',{name:/Session 8 recap/}));
+ fireEvent.change(await screen.findByRole('combobox',{name:'Read passage'}),{target:{value:'b'.repeat(64)}});
+ fireEvent.click(screen.getByRole('button',{name:'Include passage'}));
+ expect(change).toHaveBeenCalledWith([reference,{schema:'dmb_authored_source_reference_v1',managed_world_id:'quarry',native_world_id:'native',binding_version:3,knowledge_revision:'rev-a',source_artifact_id:'source-8',source_revision_id:'source-8-saved',evidence_ref_id:'evidence-8',content_sha256:'a'.repeat(64),selection_kind:'section',section_id:'b'.repeat(64),label:'Session 8 recap'}]);
+ expect(inspectNativeGraph).not.toHaveBeenCalled();expect(screen.queryByRole('combobox',{name:'Read passage'})).toBeNull();
 });

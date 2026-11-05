@@ -223,8 +223,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
 
 def read_evidence_records(prefix, frame):
     """Project the exact included read records through their native owners."""
-    catalogs = {catalog.catalog_sha256: catalog for event in prefix.events
-        if isinstance(event, bodies.NativeBodySearchObservedV1) for catalog in event.catalogs}
+    catalogs = bodies.acquired_body_catalogs(prefix)
     body_reads = bodies.selected_body_reads(prefix)
     statement_reads = statements.selected_read_records(prefix)
     assertion_reads = assertions.selected_read_records(prefix)

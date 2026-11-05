@@ -849,7 +849,7 @@ export type ReviewedStepReference = {conversation_id:string;source_turn_id:strin
 
 /** Build retains a verified saved basis and separately captured authored working context. */
 export interface WorldBuildAgentTurnRequestV1 {
-  build_authored_references?: AuthoredGraphReferencesV1;
+  build_authored_references?: AuthoredReferenceInput;
   retry_of?: {turn_id:string;revision:number;retained_snapshot_sha256?:string};
   reviewed_step?: ReviewedStepReference;
   build_draft_context?: {snapshot:WorldBuildDraftSnapshotV1;conversation_id:string;expected_pointer_revision:number};
@@ -6023,6 +6023,15 @@ export interface AuthoredGraphReferencesV1 {
   schema: 'dmb_authored_graph_references_v1';
   references: AuthoredGraphReferenceV1[];
 }
+
+export interface AuthoredSourceReferenceV1 {
+ schema:'dmb_authored_source_reference_v1';managed_world_id:string;native_world_id:string;
+ binding_version:number;knowledge_revision:string;source_artifact_id:string;source_revision_id:string;
+ evidence_ref_id:string;content_sha256:string;selection_kind:'section'|'full_document';section_id:string|null;label:string;
+}
+export type AuthoredReference=AuthoredGraphReferenceV1|AuthoredSourceReferenceV1;
+export interface AuthoredReferencesV2 {schema:'dmb_authored_references_v2';references:AuthoredReference[]}
+export type AuthoredReferenceInput=AuthoredGraphReferencesV1|AuthoredReferencesV2;
 
 export interface AgentConnectedPageOriginV1 {
   schema:'dmb_agent_connected_page_origin_v1';

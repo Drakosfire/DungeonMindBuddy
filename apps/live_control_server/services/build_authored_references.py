@@ -4,7 +4,7 @@ import json
 from uuid import uuid4
 
 from application_state.agent_conversation import types as t
-from application_state.agent_conversation.authored_graph_references import digest, source_event_ids
+from application_state.agent_conversation.authored_graph_references import digest
 from .world_source_acquisition import read_operation_sources
 
 
@@ -57,6 +57,11 @@ def capture_input(adapter):
             return
         adapter.turn, _ = adapter.fence.append('capture_native_authored_references','event_id',uuid4())
         return
+    from application_state.agent_conversation.authored_graph_references import AuthoredSourceReferenceV1
+    refs = adapter.request.build_authored_references
+    if refs is not None and any(isinstance(ref, AuthoredSourceReferenceV1) for ref in refs.references):
+        raise refusal('Source references require current native execution. The request is retained; start a fresh attempt.',
+                      'authored_source_execution_retired', before_provider=True)
     existing = [e for e in adapter._broker_execution().events if isinstance(e, t.BuildAuthoredReferencesCapturedV1)]
     if existing:
         if existing[0].references != adapter.request.build_authored_references:
@@ -160,7 +165,19 @@ def acquire(adapter):
     if type(adapter.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1:
         from .native_graph_reads import read_authored_reference
         refs = adapter.request.build_authored_references
-        for reference in (() if refs is None else refs.references):
+        from application_state.agent_conversation.authored_graph_references import AuthoredSourceReferenceV1
+        from ..integrations.dungeonmind.native_corpus_source import read_authored_source
+        for index, reference in enumerate(() if refs is None else refs.references):
+            if isinstance(reference, AuthoredSourceReferenceV1):
+                from application_state.errors import ApplicationStateValidationError
+                try:
+                    adapter.turn, _ = adapter.fence.append('observe_native_authored_source', 'event_id', uuid4(),
+                        reference_index=index, materialize=lambda selected: read_authored_source(adapter.native_corpus_context, selected))
+                except (ValueError, ApplicationStateValidationError) as exc:
+                    from .agent_turn_service import AgentTurnServiceError
+                    raise AgentTurnServiceError('The exact selected source or passage could not be read. Your request is retained; choose it again. No newer source was substituted.',
+                        code='build_authored_source_unavailable',status_code=409,provider_dispatched=None) from exc
+                continue
             adapter.turn, _ = adapter.fence.append('authorize_native_authored_reference','event_id',uuid4(),node_id=reference.node_id)
             grant = adapter.fence.turn.graph_context_execution.events[-1]
             adapter.turn, _ = adapter.fence.append('observe_native_authored_reference','event_id',uuid4(),

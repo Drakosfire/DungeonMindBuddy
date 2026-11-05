@@ -21,7 +21,7 @@ from .types import (
 )
 
 
-from .authored_graph_references import AuthoredGraphReferencesV1
+from .authored_graph_references import AuthoredReferenceInput
 
 
 class RetryUnavailableError(ApplicationStateConflictError):
@@ -52,7 +52,7 @@ class RetryContext(StrictModel):
 
 class RetryContextV2(RetryContext):
     schema_: Literal['dmb_turn_retry_context_row_v2'] = Field(default='dmb_turn_retry_context_row_v2', alias='schema')
-    authored_references: AuthoredGraphReferencesV1
+    authored_references: AuthoredReferenceInput
 
 
 def _edges(conn, turn):

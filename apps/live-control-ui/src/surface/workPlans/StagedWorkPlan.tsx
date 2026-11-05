@@ -2,9 +2,9 @@ import {SurfaceObjectMenu} from '../SurfaceObjectMenu';
 import {SurfaceNavbarIconButton} from '../../surfaceInteraction/contextHost/SurfaceNavbarIconButton';
 import {useEffect,useRef,useState} from 'react';
 import {SurfaceGraphReferenceInput} from '../SurfaceGraphReferenceInput';
-import {isAuthoredGraphReferenceList,mergeAuthoredReferences} from '../../agentInteraction/authoredGraphReferences';
+import {isAuthoredReferenceList,mergeAuthoredReferences} from '../../agentInteraction/authoredGraphReferences';
 import {canonical,exact} from '../../shared/sourcePassageProtocol';
-import type {AuthoredGraphReferenceV1,ConversationCollaboration} from '../../api/types';
+import type {AuthoredReference,ConversationCollaboration} from '../../api/types';
 import {getWorkPlanRecord,getWorkPlan,saveWorkPlan,planObjective,type WorkPlan,type WorkStep} from '../../api/conversationWorkPlanApi';
 import {getWorkspaceDocumentSnapshot} from '../../api/liveApi';
 import type {BuildComposeBridge,CapturedBuildInsertion,PreparedWorkPlanPlacement} from '../../buildSurface/buildComposeBridge';
@@ -33,7 +33,7 @@ export function StagedWorkPlan({worldId,documentId,conversationId,turnId,source,
  const [captured,setCaptured]=useState<CapturedBuildInsertion|null>(null),[rows,setRows]=useState<WorkStep[]>([]);
  const [objective,setObjective]=useState(generatedObjective??'');
  const [reviewToAdopt,setReviewToAdopt]=useState<Extract<WorkPlan,{schema:'dmb_reviewed_work_plan_v3'}>|null>(null);
- const [rootReferences,setRootReferences]=useState<AuthoredGraphReferenceV1[]|undefined>();
+ const [rootReferences,setRootReferences]=useState<AuthoredReference[]|undefined>();
  const [error,setError]=useState<string|null>(null),[stale,setStale]=useState(false),[busy,setBusy]=useState(false),[inPage,setInPage]=useState(false);
  const [refresh,setRefresh]=useState(0);const picker=useRef<AbortController|null>(null);
  const scope=JSON.stringify([worldId,documentId,conversationId,turnId,source,bridge!==null,pointerRevision]);
@@ -68,7 +68,7 @@ export function StagedWorkPlan({worldId,documentId,conversationId,turnId,source,
       throw new Error('Earlier local plan edits need comparison. Their bytes were left untouched.');
     let noteRoots=basis.roots;
     if(aware){
-     if(!isAuthoredGraphReferenceList(notes.root_references,worldId)||!notes.rows.every((row:WorkStep)=>isAuthoredGraphReferenceList(row.references,worldId)))throw new Error('Invalid retained Graph context.');
+     if(!isAuthoredReferenceList(notes.root_references,worldId)||!notes.rows.every((row:WorkStep)=>isAuthoredReferenceList(row.references,worldId)))throw new Error('Invalid retained Graph context.');
      for(const row of notes.rows)mergeAuthoredReferences(notes.root_references,row.references);
      noteRoots=notes.root_references;
     }

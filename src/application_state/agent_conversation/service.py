@@ -2031,6 +2031,14 @@ class AgentConversationService:
             materialize=lambda turn: observe_native_reference(turn, event_id=event_id,
                 authorization_event_id=authorization_event_id, materialize=materialize))
 
+    def observe_native_authored_source(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, reference_index, materialize):
+        from .authored_graph_references import observe_native_source_reference
+        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            materialize=lambda turn: observe_native_source_reference(turn, event_id=event_id,
+                reference_index=reference_index, materialize=materialize))
+
     def authorize_native_body_search(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id):
         from .native_reads import authorize_body_search_locked

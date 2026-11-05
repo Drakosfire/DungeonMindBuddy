@@ -39,7 +39,8 @@ class BuildWorldContext:
             for n in payload.get("nodes", [])
         ]
         authored = getattr(self.adapter.request, 'build_authored_references', None)
-        mandatory_nodes = {ref.node_id for ref in authored.references} if authored is not None else set()
+        from application_state.agent_conversation.authored_graph_references import object_selections
+        mandatory_nodes = {ref.node_id for ref in object_selections(authored)}
         for row in candidates:
             if row.get('id') in mandatory_nodes:
                 continue  # Host acquisition already owns this exact author-selected object.

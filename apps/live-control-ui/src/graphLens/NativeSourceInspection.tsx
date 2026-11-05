@@ -2,6 +2,7 @@ import {useEffect,useId,useMemo,useRef,useState} from 'react';
 import {getNativeSourceCatalog,readNativeSource} from '../api/liveApi';
 import {sameInspectionPin} from '../api/nativeGraphInspection';
 import {isNativeSourceSections,type NativeSourceSection} from '../api/nativeSourceInspection';
+import type {AuthoredSourceReferenceV1} from '../api/types';
 import type {NativeSourceCatalog,NativeSourceMetadata} from '../api/nativeSourceInspection';
 import {WorldPlanAgentAnswer} from '../planSurface/components/WorldPlanAgentAnswer';
 
@@ -10,7 +11,7 @@ const label=(s:NativeSourceMetadata)=>s.navigation.label??'Unnamed source';
 const failureText=(e:unknown)=>e instanceof Error?e.message:'Sources are unavailable.';
 
 /** Human navigation and exact reads; filters never restrict agent evidence. */
-export function NativeSourceInspection({worldId}:{worldId:string}) {
+export function NativeSourceInspection({worldId,onChoose,disabled=false}:{worldId:string;onChoose?:(reference:AuthoredSourceReferenceV1)=>void;disabled?:boolean}) {
  const id=useId(),generation=useRef(0);
  const [catalog,setCatalog]=useState<NativeSourceCatalog|null>(null),[failure,setFailure]=useState<string|null>(null);
  const [refresh,setRefresh]=useState(0),[query,setQuery]=useState(''),[kind,setKind]=useState(''),[campaign,setCampaign]=useState(''),[session,setSession]=useState('');
@@ -72,6 +73,7 @@ export function NativeSourceInspection({worldId}:{worldId:string}) {
        <label htmlFor={`${id}-passage`}>Read passage<select id={`${id}-passage`} value={passage} onChange={e=>setPassage(e.target.value)}><option value="">Whole source</option>{passages.map(section=><option key={section.section_id} value={section.section_id}>{section.label} · lines {section.line_start}–{section.line_end}</option>)}</select></label>
        {selectedSection&&<p role="status">Lines {selectedSection.line_start}–{selectedSection.line_end} of this saved source.</p>}
        {!passages.length&&<p>This source has no smaller sections.</p>}
+       {onChoose&&<button type="button" disabled={disabled} onClick={()=>onChoose({schema:'dmb_authored_source_reference_v1',managed_world_id:worldId,native_world_id:current.scope.native_world_id,binding_version:current.scope.binding_version,knowledge_revision:current.scope.revision_id,source_artifact_id:selected.source_artifact.source_artifact_id,source_revision_id:selected.source_revision.source_revision_id,evidence_ref_id:selected.evidence_ref_ids[0],content_sha256:selected.source_revision.content_sha256,selection_kind:selectedSection?'section':'full_document',section_id:selectedSection?.section_id??null,label:label(selected)})}>{selectedSection?'Include passage':'Include source'}</button>}
        <WorldPlanAgentAnswer answer={visibleBody!}/>
       </>}
       <details><summary>Source version</summary><p>{selected.source_artifact.source_artifact_id}</p><p>{selected.source_revision.source_revision_id}</p><p>Body SHA-256: {selected.source_revision.content_sha256}</p><p>Knowledge revision: {current.scope.revision_id}</p>{selectedSection&&<><p>Passage selector: markdown_sections_v1</p><p>Section: {selectedSection.section_id}</p><p>Lines: {selectedSection.line_start}–{selectedSection.line_end}</p></>}</details>

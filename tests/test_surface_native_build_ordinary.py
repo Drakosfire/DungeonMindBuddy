@@ -28,7 +28,7 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -42,7 +42,6 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     source = get_workspace_document_snapshot(tmp_path, page.document_id)
     draft = None
     if with_draft:
-        from hashlib import sha256
         from application_state.agent_conversation.build_draft_context import BuildDraftSnapshotV1, BuildDraftContextRequestV1
         from tests.application_state.test_agent_conversation_postgres import _new
         service = AgentConversationService()
@@ -61,12 +60,40 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         field,value = {'revision':('graph_revision','rev:missing'), 'node':('node_id','ent:missing'),
             'reference_world':('managed_world_id','foreign-world')}[failure]
         selected = selected.model_copy(update={'references':(selected.references[0].model_copy(update={field:value}),)})
+    if authored_source:
+        from dungeonmind.application.vnext import publish_native_text_source_evidence, list_admitted_native_text_sources
+        from dungeonmind.contracts.vnext.native_source import NativeTextSourceAdmissionV1
+        from graph_memory.vnext.domain_runtime import dungeonbuddy_world_domain_contract, dungeonbuddy_dnd5e_custom_predicate_profile
+        from tests.test_native_plan_assertions import NOW, GM
+        from apps.live_control_server.integrations.dungeonmind.native_corpus_source import prepare_native_source_context
+        from application_state.agent_conversation.authored_graph_references import AuthoredSourceReferenceV1, AuthoredReferencesV2
+        from application_state.agent_conversation.native_source_catalog import section_catalog
+        human_text='# Opening\nA proposed note.\n# Episode\nThe source describes a source-local episode. 🌿\n'
+        raw=human_text.encode()
+        admission=publish_native_text_source_evidence(repository=lane.repo,domain_contract=dungeonbuddy_world_domain_contract(),
+            semantic_profile=dungeonbuddy_dnd5e_custom_predicate_profile(),request=NativeTextSourceAdmissionV1(
+                space_id=world,admission_id='human-selected-source',expected_parent_revision_id=lane.repo.get_head(world).head_revision_id,
+                created_at=NOW,body_text=human_text,expected_body_sha256=sha256(raw).hexdigest(),source_classification='dungeonbuddy.source:session_recap',authority='primary',
+                visibility={'kind':'labels_any','labels':['dungeonbuddy.visibility:gm']},spans=[dict(client_ref='opening',evidence_role='context',start_byte=0,end_byte=len(raw),expected_slice_sha256=sha256(raw).hexdigest())]))
+        context=prepare_native_source_context(managed_world_id=world,principal=GM,repository=lane.repo,
+            resolve_identity=lambda _:SimpleNamespace(managed_world_id=world,native_world_id=world,binding_version=1,provisioning_id=None))
+        meta=next(row for row in list_admitted_native_text_sources(context.access).sources if row.source_artifact.source_artifact_id==admission.source_artifact_id)
+        sections=section_catalog(human_text,source_artifact_id=admission.source_artifact_id,native_source_revision_id=admission.source_revision_id,content_sha256=sha256(raw).hexdigest())
+        source_ref=AuthoredSourceReferenceV1(managed_world_id=world,native_world_id=world,binding_version=1,knowledge_revision=context.authority.revision_id,
+            source_artifact_id=admission.source_artifact_id,source_revision_id=admission.source_revision_id,evidence_ref_id=meta.evidence_ref_ids[0],content_sha256=sha256(raw).hexdigest(),
+            selection_kind='full_document' if authored_source=='full_document' else 'section',section_id=None if authored_source=='full_document' else sections[1].section_id,label='DISPLAY ONLY source label')
+        selected=AuthoredReferencesV2(references=(() if authored_source=='source_only' else selected.references)+(source_ref,))
     admit_unrelated(lane, 'after-human-pick-before-http')
     current_revision = lane.repo.get_head(world).head_revision_id
     assert current_revision != original_revision
     binding = SimpleNamespace(managed_world_id=world, native_world_id=world, binding_version=1, provisioning_id=None)
     monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: binding)
     monkeypatch.setattr(native, 'resolve_managed_world_binding', lambda _: binding)
+    if authored_source=='source_only':
+        from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
+        def no_object_binding(_):
+            raise WorldGraphProjectionServiceError('No active object Graph',code='native_graph_binding_missing',status_code=409)
+        monkeypatch.setattr(native,'resolve_managed_world_binding',no_object_binding)
     monkeypatch.setattr(agent, 'repo_root', lambda: tmp_path)
     monkeypatch.setattr(agent, 'session_dir', lambda: tmp_path / 'sessions')
     monkeypatch.setattr(agent, '_managed_world_root', lambda: tmp_path)
@@ -153,8 +180,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert body['input'].count(json.dumps(draft.snapshot.draft_markdown,ensure_ascii=False)[1:-1])==1
                 else:
                     assert sum(draft.snapshot.draft_markdown in row['content'] for row in body['input'])==1
-            handles = [row['assertion_handle'] for row in frame['native_assertions']['assertions']]
-            assert handles and 'DISPLAY ONLY' not in str(frame)
+            handles = [row['assertion_handle'] for row in frame['native_assertions']['assertions']] if frame['native_assertions'] else []
+            assert (handles or authored_source=='source_only') and 'DISPLAY ONLY' not in str(frame)
             read_ids=[row['read_id'] for row in work['artifact_under_edit']['sections']]
             if saved:
                 assert read_ids and 'A proposed conversation.' in str(work)
@@ -175,14 +202,14 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 return httpx.Response(200,request=req,headers={'content-type':'text/event-stream'},
                     content=''.join('data: '+json.dumps(e)+'\n\n' for e in events).encode())
             candidate = dict(schema=frame['answer_policy'],
-                answer_segments=[dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)]+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,supporting_quotes=[r['text'] for r in work['artifact_under_edit']['sections']])] if saved else []),
+                answer_segments=([dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)] if handles else [])+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,supporting_quotes=[r['text'] for r in work['artifact_under_edit']['sections']])] if saved else []),
                 limitations=[], requested_detail_gaps=[], collaboration=self.review)
-            if native_body:
+            if native_body or authored_source:
                 from application_state.agent_conversation import native_corpus as corpus
                 acquired = corpus.acquired_body_reads(self.adapter._broker_execution())
                 assert acquired
                 exposed = frame['native_body_evidence']['excerpts']
-                assert bool(exposed) == (native_body != 'irrelevant')
+                assert bool(exposed) == (bool(authored_source) or native_body != 'irrelevant')
                 if exposed:
                     candidate['answer_segments'].append(dict(kind='native_body_claim',
                         text='The source describes a source-local episode.',
@@ -543,11 +570,48 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     context = payload['knowledge_context']
     assert context['schema'] == 'dmb_agent_surface_native_context_response_v1'
     assert context['receipt']['work_context']['surface_id'] == 'build'
-    assert context['receipt']['native_query']['authority']['revision_id'] == current_revision
-    assert context['receipt']['native_query']['authored_targets'][0]['selection_revision_id'] == original_revision
+    if authored_source=='source_only':
+        assert context['receipt']['native_query']['reason']=='native_graph_binding_unavailable'
+    else:
+        assert context['receipt']['native_query']['authority']['revision_id'] == current_revision
+    if authored_source!='source_only':
+        assert context['receipt']['native_query']['authored_targets'][0]['selection_revision_id'] == original_revision
     service = AgentConversationService()
     turn = service.inspect_turn(world_id=world, turn_id=writer.adapter.turn.turn_id)
     assert turn.status == 'completed' and type(turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1
+    if authored_source:
+        from application_state.agent_conversation.native_corpus import NativeAuthoredSourceReadV1
+        reads=[e for e in turn.graph_context_execution.events if isinstance(e,NativeAuthoredSourceReadV1)]
+        assert len(reads)==1 and reads[0].catalog.source.revision.source_revision_id==source_ref.source_revision_id
+        assert not hasattr(reads[0],'provider_attempt_id')
+        from application_state.agent_conversation.native_corpus import selected_body_reads, body_selection_unit_id
+        from application_state.agent_conversation.writer_evidence_selection import acquired_catalog
+        assert reads[0] in selected_body_reads(turn.graph_context_execution)
+        assert body_selection_unit_id(reads[0]) not in acquired_catalog(
+            turn.graph_context_execution, {'capture_status':'recording'})
+        vote=next(e for e in turn.graph_context_execution.events if isinstance(e,t.BuildWriterEvidenceSelectionV2))
+        forged=vote.model_copy(update={'judgments':dict(vote.judgments)|{body_selection_unit_id(reads[0]):'irrelevant'}})
+        altered=turn.graph_context_execution.model_copy(update={'events':[forged if e.event_id==vote.event_id else e
+            for e in turn.graph_context_execution.events]})
+        with pytest.raises(ValueError,match='complete acquired extent closure'):
+            selected_body_reads(altered)
+        writer_event=next(e for e in turn.graph_context_execution.events if e.kind=='native_writer_authorized_v1')
+        assert reads[0].event_id in writer_event.native_read_event_ids
+        assert 'source-local episode' in reads[0].excerpt.text
+        assert ('A proposed note.' in reads[0].excerpt.text)==(authored_source=='full_document')
+        citations=turn.completion.native_body_citations
+        assert len(citations)==1 and citations[0].read_event_id==reads[0].event_id
+        opened=client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-body-excerpts/0')
+        assert opened.status_code==200,opened.text
+        assert opened.json()['content']==reads[0].excerpt.text
+        assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
+        assert lane.repo.get_head(world).head_revision_id==current_revision
+        before=len(decisions.calls),len(writer.calls)
+        replay=client.post('/api/live/agent/turn',json=body)
+        assert replay.status_code==200 and replay.json()['knowledge_context']['delivery_replay'] is True
+        assert (len(decisions.calls),len(writer.calls))==before
+        return SimpleNamespace(client=client,world=world,page=page,source=source,request=body,draft=draft,
+            selected=selected,writer=writer,decisions=decisions,turn=turn,service=service,revision=current_revision)
     if with_draft:
         captured = next(e for e in turn.graph_context_execution.events if isinstance(e,t.BuildDraftContextCapturedV1))
         assert captured.record.snapshot==draft.snapshot
@@ -660,10 +724,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     ('discuss',False,'message',None),('prepare_insertion',False,'command',None)]
     +[(kind,False,mutation,None) for kind in ('discuss','prepare_insertion')
         for mutation in ('writer_allowance','writer_input')])
-def test_native_reviewed_step_preserves_the_author_choice(lane,tmp_path,monkeypatch,application_state_dsn,kind,related,mutation,output_review):
+def test_native_reviewed_step_preserves_the_author_choice(lane,tmp_path,monkeypatch,application_state_dsn,kind,related,mutation,output_review,authored_source=None):
     from application_state.agent_conversation import work_plan as w
     from application_state.build_proposal.types import BuildWriteCapability
-    case=_fresh_case(lane,tmp_path,monkeypatch,None,True,False,False)
+    case=_fresh_case(lane,tmp_path,monkeypatch,None,True,False,False,authored_source=authored_source)
     if related:
         page=create_page_fixture(tmp_path,world_id=case.world,campaign_id=case.world,title='Related authored note',
             kind='worldbuilding_source',source_domain='worldbuilding',document_class='lore',
@@ -902,3 +966,42 @@ def test_native_writer_selector_uses_its_verified_long_context_at_app_boundary(l
     unbound=t.ProviderAttemptAuthorizedEventV3.model_validate(fields)
     with pytest.raises(ValueError,match='frozen context window'):
         t.validate_provider_envelope_accounting(assembled,prefix,unbound)
+
+
+@pytest.mark.parametrize('selection',['section','full_document','source_only'])
+def test_ordinary_build_human_source_reaches_writer_and_reopens_exact_citation(lane,tmp_path,monkeypatch,selection):
+    _fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,authored_source=selection)
+
+
+def test_human_source_is_required_even_when_optional_bodies_are_irrelevant(lane,tmp_path,monkeypatch):
+    _fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,
+        native_body='irrelevant',authored_source='section')
+
+
+def test_human_source_survives_reviewed_work_plan_continuation(lane,tmp_path,monkeypatch,application_state_dsn):
+    test_native_reviewed_step_preserves_the_author_choice(lane,tmp_path,monkeypatch,application_state_dsn,
+        'discuss',False,None,None,authored_source='section')
+
+
+@pytest.mark.parametrize('change',[None,'newer_page'])
+def test_human_source_survives_explicit_retry_without_replacing_draft(lane,tmp_path,monkeypatch,application_state_dsn,change):
+    _fresh_case(lane,tmp_path,monkeypatch,'retry_discussion',True,False,False,
+        recovery_dsn=application_state_dsn,retry_mutation=change,authored_source='section')
+
+
+def test_ordinary_human_source_refusal_keeps_request_and_never_dispatches_writer(lane,tmp_path,monkeypatch):
+    case=_fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,authored_source='section')
+    import copy
+    body=copy.deepcopy(case.request)
+    body['turn_id']=str(uuid4())
+    body['client_thread_id']=str(uuid4())
+    body['build_authored_references']['references'][-1]['content_sha256']='f'*64
+    before=len(case.writer.calls)
+    response=case.client.post('/api/live/agent/turn',json=body)
+    assert response.status_code==409,response.text
+    assert response.json()['detail']['code']=='build_authored_source_unavailable'
+    assert len(case.writer.calls)==before
+    retained=case.service.inspect_turn(world_id=case.world,turn_id=case.writer.adapter.turn.turn_id)
+    assert retained.graph_context_execution.policy.action.intent.authored_references.model_dump(mode='json',by_alias=True)==body['build_authored_references']
+    assert not any(e.kind=='native_writer_authorized_v1' for e in retained.graph_context_execution.events)
+    assert get_workspace_document_snapshot(tmp_path,case.page.document_id)==case.source

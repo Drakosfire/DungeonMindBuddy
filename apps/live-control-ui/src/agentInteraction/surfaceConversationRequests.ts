@@ -1,6 +1,6 @@
 import {canonical} from '../shared/sourcePassageProtocol';
-import {isAuthoredGraphReferences} from './authoredGraphReferences';
-import type {AuthoredGraphReferencesV1,ReviewedStepReference} from '../api/types';
+import {isAuthoredReferences} from './authoredGraphReferences';
+import type {AuthoredReferenceInput,ReviewedStepReference} from '../api/types';
 import {useSyncExternalStore} from 'react';
 import {SELECTED_WORLD_LOCATION_CHANGED_EVENT} from '../selectedWorld/SelectedWorldContext';
 
@@ -8,7 +8,7 @@ export interface SurfaceConversationRequest {
   id:string;worldId:string;surfaceId:string;objectId:string;message:string;clientThreadId:string;turnId:string;
   reviewedStep?:ReviewedStepReference;
   reviewedKind?:'discuss'|'prepare_insertion';
-  authoredReferences?:AuthoredGraphReferencesV1;
+  authoredReferences?:AuthoredReferenceInput;
   status:'pending'|'claimed'|'failed';isCurrent:()=>boolean;prepare?:(context:unknown)=>Promise<void>;
 }
 let requests:readonly SurfaceConversationRequest[]=[];
@@ -19,7 +19,7 @@ export const useSurfaceConversationRequests=()=>useSyncExternalStore(subscribe,(
 const remove=(id:string)=>{requests=requests.filter(item=>item.id!==id);emit();};
 export function queueSurfaceConversationRequest(request:Omit<SurfaceConversationRequest,'status'>){
   if((request.reviewedStep!==undefined||request.reviewedKind!==undefined)&&(!request.reviewedStep||!['discuss','prepare_insertion'].includes(request.reviewedKind??'')))throw new Error('A reviewed request needs its exact step kind.');
-  if(request.authoredReferences!==undefined&&!isAuthoredGraphReferences(request.authoredReferences,request.worldId))throw new Error('Graph references belong to a different request World.');
+  if(request.authoredReferences!==undefined&&!isAuthoredReferences(request.authoredReferences,request.worldId))throw new Error('Graph references belong to a different request World.');
   if(!request.isCurrent())throw new Error('The authoring destination changed. Open its page to continue.');
   const existing=requests.find(item=>item.id===request.id);
   if(existing){
