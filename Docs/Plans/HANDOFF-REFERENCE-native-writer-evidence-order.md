@@ -1,6 +1,6 @@
 # Current evidence presentation for native discussion
 
-Status: ACTIVE. Owner/designer: PRIME. Authority: active reference integration goal
+Status: MERGED_AND_DELIVERED; operator acceptance remains open. Owner/designer: PRIME. Authority: active reference integration goal
 and ordinary Plan turn d5596b66-8897-4ace-bc8e-08debebfb1be. Serial after merged
 #2099 af626e13ae5a4abe94a023800137a8256f61479c; branch
 codex/native-writer-evidence-order, existing buddy-context-loop checkout/dependencies.
@@ -49,3 +49,15 @@ Then repeat ordinary Plan discussion, citation and reload/draft preservation
 checks. Treat semantic failure honestly and investigate without case-specific
 word replacements, source curation or weakening acceptance checks. Full Plan/
 Play integration, other demolition dispositions and operator acceptance stay open.
+
+## Settlement before the dependent placement slice
+
+Merged #2100 at e6e5131135a2437621f85e131672680941a189c3 after independent
+review of 80683f5fed76ea0c517db95f902232419c37999c and all required CI.
+Delivered union bcf5af0a0b5cd013674fdcef9bdca6b649fcb7f1 with unchanged APP0111,
+UI and retained-state conservation. Ordinary turn 46af53ab-a6ff-4a95-ba42-3a2b336e889f
+completed in 56.107 seconds with an exact opening citation, unchanged Plan and
+preserved unsent draft. This is one case, not general semantic reliability or
+operator acceptance. Later editable proposal e499e5e7-6c25-413f-8ac1-03f7c5eb6bcb
+exposed missing under-heading placement and duplicated writer segments. Preserve
+that attempt; the dependent handoff owns placement only.

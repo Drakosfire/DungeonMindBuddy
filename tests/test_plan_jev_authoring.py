@@ -264,6 +264,15 @@ def admitted_authoring(plan_adapter, *, admit=True, placement="captured"):
         conversation_id=str(pointer.active_conversation_id),
         expected_pointer_revision=pointer.revision,
     )
+    if placement == "under:0":
+        from application_state.agent_conversation.plan_authoring import text_digest
+        editor = json.dumps({"type": "doc", "content": [
+            {"type": "heading", "attrs": {"level": 2}, "content": [{"type": "text", "text": "Preparation"}]},
+            {"type": "paragraph", "content": [{"type": "text", "text": "Existing notes."}]},
+        ]}, separators=(",", ":"))
+        draft = "## Preparation\n\nExisting notes."
+        payload.update(editor_json=editor, editor_sha256=text_digest(editor),
+            draft_markdown=draft, draft_sha256=text_digest(draft))
     capture = PlanAuthoringCaptureV1.model_validate(payload)
     basis = plan_adapter.work.content_basis.model_copy(
         update={
@@ -290,6 +299,10 @@ def admitted_authoring(plan_adapter, *, admit=True, placement="captured"):
     )
     from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV1, PlanPlacementOptionV1
     end = PlanPlacementOptionV1(selector="end",kind="end_page",label="At page end",root_boundary=1,position=15,target_capture_sha256="0"*64)
+    if placement == "under:0":
+        end = PlanPlacementOptionV1(selector="under:0", kind="after_heading",
+            label="Directly below the heading Preparation, before its existing body",
+            root_boundary=1, position=13, target_capture_sha256="0"*64)
     end = end.model_copy(update={"target_capture_sha256":end.derived_target(capture).sha256})
     catalog = PlanPlacementCatalogV1(original_capture_sha256=capture.sha256, editor_sha256=capture.editor_sha256,
         entries=({"selector":"captured", "kind":"captured_target", "label":"At captured caret",
@@ -1492,3 +1505,20 @@ def test_current_shared_plan_caller_keeps_routing_and_action_ownership(
 ):
     _shared_plan_authoring_case(plan_adapter, tmp_path, monkeypatch, "captured", "base",
         routing=routing, dsn=application_state_dsn)
+
+
+def test_under_heading_selection_survives_actual_dispatch_reservation_and_retained_replay(plan_adapter):
+    capture, turn = admitted_authoring(plan_adapter, placement="under:0")
+    event = turn.graph_context_execution.events[-1]
+    assert event.placement_selector == "under:0"
+    assert event.target_capture_sha256 == capture.sha256
+    assert capture.root_boundary == 1 and capture.from_ == capture.to == 13
+    action, fresh = plan_adapter.service.reserve_plan_authoring_action(
+        capture=capture, turn_id=turn.turn_id, expected_revision=turn.revision)
+    assert fresh and action.authoring_origin.capture_sha256 == capture.sha256
+    retained = plan_adapter.service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    replayed = type(retained).model_validate_json(retained.model_dump_json(by_alias=True))
+    assert replayed.graph_context_execution.events[-1].placement_selector == "under:0"
+    again, fresh_again = plan_adapter.service.reserve_plan_authoring_action(
+        capture=capture, turn_id=turn.turn_id, expected_revision=turn.revision)
+    assert not fresh_again and again.action_id == action.action_id

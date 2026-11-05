@@ -17,7 +17,7 @@ export type PlanAuthoringCapture=PlanOriginalAuthoringCapture | (Omit<PlanOrigin
 });
 export interface PlanPlacementCatalog {
   schema:'dmb_plan_placement_catalog_v1';original_capture_sha256:string;editor_sha256:string;
-  entries:Array<{selector:string;kind:'captured_target'|'before_heading'|'after_section'|'end_page';label:string;
+  entries:Array<{selector:string;kind:'captured_target'|'before_heading'|'after_heading'|'after_section'|'end_page';label:string;
     root_boundary:number|null;position:number|null;target_capture_sha256:string}>;
 }
 

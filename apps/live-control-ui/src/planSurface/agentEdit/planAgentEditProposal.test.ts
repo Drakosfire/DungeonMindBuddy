@@ -1401,3 +1401,37 @@ it('refuses a document edit during placement hashing and preserves the newer edi
   expect(editor.getJSON()).toEqual(newer);
   expect(editor.state.selection.toJSON()).toEqual(selection);
 });
+
+it('restores an under-heading proposal and applies inside the section while preserving the existing body',async()=>{
+  const markdown='# Plan\n\n## Preparation objective\n\nKeep the alternatives open.\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:opening beat_kind=spine -->\n## Opening Beat\n\nExisting scene body.\n';
+  const {editor,state}=mountedState(markdown);let current=worldState(state);
+  const original=await captureWorldPlanAuthoringTarget(current,()=>current,authoringIdentity);
+  if(original.capture.schema!=='dmb_plan_authoring_capture_v1')throw new Error('Expected original capture');
+  const catalog=await capturePlanPlacementCatalog(editor,original.capture);
+  const entry=catalog.entries.find(row=>row.selector==='under:1')!;
+  const boundary={...original.capture,schema:'dmb_plan_authoring_boundary_capture_v1' as const,
+    target_kind:'insert_at_boundary' as const,root_boundary:entry.root_boundary!,from:entry.position!,to:entry.position!};
+  const before=editor.getJSON(),originalSelection=editor.state.selection.toJSON();
+  editor.commands.setTextSelection(2);current={...current,draftGeneration:12,selectionGeneration:18};
+  const restored=await restorePlanAuthoringTarget(boundary,current,()=>current,authoringIdentity);
+  expect(restored.target.rootBoundary).toBe(2);
+  expect(editor.state.doc.resolve(restored.target.from).depth).toBe(0);
+  expect(editor.state.selection.toJSON()).toEqual(originalSelection);
+  expect(editor.getJSON()).toEqual(before);
+  expect(restored.capture.draft_generation).toBe(12);
+  const prepared=await preparePlanAuthoringApplication(restored.target,'### Next briefing\n\nKeep each outcome conditional.',
+    'action-boundary',()=>current,expectedAgentBinding(),matchingAgentBinding);
+  expect(editor.getJSON()).toEqual(before);
+  await applyWorldPlanEditProposal({captured:restored.target,admitted:prepared.admitted,getCurrent:()=>current,
+    expectedAgentBinding:expectedAgentBinding(),getAgentBinding:matchingAgentBinding});
+  expect(JSON.stringify(editor.getJSON())).toBe(prepared.afterEditorJson);
+  const after=editor.getJSON().content!,old=before.content!;
+  expect(after.slice(0,2)).toEqual(old.slice(0,2));
+  expect(after.slice(4)).toEqual(old.slice(2));
+  expect(prepared.afterMarkdown.indexOf('Preparation objective')).toBeLessThan(prepared.afterMarkdown.indexOf('Next briefing'));
+  expect(prepared.afterMarkdown.indexOf('Next briefing')).toBeLessThan(prepared.afterMarkdown.indexOf('Opening Beat'));
+  expect(prepared.afterMarkdown.indexOf('Next briefing')).toBeLessThan(prepared.afterMarkdown.indexOf('Keep the alternatives open.'));
+  const reloaded=mountedState(prepared.afterMarkdown).editor;
+  expect(tiptapJsonToSemanticMarkdown(reloaded.getJSON())).toBe(tiptapJsonToSemanticMarkdown(editor.getJSON()));
+  expect(prepared.afterMarkdown).toContain('id=beat:opening');
+});
