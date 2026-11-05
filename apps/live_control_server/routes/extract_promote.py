@@ -370,7 +370,14 @@ def post_ingest_selection_context(
         return _error_response(exc)
     except GraphRunRegistryError as exc:
         return _error_response(ExtractPromoteError(str(exc), code="ingest_selection_unavailable", status_code=exc.status_code))
-    except Exception:
+    except Exception as exc:
+        from dungeonmind.domain.errors import PersistenceUnavailableError
+        if isinstance(exc, PersistenceUnavailableError):
+            logger.exception("ingest selection context database unavailable")
+            return _error_response(ExtractPromoteError(
+                "The World evidence database is unavailable. Nothing was merged. Try again after its connection is restored.",
+                code="ingest_selection_database_unavailable", status_code=503,
+            ))
         logger.exception("ingest selection context failed unexpectedly")
         return _error_response(ExtractPromoteError(
             "Selected ingestion context could not be resolved.",
