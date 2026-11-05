@@ -1,0 +1,77 @@
+{
+  "base": "1b505aa74718d28ec5443f98a59e5ea4af181478",
+  "source_rows": [
+    {
+      "source_span_ref_id": "span-synthetic-observations",
+      "line_start": 1,
+      "line_end": 1,
+      "text": "The courier waited in a cold room. No signal arrived; she planned to leave at dusk."
+    }
+  ],
+  "rendered_prompt_sha256": {
+    "recap_category_v2@2.0": {
+      "actor_pass.md": "779ca7fbd06b5cdd7ba46f73e4605445ae8ddcd9ad4ff6d94990829155303800",
+      "location_pass.md": "d940e27d2620eb804554fdb0ed7fc420ace451b4e7e385eab61aa5f1a2ee8061",
+      "collective_pass.md": "0d3f2d2e5bc774fb3676dbe584cb081a141e1f75481bc49a38f3c04cb718bef3",
+      "object_pass.md": "bcd0be1f1f175d5e9ab0dd6f6658cec2a85ded810a17dcbf4b85bb7e683000dd",
+      "thread_pass.md": "eb5fe50dc0e2ed73429dabf61d93c7b66103f58dee8b4d610ee38ec1e1a42861",
+      "beat_pass.md": "291300d7c1e01debb61a89882e94e6680aacd873717036bcf0dd270c3652f96f",
+      "edge_pass.md": "c54096b332de269b2f91f45160db2a473f174d353546a367e7a6f66a84729e5e"
+    },
+    "recap_category_encounter_job_preview@2.0": {
+      "actor_pass.md": "779ca7fbd06b5cdd7ba46f73e4605445ae8ddcd9ad4ff6d94990829155303800",
+      "location_pass.md": "d940e27d2620eb804554fdb0ed7fc420ace451b4e7e385eab61aa5f1a2ee8061",
+      "collective_pass.md": "0d3f2d2e5bc774fb3676dbe584cb081a141e1f75481bc49a38f3c04cb718bef3",
+      "object_pass.md": "bcd0be1f1f175d5e9ab0dd6f6658cec2a85ded810a17dcbf4b85bb7e683000dd",
+      "thread_pass.md": "eb5fe50dc0e2ed73429dabf61d93c7b66103f58dee8b4d610ee38ec1e1a42861",
+      "beat_pass.md": "291300d7c1e01debb61a89882e94e6680aacd873717036bcf0dd270c3652f96f",
+      "edge_pass.md": "c54096b332de269b2f91f45160db2a473f174d353546a367e7a6f66a84729e5e",
+      "encounter_job_pass.md": "a5992d54b5d2320afe000810a3740d1f97bfc153f404c843c15133308987d78c"
+    },
+    "worldbuilding_shepherds_flock_v0@0.1": {
+      "actor_pass.md": "2a18f5227e1983bfa11997c67c568a91cb5d377e3b29fdfbf16ec2658f2eb3a3",
+      "location_pass.md": "6793a25c34feda9510ac4c8b47716239111978ded1d25383a03251ce880c11d1",
+      "collective_pass.md": "0ae50c45015945b1adc7220efb1acb3678fe23c0c905b96b2eff55ed62ca4304",
+      "edge_pass.md": "ef45a57084c7ab939729c697801397415efc8a42be2ba470db02bf6e8d6f025b"
+    },
+    "worldbuilding_plumbing_v0@0.1": {
+      "actor_pass.md": "34892b1a04172042e0358f1f6df2b90e4247d898bce650b02695b9699b903b57",
+      "location_pass.md": "2267c5f358b35a254e13f8b5a4802d275f6f92d6076fa9380b0f1af0dd4b71bc",
+      "object_pass.md": "df2eb65fe6b2c909d795671eeb7772a79e516deed93ed6657114e2f111374c07",
+      "edge_pass.md": "fc240034c268eef8ac26e09a720d6b5ff1f3689afe34bdf69b96b0cadfc73567"
+    }
+  },
+  "schema_sha256": {
+    "recap_category_v2@2.0": {
+      "actor_pass": "33e4f1e8677c12a0906c155a738c0cd2e8b23332082408b6acf52906b3054788",
+      "location_pass": "df75df5e48275f9e67aa2585ef96686abe209cefed6dfc6938af7f622c7c4f65",
+      "collective_pass": "32c3da03a61e42b46f69d2ab5151ae7c77549a4e3fe458df698932f6a186eefd",
+      "object_pass": "d4ce3e36ded329f5c1d2b8a2c8292d7b9182417f47023b6479f7287be4cb6c78",
+      "thread_pass": "5f0999d4a4ccc267d6be91bbec6b905bf084b7b73b10669c28be6b3cbf60ed82",
+      "beat_pass": "f297e0bcad2515d5f05ab5030ac1e400c93ed04f7ee6f1ed9197ae302fad992f",
+      "edge_pass": "0dcc1b4d7a4d806a83976573fe02a7196030bc66b34b26e63a493b893e5c2389"
+    },
+    "recap_category_encounter_job_preview@2.0": {
+      "actor_pass": "33e4f1e8677c12a0906c155a738c0cd2e8b23332082408b6acf52906b3054788",
+      "location_pass": "df75df5e48275f9e67aa2585ef96686abe209cefed6dfc6938af7f622c7c4f65",
+      "collective_pass": "32c3da03a61e42b46f69d2ab5151ae7c77549a4e3fe458df698932f6a186eefd",
+      "object_pass": "d4ce3e36ded329f5c1d2b8a2c8292d7b9182417f47023b6479f7287be4cb6c78",
+      "thread_pass": "5f0999d4a4ccc267d6be91bbec6b905bf084b7b73b10669c28be6b3cbf60ed82",
+      "beat_pass": "f297e0bcad2515d5f05ab5030ac1e400c93ed04f7ee6f1ed9197ae302fad992f",
+      "encounter_job_pass": "d7b4003c21e36edf157c179296b0a25f067846127a85ead1a971a0a4f1c301f0",
+      "edge_pass": "0dcc1b4d7a4d806a83976573fe02a7196030bc66b34b26e63a493b893e5c2389"
+    },
+    "worldbuilding_shepherds_flock_v0@0.1": {
+      "actor_pass": "33e4f1e8677c12a0906c155a738c0cd2e8b23332082408b6acf52906b3054788",
+      "location_pass": "df75df5e48275f9e67aa2585ef96686abe209cefed6dfc6938af7f622c7c4f65",
+      "collective_pass": "32c3da03a61e42b46f69d2ab5151ae7c77549a4e3fe458df698932f6a186eefd",
+      "edge_pass": "6822e570ccbb4cb7f008575fa69dbc43ddbe77126008e034c984743cd89f61dc"
+    },
+    "worldbuilding_plumbing_v0@0.1": {
+      "actor_pass": "c5a394a6cd2aee4594ab96894e493da03b056eb4d2c58b4d3219c29a8ec0872e",
+      "location_pass": "c5a394a6cd2aee4594ab96894e493da03b056eb4d2c58b4d3219c29a8ec0872e",
+      "object_pass": "c5a394a6cd2aee4594ab96894e493da03b056eb4d2c58b4d3219c29a8ec0872e",
+      "edge_pass": "6822e570ccbb4cb7f008575fa69dbc43ddbe77126008e034c984743cd89f61dc"
+    }
+  }
+}

@@ -141,6 +141,17 @@ DEFAULT_SEMANTIC_STATE = {
     "visibility_state": "gm_private",
 }
 
+_EXPLICIT_PASSAGE_TRANSITIONS = (
+    "When an explicit temporal transition connects occurrences across adjacent "
+    "source passages, resolve the earlier and later occurrence references across "
+    "those passages and state that source-supported before/after relationship "
+    "in an occurrence description. Include evidence from both passages when "
+    "needed to support the referents and transition. Do not derive time from "
+    "passage adjacency alone, treat a next topic as a later occurrence, guess "
+    "an ambiguous antecedent, or turn narrative presentation into fictional "
+    "elapsed time. Preserve concurrency, future modality and unresolved order. "
+)
+
 _SOURCE_ORDER_OCCURRENCES = (
     "Retain specific occurred events needed to express source-supported before/after "
     "relationships as event nodes. These can be actual discoveries, discussions, "
@@ -150,7 +161,8 @@ _SOURCE_ORDER_OCCURRENCES = (
     "An uncertain object or result does not make a definite occurrence unresolved; "
     "preserve uncertainty about whether an action occurred. Reuse the occurrence "
     "rather than duplicating it as both event and clue solely for categorization. "
-    "Bind each description to its source-supported episode, journey or situation so "
+    + _EXPLICIT_PASSAGE_TRANSITIONS
+    + "Bind each description to its source-supported episode, journey or situation so "
     "relative references remain understandable without paragraph or node order. "
     "Do not turn persistent people, places or topics into events. Keep concurrent "
     "or unresolved occurrences distinct without imposing an order."
