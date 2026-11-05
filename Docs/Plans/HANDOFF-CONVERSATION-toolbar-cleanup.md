@@ -1,6 +1,6 @@
 # Conversation toolbar cleanup
 
-Status: ACTIVE. PRIME owns this serial UI-only slice from remote main8c90f30ed7323e558204b67f89348360a53f847a in the existing buddy-context-loop checkout. Operator requested a conversation symbol and @ References in the toolbar, completed activity out of the composer, and removal of the lingering post-switch refresh notice.
+Status: SETTLED — PR2112 mergedd87043ccc63b9319d3799f6fc75ec5ac9dba08ad; UI5b272cab573888fa92156ec56448d03a4345c3c1 delivered with independent review, all7 CI checks, ordinary desktop/narrow QA and retained-state conservation. Successor HANDOFF-CONVERSATION-reading-cleanup.md owns the next UI slice. PRIME owns this serial UI-only slice from remote main8c90f30ed7323e558204b67f89348360a53f847a in the existing buddy-context-loop checkout. Operator requested a conversation symbol and @ References in the toolbar, completed activity out of the composer, and removal of the lingering post-switch refresh notice.
 
 Predecessor: Conversations library UI PR2110 merged8c90f30ed7323e558204b67f89348360a53f847a; delivered preserving-live union3f1dd157b468b396b1c02b7963418b5fdadf91a6. Its UI lease is released and desktop/narrow checks passed. Earlier library handoff is settled by that merge and this successor; broader reference goal remains paused.
 

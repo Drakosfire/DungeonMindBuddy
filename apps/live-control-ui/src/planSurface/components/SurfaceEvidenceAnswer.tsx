@@ -38,7 +38,7 @@ export function SurfaceEvidenceAnswer({completion,composition,worldId,turnId,bui
     const selected=('source_citations' in completion ? completion.source_citations : []).filter(c=>c.segment_index === index);
     return <section key={key} aria-label={graph ? 'World Graph fact' : source ? 'Source-supported statement' : saved?'Saved-page statement':s.kind === 'proposal' ? 'Proposed idea' : 'Evidence limitation'}>
       {graph ? <small>{s.kind==='native_assertion_claim'?'Reviewed World Graph':selected.length ? 'World Graph' : 'World Graph · source passage not opened'}</small> : null}
-      {s.kind==='native_assertion_claim'?<details><summary>Qualifications</summary><pre>{JSON.stringify(s.qualifications,null,2)}</pre></details>:null}
+      {s.kind==='native_assertion_claim'?<details className="world-plan-agent-conversation__technical-details"><summary>Graph record details</summary><pre>{JSON.stringify(s.qualifications,null,2)}</pre></details>:null}
       {saved?<small>Saved authored page</small>:null}
       {s.kind === 'proposal' ? <small>Proposed idea</small> : null}
       {choicesBySegment[index]!.length ? <SourceCitationEvidence identity={canonical([completion,worldId,turnId,index])}
