@@ -81,6 +81,47 @@ class NativeGraphQueryV3(NativePlanQueryV2):
         return self
 
 
+class NativeObjectMatchV1(Strict):
+    """Core-admitted object navigation metadata, never claim evidence."""
+    entity_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+
+
+class NativeGraphQueryV4(NativeGraphQueryV3):
+    """Object selection expands to existing, frozen record witness sets."""
+    schema_: Literal['dmb_native_graph_query_v4'] = Field(default='dmb_native_graph_query_v4', alias='schema')
+    object_matches: tuple[NativeObjectMatchV1, ...]
+
+    @model_validator(mode='after')
+    def object_closure(self):
+        ids = tuple(m.entity_id for m in self.object_matches)
+        if len(ids) != len(set(ids)) or set(ids) != set(self.discovered_entity_ids):
+            raise ValueError('Native object catalog differs from exact discovered entities')
+        return self
+
+
+def object_selection_handle(query, entity_id):
+    if not isinstance(query, NativeGraphQueryV4) or entity_id not in query.discovered_entity_ids:
+        raise ValueError('Object was not discovered by this native query')
+    return 'native-object:' + digest({'query': query.sha256, 'object': entity_id})
+
+
+def object_record_ids(query, handles, *, assertion, attempted=()):
+    """Resolve selected witness units; labels never grant a read or merge identity."""
+    if not isinstance(query, NativeGraphQueryV4):
+        raise ValueError('Object closure requires its versioned native query')
+    selected = set(handles)
+    # Compute the immutable query digest once, not once per record or object.
+    query_digest = query.sha256
+    roots = {m.entity_id for m in query.object_matches if
+        'native-object:' + digest({'query': query_digest, 'object': m.entity_id}) in selected}
+    matches = query.assertion_matches if assertion else query.matches
+    excluded = set(attempted)
+    return tuple(identity for m in matches
+        if roots.intersection(m.discovered_entity_ids)
+        and (identity := m.assertion_id if assertion else m.statement_id) not in excluded)
+
+
 def selection_handle(query, match):
     return 'native-assertion:' + digest({'query': query.sha256, 'assertion': match.assertion_id})
 

@@ -93,7 +93,7 @@ def test_core_assertions_keep_metadata_and_exact_support_without_summary_wrapper
         pytest.fail('Source opened before selection')
     monkeypatch.setattr(native, 'open_admitted_native_text', forbidden)
     context, result = query(lane)
-    assert result.schema_ == 'dmb_native_plan_query_v2' and result.assertion_matches and not result.matches
+    assert result.schema_ == 'dmb_native_graph_query_v4' and result.assertion_matches and not result.matches
     assert BODY not in result.model_dump_json() and 'A reports' not in result.model_dump_json()
     monkeypatch.setattr(native, 'open_admitted_native_text', original)
     reads, unavailable = read_selected(context, grant(context), GM)
@@ -200,7 +200,7 @@ def _ordinary_native_case(
         async def handle_async_request(self, req):
             body=json.loads(req.content)
             candidates=body.get('state',{}).get('candidates',[])
-            native={i for i,c in enumerate(candidates) if c['kind'].startswith('Reviewed native Graph') or mixed and c['kind']=='public_rules_lookup'}
+            native={i for i,c in enumerate(candidates) if c['kind'].startswith('Native Graph object') or mixed and c['kind']=='public_rules_lookup'}
             assert BODY not in req.content.decode()
             answers={}
             for name,entry in body['questions'].items():

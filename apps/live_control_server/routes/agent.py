@@ -761,7 +761,7 @@ def _plan_context_resolver(
                 code='native_graph_query_rejected',status_code=409,provider_dispatched=False) from exc
         if type(frozen_query) is NativePlanQueryV1 and isinstance(query, NativePlanQueryV1):
             from dataclasses import replace
-            query = NativePlanQueryV1.model_validate(query.model_dump(mode='json', by_alias=True, exclude={'assertion_matches'}) | {'schema': 'dmb_native_plan_query_v1'})
+            query = NativePlanQueryV1.model_validate(query.model_dump(mode='json', by_alias=True, exclude={'assertion_matches','authored_targets','object_matches'}) | {'schema': 'dmb_native_plan_query_v1'})
             context = replace(context, query=query)
         return context, query
 
