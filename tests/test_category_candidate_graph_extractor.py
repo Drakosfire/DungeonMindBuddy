@@ -745,3 +745,15 @@ def test_worldbuilding_does_not_run_recap_nomination_binding(monkeypatch):
         source_span_index=_span_index(session_id=None), source_text="Mirathorn is a river city.",
         profile=WORLDBUILDING_PLUMBING_PROFILE,
     ), client=RecordingClient())
+
+
+def test_worldbuilding_prompt_does_not_adopt_recap_node_handles():
+    from src.graph_memory.extraction.category_candidate_graph_extractor import render_category_pass_prompts
+    from src.graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
+    text = "Ari founded the guild."
+    rows = [{"source_span_ref_id": "s1", "line_start": 1, "line_end": 1, "text": text}]
+    packet = compile_source_sentence_packet(text, rows)
+    prompts = render_category_pass_prompts(rows, profile=WORLDBUILDING_PLUMBING_PROFILE,
+                                          node_source_packet=packet)
+    assert all("source_quote_ids" not in prompt for prompt in prompts.values())
+    assert any("anchor_quotes" in prompt for prompt in prompts.values())

@@ -1,4 +1,4 @@
-"""Host-owned exact source handles for the GE recap actor wire contract.
+"""Host-owned exact source handles for the GE recap node wire contract.
 
 Handles identify text, not entailed claims. Canonical consumers still receive
 paragraph IDs and literal quotes; models never generate those strings here.
@@ -147,39 +147,32 @@ SENTENCE_EVIDENCE_RULE = (
     "of Q handles from the Source Packet. Select all sentences needed for the "
     "claim, including conditions, negation and pronoun antecedents. Do not emit "
     "paragraph IDs or rewrite quotations. Handles prove text location, not truth. "
-    "Do not merge similar names or infer a different entity type without support."
+    "Do not merge similar names or infer a different entity type without support. "
+    "Ignored/deferred items may retain an empty evidence_refs list; any references "
+    "they do provide must use this same handle format."
 )
 
 
-def actor_wire_schema(base_schema: dict, packet: SourceSentencePacket) -> dict:
+def node_wire_schema(base_schema: dict, packet: SourceSentencePacket) -> dict:
     validate_packet(packet, expected_packet_id=packet.packet_id)
     schema = deepcopy(base_schema)
-    ref = schema["properties"]["observation_nodes"]["items"]["properties"][
-        "evidence_refs"
-    ]["items"]
-    ref.clear()
-    ref.update(
-        {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {
-                "source_quote_ids": {
-                    "type": "array",
-                    "minItems": 1,
-                    "uniqueItems": True,
-                    "items": {
-                        "type": "string",
-                        "enum": [u.unit_id for u in packet.units],
-                    },
-                }
-            },
+    for collection in ("observation_nodes", "ignored_items", "deferred_items"):
+        if collection not in schema["properties"]:
+            continue
+        ref = schema["properties"][collection]["items"]["properties"]["evidence_refs"]["items"]
+        ref.clear()
+        ref.update({
+            "type": "object", "additionalProperties": False,
+            "properties": {"source_quote_ids": {
+                "type": "array", "minItems": 1, "uniqueItems": True,
+                "items": {"type": "string", "enum": [u.unit_id for u in packet.units]},
+            }},
             "required": ["source_quote_ids"],
-        }
-    )
+        })
     return schema
 
 
-def materialize_actor_evidence(
+def materialize_node_evidence(
     packet: SourceSentencePacket,
     parsed: dict,
     *,
@@ -188,23 +181,24 @@ def materialize_actor_evidence(
     validate_packet(packet, expected_packet_id=expected_packet_id)
     lookup = {u.unit_id: u for u in packet.units}
     result = deepcopy(parsed)
-    for node in result["observation_nodes"]:
-        refs, seen = [], set()
-        for ref in node["evidence_refs"]:
-            if set(ref) != {"source_quote_ids"} or not ref["source_quote_ids"]:
-                raise ValueError("invalid_reference_shape")
-            for unit_id in ref["source_quote_ids"]:
-                if unit_id not in lookup or unit_id in seen:
-                    raise ValueError("unknown_or_duplicate_unit")
-                seen.add(unit_id)
-                unit = lookup[unit_id]
-                refs.append(
-                    {
-                        "source_span_ref_id": unit.span_id,
-                        "anchor_quotes": [packet.source[unit.start : unit.end]],
-                    }
-                )
-        if not refs:
-            raise ValueError("empty_evidence")
-        node["evidence_refs"] = refs
+    for collection in ("observation_nodes", "ignored_items", "deferred_items"):
+        for node in result.get(collection, []):
+            refs, seen = [], set()
+            for ref in node["evidence_refs"]:
+                if set(ref) != {"source_quote_ids"} or not ref["source_quote_ids"]:
+                    raise ValueError("invalid_reference_shape")
+                for unit_id in ref["source_quote_ids"]:
+                    if unit_id not in lookup or unit_id in seen:
+                        raise ValueError("unknown_or_duplicate_unit")
+                    seen.add(unit_id)
+                    unit = lookup[unit_id]
+                    refs.append(
+                        {
+                            "source_span_ref_id": unit.span_id,
+                            "anchor_quotes": [packet.source[unit.start : unit.end]],
+                        }
+                    )
+            if not refs and collection == "observation_nodes":
+                raise ValueError("empty_evidence")
+            node["evidence_refs"] = refs
     return result

@@ -28,6 +28,8 @@ from src.graph_memory.extraction.category_candidate_graph_schema import (
     category_pass_text_format_for_spec,
 )
 
+from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+
 DEEPSEEK_MODEL = "deepseek/deepseek-v4.1-flash-1017"
 SUPPORTED_INGESTION_PROVIDERS = frozenset({"openai", "openrouter", "vercel"})
 
@@ -315,7 +317,7 @@ def _default_engine_for(provider: str):
 
 
 class BoundedRecapPassClient:
-    supports_actor_source_handles = True
+    supports_node_source_handles = True
 
     def __init__(
         self,
@@ -582,16 +584,17 @@ class BoundedRecapPassClient:
                 canonical_schema, self._advertised_node_span_ids,
             )
         if source_evidence_packet is not None:
-            from src.graph_memory.extraction.source_sentence_evidence import actor_wire_schema
-            if pass_name != "actor_pass":
-                raise CategoryGraphExtractionError("source handles require actor pass", pass_name=pass_name)
+            from src.graph_memory.extraction.source_sentence_evidence import node_wire_schema
+            if ((pass_spec is not None and pass_spec.kind != "node")
+                    or pass_name not in {p.pass_id for p in RECAP_EXTRACTION_PROFILE.node_passes}):
+                raise CategoryGraphExtractionError("source handles require a recap node pass", pass_name=pass_name)
             expected_source = context_hashes.get("source_content")
             if expected_source is not None and expected_source != source_evidence_packet.source_sha256:
                 raise CategoryGraphExtractionError("source packet does not match run source", pass_name=pass_name)
-            fmt["schema"] = actor_wire_schema(canonical_schema, source_evidence_packet)
+            fmt["schema"] = node_wire_schema(canonical_schema, source_evidence_packet)
             context_hashes.update(
-                actor_source=source_evidence_packet.source_sha256,
-                actor_source_packet=source_evidence_packet.packet_id,
+                node_source=source_evidence_packet.source_sha256,
+                node_source_packet=source_evidence_packet.packet_id,
             )
         deepseek = (self.limits.provider, self.limits.model) == ("openrouter", DEEPSEEK_MODEL)
         route = None
@@ -791,10 +794,10 @@ class BoundedRecapPassClient:
             if deepseek or source_evidence_packet is not None or advertised_node_schema:
                 validate_json_schema(parsed, fmt["schema"])
             if source_evidence_packet is not None:
-                from src.graph_memory.extraction.source_sentence_evidence import materialize_actor_evidence
-                parsed = materialize_actor_evidence(
+                from src.graph_memory.extraction.source_sentence_evidence import materialize_node_evidence
+                parsed = materialize_node_evidence(
                     source_evidence_packet, parsed,
-                    expected_packet_id=context_hashes["actor_source_packet"],
+                    expected_packet_id=context_hashes["node_source_packet"],
                 )
                 validate_json_schema(parsed, canonical_schema)
                 if self.execution_binding is not None:
