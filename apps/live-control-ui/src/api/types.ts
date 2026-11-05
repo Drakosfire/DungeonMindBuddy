@@ -2173,6 +2173,7 @@ export interface ResolvedRollResponse {
 }
 
 export interface RecapIngestRequest {
+  name_review?: {review_id: string; decisions: Array<{id: string; replacement: string | null}>};
   session_evidence?: Array<{run_id:string;review_revision:number;sha256:string}>;
   operation: "generate_recap_memory";
   campaign_id: string;

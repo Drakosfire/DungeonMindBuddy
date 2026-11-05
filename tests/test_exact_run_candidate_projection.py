@@ -79,6 +79,9 @@ def produced(tmp_path, monkeypatch, application_state_dsn, request):
                 )
                 for node_id, label in config["labels"]
             ]
+        if config.get("known_catalog"):
+            for node in graph["nodes"]:
+                node["node_type"] = config.get("node_types", {}).get(node["node_id"], "character")
         for k in ["edges", "beats", "proposed_writes"]:
             graph[k] = []
         private = json.dumps(
@@ -103,6 +106,7 @@ def produced(tmp_path, monkeypatch, application_state_dsn, request):
         graph_preview_runner.ProductionExtractionRequest(
             repo_root=tmp_path,
             source=source,
+            known_character_catalog=config.get("known_catalog"),
             profile_id=config.get("profile", "recap_category_v2@2.0").split("@")[0],
             profile_version="2.0",
             allow_llm=True,
@@ -754,3 +758,29 @@ def test_supported_encounter_policy_has_the_same_source_only_reader(produced):
     projection=service.build_exact_run_candidate_projection(root,run.run_id,"managed-a")
     assert projection.profile_id=="recap_category_encounter_job_preview@2.0"
     assert projection.source_markdown==source.source_text
+
+
+@pytest.mark.parametrize("produced", [{"text": "Mara waits.\n\nMARA leaves.\n", "quote": "Mara waits.", "labels": [("actor:mara", "Mara")], "known_catalog": {"entities": [{"entity_id": "native:mara", "label": "Mara", "names": ["Mara"]}], "native_pin": {"revision_id": "r1"}}}], indirect=True)
+def test_retained_known_character_context_links_other_paragraphs_without_native_reread(produced):
+    root, source, run = produced
+    context = run.lineage["known_character_bindings"]
+    assert len(context["mentions"]) == 2
+    before = get_extraction_run(root, run.run_id)
+    result = service.build_exact_run_candidate_projection(root, run.run_id, "managed-a")
+    assert result.mentions_count == 2
+    assert result.projected_markdown.count("dmb-node:") == 2
+    assert "MARA" in result.projected_markdown
+    assert get_extraction_run(root, run.run_id) == before
+
+
+@pytest.mark.parametrize("produced", [{"text":"Mara and Rowan decide to follow Thrin. Later Mara will return.\n", "quote":"Mara and Rowan", "labels":[("actor:mara","Mara"),("actor:rowan","Rowan"),("group:pair","Mara and Rowan")], "node_types":{"group:pair":"group"}, "known_catalog":{"entities":[{"entity_id":"native:mara","label":"Mara","names":["Mara"]},{"entity_id":"native:rowan","label":"Rowan","names":["Rowan"]}],"native_pin":{"revision_id":"r1"}}}], indirect=True)
+def test_known_character_links_survive_overlapping_group_name_list(produced):
+    root,source,run=produced
+    before=get_extraction_run(root,run.run_id)
+    result=service.build_exact_run_candidate_projection(root,run.run_id,"managed-a")
+    assert result.mentions_count==3
+    assert "known_character_links_preferred_over_group_label" in result.diagnostics
+    group=next(n for n in result.nodes if n.candidate_node_id=="group:pair")
+    assert group.view_key not in result.projected_markdown
+    assert group.view_key in result.node_views
+    assert get_extraction_run(root,run.run_id)==before
