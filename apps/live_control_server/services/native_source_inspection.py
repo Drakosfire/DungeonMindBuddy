@@ -138,10 +138,22 @@ def inspect(request, principal):
     opened = open_admitted_native_text(context.access, request.evidence_ref_id)
     if opened.status != "available":
         raise SourceInspectionUnavailable("native_source_inspection_source_unavailable")
+    # Reuse the native acquisition selector over the body Core just verified.
+    # Character offsets are Python Unicode code points, not JavaScript UTF-16.
+    from application_state.agent_conversation.native_source_catalog import (
+        SELECTOR, section_catalog,
+    )
+    sections = section_catalog(
+        opened.body_text, source_artifact_id=opened.source_artifact_id,
+        native_source_revision_id=opened.source_revision_id,
+        content_sha256=opened.body_sha256,
+    ) if opened.body_text.strip() else None
     # Core verifies the body and original evidence span; this is not an assertion claim.
     return _response(
         context,
         pin,
         schema="dmb_native_source_body_v1",
         source=opened.model_dump(mode="json"),
+        section_catalog=None if sections is None else {"selector_policy": SELECTOR,
+                         "sections": [row.model_dump(mode="json") for row in sections]},
     )

@@ -11,7 +11,7 @@ function item(n=8,campaign='c1',kind:'recap'|'worldbuilding'='recap'):NativeSour
  source_revision:{source_revision_id:`sr${campaign}${n}${kind==='worldbuilding'?'-worldbuilding':''}`,content_sha256:'a'.repeat(64)},evidence_ref_ids:[`e${campaign}${n}`],origin:null,
  navigation:{label:kind==='recap'?`Session ${n} recap`:`Worldbuilding ${n}`,kind,campaign_id:campaign,session_id:`session-${n}`,status:'available',metadata_revision:'m1',origin_matches_current_metadata:true}};}
 function catalog(sources=[item()]):NativeSourceCatalog{return {schema:'dmb_native_source_catalog_v1',scope,catalogue:{space_id:'n',revision_id:'r1',source_authority_epoch:1,sources,complete:true},navigation_complete:true};}
-function body(s=item()):NativeSourceBody{return {schema:'dmb_native_source_body_v1',scope,source:{status:'available',source_artifact_id:s.source_artifact.source_artifact_id,source_revision_id:s.source_revision.source_revision_id,body_text:'Exact retained source text',body_sha256:s.source_revision.content_sha256,evidence_ref_id:s.evidence_ref_ids[0],source_authority_epoch:1}};}
+function body(s=item()):NativeSourceBody{return {schema:'dmb_native_source_body_v1',scope,section_catalog:{selector_policy:'markdown_sections_v1',sections:[{section_id:'a'.repeat(64),label:'Full source',line_start:1,line_end:1,char_start:0,char_end:26}]},source:{status:'available',source_artifact_id:s.source_artifact.source_artifact_id,source_revision_id:s.source_revision.source_revision_id,body_text:'Exact retained source text',body_sha256:s.source_revision.content_sha256,evidence_ref_id:s.evidence_ref_ids[0],source_authority_epoch:1}};}
 beforeEach(()=>{vi.mocked(getNativeSourceCatalog).mockReset().mockResolvedValue(catalog());vi.mocked(readNativeSource).mockReset().mockResolvedValue(body());});
 afterEach(cleanup);
 it('loads metadata only, then explicitly opens the exact pinned source',async()=>{
@@ -65,4 +65,83 @@ it('reports a catalogue lacking navigation metadata instead of crashing',async()
  vi.mocked(getNativeSourceCatalog).mockResolvedValue(c);render(<NativeSourceInspection worldId="w"/>);
  expect(await screen.findByRole('alert')).toHaveTextContent('navigation metadata is unavailable');
  expect(readNativeSource).not.toHaveBeenCalled();
+});
+
+function passageBody(s=item()):NativeSourceBody {
+ const result=body(s);
+ // Astral Unicode makes UTF-16 slicing observably different from native offsets.
+ result.source.body_text='# Same\r\n🌿 first\r\n# Same\r\nSecond passage\r\n';
+ result.section_catalog!.sections=[
+  {section_id:'a'.repeat(64),label:'Same',line_start:1,line_end:2,char_start:0,char_end:17},
+  {section_id:'b'.repeat(64),label:'Same',line_start:3,line_end:4,char_start:17,char_end:41},
+ ];
+ return result;
+}
+it('opens exact native passages without reparsing headings or fetching another body',async()=>{
+ const packet=passageBody();vi.mocked(readNativeSource).mockResolvedValue(packet);
+ render(<NativeSourceInspection worldId="w"/>);fireEvent.click(await screen.findByRole('button',{name:/Session 8 recap/}));
+ const picker=await screen.findByRole('combobox',{name:'Read passage'});
+ expect(screen.getByRole('option',{name:'Same · lines 1–2'})).toBeInTheDocument();
+ expect(screen.getByRole('option',{name:'Same · lines 3–4'})).toBeInTheDocument();
+ fireEvent.change(picker,{target:{value:'b'.repeat(64)}});
+ expect(screen.getByText('# Same\r\nSecond passage\r\n',{exact:true,normalizer:v=>v})).toBeVisible();
+ expect(screen.queryByText(/🌿 first/)).not.toBeInTheDocument();
+ expect(screen.getByText('Lines 3–4 of this saved source.')).toBeVisible();
+ expect(screen.getByText('Section: '+'b'.repeat(64))).toBeInTheDocument();
+ fireEvent.change(picker,{target:{value:'a'.repeat(64)}});
+ expect(screen.getByText('# Same\r\n🌿 first\r\n',{exact:true,normalizer:v=>v})).toBeVisible();
+ fireEvent.change(picker,{target:{value:''}});
+ expect(screen.getByText(packet.source.body_text,{exact:true,normalizer:v=>v})).toBeVisible();
+ expect(readNativeSource).toHaveBeenCalledTimes(1);
+});
+it('does not present whole-body exposure as a smaller passage',async()=>{
+ render(<NativeSourceInspection worldId="w"/>);fireEvent.click(await screen.findByRole('button',{name:/Session 8 recap/}));
+ await screen.findByText('This source has no smaller sections.');
+ expect(screen.getByRole('combobox',{name:'Read passage'})).toHaveValue('');
+ expect(screen.queryByRole('option',{name:/Full source · lines/})).not.toBeInTheDocument();
+});
+it.each(['missing','overlap','duplicate','utf16','line-mismatch','line-overflow'] as const)('rejects %s passage descriptors without showing text',async problem=>{
+ const packet=passageBody();
+ if(problem==='missing')delete (packet as Partial<NativeSourceBody>).section_catalog;
+ else if(problem==='overlap')packet.section_catalog!.sections[1].char_start=16;
+ else if(problem==='duplicate')packet.section_catalog!.sections[1].section_id='a'.repeat(64);
+ else if(problem==='line-mismatch')packet.section_catalog!.sections[0].line_end=1;
+ else if(problem==='line-overflow')packet.section_catalog!.sections[1].line_end=400;
+ else packet.section_catalog!.sections[1].char_end=packet.source.body_text.length;
+ vi.mocked(readNativeSource).mockResolvedValue(packet);
+ render(<NativeSourceInspection worldId="w"/>);fireEvent.click(await screen.findByRole('button',{name:/Session 8 recap/}));
+ expect(await screen.findByRole('alert')).toHaveTextContent('exact source passages are unavailable');
+ expect(screen.queryByText(/🌿 first/)).not.toBeInTheDocument();
+});
+it('resets the passage on a different source and on refresh',async()=>{
+ const other=item(9);vi.mocked(getNativeSourceCatalog).mockResolvedValue(catalog([item(),other]));
+ vi.mocked(readNativeSource).mockImplementation(async(_scope,selected)=>passageBody(selected.source_artifact_id===other.source_artifact.source_artifact_id?other:item()));
+ render(<NativeSourceInspection worldId="w"/>);fireEvent.click(await screen.findByRole('button',{name:/Session 8 recap/}));
+ fireEvent.change(await screen.findByRole('combobox',{name:'Read passage'}),{target:{value:'b'.repeat(64)}});
+ fireEvent.click(screen.getByRole('button',{name:/Session 9 recap/}));
+ expect(await screen.findByRole('combobox',{name:'Read passage'})).toHaveValue('');
+ fireEvent.change(screen.getByRole('combobox',{name:'Read passage'}),{target:{value:'b'.repeat(64)}});
+ fireEvent.click(screen.getByRole('button',{name:'Refresh sources'}));
+ expect(await screen.findByText('Choose a source to read its saved text.')).toBeVisible();
+ expect(screen.queryByRole('combobox',{name:'Read passage'})).not.toBeInTheDocument();
+});
+
+it('keeps an admitted whitespace-only source readable with explicitly absent sections',async()=>{
+ const packet=body();packet.source.body_text=' \r\n\t';packet.section_catalog=null;
+ vi.mocked(readNativeSource).mockResolvedValue(packet);
+ render(<NativeSourceInspection worldId="w"/>);fireEvent.click(await screen.findByRole('button',{name:/Session 8 recap/}));
+ await screen.findByText('This source has no smaller sections.');
+ expect(screen.getByRole('article',{name:'Selected source'}).textContent).toContain(packet.source.body_text);
+ expect(screen.getByRole('combobox',{name:'Read passage'})).toHaveValue('');
+});
+it('uses native line boundaries for all splitlines separators, not just LF',async()=>{
+ const packet=passageBody();packet.source.body_text='abc\u0085def\u2028ghi\x1c';
+ packet.section_catalog!.sections=[
+  {section_id:'a'.repeat(64),label:'First',line_start:1,line_end:1,char_start:0,char_end:4},
+  {section_id:'b'.repeat(64),label:'Rest',line_start:2,line_end:3,char_start:4,char_end:12},
+ ];
+ vi.mocked(readNativeSource).mockResolvedValue(packet);
+ render(<NativeSourceInspection worldId="w"/>);fireEvent.click(await screen.findByRole('button',{name:/Session 8 recap/}));
+ fireEvent.change(await screen.findByRole('combobox',{name:'Read passage'}),{target:{value:'b'.repeat(64)}});
+ expect(screen.getByText('def\u2028ghi\x1c',{exact:true,normalizer:v=>v})).toBeVisible();
 });

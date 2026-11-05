@@ -98,3 +98,15 @@ No shared dependency install, runtime restart, retained DB write or provider cal
 is activated here; delivery needs protected resource and conservation checks.
 Source/passage attachment, acquisition/restrictions, remaining surface integration
 and operator acceptance stay open; this browser alone does not establish completion.
+
+
+## Source browser settlement and passage successor
+
+Buddy2086 merged eb2f0afe805f473b22bfb2bccf4709a5ad90e210 after independent
+approval and all seven applicable checks. Protected API/Core and UI delivery
+preserved retained state. Ordinary source browsing/opening is verified in Build,
+Plan and Play. The original stale-page asset failure during the successor runtime
+deployment is retained; prior194 assets now remain byte-identical and the failing
+chunk serves JavaScript. No attachment, restriction or surface acceptance is implied.
+The source-browser write lease is closed. The serial exact-passage successor is
+`HANDOFF-REFERENCE-native-source-passages.md`, based on the merged2086 revision.
