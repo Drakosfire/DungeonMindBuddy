@@ -25,3 +25,7 @@
 .loaded-graph-explorer article h3, .loaded-graph-explorer article h4 { color: #30291b; opacity: 1; text-transform: none; letter-spacing: normal; }
 .loaded-graph-explorer article h3 { font-size: 1.125rem; }
 .loaded-graph-explorer article h4 { font-size: .95rem; }
+
+.native-source-inspection__filters { display:flex; flex-wrap:wrap; gap:.75rem; margin-block:1rem; }
+.native-source-inspection__filters label { display:flex; flex-direction:column; gap:.25rem; }
+.loaded-graph-explorer nav button small { display:block; color:var(--text-muted,#adb7c5); font-size:.8em; }

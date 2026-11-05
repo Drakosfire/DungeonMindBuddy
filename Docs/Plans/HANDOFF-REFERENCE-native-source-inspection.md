@@ -59,3 +59,41 @@ retained-data or DB-mutation lease is activated here. Dependency delivery requir
 its own reviewed API stop/install/restart and retained-state conservation. UI browsing,
 recap/passage attachment, Plan/Play integration, restrictions and operator acceptance
 remain open. No chronology implementation or compatibility executor is included.
+
+
+## Serial source-browser adoption
+Core155 is merged0f86f1f and Buddy2083 is merged/delivered4247484. Core156 is
+mergedc2ea8d0624b75fb5c051d3368334d6f7fe7512a2, reviewed tree ddf8d13;
+all owning CI and actual WorldKeeper consumer pass. The original consumer failure
+is retained: native views also serve the general evidence reader. Both readers
+now use one native metadata loader; the general reader is required, not obsolete.
+
+ACTIVE source-browser successor: PRIME, branch `codex/native-source-browser`, base
+f2319197ce2ebf7529242e4b991bd89f1da4d50d (includes independently merged2084),
+serial after Core156. Authoritative bounded
+write/resource contract is the private `native-source-browser-handoff.json` in
+PRIME's established runtime-evidence directory. Outcome: ordinary human source
+browsing and exact opening through the shared Build/Plan/Play World browser.
+Adopt the existing source-only APIs, Core origin, APP source metadata/name helper,
+page inventory, native auth/recovery, exact inspection pins and Markdown renderer.
+Move the existing pin comparator into its shared inspection contract module;
+retain citation disclosure for its separate live callers. No second catalogue,
+receipt lookup loader, store, provenance policy, endpoint or schema migration.
+
+Source labels and type/campaign/session filters are navigation, never evidence
+restrictions or read authority. Resolve recap labels by exact producer revision,
+digest and World; use page names as current presentation with explicit metadata
+revision difference. Missing labels must not hide otherwise admitted sources or
+claim complete filtered coverage. Body requests occur only on explicit selection
+and retain the exact native pair/pin; stale/substituted results fail without fallback.
+
+Expected writes extend the earlier API lease with the existing API service/tests,
+Core pin/lockfile only, UI source inspection API/types/auth tests, native source
+browser/tests, shared World browser/tests/CSS, shared pin comparator and its Graph
+consumer. Verify owning HTTP, actual Core source-only reads, UI filters and absence
+of arbitrary result caps, exact pins, late World responses, retry and unchanged
+Graph/picker/auth callers; typecheck/build, independent cumulative review and CI.
+No shared dependency install, runtime restart, retained DB write or provider call
+is activated here; delivery needs protected resource and conservation checks.
+Source/passage attachment, acquisition/restrictions, remaining surface integration
+and operator acceptance stay open; this browser alone does not establish completion.

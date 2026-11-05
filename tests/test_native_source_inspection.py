@@ -301,3 +301,100 @@ def test_changed_source_owner_during_read_withholds_body(inspection, monkeypatch
     monkeypatch.setattr(owner, "resolve_managed_source_identity", changed)
     response = inspection.client.post(PATH + "/read", json=request)
     assert response.status_code == 409 and BODY not in response.text
+
+
+APP_REVISION = "11111111-1111-4111-8111-111111111111"
+
+
+def registered(case, *, page=False):
+    from dungeonmind.application.vnext import publish_native_text_source_evidence
+    from dungeonmind.contracts.vnext.native_source import NativeTextSourceAdmissionV1
+    from tests.test_native_corpus_source_access import NOW
+    from graph_memory.vnext.domain_runtime import GM_LABEL
+    lane = case.lane
+    origin = dict(namespace="dungeonbuddy.workspace-document-registry" if page else
+                  "dungeonbuddy.app-recap-source.v1", object_id=APP_REVISION if page else "recap",
+                  revision_id="registry-revision:2" if page else APP_REVISION)
+    return publish_native_text_source_evidence(
+        repository=lane.repo, domain_contract=lane.domain, semantic_profile=lane.profile,
+        request=NativeTextSourceAdmissionV1(
+            space_id="world:test", admission_id="registered",
+            expected_parent_revision_id=lane.repo.get_head("world:test").head_revision_id,
+            created_at=NOW, body_text=BODY, expected_body_sha256=sha256(BODY.encode()).hexdigest(),
+            source_classification="dungeonbuddy.source:worldbuilding" if page else
+                                  "dungeonbuddy.source:session_recap",
+            authority="primary", visibility={"kind":"labels_any","labels":[GM_LABEL]},
+            origin=origin, spans=[dict(client_ref="all", evidence_role="context",start_byte=0,
+                                     end_byte=len(BODY.encode()),expected_slice_sha256=sha256(BODY.encode()).hexdigest())],
+        ),
+    )
+
+
+def recap_metadata(**changes):
+    from application_state.source.types import SourceRevisionMetadata
+    return SourceRevisionMetadata.model_validate(dict(
+        source_revision_id=APP_REVISION,source_artifact_id="recap",source_domain="recap",
+        campaign_id="c1",session_id="session-8",world_id="managed",
+        content_sha256=sha256(BODY.encode()).hexdigest(),media_type="text/markdown",encoding="utf-8",
+        lineage={},created_at="2026-10-29T00:00:00Z",
+    ) | changes)
+
+
+def test_registered_recap_names_use_exact_metadata_without_opening_bodies(inspection, monkeypatch):
+    from application_state.source import service as sources
+    registered(inspection)
+    seen=[]
+    def metadata(**kwargs):
+        seen.append(kwargs)
+        return [recap_metadata()]
+    monkeypatch.setattr(sources,"get_source_revision_metadata",metadata)
+    monkeypatch.setattr(service,"open_admitted_native_text",lambda *a: pytest.fail("body read"))
+    packet=inspection.client.post(PATH+"/catalog",json=SCOPE).json()
+    assert packet["navigation_complete"] and packet["catalogue"]["complete"]
+    nav=packet["catalogue"]["sources"][0]["navigation"]
+    assert (nav["label"],nav["campaign_id"],nav["session_id"],nav["kind"]) == (
+        "Session 8 recap","c1","session-8","recap")
+    assert seen == [dict(bindings=[("recap",sha256(BODY.encode()).hexdigest())],world_id="managed")]
+
+
+@pytest.mark.parametrize("changes",[
+    {"world_id":"foreign"},{"source_revision_id":"22222222-2222-4222-8222-222222222222"},
+    {"source_artifact_id":"foreign"},{"content_sha256":"0"*64},
+])
+def test_foreign_navigation_metadata_does_not_name_or_hide_a_native_source(inspection,monkeypatch,changes):
+    from application_state.source import service as sources
+    registered(inspection)
+    monkeypatch.setattr(sources,"get_source_revision_metadata",lambda **kw:[recap_metadata(**changes)])
+    packet=inspection.client.post(PATH+"/catalog",json=SCOPE).json()
+    assert packet["catalogue"]["complete"] and not packet["navigation_complete"]
+    item=packet["catalogue"]["sources"][0]
+    assert item["navigation"]["label"] is None
+    assert inspection.client.post(PATH+"/read",json=selection(inspection)).status_code==200
+
+
+def test_navigation_database_failure_does_not_disable_native_source_opening(inspection,monkeypatch):
+    from application_state.source import service as sources
+    from application_state.errors import ApplicationStateUnavailableError
+    registered(inspection)
+    def unavailable(**kwargs):
+        raise ApplicationStateUnavailableError("metadata unavailable")
+    monkeypatch.setattr(sources,"get_source_revision_metadata",unavailable)
+    packet=inspection.client.post(PATH+"/catalog",json=SCOPE).json()
+    assert packet["catalogue"]["complete"] and not packet["navigation_complete"]
+    assert inspection.client.post(PATH+"/read",json=selection(inspection)).status_code==200
+
+
+def test_current_page_name_does_not_replace_an_older_selected_source(inspection,monkeypatch):
+    from application_state.content import pages
+    registered(inspection,page=True)
+    page=SimpleNamespace(work_object_id=APP_REVISION,world_id="managed",title="Current page name",
+                         object_revision=3,campaign_id=None)
+    monkeypatch.setattr(pages,"page_inventory",lambda **kw:[SimpleNamespace(page=page)])
+    packet=inspection.client.post(PATH+"/catalog",json=SCOPE).json()
+    item=packet["catalogue"]["sources"][0]
+    assert item["navigation"]["label"]=="Current page name"
+    assert not item["navigation"]["origin_matches_current_metadata"]
+    assert item["origin"]["revision_id"]=="registry-revision:2"
+    opened=inspection.client.post(PATH+"/read",json=selection(inspection)).json()
+    assert opened["source"]["body_text"]==BODY
+    assert opened["source"]["source_revision_id"]==item["source_revision"]["source_revision_id"]

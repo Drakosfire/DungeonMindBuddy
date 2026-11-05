@@ -8,6 +8,11 @@ const NativeGraphInspection = deferredComponent(
   "World graph",
 );
 
+const NativeSourceInspection = deferredComponent(
+  () => import("./NativeSourceInspection").then(module => ({default: module.NativeSourceInspection})),
+  "World sources",
+);
+
 /** Both entry points inspect the same published authority, only while open. */
 export function LoadedWorldGraphExplorer({ compact = false }: { compact?: boolean } = {}) {
   const world = useSelectedWorld();
@@ -21,6 +26,7 @@ function WorldGraphBrowser({ worldName, worldId, compact }: {
   const dialog = useRef<HTMLDialogElement>(null);
   const launcher = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+  const [material, setMaterial] = useState<"objects"|"sources">("objects");
   useEffect(() => {
     const element = dialog.current;
     if (!element) return;
@@ -49,9 +55,12 @@ function WorldGraphBrowser({ worldName, worldId, compact }: {
       <header className="loaded-graph-explorer__header"><div>
         <span className="loaded-graph-explorer__eyebrow">World atlas</span>
         <h2>{worldName}</h2>
-        <p className="loaded-graph-explorer__scope">Inspect published objects and their supporting sources. This view does not publish changes.</p>
+        <p className="loaded-graph-explorer__scope">Browse sources and reviewed World Graph objects.</p>
       </div><button type="button" className="loaded-graph-explorer__close" onClick={close} aria-label="Close graph" title="Close graph">×</button></header>
-      {open ? <NativeGraphInspection worldId={worldId} /> : null}
+      {open ? <><div role="group" aria-label="World material">
+        <button type="button" aria-pressed={material==='objects'} onClick={()=>setMaterial('objects')}>Objects</button>
+        <button type="button" aria-pressed={material==='sources'} onClick={()=>setMaterial('sources')}>Sources</button>
+      </div>{material==='objects'?<NativeGraphInspection worldId={worldId}/>:<NativeSourceInspection worldId={worldId}/>}</> : null}
     </dialog>
   </>;
 }
