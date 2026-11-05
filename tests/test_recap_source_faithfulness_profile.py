@@ -508,7 +508,11 @@ def test_cross_passage_transition_guards_and_source_frames_reach_thread_prompt()
     for rule in (
         "Resolve references to earlier and later occurrences using the surrounding source context",
         "state the directed before/after relationship in an occurrence description with both occurrences named",
-        "Include evidence from both passages when needed to support the referents and transition",
+        "attach evidence_refs covering the earlier occurrence, the later occurrence, and the source connective",
+        "One paragraph is sufficient when it supplies all three",
+        "otherwise cite each needed paragraph on that claim itself",
+        "check every ordering clause in its description against its own references",
+        "evidence on another node cannot close a missing witness",
         "Do not derive time from passage adjacency alone",
         "the antecedent is ambiguous",
         "the transition changes topic rather than event time",
