@@ -28,6 +28,74 @@ def call(name="actor_pass", **overrides):
     return {"pass_name": name, "observation": observation}
 
 
+def returned(event_id="e1", **overrides):
+    return {"event_id": event_id, "response_status": "returned",
+            "input_tokens": 30, "output_tokens": 10, "cost_usd": 0.02,
+            "pricing_source": "provider_reported:test", **overrides}
+
+
+def test_six_receipts_plus_returned_unknown_attempt_retains_lower_bounds():
+    pending = {"pass_name": "edge_pass", "observation": None, "external_outcome": "unknown",
+               "attempt_evidence": [returned(), returned()]}
+    totals, rows = summarize({"calls": [*[call() for _ in range(6)], pending]})
+    assert totals.provider_attempts is None and totals.cost_usd is None
+    assert totals.input_tokens is None and totals.output_tokens is None
+    assert totals.known_input_tokens == 630 and totals.known_output_tokens == 130
+    assert totals.known_cost_usd == pytest.approx(0.08)
+    assert totals.cost_status == "partial"
+    assert rows[-1].cached_input_tokens is None and rows[-1].reasoning_tokens is None
+
+
+def test_completed_conformance_aggregate_wins_over_callbacks():
+    complete = call(provider_attempt_count=2, cost_usd=0.04, known_cost_usd=0.04)
+    complete["attempt_evidence"] = [returned("e1"), returned("e2")]
+    totals, _ = summarize({"calls": [complete]})
+    assert totals.provider_attempts == 2
+    assert totals.cost_usd == totals.known_cost_usd == 0.04
+    assert totals.input_tokens == 100 and totals.output_tokens == 20
+
+
+@pytest.mark.parametrize("cost,expected", [(None, None), (0, 0), (0.02, 0.02)])
+@pytest.mark.parametrize("response_status", ["returned", "refused", "incomplete"])
+def test_unknown_receipt_preserves_missing_cost_and_real_zero(cost, expected, response_status):
+    pending = {"pass_name": "edge_pass", "observation": None,
+               "attempt_evidence": [returned(cost_usd=cost, response_status=response_status)]}
+    totals, _ = summarize({"calls": [pending]})
+    assert totals.cost_usd is None and totals.known_cost_usd == expected
+    assert totals.cost_status == ("unavailable" if cost is None else "partial")
+
+
+def test_partial_overlapping_views_are_maxima_not_added():
+    pending = call(input_tokens=20, output_tokens=5, known_cost_usd=0.03,
+                   cost_usd=None, cost_status="partial", state="unknown")
+    pending["attempt_evidence"] = [returned(), returned("e2", cost_usd=None)]
+    totals, _ = summarize({"calls": [pending]})
+    assert totals.known_input_tokens == 60 and totals.known_output_tokens == 20
+    assert totals.known_cost_usd == 0.03 and totals.cost_usd is None
+    assert totals.provider_attempts is None and totals.input_tokens is None
+
+
+def test_conflicting_attempt_or_operation_usage_is_rejected():
+    from apps.live_control_server.services.ingest_run_catalog import IngestRunCatalogError
+    for attempts in ([returned(), returned(cost_usd=2)], [returned(input_tokens=101)]):
+        complete = call()
+        complete["attempt_evidence"] = attempts
+        with pytest.raises(IngestRunCatalogError, match="inconsistent|conflicts"):
+            summarize({"calls": [complete]})
+
+
+def test_complete_counts_are_exact_and_reported_cost_remains_authoritative():
+    from apps.live_control_server.services.ingest_run_catalog import IngestRunCatalogError
+    complete = call(input_tokens=10**13)
+    complete["attempt_evidence"] = [returned(input_tokens=10**13 + 1, cost_usd=0.001)]
+    with pytest.raises(IngestRunCatalogError, match="conflicts"):
+        summarize({"calls": [complete]})
+    complete = call(cost_usd=0.03, known_cost_usd=0.03)
+    complete["attempt_evidence"] = [returned(cost_usd=0.03 + 1e-15)]
+    totals, _ = summarize({"calls": [complete]})
+    assert totals.known_cost_usd == totals.cost_usd == 0.03
+
+
 def test_accounting_does_not_add_subsets_or_count_attempt_callbacks_twice():
     totals, rows = summarize(
         {"calls": [call(), call("edge_pass")], "attempts": [{"cost_usd": 99}]}
