@@ -63,6 +63,7 @@ class ProductionExtractionRequest:
     enable_edge_vocabulary_packet: bool = False
     initial_lineage: dict[str, Any] | None = None
     reserved_run: ExtractionRun | None = None
+    known_character_catalog: dict[str, Any] | None = None
 
 
 @dataclass
@@ -366,6 +367,15 @@ def run_production_extraction(
     if source.source_text.encode("utf-8") != registered_bytes:
         raise ValueError("Normalized extraction source differs from registered input")
     components, span_payload = _build_prepared_components(source, run=draft)
+    known_context = None
+    if request.known_character_catalog is not None and profile.qualified_id == "recap_category_v2@2.0":
+        from src.graph_memory.extraction.known_character_bindings import bind_characters
+        from src.graph_memory.extraction.category_candidate_graph_extractor import source_packet_rows_from_span_index
+        from src.graph_memory.extraction.recap_source_authority import partition_recap_source_rows
+        rows = source_packet_rows_from_span_index(span_payload, source_text=source.source_text)
+        rows, _, _ = partition_recap_source_rows(rows, source.source_text)
+        known_context = bind_characters(request.known_character_catalog, rows, source.source_sha256)
+        request = replace(request, initial_lineage={**(request.initial_lineage or {}), "known_character_bindings": known_context})
     prepared = _advance_run(
         request.repo_root,
         draft,
@@ -394,6 +404,7 @@ def run_production_extraction(
         session_id=source.session_id,
         session_number=_session_number(source.session_id),
         source_span_index=span_payload,
+        known_character_context=known_context,
         source_text=source.source_text,
         source_artifact_id=source.source_artifact_id,
         source_ref_id=str(span_payload.get("source_ref_id") or "") or None,
