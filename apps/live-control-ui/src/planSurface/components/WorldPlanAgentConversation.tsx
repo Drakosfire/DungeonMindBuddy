@@ -16,6 +16,7 @@ import {ConversationRelationshipReview} from './ConversationRelationshipReview';
 import {SourceCitedAnswer} from "./SourceCitedAnswer";
 import {ConversationConnectedPageReview} from "./ConversationConnectedPageReview";
 import {ConversationLibrary} from '../../agentInteraction/ConversationLibrary';
+import {resumeConversation,type ResumeConversationCommand} from '../../api/conversationLibraryApi';
 import {ConversationExport} from '../../agentInteraction/ConversationExport';
 import {queueSurfaceConversationRequest,useSurfaceConversationRequests,claimSurfaceConversationRequest,acceptSurfaceConversationRequest,failSurfaceConversationRequest,retrySurfaceConversationRequest,cancelSurfaceConversationRequest,cancelSurfaceConversationTarget,ownsSurfaceConversationRequest,type SurfaceConversationRequest} from '../../agentInteraction/surfaceConversationRequests';
 import { groupConversationAttempts, isUnansweredFailure } from "../../agentInteraction/conversationAttemptGroups";
@@ -2592,6 +2593,9 @@ export function WorldPlanAgentConversation({
   const surfacePreparationRef = useRef(false);
   const [surfacePreparing,setSurfacePreparing] = useState(false);
   const [libraryOpen,setLibraryOpen]=useState(false);
+  const [conversationSwitching,setConversationSwitching]=useState(false);
+  const conversationSwitchRef=useRef(false);
+
   const surfaceVisibleRef = useRef(visible);surfaceVisibleRef.current=visible;
   const surfaceObjectId=buildMode?.savedSource?.documentId;
   useEffect(()=>{
@@ -5967,13 +5971,13 @@ export function WorldPlanAgentConversation({
     : "discuss";
   const buildSourceMissing = isBuild && !buildMode?.savedSource;
   const pendingPlayRecoveryHydrating = Boolean(verifiedWorldId && pendingPlayLoadedWorldId !== verifiedWorldId);
-  const composerBusy = isReadOnly
+  const composerBusy = conversationSwitching || (isReadOnly
     ? surfacePreparing || buildCompose.busy || playCompose.busy || sending || (Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError))
       || historyLoading || !history || Boolean(historyError) || !currentReadOnlyContext || pendingPlayRecoveryHydrating
     : intentBusy || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)
       || pendingPlayRecoveryHydrating
       || (detectedComposerIntent === "discuss"
-      && (historyLoading || !history || Boolean(historyError)));
+      && (historyLoading || !history || Boolean(historyError))));
   const displayedSavedPlanVersion = savedPlanVersion?.key === committedPlanVersionKey
     ? savedPlanVersion
     : null;
@@ -6342,7 +6346,7 @@ export function WorldPlanAgentConversation({
   const recoveryRecordCount = savedAskRecords.length + pendingCommands.filter((item) => item.envelope !== null || item.error).length
     + pendingAsks.filter((item) => item.error).length;
   const pendingNewConversation = pendingCommands.some((item) => item.envelope !== null);
-  const newConversationDisabledReason = newConversationSending
+  const newConversationDisabledReason = conversationSwitching ? 'A conversation is being continued.' : newConversationSending
     ? "A new conversation is already starting."
     : pendingNewConversation
       ? "A previous new-conversation request is awaiting confirmation. Check its status before starting another."
@@ -6356,8 +6360,21 @@ export function WorldPlanAgentConversation({
               : "Conversation history is not ready yet."
             : null;
 
+  async function continueConversation(command:ResumeConversationCommand){
+    if(conversationSwitchRef.current||newConversationDisabledReason||command.world_id!==verifiedWorldId)throw new Error('Wait for the current request and refresh conversation history.');
+    const owner=verifiedWorldId;conversationSwitchRef.current=true;setConversationSwitching(true);
+    try{
+      await resumeConversation(command);
+      if(!latestRef.current.mounted||latestRef.current.verifiedWorldId!==owner)return;
+      historyGenerationRef.current++;historySnapshotRef.current=null;setHistory(null);
+      setContinuationOfActionId(null);setConversationActions([]);setSourcePassage(null);
+      setHistoryRefreshNonce(v=>v+1);setLibraryOpen(false);
+      setConversationNotice('Refreshing the active conversation. Your unsent message and references were kept.');
+    }catch(reason){if(latestRef.current.mounted&&latestRef.current.verifiedWorldId===owner){setHistoryRefreshNonce(v=>v+1);setConversationNotice('Checking which conversation is current. Your unsent message was kept.');}throw reason;}
+    finally{conversationSwitchRef.current=false;if(latestRef.current.mounted)setConversationSwitching(false);}
+  }
   const newConversationButton = (
-    <button
+    <><button type="button" aria-label="Conversation history" onClick={()=>setLibraryOpen(true)}>Conversations</button><button
       className={presentationHosts || isReadOnly ? "conversation-dock__icon-button" : undefined}
       type="button"
       onClick={startNewConversation}
@@ -6368,7 +6385,7 @@ export function WorldPlanAgentConversation({
     >
       {newConversationSending ? "…" : (presentationHosts || isReadOnly) ? <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg> : "New conversation"}
     </button>
-  );
+  </>);
   const headerActions = (
     <div className="world-plan-agent-conversation__actions">
             <button type="button" aria-expanded={settingsOpen} aria-controls="world-plan-agent-settings" onClick={() => setSettingsOpen((open) => !open)}>
@@ -6451,7 +6468,7 @@ export function WorldPlanAgentConversation({
   const managementDetails = (<>
       {verifiedWorldId&&<><button type="button" onClick={()=>setLibraryOpen(true)}>Conversations…</button>
         {history?.world_id===verifiedWorldId&&history.conversation_id&&<ConversationExport key={`${verifiedWorldId}:${history.conversation_id}`} worldId={verifiedWorldId} conversationId={history.conversation_id}/>}
-        {libraryOpen&&<ConversationLibrary key={verifiedWorldId} worldId={verifiedWorldId} onClose={()=>setLibraryOpen(false)}/>}</>}
+        {libraryOpen&&<ConversationLibrary key={verifiedWorldId} worldId={verifiedWorldId} onClose={()=>setLibraryOpen(false)} pointer={history?{revision:history.pointer_revision,activeId:history.active_conversation_id}:undefined} onContinue={continueConversation} continueDisabledReason={newConversationDisabledReason}/>}</>}
 
       {playMode ? <div role="group" aria-label="Play message action">
           <button type="button" aria-pressed={!playEditMode} onClick={() => setPlayEditMode(false)}>Discuss</button>

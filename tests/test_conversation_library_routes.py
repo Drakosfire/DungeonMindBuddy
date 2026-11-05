@@ -115,3 +115,49 @@ def test_retained_discussion_input_is_authenticated_read_only_and_strict(client,
     read.assert_not_called()
     assert client.client.get(url, params={"revision": 4}).status_code == 200
     read.assert_called_once_with("world-one", cid, tid, 4)
+
+
+def test_resume_guard_and_exact_route_owner(client):
+    from unittest.mock import Mock
+    cid=uuid4()
+    service=SimpleNamespace(reopen_conversation=Mock())
+    client.app.state.agent_conversation_service=service
+    body=dict(world_id='world-one',conversation_id=str(cid),command_id=str(uuid4()),expected_pointer_revision=2,expected_active_conversation_id=None)
+    path=f'/api/live/agent/worlds/world-one/conversations/{cid}/resume'
+    denied=TestClient(client.app,client=('127.0.0.1',54001)).post(path,json=body)
+    assert denied.status_code==401
+    client.world.assert_not_called()
+    service.reopen_conversation.assert_not_called()
+    assert client.client.post(path,json=body|{'world_id':'other'}).status_code==422
+    assert client.client.post(path,json=body|{'conversation_id':str(uuid4())}).status_code==422
+    service.reopen_conversation.assert_not_called()
+
+
+def test_mounted_resume_reuses_app_pointer_and_receipt(application_state_dsn,client):
+    from application_state.agent_conversation import AgentConversationService
+    from application_state.agent_conversation.types import ConversationCommand
+    service=AgentConversationService()
+    client.app.state.agent_conversation_service=service
+    def new():
+        pointer=service.get_world_pointer('world-one')
+        return service.new_conversation(ConversationCommand(world_id='world-one',command_id=uuid4(),expected_pointer_revision=pointer.revision,expected_active_conversation_id=pointer.active_conversation_id))
+    old=new()
+    current=new()
+    pointer=service.get_world_pointer('world-one')
+    body=dict(world_id='world-one',conversation_id=str(old.conversation_id),command_id=str(uuid4()),expected_pointer_revision=pointer.revision,expected_active_conversation_id=str(current.conversation_id))
+    path=f'/api/live/agent/worlds/world-one/conversations/{old.conversation_id}/resume'
+    response=client.client.post(path,json=body)
+    assert response.status_code==200,response.text
+    assert response.json()['command_kind']=='reopen'
+    assert service.get_world_pointer('world-one').active_conversation_id==old.conversation_id
+    assert service.get_conversation('world-one',current.conversation_id).status=='archived'
+    assert client.client.post(path,json=body).json()==response.json()
+    newer=new()
+    assert client.client.post(path,json=body).json()==response.json()
+    assert service.get_world_pointer('world-one').active_conversation_id==newer.conversation_id
+    stale=client.client.post(path,json=body|{'command_id':str(uuid4())})
+    assert stale.status_code==409
+    assert service.get_world_pointer('world-one').active_conversation_id==newer.conversation_id
+    missing=uuid4()
+    latest=service.get_world_pointer('world-one')
+    assert client.client.post(f'/api/live/agent/worlds/world-one/conversations/{missing}/resume',json=body|{'conversation_id':str(missing),'command_id':str(uuid4()),'expected_pointer_revision':latest.revision,'expected_active_conversation_id':str(latest.active_conversation_id)}).status_code==404

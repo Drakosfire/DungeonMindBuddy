@@ -5,7 +5,7 @@ afterEach(()=>{vi.restoreAllMocks();vi.unstubAllEnvs();vi.resetModules();});
 async function modules(base=''){vi.stubEnv('VITE_LIVE_API_BASE_URL',base);vi.resetModules();return {live:await import('./liveApi'),library:await import('./conversationLibraryApi')};}
 it.each(['list','name','turns','rename'] as const)('uses guarded bearer transport for %s',async operation=>{
  const {live,library}=await modules();live.setNativeGraphAccessToken('synthetic-library-token');
- const body=operation==='list'?{schema:'dmb_conversation_library_v1',world_id:'world-one',status:'all',items:[meta],next_before:null}:operation==='turns'?{schema:'dmb_conversation_library_turns_v1',world_id:'world-one',conversation_id:id,turns:[],next_before_sequence:null}:meta;
+ const body=operation==='list'?{schema:'dmb_conversation_library_v1',world_id:'world-one',status:'all',items:[meta],next_before:null}:operation==='turns'?{schema:'dmb_conversation_library_turns_v3',world_id:'world-one',conversation_id:id,turns:[],next_before_sequence:null}:meta;
  const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json(body));
  if(operation==='list')await library.listConversations('world-one','all');if(operation==='name')await library.readConversationName('world-one',id);if(operation==='turns')await library.readConversationTurns('world-one',id);if(operation==='rename')await library.renameConversation('world-one',id,'Work',0);
  expect(new Headers(fetch.mock.calls[0][1]?.headers).get('Authorization')).toBe('Bearer synthetic-library-token');expect(fetch.mock.calls[0][1]).toMatchObject({redirect:'error',cache:'no-store'});
@@ -19,4 +19,14 @@ it('does not attach credentials to near-miss library paths',async()=>{
 });
 it('refuses metadata from a different World',async()=>{
  const {live,library}=await modules();live.setNativeGraphAccessToken('synthetic-library-token');vi.spyOn(globalThis,'fetch').mockResolvedValueOnce(Response.json({...meta,world_id:'foreign'}));await expect(library.readConversationName('world-one',id)).rejects.toThrow(/owner/);
+});
+
+it('uses guarded resume transport with exact command identity and excludes near misses',async()=>{
+ const {live,library}=await modules();live.setNativeGraphAccessToken('synthetic-library-token');
+ const command={world_id:'world-one',conversation_id:id,command_id:'22222222-2222-4222-8222-222222222222',expected_pointer_revision:8,expected_active_conversation_id:null};
+ const receipt={world_id:'world-one',conversation_id:id,command_id:command.command_id,command_kind:'reopen',active_conversation_id:id,pointer_revision:9,recorded_at:'2026-11-05T12:00:00Z'};
+ const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json(receipt));await library.resumeConversation(command);
+ expect(new Headers(fetch.mock.calls[0][1]?.headers).get('Authorization')).toBe('Bearer synthetic-library-token');expect(JSON.parse(String(fetch.mock.calls[0][1]?.body))).toEqual(command);
+ await live.authenticatedApiFetch('/api/live/agent/worlds/world-one/conversations/'+id+'/resume-extra',{method:'POST'});
+ expect(new Headers(fetch.mock.calls[1][1]?.headers).has('Authorization')).toBe(false);
 });

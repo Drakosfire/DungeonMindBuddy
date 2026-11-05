@@ -59,3 +59,14 @@ function validateReplyObject(value:unknown,world:string,conversation:string,turn
  if(obj.kind==='page_object'&&exactObject(obj,['kind','object_kind','source'])&&['plan','connected_page','relationship'].includes(String(obj.object_kind)))return;
  throw new Error('Transcript object is invalid.');
 }
+
+/** Existing APP reopen command and durable receipt; no second switch authority. */
+export interface ResumeConversationCommand {world_id:string;conversation_id:string;command_id:string;expected_pointer_revision:number;expected_active_conversation_id:string|null}
+export async function resumeConversation(command:ResumeConversationCommand){
+ const value=await read(path(command.world_id)+'/'+encodeURIComponent(command.conversation_id)+'/resume',{method:'POST',body:JSON.stringify(command)});
+ if(!exactObject(value,['world_id','command_id','command_kind','conversation_id','active_conversation_id','pointer_revision','recorded_at'])
+  ||value.world_id!==command.world_id||value.command_id!==command.command_id||value.command_kind!=='reopen'
+  ||value.conversation_id!==command.conversation_id||value.active_conversation_id!==command.conversation_id
+  ||value.pointer_revision!==command.expected_pointer_revision+1||!Number.isFinite(Date.parse(value.recorded_at)))throw new Error('The saved switch could not be confirmed. Refresh conversations before trying again.');
+ return value;
+}

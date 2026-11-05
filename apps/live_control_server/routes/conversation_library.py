@@ -1,11 +1,12 @@
-"""Explicit authenticated conversation library; no active-pointer mutation."""
+"""Authenticated conversation history and explicit APP-owned continuation."""
 
 from uuid import UUID
 from fastapi import APIRouter, HTTPException, Query, Request
 from application_state.agent_conversation import library
 from application_state.errors import ApplicationStateError
 from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
-from apps.live_control_server.routes.agent import _verified_world_id
+from apps.live_control_server.routes.agent import _verified_world_id, _conversation_service
+from application_state.agent_conversation.types import ReopenCommand, ConversationCommandReceipt
 
 router = APIRouter(
     prefix="/api/live/agent/worlds/{world_id}/conversations",
@@ -112,3 +113,11 @@ def retry_attempts(
 def discussion_retry_input(world_id: str, conversation_id: UUID, turn_id: UUID, request: Request, revision: int = Query(..., ge=1)):
     from application_state.agent_conversation.retry import read_discussion_retry_input
     return call(read_discussion_retry_input, scope(request, world_id, {"revision"}), conversation_id, turn_id, revision)
+
+
+@router.post("/{conversation_id}/resume", response_model=ConversationCommandReceipt)
+def resume(world_id: str, conversation_id: UUID, body: ReopenCommand, request: Request):
+    world = scope(request, world_id, ())
+    if body.world_id != world or body.conversation_id != conversation_id:
+        raise HTTPException(422, detail="Resume command differs from this World or conversation")
+    return call(_conversation_service(request).reopen_conversation, body)
