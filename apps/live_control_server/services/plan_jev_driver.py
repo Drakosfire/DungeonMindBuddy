@@ -84,13 +84,16 @@ class PlanJevDriver:
         if self.rules is not None and not self.rules.selected:
             result.append(rules_candidate())
         from application_state.agent_conversation.native_plan_statements import NativePlanQueryV1, selection_handle
+        from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4
         query = getattr(self.adapter, 'native_query', None)
-        if isinstance(query, NativePlanQueryV1):
+        if isinstance(query, NativeGraphQueryV4):
+            result.extend(self._native_object_candidates())
+        elif isinstance(query, NativePlanQueryV1):
             result.extend(RetrievalCandidate(handle=selection_handle(query, match), label=match.label,
                 kind='Qualified native source statement; select to open its complete attributed support')
                 for match in query.matches if match.statement_id not in self.native_statement_attempts)
         from application_state.agent_conversation.native_plan_assertions import NativePlanQueryV2, selection_handle as assertion_handle
-        if isinstance(query, NativePlanQueryV2):
+        if isinstance(query, NativePlanQueryV2) and not isinstance(query, NativeGraphQueryV4):
             result.extend(RetrievalCandidate(handle=assertion_handle(query, match), label=match.label,
                 kind='Reviewed native Graph assertion; select to read its qualifications and exact supporting evidence')
                 for match in query.assertion_matches if match.assertion_id not in self.native_assertion_attempts)
@@ -155,14 +158,24 @@ class PlanJevDriver:
                 raise ValueError("Plan selection changed its offered catalog")
             native_handles = {candidate.handle for candidate in self.native_sources.offered()}
             from application_state.agent_conversation.native_plan_statements import NativePlanQueryV1, selection_handle
+            from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4, object_record_ids
             query = getattr(self.adapter, 'native_query', None)
-            if isinstance(query, NativePlanQueryV1):
+            if isinstance(query, NativeGraphQueryV4):
+                selected_ids = object_record_ids(query, selected.selected_handles,
+                    assertion=False, attempted=self.native_statement_attempts)
+                assertion_ids = object_record_ids(query, selected.selected_handles,
+                    assertion=True, attempted=self.native_assertion_attempts)
+                if selected_ids:
+                    self._read_native("statement", selected_ids)
+                if assertion_ids:
+                    self._read_native("assertion", assertion_ids)
+            elif isinstance(query, NativePlanQueryV1):
                 selected_ids = [m.statement_id for m in query.matches if selection_handle(query, m) in selected.selected_handles]
                 if selected_ids:
                     self._read_native("statement", selected_ids)
 
             from application_state.agent_conversation.native_plan_assertions import NativePlanQueryV2, selection_handle as assertion_handle
-            if isinstance(query, NativePlanQueryV2):
+            if isinstance(query, NativePlanQueryV2) and not isinstance(query, NativeGraphQueryV4):
                 assertion_ids = [m.assertion_id for m in query.assertion_matches
                     if assertion_handle(query, m) in selected.selected_handles]
                 if assertion_ids:
@@ -236,6 +249,59 @@ class PlanJevDriver:
             authorization_event_id=grant_id, reads=reads, unavailable_ids=unavailable))
         if unavailable:
             self.gaps.append(f"native_{record_kind}_support_unavailable")
+
+    def _native_object_candidates(self, *, examined=False, opened=()):
+        from application_state.agent_conversation.native_plan_assertions import object_record_ids, object_selection_handle
+        query = self.adapter.native_query
+        result = []
+        for match in query.object_matches:
+            handle = object_selection_handle(query, match.entity_id)
+            statement_ids = object_record_ids(query, (handle,), assertion=False)
+            assertion_ids = object_record_ids(query, (handle,), assertion=True)
+            if not statement_ids and not assertion_ids:
+                continue  # Query gap codes retain unavailable/empty discovery status.
+            remaining = (set(statement_ids) - self.native_statement_attempts
+                or set(assertion_ids) - self.native_assertion_attempts)
+            if bool(remaining) == examined:
+                continue
+            keys = {(False, i) for i in statement_ids} | {(True, i) for i in assertion_ids}
+            status = 'opened' if keys <= set(opened) else 'partial' if keys & set(opened) else 'unavailable'
+            result.append(RetrievalCandidate(handle=handle, label=match.label,
+                kind=(f'Previously selected native object: {status}; not an answer-sufficiency verdict' if examined else
+                    'Native Graph object; open its complete admitted statement and assertion support')))
+        return tuple(result)
+
+    def _native_object_examined(self):
+        """Navigation only after both record families settle under the frozen owner."""
+        from application_state.agent_conversation.native_plan_assertions import (
+            NativeGraphQueryV4, NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1)
+        from application_state.agent_conversation.native_plan_statements import (
+            NativePlanStatementReadAuthorizedV1, NativePlanStatementReadObservedV1)
+        from application_state.agent_conversation.native_reads import validate_execution_binding
+        a = self.adapter
+        if a.fence is None or not isinstance(getattr(a, 'native_query', None), NativeGraphQueryV4):
+            return ()
+        receipt, execution = a.fence.turn.graph_context_receipt, a._broker_execution()
+        validate_execution_binding(receipt, execution)
+        if receipt.native_query.sha256 != a.native_query.sha256:
+            raise ValueError('Native controller query differs from its frozen receipt')
+        opened = set()
+        for grant_type, observed_type, field, attempts in (
+            (NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1,
+                'assertion_ids', self.native_assertion_attempts),
+            (NativePlanStatementReadAuthorizedV1, NativePlanStatementReadObservedV1,
+                'statement_ids', self.native_statement_attempts),
+        ):
+            grants = [e for e in execution.events if isinstance(e, grant_type)]
+            observed = [e for e in execution.events if isinstance(e, observed_type)]
+            if ({e.event_id for e in grants} != {e.authorization_event_id for e in observed}
+                    or not attempts <= {i for e in grants for i in getattr(e, field)}):
+                raise ValueError('Native acquisition must settle before another controller decision')
+            attempts.update(i for e in grants for i in getattr(e, field))
+            assertion = field == 'assertion_ids'
+            opened.update((assertion, r.assertion.assertion_id if assertion else r.support.statement_id)
+                for e in observed for r in e.reads)
+        return self._native_object_candidates(examined=True, opened=opened)
 
     def _native_assertion_examined(self):
         from application_state.agent_conversation.native_plan_assertions import (
@@ -311,8 +377,12 @@ class PlanJevDriver:
                     examined.append(rules_candidate())
                 examined.extend(self.saved_page_catalog[h][0] for h in sorted(self.attempted_saved_pages))
                 examined.extend(self.native_sources.examined())
-                examined.extend(self._native_statement_examined())
-                examined.extend(self._native_assertion_examined())
+                from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4
+                if isinstance(getattr(self.adapter, 'native_query', None), NativeGraphQueryV4):
+                    examined.extend(self._native_object_examined())
+                else:
+                    examined.extend(self._native_statement_examined())
+                    examined.extend(self._native_assertion_examined())
                 dispatch = PlanJevDispatch(self.adapter, self.offered(), dialogue=self.dialogue,
                     examined_candidates=examined, allowed_operations=operations)
                 self.current = dispatch

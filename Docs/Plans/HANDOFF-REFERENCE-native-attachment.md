@@ -1,6 +1,6 @@
 # Native Build source and passage attachment
 
-Status: ACTIVE. Owner/designer: PRIME. Topology: serial after merged Buddy2088,
+Status: MERGED_AND_DELIVERED; ordinary answer acceptance remains open. Owner/designer: PRIME. Topology: serial after merged Buddy2088,
 base b7b0150c43b016be981ed98803cc3488033b3ee8. Branch:
 `codex/native-reference-attachment`, same existing checkout/dependencies.
 Review/check the exact cumulative child head, then merge. Runtime delivery must preserve ADVERSARY's
@@ -120,3 +120,18 @@ Owning regression files selected during implementation:
 `tests/test_surface_native_build_ordinary.py`, `tests/test_native_corpus_source_access.py`,
 `tests/test_native_source_inspection.py` and the existing APP native/work-plan/retry
 boundary tests. No unrelated ingestion fixtures are expanded.
+
+## Delivered predecessor; bounded capacity successor
+
+Merged #2089 at e965507aebc45d10ce58edae88904c3fe91c6bd7 after independent
+review and seven CI checks. Combined local delivery 85fde8bd5552 preserved the
+then-deployed ingestion candidate, applied reader fence0106 without retained-row
+rewrites, and verified APP/Core/session conservation. Later compatible runtime
+d7d79e0f8b01 retained that delivery. Ordinary Session29 lines17–47 selection,
+submission, saved-request recovery and the actual human source read were proven
+in turn19c01274-bced-4c8d-a601-9aacf03352d4. The turn failed in later optional
+native retrieval before writer dispatch; it is not answer/citation acceptance.
+
+The owning successor is HANDOFF-REFERENCE-native-object-retrieval.md. Preserve
+that failed turn and its diagnostic. Plan/Play submission, historical executor
+retirement and operator acceptance remain open in the full reference goal.

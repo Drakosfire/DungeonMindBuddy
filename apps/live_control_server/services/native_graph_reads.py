@@ -15,7 +15,7 @@ from dungeonmind.contracts.vnext.source import EvidenceRefV3
 from application_state.agent_conversation.native_statement_input import digest
 from application_state.agent_conversation.native_plan_assertions import (
     NativePlanAssertionMatchV1, NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1,
-    NativePlanAssertionReadV1, NativeAssertionSpanV1, NativeGraphQueryV3, NativeAuthoredTargetV1,
+    NativePlanAssertionReadV1, NativeAssertionSpanV1, NativeGraphQueryV3, NativeGraphQueryV4, NativeObjectMatchV1, NativeAuthoredTargetV1,
 )
 from application_state.agent_conversation.native_plan_statements import (
     NativePlanQueryAuthorityV1, NativePlanQueryUnavailableV1, NativePlanQueryV1,
@@ -267,12 +267,20 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
                 matches=target_matches, assertion_matches=target_assertions,
                 status=status, gap_codes=target_gaps))
             gaps.extend(target_gaps)
-    query_type = NativeGraphQueryV3 if authored_references is not None else NativePlanQueryV2
-    query = query_type(authority=authority, question=question,
+    objects = []
+    for identity in discovered:
+        entity = _entities[identity]
+        names = {a.value.value.strip() for a in entity.assertions
+            if a.subject_entity_id == identity and a.predicate == 'dnd5e:name'
+            and getattr(a.value, 'kind', None) == 'literal'
+            and isinstance(a.value.value, str) and a.value.value.strip()}
+        objects.append(NativeObjectMatchV1(entity_id=identity,
+            label=next(iter(names)) if len(names) == 1 else identity))
+    query = NativeGraphQueryV4(authority=authority, question=question,
         assertion_matches=assertion_matches,
         search_result_sha256=result.result_digest, discovered_entity_ids=discovered,
         matches=tuple(matches), status='partial' if gaps else 'complete', gap_codes=tuple(sorted(set(gaps))),
-        **({'authored_targets': tuple(targets)} if authored_references is not None else {}))
+        authored_targets=tuple(targets), object_matches=tuple(objects))
     if resolve(managed_world_id) != bound:
         raise ValueError('Active Graph binding changed during native query')
     return QueryContext(query, bound, pinned, repo, principal, resolve), query

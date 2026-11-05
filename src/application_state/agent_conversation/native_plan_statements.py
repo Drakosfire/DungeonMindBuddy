@@ -156,13 +156,18 @@ def validate_selected_record_events(query, execution):
     from . import types as t
     from .native_plan_assertions import (NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1,
         NativePlanAssertionReadObservedV1, selection_handle as assertion_handle)
+    from .native_plan_assertions import NativeGraphQueryV4, object_record_ids
     statements = {m.statement_id: m for m in query.matches} if isinstance(query, NativePlanQueryV1) else {}
     assertions = {m.assertion_id: m for m in query.assertion_matches} if isinstance(query, NativePlanQueryV2) else {}
     provider = outcome = selection = None
     grants, observations, attempted = {}, {}, set()
     writer = False
+    pending_object_reads = set()
     for event in execution.events:
         if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
+            if pending_object_reads or (isinstance(query, NativeGraphQueryV4)
+                    and set(grants) != {e.authorization_event_id for e in observations.values()}):
+                raise ValueError('Native object selection must acquire and settle its complete record closure before another provider')
             shared_writer = False
             if event.kind == "native_writer_authorized_v1":
                 from .native_execution import NativeWriterAuthorizedV1
@@ -189,20 +194,32 @@ def validate_selected_record_events(query, execution):
             outcome = event.outcome
         elif isinstance(event, t.PlanJevRetrievalSelectionV1):
             selection = event
+            if isinstance(query, NativeGraphQueryV4):
+                pending_object_reads = {(family, identity) for family in (False, True)
+                    for identity in object_record_ids(query, event.selected_handles, assertion=family,
+                        attempted=(i for f, i in attempted if f == family))}
         elif isinstance(event, (NativePlanStatementReadAuthorizedV1, NativePlanAssertionReadAuthorizedV1)):
             assertion = isinstance(event, NativePlanAssertionReadAuthorizedV1)
             ids = event.assertion_ids if assertion else event.statement_ids
             matches = assertions if assertion else statements
             handle = assertion_handle if assertion else selection_handle
+            if isinstance(query, NativeGraphQueryV4) and selection is not None:
+                expected_ids = object_record_ids(query, selection.selected_handles,
+                    assertion=assertion, attempted=(i for family, i in attempted if family == assertion))
+                selected_closure = set(ids) == set(expected_ids)
+            else:
+                selected_closure = (selection is not None and
+                    {handle(query, matches[i]) for i in ids if i in matches} <= set(selection.selected_handles))
             keys = {(assertion, identity) for identity in ids}
             if (writer or outcome != 'response_received' or selection is None
                     or selection.operation != 'select_candidates' or event.provider_attempt_id != provider
                     or not isinstance(query, NativePlanQueryV1) or event.query_sha256 != query.sha256
                     or not set(ids) <= set(matches) or attempted & keys
-                    or not {handle(query, matches[i]) for i in ids} <= set(selection.selected_handles)):
+                    or not selected_closure):
                 raise ValueError('Native selected read lacks its exact current controller/query grant')
             grants[event.event_id] = event
             attempted.update(keys)
+            pending_object_reads.difference_update(keys)
         elif isinstance(event, (NativePlanStatementReadObservedV1, NativePlanAssertionReadObservedV1)):
             grant = grants.get(event.authorization_event_id)
             assertion = isinstance(event, NativePlanAssertionReadObservedV1)

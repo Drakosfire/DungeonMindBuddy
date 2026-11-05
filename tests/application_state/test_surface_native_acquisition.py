@@ -13,10 +13,6 @@ from application_state.agent_conversation import AgentConversationService, types
 from application_state.agent_conversation.jev_retrieval_contract import (
     RetrievalCandidate,
 )
-from application_state.agent_conversation.native_plan_statements import selection_handle
-from application_state.agent_conversation.native_plan_assertions import (
-    selection_handle as assertion_handle,
-)
 from tests.application_state.test_surface_native_decisions import sdk_case
 from tests.test_surface_native_execution import execution
 from tests.test_surface_native_writer import (
@@ -56,22 +52,10 @@ def host(case, *, query_context=None, source_context=None):
 
 
 def record_candidates(case):
+    from application_state.agent_conversation.native_plan_assertions import object_selection_handle
     q = case.turn.graph_context_receipt.native_query
-    return [
-        RetrievalCandidate(
-            handle=selection_handle(q, m),
-            label=m.label,
-            kind="Qualified source statement",
-        )
-        for m in q.matches
-    ] + [
-        RetrievalCandidate(
-            handle=assertion_handle(q, m),
-            label=m.label,
-            kind="Reviewed Graph assertion",
-        )
-        for m in q.assertion_matches
-    ]
+    return [RetrievalCandidate(handle=object_selection_handle(q, m.entity_id),
+        label=m.label, kind="Native Graph object") for m in q.object_matches]
 
 
 def test_actual_driver_selected_native_support_reads_use_shared_claim(
@@ -89,8 +73,7 @@ def test_actual_driver_selected_native_support_reads_use_shared_claim(
             driver._read_native(
                 "assertion", [m.assertion_id for m in result.assertion_matches]
             )
-            assert driver._native_statement_examined()
-            assert driver._native_assertion_examined()
+            assert driver._native_object_examined()
 
     case = sdk_case(
         application_state_dsn,
@@ -270,12 +253,13 @@ def test_rejected_selected_read_never_reaches_core(
         lambda *_: pytest.fail("Rejected grant reached Core"),
     )
 
+    class RejectedReadProbeComplete(Exception):
+        pass
+
     def selected(case):
-        return [
-            c
-            for c in record_candidates(case)
-            if c.handle.startswith("native-statement:")
-        ]
+        if invalid == "unselected":
+            return [RetrievalCandidate(handle="other-navigation", label="Unrelated navigation", kind="navigation")]
+        return record_candidates(case)
 
     def acquire(case):
         before = case.turn
@@ -310,11 +294,16 @@ def test_rejected_selected_read_never_reaches_core(
             == before
         )
 
-    sdk_case(
-        application_state_dsn,
-        context_record=(context, record),
-        acquisitions=((selected, acquire),),
-    )
+        # Stop at the rejected read. An actually selected object deliberately
+        # remains unacquired; the next provider must not bypass that obligation.
+        raise RejectedReadProbeComplete
+
+    with pytest.raises(RejectedReadProbeComplete):
+        sdk_case(
+            application_state_dsn,
+            context_record=(context, record),
+            acquisitions=((selected, acquire),),
+        )
 
 
 def test_changed_native_binding_keeps_unresolved_grant_and_cannot_retry(
@@ -335,7 +324,7 @@ def test_changed_native_binding_keeps_unresolved_grant_and_cannot_retry(
             with pytest.raises(ValueError, match="cannot be reacquired"):
                 driver._read_native("statement", [result.matches[0].statement_id])
             # No follow-up decision or writer may launder an unsettled grant.
-            driver._native_statement_examined()
+            driver._native_object_examined()
 
     with pytest.raises(ValueError, match="must settle"):
         sdk_case(
@@ -377,13 +366,18 @@ def test_unavailable_assertion_settles_as_gap_without_fabricated_evidence(
     def acquire(case):
         with host(case, query_context=query_context) as adapter:
             driver = PlanJevDriver(adapter)
+            if result.matches:
+                driver._read_native("statement", [m.statement_id for m in result.matches])
             driver._read_native(
                 "assertion", [m.assertion_id for m in result.assertion_matches]
             )
-            assert driver.gaps == ["native_assertion_support_unavailable"]
-            assert all(
-                "unavailable" in c.kind for c in driver._native_assertion_examined()
-            )
+            assert "native_assertion_support_unavailable" in driver.gaps
+            from application_state.agent_conversation.native_plan_assertions import object_record_ids
+            affected = [c for c in driver._native_object_examined()
+                if object_record_ids(result, (c.handle,), assertion=True)]
+            assert affected and all(
+                ": partial;" in c.kind or ": unavailable;" in c.kind for c in affected
+            )  # Other objects can retain readable qualified statements without assertions.
 
     case = sdk_case(
         application_state_dsn,

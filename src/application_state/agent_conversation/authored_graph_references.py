@@ -222,7 +222,7 @@ def validate_native_execution(execution):
 
 def validate_native_context(query, execution):
     """Join human input to Core catalogs; Core alone admits source material."""
-    from .native_plan_assertions import NativeGraphQueryV3
+    from .native_plan_assertions import NativeGraphQueryV3, NativeGraphQueryV4
     from .native_plan_statements import validate_record_reads
     references = native_references(execution)
     if not isinstance(query, NativeGraphQueryV3):
@@ -230,6 +230,8 @@ def validate_native_context(query, execution):
             raise ValueError('Native authored selections require their Core target catalog')
         return
     if references is None:
+        if isinstance(query, NativeGraphQueryV4) and not query.authored_targets:
+            return  # Current object navigation does not fabricate authored targets.
         raise ValueError('Native authored catalog requires its actual reference-aware Build intent')
     authority = query.authority
     if authority.scope_mode != 'world' or authority.campaign_id is not None:

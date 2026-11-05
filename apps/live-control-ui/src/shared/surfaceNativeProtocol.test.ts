@@ -91,3 +91,38 @@ it.each(['root','basis','extra','producer'])('refuses changed native image ackno
   if(mutation==='extra')Object.assign(c.completion,{native_assertion_citations:[]});
   expect(isSurfaceNativeContext(c,buildWork,()=>true)).toBe(false);
 });
+
+
+it('adopts V4 object navigation while preserving exact authored-target citation validation',()=>{
+  const c=authoredContext();
+  const q={...c.receipt.native_query,schema:'dmb_native_graph_query_v4',object_matches:[]};
+  const receipt={...c.receipt,native_query:q};
+  const world=c.receipt.work_context.source_basis.world_id;
+  expect(isNativeGraphQuery(q,world)).toBe(true);
+  expect(isSurfaceNativeReceipt(receipt,buildWork)).toBe(true);
+  expect(isSurfaceNativeCompletion(c.completion,receipt as SurfaceNativeContextReceiptV1)).toBe(true);
+  const missing={...receipt,native_query:{...q,authored_targets:[]}};
+  expect(isSurfaceNativeCompletion(c.completion,missing as SurfaceNativeContextReceiptV1)).toBe(false);
+});
+
+it.each(['missing','foreign','duplicate','extra','blank'])('rejects a V4 object catalog outside exact discovered roots: %s',mutation=>{
+  const c=authoredContext();
+  const roots=['ent:one','ent:two'];
+  const q={...c.receipt.native_query,schema:'dmb_native_graph_query_v4',discovered_entity_ids:roots,
+    object_matches:roots.map(entity_id=>({entity_id,label:entity_id}))};
+  expect(isNativeGraphQuery(q,c.receipt.work_context.source_basis.world_id)).toBe(true);
+  if(mutation==='missing')q.object_matches.pop();
+  else if(mutation==='foreign')q.object_matches[0]!.entity_id='ent:foreign';
+  else if(mutation==='duplicate')q.object_matches[1]!.entity_id=roots[0]!;
+  else if(mutation==='extra')Object.assign(q.object_matches[0]!,{revision:'invented'});
+  else q.object_matches[0]!.label='';
+  expect(isNativeGraphQuery(q,c.receipt.work_context.source_basis.world_id)).toBe(false);
+});
+
+
+it('refuses campaign-scoped V4 presentation even with an empty authored catalog',()=>{
+  const c=authoredContext();
+  const q={...c.receipt.native_query,schema:'dmb_native_graph_query_v4',object_matches:[],authored_targets:[],
+    authority:{...c.receipt.native_query.authority,scope_mode:'campaign',campaign_id:'c1'}};
+  expect(isNativeGraphQuery(q,c.receipt.work_context.source_basis.world_id)).toBe(false);
+});

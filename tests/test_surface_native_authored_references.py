@@ -34,7 +34,7 @@ def test_author_picked_entity_uses_core_at_current_pin_without_becoming_a_search
     context, query = native.prepare_query(lane.world.world_id, 'zz-no-matching-entity-zz', GM,
         repository=lane.repo, resolve_binding=lambda _: bound(lane),
         authored_references=selected)
-    assert query.schema_ == 'dmb_native_graph_query_v3'
+    assert query.schema_ == 'dmb_native_graph_query_v4'
     assert not query.discovered_entity_ids and not query.matches and not query.assertion_matches
     assert query.authority.revision_id != origin
     assert query.authority.revision_id == lane.repo.get_head(lane.world.world_id).head_revision_id
