@@ -388,6 +388,12 @@ def _ordinary_native_case(
     assert authored_source=='source_only' or opened_with_grant
     assert authored or native_read_admission_probes
     data=response.json()
+    # Native evidence belongs to its own receipt. No legacy Graph request was
+    # made; its delivery descriptor must remain wholly not-requested.
+    expected_graph = {'status': 'not_requested', **{key: None for key in (
+        'world_id', 'campaign_id', 'scope_mode', 'revision_id', 'focus',
+        'selection_node_id', 'selection_found', 'head_revision_id', 'is_head')}}
+    assert data['graph'] == expected_graph
     context=data['rules_context']['base_context'] if mixed else data['plan_context']
     completion=context['completion']
     assert completion['schema']=='dmb_surface_native_completion_v1'
@@ -473,6 +479,7 @@ def _ordinary_native_case(
         assert denied.status_code==422
     replay=client.post('/api/live/agent/turn',json=request.model_dump(mode='json',by_alias=True))
     assert replay.status_code==200,replay.text
+    assert replay.json()['graph'] == expected_graph
     if authoring:
         assert replay.json()['plan_proposal']==data['plan_proposal']
     assert (replay.json()['rules_context']['base_context'] if mixed else replay.json()['plan_context'])['completion']==completion and len(wire.calls)==1
