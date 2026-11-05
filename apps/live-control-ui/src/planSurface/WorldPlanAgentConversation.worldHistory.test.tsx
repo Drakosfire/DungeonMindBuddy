@@ -16,6 +16,7 @@ import { webcrypto, createHash } from "node:crypto";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
+import * as conversationLibraryApi from "../api/conversationLibraryApi";
 import type {
   AgentInteractionThread,
   AgentInteractionTurn,
@@ -6038,4 +6039,31 @@ it('retains a pending request with an invalid explicit operation without replayi
   await waitForConversationReady();await openRecoveryDetails();
   expect(screen.getByText(/saved Ask envelope does not match/)).toBeInTheDocument();
   expect(localStorage.getItem(key)).toBe(raw);expect(postAsk).toHaveBeenCalledTimes(1);
+});
+
+
+it('continues an archived conversation from the visible history control while preserving message and references',async()=>{
+ const current='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',old='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+ const api=setupApi(history(current,4,[]));
+ const ref={schema:'dmb_authored_graph_reference_v1' as const,managed_world_id:worldId,native_world_id:'native-world',binding_version:1,graph_revision:'graph-r1',node_id:'selected-object',label:'Retained object'};
+ writeComposerReferences(sessionStorage,worldId,documentId,null,[ref],null,'plan');
+ const summary=(id:string)=>({conversation_id:id,world_id:worldId,title:id===current?'Current work':'Older work',name_revision:0,status:id===current?'active' as const:'archived' as const,turn_count:1,created_at:'2026-11-05T12:00:00Z',updated_at:'2026-11-05T12:00:00Z'});
+ Object.defineProperty(HTMLDialogElement.prototype,'showModal',{configurable:true,value:function(this:HTMLDialogElement){this.setAttribute('open','');}});
+ vi.spyOn(conversationLibraryApi,'listConversations').mockResolvedValue({schema:'dmb_conversation_library_v1',world_id:worldId,status:'all',items:[summary(current),summary(old)],next_before:null});
+ vi.spyOn(conversationLibraryApi,'readConversationName').mockImplementation(async(_world,id)=>summary(id));
+ vi.spyOn(conversationLibraryApi,'readConversationTurns').mockImplementation(async(_world,id)=>({schema:'dmb_conversation_library_turns_v3',world_id:worldId,conversation_id:id,turns:[],next_before_sequence:null}));
+ const resume=vi.spyOn(conversationLibraryApi,'resumeConversation').mockImplementation(async command=>{
+  api.setCurrent(history(old,5,[makeTurn(1,'saved-old-turn','Older discussion','Earlier supported reply')]));
+  return {...command,command_kind:'reopen',active_conversation_id:old,pointer_revision:5,recorded_at:'2026-11-05T12:00:00Z'};
+ });
+ const mount=()=>render(<WorldAgentConversationProvider worldId={worldId}>{conversationElement()}</WorldAgentConversationProvider>);
+ const mounted=mount();await waitForConversationReady();
+ fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'Keep this unsent thought'}});
+ fireEvent.click(screen.getByRole('button',{name:'Conversation history'}));
+ fireEvent.click(await screen.findByRole('button',{name:/Older work/}));
+ fireEvent.click(await screen.findByRole('button',{name:'Continue conversation',exact:true}));
+ await screen.findByText('Earlier supported reply');expect(resume).toHaveBeenCalledWith(expect.objectContaining({conversation_id:old,expected_pointer_revision:4,expected_active_conversation_id:current}));
+ expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep this unsent thought');
+ expect(readComposerReferences(sessionStorage,worldId,documentId,'plan').references).toEqual([ref]);
+ mounted.unmount();mount();await waitForConversationReady();expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep this unsent thought');expect(readComposerReferences(sessionStorage,worldId,documentId,'plan').references).toEqual([ref]);
 });

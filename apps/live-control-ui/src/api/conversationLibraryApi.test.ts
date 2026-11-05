@@ -1,5 +1,5 @@
 import {beforeEach,expect,it,vi} from 'vitest';
-import {readConversationTurns} from './conversationLibraryApi';
+import {readConversationTurns,resumeConversation} from './conversationLibraryApi';
 import {authenticatedApiFetch} from './liveApi';
 vi.mock('./liveApi',async original=>({...await original<typeof import('./liveApi')>(),authenticatedApiFetch:vi.fn()}));
 const cid='11111111-1111-4111-8111-111111111111',tid='22222222-2222-4222-8222-222222222222';
@@ -26,4 +26,11 @@ it('retains captured reference input and rejects a foreign World',async()=>{
  expect((await readConversationTurns('world',cid)).turns[0].authored_references).toEqual(references);
  references.references[0].managed_world_id='foreign';response({...value,turns:[{...value.turns[0],authored_references:references}]});
  await expect(readConversationTurns('world',cid)).rejects.toThrow('reference input');
+});
+
+it('accepts only the exact durable reopen receipt',async()=>{
+ const command={world_id:'world',conversation_id:cid,command_id:tid,expected_pointer_revision:4,expected_active_conversation_id:null};
+ const receipt={world_id:'world',conversation_id:cid,command_id:tid,command_kind:'reopen',active_conversation_id:cid,pointer_revision:5,recorded_at:'2026-11-05T12:00:00Z'};
+ response(receipt);expect(await resumeConversation(command)).toEqual(receipt);
+ for(const patch of [{command_kind:'new'},{world_id:'foreign'},{active_conversation_id:null},{pointer_revision:6},{command_id:cid},{conversation_id:tid}]){response({...receipt,...patch});await expect(resumeConversation(command)).rejects.toThrow(/switch/);}
 });

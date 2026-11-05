@@ -57,3 +57,21 @@ it('shows saved object-only questions and page object links without editable cha
  expect(screen.queryByRole('button',{name:'Continue step'})).not.toBeInTheDocument();
  expect(screen.getByLabelText('Current composer')).toHaveValue('Newer unsent note');
 });
+
+
+it('previews without switching and explicitly continues with the existing pointer command',async()=>{
+ const onContinue=vi.fn().mockResolvedValue(undefined);
+ render(<><textarea aria-label="Unsent draft" defaultValue="Keep my idea"/><ConversationLibrary worldId="world-one" onClose={()=>{}} pointer={{revision:8,activeId:current}} onContinue={onContinue}/></>);
+ await screen.findByText('Current question');fireEvent.click(screen.getByRole('button',{name:/Archived piece/}));await screen.findByText('Archived question');
+ expect(onContinue).not.toHaveBeenCalled();fireEvent.click(screen.getByRole('button',{name:'Continue conversation',exact:true}));
+ await waitFor(()=>expect(onContinue).toHaveBeenCalledTimes(1));expect(onContinue.mock.calls[0][0]).toMatchObject({world_id:'world-one',conversation_id:old,expected_pointer_revision:8,expected_active_conversation_id:current});
+ expect(screen.getByLabelText('Unsent draft')).toHaveValue('Keep my idea');
+});
+it('retries an uncertain switch with the same command identity and blocks unavailable switching',async()=>{
+ const onContinue=vi.fn().mockRejectedValueOnce(new Error('Connection lost')).mockResolvedValue(undefined);
+ const view=render(<ConversationLibrary worldId="world-one" onClose={()=>{}} pointer={{revision:8,activeId:current}} onContinue={onContinue} continueDisabledReason="Reply in progress"/>);
+ fireEvent.click(await screen.findByRole('button',{name:/Archived piece/}));await screen.findByText('Archived question');expect(screen.getByRole('button',{name:'Continue conversation',exact:true})).toBeDisabled();
+ view.rerender(<ConversationLibrary worldId="world-one" onClose={()=>{}} pointer={{revision:8,activeId:current}} onContinue={onContinue}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Continue conversation',exact:true}));await screen.findByRole('alert');
+ fireEvent.click(screen.getByRole('button',{name:'Continue conversation',exact:true}));await waitFor(()=>expect(onContinue).toHaveBeenCalledTimes(2));expect(onContinue.mock.calls[1][0]).toEqual(onContinue.mock.calls[0][0]);
+});
