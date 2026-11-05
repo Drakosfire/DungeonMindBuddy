@@ -1,5 +1,6 @@
 import {SurfaceGraphReferenceInput} from '../surface/SurfaceGraphReferenceInput';
 import {ConversationExport} from './ConversationExport';
+import {LiveApiError} from '../api/liveApi';
 import {groupRetryLineage} from './conversationAttemptGroups';
 import {ConversationRetryAttempts} from './ConversationRetryAttempts';
 import {useEffect,useRef,useState} from 'react';
@@ -70,7 +71,10 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,continue
   const command=pendingResume.current??{world_id:worldId,conversation_id:id,command_id:crypto.randomUUID(),expected_pointer_revision:pointer.revision,expected_active_conversation_id:pointer.activeId};
   pendingResume.current=command;continueInFlight.current=true;setContinuing(true);setError('');
   try{await onContinue(command);if(alive(owner))pendingResume.current=null;}
-  catch(reason){if(alive(owner))setError(message(reason)+' Refresh conversations to check the current selection, or retry this same switch.');}
+  catch(reason){if(alive(owner)){
+   if(reason instanceof LiveApiError&&reason.status===409){pendingResume.current=null;setError('The switch was rejected because the conversation changed. Refresh conversations, then choose Continue again.');}
+   else setError(message(reason)+' Refresh conversations to check the current selection, or retry this same switch.');
+  }}
   finally{if(alive(owner)){continueInFlight.current=false;setContinuing(false);}}
  }
  const ownDetail=detail?.world_id===worldId?detail:null;

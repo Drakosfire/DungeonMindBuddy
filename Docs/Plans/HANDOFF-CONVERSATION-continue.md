@@ -15,7 +15,7 @@ Expected paths: this handoff; routes/conversation_library.py; UI
 api/conversationLibraryApi.ts, agentInteraction/ConversationLibrary.tsx and its
 tests; planSurface/components/WorldPlanAgentConversation.tsx and its existing
 worldHistory tests; tests/test_conversation_library_routes.py and existing
-APP conversation tests if required; api/liveApi.ts exact credential-path selector and its existing conversationLibraryAuth tests; api/conversationLibraryApi.test.ts. The allowlist addition is required for the new authenticated resume caller, not a wider credential scope. Prefixes resolve under their owning apps/src.
+APP conversation tests if required; api/liveApi.ts exact credential-path selector and its existing conversationLibraryAuth tests; api/conversationLibraryApi.test.ts. CI selector additions in .github/workflows/hosted-validation.yml and world-ownership-core.yml are also leased for the owning tests; ADVERSARY explicitly confirmed no conflicting lease and granted the bounded append lease, preserving all ingestion selectors. The allowlist addition is required for the new authenticated resume caller, not a wider credential scope. Prefixes resolve under their owning apps/src.
 
 Serial successors remain in scope: recoverable conversation Trash/Restore, then
 lightweight transcript reads with exact fidelity and measured read costs. Neither

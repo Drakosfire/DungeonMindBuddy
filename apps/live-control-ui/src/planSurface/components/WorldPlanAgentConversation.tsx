@@ -5971,13 +5971,13 @@ export function WorldPlanAgentConversation({
     : "discuss";
   const buildSourceMissing = isBuild && !buildMode?.savedSource;
   const pendingPlayRecoveryHydrating = Boolean(verifiedWorldId && pendingPlayLoadedWorldId !== verifiedWorldId);
-  const composerBusy = isReadOnly
+  const composerBusy = conversationSwitching || (isReadOnly
     ? surfacePreparing || buildCompose.busy || playCompose.busy || sending || (Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError))
       || historyLoading || !history || Boolean(historyError) || !currentReadOnlyContext || pendingPlayRecoveryHydrating
     : intentBusy || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)
       || pendingPlayRecoveryHydrating
       || (detectedComposerIntent === "discuss"
-      && (historyLoading || !history || Boolean(historyError)));
+      && (historyLoading || !history || Boolean(historyError))));
   const displayedSavedPlanVersion = savedPlanVersion?.key === committedPlanVersionKey
     ? savedPlanVersion
     : null;
@@ -6370,7 +6370,7 @@ export function WorldPlanAgentConversation({
       setContinuationOfActionId(null);setConversationActions([]);setSourcePassage(null);
       setHistoryRefreshNonce(v=>v+1);setLibraryOpen(false);
       setConversationNotice('Refreshing the active conversation. Your unsent message and references were kept.');
-    }catch(reason){if(latestRef.current.mounted&&latestRef.current.verifiedWorldId===owner)setHistoryRefreshNonce(v=>v+1);throw reason;}
+    }catch(reason){if(latestRef.current.mounted&&latestRef.current.verifiedWorldId===owner){setHistoryRefreshNonce(v=>v+1);setConversationNotice('Checking which conversation is current. Your unsent message was kept.');}throw reason;}
     finally{conversationSwitchRef.current=false;if(latestRef.current.mounted)setConversationSwitching(false);}
   }
   const newConversationButton = (

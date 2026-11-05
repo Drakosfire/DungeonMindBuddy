@@ -1,6 +1,7 @@
 import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {afterEach,beforeAll,beforeEach,expect,it,vi} from 'vitest';
 import {ConversationLibrary} from './ConversationLibrary';
+import {LiveApiError} from '../api/liveApi';
 import * as api from '../api/conversationLibraryApi';
 vi.mock('../api/conversationLibraryApi',()=>({listConversations:vi.fn(),readConversationName:vi.fn(),readConversationTurns:vi.fn(),renameConversation:vi.fn()}));
 vi.mock('../planSurface/components/BuddyContextTraceLoader',()=>({BuddyContextTraceLoader:()=> <p>Explicit trace</p>}));
@@ -74,4 +75,13 @@ it('retries an uncertain switch with the same command identity and blocks unavai
  view.rerender(<ConversationLibrary worldId="world-one" onClose={()=>{}} pointer={{revision:8,activeId:current}} onContinue={onContinue}/>);
  fireEvent.click(screen.getByRole('button',{name:'Continue conversation',exact:true}));await screen.findByRole('alert');
  fireEvent.click(screen.getByRole('button',{name:'Continue conversation',exact:true}));await waitFor(()=>expect(onContinue).toHaveBeenCalledTimes(2));expect(onContinue.mock.calls[1][0]).toEqual(onContinue.mock.calls[0][0]);
+});
+
+it('rebases a definitively rejected switch after refreshing the pointer',async()=>{
+ const onContinue=vi.fn().mockRejectedValueOnce(new LiveApiError('Pointer changed',409)).mockResolvedValue(undefined);
+ const view=render(<ConversationLibrary worldId="world-one" onClose={()=>{}} pointer={{revision:8,activeId:current}} onContinue={onContinue}/>);
+ fireEvent.click(await screen.findByRole('button',{name:/Archived piece/}));await screen.findByText('Archived question');fireEvent.click(screen.getByRole('button',{name:'Continue conversation',exact:true}));await screen.findByRole('alert');
+ view.rerender(<ConversationLibrary worldId="world-one" onClose={()=>{}} pointer={{revision:9,activeId:current}} onContinue={onContinue}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Refresh conversations'}));await screen.findByText('Current question');fireEvent.click(screen.getByRole('button',{name:/Archived piece/}));await screen.findByText('Archived question');fireEvent.click(screen.getByRole('button',{name:'Continue conversation',exact:true}));
+ await waitFor(()=>expect(onContinue).toHaveBeenCalledTimes(2));expect(onContinue.mock.calls[1][0].command_id).not.toEqual(onContinue.mock.calls[0][0].command_id);expect(onContinue.mock.calls[1][0].expected_pointer_revision).toBe(9);
 });

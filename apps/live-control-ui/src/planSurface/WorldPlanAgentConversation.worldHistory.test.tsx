@@ -6052,7 +6052,9 @@ it('continues an archived conversation from the visible history control while pr
  vi.spyOn(conversationLibraryApi,'listConversations').mockResolvedValue({schema:'dmb_conversation_library_v1',world_id:worldId,status:'all',items:[summary(current),summary(old)],next_before:null});
  vi.spyOn(conversationLibraryApi,'readConversationName').mockImplementation(async(_world,id)=>summary(id));
  vi.spyOn(conversationLibraryApi,'readConversationTurns').mockImplementation(async(_world,id)=>({schema:'dmb_conversation_library_turns_v3',world_id:worldId,conversation_id:id,turns:[],next_before_sequence:null}));
+ let finishResume!:()=>void;
  const resume=vi.spyOn(conversationLibraryApi,'resumeConversation').mockImplementation(async command=>{
+  await new Promise<void>(resolve=>{finishResume=resolve;});
   api.setCurrent(history(old,5,[makeTurn(1,'saved-old-turn','Older discussion','Earlier supported reply')]));
   return {...command,command_kind:'reopen',active_conversation_id:old,pointer_revision:5,recorded_at:'2026-11-05T12:00:00Z'};
  });
@@ -6062,8 +6064,13 @@ it('continues an archived conversation from the visible history control while pr
  fireEvent.click(screen.getByRole('button',{name:'Conversation history'}));
  fireEvent.click(await screen.findByRole('button',{name:/Older work/}));
  fireEvent.click(await screen.findByRole('button',{name:'Continue conversation',exact:true}));
+ await waitFor(()=>expect(resume).toHaveBeenCalledTimes(1));
+ fireEvent.click(screen.getByRole('button',{name:'Close conversations'}));
+ expect(screen.getByRole('button',{name:'Send message',exact:true})).toBeDisabled();
+ fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'Keep this newer unsent thought'}});
+ await act(async()=>finishResume());
  await screen.findByText('Earlier supported reply');expect(resume).toHaveBeenCalledWith(expect.objectContaining({conversation_id:old,expected_pointer_revision:4,expected_active_conversation_id:current}));
- expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep this unsent thought');
+ expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep this newer unsent thought');
  expect(readComposerReferences(sessionStorage,worldId,documentId,'plan').references).toEqual([ref]);
- mounted.unmount();mount();await waitForConversationReady();expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep this unsent thought');expect(readComposerReferences(sessionStorage,worldId,documentId,'plan').references).toEqual([ref]);
+ mounted.unmount();mount();await waitForConversationReady();expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep this newer unsent thought');expect(readComposerReferences(sessionStorage,worldId,documentId,'plan').references).toEqual([ref]);
 });
