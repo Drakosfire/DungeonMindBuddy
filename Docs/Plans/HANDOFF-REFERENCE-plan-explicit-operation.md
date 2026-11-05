@@ -1,6 +1,7 @@
 # Explicit Plan operations use native reference-aware execution
 
-Status: ACTIVE. Owner/designer: PRIME. Authority: active reference integration goal.
+Status: API_MERGED; UI adoption/delivery and operator acceptance remain open.
+Owner/designer: PRIME. Authority: active reference integration goal.
 Topology: serial after merged #2101 b64e9f3e7938ba5c90747cc1973387286e7b8334.
 Branch codex/plan-explicit-native-operation, existing buddy-context-loop checkout
 and dependencies. No runtime/database mutation lease; delivery separately gated.
@@ -84,3 +85,12 @@ filters, remaining legacy execution demolition and operator acceptance stay open
 Checkpoint: full UI migration run found 27 old-producer expectations (252 pass).
 This is not a passing UI integration. Keep original run evidence and settle
 each affected test against a live caller or replacement boundary in the successor.
+
+## API settlement
+
+Merged #2102 at 0e35332a7ddde40a0e4b16755ac36dd0448a55e1 after
+independent review of 442f2e827ce09b63906d8bec3504b0ab6ce9e319 and all
+seven CI checks. Owning tests: 46; broader native/authoring tests: 88.
+Dependent UI adoption is #2103. Runtime remains the prior APP0112 release until
+protected combined delivery; this merge establishes neither UI dogfood nor
+operator acceptance. Original failures and retained records are unchanged.

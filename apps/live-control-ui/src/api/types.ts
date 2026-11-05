@@ -789,6 +789,7 @@ export interface WorldPlanGraphContextFailureV1 {
 
 /** Accepted generic turn route, bound to one saved Plan in a verified World. */
 export interface WorldPlanAgentTurnRequestV1 {
+  plan_requested_operation?: "discuss" | "write_current_page";
   authored_references?: AuthoredReferencesV2;
   plan_authoring_capture?: import("./planAuthoringReviewApi").PlanOriginalAuthoringCapture | null;
   plan_placement_catalog?: import("./planAuthoringReviewApi").PlanPlacementCatalog | null;
@@ -1578,6 +1579,7 @@ export type AgentConversationTurnLifecycleV1 =
   | "interrupted";
 
 export interface WorldAgentConversationHistoryTurnV1 {
+  plan_requested_operation?: "discuss" | "write_current_page";
   authored_references?: AuthoredReferenceInput;
   native_statement_context?: NativeStatementAnswerContextV1;
   plan_proposal?: import("./planAuthoringReviewApi").PlanAuthoredProposal | null;
