@@ -5,6 +5,7 @@ import json
 import math
 from collections.abc import Mapping
 from pathlib import Path
+from src.graph_memory.extraction.bounded_recap_execution import _acknowledged_attempts
 from apps.live_control_server.models.extraction_usage import (
     ExtractionUsageResponse,
     PassUsage,
@@ -35,6 +36,30 @@ def tokens(value):
         if isinstance(value, int) and not isinstance(value, bool) and value >= 0
         else None
     )
+
+
+def _attempt_lower_bounds(call):
+    try:
+        returned = _acknowledged_attempts(call.get("attempt_evidence", []))
+    except ValueError as exc:
+        raise IngestRunCatalogError(
+            "Retained attempt usage is inconsistent.", code=CODE_INTEGRITY, status_code=409,
+        ) from exc
+    values = {}
+    for field in ("input_tokens", "output_tokens", "cost_usd"):
+        parts = [row[field] for row in returned if row.get(field) is not None]
+        values[field] = (math.fsum(parts) if field == "cost_usd" else sum(parts)) if parts else None
+    values["provider_attempts"] = len(returned)
+    values["pricing_sources"] = {
+        row["pricing_source"] for row in returned
+        if row.get("cost_usd") is not None and isinstance(row.get("pricing_source"), str)
+    }
+    return values
+
+
+def _known_max(*values):
+    present = [value for value in values if value is not None]
+    return max(present) if present else None
 
 
 def aggregate(rows: list[UsageMetrics]) -> UsageMetrics:
@@ -109,6 +134,8 @@ def summarize(ledger: dict) -> tuple[UsageMetrics, list[PassUsage]]:
                 code=CODE_INTEGRITY,
                 status_code=409,
             )
+        lower = _attempt_lower_bounds(call)
+        unknown = not obs or call.get("external_outcome") == "unknown" or obs.get("state") == "unknown"
         data = {
             field: tokens(obs.get(field))
             for field in [
@@ -127,6 +154,29 @@ def summarize(ledger: dict) -> tuple[UsageMetrics, list[PassUsage]]:
         known = number(obs.get("known_cost_usd"))
         if reported is not None:
             known = reported
+        # These are overlapping views of the same attempts, never additive.
+        known_input = _known_max(data["input_tokens"], lower["input_tokens"])
+        known_output = _known_max(data["output_tokens"], lower["output_tokens"])
+        known = _known_max(known, lower["cost_usd"])
+        if not unknown:
+            for full, acknowledged, approximate in (
+                (data["input_tokens"], lower["input_tokens"], False),
+                (data["output_tokens"], lower["output_tokens"], False),
+                (reported, lower["cost_usd"], True),
+                (attempts, lower["provider_attempts"], False),
+            ):
+                if (full is not None and acknowledged is not None and acknowledged > full
+                        and not (approximate and math.isclose(acknowledged, full, rel_tol=1e-12, abs_tol=1e-12))):
+                    raise IngestRunCatalogError(
+                        "Operation usage conflicts with acknowledged attempts.",
+                        code=CODE_INTEGRITY, status_code=409,
+                    )
+            known_input = data["input_tokens"] if data["input_tokens"] is not None else known_input
+            known_output = data["output_tokens"] if data["output_tokens"] is not None else known_output
+            known = reported if reported is not None else known
+        else:
+            data = {field: None for field in data}
+            attempts = reported = None
         # Old receipts have no cost-completeness contract. Keep them unknown.
         status = (
             "not_dispatched"
@@ -138,16 +188,22 @@ def summarize(ledger: dict) -> tuple[UsageMetrics, list[PassUsage]]:
             else "unavailable"
         )
         data.update(
-            known_input_tokens=data["input_tokens"],
-            known_output_tokens=data["output_tokens"],
+            known_input_tokens=known_input,
+            known_output_tokens=known_output,
             provider_attempts=attempts,
             cost_usd=reported,
             known_cost_usd=known,
             cost_status=status,
-            pricing_source=obs.get("pricing_source")
-            if isinstance(obs.get("pricing_source"), str)
-            else None,
+            pricing_source=None,
         )
+        pricing_sources = set(lower["pricing_sources"])
+        if isinstance(obs.get("pricing_source"), str) and (
+            (obs.get("cost_status") == "reported" and number(obs.get("cost_usd")) is not None)
+            or number(obs.get("known_cost_usd")) is not None
+        ):
+            pricing_sources.add(obs["pricing_source"])
+        if pricing_sources:
+            data["pricing_source"] = next(iter(pricing_sources)) if len(pricing_sources) == 1 else "multiple reported sources"
         if data["input_tokens"] is not None and data["output_tokens"] is not None:
             data["total_tokens"] = data["input_tokens"] + data["output_tokens"]
         rows.append(PassUsage(pass_name=call["pass_name"], **data))

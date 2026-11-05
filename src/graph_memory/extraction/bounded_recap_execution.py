@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
 import os
 import re
 import time
@@ -96,6 +97,44 @@ def _safe_observation_snapshot(value: Any) -> dict[str, Any]:
     if not isinstance(value, Mapping):
         return {}
     return {key: value[key] for key in _SAFE_OBSERVATION_FIELDS if key in value}
+
+
+def _acknowledged_attempts(entries) -> list[dict[str, Any]]:
+    """One safe metric view per acknowledged GE event, never a full-operation receipt."""
+    if not isinstance(entries, list):
+        raise ValueError("invalid retained attempt evidence")
+    events: dict[str, dict[str, Any]] = {}
+    responses: dict[str, str] = {}
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            raise ValueError("invalid retained attempt evidence")
+        if entry.get("response_status") not in {"returned", "refused", "incomplete"}:
+            continue
+        event_id = entry.get("event_id")
+        if not isinstance(event_id, str) or not event_id:
+            raise ValueError("returned attempt requires a stable event identifier")
+        safe = {key: entry[key] for key in _SAFE_ATTEMPT_FIELDS if key in entry}
+        for field in ("input_tokens", "output_tokens", "cached_input_tokens", "reasoning_tokens"):
+            value = safe.get(field)
+            if value is not None and (type(value) is not int or value < 0):
+                raise ValueError("invalid returned attempt token count")
+        cost = safe.get("cost_usd")
+        if cost is not None and (isinstance(cost, bool) or not isinstance(cost, (int, float))
+                                 or not math.isfinite(cost) or cost < 0):
+            raise ValueError("invalid returned attempt cost")
+        prior = events.setdefault(event_id, {})
+        for key, value in safe.items():
+            if value is not None and prior.get(key) is not None and prior[key] != value:
+                raise ValueError("conflicting returned attempt evidence")
+            if value is not None or key not in prior:
+                prior[key] = value
+        response_id = prior.get("provider_response_id")
+        if response_id is not None:
+            if not isinstance(response_id, str) or not response_id:
+                raise ValueError("invalid returned response identifier")
+            if responses.setdefault(response_id, event_id) != event_id:
+                raise ValueError("returned response belongs to multiple attempt events")
+    return list(events.values())
 
 
 def _private_response_envelope(
@@ -385,9 +424,10 @@ class BoundedRecapPassClient:
                     or "ge_attempt" not in record):
                 continue
             event = record["ge_attempt"]
-            entries.append({key: event[key] for key in ("event_id", "ordinal", "kind", "response_status")} | {
+            entries.append({key: event[key] for key in _SAFE_ATTEMPT_FIELDS if key in event} | {
                 "capture_id": record["capture_id"], "sha256": row["sha256"],
             })
+        _acknowledged_attempts(entries)  # Reject conflicting identities/metrics before sealing.
         return sorted(entries, key=lambda entry: (entry["ordinal"], entry["event_id"]))
 
     def seal_execution(self, *, private_response=None, error=None):
@@ -450,12 +490,23 @@ class BoundedRecapPassClient:
             for call in self.calls:
                 observation = call.get("observation")
                 value = observation.get(field) if isinstance(observation, Mapping) else None
+                returned = len(_acknowledged_attempts(call.get("attempt_evidence", [])))
+                uncertain = call.get("external_outcome") == "unknown" or (
+                    isinstance(observation, Mapping) and observation.get("state") == "unknown"
+                )
                 if type(value) is int and value >= 0:
-                    known += value
+                    if field == "provider_attempt_count" and value < returned and not uncertain:
+                        raise ValueError("operation count conflicts with returned attempts")
+                    known += max(value, returned) if field == "provider_attempt_count" else value
+                    complete = complete and not uncertain
                 elif call.get("external_outcome") == "not_started":
+                    if returned:
+                        raise ValueError("not-started operation has returned attempts")
                     continue
                 else:
                     complete = False
+                    if field == "provider_attempt_count":
+                        known += returned
             return {
                 "total": known if complete else None,
                 "known_total": known,
@@ -466,7 +517,7 @@ class BoundedRecapPassClient:
             "schema": "dmb_bounded_recap_execution_v1",
             "limits": asdict(self.limits),
             "pass_invocation_count": len(self.calls),
-            "acknowledged_response_count": sum(len(call.get("attempt_evidence", [])) for call in self.calls),
+            "acknowledged_response_count": sum(len(_acknowledged_attempts(call.get("attempt_evidence", []))) for call in self.calls),
             "pass_invocation_limit": self.limits.max_calls,
             "attempt_counts": {
                 "provider_attempts": aggregate("provider_attempt_count"),

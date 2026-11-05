@@ -18,6 +18,50 @@ from src.graph_memory.extraction.bounded_recap_execution import (
     DEEPSEEK_MODEL,
     RecapExecutionLimits,
 )
+
+
+@pytest.mark.parametrize("response_status", ["returned", "refused", "incomplete"])
+def test_returned_attempt_survives_unknown_worker_receipt(monkeypatch, response_status):
+    from src.graph_memory.extraction import bounded_recap_execution as module
+    from src.graph_memory.extraction._recap_inference_worker import _WorkerOutcome
+
+    event = {"event_id": "operation:1", "ordinal": 1, "kind": "initial",
+             "response_status": response_status, "provider_response_id": "response:1",
+             "input_tokens": 12, "output_tokens": 9, "cost_usd": 0.02}
+    record = {"pass_ordinal": 1, "pass_name": "actor_pass", "ge_attempt": event,
+              "capture_id": "capture:1", "response": {"text": "PRIVATE_RESPONSE"}}
+    client = BoundedRecapPassClient(RecapExecutionLimits())
+    client.execution_binding = {"run_id": "synthetic"}
+    monkeypatch.setattr(client, "_persist_capture", lambda *args: None)
+    monkeypatch.setattr(client, "_execution_records", lambda: [{"record": record, "sha256": "digest"}])
+    monkeypatch.setattr(module, "_execute_in_owned_process", lambda *args, **kwargs: _WorkerOutcome(None, True))
+    with pytest.raises(CategoryGraphExtractionError, match="without receipt"):
+        invoke(client)
+    ledger = client.ledger()
+    assert ledger["calls"][0]["observation"] is None
+    assert ledger["calls"][0]["external_outcome"] == "unknown"
+    assert ledger["calls"][0]["attempt_evidence"][0]["cost_usd"] == 0.02
+    assert ledger["attempt_counts"]["provider_attempts"] == {
+        "known_total": 1, "total": None, "complete": False,
+    }
+    assert ledger["attempt_counts"]["conformance_retries"]["total"] is None
+    assert "PRIVATE_RESPONSE" not in json.dumps(ledger)
+
+
+def test_acknowledged_attempts_deduplicate_and_reject_conflicts():
+    from src.graph_memory.extraction.bounded_recap_execution import _acknowledged_attempts
+
+    event = {"event_id": "e1", "response_status": "returned", "cost_usd": 0,
+             "provider_response_id": "r1"}
+    assert len(_acknowledged_attempts([event, dict(event)])) == 1
+    assert _acknowledged_attempts([{**event, "provider_response_id": None}])[0]["cost_usd"] == 0
+    with pytest.raises(ValueError, match="conflicting"):
+        _acknowledged_attempts([event, {**event, "cost_usd": 1}])
+    with pytest.raises(ValueError, match="multiple"):
+        _acknowledged_attempts([event, {**event, "event_id": "e2"}])
+    for cost in (True, -1, float("nan"), float("inf")):
+        with pytest.raises(ValueError, match="cost"):
+            _acknowledged_attempts([{**event, "cost_usd": cost}])
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,
 )
