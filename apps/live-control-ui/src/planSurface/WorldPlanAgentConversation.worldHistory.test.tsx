@@ -6070,7 +6070,7 @@ it('continues an archived conversation from the visible history control while pr
  expect(screen.getByRole('button',{name:'Send message',exact:true})).toBeDisabled();
  fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'Keep this newer unsent thought'}});
  await act(async()=>finishResume());
- await screen.findByText('Earlier supported reply');expect(resume).toHaveBeenCalledWith(expect.objectContaining({conversation_id:old,expected_pointer_revision:4,expected_active_conversation_id:current}));
+ await screen.findByText('Earlier supported reply');expect(screen.queryByText(/Refreshing the active conversation/)).not.toBeInTheDocument();expect(resume).toHaveBeenCalledWith(expect.objectContaining({conversation_id:old,expected_pointer_revision:4,expected_active_conversation_id:current}));
  expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep this newer unsent thought');
  expect(readComposerReferences(sessionStorage,worldId,documentId,'plan').references).toEqual([ref]);
  mounted.unmount();mount();await waitForConversationReady();expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep this newer unsent thought');expect(readComposerReferences(sessionStorage,worldId,documentId,'plan').references).toEqual([ref]);
@@ -6095,4 +6095,22 @@ it('trashes the current conversation without losing a newer unsent draft or its 
  await waitFor(()=>expect(screen.getByRole('button',{name:'Send message',exact:true})).not.toBeDisabled());expect(trash).toHaveBeenCalledWith(expect.objectContaining({conversation_id:current,expected_pointer_revision:4}),'trash');
  expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Newer idea while waiting');expect(readComposerReferences(sessionStorage,worldId,documentId,'plan').references).toEqual([ref]);
  mounted.unmount();mount();await waitForConversationReady();expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Newer idea while waiting');expect(readComposerReferences(sessionStorage,worldId,documentId,'plan').references).toEqual([ref]);
+});
+
+it('keeps toolbar references and completed activity out of the composer',async()=>{
+ setupApi(history('conversation-a',2,[makeTurn(1,'turn-1','Question','Answer')]));
+ const header=document.createElement('div'),toolbar=document.createElement('div'),messages=document.createElement('div'),composer=document.createElement('div');document.body.append(header,toolbar,messages,composer);
+ const view=render(conversationElement({presentationHosts:{header,newConversation:toolbar,context:null,messages,composer}}));
+ await waitForConversationReady();expect(within(toolbar).getByRole('button',{name:'Conversation history'}).querySelector('svg')).not.toBeNull();
+ expect(within(toolbar).getByRole('button',{name:'@ Reference'})).toHaveTextContent('@');expect(within(composer).queryByRole('button',{name:'@ Reference'})).toBeNull();
+ expect(within(composer).queryByText('How this reply came together')).toBeNull();expect(within(header).getByText('How this reply came together')).toBeInTheDocument();
+ view.unmount();header.remove();toolbar.remove();messages.remove();composer.remove();
+});
+
+it('keeps completed activity accessible while a presentation menu host is unavailable',async()=>{
+ setupApi(history('conversation-a',2,[makeTurn(1,'turn-1','Question','Answer')]));
+ const composer=document.createElement('div');document.body.append(composer);
+ const view=render(conversationElement({presentationHosts:{header:null,context:null,messages:null,composer}}));
+ expect(await within(composer).findByText('How this reply came together')).toBeInTheDocument();
+ view.unmount();composer.remove();
 });
