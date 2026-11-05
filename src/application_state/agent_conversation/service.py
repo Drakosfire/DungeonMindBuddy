@@ -61,6 +61,7 @@ from application_state.agent_conversation.types import (
     RelatedRecapContextAuthorizationEventV2,
     RelatedRecapContextProviderInclusionEventV2,
     ReopenCommand,
+    ConversationTrashCommand,
     SourceReadAuthorizationEventV2,
     SubmittedTurnIntentV1,
     SubmittedTurnIntentV2,
@@ -690,6 +691,49 @@ class AgentConversationService:
                 result_active_conversation_id=new_pointer.active_conversation_id,
                 result_pointer_revision=new_pointer.revision,
                 recorded_at=now,
+            )
+
+    def set_conversation_trash(self, command: ConversationTrashCommand, *, restore: bool) -> ConversationCommandReceipt:
+        """Reversible lifecycle using the existing World command/pointer owner."""
+        command = ConversationTrashCommand.model_validate_json(command.model_dump_json())
+        world_id = _world_id(command.world_id)
+        kind = "restore" if restore else "trash"
+        now = _now()
+        with unit_of_work(_ready_dsn()) as conn:
+            pointer = _lock_pointer(conn, world_id)
+            if repo.get_command_retirement(conn, world_id, command.command_id) is not None:
+                raise ApplicationStateConflictError("command ID is retired")
+            replay = _receipt_replay(conn, command, command_kind=kind)
+            if replay is not None:
+                return replay
+            _expect_pointer(command, pointer)
+            target = repo.lock_conversation(conn, world_id, command.conversation_id)
+            if target is None:
+                raise ApplicationStateNotFoundError("conversation not found in verified World")
+            if (restore and target.status != "trashed") or (not restore and target.status == "trashed"):
+                raise ApplicationStateConflictError("conversation lifecycle changed; refresh before retrying")
+            if (target.status == "active") != (pointer.active_conversation_id == target.conversation_id):
+                raise ApplicationStateIntegrityError("conversation status differs from its World pointer")
+            changed = repo.update_conversation_state(
+                conn, world_id=world_id, conversation_id=target.conversation_id,
+                expected_revision=target.revision, status="archived" if restore else "trashed",
+                next_turn_sequence=target.next_turn_sequence, now=now, archived_at=target.archived_at or now,
+            )
+            if changed is None:
+                raise ApplicationStateConflictError("conversation changed during lifecycle update")
+            new_pointer = repo.update_world_state(
+                conn, world_id=world_id,
+                active_conversation_id=None if pointer.active_conversation_id == target.conversation_id else pointer.active_conversation_id,
+                pointer_revision=pointer.revision + 1, now=now,
+            )
+            return repo.insert_command_receipt(
+                conn, world_id=world_id, command_id=command.command_id, command_kind=kind,
+                request_fingerprint=request_fingerprint(command),
+                expected_pointer_revision=command.expected_pointer_revision,
+                expected_active_conversation_id=command.expected_active_conversation_id,
+                conversation_id=target.conversation_id,
+                result_active_conversation_id=new_pointer.active_conversation_id,
+                result_pointer_revision=new_pointer.revision, recorded_at=now,
             )
 
     def accept_turn(self, submission: TurnSubmission) -> TurnReadModel:

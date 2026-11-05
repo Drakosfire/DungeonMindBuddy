@@ -161,3 +161,23 @@ def test_mounted_resume_reuses_app_pointer_and_receipt(application_state_dsn,cli
     missing=uuid4()
     latest=service.get_world_pointer('world-one')
     assert client.client.post(f'/api/live/agent/worlds/world-one/conversations/{missing}/resume',json=body|{'conversation_id':str(missing),'command_id':str(uuid4()),'expected_pointer_revision':latest.revision,'expected_active_conversation_id':str(latest.active_conversation_id)}).status_code==404
+
+
+@pytest.mark.parametrize("operation", ["trash", "restore"])
+def test_lifecycle_auth_and_exact_target(client, monkeypatch, operation):
+    from datetime import datetime, timezone
+    from application_state.agent_conversation.types import ConversationCommandReceipt
+    cid, command_id = uuid4(), uuid4()
+    body = dict(world_id="world-one", conversation_id=str(cid), command_id=str(command_id), expected_pointer_revision=4, expected_active_conversation_id=None)
+    native = Mock(return_value=ConversationCommandReceipt(world_id="world-one", conversation_id=cid, command_id=command_id, command_kind=operation, active_conversation_id=None, pointer_revision=5, recorded_at=datetime.now(timezone.utc)))
+    monkeypatch.setattr(routes, "_conversation_service", lambda request: SimpleNamespace(set_conversation_trash=native))
+    url = f"/api/live/agent/worlds/world-one/conversations/{cid}/{operation}"
+    unauthorized = TestClient(client.app, client=("127.0.0.1", 54001))
+    assert unauthorized.post(url, json=body).status_code == 401
+    native.assert_not_called()
+    assert client.client.post(url, json={**body, "world_id": "foreign"}).status_code == 422
+    assert client.client.post(url, json={**body, "conversation_id": str(uuid4())}).status_code == 422
+    assert client.client.post(url + "?unexpected=1", json=body).status_code == 422
+    native.assert_not_called()
+    assert client.client.post(url, json=body).status_code == 200
+    assert native.call_args.kwargs == {"restore": operation == "restore"}

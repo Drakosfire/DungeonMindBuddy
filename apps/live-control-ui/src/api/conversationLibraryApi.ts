@@ -2,8 +2,8 @@ import type {AuthoredReferenceInput} from './types';
 import {isAuthoredReferences} from '../agentInteraction/authoredGraphReferences';
 import {decodeRetryContext,type TurnRetryContext} from './conversationRetryApi';
 import {authenticatedApiFetch,LiveApiError} from './liveApi';
-export interface ConversationSummary{conversation_id:string;world_id:string;title:string;name_revision:number;status:'active'|'archived';turn_count:number;created_at:string;updated_at:string}
-export interface LibraryPage{schema:'dmb_conversation_library_v1';world_id:string;status:'all'|'archived';items:ConversationSummary[];next_before:string|null}
+export interface ConversationSummary{conversation_id:string;world_id:string;title:string;name_revision:number;status:'active'|'archived'|'trashed';turn_count:number;created_at:string;updated_at:string}
+export interface LibraryPage{schema:'dmb_conversation_library_v1';world_id:string;status:'all'|'archived'|'trashed';items:ConversationSummary[];next_before:string|null}
 export interface LibraryObjectSource{world_id:string;conversation_id:string;turn_id:string;document_id:string;surface_id:'build'}
 export type LibraryReplyObject=({kind:'questions';questions:{text:string}[]}|{kind:'page_object';object_kind:'plan'|'connected_page'|'relationship'})&{source:LibraryObjectSource};
 export interface LibraryTurn{authored_references?:AuthoredReferenceInput;turn_id:string;sequence:number;status:string;user_text:string;assistant_text:string|null;reply_object:LibraryReplyObject|null;retry_context:TurnRetryContext|null}
@@ -17,11 +17,11 @@ async function read(url:string,init?:RequestInit){
 }
 function summary(value:any,world:string):ConversationSummary{
  if(!value||!uuid(value.conversation_id)||value.world_id!==world||typeof value.title!=='string'||!value.title.trim()||value.title.length>320
-  ||!Number.isInteger(value.name_revision)||value.name_revision<0||!['active','archived'].includes(value.status)
+  ||!Number.isInteger(value.name_revision)||value.name_revision<0||!['active','archived','trashed'].includes(value.status)
   ||!Number.isInteger(value.turn_count)||value.turn_count<0||!Number.isFinite(Date.parse(value.created_at))||!Number.isFinite(Date.parse(value.updated_at)))throw new Error('Conversation name has a different owner or invalid metadata.');
  return value;
 }
-export async function listConversations(world:string,status:'all'|'archived',before?:string){
+export async function listConversations(world:string,status:'all'|'archived'|'trashed',before?:string){
  const q=new URLSearchParams({status,limit:'25'});if(before)q.set('before',before);
  const value=await read(path(world)+'?'+q);
  if(value.schema!=='dmb_conversation_library_v1'||value.world_id!==world||value.status!==status||!Array.isArray(value.items)||value.items.length>25||!(value.next_before===null||uuid(value.next_before)))throw new Error('Conversation list differs from this World.');
@@ -68,5 +68,16 @@ export async function resumeConversation(command:ResumeConversationCommand){
   ||value.world_id!==command.world_id||value.command_id!==command.command_id||value.command_kind!=='reopen'
   ||value.conversation_id!==command.conversation_id||value.active_conversation_id!==command.conversation_id
   ||value.pointer_revision!==command.expected_pointer_revision+1||!Number.isFinite(Date.parse(value.recorded_at)))throw new Error('The saved switch could not be confirmed. Refresh conversations before trying again.');
+ return value;
+}
+
+export type ConversationLifecycleOperation='trash'|'restore';
+export async function changeConversationLifecycle(command:ResumeConversationCommand,operation:ConversationLifecycleOperation){
+ const value=await read(path(command.world_id)+'/'+encodeURIComponent(command.conversation_id)+'/'+operation,{method:'POST',body:JSON.stringify(command)});
+ const active=operation==='trash'&&command.expected_active_conversation_id===command.conversation_id?null:command.expected_active_conversation_id;
+ if(!exactObject(value,['world_id','command_id','command_kind','conversation_id','active_conversation_id','pointer_revision','recorded_at'])
+  ||value.world_id!==command.world_id||value.command_id!==command.command_id||value.command_kind!==operation
+  ||value.conversation_id!==command.conversation_id||value.active_conversation_id!==active
+  ||value.pointer_revision!==command.expected_pointer_revision+1||!Number.isFinite(Date.parse(value.recorded_at)))throw new Error('The conversation lifecycle change could not be confirmed. Refresh conversations before retrying.');
  return value;
 }

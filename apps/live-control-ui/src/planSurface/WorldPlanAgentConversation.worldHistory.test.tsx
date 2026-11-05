@@ -6074,3 +6074,23 @@ it('continues an archived conversation from the visible history control while pr
  expect(readComposerReferences(sessionStorage,worldId,documentId,'plan').references).toEqual([ref]);
  mounted.unmount();mount();await waitForConversationReady();expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep this newer unsent thought');expect(readComposerReferences(sessionStorage,worldId,documentId,'plan').references).toEqual([ref]);
 });
+
+it('trashes the current conversation without losing a newer unsent draft or its references',async()=>{
+ const current='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',api=setupApi(history(current,4,[]));
+ const ref={schema:'dmb_authored_graph_reference_v1' as const,managed_world_id:worldId,native_world_id:'native-world',binding_version:1,graph_revision:'graph-r1',node_id:'selected-object',label:'Retained object'};
+ writeComposerReferences(sessionStorage,worldId,documentId,null,[ref],null,'plan');
+ Object.defineProperty(HTMLDialogElement.prototype,'showModal',{configurable:true,value:function(this:HTMLDialogElement){this.setAttribute('open','');}});
+ const summary={conversation_id:current,world_id:worldId,title:'Current work',name_revision:0,status:'active' as const,turn_count:0,created_at:'2026-11-05T12:00:00Z',updated_at:'2026-11-05T12:00:00Z'};
+ vi.spyOn(conversationLibraryApi,'listConversations').mockResolvedValue({schema:'dmb_conversation_library_v1',world_id:worldId,status:'all',items:[summary],next_before:null});
+ vi.spyOn(conversationLibraryApi,'readConversationName').mockResolvedValue(summary);
+ vi.spyOn(conversationLibraryApi,'readConversationTurns').mockResolvedValue({schema:'dmb_conversation_library_turns_v3',world_id:worldId,conversation_id:current,turns:[],next_before_sequence:null});
+ let finish!:()=>void;
+ const trash=vi.spyOn(conversationLibraryApi,'changeConversationLifecycle').mockImplementation(async(command,operation)=>{await new Promise<void>(resolve=>{finish=resolve;});api.setCurrent(history(null,5,[]));return {...command,command_kind:operation,active_conversation_id:null,pointer_revision:5,recorded_at:'2026-11-05T12:00:00Z'};});
+ const mount=()=>render(<WorldAgentConversationProvider worldId={worldId}>{conversationElement()}</WorldAgentConversationProvider>);
+ const mounted=mount();await waitForConversationReady();fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'Keep this idea'}});
+ fireEvent.click(screen.getByRole('button',{name:'Conversation history'}));fireEvent.click(await screen.findByRole('button',{name:'Move to Trash'}));await waitFor(()=>expect(trash).toHaveBeenCalledTimes(1));fireEvent.click(screen.getByRole('button',{name:'Close conversations'}));
+ expect(screen.getByRole('button',{name:'Send message',exact:true})).toBeDisabled();fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'Newer idea while waiting'}});await act(async()=>finish());
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Send message',exact:true})).not.toBeDisabled());expect(trash).toHaveBeenCalledWith(expect.objectContaining({conversation_id:current,expected_pointer_revision:4}),'trash');
+ expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Newer idea while waiting');expect(readComposerReferences(sessionStorage,worldId,documentId,'plan').references).toEqual([ref]);
+ mounted.unmount();mount();await waitForConversationReady();expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Newer idea while waiting');expect(readComposerReferences(sessionStorage,worldId,documentId,'plan').references).toEqual([ref]);
+});

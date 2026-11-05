@@ -5938,7 +5938,7 @@ export interface WorldCommandResolutionRecordV1 {
   record_serializer_version: "canonical-json-ascii-v1";
   confirmed_receipt: null | { world_id: string; command_id: string; command_kind: "new";
     conversation_id: string; active_conversation_id: string; pointer_revision: number; recorded_at: string };
-  occupied_receipt: null | { world_id: string; command_id: string; command_kind: "new" | "archive" | "reopen";
+  occupied_receipt: null | { world_id: string; command_id: string; command_kind: "new" | "archive" | "reopen" | "trash" | "restore";
     request_fingerprint: string; receipt_sha256: string };
   retirement_operation_id: string | null;
   record_sha256: string;
