@@ -2882,7 +2882,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
       const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0];expect(readComposerReferences(sessionStorage,WORLD,'source-one').submittedTurnId).toBe(request.turn_id);
       if(kind==='references'){
         const composer=within(screen.getByLabelText('Message Graph context'));
-        fireEvent.click(composer.getByRole('button',{name:'@ Reference'}));fireEvent.click(await composer.findByRole('button',{name:'Use newer-box as context'}));
+        fireEvent.click(within(screen.getByRole('region',{name:'World conversation'})).getByRole('button',{name:'@ Reference'}));fireEvent.click(await composer.findByRole('button',{name:'Use newer-box as context'}));
         fireEvent.click(composer.getByRole('button',{name:'Remove reference newer-box'}));
       }else{fireEvent.change(input,{target:{value:'A newer thought'}});fireEvent.change(input,{target:{value:''}});}
       const cleared=readComposerReferences(sessionStorage,WORLD,'source-one');expect(cleared.references).toEqual([]);expect(cleared.submittedTurnId).toBeNull();

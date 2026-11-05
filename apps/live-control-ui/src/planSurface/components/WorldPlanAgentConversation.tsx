@@ -6399,7 +6399,8 @@ export function WorldPlanAgentConversation({
     : [...(history?.turns ?? [])].sort((a,b)=>b.sequence-a.sequence)[0];
   const activityTurnId = activityTurn?.turn_id;
   const activityLifecycle = activityTurn?.lifecycle_status ?? 'running';
-  const activityInComposer = activityBusy || activityLifecycle !== 'completed';
+  const activityInComposer = activityBusy || activityLifecycle !== 'completed'
+    || Boolean(presentationHosts && !presentationHosts.header);
   const replyActivity = activityTurnId && verifiedWorldId && history?.conversation_id ? <BuddyTurnInspection
     key={`activity:${verifiedWorldId}:${history.conversation_id}:${activityTurnId}`}
     worldId={verifiedWorldId} conversationId={history.conversation_id} turnId={activityTurnId}

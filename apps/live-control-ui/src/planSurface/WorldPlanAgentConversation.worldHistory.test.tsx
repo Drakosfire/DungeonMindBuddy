@@ -6106,3 +6106,11 @@ it('keeps toolbar references and completed activity out of the composer',async()
  expect(within(composer).queryByText('How this reply came together')).toBeNull();expect(within(header).getByText('How this reply came together')).toBeInTheDocument();
  view.unmount();header.remove();toolbar.remove();messages.remove();composer.remove();
 });
+
+it('keeps completed activity accessible while a presentation menu host is unavailable',async()=>{
+ setupApi(history('conversation-a',2,[makeTurn(1,'turn-1','Question','Answer')]));
+ const composer=document.createElement('div');document.body.append(composer);
+ const view=render(conversationElement({presentationHosts:{header:null,context:null,messages:null,composer}}));
+ expect(await within(composer).findByText('How this reply came together')).toBeInTheDocument();
+ view.unmount();composer.remove();
+});
