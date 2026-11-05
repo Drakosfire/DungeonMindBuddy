@@ -24,7 +24,8 @@ from .plan_authoring import PlanAuthoringCaptureV1
 from .plan_placement import PlanPlacementCatalogV1
 
 from .native_retrieval import NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1
-from .authored_graph_references import BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2
+from .authored_graph_references import BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2, BuildAuthoredReferenceReadV3
+from .native_plan_assertions import NativePlanAssertionReadObservedV2
 
 Digest = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$", strict=True)]
 
@@ -175,7 +176,7 @@ SurfaceNativeEvent = Annotated[
     | t.BuildWriterEvidenceSelectionV1 | t.BuildWriterEvidenceSelectionV2 | t.BuildPlanOutputContractV2
     | t.RelatedPagesSelection | t.RelatedPageRead
     | t.BuildAuthoredReferencesCapturedV1 | BuildAuthoredReferenceAuthorizedV2
-    | BuildAuthoredReferenceReadV2,
+    | BuildAuthoredReferenceReadV2 | BuildAuthoredReferenceReadV3 | NativePlanAssertionReadObservedV2,
     Field(discriminator="kind"),
 ]
 

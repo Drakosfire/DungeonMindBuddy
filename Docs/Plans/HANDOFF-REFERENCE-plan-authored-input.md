@@ -1,6 +1,6 @@
 # Plan authored references
 
-Status: ACTIVE. Owner/designer: PRIME. Authority: active reference integration goal.
+Status: MERGED_AND_DELIVERED; Plan acceptance remains open. Owner/designer: PRIME. Authority: active reference integration goal.
 Topology: serial after merged #2092 at
 4147f915a9f54793bef9f007a9a7e2e22fc0c7b6. Branch
 codex/plan-authored-references; reuse buddy-context-loop and its dependencies.
@@ -125,3 +125,17 @@ df915c84fa446216a45a16ada7d24457f61e0145 / APP0108. The ordinary Fellinor retry
 71786e11-e5dd-4d6f-92ff-ce66eb5ecaf0 completed with all three requested references,
 opened citations and reload/reopening proof. Prior failed attempts remain intact.
 This does not establish Plan or Play reference acceptance.
+
+
+## Delivered predecessor and live failure
+
+Merged #2096 at ee4279013b0d07f5458da237dfa8c87a29845aa8 after exact-head
+independent review and all seven CI gates. Delivered compatible live union
+6f82cd82662bf861065c3ea9efd9de291d5cd1b0 / APP0109 with API/UI health and
+unchanged APP/Core/session state except the no-op migration row. Runtime lease
+released. Ordinary Plan selection found Fellinor and filtered C2 Session 29;
+its exact selected passage and question were retained, with Retry available.
+The resulting turn407c3993-f392-4dd4-915e-67ced8266fc8 failed at the existing
+APP ledger size check after successful Core reads. This is not Plan acceptance.
+HANDOFF-REFERENCE-assertion-source-locators.md owns the bounded follow-up; original
+failure, frozen source/revision and private replay evidence are preserved.
