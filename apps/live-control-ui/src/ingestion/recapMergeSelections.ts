@@ -21,10 +21,8 @@ export function mergeIdentity(p:ExactRunCandidateProjection,review:RecapNativeRe
 }
 export function recapMergeSelections(p:ExactRunCandidateProjection,reviews:RecapNativeReview[]):NativeRecordSelection[] {
  const first=reviews[0];if(!first||reviews.some(r=>!sameMergeContext(first,r)))throw new Error('The World changed. Close and reopen Merge.');
- const lines=p.sourceMarkdown.split(/(?<=\n)/),starts=[0];
- for(const line of lines)starts.push(starts[starts.length-1]+new TextEncoder().encode(line).length);
  function metadata(witnesses:CandidateReadEvidence[]):ReviewedMetadata {
-  const evidence=first.native_context.source_evidence.filter(row=>row.opening.status==='available'&&witnesses.some(w=>row.opening.status==='available'&&starts[w.startLine-1]<=row.opening.span_start_byte&&row.opening.span_end_byte<=starts[w.endLine])).map(row=>row.evidence_ref_id);
+  const evidence=supportEvidenceIds(p,first,witnesses);
   if(!evidence.length)throw new Error('A displayed claim has no verified supporting passage. Nothing was published.');
   return {evidence_ref_ids:evidence,visibility:{kind:'labels_any',labels:['dungeonbuddy.visibility:gm']},epistemic_basis:'asserted',claim_mode:'dungeonbuddy.claim:fact',standing:'provisional',temporal_scope:{kind:'domain_ref',valid_from:null,valid_until:null,schema_term:'dungeonbuddy.time:fictional_anchor_v1',payload:{episode:p.sessionId,qualified:true}},domain_metadata:[]};
  }
@@ -39,4 +37,17 @@ export function recapMergeSelections(p:ExactRunCandidateProjection,reviews:Recap
   if(!ids.has(e.fromCandidateId)||!ids.has(e.toCandidateId))throw new Error('A relationship has an unresolved endpoint. Nothing was published.');
   return {kind:'edge' as const,record_id:e.candidateEdgeId,action:'create' as const,entity_id:null,facts:[],metadata:metadata(e.evidence)};
  })];
+}
+
+export function witnessByteRange(p:ExactRunCandidateProjection,w:CandidateReadEvidence) {
+ const lines=p.sourceMarkdown.match(/[^\r\n\v\f\u001c-\u001e\u0085\u2028\u2029]*(?:\r\n|[\r\n\v\f\u001c-\u001e\u0085\u2028\u2029]|$)/g)?.filter(Boolean)??[];
+ if(!Number.isInteger(w.startLine)||!Number.isInteger(w.endLine)||w.startLine<1||w.endLine<w.startLine||w.endLine>lines.length)throw new Error('The candidate source passage has invalid line bounds.');
+ const start=new TextEncoder().encode(lines.slice(0,w.startLine-1).join('')).length;
+ const selected=lines.slice(w.startLine-1,w.endLine);
+ const text=selected.join('').replace(/[\r\n]+$/,'');
+ if(text!==w.paragraphText)throw new Error('The candidate paragraph no longer matches its frozen source.');
+ return {start,end:start+new TextEncoder().encode(text).length,boundEnd:start+new TextEncoder().encode(lines.slice(w.startLine-1,w.endLine).join('')).length,text};
+}
+export function supportEvidenceIds(p:ExactRunCandidateProjection,r:RecapNativeReview,witnesses:CandidateReadEvidence[]) {
+ return r.native_context.source_evidence.filter(row=>row.opening.status==='available'&&witnesses.some(w=>{const span=witnessByteRange(p,w);return row.opening.status==='available'&&span.start<=row.opening.span_start_byte&&row.opening.span_end_byte<=span.boundEnd;})).map(row=>row.evidence_ref_id);
 }
