@@ -16,7 +16,7 @@ from application_state.agent_conversation.plan_authoring import (
     validate_prepared_requested_work, validate_requested_work_wire,
 )
 
-from application_state.agent_conversation.plan_placement import PlanRequestedWorkInputV2, PlanRequestedWorkInputV3, PlanRequestedWorkInputV4, work_choice
+from application_state.agent_conversation.plan_placement import PlanRequestedWorkInputV2, PlanRequestedWorkInputV3, PlanRequestedWorkInputV4, PlanRequestedWorkInputV5, work_choice
 
 
 def request_budget():
@@ -91,8 +91,11 @@ class PlanJevDispatch:
         dispatch = cls(adapter, (), dialogue=dialogue)
         capture = adapter.request.plan_authoring_capture
         references = adapter.request.authored_references
-        dispatch.parent = (PlanRequestedWorkInputV4 if references is not None else PlanRequestedWorkInputV3)(
-            **({"authored_references": references} if references is not None else {}), request_id=uuid4(), parent_attempt_id=uuid4(),
+        operation = adapter.request.plan_requested_operation
+        parent = PlanRequestedWorkInputV5 if operation is not None else PlanRequestedWorkInputV4 if references is not None else PlanRequestedWorkInputV3
+        dispatch.parent = parent(
+            **({"plan_requested_operation": operation, "authored_references": references} if operation is not None
+                else {"authored_references": references} if references is not None else {}), request_id=uuid4(), parent_attempt_id=uuid4(),
             scope_sha256='0' * 64, question=adapter.request.message, page_title=page_title,
             dialogue=tuple(row.model_dump() if hasattr(row, 'model_dump') else row for row in dialogue),
             target_capture_sha256=capture.sha256 if capture is not None else None,

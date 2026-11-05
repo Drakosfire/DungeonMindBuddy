@@ -45,3 +45,44 @@ def test_plan_reference_input_requires_its_actual_surface_world_and_policy(mutat
 def test_plan_human_object_keeps_unavailable_support_partial(lane,tmp_path,monkeypatch,native_read_admission_probes):
     _ordinary_native_case(lane,tmp_path,monkeypatch,True,True,None,None,False,
         native_read_admission_probes,authored=True)
+
+
+@pytest.mark.parametrize('authoring',[False,True])
+@pytest.mark.parametrize('with_references',[False,True])
+def test_explicit_plan_operation_uses_native_sdk_writer_and_retained_history(
+        lane,tmp_path,monkeypatch,native_read_admission_probes,authoring,with_references):
+    _ordinary_native_case(lane,tmp_path,monkeypatch,True,False,None,None,False,
+        native_read_admission_probes,authoring=authoring,authored=with_references,
+        plan_operation='write_current_page' if authoring else 'discuss')
+
+
+@pytest.mark.parametrize('mutation',['play_surface','without_native_policy','invalid_operation'])
+def test_explicit_plan_operation_rejects_wrong_scope_or_contract(mutation):
+    from pydantic import ValidationError
+    from tests.test_agent_turn_service import _pinned_plan_request
+    from apps.live_control_server.models.agent_turn import AgentTurnRequest
+    original=_pinned_plan_request().model_dump(mode='json',by_alias=True)
+    original.update(plan_requested_operation='discuss',graph_request={'mode':'none'},
+        plan_context_policy={'schema':'dmb_plan_context_policy_v2','policy':'auto_plan_world','graph_source':'reviewed_native_graph'})
+    AgentTurnRequest.model_validate(original)
+    if mutation=='play_surface':
+        original['surface']['surface_id']='play'
+    elif mutation=='without_native_policy':
+        original['plan_context_policy']=None
+    else:
+        original['plan_requested_operation']='save'
+    with pytest.raises(ValidationError):
+        AgentTurnRequest.model_validate(original)
+
+
+def test_explicit_operation_changes_frozen_intent_fingerprint():
+    from tests.test_agent_turn_service import _pinned_plan_request
+    from apps.live_control_server.services.agent_turn_service import _submitted_turn_intent
+    from application_state.agent_conversation.types import submitted_turn_intent_fingerprint_v2
+    request=_pinned_plan_request()
+    raw=request.model_dump(mode='json',by_alias=True)
+    raw.update(graph_request={'mode':'none'},plan_context_policy={
+        'schema':'dmb_plan_context_policy_v2','policy':'auto_plan_world','graph_source':'reviewed_native_graph'})
+    intents=[_submitted_turn_intent(type(request).model_validate(raw | {'plan_requested_operation':operation}),
+        world_id=raw['owner_scope']['world_id']) for operation in ('discuss','write_current_page')]
+    assert len({submitted_turn_intent_fingerprint_v2(intent) for intent in intents})==2

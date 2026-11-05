@@ -1,6 +1,6 @@
 # Exact Plan insertion below a heading
 
-Status: ACTIVE. Owner/designer: PRIME. Authority: active reference integration goal
+Status: MERGED_AND_DELIVERED; operator acceptance remains open. Owner/designer: PRIME. Authority: active reference integration goal
 and ordinary turn e499e5e7-6c25-413f-8ac1-03f7c5eb6bcb. Topology: serial,
 base e6e5131135a2437621f85e131672680941a189c3, branch
 codex/plan-under-heading-placement, existing buddy-context-loop checkout/dependencies.
@@ -59,3 +59,17 @@ Delivery requires a re-anchored runtime lease and protected API stop/upgrade/res
 then ordinary under-heading reference proposal dogfood. Do not call this complete
 from fixture success. Duplicate generated prose, manual Plan route adoption and
 Play Run-context reference integration remain separate serial slices.
+
+## Settlement before explicit-operation adoption
+
+Merged #2101 b64e9f3e7938ba5c90747cc1973387286e7b8334 after independent
+review of f8d9f3c18f367b0a41d019e5ea890eeef0d663b4 and all seven CI gates.
+Delivered union 86f9b112f49b89282ea05b25b098d6d927ed9b78 / APP0112 with
+full retained-state conservation except the no-op reader-fence row. A graceful
+API-stop timeout was preserved; an independently reviewed unchanged UI-proxy
+restart let the old API drain naturally before forward continuation. No forced
+kill or data rollback. Ordinary turn 175cb828-35db-4de5-a17b-b999cd686aa5
+selected under:2, produced the correctly placed paragraph, and supported editing,
+Save and reload at rehearsal revision 2. The original Plan and unsent draft were
+unchanged, and all original failures remained. This is a bounded case, not general
+writer reliability or operator acceptance.

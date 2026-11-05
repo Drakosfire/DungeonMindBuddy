@@ -1458,6 +1458,13 @@ def get_world_conversation_history(
     source_names = source_names_for_turns(turns)
     from apps.live_control_server.services.agent_turn_service import project_plan_authoring_proposal
     from application_state.agent_conversation.authored_graph_references import reference_input
+    def plan_operation_for_turn(turn):
+        from application_state.agent_conversation.native_execution import NativePlanActionV1
+        actual = getattr(turn.base_projection, 'turn', None) if isinstance(turn, MixedCompletedTurnV1) else turn
+        execution = getattr(actual, 'graph_context_execution', None)
+        action = getattr(getattr(execution, 'policy', None), 'action', None)
+        return action.intent.plan_requested_operation if isinstance(action, NativePlanActionV1) and hasattr(action.intent, 'plan_requested_operation') else None
+
     history_turns = []
     for turn in turns:
         if isinstance(turn, MixedCompletedTurnV1):
@@ -1471,10 +1478,12 @@ def get_world_conversation_history(
                 plan_proposal=project_plan_authoring_proposal(turn, service=service),
                 rules_context=project_rules_answer_context(turn, delivery_replay=True, source_names=source_names),
                 authored_references=reference_input(turn),
+                plan_requested_operation=plan_operation_for_turn(turn),
                 **({"play_source_context":project_play_source_context(turn,delivery_replay=True)} if source_only_play(turn) else {})))
             continue
         values = {
             "authored_references": reference_input(turn),
+            "plan_requested_operation": plan_operation_for_turn(turn),
             "plan_proposal": project_plan_authoring_proposal(turn, service=service),
             "turn_id": turn.turn_id,
             "sequence": turn.sequence,

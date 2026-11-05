@@ -183,7 +183,7 @@ def native_references(execution):
     action = execution.policy.action
     if type(action) is NativeBuildActionV1 and type(action.intent) is t.BuildGraphIntentV2:
         return action.intent.authored_references
-    if type(action) is NativePlanActionV1 and type(action.intent) is t.SubmittedTurnIntentV3:
+    if type(action) is NativePlanActionV1 and type(action.intent) in (t.SubmittedTurnIntentV3, t.SubmittedTurnIntentV4):
         return action.intent.authored_references
     return None
 
