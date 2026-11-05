@@ -19,7 +19,7 @@ export interface RecapNativeReview {
     source_admission: ReviewSourceAdmission;
     source_evidence: Array<{ evidence_ref_id: string; evidence_role: "support"; opening: ReviewSupportOpening }>;
     selections: Array<{ candidate_node_id: string; status: string; search_is_advisory: true;
-      alternatives: Array<{ entity_id: string; identity_approved: false; status: string }> }>;
+      alternatives: Array<{ entity_id: string; identity_approved: false; status: string; entity_result?: {assertions?: Array<{predicate?: string; value?: {value?: unknown}}>}; source_inspection?: Array<{status?:string;span_text?:string}> }> }>;
   };
 }
 const record = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);

@@ -1,3 +1,4 @@
+import {RecapNativeMerge} from "../ingestion/RecapNativeMerge";
 import type {RecapIngestRequest} from "../api/types";
 import {RecapNameReview} from "../ingestion/RecapNameReview";
 import { IngestionUsage } from "./IngestionUsage";
@@ -20,7 +21,6 @@ import type {
 import {
   recapSessionNumber,
 } from "../planSurface/graphPreview/recapSessionLabels";
-import { useOptionalProjection } from "../planSurface/projection/projectionContext";
 import { ReviewCampaignPicker } from "../planSurface/ReviewCampaignPicker";
 import {
   resolveInitialReviewCampaignId,
@@ -260,7 +260,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const managedWorldId = selectedWorld.kind === "managed"
     ? (!providedWorldId || providedWorldId === selectedWorld.worldId ? selectedWorld.worldId : undefined)
     : selectedWorld.kind === "legacy" ? providedWorldId : undefined;
-  const projection = useOptionalProjection();
   const freshRecapEntry = isFreshRecapEntryRoute();
   const requestedRecapSession = requestedRecapSessionFromLocation();
   const routeCampaignId = resolveInitialReviewCampaignId(planCampaignId);
@@ -334,6 +333,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [forceGraphRun, setForceGraphRun] = useState(false);
+  const [mergeOpen,setMergeOpen]=useState(()=>new URLSearchParams(window.location.search).get("merge")==="1");
   /** Which primary action is in flight — drives spinner / status copy. */
   const [primaryOp, setPrimaryOp] = useState<"process" | "name_review" | null>(null);
   const [nameReview,setNameReview]=useState<{key:string;review:NameReviewResult}|null>(null);
@@ -616,7 +616,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const exactGraphReviewRunId = loadedRun?.runId ?? (evidenceResultOwnsSelection
     ? graphPreviewFromEvidence?.extraction_run_id?.trim() || null
     : null);
-  const graphReviewable = loadedRun ? ["reviewable", "promoted"].includes(loadedRun.runStatus) : graphPreviewIsReviewable(graphPreview);
+  const graphReviewable = loadedRun ? loadedRun.runStatus === "reviewable" : graphPreviewIsReviewable(graphPreview);
   const canOpenGraphReview = Boolean(
     isIngestSurfacePath()
     && managedWorldId
@@ -1324,26 +1324,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     }
   }
 
-  function openGraphReviewWorkbench() {
-    if (typeof window === "undefined" || !canOpenGraphReview || !exactGraphReviewRunId || !managedWorldId) return;
-    const params = new URLSearchParams(window.location.search);
-    params.set("world", managedWorldId);
-    params.set("session", `session-${recapSession}`);
-    params.set("campaign", ingestCampaignId);
-    params.set("extractionRunId", exactGraphReviewRunId);
-    params.delete("recapReviewRunId");
-    params.delete("sourceArtifactId");
-    params.delete("documentId");
-    params.delete("revision");
-    const sourceArtifactId = reviewSource?.runId === exactGraphReviewRunId
-      && (reviewSource.projection?.schema === "dmb_historical_recap_world_projection_v1"
-        || reviewSource.projection?.schema === "dmb_exact_run_candidate_projection_v1")
-      ? reviewSource.projection.sourceArtifactId
-      : currentSavedRunLookup?.status === "loaded" ? savedRuns.find(run => run.runId === exactGraphReviewRunId)?.sourceArtifactId ?? null : null;
-    if (sourceArtifactId) params.set("sourceArtifactId", sourceArtifactId);
-    window.history.pushState({}, "", `${ingestRoutePath()}?${params.toString()}${window.location.hash}`);
-    window.dispatchEvent(new Event("popstate"));
-    projection?.close();
+  function openMergeReview() {
+    if (!canOpenGraphReview) return;
+    setMergeOpen(true);
   }
 
   const showSourceActions = true;
@@ -1490,15 +1473,15 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                   <>
                     <button
                       type="button"
-                      aria-label={canOpenGraphReview ? "Open Graph Review" : `Graph Review unavailable: ${graphReviewUnavailableReason} required`}
-                      onClick={openGraphReviewWorkbench}
+                      aria-label={canOpenGraphReview ? "Merge extraction" : `Merge unavailable: ${graphReviewUnavailableReason} required`}
+                      onClick={openMergeReview}
                       disabled={!canOpenGraphReview}
                     >
-                      Graph Review
+                      Merge
                     </button>
                     {!canOpenGraphReview ? (
                       <span className="ingest-local-nav__action-hint" role="status">
-                        Graph Review needs {graphReviewUnavailableReason === "exact extraction run" ? "an exact extraction run for this session" : "a selected World"}.
+                        Merge needs {graphReviewUnavailableReason === "exact extraction run" ? "an exact extraction run for this session" : "a selected World"}.
                       </span>
                     ) : null}
                   </>
@@ -1648,6 +1631,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
             </>
           )}
 
+          {mergeOpen && reviewSource?.identity === reviewIdentity && reviewSource?.projection?.schema === "dmb_exact_run_candidate_projection_v1" && reviewSource.projection.managedWorldId === managedWorldId && reviewSource.projection.runStatus === "reviewable" ? <RecapNativeMerge projection={reviewSource.projection} onClose={()=>{setMergeOpen(false);const params=new URLSearchParams(window.location.search);params.delete("merge");window.history.replaceState({},"",`${window.location.pathname}?${params}`);}}/> : mergeOpen ? <p role="status">Load this exact reviewable candidate to review a merge.</p> : null}
           {managedWorldId?<SessionEvidencePicker key={evidenceTargetKey} worldId={managedWorldId} targetKey={evidenceTargetKey} disabled={primaryOp!==null} onChange={refs=>setSessionSupplements({identity:evidenceTargetKey,refs})}/>:null}
         </section>
 
