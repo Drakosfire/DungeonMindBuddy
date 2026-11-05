@@ -217,3 +217,24 @@ def test_under_heading_decision_exposes_exact_location_without_offsets_or_new_sa
     choice = work_choice(request, "write:under:0")
     assert choice["placement_selector"] == "under:0"
     assert choice["target_capture_sha256"] == catalog.resolve(original, "under:0").sha256
+
+
+@pytest.mark.parametrize('operation',['discuss','write_current_page'])
+def test_explicit_operation_restricts_actual_sdk_choices_and_rejects_wire_substitution(operation):
+    from pathlib import Path
+    from application_state.agent_conversation.plan_authoring import prepare_requested_work_decision, validate_requested_work_wire
+    from application_state.agent_conversation.plan_placement import PlanRequestedWorkInputV5
+    frozen=json.loads((Path(__file__).parents[1]/'fixtures/plan_requested_work_v2_wire.json').read_text())
+    parent=PlanRequestedWorkInputV5.model_validate(frozen['parent'] | {
+        'schema':'dmb_plan_requested_work_input_v5','plan_requested_operation':operation,'authored_references':None})
+    prepared=prepare_requested_work_decision(parent)
+    choices=prepared.questions[0].options
+    if operation=='discuss':
+        assert choices==('discuss','clarify')
+    else:
+        assert 'discuss' not in choices
+        assert {'clarify','different_destination'} <= set(choices)
+        assert any(choice.startswith('write:') for choice in choices)
+    assert prepared.state['plan_requested_operation']==operation
+    with pytest.raises(ValueError,match='wire differs'):
+        validate_requested_work_wire(parent,frozen['wire_json'].encode())

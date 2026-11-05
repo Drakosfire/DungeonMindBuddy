@@ -1158,7 +1158,25 @@ class SubmittedTurnIntentV3(SubmittedTurnIntentV2):
         return self
 
 
-def submitted_turn_intent_fingerprint_v2(intent: SubmittedTurnIntentV3 | SubmittedTurnIntentV2 | BuildGraphIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1) -> str:
+class SubmittedTurnIntentV4(SubmittedTurnIntentV2):
+    """An explicit author operation on the current native Plan path."""
+    schema_: Literal["dmb_agent_submitted_turn_intent_v4"] = Field(
+        default="dmb_agent_submitted_turn_intent_v4", alias="schema")
+    plan_requested_operation: Literal["discuss", "write_current_page"]
+    authored_references: AuthoredReferencesV2 | None
+
+    @model_validator(mode="after")
+    def exact_plan_operation(self):
+        if not isinstance(self.plan_context_policy, PlanContextPolicyV2):
+            raise ValueError("Explicit Plan operations require the current native policy")
+        if self.authored_references is not None:
+            self.authored_references.require_world(self.world_id)
+            if not self.authored_references.references:
+                raise ValueError("Explicit Plan references cannot be empty")
+        return self
+
+
+def submitted_turn_intent_fingerprint_v2(intent: SubmittedTurnIntentV4 | SubmittedTurnIntentV3 | SubmittedTurnIntentV2 | BuildGraphIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1) -> str:
     """Fingerprint only normalized caller intent, excluding routing thread identity."""
     if isinstance(intent, PlayGraphIntentV1):
         from .play_graph_authority import play_graph_intent_fingerprint
@@ -6345,7 +6363,7 @@ class TurnSubmission(StrictModel):
     user_text: str
     provenance: TurnProvenance
     submitted_intent_v1: PlayRulesIntentV1 | SubmittedTurnIntentV1 | None = None
-    submitted_intent_v2: SubmittedTurnIntentV3 | SubmittedTurnIntentV2 | BuildGraphIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1 | None = None
+    submitted_intent_v2: SubmittedTurnIntentV4 | SubmittedTurnIntentV3 | SubmittedTurnIntentV2 | BuildGraphIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1 | None = None
     graph_context_receipt: GraphContextReceipt | None = None
     graph_context_execution: GraphTurnExecution | None = None
     play_context_receipt: PlayRunTurnContextReceiptV2 | None = None

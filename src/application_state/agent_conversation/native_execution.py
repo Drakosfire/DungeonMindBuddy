@@ -68,7 +68,7 @@ class NativeBuildActionV1(Strict):
 
 class NativePlanActionV1(Strict):
     surface_id: Literal["plan"] = "plan"
-    intent: Annotated[t.SubmittedTurnIntentV3 | t.SubmittedTurnIntentV2, Field(discriminator="schema_")]
+    intent: Annotated[t.SubmittedTurnIntentV4 | t.SubmittedTurnIntentV3 | t.SubmittedTurnIntentV2, Field(discriminator="schema_")]
     authoring_capture: PlanAuthoringCaptureV1 | None
     placement_catalog: PlanPlacementCatalogV1 | None
 

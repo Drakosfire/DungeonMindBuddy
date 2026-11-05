@@ -269,6 +269,7 @@ class AgentTurnRequest(BaseModel):
     build_draft_context: BuildDraftContextRequestV1 | None = None
     build_authored_references: AuthoredReferenceInput | None = None
     authored_references: AuthoredReferencesV2 | None = None
+    plan_requested_operation: Literal["discuss", "write_current_page"] | None = None
     retry_of: RetryTurnReference | None = None
     reviewed_step: ReviewedStepReference | None = None
     plan_context_policy: PlanContextPolicyV2 | PlanContextPolicyV1 | None = None
@@ -308,6 +309,11 @@ class AgentTurnRequest(BaseModel):
             raise ValueError("Retry requires fresh ordinary World Build context")
         if self.reviewed_step is not None and (self.surface.surface_id != "build" or self.graph_request.mode != "world" or self.build_draft_context is None):
             raise ValueError("A reviewed step requires its captured Build page and World")
+        if self.plan_requested_operation is not None:
+            if (self.surface.surface_id != "plan" or self.owner_scope is None or self.owner_scope.kind != "world"
+                    or self.primary_work is None or self.primary_work.kind != "plan"
+                    or getattr(self.plan_context_policy, "schema_", None) != "dmb_plan_context_policy_v2"):
+                raise ValueError("Explicit Plan operation requires its actual saved Plan and current native policy")
         if self.authored_references is not None:
             if (self.surface.surface_id != 'plan' or self.plan_context_policy is None
                     or self.owner_scope is None or self.owner_scope.kind != 'world'
@@ -1007,10 +1013,13 @@ class AgentNativeStatementTurnResponseV1(AgentTurnResponse):
 
 class AgentConversationHistoryTurn(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    plan_requested_operation: Literal["discuss", "write_current_page"] | None = Field(default=None,exclude_if=lambda value:value is None)
     authored_references: AuthoredReferenceInput | None = Field(default=None,exclude_if=lambda value:value is None)
 
     @model_validator(mode='after')
     def exact_reference_world(self):
+        if self.plan_requested_operation is not None and self.provenance.surface_id != "plan":
+            raise ValueError("Explicit Plan operation history requires actual Plan work")
         if self.authored_references is not None:
             self.authored_references.require_world(self.provenance.world_id)
             if self.provenance.surface_id not in {'build','plan'}:

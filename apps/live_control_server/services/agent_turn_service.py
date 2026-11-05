@@ -42,6 +42,7 @@ from application_state.agent_conversation.types import (
     SubmittedTurnIntentV1,
     SubmittedTurnIntentV2,
     SubmittedTurnIntentV3,
+    SubmittedTurnIntentV4,
     PlayGraphIntentV1, PlayRulesIntentV1,
     PlayGraphPolicyV1,
     SubmittedPlayTargetV1,
@@ -5223,9 +5224,11 @@ def _submitted_turn_intent(
                 code="plan_context_intent_invalid",
                 status_code=422,
             )
-        return (SubmittedTurnIntentV3 if request.authored_references is not None else SubmittedTurnIntentV2)(
+        return (SubmittedTurnIntentV4 if request.plan_requested_operation is not None else SubmittedTurnIntentV3 if request.authored_references is not None else SubmittedTurnIntentV2)(
             **common,
-            **({"authored_references": request.authored_references} if request.authored_references is not None else {}),
+            **({"plan_requested_operation": request.plan_requested_operation, "authored_references": request.authored_references}
+                if request.plan_requested_operation is not None else {"authored_references": request.authored_references}
+                if request.authored_references is not None else {}),
             plan_authoring_capture_sha256=request.plan_authoring_capture.sha256 if request.plan_authoring_capture is not None else None,
             plan_placement_catalog_sha256=request.plan_placement_catalog.sha256 if request.plan_placement_catalog is not None else None,
             plan_context_policy=request.plan_context_policy,

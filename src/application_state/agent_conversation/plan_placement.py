@@ -144,6 +144,20 @@ class PlanRequestedWorkInputV4(PlanRequestedWorkInputV3):
         return self
 
 
+class PlanRequestedWorkInputV5(PlanRequestedWorkInputV3):
+    """Exact explicit operation plus optional author-selected references."""
+    schema_: Literal["dmb_plan_requested_work_input_v5"] = Field(
+        default="dmb_plan_requested_work_input_v5", alias="schema")
+    plan_requested_operation: Literal["discuss", "write_current_page"]
+    authored_references: AuthoredReferencesV2 | None
+
+    @model_validator(mode="after")
+    def actual_references(self):
+        if self.authored_references is not None and not self.authored_references.references:
+            raise ValueError("Explicit Plan reference input cannot be empty")
+        return self
+
+
 def work_choice(request: PlanRequestedWorkInputV2, selected: str):
     """Decode only offered choices; the selected target digest stays host-owned."""
     if selected in {"discuss", "clarify", "different_destination"}:

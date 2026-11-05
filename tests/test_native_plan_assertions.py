@@ -127,7 +127,7 @@ def test_context_only_evidence_is_not_support(application_state_dsn, tmp_path, m
 
 
 def _ordinary_native_case(
-        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None):
+        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None):
     import httpx2
     from hashlib import sha256
     from fastapi import FastAPI
@@ -206,6 +206,7 @@ def _ordinary_native_case(
             monkeypatch.setattr(native_query,'resolve_managed_world_binding',no_object_binding)
     request = _pinned_plan_request()
     request = type(request).model_validate(request.model_dump(mode='json',by_alias=True) | {
+        **({'plan_requested_operation':plan_operation} if plan_operation is not None else {}),
         **({'authored_references':selected_references.model_dump(mode='json',by_alias=True)} if selected_references else {}),
         'turn_id':str(uuid4()),'message':('Describe the source-local episode.' if authored_source=='source_only' else 'Write a Plan note about what B did.' if authoring else 'What did B do?'),'owner_scope':{'kind':'world','world_id':world},
         'primary_work':request.primary_work.model_dump(mode='json',by_alias=True) | {'object_id':work.object_id,'expected_revision':work.revision,'expected_revision_n':work.content_basis.revision_n,'expected_content_sha256':work.content_basis.content_sha256},
@@ -402,6 +403,25 @@ def _ordinary_native_case(
         history=client.get(f'/api/live/agent/worlds/{world}/conversation?include_turn_correlation=true')
         assert history.status_code==200,history.text
         assert history.json()['turns'][-1]['authored_references']==selected_references.model_dump(mode='json',by_alias=True)
+    if plan_operation is not None:
+        assert turn.graph_context_execution.policy.action.intent.plan_requested_operation==plan_operation
+        history=client.get(f'/api/live/agent/worlds/{world}/conversation?include_turn_correlation=true')
+        assert history.status_code==200,history.text
+        assert history.json()['turns'][-1]['plan_requested_operation']==plan_operation
+        from pathlib import Path
+        from application_state.agent_conversation.plan_jev_decision import verify_input_records
+        frozen=json.loads((Path(__file__).parent/'fixtures/plan_requested_work_v2_wire.json').read_text())
+        auth=next(e for e in turn.graph_context_execution.events if isinstance(e,t.PlanRequestedWorkAuthorizedV2))
+        refs=selected_references.model_dump(mode='json',by_alias=True) if selected_references else None
+        for altered in (
+                frozen['parent'] | {'schema':'dmb_plan_requested_work_input_v5','authored_references':refs,
+                    'plan_requested_operation':'discuss' if plan_operation=='write_current_page' else 'write_current_page'},
+                frozen['parent'] | ({'schema':'dmb_plan_requested_work_input_v4','authored_references':refs}
+                    if refs else {'schema':'dmb_plan_requested_work_input_v3'})):
+            with pytest.raises(ValueError,match='explicit author operation'):
+                verify_input_records(turn.graph_context_receipt,turn.graph_context_execution,auth,
+                    {'parent_request_json':json.dumps(altered),'request_json':'{}'},
+                    question=turn.user_text,scope_sha256='0'*64)
     if authored_source:
         reads=[e for e in turn.graph_context_execution.events if isinstance(e,t.NativeAuthoredSourceReadV1)]
         assert len(reads)==1 and reads[0].catalog.source.revision.source_revision_id==source_ref.source_revision_id
@@ -427,7 +447,7 @@ def _ordinary_native_case(
 
     if authored:
         from application_state.agent_conversation.authored_graph_references import BuildAuthoredReferenceAuthorizedV2,BuildAuthoredReferenceReadV2
-        assert type(turn.graph_context_execution.policy.action.intent) is t.SubmittedTurnIntentV3
+        assert type(turn.graph_context_execution.policy.action.intent) is (t.SubmittedTurnIntentV4 if plan_operation is not None else t.SubmittedTurnIntentV3)
         assert turn.graph_context_execution.policy.action.intent.authored_references==selected_references
         grants=[e for e in turn.graph_context_execution.events if isinstance(e,BuildAuthoredReferenceAuthorizedV2)]
         observations=[e for e in turn.graph_context_execution.events if isinstance(e,BuildAuthoredReferenceReadV2)]
@@ -509,9 +529,12 @@ def _ordinary_native_case(
             old_reader.setattr(cli,'_alembic_head',lambda:'20261031_0101')
             with pytest.raises(ApplicationStateMigrationError):
                 cli.assert_at_head(dsn=dsn)
+    if plan_operation is not None:
+        changed=request.model_dump(mode='json',by_alias=True) | {'plan_requested_operation':'discuss' if plan_operation=='write_current_page' else 'write_current_page'}
+        assert client.post('/api/live/agent/turn',json=changed).status_code==409
     # Source choice is idempotency-bound, not a mutable retry preference.
     changed=request.model_dump(mode='json',by_alias=True)|{'plan_context_policy':{'policy':'auto_plan_world'}}
-    assert client.post('/api/live/agent/turn',json=changed).status_code==(422 if authored else 409)
+    assert client.post('/api/live/agent/turn',json=changed).status_code==(422 if authored or plan_operation is not None else 409)
 
 
 @pytest.mark.parametrize('qualified,unavailable,advancement,failure,mixed', [
