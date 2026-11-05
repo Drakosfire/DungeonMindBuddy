@@ -2,7 +2,7 @@
 
 Status: ACTIVE. Owner/designer: PRIME. Authority: active reference integration
 and adoption/demolition goal. Base: remote main
-0e35332a7ddde40a0e4b16755ac36dd0448a55e1. Branch:
+b1a89a7b8a610c021e004146b50cd28a0b0c56c9 (merged #2103). Branch:
 codex/retire-unowned-plan-edit-producer, existing buddy-context-loop checkout.
 
 Topology: parallel-independent implementation relative to #2103's UI slice;
@@ -74,3 +74,10 @@ idempotent replay and shared grammar cases. CI adds those concrete boundaries an
 the mounted endpoint-removal test, not a waiver or blanket skip of old failures.
 The full reference goal still requires resolving each remaining legacy execution
 and historical-reader disposition; this PR does not claim that completion.
+
+Baseline confirmation: both untouched historical failures reproduce on exact
+remote main 0e35332a7ddde40a0e4b16755ac36dd0448a55e1 (two failures,
+no provider calls). The deletion's mounted retirement/policy and concrete retained
+World checks pass 12 cases; TypeScript passes. Current source is rebased onto
+merged #2103 b1a89a7b8a610c021e004146b50cd28a0b0c56c9; its delivery
+remains the priority and excludes this deletion until separately reviewed/gated.
