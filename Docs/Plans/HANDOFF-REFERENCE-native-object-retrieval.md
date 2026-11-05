@@ -32,6 +32,15 @@ version, rather than another provider authorization protocol, identifies semanti
 ## Expected write lease and validation
 
 - This handoff and predecessor attachment settlement.
+- apps/live-control-ui/src/api/types.ts: NativeGraphQueryV4/shared receipt only.
+- apps/live-control-ui/src/shared/nativeStatementAnswerProtocol.ts
+- apps/live-control-ui/src/shared/surfaceNativeProtocol.ts and its owning test.
+- .github/workflows/world-ownership-core.yml: query-and-answer new test path only.
+Shared-file partition checked against2087 exact patches: PRIME owns reference
+protocol sections around1169–1192 and query CI list; ADVERSARY retains
+RecapIngestRequest name-review fields and ingestion CI additions. No overlapping
+hunks or new surface controls. Browser closed readers must adopt the new query
+version in this same coupled fix or valid server answers would be rejected.
 - src/application_state/agent_conversation/native_plan_assertions.py
 - src/application_state/agent_conversation/native_plan_statements.py
 - src/application_state/agent_conversation/authored_graph_references.py (distinguish empty navigation from human targets)

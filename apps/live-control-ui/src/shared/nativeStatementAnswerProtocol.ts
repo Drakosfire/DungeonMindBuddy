@@ -163,14 +163,24 @@ export function isNativePlanQuery(v:unknown,worldId:string):v is import('../api/
 
 /** Human targets remain separate from search hits; this checks presentation only. */
 export function isNativeGraphQuery(v:unknown,worldId:string):v is import('../api/types').SurfaceNativeContextReceiptV1['native_query'] {
-  if(typeof v!=='object'||v===null||!('schema' in v)||v.schema!=='dmb_native_graph_query_v3')
+  if(typeof v!=='object'||v===null||!('schema' in v)||!['dmb_native_graph_query_v3','dmb_native_graph_query_v4'].includes(String(v.schema)))
     return isNativePlanQuery(v,worldId)&&v.schema!=='dmb_native_plan_query_v1';
   const q=v as Record<string,unknown>;
-  if(!isNativeQueryBase(q,worldId,'dmb_native_graph_query_v3',['assertion_matches','authored_targets'])
+  const objectUnits=q.schema==='dmb_native_graph_query_v4';
+  if(!isNativeQueryBase(q,worldId,String(q.schema),['assertion_matches','authored_targets',...(objectUnits?['object_matches']:[])])
     ||!Array.isArray(q.discovered_entity_ids)||!assertionMatches(q.assertion_matches,q.discovered_entity_ids)
     ||!Array.isArray(q.authored_targets)||typeof q.authority!=='object'||q.authority===null
     ||!('scope_mode' in q.authority)||q.authority.scope_mode!=='world'
     ||!('campaign_id' in q.authority)||q.authority.campaign_id!==null)return false;
+  if(objectUnits){
+    if(!Array.isArray(q.object_matches)||q.object_matches.length!==q.discovered_entity_ids.length)return false;
+    const objects=new Set<string>();
+    for(const m of q.object_matches){
+      if(!exact(m,['entity_id','label'])||!text(m.entity_id)||!text(m.label)||objects.has(m.entity_id)
+        ||!q.discovered_entity_ids.includes(m.entity_id))return false;
+      objects.add(m.entity_id);
+    }
+  }
   const seen=new Set<string>();
   return q.authored_targets.every(t=>{
     if(!exact(t,['node_id','selection_revision_id','matches','assertion_matches','status','gap_codes'])

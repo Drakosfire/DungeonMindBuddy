@@ -185,6 +185,7 @@ jobs:
           tests/application_state/test_native_plan_statements.py
           tests/test_native_plan_statements.py
           tests/test_native_plan_assertions.py
+          tests/test_native_object_retrieval.py
 
       - name: Run saved-page owner and semantic-reader tests
         if: matrix.suite == 'saved-page-readers'

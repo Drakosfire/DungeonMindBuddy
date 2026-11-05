@@ -253,12 +253,13 @@ def test_rejected_selected_read_never_reaches_core(
         lambda *_: pytest.fail("Rejected grant reached Core"),
     )
 
+    class RejectedReadProbeComplete(Exception):
+        pass
+
     def selected(case):
-        return [
-            c
-            for c in record_candidates(case)
-            if c.handle.startswith("native-statement:")
-        ]
+        if invalid == "unselected":
+            return [RetrievalCandidate(handle="other-navigation", label="Unrelated navigation", kind="navigation")]
+        return record_candidates(case)
 
     def acquire(case):
         before = case.turn
@@ -293,11 +294,16 @@ def test_rejected_selected_read_never_reaches_core(
             == before
         )
 
-    sdk_case(
-        application_state_dsn,
-        context_record=(context, record),
-        acquisitions=((selected, acquire),),
-    )
+        # Stop at the rejected read. An actually selected object deliberately
+        # remains unacquired; the next provider must not bypass that obligation.
+        raise RejectedReadProbeComplete
+
+    with pytest.raises(RejectedReadProbeComplete):
+        sdk_case(
+            application_state_dsn,
+            context_record=(context, record),
+            acquisitions=((selected, acquire),),
+        )
 
 
 def test_changed_native_binding_keeps_unresolved_grant_and_cannot_retry(
@@ -366,9 +372,12 @@ def test_unavailable_assertion_settles_as_gap_without_fabricated_evidence(
                 "assertion", [m.assertion_id for m in result.assertion_matches]
             )
             assert "native_assertion_support_unavailable" in driver.gaps
-            assert all(
-                "unavailable" in c.kind for c in driver._native_object_examined()
-            )
+            from application_state.agent_conversation.native_plan_assertions import object_record_ids
+            affected = [c for c in driver._native_object_examined()
+                if object_record_ids(result, (c.handle,), assertion=True)]
+            assert affected and all(
+                ": partial;" in c.kind or ": unavailable;" in c.kind for c in affected
+            )  # Other objects can retain readable qualified statements without assertions.
 
     case = sdk_case(
         application_state_dsn,

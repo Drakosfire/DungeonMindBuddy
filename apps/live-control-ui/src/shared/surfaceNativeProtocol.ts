@@ -72,8 +72,8 @@ export function isSurfaceNativeCompletion(v:unknown,r:SurfaceNativeContextReceip
       if(family==='native_body_citations'){if(!sources.has(index)||c.line_end<c.line_start)return false;cited.add(index);continue;}
       const q=r.native_query;
       if(q.schema==='dmb_native_plan_query_unavailable_v1'||c.managed_world_id!==q.authority.managed_world_id||c.native_world_id!==q.authority.native_world_id||c.read_revision_id!==q.authority.revision_id)return false;
-      if(family==='native_clause_citations'){if(!sources.has(index)||![...q.matches,...(q.schema==='dmb_native_graph_query_v3'?q.authored_targets.flatMap(t=>t.matches):[])].some(m=>m.statement_id===c.statement_id&&m.campaign_id===c.campaign_id))return false;cited.add(index);}
-      else {if(!graphs.get(index)?.includes(c.assertion_id)||![...q.assertion_matches,...(q.schema==='dmb_native_graph_query_v3'?q.authored_targets.flatMap(t=>t.assertion_matches):[])].some(m=>m.assertion_id===c.assertion_id&&m.assertion_sha256===c.assertion_sha256))return false;const ids=assertions.get(index)??new Set<string>();ids.add(c.assertion_id);assertions.set(index,ids);}
+      if(family==='native_clause_citations'){if(!sources.has(index)||![...q.matches,...((q.schema==='dmb_native_graph_query_v3'||q.schema==='dmb_native_graph_query_v4')?q.authored_targets.flatMap(t=>t.matches):[])].some(m=>m.statement_id===c.statement_id&&m.campaign_id===c.campaign_id))return false;cited.add(index);}
+      else {if(!graphs.get(index)?.includes(c.assertion_id)||![...q.assertion_matches,...((q.schema==='dmb_native_graph_query_v3'||q.schema==='dmb_native_graph_query_v4')?q.authored_targets.flatMap(t=>t.assertion_matches):[])].some(m=>m.assertion_id===c.assertion_id&&m.assertion_sha256===c.assertion_sha256))return false;const ids=assertions.get(index)??new Set<string>();ids.add(c.assertion_id);assertions.set(index,ids);}
     }
   }
   if([...sources].some(i=>!cited.has(i))||[...graphs].some(([i,ids])=>ids.some(id=>!assertions.get(i)?.has(id))))return false;
