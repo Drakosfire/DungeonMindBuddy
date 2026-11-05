@@ -43,7 +43,24 @@ export async function extendRecapSupport(p:ExactRunCandidateProjection,request:R
  const {response}=await authenticatedApiFetch('/api/live/source-statements/extend-evidence',{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify(request)});
  const value=await response.json();
  if(!response.ok)throw new LiveApiError(value?.detail?.message??'Source support could not be verified. Recover the exact request.',response.status,{code:value?.detail?.code});
- const r=value?.receipt;
- if(value?.status!=='committed'||r?.space_id!==p.nativeWorldId||r?.extension_id!==request.extension_id||r?.original_admission_id!==request.original_admission_id||r?.source_artifact_id!==request.source_artifact_id||r?.source_revision_id!==request.source_revision_id||!r?.publication_receipt?.published_revision_id||!Array.isArray(r.bindings)||r.bindings.length!==request.spans.length||!request.spans.every(s=>r.bindings.filter((b:{client_ref?:string;evidence_role?:string;evidence_ref_id?:string})=>b.client_ref===s.client_ref&&b.evidence_role==='support'&&typeof b.evidence_ref_id==='string'&&b.evidence_ref_id).length===1))throw new Error('Source support receipt is unverified. Recover the exact request before publication.');
+ assertRecapSupportReceipt(p,request,value);
  return value;
+}
+/** Verify Core's actual immutable binding→UTF8-proof receipt contract. */
+export function assertRecapSupportReceipt(p:ExactRunCandidateProjection,request:RecapSupportRequest,value:Awaited<ReturnType<Response['json']>>) {
+ const r=value?.receipt;
+ const publication=r?.publication_receipt;
+ const bindings=r?.bindings,proofs=r?.proofs;
+ if(value?.status!=='committed'||r?.schema_version!=='dm_native_source_evidence_extension_receipt_v1'||r?.space_id!==p.nativeWorldId||r?.extension_id!==request.extension_id||r?.original_admission_id!==request.original_admission_id||r?.source_artifact_id!==request.source_artifact_id||r?.source_revision_id!==request.source_revision_id||publication?.space_id!==p.nativeWorldId||publication?.publication_id!==request.extension_id||typeof publication?.published_revision_id!=='string'||!publication.published_revision_id||!Array.isArray(bindings)||!Array.isArray(proofs)||bindings.length!==request.spans.length||proofs.length!==bindings.length)throw new Error('Source support receipt is unverified. Recover the exact request before publication.');
+ const seenRefs=new Set<string>(),seenSpans=new Set<string>();
+ for(const span of request.spans) {
+  const matches=bindings.filter((b:{client_ref?:string})=>b?.client_ref===span.client_ref);
+  if(matches.length!==1)throw new Error('Source support binding is unverified. Recover the exact request.');
+  const binding=matches[0];
+  if(typeof binding.span_id!=='string'||!binding.span_id||typeof binding.evidence_ref_id!=='string'||!binding.evidence_ref_id||seenRefs.has(binding.evidence_ref_id)||seenSpans.has(binding.span_id))throw new Error('Source support binding identities are unverified. Recover the exact request.');
+  seenRefs.add(binding.evidence_ref_id);seenSpans.add(binding.span_id);
+  const matching=proofs.filter((proof:{span_id?:string;evidence_ref_id?:string})=>proof?.span_id===binding.span_id&&proof.evidence_ref_id===binding.evidence_ref_id);
+  if(matching.length!==1||matching[0].schema_version!=='dm_native_utf8_span_v1'||matching[0].source_revision_id!==request.source_revision_id||matching[0].start_byte!==span.start_byte||matching[0].end_byte!==span.end_byte||matching[0].slice_sha256!==span.expected_slice_sha256)throw new Error('Source support UTF8 proof is unverified. Recover the exact request.');
+ }
+
 }

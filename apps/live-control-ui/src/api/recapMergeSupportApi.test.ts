@@ -1,6 +1,6 @@
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
 import {webcrypto} from 'node:crypto';
-import {buildRecapSupportRequest,validateRecapSupportRequest,extendRecapSupport} from './recapMergeSupportApi';
+import {buildRecapSupportRequest,validateRecapSupportRequest,assertRecapSupportReceipt,extendRecapSupport} from './recapMergeSupportApi';
 import {projection,context} from '../ingestion/nativeMergeFixtures';
 import * as transport from './liveApi';
 beforeEach(()=>vi.stubGlobal('crypto',webcrypto));
@@ -43,4 +43,21 @@ it.each(['\r\n','\u2028'])('preserves internal %j bytes in a multiline paragraph
 });
 it('does not treat visual highlightability as native evidence authority',async()=>{
  const p=structuredClone(projection);for(const record of [...p.nodes,...p.edges])record.evidence.forEach(w=>{w.canHighlight=false;});const r=context();r.native_context.source_evidence=[];const request=await buildRecapSupportRequest(p,r);expect(request?.spans).toHaveLength(1);await expect(validateRecapSupportRequest(p,r,request)).resolves.toEqual(request);
+});
+
+function coreReceipt(request:NonNullable<Awaited<ReturnType<typeof buildRecapSupportRequest>>>) {
+ return {status:'committed',receipt:{schema_version:'dm_native_source_evidence_extension_receipt_v1',space_id:'n',extension_id:request.extension_id,original_admission_id:request.original_admission_id,source_artifact_id:request.source_artifact_id,source_revision_id:request.source_revision_id,publication_receipt:{space_id:'n',publication_id:request.extension_id,published_revision_id:'child'},bindings:request.spans.map((s,i)=>({client_ref:s.client_ref,span_id:'span:'+i,evidence_ref_id:'ev:'+i})),proofs:request.spans.map((s,i)=>({schema_version:'dm_native_utf8_span_v1',span_id:'span:'+i,evidence_ref_id:'ev:'+i,source_revision_id:request.source_revision_id,start_byte:s.start_byte,end_byte:s.end_byte,slice_sha256:s.expected_slice_sha256}))}};
+}
+it('accepts Core bindings without a nonexistent evidence_role field and verifies UTF8 proofs',async()=>{
+ const r=context();r.native_context.source_evidence=[];const command=(await buildRecapSupportRequest(projection,r))!;const wire=coreReceipt(command);expect(wire.receipt.bindings[0]).not.toHaveProperty('evidence_role');expect(()=>assertRecapSupportReceipt(projection,command,wire)).not.toThrow();vi.spyOn(transport,'authenticatedApiFetch').mockResolvedValue({response:Response.json(wire)} as never);await expect(extendRecapSupport(projection,command)).resolves.toEqual(wire);
+});
+it.each(['bytes','digest','source','binding','publication','duplicate'])('rejects a corrupted Core receipt %s',async change=>{
+ const r=context();r.native_context.source_evidence=[];const command=(await buildRecapSupportRequest(projection,r))!;const wire=coreReceipt(command);
+ if(change==='bytes')wire.receipt.proofs[0].end_byte++;
+ if(change==='digest')wire.receipt.proofs[0].slice_sha256='0'.repeat(64);
+ if(change==='source')wire.receipt.proofs[0].source_revision_id='other';
+ if(change==='binding')wire.receipt.bindings[0].span_id='other';
+ if(change==='publication')wire.receipt.publication_receipt.publication_id='other';
+ if(change==='duplicate')wire.receipt.proofs.push(wire.receipt.proofs[0]);
+ expect(()=>assertRecapSupportReceipt(projection,command,wire)).toThrow('unverified');
 });
