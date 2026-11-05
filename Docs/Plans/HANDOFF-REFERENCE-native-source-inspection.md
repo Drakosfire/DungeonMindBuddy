@@ -69,7 +69,7 @@ is retained: native views also serve the general evidence reader. Both readers
 now use one native metadata loader; the general reader is required, not obsolete.
 
 ACTIVE source-browser successor: PRIME, branch `codex/native-source-browser`, base
-f2319197ce2ebf7529242e4b991bd89f1da4d50d (includes independently merged2084),
+b20e0b0d72a756d6315605e1501059317628aa9a (includes independently merged2084/2085),
 serial after Core156. Authoritative bounded
 write/resource contract is the private `native-source-browser-handoff.json` in
 PRIME's established runtime-evidence directory. Outcome: ordinary human source
@@ -90,7 +90,8 @@ and retain the exact native pair/pin; stale/substituted results fail without fal
 Expected writes extend the earlier API lease with the existing API service/tests,
 Core pin/lockfile only, UI source inspection API/types/auth tests, native source
 browser/tests, shared World browser/tests/CSS, shared pin comparator and its Graph
-consumer. Verify owning HTTP, actual Core source-only reads, UI filters and absence
+consumer, and the existing hosted UI test selection only. Shared pins and hosted
+test selection are serialized after merged2085; preserve its GenerationEngine pin. Verify owning HTTP, actual Core source-only reads, UI filters and absence
 of arbitrary result caps, exact pins, late World responses, retry and unchanged
 Graph/picker/auth callers; typecheck/build, independent cumulative review and CI.
 No shared dependency install, runtime restart, retained DB write or provider call
