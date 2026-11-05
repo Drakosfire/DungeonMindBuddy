@@ -142,14 +142,20 @@ DEFAULT_SEMANTIC_STATE = {
 }
 
 _EXPLICIT_PASSAGE_TRANSITIONS = (
-    "When an explicit temporal transition connects occurrences across adjacent "
-    "source passages, resolve the earlier and later occurrence references across "
-    "those passages and state that source-supported before/after relationship "
-    "in an occurrence description. Include evidence from both passages when "
-    "needed to support the referents and transition. Do not derive time from "
-    "passage adjacency alone, treat a next topic as a later occurrence, guess "
-    "an ambiguous antecedent, or turn narrative presentation into fictional "
-    "elapsed time. Preserve concurrency, future modality and unresolved order. "
+    "Before returning occurrence nodes, check explicit temporal transitions, "
+    "including transitions opening a source passage. Resolve references to "
+    "earlier and later occurrences using the surrounding source context. When "
+    "the source supports the referents and temporal meaning, state the directed "
+    "before/after relationship in an occurrence description with both occurrences "
+    "named. Include evidence from both passages when needed to support the "
+    "referents and transition. Preserve the connective's supported meaning: "
+    "listing both actions, or saying both precede another action, does not retain "
+    "their relative order. If the antecedent is ambiguous, the transition changes "
+    "topic rather than event time, or an action remains merely proposed, preserve "
+    "that limitation rather than asserting completed-event order. Do not derive "
+    "time from passage adjacency alone, complete a total timeline, or turn "
+    "narrative presentation or a flashback into fictional elapsed time. Preserve "
+    "concurrency, future modality and unresolved order. "
 )
 
 _SOURCE_ORDER_OCCURRENCES = (

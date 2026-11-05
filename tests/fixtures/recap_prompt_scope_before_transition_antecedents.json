@@ -1,0 +1,84 @@
+{
+  "base": "9d089b0f25bffdd4f38191bd9b1271231ded7a26",
+  "source_rows": [
+    {
+      "source_span_ref_id": "span-completed",
+      "line_start": 1,
+      "line_end": 1,
+      "text": "The envoy signed the accord."
+    },
+    {
+      "source_span_ref_id": "span-transition",
+      "line_start": 3,
+      "line_end": 3,
+      "text": "Next, the envoy entered the market."
+    }
+  ],
+  "previous_clause": "When an explicit temporal transition connects occurrences across adjacent source passages, resolve the earlier and later occurrence references across those passages and state that source-supported before/after relationship in an occurrence description. Include evidence from both passages when needed to support the referents and transition. Do not derive time from passage adjacency alone, treat a next topic as a later occurrence, guess an ambiguous antecedent, or turn narrative presentation into fictional elapsed time. Preserve concurrency, future modality and unresolved order. ",
+  "rendered_prompt_sha256": {
+    "recap_category_v2@2.0": {
+      "actor_pass.md": "2acc9142be72d04ac43718193285a42ffa2c277f71a541de6184f67cbf0e0edb",
+      "location_pass.md": "636aab324205b46e4361de6933b2498c3545428a5f4dd44a29c6bbcce7279382",
+      "collective_pass.md": "253327425ce851dbfeb3f686a2143a9d74900a84463a72bcdbcf94b67174ba3a",
+      "object_pass.md": "56609942e7e001e4a0e04036490a675684370cc47d30fccbc1d2ef7612942242",
+      "thread_pass.md": "204ded038ff2f31e7c53b880a44c10317ea81632345d86b4165c83f2eb2ee604",
+      "beat_pass.md": "cc63d991e01dfb616794bbd96c3fa636eb249d515c208bd0ebecb0f29e54995c",
+      "edge_pass.md": "0a3325008947c2225dfd5da91a68e738316be178a6469ec8d1b4fd1ff35a1f02"
+    },
+    "recap_category_encounter_job_preview@2.0": {
+      "actor_pass.md": "2acc9142be72d04ac43718193285a42ffa2c277f71a541de6184f67cbf0e0edb",
+      "location_pass.md": "636aab324205b46e4361de6933b2498c3545428a5f4dd44a29c6bbcce7279382",
+      "collective_pass.md": "253327425ce851dbfeb3f686a2143a9d74900a84463a72bcdbcf94b67174ba3a",
+      "object_pass.md": "56609942e7e001e4a0e04036490a675684370cc47d30fccbc1d2ef7612942242",
+      "thread_pass.md": "204ded038ff2f31e7c53b880a44c10317ea81632345d86b4165c83f2eb2ee604",
+      "beat_pass.md": "cc63d991e01dfb616794bbd96c3fa636eb249d515c208bd0ebecb0f29e54995c",
+      "edge_pass.md": "0a3325008947c2225dfd5da91a68e738316be178a6469ec8d1b4fd1ff35a1f02",
+      "encounter_job_pass.md": "3e5ee50d5227ee901dfbea25019d6e03e58e5c081748ef92fcb65fbf74914d0d"
+    },
+    "worldbuilding_shepherds_flock_v0@0.1": {
+      "actor_pass.md": "a7ac100b82f39f78f53456f2695699ade99d036e9ddd454370840191112d36a5",
+      "location_pass.md": "a7f15d7d826a2b920b6c8bb7e065d004992f5911a2efb2564593866d3e2ca32e",
+      "collective_pass.md": "a838105ad94dc1f198f335f4df993c1e5be0408c5ab8d12c13e1eb067f127505",
+      "edge_pass.md": "972bf1b1e38ffc11cbed030126aa52baa3a7484819d80eae1c29134009674770"
+    },
+    "worldbuilding_plumbing_v0@0.1": {
+      "actor_pass.md": "5df11cc30a54e41d0940767eb030ef3a33aaca5dd43d9c606378b7874dff45fe",
+      "location_pass.md": "56be26558d45f3497b2ff67b2a4be44a04294c3c46ce477f4ba3cae659c0a0f2",
+      "object_pass.md": "c9b352474a9f8cddd323e837f1743d9c51e16038de7d0ae081a17d7d942fa37d",
+      "edge_pass.md": "45fdf20fc6ec97ade8dc75c6b546d406b46e47ded06765080b91ffcf8af693f9"
+    }
+  },
+  "schema_sha256": {
+    "recap_category_v2@2.0": {
+      "actor_pass": "33e4f1e8677c12a0906c155a738c0cd2e8b23332082408b6acf52906b3054788",
+      "location_pass": "df75df5e48275f9e67aa2585ef96686abe209cefed6dfc6938af7f622c7c4f65",
+      "collective_pass": "32c3da03a61e42b46f69d2ab5151ae7c77549a4e3fe458df698932f6a186eefd",
+      "object_pass": "d4ce3e36ded329f5c1d2b8a2c8292d7b9182417f47023b6479f7287be4cb6c78",
+      "thread_pass": "5f0999d4a4ccc267d6be91bbec6b905bf084b7b73b10669c28be6b3cbf60ed82",
+      "beat_pass": "f297e0bcad2515d5f05ab5030ac1e400c93ed04f7ee6f1ed9197ae302fad992f",
+      "edge_pass": "0dcc1b4d7a4d806a83976573fe02a7196030bc66b34b26e63a493b893e5c2389"
+    },
+    "recap_category_encounter_job_preview@2.0": {
+      "actor_pass": "33e4f1e8677c12a0906c155a738c0cd2e8b23332082408b6acf52906b3054788",
+      "location_pass": "df75df5e48275f9e67aa2585ef96686abe209cefed6dfc6938af7f622c7c4f65",
+      "collective_pass": "32c3da03a61e42b46f69d2ab5151ae7c77549a4e3fe458df698932f6a186eefd",
+      "object_pass": "d4ce3e36ded329f5c1d2b8a2c8292d7b9182417f47023b6479f7287be4cb6c78",
+      "thread_pass": "5f0999d4a4ccc267d6be91bbec6b905bf084b7b73b10669c28be6b3cbf60ed82",
+      "beat_pass": "f297e0bcad2515d5f05ab5030ac1e400c93ed04f7ee6f1ed9197ae302fad992f",
+      "encounter_job_pass": "d7b4003c21e36edf157c179296b0a25f067846127a85ead1a971a0a4f1c301f0",
+      "edge_pass": "0dcc1b4d7a4d806a83976573fe02a7196030bc66b34b26e63a493b893e5c2389"
+    },
+    "worldbuilding_shepherds_flock_v0@0.1": {
+      "actor_pass": "33e4f1e8677c12a0906c155a738c0cd2e8b23332082408b6acf52906b3054788",
+      "location_pass": "df75df5e48275f9e67aa2585ef96686abe209cefed6dfc6938af7f622c7c4f65",
+      "collective_pass": "32c3da03a61e42b46f69d2ab5151ae7c77549a4e3fe458df698932f6a186eefd",
+      "edge_pass": "6822e570ccbb4cb7f008575fa69dbc43ddbe77126008e034c984743cd89f61dc"
+    },
+    "worldbuilding_plumbing_v0@0.1": {
+      "actor_pass": "c5a394a6cd2aee4594ab96894e493da03b056eb4d2c58b4d3219c29a8ec0872e",
+      "location_pass": "c5a394a6cd2aee4594ab96894e493da03b056eb4d2c58b4d3219c29a8ec0872e",
+      "object_pass": "c5a394a6cd2aee4594ab96894e493da03b056eb4d2c58b4d3219c29a8ec0872e",
+      "edge_pass": "6822e570ccbb4cb7f008575fa69dbc43ddbe77126008e034c984743cd89f61dc"
+    }
+  }
+}
