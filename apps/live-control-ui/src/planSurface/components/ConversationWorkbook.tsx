@@ -1,7 +1,7 @@
 import type {ReviewedStepReference} from '../../api/types'
 import { DurableWorkPlan,type ReviewedRow } from './DurableWorkPlan'
 import type {WorkPlan,WorkDispatch} from '../../api/conversationWorkPlanApi'
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState, type ComponentProps } from 'react'
 import type {ConversationCollaboration,ConversationConnectedPageProposal,ConversationRelationshipProposal} from '../../api/types'
 import { parseMarkdownAst } from '../../tiptap/markdown/parseMarkdownAst'
 
@@ -20,6 +20,28 @@ function candidates(source: string): string[] {
       .map(text => text.trim()).filter(Boolean)
     return rows
   } catch { return [] }
+}
+/** Grow in the transcript, including after restored notes or a narrower dock. */
+function WorkbookTextArea(props:ComponentProps<'textarea'>) {
+  const ref=useRef<HTMLTextAreaElement>(null)
+  useLayoutEffect(()=>{
+    const node=ref.current
+    if(!node)return
+    let width=-1
+    const grow=()=>{
+      const next=node.getBoundingClientRect().width
+      if(!next)return
+      width=next
+      node.style.height='auto'
+      node.style.height=`${node.scrollHeight+node.offsetHeight-node.clientHeight}px`
+    }
+    grow()
+    if(typeof ResizeObserver==='undefined')return
+    const observer=new ResizeObserver(()=>{if(node.getBoundingClientRect().width!==width)grow()})
+    observer.observe(node)
+    return()=>observer.disconnect()
+  },[props.value])
+  return <textarea {...props} ref={ref}/>
 }
 function Card({source, identity, mode, items, onAdd, disabled, onSavePlan}: {
   source: string; identity: string; mode: Mode; items: Row[]; onAdd: (text: string) => void; disabled: boolean; onSavePlan?:(rows:ReviewedRow[])=>Promise<void>
@@ -61,9 +83,9 @@ function Card({source, identity, mode, items, onAdd, disabled, onSavePlan}: {
     {notes.warning&&<p role="alert">{notes.warning}</p>}
     {notes.rows.map((row,index)=><div className="conversation-workbook__row" key={index}>
       <label><input type="checkbox" checked={row.include} disabled={disabled} onChange={event=>edit(index,{include:event.target.checked})}/> Include {mode==='plan'?'step':'question'} {index+1}</label>
-      <textarea aria-label={`${mode==='plan'?'Step':'Question'} ${index+1}`} value={row.text} disabled={disabled} onChange={event=>edit(index,{text:event.target.value})}/>
+      <WorkbookTextArea aria-label={`${mode==='plan'?'Step':'Question'} ${index+1}`} value={row.text} disabled={disabled} onChange={event=>edit(index,{text:event.target.value})}/>
       {mode==='plan'&&onSavePlan&&<label>Action <select aria-label={`Action ${index+1}`} value={row.kind??'discuss'} disabled={disabled} onChange={event=>edit(index,{kind:event.target.value as Row['kind']})}><option value="discuss">Discuss</option><option value="prepare_insertion">Prepare an insertion</option></select></label>}
-      {mode==='questions'&&<textarea aria-label={`Answer ${index+1}`} placeholder="Your answer…" value={row.answer} disabled={disabled} onChange={event=>edit(index,{answer:event.target.value})}/>}
+      {mode==='questions'&&<WorkbookTextArea aria-label={`Answer ${index+1}`} placeholder="Your answer…" value={row.answer} disabled={disabled} onChange={event=>edit(index,{answer:event.target.value})}/>}
     </div>)}
     <button type="button" disabled={disabled} onClick={()=>change([...notes.rows,{text:'',include:true,answer:''}])}>Add {mode==='plan'?'step':'question'}</button>{' '}
     <button type="button" disabled={disabled||!selected.length} onClick={()=>{
