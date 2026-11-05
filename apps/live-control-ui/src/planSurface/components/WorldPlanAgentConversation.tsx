@@ -16,7 +16,7 @@ import {ConversationRelationshipReview} from './ConversationRelationshipReview';
 import {SourceCitedAnswer} from "./SourceCitedAnswer";
 import {ConversationConnectedPageReview} from "./ConversationConnectedPageReview";
 import {ConversationLibrary} from '../../agentInteraction/ConversationLibrary';
-import {resumeConversation,type ResumeConversationCommand} from '../../api/conversationLibraryApi';
+import {resumeConversation,changeConversationLifecycle,type ConversationLifecycleOperation,type ResumeConversationCommand} from '../../api/conversationLibraryApi';
 import {ConversationExport} from '../../agentInteraction/ConversationExport';
 import {queueSurfaceConversationRequest,useSurfaceConversationRequests,claimSurfaceConversationRequest,acceptSurfaceConversationRequest,failSurfaceConversationRequest,retrySurfaceConversationRequest,cancelSurfaceConversationRequest,cancelSurfaceConversationTarget,ownsSurfaceConversationRequest,type SurfaceConversationRequest} from '../../agentInteraction/surfaceConversationRequests';
 import { groupConversationAttempts, isUnansweredFailure } from "../../agentInteraction/conversationAttemptGroups";
@@ -1945,7 +1945,7 @@ export async function verifiedCommandResolution(value: unknown, request: WorldCo
     if (record.confirmed_receipt !== null || record.retirement_operation_id !== null
       || !hasExactKeys(proof, ["world_id", "command_id", "command_kind", "request_fingerprint", "receipt_sha256"])
       || proof.world_id !== command.world_id || proof.command_id !== command.command_id
-      || !["new", "archive", "reopen"].includes(String(proof.command_kind))
+      || !["new", "archive", "reopen", "trash", "restore"].includes(String(proof.command_kind))
       || !isDigest(proof.request_fingerprint) || !isDigest(proof.receipt_sha256)
       || (proof.command_kind === "new" && proof.request_fingerprint === originalDigest)) return null;
   } else if (record.outcome === "confirmed") {
@@ -6360,11 +6360,11 @@ export function WorldPlanAgentConversation({
               : "Conversation history is not ready yet."
             : null;
 
-  async function continueConversation(command:ResumeConversationCommand){
+  async function continueConversation(command:ResumeConversationCommand,operation:'reopen'|ConversationLifecycleOperation='reopen'){
     if(conversationSwitchRef.current||newConversationDisabledReason||command.world_id!==verifiedWorldId)throw new Error('Wait for the current request and refresh conversation history.');
     const owner=verifiedWorldId;conversationSwitchRef.current=true;setConversationSwitching(true);
     try{
-      await resumeConversation(command);
+      if(operation==='reopen')await resumeConversation(command);else await changeConversationLifecycle(command,operation);
       if(!latestRef.current.mounted||latestRef.current.verifiedWorldId!==owner)return;
       historyGenerationRef.current++;historySnapshotRef.current=null;setHistory(null);
       setContinuationOfActionId(null);setConversationActions([]);setSourcePassage(null);
@@ -6468,7 +6468,7 @@ export function WorldPlanAgentConversation({
   const managementDetails = (<>
       {verifiedWorldId&&<><button type="button" onClick={()=>setLibraryOpen(true)}>Conversations…</button>
         {history?.world_id===verifiedWorldId&&history.conversation_id&&<ConversationExport key={`${verifiedWorldId}:${history.conversation_id}`} worldId={verifiedWorldId} conversationId={history.conversation_id}/>}
-        {libraryOpen&&<ConversationLibrary key={verifiedWorldId} worldId={verifiedWorldId} onClose={()=>setLibraryOpen(false)} pointer={history?{revision:history.pointer_revision,activeId:history.active_conversation_id}:undefined} onContinue={continueConversation} continueDisabledReason={newConversationDisabledReason}/>}</>}
+        {libraryOpen&&<ConversationLibrary key={verifiedWorldId} worldId={verifiedWorldId} onClose={()=>setLibraryOpen(false)} pointer={history?{revision:history.pointer_revision,activeId:history.active_conversation_id}:undefined} onContinue={continueConversation} onLifecycle={(command,operation)=>continueConversation(command,operation)} continueDisabledReason={newConversationDisabledReason}/>}</>}
 
       {playMode ? <div role="group" aria-label="Play message action">
           <button type="button" aria-pressed={!playEditMode} onClick={() => setPlayEditMode(false)}>Discuss</button>

@@ -1,5 +1,5 @@
 import {beforeEach,expect,it,vi} from 'vitest';
-import {readConversationTurns,resumeConversation} from './conversationLibraryApi';
+import {readConversationTurns,resumeConversation,changeConversationLifecycle} from './conversationLibraryApi';
 import {authenticatedApiFetch} from './liveApi';
 vi.mock('./liveApi',async original=>({...await original<typeof import('./liveApi')>(),authenticatedApiFetch:vi.fn()}));
 const cid='11111111-1111-4111-8111-111111111111',tid='22222222-2222-4222-8222-222222222222';
@@ -33,4 +33,12 @@ it('accepts only the exact durable reopen receipt',async()=>{
  const receipt={world_id:'world',conversation_id:cid,command_id:tid,command_kind:'reopen',active_conversation_id:cid,pointer_revision:5,recorded_at:'2026-11-05T12:00:00Z'};
  response(receipt);expect(await resumeConversation(command)).toEqual(receipt);
  for(const patch of [{command_kind:'new'},{world_id:'foreign'},{active_conversation_id:null},{pointer_revision:6},{command_id:cid},{conversation_id:tid}]){response({...receipt,...patch});await expect(resumeConversation(command)).rejects.toThrow(/switch/);}
+});
+
+it('validates lifecycle receipt operation and exact resulting active pointer',async()=>{
+ const command={world_id:'world',conversation_id:cid,command_id:tid,expected_pointer_revision:4,expected_active_conversation_id:cid};
+ const receipt={world_id:'world',conversation_id:cid,command_id:tid,command_kind:'trash',active_conversation_id:null,pointer_revision:5,recorded_at:'2026-11-05T12:00:00Z'};
+ response(receipt);expect(await changeConversationLifecycle(command,'trash')).toEqual(receipt);
+ for(const patch of [{command_kind:'restore'},{active_conversation_id:cid},{world_id:'foreign'},{pointer_revision:6}]){response({...receipt,...patch});await expect(changeConversationLifecycle(command,'trash')).rejects.toThrow('lifecycle');}
+ response({...receipt,command_kind:'restore'});expect((await changeConversationLifecycle({...command,expected_active_conversation_id:null},'restore')).active_conversation_id).toBeNull();
 });

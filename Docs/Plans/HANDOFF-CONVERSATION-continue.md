@@ -17,7 +17,7 @@ tests; planSurface/components/WorldPlanAgentConversation.tsx and its existing
 worldHistory tests; tests/test_conversation_library_routes.py and existing
 APP conversation tests if required; api/liveApi.ts exact credential-path selector and its existing conversationLibraryAuth tests; api/conversationLibraryApi.test.ts. CI selector additions in .github/workflows/hosted-validation.yml and world-ownership-core.yml are also leased for the owning tests; ADVERSARY explicitly confirmed no conflicting lease and granted the bounded append lease, preserving all ingestion selectors. The allowlist addition is required for the new authenticated resume caller, not a wider credential scope. Prefixes resolve under their owning apps/src.
 
-Serial successors remain in scope: recoverable conversation Trash/Restore, then
+Successors remain in scope; Trash/Restore now proceeds as a stacked child of #2106 at e19fbb90cd3f1391fe6cf49ec3f88e8c391905cf, with merge order #2106 then Trash/Restore then lightweight reads: recoverable conversation Trash/Restore, then
 lightweight transcript reads with exact fidelity and measured read costs. Neither
 is included in this PR. Existing #2104 stays separate. Inspect current leases
 before activation; no runtime/DB mutation during implementation.

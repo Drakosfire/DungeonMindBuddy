@@ -30,3 +30,12 @@ it('uses guarded resume transport with exact command identity and excludes near 
  await live.authenticatedApiFetch('/api/live/agent/worlds/world-one/conversations/'+id+'/resume-extra',{method:'POST'});
  expect(new Headers(fetch.mock.calls[1][1]?.headers).has('Authorization')).toBe(false);
 });
+
+it.each(['trash','restore'] as const)('uses guarded lifecycle transport for %s only',async operation=>{
+ const {live,library}=await modules();live.setNativeGraphAccessToken('synthetic-library-token');
+ const command={world_id:'world-one',conversation_id:id,command_id:'22222222-2222-4222-8222-222222222222',expected_pointer_revision:8,expected_active_conversation_id:null};
+ const receipt={world_id:'world-one',conversation_id:id,command_id:command.command_id,command_kind:operation,active_conversation_id:null,pointer_revision:9,recorded_at:'2026-11-05T12:00:00Z'};
+ const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json(receipt));await library.changeConversationLifecycle(command,operation);
+ expect(new Headers(fetch.mock.calls[0][1]?.headers).get('Authorization')).toBe('Bearer synthetic-library-token');
+ await live.authenticatedApiFetch('/api/live/agent/worlds/world-one/conversations/'+id+'/'+operation+'-extra',{method:'POST'});expect(new Headers(fetch.mock.calls[1][1]?.headers).has('Authorization')).toBe(false);
+});

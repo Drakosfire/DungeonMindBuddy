@@ -85,3 +85,23 @@ it('rebases a definitively rejected switch after refreshing the pointer',async()
  fireEvent.click(screen.getByRole('button',{name:'Refresh conversations'}));await screen.findByText('Current question');fireEvent.click(screen.getByRole('button',{name:/Archived piece/}));await screen.findByText('Archived question');fireEvent.click(screen.getByRole('button',{name:'Continue conversation',exact:true}));
  await waitFor(()=>expect(onContinue).toHaveBeenCalledTimes(2));expect(onContinue.mock.calls[1][0].command_id).not.toEqual(onContinue.mock.calls[0][0].command_id);expect(onContinue.mock.calls[1][0].expected_pointer_revision).toBe(9);
 });
+
+it('moves to recoverable Trash explicitly and restores without continuing',async()=>{
+ const onLifecycle=vi.fn().mockResolvedValue(undefined),onContinue=vi.fn();
+ const view=render(<ConversationLibrary worldId="world-one" onClose={()=>{}} pointer={{revision:8,activeId:current}} onContinue={onContinue} onLifecycle={onLifecycle}/>);
+ await screen.findByText('Current question');fireEvent.click(screen.getByRole('button',{name:'Move to Trash'}));await waitFor(()=>expect(onLifecycle).toHaveBeenCalledTimes(1));
+ expect(onLifecycle.mock.calls[0]).toEqual([expect.objectContaining({conversation_id:current,expected_pointer_revision:8}),'trash']);expect(onContinue).not.toHaveBeenCalled();
+ vi.mocked(api.listConversations).mockImplementation(async(world,status)=>({schema:'dmb_conversation_library_v1',world_id:world,status,items:[{...meta(current,world),status:'trashed'}],next_before:null}));
+ vi.mocked(api.readConversationName).mockResolvedValue({...meta(),status:'trashed'});
+ fireEvent.change(screen.getByLabelText('Show'),{target:{value:'trashed'}});await screen.findByText('In Trash · Read-only transcript');
+ expect(screen.queryByRole('button',{name:'Continue conversation',exact:true})).not.toBeInTheDocument();
+ view.rerender(<ConversationLibrary worldId="world-one" onClose={()=>{}} pointer={{revision:9,activeId:null}} onContinue={onContinue} onLifecycle={onLifecycle}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Restore conversation'}));await waitFor(()=>expect(onLifecycle).toHaveBeenCalledTimes(2));
+ expect(onLifecycle.mock.calls[1]).toEqual([expect.objectContaining({expected_pointer_revision:9,expected_active_conversation_id:null}),'restore']);expect(onContinue).not.toHaveBeenCalled();
+});
+it('retries uncertain Trash using the same command and does not substitute Restore',async()=>{
+ const onLifecycle=vi.fn().mockRejectedValueOnce(new Error('Connection lost')).mockResolvedValue(undefined);
+ render(<ConversationLibrary worldId="world-one" onClose={()=>{}} pointer={{revision:8,activeId:current}} onLifecycle={onLifecycle}/>);
+ await screen.findByText('Current question');fireEvent.click(screen.getByRole('button',{name:'Move to Trash'}));await screen.findByRole('alert');
+ fireEvent.click(screen.getByRole('button',{name:'Move to Trash'}));await waitFor(()=>expect(onLifecycle).toHaveBeenCalledTimes(2));expect(onLifecycle.mock.calls[1]).toEqual(onLifecycle.mock.calls[0]);
+});

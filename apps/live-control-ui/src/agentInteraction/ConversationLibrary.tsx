@@ -5,19 +5,20 @@ import {groupRetryLineage} from './conversationAttemptGroups';
 import {ConversationRetryAttempts} from './ConversationRetryAttempts';
 import {useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {listConversations,readConversationName,readConversationTurns,renameConversation,type ConversationSummary,type LibraryTurn,type ResumeConversationCommand} from '../api/conversationLibraryApi';
+import {listConversations,readConversationName,readConversationTurns,renameConversation,type ConversationSummary,type LibraryTurn,type ResumeConversationCommand,type ConversationLifecycleOperation} from '../api/conversationLibraryApi';
 import {WorldPlanAgentAnswer} from '../planSurface/components/WorldPlanAgentAnswer';
 import {BuddyContextTraceLoader} from '../planSurface/components/BuddyContextTraceLoader';
 import './ConversationLibrary.css';
 const message=(error:unknown)=>error instanceof Error?error.message:'The conversation could not be read.';
-export function ConversationLibrary({worldId,onClose,pointer,onContinue,continueDisabledReason}:{worldId:string;onClose:()=>void;pointer?:{revision:number;activeId:string|null};onContinue?:(command:ResumeConversationCommand)=>Promise<void>;continueDisabledReason?:string|null}){
+export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecycle,continueDisabledReason}:{worldId:string;onClose:()=>void;pointer?:{revision:number;activeId:string|null};onContinue?:(command:ResumeConversationCommand)=>Promise<void>;onLifecycle?:(command:ResumeConversationCommand,operation:ConversationLifecycleOperation)=>Promise<void>;continueDisabledReason?:string|null}){
  const [continuing,setContinuing]=useState(false);
+ const pendingOperation=useRef<'reopen'|ConversationLifecycleOperation|null>(null);
  const pendingResume=useRef<ResumeConversationCommand|null>(null),continueInFlight=useRef(false);
- useEffect(()=>{pendingResume.current=null;continueInFlight.current=false;setContinuing(false);},[worldId]);
+ useEffect(()=>{pendingResume.current=null;pendingOperation.current=null;continueInFlight.current=false;setContinuing(false);},[worldId]);
  const dialog=useRef<HTMLDialogElement>(null),mounted=useRef(true),scope=useRef({worldId});
  if(scope.current.worldId!==worldId)scope.current={worldId};
  const listEpoch=useRef(0),detailEpoch=useRef(0),pageBusy=useRef(false);
- const [filter,setFilter]=useState<'all'|'archived'>('all'),[items,setItems]=useState<ConversationSummary[]>([]),[listOwner,setListOwner]=useState(worldId);
+ const [filter,setFilter]=useState<'all'|'archived'|'trashed'>('all'),[items,setItems]=useState<ConversationSummary[]>([]),[listOwner,setListOwner]=useState(worldId);
  const [next,setNext]=useState<string|null>(null),[listing,setListing]=useState(true),[listError,setListError]=useState('');
  const [selected,setSelected]=useState<string|null>(null),[detail,setDetail]=useState<ConversationSummary|null>(null),[turns,setTurns]=useState<LibraryTurn[]>([]);
  const [before,setBefore]=useState<number|null>(null),[loading,setLoading]=useState(false),[error,setError]=useState('');
@@ -64,15 +65,16 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,continue
   try{const meta=await readConversationName(worldId,id);if(alive(owner)&&epoch===detailEpoch.current){setDetail(meta);setTitle(meta.title);}}
   catch(reason){if(alive(owner)&&epoch===detailEpoch.current)setError(message(reason));}
  }
- async function continueSelected(){
-  if(!detail||detail.status!=='archived'||!pointer||!onContinue||continueInFlight.current||continuing||continueDisabledReason)return;
+ async function continueSelected(operation:'reopen'|ConversationLifecycleOperation='reopen'){
+  if(!detail||!pointer||continueInFlight.current||continuing||continueDisabledReason)return;
+  if(operation==='reopen'?(detail.status!=='archived'||!onContinue):!onLifecycle)return;
   const owner=scope.current,id=detail.conversation_id;
-  if(pendingResume.current&&pendingResume.current.conversation_id!==id){setError('Refresh the current conversation before switching to another.');return;}
+  if(pendingResume.current&&(pendingResume.current.conversation_id!==id||pendingOperation.current!==operation)){setError('Refresh the current conversation before switching to another.');return;}
   const command=pendingResume.current??{world_id:worldId,conversation_id:id,command_id:crypto.randomUUID(),expected_pointer_revision:pointer.revision,expected_active_conversation_id:pointer.activeId};
-  pendingResume.current=command;continueInFlight.current=true;setContinuing(true);setError('');
-  try{await onContinue(command);if(alive(owner))pendingResume.current=null;}
+  pendingResume.current=command;pendingOperation.current=operation;continueInFlight.current=true;setContinuing(true);setError('');
+  try{if(operation==='reopen')await onContinue!(command);else await onLifecycle!(command,operation);if(alive(owner)){pendingResume.current=null;pendingOperation.current=null;void loadList();}}
   catch(reason){if(alive(owner)){
-   if(reason instanceof LiveApiError&&reason.status===409){pendingResume.current=null;setError('The switch was rejected because the conversation changed. Refresh conversations, then choose Continue again.');}
+   if(reason instanceof LiveApiError&&reason.status===409){pendingResume.current=null;pendingOperation.current=null;setError('The switch was rejected because the conversation changed. Refresh conversations, then choose Continue again.');}
    else setError(message(reason)+' Refresh conversations to check the current selection, or retry this same switch.');
   }}
   finally{if(alive(owner)){continueInFlight.current=false;setContinuing(false);}}
@@ -82,10 +84,10 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,continue
   <header><h2>Conversations</h2><button type="button" aria-label="Close conversations" onClick={onClose}>×</button></header>
   <div className="conversation-library__panes"><nav aria-label="Saved conversations">
    <button type="button" disabled={listing||continuing} onClick={()=>void loadList()}>Refresh conversations</button>
-   <label>Show<select value={filter} onChange={event=>setFilter(event.target.value as 'all'|'archived')}><option value="all">All conversations</option><option value="archived">Archived conversations</option></select></label>
+   <label>Show<select value={filter} onChange={event=>setFilter(event.target.value as 'all'|'archived'|'trashed')}><option value="all">All conversations</option><option value="archived">Archived conversations</option><option value="trashed">Trash</option></select></label>
    {listError&&<p role="alert">{listError}<button type="button" onClick={()=>void loadList()}>Retry list</button></p>}
    <ul>{(listOwner===worldId?items:[]).map(item=><li key={item.conversation_id}><button type="button" aria-pressed={selected===item.conversation_id} onClick={()=>void select(item.conversation_id)}>
-    <strong>{item.title}</strong><span>{item.status==='active'?'Current':'Archived'} · {item.turn_count} turns · {new Date(item.updated_at).toLocaleDateString()}</span></button></li>)}</ul>
+    <strong>{item.title}</strong><span>{item.status==='active'?'Current':item.status==='trashed'?'Trash':'Archived'} · {item.turn_count} turns · {new Date(item.updated_at).toLocaleDateString()}</span></button></li>)}</ul>
    {listing&&<p role="status">Loading conversations…</p>}{!listing&&!items.length&&!listError&&<p>No conversations yet.</p>}
    {next&&<button type="button" disabled={listing} onClick={()=>void loadList(true)}>More conversations</button>}
   </nav><section className="conversation-library__reader" aria-label="Selected conversation">
@@ -93,7 +95,8 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,continue
     <button type="submit" disabled={saving||!title.trim()}>{saving?'Saving…':'Save name'}</button>{error&&<button type="button" onClick={()=>void reloadName()}>Reload saved name</button>}</form>
     <ConversationExport key={`${worldId}:${ownDetail.conversation_id}`} worldId={worldId} conversationId={ownDetail.conversation_id}/>
     {onContinue&&ownDetail.status==='archived'&&<><button type="button" disabled={continuing||!pointer||Boolean(continueDisabledReason)} onClick={()=>void continueSelected()}>{continuing?'Continuing…':'Continue conversation'}</button><p>{continueDisabledReason??'Continue here with your unsent message kept. Saved pages and previous actions stay unchanged.'}</p></>}
-    <p>{ownDetail.status==='active'?'Current conversation':'Archived conversation'} · Read-only transcript</p>{notice&&<p role="status">{notice}</p>}</>}
+    {onLifecycle&&<><button type="button" disabled={continuing||!pointer||Boolean(continueDisabledReason)} onClick={()=>void continueSelected(ownDetail.status==='trashed'?'restore':'trash')}>{continuing?'Updating…':ownDetail.status==='trashed'?'Restore conversation':'Move to Trash'}</button><p>{ownDetail.status==='trashed'?'Restore to history, then choose Continue when ready.':'Messages remain recoverable in Trash. Saved pages and documents are kept.'}</p></>}
+    <p>{ownDetail.status==='active'?'Current conversation':ownDetail.status==='trashed'?'In Trash':'Archived conversation'} · Read-only transcript</p>{notice&&<p role="status">{notice}</p>}</>}
    {error&&<p role="alert">{error}</p>}{loading&&<p role="status">Loading messages…</p>}
    {before!==null&&<button type="button" disabled={loading} onClick={()=>void olderTurns()}>Earlier messages</button>}
    {ownDetail&&groupRetryLineage(turns,t=>t.retry_context).map(({item:turn,historical})=>{const content=<article key={turn.turn_id}>
