@@ -374,6 +374,9 @@ def test_exact_native_support_without_published_assertion_is_inspectable(context
     assert packet["source_admission"] == {
         "state": "admitted", "run_id": recap_admission.record.run_id,
         "run_revision": 4, "opening_state": "verified", "failure_code": None,
+        "admission_id": recap_admission.receipt.admission_id,
+        "source_artifact_id": recap_admission.receipt.source_artifact_id,
+        "source_revision_id": recap_admission.receipt.source_revision_id,
     }
     refs = packet["source_evidence"]
     assert {ref["evidence_role"] for ref in refs} == {"support"}
