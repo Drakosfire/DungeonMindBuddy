@@ -386,6 +386,12 @@ def test_node_description_coverage_changes_only_existing_recap_node_prompts() ->
         for name, prompt in prompts.items():
             changes = profile.admitted_source_domains == frozenset({"recap"}) and name in eligible
             assert prompt.count(_NODE_DESCRIPTION_COVERAGE) == int(changes), (profile.qualified_id, name)
+            for contract in (
+                "actions, affected objects, and outcomes explicitly in the description",
+                "Do not leave a material detail only in an evidence quote, beat summary, or relationship label",
+                "Preserve source ambiguity rather than filling missing details by inference",
+            ):
+                assert prompt.count(contract) == int(changes), (profile.qualified_id, name)
             # All other content remains byte-identical to the independently
             # captured pre-change renderer output, including source/evidence rules.
             unchanged = prompt.replace(_NODE_DESCRIPTION_COVERAGE + "\n\n", "") if changes else prompt
@@ -405,7 +411,9 @@ def test_direct_order_changes_only_opted_in_thread_edge_prompts_and_edge_schema(
     from src.graph_memory.extraction.category_candidate_graph_extractor import render_encounter_job_pass_prompt
     from src.graph_memory.extraction.extraction_profile import get_extraction_profile
     from src.graph_memory.extraction.worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
-    from src.graph_memory.extraction.recap_extraction_profile import _SOURCE_ORDER_OCCURRENCES, _SOURCE_ORDER_EDGES
+    from src.graph_memory.extraction.recap_extraction_profile import (
+        _NODE_DESCRIPTION_COVERAGE, _SOURCE_ORDER_OCCURRENCES, _SOURCE_ORDER_EDGES,
+    )
     fixture = json.loads((Path(__file__).parent / "fixtures" / "recap_prompt_scope_before_direct_precedence.json").read_text())
     for profile in (RECAP_EXTRACTION_PROFILE,
                     get_extraction_profile("recap_category_encounter_job_preview", "2.0"),
@@ -419,7 +427,15 @@ def test_direct_order_changes_only_opted_in_thread_edge_prompts_and_edge_schema(
         assert set(prompts) == set(before)
         for name, prompt in prompts.items():
             changed = opted_in and name in {"thread_pass.md", "edge_pass.md"}
-            assert (hashlib.sha256(prompt.encode()).hexdigest() != before[name]) == changed
+            # This fixture predates the separately verified description refinement.
+            # Remove only that appended delta; preserve the original coverage rule
+            # and every ordering/source/schema instruction under comparison.
+            refinement = _NODE_DESCRIPTION_COVERAGE.partition(
+                "source-faithfulness requirements."
+            )[2]
+            assert refinement
+            ordering_prompt = prompt.replace(refinement, "")
+            assert (hashlib.sha256(ordering_prompt.encode()).hexdigest() != before[name]) == changed
             assert prompt.count(_SOURCE_ORDER_OCCURRENCES) == int(opted_in and name == "thread_pass.md")
             assert prompt.count(_SOURCE_ORDER_EDGES) == int(opted_in and name == "edge_pass.md")
             assert ("`precedes`" in prompt) == (opted_in and name == "edge_pass.md")
