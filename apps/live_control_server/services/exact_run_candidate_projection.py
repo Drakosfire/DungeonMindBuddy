@@ -282,6 +282,7 @@ def _build(
                 if mapped is not None:
                     owners.setdefault(mapped, set()).add(node.view_key)
                     surfaces[mapped] = node.label
+    known_intervals = set()
     context = (run.lineage or {}).get("known_character_bindings")
     if context is not None:
         from src.graph_memory.extraction.known_character_bindings import candidate_bindings
@@ -315,7 +316,22 @@ def _build(
             if key is not None and mapped is not None:
                 owners.setdefault(mapped, set()).add(key)
                 surfaces[mapped] = mention["surface"]
+                known_intervals.add(mapped)
         diagnostics.append("known_character_literal_mentions_projected")
+    # A literal group list can contain several independently pinned character
+    # mentions. Keep those precise name links; the group remains inspectable in
+    # the full node list. Equal spans, duplicate identities, and non-group
+    # overlaps still fail closed through the ordinary ambiguity guard below.
+    kinds = {n.view_key: n.node_type for n in nodes}
+    broader_groups = {
+        interval for interval, keys_at_span in owners.items()
+        if keys_at_span and all(kinds.get(key) == "group" for key in keys_at_span)
+        and any(interval != precise and interval[0] <= precise[0] and precise[1] <= interval[1]
+                and len(owners[precise]) == 1 for precise in known_intervals)
+    }
+    if broader_groups:
+        owners = {interval: keys_at_span for interval, keys_at_span in owners.items() if interval not in broader_groups}
+        diagnostics.append("known_character_links_preferred_over_group_label")
     located = []
     # The shared mention engine protects fences/inline code, but not indented
     # source. Preserve these lines conservatively (including list continuations)

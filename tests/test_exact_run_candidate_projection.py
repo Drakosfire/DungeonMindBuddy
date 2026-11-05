@@ -81,7 +81,7 @@ def produced(tmp_path, monkeypatch, application_state_dsn, request):
             ]
         if config.get("known_catalog"):
             for node in graph["nodes"]:
-                node["node_type"] = "character"
+                node["node_type"] = config.get("node_types", {}).get(node["node_id"], "character")
         for k in ["edges", "beats", "proposed_writes"]:
             graph[k] = []
         private = json.dumps(
@@ -771,3 +771,16 @@ def test_retained_known_character_context_links_other_paragraphs_without_native_
     assert result.projected_markdown.count("dmb-node:") == 2
     assert "MARA" in result.projected_markdown
     assert get_extraction_run(root, run.run_id) == before
+
+
+@pytest.mark.parametrize("produced", [{"text":"Mara and Rowan decide to follow Thrin. Later Mara will return.\n", "quote":"Mara and Rowan", "labels":[("actor:mara","Mara"),("actor:rowan","Rowan"),("group:pair","Mara and Rowan")], "node_types":{"group:pair":"group"}, "known_catalog":{"entities":[{"entity_id":"native:mara","label":"Mara","names":["Mara"]},{"entity_id":"native:rowan","label":"Rowan","names":["Rowan"]}],"native_pin":{"revision_id":"r1"}}}], indirect=True)
+def test_known_character_links_survive_overlapping_group_name_list(produced):
+    root,source,run=produced
+    before=get_extraction_run(root,run.run_id)
+    result=service.build_exact_run_candidate_projection(root,run.run_id,"managed-a")
+    assert result.mentions_count==3
+    assert "known_character_links_preferred_over_group_label" in result.diagnostics
+    group=next(n for n in result.nodes if n.candidate_node_id=="group:pair")
+    assert group.view_key not in result.projected_markdown
+    assert group.view_key in result.node_views
+    assert get_extraction_run(root,run.run_id)==before
