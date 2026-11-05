@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getExtractionRun, getPlanView, NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT } from "../api/liveApi";
+import * as candidateApi from "../api/exactRunCandidateProjectionApi";
+import {projection as mergeProjection} from "../ingestion/nativeMergeFixtures";
 import { startReadWave } from "../api/inFlightReads";
 import { usePublishAgentSurfaceContext } from "../agentInteraction/usePublishAgentSurfaceContext";
 import type { SelectedWorldState } from "../selectedWorld/SelectedWorldContext";
@@ -364,4 +366,14 @@ it.each(["held", "accepted", "rejected"])("keeps a recap correction child source
   view.unmount(); render(<MemoryIngestPage />);
   await waitFor(() => expect(screen.getByTestId("exact-graph-review")).toHaveAttribute("data-source-review-only", "true"));
   expect(screen.getByTestId("source-review-scope")).toHaveTextContent("does not import it");
+});
+
+it("returns an owned read-only recap link to exact native Merge review",async()=>{
+ window.history.replaceState({},"","/ingest?world=world-b&extractionRunId=run-b&sourceArtifactId=source-b");
+ vi.mocked(getExtractionRun).mockResolvedValue({run_id:"run-b",source_domain:"recap",source_artifact_id:"source-b",campaign_id:"campaign",session_id:"session-30"} as never);
+ vi.spyOn(candidateApi,"getExactRunCandidateProjection").mockResolvedValue({...mergeProjection,runId:"run-b",managedWorldId:"world-b"});
+ render(<MemoryIngestPage/>);await userEvent.click(await screen.findByRole("button",{name:"Merge"}));
+ await waitFor(()=>expect(new URLSearchParams(window.location.search).get("merge")).toBe("1"));
+ expect(new URLSearchParams(window.location.search).get("recapReviewRunId")).toBe("run-b");
+ expect(new URLSearchParams(window.location.search).has("extractionRunId")).toBe(false);
 });
