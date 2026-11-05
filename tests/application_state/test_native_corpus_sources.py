@@ -802,7 +802,9 @@ def test_native_body_acquisition_uses_durable_grants_and_actual_core_bytes(appli
         NativeBodySearchAuthorizedV1, NativeBodySearchObservedV1, NativeBodyReadAuthorizedV1,
     )
     from application_state.errors import ApplicationStateValidationError
-    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import read_native_corpus_member
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import (
+        prepare_native_source_context, read_native_corpus_member,
+    )
     from tests.test_native_corpus_source_access import GM, BODY
     fixture = native_acquisition_fixture(lane, application_state_dsn, full_document=full_document)
     calls = {"capture": 0, "read": 0}
@@ -844,7 +846,9 @@ def test_native_body_acquisition_uses_durable_grants_and_actual_core_bytes(appli
         if body_result == "authority_changed":
             raise ValueError("Native source authority changed")
         return read_native_corpus_member(authority=authority, member=member, principal=GM,
-            repository=lane.repo, resolve_identity=lambda _: lane.bound)
+            prepared=prepare_native_source_context(managed_world_id=authority.managed_world_id,
+                principal=GM, revision_id=authority.revision_id, repository=lane.repo,
+                resolve_identity=lambda _: lane.bound))
     if body_result == "authority_changed":
         with pytest.raises(ApplicationStateValidationError, match="authority changed"):
             append_native(fixture, "observe_native_body_read", event_id=uuid4(),

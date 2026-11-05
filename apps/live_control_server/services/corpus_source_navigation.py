@@ -387,7 +387,7 @@ class NativeBodyNavigation:
                         catalog_sha256=catalog_sha, retrieval_kind=kind, section_id=section)
                     self._commit("observe_native_body_read", event_id=uuid4(), authorization_event_id=auth.event_id,
                         read=lambda authority, member: read_native_corpus_member(authority=authority, member=member,
-                            principal=context.principal, repository=context.repository, resolve_identity=context.resolve_identity))
+                            principal=context.principal, prepared=context))
         return {"schema": "dmb_native_body_navigation_result_v1", "body_text_exposed": False}
 
     def unavailable(self, code):
