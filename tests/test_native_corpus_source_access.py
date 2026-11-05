@@ -16,7 +16,9 @@ from graph_memory.vnext.domain_runtime import (
     dungeonbuddy_world_domain_contract,
     dungeonbuddy_dnd5e_custom_predicate_profile,
 )
-from apps.live_control_server.integrations.dungeonmind.native_corpus_source import capture_native_sources
+from apps.live_control_server.integrations.dungeonmind.native_corpus_source import (
+    capture_native_sources, prepare_native_source_context,
+)
 
 NOW = datetime(2026, 10, 29, tzinfo=UTC)
 GM = SimpleNamespace(role="gm")
@@ -278,7 +280,9 @@ def test_degenerate_whole_body_section_requires_explicit_full_document(lane):
 def test_selected_native_read_rechecks_core_at_original_revision_after_epoch_advance(lane):
     from apps.live_control_server.integrations.dungeonmind.native_corpus_source import read_native_corpus_member
     admit(lane)
-    original = capture(lane)
+    prepared = prepare_native_source_context(managed_world_id="managed", principal=GM,
+        repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    original = capture(lane, prepared=prepared)
     admit(lane, "unrelated", body="""# Different
 
 A later unrelated document.
@@ -287,7 +291,7 @@ A later unrelated document.
     assert current.authority.acquisition_epoch > original.authority.acquisition_epoch
     head = lane.repo.get_head("world:test")
     assert read_native_corpus_member(authority=original.authority, member=original.members[0], principal=GM,
-        repository=lane.repo, resolve_identity=lambda _: lane.bound) == BODY
+        prepared=prepared) == BODY
     assert lane.repo.get_head("world:test") == head
 
 
@@ -295,9 +299,54 @@ def test_selected_native_read_refuses_changed_world_binding_and_player_before_bo
     from apps.live_control_server.integrations.dungeonmind.native_corpus_source import read_native_corpus_member
     admit(lane)
     original = capture(lane)
-    kwargs = dict(authority=original.authority, member=original.members[0], repository=lane.repo,
-        resolve_identity=lambda _: SimpleNamespace(**(vars(lane.bound) | {"binding_version": 2})))
+    prepared = prepare_native_source_context(managed_world_id="managed", principal=GM,
+        repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    prepared = replace(prepared, resolve_identity=lambda _: SimpleNamespace(
+        **(vars(lane.bound) | {"binding_version": 2})))
+    kwargs = dict(authority=original.authority, member=original.members[0], prepared=prepared)
     with pytest.raises(ValueError, match="authority changed"):
         read_native_corpus_member(principal=GM, **kwargs)
     with pytest.raises(ValueError, match="GM authority"):
         read_native_corpus_member(principal=SimpleNamespace(role="player"), **kwargs)
+
+
+def test_selected_read_batch_reuses_prepared_graph_and_refreshes_each_source_view(lane, monkeypatch):
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source as owner
+    admit(lane)
+    prepared = prepare_native_source_context(managed_world_id="managed", principal=GM,
+        repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    original = capture(lane, prepared=prepared)
+    open_view = lane.repo.open_native_source_view
+    epochs = []
+
+    def fresh_view(space):
+        view = open_view(space)
+        epochs.append(view.epoch)
+        return view
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Selected source read reconstructed immutable Graph membership")
+
+    monkeypatch.setattr(lane.repo, "get_revision", forbidden)
+    monkeypatch.setattr(owner.native, "descriptors", forbidden)
+    monkeypatch.setattr(lane.repo, "open_native_source_view", fresh_view)
+    for _ in range(18):
+        assert owner.read_native_corpus_member(authority=original.authority,
+            member=original.members[0], principal=GM, prepared=prepared) == BODY
+    assert len(epochs) == 18
+
+
+def test_selected_read_keeps_unavailable_and_corrupt_source_failures(lane, monkeypatch):
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source as owner
+    admit(lane)
+    prepared = prepare_native_source_context(managed_world_id="managed", principal=GM,
+        repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    original = capture(lane, prepared=prepared)
+    monkeypatch.setattr(owner, "open_admitted_native_text", lambda *args: SimpleNamespace(status="unavailable"))
+    assert owner.read_native_corpus_member(authority=original.authority,
+        member=original.members[0], principal=GM, prepared=prepared) is None
+    monkeypatch.setattr(owner, "open_admitted_native_text", lambda *args: SimpleNamespace(
+        status="available", source_artifact_id="foreign"))
+    with pytest.raises(ValueError, match="original access proof"):
+        owner.read_native_corpus_member(authority=original.authority,
+            member=original.members[0], principal=GM, prepared=prepared)

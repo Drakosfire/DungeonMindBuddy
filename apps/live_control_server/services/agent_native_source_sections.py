@@ -110,10 +110,16 @@ def open_native_body_excerpt(*, world_id, turn_id, citation_index, principal, se
     execution = turn.graph_context_execution
     read = next(event for event in acquired_body_reads(execution) if event.event_id == citation.read_event_id)
     catalog = acquired_body_catalogs(execution)[read.excerpt.catalog_sha256]
-    from ..integrations.dungeonmind.native_corpus_source import read_native_corpus_member
+    from ..integrations.dungeonmind.native_corpus_source import (
+        prepare_native_source_context, read_native_corpus_member,
+    )
     try:
+        authority = turn.graph_context_receipt.source_authority
+        prepared = prepare_native_source_context(managed_world_id=authority.managed_world_id,
+            principal=principal, revision_id=authority.revision_id, repository=repository,
+            resolve_identity=resolve_identity)
         body = read_native_corpus_member(authority=turn.graph_context_receipt.source_authority,
-            member=catalog.source, principal=principal, repository=repository, resolve_identity=resolve_identity)
+            member=catalog.source, principal=principal, prepared=prepared)
         if body is None:
             raise ValueError('Historical native body is unavailable')
         section = read.excerpt.section
