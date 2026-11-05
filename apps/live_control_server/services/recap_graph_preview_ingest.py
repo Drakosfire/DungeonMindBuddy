@@ -35,17 +35,15 @@ def extract_recap(
     graph_model_id: str | None = None,
     ingest_context: Any,
     supplemental_evidence: dict[str, Any] | None = None,
+    name_review: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run or reuse extraction; return the exact saved result without repackaging."""
     root = artifact_data_root(repo_root)
-    from apps.live_control_server.services.source_artifact_registry import (
-        _normalize_source_text,
-    )
-
-    text = _normalize_source_text(recap_text)
+    from apps.live_control_server.services.recap_name_review import reviewed_source
+    original, text, character_catalog, review_record = reviewed_source(recap_text, ingest_context, name_review, session_id=f"session-{session}")
     digest = "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
     context = SourceScope.model_validate(ingest_context.model_dump()).model_dump()
-    if not force_graph_run:
+    if not force_graph_run and not review_record["decisions"]:
         profile_id, version = resolve_legacy_graph_extraction_profile(None)
         reused = reusable_recap_extraction(
             root=root,
@@ -59,6 +57,12 @@ def extract_recap(
         )
         if reused is not None:
             return reused
+    original_artifact = create_recap_source_artifact(
+        root, world_id=context["native_world_id"], campaign_id=campaign_id,
+        session_id=f"session-{session}", recap_text=original,
+    )
+    review_record["original_source_artifact_id"] = original_artifact.source_artifact_id
+    review_record["original_source_sha256"] = original_artifact.content_sha256
     artifact = create_recap_source_artifact(
         root,
         world_id=context["native_world_id"],
@@ -76,6 +80,8 @@ def extract_recap(
         allow_llm=True,
         ingest_context=ingest_context,
         supplemental_evidence=supplemental_evidence,
+        reviewed_character_catalog=character_catalog,
+        name_review_record=review_record,
     )
     status = project_recap_extraction_run(
         root=root,

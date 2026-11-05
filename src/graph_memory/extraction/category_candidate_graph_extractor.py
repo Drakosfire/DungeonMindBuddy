@@ -236,6 +236,7 @@ class CategoryGraphExtractionOptions:
     node_vocabulary_packet: ContextVocabularyPacket | None = None
     enable_dynamic_node_vocabulary_packet: bool = False
     dynamic_node_vocabulary_nodes: tuple[Mapping[str, Any], ...] = ()
+    known_character_context: dict[str, Any] | None = None
     enable_encounter_job_pass: bool = False
     enable_encounter_job_edge_guidance: bool = False
     profile: ExtractionProfile | None = None
@@ -1880,6 +1881,9 @@ def _run_category_pipeline_impl(
             options=options,
             node_vocabulary_packet_override=effective_node_vocabulary_packet,
         )
+        if pass_name == "actor_pass" and options.known_character_context is not None:
+            from src.graph_memory.extraction.known_character_bindings import identity_prompt
+            node_prompt += identity_prompt(options.known_character_context)
         node_vocabulary_pass_diagnostics[pass_name] = node_vocabulary_diag
         result = _run_pass(
             pass_name,
@@ -1891,6 +1895,9 @@ def _run_category_pipeline_impl(
                if pass_name == "actor_pass" and actor_source_packet is not None else {}),
         )
         pass_outputs[pass_name] = result["parsed"]
+        if pass_name == "actor_pass" and options.known_character_context is not None:
+            from src.graph_memory.extraction.known_character_bindings import ensure_name_anchors
+            pass_outputs[pass_name] = ensure_name_anchors(pass_outputs[pass_name], options.known_character_context)
         pass_telemetry[pass_name] = {
             "cost_usd": result["cost_usd"],
             "usage": result["usage"],
