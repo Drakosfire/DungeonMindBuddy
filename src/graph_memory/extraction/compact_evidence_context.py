@@ -48,6 +48,28 @@ class CompactEvidenceContext:
             result.append(compact)
         return result
 
+    def discourse_navigation(self) -> list[dict[str, Any]]:
+        """Exact source cues, not inferred temporal relationships or antecedents."""
+        from src.graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
+
+        cue = re.compile(r"\b(?:before|after|then|later|finally|meanwhile|so|next)\b", re.IGNORECASE)
+        result = []
+        previous = None
+        for entry in self.entries:
+            text, handle = entry["text"], entry["handle"]
+            packet = compile_source_sentence_packet(text, [{
+                "source_span_ref_id": handle, "text": text, "line_start": 1,
+            }])
+            for unit in packet.units:
+                sentence = text[unit.start:unit.end]
+                if cue.search(sentence):
+                    result.append({"source_span_ref_id": handle,
+                                   "char_start": unit.start, "char_end": unit.end,
+                                   "text": sentence,
+                                   "preceding_packet_paragraph": previous})
+            previous = handle
+        return result
+
     def expand(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         """Resolve explicit citation fields only; quotes and prose are untouched.
 

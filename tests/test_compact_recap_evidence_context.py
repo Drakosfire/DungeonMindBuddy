@@ -106,3 +106,62 @@ def test_expanded_quotes_still_fail_the_owning_literal_validator():
         if retained:
             assert cleaned["nodes"][0]["description"] == node["description"]
             assert cleaned["nodes"][0]["evidence_refs"][0]["anchor_quotes"] == [quote]
+
+
+def test_discourse_navigation_preserves_exact_sentences_and_packet_predecessors():
+    texts = ['Dr. Vale waits. After “dawn,” they may leave; then perhaps return.',
+             'No cue here.', 'So next door is quiet. Meanwhile, they wait.',
+             'After “dawn,” they may leave; then perhaps return.']
+    rows = [{"source_span_ref_id": f"span:{i}", "text": text,
+             "line_start": i * 2 + 1, "line_end": i * 2 + 1}
+            for i, text in enumerate(texts)]
+    ctx = CompactEvidenceContext(rows, source_sha256='a' * 64)
+    before = ctx.record()
+    cues = ctx.discourse_navigation()
+    assert [c['source_span_ref_id'] for c in cues] == ['E1', 'E3', 'E3', 'E4']
+    assert [c['preceding_packet_paragraph'] for c in cues] == [None, 'E2', 'E2', 'E3']
+    for cue in cues:
+        paragraph = texts[int(cue['source_span_ref_id'][1:]) - 1]
+        assert paragraph[cue['char_start']:cue['char_end']] == cue['text']
+        assert set(cue) == {'source_span_ref_id', 'char_start', 'char_end',
+                            'text', 'preceding_packet_paragraph'}
+    assert cues[0]['text'] == texts[0].split('waits. ')[1]
+    assert ctx.record() == before
+    cues[0]['text'] = 'mutated'
+    assert ctx.discourse_navigation()[0]['text'] != 'mutated'
+
+
+def test_navigation_countercases_are_only_source_cues_never_relations():
+    text = ('So, another topic. After tomorrow we might leave. '
+            'Before leaving, they did not fight. Meanwhile they sang. '
+            'Later in the telling, recall yesterday. The next door is shut.')
+    ctx = CompactEvidenceContext([{'source_span_ref_id': 'span:only', 'text': text,
+                                  'line_start': 1, 'line_end': 1}], source_sha256='b' * 64)
+    cues = ctx.discourse_navigation()
+    assert len(cues) == 6
+    assert all(c['preceding_packet_paragraph'] is None for c in cues)
+    assert all('relationship_type' not in c and 'from_node_id' not in c for c in cues)
+    assert ctx.expand({'observation_edges': []}) == {'observation_edges': []}
+
+
+def test_navigation_changes_only_standard_recap_edge_prompt():
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        CategoryGraphExtractionOptions, build_edge_pass_prompt,
+    )
+    from src.graph_memory.extraction.worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
+    ctx = CompactEvidenceContext([{'source_span_ref_id': 'span:one',
+        'text': 'Then they might leave.', 'line_start': 1, 'line_end': 1}], source_sha256='c' * 64)
+    options = CategoryGraphExtractionOptions(campaign_id='test', session_id=None,
+        session_number=None, source_span_index={})
+    template = 'Full source stays here.\n(injected at runtime)'
+    prompt, _, _ = build_edge_pass_prompt(template, [], options=options, compact_context=ctx)
+    assert 'Full source stays here.' in prompt
+    assert 'Source navigation cues (not chronology)' in prompt
+    assert 'not an antecedent or earlier event' in prompt
+    assert 'Then they might leave.' in prompt
+    other = CategoryGraphExtractionOptions(campaign_id='test', session_id=None,
+        session_number=None, source_span_index={}, profile=WORLDBUILDING_PROFILE)
+    unchanged, _, _ = build_edge_pass_prompt(template, [], options=other, compact_context=ctx)
+    assert 'Source navigation cues' not in unchanged
+    legacy, _, _ = build_edge_pass_prompt(template, [], options=options)
+    assert 'Source navigation cues' not in legacy
