@@ -492,7 +492,13 @@ def test_cross_passage_transition_guards_and_source_frames_reach_thread_prompt()
          "text": "She planned to depart next week; no departure was reported."},
         {"source_span_ref_id": "span-topic", "line_start": 9, "line_end": 9,
          "text": "Next topic: the two guards. He waited beside the next door."},
-        {"source_span_ref_id": "span-concurrent", "line_start": 11, "line_end": 11,
+        {"source_span_ref_id": "span-flashback", "line_start": 11, "line_end": 11,
+         "text": "The story next returns to last winter; no time passes at the gate."},
+        {"source_span_ref_id": "span-ambiguous", "line_start": 13, "line_end": 13,
+         "text": "Two couriers delivered different parcels. After that one left; which was unclear."},
+        {"source_span_ref_id": "span-unordered", "line_start": 15, "line_end": 15,
+         "text": "Both the repair and the inspection preceded departure; their mutual order is unknown."},
+        {"source_span_ref_id": "span-concurrent", "line_start": 17, "line_end": 17,
          "text": "Meanwhile the courier waited; the other courier's timing was unknown."},
     ]
     prompt = render_category_pass_prompts(rows, profile=RECAP_EXTRACTION_PROFILE)["thread_pass.md"]
@@ -500,13 +506,14 @@ def test_cross_passage_transition_guards_and_source_frames_reach_thread_prompt()
         assert row["text"] in prompt
         assert row["source_span_ref_id"] in prompt
     for rule in (
-        "resolve the earlier and later occurrence references across those passages",
-        "state that source-supported before/after relationship in an occurrence description",
+        "Resolve references to earlier and later occurrences using the surrounding source context",
+        "state the directed before/after relationship in an occurrence description with both occurrences named",
         "Include evidence from both passages when needed to support the referents and transition",
         "Do not derive time from passage adjacency alone",
-        "treat a next topic as a later occurrence",
-        "guess an ambiguous antecedent",
-        "turn narrative presentation into fictional elapsed time",
+        "the antecedent is ambiguous",
+        "the transition changes topic rather than event time",
+        "an action remains merely proposed",
+        "turn narrative presentation or a flashback into fictional elapsed time",
         "Preserve concurrency, future modality and unresolved order",
     ):
         assert prompt.count(rule) == 1
@@ -552,3 +559,41 @@ def test_direct_order_changes_only_opted_in_thread_edge_prompts_and_edge_schema(
         for spec in filter(None, specs):
             digest = hashlib.sha256(json.dumps(schema_for_pass_spec(spec), sort_keys=True).encode()).hexdigest()
             assert (digest != fixture["schema_sha256"][profile.qualified_id][spec.pass_id]) == (opted_in and spec.kind == "edge")
+
+
+def test_transition_antecedent_clause_replaces_parent_without_other_contract_changes() -> None:
+    """Exact parent restoration proves delivery/scope, not semantic compliance."""
+    import hashlib
+    import json
+    from pathlib import Path
+    from src.graph_memory.extraction.category_candidate_graph_extractor import render_encounter_job_pass_prompt
+    from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    from src.graph_memory.extraction.recap_extraction_profile import _EXPLICIT_PASSAGE_TRANSITIONS
+    from src.graph_memory.extraction.worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
+
+    fixture = json.loads((Path(__file__).parent / "fixtures" /
+                          "recap_prompt_scope_before_transition_antecedents.json").read_text())
+    assert fixture["base"] == "9d089b0f25bffdd4f38191bd9b1271231ded7a26"
+    for profile in (RECAP_EXTRACTION_PROFILE,
+                    get_extraction_profile("recap_category_encounter_job_preview", "2.0"),
+                    WORLDBUILDING_PROFILE, WORLDBUILDING_PLUMBING_PROFILE):
+        prompts = render_category_pass_prompts(fixture["source_rows"], profile=profile)
+        if profile.encounter_job_pass:
+            prompts["encounter_job_pass.md"] = render_encounter_job_pass_prompt(
+                fixture["source_rows"], nodes=[], beats=[], instruction=profile.encounter_job_pass.instruction)
+        before = fixture["rendered_prompt_sha256"][profile.qualified_id]
+        assert set(prompts) == set(before)
+        for name, prompt in prompts.items():
+            changed = profile.admitted_source_domains == frozenset({"recap"}) and name == "thread_pass.md"
+            assert prompt.count(_EXPLICIT_PASSAGE_TRANSITIONS) == int(changed)
+            assert fixture["previous_clause"] not in prompt
+            restored = prompt.replace(_EXPLICIT_PASSAGE_TRANSITIONS, fixture["previous_clause"]) if changed else prompt
+            assert hashlib.sha256(restored.encode()).hexdigest() == before[name]
+            assert (hashlib.sha256(prompt.encode()).hexdigest() != before[name]) == changed
+            for row in fixture["source_rows"]:
+                assert row["text"] in prompt and row["source_span_ref_id"] in prompt
+        for spec in filter(None, [*profile.node_passes, profile.beat_pass,
+                                  profile.encounter_job_pass, profile.edge_pass]):
+            digest = hashlib.sha256(json.dumps(schema_for_pass_spec(spec), sort_keys=True).encode()).hexdigest()
+            assert digest == fixture["schema_sha256"][profile.qualified_id][spec.pass_id]
