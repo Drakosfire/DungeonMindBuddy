@@ -29,8 +29,12 @@ Private story material remains in the established runtime-evidence directory.
   producer frame ordering only; adopt the same frames without duplication.
 - tests/test_native_plan_assertions.py: actual authenticated/native SDK fixtures
   verify discussion versus authoring order, retained content and citation delivery.
+- tests/test_plan_jev_authoring.py: adopt schema-based frame selection in the
+  existing current shared discussion/clarification fixture; preserve authoring checks.
 - tests/test_surface_native_build_ordinary.py: same shared producer on real Build
   dispatch, with its independent authoring producers preserved.
+- .github/workflows/world-ownership-core.yml: include the existing current shared
+  routing/ownership regression in the query suite.
 - This handoff and HANDOFF-REFERENCE-acquired-source-navigation.md settlement.
 
 ## Validation and completion
