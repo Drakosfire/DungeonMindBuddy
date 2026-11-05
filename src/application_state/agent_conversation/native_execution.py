@@ -13,7 +13,7 @@ from pydantic import ConfigDict, Field, model_validator
 
 from application_state.build_proposal.types import BuildWriteCapability
 from . import types as t
-from .build_intentional_response import Capabilities, MENU_DIGEST, RESOLVER_DIGEST
+from .build_intentional_response import Capabilities, RESOLVER_DIGEST, known_menu
 from .build_related_pages import PagePointer
 from .native_context import (
     SurfaceNativeContextReceiptV1, BuildWorkContextV1, PlanWorkContextV1,
@@ -43,7 +43,7 @@ class NativeBuildActionV1(Strict):
 
     @model_validator(mode="after")
     def captured_work(self):
-        if (self.requested_work_menu_sha256 != MENU_DIGEST
+        if (not known_menu(self.requested_work_menu_sha256)
                 or self.response_resolver_sha256 != RESOLVER_DIGEST):
             raise ValueError("Unknown frozen Build semantic menu or resolver")
         cap = self.write_capability
