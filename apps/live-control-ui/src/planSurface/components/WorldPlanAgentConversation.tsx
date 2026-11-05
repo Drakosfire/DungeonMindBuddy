@@ -585,6 +585,8 @@ function parsePendingAsk(
         && !isPlanPlayableTarget(request.playable_target))
       || (Object.prototype.hasOwnProperty.call(request, "plan_context_policy")
         && !isWorldPlanContextPolicy(request.plan_context_policy))
+      || (Object.hasOwn(request,'plan_requested_operation')&&(!['discuss','write_current_page'].includes(String(request.plan_requested_operation))
+        ||!isRecord(request.plan_context_policy)||request.plan_context_policy.schema!=='dmb_plan_context_policy_v2'))
       || (Object.hasOwn(request,'authored_references')&&(!isAuthoredReferences(request.authored_references,worldId)
         ||request.authored_references.schema!=='dmb_authored_references_v2'||request.authored_references.references.length===0
         ||!isRecord(request.plan_context_policy)||request.plan_context_policy.schema!=='dmb_plan_context_policy_v2'))
@@ -1683,6 +1685,11 @@ function isHistoryTurn(
       &&primary.object_id===proposal.capture.document_id&&primary.object_revision===proposal.capture.base_revision
       &&(!Object.hasOwn(value,'idempotency_key')||value.idempotency_key===proposal.origin.idempotency_key)
       &&isHistoryTurn(envelope,schema,worldId);
+  }
+  if(Object.hasOwn(value,'plan_requested_operation')){
+    const {plan_requested_operation:operation,...envelope}=value;
+    return ['discuss','write_current_page'].includes(String(operation))&&isRecord(value.provenance)
+      &&value.provenance.surface_id==='plan'&&isHistoryTurn(envelope,schema,worldId);
   }
   if(Object.hasOwn(value,'authored_references')){
     const {authored_references:references,...envelope}=value;
@@ -3946,7 +3953,7 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  async function submit(event: Pick<FormEvent<HTMLFormElement>, "preventDefault">, intent = composerIntent, questionOverride?: string, retryReferences?: import("../../api/types").AuthoredReferencesV2 | null) {
+  async function submit(event: Pick<FormEvent<HTMLFormElement>, "preventDefault">, intent = composerIntent, questionOverride?: string, retryReferences?: import("../../api/types").AuthoredReferencesV2 | null, planOperation?: WorldPlanAgentTurnRequestV1["plan_requested_operation"]) {
     event.preventDefault();
     if (questionOverride === undefined) setRetryPresentationOrigin(null);
     const composerSnapshotAtSubmit = questionOverride ?? composerMessage;
@@ -3957,6 +3964,7 @@ export function WorldPlanAgentConversation({
     const isRetry = questionOverride !== undefined;
     if(!isRetry&&!composerReferencesReady){setError('The local reference selection needs recovery; no request was sent.');return;}
     const planReferenceInput=isRetry ? retryReferences ?? undefined : composerReferences.length?authoredReferences(composerReferences):undefined;
+    if(planOperation&&!useWorldGraphForAsk){setError('Enable World context to send this native Plan operation. Your message has not been sent.');return;}
     if(planReferenceInput&&!useWorldGraphForAsk){setError('Enable World context to include this request’s references. No request was sent.');return;}
     const planReferenceDraft=isRetry ? null : composerReferenceState.draft;
     if (intent !== "discuss" || !planReady || !scopeMatches || !namespace || !documentId || !surfaceInstanceId
@@ -3998,6 +4006,7 @@ export function WorldPlanAgentConversation({
     try {
       const frozenTarget=useWorldGraphForAsk&&editBridge?.sealAuthoring?await editBridge.capture():null;
       if(!stillPreparing())return;
+      if(planOperation==='write_current_page'&&frozenTarget)assertDisplayedPlanTarget(frozenTarget);
       if(useWorldGraphForAsk&&editBridge?.sealAuthoring&&!pointerSnapshot.conversation_id){
         if(pendingCommands.some(item=>item.envelope!==null))throw new Error('Resolve the retained New Conversation command before sending this request.');
         const request:WorldAgentNewConversationRequestV1={schema:'dmb_agent_new_conversation_v1',command_id:crypto.randomUUID(),
@@ -4050,6 +4059,7 @@ export function WorldPlanAgentConversation({
           throw new Error('The captured draft no longer belongs to this committed Plan. Your request was not sent.');
       }
       const request: WorldPlanAgentTurnRequestV1 = {
+        ...(planOperation?{plan_requested_operation:planOperation}:{}),
         ...(planReferenceInput?{authored_references:planReferenceInput}:{}),
         schema: "dmb_agent_turn_request_v1",
         client_thread_id: submittedClientThreadId,
@@ -4549,8 +4559,12 @@ export function WorldPlanAgentConversation({
     setComposerIntent(intent);
     setError(null);
     setEditError(null);
-    if (intent === "propose") void composeEdit(event, intent);
-    else void submit(event, intent);
+    if (intent === "propose" && continuationOfActionId) void composeEdit(event, intent);
+    else {
+      const explicit = composerIntentCorrection?.message===composerMessage ? composerIntentCorrection.intent : null;
+      const operation = explicit==='propose' ? 'write_current_page' : explicit==='discuss'&&useWorldGraphForAsk ? 'discuss' : undefined;
+      void submit(event, "discuss", undefined, undefined, operation);
+    }
   }
 
   async function loadOlderTurns() {
@@ -5530,6 +5544,28 @@ export function WorldPlanAgentConversation({
     }
   }
 
+  function assertDisplayedPlanTarget(
+    captured: Awaited<ReturnType<WorldPlanEditBridge["capture"]>>,
+  ): asserts captured is Awaited<ReturnType<WorldPlanEditBridge["capture"]>> & {
+    request: {target_kind: WorldPlanDocumentEditProposalRequest["target_kind"]};
+  } {
+    if (captured.request.target_kind !== displayedEditKind
+      || (displayedEditKind !== "replace_playable_body" && captured.request.playable_target != null)
+      || captured.request.world_id !== worldId || captured.request.document_id !== documentId
+      || captured.request.base_revision !== revision
+      || captured.draftGeneration !== draftGeneration || captured.selectionGeneration !== selectionGeneration
+      || (effectiveEditTarget && (captured.request.playable_target?.kind !== effectiveEditTarget.kind
+        || captured.request.playable_target?.id !== effectiveEditTarget.id))
+      || (playableEditTarget && captured.playableTargetGeneration !== playableEditTargetGeneration)
+      || (!playableEditTarget && effectiveEditTarget && playableTargetBasis
+        && captured.request.base_content_sha256 !== playableTargetBasis.contentSha256)) {
+      throw new Error("The captured edit target no longer matches the displayed change target. Select the target again before proposing.");
+    }
+    if (worldPlanEditReviewBefore(captured) === null) {
+      throw new Error("The captured Plan target has no valid Before snapshot. Reselect it and compose the proposal again.");
+    }
+  }
+
   async function composeEdit(event: FormEvent<HTMLFormElement>, intent = composerIntent) {
     event.preventDefault();
     if(composerReferences.length){setEditError('Selected references are available in Automatic Plan messages. Remove the references to continue this edit request, or use Automatic.');return;}
@@ -5599,21 +5635,7 @@ export function WorldPlanAgentConversation({
     try {
       const captured = await editBridge.capture();
       if (!isCurrent()) return;
-      if (captured.request.target_kind !== displayedEditKind
-        || (displayedEditKind !== "replace_playable_body" && captured.request.playable_target != null)
-        || captured.request.world_id !== worldId || captured.request.document_id !== documentId
-        || captured.request.base_revision !== revision
-        || captured.draftGeneration !== draftGeneration || captured.selectionGeneration !== selectionGeneration
-        || (effectiveEditTarget && (captured.request.playable_target?.kind !== effectiveEditTarget.kind
-          || captured.request.playable_target?.id !== effectiveEditTarget.id))
-        || (playableEditTarget && captured.playableTargetGeneration !== playableEditTargetGeneration)
-        || (!playableEditTarget && effectiveEditTarget && playableTargetBasis
-          && captured.request.base_content_sha256 !== playableTargetBasis.contentSha256)) {
-        throw new Error("The captured edit target no longer matches the displayed change target. Select the target again before proposing.");
-      }
-      if (worldPlanEditReviewBefore(captured) === null) {
-        throw new Error("The captured Plan target has no valid Before snapshot. Reselect it and compose the proposal again.");
-      }
+      assertDisplayedPlanTarget(captured);
       if (continuationOfActionId && captured.request.target_kind !== "replace_selection") {
         throw new Error("Reply to this clarification with the original Plan selection active.");
       }
@@ -6260,7 +6282,7 @@ export function WorldPlanAgentConversation({
                 onRetry={async(question)=>{
                   setRetryPresentationOrigin({scopeKey,turnId:turn.turn_id});
                   if(isReadOnly)await submitPlay(undefined,false,question,undefined,isBuild?turn.retry_context??undefined:undefined);
-                  else await submit({preventDefault:()=>undefined},"discuss",question,turnReferences?.schema==='dmb_authored_references_v2'?turnReferences:null);
+                  else await submit({preventDefault:()=>undefined},"discuss",question,turnReferences?.schema==='dmb_authored_references_v2'?turnReferences:null,turn.plan_requested_operation);
                 }} /> : null : null}
           </div>
         ) : null}
@@ -6933,10 +6955,10 @@ export function WorldPlanAgentConversation({
             <details className="world-plan-agent-conversation__route-correction">
               <summary>{detectedComposerIntent === "propose" ? "Plan change · Change" : "Automatic · Change"}</summary>
               <div role="group" aria-label="Choose how Buddy handles this message">
-                <button type="button" onClick={() => setComposerIntentCorrection({ message: composerMessage, intent: "discuss" })}>
+                <button type="button" onClick={() => {setContinuationOfActionId(null);setComposerIntentCorrection({ message: composerMessage, intent: "discuss" });}}>
                   Answer as a question
                 </button>
-                <button type="button" onClick={() => setComposerIntentCorrection({ message: composerMessage, intent: "propose" })}>
+                <button type="button" onClick={() => {setContinuationOfActionId(null);setComposerIntentCorrection({ message: composerMessage, intent: "propose" });}}>
                   Request a Plan change
                 </button>
               </div>

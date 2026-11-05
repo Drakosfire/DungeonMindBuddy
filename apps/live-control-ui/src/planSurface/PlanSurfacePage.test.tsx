@@ -239,46 +239,14 @@ The keeper waits beneath the black arch.
 A lantern moves behind the loading door.
 `;
 
-it.each([false, true, "stale-apply", "save", "save-clean"] as const)("captures the current Ask scene without Select for Edit; editor selection precedence=%s", async (selectText) => {
+it.each([false,true] as const)("captures the current Ask scene without Select for Edit; editor selection precedence=%s", async (selectText) => {
   const record = mockSavedPlanForAgent(savedAgentPlanId, 7, 7, twoScenePlanMarkdown.replace("### Arrival", "### Quiet test scene"));
   const prepareSave = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockRejectedValue(new Error("Explicit Save test stop"));
   const commitSave = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite");
-  if (selectText === "save-clean") {
-    prepareSave.mockResolvedValue({ schema_version: "dmb_tiptap_markdown_write_prepare_v2", scope_mode: "world",
-      world_id: worldId, document_id: savedAgentPlanId, title: record.title, target_relpath: record.target_relpath!,
-      target_display_path: record.target_relpath!, registry_revision: 8, file_exists: true, writer_ok: true,
-      writer_confirm_token: "save-clean-token", warnings: [], diagnostics: [] });
-    commitSave.mockImplementation(async (request) => {
-      const digest = createHash("sha256").update(request.markdown).digest("hex");
-      const savedRecord = { ...record, revision: 9 };
-      const prior = await liveApi.getWorldOwnedPlanCommittedRevision(savedAgentPlanId);
-      vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({ ...prior, object_revision: 9,
-        revision_n: 5, work_revision_id: "saved-plan-revision-5", markdown: request.markdown,
-        content_sha256: digest, has_divergent_working_copy: false });
-      vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockResolvedValue({ schema_version: "dmb_workspace_document_snapshot_v2",
-        record: savedRecord, markdown: request.markdown, content_sha256: digest, file_fingerprint: "postgres",
-        file_exists: true, loaded_revision: 9 });
-      return { schema_version: "dmb_tiptap_markdown_write_commit_v2", scope_mode: "world", world_id: worldId,
-        document_id: savedAgentPlanId, title: record.title, target_relpath: record.target_relpath!,
-        target_display_path: record.target_relpath!, registry_revision: 9, committed_revision: 9,
-        committed_record: savedRecord, normalized_content_sha256: digest, writer_ok: true,
-        writer_phase: "commit", diagnostics: [] };
-    });
-  }
-  const post = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => ({
-    schema_version: request.playable_target ? "dmb_world_plan_document_edit_proposal_v2" : "dmb_world_plan_document_edit_proposal_v1",
-    action_id: "00000000-0000-4000-8000-000000000099", idempotency_key: request.idempotency_key,
-    document_id: request.document_id, world_id: request.world_id,
-    base_revision: request.base_revision, base_content_sha256: request.base_content_sha256,
-    draft_sha256: request.draft_sha256, target_kind: request.target_kind,
-    selected_text_sha256: request.playable_target ? null : createHash("sha256").update(request.selected_text).digest("hex"),
-    ...(request.playable_target ? { playable_target: request.playable_target, marker_grammar_version: "v2",
-      body_scope: "heading_body", range_semantics_version: "plan-playable-ranges-v1",
-      body_serialization_version: "plan-playable-body-markdown-v1", target_body_sha256: request.target_body_sha256 } : {}),
-    replacement_markdown: request.playable_target ? `${request.target_body_markdown}\nOptional GM cue: Ask each player what they notice first.\n` : "Revised selected text",
-    summary: "Append a GM cue", assumptions: [], model: "test", model_observed: false,
-    model_latency_ms: 0, wall_latency_ms: 0, usage: null,
-  }) as any);
+  let reject!:(error:Error)=>void;
+  const pending=new Promise<never>((_resolve,fail)=>{reject=fail;});
+  const post=vi.spyOn(liveApi,'postWorldPlanAgentTurn').mockReturnValue(pending);
+  const legacy=vi.spyOn(liveApi,'postWorldPlanDocumentEditProposal');
   render(<SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}><AgentEnabledPlanPage /></SelectedWorldProvider>);
   const page = await screen.findByTestId("world-owned-plan");
   await openPlanConversation();
@@ -299,72 +267,23 @@ it.each([false, true, "stale-apply", "save", "save-clean"] as const)("captures t
   fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "For this disposable synthetic Plan only, propose appending exactly this line to the selected Quiet test scene body: Optional GM cue: Ask each player what they notice first. Preserve all existing text and playable markers; make no other change." } });
   fireEvent.click(within(conversation).getByRole("button", { name: "Request a Plan change" }));
   fireEvent.click(within(conversation).getByRole("button", { name: "Propose edit" }));
-  const review = await within(conversation).findByRole("region", { name: selectText === true ? "Change selected text" : "Change Quiet test scene" });
-  expect(post).toHaveBeenCalledTimes(1);
-  const request = post.mock.calls[0]![0];
-  expect(request).toMatchObject({ base_revision: 7, base_content_sha256: "b".repeat(64) });
-  expect(request.draft_sha256).toMatch(/^[a-f0-9]{64}$/);
-  if (selectText === true) {
-    expect(request.target_kind).toBe("replace_selection");
-    expect(request.playable_target).toBeUndefined();
-    expect(request.selected_text).toBe("keeper");
-  } else {
-    expect(request.target_kind).toBe("replace_playable_body");
-    expect(request.playable_target).toEqual({ kind: "scene", id: "scene:arrival" });
-    expect(request.target_body_markdown).toBe("The keeper waits beneath the black arch.\n");
-    expect(request.target_body_sha256).toBe(createHash("sha256").update(request.target_body_markdown!).digest("hex"));
-    const before = within(review).getByRole("region", { name: "Before Quiet test scene" });
-    expect(within(before).getByText(request.target_body_markdown!.trim())).toBeInTheDocument();
-    expect(before).toHaveTextContent("A lantern moves behind the loading door.");
-    expect(within(before).getByRole("heading", { name: "Quiet test scene" })).toBeInTheDocument();
-    expect(within(before).queryByText("<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->")).not.toBeInTheDocument();
-    if (selectText === "stale-apply") {
-      const prior = await liveApi.getWorldOwnedPlanCommittedRevision(savedAgentPlanId);
-      vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({ ...prior, object_revision: 8 });
-      fireEvent.click(within(review).getByRole("button", { name: "Apply to draft" }));
-      expect(await within(conversation).findByRole("alert")).toHaveTextContent("committed Plan changed");
-      expect(screen.getByTestId("world-owned-plan-markdown-editor")).not.toHaveTextContent("Optional GM cue:");
-      expect(post).toHaveBeenCalledTimes(1);
-      expect(within(review).queryByRole("button", { name: "Apply to draft" })).not.toBeInTheDocument();
-      return;
-    }
-    fireEvent.click(within(review).getByRole("button", { name: "Apply to draft" }));
-    await within(review).findByText("Applied to your draft. Save Plan keeps this change.");
-    expect(within(review).queryByRole("button", { name: "Apply to draft" })).not.toBeInTheDocument();
-    expect(prepareSave).not.toHaveBeenCalled();
-    expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent("Optional GM cue: Ask each player what they notice first.");
-    const draft = JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`)!).markdown;
-    expect(draft).toContain("kind=scene id=scene:arrival");
-    expect(draft).toContain("kind=scene id=scene:warehouse");
-    expect(draft).toContain("A lantern moves behind the loading door.");
-    if (selectText === "save" || selectText === "save-clean") {
-      const saveButton = within(review).getByRole("button", { name: "Save Plan" });
-      fireEvent.click(saveButton);
-      await waitFor(() => expect(prepareSave).toHaveBeenCalledTimes(1));
-      expect(prepareSave.mock.calls[0]![0]).toMatchObject({ world_id: worldId, document_id: savedAgentPlanId });
-      if (selectText === "save-clean") {
-        await screen.findByText("Saved to this World.");
-        expect(within(review).queryByRole("button", { name: "Save Plan" })).not.toBeInTheDocument();
-        expect(within(review).getByRole("region", { name: "Before Quiet test scene" })).toHaveTextContent("The keeper waits beneath the black arch.");
-        expect(within(review).getByRole("region", { name: "After Quiet test scene" })).toHaveTextContent("Optional GM cue:");
-        expect(within(review).queryByText("Saved to your Plan.")).not.toBeInTheDocument();
-        fireEvent.click(saveButton);
-        expect(prepareSave).toHaveBeenCalledTimes(1);
-        expect(commitSave).toHaveBeenCalledTimes(1);
-      }
-      expect(post).toHaveBeenCalledTimes(1);
-      return;
-    }
-    fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "Append one more cue." } });
-    fireEvent.click(within(conversation).getByRole("button", { name: "Request a Plan change" }));
-  fireEvent.click(within(conversation).getByRole("button", { name: "Propose edit" }));
-    const nextApply = await within(conversation).findByRole("button", { name: "Apply to draft" });
-    const nextReview = nextApply.closest("section[aria-labelledby]")!;
-    expect(nextReview).toHaveAccessibleName("Change Quiet test scene");
-    fireEvent.click(within(reader).getByRole("button", { name: "Next scene" }));
-    await within(nextReview).findByText("This preview is no longer current. It cannot be applied.");
-    expect(within(nextReview).queryByRole("button", { name: "Apply to draft" })).not.toBeInTheDocument();
+  await waitFor(()=>expect(post).toHaveBeenCalledTimes(1));
+  const request=post.mock.calls[0]![0],capture=request.plan_authoring_capture!;
+  expect(request.plan_requested_operation).toBe('write_current_page');
+  expect(capture).toMatchObject({base_revision:7,base_content_sha256:'b'.repeat(64)});
+  expect(capture.draft_sha256).toMatch(/^[a-f0-9]{64}$/);
+  if(selectText){
+    expect(capture.target_kind).toBe('replace_selection');expect(capture.playable_target).toBeNull();expect(capture.selected_text).toBe('keeper');
+  }else{
+    expect(capture.target_kind).toBe('replace_playable_body');
+    expect(capture.playable_target).toMatchObject({kind:'scene',id:'scene:arrival',body_markdown:'The keeper waits beneath the black arch.\n'});
+    expect(capture.playable_target?.body_sha256).toBe(createHash('sha256').update(capture.playable_target!.body_markdown).digest('hex'));
   }
+  expect(request.plan_placement_catalog?.entries.length).toBeGreaterThan(0);
+  expect(legacy).not.toHaveBeenCalled();expect(prepareSave).not.toHaveBeenCalled();expect(commitSave).not.toHaveBeenCalled();
+  expect(screen.getByTestId('world-owned-plan-markdown-editor')).not.toHaveTextContent('Optional GM cue:');
+  expect(page).toHaveTextContent('A lantern moves behind the loading door.');
+  await act(async()=>reject(new Error('Synthetic unknown native response')));
 });
 
 function planAgentNamespace(documentId = savedAgentPlanId) {
