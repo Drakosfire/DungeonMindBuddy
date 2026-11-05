@@ -48,6 +48,11 @@ def ordinary(monkeypatch, tmp_path, application_state_dsn):
         tmp_path, world_id="world:synthetic", campaign_id="synthetic",
         session_id="session-1", recap_text="Ari guarded the gate.\n",
     )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.known_character_context.read_known_character_catalog",
+        lambda *args: {"status": "no_native_head", "entities": [],
+                       "native_pin": {"native_world_id": "world:synthetic", "binding_version": 1}},
+    )
     engine = SchemaEngine()
     monkeypatch.setattr(adapter, "_default_engine_for", lambda provider: engine)
     monkeypatch.setattr(httpx.HTTPTransport, "handle_request", lambda *_: pytest.fail("Provider HTTP forbidden"))
@@ -200,3 +205,16 @@ def test_ordinary_reasoning_passes_use_explicit_edge_headroom_and_deadlines(ordi
     assert ledger["limits"]["run_deadline_ms"] == 900000
     assert [call["max_output_tokens"] for call in ledger["calls"]] == [16384] * 6 + [32768]
     assert all(120000 < call["deadline_ms"] <= 240000 for call in ledger["calls"])
+
+
+def test_ordinary_production_keeps_name_only_known_actor_when_model_omits_it(ordinary):
+    result=invoke(ordinary,reviewed_character_catalog={
+        'status':'available','native_pin':{'native_world_id':'world:synthetic','binding_version':1,'revision_id':'r1'},
+        'entities':[{'entity_id':'native:ari','label':'Ari','names':['Ari']}],
+    })
+    assert result.run.status==ExtractionRunStatus.REVIEWABLE, result.diagnostics
+    graph=component(result,'candidate_graph')
+    assert len(graph['nodes'])==1 and graph['nodes'][0]['label']=='Ari'
+    assert graph['nodes'][0]['description'] is None
+    assert graph['nodes'][0]['evidence_refs'][0]['anchor_quotes']==['Ari']
+    assert result.run.lineage['known_character_bindings']['mentions'][0]['surface']=='Ari'

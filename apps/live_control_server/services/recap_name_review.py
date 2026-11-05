@@ -1,12 +1,12 @@
 """Pre-model name review over the same source normalization and native catalog."""
-from apps.live_control_server.services.known_character_context import read_known_character_catalog
+from apps.live_control_server.services import known_character_context
 from apps.live_control_server.services.source_artifact_registry import _normalize_source_text
 from src.graph_memory.extraction.name_review import review_names,apply_review
 
 
 def prepare_name_review(text,scope,*,session_id):
     original=_normalize_source_text(text)
-    catalog=read_known_character_catalog(scope.managed_world_id,scope.campaign_id)
+    catalog=known_character_context.read_known_character_catalog(scope.managed_world_id,scope.campaign_id)
     pin=catalog['native_pin']
     if (pin['native_world_id'],pin['binding_version'])!=(scope.native_world_id,scope.binding_version):
         raise ValueError('World binding changed. Check names again.')

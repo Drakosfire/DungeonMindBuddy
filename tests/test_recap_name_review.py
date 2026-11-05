@@ -43,7 +43,7 @@ def test_corrections_and_original_are_database_retained_before_owned_extraction(
     from apps.live_control_server.services import recap_graph_preview_ingest as host,recap_name_review as names
     from apps.live_control_server.services.source_artifact_registry import load_registered_source_artifact_text
     monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(tmp_path))
-    monkeypatch.setattr(names,'read_known_character_catalog',lambda *a:{**CAT,'native_pin':{'native_world_id':'n','binding_version':1}})
+    monkeypatch.setattr(names.known_character_context,'read_known_character_catalog',lambda *a:{**CAT,'native_pin':{'native_world_id':'n','binding_version':1}})
     scope=SourceScope(**SCOPE)
     text='Berenwld waits.'
     review=names.prepare_name_review(text,scope,session_id="session-1")[2]
