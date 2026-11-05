@@ -33,3 +33,28 @@ Verify actual rendered instructions reach all ordinary recap node passes exactly
 Prompt tests establish contract delivery only. They cannot prove model compliance or full Gold quality. Following code review, separately qualify an isolated actual same-source extraction with pinned code/model/config/catalog/source and ordinary accounting. Assess full118 and precision against the actual published representation, then prove exact supported selections through governed native publication and readback. Do not accept the prior partial selection, rewrite Gold, import source-body facts or hide explanatory labels in metadata as a substitute.
 
 The complete C1 Sessions 1–10, Worldbuilding and later benchmarking objective remains active and unfinished.
+
+## Source-order refinement within this PR
+
+Re-anchored at remote main `16499be31ac1b7e40f42723a79524009e66ef0b7`
+and the current open PRs before this amendment; parent #2079 remains
+`f8e6df2d7854b520f87b71065e4544236b4ff797`. The same three-path write lease
+and stacked topology apply. PRIME owns its separate conversation/UI/CI work;
+this amendment changes none of those paths or runtime resources.
+
+Fresh standard-v2 Session 5 run `0a9b4579-3c1c-40a7-a48a-c65d6d5980f9`
+retained the collection and destination facts but omitted their explicit local
+before/after relationship from publishable knowledge. Independent assessment
+`a220a27915df1b91ce1b7d2cc0a0c8fed5625ebf3c28cd657df5aa3fa44d17de`
+preserves that failure; source/list position cannot close it. Independent design
+critique `2d0126678d7db438812f8583778a5c6dabf38c8416883a1646f643e085205445`
+approves extending the existing description instruction with explicit temporal
+propositions. Event nomination and typed precedence remain at their existing
+owners; no new pass, representation, schema or fallback is introduced.
+
+Verify delivery exactly once to ordinary recap node prompts and unchanged source,
+schema and other profile/pass content. A fresh pinned ordinary extraction and
+complete source/Gold/publication assessment must establish actual compliance.
+Earlier Session 3/4 passes remain scoped to their original code pin; they do not
+prove this amended build. Preserve them and refresh the final accepted cohort on
+the eventual common build rather than relabeling retained runs as current proof.

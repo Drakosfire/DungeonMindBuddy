@@ -388,6 +388,9 @@ def test_node_description_coverage_changes_only_existing_recap_node_prompts() ->
             assert prompt.count(_NODE_DESCRIPTION_COVERAGE) == int(changes), (profile.qualified_id, name)
             for contract in (
                 "actions, affected objects, and outcomes explicitly in the description",
+                "Retain explicit source-supported before/after relationships in descriptions",
+                "without relying on paragraph, node, or list position",
+                "Do not impose order on concurrent or unresolved actions",
                 "Do not leave a material detail only in an evidence quote, beat summary, or relationship label",
                 "Preserve source ambiguity rather than filling missing details by inference",
             ):
