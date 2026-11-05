@@ -1,0 +1,18 @@
+# INGEST: deterministic known-character bindings
+
+Status: ACTIVE. User authorized implementation, one isolated Session 30 extraction comparison, and source-grounded Gold development. No publication or primary-data writes.
+
+Topology: serial. Base origin/main b20e0b0d72a756d6315605e1501059317628aa9a; branch codex/ingest-known-character-bindings. Predecessors 2084/2085 merged. Existing 2086 owns native source browsing and Core dependency pin; this slice does not change dependency pins, shared runtime or its paths. 2081/2082 and paused2079 remain separate.
+
+Write lease: this handoff; src/graph_memory/extraction/known_character_bindings.py, category_candidate_graph_extractor.py, graph_preview_runner.py; apps/live_control_server/services/known_character_context.py, graph_preview_runner.py, exact_run_candidate_projection.py; owning tests, including bounded failure fixtures. No corpus-specific prompts, new provider pass, directory/registry authority, identity publication or historical fact copying.
+
+Outcome: admitted campaign character names and aliases from one native revision locate exact source mentions using the existing matcher. Persist the pinned context in the run; make it available to actor extraction, retain name-only missing endpoints, and project all unambiguous source mentions for matched candidate nodes. A mention is recognition, not an action or publication decision. Ambiguous identities/overlapping names remain unlinked. Missing native head yields explicitly empty context; no file fallback. Existing runs remain frozen.
+
+Validation: generic names, multiple occurrences, aliases, conflicting identities, word boundaries, exact offsets, source planning exclusion, no imported history, omitted actors retained as name-only candidates, immutable reader projection. Independent review of cumulative diff before PR. Run actual standard-v2 DeepSeek on exact latest Session30 source in isolated evaluator; retain raw output, telemetry/cost, context and candidates in database. Compare source-matched baseline, audit attribution/quotes and produce source-grounded Gold with unresolved cases explicit. No extraction before local boundary checks pass. No merge authorization inferred from previous PRs.
+
+
+## User-directed scope revision: pre-model name review
+
+User explicitly added an app review step: generic deterministic typo suggestions against known names, correction/keep decisions before any model call, original and corrected source retained in APP with pinned review decisions. This is one coupled recognition boundary, serial in the same PR. Expected write lease additionally includes src/graph_memory/extraction/name_review.py; apps/live_control_server/services/recap_name_review.py and recap_graph_preview_ingest.py; routes/recap_ingest.py; apps/live-control-ui/src/api/recapIngestApi.ts and types.ts; modules/IngestionModule.tsx and its tests; ingestion/RecapNameReview.tsx and tests; corresponding Python/API tests and world-ownership-core.yml ingestion test selection. hosted-validation.yml remains untouched because2086 leases it; its existing IngestionModule integration test now exercises the review gate. Existing2082 changes the same orchestration module in a separate inactive branch; no concurrent editor is active and its existing activity UI is not absorbed or merged here. Do not change source-browser2086 dependency/workflow leases.
+
+User approved the Session30 Karesmine→Karsemine (two occurrences) and Baergom→Baergrom (one occurrence) corrections. Matching code and prompts contain no corpus-specific spelling map. Compare to latest37910c76 with the identical selected notes; report approved source edits as a comparison confound. Original input remains retained and immutable.
