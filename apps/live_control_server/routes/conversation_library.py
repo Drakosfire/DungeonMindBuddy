@@ -6,7 +6,7 @@ from application_state.agent_conversation import library
 from application_state.errors import ApplicationStateError
 from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
 from apps.live_control_server.routes.agent import _verified_world_id, _conversation_service
-from application_state.agent_conversation.types import ReopenCommand, ConversationCommandReceipt
+from application_state.agent_conversation.types import ReopenCommand, ConversationCommandReceipt, ConversationTrashCommand
 
 router = APIRouter(
     prefix="/api/live/agent/worlds/{world_id}/conversations",
@@ -34,7 +34,7 @@ def call(function, *args, **kwargs):
 def list_conversations(
     world_id: str,
     request: Request,
-    status: str = Query("all", pattern="^(all|archived)$"),
+    status: str = Query("all", pattern="^(all|archived|trashed)$"),
     limit: int = Query(25, ge=1, le=50),
     before: UUID | None = None,
 ):
@@ -121,3 +121,12 @@ def resume(world_id: str, conversation_id: UUID, body: ReopenCommand, request: R
     if body.world_id != world or body.conversation_id != conversation_id:
         raise HTTPException(422, detail="Resume command differs from this World or conversation")
     return call(_conversation_service(request).reopen_conversation, body)
+
+
+@router.post("/{conversation_id}/trash", response_model=ConversationCommandReceipt)
+@router.post("/{conversation_id}/restore", response_model=ConversationCommandReceipt)
+def set_trash(world_id: str, conversation_id: UUID, body: ConversationTrashCommand, request: Request):
+    world = scope(request, world_id, ())
+    if body.world_id != world or body.conversation_id != conversation_id:
+        raise HTTPException(422, detail="Lifecycle command differs from this World or conversation")
+    return call(_conversation_service(request).set_conversation_trash, body, restore=request.url.path.endswith("/restore"))

@@ -34,9 +34,9 @@ from .native_corpus import (NativeCorpusAuthorityV1, NativeBodySearchAuthorizedV
     NativeBodyProviderIncludedV1, NativeAuthoredSourceReadV1 as NativeAuthoredSourceReadV1, NATIVE_BODY_EVENTS)
 
 Resolution = Literal["resolved", "absent", "unresolved", "unavailable"]
-ConversationStatus = Literal["active", "archived"]
+ConversationStatus = Literal["active", "archived", "trashed"]
 TurnStatus = Literal["accepted", "running", "completed", "failed", "interrupted"]
-CommandKind = Literal["new", "archive", "reopen"]
+CommandKind = Literal["new", "archive", "reopen", "trash", "restore"]
 TurnClaimDisposition = Literal["claimed", "pending", "completed"]
 
 # A citation can include every receipt actually supplied in one V3 envelope.
@@ -6342,6 +6342,10 @@ class ArchiveCommand(ConversationCommand):
 
 
 class ReopenCommand(ConversationCommand):
+    conversation_id: UUID
+
+
+class ConversationTrashCommand(ConversationCommand):
     conversation_id: UUID
 
 

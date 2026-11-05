@@ -37,7 +37,7 @@ class ConversationSummary(BaseModel):
     world_id: str
     title: str
     name_revision: int
-    status: Literal["active", "archived"]
+    status: Literal["active", "archived", "trashed"]
     turn_count: int
     created_at: datetime
     updated_at: datetime
@@ -77,7 +77,7 @@ def get_name(world: str, conversation: UUID):
 def list_library(
     world: str, *, status: str = "all", limit: int = 25, before: UUID | None = None
 ):
-    if status not in {"all", "archived"} or not 1 <= limit <= 50:
+    if status not in {"all", "archived", "trashed"} or not 1 <= limit <= 50:
         raise ApplicationStateValidationError(
             "Invalid conversation library page selector"
         )
@@ -85,8 +85,11 @@ def list_library(
         conn.row_factory = dict_row
         params = [world]
         clauses = ["c.world_id=%s"]
-        if status == "archived":
-            clauses.append("c.status='archived'")
+        if status == "all":
+            clauses.append("c.status<>'trashed'")
+        else:
+            clauses.append("c.status=%s")
+            params.append(status)
         if before is not None:
             cursor = conn.execute(
                 "SELECT created_at FROM agent.conversation WHERE world_id=%s AND conversation_id=%s",
