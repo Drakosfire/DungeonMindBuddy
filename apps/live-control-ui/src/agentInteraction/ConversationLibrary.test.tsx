@@ -126,3 +126,10 @@ it('keeps Continue outside the actions menu and reveals rename and Trash deliber
 it('Escape dismisses the actions menu before closing the dialog',async()=>{
  const onClose=vi.fn();render(<ConversationLibrary worldId="world-one" onClose={onClose}/>);await screen.findByText('Current question');const summary=screen.getByText('•••');fireEvent.click(summary);expect(summary.closest('details')).toHaveAttribute('open');fireEvent.keyDown(summary,{key:'Escape'});expect(summary.closest('details')).not.toHaveAttribute('open');expect(onClose).not.toHaveBeenCalled();expect(summary).toHaveFocus();
 });
+
+it('disables exports while full details are loading and enables them after the owning read settles',async()=>{
+ let finish!:(value:api.LibraryTurns)=>void;vi.mocked(api.readConversationTurns).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+ render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);await screen.findByText('Current question');fireEvent.click(screen.getByRole('button',{name:'Load saved details'}));fireEvent.click(screen.getByText('•••'));
+ expect(screen.getByRole('button',{name:'Export conversation',exact:true})).toBeDisabled();expect(screen.getByRole('button',{name:'Export with diagnostics'})).toBeDisabled();expect(screen.getByRole('button',{name:'Rename conversation'})).toBeDisabled();
+ await act(async()=>finish(page()));await waitFor(()=>expect(screen.getByRole('button',{name:'Export conversation',exact:true})).not.toBeDisabled());
+});
