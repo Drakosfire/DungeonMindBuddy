@@ -212,7 +212,7 @@ def _ordinary_native_case(
     class Writer(WriterWire):
         async def handle_async_request(self, req):
             frame=json.loads(json.loads(req.content)['input'][0]['content'])
-            assert frame['schema']=='dmb_surface_native_writer_evidence_v1'
+            assert frame['schema']=='dmb_surface_native_writer_evidence_v2'
             assert frame['answer_policy'] in json.loads(req.content)['instructions']
             assert 'dmb_surface_evidence_answer_v6' not in json.loads(req.content)['instructions']
             assert BODY not in req.content.decode() and 'span.text' not in req.content.decode()
@@ -224,7 +224,7 @@ def _ordinary_native_case(
             else:
                 row=next(r for r in rows if r['assertion']['predicate']=='dnd5e:summary')
                 assert row['assertion']['metadata']['claim_mode']==('dungeonbuddy.claim:belief' if qualified else 'dungeonbuddy.claim:fact')
-                assert all('text' not in s for r in rows for s in r['supporting_sources'])
+                assert all('evidence' not in r and 'supporting_sources' not in r for r in rows)
                 segments=[{'kind':'native_assertion_claim','text':'A reports that B fled; uncertain.',
                     'assertion_handles':[row['assertion_handle']]}]
                 limitations=[]

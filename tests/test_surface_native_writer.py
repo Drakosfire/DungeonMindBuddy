@@ -257,8 +257,6 @@ def published_case(surface, lane):
     from tests.test_native_plan_statements import query
     from tests.test_source_statements import GM
     from apps.live_control_server.services.native_graph_reads import read_selected
-    from application_state.agent_conversation import native_plan_assertions as assertions
-    from application_state.agent_conversation import native_plan_statements as statements
     prepared, result = query(lane, scope_mode='world')
     assert result.matches and result.assertion_matches
     context, record = component(surface, unavailable=True)
@@ -282,8 +280,8 @@ def published_case(surface, lane):
         'native_query_sha256':t.canonical_sha256(context.native_query)})
     record = execution(context.context_receipt_sha256, policy)
     events, active = decision_prefix(surface, context, record)
-    handles = [statements.selection_handle(result, m) for m in result.matches]
-    handles += [assertions.selection_handle(result, m) for m in result.assertion_matches]
+    from application_state.agent_conversation.native_plan_assertions import object_selection_handle
+    handles = [object_selection_handle(result, m.entity_id) for m in result.object_matches]
     events.append(choice(context, record, active, len(events), 'select_candidates', handles))
     for grant_type, observed_type, ids_field, unavailable_field, matches, identity in (
         (t.NativePlanStatementReadAuthorizedV1,t.NativePlanStatementReadObservedV1,'statement_ids',
@@ -323,7 +321,7 @@ def test_shared_input_preserves_actual_core_statement_and_assertion_qualificatio
         assert event.event_id in auth.native_read_event_ids
         row = next(r for r in frame['native_assertions']['assertions'] if r['assertion_handle'] == handle)
         assert row['assertion'] == read.assertion.model_dump(mode='json')
-        assert all('text' not in span for span in row['supporting_sources'])
+        assert 'evidence' not in row and 'supporting_sources' not in row
     assert any(r.assertion.metadata.claim_mode == 'dungeonbuddy.claim:belief'
         and r.assertion.metadata.epistemic_basis == 'speculative'
         for _,_,r in supports.native_assertions)

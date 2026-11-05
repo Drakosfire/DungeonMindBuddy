@@ -18,7 +18,8 @@ from . import native_plan_statements as statements
 from . import native_plan_assertions as assertions
 from .source_writer_output import responses_text_frame, strict_json
 
-SCHEMA = "dmb_surface_native_writer_evidence_v1"
+LEGACY_SCHEMA = "dmb_surface_native_writer_evidence_v1"
+SCHEMA = "dmb_surface_native_writer_evidence_v2"
 AUTHORING_GUIDANCE = ('\nUse surface_work as the authored page and editor context. '
     'Use native_evidence as supplied World material; preserve uncertainty, attribution and temporal qualifications. '
     'Authored drafts and proposed ideas do not establish played events.')
@@ -40,8 +41,10 @@ def body_handle(read):
     return bodies.native_body_handle(excerpt.catalog_sha256, excerpt.section.section_id)
 
 
-def model_frame(receipt, execution):
-    """Project the current admitted prefix, without a provider authorization."""
+def model_frame(receipt, execution, *, schema=SCHEMA):
+    """Current semantic projection; V1 remains an exact historical input codec."""
+    if schema not in {LEGACY_SCHEMA, SCHEMA}:
+        raise ValueError('Unknown native writer evidence presentation')
     if (type(receipt), type(execution)) != (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1):
         raise ValueError("Native writer requires its exact shared receipt and execution")
     validate_execution_binding(receipt, execution)
@@ -53,11 +56,12 @@ def model_frame(receipt, execution):
         or bodies.body_input_partial(execution)
         or statements.input_partial_records(query, execution)
         or assertions.input_partial_records(query, execution))
-    return dict(schema=SCHEMA, answer_policy=assertions.POLICY, input_status='partial' if partial else 'complete',
+    return dict(schema=schema, answer_policy=assertions.POLICY, input_status='partial' if partial else 'complete',
         user_question=execution.policy.action.intent.message,
         native_body_evidence=bodies.model_body_frame_records(receipt.source_authority, execution, body_handle),
         native_statements=statements.model_frame_records(query, execution),
-        native_assertions=assertions.model_frame_records(query, execution)
+        native_assertions=assertions.model_frame_records(query, execution,
+            schema='dmb_plan_native_assertion_frame_v1' if schema == LEGACY_SCHEMA else 'dmb_native_assertion_frame_v2')
             if isinstance(query, assertions.NativePlanQueryV2) else None)
 
 
@@ -153,7 +157,7 @@ def _input_frames(raw,execution,work_schema):
     schema={'propose_build_insertion':'dmb_build_compose_input_v1',
         'prepare_build_image':'dmb_build_image_direction_input_v1'}.get(operation)
     if schema is None:
-        return (responses_text_frame(raw,schemas={SCHEMA},label='Native writer'),
+        return (responses_text_frame(raw,schemas={LEGACY_SCHEMA,SCHEMA},label='Native writer'),
             responses_text_frame(raw,schemas={work_schema},label='Native surface work'))
     body=strict_json(raw)
     if (not isinstance(body,dict) or not isinstance(body.get('input'),str) or 'messages' in body
@@ -184,10 +188,12 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     # evidence to this producing frame; read owners refuse post-writer acquisition.
     prefix = SurfaceNativeExecutionV1.model_validate_json(execution.model_copy(
         update={"events": execution.events[:authorization.sequence]}).model_dump_json(by_alias=True))
-    expected = model_frame(receipt, prefix)
     expected_work = model_work_frame(receipt,prefix,provenance=provenance,idempotency_key=idempotency_key,
         work_proof=work_proof,world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt)
     frame,work_frame = _input_frames(raw,prefix,expected_work['schema'])
+    if not isinstance(frame,dict):
+        raise ValueError('Native writer requires its exact evidence presentation')
+    expected = model_frame(receipt, prefix, schema=frame.get('schema'))
     if t.canonical_sha256(work_frame) != t.canonical_sha256(expected_work):
         raise ValueError('Native writer changed or omitted its exact surface work')
     body = strict_json(raw)
