@@ -505,3 +505,82 @@ def test_native_support_body_digest_mismatch_is_not_an_identity_fallback(context
     with pytest.raises(ExtractPromoteError, match="saved source bytes") as error:
         source_tests.resolve(context, inspect_source_support=True)
     assert error.value.status_code == 409
+
+
+def test_repeated_nodes_open_each_identity_and_evidence_once_per_pinned_request(native_world, monkeypatch):
+    calls = {"entity": [], "preview": [], "search": []}
+    original_entity = native.EntityReadService.get_entity
+    original_preview = native._preview
+    original_search = native.SearchReadService.search_entities
+
+    def entity(self, context, identifier):
+        calls["entity"].append(identifier)
+        return original_entity(self, context, identifier)
+
+    def preview(access, identifier):
+        calls["preview"].append(identifier)
+        return original_preview(access, identifier)
+
+    def search(self, context, query):
+        calls["search"].append(query)
+        return original_search(self, context, query)
+
+    monkeypatch.setattr(native.EntityReadService, "get_entity", entity)
+    monkeypatch.setattr(native.SearchReadService, "search_entities", search)
+    monkeypatch.setattr(native, "_preview", preview)
+    packet = native.resolve_native_review_context(
+        scope={"native_world_id": "native-a", "campaign_id": "c1", "session_id": "s1"},
+        nodes=[{"node_id": f"candidate-{i}", "label": "Ari"} for i in range(20)],
+        source_admission=None, inspect_source_support=False,
+    )
+    assert len(packet["selections"]) == 20
+    assert all(len(row["alternatives"]) == 2 for row in packet["selections"])
+    assert sorted(calls["entity"]) == ["ari", "ari-other"]
+    # Both entities cite the same admitted exact span; open it only once.
+    assert len(calls["preview"]) == 1
+    assert calls["search"].count("Ari") == 1
+    # Another campaign/request must get fresh admitted facts and source reads.
+    other = read("c2")
+    assert len(calls["preview"]) == 2
+    assert [a["assertion_id"] for a in other["selections"][0]["alternatives"][0]["entity_result"]["assertions"]] == ["name-c2-ari"]
+
+
+def test_request_memo_does_not_hide_a_later_source_integrity_failure(native_world, monkeypatch):
+    from dungeonmind.domain.errors import PersistenceIntegrityError
+    read("c2")
+
+    def damaged(*args):
+        raise PersistenceIntegrityError("synthetic changed source")
+
+    monkeypatch.setattr(native, "_preview", damaged)
+    with pytest.raises(PersistenceIntegrityError, match="changed source"):
+        read("c2")
+
+
+def test_database_failure_returns_actionable_nonpublication_error(context, monkeypatch):
+    import asyncio
+    import httpx
+    from fastapi import FastAPI
+    from dungeonmind.domain.errors import PersistenceUnavailableError
+    from apps.live_control_server.routes.extract_promote import router
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal, native_graph_gm_dependency
+
+    def unavailable(*args, **kwargs):
+        raise PersistenceUnavailableError("synthetic private database address")
+
+    monkeypatch.setattr(source_tests.service, "resolve_ingest_selection_context", unavailable)
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[native_graph_gm_dependency] = lambda: NativeGraphPrincipal(
+        subject="operator:integration", role="gm", auth_method="local_operator",
+    )
+
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/live/extract-promote/runs/test-run/selection-context", json=context.body)
+            assert response.status_code == 503
+            assert response.json()["code"] == "ingest_selection_database_unavailable"
+            assert "Nothing was merged" in response.json()["message"]
+            assert "private database address" not in response.text
+
+    asyncio.run(exercise())
