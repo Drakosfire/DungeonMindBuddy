@@ -1,6 +1,6 @@
 # Native assertion source locators
 
-Status: ACTIVE. Owner: PRIME. Authority: reference integration goal and confirmed
+Status: MERGED_AND_DELIVERED; Plan acceptance remains open. Owner: PRIME. Authority: reference integration goal and confirmed
 ordinary Plan failure 407c3993-f392-4dd4-915e-67ced8266fc8. Serial after merged
 #2096 ee4279013b0d07f5458da237dfa8c87a29845aa8; branch
 codex/native-assertion-source-locators, existing buddy-context-loop checkout.
@@ -61,3 +61,11 @@ No ingestion/extraction/gold or Play activation. Plan's older manual route,
 remaining surface acceptance, Play integration and full goal dispositions remain
 open successors. Checked open ingestion PRs2095/2094/2093/2090/2087: no expected
 path overlap with this runtime slice.
+
+Merged #2097 as d541f6f689b8eea06b259d28c1be3c276f1334d5; delivered in
+compatible runtime d274aa036c3baa364d2afec9db1a4c3a919727d3 / APP0110.
+All7CI gates and independent exact-head/final-runtime review passed. API1900973
+healthy, UI1851454 unchanged; retained APP/Core/session conservation verified.
+Ordinary retry65083a20 passed assertion observation but later discovery plus the
+next selection exposed the shared aggregate storage guard. Preserve both failures
+and the newer unsent draft. Successor: HANDOFF-REFERENCE-native-ledger-bounds.md.
