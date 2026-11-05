@@ -1548,6 +1548,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         ) : null}
       </nav>
 
+          {mergeOpen && reviewSource?.identity === reviewIdentity && reviewSource?.projection?.schema === "dmb_exact_run_candidate_projection_v1" && reviewSource.projection.managedWorldId === managedWorldId && reviewSource.projection.runStatus === "reviewable" ? <RecapNativeMerge projection={reviewSource.projection} onClose={()=>{setMergeOpen(false);const params=new URLSearchParams(window.location.search);params.delete("merge");window.history.replaceState({},"",`${window.location.pathname}?${params}`);}}/> : mergeOpen ? <p role="status">Load this exact reviewable candidate to review a merge.</p> : null}
+
       {showRecapWelcome ? (
         <section className="ingest-welcome-card ingest-welcome-card--world" aria-labelledby="ingest-first-recap-title">
           <p className="ingest-welcome-kicker">
@@ -1631,7 +1633,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
             </>
           )}
 
-          {mergeOpen && reviewSource?.identity === reviewIdentity && reviewSource?.projection?.schema === "dmb_exact_run_candidate_projection_v1" && reviewSource.projection.managedWorldId === managedWorldId && reviewSource.projection.runStatus === "reviewable" ? <RecapNativeMerge projection={reviewSource.projection} onClose={()=>{setMergeOpen(false);const params=new URLSearchParams(window.location.search);params.delete("merge");window.history.replaceState({},"",`${window.location.pathname}?${params}`);}}/> : mergeOpen ? <p role="status">Load this exact reviewable candidate to review a merge.</p> : null}
           {managedWorldId?<SessionEvidencePicker key={evidenceTargetKey} worldId={managedWorldId} targetKey={evidenceTargetKey} disabled={primaryOp!==null} onChange={refs=>setSessionSupplements({identity:evidenceTargetKey,refs})}/>:null}
         </section>
 
