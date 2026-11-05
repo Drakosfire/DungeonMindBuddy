@@ -30,8 +30,6 @@ import type {
   WorldCommandResolutionResponseV1,
   LiveQueryBackend,
   LiveQueryOptions,
-  PlanDocumentEditProposalRequest,
-  PlanDocumentEditProposalResponse,
   WorldPlanDocumentEditProposalRequest,
   WorldPlanDocumentEditProposalResponse,
   WorldPlanEditClarificationResponse,
@@ -1913,15 +1911,6 @@ export async function postLiveQuery(
   return apiFetch<LiveQueryResponse>("/api/live/query", {
     method: "POST",
     body: JSON.stringify(body),
-  });
-}
-
-export async function postPlanDocumentEditProposal(
-  request: PlanDocumentEditProposalRequest,
-): Promise<PlanDocumentEditProposalResponse> {
-  return apiFetch<PlanDocumentEditProposalResponse>("/api/live/plan-document-edit/propose", {
-    method: "POST",
-    body: JSON.stringify(request),
   });
 }
 

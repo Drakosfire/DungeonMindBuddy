@@ -25,8 +25,6 @@ from apps.live_control_server.services.workspace_document_registry import (
     get_workspace_document,
 )
 from apps.live_control_server.models.plan_document_edit_proposal import (
-    PlanDocumentEditProposalRequest,
-    PlanDocumentEditProposalResponse,
     WorldPlanDocumentEditProposalRequest,
     WorldPlanDocumentEditProposalResponse,
     WorldPlanEditClarificationResponse,
@@ -35,7 +33,6 @@ from apps.live_control_server.services.plan_document_edit_proposal import (
     PlanDocumentEditProposalError,
     get_world_plan_action_projection,
     get_world_plan_action_conversation_projection,
-    propose_plan_document_edit,
     propose_world_plan_document_edit,
 )
 from apps.live_control_server.services.plan_action_consultation import (
@@ -314,8 +311,6 @@ def _target_from_session(
     raise HTTPException(
         status_code=404, detail=f"unknown target id for roll_table: {target_id}"
     )
-
-
 
 
 @router.post(
@@ -938,22 +933,6 @@ def post_live_query(body: LiveQueryRequest, request: Request) -> Any:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-
-@router.post(
-    "/plan-document-edit/propose",
-    response_model=PlanDocumentEditProposalResponse,
-)
-def post_plan_document_edit_proposal(
-    body: PlanDocumentEditProposalRequest,
-) -> PlanDocumentEditProposalResponse:
-    try:
-        return propose_plan_document_edit(root=repo_root(), request=body)
-    except PlanDocumentEditProposalError as exc:
-        raise HTTPException(
-            status_code=exc.status_code,
-            detail={"code": exc.code, "message": str(exc)},
-        ) from exc
 
 
 @router.post(
