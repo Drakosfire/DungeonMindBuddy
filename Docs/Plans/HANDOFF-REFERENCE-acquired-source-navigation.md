@@ -1,6 +1,6 @@
 # Acquired source references in native navigation
 
-Status: ACTIVE. Owner/designer: PRIME. Authority: reference integration goal and
+Status: MERGED_AND_DELIVERED; answer quality and surface acceptance remain open. Owner/designer: PRIME. Authority: reference integration goal and
 captured ordinary Plan failure/retrieval evidence. Serial after merged/delivered
 #2098 e99c2ecba073ac1beb348c1d386b3a413fd94b0f; branch
 codex/native-acquired-reference-navigation, existing buddy-context-loop checkout.
@@ -59,3 +59,14 @@ navigation cases pass independently. Frozen65083a20 replay now exposes the human
 passage as acquired, omits its duplicate offer and retains the explicit full-
 document offer because the human selected only a section. Zero provider calls or
 DB writes in that replay. Independent review, CI and delivery remain gates.
+
+Merged #2099 af626e13ae5a4abe94a023800137a8256f61479c after exact-head
+independent review and all seven CI gates. Delivered compatible runtime
+d7c47922380d4710f25ec06a4667bd4e4290b775 / APP0111 with unchanged UI and
+complete APP/Core/session conservation. Runtime lease released. Ordinary same-
+question/source comparison d5596b66-8897-4ace-bc8e-08debebfb1be completed in
+60.203seconds with two retrieval decisions and no duplicate body reads. Its exact
+citation, saved Plan and newer draft survived reload without resending. Later
+dialogue differs, so latency is an observation, not a controlled benchmark. The
+answer repeated the earlier attribution error despite correct current inputs;
+HANDOFF-REFERENCE-native-writer-evidence-order.md owns the bounded follow-up.

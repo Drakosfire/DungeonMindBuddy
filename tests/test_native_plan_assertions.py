@@ -251,14 +251,15 @@ def _ordinary_native_case(
             return httpx2.Response(200,request=req,json={'model':'jev-1.14.0','answers':answers,'usage':{'input_tokens':37,'output_tokens':9}})
     class Writer(WriterWire):
         async def handle_async_request(self, req):
-            frame=json.loads(json.loads(req.content)['input'][0]['content'])
-            assert frame['schema']=='dmb_surface_native_writer_evidence_v2'
+            frames=[json.loads(item['content']) for item in json.loads(req.content)['input'][:-1]]
+            frame=next(item for item in frames if item.get('schema')=='dmb_surface_native_writer_evidence_v2')
+            assert len(frames)==3
+            assert frames[0 if authoring else -1] == frame
             assert frame['answer_policy'] in json.loads(req.content)['instructions']
             assert 'dmb_surface_evidence_answer_v6' not in json.loads(req.content)['instructions']
             assert BODY not in req.content.decode() and 'span.text' not in req.content.decode()
             rows=frame['native_assertions']['assertions'] if frame['native_assertions'] else []
             if authored:
-                frames=[json.loads(item['content']) for item in json.loads(req.content)['input'][:-1]]
                 work_frame=next(item for item in frames if 'authored_references' in item)
                 from application_state.agent_conversation.authored_graph_references import provider_references
                 assert work_frame['authored_references']['selected_references']==provider_references(selected_references)

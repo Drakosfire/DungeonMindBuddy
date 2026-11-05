@@ -223,7 +223,11 @@ class PlanJevWriter:
                 provenance=turn.provenance,idempotency_key=turn.idempotency_key,work_proof=proof,
                 world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt)
             self.output_format=native_output_format(self.frame,rule_frame,self.work_frame)
-            frames=(self.frame,rule_frame,self.work_frame)
+            # Discussion ends with current evidence rather than prior assistant
+            # prose. Keep the exact frames; authoring keeps its current draft last.
+            frames=((self.work_frame,rule_frame,self.frame)
+                if getattr(rules,'authoring',None) is None
+                else (self.frame,rule_frame,self.work_frame))
         else:
             self.projection = project(adapter.fence.turn, proof, adapter.context_capture.trace.model_dump(mode='json'))
             self.frame=self.projection.frame

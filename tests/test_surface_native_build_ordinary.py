@@ -180,6 +180,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 inputs=[inputs[0]['native_evidence'],inputs[0]['surface_work']]
             frame = next(row for row in inputs if row.get('schema') == 'dmb_surface_native_writer_evidence_v2')
             work = next(row for row in inputs if row.get('schema')=='dmb_build_primary_work_evidence_v1')
+            if not mode:
+                assert len(inputs)==3 and inputs[-1] == frame
             if self.adapter.submitted_intent.reviewed_step is not None:
                 from application_state.agent_conversation.reviewed_action import writer_scope,SCOPE_KEY
                 scope=writer_scope(self.adapter._broker_execution())
