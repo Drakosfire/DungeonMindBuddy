@@ -38,7 +38,15 @@ _NODE_DESCRIPTION_COVERAGE = (
     "that contribute knowledge about the referent. Retain these observations even "
     "when they also belong in a scene or beat summary. Keep the observations "
     "within their supported referent and scene, using the existing evidence and "
-    "source-faithfulness requirements."
+    "source-faithfulness requirements. State the source-supported participants, "
+    "actions, affected objects, and outcomes explicitly in the description. "
+    "Retain explicit source-supported before/after relationships in descriptions, "
+    "naming the related occurrences sufficiently to understand the order without "
+    "relying on paragraph, node, or list position. Do not impose order on "
+    "concurrent or unresolved actions. "
+    "Do not leave a material detail only in an evidence quote, beat summary, "
+    "or relationship label. Preserve source ambiguity rather than filling "
+    "missing details by inference."
 )
 
 # These instructions belong to recap extraction only. Keep them out of the
