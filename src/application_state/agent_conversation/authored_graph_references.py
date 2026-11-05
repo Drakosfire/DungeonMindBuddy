@@ -388,7 +388,7 @@ def native_writer_context(execution):
 def reference_input(turn):
     """Read-only projection of the existing captured author input, never evidence."""
     from .rules_authority_reads import MixedCompletedTurnV1
-    actual = turn.base_projection.turn if isinstance(turn, MixedCompletedTurnV1) else turn
+    actual = getattr(turn.base_projection, 'turn', None) if isinstance(turn, MixedCompletedTurnV1) else turn
     execution = getattr(actual, 'graph_context_execution', None)
     rows = [event for event in getattr(execution, 'events', ())
             if getattr(event, 'kind', None) == 'build_authored_references_captured_v1']
