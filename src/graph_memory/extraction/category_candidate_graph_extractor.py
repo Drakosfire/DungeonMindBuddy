@@ -1588,6 +1588,24 @@ def build_edge_pass_prompt(
     prompt = edge_prompt_template.replace("(injected at runtime)", nodes_json)
     if compact_context is not None:
         prompt = COMPACT_EVIDENCE_GUIDANCE + prompt
+        from src.graph_memory.predicate_catalog import RECAP_SOURCE_ORDER
+        profile = resolve_extraction_profile(options)
+        if (profile.admitted_source_domains == frozenset({"recap"})
+                and RECAP_SOURCE_ORDER in profile.edge_pass.predicate_capabilities):
+            cues = compact_context.discourse_navigation()
+            if cues:
+                prompt += (
+                    "\n\n## Source navigation cues (not chronology)\n\n"
+                    "These exact source sentences contain possible discourse cues. "
+                    "This index is incomplete and makes no ordering claim. "
+                    "preceding_packet_paragraph identifies only the preceding advertised "
+                    "paragraph, not an antecedent or earlier event. Topic shifts, result "
+                    "language, future or negated actions, concurrency and flashbacks may "
+                    "contain these words without establishing precedence. Read the full "
+                    "Source Packet to resolve meaning; cite supporting source paragraphs, "
+                    "never this index or its coordinates as independent evidence.\n\n"
+                    + json.dumps(cues, ensure_ascii=False, indent=2)
+                )
     diagnostics = {"enabled": False}
     if options.enable_edge_vocabulary_packet and options.edge_vocabulary_packet is not None:
         edge_vocab_context = render_edge_vocabulary_context(options.edge_vocabulary_packet)
