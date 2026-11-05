@@ -289,3 +289,46 @@ def test_fallback_has_no_candidate_selection_and_explicit_terminal_gaps(discover
     with pytest.raises(ValueError, match='Fallback operation'):
         decode_selection(req, result(answers=dict(actual.answers) | {
             'operation': ChoiceDecisionAnswer(selected='select_candidates')}))
+
+
+def test_build_authoring_relevance_is_versioned_and_never_changes_historical_or_plan_wire():
+    from application_state.agent_conversation.jev_retrieval_contract import (
+        NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInputV2,
+        BUILD_AUTHORING_RELEVANCE, validate_wire_body,
+    )
+    fields = request().model_dump(exclude={"schema_", "revision"}) | dict(
+        source_authority_status="available", source_revision="source:1", graph_revision="graph:1")
+    historical = NativeRetrievalDecisionInputV1(**fields)
+    current = NativeBuildRetrievalDecisionInputV2(**fields)
+    def wire(req):
+        prepared = prepare_decision(req)
+        return json.dumps(dict(model=MODEL, state=prepared.state, questions={
+            q.name:dict(type="choice",instructions=q.question,criteria=dict.fromkeys(q.options))
+            for q in prepared.questions})).encode()
+    old_wire, new_wire = wire(historical), wire(current)
+    assert BUILD_AUTHORING_RELEVANCE not in old_wire.decode()
+    assert BUILD_AUTHORING_RELEVANCE in new_wire.decode()
+    assert historical.digest != current.digest
+    validate_wire_body(historical, old_wire)
+    validate_wire_body(current, new_wire)
+    for req, raw in ((historical,new_wire),(current,old_wire)):
+        with pytest.raises(ValueError,match="changed"):
+            validate_wire_body(req, raw)
+    # Guidance changes relevance, not handle admission or source-question authority.
+    assert prepare_decision(current).questions == prepare_decision(historical).questions
+    assert "continue retrieving the actual requested evidence" in prepare_decision(current).state["relevance_guidance"]
+    assert NativeBuildRetrievalDecisionInputV2.model_validate_json(current.model_dump_json(by_alias=True)) == current
+
+
+def test_build_relevance_codec_cannot_be_borrowed_by_plan(monkeypatch):
+    from types import SimpleNamespace
+    from application_state.agent_conversation import native_retrieval as native
+    from application_state.agent_conversation.jev_retrieval_contract import NativeBuildRetrievalDecisionInputV2
+    fields = request().model_dump(exclude={"schema_", "revision"}) | dict(
+        source_authority_status="available", source_revision="source:1", graph_revision="graph:1")
+    parent = NativeBuildRetrievalDecisionInputV2(**fields)
+    execution = SimpleNamespace(policy=SimpleNamespace(action=SimpleNamespace(surface_id="plan")))
+    monkeypatch.setattr(native, "owner", lambda turn:(None,execution))
+    with pytest.raises(ValueError,match="actual Build owner"):
+        native.verify_input(object(),native.NativeRetrievalAuthorizedV1.model_construct(),
+            dict(parent_request_json=parent.model_dump_json(by_alias=True),request_json="{}"))

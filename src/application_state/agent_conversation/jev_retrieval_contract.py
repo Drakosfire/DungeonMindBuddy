@@ -87,6 +87,33 @@ class NativeRetrievalDecisionInputV1(PlanSourceRetrievalDecisionInputV1):
         default="dmb_native_retrieval_decision_input_v1", alias="schema")
 
 
+class NativeBuildRetrievalDecisionInputV2(NativeRetrievalDecisionInputV1):
+    """Build authoring relevance; V1 retains its exact captured wire contract."""
+    schema_: Literal["dmb_native_build_retrieval_decision_input_v2"] = Field(
+        default="dmb_native_build_retrieval_decision_input_v2", alias="schema")
+
+
+def parse_native_retrieval_input(raw, *, surface_id):
+    """One exact codec reader for native selection and its selected Rules offer."""
+    codec = (NativeBuildRetrievalDecisionInputV2
+        if isinstance(raw, dict) and raw.get("schema") == "dmb_native_build_retrieval_decision_input_v2"
+        else NativeRetrievalDecisionInputV1)
+    parent = codec.model_validate(raw)
+    if type(parent) is NativeBuildRetrievalDecisionInputV2 and surface_id != "build":
+        raise ValueError("Build authoring relevance belongs only to its actual Build owner")
+    return parent
+
+
+BUILD_AUTHORING_RELEVANCE = (
+    "For authored writing, distinguish supplied creative decisions from requests to research existing material. "
+    "Author-supplied setting choices are the writing brief, not unanswered factual questions to corroborate across the corpus. "
+    "Retrieve only existing facts necessary to answer an explicit lookup, resolve a genuine reference, or preserve a relevant established constraint. "
+    "A section matching words in the creative brief is not useful just because it mentions magic, tools, trade, towers or other generic details. "
+    "Do not acquire the corpus to validate invented setting details. Exclude full documents when a specific section suffices. "
+    "For source questions and historical summaries, continue retrieving the actual requested evidence; authoring guidance does not establish played facts or source coverage."
+)
+
+
 class RetrievalSelection(_Frozen):
     operation: Operation
     selected_handles: tuple[StrictStr, ...]
@@ -138,6 +165,8 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
                  "Prior answers do not satisfy a new corpus request. Dialogue resolves references, never evidence. "
                  "Attempted means tried, not verified; do not infer successful coverage or exhaust the catalog."),
              "candidates": [{"label": c.label, "kind": c.kind} for c in request.candidates]}
+    if type(request) is NativeBuildRetrievalDecisionInputV2:
+        state["relevance_guidance"] += " " + BUILD_AUTHORING_RELEVANCE
     if any(c.kind == 'Exact source section' for c in request.candidates):
         state['section_selection_guidance'] = (
             'Compare offered and examined sections: prioritize discriminating matches to the requested details. '
@@ -158,7 +187,7 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
     if request.dialogue:
         state["dialogue_reference"] = [row.model_dump() for row in request.dialogue]
     if controller_accounting is not None:
-        if type(request) is not NativeRetrievalDecisionInputV1:
+        if type(request) not in {NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInputV2}:
             raise ValueError("Build accounting requires the current shared retrieval input")
         state.update(phase="navigate", context_accounting=controller_accounting)
     return DecisionRequest(provider=PROVIDER, model=MODEL,
