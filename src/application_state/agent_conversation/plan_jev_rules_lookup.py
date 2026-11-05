@@ -35,14 +35,18 @@ def _selected_offer(turn, parent_request_json):
     from .native_context import SurfaceNativeContextReceiptV1
     source_owned = isinstance(receipt, (PlanSourceContextReceiptV1, SurfaceNativeContextReceiptV1))
     from .native_retrieval import NativeRetrievalSelectedV1
-    from .jev_retrieval_contract import NativeRetrievalDecisionInputV1
+    from .jev_retrieval_contract import parse_native_retrieval_input
     choices = [e for e in graph.events if isinstance(e, PlanJevRetrievalSelectionV1)]
     providers = [e for e in graph.events if isinstance(e, ProviderAttemptAuthorizedEventV1)]
     if not choices or not providers:
         raise ValueError("Plan Rules read requires an acknowledged selected offer")
     choice, provider = choices[-1], providers[-1]
-    parent_type = NativeRetrievalDecisionInputV1 if type(choice) is NativeRetrievalSelectedV1 else PlanSourceRetrievalDecisionInputV1 if source_owned else RetrievalDecisionInput
-    parent = parent_type.model_validate(strict_json(parent_request_json))
+    raw_parent = strict_json(parent_request_json)
+    if type(choice) is NativeRetrievalSelectedV1:
+        parent = parse_native_retrieval_input(raw_parent, surface_id=graph.policy.action.surface_id)
+    else:
+        parent_type = PlanSourceRetrievalDecisionInputV1 if source_owned else RetrievalDecisionInput
+        parent = parent_type.model_validate(raw_parent)
     pins_match = (all(getattr(parent, key) == value for key, value in _source_pins(receipt).items())
         if source_owned else parent.revision == receipt.graph_authority.graph_revision)
     if (not isinstance(provider, PlanJevProviderAuthorizedV1)
