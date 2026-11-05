@@ -93,6 +93,17 @@ class NativeBuildRetrievalDecisionInputV2(NativeRetrievalDecisionInputV1):
         default="dmb_native_build_retrieval_decision_input_v2", alias="schema")
 
 
+def parse_native_retrieval_input(raw, *, surface_id):
+    """One exact codec reader for native selection and its selected Rules offer."""
+    codec = (NativeBuildRetrievalDecisionInputV2
+        if isinstance(raw, dict) and raw.get("schema") == "dmb_native_build_retrieval_decision_input_v2"
+        else NativeRetrievalDecisionInputV1)
+    parent = codec.model_validate(raw)
+    if type(parent) is NativeBuildRetrievalDecisionInputV2 and surface_id != "build":
+        raise ValueError("Build authoring relevance belongs only to its actual Build owner")
+    return parent
+
+
 BUILD_AUTHORING_RELEVANCE = (
     "For authored writing, distinguish supplied creative decisions from requests to research existing material. "
     "Author-supplied setting choices are the writing brief, not unanswered factual questions to corroborate across the corpus. "
