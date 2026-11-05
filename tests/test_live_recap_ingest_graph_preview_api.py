@@ -65,6 +65,11 @@ def client_env(application_state_dsn, tmp_path, monkeypatch):
         return scope
 
     monkeypatch.setattr(recap_ingest_context, "resolve_recap_source_scope", resolve)
+    monkeypatch.setattr(
+        "apps.live_control_server.services.known_character_context.read_known_character_catalog",
+        lambda *args: {"status": "no_native_head", "entities": [],
+                       "native_pin": {"native_world_id": "world:elderwyld", "binding_version": 3}},
+    )
     _patch_fake_category_extract(monkeypatch)
     import httpx
 
