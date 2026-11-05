@@ -11,6 +11,8 @@ import {BuddyContextTraceLoader} from '../planSurface/components/BuddyContextTra
 import './ConversationLibrary.css';
 const message=(error:unknown)=>error instanceof Error?error.message:'The conversation could not be read.';
 export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecycle,continueDisabledReason}:{worldId:string;onClose:()=>void;pointer?:{revision:number;activeId:string|null};onContinue?:(command:ResumeConversationCommand)=>Promise<void>;onLifecycle?:(command:ResumeConversationCommand,operation:ConversationLifecycleOperation)=>Promise<void>;continueDisabledReason?:string|null}){
+ const [renaming,setRenaming]=useState(false);
+ const actionMenu=useRef<HTMLDetailsElement>(null);
  const [fullDetails,setFullDetails]=useState(false);
  const [continuing,setContinuing]=useState(false);
  const pendingOperation=useRef<'reopen'|ConversationLifecycleOperation|null>(null);
@@ -33,7 +35,7 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
  }
  async function select(id:string,details=fullDetails){
   const owner=scope.current,epoch=++detailEpoch.current;
-  setSelected(id);setDetail(null);setTurns([]);setBefore(null);setLoading(true);setSaving(false);setError('');setNotice('');
+  setSelected(id);setRenaming(false);if(id!==selected||detail?.world_id!==worldId)setDetail(null);setTurns([]);setBefore(null);setLoading(true);setSaving(false);setError('');setNotice('');
   try{const [meta,page]=await Promise.all([readConversationName(worldId,id),readPage(id,undefined,details)]);
    if(!alive(owner)||epoch!==detailEpoch.current)return;setDetail(meta);setTitle(meta.title);setTurns(page.turns);setBefore(page.next_before_sequence);
   }catch(reason){if(alive(owner)&&epoch===detailEpoch.current)setError(message(reason));}
@@ -62,7 +64,7 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
   if(!detail||saving)return;
   const owner=scope.current,epoch=detailEpoch.current,id=detail.conversation_id;setSaving(true);setError('');setNotice('');
   try{const renamed=await renameConversation(worldId,id,title,detail.name_revision);if(!alive(owner)||epoch!==detailEpoch.current)return;
-   setDetail(renamed);setItems(old=>old.map(item=>item.conversation_id===id?renamed:item));setNotice('Name saved.');
+   setDetail(renamed);setItems(old=>old.map(item=>item.conversation_id===id?renamed:item));setNotice('Name saved.');setRenaming(false);
   }catch(reason){if(alive(owner)&&epoch===detailEpoch.current)setError(message(reason)+' Your typed name is kept; retry or reload the saved name.');}
   finally{if(alive(owner)&&epoch===detailEpoch.current)setSaving(false);}
  }
@@ -86,24 +88,37 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
   finally{if(alive(owner)){continueInFlight.current=false;setContinuing(false);}}
  }
  const ownDetail=detail?.world_id===worldId?detail:null;
- return createPortal(<dialog ref={dialog} className="conversation-library" aria-label="Conversations" onCancel={event=>{event.preventDefault();onClose();}}>
-  <header><h2>Conversations</h2><button type="button" aria-label="Close conversations" onClick={onClose}>×</button></header>
+ return createPortal(<dialog ref={dialog} className="conversation-library" aria-label="Conversations" onKeyDown={event=>{
+  if(event.key==='Escape'&&actionMenu.current?.open){event.preventDefault();event.stopPropagation();actionMenu.current.open=false;actionMenu.current.querySelector('summary')?.focus();}
+ }} onCancel={event=>{event.preventDefault();onClose();}}>
+  <header className="conversation-library__shell-header"><h2>Conversations</h2><button type="button" className="conversation-library__close" aria-label="Close conversations" onClick={onClose}>×</button></header>
   <div className="conversation-library__panes"><nav aria-label="Saved conversations">
-   <button type="button" disabled={listing||continuing} onClick={()=>void loadList()}>Refresh conversations</button>
-   <label>Show<select value={filter} onChange={event=>setFilter(event.target.value as 'all'|'archived'|'trashed')}><option value="all">All conversations</option><option value="archived">Archived conversations</option><option value="trashed">Trash</option></select></label>
+   <div className="conversation-library__list-tools"><label>Show<select value={filter} onChange={event=>setFilter(event.target.value as 'all'|'archived'|'trashed')}><option value="all">All conversations</option><option value="archived">Archived conversations</option><option value="trashed">Trash</option></select></label>
+    <button type="button" className="conversation-library__refresh" aria-label="Refresh conversations" title="Refresh conversations" disabled={listing||continuing} onClick={()=>void loadList()}>↻</button></div>
    {listError&&<p role="alert">{listError}<button type="button" onClick={()=>void loadList()}>Retry list</button></p>}
-   <ul>{(listOwner===worldId?items:[]).map(item=><li key={item.conversation_id}><button type="button" aria-pressed={selected===item.conversation_id} onClick={()=>void select(item.conversation_id)}>
-    <strong>{item.title}</strong><span>{item.status==='active'?'Current':item.status==='trashed'?'Trash':'Archived'} · {item.turn_count} turns · {new Date(item.updated_at).toLocaleDateString()}</span></button></li>)}</ul>
+   <div className="conversation-library__list"><ul>{(listOwner===worldId?items:[]).map(item=><li key={item.conversation_id}><button type="button" aria-pressed={selected===item.conversation_id} title={item.title} onClick={()=>void select(item.conversation_id)}>
+    <strong>{item.title}</strong><span><span className={item.status==='active'?'conversation-library__current':undefined}>{item.status==='active'?'Current':item.status==='trashed'?'Trash':'Archived'}</span> · {item.turn_count} {item.turn_count===1?'turn':'turns'} · {new Date(item.updated_at).toLocaleDateString()}</span></button></li>)}</ul>
    {listing&&<p role="status">Loading conversations…</p>}{!listing&&!items.length&&!listError&&<p>No conversations yet.</p>}
-   {next&&<button type="button" disabled={listing} onClick={()=>void loadList(true)}>More conversations</button>}
+   {next&&<button type="button" className="conversation-library__more" disabled={listing} onClick={()=>void loadList(true)}>More conversations</button>}</div>
   </nav><section className="conversation-library__reader" aria-label="Selected conversation">
-   {ownDetail&&<><form onSubmit={event=>{event.preventDefault();void save();}}><label>Conversation name<input value={title} onChange={event=>setTitle(event.target.value)} maxLength={160} disabled={saving}/></label>
-    <button type="submit" disabled={saving||!title.trim()}>{saving?'Saving…':'Save name'}</button>{error&&<button type="button" onClick={()=>void reloadName()}>Reload saved name</button>}</form>
-    <p>{fullDetails?'Full saved details':'Saved-message preview. References, objects and prior attempts load with details.'}</p><button type="button" disabled={loading||continuing} onClick={()=>{const details=!fullDetails;setFullDetails(details);void select(ownDetail.conversation_id,details);}}>{fullDetails?'Show message preview':'Load saved details'}</button>
-    <ConversationExport key={`${worldId}:${ownDetail.conversation_id}`} worldId={worldId} conversationId={ownDetail.conversation_id}/>
-    {onContinue&&ownDetail.status==='archived'&&<><button type="button" disabled={continuing||!pointer||Boolean(continueDisabledReason)} onClick={()=>void continueSelected()}>{continuing?'Continuing…':'Continue conversation'}</button><p>{continueDisabledReason??'Continue here with your unsent message kept. Saved pages and previous actions stay unchanged.'}</p></>}
-    {onLifecycle&&<><button type="button" disabled={continuing||!pointer||Boolean(continueDisabledReason)} onClick={()=>void continueSelected(ownDetail.status==='trashed'?'restore':'trash')}>{continuing?'Updating…':ownDetail.status==='trashed'?'Restore conversation':'Move to Trash'}</button><p>{ownDetail.status==='trashed'?'Restore to history, then choose Continue when ready.':'Messages remain recoverable in Trash. Saved pages and documents are kept.'}</p></>}
-    <p>{ownDetail.status==='active'?'Current conversation':ownDetail.status==='trashed'?'In Trash':'Archived conversation'} · Read-only transcript</p>{notice&&<p role="status">{notice}</p>}</>}
+   {ownDetail&&<header className="conversation-library__conversation-header">
+    <div className="conversation-library__heading"><h3 title={ownDetail.title}>{ownDetail.title}</h3><p>{ownDetail.status==='active'?'Current conversation':ownDetail.status==='trashed'?'In Trash':'Archived conversation'} · Read-only transcript</p></div>
+    <div className="conversation-library__actions">
+     {onContinue&&ownDetail.status==='archived'&&<button type="button" className="conversation-library__primary" aria-label="Continue conversation" title={continueDisabledReason??'Your unsent message and references are kept. Saved pages and previous actions stay unchanged.'} disabled={loading||continuing||!pointer||Boolean(continueDisabledReason)} onClick={()=>void continueSelected()}>{continuing?'Continuing…':'Continue conversation'}</button>}
+     {onLifecycle&&ownDetail.status==='trashed'&&<button type="button" className="conversation-library__primary" disabled={loading||continuing||!pointer||Boolean(continueDisabledReason)} onClick={()=>void continueSelected('restore')}>{continuing?'Restoring…':'Restore conversation'}</button>}
+     <details key={`${worldId}:${ownDetail.conversation_id}`} ref={actionMenu} className="conversation-library__action-menu"><summary aria-label="Conversation actions" title="Conversation actions">•••</summary><div className="conversation-library__menu">
+      <button type="button" disabled={loading||continuing} onClick={()=>{setRenaming(true);if(actionMenu.current)actionMenu.current.open=false;}}>Rename conversation</button>
+      <ConversationExport key={`${worldId}:${ownDetail.conversation_id}`} worldId={worldId} conversationId={ownDetail.conversation_id}/>
+      {onLifecycle&&ownDetail.status!=='trashed'&&<div className="conversation-library__trash-action"><button type="button" disabled={loading||continuing||!pointer||Boolean(continueDisabledReason)} onClick={()=>void continueSelected('trash')}>{continuing?'Updating…':'Move to Trash'}</button><p>Recoverable in Trash. Saved pages are kept.</p></div>}
+     </div></details>
+    </div>
+    {continueDisabledReason&&<p className="conversation-library__availability" role="status">{continueDisabledReason}</p>}
+    {ownDetail.status==='trashed'&&<p className="conversation-library__availability">Restore to history, then choose Continue when ready.</p>}
+   </header>}
+   {ownDetail&&renaming&&<form className="conversation-library__rename" onSubmit={event=>{event.preventDefault();void save();}}><label>Conversation name<input autoFocus value={title} onChange={event=>setTitle(event.target.value)} maxLength={160} disabled={saving}/></label><button type="submit" disabled={saving||!title.trim()}>{saving?'Saving…':'Save name'}</button><button type="button" disabled={saving} onClick={()=>{setTitle(ownDetail.title);setRenaming(false);}}>Cancel</button>{error&&<button type="button" onClick={()=>void reloadName()}>Reload saved name</button>}</form>}
+   {ownDetail&&<div className="conversation-library__view-bar"><span>{fullDetails?'Full saved details':'Saved-message preview'}</span><button type="button" disabled={loading||continuing} title={fullDetails?'Return to the saved messages.':'Include references, saved objects and previous attempts.'} onClick={()=>{const details=!fullDetails;setFullDetails(details);void select(ownDetail.conversation_id,details);}}>{fullDetails?'Show message preview':'Load saved details'}</button></div>}
+   <div className="conversation-library__transcript" aria-busy={loading}>
+   {notice&&<p role="status">{notice}</p>}
    {error&&<p role="alert">{error}</p>}{loading&&<p role="status">Loading messages…</p>}
    {before!==null&&<button type="button" disabled={loading} onClick={()=>void olderTurns()}>Earlier messages</button>}
    {ownDetail&&groupRetryLineage(turns,t=>t.retry_context).map(({item:turn,historical})=>{const content=<article key={turn.turn_id}>
@@ -118,7 +133,7 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
 
    </article>;return historical?<details key={turn.turn_id}><summary>Earlier attempt of a request with a later response</summary>{content}</details>:content;})}
    {ownDetail&&!loading&&!turns.length&&<p>No messages in this conversation yet.</p>}
-  </section></div>
+  </div></section></div>
  </dialog>,document.body);
 }
 
