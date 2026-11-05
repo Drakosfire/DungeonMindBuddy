@@ -139,6 +139,9 @@ jobs:
           tests/test_ingest_selection_context.py
           tests/test_saved_recap_runs.py
           tests/test_extraction_usage.py
+          tests/test_known_character_context.py
+          tests/test_known_character_bindings.py
+          tests/test_recap_name_review.py
           tests/test_source_input_metadata_database.py
           tests/test_native_recap_source_identity.py
           tests/test_database_literal_correction_parent.py

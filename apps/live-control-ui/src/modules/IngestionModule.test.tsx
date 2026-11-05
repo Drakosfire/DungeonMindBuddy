@@ -1,3 +1,4 @@
+import * as nativeReviewApi from "../api/recapNativeReviewApi";
 import {act,fireEvent,render,screen,waitFor} from "@testing-library/react";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import * as liveApi from "../api/liveApi";
@@ -23,6 +24,8 @@ beforeEach(()=>{
  vi.spyOn(savedApi,"getSavedRecapSource").mockRejectedValue(new Error("No exact source offered"));
  vi.spyOn(liveApi,"getRecapArtifacts").mockRejectedValue(new Error("File discovery forbidden"));
  vi.spyOn(candidateApi,"getExactRunCandidateProjection").mockImplementation(async id=>candidateRecapProjectionForRun(id));
+ vi.spyOn(rawApi,"postRecapNameReview").mockResolvedValue({schema:"dmb_recap_name_review_v1",scope:{managed_world_id:"elderwyld",native_world_id:"world:elderwyld",binding_version:3,campaign_id:"longmont-c2"},source_sha256:"a".repeat(64),catalog_sha256:"b".repeat(64),review_id:"c".repeat(64),exact_mention_count:0,suggestions:[]});
+ vi.spyOn(nativeReviewApi,"getRecapNativeReviews").mockRejectedValue(new Error("Source availability not checked"));
  vi.spyOn(rawApi,"postRecapIngest").mockImplementation(async body=>{offerSavedRun(`run-session-${body.session}`,body.session);return result(body.session);});
 });
 afterEach(()=>vi.restoreAllMocks());
@@ -123,7 +126,7 @@ it("restores only local draft state, without title guesses or file inspections",
 it("does not require a filename title and sends the submitted text unchanged",async()=>{
  mount();await input("# Session 22 Recap\n\nMireward.");await process();
  await waitFor(()=>expect(rawApi.postRecapIngest).toHaveBeenCalledOnce());
- expect(rawApi.postRecapIngest).toHaveBeenCalledWith({operation:"generate_recap_memory",campaign_id:"longmont-c2",managed_world_id:"elderwyld",session:22,raw_text:"# Session 22 Recap\n\nMireward.",include_graph_extraction:true,graph_model_id:"deepseek/deepseek-v4.1-flash-1017",force_graph_run:undefined});
+ expect(rawApi.postRecapIngest).toHaveBeenCalledWith({operation:"generate_recap_memory",campaign_id:"longmont-c2",managed_world_id:"elderwyld",session:22,raw_text:"# Session 22 Recap\n\nMireward.",include_graph_extraction:true,graph_model_id:"deepseek/deepseek-v4.1-flash-1017",force_graph_run:undefined,name_review:{review_id:"c".repeat(64),decisions:[]}});
 });
 it.each([undefined,"conflicting"])("refuses Process without a matching selected World: %s",async world=>{
  selected.value=world?{kind:"managed",worldId:"other",name:"Other",documentId:null}:{kind:"legacy"};
@@ -137,11 +140,11 @@ it("does not send blank recap text or an invalid source session",async()=>{
  mount();await input("   ");expect(screen.queryByRole("button",{name:"Process recap"})).not.toBeInTheDocument();
  await input();fireEvent.change(screen.getByLabelText("Recap/source session"),{target:{value:"0"}});expect(rawApi.postRecapIngest).not.toHaveBeenCalled();expect(screen.queryByRole("button",{name:"Process recap"})).not.toBeInTheDocument();
 });
-it("opens the exact Process candidate and carries the same run into Graph Review",async()=>{
+it("opens Merge on the exact Process candidate without entering legacy Graph Review",async()=>{
  mount();await input();await process();await waitFor(()=>expect(candidateApi.getExactRunCandidateProjection).toHaveBeenCalledWith("run-session-22","elderwyld"));
  expect(new URLSearchParams(window.location.search).get("recapReviewRunId")).toBe("run-session-22");
- await waitFor(()=>expect(screen.getByRole("button",{name:"Open Graph Review"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"Open Graph Review"}));
- expect(new URLSearchParams(window.location.search).get("extractionRunId")).toBe("run-session-22");expect(new URLSearchParams(window.location.search).get("world")).toBe("elderwyld");
+ await waitFor(()=>expect(screen.getByRole("button",{name:"Merge extraction"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"Merge extraction"}));
+ await screen.findByRole("dialog",{name:"Merge into the World Graph?"});expect(new URLSearchParams(window.location.search).get("recapReviewRunId")).toBe("run-session-22");expect(new URLSearchParams(window.location.search).has("extractionRunId")).toBe(false);
 });
 it("preserves the submitted draft after Process navigation and Return to draft",async()=>{
  mount();await input("Recover this original recap.");await process();await screen.findByRole("button",{name:"Return to draft"});fireEvent.click(screen.getByRole("button",{name:"Return to draft"}));
@@ -195,4 +198,13 @@ it("drops a late Process result across World A to B to A without deleting the dr
  const back=screen.queryByRole("button",{name:"Return to draft"});if(back)fireEvent.click(back);
  expect(await screen.findByRole("textbox",{name:/Write or paste a recap/})).toHaveValue("A retained World draft.");
  expect(rawApi.postRecapIngest).toHaveBeenCalledOnce();
+});
+
+it("stops before extraction for name review and sends only explicit decisions",async()=>{
+ vi.mocked(rawApi.postRecapNameReview).mockResolvedValue({schema:"dmb_recap_name_review_v1",scope:{managed_world_id:"elderwyld",native_world_id:"world:elderwyld",binding_version:3,campaign_id:"longmont-c2"},source_sha256:"a".repeat(64),catalog_sha256:"b".repeat(64),review_id:"c".repeat(64),exact_mention_count:0,suggestions:[{id:"d".repeat(64),start:0,end:7,surface:"Marlena",options:["Marlene"],context_before:"They saw ",context_after:" waiting.",source_line:3}]});
+ mount();await input("Marlena waits.");await process();await screen.findByRole("region",{name:"Review character names"});
+ expect(rawApi.postRecapIngest).not.toHaveBeenCalled();
+ fireEvent.change(screen.getByRole("combobox",{name:"Correction for Marlena (1)"}),{target:{value:"apply:Marlene"}});
+ fireEvent.click(screen.getByRole("button",{name:"Apply decisions and extract"}));
+ await waitFor(()=>expect(rawApi.postRecapIngest).toHaveBeenCalledWith(expect.objectContaining({raw_text:"Marlena waits.",name_review:{review_id:"c".repeat(64),decisions:[{id:"d".repeat(64),replacement:"Marlene"}]}})));
 });

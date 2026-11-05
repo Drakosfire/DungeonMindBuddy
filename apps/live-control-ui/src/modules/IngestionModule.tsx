@@ -1,3 +1,6 @@
+import {RecapNativeMerge} from "../ingestion/RecapNativeMerge";
+import type {RecapIngestRequest} from "../api/types";
+import {RecapNameReview} from "../ingestion/RecapNameReview";
 import { IngestionUsage } from "./IngestionUsage";
 import { RecapSourceAdmission } from "./RecapSourceAdmission";
 import {SessionEvidencePicker} from "../playSurface/review/SessionEvidencePicker";
@@ -7,7 +10,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { getHistoricalRecapWorldProjection } from "../api/liveApi";
 import { getSavedRecapRuns, getSavedRecapSource, type SavedRecapRun, type SavedRecapRuns, type SavedRecapSource } from "../api/savedRecapRunsApi";
 import { WorldPlanAgentAnswer } from "../planSurface/components/WorldPlanAgentAnswer";
-import { postRecapIngest } from "../api/recapIngestApi";
+import { postRecapNameReview, type RecapNameReview as NameReviewResult, postRecapIngest } from "../api/recapIngestApi";
 import type {
   RecapGraphPreviewReport,
   RecapIngestStatus,
@@ -18,7 +21,6 @@ import type {
 import {
   recapSessionNumber,
 } from "../planSurface/graphPreview/recapSessionLabels";
-import { useOptionalProjection } from "../planSurface/projection/projectionContext";
 import { ReviewCampaignPicker } from "../planSurface/ReviewCampaignPicker";
 import {
   resolveInitialReviewCampaignId,
@@ -258,7 +260,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const managedWorldId = selectedWorld.kind === "managed"
     ? (!providedWorldId || providedWorldId === selectedWorld.worldId ? selectedWorld.worldId : undefined)
     : selectedWorld.kind === "legacy" ? providedWorldId : undefined;
-  const projection = useOptionalProjection();
   const freshRecapEntry = isFreshRecapEntryRoute();
   const requestedRecapSession = requestedRecapSessionFromLocation();
   const routeCampaignId = resolveInitialReviewCampaignId(planCampaignId);
@@ -332,8 +333,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [forceGraphRun, setForceGraphRun] = useState(false);
+  const [mergeOpen,setMergeOpen]=useState(()=>new URLSearchParams(window.location.search).get("merge")==="1");
   /** Which primary action is in flight — drives spinner / status copy. */
-  const [primaryOp, setPrimaryOp] = useState<"process" | null>(null);
+  const [primaryOp, setPrimaryOp] = useState<"process" | "name_review" | null>(null);
+  const [nameReview,setNameReview]=useState<{key:string;review:NameReviewResult}|null>(null);
+  const nameReviewInputKey=JSON.stringify([managedWorldId,ingestCampaignId,recapSession,rawText]);
+  const nameReviewInputRef=useRef(nameReviewInputKey);
+  nameReviewInputRef.current=nameReviewInputKey;
   const [state, setState] = useState<IngestionPaneState>({ status: "idle" });
   const [latestResult, setLatestResult] = useState<RecapIngestStatus | null>(null);
   // Retain the operation result separately from the selected saved reader.
@@ -610,7 +616,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const exactGraphReviewRunId = loadedRun?.runId ?? (evidenceResultOwnsSelection
     ? graphPreviewFromEvidence?.extraction_run_id?.trim() || null
     : null);
-  const graphReviewable = loadedRun ? ["reviewable", "promoted"].includes(loadedRun.runStatus) : graphPreviewIsReviewable(graphPreview);
+  const graphReviewable = loadedRun ? loadedRun.runStatus === "reviewable" : graphPreviewIsReviewable(graphPreview);
   const canOpenGraphReview = Boolean(
     isIngestSurfacePath()
     && managedWorldId
@@ -684,7 +690,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     if (canOpenGraphReview) return "Candidates are ready for review; publication is a separate step.";
     return "Write or paste a recap, then choose Process.";
   })();
-  const canProcessRecap = !busy && sourceMode === "raw" && !readerMode && validRecapSession && rawTextSatisfied && !!managedWorldId;
+  const canProcessRecap = !busy && primaryOp === null && sourceMode === "raw" && !readerMode && validRecapSession && rawTextSatisfied && !!managedWorldId;
   useEffect(() => {
     if (selectionHydrated) return;
     let cancelled = false;
@@ -1052,7 +1058,22 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     setToast(next);
   }
 
-  async function processRecap() {
+  async function checkRecapNames() {
+    if (!canProcessRecap) return;
+    const key=nameReviewInputKey;
+    setNameReview(null);
+    setPrimaryOp("name_review");
+    try {
+      const review=await postRecapNameReview({operation:"generate_recap_memory",campaign_id:ingestCampaignId,managed_world_id:managedWorldId??undefined,session:recapSession,raw_text:rawText});
+      if (nameReviewInputRef.current !== key) return;
+      if (review.suggestions.length) setNameReview({key,review});
+      else await processRecap({review_id:review.review_id,decisions:[]});
+    } catch(error) {
+      if (nameReviewInputRef.current===key) publishPrimaryToast({tone:"error",title:"Names could not be checked",detail:error instanceof Error?error.message:"Try checking names again.",nextSteps:["Your draft is preserved."],sticky:true});
+    } finally {setPrimaryOp(current=>current==="name_review"?null:current);}
+  }
+
+  async function processRecap(nameReceipt?: NonNullable<RecapIngestRequest["name_review"]>) {
     if (!canProcessRecap) return;
     const targetIdentity = selectedIngestTarget;
     const draftEpoch = recapDraftEpochRef.current;
@@ -1075,6 +1096,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           managed_world_id: managedWorldId,
           session: recapSession,
           raw_text: sourceMode === "raw" ? rawText : undefined,
+          name_review: nameReceipt,
           include_graph_extraction: true,
           graph_model_id: INGESTION_GRAPH_MODEL_ID,
           force_graph_run: forceGraphRun || undefined,
@@ -1089,6 +1111,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       }
 
       if (result.status === "error") {
+        publishPrimaryToast({tone:"error",title:"Processing failed",detail:resultErrorMessage(result,"Ingest failed"),nextSteps:["Your draft is preserved."],sticky:true});
         setState({ status: "error", result, message: resultErrorMessage(result, "Ingest failed") });
         return;
       }
@@ -1301,26 +1324,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     }
   }
 
-  function openGraphReviewWorkbench() {
-    if (typeof window === "undefined" || !canOpenGraphReview || !exactGraphReviewRunId || !managedWorldId) return;
-    const params = new URLSearchParams(window.location.search);
-    params.set("world", managedWorldId);
-    params.set("session", `session-${recapSession}`);
-    params.set("campaign", ingestCampaignId);
-    params.set("extractionRunId", exactGraphReviewRunId);
-    params.delete("recapReviewRunId");
-    params.delete("sourceArtifactId");
-    params.delete("documentId");
-    params.delete("revision");
-    const sourceArtifactId = reviewSource?.runId === exactGraphReviewRunId
-      && (reviewSource.projection?.schema === "dmb_historical_recap_world_projection_v1"
-        || reviewSource.projection?.schema === "dmb_exact_run_candidate_projection_v1")
-      ? reviewSource.projection.sourceArtifactId
-      : currentSavedRunLookup?.status === "loaded" ? savedRuns.find(run => run.runId === exactGraphReviewRunId)?.sourceArtifactId ?? null : null;
-    if (sourceArtifactId) params.set("sourceArtifactId", sourceArtifactId);
-    window.history.pushState({}, "", `${ingestRoutePath()}?${params.toString()}${window.location.hash}`);
-    window.dispatchEvent(new Event("popstate"));
-    projection?.close();
+  function openMergeReview() {
+    if (!canOpenGraphReview) return;
+    setMergeOpen(true);
   }
 
   const showSourceActions = true;
@@ -1456,10 +1462,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                       type="button"
                       aria-label={primaryOp === "process" ? "Processing recap" : "Process recap"}
                       className="primary"
-                      onClick={() => void processRecap()}
+                      onClick={() => void checkRecapNames()}
                       disabled={!canProcessRecap}
                     >
-                      {primaryOp === "process" ? <><span className="button-inline-spinner" aria-hidden="true" /> Processing…</> : "Process"}
+                      {primaryOp === "name_review" ? "Checking names…" : primaryOp === "process" ? <><span className="button-inline-spinner" aria-hidden="true" /> Processing…</> : "Process"}
                     </button>
                   </>
                 ) : null}
@@ -1467,15 +1473,15 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                   <>
                     <button
                       type="button"
-                      aria-label={canOpenGraphReview ? "Open Graph Review" : `Graph Review unavailable: ${graphReviewUnavailableReason} required`}
-                      onClick={openGraphReviewWorkbench}
+                      aria-label={canOpenGraphReview ? "Merge extraction" : `Merge unavailable: ${graphReviewUnavailableReason} required`}
+                      onClick={openMergeReview}
                       disabled={!canOpenGraphReview}
                     >
-                      Graph Review
+                      Merge
                     </button>
                     {!canOpenGraphReview ? (
                       <span className="ingest-local-nav__action-hint" role="status">
-                        Graph Review needs {graphReviewUnavailableReason === "exact extraction run" ? "an exact extraction run for this session" : "a selected World"}.
+                        Merge needs {graphReviewUnavailableReason === "exact extraction run" ? "an exact extraction run for this session" : "a selected World"}.
                       </span>
                     ) : null}
                   </>
@@ -1542,6 +1548,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         ) : null}
       </nav>
 
+          {mergeOpen && reviewSource?.identity === reviewIdentity && reviewSource?.projection?.schema === "dmb_exact_run_candidate_projection_v1" && reviewSource.projection.managedWorldId === managedWorldId && reviewSource.projection.runStatus === "reviewable" ? <RecapNativeMerge projection={reviewSource.projection} onClose={()=>{setMergeOpen(false);const params=new URLSearchParams(window.location.search);params.delete("merge");window.history.replaceState({},"",`${window.location.pathname}?${params}`);}}/> : mergeOpen ? <p role="status">Load this exact reviewable candidate to review a merge.</p> : null}
+
       {showRecapWelcome ? (
         <section className="ingest-welcome-card ingest-welcome-card--world" aria-labelledby="ingest-first-recap-title">
           <p className="ingest-welcome-kicker">
@@ -1601,6 +1609,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               <p>Return to this draft to continue editing under its original session.</p>
             </div>
           ) : (
+            <>
+            {nameReview?.key===nameReviewInputKey ? <RecapNameReview key={nameReview.review.review_id} review={nameReview.review} onCancel={()=>setNameReview(null)} onProceed={receipt=>{setNameReview(null);void processRecap(receipt);}}/> : null}
             <div className="ingestion-source-grid">
               <div className="ingestion-raw-block">
                 <label htmlFor="ingestion-raw-text">
@@ -1620,6 +1630,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                 />
               </div>
             </div>
+            </>
           )}
 
           {managedWorldId?<SessionEvidencePicker key={evidenceTargetKey} worldId={managedWorldId} targetKey={evidenceTargetKey} disabled={primaryOp!==null} onChange={refs=>setSessionSupplements({identity:evidenceTargetKey,refs})}/>:null}
