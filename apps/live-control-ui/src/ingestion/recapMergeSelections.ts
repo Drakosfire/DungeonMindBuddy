@@ -13,11 +13,10 @@ export function mergeIdentity(p:ExactRunCandidateProjection,review:RecapNativeRe
  const node=p.nodes.find(n=>n.candidateNodeId===id)!;
  const selection=review.native_context.selections.find(s=>s.candidate_node_id===id);
  if(!selection)throw new Error(`World comparison is missing for ${node.label}.`);
- const matches=selection.alternatives.filter(a=>a.entity_result?.assertions?.some(f=>f.predicate==='dnd5e:name'&&typeof f.value?.value==='string'&&normalize(f.value.value)===normalize(node.label)));
- if(selection.alternatives.length>1)throw new Error(`Resolve the ambiguous World identity for ${node.label} before merging.`);
- // A non-exact advisory match must not be silently treated as new or existing.
- if(!matches.length&&selection.alternatives.length)throw new Error(`Review the possible World identity for ${node.label} before merging.`);
- if(matches[0]&&matches[0].status!=='supported_facts')throw new Error(`The World identity for ${node.label} lacks verified support.`);
+ const matches=selection.identity_matches;
+ if(!matches)throw new Error(`The identity check for ${node.label} is unavailable. Reload before merging.`);
+ if(matches.length>1)throw new Error(`Resolve the ambiguous World identity for ${node.label} before merging.`);
+ if(matches.some(m=>![...m.matched_names,...m.matched_aliases].some(name=>normalize(name)===normalize(node.label))))throw new Error('The identity match no longer matches the reviewed name.');
  return matches[0]?.entity_id??null;
 }
 export function recapMergeSelections(p:ExactRunCandidateProjection,reviews:RecapNativeReview[]):NativeRecordSelection[] {
