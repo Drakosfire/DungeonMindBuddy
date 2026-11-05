@@ -390,6 +390,15 @@ def _source_packet_md(rows: Sequence[dict[str, Any]]) -> str:
     return "\n\n".join(parts)
 
 
+def _source_handle_node_passes(profile: ExtractionProfile) -> frozenset[str]:
+    if profile.admitted_source_domains != frozenset({"recap"}):
+        return frozenset()
+    if profile.qualified_id == RECAP_EXTRACTION_PROFILE.qualified_id:
+        return frozenset(p.pass_id for p in profile.node_passes)
+    # Other recap profiles already used actor handles before this expansion.
+    return frozenset({"actor_pass"})
+
+
 def render_category_pass_prompts(
     source_rows: Sequence[dict[str, Any]],
     *,
@@ -416,7 +425,7 @@ def render_category_pass_prompts(
             )
         pass_source, pass_evidence_rule = src, evidence_rule
         if (node_source_packet is not None
-                and active_profile.qualified_id == RECAP_EXTRACTION_PROFILE.qualified_id):
+                and pass_name in _source_handle_node_passes(active_profile)):
             from src.graph_memory.extraction.source_sentence_evidence import (
                 SENTENCE_EVIDENCE_RULE, render_source_sentence_packet,
             )
@@ -2001,7 +2010,7 @@ def _run_category_pipeline_impl(
 
     node_source_packet = None
     if (
-        active_profile.qualified_id == RECAP_EXTRACTION_PROFILE.qualified_id
+        bool(_source_handle_node_passes(active_profile))
         and getattr(original_client, "supports_node_source_handles", False) is True
         and options.source_text is not None
         and source_rows
@@ -2043,7 +2052,7 @@ def _run_category_pipeline_impl(
             user_content=node_prompt,
             pass_spec=pass_spec,
             **({"source_evidence_packet": node_source_packet}
-               if node_source_packet is not None else {}),
+               if node_source_packet is not None and pass_name in _source_handle_node_passes(active_profile) else {}),
         )
         pass_outputs[pass_name] = result["parsed"]
         pass_telemetry[pass_name] = {

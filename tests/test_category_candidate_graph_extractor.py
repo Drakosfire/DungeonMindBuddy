@@ -757,3 +757,17 @@ def test_worldbuilding_prompt_does_not_adopt_recap_node_handles():
                                           node_source_packet=packet)
     assert all("source_quote_ids" not in prompt for prompt in prompts.values())
     assert any("anchor_quotes" in prompt for prompt in prompts.values())
+
+
+def test_encounter_preview_preserves_existing_actor_handles_without_expanding_other_passes():
+    from src.graph_memory.extraction.category_candidate_graph_extractor import render_category_pass_prompts, _source_handle_node_passes
+    from src.graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    profile = get_extraction_profile("recap_category_encounter_job_preview", "2.0")
+    text = "Ari waited at the gate."
+    rows = [{"source_span_ref_id": "s1", "line_start": 1, "line_end": 1, "text": text}]
+    packet = compile_source_sentence_packet(text, rows)
+    prompts = render_category_pass_prompts(rows, profile=profile, node_source_packet=packet)
+    assert _source_handle_node_passes(profile) == {"actor_pass"}
+    assert "source_quote_ids" in prompts["actor_pass.md"]
+    assert all("source_quote_ids" not in value for key, value in prompts.items() if key != "actor_pass.md")

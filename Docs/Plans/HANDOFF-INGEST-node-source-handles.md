@@ -24,7 +24,7 @@ Session 1 raw location output included the required town description but invente
 - `tests/test_worldbuilding_location_source_fidelity.py`
 - This handoff.
 
-Rename actor-only capability/helper/context names coherently, without compatibility aliases. Cover observation, ignored and deferred evidence consistently; retain legal empty disposition references. Gate on ordinary recap node passes after source-authority partition. Exclude worldbuilding, encounter, beat and edge passes. Preserve full source, raw and normalized receipts, source hashes/coordinates and canonical consumers.
+Rename actor-only capability/helper/context names coherently, without compatibility aliases. Cover observation, ignored and deferred evidence consistently; retain legal empty disposition references. Gate on ordinary recap node passes after source-authority partition. Do not expand worldbuilding, encounter/job, beat or edge passes. Preserve existing actor handles in other recap preview profiles. Preserve full source, raw and normalized receipts, source hashes/coordinates and canonical consumers.
 
 ## Validation and delivery
 
