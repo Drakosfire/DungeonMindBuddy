@@ -229,6 +229,9 @@ def resolve_native_review_context(*, scope: dict, nodes: list[dict], source_admi
                 "run_revision": source_admission.run_revision,
                 "opening_state": source_admission.opening.state,
                 "failure_code": source_admission.failure_code,
+                "admission_id": source_admission.admission_id,
+                "source_artifact_id": source_admission.source_artifact_id,
+                "source_revision_id": source_admission.source_revision_id,
             } if source_admission is not None else {"state": "not_found"}),
             "source_evidence": source_evidence,
         })

@@ -4,7 +4,7 @@ import type { ExactRunCandidateProjection } from "./exactRunCandidateProjectionA
 export type ReviewSourceAdmission = { state: "not_found" } | {
   state: "reserved" | "dispatching" | "admitted" | "unknown" | "conflict" | "unavailable";
   run_id: string; run_revision: number; opening_state: "not_checked" | "verified" | "unavailable" | "integrity_error";
-  failure_code: string | null;
+  failure_code: string | null; admission_id?:string;source_artifact_id?:string;source_revision_id?:string;
 };
 export type ReviewSupportOpening = { status: "unavailable" } | {
   status: "available"; source_artifact_id: string; source_revision_id: string; body_sha256: string;

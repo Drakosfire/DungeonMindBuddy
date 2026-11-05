@@ -4,6 +4,7 @@ import type {ExactRunCandidateProjection} from '../api/exactRunCandidateProjecti
 import {getRecapNativeReviews,type RecapNativeReview} from '../api/recapNativeReviewApi';
 import {admitRecapSource,resumeRecapSource,type NativeRecapSourceStatus,type RecapSourceTarget} from '../api/nativeRecapSourceApi';
 import {assertNativeMergePlan,prepareNativeMerge,confirmNativeMerge,type NativeMergePlan,type NativeMergeRequest} from '../api/recapNativePublicationApi';
+import {buildRecapSupportRequest,validateRecapSupportRequest,extendRecapSupport,type RecapSupportRequest} from '../api/recapMergeSupportApi';
 import {mergeIdentity,recapMergeSelections,sameMergeContext} from './recapMergeSelections';
 
 export function mergeRecoveryKey(p:ExactRunCandidateProjection) {
@@ -68,6 +69,22 @@ function MergeConfirmation({projection:p,onClose}:{projection:ExactRunCandidateP
      reviews=await read();if(!alive.current)return;
      const current=reviews[0].native_context.source_admission;
      if(current.state!=='admitted'||current.run_id!==admitted.run_id||current.opening_state!=='verified'||reviews.some(r=>r.source_revision_id!==first.source_revision_id))throw new Error('Source verification changed. Nothing was published.');
+    }
+    const supportKey=key+':support';
+    const retained=localStorage.getItem(supportKey);
+    const extension:RecapSupportRequest|null=retained?JSON.parse(retained):await buildRecapSupportRequest(p,reviews[0]);
+    if(!alive.current)return;
+    if(extension) {
+     const admission=reviews[0].native_context.source_admission;
+     if(admission.state!=='admitted'||extension.managed_world_id!==p.managedWorldId||extension.expected_body_sha256!==p.sourceSha256.slice(7)||extension.original_admission_id!==admission.admission_id||extension.source_artifact_id!==admission.source_artifact_id||extension.source_revision_id!==admission.source_revision_id)throw new Error('The saved support request no longer matches this source. It remains preserved.');
+     await validateRecapSupportRequest(p,reviews[0],extension);if(!alive.current)return;
+     const raw=JSON.stringify(extension);localStorage.setItem(supportKey,raw);if(localStorage.getItem(supportKey)!==raw)throw new Error('Source support request could not be retained. Nothing was sent.');
+     setStatus('Registering the source support passages…');
+     await extendRecapSupport(p,extension);if(!alive.current)return;
+     reviews=await read();if(!alive.current)return;
+     // Fresh verified openings, not the extension receipt alone, support claims.
+     recapMergeSelections(p,reviews);
+     localStorage.removeItem(supportKey);if(localStorage.getItem(supportKey)!==null)throw new Error('The verified support request could not be cleared.');
     }
     const current=reviews[0],source=current.native_context.source_admission;
     if(source.state!=='admitted'||source.opening_state!=='verified')throw new Error('Source evidence is not verified.');

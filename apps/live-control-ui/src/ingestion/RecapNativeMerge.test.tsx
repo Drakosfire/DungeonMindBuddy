@@ -3,13 +3,14 @@ import {beforeEach,afterEach,it,expect,vi} from 'vitest';
 import {RecapNativeMerge,mergeRecoveryKey} from './RecapNativeMerge';
 import * as reviewApi from '../api/recapNativeReviewApi';
 import * as mergeApi from '../api/recapNativePublicationApi';
+import * as supportApi from '../api/recapMergeSupportApi';
 import * as sourceApi from '../api/nativeRecapSourceApi';
 import {projection,context,plan} from './nativeMergeFixtures';
 const world=vi.hoisted(()=>({value:{kind:'managed',worldId:'w'}}));
 vi.mock('../selectedWorld/SelectedWorldContext',()=>({useSelectedWorld:()=>world.value}));
 function batch(ids:string[],admitted=true){const c=context(ids[0],admitted);c.native_context.selections=ids.map(id=>context(id,admitted).native_context.selections[0]);return c;}
 const receipt={status:'committed',recovered:false,result:{prepared_change_id:'prepared-1',dungeonmind_publication_id:'prepared-1',expected_parent_revision_id:'head',child_revision_id:'child',verification:{exact_child_read_back:true}}} as mergeApi.NativeMergeReceipt;
-beforeEach(()=>{localStorage.clear();world.value={kind:'managed',worldId:'w'};vi.spyOn(reviewApi,'getRecapNativeReviews').mockImplementation(async(_p,ids)=>batch(ids));vi.spyOn(mergeApi,'prepareNativeMerge').mockImplementation(async(_p,r)=>plan(r));vi.spyOn(mergeApi,'confirmNativeMerge').mockResolvedValue(receipt);vi.spyOn(sourceApi,'resumeRecapSource').mockResolvedValue({state:'admitted',admission_committed:true,opening:{state:'verified'},run_id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc'} as sourceApi.NativeRecapSourceStatus);vi.spyOn(sourceApi,'admitRecapSource').mockResolvedValue({state:'admitted',admission_committed:true,opening:{state:'verified'},run_id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc'} as sourceApi.NativeRecapSourceStatus);});
+beforeEach(()=>{localStorage.clear();vi.spyOn(supportApi,'buildRecapSupportRequest').mockResolvedValue(null);vi.spyOn(supportApi,'validateRecapSupportRequest').mockImplementation(async(_p,_r,v)=>v as supportApi.RecapSupportRequest);vi.spyOn(supportApi,'extendRecapSupport').mockResolvedValue({status:'committed'});world.value={kind:'managed',worldId:'w'};vi.spyOn(reviewApi,'getRecapNativeReviews').mockImplementation(async(_p,ids)=>batch(ids));vi.spyOn(mergeApi,'prepareNativeMerge').mockImplementation(async(_p,r)=>plan(r));vi.spyOn(mergeApi,'confirmNativeMerge').mockResolvedValue(receipt);vi.spyOn(sourceApi,'resumeRecapSource').mockResolvedValue({state:'admitted',admission_committed:true,opening:{state:'verified'},run_id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc'} as sourceApi.NativeRecapSourceStatus);vi.spyOn(sourceApi,'admitRecapSource').mockResolvedValue({state:'admitted',admission_committed:true,opening:{state:'verified'},run_id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc'} as sourceApi.NativeRecapSourceStatus);});
 afterEach(()=>vi.restoreAllMocks());
 function mount(onClose=vi.fn(),p=projection){return render(<RecapNativeMerge projection={p} onClose={onClose}/>);}
 function confirm(){fireEvent.click(within(screen.getByRole('dialog')).getByRole('button',{name:'Merge',exact:true}));}
@@ -41,4 +42,10 @@ it('ignores unrelated text-search hits when one admitted identity matches',async
 });
 it('does not fall back to broad alternatives if the admitted identity contract is missing',async()=>{
  const c=batch(['mara','nero']);delete c.native_context.selections[0].identity_matches;vi.mocked(reviewApi.getRecapNativeReviews).mockResolvedValue(c);mount();confirm();await screen.findByText(/identity check for Mara is unavailable/);expect(mergeApi.prepareNativeMerge).not.toHaveBeenCalled();
+});
+it('recovers the exact support extension after a lost response before preparing claims',async()=>{
+ const pending={managed_world_id:'w',extension_id:'extension-fixed',original_admission_id:'native-admission',source_artifact_id:'native-source',source_revision_id:'native-rev',expected_body_sha256:'a'.repeat(64),expected_parent_revision_id:'head',expected_source_authority_epoch:3,created_at:'2026-11-04T00:00:00Z',spans:[{client_ref:'paragraph',evidence_role:'support',start_byte:0,end_byte:12,expected_slice_sha256:'d'.repeat(64)}]} as supportApi.RecapSupportRequest;
+ vi.mocked(supportApi.buildRecapSupportRequest).mockResolvedValue(pending);vi.mocked(supportApi.extendRecapSupport).mockRejectedValueOnce(new Error('Lost extension response')).mockResolvedValueOnce({status:'committed'});
+ const view=mount();confirm();await screen.findByText('Lost extension response');expect(mergeApi.prepareNativeMerge).not.toHaveBeenCalled();expect(localStorage.getItem(mergeRecoveryKey(projection)+':support')).toBe(JSON.stringify(pending));view.unmount();mount();confirm();await screen.findByRole('heading',{name:'Merged'});
+ expect(vi.mocked(supportApi.extendRecapSupport).mock.calls[1][1]).toEqual(pending);expect(mergeApi.prepareNativeMerge).toHaveBeenCalledTimes(1);expect(localStorage.getItem(mergeRecoveryKey(projection)+':support')).toBeNull();
 });
