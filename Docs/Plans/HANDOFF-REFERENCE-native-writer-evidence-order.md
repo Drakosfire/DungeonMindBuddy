@@ -27,6 +27,8 @@ Private story material remains in the established runtime-evidence directory.
 
 - apps/live_control_server/services/plan_jev_writer.py: existing shared discussion
   producer frame ordering only; adopt the same frames without duplication.
+- tests/test_agent_native_corpus_sources.py: adopt schema-based selection in the
+  current authenticated source-only/published-Graph HTTP writer fixture.
 - tests/test_native_plan_assertions.py: actual authenticated/native SDK fixtures
   verify discussion versus authoring order, retained content and citation delivery.
 - tests/test_plan_jev_authoring.py: adopt schema-based frame selection in the
