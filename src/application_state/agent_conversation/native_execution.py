@@ -280,8 +280,9 @@ class SurfaceNativeExecutionV1(Strict):
             validate_native_body_events(self)
         elif any(isinstance(event, t.NATIVE_BODY_EVENTS) for event in self.events):
             raise ValueError("Single-provider native body acquisition awaits its actual SDK selection proof")
-        if len(self.model_dump_json(by_alias=True).encode()) > 1_048_576:
-            raise ValueError("Native execution exceeds the existing ledger storage bound")
+        # This is retained acquisition history, not a provider request. Its event
+        # bound and owner checks apply here; actual SDK envelope budgets apply at
+        # dispatch. APP's shared native JSONB contract has no aggregate byte cap.
         return self
 
 

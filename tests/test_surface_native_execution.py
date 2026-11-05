@@ -470,3 +470,13 @@ def test_native_plan_cannot_finish_with_pending_native_grant(family):
     prefix.append(choice(context,record,last,len(prefix),"finish_retrieval"))
     with pytest.raises(ValueError,match="unresolved source read"):
         validate_decision_phases(record.model_copy(update={"events":prefix}))
+
+
+def test_retained_history_keeps_event_and_provider_budget_limits():
+    context, record = component('play')
+    event = controller('play', record.policy)
+    with pytest.raises(ValidationError, match='at most 2048'):
+        execution(context.context_receipt_sha256, record.policy, [event] * 2049)
+    policy = record.policy.model_copy(update={'max_total_provider_input_tokens': event.input_tokens - 1})
+    with pytest.raises(ValueError, match='provider token budget exceeded'):
+        execution(context.context_receipt_sha256, policy, [event])
