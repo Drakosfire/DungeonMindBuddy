@@ -28,10 +28,23 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
+    if historical_query_versions is not None:
+        from dataclasses import replace
+        from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV3
+        prepare_current = native.prepare_query
+        def prepare_historical_first(*args, **kwargs):
+            context, query = prepare_current(*args, **kwargs)
+            if not historical_query_versions:
+                raw = query.model_dump(mode='json', by_alias=True, exclude={'object_matches'})
+                query = NativeGraphQueryV3.model_validate(raw | {'schema':'dmb_native_graph_query_v3'})
+                context = replace(context, query=query)
+            historical_query_versions.append(query.schema_)
+            return context, query
+        monkeypatch.setattr(native, 'prepare_query', prepare_historical_first)
     publish(lane, qualified=True)
     world = lane.world.world_id
     original_revision = lane.repo.get_head(world).head_revision_id
@@ -1005,3 +1018,13 @@ def test_ordinary_human_source_refusal_keeps_request_and_never_dispatches_writer
     assert retained.graph_context_execution.policy.action.intent.authored_references.model_dump(mode='json',by_alias=True)==body['build_authored_references']
     assert not any(e.kind=='native_writer_authorized_v1' for e in retained.graph_context_execution.events)
     assert get_workspace_document_snapshot(tmp_path,case.page.document_id)==case.source
+
+
+def test_saved_v3_human_source_request_retries_with_current_object_navigation(
+        lane,tmp_path,monkeypatch,application_state_dsn):
+    versions=[]
+    _fresh_case(lane,tmp_path,monkeypatch,'retry_discussion',True,False,False,
+        recovery_dsn=application_state_dsn,authored_source='section',
+        historical_query_versions=versions)
+    assert versions[0] == 'dmb_native_graph_query_v3'
+    assert len(versions) >= 2 and set(versions[1:]) == {'dmb_native_graph_query_v4'}
