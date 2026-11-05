@@ -1,5 +1,5 @@
 import {beforeEach,expect,it,vi} from 'vitest';
-import {readConversationTurns,resumeConversation,changeConversationLifecycle} from './conversationLibraryApi';
+import {readConversationTurns,resumeConversation,changeConversationLifecycle,readConversationMessages} from './conversationLibraryApi';
 import {authenticatedApiFetch} from './liveApi';
 vi.mock('./liveApi',async original=>({...await original<typeof import('./liveApi')>(),authenticatedApiFetch:vi.fn()}));
 const cid='11111111-1111-4111-8111-111111111111',tid='22222222-2222-4222-8222-222222222222';
@@ -41,4 +41,11 @@ it('validates lifecycle receipt operation and exact resulting active pointer',as
  response(receipt);expect(await changeConversationLifecycle(command,'trash')).toEqual(receipt);
  for(const patch of [{command_kind:'restore'},{active_conversation_id:cid},{world_id:'foreign'},{pointer_revision:6}]){response({...receipt,...patch});await expect(changeConversationLifecycle(command,'trash')).rejects.toThrow('lifecycle');}
  response({...receipt,command_kind:'restore'});expect((await changeConversationLifecycle({...command,expected_active_conversation_id:null},'restore')).active_conversation_id).toBeNull();
+});
+
+it('accepts exact saved-message previews but never full-detail metadata in that contract',async()=>{
+ const preview={schema:'dmb_conversation_messages_v1',world_id:'world',conversation_id:cid,messages:[{turn_id:tid,sequence:2,status:'completed',user_text:'Original question',assistant_text:'Saved answer'}],next_before_sequence:2};
+ response(preview);expect((await readConversationMessages('world',cid)).messages[0].assistant_text).toBe('Saved answer');
+ for(const patch of [{world_id:'foreign'},{conversation_id:tid},{next_before_sequence:3},{messages:[{...preview.messages[0],reply_object:null}]},{messages:[{...preview.messages[0],sequence:0}]}]){response({...preview,...patch});await expect(readConversationMessages('world',cid)).rejects.toThrow();}
+ response(preview);await expect(readConversationMessages('world',cid,2)).rejects.toThrow();
 });

@@ -190,6 +190,31 @@ def _reply_object(turn, world, conversation):
     return None
 
 
+def read_messages(world: str, conversation: UUID, *, limit: int = 50, before_sequence: int | None = None):
+    """Read saved text only. Never grants evidence, retry or authoring authority.
+
+    Full accepted-record inspection remains read_turns; this view does not replay
+    producer validation merely to display APP's persisted conversation artifact.
+    """
+    if not 1 <= limit <= 100 or (before_sequence is not None and before_sequence < 1):
+        raise ApplicationStateValidationError("Invalid message page selector")
+    with unit_of_work(_ready_dsn()) as conn:
+        conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        conn.row_factory = dict_row
+        _one(conn, world, conversation)
+        rows = conn.execute(
+            """SELECT turn_id,sequence,status,user_text,assistant_text FROM agent.turn
+            WHERE world_id=%s AND conversation_id=%s AND (%s::bigint IS NULL OR sequence<%s)
+            ORDER BY sequence DESC LIMIT %s""",
+            (world, conversation, before_sequence, before_sequence, limit + 1),
+        ).fetchall()
+    page = list(reversed(rows[:limit]))
+    return {"schema": "dmb_conversation_messages_v1", "world_id": world,
+            "conversation_id": str(conversation),
+            "messages": [{**row, "turn_id": str(row["turn_id"])} for row in page],
+            "next_before_sequence": page[0]["sequence"] if len(rows) > limit else None}
+
+
 def read_turns(
     world: str,
     conversation: UUID,

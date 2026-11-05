@@ -6051,6 +6051,7 @@ it('continues an archived conversation from the visible history control while pr
  Object.defineProperty(HTMLDialogElement.prototype,'showModal',{configurable:true,value:function(this:HTMLDialogElement){this.setAttribute('open','');}});
  vi.spyOn(conversationLibraryApi,'listConversations').mockResolvedValue({schema:'dmb_conversation_library_v1',world_id:worldId,status:'all',items:[summary(current),summary(old)],next_before:null});
  vi.spyOn(conversationLibraryApi,'readConversationName').mockImplementation(async(_world,id)=>summary(id));
+ vi.spyOn(conversationLibraryApi,'readConversationMessages').mockImplementation(async(_world,id)=>({schema:'dmb_conversation_messages_v1',world_id:worldId,conversation_id:id,messages:[],next_before_sequence:null}));
  vi.spyOn(conversationLibraryApi,'readConversationTurns').mockImplementation(async(_world,id)=>({schema:'dmb_conversation_library_turns_v3',world_id:worldId,conversation_id:id,turns:[],next_before_sequence:null}));
  let finishResume!:()=>void;
  const resume=vi.spyOn(conversationLibraryApi,'resumeConversation').mockImplementation(async command=>{
@@ -6083,6 +6084,7 @@ it('trashes the current conversation without losing a newer unsent draft or its 
  const summary={conversation_id:current,world_id:worldId,title:'Current work',name_revision:0,status:'active' as const,turn_count:0,created_at:'2026-11-05T12:00:00Z',updated_at:'2026-11-05T12:00:00Z'};
  vi.spyOn(conversationLibraryApi,'listConversations').mockResolvedValue({schema:'dmb_conversation_library_v1',world_id:worldId,status:'all',items:[summary],next_before:null});
  vi.spyOn(conversationLibraryApi,'readConversationName').mockResolvedValue(summary);
+ vi.spyOn(conversationLibraryApi,'readConversationMessages').mockResolvedValue({schema:'dmb_conversation_messages_v1',world_id:worldId,conversation_id:current,messages:[],next_before_sequence:null});
  vi.spyOn(conversationLibraryApi,'readConversationTurns').mockResolvedValue({schema:'dmb_conversation_library_turns_v3',world_id:worldId,conversation_id:current,turns:[],next_before_sequence:null});
  let finish!:()=>void;
  const trash=vi.spyOn(conversationLibraryApi,'changeConversationLifecycle').mockImplementation(async(command,operation)=>{await new Promise<void>(resolve=>{finish=resolve;});api.setCurrent(history(null,5,[]));return {...command,command_kind:operation,active_conversation_id:null,pointer_revision:5,recorded_at:'2026-11-05T12:00:00Z'};});
