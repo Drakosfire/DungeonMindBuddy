@@ -25,7 +25,7 @@ beforeEach(()=>{
  vi.spyOn(liveApi,"getRecapArtifacts").mockRejectedValue(new Error("File discovery forbidden"));
  vi.spyOn(candidateApi,"getExactRunCandidateProjection").mockImplementation(async id=>candidateRecapProjectionForRun(id));
  vi.spyOn(rawApi,"postRecapNameReview").mockResolvedValue({schema:"dmb_recap_name_review_v1",scope:{managed_world_id:"elderwyld",native_world_id:"world:elderwyld",binding_version:3,campaign_id:"longmont-c2"},source_sha256:"a".repeat(64),catalog_sha256:"b".repeat(64),review_id:"c".repeat(64),exact_mention_count:0,suggestions:[]});
- vi.spyOn(nativeReviewApi,"getRecapNativeReview").mockRejectedValue(new Error("Source availability not checked"));
+ vi.spyOn(nativeReviewApi,"getRecapNativeReviews").mockRejectedValue(new Error("Source availability not checked"));
  vi.spyOn(rawApi,"postRecapIngest").mockImplementation(async body=>{offerSavedRun(`run-session-${body.session}`,body.session);return result(body.session);});
 });
 afterEach(()=>vi.restoreAllMocks());
@@ -144,7 +144,7 @@ it("opens Merge on the exact Process candidate without entering legacy Graph Rev
  mount();await input();await process();await waitFor(()=>expect(candidateApi.getExactRunCandidateProjection).toHaveBeenCalledWith("run-session-22","elderwyld"));
  expect(new URLSearchParams(window.location.search).get("recapReviewRunId")).toBe("run-session-22");
  await waitFor(()=>expect(screen.getByRole("button",{name:"Merge extraction"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"Merge extraction"}));
- await screen.findByRole("region",{name:"Merge reviewed extraction"});expect(new URLSearchParams(window.location.search).get("recapReviewRunId")).toBe("run-session-22");expect(new URLSearchParams(window.location.search).has("extractionRunId")).toBe(false);
+ await screen.findByRole("dialog",{name:"Merge into the World Graph?"});expect(new URLSearchParams(window.location.search).get("recapReviewRunId")).toBe("run-session-22");expect(new URLSearchParams(window.location.search).has("extractionRunId")).toBe(false);
 });
 it("preserves the submitted draft after Process navigation and Return to draft",async()=>{
  mount();await input("Recover this original recap.");await process();await screen.findByRole("button",{name:"Return to draft"});fireEvent.click(screen.getByRole("button",{name:"Return to draft"}));

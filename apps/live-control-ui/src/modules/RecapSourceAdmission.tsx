@@ -4,13 +4,13 @@ import { admitRecapSource, inspectRecapSource, recapSourceTarget, resumeRecapSou
 import type { NativeRecapSourceStatus, RecapSourceTarget } from "../api/nativeRecapSourceApi";
 
 /** Native APP intent/receipt owns recovery; this component retains no second ledger. */
-export function RecapSourceAdmission({ source, onVerified }: { source: SavedRecapSource; onVerified?: () => void }) {
+export function RecapSourceAdmission({ source }: { source: SavedRecapSource }) {
   const target = recapSourceTarget(source);
   if (!target) return <section aria-label="Source availability"><p>Source admission is unavailable: this saved source needs an exact revision and matching scope.</p></section>;
   // Remount on any selected source/run/binding change, including A→B→A.
-  return <Admission key={JSON.stringify([target, source.run.runId, source.run.runRevision])} target={target} onVerified={onVerified} />;
+  return <Admission key={JSON.stringify([target, source.run.runId, source.run.runRevision])} target={target} />;
 }
-function Admission({ target, onVerified }: { target: RecapSourceTarget; onVerified?: () => void }) {
+function Admission({ target }: { target: RecapSourceTarget }) {
   const [status, setStatus] = useState<NativeRecapSourceStatus | null>(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
   const [uncertain, setUncertain] = useState(false);
@@ -22,7 +22,7 @@ function Admission({ target, onVerified }: { target: RecapSourceTarget; onVerifi
     try {
       const result = operation === "admit" ? await admitRecapSource(target)
         : operation === "inspect" ? await inspectRecapSource(target, status!) : await resumeRecapSource(target, status!);
-      if (alive.current) { setStatus(result); setUncertain(false); if (result.state === "admitted" && result.admission_committed && result.opening.state === "verified") onVerified?.(); }
+      if (alive.current) { setStatus(result); setUncertain(false); }
     } catch (reason) {
       if (alive.current) {
         setUncertain(true);

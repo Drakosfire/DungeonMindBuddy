@@ -1,75 +1,100 @@
-import {useSelectedWorld} from "../selectedWorld/SelectedWorldContext";
 import {useEffect,useRef,useState} from 'react';
-import type {ExactRunCandidateProjection,CandidateReadEvidence} from '../api/exactRunCandidateProjectionApi';
-import {getRecapNativeReview,type RecapNativeReview} from '../api/recapNativeReviewApi';
-import {assertNativeMergePlan,prepareNativeMerge,confirmNativeMerge,type NativeMergePlan,type NativeMergeReceipt,type NativeMergeRequest,type NativeRecordSelection,type ReviewedMetadata,type ClaimMode} from '../api/recapNativePublicationApi';
-import {RecapSourceAdmission} from '../modules/RecapSourceAdmission';
-import type {SavedRecapSource} from '../api/savedRecapRunsApi';
+import {useSelectedWorld} from '../selectedWorld/SelectedWorldContext';
+import type {ExactRunCandidateProjection} from '../api/exactRunCandidateProjectionApi';
+import {getRecapNativeReviews,type RecapNativeReview} from '../api/recapNativeReviewApi';
+import {admitRecapSource,resumeRecapSource,type NativeRecapSourceStatus,type RecapSourceTarget} from '../api/nativeRecapSourceApi';
+import {assertNativeMergePlan,prepareNativeMerge,confirmNativeMerge,type NativeMergePlan,type NativeMergeRequest} from '../api/recapNativePublicationApi';
+import {mergeIdentity,recapMergeSelections,sameMergeContext} from './recapMergeSelections';
 
-type Choice={action:'defer'|'create'|'use_existing';entity:string;fields:Partial<Record<'label'|'node_type'|'description',ClaimMode>>;evidence:string[];edgeMode:ClaimMode|''};
-const empty=():Choice=>({action:'defer',entity:'',fields:{},evidence:[],edgeMode:''});
-const modes:ClaimMode[]=['fact','observed_event','belief','plan','rumor'];
-const msg=(e:unknown)=>e instanceof Error?e.message:'Merge review unavailable.';
-const hash=(v:string)=>v.replace(/^sha256:/,'');
-export function mergeRecoveryKey(p:ExactRunCandidateProjection){return 'dmb:native-recap-merge:v1:'+JSON.stringify([p.managedWorldId,p.nativeWorldId,p.bindingVersion,p.runId,p.runRevision,p.sourceRevisionId,p.candidateSha256,p.spanIndexSha256]);}
-function retain(key:string,plan:NativeMergePlan,submitted:boolean){const raw=JSON.stringify({plan,submitted});window.localStorage.setItem(key,raw);if(window.localStorage.getItem(key)!==raw)throw new Error('The exact merge request could not be retained. No confirmation was sent.');}
-function restore(key:string,p:ExactRunCandidateProjection):{plan:NativeMergePlan|null;submitted:boolean;error:string|null}{try{const raw=window.localStorage.getItem(key);if(!raw)return {plan:null,submitted:false,error:null};const v=JSON.parse(raw);assertNativeMergePlan(v.plan,p);if(typeof v.submitted!=='boolean')throw new Error();return {plan:v.plan,submitted:v.submitted,error:null};}catch{return {plan:null,submitted:true,error:'A saved merge request could not be verified. It has been preserved; do not start another confirmation.'};}}
-function samePin(a:RecapNativeReview,b:RecapNativeReview){return a.native_context.revision_id===b.native_context.revision_id&&a.native_context.source_authority_epoch===b.native_context.source_authority_epoch&&a.native_context.source_admission.state==='admitted'&&b.native_context.source_admission.state==='admitted'&&a.native_context.source_admission.run_id===b.native_context.source_admission.run_id;}
-function eligible(p:ExactRunCandidateProjection,review:RecapNativeReview,witnesses:CandidateReadEvidence[]){const lines=p.sourceMarkdown.split(/(?<=\n)/);const starts=[0];for(const line of lines)starts.push(starts[starts.length-1]+new TextEncoder().encode(line).length);return review.native_context.source_evidence.filter(row=>row.opening.status==='available'&&witnesses.some(w=>row.opening.status==='available'&&starts[w.startLine-1]<=row.opening.span_start_byte&&row.opening.span_end_byte<=starts[w.endLine]));}
-function identityLabel(a:RecapNativeReview['native_context']['selections'][number]['alternatives'][number]){const name=a.entity_result?.assertions?.find(x=>x.predicate==='dnd5e:name'&&typeof x.value?.value==='string')?.value?.value;return typeof name==='string'?name:'Existing character or object';}
-
-export function RecapNativeMerge(props:{projection:ExactRunCandidateProjection;onClose:()=>void}){
- const world=useSelectedWorld();
- if(world.kind!=='managed'||world.worldId!==props.projection.managedWorldId)return <p role="status">Select this candidate's World before reviewing a merge.</p>;
- return <MergeReview key={mergeRecoveryKey(props.projection)} {...props}/>;
+export function mergeRecoveryKey(p:ExactRunCandidateProjection) {
+ return 'dmb:native-recap-merge:v1:'+JSON.stringify([p.managedWorldId,p.nativeWorldId,p.bindingVersion,p.runId,p.runRevision,p.sourceRevisionId,p.candidateSha256,p.spanIndexSha256]);
 }
-function MergeReview({projection:p,onClose}:{projection:ExactRunCandidateProjection;onClose:()=>void}){
+function retain(key:string,plan:NativeMergePlan,submitted:boolean) {
+ const raw=JSON.stringify({plan,submitted});localStorage.setItem(key,raw);
+ if(localStorage.getItem(key)!==raw)throw new Error('The exact confirmation could not be saved. Nothing was sent.');
+}
+function restore(key:string,p:ExactRunCandidateProjection) {
+ try {
+  const raw=localStorage.getItem(key);if(!raw)return {plan:null,submitted:false,error:null};
+  const saved=JSON.parse(raw);assertNativeMergePlan(saved.plan,p);
+  if(typeof saved.submitted!=='boolean')throw new Error();
+  return {plan:saved.plan,submitted:saved.submitted,error:null};
+ } catch {return {plan:null,submitted:true,error:'The saved confirmation could not be verified. It remains preserved; do not start another merge.'};}
+}
+export function RecapNativeMerge(props:{projection:ExactRunCandidateProjection;onClose:()=>void}) {
+ const world=useSelectedWorld();
+ if(world.kind!=='managed'||world.worldId!==props.projection.managedWorldId)return null;
+ return <MergeConfirmation key={mergeRecoveryKey(props.projection)} {...props}/>;
+}
+function MergeConfirmation({projection:p,onClose}:{projection:ExactRunCandidateProjection;onClose:()=>void}) {
  const key=mergeRecoveryKey(p),saved=useRef(restore(key,p)).current;
- const [review,setReview]=useState<RecapNativeReview|null>(null),[contexts,setContexts]=useState<Record<string,RecapNativeReview>>({});
- const [choices,setChoices]=useState<Record<string,Choice>>({}),[privateProvisional,setPrivateProvisional]=useState(false),[time,setTime]=useState<''|'session'|'timeless'>('');
- const [plan,setPlan]=useState<NativeMergePlan|null>(saved.plan),[submitted,setSubmitted]=useState(saved.submitted),[receipt,setReceipt]=useState<NativeMergeReceipt|null>(null),[refused,setRefused]=useState(false);
- const [busy,setBusy]=useState(false),[error,setError]=useState<string|null>(saved.error);const alive=useRef(true),lock=useRef(false);
- useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
- async function refresh(){if(lock.current||plan||submitted||saved.error)return;lock.current=true;setBusy(true);setError(null);try{if(!p.nodes.length)throw new Error('This candidate has no objects to review.');const r=await getRecapNativeReview(p,p.nodes[0].candidateNodeId);if(alive.current){setReview(r);setContexts({[p.nodes[0].candidateNodeId]:r});setChoices({});setPrivateProvisional(false);setTime('');}}catch(e){if(alive.current)setError(msg(e));}finally{lock.current=false;if(alive.current)setBusy(false);}}
- useEffect(()=>{if(!saved.plan&&!saved.error)void refresh();},[]);
- const admitted=review?.native_context.source_admission;
- const sourceReady=admitted?.state==='admitted'&&admitted.opening_state==='verified';
- const frozen=busy||!!plan||submitted||!!receipt||!!saved.error;
- function update(id:string,patch:Partial<Choice>){if(frozen)return;setError(null);setChoices(c=>({...c,[id]:{...(c[id]??empty()),...patch}}));}
- async function inspect(id:string){if(lock.current||frozen)return;lock.current=true;setBusy(true);setError(null);try{const r=await getRecapNativeReview(p,id);if(review&&!samePin(review,r))throw new Error('The World or source changed. Recheck the World before selecting claims.');if(alive.current)setContexts(c=>({...c,[id]:r}));}catch(e){if(alive.current)setError(msg(e));}finally{lock.current=false;if(alive.current)setBusy(false);}}
- const selectedNodes=p.nodes.filter(n=>choices[`node:${n.candidateNodeId}`]?.action&&choices[`node:${n.candidateNodeId}`].action!=='defer');
- const selectedEdges=p.edges.filter(e=>choices[`edge:${e.candidateEdgeId}`]?.action==='create');
- const selectedCount=selectedNodes.length+selectedEdges.length;
- function metadata(c:Choice,mode:ClaimMode):ReviewedMetadata{return {evidence_ref_ids:c.evidence,visibility:{kind:'labels_any',labels:['dungeonbuddy.visibility:gm']},epistemic_basis:'asserted',claim_mode:'dungeonbuddy.claim:'+mode,standing:'provisional',temporal_scope:{kind:time==='session'?'domain_ref':'timeless',valid_from:null,valid_until:null,schema_term:time==='session'?'dungeonbuddy.time:fictional_anchor_v1':null,payload:time==='session'?{episode:p.sessionId,qualified:true}:null},domain_metadata:[]};}
- function selection():NativeRecordSelection[]{return [...selectedNodes.map(n=>{const c=choices[`node:${n.candidateNodeId}`];const ctx=contexts[n.candidateNodeId];if(!ctx||!review||!samePin(review,ctx)||(Object.keys(c.fields).length>0&&!c.evidence.length)||(c.action==='create'&&!c.fields.label))throw new Error(`Select fields and supporting passages for ${n.label}.`);if(c.action==='use_existing'&&!ctx.native_context.selections.find(s=>s.candidate_node_id===n.candidateNodeId)?.alternatives.some(a=>a.entity_id===c.entity))throw new Error(`Choose the existing identity for ${n.label}.`);const allowed=new Set(eligible(p,ctx,n.evidence).map(e=>e.evidence_ref_id));if(c.evidence.some(id=>!allowed.has(id)))throw new Error('Selected support no longer matches the candidate.');return {kind:'node' as const,record_id:n.candidateNodeId,action:c.action,entity_id:c.action==='use_existing'?c.entity:null,facts:Object.entries(c.fields).map(([field,mode])=>({field:field as 'label'|'node_type'|'description',index:null,metadata:metadata(c,mode!)})),metadata:null};}),...selectedEdges.map(e=>{const c=choices[`edge:${e.candidateEdgeId}`];if(!selectedNodes.some(n=>n.candidateNodeId===e.fromCandidateId)||!selectedNodes.some(n=>n.candidateNodeId===e.toCandidateId)||!c.edgeMode||!c.evidence.length||!review)throw new Error('Each relationship needs two selected objects, a claim type and supporting passages.');const allowed=new Set(eligible(p,review,e.evidence).map(s=>s.evidence_ref_id));if(c.evidence.some(id=>!allowed.has(id)))throw new Error('Relationship support no longer matches its source witness.');return {kind:'edge' as const,record_id:e.candidateEdgeId,action:'create' as const,entity_id:null,facts:[],metadata:metadata(c,c.edgeMode)};})];}
- async function prepare(){if(lock.current||frozen||!sourceReady||!review||!privateProvisional||!time||!selectedCount)return;lock.current=true;setBusy(true);setError(null);try{const selections=selection();const now=await getRecapNativeReview(p,p.nodes[0].candidateNodeId);if(!alive.current)return;if(!samePin(review,now))throw new Error('The World changed. Recheck it and review your selections again.');const a=review.native_context.source_admission;if(a.state!=='admitted')throw new Error('Source evidence is not verified.');const request:NativeMergeRequest={managed_world_id:p.managedWorldId,campaign_id:p.campaignId,run_id:p.runId,expected_run_revision:p.runRevision,candidate_sha256:hash(p.candidateSha256),source_admission_run_id:a.run_id,expected_parent_revision_id:review.native_context.revision_id,expected_source_authority_epoch:review.native_context.source_authority_epoch,selections};const next=await prepareNativeMerge(p,request,review.source_revision_id);retain(key,next,false);if(alive.current)setPlan(next);}catch(e){if(alive.current)setError(msg(e));}finally{lock.current=false;if(alive.current)setBusy(false);}}
- async function confirm(){if(lock.current||!plan||receipt||saved.error)return;lock.current=true;setBusy(true);setError(null);try{retain(key,plan,true);setSubmitted(true);const next=await confirmNativeMerge(p,plan);if(alive.current)setReceipt(next);}catch(e){if(alive.current){const code=(e as {code?:string})?.code;const stopped=['candidate_review_expired','candidate_parent_stale','candidate_source_authority_stale'].includes(code??'');setRefused(stopped);setError(msg(e)+(stopped?' The owner refused this uncommitted preview. The retained packet is preserved; this review needs to be refreshed before another merge.':' The exact confirmation is retained for recovery; do not prepare another merge.'));}}finally{lock.current=false;if(alive.current)setBusy(false);}}
- const source:SavedRecapSource={schema:'dmb_saved_recap_source_v1',managedWorldId:p.managedWorldId,nativeWorldId:p.nativeWorldId,bindingVersion:p.bindingVersion,sourceProse:p.sourceMarkdown,run:{runId:p.runId,runRevision:p.runRevision,runStatus:p.runStatus,sourceArtifactId:p.sourceArtifactId,sourceRevisionId:review?.source_revision_id??p.sourceRevisionId,sourceSha256:hash(p.sourceSha256),campaignId:p.campaignId,sessionId:p.sessionId,profileId:p.profileId,createdAt:null,updatedAt:null,unavailableReason:null}};
- function evidenceChoices(id:string,witnesses:CandidateReadEvidence[],context:RecapNativeReview){const c=choices[id]??empty();return <fieldset disabled={frozen}><legend>Choose supporting source passages</legend>{eligible(p,context,witnesses).map(row=><label key={row.evidence_ref_id} style={{display:'block'}}><input type="checkbox" checked={c.evidence.includes(row.evidence_ref_id)} onChange={e=>update(id,{evidence:e.target.checked?[...c.evidence,row.evidence_ref_id]:c.evidence.filter(x=>x!==row.evidence_ref_id)})}/>{row.opening.status==='available'?<blockquote style={{whiteSpace:'pre-wrap'}}>{row.opening.span_text}</blockquote>:null}</label>)}</fieldset>;}
- return <section className="module-panel" role="region" aria-label="Merge reviewed extraction">
-  <h2>Merge into the World Graph</h2><p>Nothing is selected by default. Review identities, individual fields and their source support. Preparing a preview does not publish claims.</p>
-  <button type="button" onClick={onClose} disabled={busy}>Close review</button>
-  {error?<p role="alert">{error}</p>:null}{busy?<p role="status">Checking the selected source and World…</p>:null}
-  {receipt?<p role="status">Merged and verified. World revision: {receipt.result.child_revision_id}.</p>:plan?<>
-   <h3>{submitted?'Recover exact confirmation':'Ready for your confirmation'}</h3><p>{refused?'This retained preview cannot be confirmed against the current World.':submitted?'A confirmation was sent or may have completed. Recovery sends only the same retained request.':'The selected changes are prepared but not published.'}</p>
-   <details open><summary>Selected changes</summary><ul>{((plan.envelope.review as unknown as NativeMergeRequest).selections).map(s=><li key={s.kind+':'+s.record_id}>{s.kind==='node'?(p.nodes.find(n=>n.candidateNodeId===s.record_id)?.label??s.record_id):(p.edges.find(e=>e.candidateEdgeId===s.record_id)?.label??s.record_id)} · {s.action==='use_existing'?'Use reviewed existing identity':'Create reviewed change'}{s.facts.length?' · '+s.facts.map(f=>f.field==='label'?'name':f.field==='node_type'?'kind':'description').join(', '):''}</li>)}</ul><p>Everything not selected remains held.</p></details>
-   {!submitted?<button type="button" disabled={busy} onClick={()=>{try{window.localStorage.removeItem(key);if(window.localStorage.getItem(key)!==null)throw new Error('The saved preview could not be cleared.');setPlan(null);}catch(e){setError(msg(e));}}}>Back to selections</button>:null}
-   <button type="button" className="primary" disabled={busy||refused} onClick={()=>void confirm()}>{submitted?'Recover exact merge confirmation':'Confirm merge into World Graph'}</button>
-  </>:<>
-   {!sourceReady&&!submitted&&!saved.error?<RecapSourceAdmission source={source} onVerified={()=>void refresh()}/>:null}
-   {sourceReady?<p role="status">Source available as evidence. This does not approve any candidate claim.</p>:null}
-   <button type="button" disabled={frozen} onClick={()=>void refresh()}>Recheck World and reset unprepared selections</button>
-   {sourceReady&&review?<>
-    <label><input type="checkbox" checked={privateProvisional} disabled={frozen} onChange={e=>setPrivateProvisional(e.target.checked)}/>Keep selected claims GM-only and provisional</label>
-    <label>When do these claims apply? <select aria-label="Claim time" value={time} disabled={frozen} onChange={e=>setTime(e.target.value as typeof time)}><option value="">Choose time scope</option><option value="session">This session</option><option value="timeless">Timeless</option></select></label>
-    <h3>Objects and characters</h3>{p.nodes.map(n=>{const c=choices[`node:${n.candidateNodeId}`]??empty(),context=contexts[n.candidateNodeId],alts=context?.native_context.selections.find(s=>s.candidate_node_id===n.candidateNodeId)?.alternatives??[];return <details key={n.candidateNodeId}><summary>{n.label} · {c.action==='defer'?'Held':c.action==='create'?'New object':'Existing identity'}</summary><p>{n.description}</p><button type="button" disabled={frozen} onClick={()=>void inspect(n.candidateNodeId)}>Inspect identity and evidence for {n.label}</button>{context?<>
-     <label>Identity decision for {n.label}<select aria-label={`Identity for ${n.label}`} value={c.action} disabled={frozen} onChange={e=>update(`node:${n.candidateNodeId}`,{action:e.target.value as Choice['action'],entity:'',fields:{},evidence:[]})}><option value="defer">Hold this object</option><option value="create">Create a new object</option><option value="use_existing" disabled={!alts.length}>Use an existing identity</option></select></label>
-     {c.action==='use_existing'?<><select aria-label={`Existing identity for ${n.label}`} value={c.entity} disabled={frozen} onChange={e=>update(`node:${n.candidateNodeId}`,{entity:e.target.value})}><option value="">Choose after inspecting the match</option>{alts.map(a=><option value={a.entity_id} key={a.entity_id}>{identityLabel(a)} · {a.entity_id}</option>)}</select>{alts.map(a=><details key={a.entity_id}><summary>Existing identity: {identityLabel(a)} · {a.entity_id}</summary><pre style={{whiteSpace:'pre-wrap'}}>{JSON.stringify(a.entity_result,null,2)}</pre>{a.source_inspection?.map((s,i)=><blockquote key={i}>{s.status==='available'?s.span_text:'Supporting passage unavailable'}</blockquote>)}</details>)}</>:null}
-     {c.action!=='defer'?<>{(['label','node_type','description'] as const).filter(f=>f!=='description'||!!n.description).map(f=><label key={f} style={{display:'block'}}>{f==='label'?'Name':f==='node_type'?'Kind':'Description'}: <span>{f==='label'?n.label:f==='node_type'?n.nodeType:n.description}</span><select aria-label={`${f} claim for ${n.label}`} disabled={frozen} value={c.fields[f]??''} onChange={e=>{const fields={...c.fields};if(e.target.value)fields[f]=e.target.value as ClaimMode;else delete fields[f];update(`node:${n.candidateNodeId}`,{fields});}}><option value="">Do not publish this field</option>{modes.map(m=><option key={m} value={m}>{m.replace('_',' ')}</option>)}</select></label>)}{evidenceChoices(`node:${n.candidateNodeId}`,n.evidence,context)}</>:null}
-    </>:null}</details>;})}
-    <h3>Relationships</h3>{p.edges.map(e=>{const c=choices[`edge:${e.candidateEdgeId}`]??empty(),from=p.nodes.find(n=>n.candidateNodeId===e.fromCandidateId),to=p.nodes.find(n=>n.candidateNodeId===e.toCandidateId),endpoints=selectedNodes.some(n=>n.candidateNodeId===e.fromCandidateId)&&selectedNodes.some(n=>n.candidateNodeId===e.toCandidateId);return <details key={e.candidateEdgeId}><summary>{from?.label??'Unresolved object'} → {to?.label??'Unresolved object'}</summary><p>{e.label}</p><label><input type="checkbox" disabled={frozen||(!endpoints&&c.action!=='create')} checked={c.action==='create'} onChange={v=>update(`edge:${e.candidateEdgeId}`,{action:v.target.checked?'create':'defer',edgeMode:'',evidence:[]})}/>Include this relationship (both objects must be selected)</label>{c.action==='create'?<><select aria-label={`Claim type for relationship ${e.candidateEdgeId}`} value={c.edgeMode} disabled={frozen} onChange={v=>update(`edge:${e.candidateEdgeId}`,{edgeMode:v.target.value as ClaimMode})}><option value="">Choose how the source presents it</option>{modes.map(m=><option value={m} key={m}>{m.replace('_',' ')}</option>)}</select>{evidenceChoices(`edge:${e.candidateEdgeId}`,e.evidence,review)}</>:null}</details>;})}
-    <button type="button" className="primary" disabled={frozen||!privateProvisional||!time||!selectedCount||!!error} onClick={()=>void prepare()}>Preview {selectedCount} selected changes</button>
-   </>:null}
-  </>}
- </section>;
+ const [plan,setPlan]=useState<NativeMergePlan|null>(saved.plan),[submitted,setSubmitted]=useState(saved.submitted);
+ const [busy,setBusy]=useState(false),[status,setStatus]=useState(''),[error,setError]=useState<string|null>(saved.error),[done,setDone]=useState(false),[refused,setRefused]=useState(false);
+ const [sourceRecovery,setSourceRecovery]=useState<{target:RecapSourceTarget;status:NativeRecapSourceStatus}|null>(null);
+ const alive=useRef(true),lock=useRef(false),dialog=useRef<HTMLDivElement>(null);
+ useEffect(()=>{alive.current=true;const focus=document.activeElement;dialog.current?.focus();return()=>{alive.current=false;if(focus instanceof HTMLElement&&focus.isConnected)focus.focus();};},[]);
+ async function read() {
+  if(!p.nodes.length)throw new Error('There are no projected objects to merge.');
+  const batches:string[][]=[];for(let i=0;i<p.nodes.length;i+=32)batches.push(p.nodes.slice(i,i+32).map(n=>n.candidateNodeId));
+  const results=await Promise.all(batches.map(ids=>getRecapNativeReviews(p,ids)));
+  if(results.some(r=>!sameMergeContext(results[0],r)))throw new Error('The World changed during its check. Reopen Merge.');
+  return results;
+ }
+ function checkIdentities(reviews:RecapNativeReview[]) {
+  for(const n of p.nodes){const r=reviews.find(r=>r.native_context.selections.some(s=>s.candidate_node_id===n.candidateNodeId));if(!r)throw new Error('World comparison is incomplete.');mergeIdentity(p,r,n.candidateNodeId);}
+ }
+ async function merge() {
+  if(lock.current||done||saved.error||refused)return;lock.current=true;setBusy(true);setError(null);
+  try {
+   let exact=plan;
+   if(!exact) {
+    if(sourceRecovery) {
+     setStatus('Recovering the saved source request…');
+     const recovered=await resumeRecapSource(sourceRecovery.target,sourceRecovery.status);if(!alive.current)return;
+     if(recovered.state!=='admitted'||!recovered.admission_committed||recovered.opening.state!=='verified') {
+      setSourceRecovery({...sourceRecovery,status:recovered});throw new Error('The source request remains incomplete. Recover the saved source request before publication.');
+     }
+     setSourceRecovery(null);
+    }
+    setStatus('Checking the reviewed candidate…');let reviews=await read();if(!alive.current)return;
+    checkIdentities(reviews);
+    const first=reviews[0],admission=first.native_context.source_admission;
+    if(admission.state!=='admitted'||admission.opening_state!=='verified') {
+     setStatus('Saving source evidence…');
+     const match=/^session-([1-9]\d*)$/.exec(p.sessionId);if(!match)throw new Error('The saved session is invalid.');
+     const target:RecapSourceTarget={managedWorldId:p.managedWorldId,nativeWorldId:p.nativeWorldId,bindingVersion:p.bindingVersion,campaignId:p.campaignId,session:Number(match[1]),sourceArtifactId:p.sourceArtifactId,sourceRevisionId:first.source_revision_id,contentSha256:p.sourceSha256.slice(7)};
+     const admitted=await admitRecapSource(target);if(!alive.current)return;
+     if(admitted.state!=='admitted'||!admitted.admission_committed||admitted.opening.state!=='verified'){setSourceRecovery({target,status:admitted});throw new Error('Source admission is incomplete. Recover the saved source request before publication.');}
+     reviews=await read();if(!alive.current)return;
+     const current=reviews[0].native_context.source_admission;
+     if(current.state!=='admitted'||current.run_id!==admitted.run_id||current.opening_state!=='verified'||reviews.some(r=>r.source_revision_id!==first.source_revision_id))throw new Error('Source verification changed. Nothing was published.');
+    }
+    const current=reviews[0],source=current.native_context.source_admission;
+    if(source.state!=='admitted'||source.opening_state!=='verified')throw new Error('Source evidence is not verified.');
+    const request:NativeMergeRequest={managed_world_id:p.managedWorldId,campaign_id:p.campaignId,run_id:p.runId,expected_run_revision:p.runRevision,candidate_sha256:p.candidateSha256.slice(7),source_admission_run_id:source.run_id,expected_parent_revision_id:current.native_context.revision_id,expected_source_authority_epoch:current.native_context.source_authority_epoch,selections:recapMergeSelections(p,reviews)};
+    setStatus('Preparing the reviewed changes…');exact=await prepareNativeMerge(p,request,current.source_revision_id);
+    retain(key,exact,false);if(!alive.current)return;setPlan(exact);
+   }
+   retain(key,exact,true);setSubmitted(true);setStatus('Merging into the World Graph…');
+   await confirmNativeMerge(p,exact);if(alive.current){setDone(true);setStatus('Merged and verified.');}
+  } catch(e) {
+   if(alive.current){const code=(e as {code?:string})?.code;setRefused(['candidate_review_expired','candidate_parent_stale','candidate_source_authority_stale'].includes(code??''));setError(e instanceof Error?e.message:'Merge could not be completed.');}
+  } finally {lock.current=false;if(alive.current)setBusy(false);}
+ }
+ return <div style={{position:'fixed',inset:0,zIndex:10000,background:'rgba(0,0,0,.6)',display:'grid',placeItems:'center'}} onKeyDown={e=>{
+  if(e.key==='Escape'&&!busy){e.preventDefault();onClose();}
+  if(e.key==='Tab'){if(busy){e.preventDefault();return;}const buttons=dialog.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)');if(buttons?.length){const first=buttons[0],last=buttons[buttons.length-1];if(e.shiftKey&&(document.activeElement===first||document.activeElement===dialog.current)){e.preventDefault();last.focus();}else if(!e.shiftKey&&(document.activeElement===last||document.activeElement===dialog.current)){e.preventDefault();first.focus();}}}
+ }}>
+  <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby="merge-title" aria-describedby="merge-summary" tabIndex={-1} className="module-panel" style={{width:'min(480px,calc(100vw - 32px))',maxHeight:'85vh',overflow:'auto',padding:24,background:'var(--panel-bg, #171e2b)'}}>
+   <h2 id="merge-title">{done?'Merged':submitted?'Recover merge?':'Merge into the World Graph?'}</h2>
+   <p id="merge-summary">{plan?"The previously prepared selection is retained for exact confirmation and recovery.":<>{p.nodes.length} nodes and {p.edges.length} relationships from the projected source you reviewed will be merged, with source evidence, as GM-only provisional claims for this session.</>}</p>
+   {!plan?<p>Unique exact-name identities will be reused. New names create objects; ambiguous matches stop the merge. Unprojected narrative beats remain held.</p>:null}
+   {submitted&&!done?<p>The exact confirmation is retained. Retry uses that same request, so a lost response does not create a second merge.</p>:null}
+   {status?<p role="status">{status}</p>:null}{error?<p role="alert">{error}{refused?' This preview is stale or expired; its packet is preserved. Resolve its state before starting another merge.':''}</p>:null}
+   <div style={{display:'flex',gap:12,justifyContent:'flex-end'}}>
+    <button type="button" disabled={busy} onClick={onClose}>{done?'Done':'Cancel'}</button>
+    {!done?<button type="button" className="primary" disabled={busy||!!saved.error||refused} onClick={()=>void merge()}>{busy?'Merging…':submitted?'Recover merge':sourceRecovery?'Recover source and merge':'Merge'}</button>:null}
+   </div>
+  </div>
+ </div>;
 }
