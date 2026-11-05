@@ -167,11 +167,17 @@ class BuildAuthoredReferenceReadV2(Closed):
 
 
 def native_references(execution):
-    """Read the actual native Build intent; no classic policy is projected."""
-    from .native_execution import NativeBuildActionV1
+    """Read actual native author intent; no classic policy is projected.
+
+    Captured/read wire names retain their original Build spelling. Their exact
+    intent, context and read bindings are shared; no second event ledger exists.
+    """
+    from .native_execution import NativeBuildActionV1, NativePlanActionV1
     from . import types as t
     action = execution.policy.action
     if type(action) is NativeBuildActionV1 and type(action.intent) is t.BuildGraphIntentV2:
+        return action.intent.authored_references
+    if type(action) is NativePlanActionV1 and type(action.intent) is t.SubmittedTurnIntentV3:
         return action.intent.authored_references
     return None
 
@@ -232,7 +238,7 @@ def validate_native_context(query, execution):
     if references is None:
         if isinstance(query, NativeGraphQueryV4) and not query.authored_targets:
             return  # Current object navigation does not fabricate authored targets.
-        raise ValueError('Native authored catalog requires its actual reference-aware Build intent')
+        raise ValueError('Native authored catalog requires its actual reference-aware author intent')
     authority = query.authority
     if authority.scope_mode != 'world' or authority.campaign_id is not None:
         raise ValueError('Authored targets require their exact World scope')
@@ -379,14 +385,22 @@ def native_writer_context(execution):
             for e in execution.events if isinstance(e, BuildAuthoredReferenceReadV2)])
 
 
-def source_references(turn):
-    """Captured author input only; generated prose cannot create node identity."""
-    execution = getattr(turn, 'graph_context_execution', None)
+def reference_input(turn):
+    """Read-only projection of the existing captured author input, never evidence."""
+    from .rules_authority_reads import MixedCompletedTurnV1
+    actual = getattr(turn.base_projection, 'turn', None) if isinstance(turn, MixedCompletedTurnV1) else turn
+    execution = getattr(actual, 'graph_context_execution', None)
     rows = [event for event in getattr(execution, 'events', ())
             if getattr(event, 'kind', None) == 'build_authored_references_captured_v1']
     if len(rows) > 1:
-        raise ValueError('Ambiguous authored Graph reference capture')
-    return rows[0].references.references if rows else ()
+        raise ValueError('Ambiguous authored reference capture')
+    return rows[0].references if rows else None
+
+
+def source_references(turn):
+    """Captured author input only; generated prose cannot create identity."""
+    references = reference_input(turn)
+    return references.references if references is not None else ()
 
 
 def policy_enabled(policy):

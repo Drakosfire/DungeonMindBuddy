@@ -1012,7 +1012,7 @@ def test_ordinary_human_source_refusal_keeps_request_and_never_dispatches_writer
     before=len(case.writer.calls)
     response=case.client.post('/api/live/agent/turn',json=body)
     assert response.status_code==409,response.text
-    assert response.json()['detail']['code']=='build_authored_source_unavailable'
+    assert response.json()['detail']['code']=='authored_source_unavailable'
     assert len(case.writer.calls)==before
     retained=case.service.inspect_turn(world_id=case.world,turn_id=case.writer.adapter.turn.turn_id)
     assert retained.graph_context_execution.policy.action.intent.authored_references.model_dump(mode='json',by_alias=True)==body['build_authored_references']

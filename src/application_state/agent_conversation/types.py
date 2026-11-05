@@ -1020,7 +1020,7 @@ class PlanContextPolicyV2(PlanContextPolicyV1):
 
 
 from .reviewed_action import ReviewedStepBinding, ReviewedStepBindingV2, ReviewedStepBindingV3
-from .authored_graph_references import AuthoredReferenceInput
+from .authored_graph_references import AuthoredReferenceInput, AuthoredReferencesV2
 
 
 class RetryTurnReference(StrictModel):
@@ -1144,7 +1144,21 @@ class SubmittedTurnIntentV2(StrictModel):
         return self
 
 
-def submitted_turn_intent_fingerprint_v2(intent: SubmittedTurnIntentV2 | BuildGraphIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1) -> str:
+class SubmittedTurnIntentV3(SubmittedTurnIntentV2):
+    """Plan work with an explicit, immutable author-selected reference bundle."""
+    schema_: Literal["dmb_agent_submitted_turn_intent_v3"] = Field(
+        default="dmb_agent_submitted_turn_intent_v3", alias="schema")
+    authored_references: AuthoredReferencesV2
+
+    @model_validator(mode="after")
+    def exact_authored_input(self):
+        self.authored_references.require_world(self.world_id)
+        if not self.authored_references.references or not isinstance(self.plan_context_policy, PlanContextPolicyV2):
+            raise ValueError('Plan reference input requires nonempty selections and its current policy')
+        return self
+
+
+def submitted_turn_intent_fingerprint_v2(intent: SubmittedTurnIntentV3 | SubmittedTurnIntentV2 | BuildGraphIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1) -> str:
     """Fingerprint only normalized caller intent, excluding routing thread identity."""
     if isinstance(intent, PlayGraphIntentV1):
         from .play_graph_authority import play_graph_intent_fingerprint
@@ -6331,7 +6345,7 @@ class TurnSubmission(StrictModel):
     user_text: str
     provenance: TurnProvenance
     submitted_intent_v1: PlayRulesIntentV1 | SubmittedTurnIntentV1 | None = None
-    submitted_intent_v2: SubmittedTurnIntentV2 | BuildGraphIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1 | None = None
+    submitted_intent_v2: SubmittedTurnIntentV3 | SubmittedTurnIntentV2 | BuildGraphIntentV2 | BuildGraphIntentV1 | PlayGraphIntentV1 | None = None
     graph_context_receipt: GraphContextReceipt | None = None
     graph_context_execution: GraphTurnExecution | None = None
     play_context_receipt: PlayRunTurnContextReceiptV2 | None = None

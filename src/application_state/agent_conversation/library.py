@@ -199,11 +199,14 @@ def read_turns(
     turns = service.list_turns(
         world, conversation, limit=limit, before_sequence=before_sequence
     )
+    from .authored_graph_references import reference_input
     rows = []
     for turn in turns:
         meta = getattr(turn, "envelope", turn)
+        captured = reference_input(turn)
         rows.append(
             {
+                **({'authored_references':captured.model_dump(mode='json',by_alias=True)} if captured is not None else {}),
                 "turn_id": str(meta.turn_id),
                 "sequence": meta.sequence,
                 "status": meta.status,
@@ -262,11 +265,14 @@ def read_retry_attempts(
         more = len(ids) > limit
         turns = [repo.get_turn(conn, world, row[0]) for row in reversed(ids[:limit])]
         active = False  # Library inspection never grants a retry control.
+        from .authored_graph_references import reference_input
         rows = []
         for item in turns:
             m = getattr(item, "envelope", item)
+            captured = reference_input(item)
             rows.append(
                 {
+                    **({'authored_references':captured.model_dump(mode='json',by_alias=True)} if captured is not None else {}),
                     "turn_id": str(m.turn_id),
                     "sequence": m.sequence,
                     "status": m.status,

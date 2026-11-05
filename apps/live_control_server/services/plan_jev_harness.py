@@ -59,6 +59,10 @@ class PlanJevHarness:
                     raise AgentTurnServiceError('The Plan or conversation changed before writing could start. The request is retained; review the current page location before trying again.',
                         code='plan_authoring_target_changed', status_code=409) from exc
                 rules.authoring = (action, capture)
+            from application_state.agent_conversation import types as t
+            if type(adapter.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1:
+                from .native_authored_references import acquire
+                acquire(adapter)
             driver = PlanJevDriver(adapter, dialogue=dialogue, rules=rules, retained_navigation=retained_navigation)
             proof = asyncio.run(driver.run(transport=self.decision_transport, api_key=self.decision_api_key))
             writer = PlanJevWriter(adapter, proof, rules)
@@ -88,7 +92,8 @@ class PlanJevHarness:
                 if current.status=='running': _interrupt_policy_delivery(adapter.service,current,
                     output_limit_exceeded=self.output_limit_exceeded,
                     failure_code_override=exc.code if isinstance(exc,AgentTurnServiceError) and exc.code in {
-                        "plan_authoring_target_unavailable", "plan_authoring_target_changed", "plan_authoring_destination_unavailable"} else None)
+                        "plan_authoring_target_unavailable", "plan_authoring_target_changed", "plan_authoring_destination_unavailable",
+                        "authored_source_unavailable"} else None)
             trace.finalize_and_log(status='error',model_calls=self.calls,observed_model_call_count=len(self.calls))
             if isinstance(exc,AgentTurnServiceError): raise
             raise AgentTurnServiceError('The Plan reply could not complete safely. No request was replayed.',

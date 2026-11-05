@@ -67,7 +67,7 @@ class NativeBuildActionV1(Strict):
 
 class NativePlanActionV1(Strict):
     surface_id: Literal["plan"] = "plan"
-    intent: t.SubmittedTurnIntentV2
+    intent: Annotated[t.SubmittedTurnIntentV3 | t.SubmittedTurnIntentV2, Field(discriminator="schema_")]
     authoring_capture: PlanAuthoringCaptureV1 | None
     placement_catalog: PlanPlacementCatalogV1 | None
 
@@ -186,8 +186,6 @@ _BUILD_WORK_EVENTS = (
     t.BuildRequestedWorkResolutionV1, t.BuildReviewedActionSelectionV1,
     t.BuildWriterEvidenceSelectionV1, t.BuildPlanOutputContractV2,
     t.RelatedPagesSelection, t.RelatedPageRead,
-    t.BuildAuthoredReferencesCapturedV1, BuildAuthoredReferenceAuthorizedV2,
-    BuildAuthoredReferenceReadV2,
 )
 _PLAN_WORK_EVENTS = (t.PlanRequestedWorkAuthorizedV2, t.PlanRequestedWorkSelectedV2)
 
@@ -248,9 +246,9 @@ class SurfaceNativeExecutionV1(Strict):
                     raise ValueError("Native provider cannot acquire absent classic Graph evidence")
                 if isinstance(roles, t.GraphProviderRoleTargetV1) and (event.provider, event.model, event.api_mode) != roles.identity():
                     raise ValueError("Provider differs from its frozen single-provider identity")
+        from .authored_graph_references import validate_native_execution
+        validate_native_execution(self)
         if isinstance(self.policy.action,NativeBuildActionV1):
-            from .authored_graph_references import validate_native_execution
-            validate_native_execution(self)
             from .build_intentional_response import validate_native_action_events
             validate_native_action_events(self)
             from .plan_objective import validate_events as validate_plan_output_events

@@ -91,3 +91,22 @@ it('retains mixed object/source selections through the single composer owner',()
  expect(isAuthoredReferences({...selected,references:[{...sourceRef,selection_kind:'full_document'}]})).toBe(false);
  expect(isAuthoredReferences(selected,'foreign')).toBe(false);
 });
+
+it('keeps Plan and Build reference drafts separate for the same World and document',()=>{
+ sessionStorage.clear();
+ const build=writeComposerReferences(sessionStorage,'workshop','page',null,[ref]);
+ expect(readComposerReferences(sessionStorage,'workshop','page','plan').references).toEqual([]);
+ const plan=writeComposerReferences(sessionStorage,'workshop','page',null,[sourceRef],null,'plan');
+ expect(readComposerReferences(sessionStorage,'workshop','page','plan')).toEqual(plan);
+ expect(readComposerReferences(sessionStorage,'workshop','page')).toEqual(build);
+ expect(composerReferenceKey('workshop','page','plan')).not.toBe(composerReferenceKey('workshop','page'));
+});
+it('recovers malformed Plan reference bytes without touching Build selections',async()=>{
+ Object.defineProperty(globalThis,'crypto',{configurable:true,value:webcrypto});sessionStorage.clear();
+ const build=writeComposerReferences(sessionStorage,'workshop','page',null,[ref]);
+ const key=composerReferenceKey('workshop','page','plan'),raw='unreadable Plan bytes';sessionStorage.setItem(key,raw);
+ await recoverComposerReferences(sessionStorage,'workshop','page',raw,'plan');
+ expect(readComposerReferenceRecoveries(sessionStorage,'workshop','page','plan').map(x=>x.raw)).toEqual([raw]);
+ expect(readComposerReferenceRecoveries(sessionStorage,'workshop','page')).toEqual([]);
+ expect(readComposerReferences(sessionStorage,'workshop','page')).toEqual(build);
+});

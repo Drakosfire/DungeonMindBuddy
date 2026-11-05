@@ -221,7 +221,10 @@ class BuildJevHarness:
             if driver._selection_intent is not None:
                 asyncio.run(self._decide(adapter, driver))
             self.failure_stage="context_acquisition"
-            from .build_authored_references import acquire as acquire_authored_references
+            if type(adapter.fence.turn.graph_context_receipt) is ledger.SurfaceNativeContextReceiptV1:
+                from .native_authored_references import acquire as acquire_authored_references
+            else:
+                from .build_authored_references import acquire as acquire_authored_references
             acquire_authored_references(adapter)
             from .build_related_pages import acquire_selected_pages
             acquire_selected_pages(adapter)

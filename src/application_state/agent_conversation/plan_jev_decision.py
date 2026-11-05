@@ -119,7 +119,7 @@ def verify_input_records(receipt, execution, auth, proof, *, question, scope_sha
         from .plan_authoring import PlanRequestedWorkInputV1, validate_requested_work_wire
         if native_action is None and not isinstance(execution.policy, t.PlanAuthoringPolicyV1):
             raise ValueError('Plan destination decision requires its frozen authoring policy')
-        from .plan_placement import PlanRequestedWorkInputV2, PlanRequestedWorkInputV3
+        from .plan_placement import PlanRequestedWorkInputV2, PlanRequestedWorkInputV3, PlanRequestedWorkInputV4
         placement = isinstance(auth, t.PlanRequestedWorkAuthorizedV2)
         if placement != (native_action is not None or isinstance(execution.policy, t.PlanPlacementAuthoringPolicyV1)):
             raise ValueError('Plan placement authorization differs from its current policy')
@@ -129,12 +129,17 @@ def verify_input_records(receipt, execution, auth, proof, *, question, scope_sha
             parent_type = {
                 "dmb_plan_requested_work_input_v2": PlanRequestedWorkInputV2,
                 "dmb_plan_requested_work_input_v3": PlanRequestedWorkInputV3,
+                "dmb_plan_requested_work_input_v4": PlanRequestedWorkInputV4,
             }.get(schema)
         else:
             parent_type = PlanRequestedWorkInputV1 if schema == "dmb_plan_requested_work_input_v1" else None
         if parent_type is None:
             raise ValueError("Unknown Plan requested-work parent contract")
         request = parent_type.model_validate(parent_value)
+        from .authored_graph_references import native_references
+        expected_references = native_references(execution) if native_action is not None else None
+        if getattr(request, 'authored_references', None) != expected_references:
+            raise ValueError('Plan decision changed or omitted its exact author-selected references')
         capture_sha = native_action.intent.plan_authoring_capture_sha256 if native_action is not None else execution.policy.plan_authoring_capture_sha256
         catalog_sha = native_action.intent.plan_placement_catalog_sha256 if native_action is not None else getattr(execution.policy, "placement_catalog_sha256", None)
         if placement and (request.placement_catalog.sha256 if request.placement_catalog is not None else None) != catalog_sha:

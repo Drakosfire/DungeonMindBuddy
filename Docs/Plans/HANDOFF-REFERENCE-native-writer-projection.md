@@ -1,6 +1,6 @@
 # Native writer semantic projection
 
-Status: ACTIVE. Owner/designer: PRIME. Authority: reference integration goal and
+Status: MERGED_AND_DELIVERED. Owner/designer: PRIME. Authority: reference integration goal and
 confirmed ordinary dogfood regression. Topology: serial after merged2091 at
 9f8e01edecad8e387b99836265cf2fa4e36ff8b9. Branch
 codex/native-writer-semantic-projection; reuse buddy-context-loop/dependencies.
@@ -71,3 +71,11 @@ remain delivery gates.
 Keep original failed attempts. Retry only after an owning fix; normal grounding
 and answer validation still decide delivery. This slice does not complete Plan/
 Play references, historical executor retirement, chronology or operator acceptance.
+
+Merged #2092 as4147f915a9f54793bef9f007a9a7e2e22fc0c7b6; delivered in compatible
+runtime df915c84fa446216a45a16ada7d24457f61e0145 / APP0108. Ordinary saved
+Fellinor retry71786e11-e5dd-4d6f-92ff-ce66eb5ecaf0 completed, all three citations
+opened supporting text, and reload/reopening retained reply and references without
+resending. Both original failed attempts remain preserved. Implementation and
+delivery leases are released. Plan/Play integration and operator acceptance remain
+open under HANDOFF-REFERENCE-plan-authored-input.md and the full goal.

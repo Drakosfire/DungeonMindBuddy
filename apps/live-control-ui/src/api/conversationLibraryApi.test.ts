@@ -19,3 +19,11 @@ it.each([
 ])('refuses malformed typed objects',async object=>{const value=page();response({...value,turns:[{...value.turns[0],retry_context:null,reply_object:object}]});await expect(readConversationTurns('world',cid)).rejects.toThrow();});
 it('refuses objects on incomplete turns and an obsolete projection schema',async()=>{const value=page();response({...value,turns:[{...value.turns[0],status:'running'}]});await expect(readConversationTurns('world',cid)).rejects.toThrow();response({...value,schema:'dmb_conversation_library_turns_v1'});await expect(readConversationTurns('world',cid)).rejects.toThrow();});
 it('admits page labels without making their review executable',async()=>{const value=page();response({...value,turns:[{...value.turns[0],reply_object:{kind:'page_object',object_kind:'plan',source}}]});expect((await readConversationTurns('world',cid)).turns[0].reply_object?.kind).toBe('page_object');});
+
+it('retains captured reference input and rejects a foreign World',async()=>{
+ const references={schema:'dmb_authored_references_v2',references:[{schema:'dmb_authored_graph_reference_v1',managed_world_id:'world',native_world_id:'native',binding_version:1,graph_revision:'revision',node_id:'node',label:'Selected object'}]};
+ const value=page();response({...value,turns:[{...value.turns[0],authored_references:references}]});
+ expect((await readConversationTurns('world',cid)).turns[0].authored_references).toEqual(references);
+ references.references[0].managed_world_id='foreign';response({...value,turns:[{...value.turns[0],authored_references:references}]});
+ await expect(readConversationTurns('world',cid)).rejects.toThrow('reference input');
+});

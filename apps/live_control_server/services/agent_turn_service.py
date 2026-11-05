@@ -41,6 +41,7 @@ from application_state.agent_conversation.types import (
     SubmittedPrimaryWorkIntentV1,
     SubmittedTurnIntentV1,
     SubmittedTurnIntentV2,
+    SubmittedTurnIntentV3,
     PlayGraphIntentV1, PlayRulesIntentV1,
     PlayGraphPolicyV1,
     SubmittedPlayTargetV1,
@@ -2107,7 +2108,11 @@ class _PolicyExecutionAdapter:
         if self.trace is not None and self.admission_span_id is not None:
             self.trace.complete_phase(self.admission_span_id)
             self.admission_span_id = None
-        if self.request.build_authored_references is not None:
+        from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
+        if type(self.fence.turn.graph_context_receipt) is SurfaceNativeContextReceiptV1:
+            from .native_authored_references import capture_input
+            capture_input(self)
+        elif self.request.build_authored_references is not None:
             from .build_authored_references import capture_input
             capture_input(self)
         return claim.turn, *membership
@@ -5218,8 +5223,9 @@ def _submitted_turn_intent(
                 code="plan_context_intent_invalid",
                 status_code=422,
             )
-        return SubmittedTurnIntentV2(
+        return (SubmittedTurnIntentV3 if request.authored_references is not None else SubmittedTurnIntentV2)(
             **common,
+            **({"authored_references": request.authored_references} if request.authored_references is not None else {}),
             plan_authoring_capture_sha256=request.plan_authoring_capture.sha256 if request.plan_authoring_capture is not None else None,
             plan_placement_catalog_sha256=request.plan_placement_catalog.sha256 if request.plan_placement_catalog is not None else None,
             plan_context_policy=request.plan_context_policy,
