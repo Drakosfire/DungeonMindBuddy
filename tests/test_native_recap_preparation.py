@@ -1056,6 +1056,107 @@ def select_extent(x):
         x.body["selections"][0]["facts"][0]["metadata"]["evidence_ref_ids"] = [x.evidence_id]
 
 
+SECOND_FRAGMENT = "The traveller brought a lantern."
+DISJOINT_DESCRIPTION = PREFIX + " Unsupported castle purchase. " + SECOND_FRAGMENT
+
+
+def select_disjoint_extents(x, *, reverse=False):
+    # The two genuine statements have independently opened source support.
+    lines = x.text.splitlines(keepends=True)
+    start = len(''.join(lines[:2]).encode())
+    end = start + len(lines[2].encode())
+    admitted = x.world_admitted if hasattr(x, "world_admitted") else x.admitted
+    if hasattr(x, "world_admitted"):
+        extension = publish_native_source_evidence_extension(
+            repository=x.repo, domain_contract=x.domain, semantic_profile=x.profile,
+            audience_labels=("dungeonbuddy.visibility:gm",),
+            request=NativeSourceEvidenceExtensionV1(
+                space_id=SPACE_ID, extension_id="disjoint-second-source-support",
+                original_admission_id=admitted.admission_id,
+                source_artifact_id=admitted.source_artifact_id,
+                source_revision_id=admitted.source_revision_id,
+                expected_body_sha256=sha256(x.text.encode()).hexdigest(),
+                created_at=datetime.now(UTC),
+                expected_parent_revision_id=x.repo.get_head(SPACE_ID).head_revision_id,
+                expected_source_authority_epoch=x.repo.open_native_source_view(SPACE_ID).epoch,
+                spans=[dict(client_ref="second", evidence_role="support", start_byte=start,
+                            end_byte=end, expected_slice_sha256=sha256(x.text.encode()[start:end]).hexdigest())]))
+        second_support = extension.bindings[0].evidence_ref_id
+    else:
+        second_support = x.support_ids["second"]
+    ref = copy.deepcopy(x.payload["nodes"][0]["evidence_refs"][0])
+    ref.update(source_span_ref_id=next(p.source_span_id for p in x.data.span_index.spans
+                                      if p.start_line == 3), anchor_quotes=[SECOND_FRAGMENT])
+    x.payload["nodes"][0]["evidence_refs"].append(ref)
+    x.payload["nodes"][0]["description"] = DISJOINT_DESCRIPTION
+    left = extent_fact(DISJOINT_DESCRIPTION)
+    right = extent_fact(DISJOINT_DESCRIPTION, start=len(DISJOINT_DESCRIPTION.encode()) - len(SECOND_FRAGMENT.encode()),
+                        end=len(DISJOINT_DESCRIPTION.encode()))
+    left["metadata"]["evidence_ref_ids"] = [x.evidence_id if hasattr(x, "evidence_id") else x.support_ids["first"]]
+    right["metadata"]["evidence_ref_ids"] = [second_support]
+    x.body["selections"] = [{"kind": "node", "record_id": "new", "action": "create",
+                            "facts": [right, left] if reverse else [left, right]}]
+    x.body["expected_parent_revision_id"] = x.repo.get_head(SPACE_ID).head_revision_id
+    x.body["expected_source_authority_epoch"] = x.repo.open_native_source_view(SPACE_ID).epoch
+    x.refresh()
+
+
+@pytest.mark.parametrize("fixture", ["lane", "world_lane"])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("action", ["create", "use_existing"])
+def test_disjoint_extents_commit_separate_literals_provenance_and_exact_held_union(request, fixture, reverse, action):
+    x = request.getfixturevalue(fixture)
+    select_disjoint_extents(x, reverse=reverse)
+    if action == "use_existing":
+        x.body["selections"][0].update(action=action, entity_id="ent:pippa")
+    original = copy.deepcopy(x.payload)
+    before = x.repo.get_head(SPACE_ID)
+    response = x.post()
+    assert response.status_code == 200, response.text
+    packet = response.json()
+    assert x.repo.get_head(SPACE_ID) == before
+    record = packet["records"][0]
+    assert "selected_description_extent" not in record
+    traces = record["selected_description_extents"]
+    assert [t["start_byte"] for t in traces] == [f["extent"]["start_byte"] for f in x.body["selections"][0]["facts"]]
+    assert record["held_description_extents"] == [{"start_byte": len(PREFIX.encode()),
+        "end_byte": len(DISJOINT_DESCRIPTION.encode()) - len(SECOND_FRAGMENT.encode())}]
+    assert "description" in record["unselected_fields"] and record["selected_fields"] == []
+    prepared = service.transport.decode_prepared(packet["prepared"])
+    expected = [SECOND_FRAGMENT, PREFIX] if reverse else [PREFIX, SECOND_FRAGMENT]
+    assert [f.value.value for f in prepared.prepared_operations[0].facts] == expected
+    assert [f.client_op_id for f in prepared.prepared_operations[0].facts] == ["record:0.field:0", "record:0.field:1"]
+    confirmation = {k: packet[k] for k in ("envelope", "prepared", "token")}
+    committed = confirm(x, confirmation)
+    assert committed.status_code == 200, committed.text
+    _, access = service.native.access_context(x.repo, SPACE_ID)
+    results = committed.json()["result"]["assertion_results"]
+    assert len(results) == 2
+    for result, value, trace in zip(results, expected, traces):
+        actual = service.native.assertion_contract(access.parsed.assertions_by_id[result["durable_assertion_id"]]).model_dump(mode="json")
+        assert actual["value"] == {"kind": "literal", "value": value}
+        context = next(m["payload"] for m in actual["metadata"]["domain_metadata"] if m["schema"] == service.WORLD_CONTEXT)
+        assert context[service.DESCRIPTION_SELECTION] == trace
+    assert x.payload == original
+    assert confirm(x, confirmation).json()["result"] == committed.json()["result"]
+
+
+@pytest.mark.parametrize("ranges", [[(0, 10), (9, 20)], [(0, 10), (0, 10)], [(0, 20), (5, 10)]])
+def test_overlapping_description_extents_rejected(ranges):
+    with pytest.raises(ValidationError, match="overlapping description extents"):
+        RecordSelection.model_validate({"kind": "node", "record_id": "new", "action": "create",
+            "facts": [extent_fact(start=a, end=b) for a, b in ranges]})
+
+
+def test_adjacent_proper_extents_cannot_jointly_accept_whole_description(lane):
+    select_extent(lane)
+    lane.body["selections"][0]["facts"].append(extent_fact(start=len(PREFIX.encode()), end=len(DESCRIPTION.encode())))
+    head = lane.repo.get_head(SPACE_ID)
+    response = lane.post()
+    assert response.status_code == 409 and "candidate_description_extents_cover_whole_field" in response.text
+    assert lane.repo.get_head(SPACE_ID) == head
+
+
 def test_old_and_new_selector_variants_are_unambiguous():
     fact = extent_fact()
     fact.pop("extent")
@@ -1097,13 +1198,12 @@ def test_extent_requires_node_and_cannot_clip_source_beats(kind):
             "action": "create", "facts": [extent_fact()]})
 
 
-@pytest.mark.parametrize("second", ["whole", "same", "disjoint"])
+@pytest.mark.parametrize("second", ["whole", "same"])
 def test_existing_duplicate_field_rule_limits_one_description_choice(second):
     fact = extent_fact()
     other = ({"field": "description", "metadata": extent_fact()["metadata"]} if second == "whole"
-             else extent_fact(start=len(PREFIX.encode()) + 1, end=len(DESCRIPTION.encode()))
-             if second == "disjoint" else copy.deepcopy(fact))
-    with pytest.raises(ValidationError, match="duplicate selected field"):
+             else copy.deepcopy(fact))
+    with pytest.raises(ValidationError, match="duplicate selected field|overlapping description extents"):
         RecordSelection.model_validate({"kind": "node", "record_id": "new",
             "action": "create", "facts": [fact, other]})
 
@@ -1137,7 +1237,7 @@ def test_extent_commits_exact_bytes_and_owner_trace_without_accepting_whole_fiel
     assert "description" in record["unselected_fields"]
     assert record["held_description_extents"] == [{"start_byte": len(PREFIX.encode()),
                                                    "end_byte": len(DESCRIPTION.encode())}]
-    trace = record["selected_description_extent"]
+    trace = record["selected_description_extents"][0]
     assert trace == {
         "schema_version": "dmb_candidate_description_extent_v1", "run_id": x.run.run_id,
         "run_revision": 5, "candidate_sha256": x.body["candidate_sha256"],
@@ -1234,8 +1334,9 @@ def description_native_core_dsn(monkeypatch):
     yield from native_core_dsn.__wrapped__(monkeypatch)
 
 
+@pytest.mark.parametrize("disjoint", [False, True])
 def test_description_extent_postgres_prepare_confirm_and_fresh_readback(
-    description_native_core_dsn, monkeypatch, tmp_path,
+    description_native_core_dsn, monkeypatch, tmp_path, disjoint, request,
 ):
     """Real disposable Core persistence; APP run reads use the synthetic lane seam."""
     import sys
@@ -1246,8 +1347,8 @@ def test_description_extent_postgres_prepare_confirm_and_fresh_readback(
         PostgresDatabase(description_native_core_dsn))
     monkeypatch.setattr(sys.modules[__name__],
                         "InMemoryNativeSourceEvidenceRepository", lambda: repository)
-    x = lane.__wrapped__(monkeypatch, tmp_path)
-    select_extent(x)
+    x = lane.__wrapped__(monkeypatch, tmp_path, request)
+    (select_disjoint_extents if disjoint else select_extent)(x)
     response = x.post()
     assert response.status_code == 200, response.text
     packet = response.json()
@@ -1256,13 +1357,16 @@ def test_description_extent_postgres_prepare_confirm_and_fresh_readback(
     assert committed.status_code == 200, committed.text
     fresh = PostgresNativeSourceEvidenceRepository(PostgresDatabase(description_native_core_dsn))
     _, access = service.native.access_context(fresh, SPACE_ID)
-    identifier = committed.json()["result"]["assertion_results"][0]["durable_assertion_id"]
-    actual = service.native.assertion_contract(
-        access.parsed.assertions_by_id[identifier]).model_dump(mode="json")
-    assert actual["value"] == {"kind": "literal", "value": PREFIX}
-    context = next(item["payload"] for item in actual["metadata"]["domain_metadata"]
-                   if item["schema"] == service.WORLD_CONTEXT)
-    assert context[service.DESCRIPTION_SELECTION] == packet["records"][0]["selected_description_extent"]
+    results = committed.json()["result"]["assertion_results"]
+    expected = [PREFIX, SECOND_FRAGMENT] if disjoint else [PREFIX]
+    assert len(results) == len(expected)
+    for index, (result, value) in enumerate(zip(results, expected)):
+        actual = service.native.assertion_contract(
+            access.parsed.assertions_by_id[result["durable_assertion_id"]]).model_dump(mode="json")
+        assert actual["value"] == {"kind": "literal", "value": value}
+        context = next(item["payload"] for item in actual["metadata"]["domain_metadata"]
+                       if item["schema"] == service.WORLD_CONTEXT)
+        assert context[service.DESCRIPTION_SELECTION] == packet["records"][0]["selected_description_extents"][index]
     assert confirm(x, confirm_packet).json()["result"] == committed.json()["result"]
 
 
@@ -1425,3 +1529,34 @@ def test_worldbuilding_native_intent_does_not_adopt_recap_precedence(world_lane)
     response = world_lane.post()
     assert response.status_code == 409, response.text
     assert "precedence_requires_recap" in response.text
+
+
+def test_three_extents_preserve_all_held_gaps_and_existing_identity(lane):
+    select_disjoint_extents(lane)
+    third = "Another unrelated episode."
+    value = DISJOINT_DESCRIPTION + " Second unsupported gap. " + third + " Held suffix."
+    start = len(value.encode()) - len((third + " Held suffix.").encode())
+    lane.payload["nodes"][0]["description"] = value
+    refs = lane.payload["nodes"][0]["evidence_refs"]
+    extra = copy.deepcopy(refs[0])
+    extra.update(source_span_ref_id=next(p.source_span_id for p in lane.data.span_index.spans if p.start_line == 5),
+                 anchor_quotes=[third])
+    refs.append(extra)
+    bounds = [(0, len(PREFIX.encode())),
+              (len(DISJOINT_DESCRIPTION.encode()) - len(SECOND_FRAGMENT.encode()), len(DISJOINT_DESCRIPTION.encode())),
+              (start, start + len(third.encode()))]
+    facts = [extent_fact(value, a, b) for a, b in bounds]
+    for fact, support in zip(facts, ("first", "second", "unrelated")):
+        fact["metadata"]["evidence_ref_ids"] = [lane.support_ids[support]]
+    lane.body["selections"][0].update(action="use_existing", entity_id="ent:pippa", facts=facts)
+    lane.refresh()
+    response = lane.post()
+    assert response.status_code == 200, response.text
+    packet = response.json()
+    assert packet["records"][0]["held_description_extents"] == [
+        {"start_byte": bounds[0][1], "end_byte": bounds[1][0]},
+        {"start_byte": bounds[1][1], "end_byte": bounds[2][0]},
+        {"start_byte": bounds[2][1], "end_byte": len(value.encode())}]
+    result = confirm(lane, {k: packet[k] for k in ("envelope", "prepared", "token")})
+    assert result.status_code == 200, result.text
+    assert len(result.json()["result"]["assertion_results"]) == 3
