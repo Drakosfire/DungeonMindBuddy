@@ -35,7 +35,9 @@ build_jev_writer.py, build_failure_diagnostic.py and build_jev_harness.py (the
 existing failure classifier only; missing counting is context preparation, not
 an entered provider failure);
 new migration20261106_0119; tests/test_native_writer_token_accounting.py and
-tests/test_surface_native_build_ordinary.py fixture adoption; one new test selector
+tests/test_surface_native_build_ordinary.py fixture adoption;
+tests/test_native_writer_projection.py adaptation to the actual moved capacity
+owner (retain heavy historical refusal, compact acceptance and exact facts); one new test selector
 in .github/workflows/world-ownership-core.yml. Existing INGEST/held REFERENCE
 selectors and timeouts remain untouched. Existing native
 source/writer tests remain validation consumers. No active INGEST PR among the
@@ -51,3 +53,11 @@ Retain a synthetic large-input regression and the private captured-request estim
 Review exact cumulative diff, independent Bugbot and owning CI before protected
 delivery. Then one qualified ordinary replay, preserving all failed attempts and
 state, must establish supported delivery; do not declare success from estimates alone.
+
+
+CI correction: query-and-answer at945194354 reported684 passed and one projection
+regression test failure. That test mocked authorize_native_writer, thereby removing
+the guard moved into that owner. Exercise the real shared helper and stop at its
+APP append seam; preserve both the historical overflow rejection and full compact
+fact/evidence closure. Original CI log remains in private runtime evidence. No
+runtime implementation, budget, grounding or provider-role change for this repair.
