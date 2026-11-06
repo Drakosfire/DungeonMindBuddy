@@ -676,3 +676,27 @@ def test_equal_text_distinct_receipts_bind_only_the_selected_graph_target(plan_a
     with pytest.raises(ValueError, match='differs from staged'):
         writer.authorize(downgraded)
     assert json.loads(wire.calls[0].content)['text']['format']['name'] == 'plan_evidence_selectors_v3'
+
+
+
+def test_context_capacity_refusal_preserves_gate_cause_without_provider_entry(plan_adapter):
+    from apps.live_control_server.services.build_failure_diagnostic import failure_code
+    from apps.live_control_server.services.build_jev_writer import WriterCapacityError
+    writer = stage_graph(plan_adapter)
+    writer.messages.append({'role': 'user', 'content': 'x' * writer.context_limit})
+    wire = WriterWire(plan_adapter, '')
+    with pytest.raises(GenerationEngineError) as failure:
+        asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
+    assert failure_code(failure.value) == 'build_writer_context_over_budget'
+    causes = []; current = failure.value
+    while current is not None and id(current) not in {id(c) for c in causes}:
+        causes.append(current)
+        current = current.__cause__ or (None if current.__suppress_context__ else current.__context__)
+    capacity = next(c for c in causes if type(c) is WriterCapacityError)
+    assert capacity.actual > capacity.limit == writer.context_limit
+    assert 'writing provider was not called' in str(capacity)
+    assert wire.calls == [] and wire.closed
+    assert writer.call is None and writer.prepared is None
+    assert unvalidated_texts(plan_adapter) == [] and plan_adapter.fence.turn.completion is None
+    failures = [(r.phase,r.code) for r in plan_adapter.context_capture.trace.observations if r.kind == 'failure']
+    assert failures == [('context_build', 'build_writer_context_over_budget')]
