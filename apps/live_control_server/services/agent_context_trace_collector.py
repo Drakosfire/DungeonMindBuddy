@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import nullcontext
 from datetime import datetime, timezone
 from time import monotonic
 from typing import Any, Mapping
@@ -96,9 +97,11 @@ class ContextTraceCollector:
                 "sequence": len(self.trace.observations), "elapsed_ms": self.elapsed_ms,
             })
             try:
-                self.trace = self.fence.service.append_context_trace(
-                    **self._binding(), observation=observation,
-                )
+                host_trace = getattr(self.fence, "trace", None)
+                with host_trace.measure_host_work("trace_append") if host_trace is not None else nullcontext():
+                    self.trace = self.fence.service.append_context_trace(
+                        **self._binding(), observation=observation,
+                    )
             except ApplicationStateValidationError:
                 # The first durable gap survives even when no more trace fits.
                 self.capture_capacity_exhausted = True
@@ -112,9 +115,11 @@ class ContextTraceCollector:
                 "elapsed_ms": self.elapsed_ms,
             })
             try:
-                self.trace = self.fence.service.append_context_trace(
-                    **self._binding(), observation=observation,
-                )
+                host_trace = getattr(self.fence, "trace", None)
+                with host_trace.measure_host_work("trace_append") if host_trace is not None else nullcontext():
+                    self.trace = self.fence.service.append_context_trace(
+                        **self._binding(), observation=observation,
+                    )
             except ApplicationStateValidationError:
                 self._mark_incomplete_locked("trace_observation_rejected")
 

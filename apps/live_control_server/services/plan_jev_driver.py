@@ -374,27 +374,31 @@ class PlanJevDriver:
         client = decision_client(authorize=authorize, record=record, transport=transport, api_key=api_key,select_context=select_context)
         try:
             while not self.finished:
-                operations = (("select_candidates", "finish_retrieval") if self.discovered else
-                              ("select_candidates", "discover_more", "finish_retrieval"))
-                examined = [candidate for node, candidate in self.catalog.values() if node in self.attempted_nodes]
-                if self.rules is not None and self.rules.selected:
-                    examined.append(rules_candidate())
-                examined.extend(self.saved_page_catalog[h][0] for h in sorted(self.attempted_saved_pages))
-                examined.extend(self.native_sources.examined())
-                from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4
-                if isinstance(getattr(self.adapter, 'native_query', None), NativeGraphQueryV4):
-                    examined.extend(self._native_object_examined())
-                else:
-                    examined.extend(self._native_statement_examined())
-                    examined.extend(self._native_assertion_examined())
-                dispatch = PlanJevDispatch(self.adapter, self.offered(), dialogue=self.dialogue,
-                    examined_candidates=examined, allowed_operations=operations)
+                trace = getattr(self.adapter, "trace", None)
+                with trace.measure_host_work("retrieval_candidate_preparation") if trace is not None else nullcontext():
+                    operations = (("select_candidates", "finish_retrieval") if self.discovered else
+                                  ("select_candidates", "discover_more", "finish_retrieval"))
+                    examined = [candidate for node, candidate in self.catalog.values() if node in self.attempted_nodes]
+                    if self.rules is not None and self.rules.selected:
+                        examined.append(rules_candidate())
+                    examined.extend(self.saved_page_catalog[h][0] for h in sorted(self.attempted_saved_pages))
+                    examined.extend(self.native_sources.examined())
+                    from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4
+                    if isinstance(getattr(self.adapter, 'native_query', None), NativeGraphQueryV4):
+                        examined.extend(self._native_object_examined())
+                    else:
+                        examined.extend(self._native_statement_examined())
+                        examined.extend(self._native_assertion_examined())
+                    dispatch = PlanJevDispatch(self.adapter, self.offered(), dialogue=self.dialogue,
+                        examined_candidates=examined, allowed_operations=operations)
                 self.current = dispatch
                 try:
-                    await dispatch.run(client=client)
+                    with trace.measure_host_work("retrieval_decision") if trace is not None else nullcontext():
+                        await dispatch.run(client=client)
                 finally:
                     if dispatch.call is not None: self.calls.append(dispatch.call)
-                self.apply(dispatch)
+                with trace.measure_host_work("retrieval_selection_apply") if trace is not None else nullcontext():
+                    self.apply(dispatch)
             return self.proof()
         finally:
             await client.aclose()

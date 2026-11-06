@@ -1,8 +1,12 @@
 # PLAY: retained source and passage references
 
-Status: ACTIVE design and implementation, PRIME-owned. Operator authority is the
-active reliable retrieval / References integration goal. This handoff does not
-claim the capability, review, delivery or acceptance is complete.
+Status: MERGED and DELIVERED; operator acceptance remains open. PR2153 merged
+at `351ca4327d12b773d039ff7877a7440856ff7f42`; independently reviewed runtime
+`051ac464e1cdc2c00177c05c8990be4f5dd43811` is live on5202. Exact source
+filtering/selection and same-tab composer reload passed ordinary Play checks.
+Live answer/citation dogfood awaits the pending C2 provider-transfer question.
+The implementation write lease is released. Play objects and broader References
+acceptance remain subsequent scope.
 
 Base: `63587a57d2f949715ea8552e8041cc635931a9cd` (merged #2151).
 Branch: `codex/play-retained-source-references` in the existing

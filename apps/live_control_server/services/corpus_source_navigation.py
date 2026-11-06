@@ -1,5 +1,6 @@
 """One explicitly selected corpus scan; no prose is added to model context."""
 from hashlib import sha256
+from contextlib import nullcontext
 from collections import Counter
 from types import SimpleNamespace
 from uuid import uuid4
@@ -404,9 +405,19 @@ class NativeBodyNavigation:
 
     def _commit(self, method, **fields):
         a = self.adapter
+        trace = getattr(a, "trace", None)
+        if trace is not None:
+            for name in ("read", "capture"):
+                materialize = fields.get(name)
+                if callable(materialize):
+                    def measured(*args, _materialize=materialize, **kwargs):
+                        with trace.measure_host_work("native_source_materialization"):
+                            return _materialize(*args, **kwargs)
+                    fields[name] = measured
         turn = a.fence.renewer._turn
-        result = getattr(a.service, method)(turn.world_id, turn.conversation_id, turn.turn_id,
-            expected_revision=turn.revision, expected_attempt=turn.attempt, **fields)
+        with trace.measure_host_work("native_source_append") if trace is not None else nullcontext():
+            result = getattr(a.service, method)(turn.world_id, turn.conversation_id, turn.turn_id,
+                expected_revision=turn.revision, expected_attempt=turn.attempt, **fields)
         a.fence.renewer._turn = a.turn = result[0]
         return result[0].graph_context_execution.events[-1]
 
