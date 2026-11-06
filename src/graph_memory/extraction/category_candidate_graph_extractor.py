@@ -399,6 +399,21 @@ def _source_handle_node_passes(profile: ExtractionProfile) -> frozenset[str]:
     return frozenset({"actor_pass"})
 
 
+def finalize_node_contract_order(
+    prompt: str, *, template: str, pass_name: str, profile: ExtractionProfile,
+) -> str:
+    """Move trusted instructions after source and hints, using template offsets."""
+    if (profile.qualified_id != RECAP_EXTRACTION_PROFILE.qualified_id
+            or pass_name not in {spec.pass_id for spec in profile.node_passes}):
+        return prompt
+    task_start = template.index("## Task\n\n")
+    source_start = template.index("\n\n## Source Packet\n\n", task_start)
+    if not prompt.startswith(template[:source_start]):
+        raise ValueError("Node prompt lost its trusted task prefix")
+    contract = template[task_start:source_start]
+    return prompt[:task_start] + prompt[source_start:] + "\n\n" + contract
+
+
 def render_category_pass_prompts(
     source_rows: Sequence[dict[str, Any]],
     *,
@@ -2063,6 +2078,10 @@ def _run_category_pipeline_impl(
             node_vocabulary_packet_override=effective_node_vocabulary_packet,
         )
         node_vocabulary_pass_diagnostics[pass_name] = node_vocabulary_diag
+        node_prompt = finalize_node_contract_order(
+            node_prompt, template=prompts[_prompt_key(pass_name)],
+            pass_name=pass_name, profile=active_profile,
+        )
         result = _run_pass(
             pass_name,
             model_id=model_id,
