@@ -160,3 +160,54 @@ semantics. Separately pin and verify the common review protocol, precision,
 severe-claim veto, uncertainty, reliability and experiment acceptance rules.
 Original reviews, phase limitations and measurement evidence remain linked.
 The command has no provider/database backend and does not change study captures.
+
+## Retained normalization comparison
+
+Use `normalization-compare --manifest /absolute/normalization.json` when a
+normalizer changes but actual model responses should remain fixed. This command
+extends the same evaluator; it does not create another ingestion producer.
+
+The manifest uses schema `dmb_retained_normalization_v1` and contains:
+
+- `tooling_sha256`: the existing evaluator's `tooling_identity()`.
+- `interpreter`: an absolute Python executable path and its SHA-256.
+- `environment`: a pinned JSON receipt containing `files` (absolute content
+  pins), `import_roots` (absolute real dependency directories), and `scope`
+  describing what dependency reproducibility is and is not attested.
+- `runtimes`: exactly `control` and `treatment`, each pinning a JSON manifest
+  with an absolute `root` and `files` entries containing relative `path` and
+  `sha256`. Pin the complete composed runtime, including any required donor
+  changes; a Git head alone cannot attest a composed runtime.
+- `cases`: unique generic `id` values and pins named `result`, `source`,
+  `request`, and `assessment`. Use the original canonical assessment, not a
+  newly rescored version. Each actual run can occur only once.
+- `output`: a new absolute evidence directory outside runtime, dependency and
+  input locations.
+- `worker_timeout_seconds`: 1–60 seconds for each offline worker, independent
+  of provider accounting or attempt policy.
+
+Workers follow explicit accepted response-component links and verify binding,
+outcome, model, request hashes and response bytes. They execute the pinned
+owner's parser, schema validation and source-packet materialization using the
+retained character context. The adapter currently supports the ordinary
+source-only category profile, without encounter or advisory passes. It refuses
+missing configured passes rather than accepting fixture defaults.
+
+The control must reconstruct the entire original decoded candidate exactly
+before the treatment worker starts. No fields are excluded or repaired. Reports
+retain both candidates, request hashes, worker diagnostics and changed root
+fields. Actual raw scores and costs remain linked to their original records;
+synthetic fixture metrics are omitted. Changed normalized fields still need
+independent semantic review and publication proof. This is a counterfactual
+comparison, not a new inference run or replacement database candidate.
+
+Workers disable Python site startup hooks, use a fresh bytecode-cache location,
+and trap network, common database and child-process calls. These are accidental
+effect guards for trusted pinned product code, not an operating-system security
+sandbox for hostile code. Explicit dependency pins do not automatically attest
+every transitive import; declare that limitation in the environment receipt.
+
+Successful output reuse verifies the completion/report/artifact hashes and the
+same manifest. Failed or incomplete directories are preserved and refused on
+reuse. Investigate a failure before creating a separately identified attempt;
+do not overwrite evidence or repeat unchanged runs until one passes.

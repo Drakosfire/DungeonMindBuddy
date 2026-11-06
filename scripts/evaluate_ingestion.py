@@ -11,7 +11,7 @@ from ingestion_evaluation.runner import Runner, verify_manifest
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['assessment-compare', 'review-packet', 'assessment-assemble', 'assessment-report', 'baseline-freeze', 'baseline-verify', 'qualify', 'capture', 'observe', 'audit', 'audit-retained', 'report', 'pause',
+    parser.add_argument('command', choices=['normalization-compare', 'assessment-compare', 'review-packet', 'assessment-assemble', 'assessment-report', 'baseline-freeze', 'baseline-verify', 'qualify', 'capture', 'observe', 'audit', 'audit-retained', 'report', 'pause',
                                            'source-qualify', 'source-execute', 'source-inspect', 'source-report',
                                            'publication-prepare', 'publication-qualify', 'publication-execute',
                                            'publication-inspect', 'publication-report',
@@ -28,6 +28,14 @@ def main():
     parser.add_argument('--private-receipt', type=Path)
     parser.add_argument('--review-id')
     args = parser.parse_args()
+    if args.command == 'normalization-compare':
+        if not args.manifest or any((args.baseline_output, args.qualification_sha, args.result,
+                                    args.review, args.assessment_output, args.audit, args.timing,
+                                    args.packet_output, args.private_receipt, args.review_id)):
+            parser.error('normalization-compare requires only --manifest')
+        from ingestion_evaluation.normalization import compare
+        print(json.dumps(compare(args.manifest)))
+        return
     if args.command == 'review-packet':
         if (not all((args.result, args.packet_output, args.private_receipt, args.review_id))
                 or any((args.manifest, args.review, args.assessment_output, args.audit,
