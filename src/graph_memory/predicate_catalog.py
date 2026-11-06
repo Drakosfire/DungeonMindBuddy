@@ -53,6 +53,14 @@ _CAPABILITY_PREDICATES = {
 }
 
 
+def source_precedence_endpoints_admitted(subject_node_type: str, object_node_type: str) -> bool:
+    """The source-order capability relates occurred EVENT candidates only.
+
+    Callers still own capability/profile adoption and evidence qualification.
+    """
+    return subject_node_type == object_node_type == "event"
+
+
 def _capability_predicates(capabilities: tuple[str, ...]):
     for capability in capabilities:
         if capability not in _CAPABILITY_PREDICATES:
