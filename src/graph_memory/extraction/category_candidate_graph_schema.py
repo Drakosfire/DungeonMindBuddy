@@ -5,6 +5,7 @@ from copy import deepcopy
 from typing import Any, Literal, Sequence
 
 from src.graph_memory.predicate_catalog import exact_predicate_ids, predicate_family_ids
+from src.graph_memory.candidate_graph_preview import BEAT_PRESENTATION_ORDER_DESCRIPTION
 
 PASS_NAMES = (
     "actor_pass",
@@ -148,7 +149,8 @@ def category_beat_pass_json_schema() -> dict[str, Any]:
                     "additionalProperties": False,
                     "properties": {
                         "beat_id": {"type": "string"},
-                        "order": {"type": "integer"},
+                        "order": {"type": "integer", "minimum": 1,
+                                  "description": BEAT_PRESENTATION_ORDER_DESCRIPTION},
                         "title": {"type": "string"},
                         "summary": {"type": "string"},
                         "involved_node_ids": {

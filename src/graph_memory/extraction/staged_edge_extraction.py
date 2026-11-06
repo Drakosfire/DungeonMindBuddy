@@ -14,6 +14,7 @@ from typing import Any, Mapping, Sequence
 
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv
 from src.graph_memory import identity_resolution as ir
+from src.graph_memory.candidate_graph_preview import BEAT_PRESENTATION_ORDER_DESCRIPTION
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,
     EVIDENCE_RULE,
@@ -195,6 +196,7 @@ def build_graph_context_packet(
         "```",
         "",
         "### Beat summaries",
+        f"`order`: {BEAT_PRESENTATION_ORDER_DESCRIPTION}",
         "",
         "```json",
         json.dumps(_beat_summaries(beats), indent=2),
