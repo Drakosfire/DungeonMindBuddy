@@ -84,6 +84,8 @@ jobs:
           src/application_state/content/import_pages.py
           scripts/adopt_authored_pages.py
           src/application_state/migrations/versions/20261031_0101_authored_pages.py
+          tests/application_state/test_conversation_library.py::test_active_messages_never_select_or_decode_execution_and_keep_exact_cursor
+          tests/application_state/test_conversation_library.py::test_active_message_pointer_and_rows_are_one_snapshot
           tests/application_state/test_authored_pages_postgres.py
           tests/test_authored_page_database_cutover.py
           tests/application_state/test_authored_page_adoption.py

@@ -1,3 +1,5 @@
+import { readActiveConversationMessages, type ActiveConversationMessages } from '../../api/conversationLibraryApi';
+import { ConversationDetailsButton } from './ConversationDetailsButton';
 import {isNativeSourceAuthority,isNativeProviderInput,isSurfaceNativeReceipt,isSurfaceNativeContext,isSurfaceNativeCompletion,isBuildAuthoringCompletion,isBuildImageCompletion} from '../../shared/surfaceNativeProtocol';
 import {isNativePlanQuery} from '../../shared/nativeStatementAnswerProtocol';
 import {isNativeStatementContext,nativeStatementDigestsBound,nativeAnswerText} from "../../shared/nativeStatementAnswerProtocol";
@@ -1839,6 +1841,20 @@ function isHistoryPlanReceiptBound(value: unknown, provenance: unknown, worldId:
     && primary.content_sha256 === basis.content_sha256;
 }
 
+/** Presentation metadata is kept separate from the verified history used by actions. */
+function messagePresentation(page: ActiveConversationMessages): WorldAgentConversationHistoryResponseV3 {
+  return {
+schema: 'dmb_agent_conversation_history_v3', world_id: page.world_id, conversation_state: page.conversation_state,
+    conversation_id: page.conversation_id, active_conversation_id: page.active_conversation_id, pointer_revision: page.pointer_revision,
+    next_before_sequence: page.next_before_sequence, turns: page.messages.map(({ status, revision, ...row }) => ({ ...row, lifecycle_status: status as import('../../api/types').AgentConversationTurnLifecycleV1 }))
+};
+}
+function sameSavedMessage(a: WorldAgentConversationHistoryTurn, b: WorldAgentConversationHistoryTurn) {
+  return a.turn_id === b.turn_id && a.sequence === b.sequence && a.lifecycle_status === b.lifecycle_status && a.user_text === b.user_text
+    && a.assistant_text === b.assistant_text && 'idempotency_key' in a && 'idempotency_key' in b && a.idempotency_key === b.idempotency_key
+    && canonicalJson(a.provenance) === canonicalJson(b.provenance);
+}
+
 function isWorldConversationHistory(value: unknown): value is WorldAgentConversationHistoryResponse {
   if (!isRecord(value)) return false;
   const schema = value.schema;
@@ -2296,11 +2312,12 @@ function reconcileCompletedPendingAsks(
   worldId: string,
   documentId: string,
   isCurrent: () => boolean,
+  capturedPending?: StoredPendingAsk[],
 ): Promise<{ refreshPendingList: boolean; storageError: string | null; confirmedTurnIds: string[] }> {
   if ((page.schema !== "dmb_agent_conversation_history_v3" && page.schema !== "dmb_agent_conversation_history_v4")) {
     return Promise.resolve({ refreshPendingList: false, storageError: null, confirmedTurnIds: [] });
   }
-  const pending = readPendingAsks(worldId, documentId)
+  const pending = (capturedPending ?? readPendingAsks(worldId, documentId))
     .filter((stored) => stored.envelope !== null);
   return Promise.all(pending.map(async (stored) => ({
     stored,
@@ -2585,6 +2602,13 @@ export function WorldPlanAgentConversation({
   const sharedConversation = useWorldAgentConversationState();
   const [localHistory, setLocalHistory] = useState<WorldAgentConversationHistoryResponse | null>(null);
   const history = sharedConversation?.worldId === worldId ? sharedConversation.history : localHistory;
+  const [messageHistory, setMessageHistory] = useState<WorldAgentConversationHistoryResponseV3 | null>(null);
+  const messageHistoryRef = useRef<WorldAgentConversationHistoryResponseV3 | null>(null);
+  const messageRevisions = useRef(new Map<string, number>());
+  const historyReadBusy = useRef<number | null>(null);
+  const displayHistory = messageHistory && history && sameHistoryPointer(messageHistory, history)
+    ? { ...messageHistory, turns: mergeHistoryTurns(messageHistory.turns.map(row => history.turns.find(full => sameSavedMessage(full, row)) ?? row), history.turns.filter(full => !messageHistory.turns.some(row => row.turn_id === full.turn_id))) as WorldAgentConversationHistoryResponseV3['turns'] } : history;
+
   const setHistory = sharedConversation?.worldId === worldId ? sharedConversation.setHistory : setLocalHistory;
   const askSlot = useAskPluginSlotOptional();
   const verifiedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
@@ -3001,11 +3025,11 @@ export function WorldPlanAgentConversation({
 
   const conversationDisplay = useMemo(
     () => buildWorldConversationDisplayEvents(
-      history,
+      displayHistory,
       proposalThreadForDisplay?.turns ?? [],
       proposalOrderForDisplay?.positions ?? [],
     ),
-    [history, proposalOrderForDisplay, proposalThreadForDisplay?.turns],
+    [displayHistory, proposalOrderForDisplay, proposalThreadForDisplay?.turns],
   );
   const archivedProposalTurns = useMemo(() => {
     if (!namespace || !documentId) return [];
@@ -3203,7 +3227,7 @@ export function WorldPlanAgentConversation({
     setConversationActions([]);
     setConversationActionsError(null);
     const viewedId = history?.conversation_id;
-    if (!scopeMatches || !verifiedWorldId || !viewedId) return () => { active = false; };
+    if (isReadOnly || !scopeMatches || !verifiedWorldId || !viewedId) return () => { active = false; };
     void getWorldPlanConversationActions(verifiedWorldId, viewedId)
       .then((page) => {
         if (active && page.schema_version === "dmb_world_plan_action_conversation_projection_v1"
@@ -3215,7 +3239,7 @@ export function WorldPlanAgentConversation({
         if (active) setConversationActionsError(reason instanceof Error ? reason.message : "Could not load World edit dialogue.");
       });
     return () => { active = false; };
-  }, [scopeMatches, verifiedWorldId, history?.conversation_id, history?.pointer_revision]);
+  }, [isReadOnly, scopeMatches, verifiedWorldId, history?.conversation_id, history?.pointer_revision]);
 
   useLayoutEffect(() => {
     proposalRequestRef.current = null;
@@ -3253,6 +3277,7 @@ export function WorldPlanAgentConversation({
     if (!sameHistoryScope) {
       historySnapshotRef.current = null;
       setHistory(null);
+      messageHistoryRef.current = null; setMessageHistory(null); messageRevisions.current.clear();
     }
     setOlderLoading(false);
     setHistoryError(null);
@@ -3264,14 +3289,41 @@ export function WorldPlanAgentConversation({
     }
 
     const controller = new AbortController();
+    let pendingAtRead: StoredPendingAsk[] = [];
     setHistoryLoading(true);
-    void getWorldAgentConversationHistory(verifiedWorldId, {
-      limit: WORLD_HISTORY_PAGE_SIZE,
-      includeTurnCorrelation: true,
-      signal: controller.signal,
-    })
+    historyReadBusy.current = generation;
+    void readActiveConversationMessages(verifiedWorldId, undefined, controller.signal)
+      .then(async light => {
+        const metadata = messagePresentation(light);
+        if (!isWorldConversationHistory(metadata) || metadata.world_id !== verifiedWorldId) throw new Error('The World conversation response did not match the selected World or contained invalid saved-message metadata.');
+        if (!active || generation !== historyGenerationRef.current) return null;
+        const reset = confirmedResetRef.current;
+        if (reset?.worldId === verifiedWorldId && (metadata.pointer_revision < reset.pointerRevision
+          || metadata.pointer_revision === reset.pointerRevision && metadata.conversation_id !== reset.conversationId)) throw new Error('The refreshed transcript has not reached the confirmed new conversation. Refresh history again.');
+        messageHistoryRef.current = metadata; setMessageHistory(metadata);
+        const current = historySnapshotRef.current;
+        const previousRevisions = messageRevisions.current; messageRevisions.current = new Map(light.messages.map(row => [row.turn_id, row.revision]));
+        let page: WorldAgentConversationHistoryResponse = {
+...metadata, turns: current && sameHistoryPointer(current, metadata)
+            ? current.turns.filter(turn => previousRevisions.get(turn.turn_id) === messageRevisions.current.get(turn.turn_id) && metadata.turns.some(row => sameSavedMessage(turn, row))) : []
+};
+        historySnapshotRef.current = page; setHistory(page); setHistoryLoading(false);
+        pendingAtRead = documentId && !isReadOnly ? readPendingAsks(verifiedWorldId, documentId) : [];
+        const keys = new Set<string>();
+        if (pendingPlayTurn) { const key = await worldTurnIdempotencyKey(verifiedWorldId, pendingPlayTurn.request.turn_id); if (key) keys.add(key); }
+        if (sharedConversation?.pendingTurn) { const key = await worldTurnIdempotencyKey(verifiedWorldId, sharedConversation.pendingTurn.turnId); if (key) keys.add(key); }
+        if (submittedMessage?.scopeKey === scopeKey) { const key = submittedMessage.idempotencyKey ?? await worldTurnIdempotencyKey(verifiedWorldId, submittedMessage.id); if (key) keys.add(key); }
+        if (documentId && !isReadOnly) for (const stored of pendingAtRead) { if (stored.envelope) { const key = await pendingPlanAskIdempotencyKey(stored); if (key) keys.add(key); } }
+        for (const row of metadata.turns) {
+          if (!keys.has(row.idempotency_key) || page.turns.some(turn => sameSavedMessage(turn, row))) continue;
+          const full = await readExactMessageTurn(metadata, row, controller.signal);
+          if (!active || generation !== historyGenerationRef.current) return null;
+          page = { ...page, turns: mergeHistoryTurns(page.turns, [full]) as WorldAgentConversationHistoryResponseV3['turns'] };
+        }
+        return page;
+      })
       .then(async (page) => {
-        if (!active || generation !== historyGenerationRef.current) return;
+        if (!page || !active || generation !== historyGenerationRef.current) return;
         const validState = isWorldConversationHistory(page)
           && page.world_id === verifiedWorldId
           && await areHistoryReceiptDigestsBound(page);
@@ -3318,6 +3370,7 @@ export function WorldPlanAgentConversation({
             verifiedWorldId,
             documentId,
             () => active && generation === historyGenerationRef.current,
+            pendingAtRead,
           );
           if (!active || generation !== historyGenerationRef.current) return;
           if (reconciliation.refreshPendingList) refreshPendingAskList();
@@ -3367,6 +3420,8 @@ export function WorldPlanAgentConversation({
           setHistoryError("The refreshed transcript has not reached the confirmed new conversation. Refresh history again.");
           return;
         }
+        const inspected = historySnapshotRef.current;
+        if (inspected && sameHistoryPointer(inspected, page)) page = { ...page, turns: mergeHistoryTurns(inspected.turns.filter(full => !page.turns.some(turn => turn.turn_id === full.turn_id)), page.turns) as WorldAgentConversationHistoryResponseV3['turns'] };
         historySnapshotRef.current = page;
         setHistory(page);
         if (matchingNotice && confirmedAskNotice
@@ -3387,15 +3442,16 @@ export function WorldPlanAgentConversation({
         }
       })
       .finally(() => {
+        if (historyReadBusy.current === generation) historyReadBusy.current = null;
         if (active && generation === historyGenerationRef.current) setHistoryLoading(false);
       });
-    return () => { active = false; controller.abort(); olderHistoryReadRef.current?.abort(); };
+    return () => { if (historyReadBusy.current === generation) historyReadBusy.current = null; active = false; controller.abort(); olderHistoryReadRef.current?.abort(); };
   }, [historyRequested, scopeKey, scopeMatches, verifiedWorldId, documentId, historyRefreshNonce, sharedConversation?.historyRefreshNonce,
     sharedConversation?.pendingTurn?.surface, pendingPlayTurn?.serialized, isReadOnly, visible]);
 
   useEffect(() => {
     if (verifiedWorldId !== worldId || !sharedConversation?.pendingTurn) return;
-    const timer = window.setInterval(() => setHistoryRefreshNonce((current) => current + 1), 3000);
+    const timer = window.setInterval(() => { if (historyReadBusy.current === null) setHistoryRefreshNonce((current) => current + 1); }, 3000);
     return () => window.clearInterval(timer);
   }, [verifiedWorldId, worldId, sharedConversation?.pendingTurn]);
 
@@ -4572,6 +4628,22 @@ export function WorldPlanAgentConversation({
     }
   }
 
+  async function readExactMessageTurn(snapshot: WorldAgentConversationHistoryResponse, row: WorldAgentConversationHistoryTurn, signal?: AbortSignal) {
+    const page = await getWorldAgentConversationHistory(snapshot.world_id, { limit: 1, beforeSequence: row.sequence + 1, includeTurnCorrelation: true, signal });
+    if (!isWorldConversationHistory(page) || !sameHistoryPointer(snapshot, page) || page.turns.length !== 1
+      || !sameSavedMessage(page.turns[0], row) || !await areHistoryReceiptDigestsBound(page)) throw new Error('Reply details contained an invalid Graph-context receipt or do not match this saved message. Refresh the conversation.');
+    return page.turns[0];
+  }
+  async function inspectSavedMessage(row: WorldAgentConversationHistoryTurn, signal: AbortSignal) {
+    const snapshot = messageHistoryRef.current, generation = historyGenerationRef.current;
+    if (!snapshot || !snapshot.turns.some(item => sameSavedMessage(item, row))) throw new Error('This message is no longer selected.');
+    const full = await readExactMessageTurn(snapshot, row, signal);
+    const current = historySnapshotRef.current;
+    if (signal.aborted || generation !== historyGenerationRef.current || !current || !sameHistoryPointer(current, snapshot)) return;
+    const next = { ...current, turns: mergeHistoryTurns(current.turns.filter(item => item.turn_id !== row.turn_id), [full]) as WorldAgentConversationHistoryResponseV3['turns'] };
+    historySnapshotRef.current = next; setHistory(next);
+  }
+
   async function loadOlderTurns() {
     const current = historySnapshotRef.current;
     if (!current || !current.next_before_sequence || olderLoading || historyLoading
@@ -4583,12 +4655,8 @@ export function WorldPlanAgentConversation({
     setOlderLoading(true);
     setHistoryError(null);
     try {
-      const page = await getWorldAgentConversationHistory(current.world_id, {
-        limit: WORLD_HISTORY_PAGE_SIZE,
-        beforeSequence: cursor,
-        includeTurnCorrelation: true,
-        signal: controller.signal,
-      });
+      const light = await readActiveConversationMessages(current.world_id, cursor, controller.signal);
+      const page = messagePresentation(light);
       const latest = historySnapshotRef.current;
       if (controller.signal.aborted || generation !== historyGenerationRef.current) return;
       const validPage = isWorldConversationHistory(page)
@@ -4604,9 +4672,13 @@ export function WorldPlanAgentConversation({
       }
       const merged: WorldAgentConversationHistoryResponse = {
         ...latest,
-        turns: (mergeHistoryTurns(page.turns, latest.turns) as WorldAgentConversationHistoryResponseV3["turns"]),
         next_before_sequence: page.next_before_sequence,
       };
+      const previous = messageHistoryRef.current;
+      if (!previous || !sameHistoryPointer(previous, page)) throw new Error('Message history changed during pagination.');
+      light.messages.forEach(row => messageRevisions.current.set(row.turn_id, row.revision));
+      const combined = { ...page, turns: mergeHistoryTurns(page.turns, previous.turns) as WorldAgentConversationHistoryResponseV3['turns'] };
+      messageHistoryRef.current = combined; setMessageHistory(combined);
       historySnapshotRef.current = merged;
       const viewport = presentationHosts?.messages?.parentElement ?? playMessagesHostRef.current?.parentElement;
       if (viewport) {
@@ -6121,7 +6193,7 @@ export function WorldPlanAgentConversation({
     && (submittedMessage.conversationId === null
       ? submittedMessage.pointerRevision === (history?.pointer_revision ?? null)
       : submittedMessage.conversationId === history?.conversation_id)
-    && !history?.turns.some(turn => turn.turn_id === submittedMessage.id
+    && !displayHistory?.turns.some(turn => turn.turn_id === submittedMessage.id
       || (submittedMessage.idempotencyKey && "idempotency_key" in turn
         && turn.idempotency_key === submittedMessage.idempotencyKey
         && turn.user_text === submittedMessage.message));
@@ -6139,6 +6211,15 @@ export function WorldPlanAgentConversation({
     previousAttempts: WorldConversationDisplayEvent[] = [], historicalAttempt = false): React.ReactNode => {
     if (event.kind === "proposal") return renderProposalEvent(event.turn, event.position, false);
     const turn = event.turn;
+    if (!history?.turns.some(full => sameSavedMessage(full, turn))) return <BuddyTurnInspection key={`world:${turn.turn_id}`} worldId={verifiedWorldId ?? ''} conversationId={history?.conversation_id ?? ''} turnId={turn.turn_id} lifecycle={turn.lifecycle_status}>
+      <article className={`world-plan-agent-conversation__turn world-plan-agent-conversation__turn--${turn.assistant_text ? 'complete' : turn.lifecycle_status}`} data-turn-id={turn.turn_id} data-sequence={turn.sequence} tabIndex={-1}>
+        <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--user"><span className="world-plan-agent-conversation__speaker">You</span><p>{turn.user_text}</p></div>
+        <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
+          <div className="world-plan-agent-conversation__reply-heading"><span className="world-plan-agent-conversation__speaker">Buddy</span></div>
+          {turn.assistant_text ? <WorldPlanAgentAnswer answer={turn.assistant_text} /> : <p>{turn.lifecycle_status === 'completed' ? 'Open sources and actions to view this reply.' : turn.lifecycle_status === 'failed' || turn.lifecycle_status === 'interrupted' ? 'This reply did not finish.' : 'Waiting for this reply…'}</p>}
+          <ConversationDetailsButton key={`details:${scopeKey}:${historyGenerationRef.current}:${turn.turn_id}`} load={signal => inspectSavedMessage(turn, signal)} />
+        </div>
+      </article></BuddyTurnInspection>;
     const turnReferences=turn.authored_references??(turn.retry_context?.schema==='dmb_turn_retry_context_row_v2'?turn.retry_context.authored_references:null);
     const replyText = turn.assistant_text ?? '';
     const completed=graphContextForTurn(turn)?.completion;
@@ -6396,7 +6477,7 @@ export function WorldPlanAgentConversation({
     }) : [];
   const activityTurn = activityBusy
     ? pendingActivityMatches.length === 1 ? pendingActivityMatches[0] : undefined
-    : [...(history?.turns ?? [])].sort((a,b)=>b.sequence-a.sequence)[0];
+    : [...(displayHistory?.turns ?? [])].sort((a, b) => b.sequence - a.sequence)[0];
   const activityTurnId = activityTurn?.turn_id;
   const activityLifecycle = activityTurn?.lifecycle_status ?? 'running';
   const activityInComposer = activityBusy || activityLifecycle !== 'completed'

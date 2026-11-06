@@ -20,6 +20,7 @@ def client(monkeypatch):
         get_name=Mock(return_value={"title": "Synthetic"}),
         read_turns=Mock(return_value={"turns": []}),
         read_messages=Mock(return_value={"messages": []}),
+        read_active_messages=Mock(return_value={"messages": []}),
         rename=Mock(return_value={"title": "Saved"}),
     )
     for name in vars(service):
@@ -193,3 +194,22 @@ def test_message_preview_is_scoped_and_does_not_request_execution_details(client
     client.service.read_turns.assert_not_called()
     assert client.client.get(url + "?limit=2&limit=3").status_code == 422
     assert client.client.get(url + "?unknown=1").status_code == 422
+
+
+def test_active_messages_auth_scope_and_selector_use_the_light_owner(client):
+    url = "/api/live/agent/worlds/world-one/conversations/active/messages"
+    assert (
+        client.client.get(url, params={"limit": 25, "before_sequence": 12}).status_code
+        == 200
+    )
+    client.service.read_active_messages.assert_called_once_with(
+        "world-one", limit=25, before_sequence=12
+    )
+    client.service.read_turns.assert_not_called()
+    assert client.client.get(url + "?limit=2&limit=3").status_code == 422
+    assert client.client.get(url + "?unknown=1").status_code == 422
+    client.world.reset_mock()
+    client.service.read_active_messages.reset_mock()
+    assert TestClient(client.app).get(url).status_code == 403
+    client.world.assert_not_called()
+    client.service.read_active_messages.assert_not_called()

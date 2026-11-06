@@ -1,5 +1,5 @@
 import {beforeEach,expect,it,vi} from 'vitest';
-import {readConversationTurns,resumeConversation,changeConversationLifecycle,readConversationMessages} from './conversationLibraryApi';
+import {readConversationTurns,resumeConversation,changeConversationLifecycle,readConversationMessages,readActiveConversationMessages} from './conversationLibraryApi';
 import {authenticatedApiFetch} from './liveApi';
 vi.mock('./liveApi',async original=>({...await original<typeof import('./liveApi')>(),authenticatedApiFetch:vi.fn()}));
 const cid='11111111-1111-4111-8111-111111111111',tid='22222222-2222-4222-8222-222222222222';
@@ -48,4 +48,14 @@ it('accepts exact saved-message previews but never full-detail metadata in that 
  response(preview);expect((await readConversationMessages('world',cid)).messages[0].assistant_text).toBe('Saved answer');
  for(const patch of [{world_id:'foreign'},{conversation_id:tid},{next_before_sequence:3},{messages:[{...preview.messages[0],reply_object:null}]},{messages:[{...preview.messages[0],sequence:0}]}]){response({...preview,...patch});await expect(readConversationMessages('world',cid)).rejects.toThrow();}
  response(preview);await expect(readConversationMessages('world',cid,2)).rejects.toThrow();
+});
+
+
+it('admits only scoped active-message metadata without execution or action grants',async()=>{
+ const v={schema:'dmb_active_conversation_messages_v1',world_id:'world',conversation_state:'active',conversation_id:cid,active_conversation_id:cid,pointer_revision:4,
+  messages:[{turn_id:tid,idempotency_key:tid,revision:2,sequence:3,status:'completed',user_text:'Question',assistant_text:'Answer',provenance:{world_id:'world'}}],next_before_sequence:3};
+ response(v);expect((await readActiveConversationMessages('world')).messages[0].assistant_text).toBe('Answer');
+ for(const patch of [{world_id:'foreign'},{active_conversation_id:tid},{pointer_revision:-1},{next_before_sequence:4},{messages:[{...v.messages[0],completion:{}}]},{messages:[{...v.messages[0],provenance:{world_id:'foreign'}}]}]){response({...v,...patch});await expect(readActiveConversationMessages('world')).rejects.toThrow();}
+ response(v);await expect(readActiveConversationMessages('world',3)).rejects.toThrow();
+ response({...v,conversation_state:'absent',conversation_id:null,active_conversation_id:null,messages:[],next_before_sequence:null});expect((await readActiveConversationMessages('world')).conversation_state).toBe('absent');
 });

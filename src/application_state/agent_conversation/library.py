@@ -190,29 +190,106 @@ def _reply_object(turn, world, conversation):
     return None
 
 
-def read_messages(world: str, conversation: UUID, *, limit: int = 50, before_sequence: int | None = None):
-    """Read saved text only. Never grants evidence, retry or authoring authority.
+def _message_page(conn, world, conversation, limit, before_sequence, *, metadata=False):
+    """One bounded text query. Execution, context and completion stay off this path."""
+    from . import repository as repo
 
-    Full accepted-record inspection remains read_turns; this view does not replay
-    producer validation merely to display APP's persisted conversation artifact.
-    """
+    rows = conn.execute(
+        """SELECT turn_id,sequence,status,user_text,assistant_text,idempotency_key,
+            revision,world_id,surface_resolution,surface_id,surface_instance_id
+        FROM agent.turn WHERE world_id=%s AND conversation_id=%s
+            AND (%s::bigint IS NULL OR sequence<%s)
+        ORDER BY sequence DESC LIMIT %s""",
+        (world, conversation, before_sequence, before_sequence, limit + 1),
+    ).fetchall()
+    page = list(reversed(rows[:limit]))
+    references = repo._turn_reference_page(conn, page) if metadata else {}
+    messages = []
+    for row in page:
+        message = {
+            key: row[key]
+            for key in ("sequence", "status", "user_text", "assistant_text")
+        }
+        message["turn_id"] = str(row["turn_id"])
+        if metadata:
+            message.update(
+                idempotency_key=str(row["idempotency_key"]),
+                revision=row["revision"],
+                provenance=repo.turn_provenance(
+                    row, references[row["turn_id"]]
+                ).model_dump(mode="json"),
+            )
+        messages.append(message)
+    return messages, page[0]["sequence"] if len(rows) > limit else None
+
+
+def _message_selector(limit, before_sequence):
     if not 1 <= limit <= 100 or (before_sequence is not None and before_sequence < 1):
         raise ApplicationStateValidationError("Invalid message page selector")
+
+
+def read_messages(
+    world: str,
+    conversation: UUID,
+    *,
+    limit: int = 50,
+    before_sequence: int | None = None,
+):
+    """Stored text grants no evidence, retry or authoring authority."""
+    _message_selector(limit, before_sequence)
     with unit_of_work(_ready_dsn()) as conn:
         conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         conn.row_factory = dict_row
         _one(conn, world, conversation)
-        rows = conn.execute(
-            """SELECT turn_id,sequence,status,user_text,assistant_text FROM agent.turn
-            WHERE world_id=%s AND conversation_id=%s AND (%s::bigint IS NULL OR sequence<%s)
-            ORDER BY sequence DESC LIMIT %s""",
-            (world, conversation, before_sequence, before_sequence, limit + 1),
-        ).fetchall()
-    page = list(reversed(rows[:limit]))
-    return {"schema": "dmb_conversation_messages_v1", "world_id": world,
-            "conversation_id": str(conversation),
-            "messages": [{**row, "turn_id": str(row["turn_id"])} for row in page],
-            "next_before_sequence": page[0]["sequence"] if len(rows) > limit else None}
+        messages, cursor = _message_page(
+            conn, world, conversation, limit, before_sequence
+        )
+    return {
+        "schema": "dmb_conversation_messages_v1",
+        "world_id": world,
+        "conversation_id": str(conversation),
+        "messages": messages,
+        "next_before_sequence": cursor,
+    }
+
+
+def read_active_messages(
+    world: str, *, limit: int = 50, before_sequence: int | None = None
+):
+    """Pointer and message metadata share one APP snapshot, never a replay authority."""
+    from . import repository as repo
+    from application_state.errors import ApplicationStateIntegrityError
+
+    _message_selector(limit, before_sequence)
+    with unit_of_work(_ready_dsn()) as conn:
+        conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        conn.row_factory = dict_row
+        pointer = repo.get_world_state(conn, world)
+        active = repo.get_active_conversation(conn, world)
+        ident = pointer.active_conversation_id if pointer else None
+        if (
+            (active.conversation_id if active else None) != ident
+            or active
+            and active.status != "active"
+        ):
+            raise ApplicationStateIntegrityError(
+                "Active conversation pointer has no matching owner"
+            )
+        messages, cursor = (
+            _message_page(conn, world, ident, limit, before_sequence, metadata=True)
+            if ident
+            else ([], None)
+        )
+    return {
+        "schema": "dmb_active_conversation_messages_v1",
+        "world_id": world,
+        "conversation_state": "active" if ident else "absent",
+        "conversation_id": str(ident) if ident else None,
+        "active_conversation_id": str(ident) if ident else None,
+        "pointer_revision": pointer.revision if pointer else 0,
+        "messages": messages,
+        "next_before_sequence": cursor,
+    }
 
 
 def read_turns(
