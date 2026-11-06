@@ -204,7 +204,7 @@ it('opens an honest error report for a historical interruption without a cause',
   render(<BuddyContextTrace ownerActive={false} trace={{...trace([]), terminal_status:'interrupted'}} />)
   expect(screen.getByText('Reply error report')).toBeInTheDocument()
   expect(screen.getByRole('alert')).toHaveTextContent('The specific cause was not recorded')
-  expect(screen.getByText('Execution timeline').closest('details')).not.toHaveAttribute('open')
+  expect(screen.getByText('Execution timeline').closest('details')).toHaveAttribute('open')
 })
 
 it('leads with safe durable exception metadata without pretending capture is success', () => {
@@ -226,14 +226,14 @@ it('explains the reproduced source-name failure using a fixed public description
 
 
 describe('copy captured trace', () => {
-  it('copies the selected attempt and complete record with the timeline collapsed', async () => {
+  it('copies the selected attempt and complete record independently of timeline disclosure', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     vi.stubGlobal('navigator', { clipboard: { writeText } })
     try {
       const captured = {...trace([passage('A source excerpt with ``` fences.'),
         {kind:'failure' as const,sequence:1,elapsed_ms:23700,phase:'delivery',code:'build_source_name_missing',stage:'context_acquisition'}]), terminal_status:'interrupted' as const, attempt:2}
       render(<BuddyContextTrace ownerActive={false} trace={captured} />)
-      expect(screen.getByText('Execution timeline').closest('details')).not.toHaveAttribute('open')
+      expect(screen.getByText('Execution timeline').closest('details')).toHaveAttribute('open')
       fireEvent.click(screen.getByRole('button', {name:'Copy trace',exact:true}))
       await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Trace copied.'))
       const copied = writeText.mock.calls[0][0] as string

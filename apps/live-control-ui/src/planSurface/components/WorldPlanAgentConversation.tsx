@@ -6469,12 +6469,16 @@ export function WorldPlanAgentConversation({
     ?? (submittedMessage?.scopeKey === scopeKey ? submittedMessage.id : null) : null;
   // Client request UUIDs are not APP turn UUIDs. History admits the durable
   // identity through the persisted idempotency key, never through row recency.
-  const pendingActivityMatches = pendingActivityId && history?.world_id === verifiedWorldId
-    ? history.turns.filter(turn => {
+  // Activity observes admitted identity, not acceptance of the complete answer receipt.
+  // Receipt refresh may retire verified rows while the same durable request is running.
+  const activityHistory = messageHistory && messageHistory.world_id === verifiedWorldId
+    && sameHistoryPointer(messageHistory, history ?? messageHistory) ? messageHistory : history;
+  const pendingActivityMatches = pendingActivityId && activityHistory?.world_id === verifiedWorldId
+    ? activityHistory.turns.filter(turn => {
       return submittedMessage?.scopeKey === scopeKey && submittedMessage.id === pendingActivityId
         && (submittedMessage.conversationId === null
-          ? history.active_conversation_id === history.conversation_id
-          : submittedMessage.conversationId === history.conversation_id)
+          ? activityHistory.active_conversation_id === activityHistory.conversation_id
+          : submittedMessage.conversationId === activityHistory.conversation_id)
         && (turn.turn_id === pendingActivityId || Boolean(submittedMessage.idempotencyKey)
           && "idempotency_key" in turn && turn.idempotency_key === submittedMessage.idempotencyKey)
         && turn.user_text === submittedMessage.message
@@ -6490,11 +6494,11 @@ export function WorldPlanAgentConversation({
   const activityLifecycle = activityTurn?.lifecycle_status ?? 'running';
   const activityInComposer = activityBusy || activityLifecycle !== 'completed'
     || Boolean(presentationHosts && !presentationHosts.header);
-  const replyActivity = activityTurnId && verifiedWorldId && history?.conversation_id ? <BuddyTurnInspection
-    key={`activity:${verifiedWorldId}:${history.conversation_id}:${activityTurnId}`}
-    worldId={verifiedWorldId} conversationId={history.conversation_id} turnId={activityTurnId}
+  const replyActivity = activityTurnId && verifiedWorldId && activityHistory?.conversation_id ? <BuddyTurnInspection
+    key={`activity:${verifiedWorldId}:${activityHistory.conversation_id}:${activityTurnId}`}
+    worldId={verifiedWorldId} conversationId={activityHistory.conversation_id} turnId={activityTurnId}
     lifecycle={activityLifecycle}>
-    <BuddyActivity worldId={verifiedWorldId} conversationId={history.conversation_id} turnId={activityTurnId} lifecycle={activityLifecycle} />
+    <BuddyActivity worldId={verifiedWorldId} conversationId={activityHistory.conversation_id} turnId={activityTurnId} lifecycle={activityLifecycle} />
   </BuddyTurnInspection> : activityBusy ? <div className="world-plan-agent-conversation__working" role="status">Getting things ready…</div> : null;
   const newConversationButton = (
     <><button type="button" className="conversation-dock__icon-button" aria-label="Conversation history" title="Conversations" onClick={()=>setLibraryOpen(true)}><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-9l-5 3v-3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg></button><span ref={setReferenceTriggerHost}/><button
