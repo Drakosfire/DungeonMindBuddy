@@ -109,6 +109,7 @@ async function expandAnswerEvidence(index = 0) {
 }
 
 async function expandAllAnswerEvidence() {
+  await waitForConversationReady();
   await screen.findAllByText("Evidence trail");
   document.querySelectorAll<HTMLSummaryElement>(".world-plan-agent-conversation__evidence-trail > summary").forEach((control) => {
     const disclosure = control.parentElement;
@@ -1316,6 +1317,8 @@ function setupApi(initialHistory: WorldAgentConversationHistoryResponse, inspect
   });
 
   const getHistory = vi.spyOn(liveApi, "getWorldAgentConversationHistory").mockImplementation(async (_world, options = {}) => {
+    // Text arrives before independently inspected receipts, as on the live read path.
+    await new Promise(resolve => setTimeout(resolve, 20));
     if (options.limit === 1) { const page = liveHistory(currentHistory); const row = page.turns.find(turn => turn.sequence === options.beforeSequence! - 1) ?? (olderPage ? liveHistory(olderPage).turns.find(turn => turn.sequence === options.beforeSequence! - 1) : undefined); return { ...page, turns: row ? [row] : [], next_before_sequence: null } as WorldAgentConversationHistoryResponse; }
     if (options.beforeSequence !== undefined) {
       if (olderHandler) return olderHandler();
@@ -2609,7 +2612,7 @@ describe("World Plan conversation consumer", () => {
     expect(evidenceDetails).not.toHaveAttribute("open");
     fireEvent.click(evidenceSummary);
     expect(within(evidenceDetails).getByText("evidence-internal-test")).toBeInTheDocument();
-    expect(screen.getByText(/Playable target: scene scene:opening · marker grammar v1/)).toBeInTheDocument();
+    expect(await screen.findByText(/Playable target: scene scene:opening · marker grammar v1/)).toBeInTheDocument();
     fireEvent.click(screen.getByText("Advanced details"));
     expect(screen.getByRole("region", { name: "Ask target details" })).toHaveTextContent(
       "Ask uses the committed Plan. Unsaved editor changes are excluded",
@@ -3139,6 +3142,7 @@ describe("World Plan conversation consumer", () => {
     render(conversationElement());
 
     expect(await screen.findByText("Question failed")).toBeInTheDocument();
+    await waitForConversationReady();
     const failed = screen.getByText("Question failed").closest("article")!;
     fireEvent.click(failed.querySelector("details > summary")!);
     expect(within(failed).getByText("This World history turn failed; no final Graph-context completion was recorded.")).toBeInTheDocument();
@@ -4354,7 +4358,7 @@ describe("World Plan conversation consumer", () => {
     expect(await screen.findByText(/original selected card scene:opening at committed Plan object revision 7/)).toBeInTheDocument();
     await waitFor(() => expect(screen.getByText(/original selected card scene:opening at committed Plan object revision 7/))
       .toHaveTextContent("World history refreshed."));
-    expect(screen.getByText(new RegExp(`Playable target: scene scene:opening · marker grammar v1 · committed Plan ${documentId}, object revision 7, WorkRevision ${workRevisionId}, revision 1, SHA-256 ${contentSha256}`))).toBeInTheDocument();
+    expect(await screen.findByText(new RegExp(`Playable target: scene scene:opening · marker grammar v1 · committed Plan ${documentId}, object revision 7, WorkRevision ${workRevisionId}, revision 1, SHA-256 ${contentSha256}`))).toBeInTheDocument();
     expect(selectedCardForB.textContent).toBe(selectedCardForBBeforeSettlement);
     expect(screen.getByRole("region", { name: "World conversation transcript" }).querySelector("article"))
       .toHaveTextContent("scene:opening");
@@ -4367,7 +4371,7 @@ describe("World Plan conversation consumer", () => {
     mounted.unmount();
     render(conversationElement({ playableTarget: cardA, selectionGeneration: 2 }));
     expect(await screen.findByText(answer)).toBeInTheDocument();
-    expect(screen.getByText(/Playable target: scene scene:opening · marker grammar v1/)).toBeInTheDocument();
+    expect(await screen.findByText(/Playable target: scene scene:opening · marker grammar v1/)).toBeInTheDocument();
   });
 
   it("settles a confirmed Graph Ask only after its correlated V3 receipt loads", async () => {
@@ -4752,7 +4756,7 @@ describe("World Plan conversation consumer", () => {
 
     expect(await screen.findByText(answer)).toBeInTheDocument();
     expect(await screen.findByText(/original selected card scene:arrival at committed Plan object revision 7/)).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(`Playable target: scene scene:arrival · marker grammar v1 · committed Plan ${documentId}, object revision 7, WorkRevision ${workRevisionId}, revision 1, SHA-256 ${contentSha256}`))).toBeInTheDocument();
+    expect(await screen.findByText(new RegExp(`Playable target: scene scene:arrival · marker grammar v1 · committed Plan ${documentId}, object revision 7, WorkRevision ${workRevisionId}, revision 1, SHA-256 ${contentSha256}`))).toBeInTheDocument();
     expect(selectedCardAfterBasisChange).toHaveTextContent("Focus: arrival");
     expect(selectedCardAfterBasisChange).not.toHaveTextContent(contentSha256);
     expect(postAsk).toHaveBeenCalledTimes(1);
@@ -4801,6 +4805,7 @@ describe("World Plan conversation consumer", () => {
 
     const answer = "The opening has a safe generic historical answer.";
     expect(await screen.findByText(answer)).toBeInTheDocument();
+    await waitForConversationReady();
     const transcript = screen.getByRole("region", { name: "World conversation transcript" });
     const row = transcript.querySelector("article")!;
     expect(within(row).getByRole("alert")).toHaveTextContent("Target receipt unavailable");
@@ -4811,6 +4816,7 @@ describe("World Plan conversation consumer", () => {
     mounted.unmount();
     render(conversationElement({ playableTarget: cardA, selectionGeneration: 2 }));
     expect(await screen.findByText(answer)).toBeInTheDocument();
+    await waitForConversationReady();
     const reopenedTranscript = screen.getByRole("region", { name: "World conversation transcript" });
     const reopenedRow = reopenedTranscript.querySelector("article")!;
     expect(within(reopenedRow).getByRole("alert")).toHaveTextContent("Target receipt unavailable");
@@ -4990,6 +4996,7 @@ describe("World Plan conversation consumer", () => {
       await screen.findByText(/invalid Graph-context receipt/);expect(open).not.toHaveBeenCalled();return;
     }
     await screen.findByText('What do the native notes say?');
+    await waitForConversationReady();
     fireEvent.click(screen.getByText('Evidence trail',{selector:'summary'}));
     fireEvent.click(screen.getByRole('button',{name:'Lantern notes · Full document'}));
     await screen.findByRole('region',{name:'Opened source section'});
@@ -5056,6 +5063,7 @@ describe("World Plan conversation consumer", () => {
       await screen.findByText(/invalid Graph-context receipt/);expect(open).not.toHaveBeenCalled();return;
     }
     await screen.findByText('What was reported?');
+    await waitForConversationReady();
     fireEvent.click(screen.getByText('Evidence trail',{selector:'summary'}));
     fireEvent.click(screen.getByRole('button',{name:'Read source statement · c1'}));
     await screen.findByRole('region',{name:'Opened source section'});
