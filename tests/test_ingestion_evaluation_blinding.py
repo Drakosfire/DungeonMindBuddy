@@ -124,3 +124,22 @@ def test_unexpected_public_files_are_not_exposed_or_removed(case):
         invoke(case)
     assert (case['output'] / 'telemetry.json').read_text() == 'preserve private evidence'
     assert not case['receipt'].exists()
+
+
+def test_host_materialization_origin_comes_from_owner_receipt_not_authored_text(case):
+    result = json.loads(case['result'].read_text())
+    raw_path = Path(case['raw']['path'])
+    raw = json.loads(raw_path.read_text())
+    first = raw['execution_evidence']['records'][1]['envelope']
+    first.update(pass_name='actor_pass', ge_attempt={'event_id': 'attempt-1'})
+    second = raw['execution_evidence']['records'][2]['envelope']
+    second.update(pass_name='actor_pass-normalized', ge_attempt=None)
+    # Identical text has different origins; no text-shape heuristic or redaction.
+    raw_path.write_text(json.dumps(raw))
+    for part in (result['components'], result['run']['components']):
+        part['raw_model_response']['sha256'] = digest(raw_path.read_bytes())
+    case['result'].write_text(json.dumps(result))
+    invoke(case)
+    rows = json.loads((case['output'] / 'responses.json').read_text())['responses']
+    assert [r['origin'] for r in rows] == ['provider_response', 'host_materialization']
+    assert rows[0]['text'] == rows[1]['text'] == case['text']

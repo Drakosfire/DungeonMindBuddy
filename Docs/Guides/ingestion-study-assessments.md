@@ -121,3 +121,9 @@ wrappers/excerpts and normalized fields require neutral provenance contracts and
 earn no model-knowledge credit. Allocation experiments still require independent
 qualification and calibration before calls; this command grants no execution
 or semantic-assessment authority. Historical review records remain unchanged.
+
+Each response wrapper carries an origin tag derived from the owning receipt,
+not its text shape: `provider_response`, `host_materialization`, or `unclassified`.
+Host-normalized wrappers are retained for provenance but are not additional
+provider attempts or model claims. Unclassified records require investigation;
+never infer authorship merely from a `parsed` or `source_units` key in the text.

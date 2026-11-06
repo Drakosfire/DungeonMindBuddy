@@ -47,3 +47,10 @@ Calibration receipt: `packet-mechanical-calibration-v1/verification.json`, SHA
 `33cc0e6f02030674e3f76c9fee1eb8d8ca0862a1e509074172967e0ba8be4280`,
 under the retained study review protocol evidence directory. Exact-head review
 and delivery follow this working-diff check; no execution activation is implied.
+
+Pre-execution qualification identified that host-normalized wrappers share the
+raw-response component kind. Add receipt-derived public origin tags, preserving
+all text unchanged: provider attempt metadata, host `-normalized` receipt, or
+explicit unclassified. This closes the original provenance condition without
+exposing effort or inventing authorship from JSON text shape. Added synthetic
+same-text/different-origin test; no H2 captures occurred under the predecessor.

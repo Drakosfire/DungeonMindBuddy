@@ -69,7 +69,16 @@ def prepare(result_path: Path, output: Path, private_receipt: Path, review_id: s
         if digest(body) != response['sha256'] or len(body) != response['utf8_bytes']:
             raise ValueError('Response text receipt mismatch')
         ordinal = len(responses)
+        envelope = record['envelope']
+        # The owner also retains exact host-materialized wrappers under this
+        # component kind. They are not additional provider attempts or claims.
+        pass_name = envelope.get('pass_name')
+        origin = ('host_materialization' if isinstance(pass_name, str)
+                  and pass_name.endswith('-normalized') and envelope.get('ge_attempt') is None
+                  else 'provider_response' if isinstance(envelope.get('ge_attempt'), dict)
+                  else 'unclassified')
         responses.append({'response_id': f'response-{ordinal + 1:04d}',
+                          'origin': origin,
                           'text': text, 'text_sha256': digest(body), 'utf8_bytes': len(body)})
         mapping.append({'public_pointer': f'/responses/{ordinal}/text',
                         'original_pointer': f'/execution_evidence/records/{index}/envelope/response/text'})
@@ -89,6 +98,9 @@ def prepare(result_path: Path, output: Path, private_receipt: Path, review_id: s
                           'can survive host title/summary replacement.',
             'limits': 'Operational envelopes excluded; response count, length and authored self-disclosure '
                       'remain visible. No semantic redaction. This directory is not an access-control sandbox.',
+            'response_origins': 'host_materialization is an owner-normalized wrapper, not another provider '
+                                'attempt. provider_response has retained attempt metadata. unclassified '
+                                'requires provenance review; never infer model authorship from its text shape.',
         }),
     }
     public = {name: _pin(output / name, body) for name, body in outputs.items()}
