@@ -416,7 +416,8 @@ def test_beat_call_receives_source_local_inventory_and_keeps_source_associations
         'object_pass', 'thread_pass', 'beat_pass', 'edge_pass']
     beats = result.candidate_graph['beats']
     assert [b['involved_node_ids'] for b in beats] == [[_cid('actor_pass', 'npc:miri')], []]
-    assert [b['summary'] for b in beats] == [first, second]
+    assert [b['summary'] for b in beats] == ['Untrusted model summary'] * 2
+    assert [b['evidence_refs'][0]['anchor_quote_matches'][0]['match_text'] for b in beats] == [first, second]
     assert {node['node_id'] for node in result.candidate_graph['nodes']} == {_cid('actor_pass', n) for n in ('npc:miri', 'npc:duplicate')}
 
 
@@ -814,3 +815,40 @@ def test_quote_binding_with_source_whitespace_still_rejects_unproven_evidence(ca
     bound, changes = _canonicalize_recap_quote_nominations(
         raw, source_rows=rows, source_text=text, source_span_index=index)
     assert bound == raw == original and changes == []
+
+
+def test_authored_beat_prose_does_not_enter_standard_later_requests():
+    from copy import deepcopy
+    import hashlib
+
+    source = "Mirathorn is a river city."
+    index = _span_index(session_id="session-24")
+    index["content_sha256"] = hashlib.sha256(source.encode()).hexdigest()
+    index["spans"][0].update(line_start=1, line_end=1, char_start=0, char_end=len(source))
+
+    class ProseClient(RecordingClient):
+        def __init__(self, prose):
+            super().__init__()
+            self.prose, self.requests = prose, {}
+
+        def run_pass(self, pass_name, **kwargs):
+            self.requests[pass_name] = deepcopy(kwargs)
+            response = super().run_pass(pass_name, **kwargs)
+            if pass_name == "beat_pass":
+                response["parsed"] = {"observation_beats": [{
+                    "beat_id": "b", "order": 1, "title": self.prose,
+                    "summary": self.prose, "involved_node_ids": [],
+                    "evidence_refs": [{"source_span_ref_id": "E1", "anchor_quotes": [source]}],
+                }]}
+            return response
+
+    clients = [ProseClient(source), ProseClient("An unverified authored claim.")]
+    for client in clients:
+        result = extract_category_candidate_graph(CategoryGraphExtractionOptions(
+            campaign_id="synthetic", session_id="session-24", session_number=24,
+            source_text=source, source_span_index=index, profile=RECAP_EXTRACTION_PROFILE,
+        ), client=client)
+        assert result.candidate_graph["beats"][0]["summary"] == client.prose
+    assert clients[0].passes == clients[1].passes
+    assert clients[0].requests == clients[1].requests
+    assert len(clients[0].passes) == 7

@@ -899,14 +899,14 @@ def _canonicalize_recap_quote_nominations(parsed, *, source_rows, source_text, s
     return output, changes
 
 
-def _recap_beat_excerpt_candidates(
+def _recap_reviewable_beat_candidates(
     raw_beats: Sequence[Any],
     *,
     source_span_index: Mapping[str, Any] | None,
     source_text: str | None,
     source_rows: Sequence[Mapping[str, Any]] | None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Resolve model span/quote nominations to exact host-owned recap excerpts."""
+    """Retain authored fields only with a complete set of exact source witnesses."""
     raw_beats = [raw for raw in raw_beats if isinstance(raw, Mapping)]
     if not raw_beats:
         return [], []
@@ -1019,14 +1019,14 @@ def _recap_beat_excerpt_candidates(
     def defer(beat_ordinal: int, code: str, reference_ordinal: int = 0) -> dict[str, Any]:
         reference_suffix = f":ref:{reference_ordinal:03d}" if reference_ordinal else ""
         return {
-            "item_id": f"deferred:recap-beat-excerpt:{beat_ordinal:03d}{reference_suffix}:{code}",
+            "item_id": f"deferred:recap-beat:{beat_ordinal:03d}{reference_suffix}:{code}",
             "label": f"Beat {beat_ordinal}",
-            "reason": f"recap_beat_excerpt_deferred:{code}",
+            "reason": f"recap_beat_deferred:{code}",
             "evidence_refs": [],
-            "warnings": [f"recap_beat_excerpt_deferred:{code}"],
+            "warnings": [f"recap_beat_deferred:{code}"],
         }
 
-    excerpt_beats: list[dict[str, Any]] = []
+    reviewable_beats: list[dict[str, Any]] = []
     deferred_beats: list[dict[str, Any]] = []
     for beat_ordinal, raw in enumerate(raw_beats, start=1):
         if digest_error:
@@ -1037,37 +1037,40 @@ def _recap_beat_excerpt_candidates(
             deferred_beats.append(defer(beat_ordinal, "missing_span_nomination"))
             continue
 
-        # Validate before deduplicating: an invalid second nomination must not
-        # disappear merely because another reference names the same paragraph.
+        # An authored claim is indivisible: validate every nomination before
+        # deduplicating, and never salvage it by discarding an invalid sibling.
         matched_by_ref: dict[str, dict[str, Any]] = {}
+        invalid = False
         for reference_ordinal, nominated_ref in enumerate(evidence_refs, start=1):
             matched, error = resolve_nomination(nominated_ref)
             if error:
+                invalid = True
                 deferred_beats.append(defer(beat_ordinal, error, reference_ordinal))
             elif matched is not None:
                 matched_by_ref[str(matched["source_span_ref_id"])] = matched
+        if invalid or not matched_by_ref:
+            continue
 
-        for matched in sorted(matched_by_ref.values(), key=lambda item: item["index_position"]):
-            canonical_ref = str(matched["source_span_ref_id"])
-            normalized = _normalize_beat(raw)
-            normalized["source_beat_id"] = normalized["beat_id"]
-            # Raw ordinal prevents missing/duplicate model IDs from colliding;
-            # canonical paragraph identity makes sibling IDs order independent.
-            ref_digest = hashlib.sha256(canonical_ref.encode("utf-8")).hexdigest()
-            normalized["beat_id"] = f"recap-beat-excerpt:{beat_ordinal:03d}:{ref_digest}"
-            normalized["title"] = f"Source excerpt {matched['ordinal']}"
-            normalized["summary"] = str(matched["text"])
-            normalized["evidence_refs"] = [
-                {
-                    "source_span_ref_id": canonical_ref,
-                    "anchor_quotes": [str(matched["text"])],
-                }
-            ]
-            # Carry exact indentation through the shared display-quote normalizer.
-            normalized["_host_excerpt_text"] = str(matched["text"])
-            excerpt_beats.append(normalized)
+        witnesses = sorted(matched_by_ref.values(), key=lambda item: item["index_position"])
+        normalized = _normalize_beat(raw)
+        normalized["source_beat_id"] = normalized["beat_id"]
+        # Raw ordinal separates repeated/missing model IDs. The complete set of
+        # canonical witnesses, independent of nomination order, binds identity.
+        ref_digest = hashlib.sha256(json.dumps(sorted(matched_by_ref)).encode()).hexdigest()
+        normalized["beat_id"] = f"recap-beat:{beat_ordinal:03d}:{ref_digest}"
+        normalized["evidence_refs"] = [
+            {"source_span_ref_id": item["source_span_ref_id"],
+             "anchor_quotes": [str(item["text"])]}
+            for item in witnesses
+        ]
+        # Private host-only evidence used through sanitation, then removed.
+        # Authored title/summary are never used as quotation authority.
+        normalized["_host_quote_text_by_span"] = {
+            item["source_span_ref_id"]: str(item["text"]) for item in witnesses
+        }
+        reviewable_beats.append(normalized)
+    return reviewable_beats, deferred_beats
 
-    return excerpt_beats, deferred_beats
 
 
 def _normalize_edge(
@@ -1227,13 +1230,13 @@ def consolidate_category_outputs(
     raw_beats = beat_payload.get("observation_beats") or []
     per_pass_counts[beat_pass_id] = len(raw_beats)
     if active_profile.admitted_source_domains == frozenset({"recap"}):
-        source_anchored_beats, deferred_beats = _recap_beat_excerpt_candidates(
+        reviewable_beats, deferred_beats = _recap_reviewable_beat_candidates(
             raw_beats,
             source_span_index=source_span_index,
             source_text=source_text,
             source_rows=source_rows,
         )
-        beats.extend(source_anchored_beats)
+        beats.extend(reviewable_beats)
         deferred.extend(deferred_beats)
     else:
         for raw in raw_beats:
@@ -1453,19 +1456,22 @@ def sanitize_parts(
                 clone["warnings"] = list(clone.get("warnings") or []) + [
                     f"evidence_ref_rejected:{ordinal}" for ordinal in rejected_ordinals
                 ]
-            host_excerpt = clone.get("_host_excerpt_text")
-            if key == "beats" and isinstance(host_excerpt, str):
-                # Keep the evidence match exact even when the excerpt begins
-                # with indentation that the ordinary quote normalizer trims.
+            host_quotes = clone.get("_host_quote_text_by_span")
+            if key == "beats" and isinstance(host_quotes, Mapping):
+                # Filtering cannot silently narrow support for authored prose.
+                if {ref["source_span_ref_id"] for ref in refs} != set(host_quotes):
+                    dropped_ids.append(str(clone.get("beat_id", "")))
+                    rejected_refs.append({"collection": "beats",
+                                          "record_id": clone.get("beat_id"),
+                                          "reason": "incomplete_authored_beat_witness_set"})
+                    continue
                 for ref in refs:
-                    ref["anchor_quote_matches"] = [
-                        {
-                            "quote": host_excerpt,
-                            "char_start": 0,
-                            "char_end": len(host_excerpt),
-                            "match_text": host_excerpt,
-                        }
-                    ]
+                    exact_text = host_quotes[ref["source_span_ref_id"]]
+                    ref["anchor_quotes"] = [exact_text]
+                    ref["anchor_quote_matches"] = [{
+                        "quote": exact_text, "char_start": 0,
+                        "char_end": len(exact_text), "match_text": exact_text,
+                    }]
             clone["evidence_refs"] = refs
             kept.append(clone)
         out[key] = kept
@@ -2261,7 +2267,7 @@ def _run_category_pipeline_impl(
     deferred_planning = list({item["item_id"]: item for item in deferred_planning}.values())
     for beat in sanitized.get("beats") or []:
         if isinstance(beat, dict):
-            beat.pop("_host_excerpt_text", None)
+            beat.pop("_host_quote_text_by_span", None)
     sanitized["deferred_items"].extend(deferred_planning)
     authority_diag["deferred_items"] = len(deferred_planning)
     merged_diag = {

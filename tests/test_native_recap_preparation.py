@@ -1560,3 +1560,41 @@ def test_three_extents_preserve_all_held_gaps_and_existing_identity(lane):
     result = confirm(lane, {k: packet[k] for k in ("envelope", "prepared", "token")})
     assert result.status_code == 200, result.text
     assert len(result.json()["result"]["assertion_results"]) == 3
+
+
+@pytest.mark.parametrize("select_summary", [True, False])
+def test_explicit_authored_beat_fields_publish_while_mixed_summary_can_stay_held(lane, select_summary):
+    beat = lane.payload["beats"][0]
+    beat["title"] = "Traveller encounters Pippa"
+    beat["summary"] = ("A traveller encountered Pippa near the tower." if select_summary
+                       else "A traveller met Pippa and stole a crown.")
+    # These are independent explicit review decisions, not automatic entailment.
+    fields = ("title", "node_type", "summary") if select_summary else ("title", "node_type")
+    lane.body["selections"] = [choice("beat", kind="beat", fields=fields)]
+    lane.refresh()
+    response = lane.post()
+    assert response.status_code == 200, response.text
+    reviewed = response.json()
+    packet = {key: reviewed[key] for key in ("envelope", "prepared", "token")}
+    prepared = transport.decode_prepared(packet["prepared"])
+    assert len(prepared.prepared_operations) == 1
+    operation = prepared.prepared_operations[0]
+    assert isinstance(operation, CreateObject)
+    assert operation.facts[0].value.value == beat["title"]
+    assert operation.facts[1].value.term == "dungeonbuddy:session_beat"
+    assert all(f.metadata.evidence_ref_ids == (lane.support_ids["first"],) for f in operation.facts)
+    record = next(r for r in reviewed["records"] if r["kind"] == "beat")
+    assert ("summary" in record["selected_fields"]) is select_summary
+    assert ("summary" in record["unselected_fields"]) is not select_summary
+    response = confirm(lane, packet)
+    assert response.status_code == 200, response.text
+    child = lane.repo.get_revision(SPACE_ID, response.json()["result"]["child_revision_id"])
+    values = json.dumps(child.graph_payload)
+    assert beat["title"] in values
+    assert (beat["summary"] in values) is select_summary
+    _, access = service.native.access_context(lane.repo, SPACE_ID)
+    opened = service.open_admitted_native_text(access, lane.support_ids["first"])
+    assert opened.status == "available"
+    assert opened.body_text == lane.text
+    exact = opened.body_text.encode()[opened.span_start_byte:opened.span_end_byte].decode()
+    assert exact == lane.text.splitlines(keepends=True)[0]
