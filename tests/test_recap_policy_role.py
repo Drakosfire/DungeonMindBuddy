@@ -14,7 +14,7 @@ from src.graph_memory.source_span import build_source_span_index_for_text, sourc
 POLICY = 'Source-faithfulness requirements: ' + _RECAP_SOURCE_FAITHFULNESS
 
 
-def dispatch(profile, source):
+def dispatch(profile, source, *, source_handles=False):
     class Client:
         def __init__(self): self.calls=[]
         def run_pass(self, name, *, model_id, instructions, user_content, pass_spec=None, **kwargs):
@@ -22,6 +22,7 @@ def dispatch(profile, source):
             key='observation_nodes' if pass_spec.kind in ('node', 'encounter_job') else 'observation_beats' if pass_spec.kind=='beat' else 'observation_edges'
             return {'parsed':{key:[]},'cost_usd':0.0,'usage':{},'elapsed_ms':0,'response_id':'synthetic:offline'}
     client=Client()
+    client.supports_node_source_handles = source_handles
     index=source_span_index_to_dict(build_source_span_index_for_text(
         source_artifact_id='synthetic:source',content_sha256=hashlib.sha256(source.encode()).hexdigest(),text=source))
     options=owner.CategoryGraphExtractionOptions(campaign_id='synthetic',session_id='session-1',
@@ -32,12 +33,13 @@ def dispatch(profile, source):
     return client.calls
 
 
-def test_seven_actual_dispatches_transfer_policy_once_and_preserve_every_other_byte(monkeypatch):
+@pytest.mark.parametrize('source_handles', [False, True])
+def test_seven_actual_dispatches_transfer_policy_once_and_preserve_every_other_byte(monkeypatch, source_handles):
     source='A traveler examines an old bridge. Later the traveler returns to the inn.'
-    actual=dispatch(RECAP_EXTRACTION_PROFILE,source)
+    actual=dispatch(RECAP_EXTRACTION_PROFILE,source,source_handles=source_handles)
     with monkeypatch.context() as control:
         control.setattr(owner,'recap_prompt_role_binding',lambda profile:('',profile))
-        previous=dispatch(RECAP_EXTRACTION_PROFILE,source)
+        previous=dispatch(RECAP_EXTRACTION_PROFILE,source,source_handles=source_handles)
     assert len(actual)==len(previous)==7
     assert {r[0] for r in actual}=={'actor_pass','location_pass','collective_pass','object_pass','thread_pass','beat_pass','edge_pass'}
     for new,old in zip(actual,previous):
@@ -49,15 +51,19 @@ def test_seven_actual_dispatches_transfer_policy_once_and_preserve_every_other_b
         assert new[1].count(POLICY)==1
 
 
-def test_source_policy_echo_is_never_removed(monkeypatch):
+@pytest.mark.parametrize('source_handles', [False, True])
+def test_source_policy_echo_is_never_removed(monkeypatch, source_handles):
     source='A copied document contains the following text:\n\n'+POLICY+'\n\nThe traveler keeps walking.'
-    actual=dispatch(RECAP_EXTRACTION_PROFILE,source)
+    actual=dispatch(RECAP_EXTRACTION_PROFILE,source,source_handles=source_handles)
     with monkeypatch.context() as control:
         control.setattr(owner,'recap_prompt_role_binding',lambda profile:('',profile))
-        previous=dispatch(RECAP_EXTRACTION_PROFILE,source)
+        previous=dispatch(RECAP_EXTRACTION_PROFILE,source,source_handles=source_handles)
     for new,old in zip(actual,previous):
         assert new[2]==old[2].replace(POLICY,'',1)
-        assert POLICY in new[2]  # Its literal source occurrence survives.
+        # Source-handle packets split text into sentence units; the exact
+        # old/new byte delta above proves every source unit survives unchanged.
+        if not source_handles:
+            assert POLICY in new[2]
         assert new[1].count(POLICY)==1
 
 
