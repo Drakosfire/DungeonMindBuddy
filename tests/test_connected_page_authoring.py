@@ -476,7 +476,7 @@ def _delete_operation(c):
 
 
 def test_operation_files_are_not_live_recovery_authority(case):
-    operation = prepare(case)
+    operation = confirm(case, prepare(case)).json()
     path, _ = _export_operation(case)
     historical = case.root / 'out/registries/connected_pages' / path.name
     historical.parent.mkdir(parents=True)
@@ -488,7 +488,7 @@ def test_operation_files_are_not_live_recovery_authority(case):
     assert adopted == operation
     assert owner.adopt_connected_page_operation(case.root, historical) == operation
     assert get(case).json() == operation
-    assert case.authority.publish_calls == 0
+    assert case.authority.publish_calls == 1
     assert len(list_workspace_documents(case.root, kind='worldbuilding_source')) == 2
 
 
@@ -529,3 +529,28 @@ def test_database_operation_does_not_create_registry_directory(case):
     operation = prepare(case)
     assert confirm(case, operation).status_code == 200
     assert not (case.root / 'out/registries/connected_pages').exists()
+
+
+@pytest.mark.parametrize('change', ['receipt', 'source', 'request', 'prepared', 'missing_publication', 'incomplete'])
+def test_adoption_requires_exact_authoritative_completed_publication(case, change):
+    operation = prepare(case)
+    if change != 'incomplete':
+        assert confirm(case, operation).status_code == 200
+    path, state = _export_operation(case)
+    _delete_operation(case)
+    calls = case.authority.publish_calls
+    if change == 'receipt':
+        state['receipt']['created_node_ids']['place'] = 'node:forged'
+    elif change == 'source':
+        state['saved_source']['documentId'] = case.record.document_id
+    elif change == 'request':
+        state['graph_request']['proposals'][0]['objectRef']['label'] = 'Forged label'
+    elif change == 'prepared':
+        state['prepared']['confirm_token'] = 'forged-token'
+    elif change == 'missing_publication':
+        case.authority.receipts.clear()
+    path.write_text(json.dumps(state))
+    with pytest.raises(owner.ConnectedPageError):
+        owner.adopt_connected_page_operation(case.root, path)
+    assert get(case).status_code == 409
+    assert case.authority.publish_calls == calls

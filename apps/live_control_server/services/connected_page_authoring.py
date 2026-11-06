@@ -13,7 +13,7 @@ from apps.live_control_server.models.connected_page import (ConnectedPageRequest
 from apps.live_control_server.services.graph_document_source import GraphDocumentSource, resolve_graph_document_source
 from apps.live_control_server.services.graph_object_authoring_prepare import (
     GraphObjectAuthoringPrepareRequest, prepare_graph_object_authoring_write,
-    GraphObjectAuthoringCommitRequest,
+    GraphObjectAuthoringCommitRequest, GraphObjectAuthoringCommitResponse, GraphObjectAuthoringPrepareResponse,
 )
 from apps.live_control_server.services.graph_object_authoring_commit import commit_graph_object_authoring_write
 from application_state.content.connected_pages import locked_operation
@@ -128,8 +128,35 @@ def adopt_connected_page_operation(root: Path, path: Path):
         intent = parse_connected_page_intent(state['intent'])
         _ownership(root, intent)
         result = _response(root, state)
+        _verify_completed_adoption(root, state, intent)
         journal.save(state)
         return result
+
+
+def _verify_completed_adoption(root, state, intent):
+    # Historical files are input, not proof that Graph publication occurred.
+    # Reuse the old publication owner's exact seal/source/receipt checks, with
+    # fresh publication disabled before any publish call can be reached.
+    if state['phase'] != 'complete':
+        raise ConnectedPageError('Only completed historical operations can be adopted; retain this file for recovery review')
+    try:
+        selector = GraphDocumentSource.model_validate(state['saved_source'])
+        prepared = GraphObjectAuthoringPrepareResponse.model_validate(state['prepared'])
+        receipt = GraphObjectAuthoringCommitResponse.model_validate(state['receipt'])
+        if (selector.document_id != state['page_id']
+                or selector.content_sha256 != _sha(state['initial_markdown'])
+                or state['graph_request'] != _graph_request(root, state, intent)):
+            raise ValueError('Historical page/source/request differs')
+        recovered = commit_graph_object_authoring_write(
+            GraphObjectAuthoringCommitRequest.model_validate({
+                **state['graph_request'], 'confirmToken': prepared.confirm_token}),
+            corpus_root=root, recovery_only=True,
+        )
+        ignored = {'result', 'idempotency_status'}
+        if receipt.model_dump(exclude=ignored) != recovered.model_dump(exclude=ignored):
+            raise ValueError('Historical receipt differs from publication authority')
+    except (ValueError, TypeError, KeyError) as exc:
+        raise ConnectedPageError('The historical completed publication cannot be verified') from exc
 
 
 def operation_schema(intent):

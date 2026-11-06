@@ -213,6 +213,7 @@ jobs:
           tests/test_connected_page_authoring.py::test_operation_files_are_not_live_recovery_authority
           tests/test_connected_page_authoring.py::test_adoption_never_overwrites_newer_operation_or_page
           tests/test_connected_page_authoring.py::test_adoption_rejects_inconsistent_or_foreign_record
+          tests/test_connected_page_authoring.py::test_adoption_requires_exact_authoritative_completed_publication
           tests/test_connected_page_authoring.py::test_saved_origin_concurrent_retry_has_one_retained_page
           tests/test_connected_page_authoring.py::test_response_loss_retries_one_reserved_page
           tests/test_connected_page_authoring.py::test_saved_excerpt_uses_coherent_committed_owner_projection
