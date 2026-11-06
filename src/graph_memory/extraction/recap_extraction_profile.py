@@ -144,6 +144,27 @@ def _with_recap_source_faithfulness(spec: ExtractionPassSpec) -> ExtractionPassS
         ),
     )
 
+
+def recap_prompt_role_binding(profile: ExtractionProfile) -> tuple[str, ExtractionProfile]:
+    """Transfer existing trusted policy once; never edit source/inventory text.
+
+    Canonical profile instructions and standalone renderers remain stable. Only
+    ordinary standard-v2 client dispatch uses this transient message-role view.
+    """
+    if profile.qualified_id != f"{RECAP_PROFILE_ID}@{RECAP_PROFILE_VERSION}":
+        return "", profile
+    policy = f"Source-faithfulness requirements: {_RECAP_SOURCE_FAITHFULNESS}"
+
+    def task(spec: ExtractionPassSpec) -> ExtractionPassSpec:
+        return replace(spec, instruction=spec.instruction.replace(policy, "", 1))
+
+    return policy, replace(
+        profile,
+        node_passes=tuple(task(spec) for spec in profile.node_passes),
+        beat_pass=task(profile.beat_pass) if profile.beat_pass is not None else None,
+        edge_pass=task(profile.edge_pass),
+    )
+
 DEFAULT_SEMANTIC_STATE = {
     "canon_state": "played_canon",
     "lifecycle_state": "candidate",

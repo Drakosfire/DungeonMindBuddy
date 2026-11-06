@@ -26,6 +26,7 @@ from src.graph_memory.extraction.recap_extraction_profile import (
     DEFAULT_SEMANTIC_STATE as RECAP_DEFAULT_SEMANTIC_STATE,
     EVIDENCE_RULE as RECAP_EVIDENCE_RULE,
     RECAP_EXTRACTION_PROFILE,
+    recap_prompt_role_binding,
 )
 from src.graph_memory.source_span import document_source_ref_id
 from src.graph_memory.vocabulary.dynamic_selection import build_dynamic_context_vocabulary_packet
@@ -2057,17 +2058,20 @@ def _run_category_pipeline_impl(
     ):
         from src.graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
         node_source_packet = compile_source_sentence_packet(options.source_text, source_rows)
+    system_policy, message_profile = recap_prompt_role_binding(active_profile)
     prompts = render_category_pass_prompts(
         source_rows,
-        profile=active_profile,
+        profile=message_profile,
         node_source_packet=node_source_packet,
     )
-    later_prompts = (render_category_pass_prompts(compact_context.prompt_rows(), profile=active_profile)
+    later_prompts = (render_category_pass_prompts(compact_context.prompt_rows(), profile=message_profile)
                      if compact_context is not None else prompts)
     pass_outputs: dict[str, dict[str, Any]] = {}
     pass_telemetry: dict[str, Any] = {}
     total_cost: float | None = 0.0
     system = "Category-decomposed graph memory extraction."
+    if system_policy:
+        system += "\n\n" + system_policy
     node_vocabulary_pass_diagnostics: dict[str, Any] = {}
     effective_node_vocabulary_packet, dynamic_node_vocabulary_diag = resolve_node_vocabulary_packet_for_options(options)
 
