@@ -1,5 +1,6 @@
 """Owning allocation construction and existing GE request/receipt boundary, offline."""
 import json
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -27,6 +28,11 @@ def test_ordinary_v2_uses_owned_default_path_with_only_reasoning_disabled(tmp_pa
     monkeypatch.setattr(owner, '_normalized_from_registered', lambda *a: source)
     monkeypatch.setattr(projection, 'resolve_managed_source_identity', lambda *a:
         SimpleNamespace(native_world_id='world:synthetic', binding_version=1))
+    # The pinned study composition also retains the known-character donor.
+    # This allocation-only test must not read its live graph context.
+    monkeypatch.setitem(sys.modules,
+        'apps.live_control_server.services.known_character_context',
+        SimpleNamespace(read_known_character_catalog=lambda *a: None))
     constructed = []
     def client(limits, **kwargs):
         result = SimpleNamespace(limits=limits, context=kwargs)

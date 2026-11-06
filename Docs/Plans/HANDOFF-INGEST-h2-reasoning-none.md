@@ -44,3 +44,9 @@ The reviewer mistakenly included the broader bounded execution suite, producing
 Do not report that suite green or infer a product regression from setup errors.
 No provider calls or successful database effects occurred. Exact-head review
 follows commit. Fake-engine success is not routed-provider enforcement evidence.
+
+Composed-runtime qualification exposed one additional test isolation gap: the
+retained known-character donor legitimately reads graph context after construction.
+The allocation-only unit fixture now supplies that existing context port inertly;
+no product or donor behavior changes. Preserve the initial composed v1 manifest
+and failed synthetic test as evidence, then qualify an additive v2 composition.
