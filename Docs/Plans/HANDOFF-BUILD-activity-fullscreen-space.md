@@ -1,6 +1,6 @@
 # BUILD: fullscreen activity space
 
-Status: ACTIVE. PRIME owns this UI-only slice from merged activity d64488c3848aa0a09cbb924b0d1ce8079a7b0f97 on codex/activity-fullscreen-space in buddy-context-loop. Topology: parallel-independent of frozen backend PR2136/f9dadd2e2; no overlapping write paths. The predecessor UI lease is released. Local delivery is serial after the already delivered UI9c21b3497. No live runtime lease yet; an ephemeral localhost5293 preview is owned by PRIME for read-only UI verification and must be stopped afterward.
+Status: ACTIVE. PRIME owns this UI-only slice from merged activity d64488c3848aa0a09cbb924b0d1ce8079a7b0f97 on codex/activity-fullscreen-space in buddy-context-loop. Topology: parallel-independent of frozen backend PR2136/f9dadd2e2; no overlapping write paths. The predecessor UI lease is released. Local delivery is serial after the already delivered UI9c21b3497. No live runtime lease yet. PRIME stopped the ephemeral localhost5293 preview and closed its tab, with the trusted dock preference restored. That preview could not read the conversation through the normal trusted-origin session boundary; authentication was left unchanged. Ordinary authenticated5202 visual validation remains pending after qualified preserving delivery.
 
 Observed defect: the fullscreen conversation inherits the resized dock's --conversation-dock-height337px. Expanded activity therefore remains145px tall despite the fullscreen viewport. The complete timeline is present, but only a small part is visible.
 
