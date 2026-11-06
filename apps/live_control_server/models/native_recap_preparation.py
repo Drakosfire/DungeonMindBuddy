@@ -98,9 +98,17 @@ class RecordSelection(Closed):
                 raise ValueError("edges require create and explicit relationship metadata")
         elif self.metadata is not None or (self.action == "create" and not self.facts):
             raise ValueError("objects require per-fact review; create cannot be empty")
-        keys = [(fact.field, fact.index) for fact in self.facts]
-        if len(set(keys)) != len(keys):
+        whole_keys = [(fact.field, fact.index) for fact in self.facts
+                      if not isinstance(fact, SelectedDescriptionExtent)]
+        extents = [fact.extent for fact in self.facts
+                   if isinstance(fact, SelectedDescriptionExtent)]
+        if len(set(whole_keys)) != len(whole_keys) or (
+            extents and ("description", None) in whole_keys
+        ):
             raise ValueError("duplicate selected field")
+        ranges = sorted((extent.start_byte, extent.end_byte) for extent in extents)
+        if any(right[0] < left[1] for left, right in zip(ranges, ranges[1:])):
+            raise ValueError("overlapping description extents")
         return self
 
 

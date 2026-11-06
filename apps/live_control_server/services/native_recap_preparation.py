@@ -207,7 +207,7 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
         action = selection.action if selection else "held"
         values = _fields(kind, record) if kind != "edge" else {}
         selected = []
-        description_selection = None
+        description_selections = []
         held_description_extents = []
         if selection and action in {"create", "use_existing"}:
             # One shared projector verifies exact APP source/span/quote references.
@@ -239,12 +239,7 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
                             "start_byte": fact.extent.start_byte, "end_byte": fact.extent.end_byte,
                             "slice_sha256": digest, "whole_field_selected": False,
                         }
-                        description_selection = provenance
-                        held_description_extents = [
-                            {"start_byte": start, "end_byte": end}
-                            for start, end in ((0, fact.extent.start_byte),
-                                               (fact.extent.end_byte, full_length)) if start < end
-                        ]
+                        description_selections.append(provenance)
                     if fact.field == "node_type":
                         _require(value in _KINDS, "unsupported_candidate_kind")
                         predicate, encoded = "dnd5e:classification", wk.TermRefFactValue(_KINDS[value])
@@ -259,6 +254,17 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
                     ))
                     if provenance is None:
                         selected.append(field)
+                if description_selections:
+                    # Preserve fact order above; only the complement needs source order.
+                    cursor = 0
+                    for extent in sorted(description_selections, key=lambda row: row["start_byte"]):
+                        if cursor < extent["start_byte"]:
+                            held_description_extents.append({"start_byte": cursor,
+                                                             "end_byte": extent["start_byte"]})
+                        cursor = extent["end_byte"]
+                    if cursor < full_length:
+                        held_description_extents.append({"start_byte": cursor, "end_byte": full_length})
+                    _require(bool(held_description_extents), "candidate_description_extents_cover_whole_field")
                 if action == "create":
                     operation = f"record:{index}"
                     operations.append(wk.CreateObject(operation, tuple(facts)))
@@ -274,8 +280,8 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
             "held_aliases": list(getattr(record, "aliases", ())),
             "non_executable_hints": [field for field in ("corpus_ref", "enriched_by", "order", "involved_node_ids", "unresolved_thread_node_ids", "source_beat_id") if getattr(record, field, None) is not None],
         })
-        if description_selection is not None:
-            inventory[-1]["selected_description_extent"] = description_selection
+        if description_selections:
+            inventory[-1]["selected_description_extents"] = description_selections
             inventory[-1]["held_description_extents"] = held_description_extents
     precedences = []
     for index, edge in enumerate(preview.edges):
