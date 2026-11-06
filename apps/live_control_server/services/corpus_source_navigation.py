@@ -242,25 +242,30 @@ class NativeBodyNavigation:
             raise ValueError("Native navigation requires its original trusted source context")
         self.adapter = adapter
         self._source_display = None
+        self._direct_sources = None
 
-    def _source_name(self, catalog):
-        # Reuse the human inspector's producer labels, after the actual source
-        # acquisition. These names cannot admit a source, establish scope or replace
-        # the immutable native identity/bytes already in its catalog.
+    def _source_choices(self):
+        # Existing Core catalogue is metadata only. Source bodies require the
+        # later explicit, durable controller selection and refreshed Core read.
         if self._source_display is None:
             from dungeonmind.application.vnext import list_admitted_native_text_sources
+            from application_state.agent_conversation.native_corpus import native_direct_source_handle
             from .native_source_display import source_display_metadata
             context = self.adapter.native_corpus_context
             items = list_admitted_native_text_sources(context.access).sources
             labels = source_display_metadata(items, context.authority.managed_world_id)
-            self._source_display = {
-                (item.source_artifact.source_artifact_id, item.source_revision.source_revision_id): label
-                for item, label in zip(items, labels)
-            }
-        source = catalog.source
-        display = self._source_display.get((source.artifact.source_artifact_id, source.revision.source_revision_id))
+            self._source_display, self._direct_sources = {}, {}
+            for item, label in zip(items, labels):
+                pair = (item.source_artifact.source_artifact_id, item.source_revision.source_revision_id)
+                self._source_display[pair] = label
+                handle = native_direct_source_handle(context.authority, *pair, item.source_revision.content_sha256)
+                self._direct_sources[handle] = (pair, item.source_revision.content_sha256, label)
+        return self._direct_sources
+
+    @staticmethod
+    def _display_name(display, fallback):
         if display is None or display['status'] != 'available':
-            return catalog.sections[0].label + ' (source name unavailable)'
+            return fallback + ' (source name unavailable)'
         parts = [display['label']]
         if display['campaign_id']:
             parts.append('campaign: ' + display['campaign_id'])
@@ -270,21 +275,31 @@ class NativeBodyNavigation:
             parts.append('current page label; selected source is an older revision')
         return ' · '.join(parts)
 
+    def _source_name(self, catalog):
+        self._source_choices()
+        source = catalog.source
+        display = self._source_display.get((source.artifact.source_artifact_id, source.revision.source_revision_id))
+        return self._display_name(display, catalog.sections[0].label)
+
     def _events(self, turn=None):
         from application_state.agent_conversation.native_corpus import (
             NativeBodySearchAuthorizedV1, NativeBodySearchObservedV1,
-            NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1,
+            NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1, NativeDirectSourceAuthorizedV1,
         )
         events = (turn if turn is not None else self.adapter.fence.turn).graph_context_execution.events
         grant = next((e for e in events if isinstance(e, NativeBodySearchAuthorizedV1)), None)
         search = next((e for e in events if isinstance(e, NativeBodySearchObservedV1)), None)
-        auths = [e for e in events if isinstance(e, NativeBodyReadAuthorizedV1)]
+        auths = [e for e in events if isinstance(e, (NativeBodyReadAuthorizedV1, NativeDirectSourceAuthorizedV1))]
         reads = {e.authorization_event_id: e for e in events if isinstance(e, NativeBodyReadObservedV1)}
         return grant, search, auths, reads
 
     @staticmethod
     def _handle(auth):
-        from application_state.agent_conversation.native_corpus import native_body_handle, native_full_document_handle
+        from application_state.agent_conversation.native_corpus import (
+            native_body_handle, native_full_document_handle, NativeDirectSourceAuthorizedV1, native_direct_source_handle)
+        if isinstance(auth, NativeDirectSourceAuthorizedV1):
+            return native_direct_source_handle(auth.authority, auth.source_artifact_id,
+                auth.source_revision_id, auth.content_sha256)
         return (native_full_document_handle(auth.catalog_sha256) if auth.retrieval_kind == "full_document"
             else native_body_handle(auth.catalog_sha256, auth.section_id))
 
@@ -304,20 +319,32 @@ class NativeBodyNavigation:
         grant, search, auths, reads = self._events()
         if any(auth.event_id not in reads for auth in auths):
             raise ValueError("Native source read has an unresolved durable grant")
-        if grant is None:
-            return (RetrievalCandidate(handle=native_corpus_search_handle(sha256(turn.user_text.encode()).hexdigest()),
-                label="Search admitted native source sections for the current question",
-                kind="Source lexical navigation; not evidence or semantic completeness"),)
-        if search is None:
+        if grant is not None and search is None:
             raise ValueError("Native source search has an unresolved durable grant")
         attempted = {self._handle(auth) for auth in auths}
         acquired = self._acquired_extents()
-        def opened(catalog, start, end):
-            return any(read.excerpt.catalog_sha256 == catalog.catalog_sha256
-                and read.excerpt.section.byte_start <= start and read.excerpt.section.byte_end >= end
-                for read, _ in acquired)
+        opened_pairs = {(catalog.source.artifact.source_artifact_id, catalog.source.revision.source_revision_id)
+                        for read, catalog in acquired if read.excerpt.selector_policy == 'native_full_document_v1'}
         rows = []
+        direct = self._source_choices() if type(turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1 else {}
+        for handle, (pair, digest, display) in direct.items():
+            if handle not in attempted and pair not in opened_pairs:
+                rows.append(RetrievalCandidate(handle=handle,
+                    label='Read full document: ' + self._display_name(display, 'Admitted source'),
+                    kind='Explicit admitted full-source read; metadata choice, not evidence'))
+        if grant is None:
+            rows.append(RetrievalCandidate(handle=native_corpus_search_handle(sha256(turn.user_text.encode()).hexdigest()),
+                label="Search admitted native source sections for the current question",
+                kind="Source lexical navigation; not evidence or semantic completeness"))
+            return tuple(rows)
+        def opened(catalog, start, end):
+            return any((known.source.artifact.source_artifact_id, known.source.revision.source_revision_id,
+                            known.source.revision.content_sha256) == (catalog.source.artifact.source_artifact_id,
+                            catalog.source.revision.source_revision_id, catalog.source.revision.content_sha256)
+                and read.excerpt.section.byte_start <= start and read.excerpt.section.byte_end >= end
+                for read, known in acquired)
         hits = {(row.catalog_sha256, row.section_id): row.matched_terms for row in search.matches}
+        direct_pairs = {pair for pair, _, _ in direct.values()}
         for catalog in search.catalogs:
             name = self._source_name(catalog)
             matched = [row for row in catalog.sections if (catalog.catalog_sha256, row.section_id) in hits]
@@ -332,7 +359,8 @@ class NativeBodyNavigation:
                         label=name + " · " + section.label + " · matched terms: " + ", ".join(hits[(catalog.catalog_sha256, section.section_id)]),
                         kind="Exact source section"))
             handle = native_full_document_handle(catalog.catalog_sha256)
-            if matched and handle not in attempted and not opened(catalog, 0, catalog.body_bytes):
+            pair = (catalog.source.artifact.source_artifact_id, catalog.source.revision.source_revision_id)
+            if pair not in direct_pairs and matched and handle not in attempted and not opened(catalog, 0, catalog.body_bytes):
                 terms = sorted({term for section in matched
                                 for term in hits[(catalog.catalog_sha256, section.section_id)]})
                 rows.append(RetrievalCandidate(handle=handle,
@@ -385,7 +413,7 @@ class NativeBodyNavigation:
     def select(self, handles):
         from application_state.agent_conversation.native_corpus import native_corpus_search_handle
         from ..integrations.dungeonmind.native_corpus_source import (
-            NativeCorpusContext, capture_native_sources, read_native_corpus_member,
+            NativeCorpusContext, capture_native_sources, read_native_corpus_member, read_direct_native_source,
         )
         a = self.adapter
         context = getattr(a, "native_corpus_context", None)
@@ -399,7 +427,13 @@ class NativeBodyNavigation:
             with a.fence.renewer._lock:
                 turn = a.fence.renewer._turn
                 is_search = handle == native_corpus_search_handle(sha256(turn.user_text.encode()).hexdigest())
-                if is_search:
+                is_direct = handle.startswith('native-direct-source:')
+                if is_direct:
+                    pair, digest, _ = self._source_choices()[handle]
+                    auth = self._commit('authorize_native_direct_source', event_id=uuid4(),
+                        source_artifact_id=pair[0], source_revision_id=pair[1], content_sha256=digest)
+                    operation = 'source_document_read'
+                elif is_search:
                     auth = self._commit("authorize_native_body_search", event_id=uuid4())
                     operation = 'source_search'
                 else:
@@ -416,7 +450,12 @@ class NativeBodyNavigation:
             # I/O, outside that lock; each materialization uses the latest turn.
             observe_native_retrieval(a, operation, handle)
             with a.fence.renewer._lock:
-                if is_search:
+                if is_direct:
+                    result = self._commit('observe_native_direct_source', event_id=uuid4(), authorization_event_id=auth.event_id,
+                        read=lambda grant: read_direct_native_source(context, authority=grant.authority,
+                            source_artifact_id=grant.source_artifact_id, source_revision_id=grant.source_revision_id,
+                            content_sha256=grant.content_sha256))
+                elif is_search:
                     result = self._commit("observe_native_body_search", event_id=uuid4(), authorization_event_id=auth.event_id,
                         capture=lambda: capture_native_sources(managed_world_id=turn.world_id,
                             principal=context.principal, prepared=context))
