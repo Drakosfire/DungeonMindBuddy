@@ -15,6 +15,7 @@ from src.graph_memory.extraction.compact_evidence_context import CompactEvidence
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv
 from src.graph_memory import identity_resolution as ir
 from src.graph_memory.anchor_quotes import coerce_anchor_quotes
+from src.graph_memory.candidate_graph_preview import BEAT_PRESENTATION_ORDER_DESCRIPTION
 from src.graph_memory.predicate_catalog import (
     prompt_markdown as predicate_catalog_prompt_markdown,
     predicate_family_for_type,
@@ -446,6 +447,7 @@ def render_category_pass_prompts(
             f"## Task\n\n{beat.instruction}\n"
             "Return JSON with key `observation_beats` (array). Each beat: "
             "`beat_id`, `order` (positive int), `title`, `summary`, `involved_node_ids` (may be empty), `evidence_refs`.\n"
+            f"`order`: {BEAT_PRESENTATION_ORDER_DESCRIPTION}\n"
             f"{evidence_rule}\n\n## Source Packet\n\n{src}\n"
         )
     edge = active_profile.edge_pass
@@ -1811,7 +1813,8 @@ def render_encounter_job_pass_prompt(
         "`node_id`, `label`, `node_type`, `description`, `importance`, `evidence_refs`.\n"
         f"{EVIDENCE_RULE}\n\n"
         f"## Existing consolidated nodes\n\n```json\n{nodes_json}\n```\n\n"
-        f"## Source-local beats\n\n```json\n{beats_json}\n```\n\n"
+        f"## Source-local beats\n\n`order`: {BEAT_PRESENTATION_ORDER_DESCRIPTION}\n\n"
+        f"```json\n{beats_json}\n```\n\n"
         f"## Source Packet\n\n{src}\n"
     )
 

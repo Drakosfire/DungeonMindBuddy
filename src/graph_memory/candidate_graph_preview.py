@@ -6,6 +6,12 @@ from typing import Any, Mapping
 
 CANDIDATE_GRAPH_PREVIEW_SCHEMA = "dmb_candidate_graph_preview_v0"
 CANDIDATE_GRAPH_PREVIEW_VERSION = "0.1"
+BEAT_PRESENTATION_ORDER_DESCRIPTION = (
+    "Positive presentation/navigation rank: smaller values rank before larger values; "
+    "ties retain input sequence. Rank is not fictional chronology. Do not infer "
+    "event precedence from rank, array position or source position. Explicit "
+    "source-supported temporal claims belong in prose or typed precedence relationships."
+)
 
 CANON_STATES = {
     "played_canon",
@@ -110,6 +116,7 @@ class CandidateEdge:
 
 @dataclass(frozen=True)
 class SessionBeat:
+    """Preview beat; ``order`` is presentation rank, never fictional chronology."""
     beat_id: str
     order: int
     title: str

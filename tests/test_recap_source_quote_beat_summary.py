@@ -453,3 +453,73 @@ def test_invalid_sibling_bounds_remain_deferred_with_valid_paragraph_retained() 
     graph = _extract(source, [_beat(None, None, evidence_refs=refs)], index=index).candidate_graph
     assert [b["summary"] for b in graph["beats"]] == ["A reward of 25 gold."]
     assert graph["deferred_items"][0]["reason"] == "recap_beat_excerpt_deferred:invalid_span_bounds"
+
+
+@pytest.mark.parametrize("ranks", [(9, 2), (4, 4), (1, 99)])
+def test_presentation_ranks_do_not_rewrite_temporal_text_or_publish_precedence(ranks) -> None:
+    from src.graph_memory.candidate_graph_preview import validate_candidate_graph_preview
+    from src.graph_memory.extraction.category_candidate_graph_extractor import _encounter_job_beat_summary
+    from src.graph_memory.extraction.staged_edge_extraction import _beat_summaries
+
+    paragraphs = [
+        "Mireward is the town where the group rests after leaving camp.",
+        "Earlier, the group had considered leaving camp, but initially remained there.",
+    ]
+    source = "\n\n".join(paragraphs)
+    index = _source_index(source)
+    spans = [s for s in index["spans"] if s["kind"] == "paragraph"]
+    raw = [_beat(span["source_span_ref_id"], paragraph)
+           for span, paragraph in zip(spans, paragraphs)]
+    for beat, rank in zip(raw, ranks):
+        beat["order"] = rank
+    result = _extract(source, raw, index=index, with_node=True)
+    beats = result.candidate_graph["beats"]
+    assert [b["order"] for b in beats] == list(ranks)
+    assert [b["summary"] for b in beats] == paragraphs
+    assert [b["title"] for b in beats] == ["Source excerpt 1", "Source excerpt 2"]
+    # Context builders preserve the explicit temporal text, including a flashback,
+    # rather than sorting it or manufacturing precedence from the numeric ranks.
+    assert [b["summary"] for b in _beat_summaries(beats)] == paragraphs
+    assert [_encounter_job_beat_summary(b)["summary"] for b in beats] == paragraphs
+    typed = candidate_graph_preview_from_dict(result.candidate_graph)
+    assert not [i for i in validate_candidate_graph_preview(typed).issues if i.field == "order"]
+    contribution = candidate_graph_to_contribution(
+        typed, world_id="synthetic", source_revision_id=hashlib.sha256(source.encode()).hexdigest(),
+        source_artifact_id=ARTIFACT,
+    )
+    assert len(contribution.candidate_assertions) == 1
+    assert contribution.candidate_assertions[0].assertion_kind == "node"
+
+
+def test_beat_rank_contract_reaches_schema_and_all_model_context_consumers() -> None:
+    from src.graph_memory.candidate_graph_preview import BEAT_PRESENTATION_ORDER_DESCRIPTION
+    from src.graph_memory.extraction.category_candidate_graph_schema import category_beat_pass_json_schema
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        render_category_pass_prompts, render_encounter_job_pass_prompt,
+    )
+    from src.graph_memory.extraction.staged_edge_extraction import build_graph_context_packet
+
+    order = category_beat_pass_json_schema()["properties"]["observation_beats"]["items"]["properties"]["order"]
+    assert order == {"type": "integer", "minimum": 1, "description": BEAT_PRESENTATION_ORDER_DESCRIPTION}
+    prompts = render_category_pass_prompts([])
+    beat_prompt = next(value for key, value in prompts.items() if "beat" in key)
+    for prompt in (
+        beat_prompt,
+        render_encounter_job_pass_prompt([], nodes=[], beats=[]),
+        build_graph_context_packet(source_rows=[], nodes=[], beats=[]),
+    ):
+        assert BEAT_PRESENTATION_ORDER_DESCRIPTION in prompt
+
+
+def test_existing_ir_validator_rejects_nonpositive_rank_but_allows_ties() -> None:
+    from dataclasses import replace
+    from src.graph_memory.candidate_graph_preview import validate_candidate_graph_preview
+
+    source = "The party remains in camp."
+    index = _source_index(source)
+    span = next(s for s in index["spans"] if s["kind"] == "paragraph")
+    result = _extract(source, [_beat(span["source_span_ref_id"], source)], index=index)
+    typed = candidate_graph_preview_from_dict(result.candidate_graph)
+    for rank in (0, -1):
+        changed = replace(typed, beats=(replace(typed.beats[0], order=rank),))
+        assert any(i.field == "order" for i in validate_candidate_graph_preview(changed).issues)

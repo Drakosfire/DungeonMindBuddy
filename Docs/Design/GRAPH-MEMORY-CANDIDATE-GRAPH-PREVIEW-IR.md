@@ -32,6 +32,18 @@ Edges represent preview-only relationships between candidate nodes. Edge labels 
 
 Session beats are first-class preview records with ordering, summaries, involved nodes, unresolved thread refs, and evidence refs.
 
+`order` is positive presentation/navigation rank, not fictional chronology.
+Smaller values rank before larger values for presentation; ties retain input
+sequence. Rank, array position and source position establish no event precedence.
+Explicit source-supported temporal claims remain accountable in prose and typed
+precedence relationships. Normalization retains supplied integer ranks and the
+existing fallback of 1 for missing/falsey values; the IR validator rejects
+nonpositive ranks. This contract adds no automatic sorting or chronology inference.
+For source-only recaps, the host replaces beat title/summary with exact source
+excerpts, but retains the model's rank; it is not a host paragraph ordinal.
+Raw model-authored content remains independently assessable. This forward contract
+does not resolve the meaning or validity of historically unspecified ranks.
+
 ## Proposed Writes
 
 Proposed writes preserve intent such as creating a node or edge, but they remain pending in v0. Preview approval is out of scope for v0. The IR preserves write intent but performs no writes.
