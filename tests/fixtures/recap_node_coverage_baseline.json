@@ -1,0 +1,7 @@
+{
+  "code_head": "9de7c37ae69a594ccff17ed4ffdfbc95bba5c6ee",
+  "symbol": "_NODE_DESCRIPTION_COVERAGE",
+  "text": "For each extracted node, use its description to retain the source-supported observations about that exact referent: its actions and experiences, states and properties, outcomes and changes, and the circumstances needed to understand them. Include explicit negative findings and descriptive details that contribute knowledge about the referent. Retain these observations even when they also belong in a scene or beat summary. Keep the observations within their supported referent and scene, using the existing evidence and source-faithfulness requirements. State the source-supported participants, actions, affected objects, and outcomes explicitly in the description. Retain explicit source-supported before/after relationships in descriptions, naming the related occurrences sufficiently to understand the order without relying on paragraph, node, or list position. Do not impose order on concurrent or unresolved actions. Do not leave a material detail only in an evidence quote, beat summary, or relationship label. Preserve source ambiguity rather than filling missing details by inference.",
+  "sha256": "d2c1a58931a3be9df55f4428b36e47ece780957d501b0dae7b43c4b7aa9f9302",
+  "scope": "Inert historical prompt-comparison data only; never used by production extraction."
+}

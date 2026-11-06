@@ -31,22 +31,13 @@ EVIDENCE_RULE = (
 )
 
 _NODE_DESCRIPTION_COVERAGE = (
-    "For each extracted node, use its description to retain the source-supported "
-    "observations about that exact referent: its actions and experiences, states "
-    "and properties, outcomes and changes, and the circumstances needed to "
-    "understand them. Include explicit negative findings and descriptive details "
-    "that contribute knowledge about the referent. Retain these observations even "
-    "when they also belong in a scene or beat summary. Keep the observations "
-    "within their supported referent and scene, using the existing evidence and "
-    "source-faithfulness requirements. State the source-supported participants, "
-    "actions, affected objects, and outcomes explicitly in the description. "
-    "Retain explicit source-supported before/after relationships in descriptions, "
-    "naming the related occurrences sufficiently to understand the order without "
-    "relying on paragraph, node, or list position. Do not impose order on "
-    "concurrent or unresolved actions. "
-    "Do not leave a material detail only in an evidence quote, beat summary, "
-    "or relationship label. Preserve source ambiguity rather than filling "
-    "missing details by inference."
+    "Describe source-supported actions, experiences, states, properties, changes and outcomes "
+    "of each node's exact referent. Include material descriptive details and explicit negative "
+    "findings, even when a beat or relationship also contains them. Identify participants, "
+    "affected objects and outcomes in the description itself rather than leaving information "
+    "only in a quote or label. Retain explicit before/after relationships, naming the related "
+    "occurrences; do not order concurrent or unresolved actions. Apply the shared "
+    "source-faithfulness requirements."
 )
 
 # These instructions belong to recap extraction only. Keep them out of the
