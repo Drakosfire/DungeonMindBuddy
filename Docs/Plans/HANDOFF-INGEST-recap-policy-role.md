@@ -1,6 +1,6 @@
 # INGEST: recap faithfulness policy message role
 
-Status: ACTIVE experimental producer slice; no quality improvement claimed.
+Status: CLOSED experiment; rejected as default. No merge or deployment.
 
 ## Outcome and invariant
 
@@ -71,3 +71,24 @@ Both comparison arms must contain the reviewed ID repair. No earlier unfixed
 control may establish a causal role comparison. Preserve the failed control and
 all Gold unchanged. This remains an unproven role-only hypothesis; no new rules,
 corpus-specific guidance or publication of unsupported claims are authorized.
+
+## Actual experiment settlement
+
+The matched fixed-host S5/S8 captures completed and passed independent technical
+review (`031f596a54b97451cef412b749ccb90fe111c2342c325adad1f6e6ee6fba2e94`).
+All fourteen logical prompt pairs match retained hashes, proving the policy
+transfer reached the logical requests. This does not prove upstream compliance.
+
+Independent full-Gold/precision comparisons remain HOLD: S5 review
+`7b8ce6807527d7791abce92e0cd0334314e24fd5a161c8ff218cfc07733987f6`; S8 review
+`38451d642c365624dbc9393051d3dad5085332985da259ff023420f92a7e78de`.
+Some claims improve, but unsupported Bill-provision and next-day timing appear,
+supported sap-order representation is lost, and guard-group precision regresses.
+Root rejects default adoption. One pair does not prove causal mean effects; the
+required quality evidence was not achieved. Preserve the branch, runs, attempts,
+costs, failures and unchanged Gold. No new publication, merge or deployment.
+
+The verified node-ID repair #2149 remains independent. This serial write lease
+is released. Subsequent work starts from that accepted code baseline, without
+this role change. Raw producer semantic quality and the full C1S1–10 goal remain
+incomplete; a safe reviewed subset is not full-Gold success.
