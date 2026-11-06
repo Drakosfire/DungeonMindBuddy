@@ -8,6 +8,7 @@ from application_state.agent_conversation import types as t
 from application_state.agent_conversation.corpus_source_search import action_handle, enabled, terms, SourceRevisionIdentity
 from application_state.agent_conversation.jev_retrieval_contract import RetrievalCandidate
 from application_state.source.naming import registered_source_name
+from .native_source_display import source_display_name
 from dungeonmind.domain.canonical import canonical_json
 from ..integrations.dungeonmind.world_graph_reads import direct_services_from_config
 from ..integrations.dungeonmind.corpus_source_inventory import collect_source_view, verify_registry_source_origin
@@ -263,24 +264,11 @@ class NativeBodyNavigation:
                 self._direct_sources[handle] = (pair, item.source_revision.content_sha256, label)
         return self._direct_sources
 
-    @staticmethod
-    def _display_name(display, fallback):
-        if display is None or display['status'] != 'available':
-            return fallback + ' (source name unavailable)'
-        parts = [display['label']]
-        if display['campaign_id']:
-            parts.append('campaign: ' + display['campaign_id'])
-        if display['session_id']:
-            parts.append('session: ' + display['session_id'])
-        if display['origin_matches_current_metadata'] is False:
-            parts.append('current page label; selected source is an older revision')
-        return ' · '.join(parts)
-
     def _source_name(self, catalog):
         self._source_choices()
         source = catalog.source
         display = self._source_display.get((source.artifact.source_artifact_id, source.revision.source_revision_id))
-        return self._display_name(display, catalog.sections[0].label)
+        return source_display_name(display, catalog.sections[0].label)
 
     def _read_label(self, catalog, section_id=None):
         name = self._source_name(catalog)
@@ -338,7 +326,7 @@ class NativeBodyNavigation:
         for handle, (pair, digest, display) in direct.items():
             if handle not in attempted and pair not in opened_pairs:
                 rows.append(RetrievalCandidate(handle=handle,
-                    label='Read full document: ' + self._display_name(display, 'Admitted source'),
+                    label='Read full document: ' + source_display_name(display, 'Admitted source'),
                     kind='Explicit admitted full-source read; metadata choice, not evidence'))
         if grant is None:
             rows.append(RetrievalCandidate(handle=native_corpus_search_handle(sha256(turn.user_text.encode()).hexdigest()),
@@ -483,7 +471,7 @@ class NativeBodyNavigation:
                     auth = self._commit('authorize_native_direct_source', event_id=uuid4(),
                         source_artifact_id=pair[0], source_revision_id=pair[1], content_sha256=digest)
                     operation = 'source_document_read'
-                    label = self._display_name(display, 'Admitted source')
+                    label = source_display_name(display, 'Admitted source')
                 elif is_search:
                     auth = self._commit("authorize_native_body_search", event_id=uuid4())
                     operation = 'source_search'

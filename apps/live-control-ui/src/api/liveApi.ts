@@ -3186,7 +3186,7 @@ export async function getAgentNativeSourceClause(worldId:string,turnId:string,ci
 }
 
 export async function getAgentNativeBodyExcerpt(worldId:string,turnId:string,citationIndex:number):
-  Promise<import('./types').AgentNativeBodyExcerptReadResponseV1> {
+  Promise<import('./types').AgentNativeBodyExcerptReadResponseV2> {
   if(!Number.isSafeInteger(citationIndex) || citationIndex<0 || citationIndex>16383) throw new Error('Invalid excerpt index');
   return apiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/native-body-excerpts/${citationIndex}`);
 }

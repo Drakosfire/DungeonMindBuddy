@@ -45,7 +45,7 @@ export type SavedSectionEvidenceProps = {
   targets: SavedBuildSectionTargetV1[]; basis: WorldBuildGraphReceiptV1["source_basis"];
   segments: {kind: string; text: string; content_sha256?: string}[]; worldId: string; turnId: string;
 };
-export function savedSectionChoices({targets,basis,segments,worldId,turnId,sourceName}:SavedSectionEvidenceProps,isCurrent:()=>boolean=()=>true):CitationChoice[] {
+export function savedSectionChoices({targets,basis,segments,worldId,turnId,sourceName}:SavedSectionEvidenceProps,isCurrent:()=>boolean=()=>true):(Omit<CitationChoice,'load'> & {load:()=>Promise<string>})[] {
   if(worldId!==basis.world_id || !isSavedSectionTargets(targets,basis,{answer_segments:segments})
     || !targets.every(t=>t.turn_id===turnId))return [];
   return targets.map((target,index)=>({

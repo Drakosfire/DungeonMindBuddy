@@ -1,6 +1,6 @@
 # WRITER: retain incomplete output for Debug without answer authority
 
-Status: ACTIVE. PRIME owns this confirmed diagnostic gap under the current goal. Base origin/main17b6c36ba6c77fcf5493148e710a9e4e072b2c66; branch codex/incomplete-writer-debug-capture in the existing buddy-context-loop checkout.
+Status: MERGED_AND_DELIVERED. PR2168 merged6f66622cccc9a316713e35b2d0cf3242eff46f66; integrated API db74e4e584fbf925987294d259fbee74d4fe05b2 delivered with unchanged retained rows/session files. Exact integration181 tests and independent product/integration/recipe reviews passed. Ordinary64ccc839-cea8-4d07-9189-7d3bd39f2520 delivered in71.456s with seven native citations reopened, unchanged4096 output reserve and908 writer output tokens. This verifies ordinary completion, not a latency improvement or resolution of all generation variance. PRIME owned this diagnostic gap under the current goal. Base origin/main17b6c36ba6c77fcf5493148e710a9e4e072b2c66; branch codex/incomplete-writer-debug-capture in the existing buddy-context-loop checkout.
 
 ## Outcome and critique
 
