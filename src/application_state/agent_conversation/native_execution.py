@@ -99,6 +99,21 @@ NativeAction = Annotated[
 ]
 
 
+class NativeWriterEstimatedBudgetV1(Strict):
+    """Current native writer reuses its trusted controller's offline counter."""
+    schema_: Literal['dmb_native_writer_estimated_budget_v1'] = Field(alias='schema')
+    provider: Literal['openai']
+    model: Literal['gpt-6-luna', 'gpt-6.1-sol']
+    api_mode: Literal['responses']
+    estimator: Literal['o200k_double_plus_4096_adaptive_context_v4']
+    tokenizer_version: str = Field(min_length=1, max_length=128)
+    context_limit_tokens: Literal[128000] = 128000
+    output_reserve_tokens: Literal[4096] = 4096
+
+    def identity(self):
+        return self.provider, self.model, self.api_mode
+
+
 class SurfaceNativeExecutionPolicyV1(Strict):
     policy_version: Literal["surface_native_execution_v1"] = "surface_native_execution_v1"
     action: NativeAction
@@ -110,7 +125,7 @@ class SurfaceNativeExecutionPolicyV1(Strict):
     max_total_provider_input_tokens: int | None = Field(ge=1, strict=True)
     max_total_provider_output_tokens: int | None = Field(ge=1, strict=True)
     controller_continuation_accounting: t.BuildControllerContinuationAccountingV4 | t.BuildControllerContinuationAccountingV3 | None
-    writer_context_budget: t.BuildWriterContextBudgetV1 | None
+    writer_context_budget: t.BuildWriterContextBudgetV1 | NativeWriterEstimatedBudgetV1 | None
 
     @model_validator(mode="after")
     def exact_roles(self):
@@ -128,6 +143,11 @@ class SurfaceNativeExecutionPolicyV1(Strict):
                     or self.controller_continuation_accounting is None or self.writer_context_budget is None
                     or roles.writer.identity() != self.writer_context_budget.identity()):
                 raise ValueError("Native Build role/accounting differs from its actual owner contracts")
+            if isinstance(self.writer_context_budget, NativeWriterEstimatedBudgetV1):
+                counter = self.controller_continuation_accounting
+                if (self.writer_context_budget.estimator != counter.policy
+                        or self.writer_context_budget.tokenizer_version != counter.tokenizer_version):
+                    raise ValueError('Native writer accounting differs from its prepared controller counter')
         elif self.controller_continuation_accounting is not None or self.writer_context_budget is not None:
             raise ValueError("Build role accounting cannot authorize another action family")
         if isinstance(action, NativePlanActionV1) and roles.controller.identity() != ("typesafe", "jev-1.14.0", "decision"):

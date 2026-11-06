@@ -341,7 +341,7 @@ class BuildJevHarness:
     def _capture_failure(self, adapter, exc):
         from .build_failure_diagnostic import store_failure, failure_code
         code = failure_code(exc)
-        capacity = code in {"build_writer_context_over_budget", "build_writer_request_over_budget"}
+        capacity = code in {"build_writer_context_over_budget", "build_writer_request_over_budget", "build_writer_accounting_unavailable"}
         stage = "writer_context_preparation" if capacity else getattr(self, "failure_stage", "delivery")
         logging.getLogger(__name__).error("Build execution failed at %s (%s)", stage, type(exc).__name__)
         try:

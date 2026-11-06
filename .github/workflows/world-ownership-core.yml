@@ -233,6 +233,7 @@ jobs:
           tests/test_agent_native_corpus_sources.py
           tests/test_native_corpus_source_access.py
           tests/test_native_direct_source_selection.py
+          tests/test_native_writer_token_accounting.py
           tests/test_native_body_writer_selection.py
           tests/test_surface_native_build_ordinary.py
           tests/test_build_destination_menu.py
