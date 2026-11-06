@@ -18,6 +18,14 @@ from src.graph_memory.extraction.category_candidate_graph_extractor import (
 )
 
 
+# Exercise the retained beat contract explicitly, independent of default scheduling.
+from dataclasses import replace
+from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+BEAT_CONTRACT_PROFILE = replace(RECAP_EXTRACTION_PROFILE, beat_pass=get_extraction_profile(
+    "recap_category_encounter_job_preview", "2.0").beat_pass)
+
+
 ARTIFACT = "artifact:recap:synthetic:session-01"
 
 
@@ -149,6 +157,7 @@ def _extract(
             source_artifact_id=ARTIFACT,
             source_ref_id=f"{ARTIFACT}:text",
             model_id="fixture-model",
+            profile=BEAT_CONTRACT_PROFILE,
         ),
         client=FixtureCategoryGraphPassClient(passes),
     )
@@ -501,7 +510,7 @@ def test_beat_rank_contract_reaches_schema_and_all_model_context_consumers() -> 
 
     order = category_beat_pass_json_schema()["properties"]["observation_beats"]["items"]["properties"]["order"]
     assert order == {"type": "integer", "minimum": 1, "description": BEAT_PRESENTATION_ORDER_DESCRIPTION}
-    prompts = render_category_pass_prompts([])
+    prompts = render_category_pass_prompts([], profile=BEAT_CONTRACT_PROFILE)
     beat_prompt = next(value for key, value in prompts.items() if "beat" in key)
     for prompt in (
         beat_prompt,

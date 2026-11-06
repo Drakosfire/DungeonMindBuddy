@@ -31,7 +31,7 @@ def test_recap_profile_preserves_pass_order_and_instructions() -> None:
         "object_pass",
         "thread_pass",
     ]
-    assert profile.beat_pass is not None
+    assert profile.beat_pass is None
     assert profile.edge_pass.pass_id == "edge_pass"
     assert "evidence_refs" in profile.evidence_rule
     assert profile.allow_null_session is False

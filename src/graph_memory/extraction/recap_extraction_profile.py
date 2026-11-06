@@ -342,12 +342,15 @@ def _build_recap_profile(
 
 
 RECAP_EXTRACTION_PROFILE = register_extraction_profile(
-    _build_recap_profile(
-        profile_id=RECAP_PROFILE_ID,
-        profile_version=RECAP_PROFILE_VERSION,
-        enable_encounter_job_pass=False,
-        enable_encounter_job_edge_guidance=False,
-        enable_dynamic_node_vocabulary_packet=False,
+    replace(
+        _build_recap_profile(
+            profile_id=RECAP_PROFILE_ID,
+            profile_version=RECAP_PROFILE_VERSION,
+            enable_encounter_job_pass=False,
+            enable_encounter_job_edge_guidance=False,
+            enable_dynamic_node_vocabulary_packet=False,
+        ),
+        beat_pass=None,
     )
 )
 

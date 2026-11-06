@@ -4,11 +4,19 @@ from src.graph_memory.extraction.category_candidate_graph_extractor import (
     render_category_pass_prompts,
 )
 from src.graph_memory.extraction.recap_extraction_profile import (
-    RECAP_EXTRACTION_PROFILE,
+    RECAP_EXTRACTION_PROFILE as STANDARD_RECAP_PROFILE,
 )
 from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
     WORLDBUILDING_PLUMBING_PROFILE,
 )
+
+
+# Historical full-pass policy comparisons retain the beat contract explicitly.
+# Default scheduling is independently asserted by test_extraction_profiles.
+from dataclasses import replace
+from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+RECAP_EXTRACTION_PROFILE = replace(STANDARD_RECAP_PROFILE, beat_pass=get_extraction_profile(
+    "recap_category_encounter_job_preview", "2.0").beat_pass)
 
 
 _PREVIOUS_AUTHORITY_PARAGRAPH = (

@@ -148,7 +148,7 @@ def test_extractor_uses_profile_selected_passes() -> None:
         assert node.get("evidence_refs")
 
 
-def test_recap_profile_still_runs_full_pass_set() -> None:
+def test_standard_recap_omits_only_beat_pass() -> None:
     client = RecordingClient()
     extract_category_candidate_graph(
         CategoryGraphExtractionOptions(
@@ -167,7 +167,7 @@ def test_recap_profile_still_runs_full_pass_set() -> None:
         "object_pass",
         "thread_pass",
     ]
-    assert "beat_pass" in client.passes
+    assert "beat_pass" not in client.passes
     assert client.passes[-1] == "edge_pass"
 
 
@@ -408,10 +408,14 @@ def test_beat_call_receives_source_local_inventory_and_keeps_source_associations
                 response['parsed'] = {'observation_nodes': []}
             return response
 
+    from dataclasses import replace
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    control_profile = replace(RECAP_EXTRACTION_PROFILE, beat_pass=get_extraction_profile(
+        "recap_category_encounter_job_preview", "2.0").beat_pass)
     client = BeatClient()
     result = extract_category_candidate_graph(CategoryGraphExtractionOptions(
         campaign_id='synthetic-beat-context', session_id=None, session_number=None,
-        source_text=source, source_span_index=index, profile=RECAP_EXTRACTION_PROFILE), client=client)
+        source_text=source, source_span_index=index, profile=control_profile), client=client)
     assert client.passes == ['actor_pass', 'location_pass', 'collective_pass',
         'object_pass', 'thread_pass', 'beat_pass', 'edge_pass']
     beats = result.candidate_graph['beats']
@@ -814,3 +818,49 @@ def test_quote_binding_with_source_whitespace_still_rejects_unproven_evidence(ca
     bound, changes = _canonicalize_recap_quote_nominations(
         raw, source_rows=rows, source_text=text, source_span_index=index)
     assert bound == raw == original and changes == []
+
+
+def test_beat_omission_preserves_surviving_requests_and_source_dictionary() -> None:
+    from dataclasses import replace
+    from copy import deepcopy
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+
+    preview = get_extraction_profile("recap_category_encounter_job_preview", "2.0")
+    assert preview.beat_pass is not None
+    assert preview.enable_encounter_job_pass
+    control = replace(RECAP_EXTRACTION_PROFILE, beat_pass=preview.beat_pass)
+
+    class RequestClient(RecordingClient):
+        def __init__(self):
+            super().__init__()
+            self.requests = {}
+            self.execution_binding = {"fixture": True}
+            self.contexts = []
+
+        def retain_compact_evidence_context(self, context):
+            self.contexts.append(deepcopy(context))
+
+        def run_pass(self, pass_name, **kwargs):
+            self.requests[pass_name] = deepcopy(kwargs)
+            return super().run_pass(pass_name, **kwargs)
+
+    clients = [RequestClient(), RequestClient()]
+    results = []
+    for client, profile in zip(clients, [control, RECAP_EXTRACTION_PROFILE]):
+        results.append(extract_category_candidate_graph(
+            CategoryGraphExtractionOptions(
+                campaign_id="longmont-c2", session_id="session-24", session_number=24,
+                source_span_index=_span_index(session_id="session-24"),
+                source_text="Mirathorn is a river city.", profile=profile,
+            ), client=client,
+        ))
+    before, after = clients
+    assert before.passes == after.passes[:-1] + ["beat_pass", "edge_pass"]
+    assert len(after.passes) == 6
+    assert {name: request for name, request in before.requests.items()
+            if name != "beat_pass"} == after.requests
+    assert before.contexts == after.contexts
+    assert len(after.contexts) == 1
+    for key in ["nodes", "edges", "source_observations"]:
+        assert results[0].candidate_graph.get(key) == results[1].candidate_graph.get(key)
+    assert results[1].candidate_graph["beats"] == []
