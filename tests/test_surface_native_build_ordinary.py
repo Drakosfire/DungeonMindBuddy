@@ -245,9 +245,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     'read_id':str(uuid4()) if connected_review=='foreign_read' else section['read_id'],
                     'quote':'A phrase absent from the source.' if connected_review=='foreign_quote' else 'A proposed conversation.',
                     'person_label':None,'relationships':[],'instructions':'Prepare a separate page for author review.'}
+            self.actual_output=json.dumps(candidate)
             return httpx.Response(200, request=req, json=dict(id='resp_native_build', object='response',
                 created_at=1, status='incomplete' if failure in {'writer_incomplete_limit','writer_incomplete_filter','writer_incomplete_unknown'} else 'completed', model=body['model'], output=[dict(type='message', id='msg_native_build',
-                    role='assistant', status='completed', content=[dict(type='output_text', text=json.dumps(candidate), annotations=[])])],
+                    role='assistant', status='completed', content=[dict(type='output_text', text=self.actual_output, annotations=[])])],
                 usage=dict(input_tokens=100, output_tokens=40, total_tokens=140),
                 **({'incomplete_details':{'reason':'max_output_tokens' if failure=='writer_incomplete_limit' else 'content_filter'}}
                     if failure in {'writer_incomplete_limit','writer_incomplete_filter'} else {})))
@@ -556,6 +557,14 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert turn.status=='interrupted' and turn.failure_code==expected and turn.completion is None
         trace=service.list_context_trace_attempts(world_id=world,turn_id=turn.turn_id)[-1]
         failures=[row for row in trace.observations if row.kind=='failure']
+        snapshots=[row for row in trace.observations if row.kind=='context_snapshot' and row.snapshot_kind=='provider_response']
+        drafts=[material.text for row in snapshots for material in row.materials
+            if material.item_id.startswith('unvalidated-provider-answer:')]
+        assert drafts==[writer.actual_output] and turn.assistant_text is None
+        assert not any(row.code=='plan_writer_draft_rejected' for row in failures)
+        writer_attempt=next(e.provider_attempt_id for e in turn.graph_context_execution.events if e.kind=='native_writer_authorized_v1')
+        assert not any(e.kind=='provider_outcome' and e.provider_attempt_id==writer_attempt and e.outcome=='response_received'
+            for e in turn.graph_context_execution.events)
         assert failures[-1].stage=='writer_generation'
         assert failures[-1].phase=='provider'
         assert failures[-1].code==('provider_output_limit_exceeded' if limited else 'build_execution_exception')
