@@ -8,7 +8,7 @@ Three serial Buddy PRs, never stacked: (1) database-owned recoverable connected-
 
 ## Active slice 1
 
-Existing buddy-context-loop checkout; branch codex/connected-page-operation-storage, base 81c0e9e8128b84348e6b74019f6d27a97ff06b81. Expected exclusive write set: this handoff, application_state/content/connected_pages.py, migration 20261105_0116_connected_page_operations.py, connected_page_authoring.py, the existing graph_object_authoring_commit.py recovery-only boundary, scripts/adopt_connected_page_operation.py, tests/test_connected_page_authoring.py and focused operation-storage tests and their existing CI selector. Open PRs checked: INGEST lanes and REFERENCE design/retirement work have no overlap. No shared venv, live runtime, database or UI changes; tests use disposable APP PostgreSQL.
+Existing buddy-context-loop checkout; branch codex/connected-page-operation-storage, base 81c0e9e8128b84348e6b74019f6d27a97ff06b81. Expected exclusive write set: this handoff, application_state/content/connected_pages.py, migration 20261105_0116_connected_page_operations.py, connected_page_authoring.py, the existing graph_object_authoring_commit.py recovery-only boundary, scripts/adopt_connected_page_operation.py, tests/test_connected_page_authoring.py, tests/test_build_destination_menu.py (the prior reader fence must remain an ancestor, not permanently be head), and focused operation-storage tests and their existing CI selector. Open PRs checked: INGEST lanes and REFERENCE design/retirement work have no overlap. No shared venv, live runtime, database or UI changes; tests use disposable APP PostgreSQL.
 
 ## Invariant and failure cases
 
