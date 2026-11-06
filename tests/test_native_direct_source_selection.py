@@ -210,3 +210,60 @@ def test_ordinary_mixed_direct_and_search_selection_settles_without_duplicate_re
     pairs=[(r.catalog.source.artifact.source_artifact_id,r.catalog.source.revision.source_revision_id) for r in reads]
     assert len(pairs)==len(set(pairs))
     assert case.turn.status=='completed'
+
+
+def test_ordinary_batch_full_read_fulfills_selected_sections_without_false_failure(publication_lane,tmp_path,monkeypatch):
+    from tests.test_surface_native_build_ordinary import _fresh_case
+    from application_state.agent_conversation.native_corpus import acquired_body_reads
+    case = _fresh_case(publication_lane,tmp_path,monkeypatch,None,False,False,False,
+        native_body='direct_support',direct_source='covered-batch')
+    execution = case.turn.graph_context_execution
+    selections = [e for e in execution.events if e.kind == 'native_retrieval_selected_v1']
+    assert any(any(h.startswith('native-direct-source:') for h in s.selected_handles)
+        and any(h.startswith('native-body:') for h in s.selected_handles) for s in selections)
+    reads = acquired_body_reads(execution)
+    assert reads and all(isinstance(e,NativeDirectSourceObservedV1) for e in reads)
+    trace, = case.service.list_context_trace_attempts(world_id=case.world,turn_id=case.turn.turn_id)
+    assert not any(e.kind == 'failure' for e in trace.observations)
+    assert case.turn.status == 'completed' and case.turn.completion.native_body_citations
+    # Reconstruct the actual running prefix after this batch and before the next
+    # controller, without changing stored test records or admitting new evidence.
+    from apps.live_control_server.services.corpus_source_navigation import NativeBodyNavigation
+    from application_state.agent_conversation import types as t
+    batch = next(s for s in selections if any(h.startswith('native-body:') for h in s.selected_handles))
+    stop = next(e.sequence for e in execution.events if e.sequence > batch.sequence
+        and isinstance(e,t.ProviderAttemptAuthorizedEventV1))
+    prefix = execution.model_copy(update={'events':execution.events[:stop]})
+    turn = case.turn.model_copy(update={'status':'running','graph_context_execution':prefix})
+    nav = NativeBodyNavigation(SimpleNamespace(fence=SimpleNamespace(turn=turn),
+        native_corpus_context=case.writer.adapter.native_corpus_context))
+    handle = next(h for h in batch.selected_handles if h.startswith('native-body:'))
+    assert nav._fulfilled_in_current_selection(handle)
+    assert nav.select([handle])['body_text_exposed'] is False
+    acquired = nav._acquired_extents()
+    # No completed read, a read from an earlier decision, or an incomplete
+    # interval cannot replace this section's acknowledged acquisition.
+    for replacement in ((), tuple((read.model_copy(update={'sequence':batch.sequence-1}),catalog)
+            for read,catalog in acquired), tuple((read.model_copy(update={'excerpt':read.excerpt.model_copy(update={
+                'section':read.excerpt.section.model_copy(update={'byte_end':0})})}),catalog)
+            for read,catalog in acquired)):
+        with monkeypatch.context() as patch:
+            patch.setattr(nav,'_acquired_extents',lambda:replacement)
+            assert not nav._fulfilled_in_current_selection(handle)
+    # Identical bytes in a distinct source, revision or digest are not fulfillment.
+    for field in ('source_artifact_id','source_revision_id','content_sha256'):
+        altered=[]
+        for read,catalog in acquired:
+            source=catalog.source
+            key='artifact_json' if field=='source_artifact_id' else 'revision_json'
+            import json
+            value=json.loads(getattr(source,key))
+            value[field]='0'*64 if field=='content_sha256' else 'foreign'
+            altered.append((read,catalog.model_copy(update={'source':source.model_copy(update={key:json.dumps(value)})})))
+        with monkeypatch.context() as patch:
+            patch.setattr(nav,'_acquired_extents',lambda:tuple(altered))
+            assert not nav._fulfilled_in_current_selection(handle)
+    with monkeypatch.context() as patch:
+        unselected=batch.model_copy(update={'selected_handles':tuple(h for h in batch.selected_handles if h!=handle)})
+        patch.setattr('application_state.agent_conversation.plan_jev_decision.current_selection',lambda _:unselected)
+        assert not nav._fulfilled_in_current_selection(handle)

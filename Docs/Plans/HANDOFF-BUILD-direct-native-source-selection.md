@@ -1,6 +1,8 @@
 # BUILD: direct native source selection
 
-Status: ACTIVE. PRIME owns one serial PR on codex/native-direct-source-selection,
+Status: MERGED AND DELIVERED through PR2147, reviewed head90925c17cb8a036fbf29fb50a2c099021ab93477, merge55ee914218d176da70354fe8ee14e3d3dccef175. Runtime a4a54743fa908b31f41351f7a8440da1e4b116f0 passed protected activation and retained-state conservation. The qualified replay remains interrupted before the writer; catalogue delivery is not goal completion.
+
+Historical implementation scope: PRIME owned one serial PR on codex/native-direct-source-selection,
 base origin/main 6e51f7f3e79dc94512b51f2cbca0a74b7851f0c3, in the existing
 buddy-context-loop checkout. PR2142 is merged and delivered as runtime cf82d95fc769.
 No runtime/database write lease is active for this implementation.
@@ -59,3 +61,14 @@ existing saved-page-reader group, alongside native source access and body writer
 selection. The new file's negative grants, advanced epochs, actual SDK input,
 ordinary Build inclusion/exclusion, source reopening and mixed-search cases must
 remain in the normal owning regression gate. No existing selector is removed.
+
+
+Qualified replay99351a42-364e-42a6-b77c-aaa326388d78:61.756s,8Jev calls,
+6retrieval decisions,35body reads (22direct),18selected source units, no writer
+call. The228909 conservative estimate exceeded128000. All19 navigation failures
+were sections already covered by full reads in the same selected batch. Original
+failure, Core state, saved pages and Runs remain unchanged. Private evidence:
+q01-published-graph-authority/direct-source-replay-comparison.json and
+ direct-source-replay-batch-coverage-audit.json under the established runtime evidence root.
+Next bounded slice recognizes this exact same-batch fulfillment; capacity accounting,
+retrieval efficiency and Play References remain separate unfinished goal work.
