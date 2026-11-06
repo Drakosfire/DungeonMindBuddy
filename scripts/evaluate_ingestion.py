@@ -11,14 +11,27 @@ from ingestion_evaluation.runner import Runner, verify_manifest
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['qualify', 'capture', 'observe', 'audit', 'audit-retained', 'report', 'pause',
+    parser.add_argument('command', choices=['baseline-freeze', 'baseline-verify', 'qualify', 'capture', 'observe', 'audit', 'audit-retained', 'report', 'pause',
                                            'source-qualify', 'source-execute', 'source-inspect', 'source-report',
                                            'publication-prepare', 'publication-qualify', 'publication-execute',
                                            'publication-inspect', 'publication-report',
                                            'correction-qualify', 'correction-execute', 'correction-inspect', 'correction-report'])
-    parser.add_argument('--manifest', type=Path, required=True)
+    parser.add_argument('--manifest', type=Path)
+    parser.add_argument('--baseline-output', type=Path)
     parser.add_argument('--qualification-sha')
     args = parser.parse_args()
+    if args.command.startswith('baseline-'):
+        if not args.baseline_output or (args.command == 'baseline-freeze' and not args.manifest):
+            parser.error('Baseline commands require --baseline-output; freeze also requires --manifest')
+        if args.qualification_sha or (args.command == 'baseline-verify' and args.manifest):
+            parser.error('Baseline commands do not accept execution qualifications or a verify manifest')
+        from ingestion_evaluation.baseline import freeze, verify
+        result = (freeze(args.manifest, args.baseline_output) if args.command == 'baseline-freeze'
+                  else verify(args.baseline_output))
+        print(json.dumps(result))
+        return
+    if not args.manifest or args.baseline_output:
+        parser.error('Evaluation commands require --manifest and do not accept --baseline-output')
     manifest, sha = verify_manifest(args.manifest)
     source_mode = manifest.get('mode') == 'source_authority_v1'
     publication_mode = manifest.get('mode') == 'reviewed_publication_v1'
