@@ -60,4 +60,3 @@ def source_display_metadata(items, world_id):
             row["status"] = "available"
         navigation.append(row)
     return navigation
-
