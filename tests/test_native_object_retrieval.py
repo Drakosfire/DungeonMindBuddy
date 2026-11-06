@@ -139,3 +139,26 @@ def test_unobserved_complete_grant_blocks_followup_provider():
     ids=object_record_ids(q,handles,assertion=True)
     with pytest.raises(ValueError,match='settle its complete record closure'):
         validate_selected_record_events(q,execution(q,ids,writer=True))
+
+
+@pytest.mark.parametrize("handles", [(), ("native-full-document:source",),
+    ("native-body:source:section", "rules:lookup", "saved-page:page")])
+@pytest.mark.parametrize("assertion", [False, True])
+def test_source_only_selection_has_no_object_closure_or_query_hash(monkeypatch, handles, assertion):
+    q = query(1221, 20)
+    def unexpected_hash(_):
+        raise AssertionError("Source-only selection serialized the unrelated Graph query")
+    monkeypatch.setattr(NativeGraphQueryV4, 'sha256', property(unexpected_hash))
+    assert object_record_ids(q, handles, assertion=assertion) == ()
+
+
+def test_mixed_source_and_object_selection_retains_exact_closure():
+    q = query()
+    handle = object_selection_handle(q, q.discovered_entity_ids[0])
+    mixed = ('native-full-document:source', handle, 'rules:lookup')
+    assert object_record_ids(q, mixed, assertion=True) == ('asrt:0', 'asrt:2')
+    assert object_record_ids(q, mixed, assertion=True, attempted=('asrt:0',)) == ('asrt:2',)
+    validate_selected_record_events(q, execution(q, ('asrt:0', 'asrt:2'), handles=mixed))
+    with pytest.raises(ValueError, match='exact current controller/query grant'):
+        validate_selected_record_events(q, execution(q, ('asrt:0', 'asrt:2'),
+            handles=('native-full-document:source',)))
