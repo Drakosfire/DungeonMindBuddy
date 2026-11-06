@@ -600,3 +600,71 @@ def test_authored_trace_uses_exact_app_event_and_preserves_known_capture_failure
     assert store.trace.capture_status == 'incomplete'
     assert store.trace.capture_failure_code == 'trace_observation_rejected'
     assert store.trace.observations == [observed]
+
+
+def test_real_trace_append_timing_counts_success_and_propagates_failure():
+    from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
+    capture, store, turn = collector()
+    host = AgentTurnTraceBuilder(agent_thread_id=None, turn_id=None, runtime="test", backend="test", mode="test")
+    capture.fence.trace = host
+    capture.observe({"kind": "failure", "code": "synthetic", "phase": "delivery"})
+    failure = ConnectionError("unchanged transport failure")
+    store.failure = failure
+    with pytest.raises(ConnectionError) as caught:
+        capture.observe({"kind": "failure", "code": "synthetic", "phase": "delivery"})
+    assert caught.value is failure
+    assert len(store.trace.observations) == 1
+    span, = host.spans
+    assert span["name"] == "trace_append"
+    assert span["attributes"]["count"] == 2 and span["attributes"]["error_count"] == 1
+    assert capture.trace.capture_status == "recording"
+
+
+def test_execution_fence_timing_preserves_revision_and_failed_append():
+    from threading import RLock
+    from apps.live_control_server.services.agent_turn_service import _ClaimFence
+    from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
+    host = AgentTurnTraceBuilder(agent_thread_id=None, turn_id=None, runtime="test", backend="test", mode="test")
+    current = SimpleNamespace(world_id="world", conversation_id=uuid4(), turn_id=uuid4(), revision=4, attempt=1)
+    updated = SimpleNamespace(**(vars(current) | {"revision": 5}))
+    calls = []
+    failure = ConnectionError("not committed")
+    def append(*args, **kwargs):
+        calls.append(kwargs)
+        if len(calls) == 2:
+            raise failure
+        return updated, True
+    fence = _ClaimFence.__new__(_ClaimFence)
+    fence.trace = host
+    fence.service = SimpleNamespace(record=append)
+    fence.renewer = SimpleNamespace(_lock=RLock(), _turn=current)
+    event = object()
+    assert fence.append("record", "event", event) == (updated, True)
+    with pytest.raises(ConnectionError) as caught:
+        fence.append("record", "event", event)
+    assert caught.value is failure and fence.renewer._turn is updated
+    assert [call["expected_revision"] for call in calls] == [4, 5]
+    assert all(call["event"] is event for call in calls)
+    assert host.spans[0]["attributes"]["count"] == 2
+    assert host.spans[0]["attributes"]["error_count"] == 1
+
+
+def test_prompt_and_answer_draft_use_same_trace_append_measurement(tmp_path, monkeypatch):
+    from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
+    capture, store, turn, producer = answer_capture_case()
+    host = AgentTurnTraceBuilder(agent_thread_id=None, turn_id=None, runtime="test", backend="test", mode="test")
+    capture.fence.trace = host
+    authorization = turn.graph_context_execution.events[0]
+    capture.capture_prompt({"payloadJson": "{}", "payloadSha256": sha256(b"{}").hexdigest(), "payloadUtf8Bytes": 2}, authorization)
+    capture.answer_draft("original draft", producing_provider_attempt_id=producer)
+    assert [o.kind for o in store.trace.observations] == ["prompt_reference", "context_snapshot"]
+    failure = ConnectionError("draft append failed")
+    store.failure = failure
+    # Prompt capture always attempts persistence; its original exception survives.
+    with pytest.raises(ConnectionError) as caught:
+        capture.capture_prompt({"payloadJson": "{}", "payloadSha256": sha256(b"{}").hexdigest(), "payloadUtf8Bytes": 2}, authorization)
+    assert caught.value is failure
+    span, = host.spans
+    assert span["name"] == "trace_append"
+    assert span["attributes"]["count"] == 3 and span["attributes"]["error_count"] == 1

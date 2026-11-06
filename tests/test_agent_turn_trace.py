@@ -695,3 +695,28 @@ def test_unpriced_write_call_makes_aggregate_cost_partial_not_zero_complete():
     assert usage["cache_write_input_tokens"] == 200
     cost = aggregate_cost([first,second])
     assert cost["status"] == "partial"
+
+
+def test_cumulative_host_work_counts_failures_and_keeps_nested_totals_inclusive(monkeypatch):
+    import pytest
+    from apps.live_control_server.services import agent_turn_trace as module
+    trace = AgentTurnTraceBuilder(agent_thread_id=None, turn_id=None, runtime="test", backend="test", mode="test")
+    ticks = iter((0., 1., 2., 4., 5., 8.))
+    monkeypatch.setattr(module.time, "monotonic", lambda: next(ticks))
+    with trace.measure_host_work("retrieval_selection_apply"):
+        with trace.measure_host_work("native_source_append"):
+            pass
+    failure = ConnectionError("private diagnostic detail")
+    with pytest.raises(ConnectionError) as caught:
+        with trace.measure_host_work("retrieval_selection_apply"):
+            raise failure
+    assert caught.value is failure
+    spans = {span["name"]: span for span in trace.spans}
+    outer = spans["retrieval_selection_apply"]
+    assert outer["kind"] == "cumulative" and outer["duration_ms"] == 7000.
+    assert outer["status"] == "error"
+    assert outer["attributes"] == {"count": 2, "error_count": 1, "max_duration_ms": 4000.}
+    assert spans["native_source_append"]["duration_ms"] == 1000.
+    retained = module.retained_trace_payload({"spans": trace.spans})
+    assert retained["spans"][1]["attributes"] == outer["attributes"]
+    assert "private diagnostic detail" not in json.dumps(retained)

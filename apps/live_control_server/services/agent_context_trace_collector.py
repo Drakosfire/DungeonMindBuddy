@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import nullcontext
 from datetime import datetime, timezone
 from time import monotonic
 from typing import Any, Mapping
@@ -96,12 +97,16 @@ class ContextTraceCollector:
                 "sequence": len(self.trace.observations), "elapsed_ms": self.elapsed_ms,
             })
             try:
-                self.trace = self.fence.service.append_context_trace(
-                    **self._binding(), observation=observation,
-                )
+                self.trace = self._append_observation_locked(observation)
             except ApplicationStateValidationError:
                 # The first durable gap survives even when no more trace fits.
                 self.capture_capacity_exhausted = True
+
+    def _append_observation_locked(self, observation):
+        """All callers already hold the same claim lock; timing is observation only."""
+        host_trace = getattr(self.fence, "trace", None)
+        with host_trace.measure_host_work("trace_append") if host_trace is not None else nullcontext():
+            return self.fence.service.append_context_trace(**self._binding(), observation=observation)
 
     def observe(self, fields: Mapping[str, Any]) -> None:
         with self.fence.renewer._lock:
@@ -112,9 +117,7 @@ class ContextTraceCollector:
                 "elapsed_ms": self.elapsed_ms,
             })
             try:
-                self.trace = self.fence.service.append_context_trace(
-                    **self._binding(), observation=observation,
-                )
+                self.trace = self._append_observation_locked(observation)
             except ApplicationStateValidationError:
                 self._mark_incomplete_locked("trace_observation_rejected")
 
@@ -136,7 +139,7 @@ class ContextTraceCollector:
                 "api_mode": authorization.api_mode, "serializer_version": authorization.serializer_version,
                 "payload_sha256": view["payloadSha256"], "payload_utf8_bytes": view["payloadUtf8Bytes"],
             })
-            self.trace = self.fence.service.append_context_trace(**self._binding(), observation=observation)
+            self.trace = self._append_observation_locked(observation)
             if observation not in self.trace.observations:
                 raise ApplicationStateValidationError("prompt reference was not durably captured")
 
@@ -395,7 +398,7 @@ class ContextTraceCollector:
                 return
             # Identity/fencing/transport failures propagate; unlike a known
             # observation cap they must never be mistaken for successful capture.
-            self.trace = self.fence.service.append_context_trace(**self._binding(), observation=observation)
+            self.trace = self._append_observation_locked(observation)
 
     def answer_context(self, answer: str) -> None:
         """Record the validated visible answer and producing request's material."""

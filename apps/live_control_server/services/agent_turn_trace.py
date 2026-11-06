@@ -12,6 +12,7 @@ import math
 import re
 import sys
 import time
+from threading import Lock
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
 from contextlib import contextmanager
@@ -530,7 +531,7 @@ _CONTEXT_KEYS = (
     "current_work_present", "current_work_kind", "pointer_count", "model_context_char_count",
 )
 _SPAN_ATTRIBUTE_KEYS = (*_CONTEXT_KEYS, "count", "reason", "is_error", "outcome",
-                        "retrieval_schema", "result_count", "source_count")
+                        "retrieval_schema", "result_count", "source_count", "error_count", "max_duration_ms")
 
 
 def _log_metrics(value: Any, keys: Iterable[str]) -> dict[str, Any]:
@@ -628,6 +629,43 @@ class AgentTurnTraceBuilder:
         self.context_summary: dict[str, Any] = {}
         self._open_phases: dict[str, dict[str, Any]] = {}
         self._captured_accounting: dict[str, Any] | None = None
+        self._host_work_spans: dict[str, dict[str, Any]] = {}
+        self._host_work_lock = Lock()
+
+    @contextmanager
+    def measure_host_work(self, name: str) -> Iterator[None]:
+        """Inclusive cumulative timings, not additive critical-path spans.
+
+        Callers supply fixed host labels, never source/request-derived names.
+        One span per operation avoids a per-read flood. Observation grants no
+        execution authority and failures propagate unchanged.
+        """
+        started_at, started = utc_now_z(), time.monotonic()
+        failed = False
+        try:
+            yield
+        except BaseException:
+            failed = True
+            raise
+        finally:
+            duration = max(0.0, (time.monotonic() - started) * 1000)
+            with self._host_work_lock:
+                span = self._host_work_spans.get(name)
+                if span is None:
+                    span = dict(span_id=new_span_id(), parent_span_id=None,
+                        kind="cumulative", name=name, status="ok",
+                        started_at=started_at, completed_at=started_at,
+                        duration_ms=0.0,
+                        attributes={"count": 0, "error_count": 0, "max_duration_ms": 0.0})
+                    self._host_work_spans[name] = span
+                    self.spans.append(span)
+                span["duration_ms"] += duration
+                span["completed_at"] = utc_now_z()
+                span["attributes"]["count"] += 1
+                span["attributes"]["error_count"] += int(failed)
+                span["attributes"]["max_duration_ms"] = max(span["attributes"]["max_duration_ms"], duration)
+                if failed:
+                    span["status"] = "error"
 
     def elapsed_ms(self) -> int:
         return max(0, int((time.monotonic() - self._started_mono) * 1000))

@@ -9,7 +9,7 @@ import re
 import psycopg
 from pydantic import TypeAdapter, ValidationError
 from dataclasses import dataclass, replace
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
@@ -1633,8 +1633,9 @@ class _TurnClaimRenewer:
 class _ClaimFence:
     """Serialize event appends with renewals through one moving APP fence."""
 
-    def __init__(self, service: AgentTurnExecutionPersistencePort, turn: Turn) -> None:
+    def __init__(self, service: AgentTurnExecutionPersistencePort, turn: Turn, *, trace=None) -> None:
         self.service = service
+        self.trace = trace
         self.renewer = _TurnClaimRenewer(service, turn)
 
     @property
@@ -1649,15 +1650,16 @@ class _ClaimFence:
                 raise ApplicationStateError(
                     f"APP-STATE execution method {method_name} is unavailable."
                 )
-            updated, fresh = method(
-                current.world_id,
-                current.conversation_id,
-                current.turn_id,
-                expected_revision=current.revision,
-                expected_attempt=current.attempt,
-                **{event_name: event},
-                **extras,
-            )
+            with self.trace.measure_host_work("execution_append") if self.trace is not None else nullcontext():
+                updated, fresh = method(
+                    current.world_id,
+                    current.conversation_id,
+                    current.turn_id,
+                    expected_revision=current.revision,
+                    expected_attempt=current.attempt,
+                    **{event_name: event},
+                    **extras,
+                )
             if not isinstance(fresh, bool):
                 raise ApplicationStateError(
                     "APP-STATE execution append returned an invalid disposition."
@@ -2099,7 +2101,7 @@ class _PolicyExecutionAdapter:
         self.turn = claim.turn
         if self.trace is not None:
             self.trace.bind_durable_turn(claim.turn)
-        self.fence = _ClaimFence(self.service, claim.turn)
+        self.fence = _ClaimFence(self.service, claim.turn, trace=self.trace)
         # Build requires capture; existing Plan rollout remains explicitly opt-in.
         if (plan_jev_request is not None or self._is_build_turn() or os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1"
                 or os.environ.get("DMB_AGENT_PROMPT_CAPTURE") == "1"):
