@@ -185,7 +185,7 @@ def run_recap_production_extraction(
             edge_max_output_tokens=32768,
             per_call_deadline_ms=240_000,
             run_deadline_ms=900_000,
-            reasoning_effort="low",
+            reasoning_effort="none",
         )
     bounded = None
     if execution_limits is not None:
