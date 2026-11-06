@@ -11,6 +11,22 @@ from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
 )
 
 
+_PREVIOUS_AUTHORITY_PARAGRAPH = (
+    "Distinguish in-world assertions from table presentation and rhetorical language. "
+    "A table handout or figurative mention does not establish a physical object, "
+    "character attribute, possession, or in-world event. Preserve supported table "
+    "observations as such without promoting them into world facts. Parentheses "
+    "alone do not determine authority: retain explicitly narrated in-world "
+    "objects and actions even when parenthetical."
+)
+
+
+def _restore_prior_authority_paragraph_for_historical_fixture(prompt):
+    from src.graph_memory.extraction.recap_extraction_profile import _RECAP_SOURCE_FAITHFULNESS
+    paragraph = _RECAP_SOURCE_FAITHFULNESS[_RECAP_SOURCE_FAITHFULNESS.index("Distinguish in-world assertions"):]
+    assert prompt.count(paragraph) <= 1
+    return prompt.replace(paragraph, _PREVIOUS_AUTHORITY_PARAGRAPH)
+
 SYNTHETIC_SOURCE_ROWS = [
     {
         "source_span_ref_id": "span-intent",
@@ -326,7 +342,7 @@ def test_source_form_authority_reaches_every_recap_claim_bearing_pass() -> None:
             "text": "(The envoy put a brass compass into her satchel.)",
         },
     ]
-    rule = "Distinguish in-world assertions from table presentation and rhetorical language"
+    rule = "Distinguish in-world assertions, attributed evaluations and comparisons"
     for profile in (
         RECAP_EXTRACTION_PROFILE,
         get_extraction_profile("recap_category_encounter_job_preview", "2.0"),
@@ -402,7 +418,7 @@ def test_node_description_coverage_changes_only_existing_recap_node_prompts() ->
                 # The exact-main precedence fixture below owns these two newly
                 # changed prompts; retain this older coverage baseline elsewhere.
                 continue
-            assert hashlib.sha256(unchanged.encode()).hexdigest() == before[name], (profile.qualified_id, name)
+            assert hashlib.sha256(_restore_prior_authority_paragraph_for_historical_fixture(unchanged).encode()).hexdigest() == before[name], (profile.qualified_id, name)
 
 
 
@@ -430,7 +446,7 @@ def test_ordered_occurrence_kinds_change_only_recap_thread_instruction() -> None
         assert set(prompts) == set(before)
         for name, prompt in prompts.items():
             changed = profile.admitted_source_domains == frozenset({"recap"}) and name == "thread_pass.md"
-            assert (hashlib.sha256(prompt.encode()).hexdigest() != before[name]) == changed
+            assert (hashlib.sha256(_restore_prior_authority_paragraph_for_historical_fixture(prompt).encode()).hexdigest() != before[name]) == changed
             for rule in (
                 "emit an event candidate rather than only a clue for what was learned",
                 "preserve uncertainty about whether an action occurred",
@@ -472,7 +488,7 @@ def test_explicit_passage_transitions_change_only_recap_thread_prompt() -> None:
             changes = profile.admitted_source_domains == frozenset({"recap"}) and name == "thread_pass.md"
             assert prompt.count(_EXPLICIT_PASSAGE_TRANSITIONS) == int(changes)
             unchanged = prompt.replace(_EXPLICIT_PASSAGE_TRANSITIONS, "") if changes else prompt
-            assert hashlib.sha256(unchanged.encode()).hexdigest() == before[name], (profile.qualified_id, name)
+            assert hashlib.sha256(_restore_prior_authority_paragraph_for_historical_fixture(unchanged).encode()).hexdigest() == before[name], (profile.qualified_id, name)
         for spec in filter(None, [*profile.node_passes, profile.beat_pass,
                                   profile.encounter_job_pass, profile.edge_pass]):
             digest = hashlib.sha256(json.dumps(schema_for_pass_spec(spec), sort_keys=True).encode()).hexdigest()
@@ -555,7 +571,7 @@ def test_direct_order_changes_only_opted_in_thread_edge_prompts_and_edge_schema(
             )[2]
             assert refinement
             ordering_prompt = prompt.replace(refinement, "")
-            assert (hashlib.sha256(ordering_prompt.encode()).hexdigest() != before[name]) == changed
+            assert (hashlib.sha256(_restore_prior_authority_paragraph_for_historical_fixture(ordering_prompt).encode()).hexdigest() != before[name]) == changed
             assert prompt.count(_SOURCE_ORDER_OCCURRENCES) == int(opted_in and name == "thread_pass.md")
             assert prompt.count(_SOURCE_ORDER_EDGES) == int(opted_in and name == "edge_pass.md")
             assert ("`precedes`" in prompt) == (opted_in and name == "edge_pass.md")
@@ -593,11 +609,65 @@ def test_transition_antecedent_clause_replaces_parent_without_other_contract_cha
             assert prompt.count(_EXPLICIT_PASSAGE_TRANSITIONS) == int(changed)
             assert fixture["previous_clause"] not in prompt
             restored = prompt.replace(_EXPLICIT_PASSAGE_TRANSITIONS, fixture["previous_clause"]) if changed else prompt
-            assert hashlib.sha256(restored.encode()).hexdigest() == before[name]
-            assert (hashlib.sha256(prompt.encode()).hexdigest() != before[name]) == changed
+            assert hashlib.sha256(_restore_prior_authority_paragraph_for_historical_fixture(restored).encode()).hexdigest() == before[name]
+            assert (hashlib.sha256(_restore_prior_authority_paragraph_for_historical_fixture(prompt).encode()).hexdigest() != before[name]) == changed
             for row in fixture["source_rows"]:
                 assert row["text"] in prompt and row["source_span_ref_id"] in prompt
         for spec in filter(None, [*profile.node_passes, profile.beat_pass,
                                   profile.encounter_job_pass, profile.edge_pass]):
             digest = hashlib.sha256(json.dumps(schema_for_pass_spec(spec), sort_keys=True).encode()).hexdigest()
             assert digest == fixture["schema_sha256"][profile.qualified_id][spec.pass_id]
+
+
+def test_attributed_observations_and_unresolved_presentation_reach_recap_prompts_only():
+    """Source/policy delivery is not a claim of semantic model compliance."""
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    from src.graph_memory.extraction.worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
+    from src.graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
+    texts = [
+        "The narrator compared the envoy to a fox.",
+        "The captain boasted that the scout was invincible.",
+        "Could the envoy fly over the gate?",
+        "(The GM handed the players a printed chart.)",
+        "(The scout carried a brass chart in her satchel.)",
+        "(A chart card appeared, with no explanation of its presentation.)",
+        "The table prop and the scout's chart were separately described.",
+    ]
+    source = "\n".join(texts)
+    rows = [{"source_span_ref_id": f"span:{i}", "line_start": i, "line_end": i, "text": text}
+            for i, text in enumerate(texts, 1)]
+    packet = compile_source_sentence_packet(source, rows)
+    for profile in (RECAP_EXTRACTION_PROFILE, get_extraction_profile("recap_category_encounter_job_preview", "2.0")):
+        prompts = render_category_pass_prompts(rows, profile=profile, node_source_packet=packet)
+        for prompt in prompts.values():
+            assert "as attributed observations" in prompt
+            assert "not objective properties" in prompt
+            assert "A rhetorical question is not its answer" in prompt
+            assert "preserve that uncertainty rather than forcing a category" in prompt
+            assert "Do not invent a world object" in prompt
+            assert all(text in prompt for text in texts)
+        object_prompt = prompts["object_pass.md"]
+        assert "ignored_items" in object_prompt and "deferred_items" in object_prompt
+    for profile in (WORLDBUILDING_PROFILE, WORLDBUILDING_PLUMBING_PROFILE):
+        prompts = render_category_pass_prompts(rows, profile=profile)
+        assert all("as attributed observations" not in p for p in prompts.values())
+
+
+def test_policy_rewrite_changes_only_shared_authority_paragraph(monkeypatch):
+    from dataclasses import replace
+    from src.graph_memory.extraction import recap_extraction_profile as module
+    from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
+    old_paragraph = _PREVIOUS_AUTHORITY_PARAGRAPH
+    current = module._RECAP_SOURCE_FAITHFULNESS
+    start = current.index("Distinguish in-world assertions")
+    old_policy = current[:start] + old_paragraph
+    monkeypatch.setattr(module, "_RECAP_SOURCE_FAITHFULNESS", old_policy)
+    prior = module._build_recap_profile(profile_id=module.RECAP_PROFILE_ID,
+        profile_version=module.RECAP_PROFILE_VERSION, enable_encounter_job_pass=False,
+        enable_encounter_job_edge_guidance=False, enable_dynamic_node_vocabulary_packet=False)
+    current_specs = [*RECAP_EXTRACTION_PROFILE.node_passes, RECAP_EXTRACTION_PROFILE.beat_pass, RECAP_EXTRACTION_PROFILE.edge_pass]
+    prior_specs = [*prior.node_passes, prior.beat_pass, prior.edge_pass]
+    for new, old in zip(current_specs, prior_specs):
+        assert new.instruction.count(current) == 1
+        assert replace(new, instruction=new.instruction.replace(current, old_policy)) == old
+        assert schema_for_pass_spec(new) == schema_for_pass_spec(old)
