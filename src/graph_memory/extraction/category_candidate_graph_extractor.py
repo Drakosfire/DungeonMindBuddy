@@ -1132,6 +1132,26 @@ def consolidate_category_outputs(
     ignored: list[dict[str, Any]] = []
     deferred: list[dict[str, Any]] = []
     encounter_job_diag: dict[str, Any] = {"enabled": False}
+    scoped_node_ids = active_profile.qualified_id == RECAP_EXTRACTION_PROFILE.qualified_id
+    node_id_bindings: list[dict[str, str]] = []
+
+    def composed_node(raw, default_type, pass_name, seen):
+        node = _normalize_node(raw, default_type, semantic_state=semantic_state)
+        if scoped_node_ids:
+            local_id = raw.get("node_id")
+            if not isinstance(local_id, str) or not local_id.strip():
+                raise ValueError(f"{pass_name}: missing node ID")
+            local_id = local_id.strip()
+            if local_id in seen:
+                raise ValueError(f"{pass_name}: duplicate node ID")
+            seen.add(local_id)
+            candidate_id = "recap-model-node:" + json.dumps(
+                [pass_name, local_id], separators=(",", ":"), ensure_ascii=True,
+            )
+            node["node_id"] = candidate_id
+            node_id_bindings.append({"pass_id": pass_name, "local_node_id": local_id,
+                                     "candidate_node_id": candidate_id})
+        return node
 
     def dispositions(payload, collection, prefix, pass_name, seen_ids):
         for raw in payload.get(collection) or []:
@@ -1159,9 +1179,10 @@ def consolidate_category_outputs(
         payload = pass_outputs.get(pass_name, {})
         raw_nodes = payload.get("observation_nodes") or []
         per_pass_counts[pass_name] = len(raw_nodes)
+        seen_node_ids: set[str] = set()
         for raw in raw_nodes:
             if isinstance(raw, Mapping):
-                nodes.append(_normalize_node(raw, default_type, semantic_state=semantic_state))
+                nodes.append(composed_node(raw, default_type, pass_name, seen_node_ids))
         if pass_spec.include_dispositions:
             seen_disposition_ids: set[str] = set()
             ignored.extend(dispositions(payload, "ignored_items", "ignored", pass_name, seen_disposition_ids))
@@ -1302,6 +1323,7 @@ def consolidate_category_outputs(
 
     diagnostics = {
         "per_pass_counts": per_pass_counts,
+        **({"node_id_bindings": node_id_bindings} if scoped_node_ids else {}),
         "nodes_before_dedup": nodes_before_dedup,
         "merged_nodes": node_dedup["merged"],
         "cross_class_merged_nodes": cross_class["merged"],
