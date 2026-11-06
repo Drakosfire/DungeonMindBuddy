@@ -61,6 +61,17 @@ def verify_manifest(path: Path) -> tuple[dict, str]:
         raise ValueError('Unsupported evaluation manifest')
     if manifest.get('tooling_sha256') != tooling_identity():
         raise ValueError('Evaluation tooling pin mismatch')
+    source_mode = manifest.get('mode') == 'source_authority_v1'
+    if manifest.get('mode') not in (None, 'source_authority_v1'):
+        raise ValueError('Unsupported evaluation mode')
+    if source_mode:
+        operation = manifest.get('source_authority', {})
+        if (set(operation) != {'operation', 'review_pins'}
+                or operation['operation'] not in {'admit_context', 'extend_support'}
+                or not operation['review_pins'] or manifest['app_append_tables']):
+            raise ValueError('Source authority requires a bounded operation and pinned reviews')
+        for pin in operation['review_pins']:
+            read_pin(pin)
     ids = [item['id'] for item in manifest['items']]
     if not ids or len(ids) != len(set(ids)) or any(
         not isinstance(i, str) or not i or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_' for c in i)
@@ -79,7 +90,12 @@ def verify_manifest(path: Path) -> tuple[dict, str]:
             raise ValueError(f'Runtime drift: {name}')
     for item in manifest['items']:
         read_pin(item['request'])
-        read_pin(item['source'])
+        if not source_mode:
+            read_pin(item['source'])
+        elif not item.get('retained_run_id') or type(item.get('expected_run_revision')) is not int:
+            raise ValueError('Source authority requires an exact existing ingestion run')
+    if source_mode and len(ids) != 1:
+        raise ValueError('Source authority executes one operation at a time')
     for pin in manifest.get('prior_evidence', []):
         read_pin(pin)
     output = Path(manifest['output']).resolve()
@@ -105,6 +121,8 @@ def conserve(before: dict, after: dict, append_tables: set[str]) -> None:
 
 class Runner:
     def __init__(self, manifest: dict, manifest_sha: str, backend):
+        if manifest.get('mode') == 'source_authority_v1':
+            raise ValueError('Source-authority manifests cannot run the capture lifecycle')
         self.manifest, self.manifest_sha, self.backend = manifest, manifest_sha, backend
         self.output = Path(manifest['_output'])
 
