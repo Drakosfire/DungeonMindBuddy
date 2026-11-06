@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import time
 from decimal import Decimal
 from typing import Any
 
@@ -214,8 +215,31 @@ class Runner:
                     prefix = self.output / item['id']
                     seal(prefix.with_suffix('.dispatch.json'), {'id': item['id'], 'request': item['request']})
                     # Backend retains HTTP response before interpreting it and never retries.
-                    result = self.backend.capture(item, qualified, prefix)
+                    started = time.perf_counter_ns()
+
+                    def retain_timing(elapsed_ns, result=None):
+                        seal(prefix.with_suffix('.timing.json'), {
+                            'schema': 'dmb_ingestion_capture_timing_v1',
+                            'id': item['id'], 'manifest_sha256': self.manifest_sha,
+                            'request_sha256': item['request']['sha256'],
+                            'elapsed_ns': elapsed_ns, 'elapsed_ms': elapsed_ns / 1_000_000,
+                            'result_sha256': digest(encoded(result)) if result is not None else None,
+                            'result_state': result['state'] if result is not None else None,
+                            'capture_returned': result is not None,
+                            'scope': 'Ordinary backend capture including HTTP/component retention; excludes qualification, later audit and review',
+                        })
+
+                    try:
+                        result = self.backend.capture(item, qualified, prefix)
+                    except BaseException as error:
+                        try:
+                            retain_timing(time.perf_counter_ns() - started)
+                        except Exception as timing_error:
+                            error.add_note(f'Timing retention failed ({type(timing_error).__name__}); no complete measurement retained')
+                        raise
+                    elapsed_ns = time.perf_counter_ns() - started
                     seal(prefix.with_suffix('.result.json'), result)
+                    retain_timing(elapsed_ns, result)
                     completed.append(item['id'])
                     if result['state'] != 'reviewable':
                         status = 'stopped_at_capture_boundary'
@@ -294,7 +318,36 @@ class Runner:
             known = sum((Decimal(str(v)) for v in values if v is not None), Decimal(0))
             accounting[field] = {'reported_sum': str(known), 'complete_total': str(known) if values and all(v is not None for v in values) else None,
                                  'missing_run_count': sum(v is None for v in values)}
+        timings = []
+        for item in self.manifest['items']:
+            timing = self._optional(item['id'] + '.timing.json')
+            if timing is None:
+                timings.append({'id': item['id'], 'status': 'unknown', 'reason': 'No retained capture timing'})
+                continue
+            if (timing['schema'] != 'dmb_ingestion_capture_timing_v1'
+                    or timing['id'] != item['id'] or timing['manifest_sha256'] != self.manifest_sha
+                    or timing['request_sha256'] != item['request']['sha256']):
+                raise ValueError('Capture timing binding differs')
+            if (type(timing['capture_returned']) is not bool
+                    or type(timing['elapsed_ns']) is not int or timing['elapsed_ns'] < 0
+                    or type(timing['elapsed_ms']) not in (int, float)
+                    or timing['elapsed_ms'] != timing['elapsed_ns'] / 1_000_000):
+                raise ValueError('Invalid capture duration')
+            result_path = self.output / (item['id'] + '.result.json')
+            if timing['capture_returned']:
+                if not result_path.exists():
+                    timings.append({'id': item['id'], 'status': 'incomplete', 'measurement': timing})
+                    continue
+                raw_result = result_path.read_bytes()
+                if (digest(raw_result) != timing['result_sha256']
+                        or json.loads(raw_result)['state'] != timing['result_state']):
+                    raise ValueError('Capture timing result differs')
+            elif timing['result_sha256'] is not None or timing['result_state'] is not None:
+                raise ValueError('Incomplete timing cannot claim a result')
+            timings.append({'id': item['id'],
+                            'status': 'measured' if timing['capture_returned'] and timing['result_state'] == 'reviewable' else 'incomplete',
+                            'measurement': timing})
         return {'manifest_sha256': self.manifest_sha, 'next_unproven_boundary': boundary,
                 'terminal': self._optional('terminal.json'), 'audit': audit,
-                'accounting': accounting,
+                'accounting': accounting, 'capture_timings': timings,
                 'publication': 'unproven', 'gold': 'independent source-grounded assessment required'}
