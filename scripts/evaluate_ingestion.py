@@ -14,16 +14,29 @@ def main():
     parser.add_argument('command', choices=['qualify', 'capture', 'observe', 'audit', 'audit-retained', 'report', 'pause',
                                            'source-qualify', 'source-execute', 'source-inspect', 'source-report',
                                            'publication-prepare', 'publication-qualify', 'publication-execute',
-                                           'publication-inspect', 'publication-report'])
+                                           'publication-inspect', 'publication-report',
+                                           'correction-qualify', 'correction-execute', 'correction-inspect', 'correction-report'])
     parser.add_argument('--manifest', type=Path, required=True)
     parser.add_argument('--qualification-sha')
     args = parser.parse_args()
     manifest, sha = verify_manifest(args.manifest)
     source_mode = manifest.get('mode') == 'source_authority_v1'
     publication_mode = manifest.get('mode') == 'reviewed_publication_v1'
+    correction_mode = manifest.get('mode') == 'reviewed_correction_v1'
     if (args.command.startswith('source-') != source_mode
-            or args.command.startswith('publication-') != publication_mode):
+            or args.command.startswith('publication-') != publication_mode
+            or args.command.startswith('correction-') != correction_mode):
         parser.error('Source-authority and ordinary capture commands require their own explicit manifest mode')
+    if correction_mode:
+        if args.command == 'correction-execute' and not args.qualification_sha:
+            parser.error('correction-execute requires --qualification-sha')
+        from ingestion_evaluation.correction import CorrectionBackend, CorrectionRunner
+        backend = None if args.command == 'correction-report' else CorrectionBackend(manifest)
+        runner = CorrectionRunner(manifest, sha, backend)
+        result = (runner.execute(args.qualification_sha) if args.command == 'correction-execute'
+                  else getattr(runner, args.command.removeprefix('correction-'))())
+        print(json.dumps(result, default=str))
+        return
     if publication_mode:
         if args.command == 'publication-execute' and not args.qualification_sha:
             parser.error('publication-execute requires --qualification-sha')
