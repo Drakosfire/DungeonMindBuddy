@@ -1,6 +1,6 @@
 # RECOVERY: retain an unresolved World request without blocking new work
 
-Status: ACTIVE. PRIME owns this bounded slice under the operator-authorized
+Status: DELIVERED. Merged #2159 at a43553bf87fb9856c1bbdf3e8ca77767294109fb after independent approval of 27a7bee8644eaf62d60b818d6b9291d3a9cb16a5 and all seven CI checks. Delivered the reviewed integrated UI a688a23499b5dc21654b208fb51e4a476ce757a5 on 5202, preserving API44b5, schema, all retained rows and session files. Ordinary keep → reload → restore → keep verified the original Play request/reference remained available without retry. Operator acceptance and native Play admission remain open. PRIME owns this bounded slice under the operator-authorized
 References/recovery goal. Base origin/main8f1d0f8745e879dd7dd106aa5020b5054bc3b4b5.
 Branch codex/conversation-retained-request-recovery in the existing
 buddy-context-loop checkout. Topology: serial after merged/delivered #2158.
