@@ -1,9 +1,11 @@
 # TRACE: retrieval host timing
 
-Status: ACTIVE. PRIME owns this bounded measurement slice under the reliable
-retrieval goal. Base origin/main `351ca4327d12b773d039ff7877a7440856ff7f42`.
-Branch `codex/retrieval-host-phase-timing`, existing buddy-context-loop checkout.
-Topology: serial after merged/delivered #2153; no ingestion lane dependency.
+Status: MERGED and DELIVERED. PR2158 product63ed934b1f93331d8ee94be738b76b60052453fd
+merged8f1d0f8745e879dd7dd106aa5020b5054bc3b4b5 after independent approval and all
+seven CI checks. Independently approved integrated runtime44b5c416727a81ec270f9dc81af2420406df54c2
+is healthy on8000 with the prior5202 UI unchanged. All retained Core/APP rows and
+session files were conserved. The implementation write lease is released.
+Actual host measurement remains open; instrumentation is not speed improvement.
 
 ## Outcome and invariant
 
@@ -44,6 +46,7 @@ Instrumentation alone does not establish speed improvement.
 
 PR2153 merged at351ca4327d12b773d039ff7877a7440856ff7f42 and delivered as
 runtime051ac464e1cdc2c00177c05c8990be4f5dd43811. Play source filtering, exact
-passage selection and same-tab reload passed. Live answer/citation dogfood awaits
-the pending C2 provider-transfer question after automatic approval rejected it.
+passage selection and same-tab reload passed. Provider calls are authorized. Ordinary Play submission failed before durable
+admission: its older Graph context differs from current native source authority.
+The failure and original request are retained; native Play integration is open.
 Play objects, other cross-surface dogfood and operator acceptance remain open.

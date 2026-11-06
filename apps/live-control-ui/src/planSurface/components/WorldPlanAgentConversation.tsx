@@ -410,6 +410,26 @@ function readPendingPlayTurn(worldId: string, serialized: string|null = window.l
   return { storageKey, serialized, request: value.request as unknown as WorldPlayAgentTurnRequestV1 | WorldBuildAgentTurnRequestV1 };
 }
 
+// Retained copies use the existing exact pending envelope, without another wire format.
+function keptTurnKey(stored: StoredPendingPlayTurn): string {
+  return `${pendingPlayTurnStorageKey(stored.request.owner_scope.world_id)}:retained:${stored.request.turn_id}`;
+}
+function readKeptTurns(world: string): { items: StoredPendingPlayTurn[]; issues: number } {
+  const prefix = `${pendingPlayTurnStorageKey(world)}:retained:`;
+  const items: StoredPendingPlayTurn[] = [];
+  let issues = 0;
+  for (let index = 0; index < localStorage.length; index++) {
+    const key = localStorage.key(index);
+    if (!key?.startsWith(prefix)) continue;
+    try {
+      const stored = readPendingPlayTurn(world, localStorage.getItem(key));
+      if (!stored || keptTurnKey(stored) !== key) throw new Error('Retained request identity differs.');
+      items.push(stored);
+    } catch { issues++; }
+  }
+  return { items, issues };
+}
+
 const REJECTED_REFERENCE_REQUEST_PREFIX='dmb:rejected-authored-build:v1:';
 const REJECTED_REFERENCE_CODES=['world_owner_unverified','build_source_unavailable','build_editor_context_changed','reviewed_step_unavailable','build_retry_unavailable'];
 interface RetainedRejectedRequest {storageKey:string;reasonCode:string;stored:StoredPendingPlayTurn}
@@ -2897,6 +2917,11 @@ export function WorldPlanAgentConversation({
     catch(reason){setRejectedRequests(null);setRejectedRequestError(String(reason));}
   }
   const [pendingPlayTurn, setPendingPlayTurn] = useState<StoredPendingPlayTurn | null>(null);
+  const [keptTurns, setKeptTurns] = useState<{world: string; items: StoredPendingPlayTurn[]; issues: number} | null>(null);
+  function refreshKeptTurns(world: string) {
+    try { setKeptTurns({world, ...readKeptTurns(world)}); }
+    catch { setError('Retained requests could not be read. Their recovery copies were kept.'); }
+  }
   const [pendingPlayLoadError, setPendingPlayLoadError] = useState<string | null>(null);
   const [pendingPlayLoadedWorldId, setPendingPlayLoadedWorldId] = useState<string | null>(null);
   const [pendingCommandLoadError, setPendingCommandLoadError] = useState<string | null>(null);
@@ -3537,7 +3562,7 @@ export function WorldPlanAgentConversation({
     } catch (reason) {
       setPendingPlayLoadError(reason instanceof Error ? reason.message : "Saved Play request recovery is unavailable.");
       setPendingPlayLoadedWorldId(verifiedWorldId);
-    } finally { refreshRejectedRequests(verifiedWorldId); }
+    } finally { refreshRejectedRequests(verifiedWorldId); refreshKeptTurns(verifiedWorldId); }
   }, [verifiedWorldId, sharedConversation?.setPendingTurn]);
 
   useEffect(() => {
@@ -4226,12 +4251,60 @@ export function WorldPlanAgentConversation({
         throw new Error("The saved request changed. Its recovery record was retained.");
       }
       if (current === stored.serialized) window.localStorage.removeItem(stored.storageKey);
+      if (window.localStorage.getItem(stored.storageKey) !== null) {
+        throw new Error("The pending recovery copy could not be cleared. It was retained.");
+      }
       setPendingPlayTurn(null);
       setPendingPlayLoadError(null);
       return true;
     } catch (reason) {
       setPendingPlayLoadError(reason instanceof Error ? reason.message : "Could not clear the saved Play request.");
       return false;
+    }
+  }
+
+  function keepSavedTurnForLater(stored: StoredPendingPlayTurn) {
+    if (verifiedWorldId !== stored.request.owner_scope.world_id || sending || requestRef.current !== null
+      || buildCompose.busy || playCompose.busy) return;
+    try {
+      const key = keptTurnKey(stored), existing = localStorage.getItem(key);
+      if (localStorage.getItem(stored.storageKey) !== stored.serialized) throw new Error('The pending request changed. Its recovery copy was kept.');
+      if (existing !== null && existing !== stored.serialized) throw new Error('A different retained request already uses this identity. Both copies were kept.');
+      localStorage.setItem(key, stored.serialized);
+      if (localStorage.getItem(key) !== stored.serialized) throw new Error('The recovery copy could not be verified. The pending request was kept.');
+      if (!clearSavedPlayTurn(stored)) return;
+      sharedConversation?.setPendingTurn(current => current?.turnId === stored.request.turn_id ? null : current);
+      setSubmittedMessage(current => current?.id === stored.request.turn_id ? null : current);
+      const notice = uncertainPlayNoticeRef.current;
+      if (notice?.turnId === stored.request.turn_id) {
+        uncertainPlayNoticeRef.current = null;
+        setError(current => current === notice.message ? null : current);
+      }
+      setConversationNotice('Request kept for later. Nothing was cancelled or retried.');
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'The pending request could not be kept for later.'); }
+    finally { refreshKeptTurns(stored.request.owner_scope.world_id); }
+  }
+
+  function restoreKeptTurn(stored: StoredPendingPlayTurn) {
+    if (verifiedWorldId !== stored.request.owner_scope.world_id || sending || requestRef.current !== null
+      || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError || buildCompose.busy || playCompose.busy) return;
+    try {
+      if (localStorage.getItem(keptTurnKey(stored)) !== stored.serialized) throw new Error('The retained request changed. No request was restored.');
+      if (localStorage.getItem(stored.storageKey) !== null) throw new Error('Another pending request needs recovery. It was not replaced.');
+      localStorage.setItem(stored.storageKey, stored.serialized);
+      if (localStorage.getItem(stored.storageKey) !== stored.serialized) throw new Error('The restored pending request could not be verified. The retained copy was kept.');
+      setPendingPlayTurn(stored);
+      sharedConversation?.setPendingTurn({surface: stored.request.surface.surface_id, turnId: stored.request.turn_id});
+      setConversationNotice('Request restored for review. Choose Retry to send the exact request.');
+    } catch (reason) {
+      // Another tab may have acquired the slot. Show its actual recovery rather
+      // than leaving an apparently available composer over a newer request.
+      try {
+        const current = readPendingPlayTurn(stored.request.owner_scope.world_id);
+        setPendingPlayTurn(current);
+        if (current) sharedConversation?.setPendingTurn(value => value ?? {surface: current.request.surface.surface_id, turnId: current.request.turn_id});
+      } catch { setPendingPlayLoadError('The pending recovery copy needs inspection. Its bytes were kept.'); }
+      setError(reason instanceof Error ? reason.message : 'The retained request could not be restored.');
     }
   }
 
@@ -6667,6 +6740,23 @@ export function WorldPlanAgentConversation({
       {referenceRecoveryCopies?.key===referenceScopeKey&&referenceRecoveryCopies.copies.length>0&&<details aria-label="Retained reference drafts"><summary>Retained reference drafts · {referenceRecoveryCopies.copies.length}</summary>{referenceRecoveryCopies.copies.map(copy=><details key={copy.key}><summary>Original reference draft</summary><pre>{copy.raw}</pre></details>)}</details>}
       {rejectedRequestError&&<p role="alert">{rejectedRequestError}</p>}
       {rejectedRequests?.world===verifiedWorldId&&rejectedRequests.items.length>0&&<details aria-label="Retained rejected requests"><summary>Retained rejected requests · {rejectedRequests.items.length}</summary><p>These browser recovery copies were retained after a reported rejection. They do not authorize another attempt.</p>{rejectedRequests.items.map(item=><article key={item.storageKey}><p>{item.stored.request.message}</p><p>Reported reason: {item.reasonCode}</p><SurfaceGraphReferenceInput worldId={item.stored.request.owner_scope.world_id} label="Rejected request Graph context" readOnly value={(item.stored.request as WorldBuildAgentTurnRequestV1).build_authored_references!.references} onChange={()=>{}}/><details><summary>Original request</summary><pre>{item.stored.serialized}</pre></details></article>)}</details>}
+      {keptTurns?.world === verifiedWorldId && (keptTurns.items.length > 0 || keptTurns.issues > 0) ? <details aria-label="Requests kept for later">
+        <summary>Kept for later · {keptTurns.items.length}</summary>
+        <p>These exact requests remain available for review. Keeping a copy does not cancel or retry it.</p>
+        {keptTurns.issues > 0 ? <p role="alert">{keptTurns.issues} retained request {keptTurns.issues === 1 ? 'copy needs' : 'copies need'} inspection. The original bytes were kept.</p> : null}
+        {keptTurns.items.map(stored => {
+          const request = stored.request;
+          const refs = request.surface.surface_id === 'play'
+            ? (request as WorldPlayAgentTurnRequestV1).authored_references
+            : (request as WorldBuildAgentTurnRequestV1).build_authored_references;
+          return <article key={request.turn_id} aria-label={`Kept ${request.surface.surface_id} request`}>
+            <p>{request.message}</p>
+            {refs ? <SurfaceGraphReferenceInput worldId={request.owner_scope.world_id} label="Kept request references" readOnly value={refs.references} onChange={() => {}}/> : null}
+            <details><summary>Original request</summary><pre>{stored.serialized}</pre></details>
+            <button type="button" onClick={() => restoreKeptTurn(stored)} disabled={sending || requestRef.current !== null || Boolean(sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) || buildCompose.busy || playCompose.busy}>Restore request</button>
+          </article>;
+        })}
+      </details> : null}
       {pendingPlayTurn && !sending && requestRef.current === null ? <section className="world-plan-agent-conversation__recovery-notice" aria-label="Saved turn recovery">
         <p>This request needs recovery. You can check its saved status or retry the exact request.</p>
         <details><summary>Saved request details</summary>
@@ -6677,6 +6767,7 @@ export function WorldPlanAgentConversation({
           {pendingPlayTurn.request.primary_work.kind === "build" ? <p>Source digest: {pendingPlayTurn.request.primary_work.expected_content_sha256}</p> : null}
         </details>
         <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
+        <button type="button" onClick={() => keepSavedTurnForLater(pendingPlayTurn)} disabled={sending || requestRef.current !== null || buildCompose.busy || playCompose.busy}>Keep for later</button>
         <button type="button" onClick={() => { void dispatchSavedPlayTurn(pendingPlayTurn); }} disabled={sending || buildCompose.busy || requestRef.current !== null}>
           Retry exact saved turn
         </button>
@@ -7006,9 +7097,10 @@ export function WorldPlanAgentConversation({
               const options = presentationHosts?.header?.closest("details") ?? connectionOptionsRef.current;
               if (options instanceof HTMLDetailsElement) options.open = true;
             }}>Check saved request</button>{" "}
-            {pendingPlayTurn ? <button type="button"
+            {pendingPlayTurn ? <><button type="button"
               disabled={requestRef.current !== null}
-              onClick={() => { void dispatchSavedPlayTurn(pendingPlayTurn); }}>Retry</button> : null}
+              onClick={() => { void dispatchSavedPlayTurn(pendingPlayTurn); }}>Retry</button>{" "}
+              <button type="button" disabled={requestRef.current !== null} onClick={() => keepSavedTurnForLater(pendingPlayTurn)}>Keep for later</button></> : null}
           </p>
         ) : null}
       {visibleBuildPlacementFailure ? <section aria-label="Page proposal unavailable">
