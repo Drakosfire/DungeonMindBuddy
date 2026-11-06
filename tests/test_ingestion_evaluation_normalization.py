@@ -43,6 +43,8 @@ class BoundedRecapPassClient:
                 'def materialize_node_evidence(*a, **kw): raise AssertionError("unexpected node packet")\ndef node_wire_schema(*a): raise AssertionError("unexpected node schema")\n',
             'src/graph_memory/extraction/category_candidate_graph_schema.py':
                 'def category_pass_text_format_for_spec(spec): return {"format":{"schema":{"type":"object"}}}\n',
+            'src/graph_memory/extraction/recap_quote_integrity.py':
+                'def validate_and_defer_nonliteral_recap_items(candidate, **kwargs): return candidate, {"verified":True}\n',
             'src/graph_memory/extraction/category_candidate_graph_extractor.py': '''
 import json
 from types import SimpleNamespace
@@ -172,6 +174,25 @@ def test_unlisted_imported_owner_is_rejected(normalization):
         compare(save())
     error = (Path(spec['output']) / 'one/control.stderr').read_text()
     assert 'Imported runtime member is not pinned' in error
+
+
+def test_saved_candidate_reconstruction_includes_ordinary_quote_owner(normalization):
+    spec, save, replace_pin, control, treatment = normalization
+    for arm, root in [('control', control), ('treatment', treatment)]:
+        owner = root / 'src/graph_memory/extraction/category_candidate_graph_extractor.py'
+        owner.write_text(owner.read_text().replace('    return SimpleNamespace(candidate_graph=candidate)',
+                                                  "    candidate['diagnostics']['preview']=False\n    return SimpleNamespace(candidate_graph=candidate)"))
+        quote_owner = root / 'src/graph_memory/extraction/recap_quote_integrity.py'
+        quote_owner.write_text('def validate_and_defer_nonliteral_recap_items(candidate, **kwargs):\n    candidate["diagnostics"]["preview"]=True\n    return candidate, {"verified":True}\n')
+        pin = spec['runtimes'][arm]
+        runtime = json.loads(Path(pin['path']).read_text())
+        for row in runtime['files']:
+            row['sha256'] = digest((root / row['path']).read_bytes())
+        replace_pin(pin, runtime)
+    report = compare(save())
+    assert all(c['old_reconstruction'] == 'exact_decoded_equality' for c in report['cases'])
+    product = json.loads((Path(spec['output']) / 'one/control.json').read_text())
+    assert product['quote_integrity'] == {'verified': True}
 
 
 @pytest.mark.parametrize('packet_matches', [True, False])

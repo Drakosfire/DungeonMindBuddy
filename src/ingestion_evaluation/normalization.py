@@ -249,9 +249,17 @@ def _worker(job_path: Path):
         source_span_index=index, source_text=source, model_id=run['lineage']['model_id'],
         source_artifact_id=run['source_artifact_id'], known_character_context=context,
     ), client=ActualFixture({}))
+    # The ordinary runner persists the quote-integrity result, not the extractor
+    # return value. Reuse that same pure owner before strict reconstruction.
+    from src.graph_memory.extraction.recap_quote_integrity import validate_and_defer_nonliteral_recap_items
+    candidate, quote_diagnostics = validate_and_defer_nonliteral_recap_items(
+        product.candidate_graph, source_text=source, source_artifact_id=run['source_artifact_id'],
+        source_sha256=run['lineage']['source_sha256'], source_span_index=index,
+    )
     verify_runtime(job['runtime'])
     verify_runtime_imports(runtime)
-    seal(Path(job['product_output']), {'candidate': product.candidate_graph, 'requests': requests,
+    seal(Path(job['product_output']), {'candidate': candidate, 'requests': requests,
+                                      'quote_integrity': quote_diagnostics,
                                       'scope': 'Counterfactual normalization only; fixture metrics omitted'})
 
 
