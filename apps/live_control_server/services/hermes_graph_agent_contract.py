@@ -390,7 +390,7 @@ def _serialize_request_budget(value: Any) -> dict[str, Any] | None:
         if (
             isinstance(raw, bool)
             or not isinstance(raw, int)
-            or raw <= 0
+            or raw < (0 if key == "outputReserveTokens" else 1)
             or raw > maximum
         ):
             raise ValueError(f"requestBudget.{key} is outside its supported range")

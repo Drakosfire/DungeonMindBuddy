@@ -666,3 +666,10 @@ def test_native_rules_capture_flag_requires_explicit_rules_and_parent_authority(
         ValueError, match="native Rules capture requires Rules capability"
     ):
         deserialize_hermes_graph_agent_turn_request(payload)
+
+
+def test_no_application_output_ceiling_survives_worker_request_round_trip():
+    budget=_budget() | {'outputReserveTokens':0}
+    payload=serialize_hermes_graph_agent_turn_request(_request(request_budget=budget))
+    assert payload['requestBudget']['outputReserveTokens']==0
+    assert deserialize_hermes_graph_agent_turn_request(payload).request_budget==budget

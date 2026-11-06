@@ -75,3 +75,12 @@ Owning regression test lease also includes tests/test_build_document_proposal.py
 and tests/test_build_jev_image.py. The changes alter current native requests only;
 retained positive-cap packets keep exact native producer validation. SDK output
 parameter omission is verified against the installed GE/OpenAI provider.
+
+Worker codec boundary correction: apps/live_control_server/services/
+hermes_graph_agent_contract.py and tests/test_hermes_graph_agent_contract.py carry
+the already-defined zero APP output reservation over IPC; context capacity must
+remain positive. No zero output ceiling is sent to any provider. This is necessary
+for the same cap-removal outcome, not another execution path or capability.
+
+Exact current Plan HTTP proof lease: tests/test_agent_native_corpus_sources.py,
+existing ordinary native Plan test asserts actual SDK cap omission.
