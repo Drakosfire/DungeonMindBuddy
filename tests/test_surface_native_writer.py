@@ -103,7 +103,7 @@ def work_submission(context,record):
             dict(plan_markdown=WORK_MARKDOWN,session_evidence=[],dialogue=[]) if record.policy.action.surface_id=='plan' else {}))
 
 
-async def actual_sdk_request(frame, *, model='gpt-6-luna', work_frame=None):
+async def actual_sdk_request(frame, *, model='gpt-6-luna', work_frame=None, output_limit=4096):
     sent = []
     def wire(request):
         sent.append(request.content.decode())
@@ -113,7 +113,7 @@ async def actual_sdk_request(frame, *, model='gpt-6-luna', work_frame=None):
             transport=httpx.MockTransport(wire))) as client:
         await client.responses.create(model=model, input=[dict(role='user',content=json.dumps(value))
             for value in ([frame] if work_frame is None else [frame,work_frame])],
-            tools=[], stream=False, max_output_tokens=4096)
+            tools=[], stream=False, **({} if output_limit is None else {"max_output_tokens":output_limit}))
     assert len(sent) == 1
     return sent[0]
 

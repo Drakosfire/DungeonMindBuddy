@@ -325,7 +325,7 @@ def test_play_reference_input_rejects_resealed_substitution(source_case, change)
         prove_input(turn, auth, raw, sequence=auth.sequence + 1, event_id=uuid4())
 
 
-def accepted_play_source_case(source_case):
+def accepted_play_source_case(source_case, *, token_ceilings=True):
     """Actual Core read and APP Run acceptance; no model or provider is invoked."""
     from hashlib import sha256
     from application_state.agent_conversation import AgentConversationService
@@ -400,6 +400,8 @@ def accepted_play_source_case(source_case):
     policy = sub.graph_context_execution.policy.model_dump(mode="json", by_alias=True)
     policy["source_read_scope"]["graph_revision"] = core.authority.revision_id
     policy["authored_source_context"] = wire["authored_source_context"]
+    if not token_ceilings:
+        policy.update(max_total_provider_input_tokens=None,max_total_provider_output_tokens=None)
     policy = t.NativePlayGraphPolicyV1.model_validate(policy)
     execution = t.PlayWorldGraphExecutionV1(
         context_receipt_sha256=receipt.context_receipt_sha256,
@@ -561,13 +563,14 @@ def test_later_play_provider_cannot_reseal_different_selected_source_bytes(sourc
         "extra_policy_key",
     ],
 )
+@pytest.mark.parametrize("token_ceilings", [True, False])
 def test_play_source_storage_rejects_malformed_or_foreign_context(
-    source_case, application_state_dsn, change
+    source_case, application_state_dsn, change, token_ceilings
 ):
     import psycopg
     from psycopg.types.json import Jsonb
 
-    _, _, turn, _, _ = accepted_play_source_case(source_case)
+    _, _, turn, _, _ = accepted_play_source_case(source_case,token_ceilings=token_ceilings)
     receipt = turn.graph_context_receipt.model_dump(mode="json", by_alias=True)
     execution = turn.graph_context_execution.model_dump(mode="json", by_alias=True)
     ctx = receipt["authored_source_context"]
@@ -617,7 +620,7 @@ def test_play_selected_source_normalizes_and_persists_inspectable_body_citation(
     )
     from apps.live_control_server.services.agent_turn_service import _BuildClaimEvidence
 
-    service, sub, turn, auth, raw = accepted_play_source_case(source_case)
+    service, sub, turn, auth, raw = accepted_play_source_case(source_case,token_ceilings=token_ceilings)
     turn, _ = service.authorize_native_play_provider(
         sub.world_id,
         sub.conversation_id,
@@ -918,3 +921,13 @@ def test_play_source_capture_cannot_borrow_another_turn_or_attempt(
     wire["graph_context_execution"]["events"][0][field] = value
     with pytest.raises(ValueError, match="another request or attempt"):
         t.Turn.model_validate_json(json.dumps(wire))
+
+
+def test_exact_selected_play_source_admits_no_aggregate_token_ceiling(source_case):
+    service,sub,turn,auth,raw=accepted_play_source_case(source_case,token_ceilings=False)
+    updated,fresh=service.authorize_native_play_provider(sub.world_id,sub.conversation_id,turn.turn_id,
+        expected_revision=turn.revision,expected_attempt=turn.attempt,
+        provider_attempt_event=auth,prepared_request_json=raw)
+    assert fresh and updated.graph_context_execution.policy.max_total_provider_input_tokens is None
+    assert updated.graph_context_execution.policy.max_total_provider_output_tokens is None
+    assert updated.graph_context_execution.policy.max_provider_attempts > 0

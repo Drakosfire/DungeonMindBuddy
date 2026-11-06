@@ -51,7 +51,7 @@ def writer_case(*, text="A source-local detail.", schema=None):
     record = execution(context.context_receipt_sha256, policy)
     # The official SDK supplies its real serialized request; the synthetic frame
     # here tests host accounting only. HTTP tests below prove APP/source admission.
-    raw = asyncio.run(actual_sdk_request({"text": text, "schema_test": schema}))
+    raw = asyncio.run(actual_sdk_request({"text": text, "schema_test": schema},output_limit=None))
     prepared = PreparedTextDispatch(
         str(uuid4()),
         "openai",
@@ -106,14 +106,16 @@ def test_large_sdk_input_uses_complete_token_estimate_not_utf8_byte_refusal():
     assert event.input_tokens == case.accounting.estimate(case.expected)
     assert event.input_tokens + event.output_token_reserve <= 128000
     assert event.envelope_sha256 == case.prepared.body_sha256
-    assert event.output_token_reserve == 4096
+    assert event.output_token_reserve == 0
+    assert "max_output_tokens" not in case.expected
+    assert case.record.policy.writer_context_budget.context_limit_tokens is None
     assert case.prepared.body.decode().find("source-local episode") >= 0
 
 
 @pytest.mark.parametrize(
-    "failure", ["missing", "version", "raising", "overflow", "digest", "body"]
+    "failure", ["missing", "version", "raising", "digest", "body"]
 )
-def test_unavailable_accounting_overflow_or_changed_sdk_input_never_admits(failure):
+def test_unavailable_accounting_or_changed_sdk_input_never_admits(failure):
     case = writer_case()
     if failure == "missing":
         case.adapter._build_jev_accounting = None
@@ -129,15 +131,11 @@ def test_unavailable_accounting_overflow_or_changed_sdk_input_never_admits(failu
         case.adapter._build_jev_accounting = replace(
             case.accounting, count_tokens=unavailable
         )
-    elif failure == "overflow":
-        case.adapter._build_jev_accounting = replace(
-            case.accounting, count_tokens=lambda _: 128000
-        )
     elif failure == "digest":
         case.prepared = replace(case.prepared, body_sha256="0" * 64)
     elif failure == "body":
         case.expected = case.expected | {"instructions": "changed"}
-    with pytest.raises(WriterCapacityError if failure == "overflow" else ValueError):
+    with pytest.raises(ValueError):
         invoke(case)
     assert not case.captured
 
@@ -199,7 +197,8 @@ def test_ordinary_large_native_source_answers_with_estimated_authorization(
     raw = case.writer.calls[0].content
     assert len(raw) > 128000
     assert event.input_tokens == counter().estimate(json.loads(raw))
-    assert event.input_tokens + event.output_token_reserve <= 128000
+    assert event.output_token_reserve == 0
+    assert "max_output_tokens" not in json.loads(raw)
     assert event.input_accounting_kind == "estimated_token_count"
     assert (
         case.turn.status == "completed" and case.turn.completion.native_body_citations
@@ -212,7 +211,6 @@ def test_ordinary_large_native_source_answers_with_estimated_authorization(
     for mutation in (
         {"input_accounting_kind": "conservative_upper_bound"},
         {"input_estimator": "utf8_json_bytes_plus_64_per_node_v1"},
-        {"input_tokens": 128000},
         {"input_tokens": 0},
         {"output_token_reserve": 4097},
     ):
@@ -261,3 +259,21 @@ def test_missing_counter_retains_a_context_preparation_diagnostic(
         failure_code(ValueError("build_writer_accounting_unavailable"))
         == "build_execution_exception"
     )
+
+
+def test_native_writer_has_no_artificial_128k_token_ceiling():
+    case=writer_case()
+    case.adapter._build_jev_accounting=replace(case.accounting,count_tokens=lambda _:256000)
+    with pytest.raises(AdmissionReached):invoke(case)
+    assert case.captured[0].input_tokens > 128000
+    assert case.captured[0].output_token_reserve == 0
+
+
+def test_native_writer_refuses_a_silently_reintroduced_output_cap():
+    case=writer_case()
+    value=case.expected | {'max_output_tokens':4096}
+    raw=json.dumps(value).encode()
+    case.expected=value
+    case.prepared=replace(case.prepared,body=raw,body_sha256=sha256(raw).hexdigest(),body_size=len(raw))
+    with pytest.raises(ValueError,match='output parameter'):invoke(case)
+    assert not case.captured

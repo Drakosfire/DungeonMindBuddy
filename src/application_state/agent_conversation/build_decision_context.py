@@ -101,7 +101,8 @@ def validate_accounting(event, execution, *, provider_index):
     if (native or isinstance(policy, t.BuildWriterBudgetActionControllerWriterPolicyV1)) and role == writer:
         budget = policy.writer_context_budget
         if (event.output_token_reserve != budget.output_reserve_tokens
-                or event.input_tokens + event.output_token_reserve > budget.context_limit_tokens):
+                or budget.context_limit_tokens is not None
+                and event.input_tokens + event.output_token_reserve > budget.context_limit_tokens):
             raise ValueError("writer envelope exceeds its frozen role budget")
     estimated = role == controller and (native or provider_index > 0
         or isinstance(policy, t.BuildInitialEstimatedSelectedSourcePolicyV1))

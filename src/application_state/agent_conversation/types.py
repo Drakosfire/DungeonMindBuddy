@@ -2725,7 +2725,8 @@ class GraphExecutionPolicyV1(StrictModel):
         }
         if uncapped and any(limit is not None for limit in limits):
             raise ValueError("uncapped execution policy requires explicit null limits")
-        if not uncapped and any(limit is None for limit in limits):
+        token_limits_optional = isinstance(self, NativePlayGraphPolicyV1)
+        if not uncapped and any(limit is None for limit in limits) and not token_limits_optional:
             raise ValueError("null limits require an explicit uncapped execution policy")
         if not self.allowed_graph_operations and self.policy_version not in {"plan_source_execution_uncapped_v1", "plan_native_execution_uncapped_v1"}:
             raise ValueError("Only an explicit source-capable policy can omit Graph operations")
@@ -2924,13 +2925,13 @@ class SettledGraphExecutionPolicyV3(GraphExecutionPolicyV3):
 
 
 class NativePlayGraphPolicyV1(SettledGraphExecutionPolicyV3):
-    """Finite native Play budgets; no Build controller/writer capabilities."""
+    """Native Play attempts/operations remain bounded; token ceilings are optional."""
     authored_source_context: PlayAuthoredSourceContextV1 | None = Field(default=None, exclude_if=lambda value: value is None)
     policy_version: Literal["play_world_graph_execution_v1"] = "play_world_graph_execution_v1"
     max_provider_attempts: Annotated[int, Field(strict=True, ge=1, le=64)]
     max_graph_operations: Annotated[int, Field(strict=True, ge=0, le=512)]
-    max_total_provider_input_tokens: Annotated[int, Field(strict=True, ge=1)]
-    max_total_provider_output_tokens: Annotated[int, Field(strict=True, ge=1)]
+    max_total_provider_input_tokens: Annotated[int, Field(strict=True, ge=1)] | None
+    max_total_provider_output_tokens: Annotated[int, Field(strict=True, ge=1)] | None
 
     @model_validator(mode="after")
     def world_only(self):
@@ -5497,7 +5498,7 @@ def validate_provider_envelope_accounting(assembled, execution, event) -> None:
         context_limit = writer_budget.context_limit_tokens
         if event.output_token_reserve != writer_budget.output_reserve_tokens:
             raise ValueError("writer reserve differs from its frozen role budget")
-    if event.input_tokens + event.output_token_reserve > context_limit:
+    if context_limit is not None and event.input_tokens + event.output_token_reserve > context_limit:
         raise ValueError("provider envelope exceeds the frozen context window")
     previous_attempts = [e for e in execution.events if isinstance(e, ProviderAttemptAuthorizedEventV1)]
     if not previous_attempts:

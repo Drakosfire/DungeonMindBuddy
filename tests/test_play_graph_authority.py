@@ -221,8 +221,8 @@ def test_native_play_ledger_is_not_a_plan_subtype_and_uses_its_own_policy_digest
         type(execution).model_validate_json(json.dumps(wire))
 
 
-@pytest.mark.parametrize("field", ["max_provider_attempts", "max_graph_operations", "max_total_provider_input_tokens", "max_total_provider_output_tokens"])
-def test_native_play_cannot_inherit_uncapped_policy(field):
+@pytest.mark.parametrize("field", ["max_provider_attempts", "max_graph_operations"])
+def test_native_play_retains_non_token_execution_limits(field):
     with pytest.raises(ValueError):
         native_execution(**{field: None})
 
@@ -342,3 +342,10 @@ def test_native_play_policy_cannot_change_scope_or_budget_mode(change):
     if change == "count": wire["max_provider_attempts"] = 65
     if change == "accounting": wire["source_read_accounting"] = "reservation_only"
     with pytest.raises(ValueError): NativePlayGraphPolicyV1.model_validate_json(json.dumps(wire))
+
+
+def test_native_play_has_no_required_aggregate_token_ceiling():
+    record=native_execution(max_total_provider_input_tokens=None,max_total_provider_output_tokens=None)
+    assert record.policy.max_total_provider_input_tokens is None
+    assert record.policy.max_total_provider_output_tokens is None
+    assert record.policy.max_provider_attempts > 0

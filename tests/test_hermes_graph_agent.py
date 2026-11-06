@@ -4402,3 +4402,21 @@ def test_q01_overview_and_batch_source_read_trace_normalization():
     receipt = read["source_read_metadata"]["sourceRead0"]
     assert receipt["opened"] == "true"
     assert receipt["graph_revision"] == "rev:exact"
+
+
+@pytest.mark.parametrize("api_mode,cap_key",[("chat_completions","max_completion_tokens"),("codex_responses","max_output_tokens")])
+def test_request_budget_guard_allows_omitted_cap_but_rejects_reintroduced_ceiling(api_mode,cap_key):
+    from types import SimpleNamespace
+    policy=dict(schema='dmb_agent_request_budget_uncapped_v1',provider='openai-api',
+        model='synthetic-model',apiMode=api_mode,estimator='utf8_json_bytes_plus_64_per_node_v1',
+        contextLimitTokens=1050000,outputReserveTokens=0,maxProviderAttempts=None,
+        maxToolCapableAttempts=None,maxGraphOperations=None)
+    payload={'model':'synthetic-model','tools':[]}
+    payload.update({'messages':[{'role':'user','content':'Question'}]} if api_mode=='chat_completions'
+        else {'input':[{'role':'user','content':'Question'}]})
+    def view(value):
+        raw=json.dumps(value)
+        return SimpleNamespace(provider='openai-api',model='synthetic-model',api_mode=api_mode,
+            payload_json=raw,payload_utf8_bytes=len(raw.encode()))
+    assert _request_budget_guard(policy)(view(payload)) is True
+    assert _request_budget_guard(policy)(view(payload | {cap_key:4096})) is False

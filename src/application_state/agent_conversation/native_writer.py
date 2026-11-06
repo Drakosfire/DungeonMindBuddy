@@ -34,6 +34,20 @@ def json_container_count(value):
     return 0
 
 
+def output_request_fields(reserve):
+    """Zero is no APP reservation; omit the SDK cap rather than sending zero."""
+    if type(reserve) is not int or reserve < 0:
+        raise ValueError('Writer output reservation must be nonnegative')
+    return {} if reserve == 0 else {'max_output_tokens': reserve}
+
+
+def validate_output_request(body, reserve):
+    expected=output_request_fields(reserve)
+    actual={key:body[key] for key in ('max_output_tokens',) if key in body}
+    if actual != expected or reserve > 0 and type(body.get("max_output_tokens")) is not int:
+        raise ValueError('Writer output parameter differs from its frozen allowance')
+
+
 def body_handle(read):
     excerpt = read.excerpt
     if excerpt.selector_policy == "native_full_document_v1":
@@ -213,13 +227,12 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     if ((authorization.provider, authorization.api_mode, authorization.serializer_version)
             != ("openai", "responses", "openai-sdk-json-v1")
             or body.get("model") != authorization.model
-            or type(body.get("max_output_tokens")) is not int
-            or body["max_output_tokens"] != authorization.output_token_reserve
             or sha256(raw.encode()).hexdigest() != authorization.envelope_sha256
             or t.canonical_sha256(body.get("tools", [])) != authorization.tool_schema_sha256
             or t.canonical_sha256(frame) != authorization.frame_sha256
             or t.canonical_sha256(expected) != authorization.frame_sha256):
         raise ValueError("Native writer evidence differs from its actual producing SDK request")
+    validate_output_request(body,authorization.output_token_reserve)
     authored,saved_sections,related_pages,draft_record = (),(),(),None
     from .native_context import PlanWorkContextV1,BuildWorkContextV1
     if isinstance(receipt.work_context,PlanWorkContextV1):

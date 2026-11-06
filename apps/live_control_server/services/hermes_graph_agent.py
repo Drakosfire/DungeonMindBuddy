@@ -1516,12 +1516,15 @@ def _request_budget_guard(
             return False
         if count_nodes(payload) > 100_000:
             return False
-        if (
+        if output_reserve > 0 and (
             isinstance(actual_output, bool)
             or not isinstance(actual_output, int)
             or actual_output <= 0
             or actual_output > output_reserve
         ):
+            return False
+        if output_reserve == 0 and actual_output is not None:
+            # A fresh uncapped request must not silently retain an old SDK cap.
             return False
         # Full canonical request JSON includes instructions/input/messages and
         # tool schemas. Treat each UTF-8 byte as a conservative content-token
@@ -2539,7 +2542,7 @@ def run_hermes_graph_agent_turn(
                                         "outputReserveTokens"
                                     ]
                                 }
-                                if request.request_budget is not None
+                                if request.request_budget is not None and request.request_budget["outputReserveTokens"] > 0
                                 else {}
                             ),
                             **(

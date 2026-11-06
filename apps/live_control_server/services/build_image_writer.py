@@ -71,11 +71,13 @@ def writer_request(capability, question, history, related_authored_pages=None, a
         if _native_rules_frame is not None:
             body['rules_evidence']=_native_rules_frame.model_dump(mode='json',by_alias=True)
         packet=json.dumps(body,ensure_ascii=False,separators=(',',':'))
+    from application_state.agent_conversation.native_writer import output_request_fields
+    reserve=4096 if _native_context is None else _native_context[1].policy.writer_context_budget.output_reserve_tokens
     return {
         "model": writer_model,
         "input": packet,
         "instructions": SYSTEM + dialogue_rule(history) + (AUTHORING_GUIDANCE if _native_context is not None else ''),
-        "max_output_tokens": 4096,
+        **output_request_fields(reserve),
         "reasoning": {"effort": "low"},
         "text": {
             "format": {
@@ -176,7 +178,7 @@ def prepare_image(harness, adapter, driver, *, native_rules=None, native_proof=N
                     model=expected["model"],
                     user_prompt=expected["input"],
                     system_prompt=expected["instructions"],
-                    max_output_tokens=4096,
+                    max_output_tokens=expected.get("max_output_tokens"),
                     temperature=None,
                     reasoning_effort="low",
                     json_schema=ImageDirectionV2.model_json_schema(),

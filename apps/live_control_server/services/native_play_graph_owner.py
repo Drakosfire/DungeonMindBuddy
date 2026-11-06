@@ -285,8 +285,8 @@ def freeze_play_receipt(
         allowed_graph_operations=["expand_graph_retrieval"],
         max_provider_attempts=64, max_graph_operations=512,
         max_results_per_operation=512,
-        max_total_provider_input_tokens=budget["contextLimitTokens"] * 64,
-        max_total_provider_output_tokens=budget["outputReserveTokens"] * 64,
+        max_total_provider_input_tokens=None,
+        max_total_provider_output_tokens=None,
         provider_input_accounting=t.GraphExecutionAccountingV1(
             kind="conservative_upper_bound", estimator=budget["estimator"],
         ),

@@ -4880,7 +4880,7 @@ def _policy_request_budget() -> dict[str, Any]:
         "contextLimitTokens": 1_050_000,
         "graphToolPageBytes": 32_000,
         "maxProviderRequestBytes": 1_050_000,
-        "outputReserveTokens": 8192,
+        "outputReserveTokens": 0,
         "maxProviderAttempts": None,
         "maxToolCapableAttempts": None,
         "maxGraphOperations": None,
