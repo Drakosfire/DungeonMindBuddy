@@ -530,6 +530,177 @@ describe("one App-level World conversation host across Plan and Play", () => {
 
 
 
+  it.each(['build', 'play'] as const)('keeps an unresolved %s request with exact references and restores it without dispatch', async surface => {
+    const refs = authoredReferences([surface === 'build' ? authoredRef('original-box') : {
+      schema:'dmb_authored_source_reference_v1',managed_world_id:WORLD,native_world_id:'native',binding_version:1,
+      knowledge_revision:'selected-revision',source_artifact_id:'source-20',source_revision_id:'saved-20',
+      evidence_ref_id:'opening-20',content_sha256:SHA,selection_kind:'section',section_id:'b'.repeat(64),label:'Session 20 ending',
+    }]);
+    writeComposerReferences(sessionStorage, WORLD, surface === 'play' ? RUN : 'source-one', null, refs.references, null, surface);
+    const post = surface === 'play' ? vi.mocked(postWorldPlayAgentTurn) : vi.mocked(postWorldBuildAgentTurn);
+    post.mockRejectedValue(new Error('Transport interrupted'));
+    let view = render(<Harness initial={surface} buildBridge={surface === 'build' ? retryBridge() : undefined}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    let input = await screen.findByLabelText('Message DungeonBuddy');
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.change(input,{target:{value:'Original question with selected material.'}});
+    fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+    await screen.findByRole('button',{name:'Keep for later',exact:true});
+    const pendingKey = `dmb:world-play-pending-turn:v1:${WORLD}`, raw = localStorage.getItem(pendingKey)!;
+    const request = JSON.parse(raw).request, keptKey = `${pendingKey}:retained:${request.turn_id}`;
+    fireEvent.change(input,{target:{value:'Keep my newer independent thought.'}});
+    fireEvent.click(screen.getByRole('button',{name:'Keep for later',exact:true}));
+    await waitFor(() => expect(localStorage.getItem(pendingKey)).toBeNull());
+    expect(localStorage.getItem(keptKey)).toBe(raw);
+    expect(input).toHaveValue('Keep my newer independent thought.');
+    expect(screen.getByRole('button',{name:'Send message'})).toBeEnabled();
+    expect(post).toHaveBeenCalledTimes(1);
+    view.unmount();
+    view = render(<Harness initial={surface} buildBridge={surface === 'build' ? retryBridge() : undefined}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    input = await screen.findByLabelText('Message DungeonBuddy');
+    openConversationOptions();
+    const kept = await screen.findByLabelText('Requests kept for later');
+    fireEvent.click(within(kept).getByText('Kept for later · 1'));
+    expect(kept).toHaveTextContent('Original question with selected material.');
+    expect(within(kept).getByLabelText('Kept request references')).toHaveTextContent(surface === 'play' ? 'Session 20 ending' : 'original-box');
+    fireEvent.click(within(kept).getByRole('button',{name:'Restore request'}));
+    await waitFor(() => expect(screen.getByRole('button',{name:'Send message'})).toBeDisabled());
+    expect(localStorage.getItem(pendingKey)).toBeNull();
+    expect(localStorage.getItem(keptKey)).toBe(raw);
+    expect(input).toHaveValue('Keep my newer independent thought.');
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(postWorldPlanAgentTurn).not.toHaveBeenCalled();
+    expect(screen.getByRole('button',{name:'Send message'})).toBeDisabled();
+    const recovery = screen.getByLabelText('Saved turn recovery');
+    fireEvent.click(within(recovery).getByText('Saved request details'));
+    expect(within(recovery).getByText(`Request: ${request.turn_id} · Source: ${request.primary_work.object_id} · Revision: ${request.primary_work.expected_revision}`)).toBeVisible();
+    fireEvent.click(within(recovery).getByRole('button',{name:'Retry exact saved turn'}));
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+    expect(post.mock.calls[1][0]).toEqual(request);
+    expect(input).toHaveValue('Keep my newer independent thought.');
+    expect(localStorage.getItem(keptKey)).toBe(raw);
+    const retainedRecovery = await screen.findByLabelText('Saved turn recovery');
+    await waitFor(() => expect(within(retainedRecovery).getByRole('button',{name:'Keep for later'})).toBeEnabled());
+    fireEvent.click(within(retainedRecovery).getByRole('button',{name:'Keep for later'}));
+    expect(localStorage.getItem(keptKey)).toBe(raw);
+    expect(localStorage.getItem(pendingKey)).toBeNull();
+    expect(input).toHaveValue('Keep my newer independent thought.');
+    await waitFor(() => expect(screen.getByRole('button',{name:'Send message'})).toBeEnabled());
+  });
+
+  it.each(['quota', 'collision', 'newer-pending', 'cleanup', 'cleanup-noop'] as const)('retains pending recovery when keep-for-later encounters %s', async mode => {
+    vi.mocked(postWorldPlayAgentTurn).mockRejectedValue(new Error('Transport interrupted'));
+    render(<Harness initial="play"/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    const input = await screen.findByLabelText('Message DungeonBuddy');
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.change(input,{target:{value:'Keep this exact failed request.'}});
+    fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+    const button = await screen.findByRole('button',{name:'Keep for later',exact:true});
+    const pendingKey = `dmb:world-play-pending-turn:v1:${WORLD}`, raw = localStorage.getItem(pendingKey)!;
+    const request = JSON.parse(raw).request, keptKey = `${pendingKey}:retained:${request.turn_id}`;
+    const newer = JSON.stringify({...JSON.parse(raw),request:{...request,turn_id:'99999999-9999-4999-8999-999999999999',message:'A newer pending request.'}});
+    if (mode === 'collision') localStorage.setItem(keptKey, 'a different retained copy');
+    if (mode === 'newer-pending') localStorage.setItem(pendingKey, newer);
+    const set = Storage.prototype.setItem, remove = Storage.prototype.removeItem;
+    const spy = mode === 'quota' ? vi.spyOn(Storage.prototype,'setItem').mockImplementation(function(key,value) {
+      if (key === keptKey) throw new DOMException('Storage full','QuotaExceededError');
+      return set.call(this,key,value);
+    }) : mode === 'cleanup' || mode === 'cleanup-noop' ? vi.spyOn(Storage.prototype,'removeItem').mockImplementation(function(key) {
+      if (key === pendingKey) { if (mode === 'cleanup-noop') return; throw new Error('Cleanup interrupted'); }
+      return remove.call(this,key);
+    }) : null;
+    try {
+      fireEvent.click(button);
+      await waitFor(() => expect(localStorage.getItem(pendingKey)).toBe(mode === 'newer-pending' ? newer : raw));
+      expect(screen.getByRole('button',{name:'Send message'})).toBeDisabled();
+      expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
+      if (mode.startsWith('cleanup')) expect(localStorage.getItem(keptKey)).toBe(raw);
+      if (mode === 'collision') expect(localStorage.getItem(keptKey)).toBe('a different retained copy');
+    } finally { spy?.mockRestore(); }
+  });
+
+  it('keeps the immutable request copy after its explicit retry completes', async () => {
+    const request = {...nativePlayRequestFixture(),client_thread_id:'11111111-1111-4111-8111-111111111111',turn_id:'22222222-2222-4222-8222-222222222222'};
+    const pendingKey = `dmb:world-play-pending-turn:v1:${WORLD}`, keptKey = `${pendingKey}:retained:${request.turn_id}`;
+    const raw = JSON.stringify({schema:'dmb_world_play_pending_turn_v1',request});
+    localStorage.setItem(keptKey,raw);
+    vi.mocked(postWorldPlayAgentTurn).mockImplementation(async actual => playResponse(actual));
+    render(<Harness initial="build"/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    openConversationOptions();
+    const kept = await screen.findByLabelText('Requests kept for later');
+    fireEvent.click(within(kept).getByText('Kept for later · 1'));
+    fireEvent.click(within(kept).getByRole('button',{name:'Restore request'}));
+    const recovery = screen.getByLabelText('Saved turn recovery');
+    fireEvent.click(within(recovery).getByRole('button',{name:'Retry exact saved turn'}));
+    await waitFor(() => expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByLabelText('Saved turn recovery')).not.toBeInTheDocument());
+    expect(vi.mocked(postWorldPlayAgentTurn).mock.calls[0][0]).toEqual(request);
+    expect(localStorage.getItem(keptKey)).toBe(raw);
+    expect(localStorage.getItem(pendingKey)).toBeNull();
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+  });
+
+  it('never writes the pending slot when another tab wins during restore', async () => {
+    const request = {...nativePlayRequestFixture(),client_thread_id:'11111111-1111-4111-8111-111111111111',turn_id:'22222222-2222-4222-8222-222222222222'};
+    const pendingKey = `dmb:world-play-pending-turn:v1:${WORLD}`, keptKey = `${pendingKey}:retained:${request.turn_id}`;
+    const raw = JSON.stringify({schema:'dmb_world_play_pending_turn_v1',request});
+    localStorage.setItem(keptKey,raw);
+    render(<Harness initial="play"/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    openConversationOptions();
+    const kept = await screen.findByLabelText('Requests kept for later');
+    fireEvent.click(within(kept).getByText('Kept for later · 1'));
+    const newer = JSON.stringify({...JSON.parse(raw),request:{...request,turn_id:'99999999-9999-4999-8999-999999999999',message:'Other tab original request.'}});
+    const get = Storage.prototype.getItem, set = Storage.prototype.setItem;
+    let interleaved = false;
+    const spy = vi.spyOn(Storage.prototype,'getItem').mockImplementation(function(key) {
+      const result = get.call(this,key);
+      if (!interleaved && this === localStorage && key === pendingKey && result === null) {
+        interleaved = true; set.call(this,key,newer);
+      }
+      return result;
+    });
+    try {
+      fireEvent.click(within(kept).getByRole('button',{name:'Restore request'}));
+      expect(interleaved).toBe(true);
+      expect(get.call(localStorage,pendingKey)).toBe(newer);
+      expect(get.call(localStorage,keptKey)).toBe(raw);
+      expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+      const recovery = screen.getByLabelText('Saved turn recovery');
+      fireEvent.click(within(recovery).getByRole('button',{name:'Retry exact saved turn'}));
+      expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+      expect(get.call(localStorage,pendingKey)).toBe(newer);
+      expect(get.call(localStorage,keptKey)).toBe(raw);
+      expect(await screen.findByText('Another pending request needs recovery. It was not replaced or retried.')).toBeVisible();
+    } finally { spy.mockRestore(); }
+  });
+
+  it('does not replace another pending envelope when restoring a kept request', async () => {
+    const request = {...nativePlayRequestFixture(),client_thread_id:'11111111-1111-4111-8111-111111111111',turn_id:'22222222-2222-4222-8222-222222222222'};
+    const pendingKey = `dmb:world-play-pending-turn:v1:${WORLD}`;
+    const raw = JSON.stringify({schema:'dmb_world_play_pending_turn_v1',request});
+    localStorage.setItem(`${pendingKey}:retained:${request.turn_id}`,raw);
+    render(<Harness initial="play"/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    openConversationOptions();
+    const kept = await screen.findByLabelText('Requests kept for later');
+    fireEvent.click(within(kept).getByText('Kept for later · 1'));
+    const newer = JSON.stringify({...JSON.parse(raw),request:{...request,turn_id:'99999999-9999-4999-8999-999999999999'}});
+    localStorage.setItem(pendingKey,newer);
+    fireEvent.click(within(kept).getByRole('button',{name:'Restore request'}));
+    expect(localStorage.getItem(pendingKey)).toBe(newer);
+    expect(localStorage.getItem(`${pendingKey}:retained:${request.turn_id}`)).toBe(raw);
+    expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+    expect(await screen.findByText('Another pending request needs recovery. It was not replaced.')).toBeVisible();
+    expect(screen.getByRole('button',{name:'Send message'})).toBeDisabled();
+    const recovery = screen.getByLabelText('Saved turn recovery');
+    fireEvent.click(within(recovery).getByText('Saved request details'));
+    expect(recovery).toHaveTextContent('99999999-9999-4999-8999-999999999999');
+  });
+
   it.each(['transport','rejected','rejected_newer'] as const)('retains Play source references after %s failure and reload',async failure=>{
     const refs=authoredReferences([{schema:'dmb_authored_source_reference_v1',managed_world_id:WORLD,native_world_id:'native',binding_version:1,knowledge_revision:'selected-revision',source_artifact_id:'source-20',source_revision_id:'saved-20',evidence_ref_id:'opening-20',content_sha256:'a'.repeat(64),selection_kind:'section',section_id:'b'.repeat(64),label:'Session 20 ending'}]);
     writeComposerReferences(sessionStorage,WORLD,RUN,null,refs.references,null,'play');

@@ -4,7 +4,10 @@ Status: MERGED and DELIVERED; operator acceptance remains open. PR2153 merged
 at `351ca4327d12b773d039ff7877a7440856ff7f42`; independently reviewed runtime
 `051ac464e1cdc2c00177c05c8990be4f5dd43811` is live on5202. Exact source
 filtering/selection and same-tab composer reload passed ordinary Play checks.
-Live answer/citation dogfood awaits the pending C2 provider-transfer question.
+Provider calls are authorized. Ordinary Play submission failed before durable
+admission because the older Graph context and current native source authority
+name different revisions/stores. The guard and failed request are retained;
+answer/citation dogfood and actual native Play integration remain open.
 The implementation write lease is released. Play objects and broader References
 acceptance remain subsequent scope.
 
