@@ -168,6 +168,7 @@ SurfaceNativeEvent = Annotated[
     | t.PlanJevRetrievalSelectionV1 | NativeRetrievalSelectedV1 | t.PlanRequestedWorkSelectedV2
     | t.NativeBodySearchAuthorizedV1 | t.NativeBodySearchObservedV1
     | t.NativeBodyReadAuthorizedV1 | t.NativeBodyReadObservedV1 | t.NativeAuthoredSourceReadV1
+    | t.NativeDirectSourceAuthorizedV1 | t.NativeDirectSourceObservedV1
     | t.NativePlanStatementReadAuthorizedV1 | t.NativePlanStatementReadObservedV1
     | t.NativePlanAssertionReadAuthorizedV1 | t.NativePlanAssertionReadObservedV1
     | t.BuildDraftContextCapturedV1

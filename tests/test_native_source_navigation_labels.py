@@ -37,7 +37,7 @@ def test_exact_recap_display_join_is_shared_and_cached_only_within_navigation(in
         return [recap_metadata()]
     monkeypatch.setattr(sources, 'get_source_revision_metadata', metadata)
     nav, catalog = navigation(inspection)
-    assert nav.offered() and not calls  # Before the selected search: no display lookup.
+    assert nav.offered() and not calls  # Historical navigation remains search-first.
     before = catalog.model_dump_json()
     label = nav._source_name(catalog)
     assert label == 'Session 8 recap · campaign: c1 · session: session-8'

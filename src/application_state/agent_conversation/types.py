@@ -31,7 +31,8 @@ from .native_statement_input import NativeStatementContextReceiptV1, NativeState
 from .native_statement_answer import NativeStatementCompletionV1
 from .native_corpus import (NativeCorpusAuthorityV1, NativeBodySearchAuthorizedV1,
     NativeBodySearchObservedV1, NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1,
-    NativeBodyProviderIncludedV1, NativeAuthoredSourceReadV1 as NativeAuthoredSourceReadV1, NATIVE_BODY_EVENTS)
+    NativeBodyProviderIncludedV1, NativeAuthoredSourceReadV1 as NativeAuthoredSourceReadV1,
+    NativeDirectSourceAuthorizedV1, NativeDirectSourceObservedV1, NATIVE_BODY_EVENTS)
 
 Resolution = Literal["resolved", "absent", "unresolved", "unavailable"]
 ConversationStatus = Literal["active", "archived", "trashed"]

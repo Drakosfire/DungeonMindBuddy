@@ -191,19 +191,7 @@ def capture_native_sources(*, managed_world_id, principal, revision_id=None,
 
 def read_native_corpus_member(*, authority, member, principal, prepared):
     """Refresh Core source access while reusing the prepared exact Graph revision."""
-    if principal is None or principal.role != "gm":
-        raise ValueError("GM authority is required for cross-campaign source inspection")
-    original = authority.model_dump(mode="json", exclude={"acquisition_epoch"})
-    if (prepared.principal != principal
-            or prepared.authority.model_dump(mode="json", exclude={"acquisition_epoch"}) != original
-            or prepared.resolve_identity(authority.managed_world_id) != prepared.binding):
-        raise ValueError("Native source authority changed before the selected read")
-    access = refresh_native_text_source_access_context(
-        repository=prepared.repository, context=prepared.access)
-    if access.source_view.epoch < authority.acquisition_epoch:
-        raise ValueError("Native source authority moved backwards before the selected read")
-    fresh = replace(prepared, access=access, authority=authority.model_copy(
-        update={"acquisition_epoch": access.source_view.epoch}))
+    fresh = _refresh_native_context(prepared, authority=authority, principal=principal)
     evidence = fresh.access.parsed.evidence_by_id.get(member.evidence_ref_id)
     if (evidence is None or evidence.source_artifact_id != member.artifact.source_artifact_id
             or evidence.source_revision_id != member.revision.source_revision_id
@@ -225,3 +213,51 @@ def read_native_corpus_member(*, authority, member, principal, prepared):
     if fresh.resolve_identity(authority.managed_world_id) != fresh.binding:
         raise ValueError("Native source ownership changed during the selected read")
     return opened.body_text
+
+
+def _refresh_native_context(prepared, *, authority, principal):
+    """One freshness boundary for selected native source reads."""
+    if principal is None or principal.role != "gm":
+        raise ValueError("GM authority is required for cross-campaign source inspection")
+    original = authority.model_dump(mode="json", exclude={"acquisition_epoch"})
+    if (prepared.principal != principal
+            or prepared.authority.model_dump(mode="json", exclude={"acquisition_epoch"}) != original
+            or prepared.resolve_identity(authority.managed_world_id) != prepared.binding):
+        raise ValueError("Native source authority changed before the selected read")
+    access = refresh_native_text_source_access_context(
+        repository=prepared.repository, context=prepared.access)
+    if access.source_view.epoch < authority.acquisition_epoch:
+        raise ValueError("Native source authority moved backwards before the selected read")
+    fresh = replace(prepared, access=access, authority=authority.model_copy(
+        update={"acquisition_epoch": access.source_view.epoch}))
+    return fresh
+
+
+def read_direct_native_source(prepared, *, authority, source_artifact_id, source_revision_id, content_sha256):
+    """Read one explicit original catalogue choice through refreshed Core access."""
+    from dungeonmind.application.vnext import list_admitted_native_text_sources
+    from application_state.agent_conversation.native_corpus import build_native_body_catalog, select_native_full_document
+
+    def matches(item):
+        return (item.source_artifact.source_artifact_id, item.source_revision.source_revision_id,
+                item.source_revision.content_sha256) == (source_artifact_id, source_revision_id, content_sha256)
+
+    fresh = _refresh_native_context(prepared, authority=authority, principal=prepared.principal)
+    # The original revision is membership authority. A current source bearing a
+    # similar name, or one admitted later, cannot satisfy this selection.
+    if not any(matches(item) for item in list_admitted_native_text_sources(prepared.access).sources):
+        raise ValueError("Direct source choice is absent from its original admitted catalogue")
+    eligible = [item for item in list_admitted_native_text_sources(fresh.access).sources if matches(item)]
+    if not eligible:
+        return None  # Revoked or unavailable; never substitute a different source.
+    for evidence_ref_id in sorted(eligible[0].evidence_ref_ids):
+        result = open_native_corpus_member(fresh, evidence_ref_id)
+        if result is None:
+            continue
+        member, body = result
+        if (member.artifact.source_artifact_id, member.revision.source_revision_id,
+                member.revision.content_sha256) != (source_artifact_id, source_revision_id, content_sha256):
+            raise ValueError("Direct source opening changed the exact selected revision")
+        catalog = build_native_body_catalog(fresh.authority, member, body)
+        return catalog, select_native_full_document(catalog, body)
+    return None

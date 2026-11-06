@@ -1,6 +1,15 @@
 # BUILD: native source navigation labels
 
-Status: ACTIVE. PRIME owns one serial slice on codex/native-source-navigation-labels in buddy-context-loop, rebased on mainf9db16c4fa3c038a6be7eba3dae7ff0c0da50eba. The originally stacked parent PR2141 is merged and delivered before this child. Its frozen runtime candidate b8612ec782f606a49555296092104b1ec97e7a81 and evidence remain separate. No new checkout or dependencies. No runtime lease for this child.
+Status: DELIVERED. PR2142 merged at 6e51f7f3e79dc94512b51f2cbca0a74b7851f0c3;
+reviewed head e737b188961465c6c4adbb25bb18308707ee2a45, all CI passed.
+Delivered frozen runtime cf82d95fc76980789c1f3f95eba1be055e7e8de1. Write lease
+released. The ordinary replay retained typed capacity failure (328176 >128000),
+seven Jev calls and no writer call; labels alone did not solve retrieval capacity.
+
+Historical lane: codex/native-source-navigation-labels in buddy-context-loop,
+based on main f9db16c4fa3c038a6be7eba3dae7ff0c0da50eba. Parent PR2141 was merged
+and delivered before this child, as runtime b8612ec782f606a49555296092104b1ec97e7a81.
+No new checkout or dependencies. No continuing runtime lease.
 
 Outcome: adopt the human native source inspector's existing source/revision-joined recap/page display metadata in model navigation choices instead of treating the first section label as the document name. Extract that one display owner for both consumers; remove the old private inspector-only implementation. Core source identity, eligibility, scope, authorization and immutable body remain unchanged. Labels neither admit sources nor establish campaign facts. Preserve exact revision joins; mark unavailable metadata and newer page labels honestly. Cache only presentation within this navigation instance, not source bodies/access/provenance across requests.
 

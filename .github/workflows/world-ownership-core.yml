@@ -20,7 +20,7 @@ jobs:
       matrix:
         suite: [world-and-content, ingestion-and-review, query-and-answer, saved-page-readers]
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: ${{ matrix.suite == 'saved-page-readers' && 45 || 30 }}
     services:
       postgres:
         image: postgres:16-alpine
@@ -232,6 +232,7 @@ jobs:
           tests/application_state/test_native_corpus_sources.py
           tests/test_agent_native_corpus_sources.py
           tests/test_native_corpus_source_access.py
+          tests/test_native_direct_source_selection.py
           tests/test_native_body_writer_selection.py
           tests/test_surface_native_build_ordinary.py
           tests/test_build_destination_menu.py

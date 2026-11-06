@@ -247,3 +247,45 @@ def observe_body_read_locked(turn, *, event_id, authorization_event_id, read):
             failure = "native_body_integrity_error"
     return NativeBodyReadObservedV1(event_id=event_id, sequence=len(execution.events),
         authorization_event_id=auth.event_id, excerpt=excerpt, failure_code=failure)
+
+
+def authorize_direct_source_locked(turn, *, event_id, source_artifact_id, source_revision_id, content_sha256):
+    from .native_corpus import NativeDirectSourceAuthorizedV1, native_direct_source_handle
+    from .native_context import SurfaceNativeContextReceiptV1
+    receipt, execution = _owner(turn, require_source=True)
+    if type(receipt) is not SurfaceNativeContextReceiptV1:
+        raise ValueError("Direct source selection requires the current shared native owner")
+    prior = _prior_event(execution, event_id, NativeDirectSourceAuthorizedV1,
+        source_artifact_id=source_artifact_id, source_revision_id=source_revision_id, content_sha256=content_sha256)
+    if prior is not None:
+        return prior
+    handle = native_direct_source_handle(receipt.source_authority,
+        source_artifact_id, source_revision_id, content_sha256)
+    return NativeDirectSourceAuthorizedV1(event_id=event_id, sequence=len(execution.events),
+        provider_attempt_id=_selected_controller(turn, handle), authority=receipt.source_authority,
+        source_artifact_id=source_artifact_id, source_revision_id=source_revision_id, content_sha256=content_sha256)
+
+
+def observe_direct_source_locked(turn, *, event_id, authorization_event_id, read):
+    from .native_corpus import NativeDirectSourceAuthorizedV1, NativeDirectSourceObservedV1, native_direct_source_handle
+    from .native_context import SurfaceNativeContextReceiptV1
+    receipt, execution = _owner(turn, require_source=True)
+    if type(receipt) is not SurfaceNativeContextReceiptV1:
+        raise ValueError("Direct source selection requires the current shared native owner")
+    prior = _prior_event(execution, event_id, NativeDirectSourceObservedV1,
+        authorization_event_id=authorization_event_id)
+    if prior is not None:
+        return prior
+    auth = next((event for event in execution.events if isinstance(event, NativeDirectSourceAuthorizedV1)
+        and event.event_id == authorization_event_id), None)
+    if auth is None or _selected_controller(turn, native_direct_source_handle(auth.authority,
+            auth.source_artifact_id, auth.source_revision_id, auth.content_sha256)) != auth.provider_attempt_id:
+        raise ValueError("Direct source read lacks its current durable selection")
+    if any(isinstance(event, NativeDirectSourceObservedV1)
+            and event.authorization_event_id == authorization_event_id for event in execution.events):
+        raise ValueError("Direct source selection already has an observation; reuse its receipt")
+    result = read(auth)
+    catalog, excerpt = result if result is not None else (None, None)
+    return NativeDirectSourceObservedV1(event_id=event_id, sequence=len(execution.events),
+        authorization_event_id=auth.event_id, catalog=catalog, excerpt=excerpt,
+        failure_code=None if result is not None else "native_body_unavailable")
