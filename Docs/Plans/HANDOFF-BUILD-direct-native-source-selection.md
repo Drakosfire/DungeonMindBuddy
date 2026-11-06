@@ -17,7 +17,7 @@ backward-looking settlement; native_corpus.py, native_reads.py, types.py,
 native_execution.py, native_retrieval.py, jev_retrieval_contract.py, service.py in src/application_state/agent_conversation;
 apps/live_control_server/integrations/dungeonmind/native_corpus_source.py;
 apps/live_control_server/services/corpus_source_navigation.py, plan_jev_driver.py;
-new no-op reader fence 20261106_0118; focused direct-source tests, tests/test_surface_native_build_ordinary.py fixture adoption, and existing
+new no-op reader fence 20261106_0118; focused direct-source tests, tests/test_surface_native_build_ordinary.py and tests/test_agent_native_corpus_sources.py fixture adoption/current HTTP checks, and existing
 native navigation fixtures where the new offered choice changes expectations.
 Other INGEST PRs2144/2145 do not overlap these paths. Held REFERENCE2104 stays held.
 

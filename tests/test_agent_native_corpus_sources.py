@@ -218,8 +218,9 @@ def test_source_only_actual_rules_selection_reads_once_under_its_own_authority(s
 
 
 class SourceChoices(httpx2.AsyncBaseTransport):
-    def __init__(self, *, sections=False):
+    def __init__(self, *, sections=False, direct=False):
         self.calls = []
+        self.direct = direct
         self.read_kind = 'Exact source section' if sections else 'Explicit full-document read'
 
     async def handle_async_request(self, request):
@@ -231,8 +232,13 @@ class SourceChoices(httpx2.AsyncBaseTransport):
             choice = 'discuss' if name == 'requested_work' else 'finish_retrieval' if name == 'operation' else 'exclude'
             if name.startswith('candidate_'):
                 candidate = body['state']['candidates'][int(name.split('_')[-1])]
-                if candidate['kind'] in {'Source lexical navigation; not evidence or semantic completeness',
-                                         self.read_kind}:
+                direct_kind = 'Explicit admitted full-source read; metadata choice, not evidence'
+                kinds = ({direct_kind} if self.direct else
+                    {'Source lexical navigation; not evidence or semantic completeness', self.read_kind})
+                if (not self.direct and self.read_kind == 'Explicit full-document read'
+                        and any(c['kind'].startswith('Navigation scan:') for c in body['state'].get('examined_subjects', []))):
+                    kinds.add(direct_kind)
+                if candidate['kind'] in kinds:
                     choice = 'include'
             answers[name] = {'type': 'choice', 'choice': choice, 'confidence': 1.0,
                 'probabilities': {key: float(key == choice) for key in entry['criteria']}}
@@ -465,7 +471,8 @@ def test_source_only_rules_completion_and_reload_has_no_fabricated_graph(source_
 
 
 @pytest.mark.parametrize("graph_available", [False, True])
-def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_adapter, lane, monkeypatch, tmp_path, graph_available):
+@pytest.mark.parametrize('direct',[False,True])
+def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_adapter, lane, monkeypatch, tmp_path, graph_available,direct):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from apps.live_control_server.routes import agent
@@ -503,7 +510,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         lambda *_: pytest.fail('Classic fallback in source-only Plan'))
     monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: lane.bound)
     monkeypatch.setattr(native_registry_source, 'repository', lambda: lane.repo)
-    choices = SourceChoices()
+    choices = SourceChoices(direct=direct)
     class SourceWriter(WriterWire):
         async def handle_async_request(self, request):
             frames = [json.loads(row['content']) for row in json.loads(request.content)['input'][:-1]]
@@ -544,8 +551,11 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     else:
         assert receipt['native_query']['schema'] == 'dmb_native_plan_query_unavailable_v1'
     assert data['answer']['status'] == 'ok' and not data['answer']['graph_grounded']
-    assert len(wire.calls) == 1 and len(constructions) == 1 and len(choices.calls) == 4
+    assert len(wire.calls) == 1 and len(constructions) == 1 and len(choices.calls) == (3 if direct else 4)
     turn = wire.adapter.turn
+    from application_state.agent_conversation.native_corpus import NativeDirectSourceObservedV1, NativeBodySearchAuthorizedV1
+    assert any(isinstance(e, NativeDirectSourceObservedV1) for e in turn.graph_context_execution.events)
+    assert any(isinstance(e, NativeBodySearchAuthorizedV1) for e in turn.graph_context_execution.events) == (not direct)
     admit(lane, name='head-after-http-answer', body='# Later\n\nAnother event.\n')
     opened = client.get(f'/api/live/agent/worlds/{a.world_id}/conversation/turns/{turn.turn_id}/native-body-excerpts/0')
     assert opened.status_code == 200, opened.text
@@ -554,7 +564,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     assert replay.status_code == 200, replay.text
     assert replay.json()['plan_context']['completion'] == data['plan_context']['completion']
     assert replay.json()['plan_context']['delivery_replay']
-    assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == 4
+    assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == (3 if direct else 4)
     assert graph_calls == [True]  # Original completion reopens without reacquiring current Graph authority.
     history = client.get(f'/api/live/agent/worlds/{a.world_id}/conversation?include_turn_correlation=true')
     assert history.status_code == 200, history.text
@@ -565,7 +575,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     lane.bound = SimpleNamespace(**(vars(lane.bound) | {'binding_version': 2}))
     denied = client.get(target)
     assert denied.status_code == 409 and denied.json()['detail']['code'] == 'native_body_access_unavailable'
-    assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == 4
+    assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == (3 if direct else 4)
 
 
 @pytest.mark.parametrize('source_adapter', [[

@@ -66,7 +66,7 @@ def test_changed_world_binding_refuses_before_body_read(lane, monkeypatch):
         core.read_direct_native_source(context, authority=context.authority, **selection)
 
 
-def direct_case(surface, lane):
+def direct_case(surface, lane, *, advance=False):
     from tests.test_surface_native_writer import body_case
     from tests.test_surface_native_execution import execution
     context, record, read = body_case(surface, lane, full=True)
@@ -81,8 +81,16 @@ def direct_case(surface, lane):
         source_artifact_id=catalog.source.artifact.source_artifact_id,
         source_revision_id=catalog.source.revision.source_revision_id, content_sha256=catalog.source.revision.content_sha256)
     events.append(grant)
+    excerpt = read.excerpt
+    if advance:
+        source_context=prepared(lane)
+        admit(lane,'later-epoch',body='# Later source\nUnrelated.\n')
+        catalog,excerpt=core.read_direct_native_source(source_context,authority=context.source_authority,
+            source_artifact_id=grant.source_artifact_id,source_revision_id=grant.source_revision_id,
+            content_sha256=grant.content_sha256)
+        assert catalog.authority.acquisition_epoch > grant.authority.acquisition_epoch
     observed = NativeDirectSourceObservedV1(event_id=uuid4(), sequence=len(events),
-        authorization_event_id=grant.event_id, catalog=catalog, excerpt=read.excerpt, failure_code=None)
+        authorization_event_id=grant.event_id, catalog=catalog, excerpt=excerpt, failure_code=None)
     events.append(observed)
     # Reuse the existing acknowledged finish and Build work-selection fixtures.
     tail = record.events[read.sequence+1:]
@@ -92,10 +100,11 @@ def direct_case(surface, lane):
 
 
 @pytest.mark.parametrize('surface',['build','plan'])
-def test_actual_sdk_shared_input_closes_direct_source_and_existing_citations(lane,surface):
+@pytest.mark.parametrize('advance',[False,True])
+def test_actual_sdk_shared_input_closes_direct_source_and_existing_citations(lane,surface,advance):
     from tests.test_surface_native_writer import work_submission, actual_sdk_request, authorize
     from application_state.agent_conversation.native_writer import model_frame, model_work_frame, verify_input_records
-    context, record, grant, observed = direct_case(surface,lane)
+    context, record, grant, observed = direct_case(surface,lane,advance=advance)
     frame = model_frame(context,record)
     work = work_submission(context,record)
     raw = asyncio.run(actual_sdk_request(frame,work_frame=model_work_frame(context,record,**work)))
