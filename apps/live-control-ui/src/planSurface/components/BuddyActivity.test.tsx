@@ -151,3 +151,35 @@ it('describes the actual Graph search without replacing it with a generic receip
   expect(await screen.findByText('Graph search: “meat creatures in Session 20” · partial.')).toBeInTheDocument();
   expect(screen.queryByText('A model response just landed.')).toBeNull();
 });
+
+it('keeps issued native source progress through generic model updates and adopts it in the timeline', async()=>{
+  const {loadPrompt}=mount(trace([
+    {kind:'context_decision',action:'expanded',item_ids:['native-body:selected'],reason_code:'question_relevance',
+      policy_version:'native_source_section_read_progress_v1',sequence:0,elapsed_ms:1000},
+    {kind:'provider_call',provider:'typesafe',model:'jev',outcome:'authorized',sequence:1,elapsed_ms:2000},
+  ]))
+  await screen.findByText('Reading selected source section…')
+  fireEvent.click(screen.getByText('Reading selected source section…'))
+  await waitFor(()=>expect(screen.getAllByText('Reading selected source section…')).toHaveLength(2))
+  expect(loadPrompt).not.toHaveBeenCalled()
+})
+
+it.each([
+  ['expanded','question_relevance','Searching retained source sections…'],
+  ['retrieved','question_relevance','Retained source search completed.'],
+  ['retained','unavailable','Retained source search was unavailable.'],
+] as const)('renders the recorded native search outcome %s',async(action,reason_code,label)=>{
+  mount(trace([{kind:'context_decision',action,reason_code,item_ids:['native-corpus-search:selected'],
+    policy_version:'native_source_search_progress_v1',sequence:0,elapsed_ms:1000}]))
+  await screen.findByText(label)
+})
+
+it('does not let native progress conceal a subsequent terminal failure',async()=>{
+  mount({...trace([
+    {kind:'context_decision',action:'expanded',item_ids:['native-body:selected'],reason_code:'question_relevance',
+      policy_version:'native_source_section_read_progress_v1',sequence:0,elapsed_ms:1000},
+    {kind:'failure',phase:'source_read',code:'native_source_unavailable',sequence:1,elapsed_ms:2000},
+  ]),terminal_status:'interrupted'},'interrupted')
+  fireEvent.click(screen.getByText('Reply error report'))
+  await screen.findAllByText(/native_source_unavailable/)
+})

@@ -243,10 +243,14 @@ class PlanJevDriver:
         attempts.update(identities)
         grant = next(e for e in a.fence.turn.graph_context_execution.events
             if isinstance(e, grant_type) and e.event_id == grant_id)
+        from .native_retrieval_activity import observe_native_retrieval
+        activity_target = f'native-{record_kind}-read:{grant_id}'
+        observe_native_retrieval(a, record_kind + '_read', activity_target)
         context = a.native_query_context
         reads, unavailable = read_selected(context, grant, context.principal)
         a.turn = _require_fresh_execution_append(a.fence.append("observe_native_read", "event_id", uuid4(),
             authorization_event_id=grant_id, reads=reads, unavailable_ids=unavailable))
+        observe_native_retrieval(a, record_kind + '_read', activity_target, completed=True, unavailable=bool(unavailable))
         if unavailable:
             self.gaps.append(f"native_{record_kind}_support_unavailable")
 
