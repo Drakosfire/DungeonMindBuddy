@@ -23,7 +23,7 @@ export function BuddyTurnInspection({ worldId, conversationId, turnId, lifecycle
 }) {
   const wave = useSyncExternalStore(subscribeReadWave, getReadWaveVersion, getReadWaveVersion)
   const running = lifecycle === 'accepted' || lifecycle === 'running'
-  const key = JSON.stringify([worldId, conversationId, turnId, lifecycle, wave])
+  const key = JSON.stringify([worldId, conversationId, turnId, wave])
   const consumers = useRef(new Set<string>())
   const [consumerCount, setConsumerCount] = useState(0)
   const demand = useCallback((id: string, enabled: boolean) => {
@@ -39,6 +39,7 @@ export function BuddyTurnInspection({ worldId, conversationId, turnId, lifecycle
   const refresh = useCallback(() => setRetry(value => value + 1), [])
   const cache = useRef<Snapshot | null>(null)
   const handledRetry = useRef(0)
+  const observedLifecycle = useRef(lifecycle)
   useEffect(() => {
     if (cache.current?.key !== key) {
       cache.current = null
@@ -59,7 +60,6 @@ export function BuddyTurnInspection({ worldId, conversationId, turnId, lifecycle
     let active = true
     let timer: ReturnType<typeof setTimeout> | undefined
     const controller = new AbortController()
-    let initialMisses = 0
     const owns = () => active && consumers.current.size > 0 && getReadWaveVersion() === wave
     const read = () => void Promise.resolve().then(() => {
       if (!owns()) throw new Error('Inspection owner retired')
@@ -77,22 +77,26 @@ export function BuddyTurnInspection({ worldId, conversationId, turnId, lifecycle
       setLoaded(next)
       setFailure(null)
       if (running) timer = setTimeout(read, 2000)
-    }).catch(() => {
+    }).catch(reason => {
       if (owns()) {
         setFailure({ key, message: 'Execution trace is unavailable. The message will not be resent.' })
-        // Admission and first capture may trail the submitted request. Retry only
-        // initial misses, boundedly; an interrupted established read still pauses.
-        if (running && cache.current?.key !== key && initialMisses++ < 5) timer = setTimeout(read, 2000)
+        // Observation failure does not end a running request. Keep the last trace
+        // visible and let the same owner recover; never redispatch the model.
+        const status = reason && typeof reason === 'object' && 'status' in reason ? reason.status : null
+        const foreign = reason instanceof Error && reason.message === 'Trace does not match this conversation turn.'
+        if (running && status !== 401 && status !== 403 && !foreign) timer = setTimeout(read, 2000)
       }
     })
+    const phaseChanged = observedLifecycle.current !== lifecycle
+    observedLifecycle.current = lifecycle
     const explicitRetry = handledRetry.current !== retry
     handledRetry.current = retry
-    if (cache.current?.key !== key || explicitRetry) {
+    if (cache.current?.key !== key || explicitRetry || phaseChanged) {
       setFailure(null)
       read()
     } else if (running) timer = setTimeout(read, 2000)
     return () => { active = false; clearTimeout(timer); controller.abort() }
-  }, [enabled, key, worldId, turnId, conversationId, running, load, retry, wave])
+  }, [enabled, key, worldId, turnId, conversationId, running, lifecycle, load, retry, wave])
   const promptCache = useRef<{ key: string; values: Map<string, BuddyPromptEvidence> }>({ key, values: new Map() })
   useEffect(() => { if (promptCache.current.key !== key) promptCache.current = { key, values: new Map() } }, [key])
   const readPrompt = useCallback(async (trace: BuddyTurnContextTrace, reference: BuddyTracePromptReference, signal: AbortSignal) => {

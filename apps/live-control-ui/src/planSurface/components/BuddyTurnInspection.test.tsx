@@ -176,3 +176,47 @@ describe('one captured observation for an inspected turn', () => {
     expect(load).toHaveBeenCalledTimes(4)
   })
 })
+
+it('continues read-only observation beyond initial misses and preserves established progress across a transient failure',async()=>{
+  vi.useFakeTimers();
+  const load=vi.fn();
+  for(let count=0;count<6;count++)load.mockRejectedValueOnce(new Error('capture not ready'));
+  load.mockResolvedValueOnce(response('live')).mockRejectedValueOnce(new Error('offline')).mockResolvedValue(response('recovered'));
+  render(<BuddyTurnInspection {...binding} lifecycle="running" load={load}><Probe name="Debug" enabled /></BuddyTurnInspection>);
+  await act(async()=>{});
+  await act(async()=>vi.advanceTimersByTimeAsync(12000));
+  expect(load).toHaveBeenCalledTimes(7);expect(screen.getByText('Debug: live')).toBeInTheDocument();
+  await act(async()=>vi.advanceTimersByTimeAsync(2000));
+  expect(screen.getByText('Debug: live')).toBeInTheDocument();expect(screen.getByRole('alert')).toBeInTheDocument();
+  await act(async()=>vi.advanceTimersByTimeAsync(2000));
+  expect(screen.getByText('Debug: recovered')).toBeInTheDocument();expect(screen.queryByRole('alert')).toBeNull();
+});
+
+it.each([401,403])('stops automatic trace reads on authorization refusal %s',async status=>{
+  vi.useFakeTimers();const load=vi.fn().mockRejectedValue(Object.assign(new Error('unauthorized'),{status}));
+  render(<BuddyTurnInspection {...binding} lifecycle="running" load={load}><Probe name="Debug" enabled /></BuddyTurnInspection>);
+  await act(async()=>{});await act(async()=>vi.advanceTimersByTimeAsync(20000));expect(load).toHaveBeenCalledTimes(1);
+});
+
+
+it('retains recorded activity during delayed phase reads and reads the terminal failure without polling it', async () => {
+  vi.useFakeTimers();
+  const next = deferred<WorldAgentTurnContextTraceResponse>();
+  const terminal = deferred<WorldAgentTurnContextTraceResponse>();
+  const load = vi.fn().mockResolvedValueOnce(response('accepted-trace', binding, true))
+    .mockReturnValueOnce(next.promise).mockReturnValueOnce(terminal.promise);
+  const view = render(<BuddyTurnInspection {...binding} lifecycle="accepted" load={load}><Probe name="Debug" enabled /></BuddyTurnInspection>);
+  await act(async () => {});
+  view.rerender(<BuddyTurnInspection {...binding} lifecycle="running" load={load}><Probe name="Debug" enabled /></BuddyTurnInspection>);
+  await act(async () => {});
+  expect(screen.getByText('Debug: accepted-trace')).toBeInTheDocument();
+  await act(async () => next.resolve(response('running-trace', binding, true)));
+  view.rerender(<BuddyTurnInspection {...binding} lifecycle="failed" load={load}><Probe name="Debug" enabled /></BuddyTurnInspection>);
+  await act(async () => {});
+  expect(screen.getByText('Debug: running-trace')).toBeInTheDocument();
+  const failed = response('failed-trace'); failed.attempts[0].terminal_status = 'failed';
+  await act(async () => terminal.resolve(failed));
+  expect(screen.getByText('Debug: failed-trace')).toBeInTheDocument();
+  await act(async () => vi.advanceTimersByTimeAsync(10000));
+  expect(load).toHaveBeenCalledTimes(3);
+});
