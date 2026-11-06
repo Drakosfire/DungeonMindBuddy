@@ -73,3 +73,47 @@ Outcomes distinguish `verified`, `committed_unverified` and `outcome_unknown`. M
 For historical read-only assessment, pin an existing private packet as `items[0].retained_packet`. This forbids prepare, qualify and execute. `publication-inspect` can establish `verified_core` against the actual immutable child, including after head advancement or packet expiry. It explicitly does **not** establish the original DB execution window; retain independent historical window evidence separately. It never upgrades that scoped inspection to `verified` or full Gold acceptance.
 
 Publication verification is a technical boundary score. Independent ingestion quality, source semantics, held identities, full Gold coverage, retrieval and answer delivery remain separate assessments.
+
+### Reviewed correction evaluation
+
+`mode: reviewed_correction_v1` uses the same one-shot lifecycle as source
+authority evaluation. It wraps existing Buddy APIs; it does not produce source,
+model output, semantic judgments or native publications.
+
+Use `correction-qualify`, `correction-execute --qualification-sha ...`,
+`correction-inspect` and `correction-report`. A manifest contains exactly one
+existing run and one operation:
+
+- `correct_types`: an exact existing V8 type-only request, independent source
+  review pins, and prospective child run/candidate/operation-manifest hashes.
+  Both legacy and current deterministic children must be absent. The resulting
+  child must be held, database-replayable and preserve every prior row.
+- `semantic_disposition`: a new manifest for the actual held child, a pinned
+  actual-child V12 basis, basis digest, independent child-review pins and exact
+  review decision reference. Acceptance is never inferred from parent review.
+
+The `correction` block names `operation`, `principal: local_operator`,
+`review_pins` and `expected_child`. For type correction, `expected_child` contains
+`run_id`, `candidate_sha256` and `manifest_sha256`. Disposition instead pins its
+child `run_id` plus `child_basis`, `basis_sha256` and `review_decision_ref`.
+The item pins `retained_run_id`, `expected_run_revision`, `campaign_id`,
+`session_id`, `profile_id`, `source_artifact_id`, `effective_sha256`,
+`candidate_sha256`, `span_index_sha256` and `request`.
+
+Native access stays read-only throughout API startup and execution. APP writes
+are enabled only during the fixed owning correction/disposition route. Actual
+source/candidate/index bytes remain in their existing database owners. Exported
+evaluator records are audit artifacts, not publication prerequisites.
+
+The durable `correction-execution.json` intent precedes dispatch. An interrupted
+or unknown outcome is inspected without redispatch. A verified correction only
+proves its bounded reviewed effect; raw ingestion quality, Gold completeness and
+native publication remain separate assessments.
+
+The backend integration test takes `DMB_EVALUATION_TEST_RUNTIME` so product
+imports come from the exact reviewed runtime union rather than the evaluator
+host's older product checkout. Run the evaluator suites with that variable set;
+without it, the product-runtime integration test reports a skip. Its disposable
+APP probe exercises actual correction/disposition owners while native repository
+and authentication/transport remain explicit doubles. Real retained evaluation
+still requires its own pinned manifest, reviews and qualification.

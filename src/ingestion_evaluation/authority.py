@@ -61,7 +61,7 @@ def mutable_rows(buddy, space):
             result[table] = {'hash': rows[0][0], 'data': rows[0][1]}
     return result
 
-def local_route(buddy, operation, request, operator_token_env):
+def local_route(buddy, operation, request, operator_token_env, *, run_id=None):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     import httpx
@@ -74,6 +74,13 @@ def local_route(buddy, operation, request, operator_token_env):
     elif operation in ('publication_prepare', 'publication_confirm'):
         from apps.live_control_server.routes.extract_promote import router
         route = '/api/live/extract-promote/native-' + ('prepare' if operation == 'publication_prepare' else 'confirm')
+    elif operation in ('correct_types', 'semantic_disposition'):
+        from uuid import UUID
+        if not isinstance(run_id, str) or str(UUID(run_id)) != run_id:
+            raise ValueError('Correction route requires a canonical run UUID')
+        from apps.live_control_server.routes.extract_promote import router
+        suffix = 'recap-candidate-corrections' if operation == 'correct_types' else 'semantic-disposition'
+        route = f'/api/live/extract-promote/runs/{run_id}/{suffix}'
     else:
         raise ValueError('Unsupported owning route')
     app = FastAPI()
@@ -93,8 +100,9 @@ def local_route(buddy, operation, request, operator_token_env):
     try:
         httpx.HTTPTransport.handle_request = forbidden
         httpx.AsyncHTTPTransport.handle_async_request = forbidden
-        buddy._bind(read_only=operation != 'admit_context')
-        native_target = (buddy._dsn('native') if operation == 'publication_prepare'
+        app_write = operation in ('admit_context', 'correct_types', 'semantic_disposition')
+        buddy._bind(read_only=not app_write)
+        native_target = (buddy._dsn('native') if operation in ('publication_prepare', 'correct_types', 'semantic_disposition')
                          else native_write_dsn(buddy))
         os.environ[buddy.db['native']['product_env']] = native_target
         token = os.environ[operator_token_env]
@@ -102,7 +110,7 @@ def local_route(buddy, operation, request, operator_token_env):
             if (os.environ.get('DMB_AGENT_GRAPH_LOCAL_PROFILE', '').strip()
                     or os.environ.get('DMB_AGENT_GRAPH_SESSION_STORE') != buddy.auth_path
                     or os.environ[buddy.db['native']['product_env']] != native_target
-                    or os.environ[buddy.db['app']['product_env']] != buddy._dsn('app', write=operation == 'admit_context')):
+                    or os.environ[buddy.db['app']['product_env']] != buddy._dsn('app', write=app_write)):
                 raise ValueError('Source route startup changed isolation')
             response = client.post(route, json=request)
             return {'status': response.status_code, 'body_base64': base64.b64encode(response.content).decode(), 'body_sha256': digest(response.content), 'asgi_errors': failures}
