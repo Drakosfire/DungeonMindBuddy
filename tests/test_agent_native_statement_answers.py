@@ -188,6 +188,7 @@ def test_ordinary_post_persists_and_reopens_exact_native_clause(
     assert data["answer"]["graph_grounded"] is False
     assert data["answer"]["text"].startswith("Source reports:")
     assert len(wire.requests) == 1
+    assert "max_output_tokens" not in wire.requests[0]
     service = AgentConversationService()
     (turn,) = service.list_turns(
         world, service.get_active_conversation(world).conversation_id
@@ -706,3 +707,11 @@ def test_ordinary_v2_wire_schema_does_not_accept_the_subject_as_citation(
     )
     assert client.post("/api/live/agent/turn", json=request).status_code == 409
     assert len(wire.requests) == 1
+
+
+@pytest.mark.parametrize("window,reserve", [(None, 8192), (128000, 0)])
+def test_native_statement_rejects_partial_allowance(window, reserve):
+    from pydantic import ValidationError
+    from application_state.agent_conversation.native_statement_input import NativeStatementWriterPolicyV2
+    with pytest.raises(ValidationError, match="allowance must be complete"):
+        NativeStatementWriterPolicyV2(model="gpt-6-luna", context_limit_tokens=window, output_token_reserve=reserve)

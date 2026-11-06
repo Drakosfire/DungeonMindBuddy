@@ -393,7 +393,8 @@ def _freeze_action_inputs(
         retrieval_sha = _canonical_sha256(initial_packet)
     body = json.loads(view["payloadJson"])
     upper_bound = view["payloadUtf8Bytes"] + 64 * (1 + _json_node_count(body))
-    if upper_bound + budget["outputReserveTokens"] > budget["contextLimitTokens"]:
+    if (budget["contextLimitTokens"] is not None
+        and upper_bound + budget["outputReserveTokens"] > budget["contextLimitTokens"]):
         raise ValueError("Action provider envelope exceeds its context budget")
     authority = PlanWorldGraphAuthorityV1(
         managed_world_id=action.basis.world_id,

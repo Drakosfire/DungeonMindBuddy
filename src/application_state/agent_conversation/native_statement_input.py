@@ -244,6 +244,15 @@ class NativeStatementWriterPolicyV1(_NativeStatementWriterPolicy):
 
 
 class NativeStatementWriterPolicyV2(_NativeStatementWriterPolicy):
+    output_token_reserve: int = Field(ge=0, strict=True)
+    context_limit_tokens: int | None = Field(gt=0, strict=True)
+
+    @model_validator(mode="after")
+    def complete_allowance(self):
+        if (self.context_limit_tokens is None) != (self.output_token_reserve == 0):
+            raise ValueError("Native statement token allowance must be complete")
+        return self
+
     policy_version: Literal["native_statement_writer_v2"] = "native_statement_writer_v2"
 
 
@@ -268,6 +277,7 @@ class NativeStatementInputEventV1(Strict):
 def validate_request(receipt, policy, raw):
     from .native_statement_answer import writer_contract
     from .source_writer_output import strict_json
+    from .native_writer import output_request_fields
 
     instructions, output_schema = writer_contract(receipt, policy)
     body = strict_json(raw)
@@ -287,7 +297,7 @@ def validate_request(receipt, policy, raw):
             }
         ],
         "instructions": instructions,
-        "max_output_tokens": policy.output_token_reserve,
+        **output_request_fields(policy.output_token_reserve),
         "text": {
             "format": {
                 "type": "json_schema",
@@ -306,7 +316,8 @@ def validate_request(receipt, policy, raw):
             "Actual native writer request changed evidence, instructions or capability"
         )
     if (
-        native_input_tokens(raw, body) + policy.output_token_reserve
+        policy.context_limit_tokens is not None
+        and native_input_tokens(raw, body) + policy.output_token_reserve
         > policy.context_limit_tokens
     ):
         raise ValueError("Native writer exceeds its frozen provider context allowance")

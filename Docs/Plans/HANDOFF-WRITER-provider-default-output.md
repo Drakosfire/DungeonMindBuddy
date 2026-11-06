@@ -94,3 +94,12 @@ token ceiling. New writer policy chooses exactly(None,0), historical policy exac
 (128000,4096); Play aggregate ceilings are both absent or both finite. SQL admits
 only the matching typed owner states. Additional exact model test lease:
 tests/test_surface_native_context.py, to preserve positive historical accounting.
+
+Exact shared-budget caller closure after independent review of aea4bc719:
+services/source_statement_proposals.py, native_statement_answer_runtime.py,
+plan_action_consultation.py; agent_conversation/native_statement_input.py;
+tests/test_source_statement_proposals.py, test_agent_native_statement_answers.py,
+test_plan_action_consultation.py. Fresh source-statement V2 uses None/0 and omits
+the actual SDK output parameter; retained positive policies keep exact validation.
+Source proposal dispatch retains byte/hash/schema/authority checks. All shared
+budget callers are inspected for None assumptions; no substitute finite cap.
