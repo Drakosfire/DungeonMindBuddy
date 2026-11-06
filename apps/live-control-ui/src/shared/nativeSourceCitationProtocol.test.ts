@@ -52,21 +52,21 @@ function bodyCompletion():import('../api/types').SurfaceEvidenceCompletionV5 {
  return {...old,schema:'dmb_surface_evidence_completion_v5',surface_id:'plan',native_source_citations:[],
    native_body_citations:[{...citation,catalog_sha256:'f'.repeat(64),selector_policy:'native_full_document_v1'}]};
 }
-it('admits the native body family only in Plan, without APP revision aliases',()=>{
+it('admits native body citations on their declared surface without APP revision aliases',()=>{
  const c=bodyCompletion();expect(isSurfaceEvidenceCompletion(c,'a'.repeat(64),'plan')).toBe(true);
- expect(isSurfaceEvidenceCompletion({...c,surface_id:'play'},'a'.repeat(64),'play')).toBe(false);
+ expect(isSurfaceEvidenceCompletion({...c,surface_id:'play'},'a'.repeat(64),'play')).toBe(true);
  Object.assign(c.native_body_citations[0]!,{app_source_revision_id:id});
  expect(isSurfaceEvidenceCompletion(c,'a'.repeat(64),'plan')).toBe(false);
 });
-it.each(['exact','hash','citation','world','turn','index','family'])('native body citation uses the exact historical reader: %s',async change=>{
+it.each(['exact','hash','citation','world','turn','index','family','retired_family','display_label','unavailable_label'])('native body citation uses the exact historical reader: %s',async change=>{
  const c=bodyCompletion(),citation={...c.native_body_citations[0]!};
  if(change==='citation')citation.native_source_revision_id='other';
- vi.mocked(getAgentNativeBodyExcerpt).mockResolvedValue({schema:change==='family'?'dmb_agent_native_source_section_read_v1':'dmb_agent_native_body_excerpt_read_v1',
+ vi.mocked(getAgentNativeBodyExcerpt).mockResolvedValue({schema:change==='family'?'dmb_agent_native_source_section_read_v1':change==='retired_family'?'dmb_agent_native_body_excerpt_read_v1':'dmb_agent_native_body_excerpt_read_v2',
    world_id:change==='world'?'foreign':'world',turn_id:change==='turn'?'other':id,citation_index:change==='index'?1:0,
-   citation,content:change==='hash'?'Changed bytes.':content} as any);
+   citation,content:change==='hash'?'Changed bytes.':content,display_label:change==='display_label'?17:change==='unavailable_label'?null:'Session 15 recap · campaign: longmont-c1'} as any);
  render(createElement(SurfaceEvidenceAnswer,{completion:c,worldId:'world',turnId:id}));
- fireEvent.click(screen.getByRole('button',{name:'Synthetic adventure · Appendix A'}));
- if(change==='exact')await screen.findByText('Tree mechanics.');
+ fireEvent.click(screen.getByRole('button',{name:'Read source · Appendix A'}));
+ if(change==='exact'||change==='unavailable_label'){await screen.findByText('Tree mechanics.');if(change==='exact')await screen.findByText('Session 15 recap · campaign: longmont-c1 · Appendix A');}
  else await screen.findByText(/exact cited section is unavailable/);
  expect(getAgentNativeBodyExcerpt).toHaveBeenLastCalledWith('world',id,0);
  expect(getAgentNativeSourceSection).not.toHaveBeenCalled();

@@ -60,3 +60,36 @@ def source_display_metadata(items, world_id):
             row["status"] = "available"
         navigation.append(row)
     return navigation
+
+
+def source_display_name(display, fallback):
+    """One readable label format; it carries no source/fact authority."""
+    if display is None or display['status'] != 'available':
+        return fallback + ' (source name unavailable)'
+    parts = [display['label']]
+    if display['campaign_id']:
+        parts.append('campaign: ' + display['campaign_id'])
+    if display['session_id']:
+        parts.append('session: ' + display['session_id'])
+    if display['origin_matches_current_metadata'] is False:
+        parts.append('current page label; selected source is an older revision')
+    return ' · '.join(parts)
+
+
+def opened_source_display_label(prepared, member):
+    """Optional naming only, after the caller's fresh access/exact-byte check."""
+    from dungeonmind.application.vnext import list_admitted_native_text_sources
+    try:
+        artifact, revision = member.artifact, member.revision
+        items = [item for item in list_admitted_native_text_sources(prepared.access).sources
+            if (item.source_artifact.source_artifact_id, item.source_revision.source_revision_id,
+                item.source_revision.content_sha256)
+            == (artifact.source_artifact_id, revision.source_revision_id, revision.content_sha256)]
+        if len(items) != 1:
+            return None
+        display = source_display_metadata(items, prepared.authority.managed_world_id)[0]
+        return source_display_name(display, 'Source') if display['status'] == 'available' else None
+    except Exception:
+        # Presentation lookup cannot revoke an already authorized exact read.
+        # The caller performs all access and byte checks before entering here.
+        return None

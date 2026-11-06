@@ -4982,8 +4982,8 @@ describe("World Plan conversation consumer", () => {
       const response=await policyResponse(request,'conversation-a',text);
       return {...response,answer:{...response.answer,graph_grounded:false},plan_context:context};
     });
-    const open=vi.spyOn(liveApi,'getAgentNativeBodyExcerpt').mockResolvedValue({schema:'dmb_agent_native_body_excerpt_read_v1',
-      world_id:worldId,turn_id:turnId,citation_index:0,citation,content:text});
+    const open=vi.spyOn(liveApi,'getAgentNativeBodyExcerpt').mockResolvedValue({schema:'dmb_agent_native_body_excerpt_read_v2',
+      world_id:worldId,turn_id:turnId,citation_index:0,citation,content:text,display_label:'Lantern notes'});
     await mountComponent();
     if(change==='fresh') {
       await screen.findByRole('textbox',{name:'Message DungeonBuddy'});
@@ -4998,7 +4998,7 @@ describe("World Plan conversation consumer", () => {
     await screen.findByText('What do the native notes say?');
     await waitForConversationReady();
     fireEvent.click(screen.getByText('Evidence trail',{selector:'summary'}));
-    fireEvent.click(screen.getByRole('button',{name:'Lantern notes · Full document'}));
+    fireEvent.click(screen.getByRole('button',{name:'Read source · Full document'}));
     await screen.findByRole('region',{name:'Opened source section'});
     expect(open).toHaveBeenCalledWith(worldId,turnId,0);
   });

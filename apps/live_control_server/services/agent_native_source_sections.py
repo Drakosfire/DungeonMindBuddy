@@ -134,6 +134,8 @@ def open_native_body_excerpt(*, world_id, turn_id, citation_index, principal, se
             raise ValueError('Historical native body extent changed')
     except Exception as exc:
         raise SourcePassageOpenError('native_body_access_unavailable', 409) from exc
-    from apps.live_control_server.models.agent_turn import AgentNativeBodyExcerptReadResponseV1
-    return AgentNativeBodyExcerptReadResponseV1(world_id=world_id, turn_id=turn_id,
-        citation_index=citation_index, citation=citation, content=text)
+    from .native_source_display import opened_source_display_label
+    from apps.live_control_server.models.agent_turn import AgentNativeBodyExcerptReadResponseV2
+    return AgentNativeBodyExcerptReadResponseV2(world_id=world_id, turn_id=turn_id,
+        citation_index=citation_index, citation=citation, content=text,
+        display_label=opened_source_display_label(prepared, catalog.source))
