@@ -1406,9 +1406,9 @@ export interface SurfaceEvidenceCompletionV7 extends Omit<SurfaceEvidenceComplet
 export interface NativeAssertionSourceReadV1 {
   schema:'dmb_native_assertion_source_read_v1';world_id:string;turn_id:string;citation_index:number;citation:NativeAssertionCitationV1;content:string;
 }
-export interface AgentNativeBodyExcerptReadResponseV1 {
-  schema:'dmb_agent_native_body_excerpt_read_v1';world_id:string;turn_id:string;citation_index:number;
-  citation:NativeBodyExcerptCitationV1;content:string;
+export interface AgentNativeBodyExcerptReadResponseV2 {
+  schema:'dmb_agent_native_body_excerpt_read_v2';world_id:string;turn_id:string;citation_index:number;
+  citation:NativeBodyExcerptCitationV1;content:string;display_label:string|null;
 }
 export type SurfaceEvidenceCompletion = SurfaceEvidenceCompletionV1 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV5 | SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV7;
 export interface AgentSourcePassageReadResponseV1 {

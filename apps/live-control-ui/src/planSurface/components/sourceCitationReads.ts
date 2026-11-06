@@ -57,15 +57,16 @@ export function nativeChoices(completion:Partial<Pick<SurfaceEvidenceCompletionV
     },
   }]);
   return [...sections,...(completion.native_body_citations??[]).flatMap((citation,index)=>citation.segment_index!==segmentIndex?[]:[{
-    key:`body:${index}`,number:sections.length+index+1,title:`${citation.source_name} · ${citation.section_title}`,
-    label:`${citation.source_name} · ${citation.section_title}`,kind:'section' as const,load:async()=>{
+    key:`body:${index}`,number:sections.length+index+1,title:`Source · ${citation.section_title}`,
+    label:`Read source · ${citation.section_title}`,kind:'section' as const,load:async()=>{
       const result=await getAgentNativeBodyExcerpt(worldId,turnId,index);
-      if(!exact(result,['schema','world_id','turn_id','citation_index','citation','content'])
-        || result.schema!=='dmb_agent_native_body_excerpt_read_v1' || result.world_id!==worldId
+      if(!exact(result,['schema','world_id','turn_id','citation_index','citation','content','display_label'])
+        || result.schema!=='dmb_agent_native_body_excerpt_read_v2' || result.world_id!==worldId
         || result.turn_id!==turnId || result.citation_index!==index || canonical(result.citation)!==canonical(citation)
+        || (result.display_label!==null && (typeof result.display_label!=='string' || !result.display_label.trim()))
         || typeof result.content!=='string' || !result.content || await hash(result.content)!==citation.excerpt_sha256)
         throw new Error('Source excerpt binding differs');
-      return result.content;
+      return result.display_label===null ? result.content : {content:result.content,title:`${result.display_label} · ${citation.section_title}`};
     },
   }]),...(completion.native_clause_citations??[]).flatMap((citation,index)=>citation.segment_index!==segmentIndex?[]:[{
     key:`statement:${index}`,number:sections.length+index+1,title:`Source statement · ${citation.campaign_id}`,

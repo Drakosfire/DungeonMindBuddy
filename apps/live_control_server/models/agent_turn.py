@@ -1384,11 +1384,12 @@ class AgentNativeSourceSectionReadResponseV1(BaseModel):
     content: str = Field(min_length=1)
 
 
-class AgentNativeBodyExcerptReadResponseV1(BaseModel):
+class AgentNativeBodyExcerptReadResponseV2(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    schema_: Literal["dmb_agent_native_body_excerpt_read_v1"] = Field(default="dmb_agent_native_body_excerpt_read_v1", alias="schema")
+    schema_: Literal["dmb_agent_native_body_excerpt_read_v2"] = Field(default="dmb_agent_native_body_excerpt_read_v2", alias="schema")
     world_id: str
     turn_id: UUID
     citation_index: int = Field(strict=True, ge=0, le=16383)
     citation: NativeBodyExcerptCitationV1
     content: str = Field(min_length=1)
+    display_label: str | None = Field(default=None, min_length=1)

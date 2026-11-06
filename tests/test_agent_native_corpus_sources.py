@@ -373,7 +373,8 @@ def finish_body_answer(a):
     return writer, output, completed
 
 
-def test_native_body_history_replay_and_current_access_open_original_revision(source_adapter, lane):
+@pytest.mark.parametrize('display_state',['available','unavailable','error'])
+def test_native_body_history_replay_and_current_access_open_original_revision(source_adapter, lane, monkeypatch, display_state):
     from apps.live_control_server.services.agent_native_source_sections import open_native_body_excerpt
     from apps.live_control_server.services.agent_source_passages import SourcePassageOpenError
     from application_state.agent_conversation.repository import _plan_ask_history_attribution
@@ -389,14 +390,25 @@ def test_native_body_history_replay_and_current_access_open_original_revision(so
     original_revision = completed.graph_context_receipt.source_authority.revision_id
     admit(lane, name='later-head', body='# Later\n\nAnother scene.\n')
     assert lane.repo.get_head('world:test').head_revision_id != original_revision
+    display_calls = []
+    def display(items, world):
+        display_calls.append((items, world))
+        if display_state == 'error':raise RuntimeError('Display lookup unavailable')
+        return [dict(status=display_state,label='Session 15 recap',campaign_id='longmont-c1',
+            session_id='session-15',origin_matches_current_metadata=True)]
+    monkeypatch.setattr('apps.live_control_server.services.native_source_display.source_display_metadata',display)
     opened = open_native_body_excerpt(world_id=a.world_id, turn_id=completed.turn_id, citation_index=0,
         principal=GM, repository=lane.repo, resolve_identity=lambda _: lane.bound)
     assert opened.content == BODY and opened.citation == completed.completion.native_body_citations[0]
+    assert opened.schema_ == 'dmb_agent_native_body_excerpt_read_v2'
+    assert opened.display_label == ('Session 15 recap · campaign: longmont-c1 · session: session-15' if display_state == 'available' else None)
+    assert len(display_calls) == 1
     # Current ownership change cannot be bypassed by retained body/trace bytes.
     lane.bound = SimpleNamespace(**(vars(lane.bound) | {'binding_version': 2}))
     with pytest.raises(SourcePassageOpenError, match='native_body_access_unavailable'):
         open_native_body_excerpt(world_id=a.world_id, turn_id=completed.turn_id, citation_index=0,
             principal=GM, repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    assert len(display_calls) == 1  # Denied access never reaches presentation lookup.
     refused_service = SimpleNamespace(inspect_turn=lambda **_: pytest.fail('player reached APP/source IO'))
     with pytest.raises(SourcePassageOpenError, match='native_body_access_denied'):
         open_native_body_excerpt(world_id=a.world_id, turn_id=completed.turn_id, citation_index=0,
