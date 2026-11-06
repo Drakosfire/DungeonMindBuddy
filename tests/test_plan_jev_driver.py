@@ -126,6 +126,9 @@ class Decisions(httpx2.AsyncBaseTransport):
 @pytest.mark.parametrize('sequential', [False, True])
 @pytest.mark.parametrize('anchors', [1, 11, 45])
 def test_shared_anchors_and_objects_read_once_with_actual_plan_decisions(plan_adapter, sequential, anchors):
+    from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
+    host = AgentTurnTraceBuilder(agent_thread_id=None, turn_id=None, runtime="test", backend="test", mode="test")
+    plan_adapter.trace = host
     plan_adapter.bootstrap.retrieval_session.referents = [GraphReferent(id='pond', label='Park pond'),
                                                          GraphReferent(id='bridge', label='Footbridge')]
     graphs, sources = fixture_reads(plan_adapter, anchors=anchors)
@@ -144,6 +147,11 @@ def test_shared_anchors_and_objects_read_once_with_actual_plan_decisions(plan_ad
     assert len(frame['graph_records']) == 2 and len(frame['opened_passages']) == anchors
     assert all(row['source_name'] == 'Synthetic park journal' for row in frame['opened_passages'])
     assert len(driver.calls) == len(transport.calls) == (3 if sequential else 2)
+    timings = {span["name"]: span for span in host.spans if span["kind"] == "cumulative"}
+    for name in ("retrieval_candidate_preparation", "retrieval_decision", "retrieval_selection_apply"):
+        assert timings[name]["attributes"]["count"] == len(driver.calls)
+        assert timings[name]["attributes"]["error_count"] == 0
+    assert timings["execution_append"]["attributes"]["count"] > len(driver.calls)
     assert frame['dialogue_reference'] == [{'role': 'user', 'content': 'Earlier park discussion.'}]
     assert set(transport.calls[0]['state']) == {'question', 'relevance_guidance', 'candidates', 'dialogue_reference'}
     assert all(set(body['state']) == {'question', 'relevance_guidance', 'candidates', 'dialogue_reference', 'examined_subjects'}
