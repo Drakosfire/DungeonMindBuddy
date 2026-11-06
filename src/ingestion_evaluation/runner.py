@@ -125,7 +125,7 @@ class Runner:
     def capture(self, qualification_sha: str) -> dict:
         if any(item.get('retained_run_id') for item in self.manifest['items']):
             raise ValueError('Historical evidence manifests are read-only; never dispatch')
-        with (self.output / 'lifecycle.lock').open('a') as lock:
+        with (self.output / 'lifecycle.lock').open('a') as lock, self.backend.capture_lease():
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             qbytes = (self.output / 'qualification.json').read_bytes()
             if digest(qbytes) != qualification_sha:
@@ -133,6 +133,8 @@ class Runner:
             q = json.loads(qbytes)
             if q['manifest_sha256'] != self.manifest_sha:
                 raise ValueError('Manifest changed after qualification')
+            if any(item.get('unresolved_prior_runs') for item in q['items']):
+                raise ValueError('Source has unresolved prior execution; inspect it, never redispatch')
             # A stopped process is not permission to repeat any request.
             if (self.output / 'execution.json').exists():
                 raise ValueError('Execution already dispatched; observe/audit it, never replay')

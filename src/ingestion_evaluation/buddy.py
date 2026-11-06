@@ -99,6 +99,28 @@ class Buddy:
             raise ValueError('Native graph/database changed')
         conserve(before['app'], after['app'], set(self.manifest['app_append_tables']))
 
+    @contextmanager
+    def capture_lease(self):
+        import psycopg
+        # Session lock coordinates all standardized cohorts sharing this evaluator,
+        # independently of their output directories; it changes no database rows.
+        with psycopg.connect(self._dsn('app'), autocommit=True) as conn:
+            locked = conn.execute("SELECT pg_try_advisory_lock(hashtextextended('dmb:ingestion-evaluation',0))").fetchone()[0]
+            if not locked:
+                raise ValueError('Another evaluator capture owns the database lease')
+            try:
+                self._assert_no_active_transactions()
+                yield
+            finally:
+                conn.execute("SELECT pg_advisory_unlock(hashtextextended('dmb:ingestion-evaluation',0))")
+
+    def _assert_no_active_transactions(self):
+        with self.connection('app') as conn:
+            active = conn.execute("SELECT pid FROM pg_stat_activity WHERE datname IN (%s,%s) AND pid<>pg_backend_pid() AND (state<>'idle' OR xact_start IS NOT NULL)",
+                                  (self.db['app']['database'], self.db['native']['database'])).fetchall()
+            if active:
+                raise ValueError('Concurrent evaluator transaction detected before dispatch')
+
     def _runs(self, item):
         from application_state.ingest import service
         return service.list_extraction_runs(world_id=self.manifest['world_id'], source_domain='recap', campaign_id=item['campaign_id'], session_id=item['session_id'])
@@ -112,6 +134,7 @@ class Buddy:
         from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
         from src.graph_memory.extraction.bounded_recap_execution import DEEPSEEK_MODEL
         from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
+        from graph_memory.evidence.source_artifact import build_world_scoped_recap_source_artifact_id
         context, _ = native.access_context(native.read_repository(), self.manifest['world_id'])
         if json.loads(encoded(context)) != self.manifest['native_context']:
             raise ValueError('Native revision context drift')
@@ -131,7 +154,10 @@ class Buddy:
         corrected, lineage = apply_review(original, review, request['name_review'])
         if digest(_normalize_source_text(corrected).encode()) != item['effective_sha256']:
             raise ValueError('Reviewed effective source pin differs')
-        return {'id': item['id'], 'prior_runs': {r.run_id: r.model_dump(mode='json') for r in self._runs(item)},
+        prior = {r.run_id: r.model_dump(mode='json') for r in self._runs(item)}
+        effective_artifact = build_world_scoped_recap_source_artifact_id(world_id=self.manifest['world_id'], campaign_id=item['campaign_id'], session_id=item['session_id'], content_sha256=item['effective_sha256'])
+        unresolved = [rid for rid, run in prior.items() if run['status'] in {'prepared', 'running'} and run['source_artifact_id'] == effective_artifact]
+        return {'id': item['id'], 'prior_runs': prior, 'unresolved_prior_runs': unresolved,
                 'name_review': lineage, 'source_sha256': item['source']['sha256'],
                 'effective_sha256': item['effective_sha256'], 'request_sha256': item['request']['sha256'],
                 'pass_instruction_sha256': {p.pass_id: digest(p.instruction.encode()) for p in
@@ -148,6 +174,7 @@ class Buddy:
         error = None
         response = None
         try:
+            self._assert_no_active_transactions()
             app = create_app()
             failures = []
 

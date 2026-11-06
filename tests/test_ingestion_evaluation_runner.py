@@ -1,5 +1,6 @@
 """Evaluation orchestration invariants; actual ingestion semantics remain product-owned."""
 import copy
+from contextlib import contextmanager
 import json
 from pathlib import Path
 
@@ -14,6 +15,16 @@ class Backend:
         self.state = state
         self.calls = []
         self.on_capture = lambda *_: None
+
+    @contextmanager
+    def capture_lease(self):
+        if getattr(self, 'leased', False):
+            raise ValueError('Another evaluator capture owns the database lease')
+        self.leased = True
+        try:
+            yield
+        finally:
+            self.leased = False
 
     def snapshot(self):
         return copy.deepcopy(self.data)
@@ -197,6 +208,7 @@ def test_buddy_adapter_stops_on_transport_failure_even_if_run_is_reviewable(tmp_
             monkeypatch.setenv(spec['product_env'], 'isolated-' + role)
     adapter._bind = bind
     adapter.snapshot = lambda: {}
+    adapter._assert_no_active_transactions = lambda: None
     adapter.check_conservation = lambda _: None
     adapter._runs = lambda _: [SimpleNamespace(run_id='actual-new-run', status='reviewable', components={}, model_dump=lambda **_: {'status': 'reviewable'})]
     result = adapter.capture(item, {'prior_runs': {}}, tmp_path / 'one')
@@ -266,3 +278,41 @@ def test_audit_rejects_mixed_database_interval(setup):
     backend.audit = drift
     with pytest.raises(ValueError, match='State changed during audit'):
         runner.audit()
+
+
+def test_unknown_prior_source_blocks_new_output_directory(setup):
+    runner, backend = setup
+    original = backend.qualify
+    backend.qualify = lambda item: {**original(item), 'unresolved_prior_runs': ['existing-unknown']}
+    with pytest.raises(ValueError, match='unresolved prior execution'):
+        runner.capture(runner.qualify())
+    assert backend.calls == []
+
+
+def test_capture_lease_blocks_concurrent_output_directories(setup, tmp_path):
+    runner, backend = setup
+    with backend.capture_lease():
+        with pytest.raises(ValueError, match='database lease'):
+            runner.capture(runner.qualify())
+    assert backend.calls == []
+
+
+def test_real_disposable_evaluator_lease_is_global_and_read_only(application_state_dsn):
+    import psycopg
+    from urllib.parse import urlsplit
+    from ingestion_evaluation.buddy import Buddy
+    parsed = urlsplit(application_state_dsn)
+    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+        database, oid, cluster = conn.execute('SELECT current_database(), (SELECT oid FROM pg_database WHERE datname=current_database()), system_identifier::text FROM pg_control_system()').fetchone()
+    adapter = object.__new__(Buddy)
+    adapter.dsns = {'app': application_state_dsn}
+    adapter.db = {'app': {'host': parsed.hostname, 'port': parsed.port, 'database': database, 'oid': oid, 'cluster': cluster},
+                  'native': {'database': 'unused-disposable-native-name'}}
+    with adapter.capture_lease():
+        with adapter.connection('app') as conn:
+            assert conn.execute('SHOW transaction_read_only').fetchone() == ('on',)
+        with pytest.raises(ValueError, match='database lease'):
+            with adapter.capture_lease():
+                pytest.fail('A second client obtained the same evaluator lease')
+    with adapter.capture_lease():
+        pass
