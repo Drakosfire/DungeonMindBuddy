@@ -33,12 +33,17 @@ def work(surface):
             work_revision_id=uuid4(), revision_n=2, content_sha256=sha256(WORK_MARKDOWN.encode()).hexdigest()),
             plan_context_policy=t.PlanContextPolicyV2(policy="auto_plan_world",
                 graph_source="reviewed_native_graph"), playable_target=None)
-    return PlayWorkContextV1(play_basis=t.PlayRunTurnContextReceiptV2(
+    basis = t.PlayRunTurnContextReceiptV2(
         world_id="world-one", run_id="run-one", run_revision=3,
         runbook_object_id="plan-one", runbook_object_revision=4,
         runbook_work_revision_id=uuid4(), runbook_revision_n=2,
         runbook_content_sha256="a" * 64, beat_id="beat:one", scene_id="scene:one",
-        edition_revision=0, edition_revision_id=None, content_sha256="a" * 64))
+        edition_revision=0, edition_revision_id=None, content_sha256="a" * 64)
+    from application_state.agent_conversation.play_graph_authority import play_source_frame
+    frame = play_source_frame((t.PlaySourcePayloadV1(source_kind='current_moment',
+        locator=t.play_source_locator(basis), text='Exact saved Play moment.'),))
+    return PlayWorkContextV1(play_basis=basis,play_sources=frame.manifest,
+        play_source_frame_sha256=canonical_sha256(frame))
 
 
 def seal(wire):

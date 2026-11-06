@@ -1,8 +1,9 @@
 # PLAY: shared native retrieval with actual Run evidence
 
-Status: DESIGN REVIEW. Independent Bugbot approved design head
-`781ebf5d9cabcd35fff6320a35d2352d4a111048` against the pinned base. PRIME owns
-design/delivery under the active References goal. No implementation or runtime mutation lease until the gates below resolve.
+Status: ACTIVE IMPLEMENTATION. Independent Bugbot approved exact design head
+`71d5e443930de19219bf7d12c98fcffcd6fd235a` against the pinned base. PRIME owns
+this one serial implementation slice under the active References goal. The design
+gates are resolved by the immutable owner adoption below. No runtime mutation lease.
 Base origin/main `7afaab5cb23f605a70d45529dc9143c2b293999d`; isolated branch
 `codex/play-shared-native-context`, existing buddy-context-loop checkout/dependencies.
 
@@ -89,8 +90,8 @@ existing Rules path; mixed Rules retains its distinct evidence owner.
 
 ## Expected review map and ownership
 
-Not an ACTIVE write allowlist. Resolve the decisions and pin exact files first.
-Owning groups inspected:
+The exclusive expected write set is pinned below. Re-anchor and checkpoint before
+adding another owning contract. Reviewed ownership groups:
 
 - Host: services `agent_turn_service`, `plan_source_turn`,
   `native_play_graph_owner`, actual Play orchestration adapter if required.
@@ -138,3 +139,56 @@ Settle its old handoff with the next activated implementation. Opened labels are
 fixed; writer labels remain open. Preserve activity/generation evidence, full
 cross-surface acceptance and measured generic retrieval improvements in the goal.
 This design is neither implemented capability nor acceptance evidence.
+
+## Activated expected write set
+
+Paths below are relative to the repository; all are in this one Play capability.
+Preserve held2104 and unrelated work. No implementation dispatch to other lanes.
+
+- This handoff; `Docs/Plans/HANDOFF-REFERENCE-native-citation-display.md` (settle2170).
+- `apps/live_control_server/services/agent_turn_service.py`
+- `apps/live_control_server/services/plan_source_turn.py`
+- `apps/live_control_server/services/native_play_graph_owner.py`
+- `apps/live_control_server/services/play_jev_harness.py` (actual Play orchestration)
+- `apps/live_control_server/services/plan_jev_driver.py`
+- `apps/live_control_server/services/plan_jev_dispatch.py`
+- `apps/live_control_server/services/plan_jev_writer.py`
+- `apps/live_control_server/services/native_source_navigation.py`
+- `apps/live_control_server/services/native_authored_references.py`
+- `apps/live_control_server/services/plan_jev_rules_runtime.py`
+- `apps/live_control_server/routes/agent.py` (native query scope only)
+- `src/application_state/agent_conversation/native_context.py`
+- `src/application_state/agent_conversation/native_execution.py`
+- `src/application_state/agent_conversation/native_retrieval.py`
+- `src/application_state/agent_conversation/native_writer.py`
+- `src/application_state/agent_conversation/native_completion.py`
+- `src/application_state/agent_conversation/native_play_work.py` (adopted work projection)
+- `src/application_state/agent_conversation/play_graph_source_owner.py`
+- `src/application_state/agent_conversation/play_session_input.py`
+- `src/application_state/agent_conversation/surface_evidence_answer.py`
+- `src/application_state/agent_conversation/plan_writer_output_schema.py`
+- `src/application_state/agent_conversation/authored_graph_references.py`
+- `src/application_state/agent_conversation/jev_retrieval_contract.py`
+- `src/application_state/agent_conversation/rules_authority_store.py`
+- `src/application_state/agent_conversation/plan_jev_rules_lookup.py`
+- `src/application_state/agent_conversation/rules_authority_plan_packet.py`
+- `src/application_state/agent_conversation/service.py`
+- Necessary forward-reader fence in `src/application_state/migrations/versions/`;
+  choose next revision only after fresh migration-head and concurrent lease checks.
+- `tests/test_surface_native_context.py`, `tests/test_surface_native_execution.py`
+- `tests/test_surface_native_writer.py`, `tests/test_native_writer_projection.py`
+- `tests/test_play_jev_harness.py`, `tests/test_native_play_work.py`
+- `tests/test_native_reference_navigation.py`, `tests/test_plan_jev_driver.py`
+- `tests/test_agent_native_play_history.py`, `tests/test_agent_native_corpus_sources.py`
+- `tests/application_state/test_shared_native_play_postgres.py`
+- Shared UI contract/owning integration tests only if real wire inspection shows a
+  gate: `apps/live-control-ui/src/shared/surfaceNativeProtocol.ts` and its test;
+  `apps/live-control-ui/src/agentInteraction/WorldAgentConversation.planPlay.integration.test.tsx`.
+
+Baseline: 78 provider-free tests passed across existing native Play acquisition,
+source capacity, retained history and shared context on the pinned base, using
+per-test disposable54329 databases. No product-data mutation or provider calls.
+Private log: `play-shared-native-owner-baseline.log`. This is predecessor baseline,
+not evidence for the new path. Commit/push partial work only on this isolated
+implementation branch/draft PR; do not merge or deliver until the complete vertical
+capability and owning proof pass. No standalone scaffolding release.

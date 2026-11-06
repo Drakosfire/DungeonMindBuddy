@@ -71,15 +71,21 @@ def resolve_native_play_source_owner(conn, turn: t.Turn, frame: t.PlaySourceFram
     return read_native_play_current_moment(conn,receipt.play_basis)
 
 
-def resolve_native_play_sessions(conn, turn, sessions):
-    from .play_session_input import validate_turn_packets
+def resolve_play_work_sessions(conn, basis, supporting_work, sessions, *, world_id):
+    """Read the existing immutable review owner without constructing a Turn alias."""
+    from .play_session_input import validate_work_packets
     from application_state.play.session_evidence import evidence
-    validate_turn_packets(turn,sessions)
+    validate_work_packets(basis,supporting_work,sessions,world_id=world_id)
     for packet in sessions:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""SELECT e.payload FROM play.session_review_revision e
                 JOIN play.run r USING(run_id) WHERE r.world_id=%s AND e.run_id=%s AND e.revision_n=%s""",
-                (turn.world_id,packet['run_id'],packet['review_revision']))
+                (world_id,packet['run_id'],packet['review_revision']))
             row=cur.fetchone()
-        if row is None or evidence(row['payload'],turn.world_id,packet['run_id'],packet['review_revision']) != packet:
+        if row is None or evidence(row['payload'],world_id,packet['run_id'],packet['review_revision']) != packet:
             raise ValueError('Play packet differs from its immutable review owner')
+
+
+def resolve_native_play_sessions(conn, turn, sessions):
+    resolve_play_work_sessions(conn,turn.graph_context_receipt.play_basis,
+        turn.provenance.supporting_work,sessions,world_id=turn.world_id)
