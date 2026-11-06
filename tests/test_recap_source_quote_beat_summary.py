@@ -184,7 +184,7 @@ def _extract(
         ),
     ],
 )
-def test_recap_beat_uses_full_exact_source_excerpt_and_neutral_title(
+def test_reviewable_beat_preserves_authored_prose_and_exact_source_witness(
     paragraph: str, anchor: str,
 ) -> None:
     index = _source_index(paragraph)
@@ -193,8 +193,8 @@ def test_recap_beat_uses_full_exact_source_excerpt_and_neutral_title(
 
     assert len(result.candidate_graph["beats"]) == 1
     beat = result.candidate_graph["beats"][0]
-    assert beat["summary"] == paragraph
-    assert beat["title"] == "Source excerpt 1"
+    assert beat["summary"] == _beat(None, None)["summary"]
+    assert beat["title"] == _beat(None, None)["title"]
     assert len(beat["evidence_refs"]) == 1
     assert beat["evidence_refs"][0]["source_span_ref_id"] == span_id
     assert beat["evidence_refs"][0]["anchor_quotes"] == [paragraph.strip()]
@@ -206,11 +206,11 @@ def test_recap_beat_uses_full_exact_source_excerpt_and_neutral_title(
             "match_text": paragraph,
         }
     ]
-    assert "Ephanna casts Eldritch Blast" not in beat["title"]
-    assert "defeated the monster" not in beat["summary"]
+    assert "Ephanna casts Eldritch Blast" in beat["title"]
+    assert "defeated the monster" in beat["summary"]
     typed = candidate_graph_preview_from_dict(result.candidate_graph)
-    assert typed.beats[0].summary == paragraph
-    assert typed.beats[0].title == "Source excerpt 1"
+    assert typed.beats[0].summary == _beat(None, None)["summary"]
+    assert typed.beats[0].title == _beat(None, None)["title"]
     assert typed.beats[0].evidence_refs[0].anchor_quote_matches[0].match_text == paragraph
 
 
@@ -264,7 +264,7 @@ def test_invalid_recap_beat_nominations_defer_without_model_prose(
     assert graph["beats"] == []
     assert len(graph["deferred_items"]) == 1
     deferred = graph["deferred_items"][0]
-    assert deferred["reason"] == f"recap_beat_excerpt_deferred:{expected_code}"
+    assert deferred["reason"] == f"recap_beat_deferred:{expected_code}"
     assert deferred["evidence_refs"] == []
     serialized = json.dumps(graph)
     assert "Ephanna casts Eldritch Blast" not in serialized
@@ -279,7 +279,7 @@ def test_repeated_anchor_across_paragraphs_is_ambiguous() -> None:
 
     assert result.candidate_graph["beats"] == []
     assert result.candidate_graph["deferred_items"][0]["reason"] == (
-        "recap_beat_excerpt_deferred:ambiguous_anchor"
+        "recap_beat_deferred:ambiguous_anchor"
     )
 
 
@@ -297,7 +297,7 @@ def test_line_only_span_bounds_copy_indentation_and_line_endings_exactly() -> No
     result = _extract(source_text, [_beat(span_id, "Ephanna will cast Eldritch Blast")], index=index)
 
     beat = result.candidate_graph["beats"][0]
-    assert beat["summary"] == paragraph
+    assert beat["summary"] == _beat(None, None)["summary"]
     assert beat["evidence_refs"][0]["anchor_quote_matches"][0]["match_text"] == paragraph
 
 
@@ -312,11 +312,11 @@ def test_anchors_that_resolve_to_different_paragraphs_are_deferred() -> None:
 
     assert result.candidate_graph["beats"] == []
     assert result.candidate_graph["deferred_items"][0]["reason"] == (
-        "recap_beat_excerpt_deferred:span_mismatch"
+        "recap_beat_deferred:span_mismatch"
     )
 
 
-def test_recap_beat_excerpt_does_not_become_a_graph_event_assertion() -> None:
+def test_legacy_contribution_mapper_does_not_publish_beat_candidates() -> None:
     source_text = "Mireward is the town where the group rests."
     index = _source_index(source_text)
     span_id = next(s["source_span_ref_id"] for s in index["spans"] if s.get("kind") == "paragraph")
@@ -340,7 +340,7 @@ def test_recap_beat_excerpt_does_not_become_a_graph_event_assertion() -> None:
     assert all(assertion.assertion_kind != "event" for assertion in contribution.candidate_assertions)
 
 
-def test_multi_paragraph_beat_emits_independent_host_excerpts_with_origin_lineage() -> None:
+def test_multi_paragraph_authored_beat_keeps_complete_witness_set_and_lineage() -> None:
     paragraphs = [
         "In Mireward, for 25 gold pieces each, the group agreed to try clearing the rats.",
         "A difficult first encounter; success was not confirmed.",
@@ -356,27 +356,24 @@ def test_multi_paragraph_beat_emits_independent_host_excerpts_with_origin_lineag
     reverse = _extract(source, [_beat(None, None, evidence_refs=list(reversed(refs)))], index=index, with_node=True)
     beats = forward.candidate_graph["beats"]
     assert beats == reverse.candidate_graph["beats"]
-    assert [b["summary"] for b in beats] == paragraphs
-    assert [b["title"] for b in beats] == ["Source excerpt 1", "Source excerpt 2"]
-    assert len({b["beat_id"] for b in beats}) == 2
-    assert all(b["source_beat_id"] == "beat:model-id" for b in beats)
-    assert all(b["order"] == 1 for b in beats)  # Existing model order is preview-only.
+    assert len(beats) == 1
+    assert beats[0]["summary"] == _beat(None, None)["summary"]
+    assert beats[0]["title"] == _beat(None, None)["title"]
+    assert beats[0]["source_beat_id"] == "beat:model-id"
+    assert beats[0]["order"] == 1
+    assert [r["anchor_quote_matches"][0]["match_text"] for r in beats[0]["evidence_refs"]] == paragraphs
     assert not forward.candidate_graph["deferred_items"]
     typed = candidate_graph_preview_from_dict(forward.candidate_graph)
-    assert [b.source_beat_id for b in typed.beats] == ["beat:model-id"] * 2
     reopened = candidate_graph_preview_from_dict(candidate_graph_preview_to_dict(typed))
     assert reopened.beats == typed.beats
-    assert [b.summary for b in typed.beats] == paragraphs
-    assert all(len(b.evidence_refs) == 1 for b in typed.beats)
-    serialized = json.dumps(forward.candidate_graph)
-    assert "defeated the monster" not in serialized
-    assert "Ephanna casts Eldritch Blast" not in serialized
+    assert len(typed.beats[0].evidence_refs) == 2
+    assert "_host_quote_text_by_span" not in json.dumps(forward.candidate_graph)
     contribution = candidate_graph_to_contribution(
         typed, world_id="synthetic",
         source_revision_id=hashlib.sha256(source.encode()).hexdigest(),
         source_artifact_id=ARTIFACT,
     )
-    # The existing contribution mapper maps nodes/edges, never excerpt beats.
+    # The existing contribution mapper maps nodes/edges, never beat candidates.
     assert len(contribution.candidate_assertions) == 1
     assert contribution.candidate_assertions[0].assertion_kind == "node"
 
@@ -391,12 +388,11 @@ def test_duplicate_paragraph_nominations_dedupe_only_after_validation() -> None:
         {"source_span_ref_id": ref, "anchor_quotes": ["another forged quote"]},
     ]
     graph = _extract(paragraph, [_beat(None, None, evidence_refs=refs)]).candidate_graph
-    assert len(graph["beats"]) == 1
-    assert graph["beats"][0]["summary"] == paragraph
+    assert graph["beats"] == []
     deferred = graph["deferred_items"]
     assert len(deferred) == 2
     assert len({d["item_id"] for d in deferred}) == 2
-    assert all(d["reason"] == "recap_beat_excerpt_deferred:anchor_not_found" for d in deferred)
+    assert all(d["reason"] == "recap_beat_deferred:anchor_not_found" for d in deferred)
     assert all(not d["evidence_refs"] for d in deferred)
 
 
@@ -411,14 +407,13 @@ def test_duplicate_paragraph_nominations_dedupe_only_after_validation() -> None:
         ({"source_span_ref_id": "session-01:recap:full_text", "anchor_quotes": ["Unique reward"]}, "non_paragraph_span"),
     ],
 )
-def test_invalid_sibling_does_not_erase_valid_excerpt_or_hide_deferral(bad_ref, code) -> None:
+def test_invalid_sibling_holds_whole_authored_beat_without_hiding_deferral(bad_ref, code) -> None:
     source = "Unique reward of 25 gold. Repeated phrase.\n\nRepeated phrase. Other detail."
     valid = {"source_span_ref_id": "session-01:recap:paragraph:001", "anchor_quotes": ["Unique reward"]}
     graph = _extract(source, [_beat(None, None, evidence_refs=[valid, bad_ref])]).candidate_graph
-    assert len(graph["beats"]) == 1
-    assert graph["beats"][0]["summary"] == source.split("\n\n")[0]
+    assert graph["beats"] == []
     assert len(graph["deferred_items"]) == 1
-    assert graph["deferred_items"][0]["reason"] == f"recap_beat_excerpt_deferred:{code}"
+    assert graph["deferred_items"][0]["reason"] == f"recap_beat_deferred:{code}"
 
 
 def test_repeated_or_missing_model_ids_do_not_collide_between_raw_beats() -> None:
@@ -440,10 +435,10 @@ def test_multispan_digest_failure_defers_whole_beat_without_accepting_any_refere
     graph = _extract(source, [_beat(None, None, evidence_refs=refs)], index=index).candidate_graph
     assert graph["beats"] == []
     assert len(graph["deferred_items"]) == 1
-    assert graph["deferred_items"][0]["reason"] == "recap_beat_excerpt_deferred:source_digest_mismatch"
+    assert graph["deferred_items"][0]["reason"] == "recap_beat_deferred:source_digest_mismatch"
 
 
-def test_invalid_sibling_bounds_remain_deferred_with_valid_paragraph_retained() -> None:
+def test_invalid_sibling_bounds_hold_whole_authored_beat() -> None:
     source = "A reward of 25 gold.\n\nAn unsupported location."
     index = _source_index(source)
     spans = [s for s in index["spans"] if s.get("kind") == "paragraph"]
@@ -451,8 +446,8 @@ def test_invalid_sibling_bounds_remain_deferred_with_valid_paragraph_retained() 
     refs = [{"source_span_ref_id": s["source_span_ref_id"], "anchor_quotes": [s["text"]]}
             for s in spans]
     graph = _extract(source, [_beat(None, None, evidence_refs=refs)], index=index).candidate_graph
-    assert [b["summary"] for b in graph["beats"]] == ["A reward of 25 gold."]
-    assert graph["deferred_items"][0]["reason"] == "recap_beat_excerpt_deferred:invalid_span_bounds"
+    assert graph["beats"] == []
+    assert graph["deferred_items"][0]["reason"] == "recap_beat_deferred:invalid_span_bounds"
 
 
 @pytest.mark.parametrize("ranks", [(9, 2), (4, 4), (1, 99)])
@@ -470,13 +465,15 @@ def test_presentation_ranks_do_not_rewrite_temporal_text_or_publish_precedence(r
     spans = [s for s in index["spans"] if s["kind"] == "paragraph"]
     raw = [_beat(span["source_span_ref_id"], paragraph)
            for span, paragraph in zip(spans, paragraphs)]
-    for beat, rank in zip(raw, ranks):
+    for beat, rank, paragraph in zip(raw, ranks, paragraphs):
         beat["order"] = rank
+        beat["summary"] = paragraph
+        beat["title"] = "Authored temporal observation"
     result = _extract(source, raw, index=index, with_node=True)
     beats = result.candidate_graph["beats"]
     assert [b["order"] for b in beats] == list(ranks)
     assert [b["summary"] for b in beats] == paragraphs
-    assert [b["title"] for b in beats] == ["Source excerpt 1", "Source excerpt 2"]
+    assert [b["title"] for b in beats] == ["Authored temporal observation"] * 2
     # Context builders preserve the explicit temporal text, including a flashback,
     # rather than sorting it or manufacturing precedence from the numeric ranks.
     assert [b["summary"] for b in _beat_summaries(beats)] == paragraphs
@@ -523,3 +520,38 @@ def test_existing_ir_validator_rejects_nonpositive_rank_but_allows_ties() -> Non
     for rank in (0, -1):
         changed = replace(typed, beats=(replace(typed.beats[0], order=rank),))
         assert any(i.field == "order" for i in validate_candidate_graph_preview(changed).issues)
+
+
+def test_valid_duplicate_witnesses_dedupe_without_changing_authored_fields():
+    source = "A traveller arrives with a lantern."
+    ref = {"source_span_ref_id": "session-01:recap:paragraph:001", "anchor_quotes": ["traveller"]}
+    raw = _beat(None, None, evidence_refs=[ref, dict(ref)])
+    raw.update(title="Traveller arrival", summary="A traveller arrived carrying a lantern.")
+    graph = _extract(source, [raw]).candidate_graph
+    assert len(graph["beats"]) == 1
+    assert graph["beats"][0]["title"] == raw["title"]
+    assert graph["beats"][0]["summary"] == raw["summary"]
+    assert len(graph["beats"][0]["evidence_refs"]) == 1
+    assert not graph["deferred_items"]
+
+
+def test_downstream_filter_holds_beat_when_one_witness_is_lost():
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        _recap_reviewable_beat_candidates, sanitize_parts,
+    )
+    source = "A traveller arrived.\n\nThe traveller carried a lantern."
+    index = _source_index(source)
+    spans = [s for s in index["spans"] if s["kind"] == "paragraph"]
+    refs = [{"source_span_ref_id": s["source_span_ref_id"], "anchor_quotes": [s["text"]]} for s in spans]
+    beats, deferred = _recap_reviewable_beat_candidates(
+        [_beat(None, None, evidence_refs=refs)], source_span_index=index,
+        source_text=source, source_rows=spans,
+    )
+    assert len(beats) == 1 and not deferred
+    kept, _ = sanitize_parts({"beats": beats}, {s["source_span_ref_id"] for s in spans})
+    assert len(kept["beats"]) == 1
+    dropped, diagnostics = sanitize_parts({"beats": beats}, {spans[0]["source_span_ref_id"]})
+    assert dropped["beats"] == []
+    assert diagnostics["dropped_no_valid_evidence"]["beats"] == [beats[0]["beat_id"]]
+    assert any(r["reason"] == "incomplete_authored_beat_witness_set"
+               for r in diagnostics["rejected_node_evidence_refs"])

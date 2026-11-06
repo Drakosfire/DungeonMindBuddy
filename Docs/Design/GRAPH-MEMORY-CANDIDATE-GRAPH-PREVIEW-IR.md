@@ -39,8 +39,18 @@ Explicit source-supported temporal claims remain accountable in prose and typed
 precedence relationships. Normalization retains supplied integer ranks and the
 existing fallback of 1 for missing/falsey values; the IR validator rejects
 nonpositive ranks. This contract adds no automatic sorting or chronology inference.
-For source-only recaps, the host replaces beat title/summary with exact source
-excerpts, but retains the model's rank; it is not a host paragraph ordinal.
+For source-only recaps, a beat retains its model-authored title and summary as
+reviewable candidate prose, with the model's rank; rank is not a host paragraph
+ordinal. One raw beat carries its complete verified source witness set. Exact
+paragraph quotations remain evidence, separate from authored prose, and any
+invalid witness holds the whole beat. Literal quote verification does not prove
+that the title or summary is entailed. Native preparation requires explicit
+field selections; unsupported or mixed summaries stay held whole.
+
+The standard recap edge pass receives nodes, not beats. The optional encounter
+preview and other beat-context consumers receive the authored candidate prose;
+this is a changed effective input, not a claim of unchanged preview behavior.
+Historical saved beat records remain readable without renormalizing them.
 Raw model-authored content remains independently assessable. This forward contract
 does not resolve the meaning or validity of historically unspecified ranks.
 
