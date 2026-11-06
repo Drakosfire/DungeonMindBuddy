@@ -142,3 +142,15 @@ def test_raw_page_database_error_does_not_block_native_navigation_or_human_read(
     assert nav._source_name(catalog).endswith('(source name unavailable)')
     opened = inspection.client.post(PATH+'/read', json=selection(inspection))
     assert opened.status_code==200 and opened.json()['source']['body_text']==BODY
+
+
+def test_activity_section_label_uses_existing_display_join_and_exact_catalog_extent(inspection,monkeypatch):
+    registered(inspection)
+    monkeypatch.setattr(sources,'get_source_revision_metadata',lambda **_: [recap_metadata()])
+    nav,catalog=navigation(inspection)
+    section=catalog.sections[-1]
+    before=catalog.model_dump_json()
+    assert nav._read_label(catalog,section.section_id)==(
+        f'Session 8 recap · campaign: c1 · session: session-8 · {section.label} · lines {section.line_start}–{section.line_end}')
+    assert nav._read_label(catalog)=='Session 8 recap · campaign: c1 · session: session-8'
+    assert catalog.model_dump_json()==before
