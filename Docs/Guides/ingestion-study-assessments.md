@@ -33,9 +33,12 @@ The `dmb_ingestion_assessment_v1` record contains:
 A reference is `{"artifact":{"path":"/absolute/evidence.json","sha256":"..."},"pointer":"/checks/0"}`.
 Use an empty pointer to reference the whole document. Selectors are strict JSON
 Pointers; legacy selectors must be resolved explicitly, never evaluated as code.
-Legacy scalar Gold constraints may use stable assessment-local IDs and their
+Legacy Gold constraints without intrinsic IDs may use stable assessment-local IDs and their
 unchanged literal Gold pointer; independent review validates that mapping. Duplicate
 references to the same Gold object are refused to prevent denominator inflation.
+Identified objects (including `id` on interpretive items) must match the declared
+criterion ID. Unidentified structured constraints are retained unchanged, like
+scalar constraints; no new Gold representation is created to add synthetic IDs.
 
 Normalize completed legacy reviews once into this format. Preserve their original
 bytes and judgment pointer; there are no runtime adapters or per-session scoring

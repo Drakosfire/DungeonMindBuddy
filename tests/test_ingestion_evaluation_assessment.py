@@ -128,3 +128,12 @@ def test_scalar_gold_constraint_retains_original_reference(assessment):
     s['gold'] = [g]
     s['criteria'][0]['gold'] = {'artifact': g, 'pointer': '/constraints/0'}
     assert report(save())['phases']['raw_extraction']['criterion_count'] == 1
+
+
+@pytest.mark.parametrize('gold_value', [{'id': 'F1', 'text': 'Interpretation'}, {'text': 'Withheld item', 'reason': 'Not authoritative'}])
+def test_legacy_gold_objects_keep_original_identity_and_structure(assessment, gold_value):
+    s, save, put = assessment
+    g = put('object-gold.json', {'criteria': [gold_value]})
+    s['gold'] = [g]
+    s['criteria'][0]['gold'] = {'artifact': g, 'pointer': '/criteria/0'}
+    assert report(save())['phases']['raw_extraction']['criterion_count'] == 1

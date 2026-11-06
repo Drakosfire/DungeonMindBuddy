@@ -98,12 +98,12 @@ def report(path: Path):
         if ref['artifact']['sha256'] not in gold_hashes:
             raise ValueError('Criterion is outside declared Gold authority')
         value = reference(ref)
-        identifiers = ([value[k] for k in ('claim_id', 'check_id', 'criterion_id', 'constraint_id') if k in value]
+        identifiers = ([value[k] for k in ('claim_id', 'check_id', 'criterion_id', 'constraint_id', 'id') if k in value]
                        if isinstance(value, dict) else [])
-        if ((isinstance(value, dict) and (not identifiers or cid not in identifiers))
+        if ((identifiers and cid not in identifiers)
                 or not isinstance(value, (dict, str)) or not value):
             raise ValueError('Gold object does not identify this criterion')
-        # Legacy scalar constraints have no intrinsic ID. Preserve the literal
+        # Legacy constraints may have no intrinsic ID. Preserve their exact
         # Gold pointer rather than inventing a second Gold representation.
         identity = (ref['artifact']['sha256'], ref['pointer'])
         if identity in gold_references:
@@ -136,7 +136,7 @@ def report(path: Path):
             review = reference(judgment['review'])
             review_document = json.loads(read_pin(judgment['review']['artifact']))
             bind_review(review_document, run, subject)
-            if not isinstance(review, dict) or cid not in [review.get(k) for k in ('criterion_id', 'claim_id', 'check_id', 'constraint_id')]:
+            if not isinstance(review, dict) or cid not in [review.get(k) for k in ('criterion_id', 'claim_id', 'check_id', 'constraint_id', 'id')]:
                 raise ValueError('Review does not identify this criterion')
             if judgment['outcome'] != 'unknown' and not judgment['evidence']:
                 raise ValueError('Known judgments require inspectable evidence')
