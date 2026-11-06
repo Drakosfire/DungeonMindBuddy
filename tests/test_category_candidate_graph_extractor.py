@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from typing import Any
 
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
@@ -564,3 +566,35 @@ def test_duplicate_source_local_edge_ids_are_not_hidden_by_payload_deduplication
     assert sum(edge["edge_id"] == "bridge-town" for edge in result.candidate_graph["edges"]) == 2
     with pytest.raises(CandidateGraphMappingError, match="duplicate_edge_id"):
         load_typed_candidate_graph(result.candidate_graph)
+
+
+@pytest.mark.parametrize('collection,id_key', [('nodes', 'node_id'), ('ignored_items', 'item_id'), ('deferred_items', 'item_id')])
+def test_sanitizer_retains_rejected_node_nominations_and_warns_surviving_record(collection, id_key):
+    from copy import deepcopy
+    from src.graph_memory.extraction.category_candidate_graph_extractor import sanitize_parts
+    valid = {'source_span_ref_id': 'paragraph:51-52', 'anchor_quotes': ['the rope was gone']}
+    invalid = {'source_span_ref_id': 'paragraph:52-52', 'anchor_quotes': ['the rope was gone']}
+    record = {id_key: 'rescue', 'description': 'An unchanged observed rescue.', 'evidence_refs': [valid, invalid]}
+    original = deepcopy(record)
+    output, diagnostics = sanitize_parts({collection: [record]}, {'paragraph:51-52'})
+    saved = output[collection][0]
+    assert saved['evidence_refs'] == [valid]
+    assert saved['description'] == record['description']
+    assert saved['warnings'] == ['evidence_ref_rejected:2']
+    assert diagnostics['rejected_node_evidence_refs'] == [{
+        'collection': collection, 'record_id': 'rescue', 'reference_ordinal': 2,
+        'reason': 'unadvertised_or_invalid_span_ref', 'nominated_ref': invalid,
+    }]
+    assert record == original
+
+
+def test_sanitizer_keeps_all_invalid_node_rejection_after_dropping_node():
+    from src.graph_memory.extraction.category_candidate_graph_extractor import sanitize_parts
+    invalid = {'source_span_ref_id': 'paragraph:45', 'anchor_quotes': ['accepted the ride']}
+    output, diagnostics = sanitize_parts({'nodes': [{'node_id': 'ride', 'evidence_refs': [invalid]}]}, {'paragraph:45-45'})
+    assert output['nodes'] == []
+    assert diagnostics['dropped_no_valid_evidence'] == {'nodes': ['ride']}
+    assert diagnostics['rejected_node_evidence_refs'][0]['nominated_ref'] == invalid
+    output, diagnostics = sanitize_parts({'nodes': [{'node_id': 'ride', 'evidence_refs': [{'source_span_ref_id': 'paragraph:45-45', 'anchor_quotes': ['accepted the ride']}]}]}, {'paragraph:45-45'})
+    assert 'warnings' not in output['nodes'][0]
+    assert diagnostics['rejected_node_evidence_refs'] == []
