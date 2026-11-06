@@ -249,7 +249,8 @@ def test_large_plan_reaches_offline_real_worker_provider_gate(
     monkeypatch.setenv("DUNGEONMIND_HERMES_GRAPH_MODEL", "gpt-6-luna")
     monkeypatch.setenv("OPENAI_API_KEY", "offline-test-key")
     budget = _policy_request_budget()
-    assert budget["contextLimitTokens"] == 1_050_000
+    assert budget["contextLimitTokens"] is None
+    assert budget["outputReserveTokens"] == 0
     markdown = "# Committed Plan\n" + "x" * 50_000
     message = _plan_message("Where is Tripod?", markdown)
     scope = HermesGraphScope(
@@ -290,9 +291,8 @@ def test_large_plan_reaches_offline_real_worker_provider_gate(
         assert "x" * 50_000 in view["payloadJson"]
         body = json.loads(view["payloadJson"])
         upper_bound = view["payloadUtf8Bytes"] + 64 * (1 + _json_node_count(body))
-        assert (
-            upper_bound + budget["outputReserveTokens"] <= budget["contextLimitTokens"]
-        )
+        assert upper_bound >= view["payloadUtf8Bytes"] > 50_000
+        assert budget["contextLimitTokens"] is None
         return True
 
     def broker(_operation):
@@ -438,14 +438,13 @@ def test_plan_sized_envelope_with_production_prompt_reaches_parent_gate(
     restored_result = deserialize_hermes_graph_agent_turn_result(wire_result)
     assert restored_result.error_code == "provider_authorization_denied"
     assert len(observed) == 1, (result.error_code, result.error_message)
-    assert (
-        observed[0][2] + budget["outputReserveTokens"] <= budget["contextLimitTokens"]
-    )
+    assert observed[0][2] >= observed[0][1] > 50_000
+    assert budget["contextLimitTokens"] is None
     assert observed[0][3] is True
     assert network_attempts == []
 
-    # An actually smaller provider window must still stop before the parent
-    # permit or any SDK entry for the same production-shaped request.
+    # Retained finite allowance requests still validate their original budget
+    # before parent authorization; current composition uses no APP token ceiling.
     observed.clear()
     result = run_hermes_graph_agent_turn(
         replace(request, request_budget={**budget, "contextLimitTokens": 65_536}),
@@ -669,7 +668,7 @@ def test_native_rules_capture_flag_requires_explicit_rules_and_parent_authority(
 
 
 def test_no_application_output_ceiling_survives_worker_request_round_trip():
-    budget=_budget() | {'outputReserveTokens':0}
+    budget=_budget() | {'outputReserveTokens':0,'contextLimitTokens':None}
     payload=serialize_hermes_graph_agent_turn_request(_request(request_budget=budget))
     assert payload['requestBudget']['outputReserveTokens']==0
     assert deserialize_hermes_graph_agent_turn_request(payload).request_budget==budget

@@ -325,7 +325,7 @@ def test_play_reference_input_rejects_resealed_substitution(source_case, change)
         prove_input(turn, auth, raw, sequence=auth.sequence + 1, event_id=uuid4())
 
 
-def accepted_play_source_case(source_case, *, token_ceilings=True):
+def accepted_play_source_case(source_case, *, token_ceilings=True, provider_capacity=None):
     """Actual Core read and APP Run acceptance; no model or provider is invoked."""
     from hashlib import sha256
     from application_state.agent_conversation import AgentConversationService
@@ -396,6 +396,9 @@ def accepted_play_source_case(source_case, *, token_ceilings=True):
     wire["authored_source_context"] = prepared.context.model_dump(
         mode="json", by_alias=True
     )
+    provider_capacity = not token_ceilings if provider_capacity is None else provider_capacity
+    if provider_capacity:
+        wire['assembled_input'].update(context_window_limit=None,output_token_reserve=0)
     receipt = seal_receipt(wire)
     policy = sub.graph_context_execution.policy.model_dump(mode="json", by_alias=True)
     policy["source_read_scope"]["graph_revision"] = core.authority.revision_id
@@ -450,6 +453,8 @@ def accepted_play_source_case(source_case, *, token_ceilings=True):
             "api_mode": "chat_completions",
         }
     )
+    if provider_capacity:
+        auth=auth.model_copy(update={'output_token_reserve':0})
     assert (
         AgentConversationService().inspect_turn(
             world_id=sub.world_id, turn_id=turn.turn_id
@@ -923,8 +928,9 @@ def test_play_source_capture_cannot_borrow_another_turn_or_attempt(
         t.Turn.model_validate_json(json.dumps(wire))
 
 
-def test_exact_selected_play_source_admits_no_aggregate_token_ceiling(source_case):
-    service,sub,turn,auth,raw=accepted_play_source_case(source_case,token_ceilings=False)
+@pytest.mark.parametrize('provider_capacity',[False,True])
+def test_exact_selected_play_source_admits_no_aggregate_token_ceiling(source_case,provider_capacity):
+    service,sub,turn,auth,raw=accepted_play_source_case(source_case,token_ceilings=False,provider_capacity=provider_capacity)
     updated,fresh=service.authorize_native_play_provider(sub.world_id,sub.conversation_id,turn.turn_id,
         expected_revision=turn.revision,expected_attempt=turn.attempt,
         provider_attempt_event=auth,prepared_request_json=raw)

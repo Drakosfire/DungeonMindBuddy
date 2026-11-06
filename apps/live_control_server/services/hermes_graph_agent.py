@@ -1117,7 +1117,7 @@ def _request_budget_guard(
     expected_model = str(policy["model"])
     expected_mode = str(policy["apiMode"])
     expected_estimator = str(policy["estimator"])
-    context_limit = int(policy["contextLimitTokens"])
+    context_limit = None if policy["contextLimitTokens"] is None else int(policy["contextLimitTokens"])
     output_reserve = int(policy["outputReserveTokens"])
     max_attempts = policy.get("maxProviderAttempts")
     max_tool_attempts = policy.get("maxToolCapableAttempts")
@@ -1531,7 +1531,7 @@ def _request_budget_guard(
         # ceiling and reserve additional protocol framing per input/tool item.
         # This is explicitly an upper-bound guard, not an exact token count.
         input_upper_bound = view.payload_utf8_bytes + 64 * (1 + count_nodes(payload))
-        if input_upper_bound + output_reserve > context_limit:
+        if context_limit is not None and input_upper_bound + output_reserve > context_limit:
             guard_state["last_rejection_reason"] = "context_budget_exceeded"
             return False
         if max_attempts is not None and authorization_sequence >= max_attempts:

@@ -349,3 +349,9 @@ def test_native_play_has_no_required_aggregate_token_ceiling():
     assert record.policy.max_total_provider_input_tokens is None
     assert record.policy.max_total_provider_output_tokens is None
     assert record.policy.max_provider_attempts > 0
+
+
+@pytest.mark.parametrize('field',['max_total_provider_input_tokens','max_total_provider_output_tokens'])
+def test_native_play_rejects_a_partly_removed_aggregate_ceiling(field):
+    with pytest.raises(ValueError,match='both finite or both absent'):
+        native_execution(**{field:None})

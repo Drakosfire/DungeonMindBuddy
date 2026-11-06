@@ -72,3 +72,12 @@ def test_historical_budget_keeps_its_original_capacity_and_hash_shape():
     saved=NativeWriterEstimatedBudgetV1.model_validate(wire)
     assert saved.model_dump(mode='json',by_alias=True)==wire
     validate_output_request({'max_output_tokens':4096},saved.output_reserve_tokens)
+
+
+@pytest.mark.parametrize('window,reserve',[(None,4096),(128000,0)])
+def test_native_writer_rejects_mixed_historical_and_provider_default_limits(window,reserve):
+    wire=dict(schema='dmb_native_writer_estimated_budget_v1',provider='openai',
+        model='gpt-6-luna',api_mode='responses',estimator='o200k_double_plus_4096_adaptive_context_v4',
+        tokenizer_version='counter',context_limit_tokens=window,output_reserve_tokens=reserve)
+    with pytest.raises(ValueError,match='complete historical or provider-owned'):
+        NativeWriterEstimatedBudgetV1.model_validate(wire)

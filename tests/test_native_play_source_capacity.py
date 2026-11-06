@@ -20,7 +20,7 @@ from tests.test_settled_source_read_accounting import (
 )
 
 
-def prepare_empty_owner(application_state_dsn, monkeypatch):
+def prepare_empty_owner(application_state_dsn, monkeypatch, *, provider_capacity=False):
     service, sub, frame = make_submission()
     body = {
         "model": "synthetic",
@@ -72,6 +72,8 @@ def prepare_empty_owner(application_state_dsn, monkeypatch):
         "outputReserveTokens": 1000,
         "estimator": "utf8_json_bytes_plus_64_per_node_v1",
     }
+    if provider_capacity:
+        budget.update(contextLimitTokens=None,outputReserveTokens=0)
     receipt, execution, _ = owner.freeze_play_receipt(
         None,
         SimpleNamespace(play_context_receipt=sub.play_context_receipt),
@@ -126,10 +128,11 @@ def prepare_empty_owner(application_state_dsn, monkeypatch):
     )
 
 
+@pytest.mark.parametrize('provider_capacity',[False,True])
 def test_actual_empty_discovery_owner_freeze_allows_only_later_exact_pins(
-    application_state_dsn, monkeypatch
+    application_state_dsn, monkeypatch, provider_capacity
 ):
-    case = prepare_empty_owner(application_state_dsn, monkeypatch)
+    case = prepare_empty_owner(application_state_dsn, monkeypatch,provider_capacity=provider_capacity)
     service, turn, receipt, execution, authority = (
         case.service,
         case.turn,

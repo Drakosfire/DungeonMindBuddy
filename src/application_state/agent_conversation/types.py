@@ -1291,7 +1291,7 @@ class PlanWorldGraphAssembledInputV1(StrictModel):
     tokenizer_version: str = Field(min_length=1, max_length=128)
     provider_envelope_input_tokens: int = Field(strict=True, ge=0)
     output_token_reserve: int = Field(strict=True, ge=0)
-    context_window_limit: int = Field(strict=True, ge=1)
+    context_window_limit: int | None = Field(strict=True, ge=1)
     packet_disposition: Literal["included", "omitted_insufficient"]
     packet_disposition_reason: Literal["insufficient_evidence"] | None = None
     dispatched_packet_sha256: str | None = Field(
@@ -1318,7 +1318,7 @@ class PlanWorldGraphAssembledInputV1(StrictModel):
                 raise ValueError(f"{name} cannot contain blank IDs")
             if values != sorted(set(values)):
                 raise ValueError(f"{name} must be sorted and unique")
-        if (
+        if self.context_window_limit is not None and (
             self.provider_envelope_input_tokens + self.output_token_reserve
             > self.context_window_limit
         ):
@@ -1386,13 +1386,13 @@ class PlanSourceProviderInputV1(StrictModel):
     tokenizer_version: str = Field(min_length=1)
     provider_envelope_input_tokens: int = Field(ge=0, strict=True)
     output_token_reserve: int = Field(ge=0, strict=True)
-    context_window_limit: int = Field(gt=0, strict=True)
+    context_window_limit: int | None = Field(gt=0, strict=True)
     included_history: list[PlanWorldGraphHistoryPinV1]
     assembled_input_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
     @model_validator(mode="after")
     def exact_allowance(self):
-        if self.provider_envelope_input_tokens + self.output_token_reserve > self.context_window_limit:
+        if self.context_window_limit is not None and self.provider_envelope_input_tokens + self.output_token_reserve > self.context_window_limit:
             raise ValueError("Actual Plan decision exceeds its provider context allowance")
         return self
 
@@ -2935,6 +2935,8 @@ class NativePlayGraphPolicyV1(SettledGraphExecutionPolicyV3):
 
     @model_validator(mode="after")
     def world_only(self):
+        if (self.max_total_provider_input_tokens is None) != (self.max_total_provider_output_tokens is None):
+            raise ValueError('Play aggregate token ceilings must be both finite or both absent')
         if self.source_read_scope.campaign_id is not None:
             raise ValueError("Native Play source scope must be World-only")
         return self

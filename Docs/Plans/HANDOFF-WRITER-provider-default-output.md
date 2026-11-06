@@ -64,9 +64,8 @@ Recheck remote and open PR migration paths before delivery. Retained historical
 4096/128k records keep their original defaults; new composition explicitly chooses
 zero output reservation and provider-owned capacity. Existing shared-context input
 commitments still bind actual initial Jev requests; they do not supply a substitute
-writer ceiling. Plan/old Play use the already verified model window while native
-writer-specific artificial128k rejection is removed. Provider capacity failures
-remain failures. Existing Play attempt/Graph operation limits remain unchanged.
+writer ceiling. Fresh Plan/Play also carry no APP token window; the configured provider owns
+capacity. Provider capacity failures remain failures. Existing Play attempt/Graph operation limits remain unchanged.
 
 Additional exact test lease: tests/test_play_authored_source_references.py, to prove
 nullable token ceilings preserve actual selected-source SQL admission and SDK joins.
@@ -78,9 +77,20 @@ parameter omission is verified against the installed GE/OpenAI provider.
 
 Worker codec boundary correction: apps/live_control_server/services/
 hermes_graph_agent_contract.py and tests/test_hermes_graph_agent_contract.py carry
-the already-defined zero APP output reservation over IPC; context capacity must
-remain positive. No zero output ceiling is sent to any provider. This is necessary
+the already-defined zero APP output reservation over IPC; a finite historical context capacity remains positive; fresh requests carry
+None for provider-owned capacity. No zero output ceiling is sent to any provider. This is necessary
 for the same cap-removal outcome, not another execution path or capability.
 
 Exact current Plan HTTP proof lease: tests/test_agent_native_corpus_sources.py,
 existing ordinary native Plan test asserts actual SDK cap omission.
+
+Independent review97dbc6806 held the remaining global byte-as-token input ceiling
+and mixed capped/uncapped policies. The owning correction also leases
+src/application_state/agent_conversation/native_context.py and
+apps/live_control_server/services/plan_jev_dispatch.py. Global APP context allowance
+is now None; current provider enforces capacity. Existing byte-size guards remain
+byte-size guards. Captured initial-input/IPC fields carry None without a substitute
+token ceiling. New writer policy chooses exactly(None,0), historical policy exactly
+(128000,4096); Play aggregate ceilings are both absent or both finite. SQL admits
+only the matching typed owner states. Additional exact model test lease:
+tests/test_surface_native_context.py, to preserve positive historical accounting.

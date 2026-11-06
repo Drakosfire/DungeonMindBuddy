@@ -113,6 +113,12 @@ class NativeWriterEstimatedBudgetV1(Strict):
     def identity(self):
         return self.provider, self.model, self.api_mode
 
+    @model_validator(mode='after')
+    def complete_allowance(self):
+        if (self.context_limit_tokens,self.output_reserve_tokens) not in {(128000,4096),(None,0)}:
+            raise ValueError('Native writer requires its complete historical or provider-owned allowance')
+        return self
+
 
 class SurfaceNativeExecutionPolicyV1(Strict):
     policy_version: Literal["surface_native_execution_v1"] = "surface_native_execution_v1"
@@ -135,6 +141,8 @@ class SurfaceNativeExecutionPolicyV1(Strict):
                 raise ValueError("Play requires its actual single-provider policy, not manufactured roles")
             if self.max_provider_attempts is None:
                 raise ValueError("Play retains its finite accepted attempt allowance")
+            if (self.max_total_provider_input_tokens is None) != (self.max_total_provider_output_tokens is None):
+                raise ValueError('Play aggregate token ceilings must be both finite or both absent')
         elif not isinstance(roles, t.GraphControllerWriterRolesV1):
             raise ValueError("Build and Plan require their actual controller/writer roles")
         if isinstance(action, NativeBuildActionV1):

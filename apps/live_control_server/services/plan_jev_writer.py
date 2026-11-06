@@ -321,7 +321,7 @@ class PlanJevWriter:
             raise ValueError('Plan writer actual request differs from staged evidence/instructions')
         projection = self.projection
         estimate = 0 if self.shared else len(prepared.body) + 64 * (1 + _json_node_count(expected))
-        if not self.shared and estimate + self.output_reserve > self.context_limit:
+        if not self.shared and self.context_limit is not None and estimate + self.output_reserve > self.context_limit:
             raise WriterCapacityError('Plan writer exceeds the existing provider context allowance. The request is retained; the writing provider was not called. Narrow the requested context before retrying.',
                 code='build_writer_context_over_budget', actual=estimate+self.output_reserve, limit=self.context_limit)
         if self.shared:

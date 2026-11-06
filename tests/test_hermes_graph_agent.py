@@ -4409,7 +4409,7 @@ def test_request_budget_guard_allows_omitted_cap_but_rejects_reintroduced_ceilin
     from types import SimpleNamespace
     policy=dict(schema='dmb_agent_request_budget_uncapped_v1',provider='openai-api',
         model='synthetic-model',apiMode=api_mode,estimator='utf8_json_bytes_plus_64_per_node_v1',
-        contextLimitTokens=1050000,outputReserveTokens=0,maxProviderAttempts=None,
+        contextLimitTokens=None,outputReserveTokens=0,maxProviderAttempts=None,
         maxToolCapableAttempts=None,maxGraphOperations=None)
     payload={'model':'synthetic-model','tools':[]}
     payload.update({'messages':[{'role':'user','content':'Question'}]} if api_mode=='chat_completions'
