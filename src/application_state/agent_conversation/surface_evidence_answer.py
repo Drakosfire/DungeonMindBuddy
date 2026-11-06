@@ -320,7 +320,7 @@ def _current_carrier(text, submission_id):
         if UUID(str(row.get('submission_id'))) != submission_id: return False
     except ValueError:
         return False
-    return PLAN_POLICY if row.get('schema')=='dmb_native_play_input_v6' else SELECTOR_POLICY if row.get('schema')=='dmb_native_play_input_v5' else NATIVE_POLICY if row.get('schema')=='dmb_native_play_input_v4' else POLICY if row.get('schema')=='dmb_native_play_input_v3' else HISTORICAL_POLICY if row.get('schema')=='dmb_native_play_input_v2' else False
+    return (BODY_POLICY if row.get('native_body_evidence') is not None else PLAN_POLICY) if row.get('schema')=='dmb_native_play_input_v6' else SELECTOR_POLICY if row.get('schema')=='dmb_native_play_input_v5' else NATIVE_POLICY if row.get('schema')=='dmb_native_play_input_v4' else POLICY if row.get('schema')=='dmb_native_play_input_v3' else HISTORICAL_POLICY if row.get('schema')=='dmb_native_play_input_v2' else False
 
 
 def _limit(code, phrase=None):

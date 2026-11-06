@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from hashlib import sha256
 from typing import Any, Mapping
 from uuid import NAMESPACE_URL, uuid5
@@ -12,6 +13,100 @@ from application_state.agent_conversation.play_graph_authority import (
     play_source_frame,
     validate_play_source_owner_join,
 )
+
+
+@dataclass(frozen=True)
+class PreparedPlaySourceRead:
+    reference_index: int
+    catalog: Any
+    excerpt: Any
+
+
+@dataclass(frozen=True)
+class PreparedPlayAuthoredSources:
+    context: Any
+    reads: tuple[PreparedPlaySourceRead, ...]
+
+    def model_frame(self):
+        from application_state.agent_conversation.native_corpus import model_body_frame_rows
+        return model_body_frame_rows(self.context.authority,
+            ((row, row.catalog) for row in self.reads),
+            lambda row: 'r' + str(row.reference_index))
+
+
+def prepare_authored_sources(request, principal, *, existing_turn=None, prepared=None):
+    """Core opens exact human selections; this creates no APP/model read grant."""
+    from application_state.agent_conversation.play_authored_sources import PlayAuthoredSourceContextV1, reads
+    from application_state.agent_conversation.authored_graph_references import validate_selected_source_read
+    from ..integrations.dungeonmind.native_corpus_source import prepare_native_source_context, read_authored_source
+    refs = request.authored_references
+    if refs is None:
+        return None
+    if request.surface.surface_id != 'play' or principal is None or principal.role != 'gm':
+        raise ValueError('Play source references require the exact GM-owned Play request')
+    if existing_turn is not None:
+        receipt = existing_turn.graph_context_receipt
+        frozen = getattr(receipt, 'authored_source_context', None)
+        if frozen is None or frozen.references != refs:
+            raise ValueError('Retained Play source references differ from their accepted input')
+        captured = reads(existing_turn.graph_context_execution)
+        if len(captured) != len(refs.references):
+            raise ValueError('The interrupted source read is retained; submit a new request to acquire it again')
+        # Reuse the original source identities and read events, while Core
+        # refreshes current access to those exact original-revision members.
+        from ..integrations.dungeonmind.native_corpus_source import read_native_corpus_member
+        if prepared is None:
+            prepared=prepare_native_source_context(managed_world_id=frozen.authority.managed_world_id,
+                principal=principal,revision_id=frozen.authority.revision_id)
+        for row in captured:
+            body=read_native_corpus_member(authority=frozen.authority,member=row.catalog.source,
+                principal=principal,prepared=prepared)
+            extent=row.excerpt.section
+            if body is None or body[extent.char_start:extent.char_end]!=row.excerpt.text:
+                raise ValueError('Retained Play source is no longer readable at its original extent')
+        return PreparedPlayAuthoredSources(frozen, tuple(PreparedPlaySourceRead(
+            row.reference_index, row.catalog, row.excerpt) for row in captured))
+    if prepared is None:
+        prepared = prepare_native_source_context(managed_world_id=request.owner_scope.world_id,
+            principal=principal)
+    ctx = PlayAuthoredSourceContextV1(authority=prepared.authority, references=refs)
+    rows = []
+    for index, ref in enumerate(refs.references):
+        catalog, excerpt = read_authored_source(prepared, ref)
+        validate_selected_source_read(ref, catalog, excerpt, authority_sha256=ctx.authority_sha256)
+        rows.append(PreparedPlaySourceRead(index, catalog, excerpt))
+    return PreparedPlayAuthoredSources(ctx, tuple(rows))
+
+
+def acquire_authored_sources(adapter):
+    """Record the already Core-opened human reads under the accepted Play claim."""
+    from uuid import uuid4
+    from .native_authored_references import capture_input
+    prepared = getattr(adapter.work, 'play_authored_sources', None)
+    if prepared is None:
+        return
+    receipt = adapter.fence.turn.graph_context_receipt
+    if receipt.authored_source_context != prepared.context:
+        raise ValueError('Prepared Play sources differ from their accepted source context')
+    from application_state.agent_conversation.play_authored_sources import validate_binding, validate_events, reads
+    execution=adapter.fence.turn.graph_context_execution
+    if execution.events:
+        validate_binding(receipt,execution)
+        validate_events(execution)
+        retained=tuple(PreparedPlaySourceRead(row.reference_index,row.catalog,row.excerpt) for row in reads(execution))
+        if retained!=prepared.reads or len(retained)!=len(prepared.context.references.references):
+            raise ValueError('Retained Play sources differ from their prepared exact read prefix')
+        adapter.turn=adapter.fence.turn
+        return
+    capture_input(adapter)
+    for row in prepared.reads:
+        expected = prepared.context.references.references[row.reference_index]
+        def selected(ref, row=row, expected=expected):
+            if ref != expected:
+                raise ValueError('Play source read changed its accepted human selection')
+            return row.catalog, row.excerpt
+        adapter.turn, _ = adapter.fence.append('observe_native_authored_source', 'event_id', uuid4(),
+            reference_index=row.reference_index, materialize=selected)
 
 
 def prepare_play_sources(request: Any, work: Any) -> tuple[t.PlaySourceFrameV1, str]:
@@ -56,20 +151,22 @@ def prepare_play_sources(request: Any, work: Any) -> tuple[t.PlaySourceFrameV1, 
     return frame, moment
 
 
-def native_play_input_message(request: Any, frame: t.PlaySourceFrameV1, sessions=()) -> str:
+def native_play_input_message(request: Any, frame: t.PlaySourceFrameV1, sessions=(), authored_sources=None) -> str:
     """Carrier included as the user message and tied to the accepted submission."""
     from application_state.agent_conversation.play_graph_input import NativePlayInputV6
     from application_state.agent_conversation.play_session_input import pack
 
     submission_id = uuid5(NAMESPACE_URL, f"dmb-agent-turn:{request.owner_scope.world_id}:{request.turn_id}")
-    from application_state.agent_conversation.surface_evidence_answer import PLAN_INSTRUCTIONS as INSTRUCTIONS
+    from application_state.agent_conversation.surface_evidence_answer import PLAN_INSTRUCTIONS, PLAN_POLICY, BODY_INSTRUCTIONS, BODY_POLICY
     frame_wire, session_wire = pack(frame,str(submission_id),list(sessions))
     carrier = NativePlayInputV6(
         submission_id=submission_id,
         message=request.message,
         source_frame=frame_wire,
         session_evidence=session_wire,
-        answer_instructions=INSTRUCTIONS,
+        native_body_evidence=authored_sources.model_frame() if authored_sources is not None else None,
+        answer_policy=BODY_POLICY if authored_sources is not None else PLAN_POLICY,
+        answer_instructions=BODY_INSTRUCTIONS if authored_sources is not None else PLAN_INSTRUCTIONS,
     )
     return json.dumps(carrier.model_dump(mode="json", by_alias=True), ensure_ascii=False,
         sort_keys=True, separators=(",", ":"), allow_nan=False)
@@ -157,6 +254,7 @@ def freeze_play_receipt(
         receipt_serializer_version="canonical-json-utf8-v1",
         context_receipt_sha256="0" * 64,
         play_graph_policy=t.PlayGraphPolicyV1(),
+        authored_source_context=work.play_authored_sources.context if getattr(work, 'play_authored_sources', None) is not None else None,
         play_basis=basis,
         play_sources=frame.manifest,
         play_source_frame_sha256=t.canonical_sha256(frame),
@@ -181,6 +279,7 @@ def freeze_play_receipt(
         admitted_anchors=anchors,
     )
     policy = t.PlayCorpusSourceSectionsPolicyV1(
+        authored_source_context=work.play_authored_sources.context if getattr(work, 'play_authored_sources', None) is not None else None,
         corpus_source_policy="registered_corpus_sections_v1",
         native_source_section_policy="exact_native_source_sections_v1",
         allowed_graph_operations=["expand_graph_retrieval"],
@@ -259,6 +358,9 @@ def verify_play_input_message(view: Mapping[str, Any], request: Any, work: Any) 
                 expected_id = uuid5(NAMESPACE_URL, f"dmb-agent-turn:{request.owner_scope.world_id}:{request.turn_id}")
                 if parsed.submission_id == expected_id:
                     carriers.append(parsed)
+        selected = getattr(work, 'play_authored_sources', None)
+        if len(carriers) == 1 and carriers[0].native_body_evidence != (selected.model_frame() if selected is not None else None):
+            raise ValueError('Play selected sources differ from actual prepared Core reads')
         if len(carriers) == 1 and carriers[0].resolved_sessions() != list((work.session_evidence or {}).get("sessions", [])):
             raise ValueError("Play sessions differ from resolved frozen evidence")
         if len(carriers) != 1 or carriers[0].message != request.message or carriers[0].resolved_source_frame() != expected_frame:

@@ -180,6 +180,9 @@ def native_references(execution):
     """
     from .native_execution import NativeBuildActionV1, NativePlanActionV1
     from . import types as t
+    if isinstance(execution, t.PlayWorldGraphExecutionV1):
+        ctx = execution.policy.authored_source_context
+        return ctx.references if ctx is not None else None
     action = execution.policy.action
     if type(action) is NativeBuildActionV1 and type(action.intent) is t.BuildGraphIntentV2:
         return action.intent.authored_references
@@ -275,17 +278,21 @@ def validate_native_context(query, execution):
             raise ValueError('Native human result must preserve unavailable or partial support')
 
 
-def validate_native_capture_identity(execution, *, turn_id, conversation_id, attempt, fingerprint):
+def validate_native_capture_identity(execution, *, turn_id, conversation_id, attempt, fingerprint, allow_prior_attempt=False):
     from . import types as t
     for event in execution.events:
         if isinstance(event, t.BuildAuthoredReferencesCapturedV1) and (
                 event.turn_id != turn_id or event.conversation_id != conversation_id
-                or event.attempt != attempt or event.submitted_intent_fingerprint != fingerprint):
+                or (not 1 <= event.attempt <= attempt if allow_prior_attempt else event.attempt != attempt)
+                or event.submitted_intent_fingerprint != fingerprint):
             raise ValueError('Native author capture belongs to another request or attempt')
 
 
 def capture_native_input(turn, *, event_id):
     from . import types as t
+    if isinstance(turn.graph_context_receipt, t.PlayWorldGraphContextReceiptV1):
+        from .play_authored_sources import capture_input
+        return capture_input(turn, event_id=event_id)
     from .native_reads import _owner, validate_execution_binding
     receipt, execution = _owner(turn)
     references = native_references(execution)
@@ -334,7 +341,6 @@ def observe_native_reference(turn, *, event_id, authorization_event_id, material
 
 
 def validate_native_source_read(execution, event):
-    from .native_corpus import full_document_section
     captured = capture(execution)
     if event.capture_event_id != captured.event_id or event.sequence <= captured.sequence:
         raise ValueError('Human source read lacks its exact earlier input')
@@ -343,9 +349,21 @@ def validate_native_source_read(execution, event):
     ref = captured.references.references[event.reference_index]
     if not isinstance(ref, AuthoredSourceReferenceV1):
         raise ValueError('Human source read cannot borrow an object selection')
-    catalog, excerpt = event.catalog, event.excerpt
+    validate_selected_source_read(ref, event.catalog, event.excerpt,
+        authority_sha256=execution.policy.source_authority_sha256)
+
+
+def validate_selected_source_read(ref, catalog, excerpt, *, authority_sha256):
+    """Join an already admitted Core read to exact human intent, without a ledger layout.
+
+    The caller owns source admission and the immutable authority commitment. This
+    check neither obtains that authority nor creates a model-issued read grant.
+    """
+    from .native_corpus import full_document_section
+    if not isinstance(ref, AuthoredSourceReferenceV1):
+        raise ValueError('Human source read requires its actual source selection')
     authority, member = catalog.authority, catalog.source
-    if (digest(authority.model_dump(mode='json', by_alias=True)) != execution.policy.source_authority_sha256
+    if (digest(authority.model_dump(mode='json', by_alias=True)) != authority_sha256
             or (ref.managed_world_id, ref.native_world_id, ref.binding_version) != (
                 authority.managed_world_id, authority.native_world_id, authority.binding_version)
             or (ref.source_artifact_id, ref.source_revision_id, ref.content_sha256, ref.evidence_ref_id) != (
@@ -363,6 +381,10 @@ def validate_native_source_read(execution, event):
 
 
 def observe_native_source_reference(turn, *, event_id, reference_index, materialize):
+    from . import types as t
+    if isinstance(turn.graph_context_receipt, t.PlayWorldGraphContextReceiptV1):
+        from .play_authored_sources import observe_source
+        return observe_source(turn, event_id=event_id, reference_index=reference_index, materialize=materialize)
     from .native_reads import _owner, validate_execution_binding
     from .native_corpus import NativeAuthoredSourceReadV1
     receipt, execution = _owner(turn, require_source=True)

@@ -1,10 +1,14 @@
 # BUILD: count the native writer input with prepared offline accounting
 
-Status: ACTIVE. PRIME owns codex/native-writer-estimated-accounting in the existing
-buddy-context-loop checkout. Topology: stacked on PR2150 reviewed head
-69309820954cb02b9e2dca27a70620ba2fb0586d; merge order2150 then this slice.
-PRIME supersedes the predecessor's serial topology only for this frozen-head
-successor. No parent implementation changes, runtime or retained-database lease.
+Status: DELIVERED. PR2151 merged at
+`63587a57d2f949715ea8552e8041cc635931a9cd` after independent review and all
+seven CI gates. Runtime candidate `beb93d88d1c2412746de1ccb84d241b5ec675f8f`
+delivered it on 5202 alongside merged PR2150. The original request reached a
+supported answer (turn `cab3e214-ee53-4515-8084-457abb0ce237`); original failures
+and retained user data remain intact. The replay took 88.434 seconds and six
+retrieval rounds, so retrieval efficiency and operator acceptance remain open.
+This predecessor grants no active write or runtime lease. The serial Play
+source-reference successor is bounded by HANDOFF-PLAY-retained-source-references.md.
 
 Outcome: current native Build writers reuse the already prepared offline o200k
 counter, multiplier2 and4096 accounting margin accepted by their controller.

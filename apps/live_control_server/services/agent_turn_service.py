@@ -755,6 +755,8 @@ class _BuildClaimEvidence:
     source_partial: bool = False
     authored: tuple = ()
     current_policy: bool | str = False
+    native_sections: tuple = ()
+    body_excerpts: tuple = ()
 
 
 def _build_initial_claim_evidence(
@@ -1455,6 +1457,7 @@ class AgentTurnResolvedWork:
     play_context_receipt: PlayRunTurnContextReceiptV1 | PlayRunTurnContextReceiptV2 | None = None
     build_source_discovery: Mapping[str, Any] | None = None
     session_evidence: Mapping[str, Any] | None = None
+    play_authored_sources: Any = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -2113,6 +2116,9 @@ class _PolicyExecutionAdapter:
         if type(self.fence.turn.graph_context_receipt) is SurfaceNativeContextReceiptV1:
             from .native_authored_references import capture_input
             capture_input(self)
+        elif isinstance(self.fence.turn.graph_context_execution, _app_state_graph_execution_types().PlayWorldGraphExecutionV1):
+            from .native_play_graph_owner import acquire_authored_sources
+            acquire_authored_sources(self)
         elif self.request.build_authored_references is not None:
             from .build_authored_references import capture_input
             capture_input(self)
@@ -2508,6 +2514,8 @@ class _PolicyExecutionAdapter:
                     from application_state.agent_conversation.surface_source_answer import producing_passages
                     passages, source_partial = producing_passages(updated, event, view["payloadJson"])
                 from application_state.agent_conversation.surface_evidence_answer import producing_authored, require_current_policy
+                from application_state.agent_conversation.native_corpus import producing_bodies
+                from application_state.agent_conversation.native_source_answer import producing_sections
                 self.build_claim_evidence[provider_attempt_id] = _BuildClaimEvidence(
                     provider_attempt_id, view["payloadSha256"],
                     updated.graph_context_receipt.context_receipt_sha256,
@@ -2517,6 +2525,8 @@ class _PolicyExecutionAdapter:
                     passages, source_partial,
                     producing_authored(updated, event, view["payloadJson"]) if is_native_play else (),
                     require_current_policy(updated, event, view["payloadJson"]) if is_native_play else False,
+                    producing_sections(updated, event, view["payloadJson"]) if is_native_play else (),
+                    producing_bodies(updated, event, view["payloadJson"]) if is_native_play else (),
                 )
             if self.context_capture is not None:
                 self.context_capture.provider_context(self.request.message, included_source_events, body=body,
@@ -5213,6 +5223,7 @@ def _submitted_turn_intent(
         return PlayGraphIntentV1(
             **common,
             play_graph_policy=PlayGraphPolicyV1(),
+            authored_references=request.authored_references,
             play_target=SubmittedPlayTargetV1.model_validate(
                 request.play_target.model_dump(mode="python", by_alias=True)
             ),
@@ -7005,10 +7016,20 @@ def execute_agent_turn(
         if request.plan_context_policy is not None:
             runtime_message += "\n\n" + _plan_graph_answer_instructions(durable_turn)
     if request.surface.surface_id == "play" and request.play_target is not None:
-        from .native_play_graph_owner import native_play_input_message, prepare_play_sources
+        from .native_play_graph_owner import native_play_input_message, prepare_play_sources, prepare_authored_sources
         try:
+            selected_sources = prepare_authored_sources(request, native_principal, existing_turn=durable_turn)
+        except (TypeError, ValueError) as exc:
+            raise AgentTurnServiceError(
+                "The exact selected source or passage could not be read. Reopen References and choose it again. Your message was not sent.",
+                code="authored_source_unavailable", status_code=409,
+                provider_dispatched=False,
+            ) from exc
+        try:
+            if selected_sources is not None:
+                work = replace(work, play_authored_sources=selected_sources)
             native_play_frame, _play_moment = prepare_play_sources(request, work)
-            runtime_message = native_play_input_message(request, native_play_frame, (work.session_evidence or {}).get("sessions", []))
+            runtime_message = native_play_input_message(request, native_play_frame, (work.session_evidence or {}).get("sessions", []), selected_sources)
         except (TypeError, ValueError) as exc:
             raise AgentTurnServiceError(
                 "The exact saved Play Beat/Scene source could not be frozen.",

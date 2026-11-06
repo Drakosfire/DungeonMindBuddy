@@ -3,6 +3,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import wire from '../test/nativePlayReceipt.json';
 import type { WorldPlayAgentTurnRequestV1 } from '../api/types';
 import { isWorldPlayGraphReceipt, playReceiptDigestsBound, isPlaySourceContext, playSourceContextDigestBound, isPlaySourceProvenanceBound } from './playContextProtocol';
+import {isSurfaceEvidenceCompletion,surfaceEvidenceReceiptBound} from '../shared/surfaceEvidenceProtocol';
 import { rulesCanonical, rulesDigest } from './rulesCanonical';
 
 // Generated from tests.test_play_graph_context.fixture(), then serialized by the APP type owner.
@@ -180,4 +181,38 @@ it.each(['valid', 'foreign-surface', 'missing-name', 'partial-read', 'graph-cast
   if (change==='partial-read') c.completion.source_citations[0]!.receipt.truncated=true as never;
   if (change==='graph-cast') Object.assign(c.completion.answer_segments[0]!,{kind:'graph_claim',target_id:'invented'});
   expect(isWorldPlayContextProjection(c,()=>true)).toBe(change==='valid');
+});
+
+it('binds selected Play source context to the request and native World authority',async()=>{
+  const r=receipt() as unknown as import('../api/types').WorldPlayGraphContextReceiptV1;
+  const a=r.graph_authority;
+  const ref:import('../api/types').AuthoredSourceReferenceV1={schema:'dmb_authored_source_reference_v1',managed_world_id:'world-one',native_world_id:a.native_world_id,binding_version:a.binding_version,knowledge_revision:a.graph_revision,source_artifact_id:'source',source_revision_id:'saved',evidence_ref_id:'anchor',content_sha256:'a'.repeat(64),selection_kind:'section',section_id:'b'.repeat(64),label:'Recap ending'};
+  const refs:import('../api/types').AuthoredReferencesV2={schema:'dmb_authored_references_v2',references:[ref]};
+  const pin={authority_id:'core',revision:'v1',descriptor_sha256:'a'.repeat(64)};
+  r.authored_source_context={schema:'dmb_play_authored_source_context_v1',authority:{schema_version:'dmb_native_corpus_authority_v1',managed_world_id:'world-one',native_world_id:a.native_world_id,binding_version:a.binding_version,provisioning_id:null,revision_id:a.graph_revision,domain_ref:pin,profile_ref:pin,acquisition_epoch:1,scope:'gm_world_cross_campaign_source_inspection',role:'gm'},references:refs};
+  const req={...request(),authored_references:refs};
+  const {context_receipt_sha256:_,...body}=r;r.context_receipt_sha256=await rulesDigest(rulesCanonical(body));
+  expect(isWorldPlayGraphReceipt(r,req)).toBe(true);expect(await playReceiptDigestsBound(r)).toBe(true);
+  const citation={segment_index:0,text_sha256:'a'.repeat(64),provider_attempt_id:'11111111-1111-4111-8111-111111111111',envelope_sha256:'b'.repeat(64),read_event_id:'22222222-2222-4222-8222-222222222222',catalog_sha256:'c'.repeat(64),source_artifact_id:ref.source_artifact_id,native_source_revision_id:ref.source_revision_id,content_sha256:ref.content_sha256,excerpt_sha256:'d'.repeat(64),section_id:ref.section_id!,selector_policy:'markdown_sections_v1' as const,source_name:'Recap',section_title:'Ending',line_start:1,line_end:2};
+  const completion:import('../api/types').SurfaceEvidenceCompletionV5={schema:'dmb_surface_evidence_completion_v5',surface_id:'play',context_receipt_sha256:r.context_receipt_sha256,answer_basis:'mixed_evidence',answer_context_status:'source_grounded',answer_segments:[{kind:'source_passage_claim',text:'The source describes the ending.'}],citation_map:null,source_citations:[],native_source_citations:[],native_body_citations:[citation]};
+  expect(isSurfaceEvidenceCompletion(completion,r.context_receipt_sha256,'play')).toBe(true);
+  expect(surfaceEvidenceReceiptBound(completion,r)).toBe(true);
+  const {isWorldPlayContextProjection}=await import('./playContextProtocol');
+  const context={schema:'dmb_agent_play_world_graph_context_response_v1',receipt:r,completion,execution:null,delivery_replay:false};
+  expect(isWorldPlayContextProjection(context,()=>false,req)).toBe(true);
+  expect(isWorldPlayContextProjection({...context,completion:{...completion,native_body_citations:[{...citation,native_source_revision_id:'newer'}]}},()=>false,req)).toBe(false);
+  expect(surfaceEvidenceReceiptBound(completion,{...r,authored_source_context:undefined})).toBe(false);
+  for(const change of [{source_artifact_id:'foreign'},{native_source_revision_id:'newer'},{content_sha256:'f'.repeat(64)},{section_id:'e'.repeat(64)},{selector_policy:'native_full_document_v1' as const}]){
+    expect(surfaceEvidenceReceiptBound({...completion,native_body_citations:[{...citation,...change}]},r)).toBe(false);
+  }
+  expect(isWorldPlayGraphReceipt(r,request())).toBe(false);
+  expect(isWorldPlayGraphReceipt(receipt(),req)).toBe(false);
+  for(const change of ['world','revision','binding','extra'] as const){
+    const bad=structuredClone(r),ctx=bad.authored_source_context!;
+    if(change==='world')ctx.authority.managed_world_id='foreign';
+    if(change==='revision')ctx.authority.revision_id='other';
+    if(change==='binding')ctx.authority.binding_version++;
+    if(change==='extra')Object.assign(ctx,{unowned:true});
+    expect(isWorldPlayGraphReceipt(bad,req)).toBe(false);
+  }
 });

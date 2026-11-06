@@ -54,7 +54,7 @@ def citation(section, *, index, text, producer, envelope_sha256):
 
 
 def validate_citations(completion, receipt, execution, producer):
-    if not isinstance(completion,t.SurfaceEvidenceCompletionV3):return
+    if not isinstance(completion,t.SurfaceEvidenceCompletionV3) or not completion.native_source_citations:return
     if not isinstance(execution.policy,CAPABILITIES):
         raise ValueError('Native source completion requires its explicit frozen capability')
     witnesses = [e for e in execution.events if isinstance(e,t.NativeSourceProviderInclusionV1)
