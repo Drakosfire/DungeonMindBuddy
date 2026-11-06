@@ -127,3 +127,36 @@ not its text shape: `provider_response`, `host_materialization`, or `unclassifie
 Host-normalized wrappers are retained for provenance but are not additional
 provider attempts or model claims. Unclassified records require investigation;
 never infer authorship merely from a `parsed` or `source_units` key in the text.
+
+## Paired comparison diagnostics
+
+Use `assessment-compare --manifest /absolute/comparison.json` to consume pinned
+canonical assessments through the existing validator. Declare cases and exact
+replication from the experiment design before selecting outputs:
+
+```json
+{
+  "schema": "dmb_ingestion_paired_comparison_v1",
+  "expected_cases": ["case-A"],
+  "pairs_per_case": 1,
+  "pairs": [{
+    "case_id": "case-A", "pair_id": "replicate-1",
+    "control": {"path": "/absolute/control.assessment.json", "sha256": "..."},
+    "variant": {"path": "/absolute/variant.assessment.json", "sha256": "..."}
+  }]
+}
+```
+
+The command reports every pair, per-case count deltas, conservative intervals
+for unknown criterion outcomes, and measurement-ratio variation. It refuses
+missing cases/pairs, reused runs, mixed Gold/criterion contracts and invalid pins.
+A missing measurement or zero control denominator makes that case's corresponding
+median unknown; it never computes a favorable available-case median. Cases are
+never pooled. The example has one pair; use the design's actual replicate count.
+
+Count non-regression is a diagnostic (median pass delta >= 0 and fail delta <= 0),
+not an adoption decision. Matching Gold/criteria does not prove identical review
+semantics. Separately pin and verify the common review protocol, precision,
+severe-claim veto, uncertainty, reliability and experiment acceptance rules.
+Original reviews, phase limitations and measurement evidence remain linked.
+The command has no provider/database backend and does not change study captures.
