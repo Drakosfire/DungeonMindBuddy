@@ -20,7 +20,8 @@ from graph_memory.interaction.session import (
 )
 
 
-def test_saved_plan_consultation_freezes_v3_policy_with_empty_initial_source_scope():
+@pytest.mark.parametrize("provider_capacity", [False, True])
+def test_saved_plan_consultation_freezes_v3_policy_with_empty_initial_source_scope(provider_capacity):
     world_id = "managed-world:one"
     native_world_id = "native-world:one"
     revision = "graph-revision:one"
@@ -64,6 +65,9 @@ def test_saved_plan_consultation_freezes_v3_policy_with_empty_initial_source_sco
         "contextLimitTokens": 1_050_000, "outputReserveTokens": 2048,
         "maxProviderAttempts": 4, "maxGraphOperations": 8,
     }
+    if provider_capacity:
+        budget.update(contextLimitTokens=None, outputReserveTokens=0,
+                      maxProviderAttempts=None, maxGraphOperations=None)
     initial_packet = {
         "candidates": [], "claimLedger": [], "intentHint": None,
         "availableExpansions": [],
@@ -82,6 +86,7 @@ def test_saved_plan_consultation_freezes_v3_policy_with_empty_initial_source_sco
     assert policy.max_source_read_chars == 96_000
     assert policy.max_chars_per_source_read == 12_000
     assert not hasattr(policy, "max_source_read_calls")
+    assert receipt.assembled_input.context_window_limit == budget["contextLimitTokens"]
     assert receipt.graph_authority.native_world_id == native_world_id
     assert graph_execution_policy_digest_v3(
         receipt.consultation_receipt_sha256, policy,

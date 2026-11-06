@@ -158,8 +158,10 @@ def authorize_native_writer(adapter, rules, proof, prepared, expected, frame):
             or (prepared.provider,prepared.model,prepared.api_mode,prepared.method,prepared.url)
                 !=('openai',model,'responses','POST','https://api.openai.com/v1/responses')
             or len(prepared.body)!=prepared.body_size or sha256(prepared.body).hexdigest()!=prepared.body_sha256
-            or strict_json(prepared.body.decode())!=expected or expected['max_output_tokens']!=reserve):
+            or strict_json(prepared.body.decode())!=expected):
         raise ValueError('Native writer actual request differs from its staged owner request')
+    from application_state.agent_conversation.native_writer import validate_output_request
+    validate_output_request(expected,reserve)
     from application_state.agent_conversation.native_execution import NativeWriterEstimatedBudgetV1
     if isinstance(budget, NativeWriterEstimatedBudgetV1):
         from .build_jev_accounting import ExperimentalAccounting
@@ -176,7 +178,7 @@ def authorize_native_writer(adapter, rules, proof, prepared, expected, frame):
     else:
         estimate=len(prepared.body)+64*(1+_json_node_count(expected))
         input_kind, estimator = 'conservative_upper_bound', adapter.budget['estimator']
-    if estimate+reserve>limit:
+    if limit is not None and estimate+reserve>limit:
         raise WriterCapacityError('Native writer exceeds the existing provider context allowance. The request is retained; the writing provider was not called. Narrow the requested context before retrying.',
             code='build_writer_context_over_budget', actual=estimate+reserve, limit=limit)
     event=NativeWriterAuthorizedV1(event_id=uuid4(),sequence=len(adapter._broker_execution().events),
@@ -311,14 +313,15 @@ class PlanJevWriter:
                 or len(prepared.body) != prepared.body_size or sha256(prepared.body).hexdigest() != prepared.body_sha256):
             raise ValueError('Plan writer actual dispatch identity differs')
         a = self.adapter
+        from application_state.agent_conversation.native_writer import output_request_fields
         expected = {'model': self.model, 'input': self.messages, 'instructions': self.instructions,
-            'max_output_tokens': self.output_reserve, 'text': {'format': self.output_format},
+            **output_request_fields(self.output_reserve), 'text': {'format': self.output_format},
             'tools': [], 'stream': False, 'reasoning': {'effort': 'low'}, 'service_tier': 'fast'}
         if strict_json(prepared.body.decode()) != expected:
             raise ValueError('Plan writer actual request differs from staged evidence/instructions')
         projection = self.projection
         estimate = 0 if self.shared else len(prepared.body) + 64 * (1 + _json_node_count(expected))
-        if not self.shared and estimate + self.output_reserve > self.context_limit:
+        if not self.shared and self.context_limit is not None and estimate + self.output_reserve > self.context_limit:
             raise WriterCapacityError('Plan writer exceeds the existing provider context allowance. The request is retained; the writing provider was not called. Narrow the requested context before retrying.',
                 code='build_writer_context_over_budget', actual=estimate+self.output_reserve, limit=self.context_limit)
         if self.shared:
@@ -456,7 +459,7 @@ class PlanJevWriter:
         try:
             result = await client.generate_structured(TextRequest(provider='openai',model=self.model,
                 user_prompt=json.dumps(self.messages,ensure_ascii=False),system_prompt=self.instructions,
-                temperature=None,reasoning_effort='low',max_output_tokens=self.output_reserve,
+                temperature=None,reasoning_effort='low',max_output_tokens=self.output_reserve or None,
                 json_schema=self.output_format['schema'],schema_name=self.output_format['name'],
                 max_conformance_retries=0,max_transport_retries=0))
             self.observe(result.observation,status='ok')

@@ -754,8 +754,9 @@ def test_producer_budget_does_not_mutate_answer_policy(monkeypatch):
 
     original = agent_turn_service._policy_request_budget()
     monkeypatch.setattr(agent_turn_service, "_policy_request_budget", lambda: original)
-    assert service._producer_budget() == original | {"outputReserveTokens": 128_000}
-    assert original["outputReserveTokens"] == 8192
+    assert service._producer_budget() == original
+    assert original["outputReserveTokens"] == 0
+    assert original["contextLimitTokens"] is None
 
 
 def test_completed_output_beyond_old_limit_persists_exactly(
@@ -768,7 +769,7 @@ def test_completed_output_beyond_old_limit_persists_exactly(
     with client(monkeypatch, wire) as c:
         req, record = produce(c, lane)
         assert record["state"] == "completed", record
-        assert wire.requests[0]["max_output_tokens"] == 128_000
+        assert "max_output_tokens" not in wire.requests[0]
         assert sent_body(json.loads(wire.requests[0]["input"][0]["content"])) == BODY
         assert retained_text(record) == wire.raw
         expected = json.loads(wire.raw)
@@ -799,7 +800,7 @@ def test_old_incomplete_operation_replay_after_budget_change(
         assert json.loads(record["wire"])["max_output_tokens"] == 8192
         assert record["result"] is None
         monkeypatch.setattr(service, "_producer_budget", current)
-        assert service._producer_budget()["outputReserveTokens"] == 128_000
+        assert service._producer_budget()["outputReserveTokens"] == 0
         assert (
             c.post(
                 "/api/live/source-statements/proposals",
@@ -816,7 +817,7 @@ def test_old_incomplete_operation_replay_after_budget_change(
     [
         {"model": "unverified"},
         {"provider": "unverified"},
-        {"contextLimitTokens": 128_000},
+        {"contextLimitTokens": 1},
         {"maxProviderRequestBytes": 1},
     ],
 )

@@ -387,15 +387,18 @@ def _serialize_request_budget(value: Any) -> dict[str, Any] | None:
         ("outputReserveTokens", 1_000_000),
     ):
         raw = value.get(key)
+        if key == 'contextLimitTokens' and raw is None:
+            result[key] = None
+            continue
         if (
             isinstance(raw, bool)
             or not isinstance(raw, int)
-            or raw <= 0
+            or raw < (0 if key == "outputReserveTokens" else 1)
             or raw > maximum
         ):
             raise ValueError(f"requestBudget.{key} is outside its supported range")
         result[key] = raw
-    if result["outputReserveTokens"] >= result["contextLimitTokens"]:
+    if result["contextLimitTokens"] is not None and result["outputReserveTokens"] >= result["contextLimitTokens"]:
         raise ValueError("requestBudget output reserve must be below the context limit")
     if "graphToolPageBytes" in value:
         page_bytes = value["graphToolPageBytes"]

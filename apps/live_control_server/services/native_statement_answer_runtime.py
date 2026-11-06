@@ -200,7 +200,7 @@ class NativeStatementWriter:
                     system_prompt=instructions,
                     temperature=None,
                     reasoning_effort="none",
-                    max_output_tokens=policy.output_token_reserve,
+                    max_output_tokens=policy.output_token_reserve or None,
                     json_schema=output_schema,
                     schema_name="native_statement_answer",
                     max_conformance_retries=0,

@@ -68,13 +68,13 @@ class NativeProviderInputV1(Strict):
     tokenizer_version: str = Field(min_length=1)
     provider_envelope_input_tokens: int = Field(ge=0, strict=True)
     output_token_reserve: int = Field(ge=0, strict=True)
-    context_window_limit: int = Field(gt=0, strict=True)
+    context_window_limit: int | None = Field(gt=0, strict=True)
     included_history: tuple[PlanWorldGraphHistoryPinV1, ...]
     assembled_input_sha256: Digest
 
     @model_validator(mode="after")
     def actual_allowance(self):
-        if self.provider_envelope_input_tokens + self.output_token_reserve > self.context_window_limit:
+        if self.context_window_limit is not None and self.provider_envelope_input_tokens + self.output_token_reserve > self.context_window_limit:
             raise ValueError("Actual native provider input exceeds its context allowance")
         if len({pin.turn_id for pin in self.included_history}) != len(self.included_history):
             raise ValueError("Native initial context contains duplicate history turns")

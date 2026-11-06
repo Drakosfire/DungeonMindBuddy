@@ -564,6 +564,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         assert receipt['native_query']['schema'] == 'dmb_native_plan_query_unavailable_v1'
     assert data['answer']['status'] == 'ok' and not data['answer']['graph_grounded']
     assert len(wire.calls) == 1 and len(constructions) == 1 and len(choices.calls) == (3 if direct else 4)
+    assert 'max_output_tokens' not in json.loads(wire.calls[0].content)
     turn = wire.adapter.turn
     from application_state.agent_conversation.native_corpus import NativeDirectSourceObservedV1, NativeBodySearchAuthorizedV1
     assert any(isinstance(e, NativeDirectSourceObservedV1) for e in turn.graph_context_execution.events)

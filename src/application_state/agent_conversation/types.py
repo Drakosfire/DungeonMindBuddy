@@ -1291,7 +1291,7 @@ class PlanWorldGraphAssembledInputV1(StrictModel):
     tokenizer_version: str = Field(min_length=1, max_length=128)
     provider_envelope_input_tokens: int = Field(strict=True, ge=0)
     output_token_reserve: int = Field(strict=True, ge=0)
-    context_window_limit: int = Field(strict=True, ge=1)
+    context_window_limit: int | None = Field(strict=True, ge=1)
     packet_disposition: Literal["included", "omitted_insufficient"]
     packet_disposition_reason: Literal["insufficient_evidence"] | None = None
     dispatched_packet_sha256: str | None = Field(
@@ -1318,7 +1318,7 @@ class PlanWorldGraphAssembledInputV1(StrictModel):
                 raise ValueError(f"{name} cannot contain blank IDs")
             if values != sorted(set(values)):
                 raise ValueError(f"{name} must be sorted and unique")
-        if (
+        if self.context_window_limit is not None and (
             self.provider_envelope_input_tokens + self.output_token_reserve
             > self.context_window_limit
         ):
@@ -1386,13 +1386,13 @@ class PlanSourceProviderInputV1(StrictModel):
     tokenizer_version: str = Field(min_length=1)
     provider_envelope_input_tokens: int = Field(ge=0, strict=True)
     output_token_reserve: int = Field(ge=0, strict=True)
-    context_window_limit: int = Field(gt=0, strict=True)
+    context_window_limit: int | None = Field(gt=0, strict=True)
     included_history: list[PlanWorldGraphHistoryPinV1]
     assembled_input_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
     @model_validator(mode="after")
     def exact_allowance(self):
-        if self.provider_envelope_input_tokens + self.output_token_reserve > self.context_window_limit:
+        if self.context_window_limit is not None and self.provider_envelope_input_tokens + self.output_token_reserve > self.context_window_limit:
             raise ValueError("Actual Plan decision exceeds its provider context allowance")
         return self
 
@@ -2725,7 +2725,8 @@ class GraphExecutionPolicyV1(StrictModel):
         }
         if uncapped and any(limit is not None for limit in limits):
             raise ValueError("uncapped execution policy requires explicit null limits")
-        if not uncapped and any(limit is None for limit in limits):
+        token_limits_optional = isinstance(self, NativePlayGraphPolicyV1)
+        if not uncapped and any(limit is None for limit in limits) and not token_limits_optional:
             raise ValueError("null limits require an explicit uncapped execution policy")
         if not self.allowed_graph_operations and self.policy_version not in {"plan_source_execution_uncapped_v1", "plan_native_execution_uncapped_v1"}:
             raise ValueError("Only an explicit source-capable policy can omit Graph operations")
@@ -2924,16 +2925,18 @@ class SettledGraphExecutionPolicyV3(GraphExecutionPolicyV3):
 
 
 class NativePlayGraphPolicyV1(SettledGraphExecutionPolicyV3):
-    """Finite native Play budgets; no Build controller/writer capabilities."""
+    """Native Play attempts/operations remain bounded; token ceilings are optional."""
     authored_source_context: PlayAuthoredSourceContextV1 | None = Field(default=None, exclude_if=lambda value: value is None)
     policy_version: Literal["play_world_graph_execution_v1"] = "play_world_graph_execution_v1"
     max_provider_attempts: Annotated[int, Field(strict=True, ge=1, le=64)]
     max_graph_operations: Annotated[int, Field(strict=True, ge=0, le=512)]
-    max_total_provider_input_tokens: Annotated[int, Field(strict=True, ge=1)]
-    max_total_provider_output_tokens: Annotated[int, Field(strict=True, ge=1)]
+    max_total_provider_input_tokens: Annotated[int, Field(strict=True, ge=1)] | None
+    max_total_provider_output_tokens: Annotated[int, Field(strict=True, ge=1)] | None
 
     @model_validator(mode="after")
     def world_only(self):
+        if (self.max_total_provider_input_tokens is None) != (self.max_total_provider_output_tokens is None):
+            raise ValueError('Play aggregate token ceilings must be both finite or both absent')
         if self.source_read_scope.campaign_id is not None:
             raise ValueError("Native Play source scope must be World-only")
         return self
@@ -5497,7 +5500,7 @@ def validate_provider_envelope_accounting(assembled, execution, event) -> None:
         context_limit = writer_budget.context_limit_tokens
         if event.output_token_reserve != writer_budget.output_reserve_tokens:
             raise ValueError("writer reserve differs from its frozen role budget")
-    if event.input_tokens + event.output_token_reserve > context_limit:
+    if context_limit is not None and event.input_tokens + event.output_token_reserve > context_limit:
         raise ValueError("provider envelope exceeds the frozen context window")
     previous_attempts = [e for e in execution.events if isinstance(e, ProviderAttemptAuthorizedEventV1)]
     if not previous_attempts:

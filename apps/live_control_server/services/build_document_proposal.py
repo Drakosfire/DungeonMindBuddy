@@ -277,7 +277,7 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
         client = GenerationClient(text_providers={"openai": ObservedProvider(provider)})
         result = None
         async for event in client.stream_text(TextRequest(provider="openai", model=model,
-            user_prompt=packet, system_prompt=expected["instructions"], temperature=None, max_output_tokens=4096,
+            user_prompt=packet, system_prompt=expected["instructions"], temperature=None, max_output_tokens=expected.get("max_output_tokens"),
             reasoning_effort="low", json_schema=schema, schema_name="build_document_proposal",
             max_conformance_retries=0, max_transport_retries=0)):
             if isinstance(event, TextFailed):
@@ -360,5 +360,8 @@ def _writer_request(request, snapshot, model, *, frozen_history=None, related_au
         "max_output_tokens": 4096, "reasoning": {"effort": "low"},
         "text": {"format": {"type": "json_schema", "name": "build_document_proposal", "schema": schema, "strict": True}}, "tools": [], "stream": True}
     if _native_context is not None:
+        from application_state.agent_conversation.native_writer import output_request_fields
+        expected.pop('max_output_tokens')
+        expected.update(output_request_fields(_native_context[1].policy.writer_context_budget.output_reserve_tokens))
         expected['instructions']+=AUTHORING_GUIDANCE
     return expected
