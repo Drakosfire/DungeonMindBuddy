@@ -647,3 +647,24 @@ def test_execution_fence_timing_preserves_revision_and_failed_append():
     assert all(call["event"] is event for call in calls)
     assert host.spans[0]["attributes"]["count"] == 2
     assert host.spans[0]["attributes"]["error_count"] == 1
+
+
+def test_prompt_and_answer_draft_use_same_trace_append_measurement(tmp_path, monkeypatch):
+    from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
+    capture, store, turn, producer = answer_capture_case()
+    host = AgentTurnTraceBuilder(agent_thread_id=None, turn_id=None, runtime="test", backend="test", mode="test")
+    capture.fence.trace = host
+    authorization = turn.graph_context_execution.events[0]
+    capture.capture_prompt({"payloadJson": "{}", "payloadSha256": sha256(b"{}").hexdigest(), "payloadUtf8Bytes": 2}, authorization)
+    capture.answer_draft("original draft", producing_provider_attempt_id=producer)
+    assert [o.kind for o in store.trace.observations] == ["prompt_reference", "context_snapshot"]
+    failure = ConnectionError("draft append failed")
+    store.failure = failure
+    # Prompt capture always attempts persistence; its original exception survives.
+    with pytest.raises(ConnectionError) as caught:
+        capture.capture_prompt({"payloadJson": "{}", "payloadSha256": sha256(b"{}").hexdigest(), "payloadUtf8Bytes": 2}, authorization)
+    assert caught.value is failure
+    span, = host.spans
+    assert span["name"] == "trace_append"
+    assert span["attributes"]["count"] == 3 and span["attributes"]["error_count"] == 1
