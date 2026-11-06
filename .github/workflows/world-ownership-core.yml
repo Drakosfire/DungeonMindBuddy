@@ -216,6 +216,11 @@ jobs:
           tests/test_connected_page_authoring.py::test_adoption_requires_exact_authoritative_completed_publication
           tests/test_connected_page_authoring.py::test_saved_origin_concurrent_retry_has_one_retained_page
           tests/test_connected_page_authoring.py::test_response_loss_retries_one_reserved_page
+          tests/test_connected_page_authoring.py::test_stale_native_parent_is_reprepared_only_on_explicit_retry
+          tests/test_connected_page_authoring.py::test_unknown_native_commit_recovers_before_requiring_page_freshness
+          tests/test_connected_page_authoring.py::test_native_confirmation_requires_the_reviewing_principal
+          tests/test_connected_page_authoring.py::test_native_denied_source_cannot_publish
+          tests/test_connected_page_authoring.py::test_reuse_existing_person_and_location_keeps_exact_node_identities
           tests/test_connected_page_authoring.py::test_saved_excerpt_uses_coherent_committed_owner_projection
           tests/test_connected_page_native_qualification.py
           tests/test_connected_page_authoring.py::test_saved_origin_refuses_mismatch_before_reservation

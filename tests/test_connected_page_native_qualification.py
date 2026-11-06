@@ -1,4 +1,4 @@
-"""Real native candidate qualification within the connected-page saga."""
+"""Legacy shared Graph Review qualification and current native connected-page proof."""
 from datetime import UTC, datetime
 import json
 
@@ -41,26 +41,34 @@ def test_wrong_prequalified_term_refuses():
         _qualified_edge_update(edge('{"dm_predicate":"dnd5e:owns"}'),endpoint_kinds={'person':'npc','place':'location'},place_operation=True)
 
 
-def test_mounted_saga_builds_real_native_candidate_for_both_distinct_edges(case,monkeypatch):  # noqa: F811
-    original=case.authority.publish
-    candidates=[]
-    def native_boundary(request):
-        contribution=request.contribution
-        assert contribution.source_kind=='graph_review_authored_assertion'
-        pairs={(a.source_artifact_id,a.source_revision_id):a.source_revision_id for a in contribution.accepted_assertions}
-        candidate,_=_build_v2_candidate(contribution,context=WorldGraphMutationContext(
-            world_id=case.record.world_id,revision_id='rev:d0',head_revision_id='rev:d0',objects={}),
-            pair_to_dm=pairs,produced_at=datetime.now(UTC))
-        candidates.append(candidate)
-        return original(request)
-    monkeypatch.setattr(case.authority,'publish',native_boundary)
+def test_mounted_saga_publishes_current_native_edges_with_exact_authored_support(case):  # noqa: F811
+    from dungeonmind.application.vnext import EntityReadService, EvidenceReadService, open_admitted_native_text
+    from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
     operation=prepare(case)
-    result=confirm(case,operation)
-    assert result.status_code==200,result.text
-    assert len(candidates)==1
-    edges=[a for a in candidates[0].assertions if a.assertion_kind=='edge']
-    assert {a.predicate for a in edges}=={'owns','operates'}
-    assert {json.loads(a.value)['dm_predicate'] for a in edges}=={'dnd5e:owns','dnd5e:operates'}
-    assert len({(a.subject_object_id,a.object_object_id) for a in edges})==1
+    assert operation['schema']=='dmb_connected_page_operation_v3'
+    assert case.authority.publish_calls==0
+    response=confirm(case,operation)
+    assert response.status_code==200,response.text
+    receipt=response.json()['receipt']
+    person=receipt['created_node_ids']['person'];place=receipt['created_node_ids']['place']
+    assert person.startswith('ent:') and place.startswith('ent:')
+    read,access,*_=native.read_context(case.repo,case.binding.native_world_id,receipt['published_revision_id'],None,'gm',scope_mode='world')
+    entity=EntityReadService().get_complete_entity(read,person)
+    edges=[a for a in entity.assertions if a.value.kind=='entity_ref' and a.value.entity_id==place]
+    assert {a.predicate for a in edges}=={'dungeonbuddy.custom:owns','dungeonbuddy.custom:operates'}
+    assert len({a.assertion_id for a in edges})==2
+    for edge in edges:
+        assert edge.metadata.scope==()
+        assert edge.metadata.epistemic_basis=='asserted'
+        assert edge.metadata.temporal_scope.kind=='unknown'
+        proof=EvidenceReadService().get_assertion_evidence(read,edge.assertion_id)
+        assert proof.available and proof.completeness.status=='complete'
+        support=[e for e in proof.evidence if e.evidence_role=='support']
+        assert len(support)==1
+        opened=open_admitted_native_text(access,support[0].evidence_ref_id)
+        assert opened.status=='available'
+        quote=opened.body_text.encode()[opened.span_start_byte:opened.span_end_byte].decode()
+        predicate=edge.predicate.split(':')[-1]
+        assert quote==f'Brin {predicate} Brin’s Blacksmithy.'
     assert confirm(case,operation).status_code==200
-    assert len(candidates)==1
+    assert case.authority.publish_calls==1
