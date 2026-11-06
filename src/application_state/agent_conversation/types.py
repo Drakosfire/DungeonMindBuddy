@@ -886,6 +886,10 @@ class SubmittedPlayTargetV1(ClosedRulesModel):
     scene_id: MarkerScene | None
     marker_grammar_version: Literal["v2"] = "v2"
 
+from .authored_graph_references import AuthoredReferencesV2
+from .play_authored_sources import PlayAuthoredSourceContextV1
+
+
 class PlayGraphIntentV1(SubmittedTurnIntentV1):
     model_config = ConfigDict(extra="forbid", frozen=True, revalidate_instances="always", validate_by_name=True)
     schema_: Literal["dmb_play_graph_intent_v1"] = Field(default="dmb_play_graph_intent_v1", alias="schema")
@@ -894,6 +898,7 @@ class PlayGraphIntentV1(SubmittedTurnIntentV1):
     primary_work: SubmittedPrimaryWorkIntentV1
     play_graph_policy: PlayGraphPolicyV1
     play_target: SubmittedPlayTargetV1
+    authored_references: AuthoredReferencesV2 | None = Field(default=None, exclude_if=lambda value: value is None)
     playable_target: None = None
     selected_knowledge: None = None
     graph_selection: None = None
@@ -905,6 +910,13 @@ class PlayGraphIntentV1(SubmittedTurnIntentV1):
                 or graph.mode != "world" or graph.campaign_id is not None or graph.revision_pin is not None
                 or graph.focus is None or graph.focus.kind != "none"):
             raise ValueError("Native Play Graph requires exact Run edition and current World-only intent")
+        if self.authored_references is not None:
+            if not self.authored_references.references:
+                raise ValueError('Play references must name selected sources')
+            self.authored_references.require_world(self.world_id)
+            from .authored_graph_references import AuthoredSourceReferenceV1
+            if any(not isinstance(ref, AuthoredSourceReferenceV1) for ref in self.authored_references.references):
+                raise ValueError('Play source references do not admit object selections')
         return self
 
 class PlayRulesIntentV1(SubmittedTurnIntentV1):
@@ -1526,6 +1538,7 @@ def play_source_locator(basis: PlayRunTurnContextReceiptV2) -> PlaySourceLocator
 class PlayWorldGraphContextReceiptV1(ClosedRulesModel):
     schema_: Literal["dmb_play_world_graph_context_receipt_v1"] = Field(
         default="dmb_play_world_graph_context_receipt_v1", alias="schema")
+    authored_source_context: PlayAuthoredSourceContextV1 | None = Field(default=None, exclude_if=lambda value: value is None)
     receipt_serializer_version: Literal["canonical-json-utf8-v1"]
     context_receipt_sha256: Digest
     play_graph_policy: PlayGraphPolicyV1
@@ -2409,7 +2422,7 @@ class NativeBodyExcerptCitationV1(StrictModel):
 
 
 class SurfaceEvidenceCompletionV5(SurfaceEvidenceCompletionV4):
-    surface_id: Literal["plan"] = "plan"
+    surface_id: Literal["plan", "play"] = "plan"
     schema_: Literal["dmb_surface_evidence_completion_v5"] = Field(default="dmb_surface_evidence_completion_v5", alias="schema")
     native_body_citations: list[NativeBodyExcerptCitationV1] = Field(default_factory=list,
         max_length=MAX_CITATION_SOURCE_READ_IDS)
@@ -2419,6 +2432,7 @@ from .native_statement_answer import NativeStatementClauseCitationV1
 
 
 class SurfaceEvidenceCompletionV6(SurfaceEvidenceCompletionV5):
+    surface_id: Literal["plan"] = "plan"
     schema_: Literal['dmb_surface_evidence_completion_v6'] = Field(default='dmb_surface_evidence_completion_v6', alias='schema')
     native_clause_citations: list[NativeStatementClauseCitationV1]
 
@@ -2911,6 +2925,7 @@ class SettledGraphExecutionPolicyV3(GraphExecutionPolicyV3):
 
 class NativePlayGraphPolicyV1(SettledGraphExecutionPolicyV3):
     """Finite native Play budgets; no Build controller/writer capabilities."""
+    authored_source_context: PlayAuthoredSourceContextV1 | None = Field(default=None, exclude_if=lambda value: value is None)
     policy_version: Literal["play_world_graph_execution_v1"] = "play_world_graph_execution_v1"
     max_provider_attempts: Annotated[int, Field(strict=True, ge=1, le=64)]
     max_graph_operations: Annotated[int, Field(strict=True, ge=0, le=512)]
@@ -4279,7 +4294,11 @@ def source_read_character_usage(
     reservations: dict[UUID, SourceReadAuthorizationEventV2] = {}
     completed: set[UUID] = set()
     for event in events:
-        if isinstance(event, NativeSourceSectionAuthorizedV1):
+        if isinstance(policy, NativePlayGraphPolicyV1) and isinstance(event, NativeAuthoredSourceReadV1):
+            usage += len(event.excerpt.text)
+            if usage > policy.max_source_read_chars:
+                raise ValueError('Play selected-source character budget exceeded')
+        elif isinstance(event, NativeSourceSectionAuthorizedV1):
             usage += event.authorized_chars
             if usage > policy.max_source_read_chars:
                 raise ValueError("Native section character budget exceeded at authorization")
@@ -4451,6 +4470,12 @@ def validate_graph_execution_record(execution, *, dynamic_source_scope: bool, al
     from .native_corpus import validate_native_body_events
     if isinstance(execution.policy, PlanSourceExecutionPolicyV1):
         validate_native_body_events(execution)
+    elif isinstance(execution.policy, NativePlayGraphPolicyV1):
+        if any(isinstance(event, NATIVE_BODY_EVENTS) and not isinstance(event,
+                (NativeAuthoredSourceReadV1, NativeBodyProviderIncludedV1)) for event in execution.events):
+            raise ValueError('Play cannot borrow autonomous body acquisition from a Plan controller')
+        from .play_authored_sources import validate_events as validate_play_authored_events
+        validate_play_authored_events(execution)
     elif any(isinstance(event, NATIVE_BODY_EVENTS) for event in execution.events):
         raise ValueError("Native body events require their explicit source-capable Plan policy")
     _validate_related_recap_context_events(execution)
@@ -5282,7 +5307,7 @@ def graph_execution_policy_digest_v3(
 
 
 PlayGraphExecutionEventV1 = Annotated[
-    PlaySourceProviderInclusionV1 | ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3 | ProviderAttemptAuthorizedEventV4
+    BuildAuthoredReferencesCapturedV1 | NativeAuthoredSourceReadV1 | NativeBodyProviderIncludedV1 | PlaySourceProviderInclusionV1 | ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3 | ProviderAttemptAuthorizedEventV4
     | ProviderOutcomeEventV1 | CompletionBindingEventV1
     | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2 | SourcePassageReuseEventV1
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
@@ -6882,6 +6907,12 @@ class Turn(StrictModel):
                 or isinstance(self.graph_context_execution, SurfaceNativeExecutionV1)):
             from .native_execution import validate_turn_identity
             validate_turn_identity(self)
+        if isinstance(self.graph_context_execution, PlayWorldGraphExecutionV1):
+            from .authored_graph_references import validate_native_capture_identity
+            validate_native_capture_identity(self.graph_context_execution,
+                turn_id=self.turn_id, conversation_id=self.conversation_id,
+                attempt=self.attempt, fingerprint=self.submitted_intent_fingerprint_v2,
+                allow_prior_attempt=True)
         if isinstance(self.graph_context_receipt, PlayWorldGraphContextReceiptV1) and (
                 self.play_context_receipt != self.graph_context_receipt.play_basis
                 or (self.status == "completed" and (self.completion is None or self.completed_at is None))

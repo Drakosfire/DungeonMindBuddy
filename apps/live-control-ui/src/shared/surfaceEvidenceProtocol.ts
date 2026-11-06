@@ -42,7 +42,7 @@ export function isSurfaceEvidenceCompletion(v:unknown, receiptHash:string, surfa
   const statement=typeof v==='object' && v!==null && 'schema' in v && (v.schema==='dmb_surface_evidence_completion_v6'||assertion);
   const body=typeof v==='object' && v!==null && 'schema' in v && (v.schema==='dmb_surface_evidence_completion_v5'||statement);
   if (!exact(v,['schema','surface_id','context_receipt_sha256','answer_basis','answer_context_status','answer_segments','citation_map','source_citations',...(native ? ['native_source_citations']:[]),...(body ? ['native_body_citations']:[]),...(statement ? ['native_clause_citations']:[]),...(assertion?['native_assertion_citations']:[])])
-    || !['dmb_surface_evidence_completion_v1','dmb_surface_evidence_completion_v2','dmb_surface_evidence_completion_v3','dmb_surface_evidence_completion_v4','dmb_surface_evidence_completion_v5','dmb_surface_evidence_completion_v6','dmb_surface_evidence_completion_v7'].includes(String(v.schema)) || body && surface!=='plan' || v.surface_id !== surface || v.context_receipt_sha256 !== receiptHash
+    || !['dmb_surface_evidence_completion_v1','dmb_surface_evidence_completion_v2','dmb_surface_evidence_completion_v3','dmb_surface_evidence_completion_v4','dmb_surface_evidence_completion_v5','dmb_surface_evidence_completion_v6','dmb_surface_evidence_completion_v7'].includes(String(v.schema)) || statement && surface!=='plan' || v.surface_id !== surface || v.context_receipt_sha256 !== receiptHash
     || v.answer_basis !== 'mixed_evidence' || !Array.isArray(v.answer_segments) || !v.answer_segments.length || v.answer_segments.length > 128
     || !Array.isArray(v.source_citations) || v.source_citations.length > 16384) return false;
   const claims = new Map<string,{index:number;segment:Record<string,unknown>}>(), sources = new Set<number>();
@@ -101,7 +101,7 @@ export function isSurfaceEvidenceCompletion(v:unknown, receiptHash:string, surfa
   }
   if(body) {
     if(!Array.isArray(v.native_body_citations) || v.native_body_citations.length>16384
-      || !Array.isArray(v.native_source_citations) || v.native_source_citations.length) return false;
+      || !Array.isArray(v.native_source_citations) || surface!=='play'&&v.native_source_citations.length) return false;
     for(const c of v.native_body_citations) {
       if(!isNativeBodyCitation(c) || v.answer_segments[c.segment_index]?.kind!=='source_passage_claim') return false;
       const key=canonical(['body',c.segment_index,c.read_event_id]);
@@ -153,8 +153,18 @@ export function surfaceEvidenceReceiptBound(c:SurfaceEvidenceCompletion,r:WorldP
   const plan=r.schema !== 'dmb_play_world_graph_context_receipt_v1';
   const statement=r.schema==='dmb_plan_native_context_receipt_v1';
   const source=r.schema==='dmb_plan_source_context_receipt_v1'||statement;
-  if((c.schema==='dmb_surface_evidence_completion_v5'||c.schema==='dmb_surface_evidence_completion_v6'||c.schema==='dmb_surface_evidence_completion_v7') !== source
+  const selectedPlay=!plan&&r.authored_source_context!==undefined;
+  if((c.schema==='dmb_surface_evidence_completion_v5'||c.schema==='dmb_surface_evidence_completion_v6'||c.schema==='dmb_surface_evidence_completion_v7') !== (source||selectedPlay)
     || (c.schema==='dmb_surface_evidence_completion_v6'||c.schema==='dmb_surface_evidence_completion_v7')!==statement) return false;
+  if(selectedPlay){
+    if(c.schema!=='dmb_surface_evidence_completion_v5')return false;
+    const refs=r.authored_source_context!.references.references;
+    if(c.native_body_citations.some(citation=>!refs.some(ref=>ref.schema==='dmb_authored_source_reference_v1'
+      &&ref.source_artifact_id===citation.source_artifact_id&&ref.source_revision_id===citation.native_source_revision_id
+      &&ref.content_sha256===citation.content_sha256
+      &&(ref.selection_kind==='section'?citation.selector_policy==='markdown_sections_v1'&&ref.section_id===citation.section_id
+        :citation.selector_policy==='native_full_document_v1'))))return false;
+  }
   if(statement && (c.schema==='dmb_surface_evidence_completion_v6'||c.schema==='dmb_surface_evidence_completion_v7')) {
     const q=r.native_query;
     if(c.native_clause_citations.some(x=>!['dmb_native_plan_query_v1','dmb_native_plan_query_v2'].includes(q.schema)||!('authority' in q)||x.managed_world_id!==q.authority.managed_world_id

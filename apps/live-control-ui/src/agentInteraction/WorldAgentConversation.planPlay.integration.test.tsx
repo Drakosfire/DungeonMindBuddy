@@ -12,6 +12,11 @@ import {authoredReferences,readComposerReferences,writeComposerReferences,compos
 import {getWorkPlan,continueWorkPlan} from '../api/conversationWorkPlanApi';
 vi.mock('../api/conversationWorkPlanApi',async original=>({...await original<typeof import('../api/conversationWorkPlanApi')>(),getWorkPlan:vi.fn(async()=>null),saveWorkPlan:vi.fn(),continueWorkPlan:vi.fn()}));
 vi.mock('../api/conversationLibraryApi',()=>({
+ readActiveConversationMessages:vi.fn(async(world:string)=>{
+   const page=await getWorldAgentConversationHistory(world);
+   return {schema:'dmb_active_conversation_messages_v1',world_id:page.world_id,conversation_state:page.conversation_state,conversation_id:page.conversation_id,active_conversation_id:page.active_conversation_id,pointer_revision:page.pointer_revision,next_before_sequence:page.next_before_sequence,
+     messages:page.turns.map(row=>({turn_id:row.turn_id,sequence:row.sequence,status:row.lifecycle_status,user_text:row.user_text,assistant_text:row.assistant_text,revision:'revision' in row?row.revision:1,idempotency_key:'idempotency_key' in row?row.idempotency_key:`11111111-1111-4111-8111-${String(row.sequence).padStart(12,'0')}`,provenance:row.provenance}))};
+ }),
  listConversations:vi.fn(async(world:string,status:string)=>({schema:'dmb_conversation_library_v1',world_id:world,status,items:[{conversation_id:'33333333-3333-4333-8333-333333333333',world_id:world,title:'Archived named work',status:'archived',name_revision:1,turn_count:1,created_at:'2026-10-24T00:00:00Z',updated_at:'2026-10-24T00:00:00Z'}],next_before:null})),
  readConversationName:vi.fn(async(world:string,id:string)=>({conversation_id:id,world_id:world,title:'Archived named work',status:'archived',name_revision:1,turn_count:1,created_at:'2026-10-24T00:00:00Z',updated_at:'2026-10-24T00:00:00Z'})),
  readConversationTurns:vi.fn(async(world:string,id:string)=>({schema:'dmb_conversation_library_turns_v1',world_id:world,conversation_id:id,turns:[{turn_id:'44444444-4444-4444-8444-444444444444',sequence:1,status:'completed',user_text:'Archived library question',assistant_text:'Archived library answer'}],next_before_sequence:null})),renameConversation:vi.fn(),
@@ -524,6 +529,63 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
 
+
+  it.each(['transport','rejected','rejected_newer'] as const)('retains Play source references after %s failure and reload',async failure=>{
+    const refs=authoredReferences([{schema:'dmb_authored_source_reference_v1',managed_world_id:WORLD,native_world_id:'native',binding_version:1,knowledge_revision:'selected-revision',source_artifact_id:'source-20',source_revision_id:'saved-20',evidence_ref_id:'opening-20',content_sha256:'a'.repeat(64),selection_kind:'section',section_id:'b'.repeat(64),label:'Session 20 ending'}]);
+    writeComposerReferences(sessionStorage,WORLD,RUN,null,refs.references,null,'play');
+    const view=render(<Harness initial="play"/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open'}));
+    const input=await screen.findByLabelText('Message DungeonBuddy');
+    await waitFor(()=>expect(input).toBeEnabled());
+    expect(screen.getByRole('region',{name:'Play request references'})).toHaveTextContent('Session 20 ending');
+    let reject!: (reason:Error)=>void;
+    if(failure==='rejected_newer')vi.mocked(postWorldPlayAgentTurn).mockImplementation(()=>new Promise((_,fail)=>{reject=fail;}));
+    else vi.mocked(postWorldPlayAgentTurn).mockRejectedValue(failure==='transport'?new Error('Reference transport interrupted'):new LiveApiError('Selected reference unavailable',409,{code:'authored_source_unavailable'}));
+    fireEvent.change(input,{target:{value:'What happens in this selected recap?'}});
+    fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+    if(failure==='rejected_newer'){
+      await waitFor(()=>expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1));
+      const pending=localStorage.getItem(`dmb:world-play-pending-turn:v1:${WORLD}`);
+      fireEvent.change(input,{target:{value:'A newer independent draft'}});
+      const newer=readComposerReferences(sessionStorage,WORLD,RUN,'play');
+      await act(async()=>reject(new LiveApiError('Selected reference unavailable',409,{code:'authored_source_unavailable'})));
+      await screen.findByText(/original message and references remain in saved-request recovery/);
+      expect(input).toHaveValue('A newer independent draft');
+      expect(readComposerReferences(sessionStorage,WORLD,RUN,'play')).toEqual(newer);
+      expect(localStorage.getItem(`dmb:world-play-pending-turn:v1:${WORLD}`)).toBe(pending);
+      expect(JSON.parse(pending!).request.authored_references).toEqual(refs);
+      return;
+    }
+    if(failure==='rejected'){
+      await screen.findByText(/Selected reference unavailable/);
+      expect(readComposerReferences(sessionStorage,WORLD,RUN,'play').references).toEqual(refs.references);
+      expect(localStorage.getItem(`dmb:world-play-pending-turn:v1:${WORLD}`)).toBeNull();
+      expect(input).toHaveValue('What happens in this selected recap?');
+      view.unmount();render(<Harness initial="play"/>);fireEvent.click(await screen.findByRole('button',{name:'Open'}));
+      expect(await screen.findByRole('region',{name:'Play request references'})).toHaveTextContent('Session 20 ending');
+      return;
+    }
+    await screen.findByText(/Reference transport interrupted/);
+    openConversationOptions();fireEvent.click(screen.getByRole('checkbox',{name:'Technical details'}));
+    fireEvent.click(screen.getByText('Saved request details'));
+    expect(screen.getByRole('region',{name:'Saved request references'})).toHaveTextContent('Session 20 ending');
+    expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
+    const frozen=vi.mocked(postWorldPlayAgentTurn).mock.calls[0][0];
+    expect(frozen.authored_references).toEqual(refs);
+    expect(readComposerReferences(sessionStorage,WORLD,RUN,'play').submittedTurnId).toBe(frozen.turn_id);
+    expect(readComposerReferences(sessionStorage,WORLD,'plan-one','plan').references).toEqual([]);
+    const pending=localStorage.getItem(`dmb:world-play-pending-turn:v1:${WORLD}`);
+    expect(JSON.parse(pending!).request).toEqual(frozen);
+    view.unmount();
+    render(<Harness initial="play"/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open'}));
+    await waitFor(()=>expect(screen.getByLabelText('Message DungeonBuddy')).toBeEnabled());
+    expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button',{name:'Retry',exact:true}));
+    await waitFor(()=>expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(postWorldPlayAgentTurn).mock.calls[1][0]).toEqual(frozen);
+    expect(localStorage.getItem(`dmb:world-play-pending-turn:v1:${WORLD}`)).toBe(pending);
+  });
 
   it('freezes Plan references into the saved pending request before dispatch',async()=>{
     const references=authoredReferences([authoredRef('plan-selected')]);

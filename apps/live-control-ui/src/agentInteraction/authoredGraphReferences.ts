@@ -47,7 +47,7 @@ export function authoredReferences(references:AuthoredReference[]):AuthoredRefer
 }
 
 export type ComposerReferenceDraft={serialized:string|null;references:AuthoredReference[];submittedTurnId:string|null};
-type ReferenceSurface='build'|'plan';
+type ReferenceSurface='build'|'plan'|'play';
 export const composerReferenceKey=(world:string,page:string,surface:ReferenceSurface='build')=>`dmb:authored-graph-composer:v1:${JSON.stringify(surface==='build'?[world,page]:[world,surface,page])}`;
 export function readComposerReferences(storage:Pick<Storage,'getItem'>,world:string,page:string,surface:ReferenceSurface='build'):ComposerReferenceDraft {
  const serialized=storage.getItem(composerReferenceKey(world,page,surface));

@@ -1,3 +1,5 @@
+import {isAuthoredReferences} from '../agentInteraction/authoredGraphReferences';
+import {isNativeSourceAuthority} from '../shared/surfaceNativeProtocol';
 import { isSurfaceEvidenceCompletion,surfaceEvidenceReceiptBound } from "../shared/surfaceEvidenceProtocol";
 import { isSurfaceSourceCompletion } from "../shared/sourcePassageProtocol";
 import type { WorldPlayAgentTurnRequestV1, WorldPlayGraphContextReceiptV1, WorldPlaySourceContextV1 } from '../api/types';
@@ -31,7 +33,7 @@ const edition = (v: unknown): boolean => keys(v, ['edition_revision', 'edition_r
 /** Pure, bounded native Play metadata admission. No source retrieval or Plan conversion. */
 export function isWorldPlayGraphReceipt(value: unknown, request?: WorldPlayAgentTurnRequestV1): value is WorldPlayGraphContextReceiptV1 {
   if (!keys(value, ['schema', 'receipt_serializer_version', 'context_receipt_sha256', 'play_graph_policy', 'play_basis',
-    'play_sources', 'play_source_frame_sha256', 'retrieval_session_id', 'graph_authority', 'graph_packet', 'assembled_input', 'evidence_mode', 'source_opened'])
+    'play_sources', 'play_source_frame_sha256', 'retrieval_session_id', 'graph_authority', 'graph_packet', 'assembled_input', 'evidence_mode', 'source_opened',...(record(value)&&'authored_source_context' in value?['authored_source_context']:[])])
     || value.schema !== 'dmb_play_world_graph_context_receipt_v1' || value.receipt_serializer_version !== 'canonical-json-utf8-v1'
     || !digest(value.context_receipt_sha256) || !digest(value.play_source_frame_sha256) || !owner(value.retrieval_session_id)
     || value.evidence_mode !== 'metadata_only' || value.source_opened !== false
@@ -75,7 +77,17 @@ export function isWorldPlayGraphReceipt(value: unknown, request?: WorldPlayAgent
     || !record(value.graph_authority) || value.graph_authority.admissibility_version !== 'gm-v1'
     || !owner(value.graph_authority.native_world_id) || !record(value.graph_packet)
     || value.graph_packet.selection_policy_version === 'parent_initial_retrieval_with_selected_source_index_v1') return false;
+  const graphAuthority=value.graph_authority;
+  const ctx=value.authored_source_context;
+  if(ctx!==undefined&&(!keys(ctx,['schema','authority','references'])
+    ||ctx.schema!=='dmb_play_authored_source_context_v1'||!isNativeSourceAuthority(ctx.authority,b.world_id)
+    ||!('schema_version' in ctx.authority)||ctx.authority.native_world_id!==value.graph_authority.native_world_id
+    ||ctx.authority.binding_version!==value.graph_authority.binding_version||ctx.authority.revision_id!==value.graph_authority.graph_revision
+    ||!isAuthoredReferences(ctx.references,b.world_id)||ctx.references.schema!=='dmb_authored_references_v2'
+    ||!ctx.references.references.length||ctx.references.references.some(ref=>ref.schema!=='dmb_authored_source_reference_v1'
+      ||ref.native_world_id!==graphAuthority.native_world_id||ref.binding_version!==graphAuthority.binding_version)))return false;
   if (!request) return true;
+  if(rulesCanonical(request.authored_references??null)!==rulesCanonical(record(ctx)?ctx.references:null))return false;
   return request.surface.surface_id === 'play' && request.primary_work.kind === 'run'
     && request.graph_request.mode === 'world' && request.graph_request.world_id === b.world_id
     && request.owner_scope.world_id === b.world_id && request.primary_work.object_id === b.run_id
