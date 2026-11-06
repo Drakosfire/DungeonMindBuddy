@@ -57,6 +57,7 @@ class BuildJevHarness:
 
     def __init__(self, *, decision_transport=None, writer_transport=None, accounting=None, rules_capability=None, world_context=False, named_citations=False, related_pages=False):
         self.related_pages = related_pages
+        self.output_limit_exceeded = False
         self.world_context = world_context
         self.named_citations = named_citations
         self.accounting = accounting
@@ -166,7 +167,8 @@ class BuildJevHarness:
                 logging.getLogger(__name__).exception("Build preparation failed before durable admission or provider dispatch")
             trace.complete_phase(span, status="error")
             if adapter.turn is not None and not isinstance(adapter.turn, MixedCompletedTurnV1) and adapter.turn.status == "running":
-                _interrupt_policy_delivery(adapter.service, adapter.turn)
+                _interrupt_policy_delivery(adapter.service, adapter.turn,
+                    output_limit_exceeded=self.output_limit_exceeded)
             trace.finalize_and_log(
                 status="error",
                 model_calls=self.calls,
@@ -174,6 +176,11 @@ class BuildJevHarness:
             )
             if isinstance(exc, AgentTurnServiceError):
                 raise
+            if self.output_limit_exceeded:
+                raise AgentTurnServiceError(
+                    "Buddy stopped before finishing the reply. Your request and activity are saved.",
+                    code="provider_output_limit_exceeded", status_code=503,
+                ) from exc
             raise AgentTurnServiceError(
                 "The Jev conversation could not complete safely. No request was replayed.",
                 code="build_jev_delivery_failure",
@@ -203,6 +210,7 @@ class BuildJevHarness:
 
     def execute(self, adapter):
         self.calls, self.timings, self._inflight = [], [], {}
+        self.output_limit_exceeded = False
         self.adapter = adapter
         adapter._build_jev_accounting = self.accounting
         if self.rules_capability is not None and adapter.native_source_authority is None:
@@ -340,7 +348,7 @@ class BuildJevHarness:
 
     def _capture_failure(self, adapter, exc):
         from .build_failure_diagnostic import store_failure, failure_code
-        code = failure_code(exc)
+        code = "provider_output_limit_exceeded" if self.output_limit_exceeded else failure_code(exc)
         capacity = code in {"build_writer_context_over_budget", "build_writer_request_over_budget", "build_writer_accounting_unavailable"}
         stage = "writer_context_preparation" if capacity else getattr(self, "failure_stage", "delivery")
         logging.getLogger(__name__).error("Build execution failed at %s (%s)", stage, type(exc).__name__)
@@ -350,7 +358,7 @@ class BuildJevHarness:
                 attempt=turn.attempt if turn else None)
             logging.getLogger(__name__).error("Build failure diagnostic %s", metadata["diagnostic_id"])
             if adapter.context_capture:
-                adapter.context_capture.observe({"kind": "failure", "phase": "context_build" if capacity else "delivery",
+                adapter.context_capture.observe({"kind": "failure", "phase": "context_build" if capacity else "provider" if stage == "writer_generation" else "delivery",
                     "code": code, **metadata})
         except Exception as capture_error:
             logging.getLogger(__name__).error("Build failure diagnostic capture failed (%s); original exception preserved", type(capture_error).__name__)
@@ -458,12 +466,16 @@ class BuildJevHarness:
             if work_driver.operation=='prepare_build_image':
                 from .build_image_writer import prepare_image
                 return prepare_image(self,adapter,work_driver,native_rules=rules,native_proof=proof)
+            self.failure_stage = "writer_prepare"
             writer = PlanJevWriter(adapter,proof,rules)
             completed = asyncio.run(writer.run(transport=self.writer_transport))
             adapter.turn = completed.envelope if isinstance(completed,MixedCompletedTurnV1) else completed
             return completed
         finally:
             self.calls += retrieval.calls + ([writer.call] if writer is not None and writer.call is not None else [])
+            if writer is not None:
+                self.output_limit_exceeded = writer.output_limit_exceeded
+                self.failure_stage = {"prepare":"writer_prepare", "generation":"writer_generation", "capture":"writer_validation"}[writer.failure_stage]
             if adapter.fence is not None:
                 adapter.stop()
 

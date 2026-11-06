@@ -225,6 +225,7 @@ def capture_native_reply(adapter,rules,prepared,received,raw):
 class PlanJevWriter:
     def __init__(self, adapter, proof, rules):
         self.adapter, self.proof, self.rules = adapter, proof, rules
+        self.failure_stage = 'prepare'
         native_budget = getattr(adapter.fence.turn.graph_context_execution.policy,'writer_context_budget',None)
         self.output_reserve = native_budget.output_reserve_tokens if native_budget is not None else adapter.budget['outputReserveTokens']
         self.context_limit = native_budget.context_limit_tokens if native_budget is not None else adapter.budget['contextLimitTokens']
@@ -451,7 +452,7 @@ class PlanJevWriter:
         provider = PlanWriterProvider(**options)
         client = GenerationClient(text_providers={'openai':provider})
         started = perf_counter()
-        stage = "generation"
+        stage = self.failure_stage = "generation"
         try:
             result = await client.generate_structured(TextRequest(provider='openai',model=self.model,
                 user_prompt=json.dumps(self.messages,ensure_ascii=False),system_prompt=self.instructions,
@@ -464,7 +465,7 @@ class PlanJevWriter:
             stage = 'draft'
             if not self.shared:
                 self.capture_draft(provider.actual_response)
-            stage = 'capture'
+            stage = self.failure_stage = 'capture'
             reply = self.capture(result,provider.actual_response,provider)
             if self.shared:
                 self.capture_draft(provider.actual_response)
@@ -487,10 +488,9 @@ class PlanJevWriter:
                 'code':code if preparation else exc.code if isinstance(exc, _ReplyRejected) else f'plan_writer_{stage}_rejected'})
             try:
                 self.capture_draft(response)
-            except BaseException as draft_error:
+            except BaseException:
                 self.adapter.context_capture.observe({'kind':'failure', 'phase':'delivery',
                     'code':'plan_writer_draft_rejected'})
-                raise exc from draft_error
             raise
         finally:
             try:

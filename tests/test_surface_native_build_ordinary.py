@@ -246,9 +246,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     'quote':'A phrase absent from the source.' if connected_review=='foreign_quote' else 'A proposed conversation.',
                     'person_label':None,'relationships':[],'instructions':'Prepare a separate page for author review.'}
             return httpx.Response(200, request=req, json=dict(id='resp_native_build', object='response',
-                created_at=1, status='completed', model=body['model'], output=[dict(type='message', id='msg_native_build',
+                created_at=1, status='incomplete' if failure in {'writer_incomplete_limit','writer_incomplete_filter','writer_incomplete_unknown'} else 'completed', model=body['model'], output=[dict(type='message', id='msg_native_build',
                     role='assistant', status='completed', content=[dict(type='output_text', text=json.dumps(candidate), annotations=[])])],
-                usage=dict(input_tokens=100, output_tokens=40, total_tokens=140)))
+                usage=dict(input_tokens=100, output_tokens=40, total_tokens=140),
+                **({'incomplete_details':{'reason':'max_output_tokens' if failure=='writer_incomplete_limit' else 'content_filter'}}
+                    if failure in {'writer_incomplete_limit','writer_incomplete_filter'} else {})))
     decisions, writer = Decisions(), Writer()
     if proposal and failure in {'native_work','rules_frame'}:
         from apps.live_control_server.services import build_document_proposal as proposal_owner,build_image_writer
@@ -542,6 +544,27 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert replay.status_code==200 and replay.json()['knowledge_context']['delivery_replay'] is True,replay.text
         assert (len(decisions.calls),len(writer.calls))==before
         assert get_workspace_document_snapshot(tmp_path,page.document_id)==newer
+        assert lane.repo.get_head(world).head_revision_id==current_revision
+        return
+    if failure in {'writer_incomplete_limit','writer_incomplete_filter','writer_incomplete_unknown'}:
+        assert response.status_code==503,response.text
+        limited=failure=='writer_incomplete_limit'
+        expected='provider_output_limit_exceeded' if limited else 'plan_context_delivery_failure'
+        assert response.json()['detail']['code']==('provider_output_limit_exceeded' if limited else 'build_jev_delivery_failure')
+        service=AgentConversationService()
+        turn=service.inspect_turn(world_id=world,turn_id=writer.adapter.turn.turn_id)
+        assert turn.status=='interrupted' and turn.failure_code==expected and turn.completion is None
+        trace=service.list_context_trace_attempts(world_id=world,turn_id=turn.turn_id)[-1]
+        failures=[row for row in trace.observations if row.kind=='failure']
+        assert failures[-1].stage=='writer_generation'
+        assert failures[-1].phase=='provider'
+        assert failures[-1].code==('provider_output_limit_exceeded' if limited else 'build_execution_exception')
+        assert any(row.kind=='prompt_reference' and row.provider=='openai' for row in trace.observations)
+        assert any(row.kind=='provider_call' and row.input_tokens==100 and row.output_tokens==40 for row in trace.observations)
+        assert len(writer.calls)==1 and not classic_calls
+        replay=client.post('/api/live/agent/turn',json=body)
+        assert replay.status_code in {409,503} and len(writer.calls)==1
+        assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
         assert lane.repo.get_head(world).head_revision_id==current_revision
         return
     if failure in {'revision','node','reference_world'}:
@@ -1037,3 +1060,8 @@ def test_saved_v3_human_source_request_retries_with_current_object_navigation(
         historical_query_versions=versions)
     assert versions[0] == 'dmb_native_graph_query_v3'
     assert len(versions) >= 2 and set(versions[1:]) == {'dmb_native_graph_query_v4'}
+
+
+@pytest.mark.parametrize('failure',['writer_incomplete_limit','writer_incomplete_filter','writer_incomplete_unknown'])
+def test_native_build_reports_actual_incomplete_writer_reason_without_acceptance_or_retry(lane,tmp_path,monkeypatch,failure):
+    _fresh_case(lane,tmp_path,monkeypatch,failure,True,False,False)
