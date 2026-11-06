@@ -6,7 +6,8 @@ import pytest
 
 from application_state.agent_conversation import native_corpus as bodies
 from apps.live_control_server.services.corpus_source_navigation import NativeBodyNavigation
-from tests.test_native_corpus_source_access import lane as lane, admit, capture
+from tests.test_native_corpus_source_access import lane as lane, admit, capture, GM
+from apps.live_control_server.integrations.dungeonmind.native_corpus_source import prepare_native_source_context
 
 BODY = "# Opening\nA source-local opening.\n# Episode\nThe selected source-local episode. 🌿\n"
 
@@ -48,8 +49,9 @@ def navigation(lane, *, full=False, human=True, search=True, failure=False, pend
     turn = SimpleNamespace(user_text='What does the selected episode establish?',
         graph_context_receipt=SimpleNamespace(source_authority=snapshot.authority),
         graph_context_execution=SimpleNamespace(events=events))
-    nav = object.__new__(NativeBodyNavigation)
-    nav.adapter = SimpleNamespace(fence=SimpleNamespace(turn=turn))
+    context = prepare_native_source_context(managed_world_id="managed", principal=GM,
+        repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    nav = NativeBodyNavigation(SimpleNamespace(fence=SimpleNamespace(turn=turn), native_corpus_context=context))
     return nav, catalog, catalogs
 
 
@@ -105,6 +107,6 @@ def test_navigation_rehydrates_from_the_existing_retained_event_inventory(lane):
     recovered = SimpleNamespace(user_text=turn.user_text,
         graph_context_receipt=SimpleNamespace(source_authority=type(authority).model_validate_json(authority.model_dump_json())),
         graph_context_execution=SimpleNamespace(events=events))
-    reopened = object.__new__(NativeBodyNavigation)
-    reopened.adapter = SimpleNamespace(fence=SimpleNamespace(turn=recovered))
+    reopened = NativeBodyNavigation(SimpleNamespace(fence=SimpleNamespace(turn=recovered),
+        native_corpus_context=nav.adapter.native_corpus_context))
     assert (reopened.offered(), reopened.examined()) == original
