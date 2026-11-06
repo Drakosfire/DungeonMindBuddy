@@ -410,6 +410,35 @@ class NativeBodyNavigation:
         a.fence.renewer._turn = a.turn = result[0]
         return result[0].graph_context_execution.events[-1]
 
+    def _fulfilled_in_current_selection(self, handle):
+        """A prior read in this acknowledged batch may cover a selected section.
+
+        The controller can select a full document and one of its sections at
+        once. Do not reopen the section or label its already acquired text as
+        unavailable. Prior decisions and merely similar sources cannot satisfy it.
+        """
+        if not handle.startswith('native-body:'):
+            return False
+        from application_state.agent_conversation.plan_jev_decision import current_selection
+        selection = current_selection(self.adapter.fence.turn)
+        if selection.operation != 'select_candidates' or handle not in selection.selected_handles:
+            return False
+        _, search, _, _ = self._events()
+        if search is None:
+            return False
+        catalog = next((c for c in search.catalogs for section in c.sections
+            if handle == 'native-body:' + c.catalog_sha256 + ':' + section.section_id), None)
+        if catalog is None:
+            return False
+        section = next(s for s in catalog.sections if handle.endswith(':' + s.section_id))
+        def identity(catalog):
+            return (catalog.source.artifact.source_artifact_id,
+                catalog.source.revision.source_revision_id, catalog.source.revision.content_sha256)
+        return any(read.sequence > selection.sequence and identity(known) == identity(catalog)
+            and read.excerpt.section.byte_start <= section.byte_start
+            and read.excerpt.section.byte_end >= section.byte_end
+            for read, known in self._acquired_extents())
+
     def select(self, handles):
         from application_state.agent_conversation.native_corpus import native_corpus_search_handle
         from ..integrations.dungeonmind.native_corpus_source import (
@@ -420,10 +449,13 @@ class NativeBodyNavigation:
         if not isinstance(context, NativeCorpusContext) or context.authority != a.fence.turn.graph_context_receipt.source_authority:
             raise ValueError("Native navigation requires its original trusted source context")
         offered = {row.handle for row in self.offered()}
-        if not handles or len(set(handles)) != len(handles) or not set(handles) <= offered:
+        if (not handles or len(set(handles)) != len(handles)
+                or any(handle not in offered and not self._fulfilled_in_current_selection(handle) for handle in handles)):
             raise ValueError("Native source selection differs from its offered current catalog")
         from .native_retrieval_activity import observe_native_retrieval
         for handle in handles:
+            if handle not in offered or self._fulfilled_in_current_selection(handle):
+                continue  # Its exact text was already read in this selected batch.
             with a.fence.renewer._lock:
                 turn = a.fence.renewer._turn
                 is_search = handle == native_corpus_search_handle(sha256(turn.user_text.encode()).hexdigest())
