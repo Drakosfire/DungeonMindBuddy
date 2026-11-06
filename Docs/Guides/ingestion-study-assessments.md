@@ -88,3 +88,42 @@ results from a pinned earlier evaluator without executing its manifest. Existing
 outputs are never overwritten: an identical invocation is safe to repeat after
 an interrupted report write; a conflicting artifact fails before output writes.
 It does not authorize publication or establish whole-output semantic quality.
+
+## Blinded semantic inputs
+
+Prepare future reviewer inputs with the existing offline evaluator:
+
+```bash
+PYTHONPATH=src python scripts/evaluate_ingestion.py review-packet \
+  --result /absolute/retained/result.json \
+  --packet-output /absolute/neutral-public-directory \
+  --private-receipt /absolute/private/projection-receipt.json \
+  --review-id opaque01
+```
+
+Give the reviewer only the public packet, separately pinned source/Gold/criteria
+and neutral owner contracts. The candidate bytes and every recorded response text
+are preserved; repeated or malformed response texts are not dropped. Operational
+request/telemetry envelopes are excluded. Unexpected candidate telemetry or shape
+fails preparation rather than silently redacting authored content. Exact response
+text identity does not imply identity of the newly serialized JSON wrapper.
+
+Use `binding.json` for the existing sealed-review run/revision/candidate fields.
+Cite public artifacts with ordinary pinned JSON Pointers. After sealing, the
+existing `assessment-assemble` command consumes the original result and unchanged
+sealed review. Preserve the private receipt linking public pointers to original
+records. Never give it, the original operational envelopes or the experiment
+schedule to the semantic reviewer. Source/Gold references are not rewritten here.
+
+Response count, length and authored self-disclosure remain visible. A file
+projection is not a security sandbox or proof of perfect blinding. Host source
+wrappers/excerpts and normalized fields require neutral provenance contracts and
+earn no model-knowledge credit. Allocation experiments still require independent
+qualification and calibration before calls; this command grants no execution
+or semantic-assessment authority. Historical review records remain unchanged.
+
+Each response wrapper carries an origin tag derived from the owning receipt,
+not its text shape: `provider_response`, `host_materialization`, or `unclassified`.
+Host-normalized wrappers are retained for provenance but are not additional
+provider attempts or model claims. Unclassified records require investigation;
+never infer authorship merely from a `parsed` or `source_units` key in the text.
