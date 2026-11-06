@@ -29,7 +29,7 @@ def new(service, world="world-one"):
     ).conversation_id
 
 
-def archive(service, count=3):
+def archive(service, count=3, *, keep_active=False):
     from application_state.agent_conversation.types import TurnSubmission
     from tests.application_state.test_agent_conversation_service import (
         _submitted_intent,
@@ -51,7 +51,8 @@ def archive(service, count=3):
                 submitted_intent_v1=_submitted_intent("world-one", question),
             )
         )
-    new(service)
+    if not keep_active:
+        new(service)
     return cid
 
 
@@ -326,3 +327,82 @@ def test_actual_mixed_library_keeps_accepted_prose_and_only_approved_base_object
         assert row["reply_object"]["source"]["turn_id"] == str(mixed.envelope.turn_id)
     else:
         assert row["reply_object"] is None
+
+
+def test_active_messages_never_select_or_decode_execution_and_keep_exact_cursor(
+    application_state_dsn, monkeypatch
+):
+    from application_state.agent_conversation import repository as repo
+
+    service = AgentConversationService()
+    cid = archive(service, 5, keep_active=True)
+    pointer = service.get_world_pointer("world-one")
+
+    def forbidden(*a, **k):
+        raise AssertionError("Full turn validation on message read")
+
+    monkeypatch.setattr(repo, "_turn_from_row", forbidden)
+    original = psycopg.Cursor.execute
+
+    def audited(cursor, query, *args, **kwargs):
+        if isinstance(query, str) and query.lstrip().lower().startswith("select"):
+            assert not any(
+                field in query
+                for field in [
+                    "graph_context_execution",
+                    "graph_context_receipt",
+                    "completion",
+                ]
+            )
+        return original(cursor, query, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(psycopg.Cursor, "execute", audited)
+        page = library.read_active_messages("world-one", limit=2)
+        older = library.read_active_messages(
+            "world-one", limit=2, before_sequence=page["next_before_sequence"]
+        )
+        archived = library.read_messages("world-one", cid, limit=2)
+    assert page["conversation_id"] == page["active_conversation_id"] == str(cid)
+    assert page["pointer_revision"] == pointer.revision
+    assert [row["sequence"] for row in page["messages"]] == [4, 5]
+    assert [row["sequence"] for row in older["messages"]] == [2, 3]
+    assert all(
+        row["provenance"]["world_id"] == "world-one" and row["idempotency_key"]
+        for row in page["messages"]
+    )
+    assert archived["messages"] == [
+        {
+            k: v
+            for k, v in row.items()
+            if k not in {"revision", "idempotency_key", "provenance"}
+        }
+        for row in page["messages"]
+    ]
+    assert service.get_world_pointer("world-one") == pointer
+
+
+def test_active_message_pointer_and_rows_are_one_snapshot(
+    application_state_dsn, monkeypatch
+):
+    service = AgentConversationService()
+    cid = archive(service, 2, keep_active=True)
+    read = library._message_page
+    successor = []
+
+    def concurrent(conn, *args, **kwargs):
+        successor.append(new(service))
+        return read(conn, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(library, "_message_page", concurrent)
+        old = library.read_active_messages("world-one")
+    assert old["conversation_id"] == str(cid) and len(old["messages"]) == 2
+    current = library.read_active_messages("world-one")
+    assert current["conversation_id"] == str(successor[0]) and current["messages"] == []
+    absent = library.read_active_messages("unrelated-world")
+    assert (
+        absent["conversation_state"] == "absent"
+        and absent["messages"] == []
+        and absent["pointer_revision"] == 0
+    )

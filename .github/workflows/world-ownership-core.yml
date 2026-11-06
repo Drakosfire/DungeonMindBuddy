@@ -113,6 +113,8 @@ jobs:
         if: matrix.suite == 'world-and-content'
         run: >-
           uv run --locked pytest -q --tb=short --show-capture=no
+          tests/application_state/test_conversation_library.py::test_active_messages_never_select_or_decode_execution_and_keep_exact_cursor
+          tests/application_state/test_conversation_library.py::test_active_message_pointer_and_rows_are_one_snapshot
           tests/application_state/test_world_catalog_postgres.py
           tests/application_state/test_world_catalog_cutover_migration.py
           tests/application_state/test_authored_pages_postgres.py

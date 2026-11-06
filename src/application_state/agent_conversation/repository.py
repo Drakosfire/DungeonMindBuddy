@@ -190,6 +190,19 @@ def _turn_reference_page(conn: psycopg.Connection, rows: list[dict[str, Any]]):
     }
 
 
+def turn_provenance(row, references):
+    primary, supporting, selected = references
+    return TurnProvenance(
+        world_id=row["world_id"],
+        surface_resolution=row["surface_resolution"],
+        surface_id=row["surface_id"],
+        surface_instance_id=row["surface_instance_id"],
+        primary_work=primary,
+        supporting_work=supporting,
+        selected_object=selected,
+    )
+
+
 def _turn_from_row(
     conn: psycopg.Connection, row: dict[str, Any], *, references=None
 ) -> TurnReadModel:
@@ -199,17 +212,11 @@ def _turn_from_row(
     )
     from .rules_authority_types import RulesAcceptedBindingV1
 
-    primary, supporting, selected = (
-        references if references is not None else _turn_references(conn, row["turn_id"])
-    )
-    provenance = TurnProvenance(
-        world_id=row["world_id"],
-        surface_resolution=row["surface_resolution"],
-        surface_id=row["surface_id"],
-        surface_instance_id=row["surface_instance_id"],
-        primary_work=primary,
-        supporting_work=supporting,
-        selected_object=selected,
+    provenance = turn_provenance(
+        row,
+        references
+        if references is not None
+        else _turn_references(conn, row["turn_id"]),
     )
     fields = {
         key: row[key]
