@@ -16,6 +16,7 @@ import pytest
 import httpx
 from fastapi import FastAPI
 
+from application_state.ingest import components as output_store
 from application_state.ingest.service import (
     RecapSemanticBasisV12, _assert_recap_semantic_basis,
 )
@@ -202,6 +203,10 @@ def _fixture(
     def create_run(_root, **kwargs):
         run = ExtractionRun(**kwargs)
         runs[run.run_id] = run
+        if run.run_id != parent.run_id:
+            fixture_source = _component_path(root, run, "source_artifact")
+            fixture_source.parent.mkdir(parents=True, exist_ok=True)
+            fixture_source.write_bytes(source.read_bytes())
         return run
 
     def update_run(_root, run_id, *, status, expected_revision):
@@ -215,12 +220,19 @@ def _fixture(
     # the real owner; ordinary API/file-denial coverage lives in database review.
     from application_state.ingest import components as output_store
     outputs = {}
+    from contextlib import nullcontext
+    monkeypatch.setattr(output_store, "correction_parent_lease", lambda parent_id: nullcontext())
 
     def persist_output(*, run_id, expected_revision, kind, payload):
         assert runs[run_id].revision == expected_revision
         digest = _sha(payload)
         assert digest == runs[run_id].components[str(kind)].sha256.removeprefix("sha256:")
         outputs[(run_id, str(kind))] = payload
+        # Unit fixture presentation mirror, never product authority. Actual
+        # database creation/retry tests deny all file and directory access.
+        fixture_path = _component_path(root, runs[run_id], str(kind))
+        fixture_path.parent.mkdir(parents=True, exist_ok=True)
+        fixture_path.write_bytes(payload)
         return digest
 
     def review_data(_root, run_id):
@@ -233,7 +245,7 @@ def _fixture(
         return SimpleNamespace(run=runs[run_id],
             source_artifact=graph_run_registry.get_source_artifact(root, runs[run_id].source_artifact_id),
             source_bytes=resolved.normalized_recap_path.read_bytes(),
-            candidate_bytes=outputs.get((run_id, "candidate_graph"), resolved.candidate_graph_path.read_bytes()),
+            candidate_bytes=outputs[(run_id, "candidate_graph")] if (run_id, "candidate_graph") in outputs else resolved.candidate_graph_path.read_bytes(),
             span_bytes=resolved.source_span_index_path.read_bytes(),
             span_index=extract_promote._load_frozen_span_index_for_resolved_run(resolved))
 
@@ -565,240 +577,19 @@ def _request(parent_bytes: bytes) -> RecapCandidateCorrectionRequest:
     )
 
 
-def test_source_binding_rechecks_snapshot_after_child_lock_wait(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
-) -> None:
+def test_source_binding_rechecks_snapshot_after_database_lease_wait(monkeypatch, tmp_path):
     parent, parent_bytes, runs = _fixture(monkeypatch, tmp_path)
-    request = _request(parent_bytes)
     source_path = _component_path(tmp_path, parent, "source_artifact")
-    source_before = source_path.read_bytes()
-    original_lock = service._source_binding_child_lock
-    acquired: list[str] = []
-
+    from application_state.ingest import components
     @contextmanager
-    def change_source_after_lock(root: Path, child_id: str):
-        with original_lock(root, child_id):
-            acquired.append(child_id)
-            source_path.write_bytes(source_before + b"changed while waiting")
-            yield
-
-    monkeypatch.setattr(service, "_source_binding_child_lock", change_source_after_lock)
+    def change_source(parent_id):
+        assert parent_id == parent.run_id
+        source_path.write_bytes(source_path.read_bytes() + b"changed while waiting")
+        yield
+    monkeypatch.setattr(components, "correction_parent_lease", change_source)
     with pytest.raises(service.ExtractPromoteError, match="parent run authority changed"):
-        service.correct_recap_candidate(request)
-
-    assert len(acquired) == 1
+        service.correct_recap_candidate(_request(parent_bytes))
     assert set(runs) == {parent.run_id}
-    package_root = tmp_path / "out" / "graph_memory" / "derived_candidates"
-    assert not (package_root / acquired[0]).exists()
-
-
-@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="FIFO paths require POSIX")
-def test_source_binding_child_reader_rejects_fifo_without_blocking(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    fifo = tmp_path / "component.fifo"
-    os.mkfifo(fifo)
-    directory_fd = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
-    original_open = os.open
-
-    def require_nonblocking(path, flags, *args, **kwargs):
-        if path == fifo.name:
-            assert flags & os.O_NONBLOCK
-        return original_open(path, flags, *args, **kwargs)
-
-    monkeypatch.setattr(service.os, "open", require_nonblocking)
-    try:
-        with pytest.raises(service.ExtractPromoteError, match="not a regular file"):
-            service._read_child_file(directory_fd, fifo.name)
-    finally:
-        os.close(directory_fd)
-
-
-@pytest.mark.parametrize(
-    "fault",
-    [
-        "after_draft",
-        "source_only",
-        "candidate_only",
-        "owner_staging",
-        "after_prepared",
-        "after_extracted",
-        "after_validated",
-        "after_reviewable",
-    ],
-)
-def test_source_binding_exact_retry_recovers_owned_partial_and_sealed_state(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, fault: str,
-) -> None:
-    parent, parent_bytes, runs = _fixture(monkeypatch, tmp_path)
-    source_before = _component_path(tmp_path, parent, "source_artifact").read_bytes()
-    spans_before = _component_path(tmp_path, parent, "source_span_index").read_bytes()
-    request = _request(parent_bytes)
-    original_create = service.create_extraction_run
-    original_update = service.update_extraction_run_status
-    original_publish = service._publish_child_package_files
-    interrupted = False
-    owner_staging_path: Path | None = None
-
-    def create_then_interrupt(root, **kwargs):
-        nonlocal interrupted
-        child = original_create(root, **kwargs)
-        if fault == "after_draft" and not interrupted:
-            interrupted = True
-            raise RuntimeError("injected interruption after DRAFT row creation")
-        return child
-
-    def update_then_interrupt(root, run_id, *, status, expected_revision):
-        nonlocal interrupted
-        child = original_update(
-            root, run_id, status=status, expected_revision=expected_revision,
-        )
-        if fault == f"after_{status.value}" and not interrupted:
-            interrupted = True
-            raise RuntimeError(f"injected interruption after {status.value}")
-        return child
-
-    def publish_then_interrupt(root, child_id, *, source_bytes, candidate_bytes, allow_existing):
-        nonlocal interrupted, owner_staging_path
-        if fault in {"source_only", "candidate_only"} and not interrupted:
-            package = root / "out" / "graph_memory" / "derived_candidates" / child_id
-            package.mkdir(parents=True, exist_ok=True)
-            if fault == "source_only":
-                (package / "source.md").write_bytes(source_bytes)
-            else:
-                (package / "candidate_graph.json").write_bytes(candidate_bytes)
-            interrupted = True
-            raise RuntimeError(f"injected interruption with {fault} package")
-        if fault == "owner_staging" and not interrupted:
-            staging = root / "out" / "graph_memory" / "derived_candidates" / ".staging"
-            staging.mkdir(parents=True, exist_ok=True)
-            owner_staging_path = staging / f"{child_id}.prior-owner.tmp"
-            owner_staging_path.write_bytes(b"preserve prior owner's staging artifact")
-            interrupted = True
-            raise RuntimeError("injected interruption with prior-owner staging file")
-        return original_publish(
-            root, child_id, source_bytes=source_bytes,
-            candidate_bytes=candidate_bytes, allow_existing=allow_existing,
-        )
-
-    monkeypatch.setattr(service, "create_extraction_run", create_then_interrupt)
-    monkeypatch.setattr(service, "update_extraction_run_status", update_then_interrupt)
-    monkeypatch.setattr(service, "_publish_child_package_files", publish_then_interrupt)
-
-    with pytest.raises(RuntimeError, match="injected interruption"):
-        service.correct_recap_candidate(request)
-
-    assert interrupted
-    child_ids = set(runs) - {parent.run_id}
-    assert len(child_ids) == 1
-    child_id = child_ids.pop()
-    child = runs[child_id]
-    if fault in {"after_draft", "source_only", "candidate_only", "owner_staging"}:
-        assert child.status == ExtractionRunStatus.DRAFT
-    else:
-        expected_status = {
-            "after_prepared": ExtractionRunStatus.PREPARED,
-            "after_extracted": ExtractionRunStatus.EXTRACTED,
-            "after_validated": ExtractionRunStatus.VALIDATED,
-            "after_reviewable": ExtractionRunStatus.REVIEWABLE,
-        }[fault]
-        assert child.status == expected_status
-
-    monkeypatch.setattr(service, "create_extraction_run", original_create)
-    monkeypatch.setattr(service, "update_extraction_run_status", original_update)
-    monkeypatch.setattr(service, "_publish_child_package_files", original_publish)
-    response = service.correct_recap_candidate(request)
-
-    assert response.run_id == child_id
-    assert set(runs) - {parent.run_id} == {child_id}
-    child = runs[child_id]
-    assert child.status == ExtractionRunStatus.REVIEWABLE
-    assert service.verify_child_replay(child, parent, tmp_path)
-    assert _component_path(tmp_path, parent, "source_artifact").read_bytes() == source_before
-    assert _component_path(tmp_path, parent, "source_span_index").read_bytes() == spans_before
-    _, package_files = service._source_binding_package_state(tmp_path, child_id)
-    assert set(package_files) == {"source.md", "candidate_graph.json"}
-    assert package_files["source.md"] == source_before
-    assert package_files["candidate_graph.json"] == _candidate_path(tmp_path, child).read_bytes()
-    if owner_staging_path is not None:
-        assert owner_staging_path.read_bytes() == b"preserve prior owner's staging artifact"
-
-
-@pytest.mark.parametrize("historical_state", ["exact", "stranded_draft", "mismatched", "orphan"])
-def test_source_binding_never_duplicates_or_adopts_legacy_child(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, historical_state: str,
-) -> None:
-    parent, parent_bytes, runs = _fixture(monkeypatch, tmp_path)
-    request = _request(parent_bytes)
-    bound_response = service.correct_recap_candidate(request)
-    bound = runs.pop(bound_response.run_id)
-    candidate_bytes = _candidate_path(tmp_path, bound).read_bytes()
-    bound_package = _candidate_path(tmp_path, bound).parent
-    for name in ("source.md", "candidate_graph.json"):
-        (bound_package / name).unlink()
-    bound_package.rmdir()
-
-    legacy_id = str(uuid5(
-        NAMESPACE_URL,
-        f"dmb:{service.DERIVATION}:{parent.run_id}:{_sha(parent_bytes)}:{bound_response.manifest_sha256}",
-    ))
-    legacy_relative = f"out/graph_memory/derived_candidates/{legacy_id}/candidate_graph.json"
-    legacy_dir = tmp_path / "out" / "graph_memory" / "derived_candidates" / legacy_id
-    legacy_lineage = copy.deepcopy(bound.lineage)
-    for key in ("operation_derivation", "operation_manifest_schema", "semantic_source_binding_basis_v12"):
-        legacy_lineage.pop(key, None)
-    legacy_lineage["derivation"] = service.DERIVATION
-    legacy_components = dict(bound.components)
-    legacy_components["candidate_graph"] = legacy_components["candidate_graph"].model_copy(
-        update={"uri": legacy_relative},
-    )
-    legacy_components["source_artifact"] = parent.components["source_artifact"]
-    legacy_components["source_span_index"] = parent.components["source_span_index"]
-    legacy = bound.model_copy(update={
-        "run_id": legacy_id,
-        "status": ExtractionRunStatus.REVIEWABLE,
-        "revision": 1,
-        "components": legacy_components,
-        "lineage": legacy_lineage,
-    })
-
-    legacy_dir.mkdir(parents=True, exist_ok=True)
-    if historical_state != "orphan":
-        (legacy_dir / "candidate_graph.json").write_bytes(candidate_bytes)
-        runs[legacy_id] = legacy
-        assessment = assess_recap_semantics(
-            legacy,
-            parent=parent,
-            source_revision_id=_sha(_component_path(tmp_path, parent, "source_artifact").read_bytes()),
-            root=tmp_path,
-        )
-        assert assessment.basis is not None and assessment.basis_sha256 is not None
-        legacy.lineage["semantic_disposition"] = {
-            "version": 1,
-            "state": "held",
-            "basis_sha256": assessment.basis_sha256,
-        }
-        if historical_state == "stranded_draft":
-            legacy.status = ExtractionRunStatus.DRAFT
-        elif historical_state == "mismatched":
-            legacy.lineage["manifest_sha256"] = "0" * 64
-        runs[legacy_id] = legacy
-    else:
-        (legacy_dir / "candidate_graph.json").write_bytes(candidate_bytes)
-    bytes_before = (legacy_dir / "candidate_graph.json").read_bytes()
-    rows_before = set(runs)
-
-    if historical_state == "exact":
-        response = service.correct_recap_candidate(request)
-        assert response.run_id == legacy_id
-        assert response.run_id != bound_response.run_id
-    else:
-        with pytest.raises(extract_promote.ExtractPromoteError, match=legacy_id):
-            service.correct_recap_candidate(request)
-
-    assert set(runs) == rows_before
-    assert (legacy_dir / "candidate_graph.json").read_bytes() == bytes_before
-    assert not (tmp_path / "out" / "graph_memory" / "derived_candidates" / bound_response.run_id).exists()
 
 
 def _label_request(parent_bytes: bytes) -> RecapCandidateCorrectionRequest:
@@ -1577,7 +1368,7 @@ def test_semantic_child_world_scope_fails_before_persistence(monkeypatch, tmp_pa
         monkeypatch, tmp_path, context=context, source_world_id=source_world_id,
     )
     writes = []
-    monkeypatch.setattr(service, "_publish_child_package_files", lambda *args, **kwargs: writes.append("candidate"))
+    monkeypatch.setattr(output_store, "persist_component_payload", lambda *args, **kwargs: writes.append("candidate"))
     monkeypatch.setattr(service, "create_extraction_run", lambda *args, **kwargs: writes.append("run"))
 
     with pytest.raises(service.ExtractPromoteError):
@@ -2424,7 +2215,7 @@ def test_http_evidence_ref_split_rejects_before_any_write(monkeypatch, tmp_path,
     def forbidden_write(*args, **kwargs):
         pytest.fail("invalid split reached a child write")
 
-    monkeypatch.setattr(service, "_publish_child_package_files", forbidden_write)
+    monkeypatch.setattr(output_store, "persist_component_payload", forbidden_write)
     monkeypatch.setattr(service, "create_extraction_run", forbidden_write)
     app = _split_http_app(monkeypatch)
 
@@ -2606,7 +2397,7 @@ def test_node_omission_rejects_before_any_write(monkeypatch, tmp_path, fault):
     def forbidden_write(*args, **kwargs):
         pytest.fail("invalid omission reached a child write")
 
-    monkeypatch.setattr(service, "_publish_child_package_files", forbidden_write)
+    monkeypatch.setattr(output_store, "persist_component_payload", forbidden_write)
     monkeypatch.setattr(service, "create_extraction_run", forbidden_write)
     with pytest.raises(ExtractPromoteError) as error:
         service.correct_recap_candidate(request)
@@ -2798,7 +2589,7 @@ def test_node_omission_cannot_mix_with_label_correction(monkeypatch, tmp_path, l
         pytest.fail("mixed omission/label reached a child write")
 
     with monkeypatch.context() as guarded:
-        guarded.setattr(service, "_publish_child_package_files", forbidden_write)
+        guarded.setattr(output_store, "persist_component_payload", forbidden_write)
         guarded.setattr(service, "create_extraction_run", forbidden_write)
         asyncio.run(exercise())
         # Replay must enforce the same restriction even when model validation is bypassed.
@@ -2994,7 +2785,7 @@ def test_http_atomic_omission_rejects_retained_dependencies_before_writes(monkey
     parent = parent.model_copy(update={"components": components}); runs["parent"] = parent
     body["parent_candidate_sha256"] = _sha(raw)
     writes = []
-    monkeypatch.setattr(service, "_publish_child_package_files", lambda *args, **kwargs: writes.append("file"))
+    monkeypatch.setattr(output_store, "persist_component_payload", lambda *args, **kwargs: writes.append("file"))
     monkeypatch.setattr(service, "create_extraction_run", lambda *args, **kwargs: writes.append("run"))
     app = _split_http_app(monkeypatch)
     async def exercise():
@@ -3013,7 +2804,7 @@ def test_http_atomic_bad_last_operation_does_not_persist_earlier_edits(monkeypat
     # Earlier descriptions, labels, tuple, omission and first evidence edit are valid.
     body["evidence_replacements"][-1]["anchor_quotes"] = ["not in the frozen source"]
     writes = []
-    monkeypatch.setattr(service, "_publish_child_package_files", lambda *args, **kwargs: writes.append("file"))
+    monkeypatch.setattr(output_store, "persist_component_payload", lambda *args, **kwargs: writes.append("file"))
     monkeypatch.setattr(service, "create_extraction_run", lambda *args, **kwargs: writes.append("run"))
     app = _split_http_app(monkeypatch)
     async def exercise():
@@ -3120,7 +2911,7 @@ def test_http_final35_failure_has_zero_file_or_row_effects(monkeypatch, tmp_path
     elif failure == "last_description": body["node_description_replacements"][-1]["original_description"] = "stale"
     else: body["node_label_replacements"][-1]["original_label"] = "stale"
     writes = []
-    monkeypatch.setattr(service, "_publish_child_package_files", lambda *args, **kwargs: writes.append("file"))
+    monkeypatch.setattr(output_store, "persist_component_payload", lambda *args, **kwargs: writes.append("file"))
     monkeypatch.setattr(service, "create_extraction_run", lambda *args, **kwargs: writes.append("row"))
     app = _split_http_app(monkeypatch)
     async def exercise():

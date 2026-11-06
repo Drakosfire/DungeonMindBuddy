@@ -5,14 +5,10 @@ from __future__ import annotations
 from src.graph_memory.extraction.recap_extraction_profile import RECAP_READ_PROFILE_IDS
 
 import copy
-from contextlib import contextmanager
-import fcntl
 import json
-import os
 from pathlib import Path
-import stat
 from typing import Any
-from uuid import NAMESPACE_URL, uuid4, uuid5
+from uuid import NAMESPACE_URL, uuid5
 
 from apps.live_control_server.config import artifact_data_root, repo_root
 from apps.live_control_server.models.extract_promote import (
@@ -113,183 +109,6 @@ SOURCE_BINDING_DERIVATION_V11 = "operator_recap_semantic_source_binding_v11"
 
 MAX_EDGE_TUPLE_REPLACEMENTS = 7
 EDGE_TUPLE_FIELDS = ("from_node_id", "relationship_type", "to_node_id", "label")
-
-
-def _open_secure_directory(root: Path, parts: tuple[str, ...], *, create: bool) -> int | None:
-    """Open a root-contained directory chain without following symlinks."""
-    directory_flag = getattr(os, "O_DIRECTORY", 0)
-    nofollow_flag = getattr(os, "O_NOFOLLOW", 0)
-    if not directory_flag or not nofollow_flag:
-        raise _reject("safe source-binding directory operations are unavailable", status_code=503)
-    root_path = root.resolve(strict=True)
-    fd = os.open(root_path, os.O_RDONLY | directory_flag | nofollow_flag)
-    try:
-        for part in parts:
-            if not part or part in {".", ".."} or "/" in part or "\\" in part:
-                raise _reject("unsafe source-binding directory path", status_code=409)
-            if create:
-                try:
-                    os.mkdir(part, 0o700, dir_fd=fd)
-                except FileExistsError:
-                    pass
-            try:
-                child_fd = os.open(
-                    part, os.O_RDONLY | directory_flag | nofollow_flag, dir_fd=fd,
-                )
-            except FileNotFoundError:
-                os.close(fd)
-                return None
-            except OSError as exc:
-                raise _reject(
-                    f"source-binding directory is unsafe: {exc}", status_code=409,
-                ) from exc
-            os.close(fd)
-            fd = child_fd
-        return fd
-    except BaseException:
-        try:
-            os.close(fd)
-        except OSError:
-            pass
-        raise
-
-
-@contextmanager
-def _source_binding_child_lock(root: Path, child_id: str):
-    lock_dir_fd = _open_secure_directory(
-        root, ("out", "graph_memory", "derived_candidates", ".locks"), create=True,
-    )
-    if lock_dir_fd is None:
-        raise _reject("source-binding lock directory is unavailable", status_code=409)
-    lock_fd = None
-    try:
-        lock_fd = os.open(
-            f"{child_id}.lock",
-            os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0),
-            0o600,
-            dir_fd=lock_dir_fd,
-        )
-        details = os.fstat(lock_fd)
-        if not stat.S_ISREG(details.st_mode) or details.st_nlink != 1:
-            raise _reject("source-binding lock file is not private and regular", status_code=409)
-        fcntl.flock(lock_fd, fcntl.LOCK_EX)
-        yield
-    finally:
-        if lock_fd is not None:
-            try:
-                fcntl.flock(lock_fd, fcntl.LOCK_UN)
-            finally:
-                os.close(lock_fd)
-        os.close(lock_dir_fd)
-
-
-def _read_child_file(directory_fd: int, name: str) -> bytes | None:
-    nofollow_flag = getattr(os, "O_NOFOLLOW", 0)
-    nonblocking_flag = getattr(os, "O_NONBLOCK", 0)
-    if not nofollow_flag or not nonblocking_flag:
-        raise _reject("safe source-binding file reads are unavailable", status_code=503)
-    try:
-        fd = os.open(
-            name, os.O_RDONLY | nofollow_flag | nonblocking_flag, dir_fd=directory_fd,
-        )
-    except FileNotFoundError:
-        return None
-    except OSError as exc:
-        raise _reject(f"source-binding package file is unsafe: {exc}", status_code=409) from exc
-    try:
-        details = os.fstat(fd)
-        if not stat.S_ISREG(details.st_mode):
-            raise _reject("source-binding package component is not a regular file", status_code=409)
-        chunks = []
-        while True:
-            chunk = os.read(fd, 1024 * 1024)
-            if not chunk:
-                break
-            chunks.append(chunk)
-        return b"".join(chunks)
-    finally:
-        os.close(fd)
-
-
-def _publish_child_package_files(
-    root: Path, child_id: str, *, source_bytes: bytes, candidate_bytes: bytes,
-    allow_existing: bool,
-) -> None:
-    """Atomically link verified staged files into the locked child package."""
-    relative = ("out", "graph_memory", "derived_candidates")
-    staging_fd = _open_secure_directory(root, (*relative, ".staging"), create=True)
-    package_fd = _open_secure_directory(root, (*relative, child_id), create=True)
-    if staging_fd is None or package_fd is None:
-        if staging_fd is not None:
-            os.close(staging_fd)
-        if package_fd is not None:
-            os.close(package_fd)
-        raise _reject(f"child {child_id} package could not be opened", status_code=409)
-    staged: list[str] = []
-    try:
-        expected = {"source.md": source_bytes, "candidate_graph.json": candidate_bytes}
-        names = set(os.listdir(package_fd))
-        if names - expected.keys():
-            raise _reject(f"child {child_id} package contains unexpected files", status_code=409)
-        for name, content in expected.items():
-            current = _read_child_file(package_fd, name)
-            if current is not None:
-                if not allow_existing or current != content:
-                    raise _reject(f"child {child_id} package conflicts at {name}", status_code=409)
-                continue
-            stage_name = f"{child_id}.{uuid4().hex}.tmp"
-            stage_fd = os.open(
-                stage_name,
-                os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0),
-                0o600,
-                dir_fd=staging_fd,
-            )
-            staged.append(stage_name)
-            try:
-                view = memoryview(content)
-                while view:
-                    written = os.write(stage_fd, view)
-                    view = view[written:]
-                os.fsync(stage_fd)
-            finally:
-                os.close(stage_fd)
-            try:
-                os.link(
-                    stage_name, name, src_dir_fd=staging_fd,
-                    dst_dir_fd=package_fd, follow_symlinks=False,
-                )
-            except FileExistsError:
-                if _read_child_file(package_fd, name) != content:
-                    raise _reject(f"child {child_id} package conflicts at {name}", status_code=409)
-            os.fsync(package_fd)
-    finally:
-        for stage_name in staged:
-            try:
-                os.unlink(stage_name, dir_fd=staging_fd)
-            except FileNotFoundError:
-                pass
-        os.close(package_fd)
-        os.close(staging_fd)
-
-
-def _source_binding_package_state(root: Path, child_id: str) -> tuple[bool, dict[str, bytes]]:
-    """Return whether a package exists and its present regular file contents."""
-    package_fd = _open_secure_directory(
-        root, ("out", "graph_memory", "derived_candidates", child_id), create=False,
-    )
-    if package_fd is None:
-        return False, {}
-    try:
-        names = set(os.listdir(package_fd))
-        if names - {"source.md", "candidate_graph.json"}:
-            raise _reject(f"child {child_id} package contains unexpected files", status_code=409)
-        return True, {
-            name: value
-            for name in ("source.md", "candidate_graph.json")
-            if (value := _read_child_file(package_fd, name)) is not None
-        }
-    finally:
-        os.close(package_fd)
 
 
 def _contains(value: object, target: str) -> bool:
@@ -2344,7 +2163,9 @@ def correct_recap_candidate(
         else RecapCandidateCorrectionResponse
     )
 
-    with _source_binding_child_lock(root, child_id):
+    from application_state.ingest.components import correction_parent_lease
+
+    with correction_parent_lease(parent.run_id):
         # The first preflight can be followed by a wait on another request for
         # this deterministic child. Reload the run and resolver authority under
         # the lock: a parent may have been rejected, superseded, or revised
@@ -2419,21 +2240,13 @@ def correct_recap_candidate(
                 "recap source snapshot changed while waiting for the child lock",
                 status_code=409,
             )
-        legacy_exists, legacy_files = _source_binding_package_state(root, legacy_child_id)
         try:
             legacy_run = get_extraction_run(root, legacy_child_id)
         except GraphRunRegistryError as exc:
             if exc.status_code != 404:
                 raise _reject(f"legacy child lookup failed: {exc}", status_code=409) from exc
             legacy_run = None
-        if legacy_run is None:
-            if legacy_exists:
-                raise _reject(
-                    f"legacy child {legacy_child_id} has an orphan candidate package; "
-                    "it cannot be adopted by source binding",
-                    status_code=409,
-                )
-        else:
+        if legacy_run is not None:
             if (
                 legacy_run.status != ExtractionRunStatus.REVIEWABLE
                 or legacy_run.lineage.get("derivation") != derivation
@@ -2441,10 +2254,6 @@ def correct_recap_candidate(
                 or legacy_run.lineage.get("manifest_sha256") != manifest_sha
                 or legacy_run.lineage.get("semantic_candidate_manifest") != manifest
                 or legacy_run.components.get("candidate_graph") is None
-                or legacy_run.components["candidate_graph"].uri
-                != f"out/graph_memory/derived_candidates/{legacy_child_id}/candidate_graph.json"
-                or set(legacy_files) != {"candidate_graph.json"}
-                or legacy_files.get("candidate_graph.json") is None
                 or legacy_run.components.get("source_artifact") != source_ref
                 or legacy_run.components.get("source_span_index") != span_ref
                 or not verify_child_replay(legacy_run, parent, root)
@@ -2480,7 +2289,6 @@ def correct_recap_candidate(
                 **actor_recovery_counts,
             )
 
-        package_exists, package_files = _source_binding_package_state(root, child_id)
         try:
             child = get_extraction_run(root, child_id)
         except GraphRunRegistryError as exc:
@@ -2489,12 +2297,6 @@ def correct_recap_candidate(
                     f"source-binding child {child_id} lookup failed: {exc}", status_code=409,
                 ) from exc
             child = None
-        if child is None and package_exists:
-            raise _reject(
-                f"source-binding child {child_id} has an orphan package; it cannot be adopted",
-                status_code=409,
-            )
-        existing_child_row = child is not None
         if child is not None:
             if (
                 child.components != components
@@ -2511,15 +2313,18 @@ def correct_recap_candidate(
                     f"source-binding child {child_id} row identity conflicts; held status preserved",
                     status_code=409,
                 )
-            if child.status != ExtractionRunStatus.DRAFT and (
-                set(package_files) != {"source.md", "candidate_graph.json"}
-                or package_files.get("source.md") != source_bytes
-                or package_files.get("candidate_graph.json") != child_bytes
-            ):
-                raise _reject(
-                    f"source-binding child {child_id} is {child.status.value} with an incomplete package; held status preserved",
-                    status_code=409,
-                )
+            if child.status != ExtractionRunStatus.DRAFT:
+                # Frozen/recovering children must already own their exact DB outputs.
+                # A locator or replayed parent cannot repair missing/corrupt evidence.
+                if (
+                    _frozen_component(child, "candidate_graph", root) != child_bytes
+                    or _frozen_component(child, "source_span_index", root) != span_bytes
+                    or _frozen_component(child, "source_artifact", root) != source_bytes
+                ):
+                    raise _reject(
+                        f"source-binding child {child_id} stored evidence conflicts; held status preserved",
+                        status_code=409,
+                    )
         else:
             try:
                 child = create_extraction_run(
@@ -2547,19 +2352,6 @@ def correct_recap_candidate(
         if child.status not in _LIFECYCLE:
             raise _reject(
                 f"source-binding child {child_id} has non-resumable status {child.status.value}; held status preserved",
-                status_code=409,
-            )
-        _publish_child_package_files(
-            root, child_id, source_bytes=source_bytes, candidate_bytes=child_bytes,
-            allow_existing=existing_child_row,
-        )
-        package_exists, package_files = _source_binding_package_state(root, child_id)
-        if (
-            not package_exists
-            or package_files != {"source.md": source_bytes, "candidate_graph.json": child_bytes}
-        ):
-            raise _reject(
-                f"source-binding child {child_id} package did not seal; held status preserved",
                 status_code=409,
             )
         from application_state.ingest.components import persist_component_payload
@@ -2601,6 +2393,11 @@ def correct_recap_candidate(
                 f"source-binding child {child_id} resolved to another run; held status preserved",
                 status_code=409,
             )
+        # A disposition uses its own CAS and may complete during resolution.
+        # Return the latest verified snapshot, never an earlier held snapshot.
+        child = get_extraction_run(root, child_id)
+        if child.status != ExtractionRunStatus.REVIEWABLE or not verify_child_replay(child, parent, root):
+            raise _reject("correction child changed during final resolution", status_code=409)
         raw = child.lineage.get("semantic_disposition") or {}
         semantic_state = raw.get("state")
         if semantic_state not in {"held", "accepted", "rejected"} or raw.get("basis_sha256") != basis.digest():
