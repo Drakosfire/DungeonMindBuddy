@@ -366,16 +366,14 @@ class NativeBodyNavigation:
         offered = {row.handle for row in self.offered()}
         if not handles or len(set(handles)) != len(handles) or not set(handles) <= offered:
             raise ValueError("Native source selection differs from its offered current catalog")
-        with a.fence.renewer._lock:
-            for handle in handles:
-                # This owner already holds the non-reentrant claim lock. Do not
-                # re-enter the public snapshot accessor while materializing.
+        from .native_retrieval_activity import observe_native_retrieval
+        for handle in handles:
+            with a.fence.renewer._lock:
                 turn = a.fence.renewer._turn
-                if handle == native_corpus_search_handle(sha256(turn.user_text.encode()).hexdigest()):
-                    grant = self._commit("authorize_native_body_search", event_id=uuid4())
-                    self._commit("observe_native_body_search", event_id=uuid4(), authorization_event_id=grant.event_id,
-                        capture=lambda: capture_native_sources(managed_world_id=turn.world_id,
-                            principal=context.principal, prepared=context))
+                is_search = handle == native_corpus_search_handle(sha256(turn.user_text.encode()).hexdigest())
+                if is_search:
+                    auth = self._commit("authorize_native_body_search", event_id=uuid4())
+                    operation = 'source_search'
                 else:
                     _, search, _, _ = self._events(turn)
                     if handle.startswith("native-full-document:"):
@@ -385,9 +383,21 @@ class NativeBodyNavigation:
                         kind = "section"
                     auth = self._commit("authorize_native_body_read", event_id=uuid4(), search_event_id=search.event_id,
                         catalog_sha256=catalog_sha, retrieval_kind=kind, section_id=section)
-                    self._commit("observe_native_body_read", event_id=uuid4(), authorization_event_id=auth.event_id,
+                    operation = 'source_document_read' if kind == 'full_document' else 'source_section_read'
+            # Capture owns the same claim lock. Persist the issued request before
+            # I/O, outside that lock; each materialization uses the latest turn.
+            observe_native_retrieval(a, operation, handle)
+            with a.fence.renewer._lock:
+                if is_search:
+                    result = self._commit("observe_native_body_search", event_id=uuid4(), authorization_event_id=auth.event_id,
+                        capture=lambda: capture_native_sources(managed_world_id=turn.world_id,
+                            principal=context.principal, prepared=context))
+                else:
+                    result = self._commit("observe_native_body_read", event_id=uuid4(), authorization_event_id=auth.event_id,
                         read=lambda authority, member: read_native_corpus_member(authority=authority, member=member,
                             principal=context.principal, prepared=context))
+            observe_native_retrieval(a, operation, handle, completed=True,
+                unavailable=not is_search and result.excerpt is None)
         return {"schema": "dmb_native_body_navigation_result_v1", "body_text_exposed": False}
 
     def unavailable(self, code):

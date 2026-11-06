@@ -1,4 +1,5 @@
 import './BuddyActivity.css'
+import { nativeRetrievalActivity } from './nativeRetrievalActivity'
 import { useState } from 'react'
 import type { AgentConversationTurnLifecycleV1 } from '../../api/types'
 import type { BuddyTraceObservation } from '../../api/buddyContextTraceTypes'
@@ -49,7 +50,7 @@ function activity(event: BuddyTraceObservation): string {
       : event.snapshot_kind === 'validated_answer' ? 'The reply is assembled.'
       : event.snapshot_kind === 'compaction_input' ? 'Taking stock of the notes…'
       : event.snapshot_kind === 'compaction_output' ? 'The notes after a tidy-up.' : 'A captured snapshot of the notes.'
-    case 'context_decision': if(event.policy_version==='reviewed_author_action_v1')return 'Following your reviewed step.'; return event.action === 'retrieved' && event.policy_version === 'selected_exact_related_authored_pages_v1'
+    case 'context_decision': if (nativeRetrievalActivity(event)) return nativeRetrievalActivity(event)!; if(event.policy_version==='reviewed_author_action_v1')return 'Following your reviewed step.'; return event.action === 'retrieved' && event.policy_version === 'selected_exact_related_authored_pages_v1'
       ? 'Another page joins the reading pile.' : `Tidying the notes · ${event.action}.`
     case 'failure': return event.phase === 'trace_capture' ? 'Some trace details are missing.' : 'Hit a snag—open the report.'
   }
@@ -64,7 +65,7 @@ export function BuddyActivity({ worldId, conversationId, turnId, lifecycle }: { 
   const trace = inspection.data?.attempts.at(-1)
   const observations = activityObservations(trace?.observations ?? [])
   const last = observations.at(-1)
-  const focus = [...observations].reverse().find(event => event.kind === 'graph_tool' || event.kind === 'source_passage'
+  const focus = [...observations].reverse().find(event => nativeRetrievalActivity(event) !== null || event.kind === 'graph_tool' || event.kind === 'source_passage'
     || event.kind === 'source_passage_reuse' || event.kind === 'authored_graph_reference_v1')
   const progress = last && focus && last.kind !== 'failure'
     && (last.kind === 'context_snapshot' && last.snapshot_kind !== 'validated_answer'
