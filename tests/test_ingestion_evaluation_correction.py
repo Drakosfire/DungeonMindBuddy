@@ -131,3 +131,34 @@ def test_correction_manifest_mode_and_cli_are_closed(tmp_path):
     assert json.loads(result.stdout)['state']=='not_dispatched'
     manifest['correction']['review_pins']=[];path.write_text(json.dumps(manifest))
     with pytest.raises(ValueError,match='independent reviews'):verify_manifest(path)
+
+
+@pytest.mark.parametrize('damage',[None,'basis_sha256','review_decision_ref','reviewer_id','from_revision','state'])
+def test_committed_disposition_requires_exact_receipt(damage):
+    from ingestion_evaluation.correction import CorrectionBackend
+    backend=CorrectionBackend.__new__(CorrectionBackend)
+    backend.operation='semantic_disposition'
+    backend.item={'expected_run_revision':5}
+    backend.spec={'principal':'local_operator'}
+    expected={'run_id':'child','decision':'accepted','basis_sha256':'basis','review_decision_ref':'review'}
+    receipt={'state':'accepted','basis_sha256':'basis','review_decision_ref':'review',
+             'reviewer_id':'local_operator','from_revision':5}
+    if damage:receipt[damage]='different'
+    backend._owned=lambda run:{'ingest.run':[['row',1]]}
+    backend._run_row=lambda run:{'revision':6,'lineage':{'semantic_disposition':receipt}}
+    assert backend.committed({'expected':expected}) is (damage is None)
+
+
+def test_disposition_rejects_other_correction_family_before_lookup(tmp_path):
+    import json
+    from types import SimpleNamespace
+    from ingestion_evaluation.correction import CorrectionBackend
+    from ingestion_evaluation.runner import digest
+    backend=CorrectionBackend.__new__(CorrectionBackend)
+    p=tmp_path/'basis.json';p.write_text(json.dumps({'request_version':9}))
+    backend.spec={'child_basis':{'path':str(p),'sha256':digest(p.read_bytes())}}
+    backend.request={'expected_revision':5,'candidate_sha256':'a'*64,
+                     'decision':'accepted','review_decision_ref':'synthetic:review'}
+    data=SimpleNamespace(run=SimpleNamespace(lineage={'semantic_candidate_manifest':{}}))
+    with pytest.raises(ValueError,match='V12-wrapped V8 type-only'):
+        backend._decision(data)

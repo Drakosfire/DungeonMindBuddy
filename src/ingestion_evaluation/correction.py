@@ -162,6 +162,17 @@ class CorrectionBackend:
         import json
         request = RecapSemanticDecisionRequest.model_validate(self.request)
         basis_pin = json.loads(read_pin(self.spec['child_basis']))
+        from apps.live_control_server.services import recap_semantic_candidate_correction as owner
+        manifest = data.run.lineage.get('semantic_candidate_manifest', {})
+        if (basis_pin.get('request_version') != 8
+                or basis_pin.get('derivation') != owner.SOURCE_BINDING_DERIVATION_V11
+                or basis_pin.get('operation_derivation') != owner.DERIVATION_V8
+                or basis_pin.get('operation_manifest_schema') != owner.MANIFEST_SCHEMA_V8
+                or manifest.get('schema') != owner.MANIFEST_SCHEMA_V8
+                or not manifest.get('node_type_replacements')
+                or any(manifest.get(key) for key in ('node_description_replacements','node_label_replacements',
+                    'edge_tuple_replacements','edge_omissions','evidence_replacements','node_omissions'))):
+            raise ValueError('Disposition is limited to an actual V12-wrapped V8 type-only child')
         parent = get_extraction_run(config.artifact_data_root(),data.run.lineage['parent_run_id'])
         assessment = assess_recap_semantics(data.run,parent=parent,
             source_revision_id=digest(data.source_bytes),root=config.artifact_data_root())
@@ -260,5 +271,11 @@ class CorrectionBackend:
         if not rows:
             return False
         row = self._run_row(prepared['expected']['run_id'])
+        receipt = row['lineage'].get('semantic_disposition',{})
+        expected = prepared['expected']
         return (row['revision'] == self.item['expected_run_revision']+1
-                and row['lineage'].get('semantic_disposition',{}).get('state') == prepared['expected']['decision'])
+                and receipt.get('state') == expected['decision']
+                and receipt.get('basis_sha256') == expected['basis_sha256']
+                and receipt.get('review_decision_ref') == expected['review_decision_ref']
+                and receipt.get('reviewer_id') == self.spec['principal']
+                and receipt.get('from_revision') == self.item['expected_run_revision'])
