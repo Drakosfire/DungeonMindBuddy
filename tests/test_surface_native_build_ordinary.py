@@ -28,7 +28,7 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -73,7 +73,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         field,value = {'revision':('graph_revision','rev:missing'), 'node':('node_id','ent:missing'),
             'reference_world':('managed_world_id','foreign-world')}[failure]
         selected = selected.model_copy(update={'references':(selected.references[0].model_copy(update={field:value}),)})
-    if authored_source:
+    if authored_source or direct_source == 'covered-batch' or native_source_text is not None:
         from dungeonmind.application.vnext import publish_native_text_source_evidence, list_admitted_native_text_sources
         from dungeonmind.contracts.vnext.native_source import NativeTextSourceAdmissionV1
         from graph_memory.vnext.domain_runtime import dungeonbuddy_world_domain_contract, dungeonbuddy_dnd5e_custom_predicate_profile
@@ -81,21 +81,22 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         from apps.live_control_server.integrations.dungeonmind.native_corpus_source import prepare_native_source_context
         from application_state.agent_conversation.authored_graph_references import AuthoredSourceReferenceV1, AuthoredReferencesV2
         from application_state.agent_conversation.native_source_catalog import section_catalog
-        human_text='# Opening\nA proposed note.\n# Episode\nThe source describes a source-local episode. 🌿\n'
+        human_text=native_source_text or '# Opening\nA proposed note.\n# Episode\nThe source describes a source-local episode. 🌿\n'
         raw=human_text.encode()
         admission=publish_native_text_source_evidence(repository=lane.repo,domain_contract=dungeonbuddy_world_domain_contract(),
             semantic_profile=dungeonbuddy_dnd5e_custom_predicate_profile(),request=NativeTextSourceAdmissionV1(
                 space_id=world,admission_id='human-selected-source',expected_parent_revision_id=lane.repo.get_head(world).head_revision_id,
                 created_at=NOW,body_text=human_text,expected_body_sha256=sha256(raw).hexdigest(),source_classification='dungeonbuddy.source:session_recap',authority='primary',
                 visibility={'kind':'labels_any','labels':['dungeonbuddy.visibility:gm']},spans=[dict(client_ref='opening',evidence_role='context',start_byte=0,end_byte=len(raw),expected_slice_sha256=sha256(raw).hexdigest())]))
-        context=prepare_native_source_context(managed_world_id=world,principal=GM,repository=lane.repo,
-            resolve_identity=lambda _:SimpleNamespace(managed_world_id=world,native_world_id=world,binding_version=1,provisioning_id=None))
-        meta=next(row for row in list_admitted_native_text_sources(context.access).sources if row.source_artifact.source_artifact_id==admission.source_artifact_id)
-        sections=section_catalog(human_text,source_artifact_id=admission.source_artifact_id,native_source_revision_id=admission.source_revision_id,content_sha256=sha256(raw).hexdigest())
-        source_ref=AuthoredSourceReferenceV1(managed_world_id=world,native_world_id=world,binding_version=1,knowledge_revision=context.authority.revision_id,
-            source_artifact_id=admission.source_artifact_id,source_revision_id=admission.source_revision_id,evidence_ref_id=meta.evidence_ref_ids[0],content_sha256=sha256(raw).hexdigest(),
-            selection_kind='full_document' if authored_source=='full_document' else 'section',section_id=None if authored_source=='full_document' else sections[1].section_id,label='DISPLAY ONLY source label')
-        selected=AuthoredReferencesV2(references=(() if authored_source=='source_only' else selected.references)+(source_ref,))
+        if authored_source:
+            context=prepare_native_source_context(managed_world_id=world,principal=GM,repository=lane.repo,
+                resolve_identity=lambda _:SimpleNamespace(managed_world_id=world,native_world_id=world,binding_version=1,provisioning_id=None))
+            meta=next(row for row in list_admitted_native_text_sources(context.access).sources if row.source_artifact.source_artifact_id==admission.source_artifact_id)
+            sections=section_catalog(human_text,source_artifact_id=admission.source_artifact_id,native_source_revision_id=admission.source_revision_id,content_sha256=sha256(raw).hexdigest())
+            source_ref=AuthoredSourceReferenceV1(managed_world_id=world,native_world_id=world,binding_version=1,knowledge_revision=context.authority.revision_id,
+                source_artifact_id=admission.source_artifact_id,source_revision_id=admission.source_revision_id,evidence_ref_id=meta.evidence_ref_ids[0],content_sha256=sha256(raw).hexdigest(),
+                selection_kind='full_document' if authored_source=='full_document' else 'section',section_id=None if authored_source=='full_document' else sections[1].section_id,label='DISPLAY ONLY source label')
+            selected=AuthoredReferencesV2(references=(() if authored_source=='source_only' else selected.references)+(source_ref,))
     admit_unrelated(lane, 'after-human-pick-before-http')
     current_revision = lane.repo.get_head(world).head_revision_id
     assert current_revision != original_revision
@@ -137,6 +138,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             selected={i for i,c in enumerate(candidates) if (saved and c['kind'].startswith('Saved authored page block'))
                 or (failure=='used_rules' and c['kind']=='public_rules_lookup')
                 or (native_body and c['kind'] in ({'Explicit admitted full-source read; metadata choice, not evidence'} | ({'Source lexical navigation; not evidence or semantic completeness'} if direct_source=='mixed' else set()) if direct_source else {'Source lexical navigation; not evidence or semantic completeness','Explicit full-document read'} | ({'Explicit admitted full-source read; metadata choice, not evidence'} if any(c['kind'].startswith('Navigation scan:') for c in body['state'].get('examined_subjects',[])) else set())))}
+            if direct_source == 'covered-batch' and candidates:
+                scanned = any(c['kind'].startswith('Navigation scan:')
+                    for c in body['state'].get('examined_subjects', []))
+                kinds = ({'Explicit admitted full-source read; metadata choice, not evidence', 'Exact source section'}
+                    if scanned else {'Source lexical navigation; not evidence or semantic completeness'})
+                selected = {i for i,c in enumerate(candidates) if c['kind'] in kinds}
             for name, question in body['questions'].items():
                 if self.deny_routing and name=='requested_work':
                     raise AssertionError('The reviewed operation must not be reselected by a model')

@@ -200,12 +200,21 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     if t.canonical_sha256(work_frame) != t.canonical_sha256(expected_work):
         raise ValueError('Native writer changed or omitted its exact surface work')
     body = strict_json(raw)
+    from .native_execution import NativeWriterEstimatedBudgetV1
+    if isinstance(execution.policy.writer_context_budget, NativeWriterEstimatedBudgetV1):
+        # Trusted host estimation has the same boundary as controller accounting.
+        # APP proves frozen policy, role, allowance and exact producing bytes;
+        # it must not reinterpret token estimates as serialized byte counts.
+        from .build_decision_context import validate_accounting
+        validate_accounting(authorization, execution, provider_index=sum(
+            isinstance(e, t.ProviderAttemptAuthorizedEventV1) for e in prefix.events))
+    elif authorization.input_tokens != len(raw.encode()) + 64 * (1 + json_container_count(body)):
+        raise ValueError('Native writer byte accounting differs from its historical contract')
     if ((authorization.provider, authorization.api_mode, authorization.serializer_version)
             != ("openai", "responses", "openai-sdk-json-v1")
             or body.get("model") != authorization.model
             or type(body.get("max_output_tokens")) is not int
             or body["max_output_tokens"] != authorization.output_token_reserve
-            or authorization.input_tokens != len(raw.encode()) + 64 * (1 + json_container_count(body))
             or sha256(raw.encode()).hexdigest() != authorization.envelope_sha256
             or t.canonical_sha256(body.get("tools", [])) != authorization.tool_schema_sha256
             or t.canonical_sha256(frame) != authorization.frame_sha256
