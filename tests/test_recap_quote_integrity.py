@@ -719,8 +719,8 @@ def test_actual_category_nomination_pipeline_binds_before_unchanged_strict_guard
                 ]}
             if pass_name == "beat_pass": parsed = {"observation_beats": []}
             if pass_name == "edge_pass":
-                parsed = {"observation_edges": [{"edge_id": "met", "from_node_id": "crew",
-                    "to_node_id": "courier", "relationship_type": "associated_with", "label": "Met courier",
+                parsed = {"observation_edges": [{"edge_id": "met", "from_node_id": 'recap-model-node:["collective_pass","crew"]',
+                    "to_node_id": 'recap-model-node:["actor_pass","courier"]', "relationship_type": "associated_with", "label": "Met courier",
                     "evidence_refs": [{"source_span_ref_id": spans[1], "anchor_quotes": ["met a courier"]}]}]}
             self.raw[pass_name] = parsed
             return {"parsed": parsed, "cost_usd": 0.0, "usage": {}, "elapsed_ms": 1, "response_id": pass_name}
@@ -740,10 +740,13 @@ def test_actual_category_nomination_pipeline_binds_before_unchanged_strict_guard
         result.candidate_graph, source_text=text, source_artifact_id=artifact,
         source_sha256=digest, source_span_index=index,
     )
-    assert {n["node_id"] for n in guarded["nodes"]} == {"crew", "courier"}
+    assert {n["node_id"] for n in guarded["nodes"]} == {
+        'recap-model-node:["collective_pass","crew"]',
+        'recap-model-node:["actor_pass","courier"]',
+    }
     assert [e["edge_id"] for e in guarded["edges"]] == ["met"]
-    assert any(x["item_id"] == "unsafe" for x in diagnostic["deferred_item_ids"])
-    crew = next(n for n in guarded["nodes"] if n["node_id"] == "crew")
+    assert any(x["item_id"] == 'recap-model-node:["collective_pass","unsafe"]' for x in diagnostic["deferred_item_ids"])
+    crew = next(n for n in guarded["nodes"] if n["node_id"] == 'recap-model-node:["collective_pass","crew"]')
     assert crew["description"] == "The crew of five met a courier."
     assert [r["source_span_ref_id"] for r in crew["evidence_refs"]] == [spans[1], spans[3]]
     assert all(m["quote"] == m["match_text"] for r in crew["evidence_refs"] for m in r["anchor_quote_matches"])

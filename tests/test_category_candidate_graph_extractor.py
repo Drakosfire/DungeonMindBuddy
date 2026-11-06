@@ -14,6 +14,17 @@ from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
 )
 
 
+def _cid(pass_id, local_id):
+    import json
+    return 'recap-model-node:' + json.dumps([pass_id, local_id], separators=(',', ':'), ensure_ascii=True)
+
+
+def _identity_id(local_id):
+    owner = {'town': 'location_pass', 'bridge': 'location_pass', 'brewery': 'location_pass',
+             'company': 'collective_pass', 'bridge-item': 'object_pass', 'sign': 'object_pass'}
+    return _cid(owner[local_id], local_id) if local_id in owner else local_id
+
+
 class RecordingClient:
     def __init__(self) -> None:
         self.passes: list[str] = []
@@ -382,7 +393,7 @@ def test_beat_call_receives_source_local_inventory_and_keeps_source_associations
                 assert 'Generated descriptive claim' not in prompt
                 inventory = json.JSONDecoder().raw_decode(
                     prompt.split('## Node identity inventory\n\n```json\n', 1)[1])[0]
-                assert {n['node_id'] for n in inventory} == {'npc:miri', 'npc:duplicate'}
+                assert {n['node_id'] for n in inventory} == {_cid('actor_pass', n) for n in ('npc:miri', 'npc:duplicate')}
                 assert inventory[0]['label'] == 'Miri'
                 assert inventory[0]['evidence_ids'] == ['E1']
                 assert '### E1 / lines 1-1' in prompt
@@ -390,7 +401,7 @@ def test_beat_call_receives_source_local_inventory_and_keeps_source_associations
                     {'beat_id': f'beat:{n}', 'order': n, 'title': 'Source event',
                      'summary': 'Untrusted model summary', 'involved_node_ids': participants,
                      'evidence_refs': [{'source_span_ref_id': f'E{n}', 'anchor_quotes': [text]}]}
-                    for n, text, participants in ((1, first, ['npc:miri']), (2, second, []))]}
+                    for n, text, participants in ((1, first, [_cid('actor_pass', 'npc:miri')]), (2, second, []))]}
             elif pass_name == 'edge_pass':
                 response['parsed'] = {'observation_edges': []}
             else:
@@ -404,9 +415,9 @@ def test_beat_call_receives_source_local_inventory_and_keeps_source_associations
     assert client.passes == ['actor_pass', 'location_pass', 'collective_pass',
         'object_pass', 'thread_pass', 'beat_pass', 'edge_pass']
     beats = result.candidate_graph['beats']
-    assert [b['involved_node_ids'] for b in beats] == [['npc:miri'], []]
+    assert [b['involved_node_ids'] for b in beats] == [[_cid('actor_pass', 'npc:miri')], []]
     assert [b['summary'] for b in beats] == [first, second]
-    assert {node['node_id'] for node in result.candidate_graph['nodes']} == {'npc:miri', 'npc:duplicate'}
+    assert {node['node_id'] for node in result.candidate_graph['nodes']} == {_cid('actor_pass', n) for n in ('npc:miri', 'npc:duplicate')}
 
 
 class SourceLocalIdentityClient(RecordingClient):
@@ -421,7 +432,7 @@ class SourceLocalIdentityClient(RecordingClient):
         super().__init__()
         self.duplicate_id = duplicate_id
         self.ref = {"source_span_ref_id": "span-1", "anchor_quotes": [self.source]}
-        self.inventory_ids = {"town", "bridge", "brewery", "company", "bridge-item"}
+        self.inventory_ids = {_identity_id(n) for n in ("town", "bridge", "brewery", "company", "bridge-item")}
 
     def run_pass(self, pass_name, **kwargs):
         response = super().run_pass(pass_name, **kwargs)
@@ -447,12 +458,13 @@ class SourceLocalIdentityClient(RecordingClient):
         elif pass_name in {"beat_pass", "edge_pass"}:
             if not self.duplicate_id:
                 for nid in self.inventory_ids:
-                    assert f'"node_id": "{nid}"' in kwargs["user_content"], (pass_name, nid)
+                    import json
+                    assert json.dumps(nid) in kwargs["user_content"], (pass_name, nid)
             if pass_name == "beat_pass":
                 response["parsed"] = {"observation_beats": []}
             else:
                 response["parsed"] = {"observation_edges": [
-                    {"edge_id": eid, "from_node_id": start, "to_node_id": end,
+                    {"edge_id": eid, "from_node_id": _identity_id(start), "to_node_id": _identity_id(end),
                      "label": label, "relationship_type": predicate,
                      "evidence_refs": [self.ref]}
                     for eid, start, end, predicate, label in (
@@ -482,14 +494,14 @@ def test_source_local_distinctions_reach_later_passes_and_keep_exact_edge_endpoi
     result = _extract_source_local_identity(client)
     nodes = result.candidate_graph["nodes"]
     assert {node["node_id"] for node in nodes} == client.inventory_ids
-    assert next(node for node in nodes if node["node_id"] == "town")["description"] == "The town."
-    assert next(node for node in nodes if node["node_id"] == "bridge")["description"] == "The bridge."
+    assert next(node for node in nodes if node["node_id"] == _identity_id("town"))["description"] == "The town."
+    assert next(node for node in nodes if node["node_id"] == _identity_id("bridge"))["description"] == "The bridge."
     edges = {edge["edge_id"]: edge for edge in result.candidate_graph["edges"]}
     assert set(edges) == {"bridge-town", "company-premises", "bridge-object"}
     assert {(eid, edge["from_node_id"], edge["to_node_id"]) for eid, edge in edges.items()} == {
-        ("bridge-town", "bridge", "town"),
-        ("company-premises", "company", "brewery"),
-        ("bridge-object", "bridge-item", "bridge"),
+        ("bridge-town", _identity_id("bridge"), _identity_id("town")),
+        ("company-premises", _identity_id("company"), _identity_id("brewery")),
+        ("bridge-object", _identity_id("bridge-item"), _identity_id("bridge")),
     }
     # Only the explicit producer proposal survives; the host invents no same_as.
     assert [edge["edge_id"] for edge in edges.values() if edge["relationship_type"] == "same_as"] == ["bridge-object"]
@@ -499,28 +511,15 @@ def test_source_local_distinctions_reach_later_passes_and_keep_exact_edge_endpoi
     diag = result.consolidation_diagnostics
     assert diag["merged_nodes"] == diag["cross_class_merged_nodes"] == []
     assert diag["dropped_edges_missing_endpoints"] == [
-        {"edge_id": "unknown", "from_node_id": "unknown:bridge", "to_node_id": "town"}
+        {"edge_id": "unknown", "from_node_id": "unknown:bridge", "to_node_id": _identity_id("town")}
     ]
 
 
-def test_duplicate_source_local_ids_are_exposed_to_existing_preview_validation():
-    from src.graph_memory.candidate_graph_preview import (
-        candidate_graph_preview_from_dict, validate_candidate_graph_preview,
-    )
-
-    result = _extract_source_local_identity(SourceLocalIdentityClient(duplicate_id=True))
-    # Do not mask malformed provider identity reuse with label-based deduplication.
-    assert sum(node["node_id"] == "town" for node in result.candidate_graph["nodes"]) == 2
-    report = validate_candidate_graph_preview(candidate_graph_preview_from_dict(result.candidate_graph))
-    assert any(issue.code == "duplicate_node_id" and issue.severity == "error" for issue in report.issues)
-    import pytest
-    from src.graph_memory.candidate_graph_to_contribution import (
-        CandidateGraphMappingError, load_typed_candidate_graph,
-    )
-
-    with pytest.raises(CandidateGraphMappingError, match="duplicate_node_id"):
-        load_typed_candidate_graph(result.candidate_graph)
-
+def test_duplicate_source_local_ids_fail_before_later_provider_calls():
+    client = SourceLocalIdentityClient(duplicate_id=True)
+    with pytest.raises(ValueError, match='location_pass: duplicate node ID'):
+        _extract_source_local_identity(client)
+    assert 'beat_pass' not in client.passes and 'edge_pass' not in client.passes
 
 
 def test_same_label_endpoints_do_not_collapse_separate_relationships():
@@ -536,7 +535,7 @@ def test_same_label_endpoints_do_not_collapse_separate_relationships():
                 })
             elif pass_name == "edge_pass":
                 response["parsed"]["observation_edges"].extend([
-                    {"edge_id": f"sign-{target}", "from_node_id": "sign", "to_node_id": target,
+                    {"edge_id": f"sign-{target}", "from_node_id": _identity_id("sign"), "to_node_id": _identity_id(target),
                      "relationship_type": "near", "label": "Near Stone Bridge",
                      "evidence_refs": [self.ref]}
                     for target in ("town", "bridge")
@@ -546,7 +545,8 @@ def test_same_label_endpoints_do_not_collapse_separate_relationships():
     result = _extract_source_local_identity(ParallelEndpointsClient())
     assert {edge["edge_id"]: (edge["from_node_id"], edge["to_node_id"])
             for edge in result.candidate_graph["edges"] if edge["edge_id"].startswith("sign-")} == {
-        "sign-town": ("sign", "town"), "sign-bridge": ("sign", "bridge"),
+        "sign-town": (_identity_id("sign"), _identity_id("town")),
+        "sign-bridge": (_identity_id("sign"), _identity_id("bridge")),
     }
     assert result.consolidation_diagnostics["merged_edges"] == []
 
@@ -639,7 +639,7 @@ def test_ordinary_producer_projects_two_direct_order_claims_without_inventing_a_
             elif pass_name == "edge_pass":
                 assert "`precedes`" in user_content
                 parsed = {"observation_edges": [
-                    {"edge_id": name, "from_node_id": name, "to_node_id": "departure", "label": "earlier",
+                    {"edge_id": name, "from_node_id": _cid("thread_pass", name), "to_node_id": _cid("thread_pass", "departure"), "label": "earlier",
                      "relationship_type": "precedes", "predicate_family": "temporal_sequence", "evidence_refs": [ref]}
                     for name in ("arrival", "discussion")]}
                 jsonschema.validate(parsed, schema_for_pass_spec(pass_spec))
@@ -656,7 +656,8 @@ def test_ordinary_producer_projects_two_direct_order_claims_without_inventing_a_
     ), client=OrderClient())
     edges = result.candidate_graph["edges"]
     assert {(edge["from_node_id"], edge["to_node_id"], edge["relationship_type"]) for edge in edges} == {
-        ("arrival", "departure", "precedes"), ("discussion", "departure", "precedes"),
+        (_cid("thread_pass", "arrival"), _cid("thread_pass", "departure"), "precedes"),
+        (_cid("thread_pass", "discussion"), _cid("thread_pass", "departure"), "precedes"),
     }
     assert all(not any("predicate_validation:" in warning for warning in edge.get("warnings", [])) for edge in edges)
 
