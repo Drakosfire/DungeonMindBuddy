@@ -21,11 +21,26 @@ _PREVIOUS_AUTHORITY_PARAGRAPH = (
 )
 
 
+_PRIOR_EPISTEMIC_SENTENCE = (
+    "An uncertain actor attribution stays uncertain in every prose mention of that action. "
+)
+_EPISTEMIC_CLARIFICATION = (
+    "Attribution alone does not preserve uncertainty. Keep an actor "
+    "or outcome tentative whenever the source is tentative, including in "
+    "descriptions framed as reports or recollections. Do not hedge a confident "
+    "source statement merely because it is attributed. "
+)
+
+
 def _restore_prior_authority_paragraph_for_historical_fixture(prompt):
     from src.graph_memory.extraction.recap_extraction_profile import _RECAP_SOURCE_FAITHFULNESS
     paragraph = _RECAP_SOURCE_FAITHFULNESS[_RECAP_SOURCE_FAITHFULNESS.index("Distinguish in-world assertions"):]
     assert prompt.count(paragraph) <= 1
-    return prompt.replace(paragraph, _PREVIOUS_AUTHORITY_PARAGRAPH)
+    # Historical hashes predate both bounded source-policy changes. Restore
+    # exactly their old text without changing those retained historical fixtures.
+    return prompt.replace(paragraph, _PREVIOUS_AUTHORITY_PARAGRAPH).replace(
+        _EPISTEMIC_CLARIFICATION, _PRIOR_EPISTEMIC_SENTENCE,
+    )
 
 SYNTHETIC_SOURCE_ROWS = [
     {
@@ -671,3 +686,43 @@ def test_policy_rewrite_changes_only_shared_authority_paragraph(monkeypatch):
         assert new.instruction.count(current) == 1
         assert replace(new, instruction=new.instruction.replace(current, old_policy)) == old
         assert schema_for_pass_spec(new) == schema_for_pass_spec(old)
+
+
+def test_epistemic_policy_reaches_rendered_recaps_without_changing_source_or_schema():
+    from dataclasses import replace
+    from src.graph_memory.extraction.category_candidate_graph_schema import category_pass_text_format_for_spec
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+
+    # Contrast inputs are source distinctions, not a claim that a fake model
+    # passed semantic evaluation. Actual model compliance needs fresh captures.
+    contrasts = [
+        ('Ari recalled: I think Bo opened the hatch.', 'tentative actor'),
+        ('The witness reported that Bo opened the hatch.', 'confident attributed actor'),
+        ('The fragments might be copper.', 'tentative outcome'),
+        ('Ari remembers the fragments were copper.', 'confident recollected outcome'),
+        ('Someone apparently held the rope; who did so is unclear.', 'unresolved actor'),
+        ('Perhaps Bo held the rope. Ari definitely closed the hatch.', 'local qualifier scope'),
+    ]
+    rows = [{'source_span_ref_id': f'epistemic-{i}', 'line_start': i + 1,
+             'line_end': i + 1, 'text': text} for i, (text, _) in enumerate(contrasts)]
+    for profile in (RECAP_EXTRACTION_PROFILE, get_extraction_profile('recap_category_encounter_job_preview', '2.0')):
+        def prior(spec):
+            return replace(spec, instruction=spec.instruction.replace(_EPISTEMIC_CLARIFICATION, _PRIOR_EPISTEMIC_SENTENCE)) if spec else None
+        predecessor = replace(profile, node_passes=tuple(prior(spec) for spec in profile.node_passes),
+                              beat_pass=prior(profile.beat_pass), edge_pass=prior(profile.edge_pass),
+                              encounter_job_pass=prior(profile.encounter_job_pass))
+        current_prompts = render_category_pass_prompts(rows, profile=profile)
+        prior_prompts = render_category_pass_prompts(rows, profile=predecessor)
+        assert current_prompts.keys() == prior_prompts.keys()
+        for name, prompt in current_prompts.items():
+            assert prompt.count(_EPISTEMIC_CLARIFICATION) == 1, name
+            assert prompt.replace(_EPISTEMIC_CLARIFICATION, _PRIOR_EPISTEMIC_SENTENCE) == prior_prompts[name]
+            for text, distinction in contrasts:
+                assert text in prompt, distinction
+        current_specs = [*profile.node_passes, profile.beat_pass, profile.edge_pass, profile.encounter_job_pass]
+        previous_specs = [*predecessor.node_passes, predecessor.beat_pass, predecessor.edge_pass, predecessor.encounter_job_pass]
+        for current, previous in zip(current_specs, previous_specs, strict=True):
+            if current:
+                assert category_pass_text_format_for_spec(current) == category_pass_text_format_for_spec(previous)
+    assert all(_EPISTEMIC_CLARIFICATION not in prompt for prompt in
+               render_category_pass_prompts(rows, profile=WORLDBUILDING_PLUMBING_PROFILE).values())
