@@ -210,6 +210,11 @@ jobs:
           tests/test_graph_document_relationship.py
           tests/test_build_document_proposal.py
           tests/test_build_related_pages.py::test_source_owner_refuses_changed_or_foreign_saved_page
+          tests/test_connected_page_authoring.py::test_operation_files_are_not_live_recovery_authority
+          tests/test_connected_page_authoring.py::test_adoption_never_overwrites_newer_operation_or_page
+          tests/test_connected_page_authoring.py::test_adoption_rejects_inconsistent_or_foreign_record
+          tests/test_connected_page_authoring.py::test_saved_origin_concurrent_retry_has_one_retained_page
+          tests/test_connected_page_authoring.py::test_response_loss_retries_one_reserved_page
           tests/test_connected_page_authoring.py::test_saved_excerpt_uses_coherent_committed_owner_projection
           tests/test_connected_page_native_qualification.py
           tests/test_connected_page_authoring.py::test_saved_origin_refuses_mismatch_before_reservation

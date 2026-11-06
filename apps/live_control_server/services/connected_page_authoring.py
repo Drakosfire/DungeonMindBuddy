@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
 import uuid
 from pathlib import Path
@@ -17,7 +16,7 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
     GraphObjectAuthoringCommitRequest,
 )
 from apps.live_control_server.services.graph_object_authoring_commit import commit_graph_object_authoring_write
-from apps.live_control_server.services.registry_file_lock import registry_mutation_lock
+from application_state.content.connected_pages import locked_operation
 from apps.live_control_server.services.workspace_document_registry import (
     create_workspace_document, get_workspace_document, get_committed_page_snapshot, list_workspace_documents,
 )
@@ -90,52 +89,47 @@ def verify_origin_capture(origin) -> str:
         raise ConnectedPageError('Select text within one paragraph or heading; the captured quote and range must match') from exc
 
 
-def _path(root, operation_id):
-    path = root / 'out/registries/connected_pages' / (str(uuid.UUID(str(operation_id))) + '.json')
-    if not path.resolve().is_relative_to(root.resolve()):
-        raise ConnectedPageError('Connected page storage is outside its owner')
-    return path
-
-
-def _persist(path: Path, state):
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    temporary = path.with_name('.' + path.name + '.' + uuid.uuid4().hex + '.tmp')
+def _validate_state(state, operation_id):
     try:
-        with temporary.open('x', encoding='utf-8') as handle:
-            os.chmod(temporary, 0o600)
-            handle.write(_json(state))
-            handle.flush()
-            os.fsync(handle.fileno())
-        temporary.replace(path)
-        fd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
-        try:
-            os.fsync(fd)
-        finally:
-            os.close(fd)
-    finally:
-        temporary.unlink(missing_ok=True)
-
-
-def _read(path):
-    if not path.exists():
-        return None
-    try:
-        if path.is_symlink():
-            raise ValueError('symlink operation')
-        state = json.loads(path.read_text())
         intent = parse_connected_page_intent(state['intent'])
         if (set(state) != {'schema', 'intent', 'intent_sha256', 'page_id', 'phase', 'initial_markdown',
                           'working_text_sha256', 'saved_source', 'graph_request', 'prepared', 'receipt'}
                 or state['schema'] != operation_schema(intent)
-                or (isinstance(intent,SavedConnectedPageIntent) and state['working_text_sha256'] != intent.origin.content_sha256)
+                or (isinstance(intent, SavedConnectedPageIntent) and state['working_text_sha256'] != intent.origin.content_sha256)
                 or state['intent_sha256'] != _sha(_json(intent.model_dump(mode='json')))
-                or str(intent.operation_id) != path.stem
+                or str(intent.operation_id) != str(operation_id)
                 or state['phase'] not in ('reserved', 'created', 'saved', 'prepared', 'complete')):
             raise ValueError('invalid operation')
         uuid.UUID(state['page_id'])
         return state
-    except (ValueError, TypeError, KeyError, OSError) as exc:
+    except (ValueError, TypeError, KeyError) as exc:
         raise ConnectedPageError('The retained connected-page operation is unavailable or changed') from exc
+
+
+def _read(journal):
+    state = journal.read()
+    return _validate_state(state, journal.operation_id) if state is not None else None
+
+
+def adopt_connected_page_operation(root: Path, path: Path):
+    """Explicit offline adoption of one retained file; never a live read fallback."""
+    root = artifact_data_root(root)
+    if path.is_symlink() or path.suffix != '.json':
+        raise ConnectedPageError('Adoption requires a regular operation JSON file')
+    try:
+        operation_id = str(uuid.UUID(path.stem))
+        state = _validate_state(json.loads(path.read_text()), operation_id)
+    except (OSError, ValueError, TypeError) as exc:
+        raise ConnectedPageError('The historical operation cannot be adopted') from exc
+    with locked_operation(operation_id) as journal:
+        prior = _read(journal)
+        if prior is not None and prior != state:
+            raise ConnectedPageError('Adoption would overwrite a different retained operation')
+        intent = parse_connected_page_intent(state['intent'])
+        _ownership(root, intent)
+        result = _response(root, state)
+        journal.save(state)
+        return result
 
 
 def operation_schema(intent):
@@ -304,51 +298,52 @@ def _response(root, state):
 def prepare_connected_page(root: Path, intent: ConnectedPageRequest):
     root = artifact_data_root(root)
     working_hash = None if isinstance(intent,SavedConnectedPageIntent) else verify_origin_capture(intent.origin)
-    path = _path(root, intent.operation_id)
-    with registry_mutation_lock(path):
-        state = _read(path)
+    with locked_operation(intent.operation_id) as journal:
+        state = _read(journal)
         digest = _sha(_json(intent.model_dump(mode='json')))
         if state and state['intent_sha256'] != digest:
             raise ConnectedPageError('This operation already belongs to a different page request')
         source = _ownership(root, intent, initial=state is None)
         if state is None:
+            if any(record.connected_page_operation_id == str(intent.operation_id)
+                   for record in list_workspace_documents(root, kind='worldbuilding_source', status=None)):
+                raise ConnectedPageError('The created page is retained but its operation is unavailable')
             working_hash = verify_saved_excerpt(root,intent) if isinstance(intent,SavedConnectedPageIntent) else working_hash
             _objects(intent, root)
             state = {'schema': operation_schema(intent), 'intent': intent.model_dump(mode='json'),
                 'intent_sha256': digest, 'page_id': str(uuid.uuid4()), 'phase': 'reserved',
                 'initial_markdown': _initial_markdown(intent, source), 'working_text_sha256': working_hash,
                 'saved_source': None, 'graph_request': None, 'prepared': None, 'receipt': None}
-            _persist(path, state)
+            journal.save(state)
         if state['phase'] == 'reserved':
             create_workspace_document(root, title=intent.title, campaign_id=intent.world_id,
                 kind='worldbuilding_source', world_id=intent.world_id, source_domain='worldbuilding',
                 document_class='lore', authority_state='draft', visibility_state='internal',
                 _connected_reservation=(state['page_id'], str(intent.operation_id)))
             state['phase'] = 'created'
-            _persist(path, state)
+            journal.save(state)
         if state['phase'] == 'created':
             state['saved_source'] = _save_initial(root, state, intent)
             state['phase'] = 'saved'
-            _persist(path, state)
+            journal.save(state)
         if state['phase'] == 'saved':
             if state['graph_request'] is None:
                 state['graph_request'] = _graph_request(root, state, intent)
-                _persist(path, state)
+                journal.save(state)
             prepared = prepare_graph_object_authoring_write(
                 GraphObjectAuthoringPrepareRequest.model_validate(state['graph_request']), corpus_root=root)
             if prepared.expressibility != 'EXPRESSIBLE' or not prepared.confirm_token:
                 raise ConnectedPageError('The page is retained but its connections cannot be prepared')
             state['prepared'] = prepared.model_dump(mode='json')
             state['phase'] = 'prepared'
-            _persist(path, state)
+            journal.save(state)
         return _response(root, state)
 
 
 def get_connected_page(root: Path, operation_id, world_id: str):
     root = artifact_data_root(root)
-    path = _path(root, operation_id)
-    with registry_mutation_lock(path):
-        state = _read(path)
+    with locked_operation(operation_id) as journal:
+        state = _read(journal)
         if state is None:
             if any(record.connected_page_operation_id == str(operation_id) and record.world_id == world_id
                    for record in list_workspace_documents(root, kind='worldbuilding_source', status=None)):
@@ -362,9 +357,8 @@ def get_connected_page(root: Path, operation_id, world_id: str):
 
 def confirm_connected_page(root: Path, operation_id, world_id: str, confirm_token: str):
     root = artifact_data_root(root)
-    path = _path(root, operation_id)
-    with registry_mutation_lock(path):
-        state = _read(path)
+    with locked_operation(operation_id) as journal:
+        state = _read(journal)
         if state is None:
             if any(record.connected_page_operation_id == str(operation_id) and record.world_id == world_id
                    for record in list_workspace_documents(root, kind='worldbuilding_source', status=None)):
@@ -383,5 +377,5 @@ def confirm_connected_page(root: Path, operation_id, world_id: str, confirm_toke
                 raise ConnectedPageError('The page is retained; native publication is not acknowledged')
             state['receipt'] = receipt.model_dump(mode='json')
             state['phase'] = 'complete'
-            _persist(path, state)
+            journal.save(state)
         return _response(root, state)
