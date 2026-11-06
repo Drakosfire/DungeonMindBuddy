@@ -1,3 +1,4 @@
+import { nativeRetrievalActivity } from './nativeRetrievalActivity'
 import './BuddyContextTrace.css'
 import { useState } from 'react'
 import { CapturedPrompt } from './BuddyPromptInspector'
@@ -101,7 +102,7 @@ const reasons: Record<string, string> = {
 function Event({ event, passages, trace }: { event: BuddyTraceObservation; passages: BuddyTraceSourcePassage[]; trace: BuddyTurnContextTrace }) {
   switch (event.kind) {
     case 'context_snapshot': return <ContextSnapshot event={event} trace={trace} passages={passages} />
-    case 'context_decision': return <><strong>{event.action}</strong><p>{event.action === 'retained' && event.policy_version === 'conversation_routes_v1'
+    case 'context_decision': return <><strong>{nativeRetrievalActivity(event) ?? event.action}</strong><p>{event.action === 'retained' && event.policy_version === 'conversation_routes_v1'
       ? 'Visible conversation history retained for follow-ups.'
       : event.policy_version === 'reviewed_author_action_v1' ? 'The author-selected action was preserved without another routing decision.' : reasons[event.reason_code] ?? event.reason_code}</p><JsonDetails label="Affected material and policy" value={{ items: event.item_ids, policy: event.policy_version }} /></>
     case 'graph_tool': return <details><summary>{names[event.tool_name]} · {event.request.operation} <span>{event.result.outcome}</span></summary>
