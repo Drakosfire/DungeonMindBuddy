@@ -57,3 +57,34 @@ not a dry run, source-support receipt, or an assessed `publication` label alone.
 Use the existing capture audit/accounting owner for token/cost/retry evidence. Do
 not introduce another usage calculation here. Model/configuration comparisons and
 cohort aggregate/variation reports remain separate from criterion normalization.
+## Assemble a sealed review offline
+
+Use the same CLI rather than a per-session assembly script:
+
+```bash
+python scripts/evaluate_ingestion.py assessment-assemble \
+  --manifest trusted-assessment.json \
+  --result records/session.result.json --review review-document.json \
+  --audit records/audit.json --timing records/session.timing.json \
+  --assessment-output assembled-assessment
+```
+
+`--manifest` supplies only the existing common format's pinned Gold and criterion
+inventory. Previous outcomes, subjects, reviewed-output and publication scores
+are not copied. `--review` uses the current `judgments` shape with explicit
+criterion IDs, outcomes, reasons, evidence and run/revision/candidate binding.
+Extra annotations remain in that sealed review; canonical rows contain only the
+standard five fields. There is no legacy field-name remapper or semantic grader.
+
+The command verifies the result's candidate pin, binds supplied audit billing to
+the same run/candidate and timing to the exact result bytes, then reuses
+`assessment-report` validation before retaining `assessment.json` and
+`assessment-report.json`. Audit and timing are optional; missing or unreported
+measurements remain unknown. Automated reviewer time is never human minutes.
+Reviewed output and publication remain explicitly unknown.
+
+This command initializes no provider or database backend and can assess retained
+results from a pinned earlier evaluator without executing its manifest. Existing
+outputs are never overwritten: an identical invocation is safe to repeat after
+an interrupted report write; a conflicting artifact fails before output writes.
+It does not authorize publication or establish whole-output semantic quality.
