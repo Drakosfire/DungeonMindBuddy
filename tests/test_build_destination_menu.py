@@ -66,10 +66,16 @@ def test_unknown_captured_menu_is_not_admitted_as_history():
 def test_installed_reader_fence_requires_forward_recovery(application_state_dsn):
     from importlib import import_module
     import psycopg
+    from alembic.script import ScriptDirectory
+    from application_state.cli import alembic_config
     with psycopg.connect(application_state_dsn) as conn:
-        assert conn.execute(
+        installed = conn.execute(
             "SELECT version_num FROM application_state.schema_migrations"
-        ).fetchone()[0] == "20261105_0115"
+        ).fetchone()[0]
+    history = ScriptDirectory.from_config(alembic_config())
+    assert "20261105_0115" in {
+        revision.revision for revision in history.iterate_revisions(installed, "base")
+    }
     with pytest.raises(RuntimeError, match="rejects retained destination-aware decisions"):
         import_module(
             "application_state.migrations.versions.20261105_0115_build_destination_menu"

@@ -293,10 +293,14 @@ def test_operation_rejects_non_loopback_even_with_operator_bearer(case):
 
 def test_missing_operation_with_retained_page_is_not_reported_as_safe_absence(case):
     operation = prepare(case)
-    path = owner._path(case.root, case.request['operation_id'])
-    path.unlink()
+    from application_state.unit_of_work import unit_of_work
+    with unit_of_work() as conn:
+        conn.execute('DELETE FROM content.connected_page_operation WHERE operation_id=%s', (case.request['operation_id'],))
     response = get(case)
     assert response.status_code == 409
+    retry = case.client.post('/api/live/connected-pages/prepare', json=case.request)
+    assert retry.status_code == 409
+    assert len(list_workspace_documents(case.root, kind='worldbuilding_source')) == 2
     assert get_workspace_document(case.root, operation['page']['document_id']).status == 'active'
     assert case.authority.publish_calls == 0
 
@@ -382,8 +386,9 @@ def test_saved_excerpt_retry_preserves_origin_after_source_and_created_page_chan
 
 def test_saved_origin_cannot_be_reinterpreted_as_historical_working_capture(saved_case):
     c=saved_case;operation=prepare(c)
-    path=owner._path(c.root,operation['operation_id'])
-    stored=json.loads(path.read_text());stored['schema']='dmb_connected_page_operation_v1';path.write_text(json.dumps(stored))
+    from application_state.unit_of_work import unit_of_work
+    with unit_of_work() as conn:
+        conn.execute("UPDATE content.connected_page_operation SET payload=jsonb_set(payload,'{schema}', '\"dmb_connected_page_operation_v1\"') WHERE operation_id=%s", (operation['operation_id'],))
     assert get(c).status_code==409
     assert c.authority.publish_calls==0
 
@@ -453,3 +458,99 @@ def test_saved_excerpt_uses_coherent_committed_owner_projection(saved_case, monk
         with pytest.raises(owner.ConnectedPageError):
             owner.verify_saved_excerpt(c.root, intent)
     assert c.authority.publish_calls == 0
+
+
+def _export_operation(c):
+    from application_state.content.connected_pages import locked_operation
+    with locked_operation(c.request['operation_id']) as journal:
+        state = journal.read()
+    path = c.root / (c.request['operation_id'] + '.json')
+    path.write_text(json.dumps(state))
+    return path, state
+
+
+def _delete_operation(c):
+    from application_state.unit_of_work import unit_of_work
+    with unit_of_work() as conn:
+        conn.execute('DELETE FROM content.connected_page_operation WHERE operation_id=%s', (c.request['operation_id'],))
+
+
+def test_operation_files_are_not_live_recovery_authority(case):
+    operation = confirm(case, prepare(case)).json()
+    path, _ = _export_operation(case)
+    historical = case.root / 'out/registries/connected_pages' / path.name
+    historical.parent.mkdir(parents=True)
+    historical.write_bytes(path.read_bytes())
+    _delete_operation(case)
+    assert get(case).status_code == 409
+    assert historical.exists()
+    adopted = owner.adopt_connected_page_operation(case.root, historical)
+    assert adopted == operation
+    assert owner.adopt_connected_page_operation(case.root, historical) == operation
+    assert get(case).json() == operation
+    assert case.authority.publish_calls == 1
+    assert len(list_workspace_documents(case.root, kind='worldbuilding_source')) == 2
+
+
+def test_adoption_never_overwrites_newer_operation_or_page(case):
+    operation = prepare(case)
+    path, _ = _export_operation(case)
+    complete = confirm(case, operation).json()
+    save_page(case.root, operation['page']['document_id'], '# Newer writing\n')
+    with pytest.raises(owner.ConnectedPageError, match='overwrite'):
+        owner.adopt_connected_page_operation(case.root, path)
+    assert get(case).json()['phase'] == complete['phase'] == 'complete'
+    assert page_text(case.root, operation['page']['document_id']) == '# Newer writing\n'
+    assert case.authority.publish_calls == 1
+
+
+@pytest.mark.parametrize('change', ['intent', 'page', 'symlink'])
+def test_adoption_rejects_inconsistent_or_foreign_record(case, change):
+    prepare(case)
+    path, state = _export_operation(case)
+    _delete_operation(case)
+    if change == 'intent':
+        state['intent']['world_id'] = 'foreign'
+        path.write_text(json.dumps(state))
+    elif change == 'page':
+        state['page_id'] = case.record.document_id
+        path.write_text(json.dumps(state))
+    else:
+        link = path.with_name(str(uuid.uuid4()) + '.json')
+        link.symlink_to(path)
+        path = link
+    with pytest.raises(owner.ConnectedPageError):
+        owner.adopt_connected_page_operation(case.root, path)
+    assert get(case).status_code == 409
+    assert case.authority.publish_calls == 0
+
+
+def test_database_operation_does_not_create_registry_directory(case):
+    operation = prepare(case)
+    assert confirm(case, operation).status_code == 200
+    assert not (case.root / 'out/registries/connected_pages').exists()
+
+
+@pytest.mark.parametrize('change', ['receipt', 'source', 'request', 'prepared', 'missing_publication', 'incomplete'])
+def test_adoption_requires_exact_authoritative_completed_publication(case, change):
+    operation = prepare(case)
+    if change != 'incomplete':
+        assert confirm(case, operation).status_code == 200
+    path, state = _export_operation(case)
+    _delete_operation(case)
+    calls = case.authority.publish_calls
+    if change == 'receipt':
+        state['receipt']['created_node_ids']['place'] = 'node:forged'
+    elif change == 'source':
+        state['saved_source']['documentId'] = case.record.document_id
+    elif change == 'request':
+        state['graph_request']['proposals'][0]['objectRef']['label'] = 'Forged label'
+    elif change == 'prepared':
+        state['prepared']['confirm_token'] = 'forged-token'
+    elif change == 'missing_publication':
+        case.authority.receipts.clear()
+    path.write_text(json.dumps(state))
+    with pytest.raises(owner.ConnectedPageError):
+        owner.adopt_connected_page_operation(case.root, path)
+    assert get(case).status_code == 409
+    assert case.authority.publish_calls == calls
