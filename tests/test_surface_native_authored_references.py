@@ -227,7 +227,7 @@ def test_app_locks_real_human_input_and_native_support_without_a_model_vote(lane
     assert stored == turn
     execution = stored.graph_context_execution
     assert [e.kind for e in execution.events] == ['build_authored_references_captured_v1',
-        'build_authored_reference_authorized_v2', 'build_authored_reference_read_v2']
+        'build_authored_reference_authorized_v2', 'build_authored_reference_read_v3']
     assert not any(hasattr(e, 'provider_attempt_id') for e in execution.events)
     captured, grant, read = execution.events
     assert captured.references.references[0].graph_revision != core.query.authority.revision_id

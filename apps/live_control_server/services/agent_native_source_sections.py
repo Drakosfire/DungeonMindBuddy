@@ -100,8 +100,12 @@ def open_native_body_excerpt(*, world_id, turn_id, citation_index, principal, se
         and type(turn.completion) is SurfaceNativeCompletionV1)
     legacy = (isinstance(turn.graph_context_receipt, t.PlanSourceContextReceiptV1)
         and isinstance(turn.completion, t.SurfaceEvidenceCompletionV5))
+    play = (isinstance(turn.graph_context_receipt, t.PlayWorldGraphContextReceiptV1)
+        and turn.graph_context_receipt.authored_source_context is not None
+        and isinstance(turn.completion, t.SurfaceEvidenceCompletionV5)
+        and turn.completion.surface_id == 'play')
     if (turn.world_id != world_id or turn.turn_id != turn_id or turn.status != 'completed'
-            or not (shared or legacy)):
+            or not (shared or legacy or play)):
         raise SourcePassageOpenError('native_body_completion_unavailable', 404)
     if citation_index >= len(turn.completion.native_body_citations):
         raise SourcePassageOpenError('native_body_not_found', 404)
@@ -114,11 +118,12 @@ def open_native_body_excerpt(*, world_id, turn_id, citation_index, principal, se
         prepare_native_source_context, read_native_corpus_member,
     )
     try:
-        authority = turn.graph_context_receipt.source_authority
+        authority = (turn.graph_context_receipt.authored_source_context.authority
+            if play else turn.graph_context_receipt.source_authority)
         prepared = prepare_native_source_context(managed_world_id=authority.managed_world_id,
             principal=principal, revision_id=authority.revision_id, repository=repository,
             resolve_identity=resolve_identity)
-        body = read_native_corpus_member(authority=turn.graph_context_receipt.source_authority,
+        body = read_native_corpus_member(authority=authority,
             member=catalog.source, principal=principal, prepared=prepared)
         if body is None:
             raise ValueError('Historical native body is unavailable')

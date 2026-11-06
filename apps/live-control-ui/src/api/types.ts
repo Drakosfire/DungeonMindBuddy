@@ -828,6 +828,7 @@ export interface WorldPlayTarget {
 
 /** Play submits an admitted World Run. The server resolves its Graph binding and revision. */
 export interface WorldPlayAgentTurnRequestV1 {
+  authored_references?: AuthoredReferencesV2;
   schema: "dmb_agent_turn_request_v1";
   client_thread_id: string;
   turn_id: string;
@@ -1036,7 +1037,13 @@ export interface WorldPlaySourceManifestEntry {
   locator: WorldPlaySourceLocator; payload_sha256: string; payload_utf8_bytes: number;
   text_sha256: string; text_utf8_bytes: number; text_codepoints: number;
 }
+export interface PlayAuthoredSourceContextV1 {
+  schema:'dmb_play_authored_source_context_v1';
+  authority:Extract<PlanSourceContextReceiptV1['source_authority'],{schema_version:'dmb_native_corpus_authority_v1'}>;
+  references:AuthoredReferencesV2;
+}
 export interface WorldPlayGraphContextReceiptV1 {
+  authored_source_context?:PlayAuthoredSourceContextV1;
   schema: "dmb_play_world_graph_context_receipt_v1";
   receipt_serializer_version: "canonical-json-utf8-v1"; context_receipt_sha256: string;
   play_graph_policy: { schema: "dmb_play_graph_policy_v1"; policy: "native_play_world_v1" };
@@ -1378,9 +1385,10 @@ export interface NativeBodyExcerptCitationV1 extends Omit<NativeSourceSectionCit
   catalog_sha256:string;selector_policy:'markdown_sections_v1'|'native_full_document_v1';
 }
 export interface SurfaceEvidenceCompletionV5 extends Omit<SurfaceEvidenceCompletionV4,'schema'|'surface_id'> {
-  schema:'dmb_surface_evidence_completion_v5';surface_id:'plan';native_body_citations:NativeBodyExcerptCitationV1[];
+  schema:'dmb_surface_evidence_completion_v5';surface_id:'plan'|'play';native_body_citations:NativeBodyExcerptCitationV1[];
 }
-export interface SurfaceEvidenceCompletionV6 extends Omit<SurfaceEvidenceCompletionV5,'schema'> {
+export interface SurfaceEvidenceCompletionV6 extends Omit<SurfaceEvidenceCompletionV5,'schema'|'surface_id'> {
+  surface_id:'plan';
   schema:'dmb_surface_evidence_completion_v6';native_clause_citations:NativeStatementClauseCitationV1[];
 }
 export interface NativeAssertionCitationV1 {

@@ -1709,6 +1709,10 @@ class AgentConversationService:
                     validate_provider_inclusion(event, execution, authored_prepared_request_json, load_protected_source_material(conn, turn))
                 except (ValueError, KeyError, TypeError) as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
+            play_body_inclusion = None
+            from .native_corpus import NativeBodyProviderIncludedV1
+            if isinstance(event, NativeBodyProviderIncludedV1) and isinstance(execution, PlayWorldGraphExecutionV1):
+                raise ApplicationStateValidationError('Play selected-source inclusion requires its actual prepared-input owner')
             section_inclusion = None
             from .native_source_input import CAPABILITIES, prove_input
             if (isinstance(execution.policy, CAPABILITIES)
@@ -1723,6 +1727,13 @@ class AgentConversationService:
                         raise ValueError("Native sections require the exact prepared producing input")
                     section_inclusion = prove_input(turn,event,raw,sequence=event.sequence+1)
                 except (ValueError,TypeError,KeyError,AttributeError) as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
+            if native_play_prepared_request_json is not None and getattr(execution.policy, 'authored_source_context', None) is not None:
+                from .play_authored_sources import prove_input as prove_play_body_input
+                try:
+                    play_body_inclusion = prove_play_body_input(turn, event,
+                        native_play_prepared_request_json, sequence=event.sequence+1+(1 if section_inclusion is not None else 0), event_id=uuid4())
+                except (ValueError, TypeError, KeyError, AttributeError) as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
             native_inclusion = None
             if native_play_prepared_request_json is not None:
@@ -1739,7 +1750,8 @@ class AgentConversationService:
                         submission_id=turn.idempotency_key, original_message=turn.user_text, event_id=uuid4(),
                         owner_resolver=lambda frame: resolve_native_play_source_owner(conn, turn, frame),
                         session_owner_resolver=lambda sessions: resolve_native_play_sessions(conn, turn, sessions),
-                        native_section_inclusion=section_inclusion)
+                        native_section_inclusion=section_inclusion,
+                        authored_source_inclusion=play_body_inclusion)
                 except ValueError as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
             from .types import PlanSourceContextReceiptV1
@@ -1836,7 +1848,8 @@ class AgentConversationService:
                 except (ValueError, KeyError, TypeError, AttributeError) as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
             events = [*execution.events, *([native_inclusion] if native_inclusion is not None else []), event,
-                *([section_inclusion] if section_inclusion is not None else [])]
+                *([section_inclusion] if section_inclusion is not None else []),
+                *([play_body_inclusion] if play_body_inclusion is not None else [])]
             try:
                 execution_type = type(execution)
                 updated_execution = execution_type.model_validate_json(json.dumps(

@@ -359,7 +359,8 @@ function readPendingPlayTurn(worldId: string, serialized: string|null = window.l
       ...(isRecord(value.request) && "build_draft_context" in value.request ? ["build_draft_context"] : []),
       ...(isRecord(value.request) && "reviewed_step" in value.request ? ["reviewed_step"] : []),
       ...(isRecord(value.request) && "retry_of" in value.request ? ["retry_of"] : []),
-      ...(isRecord(value.request) && "build_authored_references" in value.request ? ["build_authored_references"] : [])])
+      ...(isRecord(value.request) && "build_authored_references" in value.request ? ["build_authored_references"] : []),
+      ...(isRecord(value.request) && "authored_references" in value.request ? ["authored_references"] : [])])
     || value.request.schema !== "dmb_agent_turn_request_v1"
     || !commandUuid(value.request.client_thread_id) || !commandUuid(value.request.turn_id)
     || !hasExactKeys(value.request.surface, ["surface_id", "instance_id"])
@@ -396,6 +397,12 @@ function readPendingPlayTurn(worldId: string, serialized: string|null = window.l
     || ("build_authored_references" in value.request && (value.request.surface.surface_id!=='build'
       || !isRecord(value.request.graph_request)||value.request.graph_request.mode!=='world'
       || !isAuthoredReferences(value.request.build_authored_references,worldId)))
+    || ("authored_references" in value.request && (value.request.surface.surface_id!=='play'
+      || !isRecord(value.request.graph_request)||value.request.graph_request.mode!=='world'
+      || !isAuthoredReferences(value.request.authored_references,worldId)
+      || value.request.authored_references.schema!=='dmb_authored_references_v2'
+      || !value.request.authored_references.references.length
+      || value.request.authored_references.references.some(ref=>ref.schema!=='dmb_authored_source_reference_v1')))
     || value.request.graph_selection !== null || typeof value.request.message !== "string"
     || !value.request.message.trim()) {
     throw new Error("The saved Play request is malformed. It was retained and cannot be retried automatically.");
@@ -2800,8 +2807,8 @@ export function WorldPlanAgentConversation({
   }, [verifiedWorldId]);
   const [graphCredentialStatus, setGraphCredentialStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const referenceSurface=isBuild?'build' as const:'plan' as const;
-  const referenceWorld=(isBuild||!isReadOnly)?verifiedWorldId:null,referencePage=isBuild?buildMode?.savedSource?.documentId:!isReadOnly?documentId:null;
+  const referenceSurface=isBuild?'build' as const:isReadOnly?'play' as const:'plan' as const;
+  const referenceWorld=(isBuild||!isReadOnly||playMode?.admittedRun?.worldId===verifiedWorldId)?verifiedWorldId:null,referencePage=isBuild?buildMode?.savedSource?.documentId:!isReadOnly?documentId:playMode?.admittedRun?.runId;
   const referenceScopeKey=referenceWorld&&referencePage?composerReferenceKey(referenceWorld,referencePage,referenceSurface):null;
   const [composerReferenceState,setComposerReferenceState]=useState<{key:string|null;draft:ComposerReferenceDraft|null;error:string|null}>({key:null,draft:null,error:null});
   const composerReferences=composerReferenceState.key===referenceScopeKey?composerReferenceState.draft?.references??[]:[];
@@ -4479,6 +4486,7 @@ export function WorldPlanAgentConversation({
     const message = (questionOverride ?? composerMessage).trim();
     const composerGenerationAtSubmit = composerEditGenerationRef.current;
     if (!isBuild && playMode && playEditMode && questionOverride === undefined) {
+      if(composerReferences.length){setError('Selected sources are available for Play questions. Switch to Ask before sending them. Nothing was sent.');return;}
       if (!visible || !admittedRun || admittedRun.worldId !== verifiedWorldId || !message
         || sending || playCompose.busy || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn) return;
       if (await playCompose.submit(message)) setComposerMessage(current => current === message ? "" : current);
@@ -4592,7 +4600,14 @@ export function WorldPlanAgentConversation({
       setError("Select a saved Run edition and scene before asking Buddy.");
       return;
     }
+    if(!composerReferencesReady){setError('The local reference selection needs recovery; no request was sent.');return;}
+    const referenceInput=composerReferences.length?authoredReferences(composerReferences):undefined;
+    if(referenceInput&&(!useWorldGraphForAsk||referenceInput.references.some(ref=>ref.schema!=='dmb_authored_source_reference_v1'))){
+      setError('Enable World context and select only sources or passages for this Play request. Nothing was sent.');return;
+    }
+    const referenceDraftAtSubmit=composerReferenceState.draft;
     const request: WorldPlayAgentTurnRequestV1 = {
+      ...(referenceInput?{authored_references:referenceInput}:{}),
       schema: "dmb_agent_turn_request_v1",
       client_thread_id: crypto.randomUUID(),
       turn_id: crypto.randomUUID(),
@@ -4619,7 +4634,13 @@ export function WorldPlanAgentConversation({
     }
     const stored = { storageKey, serialized, request };
     setPendingPlayTurn(stored);
-    if(composerEditGenerationRef.current===composerGenerationAtSubmit)setComposerMessage((current) => current.trim() === message ? "" : current);
+    if(composerEditGenerationRef.current===composerGenerationAtSubmit){
+      if(referenceWorld&&referencePage&&referenceDraftAtSubmit&&referenceInput){
+        try{const draft=writeComposerReferences(sessionStorage,referenceWorld,referencePage,referenceDraftAtSubmit.serialized,[],request.turn_id,'play');setComposerReferenceState({key:referenceScopeKey,draft,error:null});}
+        catch(reason){failedReferenceRetirements.current.add(request.turn_id);setError(String(reason));}
+      }
+      setComposerMessage((current) => current.trim() === message ? "" : current);
+    }
     await dispatchSavedPlayTurn(stored,false,tourDispatch);
   }
 
@@ -6978,7 +6999,7 @@ export function WorldPlanAgentConversation({
         <p role="alert">Buddy could not prepare a page proposal. {visibleBuildPlacementFailure.reason} Your message has not been sent.</p>
         <p>You can correct the page or insertion point and send again. Discussion includes your current draft. It won’t place writing on the page.</p>
         <button type="button" disabled={composerBusy || !composerMessage.trim() || !composerReferencesReady
-            || (!isBuild&&!isReadOnly&&composerReferences.length>0&&!useWorldGraphForAsk)}
+            || (!isBuild&&composerReferences.length>0&&!useWorldGraphForAsk)}
           onClick={() => { void submitPlay(undefined, true); }}>Send as discussion</button>
       </section> : null}
       <form onSubmit={isReadOnly ? (event) => { void submitPlay(event); } : submitComposer}>
@@ -7042,7 +7063,7 @@ export function WorldPlanAgentConversation({
           aria-describedby={`world-plan-agent-composer-hint${buildSourceMissing ? ` ${BUILD_SOURCE_REQUIRED_DESCRIPTION_ID}` : ""}`}
         />
         {referenceWorld&&referencePage&&<>
-          <SurfaceGraphReferenceInput triggerHost={referenceTriggerHost} worldId={referenceWorld} label={isBuild?"Message Graph context":"Plan request references"} value={composerReferences} disabled={(isReadOnly?!currentReadOnlyContext:!scopeMatches)||!composerReferencesReady} onChange={changeComposerReferences}/>
+          <SurfaceGraphReferenceInput triggerHost={referenceTriggerHost} worldId={referenceWorld} sourceOnly={isReadOnly&&!isBuild} label={isBuild?"Message Graph context":isReadOnly?"Play request references":"Plan request references"} value={composerReferences} disabled={(isReadOnly?!currentReadOnlyContext:!scopeMatches)||!composerReferencesReady||isReadOnly&&!isBuild&&playEditMode} onChange={changeComposerReferences}/>
           {composerReferenceState.error&&<p role="alert">{composerReferenceState.error}</p>}
           {!isBuild&&composerReferences.length>0&&!useWorldGraphForAsk&&<p role="note">Enable World context to include these references, or remove them before sending.</p>}
           {!isBuild&&composerReferences.length>0&&composerIntentCorrection&&<button type="button" onClick={()=>setComposerIntentCorrection(null)}>Use Automatic</button>}

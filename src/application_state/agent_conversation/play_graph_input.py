@@ -161,14 +161,18 @@ class NativePlayInputV6(NativePlayInputV1):
     schema_: Literal['dmb_native_play_input_v6'] = Field(default='dmb_native_play_input_v6',alias='schema')
     source_frame: dict
     session_evidence: list[dict]
-    answer_policy: Literal['dmb_surface_evidence_answer_v5'] = 'dmb_surface_evidence_answer_v5'
+    native_body_evidence: dict | None = Field(default=None, exclude_if=lambda value: value is None)
+    answer_policy: Literal['dmb_surface_evidence_answer_v5', 'dmb_surface_evidence_answer_v6'] = 'dmb_surface_evidence_answer_v5'
     answer_instructions: str
 
     @model_validator(mode='after')
     def exact_session_policy(self):
-        from .surface_evidence_answer import PLAN_INSTRUCTIONS
-        if self.answer_instructions != PLAN_INSTRUCTIONS:
-            raise ValueError('Play requires its exact session summary policy')
+        from .surface_evidence_answer import PLAN_INSTRUCTIONS, PLAN_POLICY, BODY_INSTRUCTIONS, BODY_POLICY
+        expected = (PLAN_POLICY, PLAN_INSTRUCTIONS) if self.native_body_evidence is None else (BODY_POLICY, BODY_INSTRUCTIONS)
+        if (self.answer_policy, self.answer_instructions) != expected:
+            raise ValueError('Play requires its exact session/source answer policy')
+        if self.native_body_evidence is not None and self.native_body_evidence.get('schema') != 'dmb_native_body_writer_evidence_v1':
+            raise ValueError('Play selected sources require the shared native body frame')
         self.resolved_source_frame()
         return self
 
@@ -220,6 +224,7 @@ def prove_play_source_input(
     event_id: UUID, owner_resolved_current_moment_text: str | None = None,
     owner_resolver: Callable[[t.PlaySourceFrameV1], str | None] | None = None,
     native_section_inclusion: t.NativeSourceProviderInclusionV1 | None = None,
+    authored_source_inclusion: t.NativeBodyProviderIncludedV1 | None = None,
     session_owner_resolver: Callable[[list], None] | None = None,
 ) -> t.PlaySourceProviderInclusionV1:
     """Derive a witness only from the exact current producing request body.
@@ -269,7 +274,7 @@ def prove_play_source_input(
     pending = t.PlayWorldGraphExecutionV1.model_validate_json(json.dumps(wire))
     # The inclusion precedes the exact same authorization, never an arbitrary
     # earlier producer or an unaccounted source projection.
-    if native_section_inclusion is None:
+    if native_section_inclusion is None and authored_source_inclusion is None:
         validate_play_graph_provider_authorization(receipt, pending, authorization)
     else:
         # Both witnesses commit with the same provider authorization. Validate the
@@ -278,7 +283,8 @@ def prove_play_source_input(
         from .play_graph_context import validate_play_graph_execution_binding
         t.validate_graph_provider_envelope(receipt, pending, authorization)
         wire["events"].extend([authorization.model_dump(mode="json",by_alias=True),
-            native_section_inclusion.model_dump(mode="json",by_alias=True)])
+            *([native_section_inclusion.model_dump(mode="json",by_alias=True)] if native_section_inclusion is not None else []),
+            *([authored_source_inclusion.model_dump(mode="json",by_alias=True)] if authored_source_inclusion is not None else [])])
         complete = t.PlayWorldGraphExecutionV1.model_validate(wire)
         validate_play_graph_execution_binding(receipt,complete)
     return included

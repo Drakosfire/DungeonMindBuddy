@@ -30,6 +30,9 @@ def validate_play_graph_intent_receipt(intent: t.PlayGraphIntentV1, receipt: t.P
     intent = t.PlayGraphIntentV1.model_validate_json(intent.model_dump_json(by_alias=True))
     receipt = _checked_receipt(receipt)
     validate_work_intent(receipt.play_basis, intent)
+    selected = receipt.authored_source_context
+    if intent.authored_references != (selected.references if selected is not None else None):
+        raise ValueError('Submitted Play references differ from their frozen source input')
     if intent.play_graph_policy != receipt.play_graph_policy:
         raise ValueError('Submitted Play intent differs from the independently resolved receipt')
 
@@ -56,6 +59,8 @@ def validate_play_graph_execution_binding(receipt: t.PlayWorldGraphContextReceip
     scope, authority = (execution.policy.source_read_scope, receipt.graph_authority)
     if execution.context_receipt_sha256 != receipt.context_receipt_sha256 or scope.world_id != authority.managed_world_id or scope.campaign_id is not None or (scope.graph_revision != authority.graph_revision) or (scope.retrieval_session_id != receipt.retrieval_session_id) or any((pin.evidence_ref_id not in receipt.graph_packet.candidate_evidence_ref_ids for pin in scope.admitted_anchors)):
         raise ValueError('Play execution differs from its frozen receipt Graph scope')
+    from .play_authored_sources import validate_binding
+    validate_binding(receipt, execution)
     for index, event in enumerate(execution.events):
         if isinstance(event, t.PlaySourceProviderInclusionV1) and (
                 event.source_ids != [entry.source_id for entry in receipt.play_sources.entries]

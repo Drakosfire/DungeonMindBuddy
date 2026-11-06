@@ -566,12 +566,26 @@ def model_body_frame_records(source_authority, execution, selector):
     searches = [event for event in execution.events if isinstance(event, NativeBodySearchObservedV1)]
     search = searches[0] if searches else None
     catalogs = acquired_body_catalogs(execution)
-    rows = []
+    pairs = []
     for read in selected_body_reads(execution):
-        excerpt = read.excerpt
-        catalog = catalogs.get(excerpt.catalog_sha256)
+        catalog = catalogs.get(read.excerpt.catalog_sha256)
         if catalog is None:
             raise ValueError('Native body writer read lacks its exact observed catalog')
+        pairs.append((read, catalog))
+    return model_body_frame_rows(source_authority, pairs, selector,
+        search=search, catalog_count=len(catalogs))
+
+
+def model_body_frame_rows(source_authority, pairs, selector, *, search=None, catalog_count=None):
+    """Pure shared presentation of already owner-verified reads, not a read grant.
+
+    Play can prepare its first request from actual Core reads before APP accepts
+    the turn. Its producing owner later reconstructs these same rows from the
+    persisted human read events. No provisional ledger or model vote is needed.
+    """
+    rows = []
+    for read, catalog in pairs:
+        excerpt = read.excerpt
         rows.append(dict(excerpt_handle=selector(read), source_name=catalog.sections[0].label,
             section_title=excerpt.section.label,
             extent_kind='full_document' if excerpt.selector_policy == 'native_full_document_v1' else 'section',
@@ -582,7 +596,7 @@ def model_body_frame_records(source_authority, execution, selector):
         scope='GM whole-World cross-campaign source inspection; not campaign fact publication',
         source_authority_status='available' if isinstance(source_authority, NativeCorpusAuthorityV1) else 'unavailable',
         excerpts=rows, coverage=dict(search_performed=search is not None,
-            accessible_source_count=len(catalogs) if search else None,
+            accessible_source_count=catalog_count if search else None,
             unavailable_source_count=search.unavailable_source_count if search else None,
             semantic_recall='not_established', global_completeness='not_established'))
 
@@ -619,6 +633,11 @@ class NativeBodySupport:
 def producing_bodies(turn, authorization, raw):
     """Only the exact producing inclusion supplies eligible body selectors."""
     from . import types as t
+    if isinstance(turn.graph_context_receipt, t.PlayWorldGraphContextReceiptV1):
+        if turn.graph_context_receipt.authored_source_context is None:
+            return ()
+        from .play_authored_sources import producing_bodies as play_bodies
+        return play_bodies(turn, authorization, raw)
     if not isinstance(turn.graph_context_receipt, t.PlanSourceContextReceiptV1):
         return ()
     execution = turn.graph_context_execution
@@ -651,11 +670,19 @@ def body_citation(support, *, index, text, producer, envelope_sha256):
 
 def validate_body_citations(completion, receipt, execution, producer):
     from . import types as t
+    play = (isinstance(receipt, t.PlayWorldGraphContextReceiptV1)
+        and isinstance(execution, t.PlayWorldGraphExecutionV1)
+        and receipt.authored_source_context is not None)
     if not isinstance(completion, t.SurfaceEvidenceCompletionV5):
-        if isinstance(receipt, t.PlanSourceContextReceiptV1):
-            raise ValueError('Source-capable Plan requires its native body completion contract')
+        if isinstance(receipt, t.PlanSourceContextReceiptV1) or play:
+            raise ValueError('Source-capable turn requires its native body completion contract')
         return
-    if (not isinstance(receipt, t.PlanSourceContextReceiptV1) or not isinstance(execution, t.PlanSourceExecutionV1)
+    if play:
+        from .play_authored_sources import validate_binding
+        validate_binding(receipt, execution)
+        if completion.surface_id != 'play':
+            raise ValueError('Play body completion cannot borrow a Plan owner')
+    elif (not isinstance(receipt, t.PlanSourceContextReceiptV1) or not isinstance(execution, t.PlanSourceExecutionV1)
             or completion.native_source_citations):
         raise ValueError('Native body completion cannot inherit another source family')
     witnesses = [event for event in execution.events if isinstance(event, NativeBodyProviderIncludedV1)
