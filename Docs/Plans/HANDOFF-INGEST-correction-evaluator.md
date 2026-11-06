@@ -54,3 +54,20 @@ regressions; existing source/publication/capture suites; cumulative diff and
 independent exact-head review. Implement/test/commit/push/open one PR. No merge
 or deployment authority. Actual isolated retained correction requires a fresh
 qualified manifest and reviewed request; primary unchanged. No providers.
+
+## Observed validation
+
+129 evaluator tests passed with the reviewed product union selected by
+`DMB_EVALUATION_TEST_RUNTIME=/tmp/c1-correction-database-authority-eval-v1`.
+The backend integration uses synthetic disposable APP state, actual frozen
+product correction/disposition services, pure fixture extraction and real row
+conservation. It proves separate correction/decision qualification, dispatch,
+replay and inspection, plus source/profile drift and unexpected child-column
+mutation refusal. It explicitly stubs native repository access, auth configuration
+and service transport; fixed ASGI write-window/auth restoration checks are
+separate tests. Real retained evaluator acceptance is still a required next step.
+
+The preferred retained S5 request is the independently reviewed nonlossy two-type
+batch (SHA `23ccb4377299e977b66167294e99c09e7fce5cc8432f3b8016f3a2ca212f1b14`).
+The older type-plus-omissions proposal is superseded and does not justify widening
+this type-only lane. No retained child or semantic decision has been executed.

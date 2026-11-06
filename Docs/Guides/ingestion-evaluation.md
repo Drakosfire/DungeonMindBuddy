@@ -109,3 +109,11 @@ The durable `correction-execution.json` intent precedes dispatch. An interrupted
 or unknown outcome is inspected without redispatch. A verified correction only
 proves its bounded reviewed effect; raw ingestion quality, Gold completeness and
 native publication remain separate assessments.
+
+The backend integration test takes `DMB_EVALUATION_TEST_RUNTIME` so product
+imports come from the exact reviewed runtime union rather than the evaluator
+host's older product checkout. Run the evaluator suites with that variable set;
+without it, the product-runtime integration test reports a skip. Its disposable
+APP probe exercises actual correction/disposition owners while native repository
+and authentication/transport remain explicit doubles. Real retained evaluation
+still requires its own pinned manifest, reviews and qualification.
