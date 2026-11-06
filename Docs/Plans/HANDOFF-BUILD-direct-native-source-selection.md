@@ -40,3 +40,16 @@ without offering an equivalent second full-document address. Acquired extents
 are compared by exact source pair/hash and interval, including across refreshed
 source epochs. Existing sections remain offered when not already covered.
 Core freshness is factored from the existing selected-body reader, not duplicated.
+
+CI validation amendment: saved-page-readers completed all427 tests successfully
+in1772.17s, but its30-minute job deadline canceled the process after pytest's
+summary and failed the aggregate gate. Retain that terminal log and allow45minutes
+for this measured suite only; other groups remain30minutes. No test removal,
+retrieval-budget change or runtime behavior change. This required validation
+repair remains with the owning source-choice tests in this PR.
+
+Explicit workflow split lease: PR2147 owns only the matrix timeout-minutes value
+in .github/workflows/world-ownership-core.yml. Inspected open INGEST2087 head
+687b26a2b83b5fe424801245b1cd199c1d183630 (frozen code, external-call hold) owns its
+three ingestion test selectors; held REFERENCE2104 owns its four query selectors.
+Neither concurrent hunk is changed or activated. Their holds remain intact.
