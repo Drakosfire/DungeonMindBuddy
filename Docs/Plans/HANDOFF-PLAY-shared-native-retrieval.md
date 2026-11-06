@@ -1,7 +1,8 @@
 # PLAY: shared native retrieval with actual Run evidence
 
-Status: DESIGN REVIEW. PRIME owns design/delivery under the active References
-goal. No implementation or runtime mutation lease until the gates below resolve.
+Status: DESIGN REVIEW. Independent Bugbot approved design head
+`781ebf5d9cabcd35fff6320a35d2352d4a111048` against the pinned base. PRIME owns
+design/delivery under the active References goal. No implementation or runtime mutation lease until the gates below resolve.
 Base origin/main `7afaab5cb23f605a70d45529dc9143c2b293999d`; isolated branch
 `codex/play-shared-native-context`, existing buddy-context-loop checkout/dependencies.
 
@@ -62,6 +63,29 @@ Output budget constrains execution; raising it proves no retrieval improvement.
 5. Inspect actual SQL/storage constraints and forward-reader requirements. Any
    necessary fence/migration accompanies the behavior and rewrites no retained
    source, document, Run or Turn. No unused codec or placeholder framework.
+
+## Resolved owner reuse and retained inventory
+
+A fresh read-only APP inventory at runtime5b28/main7afa found 14 old typed Play
+receipts, three unreceipted Play turns and zero shared-native Play turns. Retain
+those real historical readers; do not invent compatibility for dormant shapes.
+The private evidence is `play-native-retained-contract-inventory-current.json`.
+
+`play_graph_source_owner.read_native_play_current_moment(conn, basis)` already
+opens the immutable accepted work/edition revision, verifies exact bytes and
+renders the moment through the existing Play projection. Its
+`resolve_native_play_sessions` already joins immutable session-review rows.
+Adopt these at locked APP admission rather than creating a captured body store.
+Reuse the existing Play manifest/frame commitment in the shared work context;
+verify supplied work bytes against that commitment and their independent owners.
+Prove each actual producing request includes them before accepting its selectors.
+No self-supplied basis/text join, Plan alias or source label can substitute.
+
+Fresh Jev and writer calls use actual separate provider roles and acknowledged
+attempt accounting. The dormant single-provider shared Play requirement must
+not be silently widened or inherited as an arbitrary global cap. Existing
+configured per-call allowances remain explicit. Rules-only Play stays on its
+existing Rules path; mixed Rules retains its distinct evidence owner.
 
 ## Expected review map and ownership
 
