@@ -340,7 +340,9 @@ class BuildJevHarness:
 
     def _capture_failure(self, adapter, exc):
         from .build_failure_diagnostic import store_failure, failure_code
-        stage = getattr(self, "failure_stage", "delivery")
+        code = failure_code(exc)
+        capacity = code in {"build_writer_context_over_budget", "build_writer_request_over_budget"}
+        stage = "writer_context_preparation" if capacity else getattr(self, "failure_stage", "delivery")
         logging.getLogger(__name__).error("Build execution failed at %s (%s)", stage, type(exc).__name__)
         try:
             turn = adapter.turn
@@ -348,8 +350,8 @@ class BuildJevHarness:
                 attempt=turn.attempt if turn else None)
             logging.getLogger(__name__).error("Build failure diagnostic %s", metadata["diagnostic_id"])
             if adapter.context_capture:
-                adapter.context_capture.observe({"kind": "failure", "phase": "delivery",
-                    "code": failure_code(exc), **metadata})
+                adapter.context_capture.observe({"kind": "failure", "phase": "context_build" if capacity else "delivery",
+                    "code": code, **metadata})
         except Exception as capture_error:
             logging.getLogger(__name__).error("Build failure diagnostic capture failed (%s); original exception preserved", type(capture_error).__name__)
             if adapter.context_capture:

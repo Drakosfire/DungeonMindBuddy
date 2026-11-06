@@ -13,6 +13,7 @@ from application_state.agent_conversation.source_writer_output import strict_jso
 from application_state.agent_conversation.surface_source_answer import SOURCE_ATTRIBUTION_INSTRUCTIONS
 from .hermes_product_prompt import BUDDY_SYSTEM_PROMPT, IMAGE_DIRECTION_INSTRUCTIONS
 from .native_rules_capture import NativeProviderReply
+from .build_jev_writer import WriterCapacityError
 
 from application_state.agent_conversation.surface_evidence_answer import INSTRUCTIONS as EVIDENCE_INSTRUCTIONS
 
@@ -161,7 +162,8 @@ def authorize_native_writer(adapter, rules, proof, prepared, expected, frame):
         raise ValueError('Native writer actual request differs from its staged owner request')
     estimate=len(prepared.body)+64*(1+_json_node_count(expected))
     if estimate+reserve>limit:
-        raise ValueError('Native writer exceeds the existing provider context allowance')
+        raise WriterCapacityError('Native writer exceeds the existing provider context allowance. The request is retained; the writing provider was not called. Narrow the requested context before retrying.',
+            code='build_writer_context_over_budget', actual=estimate+reserve, limit=limit)
     event=NativeWriterAuthorizedV1(event_id=uuid4(),sequence=len(adapter._broker_execution().events),
         provider_attempt_id=UUID(prepared.attempt_id),envelope_sha256=prepared.body_sha256,
         serializer_version='openai-sdk-json-v1',provider='openai',model=model,api_mode='responses',
@@ -301,7 +303,8 @@ class PlanJevWriter:
         projection = self.projection
         estimate = len(prepared.body) + 64 * (1 + _json_node_count(expected))
         if estimate + self.output_reserve > self.context_limit:
-            raise ValueError('Plan writer exceeds the existing provider context allowance')
+            raise WriterCapacityError('Plan writer exceeds the existing provider context allowance. The request is retained; the writing provider was not called. Narrow the requested context before retrying.',
+                code='build_writer_context_over_budget', actual=estimate+self.output_reserve, limit=self.context_limit)
         if self.shared:
             from application_state.errors import ApplicationStateConflictError
             try:
@@ -459,9 +462,14 @@ class PlanJevWriter:
             if response is not None and getattr(response,'status',None)=='incomplete':
                 self.output_limit_exceeded = getattr(getattr(response,'incomplete_details',None),'reason',None)=='max_output_tokens'
             self.observe(getattr(exc,'observation',None),status='error')
+            # GE preserves the dispatch-gate cause. Reuse the host's exact safe
+            # classifier instead of mistaking an unsent request for provider failure.
+            from .build_failure_diagnostic import failure_code
+            code = failure_code(exc)
+            capacity = code in {'build_writer_context_over_budget', 'build_writer_request_over_budget'}
             self.adapter.context_capture.observe({'kind':'failure',
-                'phase':'provider' if stage == 'generation' else 'delivery',
-                'code':exc.code if isinstance(exc, _ReplyRejected) else f'plan_writer_{stage}_rejected'})
+                'phase':'context_build' if capacity else 'provider' if stage == 'generation' else 'delivery',
+                'code':code if capacity else exc.code if isinstance(exc, _ReplyRejected) else f'plan_writer_{stage}_rejected'})
             try:
                 self.capture_draft(response)
             except BaseException as draft_error:

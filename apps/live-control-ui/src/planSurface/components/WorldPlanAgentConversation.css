@@ -1263,3 +1263,8 @@
 .plan-conversation-dock .buddy-activity__body {
   max-block-size:calc(var(--conversation-dock-height,32rem) - 12rem);
 }
+
+/* Fullscreen uses the viewport rather than the retained compact-dock height. */
+.plan-conversation-dock.is-fullscreen .buddy-activity__body {
+  max-block-size: calc(100dvh - 12rem);
+}
