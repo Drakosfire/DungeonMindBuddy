@@ -21,9 +21,9 @@ proved all fourteen S5/S8 request hashes, including the existing policy. Transpo
 review `179805278a9f64924df5039fcd6160a5755a752a510eb3d6421989d7e566499a`
 found no dropped parameters. Upstream compliance is unproven.
 
-Branch `codex/ingest-recap-policy-role`, stacked on #2145 exact head
-`ceecc1854eea05558b5109e97442d02a3ec378e5`; merge/rebase #2145 before successor.
-#2145 depends on #2144/#2131. Shared evaluator #2146 is independent host tooling.
+Branch `codex/ingest-recap-policy-role`, stacked on #2149 exact head
+`857093a2263053b5c6ab30423262be03f1fe55bf` (#2149); merge/rebase order
+#2145 → #2149 → this experiment. #2145 depends on #2144/#2131. Shared evaluator #2146 is independent host tooling.
 No overlap with BUILD #2147, checked before activation. Prior rejected prompt
 experiments #2140/#2143 are not inherited. No merge/deployment authority.
 
@@ -54,3 +54,20 @@ recap evidence/schema regressions. Inspect cumulative diff; independent exact-he
 review; commit/push/open the assigned PR. Actual full Gold/completeness/precision,
 positive knowledge preservation, cost and attribution must be assessed before
 accepting the hypothesis. Failed experiments remain evidence, not default code.
+
+## Adopted predecessor and renewed comparison boundary
+
+The original control found cross-pass node-ID collisions. Repair #2149 now has
+independent code/runtime/actual-ingestion verification, including 67 unique IDs
+and 38 exact raw-to-final endpoints in fresh S8 run
+6f132f6b-4d3d-4f2f-b3fc-5edf994d3834. Technical review SHA256
+e74f3fd170ad59dd38ef674e6ae85fa7a07473f40dcf893a81b24e4df076afb7.
+Full semantic review remains HOLD (all167 criteria/all117 records), SHA256
+3b2e462d41a62a12efa4cd45d977624e6250ed9969cd15f9a2dca4e09ce94fe5.
+Root adopts this code predecessor and transfers the two experimental production
+paths back to this serial lane; the repair PR receives no concurrent edits.
+
+Both comparison arms must contain the reviewed ID repair. No earlier unfixed
+control may establish a causal role comparison. Preserve the failed control and
+all Gold unchanged. This remains an unproven role-only hypothesis; no new rules,
+corpus-specific guidance or publication of unsupported claims are authorized.
