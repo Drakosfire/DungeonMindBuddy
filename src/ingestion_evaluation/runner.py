@@ -62,8 +62,17 @@ def verify_manifest(path: Path) -> tuple[dict, str]:
     if manifest.get('tooling_sha256') != tooling_identity():
         raise ValueError('Evaluation tooling pin mismatch')
     source_mode = manifest.get('mode') == 'source_authority_v1'
-    if manifest.get('mode') not in (None, 'source_authority_v1'):
+    publication_mode = manifest.get('mode') == 'reviewed_publication_v1'
+    if manifest.get('mode') not in (None, 'source_authority_v1', 'reviewed_publication_v1'):
         raise ValueError('Unsupported evaluation mode')
+    if publication_mode:
+        spec = manifest.get('publication', {})
+        if (set(spec) - {'principal', 'review_pins', 'reviewed_packet_sha256'}
+                or not spec.get('principal') or not spec.get('review_pins')
+                or manifest['app_append_tables']):
+            raise ValueError('Publication requires a pinned principal/reviews and read-only APP')
+        for pin in spec['review_pins']:
+            read_pin(pin)
     if source_mode:
         operation = manifest.get('source_authority', {})
         if (set(operation) != {'operation', 'review_pins'}
@@ -90,12 +99,14 @@ def verify_manifest(path: Path) -> tuple[dict, str]:
             raise ValueError(f'Runtime drift: {name}')
     for item in manifest['items']:
         read_pin(item['request'])
-        if not source_mode:
+        if not (source_mode or publication_mode):
             read_pin(item['source'])
         elif not item.get('retained_run_id') or type(item.get('expected_run_revision')) is not int:
             raise ValueError('Source authority requires an exact existing ingestion run')
-    if source_mode and len(ids) != 1:
-        raise ValueError('Source authority executes one operation at a time')
+        if publication_mode and item.get('retained_packet'):
+            read_pin(item['retained_packet'])
+    if (source_mode or publication_mode) and len(ids) != 1:
+        raise ValueError('Governed evaluation executes one operation at a time')
     for pin in manifest.get('prior_evidence', []):
         read_pin(pin)
     output = Path(manifest['output']).resolve()
@@ -121,8 +132,8 @@ def conserve(before: dict, after: dict, append_tables: set[str]) -> None:
 
 class Runner:
     def __init__(self, manifest: dict, manifest_sha: str, backend):
-        if manifest.get('mode') == 'source_authority_v1':
-            raise ValueError('Source-authority manifests cannot run the capture lifecycle')
+        if manifest.get('mode') in ('source_authority_v1', 'reviewed_publication_v1'):
+            raise ValueError('Governed manifests cannot run the capture lifecycle')
         self.manifest, self.manifest_sha, self.backend = manifest, manifest_sha, backend
         self.output = Path(manifest['_output'])
 

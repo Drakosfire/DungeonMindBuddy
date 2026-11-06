@@ -30,7 +30,7 @@ Commands share `--manifest MANIFEST`. For historical comparison, set `retained_r
 
 Output records include qualification, execution intent, per-item dispatch, exact HTTP bytes (base64 plus SHA256), errors, component copies, terminal outcome, audit and report projection. Database source/run/components remain product authority; copies support reproducibility. Component export failure never grants permission to repeat inference. Reports preserve source scope and distinguish capture, literal evidence, independent semantics and publication.
 
-The product adapter currently supports the source-only recap workflow. Worldbuilding must adopt its distinct source/publication rules in a separately reviewed adapter before execution; do not disguise it as recap.
+The capture adapter supports the source-only recap workflow; the governed modes below handle its source and claim publication boundaries. Worldbuilding must adopt its distinct source/publication rules in a separately reviewed adapter before execution; do not disguise it as recap.
 
 ## Source-authority operations
 
@@ -54,3 +54,22 @@ Outcomes distinguish `verified`, `committed_unverified` and `outcome_unknown`. A
 Conservation permits exact replacements of the selected World's `knowledge_heads` row and the singleton global `knowledge_native_source_authority` epoch row, preserving all other rows. It also checks unchanged semantic entities/assertions and prior evidence against Core, exact receipt parent/child/intent, source roles, body bytes and intervals. Source-only admission's current product wire does not accept an external parent pin: the evaluator checks immediately before dispatch and verifies the actual receipt parent afterward, under its exclusive lane. It does not claim atomic protection against unrelated writers. Existing established Worlds only; no authority provisioning or World genesis.
 
 Source authority success is not semantic publication or Gold acceptance. Continue through the separate reviewed claim-publication owner and independent actual readback.
+
+## Reviewed recap publication
+
+Use `mode: reviewed_publication_v1` for the existing authenticated recap preparation and confirmation APIs. This is an evaluator adapter, not a claim producer. Worldbuilding is excluded until its distinct rules have an adopted adapter. Capture and source commands cannot execute this mode.
+
+Keep the common tooling/runtime/dependency pins, isolated DB identities, non-secret environment, World context and private output directory. Set `app_append_tables: []`. One item pins the existing reviewable `retained_run_id`, integer `expected_run_revision`, campaign/session, APP source artifact/revision/hash and exact strict `NativeRecapPrepareRequest` as `request`. No source-file authority or provider credentials are needed. Set `publication.principal` to the authenticated local operator subject and `publication.review_pins` to the independent concrete reviews. Review pins record evidence, not authorization by themselves.
+
+The existing `DMB_GRAPH_REVIEW_PREPARE_BINDING_KEY` must be configured privately, alongside local operator credentials. The evaluator validates the owning key configuration before preparation; it never generates a key. Signing remains entirely in the product. Signed packets and raw HTTP are private evidence, not report output.
+
+1. Run `publication-prepare --manifest MANIFEST`. Both DBs stay read-only. The exact response, stable snapshots and private `publication-packet.json` are retained. The once marker prevents silently replacing a prepared packet; corrected failures use a new versioned output directory.
+2. Independently review that exact packet and its compiled operations. Pin its file SHA as `publication.reviewed_packet_sha256` with the review artifacts in the qualification manifest. A versioned manifest may adopt the already prepared packet in the same private output directory; the owner still verifies the exact signed request against its request/source/run pins. Preparation evidence retains its original manifest identity.
+3. Run `publication-qualify`, then `publication-execute --qualification-sha SHA`. Qualification verifies the owning signature, request/compiler, current parent/epoch, expiry, receipt absence and DB state. Execution repeats those checks under the shared lease, seals one intent, then invokes the exact confirmation once. APP remains read-only; native writes exist only in this fixed route window. No automatic retry or provider call occurs.
+4. Run `publication-inspect` for read-only reconciliation or `publication-report` for local metadata without DB access. Inspection queries actual Core receipt/result/receipted child and never invokes confirmation recovery. A later current head is reported separately from the exact child. Keep the original outcome even after a later inspection resolves it.
+
+Outcomes distinguish `verified`, `committed_unverified` and `outcome_unknown`. Missing replies or post-commit verifier failures never imply zero effects or permit replay. Execution-window proof verifies all APP rows unchanged, only five owned native tables append with the exact World head replacement, unchanged source epoch, and unchanged prior graph/evidence payloads. Every new object/assertion, result kind, value, endpoint, metadata and SUPPORT opening must match the signed owning compiler output; counts alone are insufficient.
+
+For historical read-only assessment, pin an existing private packet as `items[0].retained_packet`. This forbids prepare, qualify and execute. `publication-inspect` can establish `verified_core` against the actual immutable child, including after head advancement or packet expiry. It explicitly does **not** establish the original DB execution window; retain independent historical window evidence separately. It never upgrades that scoped inspection to `verified` or full Gold acceptance.
+
+Publication verification is a technical boundary score. Independent ingestion quality, source semantics, held identities, full Gold coverage, retrieval and answer delivery remain separate assessments.
