@@ -1,6 +1,6 @@
 # RETRIEVAL: avoid object hashing for source-only selections
 
-Status: ACTIVE. PRIME owns this bounded code-efficiency slice under the operator-authorized retrieval goal. Base origin/main a43553bf87fb9856c1bbdf3e8ca77767294109fb. Branch codex/native-object-source-selection-efficiency in the existing buddy-context-loop checkout. Topology: serial after delivered #2159. No unmerged behavioral parent.
+Status: DELIVERED. #2161 merged23d9b4d58f9711f977b04ca2697c42890c159238 after exact-head independent approval and seven successful CI checks. Reviewed integrated API9b455023dd18932a6f4260096f60ce669c892689 delivered with schema/UI/dependencies and all retained rows/session files unchanged. The first ordinary run then exposed a distinct incomplete-writer failure; no live speed improvement or full acceptance is claimed. PRIME owns this bounded code-efficiency slice under the operator-authorized retrieval goal. Base origin/main a43553bf87fb9856c1bbdf3e8ca77767294109fb. Branch codex/native-object-source-selection-efficiency in the existing buddy-context-loop checkout. Topology: serial after delivered #2159. No unmerged behavioral parent.
 
 ## Outcome and invariant
 

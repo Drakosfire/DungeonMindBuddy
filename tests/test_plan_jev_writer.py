@@ -512,7 +512,10 @@ def test_incomplete_reply_preserves_primary_failure_when_debug_capture_fails(pla
     wire = WriterWire(plan_adapter, '{"incomplete":', status='incomplete')
     with pytest.raises(GenerationEngineError) as error:
         asyncio.run(writer.run(transport=wire, api_key='synthetic-not-secret'))
-    assert isinstance(error.value.__cause__, ValueError)
+    assert error.value.failure.code.value == 'PROVIDER_INCOMPLETE'
+    assert error.value.__cause__ is not None
+    assert str(error.value.__cause__) != 'synthetic private Debug failure'
+    assert writer.failure_stage == 'generation'
     assert writer.output_limit_exceeded
     assert writer_failures(plan_adapter) == [
         ('provider', 'plan_writer_generation_rejected'), ('delivery', 'plan_writer_draft_rejected')]
