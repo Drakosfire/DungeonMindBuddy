@@ -13,7 +13,7 @@ from application_state.agent_conversation.source_writer_output import strict_jso
 from application_state.agent_conversation.surface_source_answer import SOURCE_ATTRIBUTION_INSTRUCTIONS
 from .hermes_product_prompt import BUDDY_SYSTEM_PROMPT, IMAGE_DIRECTION_INSTRUCTIONS
 from .native_rules_capture import NativeProviderReply
-from .build_jev_writer import WriterCapacityError
+from .build_jev_writer import WriterCapacityError, WriterAccountingError
 
 from application_state.agent_conversation.surface_evidence_answer import INSTRUCTIONS as EVIDENCE_INSTRUCTIONS
 
@@ -160,15 +160,30 @@ def authorize_native_writer(adapter, rules, proof, prepared, expected, frame):
             or len(prepared.body)!=prepared.body_size or sha256(prepared.body).hexdigest()!=prepared.body_sha256
             or strict_json(prepared.body.decode())!=expected or expected['max_output_tokens']!=reserve):
         raise ValueError('Native writer actual request differs from its staged owner request')
-    estimate=len(prepared.body)+64*(1+_json_node_count(expected))
+    from application_state.agent_conversation.native_execution import NativeWriterEstimatedBudgetV1
+    if isinstance(budget, NativeWriterEstimatedBudgetV1):
+        from .build_jev_accounting import ExperimentalAccounting
+        accounting = getattr(adapter, '_build_jev_accounting', None)
+        if (not isinstance(accounting, ExperimentalAccounting)
+                or accounting.descriptor != policy.controller_continuation_accounting.model_dump(mode='json')
+                or accounting.tokenizer_version != budget.tokenizer_version):
+            raise WriterAccountingError('Native writer requires its prepared offline accounting; the retained request was not sent.')
+        try:
+            estimate = accounting.estimate(expected)
+        except Exception as exc:
+            raise WriterAccountingError('Native writer input could not be counted; the retained request was not sent.') from exc
+        input_kind, estimator = 'estimated_token_count', budget.estimator
+    else:
+        estimate=len(prepared.body)+64*(1+_json_node_count(expected))
+        input_kind, estimator = 'conservative_upper_bound', adapter.budget['estimator']
     if estimate+reserve>limit:
         raise WriterCapacityError('Native writer exceeds the existing provider context allowance. The request is retained; the writing provider was not called. Narrow the requested context before retrying.',
             code='build_writer_context_over_budget', actual=estimate+reserve, limit=limit)
     event=NativeWriterAuthorizedV1(event_id=uuid4(),sequence=len(adapter._broker_execution().events),
         provider_attempt_id=UUID(prepared.attempt_id),envelope_sha256=prepared.body_sha256,
         serializer_version='openai-sdk-json-v1',provider='openai',model=model,api_mode='responses',
-        tool_schema_sha256=canonical_sha256([]),input_accounting_kind='conservative_upper_bound',
-        input_estimator=adapter.budget['estimator'],input_tokens=estimate,output_token_reserve=reserve,
+        tool_schema_sha256=canonical_sha256([]),input_accounting_kind=input_kind,
+        input_estimator=estimator,input_tokens=estimate,output_token_reserve=reserve,
         frame_sha256=canonical_sha256(frame),included_graph_event_ids=[],included_source_read_event_ids=[],
         included_assertion_ids=[],included_relationship_ids=[],included_evidence_ref_ids=[],
         native_read_event_ids=native_read_event_ids(adapter._broker_execution().events))
@@ -301,8 +316,8 @@ class PlanJevWriter:
         if strict_json(prepared.body.decode()) != expected:
             raise ValueError('Plan writer actual request differs from staged evidence/instructions')
         projection = self.projection
-        estimate = len(prepared.body) + 64 * (1 + _json_node_count(expected))
-        if estimate + self.output_reserve > self.context_limit:
+        estimate = 0 if self.shared else len(prepared.body) + 64 * (1 + _json_node_count(expected))
+        if not self.shared and estimate + self.output_reserve > self.context_limit:
             raise WriterCapacityError('Plan writer exceeds the existing provider context allowance. The request is retained; the writing provider was not called. Narrow the requested context before retrying.',
                 code='build_writer_context_over_budget', actual=estimate+self.output_reserve, limit=self.context_limit)
         if self.shared:
@@ -466,10 +481,10 @@ class PlanJevWriter:
             # classifier instead of mistaking an unsent request for provider failure.
             from .build_failure_diagnostic import failure_code
             code = failure_code(exc)
-            capacity = code in {'build_writer_context_over_budget', 'build_writer_request_over_budget'}
+            preparation = code in {'build_writer_context_over_budget', 'build_writer_request_over_budget', 'build_writer_accounting_unavailable'}
             self.adapter.context_capture.observe({'kind':'failure',
-                'phase':'context_build' if capacity else 'provider' if stage == 'generation' else 'delivery',
-                'code':code if capacity else exc.code if isinstance(exc, _ReplyRejected) else f'plan_writer_{stage}_rejected'})
+                'phase':'context_build' if preparation else 'provider' if stage == 'generation' else 'delivery',
+                'code':code if preparation else exc.code if isinstance(exc, _ReplyRejected) else f'plan_writer_{stage}_rejected'})
             try:
                 self.capture_draft(response)
             except BaseException as draft_error:

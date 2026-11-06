@@ -28,7 +28,7 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -73,7 +73,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         field,value = {'revision':('graph_revision','rev:missing'), 'node':('node_id','ent:missing'),
             'reference_world':('managed_world_id','foreign-world')}[failure]
         selected = selected.model_copy(update={'references':(selected.references[0].model_copy(update={field:value}),)})
-    if authored_source or direct_source == 'covered-batch':
+    if authored_source or direct_source == 'covered-batch' or native_source_text is not None:
         from dungeonmind.application.vnext import publish_native_text_source_evidence, list_admitted_native_text_sources
         from dungeonmind.contracts.vnext.native_source import NativeTextSourceAdmissionV1
         from graph_memory.vnext.domain_runtime import dungeonbuddy_world_domain_contract, dungeonbuddy_dnd5e_custom_predicate_profile
@@ -81,7 +81,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         from apps.live_control_server.integrations.dungeonmind.native_corpus_source import prepare_native_source_context
         from application_state.agent_conversation.authored_graph_references import AuthoredSourceReferenceV1, AuthoredReferencesV2
         from application_state.agent_conversation.native_source_catalog import section_catalog
-        human_text='# Opening\nA proposed note.\n# Episode\nThe source describes a source-local episode. 🌿\n'
+        human_text=native_source_text or '# Opening\nA proposed note.\n# Episode\nThe source describes a source-local episode. 🌿\n'
         raw=human_text.encode()
         admission=publish_native_text_source_evidence(repository=lane.repo,domain_contract=dungeonbuddy_world_domain_contract(),
             semantic_profile=dungeonbuddy_dnd5e_custom_predicate_profile(),request=NativeTextSourceAdmissionV1(

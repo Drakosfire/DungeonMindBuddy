@@ -493,6 +493,11 @@ def with_disposition(staged: WriterProjection, disposition) -> WriterProjection:
         separators=(",", ":"), sort_keys=True, allow_nan=False))
 
 
+class WriterAccountingError(ValueError):
+    """The prepared host counter is unavailable; no writer request was sent."""
+    code = 'build_writer_accounting_unavailable'
+
+
 class WriterCapacityError(ValueError):
     """Local pre-dispatch refusal, distinct from provider or contract failures."""
     def __init__(self, message, *, code, actual, limit):

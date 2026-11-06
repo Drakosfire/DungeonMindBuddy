@@ -168,7 +168,17 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
                 if text and _contains_text(body,text)), assembled_input_sha256=view['payloadSha256'])
     return _freeze_native(BuildWorkContextV1(source_basis=source_basis),action,assembled,
         authority,native_query,provenance,budget,controller_accounting=accounting.descriptor,
-        writer_budget=actions['writer_context_budget'])
+        writer_budget=_native_writer_budget(actions['writer_context_budget'], accounting))
+
+
+def _native_writer_budget(budget, accounting):
+    from application_state.agent_conversation.native_execution import NativeWriterEstimatedBudgetV1
+    # The legacy harness budget remains its historical codec. Only this actual
+    # shared native owner adopts the already prepared offline counter.
+    return NativeWriterEstimatedBudgetV1(schema='dmb_native_writer_estimated_budget_v1',
+        provider=budget['provider'], model=budget['model'], api_mode=budget['api_mode'],
+        estimator=accounting.descriptor['policy'], tokenizer_version=accounting.tokenizer_version,
+        context_limit_tokens=budget['context_limit_tokens'], output_reserve_tokens=budget['output_reserve_tokens'])
 
 
 def _freeze_native(work_context, action, assembled, authority, native_query, provenance, budget,

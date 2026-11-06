@@ -106,8 +106,13 @@ def validate_accounting(event, execution, *, provider_index):
     estimated = role == controller and (native or provider_index > 0
         or isinstance(policy, t.BuildInitialEstimatedSelectedSourcePolicyV1))
     descriptor = policy.controller_continuation_accounting
-    kind = "estimated_token_count" if estimated else policy.provider_input_accounting.kind
-    estimator = descriptor.policy if estimated else policy.provider_input_accounting.estimator
+    from .native_execution import NativeWriterEstimatedBudgetV1
+    counted_writer = native and role == writer and isinstance(policy.writer_context_budget, NativeWriterEstimatedBudgetV1)
+    kind = "estimated_token_count" if estimated or counted_writer else policy.provider_input_accounting.kind
+    estimator = (descriptor.policy if estimated else policy.writer_context_budget.estimator
+        if counted_writer else policy.provider_input_accounting.estimator)
+    if counted_writer and event.input_tokens < descriptor.reserve:
+        raise ValueError('Native writer estimate omitted its frozen accounting margin')
     if event.input_accounting_kind != kind or event.input_estimator != estimator:
         raise ValueError("provider attempt accounting differs from accepted role policy")
     if descriptor.policy in {HISTORICAL_POLICY, HISTORICAL_SELECTION_POLICY, POLICY} and role == controller:
