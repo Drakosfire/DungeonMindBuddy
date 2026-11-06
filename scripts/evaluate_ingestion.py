@@ -11,7 +11,7 @@ from ingestion_evaluation.runner import Runner, verify_manifest
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['baseline-freeze', 'baseline-verify', 'qualify', 'capture', 'observe', 'audit', 'audit-retained', 'report', 'pause',
+    parser.add_argument('command', choices=['assessment-report', 'baseline-freeze', 'baseline-verify', 'qualify', 'capture', 'observe', 'audit', 'audit-retained', 'report', 'pause',
                                            'source-qualify', 'source-execute', 'source-inspect', 'source-report',
                                            'publication-prepare', 'publication-qualify', 'publication-execute',
                                            'publication-inspect', 'publication-report',
@@ -20,6 +20,12 @@ def main():
     parser.add_argument('--baseline-output', type=Path)
     parser.add_argument('--qualification-sha')
     args = parser.parse_args()
+    if args.command == 'assessment-report':
+        if not args.manifest or args.baseline_output or args.qualification_sha:
+            parser.error('assessment-report requires only --manifest')
+        from ingestion_evaluation.assessment import report
+        print(json.dumps(report(args.manifest)))
+        return
     if args.command.startswith('baseline-'):
         if not args.baseline_output or (args.command == 'baseline-freeze' and not args.manifest):
             parser.error('Baseline commands require --baseline-output; freeze also requires --manifest')
