@@ -374,11 +374,43 @@ def _plan_node_type_replacements(parent: dict, replacements: object) -> dict[str
     return {operation["node_id"]: operation["replacement_node_type"]}
 
 
+def _correction_predicate_capabilities(profile_id: str) -> tuple[str, ...]:
+    # Historical read-only v1 has no registered producer and no new capabilities.
+    if profile_id == "recap_category_v1@1.0":
+        return ()
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    name, separator, version = profile_id.rpartition("@")
+    if not separator or profile_id not in RECAP_READ_PROFILE_IDS:
+        raise _reject("correction extraction profile is not admitted")
+    try:
+        profile = get_extraction_profile(name, version)
+    except ValueError as exc:
+        raise _reject("correction extraction profile is not registered") from exc
+    if profile.admitted_source_domains != frozenset({"recap"}):
+        raise _reject("correction requires a recap extraction profile")
+    return profile.edge_pass.predicate_capabilities
+
+
+def _correction_endpoint_reason(predicate, from_type, to_type, vocabulary, capabilities=()):
+    from src.graph_memory.predicate_catalog import (
+        RECAP_SOURCE_ORDER, SOURCE_PRECEDENCE_PREDICATE,
+        source_precedence_endpoints_admitted,
+    )
+    if predicate == SOURCE_PRECEDENCE_PREDICATE and RECAP_SOURCE_ORDER in capabilities:
+        return (None if source_precedence_endpoints_admitted(from_type, to_type)
+                else "endpoint_kind_not_admitted")
+    return edge_endpoint_kind_admission_reason(
+        buddy_predicate=predicate, from_buddy_kind=kernel_kind_for_node_type(from_type),
+        to_buddy_kind=kernel_kind_for_node_type(to_type), vocabulary=vocabulary,
+    )
+
+
 def _plan_edge_tuple_replacements(
     parent: dict,
     replacements: object,
     *,
     projected_node_types: dict[str, str] | None = None,
+    predicate_capabilities: tuple[str, ...] = (),
 ) -> dict[str, dict[str, str]]:
     """Validate a complete tuple batch before returning any candidate edits."""
     if (
@@ -466,25 +498,17 @@ def _plan_edge_tuple_replacements(
                 break
             endpoint_nodes.append(matches[0])
 
-        predicate_issues = validate_edge_predicate(target["relationship_type"], None)
+        predicate_issues = validate_edge_predicate(target["relationship_type"], None, capabilities=predicate_capabilities)
         if predicate_issues:
             issues.append((index, "unknown_predicate"))
         elif vocabulary is None:
             issues.append((index, "native_vocabulary_unavailable"))
         elif endpoint_nodes:
-            reason = edge_endpoint_kind_admission_reason(
-                buddy_predicate=target["relationship_type"],
-                from_buddy_kind=kernel_kind_for_node_type(
-                    (projected_node_types or {}).get(
-                        target["from_node_id"], endpoint_nodes[0].get("node_type")
-                    )
-                ),
-                to_buddy_kind=kernel_kind_for_node_type(
-                    (projected_node_types or {}).get(
-                        target["to_node_id"], endpoint_nodes[1].get("node_type")
-                    )
-                ),
-                vocabulary=vocabulary,
+            reason = _correction_endpoint_reason(
+                target["relationship_type"],
+                (projected_node_types or {}).get(target["from_node_id"], endpoint_nodes[0].get("node_type")),
+                (projected_node_types or {}).get(target["to_node_id"], endpoint_nodes[1].get("node_type")),
+                vocabulary, predicate_capabilities,
             )
             reason_to_code = {
                 "unmapped_predicate": "unmapped_predicate",
@@ -529,23 +553,15 @@ def _plan_edge_tuple_replacements(
             if len(matches) != 1:
                 raise _reject("an unchanged edge incident to a corrected node has a missing or ambiguous endpoint")
             endpoint_nodes.append(matches[0])
-        if validate_edge_predicate(final_tuple["relationship_type"], None):
+        if validate_edge_predicate(final_tuple["relationship_type"], None, capabilities=predicate_capabilities):
             raise _reject("an unchanged edge incident to a corrected node has an unknown predicate")
         if vocabulary is None:
             raise _reject("native predicate vocabulary could not be verified for an unchanged incident edge")
-        reason = edge_endpoint_kind_admission_reason(
-            buddy_predicate=final_tuple["relationship_type"],
-            from_buddy_kind=kernel_kind_for_node_type(
-                projected_node_types.get(
-                    final_tuple["from_node_id"], endpoint_nodes[0].get("node_type")
-                )
-            ),
-            to_buddy_kind=kernel_kind_for_node_type(
-                projected_node_types.get(
-                    final_tuple["to_node_id"], endpoint_nodes[1].get("node_type")
-                )
-            ),
-            vocabulary=vocabulary,
+        reason = _correction_endpoint_reason(
+            final_tuple["relationship_type"],
+            projected_node_types.get(final_tuple["from_node_id"], endpoint_nodes[0].get("node_type")),
+            projected_node_types.get(final_tuple["to_node_id"], endpoint_nodes[1].get("node_type")),
+            vocabulary, predicate_capabilities,
         )
         if reason is not None:
             raise _reject(
@@ -789,6 +805,7 @@ def _replay_atomic_batch(parent: dict, manifest: dict, source_bytes: bytes | Non
     validate_source_span_index(index, source_artifact_id=index.source_artifact_id, content_sha256=request.source_revision_sha256)
     if parent.get("source_artifact_ids") != [index.source_artifact_id]:
         raise _reject("atomic batch source identity changed", status_code=409)
+    predicate_capabilities = _correction_predicate_capabilities(request.profile_id)
     # Retained records must never dangle after an omission. Plan against the
     # unchanged parent and reject dependencies rather than cascading edits.
     omitted = {x.edge_id for x in request.edge_omissions}
@@ -830,6 +847,7 @@ def _replay_atomic_batch(parent: dict, manifest: dict, source_bytes: bytes | Non
             node["node_type"] = kind_plans[node["node_id"]]
     if request.edge_tuple_replacements:
         plans = _plan_edge_tuple_replacements(tuple_parent, [x.model_dump(mode="json") for x in request.edge_tuple_replacements],
+            predicate_capabilities=predicate_capabilities,
             **({"projected_node_types": kind_plans} if final_batch else {}))
         for identifier, values in plans.items():
             record("edge", identifier)[1].update(values)
@@ -867,13 +885,11 @@ def _replay_atomic_batch(parent: dict, manifest: dict, source_bytes: bytes | Non
         if any(n.get("node_type") not in NODE_TYPES for n in child["nodes"]):
             raise _reject("final candidate node kind is not admitted")
         for edge in child["edges"]:
-            reason = edge_endpoint_kind_admission_reason(
-                buddy_predicate=edge["relationship_type"],
-                from_buddy_kind=kernel_kind_for_node_type(index_by_id[edge["from_node_id"]]["node_type"]),
-                to_buddy_kind=kernel_kind_for_node_type(index_by_id[edge["to_node_id"]]["node_type"]),
-                vocabulary=vocabulary,
+            reason = _correction_endpoint_reason(
+                edge["relationship_type"], index_by_id[edge["from_node_id"]]["node_type"],
+                index_by_id[edge["to_node_id"]]["node_type"], vocabulary, predicate_capabilities,
             )
-            if validate_edge_predicate(edge["relationship_type"], None) or reason is not None:
+            if validate_edge_predicate(edge["relationship_type"], None, capabilities=predicate_capabilities) or reason is not None:
                 raise _reject("final candidate tuple is not admitted to its native predicate")
     _assert_and_project_candidate_evidence(candidate_payload=child, source_prose=source_bytes.decode("utf-8"), source_artifact_id=index.source_artifact_id, span_index=index)
     return child
