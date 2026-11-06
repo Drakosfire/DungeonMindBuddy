@@ -128,6 +128,27 @@ Host-normalized wrappers are retained for provenance but are not additional
 provider attempts or model claims. Unclassified records require investigation;
 never infer authorship merely from a `parsed` or `source_units` key in the text.
 
+When the original private capture contains its compact source dictionary,
+`review-packet` also emits `evidence-context.json`. This is the exact captured
+context object: request-local `E` handles, canonical source-span IDs, paragraph
+text, text hashes and line bounds. Cite its entries through ordinary JSON
+pointers. It is host-supplied input evidence, not model-authored knowledge or
+independent proof that a claim follows from its cited paragraph.
+
+The projection validates the captured envelope hash and run/source binding,
+source-index identity, entry text hashes, unique sequential handles and source
+span line bounds before writing any packet. Only the closed context object is
+public; model/provider settings, execution binding and other telemetry stay in
+the private receipt/source records. The receipt maps the public dictionary to
+its original captured JSON pointer and envelope hash. It never rebuilds aliases
+from a candidate or falls back to diagnostics.
+
+Historical captures without that envelope report the dictionary as unavailable
+in `scope.json`; no dictionary is invented. Use a new output directory when
+qualifying the expanded packet. Existing packets and sealed reviews remain
+unchanged, and supplying this additional evidence does not automatically regrade
+their findings or turn an unknown outcome into a pass.
+
 ## Paired comparison diagnostics
 
 Use `assessment-compare --manifest /absolute/comparison.json` to consume pinned

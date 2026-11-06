@@ -8,6 +8,7 @@ import pytest
 from ingestion_evaluation.blinding import prepare
 from ingestion_evaluation.assembly import assemble
 from ingestion_evaluation.runner import digest
+from ingestion_evaluation.assessment import reference
 
 
 @pytest.fixture
@@ -33,6 +34,98 @@ def case(tmp_path):
 
 def invoke(case):
     return prepare(case['result'], case['output'], case['receipt'], 'opaque01')
+
+
+@pytest.fixture
+def captured_context(case):
+    text = 'A literal source line mentioning reasoning_effort. 雪 '
+    source_sha = digest(text.encode())
+    binding = {'run_id': 'opaque-run', 'prepared_revision': 2, 'model_id': 'PRIVATE_MODEL',
+               'profile_id': 'profile:test', 'source_artifact_id': 'artifact:test', 'source_sha256': source_sha}
+    context = {'schema': 'dmb_compact_recap_evidence_context_v1', 'source_sha256': source_sha,
+               'entries': [{'handle': 'E1', 'source_span_ref_id': 'span:test', 'text': text,
+                            'text_sha256': digest(text.encode()), 'line_start': 1, 'line_end': 1}]}
+    envelope = {'schema': 'dmb_private_compact_evidence_context_v1',
+                'capture_id': 'context:compact-evidence-v1', 'execution_binding': dict(binding),
+                'context': context, 'node_evidence_status': 'available'}
+    row = {'kind': 'pass_telemetry', 'envelope': envelope}
+    raw = json.loads(Path(case['raw']['path']).read_text())
+    raw['execution_evidence']['binding'] = binding
+    raw['execution_evidence']['records'].append(row)
+    result = json.loads(case['result'].read_text())
+    result['run'].update(profile_id='profile:test', source_artifact_id='artifact:test',
+                         lineage={'model_id': 'PRIVATE_MODEL', 'source_sha256': source_sha})
+    index = {'source_artifact_id': 'artifact:test', 'content_sha256': source_sha,
+             'spans': [{'source_span_id': 'span:test', 'start_line': 1, 'end_line': 1}]}
+
+    def save(*, rehash_envelope=True):
+        if rehash_envelope:
+            row['sha256'] = digest((json.dumps(envelope, sort_keys=True, separators=(',', ':'),
+                                              ensure_ascii=False, allow_nan=False) + '\n').encode())
+        case['raw'].update(case['put']('original-raw.json', raw))
+        index_pin = case['put']('index.json', index)
+        for section in (result['components'], result['run']['components']):
+            section['raw_model_response'] = dict(case['raw'])
+            section['source_span_index'] = dict(index_pin)
+        case['result'].write_text(json.dumps(result))
+    save()
+    return case, context, envelope, row, raw, result, index, save
+
+
+def test_captured_dictionary_is_citable_without_operational_envelope(captured_context):
+    case, context, _, row, _, _, _, _ = captured_context
+    packet = invoke(case)
+    public = packet['public']['evidence-context.json']
+    assert json.loads(Path(public['path']).read_text()) == context
+    assert reference({'artifact': public, 'pointer': '/entries/0/text'}) == context['entries'][0]['text']
+    assert invoke(case) == packet
+    for path in case['output'].iterdir():
+        assert 'PRIVATE_MODEL' not in path.read_text()
+        assert 'PRIVATE_SENTINEL' not in path.read_text()
+        assert 'execution_binding' not in path.read_text()
+    receipt = json.loads(case['receipt'].read_text())
+    assert receipt['source_context_mapping']['envelope_sha256'] == row['sha256']
+    assert receipt['source_context_mapping']['original_pointer'].endswith('/3/envelope/context')
+    assert 'host input evidence' in (case['output'] / 'scope.json').read_text()
+
+
+def test_missing_captured_dictionary_is_explicit_and_not_regenerated(case):
+    invoke(case)
+    assert not (case['output'] / 'evidence-context.json').exists()
+    assert 'Unavailable' in (case['output'] / 'scope.json').read_text()
+    assert json.loads(case['receipt'].read_text())['source_context_mapping'] is None
+
+
+@pytest.mark.parametrize('fault', ['envelope_hash', 'capture_schema', 'capture_id', 'foreign_binding', 'run_binding', 'revision',
+    'source', 'shape', 'empty', 'entry_shape', 'entry_hash', 'handle', 'duplicate_span',
+    'foreign_span', 'lines', 'bool_lines', 'index_source', 'index_artifact', 'index_duplicate', 'duplicate_capture'])
+def test_bad_captured_dictionary_fails_before_publication(captured_context, fault):
+    case, context, envelope, row, raw, result, index, save = captured_context
+    entry = context['entries'][0]
+    if fault == 'envelope_hash': row['sha256'] = '0' * 64
+    elif fault == 'capture_schema': envelope['schema'] = 'foreign'
+    elif fault == 'capture_id': envelope['capture_id'] = 'foreign'
+    elif fault == 'foreign_binding': envelope['execution_binding']['run_id'] = 'foreign'
+    elif fault == 'run_binding': result['run']['lineage']['model_id'] = 'foreign'
+    elif fault == 'revision': raw['execution_evidence']['binding']['prepared_revision'] = True
+    elif fault == 'source': context['source_sha256'] = '0' * 64
+    elif fault == 'shape': context['usage'] = {'tokens': 10}
+    elif fault == 'empty': context['entries'] = []
+    elif fault == 'entry_shape': entry['request'] = {'provider': 'private'}
+    elif fault == 'entry_hash': entry['text_sha256'] = '0' * 64
+    elif fault == 'handle': entry['handle'] = 'E2'
+    elif fault == 'duplicate_span': context['entries'].append({**entry, 'handle': 'E2'})
+    elif fault == 'foreign_span': entry['source_span_ref_id'] = 'foreign'
+    elif fault == 'lines': entry['line_end'] = 2
+    elif fault == 'bool_lines': entry['line_start'] = True
+    elif fault == 'index_source': index['content_sha256'] = '0' * 64
+    elif fault == 'index_artifact': index['source_artifact_id'] = 'foreign'
+    elif fault == 'index_duplicate': index['spans'].append(dict(index['spans'][0]))
+    else: raw['execution_evidence']['records'].append(row)
+    save(rehash_envelope=fault != 'envelope_hash')
+    with pytest.raises((ValueError, KeyError)):
+        invoke(case)
+    assert not case['output'].exists() and not case['receipt'].exists()
 
 
 def test_all_attempts_exact_utf8_no_telemetry_and_idempotent(case, monkeypatch):
