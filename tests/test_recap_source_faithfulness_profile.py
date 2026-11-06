@@ -27,7 +27,9 @@ _PRIOR_EPISTEMIC_SENTENCE = (
 _EPISTEMIC_CLARIFICATION = (
     "Attribution alone does not preserve uncertainty. Keep an actor "
     "or outcome tentative whenever the source is tentative, including in "
-    "descriptions framed as reports or recollections. Do not hedge a confident "
+    "descriptions framed as reports or recollections. When grammar and surrounding "
+    "event context suggest different actors, retain the ambiguity and qualify any "
+    "contextual reading rather than silently choosing one. Do not hedge a confident "
     "source statement merely because it is attributed. "
 )
 
@@ -702,6 +704,8 @@ def test_epistemic_policy_reaches_rendered_recaps_without_changing_source_or_sch
         ('Ari remembers the fragments were copper.', 'confident recollected outcome'),
         ('Someone apparently held the rope; who did so is unclear.', 'unresolved actor'),
         ('Perhaps Bo held the rope. Ari definitely closed the hatch.', 'local qualifier scope'),
+        ('Bo lay injured beside the hatch. Ari reached him as he lost consciousness.',
+         'grammar and event context leave competing actor readings'),
     ]
     rows = [{'source_span_ref_id': f'epistemic-{i}', 'line_start': i + 1,
              'line_end': i + 1, 'text': text} for i, (text, _) in enumerate(contrasts)]
