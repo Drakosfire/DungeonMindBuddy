@@ -54,7 +54,7 @@ def owner(turn):
     from .native_execution import (
         SurfaceNativeExecutionV1,
         NativeBuildActionV1,
-        NativePlanActionV1,
+        NativePlanActionV1, NativePlayActionV1,
         validate_request_identity,
     )
 
@@ -64,7 +64,7 @@ def owner(turn):
         or type(turn.graph_context_receipt) is not SurfaceNativeContextReceiptV1
         or type(turn.graph_context_execution) is not SurfaceNativeExecutionV1
         or type(turn.graph_context_execution.policy.action)
-        not in {NativeBuildActionV1, NativePlanActionV1}
+        not in {NativeBuildActionV1, NativePlanActionV1, NativePlayActionV1}
         or turn.provenance.surface_resolution != "resolved"
         or turn.provenance.surface_id
         != turn.graph_context_execution.policy.action.surface_id

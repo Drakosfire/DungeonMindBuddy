@@ -59,11 +59,16 @@ def restore(wire):
     return sessions
 
 
-def validate_turn_packets(turn, sessions):
-    basis = turn.graph_context_receipt.play_basis
-    frozen = {(r.object_id,r.revision):r.content_sha256 for r in turn.provenance.supporting_work if r.kind == 'session_evidence_v1'}
-    validate_packets(sessions,world_id=turn.world_id,run_id=basis.run_id,frozen=frozen)
+def validate_work_packets(basis, supporting_work, sessions, *, world_id):
+    """One packet/immutable checkpoint join for actual Play work owners."""
+    frozen = {(r.object_id,r.revision):r.content_sha256 for r in supporting_work if r.kind == 'session_evidence_v1'}
+    validate_packets(sessions,world_id=world_id,run_id=basis.run_id,frozen=frozen)
     for packet in sessions:
         if (packet['checkpoint_run_revision'] != basis.run_revision
                 or packet['session_content_sha256'] != basis.content_sha256):
             raise ValueError('Play session checkpoint differs from its frozen Run edition')
+
+
+def validate_turn_packets(turn, sessions):
+    validate_work_packets(turn.graph_context_receipt.play_basis,
+        turn.provenance.supporting_work,sessions,world_id=turn.world_id)

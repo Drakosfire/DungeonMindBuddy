@@ -119,7 +119,7 @@ class SurfaceNativeExecutionPolicyV1(Strict):
     action: NativeAction
     source_authority_sha256: Digest
     native_query_sha256: Digest
-    provider_roles: t.GraphControllerWriterRolesV1 | t.GraphProviderRoleTargetV1
+    provider_roles: t.GraphControllerWriterRolesV1
     provider_input_accounting: t.GraphExecutionAccountingV1
     max_provider_attempts: int | None = Field(ge=1, strict=True)
     max_total_provider_input_tokens: int | None = Field(ge=1, strict=True)
@@ -131,13 +131,9 @@ class SurfaceNativeExecutionPolicyV1(Strict):
     def exact_roles(self):
         roles, action = self.provider_roles, self.action
         if isinstance(action, NativePlayActionV1):
-            if not isinstance(roles, t.GraphProviderRoleTargetV1):
-                raise ValueError("Play requires its actual single-provider policy, not manufactured roles")
             if any(limit is None for limit in (self.max_provider_attempts,
                     self.max_total_provider_input_tokens, self.max_total_provider_output_tokens)):
                 raise ValueError("Play retains its finite accepted provider allowance")
-        elif not isinstance(roles, t.GraphControllerWriterRolesV1):
-            raise ValueError("Build and Plan require their actual controller/writer roles")
         if isinstance(action, NativeBuildActionV1):
             if (roles.controller.identity() != ("typesafe", "jev-1.14.0", "typesafe_decision")
                     or self.controller_continuation_accounting is None or self.writer_context_budget is None
@@ -150,8 +146,8 @@ class SurfaceNativeExecutionPolicyV1(Strict):
                     raise ValueError('Native writer accounting differs from its prepared controller counter')
         elif self.controller_continuation_accounting is not None or self.writer_context_budget is not None:
             raise ValueError("Build role accounting cannot authorize another action family")
-        if isinstance(action, NativePlanActionV1) and roles.controller.identity() != ("typesafe", "jev-1.14.0", "decision"):
-            raise ValueError("Plan requires its exact decision controller")
+        if isinstance(action, (NativePlanActionV1, NativePlayActionV1)) and roles.controller.identity() != ("typesafe", "jev-1.14.0", "decision"):
+            raise ValueError("Native Plan/Play require their exact decision controller")
         return self
 
 
@@ -243,7 +239,7 @@ class SurfaceNativeExecutionV1(Strict):
             if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
                 identity = event.provider, event.model, event.api_mode
                 if type(event) is NativeWriterAuthorizedV1:
-                    writer_role = roles.writer if isinstance(roles, t.GraphControllerWriterRolesV1) else roles
+                    writer_role = roles.writer
                     if identity != writer_role.identity():
                         raise ValueError("Shared native inclusion belongs only to its exact writer role")
                     reads = native_read_event_ids(self.events[:event.sequence])
@@ -266,8 +262,6 @@ class SurfaceNativeExecutionV1(Strict):
                         or event.included_source_read_event_ids
                         or getattr(event, "included_source_reuse_event_ids", ())):
                     raise ValueError("Native provider cannot acquire absent classic Graph evidence")
-                if isinstance(roles, t.GraphProviderRoleTargetV1) and (event.provider, event.model, event.api_mode) != roles.identity():
-                    raise ValueError("Provider differs from its frozen single-provider identity")
         from .authored_graph_references import validate_native_execution
         validate_native_execution(self)
         if isinstance(self.policy.action,NativeBuildActionV1):
@@ -299,8 +293,6 @@ class SurfaceNativeExecutionV1(Strict):
             validate_decision_phases(self)
             from .native_corpus import validate_native_body_events
             validate_native_body_events(self)
-        elif any(isinstance(event, t.NATIVE_BODY_EVENTS) for event in self.events):
-            raise ValueError("Single-provider native body acquisition awaits its actual SDK selection proof")
         # This is retained acquisition history, not a provider request. Its event
         # bound and owner checks apply here; actual SDK envelope budgets apply at
         # dispatch. APP's shared native JSONB contract has no aggregate byte cap.

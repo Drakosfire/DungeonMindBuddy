@@ -1,6 +1,17 @@
 # REFERENCE: name opened native citations through the existing display owner
 
-Status: ACTIVE. PRIME owns this bounded successor to merged/delivered2168 under the current reference goal. Base origin/main6f66622cccc9a316713e35b2d0cf3242eff46f66; branch codex/native-citation-display-labels in the existing buddy-context-loop checkout.
+Status: MERGED, DELIVERED and ordinary citation opening VERIFIED. PR2170 product
+6ca193ac8ac39d75ea5f170f6338065d51ad607d merged7afaab5cb23f605a70d45529dc9143c2b293999d.
+Paired runtime5b28ad990b549ea0bd52387907655f5b04cadba1 is healthy on8000/5202.
+Retained citation reopening resolved Sessions15–17 with exact citation/content
+checks; ordinary UI verified Session15. APP/Core rows and session state stayed
+unchanged, with zero provider calls. Private native-citation-display-ordinary.json
+retains the proof. The implementation/runtime lease is released. Writer labels,
+Play integration and performance/operator acceptance remain open; the consuming
+Play slice is HANDOFF-PLAY-shared-native-retrieval.md.
+
+Original base origin/main6f66622cccc9a316713e35b2d0cf3242eff46f66; branch
+codex/native-citation-display-labels in the existing buddy-context-loop checkout.
 
 ## Outcome and critique
 
