@@ -771,3 +771,41 @@ def test_encounter_preview_preserves_existing_actor_handles_without_expanding_ot
     assert _source_handle_node_passes(profile) == {"actor_pass"}
     assert "source_quote_ids" in prompts["actor_pass.md"]
     assert all("source_quote_ids" not in value for key, value in prompts.items() if key != "actor_pass.md")
+
+
+@pytest.mark.parametrize("padding", [" ", "\t", "  "])
+def test_quote_binding_preserves_raw_source_whitespace_without_aborting_unrelated_items(padding):
+    from copy import deepcopy
+    from src.graph_memory.extraction.category_candidate_graph_extractor import _canonicalize_recap_quote_nominations
+    index, rows, text = _quote_binding_case(
+        f"The crew signed.\n\nThe courier paid ten coins.\n\n{padding}An unrelated witness waited.{padding}\n")
+    raw = {"observation_nodes": [{"node_id": "payment", "description": "Payment was reported.",
+        "evidence_refs": [{"source_span_ref_id": rows[0]["source_span_ref_id"],
+                           "anchor_quotes": ["paid ten coins"]}]}]}
+    original, original_rows = deepcopy(raw), deepcopy(rows)
+    bound, changes = _canonicalize_recap_quote_nominations(
+        raw, source_rows=rows, source_text=text, source_span_index=index)
+    assert len(changes) == 1
+    assert bound["observation_nodes"][0]["evidence_refs"] == [
+        {"source_span_ref_id": rows[1]["source_span_ref_id"], "anchor_quotes": ["paid ten coins"]}]
+    assert bound["observation_nodes"][0]["description"] == original["observation_nodes"][0]["description"]
+    assert raw == original and rows == original_rows
+    again, more = _canonicalize_recap_quote_nominations(
+        bound, source_rows=rows, source_text=text, source_span_index=index)
+    assert again == bound and not more
+
+
+@pytest.mark.parametrize("case", ["forged_row_padding", "nonliteral_quote"])
+def test_quote_binding_with_source_whitespace_still_rejects_unproven_evidence(case):
+    from copy import deepcopy
+    from src.graph_memory.extraction.category_candidate_graph_extractor import _canonicalize_recap_quote_nominations
+    index, rows, text = _quote_binding_case("The crew signed.\n\nThe courier paid ten coins. \n")
+    if case == "forged_row_padding":
+        rows[1]["text"] = rows[1]["text"].strip()
+    quote = "paid ten COINS" if case == "nonliteral_quote" else "paid ten coins"
+    raw = {"observation_nodes": [{"node_id": "payment", "evidence_refs": [
+        {"source_span_ref_id": rows[0]["source_span_ref_id"], "anchor_quotes": [quote]}]}]}
+    original = deepcopy(raw)
+    bound, changes = _canonicalize_recap_quote_nominations(
+        raw, source_rows=rows, source_text=text, source_span_index=index)
+    assert bound == raw == original and changes == []
