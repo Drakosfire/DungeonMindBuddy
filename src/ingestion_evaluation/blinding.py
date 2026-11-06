@@ -33,6 +33,75 @@ def _reject_operational_fields(value):
             _reject_operational_fields(child)
 
 
+def _captured_source_context(raw: dict, run: dict, components: dict):
+    """Project only the owner's retained dictionary, never regenerate handles."""
+    evidence = raw['execution_evidence']
+    matches = [(i, row) for i, row in enumerate(evidence['records'])
+               if row['kind'] == 'pass_telemetry'
+               and (row['envelope'].get('schema') == 'dmb_private_compact_evidence_context_v1'
+                    or row['envelope'].get('capture_id') == 'context:compact-evidence-v1')]
+    if not matches:
+        return None, None
+    if len(matches) != 1:
+        raise ValueError('Duplicate captured source context')
+    ordinal, row = matches[0]
+    envelope = row['envelope']
+    if (envelope.get('schema') != 'dmb_private_compact_evidence_context_v1'
+            or envelope.get('capture_id') != 'context:compact-evidence-v1'
+            or envelope.get('node_evidence_status') != 'available'):
+        raise ValueError('Invalid captured source context identity')
+    # Independent artifact integrity check at the projection boundary. The
+    # capture owner hashes canonical UTF-8 JSON plus one trailing newline.
+    body = (json.dumps(envelope, sort_keys=True, separators=(',', ':'),
+                       ensure_ascii=False, allow_nan=False) + '\n').encode('utf-8')
+    if digest(body) != row['sha256']:
+        raise ValueError('Captured source context envelope hash mismatch')
+    binding = evidence['binding']
+    expected = {'run_id': run['run_id'], 'model_id': run['lineage']['model_id'],
+                'profile_id': run['profile_id'], 'source_artifact_id': run['source_artifact_id'],
+                'source_sha256': run['lineage']['source_sha256']}
+    if (envelope['execution_binding'] != binding
+            or any(binding.get(k) != v for k, v in expected.items())
+            or type(binding.get('prepared_revision')) is not int
+            or not 0 < binding['prepared_revision'] <= run['revision']):
+        raise ValueError('Captured source context execution binding mismatch')
+    context = envelope['context']
+    if (not isinstance(context, dict) or set(context) != {'schema', 'source_sha256', 'entries'}
+            or context['schema'] != 'dmb_compact_recap_evidence_context_v1'
+            or context['source_sha256'] != binding['source_sha256']
+            or not isinstance(context['entries'], list) or not context['entries']):
+        raise ValueError('Invalid captured source context shape or source')
+    index_pin = components['source_span_index']
+    if run['components']['source_span_index']['sha256'] != index_pin['sha256']:
+        raise ValueError('Source index component binding mismatch')
+    index = json.loads(read_pin(index_pin))
+    if (index['source_artifact_id'] != binding['source_artifact_id']
+            or index['content_sha256'] != binding['source_sha256']):
+        raise ValueError('Captured source context index identity mismatch')
+    spans = {span['source_span_id']: span for span in index['spans']}
+    if len(spans) != len(index['spans']):
+        raise ValueError('Duplicate source index span')
+    seen = set()
+    for number, entry in enumerate(context['entries'], 1):
+        if (not isinstance(entry, dict) or set(entry) != {
+                'handle', 'source_span_ref_id', 'text', 'text_sha256', 'line_start', 'line_end'}
+                or entry['handle'] != f'E{number}'
+                or not isinstance(entry['source_span_ref_id'], str)
+                or entry['source_span_ref_id'] in seen
+                or entry['source_span_ref_id'] not in spans
+                or not isinstance(entry['text'], str) or not entry['text']
+                or digest(entry['text'].encode('utf-8')) != entry['text_sha256']
+                or type(entry['line_start']) is not int or type(entry['line_end']) is not int
+                or entry['line_start'] < 1 or entry['line_end'] < entry['line_start']):
+            raise ValueError('Invalid captured source context entry')
+        span = spans[entry['source_span_ref_id']]
+        if (entry['line_start'], entry['line_end']) != (span['start_line'], span['end_line']):
+            raise ValueError('Captured source context line bounds differ from index')
+        seen.add(entry['source_span_ref_id'])
+    return context, {'original_pointer': f'/execution_evidence/records/{ordinal}/envelope/context',
+                     'envelope_sha256': row['sha256'], 'source_span_index': index_pin}
+
+
 def prepare(result_path: Path, output: Path, private_receipt: Path, review_id: str) -> dict:
     """Keep public evidence directly citeable; bind it privately to the original result."""
     if not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', review_id):
@@ -55,6 +124,7 @@ def prepare(result_path: Path, output: Path, private_receipt: Path, review_id: s
     _reject_operational_fields(candidate)
     raw_body = read_pin(components['raw_model_response'])
     raw = json.loads(raw_body)
+    source_context, context_mapping = _captured_source_context(raw, run, components)
     responses, mapping = [], []
     for index, record in enumerate(raw['execution_evidence']['records']):
         if record['kind'] == 'pass_telemetry':
@@ -101,12 +171,17 @@ def prepare(result_path: Path, output: Path, private_receipt: Path, review_id: s
             'response_origins': 'host_materialization is an owner-normalized wrapper, not another provider '
                                 'attempt. provider_response has retained attempt metadata. unclassified '
                                 'requires provenance review; never infer model authorship from its text shape.',
+            'evidence_context': ('Captured request-local source dictionary is in evidence-context.json; '
+                                 'it is host input evidence, not model-authored knowledge.' if source_context is not None
+                                 else 'Unavailable: no captured source dictionary. No aliases were regenerated.'),
         }),
     }
+    if source_context is not None:
+        outputs['evidence-context.json'] = encoded(source_context)
     public = {name: _pin(output / name, body) for name, body in outputs.items()}
     receipt = encoded({'schema': 'dmb_blinded_review_projection_v1', 'review_id': review_id,
         'result': result_pin, 'components': {k: components[k] for k in ('candidate_graph', 'raw_model_response')},
-        'public': public, 'response_mapping': mapping,
+        'public': public, 'response_mapping': mapping, 'source_context_mapping': context_mapping,
         'sealing': 'Review cites public artifacts unchanged. After sealing, use original result with existing '
                    'assessment assembler; preserve this private mapping and the original sealed review.'})
     # Refuse collisions before any retention, including accidental original-source exposure.
