@@ -65,6 +65,7 @@ import type {
   WorldPlanActionProjection,
   WorldAgentConversationHistoryResponse,
   WorldAgentConversationHistoryResponseV3,
+  WorldAgentConversationHistoryResponseV4,
   WorldAgentConversationHistoryTurn,
   WorldAgentConversationHistoryTurnV1,
   WorldAgentNewConversationRequestV1,
@@ -277,7 +278,6 @@ function worldPlanEditReviewBefore(captured: CapturedWorldPlanEditTarget): World
   };
 }
 
-const WORLD_HISTORY_PAGE_SIZE = 50;
 const WORLD_PLAN_LOCAL_PROPOSAL_HISTORY = "world_plan_proposals_v1" as const;
 const WORLD_PLAN_LOCAL_PROPOSAL_ORDER_SCHEMA = "dmb_world_plan_local_proposal_order_v1" as const;
 const WORLD_PLAN_LOCAL_PROPOSAL_ORDER_PREFIX = "dmb:world-plan-local-proposal-order:v1:";
@@ -3303,10 +3303,16 @@ export function WorldPlanAgentConversation({
         messageHistoryRef.current = metadata; setMessageHistory(metadata);
         const current = historySnapshotRef.current;
         const previousRevisions = messageRevisions.current; messageRevisions.current = new Map(light.messages.map(row => [row.turn_id, row.revision]));
-        let page: WorldAgentConversationHistoryResponse = {
-...metadata, turns: current && sameHistoryPointer(current, metadata)
-            ? current.turns.filter(turn => previousRevisions.get(turn.turn_id) === messageRevisions.current.get(turn.turn_id) && metadata.turns.some(row => sameSavedMessage(turn, row))) : []
-};
+        // The verified aggregate accepts every current full-turn variant, including
+        // mixed rules/source turns. Message-only rows remain in the separate view.
+        let page: WorldAgentConversationHistoryResponseV4 = {
+          ...metadata,
+          schema: 'dmb_agent_conversation_history_v4',
+          turns: current && sameHistoryPointer(current, metadata)
+            ? current.turns.filter(turn => previousRevisions.get(turn.turn_id) === messageRevisions.current.get(turn.turn_id)
+              && metadata.turns.some(row => sameSavedMessage(turn, row)))
+            : [],
+        };
         historySnapshotRef.current = page; setHistory(page); setHistoryLoading(false);
         pendingAtRead = documentId && !isReadOnly ? readPendingAsks(verifiedWorldId, documentId) : [];
         const keys = new Set<string>();
@@ -3318,7 +3324,7 @@ export function WorldPlanAgentConversation({
           if (!keys.has(row.idempotency_key) || page.turns.some(turn => sameSavedMessage(turn, row))) continue;
           const full = await readExactMessageTurn(metadata, row, controller.signal);
           if (!active || generation !== historyGenerationRef.current) return null;
-          page = { ...page, turns: mergeHistoryTurns(page.turns, [full]) as WorldAgentConversationHistoryResponseV3['turns'] };
+          page = { ...page, turns: mergeHistoryTurns(page.turns, [full]) };
         }
         return page;
       })
@@ -3421,9 +3427,11 @@ export function WorldPlanAgentConversation({
           return;
         }
         const inspected = historySnapshotRef.current;
-        if (inspected && sameHistoryPointer(inspected, page)) page = { ...page, turns: mergeHistoryTurns(inspected.turns.filter(full => !page.turns.some(turn => turn.turn_id === full.turn_id)), page.turns) as WorldAgentConversationHistoryResponseV3['turns'] };
-        historySnapshotRef.current = page;
-        setHistory(page);
+        const settledPage = inspected && sameHistoryPointer(inspected, page)
+          ? { ...page, turns: mergeHistoryTurns(inspected.turns.filter(full => !page.turns.some(turn => turn.turn_id === full.turn_id)), page.turns) }
+          : page;
+        historySnapshotRef.current = settledPage;
+        setHistory(settledPage);
         if (matchingNotice && confirmedAskNotice
           && confirmedAskNoticeRef.current === confirmedAskNotice) {
           const settledNotice = confirmedAskNotice.notice.replace(/Refreshing World history[^.]*\.|refreshing World history\.|World history refresh failed\. Refresh history to check this confirmed Ask\./,
@@ -4640,7 +4648,7 @@ export function WorldPlanAgentConversation({
     const full = await readExactMessageTurn(snapshot, row, signal);
     const current = historySnapshotRef.current;
     if (signal.aborted || generation !== historyGenerationRef.current || !current || !sameHistoryPointer(current, snapshot)) return;
-    const next = { ...current, turns: mergeHistoryTurns(current.turns.filter(item => item.turn_id !== row.turn_id), [full]) as WorldAgentConversationHistoryResponseV3['turns'] };
+    const next: WorldAgentConversationHistoryResponseV4 = { ...current, schema: 'dmb_agent_conversation_history_v4', turns: mergeHistoryTurns(current.turns.filter(item => item.turn_id !== row.turn_id), [full]) };
     historySnapshotRef.current = next; setHistory(next);
   }
 
