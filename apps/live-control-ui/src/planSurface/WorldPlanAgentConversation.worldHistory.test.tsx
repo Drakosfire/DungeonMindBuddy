@@ -2420,7 +2420,7 @@ describe("World Plan conversation consumer", () => {
     render(conversationElement());
 
     await waitFor(() => expect(screen.getAllByText("The western gate is watched.")).toHaveLength(2));
-    expect(screen.getByText("Grounded in World Graph evidence.")).toBeInTheDocument();
+    expect(await screen.findByText("Grounded in World Graph evidence.")).toBeInTheDocument();
     expect(screen.getByText("graph-revision-test")).toBeInTheDocument();
     expect(screen.getByText(
       "The server recorded this Ask as complete. Its structured outcome is shown above; this turn will not be automatically resent.",
@@ -2477,7 +2477,7 @@ describe("World Plan conversation consumer", () => {
     expect(renderedAnswer).not.toHaveTextContent("**Saved Plan:**");
     expect(renderedAnswer.querySelectorAll(":scope > p")).toHaveLength(1);
     expect(renderedAnswer.querySelectorAll("strong")).toHaveLength(3);
-    expect(screen.getByText("Grounded in World Graph evidence.")).toBeInTheDocument();
+    expect(await screen.findByText("Grounded in World Graph evidence.")).toBeInTheDocument();
     const evidenceSummary = screen.getByText("1 evidence reference");
     fireEvent.click(evidenceSummary);
     expect(within(evidenceSummary.closest("details")!).getByText("evidence-internal-test")).toBeInTheDocument();
@@ -2491,7 +2491,7 @@ describe("World Plan conversation consumer", () => {
     const mounted = render(conversationElement({ playableTarget: cardA, selectionGeneration: 0 }));
 
     await waitFor(() => expect(screen.getAllByText("The western gate is watched.")).toHaveLength(2));
-    expect(screen.getByText("Grounded in World Graph evidence.")).toBeInTheDocument();
+    expect(await screen.findByText("Grounded in World Graph evidence.")).toBeInTheDocument();
     expect(screen.getAllByText(/Playable target: scene scene:opening/)).toHaveLength(2);
     expect(screen.getByText("graph-revision-3")).toBeInTheDocument();
     const evidenceSummary = screen.getByText("1 evidence reference");
@@ -2510,7 +2510,7 @@ describe("World Plan conversation consumer", () => {
     render(conversationElement({ playableTarget: cardB, selectionGeneration: 1 }));
 
     await waitFor(() => expect(screen.getAllByText("The western gate is watched.")).toHaveLength(2));
-    expect(screen.getByText("Grounded in World Graph evidence.")).toBeInTheDocument();
+    expect(await screen.findByText("Grounded in World Graph evidence.")).toBeInTheDocument();
     expect(screen.getAllByText(/Playable target: scene scene:opening/)).toHaveLength(2);
     expect(screen.getByText("evidence-internal-test")).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Question focus" })).toHaveTextContent("Focus: ending");
@@ -3174,7 +3174,7 @@ describe("World Plan conversation consumer", () => {
     render(conversationElement());
 
     expect(await screen.findByText("A watch patrol circles the gate.")).toBeInTheDocument();
-    expect(screen.getByText("Grounded in World Graph evidence.")).toBeInTheDocument();
+    expect(await screen.findByText("Grounded in World Graph evidence.")).toBeInTheDocument();
   });
 
   it.each(["accepted", "running", "failed", "interrupted"] as const)(
@@ -5350,7 +5350,7 @@ describe("World Plan conversation consumer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Load earlier messages" }));
     expect(await screen.findByText("A saved-plan opening.")).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText("The western gate is watched.")).toHaveLength(2));
-    expect(screen.getByText("Grounded in World Graph evidence.")).toBeInTheDocument();
+    expect(await screen.findByText("Grounded in World Graph evidence.")).toBeInTheDocument();
     expect(screen.queryByText(/No sufficient World Graph evidence was available/)).not.toBeInTheDocument();
     const transcript = screen.getByRole("region", { name: "World conversation transcript" });
     expect(transcript.querySelectorAll('[data-sequence="2"]')).toHaveLength(1);
