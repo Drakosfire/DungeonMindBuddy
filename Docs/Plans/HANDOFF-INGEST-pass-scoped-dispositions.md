@@ -20,9 +20,12 @@ Design critique SHA256 `87dfa10d7c0b703a90694f8741440367977814cf5a627f2586b0be31
 
 - `src/graph_memory/extraction/category_candidate_graph_extractor.py`
 - `tests/test_recap_object_dispositions.py`
+- `tests/test_category_candidate_graph_extractor.py` (existing custom-pass contract expectation and raw-ID preservation)
 - `tests/test_recap_quote_integrity.py`
 - This handoff.
 
 ## Validation and delivery
 
 Exercise consolidation through the strict recap quote guard using synthetic distinct pass-local records with the same ID; both must survive with exact evidence. Reject malformed local IDs and same-pass duplicates. Verify repeatable qualification, no input mutation, ignored/deferred distinction, unchanged non-recap behavior and normal object disposition contract. Run affected suites, inspect exact cumulative base-to-head diff, obtain independent subagent review, commit, push and open one stacked PR. Current failed run and all previous semantic failures remain evidence, not new acceptance. Fresh extraction and governed publication remain required after reviewed runtime composition. Primary data, evaluator database state and frozen runtimes are outside this write lease.
+
+Composition checkpoint: the first composed-runtime suite passed 210 tests and exposed one old custom recap-pass assertion expecting unqualified disposition IDs. Extend this same slice to update that owning test; no new capability or production scope. Preserve the failed manifest/test output and obtain renewed exact-head review.

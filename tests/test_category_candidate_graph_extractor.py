@@ -293,10 +293,12 @@ def test_custom_disposition_pass_id_prompts_and_retains_items() -> None:
     assert "deferred_items" in prompt
     ignored_ids = {item["item_id"] for item in result.candidate_graph.get("ignored_items") or []}
     deferred_ids = {item["item_id"] for item in result.candidate_graph.get("deferred_items") or []}
-    assert "ignored:noise" in ignored_ids
-    assert "deferred:followup" in deferred_ids
-    ignored = next(item for item in result.candidate_graph["ignored_items"] if item["item_id"] == "ignored:noise")
-    deferred = next(item for item in result.candidate_graph["deferred_items"] if item["item_id"] == "deferred:followup")
+    ignored_id = 'recap-model-disposition:["mystery_disposition_pass","ignored:noise"]'
+    deferred_id = 'recap-model-disposition:["mystery_disposition_pass","deferred:followup"]'
+    assert ignored_id in ignored_ids
+    assert deferred_id in deferred_ids
+    ignored = next(item for item in result.candidate_graph["ignored_items"] if item["item_id"] == ignored_id)
+    deferred = next(item for item in result.candidate_graph["deferred_items"] if item["item_id"] == deferred_id)
     assert "node_type" not in ignored
     assert "node_type" not in deferred
     assert ignored["label"] == "Background chatter"
@@ -311,6 +313,8 @@ def test_custom_disposition_pass_id_prompts_and_retains_items() -> None:
     assert "deferred:followup" not in candidate_node_ids
     assert client.raw_disposition_payload["ignored_items"][0]["node_type"] == "mystery"
     assert client.raw_disposition_payload["deferred_items"][0]["node_type"] == "thread"
+    assert client.raw_disposition_payload["ignored_items"][0]["item_id"] == "ignored:noise"
+    assert client.raw_disposition_payload["deferred_items"][0]["item_id"] == "deferred:followup"
 
 
 def test_canonical_injected_clients_keep_source_evidence_contract():
