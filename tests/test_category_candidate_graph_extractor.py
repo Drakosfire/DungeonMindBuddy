@@ -842,16 +842,28 @@ def test_beat_omission_preserves_surviving_requests_and_source_dictionary() -> N
 
         def run_pass(self, pass_name, **kwargs):
             self.requests[pass_name] = deepcopy(kwargs)
-            return super().run_pass(pass_name, **kwargs)
+            response = super().run_pass(pass_name, **kwargs)
+            if pass_name == "beat_pass":
+                response["parsed"] = {"observation_beats": [{
+                    "beat_id": "beat:city", "order": 1, "title": "River city",
+                    "summary": "Mirathorn is a river city.", "involved_node_ids": [],
+                    "evidence_refs": [{"source_span_ref_id": "E1",
+                                       "anchor_quotes": ["Mirathorn is a river city."]}],
+                }]}
+            return response
 
+    import hashlib
+    source = "Mirathorn is a river city."
+    index = _span_index(session_id="session-24")
+    index["content_sha256"] = hashlib.sha256(source.encode()).hexdigest()
+    index["spans"][0].update(line_start=1, line_end=1, char_start=0, char_end=len(source))
     clients = [RequestClient(), RequestClient()]
     results = []
     for client, profile in zip(clients, [control, RECAP_EXTRACTION_PROFILE]):
         results.append(extract_category_candidate_graph(
             CategoryGraphExtractionOptions(
                 campaign_id="longmont-c2", session_id="session-24", session_number=24,
-                source_span_index=_span_index(session_id="session-24"),
-                source_text="Mirathorn is a river city.", profile=profile,
+                source_span_index=index, source_text=source, profile=profile,
             ), client=client,
         ))
     before, after = clients
@@ -863,4 +875,7 @@ def test_beat_omission_preserves_surviving_requests_and_source_dictionary() -> N
     assert len(after.contexts) == 1
     for key in ["nodes", "edges", "source_observations"]:
         assert results[0].candidate_graph.get(key) == results[1].candidate_graph.get(key)
+    assert len(results[0].candidate_graph["beats"]) == 1
+    assert results[0].candidate_graph["beats"][0]["summary"] == "Mirathorn is a river city."
+    assert results[0].candidate_graph["beats"][0]["evidence_refs"]
     assert results[1].candidate_graph["beats"] == []

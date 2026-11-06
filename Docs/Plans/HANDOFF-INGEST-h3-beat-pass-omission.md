@@ -14,7 +14,7 @@ Expected write lease: `src/graph_memory/extraction/recap_extraction_profile.py`,
 
 Standard recap omits only the beat model call through existing optional-profile support. Five node passes and the edge pass retain their exact requests under fixed synthetic responses. Encounter preview retains beats. Historical schemas/readers and source navigation remain intact. Beat counts, raw knowledge, bindings and beat-specific deferrals can disappear; that is measured behavior, not hidden parity.
 
-Publication mapping currently selects nodes/edges, but that does not prove semantic redundancy. Full unchanged Gold includes knowledge found only in raw model beat responses. Host source excerpts cannot replace model knowledge.
+The legacy contribution mapper selects nodes/edges. Native preparation additionally supports explicit beat selections as session_beat objects; omission deliberately removes those selectable candidates. The simple merge UI holds beats, but that does not make the native capability unused. Full unchanged Gold includes knowledge found only in raw model beat responses. Host source excerpts cannot replace model knowledge.
 
 ## Verification and gates
 
@@ -27,3 +27,7 @@ Study artifacts live in `ingestion-resume/study-experiment-h3-pass-contribution-
 187 focused tests passed across category extraction, retained beat exact-source contracts, compact evidence, contribution mapping and source authority. Combined profile/policy run: 122 passed, six failed. All six failing node/profile snapshot tests also fail on exact parent `7fdb1a14` in isolated `/tmp/h3-parent-verification`; inherited failures remain unmodified. Original failure logs retained under `/tmp/h3-owner-tests-initial.log`, `/tmp/h3-owner-tests-v2.log`, `/tmp/h3-parent-tests-exact.log` pending pinned study evidence capture.
 
 Synthetic surviving-request equality includes model ID, instructions, prompt and pass specification. It does not prove live semantic equivalence, cost reduction, full publication or human acceptance. No provider or database calls performed.
+
+Independent review correction: `native_recap_preparation._intent` accepts (`beat`, beat_id) and `_fields` emits `session_beat`. Existing native-preparation tests retain that capability for saved/preview beats. This experiment cannot claim feature parity; any adoption must explicitly account for lost beat-selection capability in addition to semantic quality. The paired prompt test now uses a nonempty valid beat and asserts its exact source evidence exists only in the control.
+
+Follow-up validation: the nonempty paired test initially exposed incomplete source-bound fixture metadata and correctly deferred the beat. The fixture now pins source hash and exact line/character bounds; control retains one source-supported beat, omission retains none, and surviving requests remain equal. All 187 focused checks pass again. A broader run including native-preparation integration tests was interrupted while still pending (exit130), so it supplies no green integration claim. Native selected-beat support is established by inspected owner code and existing explicit preparation assertions, not that incomplete run.
