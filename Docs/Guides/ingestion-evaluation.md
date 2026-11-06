@@ -1,5 +1,17 @@
 # Isolated ingestion evaluation
 
+New ordinary captures retain `<item>.timing.json`, binding monotonic duration to
+the exact manifest, request and result bytes. `report` exposes `capture_timings`:
+`measured` for a returned reviewable capture, `incomplete` for an exception,
+nonreviewable result or missing result retention, and `unknown` for absent receipts.
+This measures the backend HTTP/component-retention call, excluding qualification,
+later audits and semantic review. It is not model-call time or UI user latency.
+Failed durations remain failure evidence, never successful-trial measurements.
+Historical missing timings remain unknown; do not reconstruct them from call sums.
+The result export is unchanged. If timing retention fails, a returned result stays
+retained; if capture itself failed, that original exception remains primary with
+an added timing-failure note. Dispatch intent still forbids redispatch.
+
 Use `scripts/evaluate_ingestion.py` for future cohorts. The old per-cohort capture/monitor/audit scripts remain historical evidence, not the execution interface. This CLI calls Buddy's ordinary ingestion route; it does not add a producer, change ingestion passes or score semantic Gold automatically.
 
 ## Steps

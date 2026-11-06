@@ -52,9 +52,102 @@ class Backend:
 
 @pytest.fixture
 def setup(tmp_path):
-    manifest = {'_output': str(tmp_path), 'items': [{'id': 'one', 'request': {}}, {'id': 'two', 'request': {}}]}
+    manifest = {'_output': str(tmp_path), 'items': [
+        {'id': name, 'request': {'sha256': digest(name.encode())}} for name in ('one', 'two')]}
     backend = Backend()
     return Runner(manifest, 'manifest', backend), backend
+
+
+def test_capture_duration_binds_unchanged_result(setup, monkeypatch):
+    runner, _ = setup
+    ticks = iter([0, 1_250_000, 3_000_000, 8_000_000])
+    monkeypatch.setattr('ingestion_evaluation.runner.time.perf_counter_ns', lambda: next(ticks))
+    runner.capture(runner.qualify())
+    rows = runner.report()['capture_timings']
+    assert [r['measurement']['elapsed_ms'] for r in rows] == [1.25, 5.0]
+    assert all(r['status'] == 'measured' for r in rows)
+    raw = (runner.output / 'one.result.json').read_bytes()
+    assert json.loads(raw) == {'state': 'reviewable'}
+    assert rows[0]['measurement']['result_sha256'] == digest(raw)
+
+
+def test_nonreviewable_capture_has_incomplete_latency(setup):
+    runner, backend = setup
+    backend.state = 'unproven'
+    runner.capture(runner.qualify())
+    assert runner.report()['capture_timings'][0]['status'] == 'incomplete'
+
+
+def test_exception_retains_incomplete_measurement(setup):
+    runner, backend = setup
+    def fail(*_):
+        raise RuntimeError('Original capture failure')
+    backend.on_capture = fail
+    with pytest.raises(RuntimeError, match='Original capture failure'):
+        runner.capture(runner.qualify())
+    row = runner.report()['capture_timings'][0]
+    assert row['status'] == 'incomplete'
+    assert row['measurement']['result_sha256'] is None
+    assert not (runner.output / 'terminal.json').exists()
+
+
+@pytest.mark.parametrize('backend_fails', [False, True])
+def test_timing_write_failure_preserves_result_or_exception(setup, monkeypatch, backend_fails):
+    import ingestion_evaluation.runner as module
+    runner, backend = setup
+    original = module.seal
+    def fail_timing(path, value):
+        if path.name.endswith('.timing.json'):
+            raise OSError('Synthetic timing retention failure')
+        return original(path, value)
+    monkeypatch.setattr(module, 'seal', fail_timing)
+    qualification_sha = runner.qualify()
+    if backend_fails:
+        def fail(*_):
+            raise RuntimeError('Original capture failure')
+        backend.on_capture = fail
+        with pytest.raises(RuntimeError, match='Original capture failure') as error:
+            runner.capture(qualification_sha)
+        assert 'Timing retention failed (OSError)' in error.value.__notes__[0]
+    else:
+        with pytest.raises(OSError, match='Synthetic timing retention'):
+            runner.capture(qualification_sha)
+        assert json.loads((runner.output / 'one.result.json').read_text()) == {'state': 'reviewable'}
+    assert runner.report()['capture_timings'][0]['status'] == 'unknown'
+    assert backend.calls == ['one']
+    with pytest.raises(ValueError, match='already dispatched'):
+        runner.capture(qualification_sha)
+
+
+@pytest.mark.parametrize('field,value', [('manifest_sha256', 'other'), ('request_sha256', 'other'),
+                                        ('id', 'other'), ('elapsed_ns', -1), ('elapsed_ms', True),
+                                        ('capture_returned', 'yes')])
+def test_timing_drift_refused(setup, field, value):
+    runner, _ = setup
+    runner.capture(runner.qualify())
+    p = runner.output / 'one.timing.json'
+    data = json.loads(p.read_text()); data[field] = value
+    p.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match='timing binding|duration'):
+        runner.report()
+
+
+def test_timing_binds_result_and_missing_result_is_incomplete(setup):
+    runner, _ = setup
+    runner.capture(runner.qualify())
+    p = runner.output / 'one.result.json'; raw = p.read_bytes(); p.unlink()
+    assert runner.report()['capture_timings'][0]['status'] == 'incomplete'
+    p.write_bytes(raw + b' ')
+    with pytest.raises(ValueError, match='timing result differs'):
+        runner.report()
+
+
+def test_historical_missing_timings_stay_unknown(setup):
+    runner, _ = setup
+    runner.capture(runner.qualify())
+    for p in runner.output.glob('*.timing.json'):
+        p.unlink()
+    assert all(row['status'] == 'unknown' for row in runner.report()['capture_timings'])
 
 
 def test_one_qualification_and_capture_stop_replay(setup):
