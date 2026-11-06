@@ -329,6 +329,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   const pathname = path.split("?", 1)[0];
   if (pathname === "/api/live/graph-authoring/document-relationship/request") return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/work-plans\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/continue)?$/i.test(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/active\/messages$/.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations(?:\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/(?:name|turns|messages|resume|trash|restore))?$/i.test(pathname)) return true;
   if (/^\/api\/live\/connected-pages\/(?:prepare|confirm|[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})$/i.test(pathname)) return true;
   if (/^\/api\/live\/world-plan-edit\/actions\/[^/]+\/terminal-diagnostic$/.test(pathname)) return true;
@@ -688,7 +689,8 @@ async function authenticatedApiFetchOnce(path: string, init?: RequestInit): Prom
 function isShareableRead(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
   const pathname = path.split("?", 1)[0];
-  if (method === "GET" && init?.body == null) return /^\/api\/live\/agent\/worlds\/[^/]+\/conversation$/.test(pathname)
+  if (method === "GET" && init?.body == null) return /^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/(?:active|[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})\/messages$/i.test(pathname)
+    || /^\/api\/live\/agent\/worlds\/[^/]+\/conversation$/.test(pathname)
     || pathname === "/api/live/play-runs"
     || pathname === "/api/live/play-active-run"
     || pathname === "/api/live/world-play-runs/v2"

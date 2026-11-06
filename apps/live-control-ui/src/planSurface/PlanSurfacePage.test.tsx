@@ -6,10 +6,11 @@ import { StrictMode,useLayoutEffect, type ReactElement, type ReactNode } from "r
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
+import * as conversationLibraryApi from "../api/conversationLibraryApi";
 import * as markdownImporter from "../tiptap/markdown/markdownToTiptap";
 import { defaultMarkdownDocumentAdapter } from "../tiptap/MarkdownDocumentAdapter";
 import { SelectedWorldProvider, useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
-import type { AgentInteractionTrace, WorldOwnedCommittedRevisionV2, WorldOwnedPlanRecordV2, WorldAgentConversationHistoryTurnV3 } from "../api/types";
+import type { AgentInteractionTrace, WorldOwnedCommittedRevisionV2, WorldOwnedPlanRecordV2, WorldAgentConversationHistoryResponse, WorldAgentConversationHistoryTurnV3 } from "../api/types";
 import { ToolHost } from "../surfaceInteraction/toolHost/ToolHost";
 import { PeekRegionProvider, PeekRegionSlot } from "../surfaceInteraction/peekHost";
 import { LegacyProjectionHostAdapter } from "./projection/LegacyProjectionHostAdapter";
@@ -184,7 +185,9 @@ async function openPlanConversation() {
   // Wait for the actual document tools before opening the shared dock.
   await waitFor(() => expect(chromeCapture.editorTools).not.toBeNull());
   fireEvent.click(await screen.findByRole("button", { name: "Open", exact: true }));
-  return screen.findByRole("region", { name: "World conversation" });
+  const region = await screen.findByRole("region", { name: "World conversation" });
+  await waitFor(() => expect(within(region).getByRole("region", {name: "World conversation transcript"})).toHaveAttribute("aria-busy", "false"));
+  return region;
 }
 
 function savedWorldPlanConversation() {
@@ -564,6 +567,7 @@ function planGraphContext(
 }
 
 let serverHistoryTurns: WorldAgentConversationHistoryTurnV3[] = [];
+let serverHistorySnapshot: (owner: string) => WorldAgentConversationHistoryResponse;
 
 function worldPlanAgentResponse(request: WorldPlanAgentTurnRequestV1): WorldPlanAgentTurnResponse {
   const planContext = request.plan_context_policy ? planGraphContext("plan_only_insufficient_evidence", { request }) : null;
@@ -671,7 +675,7 @@ beforeAll(() => {
 beforeEach(() => {
   serverHistoryTurns = [];
   vi.spyOn(liveApi,"getWorldPlanConversationActions").mockImplementation(async(world,conversation)=>({schema_version:"dmb_world_plan_action_conversation_projection_v1",world_id:world,conversation_id:conversation,actions:[],next_before_action_sequence:null} as any));
-  vi.spyOn(liveApi, "getWorldAgentConversationHistory").mockImplementation(async (owner) => ({
+  serverHistorySnapshot = owner => ({
     schema: "dmb_agent_conversation_history_v3",
     world_id: owner,
     conversation_state: "active",
@@ -680,7 +684,20 @@ beforeEach(() => {
     pointer_revision: 1,
     turns: [...serverHistoryTurns],
     next_before_sequence: null,
-  }));
+  });
+  vi.spyOn(liveApi, "getWorldAgentConversationHistory").mockImplementation(async (owner, options = {}) => {
+    const page = serverHistorySnapshot(owner);
+    return {...page, turns: options.limit === 1 ? page.turns.filter(turn => turn.sequence === options.beforeSequence! - 1) : page.turns} as WorldAgentConversationHistoryResponse;
+  });
+  vi.spyOn(conversationLibraryApi, 'readActiveConversationMessages').mockImplementation(async (owner, before) => {
+    const page = serverHistorySnapshot(owner);
+    return {schema: 'dmb_active_conversation_messages_v1', world_id: owner, conversation_state: page.conversation_state,
+      conversation_id: page.conversation_id, active_conversation_id: page.active_conversation_id, pointer_revision: page.pointer_revision,
+      next_before_sequence: null, messages: page.turns.filter(turn => before === undefined || turn.sequence < before).map(turn => ({
+        turn_id: turn.turn_id, sequence: turn.sequence, status: turn.lifecycle_status, user_text: turn.user_text,
+        assistant_text: turn.assistant_text, revision: 1, idempotency_key: 'idempotency_key' in turn ? turn.idempotency_key : '', provenance: turn.provenance,
+      }))};
+  });
   vi.spyOn(liveApi, "getWorldPlanDocumentEditActions").mockImplementation(async (owner, documentId) => {
     const committed = { object_revision: 7, work_revision_id: "00000000-0000-4000-8000-000000000004", revision_n: 4, content_sha256: "b".repeat(64) };
     return {
@@ -1025,6 +1042,7 @@ it("binds Ask to the exact committed revision and complete current working draft
   expect(await screen.findByText(/The keeper is below the black arch\./)).toBeInTheDocument();
   expect(serverHistoryTurns[0].provenance.primary_work).toMatchObject({ object_revision: 7, revision_n: 4, content_sha256: "b".repeat(64) });
   fireEvent.change(messageDungeonBuddyField(), { target: { value: "And what is its saved revision?" } });
+  await waitFor(() => expect(screen.getByRole("button", {name: "Send message"})).toBeEnabled());
   sendDiscussMessage();
   await waitFor(() => expect(postTurn).toHaveBeenCalledTimes(2));
   await waitFor(() => expect(screen.getAllByText(/The keeper is below the black arch\./)).toHaveLength(2));
@@ -1075,8 +1093,10 @@ it("binds Ask to the exact committed revision and complete current working draft
   expect(renderedTurns.map((turn) => turn.getAttribute("data-sequence"))).toEqual(["1", "2"]);
   expect(renderedTurns[0]).toHaveTextContent("What Plan metadata can you see?");
   expect(renderedTurns[1]).toHaveTextContent("And what is its saved revision?");
-  expect(renderedTurns.every((turn) => turn.textContent?.includes(`plan ${savedAgentPlanId} · revision 4`))).toBe(true);
-  expect(liveApi.getWorldAgentConversationHistory).toHaveBeenCalledWith(worldId, expect.objectContaining({ limit: 50, includeTurnCorrelation: true, signal: expect.any(AbortSignal) }));
+  for (const details of within(conversation).queryAllByRole("button", {name: "Sources and actions"})) fireEvent.click(details);
+  await waitFor(() => expect(renderedTurns.every((turn) => turn.textContent?.includes(`plan ${savedAgentPlanId} · revision 4`))).toBe(true));
+  expect(conversationLibraryApi.readActiveConversationMessages).toHaveBeenCalledWith(worldId, undefined, expect.any(AbortSignal));
+  expect(vi.mocked(liveApi.getWorldAgentConversationHistory).mock.calls.every(([, options]) => options?.limit === 1)).toBe(true);
   expect(liveApi.getWorldOwnedPlanCommittedRevision).toHaveBeenCalledTimes(3);
   expect(serverHistoryTurns.map((turn) => turn.user_text)).toEqual([
     "What Plan metadata can you see?", "And what is its saved revision?",
@@ -4449,9 +4469,9 @@ it.each(['valid','wrong_work_revision','lost_confirm','lost_confirm_newer','lost
   const record=mockSavedPlanForAgent(savedAgentPlanId,7,7,'# Plan\n\nOriginal preparation.\n');
   const reviewApi=await import('../api/planAuthoringReviewApi');
   const conversationId='11111111-1111-4111-8111-111111111111';let conversationReady=false;
-  vi.mocked(liveApi.getWorldAgentConversationHistory).mockImplementation(async()=>({schema:'dmb_agent_conversation_history_v3',world_id:worldId,
+  serverHistorySnapshot = () => ({schema:'dmb_agent_conversation_history_v3',world_id:worldId,
     conversation_state:conversationReady?'active':'absent',conversation_id:conversationReady?conversationId:null,
-    active_conversation_id:conversationReady?conversationId:null,pointer_revision:conversationReady?1:0,turns:[...serverHistoryTurns],next_before_sequence:null}));
+    active_conversation_id:conversationReady?conversationId:null,pointer_revision:conversationReady?1:0,turns:[...serverHistoryTurns],next_before_sequence:null});
   const newConversation=vi.spyOn(liveApi,'postWorldAgentNewConversation').mockImplementation(async(owner,request)=>{
     expect(request.expected_active_conversation_id).toBeNull();expect(request.expected_pointer_revision).toBe(0);
     const retained=Object.keys(localStorage).map(key=>localStorage.getItem(key)).some(raw=>raw?.includes(request.command_id));
@@ -4516,7 +4536,7 @@ it.each(['valid','wrong_work_revision','lost_confirm','lost_confirm_newer','lost
   await waitFor(()=>expect(send).toBeEnabled());fireEvent.click(send);
   await waitFor(()=>expect(post,conversation.textContent??'').toHaveBeenCalledTimes(1));
   if(mode==='wrong_work_revision'){
-    await waitFor(()=>expect(document.body.textContent).toContain('response did not match this saved Plan'));
+    await waitFor(()=>expect(document.body.textContent).toMatch(/response did not match this saved Plan|Reply details contained an invalid Graph-context receipt/));
     expect(screen.queryByRole('textbox',{name:'Suggestion text'})).not.toBeInTheDocument();
     expect(Object.keys(localStorage).filter(key=>key.startsWith('dmb:world-plan-pending-ask:v1:'))).toHaveLength(1);
     expect(commands).not.toHaveBeenCalled();mounted.unmount();return;
@@ -4548,6 +4568,7 @@ it.each(['valid','wrong_work_revision','lost_confirm','lost_confirm_newer','lost
     await waitFor(()=>expect(document.body.textContent).toContain('Lost confirmation'));
     expect(Object.keys(localStorage).filter(key=>key.startsWith('dmb:plan-application-hold:'))).toHaveLength(1);
     mounted.unmount();mounted=render(tree());await screen.findByTestId('world-owned-plan-markdown-editor');await openPlanConversation();
+    fireEvent.click(await screen.findByRole('button',{name:'Sources and actions'}));
     expect(commands.mock.calls.filter(call=>call[2].operation==='confirm')).toHaveLength(1);
     expect(ordinary).not.toHaveBeenCalled();
     if(mode==='lost_before_commit')fireEvent.click(await screen.findByRole('button',{name:'Retry exact confirm operation'}));

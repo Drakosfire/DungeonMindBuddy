@@ -45,3 +45,17 @@ it('guards the text-only message endpoint and excludes near misses',async()=>{
  await library.readConversationMessages('world-one',id);expect(new Headers(fetch.mock.calls[0][1]?.headers).get('Authorization')).toBe('Bearer synthetic-library-token');
  await live.authenticatedApiFetch('/api/live/agent/worlds/world-one/conversations/'+id+'/messages-extra');expect(new Headers(fetch.mock.calls[1][1]?.headers).has('Authorization')).toBe(false);
 });
+
+
+it('shares the guarded active message read and never authorizes a near-miss route',async()=>{
+ const {live,library}=await modules();live.setNativeGraphAccessToken('synthetic-library-token');
+ let finish!:(response:Response)=>void;const waiting=new Promise<Response>(resolve=>{finish=resolve});
+ const fetch=vi.spyOn(globalThis,'fetch').mockReturnValue(waiting);
+ const first=library.readActiveConversationMessages('world-one'),second=library.readActiveConversationMessages('world-one');
+ await vi.waitFor(()=>expect(fetch).toHaveBeenCalledTimes(1));
+ expect(new Headers(fetch.mock.calls[0][1]?.headers).get('Authorization')).toBe('Bearer synthetic-library-token');
+ finish(Response.json({schema:'dmb_active_conversation_messages_v1',world_id:'world-one',conversation_state:'active',conversation_id:id,active_conversation_id:id,pointer_revision:3,messages:[],next_before_sequence:null}));
+ await Promise.all([first,second]);
+ fetch.mockResolvedValue(Response.json({}));await live.authenticatedApiFetch('/api/live/agent/worlds/world-one/conversations/active/messages-extra');
+ expect(new Headers(fetch.mock.calls[1][1]?.headers).has('Authorization')).toBe(false);
+});
