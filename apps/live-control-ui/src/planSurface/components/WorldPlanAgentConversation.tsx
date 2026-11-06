@@ -3313,7 +3313,7 @@ export function WorldPlanAgentConversation({
               && metadata.turns.some(row => sameSavedMessage(turn, row)))
             : [],
         };
-        historySnapshotRef.current = page; setHistory(page); setHistoryLoading(false);
+        historySnapshotRef.current = page; setHistory(page);
         pendingAtRead = documentId && !isReadOnly ? readPendingAsks(verifiedWorldId, documentId) : [];
         const keys = new Set<string>();
         if (pendingPlayTurn) { const key = await worldTurnIdempotencyKey(verifiedWorldId, pendingPlayTurn.request.turn_id); if (key) keys.add(key); }

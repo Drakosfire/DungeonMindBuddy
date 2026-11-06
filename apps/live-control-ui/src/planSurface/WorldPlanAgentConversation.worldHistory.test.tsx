@@ -1387,8 +1387,9 @@ async function leavePendingGraphAsk(
   initialHistory: WorldAgentConversationHistoryResponseV1 = history("conversation-a", 10, []),
   revisionN = 1,
   requestIds?: { clientThreadId: string; turnId: string },
+  inspectSavedReplies = true,
 ) {
-  const api = setupApi(initialHistory);
+  const api = setupApi(initialHistory, inspectSavedReplies);
   if (revisionN !== 1) api.setPlanBasis({ ...committedRevision(), revision_n: revisionN });
   const sent: WorldPlanAgentTurnRequestV1[] = [];
   const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
@@ -3402,6 +3403,7 @@ describe("World Plan conversation consumer", () => {
     expect(await screen.findByText(/no answer was saved/)).toBeInTheDocument();
     expect(pendingAskKeys()).toEqual([]);
     expect(postAsk).toHaveBeenCalledTimes(1);
+    await waitForConversationReady();
 
     ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
@@ -5129,7 +5131,7 @@ describe("World Plan conversation consumer", () => {
     }
     if(change==='unavailable'){await screen.findByText(answer);expect(open).not.toHaveBeenCalled();return;}
     await screen.findByText(answer);
-    fireEvent.click(screen.getByRole('button',{name:'Read Graph assertion source'}));
+    fireEvent.click(await screen.findByRole('button',{name:'Read Graph assertion source'}));
     await screen.findByRole('region',{name:'Opened source section'});
     expect(open).toHaveBeenCalledWith(worldId,turnId,0);
   });
@@ -6206,4 +6208,28 @@ it.each(['conversation', 'turn', 'text'])('refuses mismatched lazy %s details wi
   fireEvent.click(screen.getByRole('button', { name: 'Sources and actions' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('invalid Graph-context receipt');
   expect(screen.getByText('A saved short answer')).toBeInTheDocument(); expect(screen.queryByText('Substituted answer')).not.toBeInTheDocument();
+});
+
+
+it('shows saved text immediately but keeps Send gated until a retained pending request is verified', async () => {
+  const target = {kind: 'scene' as const, id: 'scene:opening'};
+  const {api, mounted, postAsk, request} = await leavePendingGraphAsk(target, history('conversation-a', 10, []), 1, undefined, false);
+  mounted.unmount();
+  const failed = await failedV3HistoryTurn(request);
+  const page = await historyV3('conversation-a', 10, [failed]);
+  api.setCurrent(page);
+  const details = deferred<WorldAgentConversationHistoryResponse>();
+  api.getHistory.mockReturnValueOnce(details.promise);
+  render(conversationElement({playableTarget: target, editBridge: {}}));
+  expect(await screen.findByText(request.message)).toBeInTheDocument();
+  await waitFor(() => expect(api.getHistory).toHaveBeenCalled());
+  fireEvent.change(screen.getByLabelText('Message DungeonBuddy'), {target: {value: 'Keep my next idea'}});
+  expect(screen.getByRole('button', {name: 'Send message'})).toBeDisabled();
+  fireEvent.keyDown(screen.getByLabelText('Message DungeonBuddy'), {key: 'Enter'});
+  expect(postAsk).toHaveBeenCalledTimes(1);
+  expect(pendingAskKeys()).toHaveLength(1);
+  await act(async () => { details.resolve(page); await details.promise; });
+  expect(await screen.findByText(`Graph Ask · ${request.turn_id} · failure confirmed`)).toBeInTheDocument();
+  expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep my next idea');
+  expect(postAsk).toHaveBeenCalledTimes(1);
 });
