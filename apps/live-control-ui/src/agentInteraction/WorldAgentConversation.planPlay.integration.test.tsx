@@ -542,6 +542,9 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.change(input,{target:{value:'What happens in this selected recap?'}});
     fireEvent.click(screen.getByRole('button',{name:'Send message'}));
     await screen.findByText(/Reference transport interrupted/);
+    openConversationOptions();fireEvent.click(screen.getByRole('checkbox',{name:'Technical details'}));
+    fireEvent.click(screen.getByText('Saved request details'));
+    expect(screen.getByRole('region',{name:'Saved request references'})).toHaveTextContent('Session 20 ending');
     expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
     const frozen=vi.mocked(postWorldPlayAgentTurn).mock.calls[0][0];
     expect(frozen.authored_references).toEqual(refs);

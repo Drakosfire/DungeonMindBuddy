@@ -6657,6 +6657,7 @@ export function WorldPlanAgentConversation({
         <details><summary>Saved request details</summary>
           <p>{pendingPlayTurn.request.message}</p>
           {pendingPlayTurn.request.surface.surface_id==='build'&&(pendingPlayTurn.request as WorldBuildAgentTurnRequestV1).build_authored_references&&<SurfaceGraphReferenceInput worldId={pendingPlayTurn.request.owner_scope.world_id} label="Saved request Graph context" readOnly value={(pendingPlayTurn.request as WorldBuildAgentTurnRequestV1).build_authored_references!.references} onChange={()=>{}}/>}
+          {pendingPlayTurn.request.surface.surface_id==='play'&&(pendingPlayTurn.request as WorldPlayAgentTurnRequestV1).authored_references&&<SurfaceGraphReferenceInput worldId={pendingPlayTurn.request.owner_scope.world_id} label="Saved request references" readOnly value={(pendingPlayTurn.request as WorldPlayAgentTurnRequestV1).authored_references!.references} onChange={()=>{}}/>}
           <p>Request: {pendingPlayTurn.request.turn_id} · Source: {pendingPlayTurn.request.primary_work.object_id} · Revision: {pendingPlayTurn.request.primary_work.expected_revision}</p>
           {pendingPlayTurn.request.primary_work.kind === "build" ? <p>Source digest: {pendingPlayTurn.request.primary_work.expected_content_sha256}</p> : null}
         </details>
