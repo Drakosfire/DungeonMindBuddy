@@ -36,6 +36,9 @@ _EPISTEMIC_CLARIFICATION = (
 
 def _restore_prior_authority_paragraph_for_historical_fixture(prompt):
     from src.graph_memory.extraction.recap_extraction_profile import _RECAP_SOURCE_FAITHFULNESS
+    from src.graph_memory.extraction.recap_extraction_profile import _COLLECTIVE_DESCRIPTION_RESPONSIBILITY
+    # Restore only the new collective suffix for immutable historical hashes.
+    prompt = prompt.replace(" " + _COLLECTIVE_DESCRIPTION_RESPONSIBILITY, "")
     paragraph = _RECAP_SOURCE_FAITHFULNESS[_RECAP_SOURCE_FAITHFULNESS.index("Distinguish in-world assertions"):]
     assert prompt.count(paragraph) <= 1
     # Historical hashes predate both bounded source-policy changes. Restore
@@ -730,3 +733,30 @@ def test_epistemic_policy_reaches_rendered_recaps_without_changing_source_or_sch
                 assert category_pass_text_format_for_spec(current) == category_pass_text_format_for_spec(previous)
     assert all(_EPISTEMIC_CLARIFICATION not in prompt for prompt in
                render_category_pass_prompts(rows, profile=WORLDBUILDING_PLUMBING_PROFILE).values())
+
+
+def test_collective_responsibility_keeps_own_knowledge_and_other_passes_unchanged():
+    from src.graph_memory.extraction import recap_extraction_profile as owner
+    from dataclasses import replace
+
+    current = render_category_pass_prompts(SYNTHETIC_SOURCE_ROWS)
+    guidance = owner._COLLECTIVE_DESCRIPTION_RESPONSIBILITY
+    collective = current["collective_pass.md"]
+    assert collective.count(guidance) == 1
+    assert "whole-session, member-by-member" in collective
+    assert "participants and local context" in collective
+    assert "source-supported links between its actions" in collective
+    assert "do not reduce groups to names or membership" in collective
+    assert owner._NODE_DESCRIPTION_COVERAGE in collective
+    # Reconstruct the immediate predecessor only by removing this exact suffix;
+    # every other pass, source packet and output contract remains byte-identical.
+    baseline = replace(owner.RECAP_EXTRACTION_PROFILE, node_passes=tuple(
+        replace(spec, instruction=spec.instruction.replace(" " + guidance, ""))
+        for spec in owner.RECAP_EXTRACTION_PROFILE.node_passes
+    ))
+    prior = render_category_pass_prompts(SYNTHETIC_SOURCE_ROWS, profile=baseline)
+    for key, prompt in current.items():
+        assert prompt.replace(" " + guidance, "") == prior[key]
+        assert (prompt != prior[key]) == (key == "collective_pass.md")
+    world = render_category_pass_prompts(SYNTHETIC_SOURCE_ROWS, profile=WORLDBUILDING_PLUMBING_PROFILE)
+    assert all(guidance not in prompt for prompt in world.values())

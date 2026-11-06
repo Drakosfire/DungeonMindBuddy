@@ -83,6 +83,16 @@ _RECAP_SOURCE_FAITHFULNESS = (
     "a mention."
 )
 
+_COLLECTIVE_DESCRIPTION_RESPONSIBILITY = (
+    "Describe the collective's own role, states, decisions, coordinated actions "
+    "and outcomes, with the participants and local context needed to understand "
+    "them. Do not make its description a whole-session, member-by-member "
+    "retelling of individual experiences. Retain material collective observations "
+    "and source-supported links between its actions even when they also appear "
+    "on other nodes; do not reduce groups to names or membership."
+)
+
+
 _PASS_SOURCE_FAITHFULNESS: dict[str, str] = {
     "actor_pass": (
         "Keep similarly named people and creatures as separate candidates unless "
@@ -102,7 +112,8 @@ _PASS_SOURCE_FAITHFULNESS: dict[str, str] = {
         "its supported scene and participant scope. Do not attach actions from "
         "another scene to a specifically scoped group merely because the role "
         "labels match. Preserve continuity when the source supports that these "
-        "are the same participants."
+        "are the same participants. "
+        + _COLLECTIVE_DESCRIPTION_RESPONSIBILITY
     ),
     "beat_pass": (
         "Describe what happened separately from what was intended or planned. "
