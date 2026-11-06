@@ -63,7 +63,7 @@ def test_compact_presentation_cannot_change_or_omit_admitted_support(published_l
         verify_input_records(context,stored,grant,raw,**work)
 
 
-def test_heavy_native_proofs_fit_unchanged_budget_without_losing_facts(published_lane,monkeypatch):
+def test_heavy_native_proofs_fit_unchanged_budget_without_losing_facts(published_lane):
     from types import SimpleNamespace
     from tests.test_source_statements import transport,wk,NOW,GM
     from graph_memory.vnext.domain_runtime import dungeonbuddy_world_domain_contract,dungeonbuddy_dnd5e_custom_predicate_profile
@@ -82,7 +82,8 @@ def test_heavy_native_proofs_fit_unchanged_budget_without_losing_facts(published
     turn=SimpleNamespace(graph_context_receipt=context,graph_context_execution=record,**{
         k:v for k,v in work.items() if k!='work_proof'})
     adapter=SimpleNamespace(fence=SimpleNamespace(turn=turn),_broker_execution=lambda:record,failure=None,
-        budget={'outputReserveTokens':4096,'contextLimitTokens':128000})
+        budget={'outputReserveTokens':4096,'contextLimitTokens':128000,
+            'estimator':record.policy.provider_input_accounting.estimator})
     rules=SimpleNamespace(frame=lambda:PlanRulesEvidenceFrameV1(schema='dmb_plan_rules_evidence_v1',
         ruleset='synthetic',lookups=(),supports=()),authoring=None)
     writer=PlanJevWriter(adapter,work['work_proof'],rules)
@@ -113,14 +114,22 @@ def test_heavy_native_proofs_fit_unchanged_budget_without_losing_facts(published
     old_prepared=asyncio.run(wire(old))
     current_prepared=asyncio.run(wire(new))
     admitted=[]
-    monkeypatch.setattr('apps.live_control_server.services.plan_jev_writer.authorize_native_writer',
-        lambda *args: admitted.append(args) or object())
+    class AdmissionReached(Exception):
+        pass
+    def append(*args, **kwargs):
+        admitted.append(args[2])
+        raise AdmissionReached
+    # Exercise the actual shared capacity guard; stop only at its APP admission
+    # seam. Mocking authorize_native_writer would also remove the guard itself.
+    adapter.fence.append=append
+    rules.native=SimpleNamespace(record=SimpleNamespace(revision=1))
     writer.messages=old['input']
     with pytest.raises(ValueError,match='context allowance'):
         writer.authorize(old_prepared)
     assert not admitted
     writer.messages=new['input']
-    assert writer.authorize(current_prepared) is True
+    with pytest.raises(AdmissionReached):
+        writer.authorize(current_prepared)
     assert len(admitted)==1 and writer.context_limit==128000
     assert [r['assertion'] for r in writer.frame['native_assertions']['assertions']]==[
         r['assertion'] for r in model_frame(context,record,schema=LEGACY_SCHEMA)['native_assertions']['assertions']]
