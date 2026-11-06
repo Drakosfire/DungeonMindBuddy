@@ -93,6 +93,7 @@ _COMPLETION = (
         "'citation_map','source_citations'",
         "'citation_map','source_citations','native_source_citations','native_body_citations'",
     )
+    .replace("authored_quote", "authored_excerpt")
     .replace(
         '@.kind != "limitation"',
         '@.kind != "limitation" && @.kind != "session_summary"',

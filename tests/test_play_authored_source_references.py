@@ -600,8 +600,9 @@ def test_play_source_storage_rejects_malformed_or_foreign_context(
             )
 
 
+@pytest.mark.parametrize("include_scene", [False, True])
 def test_play_selected_source_normalizes_and_persists_inspectable_body_citation(
-    source_case, application_state_dsn
+    source_case, application_state_dsn, include_scene
 ):
     import psycopg
     from psycopg.types.json import Jsonb
@@ -611,6 +612,8 @@ def test_play_selected_source_normalizes_and_persists_inspectable_body_citation(
     from application_state.agent_conversation.surface_evidence_answer import (
         BODY_POLICY,
         normalize,
+        producing_authored,
+        authored_block_index,
     )
     from apps.live_control_server.services.agent_turn_service import _BuildClaimEvidence
 
@@ -631,6 +634,7 @@ def test_play_selected_source_normalizes_and_persists_inspectable_body_citation(
         turn.graph_context_receipt.graph_authority.graph_revision,
         (),
         current_policy=BODY_POLICY,
+        authored=producing_authored(turn, auth, raw),
         body_excerpts=producing_bodies(turn, auth, raw),
     )
     for outcome in ("sdk_entered", "response_received"):
@@ -660,6 +664,11 @@ def test_play_selected_source_normalizes_and_persists_inspectable_body_citation(
         limitations=[],
         requested_detail_gaps=[],
     )
+    if include_scene:
+        _, selectors = authored_block_index(support.authored, str(turn.idempotency_key))
+        candidate["answer_segments"].append(
+            dict(kind="authored_excerpt", selection_id=next(iter(selectors)))
+        )
     completion, bindings, answer = normalize(
         candidate, turn, auth.provider_attempt_id, support
     )
