@@ -1,4 +1,4 @@
-"""Mounted page/registry/Tiptap/native-publication saga; native ports only are fakes."""
+"""Mounted APP page recovery plus actual Core/WorldKeeper native publication."""
 from tests.page_fixtures import page_text, save_page
 from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 import hashlib
@@ -36,16 +36,86 @@ def case(request, monkeypatch):
         'place': {'label': 'Brin’s Blacksmithy', 'kind': 'location'},
         'person': {'label': 'Brin', 'kind': 'npc'}, 'relationships': ['owns', 'operates'],
         'mode': 'build_out', 'instructions': 'A practical forge with room for future secrets.'}
+    from dataclasses import asdict
+    from datetime import UTC, datetime
+    from dungeonmind.infrastructure.memory.vnext_sources import InMemoryNativeSourceEvidenceRepository
+    from dungeonmind.contracts.vnext.knowledge import PublishKnowledgeRevisionCommand
+    from tests.test_con_ready_play_worldkeeper_consumer import _repository, SPACE_ID
+    from apps.live_control_server.services.managed_world_graph_projection import ManagedWorldSourceIdentity
+    from apps.live_control_server.integrations.dungeonmind import native_registry_source as native, native_world_source_admission as admission
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    c.principal = NativeGraphPrincipal('local-operator', 'gm', 'local_operator')
+    c.native_binding = ManagedWorldSourceIdentity(c.record.world_id, c.binding.native_world_id, 1, '')
+    c.bound = asdict(c.native_binding); c.bound.pop('provisioning_id')
+    seed = _repository(evidence=False)
+    original = seed.get_revision(SPACE_ID, seed.get_head(SPACE_ID).head_revision_id)
+    c.repo = InMemoryNativeSourceEvidenceRepository()
+    c.repo.publish_revision(PublishKnowledgeRevisionCommand(
+        space_id=c.binding.native_world_id, operation_ids=['fixture-genesis'],
+        graph_schema=original.revision.graph_schema, graph_payload=original.graph_payload,
+        domain_contract_ref=original.revision.domain_contract_ref,
+        semantic_profile_ref=original.revision.semantic_profile_ref, created_at=datetime.now(UTC)))
+    monkeypatch.setattr(native, 'binding', lambda world: deepcopy(c.bound) if world == c.record.world_id else (_ for _ in ()).throw(ValueError('Foreign World')))
+    monkeypatch.setattr(native, 'repository', lambda: c.repo)
+    monkeypatch.setattr(native, 'read_repository', lambda: c.repo)
+    monkeypatch.setattr(admission, '_repository', lambda: c.repo)
+    monkeypatch.setattr(admission, '_source_world_binding', lambda root, world: c.native_binding)
+    c.legacy_authority = c.authority
+    class NativePublicationCount:
+        @property
+        def publish_calls(self):
+            return sum(key[1].startswith('dmb-connected-page:') for key in c.repo._prospective_results)
+    c.authority = NativePublicationCount()
     return c
 
 
+@pytest.fixture
+def legacy_case(case):
+    case.legacy_adoption = True
+    case.authority = case.legacy_authority
+    return case
+
+
+def _legacy_prepare(c, request):
+    # Frozen historical input for the explicit offline adopter; no live route
+    # is allowed to execute this retired publication path.
+    from apps.live_control_server.services.graph_object_authoring_prepare import prepare_graph_object_authoring_write, GraphObjectAuthoringPrepareRequest
+    from application_state.content.connected_pages import locked_operation
+    intent = owner.parse_connected_page_intent(request)
+    state = dict(schema=owner.legacy_operation_schema(intent), intent=intent.model_dump(mode='json'),
+        intent_sha256=owner._sha(owner._json(intent.model_dump(mode='json'))), page_id=str(uuid.uuid4()),
+        phase='created', initial_markdown=owner._initial_markdown(intent, c.record),
+        working_text_sha256=owner.verify_origin_capture(intent.origin), saved_source=None,
+        graph_request=None, prepared=None, receipt=None)
+    state['saved_source'] = owner._save_initial(c.root, state, intent)
+    state['graph_request'] = owner._legacy_graph_request(c.root, state, intent)
+    state['prepared'] = prepare_graph_object_authoring_write(GraphObjectAuthoringPrepareRequest.model_validate(state['graph_request']), corpus_root=c.root).model_dump(mode='json')
+    state['phase'] = 'prepared'
+    with locked_operation(intent.operation_id) as journal:
+        journal.save(state)
+    return owner._response(c.root, state)
+
+
 def prepare(c, request=None):
+    if getattr(c, 'legacy_adoption', False):
+        return _legacy_prepare(c, request or c.request)
     response = c.client.post('/api/live/connected-pages/prepare', json=request or c.request)
     assert response.status_code == 200, response.text
     return response.json()
 
 
 def confirm(c, operation):
+    if getattr(c, 'legacy_adoption', False) and operation['phase'] != 'complete':
+        from apps.live_control_server.services.graph_object_authoring_prepare import GraphObjectAuthoringCommitRequest
+        from apps.live_control_server.services.graph_object_authoring_commit import commit_graph_object_authoring_write
+        from application_state.content.connected_pages import locked_operation
+        with locked_operation(operation['operation_id']) as journal:
+            state = journal.read()
+            state['receipt'] = commit_graph_object_authoring_write(
+                GraphObjectAuthoringCommitRequest.model_validate({**state['graph_request'], 'confirmToken': state['prepared']['confirm_token']}), corpus_root=c.root).model_dump(mode='json')
+            state['phase'] = 'complete'
+            journal.save(state)
+        return get(c)
     return c.client.post('/api/live/connected-pages/confirm', json={
         'operation_id': operation['operation_id'], 'world_id': c.record.world_id,
         'confirm_token': operation['prepared']['confirm_token']})
@@ -119,13 +189,14 @@ def test_utf16_selection_and_marks_are_verified(case):
     assert case.client.post('/api/live/connected-pages/prepare', json=request).status_code == 409
 
 
-@pytest.mark.parametrize('failure_point', ['create', 'save', 'prepare', 'publish'])
+@pytest.mark.parametrize('failure_point', ['create', 'save', 'evidence', 'prepare', 'publish'])
 def test_response_loss_retries_one_reserved_page(case, monkeypatch, failure_point):
     c = case
     functions = {'create': 'create_workspace_document', 'save': 'commit_tiptap_markdown_write',
-        'prepare': 'prepare_graph_object_authoring_write', 'publish': 'commit_graph_object_authoring_write'}
+        'evidence': 'publish_native_source_evidence_extension', 'prepare': 'prepare', 'publish': 'confirm'}
     name = functions[failure_point]
-    original = getattr(owner, name)
+    boundary = owner.native_graph if failure_point in ('evidence', 'prepare', 'publish') else owner
+    original = getattr(boundary, name)
     failed = False
     def lose_response(*args, **kwargs):
         nonlocal failed
@@ -134,18 +205,18 @@ def test_response_loss_retries_one_reserved_page(case, monkeypatch, failure_poin
             failed = True
             raise owner.ConnectedPageError('Simulated lost response')
         return result
-    monkeypatch.setattr(owner, name, lose_response)
+    monkeypatch.setattr(boundary, name, lose_response)
     if failure_point == 'publish':
         operation = prepare(c)
         assert confirm(c, operation).status_code == 409
-        monkeypatch.setattr(owner, name, original)
+        monkeypatch.setattr(boundary, name, original)
         assert confirm(c, operation).status_code == 200
     else:
         assert c.client.post('/api/live/connected-pages/prepare', json=c.request).status_code == 409
         retained = get(c)
         assert retained.status_code == 200, retained.text
         assert retained.json()['page'], retained.text
-        monkeypatch.setattr(owner, name, original)
+        monkeypatch.setattr(boundary, name, original)
         operation = prepare(c)
         assert confirm(c, operation).status_code == 200
     assert len(list_workspace_documents(c.root, kind='worldbuilding_source')) == 2
@@ -181,7 +252,7 @@ def test_same_operation_changed_intent_conflicts(case):
 def test_concurrent_same_operation_creates_one_page(case):
     intent = ConnectedPageIntent.model_validate(case.request)
     with ThreadPoolExecutor(max_workers=2) as pool:
-        results = list(pool.map(lambda _: owner.prepare_connected_page(case.root, intent), range(2)))
+        results = list(pool.map(lambda _: owner.prepare_connected_page(case.root, intent, principal=case.principal), range(2)))
     assert results[0]['page']['document_id'] == results[1]['page']['document_id']
     assert len(list_workspace_documents(case.root, kind='worldbuilding_source')) == 2
 
@@ -195,11 +266,41 @@ def test_discard_refuses_confirmation_without_native_write(case, target):
     assert case.authority.publish_calls == 0
 
 
+def seed_existing(c):
+    from datetime import UTC, datetime
+    from dungeonmind.application.vnext import publish_native_source_evidence_extension
+    from dungeonmind.contracts.vnext.native_source import NativeSourceEvidenceExtensionV1
+    from apps.live_control_server.integrations.dungeonmind import native_world_source_admission as admission, native_registry_source as native
+    from apps.live_control_server.integrations.worldkeeper import registry_standing_consumer as transport
+    from worldkeeper.application import contracts as wk
+    from graph_memory.vnext.domain_runtime import GM_LABEL, PLAYER_LABEL
+    snapshot = get_workspace_document_snapshot(c.root, c.record.document_id)
+    a = admission.admit_native_world_source(c.root, c.record.document_id,
+        expected_revision=snapshot.loaded_revision, expected_body_sha256=snapshot.content_sha256)
+    context, _ = native.access_context(c.repo, c.binding.native_world_id)
+    domain, profile = native.descriptors(c.repo, c.binding.native_world_id, context['revision_id'])
+    raw=snapshot.markdown.encode(); quote=raw.rstrip(b'\n')
+    extension=publish_native_source_evidence_extension(repository=c.repo,
+        request=NativeSourceEvidenceExtensionV1(space_id=c.binding.native_world_id, extension_id='fixture:identities',
+            original_admission_id=a.admission_id, source_artifact_id=a.source_artifact_id, source_revision_id=a.source_revision_id,
+            expected_body_sha256=a.body_sha256, expected_parent_revision_id=context['revision_id'],
+            expected_source_authority_epoch=context['source_epoch'], created_at=datetime.now(UTC),
+            spans=[dict(client_ref='statement',evidence_role='support',start_byte=0,end_byte=len(quote),expected_slice_sha256=hashlib.sha256(quote).hexdigest())]),
+        domain_contract=domain,semantic_profile=profile,audience_labels=(GM_LABEL,PLAYER_LABEL))
+    meta=wk.AssertionMetadata(scope=(),visibility=wk.Visibility('labels_any',(GM_LABEL,)),epistemic_basis='asserted',
+        claim_mode='dungeonbuddy.claim:fact',standing='established',evidence_ref_ids=(extension.bindings[0].evidence_ref_id,),temporal_scope=wk.TemporalScope(kind='unknown'))
+    ops=tuple(wk.CreateObject(key,(
+        wk.CreateFact(key+'.name','dnd5e:name',wk.LiteralFactValue(label),meta),
+        wk.CreateFact(key+'.kind','dnd5e:classification',wk.TermRefFactValue(kind),meta)))
+        for key,label,kind in [('person','Brin','dungeonbuddy:character'),('place','Brin’s Blacksmithy','dnd5e:location')])
+    runtime=transport.runtime(c.repo,domain,profile,now=datetime.now(UTC),operation_id='fixture:existing-identities')
+    result=runtime.commit_prepared_change(runtime.prepare_change(wk.WorldChangeIntent(c.binding.native_world_id,'fixture',ops)),confirmed_by='fixture')
+    return {r.client_op_id:r.durable_object_id for r in result.object_results}
+
+
 def test_existing_identity_must_match_current_world_label_and_kind(case, monkeypatch):
-    from types import SimpleNamespace
-    def projection(*args, **kwargs):
-        return SimpleNamespace(projection=SimpleNamespace(nodes=[]))
-    monkeypatch.setattr('apps.live_control_server.services.managed_world_graph_projection.project_managed_world_graph', projection)
+    monkeypatch.setattr('apps.live_control_server.services.managed_world_graph_projection.project_managed_world_graph',
+        lambda *_args,**_kwargs:pytest.fail('Retired projection called'))
     request = deepcopy(case.request)
     request['person']['node_id'] = 'foreign-brin'
     response = case.client.post('/api/live/connected-pages/prepare', json=request)
@@ -208,31 +309,28 @@ def test_existing_identity_must_match_current_world_label_and_kind(case, monkeyp
 
 
 def test_reuse_existing_person_and_location_keeps_exact_node_identities(case, monkeypatch):
-    from types import SimpleNamespace
-    nodes = [SimpleNamespace(node_id='person:brin', label='Brin', kind='npc'),
-             SimpleNamespace(node_id='location:forge', label='Brin’s Blacksmithy', kind='location')]
-    monkeypatch.setattr('apps.live_control_server.services.managed_world_graph_projection.project_managed_world_graph',
-        lambda *args, **kwargs: SimpleNamespace(projection=SimpleNamespace(nodes=nodes)))
-    case.request['person']['node_id'] = 'person:brin'
-    case.request['place']['node_id'] = 'location:forge'
+    identities = seed_existing(case)
+    case.request['person']['node_id'] = identities['person']
+    case.request['place']['node_id'] = identities['place']
     operation = prepare(case)
     result = confirm(case, operation)
     assert result.status_code == 200, result.text
-    assert result.json()['connections']['person_node_id'] == 'person:brin'
-    assert result.json()['connections']['place_node_id'] == 'location:forge'
+    assert result.json()['connections']['person_node_id'] == identities['person']
+    assert result.json()['connections']['place_node_id'] == identities['place']
     assert result.json()['receipt']['created_node_ids'] == {}
     assert case.authority.publish_calls == 1
+    from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
+    from dungeonmind.application.vnext import EntityReadService
+    read, *_ = native.read_context(case.repo,case.binding.native_world_id,case.repo.get_head(case.binding.native_world_id).head_revision_id,None,'gm',scope_mode='world')
+    person = EntityReadService().get_complete_entity(read, identities['person'])
+    assert {a.value.term for a in person.assertions if a.predicate=='dnd5e:classification'} == {'dungeonbuddy:character'}
 
 
 @pytest.mark.parametrize('existing', [False, True])
 def test_page_without_person_is_a_scaffold_and_can_describe_existing_location(case, monkeypatch, existing):
-    from types import SimpleNamespace
     case.request.update(person=None, relationships=[], mode='scaffold')
     if existing:
-        case.request['place']['node_id'] = 'existing:place'
-        monkeypatch.setattr('apps.live_control_server.services.managed_world_graph_projection.project_managed_world_graph',
-            lambda *args, **kwargs: SimpleNamespace(projection=SimpleNamespace(nodes=[
-                SimpleNamespace(node_id='existing:place', label='Brin’s Blacksmithy', kind='location')])))
+        case.request['place']['node_id'] = seed_existing(case)['place']
     operation = prepare(case)
     result = confirm(case, operation)
     assert result.status_code == 200, result.text
@@ -258,7 +356,7 @@ def test_created_page_edited_during_partial_save_is_retained_without_overwrite(c
 
 def test_native_mapping_drift_refuses_and_keeps_created_page(case):
     operation = prepare(case)
-    case.binding.native_world_id = 'other-world'
+    case.bound['native_world_id'] = 'other-world'
     response = confirm(case, operation)
     assert response.status_code == 409
     assert get(case).json()['page']['document_id'] == operation['page']['document_id']
@@ -318,7 +416,7 @@ def test_exact_saved_excerpt_creates_connected_page_without_editor_fabrication(s
     c=saved_case
     before=(page_text(c.root, c.record.document_id).encode("utf-8"),get_workspace_document(c.root,c.record.document_id))
     operation=prepare(c)
-    assert operation['schema']=='dmb_connected_page_operation_v2'
+    assert operation['schema']=='dmb_connected_page_operation_v3'
     assert operation['source_origin']=={'kind':'saved_page_excerpt','source_text_sha256':c.selector.content_sha256,'line_start':1,'line_end':1}
     assert 'editor_json' not in operation['intent']['origin']
     assert c.authority.publish_calls==0
@@ -397,19 +495,19 @@ def test_saved_origin_concurrent_retry_has_one_retained_page(saved_case):
     from apps.live_control_server.models.connected_page import parse_connected_page_intent
     c=saved_case;intent=parse_connected_page_intent(c.request)
     with ThreadPoolExecutor(max_workers=2) as pool:
-        results=list(pool.map(lambda _:owner.prepare_connected_page(c.root,intent),range(2)))
+        results=list(pool.map(lambda _:owner.prepare_connected_page(c.root,intent,principal=c.principal),range(2)))
     assert results[0]['page']['document_id']==results[1]['page']['document_id']
     assert len(list_workspace_documents(c.root,kind='worldbuilding_source'))==2
     assert c.authority.publish_calls==0
 
 
 def test_saved_origin_partial_graph_prepare_recovers_without_source_reread_or_duplicate(saved_case,monkeypatch):
-    c=saved_case;original=owner.prepare_graph_object_authoring_write
-    monkeypatch.setattr(owner,'prepare_graph_object_authoring_write',lambda *_args,**_kwargs:(_ for _ in ()).throw(owner.ConnectedPageError('Interrupted after source save')))
+    c=saved_case;original=owner.native_graph.prepare
+    monkeypatch.setattr(owner.native_graph,'prepare',lambda *_args,**_kwargs:(_ for _ in ()).throw(owner.ConnectedPageError('Interrupted after source save')))
     assert c.client.post('/api/live/connected-pages/prepare',json=c.request).status_code==409
     retained=get(c).json();assert retained['phase']=='saved'
     save_page(c.root, c.record.document_id, 'A newer source after reservation.\n');get_workspace_document(c.root, c.record.document_id)
-    monkeypatch.setattr(owner,'prepare_graph_object_authoring_write',original)
+    monkeypatch.setattr(owner.native_graph,'prepare',original)
     operation=prepare(c)
     assert operation['page']['document_id']==retained['page']['document_id']
     assert operation['intent']['origin']==retained['intent']['origin']
@@ -475,7 +573,8 @@ def _delete_operation(c):
         conn.execute('DELETE FROM content.connected_page_operation WHERE operation_id=%s', (c.request['operation_id'],))
 
 
-def test_operation_files_are_not_live_recovery_authority(case):
+def test_operation_files_are_not_live_recovery_authority(legacy_case):
+    case = legacy_case
     operation = confirm(case, prepare(case)).json()
     path, _ = _export_operation(case)
     historical = case.root / 'out/registries/connected_pages' / path.name
@@ -492,7 +591,8 @@ def test_operation_files_are_not_live_recovery_authority(case):
     assert len(list_workspace_documents(case.root, kind='worldbuilding_source')) == 2
 
 
-def test_adoption_never_overwrites_newer_operation_or_page(case):
+def test_adoption_never_overwrites_newer_operation_or_page(legacy_case):
+    case = legacy_case
     operation = prepare(case)
     path, _ = _export_operation(case)
     complete = confirm(case, operation).json()
@@ -505,7 +605,8 @@ def test_adoption_never_overwrites_newer_operation_or_page(case):
 
 
 @pytest.mark.parametrize('change', ['intent', 'page', 'symlink'])
-def test_adoption_rejects_inconsistent_or_foreign_record(case, change):
+def test_adoption_rejects_inconsistent_or_foreign_record(legacy_case, change):
+    case = legacy_case
     prepare(case)
     path, state = _export_operation(case)
     _delete_operation(case)
@@ -532,7 +633,8 @@ def test_database_operation_does_not_create_registry_directory(case):
 
 
 @pytest.mark.parametrize('change', ['receipt', 'source', 'request', 'prepared', 'missing_publication', 'incomplete'])
-def test_adoption_requires_exact_authoritative_completed_publication(case, change):
+def test_adoption_requires_exact_authoritative_completed_publication(legacy_case, change):
+    case = legacy_case
     operation = prepare(case)
     if change != 'incomplete':
         assert confirm(case, operation).status_code == 200
@@ -554,3 +656,74 @@ def test_adoption_requires_exact_authoritative_completed_publication(case, chang
         owner.adopt_connected_page_operation(case.root, path)
     assert get(case).status_code == 409
     assert case.authority.publish_calls == calls
+
+
+@pytest.mark.parametrize('field', ['label', 'kind'])
+def test_native_existing_identity_never_falls_back_to_new_object(case, field):
+    identities=seed_existing(case)
+    case.request['person']['node_id']=identities['person'] if field=='label' else identities['place']
+    if field=='label':
+        case.request['person']['label']='A different person'
+    response=case.client.post('/api/live/connected-pages/prepare',json=case.request)
+    assert response.status_code==409
+    assert len(list_workspace_documents(case.root,kind='worldbuilding_source'))==1
+    assert case.authority.publish_calls==0
+
+
+def test_stale_native_parent_is_reprepared_only_on_explicit_retry(case):
+    operation=prepare(case)
+    seed_existing(case)
+    assert confirm(case,operation).status_code==409
+    assert case.authority.publish_calls==0
+    retry=prepare(case)
+    assert retry['operation_id']==operation['operation_id']
+    assert retry['page']['document_id']==operation['page']['document_id']
+    assert confirm(case,operation).status_code==409
+    assert confirm(case,retry).status_code==200
+    assert case.authority.publish_calls==1
+    assert len(list_workspace_documents(case.root,kind='worldbuilding_source'))==2
+
+
+def test_unknown_native_commit_recovers_before_requiring_page_freshness(case,monkeypatch):
+    operation=prepare(case)
+    actual=owner.native_graph.confirm
+    def lose(*args,**kwargs):
+        actual(*args,**kwargs)
+        raise owner.ConnectedPageError('Lost commit response')
+    monkeypatch.setattr(owner.native_graph,'confirm',lose)
+    assert confirm(case,operation).status_code==409
+    assert case.authority.publish_calls==1
+    save_page(case.root,operation['page']['document_id'],'# Newer writing after committed response loss\n')
+    save_page(case.root,case.record.document_id,'# Newer source\n')
+    monkeypatch.setattr(owner.native_graph,'confirm',actual)
+    assert confirm(case,operation).status_code==200
+    assert case.authority.publish_calls==1
+    assert page_text(case.root,operation['page']['document_id'])=='# Newer writing after committed response loss\n'
+
+
+def test_retired_writer_cannot_resume_incomplete_historical_operation(legacy_case):
+    c=legacy_case;operation=prepare(c)
+    assert c.client.post('/api/live/connected-pages/prepare',json=c.request).status_code==409
+    response=c.client.post('/api/live/connected-pages/confirm',json=dict(operation_id=operation['operation_id'],world_id=c.record.world_id,confirm_token=operation['prepared']['confirm_token']))
+    assert response.status_code==409
+    assert c.authority.publish_calls==0
+    assert len(list_workspace_documents(c.root,kind='worldbuilding_source'))==2
+
+
+def test_native_confirmation_requires_the_reviewing_principal(case):
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    operation=prepare(case)
+    with pytest.raises(owner.native_graph.ConnectedGraphError,match='exact review'):
+        owner.confirm_connected_page(case.root,operation['operation_id'],case.record.world_id,
+            operation['prepared']['confirm_token'],principal=NativeGraphPrincipal('different-operator','gm','local_operator'))
+    assert case.authority.publish_calls==0
+
+
+def test_native_denied_source_cannot_publish(case,monkeypatch):
+    from types import SimpleNamespace
+    operation=prepare(case)
+    monkeypatch.setattr(owner.native_graph,'open_admitted_native_text',lambda *_:SimpleNamespace(status='unavailable'))
+    response=confirm(case,operation)
+    assert response.status_code==409
+    assert case.authority.publish_calls==0
+    assert get(case).json()['phase']=='prepared'

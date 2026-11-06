@@ -10,11 +10,11 @@ export interface ConnectedPageIntent{
   relationships:('owns'|'operates')[];mode:'scaffold'|'build_out';instructions:string;
 }
 export interface ConnectedPageOperation{
-  schema:'dmb_connected_page_operation_v1'|'dmb_connected_page_operation_v2';operation_id:string;phase:'reserved'|'created'|'saved'|'prepared'|'complete';
+  schema:'dmb_connected_page_operation_v1'|'dmb_connected_page_operation_v2'|'dmb_connected_page_operation_v3';operation_id:string;phase:'reserved'|'created'|'saved'|'prepared'|'complete';
   intent:ConnectedPageIntent;page:WorkspaceDocumentRecord|null;
   initial_source:{documentId:string;revision:number;contentSha256:string}|null;
   prepared:{confirm_token:string;assertions_preview:{summary:string}[]}|null;
-  receipt:{committed:boolean;created_node_ids:Record<string,string>}|null;
+  receipt:{committed:boolean;created_node_ids:Record<string,string>;native_world_id?:string;published_revision_id?:string;publication_id?:string}|null;
   connections:{place_node_id:string;person_node_id:string|null;relationships:('owns'|'operates')[]}|null;
 }
 const uuid=(value:unknown)=>typeof value==='string'&&/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(value);
@@ -43,7 +43,7 @@ export function validConnectedPageIntent(value:unknown):value is ConnectedPageIn
 }
 export function assertConnectedPageOperation(value:unknown,request:ConnectedPageIntent):ConnectedPageOperation{
   const r=value as ConnectedPageOperation;
-  if(!r||r.schema!==('kind' in request.origin?'dmb_connected_page_operation_v2':'dmb_connected_page_operation_v1')||r.operation_id!==request.operation_id
+  if(!r||(r.schema!=='dmb_connected_page_operation_v3'&&r.schema!==('kind' in request.origin?'dmb_connected_page_operation_v2':'dmb_connected_page_operation_v1'))||r.operation_id!==request.operation_id
     ||!validConnectedPageIntent(r.intent)||canonicalConnectedIntent(r.intent)!==canonicalConnectedIntent(request)
     ||!['reserved','created','saved','prepared','complete'].includes(r.phase))throw new Error('The returned page operation does not match this request. The original request is retained.');
   if(r.page&&(!uuid(r.page.document_id)||r.page.world_id!==request.world_id||r.page.campaign_id!==request.world_id
@@ -54,6 +54,8 @@ export function assertConnectedPageOperation(value:unknown,request:ConnectedPage
   if(['prepared','complete'].includes(r.phase)&&(!r.prepared||typeof r.prepared.confirm_token!=='string'||!r.prepared.confirm_token
     ||!Array.isArray(r.prepared.assertions_preview)))throw new Error('The exact connection review is missing.');
   if(r.phase==='complete'){
+    if(r.schema==='dmb_connected_page_operation_v3'&&(!r.receipt?.native_world_id||!r.receipt.published_revision_id
+      ||r.receipt.publication_id!=='dmb-connected-page:v1:'+request.operation_id))throw new Error('The native publication receipt does not match this page operation.');
     const ids=r.receipt?.created_node_ids;
     if(!r.receipt?.committed||!r.connections||r.connections.place_node_id!==(request.place.node_id||ids?.place)
       ||r.connections.person_node_id!==(request.person?(request.person.node_id||ids?.person):null)
