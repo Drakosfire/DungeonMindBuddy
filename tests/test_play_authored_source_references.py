@@ -625,7 +625,7 @@ def test_play_selected_source_normalizes_and_persists_inspectable_body_citation(
     )
     from apps.live_control_server.services.agent_turn_service import _BuildClaimEvidence
 
-    service, sub, turn, auth, raw = accepted_play_source_case(source_case,token_ceilings=token_ceilings)
+    service, sub, turn, auth, raw = accepted_play_source_case(source_case)
     turn, _ = service.authorize_native_play_provider(
         sub.world_id,
         sub.conversation_id,
