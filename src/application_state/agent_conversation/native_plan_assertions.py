@@ -111,6 +111,10 @@ def object_record_ids(query, handles, *, assertion, attempted=()):
     if not isinstance(query, NativeGraphQueryV4):
         raise ValueError('Object closure requires its versioned native query')
     selected = set(handles)
+    # Source/Rules/page-only selections have no object closure. Avoid hashing
+    # the entire frozen query for each family on every retained source append.
+    if not any(isinstance(handle, str) and handle.startswith('native-object:') for handle in selected):
+        return ()
     # Compute the immutable query digest once, not once per record or object.
     query_digest = query.sha256
     roots = {m.entity_id for m in query.object_matches if
