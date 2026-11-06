@@ -8,6 +8,7 @@ import {createPortal} from 'react-dom';
 import {listConversations,readConversationName,readConversationTurns,readConversationMessages,renameConversation,type ConversationSummary,type LibraryTurn,type ResumeConversationCommand,type ConversationLifecycleOperation} from '../api/conversationLibraryApi';
 import {WorldPlanAgentAnswer} from '../planSurface/components/WorldPlanAgentAnswer';
 import {BuddyContextTraceLoader} from '../planSurface/components/BuddyContextTraceLoader';
+import {BuddyTurnInspection} from '../planSurface/components/BuddyTurnInspection';
 import './ConversationLibrary.css';
 const message=(error:unknown)=>error instanceof Error?error.message:'The conversation could not be read.';
 export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecycle,continueDisabledReason}:{worldId:string;onClose:()=>void;pointer?:{revision:number;activeId:string|null};onContinue?:(command:ResumeConversationCommand)=>Promise<void>;onLifecycle?:(command:ResumeConversationCommand,operation:ConversationLifecycleOperation)=>Promise<void>;continueDisabledReason?:string|null}){
@@ -129,7 +130,7 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
     {turn.reply_object?.kind==='page_object'&&<p>{turn.reply_object.object_kind==='plan'?'Work plan proposed on page.':turn.reply_object.object_kind==='connected_page'?'Connected-page review prepared.':'Relationship review prepared.'}{' '}<a href={'/build?'+new URLSearchParams({world:turn.reply_object.source.world_id,documentId:turn.reply_object.source.document_id})}>Open source page</a></p>}
     {!turn.assistant_text&&!turn.reply_object&&<p>{!fullDetails&&turn.status==='completed'?'Load saved details to inspect this reply.':['failed','interrupted'].includes(turn.status)?'This reply did not finish.':['accepted','running'].includes(turn.status)?'Reply in progress.':'No saved reply.'}</p>}
     {fullDetails&&turn.retry_context&&<ConversationRetryAttempts context={turn.retry_context}/>}
-    {fullDetails&&<SavedTurnTrace worldId={worldId} conversationId={ownDetail.conversation_id} turnId={turn.turn_id}/>}
+    {fullDetails&&<SavedTurnTrace worldId={worldId} conversationId={ownDetail.conversation_id} turnId={turn.turn_id} status={turn.status}/>}
 
    </article>;return historical?<details key={turn.turn_id}><summary>Earlier attempt of a request with a later response</summary>{content}</details>:content;})}
    {ownDetail&&!loading&&!turns.length&&<p>No messages in this conversation yet.</p>}
@@ -137,9 +138,12 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
  </dialog>,document.body);
 }
 
-function SavedTurnTrace({worldId,conversationId,turnId}:{worldId:string;conversationId:string;turnId:string}){
+function SavedTurnTrace({worldId,conversationId,turnId,status}:{worldId:string;conversationId:string;turnId:string;status:string}){
  const [open,setOpen]=useState(false);
- return <details onToggle={event=>setOpen(event.currentTarget.open)}><summary>Trace</summary>
-  {open&&<BuddyContextTraceLoader enabled worldId={worldId} conversationId={conversationId} turnId={turnId}/>}
+ const lifecycle=(['accepted','running','completed','failed','interrupted'] as const).find(value=>value===status);
+ const view=<details onToggle={event=>setOpen(event.currentTarget.open)}><summary>Trace</summary>
+  {open&&(lifecycle?<BuddyContextTraceLoader enabled worldId={worldId} conversationId={conversationId} turnId={turnId}/>
+   :<p role="alert">This saved turn has an unsupported status. Its trace cannot be inspected.</p>)}
  </details>;
+ return lifecycle?<BuddyTurnInspection worldId={worldId} conversationId={conversationId} turnId={turnId} lifecycle={lifecycle}>{view}</BuddyTurnInspection>:view;
 }
