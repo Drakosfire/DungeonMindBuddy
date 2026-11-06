@@ -14,7 +14,9 @@ The `dmb_ingestion_assessment_v1` record contains:
   to its identified Gold object. Do not copy or rewrite the expected claim.
 - `phases`: all three of `raw_extraction`, `reviewed_output`, `publication`.
   An unassessed phase is `{"status":"unknown","reason":"Specific missing evidence"}`.
-  An assessed phase has `phase_evidence` (artifact pins) and `judgments`.
+  An assessed phase has `phase_evidence` (artifact pins), `judgments` and explicit
+  `limitations` (text list, empty only when no limitation is known). Reports retain
+  those links and limits beside counts so coverage cannot hide precision holds.
 - Each judgment has `criterion_id`, `outcome` (`pass`, `fail`, `partial`, `unknown`),
   `review` (reference to the original criterion judgment), `evidence` (references
   to inspectable values), and `reason`. All declared criteria must appear exactly

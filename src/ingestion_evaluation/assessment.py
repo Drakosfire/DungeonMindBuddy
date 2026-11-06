@@ -118,7 +118,9 @@ def report(path: Path):
         if unknown(phase):
             phases[name] = phase
             continue
-        if set(phase) != {'judgments', 'phase_evidence'} or not phase['phase_evidence']:
+        if (set(phase) != {'judgments', 'phase_evidence', 'limitations'} or not phase['phase_evidence']
+                or not isinstance(phase['limitations'], list)
+                or any(not isinstance(v, str) or not v.strip() for v in phase['limitations'])):
             raise ValueError('Assessed phase requires retained phase evidence')
         for pin in phase['phase_evidence']:
             read_pin(pin)
@@ -147,6 +149,7 @@ def report(path: Path):
         for cid, judgment in judgments.items():
             counts[criteria[cid]['dimension']][judgment['outcome']] += 1
         phases[name] = {'status': 'assessed', 'criterion_count': len(criteria),
+                        'limitations': phase['limitations'], 'phase_evidence': phase['phase_evidence'],
                         'by_dimension': {d: {outcome: c[outcome] for outcome in sorted(OUTCOMES)}
                                          for d, c in sorted(counts.items())}}
     if set(spec['measurements']) != METRICS:

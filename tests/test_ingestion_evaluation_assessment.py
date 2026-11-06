@@ -26,7 +26,7 @@ def assessment(tmp_path):
             'subject': {'result': {'artifact': result, 'pointer': '/run'}, 'candidate': candidate},
             'gold': [gold],
             'criteria': [{'criterion_id': 'F1', 'dimension': 'recall', 'gold': {'artifact': gold, 'pointer': '/facts/0'}}],
-            'phases': {'raw_extraction': {'phase_evidence': [review], 'judgments': [
+            'phases': {'raw_extraction': {'phase_evidence': [review], 'limitations': ['Content coverage only; precision holds remain.'], 'judgments': [
                 {'criterion_id': 'F1', 'outcome': 'pass', 'reason': 'Coverage only; unrelated precision failures separate.',
                  'review': {'artifact': review, 'pointer': '/checks/0'},
                  'evidence': [{'artifact': candidate, 'pointer': '/nodes/0/description'}]}]},
@@ -49,6 +49,8 @@ def test_actual_cli_keeps_phases_and_unknown_measurements_separate(assessment):
     assert r['phases']['raw_extraction']['by_dimension']['recall'] == {'pass': 1, 'fail': 0, 'partial': 0, 'unknown': 0}
     assert r['phases']['publication']['status'] == 'unknown'
     assert r['measurements']['billed_cost_usd']['status'] == 'unknown'
+    assert r['phases']['raw_extraction']['limitations'] == ['Content coverage only; precision holds remain.']
+    assert r['phases']['raw_extraction']['phase_evidence']
 
 
 @pytest.mark.parametrize('mutation, error', [
