@@ -33,7 +33,10 @@ format, DB table, execution ledger or rejection classifier. Existing rejected
 reference receipts keep their distinct meaning. Reuse current request parsing,
 World binding, draft and explicit retry controls. The operator action moves the
 active pending copy only after the retained copy is verified; restore requires
-an empty pending slot. Keep the retained copy after restore.
+an empty pending slot and reviews the immutable retained copy directly. It never
+writes or removes that shared slot. Retry freshly verifies the retained bytes
+and refuses if another pending request has appeared. Keep the retained copy
+after review, retry and terminal history reconciliation.
 
 No API, migration, inference, Graph, source or publication change. Open ingestion
 PRs were inspected; none owns this UI path. #2104 remains held. Runtime8000/5202

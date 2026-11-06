@@ -424,7 +424,7 @@ function readKeptTurns(world: string): { items: StoredPendingPlayTurn[]; issues:
     try {
       const stored = readPendingPlayTurn(world, localStorage.getItem(key));
       if (!stored || keptTurnKey(stored) !== key) throw new Error('Retained request identity differs.');
-      items.push(stored);
+      items.push({...stored, storageKey: key});
     } catch { issues++; }
   }
   return { items, issues };
@@ -3375,21 +3375,9 @@ export function WorldPlanAgentConversation({
           turn.turn_id === current.turnId && ["completed", "failed", "interrupted"].includes(turn.lifecycle_status)) ? null : current);
         const readOnlyConfirmed = pendingPlayTurn && await confirmedReadOnlyTurn(page, pendingPlayTurn);
         if (!active || generation !== historyGenerationRef.current) return;
-        if (pendingPlayTurn && readOnlyConfirmed) {
+        if (pendingPlayTurn && readOnlyConfirmed && clearSavedPlayTurn(pendingPlayTurn, true)) {
           sharedConversation?.setPendingTurn(current => current?.turnId === pendingPlayTurn.request.turn_id ? null : current);
-          try {
-            const storedBytes = window.localStorage.getItem(pendingPlayTurn.storageKey);
-            if (storedBytes === null || storedBytes === pendingPlayTurn.serialized) {
-              if (storedBytes === pendingPlayTurn.serialized) window.localStorage.removeItem(pendingPlayTurn.storageKey);
-              setPendingPlayTurn(null);
-              setPendingPlayLoadError(null);
-              if (pendingPlayTurn.request.primary_work.kind === "build") buildCompose.refresh();
-            } else {
-              setPendingPlayLoadError("The saved request changed. Review its recovery record before another turn.");
-            }
-          } catch (reason) {
-            setPendingPlayLoadError(reason instanceof Error ? reason.message : "Could not clear the confirmed request.");
-          }
+          if (pendingPlayTurn.request.primary_work.kind === "build") buildCompose.refresh();
         }
         const uncertainNotice = uncertainPlayNoticeRef.current;
         if (uncertainNotice && readOnlyConfirmed && pendingPlayTurn?.request.turn_id === uncertainNotice.turnId) {
@@ -4242,17 +4230,23 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  function clearSavedPlayTurn(stored: StoredPendingPlayTurn): boolean {
+  function clearSavedPlayTurn(stored: StoredPendingPlayTurn, confirmedTerminal = false): boolean {
     try {
       const current = window.localStorage.getItem(stored.storageKey);
-      const terminal = sharedConversation?.history?.turns.some((turn) => turn.turn_id === stored.request.turn_id
+      const terminal = confirmedTerminal || sharedConversation?.history?.turns.some((turn) => turn.turn_id === stored.request.turn_id
         && ["completed", "failed", "interrupted"].includes(turn.lifecycle_status));
       if (current !== stored.serialized && !(current === null && terminal)) {
         throw new Error("The saved request changed. Its recovery record was retained.");
       }
-      if (current === stored.serialized) window.localStorage.removeItem(stored.storageKey);
-      if (window.localStorage.getItem(stored.storageKey) !== null) {
-        throw new Error("The pending recovery copy could not be cleared. It was retained.");
+      if (stored.storageKey === keptTurnKey(stored)) {
+        if (current !== stored.serialized) throw new Error("The retained request changed. Its recovery copy needs inspection.");
+        // A kept envelope is immutable. Ending its local review never removes it.
+      } else {
+        if (stored.storageKey !== pendingPlayTurnStorageKey(stored.request.owner_scope.world_id)) throw new Error("Unknown request recovery location.");
+        if (current === stored.serialized) window.localStorage.removeItem(stored.storageKey);
+        if (window.localStorage.getItem(stored.storageKey) !== null) {
+          throw new Error("The pending recovery copy could not be cleared. It was retained.");
+        }
       }
       setPendingPlayTurn(null);
       setPendingPlayLoadError(null);
@@ -4290,9 +4284,9 @@ export function WorldPlanAgentConversation({
       || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError || buildCompose.busy || playCompose.busy) return;
     try {
       if (localStorage.getItem(keptTurnKey(stored)) !== stored.serialized) throw new Error('The retained request changed. No request was restored.');
-      if (localStorage.getItem(stored.storageKey) !== null) throw new Error('Another pending request needs recovery. It was not replaced.');
-      localStorage.setItem(stored.storageKey, stored.serialized);
-      if (localStorage.getItem(stored.storageKey) !== stored.serialized) throw new Error('The restored pending request could not be verified. The retained copy was kept.');
+      if (localStorage.getItem(pendingPlayTurnStorageKey(stored.request.owner_scope.world_id)) !== null) throw new Error('Another pending request needs recovery. It was not replaced.');
+      // Review the verified retained envelope directly. Writing it into the
+      // shared pending slot could race a different tab's newly saved request.
       setPendingPlayTurn(stored);
       sharedConversation?.setPendingTurn({surface: stored.request.surface.surface_id, turnId: stored.request.turn_id});
       setConversationNotice('Request restored for review. Choose Retry to send the exact request.');
@@ -4311,6 +4305,17 @@ export function WorldPlanAgentConversation({
   async function dispatchSavedPlayTurn(stored: StoredPendingPlayTurn, restoreInitialComposerReferences = false, tourDispatch:TourDispatchScope|null=null) {
     const request = stored.request;
     if (verifiedWorldId !== request.owner_scope.world_id || requestRef.current || sending || buildCompose.busy) return;
+    try {
+      if (localStorage.getItem(stored.storageKey) !== stored.serialized) throw new Error('The saved request changed. Nothing was retried.');
+      if (stored.storageKey === keptTurnKey(stored)) {
+        const current = readPendingPlayTurn(request.owner_scope.world_id);
+        if (current) {
+          setPendingPlayTurn(current);
+          sharedConversation?.setPendingTurn({surface: current.request.surface.surface_id, turnId: current.request.turn_id});
+          throw new Error('Another pending request needs recovery. It was not replaced or retried.');
+        }
+      }
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'The saved request could not be verified. Nothing was retried.'); return; }
     if(request.surface.surface_id==='build'&&(request as WorldBuildAgentTurnRequestV1).build_authored_references){
       try{
         const key=rejectedReferenceKey(request as WorldBuildAgentTurnRequestV1),bytes=localStorage.getItem(key);
