@@ -183,3 +183,34 @@ it('does not let native progress conceal a subsequent terminal failure',async()=
   fireEvent.click(screen.getByText('Reply error report'))
   await screen.findAllByText(/native_source_unavailable/)
 })
+
+
+it.each([
+  ['source_search','expanded','question_relevance','What happened at the tower?','Searching sources for “What happened at the tower?”…'],
+  ['source_search','retrieved','question_relevance','What happened at the tower?','Finished source search for “What happened at the tower?”.'],
+  ['source_document_read','expanded','question_relevance','Session 8 recap · campaign: c1','Reading Session 8 recap · campaign: c1…'],
+  ['source_section_read','retrieved','question_relevance','Session 8 recap · Arrival · lines 12–19','Read Session 8 recap · Arrival · lines 12–19.'],
+  ['source_section_read','retained','unavailable','Session 8 recap · Arrival','Could not read complete support from Session 8 recap · Arrival.'],
+] as const)('names issued native %s %s in activity and full timeline',async(operation,action,reason_code,label,expected)=>{
+  mount(trace([{kind:'context_decision',action,reason_code,item_ids:['native:exact-selected-target',label],
+    policy_version:`native_${operation}_progress_v2`,sequence:0,elapsed_ms:1000},
+    {kind:'provider_call',provider:'typesafe',model:'jev',outcome:'authorized',sequence:1,elapsed_ms:2000}]))
+  const status=await screen.findByText(expected)
+  expect(status).toHaveAttribute('title',expected)
+  fireEvent.click(status)
+  await waitFor(()=>expect(screen.getAllByText(expected)).toHaveLength(2))
+  expect(screen.getByText('Execution timeline').closest('details')).toHaveAttribute('open')
+})
+
+
+it('does not let a named source request conceal the terminal failure',async()=>{
+  mount({...trace([
+    {kind:'context_decision',action:'expanded',reason_code:'question_relevance',
+      item_ids:['native:exact-selected-target','Session 8 recap · Arrival · lines 12–19'],
+      policy_version:'native_source_section_read_progress_v2',sequence:0,elapsed_ms:1000},
+    {kind:'failure',phase:'source_read',code:'native_source_unavailable',sequence:1,elapsed_ms:2000},
+  ]),terminal_status:'interrupted'},'interrupted')
+  fireEvent.click(screen.getByText('Reply error report'))
+  await screen.findAllByText(/native_source_unavailable/)
+  expect(screen.getByText('Reading Session 8 recap · Arrival · lines 12–19…')).toBeInTheDocument()
+})

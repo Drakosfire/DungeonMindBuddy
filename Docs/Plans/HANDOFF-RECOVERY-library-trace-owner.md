@@ -1,6 +1,6 @@
 # RECOVERY: bind archived trace inspection to its saved turn
 
-Status: ACTIVE. PRIME owns this confirmed activity/history repair under the current operator goal. Base origin/main a43553bf87fb9856c1bbdf3e8ca77767294109fb. Branch codex/library-trace-turn-owner in the existing buddy-context-loop checkout.
+Status: DELIVERED. Merged2162 at0e7d35653110bc3994e8e1ca565e4a883596197a; UI integration437914e690b128d9d61981ca75f7f730997bb9e6 delivered on5202. Ordinary archived original failure opens, collapses and reopens its full timeline without a panel crash or provider replay; all APP/Core/session hashes remained unchanged. Independent product/integration/recipe review and all seven CI gates passed. Runtime lease released; global/operator acceptance remains open. Historical scope follows. PRIME owns this confirmed activity/history repair under the current operator goal. Base origin/main a43553bf87fb9856c1bbdf3e8ca77767294109fb. Branch codex/library-trace-turn-owner in the existing buddy-context-loop checkout.
 
 ## Topology and boundary
 

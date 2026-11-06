@@ -82,7 +82,7 @@ export function BuddyActivity({ worldId, conversationId, turnId, lifecycle }: { 
         <circle cx="4" cy="27" r="1" fill="currentColor"/>
         {[10,16,22].map(cx=><circle key={cx} className="buddy-activity__dot" cx={cx} cy="12" r="1.7" fill="currentColor"/>)}
       </svg>}
-      <span role="status" aria-live="polite">{label}</span>
+      <span role="status" aria-live="polite" title={label}>{label}</span>
     </summary>
     {open && <div className="buddy-activity__body">
       <BuddyContextTraceLoader {...binding} enabled />

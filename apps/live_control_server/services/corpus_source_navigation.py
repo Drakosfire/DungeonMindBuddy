@@ -282,6 +282,13 @@ class NativeBodyNavigation:
         display = self._source_display.get((source.artifact.source_artifact_id, source.revision.source_revision_id))
         return self._display_name(display, catalog.sections[0].label)
 
+    def _read_label(self, catalog, section_id=None):
+        name = self._source_name(catalog)
+        if section_id is None:
+            return name
+        section = next(row for row in catalog.sections if row.section_id == section_id)
+        return f"{name} · {section.label} · lines {section.line_start}–{section.line_end}"
+
     def _events(self, turn=None):
         from application_state.agent_conversation.native_corpus import (
             NativeBodySearchAuthorizedV1, NativeBodySearchObservedV1,
@@ -472,13 +479,15 @@ class NativeBodyNavigation:
                 is_search = handle == native_corpus_search_handle(sha256(turn.user_text.encode()).hexdigest())
                 is_direct = handle.startswith('native-direct-source:')
                 if is_direct:
-                    pair, digest, _ = self._source_choices()[handle]
+                    pair, digest, display = self._source_choices()[handle]
                     auth = self._commit('authorize_native_direct_source', event_id=uuid4(),
                         source_artifact_id=pair[0], source_revision_id=pair[1], content_sha256=digest)
                     operation = 'source_document_read'
+                    label = self._display_name(display, 'Admitted source')
                 elif is_search:
                     auth = self._commit("authorize_native_body_search", event_id=uuid4())
                     operation = 'source_search'
+                    label = turn.user_text  # Exact query used by the native lexical-search owner.
                 else:
                     _, search, _, _ = self._events(turn)
                     if handle.startswith("native-full-document:"):
@@ -489,9 +498,11 @@ class NativeBodyNavigation:
                     auth = self._commit("authorize_native_body_read", event_id=uuid4(), search_event_id=search.event_id,
                         catalog_sha256=catalog_sha, retrieval_kind=kind, section_id=section)
                     operation = 'source_document_read' if kind == 'full_document' else 'source_section_read'
+                    catalog = next(row for row in search.catalogs if row.catalog_sha256 == auth.catalog_sha256)
+                    label = self._read_label(catalog, auth.section_id)
             # Capture owns the same claim lock. Persist the issued request before
             # I/O, outside that lock; each materialization uses the latest turn.
-            observe_native_retrieval(a, operation, handle)
+            observe_native_retrieval(a, operation, handle, label=label)
             with a.fence.renewer._lock:
                 if is_direct:
                     result = self._commit('observe_native_direct_source', event_id=uuid4(), authorization_event_id=auth.event_id,
@@ -506,7 +517,7 @@ class NativeBodyNavigation:
                     result = self._commit("observe_native_body_read", event_id=uuid4(), authorization_event_id=auth.event_id,
                         read=lambda authority, member: read_native_corpus_member(authority=authority, member=member,
                             principal=context.principal, prepared=context))
-            observe_native_retrieval(a, operation, handle, completed=True,
+            observe_native_retrieval(a, operation, handle, label=label, completed=True,
                 unavailable=not is_search and result.excerpt is None)
         return {"schema": "dmb_native_body_navigation_result_v1", "body_text_exposed": False}
 
