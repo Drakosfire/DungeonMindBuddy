@@ -1,28 +1,39 @@
+import type {ReactElement,ReactNode} from 'react';
+import {SurfaceContextProvider} from '../surfaceInteraction/contextHost/SurfaceContextProvider';
+import {SurfaceContextHost} from '../surfaceInteraction/contextHost/SurfaceContextHost';
 import {Editor} from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import {webcrypto} from 'node:crypto';
-import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {act,cleanup,fireEvent,render as testingRender,screen,waitFor} from '@testing-library/react';
 import {afterEach,beforeAll,beforeEach,expect,it,vi} from 'vitest';
 import {useConnectedPageReviewHost,type ConnectedPageReviewSeed} from './connectedPageReviewHost';
 import {BuildConnectedPageControl} from './BuildConnectedPageControl';
 import * as api from '../api/connectedPageApi';
 import * as workflow from './connectedPageAuthoring';
 import {ConversationConnectedPageReview} from '../planSurface/components/ConversationConnectedPageReview';
-import {getAgentRelatedPage,postManagedWorldGraphProjection,getGraphObjectAuthoringKinds} from '../api/liveApi';
+import {getAgentConnectedPageOrigin,getNativeGraphCatalog,postManagedWorldGraphProjection,getGraphObjectAuthoringKinds} from '../api/liveApi';
 import type {ConnectedPageIntent,ConnectedPageOperation} from '../api/connectedPageApi';
 const state=vi.hoisted(()=>({session:null as any,setPaneOpen:vi.fn()}));
 vi.mock('../markdownCanvas/MarkdownCanvasSession',()=>({useOptionalMarkdownCanvasSession:()=>state.session}));
 vi.mock('../agentInteraction/AgentInteractionProvider',()=>({useOptionalAgentInteraction:()=>({setPaneOpen:state.setPaneOpen})}));
-vi.mock('../worldGraph/verifyManagedWorldGraphProjectionResponse',()=>({verifyManagedWorldGraphProjectionResponse:()=>null}));
-vi.mock('../api/liveApi',async original=>({...await original<typeof import('../api/liveApi')>(),postManagedWorldGraphProjection:vi.fn(),getAgentRelatedPage:vi.fn(),getGraphObjectAuthoringKinds:vi.fn()}));
+vi.mock('../api/liveApi',async original=>({...await original<typeof import('../api/liveApi')>(),getNativeGraphCatalog:vi.fn(),postManagedWorldGraphProjection:vi.fn(),getAgentConnectedPageOrigin:vi.fn(),getGraphObjectAuthoringKinds:vi.fn()}));
 vi.mock('../api/connectedPageApi',async original=>({...await original<typeof import('../api/connectedPageApi')>(),prepareConnectedPage:vi.fn(),confirmConnectedPage:vi.fn(),recoverConnectedPage:vi.fn(),readConnectedPageForPage:vi.fn()}));
 const source='11111111-1111-4111-8111-111111111111',page='22222222-2222-4222-8222-222222222222';
 let editor:Editor;
+function render(ui:ReactElement){return testingRender(ui,{wrapper:({children}:{children:ReactNode})=><SurfaceContextProvider><SurfaceContextHost/>{children}</SurfaceContextProvider>});}
+function catalog(nodes:{nodeId:string;label:string;kind:string}[]):any {
+ const assertions=nodes.flatMap(n=>[
+  {assertion_id:n.nodeId+':name',subject_entity_id:n.nodeId,predicate:'dnd5e:name',value:{kind:'literal',value:n.label}},
+  {assertion_id:n.nodeId+':kind',subject_entity_id:n.nodeId,predicate:'dnd5e:classification',value:{kind:'term_ref',term:n.kind==='character'?'dungeonbuddy:character':'dnd5e:'+n.kind}},
+ ]);
+ return {schema:'dmb_native_graph_catalog_v1',scope:{managed_world_id:'elderwyld',native_world_id:'elderwyld',binding_version:3,revision_id:'rev:fixture',scope_mode:'world',campaign_id:null},
+  catalogue:{identity:{space_id:'elderwyld',revision_id:'rev:fixture'},entities:nodes.map(n=>({entity_id:n.nodeId})),admitted_assertion_ids:assertions.map(a=>a.assertion_id),completeness:{status:'complete',reason:null}},assertions};
+}
 function operation(request:ConnectedPageIntent,phase:'prepared'|'complete'='prepared'):ConnectedPageOperation{
- return {schema:'kind' in request.origin?'dmb_connected_page_operation_v2':'dmb_connected_page_operation_v1',operation_id:request.operation_id,phase,intent:request,
+ return {schema:'dmb_connected_page_operation_v3',operation_id:request.operation_id,phase,intent:request,
   page:{document_id:page,world_id:'elderwyld',campaign_id:'elderwyld',kind:'worldbuilding_source',status:'active',connected_page_operation_id:request.operation_id,revision:2} as any,
   initial_source:{documentId:page,revision:2,contentSha256:'b'.repeat(64)},prepared:{confirm_token:'sealed',assertions_preview:[]},
-  receipt:phase==='complete'?{committed:true,created_node_ids:{place:'native-place'}}:null,
+  receipt:phase==='complete'?{committed:true,created_node_ids:{place:'native-place'},native_world_id:'elderwyld',published_revision_id:'rev:child',publication_id:'dmb-connected-page:v1:'+request.operation_id}:null,
   connections:phase==='complete'?{place_node_id:'native-place',person_node_id:request.person?.node_id??null,relationships:request.relationships}:null};
 }
 beforeAll(()=>{Object.defineProperty(HTMLDialogElement.prototype,'showModal',{configurable:true,value(this:HTMLDialogElement){this.setAttribute('open','');}});});
@@ -31,24 +42,25 @@ beforeEach(()=>{
  editor=new Editor({extensions:[StarterKit],content:'<p><strong>Brin’s Blacksmithy</strong>: Repairs gear.</p>'});
  editor.commands.setTextSelection({from:1,to:1+'Brin’s Blacksmithy'.length});vi.spyOn(editor.view,'coordsAtPos').mockReturnValue({left:100,right:100,top:100,bottom:120});
  state.session={editor,record:{document_id:source,world_id:'elderwyld',campaign_id:'elderwyld',kind:'worldbuilding_source'},snapshot:{loaded_revision:31,content_sha256:'a'.repeat(64)},dirty:true,activeCommand:null};
- vi.mocked(postManagedWorldGraphProjection).mockResolvedValue({projection:{nodes:[{nodeId:'node:brin',label:'Brin',kind:'npc',aliases:[]}]}} as any);
+ vi.mocked(getNativeGraphCatalog).mockResolvedValue(catalog([{nodeId:'ent:brin',label:'Brin',kind:'character'}]));
  vi.mocked(api.prepareConnectedPage).mockImplementation(async request=>operation(request));
  vi.mocked(api.confirmConnectedPage).mockImplementation(async value=>operation(value.intent,'complete'));
  vi.mocked(api.recoverConnectedPage).mockImplementation(async request=>operation(request));
 });
 afterEach(()=>{cleanup();editor.destroy();vi.restoreAllMocks();});
-async function open(){fireEvent.click(screen.getByRole('button',{name:'＋ New page'}));await screen.findByRole('dialog',{name:'New page from selection'});await waitFor(()=>expect(screen.queryByText('Finding existing people and places…')).not.toBeInTheDocument());}
-async function connections(){fireEvent.change(screen.getByLabelText('Person identity'),{target:{value:'node:brin'}});
+async function open(){fireEvent.click(screen.getByRole('button',{name:'＋ New page'}));await screen.findByRole('dialog',{name:'New page from selection'});await waitFor(()=>expect(screen.queryByText('Finding existing people and places…')).not.toBeInTheDocument());fireEvent.change(screen.getByLabelText('Location'),{target:{value:'__new__'}});}
+async function connections(){fireEvent.change(screen.getByLabelText('Person identity'),{target:{value:'ent:brin'}});
  fireEvent.click(screen.getByRole('checkbox',{name:'Brin owns Brin’s Blacksmithy'}));fireEvent.click(screen.getByRole('checkbox',{name:'Brin operates Brin’s Blacksmithy'}));}
 it('reviews exact existing Brin and both relationships before one create/confirm, preserving the dirty source',async()=>{
  const select=vi.fn(async()=>true),before=editor.getJSON();
  render(<BuildConnectedPageControl selectDocument={select} refreshDocuments={vi.fn()}/>);await open();await connections();
  expect(api.prepareConnectedPage).not.toHaveBeenCalled();expect(api.confirmConnectedPage).not.toHaveBeenCalled();
  fireEvent.click(screen.getByRole('button',{name:'Create page'}));
- await waitFor(()=>expect(select).toHaveBeenCalledWith(page));
+ await waitFor(()=>expect(select).toHaveBeenCalledWith(page,expect.any(Function),undefined));
  const request=vi.mocked(api.prepareConnectedPage).mock.calls[0][0];
- expect(request.person).toEqual({node_id:'node:brin',label:'Brin',kind:'npc'});expect(request.relationships).toEqual(['owns','operates']);
+ expect(request.person).toEqual({node_id:'ent:brin',label:'Brin',kind:'npc'});expect(request.relationships).toEqual(['owns','operates']);
  expect(request.origin.selected_text).toBe('Brin’s Blacksmithy');expect(JSON.parse(request.origin.editor_json)).toEqual(before);
+ expect(postManagedWorldGraphProjection).not.toHaveBeenCalled();expect(getNativeGraphCatalog).toHaveBeenCalledWith({managed_world_id:'elderwyld',scope_mode:'world',campaign_id:null});
  expect(editor.getJSON()).toEqual(before);expect(api.prepareConnectedPage).toHaveBeenCalledTimes(1);expect(api.confirmConnectedPage).toHaveBeenCalledTimes(1);
  expect(sessionStorage.getItem(workflow.connectedPageRecoveryKey('elderwyld',source))).toBeNull();
 });
@@ -61,7 +73,7 @@ it('retains exact request before dispatch and requires deliberate retry after re
  view.unmount();view=render(<BuildConnectedPageControl selectDocument={select} refreshDocuments={vi.fn()}/>);
  await screen.findByRole('button',{name:'Resume page creation'});expect(api.prepareConnectedPage).toHaveBeenCalledTimes(1);expect(api.confirmConnectedPage).not.toHaveBeenCalled();
  fireEvent.click(screen.getByRole('button',{name:'Resume page creation'}));fireEvent.click(await screen.findByRole('button',{name:'↻ Retry'}));
- await waitFor(()=>expect(select).toHaveBeenCalledWith(page));expect(vi.mocked(api.prepareConnectedPage).mock.calls[1][0]).toEqual(original!);
+ await waitFor(()=>expect(select).toHaveBeenCalledWith(page,expect.any(Function),undefined));expect(vi.mocked(api.prepareConnectedPage).mock.calls[1][0]).toEqual(original!);
 });
 it('queues build out only after exact page activation and leaves writer authority to the conversation',async()=>{
  const queued=vi.spyOn(workflow,'queueConnectedPageBuildOut').mockImplementation(()=>{}),select=vi.fn(async()=>true);
@@ -117,14 +129,14 @@ it('does not navigate on late confirmation after leaving the source',async()=>{
 });
 
 it('distinguishes same-name canonical people before review',async()=>{
- vi.mocked(postManagedWorldGraphProjection).mockResolvedValue({projection:{nodes:[{nodeId:'node:brin',label:'Brin',kind:'npc'},{nodeId:'node:other-brin',label:'Brin',kind:'npc'}]}} as any);
+ vi.mocked(getNativeGraphCatalog).mockResolvedValue(catalog([{nodeId:'ent:brin',label:'Brin',kind:'character'},{nodeId:'ent:other-brin',label:'Brin',kind:'npc'}]));
  render(<BuildConnectedPageControl selectDocument={vi.fn(async()=>true)} refreshDocuments={vi.fn()}/>);await open();
- expect(screen.getByRole('option',{name:'Existing: Brin (node:brin)'})).toBeInTheDocument();
- expect(screen.getByRole('option',{name:'Existing: Brin (node:other-brin)'})).toBeInTheDocument();
+ expect(screen.getByRole('option',{name:'Existing: Brin (ent:brin)'})).toBeInTheDocument();
+ expect(screen.getByRole('option',{name:'Existing: Brin (ent:other-brin)'})).toBeInTheDocument();
 });
 
 it('hosts relationships and origin only in Source actions, without a generation action',async()=>{
- const request={operation_id:'33333333-3333-4333-8333-333333333333',world_id:'elderwyld',title:'Brin’s Blacksmithy',origin:{document_id:source,revision:31,content_sha256:'a'.repeat(64)},place:{node_id:null,label:'Brin’s Blacksmithy',kind:'location'},person:{node_id:'node:brin',label:'Brin',kind:'npc'},relationships:['owns','operates'],mode:'scaffold',instructions:''} as ConnectedPageIntent;
+ const request={operation_id:'33333333-3333-4333-8333-333333333333',world_id:'elderwyld',title:'Brin’s Blacksmithy',origin:{document_id:source,revision:31,content_sha256:'a'.repeat(64)},place:{node_id:null,label:'Brin’s Blacksmithy',kind:'location'},person:{node_id:'ent:brin',label:'Brin',kind:'npc'},relationships:['owns','operates'],mode:'scaffold',instructions:''} as ConnectedPageIntent;
  state.session.record={...state.session.record,document_id:page,connected_page_operation_id:request.operation_id};
  vi.mocked(api.readConnectedPageForPage).mockResolvedValue(operation(request,'complete'));
  const host=document.createElement('div');document.body.appendChild(host);
@@ -147,13 +159,13 @@ it('retains edited cross-page review through reload, then creates once with no s
  fireEvent.click(screen.getByRole('button',{name:'Close new page'}));view.unmount();
  view=render(<><BuildConnectedPageControl selectDocument={select} refreshDocuments={vi.fn()}/><ReviewProbe/></>);
  fireEvent.click(await screen.findByRole('button',{name:'Resume page review'}));expect(screen.getByLabelText('Page title')).toHaveValue('Copper Lantern Workshop');
- await waitFor(()=>expect(screen.getByRole('button',{name:'Create page'})).toBeEnabled());fireEvent.click(screen.getByRole('button',{name:'Create page'}));await waitFor(()=>expect(select).toHaveBeenCalledWith(page));
+ fireEvent.change(screen.getByLabelText('Location'),{target:{value:'__new__'}});await waitFor(()=>expect(screen.getByRole('button',{name:'Create page'})).toBeEnabled());fireEvent.click(screen.getByRole('button',{name:'Create page'}));await waitFor(()=>expect(select).toHaveBeenCalledWith(page,expect.any(Function),undefined));
  const request=vi.mocked(api.prepareConnectedPage).mock.calls[0][0];expect(request.origin).toEqual(reviewSeed.origin);expect(request.title).toBe('Copper Lantern Workshop');expect(api.confirmConnectedPage).toHaveBeenCalledTimes(1);expect(editor.getJSON()).toEqual(before);
 });
 it('recovers the same cross-page operation after an uncertain prepare without duplicating its identity',async()=>{
  vi.mocked(api.prepareConnectedPage).mockRejectedValueOnce(new Error('Connection lost'));
  let view=render(<><BuildConnectedPageControl selectDocument={vi.fn(async()=>true)} refreshDocuments={vi.fn()}/><ReviewProbe/></>);
- fireEvent.click(screen.getByRole('button',{name:'Open provided review'}));await waitFor(()=>expect(screen.getByRole('button',{name:'Create page'})).toBeEnabled());fireEvent.click(screen.getByRole('button',{name:'Create page'}));await screen.findByText('Connection lost');
+ fireEvent.click(screen.getByRole('button',{name:'Open provided review'}));fireEvent.change(screen.getByLabelText('Location'),{target:{value:'__new__'}});await waitFor(()=>expect(screen.getByRole('button',{name:'Create page'})).toBeEnabled());fireEvent.click(screen.getByRole('button',{name:'Create page'}));await screen.findByText('Connection lost');
  const first=vi.mocked(api.prepareConnectedPage).mock.calls[0][0];expect(workflow.readConnectedPageRecovery('elderwyld',source)).toEqual(first);view.unmount();
  view=render(<BuildConnectedPageControl selectDocument={vi.fn(async()=>true)} refreshDocuments={vi.fn()}/>);fireEvent.click(await screen.findByRole('button',{name:'Resume page creation'}));fireEvent.click(screen.getByRole('button',{name:'↻ Retry'}));await waitFor(()=>expect(api.prepareConnectedPage).toHaveBeenCalledTimes(2));expect(vi.mocked(api.prepareConnectedPage).mock.calls[1][0]).toEqual(first);
 });
@@ -161,11 +173,11 @@ it('recovers the same cross-page operation after an uncertain prepare without du
 it('connects the actual conversation review card to the shared form without an editor selection',async()=>{
  const body='| Name | Task |\n| Copper House | Repair lantern |\n',hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(body))),b=>b.toString(16).padStart(2,'0')).join('');
  const proposal={...reviewSeed.proposal,quote:'Copper House | Repair lantern'};
- vi.mocked(getAgentRelatedPage).mockResolvedValue({schema:'dmb_agent_related_page_read_v1',world_id:'elderwyld',turn_id:'turn',read_id:proposal.read_id,page:{world_id:'elderwyld',document_id:page,registry_revision:7,title:'Households',visibility:'internal',content_sha256:hash},markdown:body});
+ vi.mocked(getAgentConnectedPageOrigin).mockResolvedValue({schema:'dmb_agent_connected_page_origin_v1',world_id:'elderwyld',turn_id:'turn',read_id:proposal.read_id,origin:{kind:'saved_page_excerpt',document_id:page,revision:7,content_sha256:hash,line_start:2,line_end:2,selected_text:'| Copper House | Repair lantern |'}});
  editor.commands.setTextSelection(1);const before=editor.getJSON(),select=vi.fn(async()=>true);
  render(<><BuildConnectedPageControl selectDocument={select} refreshDocuments={vi.fn()}/><ConversationConnectedPageReview worldId='elderwyld' documentId={source} turnId='turn' proposal={proposal} disabled={false}/></>);
  fireEvent.click(screen.getByRole('button',{name:'Review new page'}));await screen.findByLabelText('Page title');expect(api.prepareConnectedPage).not.toHaveBeenCalled();
- fireEvent.change(screen.getByLabelText('Page title'),{target:{value:'Reviewed Copper Workshop'}});await waitFor(()=>expect(screen.getByRole('button',{name:'Create page'})).toBeEnabled());fireEvent.click(screen.getByRole('button',{name:'Create page'}));await waitFor(()=>expect(select).toHaveBeenCalledWith(page));
+ fireEvent.change(screen.getByLabelText('Page title'),{target:{value:'Reviewed Copper Workshop'}});fireEvent.change(screen.getByLabelText('Location'),{target:{value:'__new__'}});await waitFor(()=>expect(screen.getByRole('button',{name:'Create page'})).toBeEnabled());fireEvent.click(screen.getByRole('button',{name:'Create page'}));await waitFor(()=>expect(select).toHaveBeenCalledWith(page,expect.any(Function),undefined));
  expect(vi.mocked(api.prepareConnectedPage).mock.calls[0][0]).toMatchObject({title:'Reviewed Copper Workshop',origin:{kind:'saved_page_excerpt',document_id:page,line_start:2,line_end:2,selected_text:'| Copper House | Repair lantern |'}});expect(editor.getJSON()).toEqual(before);
 });
 
@@ -173,7 +185,7 @@ it('retains the exact request after rejection and an absent recovery result',asy
  vi.mocked(api.prepareConnectedPage).mockRejectedValue(new (await import('../api/liveApi')).LiveApiError('Saved source changed',409));
  vi.mocked(api.recoverConnectedPage).mockRejectedValue(new (await import('../api/liveApi')).LiveApiError('Not found',404));
  render(<><BuildConnectedPageControl selectDocument={vi.fn(async()=>true)} refreshDocuments={vi.fn()}/><ReviewProbe/></>);
- fireEvent.click(screen.getByRole('button',{name:'Open provided review'}));await waitFor(()=>expect(screen.getByRole('button',{name:'Create page'})).toBeEnabled());fireEvent.click(screen.getByRole('button',{name:'Create page'}));await screen.findByText('Saved source changed');
+ fireEvent.click(screen.getByRole('button',{name:'Open provided review'}));fireEvent.change(screen.getByLabelText('Location'),{target:{value:'__new__'}});await waitFor(()=>expect(screen.getByRole('button',{name:'Create page'})).toBeEnabled());fireEvent.click(screen.getByRole('button',{name:'Create page'}));await screen.findByText('Saved source changed');
  expect(screen.queryByRole('button',{name:'Start a fresh review'})).not.toBeInTheDocument();expect(workflow.readConnectedPageRecovery('elderwyld',source)?.operation_id).toBe(vi.mocked(api.prepareConnectedPage).mock.calls[0][0].operation_id);
 });
 
@@ -185,4 +197,58 @@ it('opens relationship review from the shared selection toolbar only on a saved 
  state.session.dirty=false;fireEvent.click(screen.getByRole('button',{name:'Relationship'}));await screen.findByRole('dialog',{name:'Review relationship'});expect(await screen.findByLabelText('Supporting passage')).toHaveValue('Brin’s Blacksmithy');
  expect(api.prepareConnectedPage).not.toHaveBeenCalled();expect(api.confirmConnectedPage).not.toHaveBeenCalled();
  localStorage.clear();
+});
+
+
+it('requires an explicit location choice and preserves distinct native Exchange identities',async()=>{
+ vi.mocked(getNativeGraphCatalog).mockResolvedValue(catalog([
+  {nodeId:'ent:exchange',label:'Tower Salvage Exchange',kind:'location'},
+  {nodeId:'ent:other-exchange',label:'The Tower Salvage Exchange',kind:'location'},
+ ]));
+ render(<BuildConnectedPageControl selectDocument={vi.fn(async()=>true)} refreshDocuments={vi.fn()}/>);
+ fireEvent.click(screen.getByRole('button',{name:'＋ New page'}));await screen.findByLabelText('Page title');
+ fireEvent.change(screen.getByLabelText('Page title'),{target:{value:'Tower Salvage Exchange'}});
+ await screen.findByRole('option',{name:'Existing: Tower Salvage Exchange (ent:exchange)'});
+ expect(screen.getByRole('option',{name:'Existing: The Tower Salvage Exchange (ent:other-exchange)'})).toBeInTheDocument();
+ expect(screen.getByLabelText('Location')).toHaveValue('');expect(screen.getByRole('button',{name:'Create page'})).toBeDisabled();
+ fireEvent.change(screen.getByLabelText('Location'),{target:{value:'ent:other-exchange'}});
+ fireEvent.click(screen.getByRole('button',{name:'Create page'}));
+ await waitFor(()=>expect(api.prepareConnectedPage).toHaveBeenCalledOnce());
+ expect(vi.mocked(api.prepareConnectedPage).mock.calls[0][0]).toMatchObject({title:'Tower Salvage Exchange',place:{node_id:'ent:other-exchange',label:'The Tower Salvage Exchange'}});
+});
+
+it.each(['partial','unadmitted','world','revision'])('does not silently create an identity from a %s catalogue',async invalid=>{
+ const partial=catalog([{nodeId:'ent:brin',label:'Brin',kind:'character'}]);
+ if(invalid==='partial')partial.catalogue.completeness.status='partial';
+ if(invalid==='unadmitted')partial.catalogue.admitted_assertion_ids=[];
+ if(invalid==='world')partial.scope.managed_world_id='another-world';
+ if(invalid==='revision')partial.scope.revision_id='rev:other';
+ vi.mocked(getNativeGraphCatalog).mockResolvedValue(partial);
+ render(<BuildConnectedPageControl selectDocument={vi.fn(async()=>true)} refreshDocuments={vi.fn()}/>);
+ fireEvent.click(screen.getByRole('button',{name:'＋ New page'}));
+ expect(await screen.findByRole('alert')).toBeVisible();
+ expect(screen.getByLabelText('Location')).toHaveValue('');expect(screen.getByRole('button',{name:'Create page'})).toBeDisabled();
+ expect(api.prepareConnectedPage).not.toHaveBeenCalled();
+});
+
+
+it('hands writing to the destination after intentional source-component replacement and waits for durable acceptance',async()=>{
+ let accepted:(()=>void)|undefined;
+ const queued=vi.spyOn(workflow,'queueConnectedPageBuildOut').mockImplementation((_operation,onAccepted)=>{accepted=onAccepted;});
+ let view:ReturnType<typeof render>;
+ const select=vi.fn(async(_id:string,isCurrent?:()=>boolean,expected?:unknown)=>{
+  expect(isCurrent?.()).toBe(true);
+  expect(expected).toEqual({worldId:'elderwyld',revision:2,digest:'b'.repeat(64)});
+  window.history.replaceState({},'', '/build?campaign=elderwyld&documentId='+page);
+  view.unmount();
+  return true;
+ });
+ view=render(<BuildConnectedPageControl selectDocument={select} refreshDocuments={vi.fn()}/>);await open();
+ fireEvent.click(screen.getByRole('radio',{name:'Build out — let Buddy develop it'}));
+ fireEvent.click(screen.getByRole('button',{name:'Create page'}));
+ await waitFor(()=>expect(queued).toHaveBeenCalledOnce());
+ expect(workflow.readConnectedPageRecovery('elderwyld',source)).not.toBeNull();
+ accepted!();
+ expect(workflow.readConnectedPageRecovery('elderwyld',source)).toBeNull();
+ window.history.replaceState({},'', '/');
 });

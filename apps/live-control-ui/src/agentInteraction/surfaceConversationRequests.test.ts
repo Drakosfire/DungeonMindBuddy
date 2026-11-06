@@ -36,3 +36,20 @@ it('requires reviewed reference and kind together and binds kind into duplicate 
  expect(()=>queueSurfaceConversationRequest({...make(),reviewedStep,reviewedKind:'prepare_insertion'})).toThrow('different authoring request');
  expect(claimSurfaceConversationRequest('test-gesture')?.reviewedKind).toBe('discuss');
 });
+
+
+it('acknowledges producer cleanup only after durable acceptance, never on cancellation',()=>{
+ const onAccepted=vi.fn();queueSurfaceConversationRequest({...make(),onAccepted});
+ claimSurfaceConversationRequest('test-gesture');expect(onAccepted).not.toHaveBeenCalled();
+ acceptSurfaceConversationRequest('test-gesture');expect(onAccepted).toHaveBeenCalledOnce();
+ acceptSurfaceConversationRequest('test-gesture');expect(onAccepted).toHaveBeenCalledOnce();
+ queueSurfaceConversationRequest({...make(),onAccepted});cancelSurfaceConversationRequest('test-gesture');
+ expect(onAccepted).toHaveBeenCalledOnce();
+});
+
+it('keeps durable acceptance settled when optional producer cleanup fails',()=>{
+ queueSurfaceConversationRequest({...make(),onAccepted:()=>{throw new Error('Local storage unavailable');}});
+ claimSurfaceConversationRequest('test-gesture');
+ expect(()=>acceptSurfaceConversationRequest('test-gesture')).not.toThrow();
+ expect(claimSurfaceConversationRequest('test-gesture')).toBeNull();
+});

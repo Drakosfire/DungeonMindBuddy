@@ -45,3 +45,23 @@ it('uses guarded exact connected-origin reads and excludes near misses',async()=
  for(const path of [`/api/live/agent/worlds/world-a/conversation/turns/${id}/connected-page-origin-extra`,`/api/live/agent/worlds/world-a/conversation/turns/${id}/connected-page-origin/extra`])await live.authenticatedApiFetch(path);
  for(const call of fetch.mock.calls.slice(1))expect(new Headers(call[1]?.headers).has('Authorization')).toBe(false);
 });
+
+
+it('reads current native completion receipts without equating managed and native World IDs',async()=>{
+ const {live,pages}=await modules();live.setNativeGraphAccessToken('synthetic-connected-page-token');
+ const value={...result(),schema:'dmb_connected_page_operation_v3',phase:'complete',
+  receipt:{committed:true,created_node_ids:{place:'ent:place'},native_world_id:'space:world-a',published_revision_id:'rev:child',publication_id:'dmb-connected-page:v1:'+id},
+  connections:{place_node_id:'ent:place',person_node_id:null,relationships:[]}};
+ vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json(value));
+ expect((await pages.recoverConnectedPage(request)).receipt?.native_world_id).toBe('space:world-a');
+});
+
+it.each(['publication_id','published_revision_id','native_world_id'] as const)('rejects a native receipt with missing or foreign %s',async field=>{
+ const {live,pages}=await modules();live.setNativeGraphAccessToken('synthetic-connected-page-token');
+ const value={...result(),schema:'dmb_connected_page_operation_v3',phase:'complete',
+  receipt:{committed:true,created_node_ids:{place:'ent:place'},native_world_id:'space:world-a',published_revision_id:'rev:child',publication_id:'dmb-connected-page:v1:'+id},
+  connections:{place_node_id:'ent:place',person_node_id:null,relationships:[]}};
+ value.receipt[field]=field==='publication_id'?'another-operation':'';
+ vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json(value));
+ await expect(pages.recoverConnectedPage(request)).rejects.toThrow('native publication receipt');
+});

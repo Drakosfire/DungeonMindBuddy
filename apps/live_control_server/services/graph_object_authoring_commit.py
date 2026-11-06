@@ -82,6 +82,7 @@ def commit_graph_object_authoring_write(
     authority: Any | None = None,
     resolved_source: Any | None = None,
     source_admission: Any | None = None,
+    recovery_only: bool = False,
 ) -> GraphObjectAuthoringCommitResponse:
     from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
         graph_review_authority_operation_id,
@@ -284,6 +285,11 @@ def commit_graph_object_authoring_write(
 
     receipt = recovered
     if recovered is None:
+        if recovery_only:
+            raise GraphObjectAuthoringError(
+                "No authoritative publication receipt exists for this historical operation.",
+                code="publication_receipt_unavailable", status_code=409,
+            )
         # Recheck expiry before any fresh publication. A valid expired intent
         # may only recover the exact already-applied receipt above.
         decode_publication_intent(request.confirm_token)

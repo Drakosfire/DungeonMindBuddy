@@ -1,3 +1,4 @@
+import type {BuildWorkspaceDocumentController} from './useBuildWorkspaceDocumentController';
 import {BuildRelationshipReview} from './BuildRelationshipReview';
 import type {RelationshipSeed} from './buildRelationshipRecovery';
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
@@ -6,16 +7,15 @@ import {useOptionalMarkdownCanvasSession} from '../markdownCanvas/MarkdownCanvas
 import {useOptionalAgentInteraction} from '../agentInteraction/AgentInteractionProvider';
 import {SurfaceSelectionActions,captureSurfaceTextSelection} from '../surfaceInteraction/SurfaceSelectionActions';
 import {prepareConnectedPage,confirmConnectedPage,recoverConnectedPage,type ConnectedPageIntent,type ConnectedPageOperation} from '../api/connectedPageApi';
-import {postManagedWorldGraphProjection} from '../api/liveApi';
-import {verifyManagedWorldGraphProjectionResponse} from '../worldGraph/verifyManagedWorldGraphProjectionResponse';
-import type {WorldGraphProjectionNodeView} from '../api/types';
+import {getNativeGraphCatalog} from '../api/liveApi';
+import {connectedPageIdentities,type ConnectedPageIdentity} from './nativeConnectedPageIdentities';
 import {readConnectedPageRecovery,retainConnectedPageRequest,clearConnectedPageRequest,queueConnectedPageBuildOut} from './connectedPageAuthoring';
 import {publishConnectedPageReviewHost,type ConnectedPageReviewSeed} from './connectedPageReviewHost';
 import {validConnectedPageIntent} from '../api/connectedPageApi';
 import {isCollaboration} from '../shared/sourcePassageProtocol';
 import './BuildConnectedPageControl.css';
 const errorText=(reason:unknown)=>reason instanceof Error?reason.message:'The page request could not finish.';
-export function BuildConnectedPageControl({selectDocument,refreshDocuments,relationshipsHost=null}:{relationshipsHost?:HTMLElement|null;selectDocument:(id:string)=>Promise<boolean>;refreshDocuments:()=>unknown}){
+export function BuildConnectedPageControl({selectDocument,refreshDocuments,relationshipsHost=null}:{relationshipsHost?:HTMLElement|null;selectDocument:BuildWorkspaceDocumentController['selectDocument'];refreshDocuments:()=>unknown}){
   const session=useOptionalMarkdownCanvasSession(),agent=useOptionalAgentInteraction();
   const current=useRef(session);current.current=session;
   const dialog=useRef<HTMLDialogElement>(null),busyRef=useRef<number|null>(null),mounted=useRef(true);
@@ -24,11 +24,11 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
   const [origin,setOrigin]=useState<ConnectedPageIntent['origin']|null>(null),[retained,setRetained]=useState<ConnectedPageIntent|null>(null);
   const [operation,setOperation]=useState<ConnectedPageOperation|null>(null),[pageOperation,setPageOperation]=useState<ConnectedPageOperation|null>(null);
   const [title,setTitle]=useState(''),[personLabel,setPersonLabel]=useState(''),[personChoice,setPersonChoice]=useState('');
-  const [placeChoice,setPlaceChoice]=useState('__new__'),[relationships,setRelationships]=useState<('owns'|'operates')[]>([]);
+  const [placeChoice,setPlaceChoice]=useState(''),[relationships,setRelationships]=useState<('owns'|'operates')[]>([]);
   const [mode,setMode]=useState<'scaffold'|'build_out'>('scaffold'),[instructions,setInstructions]=useState('');
   const [reviewSeed,setReviewSeed]=useState<ConnectedPageReviewSeed|null>(null);
   const [reviewDraftError,setReviewDraftError]=useState('');
-  const [nodes,setNodes]=useState<WorldGraphProjectionNodeView[]>([]),[loading,setLoading]=useState(false);
+  const [nodes,setNodes]=useState<ConnectedPageIdentity[]>([]),[loading,setLoading]=useState(false);
   const world=session?.record?.world_id,documentId=session?.record?.document_id;
   const scope=useRef({world,documentId,epoch:0});
   if(scope.current.world!==world||scope.current.documentId!==documentId)scope.current={world,documentId,epoch:scope.current.epoch+1};
@@ -37,7 +37,7 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
     if(reviewDraftError)throw new Error(reviewDraftError);
     if(reviewSeed){if(reviewSeed.sourceTurnId===seed.sourceTurnId&&JSON.stringify(reviewSeed.proposal)===JSON.stringify(seed.proposal)){setOpen(true);return;}throw new Error('Resolve the existing page review before opening another.');}
     if(readConnectedPageRecovery(world,documentId))throw new Error('Resolve the retained page creation before opening another review.');
-    setReviewSeed(seed);setOrigin(seed.origin);setTitle(seed.proposal.title);setPersonLabel(seed.proposal.person_label??'');setPersonChoice('');setPlaceChoice('__new__');setRelationships(seed.proposal.relationships);setInstructions(seed.proposal.instructions);setMode('scaffold');setError('');setOpen(true);void loadCandidates(world);};
+    setReviewSeed(seed);setOrigin(seed.origin);setTitle(seed.proposal.title);setPersonLabel(seed.proposal.person_label??'');setPersonChoice('');setPlaceChoice('');setRelationships(seed.proposal.relationships);setInstructions(seed.proposal.instructions);setMode('scaffold');setError('');setOpen(true);void loadCandidates(world);};
   useLayoutEffect(()=>{if(!world||!documentId)return;return publishConnectedPageReviewHost({worldId:world,documentId,open:seed=>openReviewRef.current(seed)});},[world,documentId]);
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;scope.current.epoch+=1;};},[]);
   const captureScope=()=>{const epoch=scope.current.epoch;return()=>mounted.current&&scope.current.epoch===epoch;};
@@ -50,15 +50,15 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
       if(saved){setRetained(saved);void recoverConnectedPage(saved).then(result=>{if(active)setOperation(result);}).catch(()=>{/* Unknown outcomes retain the exact request; absence is not cancellation. */});}
       else {const raw=sessionStorage.getItem('dmb:connected-page-review-draft:v1:'+JSON.stringify([world,documentId]));
         if(raw!==null){const v=JSON.parse(raw),seed=v.seed,f=v.fields;
-          if(v.schema!=='dmb_connected_page_review_draft_v1'||seed?.worldId!==world||seed?.ownerDocumentId!==documentId||!isCollaboration(seed?.proposal,true)||seed.proposal.kind!=='connected_page'||!f||!validConnectedPageIntent({operation_id:'11111111-1111-4111-8111-111111111111',world_id:world,title:f.title,origin:seed.origin,place:{node_id:null,label:f.title,kind:'location'},person:null,relationships:[],mode:f.mode,instructions:f.instructions})||typeof f.personLabel!=='string'||typeof f.personChoice!=='string'||typeof f.placeChoice!=='string'||!Array.isArray(f.relationships)||f.relationships.some((x:unknown)=>!['owns','operates'].includes(String(x))))throw new Error('The local page review could not be restored; its bytes were kept.');
-          setReviewSeed(seed);setOrigin(seed.origin);setTitle(f.title);setPersonLabel(f.personLabel);setPersonChoice(f.personChoice);setPlaceChoice(f.placeChoice);setRelationships(f.relationships);setInstructions(f.instructions);setMode(f.mode);void loadCandidates(world);
+          if(!['dmb_connected_page_review_draft_v1','dmb_connected_page_review_draft_v2'].includes(v.schema)||seed?.worldId!==world||seed?.ownerDocumentId!==documentId||!isCollaboration(seed?.proposal,true)||seed.proposal.kind!=='connected_page'||!f||!validConnectedPageIntent({operation_id:'11111111-1111-4111-8111-111111111111',world_id:world,title:f.title,origin:seed.origin,place:{node_id:null,label:f.title,kind:'location'},person:null,relationships:[],mode:f.mode,instructions:f.instructions})||typeof f.personLabel!=='string'||typeof f.personChoice!=='string'||typeof f.placeChoice!=='string'||!Array.isArray(f.relationships)||f.relationships.some((x:unknown)=>!['owns','operates'].includes(String(x))))throw new Error('The local page review could not be restored; its bytes were kept.');
+          setReviewSeed(seed);setOrigin(seed.origin);setTitle(f.title);setPersonLabel(f.personLabel);setPersonChoice(v.schema==='dmb_connected_page_review_draft_v2'?f.personChoice:'');setPlaceChoice(v.schema==='dmb_connected_page_review_draft_v2'?f.placeChoice:'');setRelationships(f.relationships);setInstructions(f.instructions);setMode(f.mode);void loadCandidates(world);
         }}
     }catch(reason){setError(errorText(reason));setReviewDraftError(errorText(reason));}
     return()=>{active=false;};
   },[world,documentId]);
   useEffect(()=>{
     if(!reviewSeed||!world||!documentId||reviewSeed.worldId!==world||reviewSeed.ownerDocumentId!==documentId||retained||reviewDraftError)return;
-    try{const key='dmb:connected-page-review-draft:v1:'+JSON.stringify([world,documentId]),bytes=JSON.stringify({schema:'dmb_connected_page_review_draft_v1',seed:reviewSeed,fields:{title,personLabel,personChoice,placeChoice,relationships,mode,instructions}});sessionStorage.setItem(key,bytes);if(sessionStorage.getItem(key)!==bytes)throw new Error('Local page review could not be retained.');}
+    try{const key='dmb:connected-page-review-draft:v1:'+JSON.stringify([world,documentId]),bytes=JSON.stringify({schema:'dmb_connected_page_review_draft_v2',seed:reviewSeed,fields:{title,personLabel,personChoice,placeChoice,relationships,mode,instructions}});sessionStorage.setItem(key,bytes);if(sessionStorage.getItem(key)!==bytes)throw new Error('Local page review could not be retained.');}
     catch(reason){setReviewDraftError(errorText(reason));setError(errorText(reason));}
   },[reviewSeed,world,documentId,title,personLabel,personChoice,placeChoice,relationships,mode,instructions,retained,reviewDraftError]);
   // A page carries the immutable operation ID. Its origin and acknowledged
@@ -75,17 +75,15 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
     }).catch(reason=>{if(active)setError(errorText(reason));});
     return()=>{active=false;};
   },[world,documentId,session?.record?.connected_page_operation_id]);
-  async function loadCandidates(scope:string){
-    setLoading(true);
+  async function loadCandidates(worldId:string){
+    const isCurrent=captureScope();
+    setNodes([]);setLoading(true);
     try{
-      const graph=await postManagedWorldGraphProjection({schema:'dmb_managed_world_graph_projection_request_v1',managedWorldId:scope});
-      const invalid=verifyManagedWorldGraphProjectionResponse({managedWorldId:scope,request:{schema:'dmb_world_graph_projection_request_v1',
-        worldId:scope,campaignId:'',scopeMode:'world',focus:{kind:'none',sessionId:null},admissibility:'gm'},response:graph,revisionKind:'head'});
-      if(invalid)throw new Error(invalid);
-      if(current.current?.record?.world_id!==scope)return;
-      setNodes(graph.projection.nodes);
-    }catch(reason){if(mounted.current)setError(errorText(reason));}
-    finally{if(mounted.current)setLoading(false);}
+      const graph=await getNativeGraphCatalog({managed_world_id:worldId,scope_mode:'world',campaign_id:null});
+      const identities=connectedPageIdentities(graph,worldId);
+      if(isCurrent())setNodes(identities);
+    }catch(reason){if(isCurrent())setError(errorText(reason));}
+    finally{if(isCurrent())setLoading(false);}
   }
   async function start(){
     const before=current.current,editor=before?.editor;
@@ -99,28 +97,37 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
         &&current.current?.snapshot?.loaded_revision===before.snapshot!.loaded_revision);
       const name=capture.selected_text.trim().replace(/:\s*$/,'');
       setOrigin({...capture,document_id:before.record.document_id,revision:before.snapshot.loaded_revision,content_sha256:before.snapshot.content_sha256});
-      setTitle(name);setPersonLabel(name.match(/^([^’']+)[’']s\b/)?.[1]??'');setPersonChoice('');setPlaceChoice('__new__');
+      setTitle(name);setPersonLabel(name.match(/^([^’']+)[’']s\b/)?.[1]??'');setPersonChoice('');setPlaceChoice('');
       setRelationships([]);setInstructions('');setMode('scaffold');setError('');setOpen(true);
       void loadCandidates(before.record.world_id);
     }catch(reason){setError(errorText(reason));}
   }
-  const matches=(label:string,kind:string)=>nodes.filter(n=>n.kind===kind&&(n.label.toLowerCase()===label.trim().toLowerCase()
-    ||n.aliases?.some(alias=>alias.toLowerCase()===label.trim().toLowerCase())));
+  const matches=(label:string,kind:string)=>nodes.filter(n=>n.kind===kind&&n.names.some(name=>name.toLowerCase().includes(label.trim().toLowerCase())));
   const people=matches(personLabel,'npc'),places=matches(title,'location');
   async function openCreated(result:ConnectedPageOperation,buildOut:boolean,isCurrent=captureScope()){
     if(!isCurrent())return;
     if(!result.page)throw new Error("The created page is not available yet.");
     refreshDocuments();
-    const applied=await selectDocument(result.page.document_id);
+    const initial=result.initial_source;
+    if(buildOut&&!initial)throw new Error('The exact initial page is unavailable; open the created page to continue.');
+    const applied=await selectDocument(result.page.document_id,isCurrent,buildOut?{
+      worldId:result.intent.world_id,revision:initial!.revision,digest:initial!.contentSha256,
+    }:undefined);
     if(!applied)throw new Error("The page was created. Open it again to continue.");
-    if(!mounted.current)return;
-    if(buildOut){queueConnectedPageBuildOut(result);agent?.setPaneOpen(true);}
-    if(result.phase==='complete'){
+    const finishLocal=()=>{
       const pending=readConnectedPageRecovery(result.intent.world_id,documentId!);
-      if(pending?.operation_id===result.operation_id)clearConnectedPageRequest(pending,documentId!);
+      if(pending?.operation_id!==result.operation_id)return;
+      // Remove the draft first: a cleanup failure must leave the exact pending
+      // request in place rather than reveal an old draft as a fresh creation.
       sessionStorage.removeItem('dmb:connected-page-review-draft:v1:'+JSON.stringify([result.intent.world_id,documentId]));
-    }
+      clearConnectedPageRequest(pending,documentId!);
+    };
+    // Intentional activation replaces this component. The controller's scoped
+    // success, then the queue/compose owners, govern the destination now.
+    if(buildOut){queueConnectedPageBuildOut(result,finishLocal);agent?.setPaneOpen(true);}
+    else if(result.phase==='complete')finishLocal();
   }
+
   async function create(){
     if(busyRef.current!==null||!world||!documentId||!origin||reviewDraftError)return;
     const isCurrent=captureScope();
@@ -185,9 +192,9 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
       <blockquote>{displayed?.origin.selected_text??origin?.selected_text}</blockquote>
       <form onSubmit={event=>{event.preventDefault();void create();}}>
         <fieldset disabled={busy||frozen}>
-          <label>Page title<input value={displayed?.title??title} onChange={event=>{setTitle(event.target.value);setPlaceChoice('__new__');}} required maxLength={200}/></label>
+          <label>Page title<input value={displayed?.title??title} onChange={event=>{setTitle(event.target.value);setPlaceChoice('');}} required maxLength={200}/></label>
           <label>Location<select value={displayed?.place.node_id??(displayed?'__new__':placeChoice)} onChange={event=>setPlaceChoice(event.target.value)}>
-            <option value="__new__">New location: {displayed?.place.label??title}</option>{places.map(n=><option key={n.nodeId} value={n.nodeId}>Existing: {n.label} ({n.nodeId})</option>)}
+            <option value="">Choose a location identity</option><option value="__new__">New location: {displayed?.place.label??title}</option>{places.map(n=><option key={n.nodeId} value={n.nodeId}>Existing: {n.label} ({n.nodeId})</option>)}
           </select></label>
           <label>Related person (optional)<input value={displayed?.person?.label??personLabel} onChange={event=>{setPersonLabel(event.target.value);setPersonChoice('');}} placeholder="Who owns or runs this place?"/></label>
           {(personLabel||displayed?.person)&&<><label>Person identity<select value={displayed?.person?.node_id??(displayed?.person?'__new__':personChoice)} onChange={event=>setPersonChoice(event.target.value)}>
@@ -204,7 +211,7 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
         {loading&&<p role="status">Finding existing people and places…</p>}
         {error&&<p role="alert">{error}</p>}
         {reviewDraftError&&reviewSeed&&<button type="button" onClick={()=>{setReviewDraftError('');setError('');}}>Try retaining review again</button>}
-        <footer><button type="submit" disabled={busy||loading||!!reviewDraftError||!origin||(!retained&&(!title.trim()||relationships.length>0&&(!personLabel.trim()||!personChoice)))}>{busy?'Creating…':retained?'↻ Retry':'Create page'}</button>
+        <footer><button type="submit" disabled={busy||loading||!!reviewDraftError||!origin||(!retained&&(!title.trim()||!placeChoice||relationships.length>0&&(!personLabel.trim()||!personChoice)))}>{busy?'Creating…':retained?'↻ Retry':'Create page'}</button>
           {operation?.page&&<button type="button" onClick={()=>void openCreated(operation!,false)}>Open created page</button>}
         </footer>
       </form>

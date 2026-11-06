@@ -9,6 +9,7 @@ export interface SurfaceConversationRequest {
   reviewedStep?:ReviewedStepReference;
   reviewedKind?:'discuss'|'prepare_insertion';
   authoredReferences?:AuthoredReferenceInput;
+  onAccepted?:()=>void;
   status:'pending'|'claimed'|'failed';isCurrent:()=>boolean;prepare?:(context:unknown)=>Promise<void>;
 }
 let requests:readonly SurfaceConversationRequest[]=[];
@@ -37,7 +38,13 @@ export function claimSurfaceConversationRequest(id:string):SurfaceConversationRe
   const claimed={...item,status:'claimed' as const};requests=requests.map(value=>value.id===id?claimed:value);emit();return claimed;
 }
 /** Called only after the existing pending-turn owner verifies durable request storage. */
-export const acceptSurfaceConversationRequest=remove;
+export function acceptSurfaceConversationRequest(id:string){
+  const item=requests.find(value=>value.id===id);
+  remove(id);
+  // The pending-turn owner has already stored the request durably. Optional
+  // producer cleanup cannot turn that accepted execution into a failed one.
+  try{item?.onAccepted?.();}catch{/* The producer's retained request remains recoverable. */}
+}
 export function failSurfaceConversationRequest(id:string){
   requests=requests.map(item=>item.id===id&&item.status==='claimed'?{...item,status:'failed'}:item);emit();
 }
