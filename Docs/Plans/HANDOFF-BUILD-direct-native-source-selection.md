@@ -48,8 +48,14 @@ for this measured suite only; other groups remain30minutes. No test removal,
 retrieval-budget change or runtime behavior change. This required validation
 repair remains with the owning source-choice tests in this PR.
 
-Explicit workflow split lease: PR2147 owns only the matrix timeout-minutes value
+Explicit workflow split lease: PR2147 owns the matrix timeout-minutes value and its new direct-source test selector
 in .github/workflows/world-ownership-core.yml. Inspected open INGEST2087 head
 687b26a2b83b5fe424801245b1cd199c1d183630 (frozen code, external-call hold) owns its
 three ingestion test selectors; held REFERENCE2104 owns its four query selectors.
 Neither concurrent hunk is changed or activated. Their holds remain intact.
+
+CI coverage closure: include tests/test_native_direct_source_selection.py in the
+existing saved-page-reader group, alongside native source access and body writer
+selection. The new file's negative grants, advanced epochs, actual SDK input,
+ordinary Build inclusion/exclusion, source reopening and mixed-search cases must
+remain in the normal owning regression gate. No existing selector is removed.
