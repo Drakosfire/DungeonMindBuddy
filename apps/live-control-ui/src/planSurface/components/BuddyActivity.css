@@ -31,3 +31,10 @@
 @media (prefers-reduced-motion: reduce) {
   .buddy-activity__dot { animation: none; opacity: 1; }
 }
+
+.buddy-activity > summary > [role="status"] {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
