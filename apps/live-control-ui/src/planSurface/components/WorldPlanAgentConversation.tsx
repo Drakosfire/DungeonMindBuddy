@@ -4384,9 +4384,24 @@ export function WorldPlanAgentConversation({
       const rejectedBeforeDispatch = reason instanceof LiveApiError
         && reason.code !== "local_graph_session_changed"
         && (["play_context_unavailable", "world_owner_unverified", "build_source_unavailable", "build_editor_context_changed", "reviewed_step_unavailable", "build_retry_unavailable"].includes(reason.code ?? "")
+          || request.surface.surface_id==='play'&&reason.code==='authored_source_unavailable'
           || reason.status === 401 || reason.status === 403);
       let preserveRejectedComposer=request.primary_work.kind==='build'&&!!(request as WorldBuildAgentTurnRequestV1).retry_of?.retained_snapshot_sha256;
       if (rejectedBeforeDispatch) {
+        if(request.surface.surface_id==='play'&&(request as WorldPlayAgentTurnRequestV1).authored_references){
+          const refs=(request as WorldPlayAgentTurnRequestV1).authored_references!;
+          try{
+            const world=request.owner_scope.world_id,run=request.primary_work.object_id;
+            const draft=readComposerReferences(sessionStorage,world,run,'play');
+            if(failedReferenceRetirements.current.has(request.turn_id)||draft.submittedTurnId!==request.turn_id)throw new Error('A newer reference draft is present.');
+            const restored=writeComposerReferences(sessionStorage,world,run,draft.serialized,refs.references,null,'play');
+            const key=composerReferenceKey(world,run,'play');
+            if(referenceRecoveryScope.current===key)setComposerReferenceState({key,draft:restored,error:null});
+          }catch{
+            setError('This request was rejected before dispatch. Its original message and references remain in saved-request recovery; your newer draft was kept.');
+            return;
+          }
+        }
         const refs=request.primary_work.kind==='build'?(request as WorldBuildAgentTurnRequestV1).build_authored_references:undefined;
         if(refs&&!(request as WorldBuildAgentTurnRequestV1).reviewed_step){
           if(!(reason instanceof LiveApiError)||!REJECTED_REFERENCE_CODES.includes(reason.code??'')){setError('This rejection needs its original saved-request recovery. Nothing was replaced or resent.');return;}

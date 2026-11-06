@@ -530,7 +530,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
 
 
 
-  it('retains Play source references by Run and retries the exact pending request after reload',async()=>{
+  it.each(['transport','rejected','rejected_newer'] as const)('retains Play source references after %s failure and reload',async failure=>{
     const refs=authoredReferences([{schema:'dmb_authored_source_reference_v1',managed_world_id:WORLD,native_world_id:'native',binding_version:1,knowledge_revision:'selected-revision',source_artifact_id:'source-20',source_revision_id:'saved-20',evidence_ref_id:'opening-20',content_sha256:'a'.repeat(64),selection_kind:'section',section_id:'b'.repeat(64),label:'Session 20 ending'}]);
     writeComposerReferences(sessionStorage,WORLD,RUN,null,refs.references,null,'play');
     const view=render(<Harness initial="play"/>);
@@ -538,9 +538,33 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const input=await screen.findByLabelText('Message DungeonBuddy');
     await waitFor(()=>expect(input).toBeEnabled());
     expect(screen.getByRole('region',{name:'Play request references'})).toHaveTextContent('Session 20 ending');
-    vi.mocked(postWorldPlayAgentTurn).mockRejectedValue(new Error('Reference transport interrupted'));
+    let reject!: (reason:Error)=>void;
+    if(failure==='rejected_newer')vi.mocked(postWorldPlayAgentTurn).mockImplementation(()=>new Promise((_,fail)=>{reject=fail;}));
+    else vi.mocked(postWorldPlayAgentTurn).mockRejectedValue(failure==='transport'?new Error('Reference transport interrupted'):new LiveApiError('Selected reference unavailable',409,{code:'authored_source_unavailable'}));
     fireEvent.change(input,{target:{value:'What happens in this selected recap?'}});
     fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+    if(failure==='rejected_newer'){
+      await waitFor(()=>expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1));
+      const pending=localStorage.getItem(`dmb:world-play-pending-turn:v1:${WORLD}`);
+      fireEvent.change(input,{target:{value:'A newer independent draft'}});
+      const newer=readComposerReferences(sessionStorage,WORLD,RUN,'play');
+      await act(async()=>reject(new LiveApiError('Selected reference unavailable',409,{code:'authored_source_unavailable'})));
+      await screen.findByText(/original message and references remain in saved-request recovery/);
+      expect(input).toHaveValue('A newer independent draft');
+      expect(readComposerReferences(sessionStorage,WORLD,RUN,'play')).toEqual(newer);
+      expect(localStorage.getItem(`dmb:world-play-pending-turn:v1:${WORLD}`)).toBe(pending);
+      expect(JSON.parse(pending!).request.authored_references).toEqual(refs);
+      return;
+    }
+    if(failure==='rejected'){
+      await screen.findByText(/Selected reference unavailable/);
+      expect(readComposerReferences(sessionStorage,WORLD,RUN,'play').references).toEqual(refs.references);
+      expect(localStorage.getItem(`dmb:world-play-pending-turn:v1:${WORLD}`)).toBeNull();
+      expect(input).toHaveValue('What happens in this selected recap?');
+      view.unmount();render(<Harness initial="play"/>);fireEvent.click(await screen.findByRole('button',{name:'Open'}));
+      expect(await screen.findByRole('region',{name:'Play request references'})).toHaveTextContent('Session 20 ending');
+      return;
+    }
     await screen.findByText(/Reference transport interrupted/);
     openConversationOptions();fireEvent.click(screen.getByRole('checkbox',{name:'Technical details'}));
     fireEvent.click(screen.getByText('Saved request details'));

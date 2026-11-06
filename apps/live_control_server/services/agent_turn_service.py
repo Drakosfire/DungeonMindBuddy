@@ -7019,6 +7019,13 @@ def execute_agent_turn(
         from .native_play_graph_owner import native_play_input_message, prepare_play_sources, prepare_authored_sources
         try:
             selected_sources = prepare_authored_sources(request, native_principal, existing_turn=durable_turn)
+        except (TypeError, ValueError) as exc:
+            raise AgentTurnServiceError(
+                "The exact selected source or passage could not be read. Reopen References and choose it again. Your message was not sent.",
+                code="authored_source_unavailable", status_code=409,
+                provider_dispatched=False,
+            ) from exc
+        try:
             if selected_sources is not None:
                 work = replace(work, play_authored_sources=selected_sources)
             native_play_frame, _play_moment = prepare_play_sources(request, work)
