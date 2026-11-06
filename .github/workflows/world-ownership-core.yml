@@ -192,6 +192,10 @@ jobs:
           tests/test_native_plan_statements.py
           tests/test_native_plan_assertions.py
           tests/test_plan_authored_references.py
+          tests/test_plan_document_edit_proposal.py
+          tests/test_world_plan_edit_proposal.py::test_world_proposal_uses_only_explicit_draft_context_and_returns_exact_identity
+          tests/test_world_plan_edit_proposal.py::test_same_key_retry_reconciles_typed_receipt_after_plan_advances
+          tests/test_world_plan_edit_proposal.py::test_world_caret_prompt_keeps_the_restricted_shared_grammar
           tests/test_plan_jev_authoring.py::test_current_shared_plan_caller_keeps_routing_and_action_ownership
           tests/application_state/test_plan_placement.py
           tests/test_plan_jev_authoring.py::test_under_heading_selection_survives_actual_dispatch_reservation_and_retained_replay
