@@ -11,7 +11,7 @@ from ingestion_evaluation.runner import Runner, verify_manifest
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['assessment-assemble', 'assessment-report', 'baseline-freeze', 'baseline-verify', 'qualify', 'capture', 'observe', 'audit', 'audit-retained', 'report', 'pause',
+    parser.add_argument('command', choices=['review-packet', 'assessment-assemble', 'assessment-report', 'baseline-freeze', 'baseline-verify', 'qualify', 'capture', 'observe', 'audit', 'audit-retained', 'report', 'pause',
                                            'source-qualify', 'source-execute', 'source-inspect', 'source-report',
                                            'publication-prepare', 'publication-qualify', 'publication-execute',
                                            'publication-inspect', 'publication-report',
@@ -24,7 +24,20 @@ def main():
     parser.add_argument('--assessment-output', type=Path)
     parser.add_argument('--audit', type=Path)
     parser.add_argument('--timing', type=Path)
+    parser.add_argument('--packet-output', type=Path)
+    parser.add_argument('--private-receipt', type=Path)
+    parser.add_argument('--review-id')
     args = parser.parse_args()
+    if args.command == 'review-packet':
+        if (not all((args.result, args.packet_output, args.private_receipt, args.review_id))
+                or any((args.manifest, args.review, args.assessment_output, args.audit,
+                        args.timing, args.baseline_output, args.qualification_sha))):
+            parser.error('review-packet requires only --result, --packet-output, --private-receipt and --review-id')
+        from ingestion_evaluation.blinding import prepare
+        print(json.dumps(prepare(args.result, args.packet_output, args.private_receipt, args.review_id)))
+        return
+    if any((args.packet_output, args.private_receipt, args.review_id)):
+        parser.error('Review packet flags require review-packet')
     if args.command == 'assessment-assemble':
         if (not all((args.manifest, args.result, args.review, args.assessment_output))
                 or args.baseline_output or args.qualification_sha):
