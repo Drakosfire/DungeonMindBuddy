@@ -1,3 +1,4 @@
+import type {BuildWorkspaceDocumentController} from './useBuildWorkspaceDocumentController';
 import {BuildRelationshipReview} from './BuildRelationshipReview';
 import type {RelationshipSeed} from './buildRelationshipRecovery';
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
@@ -14,7 +15,7 @@ import {validConnectedPageIntent} from '../api/connectedPageApi';
 import {isCollaboration} from '../shared/sourcePassageProtocol';
 import './BuildConnectedPageControl.css';
 const errorText=(reason:unknown)=>reason instanceof Error?reason.message:'The page request could not finish.';
-export function BuildConnectedPageControl({selectDocument,refreshDocuments,relationshipsHost=null}:{relationshipsHost?:HTMLElement|null;selectDocument:(id:string)=>Promise<boolean>;refreshDocuments:()=>unknown}){
+export function BuildConnectedPageControl({selectDocument,refreshDocuments,relationshipsHost=null}:{relationshipsHost?:HTMLElement|null;selectDocument:BuildWorkspaceDocumentController['selectDocument'];refreshDocuments:()=>unknown}){
   const session=useOptionalMarkdownCanvasSession(),agent=useOptionalAgentInteraction();
   const current=useRef(session);current.current=session;
   const dialog=useRef<HTMLDialogElement>(null),busyRef=useRef<number|null>(null),mounted=useRef(true);
@@ -107,16 +108,26 @@ export function BuildConnectedPageControl({selectDocument,refreshDocuments,relat
     if(!isCurrent())return;
     if(!result.page)throw new Error("The created page is not available yet.");
     refreshDocuments();
-    const applied=await selectDocument(result.page.document_id);
+    const initial=result.initial_source;
+    if(buildOut&&!initial)throw new Error('The exact initial page is unavailable; open the created page to continue.');
+    const applied=await selectDocument(result.page.document_id,isCurrent,buildOut?{
+      worldId:result.intent.world_id,revision:initial!.revision,digest:initial!.contentSha256,
+    }:undefined);
     if(!applied)throw new Error("The page was created. Open it again to continue.");
-    if(!mounted.current)return;
-    if(buildOut){queueConnectedPageBuildOut(result);agent?.setPaneOpen(true);}
-    if(result.phase==='complete'){
+    const finishLocal=()=>{
       const pending=readConnectedPageRecovery(result.intent.world_id,documentId!);
-      if(pending?.operation_id===result.operation_id)clearConnectedPageRequest(pending,documentId!);
+      if(pending?.operation_id!==result.operation_id)return;
+      // Remove the draft first: a cleanup failure must leave the exact pending
+      // request in place rather than reveal an old draft as a fresh creation.
       sessionStorage.removeItem('dmb:connected-page-review-draft:v1:'+JSON.stringify([result.intent.world_id,documentId]));
-    }
+      clearConnectedPageRequest(pending,documentId!);
+    };
+    // Intentional activation replaces this component. The controller's scoped
+    // success, then the queue/compose owners, govern the destination now.
+    if(buildOut){queueConnectedPageBuildOut(result,finishLocal);agent?.setPaneOpen(true);}
+    else if(result.phase==='complete')finishLocal();
   }
+
   async function create(){
     if(busyRef.current!==null||!world||!documentId||!origin||reviewDraftError)return;
     const isCurrent=captureScope();

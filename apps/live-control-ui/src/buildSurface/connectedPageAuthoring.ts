@@ -33,7 +33,7 @@ export function clearConnectedPageRequest(request:ConnectedPageIntent,ownerDocum
   sessionStorage.removeItem('kind' in request.origin?reviewRecoveryKey(request.world_id,ownerDocument):connectedPageRecoveryKey(request.world_id,request.origin.document_id));
 }
 export function connectedPageBuildOutMessage(operation:ConnectedPageOperation){
-  return `Build out this new page, ${operation.intent.title}. Replace only the selected starter sections with useful, grounded page writing. Keep the existing relationship declarations and Origin section. Use established details and my decisions as anchors, then propose concrete new details that make this place useful at the table: its layout, visible activity and practical work. Give the new material one clear proposed-details heading or note; write directly within that scope without repeating qualifications. Include a useful table of possible encounters or unfinished jobs when appropriate. Keep outcomes conditional and unplayed. Preserve meaningful uncertainty and my explicit brief; do not invent past events or advance anyone’s reaction.\n\nOriginal selected passage: ${operation.intent.origin.selected_text}\n${operation.intent.instructions?'Author’s brief: '+operation.intent.instructions:''}`;
+  return `Develop this saved page, ${operation.intent.title}. Replace only the selected starter sections with useful, grounded page writing. Keep the existing relationship declarations and Origin section. Use established details and my decisions as anchors, then propose concrete new details that make this place useful at the table: its layout, visible activity and practical work. Give the new material one clear proposed-details heading or note; write directly within that scope without repeating qualifications. Include a useful table of possible encounters or unfinished jobs when appropriate. Keep outcomes conditional and unplayed. Preserve meaningful uncertainty and my explicit brief; do not invent past events or advance anyone’s reaction.\n\nOriginal selected passage: ${operation.intent.origin.selected_text}\n${operation.intent.instructions?'Author’s brief: '+operation.intent.instructions:''}`;
 }
 export async function prepareConnectedPageScaffold(context:unknown,operation:ConnectedPageOperation){
   const {bridge,source}=context as {bridge:BuildComposeBridge;source:SavedWorldBuildConversationContext};
@@ -53,14 +53,17 @@ export async function prepareConnectedPageScaffold(context:unknown,operation:Con
     throw new Error('The starter sections changed. Select where to continue in conversation.');
   captured.editor.commands.setTextSelection({from:from+1,to:to-1});
 }
-export function queueConnectedPageBuildOut(operation:ConnectedPageOperation){
+export function queueConnectedPageBuildOut(operation:ConnectedPageOperation,onAccepted?:()=>void){
   if(operation.phase!=='complete'||!operation.page)throw new Error('Finish the page connections before building it out.');
   const world=operation.intent.world_id,document=operation.page.document_id;
   const isCurrent=()=>{
     const query=new URLSearchParams(window.location.search);
-    return window.location.pathname==='/build'&&query.get('world')===world&&query.get('documentId')===document;
+    const explicitWorld=query.get('world');
+    return window.location.pathname==='/build'&&(explicitWorld===null||explicitWorld===world)&&query.get('documentId')===document;
   };
   queueSurfaceConversationRequest({id:'connected-page:'+operation.operation_id,worldId:world,surfaceId:'build',objectId:document,
-    message:connectedPageBuildOutMessage(operation),clientThreadId:crypto.randomUUID(),turnId:crypto.randomUUID(),isCurrent,
+    // Both UUID roles are scoped by their owning agent tables. Replaying this
+    // operation must reuse its original conversation/turn identity after reload.
+    message:connectedPageBuildOutMessage(operation),clientThreadId:operation.operation_id,turnId:operation.operation_id,isCurrent,onAccepted,
     prepare:context=>prepareConnectedPageScaffold(context,operation)});
 }
