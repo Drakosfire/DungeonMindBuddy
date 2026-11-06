@@ -668,3 +668,16 @@ def test_prompt_and_answer_draft_use_same_trace_append_measurement(tmp_path, mon
     span, = host.spans
     assert span["name"] == "trace_append"
     assert span["attributes"]["count"] == 3 and span["attributes"]["error_count"] == 1
+
+
+def test_dispatched_writer_output_is_debug_only_without_completion_acknowledgement():
+    capture,store,turn,producer=answer_capture_case()
+    turn.graph_context_execution.events[-1].outcome='sdk_entered'
+    raw='{"incomplete":'
+    capture.answer_draft(raw,producing_provider_attempt_id=producer)
+    assert store.trace.observations[-1].materials[0].text==raw
+    assert turn.graph_context_execution.events[-1].outcome=='sdk_entered'
+    assert len(turn.graph_context_execution.events)==2
+    with pytest.raises(ApplicationStateValidationError,match='producing provider response'):
+        capture.controller_decision_response(raw,producing_provider_attempt_id=producer)
+    assert len(store.trace.observations)==1

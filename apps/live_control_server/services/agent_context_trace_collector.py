@@ -346,9 +346,12 @@ class ContextTraceCollector:
             turn = self.fence.renewer._turn
             execution = turn.graph_context_execution
             authorizations = [event for event in execution.events if isinstance(event, ProviderAttemptAuthorizedEventV1)]
+            # Controller output supplies decision proof; writer Debug is unvalidated
+            # output from its dispatched attempt, including an incomplete SDK reply.
+            outcomes = {"response_received"} if controller_response else {"sdk_entered", "response_received"}
             if (not authorizations or authorizations[-1].provider_attempt_id != producing_provider_attempt_id
                 or not any(event.kind == "provider_outcome" and event.provider_attempt_id == producing_provider_attempt_id
-                    and event.outcome == "response_received" for event in execution.events)):
+                    and event.outcome in outcomes for event in execution.events)):
                 raise ApplicationStateValidationError("answer draft lacks its producing provider response")
             if controller_response:
                 from application_state.agent_conversation.types import BuildSelectedSourceActionControllerWriterPolicyV1
