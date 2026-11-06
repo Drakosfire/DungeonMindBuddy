@@ -176,12 +176,21 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
             'Prefer the most specific relevant sections first. Acquired examined sections have already supplied their exact bodies '
             'to the writer; exclude equivalent or weaker candidates for those same details. Unavailable sections supplied no evidence. '
             'Additional sections remain available when a different requested detail needs them. Never infer source completeness.')
-    if any(c.kind == "Explicit full-document read" for c in request.candidates):
+    if any(c.kind in {"Explicit full-document read", "Explicit admitted full-source read; metadata choice, not evidence"}
+           for c in request.candidates):
         state["full_document_selection_guidance"] = (
             "Select a full-document action only when the requested details need its complete context, "
             "or no smaller section is available. Exclude it when offered or already acquired sections "
             "address those details. Full-document access is a separate explicit choice; ordinary section "
             "votes never authorize it. Do not select both merely because they concern the same subject.")
+    if any(c.kind == "Explicit admitted full-source read; metadata choice, not evidence" for c in request.candidates):
+        state["source_catalogue_guidance"] = (
+            "These admitted source names are metadata, not acquired evidence. For explicitly named sources, "
+            "campaigns or sessions, prefer the matching source choices before a broad corpus content scan. "
+            "Do not select other sources merely because they share a campaign. Use content search when "
+            "the named choices cannot resolve the requested context or additional discovery is needed. "
+            "Acquired sources remain available to the writer; exclude repeated reads of their contents. "
+            "Names do not establish source coverage, chronology or factual support.")
     if request.examined_candidates:
         state["examined_subjects"] = [{"label": c.label, "kind": c.kind} for c in request.examined_candidates]
     if request.dialogue:

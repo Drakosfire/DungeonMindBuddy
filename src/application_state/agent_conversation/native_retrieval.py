@@ -535,6 +535,7 @@ def validate_decision_phases(execution):
             and isinstance(
                 event,
                 (
+                    t.NativeDirectSourceAuthorizedV1,
                     t.NativeBodySearchAuthorizedV1,
                     t.NativeBodySearchObservedV1,
                     t.NativeBodyReadAuthorizedV1,
@@ -556,6 +557,7 @@ def validate_decision_phases(execution):
                 )
             if native_action is not None:
                 native_pairs = (
+                    (t.NativeDirectSourceAuthorizedV1, t.NativeDirectSourceObservedV1),
                     (t.NativeBodySearchAuthorizedV1, t.NativeBodySearchObservedV1),
                     (t.NativeBodyReadAuthorizedV1, t.NativeBodyReadObservedV1),
                     (

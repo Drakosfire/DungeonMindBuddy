@@ -2083,6 +2083,22 @@ class AgentConversationService:
             materialize=lambda turn: observe_native_source_reference(turn, event_id=event_id,
                 reference_index=reference_index, materialize=materialize))
 
+    def authorize_native_direct_source(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, source_artifact_id, source_revision_id, content_sha256):
+        from .native_reads import authorize_direct_source_locked
+        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            materialize=lambda turn: authorize_direct_source_locked(turn, event_id=event_id,
+                source_artifact_id=source_artifact_id, source_revision_id=source_revision_id, content_sha256=content_sha256))
+
+    def observe_native_direct_source(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, authorization_event_id, read):
+        from .native_reads import observe_direct_source_locked
+        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            materialize=lambda turn: observe_direct_source_locked(turn, event_id=event_id,
+                authorization_event_id=authorization_event_id, read=read))
+
     def authorize_native_body_search(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id):
         from .native_reads import authorize_body_search_locked

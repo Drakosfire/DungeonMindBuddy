@@ -264,6 +264,40 @@ class NativeBodyReadObservedV1(NativeBodyEvent):
         return self
 
 
+class NativeDirectSourceAuthorizedV1(NativeBodyEvent):
+    """Controller-selected full source; catalogue labels grant no read authority."""
+    kind: Literal["native_direct_source_authorized_v1"] = "native_direct_source_authorized_v1"
+    provider_attempt_id: UUID
+    authority: NativeCorpusAuthorityV1
+    source_artifact_id: str = Field(min_length=1)
+    source_revision_id: str = Field(min_length=1)
+    content_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class NativeDirectSourceObservedV1(NativeBodyReadObservedV1):
+    kind: Literal["native_direct_source_observed_v1"] = "native_direct_source_observed_v1"
+    catalog: NativeCorpusCatalogV1 | None
+
+    @model_validator(mode="after")
+    def complete_source(self):
+        if (self.catalog is None) != (self.excerpt is None):
+            raise ValueError("Direct source result requires its exact catalogue and excerpt together")
+        if self.excerpt is not None and (
+                self.excerpt.catalog_sha256 != self.catalog.catalog_sha256
+                or self.excerpt.selector_policy != "native_full_document_v1"
+                or self.excerpt.section != full_document_section(self.catalog)
+                or self.excerpt.excerpt_sha256 != self.catalog.source.revision.content_sha256):
+            raise ValueError("Direct source read must cover its exact full source revision")
+        return self
+
+
+def native_direct_source_handle(authority, source_artifact_id, source_revision_id, content_sha256):
+    identity = dict(authority=authority.model_dump(mode="json", exclude={"acquisition_epoch"}),
+        source_artifact_id=source_artifact_id, source_revision_id=source_revision_id,
+        content_sha256=content_sha256)
+    return "native-direct-source:" + sha256(canonical(identity).encode()).hexdigest()
+
+
 class NativeAuthoredSourceReadV1(NativeBodyEvent):
     """A human-selected read; its retained input is the grant, never a provider vote."""
     kind: Literal['native_authored_source_read_v1'] = 'native_authored_source_read_v1'
@@ -282,7 +316,8 @@ class NativeBodyProviderIncludedV1(NativeBodyEvent):
 
 
 NATIVE_BODY_EVENTS = (NativeBodySearchAuthorizedV1, NativeBodySearchObservedV1,
-    NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1, NativeBodyProviderIncludedV1, NativeAuthoredSourceReadV1)
+    NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1, NativeBodyProviderIncludedV1, NativeAuthoredSourceReadV1,
+    NativeDirectSourceAuthorizedV1, NativeDirectSourceObservedV1)
 
 
 def native_body_handle(catalog_sha256, section_id):
@@ -323,7 +358,7 @@ def validate_native_body_events(execution):
             and selection.operation == "select_candidates" and handle in selection.selected_handles)
     for event in execution.events:
         if body_selection is not None and isinstance(event, (NativeBodySearchAuthorizedV1,
-                NativeBodySearchObservedV1, NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1, NativeAuthoredSourceReadV1)):
+                NativeBodySearchObservedV1, NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1, NativeAuthoredSourceReadV1, NativeDirectSourceAuthorizedV1)):
             raise ValueError("Native body acquisition cannot change after writer evidence selection")
         if isinstance(event, t.BuildWriterEvidenceSelectionV2):
             validate_body_selection(execution, event)
@@ -362,6 +397,34 @@ def validate_native_body_events(execution):
             if any(isinstance(row, NativeAuthoredSourceReadV1) and row.reference_index == event.reference_index
                     for row in reads.values()):
                 raise ValueError('The selected source extent was acquired twice')
+            reads[event.event_id] = event
+        elif isinstance(event, NativeDirectSourceAuthorizedV1):
+            handle = native_direct_source_handle(event.authority, event.source_artifact_id,
+                event.source_revision_id, event.content_sha256)
+            key = (event.source_artifact_id, event.source_revision_id, event.content_sha256)
+            if (writer or outcome != "response_received" or provider != event.provider_attempt_id
+                    or not selected(handle) or key in selected_sections
+                    or sha256(canonical(event.authority).encode()).hexdigest()
+                        != execution.policy.source_authority_sha256):
+                raise ValueError("Direct source read requires its unique acknowledged controller selection")
+            authorizations[event.event_id] = event
+            selected_sections.add(key)
+        elif isinstance(event, NativeDirectSourceObservedV1):
+            authorized = authorizations.get(event.authorization_event_id)
+            if (not isinstance(authorized, NativeDirectSourceAuthorizedV1) or writer
+                    or outcome != "response_received" or authorized.provider_attempt_id != provider
+                    or any(isinstance(row, NativeBodyReadObservedV1)
+                        and row.authorization_event_id == event.authorization_event_id for row in reads.values())):
+                raise ValueError("Direct source observation lacks its current unique authorization")
+            if event.catalog is not None:
+                catalog, authority = event.catalog, authorized.authority
+                if (catalog.authority.model_dump(exclude={"acquisition_epoch"})
+                            != authority.model_dump(exclude={"acquisition_epoch"})
+                        or catalog.authority.acquisition_epoch < authority.acquisition_epoch
+                        or (catalog.source.artifact.source_artifact_id,
+                            catalog.source.revision.source_revision_id, catalog.source.revision.content_sha256)
+                            != (authorized.source_artifact_id, authorized.source_revision_id, authorized.content_sha256)):
+                    raise ValueError("Direct source result changed its selected source or authority")
             reads[event.event_id] = event
         elif isinstance(event, NativeBodySearchAuthorizedV1):
             if (grant is not None or writer or provider != event.provider_attempt_id
@@ -404,7 +467,7 @@ def validate_native_body_events(execution):
             selected_sections.add(key)
         elif isinstance(event, NativeBodyReadObservedV1):
             authorized = authorizations.get(event.authorization_event_id)
-            if (authorized is None or writer or outcome != "response_received"
+            if (not isinstance(authorized, NativeBodyReadAuthorizedV1) or writer or outcome != "response_received"
                     or authorized.provider_attempt_id != provider
                     or any(isinstance(row, NativeBodyReadObservedV1) and row.authorization_event_id == event.authorization_event_id for row in reads.values())):
                 raise ValueError("Native body observation lacks its current unique authorization")
@@ -443,7 +506,8 @@ def acquired_body_catalogs(execution):
     catalogs = {catalog.catalog_sha256: catalog for event in execution.events
         if isinstance(event, NativeBodySearchObservedV1) for catalog in event.catalogs}
     catalogs.update({event.catalog.catalog_sha256: event.catalog for event in execution.events
-                    if isinstance(event, NativeAuthoredSourceReadV1)})
+                    if isinstance(event, (NativeAuthoredSourceReadV1, NativeDirectSourceObservedV1))
+                    and event.catalog is not None})
     return catalogs
 
 
