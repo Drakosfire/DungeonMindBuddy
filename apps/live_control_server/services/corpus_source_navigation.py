@@ -241,6 +241,34 @@ class NativeBodyNavigation:
                 not isinstance(context, NativeCorpusContext) or context.authority != authority):
             raise ValueError("Native navigation requires its original trusted source context")
         self.adapter = adapter
+        self._source_display = None
+
+    def _source_name(self, catalog):
+        # Reuse the human inspector's producer labels, after the actual source
+        # acquisition. These names cannot admit a source, establish scope or replace
+        # the immutable native identity/bytes already in its catalog.
+        if self._source_display is None:
+            from dungeonmind.application.vnext import list_admitted_native_text_sources
+            from .native_source_display import source_display_metadata
+            context = self.adapter.native_corpus_context
+            items = list_admitted_native_text_sources(context.access).sources
+            labels = source_display_metadata(items, context.authority.managed_world_id)
+            self._source_display = {
+                (item.source_artifact.source_artifact_id, item.source_revision.source_revision_id): label
+                for item, label in zip(items, labels)
+            }
+        source = catalog.source
+        display = self._source_display.get((source.artifact.source_artifact_id, source.revision.source_revision_id))
+        if display is None or display['status'] != 'available':
+            return catalog.sections[0].label + ' (source name unavailable)'
+        parts = [display['label']]
+        if display['campaign_id']:
+            parts.append('campaign: ' + display['campaign_id'])
+        if display['session_id']:
+            parts.append('session: ' + display['session_id'])
+        if display['origin_matches_current_metadata'] is False:
+            parts.append('current page label; selected source is an older revision')
+        return ' · '.join(parts)
 
     def _events(self, turn=None):
         from application_state.agent_conversation.native_corpus import (
@@ -291,7 +319,7 @@ class NativeBodyNavigation:
         rows = []
         hits = {(row.catalog_sha256, row.section_id): row.matched_terms for row in search.matches}
         for catalog in search.catalogs:
-            name = catalog.sections[0].label
+            name = self._source_name(catalog)
             matched = [row for row in catalog.sections if (catalog.catalog_sha256, row.section_id) in hits]
             for section in matched:
                 # A degenerate one-section document offers only its explicit
@@ -335,7 +363,7 @@ class NativeBodyNavigation:
             handle = (native_full_document_handle(catalog.catalog_sha256) if full
                 else native_body_handle(catalog.catalog_sha256, excerpt.section.section_id))
             rows.append(RetrievalCandidate(handle=handle,
-                label=catalog.sections[0].label + " · " + excerpt.section.label
+                label=self._source_name(catalog) + " · " + excerpt.section.label
                     + f" · lines {excerpt.section.line_start}–{excerpt.section.line_end}",
                 kind=("Acquired user-selected source text; mandatory writer input" if isinstance(read, NativeAuthoredSourceReadV1)
                     else "Acquired exact source text") + "; not an answer-sufficiency verdict"))

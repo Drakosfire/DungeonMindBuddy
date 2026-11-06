@@ -3716,7 +3716,7 @@ describe("World Plan conversation consumer", () => {
       await waitFor(() => expect(pendingAskKeys()).toEqual([]));
       await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
       fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "What happens next?" } });
-      expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled();
+      await waitFor(() => expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled());
     } else {
       expect(pendingAskKeys()).toHaveLength(1);
       expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled();
