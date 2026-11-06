@@ -829,10 +829,11 @@ def _canonicalize_recap_quote_nominations(parsed, *, source_rows, source_text, s
         span = indexed.get(span_id)
         if span is None:
             continue
-        text = "\n".join(lines[span.start_line - 1:span.end_line]).strip()
-        if row.get("text") != text:
+        source_row_text = "\n".join(lines[span.start_line - 1:span.end_line])
+        if row.get("text") != source_row_text:
             return output, []
-        paragraphs.append({"source_span_ref_id": span_id, "text": text})
+        # Validate the advertised raw slice before using the canonical matching view.
+        paragraphs.append({"source_span_ref_id": span_id, "text": source_row_text.strip()})
     by_id = {p["source_span_ref_id"]: p for p in paragraphs}
     changes = []
     for collection, id_key in (("observation_nodes", "node_id"),
