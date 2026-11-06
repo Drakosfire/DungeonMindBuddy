@@ -11,7 +11,7 @@ from ingestion_evaluation.runner import Runner, verify_manifest
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['assessment-report', 'baseline-freeze', 'baseline-verify', 'qualify', 'capture', 'observe', 'audit', 'audit-retained', 'report', 'pause',
+    parser.add_argument('command', choices=['assessment-assemble', 'assessment-report', 'baseline-freeze', 'baseline-verify', 'qualify', 'capture', 'observe', 'audit', 'audit-retained', 'report', 'pause',
                                            'source-qualify', 'source-execute', 'source-inspect', 'source-report',
                                            'publication-prepare', 'publication-qualify', 'publication-execute',
                                            'publication-inspect', 'publication-report',
@@ -19,7 +19,23 @@ def main():
     parser.add_argument('--manifest', type=Path)
     parser.add_argument('--baseline-output', type=Path)
     parser.add_argument('--qualification-sha')
+    parser.add_argument('--result', type=Path)
+    parser.add_argument('--review', type=Path)
+    parser.add_argument('--assessment-output', type=Path)
+    parser.add_argument('--audit', type=Path)
+    parser.add_argument('--timing', type=Path)
     args = parser.parse_args()
+    if args.command == 'assessment-assemble':
+        if (not all((args.manifest, args.result, args.review, args.assessment_output))
+                or args.baseline_output or args.qualification_sha):
+            parser.error('assessment-assemble requires --manifest (Gold/criteria only), --result, '
+                         '--review and --assessment-output; optional --audit and --timing')
+        from ingestion_evaluation.assembly import assemble
+        print(json.dumps(assemble(args.manifest, args.result, args.review, args.assessment_output,
+                                  audit_path=args.audit, timing_path=args.timing)))
+        return
+    if any((args.result, args.review, args.assessment_output, args.audit, args.timing)):
+        parser.error('Assessment assembly flags require assessment-assemble')
     if args.command == 'assessment-report':
         if not args.manifest or args.baseline_output or args.qualification_sha:
             parser.error('assessment-report requires only --manifest')
