@@ -205,7 +205,7 @@ def freeze_play_receipt(
     }) if index is not None else t.canonical_sha256(packet)
     body = json.loads(view["payloadJson"])
     upper = view["payloadUtf8Bytes"] + 64 * (1 + _node_count(body))
-    if upper + budget["outputReserveTokens"] > budget["contextLimitTokens"]:
+    if budget["contextLimitTokens"] is not None and upper + budget["outputReserveTokens"] > budget["contextLimitTokens"]:
         raise ValueError("Native Play provider request exceeds its context budget")
     graph_packet = t.PlayWorldGraphPacketV1(
         packet_serializer_version="canonical-json-utf8-v1",
@@ -285,8 +285,8 @@ def freeze_play_receipt(
         allowed_graph_operations=["expand_graph_retrieval"],
         max_provider_attempts=64, max_graph_operations=512,
         max_results_per_operation=512,
-        max_total_provider_input_tokens=budget["contextLimitTokens"] * 64,
-        max_total_provider_output_tokens=budget["outputReserveTokens"] * 64,
+        max_total_provider_input_tokens=None,
+        max_total_provider_output_tokens=None,
         provider_input_accounting=t.GraphExecutionAccountingV1(
             kind="conservative_upper_bound", estimator=budget["estimator"],
         ),

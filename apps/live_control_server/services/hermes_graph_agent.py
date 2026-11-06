@@ -1117,7 +1117,7 @@ def _request_budget_guard(
     expected_model = str(policy["model"])
     expected_mode = str(policy["apiMode"])
     expected_estimator = str(policy["estimator"])
-    context_limit = int(policy["contextLimitTokens"])
+    context_limit = None if policy["contextLimitTokens"] is None else int(policy["contextLimitTokens"])
     output_reserve = int(policy["outputReserveTokens"])
     max_attempts = policy.get("maxProviderAttempts")
     max_tool_attempts = policy.get("maxToolCapableAttempts")
@@ -1516,19 +1516,22 @@ def _request_budget_guard(
             return False
         if count_nodes(payload) > 100_000:
             return False
-        if (
+        if output_reserve > 0 and (
             isinstance(actual_output, bool)
             or not isinstance(actual_output, int)
             or actual_output <= 0
             or actual_output > output_reserve
         ):
             return False
+        if output_reserve == 0 and actual_output is not None:
+            # A fresh uncapped request must not silently retain an old SDK cap.
+            return False
         # Full canonical request JSON includes instructions/input/messages and
         # tool schemas. Treat each UTF-8 byte as a conservative content-token
         # ceiling and reserve additional protocol framing per input/tool item.
         # This is explicitly an upper-bound guard, not an exact token count.
         input_upper_bound = view.payload_utf8_bytes + 64 * (1 + count_nodes(payload))
-        if input_upper_bound + output_reserve > context_limit:
+        if context_limit is not None and input_upper_bound + output_reserve > context_limit:
             guard_state["last_rejection_reason"] = "context_budget_exceeded"
             return False
         if max_attempts is not None and authorization_sequence >= max_attempts:
@@ -2539,7 +2542,7 @@ def run_hermes_graph_agent_turn(
                                         "outputReserveTokens"
                                     ]
                                 }
-                                if request.request_budget is not None
+                                if request.request_budget is not None and request.request_budget["outputReserveTokens"] > 0
                                 else {}
                             ),
                             **(

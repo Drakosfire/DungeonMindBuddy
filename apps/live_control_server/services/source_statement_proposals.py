@@ -51,9 +51,7 @@ def _producer_budget():
     budget = dict(_policy_request_budget())
     if budget["model"] != MODEL or budget["provider"] != "openai-api":
         raise ValueError("Unsupported qualified producer model")
-    # Whole-source structured extraction uses the verified model output ceiling.
-    # https://developers.openai.com/api/docs/models/gpt-6-luna
-    return budget | {"outputReserveTokens": 128_000}
+    return budget
 
 
 def _acquire(request, principal):
@@ -295,17 +293,20 @@ async def produce(request, principal, *, transport=None):
             or list(body["text"]["format"]["schema"]["properties"])
             != list(provider_schema["properties"])
             or body.get("tools")
-            or body.get("max_output_tokens") != budget["outputReserveTokens"]
         ):
             raise ValueError("Prepared proposal request differs")
         from application_state.agent_conversation.native_statement_input import (
             native_input_tokens,
         )
+        from application_state.agent_conversation.native_writer import validate_output_request
+
+        validate_output_request(body, budget["outputReserveTokens"])
 
         if (
             len(prepared.body) > budget["maxProviderRequestBytes"]
-            or native_input_tokens(wire, body) + budget["outputReserveTokens"]
-            > budget["contextLimitTokens"]
+            or (budget["contextLimitTokens"] is not None
+                and native_input_tokens(wire, body) + budget["outputReserveTokens"]
+                > budget["contextLimitTokens"])
         ):
             raise ValueError(
                 "Complete proposal input exceeds the verified model envelope"
@@ -347,7 +348,7 @@ async def produce(request, principal, *, transport=None):
                 system_prompt=INSTRUCTIONS,
                 temperature=None,
                 reasoning_effort="none",
-                max_output_tokens=budget["outputReserveTokens"],
+                max_output_tokens=budget["outputReserveTokens"] or None,
                 json_schema=provider_schema,
                 schema_name=SCHEMA_NAME,
                 max_conformance_retries=0,

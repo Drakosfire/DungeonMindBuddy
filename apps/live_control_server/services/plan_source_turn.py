@@ -178,7 +178,7 @@ def _native_writer_budget(budget, accounting):
     return NativeWriterEstimatedBudgetV1(schema='dmb_native_writer_estimated_budget_v1',
         provider=budget['provider'], model=budget['model'], api_mode=budget['api_mode'],
         estimator=accounting.descriptor['policy'], tokenizer_version=accounting.tokenizer_version,
-        context_limit_tokens=budget['context_limit_tokens'], output_reserve_tokens=budget['output_reserve_tokens'])
+        context_limit_tokens=None, output_reserve_tokens=0)
 
 
 def _freeze_native(work_context, action, assembled, authority, native_query, provenance, budget,

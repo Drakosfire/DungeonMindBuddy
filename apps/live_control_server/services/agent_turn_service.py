@@ -1106,7 +1106,7 @@ def _freeze_policy_receipt(
         provider_body = {} if reviewed_admission is not None else json.loads(view["payloadJson"])
         upper_bound = 0 if reviewed_admission is not None else (build_jev_accounting.estimate(provider_body) if initial_accounting is not None
             else view["payloadUtf8Bytes"] + 64 * (1 + _json_node_count(provider_body)))
-        if upper_bound + budget["outputReserveTokens"] > budget["contextLimitTokens"]:
+        if budget["contextLimitTokens"] is not None and upper_bound + budget["outputReserveTokens"] > budget["contextLimitTokens"]:
             raise AgentTurnServiceError(
                 "The final provider request exceeds its context budget.",
                 code="provider_envelope_over_budget", status_code=413,
@@ -2235,7 +2235,7 @@ class _PolicyExecutionAdapter:
                 if writer_budget != (self.budget.get("buildJevActions") or {}).get("writer_context_budget"):
                     raise ValueError("writer budget differs from frozen policy")
                 context_limit = writer_budget["context_limit_tokens"]
-            if upper_bound + output_reserve > context_limit:
+            if context_limit is not None and upper_bound + output_reserve > context_limit:
                 raise AgentTurnServiceError(
                     "The final provider request exceeds the frozen budget.",
                     code="provider_envelope_over_budget", status_code=413,
@@ -4861,26 +4861,22 @@ def _policy_request_budget() -> dict[str, Any]:
             provider_dispatched=False,
         )
     provider, model, _base_url = selected
-    # GPT-6 Luna's documented API context window is 1,050,000 tokens.
-    # The final-envelope estimator and output reserve still gate every attempt.
-    # Unknown model overrides must not inherit this capacity assertion.
-    # https://developers.openai.com/api/docs/models/gpt-6-luna
-    if provider != "openai-api" or model != "gpt-6-luna":
+    # Provider capacity is enforced by the selected provider, not a byte-as-token
+    # APP estimate. Exact request bytes and observed usage are still retained.
+    if provider != "openai-api":
         raise AgentTurnServiceError(
-            "The selected Plan Graph model has no verified context capacity.",
-            code="provider_envelope_over_budget", status_code=503,
-            provider_dispatched=False,
-        )
+            "The selected Graph provider is unsupported.",
+            code="runtime_unavailable", status_code=503, provider_dispatched=False)
     return {
         "schema": "dmb_agent_request_budget_uncapped_v1",
         "provider": provider,
         "model": model,
         "apiMode": "codex_responses",
         "estimator": "utf8_json_bytes_plus_64_per_node_v1",
-        "contextLimitTokens": 1_050_000,
+        "contextLimitTokens": None,
         "graphToolPageBytes": 32_000,
         "maxProviderRequestBytes": 1_050_000,
-        "outputReserveTokens": 8192,
+        "outputReserveTokens": 0,
         "maxProviderAttempts": None,
         "maxToolCapableAttempts": None,
         "maxGraphOperations": None,

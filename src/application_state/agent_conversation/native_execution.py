@@ -107,11 +107,17 @@ class NativeWriterEstimatedBudgetV1(Strict):
     api_mode: Literal['responses']
     estimator: Literal['o200k_double_plus_4096_adaptive_context_v4']
     tokenizer_version: str = Field(min_length=1, max_length=128)
-    context_limit_tokens: Literal[128000] = 128000
-    output_reserve_tokens: Literal[4096] = 4096
+    context_limit_tokens: Literal[128000] | None = 128000
+    output_reserve_tokens: Literal[0, 4096] = 4096
 
     def identity(self):
         return self.provider, self.model, self.api_mode
+
+    @model_validator(mode='after')
+    def complete_allowance(self):
+        if (self.context_limit_tokens,self.output_reserve_tokens) not in {(128000,4096),(None,0)}:
+            raise ValueError('Native writer requires its complete historical or provider-owned allowance')
+        return self
 
 
 class SurfaceNativeExecutionPolicyV1(Strict):
@@ -133,9 +139,10 @@ class SurfaceNativeExecutionPolicyV1(Strict):
         if isinstance(action, NativePlayActionV1):
             if not isinstance(roles, t.GraphProviderRoleTargetV1):
                 raise ValueError("Play requires its actual single-provider policy, not manufactured roles")
-            if any(limit is None for limit in (self.max_provider_attempts,
-                    self.max_total_provider_input_tokens, self.max_total_provider_output_tokens)):
-                raise ValueError("Play retains its finite accepted provider allowance")
+            if self.max_provider_attempts is None:
+                raise ValueError("Play retains its finite accepted attempt allowance")
+            if (self.max_total_provider_input_tokens is None) != (self.max_total_provider_output_tokens is None):
+                raise ValueError('Play aggregate token ceilings must be both finite or both absent')
         elif not isinstance(roles, t.GraphControllerWriterRolesV1):
             raise ValueError("Build and Plan require their actual controller/writer roles")
         if isinstance(action, NativeBuildActionV1):

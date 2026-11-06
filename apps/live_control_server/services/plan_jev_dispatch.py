@@ -159,7 +159,7 @@ class PlanJevDispatch:
         raw = view["payloadJson"]
         estimate = (a._build_jev_accounting.estimate(json.loads(raw)) if native_build else
             len(raw.encode()) + 64 * (1 + _json_node_count(json.loads(raw))))
-        if not native_build and estimate + a.budget["outputReserveTokens"] > a.budget["contextLimitTokens"]:
+        if not native_build and a.budget["contextLimitTokens"] is not None and estimate + a.budget["outputReserveTokens"] > a.budget["contextLimitTokens"]:
             raise ValueError("Plan Jev actual request exceeds the existing provider context allowance")
         from application_state.agent_conversation.native_retrieval import NativeRetrievalAuthorizedV1
         auth_type = t.PlanRequestedWorkAuthorizedV2 if isinstance(self.parent, PlanRequestedWorkInputV2) else t.PlanRequestedWorkAuthorizedV1 if semantic else NativeRetrievalAuthorizedV1 if native else t.PlanJevProviderAuthorizedV1
