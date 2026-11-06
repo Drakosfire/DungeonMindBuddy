@@ -11,7 +11,7 @@ from ingestion_evaluation.runner import Runner, verify_manifest
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['review-packet', 'assessment-assemble', 'assessment-report', 'baseline-freeze', 'baseline-verify', 'qualify', 'capture', 'observe', 'audit', 'audit-retained', 'report', 'pause',
+    parser.add_argument('command', choices=['assessment-compare', 'review-packet', 'assessment-assemble', 'assessment-report', 'baseline-freeze', 'baseline-verify', 'qualify', 'capture', 'observe', 'audit', 'audit-retained', 'report', 'pause',
                                            'source-qualify', 'source-execute', 'source-inspect', 'source-report',
                                            'publication-prepare', 'publication-qualify', 'publication-execute',
                                            'publication-inspect', 'publication-report',
@@ -49,11 +49,15 @@ def main():
         return
     if any((args.result, args.review, args.assessment_output, args.audit, args.timing)):
         parser.error('Assessment assembly flags require assessment-assemble')
-    if args.command == 'assessment-report':
+    if args.command in ('assessment-report', 'assessment-compare'):
         if not args.manifest or args.baseline_output or args.qualification_sha:
-            parser.error('assessment-report requires only --manifest')
-        from ingestion_evaluation.assessment import report
-        print(json.dumps(report(args.manifest)))
+            parser.error(f'{args.command} requires only --manifest')
+        if args.command == 'assessment-compare':
+            from ingestion_evaluation.comparison import compare
+            print(json.dumps(compare(args.manifest)))
+        else:
+            from ingestion_evaluation.assessment import report
+            print(json.dumps(report(args.manifest)))
         return
     if args.command.startswith('baseline-'):
         if not args.baseline_output or (args.command == 'baseline-freeze' and not args.manifest):
