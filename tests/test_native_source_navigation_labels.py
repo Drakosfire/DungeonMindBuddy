@@ -2,6 +2,7 @@
 from types import SimpleNamespace
 
 import pytest
+from psycopg import OperationalError
 from application_state.source import service as sources
 from application_state.errors import ApplicationStateError
 from apps.live_control_server.services import native_source_inspection as inspector
@@ -63,10 +64,11 @@ def test_foreign_metadata_neither_names_nor_changes_native_source(inspection, mo
     assert catalog.model_dump_json() == before
 
 
-def test_display_database_failure_preserves_native_body_and_unavailable_label(inspection, monkeypatch):
+@pytest.mark.parametrize('error_type', [ApplicationStateError, OperationalError])
+def test_display_database_failure_preserves_native_body_and_unavailable_label(inspection, monkeypatch, error_type):
     registered(inspection)
     def unavailable(**_):
-        raise ApplicationStateError('metadata unavailable')
+        raise error_type('metadata unavailable')
     monkeypatch.setattr(sources, 'get_source_revision_metadata', unavailable)
     nav, catalog = navigation(inspection)
     assert nav._source_name(catalog).endswith('(source name unavailable)')
@@ -126,3 +128,17 @@ def test_actual_retrieval_wire_uses_joined_names_without_changing_read_identity(
     from application_state.agent_conversation.native_corpus import NativeBodyReadAuthorizedV1
     grants = [e for e in a.fence.turn.graph_context_execution.events if isinstance(e, NativeBodyReadAuthorizedV1)]
     assert len(grants)==1 and grants[0].catalog_sha256==reads[0].excerpt.catalog_sha256
+
+
+def test_raw_page_database_error_does_not_block_native_navigation_or_human_read(inspection, monkeypatch):
+    from application_state.content import pages
+    from tests.test_native_source_inspection import PATH, selection
+    from tests.test_native_corpus_source_access import BODY
+    registered(inspection, page=True)
+    def unavailable(**_):
+        raise OperationalError('synthetic display query unavailable')
+    monkeypatch.setattr(pages, 'page_inventory', unavailable)
+    nav, catalog = navigation(inspection)
+    assert nav._source_name(catalog).endswith('(source name unavailable)')
+    opened = inspection.client.post(PATH+'/read', json=selection(inspection))
+    assert opened.status_code==200 and opened.json()['source']['body_text']==BODY

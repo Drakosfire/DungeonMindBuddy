@@ -6,6 +6,7 @@ def source_display_metadata(items, world_id):
     from application_state.source.naming import registered_source_name
     from application_state.content import pages
     from application_state.errors import ApplicationStateError
+    from psycopg import Error as DatabaseError
 
     recap_namespace = "dungeonbuddy.app-recap-source.v1"
     page_namespace = "dungeonbuddy.workspace-document-registry"
@@ -21,7 +22,7 @@ def source_display_metadata(items, world_id):
                               for item in recaps], world_id=world_id,
                 )
             }
-        except ApplicationStateError:
+        except (ApplicationStateError, DatabaseError):
             pass  # Native source reads remain independent; label coverage is explicit below.
     if page_items:
         try:
@@ -29,7 +30,7 @@ def source_display_metadata(items, world_id):
                 str(state.page.work_object_id): state.page
                 for state in pages.page_inventory(world_id=world_id, status=None)
             }
-        except ApplicationStateError:
+        except (ApplicationStateError, DatabaseError):
             pass
     navigation = []
     for item in items:
