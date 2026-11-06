@@ -7018,7 +7018,6 @@ def execute_agent_turn(
     if request.surface.surface_id == "play" and request.play_target is not None:
         from .native_play_graph_owner import native_play_input_message, prepare_play_sources, prepare_authored_sources
         try:
-            from dataclasses import replace
             selected_sources = prepare_authored_sources(request, native_principal, existing_turn=durable_turn)
             if selected_sources is not None:
                 work = replace(work, play_authored_sources=selected_sources)
