@@ -61,7 +61,7 @@ vi.mock("../agentInteraction/usePublishAgentSurfaceContext", () => ({
 }));
 
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
-import { WorldAgentConversationProvider } from "../agentInteraction/WorldAgentConversation";
+import { WorldAgentConversationProvider, useWorldAgentConversationState } from "../agentInteraction/WorldAgentConversation";
 import { activeThreadStorageKey, loadAgentThreadById, persistAgentThread } from "../agentInteraction/agentInteractionStorage";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import { commandCanonicalDigest, verifiedCommandResolution, confirmedNewConversationStatus, newConversationRequestFingerprint, WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
@@ -6240,4 +6240,38 @@ it('shows saved text immediately but keeps Send gated until a retained pending r
   expect(await screen.findByText(`Graph Ask · ${request.turn_id} · failure confirmed`)).toBeInTheDocument();
   expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep my next idea');
   expect(postAsk).toHaveBeenCalledTimes(1);
+});
+
+it('keeps live activity bound to admitted metadata while full receipt refreshes are pending',async()=>{
+  const api=setupApi(history('conversation-a',4,[]),false);
+  const pending=deferred<ReturnType<typeof agentResponse>>();
+  const post=vi.spyOn(liveApi,'postWorldPlanAgentTurn').mockReturnValue(pending.promise as any);
+  function RefreshProbe() {
+    const state = useWorldAgentConversationState();
+    return <button onClick={() => state?.setHistoryRefreshNonce(value => value + 1)}>Refresh activity fixture</button>;
+  }
+  render(<WorldAgentConversationProvider worldId={worldId}><RefreshProbe />{conversationElement()}</WorldAgentConversationProvider>);
+  await waitForConversationReady(false);ensureWorldGraphAskEnabled();
+  fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'Look for the guards in this source.'}});
+  fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+  await waitFor(()=>expect(post).toHaveBeenCalledTimes(1));
+  const request=post.mock.calls[0][0],durable='44444444-4444-4444-8444-444444444444';
+  expect(screen.getByText('Getting things ready…')).toBeInTheDocument();
+  const row={...makeTurn(1,durable,request.message,''),assistant_text:null,lifecycle_status:'running' as const,
+    idempotency_key:await expectedHistoryCorrelationKey(worldId,request.turn_id)};
+  api.setCurrent(await historyV3('conversation-a',4,[row]));
+  api.getHistory.mockReturnValue(new Promise(()=>{}));
+  fireEvent.click(screen.getByRole('button',{name:'Refresh activity fixture'}));
+  const read=vi.mocked(liveApi.getWorldAgentTurnContextTrace);
+  await waitFor(()=>expect(read).toHaveBeenCalledWith(worldId,durable,expect.any(AbortSignal)));
+  expect(screen.queryByText('Getting things ready…')).toBeNull();
+  expect(screen.getByText('Getting the notes together…')).toBeInTheDocument();
+  const signal=read.mock.calls.at(-1)![2] as AbortSignal;
+  fireEvent.click(screen.getByRole('button',{name:'Refresh activity fixture'}));
+  await waitFor(()=>expect(api.getMessages.mock.calls.length).toBeGreaterThan(2));
+  expect(signal.aborted).toBe(false);
+  expect(screen.queryByText('Getting things ready…')).toBeNull();
+  const reads=read.mock.calls.length;
+  await waitFor(()=>expect(read.mock.calls.length).toBeGreaterThan(reads),{timeout:3500});
+  expect(post).toHaveBeenCalledTimes(1);
 });

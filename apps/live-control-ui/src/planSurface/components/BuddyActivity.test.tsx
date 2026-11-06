@@ -20,7 +20,7 @@ function mount(captured: BuddyTurnContextTrace, lifecycle: AgentConversationTurn
   return {load,loadPrompt}
 }
 describe('live activity entrance',()=>{
-  it('uses actual observed events and expands a light timeline without prompts',async()=>{
+  it('uses actual observed events and expands the full timeline without prompts',async()=>{
     const {load,loadPrompt}=mount(trace([{kind:'provider_call',sequence:0,elapsed_ms:1200,
       provider:'typesafe',model:'jev',outcome:'response_received'}]))
     await screen.findByText('A model response just landed.')
@@ -30,12 +30,12 @@ describe('live activity entrance',()=>{
     expect(activity.querySelector('svg')).toHaveAttribute('focusable','false')
     expect(activity.querySelectorAll('.buddy-activity__dot')).toHaveLength(3)
     expect(load).toHaveBeenCalledTimes(1)
-    expect(screen.queryByText(/Attempt 1/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Observable execution · attempt 1/)).not.toBeInTheDocument()
     fireEvent.click(screen.getByText('A model response just landed.'))
-    await screen.findByText(/Attempt 1/)
+    await screen.findByText(/Observable execution · attempt 1/)
     expect(screen.getByText('1.2s')).toBeInTheDocument()
     expect(loadPrompt).not.toHaveBeenCalled()
-    expect(screen.queryByText('Copy trace')).not.toBeInTheDocument()
+    expect(screen.getByText('Copy trace')).toBeInTheDocument()
   })
   it('does not fetch a completed trace until the quiet entry is opened',async()=>{
     const {load}=mount({...trace([]),terminal_status:'completed',closed_at:'2026-10-24T00:00:01Z',capture_status:'complete'},'completed')
@@ -45,7 +45,7 @@ describe('live activity entrance',()=>{
     expect(activity.querySelector('svg')).toBeNull()
     fireEvent.click(screen.getByText('How this reply came together'))
     await waitFor(()=>expect(load).toHaveBeenCalledTimes(1))
-    await screen.findByText(/Attempt 1/)
+    await screen.findByText(/Observable execution · attempt 1/)
   })
   it('keeps terminal failures in the same entry with the recorded error code',async()=>{
     mount({...trace([{kind:'failure',sequence:0,elapsed_ms:23700,phase:'delivery',code:'build_source_name_missing',stage:'context_acquisition'}]),terminal_status:'interrupted'},'interrupted')
@@ -53,8 +53,8 @@ describe('live activity entrance',()=>{
     expect(activity).toHaveAttribute('data-running','false')
     expect(activity.querySelector('svg')).toBeNull()
     fireEvent.click(screen.getByText('Reply error report'))
-    await screen.findByText(/build_source_name_missing/)
-    expect(screen.getByText(/context_acquisition/)).toBeInTheDocument()
+    await screen.findAllByText(/build_source_name_missing/)
+    expect(screen.getAllByText(/context_acquisition/).length).toBeGreaterThan(0)
   })
 })
 
@@ -97,10 +97,10 @@ it('shows one arrival per identified call without changing raw evidence or regre
   mount(trace(observations))
   await screen.findByText('Response captured for inspection.')
   fireEvent.click(screen.getByText('Response captured for inspection.'))
-  await screen.findByText(/Attempt 1/)
-  expect(screen.getAllByText('· A model response just landed.',{exact:false})).toHaveLength(2)
+  await screen.findByText(/Observable execution · attempt 1/)
+  expect(document.querySelectorAll('.buddy-context-trace > details > ol > li')).toHaveLength(3)
   expect(screen.getByText('0.0s')).toBeInTheDocument()
-  expect(screen.queryByText('0.3s')).not.toBeInTheDocument()
+  expect(screen.getByText(/usage updated at 0.3s/)).toBeInTheDocument()
 })
 it('preserves anonymous observations, different models, other outcomes and every failure',()=>{
   const failure={kind:'failure' as const,sequence:7,elapsed_ms:700,phase:'delivery',code:'test_failure'}
@@ -126,4 +126,28 @@ it.each(['selected','authorized','read','read_partial','source_gap','prepared'] 
   const {load,loadPrompt}=mount(trace([{kind:'authored_graph_reference_v1',sequence:0,elapsed_ms:1,execution_event:execution}]));
   await screen.findByText(labels[stage]);expect(load).toHaveBeenCalledTimes(1);expect(loadPrompt).not.toHaveBeenCalled();expect(screen.queryByText('A model response just landed.')).toBeNull();
   if(stage!=='read')expect(screen.queryByText(labels.read)).toBeNull();
+});
+
+
+it('opens every recorded event in the existing timeline, with no shortened activity list',async()=>{
+  const observations=Array.from({length:18},(_,sequence)=>({kind:'failure' as const,phase:'tool',code:`recorded_${sequence}`,sequence,elapsed_ms:sequence*100}));
+  const {loadPrompt}=mount(trace(observations));
+  fireEvent.click(await screen.findByText('Hit a snag—open the report.'));
+  const timeline=await screen.findByText('Execution timeline');
+  expect(timeline.closest('details')).toHaveAttribute('open');
+  expect(document.querySelectorAll('.buddy-context-trace > details > ol > li')).toHaveLength(18);
+  expect(screen.getByText(/recorded_0$/)).toBeInTheDocument();expect(screen.getByText(/recorded_17$/)).toBeInTheDocument();
+  expect(screen.queryByText('Prompts and technical details')).toBeNull();
+  expect(document.querySelector('.buddy-activity__body > ol')).toBeNull();
+  expect(loadPrompt).not.toHaveBeenCalled();
+});
+
+it('describes the actual Graph search without replacing it with a generic receipt update',async()=>{
+  const graph:import('../../api/buddyContextTraceTypes').BuddyTraceObservation={kind:'graph_tool',sequence:0,elapsed_ms:1,
+    tool_name:'expand_graph_retrieval',execution_event_id:'event',request_arguments_sha256:'a'.repeat(64),result_packet_sha256:'b'.repeat(64),
+    scope_mode:'world',campaign_id:null,revision_pin:'revision',request:{operation:'search',query_text:'meat creatures in Session 20',seed_node_ids:[]},
+    result:{outcome:'partial',graph_revision:'revision',coverage_status:'incomplete',projection_status:'limited',nodes:[],relationship_ids:[],claim_ids:[],evidence_ref_ids:[],returned_counts:{nodes:0,relationships:0,claims:0,evidence_refs:0},total_counts:{nodes:0,relationships:0,claims:0,evidence_refs:0},omission_codes:[]}};
+  mount(trace([graph,{kind:'provider_call',sequence:1,elapsed_ms:2,provider:'typesafe',model:'jev',outcome:'response_received'}]));
+  expect(await screen.findByText('Graph search: “meat creatures in Session 20” · partial.')).toBeInTheDocument();
+  expect(screen.queryByText('A model response just landed.')).toBeNull();
 });
