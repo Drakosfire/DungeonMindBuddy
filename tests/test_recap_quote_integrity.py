@@ -237,6 +237,42 @@ def _sanitize(graph: dict[str, Any], *, source_text: str = SOURCE):
     )
 
 
+def test_cross_pass_deferred_ids_survive_ordinary_composition_and_quote_guard():
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        assemble_envelope, canonical_graph_for_runner, consolidate_category_outputs,
+    )
+
+    artifact_id, digest, index, spans = _case()
+    outputs = {name: {'deferred_items': [{
+        'item_id': 'D001', 'label': name, 'reason': 'Identity unresolved',
+        'evidence_refs': [_ref(artifact_id, spans[1], 'Frank and Sara live in Mirathorn')],
+        'suggested_next_step': 'Review the source',
+    }]} for name in ('object_pass', 'thread_pass')}
+    consolidated = consolidate_category_outputs(outputs, campaign_id='synthetic', session=1)
+    envelope = assemble_envelope(
+        consolidated, campaign_id='synthetic', session_id='session-1',
+        source_artifact_id=artifact_id, model_id='synthetic',
+    )
+    graph = canonical_graph_for_runner(envelope)
+    guarded, _ = validate_and_defer_nonliteral_recap_items(
+        graph, source_text=SOURCE, source_artifact_id=artifact_id,
+        source_sha256=digest, source_span_index=index,
+    )
+    from src.graph_memory.candidate_graph_preview import (
+        candidate_graph_preview_from_dict, validate_candidate_graph_preview,
+    )
+    report = validate_candidate_graph_preview(candidate_graph_preview_from_dict(guarded))
+    assert not report.issues, report
+    assert len(guarded['deferred_items']) == 2
+    assert len({item['item_id'] for item in guarded['deferred_items']}) == 2
+    for item in guarded['deferred_items']:
+        assert item['reason'] == 'Identity unresolved'
+        assert item['suggested_next_step'] == 'Review the source'
+        refs = item['evidence_refs']
+        assert refs[0]['anchor_quotes'] == ['Frank and Sara live in Mirathorn']
+        assert refs[0]['anchor_quote_matches'][0]['match_text'] == 'Frank and Sara live in Mirathorn'
+
+
 def test_literal_matcher_normalizes_quote_spacing_punctuation_and_cache() -> None:
     source = "Frank and Sara live in Mirathorn—serving the Guard."
     artifact_id, digest, index, spans = _case(source)

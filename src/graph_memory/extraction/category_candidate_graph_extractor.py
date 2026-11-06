@@ -1133,6 +1133,26 @@ def consolidate_category_outputs(
     deferred: list[dict[str, Any]] = []
     encounter_job_diag: dict[str, Any] = {"enabled": False}
 
+    def dispositions(payload, collection, prefix, pass_name, seen_ids):
+        for raw in payload.get(collection) or []:
+            if not isinstance(raw, Mapping):
+                continue
+            item = _normalize_disposition(raw, prefix)
+            if active_profile.admitted_source_domains == frozenset({"recap"}):
+                # Producer IDs are pass-local; never merge two held decisions
+                # merely because independent passes both started at D001.
+                local_id = raw.get("item_id")
+                if not isinstance(local_id, str) or not local_id.strip():
+                    raise ValueError(f"{pass_name} {collection}: missing disposition ID")
+                local_id = local_id.strip()
+                if local_id in seen_ids:
+                    raise ValueError(f"{pass_name} {collection}: duplicate disposition ID")
+                seen_ids.add(local_id)
+                item["item_id"] = "recap-model-disposition:" + json.dumps(
+                    [pass_name, local_id], separators=(",", ":"), ensure_ascii=True,
+                )
+            yield item
+
     for pass_spec in active_profile.node_passes:
         pass_name = pass_spec.pass_id
         default_type = pass_spec.default_node_type or "entity"
@@ -1143,12 +1163,9 @@ def consolidate_category_outputs(
             if isinstance(raw, Mapping):
                 nodes.append(_normalize_node(raw, default_type, semantic_state=semantic_state))
         if pass_spec.include_dispositions:
-            for raw in payload.get("ignored_items") or []:
-                if isinstance(raw, Mapping):
-                    ignored.append(_normalize_disposition(raw, "ignored"))
-            for raw in payload.get("deferred_items") or []:
-                if isinstance(raw, Mapping):
-                    deferred.append(_normalize_disposition(raw, "deferred"))
+            seen_disposition_ids: set[str] = set()
+            ignored.extend(dispositions(payload, "ignored_items", "ignored", pass_name, seen_disposition_ids))
+            deferred.extend(dispositions(payload, "deferred_items", "deferred", pass_name, seen_disposition_ids))
 
     encounter_pass_id = (
         active_profile.encounter_job_pass.pass_id
