@@ -20,14 +20,33 @@ def test_existing_trace_codec_preserves_unavailable_without_claiming_retrieval()
     observe_native_retrieval(SimpleNamespace(),'source_search','native-corpus-search:selected')
 
 
-def test_ordinary_native_progress_is_durable_before_core_io_and_outside_claim_lock(lane,tmp_path,monkeypatch):
+
+@pytest.mark.parametrize('operation,label', [
+    ('source_search', 'What happened near the old tower?'),
+    ('source_section_read', 'Session 8 recap · campaign: c1 · Arrival · lines 12–19'),
+    ('source_document_read', 'Session 8 recap · campaign: c1'),
+])
+def test_named_source_progress_uses_existing_codec_and_preserves_exact_target(operation,label):
+    rows=[]
+    adapter=SimpleNamespace(context_capture=SimpleNamespace(observe=rows.append))
+    for options in ({}, {'completed':True}, {'completed':True,'unavailable':True}):
+        observe_native_retrieval(adapter,operation,'native:selected',label=label,**options)
+    parsed=[TypeAdapter(ContextTraceObservation).validate_python({**row,'sequence':i,'elapsed_ms':i}) for i,row in enumerate(rows)]
+    assert [row.action for row in parsed]==['expanded','retrieved','retained']
+    assert all(row.item_ids==['native:selected',label] for row in parsed)
+    assert all(row.policy_version==f'native_{operation}_progress_v2' for row in parsed)
+    assert parsed[-1].reason_code=='unavailable'
+
+
+@pytest.mark.parametrize("direct_source",[False,True])
+def test_ordinary_native_progress_is_durable_before_core_io_and_outside_claim_lock(lane,tmp_path,monkeypatch,direct_source):
     from apps.live_control_server.services.agent_context_trace_collector import ContextTraceCollector
     from apps.live_control_server.integrations.dungeonmind import native_corpus_source as core
     from tests.test_surface_native_build_ordinary import _fresh_case
     captures=[]; before_io=[]
     original_observe=ContextTraceCollector.observe
     def observe(self,fields):
-        if fields.get('policy_version','').endswith('_progress_v1'):
+        if fields.get('policy_version','').endswith('_progress_v2'):
             assert self.fence.renewer._lock.acquire(blocking=False), 'Progress re-entered the claim lock'
             self.fence.renewer._lock.release()
             captures.append(self)
@@ -37,9 +56,12 @@ def test_ordinary_native_progress_is_durable_before_core_io_and_outside_claim_lo
         capture=captures[-1]
         turn=capture.fence.renewer._turn
         rows=capture.fence.service.list_context_trace_attempts(world_id=turn.world_id,turn_id=turn.turn_id)[-1].observations
-        progress=[row for row in rows if row.kind=='context_decision' and row.policy_version.endswith('_progress_v1')]
+        progress=[row for row in rows if row.kind=='context_decision' and row.policy_version.endswith('_progress_v2')]
         assert progress[-1].action=='expanded'
-        before_io.append((progress[-1].policy_version,progress[-1].item_ids[0]))
+        assert len(progress[-1].item_ids)==2 and progress[-1].item_ids[1].strip()
+        if progress[-1].policy_version=='native_source_search_progress_v2':
+            assert progress[-1].item_ids[1]==turn.user_text
+        before_io.append((progress[-1].policy_version,progress[-1].item_ids))
     original_search=core.capture_native_sources
     def search(**kwargs):
         inspect_before_io()
@@ -50,14 +72,19 @@ def test_ordinary_native_progress_is_durable_before_core_io_and_outside_claim_lo
         return original_read(**kwargs)
     monkeypatch.setattr(core,'capture_native_sources',search)
     monkeypatch.setattr(core,'read_native_corpus_member',read)
-    case=_fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,native_body='direct_support')
+    original_direct=core.read_direct_native_source
+    def direct(*args,**kwargs):
+        inspect_before_io()
+        return original_direct(*args,**kwargs)
+    monkeypatch.setattr(core,'read_direct_native_source',direct)
+    case=_fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,native_body='direct_support',direct_source=direct_source)
     rows=case.service.list_context_trace_attempts(world_id=case.world,turn_id=case.turn.turn_id)[-1].observations
-    progress=[r for r in rows if r.kind=='context_decision' and r.policy_version.endswith('_progress_v1')]
-    assert {policy for policy, _ in before_io} == {
-        'native_source_search_progress_v1', 'native_source_document_read_progress_v1'}
+    progress=[r for r in rows if r.kind=='context_decision' and r.policy_version.endswith('_progress_v2')]
+    assert {policy for policy, _ in before_io} == ({'native_source_document_read_progress_v2'} if direct_source else {
+        'native_source_search_progress_v2', 'native_source_document_read_progress_v2'})
     assert len(progress) == 2 * len(before_io)
-    for policy,target in before_io:
-        pair=[row for row in progress if row.policy_version==policy and row.item_ids==[target]]
+    for policy,items in before_io:
+        pair=[row for row in progress if row.policy_version==policy and row.item_ids==items]
         assert [row.action for row in pair]==['expanded','retrieved']
     assert case.turn.status=='completed' and case.turn.completion.native_body_citations
     # _fresh_case also verifies exact ordinary replay makes no additional provider call,
