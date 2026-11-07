@@ -289,20 +289,16 @@ describe("App inspector integration", () => {
     );
   });
 
-  it("renders the launcher and Index Agent chrome at the root route", async () => {
+  it("renders the blank Surface and Index Agent chrome at the root route", async () => {
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: /command board/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /buddy surface/i })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Open" })).toBeInTheDocument();
     expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-surface-id", "index");
-    expect(screen.getByRole("link", { name: /plan prep surface/i })).toHaveAttribute("href", "/plan");
-    expect(screen.getByRole("link", { name: /play runbook table deck/i })).toHaveAttribute("href", "/play");
-    expect(screen.getByRole("link", { name: /ingest memory review/i })).toHaveAttribute("href", "/ingest");
-    expect(screen.getByRole("link", { name: /build worldbuilding source/i })).toHaveAttribute("href", "/build");
-    expect(screen.getByRole("link", { name: /combat tracker encounters/i })).toHaveAttribute(
-      "href",
-      "/combat",
-    );
+    const navigation = screen.getByRole("navigation", { name: "Command board navigation" });
+    fireEvent.click(within(navigation).getByRole("button", { name: "Open navigation" }));
+    expect(within(navigation).getByRole("link", { name: "Plan" })).toHaveAttribute("href", "/plan");
+    expect(within(navigation).getByRole("link", { name: "Build" })).toHaveAttribute("href", "/build");
     expect(screen.queryByRole("link", { name: /live control/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /live play/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /retrieval/i })).not.toBeInTheDocument();

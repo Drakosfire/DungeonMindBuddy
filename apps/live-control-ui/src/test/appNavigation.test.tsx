@@ -213,14 +213,14 @@ describe("App same-document primary navigation", () => {
 
     window.history.pushState({}, "", "/");
     render(<App />);
-    expect(screen.getByRole("heading", { name: "Command Board" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Buddy Surface" })).toBeInTheDocument();
   });
 
-  it("navigates Index launcher and AppChrome primary links without replacing the document", async () => {
+  it("navigates blank Surface and AppChrome primary links without replacing the document", async () => {
     const pushSpy = vi.spyOn(window.history, "pushState");
     render(<App />);
 
-    const launcher = screen.getByRole("link", { name: /Prep surface/i });
+    const launcher = within(commandBoardNav()).getByRole("link", { name: "Plan" });
     expect(launcher).toHaveAttribute("href", "/plan");
     fireEvent.click(launcher);
     expect(await screen.findByTestId("plan-canvas-title")).toBeInTheDocument();
@@ -241,9 +241,9 @@ describe("App same-document primary navigation", () => {
     expect(window.location.pathname).toBe("/play");
 
     fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Index" }));
-    expect(await screen.findByRole("heading", { name: "Command Board" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Buddy Surface" })).toBeInTheDocument();
     expect(window.location.pathname).toBe("/");
-    expect(screen.getByRole("link", { name: /Combat Tracker Encounters/i })).toHaveAttribute(
+    expect(within(commandBoardNav()).getByRole("link", { name: "Combat Tracker" })).toHaveAttribute(
       "href",
       "/combat",
     );

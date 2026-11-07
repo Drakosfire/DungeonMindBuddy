@@ -62,6 +62,8 @@ const PlanGraphLensContext = createContext<PlanGraphLensContextValue | null>(nul
 
 interface PlanGraphLensProviderProps {
   planCampaignId: string;
+  /** Inert routes retain lens state without fetching legacy focus bundles. */
+  loadFocusOptions?: boolean;
   /** Server-verified managed World; legacy C1/C2 controls do not apply. */
   managedWorldId?: string | null;
   children: ReactNode;
@@ -118,6 +120,7 @@ const BUNDLE_LOAD_IDLE: BundleLoadState = {
 export function PlanGraphLensProvider({
   planCampaignId,
   managedWorldId = null,
+  loadFocusOptions = true,
   children,
   loadBundle = getSourceBundle,
   focusOptions: focusOptionsOverride,
@@ -174,7 +177,9 @@ export function PlanGraphLensProvider({
     : "";
   const currentValidationKey = planGraphLensValidationKey(lens);
 
-  const focusValidationStatus = effectiveFocusValidationStatus(
+  const focusValidationStatus = !loadFocusOptions
+    ? (lens.focus ? "pending" : "none")
+    : effectiveFocusValidationStatus(
     storedValidation,
     currentValidationKey,
     lens.focus != null,
@@ -280,6 +285,11 @@ export function PlanGraphLensProvider({
 
   // Load grounded focus options for the selected campaigns.
   useEffect(() => {
+    if (!loadFocusOptions) {
+      setFocusOptions([]);
+      setBundleLoadState(BUNDLE_LOAD_IDLE);
+      return;
+    }
     if (focusOptionsOverride !== undefined) {
       setFocusOptions(focusOptionsOverride);
       setBundleLoadState({
@@ -339,6 +349,7 @@ export function PlanGraphLensProvider({
     };
   }, [
     bundleReloadToken,
+    loadFocusOptions,
     focusOptionsOverride,
     loadBundle,
     selectedCampaignKey,
@@ -347,6 +358,7 @@ export function PlanGraphLensProvider({
 
   // Validate active focus against grounded options once bundles resolve for this selection.
   useEffect(() => {
+    if (!loadFocusOptions) return;
     const bundlesMatchSelection =
       bundleLoadState.ready
       && bundleLoadState.selectedCampaignKey === selectedCampaignKey;
@@ -389,6 +401,7 @@ export function PlanGraphLensProvider({
     setFocus(null);
   }, [
     bindValidation,
+    loadFocusOptions,
     bundleLoadState.failedCampaignIds,
     bundleLoadState.loadedCampaignIds,
     bundleLoadState.ready,
@@ -416,7 +429,7 @@ export function PlanGraphLensProvider({
       lens,
       derived,
       summaryLabel,
-      focusOptions,
+      focusOptions: loadFocusOptions ? focusOptions : [],
       focusValidationStatus,
       setSelectedCampaignIds,
       toggleCampaign,
@@ -426,6 +439,7 @@ export function PlanGraphLensProvider({
     }),
     [
       acceptUnverifiedFocus,
+      loadFocusOptions,
       derived,
       focusOptions,
       focusValidationStatus,
