@@ -2,7 +2,7 @@
 import json
 from types import SimpleNamespace
 from hashlib import sha256
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 import httpx2
@@ -28,7 +28,7 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -161,10 +161,21 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
 
     class Writer(httpx.AsyncBaseTransport):
         def __init__(self):
+            from threading import local
             self.calls = []
-            self.adapter = None
+            self._execution = local()
+            self._last_adapter = None
             self.mode = proposal
             self.review = None
+        @property
+        def adapter(self):
+            return getattr(self._execution, 'adapter', self._last_adapter)
+        @adapter.setter
+        def adapter(self, value):
+            # The fake transport is shared by concurrent HTTP requests. Its
+            # provider assertions must inspect that request's own execution.
+            self._execution.adapter = value
+            self._last_adapter = value
         async def handle_async_request(self,req):
             try:
                 return await self._handle(req)
@@ -347,7 +358,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     if draft is not None:
         body['build_draft_context']=draft.model_dump(mode='json',by_alias=True)
         body['client_work_state']='saved_dirty'
-    if proposal:
+    if proposal or capture_write:
         from application_state.build_proposal.types import BuildWriteCapability
         cap=BuildWriteCapability(idempotency_key=uuid4(),conversation_id=draft.conversation_id,
             expected_pointer_revision=draft.expected_pointer_revision,draft_markdown=draft.snapshot.draft_markdown,
@@ -355,9 +366,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 'content_sha256','visibility','draft_sha256','editor_sha256','draft_generation')},
                 caret=1,selection_generation=0))
         body['build_write_capability']=cap.model_dump(mode='json')
-        body['message']=('Add a scene about this: Can I end my move in an occupied space?'
-            if failure=='used_rules' else 'Prepare an illustration of a copper lamp beside the orchid.'
-            if proposal=='image' else 'Add a proposed copper lamp to this page.')
+        if proposal:
+            body['message']=('Add a scene about this: Can I end my move in an occupied space?'
+                if failure=='used_rules' else 'Prepare an illustration of a copper lamp beside the orchid.'
+                if proposal=='image' else 'Add a proposed copper lamp to this page.')
+    if connected_review:
+        body['message']='Prepare a separate connected page from the saved proposal.'
     def current_creative():
         if proposal=='image':
             from uuid import uuid5
@@ -468,8 +482,17 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert retained.json()['message']==body['message']
         retry={**body,'turn_id':str(uuid4()),'retry_of':{'turn_id':str(failed.turn_id),'revision':failed.revision,
             'retained_snapshot_sha256':draft.snapshot.snapshot_sha256}}
+        retry.pop('build_write_capability',None)
+        if capture_write:
+            from application_state.agent_conversation.build_draft_context import native_build_action
+            original_action=native_build_action(failed.graph_context_execution)
+            assert original_action.write_capability is not None
+            resolution,=[e for e in failed.graph_context_execution.events if type(e) is t.BuildRequestedWorkResolutionV1]
+            assert resolution.requested_work=='review_connected_page' and resolution.operation=='answer_from_sources'
         expected_page=source
-        if retry_mutation=='newer_page':
+        if retry_mutation=='write_capability':
+            retry['build_write_capability']=body['build_write_capability']
+        elif retry_mutation=='newer_page':
             save_page(tmp_path,page.document_id,'A newer saved author page must survive explicit Retry.')
             expected_page=get_workspace_document_snapshot(tmp_path,page.document_id)
         elif retry_mutation=='question':
@@ -494,7 +517,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             assert edges==[(1,)]
         else:
             answer=client.post('/api/live/agent/turn',json=retry)
-        if retry_mutation in {'question','reference','revision','newer_page'}:
+        if retry_mutation in {'question','reference','revision','newer_page','write_capability'}:
             assert answer.status_code==409,answer.text
             assert (len(decisions.calls),len(writer.calls))==all_calls
             assert get_workspace_document_snapshot(tmp_path,page.document_id)==expected_page
@@ -511,11 +534,16 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert get_workspace_document_snapshot(tmp_path,page.document_id)==expected_page
         after=client.get(prefix+'/retry-context',params={'turn_ids':str(failed.turn_id)})
         assert after.status_code==200 and after.json()['turns'][0]['context']['reason']=='retried',after.text
+        if capture_write:
+            successor_id=UUID(after.json()['turns'][0]['context']['successor_id'])
+            successor=AgentConversationService().inspect_turn(world_id=world,turn_id=successor_id)
+            action=native_build_action(successor.graph_context_execution)
+            assert action.write_capability is None and action.intent.build_write_capability_sha256 is None
+            assert successor.completion.collaboration.kind=='connected_page'
         original=writer.adapter.service.inspect_turn(world_id=world,turn_id=failed.turn_id)
-        assert original.status=='interrupted' and original.failure_code==failed.failure_code
+        assert original==failed
+        assert lane.repo.get_head(world).head_revision_id==current_revision
         return
-    if connected_review:
-        body['message']='Prepare a separate connected page from the saved proposal.'
     response = client.post('/api/live/agent/turn', json=body)
     if connected_review:
         if connected_review not in {'valid','full_page'}:
@@ -688,6 +716,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     captures = [event for event in turn.graph_context_execution.events if isinstance(event, t.BuildAuthoredReferencesCapturedV1)]
     assert len(captures) == 1 and captures[0].references == selected
     if proposal:
+        from application_state.agent_conversation.retry import retained_discussion_capture, RetryUnavailableError
+        with pytest.raises(RetryUnavailableError,match='authoring target'):
+            retained_discussion_capture(turn)
         from application_state.build_proposal.service import BuildProposalService
         if proposal=='image':
             from uuid import uuid5
@@ -1161,3 +1192,10 @@ def test_native_authorization_is_visible_before_actual_provider_transport(lane,t
     assert trace.terminal_status==('interrupted' if failure else 'completed')
     if failure:
         assert any(o.kind=='failure' and o.stage=='writer_generation' for o in trace.observations)
+
+
+@pytest.mark.parametrize('mutation',[None,'race','newer_page','question','reference','revision','unknown','write_capability'])
+def test_native_connected_review_retries_retained_context_without_inheriting_write_authority(lane,tmp_path,monkeypatch,application_state_dsn,mutation):
+    _fresh_case(lane,tmp_path,monkeypatch,'retry_unknown' if mutation=='unknown' else 'retry_discussion',
+        True,True,False,recovery_dsn=application_state_dsn,retry_mutation=mutation,
+        connected_review='valid',capture_write=True,authored_source='section')
