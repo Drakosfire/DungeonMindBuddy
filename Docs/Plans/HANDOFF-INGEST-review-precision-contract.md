@@ -11,7 +11,7 @@ shared owner. Validate mechanical counts, completeness, uncertainties and pins;
 never infer semantic truth, missing field semantics or default acceptance.
 
 **Stacked** on PR #2189 at exact head/base
-`681e6221cf5dbc0f7f6549d938c32f356726ff43`, then this slice. All #2189 ancestors
+`b4a2cced72f4dbe1f5e60ea8b28ecffc34a66e70`, then this slice. All #2189 ancestors
 settle first in the order recorded in its handoff; re-anchor/rebase after parents
 settle. No merge authority. Branch `codex/ingest-review-precision-contract` reuses
 the existing isolated checkout. Current main and #2189 were fetched/inspected.
