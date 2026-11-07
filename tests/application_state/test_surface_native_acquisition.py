@@ -412,3 +412,237 @@ def test_unavailable_assertion_settles_as_gap_without_fabricated_evidence(
         )
         == completed
     )
+
+
+@pytest.mark.parametrize('mixed', [False, True])
+@pytest.mark.parametrize('question,scoped', [('What did the check reveal in session 8?',True),
+    ('What did the check reveal?',False), ('What did the check reveal in session 99?',False)])
+def test_native_scope_expands_through_actual_sdk_reload_and_exact_core_read(
+    application_state_dsn, lane, monkeypatch, mixed, question, scoped
+):
+    from tests.test_surface_native_writer import body_case, BODY
+    from tests.test_native_corpus_source_access import GM, admit
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import prepare_native_source_context
+    from apps.live_control_server.services import native_source_display
+    from application_state.agent_conversation.native_retrieval import NativeRetrievalSelectedV1
+    from application_state.agent_conversation.native_corpus import NativeBodyReadObservedV1
+
+    admit(lane, 'second', body=BODY)
+    context, record, _ = body_case('plan', lane)
+    record = execution(context.context_receipt_sha256, record.policy)
+    source_context = prepare_native_source_context(managed_world_id='managed', principal=GM,
+        repository=lane.repo, resolve_identity=lambda _:lane.bound)
+    assert source_context.authority == context.source_authority
+    def labels(items, world_id):
+        return [dict(label='Session '+('8' if item.origin.object_id == 'first' else '9'),
+            kind='recap', status='available', origin_matches_current_metadata=True,
+            campaign_id='longmont-c1', session_id='session-'+('8' if item.origin.object_id == 'first' else '9'))
+            for item in items]
+    monkeypatch.setattr(native_source_display, 'source_display_metadata', labels)
+    retained = {'expansion':None}
+    search_first = scoped and not mixed
+    original_head = lane.repo.get_head('world:test')
+
+    def narrow(case):
+        with host(case, source_context=source_context) as adapter:
+            nav = PlanJevDriver(adapter).native_sources
+            rows = nav.offered()
+            expansions = [row for row in rows if row.handle.startswith('native-corpus-expand:')]
+            assert len(expansions) == int(scoped)
+            direct = [row for row in rows if row.handle.startswith('native-direct-source:')]
+            assert len(direct) == (1 if scoped else 2)
+            if search_first:
+                sections = [row for row in rows if row.handle.startswith('native-body:')]
+                assert sections and all('Session 8' in row.label for row in sections)
+            selected = next(row for row in direct if 'Session 8' in row.label)
+            retained['outside_artifact'] = next(pair[0] for pair,display in nav._source_display.items() if display.get('session_id')=='session-9')
+            retained['expansion'] = expansions[0].handle if expansions else None
+            return (expansions[0], selected) if scoped and mixed else tuple(expansions) if scoped else (selected,)
+
+    def apply(case):
+        with host(case, source_context=source_context) as adapter:
+            driver = PlanJevDriver(adapter)
+            step = case.steps[-1]
+            selected = SimpleNamespace(operation=step.selection.operation,
+                selected_handles=tuple(step.selection.selected_handles))
+            dispatch = SimpleNamespace(parent=step.parent, authorization=step.auth, selection=selected)
+            driver.current = dispatch
+            if search_first and retained['expansion'] in selected.selected_handles:
+                # Parent/selection are already durable. Naming can disappear on
+                # reload without revoking this acknowledged navigation choice.
+                monkeypatch.setattr(native_source_display, 'source_display_metadata',
+                    lambda items,_:[dict(status='unavailable',kind='recap',label=None,
+                        campaign_id=None,session_id=None,origin_matches_current_metadata=None) for item in items])
+                driver = PlanJevDriver(adapter)
+                driver.current = dispatch
+            before = tuple(adapter.fence.turn.graph_context_execution.events)
+            if retained['expansion'] in selected.selected_handles:
+                for parent in (step.parent.model_copy(update={'request_id':uuid4()}),
+                        step.parent.model_copy(update={'candidates':()})):
+                    with pytest.raises(ValueError):
+                        driver.native_sources.expand_selected(retained['expansion'],parent=parent)
+                actual_turn=adapter.fence.renewer._turn
+                try:
+                    adapter.fence.renewer._turn=actual_turn.model_copy(update={'attempt':actual_turn.attempt+1})
+                    with pytest.raises(ValueError):
+                        driver.native_sources.expand_selected(retained['expansion'],parent=step.parent)
+                finally:
+                    adapter.fence.renewer._turn=actual_turn
+                assert tuple(adapter.fence.turn.graph_context_execution.events)==before
+            driver.apply(dispatch)
+            after = tuple(adapter.fence.turn.graph_context_execution.events)
+            if scoped and not mixed and retained['expansion'] in selected.selected_handles:
+                assert after == before  # Expansion alone grants/reads nothing.
+                monkeypatch.setattr(native_source_display, 'source_display_metadata', labels)
+            elif any(handle.startswith('native-corpus-search:') for handle in selected.selected_handles):
+                assert not any(isinstance(event,NativeBodyReadObservedV1) for event in after[len(before):])
+            else:
+                reads = [event for event in after[len(before):] if isinstance(event, NativeBodyReadObservedV1)]
+                assert len(reads) == 1 and reads[0].excerpt is not None
+            with pytest.raises(ValueError):
+                driver.native_sources.expand_selected((retained['expansion'] or 'native-corpus-expand:')+'forged', parent=step.parent)
+            if retained['expansion'] and retained['expansion'] not in selected.selected_handles:
+                with pytest.raises(ValueError):
+                    driver.native_sources.expand_selected(retained['expansion'], parent=step.parent)
+            assert any(type(event) is NativeRetrievalSelectedV1 for event in after)
+
+    def broader(case):
+        case.turn = AgentConversationService().inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id)
+        with host(case, source_context=source_context) as adapter:
+            nav = PlanJevDriver(adapter).native_sources
+            rows = nav.offered()
+            assert all(not row.handle.startswith('native-corpus-expand:') for row in rows)
+            direct = [row for row in rows if row.handle.startswith('native-direct-source:')]
+            assert len(direct) == (1 if mixed or not scoped else 2)
+            if search_first:
+                # Original source IDs/catalog pins survive unavailable names.
+                unseen_pair = next(pair for pair,display in nav._source_display.items()
+                    if pair[0] == retained['outside_artifact'])
+                _,catalog_search,_,_ = nav._events()
+                catalog = next(c for c in catalog_search.catalogs
+                    if c.source.artifact.source_artifact_id == unseen_pair[0])
+                return tuple(row for row in rows if row.handle.startswith('native-body:'+catalog.catalog_sha256+':'))
+            return tuple(row for row in direct if 'Session 9' in row.label)
+
+    def search(case):
+        with host(case, source_context=source_context) as adapter:
+            return tuple(row for row in PlanJevDriver(adapter).native_sources.offered()
+                if row.handle.startswith('native-corpus-search:'))
+
+    acquisitions = (((search,apply),) if search_first else ()) + ((narrow,apply),(broader,apply))
+    case = sdk_case(application_state_dsn, context_record=(context,record), native=True,
+        question=question, acquisitions=acquisitions)
+    from tests.application_state.test_surface_native_completion import completed_input, finish
+    def answer(writer):
+        return [dict(kind='native_body_claim', text='The check revealed an origin beyond this plane.',
+            excerpt_handles=[row['excerpt_handle'] for row in writer.frame['native_body_evidence']['excerpts']])]
+    writer = completed_input(application_state_dsn, acquired=case, answer_rows=answer)
+    completed = finish(writer)
+    assert completed.completion.native_body_citations
+    assert all(c.selector_policy == ('markdown_sections_v1' if search_first else 'native_full_document_v1')
+        for c in completed.completion.native_body_citations)
+
+    assert lane.repo.get_head('world:test') == original_head
+
+
+def test_native_expansion_fence_rejects_older_reader_without_row_rewrite(application_state_dsn, monkeypatch):
+    from application_state import cli
+    from application_state.errors import ApplicationStateMigrationError
+    from importlib import import_module
+    cli.assert_at_head(dsn=application_state_dsn)
+    monkeypatch.setattr(cli, '_alembic_head', lambda:'20261106_0121')
+    with pytest.raises(ApplicationStateMigrationError):
+        cli.assert_at_head(dsn=application_state_dsn)
+    fence = import_module('application_state.migrations.versions.20261107_0122_native_candidate_expansion')
+    assert fence.upgrade() is None
+    with pytest.raises(RuntimeError, match='Older readers'):
+        fence.downgrade()
+
+
+def test_native_graph_objects_survive_source_scope_and_share_exact_expansion_batch(
+    application_state_dsn, published_lane, monkeypatch
+):
+    import json
+    from hashlib import sha256
+    from tests.test_source_statements import GM, NOW
+    from tests.test_surface_native_context import seal
+    from application_state.agent_conversation.native_corpus import NativeBodyReadObservedV1
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import prepare_native_source_context
+    from apps.live_control_server.services import native_source_display
+    from dungeonmind.application.vnext import publish_native_text_source_evidence
+    from dungeonmind.contracts.vnext.native_source import NativeTextSourceAdmissionV1
+    from graph_memory.vnext.domain_runtime import dungeonbuddy_world_domain_contract, dungeonbuddy_dnd5e_custom_predicate_profile, GM_LABEL
+    from application_state.agent_conversation.plan_jev_decision import current_selection
+
+    world = published_lane.world.world_id
+    for name in ('session-8','session-9'):
+        body = '# Recap\n\nB fled.\n'
+        publish_native_text_source_evidence(repository=published_lane.repo,
+            domain_contract=dungeonbuddy_world_domain_contract(), semantic_profile=dungeonbuddy_dnd5e_custom_predicate_profile(),
+            request=NativeTextSourceAdmissionV1(space_id=world,admission_id=name,
+                expected_parent_revision_id=published_lane.repo.get_head(world).head_revision_id,
+                created_at=NOW,body_text=body,expected_body_sha256=sha256(body.encode()).hexdigest(),
+                source_classification='dungeonbuddy.source:session_recap',authority='primary',
+                visibility={'kind':'labels_any','labels':[GM_LABEL]},
+                origin={'namespace':'test.scope','object_id':name,'revision_id':'1'},
+                spans=[dict(client_ref='support',evidence_role='support',start_byte=0,end_byte=len(body.encode()),
+                    expected_slice_sha256=sha256(body.encode()).hexdigest())]))
+    binding = SimpleNamespace(managed_world_id=world,native_world_id=world,binding_version=1,provisioning_id='scope-fixture')
+    source_context = prepare_native_source_context(managed_world_id=world,principal=GM,
+        repository=published_lane.repo,resolve_identity=lambda _:binding)
+    graph_context, graph_query = query(published_lane,text='What did B do in session 8?',scope_mode='world')
+    context, record = published_case('plan',published_lane)
+    wire = context.model_dump(mode='json',by_alias=True)
+    wire['source_authority'] = source_context.authority.model_dump(mode='json')
+    wire['native_query'] = graph_query.model_dump(mode='json',by_alias=True)
+    context = type(context).model_validate_json(json.dumps(seal(wire)))
+    policy = record.policy.model_copy(update={
+        'action':record.policy.action.model_copy(update={'intent':record.policy.action.intent.model_copy(update={'message':graph_query.question})}),
+        'source_authority_sha256':t.canonical_sha256(context.source_authority),'native_query_sha256':t.canonical_sha256(graph_query)})
+    record = execution(context.context_receipt_sha256,policy)
+    def labels(items, _):
+        return [dict(label=item.origin.object_id,kind='recap' if item.origin.namespace=='test.scope' else 'worldbuilding',
+            status='available',origin_matches_current_metadata=True,campaign_id='c1',
+            session_id=item.origin.object_id if item.origin.namespace=='test.scope' else None) for item in items]
+    monkeypatch.setattr(native_source_display,'source_display_metadata',labels)
+    graph_handles = set()
+    def select(case):
+        with host(case,query_context=graph_context,source_context=source_context) as adapter:
+            driver = PlanJevDriver(adapter)
+            rows = driver.offered()
+            objects = driver._native_object_candidates()
+            assert objects and {row.handle for row in objects} <= {row.handle for row in rows}
+            graph_handles.update(row.handle for row in objects)
+            expansion = next(row for row in rows if row.handle.startswith('native-corpus-expand:'))
+            return (expansion,objects[0])
+    def apply(case):
+        with host(case,query_context=graph_context,source_context=source_context) as adapter:
+            adapter.broker_graph_operation=lambda *_:pytest.fail('Native scope expansion reached classic Graph broker')
+            driver = PlanJevDriver(adapter)
+            step = case.steps[-1]
+            selection = current_selection(case.turn)
+            before = tuple(adapter.fence.turn.graph_context_execution.events)
+            for handle in selection.selected_handles:
+                if handle.startswith('native-corpus-expand:'):
+                    driver.native_sources.expand_selected(handle,parent=step.parent)
+                    assert tuple(adapter.fence.turn.graph_context_execution.events)==before
+            dispatch = SimpleNamespace(parent=step.parent,authorization=step.auth,
+                selection=SimpleNamespace(operation=selection.operation,selected_handles=tuple(selection.selected_handles)))
+            driver.current=dispatch
+            driver.apply(dispatch)
+            added=adapter.fence.turn.graph_context_execution.events[len(before):]
+            if set(selection.selected_handles)&graph_handles:
+                assert any(isinstance(event,(t.NativePlanStatementReadObservedV1,t.NativePlanAssertionReadObservedV1)) for event in added)
+                assert not any(isinstance(event,NativeBodyReadObservedV1) for event in added)
+            else:
+                assert any(isinstance(event,NativeBodyReadObservedV1) and event.excerpt is not None for event in added)
+    def wider(case):
+        case.turn=AgentConversationService().inspect_turn(world_id=world,turn_id=case.turn.turn_id)
+        with host(case,query_context=graph_context,source_context=source_context) as adapter:
+            return tuple(row for row in PlanJevDriver(adapter).offered()
+                if row.handle.startswith('native-direct-source:') and 'session-9' in row.label)
+    original_head=published_lane.repo.get_head(world)
+    case=sdk_case(application_state_dsn,context_record=(context,record),native=True,
+        acquisitions=((select,apply),(wider,apply)))
+    assert any(isinstance(event,NativeBodyReadObservedV1) for event in case.turn.graph_context_execution.events)
+    assert published_lane.repo.get_head(world)==original_head

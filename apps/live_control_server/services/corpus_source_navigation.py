@@ -305,6 +305,57 @@ class NativeBodyNavigation:
         catalogs = acquired_body_catalogs(execution)
         return tuple((read, catalogs[read.excerpt.catalog_sha256]) for read in acquired_body_reads(execution))
 
+    def expansion_handle(self):
+        from application_state.agent_conversation.native_retrieval import scope_digest
+        turn = self.adapter.fence.turn
+        return 'native-corpus-expand:' + t.canonical_sha256({
+            'scope': scope_digest(turn), 'query': sha256(turn.user_text.encode()).hexdigest()})
+
+    def _expanded(self):
+        from application_state.agent_conversation.native_retrieval import NativeRetrievalSelectedV1
+        handle = self.expansion_handle()
+        return any(type(event) is NativeRetrievalSelectedV1 and
+            event.operation == 'select_candidates' and handle in event.selected_handles
+            for event in self.adapter.fence.turn.graph_context_execution.events)
+
+    def _scoped_offers(self, rows, search):
+        turn = self.adapter.fence.turn
+        if type(turn.graph_context_receipt) is not t.SurfaceNativeContextReceiptV1:
+            return tuple(rows)
+        from .native_source_candidate_scope import preferred_source_pairs
+        self._source_choices()
+        pairs = preferred_source_pairs(turn.user_text, self._source_display)
+        if pairs is None or self._expanded():
+            return tuple(rows)
+        addresses = {handle: pair for handle, (pair, _, _) in self._direct_sources.items()}
+        if search is not None:
+            from application_state.agent_conversation.native_corpus import native_body_handle, native_full_document_handle
+            for catalog in search.catalogs:
+                pair = (catalog.source.artifact.source_artifact_id, catalog.source.revision.source_revision_id)
+                addresses[native_full_document_handle(catalog.catalog_sha256)] = pair
+                addresses.update((native_body_handle(catalog.catalog_sha256, section.section_id), pair)
+                    for section in catalog.sections)
+        known = set(self._source_display)
+        narrowed = [row for row in rows if row.handle not in addresses or
+            addresses[row.handle] not in known or addresses[row.handle] in pairs]
+        if len(narrowed) != len(rows):
+            narrowed.append(RetrievalCandidate(handle=self.expansion_handle(),
+                label='Search beyond the campaign/session hints in this request',
+                kind='Expand to all other admitted native sources and matching sections; no source text is read by this choice'))
+        return tuple(narrowed)
+
+    def expand_selected(self, handle, *, parent):
+        from application_state.agent_conversation.plan_jev_decision import current_selection
+        selection = current_selection(self.adapter.fence.turn)
+        if (handle != self.expansion_handle() or selection.operation != 'select_candidates'
+                or handle not in selection.selected_handles
+                or parent.request_id != selection.decision_request_id
+                or parent.digest != selection.parent_request_sha256
+                or handle not in {row.handle for row in parent.candidates}):
+            raise ValueError('Native corpus expansion lacks its exact acknowledged parent selection')
+        # The admitted event already reconstructs the broad view. No grant,
+        # source read, Graph operation, or extra state transition is needed.
+
     def offered(self):
         from application_state.agent_conversation.native_corpus import (
             NativeCorpusAuthorityV1, native_corpus_search_handle, native_body_handle, native_full_document_handle,
@@ -332,7 +383,7 @@ class NativeBodyNavigation:
             rows.append(RetrievalCandidate(handle=native_corpus_search_handle(sha256(turn.user_text.encode()).hexdigest()),
                 label="Search admitted native source sections for the current question",
                 kind="Source lexical navigation; not evidence or semantic completeness"))
-            return tuple(rows)
+            return self._scoped_offers(rows, search)
         def opened(catalog, start, end):
             return any((known.source.artifact.source_artifact_id, known.source.revision.source_revision_id,
                             known.source.revision.content_sha256) == (catalog.source.artifact.source_artifact_id,
@@ -362,7 +413,7 @@ class NativeBodyNavigation:
                 rows.append(RetrievalCandidate(handle=handle,
                     label="Read full document: " + name + " · matched terms: " + ", ".join(terms),
                     kind="Explicit full-document read"))
-        return tuple(rows)
+        return self._scoped_offers(rows, search)
 
     def examined(self):
         from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1, native_corpus_search_handle
