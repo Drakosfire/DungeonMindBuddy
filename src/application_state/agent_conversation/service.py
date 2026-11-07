@@ -2731,7 +2731,6 @@ class AgentConversationService:
 
         from .rules_authority_policy import capability_for_policy_sha256
         from .rules_authority_output import (
-            MAX_REQUEST_BYTES,
             parse_answer,
             verify_build_output,
         )
@@ -2887,7 +2886,6 @@ class AgentConversationService:
                         )
                         if (hashlib.sha256(request_bytes).hexdigest()
                                 != binding.request_envelope_sha256
-                                or len(request_bytes) > MAX_REQUEST_BYTES
                                 or len(output_bytes) != proof.raw_output_utf8_bytes
                                 or hashlib.sha256(output_bytes).hexdigest()
                                 != proof.raw_output_sha256
