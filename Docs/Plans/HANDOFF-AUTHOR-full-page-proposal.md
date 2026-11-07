@@ -1,7 +1,8 @@
 # AUTHOR: full-page proposal completion
 
 Status: DELIVERED through PR2178, merge413021a988093b8ad28771f27e81752c378b8283.
-Runtime3c69b41d0a44baeffd65311addb615d1c64517e4 is healthy on5202; independent review,
+API3c69b41d0a44baeffd65311addb615d1c64517e4 is healthy on8000; UI5202
+continues serving ce6ec8a493f1373354a35cad94ae7b48845f7b26 and proxies that API. Independent review,
 98 focused tests and seven CI checks passed. Original failure hash and retained
 state are unchanged. No paid retry or operator acceptance is claimed. Lease released.
 
