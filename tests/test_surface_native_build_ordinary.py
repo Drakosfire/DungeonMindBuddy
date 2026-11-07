@@ -2,7 +2,7 @@
 import json
 from types import SimpleNamespace
 from hashlib import sha256
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 import httpx2
@@ -161,10 +161,21 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
 
     class Writer(httpx.AsyncBaseTransport):
         def __init__(self):
+            from threading import local
             self.calls = []
-            self.adapter = None
+            self._execution = local()
+            self._last_adapter = None
             self.mode = proposal
             self.review = None
+        @property
+        def adapter(self):
+            return getattr(self._execution, 'adapter', self._last_adapter)
+        @adapter.setter
+        def adapter(self, value):
+            # The fake transport is shared by concurrent HTTP requests. Its
+            # provider assertions must inspect that request's own execution.
+            self._execution.adapter = value
+            self._last_adapter = value
         async def handle_async_request(self,req):
             try:
                 return await self._handle(req)
@@ -514,11 +525,6 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert answer.status_code==200,answer.text
         assert len(writer.calls)==count+1
         assert answer.json()['knowledge_context']['delivery_replay'] is False
-        if capture_write:
-            successor=writer.adapter.service.inspect_turn(world_id=world,turn_id=writer.adapter.turn.turn_id)
-            action=native_build_action(successor.graph_context_execution)
-            assert action.write_capability is None and action.intent.build_write_capability_sha256 is None
-            assert successor.completion.collaboration.kind=='connected_page'
         replay=client.post('/api/live/agent/turn',json=retry)
         assert replay.status_code==200 and replay.json()['knowledge_context']['delivery_replay'] is True,replay.text
         assert len(writer.calls)==count+1
@@ -528,6 +534,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert get_workspace_document_snapshot(tmp_path,page.document_id)==expected_page
         after=client.get(prefix+'/retry-context',params={'turn_ids':str(failed.turn_id)})
         assert after.status_code==200 and after.json()['turns'][0]['context']['reason']=='retried',after.text
+        if capture_write:
+            successor_id=UUID(after.json()['turns'][0]['context']['successor_id'])
+            successor=AgentConversationService().inspect_turn(world_id=world,turn_id=successor_id)
+            action=native_build_action(successor.graph_context_execution)
+            assert action.write_capability is None and action.intent.build_write_capability_sha256 is None
+            assert successor.completion.collaboration.kind=='connected_page'
         original=writer.adapter.service.inspect_turn(world_id=world,turn_id=failed.turn_id)
         assert original==failed
         assert lane.repo.get_head(world).head_revision_id==current_revision
