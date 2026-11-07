@@ -98,10 +98,15 @@ def extract_category_candidate_graph(options, client):
         result = put(name + '.result.json', {'run': run, 'components': components})
         a = copy.deepcopy(original)
         a['subject'] = {'candidate': cp, 'result': {'artifact': result, 'pointer': '/run'}}
-        review = put(name + '.review.json', {'run_id': name, 'revision': 5, 'candidate_sha256': cp['sha256'], 'checks': [{'criterion_id': 'F1'}]})
-        phase = a['phases']['raw_extraction']; phase['phase_evidence'] = [review]
-        phase['judgments'][0]['review'] = {'artifact': review, 'pointer': '/checks/0'}
-        phase['judgments'][0]['evidence'] = [{'artifact': cp, 'pointer': '/nodes/0/description'}]
+        phase = a['phases']['raw_extraction']
+        judgment = phase['judgments'][0]
+        judgment['evidence'] = [{'artifact': cp, 'pointer': '/nodes/0/description'}]
+        verdict = {k: copy.deepcopy(judgment[k]) for k in
+                   ('criterion_id', 'outcome', 'reason', 'evidence')}
+        review = put(name + '.review.json', {'run_id': name, 'revision': 5,
+            'candidate_sha256': cp['sha256'], 'checks': [verdict]})
+        phase['phase_evidence'] = [review]
+        judgment['review'] = {'artifact': review, 'pointer': '/checks/0'}
         return {'id': name, 'result': result, 'source': source_pin,
                 'request': put(name + '.request.json', {'session': 1, 'campaign_id': 'generic'}),
                 'assessment': put(name + '.assessment.json', a)}
@@ -142,6 +147,17 @@ def test_successful_report_tamper_is_not_reused(normalization):
     report.write_text('{}')
     with pytest.raises(ValueError, match='Pin mismatch'):
         compare(path)
+
+
+def test_unreviewed_verdict_change_refused_before_normalization_workers(normalization):
+    spec, save, replace_pin, _, _ = normalization
+    pin = spec['cases'][0]['assessment']
+    assessment = json.loads(Path(pin['path']).read_text())
+    assessment['phases']['raw_extraction']['judgments'][0]['outcome'] = 'unknown'
+    replace_pin(pin, assessment)
+    with pytest.raises(ValueError, match='Review judgment differs for F1: outcome'):
+        compare(save())
+    assert not Path(spec['output']).exists()
 
 
 def test_actual_deepseek_owner_prepares_prompts_without_execution(monkeypatch):

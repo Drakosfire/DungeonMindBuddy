@@ -36,6 +36,7 @@ accepted it; the original artifacts were not changed.
 - `src/ingestion_evaluation/assessment.py`
 - `tests/test_ingestion_evaluation_assessment.py`
 - `tests/test_ingestion_evaluation_comparison.py`
+- `tests/test_ingestion_evaluation_normalization.py`
 - `Docs/Guides/ingestion-study-assessments.md`
 
 ## Invariant and failure cases
@@ -73,3 +74,14 @@ Evidence is retained in the study workspace at
 `study-deepseek-resumption-v1/verdict-binding-retained-validation-v1.json`.
 These checks establish projection integrity, not semantic nonregression or
 default acceptance. Independent cumulative-head review remains required.
+
+## Required fixture checkpoint
+
+A broader tooling check found that the retained-normalization fixture still
+pinned an identity-only review. It now retains the explicit canonical fixture
+verdict, and a normalization-boundary test proves forged assessments fail before
+workers/output. Root extends this slice's test lease to that one existing file;
+no normalization implementation or protocol changes are absorbed. This belongs
+with the parent verifier fix, not its precision-contract successor. The earlier
+134-test/exact-head review remains historical; the revised cumulative head needs
+its own formal review before remote delivery.
