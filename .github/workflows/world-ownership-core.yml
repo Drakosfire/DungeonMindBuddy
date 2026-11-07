@@ -1,6 +1,7 @@
 name: World ownership core tests
 
 on:
+  workflow_dispatch:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
@@ -112,7 +113,7 @@ jobs:
       - name: Run World and Content ownership tests
         if: matrix.suite == 'world-and-content'
         run: >-
-          uv run --locked pytest -q --tb=short --show-capture=no
+          uv run --locked pytest -q --tb=short --show-capture=no --durations=0 --durations-min=0
           tests/application_state/test_conversation_library.py::test_active_messages_never_select_or_decode_execution_and_keep_exact_cursor
           tests/application_state/test_conversation_library.py::test_active_message_pointer_and_rows_are_one_snapshot
           tests/application_state/test_world_catalog_postgres.py
@@ -136,7 +137,7 @@ jobs:
       - name: Run ingestion and reviewed publication tests
         if: matrix.suite == 'ingestion-and-review'
         run: >-
-          uv run --locked pytest -q --tb=short --show-capture=no
+          uv run --locked pytest -q --tb=short --show-capture=no --durations=0 --durations-min=0
           tests/test_native_ingest_review_context.py
           tests/test_ingest_selection_context.py
           tests/test_saved_recap_runs.py
@@ -176,7 +177,7 @@ jobs:
       - name: Run query answer-authority regressions
         if: matrix.suite == 'query-and-answer'
         run: >-
-          uv run --locked pytest -q --tb=short --show-capture=no
+          uv run --locked pytest -q --tb=short --show-capture=no --durations=0 --durations-min=0
           tests/test_conversation_library_routes.py
           tests/application_state/test_conversation_trash.py
           tests/application_state/test_conversation_messages.py
@@ -208,7 +209,7 @@ jobs:
       - name: Run saved-page owner and semantic-reader tests
         if: matrix.suite == 'saved-page-readers'
         run: >-
-          uv run --locked pytest -q --tb=short --show-capture=no
+          uv run --locked pytest -q --tb=short --show-capture=no --durations=0 --durations-min=0
           tests/test_graph_document_source.py
           tests/test_graph_document_relationship.py
           tests/test_build_document_proposal.py

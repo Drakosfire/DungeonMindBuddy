@@ -61,3 +61,23 @@ ci-deduplication-{collection-proof,environment-proof,indexed-collected}.json and
 ci-deduplication-retained-tests.log. Initial literal-name comparison is retained;
 its nine UUID-only differences are not treated as missing coverage. This establishes
 selection preservation, not timing gains or a cleaned performance baseline.
+
+## Operator sequencing amendment
+
+On2026-11-07 the operator explicitly waived CI gates for this demolition work and
+allowed larger coherent PRs. Consolidate cleanup and baseline observation inPR2201;
+retain local validation and independent exact-head review. Cancel this PR's running
+gate jobs under that instruction. The waiver is scoped to this CI change, not the
+separate product stack. Do not wait for or retry these canceled gate jobs.
+
+The same five pytest commands add built-in --durations=0 --durations-min=0 to retain
+all setup/call/teardown phase timings. Both existing workflows gain workflow_dispatch
+so one deliberate main-revision baseline can run after merge without another PR.
+No new job, dependency, framework, test selection, timeout, fixture or runtime change.
+Capture GitHub run/job/step timestamps for queue/setup/test/runner time, download
+exact logs, and record source revision, skip/failure/timeout counts and retry delays.
+Phase timings are console-rounded; do not treat their sum as exact wall time.
+
+Local checks prove all other workflow settings and test selectors unchanged and
+exercise the exact timing flags on an existing in-memory test, which passes and
+prints setup/call/teardown. The baseline has not run and no speed gain is claimed.

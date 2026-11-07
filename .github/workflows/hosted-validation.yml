@@ -1,6 +1,7 @@
 name: Hosted validation
 
 on:
+  workflow_dispatch:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
@@ -78,7 +79,7 @@ jobs:
 
       - name: Run auth/app integration tests
         run: |
-          uv run --locked pytest -q --tb=short --show-capture=no \
+          uv run --locked pytest -q --tb=short --show-capture=no --durations=0 --durations-min=0 \
             tests/test_hosted_auth.py \
             tests/test_hosted_auth_login.py \
             tests/test_dms_principal.py \
