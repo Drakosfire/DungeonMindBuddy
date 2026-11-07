@@ -8,7 +8,7 @@ def _campaign_number(value):
     return int(match[1]) if match else None
 
 
-def preferred_source_pairs(question, displays):
+def preferred_source_pairs(question, displays, *, opened_reference_pairs=()):
     """Return a hinted view, or None when no admitted source positively matches.
 
     Unknown/stale labels remain visible. Names only add sources to an explicit
@@ -17,7 +17,13 @@ def preferred_source_pairs(question, displays):
     query = question.casefold()
     # These require semantic exclusion reasoning; this positive-hint view does
     # not guess its inverse. Keep the broad catalog for the controller instead.
-    if re.search(r"\b(?:no|not|never|cannot|except|exclude|excluding|outside|without)\b|\bother than\b|\b\w+n['’]t\b", query):
+    scope_query = query
+    if opened_reference_pairs:
+        # A terminal non-writing directive is not a source exclusion. Keep
+        # other negation conservative, including any earlier scope clause.
+        scope_query = re.sub(r"(?:^|(?<=[.!?])\s+)(?:discuss only;\s*)?(?:do not|don['’]t)\s+(?:edit|save|publish)"
+            r"(?:\s*(?:,|\bor\b|\band\b)\s*(?:edit|save|publish))*[.!]?\s*$", "", query)
+    if re.search(r"\b(?:no|not|never|cannot|except|exclude|excluding|outside|without)\b|\bother than\b|\b\w+n['’]t\b", scope_query):
         return None
     hints = {(int(c), int(s)) for c, s in re.findall(r"\bc(\d+)\s*s(\d+)\b", query)}
     hints.update((int(c), None) for c in re.findall(r"\bcampaign\s+(\d+)\b", query))
@@ -26,7 +32,20 @@ def preferred_source_pairs(question, displays):
         if isinstance(d.get('campaign_id'), str) and d['campaign_id'] and
         re.search(r"(?<!\w)" + re.escape(d['campaign_id'].casefold()) + r"(?!\w)", query)}
     if not hints and not sessions and not ids:
-        return None
+        # Successful human reads are an initial navigation hint, not a source
+        # restriction. Unknown/stale labels and explicitly named alternatives
+        # must not disappear behind that hint.
+        references = set(opened_reference_pairs)
+        if not references:
+            return None
+        known = {pair for pair, display in displays.items()
+            if display.get('status') == 'available'
+            and display.get('origin_matches_current_metadata') is True}
+        selected = references & known
+        named_other = any(pair not in references and isinstance(display.get('label'), str)
+            and display['label'].strip() and re.search(r"(?<!\w)" + re.escape(display['label'].casefold()) + r"(?!\w)", query)
+            for pair, display in displays.items())
+        return frozenset(selected | (set(displays) - known)) if selected and not named_other else None
     kept, matched = set(), False
     for pair, display in displays.items():
         if (display.get('status') != 'available' or

@@ -350,7 +350,12 @@ class NativeBodyNavigation:
             return tuple(rows)
         from .native_source_candidate_scope import preferred_source_pairs
         self._source_choices()
-        pairs = preferred_source_pairs(turn.user_text, self._source_display)
+        from application_state.agent_conversation.native_corpus import NativeAuthoredSourceReadV1
+        references = set()
+        if search is None:
+            references = {(read.catalog.source.artifact.source_artifact_id, read.catalog.source.revision.source_revision_id)
+                for read in turn.graph_context_execution.events if isinstance(read, NativeAuthoredSourceReadV1)}
+        pairs = preferred_source_pairs(turn.user_text, self._source_display, opened_reference_pairs=references)
         keywords = self._selected_keywords() if search is not None else set()
         # An unfiltered catalogue is presentation, not an acknowledged action.
         # Require execution ownership only when a hint can actually affect it.
@@ -380,7 +385,7 @@ class NativeBodyNavigation:
                 narrowed = [row for row in narrowed if row.handle not in hits or keywords & hits[row.handle]]
         if len(narrowed) != len(rows):
             narrowed.append(RetrievalCandidate(handle=self.expansion_handle(),
-                label='Search beyond the campaign/session and keyword hints in this request',
+                label='Search beyond the selected-reference, campaign/session and keyword hints in this request',
                 kind='Expand to all other admitted native sources and matching sections; no source text is read by this choice'))
         return tuple(narrowed)
 

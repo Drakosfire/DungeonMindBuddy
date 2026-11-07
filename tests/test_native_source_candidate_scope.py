@@ -57,3 +57,32 @@ def test_names_only_add_and_identical_ordinals_do_not_guess_campaign_identity():
 def test_session16_shorthand_is_a_positive_navigation_hint():
     assert preferred_source_pairs('What happened in session16?', {
         'a':display(session='session-16'), 'b':display(session='session-17')}) == frozenset({'a'})
+
+
+@pytest.mark.parametrize('question,expected', [
+    ('What does the selected recap establish?', {'selected','unknown'}),
+    ('What repairs that central mass after it is burned? Cite the selected recap. Discuss only; do not edit or save.', {'selected','unknown'}),
+    ('Compare it with C2S20. Do not save.', {'other','unknown'}),
+    ('Outside C2S20. Do not edit or save.', None),
+    ('Compare it with C2S20', {'other','unknown'}),
+    ('Look outside the selected recap', None),
+    ('Do not limit this to the selected recap', None),
+    ('What does Winter recap add?', None),
+    ('I do not publish.', None),
+    ("We don't save.", None),
+    ('The source says: do not publish.', None),
+    ("What does the selected recap establish? Don't save.", {'selected','unknown'}),
+])
+def test_opened_reference_hint_preserves_explicit_scope_and_broad_requests(question,expected):
+    rows={'selected':display(session='session-16'),
+        'other':display('longmont-c2','session-20'),
+        'unknown':dict(display(),status='unavailable')}
+    rows['other']['label']='Winter recap'
+    actual=preferred_source_pairs(question,rows,opened_reference_pairs={('absent','revision'),'selected'})
+    assert actual==(None if expected is None else frozenset(expected))
+
+
+@pytest.mark.parametrize('reference', [set(),{'missing'}, {'unknown'}])
+def test_missing_or_unavailable_reference_metadata_does_not_narrow(reference):
+    rows={'other':display(), 'unknown':dict(display(),status='unavailable')}
+    assert preferred_source_pairs('What happened?',rows,opened_reference_pairs=reference) is None

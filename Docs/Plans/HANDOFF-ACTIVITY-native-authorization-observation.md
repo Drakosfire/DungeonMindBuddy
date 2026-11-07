@@ -1,6 +1,16 @@
 # ACTIVITY: observe native authorization before provider transport
 
-Status: ACTIVE. PRIME owns this bounded operator-authorized activity correction.
+Status: DELIVERED. PR2186 reviewed head999c0b8002d8fda5c0c7ab8261b43c8ac3b218ff
+merged at4bbf580bf65bfee295d4277287469ad91ac79d29 after independent review and
+all7CI. API8000 integration1e866e4a82beb40b703a70a78442c34be2779c36 delivered
+without schema/UI changes; retained database/session fingerprints unchanged.
+Owning152 tests passed. Ordinary turnb0f44a5a-5299-48e7-af9f-55a91ddf9b90
+showed source-read → waiting → completion, one authorization for each of5calls,
+and a23-row full timeline that stayed open through completion. Its Session16
+citation opened and supported the answer. Only5expected agent tables changed.
+This proves the bounded observation correction; broader activity/recovery and
+References/authoring/operator acceptance remain open. Runtime lease released.
+PR2187 consumes this foundation; it does not yet establish retrieval gains.
 Base: bc405328880e2e5abed8d7bb06d6f1b26b3b10d3, fetched remote main.
 Branch: codex/native-authorization-activity, existing buddy-context-loop checkout.
 Topology: serial after merged and delivered PR2185. Existing INGEST lanes do not
