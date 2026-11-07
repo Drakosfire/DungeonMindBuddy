@@ -14,6 +14,8 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, model_validator
 from generationengine.types import ChoiceDecisionAnswer, ChoiceDecisionQuestion, DecisionRequest, DecisionResult
 
+from .native_source_keywords import KEYWORD_KIND, KEYWORD_GUIDANCE
+
 MODEL = "jev-1.14.0"
 PROVIDER = "typesafe"
 Operation = Literal["select_candidates", "discover_more", "finish_retrieval"]
@@ -149,6 +151,12 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
                   "If discovery is unavailable, finish_with_gaps explicitly ends retrieval with unresolved questions. "
                   "This independent fallback never selects candidates or answers the user."))]
     for index, _candidate in enumerate(request.candidates):
+        if _candidate.kind == KEYWORD_KIND:
+            questions.append(ChoiceDecisionQuestion(name=f"candidate_{index}", options=("include", "exclude"),
+                question=(f"Is {_candidate.label} a useful content keyword for locating the existing material requested? "
+                    "Apply keyword_selection_guidance; include for source-content topics, exclude source scope, "
+                    "grammar and future creative instructions. This independent metadata vote does not authorize a read.")))
+            continue
         questions.append(ChoiceDecisionQuestion(
             name=f"candidate_{index}", options=("include", "exclude"),
             question=(f"Use {_candidate.label} ({_candidate.kind}) for user's question? "
@@ -165,6 +173,8 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
                  "Prior answers do not satisfy a new corpus request. Dialogue resolves references, never evidence. "
                  "Attempted means tried, not verified; do not infer successful coverage or exhaust the catalog."),
              "candidates": [{"label": c.label, "kind": c.kind} for c in request.candidates]}
+    if any(c.kind == KEYWORD_KIND for c in request.candidates):
+        state["keyword_selection_guidance"] = KEYWORD_GUIDANCE
     if type(request) is NativeBuildRetrievalDecisionInputV2:
         state["relevance_guidance"] += " " + BUILD_AUTHORING_RELEVANCE
     if any(c.kind == 'Exact source section' for c in request.candidates):
@@ -226,13 +236,17 @@ def decode_selection(request: RetrievalDecisionInput, result: DecisionResult) ->
         if not isinstance(answer, ChoiceDecisionAnswer):
             raise ValueError("Decision answer must be a typed choice")
         choices[name] = answer.selected
-    handles = []
+    handles, keywords = [], []
     for index, candidate in enumerate(request.candidates):
         choice = choices[f"candidate_{index}"]
         if choice not in {"include", "exclude"}:
             raise ValueError("Unknown candidate choice")
         if choice == "include":
-            handles.append(candidate.handle)
+            (keywords if candidate.kind == KEYWORD_KIND else handles).append(candidate.handle)
+    # Hints cannot create a read or keep retrieval alive by themselves. Preserve
+    # their actual votes in the captured SDK response even when fallback ends.
+    if handles:
+        handles.extend(keywords)
     if choices["operation"] not in fallback_options(request):
         raise ValueError("Fallback operation not offered by parent")
     # Independent relevance votes select offered reads. The global judgment is
