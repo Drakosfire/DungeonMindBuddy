@@ -305,6 +305,35 @@ class NativeBodyNavigation:
         catalogs = acquired_body_catalogs(execution)
         return tuple((read, catalogs[read.excerpt.catalog_sha256]) for read in acquired_body_reads(execution))
 
+    def _keyword_catalog(self):
+        from application_state.agent_conversation.native_retrieval import scope_digest
+        from application_state.agent_conversation.native_source_keywords import keyword_catalog
+        turn = self.adapter.fence.turn
+        return keyword_catalog(turn.user_text, scope_digest(turn))
+
+    def _keyword_offers(self):
+        from application_state.agent_conversation.native_retrieval import NativeRetrievalSelectedV1
+        from application_state.agent_conversation.native_source_keywords import KEYWORD_KIND
+        turn = self.adapter.fence.turn
+        if (type(turn.graph_context_receipt) is not t.SurfaceNativeContextReceiptV1 or
+                any(type(e) is NativeRetrievalSelectedV1 for e in turn.graph_context_execution.events) or
+                self._acquired_extents()):
+            return ()
+        return tuple(RetrievalCandidate(handle=handle, label=repr(word), kind=KEYWORD_KIND)
+            for handle, word in self._keyword_catalog().items())
+
+    def _selected_keywords(self):
+        from application_state.agent_conversation.native_retrieval import NativeRetrievalSelectedV1
+        catalog = self._keyword_catalog()
+        return {catalog[handle] for event in self.adapter.fence.turn.graph_context_execution.events
+            if type(event) is NativeRetrievalSelectedV1 and event.operation == 'select_candidates'
+            for handle in event.selected_handles if handle in catalog}
+
+    def accept_keyword_selection(self, handle, *, parent):
+        if handle not in self._keyword_catalog():
+            raise ValueError('Native keyword belongs to another query or frozen scope')
+        self._require_metadata_selection(handle, parent=parent)
+
     def expansion_handle(self):
         from application_state.agent_conversation.native_retrieval import scope_digest
         turn = self.adapter.fence.turn
@@ -325,7 +354,7 @@ class NativeBodyNavigation:
         from .native_source_candidate_scope import preferred_source_pairs
         self._source_choices()
         pairs = preferred_source_pairs(turn.user_text, self._source_display)
-        if pairs is None or self._expanded():
+        if self._expanded():
             return tuple(rows)
         addresses = {handle: pair for handle, (pair, _, _) in self._direct_sources.items()}
         if search is not None:
@@ -336,23 +365,38 @@ class NativeBodyNavigation:
                 addresses.update((native_body_handle(catalog.catalog_sha256, section.section_id), pair)
                     for section in catalog.sections)
         known = set(self._source_display)
-        narrowed = [row for row in rows if row.handle not in addresses or
+        narrowed = [row for row in rows if pairs is None or row.handle not in addresses or
             addresses[row.handle] not in known or addresses[row.handle] in pairs]
+        if search is not None:
+            from application_state.agent_conversation.native_corpus import native_body_handle
+            keywords = self._selected_keywords()
+            hits = {native_body_handle(hit.catalog_sha256, hit.section_id): set(hit.matched_terms)
+                for hit in search.matches}
+            # A positive hit can prioritize known sections. Unknown metadata and
+            # all full-document/Graph/Rules choices remain reachable. No literal
+            # match is not semantic absence, so retain the current view then.
+            if keywords and any(keywords & hits.get(row.handle, set()) for row in narrowed):
+                narrowed = [row for row in narrowed if row.handle not in hits or keywords & hits[row.handle]]
         if len(narrowed) != len(rows):
             narrowed.append(RetrievalCandidate(handle=self.expansion_handle(),
-                label='Search beyond the campaign/session hints in this request',
+                label='Search beyond the campaign/session and keyword hints in this request',
                 kind='Expand to all other admitted native sources and matching sections; no source text is read by this choice'))
         return tuple(narrowed)
 
-    def expand_selected(self, handle, *, parent):
+    def _require_metadata_selection(self, handle, *, parent):
         from application_state.agent_conversation.plan_jev_decision import current_selection
         selection = current_selection(self.adapter.fence.turn)
-        if (handle != self.expansion_handle() or selection.operation != 'select_candidates'
+        if (selection.operation != 'select_candidates'
                 or handle not in selection.selected_handles
                 or parent.request_id != selection.decision_request_id
                 or parent.digest != selection.parent_request_sha256
                 or handle not in {row.handle for row in parent.candidates}):
-            raise ValueError('Native corpus expansion lacks its exact acknowledged parent selection')
+            raise ValueError('Native navigation lacks its exact acknowledged parent selection')
+
+    def expand_selected(self, handle, *, parent):
+        if handle != self.expansion_handle():
+            raise ValueError('Native corpus expansion belongs to another query or frozen scope')
+        self._require_metadata_selection(handle, parent=parent)
         # The admitted event already reconstructs the broad view. No grant,
         # source read, Graph operation, or extra state transition is needed.
 
@@ -383,6 +427,7 @@ class NativeBodyNavigation:
             rows.append(RetrievalCandidate(handle=native_corpus_search_handle(sha256(turn.user_text.encode()).hexdigest()),
                 label="Search admitted native source sections for the current question",
                 kind="Source lexical navigation; not evidence or semantic completeness"))
+            rows.extend(self._keyword_offers())
             return self._scoped_offers(rows, search)
         def opened(catalog, start, end):
             return any((known.source.artifact.source_artifact_id, known.source.revision.source_revision_id,

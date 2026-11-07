@@ -1,6 +1,14 @@
 # RETRIEVAL: preserve frozen Build dialogue in native retrieval
 
-Status: ACTIVE. PRIME owns this operator-authorized context-retrieval correction.
+Status: DELIVERED through PR2183, merge 02e5c158d735a81511f1ca68f4caaec8f1fbce8f.
+Independent review and all seven checks passed. API integration
+86facdc655f53962920a29dd1027169806ab7d93 preserves the deployed INGEST work;
+UI unchanged. Ordinary broad turn 8b073e07-7ac0-41ae-9190-523653097696 delivered
+supported output in 71.1s, and selected-source contrast bdf9ab43-8807-47f8-a90a-992c49474cc2
+delivered in 10.4s. Prior aec78a07-b3db-4f04-9491-0c78922a5aec writer timeout is
+preserved. Frozen dialogue was present in every observed retrieval SDK request.
+No repeatable material speedup is established. Runtime lease released; keyword
+prioritization is the serial successor, not proof of whole-goal completion.
 Base: f15f11957268d3e61723b031727a237e55e14358 (remote main, re-anchored 2026-11-07).
 Branch: codex/build-native-retrieval-dialogue, existing buddy-context-loop checkout.
 Topology: serial after merged/delivered PR2182. No new checkout/environment. Open
