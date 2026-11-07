@@ -681,3 +681,29 @@ def test_dispatched_writer_output_is_debug_only_without_completion_acknowledgeme
     with pytest.raises(ApplicationStateValidationError,match='producing provider response'):
         capture.controller_decision_response(raw,producing_provider_attempt_id=producer)
     assert len(store.trace.observations)==1
+
+
+@pytest.mark.parametrize('direct_native', [False, True])
+def test_native_prompt_observation_respects_authorization_publisher(tmp_path, monkeypatch, direct_native):
+    from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter
+    from application_state.agent_conversation import native_execution
+    monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(tmp_path))
+    class NativeExecution:
+        pass
+    monkeypatch.setattr(native_execution,'SurfaceNativeExecutionV1',NativeExecution)
+    capture,store,turn=collector()
+    turn.graph_context_execution=NativeExecution()
+    authorization=SimpleNamespace(provider_attempt_id=uuid4(),provider='openai',model='synthetic',
+        api_mode='responses',serializer_version='serializer')
+    adapter=SimpleNamespace(context_capture=capture)
+    view={'payloadJson':'{}','payloadSha256':sha256(b'{}').hexdigest(),'payloadUtf8Bytes':2}
+    _PolicyExecutionAdapter._capture_prepared_prompt(adapter,view,authorization,observe_authorization=direct_native)
+    if not direct_native:
+        # The generic caller publishes its original complete diagnostic unchanged.
+        capture.observe(dict(kind='provider_call',provider='openai',model='synthetic',
+            provider_attempt_id=authorization.provider_attempt_id,outcome='authorized',
+            input_upper_bound=42,input_estimator='utf8_json_bytes_plus_64_per_node_v1'))
+    assert [o.kind for o in store.trace.observations]==['prompt_reference','provider_call']
+    grant=store.trace.observations[1]
+    assert grant.provider_attempt_id==authorization.provider_attempt_id
+    assert grant.input_upper_bound==(None if direct_native else 42)

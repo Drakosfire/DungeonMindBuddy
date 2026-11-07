@@ -270,3 +270,29 @@ it.each(['unrelated_producer','new_source','validated','failure','late_failure_u
     mount(trace(observations))
     await screen.findByText(expected)
   })
+
+
+it('advances from a captured native prompt to its recorded writer authorization without another arrival',async()=>{
+  const attempt='2c75f1da-9277-4dca-8cd2-e5b8e659bd97'
+  const prior:BuddyTurnContextTrace['observations']=[
+    {kind:'context_decision',action:'retrieved',item_ids:['read','Session 20'],reason_code:'question_relevance',
+      policy_version:'native_source_document_read_progress_v2',sequence:0,elapsed_ms:1000},
+    {kind:'prompt_reference',evidence_id:'a'.repeat(64),provider_attempt_id:attempt,
+      provider:'openai',model:'writer',api_mode:'responses',serializer_version:'openai-sdk-json-v1',
+      payload_sha256:'b'.repeat(64),payload_utf8_bytes:120,sequence:1,elapsed_ms:2000},
+  ]
+  const {load,loadPrompt}=mount(trace(prior))
+  await screen.findByText('Preparing the request…')
+  load.mockResolvedValue({schema:'dmb_agent_turn_context_trace_response_v1',world_id:'world',turn_id:'turn',attempts:[trace([
+    ...prior,{kind:'provider_call',provider:'openai',model:'writer',provider_attempt_id:attempt,
+      outcome:'authorized',sequence:2,elapsed_ms:2001},
+  ])]})
+  const status=await screen.findByText('Waiting for a response…',{}, {timeout:3500})
+  expect(status).not.toHaveTextContent('Preparing the request')
+  expect(screen.queryByText('A response has arrived.')).toBeNull()
+  fireEvent.click(status)
+  await screen.findByText('Execution timeline')
+  expect(document.querySelectorAll('.buddy-context-trace > details > ol > li')).toHaveLength(3)
+  expect(screen.getByText('Execution timeline').closest('details')).toHaveAttribute('open')
+  expect(loadPrompt).not.toHaveBeenCalled()
+})

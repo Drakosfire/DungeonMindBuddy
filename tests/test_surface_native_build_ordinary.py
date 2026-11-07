@@ -28,7 +28,7 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -132,6 +132,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             self.deny_routing=False
         async def handle_async_request(self, req):
             self.calls.append(req)
+            if before_provider is not None:
+                before_provider(writer.adapter, 'typesafe')
             body = json.loads(req.content)
             answers = {}
             candidates=body.get('state',{}).get('candidates',[])
@@ -173,6 +175,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         async def _handle(self, req):
             mode=self.mode
             self.calls.append(req)
+            if before_provider is not None:
+                before_provider(self.adapter, 'openai')
             if failure=='retry_unknown':
                 raise httpx.ReadTimeout('synthetic unknown writer outcome',request=req)
             body = json.loads(req.content)
@@ -1119,3 +1123,40 @@ def test_saved_v3_human_source_request_retries_with_current_object_navigation(
 @pytest.mark.parametrize('failure',['writer_incomplete_limit','writer_incomplete_filter','writer_incomplete_unknown'])
 def test_native_build_reports_actual_incomplete_writer_reason_without_acceptance_or_retry(lane,tmp_path,monkeypatch,failure):
     _fresh_case(lane,tmp_path,monkeypatch,failure,True,False,False)
+
+
+@pytest.mark.parametrize('failure', [None, 'writer_incomplete_filter'])
+@pytest.mark.parametrize('prompt_capture', [False, True])
+def test_native_authorization_is_visible_before_actual_provider_transport(lane,tmp_path,monkeypatch,failure,prompt_capture):
+    if prompt_capture:
+        monkeypatch.setenv('DMB_AGENT_PROMPT_CAPTURE','1')
+    else:
+        monkeypatch.delenv('DMB_AGENT_PROMPT_CAPTURE',raising=False)
+    observed=[]
+    def inspect_before_response(adapter,provider):
+        capture=adapter.context_capture
+        attempt=adapter.last_provider_attempt_id
+        trace=capture.trace
+        assert trace.turn_id==adapter.fence.turn.turn_id
+        assert trace.conversation_id==adapter.fence.turn.conversation_id
+        assert trace.attempt==adapter.fence.turn.attempt
+        prompts=[o for o in trace.observations if o.kind=='prompt_reference' and o.provider_attempt_id==attempt]
+        grants=[o for o in trace.observations if o.kind=='provider_call' and o.provider_attempt_id==attempt and o.outcome=='authorized']
+        assert len(prompts)==len(grants)==1, 'Actual native provider entry lacks one recorded authorization'
+        assert grants[0].provider==prompts[0].provider==provider
+        assert grants[0].model==prompts[0].model
+        assert grants[0].sequence>prompts[0].sequence
+        assert not any(o.kind=='provider_call' and o.provider_attempt_id==attempt and o.outcome=='response_received'
+            for o in trace.observations)
+        observed.append((adapter,attempt,provider))
+    _fresh_case(lane,tmp_path,monkeypatch,failure,False,False,False,before_provider=inspect_before_response)
+    assert {provider for _,_,provider in observed}=={'typesafe','openai'}
+    assert len({attempt for _,attempt,_ in observed})==len(observed)
+    adapter=observed[-1][0]
+    trace=adapter.service.list_context_trace_attempts(world_id=adapter.turn.world_id,turn_id=adapter.turn.turn_id)[-1]
+    for _,attempt,_ in observed:
+        assert sum(o.kind=='provider_call' and o.provider_attempt_id==attempt and o.outcome=='authorized'
+            for o in trace.observations)==1
+    assert trace.terminal_status==('interrupted' if failure else 'completed')
+    if failure:
+        assert any(o.kind=='failure' and o.stage=='writer_generation' for o in trace.observations)
