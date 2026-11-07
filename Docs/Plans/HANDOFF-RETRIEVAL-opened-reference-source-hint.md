@@ -6,10 +6,11 @@ Branch: codex/native-reference-source-focus, existing buddy-context-loop checkou
 Topology: serial after merged/delivered PR2186; PR2187 targets main. This child
 began stacked on exact approved parent999c0b800, then re-anchored after parent
 merge4bbf580bf and API delivery1e866e4a. Git proved parent/main tree equality
-and child tree equality before this truthful authority settlement. Production
-and test blobs are unchanged from reviewed952c69b43 and its170 passing owning
-tests. Obtain exact final-head review and CI; ordinary performance acceptance
-remains open. Parent source branch remains frozen.
+and child tree equality before this truthful authority settlement. The initial
+re-anchor preserved reviewed952c69b43 production/test blobs and its170 passing
+owning tests. The subsequent captured non-writing-directive correction changes
+that implementation and requires fresh exact-head review, owning tests and CI.
+Its42 focused tests pass; ordinary performance acceptance remains open. Parent source branch remains frozen.
 No new checkout, dependency environment, provider configuration or runtime lease.
 Other INGEST and held Play2172 paths are unchanged; their holds persist.
 
@@ -25,7 +26,11 @@ bytes; do not implement either approach.
 
 Use successful NativeAuthoredSourceReadV1 catalogs only as an initial navigation
 hint. The existing source-hint helper owns presentation, not access authority.
-Explicit campaign/session hints and negation retain their current semantics.
+Explicit campaign/session hints and source negation retain their semantics.
+For an opened human reference, recognize a terminal do-not-edit/save/publish
+execution directive as non-writing, rather than a source exclusion. The actual
+request and model input remain unchanged; earlier/other negation stays broad.
+The captured wording and an explicit outside-source contrast must be tested.
 Unknown, stale and differently named source metadata stays reachable. Requests
 without opened human references retain their current full catalog. Automatic
 reads do not establish a human-selected focus. After an explicit lexical scan,

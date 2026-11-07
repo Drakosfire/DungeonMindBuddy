@@ -17,7 +17,13 @@ def preferred_source_pairs(question, displays, *, opened_reference_pairs=()):
     query = question.casefold()
     # These require semantic exclusion reasoning; this positive-hint view does
     # not guess its inverse. Keep the broad catalog for the controller instead.
-    if re.search(r"\b(?:no|not|never|cannot|except|exclude|excluding|outside|without)\b|\bother than\b|\b\w+n['’]t\b", query):
+    scope_query = query
+    if opened_reference_pairs:
+        # A terminal non-writing directive is not a source exclusion. Keep
+        # other negation conservative, including any earlier scope clause.
+        scope_query = re.sub(r"\b(?:do not|don['’]t)\s+(?:edit|save|publish)"
+            r"(?:\s*(?:,|\bor\b|\band\b)\s*(?:edit|save|publish))*[.!]?\s*$", "", query)
+    if re.search(r"\b(?:no|not|never|cannot|except|exclude|excluding|outside|without)\b|\bother than\b|\b\w+n['’]t\b", scope_query):
         return None
     hints = {(int(c), int(s)) for c, s in re.findall(r"\bc(\d+)\s*s(\d+)\b", query)}
     hints.update((int(c), None) for c in re.findall(r"\bcampaign\s+(\d+)\b", query))

@@ -61,6 +61,9 @@ def test_session16_shorthand_is_a_positive_navigation_hint():
 
 @pytest.mark.parametrize('question,expected', [
     ('What does the selected recap establish?', {'selected','unknown'}),
+    ('What repairs that central mass after it is burned? Cite the selected recap. Discuss only; do not edit or save.', {'selected','unknown'}),
+    ('Compare it with C2S20. Do not save.', {'other','unknown'}),
+    ('Outside C2S20. Do not edit or save.', None),
     ('Compare it with C2S20', {'other','unknown'}),
     ('Look outside the selected recap', None),
     ('Do not limit this to the selected recap', None),

@@ -46,6 +46,7 @@ def test_ordinary_opened_reference_focus_preserves_search_and_writer_support(lan
         focused.append(selected)
     case=_fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,
         authored_source=selection,before_provider=before_provider,
+        message='What repairs that central mass after it is burned? Cite the selected recap. Discuss only; do not edit or save.',
         native_body='direct_support' if broaden else None,direct_source='mixed' if broaden else False)
     assert focused and any(hints)
     assert bool(any(isinstance(e,NativeBodySearchObservedV1) for e in case.turn.graph_context_execution.events))==broaden
