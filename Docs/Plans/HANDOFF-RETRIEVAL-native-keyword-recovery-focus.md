@@ -1,6 +1,16 @@
 # RETRIEVAL: retain keyword focus during broad source recovery
 
-Status: ACTIVE. PRIME owns this operator-authorized measured retrieval iteration.
+Status: DELIVERED through PR2185, merge bc405328880e2e5abed8d7bb06d6f1b26b3b10d3.
+Reviewed head56cefd378226f6d15173b85d3e0588dfcbcbcd7a passed independent Bugbot
+review and all seven checks. API integration51501f24feedca7fafcf96b2f528edcb902cdb41
+and no-op reader fence0124 are delivered; UI unchanged, delivery lease released.
+Five ordinary requests completed with inspectable native citations and conserved
+retained data. The two original runs took43.3s and42.6s/four rounds, but neither
+expanded broadly or exercised retained recovery focus. No causal speedup for this
+change is proved. The selected-source contrast read an extra unrelated Session20
+source and took14.7s/two rounds rather than11.0s/one. Source and writer pins are
+unchanged, conversation hashes differ, and performance/whole-goal acceptance
+remain open. The ACTIVITY successor fixes a separately observed caption gap.
 Base: a273bfc9b6c1e14f55df384b2160179858935bd1 (remote main, 2026-11-07).
 Branch: codex/native-keyword-recovery-focus, existing buddy-context-loop checkout.
 Topology: serial after merged/delivered PR2184. Existing INGEST lanes do not own

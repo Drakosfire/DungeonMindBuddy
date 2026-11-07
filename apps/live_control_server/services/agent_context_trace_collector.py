@@ -142,6 +142,14 @@ class ContextTraceCollector:
             self.trace = self._append_observation_locked(observation)
             if observation not in self.trace.observations:
                 raise ApplicationStateValidationError("prompt reference was not durably captured")
+        # The native execution owner has already admitted this exact request.
+        # Keep its grant visible while transport waits, rather than leaving the
+        # last activity at prompt preparation. Legacy owners already observe it.
+        from application_state.agent_conversation.native_execution import SurfaceNativeExecutionV1
+        if type(getattr(self.fence.turn, "graph_context_execution", None)) is SurfaceNativeExecutionV1:
+            self.observe({"kind": "provider_call", "outcome": "authorized",
+                "provider_attempt_id": authorization.provider_attempt_id,
+                "provider": authorization.provider, "model": authorization.model})
 
     def refresh_after_source_capture(self) -> None:
         """Atomic source receipt writes assign observation sequences in APP."""
