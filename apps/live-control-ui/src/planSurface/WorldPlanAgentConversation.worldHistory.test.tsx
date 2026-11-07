@@ -6280,3 +6280,66 @@ it('keeps live activity bound to admitted metadata while full receipt refreshes 
   await waitFor(()=>expect(read.mock.calls.length).toBeGreaterThan(reads),{timeout:3500});
   expect(post).toHaveBeenCalledTimes(1);
 });
+
+
+it('preserves an expanded composer timeline through completion and returns it to the toolbar when closed',async()=>{
+  const running={...makeTurn(1,'activity-turn','Question',''),assistant_text:null,lifecycle_status:'running' as const};
+  const api=setupApi(history('conversation-a',4,[running]),false);
+  function RefreshProbe(){
+    const state=useWorldAgentConversationState();
+    return <button onClick={()=>state?.setHistoryRefreshNonce(value=>value+1)}>Refresh completion fixture</button>;
+  }
+  const header=document.createElement('div'),messages=document.createElement('div'),composer=document.createElement('div');
+  document.body.append(header,messages,composer);
+  const view=render(<WorldAgentConversationProvider worldId={worldId}><RefreshProbe />{conversationElement({presentationHosts:{header,context:null,messages,composer}})}</WorldAgentConversationProvider>);
+  try {
+    await waitForConversationReady(false);
+    const disclosure=await waitFor(()=>{const item=composer.querySelector('details.buddy-activity');expect(item).not.toBeNull();return item as HTMLDetailsElement;});
+    fireEvent.click(disclosure.querySelector('summary')!);
+    await waitFor(()=>expect(disclosure.open).toBe(true));
+    api.setCurrent(history('conversation-a',4,[makeTurn(1,'activity-turn','Question','Completed reply')]));
+    fireEvent.click(screen.getByRole('button',{name:'Refresh completion fixture'}));
+    await within(messages).findByText('Completed reply');
+    expect(composer.querySelector('details.buddy-activity')).toBe(disclosure);
+    expect(disclosure.open).toBe(true);
+    expect(header.querySelector('details.buddy-activity')).toBeNull();
+    fireEvent.click(disclosure.querySelector('summary')!);
+    await waitFor(()=>expect(header.querySelector('details.buddy-activity')).not.toBeNull());
+    expect(composer.querySelector('details.buddy-activity')).toBeNull();
+    const toolbarDisclosure=header.querySelector('details.buddy-activity') as HTMLDetailsElement;
+    fireEvent.click(toolbarDisclosure.querySelector('summary')!);
+    await waitFor(()=>expect(toolbarDisclosure.open).toBe(true));
+    expect(header.querySelector('details.buddy-activity')).toBe(toolbarDisclosure);
+    expect(composer.querySelector('details.buddy-activity')).toBeNull();
+  } finally {view.unmount();header.remove();messages.remove();composer.remove();}
+});
+
+
+it.each(['conversation','turn'])('does not carry expanded activity into another %s or resurrect it on return',async change=>{
+  const running={...makeTurn(1,'activity-turn','Question',''),assistant_text:null,lifecycle_status:'running' as const};
+  const api=setupApi(history('conversation-a',4,[running]),false);
+  function RefreshProbe(){
+    const state=useWorldAgentConversationState();
+    return <button onClick={()=>state?.setHistoryRefreshNonce(value=>value+1)}>Refresh identity fixture</button>;
+  }
+  const header=document.createElement('div'),messages=document.createElement('div'),composer=document.createElement('div');
+  document.body.append(header,messages,composer);
+  const view=render(<WorldAgentConversationProvider worldId={worldId}><RefreshProbe />{conversationElement({presentationHosts:{header,context:null,messages,composer}})}</WorldAgentConversationProvider>);
+  try {
+    await waitForConversationReady(false);
+    const original=await waitFor(()=>{const item=composer.querySelector('details.buddy-activity');expect(item).not.toBeNull();return item as HTMLDetailsElement;});
+    fireEvent.click(original.querySelector('summary')!);
+    await waitFor(()=>expect(original.open).toBe(true));
+    api.setCurrent(history(change==='conversation'?'conversation-b':'conversation-a',change==='conversation'?5:4,[makeTurn(2,'new-turn','New question','New reply')]));
+    fireEvent.click(screen.getByRole('button',{name:'Refresh identity fixture'}));
+    await within(messages).findByText('New reply');
+    await waitFor(()=>expect(header.querySelector('details.buddy-activity')).not.toBeNull());
+    expect((header.querySelector('details.buddy-activity') as HTMLDetailsElement).open).toBe(false);
+    expect(composer.querySelector('details.buddy-activity')).toBeNull();
+    api.setCurrent(history('conversation-a',change==='conversation'?6:4,[makeTurn(1,'activity-turn','Question','Returned reply')]));
+    fireEvent.click(screen.getByRole('button',{name:'Refresh identity fixture'}));
+    await within(messages).findByText('Returned reply');
+    expect(composer.querySelector('details.buddy-activity')).toBeNull();
+    expect((header.querySelector('details.buddy-activity') as HTMLDetailsElement).open).toBe(false);
+  } finally {view.unmount();header.remove();messages.remove();composer.remove();}
+});

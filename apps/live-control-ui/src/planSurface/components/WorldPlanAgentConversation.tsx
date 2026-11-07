@@ -2643,6 +2643,7 @@ export function WorldPlanAgentConversation({
   const surfaceRequests = useSurfaceConversationRequests();
   const surfacePreparationRef = useRef(false);
   const [surfacePreparing,setSurfacePreparing] = useState(false);
+  const [expandedComposerActivity,setExpandedComposerActivity] = useState<string | null>(null);
   const [libraryOpen,setLibraryOpen]=useState(false);
   const [conversationSwitching,setConversationSwitching]=useState(false);
   const conversationSwitchRef=useRef(false);
@@ -6606,13 +6607,23 @@ export function WorldPlanAgentConversation({
     : [...(displayHistory?.turns ?? [])].sort((a, b) => b.sequence - a.sequence)[0];
   const activityTurnId = activityTurn?.turn_id;
   const activityLifecycle = activityTurn?.lifecycle_status ?? 'running';
+  const activityIdentity = activityTurnId && verifiedWorldId && activityHistory?.conversation_id
+    ? JSON.stringify([verifiedWorldId,activityHistory.conversation_id,activityTurnId]) : null;
+  useEffect(()=>{
+    setExpandedComposerActivity(current=>current===activityIdentity ? current : null);
+  },[activityIdentity]);
   const activityInComposer = activityBusy || activityLifecycle !== 'completed'
+    || activityIdentity !== null && expandedComposerActivity === activityIdentity
     || Boolean(presentationHosts && !presentationHosts.header);
   const replyActivity = activityTurnId && verifiedWorldId && activityHistory?.conversation_id ? <BuddyTurnInspection
     key={`activity:${verifiedWorldId}:${activityHistory.conversation_id}:${activityTurnId}`}
     worldId={verifiedWorldId} conversationId={activityHistory.conversation_id} turnId={activityTurnId}
     lifecycle={activityLifecycle}>
-    <BuddyActivity worldId={verifiedWorldId} conversationId={activityHistory.conversation_id} turnId={activityTurnId} lifecycle={activityLifecycle} />
+    <BuddyActivity worldId={verifiedWorldId} conversationId={activityHistory.conversation_id} turnId={activityTurnId} lifecycle={activityLifecycle}
+      onDisclosureChange={open=>{
+        // Pin only an inspection opened in the composer; toolbar inspection stays there.
+        if(activityInComposer)setExpandedComposerActivity(open ? activityIdentity : null);
+      }} />
   </BuddyTurnInspection> : activityBusy ? <div className="world-plan-agent-conversation__working" role="status">Getting things ready…</div> : null;
   const newConversationButton = (
     <><button type="button" className="conversation-dock__icon-button" aria-label="Conversation history" title="Conversations" onClick={()=>setLibraryOpen(true)}><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-9l-5 3v-3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg></button><span ref={setReferenceTriggerHost}/><button

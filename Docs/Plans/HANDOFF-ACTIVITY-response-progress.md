@@ -1,6 +1,14 @@
 # ACTIVITY: show recorded response progress
 
-Status: ACTIVE. PRIME owns the operator's resumed goal and explicit request to
+Status: DELIVERED through PR2179, merge5ae6df9f488b27c74e52c6671c100f3245e503a1.
+UI6ebfbd52713341dd8b7a4b9476ccd5fb6073c624 serves5202; API3c69 remains on8000.
+Independent source/integration/recipe reviews,99 focused tests, build and seven CI
+checks passed. Retained state is unchanged by delivery. Ordinary turn052d880a
+verified dynamic source activity and a full timeline but exposed completion closing
+the disclosure; that is the next bounded slice, not an acceptance claim here.
+Lease released.
+
+Original bounded contract: PRIME owns the operator's resumed goal and explicit request to
 stop presenting response display as another call. Base413021a988093b8ad28771f27e81752c378b8283;
 branch codex/writer-activity-phases, existing context-loop checkout. Serial after
 delivered2178; no behavioral dependency on held Play2172 or open INGEST PRs.
