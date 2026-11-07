@@ -13,8 +13,14 @@ DEFAULT_REQUEST = 64_000
 LONG_LIMIT = 262_000
 
 
-def phase(body):
+def phase(body, *, host_phase=None):
     state = body["state"]
+    if host_phase is not None:
+        # Only the versioned native navigation owner uses the clean wire contract.
+        if (host_phase != "navigate" or not isinstance(state, dict)
+                or any(key in state for key in ("phase", "decision", "context_accounting"))):
+            raise ValueError("Native navigation contains host control metadata")
+        return host_phase
     value = state.get("decision", {}).get("phase", state.get("phase"))
     if value not in {"select", "navigate", "assess", "coverage", "retention", "writer_selection"}:
         raise ValueError("Prepared Build decision phase is unavailable")
@@ -125,7 +131,7 @@ def validate_accounting(event, execution, *, provider_index):
         raise ValueError("controller request estimate exceeds frozen policy")
 
 
-def validate_prepared(event, execution, raw):
+def validate_prepared(event, execution, raw, *, host_phase=None):
     validate_event(event, execution)
     context = mode_context(event)
     if not isinstance(raw, str):
@@ -146,6 +152,6 @@ def validate_prepared(event, execution, raw):
     body = json.loads(raw, object_pairs_hook=unique)
     if (set(body) != {"model", "state", "questions"} or body["model"] != event.model
             or not isinstance(body["questions"], dict) or not body["questions"]
-            or phase(body) != context.context_phase
-            or body["state"].get("context_accounting") != execution.policy.controller_continuation_accounting.model_dump(mode="json")):
+            or phase(body, host_phase=host_phase) != context.context_phase
+            or host_phase is None and body["state"].get("context_accounting") != execution.policy.controller_continuation_accounting.model_dump(mode="json")):
         raise ValueError("Prepared context phase or accounting differs from frozen execution")

@@ -85,7 +85,7 @@ def _decode(body: str | bytes) -> dict:
 
 
 def validate_body(payload: str, expected_state: Mapping[str, Any], *,
-                  accounting: ExperimentalAccounting | None = None, context_mode: str = "default") -> dict:
+                  accounting: ExperimentalAccounting | None = None, context_mode: str = "default", host_phase=None) -> dict:
     body = _decode(payload)
     if canonical(body["state"]) != canonical(expected_state):
         raise ValueError("Decision source, question, scope, initial packet or discovery differs")
@@ -102,14 +102,14 @@ def validate_body(payload: str, expected_state: Mapping[str, Any], *,
             raise ValueError("Decision per-question context exceeds its conservative ceiling")
     raw = payload.encode()
     if accounting is not None:
-        accounting.validate(body, raw, context_mode=context_mode)
+        accounting.validate(body, raw, context_mode=context_mode, host_phase=host_phase)
         return body
     if len(raw) + 64 * (1 + _json_nodes(body)) > REQUEST_LIMIT:
         raise ValueError("Decision request context exceeds its conservative ceiling")
     return body
 
 
-def prepared_view(prepared: Any, expected_state: Mapping[str, Any], *, accounting: ExperimentalAccounting | None = None) -> dict:
+def prepared_view(prepared: Any, expected_state: Mapping[str, Any], *, accounting: ExperimentalAccounting | None = None, host_phase=None) -> dict:
     if (prepared.provider != PROVIDER or prepared.provider_transport != "vercel_ai_gateway"
             or prepared.model != MODEL or prepared.method != "POST" or prepared.url != ENDPOINT
             or type(prepared.body) is not bytes or prepared.body_size != len(prepared.body)
@@ -123,15 +123,15 @@ def prepared_view(prepared: Any, expected_state: Mapping[str, Any], *, accountin
         raise ValueError("Prepared context capability is invalid")
     body = _decode(payload)
     if accounting is not None:
-        if mode.value != accounting.context_mode(body):
+        if mode.value != accounting.context_mode(body, host_phase=host_phase):
             raise ValueError("Prepared context mode differs from exact frozen request")
     elif mode is not DecisionContextMode.DEFAULT:
         raise ValueError("Long context requires current experimental accounting")
-    validate_body(payload, expected_state, accounting=accounting, context_mode=mode.value)
+    validate_body(payload, expected_state, accounting=accounting, context_mode=mode.value, host_phase=host_phase)
     context = {}
     if accounting is not None:
         from application_state.agent_conversation.build_decision_context import phase, identity
-        context = dict(contextMode=mode.value, contextPhase=phase(body),
+        context = dict(contextMode=mode.value, contextPhase=phase(body, host_phase=host_phase),
             maxQuestionInputTokens=accounting.question_estimate(body),
             dispatchIdentitySha256=identity(envelope_sha256=prepared.body_sha256, provider=PROVIDER,
                 model=MODEL, api_mode=API_MODE, context_mode=mode.value))

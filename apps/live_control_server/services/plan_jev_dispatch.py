@@ -66,8 +66,8 @@ class PlanJevDispatch:
         authority = getattr(adapter, "native_source_authority", None)
         if type(receipt) is t.SurfaceNativeContextReceiptV1:
             from application_state.agent_conversation.native_retrieval import source_pins
-            from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInputV2
-            codec = (NativeBuildRetrievalDecisionInputV2
+            from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInputV3
+            codec = (NativeBuildRetrievalDecisionInputV3
                 if receipt.work_context.surface_id == "build" else NativeRetrievalDecisionInputV1)
             self.parent = codec(**fields,**source_pins(receipt))
         elif authority is not None:
@@ -110,6 +110,10 @@ class PlanJevDispatch:
         from application_state.agent_conversation.native_retrieval import controller_accounting
         return controller_accounting(self.adapter.fence.turn.graph_context_execution)
 
+    def _host_phase(self):
+        from application_state.agent_conversation.jev_retrieval_contract import NativeBuildRetrievalDecisionInputV3
+        return "navigate" if type(self.parent) is NativeBuildRetrievalDecisionInputV3 else None
+
     async def select_context(self, prepared):
         from generationengine.decision_dispatch import DecisionContextMode
         if self._native_accounting() is None:
@@ -117,7 +121,7 @@ class PlanJevDispatch:
         accounting = self.adapter._build_jev_accounting
         if accounting.descriptor != self._native_accounting():
             raise ValueError("Native Build decision counter differs from its actual policy")
-        return DecisionContextMode(accounting.context_mode(json.loads(prepared.body)))
+        return DecisionContextMode(accounting.context_mode(json.loads(prepared.body), host_phase=self._host_phase()))
 
     def authorize(self, prepared):
         from .agent_turn_service import AgentTurnServiceError, _json_node_count, _require_fresh_execution_append
@@ -137,7 +141,9 @@ class PlanJevDispatch:
             "payloadUtf8Bytes": prepared.body_size}
         if native_build:
             from .build_jev_dispatch import prepared_view
-            view=prepared_view(prepared,json.loads(prepared.body)["state"],accounting=a._build_jev_accounting)
+            if a._build_jev_accounting.descriptor != self._native_accounting():
+                raise ValueError("Native Build decision counter differs from its actual policy")
+            view=prepared_view(prepared,json.loads(prepared.body)["state"],accounting=a._build_jev_accounting,host_phase=self._host_phase())
         else:
             a._active_plan_jev_request = self.parent
             try:
