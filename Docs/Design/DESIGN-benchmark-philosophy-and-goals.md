@@ -183,3 +183,8 @@ These are mandatory for auditability and comparison.
 4. Decide baseline promotion from explicit checklist.
 5. Start Phase 7 readiness challenge replay matrix.
 
+
+
+## Ingestion working baseline and retrieval history (2026-11-07)
+
+The owner's accepted C1 Sessions 1–10 working baseline, its explicit quality and publication limits, historical retrieval inventory, and the proposed evaluation continuation are recorded in [the ingestion baseline and retrieval history report](../Reports/REPORT-ingestion-baseline-and-retrieval-history-2026-11-07.md). It does not replace the source Gold or authorize publication.
