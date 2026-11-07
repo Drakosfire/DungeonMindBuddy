@@ -35,10 +35,27 @@ def select(value, pointer):
     return value
 
 
-def reference(ref):
+def _resolve_reference(ref, load):
     if set(ref) != {'artifact', 'pointer'}:
         raise ValueError('Evidence requires an artifact pin and JSON Pointer')
-    return select(json.loads(read_pin(ref['artifact'])), ref['pointer'])
+    return select(load(ref['artifact']), ref['pointer'])
+
+
+def reference(ref):
+    return _resolve_reference(ref, lambda pin: json.loads(read_pin(pin)))
+
+
+def reference_resolver():
+    """Fresh invocation-local cache populated only from verified artifact bytes."""
+    documents = {}
+
+    def load(pin):
+        key = (pin['path'], pin['sha256'])
+        if key not in documents:
+            documents[key] = json.loads(read_pin(pin))
+        return documents[key]
+
+    return lambda ref: _resolve_reference(ref, load)
 
 
 def unknown(value):
@@ -66,6 +83,10 @@ def bind_review(document, run, subject):
 
 
 def report(path: Path):
+    from .review import precision
+
+    resolve = reference_resolver()
+
     raw = path.read_bytes()
     spec = json.loads(raw)
     if (set(spec) != {'schema', 'subject', 'gold', 'criteria', 'phases', 'measurements'}
@@ -74,7 +95,7 @@ def report(path: Path):
     subject = spec['subject']
     if set(subject) != {'result', 'candidate'}:
         raise ValueError('Assessment requires actual result and candidate pins')
-    run = reference(subject['result'])
+    run = resolve(subject['result'])
     read_pin(subject['candidate'])
     if run['components']['candidate_graph']['sha256'] != subject['candidate']['sha256']:
         raise ValueError('Assessment candidate differs from actual run')
@@ -97,7 +118,7 @@ def report(path: Path):
         ref = criterion['gold']
         if ref['artifact']['sha256'] not in gold_hashes:
             raise ValueError('Criterion is outside declared Gold authority')
-        value = reference(ref)
+        value = resolve(ref)
         identifiers = ([value[k] for k in ('claim_id', 'check_id', 'criterion_id', 'constraint_id', 'id') if k in value]
                        if isinstance(value, dict) else [])
         if ((identifiers and cid not in identifiers)
@@ -112,7 +133,7 @@ def report(path: Path):
         criteria[cid] = criterion
     if not criteria or set(spec['phases']) != set(PHASES):
         raise ValueError('Assessment requires criteria and all three explicit phases')
-    phases = {}
+    phases, reviews = {}, {}
     for name in PHASES:
         phase = spec['phases'][name]
         if unknown(phase):
@@ -133,8 +154,9 @@ def report(path: Path):
                 raise ValueError('Invalid, duplicate or undeclared judgment')
             if not isinstance(judgment['reason'], str) or not judgment['reason'].strip():
                 raise ValueError('Judgment requires a reason')
-            review = reference(judgment['review'])
-            review_document = json.loads(read_pin(judgment['review']['artifact']))
+            review = resolve(judgment['review'])
+            review_pin = judgment['review']['artifact']
+            review_document = resolve({'artifact': review_pin, 'pointer': ''})
             bind_review(review_document, run, subject)
             if not isinstance(review, dict) or review.get('criterion_id') != cid:
                 raise ValueError(f'Review does not identify this criterion: {cid}')
@@ -142,10 +164,21 @@ def report(path: Path):
                 if field not in review or review[field] != judgment[field]:
                     raise ValueError(f'Review judgment differs for {cid}: {field}; '
                                      'an explicit matching canonical review row is required')
+            key = review_pin['sha256']
+            if key not in reviews:
+                reviews[key] = {'review': review_pin, 'used_by_phases': [],
+                                'precision': precision(review_document,
+                                                       resolve_reference=resolve, verify_pin=read_pin)}
+            if name not in reviews[key]['used_by_phases']:
+                reviews[key]['used_by_phases'].append(name)
+            declared = reviews[key]['precision'].get('judgment_pointers')
+            if declared is not None and (set(declared) != set(criteria)
+                                         or judgment['review']['pointer'] != declared.get(cid)):
+                raise ValueError(f'Precision review canonical judgment binding differs: {cid}')
             if judgment['outcome'] != 'unknown' and not judgment['evidence']:
                 raise ValueError('Known judgments require inspectable evidence')
             for ref in judgment['evidence']:
-                reference(ref)
+                resolve(ref)
             judgments[cid] = judgment
         if set(judgments) != set(criteria):
             raise ValueError('Every declared criterion requires a judgment, including unknowns')
@@ -163,11 +196,12 @@ def report(path: Path):
         if unknown(measurement):
             measurements[metric] = measurement
         else:
-            value = reference(measurement)
+            value = resolve(measurement)
             if type(value) not in (int, float) or value < 0 or not math.isfinite(value):
                 raise ValueError('Measured values must be finite nonnegative numbers; missing is unknown')
             measurements[metric] = {'value': value, 'evidence': measurement}
     return {'schema': 'dmb_ingestion_assessment_report_v1', 'assessment_sha256': digest(raw),
             'run_id': run['run_id'], 'candidate_sha256': subject['candidate']['sha256'],
             'phases': phases, 'measurements': measurements,
+            'review_document_precision': list(reviews.values()),
             'scope': 'Counts of explicitly reviewed judgments; criterion completeness and semantic truth require independent review. No publication authorization.'}

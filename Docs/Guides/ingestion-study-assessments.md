@@ -65,6 +65,84 @@ not a dry run, source-support receipt, or an assessed `publication` label alone.
 Use the existing capture audit/accounting owner for token/cost/retry evidence. Do
 not introduce another usage calculation here. Model/configuration comparisons and
 cohort aggregate/variation reports remain separate from criterion normalization.
+
+## One precision-review contract
+
+Use the existing CLI to validate an opaque review without exposing the original
+operational result to its reviewer:
+
+```bash
+python scripts/evaluate_ingestion.py review-validate --review /absolute/review-document.json
+```
+
+`ingestion_evaluation.review` owns the adopted mechanical contract
+`dmb_ingestion_review_precision_contract_v1` for declared
+`dmb_blinded_ingestion_review_v2` documents. It consolidates the previously
+external v3 schema/count/reference checks; reviewers need no separate validation
+script. This adoption does not retroactively activate a historical draft or
+change its semantic judgments. Historical bytes, rubric pins and validators
+remain reproducibility evidence. Validate existing documents explicitly before
+claiming that they satisfy this owner.
+
+The reserved precision fields are `produced_output_precision_inventory`,
+`precision_inventory_complete`, `severe_propositions`, `severe_proposition_count`,
+`severe_count_status`, `intervention_targets`, `unique_intervention_target_count`,
+`intervention_count_status` and `count_uncertainties`. A record claiming any of
+these without the supported profile fails closed. A canonical coverage-only
+review is still usable for Gold counts, with whole-output precision explicitly
+unknown. General `unknowns` or `limits` annotations do not claim precision.
+
+The owner verifies required fields, confirmed-record cardinalities, exact duplicate
+severe records, unique `(kind, item_id, field_name)` targets, and each metric's
+count status independently. Incomplete inspection requires `incomplete_inventory`;
+completed inspection with count-affecting uncertainty requires
+`confirmed_lower_bound`; completed inspection without that uncertainty requires
+`complete`. Zero lower-bound findings mean zero confirmed findings, not a clean
+output. Distinct records or strings do not mechanically prove semantic distinction.
+Every count-affecting uncertainty belongs in its metric's evidence-backed
+`count_uncertainties` array; general prose in `unknowns` does not waive that rule.
+
+Every formal reference declared by an `artifact` marker must contain exactly
+`artifact` and `pointer`; required evidence slots also require that shape. The
+existing pin and strict JSON Pointer owners validate them. Naked/decoded selectors
+remain annotations and confer no evidence authority. All annotations and occurrence
+selectors remain in the unchanged pinned review. Validation visits only its JSON
+tree, never the graph of referenced documents. Verified JSON document caching is
+invocation-local, with no global stale-evidence fallback.
+
+`assessment-report` and `assessment-assemble` reuse this same owner. Reports expose
+`review_document_precision` once per immutable review content hash, with the phases
+using it; they never pool its counts across phases. A full review's canonical
+`judgments` array must match the assessment's declared criteria and its cited row
+pointers. A canonical-looking annotation cannot override that array. Actual phase
+execution and complete Gold authority remain separate evidence requirements.
+
+The standalone command proves mechanical consistency only. It cannot certify
+actual-result binding, the expected Gold inventory, semantic completeness or
+publication/default acceptance. The full profile retains unknown human minutes;
+automated review walltime never becomes measured human effort.
+
+Apply the source-grounding rubric prospectively: judge each standalone authored
+assertion with its own qualifiers; correct copies do not repair contradictions;
+preserve every definite violation and every unresolved obligation. Materiality
+concerns factual actors, actions/completion, state, location, quantities, causality
+or fictional time, not merely downstream gameplay impact. Count only confirmed
+mutually distinct propositions, retaining all occurrence selectors and unresolved
+equivalence. Do not derive fictional order from paragraph order or a bare scalar,
+invent ontology semantics, transport original/effective Gold obligations without
+authority, or edit Gold to obtain a preferred result. Historical unknowns remain
+explicit until their owning contracts and evidence support a new determination.
+
+Keep each compound Gold obligation and its one criterion ID unchanged. Apply
+these outcome rules in order: a definite required contradiction or negative
+violation is `fail`, even when another component is unresolved; otherwise an
+unresolved necessary source/Gold/owner meaning is `unknown`; otherwise complete
+supported satisfaction is `pass`; otherwise only a nonempty proper subset of
+positive obligations without contradiction is `partial`. Entirely absent required
+positive coverage is `fail`. A pure negative obligation is not partial merely
+because some copies comply. Definite source-fidelity violations do not become
+unknown merely because the underlying fictional truth is unresolved.
+
 ## Assemble a sealed review offline
 
 Use the same CLI rather than a per-session assembly script:
