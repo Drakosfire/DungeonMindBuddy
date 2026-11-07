@@ -71,6 +71,107 @@ const localOnlyEdit = {
 };
 
 describe("LocalWorldRepository contract with the in-memory reference adapter", () => {
+  it("captures every semantic request header before an asynchronous adapter hook", async () => {
+    let holdWrites = false;
+    let releaseWrite!: () => void;
+    const gate = new Promise<void>((resolve) => { releaseWrite = resolve; });
+    const repo = new InMemoryLocalWorldRepository({
+      idFactory: sequenceIds(),
+      beforeCommit: async (point) => {
+        if (holdWrites && point === "semantic-edit") await gate;
+      },
+    });
+    const first = await makeWorld(repo);
+    const second = await makeWorld(repo);
+    const winner = await repo.commitSemanticEdit({
+      worldId: first.snapshot.worldId,
+      expectedLocalRevision: 0,
+      nextSnapshot: { ...first.snapshot, title: "Winner" },
+      edit: localOnlyEdit,
+    });
+    expect(winner.status).toBe("committed");
+
+    holdWrites = true;
+    const request = {
+      worldId: first.snapshot.worldId,
+      expectedLocalRevision: 0,
+      nextSnapshot: { ...first.snapshot, title: "Stale candidate" },
+      edit: localOnlyEdit,
+    };
+    const pending = repo.commitSemanticEdit(request);
+    request.worldId = second.snapshot.worldId;
+    request.expectedLocalRevision = 1;
+    releaseWrite();
+
+    const result = await pending;
+    expect(result.status).toBe("conflict");
+    if (result.status !== "conflict") return;
+    expect(result.committed.snapshot.worldId).toBe(first.snapshot.worldId);
+    expect(result.committed.snapshot.title).toBe("Winner");
+    expect(result.candidate.worldId).toBe(first.snapshot.worldId);
+    expect(result.candidate.baseLocalRevision).toBe(0);
+    expect(result.candidate.proposedSnapshot.worldId).toBe(first.snapshot.worldId);
+    expect((await repo.readWorld(second.snapshot.worldId)).status).toBe("found");
+  });
+
+  it("captures the layout revision header before an asynchronous adapter hook", async () => {
+    let holdWrites = false;
+    let releaseWrite!: () => void;
+    const gate = new Promise<void>((resolve) => { releaseWrite = resolve; });
+    const repo = new InMemoryLocalWorldRepository({
+      idFactory: sequenceIds(),
+      beforeCommit: async (point) => {
+        if (holdWrites && point === "layout") await gate;
+      },
+    });
+    const initial = await makeWorld(repo);
+    const winningLayout: LocalWorldLayout = {
+      positions: { node: { x: 10, y: 10 } },
+      viewport: { x: 0, y: 0, zoom: 1 },
+      layoutVersion: 1,
+    };
+    await repo.writeLayout({
+      worldId: initial.snapshot.worldId,
+      expectedLayoutRevision: 0,
+      nextLayout: winningLayout,
+    });
+
+    holdWrites = true;
+    const request = {
+      worldId: initial.snapshot.worldId,
+      expectedLayoutRevision: 0,
+      nextLayout: { ...winningLayout, positions: { node: { x: 90, y: 90 } } },
+    };
+    const pending = repo.writeLayout(request);
+    request.expectedLayoutRevision = 1;
+    releaseWrite();
+
+    const result = await pending;
+    expect(result.status).toBe("conflict");
+    if (result.status === "conflict") expect(result.record.layout).toEqual(winningLayout);
+  });
+
+  it("captures the create title before an asynchronous adapter hook", async () => {
+    let holdWrites = false;
+    let releaseWrite!: () => void;
+    const gate = new Promise<void>((resolve) => { releaseWrite = resolve; });
+    const repo = new InMemoryLocalWorldRepository({
+      idFactory: sequenceIds(),
+      beforeCommit: async (point) => {
+        if (holdWrites && point === "create") await gate;
+      },
+    });
+    holdWrites = true;
+    const request = { title: "Original title" };
+    const pending = repo.createWorld(request);
+    request.title = "Mutated after call";
+    releaseWrite();
+
+    const result = await pending;
+    expect(result.status).toBe("created");
+    if (result.status === "created") expect(result.record.snapshot.title).toBe("Original title");
+  });
+
   it("creates stable local identities and keeps local and published revisions distinct", async () => {
     const repo = new InMemoryLocalWorldRepository({ idFactory: sequenceIds() });
     const record = await makeWorld(repo);
