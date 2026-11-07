@@ -646,3 +646,170 @@ def test_native_graph_objects_survive_source_scope_and_share_exact_expansion_bat
         acquisitions=((select,apply),(wider,apply)))
     assert any(isinstance(event,NativeBodyReadObservedV1) for event in case.turn.graph_context_execution.events)
     assert published_lane.repo.get_head(world)==original_head
+
+
+@pytest.mark.parametrize('keyword', ['origin', 'private', 'unicorn', None])
+def test_keyword_first_view_reloads_and_broad_recovery_reads_excluded_source_section(
+    application_state_dsn, lane, monkeypatch, keyword
+):
+    from tests.test_surface_native_writer import body_case
+    from tests.test_native_corpus_source_access import GM
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import prepare_native_source_context
+    from application_state.agent_conversation.native_source_keywords import KEYWORD_KIND
+    from application_state.agent_conversation.native_corpus import NativeBodyReadObservedV1
+    from application_state.agent_conversation.native_retrieval import NativeRetrievalSelectedV1
+    context, record, _ = body_case('plan', lane)
+    record = execution(context.context_receipt_sha256, record.policy)
+    source_context = prepare_native_source_context(managed_world_id='managed', principal=GM,
+        repository=lane.repo, resolve_identity=lambda _:lane.bound)
+    original_head = lane.repo.get_head('world:test')
+    retained = {}
+
+    def search_and_hint(case):
+        with host(case, source_context=source_context) as adapter:
+            nav = PlanJevDriver(adapter).native_sources
+            rows = nav.offered()
+            selected = [row for row in rows if row.handle.startswith('native-corpus-search:')]
+            assert len(selected) == 1
+            hints = [row for row in rows if row.kind == KEYWORD_KIND]
+            assert hints
+            if keyword:
+                chosen = next(row for row in hints if row.label == repr(keyword))
+                retained['hint'] = chosen.handle
+                selected.append(chosen)
+            return selected
+
+    def apply(case):
+        with host(case, source_context=source_context) as adapter:
+            driver = PlanJevDriver(adapter)
+            step = case.steps[-1]
+            dispatch = SimpleNamespace(parent=step.parent, authorization=step.auth,
+                selection=SimpleNamespace(operation=step.selection.operation,
+                    selected_handles=tuple(step.selection.selected_handles)))
+            driver.current = dispatch
+            before = tuple(adapter.fence.turn.graph_context_execution.events)
+            if retained.get('hint') in dispatch.selection.selected_handles:
+                for parent in (step.parent.model_copy(update={'request_id':uuid4()}),
+                        step.parent.model_copy(update={'candidates':()})):
+                    with pytest.raises(ValueError):
+                        driver.native_sources.accept_keyword_selection(retained['hint'], parent=parent)
+                actual = adapter.fence.renewer._turn
+                try:
+                    adapter.fence.renewer._turn = actual.model_copy(update={'attempt':actual.attempt+1})
+                    with pytest.raises(ValueError):
+                        driver.native_sources.accept_keyword_selection(retained['hint'], parent=step.parent)
+                finally:
+                    adapter.fence.renewer._turn = actual
+                assert tuple(adapter.fence.turn.graph_context_execution.events) == before
+            driver.apply(dispatch)
+            if any(h.startswith('native-corpus-expand:') for h in dispatch.selection.selected_handles):
+                assert tuple(adapter.fence.turn.graph_context_execution.events) == before
+            if any(h.startswith('native-corpus-search:') for h in dispatch.selection.selected_handles):
+                assert not any(isinstance(e, NativeBodyReadObservedV1)
+                    for e in adapter.fence.turn.graph_context_execution.events[len(before):])
+
+    def narrowed(case):
+        case.turn = AgentConversationService().inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id)
+        with host(case, source_context=source_context) as adapter:
+            nav = PlanJevDriver(adapter).native_sources
+            rows = nav.offered()
+            assert not any(row.kind == KEYWORD_KIND for row in rows)
+            sections = [row for row in rows if row.handle.startswith('native-body:')]
+            expand = [row for row in rows if row.handle.startswith('native-corpus-expand:')]
+            focused = keyword in {'origin','private'}
+            assert len(sections) == (1 if focused else 2)
+            assert len(expand) == int(focused)
+            # Full-source access survives even when sections are prioritized.
+            assert any(row.handle.startswith('native-direct-source:') for row in rows)
+            return expand if focused else sections
+
+    def recovered(case):
+        case.turn = AgentConversationService().inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id)
+        with host(case, source_context=source_context) as adapter:
+            rows = PlanJevDriver(adapter).native_sources.offered()
+            assert not any(row.handle.startswith('native-corpus-expand:') for row in rows)
+            sections = [row for row in rows if row.handle.startswith('native-body:')]
+            if keyword in {'origin','private'}:
+                assert len(sections) == 2
+                return sections
+            assert not sections  # Already acquired when no positive keyword existed.
+            return ()
+
+    case = sdk_case(application_state_dsn, context_record=(context,record), native=True,
+        question='Find origin and private unicorn',
+        acquisitions=((search_and_hint,apply),(narrowed,apply)) +
+            (((recovered,apply),) if keyword in {'origin','private'} else ()))
+    selections = [e for e in case.turn.graph_context_execution.events if type(e) is NativeRetrievalSelectedV1]
+    assert all(e.operation != 'select_candidates' or any(not h.startswith('native-corpus-keyword:')
+        for h in e.selected_handles) for e in selections)
+    from tests.application_state.test_surface_native_completion import completed_input, finish
+    def answer(writer):
+        return [dict(kind='native_body_claim', text='The check revealed an origin beyond this plane.',
+            excerpt_handles=[row['excerpt_handle'] for row in writer.frame['native_body_evidence']['excerpts']])]
+    completed = finish(completed_input(application_state_dsn, acquired=case, answer_rows=answer))
+    assert completed.completion.native_body_citations
+    assert lane.repo.get_head('world:test') == original_head
+
+
+def test_keyword_reader_fence_has_no_row_rewrite(application_state_dsn, monkeypatch):
+    from application_state import cli
+    from application_state.errors import ApplicationStateMigrationError
+    from importlib import import_module
+    cli.assert_at_head(dsn=application_state_dsn)
+    monkeypatch.setattr(cli, '_alembic_head', lambda:'20261107_0122')
+    with pytest.raises(ApplicationStateMigrationError):
+        cli.assert_at_head(dsn=application_state_dsn)
+    fence = import_module('application_state.migrations.versions.20261107_0123_native_keyword_choices')
+    assert fence.upgrade() is None
+    with pytest.raises(RuntimeError, match='Older readers'):
+        fence.downgrade()
+
+
+def test_actual_sdk_keyword_only_vote_finishes_without_source_acquisition(application_state_dsn, lane):
+    from tests.test_surface_native_writer import body_case
+    from tests.test_native_corpus_source_access import GM
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import prepare_native_source_context
+    from application_state.agent_conversation.native_source_keywords import KEYWORD_KIND
+    from application_state.agent_conversation.native_corpus import NativeBodySearchAuthorizedV1, NativeBodyReadAuthorizedV1
+    context, record, _ = body_case('plan', lane)
+    record = execution(context.context_receipt_sha256, record.policy)
+    source_context = prepare_native_source_context(managed_world_id='managed', principal=GM,
+        repository=lane.repo, resolve_identity=lambda _:lane.bound)
+    def hints(case):
+        with host(case, source_context=source_context) as adapter:
+            return tuple(row for row in PlanJevDriver(adapter).native_sources.offered() if row.kind == KEYWORD_KIND)
+    def finish_without_read(case):
+        with host(case, source_context=source_context) as adapter:
+            driver = PlanJevDriver(adapter)
+            step = case.steps[-1]
+            assert step.selection.operation == 'finish_retrieval' and not step.selection.selected_handles
+            dispatch = SimpleNamespace(parent=step.parent, authorization=step.auth,
+                selection=SimpleNamespace(operation=step.selection.operation, selected_handles=()))
+            driver.current = dispatch
+            before = tuple(adapter.fence.turn.graph_context_execution.events)
+            driver.apply(dispatch)
+            assert driver.finished  # The ordinary driver's while loop stops here.
+            assert tuple(adapter.fence.turn.graph_context_execution.events) == before
+            assert driver.offered() == ()
+    case = sdk_case(application_state_dsn, context_record=(context,record), native=True,
+        question='Find an origin', acquisitions=((hints,finish_without_read),), include_final_decision=False)
+    assert not any(isinstance(e,(NativeBodySearchAuthorizedV1,NativeBodyReadAuthorizedV1))
+        for e in case.turn.graph_context_execution.events)
+
+
+def test_explicit_acquired_source_is_not_replaced_by_keyword_classification(lane):
+    from tests.test_surface_native_writer import body_case
+    from application_state.agent_conversation.native_writer import model_frame
+    from apps.live_control_server.services.corpus_source_navigation import NativeBodyNavigation
+    context, record, read = body_case('plan', lane)
+    turn = SimpleNamespace(user_text='What did that source say?', graph_context_receipt=context,
+        graph_context_execution=record)
+    from tests.test_native_corpus_source_access import GM
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import prepare_native_source_context
+    source_context = prepare_native_source_context(managed_world_id='managed', principal=GM,
+        repository=lane.repo, resolve_identity=lambda _:lane.bound)
+    nav = NativeBodyNavigation(SimpleNamespace(fence=SimpleNamespace(turn=turn), native_corpus_context=source_context))
+    before = model_frame(context, record)
+    assert before['native_body_evidence']['excerpts']
+    assert nav._keyword_offers() == ()
+    assert model_frame(context, record) == before

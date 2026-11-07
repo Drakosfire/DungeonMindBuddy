@@ -81,6 +81,7 @@ def sdk_case(
     context_record=None,
     question=None,
     native=False,
+    include_final_decision=True,
 ):
     context, ledger = (
         context_record
@@ -111,7 +112,7 @@ def sdk_case(
     case = SimpleNamespace(
         dsn=dsn, service=AgentConversationService(), sent=[], steps=[], trace_id=uuid4()
     )
-    for phase, semantic in enumerate((True, *([False] * (len(acquisitions) + 1)))):
+    for phase, semantic in enumerate((True, *([False] * (len(acquisitions) + int(include_final_decision))))):
         common = dict(
             request_id=uuid4(),
             parent_attempt_id=uuid4(),

@@ -332,3 +332,31 @@ def test_build_relevance_codec_cannot_be_borrowed_by_plan(monkeypatch):
     with pytest.raises(ValueError,match="actual Build owner"):
         native.verify_input(object(),native.NativeRetrievalAuthorizedV1.model_construct(),
             dict(parent_request_json=parent.model_dump_json(by_alias=True),request_json="{}"))
+
+
+@pytest.mark.parametrize('action_selected,fallback', [(True,'finish_retrieval'), (False,'finish_retrieval'), (False,'discover_more')])
+def test_keyword_votes_share_batch_but_cannot_force_acquisition(action_selected, fallback):
+    from application_state.agent_conversation.native_source_keywords import KEYWORD_KIND, keyword_catalog
+    req = request()
+    handle = next(iter(keyword_catalog(req.question, req.scope_sha256)))
+    keyword = RetrievalCandidate(handle=handle, label="'swamp'", kind=KEYWORD_KIND)
+    req = req.model_copy(update={'candidates':(req.candidates[0], keyword)})
+    prepared = prepare_decision(req)
+    assert prepared.state['keyword_selection_guidance']
+    assert len(prepared.questions) == 3
+    assert handle not in json.dumps(prepared.state)
+    answers = {'operation':ChoiceDecisionAnswer(selected=fallback),
+        'candidate_0':ChoiceDecisionAnswer(selected='include' if action_selected else 'exclude'),
+        'candidate_1':ChoiceDecisionAnswer(selected='include')}
+    selected = decode_selection(req, result(answers=answers))
+    assert selected.operation == ('select_candidates' if action_selected else fallback)
+    assert selected.selected_handles == ((req.candidates[0].handle,handle) if action_selected else ())
+
+
+def test_keyword_handles_cannot_cross_query_scope_or_become_source_handles():
+    from application_state.agent_conversation.native_source_keywords import keyword_catalog
+    first = keyword_catalog('Find Éphanna and ruined tendrels', 'a'*64)
+    assert first and set(first.values()) >= {'éphanna','ruined','tendrels'}
+    assert not set(first) & set(keyword_catalog('Find Éphanna and ruined tendrels', 'b'*64))
+    assert not set(first) & set(keyword_catalog('Find Éphanna', 'a'*64))
+    assert all(handle.startswith('native-corpus-keyword:') for handle in first)
