@@ -14,6 +14,7 @@ from tests.application_state.test_native_plan_statements import native_read_admi
 from graph_memory.vnext.domain_runtime import dungeonbuddy_world_domain_contract, dungeonbuddy_dnd5e_custom_predicate_profile
 from apps.live_control_server.services.native_graph_reads import prepare_query, read_selected
 from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadAuthorizedV1
+from application_state.agent_conversation.native_plan_assertions import POLICY as NATIVE_ANSWER_POLICY
 
 
 @pytest.fixture
@@ -262,10 +263,10 @@ def _ordinary_native_case(
     class Writer(WriterWire):
         async def handle_async_request(self, req):
             frames=[json.loads(item['content']) for item in json.loads(req.content)['input'][:-1]]
-            frame=next(item for item in frames if item.get('schema')=='dmb_surface_native_writer_evidence_v2')
+            frame=next(item for item in frames if set(item)=={'input_status','user_question','native_body_evidence','native_statements','native_assertions'})
             assert len(frames)==3
             assert frames[0 if authoring else -1] == frame
-            assert frame['answer_policy'] in json.loads(req.content)['instructions']
+            assert NATIVE_ANSWER_POLICY in json.loads(req.content)['instructions']
             assert 'dmb_surface_evidence_answer_v6' not in json.loads(req.content)['instructions']
             assert BODY not in req.content.decode() and 'span.text' not in req.content.decode()
             rows=frame['native_assertions']['assertions'] if frame['native_assertions'] else []
@@ -295,7 +296,7 @@ def _ordinary_native_case(
                 assert 'DISPLAY ONLY Plan source' not in req.content.decode()
                 segments.append({'kind':'native_body_claim','text':'The source describes a source-local episode.',
                     'excerpt_handles':[exposed[0]['excerpt_handle']]})
-            candidate={'schema':frame['answer_policy'],'answer_segments':segments,
+            candidate={'schema':NATIVE_ANSWER_POLICY,'answer_segments':segments,
                 'limitations':limitations,'requested_detail_gaps':[]}
             if mixed:
                 candidate={'schema':'dmb_rules_mixed_answer_v1','base_output':candidate,
