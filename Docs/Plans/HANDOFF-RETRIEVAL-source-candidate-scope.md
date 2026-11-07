@@ -1,8 +1,16 @@
 # RETRIEVAL: reversible source candidate scope
 
-Status: ACTIVE for implementation after independent design approval by
-/root/bugbot_classic_cli on2026-11-07. Runtime activation remains gated by
-implementation/integration review and CI. PRIME owns the exclusive writes below.
+Status: MERGED and DELIVERED. PR2182 reviewed head
+8231defee51250a9666a15e90287f9bd940d7347 merged as
+f15f11957268d3e61723b031727a237e55e14358 after all seven CI checks passed.
+API integration fe4d1f3f380c7b0ac7c2e14f604377426b19734c serves schema
+20261107_0122; UI unchanged. Ordinary turn ee7c7274-ae5b-4354-b77c-443482c2bf1b
+delivered a supported answer with inspectable citations and conserved retained
+state. It took 81.07 seconds, five retrieval rounds and 38 source reads: no
+material speedup against the 80.35-second baseline. Operator acceptance and the
+broader goal remain open. Successor HANDOFF-RETRIEVAL-build-native-dialogue.md
+owns the next bounded correction; this predecessor grants no new write lease.
+
 PRIME owns this operator-authorized retrieval experiment. Base is remote main
 9be15b1434f6d0adfbe1d3e3fbad903d4614c82c; branch
 codex/native-source-candidate-scope in the existing context-loop checkout.
