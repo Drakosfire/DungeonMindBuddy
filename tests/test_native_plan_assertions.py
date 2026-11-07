@@ -233,9 +233,18 @@ def _ordinary_native_case(
             body=json.loads(req.content)
             candidates=body.get('state',{}).get('candidates',[])
             native={i for i,c in enumerate(candidates) if c['kind'].startswith('Native Graph object') or mixed and c['kind']=='public_rules_lookup'}
+            if selected_references is not None and 'requested_work' in body['questions']:
+                rows=body['state']['author_selected_references']
+                assert len(rows)==len(selected_references.references)
+                for row,ref in zip(rows,selected_references.references,strict=True):
+                    if hasattr(ref,'selection_kind'):
+                        assert row=={'kind':'source','label':ref.label,'selection_kind':ref.selection_kind}
+                        assert json.dumps(ref.source_artifact_id) not in req.content.decode()
+                        assert json.dumps(ref.content_sha256) not in req.content.decode()
+                    else:
+                        assert row=={'kind':'graph_object','label':ref.label}
+                        assert json.dumps(ref.node_id) not in req.content.decode()
             if authored:
-                if 'requested_work' in body['questions']:
-                    assert body['state']['author_selected_references']==selected_references.model_dump(mode='json',by_alias=True)
                 native=set()  # Explicit human inclusion cannot depend on a model relevance vote.
             if authored_source and 'operation' in body['questions']:
                 examined = body['state']['examined_subjects']

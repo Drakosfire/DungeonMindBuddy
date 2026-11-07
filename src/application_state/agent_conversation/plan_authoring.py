@@ -384,7 +384,7 @@ def prepare_requested_work_decision(request: PlanRequestedWorkInputV1):
     from generationengine.types import ChoiceDecisionQuestion, DecisionRequest
     from .jev_retrieval_contract import MODEL, PROVIDER
 
-    from .plan_placement import PlanRequestedWorkInputV2, PlanRequestedWorkInputV3
+    from .plan_placement import PlanRequestedWorkInputV2, PlanRequestedWorkInputV3, PlanRequestedWorkInputV6
     placement = isinstance(request, PlanRequestedWorkInputV2)
     choices = ("discuss", "clarify", "different_destination") + (
         tuple("write:" + entry.selector for entry in request.placement_catalog.entries)
@@ -408,6 +408,20 @@ def prepare_requested_work_decision(request: PlanRequestedWorkInputV1):
             "or after its entire section. Use the offered under:<selector> location for writing under a named heading."
             if request.placement_catalog is not None
             and any(entry.kind == "after_heading" for entry in request.placement_catalog.entries) else "")} if placement else {}
+    references = getattr(request, "authored_references", None)
+    reference_context = None
+    if references is not None:
+        if type(request) is PlanRequestedWorkInputV6:
+            from .authored_graph_references import AuthoredSourceReferenceV1
+            reference_context = [
+                ({"kind": "source", "label": ref.label, "selection_kind": ref.selection_kind}
+                 if isinstance(ref, AuthoredSourceReferenceV1)
+                 else {"kind": "graph_object", "label": ref.label})
+                for ref in references.references
+            ]
+        else:
+            # Reconstruct retained V4/V5 exactly; current emitters use V6 only.
+            reference_context = references.model_dump(mode="json", by_alias=True)
     return DecisionRequest(
         provider=PROVIDER,
         model=MODEL,
@@ -418,9 +432,9 @@ def prepare_requested_work_decision(request: PlanRequestedWorkInputV1):
             "dialogue_reference": [row.model_dump() for row in request.dialogue],
             "edit_target_available": request.target_available,
             **placement_state,
-            **({"author_selected_references": request.authored_references.model_dump(mode='json',by_alias=True),
+            **({"author_selected_references": reference_context,
                 "reference_input_policy": "These are the author's selected context and navigation labels, not evidence or edit destinations. Do not infer a different destination merely because a reference names another object or source. Required reads and factual support are enforced separately by the host."}
-                if getattr(request, "authored_references", None) is not None else {}),
+                if references is not None else {}),
             **({"plan_requested_operation": operation,
                 "explicit_operation_policy": "The author explicitly selected this operation in the interface for this exact message. "
                     "Use the message as its content/destination instruction, not as permission to change that operation. "
