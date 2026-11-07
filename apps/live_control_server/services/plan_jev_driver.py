@@ -211,6 +211,8 @@ class PlanJevDriver:
                     self.attempted_saved_pages.add(handle)
                     first,last=self.saved_page_catalog[handle][1]
                     self.adapter.read_build_section(line_start=first,line_end=last)
+                elif handle.startswith('native-corpus-keyword:'):
+                    self.native_sources.accept_keyword_selection(handle, parent=dispatch.parent)
                 elif handle.startswith('native-corpus-expand:'):
                     # Expansion is already recorded, so offered() now presents
                     # the broad view. The original parent/current selection above
