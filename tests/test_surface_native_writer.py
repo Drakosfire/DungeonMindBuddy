@@ -248,6 +248,10 @@ def published_lane(application_state_dsn, tmp_path, monkeypatch):
     from tests.test_source_statements import make_lane, commit
     from tests.test_native_plan_assertions import publish
     value = make_lane(tmp_path, monkeypatch, narrow=True)
+    from dataclasses import replace
+    from tests.test_source_statements import wk
+    value.meta = replace(value.meta,domain_metadata=(wk.DomainMetadata.from_json(
+        'dungeonbuddy.domain_metadata:world_context_v1',{'uncertain':['who reported it']}),))
     commit(value)
     publish(value, qualified=True)
     return value
@@ -585,7 +589,7 @@ def test_semantic_world_qualification_separates_only_typed_publisher_provenance(
     metadata = host["native_assertions"]["assertions"][0]["assertion"]["metadata"]
     metadata["domain_metadata"] = [
         dict(
-            schema_term="dungeonbuddy.domain_metadata:world_context_v1", payload=payload
+            schema="dungeonbuddy.domain_metadata:world_context_v1", payload=payload
         )
     ]
     before = deepcopy(host)
@@ -595,7 +599,7 @@ def test_semantic_world_qualification_separates_only_typed_publisher_provenance(
         "domain_metadata"
     ] == [
         dict(
-            schema_term="dungeonbuddy.domain_metadata:world_context_v1",
+            schema="dungeonbuddy.domain_metadata:world_context_v1",
             payload={"uncertain": ["who reported it"]},
         )
     ]

@@ -26,6 +26,8 @@ def _domain_meaning(entries):
     result = []
     for entry in entries:
         value = deepcopy(entry)
+        if set(value) != {"schema", "payload"}:
+            raise ValueError("Unclassified domain qualification envelope")
         payload = value["payload"]
         descriptor = (
             payload.get("candidate_description_selection")
@@ -33,7 +35,7 @@ def _domain_meaning(entries):
             else None
         )
         if (
-            value["schema_term"] == "dungeonbuddy.domain_metadata:world_context_v1"
+            value["schema"] == "dungeonbuddy.domain_metadata:world_context_v1"
             and isinstance(descriptor, dict)
             and descriptor.get("schema_version")
             == "dmb_candidate_description_extent_v1"
