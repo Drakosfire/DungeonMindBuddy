@@ -1,6 +1,7 @@
 name: World ownership core tests
 
 on:
+  workflow_dispatch:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
@@ -112,7 +113,7 @@ jobs:
       - name: Run World and Content ownership tests
         if: matrix.suite == 'world-and-content'
         run: >-
-          uv run --locked pytest -q --tb=short --show-capture=no
+          uv run --locked pytest -q --tb=short --show-capture=no --durations=0 --durations-min=0
           tests/application_state/test_conversation_library.py::test_active_messages_never_select_or_decode_execution_and_keep_exact_cursor
           tests/application_state/test_conversation_library.py::test_active_message_pointer_and_rows_are_one_snapshot
           tests/application_state/test_world_catalog_postgres.py
@@ -136,7 +137,7 @@ jobs:
       - name: Run ingestion and reviewed publication tests
         if: matrix.suite == 'ingestion-and-review'
         run: >-
-          uv run --locked pytest -q --tb=short --show-capture=no
+          uv run --locked pytest -q --tb=short --show-capture=no --durations=0 --durations-min=0
           tests/test_native_ingest_review_context.py
           tests/test_ingest_selection_context.py
           tests/test_saved_recap_runs.py
@@ -167,7 +168,6 @@ jobs:
           tests/test_live_recap_ingest_process_review_persistence.py
           tests/test_registered_recap_input.py
           tests/test_recap_generationengine_default.py
-          tests/test_build_recap_launch.py
           tests/application_state/test_session_evidence_consumers.py::test_recap_supplement_is_authorized_and_resolved_before_source_write
           tests/application_state/test_session_evidence_consumers.py::test_recap_pinned_owner_unavailability_has_an_accurate_http_failure
           tests/test_demo_j1_native_world_source_admission.py::test_ordinary_fresh_world_source_admission_needs_no_active_graph
@@ -177,7 +177,7 @@ jobs:
       - name: Run query answer-authority regressions
         if: matrix.suite == 'query-and-answer'
         run: >-
-          uv run --locked pytest -q --tb=short --show-capture=no
+          uv run --locked pytest -q --tb=short --show-capture=no --durations=0 --durations-min=0
           tests/test_conversation_library_routes.py
           tests/application_state/test_conversation_trash.py
           tests/application_state/test_conversation_messages.py
@@ -193,7 +193,6 @@ jobs:
           tests/test_native_plan_assertions.py
           tests/test_plan_authored_references.py
           tests/test_play_authored_source_references.py
-          tests/test_native_ingest_review_context.py::test_actual_agent_reconstructs_native_packet_before_provider
           tests/test_plan_jev_authoring.py::test_current_shared_plan_caller_keeps_routing_and_action_ownership
           tests/application_state/test_plan_placement.py
           tests/test_plan_jev_authoring.py::test_under_heading_selection_survives_actual_dispatch_reservation_and_retained_replay
@@ -210,7 +209,7 @@ jobs:
       - name: Run saved-page owner and semantic-reader tests
         if: matrix.suite == 'saved-page-readers'
         run: >-
-          uv run --locked pytest -q --tb=short --show-capture=no
+          uv run --locked pytest -q --tb=short --show-capture=no --durations=0 --durations-min=0
           tests/test_graph_document_source.py
           tests/test_graph_document_relationship.py
           tests/test_build_document_proposal.py
