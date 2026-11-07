@@ -260,7 +260,8 @@ def test_retained_evidence_manifest_can_never_dispatch(setup):
     assert backend.calls == []
 
 
-@pytest.mark.parametrize('failure', ['http500', 'exception', 'startup_redirect', 'success'])
+@pytest.mark.parametrize('failure', ['http500', 'exception', 'startup_redirect',
+                                    'startup_model_redirect', 'startup_endpoint_redirect', 'success'])
 def test_buddy_adapter_stops_on_transport_failure_even_if_run_is_reviewable(tmp_path, monkeypatch, failure):
     import os
     import sys
@@ -274,6 +275,10 @@ def test_buddy_adapter_stops_on_transport_failure_even_if_run_is_reviewable(tmp_
     async def lifespan(app):
         if failure == 'startup_redirect':
             os.environ['APP_TEST_BINDING'] = 'unexpected'
+        elif failure == 'startup_model_redirect':
+            os.environ['DMB_RECAP_MODEL_ID'] = 'fixture/changed-model'
+        elif failure == 'startup_endpoint_redirect':
+            os.environ['DMB_RECAP_OPENROUTER_PROVIDER'] = 'Changed Endpoint'
         yield
     app = FastAPI(lifespan=lifespan)
     @app.post('/api/live/recap-ingest')
@@ -290,6 +295,8 @@ def test_buddy_adapter_stops_on_transport_failure_even_if_run_is_reviewable(tmp_
     adapter = object.__new__(Buddy)
     adapter.manifest = {'operator_token_env': 'EVALUATOR_TEST_TOKEN'}
     monkeypatch.setenv('EVALUATOR_TEST_TOKEN', 'synthetic-secret')
+    monkeypatch.setenv('DMB_RECAP_MODEL_ID', 'fixture/model')
+    monkeypatch.setenv('DMB_RECAP_OPENROUTER_PROVIDER', 'Fixture Endpoint')
     adapter.auth_path = str(tmp_path / 'auth.json')
     monkeypatch.setenv('DMB_AGENT_GRAPH_SESSION_STORE', adapter.auth_path)
     monkeypatch.delenv('DMB_AGENT_GRAPH_LOCAL_PROFILE', raising=False)
@@ -304,12 +311,12 @@ def test_buddy_adapter_stops_on_transport_failure_even_if_run_is_reviewable(tmp_
     adapter._assert_no_active_transactions = lambda: None
     adapter.check_conservation = lambda _: None
     adapter._runs = lambda _: [SimpleNamespace(run_id='actual-new-run', status='reviewable', components={}, model_dump=lambda **_: {'status': 'reviewable'})]
-    result = adapter.capture(item, {'prior_runs': {}}, tmp_path / 'one')
+    result = adapter.capture(item, {'prior_runs': {}, 'model_configuration': adapter._model_configuration()}, tmp_path / 'one')
     if failure == 'success':
         assert result['state'] == 'reviewable'
     else:
         assert result['state'] != 'reviewable'
-    if failure == 'startup_redirect':
+    if failure in {'startup_redirect', 'startup_model_redirect', 'startup_endpoint_redirect'}:
         assert calls == []
     else:
         import base64

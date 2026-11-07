@@ -286,7 +286,7 @@ def test_deepseek_route_caps_and_unknown_receipt():
     assert len(engine.requests) == 1
 
 
-def test_deepseek_request_reaches_accepted_ge_openrouter_sdk_kwargs():
+def _accepted_openrouter_sdk_request(model=DEEPSEEK_MODEL, endpoint=None):
     from generationengine import GenerationClient
     from generationengine.providers.base import TextGenerationCall
     from generationengine.providers.openrouter_text import OpenRouterTextProvider
@@ -301,7 +301,7 @@ def test_deepseek_request_reaches_accepted_ge_openrouter_sdk_kwargs():
             return SimpleNamespace(
                 id="synthetic-response",
                 _request_id="synthetic-request",
-                model=DEEPSEEK_MODEL,
+                model=kwargs["model"],
                 choices=[
                     SimpleNamespace(
                         message=SimpleNamespace(
@@ -331,19 +331,25 @@ def test_deepseek_request_reaches_accepted_ge_openrouter_sdk_kwargs():
     provider = RecordingOpenRouterTextProvider(client=Client())
     engine = GenerationClient(text_providers={"openrouter": provider})
     client = BoundedRecapPassClient(
-        RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL),
+        RecapExecutionLimits(provider="openrouter", model=model, openrouter_provider=endpoint),
         engine_factory=lambda: engine,
     )
 
-    result = invoke(client, DEEPSEEK_MODEL)
+    result = invoke(client, model)
+    return result, structured_calls[0], completions.calls[0], provider
+
+
+def test_deepseek_request_reaches_accepted_ge_openrouter_sdk_kwargs():
+    from generationengine.providers.base import TextGenerationCall
+    from generationengine.types import ProviderRoute
+
+    result, ge_call, kwargs, provider = _accepted_openrouter_sdk_request()
 
     assert result["parsed"] == {"observation_nodes": []}
-    ge_call = structured_calls[0]
     assert ge_call.schema_name == "category_graph_actor_pass"
     assert ge_call.json_schema["properties"]["observation_nodes"]
     assert "one complete JSON object" in ge_call.system_prompt
     assert "observation_nodes" not in ge_call.system_prompt
-    kwargs = completions.calls[0]
     assert "response_format" not in kwargs
     sdk_system = next(message["content"] for message in kwargs["messages"] if message["role"] == "system")
     assert sdk_system.count("one complete JSON object") == 1
@@ -369,6 +375,61 @@ def test_deepseek_request_reaches_accepted_ge_openrouter_sdk_kwargs():
         "order": ["DeepSeek"],
         "allow_fallbacks": False,
     }
+
+
+def test_configured_model_changes_only_sdk_model_and_endpoint():
+    from copy import deepcopy
+
+    _, original_call, original, _ = _accepted_openrouter_sdk_request()
+    _, alternate_call, alternate, _ = _accepted_openrouter_sdk_request(
+        "fixture/alternate", "Fixture Endpoint",
+    )
+    assert original_call.system_prompt == alternate_call.system_prompt
+    assert original_call.user_prompt == alternate_call.user_prompt
+    assert original_call.json_schema == alternate_call.json_schema
+    assert original_call.reasoning_effort == alternate_call.reasoning_effort == "none"
+    restored = deepcopy(alternate)
+    restored["model"] = original["model"]
+    restored["extra_body"]["provider"]["order"] = original["extra_body"]["provider"]["order"]
+    assert restored == original
+
+
+@pytest.mark.parametrize("settings", [
+    {"DMB_RECAP_MODEL_ID": "fixture/model"},
+    {"DMB_RECAP_OPENROUTER_PROVIDER": "Fixture"},
+    {"DMB_RECAP_MODEL_ID": "", "DMB_RECAP_OPENROUTER_PROVIDER": "Fixture"},
+    {"DMB_RECAP_MODEL_ID": "fixture/model", "DMB_RECAP_OPENROUTER_PROVIDER": " "},
+    {"DMB_RECAP_MODEL_ID": "fixture/model", "DMB_RECAP_OPENROUTER_PROVIDER": "One,Two"},
+    {"DMB_RECAP_MODEL_ID": "fixture/model", "DMB_RECAP_OPENROUTER_PROVIDER": "One\nTwo"},
+])
+def test_invalid_server_model_configuration_never_falls_back(settings):
+    from src.graph_memory.extraction.bounded_recap_execution import resolve_recap_model_configuration
+    with pytest.raises(ValueError):
+        resolve_recap_model_configuration(settings)
+
+
+def test_server_model_configuration_has_one_explicit_default():
+    from src.graph_memory.extraction.bounded_recap_execution import resolve_recap_model_configuration
+    assert resolve_recap_model_configuration({}) == (DEEPSEEK_MODEL, "DeepSeek")
+    assert resolve_recap_model_configuration({
+        "DMB_RECAP_MODEL_ID": "fixture/model",
+        "DMB_RECAP_OPENROUTER_PROVIDER": "Fixture Endpoint",
+    }) == ("fixture/model", "Fixture Endpoint")
+
+
+def test_endpoint_cannot_be_used_with_another_transport():
+    with pytest.raises(ValueError, match="requires the OpenRouter"):
+        RecapExecutionLimits(provider="openai", openrouter_provider="Fixture")
+
+
+def test_model_comparison_configuration_does_not_expand_worldbuilding():
+    from src.graph_memory.extraction.bounded_recap_execution import resolve_recap_model_configuration
+    assert resolve_recap_model_configuration({}, profile_id="worldbuilding@1.0") == (DEEPSEEK_MODEL, "DeepSeek")
+    with pytest.raises(ValueError, match="standard recap v2"):
+        resolve_recap_model_configuration({
+            "DMB_RECAP_MODEL_ID": "fixture/model",
+            "DMB_RECAP_OPENROUTER_PROVIDER": "Fixture Endpoint",
+        }, profile_id="worldbuilding@1.0")
 
 
 @pytest.mark.usefixtures("application_state_dsn")

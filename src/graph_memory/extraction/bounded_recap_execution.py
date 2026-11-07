@@ -31,7 +31,38 @@ from src.graph_memory.extraction.category_candidate_graph_schema import (
 from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
 
 DEEPSEEK_MODEL = "deepseek/deepseek-v4.1-flash-1017"
+_DEFAULT_OPENROUTER_ENDPOINT = "DeepSeek"
+RECAP_MODEL_ENV = "DMB_RECAP_MODEL_ID"
+RECAP_ENDPOINT_ENV = "DMB_RECAP_OPENROUTER_PROVIDER"
 SUPPORTED_INGESTION_PROVIDERS = frozenset({"openai", "openrouter", "vercel"})
+
+
+def _model_id(value: Any) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("bounded recap model must be nonblank")
+    return value.strip()
+
+
+def _openrouter_endpoint(value: Any) -> str:
+    if (not isinstance(value, str) or not value.strip() or len(value) > 200
+            or "," in value or any(ord(char) < 32 for char in value)):
+        raise ValueError("recap OpenRouter provider must name one nonblank endpoint")
+    return value.strip()
+
+
+def resolve_recap_model_configuration(
+    environ: Mapping[str, str] | None = None, *, profile_id: str | None = None,
+) -> tuple[str, str]:
+    """One server-owned selection; absence preserves the standard DeepSeek route."""
+    env = os.environ if environ is None else environ
+    present = (RECAP_MODEL_ENV in env, RECAP_ENDPOINT_ENV in env)
+    if not any(present):
+        return DEEPSEEK_MODEL, _DEFAULT_OPENROUTER_ENDPOINT
+    if profile_id not in (None, RECAP_EXTRACTION_PROFILE.qualified_id):
+        raise ValueError("explicit model configuration requires the standard recap v2 profile")
+    if not all(present):
+        raise ValueError("recap model and OpenRouter provider must be configured together")
+    return _model_id(env[RECAP_MODEL_ENV]), _openrouter_endpoint(env[RECAP_ENDPOINT_ENV])
 
 _SAFE_OBSERVATION_FIELDS = (
     "provider",
@@ -259,6 +290,7 @@ class RecapExecutionLimits:
     max_output_tokens: int = 8192
     edge_max_output_tokens: int | None = None
     reasoning_effort: str | None = None
+    openrouter_provider: str | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -266,10 +298,16 @@ class RecapExecutionLimits:
             or self.provider.strip().lower() not in SUPPORTED_INGESTION_PROVIDERS
         ):
             raise ValueError("unsupported bounded recap provider selection")
-        if not isinstance(self.model, str) or not self.model.strip():
-            raise ValueError("bounded recap model must be nonblank")
         object.__setattr__(self, "provider", self.provider.strip().lower())
-        object.__setattr__(self, "model", self.model.strip())
+        object.__setattr__(self, "model", _model_id(self.model))
+        endpoint = self.openrouter_provider
+        if endpoint is None and (self.provider, self.model) == ("openrouter", DEEPSEEK_MODEL):
+            endpoint = _DEFAULT_OPENROUTER_ENDPOINT
+        if endpoint is not None:
+            if self.provider != "openrouter":
+                raise ValueError("an OpenRouter endpoint requires the OpenRouter provider")
+            endpoint = _openrouter_endpoint(endpoint)
+        object.__setattr__(self, "openrouter_provider", endpoint)
         if self.reasoning_effort is not None:
             if (
                 not isinstance(self.reasoning_effort, str)
@@ -596,14 +634,13 @@ class BoundedRecapPassClient:
                 node_source=source_evidence_packet.source_sha256,
                 node_source_packet=source_evidence_packet.packet_id,
             )
-        deepseek = (self.limits.provider, self.limits.model) == ("openrouter", DEEPSEEK_MODEL)
         route = None
         system_prompt = instructions
-        if deepseek:
+        if self.limits.openrouter_provider is not None:
             from generationengine.types import ProviderRoute
 
             route = ProviderRoute(
-                order=("DeepSeek",),
+                order=(self.limits.openrouter_provider,),
                 allow_fallbacks=False,
                 require_parameters=True,
             )
@@ -629,21 +666,19 @@ class BoundedRecapPassClient:
                 else self.limits.max_output_tokens
             ),
             "deadline_ms": min(remaining, self.limits.per_call_deadline_ms),
+            "json_schema": fmt["schema"],
+            "schema_name": fmt["name"],
         }
-        if deepseek:
+        if route is not None:
             request_kwargs.update(
                 provider_route=route,
                 reasoning_effort=(
                     self.limits.reasoning_effort
                     if self.limits.reasoning_effort is not None else "none"
                 ),
-                json_schema=fmt["schema"],
-                schema_name=fmt["name"],
             )
-        else:
-            request_kwargs.update(json_schema=fmt["schema"], schema_name=fmt["name"])
-            if self.limits.reasoning_effort is not None:
-                request_kwargs["reasoning_effort"] = self.limits.reasoning_effort
+        elif self.limits.reasoning_effort is not None:
+            request_kwargs["reasoning_effort"] = self.limits.reasoning_effort
         request = self._request_type(**request_kwargs)
         entry = {
             "ordinal": len(self.calls) + 1,
@@ -753,7 +788,7 @@ class BoundedRecapPassClient:
                 or observation.get("provider") != self.limits.provider
                 or observation.get("requested_model") != self.limits.model
                 or observation.get("resolved_model") != self.limits.model
-                or (deepseek and observation.get("response_model") != self.limits.model)
+                or (route is not None and observation.get("response_model") != self.limits.model)
             ):
                 raise CategoryGraphExtractionError(
                     "inference did not complete within the bounded structured attempt policy",
@@ -791,7 +826,7 @@ class BoundedRecapPassClient:
             parsed = result.parsed if result.parsed is not None else json.loads(result.text or "")
             if not isinstance(parsed, dict):
                 raise NonObjectResponseError("expected JSON object")
-            if deepseek or source_evidence_packet is not None or advertised_node_schema:
+            if route is not None or source_evidence_packet is not None or advertised_node_schema:
                 validate_json_schema(parsed, fmt["schema"])
             if source_evidence_packet is not None:
                 from src.graph_memory.extraction.source_sentence_evidence import materialize_node_evidence
