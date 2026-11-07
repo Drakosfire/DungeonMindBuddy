@@ -191,13 +191,20 @@ def _reply_object(turn, world, conversation):
 
 
 def _message_page(conn, world, conversation, limit, before_sequence, *, metadata=False):
-    """One bounded text query. Execution, context and completion stay off this path."""
+    """Bounded message display; never load execution or a full context receipt."""
     from . import repository as repo
 
+    presentation = """,completion,
+        CASE WHEN jsonb_typeof(completion->'saved_source_citations')='array'
+            AND completion->'saved_source_citations'<>'[]'::jsonb
+            THEN graph_context_receipt->'work_context'->'source_basis'
+            ELSE NULL END AS citation_source_basis,
+        EXISTS(SELECT 1 FROM agent.turn_rules_execution r
+            WHERE r.turn_id=t.turn_id) AS citation_has_rules""" if metadata else ""
     rows = conn.execute(
-        """SELECT turn_id,sequence,status,user_text,assistant_text,idempotency_key,
-            revision,world_id,surface_resolution,surface_id,surface_instance_id
-        FROM agent.turn WHERE world_id=%s AND conversation_id=%s
+        f"""SELECT turn_id,sequence,status,user_text,assistant_text,idempotency_key,
+            revision,world_id,surface_resolution,surface_id,surface_instance_id{presentation}
+        FROM agent.turn t WHERE world_id=%s AND conversation_id=%s
             AND (%s::bigint IS NULL OR sequence<%s)
         ORDER BY sequence DESC LIMIT %s""",
         (world, conversation, before_sequence, before_sequence, limit + 1),
@@ -212,7 +219,9 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
         }
         message["turn_id"] = str(row["turn_id"])
         if metadata:
+            from .saved_citation_preview import project
             message.update(
+                citation_preview=project(row),
                 idempotency_key=str(row["idempotency_key"]),
                 revision=row["revision"],
                 provenance=repo.turn_provenance(
@@ -281,7 +290,7 @@ def read_active_messages(
             else ([], None)
         )
     return {
-        "schema": "dmb_active_conversation_messages_v1",
+        "schema": "dmb_active_conversation_messages_v2",
         "world_id": world,
         "conversation_state": "active" if ident else "absent",
         "conversation_id": str(ident) if ident else None,

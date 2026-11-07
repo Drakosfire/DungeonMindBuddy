@@ -346,14 +346,10 @@ def test_active_messages_never_select_or_decode_execution_and_keep_exact_cursor(
 
     def audited(cursor, query, *args, **kwargs):
         if isinstance(query, str) and query.lstrip().lower().startswith("select"):
-            assert not any(
-                field in query
-                for field in [
-                    "graph_context_execution",
-                    "graph_context_receipt",
-                    "completion",
-                ]
-            )
+            assert "graph_context_execution" not in query
+            if "graph_context_receipt" in query:
+                assert query.count("graph_context_receipt") == 1
+                assert "graph_context_receipt->'work_context'->'source_basis'" in query
         return original(cursor, query, *args, **kwargs)
 
     with monkeypatch.context() as patch:
@@ -375,7 +371,7 @@ def test_active_messages_never_select_or_decode_execution_and_keep_exact_cursor(
         {
             k: v
             for k, v in row.items()
-            if k not in {"revision", "idempotency_key", "provenance"}
+            if k not in {"revision", "idempotency_key", "provenance", "citation_preview"}
         }
         for row in page["messages"]
     ]

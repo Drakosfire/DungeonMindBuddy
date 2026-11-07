@@ -1,3 +1,5 @@
+import {SavedCitationAnswer} from './SavedCitationAnswer';
+import {isBuildSourceBasis} from '../../shared/sourcePassageProtocol';
 import { readActiveConversationMessages, type ActiveConversationMessages } from '../../api/conversationLibraryApi';
 import { ConversationReplyDetails } from './ConversationReplyDetails';
 import {isNativeSourceAuthority,isNativeProviderInput,isSurfaceNativeReceipt,isSurfaceNativeContext,isSurfaceNativeCompletion,isBuildAuthoringCompletion,isBuildImageCompletion} from '../../shared/surfaceNativeProtocol';
@@ -1552,12 +1554,6 @@ function hasObjectOnlyBuildReply(turn: WorldAgentConversationHistoryTurn): boole
 
 
 
-function isBuildSourceBasis(value:unknown,worldId:string):value is WorldBuildGraphReceiptV1['source_basis'] {
-  return hasExactKeys(value,['world_id','document_id','registry_revision','content_sha256','visibility'])
-    &&value.world_id===worldId&&typeof value.document_id==='string'&&!!value.document_id
-    &&isPositiveRevision(value.registry_revision)&&isDigest(value.content_sha256)
-    &&['internal','player_safe'].includes(String(value.visibility));
-}
 function isSharedBuildWork(work:unknown,worldId:string):work is Extract<import('../../api/types').SurfaceNativeWorkContextV1,{surface_id:'build'}> {
   return hasExactKeys(work,['surface_id','source_basis'])&&work.surface_id==='build'&&isBuildSourceBasis(work.source_basis,worldId);
 }
@@ -1873,7 +1869,7 @@ function messagePresentation(page: ActiveConversationMessages): WorldAgentConver
   return {
 schema: 'dmb_agent_conversation_history_v3', world_id: page.world_id, conversation_state: page.conversation_state,
     conversation_id: page.conversation_id, active_conversation_id: page.active_conversation_id, pointer_revision: page.pointer_revision,
-    next_before_sequence: page.next_before_sequence, turns: page.messages.map(({ status, revision, ...row }) => ({ ...row, lifecycle_status: status as import('../../api/types').AgentConversationTurnLifecycleV1 }))
+    next_before_sequence: page.next_before_sequence, turns: page.messages.map(({ status, revision, citation_preview, ...row }) => ({ ...row, lifecycle_status: status as import('../../api/types').AgentConversationTurnLifecycleV1 }))
 };
 }
 function sameSavedMessage(a: WorldAgentConversationHistoryTurn, b: WorldAgentConversationHistoryTurn) {
@@ -2629,9 +2625,9 @@ export function WorldPlanAgentConversation({
   const sharedConversation = useWorldAgentConversationState();
   const [localHistory, setLocalHistory] = useState<WorldAgentConversationHistoryResponse | null>(null);
   const history = sharedConversation?.worldId === worldId ? sharedConversation.history : localHistory;
-  const [messageHistory, setMessageHistory] = useState<WorldAgentConversationHistoryResponseV3 | null>(null);
-  const messageHistoryRef = useRef<WorldAgentConversationHistoryResponseV3 | null>(null);
-  const messageRevisions = useRef(new Map<string, number>());
+  const [messagePage, setMessagePage] = useState<ActiveConversationMessages | null>(null);
+  const messagePageRef = useRef<ActiveConversationMessages | null>(null);
+  const messageHistory = messagePage ? messagePresentation(messagePage) : null;
   const historyReadBusy = useRef<number | null>(null);
   const displayHistory = messageHistory && history && sameHistoryPointer(messageHistory, history)
     ? { ...messageHistory, turns: mergeHistoryTurns(messageHistory.turns.map(row => history.turns.find(full => sameSavedMessage(full, row)) ?? row), history.turns.filter(full => !messageHistory.turns.some(row => row.turn_id === full.turn_id))) as WorldAgentConversationHistoryResponseV3['turns'] } : history;
@@ -3309,7 +3305,7 @@ export function WorldPlanAgentConversation({
     if (!sameHistoryScope) {
       historySnapshotRef.current = null;
       setHistory(null);
-      messageHistoryRef.current = null; setMessageHistory(null); messageRevisions.current.clear();
+      messagePageRef.current = null; setMessagePage(null);
     }
     setOlderLoading(false);
     setHistoryError(null);
@@ -3332,16 +3328,17 @@ export function WorldPlanAgentConversation({
         const reset = confirmedResetRef.current;
         if (reset?.worldId === verifiedWorldId && (metadata.pointer_revision < reset.pointerRevision
           || metadata.pointer_revision === reset.pointerRevision && metadata.conversation_id !== reset.conversationId)) throw new Error('The refreshed transcript has not reached the confirmed new conversation. Refresh history again.');
-        messageHistoryRef.current = metadata; setMessageHistory(metadata);
+        const previousRevisions = new Map(messagePageRef.current?.messages.map(row => [row.turn_id, row.revision]) ?? []);
+        const revisions = new Map(light.messages.map(row => [row.turn_id, row.revision]));
+        messagePageRef.current = light; setMessagePage(light);
         const current = historySnapshotRef.current;
-        const previousRevisions = messageRevisions.current; messageRevisions.current = new Map(light.messages.map(row => [row.turn_id, row.revision]));
         // The verified aggregate accepts every current full-turn variant, including
         // mixed rules/source turns. Message-only rows remain in the separate view.
         let page: WorldAgentConversationHistoryResponseV4 = {
           ...metadata,
           schema: 'dmb_agent_conversation_history_v4',
           turns: current && sameHistoryPointer(current, metadata)
-            ? current.turns.filter(turn => previousRevisions.get(turn.turn_id) === messageRevisions.current.get(turn.turn_id)
+            ? current.turns.filter(turn => previousRevisions.get(turn.turn_id) === revisions.get(turn.turn_id)
               && metadata.turns.some(row => sameSavedMessage(turn, row)))
             : [],
         };
@@ -4759,7 +4756,7 @@ export function WorldPlanAgentConversation({
     return page.turns[0];
   }
   async function inspectSavedMessage(row: WorldAgentConversationHistoryTurn, signal: AbortSignal) {
-    const snapshot = messageHistoryRef.current, generation = historyGenerationRef.current;
+    const snapshot = messagePageRef.current ? messagePresentation(messagePageRef.current) : null, generation = historyGenerationRef.current;
     if (!snapshot || !snapshot.turns.some(item => sameSavedMessage(item, row))) throw new Error('This message is no longer selected.');
     const full = await readExactMessageTurn(snapshot, row, signal);
     const current = historySnapshotRef.current;
@@ -4798,11 +4795,11 @@ export function WorldPlanAgentConversation({
         ...latest,
         next_before_sequence: page.next_before_sequence,
       };
-      const previous = messageHistoryRef.current;
-      if (!previous || !sameHistoryPointer(previous, page)) throw new Error('Message history changed during pagination.');
-      light.messages.forEach(row => messageRevisions.current.set(row.turn_id, row.revision));
-      const combined = { ...page, turns: mergeHistoryTurns(page.turns, previous.turns) as WorldAgentConversationHistoryResponseV3['turns'] };
-      messageHistoryRef.current = combined; setMessageHistory(combined);
+      const previous = messagePageRef.current;
+      if (!previous || !sameHistoryPointer(messagePresentation(previous), page)) throw new Error('Message history changed during pagination.');
+      const rows = new Map([...light.messages, ...previous.messages].map(row => [row.turn_id, row]));
+      const combined = { ...light, messages: [...rows.values()].sort((a,b) => a.sequence-b.sequence) };
+      messagePageRef.current = combined; setMessagePage(combined);
       historySnapshotRef.current = merged;
       const viewport = presentationHosts?.messages?.parentElement ?? playMessagesHostRef.current?.parentElement;
       if (viewport) {
@@ -6374,12 +6371,15 @@ export function WorldPlanAgentConversation({
     if (event.kind === "proposal") return renderProposalEvent(event.turn, event.position, false);
     const turn = event.turn;
     const pageSuggestion = buildCompose.items.find(item => item.originTurnId === turn.turn_id);
+    const savedMessage=messagePage&&messageHistory&&messageHistory.world_id===turn.provenance.world_id
+      &&history&&sameHistoryPointer(messageHistory,history)&&messageHistory.turns.some(row=>sameSavedMessage(turn,row))
+      ?messagePage.messages.find(row=>row.turn_id===turn.turn_id):undefined;
     if (!history?.turns.some(full => sameSavedMessage(full, turn))) return <BuddyTurnInspection key={`world:${turn.turn_id}`} worldId={verifiedWorldId ?? ''} conversationId={history?.conversation_id ?? ''} turnId={turn.turn_id} lifecycle={turn.lifecycle_status}>
       <article className={`world-plan-agent-conversation__turn world-plan-agent-conversation__turn--${turn.assistant_text ? 'complete' : turn.lifecycle_status}`} data-turn-id={turn.turn_id} data-sequence={turn.sequence} tabIndex={-1}>
         <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--user"><span className="world-plan-agent-conversation__speaker">You</span><p>{turn.user_text}</p></div>
         <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
           <div className="world-plan-agent-conversation__reply-heading"><span className="world-plan-agent-conversation__speaker">Buddy</span></div>
-          {pageSuggestion ? pageSuggestion.element : turn.assistant_text ? <WorldPlanAgentAnswer answer={turn.assistant_text} /> : <p>{turn.lifecycle_status === 'completed' ? 'Open Details to inspect this reply.' : turn.lifecycle_status === 'failed' || turn.lifecycle_status === 'interrupted' ? 'This reply did not finish.' : 'Waiting for this reply…'}</p>}
+          {pageSuggestion ? pageSuggestion.element : turn.assistant_text ? <SavedCitationAnswer key={`${turn.turn_id}:${historyGenerationRef.current}`} preview={savedMessage?.citation_preview??null} answer={turn.assistant_text} worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : <p>{turn.lifecycle_status === 'completed' ? 'Open Details to inspect this reply.' : turn.lifecycle_status === 'failed' || turn.lifecycle_status === 'interrupted' ? 'This reply did not finish.' : 'Waiting for this reply…'}</p>}
         </div>
         <div className="world-plan-agent-conversation__turn-debug">{renderReplyDetails(turn, false)}</div>
       </article></BuddyTurnInspection>;

@@ -8,6 +8,14 @@ const digest = (v: unknown): v is string => typeof v === "string" && /^[a-f0-9]{
 const uuid = (v: unknown): v is string => typeof v === "string" && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(v);
 const boundedText = (v: unknown, max: number): v is string => typeof v === "string" && !!v.trim() && v.length <= max;
 
+/** Actual saved source stamp, without a receipt or evidence admission claim. */
+export function isBuildSourceBasis(value:unknown,worldId:string):value is import('../api/types').WorldBuildGraphReceiptV1['source_basis'] {
+  return exact(value,['world_id','document_id','registry_revision','content_sha256','visibility'])
+    &&value.world_id===worldId&&typeof value.document_id==='string'&&!!value.document_id
+    &&Number.isSafeInteger(value.registry_revision)&&Number(value.registry_revision)>0&&digest(value.content_sha256)
+    &&['internal','player_safe'].includes(String(value.visibility));
+}
+
 export function isDraftReferenceClaim(v:unknown):v is Extract<import('../api/types').WorldBuildRelatedPageCompletionV1['answer_segments'][number],{kind:'draft_reference_claim'}> {
   return exact(v,['kind','text','draft_record_id'])&&v.kind==='draft_reference_claim'&&typeof v.text==='string'&&!!v.text.trim()&&uuid(v.draft_record_id);
 }

@@ -4,6 +4,9 @@ const text=(v:unknown):v is string=>typeof v==='string'&&!!v.trim();
 const hash=(v:unknown):v is string=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v);
 /** Presentation shape only. Core and APP prove admission and producing reads. */
 export function isNativeAssertionCitation(v:unknown,receiptHash:string):v is NativeAssertionCitationV1 {
+  return isNativeAssertionCitationShape(v)&&v.context_receipt_sha256===receiptHash;
+}
+export function isNativeAssertionCitationShape(v:unknown):v is NativeAssertionCitationV1 {
   return exact(v,['segment_index','assertion_id','read_event_id','provider_attempt_id','envelope_sha256','context_receipt_sha256',
     'managed_world_id','native_world_id','read_revision_id','assertion_sha256','evidence_ref_id','source_artifact_id','source_revision_id',
     'body_sha256','start_byte','end_byte','span_sha256'])
@@ -11,7 +14,7 @@ export function isNativeAssertionCitation(v:unknown,receiptHash:string):v is Nat
     && [v.assertion_id,v.read_event_id,v.provider_attempt_id,v.managed_world_id,v.native_world_id,v.read_revision_id,
       v.evidence_ref_id,v.source_artifact_id,v.source_revision_id].every(text)
     && [v.envelope_sha256,v.context_receipt_sha256,v.assertion_sha256,v.body_sha256,v.span_sha256].every(hash)
-    && v.context_receipt_sha256===receiptHash&&Number.isSafeInteger(v.start_byte)&&Number.isSafeInteger(v.end_byte)
+    && hash(v.context_receipt_sha256)&&Number.isSafeInteger(v.start_byte)&&Number.isSafeInteger(v.end_byte)
     && Number(v.start_byte)>=0&&Number(v.end_byte)>Number(v.start_byte);
 }
 export function isNativeAssertionClaim(v:unknown):v is NativeAssertionClaimV1 {

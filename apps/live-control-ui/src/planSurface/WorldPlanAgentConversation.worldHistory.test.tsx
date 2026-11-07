@@ -1309,7 +1309,7 @@ function setupApi(initialHistory: WorldAgentConversationHistoryResponse, inspect
     schema: page.schema === 'dmb_agent_conversation_history_v4' ? page.schema : 'dmb_agent_conversation_history_v3',
     turns: page.turns.map(turn => ({ ...turn, idempotency_key: 'idempotency_key' in turn ? turn.idempotency_key : '00000000-0000-4000-8000-000000000099' }))
 } as WorldAgentConversationHistoryResponse);
-  const messages = (page: WorldAgentConversationHistoryResponse) => { const wire = liveHistory(page); return { schema: "dmb_active_conversation_messages_v1" as const, world_id: wire.world_id, conversation_state: wire.conversation_state, conversation_id: wire.conversation_id, active_conversation_id: wire.active_conversation_id, pointer_revision: wire.pointer_revision, next_before_sequence: wire.next_before_sequence ?? null, messages: wire.turns.map(turn => ({ turn_id: turn.turn_id, sequence: turn.sequence, status: turn.lifecycle_status, user_text: turn.user_text, assistant_text: turn.assistant_text, revision: 1, idempotency_key: "idempotency_key" in turn ? turn.idempotency_key : "", provenance: turn.provenance })) }; };
+  const messages = (page: WorldAgentConversationHistoryResponse) => { const wire = liveHistory(page); return { schema: "dmb_active_conversation_messages_v2" as const, world_id: wire.world_id, conversation_state: wire.conversation_state, conversation_id: wire.conversation_id, active_conversation_id: wire.active_conversation_id, pointer_revision: wire.pointer_revision, next_before_sequence: wire.next_before_sequence ?? null, messages: wire.turns.map(turn => ({ turn_id: turn.turn_id, sequence: turn.sequence, status: turn.lifecycle_status, user_text: turn.user_text, assistant_text: turn.assistant_text, citation_preview: null, revision: 1, idempotency_key: "idempotency_key" in turn ? turn.idempotency_key : "", provenance: turn.provenance })) }; };
   const getMessages = vi.spyOn(conversationLibraryApi, 'readActiveConversationMessages').mockImplementation(async (_world, before, signal) => {
     historyCalls.push({ limit: 50, beforeSequence: before, signal });
     const page = liveHistory(before !== undefined ? (olderHandler ? await olderHandler() : olderPage ?? currentHistory) : currentHistory);
@@ -6307,4 +6307,20 @@ it.each(['conversation','turn'])('does not open another %s reply when inspecting
   fireEvent.click(screen.getByRole('button',{name:'Refresh identity fixture'}));await screen.findByText('New reply');
   expect(screen.getByText('Details',{selector:'summary'}).closest('details')).not.toHaveAttribute('open');
   expect(document.querySelector('details.buddy-activity')).toBeNull();
+});
+
+it('shows native citations on initial lightweight history without opening Sources and actions',async()=>{
+  const {savedCitationPreviewFixture}=await import('../testSupport/savedCitationPreviewFixture');
+  const {preview,answer,body,citation}=await savedCitationPreviewFixture('plan');
+  const turn=makeTurn(1,'saved-native-turn','Which bridge?',answer);
+  const page=history('conversation-a',4,[turn]);const api=setupApi(page,false);
+  api.getMessages.mockImplementation(async()=>{const light=api.messages(page);return {...light,messages:light.messages.map(row=>({...row,citation_preview:preview}))};});
+  const source=vi.spyOn(liveApi,'getAgentNativeBodyExcerpt').mockResolvedValue({schema:'dmb_agent_native_body_excerpt_read_v2',world_id:worldId,turn_id:turn.turn_id,citation_index:0,citation,content:body,display_label:'Bridge recap'});
+  render(conversationElement());await waitForConversationReady(false);
+  expect(screen.getByRole('button',{name:'Read source · Full document'})).toBeInTheDocument();expect(api.getHistory).not.toHaveBeenCalled();expect(source).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'My unsent message'}});
+  fireEvent.click(screen.getByRole('button',{name:'Read source · Full document'}));
+  expect(await screen.findByText(body)).toBeInTheDocument();expect(source).toHaveBeenCalledExactlyOnceWith(worldId,turn.turn_id,0);expect(api.getHistory).not.toHaveBeenCalled();
+  expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('My unsent message');
+  expect(screen.getByRole('button',{name:'Sources and actions'})).toBeInTheDocument();
 });
