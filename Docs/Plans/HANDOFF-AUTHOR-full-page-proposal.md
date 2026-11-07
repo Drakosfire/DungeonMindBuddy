@@ -1,6 +1,11 @@
 # AUTHOR: full-page proposal completion
 
-Status: ACTIVE. PRIME owns this operator-requested page-generation failure fix.
+Status: DELIVERED through PR2178, merge413021a988093b8ad28771f27e81752c378b8283.
+Runtime3c69b41d0a44baeffd65311addb615d1c64517e4 is healthy on5202; independent review,
+98 focused tests and seven CI checks passed. Original failure hash and retained
+state are unchanged. No paid retry or operator acceptance is claimed. Lease released.
+
+Original bounded contract: PRIME owns this operator-requested page-generation failure fix.
 Base: b73333f3b74d74aa64d294d00331b2e358662cf6; branch codex/full-page-proposal
 in the existing context-loop checkout. Serial, independently useful correction;
 no dependency on held Play or INGEST PRs. The broader goal stays paused.

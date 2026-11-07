@@ -20,6 +20,19 @@ export function activityObservations(observations: readonly BuddyTraceObservatio
   })
 }
 
+/** Presentation only: the capture owner already binds this material to its writer.
+ * This never establishes completion or grounding, and does not inspect response text.
+ */
+function capturedWriterAttempt(event: BuddyTraceObservation): string | null {
+  if(event.kind!=='context_snapshot'||event.snapshot_kind!=='provider_response')return null
+  const matches=event.materials.flatMap(material=>{
+    if(material.role!=='assistant'||material.state!=='model_context')return []
+    const match=/^unvalidated-provider-answer:([0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}):[0-9a-f]{64}$/.exec(material.item_id)
+    return match?[match[1]]:[]
+  })
+  return matches.length===1?matches[0]:null
+}
+
 function activity(event: BuddyTraceObservation): string {
   switch (event.kind) {
     case 'authored_graph_reference_v1': {
@@ -42,11 +55,11 @@ function activity(event: BuddyTraceObservation): string {
           : request.observation_ids.join(', ');
       return `Graph ${request.operation}: ${focus} · ${event.result.outcome}.`;
     }
-    case 'provider_call': return event.outcome === 'authorized' ? 'Model call cleared for takeoff…'
-      : event.outcome === 'response_received' ? 'A model response just landed.' : `Model call · ${event.outcome}.`
-    case 'prompt_reference': return 'Notes packed for the next model call.'
+    case 'provider_call': return event.outcome === 'authorized' ? 'Waiting for a response…'
+      : event.outcome === 'response_received' ? 'A response has arrived.' : `Model call · ${event.outcome}.`
+    case 'prompt_reference': return 'Preparing the request…'
     case 'context_snapshot': return event.snapshot_kind === 'provider_input' ? 'Laying out the notes…'
-      : event.snapshot_kind === 'provider_response' ? 'Response captured for inspection.'
+      : event.snapshot_kind === 'provider_response' ? 'Checking the response…'
       : event.snapshot_kind === 'validated_answer' ? 'The reply is assembled.'
       : event.snapshot_kind === 'compaction_input' ? 'Taking stock of the notes…'
       : event.snapshot_kind === 'compaction_output' ? 'The notes after a tidy-up.' : 'A captured snapshot of the notes.'
@@ -67,10 +80,17 @@ export function BuddyActivity({ worldId, conversationId, turnId, lifecycle }: { 
   const last = observations.at(-1)
   const focus = [...observations].reverse().find(event => nativeRetrievalActivity(event) !== null || event.kind === 'graph_tool' || event.kind === 'source_passage'
     || event.kind === 'source_passage_reuse' || event.kind === 'authored_graph_reference_v1')
-  const progress = last && focus && last.kind !== 'failure'
-    && (last.kind === 'context_snapshot' && last.snapshot_kind !== 'validated_answer'
-      || last.kind === 'prompt_reference' && last.provider === 'typesafe'
-      || last.kind === 'provider_call' && last.provider === 'typesafe') ? focus : last
+  const writer = [...observations].reverse().find(event => capturedWriterAttempt(event) !== null)
+  // Usage arrives after capture; it is the same response, not another call or phase.
+  const checkpoint = [...observations].reverse().find(event => event.kind!=='provider_call' && event.kind!=='prompt_reference'
+    || event.kind==='provider_call' && event.outcome!=='response_received')
+  const candidate = last?.kind==='provider_call' && last.outcome==='response_received' && writer
+    && last.provider_attempt_id===capturedWriterAttempt(writer)
+    ? checkpoint && checkpoint.sequence>writer.sequence ? checkpoint : writer : last
+  const progress = candidate && focus && candidate.kind !== 'failure' && capturedWriterAttempt(candidate) === null
+    && (candidate.kind === 'context_snapshot' && candidate.snapshot_kind !== 'validated_answer'
+      || candidate.kind === 'prompt_reference' && candidate.provider === 'typesafe'
+      || candidate.kind === 'provider_call' && candidate.provider === 'typesafe') ? focus : candidate
   const failed = lifecycle === 'failed' || lifecycle === 'interrupted' || trace?.terminal_status === 'failed' || trace?.terminal_status === 'interrupted'
   const label = inspection.running ? progress ? activity(progress) : 'Getting the notes together…'
     : failed ? 'Reply error report' : 'How this reply came together'
