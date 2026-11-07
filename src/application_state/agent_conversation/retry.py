@@ -230,13 +230,18 @@ def validate_reference_retry(parent, intent):
 
 
 def retained_discussion_capture(turn):
-    """Only an admitted discussion can reuse its old draft without write authority."""
+    """Reuse a verified non-writing request, never its old write capability.
+
+    The admitted operation owns this distinction. Review labels may describe
+    creation while still only preparing a review through answer_from_sources.
+    The successor admission separately requires a fresh no-write intent.
+    """
     from .types import BuildRequestedWorkResolutionV1
     from .build_draft_context import context_record, validate_record
 
     execution = turn.graph_context_execution
     decisions = [e for e in execution.events if isinstance(e, BuildRequestedWorkResolutionV1)] if execution else []
-    if len(decisions) != 1 or decisions[0].requested_work != "discuss" or decisions[0].operation != "answer_from_sources":
+    if len(decisions) != 1 or decisions[0].operation != "answer_from_sources":
         raise RetryUnavailableError("This request needs its authoring target; it cannot be retried as a discussion")
     try:
         captured = context_record(execution).record
