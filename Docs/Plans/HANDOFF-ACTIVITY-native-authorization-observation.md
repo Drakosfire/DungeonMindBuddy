@@ -29,6 +29,14 @@ Keep capture failure behavior at its existing owner. Do not nest the collector's
 non-reentrant claim lock. No schema or response contract changes, token/output
 limits, source/Graph changes or UI production changes.
 
+Independent review of head8f1572455 identified a conditional duplicate from the
+generic authorization publisher when optional prompt capture is enabled. Keep
+exact-once observation at the existing collector: coalesce only authorized events
+with the same non-null provider-attempt/provider/model identity, under its claim
+lock. Preserve the first captured record and all responses, usage and failures.
+Do not add a new authorization decision or filter anonymous/different identities.
+Exercise prompt capture enabled and disabled at actual transport entry.
+
 ## Exclusive expected writes
 
 - This handoff.

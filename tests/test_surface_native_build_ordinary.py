@@ -1126,7 +1126,12 @@ def test_native_build_reports_actual_incomplete_writer_reason_without_acceptance
 
 
 @pytest.mark.parametrize('failure', [None, 'writer_incomplete_filter'])
-def test_native_authorization_is_visible_before_actual_provider_transport(lane,tmp_path,monkeypatch,failure):
+@pytest.mark.parametrize('prompt_capture', [False, True])
+def test_native_authorization_is_visible_before_actual_provider_transport(lane,tmp_path,monkeypatch,failure,prompt_capture):
+    if prompt_capture:
+        monkeypatch.setenv('DMB_AGENT_PROMPT_CAPTURE','1')
+    else:
+        monkeypatch.delenv('DMB_AGENT_PROMPT_CAPTURE',raising=False)
     observed=[]
     def inspect_before_response(adapter,provider):
         capture=adapter.context_capture
@@ -1143,6 +1148,12 @@ def test_native_authorization_is_visible_before_actual_provider_transport(lane,t
         assert grants[0].sequence>prompts[0].sequence
         assert not any(o.kind=='provider_call' and o.provider_attempt_id==attempt and o.outcome=='response_received'
             for o in trace.observations)
+        # The generic authorization publisher can observe the same grant after
+        # optional prompt capture. The observation owner must not append it twice.
+        capture.observe(dict(kind='provider_call',provider=provider,model=grants[0].model,
+            provider_attempt_id=attempt,outcome='authorized'))
+        assert sum(o.kind=='provider_call' and o.provider_attempt_id==attempt and o.outcome=='authorized'
+            for o in capture.trace.observations)==1
         observed.append((adapter,attempt,provider))
     _fresh_case(lane,tmp_path,monkeypatch,failure,False,False,False,before_provider=inspect_before_response)
     assert {provider for _,_,provider in observed}=={'typesafe','openai'}

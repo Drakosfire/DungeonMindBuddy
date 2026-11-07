@@ -116,6 +116,16 @@ class ContextTraceCollector:
                 **fields, "sequence": len(self.trace.observations),
                 "elapsed_ms": self.elapsed_ms,
             })
+            # Optional prompt capture and the generic publisher can observe the
+            # same grant. Preserve its first record, never collapse outcomes or
+            # usage, and leave anonymous or different identities inspectable.
+            if (observation.kind == "provider_call" and observation.outcome == "authorized"
+                    and observation.provider_attempt_id is not None
+                    and any(row.kind == "provider_call" and row.outcome == "authorized"
+                        and (row.provider_attempt_id, row.provider, row.model)
+                            == (observation.provider_attempt_id, observation.provider, observation.model)
+                        for row in self.trace.observations)):
+                return
             try:
                 self.trace = self._append_observation_locked(observation)
             except ApplicationStateValidationError:
