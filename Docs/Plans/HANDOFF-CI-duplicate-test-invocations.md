@@ -1,6 +1,9 @@
 # CI: remove duplicate test invocations
 
-Status: ACTIVE. PRIME owns this bounded CI-only slice under the operator's
+Status: SETTLED. PR2201 merged at c8d2b596d2a1dbb323b85d73f500b13c4e2e622a after
+independent approval of6d2f18ab620e53ee39ce535c106fc1378add4138 and the explicit
+operator CI-gate waiver. Manual baseline runs42420353355/42420354928 are retained.
+PRIME owned this bounded CI-only slice under the operator's
 2026-11-07 instruction to remove obvious waste before measuring a cleaned baseline.
 
 ## Authority and topology
