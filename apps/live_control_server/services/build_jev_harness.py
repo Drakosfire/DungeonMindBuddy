@@ -451,7 +451,11 @@ class BuildJevHarness:
         from .plan_jev_driver import PlanJevDriver
         from .plan_jev_writer import PlanJevWriter
         rules = PlanRulesRuntime(adapter,self.rules_capability)
-        retrieval = PlanJevDriver(adapter,dialogue=(),rules=rules)
+        # Use the same frozen pairs as Build work selection and writing. Prior
+        # dialogue resolves follow-up references; it is never source evidence.
+        dialogue = tuple({'role': role, 'content': pair[role]}
+            for pair in adapter.build_frozen_history for role in ('user', 'assistant'))
+        retrieval = PlanJevDriver(adapter,dialogue=dialogue,rules=rules)
         writer = None
         try:
             proof = asyncio.run(retrieval.run(transport=self.decision_transport))

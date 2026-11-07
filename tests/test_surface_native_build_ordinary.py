@@ -779,6 +779,44 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         revision=current_revision)
 
 
+@pytest.mark.parametrize('long_exchange', [False, True])
+def test_native_build_retrieval_receives_frozen_followup_dialogue(lane, tmp_path, monkeypatch, long_exchange):
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False)
+    initial = [json.loads(req.content)['state'] for req in case.decisions.calls
+        if 'candidates' in json.loads(req.content).get('state', {})]
+    assert initial and all('dialogue_reference' not in state for state in initial)
+    expected = [dict(role='user', content=case.request['message']),
+        dict(role='assistant', content=case.turn.assistant_text)]
+    messages = ['The proposed place is the copper observatory. 🌌']
+    if long_exchange:
+        messages[0] += ' Author-supplied possibility, not a played fact. ' * 320
+        assert len(messages[0]) > 12000
+    messages.append('Retrieve context for that place; do not treat my proposed details as played facts.')
+    for message in messages:
+        start = len(case.decisions.calls)
+        request = case.request | dict(turn_id=str(uuid4()), message=message)
+        response = case.client.post('/api/live/agent/turn', json=request)
+        assert response.status_code == 200, response.text
+        states = [json.loads(req.content)['state'] for req in case.decisions.calls[start:]
+            if 'candidates' in json.loads(req.content).get('state', {})]
+        assert states and all(state.get('dialogue_reference') == expected for state in states)
+        frozen = case.writer.adapter.build_frozen_history
+        assert [dict(role=role, content=pair[key]) for pair in frozen
+            for role, key in (('user', 'user'), ('assistant', 'assistant'))] == expected
+        assert all('not source evidence' in state['questions']['operation']['instructions']
+            or 'never evidence' in state['questions']['operation']['instructions']
+            for state in [json.loads(req.content) for req in case.decisions.calls[start:]
+                if 'candidates' in json.loads(req.content).get('state', {})])
+        counts = len(case.decisions.calls), len(case.writer.calls)
+        replay = case.client.post('/api/live/agent/turn', json=request)
+        assert replay.status_code == 200 and replay.json()['knowledge_context']['delivery_replay'] is True
+        assert (len(case.decisions.calls), len(case.writer.calls)) == counts
+        assert get_workspace_document_snapshot(tmp_path, case.page.document_id) == case.source
+        assert lane.repo.get_head(case.world).head_revision_id == case.revision
+        expected += [dict(role='user', content=message),
+            dict(role='assistant', content=response.json()['answer']['text'])]
+
+
 @pytest.mark.parametrize('kind,related,mutation,output_review',[
     ('discuss',False,None,None),('discuss',False,None,'questions'),('discuss',False,None,'plan'),
     ('prepare_insertion',False,None,None),('prepare_insertion',True,None,None),
