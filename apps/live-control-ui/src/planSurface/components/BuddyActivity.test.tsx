@@ -23,7 +23,7 @@ describe('live activity entrance',()=>{
   it('uses actual observed events and expands the full timeline without prompts',async()=>{
     const {load,loadPrompt}=mount(trace([{kind:'provider_call',sequence:0,elapsed_ms:1200,
       provider:'typesafe',model:'jev',outcome:'response_received'}]))
-    await screen.findByText('A model response just landed.')
+    await screen.findByText('A response has arrived.')
     const activity=screen.getByRole('status').closest('details')!
     expect(activity).toHaveAttribute('data-running','true')
     expect(activity.querySelector('svg')).toHaveAttribute('aria-hidden','true')
@@ -31,7 +31,7 @@ describe('live activity entrance',()=>{
     expect(activity.querySelectorAll('.buddy-activity__dot')).toHaveLength(3)
     expect(load).toHaveBeenCalledTimes(1)
     expect(screen.queryByText(/Observable execution · attempt 1/)).not.toBeInTheDocument()
-    fireEvent.click(screen.getByText('A model response just landed.'))
+    fireEvent.click(screen.getByText('A response has arrived.'))
     await screen.findByText(/Observable execution · attempt 1/)
     expect(screen.getByText('1.2s')).toBeInTheDocument()
     expect(loadPrompt).not.toHaveBeenCalled()
@@ -61,17 +61,17 @@ describe('live activity entrance',()=>{
 it('updates the running line from a later recorded observation', async()=>{
   const initial=trace([{kind:'provider_call',sequence:0,elapsed_ms:0,provider:'typesafe',model:'jev',outcome:'authorized'}])
   const {load}=mount(initial)
-  await screen.findByText('Model call cleared for takeoff…')
+  await screen.findByText('Waiting for a response…')
   load.mockResolvedValue({schema:'dmb_agent_turn_context_trace_response_v1',world_id:'world',turn_id:'turn',attempts:[trace([
     {kind:'context_snapshot',snapshot_kind:'provider_response',sequence:1,elapsed_ms:2000,stage:'after',materials:[]}
   ])]})
-  await screen.findByText('Response captured for inspection.', {}, {timeout:3500})
+  await screen.findByText('Checking the response…', {}, {timeout:3500})
   expect(load).toHaveBeenCalledTimes(2)
 })
 
 it.each([
   [null,'A captured snapshot of the notes.'],
-  ['provider_response','Response captured for inspection.'],
+  ['provider_response','Checking the response…'],
   ['validated_answer','The reply is assembled.'],
 ] as const)('describes %s snapshots without inventing context changes',async(snapshot_kind,label)=>{
   mount(trace([{kind:'context_snapshot',snapshot_kind,stage:'after',sequence:0,elapsed_ms:1,materials:[]}]))
@@ -95,8 +95,8 @@ it('shows one arrival per identified call without changing raw evidence or regre
   expect(result.map(e=>e.sequence)).toEqual([0,1,2])
   expect(observations).toEqual(original)
   mount(trace(observations))
-  await screen.findByText('Response captured for inspection.')
-  fireEvent.click(screen.getByText('Response captured for inspection.'))
+  await screen.findByText('Checking the response…')
+  fireEvent.click(screen.getByText('Checking the response…'))
   await screen.findByText(/Observable execution · attempt 1/)
   expect(document.querySelectorAll('.buddy-context-trace > details > ol > li')).toHaveLength(3)
   expect(screen.getByText('0.0s')).toBeInTheDocument()
@@ -112,7 +112,7 @@ it('shows the retained author action without claiming a model call',async()=>{
   mount(trace([{kind:'context_decision',action:'retained',item_ids:['Reviewed step · Prepare an insertion'],reason_code:'route_preserved',
     policy_version:'reviewed_author_action_v1',sequence:0,elapsed_ms:1}]))
   await screen.findByText('Following your reviewed step.')
-  expect(screen.queryByText('A model response just landed.')).not.toBeInTheDocument()
+  expect(screen.queryByText('A response has arrived.')).not.toBeInTheDocument()
 })
 
 it.each(['selected','authorized','read','read_partial','source_gap','prepared'] as const)('shows truthful authored-reference live activity: %s',async stage=>{
@@ -124,7 +124,7 @@ it.each(['selected','authorized','read','read_partial','source_gap','prepared'] 
   else execution={...base,kind:'build_authored_reference_read_v1',capture_event_id,authorization_event_id:'authorization',node_id:'cedar-box',operation_event_ids:['object-read'],source_read_event_ids:['source'],returned_node_ids:['cedar-box'],outcome:stage};
   const labels={selected:'Your Graph references are on the reading list.',authorized:'Opening the object you picked…',read:'Checked the object and its source receipts.',read_partial:'That object read came back incomplete.',source_gap:'The object is missing complete source support.',prepared:'Graph context packed for the writer.'};
   const {load,loadPrompt}=mount(trace([{kind:'authored_graph_reference_v1',sequence:0,elapsed_ms:1,execution_event:execution}]));
-  await screen.findByText(labels[stage]);expect(load).toHaveBeenCalledTimes(1);expect(loadPrompt).not.toHaveBeenCalled();expect(screen.queryByText('A model response just landed.')).toBeNull();
+  await screen.findByText(labels[stage]);expect(load).toHaveBeenCalledTimes(1);expect(loadPrompt).not.toHaveBeenCalled();expect(screen.queryByText('A response has arrived.')).toBeNull();
   if(stage!=='read')expect(screen.queryByText(labels.read)).toBeNull();
 });
 
@@ -149,7 +149,7 @@ it('describes the actual Graph search without replacing it with a generic receip
     result:{outcome:'partial',graph_revision:'revision',coverage_status:'incomplete',projection_status:'limited',nodes:[],relationship_ids:[],claim_ids:[],evidence_ref_ids:[],returned_counts:{nodes:0,relationships:0,claims:0,evidence_refs:0},total_counts:{nodes:0,relationships:0,claims:0,evidence_refs:0},omission_codes:[]}};
   mount(trace([graph,{kind:'provider_call',sequence:1,elapsed_ms:2,provider:'typesafe',model:'jev',outcome:'response_received'}]));
   expect(await screen.findByText('Graph search: “meat creatures in Session 20” · partial.')).toBeInTheDocument();
-  expect(screen.queryByText('A model response just landed.')).toBeNull();
+  expect(screen.queryByText('A response has arrived.')).toBeNull();
 });
 
 it('keeps issued native source progress through generic model updates and adopts it in the timeline', async()=>{
@@ -214,3 +214,59 @@ it('does not let a named source request conceal the terminal failure',async()=>{
   await screen.findAllByText(/native_source_unavailable/)
   expect(screen.getByText('Reading Session 8 recap · Arrival · lines 12–19…')).toBeInTheDocument()
 })
+
+
+it('shows the captured writer response instead of an earlier retrieval, including its late usage',async()=>{
+  const attempt='2c75f1da-9277-4dca-8cd2-e5b8e659bd97'
+  const receipt='a'.repeat(64)
+  const read={kind:'context_decision' as const,action:'expanded' as const,item_ids:['read','Session 20'],
+    reason_code:'followup_detail_needed',policy_version:'native_source_document_read_progress_v2',sequence:0,elapsed_ms:0}
+  const captured={kind:'context_snapshot' as const,snapshot_kind:'provider_response' as const,stage:'after' as const,sequence:1,elapsed_ms:1,materials:[{
+    item_id:`unvalidated-provider-answer:${attempt}:${receipt}`,role:'assistant' as const,state:'model_context' as const,text:'{}',source_reads:[]}]}
+  const {load}=mount(trace([read,captured]))
+  await screen.findByText('Checking the response…')
+  load.mockResolvedValue({schema:'dmb_agent_turn_context_trace_response_v1',world_id:'world',turn_id:'turn',attempts:[trace([read,captured,
+    {kind:'provider_call',provider:'openai',model:'writer',provider_attempt_id:attempt,outcome:'response_received',sequence:2,elapsed_ms:2,output_tokens:100}])]})
+  await waitFor(()=>expect(load).toHaveBeenCalledTimes(2),{timeout:3500})
+  expect(screen.getByRole('status')).toHaveTextContent('Checking the response…')
+  expect(screen.getByRole('status')).not.toHaveTextContent('Reading Session 20')
+})
+
+
+it.each(['unrelated_producer','new_source','validated','failure','late_failure_usage','late_validation_usage','new_call','ambiguous_capture'] as const)(
+  'does not let recorded response progress conceal %s',async(kind)=>{
+    const attempt='2c75f1da-9277-4dca-8cd2-e5b8e659bd97'
+    const material={item_id:`unvalidated-provider-answer:${attempt}:${'a'.repeat(64)}`,
+      role:'assistant' as const,state:'model_context' as const,text:'{}',source_reads:[]}
+    const observations:BuddyTurnContextTrace['observations']=[
+      {kind:'context_decision',action:'expanded',item_ids:['read','Session 20'],reason_code:'followup_detail_needed',
+        policy_version:'native_source_document_read_progress_v2',sequence:0,elapsed_ms:0},
+      {kind:'context_snapshot',snapshot_kind:'provider_response',stage:'after',sequence:1,elapsed_ms:1,
+        materials:kind==='ambiguous_capture'?[material,material]:[material]}]
+    let expected='Reading Session 20…'
+    if(kind==='unrelated_producer'){
+      observations.push({kind:'provider_call',provider:'openai',model:'other',outcome:'response_received',
+        provider_attempt_id:'ac7b8ac8-792f-477a-8f5b-43a1ede922a3',sequence:2,elapsed_ms:2})
+      expected='A response has arrived.'
+    }else if(kind==='new_source'){
+      observations.push({kind:'context_decision',action:'expanded',item_ids:['read','Session 21'],reason_code:'followup_detail_needed',
+        policy_version:'native_source_document_read_progress_v2',sequence:2,elapsed_ms:2},
+        {kind:'provider_call',provider:'openai',model:'writer',provider_attempt_id:attempt,outcome:'response_received',sequence:3,elapsed_ms:3})
+      expected='Reading Session 21…'
+    }else if(kind==='validated'||kind==='late_validation_usage'){
+      observations.push({kind:'context_snapshot',snapshot_kind:'validated_answer',stage:'after',sequence:2,elapsed_ms:2,materials:[]})
+      expected='The reply is assembled.'
+    }else if(kind==='failure'||kind==='late_failure_usage'){
+      observations.push({kind:'failure',phase:'delivery',code:'plan_writer_completion_rejected',sequence:2,elapsed_ms:2})
+      expected='Hit a snag—open the report.'
+    }
+    if(kind==='late_failure_usage'||kind==='late_validation_usage')observations.push({kind:'provider_call',provider:'openai',model:'writer',
+      provider_attempt_id:attempt,outcome:'response_received',sequence:3,elapsed_ms:3})
+    if(kind==='new_call'){
+      observations.push({kind:'provider_call',provider:'openai',model:'another',outcome:'authorized',sequence:2,elapsed_ms:2},
+        {kind:'provider_call',provider:'openai',model:'writer',provider_attempt_id:attempt,outcome:'response_received',sequence:3,elapsed_ms:3})
+      expected='Waiting for a response…'
+    }
+    mount(trace(observations))
+    await screen.findByText(expected)
+  })
