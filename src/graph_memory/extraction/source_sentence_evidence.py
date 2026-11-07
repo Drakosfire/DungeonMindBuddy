@@ -187,9 +187,13 @@ def materialize_node_evidence(
             for ref in node["evidence_refs"]:
                 if set(ref) != {"source_quote_ids"} or not ref["source_quote_ids"]:
                     raise ValueError("invalid_reference_shape")
+                group_seen = set()
                 for unit_id in ref["source_quote_ids"]:
-                    if unit_id not in lookup or unit_id in seen:
+                    if unit_id not in lookup or unit_id in group_seen:
                         raise ValueError("unknown_or_duplicate_unit")
+                    group_seen.add(unit_id)
+                    if unit_id in seen:
+                        continue
                     seen.add(unit_id)
                     unit = lookup[unit_id]
                     refs.append(

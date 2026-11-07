@@ -159,3 +159,43 @@ def test_unknown_disposition_handle_rejects_without_partial_materialization(coll
     with pytest.raises(ValueError, match="unknown_or_duplicate_unit"):
         materialize_node_evidence(p, raw, expected_packet_id=p.packet_id)
     assert raw == original
+
+
+@pytest.mark.parametrize('collection', ['observation_nodes', 'ignored_items', 'deferred_items'])
+def test_cross_group_repeated_known_units_emit_once_in_first_seen_order(collection):
+    from jsonschema import validate
+    from src.graph_memory.extraction.source_sentence_evidence import node_wire_schema
+    from src.graph_memory.extraction.category_candidate_graph_schema import category_node_pass_json_schema
+    p = packet('Ari waits. Bea returns. Ari waits.')
+    base = category_node_pass_json_schema(include_dispositions=True)
+    refs = [{'source_quote_ids': ['Q002', 'Q001']},
+            {'source_quote_ids': ['Q001', 'Q003', 'Q002']}]
+    item = ({'node_id': 'x', 'label': 'Ari', 'node_type': 'character',
+             'description': 'Ari waits.', 'importance': 'high', 'evidence_refs': refs}
+            if collection == 'observation_nodes' else
+            {'item_id': 'x', 'label': 'Ari', 'reason': 'Held',
+             'suggested_next_step': None, 'evidence_refs': refs})
+    raw = {'observation_nodes': [], 'ignored_items': [], 'deferred_items': []}
+    raw[collection] = [item]
+    original = deepcopy(raw)
+    validate(raw, node_wire_schema(base, p))
+    normalized = materialize_node_evidence(p, raw, expected_packet_id=p.packet_id)
+    validate(normalized, base)
+    quotes = [r['anchor_quotes'][0] for r in normalized[collection][0]['evidence_refs']]
+    assert quotes == ['Bea returns.', 'Ari waits.', 'Ari waits.']
+    # Q001/Q003 share text and span, but identify distinct exact source positions.
+    assert p.units[0].span_id == p.units[2].span_id
+    assert p.units[0].start != p.units[2].start
+    assert raw == original
+
+
+@pytest.mark.parametrize('collection', ['observation_nodes', 'ignored_items', 'deferred_items'])
+@pytest.mark.parametrize('later_group', [['Q001', 'Q001'], ['Q001', 'Q999']])
+def test_later_invalid_group_cannot_hide_behind_cross_group_deduplication(collection, later_group):
+    p = packet('Ari waits. Bea returns.')
+    raw = {'observation_nodes': [], collection: [{'evidence_refs': [
+        {'source_quote_ids': ['Q001']}, {'source_quote_ids': later_group}]}]}
+    original = deepcopy(raw)
+    with pytest.raises(ValueError, match='unknown_or_duplicate_unit'):
+        materialize_node_evidence(p, raw, expected_packet_id=p.packet_id)
+    assert raw == original
