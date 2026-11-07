@@ -14,7 +14,8 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, model_validator
 from generationengine.types import ChoiceDecisionAnswer, ChoiceDecisionQuestion, DecisionRequest, DecisionResult
 
-from .native_source_keywords import KEYWORD_KIND, KEYWORD_GUIDANCE
+from .native_source_keywords import (KEYWORD_KIND, KEYWORD_GUIDANCE, RETAINED_KEYWORD_KIND,
+    RECOVERY_KEYWORD_GUIDANCE)
 
 MODEL = "jev-1.14.0"
 PROVIDER = "typesafe"
@@ -201,8 +202,17 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
             "the named choices cannot resolve the requested context or additional discovery is needed. "
             "Acquired sources remain available to the writer; exclude repeated reads of their contents. "
             "Names do not establish source coverage, chronology or factual support.")
-    if request.examined_candidates:
-        state["examined_subjects"] = [{"label": c.label, "kind": c.kind} for c in request.examined_candidates]
+    focus = [c for c in request.examined_candidates if c.kind == RETAINED_KEYWORD_KIND]
+    if focus:
+        if type(request) not in {NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInputV2}:
+            raise ValueError("Retained keyword focus requires the current native retrieval owner")
+        if len({c.handle for c in focus}) != len(focus):
+            raise ValueError("Duplicate retained keyword focus")
+        state["selected_content_keywords"] = [c.label for c in focus]
+        state["relevance_guidance"] += " " + RECOVERY_KEYWORD_GUIDANCE
+    examined = [c for c in request.examined_candidates if c.kind != RETAINED_KEYWORD_KIND]
+    if examined:
+        state["examined_subjects"] = [{"label": c.label, "kind": c.kind} for c in examined]
     if request.dialogue:
         state["dialogue_reference"] = [row.model_dump() for row in request.dialogue]
     if controller_accounting is not None:
