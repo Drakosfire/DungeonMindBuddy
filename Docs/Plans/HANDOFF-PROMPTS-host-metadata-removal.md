@@ -84,3 +84,10 @@ do not replace ordinary answer quality or operator acceptance.
 This policy/audit-contract slice owns AGENTS.md and this handoff only. Subsequent
 runtime scope must be explicitly activated by PRIME at the owning boundary before
 editing prompt/SDK/authority code. No live code reads this handoff as configuration.
+
+## Activated successor
+
+Native navigation cleanup is ACTIVE in
+HANDOFF-PROMPTS-native-navigation-host-context.md, stacked on this policy PR.
+Its exclusive runtime paths are owned there, not by this original two-file lease.
+The remaining model-role inventory above is still open; no delivery is claimed.

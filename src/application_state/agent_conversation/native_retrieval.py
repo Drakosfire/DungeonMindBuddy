@@ -168,7 +168,9 @@ def verify_input(turn, auth, proof):
     else:
         from .build_decision_context import validate_prepared
 
-        validate_prepared(auth, execution, proof["request_json"])
+        from .jev_retrieval_contract import NativeBuildRetrievalDecisionInputV3
+        validate_prepared(auth, execution, proof["request_json"],
+            host_phase="navigate" if type(parent) is NativeBuildRetrievalDecisionInputV3 else None)
     validate_wire_body(
         parent, proof["request_json"].encode(), controller_accounting=accounting
     )

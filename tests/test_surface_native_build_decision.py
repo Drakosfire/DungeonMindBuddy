@@ -382,7 +382,7 @@ def test_actual_build_native_retrieval_uses_precommitted_sdk_selection_before_co
 
         def count(text):
             state = json.loads(text)["state"]
-            estimate = 70000 if state.get("phase") == "navigate" else 8000
+            estimate = 70000 if "candidates" in state else 8000
             return (estimate - 4096) // 2
 
         owner.accounting = ExperimentalAccounting("synthetic", count)
@@ -498,10 +498,11 @@ def test_actual_build_native_retrieval_uses_precommitted_sdk_selection_before_co
                     "Synthetic native Build decision timeout", request=request
                 )
             body = json.loads(request.content)
-            assert body["state"]["phase"] == "navigate"
+            assert "phase" not in body["state"]
+            assert "context_accounting" not in body["state"]
             from application_state.agent_conversation.jev_retrieval_contract import BUILD_AUTHORING_RELEVANCE
             assert BUILD_AUTHORING_RELEVANCE in body["state"]["relevance_guidance"]
-            assert body["state"]["context_accounting"] == owner.accounting.descriptor
+            assert owner.accounting.descriptor["tokenizer_version"] not in request.content.decode()
             answers = {}
             for name, q in body["questions"].items():
                 value = (

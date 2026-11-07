@@ -394,3 +394,38 @@ def test_retained_focus_refuses_legacy_owner_and_duplicate_metadata():
     fields=request().model_dump(exclude={'schema_','revision'}) | dict(
         source_authority_status='available',source_revision='source:1',graph_revision='graph:1',examined_candidates=(focus,focus))
     with pytest.raises(ValueError,match='Duplicate retained'):prepare_decision(NativeRetrievalDecisionInputV1(**fields))
+
+
+def test_current_build_navigation_keeps_accounting_and_identity_out_of_wire():
+    from application_state.agent_conversation.jev_retrieval_contract import (
+        NativeBuildRetrievalDecisionInputV2, NativeBuildRetrievalDecisionInputV3,
+        parse_native_retrieval_input, validate_wire_body,
+    )
+    from apps.live_control_server.services.build_jev_accounting import ExperimentalAccounting
+    fields = request().model_dump(exclude={"schema_", "revision"}) | dict(
+        source_authority_status="available", source_revision="source:private", graph_revision="graph:private")
+    current = NativeBuildRetrievalDecisionInputV3(**fields)
+    historical = NativeBuildRetrievalDecisionInputV2(**fields)
+    accounting = ExperimentalAccounting("host-tokenizer-sentinel", lambda _: 1).descriptor
+    def wire(parent):
+        decision = prepare_decision(parent, controller_accounting=accounting)
+        return json.dumps(dict(model=MODEL, state=decision.state, questions={
+            q.name:dict(type="choice", instructions=q.question, criteria=dict.fromkeys(q.options))
+            for q in decision.questions})).encode()
+    raw = wire(current)
+    old_raw = wire(historical)
+    assert prepare_decision(current).questions == prepare_decision(historical).questions
+    assert prepare_decision(current).state == prepare_decision(historical).state
+    for sentinel in ("context_accounting", '"phase"', "host-tokenizer-sentinel",
+                     str(current.request_id), str(current.parent_attempt_id), current.scope_sha256,
+                     current.source_revision, current.graph_revision, "opaque:1", "opaque:2"):
+        assert sentinel not in raw.decode()
+    assert "host-tokenizer-sentinel" in old_raw.decode()
+    validate_wire_body(current, raw, controller_accounting=accounting)
+    validate_wire_body(historical, old_raw, controller_accounting=accounting)
+    for parent, wrong in ((current, old_raw), (historical, raw)):
+        with pytest.raises(ValueError, match="changed"):
+            validate_wire_body(parent, wrong, controller_accounting=accounting)
+    assert parse_native_retrieval_input(current.model_dump(by_alias=True), surface_id="build") == current
+    with pytest.raises(ValueError, match="actual Build owner"):
+        parse_native_retrieval_input(current.model_dump(by_alias=True), surface_id="plan")
