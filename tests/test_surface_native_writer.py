@@ -329,121 +329,284 @@ def test_shared_input_preserves_actual_core_statement_and_assertion_qualificatio
     assert frame['native_statements']['status'] == frame['native_assertions']['status'] == 'complete'
 
 
-@pytest.mark.parametrize('surface',['build','plan'])
-def test_semantic_native_evidence_preserves_qualifiers_and_reopens_original_citations(published_lane,surface,monkeypatch):
+@pytest.mark.parametrize("surface", ["build", "plan"])
+def test_semantic_native_evidence_preserves_qualifiers_and_reopens_original_citations(
+    published_lane, surface, monkeypatch
+):
     from application_state.agent_conversation.native_writer import model_input_frame
-    from application_state.agent_conversation.native_evidence_view import semantic_frame,output_frame
     from application_state.agent_conversation.native_completion import normalize_output
-    from application_state.agent_conversation.plan_writer_output_schema import _native_variants
+    from application_state.agent_conversation.plan_writer_output_schema import (
+        _native_variants,
+    )
     from tests import test_surface_native_completion as completion
-    context,record=published_case(surface,published_lane)
-    host=model_frame(context,record);frame=model_input_frame(context,record)
-    assert set(frame)=={'input_status','user_question','native_body_evidence','native_statements','native_assertions'}
-    encoded=json.dumps(frame)
-    for row in host['native_assertions']['assertions']:
-        assert row['assertion_handle'] not in encoded
-        assert row['assertion']['assertion_id'] not in encoded
-        assert row['assertion']['subject_entity_id'] not in encoded
-    for old,new in zip(host['native_assertions']['assertions'],frame['native_assertions']['assertions'],strict=True):
-        for key in ('scope','epistemic_basis','claim_mode','standing','temporal_scope','domain_metadata'):
-            assert new['assertion']['metadata'][key]==old['assertion']['metadata'][key]
-        assert 'evidence_ref_ids' not in new['assertion']['metadata'] and 'visibility' not in new['assertion']['metadata']
-    for old,new in zip(host['native_statements']['statements'],frame['native_statements']['statements'],strict=True):
-        for key in ('quote','meaning','mode','uncertainty','qualifications','episode','embedded_content_factive'):
-            assert new['payload'][key]==old['payload'][key]
-        assert old['source_artifact_id'] not in encoded and old['source_revision_id'] not in encoded
-        assert old['payload']['reporter'] not in encoded
-    variants=_native_variants(host['answer_policy'],{'type':'string'},
-        statement_rows=frame['native_statements']['statements'],assertion_rows=frame['native_assertions']['assertions'],
-        body_rows=frame['native_body_evidence']['excerpts'])
-    assert all(row['assertion_handle'] not in json.dumps(variants) for row in host['native_assertions']['assertions'])
-    monkeypatch.setattr(completion,'model_frame',model_input_frame)
-    candidate=completion.answer([dict(kind='native_statement_report',text='A reports that B fled, with uncertainty.',statement_handles=['statement0']),
-        dict(kind='native_assertion_claim',text='The Graph retains a qualified account.',assertion_handles=['assertion0'])])
-    stored,auth,proof=completion.producing_case(context,record,candidate)
-    result=normalize_output(context,stored,auth,**proof)
+
+    context, record = published_case(surface, published_lane)
+    host = model_frame(context, record)
+    frame = model_input_frame(context, record)
+    assert set(frame) == {
+        "input_status",
+        "user_question",
+        "native_body_evidence",
+        "native_statements",
+        "native_assertions",
+    }
+    encoded = json.dumps(frame)
+    for row in host["native_assertions"]["assertions"]:
+        assert row["assertion_handle"] not in encoded
+        assert row["assertion"]["assertion_id"] not in encoded
+        assert row["assertion"]["subject_entity_id"] not in encoded
+    for old, new in zip(
+        host["native_assertions"]["assertions"],
+        frame["native_assertions"]["assertions"],
+        strict=True,
+    ):
+        for key in (
+            "scope",
+            "epistemic_basis",
+            "claim_mode",
+            "standing",
+            "temporal_scope",
+            "domain_metadata",
+        ):
+            assert (
+                new["assertion"]["metadata"][key] == old["assertion"]["metadata"][key]
+            )
+        assert (
+            "evidence_ref_ids" not in new["assertion"]["metadata"]
+            and "visibility" not in new["assertion"]["metadata"]
+        )
+    for old, new in zip(
+        host["native_statements"]["statements"],
+        frame["native_statements"]["statements"],
+        strict=True,
+    ):
+        for key in (
+            "quote",
+            "meaning",
+            "mode",
+            "uncertainty",
+            "qualifications",
+            "episode",
+            "embedded_content_factive",
+        ):
+            assert new["payload"][key] == old["payload"][key]
+        assert (
+            old["source_artifact_id"] not in encoded
+            and old["source_revision_id"] not in encoded
+        )
+        assert old["payload"]["reporter"] not in encoded
+    variants = _native_variants(
+        host["answer_policy"],
+        {"type": "string"},
+        statement_rows=frame["native_statements"]["statements"],
+        assertion_rows=frame["native_assertions"]["assertions"],
+        body_rows=frame["native_body_evidence"]["excerpts"],
+    )
+    assert all(
+        row["assertion_handle"] not in json.dumps(variants)
+        for row in host["native_assertions"]["assertions"]
+    )
+    monkeypatch.setattr(completion, "model_frame", model_input_frame)
+    candidate = completion.answer(
+        [
+            dict(
+                kind="native_statement_report",
+                text="A reports that B fled, with uncertainty.",
+                statement_handles=["statement0"],
+            ),
+            dict(
+                kind="native_assertion_claim",
+                text="The Graph retains a qualified account.",
+                assertion_handles=["assertion0"],
+            ),
+        ]
+    )
+    stored, auth, proof = completion.producing_case(context, record, candidate)
+    result = normalize_output(context, stored, auth, **proof)
     assert result.native_clause_citations and result.native_assertion_citations
-    assert result.native_assertion_citations[0].assertion_id==host['native_assertions']['assertions'][0]['assertion']['assertion_id']
-    assert all(c.provider_attempt_id==auth.provider_attempt_id for c in result.native_assertion_citations)
+    assert (
+        result.native_assertion_citations[0].assertion_id
+        == host["native_assertions"]["assertions"][0]["assertion"]["assertion_id"]
+    )
+    assert all(
+        c.provider_attempt_id == auth.provider_attempt_id
+        for c in result.native_assertion_citations
+    )
 
 
-@pytest.mark.parametrize('surface',['build','plan'])
-def test_semantic_body_aliases_are_input_local_and_cannot_select_unexposed_reads(lane,surface,monkeypatch):
+@pytest.mark.parametrize("surface", ["build", "plan"])
+def test_semantic_body_aliases_are_input_local_and_cannot_select_unexposed_reads(
+    lane, surface, monkeypatch
+):
     from application_state.agent_conversation.native_writer import model_input_frame
     from application_state.agent_conversation.native_completion import normalize_output
     from tests import test_surface_native_completion as completion
-    context,record,read=body_case(surface,lane)
-    frame=model_input_frame(context,record)
-    assert frame['native_body_evidence']['excerpts'][0]['excerpt_handle']=='body0'
+
+    context, record, read = body_case(surface, lane)
+    frame = model_input_frame(context, record)
+    assert frame["native_body_evidence"]["excerpts"][0]["excerpt_handle"] == "body0"
     assert read.excerpt.catalog_sha256 not in json.dumps(frame)
-    monkeypatch.setattr(completion,'model_frame',model_input_frame)
-    for selector,valid in [('body0',True),('body999',False),(model_frame(context,record)['native_body_evidence']['excerpts'][0]['excerpt_handle'],False)]:
-        candidate=completion.answer([dict(kind='native_body_claim',text='The check revealed an origin beyond this plane.',excerpt_handles=[selector])])
-        stored,auth,proof=completion.producing_case(context,record,candidate)
+    monkeypatch.setattr(completion, "model_frame", model_input_frame)
+    for selector, valid in [
+        ("body0", True),
+        ("body999", False),
+        (
+            model_frame(context, record)["native_body_evidence"]["excerpts"][0][
+                "excerpt_handle"
+            ],
+            False,
+        ),
+    ]:
+        candidate = completion.answer(
+            [
+                dict(
+                    kind="native_body_claim",
+                    text="The check revealed an origin beyond this plane.",
+                    excerpt_handles=[selector],
+                )
+            ]
+        )
+        stored, auth, proof = completion.producing_case(context, record, candidate)
         if valid:
-            result=normalize_output(context,stored,auth,**proof)
-            assert result.native_body_citations[0].read_event_id==read.event_id
+            result = normalize_output(context, stored, auth, **proof)
+            assert result.native_body_citations[0].read_event_id == read.event_id
         else:
-            with pytest.raises(ValueError,match='excerpt selections'):
-                normalize_output(context,stored,auth,**proof)
+            with pytest.raises(ValueError, match="excerpt selections"):
+                normalize_output(context, stored, auth, **proof)
 
 
-@pytest.mark.parametrize('mutation',['text','hybrid','duplicate','unknown','integer','role','competing_legacy','unknown_schema'])
-def test_semantic_native_frame_tampering_fails_correlated_input_proof(lane,mutation):
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "text",
+        "hybrid",
+        "duplicate",
+        "unknown",
+        "integer",
+        "role",
+        "competing_legacy",
+        "unknown_schema",
+    ],
+)
+def test_semantic_native_frame_tampering_fails_correlated_input_proof(lane, mutation):
     from application_state.agent_conversation.native_writer import model_input_frame
-    context,record,_=body_case('build',lane)
-    frame=model_input_frame(context,record);work=work_submission(context,record)
-    raw=asyncio.run(actual_sdk_request(frame,work_frame=model_work_frame(context,record,**work)))
-    value=json.loads(raw)
-    if mutation=='text':frame['native_body_evidence']['excerpts'][0]['text']='Different evidence'
-    elif mutation=='hybrid':frame['schema']='dmb_surface_native_writer_evidence_v2'
-    elif mutation=='unknown':frame['unknown']='ignored?'
-    elif mutation=='integer':frame['native_body_evidence']['excerpts'][0]['line_start']=True
-    elif mutation=='role':value['input'][0]['role']='developer'
-    elif mutation=='competing_legacy':value['input'].append(dict(role='user',content=json.dumps(model_frame(context,record))))
-    elif mutation=='unknown_schema':frame['schema']='unrecognized_world_evidence'
-    value['input'][0]['content']=json.dumps(frame)
-    if mutation=='duplicate':value['input'].append(deepcopy(value['input'][0]))
-    raw=json.dumps(value);stored,auth=authorize(context,record,raw,frame)
-    with pytest.raises(ValueError):verify_input_records(context,stored,auth,raw,**work)
+
+    context, record, _ = body_case("build", lane)
+    frame = model_input_frame(context, record)
+    work = work_submission(context, record)
+    raw = asyncio.run(
+        actual_sdk_request(frame, work_frame=model_work_frame(context, record, **work))
+    )
+    value = json.loads(raw)
+    if mutation == "text":
+        frame["native_body_evidence"]["excerpts"][0]["text"] = "Different evidence"
+    elif mutation == "hybrid":
+        frame["schema"] = "dmb_surface_native_writer_evidence_v2"
+    elif mutation == "unknown":
+        frame["unknown"] = "ignored?"
+    elif mutation == "integer":
+        frame["native_body_evidence"]["excerpts"][0]["line_start"] = True
+    elif mutation == "role":
+        value["input"][0]["role"] = "developer"
+    elif mutation == "competing_legacy":
+        value["input"].append(
+            dict(role="user", content=json.dumps(model_frame(context, record)))
+        )
+    elif mutation == "unknown_schema":
+        frame["schema"] = "unrecognized_world_evidence"
+    value["input"][0]["content"] = json.dumps(frame)
+    if mutation == "duplicate":
+        value["input"].append(deepcopy(value["input"][0]))
+    raw = json.dumps(value)
+    stored, auth = authorize(context, record, raw, frame)
+    with pytest.raises(ValueError):
+        verify_input_records(context, stored, auth, raw, **work)
 
 
-@pytest.mark.parametrize('failed',[False,True])
-def test_semantic_multiple_or_missing_body_extents_remain_truthful(lane,failed):
+@pytest.mark.parametrize("failed", [False, True])
+def test_semantic_multiple_or_missing_body_extents_remain_truthful(lane, failed):
     from application_state.agent_conversation.native_writer import model_input_frame
-    context,record,_=body_case('build',lane,all_sections=True,failed=failed)
-    frame=model_input_frame(context,record)
-    assert frame['input_status']=='partial'
-    assert frame['native_body_evidence']['universal_absence_claimed'] is False
-    assert [row['excerpt_handle'] for row in frame['native_body_evidence']['excerpts']]==([] if failed else ['body0','body1'])
-    if not failed:assert ''.join(row['text'] for row in frame['native_body_evidence']['excerpts'])==BODY
+
+    context, record, _ = body_case("build", lane, all_sections=True, failed=failed)
+    frame = model_input_frame(context, record)
+    assert frame["input_status"] == "partial"
+    assert frame["native_body_evidence"]["universal_absence_claimed"] is False
+    assert [
+        row["excerpt_handle"] for row in frame["native_body_evidence"]["excerpts"]
+    ] == ([] if failed else ["body0", "body1"])
+    if not failed:
+        assert (
+            "".join(row["text"] for row in frame["native_body_evidence"]["excerpts"])
+            == BODY
+        )
 
 
-@pytest.mark.parametrize('family',['statement','assertion'])
-def test_semantic_projection_refuses_unclassified_qualification(published_lane,family):
+@pytest.mark.parametrize("family", ["statement", "assertion"])
+def test_semantic_projection_refuses_unclassified_qualification(published_lane, family):
     from application_state.agent_conversation.native_evidence_view import semantic_frame
-    context,record=published_case('build',published_lane)
-    frame=model_frame(context,record)
-    if family=='statement':frame['native_statements']['statements'][0]['payload']['new_semantic_field']='must classify'
-    else:frame['native_assertions']['assertions'][0]['assertion']['metadata']['new_semantic_field']='must classify'
-    with pytest.raises(ValueError,match='Unclassified'):semantic_frame(frame)
+
+    context, record = published_case("build", published_lane)
+    frame = model_frame(context, record)
+    if family == "statement":
+        frame["native_statements"]["statements"][0]["payload"]["new_semantic_field"] = (
+            "must classify"
+        )
+    else:
+        frame["native_assertions"]["assertions"][0]["assertion"]["metadata"][
+            "new_semantic_field"
+        ] = "must classify"
+    with pytest.raises(ValueError, match="Unclassified"):
+        semantic_frame(frame)
 
 
-
-def test_semantic_world_qualification_separates_only_typed_publisher_provenance(published_lane):
+def test_semantic_world_qualification_separates_only_typed_publisher_provenance(
+    published_lane,
+):
     from application_state.agent_conversation.native_evidence_view import semantic_frame
-    context,record=published_case('build',published_lane);host=model_frame(context,record)
-    descriptor=dict(schema_version='dmb_candidate_description_extent_v1',run_id='HOST-RUN-SENTINEL',
-        run_revision=3,candidate_sha256='HOST-CANDIDATE-SENTINEL',record_id='HOST-RECORD-SENTINEL',
-        field='description',start_byte=1,end_byte=9,slice_sha256='HOST-SLICE-SENTINEL',whole_field_selected=False)
-    payload={'uncertain':['who reported it'],'candidate_description_selection':descriptor}
-    metadata=host['native_assertions']['assertions'][0]['assertion']['metadata']
-    metadata['domain_metadata']=[dict(schema_term='dungeonbuddy.domain_metadata:world_context_v1',payload=payload)]
-    before=deepcopy(host);frame=semantic_frame(host)
-    assert host==before
-    assert frame['native_assertions']['assertions'][0]['assertion']['metadata']['domain_metadata']==[
-        dict(schema_term='dungeonbuddy.domain_metadata:world_context_v1',payload={'uncertain':['who reported it']})]
-    assert 'HOST-' not in json.dumps(frame)
+
+    context, record = published_case("build", published_lane)
+    host = model_frame(context, record)
+    descriptor = dict(
+        schema_version="dmb_candidate_description_extent_v1",
+        run_id="HOST-RUN-SENTINEL",
+        run_revision=3,
+        candidate_sha256="HOST-CANDIDATE-SENTINEL",
+        record_id="HOST-RECORD-SENTINEL",
+        field="description",
+        start_byte=1,
+        end_byte=9,
+        slice_sha256="HOST-SLICE-SENTINEL",
+        whole_field_selected=False,
+    )
+    payload = {
+        "uncertain": ["who reported it"],
+        "candidate_description_selection": descriptor,
+    }
+    metadata = host["native_assertions"]["assertions"][0]["assertion"]["metadata"]
+    metadata["domain_metadata"] = [
+        dict(
+            schema_term="dungeonbuddy.domain_metadata:world_context_v1", payload=payload
+        )
+    ]
+    before = deepcopy(host)
+    frame = semantic_frame(host)
+    assert host == before
+    assert frame["native_assertions"]["assertions"][0]["assertion"]["metadata"][
+        "domain_metadata"
+    ] == [
+        dict(
+            schema_term="dungeonbuddy.domain_metadata:world_context_v1",
+            payload={"uncertain": ["who reported it"]},
+        )
+    ]
+    assert "HOST-" not in json.dumps(frame)
     # Similar user data without the publisher's type tag is semantic, not a blacklist hit.
-    payload['candidate_description_selection']={'note':'Keep these literal words and IDs'}
-    assert semantic_frame(host)['native_assertions']['assertions'][0]['assertion']['metadata']['domain_metadata'][0]['payload']==payload
+    payload["candidate_description_selection"] = {
+        "note": "Keep these literal words and IDs"
+    }
+    assert (
+        semantic_frame(host)["native_assertions"]["assertions"][0]["assertion"][
+            "metadata"
+        ]["domain_metadata"][0]["payload"]
+        == payload
+    )
