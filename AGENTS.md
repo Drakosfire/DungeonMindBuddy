@@ -120,3 +120,15 @@ optional navigation tools do not block ordinary investigation. Preserve useful
 failure output and avoid dumping whole logs, dependency trees or historical docs.
 Fetch and compare exact remote refs when state matters. Obtain explicit approval
 for destructive actions unless already authorized by the user.
+
+## Model prompt context boundary
+
+Host-side metadata is not context and must never be sent in product model prompts.
+Follow the [ecosystem prompt policy](https://github.com/Drakosfire/DungeonOverMind/blob/main/Docs/Guides/GUIDE-model-prompt-context-boundary.md).
+Keep identifiers, hashes, receipts, execution bindings, accounting/capacity policy
+and telemetry in their existing host owners, outside model-visible input. Preserve
+meaningful task/evidence context, user constraints and all host checks. Use local
+aliases when models must select or cite items; the host resolves exact identities.
+Audit final serialized requests, including nested state and tool results. Do not
+replace this boundary with regex scrubbing, another prompt channel or a new
+provenance authority.
