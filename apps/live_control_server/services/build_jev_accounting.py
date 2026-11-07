@@ -69,15 +69,17 @@ class ExperimentalAccounting:
         return max(self.estimate({"model": body["model"], "state": body["state"],
             "questions": {name: question}}) for name, question in body["questions"].items())
 
-    def context_mode(self, body: dict) -> str:
-        return selected_mode(phase(body), self.estimate(body), self.question_estimate(body), policy=POLICY)
+    def context_mode(self, body: dict, *, host_phase=None) -> str:
+        return selected_mode(phase(body, host_phase=host_phase), self.estimate(body), self.question_estimate(body), policy=POLICY)
 
-    def validate(self, body: dict, raw: bytes, *, context_mode: str = "default") -> None:
-        if body["state"].get("context_accounting") != self.descriptor:
+    def validate(self, body: dict, raw: bytes, *, context_mode: str = "default", host_phase=None) -> None:
+        if host_phase is not None:
+            phase(body, host_phase=host_phase)
+        elif body["state"].get("context_accounting") != self.descriptor:
             raise ValueError("Decision experimental accounting descriptor differs")
         if context_mode not in {"default", "long_context"}:
             raise ValueError("Invalid decision context mode")
-        if context_mode == "long_context" and self.context_mode(body) != context_mode:
+        if context_mode == "long_context" and self.context_mode(body, host_phase=host_phase) != context_mode:
             raise ValueError("Long context differs from exact phase/capacity policy")
         question_limit = LONG_LIMIT if context_mode == "long_context" else 32_000
         request_limit = LONG_LIMIT if context_mode == "long_context" else 64_000

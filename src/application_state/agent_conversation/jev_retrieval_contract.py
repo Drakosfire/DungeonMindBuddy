@@ -96,13 +96,21 @@ class NativeBuildRetrievalDecisionInputV2(NativeRetrievalDecisionInputV1):
         default="dmb_native_build_retrieval_decision_input_v2", alias="schema")
 
 
+class NativeBuildRetrievalDecisionInputV3(NativeBuildRetrievalDecisionInputV2):
+    """Current Build navigation; accounting and phase remain host-side."""
+    schema_: Literal["dmb_native_build_retrieval_decision_input_v3"] = Field(
+        default="dmb_native_build_retrieval_decision_input_v3", alias="schema")
+
+
 def parse_native_retrieval_input(raw, *, surface_id):
     """One exact codec reader for native selection and its selected Rules offer."""
-    codec = (NativeBuildRetrievalDecisionInputV2
+    codec = (NativeBuildRetrievalDecisionInputV3
+        if isinstance(raw, dict) and raw.get("schema") == "dmb_native_build_retrieval_decision_input_v3"
+        else NativeBuildRetrievalDecisionInputV2
         if isinstance(raw, dict) and raw.get("schema") == "dmb_native_build_retrieval_decision_input_v2"
         else NativeRetrievalDecisionInputV1)
     parent = codec.model_validate(raw)
-    if type(parent) is NativeBuildRetrievalDecisionInputV2 and surface_id != "build":
+    if isinstance(parent, NativeBuildRetrievalDecisionInputV2) and surface_id != "build":
         raise ValueError("Build authoring relevance belongs only to its actual Build owner")
     return parent
 
@@ -176,7 +184,7 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
              "candidates": [{"label": c.label, "kind": c.kind} for c in request.candidates]}
     if any(c.kind == KEYWORD_KIND for c in request.candidates):
         state["keyword_selection_guidance"] = KEYWORD_GUIDANCE
-    if type(request) is NativeBuildRetrievalDecisionInputV2:
+    if isinstance(request, NativeBuildRetrievalDecisionInputV2):
         state["relevance_guidance"] += " " + BUILD_AUTHORING_RELEVANCE
     if any(c.kind == 'Exact source section' for c in request.candidates):
         state['section_selection_guidance'] = (
@@ -204,7 +212,7 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
             "Names do not establish source coverage, chronology or factual support.")
     focus = [c for c in request.examined_candidates if c.kind == RETAINED_KEYWORD_KIND]
     if focus:
-        if type(request) not in {NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInputV2}:
+        if type(request) not in {NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInputV2, NativeBuildRetrievalDecisionInputV3}:
             raise ValueError("Retained keyword focus requires the current native retrieval owner")
         if len({c.handle for c in focus}) != len(focus):
             raise ValueError("Duplicate retained keyword focus")
@@ -216,9 +224,11 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
     if request.dialogue:
         state["dialogue_reference"] = [row.model_dump() for row in request.dialogue]
     if controller_accounting is not None:
-        if type(request) not in {NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInputV2}:
+        if type(request) not in {NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInputV2, NativeBuildRetrievalDecisionInputV3}:
             raise ValueError("Build accounting requires the current shared retrieval input")
-        state.update(phase="navigate", context_accounting=controller_accounting)
+        if type(request) is not NativeBuildRetrievalDecisionInputV3:
+            # Exact reconstruction of retained pre-V3 requests only.
+            state.update(phase="navigate", context_accounting=controller_accounting)
     return DecisionRequest(provider=PROVIDER, model=MODEL,
         # UUIDs, digests, revision IDs and handles bind parent authority; the
         # model only needs semantic labels and index choices. Keep those machine

@@ -217,3 +217,53 @@ def test_harness_selects_long_context_for_large_multi_question_sdk_wire(monkeypa
     with pytest.raises(GenerationEngineError):
         asyncio.run(harness._decide(adapter,driver))
     assert len(seen)==1 and not harness.calls
+
+
+@pytest.mark.parametrize("estimate,mode", [(8000,"default"),(70000,"long_context")])
+def test_clean_navigation_wire_retains_host_capacity_and_dispatch_checks(estimate, mode):
+    policy = constant(estimate)
+    value = dict(model="jev-1.14.0", state={"question":"Find the source"},
+        questions={"q":{"type":"noul","instructions":"Relevant?"}})
+    request = prepared(value, DecisionContextMode(mode))
+    view = prepared_view(request, value["state"], accounting=policy, host_phase="navigate")
+    assert view["contextPhase"] == "navigate"
+    assert view["contextMode"] == mode
+    event, execution, _ = proof()
+    event = event.model_copy(update=dict(envelope_sha256=request.body_sha256,
+        context_mode=mode, context_phase="navigate", input_tokens=estimate,
+        max_question_input_tokens=estimate, dispatch_identity_sha256=view["dispatchIdentitySha256"]))
+    context.validate_prepared(event, execution, request.body.decode(), host_phase="navigate")
+    for change in ({"context_phase":"select"},{"dispatch_identity_sha256":"f"*64},
+                   {"max_question_input_tokens":262002}):
+        with pytest.raises(ValueError):
+            context.validate_prepared(event.model_copy(update=change), execution,
+                request.body.decode(), host_phase="navigate")
+    for key, metadata in (("phase","navigate"),("context_accounting",policy.descriptor),("decision",{})):
+        dirty = value | {"state":value["state"] | {key:metadata}}
+        with pytest.raises(ValueError, match="host control metadata"):
+            prepared_view(prepared(dirty, DecisionContextMode(mode)), dirty["state"],
+                accounting=policy, host_phase="navigate")
+    with pytest.raises(ValueError):
+        prepared_view(request, value["state"], accounting=policy, host_phase="select")
+
+
+def test_clean_navigation_still_refuses_excess_capacity():
+    value = dict(model="jev-1.14.0",state={"question":"Find source"},
+        questions={"q":{"type":"noul","instructions":"Relevant?"}})
+    with pytest.raises(DecisionCapacityError):
+        prepared_view(prepared(value, DecisionContextMode.LONG_CONTEXT), value["state"],
+            accounting=constant(262002), host_phase="navigate")
+
+
+def test_navigation_dispatch_rejects_counter_different_from_frozen_policy():
+    import asyncio
+    from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
+    from application_state.agent_conversation.jev_retrieval_contract import NativeBuildRetrievalDecisionInputV3
+    policy = constant(8000)
+    dispatch = object.__new__(PlanJevDispatch)
+    dispatch.parent = NativeBuildRetrievalDecisionInputV3.model_construct()
+    dispatch.adapter = SimpleNamespace(_build_jev_accounting=policy)
+    dispatch._native_accounting = lambda: policy.descriptor | {"tokenizer_version":"different-frozen-counter"}
+    with pytest.raises(ValueError, match="actual policy"):
+        asyncio.run(dispatch.select_context(prepared(dict(model="jev-1.14.0",
+            state={"question":"Find source"}, questions={"q":{"type":"noul","instructions":"Relevant?"}}))))
