@@ -1760,10 +1760,10 @@ class _PolicyExecutionAdapter:
         self.context_payloads: dict[UUID, str] = {}
         self.denied_tool_payloads: dict[str, list[tuple[str, str]]] = {}
 
-    def _capture_prepared_prompt(self, view: Mapping[str, Any], authorization: Any) -> None:
+    def _capture_prepared_prompt(self, view: Mapping[str, Any], authorization: Any, *, observe_authorization: bool = True) -> None:
         if self.context_capture is None:
             raise ValueError("prompt capture requires an active trace")
-        self.context_capture.capture_prompt(view, authorization)
+        self.context_capture.capture_prompt(view, authorization, observe_authorization=observe_authorization)
 
     def _is_build_turn(self) -> bool:
         return _governed_build_turn(self.request)
@@ -2501,7 +2501,7 @@ class _PolicyExecutionAdapter:
                 self.rules_runtime.authorize(view)
             if os.environ.get("DMB_AGENT_PROMPT_CAPTURE") == "1":
                 try:
-                    self._capture_prepared_prompt(view, event)
+                    self._capture_prepared_prompt(view, event, observe_authorization=False)
                 except Exception as exc:
                     # Authorization is durable, but no SDK/provider IO has happened.
                     self.record_lifecycle({"transition": "known_not_sent"})

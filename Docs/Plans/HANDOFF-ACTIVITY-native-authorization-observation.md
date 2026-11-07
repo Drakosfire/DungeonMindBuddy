@@ -29,12 +29,13 @@ Keep capture failure behavior at its existing owner. Do not nest the collector's
 non-reentrant claim lock. No schema or response contract changes, token/output
 limits, source/Graph changes or UI production changes.
 
-Independent review of head8f1572455 identified a conditional duplicate from the
-generic authorization publisher when optional prompt capture is enabled. Keep
-exact-once observation at the existing collector: coalesce only authorized events
-with the same non-null provider-attempt/provider/model identity, under its claim
-lock. Preserve the first captured record and all responses, usage and failures.
-Do not add a new authorization decision or filter anonymous/different identities.
+Independent review found that optional generic prompt capture also reaches this
+collector and already publishes a richer authorization observation. Scope the new
+emission explicitly to direct native authorization callers: generic authorize()
+disables it and retains its existing observation, including conservative input
+estimate. Remove the duplicate coalescer entirely. No immutable trace rows are
+rewritten or discarded. This adds agent_turn_service.py only for the explicit
+caller/collector argument, within the same single activity outcome.
 Exercise prompt capture enabled and disabled at actual transport entry.
 
 ## Exclusive expected writes
@@ -43,6 +44,7 @@ Exercise prompt capture enabled and disabled at actual transport entry.
 - Docs/Plans/HANDOFF-RETRIEVAL-native-keyword-recovery-focus.md (truthful
   predecessor settlement only).
 - apps/live_control_server/services/agent_context_trace_collector.py.
+- apps/live_control_server/services/agent_turn_service.py (explicit generic caller observation ownership only).
 - tests/test_surface_native_build_ordinary.py (actual SDK → APP/trace → transport
   observation hook and regression cases).
 - tests/test_agent_context_trace_collector.py if an existing owner test requires
