@@ -110,10 +110,10 @@ def _subject_labels(statement_id, paths, entities, campaign, *, labels=None):
     return ', '.join(sorted(set(subjects)))
 
 
-def _assertion_matches(entities, *, excluded_subjects):
+def _assertion_matches(entities, *, excluded_subjects, name_scope=None):
     """Only assertions returned by Core's scoped complete-entity reads; no body IO."""
     found = {}
-    labels = _navigation_labels(entities,complete_only=True)
+    scoped_labels = {}
     for entity_id, entity in entities.items():
         if not entity.found or entity.completeness.status != 'complete':
             continue
@@ -121,6 +121,12 @@ def _assertion_matches(entities, *, excluded_subjects):
             if parsed.subject_entity_id in excluded_subjects:
                 continue  # Qualified source-statement semantics have their own contract.
             assertion = assertion_contract(parsed)
+            # A World query may contain facts from different campaigns. A name
+            # for one campaign must not silently name an assertion in another.
+            scope = name_scope if name_scope is not None else tuple((b.axis,b.value) for b in parsed.metadata.scope)
+            if scope not in scoped_labels:
+                scoped_labels[scope] = _navigation_labels(entities,scope=scope,complete_only=True)
+            labels = scoped_labels[scope]
             row = found.setdefault(assertion.assertion_id, [assertion, set(), labels[assertion.subject_entity_id]])
             row[1].add(entity_id)
     return tuple(NativePlanAssertionMatchV1(assertion_id=a.assertion_id,
@@ -186,7 +192,8 @@ def _entity_catalog(identities, pinned, *, space, revision_id, scope_mode, campa
             logical_source=logical, episode=payload['episode'],
             label=(f"About {subjects} · " if subjects else "")
                 + f"{logical['object_id']} — {payload['episode']} ({clause['campaign']})"))
-    return (tuple(matches), _assertion_matches(entities, excluded_subjects=qualified_subjects),
+    return (tuple(matches), _assertion_matches(entities, excluded_subjects=qualified_subjects,
+            name_scope=((statements.CAMPAIGN_SCOPE_AXIS,campaign_id),) if scope_mode=='campaign' else None),
         tuple(sorted(set(gaps))), entities)
 
 
@@ -289,7 +296,8 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
                 matches=target_matches, assertion_matches=target_assertions,
                 status=status, gap_codes=target_gaps))
             gaps.extend(target_gaps)
-    labels = _navigation_labels(_entities)
+    labels = _navigation_labels(_entities,
+        scope=((statements.CAMPAIGN_SCOPE_AXIS,campaign_id),) if scope_mode=='campaign' else None)
     objects = [NativeObjectMatchV1(entity_id=identity,label=labels[identity]) for identity in discovered]
     query = NativeGraphQueryV4(authority=authority, question=question,
         assertion_matches=assertion_matches,

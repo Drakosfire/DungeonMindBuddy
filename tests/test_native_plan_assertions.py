@@ -670,3 +670,29 @@ def test_native_query_labels_do_not_expose_entity_identity(lane):
     assert labels
     assert all(identity not in label for identity in result.discovered_entity_ids for label in labels)
     assert any(row.subject_entity_id==lane.ids['B'] for row in result.assertion_matches)
+
+
+@pytest.mark.parametrize('scope_mode',['campaign','world'])
+def test_native_navigation_does_not_name_c1_assertion_from_c2_name(lane,monkeypatch,scope_mode):
+    from apps.live_control_server.services import native_graph_reads as native
+    publish(lane)
+    original=native.EntityReadService()
+    def read(context,identity):
+        entity=original.get_complete_entity(context,identity)
+        if identity!=lane.ids['B']:return entity
+        rows=[]
+        for row in entity.assertions:
+            if row.subject_entity_id==identity and row.predicate=='dnd5e:name':
+                row=replace(row,metadata=replace(row.metadata,
+                    scope=tuple(replace(binding,value='c2') for binding in row.metadata.scope)))
+            rows.append(row)
+        return replace(entity,assertions=tuple(rows))
+    monkeypatch.setattr(native,'EntityReadService',lambda:SimpleNamespace(get_complete_entity=read))
+    _,result=native.prepare_query(lane.world.world_id,'What did B do?',GM,repository=lane.repo,
+        resolve_binding=lambda _:bound(lane),scope_mode=scope_mode,campaign_id='c1' if scope_mode=='campaign' else None)
+    summaries=[row for row in result.assertion_matches if row.subject_entity_id==lane.ids['B'] and row.label.endswith(' · dnd5e:summary')]
+    assert summaries and all(row.label.startswith('Unnamed object ') for row in summaries)
+    if scope_mode=='campaign':
+        assert next(row.label for row in result.object_matches if row.entity_id==lane.ids['B']).startswith('Unnamed object ')
+    # Read identity and qualifications remain Core-owned; labels grant nothing.
+    assert all(row.subject_entity_id==lane.ids['B'] for row in summaries)

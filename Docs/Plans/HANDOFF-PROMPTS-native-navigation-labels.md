@@ -12,7 +12,9 @@ object aliases instead of host entity IDs. Reuse the exact existing frozen catal
 and indexed selection owner. Consolidate repeated name projection at its current
 producer; do not scrub arbitrary source/user strings or parse IDs as names.
 Preserve duplicate, conflicting, missing and scoped names without merging identity.
-Keep current scope, complete-read and ABOUT witness checks. This is label content,
+Bind object names to the current campaign query when present; in whole-World
+queries bind assertion names to the assertion scope. Retain local aliases when no
+unique applicable name exists. Keep complete-read and ABOUT witness checks. This is label content,
 not a new query wire/authority contract; historical recorded labels remain exact.
 No reader fence, alternate retrieval path, new provenance or limit change.
 
