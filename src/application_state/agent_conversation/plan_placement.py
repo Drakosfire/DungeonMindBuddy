@@ -158,6 +158,13 @@ class PlanRequestedWorkInputV5(PlanRequestedWorkInputV3):
         return self
 
 
+class PlanRequestedWorkInputV6(PlanRequestedWorkInputV5):
+    """Current semantic reference projection; full bindings stay in this parent."""
+    schema_: Literal["dmb_plan_requested_work_input_v6"] = Field(
+        default="dmb_plan_requested_work_input_v6", alias="schema")
+    plan_requested_operation: Literal["discuss", "write_current_page"] | None = None
+
+
 def work_choice(request: PlanRequestedWorkInputV2, selected: str):
     """Decode only offered choices; the selected target digest stays host-owned."""
     if selected in {"discuss", "clarify", "different_destination"}:
