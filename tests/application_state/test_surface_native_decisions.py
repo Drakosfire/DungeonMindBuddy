@@ -79,6 +79,7 @@ def sdk_case(
     unknown=False,
     acquisitions=(),
     context_record=None,
+    context_window_limit=128000,
     question=None,
     native=False,
     include_final_decision=True,
@@ -163,7 +164,7 @@ def sdk_case(
                     assembled_input_sha256=prepared.body_sha256,
                     provider_envelope_input_tokens=count,
                     output_token_reserve=200,
-                    context_window_limit=128000,
+                    context_window_limit=context_window_limit,
                     tokenizer_name=accounting.estimator,
                 )
                 admitted_context = type(context).model_validate_json(

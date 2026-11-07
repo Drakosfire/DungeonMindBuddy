@@ -428,3 +428,27 @@ def test_object_only_mixed_native_review_remains_typed_without_approved_text():
     changed["envelope"]["user_text"] = "Different admitted question"
     with pytest.raises(ValueError, match="request"):
         MixedCompletedTurnV1.model_validate_json(json.dumps(changed))
+
+
+@pytest.mark.parametrize("used", [False, True], ids=["native-base", "mixed-rules"])
+def test_oversized_admitted_request_completes_and_reloads(application_state_dsn, monkeypatch, used):
+    from tests import test_surface_native_context as context_owner
+    from tests.application_state import test_surface_native_writers as writer_helpers
+
+    markdown = "# Work\n\nA retained short passage.\n\n" + "Unselected background material. " * 36_000
+    monkeypatch.setattr(context_owner, "WORK_MARKDOWN", markdown)
+    monkeypatch.setattr(writer_helpers, "WORK_MARKDOWN", markdown)
+    from tests.application_state import test_surface_native_decisions as decisions
+
+    # Keep this synthetic byte-counting fixture about post-capture proof. Its
+    # explicit test allowance does not claim or change real-provider capacity.
+    monkeypatch.setattr(writer_helpers, "sdk_case", lambda *a, **kw:
+        decisions.sdk_case(*a, **kw, context_window_limit=8_000_000))
+    case = completed_input(application_state_dsn, used=used)
+    assert len(case.prepared.body) > 1_050_000
+    completed = finish(case)
+    assert completed.assistant_text == case.normalized.assistant_text
+    assert len(case.writer_calls) == 1
+    assert finish(case) == completed
+    assert AgentConversationService().inspect_turn(world_id=case.turn.world_id,
+        turn_id=case.turn.turn_id) == completed

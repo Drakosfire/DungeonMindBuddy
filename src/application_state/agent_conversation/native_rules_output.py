@@ -24,7 +24,6 @@ from .rules_authority_events import (
     RulesExecutionV1,
 )
 from .rules_authority_output import (
-    MAX_REQUEST_BYTES,
     POLICY,
     RulesWriterAnswerV1,
     parse_answer,
@@ -65,7 +64,8 @@ class NativeRulesOutputProofV1(ClosedRulesModel):
     request_envelope_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     authorization_id: str = Field(min_length=1, max_length=256)
     api_request_id: str = Field(min_length=1, max_length=256)
-    prepared_request_json: str = Field(min_length=1, max_length=MAX_REQUEST_BYTES)
+    # Input capacity belongs to pre-send admission; this proof binds captured bytes.
+    prepared_request_json: str = Field(min_length=1)
     raw_output_json: str = Field(min_length=1, max_length=MAX_NATIVE_OUTPUT_BYTES)
     raw_output_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     raw_output_utf8_bytes: int = Field(ge=1, le=MAX_NATIVE_OUTPUT_BYTES)
@@ -121,10 +121,7 @@ def verify_captured_text(capture, *, authorization_id, api_request_id,
         request_bytes = prepared_request_json.encode("utf-8")
     except UnicodeError as exc:
         raise ValueError("Native Rules request is not valid UTF8") from exc
-    if (
-        len(request_bytes) > MAX_REQUEST_BYTES
-        or sha256(request_bytes).hexdigest() != request_envelope_sha256
-    ):
+    if sha256(request_bytes).hexdigest() != request_envelope_sha256:
         raise ValueError("Native Rules proof differs from its exact prepared request")
     try:
         request = strict_json(prepared_request_json)

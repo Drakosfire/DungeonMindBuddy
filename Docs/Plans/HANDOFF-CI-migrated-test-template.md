@@ -1,6 +1,7 @@
 # CI: reuse a migrated database template with isolated test clones
 
-Status: ACTIVE. PRIME owns the measured CI setup bottleneck under the operator's
+Status: SETTLED by #2203, merge 2f41ff02417f52e6ff5d358959803d2d3c0cbb91.
+PRIME owned the measured CI setup bottleneck under the operator's
 CI-first goal and explicit CI-demolition gate waiver. Independent review and
 local owning-boundary verification remain required. Larger coherent slice allowed.
 
@@ -78,3 +79,16 @@ repeat measurements before claiming robust full-CI improvement.
 - CI merge gates are explicitly waived for this demolition slice by the operator.
   Independent exact-head review is still required. No hosted speedup or complete
   CI improvement is claimed before post-merge measurement.
+
+## Settlement
+
+Independent review approved exact head 2e6c7da64287a7dc2f6eef08474a63bff8e9ec45.
+Merged with the explicit CI waiver; no product runtime was changed. Two complete
+measurements at identical trees passed: ownership 1081/1043 seconds. World/Content
+190 cases: 64.51/63.06 seconds; ingestion 580 passed + one skip: 261.93/264.65;
+query 780 passed: 315.62/315.31; saved-page 479 passed: 1033.39/999.10 seconds.
+The original saved-page run timed out at 45 minutes and remains retained, not
+counted as a completed baseline. Both hosted auth/Docker workflows also passed.
+Private ci-template-* artifacts retain raw logs, phase data, source/attempt pins,
+coverage and queue/dependency timing. No billing/CPU or broad product-goal
+completion is inferred. No further CI change is active in this lane.
