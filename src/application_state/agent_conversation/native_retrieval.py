@@ -157,6 +157,10 @@ def verify_input(turn, auth, proof):
         raise ValueError(
             "Native retrieval input differs from its actual scope and dispatch commitment"
         )
+    from .native_source_keywords import RETAINED_KEYWORD_KIND, retained_keyword_candidates
+    focus = tuple(c for c in parent.examined_candidates if c.kind == RETAINED_KEYWORD_KIND)
+    if focus and focus != retained_keyword_candidates(turn):
+        raise ValueError("Native keyword focus differs from its actual acknowledged scope")
     accounting = controller_accounting(execution)
     if accounting is None:
         if auth.build_context is not None:

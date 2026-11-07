@@ -323,15 +323,8 @@ class NativeBodyNavigation:
             for handle, word in self._keyword_catalog().items())
 
     def _selected_keywords(self):
-        from application_state.agent_conversation.native_retrieval import NativeRetrievalSelectedV1
-        from application_state.agent_conversation.native_source_keywords import KEYWORD_PREFIX
-        handles = {handle for event in self.adapter.fence.turn.graph_context_execution.events
-            if type(event) is NativeRetrievalSelectedV1 and event.operation == 'select_candidates'
-            for handle in event.selected_handles if handle.startswith(KEYWORD_PREFIX)}
-        if not handles:
-            return set()
-        catalog = self._keyword_catalog()
-        return {catalog[handle] for handle in handles if handle in catalog}
+        from application_state.agent_conversation.native_source_keywords import acknowledged_keyword_catalog
+        return set(acknowledged_keyword_catalog(self.adapter.fence.turn).values())
 
     def accept_keyword_selection(self, handle, *, parent):
         if handle not in self._keyword_catalog():
@@ -500,6 +493,11 @@ class NativeBodyNavigation:
             if read is None or read.excerpt is None:
                 rows.append(RetrievalCandidate(handle=self._handle(auth), label="Previously selected native source extent",
                     kind="Unavailable source read" if read is not None else "Unresolved source read"))
+        if type(turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1:
+            from application_state.agent_conversation.native_source_keywords import retained_keyword_candidates
+            focus = retained_keyword_candidates(turn)
+            if focus and self._expanded():
+                rows.extend(focus)
         return tuple(rows)
 
     def _commit(self, method, **fields):

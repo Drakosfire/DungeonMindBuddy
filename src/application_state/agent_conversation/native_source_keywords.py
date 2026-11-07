@@ -21,3 +21,31 @@ def keyword_catalog(question, scope_sha256):
     return {KEYWORD_PREFIX + sha256(json.dumps([scope_sha256, question, word],
         ensure_ascii=False, separators=(',', ':')).encode()).hexdigest(): word
         for word in terms(question)}
+
+
+RETAINED_KEYWORD_KIND = 'Previously acknowledged literal content keyword; navigation focus only, not acquired evidence'
+RECOVERY_KEYWORD_GUIDANCE = (
+    'Carry selected_content_keywords into broad recovery. Broad expansion broadens source availability; '
+    "it does not expand the user's topic. These literal choices are provisional navigation hints, "
+    'not an exhaustive vocabulary, evidence, source restrictions or completeness. Prefer candidates '
+    'that contribute a distinct requested detail beyond acquired subjects rather than incidental '
+    'same-word mentions. Include differently worded evidence whenever a requested detail needs it.'
+)
+
+
+def acknowledged_keyword_catalog(turn):
+    """Reuse admitted choices; do not require execution ownership for plain listings."""
+    from .native_retrieval import NativeRetrievalSelectedV1, scope_digest
+    handles = {handle for event in turn.graph_context_execution.events
+        if type(event) is NativeRetrievalSelectedV1 and event.operation == 'select_candidates'
+        for handle in event.selected_handles if handle.startswith(KEYWORD_PREFIX)}
+    if not handles:
+        return {}
+    catalog = keyword_catalog(turn.user_text, scope_digest(turn))
+    return {handle: word for handle, word in catalog.items() if handle in handles}
+
+
+def retained_keyword_candidates(turn):
+    from .jev_retrieval_contract import RetrievalCandidate
+    return tuple(RetrievalCandidate(handle=handle, label=word, kind=RETAINED_KEYWORD_KIND)
+        for handle, word in acknowledged_keyword_catalog(turn).items())
