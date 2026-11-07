@@ -240,7 +240,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert all(r.excerpt.text not in json.dumps(frame) for r in acquired)
             if connected_review:
                 section=next(row for row in work['artifact_under_edit']['sections'] if 'A proposed conversation.' in row['text'])
-                candidate['answer_segments']=[]
+                candidate['answer_segments']=([dict(kind='proposal',label='invented_idea',
+                    text='# A neighboring workshop\n\n' + '| 1 | An errand awaits. |\n' * 260)]
+                    if connected_review=='full_page' else [])
                 candidate['collaboration']={'kind':'connected_page','title':'A proposed neighboring workshop',
                     'read_id':str(uuid4()) if connected_review=='foreign_read' else section['read_id'],
                     'quote':'A phrase absent from the source.' if connected_review=='foreign_quote' else 'A proposed conversation.',
@@ -512,7 +514,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         body['message']='Prepare a separate connected page from the saved proposal.'
     response = client.post('/api/live/agent/turn', json=body)
     if connected_review:
-        if connected_review!='valid':
+        if connected_review not in {'valid','full_page'}:
             assert response.status_code==503,response.text
             assert len(writer.calls)==1
             assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
@@ -520,7 +522,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             return
         assert response.status_code==200,response.text
         completion=response.json()['knowledge_context']['completion']
-        assert completion['answer_segments']==[] and completion['collaboration']['kind']=='connected_page'
+        assert completion['collaboration']['kind']=='connected_page'
+        if connected_review=='full_page':
+            assert len(completion['answer_segments'][0]['text']) > 5737
+            assert completion['answer_segments'][0]['text']==json.loads(writer.actual_output)['answer_segments'][0]['text']
+        else:
+            assert completion['answer_segments']==[]
         current=writer.adapter.service.inspect_turn(world_id=world,turn_id=writer.adapter.turn.turn_id)
         assert current.status=='completed'
         from apps.live_control_server.services.agent_connected_page_origin import open_origin
@@ -896,7 +903,7 @@ def test_native_failed_discussion_exposes_original_context_and_one_explicit_retr
         recovery_dsn=application_state_dsn,retry_mutation=mutation)
 
 
-@pytest.mark.parametrize('review',['valid','foreign_read','foreign_quote'])
+@pytest.mark.parametrize('review',['valid','full_page','foreign_read','foreign_quote'])
 def test_native_connected_page_review_uses_its_included_saved_origin(lane,tmp_path,monkeypatch,review):
     _fresh_case(lane,tmp_path,monkeypatch,None,True,True,False,connected_review=review)
 

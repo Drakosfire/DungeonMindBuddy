@@ -253,3 +253,23 @@ def test_no_composition_wrapper_cannot_discard_text_or_claim_acceptance(mutation
     }
     with pytest.raises(ValueError):
         replace(result,**updates[mutation])
+
+
+def test_full_page_proposal_reaches_connected_review_without_truncation():
+    # A complete page is prose, not a bounded identity/selector. The observed
+    # 5,737-character draft failed here after a completed provider response.
+    context, record, work = case('connected_page')
+    frame = model_work_frame(context, record, **work)
+    candidate = output(frame, 'connected_page')
+    page = '# A neighboring workshop\n\n' + ('| 1 | A small errand awaits. |\n' * 220)
+    assert len(page) > 5737
+    candidate['answer_segments'] = [dict(kind='proposal', label='invented_idea', text=page)]
+    Draft202012Validator(native_output_format(model_frame(context, record), rules(), frame)['schema']).validate(candidate)
+    stored, auth, proof, _ = produce(context, record, work, candidate=candidate)
+    completion = normalize_output(context, stored, auth, **proof)
+    assert completion.answer_segments[0].text == page
+    assert completion.collaboration.model_dump(mode='json') == candidate['collaboration']
+    assert completion.answer_context_status == 'creative_proposal'
+    assert not completion.native_body_citations and not completion.saved_source_citations
+    assert verify_completion(completion, context, stored, auth, **proof) == completion
+    assert type(completion).model_validate_json(completion.model_dump_json()) == completion
