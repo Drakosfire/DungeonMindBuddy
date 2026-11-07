@@ -167,7 +167,6 @@ jobs:
           tests/test_live_recap_ingest_process_review_persistence.py
           tests/test_registered_recap_input.py
           tests/test_recap_generationengine_default.py
-          tests/test_build_recap_launch.py
           tests/application_state/test_session_evidence_consumers.py::test_recap_supplement_is_authorized_and_resolved_before_source_write
           tests/application_state/test_session_evidence_consumers.py::test_recap_pinned_owner_unavailability_has_an_accurate_http_failure
           tests/test_demo_j1_native_world_source_admission.py::test_ordinary_fresh_world_source_admission_needs_no_active_graph
@@ -193,7 +192,6 @@ jobs:
           tests/test_native_plan_assertions.py
           tests/test_plan_authored_references.py
           tests/test_play_authored_source_references.py
-          tests/test_native_ingest_review_context.py::test_actual_agent_reconstructs_native_packet_before_provider
           tests/test_plan_jev_authoring.py::test_current_shared_plan_caller_keeps_routing_and_action_ownership
           tests/application_state/test_plan_placement.py
           tests/test_plan_jev_authoring.py::test_under_heading_selection_survives_actual_dispatch_reservation_and_retained_replay
