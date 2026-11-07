@@ -244,7 +244,7 @@ def test_clean_navigation_wire_retains_host_capacity_and_dispatch_checks(estimat
             prepared_view(prepared(dirty, DecisionContextMode(mode)), dirty["state"],
                 accounting=policy, host_phase="navigate")
     with pytest.raises(ValueError):
-        prepared_view(request, value["state"], accounting=policy, host_phase="select")
+        prepared_view(request, value["state"], accounting=policy, host_phase="assess")
 
 
 def test_clean_navigation_still_refuses_excess_capacity():
@@ -267,3 +267,38 @@ def test_navigation_dispatch_rejects_counter_different_from_frozen_policy():
     with pytest.raises(ValueError, match="actual policy"):
         asyncio.run(dispatch.select_context(prepared(dict(model="jev-1.14.0",
             state={"question":"Find source"}, questions={"q":{"type":"noul","instructions":"Relevant?"}}))))
+
+
+def test_semantic_build_context_preserves_proposed_work_and_text_without_host_identity():
+    from application_state.agent_conversation.build_intentional_response import semantic_routing_state,semantic_request_id
+    from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1,AuthoredReferencesV2
+    ref=AuthoredGraphReferenceV1(managed_world_id='world-secret-SENTINEL',native_world_id='native-secret-SENTINEL',
+        binding_version=9,graph_revision='revision-SENTINEL',node_id='node-SENTINEL',label='The Exchange')
+    host=dict(allowed_operations=['answer_from_sources'],capability_sha256='cap-SENTINEL',
+        conversation_id='conversation-SENTINEL',pointer_revision=123,current_page={'document_id':'document-SENTINEL','title':'A useful page'},
+        page_target={'kind':'replace_selection','text':'Keep this exact 🌿 selected text.'},working_draft={'draft_sha256':'draft-SENTINEL'},
+        related_page_catalog=[{'title':'Another page','document_id':'related-SENTINEL','registry_revision':88}],
+        history=[{'turn_id':'turn-SENTINEL','user_sha256':sha256(b'Please propose a plan.').hexdigest(),'assistant_sha256':sha256(b'').hexdigest(),
+            'user':'Please propose a plan.','assistant':'','collaboration_sha256':'collab-SENTINEL',
+            'collaboration':{'kind':'plan','objective':'Develop the shop','steps':[{'kind':'prepare_insertion','text':'Draft the shop.','selected':False}]}}])
+    state=semantic_routing_state('Keep the literal words context_accounting and phase in the story.',host,AuthoredReferencesV2(references=(ref,)))
+    assert 'SENTINEL' not in json.dumps(state)
+    assert state['interaction']['history'][0]['proposed_work']['steps'][0]['selected'] is False
+    assert state['interaction']['page_target']['text']=='Keep this exact 🌿 selected text.'
+    assert state['interaction']['author_selected_references']==[{'kind':'graph_object','label':'The Exchange'}]
+    assert 'context_accounting and phase' in state['user_question']
+    first=semantic_request_id(state,world_id='one',client_thread_id='thread',idempotency_key='key')
+    assert first!=semantic_request_id(state,world_id='two',client_thread_id='thread',idempotency_key='key')
+    assert first!=semantic_request_id(state,world_id='one',client_thread_id='other',idempotency_key='key')
+    assert first!=semantic_request_id(state,world_id='one',client_thread_id='thread',idempotency_key='other')
+
+
+@pytest.mark.parametrize('card',[
+    {'kind':'questions','questions':[{'text':'Which shop?'}]},
+    {'kind':'connected_page','read_id':'read-SENTINEL','title':'New shop','quote':'Exact quote.','person_label':None,'relationships':[],'instructions':'Develop it.'},
+    {'kind':'relationship','read_id':'read-SENTINEL','quote':'Trade.','source':{'label':'A','kind':'person'},'target':{'label':'B','kind':'person'},'predicate':'trades_with','label':'Trades','context':'Proposed trade.'}])
+def test_proposed_card_projection_keeps_meaning_but_not_read_identity(card):
+    from application_state.agent_conversation.build_intentional_response import semantic_collaboration
+    projected=semantic_collaboration(card)
+    assert 'read_id' not in projected and 'SENTINEL' not in json.dumps(projected)
+    assert projected=={key:value for key,value in card.items() if key!='read_id'}

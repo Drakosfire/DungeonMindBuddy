@@ -1202,7 +1202,7 @@ export interface SurfaceNativeContextReceiptV1 {
   context_receipt_sha256:string;provenance_sha256:string;work_context:SurfaceNativeWorkContextV1;
   source_authority:PlanSourceContextReceiptV1['source_authority'];
   native_query:NativeGraphQueryV4|NativeGraphQueryV3|NativePlanQueryV2|Extract<PlanNativeContextReceiptV1['native_query'],{schema:'dmb_native_plan_query_unavailable_v1'}>;
-  assembled_input:(Omit<PlanSourceContextReceiptV1['assembled_input'],'assembler_version'> & {assembler_version:'surface_native_initial_v1'})
+  assembled_input:(Omit<PlanSourceContextReceiptV1['assembled_input'],'assembler_version'> & {assembler_version:'surface_native_initial_v1'|'native_build_semantic_initial_v2'})
     | {assembler_version:'reviewed_author_admission_v1';submitted_intent_sha256:string;assembled_input_sha256:string};
 }
 export interface SurfaceNativeCompletionV1 {

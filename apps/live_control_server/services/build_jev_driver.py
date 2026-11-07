@@ -68,6 +68,9 @@ class DriverDecisionProjection:
     source_event_ids: tuple[str, ...]
     section_read_ids: tuple[str, ...]
 
+    host_phase: str | None = None
+    host_interaction_json: str | None = None
+
     def state(self):
         return json.loads(self.state_json)
 
@@ -500,13 +503,22 @@ class BuildJevDriver:
         self._interaction = freeze_interaction(a)
         state = dict(user_question=a.request.message, interaction=self._interaction,
             rules=decision_instructions(), requested_work_policy=POLICY)
+        fresh = a.submitted_intent.reviewed_step is None
+        if fresh:
+            from application_state.agent_conversation.build_intentional_response import semantic_routing_state
+            state = semantic_routing_state(a.request.message, self._interaction, a.request.build_authored_references)
         questions = (DecisionQuestion(name='requested_work',kind='choice',question=decision_instructions(),options=tuple(WORK)),)
         if 'related_page_catalog' in self._interaction:
             from application_state.agent_conversation.build_related_pages import PagePointer, question_name, question_text
             questions += tuple(DecisionQuestion(name=question_name(i),kind='choice',
-                question=question_text(PagePointer.model_validate(page)),options=('read','skip'))
+                question=question_text(PagePointer.model_validate(page), semantic=fresh),options=('read','skip'))
                 for i,page in enumerate(self._interaction['related_page_catalog']))
-        self._selection_intent = DecisionIntent(request_id='select:'+digest(state),phase='select',state=state,questions=questions)
+        from application_state.agent_conversation.build_intentional_response import semantic_request_id
+        from .agent_turn_service import _turn_idempotency_key
+        request_id = (semantic_request_id(state, world_id=a.world_id,
+            client_thread_id=a.request.client_thread_id, idempotency_key=_turn_idempotency_key(a.world_id,a.request.turn_id))
+            if fresh else 'select:'+digest(state))
+        self._selection_intent = DecisionIntent(request_id=request_id,phase='select',state=state,questions=questions)
         self.reviewed_binding = a.submitted_intent.reviewed_step
         self._pending = None
         self._used = set()
@@ -911,10 +923,14 @@ class BuildJevDriver:
             raise ValueError("No fresh parent-owned decision")
         a = self._adapter
         if self._native:
-            projection = DriverDecisionProjection(canonical({'decision':intent.model_dump(mode='json'),
-                'context_accounting':a._build_jev_accounting.descriptor}),canonical(wire_questions(intent)),
+            fresh = self.reviewed_binding is None
+            state = intent.state if fresh else {'decision':intent.model_dump(mode='json'),
+                'context_accounting':a._build_jev_accounting.descriptor}
+            projection = DriverDecisionProjection(canonical(state),canonical(wire_questions(intent)),
                 intent.request_id,len(a._broker_execution().events) if a.fence else 0,
-                str(a.last_provider_attempt_id) if a.last_provider_attempt_id else None,(),(),())
+                str(a.last_provider_attempt_id) if a.last_provider_attempt_id else None,(),(),(),
+                host_phase='select' if fresh else None,
+                host_interaction_json=canonical(self._interaction) if fresh else None)
             self._pending = projection
             return projection
         graph, sources, sections = self._presented_material(intent)
@@ -1056,6 +1072,16 @@ class BuildJevDriver:
         ):
             return False
         if self._native:
+            if self.reviewed_binding is None:
+                from application_state.agent_conversation.build_intentional_response import semantic_routing_state,semantic_request_id
+                from .agent_turn_service import _turn_idempotency_key
+                expected = semantic_routing_state(a.request.message,self._interaction,a.request.build_authored_references)
+                if (plan.host_phase!='select' or plan.state()!=expected
+                    or plan.host_interaction_json!=canonical(self._interaction)
+                    or plan.questions()!=wire_questions(self.step)
+                    or plan.request_id!=semantic_request_id(expected,world_id=a.world_id,
+                        client_thread_id=a.request.client_thread_id,idempotency_key=_turn_idempotency_key(a.world_id,a.request.turn_id))):
+                    return False
             try:
                 view = prepared_driver_view(prepared,plan,accounting=a._build_jev_accounting)
                 accepted = a.authorize_native_build_decision(prepared,view,plan)

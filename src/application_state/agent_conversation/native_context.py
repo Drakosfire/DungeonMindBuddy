@@ -81,6 +81,11 @@ class NativeProviderInputV1(Strict):
         return self
 
 
+class NativeBuildProviderInputV2(NativeProviderInputV1):
+    """Fresh Build routing presentation; all control metadata stays host-side."""
+    assembler_version: Literal["native_build_semantic_initial_v2"] = "native_build_semantic_initial_v2"
+
+
 class NativeReviewedActionInputV1(Strict):
     """Model-free author admission; its owning review still must be verified."""
     assembler_version: Literal["reviewed_author_admission_v1"] = "reviewed_author_admission_v1"
@@ -89,7 +94,7 @@ class NativeReviewedActionInputV1(Strict):
 
 
 NativeInitialInput = Annotated[
-    NativeProviderInputV1 | NativeReviewedActionInputV1,
+    NativeProviderInputV1 | NativeBuildProviderInputV2 | NativeReviewedActionInputV1,
     Field(discriminator="assembler_version"),
 ]
 
@@ -110,6 +115,8 @@ class SurfaceNativeContextReceiptV1(Strict):
         world = work_world_id(self.work_context)
         if isinstance(self.assembled_input, NativeReviewedActionInputV1) and not isinstance(self.work_context, BuildWorkContextV1):
             raise ValueError("Model-free reviewed action admission requires actual Build work")
+        if isinstance(self.assembled_input, NativeBuildProviderInputV2) and not isinstance(self.work_context, BuildWorkContextV1):
+            raise ValueError("Semantic Build input requires actual Build work")
         query = self.native_query
         authority = query.authority if isinstance(query, NativePlanQueryV2) else query
         if self.source_authority.managed_world_id != world or authority.managed_world_id != world:
@@ -160,3 +167,9 @@ def validate_work_context(context, provenance, *, play_context_receipt=None):
     else:
         raise ValueError("Unknown native surface work owner")
     return context
+
+
+def is_semantic_build_input(receipt):
+    """Dispatch only the exact fresh Build input codec; never infer from text."""
+    return (type(receipt) is SurfaceNativeContextReceiptV1
+        and type(receipt.assembled_input) is NativeBuildProviderInputV2)
