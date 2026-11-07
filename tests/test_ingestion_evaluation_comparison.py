@@ -20,9 +20,11 @@ def paired(assessment, tmp_path):
         result = put(name + '-result.json', {'run': {'run_id': name, 'revision': 5,
             'components': {'candidate_graph': {'sha256': s['subject']['candidate']['sha256']}}}})
         s['subject']['result']['artifact'] = result
-        review = put(name + '-review.json', {'run_id': name, 'revision': 5,
-            'candidate_sha256': s['subject']['candidate']['sha256'], 'criterion_id': 'F1'})
         phase = s['phases']['raw_extraction']
+        review = put(name + '-review.json', {'run_id': name, 'revision': 5,
+            'candidate_sha256': s['subject']['candidate']['sha256'], 'criterion_id': 'F1',
+            'outcome': outcome, 'reason': phase['judgments'][0]['reason'],
+            'evidence': phase['judgments'][0]['evidence']})
         phase['phase_evidence'] = [review]
         phase['judgments'][0].update(outcome=outcome, review={'artifact': review, 'pointer': ''})
         measured = put(name + '-metrics.json', {'cost': cost, 'elapsed': elapsed})
@@ -106,6 +108,23 @@ def test_favorable_unknowns_are_not_automatic_passes(paired, outcomes, status):
     spec, save, put = paired
     for pair, outcome in zip(spec['pairs'], outcomes):
         s = json.loads(Path(pair['variant']['path']).read_text())
-        s['phases']['raw_extraction']['judgments'][0]['outcome'] = outcome
+        phase = s['phases']['raw_extraction']
+        judgment = phase['judgments'][0]
+        judgment['outcome'] = outcome
+        reviewed = json.loads(Path(judgment['review']['artifact']['path']).read_text())
+        reviewed['outcome'] = outcome
+        review_pin = put(pair['pair_id'] + '-changed-review.json', reviewed)
+        judgment['review']['artifact'] = review_pin
+        phase['phase_evidence'] = [review_pin]
         pair['variant'] = put(pair['pair_id'] + '-changed.json', s)
     assert compare(save())['cases']['case']['dimensions']['recall']['count_gate'] == status
+
+
+def test_paired_comparison_cannot_count_a_forged_verdict(paired):
+    spec, save, put = paired
+    pair = spec['pairs'][1]
+    assessment = json.loads(Path(pair['variant']['path']).read_text())
+    assessment['phases']['raw_extraction']['judgments'][0]['outcome'] = 'pass'
+    pair['variant'] = put('forged-assessment.json', assessment)
+    with pytest.raises(ValueError, match='Review judgment differs for F1: outcome'):
+        compare(save())

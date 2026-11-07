@@ -20,16 +20,18 @@ def assessment(tmp_path):
     candidate = put('candidate.json', {'nodes': [{'description': 'Actual output'}]})
     result = put('result.json', {'run': {'run_id': 'one', 'revision': 5, 'components': {'candidate_graph': {'sha256': candidate['sha256']}}}})
     gold = put('gold.json', {'facts': [{'claim_id': 'F1', 'expected_claim': 'Expected claim'}]})
-    review = put('review.json', {'run_id': 'one', 'revision': 5, 'candidate_sha256': candidate['sha256'], 'checks': [{'criterion_id': 'F1', 'status': 'SUPPORTED_PENDING_REVIEW'}]})
+    verdict = {'criterion_id': 'F1', 'outcome': 'pass',
+               'reason': 'Coverage only; unrelated precision failures separate.',
+               'evidence': [{'artifact': candidate, 'pointer': '/nodes/0/description'}]}
+    review = put('review.json', {'run_id': 'one', 'revision': 5,
+        'candidate_sha256': candidate['sha256'], 'checks': [copy.deepcopy(verdict)]})
     unknown = {'status': 'unknown', 'reason': 'Not measured or executed'}
     spec = {'schema': 'dmb_ingestion_assessment_v1',
             'subject': {'result': {'artifact': result, 'pointer': '/run'}, 'candidate': candidate},
             'gold': [gold],
             'criteria': [{'criterion_id': 'F1', 'dimension': 'recall', 'gold': {'artifact': gold, 'pointer': '/facts/0'}}],
             'phases': {'raw_extraction': {'phase_evidence': [review], 'limitations': ['Content coverage only; precision holds remain.'], 'judgments': [
-                {'criterion_id': 'F1', 'outcome': 'pass', 'reason': 'Coverage only; unrelated precision failures separate.',
-                 'review': {'artifact': review, 'pointer': '/checks/0'},
-                 'evidence': [{'artifact': candidate, 'pointer': '/nodes/0/description'}]}]},
+                {**verdict, 'review': {'artifact': review, 'pointer': '/checks/0'}}]},
                 'reviewed_output': copy.deepcopy(unknown), 'publication': copy.deepcopy(unknown)},
             'measurements': {k: copy.deepcopy(unknown) for k in ['elapsed_ms', 'billed_cost_usd', 'review_effort_minutes']}}
     path = tmp_path / 'assessment.json'
@@ -57,7 +59,7 @@ def test_actual_cli_keeps_phases_and_unknown_measurements_separate(assessment):
     ('candidate', 'candidate differs'), ('missing', 'Every declared'),
     ('duplicate', 'duplicate'), ('gold_id', 'Gold object'),
     ('gold_authority', 'outside declared'), ('review_id', 'Review does not'),
-    ('review_run', 'another or unspecified'), ('empty_evidence', 'inspectable'),
+    ('review_run', 'another or unspecified'), ('empty_evidence', 'Review judgment differs'),
     ('empty_phase', 'phase evidence'), ('implicit_phase', 'three explicit'),
 ])
 def test_rejects_mixed_or_incomplete_evidence(assessment, mutation, error):
@@ -92,10 +94,92 @@ def test_bad_or_missing_measurements_are_not_numbers(assessment, value):
 def test_zero_measurement_and_partial_unknown_judgments_preserved(assessment):
     s, save, put = assessment
     s['measurements']['billed_cost_usd'] = {'artifact': put('metric.json', {'cost': 0}), 'pointer': '/cost'}
-    s['phases']['raw_extraction']['judgments'][0]['outcome'] = 'partial'
+    phase = s['phases']['raw_extraction']
+    judgment = phase['judgments'][0]
+    judgment['outcome'] = 'partial'
+    doc = json.loads(Path(judgment['review']['artifact']['path']).read_text())
+    doc['checks'][0]['outcome'] = 'partial'
+    reviewed = put('partial-review.json', doc)
+    judgment['review']['artifact'] = reviewed
+    phase['phase_evidence'] = [reviewed]
     r = report(save())
     assert r['measurements']['billed_cost_usd']['value'] == 0
     assert r['phases']['raw_extraction']['by_dimension']['recall']['partial'] == 1
+
+
+@pytest.mark.parametrize('phase_name', ['raw_extraction', 'reviewed_output', 'publication'])
+@pytest.mark.parametrize('field,value', [
+    ('outcome', 'fail'), ('outcome', 'unknown'),
+    ('reason', 'A different interpretation'), ('evidence', []),
+])
+def test_report_rejects_verdict_drift_in_every_phase(assessment, phase_name, field, value):
+    s, save, _ = assessment
+    s['phases'][phase_name] = copy.deepcopy(s['phases']['raw_extraction'])
+    s['phases'][phase_name]['judgments'][0][field] = value
+    with pytest.raises(ValueError, match=f'Review judgment differs for F1: {field}'):
+        report(save())
+
+
+@pytest.mark.parametrize('field', ['criterion_id', 'outcome', 'reason', 'evidence'])
+def test_report_requires_explicit_canonical_review_fields(assessment, field):
+    s, save, put = assessment
+    judgment = s['phases']['raw_extraction']['judgments'][0]
+    doc = json.loads(Path(judgment['review']['artifact']['path']).read_text())
+    row = doc['checks'][0]
+    del row[field]
+    row['status'] = 'SUPPORTED_PENDING_REVIEW'
+    row['claim_id'] = 'F1'
+    judgment['review']['artifact'] = put('incomplete-review.json', doc)
+    with pytest.raises(ValueError, match='Review does not identify|Review judgment differs'):
+        report(save())
+
+
+def test_unknown_verdict_requires_matching_reason_and_evidence(assessment):
+    s, save, put = assessment
+    judgment = s['phases']['raw_extraction']['judgments'][0]
+    doc = json.loads(Path(judgment['review']['artifact']['path']).read_text())
+    judgment.update(outcome='unknown', reason='Source scope is unresolved', evidence=[])
+    doc['checks'][0].update({k: judgment[k] for k in ('outcome', 'reason', 'evidence')})
+    doc['checks'][0]['annotation'] = 'Retained reviewer detail'
+    judgment['review']['artifact'] = put('unknown-review.json', doc)
+    assert report(save())['phases']['raw_extraction']['by_dimension']['recall']['unknown'] == 1
+    judgment['reason'] = 'A different unknown'
+    with pytest.raises(ValueError, match='Review judgment differs for F1: reason'):
+        report(save())
+
+
+def test_matching_known_verdict_still_requires_evidence(assessment):
+    s, save, put = assessment
+    judgment = s['phases']['raw_extraction']['judgments'][0]
+    doc = json.loads(Path(judgment['review']['artifact']['path']).read_text())
+    judgment['evidence'] = doc['checks'][0]['evidence'] = []
+    judgment['review']['artifact'] = put('empty-evidence-review.json', doc)
+    with pytest.raises(ValueError, match='Known judgments require inspectable evidence'):
+        report(save())
+
+
+def test_evidence_order_must_match_review_and_annotations_are_allowed(assessment):
+    s, save, put = assessment
+    judgment = s['phases']['raw_extraction']['judgments'][0]
+    doc = json.loads(Path(judgment['review']['artifact']['path']).read_text())
+    judgment['evidence'].append({'artifact': s['subject']['candidate'], 'pointer': '/nodes/0'})
+    doc['checks'][0]['evidence'] = copy.deepcopy(judgment['evidence'])
+    doc['checks'][0]['annotation'] = {'separate_precision_hold': True}
+    judgment['review']['artifact'] = put('annotated-review.json', doc)
+    assert report(save())['phases']['raw_extraction']['by_dimension']['recall']['pass'] == 1
+    judgment['evidence'].reverse()
+    with pytest.raises(ValueError, match='Review judgment differs for F1: evidence'):
+        report(save())
+
+
+def test_actual_cli_rejects_forged_outcome(assessment):
+    s, save, _ = assessment
+    s['phases']['raw_extraction']['judgments'][0]['outcome'] = 'fail'
+    cli = Path(__file__).resolve().parents[1] / 'scripts/evaluate_ingestion.py'
+    result = subprocess.run([sys.executable, str(cli), 'assessment-report', '--manifest', str(save())],
+                            capture_output=True, text=True)
+    assert result.returncode != 0
+    assert 'Review judgment differs for F1: outcome' in result.stderr
 
 
 @pytest.mark.parametrize('pointer', ['/list/-1', '/list/01', '/list/-', '/bad~2key', 'not/a/pointer'])

@@ -136,8 +136,12 @@ def report(path: Path):
             review = reference(judgment['review'])
             review_document = json.loads(read_pin(judgment['review']['artifact']))
             bind_review(review_document, run, subject)
-            if not isinstance(review, dict) or cid not in [review.get(k) for k in ('criterion_id', 'claim_id', 'check_id', 'constraint_id', 'id')]:
-                raise ValueError('Review does not identify this criterion')
+            if not isinstance(review, dict) or review.get('criterion_id') != cid:
+                raise ValueError(f'Review does not identify this criterion: {cid}')
+            for field in ('outcome', 'reason', 'evidence'):
+                if field not in review or review[field] != judgment[field]:
+                    raise ValueError(f'Review judgment differs for {cid}: {field}; '
+                                     'an explicit matching canonical review row is required')
             if judgment['outcome'] != 'unknown' and not judgment['evidence']:
                 raise ValueError('Known judgments require inspectable evidence')
             for ref in judgment['evidence']:

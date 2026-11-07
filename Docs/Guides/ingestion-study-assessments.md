@@ -26,6 +26,14 @@ The `dmb_ingestion_assessment_v1` record contains:
   and `revision`/`run_revision` (or `pins.result` for the exact result bytes).
   Explicit conflicting bindings are refused. A legacy review without these needs
   an independently reviewed, exactly bound adoption retaining its original refs.
+  The selected review row must contain canonical `criterion_id`, `outcome`,
+  `reason` and `evidence` fields matching the assessment judgment exactly,
+  including evidence-list order. Extra review annotations remain allowed.
+  This check also applies to unknown judgments and every assessed phase.
+  `status`, `claim_id` or prose such as “supported” cannot substitute for a
+  canonical verdict. Historical noncanonical reviews remain unchanged; reproduce
+  their reports with their pinned historical tooling. Before making a new report,
+  retain an explicitly reviewed canonical judgment instead of inferring a mapping.
 - `measurements`: `elapsed_ms`, `billed_cost_usd`, `review_effort_minutes`, each
   either a reference to a retained numeric measurement or an explicit unknown.
   Zero is accepted only when actually present in the referenced measurement.
@@ -40,9 +48,9 @@ Identified objects (including `id` on interpretive items) must match the declare
 criterion ID. Unidentified structured constraints are retained unchanged, like
 scalar constraints; no new Gold representation is created to add synthetic IDs.
 
-Normalize completed legacy reviews once into this format. Preserve their original
-bytes and judgment pointer; there are no runtime adapters or per-session scoring
-scripts. A normalized outcome is an explicit reviewer judgment, never inferred
+Normalize completed legacy reviews once into explicitly reviewed canonical rows.
+Preserve their original bytes and references; there are no runtime adapters or
+per-session scoring scripts. A normalized outcome is an explicit reviewer judgment, never inferred
 from a substring such as "supported", or from preparation/feasibility. Independent
 review must verify the mapping, full effective Gold criterion inventory and phase
 evidence. The tool cannot certify semantic completeness from a declared subset.
