@@ -211,6 +211,11 @@ class PlanJevDriver:
                     self.attempted_saved_pages.add(handle)
                     first,last=self.saved_page_catalog[handle][1]
                     self.adapter.read_build_section(line_start=first,line_end=last)
+                elif handle.startswith('native-corpus-expand:'):
+                    # Expansion is already recorded, so offered() now presents
+                    # the broad view. The original parent/current selection above
+                    # still owns this metadata-only action and all mixed reads.
+                    self.native_sources.expand_selected(handle)
                 elif handle in native_handles:
                     try:
                         self.native_sources.select([handle])

@@ -86,6 +86,10 @@ Measure total and native-source ballots separately; saved-page choices remain.
 - apps/live_control_server/services/plan_jev_driver.py (explicit native dispatch).
 - tests/test_native_source_candidate_scope.py (pure/navigation contrasts).
 - tests/application_state/test_surface_native_acquisition.py (actual SDK/APP/Core).
+- tests/application_state/test_surface_native_decisions.py: extend the existing SDK
+  fixture with native parent/auth/selection codecs for current-path tests only.
+  This adopts the current producer rather than duplicating its large fixture;
+  existing historical fixture cases stay unchanged.
 - src/application_state/migrations/versions/20261107_0122_native_candidate_expansion.py
   (reader fence only, no row rewrites).
 
@@ -114,3 +118,26 @@ the writer fixed; no new ingestion, model comparison, publication or Graph curat
 Review/CI/merge/deliver in this one bounded PR. All expected checks must finish
 successfully before merge; GitHub auto-merge is not a substitute for that audit.
 The whole goal, References closure and operator acceptance remain open.
+
+## Captured implementation evidence (not activation or goal completion)
+
+Private retained evidence root is the established q01-published-graph-authority
+runtime-evidence directory. native-source-scope-frozen-audit.json reconstructs
+native candidate handles from exact captured acquisition prefixes and validates
+all five baseline SDK envelopes against the preserved provider payloads. Total
+ballots819→552, native offers586→314, with five explicit expansion choices. This
+is presentation evidence, not a runtime latency/coverage result. Four paired
+Jev1.14 decision-only calls retain their exact payloads/results in
+native-source-scope-decision-{0,1}-{baseline,candidate}.json. The candidate
+selects expansion on the post-search ballot; later ballots may broaden again.
+No writer/model change, provider-free gold, World writes or ingestion occurred.
+
+Owning checks: native-source-scope-checks.log39 passed, four inherited cases
+deselected; three additional negative-hint cases20 pure tests total;
+native-source-scope-sections.log7 SDK/APP/Core/fence cases passed;
+native-source-scope-decisions.log32 passed. Four existing acquisition failures
+reproduce with exact remote-main runtime and fixture code in
+native-source-scope-inherited-tests.log. Two expect the older assertion subtype;
+two select a stale full-source action after acquiring it. Preserve those results;
+no unrelated assertion/fixture repair belongs to this slice. Implementation
+review, CI, delivery and actual ordinary/contrast latency remain pending.

@@ -412,3 +412,119 @@ def test_unavailable_assertion_settles_as_gap_without_fabricated_evidence(
         )
         == completed
     )
+
+
+@pytest.mark.parametrize('mixed', [False, True])
+@pytest.mark.parametrize('question,scoped', [('What did the check reveal in session 8?',True),
+    ('What did the check reveal?',False), ('What did the check reveal in session 99?',False)])
+def test_native_scope_expands_through_actual_sdk_reload_and_exact_core_read(
+    application_state_dsn, lane, monkeypatch, mixed, question, scoped
+):
+    from tests.test_surface_native_writer import body_case, BODY
+    from tests.test_native_corpus_source_access import GM, admit
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import prepare_native_source_context
+    from apps.live_control_server.services import native_source_display
+    from application_state.agent_conversation.native_retrieval import NativeRetrievalSelectedV1
+    from application_state.agent_conversation.native_corpus import NativeBodyReadObservedV1
+
+    admit(lane, 'second', body=BODY)
+    context, record, _ = body_case('plan', lane)
+    record = execution(context.context_receipt_sha256, record.policy)
+    source_context = prepare_native_source_context(managed_world_id='managed', principal=GM,
+        repository=lane.repo, resolve_identity=lambda _:lane.bound)
+    assert source_context.authority == context.source_authority
+    def labels(items, world_id):
+        return [dict(label='Session '+('8' if item.origin.object_id == 'first' else '9'),
+            kind='recap', status='available', origin_matches_current_metadata=True,
+            campaign_id='longmont-c1', session_id='session-'+('8' if item.origin.object_id == 'first' else '9'))
+            for item in items]
+    monkeypatch.setattr(native_source_display, 'source_display_metadata', labels)
+    retained = {'expansion':None}
+    search_first = scoped and not mixed
+    original_head = lane.repo.get_head('world:test')
+
+    def narrow(case):
+        with host(case, source_context=source_context) as adapter:
+            nav = PlanJevDriver(adapter).native_sources
+            rows = nav.offered()
+            expansions = [row for row in rows if row.handle.startswith('native-corpus-expand:')]
+            assert len(expansions) == int(scoped)
+            direct = [row for row in rows if row.handle.startswith('native-direct-source:')]
+            assert len(direct) == (1 if scoped else 2)
+            if search_first:
+                sections = [row for row in rows if row.handle.startswith('native-body:')]
+                assert sections and all('Session 8' in row.label for row in sections)
+            selected = next(row for row in direct if 'Session 8' in row.label)
+            retained['expansion'] = expansions[0].handle if expansions else None
+            return (expansions[0], selected) if scoped and mixed else tuple(expansions) if scoped else (selected,)
+
+    def apply(case):
+        with host(case, source_context=source_context) as adapter:
+            driver = PlanJevDriver(adapter)
+            step = case.steps[-1]
+            selected = SimpleNamespace(operation=step.selection.operation,
+                selected_handles=tuple(step.selection.selected_handles))
+            dispatch = SimpleNamespace(parent=step.parent, authorization=step.auth, selection=selected)
+            driver.current = dispatch
+            before = tuple(adapter.fence.turn.graph_context_execution.events)
+            driver.apply(dispatch)
+            after = tuple(adapter.fence.turn.graph_context_execution.events)
+            if scoped and not mixed and retained['expansion'] in selected.selected_handles:
+                assert after == before  # Expansion alone grants/reads nothing.
+            elif any(handle.startswith('native-corpus-search:') for handle in selected.selected_handles):
+                assert not any(isinstance(event,NativeBodyReadObservedV1) for event in after[len(before):])
+            else:
+                reads = [event for event in after[len(before):] if isinstance(event, NativeBodyReadObservedV1)]
+                assert len(reads) == 1 and reads[0].excerpt is not None
+            with pytest.raises(ValueError):
+                driver.native_sources.expand_selected((retained['expansion'] or 'native-corpus-expand:')+'forged')
+            if retained['expansion'] and retained['expansion'] not in selected.selected_handles:
+                with pytest.raises(ValueError):
+                    driver.native_sources.expand_selected(retained['expansion'])
+            assert any(type(event) is NativeRetrievalSelectedV1 for event in after)
+
+    def broader(case):
+        case.turn = AgentConversationService().inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id)
+        with host(case, source_context=source_context) as adapter:
+            nav = PlanJevDriver(adapter).native_sources
+            rows = nav.offered()
+            assert all(not row.handle.startswith('native-corpus-expand:') for row in rows)
+            direct = [row for row in rows if row.handle.startswith('native-direct-source:')]
+            assert len(direct) == (1 if mixed or not scoped else 2)
+            if search_first:
+                return tuple(row for row in rows if row.handle.startswith('native-body:') and 'Session 9' in row.label)
+            return tuple(row for row in direct if 'Session 9' in row.label)
+
+    def search(case):
+        with host(case, source_context=source_context) as adapter:
+            return tuple(row for row in PlanJevDriver(adapter).native_sources.offered()
+                if row.handle.startswith('native-corpus-search:'))
+
+    acquisitions = (((search,apply),) if search_first else ()) + ((narrow,apply),(broader,apply))
+    case = sdk_case(application_state_dsn, context_record=(context,record), native=True,
+        question=question, acquisitions=acquisitions)
+    from tests.application_state.test_surface_native_completion import completed_input, finish
+    def answer(writer):
+        return [dict(kind='native_body_claim', text='The check revealed an origin beyond this plane.',
+            excerpt_handles=[row['excerpt_handle'] for row in writer.frame['native_body_evidence']['excerpts']])]
+    writer = completed_input(application_state_dsn, acquired=case, answer_rows=answer)
+    completed = finish(writer)
+    assert completed.completion.native_body_citations
+    assert all(c.selector_policy == ('markdown_sections_v1' if search_first else 'native_full_document_v1')
+        for c in completed.completion.native_body_citations)
+
+    assert lane.repo.get_head('world:test') == original_head
+
+
+def test_native_expansion_fence_rejects_older_reader_without_row_rewrite(application_state_dsn, monkeypatch):
+    from application_state import cli
+    from application_state.errors import ApplicationStateMigrationError
+    from importlib import import_module
+    cli.assert_at_head(dsn=application_state_dsn)
+    monkeypatch.setattr(cli, '_alembic_head', lambda:'20261106_0121')
+    with pytest.raises(ApplicationStateMigrationError):
+        cli.assert_at_head(dsn=application_state_dsn)
+    fence = import_module('application_state.migrations.versions.20261107_0122_native_candidate_expansion')
+    assert fence.upgrade() is None
+    with pytest.raises(RuntimeError, match='Older readers'):
+        fence.downgrade()
