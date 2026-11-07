@@ -68,6 +68,10 @@ def test_session16_shorthand_is_a_positive_navigation_hint():
     ('Look outside the selected recap', None),
     ('Do not limit this to the selected recap', None),
     ('What does Winter recap add?', None),
+    ('I do not publish.', None),
+    ("We don't save.", None),
+    ('The source says: do not publish.', None),
+    ("What does the selected recap establish? Don't save.", {'selected','unknown'}),
 ])
 def test_opened_reference_hint_preserves_explicit_scope_and_broad_requests(question,expected):
     rows={'selected':display(session='session-16'),

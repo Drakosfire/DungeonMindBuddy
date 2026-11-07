@@ -10,7 +10,7 @@ and child tree equality before this truthful authority settlement. The initial
 re-anchor preserved reviewed952c69b43 production/test blobs and its170 passing
 owning tests. The subsequent captured non-writing-directive correction changes
 that implementation and requires fresh exact-head review, owning tests and CI.
-Its42 focused tests pass; ordinary performance acceptance remains open. Parent source branch remains frozen.
+Its focused regression evidence is recorded with the current PR; ordinary performance acceptance remains open. Parent source branch remains frozen.
 No new checkout, dependency environment, provider configuration or runtime lease.
 Other INGEST and held Play2172 paths are unchanged; their holds persist.
 
@@ -28,9 +28,11 @@ Use successful NativeAuthoredSourceReadV1 catalogs only as an initial navigation
 hint. The existing source-hint helper owns presentation, not access authority.
 Explicit campaign/session hints and source negation retain their semantics.
 For an opened human reference, recognize a terminal do-not-edit/save/publish
-execution directive as non-writing, rather than a source exclusion. The actual
-request and model input remain unchanged; earlier/other negation stays broad.
-The captured wording and an explicit outside-source contrast must be tested.
+imperative sentence (optionally preceded by Discuss only;) as non-writing,
+rather than a source exclusion. Match only at text/sentence start; declarative
+or quoted/reported negative text stays conservative. The actual request and
+model input remain unchanged; earlier/other negation stays broad. Test captured
+wording, declarative counterexamples and explicit outside-source contrasts.
 Unknown, stale and differently named source metadata stays reachable. Requests
 without opened human references retain their current full catalog. Automatic
 reads do not establish a human-selected focus. After an explicit lexical scan,

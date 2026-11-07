@@ -21,7 +21,7 @@ def preferred_source_pairs(question, displays, *, opened_reference_pairs=()):
     if opened_reference_pairs:
         # A terminal non-writing directive is not a source exclusion. Keep
         # other negation conservative, including any earlier scope clause.
-        scope_query = re.sub(r"\b(?:do not|don['’]t)\s+(?:edit|save|publish)"
+        scope_query = re.sub(r"(?:^|(?<=[.!?])\s+)(?:discuss only;\s*)?(?:do not|don['’]t)\s+(?:edit|save|publish)"
             r"(?:\s*(?:,|\bor\b|\band\b)\s*(?:edit|save|publish))*[.!]?\s*$", "", query)
     if re.search(r"\b(?:no|not|never|cannot|except|exclude|excluding|outside|without)\b|\bother than\b|\b\w+n['’]t\b", scope_query):
         return None
