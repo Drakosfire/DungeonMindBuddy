@@ -129,3 +129,18 @@ without it, the product-runtime integration test reports a skip. Its disposable
 APP probe exercises actual correction/disposition owners while native repository
 and authentication/transport remain explicit doubles. Real retained evaluation
 still requires its own pinned manifest, reviews and qualification.
+
+### Explicit ordinary recap model configuration
+
+The ordinary standard-v2 producer and evaluator share one configuration resolver.
+Leave both `DMB_RECAP_MODEL_ID` and `DMB_RECAP_OPENROUTER_PROVIDER` absent to retain
+the DeepSeek default. To select another model, set both to the exact model ID and
+one explicit OpenRouter endpoint. Partial, blank or multiple-endpoint settings fail
+before extraction; no endpoint is inferred and provider fallbacks remain disabled.
+An ordinary request's model may be absent or match the server configuration.
+
+Qualification retains the model and endpoint and checks them again after app
+startup, before dispatch. Pin these settings with the experiment's other controls.
+Changing them does not change the prompts, schemas, allocations or retry policy.
+This configuration capability does not authorize inference: alternative-model runs
+still require a pinned comparison design and source-exposure authorization.

@@ -1171,3 +1171,41 @@ def test_source_input_mismatch_fails_before_inference(tmp_path, damage):
         run_production_extraction(ProductionExtractionRequest(repo_root=tmp_path, source=source,
             profile_id=WORLDBUILDING_PLUMBING_PROFILE_ID, profile_version=WORLDBUILDING_PLUMBING_PROFILE_VERSION,
             allow_llm=True, category_client=NoInference()))
+
+
+@pytest.mark.parametrize("requested_model", [None, "fixture/alternate", "wrong/model"])
+def test_ordinary_runner_uses_server_model_configuration(tmp_path, monkeypatch, requested_model):
+    from types import SimpleNamespace
+    from graph_memory.ingestion.native_recap_source import SourceScope
+    from apps.live_control_server.services import graph_preview_runner as owner
+    from apps.live_control_server.services import managed_world_graph_projection as binding_owner
+
+    source = _admit_recap(tmp_path)
+    monkeypatch.setenv("DMB_RECAP_MODEL_ID", "fixture/alternate")
+    monkeypatch.setenv("DMB_RECAP_OPENROUTER_PROVIDER", "Fixture Endpoint")
+    monkeypatch.setattr(binding_owner, "resolve_managed_source_identity", lambda _: SimpleNamespace(
+        native_world_id="world:elderwyld", binding_version=1,
+    ))
+    clients = []
+    class Client:
+        def __init__(self, limits, **kwargs):
+            self.limits = limits
+            clients.append(self)
+    monkeypatch.setattr(owner, "BoundedRecapPassClient", Client)
+    requests = []
+    monkeypatch.setattr(owner, "run_production_extraction", lambda request: requests.append(request) or request)
+    kwargs = dict(repo_root=tmp_path, campaign_id="longmont-c2", session_id="session-24",
+        source_artifact_id=source.source_artifact_id, allow_llm=True, model_id=requested_model,
+        ingest_context=SourceScope(managed_world_id="elderwyld", native_world_id="world:elderwyld",
+                                  binding_version=1, campaign_id="longmont-c2"))
+    if requested_model == "wrong/model":
+        with pytest.raises(ValueError, match="configured GenerationEngine model"):
+            owner.run_recap_production_extraction(**kwargs)
+        assert not clients and not requests
+    else:
+        result = owner.run_recap_production_extraction(**kwargs)
+        assert result.model_id == "fixture/alternate"
+        assert result.category_client is clients[0]
+        assert clients[0].limits.model == "fixture/alternate"
+        assert clients[0].limits.openrouter_provider == "Fixture Endpoint"
+        assert len(requests) == 1

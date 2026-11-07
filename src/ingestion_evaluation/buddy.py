@@ -125,6 +125,12 @@ class Buddy:
         from application_state.ingest import service
         return service.list_extraction_runs(world_id=self.manifest['world_id'], source_domain='recap', campaign_id=item['campaign_id'], session_id=item['session_id'])
 
+    @staticmethod
+    def _model_configuration():
+        from src.graph_memory.extraction.bounded_recap_execution import resolve_recap_model_configuration
+        model, endpoint = resolve_recap_model_configuration()
+        return {'model': model, 'openrouter_provider': endpoint}
+
     def qualify(self, item):
         from application_state.source import service as sources
         from apps.live_control_server.services.recap_ingest_context import resolve_recap_source_scope
@@ -132,13 +138,13 @@ class Buddy:
         from apps.live_control_server.services.source_artifact_registry import _normalize_source_text
         from src.graph_memory.extraction.name_review import apply_review
         from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
-        from src.graph_memory.extraction.bounded_recap_execution import DEEPSEEK_MODEL
         from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
         from graph_memory.evidence.source_artifact import build_world_scoped_recap_source_artifact_id
         context, _ = native.access_context(native.read_repository(), self.manifest['world_id'])
         if json.loads(encoded(context)) != self.manifest['native_context']:
             raise ValueError('Native revision context drift')
-        if (RECAP_EXTRACTION_PROFILE.qualified_id, DEEPSEEK_MODEL) != (self.manifest['profile_id'], self.manifest['model_id']):
+        selection = self._model_configuration()
+        if (RECAP_EXTRACTION_PROFILE.qualified_id, selection['model']) != (self.manifest['profile_id'], self.manifest['model_id']):
             raise ValueError('Effective model/profile drift')
         request = json.loads(read_pin(item['request']))
         raw = read_pin(item['source']).decode()
@@ -158,6 +164,7 @@ class Buddy:
         effective_artifact = build_world_scoped_recap_source_artifact_id(world_id=self.manifest['world_id'], campaign_id=item['campaign_id'], session_id=item['session_id'], content_sha256=item['effective_sha256'])
         unresolved = [rid for rid, run in prior.items() if run['status'] in {'prepared', 'running'} and run['source_artifact_id'] == effective_artifact]
         return {'id': item['id'], 'prior_runs': prior, 'unresolved_prior_runs': unresolved,
+                'model_configuration': selection,
                 'name_review': lineage, 'source_sha256': item['source']['sha256'],
                 'effective_sha256': item['effective_sha256'], 'request_sha256': item['request']['sha256'],
                 'pass_instruction_sha256': {p.pass_id: digest(p.instruction.encode()) for p in
@@ -188,6 +195,8 @@ class Buddy:
 
             self._bind(read_only=False)
             with TestClient(observed, client=('127.0.0.1', 43001), headers={'Authorization': 'Bearer ' + token}, raise_server_exceptions=False) as client:
+                if self._model_configuration() != qualified['model_configuration']:
+                    raise ValueError('Product startup changed the qualified model or endpoint')
                 if os.environ.get('DMB_AGENT_GRAPH_LOCAL_PROFILE', '').strip() or os.environ.get('DMB_AGENT_GRAPH_SESSION_STORE') != self.auth_path:
                     raise ValueError('Product startup changed profile/auth isolation')
                 for role, spec in self.db.items():

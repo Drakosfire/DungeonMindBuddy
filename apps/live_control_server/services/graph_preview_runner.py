@@ -13,6 +13,7 @@ from src.graph_memory.extraction.bounded_recap_execution import (
     BoundedRecapPassClient,
     DEEPSEEK_MODEL,
     RecapExecutionLimits,
+    resolve_recap_model_configuration,
 )
 
 from apps.live_control_server.config import artifact_data_root
@@ -157,11 +158,14 @@ def run_recap_production_extraction(
 
     default_ge = allow_llm and category_client is None and execution_limits is None
     if default_ge:
-        if model_id not in (None, DEEPSEEK_MODEL):
+        configured_model, configured_endpoint = resolve_recap_model_configuration(
+            profile_id=selected_profile.qualified_id,
+        )
+        if model_id not in (None, configured_model):
             raise ValueError(
-                "ordinary recap extraction requires the configured DeepSeek GenerationEngine route"
+                "ordinary recap extraction requires the configured GenerationEngine model"
             )
-        model_id = DEEPSEEK_MODEL
+        model_id = configured_model
         # Each configured source extraction pass runs once.
         # This is an execution plan budget, not a provider authorization cap.
         pass_budget = (
@@ -176,7 +180,8 @@ def run_recap_production_extraction(
         )
         execution_limits = RecapExecutionLimits(
             provider="openrouter",
-            model=DEEPSEEK_MODEL,
+            model=configured_model,
+            openrouter_provider=configured_endpoint,
             max_calls=pass_budget,
             # Reasoning shares the total output allowance with the JSON result.
             max_output_tokens=(
