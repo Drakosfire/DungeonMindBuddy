@@ -1,5 +1,5 @@
-import { StrictMode } from "react";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { StrictMode, useEffect, type ReactNode } from "react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "../api/liveApi";
 import type { IngestionSourceBundle, SourceUnit } from "../api/types";
@@ -37,11 +37,11 @@ function Observer() {
     status: value.focusValidationStatus, derived: value.derived,
   })}</output>;
 }
-function Harness({ enabled, generation = "legacy", worldId = null }: {
-  enabled: boolean; generation?: string; worldId?: string | null;
+function Harness({ enabled, generation = "legacy", worldId = null, children }: {
+  enabled: boolean; generation?: string; worldId?: string | null; children?: ReactNode;
 }) {
   return <WorldGraphLensProvider key={generation} planCampaignId="longmont-c2"
-    managedWorldId={worldId} loadFocusOptions={enabled}><Observer /></WorldGraphLensProvider>;
+    managedWorldId={worldId} loadFocusOptions={enabled}><Observer />{children}</WorldGraphLensProvider>;
 }
 function observation() { return JSON.parse(screen.getByTestId("lens-state").textContent!); }
 const focus = { campaignId: "longmont-c2", sessionNumber: 20 };
@@ -106,4 +106,69 @@ describe("legacy focus bundle demand", () => {
     await act(async () => old.resolve(bundleWithSessions(99)));
     expect(observation()).toEqual(current); expect(load).toHaveBeenCalledTimes(1);
   });
+});
+
+// An effect consumer can initiate graph/Ask work before an eventual DOM assertion.
+// Observe every committed effect, including the first re-enabled render.
+it.each([false, true])("gates effect consumers throughout fresh demand (StrictMode=%s)", async strict => {
+  const fresh = deferred<IngestionSourceBundle>();
+  const effects: string[] = [];
+  const request = vi.fn();
+  function Consumer({ generation }: { generation: number }) {
+    const { focusValidationStatus } = useWorldGraphLens();
+    useEffect(() => {
+      effects.push(focusValidationStatus);
+      if (focusValidationStatus === "valid") request();
+    }, [focusValidationStatus, generation]);
+    return null;
+  }
+  let freshDemand = false;
+  vi.spyOn(api, "getSourceBundle").mockImplementation(() => freshDemand
+    ? fresh.promise : Promise.resolve(bundleWithSessions(20)));
+  const tree = (enabled: boolean, generation: number) => {
+    const content = <Harness enabled={enabled}><Consumer generation={generation} /></Harness>;
+    return strict ? <StrictMode>{content}</StrictMode> : content;
+  };
+  const view = render(tree(true, 0));
+  await waitFor(() => expect(observation().status).toBe("valid"));
+  expect(request).toHaveBeenCalledTimes(1);
+  view.rerender(tree(false, 1));
+  effects.length = 0; request.mockClear(); freshDemand = true;
+  view.rerender(tree(true, 2));
+  expect(effects.length).toBeGreaterThan(0);
+  expect(effects).toEqual(["pending"]);
+  expect(request).not.toHaveBeenCalled();
+  await act(async () => fresh.resolve(bundleWithSessions(20)));
+  await waitFor(() => expect(observation().status).toBe("valid"));
+  expect(effects).toEqual(["pending", "valid"]);
+  expect(request).toHaveBeenCalledTimes(1);
+});
+
+it("keeps exact-lens overrides explicit while fresh re-entry waits for its own result", async () => {
+  const fresh = deferred<IngestionSourceBundle>();
+  vi.spyOn(api, "getSourceBundle")
+    .mockRejectedValueOnce(new Error("bundle unavailable"))
+    .mockReturnValueOnce(fresh.promise);
+  const effects: string[] = [];
+  function Override({ generation }: { generation: number }) {
+    const { acceptUnverifiedFocus, focusValidationStatus } = useWorldGraphLens();
+    useEffect(() => { effects.push(focusValidationStatus); }, [focusValidationStatus, generation]);
+    return <button onClick={acceptUnverifiedFocus}>Accept this focus</button>;
+  }
+  const tree = (enabled: boolean, generation: number) => <Harness enabled={enabled}>
+    <Override generation={generation} />
+  </Harness>;
+  const view = render(tree(true, 0));
+  await waitFor(() => expect(observation().status).toBe("unavailable"));
+  fireEvent.click(screen.getByRole("button", { name: "Accept this focus" }));
+  expect(observation().status).toBe("valid");
+  view.rerender(tree(false, 1));
+  effects.length = 0;
+  view.rerender(tree(true, 2));
+  expect(effects).toEqual(["pending"]);
+  expect(observation().lens.focus).toEqual(focus);
+  await act(async () => fresh.reject(new Error("fresh bundle unavailable")));
+  await waitFor(() => expect(observation().status).toBe("valid"));
+  expect(effects).toEqual(["pending", "valid"]);
+  expect(observation().lens.focus).toEqual(focus);
 });

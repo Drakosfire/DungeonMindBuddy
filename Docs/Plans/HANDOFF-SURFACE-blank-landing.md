@@ -1,6 +1,7 @@
 # SURFACE: blank landing composition
 
 Status: ACTIVE
+Correction evidence: §11 supersedes the initial-head verification checkpoint.
 Authority: explicit operator Phase 1 implementation and bounded stewardship delegation;
 DESIGN-blank-surface-to-world-graph-canvas.md at f8981b4923d70a2fe3c8f6f7ba80b5ddff7d8899.
 Flow: SURFACE. Topology: serial, one Phase 1 implementation PR, no merge or deployment.
@@ -105,7 +106,7 @@ teardown, which could erase a newer route's context. Neutral capability cleanup 
 the existing token-aware lease. Current owner tests cover late Index answers across
 World, thread and route replacement. This does not generalize admission by config.
 
-## 8. Demolition and measured observations
+## 8. Initial-head demolition and measured observations
 Removed App's IndexSurfacePublisher/MirewardIndex duplicate scaffolding and five
 launcher cards (sole production caller), their unused imports, and 72 lines of
 exclusive `.launcher-*` rules (including unused launcher-note). Replacement access
@@ -143,7 +144,7 @@ Raw observations, reproducible fixture runner and screenshots are retained in
 scratch/browser-measurements.json, browser-summary.json, measure.cjs, before.png,
 after.png under the task parent. No device-capacity or aggregate speedup claimed.
 
-## 9. Verification results and limits
+## 9. Initial-head verification results and limits
 - Exact-base focused five files: 55 passed / 7 failed. Same five after plus new
   BlankSurface, WorldGraphLensDemand and IndexAgentConversation: 71 passed / same
   7 failed. App failures: Plan route, Build composition/viewExact, route-remount.
@@ -193,3 +194,71 @@ No temporary directory or worktree was removed; zero reclaimed bytes. Fixture
 servers/browser closed normally; test runners completed (one task-owned hung run
 was terminated and corrected). No existing runtime was stopped. Checkout is on
 codex/blank-surface-phase1; verification mirror is detached, never local main.
+
+
+## 11. Demand-generation correction after coordinating review
+The independent coordinating review found a new Phase 1 defect at initial head
+bc0d91061eb1881f771bd5df3c28b4f0a4afa9a8: valid focus → disabled demand → enabled
+fresh request exposed stored valid to a committed child effect before effects reset
+it to pending. Initial approval at that head is superseded; the earlier tests only
+checked eventual state and missed this transient authority leak. This is an
+in-scope correction in the same branch/PR2198 and the existing §4 lease. No new
+lane, runtime rollout, dependency, backend or storage change.
+
+The provider now tracks demand transitions with React-owned generation state,
+adjusted conditionally during its own render. Stored validation and loaded bundle
+observations each carry their demand generation. A new demand cannot reuse either
+an earlier valid status or a ready bundle from another generation. Children commit
+pending synchronously until current-generation validation; effects still retire
+late results through the existing cancellation owner. No render-time ref mutation
+or second request executor is introduced. Explicit unverified-focus overrides keep
+the existing exact-lens meaning: re-entry waits for fresh results, and a fresh
+unavailable result may honor that same-lens override. Successful missing-focus
+results still follow existing invalidation; no broad bypass is introduced.
+
+Permanent owning regression observes a child effect that would issue graph/Ask
+work when valid. Before the production fix it failed with effects [valid,pending]
+instead of [pending]; no inherited classification applies to this defect. With the
+fix, ordinary and StrictMode consumers see only pending while the fresh promise is
+unresolved, issue zero work, then see valid once and issue once after it resolves.
+The explicit-override case also sees pending first, preserves the URL focus and
+honors the existing override only after the fresh unavailable result.
+
+Correction verification:
+- New permanent demand file: 8/8 passed, including both effect-consumer modes and
+  override re-entry. Original coordinating scratch reproducer: 6/6 passed against
+  corrected code; its logged re-enable effect list is empty (no transient valid).
+- Neighboring correction cohort before StrictMode parametrization: 20 files,
+  181/181 passed. Final combined focused/aggregate cohort (all final test cases):
+  46 files, 559 passed / 9 failed assertions / 1 collection failure. These are
+  the same 7 App/navigation failures, 2 surfaceInteraction boundary assertions and
+  missing @playwright/test BuildSurfaceShell collection failure documented and
+  reproduced at exact UI base in §9. No new suite failure remains.
+- TypeScript and production build pass; existing large-chunk warning remains.
+  Cumulative diff check passes. Independent precommit correction inspection found
+  no new production issue; neighboring independent tests passed 22/22. Corrected
+  exact-head formal judgment follows commit and is recorded in the existing PR;
+  it is not predicted by this document.
+
+Refreshed production measurements use the same script, dependency installation,
+fixture API responses and three cold Chrome contexts per artifact as §8. These
+supersede the initial-head byte/timing observations for the corrected source:
+- 112 assets both; total bytes 3,821,833 → 3,820,690. Entry JS 547,662 → 547,146;
+  CSS 85,774 → 85,147. Python same-settings gzip JS 155,142 → 155,021; CSS
+  15,370 → 15,273. The safety correction adds364 entry JS bytes over initial head.
+- API requests auth+bundle → auth only; resource requests6 →5; DOM63 →43.
+  Resource transfer702,525 →701,070; encoded bodies701,025 →699,870 bytes.
+  No browser errors, model requests or writes. Tiny mocked bundle is not a claim
+  about production bundle sizes.
+- Ready-to-heading medians55 →53ms; two-second idle task deltas before
+  0.385/0.489/0.442ms, after0.473/0.427/0.451ms; idle layouts/styles zero.
+  Heap samples before3,723,880–3,744,004; after3,559,812–3,567,132 bytes.
+  These noisy fixture observations do not establish CPU, memory or device gains.
+
+Exact retained evidence under task scratch: demand-regression-before.log,
+demand-regression-after.log, demand-strict.log, demand-fix-regression.log,
+demand-fix-final-suite.log, demand-typecheck.log, demand-fix-build.log,
+supplied-reproducer-after.log, measure-demand-fix.cjs,
+browser-measurements-demand-fix.json, browser-summary-demand-fix.json and
+ demand-fix-before.png/demand-fix-after.png. Same ownership/cleanup follow-up as
+§10; isolated fixture servers/browser closed normally. No resource was removed.
