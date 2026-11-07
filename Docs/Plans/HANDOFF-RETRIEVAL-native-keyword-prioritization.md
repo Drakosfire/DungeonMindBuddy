@@ -1,6 +1,14 @@
 # RETRIEVAL: reversible native keyword prioritization
 
-Status: ACTIVE. PRIME owns this operator-authorized efficient-retrieval slice.
+Status: DELIVERED through PR2184, merge a273bfc9b6c1e14f55df384b2160179858935bd1.
+Corrected source 077ca6a24ea305a3d1d02951b0eb10704fb1b7d0 passed independent
+review and all seven checks. API integration c99e71ab7a11775c0771cd08433a811fc1bc602a
+and schema20261107_0123 are delivered; UI unchanged, runtime lease released. Four
+ordinary requests delivered supported native citations and conserved retained
+World/page/session data. Original turn67c7de35-cd97-4854-a703-f886f3ca8ef5 took
+73.0s/seven rounds versus the retained71.1s/five-round baseline, despite less
+acquired text. No material speedup or whole-goal acceptance is claimed. The
+serial successor retains soft keyword focus after broad recovery.
 Base: 02e5c158d735a81511f1ca68f4caaec8f1fbce8f (remote main, 2026-11-07).
 Branch: codex/native-keyword-prioritization, existing buddy-context-loop checkout.
 Topology: serial after merged/delivered PR2183. Open INGEST lanes do not own these

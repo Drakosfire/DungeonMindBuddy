@@ -82,6 +82,7 @@ def sdk_case(
     question=None,
     native=False,
     include_final_decision=True,
+    examined=None,
 ):
     context, ledger = (
         context_record
@@ -137,6 +138,7 @@ def sdk_case(
                 candidates=tuple(acquisitions[phase - 1][0](case))
                 if 0 < phase <= len(acquisitions)
                 else (),
+                examined_candidates=tuple(examined(case)) if examined is not None else (),
                 allowed_operations=("select_candidates", "finish_retrieval"),
             )
             prepare = prepare_decision

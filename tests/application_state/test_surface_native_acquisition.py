@@ -648,14 +648,17 @@ def test_native_graph_objects_survive_source_scope_and_share_exact_expansion_bat
     assert published_lane.repo.get_head(world)==original_head
 
 
-@pytest.mark.parametrize('keyword', ['origin', 'private', 'unicorn', None])
+@pytest.mark.parametrize('keyword,corrupt_focus', [('origin',None),('private',None),('unicorn',None),(None,None),
+    ('origin','label'),('origin','handle'),('origin','duplicate')])
 def test_keyword_first_view_reloads_and_broad_recovery_reads_excluded_source_section(
-    application_state_dsn, lane, monkeypatch, keyword
+    application_state_dsn, lane, monkeypatch, keyword, corrupt_focus
 ):
     from tests.test_surface_native_writer import body_case
     from tests.test_native_corpus_source_access import GM
     from apps.live_control_server.integrations.dungeonmind.native_corpus_source import prepare_native_source_context
-    from application_state.agent_conversation.native_source_keywords import KEYWORD_KIND
+    from application_state.agent_conversation.native_source_keywords import KEYWORD_KIND, RETAINED_KEYWORD_KIND
+    from generationengine import GenerationEngineError
+    import json
     from application_state.agent_conversation.native_corpus import NativeBodyReadObservedV1
     from application_state.agent_conversation.native_retrieval import NativeRetrievalSelectedV1
     context, record, _ = body_case('plan', lane)
@@ -666,6 +669,7 @@ def test_keyword_first_view_reloads_and_broad_recovery_reads_excluded_source_sec
     retained = {}
 
     def search_and_hint(case):
+        retained['case'] = case
         with host(case, source_context=source_context) as adapter:
             nav = PlanJevDriver(adapter).native_sources
             rows = nav.offered()
@@ -735,10 +739,59 @@ def test_keyword_first_view_reloads_and_broad_recovery_reads_excluded_source_sec
             assert not sections  # Already acquired when no positive keyword existed.
             return ()
 
-    case = sdk_case(application_state_dsn, context_record=(context,record), native=True,
-        question='Find origin and private unicorn',
-        acquisitions=((search_and_hint,apply),(narrowed,apply)) +
-            (((recovered,apply),) if keyword in {'origin','private'} else ()))
+    def examined(case):
+        with host(case, source_context=source_context) as adapter:
+            rows = list(PlanJevDriver(adapter).native_sources.examined())
+            focus = [row for row in rows if row.kind == RETAINED_KEYWORD_KIND]
+            if focus and corrupt_focus:
+                if corrupt_focus == 'duplicate':
+                    rows.append(focus[0])
+                else:
+                    changes = {'label':'private'} if corrupt_focus == 'label' else {'handle':'native-corpus-keyword:'+'0'*64}
+                    rows = [row.model_copy(update=changes) if row is focus[0] else row for row in rows]
+            return rows
+
+    def execute():
+        return sdk_case(application_state_dsn, context_record=(context,record), native=True,
+            question='Find origin and private unicorn', examined=examined,
+            acquisitions=((search_and_hint,apply),(narrowed,apply)) +
+                (((recovered,apply),) if keyword in {'origin','private'} else ()))
+    if corrupt_focus:
+        from application_state.agent_conversation import native_retrieval
+        verify=native_retrieval.verify_input
+        def capture_admission(*args,**kwargs):
+            try:return verify(*args,**kwargs)
+            except ValueError as error:
+                retained['admission_error']=str(error)
+                raise
+        monkeypatch.setattr(native_retrieval,'verify_input',capture_admission)
+        with pytest.raises((GenerationEngineError,ValueError)) as caught:
+            execute()
+        errors=[];error=caught.value
+        while error is not None:
+            errors.append(str(error));error=error.__cause__
+        # The generic fixture's known-not-sent callback can fail after rejected
+        # authorization. Assert the actual owning boundary, not that wrapper.
+        errors.append(retained.get('admission_error',''))
+        assert any('keyword focus' in error.lower() for error in errors), errors
+        case=retained['case']
+        stored=case.service.inspect_turn(world_id=case.turn.world_id,turn_id=case.turn.turn_id)
+        assert not any(isinstance(e,NativeBodyReadObservedV1) for e in stored.graph_context_execution.events)
+        assert lane.repo.get_head('world:test') == original_head
+        return
+    case = execute()
+    seen_focus=False
+    for step,sent in zip(case.steps,case.sent):
+        if step.semantic:continue
+        wire=json.loads(sent.content);focus=[c for c in step.parent.examined_candidates if c.kind==RETAINED_KEYWORD_KIND]
+        assert len(wire['questions']) == len(step.parent.candidates)+1
+        assert all(c['kind'] != RETAINED_KEYWORD_KIND for c in wire['state'].get('examined_subjects',[]))
+        if focus:
+            seen_focus=True
+            assert wire['state']['selected_content_keywords'] == [keyword]
+        else:
+            assert 'selected_content_keywords' not in wire['state']
+    assert seen_focus == (keyword in {'origin','private'})
     selections = [e for e in case.turn.graph_context_execution.events if type(e) is NativeRetrievalSelectedV1]
     assert all(e.operation != 'select_candidates' or any(not h.startswith('native-corpus-keyword:')
         for h in e.selected_handles) for e in selections)
@@ -746,7 +799,9 @@ def test_keyword_first_view_reloads_and_broad_recovery_reads_excluded_source_sec
     def answer(writer):
         return [dict(kind='native_body_claim', text='The check revealed an origin beyond this plane.',
             excerpt_handles=[row['excerpt_handle'] for row in writer.frame['native_body_evidence']['excerpts']])]
-    completed = finish(completed_input(application_state_dsn, acquired=case, answer_rows=answer))
+    writer=completed_input(application_state_dsn, acquired=case, answer_rows=answer)
+    assert 'selected_content_keywords' not in json.dumps(writer.frame)
+    completed = finish(writer)
     assert completed.completion.native_body_citations
     assert lane.repo.get_head('world:test') == original_head
 
@@ -813,3 +868,15 @@ def test_explicit_acquired_source_is_not_replaced_by_keyword_classification(lane
     assert before['native_body_evidence']['excerpts']
     assert nav._keyword_offers() == ()
     assert model_frame(context, record) == before
+
+
+def test_retained_keyword_focus_reader_fence_has_no_row_rewrite(application_state_dsn, monkeypatch):
+    from application_state import cli
+    from application_state.errors import ApplicationStateMigrationError
+    from importlib import import_module
+    cli.assert_at_head(dsn=application_state_dsn)
+    monkeypatch.setattr(cli,'_alembic_head',lambda:'20261107_0123')
+    with pytest.raises(ApplicationStateMigrationError):cli.assert_at_head(dsn=application_state_dsn)
+    fence=import_module('application_state.migrations.versions.20261107_0124_native_keyword_focus')
+    assert fence.upgrade() is None
+    with pytest.raises(RuntimeError,match='Older readers'):fence.downgrade()

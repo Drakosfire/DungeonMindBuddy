@@ -360,3 +360,37 @@ def test_keyword_handles_cannot_cross_query_scope_or_become_source_handles():
     assert not set(first) & set(keyword_catalog('Find Éphanna and ruined tendrels', 'b'*64))
     assert not set(first) & set(keyword_catalog('Find Éphanna', 'a'*64))
     assert all(handle.startswith('native-corpus-keyword:') for handle in first)
+
+
+def test_retained_focus_reuses_parent_metadata_without_new_votes_or_read_subjects():
+    from application_state.agent_conversation.native_source_keywords import RETAINED_KEYWORD_KIND
+    from application_state.agent_conversation.jev_retrieval_contract import NativeBuildRetrievalDecisionInputV2, validate_wire_body
+    fields = request().model_dump(exclude={'schema_','revision'}) | dict(
+        source_authority_status='available',source_revision='source:1',graph_revision='graph:1')
+    acquired = RetrievalCandidate(handle='read:1',label='Opened source',kind='Acquired exact source text')
+    focus = RetrievalCandidate(handle='native-corpus-keyword:'+'c'*64,label='swamp',kind=RETAINED_KEYWORD_KIND)
+    old = NativeBuildRetrievalDecisionInputV2(**(fields | {'examined_candidates':(acquired,)}))
+    current = old.model_copy(update={'examined_candidates':(acquired,focus)})
+    before,after=prepare_decision(old),prepare_decision(current)
+    assert before.questions == after.questions
+    assert 'selected_content_keywords' not in before.state
+    assert after.state['selected_content_keywords'] == ['swamp']
+    assert after.state['examined_subjects'] == before.state['examined_subjects']
+    assert set(current.model_dump()) == set(old.model_dump())
+    assert current.digest != old.digest
+    assert decode_selection(current,result()) == decode_selection(old,result())
+    wire=json.dumps(dict(model=MODEL,state=after.state,questions={q.name:dict(
+        type='choice',instructions=q.question,criteria=dict.fromkeys(q.options)) for q in after.questions})).encode()
+    validate_wire_body(current,wire)
+    with pytest.raises(ValueError,match='changed'):validate_wire_body(old,wire)
+
+
+def test_retained_focus_refuses_legacy_owner_and_duplicate_metadata():
+    from application_state.agent_conversation.native_source_keywords import RETAINED_KEYWORD_KIND
+    from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV1
+    focus=RetrievalCandidate(handle='native-corpus-keyword:'+'d'*64,label='swamp',kind=RETAINED_KEYWORD_KIND)
+    legacy=request().model_copy(update={'examined_candidates':(focus,)})
+    with pytest.raises(ValueError,match='native retrieval owner'):prepare_decision(legacy)
+    fields=request().model_dump(exclude={'schema_','revision'}) | dict(
+        source_authority_status='available',source_revision='source:1',graph_revision='graph:1',examined_candidates=(focus,focus))
+    with pytest.raises(ValueError,match='Duplicate retained'):prepare_decision(NativeRetrievalDecisionInputV1(**fields))
