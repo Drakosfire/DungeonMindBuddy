@@ -6117,6 +6117,41 @@ export function WorldPlanAgentConversation({
     buildCompose.busy,sharedConversation?.pendingTurn,pendingPlayTurn,pendingPlayLoadError,historyLoading,historyError,
     pendingPlayLoadedWorldId,verifiedWorldId,useWorldGraphForAsk]);
 
+  const activityBusy = sending || composing || buildCompose.busy || playCompose.busy;
+  const pendingActivityId = activityBusy ? sharedConversation?.pendingTurn?.turnId
+    ?? pendingPlayTurn?.request.turn_id
+    ?? (submittedMessage?.scopeKey === scopeKey ? submittedMessage.id : null) : null;
+  // Client request UUIDs are not APP turn UUIDs. History admits the durable
+  // identity through the persisted idempotency key, never through row recency.
+  // Activity observes admitted identity, not acceptance of the complete answer receipt.
+  // Receipt refresh may retire verified rows while the same durable request is running.
+  const activityHistory = messageHistory && messageHistory.world_id === verifiedWorldId
+    && sameHistoryPointer(messageHistory, history ?? messageHistory) ? messageHistory : history;
+  const pendingActivityMatches = pendingActivityId && activityHistory?.world_id === verifiedWorldId
+    ? activityHistory.turns.filter(turn => {
+      return submittedMessage?.scopeKey === scopeKey && submittedMessage.id === pendingActivityId
+        && (submittedMessage.conversationId === null
+          ? activityHistory.active_conversation_id === activityHistory.conversation_id
+          : submittedMessage.conversationId === activityHistory.conversation_id)
+        && (turn.turn_id === pendingActivityId || Boolean(submittedMessage.idempotencyKey)
+          && "idempotency_key" in turn && turn.idempotency_key === submittedMessage.idempotencyKey)
+        && turn.user_text === submittedMessage.message
+        && turn.provenance.world_id === verifiedWorldId
+        && turn.provenance.surface_id === (isBuild ? "build" : isReadOnly ? "play" : "plan")
+        && turn.provenance.primary_work.object_id === (isBuild ? buildMode?.savedSource?.documentId
+          : isReadOnly ? playMode?.admittedRun?.runId : documentId);
+    }) : [];
+  const activityTurn = activityBusy
+    ? pendingActivityMatches.length === 1 ? pendingActivityMatches[0] : undefined
+    : [...(displayHistory?.turns ?? [])].sort((a, b) => b.sequence - a.sequence)[0];
+  const activityTurnId = activityTurn?.turn_id;
+  const activityLifecycle = activityTurn?.lifecycle_status ?? 'running';
+  const activityIdentity = activityTurnId && verifiedWorldId && activityHistory?.conversation_id
+    ? JSON.stringify([verifiedWorldId,activityHistory.conversation_id,activityTurnId]) : null;
+  useEffect(()=>{
+    setExpandedComposerActivity(current=>current===activityIdentity ? current : null);
+  },[activityIdentity]);
+
   if (!visible) return null;
   if (!isReadOnly && !pageReady) return presentAvailability("Loading Plan conversation context…");
   if (!isReadOnly && !documentId) {
@@ -6578,40 +6613,6 @@ export function WorldPlanAgentConversation({
     }catch(reason){if(latestRef.current.mounted&&latestRef.current.verifiedWorldId===owner){setHistoryRefreshNonce(v=>v+1);setConversationNotice('Checking which conversation is current. Your unsent message was kept.');}throw reason;}
     finally{conversationSwitchRef.current=false;if(latestRef.current.mounted)setConversationSwitching(false);}
   }
-  const activityBusy = sending || composing || buildCompose.busy || playCompose.busy;
-  const pendingActivityId = activityBusy ? sharedConversation?.pendingTurn?.turnId
-    ?? pendingPlayTurn?.request.turn_id
-    ?? (submittedMessage?.scopeKey === scopeKey ? submittedMessage.id : null) : null;
-  // Client request UUIDs are not APP turn UUIDs. History admits the durable
-  // identity through the persisted idempotency key, never through row recency.
-  // Activity observes admitted identity, not acceptance of the complete answer receipt.
-  // Receipt refresh may retire verified rows while the same durable request is running.
-  const activityHistory = messageHistory && messageHistory.world_id === verifiedWorldId
-    && sameHistoryPointer(messageHistory, history ?? messageHistory) ? messageHistory : history;
-  const pendingActivityMatches = pendingActivityId && activityHistory?.world_id === verifiedWorldId
-    ? activityHistory.turns.filter(turn => {
-      return submittedMessage?.scopeKey === scopeKey && submittedMessage.id === pendingActivityId
-        && (submittedMessage.conversationId === null
-          ? activityHistory.active_conversation_id === activityHistory.conversation_id
-          : submittedMessage.conversationId === activityHistory.conversation_id)
-        && (turn.turn_id === pendingActivityId || Boolean(submittedMessage.idempotencyKey)
-          && "idempotency_key" in turn && turn.idempotency_key === submittedMessage.idempotencyKey)
-        && turn.user_text === submittedMessage.message
-        && turn.provenance.world_id === verifiedWorldId
-        && turn.provenance.surface_id === (isBuild ? "build" : isReadOnly ? "play" : "plan")
-        && turn.provenance.primary_work.object_id === (isBuild ? buildMode?.savedSource?.documentId
-          : isReadOnly ? playMode?.admittedRun?.runId : documentId);
-    }) : [];
-  const activityTurn = activityBusy
-    ? pendingActivityMatches.length === 1 ? pendingActivityMatches[0] : undefined
-    : [...(displayHistory?.turns ?? [])].sort((a, b) => b.sequence - a.sequence)[0];
-  const activityTurnId = activityTurn?.turn_id;
-  const activityLifecycle = activityTurn?.lifecycle_status ?? 'running';
-  const activityIdentity = activityTurnId && verifiedWorldId && activityHistory?.conversation_id
-    ? JSON.stringify([verifiedWorldId,activityHistory.conversation_id,activityTurnId]) : null;
-  useEffect(()=>{
-    setExpandedComposerActivity(current=>current===activityIdentity ? current : null);
-  },[activityIdentity]);
   const activityInComposer = activityBusy || activityLifecycle !== 'completed'
     || activityIdentity !== null && expandedComposerActivity === activityIdentity
     || Boolean(presentationHosts && !presentationHosts.header);
