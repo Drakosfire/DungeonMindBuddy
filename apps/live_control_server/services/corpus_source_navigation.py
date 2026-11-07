@@ -324,10 +324,14 @@ class NativeBodyNavigation:
 
     def _selected_keywords(self):
         from application_state.agent_conversation.native_retrieval import NativeRetrievalSelectedV1
-        catalog = self._keyword_catalog()
-        return {catalog[handle] for event in self.adapter.fence.turn.graph_context_execution.events
+        from application_state.agent_conversation.native_source_keywords import KEYWORD_PREFIX
+        handles = {handle for event in self.adapter.fence.turn.graph_context_execution.events
             if type(event) is NativeRetrievalSelectedV1 and event.operation == 'select_candidates'
-            for handle in event.selected_handles if handle in catalog}
+            for handle in event.selected_handles if handle.startswith(KEYWORD_PREFIX)}
+        if not handles:
+            return set()
+        catalog = self._keyword_catalog()
+        return {catalog[handle] for handle in handles if handle in catalog}
 
     def accept_keyword_selection(self, handle, *, parent):
         if handle not in self._keyword_catalog():
@@ -354,6 +358,11 @@ class NativeBodyNavigation:
         from .native_source_candidate_scope import preferred_source_pairs
         self._source_choices()
         pairs = preferred_source_pairs(turn.user_text, self._source_display)
+        keywords = self._selected_keywords() if search is not None else set()
+        # An unfiltered catalogue is presentation, not an acknowledged action.
+        # Require execution ownership only when a hint can actually affect it.
+        if pairs is None and not keywords:
+            return tuple(rows)
         if self._expanded():
             return tuple(rows)
         addresses = {handle: pair for handle, (pair, _, _) in self._direct_sources.items()}
@@ -369,7 +378,6 @@ class NativeBodyNavigation:
             addresses[row.handle] not in known or addresses[row.handle] in pairs]
         if search is not None:
             from application_state.agent_conversation.native_corpus import native_body_handle
-            keywords = self._selected_keywords()
             hits = {native_body_handle(hit.catalog_sha256, hit.section_id): set(hit.matched_terms)
                 for hit in search.matches}
             # A positive hit can prioritize known sections. Unknown metadata and

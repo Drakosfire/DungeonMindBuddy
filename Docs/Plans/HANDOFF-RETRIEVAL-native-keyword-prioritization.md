@@ -17,7 +17,10 @@ explicit acquired references and unknown metadata. Reuse the existing broad
 expansion to restore all source/section offers. No new planner, search execution,
 source authority, publication, model change, output cap or corpus mutation.
 
-Keyword-only votes cannot force another acquisition round. Empty, unmatched or
+Keyword-only votes cannot force another acquisition round. Unfiltered catalog
+presentation must not demand an acknowledged execution owner; only applying an
+actual hint computes its scope-bound handle. CI caught this regression in the
+existing direct-source presentation test, and the main-module control passed. Empty, unmatched or
 unavailable hints retain the existing view. Handles bind the literal query and
 actual World/revision/attempt scope. Recovery reconstructs hints from admitted
 selection events, not a second state store. Historical decisions without keyword
