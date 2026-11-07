@@ -20,8 +20,10 @@ export function isNativeSourceAuthority(a:unknown,worldId:string):a is PlanSourc
 export function isNativeProviderInput(input:unknown,assembler:'surface_native_initial_v1'|'plan_source_jev_initial_v1'):boolean {
   return exact(input,['assembler_version','provider_model_name','provider_model_version','tokenizer_name','tokenizer_version','provider_envelope_input_tokens','output_token_reserve','context_window_limit','included_history','assembled_input_sha256'])
     &&input.assembler_version===assembler&&[input.provider_model_name,input.provider_model_version,input.tokenizer_name,input.tokenizer_version].every(text)
-    &&integer(input.provider_envelope_input_tokens)&&integer(input.output_token_reserve)&&integer(input.context_window_limit,1)
-    &&input.provider_envelope_input_tokens+input.output_token_reserve<=input.context_window_limit&&hash(input.assembled_input_sha256)
+    &&integer(input.provider_envelope_input_tokens)&&integer(input.output_token_reserve)
+    &&(input.context_window_limit===null || integer(input.context_window_limit,1)
+      &&input.provider_envelope_input_tokens+input.output_token_reserve<=input.context_window_limit)
+    &&hash(input.assembled_input_sha256)
     &&Array.isArray(input.included_history)&&input.included_history.every(pin=>exact(pin,['turn_id','answer_sha256'])&&uuid(pin.turn_id)&&hash(pin.answer_sha256))
     &&new Set(input.included_history.map(pin=>pin.turn_id)).size===input.included_history.length;
 }

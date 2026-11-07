@@ -5070,9 +5070,14 @@ describe("World Plan conversation consumer", () => {
     expect(open).toHaveBeenCalledWith(worldId,turnId,0);
   });
 
-  it.each(['exact','fresh','producer','revision','extra','provenance','world','interrupted','mixed-approved','mixed-unclaimed','unavailable','question','mixed-approved-question','mixed-unclaimed-question'])("consumes shared native Plan context in ordinary conversation and history: %s",async change=>{
+  it.each(['exact','fresh','provider-capacity','fresh-provider-capacity','producer','revision','extra','provenance','world','interrupted','mixed-approved','mixed-unclaimed','unavailable','question','mixed-approved-question','mixed-unclaimed-question'])("consumes shared native Plan context in ordinary conversation and history: %s",async change=>{
     const old=await planGraphContext('graph_grounded'),turnId='11111111-1111-4111-8111-111111111111';
     const context=JSON.parse(JSON.stringify(sharedWire.context).replaceAll(sharedWire.context.receipt.work_context.plan_basis.world_id,worldId)) as import('../api/types').PlanSurfaceNativeContextResponseV1;
+    const fresh=change==='fresh'||change==='fresh-provider-capacity';
+    if(change.endsWith('provider-capacity')){
+      context.receipt.assembled_input.context_window_limit=null;
+      context.receipt.assembled_input.output_token_reserve=0;
+    }
     const work=context.receipt.work_context;
     work.plan_basis=old.receipt.plan_basis;
     const question=context.receipt.native_query.schema==='dmb_native_plan_query_v2'?context.receipt.native_query.question:'';
@@ -5100,7 +5105,7 @@ describe("World Plan conversation consumer", () => {
       turn.lifecycle_status='interrupted';turn.assistant_text=null;context.completion=null;
       context.execution={schema:'dmb_agent_plan_world_graph_execution_projection_v1',claimability:'blocked_unknown_or_sent',authorization_state:'outcome_unknown',automatic_redispatch:false};
     }
-    let page:WorldAgentConversationHistoryResponse={...history('conversation-a',1,[]),schema:'dmb_agent_conversation_history_v2',turns:change==='fresh'?[]:[turn]};
+    let page:WorldAgentConversationHistoryResponse={...history('conversation-a',1,[]),schema:'dmb_agent_conversation_history_v2',turns:fresh?[]:[turn]};
     if(change.startsWith('mixed-')){
       const approved=change.startsWith('mixed-approved'),f=rulesAnswerFixture(approved?context:null);
       f.context.accepted_binding.world_id=worldId;f.context.accepted_binding.turn_id=turnId;
@@ -5112,7 +5117,7 @@ describe("World Plan conversation consumer", () => {
     }
     const api=setupApi(page);
     const post=vi.spyOn(liveApi,'postWorldPlanAgentTurn');
-    if(change==='fresh')post.mockImplementation(async request=>{
+    if(fresh)post.mockImplementation(async request=>{
       work.plan_context_policy=request.plan_context_policy as import('../api/types').WorldPlanContextPolicyV2;
       work.plan_basis={...work.plan_basis,object_revision:request.primary_work.expected_revision,revision_n:request.primary_work.expected_revision_n,content_sha256:request.primary_work.expected_content_sha256};
       if(context.receipt.native_query.schema==='dmb_native_plan_query_v2')context.receipt.native_query.question=request.message;
@@ -5122,12 +5127,12 @@ describe("World Plan conversation consumer", () => {
     });
     const open=vi.spyOn(liveApi,'getAgentNativeAssertionSource').mockResolvedValue({...sharedWire.source,world_id:worldId,turn_id:turnId,citation});
     await mountComponent();
-    if(change==='fresh'){
+    if(fresh){
       await screen.findByRole('textbox',{name:'Message DungeonBuddy'});ensureWorldGraphAskEnabled();
       fireEvent.change(screen.getByRole('textbox',{name:'Message DungeonBuddy'}),{target:{value:question}});
       fireEvent.click(screen.getByRole('button',{name:'Send message'}));
     }
-    if(!['exact','fresh','interrupted','mixed-approved','mixed-unclaimed','unavailable'].includes(change)){
+    if(!['exact','fresh','provider-capacity','fresh-provider-capacity','interrupted','mixed-approved','mixed-unclaimed','unavailable'].includes(change)){
       await screen.findByText(/invalid Graph-context receipt/);expect(open).not.toHaveBeenCalled();return;
     }
     await screen.findByText(question);

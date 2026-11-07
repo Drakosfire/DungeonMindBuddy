@@ -1,6 +1,6 @@
 # WRITER: remove Buddy token ceilings
 
-Status: ACTIVE. The operator explicitly instructed “remove the token limits”.
+Status: DELIVERED. The operator explicitly instructed “remove the token limits”.
 PRIME owns this serial, independently deliverable slice at main
 7afaab5cb23f605a70d45529dc9143c2b293999d on
 codex/native-writer-provider-default-output in the existing context-loop checkout.
@@ -103,3 +103,18 @@ test_plan_action_consultation.py. Fresh source-statement V2 uses None/0 and omit
 the actual SDK output parameter; retained positive policies keep exact validation.
 Source proposal dispatch retains byte/hash/schema/authority checks. All shared
 budget callers are inspected for None assumptions; no substitute finite cap.
+
+## Settled predecessor
+
+PR2174 exact reviewed head a0c68f8a72bfdf6f2cc630128b9828a8111ea21c
+merged f1d3365acaa0981ca6d84789ae947cba68278810. All seven CI gates passed.
+Preserving runtime c4eae009a7933649c7d58fa9a7890931d7835556 is live on5202
+with APP0121. Private writer-no-token-caps-ordinary-proof.json verifies None/0
+configuration, exact retained historical budget and citation HTTP200; all APP/Core
+rows and session files were conserved except the schema version record. No fresh
+providers, ingestion or publication. Resource lease is RELEASED.
+
+The subsequent UI audit found two finite-only presentation readers that reject
+new null context windows. HANDOFF-REFERENCE-provider-capacity-ui.md owns that
+small follow-up; it does not reinstate token ceilings. Saved-message citation
+markers remain a separate confirmed regression, not completed by this slice.
