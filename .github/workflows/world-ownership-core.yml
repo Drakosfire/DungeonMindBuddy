@@ -66,6 +66,9 @@ jobs:
         if: matrix.suite == 'world-and-content'
         run: >-
           uv run --locked ruff check
+          tests/application_state/conftest.py
+          tests/test_application_state_database_fixture.py
+          src/application_state/migrations/env.py
           src/application_state/content/types.py
           src/application_state/content/repository.py
           src/application_state/content/service.py
@@ -116,6 +119,7 @@ jobs:
           uv run --locked pytest -q --tb=short --show-capture=no --durations=0 --durations-min=0
           tests/application_state/test_conversation_library.py::test_active_messages_never_select_or_decode_execution_and_keep_exact_cursor
           tests/application_state/test_conversation_library.py::test_active_message_pointer_and_rows_are_one_snapshot
+          tests/test_application_state_database_fixture.py
           tests/application_state/test_world_catalog_postgres.py
           tests/application_state/test_world_catalog_cutover_migration.py
           tests/application_state/test_authored_pages_postgres.py
