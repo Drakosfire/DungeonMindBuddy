@@ -17,6 +17,10 @@ def display(campaign='longmont-c1', session='session-8', **changes):
     ('What happened to Edge?', None),
     ('not campaign 1', None),
     ('without session 8', None),
+    ('no session 8', None),
+    ("don't include session 8", None),
+    ('don’t include session 8', None),
+    ('session8', {'a'}),
     ('exclude campaign 1', None),
     ('outside C2S20', None),
     ('session 20 except longmont-c2', None),
@@ -48,3 +52,8 @@ def test_names_only_add_and_identical_ordinals_do_not_guess_campaign_identity():
     assert preferred_source_pairs('Winter recap', rows) is None
     assert preferred_source_pairs('C2S20 and Winter recap', rows) == frozenset({'a','c'})
     assert preferred_source_pairs('campaign 1', rows) == frozenset({'a','b'})
+
+
+def test_session16_shorthand_is_a_positive_navigation_hint():
+    assert preferred_source_pairs('What happened in session16?', {
+        'a':display(session='session-16'), 'b':display(session='session-17')}) == frozenset({'a'})

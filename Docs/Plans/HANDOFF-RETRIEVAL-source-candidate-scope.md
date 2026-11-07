@@ -160,3 +160,9 @@ The22 pure hint contrasts and earlier SDK-fixture regression checks also pass.
 The provider-free audit revalidated all five exact SDK envelopes with unchanged
 ballot reduction; previously retained paid comparison envelopes are byte-identical
 and were reused, not rerun. Independent revised-head review and CI remain gates.
+
+Re-review ofe337849 resolved recovery and mixed-path findings and held two
+parser contrasts: session16 shorthand and no session8. Both now use the same
+positive-hint path/broad inverse fallback as their spaced/exclusion counterparts;
+ASCII/curly negative contractions are conservatively broad too. No changes to
+read/selection/grounding owners or previously captured paid comparison inputs.

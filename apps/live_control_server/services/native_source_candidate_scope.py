@@ -17,11 +17,11 @@ def preferred_source_pairs(question, displays):
     query = question.casefold()
     # These require semantic exclusion reasoning; this positive-hint view does
     # not guess its inverse. Keep the broad catalog for the controller instead.
-    if re.search(r"\b(?:not|except|exclude|excluding|outside|without)\b|\bother than\b", query):
+    if re.search(r"\b(?:no|not|never|cannot|except|exclude|excluding|outside|without)\b|\bother than\b|\b\w+n['’]t\b", query):
         return None
     hints = {(int(c), int(s)) for c, s in re.findall(r"\bc(\d+)\s*s(\d+)\b", query)}
     hints.update((int(c), None) for c in re.findall(r"\bcampaign\s+(\d+)\b", query))
-    sessions = {int(s) for s in re.findall(r"\bsession\s+(\d+)\b", query)}
+    sessions = {int(s) for s in re.findall(r"\bsession\s*(\d+)\b", query)}
     ids = {d['campaign_id'].casefold() for d in displays.values()
         if isinstance(d.get('campaign_id'), str) and d['campaign_id'] and
         re.search(r"(?<!\w)" + re.escape(d['campaign_id'].casefold()) + r"(?!\w)", query)}
