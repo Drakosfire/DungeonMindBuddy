@@ -2643,6 +2643,7 @@ export function WorldPlanAgentConversation({
   const surfaceRequests = useSurfaceConversationRequests();
   const surfacePreparationRef = useRef(false);
   const [surfacePreparing,setSurfacePreparing] = useState(false);
+  const [expandedComposerActivity,setExpandedComposerActivity] = useState<string | null>(null);
   const [libraryOpen,setLibraryOpen]=useState(false);
   const [conversationSwitching,setConversationSwitching]=useState(false);
   const conversationSwitchRef=useRef(false);
@@ -6116,6 +6117,41 @@ export function WorldPlanAgentConversation({
     buildCompose.busy,sharedConversation?.pendingTurn,pendingPlayTurn,pendingPlayLoadError,historyLoading,historyError,
     pendingPlayLoadedWorldId,verifiedWorldId,useWorldGraphForAsk]);
 
+  const activityBusy = sending || composing || buildCompose.busy || playCompose.busy;
+  const pendingActivityId = activityBusy ? sharedConversation?.pendingTurn?.turnId
+    ?? pendingPlayTurn?.request.turn_id
+    ?? (submittedMessage?.scopeKey === scopeKey ? submittedMessage.id : null) : null;
+  // Client request UUIDs are not APP turn UUIDs. History admits the durable
+  // identity through the persisted idempotency key, never through row recency.
+  // Activity observes admitted identity, not acceptance of the complete answer receipt.
+  // Receipt refresh may retire verified rows while the same durable request is running.
+  const activityHistory = messageHistory && messageHistory.world_id === verifiedWorldId
+    && sameHistoryPointer(messageHistory, history ?? messageHistory) ? messageHistory : history;
+  const pendingActivityMatches = pendingActivityId && activityHistory?.world_id === verifiedWorldId
+    ? activityHistory.turns.filter(turn => {
+      return submittedMessage?.scopeKey === scopeKey && submittedMessage.id === pendingActivityId
+        && (submittedMessage.conversationId === null
+          ? activityHistory.active_conversation_id === activityHistory.conversation_id
+          : submittedMessage.conversationId === activityHistory.conversation_id)
+        && (turn.turn_id === pendingActivityId || Boolean(submittedMessage.idempotencyKey)
+          && "idempotency_key" in turn && turn.idempotency_key === submittedMessage.idempotencyKey)
+        && turn.user_text === submittedMessage.message
+        && turn.provenance.world_id === verifiedWorldId
+        && turn.provenance.surface_id === (isBuild ? "build" : isReadOnly ? "play" : "plan")
+        && turn.provenance.primary_work.object_id === (isBuild ? buildMode?.savedSource?.documentId
+          : isReadOnly ? playMode?.admittedRun?.runId : documentId);
+    }) : [];
+  const activityTurn = activityBusy
+    ? pendingActivityMatches.length === 1 ? pendingActivityMatches[0] : undefined
+    : [...(displayHistory?.turns ?? [])].sort((a, b) => b.sequence - a.sequence)[0];
+  const activityTurnId = activityTurn?.turn_id;
+  const activityLifecycle = activityTurn?.lifecycle_status ?? 'running';
+  const activityIdentity = activityTurnId && verifiedWorldId && activityHistory?.conversation_id
+    ? JSON.stringify([verifiedWorldId,activityHistory.conversation_id,activityTurnId]) : null;
+  useEffect(()=>{
+    setExpandedComposerActivity(current=>current===activityIdentity ? current : null);
+  },[activityIdentity]);
+
   if (!visible) return null;
   if (!isReadOnly && !pageReady) return presentAvailability("Loading Plan conversation context…");
   if (!isReadOnly && !documentId) {
@@ -6577,42 +6613,18 @@ export function WorldPlanAgentConversation({
     }catch(reason){if(latestRef.current.mounted&&latestRef.current.verifiedWorldId===owner){setHistoryRefreshNonce(v=>v+1);setConversationNotice('Checking which conversation is current. Your unsent message was kept.');}throw reason;}
     finally{conversationSwitchRef.current=false;if(latestRef.current.mounted)setConversationSwitching(false);}
   }
-  const activityBusy = sending || composing || buildCompose.busy || playCompose.busy;
-  const pendingActivityId = activityBusy ? sharedConversation?.pendingTurn?.turnId
-    ?? pendingPlayTurn?.request.turn_id
-    ?? (submittedMessage?.scopeKey === scopeKey ? submittedMessage.id : null) : null;
-  // Client request UUIDs are not APP turn UUIDs. History admits the durable
-  // identity through the persisted idempotency key, never through row recency.
-  // Activity observes admitted identity, not acceptance of the complete answer receipt.
-  // Receipt refresh may retire verified rows while the same durable request is running.
-  const activityHistory = messageHistory && messageHistory.world_id === verifiedWorldId
-    && sameHistoryPointer(messageHistory, history ?? messageHistory) ? messageHistory : history;
-  const pendingActivityMatches = pendingActivityId && activityHistory?.world_id === verifiedWorldId
-    ? activityHistory.turns.filter(turn => {
-      return submittedMessage?.scopeKey === scopeKey && submittedMessage.id === pendingActivityId
-        && (submittedMessage.conversationId === null
-          ? activityHistory.active_conversation_id === activityHistory.conversation_id
-          : submittedMessage.conversationId === activityHistory.conversation_id)
-        && (turn.turn_id === pendingActivityId || Boolean(submittedMessage.idempotencyKey)
-          && "idempotency_key" in turn && turn.idempotency_key === submittedMessage.idempotencyKey)
-        && turn.user_text === submittedMessage.message
-        && turn.provenance.world_id === verifiedWorldId
-        && turn.provenance.surface_id === (isBuild ? "build" : isReadOnly ? "play" : "plan")
-        && turn.provenance.primary_work.object_id === (isBuild ? buildMode?.savedSource?.documentId
-          : isReadOnly ? playMode?.admittedRun?.runId : documentId);
-    }) : [];
-  const activityTurn = activityBusy
-    ? pendingActivityMatches.length === 1 ? pendingActivityMatches[0] : undefined
-    : [...(displayHistory?.turns ?? [])].sort((a, b) => b.sequence - a.sequence)[0];
-  const activityTurnId = activityTurn?.turn_id;
-  const activityLifecycle = activityTurn?.lifecycle_status ?? 'running';
   const activityInComposer = activityBusy || activityLifecycle !== 'completed'
+    || activityIdentity !== null && expandedComposerActivity === activityIdentity
     || Boolean(presentationHosts && !presentationHosts.header);
   const replyActivity = activityTurnId && verifiedWorldId && activityHistory?.conversation_id ? <BuddyTurnInspection
     key={`activity:${verifiedWorldId}:${activityHistory.conversation_id}:${activityTurnId}`}
     worldId={verifiedWorldId} conversationId={activityHistory.conversation_id} turnId={activityTurnId}
     lifecycle={activityLifecycle}>
-    <BuddyActivity worldId={verifiedWorldId} conversationId={activityHistory.conversation_id} turnId={activityTurnId} lifecycle={activityLifecycle} />
+    <BuddyActivity worldId={verifiedWorldId} conversationId={activityHistory.conversation_id} turnId={activityTurnId} lifecycle={activityLifecycle}
+      onDisclosureChange={open=>{
+        // Pin only an inspection opened in the composer; toolbar inspection stays there.
+        if(activityInComposer)setExpandedComposerActivity(open ? activityIdentity : null);
+      }} />
   </BuddyTurnInspection> : activityBusy ? <div className="world-plan-agent-conversation__working" role="status">Getting things ready…</div> : null;
   const newConversationButton = (
     <><button type="button" className="conversation-dock__icon-button" aria-label="Conversation history" title="Conversations" onClick={()=>setLibraryOpen(true)}><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-9l-5 3v-3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg></button><span ref={setReferenceTriggerHost}/><button
