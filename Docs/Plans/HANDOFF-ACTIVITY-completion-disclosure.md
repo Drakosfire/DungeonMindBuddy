@@ -1,6 +1,15 @@
 # ACTIVITY: preserve expanded inspection through completion
 
-Status: ACTIVE. PRIME owns the operator-authorized activity goal. Base is remote
+Status: DELIVERED through PR2181, merge9be15b1434f6d0adfbe1d3e3fbad903d4614c82c.
+All seven CI checks, independent source/integration/recipe reviews,386 tests and
+build passed. UI1713694a1b79e6b4d3e9a8e5c452c948b8054c75 serves5202;
+API3c69b41d remains unchanged. Ordinary turne169e319-513e-47e0-a587-586cffdcabc7
+kept the timeline open through success; closing returned it to the toolbar, and
+its native source citation opened. Only agent records changed for that dogfood;
+pages, Core and session state stayed unchanged. Lease released. This is bounded
+activity verification, not full goal or operator acceptance.
+
+Original bounded contract: PRIME owns the activity goal. Base is remote
 main5ae6df9f488b27c74e52c6671c100f3245e503a1; branch
 codex/activity-disclosure-completion in the existing context-loop checkout.
 Serial after delivered2179, before the blocked citation successor design. No new
