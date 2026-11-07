@@ -126,7 +126,7 @@ class ContextTraceCollector:
         self.observe({'kind': 'authored_graph_reference_v1',
                       'execution_event': event.model_dump(mode='json', by_alias=True)})
 
-    def capture_prompt(self, view: Mapping[str, Any], authorization: Any) -> None:
+    def capture_prompt(self, view: Mapping[str, Any], authorization: Any, *, observe_authorization: bool = True) -> None:
         """Commit an exact request reference or refuse dispatch; never best effort."""
         from .agent_prompt_evidence import store_prompt
         with self.fence.renewer._lock:
@@ -142,6 +142,14 @@ class ContextTraceCollector:
             self.trace = self._append_observation_locked(observation)
             if observation not in self.trace.observations:
                 raise ApplicationStateValidationError("prompt reference was not durably captured")
+        # The native execution owner has already admitted this exact request.
+        # Keep its grant visible while transport waits, rather than leaving the
+        # last activity at prompt preparation. Legacy owners already observe it.
+        from application_state.agent_conversation.native_execution import SurfaceNativeExecutionV1
+        if observe_authorization and type(getattr(self.fence.turn, "graph_context_execution", None)) is SurfaceNativeExecutionV1:
+            self.observe({"kind": "provider_call", "outcome": "authorized",
+                "provider_attempt_id": authorization.provider_attempt_id,
+                "provider": authorization.provider, "model": authorization.model})
 
     def refresh_after_source_capture(self) -> None:
         """Atomic source receipt writes assign observation sequences in APP."""
