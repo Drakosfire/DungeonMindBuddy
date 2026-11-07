@@ -716,6 +716,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     captures = [event for event in turn.graph_context_execution.events if isinstance(event, t.BuildAuthoredReferencesCapturedV1)]
     assert len(captures) == 1 and captures[0].references == selected
     if proposal:
+        from application_state.agent_conversation.retry import retained_discussion_capture, RetryUnavailableError
+        with pytest.raises(RetryUnavailableError,match='authoring target'):
+            retained_discussion_capture(turn)
         from application_state.build_proposal.service import BuildProposalService
         if proposal=='image':
             from uuid import uuid5

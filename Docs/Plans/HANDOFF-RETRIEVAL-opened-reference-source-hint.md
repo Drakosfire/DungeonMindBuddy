@@ -1,6 +1,12 @@
 # RETRIEVAL: start source navigation from opened human references
 
-Status: ACTIVE. PRIME owns this bounded retrieval slice under the active goal.
+Status: MERGED_AND_DELIVERED_ORDINARY_PENDING. PR2187 merged at
+36d482c228e919d0f1d563121412eff085edda82 after exact e3aa4dd source review,
+177 owning tests and all seven CI checks. Reviewed API integration
+378cbf6c1ebf39a63efa7240e67b8ea59e2e632f is live; retained databases, drafts,
+sessions, schema20261107_0124 and UI5202 were unchanged by delivery. The owned
+runtime lease is released. Ordinary performance, recovery/citation contrasts and
+operator acceptance remain open; no latency improvement is claimed yet.
 Base: remote main4bbf580bf65bfee295d4277287469ad91ac79d29.
 Branch: codex/native-reference-source-focus, existing buddy-context-loop checkout.
 Topology: serial after merged/delivered PR2186; PR2187 targets main. This child

@@ -1,12 +1,13 @@
 # REFERENCE: retry retained non-writing reviews
 
 Status: ACTIVE. PRIME owns this bounded failure/recovery slice under the active
-retrieval and connected-authoring goal. Base/parent: PR2187 exact
- e3aa4dd6351aac86bb27d520b2822395c0448e4a, branch
-codex/retained-connected-review-retry in the existing buddy-context-loop checkout.
-Topology: stacked; merge/deliver2187 first, re-anchor this child on its merge,
-then independent review, all CI, merge and owned API delivery. Parent remains
-frozen; this child takes exclusive ownership of the ordinary factory test path.
+retrieval and connected-authoring goal. Base: remote main36d482c228e919d0f1d563121412eff085edda82,
+branch codex/retained-connected-review-retry in the existing buddy-context-loop checkout.
+Topology: serial after merged/delivered PR2187. This child initially stacked on
+exact parent e3aa4dd6351aac86bb27d520b2822395c0448e4a, then re-anchored onto its
+merge36d482c22 after API378cbf6c was delivered with unchanged retained data/schema/UI.
+Parent ordinary performance acceptance remains open. This child owns the ordinary
+factory test path; no changes to frozen parent production paths.
 No new worktree, environment, provider, schema, ingestion or runtime lease.
 Other INGEST paths and held Play2172 remain outside this write set.
 
@@ -52,3 +53,12 @@ Primary APP54331, Core54330, UI5202, benchmark55447 and retained failures are no
 test fixtures. Independent Bugbot review of exact cumulative parent/head diff,
 all CI and protected delivery precede ordinary original-attempt dogfood. This
 slice does not claim full authoring, References or operator acceptance.
+
+The expanded retry run exposed15 inherited setup errors in an unchanged legacy
+fixture referring to removed build_document_proposal._result. Exact parent/current
+file equality and the missing symbol are retained in private evidence; they are
+not passing tests. Do not absorb a legacy harness migration into this slice.
+A new concurrent source-reference case exposed a shared mutable adapter in the
+synthetic transport, not production authority: isolate that fixture by request
+thread and inspect its successor through actual retry lineage. The stronger
+focused run passed15 cases; rerun current owning native coverage after settlement.
