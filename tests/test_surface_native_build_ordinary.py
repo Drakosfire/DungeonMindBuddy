@@ -990,7 +990,7 @@ def test_native_connected_page_review_uses_its_included_saved_origin(lane,tmp_pa
 
 @pytest.mark.parametrize('judgment',['direct_support','qualification_or_conflict','uncertain','irrelevant'])
 def test_ordinary_build_selects_native_body_and_reopens_only_included_support(lane,tmp_path,monkeypatch,judgment):
-    from application_state.agent_conversation import native_corpus as corpus
+    from application_state.agent_conversation import native_corpus as corpus, writer_evidence_selection as selection
     case=_fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,native_body=judgment)
     events=case.turn.graph_context_execution.events
     vote,=[e for e in events if type(e) is t.BuildWriterEvidenceSelectionV2]
@@ -999,10 +999,12 @@ def test_ordinary_build_selects_native_body_and_reopens_only_included_support(la
     assert {k:v for k,v in vote.judgments.items() if k.startswith('body:')}=={
         corpus.body_selection_unit_id(r):judgment for r in acquired}
     calls=[json.loads(r.content) for r in case.decisions.calls
-           if json.loads(r.content)['state'].get('phase')=='writer_selection']
+           if json.loads(r.content)['questions'] and all(k.startswith('s') and k[1:].isdigit() for k in json.loads(r.content)['questions'])]
     assert len(calls)==1
+    catalog = selection.acquired_catalog(case.turn.graph_context_execution,{'capture_status':'complete'})
     for read in acquired:
-        unit=calls[0]['state']['sources'][corpus.body_selection_unit_id(read)]
+        slot='s'+str(list(catalog).index(corpus.body_selection_unit_id(read)))
+        unit=calls[0]['state']['sources'][slot]
         assert unit['text']==read.excerpt.text
     citations=case.turn.completion.native_body_citations
     assert bool(citations)==(judgment!='irrelevant')
@@ -1092,7 +1094,7 @@ def test_native_writer_selector_uses_its_verified_long_context_at_app_boundary(l
     prefix=record.model_copy(update={'events':record.events[:event.sequence]})
     t.validate_provider_envelope_accounting(assembled,prefix,event)
     request,=[json.loads(req.content) for req in case.decisions.calls
-              if json.loads(req.content)['state'].get('phase')=='writer_selection']
+              if json.loads(req.content)['questions'] and all(k.startswith('s') and k[1:].isdigit() for k in json.loads(req.content)['questions'])]
     assert any(row['text']==text for row in request['state']['sources'].values())
     assert len(case.writer.calls)==1 and text not in case.writer.calls[0].content.decode()
     # A mode declaration alone cannot relax scope, phase or accounting. These
@@ -1250,3 +1252,65 @@ def test_fresh_build_rejects_changed_initial_parent_before_provider(lane,tmp_pat
         return driver._pending
     monkeypatch.setattr(BuildJevDriver,'stage',changed)
     _fresh_case(lane,tmp_path,monkeypatch,'initial_context',False,False,False)
+
+
+def test_native_selection_semantic_sdk_wire_and_exact_legacy_v2_reader(lane,tmp_path,monkeypatch):
+    from copy import deepcopy
+    from application_state.agent_conversation import writer_evidence_selection as selection
+    append = AgentConversationService.record_build_writer_evidence_selection
+    checked=[]
+    def inspect(self,world,conversation,turn_id,**kwargs):
+        before=self.inspect_turn(world_id=world,turn_id=turn_id)
+        execution=before.graph_context_execution
+        assert before.graph_context_receipt.assembled_input.assembler_version=='native_build_semantic_initial_v2'
+        vote,proof=kwargs['selection'],kwargs['producer_proof']
+        auth=next(e for e in execution.events if isinstance(e,t.ProviderAttemptAuthorizedEventV5)
+                  and e.provider_attempt_id==vote.controller_attempt_id)
+        trace,=self.list_context_trace_attempts(world_id=world,turn_id=turn_id)
+        trace=trace.model_dump(mode='json',by_alias=True)
+        request,catalog=selection.validate_prepared_selection(before,auth,proof['request_json'],trace)
+        assert set(request['state'])=={'user_question','sources','rules'}
+        assert list(request['state']['sources'])==list(request['questions'])
+        host=selection.selection_state(before,catalog,vote.terminal_disposition,selection.selection_history(before,auth))
+        for key in ('catalog_sha256','basis_sha256','native_query_sha256','source_basis','historical_initial','context_accounting','phase'):
+            assert key not in request['state']
+        for key in catalog:
+            assert key not in proof['request_json']
+        for unit in catalog.values():
+            for key in ('source_artifact_id','source_revision_id'):
+                assert unit['passage'][key] not in proof['request_json']
+            assert any(row['text']==unit['passage']['text'] for row in request['state']['sources'].values())
+        legacy=dict(model=auth.model,state=host,questions=selection.questions(catalog))
+        legacy_raw=selection.canonical(legacy)
+        old_auth=auth.model_copy(update={'envelope_sha256':sha256(legacy_raw.encode()).hexdigest()})
+        selection.validate_prepared_selection(before,old_auth,legacy_raw,trace)
+        # A retained V2 initial receipt with legacy final-selection bytes still
+        # reconstructs the exact old host commitment and response closure.
+        old_execution=execution.model_copy(update={'events':[old_auth if e is auth else e for e in execution.events]})
+        old_before=before.model_copy(update={'graph_context_execution':old_execution})
+        old_vote=vote.model_copy(update={'controller_envelope_sha256':old_auth.envelope_sha256,
+            'basis_sha256':host['basis_sha256']})
+        selection.validate_selection_proof(old_before,old_vote,trace,{**proof,'request_json':legacy_raw})
+        selection.validate_selection_proof(before,vote,trace,proof)
+        for mutation in ('hybrid','unknown','text','question','source_id'):
+            changed=deepcopy(request)
+            if mutation=='hybrid':changed['state']['phase']='writer_selection'
+            elif mutation=='unknown':changed['state']['unexpected']='ignored?'
+            elif mutation=='text':next(iter(changed['state']['sources'].values()))['text']='Different evidence'
+            elif mutation=='question':changed['questions']['s0']['instructions']='Classify another source'
+            else:next(iter(changed['state']['sources'].values()))['source_artifact_id']='not allowed'
+            raw=selection.canonical(changed)
+            changed_auth=auth.model_copy(update={'envelope_sha256':sha256(raw.encode()).hexdigest()})
+            with pytest.raises(ValueError):selection.validate_prepared_selection(before,changed_auth,raw,trace)
+        for field in ('catalog_sha256','basis_sha256'):
+            bad_vote=vote.model_copy(update={field:'0'*64})
+            with pytest.raises(ValueError,match='basis'):
+                selection.validate_selection_proof(before,bad_vote,trace,proof)
+        bad_terminal=vote.model_copy(update={'terminal_disposition':{'status':'ready','reason':'invented'}})
+        with pytest.raises(ValueError,match='terminal'):
+            selection.validate_selection_proof(before,bad_terminal,trace,proof)
+        checked.append(True)
+        return append(self,world,conversation,turn_id,**kwargs)
+    monkeypatch.setattr(AgentConversationService,'record_build_writer_evidence_selection',inspect)
+    case=_fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,native_body='direct_support')
+    assert checked==[True] and case.turn.completion.native_body_citations

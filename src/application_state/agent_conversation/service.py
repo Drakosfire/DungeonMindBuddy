@@ -1596,12 +1596,14 @@ class AgentConversationService:
                     fresh_select = (native_build_decision and event.context_phase=='select'
                         and is_semantic_build_input(turn.graph_context_receipt)
                         and not any(isinstance(e,ProviderAttemptAuthorizedEventV5) for e in execution.events))
-                    validate_prepared(event, execution, prepared_decision_json,
-                        host_phase='select' if fresh_select else None)
+                    host_phase = 'select' if fresh_select else None
                     if native_build_decision and event.context_phase=='writer_selection':
-                        from .writer_evidence_selection import validate_prepared_selection
+                        from .writer_evidence_selection import validate_prepared_selection, is_semantic_state
                         captured=conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',(turn.turn_id,turn.attempt)).fetchone()
-                        validate_prepared_selection(turn,event,prepared_decision_json,captured[0] if captured else {})
+                        request,_ = validate_prepared_selection(turn,event,prepared_decision_json,captured[0] if captured else {})
+                        if is_semantic_state(request['state']):
+                            host_phase = 'writer_selection'
+                    validate_prepared(event, execution, prepared_decision_json,host_phase=host_phase)
                 except (ValueError, KeyError, TypeError, AttributeError) as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
             elif prepared_decision_json is not None:
