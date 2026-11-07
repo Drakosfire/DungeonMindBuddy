@@ -106,7 +106,9 @@ it("opens the real blank App without HTTP, retains shared hosts, and replays Bui
   expect(push).not.toHaveBeenCalled();
   fireEvent.click(build);
   await screen.findByRole("heading", { name: "Build fixture" });
-
+  expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Open fixture projection" }));
+  expect(screen.getByTestId("active-projection")).toHaveTextContent("fixture-projection");
   await act(async () => { window.history.back(); });
   await screen.findByRole("heading", { name: "Buddy Surface" });
   expect(screen.queryByRole("heading", { name: "Build fixture" })).not.toBeInTheDocument();
