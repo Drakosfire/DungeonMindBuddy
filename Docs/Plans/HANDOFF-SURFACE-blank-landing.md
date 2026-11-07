@@ -4,7 +4,8 @@ Status: ACTIVE
 Authority: explicit operator Phase 1 implementation and bounded stewardship delegation;
 DESIGN-blank-surface-to-world-graph-canvas.md at f8981b4923d70a2fe3c8f6f7ba80b5ddff7d8899.
 Flow: SURFACE. Topology: serial, one Phase 1 implementation PR, no merge or deployment.
-Branch: codex/blank-surface-phase1. Base: f8981b4923d70a2fe3c8f6f7ba80b5ddff7d8899.
+Branch: codex/blank-surface-phase1. Dispatch/evidence base: f8981b4923d70a2fe3c8f6f7ba80b5ddff7d8899.
+Integration base: 2008cdcf57eb8c02d08456fe373a73ca11466094 (re-anchored after PROMPTS #2194 merge; no UI paths changed).
 Checkout: /home/drakosfire/Projects/.codex/blank-surface-phase1-20261107/worktrees/DungeonMindBuddy.
 
 ## 1. Invariant and critique
@@ -166,7 +167,8 @@ after.png under the task parent. No device-capacity or aggregate speedup claimed
 - Production TypeScript/build passes; git diff --check passes.
 - Independent precommit reviewer reran 3 new/owner files: 16/16 passed; identified
   two test weaknesses (preempted modified-click and empty prior inventory). Both
-  corrected and blank test rerun 3/3 passed. Formal exact-head review pending.
+  corrected and blank test rerun 3/3 passed. Formal exact-head review pending. Rebased onto current main after #2194;
+  its backend/workflow-only changes do not alter the exact UI baseline.
 
 ## 10. Phase 2 questions and retained resources
 Phase 1 does not establish browser-local World semantic execution. Phase 2 must
