@@ -215,7 +215,7 @@ class PlanJevDriver:
                     # Expansion is already recorded, so offered() now presents
                     # the broad view. The original parent/current selection above
                     # still owns this metadata-only action and all mixed reads.
-                    self.native_sources.expand_selected(handle)
+                    self.native_sources.expand_selected(handle, parent=dispatch.parent)
                 elif handle in native_handles:
                     try:
                         self.native_sources.select([handle])

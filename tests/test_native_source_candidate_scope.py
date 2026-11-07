@@ -16,6 +16,8 @@ def display(campaign='longmont-c1', session='session-8', **changes):
     ('campaign 3', None),
     ('What happened to Edge?', None),
     ('not campaign 1', None),
+    ('without session 8', None),
+    ('exclude campaign 1', None),
     ('outside C2S20', None),
     ('session 20 except longmont-c2', None),
     ('session 8 and session 9', {'a', 'd'}),

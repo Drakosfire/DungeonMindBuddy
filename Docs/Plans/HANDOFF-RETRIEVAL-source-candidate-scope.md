@@ -130,7 +130,7 @@ is presentation evidence, not a runtime latency/coverage result. Four paired
 Jev1.14 decision-only calls retain their exact payloads/results in
 native-source-scope-decision-{0,1}-{baseline,candidate}.json. The candidate
 selects expansion on the post-search ballot; later ballots may broaden again.
-No writer/model change, provider-free gold, World writes or ingestion occurred.
+No writer/model change, gold creation, World writes or ingestion occurred.
 
 Owning checks: native-source-scope-checks.log39 passed, four inherited cases
 deselected; three additional negative-hint cases20 pure tests total;
@@ -138,6 +138,25 @@ native-source-scope-sections.log7 SDK/APP/Core/fence cases passed;
 native-source-scope-decisions.log32 passed. Four existing acquisition failures
 reproduce with exact remote-main runtime and fixture code in
 native-source-scope-inherited-tests.log. Two expect the older assertion subtype;
-two select a stale full-source action after acquiring it. Preserve those results;
+two assume a source extent stays selectable after a full-source read. Preserve those results;
 no unrelated assertion/fixture repair belongs to this slice. Implementation
 review, CI, delivery and actual ordinary/contrast latency remain pending.
+
+Independent review of3a0c696 held metadata-loss recovery and mixed Graph/native
+proof. The owning fix compares expansion against the exact acknowledged parent
+request/hash/catalog, never against a refreshed display join. Tests now remove
+display metadata after selection and restore it in later rounds, reject wrong
+parent/attempt handles, and select expansion plus a real native Graph object in
+one Core-backed shared execution before opening an out-of-hint native source.
+Classic discover_more remains separately exercised by its existing driver suite.
+Negative scope phrases without/exclude retain the broad view. The superseded
+integration40c998 was never activated; its unused staging export was removed
+after consumer/reference/tracked-file checks. The running API remains3c69b41d.
+
+Review-fix owning evidence: native-source-scope-final.log8 shared native
+SDK/APP/Core/fence cases passed, including the real mixed Graph/source case.
+native-source-scope-classic.log32 unchanged classic-driver tests passed.
+The22 pure hint contrasts and earlier SDK-fixture regression checks also pass.
+The provider-free audit revalidated all five exact SDK envelopes with unchanged
+ballot reduction; previously retained paid comparison envelopes are byte-identical
+and were reused, not rerun. Independent revised-head review and CI remain gates.

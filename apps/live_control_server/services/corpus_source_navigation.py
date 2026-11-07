@@ -318,14 +318,14 @@ class NativeBodyNavigation:
             event.operation == 'select_candidates' and handle in event.selected_handles
             for event in self.adapter.fence.turn.graph_context_execution.events)
 
-    def _scoped_offers(self, rows, search, *, ignore_expansion=False):
+    def _scoped_offers(self, rows, search):
         turn = self.adapter.fence.turn
         if type(turn.graph_context_receipt) is not t.SurfaceNativeContextReceiptV1:
             return tuple(rows)
         from .native_source_candidate_scope import preferred_source_pairs
         self._source_choices()
         pairs = preferred_source_pairs(turn.user_text, self._source_display)
-        if pairs is None or not ignore_expansion and self._expanded():
+        if pairs is None or self._expanded():
             return tuple(rows)
         addresses = {handle: pair for handle, (pair, _, _) in self._direct_sources.items()}
         if search is not None:
@@ -344,15 +344,15 @@ class NativeBodyNavigation:
                 kind='Expand to all other admitted native sources and matching sections; no source text is read by this choice'))
         return tuple(narrowed)
 
-    def expand_selected(self, handle):
+    def expand_selected(self, handle, *, parent):
         from application_state.agent_conversation.plan_jev_decision import current_selection
         selection = current_selection(self.adapter.fence.turn)
         if (handle != self.expansion_handle() or selection.operation != 'select_candidates'
-                or handle not in selection.selected_handles):
-            raise ValueError('Native corpus expansion lacks its exact acknowledged selection')
-        original_view = self._scoped_offers(self.offered(), self._events()[1], ignore_expansion=True)
-        if handle not in {row.handle for row in original_view}:
-            raise ValueError('Native corpus expansion was not available in this source view')
+                or handle not in selection.selected_handles
+                or parent.request_id != selection.decision_request_id
+                or parent.digest != selection.parent_request_sha256
+                or handle not in {row.handle for row in parent.candidates}):
+            raise ValueError('Native corpus expansion lacks its exact acknowledged parent selection')
         # The admitted event already reconstructs the broad view. No grant,
         # source read, Graph operation, or extra state transition is needed.
 
