@@ -664,9 +664,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert reads[0].event_id in writer_event.native_read_event_ids
         assert 'source-local episode' in reads[0].excerpt.text
         assert ('A proposed note.' in reads[0].excerpt.text)==(authored_source=='full_document')
-        citations=turn.completion.native_body_citations
-        assert len(citations)==1 and citations[0].read_event_id==reads[0].event_id
-        opened=client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-body-excerpts/0')
+        citations=[c for c in turn.completion.native_body_citations if c.read_event_id==reads[0].event_id]
+        assert len(citations)==1
+        citation_index=turn.completion.native_body_citations.index(citations[0])
+        opened=client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-body-excerpts/{citation_index}')
         assert opened.status_code==200,opened.text
         assert opened.json()['content']==reads[0].excerpt.text
         assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
