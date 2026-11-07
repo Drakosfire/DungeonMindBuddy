@@ -380,9 +380,8 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
     }
     class BoundedFixtureClient(BoundedRecapPassClient):
         def __init__(self):
-            self.limits = SimpleNamespace(
-                provider="openrouter", model=DEEPSEEK_MODEL, max_calls=8,
-            )
+            from src.graph_memory.extraction.bounded_recap_execution import RecapExecutionLimits
+            super().__init__(RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL, max_calls=8))
             self.fixture = FixtureCategoryGraphPassClient(outputs)
             self.calls = []
 
@@ -1208,4 +1207,70 @@ def test_ordinary_runner_uses_server_model_configuration(tmp_path, monkeypatch, 
         assert result.category_client is clients[0]
         assert clients[0].limits.model == "fixture/alternate"
         assert clients[0].limits.openrouter_provider == "Fixture Endpoint"
+        assert result.ingestion_configuration.execution_limits == clients[0].limits
+        assert result.ingestion_configuration.record()["selection_source"] == "server_defaults"
         assert len(requests) == 1
+
+
+def test_resolved_configuration_executes_frozen_profile_and_is_retained(tmp_path, monkeypatch):
+    from src.graph_memory.extraction import graph_preview_runner as controller
+    from src.graph_memory.extraction.bounded_recap_execution import resolve_recap_ingestion_configuration
+    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    config = resolve_recap_ingestion_configuration(environ={})
+    source = _admit_recap(tmp_path)
+    class RecordingClient(FixtureClient):
+        supports_node_source_handles = True
+        def __init__(self):
+            super().__init__(span_ref=_first_paragraph_span_id(source))
+            self.limits = config.execution_limits
+            self.requests = []
+        def run_pass(self, pass_name, *, source_evidence_packet=None, **kwargs):
+            self.requests.append((pass_name, kwargs, source_evidence_packet))
+            return super().run_pass(pass_name, **kwargs)
+    client = RecordingClient()
+    original = controller.extract_category_candidate_graph
+    observed = []
+    def extract(options, **kwargs):
+        observed.append(options.profile)
+        return original(options, **kwargs)
+    monkeypatch.setattr(controller, 'extract_category_candidate_graph', extract)
+    def run(client, configuration):
+        return controller.run_production_extraction(ProductionExtractionRequest(
+            repo_root=tmp_path, source=source, profile_id=RECAP_PROFILE_ID,
+            profile_version=RECAP_PROFILE_VERSION, model_id=config.execution_limits.model,
+            allow_llm=True, category_client=client, initial_lineage=_recap_run_lineage(source),
+            ingestion_configuration=configuration))
+    result = run(client, config)
+    assert result.run.status == ExtractionRunStatus.REVIEWABLE, result.diagnostics
+    assert observed[0] is config.profile
+    stored = get_extraction_run(tmp_path, result.run.run_id)
+    assert stored.lineage['ingestion_configuration'] == config.record()
+    control = RecordingClient()
+    old = run(control, None)
+    assert old.run.status == ExtractionRunStatus.REVIEWABLE, old.diagnostics
+    assert observed[1] is RECAP_EXTRACTION_PROFILE
+    assert len(client.requests) == 7
+    assert client.requests == control.requests
+
+
+@pytest.mark.parametrize('damage', ['policy', 'model', 'limits', 'retained_record'])
+def test_configuration_drift_fails_before_controller_dispatch(tmp_path, monkeypatch, damage):
+    from src.graph_memory.extraction import graph_preview_runner as controller
+    from src.graph_memory.extraction.bounded_recap_execution import resolve_recap_ingestion_configuration
+    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    config = resolve_recap_ingestion_configuration(environ={})
+    source = _admit_recap(tmp_path)
+    client = FixtureClient(span_ref=_first_paragraph_span_id(source))
+    client.limits = config.execution_limits
+    model = config.execution_limits.model
+    lineage = _recap_run_lineage(source)
+    if damage == 'policy': monkeypatch.setitem(RECAP_EXTRACTION_PROFILE.vocabulary_policy, 'changed', ['policy'])
+    if damage == 'model': model = 'different/model'
+    if damage == 'limits': client.limits = replace(config.execution_limits, max_output_tokens=100)
+    if damage == 'retained_record': lineage['ingestion_configuration'] = {'sha256': 'incorrect'}
+    monkeypatch.setattr(controller, 'extract_category_candidate_graph', lambda *a, **kw: pytest.fail('unexpected dispatch'))
+    with pytest.raises(ValueError, match='differs|Configured|Conflicting'):
+        controller.run_production_extraction(ProductionExtractionRequest(
+            repo_root=tmp_path, source=source, profile_id=RECAP_PROFILE_ID,
+            profile_version=RECAP_PROFILE_VERSION, model_id=model, allow_llm=True,
+            category_client=client, initial_lineage=lineage, ingestion_configuration=config))

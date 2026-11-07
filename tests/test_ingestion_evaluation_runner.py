@@ -261,7 +261,7 @@ def test_retained_evidence_manifest_can_never_dispatch(setup):
 
 
 @pytest.mark.parametrize('failure', ['http500', 'exception', 'startup_redirect',
-                                    'startup_model_redirect', 'startup_endpoint_redirect', 'success'])
+                                    'startup_model_redirect', 'startup_endpoint_redirect', 'startup_profile_redirect', 'success'])
 def test_buddy_adapter_stops_on_transport_failure_even_if_run_is_reviewable(tmp_path, monkeypatch, failure):
     import os
     import sys
@@ -279,6 +279,9 @@ def test_buddy_adapter_stops_on_transport_failure_even_if_run_is_reviewable(tmp_
             os.environ['DMB_RECAP_MODEL_ID'] = 'fixture/changed-model'
         elif failure == 'startup_endpoint_redirect':
             os.environ['DMB_RECAP_OPENROUTER_PROVIDER'] = 'Changed Endpoint'
+        elif failure == 'startup_profile_redirect':
+            from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+            monkeypatch.setitem(RECAP_EXTRACTION_PROFILE.schema_ids, 'changed-policy', 'different')
         yield
     app = FastAPI(lifespan=lifespan)
     @app.post('/api/live/recap-ingest')
@@ -311,12 +314,15 @@ def test_buddy_adapter_stops_on_transport_failure_even_if_run_is_reviewable(tmp_
     adapter._assert_no_active_transactions = lambda: None
     adapter.check_conservation = lambda _: None
     adapter._runs = lambda _: [SimpleNamespace(run_id='actual-new-run', status='reviewable', components={}, model_dump=lambda **_: {'status': 'reviewable'})]
-    result = adapter.capture(item, {'prior_runs': {}, 'model_configuration': adapter._model_configuration()}, tmp_path / 'one')
+    configuration = adapter._ingestion_configuration()
+    adapter.manifest.update(profile_id='recap_category_v2@2.0', model_id='fixture/model',
+                            expected_limits=configuration['configuration']['execution_limits'])
+    result = adapter.capture(item, {'prior_runs': {}, 'ingestion_configuration': configuration}, tmp_path / 'one')
     if failure == 'success':
         assert result['state'] == 'reviewable'
     else:
         assert result['state'] != 'reviewable'
-    if failure in {'startup_redirect', 'startup_model_redirect', 'startup_endpoint_redirect'}:
+    if failure in {'startup_redirect', 'startup_model_redirect', 'startup_endpoint_redirect', 'startup_profile_redirect'}:
         assert calls == []
     else:
         import base64
@@ -416,3 +422,42 @@ def test_real_disposable_evaluator_lease_is_global_and_read_only(application_sta
                 pytest.fail('A second client obtained the same evaluator lease')
     with adapter.capture_lease():
         pass
+
+
+def test_evaluator_qualifies_complete_configuration_before_dispatch(monkeypatch):
+    from ingestion_evaluation.buddy import Buddy
+    monkeypatch.delenv('DMB_RECAP_MODEL_ID', raising=False)
+    monkeypatch.delenv('DMB_RECAP_OPENROUTER_PROVIDER', raising=False)
+    adapter = object.__new__(Buddy)
+    expected = adapter._ingestion_configuration()
+    limits = expected['configuration']['execution_limits']
+    adapter.manifest = {'profile_id': 'recap_category_v2@2.0', 'model_id': limits['model'],
+                        'expected_limits': dict(limits)}
+    assert adapter._qualified_configuration() == expected
+    adapter.manifest['expected_limits']['reasoning_effort'] = 'none'
+    with pytest.raises(ValueError, match='before dispatch'):
+        adapter._qualified_configuration()
+
+
+def test_configuration_audit_discriminates_historical_absence_and_actual_telemetry(monkeypatch):
+    from types import SimpleNamespace
+    from copy import deepcopy
+    from ingestion_evaluation.buddy import Buddy
+    monkeypatch.delenv('DMB_RECAP_MODEL_ID', raising=False)
+    monkeypatch.delenv('DMB_RECAP_OPENROUTER_PROVIDER', raising=False)
+    record = Buddy._ingestion_configuration()
+    qualified = {'ingestion_configuration': record}
+    run = SimpleNamespace(lineage={})
+    with pytest.raises(ValueError, match='New extraction is missing'):
+        Buddy._audit_ingestion_configuration({}, qualified, run, None)
+    assert Buddy._audit_ingestion_configuration({'retained_run_id': 'historical'}, qualified, run, None)['status'] == 'unknown_historical_not_retained'
+    run.lineage['ingestion_configuration'] = record
+    assert Buddy._audit_ingestion_configuration({}, qualified, run, None)['status'] == 'recorded_no_execution_telemetry'
+    telemetry = {'limits': deepcopy(record['configuration']['execution_limits'])}
+    assert Buddy._audit_ingestion_configuration({}, qualified, run, telemetry)['status'] == 'recorded_and_bound'
+    telemetry['limits']['max_output_tokens'] = 42
+    with pytest.raises(ValueError, match='actual execution telemetry'):
+        Buddy._audit_ingestion_configuration({}, qualified, run, telemetry)
+    run.lineage['ingestion_configuration'] = {**record, 'sha256': 'wrong'}
+    with pytest.raises(ValueError, match='differs from qualification'):
+        Buddy._audit_ingestion_configuration({}, qualified, run, None)

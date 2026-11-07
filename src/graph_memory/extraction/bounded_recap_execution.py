@@ -9,8 +9,9 @@ import math
 import os
 import re
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields, is_dataclass, replace
 from functools import partial
+from types import MappingProxyType, FunctionType
 from typing import Any, Mapping
 
 from jsonschema import ValidationError as JsonSchemaValidationError
@@ -49,20 +50,6 @@ def _openrouter_endpoint(value: Any) -> str:
         raise ValueError("recap OpenRouter provider must name one nonblank endpoint")
     return value.strip()
 
-
-def resolve_recap_model_configuration(
-    environ: Mapping[str, str] | None = None, *, profile_id: str | None = None,
-) -> tuple[str, str]:
-    """One server-owned selection; absence preserves the standard DeepSeek route."""
-    env = os.environ if environ is None else environ
-    present = (RECAP_MODEL_ENV in env, RECAP_ENDPOINT_ENV in env)
-    if not any(present):
-        return DEEPSEEK_MODEL, _DEFAULT_OPENROUTER_ENDPOINT
-    if profile_id not in (None, RECAP_EXTRACTION_PROFILE.qualified_id):
-        raise ValueError("explicit model configuration requires the standard recap v2 profile")
-    if not all(present):
-        raise ValueError("recap model and OpenRouter provider must be configured together")
-    return _model_id(env[RECAP_MODEL_ENV]), _openrouter_endpoint(env[RECAP_ENDPOINT_ENV])
 
 _SAFE_OBSERVATION_FIELDS = (
     "provider",
@@ -331,6 +318,110 @@ class RecapExecutionLimits:
         ):
             raise ValueError("edge_max_output_tokens must be None or an int in 1..32768")
 
+
+
+def _freeze_configuration_value(value):
+    if is_dataclass(value) and not isinstance(value, type):
+        return replace(value, **{f.name: _freeze_configuration_value(getattr(value, f.name))
+                                for f in fields(value) if f.init})
+    if isinstance(value, Mapping):
+        if any(not isinstance(k, str) for k in value):
+            raise ValueError("Configuration policy keys must be strings")
+        return MappingProxyType({k: _freeze_configuration_value(v) for k, v in value.items()})
+    if isinstance(value, (tuple, list)):
+        return tuple(_freeze_configuration_value(v) for v in value)
+    if isinstance(value, (set, frozenset)):
+        return frozenset(_freeze_configuration_value(v) for v in value)
+    if value is None or type(value) in (str, bool, int, float) or isinstance(value, FunctionType):
+        return value
+    raise ValueError("Unsupported configuration policy value")
+
+
+def _configuration_data(value):
+    if is_dataclass(value) and not isinstance(value, type):
+        return {f.name: _configuration_data(getattr(value, f.name)) for f in fields(value)}
+    if isinstance(value, Mapping):
+        return {k: _configuration_data(v) for k, v in value.items()}
+    if isinstance(value, (set, frozenset)):
+        return sorted((_configuration_data(v) for v in value), key=_canonical_json_bytes)
+    if isinstance(value, (tuple, list)):
+        return [_configuration_data(v) for v in value]
+    if isinstance(value, FunctionType):
+        return {"callable_ref": value.__module__ + "." + value.__qualname__}
+    return value
+
+
+@dataclass(frozen=True)
+class RecapIngestionConfiguration:
+    """Immutable effective policy; executable implementation needs its own code pin."""
+    profile: Any
+    execution_limits: RecapExecutionLimits
+    selection_source: str = "explicit_configuration"
+
+    def __post_init__(self):
+        from src.graph_memory.extraction.extraction_profile import ExtractionProfile
+        if not isinstance(self.profile, ExtractionProfile) or not isinstance(self.execution_limits, RecapExecutionLimits):
+            raise ValueError("Configuration requires an extraction profile and execution limits")
+        if self.execution_limits.provider == "openrouter" and self.execution_limits.openrouter_provider is None:
+            raise ValueError("OpenRouter ingestion configuration requires an explicit endpoint")
+        if self.selection_source not in {"server_defaults", "explicit_configuration"}:
+            raise ValueError("Unknown configuration selection source")
+        object.__setattr__(self, "profile", _freeze_configuration_value(self.profile))
+        _canonical_json_bytes(self.snapshot())  # reject nonfinite/non-JSON policy values now
+
+    def snapshot(self):
+        return {"schema": "dmb_recap_ingestion_configuration_v1",
+                "profile": _configuration_data(self.profile),
+                "execution_limits": asdict(self.execution_limits),
+                "code_identity": "separately_pinned_runtime"}
+
+    @property
+    def sha256(self):
+        return hashlib.sha256(_canonical_json_bytes(self.snapshot())).hexdigest()
+
+    def record(self):
+        return {"configuration": self.snapshot(), "sha256": self.sha256,
+                "selection_source": self.selection_source}
+
+    def assert_profile(self, profile):
+        if _canonical_json_bytes(_configuration_data(profile)) != _canonical_json_bytes(self.snapshot()["profile"]):
+            raise ValueError("Registered extraction profile differs from resolved configuration")
+
+    @classmethod
+    def from_snapshot(cls, profile, snapshot):
+        if not isinstance(snapshot, dict) or set(snapshot) != {"schema", "profile", "execution_limits", "code_identity"}:
+            raise ValueError("Invalid ingestion configuration snapshot")
+        try:
+            result = cls(profile, RecapExecutionLimits(**snapshot["execution_limits"]))
+        except (TypeError, KeyError) as exc:
+            raise ValueError("Invalid ingestion configuration execution limits") from exc
+        if result.snapshot() != snapshot:
+            raise ValueError("Configuration snapshot differs from registered profile/schema")
+        return result
+
+
+def resolve_recap_ingestion_configuration(profile=None, environ=None):
+    """One owner for ordinary defaults; explicit values use the same immutable type."""
+    if profile is None:
+        from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+        profile = get_extraction_profile(RECAP_EXTRACTION_PROFILE.profile_id, RECAP_EXTRACTION_PROFILE.profile_version)
+    env = os.environ if environ is None else environ
+    present = (RECAP_MODEL_ENV in env, RECAP_ENDPOINT_ENV in env)
+    model, endpoint = DEEPSEEK_MODEL, _DEFAULT_OPENROUTER_ENDPOINT
+    if any(present):
+        if profile.qualified_id != RECAP_EXTRACTION_PROFILE.qualified_id:
+            raise ValueError("explicit model configuration requires the standard recap v2 profile")
+        if not all(present):
+            raise ValueError("recap model and OpenRouter provider must be configured together")
+        model, endpoint = _model_id(env[RECAP_MODEL_ENV]), _openrouter_endpoint(env[RECAP_ENDPOINT_ENV])
+    pass_budget = (len(profile.node_passes) + int(profile.beat_pass is not None)
+                   + int(profile.enable_encounter_job_pass and profile.encounter_job_pass is not None)
+                   + 1 + int(profile.edge_review_pass is not None))
+    return RecapIngestionConfiguration(profile, RecapExecutionLimits(
+        provider="openrouter", model=model, openrouter_provider=endpoint, max_calls=pass_budget,
+        max_output_tokens=32768 if profile.qualified_id == "recap_category_v2@2.0" else 16384,
+        edge_max_output_tokens=32768, per_call_deadline_ms=240_000,
+        run_deadline_ms=900_000, reasoning_effort="low"), selection_source="server_defaults")
 
 def _default_engine_for(provider: str):
     from generationengine import GenerationClient

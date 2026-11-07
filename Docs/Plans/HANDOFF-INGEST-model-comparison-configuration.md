@@ -1,6 +1,7 @@
-# INGEST: explicit ordinary model comparison configuration
+# INGEST: immutable ordinary ingestion configuration
 
-Status: ACTIVE — root adopts the bounded eight-file implementation lease after
+Status: ACTIVE — root adopts the bounded nine-file configuration consolidation lease.
+The original routing-only design followed
 independent design PASS `3b88c26cbcd972ed2a20fd2201f517805c81c3d24398f33dbd2e8005cce084a5`.
 Authority snapshot and review are retained under `ingestion-resume/study-model-comparison-readiness-v1`.
 
@@ -8,8 +9,9 @@ Authority snapshot and review are retained under `ingestion-resume/study-model-c
 
 Root is the study steward under the user's active ingestion-study objective
 (`/home/drakosfire/.codex/attachments/4ab5d6dc-f721-455f-afa2-096feac2ce6a/goal-objective.md`).
-Enable controlled model comparisons through the existing ordinary recap producer
-and shared evaluator. Keep the standard DeepSeek default and its effective
+Make ordinary ingestion configuration a first-class immutable value shared by
+the recap producer and evaluator. Model/provider selection supports future tuning;
+no new model comparison is part of this amendment. Keep the standard DeepSeek default and its effective
 requests unchanged. This slice does not adopt H4, select a winning model, run
 inference, migrate data, publish facts, or change the UI.
 
@@ -69,6 +71,7 @@ schema-validation/JSON-object request path. Do not invent a second schema mode.
 
 - `Docs/Plans/HANDOFF-INGEST-model-comparison-configuration.md`
 - `src/graph_memory/extraction/bounded_recap_execution.py`
+- `src/graph_memory/extraction/graph_preview_runner.py`
 - `apps/live_control_server/services/graph_preview_runner.py`
 - `src/ingestion_evaluation/buddy.py`
 - `tests/test_bounded_recap_execution.py`
@@ -105,8 +108,8 @@ subagent review, then commit/push/open one bounded PR. No merge or inference.
 
 Discovery found an existing evaluator startup/dispatch fixture in
 `tests/test_ingestion_evaluation_runner.py`. Root replaces the planned new test
-module with that existing file before editing it. The eight-file lease and
-single capability remain bounded; no second harness or extra PR is introduced.
+module with that existing file before editing it. The original eight-file lease and
+single capability remained bounded at that earlier checkpoint; no second harness or extra PR is introduced.
 
 ## Implementation verification
 
@@ -117,3 +120,49 @@ the failure is retained at `/tmp/model-config-gazetteer-failure.txt`. Three new
 ordinary producer cases passed. Real GenerationEngine with an inert SDK verifies
 that only model/endpoint differ, and evaluator startup drift tests stop dispatch.
 No live inference, publication or primary-state changes were performed.
+
+## User-directed configuration consolidation checkpoint
+
+Root adopts the user's versioned configuration direction in this existing lane.
+Topology remains stacked on #2176, independent of sibling #2189/#2190/#2193;
+no extra PR, merge, provider execution, publication or migration is authorized.
+
+The amended lease includes `src/graph_memory/extraction/graph_preview_runner.py` (nine
+files total). This owning controller must execute the frozen profile described
+by the configuration, so snapshot retention and actual execution cannot drift.
+
+Replace the tuple resolver and ordinary inline defaults with one immutable
+`RecapIngestionConfiguration` composing the existing execution limits and a
+recursively frozen registered profile. Resolve default or explicitly supplied
+bounded limits once with a declared source. Record canonical snapshot/hash before
+provider dispatch, refusing conflicting prior lineage. Hashes identify effective
+configuration, not source/request content or executable code; callable names are
+only descriptors and rely on separately pinned runtime code.
+
+The controller retains registered-profile admission, checks descriptor equality,
+and passes the frozen profile through its existing extraction options. Unsupported
+mutable policy values fail rather than leak into the configuration. The evaluator
+uses the same resolver, verifies expected allocations before dispatch, rechecks
+full configuration after startup and binds new run lineage/telemetry to it.
+Historical absence stays explicitly unknown; no default snapshot is backfilled.
+Assessment policies/Gold remain separate and never enter model requests.
+
+Verify nested immutability and real controller/extractor serialization, unchanged
+standard DeepSeek messages/schema/route/settings, explicit-limit provenance,
+configuration-sensitive hashes, failure-before-dispatch drift and persisted run
+identity. Existing edge allocation override is retained; new per-pass models,
+new pass architecture, UI and worldbuilding expansion are outside this slice.
+Independent contract critique: `/tmp/ingest-firstclass-config-design-review-v1.json`.
+
+
+The recap service now accepts the complete `ingestion_configuration` value;
+its partial `execution_limits` entry point and the tuple model resolver are
+removed, not retained as alternate configuration paths. The separate existing
+worldbuilding execution API is unchanged. Tests correct one existing partial
+BoundedFixtureClient initializer to use its actual superclass contract; another
+baseline failure required the normal PYTHONPATH for its subprocess. Baseline
+failures are retained in `/tmp/firstclass-config-inherited-failures-v1.log`.
+
+The owning suites passed 197 tests before the final explicit-endpoint guard;
+that guard's configuration unit suite passed 16 tests. Final exact-head results
+and independent review travel in PR evidence; no live providers were dispatched.

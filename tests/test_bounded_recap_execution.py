@@ -17,6 +17,7 @@ from src.graph_memory.extraction.bounded_recap_execution import (
     BoundedRecapPassClient,
     DEEPSEEK_MODEL,
     RecapExecutionLimits,
+    RecapIngestionConfiguration,
 )
 
 
@@ -286,7 +287,7 @@ def test_deepseek_route_caps_and_unknown_receipt():
     assert len(engine.requests) == 1
 
 
-def _accepted_openrouter_sdk_request(model=DEEPSEEK_MODEL, endpoint=None):
+def _accepted_openrouter_sdk_request(model=DEEPSEEK_MODEL, endpoint=None, *, limits=None):
     from generationengine import GenerationClient
     from generationengine.providers.base import TextGenerationCall
     from generationengine.providers.openrouter_text import OpenRouterTextProvider
@@ -331,7 +332,7 @@ def _accepted_openrouter_sdk_request(model=DEEPSEEK_MODEL, endpoint=None):
     provider = RecordingOpenRouterTextProvider(client=Client())
     engine = GenerationClient(text_providers={"openrouter": provider})
     client = BoundedRecapPassClient(
-        RecapExecutionLimits(provider="openrouter", model=model, openrouter_provider=endpoint),
+        limits or RecapExecutionLimits(provider="openrouter", model=model, openrouter_provider=endpoint),
         engine_factory=lambda: engine,
     )
 
@@ -403,18 +404,20 @@ def test_configured_model_changes_only_sdk_model_and_endpoint():
     {"DMB_RECAP_MODEL_ID": "fixture/model", "DMB_RECAP_OPENROUTER_PROVIDER": "One\nTwo"},
 ])
 def test_invalid_server_model_configuration_never_falls_back(settings):
-    from src.graph_memory.extraction.bounded_recap_execution import resolve_recap_model_configuration
+    from src.graph_memory.extraction.bounded_recap_execution import resolve_recap_ingestion_configuration
     with pytest.raises(ValueError):
-        resolve_recap_model_configuration(settings)
+        resolve_recap_ingestion_configuration(environ=settings)
 
 
 def test_server_model_configuration_has_one_explicit_default():
-    from src.graph_memory.extraction.bounded_recap_execution import resolve_recap_model_configuration
-    assert resolve_recap_model_configuration({}) == (DEEPSEEK_MODEL, "DeepSeek")
-    assert resolve_recap_model_configuration({
+    from src.graph_memory.extraction.bounded_recap_execution import resolve_recap_ingestion_configuration
+    default = resolve_recap_ingestion_configuration(environ={})
+    assert (default.execution_limits.model, default.execution_limits.openrouter_provider) == (DEEPSEEK_MODEL, "DeepSeek")
+    selected = resolve_recap_ingestion_configuration(environ={
         "DMB_RECAP_MODEL_ID": "fixture/model",
         "DMB_RECAP_OPENROUTER_PROVIDER": "Fixture Endpoint",
-    }) == ("fixture/model", "Fixture Endpoint")
+    })
+    assert (selected.execution_limits.model, selected.execution_limits.openrouter_provider) == ("fixture/model", "Fixture Endpoint")
 
 
 def test_endpoint_cannot_be_used_with_another_transport():
@@ -423,13 +426,16 @@ def test_endpoint_cannot_be_used_with_another_transport():
 
 
 def test_model_comparison_configuration_does_not_expand_worldbuilding():
-    from src.graph_memory.extraction.bounded_recap_execution import resolve_recap_model_configuration
-    assert resolve_recap_model_configuration({}, profile_id="worldbuilding@1.0") == (DEEPSEEK_MODEL, "DeepSeek")
+    from dataclasses import replace
+    from src.graph_memory.extraction.bounded_recap_execution import resolve_recap_ingestion_configuration
+    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    profile = replace(RECAP_EXTRACTION_PROFILE, profile_id="worldbuilding", profile_version="1.0")
+    assert resolve_recap_ingestion_configuration(profile, {}).execution_limits.model == DEEPSEEK_MODEL
     with pytest.raises(ValueError, match="standard recap v2"):
-        resolve_recap_model_configuration({
+        resolve_recap_ingestion_configuration(profile, {
             "DMB_RECAP_MODEL_ID": "fixture/model",
             "DMB_RECAP_OPENROUTER_PROVIDER": "Fixture Endpoint",
-        }, profile_id="worldbuilding@1.0")
+        })
 
 
 @pytest.mark.usefixtures("application_state_dsn")
@@ -981,6 +987,7 @@ def test_ge_incomplete_through_one_recap_never_appends_candidate(
     from apps.live_control_server.services import graph_run_registry as registry
     from graph_memory.ingestion.extraction_run import ExtractionRunStatus
 
+    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
     seed_binding(tmp_path, "managed-fixture-world", "world:synthetic")
     code = FailureCode.PROVIDER_INCOMPLETE
     obs = observation().model_copy(
@@ -994,7 +1001,7 @@ def test_ge_incomplete_through_one_recap_never_appends_candidate(
     client = BoundedRecapPassClient(
         RecapExecutionLimits(), engine_factory=lambda: engine
     )
-    monkeypatch.setattr(wrapper, "BoundedRecapPassClient", lambda limits: client)
+    monkeypatch.setattr(wrapper, "BoundedRecapPassClient", lambda limits, **kwargs: client)
     source_path = tmp_path / "source.md"
     source_path.write_text("A keeper guards a gate.\n")
     output = tmp_path / "new-output"
@@ -1006,12 +1013,13 @@ def test_ge_incomplete_through_one_recap_never_appends_candidate(
         profile="category_baseline",
         model_id="gpt-6-luna",
         allow_llm=True,
-        execution_limits=RecapExecutionLimits(),
+        ingestion_configuration=RecapIngestionConfiguration(RECAP_EXTRACTION_PROFILE, RecapExecutionLimits()),
         ingest_context=_fixture_ingest_context("synthetic"),
     )
     assert result.failure_kind == "incomplete", result.diagnostics
     stored = registry.get_extraction_run(tmp_path, result.run.run_id)
     assert result.candidate_graph is None and stored.status == ExtractionRunStatus.FAILED
+    assert stored.lineage["ingestion_configuration"]["configuration"]["execution_limits"]["model"] == "gpt-6-luna"
     assert "candidate_graph" not in stored.components
     assert not list(output.rglob("candidate_graph.json"))
     assert len(engine.requests) == 1
@@ -1516,3 +1524,71 @@ def test_source_handle_wire_rejects_non_node_pass_before_provider_dispatch(pass_
         client.run_pass(pass_name, model_id=DEEPSEEK_MODEL, instructions='Extract',
                         user_content='source', source_evidence_packet=packet)
     assert engine.requests == []
+
+
+def test_default_configuration_preserves_actual_sdk_request():
+    from src.graph_memory.extraction.bounded_recap_execution import resolve_recap_ingestion_configuration
+    config = resolve_recap_ingestion_configuration(environ={})
+    previous = RecapExecutionLimits(provider='openrouter', model=DEEPSEEK_MODEL,
+        max_calls=7, per_call_deadline_ms=240000, run_deadline_ms=900000,
+        max_output_tokens=32768, edge_max_output_tokens=32768, reasoning_effort='low')
+    assert config.execution_limits == previous
+    _, old_call, old_kwargs, _ = _accepted_openrouter_sdk_request(limits=previous)
+    _, new_call, new_kwargs, _ = _accepted_openrouter_sdk_request(limits=config.execution_limits)
+    assert old_kwargs == new_kwargs
+    assert old_call == new_call
+
+
+def test_configuration_snapshot_roundtrip_and_nested_immutability():
+    from dataclasses import replace
+    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    from src.graph_memory.extraction.bounded_recap_execution import resolve_recap_ingestion_configuration
+    nested = {'nested': {'values': ['a', 'b']}}
+    profile = replace(RECAP_EXTRACTION_PROFILE, vocabulary_policy=nested)
+    config = resolve_recap_ingestion_configuration(profile, {})
+    original = config.snapshot()
+    restored = RecapIngestionConfiguration.from_snapshot(profile, original)
+    assert restored.sha256 == config.sha256
+    assert restored.record()['selection_source'] == 'explicit_configuration'
+    assert json.loads(json.dumps(original)) == original
+    with pytest.raises(TypeError):
+        config.profile.vocabulary_policy['nested']['values'][0] = 'changed'
+    nested['nested']['values'].append('later')
+    assert config.snapshot() == original
+    with pytest.raises(ValueError, match='differs'):
+        config.assert_profile(profile)
+    original['execution_limits']['model'] = 'outside/mutation'
+    assert config.execution_limits.model == DEEPSEEK_MODEL
+
+
+@pytest.mark.parametrize('change', ['model', 'reasoning', 'edge', 'instruction', 'policy'])
+def test_effective_configuration_hash_tracks_tunable_values(change):
+    from dataclasses import replace
+    from src.graph_memory.extraction.bounded_recap_execution import resolve_recap_ingestion_configuration
+    config = resolve_recap_ingestion_configuration(environ={})
+    limits, profile = config.execution_limits, config.profile
+    if change == 'model': limits = replace(limits, model='fixture/model')
+    if change == 'reasoning': limits = replace(limits, reasoning_effort=None)
+    if change == 'edge': limits = replace(limits, edge_max_output_tokens=1234)
+    if change == 'instruction': profile = replace(profile, evidence_rule=profile.evidence_rule + ' Changed.')
+    if change == 'policy': profile = replace(profile, enable_session_relationship_sweep=not profile.enable_session_relationship_sweep)
+    assert RecapIngestionConfiguration(profile, limits).sha256 != config.sha256
+
+
+def test_config_rejects_unsupported_policy_and_snapshot_drift():
+    from dataclasses import replace
+    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    from src.graph_memory.extraction.bounded_recap_execution import resolve_recap_ingestion_configuration
+    with pytest.raises(ValueError, match='Unsupported'):
+        RecapIngestionConfiguration(replace(RECAP_EXTRACTION_PROFILE, vocabulary_policy={'bad': object()}), RecapExecutionLimits())
+    config = resolve_recap_ingestion_configuration(environ={})
+    value = config.snapshot(); value['schema'] = 'unrecognized'
+    with pytest.raises(ValueError, match='differs'):
+        RecapIngestionConfiguration.from_snapshot(RECAP_EXTRACTION_PROFILE, value)
+
+
+def test_explicit_configuration_cannot_infer_an_alternate_model_endpoint():
+    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    with pytest.raises(ValueError, match='explicit endpoint'):
+        RecapIngestionConfiguration(RECAP_EXTRACTION_PROFILE,
+            RecapExecutionLimits(provider='openrouter', model='fixture/alternate'))

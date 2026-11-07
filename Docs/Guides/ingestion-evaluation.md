@@ -144,3 +144,44 @@ startup, before dispatch. Pin these settings with the experiment's other control
 Changing them does not change the prompts, schemas, allocations or retry policy.
 This configuration capability does not authorize inference: alternative-model runs
 still require a pinned comparison design and source-exposure authorization.
+
+### Versioned ingestion configuration
+
+The app and evaluator resolve ordinary recap execution through
+`resolve_recap_ingestion_configuration`. The immutable
+`RecapIngestionConfiguration` composes the existing execution limits with a
+recursively frozen registered extraction profile. Its canonical snapshot includes
+all profile dataclass fields (pass instructions, flags, schemas, admission and
+semantic policies), model/provider/endpoint, reasoning and output allocations,
+pass-invocation budget and deadlines. The SHA-256 identifies these resolved
+values. It does not identify input text, actual generated requests or executable
+code. Callable references are descriptive names; pin runtime/dependencies
+separately for reproduction.
+
+The existing model/endpoint environment pair remains one input syntax to this
+single resolver. Its absence preserves the existing DeepSeek defaults; partial
+or invalid settings fail. Explicit internal configuration uses the same value
+class, not another environment resolver. `from_snapshot(profile, snapshot)`
+validates a JSON round trip against the registered profile before use. The recap
+producer accepts `ingestion_configuration`, replacing its partial
+`execution_limits` argument. Current edge allocation is retained; new per-pass
+model/architecture controls are not introduced here.
+
+The production controller retains normal registered-profile admission, rejects
+profile/client/model drift, executes the frozen profile through the existing
+extractor, and stores the snapshot/hash/selection source in
+`ingest.run.lineage.ingestion_configuration` before any provider dispatch. It
+refuses conflicting retained configuration rather than overwriting it. This is
+private execution provenance, not a model input or publication authorization.
+
+The evaluator records that same configuration during qualification, checks the
+manifest's expected allocations before dispatch, and rechecks the complete value
+after app startup. Audits of new runs require the recorded configuration to match
+qualification and actual execution telemetry. Historical runs without a retained
+snapshot report `unknown_historical_not_retained`; their old settings are not
+silently backfilled from today's defaults.
+
+Gold, assessment policies and acceptance rules remain separately pinned study
+inputs. They never enter the ingestion configuration or model context. Provider
+observations remain separate: requested reasoning effort does not establish the
+model's internal reasoning behavior, and missing billing remains unknown.

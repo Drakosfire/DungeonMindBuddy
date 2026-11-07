@@ -9,7 +9,7 @@ import copy
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, TYPE_CHECKING, Mapping
 
 from graph_memory.ingestion.extraction_run import (
     ExtractionRun,
@@ -49,6 +49,10 @@ from src.graph_memory.extraction import (  # noqa: F401
 )
 
 
+if TYPE_CHECKING:
+    from src.graph_memory.extraction.bounded_recap_execution import RecapIngestionConfiguration
+
+
 @dataclass(frozen=True)
 class ProductionExtractionRequest:
     repo_root: Path
@@ -63,6 +67,7 @@ class ProductionExtractionRequest:
     enable_edge_vocabulary_packet: bool = False
     initial_lineage: dict[str, Any] | None = None
     reserved_run: ExtractionRun | None = None
+    ingestion_configuration: RecapIngestionConfiguration | None = None
 
 
 @dataclass
@@ -345,6 +350,24 @@ def run_production_extraction(
             profile_id=request.profile_id,
             profile_version=request.profile_version,
         )
+
+    configuration = request.ingestion_configuration
+    if configuration is not None:
+        from src.graph_memory.extraction.bounded_recap_execution import RecapIngestionConfiguration
+        if not isinstance(configuration, RecapIngestionConfiguration):
+            raise ValueError("Invalid ingestion configuration value")
+        configuration.assert_profile(profile)
+        if request.model_id != configuration.execution_limits.model or getattr(request.category_client, "limits", None) != configuration.execution_limits:
+            raise ValueError("Configured execution differs from its owning client/model")
+        profile = configuration.profile
+        lineage = dict(request.initial_lineage or {})
+        previous = [lineage.get("ingestion_configuration")]
+        if request.reserved_run is not None:
+            previous.append(request.reserved_run.lineage.get("ingestion_configuration"))
+        if any(prior is not None and prior != configuration.record() for prior in previous):
+            raise ValueError("Conflicting retained ingestion configuration")
+        lineage["ingestion_configuration"] = configuration.record()
+        request = replace(request, initial_lineage=lineage)
 
     # Persist execution identity before dispatch, including prepare-only and
     # interrupted runs. A saved attempt must not need a finished call to match.

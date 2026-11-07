@@ -11,9 +11,8 @@ from application_state.errors import ApplicationStateError
 
 from src.graph_memory.extraction.bounded_recap_execution import (
     BoundedRecapPassClient,
-    DEEPSEEK_MODEL,
-    RecapExecutionLimits,
-    resolve_recap_model_configuration,
+    RecapIngestionConfiguration,
+    resolve_recap_ingestion_configuration,
 )
 
 from apps.live_control_server.config import artifact_data_root
@@ -98,7 +97,7 @@ def run_recap_production_extraction(
     context_vocabulary_packet: ContextVocabularyPacket | None = None,
     enable_node_vocabulary_packet: bool = False,
     enable_edge_vocabulary_packet: bool = False,
-    execution_limits: RecapExecutionLimits | None = None,
+    ingestion_configuration: RecapIngestionConfiguration | None = None,
     ingest_context: Any | None = None,
     supplemental_evidence: dict | None = None,
     reserved_run: Any | None = None,
@@ -156,55 +155,18 @@ def run_recap_production_extraction(
     ):
         raise SourceArtifactRegistryError("Managed World binding changed before extraction", status_code=409)
 
-    default_ge = allow_llm and category_client is None and execution_limits is None
-    if default_ge:
-        configured_model, configured_endpoint = resolve_recap_model_configuration(
-            profile_id=selected_profile.qualified_id,
-        )
+    if ingestion_configuration is not None and (not allow_llm or category_client is not None):
+        raise ValueError("Configuration requires the owning bounded extraction client")
+    owned_execution = allow_llm and category_client is None
+    if owned_execution:
+        ingestion_configuration = ingestion_configuration or resolve_recap_ingestion_configuration(selected_profile)
+        if ingestion_configuration.profile.qualified_id != selected_profile.qualified_id:
+            raise ValueError("Configuration profile differs from selected profile")
+        configured_model = ingestion_configuration.execution_limits.model
         if model_id not in (None, configured_model):
-            raise ValueError(
-                "ordinary recap extraction requires the configured GenerationEngine model"
-            )
+            raise ValueError("ordinary recap extraction requires the configured GenerationEngine model")
         model_id = configured_model
-        # Each configured source extraction pass runs once.
-        # This is an execution plan budget, not a provider authorization cap.
-        pass_budget = (
-            len(selected_profile.node_passes)
-            + int(selected_profile.beat_pass is not None)
-            + int(
-                selected_profile.enable_encounter_job_pass
-                and selected_profile.encounter_job_pass is not None
-            )
-            + 1  # relationship pass
-            + int(selected_profile.edge_review_pass is not None)
-        )
-        execution_limits = RecapExecutionLimits(
-            provider="openrouter",
-            model=configured_model,
-            openrouter_provider=configured_endpoint,
-            max_calls=pass_budget,
-            # Reasoning shares the total output allowance with the JSON result.
-            max_output_tokens=(
-                32768 if selected_profile.qualified_id == "recap_category_v2@2.0" else 16384
-            ),
-            edge_max_output_tokens=32768,
-            per_call_deadline_ms=240_000,
-            run_deadline_ms=900_000,
-            reasoning_effort="low",
-        )
     bounded = None
-    if execution_limits is not None:
-        if (
-            category_client is not None
-            or not allow_llm
-            or model_id != execution_limits.model
-        ):
-            raise ValueError(
-                "bounded extraction requires its exact model and owning client"
-            )
-        if not default_ge:
-            bounded = BoundedRecapPassClient(execution_limits)
-            category_client = bounded
     supplement_context=None
     supplement_lineage={}
     if supplemental_evidence is not None:
@@ -213,7 +175,7 @@ def run_recap_production_extraction(
             "Extract only claims supported by the actual recap source; do not turn GM preferences or reflections into recap events.\n"+render_session_evidence(supplemental_evidence))
         supplement_lineage={"session_evidence":{"sha256":supplemental_evidence["sha256"],
             "sources":[{"run_id":item["run_id"],"review_revision":item["review_revision"],"sha256":item["sha256"],"citation_url":item["citation_url"]} for item in supplemental_evidence["sessions"]]}}
-    if default_ge:
+    if owned_execution:
         context_hashes = {
             "source_content": source.source_sha256,
             "source_identity": hashlib.sha256(
@@ -224,12 +186,12 @@ def run_recap_production_extraction(
             ).hexdigest(),
         }
         bounded = BoundedRecapPassClient(
-            execution_limits,
+            ingestion_configuration.execution_limits,
             request_context_hashes={**context_hashes,**({"session_evidence":supplemental_evidence["sha256"]} if supplemental_evidence else {})},
             supplemental_context=supplement_context,
         )
         category_client = bounded
-    if supplement_context and not default_ge and category_client is not None:
+    if supplement_context and not owned_execution and category_client is not None:
         if not isinstance(category_client, BoundedRecapPassClient):
             raise ValueError("Session supplements require the owned bounded recap client")
         category_client.supplemental_context=supplement_context
@@ -248,6 +210,7 @@ def run_recap_production_extraction(
             initial_lineage={**(reserved_run.lineage if reserved_run is not None else {}),
                 "world_campaign_ingest_context": frozen_context,**supplement_lineage},
             reserved_run=reserved_run,
+            ingestion_configuration=ingestion_configuration,
         )
     )
 

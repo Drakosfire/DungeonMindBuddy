@@ -126,10 +126,33 @@ class Buddy:
         return service.list_extraction_runs(world_id=self.manifest['world_id'], source_domain='recap', campaign_id=item['campaign_id'], session_id=item['session_id'])
 
     @staticmethod
-    def _model_configuration():
-        from src.graph_memory.extraction.bounded_recap_execution import resolve_recap_model_configuration
-        model, endpoint = resolve_recap_model_configuration()
-        return {'model': model, 'openrouter_provider': endpoint}
+    def _ingestion_configuration():
+        from src.graph_memory.extraction.bounded_recap_execution import resolve_recap_ingestion_configuration
+        return resolve_recap_ingestion_configuration().record()
+
+    def _qualified_configuration(self):
+        selection = self._ingestion_configuration()
+        snapshot = selection['configuration']
+        profile, limits = snapshot['profile'], snapshot['execution_limits']
+        if (profile['profile_id'] + '@' + profile['profile_version'], limits['model']) != (self.manifest['profile_id'], self.manifest['model_id']):
+            raise ValueError('Effective model/profile drift')
+        if any(limits.get(k) != v for k, v in self.manifest['expected_limits'].items()):
+            raise ValueError('Effective inference settings differ before dispatch')
+        return selection
+
+    @staticmethod
+    def _audit_ingestion_configuration(item, qualified, run, telemetry):
+        record = run.lineage.get('ingestion_configuration')
+        if record is None:
+            if not item.get('retained_run_id'):
+                raise ValueError('New extraction is missing its qualified ingestion configuration')
+            return {'status': 'unknown_historical_not_retained', 'record': None}
+        if record != qualified['ingestion_configuration']:
+            raise ValueError('Retained ingestion configuration differs from qualification')
+        if telemetry is not None and telemetry['limits'] != record['configuration']['execution_limits']:
+            raise ValueError('Recorded configuration differs from actual execution telemetry')
+        return {'status': 'recorded_and_bound' if telemetry is not None else 'recorded_no_execution_telemetry',
+                'record': record}
 
     def qualify(self, item):
         from application_state.source import service as sources
@@ -143,9 +166,7 @@ class Buddy:
         context, _ = native.access_context(native.read_repository(), self.manifest['world_id'])
         if json.loads(encoded(context)) != self.manifest['native_context']:
             raise ValueError('Native revision context drift')
-        selection = self._model_configuration()
-        if (RECAP_EXTRACTION_PROFILE.qualified_id, selection['model']) != (self.manifest['profile_id'], self.manifest['model_id']):
-            raise ValueError('Effective model/profile drift')
+        selection = self._qualified_configuration()
         request = json.loads(read_pin(item['request']))
         raw = read_pin(item['source']).decode()
         if request['raw_text'] != raw or request['managed_world_id'] != self.manifest['world_id'] or request['campaign_id'] != item['campaign_id'] or 'session-' + str(request['session']) != item['session_id']:
@@ -164,7 +185,7 @@ class Buddy:
         effective_artifact = build_world_scoped_recap_source_artifact_id(world_id=self.manifest['world_id'], campaign_id=item['campaign_id'], session_id=item['session_id'], content_sha256=item['effective_sha256'])
         unresolved = [rid for rid, run in prior.items() if run['status'] in {'prepared', 'running'} and run['source_artifact_id'] == effective_artifact]
         return {'id': item['id'], 'prior_runs': prior, 'unresolved_prior_runs': unresolved,
-                'model_configuration': selection,
+                'ingestion_configuration': selection,
                 'name_review': lineage, 'source_sha256': item['source']['sha256'],
                 'effective_sha256': item['effective_sha256'], 'request_sha256': item['request']['sha256'],
                 'pass_instruction_sha256': {p.pass_id: digest(p.instruction.encode()) for p in
@@ -195,8 +216,8 @@ class Buddy:
 
             self._bind(read_only=False)
             with TestClient(observed, client=('127.0.0.1', 43001), headers={'Authorization': 'Bearer ' + token}, raise_server_exceptions=False) as client:
-                if self._model_configuration() != qualified['model_configuration']:
-                    raise ValueError('Product startup changed the qualified model or endpoint')
+                if self._qualified_configuration() != qualified['ingestion_configuration']:
+                    raise ValueError('Product startup changed the qualified ingestion configuration')
                 if os.environ.get('DMB_AGENT_GRAPH_LOCAL_PROFILE', '').strip() or os.environ.get('DMB_AGENT_GRAPH_SESSION_STORE') != self.auth_path:
                     raise ValueError('Product startup changed profile/auth isolation')
                 for role, spec in self.db.items():
@@ -306,6 +327,7 @@ class Buddy:
             independent = inspect_quotes(graph, payloads['source_span_index'], body.decode(), payloads.get('consolidation_diagnostics', {}), set(qualified['pass_instruction_sha256']))
             if independent['issues']:
                 boundary = 'literal_evidence'
+        configuration_status = self._audit_ingestion_configuration(item, qualified, run, payloads.get('pass_telemetry'))
         accounting = None
         if 'pass_telemetry' in payloads:
             telemetry = payloads['pass_telemetry']
@@ -347,5 +369,6 @@ class Buddy:
         return {'run_id': run.run_id, 'status': str(run.status), 'failed_boundary': boundary,
                 'missing_components': missing, 'components': pins, 'literal_evidence': literal,
                 'independent_receipt_checks': independent,
+                'ingestion_configuration': configuration_status,
                 'accounting': accounting, 'missing_accounting_is_not_zero': True, 'private_attempts': private,
                 'semantic_gold': 'unproven', 'publication': 'unproven'}
