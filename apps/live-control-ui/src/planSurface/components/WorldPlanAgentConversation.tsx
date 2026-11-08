@@ -1,5 +1,5 @@
 import { readActiveConversationMessages, type ActiveConversationMessages } from '../../api/conversationLibraryApi';
-import { ConversationDetailsButton } from './ConversationDetailsButton';
+import { ConversationReplyDetails } from './ConversationReplyDetails';
 import {isNativeSourceAuthority,isNativeProviderInput,isSurfaceNativeReceipt,isSurfaceNativeContext,isSurfaceNativeCompletion,isBuildAuthoringCompletion,isBuildImageCompletion} from '../../shared/surfaceNativeProtocol';
 import {isNativePlanQuery} from '../../shared/nativeStatementAnswerProtocol';
 import {isNativeStatementContext,nativeStatementDigestsBound,nativeAnswerText} from "../../shared/nativeStatementAnswerProtocol";
@@ -2643,7 +2643,6 @@ export function WorldPlanAgentConversation({
   const surfaceRequests = useSurfaceConversationRequests();
   const surfacePreparationRef = useRef(false);
   const [surfacePreparing,setSurfacePreparing] = useState(false);
-  const [expandedComposerActivity,setExpandedComposerActivity] = useState<string | null>(null);
   const [libraryOpen,setLibraryOpen]=useState(false);
   const [conversationSwitching,setConversationSwitching]=useState(false);
   const conversationSwitchRef=useRef(false);
@@ -4753,8 +4752,10 @@ export function WorldPlanAgentConversation({
 
   async function readExactMessageTurn(snapshot: WorldAgentConversationHistoryResponse, row: WorldAgentConversationHistoryTurn, signal?: AbortSignal) {
     const page = await getWorldAgentConversationHistory(snapshot.world_id, { limit: 1, beforeSequence: row.sequence + 1, includeTurnCorrelation: true, signal });
-    if (!isWorldConversationHistory(page) || !sameHistoryPointer(snapshot, page) || page.turns.length !== 1
-      || !sameSavedMessage(page.turns[0], row) || !await areHistoryReceiptDigestsBound(page)) throw new Error('Reply details contained an invalid Graph-context receipt or do not match this saved message. Refresh the conversation.');
+    if (!isWorldConversationHistory(page) || !await areHistoryReceiptDigestsBound(page))
+      throw new Error('Reply details contained an invalid Graph-context receipt. The saved message and page suggestion were kept.');
+    if (!sameHistoryPointer(snapshot, page) || page.turns.length !== 1 || !sameSavedMessage(page.turns[0], row))
+      throw new Error('Reply details no longer match this saved message. Refresh the conversation before opening them again.');
     return page.turns[0];
   }
   async function inspectSavedMessage(row: WorldAgentConversationHistoryTurn, signal: AbortSignal) {
@@ -5327,12 +5328,10 @@ export function WorldPlanAgentConversation({
       const targets = context.source_open_targets?.filter(item => item.claim_id === segment.claim_id
         && item.kind === "evidence_anchor" && citation?.evidence_ref_ids.includes(item.evidence_ref_id)) ?? [];
       return targets.map(target => ({ segmentIndex, label: String(++number), title: sourceCitationTitle(target), onOpen: () => {
-        const panel = document.getElementById(`buddy-evidence-${turn.turn_id}`);
-        if (panel instanceof HTMLDetailsElement) {
-          panel.open = true;
-          panel.querySelector<HTMLButtonElement>('[role="tab"]')?.click();
-          panel.scrollIntoView?.({ block: "nearest" });
-        }
+        setOpenedTraceTurns(current => ({...current, [`${verifiedWorldId}\u001f${turn.turn_id}`]: true}));
+        const sources = document.getElementById(`buddy-evidence-${turn.turn_id}`);
+        sources?.querySelector<HTMLButtonElement>('[role="tab"]')?.click();
+        requestAnimationFrame(() => { if (sources?.isConnected) sources.scrollIntoView?.({block: 'nearest'}); });
         void openSourcePassage(turn, target);
       } }));
     });
@@ -5345,13 +5344,13 @@ export function WorldPlanAgentConversation({
       ? <BuildSavedSectionEvidence targets={planContext.saved_source_sections} basis={planContext.receipt.source_basis}
           sourceName={planContext.saved_source_name}
           segments={planContext.completion.answer_segments} worldId={verifiedWorldId} turnId={turn.turn_id} /> : null;
-    if(planContext?.completion?.schema==='dmb_surface_native_completion_v1') return <details className="world-plan-agent-conversation__evidence-trail">
-      <summary>Evidence trail</summary><ResponseEvidenceTabs evidence={<p>{planContext.completion.native_body_citations.length+planContext.completion.native_clause_citations.length+planContext.completion.native_assertion_citations.length} native source citations. Open the numbered citations beside the statements in this reply.</p>}
+    if(planContext?.completion?.schema==='dmb_surface_native_completion_v1') return <section className="world-plan-agent-conversation__evidence-trail">
+      <h4>Source information</h4><ResponseEvidenceTabs evidence={<p>{planContext.completion.native_body_citations.length+planContext.completion.native_clause_citations.length+planContext.completion.native_assertion_citations.length} native source citations. Open the numbered citations beside the statements in this reply.</p>}
         prompt={verifiedWorldId&&history?.conversation_id?<BuddyContextTraceLoader enabled promptOnly worldId={verifiedWorldId} turnId={turn.turn_id} conversationId={history.conversation_id}/>:<p>The saved request is unavailable.</p>}/>
-    </details>;
+    </section>;
     if ((planContext?.completion?.schema === "dmb_build_intentional_response_completion_v1" || (planContext?.completion?.schema==="dmb_build_intentional_response_completion_v2"||planContext?.completion?.schema==="dmb_build_intentional_response_completion_v3")) || (planContext?.completion?.schema === "dmb_build_relationship_review_completion_v1" || (planContext?.completion?.schema==="dmb_build_relationship_review_completion_v2"||planContext?.completion?.schema==="dmb_build_relationship_review_completion_v3")) || planContext?.completion?.schema === "dmb_build_connected_page_review_completion_v1" || planContext?.completion?.schema === "dmb_build_collaboration_completion_v1" || planContext?.completion?.schema === "dmb_build_related_page_completion_v1" || planContext?.completion?.schema === "dmb_build_draft_context_completion_v1" || planContext?.completion?.schema === "dmb_build_graph_completion_v2" || planContext?.completion?.schema === "dmb_build_graph_completion_v3" || planContext?.completion?.schema === "dmb_surface_source_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v1" || planContext?.completion?.schema === "dmb_surface_evidence_completion_v2" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v3" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v4" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v5" || (planContext?.completion?.schema === "dmb_surface_evidence_completion_v6"||planContext?.completion?.schema === "dmb_surface_evidence_completion_v7"))))) {
-      return <details className="world-plan-agent-conversation__evidence-trail">
-        <summary>Evidence trail</summary>
+      return <section className="world-plan-agent-conversation__evidence-trail">
+        <h4>Source information</h4>
         <ResponseEvidenceTabs evidence={verifiedWorldId
           ? <>{savedEvidence}<BuildSourcePassageEvidence completion={planContext.completion} worldId={verifiedWorldId} turnId={turn.turn_id} /></>
           : <p>Select the original World to open these source passages.</p>}
@@ -5359,7 +5358,7 @@ export function WorldPlanAgentConversation({
             ? <BuddyContextTraceLoader enabled promptOnly worldId={verifiedWorldId} turnId={turn.turn_id}
               conversationId={history.conversation_id} />
             : <p>The saved request is unavailable.</p>} />
-      </details>;
+      </section>;
     }
     const playEvidence = turn.provenance.surface_id === "play" && verifiedWorldId
       ? <PlayAnswerEvidence provenance={turn.provenance} worldId={verifiedWorldId} turnId={turn.turn_id} /> : null;
@@ -5415,12 +5414,8 @@ export function WorldPlanAgentConversation({
       </button>;
     };
 
-    return <details id={`buddy-evidence-${turn.turn_id}`} className="world-plan-agent-conversation__evidence-trail">
-      <summary aria-label={`Explore evidence for this answer: ${summary}`}>
-        <span className="world-plan-agent-conversation__evidence-trail-title">Evidence trail</span>
-        <span className="world-plan-agent-conversation__evidence-trail-summary">{summary}</span>
-        <span className="world-plan-agent-conversation__evidence-trail-caret" aria-hidden="true">⌄</span>
-      </summary>
+    return <section id={`buddy-evidence-${turn.turn_id}`} className="world-plan-agent-conversation__evidence-trail">
+      <h4>Source information</h4><p>{summary}</p>
       <ResponseEvidenceTabs evidence={<div className="world-plan-agent-conversation__evidence-trail-content">
         {savedEvidence}
         {playEvidence}
@@ -5485,7 +5480,7 @@ export function WorldPlanAgentConversation({
       </div>} prompt={verifiedWorldId && history?.conversation_id ? <BuddyContextTraceLoader
         enabled promptOnly worldId={verifiedWorldId} turnId={turn.turn_id} conversationId={history.conversation_id}
       /> : <p>No complete request was captured for this response.</p>} />
-    </details>;
+    </section>;
   }
 
   function renderGraphContextHistory(turn: WorldAgentConversationHistoryTurn) {
@@ -6146,11 +6141,7 @@ export function WorldPlanAgentConversation({
     : [...(displayHistory?.turns ?? [])].sort((a, b) => b.sequence - a.sequence)[0];
   const activityTurnId = activityTurn?.turn_id;
   const activityLifecycle = activityTurn?.lifecycle_status ?? 'running';
-  const activityIdentity = activityTurnId && verifiedWorldId && activityHistory?.conversation_id
-    ? JSON.stringify([verifiedWorldId,activityHistory.conversation_id,activityTurnId]) : null;
-  useEffect(()=>{
-    setExpandedComposerActivity(current=>current===activityIdentity ? current : null);
-  },[activityIdentity]);
+
 
   if (!visible) return null;
   if (!isReadOnly && !pageReady) return presentAvailability("Loading Plan conversation context…");
@@ -6365,18 +6356,32 @@ export function WorldPlanAgentConversation({
     && lastDisplayEvent.turn.provenance.surface_id === (isBuild ? "build" : isReadOnly ? "play" : "plan")
     && lastDisplayEvent.turn.provenance.primary_work.object_id === (isBuild ? buildMode?.savedSource?.documentId : isReadOnly ? playMode?.admittedRun?.runId : documentId)
     ? lastDisplayEvent.turn.turn_id : null;
+  const renderReplyDetails = (turn: WorldAgentConversationHistoryTurn, loaded: boolean, content?: React.ReactNode) => {
+    const key = `${verifiedWorldId}\u001f${turn.turn_id}`;
+    const open = Boolean(openedTraceTurns[key]);
+    return <ConversationReplyDetails key={`details:${scopeKey}:${turn.turn_id}`} id={`buddy-details-${turn.turn_id}`}
+      open={open} onOpenChange={next => setOpenedTraceTurns(current => current[key] === next ? current : {...current, [key]: next})}
+      loaded={loaded} load={signal => inspectSavedMessage(turn, signal)}
+      showSources={Boolean(turn.assistant_text && turn.lifecycle_status === 'completed' && !buildCompose.items.some(item => item.originTurnId === turn.turn_id))}>
+      {open && buildCompose.items.find(item => item.originTurnId === turn.turn_id)?.details}
+      {content}
+      {verifiedWorldId && history?.conversation_id && <BuddyContextTraceLoader enabled={open}
+        worldId={verifiedWorldId} turnId={turn.turn_id} conversationId={history.conversation_id}/>}
+    </ConversationReplyDetails>;
+  };
   const renderConversationEvent = (event: WorldConversationDisplayEvent,
     previousAttempts: WorldConversationDisplayEvent[] = [], historicalAttempt = false): React.ReactNode => {
     if (event.kind === "proposal") return renderProposalEvent(event.turn, event.position, false);
     const turn = event.turn;
+    const pageSuggestion = buildCompose.items.find(item => item.originTurnId === turn.turn_id);
     if (!history?.turns.some(full => sameSavedMessage(full, turn))) return <BuddyTurnInspection key={`world:${turn.turn_id}`} worldId={verifiedWorldId ?? ''} conversationId={history?.conversation_id ?? ''} turnId={turn.turn_id} lifecycle={turn.lifecycle_status}>
       <article className={`world-plan-agent-conversation__turn world-plan-agent-conversation__turn--${turn.assistant_text ? 'complete' : turn.lifecycle_status}`} data-turn-id={turn.turn_id} data-sequence={turn.sequence} tabIndex={-1}>
         <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--user"><span className="world-plan-agent-conversation__speaker">You</span><p>{turn.user_text}</p></div>
         <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
           <div className="world-plan-agent-conversation__reply-heading"><span className="world-plan-agent-conversation__speaker">Buddy</span></div>
-          {turn.assistant_text ? <WorldPlanAgentAnswer answer={turn.assistant_text} /> : <p>{turn.lifecycle_status === 'completed' ? 'Open sources and actions to view this reply.' : turn.lifecycle_status === 'failed' || turn.lifecycle_status === 'interrupted' ? 'This reply did not finish.' : 'Waiting for this reply…'}</p>}
-          <ConversationDetailsButton key={`details:${scopeKey}:${historyGenerationRef.current}:${turn.turn_id}`} load={signal => inspectSavedMessage(turn, signal)} />
+          {pageSuggestion ? pageSuggestion.element : turn.assistant_text ? <WorldPlanAgentAnswer answer={turn.assistant_text} /> : <p>{turn.lifecycle_status === 'completed' ? 'Open Details to inspect this reply.' : turn.lifecycle_status === 'failed' || turn.lifecycle_status === 'interrupted' ? 'This reply did not finish.' : 'Waiting for this reply…'}</p>}
         </div>
+        <div className="world-plan-agent-conversation__turn-debug">{renderReplyDetails(turn, false)}</div>
       </article></BuddyTurnInspection>;
     const turnReferences=turn.authored_references??(turn.retry_context?.schema==='dmb_turn_retry_context_row_v2'?turn.retry_context.authored_references:null);
     const replyText = turn.assistant_text ?? '';
@@ -6426,25 +6431,14 @@ export function WorldPlanAgentConversation({
           <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
             <div className="world-plan-agent-conversation__reply-heading">
               <span className="world-plan-agent-conversation__speaker">Buddy</span>
-              {turn.lifecycle_status === "completed" && graphContextForTurn(turn)?.completion
-                && replySourceLabel(graphContextForTurn(turn)!.completion!.answer_context_status, turn.provenance.surface_id) ? (
-                <span className="world-plan-agent-conversation__answer-basis" aria-label="Answer sources"
-                  title={graphContextStatusLabel(graphContextForTurn(turn)!.completion!.answer_context_status)}>
-                  {graphContextForTurn(turn)!.completion!.answer_basis === "mixed_evidence" && graphContextForTurn(turn)!.completion!.answer_context_status.startsWith("graph_grounded")
-                    ? `World evidence${graphContextForTurn(turn)!.completion!.answer_context_status.endsWith("_partial") ? " · partial" : ""}`
-                    : graphContextForTurn(turn)!.completion!.answer_basis.endsWith("_plus_session_evidence") ? "Session evidence" : replySourceLabel(graphContextForTurn(turn)!.completion!.answer_context_status, turn.provenance.surface_id)}
-                </span>
-              ) : null}
-              {rulesContextForTurn(turn) && <span className="world-plan-agent-conversation__answer-basis" aria-label="Rules answer sources">
-                {rulesContextForTurn(turn)!.accepted_binding.support_table.length ? 'Rules evidence' : 'Rules lookup: no evidence'}
-              </span>}
+
             </div>
-            {turn.native_statement_context ? <NativeStatementAnswer context={turn.native_statement_context}
+            {pageSuggestion ? pageSuggestion.element : turn.native_statement_context ? <NativeStatementAnswer context={turn.native_statement_context}
               worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : !pageProposalAcknowledgment&&(graphContextForTurn(turn)?.completion?.schema === 'dmb_surface_native_completion_v1' || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v1" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v2" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v3" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v4" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v5" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v6"||graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v7")))))
               ? <SurfaceEvidenceAnswer completion={graphContextForTurn(turn)!.completion as import("../../api/types").SurfaceEvidenceCompletion|import("../../api/types").SurfaceNativeCompletionV1} buildSourceBasis={buildSource??undefined}
                 worldId={verifiedWorldId} turnId={turn.turn_id} composition={rulesContextForTurn(turn) ? {text:replyText,ranges:rulesContextForTurn(turn)!.accepted_binding.segment_map} : undefined}/>
               : citedAnswer ?? <WorldPlanAgentAnswer
-              answer={pageProposalAcknowledgment ? "Page suggestion prepared." : replyText}
+              answer={pageProposalAcknowledgment ? "Open the suggestion’s original page to review it." : replyText}
               inlineCitations={inlineSourceCitations(turn)}
               allowedInternalLinks={graphContextForTurn(turn)?.completion?.answer_segments.flatMap(segment => segment.kind === "session_evidence_claim" ? ["/play?" + new URLSearchParams({world: turn.provenance.world_id,run: segment.run_id,evidence_revision:String(segment.review_revision)}).toString()] : [])}
               displaySegments={pageProposalAcknowledgment || rulesContextForTurn(turn) ? undefined : graphContextForTurn(turn)?.completion
@@ -6462,7 +6456,6 @@ export function WorldPlanAgentConversation({
                 onOpen={imagePromptHost ? (prompt) => { if (imagePromptHost.open(prompt)) agent.setPaneOpen(false); } : undefined}
               />)}
             {rulesContextForTurn(turn) && <RulesAnswerEvidence active={visible && agent.paneState.isOpen} context={rulesContextForTurn(turn)!} answer={turn.assistant_text ?? ''} />}
-            {renderSourceActions(turn)}
             {verifiedWorldId&&buildSource&&collaboration?.kind==='relationship'&&<ConversationRelationshipReview
               worldId={verifiedWorldId} documentId={buildSource.document_id}
               source={{documentId:buildSource.document_id,revision:buildSource.registry_revision,contentSha256:buildSource.content_sha256}}
@@ -6531,12 +6524,21 @@ export function WorldPlanAgentConversation({
           </div>
         ) : null}
         <div className="world-plan-agent-conversation__turn-debug">
-          <details className="world-plan-agent-conversation__turn-details" onToggle={(event) => {
-            const open = event.currentTarget.open;
-            const key = `${verifiedWorldId}\u001f${turn.turn_id}`;
-            setOpenedTraceTurns(current => current[key] === open ? current : { ...current, [key]: open });
-          }}>
-            <summary>Debug</summary>
+          {renderReplyDetails(turn, true, <>
+            <div className="world-plan-agent-conversation__reply-heading">
+              {turn.lifecycle_status === "completed" && graphContextForTurn(turn)?.completion
+                && replySourceLabel(graphContextForTurn(turn)!.completion!.answer_context_status, turn.provenance.surface_id) ? (
+                <span className="world-plan-agent-conversation__answer-basis" aria-label="Answer sources"
+                  title={graphContextStatusLabel(graphContextForTurn(turn)!.completion!.answer_context_status)}>
+                  {graphContextForTurn(turn)!.completion!.answer_basis === "mixed_evidence" && graphContextForTurn(turn)!.completion!.answer_context_status.startsWith("graph_grounded")
+                    ? `World evidence${graphContextForTurn(turn)!.completion!.answer_context_status.endsWith("_partial") ? " · partial" : ""}`
+                    : graphContextForTurn(turn)!.completion!.answer_basis.endsWith("_plus_session_evidence") ? "Session evidence" : replySourceLabel(graphContextForTurn(turn)!.completion!.answer_context_status, turn.provenance.surface_id)}
+                </span>
+              ) : null}
+              {rulesContextForTurn(turn) && <span className="world-plan-agent-conversation__answer-basis" aria-label="Rules answer sources">
+                {rulesContextForTurn(turn)!.accepted_binding.support_table.length ? 'Rules evidence' : 'Rules lookup: no evidence'}
+              </span>}
+            </div>
             {!historicalAttempt&&turn.retry_context&&<ConversationRetryAttempts context={turn.retry_context}/>}
             {failed || interrupted ? (
               <p role="status">
@@ -6553,10 +6555,6 @@ export function WorldPlanAgentConversation({
             </details> : null}
             {pendingRetryTurnId === turn.turn_id && !historicalAttempt && (uncertainPlayNoticeRef.current || uncertainPlanNoticeRef.current)
               ? <p>{uncertainPlayNoticeRef.current?.message ?? uncertainPlanNoticeRef.current?.message}</p> : null}
-            {verifiedWorldId && history?.conversation_id ? <BuddyContextTraceLoader
-              enabled={openedTraceTurns[`${verifiedWorldId}\u001f${turn.turn_id}`] === true}
-              worldId={verifiedWorldId} turnId={turn.turn_id} conversationId={history.conversation_id}
-            /> : null}
             <p className="world-plan-agent-conversation__context">
               Turn {turn.sequence} · {turn.lifecycle_status} · {historyTurnProvenanceLabel(turn)}
             </p>
@@ -6564,8 +6562,9 @@ export function WorldPlanAgentConversation({
             {targetReceipt ? (
               <p role={targetReceipt.startsWith("Target receipt unavailable") ? "alert" : "note"}>{targetReceipt}</p>
             ) : null}
+            {renderSourceActions(turn)}
             {renderGraphContextHistory(turn)}
-          </details>
+          </>)}
         </div>
       </article>
       </BuddyTurnInspection>
@@ -6581,7 +6580,8 @@ export function WorldPlanAgentConversation({
           ? <details><summary>Earlier attempt of a request with a later response</summary>{renderConversationEvent(event,previous,true)}</details>
           : renderConversationEvent(event, previous),
       })),
-    ...buildCompose.items.map((item, index) => ({ order: item.afterSequence + .5, ordinal: index, element: item.element })),
+    ...buildCompose.items.filter(item => !item.originTurnId || !displayHistory?.turns.some(turn => turn.turn_id === item.originTurnId))
+      .map((item, index) => ({ order: item.afterSequence + .5, ordinal: index, element: item.element })),
   ].sort((left, right) => left.order - right.order || left.ordinal - right.ordinal);
   const recoveryRecordCount = savedAskRecords.length + pendingCommands.filter((item) => item.envelope !== null || item.error).length
     + pendingAsks.filter((item) => item.error).length;
@@ -6614,16 +6614,16 @@ export function WorldPlanAgentConversation({
     finally{conversationSwitchRef.current=false;if(latestRef.current.mounted)setConversationSwitching(false);}
   }
   const activityInComposer = activityBusy || activityLifecycle !== 'completed'
-    || activityIdentity !== null && expandedComposerActivity === activityIdentity
     || Boolean(presentationHosts && !presentationHosts.header);
-  const replyActivity = activityTurnId && verifiedWorldId && activityHistory?.conversation_id ? <BuddyTurnInspection
+  const replyActivity = activityTurnId && verifiedWorldId && activityHistory?.conversation_id
+    && !openedTraceTurns[`${verifiedWorldId}\u001f${activityTurnId}`] ? <BuddyTurnInspection
     key={`activity:${verifiedWorldId}:${activityHistory.conversation_id}:${activityTurnId}`}
     worldId={verifiedWorldId} conversationId={activityHistory.conversation_id} turnId={activityTurnId}
     lifecycle={activityLifecycle}>
     <BuddyActivity worldId={verifiedWorldId} conversationId={activityHistory.conversation_id} turnId={activityTurnId} lifecycle={activityLifecycle}
-      onDisclosureChange={open=>{
-        // Pin only an inspection opened in the composer; toolbar inspection stays there.
-        if(activityInComposer)setExpandedComposerActivity(open ? activityIdentity : null);
+      onInspect={() => {
+        setOpenedTraceTurns(current => ({...current, [`${verifiedWorldId}\u001f${activityTurnId}`]: true}));
+        requestAnimationFrame(() => document.getElementById(`buddy-details-${activityTurnId}`)?.scrollIntoView?.({block: 'nearest'}));
       }} />
   </BuddyTurnInspection> : activityBusy ? <div className="world-plan-agent-conversation__working" role="status">Getting things ready…</div> : null;
   const newConversationButton = (
@@ -7070,12 +7070,12 @@ export function WorldPlanAgentConversation({
             {submittedMessage.authoredReferences&&<SurfaceGraphReferenceInput worldId={verifiedWorldId??''} label="Message references" readOnly value={submittedMessage.authoredReferences.references} onChange={()=>{}}/>}
             {uncertainPlayNoticeRef.current?.turnId === submittedMessage.id ? <div className="world-plan-agent-conversation__reply-failure" role="alert">
               <p>Buddy couldn’t finish this reply. Your message is saved. Open Conversation options to check its status or retry.</p>
-              <details className="world-plan-agent-conversation__technical-details"><summary>Technical details</summary><p>{uncertainPlayNoticeRef.current.message}</p></details>
+              <details className="world-plan-agent-conversation__technical-details"><summary>Details</summary><p>{uncertainPlayNoticeRef.current.message}</p></details>
             </div> : null}
             {uncertainPlanNoticeRef.current?.turnId === submittedMessage.id ? (
               <div className="world-plan-agent-conversation__turn-debug">
                 <details className="world-plan-agent-conversation__turn-details">
-                  <summary>Debug</summary>
+                  <summary>Details</summary>
                   <p className="world-plan-agent-conversation__context">
                     Delivery · {uncertainPlanNoticeRef.current.message}
                   </p>

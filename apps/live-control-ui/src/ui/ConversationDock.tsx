@@ -48,7 +48,6 @@ export function ConversationDock({
   const ownMenu = useRef<HTMLDetailsElement>(null);
   const menu = menuRef ?? ownMenu;
   const [menuOpen, setMenuOpen] = useState(false);
-  const [diagnosticsVisible, setDiagnosticsVisible] = useState(false);
   useEffect(() => {
     const outside = (event: globalThis.PointerEvent) => {
       if (menu.current?.open && event.target instanceof Node && !menu.current.contains(event.target)) { menu.current.open = false; setMenuOpen(false); }
@@ -205,7 +204,7 @@ export function ConversationDock({
   } as CSSProperties;
 
   return (
-    <div ref={root} data-placement={effectivePlacement} data-preferred-placement={placement} data-diagnostics-visible={diagnosticsVisible} className={`conversation-dock ${hasReader ? "has-reader" : ""} ${narrowWorkspace ? "is-narrow" : ""} ${expanded ? "is-expanded" : ""} ${resizing ? "is-resizing" : ""} ${fullscreen ? "is-fullscreen" : ""} ${collapseMode === "launcher" ? "has-launcher-collapse" : ""} ${className}`.trim()} style={variables}>
+    <div ref={root} data-placement={effectivePlacement} data-preferred-placement={placement} className={`conversation-dock ${hasReader ? "has-reader" : ""} ${narrowWorkspace ? "is-narrow" : ""} ${expanded ? "is-expanded" : ""} ${resizing ? "is-resizing" : ""} ${fullscreen ? "is-fullscreen" : ""} ${collapseMode === "launcher" ? "has-launcher-collapse" : ""} ${className}`.trim()} style={variables}>
       <div className="conversation-dock__reader" hidden={fullscreen} role="region" aria-label={readerLabel}>{reader}</div>
       <section ref={conversationRegion} id={`${id}-conversation`} className="conversation-dock__conversation" hidden={collapseMode === "launcher" && !expanded} role={fullscreen ? "dialog" : undefined} aria-modal={fullscreen || undefined} onKeyDown={fullscreenKeys} onSubmitCapture={() => setContextOpen(false)} aria-label={conversationLabel ?? `${title} conversation`}>
         <button type="button" role="separator" aria-label={title === "Conversation" ? "Resize conversation" : `Resize ${title} conversation`} aria-orientation="horizontal"
@@ -230,7 +229,6 @@ export function ConversationDock({
                   onClick={() => { changeExpanded(true); setContextVisited(true); setContextOpen(!contextOpen); }}>
                   {contextOpen ? "Hide" : "Show"} {contextLabel}
                 </button>}
-                <label className="conversation-dock__diagnostics"><input type="checkbox" checked={diagnosticsVisible} onChange={event => setDiagnosticsVisible(event.target.checked)}/>Technical details</label>
                 {menuActions}
               </div>
             </details>

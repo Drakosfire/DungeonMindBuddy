@@ -823,6 +823,45 @@ describe("one App-level World conversation host across Plan and Play", () => {
     vi.mocked(listBuildProposals).mockResolvedValue([]);
   });
 
+  it.each(['valid','invalid'] as const)('keeps an ordinary native Build suggestion inline through a delayed %s detail read',async mode=>{
+    const raw=nativeBuildWire.proposal_wire;
+    const wire=JSON.parse(JSON.stringify(raw).replaceAll(raw.history.world_id,WORLD));
+    const row=wire.history.turns[0],context=row.knowledge_context,basis=context.receipt.work_context.source_basis;
+    basis.content_sha256=SHA;row.provenance.primary_work.content_sha256=SHA;row.provenance.surface_instance_id='build-instance';
+    context.receipt.provenance_sha256=await sha256Hex(canonicalJson(row.provenance));
+    const {context_receipt_sha256:_,...payload}=context.receipt;
+    context.receipt.context_receipt_sha256=await sha256Hex(canonicalJson(payload));
+    context.completion.context_receipt_sha256=context.receipt.context_receipt_sha256;
+    wire.record.reservation.basis.content_sha256=SHA;
+    let finish!:(value:WorldAgentConversationHistoryResponse)=>void;
+    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async(_world,options)=>options?.limit===1
+      ?new Promise(resolve=>{finish=resolve;}):wire.history);
+    vi.mocked(listBuildProposals).mockResolvedValue([wire.record]);
+    const bridge={captureContext:vi.fn(),capture:vi.fn(),restore:vi.fn(),insert:vi.fn(),insertProposal:vi.fn(),
+      prepareProposal:vi.fn(),applyPrepared:vi.fn(),inspectProposal:vi.fn(),saveProposal:vi.fn()} as BuildComposeBridge;
+    const mount=()=>render(<Harness initial='build' buildBridge={bridge} buildSourceId={basis.document_id} buildSourceRevision={basis.registry_revision}/>);
+    let view=mount();fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    const preview=await screen.findByRole('region',{name:'Page suggestion'}),text=preview.textContent;
+    const review=within(preview).getByRole('button',{name:'Review suggestion on page'});
+    const article=review.closest('article[data-turn-id]')!;
+    expect(article).toHaveAttribute('data-turn-id',row.turn_id);
+    expect(within(article as HTMLElement).queryByText(row.assistant_text)).not.toBeInTheDocument();
+    fireEvent.click(within(article as HTMLElement).getByText('Details',{selector:'summary'}));
+    await screen.findByText('Loading reply details…');expect(review).toBeEnabled();expect(preview.textContent).toBe(text);
+    const response=structuredClone(wire.history);
+    if(mode==='invalid')response.turns[0].knowledge_context.receipt.context_receipt_sha256='0'.repeat(64);
+    await act(async()=>finish(response));
+    if(mode==='invalid')expect(await screen.findByText('Reply details contained an invalid Graph-context receipt. The saved message and page suggestion were kept.')).toHaveAttribute('role','alert');
+    else await waitFor(()=>expect(screen.queryByText('Loading reply details…')).not.toBeInTheDocument());
+    expect(screen.getByRole('region',{name:'Page suggestion'})).toBe(preview);
+    expect(within(preview).getByRole('button',{name:'Review suggestion on page'})).toBe(review);
+    expect(screen.queryByText('Sources and actions')).not.toBeInTheDocument();expect(screen.queryByText('Debug',{exact:true})).not.toBeInTheDocument();
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();expect(bridge.insertProposal).not.toHaveBeenCalled();
+    view.unmount();view=mount();fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    expect(await screen.findByRole('region',{name:'Page suggestion'})).toHaveTextContent(text!);
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();view.unmount();vi.mocked(listBuildProposals).mockResolvedValue([]);
+  });
+
   it.each(['history','fresh','replay','producer','revision','provenance','source','world','extra','interrupted','mixed-approved','mixed-unclaimed','mixed-object','fresh-mixed-object','mixed-question','mixed-unclaimed-question','mixed-object-prose','fresh-answer','fresh-question','fresh-source','fresh-graph'] as const)('consumes ordinary shared native Build HTTP and history: %s',async mode=>{
     const wire=JSON.parse(JSON.stringify(nativeBuildWire).replaceAll(nativeBuildWire.history.world_id,WORLD)) as unknown as {
       request:WorldBuildAgentTurnRequestV1;
@@ -1380,9 +1419,9 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const debug = failureText.closest('details')!;
     expect(debug).not.toHaveAttribute('open');
     expect(retry.closest('.world-plan-agent-conversation__turn-status')).not.toContainElement(failureText);
-    fireEvent.click(within(debug).getByText('Debug', {exact:true}));
+    fireEvent.click(within(debug).getByText('Details', {exact:true}));
     expect(debug).toHaveAttribute('open');
-    fireEvent.click(within(debug).getByText('Debug', {exact:true}));
+    fireEvent.click(within(debug).getByText('Details', {exact:true}));
     const input=screen.getByLabelText("Message DungeonBuddy");
     if(otherDraft)fireEvent.change(input,{target:{value:"Keep my unsent draft"}});
     fireEvent.click(retry);fireEvent.click(retry);
@@ -1414,7 +1453,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await screen.findByRole('button',{name:'Retry question'});
     expect(screen.getAllByText(base.user_text,{exact:true})).toHaveLength(1);
     expect(screen.queryByText(/Earlier conversation/)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByText('Debug',{exact:true}));
+    fireEvent.click(screen.getByText('Details',{exact:true}));
     expect(await screen.findByText('Previous attempts · 2')).toBeInTheDocument();
     expect(screen.getAllByRole('button',{name:'Retry question'})).toHaveLength(1);
     view.unmount();render(<Harness initial={surface}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
@@ -1467,7 +1506,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(priorAttempts).not.toBeVisible();
     const debug=priorAttempts.closest('details.world-plan-agent-conversation__turn-details');
     expect(debug).not.toBeNull();expect(debug).not.toHaveAttribute('open');
-    fireEvent.click(within(debug as HTMLElement).getByText('Debug',{exact:true}));
+    fireEvent.click(within(debug as HTMLElement).getByText('Details',{exact:true}));
     expect(priorAttempts).toBeVisible();
     view.unmount();render(<Harness initial='build'/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
     await screen.findByText('Retry result');expect(screen.getAllByText(first.user_text,{exact:true})).toHaveLength(1);
