@@ -1,5 +1,6 @@
 """Shared semantic writer input; full native proofs remain in acquired records."""
 import asyncio
+import json
 from copy import deepcopy
 
 import pytest
@@ -63,7 +64,7 @@ def test_compact_presentation_cannot_change_or_omit_admitted_support(published_l
         verify_input_records(context,stored,grant,raw,**work)
 
 
-def test_heavy_native_proofs_fit_unchanged_budget_without_losing_facts(published_lane):
+def test_heavy_native_proofs_fit_unchanged_budget_without_losing_facts(published_lane, monkeypatch):
     from types import SimpleNamespace
     from tests.test_source_statements import transport,wk,NOW,GM
     from graph_memory.vnext.domain_runtime import dungeonbuddy_world_domain_contract,dungeonbuddy_dnd5e_custom_predicate_profile
@@ -87,6 +88,19 @@ def test_heavy_native_proofs_fit_unchanged_budget_without_losing_facts(published
     rules=SimpleNamespace(frame=lambda:PlanRulesEvidenceFrameV1(schema='dmb_plan_rules_evidence_v1',
         ruleset='synthetic',lookups=(),supports=()),authoring=None)
     writer=PlanJevWriter(adapter,work['work_proof'],rules)
+    from apps.live_control_server.services.plan_jev_writer import FACTUAL_COVERAGE_INSTRUCTIONS
+    assert writer.instructions.count(FACTUAL_COVERAGE_INSTRUCTIONS) == 1
+    rules.authoring = object()
+    authoring_writer = PlanJevWriter(adapter, work['work_proof'], rules)
+    assert FACTUAL_COVERAGE_INSTRUCTIONS not in authoring_writer.instructions
+    assert 'Prepare only the requested editable Plan fragment' in authoring_writer.instructions
+    rules.authoring = None
+    with monkeypatch.context() as patch:
+        patch.setattr('application_state.agent_conversation.native_writer.model_work_frame',
+            lambda *args, **kwargs: {**model_work_frame(*args, **kwargs), 'requested_work': 'clarify'})
+        clarify_writer = PlanJevWriter(adapter, work['work_proof'], rules)
+        assert FACTUAL_COVERAGE_INSTRUCTIONS not in clarify_writer.instructions
+        assert 'Ask the specific clarifying question. Do not draft yet.' in clarify_writer.instructions
     assert len(writer.frame['native_assertions']['assertions'])>=37
     new={'model':writer.model,'input':writer.messages,'instructions':writer.instructions,
         'max_output_tokens':writer.output_reserve,'text':{'format':writer.output_format},
@@ -109,6 +123,7 @@ def test_heavy_native_proofs_fit_unchanged_budget_without_losing_facts(published
             await client.responses.create(**body)
         assert len(sent)==1
         raw=sent[0]
+        assert json.loads(raw)['instructions'].count(FACTUAL_COVERAGE_INSTRUCTIONS) == 1
         return PreparedTextDispatch(str(uuid4()),'openai','responses',writer.model,'POST',
             'https://api.openai.com/v1/responses',raw,sha256(raw).hexdigest(),len(raw))
     old_prepared=asyncio.run(wire(old))
@@ -145,7 +160,6 @@ def test_heavy_native_proofs_fit_unchanged_budget_without_losing_facts(published
         assert semantic['value'] == host['value']  # This fixture contains literal values.
         assert semantic['metadata'] == {key: host['metadata'][key] for key in semantic_qualifiers}
     raw=current_prepared.body.decode()
-    import json
     actual_frame = next(value for message in new['input']
         if isinstance(message.get('content'),str)
         for value in [json.loads(message['content'])]

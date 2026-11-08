@@ -44,6 +44,13 @@ Do not mint object IDs, dmb-node references, playable markers or unknown compone
 Headings, prose, lists and ordinary editable tables are supported; preserve existing protected
 tokens exactly when their captured selected content must be included. No page was saved.
 """
+FACTUAL_COVERAGE_INSTRUCTIONS = """For factual questions with multiple requested parts, cover each part supported by
+the supplied evidence. Preserve relevant intermediate steps and distinctions needed
+to answer the requested scope. Before returning, check the answer against the whole
+question: retain supported requested details and use the existing gap contract for
+unsupported details. Concision must not omit a supported requested part. Do not add
+facts or infer connections the evidence does not establish.
+"""
 RULES_INSTRUCTIONS = '''A Rules lookup was performed. Return its answer using exactly this outer object:
 {"schema":"dmb_rules_mixed_answer_v1","base_output": BASE_OR_NULL,
 "rules_segments":[...],"ordered_refs":[...]}. BASE_OR_NULL follows the Plan answer contract above.
@@ -294,6 +301,8 @@ class PlanJevWriter:
                 instructions += '\nAsk the specific clarifying question. Do not draft yet.'
             if getattr(rules,'authoring',None) is not None:
                 instructions += '\n' + AUTHORING_INSTRUCTIONS
+            elif self.work_frame.get('requested_work') != 'clarify':
+                instructions += '\n' + FACTUAL_COVERAGE_INSTRUCTIONS
         self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
             RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
