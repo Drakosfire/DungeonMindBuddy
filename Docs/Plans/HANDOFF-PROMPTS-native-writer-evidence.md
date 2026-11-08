@@ -85,6 +85,7 @@ cleanliness or performance acceptance here. No limits/model/provider changes.
 - tests/test_native_plan_assertions.py
 - tests/test_plan_jev_authoring.py (current semantic input transport fixture)
 - tests/test_native_writer_projection.py (semantic facts and exact host joins)
+- tests/test_agent_native_corpus_sources.py (ordinary HTTP semantic input transport)
 
 Checkpoint before expanding another owner. Input, output enums and support mapping
 are one indivisible capability: splitting them would invalidate normal output or
