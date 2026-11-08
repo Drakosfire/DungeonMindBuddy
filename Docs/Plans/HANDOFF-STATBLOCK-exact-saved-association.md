@@ -43,7 +43,7 @@ tests/test_world_mechanics_associations.py; tests/test_statblock_saved_revisions
 tests/application_state/test_world_mechanics_associations_postgres.py;
 tests/test_combat_exact_world_mechanics.py; src/application_state/combat_encounters/adoption.py;
 tests/test_combat_mechanics_adoption.py; tests/application_state/test_combat_mechanics_adoption_postgres.py; apps/live-control-ui/src/api/worldMechanicsApi.test.ts;
-and directly owning reader-fence migration expectations if head advancement requires them.
+tests/test_surface_native_writer.py (directly owning reader-fence expectations).
 No overlap with open local-World/ingestion/held Play work.
 
 Verification: current/old model distinction and exact historical digest; actual
@@ -90,3 +90,14 @@ mocks to the existing native catalog. All44 pre-existing adoption-module lint
 findings match origin/main exactly; baseline/current JSON retained, no unrelated
 formatting. Other changed Python owners remain lint-clean. Evidence:
 exact-saved-association-adoption-tests-v1.log and adoption-lint-{base,current}.json.
+
+CI correction: query-and-answer found three fixed0134 head expectations in the
+existing old-reader test. It now captures the actual current head before the
+reader monkeypatch and explicitly includes old134 in the refusal cases. Product
+runtime/UI blobs remain unchanged; original CI failure log retained as
+exact-saved-association-ci-query-job-v1.log. Concurrent2253 was subsequently closed
+unmerged by its owner after independent assessment; its future136 reservation is
+released. Association135 remains the sole shipping next reader fence.
+
+Corrected fence cases:4pass in3.12s (72other tests deselected); explicitold134
+reader refused on current135. Evidence:exact-saved-association-reader-fence-tests-v2.log.
