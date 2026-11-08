@@ -1,5 +1,6 @@
 """GM-authorized explicit World-object mechanics associations."""
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from application_state.errors import ApplicationStateError
@@ -33,6 +34,16 @@ def list_associations(world_id: WorldId, principal: NativeGraphPrincipal = Depen
     try:
         resolve_managed_world_binding(world_id)
         return state.list_current(world_id=world_id)
+    except (ApplicationStateError, WorldGraphProjectionServiceError) as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@router.get("/requests/{request_id}", response_model=WorldMechanicsAssociation | None)
+def association_request(request_id: UUID, world_id: WorldId,
+                        principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency)):
+    try:
+        resolve_managed_world_binding(world_id)
+        return state.find_request(world_id=world_id, request_id=request_id)
     except (ApplicationStateError, WorldGraphProjectionServiceError) as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 

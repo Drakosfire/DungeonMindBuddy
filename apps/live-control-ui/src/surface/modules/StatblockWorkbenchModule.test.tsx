@@ -270,9 +270,9 @@ describe("World-scoped mounted Workbench", () => {
 
   it("reopens admitted saved World mechanics without depending on the expired candidate", async () => {
     const h=harness();
-    h.drafts.set("draft-a", {...draft(),workflow_state:"mechanics_saved"});
     localStorage.setItem(scopedWorkbenchJoinKey(a),JSON.stringify({draft_id:"draft-a",version:1,candidate_id:"cand_expired"}));
-    const locator={provider:"dungeonmind" as const,statblock_id:"sb_saved",revision_id:"rev_saved",contract:"dungeonmind.dungeonbuddy-statblocks",contract_version:"1.0.0",definition_digest:`sha256:${"a".repeat(64)}`};
+    const locator={provider:"dungeonmind" as const,statblock_id:"sb_saved",revision_id:"rev_saved",contract:"dungeonmind.dungeonbuddy-statblocks",contract_version:"1.0.0",definition_digest:`sha256:${"a".repeat(64)}`} as const;
+    h.drafts.set("draft-a", {...draft(),workflow_state:"mechanics_saved",accepted_mechanics_ref:{...locator,accepted_from_draft_version:1,accepted_from_candidate_id:null,accepted_at:"2026-11-08T00:00:00Z"}});
     vi.spyOn(liveApi,"listSavedMechanicsVersions").mockResolvedValue({world_id:a.worldId,draft_id:"draft-a",name:"Saved brute",original:locator,operations:[],pending:null,next_offset:null});
     vi.spyOn(liveApi,"openSavedMechanicsVersion").mockResolvedValue({world_id:a.worldId,draft_id:"draft-a",locator,resource:{...savedRevisionFixture,definition:candidate.definition,statblock_id:locator.statblock_id,revision_id:locator.revision_id} as unknown as Awaited<ReturnType<typeof liveApi.openSavedMechanicsVersion>>["resource"]});
     const creatures=vi.spyOn(liveApi,"listWorldCreatures").mockResolvedValue({schema:"dmb_native_world_creatures_v1",managed_world_id:a.worldId,native_world_id:"native-a",binding_version:1,revision_id:"rev:a",completeness:"complete",targets:[]});
@@ -281,6 +281,8 @@ describe("World-scoped mounted Workbench", () => {
     expect(screen.queryByRole("region",{name:"Associate World creature"})).toBeNull();
     expect(screen.queryByRole("region",{name:"Create World creature"})).toBeNull();
     const open=await screen.findByRole("button",{name:"Open statblock"});
+    expect(screen.queryByRole("region",{name:"Associate World creature"})).toBeNull();
+    await userEvent.click(open);
     const association=await screen.findByRole("region",{name:"Associate World creature"});
     expect(screen.getByRole("region",{name:"Create World creature"})).toBeInTheDocument();
     expect(creatures).not.toHaveBeenCalled();
@@ -289,7 +291,6 @@ describe("World-scoped mounted Workbench", () => {
     expect(creatures).toHaveBeenCalledExactlyOnceWith(a.worldId);
     expect(h.project).not.toHaveBeenCalled();
     expect(h.getCandidate).not.toHaveBeenCalled();
-    await userEvent.click(open);
     expect(await screen.findByRole("region",{name:"Saved statblock"})).toBeInTheDocument();
     expect(h.create).not.toHaveBeenCalled();expect(h.generate).not.toHaveBeenCalled();
   });

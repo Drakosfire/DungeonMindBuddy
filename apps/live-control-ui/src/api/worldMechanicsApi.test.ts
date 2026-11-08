@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { associateWorldMechanics, listWorldMechanicsAssociations, listWorldCreatures, setNativeGraphAccessToken } from "./liveApi";
+import { associateWorldMechanics, findWorldMechanicsAssociationRequest, listWorldMechanicsAssociations, listWorldCreatures, setNativeGraphAccessToken } from "./liveApi";
 import type { AssociateWorldMechanicsRequest } from "./worldMechanicsTypes";
 afterEach(()=>{vi.restoreAllMocks();setNativeGraphAccessToken("");});
 it("authenticates exact association reads and writes without altering the request",async()=>{
@@ -49,4 +49,15 @@ it('keeps distinct campaign variants of one actor in the native response',async(
   const packet=structuredClone(native);packet.targets.push({...packet.targets[0],campaign_scope:'c2'});
   vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json(packet));
   expect((await listWorldCreatures('elderwyld')).targets).toEqual(packet.targets);
+});
+
+
+it('uses the authenticated read-only request lookup for old acknowledgements',async()=>{
+  setNativeGraphAccessToken('association-read-token');
+  const fetch=vi.fn().mockResolvedValue(new Response('null',{status:200,headers:{'Content-Type':'application/json'}}));vi.stubGlobal('fetch',fetch);
+  expect(await findWorldMechanicsAssociationRequest('elderwyld','request-one')).toBeNull();
+  const [url,init]=fetch.mock.calls[0];
+  expect(url).toBe('/api/live/world-mechanics/associations/requests/request-one?world_id=elderwyld');
+  expect(init?.method??'GET').toBe('GET');
+  expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer association-read-token');
 });

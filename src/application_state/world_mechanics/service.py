@@ -11,7 +11,7 @@ from application_state.config import load_runtime_dsn
 from application_state.errors import ApplicationStateConflictError, ApplicationStateIntegrityError
 from application_state.unit_of_work import unit_of_work
 from application_state.world_mechanics.types import (
-    AcceptedMechanicsProof, AssociateWorldMechanicsRequest,
+    SavedMechanicsProof, AssociateWorldMechanicsRequest,
     AssociateWorldMechanicsResponse, WorldMechanicsAssociation,
 )
 
@@ -47,6 +47,15 @@ def replay(request: AssociateWorldMechanicsRequest) -> WorldMechanicsAssociation
         return _replay(conn, request.target.managed_world_id, request)
 
 
+def find_request(*, world_id: str, request_id) -> WorldMechanicsAssociation | None:
+    """Read a retained acknowledgement without replaying an obsolete write shape."""
+    with unit_of_work(_dsn()) as conn:
+        return _load(conn.execute(
+            "SELECT payload FROM world_mechanics.association WHERE world_id=%s AND request_id=%s",
+            (world_id, request_id),
+        ).fetchone())
+
+
 def list_current(*, world_id: str) -> list[WorldMechanicsAssociation]:
     with unit_of_work(_dsn()) as conn:
         rows = conn.execute(
@@ -56,8 +65,10 @@ def list_current(*, world_id: str) -> list[WorldMechanicsAssociation]:
         return [_load(row) for row in rows]
 
 
-def append_verified(*, request: AssociateWorldMechanicsRequest, proof: AcceptedMechanicsProof,
+def append_verified(*, request: AssociateWorldMechanicsRequest, proof: SavedMechanicsProof,
                     actor: str) -> AssociateWorldMechanicsResponse:
+    if not isinstance(request, AssociateWorldMechanicsRequest) or not isinstance(proof, SavedMechanicsProof):
+        raise ApplicationStateIntegrityError("Only explicitly selected saved revisions can be associated")
     world = request.target.managed_world_id
     with unit_of_work(_dsn()) as conn:
         # Separate locks serialize key reuse and slot CAS, including absent slots.

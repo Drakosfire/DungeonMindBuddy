@@ -11,20 +11,23 @@ export interface WorldMechanicsTarget {
   role: string;
   campaign_scope: string | null;
 }
-export interface AssociateWorldMechanicsRequest {
+export interface HistoricalAssociateWorldMechanicsRequest {
   request_id: string;
   draft_id: string;
   expected_draft_version: number;
   target: WorldMechanicsTarget;
   expected_version: number;
 }
+export type SavedMechanicsLocator = Pick<AcceptedMechanicsRefV1, "provider" | "statblock_id" | "revision_id" | "contract" | "contract_version" | "definition_digest">;
+export interface AssociateWorldMechanicsRequest extends HistoricalAssociateWorldMechanicsRequest { locator: SavedMechanicsLocator }
+export interface SavedMechanicsProof { locator:SavedMechanicsLocator; origin_locator:SavedMechanicsLocator; origin_acceptance_operation_id:string; revision_operation_id:string|null }
 export interface WorldMechanicsAssociation {
   association_id: string;
-  request: AssociateWorldMechanicsRequest;
+  request: AssociateWorldMechanicsRequest | HistoricalAssociateWorldMechanicsRequest;
   request_digest: string;
   version: number;
   previous_association_id: string | null;
-  proof: {
+  proof: SavedMechanicsProof | {
     locator: Pick<AcceptedMechanicsRefV1, "provider" | "statblock_id" | "revision_id" | "contract" | "contract_version" | "definition_digest">;
     acceptance_operation_id: string;
     accepted_from_draft_version: number;

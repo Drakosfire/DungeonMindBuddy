@@ -1,30 +1,21 @@
-"""Verify existing accepted mechanics and World identity before APP association."""
+"""Verify one selected saved revision and native creature before APP association."""
 from __future__ import annotations
 
 from pathlib import Path
 
-from application_state.errors import ApplicationStateConflictError, ApplicationStateIntegrityError, ApplicationStateUnavailableError
+from application_state.errors import ApplicationStateConflictError, ApplicationStateUnavailableError
 from apps.live_control_server.config import ArtifactDataRootError, artifact_data_root, repo_root
 from application_state.world_mechanics import service as state
 from application_state.world_mechanics.types import (
-    AcceptedMechanicsProof, AssociateWorldMechanicsRequest,
-    AssociateWorldMechanicsResponse,
-)
-from apps.live_control_server.integrations.dungeonmind_statblocks.client import (
-    build_statblock_v1_client, verify_exact_revision_mechanics_integrity,
-)
-from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import source_definition_digest_from_body
-from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
-    locator_from_exact_revision, same_mechanics_locator,
+    SavedMechanicsProof, AssociateWorldMechanicsRequest, AssociateWorldMechanicsResponse,
 )
 from apps.live_control_server.services import world_creature_selection as creatures
-from apps.live_control_server.services.statblock_acceptance_reconciliation import list_acceptance_operations_for_draft
-from apps.live_control_server.services.threat_draft_store import get_threat_draft, locked_threat_draft
+from apps.live_control_server.services.statblock_saved_revision import resolve_saved_source
+from apps.live_control_server.services.threat_draft_store import locked_threat_draft
 
 
 def associate(*, root: Path | None = None, request: AssociateWorldMechanicsRequest, actor: str,
               client=None) -> AssociateWorldMechanicsResponse:
-    # Lost acknowledgements must not repeat external work or become fresh writes.
     previous = state.replay(request)
     if previous is not None:
         return AssociateWorldMechanicsResponse(association=previous, replayed=True)
@@ -32,51 +23,19 @@ def associate(*, root: Path | None = None, request: AssociateWorldMechanicsReque
         try:
             root = artifact_data_root(default=repo_root())
         except ArtifactDataRootError as exc:
-            raise ApplicationStateUnavailableError("Accepted mechanics storage is unavailable") from exc
-    draft = get_threat_draft(root, str(request.draft_id))
-    if draft.schema_name != "dmb_threat_draft_v2" or draft.world_id != request.target.managed_world_id:
-        raise ApplicationStateConflictError("Accepted draft belongs to a different World or scope")
+            raise ApplicationStateUnavailableError("Saved mechanics storage is unavailable") from exc
+    draft, origin, anchor, revision_operation, _ = resolve_saved_source(
+        root, world_id=request.target.managed_world_id, draft_id=str(request.draft_id),
+        locator=request.locator, client=client,
+    )
     if draft.version != request.expected_draft_version:
         raise ApplicationStateConflictError("Saved mechanics draft changed; reopen before associating")
-    accepted = draft.accepted_mechanics_ref
-    if draft.workflow_state != "mechanics_saved" or accepted is None:
-        raise ApplicationStateConflictError("Save accepted mechanics before associating a creature")
-    operations = list_acceptance_operations_for_draft(root, draft_id=draft.draft_id)
-    matches = [operation for operation in operations if (
-        operation.authority_state == "reconciled" and operation.materialization.draft_ref == "attached"
-        and operation.source_draft_id == draft.draft_id
-        and operation.source_draft_version == accepted.accepted_from_draft_version
-        and operation.source_candidate_id == accepted.accepted_from_candidate_id
-        and operation.validation_receipt_digest == accepted.definition_digest
-        and source_definition_digest_from_body(operation.request_body["definition"]) == accepted.definition_digest
-        and operation.locator is not None
-        and same_mechanics_locator(operation.locator, accepted.to_mechanics_locator())
-    )]
-    if len(matches) != 1:
-        raise ApplicationStateIntegrityError("Accepted mechanics have no unique reconciled acceptance proof")
-    operation = matches[0]
-    owned = client is None
-    exact_client = build_statblock_v1_client() if owned else client
-    try:
-        revision = exact_client.get_exact_revision(accepted.statblock_id, accepted.revision_id)
-        verify_exact_revision_mechanics_integrity(revision)
-        if not same_mechanics_locator(locator_from_exact_revision(revision), accepted.to_mechanics_locator()):
-            raise ApplicationStateIntegrityError("Exact mechanics revision does not match accepted identity")
-    finally:
-        if owned:
-            exact_client.close()
-    target = request.target
-    view = creatures.catalog(target.managed_world_id)
-    creatures.require_target(target, view, head=True)
+    view = creatures.catalog(request.target.managed_world_id)
+    creatures.require_target(request.target, view, head=True)
     with locked_threat_draft(root, draft.draft_id) as current:
         if current != draft:
             raise ApplicationStateConflictError("Saved mechanics draft changed during verification; reopen it")
-        # The draft CAS is held through APP append; Graph observation remains
-        # historical evidence rather than a distributed head lock.
-        return state.append_verified(request=request, actor=actor, proof=AcceptedMechanicsProof(
-            locator=accepted.to_mechanics_locator().model_dump(mode="json"),
-            acceptance_operation_id=operation.operation_id,
-            accepted_from_draft_version=operation.source_draft_version,
-            accepted_from_candidate_id=operation.source_candidate_id,
-            acceptance_request_digest=operation.create_request_digest,
+        return state.append_verified(request=request, actor=actor, proof=SavedMechanicsProof(
+            locator=request.locator, origin_locator=origin.model_dump(mode="json"),
+            origin_acceptance_operation_id=anchor, revision_operation_id=revision_operation,
         ))

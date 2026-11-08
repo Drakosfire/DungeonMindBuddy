@@ -8,13 +8,13 @@ import pytest
 from application_state.errors import ApplicationStateConflictError
 from application_state.world_mechanics import service
 from application_state.world_mechanics.types import (
-    AcceptedMechanicsProof, AssociateWorldMechanicsRequest, WorldMechanicsTarget,
+    SavedMechanicsProof, AssociateWorldMechanicsRequest, HistoricalAssociateWorldMechanicsRequest, AcceptedMechanicsProof, WorldMechanicsAssociation, WorldMechanicsTarget,
 )
 
 
 def request(**changes):
     body = dict(request_id=uuid4(), draft_id=uuid4(), expected_draft_version=3,
-                expected_version=0, target=WorldMechanicsTarget(
+                expected_version=0, locator=proof().locator, target=WorldMechanicsTarget(
                     managed_world_id="elderwyld", native_world_id="world:opaque", binding_version=1,
                     graph_revision_id="rev:head", node_id="node:keeper", label="Keeper",
                     kind="npc", role="", campaign_scope=None))
@@ -22,10 +22,11 @@ def request(**changes):
 
 
 def proof():
-    return AcceptedMechanicsProof(locator=dict(provider="dungeonmind",statblock_id="sb_one",revision_id="rev_exact",
-        contract="dungeonmind.dungeonbuddy-statblocks",contract_version="1.0.0",definition_digest="sha256:"+"a"*64),
-        acceptance_operation_id=str(uuid4()),accepted_from_draft_version=2,
-        accepted_from_candidate_id="cand_one",acceptance_request_digest="sha256:"+"b"*64)
+    locator=dict(provider="dungeonmind",statblock_id="sb_one",revision_id="rev_exact",
+        contract="dungeonmind.dungeonbuddy-statblocks",contract_version="1.0.0",definition_digest="sha256:"+"a"*64)
+    return SavedMechanicsProof(locator=locator,origin_locator=locator,
+        origin_acceptance_operation_id=str(uuid4()),revision_operation_id=None)
+
 
 
 def test_append_replay_replace_history_scope_and_reopen(application_state_dsn):
@@ -71,17 +72,39 @@ def test_concurrent_writes_have_one_durable_winner(application_state_dsn,same_ke
         assert conn.execute('SELECT count(*) FROM world_mechanics.association').fetchone()[0]==1
 
 
-def test_additive_migration_preserves_encounters_and_refuses_populated_downgrade(application_state_dsn):
+def test_reader_fence_preserves_retained_state_and_refuses_old_reader(application_state_dsn):
     from alembic import command
     from application_state.cli import alembic_config, assert_at_head
     from application_state.combat_encounters.service import create_encounter,get_encounter
     from application_state.combat_encounters.types import CreateCombatEncounterRequest
     encounter=create_encounter(world_id="elderwyld",request=CreateCombatEncounterRequest(title="Retained fight"))
-    command.downgrade(alembic_config(),"20261020_0042")
-    command.upgrade(alembic_config(),"head")
-    assert get_encounter(world_id="elderwyld",encounter_id=encounter.encounter_id)==encounter
-    service.append_verified(request=request(),proof=proof(),actor="gm")
-    with pytest.raises(RuntimeError,match="Cannot downgrade"):
-        command.downgrade(alembic_config(),"20261020_0042")
+    record=service.append_verified(request=request(),proof=proof(),actor="gm").association
+    with pytest.raises(RuntimeError,match="Older readers"):
+        command.downgrade(alembic_config(),"20261108_0134")
     assert_at_head(dsn=application_state_dsn)
-    assert len(service.list_current(world_id="elderwyld"))==1
+    assert get_encounter(world_id="elderwyld",encounter_id=encounter.encounter_id)==encounter
+    assert service.list_current(world_id="elderwyld")==[record]
+
+
+def test_historical_payload_remains_readable_with_unchanged_digest_but_cannot_append(application_state_dsn):
+    import hashlib,json
+    from datetime import datetime,UTC
+    from psycopg.types.json import Jsonb
+    from application_state.errors import ApplicationStateIntegrityError
+    body=request();old_body=body.model_dump(mode='json');old_body.pop('locator')
+    old=HistoricalAssociateWorldMechanicsRequest.model_validate(old_body)
+    old_digest=hashlib.sha256(json.dumps(old_body,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+    original=AcceptedMechanicsProof(locator=body.locator,acceptance_operation_id='accept-old',
+        accepted_from_draft_version=2,accepted_from_candidate_id=None,acceptance_request_digest='sha256:'+'b'*64)
+    record=WorldMechanicsAssociation(association_id=uuid4(),request=old,request_digest=old_digest,
+        version=1,previous_association_id=None,proof=original,actor='gm',created_at=datetime.now(UTC))
+    raw=record.model_dump(mode='json')
+    with psycopg.connect(application_state_dsn) as c:
+        c.execute('INSERT INTO world_mechanics.association (association_id,world_id,node_id,version,request_id,previous_association_id,payload) VALUES(%s,%s,%s,%s,%s,%s,%s)',
+            (record.association_id,'elderwyld',old.target.node_id,1,old.request_id,None,Jsonb(raw)))
+    assert service.list_current(world_id='elderwyld')==[record]
+    assert service.find_request(world_id='elderwyld',request_id=old.request_id).model_dump(mode='json')==raw
+    assert record.request.digest==old_digest
+    with pytest.raises(ApplicationStateIntegrityError):service.append_verified(request=old,proof=original,actor='gm')
+    with pytest.raises(ApplicationStateConflictError):service.replay(body)
+    assert service.find_request(world_id='foreign',request_id=old.request_id) is None

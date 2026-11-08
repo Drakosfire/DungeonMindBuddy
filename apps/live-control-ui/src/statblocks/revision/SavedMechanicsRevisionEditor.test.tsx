@@ -11,7 +11,7 @@ const generatedBinding=vi.hoisted(()=>({current:null as import('../../guidedTour
 vi.mock('../../guidedTour/GuidedTour',()=>({useGuidedTour:()=>({captureScope:()=>null,captureMechanicsScope:()=>generatedBinding.current}),useTourOwnerReading:(reading:TourOwnerReading|null)=>{if(reading)tourReadings.set(reading.step,reading);}}));
 import {baseCandidateDefinition} from '../editor/editorFixtures';
 import type {OpenSavedMechanicsVersion,RevisionSaveOutcome,SavedMechanicsVersionList} from './savedMechanicsRevisionTypes';
-vi.mock('../../api/liveApi',()=>({listSavedMechanicsVersions:vi.fn(),openSavedMechanicsVersion:vi.fn(),saveMechanicsRevision:vi.fn(),recoverMechanicsRevision:vi.fn(),inspectMechanicsRevision:vi.fn(),validateStatblockDefinition:vi.fn()}));
+vi.mock('../../api/liveApi',()=>({listSavedMechanicsVersions:vi.fn(),openSavedMechanicsVersion:vi.fn(),saveMechanicsRevision:vi.fn(),recoverMechanicsRevision:vi.fn(),inspectMechanicsRevision:vi.fn(),validateStatblockDefinition:vi.fn(),listWorldCreatures:vi.fn(),listWorldMechanicsAssociations:vi.fn(),getThreatDraft:vi.fn(),associateWorldMechanics:vi.fn(),findWorldMechanicsAssociationRequest:vi.fn()}));
 const portrait='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const studio=vi.hoisted(()=>({props:null as any}));
 vi.mock('../../media/MediaImageWizard',()=>({MediaImageWizard:(props:any)=>{
@@ -352,4 +352,32 @@ it('keeps a late committed outcome bound to its original source during exact-ent
  sessionStorage.setItem('dmb-manual-mechanics-writer','late-writer');const key=`dmb-manual-mechanics:${JSON.stringify(['late-writer',world,draft])}:pending`;localStorage.setItem(key,outcome.operation_id);vi.mocked(api.inspectMechanicsRevision).mockResolvedValueOnce({operation:null}).mockResolvedValue({operation:outcome});vi.mocked(api.recoverMechanicsRevision).mockResolvedValue(outcome);
  render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft} autoLoad initialRevisionId={next.revision_id}/>);await screen.findByText(/A retained Save has no confirmed source/);await userEvent.click(screen.getByRole('button',{name:'Recover Save'}));await screen.findByText(/The saved outcome belongs to its original source/);expect(localStorage.getItem(key)).toBe(outcome.operation_id);expect(api.openSavedMechanicsVersion).not.toHaveBeenCalled();
  await userEvent.click(screen.getByRole('button',{name:'Open Save source for recovery'}));await screen.findByLabelText('Creature name');expect(api.openSavedMechanicsVersion).toHaveBeenLastCalledWith(draft,world,base.revision_id);await userEvent.click(screen.getByRole('button',{name:'Recover Save'}));await screen.findByText(/New mechanics version saved/);expect(localStorage.getItem(key)).toBeNull();expect(api.recoverMechanicsRevision).toHaveBeenNthCalledWith(2,draft,world,outcome.operation_id);expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
+});
+
+
+it('associates the selected saved successor through the same editor and blocks switching during the write',async()=>{
+  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:async(_key:string,action:()=>unknown)=>action()}});
+  vi.mocked(api.listSavedMechanicsVersions).mockResolvedValue({...page(),operations:[outcome]});
+  vi.mocked(api.getThreatDraft).mockResolvedValue({schema:'dmb_threat_draft_v2',world_id:world,draft_id:draft,version:4,workflow_state:'mechanics_saved',accepted_mechanics_ref:base} as unknown as Awaited<ReturnType<typeof api.getThreatDraft>>);
+  const target={managed_world_id:world,native_world_id:'world:native',binding_version:1,graph_revision_id:'rev:head',node_id:'ent:ooze',label:'Ooze',kind:'creature',role:'',campaign_scope:null};
+  vi.mocked(api.listWorldCreatures).mockResolvedValue({schema:'dmb_native_world_creatures_v1',managed_world_id:world,native_world_id:target.native_world_id,binding_version:1,revision_id:'rev:head',completeness:'complete',targets:[target]});
+  vi.mocked(api.listWorldMechanicsAssociations).mockResolvedValue([]);
+  let finish!:(value:any)=>void;
+  vi.mocked(api.associateWorldMechanics).mockReturnValue(new Promise(resolve=>{finish=resolve;}));
+  const observed=vi.fn();
+  render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft} autoLoad initialRevisionId={next.revision_id} onSessionStateChange={observed}/>);
+  await screen.findByLabelText('Creature name');
+  await userEvent.click(screen.getByRole('button',{name:'Load creatures'}));
+  await userEvent.selectOptions(await screen.findByRole('combobox',{name:'World creature'}),JSON.stringify([target.node_id,null]));
+  await userEvent.click(screen.getByRole('button',{name:'Associate creature mechanics'}));
+  await waitFor(()=>expect(api.associateWorldMechanics).toHaveBeenCalledOnce());
+  const [selectedWorld,request]=vi.mocked(api.associateWorldMechanics).mock.calls[0];
+  expect(selectedWorld).toBe(world);expect(request.locator).toEqual(next);expect(request.expected_draft_version).toBe(4);
+  expect(screen.getByLabelText('Creature name')).toBeDisabled();
+  expect(screen.getByRole('combobox',{name:'Saved mechanics version'})).toBeDisabled();
+  expect(observed).toHaveBeenLastCalledWith(expect.objectContaining({revisionId:next.revision_id,busy:true}));
+  finish({replayed:false,association:{association_id:'saved-association',request,request_digest:'a'.repeat(64),version:1,previous_association_id:null,proof:{locator:next,origin_locator:base,origin_acceptance_operation_id:'accepted',revision_operation_id:outcome.operation_id},actor:'gm',created_at:'2026-11-08T00:00:00Z'}});
+  await screen.findByText(/Mechanics associated with Ooze/);
+  expect(screen.getByLabelText('Creature name')).not.toBeDisabled();
+  expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
 });
