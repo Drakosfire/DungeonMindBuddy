@@ -7,7 +7,7 @@ import {savedStatblockHref} from '../statblocks/savedStatblockLocation';
 import {interceptPrimaryNavigationClick} from '../chrome/appNavigation';
 
 /** Read existing APP links; a preview never adopts mechanics or changes Graph facts. */
-export function NativeObjectStatblock({pin,entityId}:{pin:InspectionPin;entityId:string}) {
+export function NativeObjectStatblock({pin,entityId,inlineHost,onInlineOpened}:{pin:InspectionPin;entityId:string;inlineHost?:HTMLElement;onInlineOpened?:()=>void}) {
  const [result,setResult]=useState<{key:string;records:WorldMechanicsAssociation[]}|null>(null);
  const [failure,setFailure]=useState<{key:string;text:string}|null>(null),[retry,setRetry]=useState(0);
  const key=JSON.stringify([pin,entityId]);
@@ -30,6 +30,7 @@ export function NativeObjectStatblock({pin,entityId}:{pin:InspectionPin;entityId
    return <section key={record.association_id} aria-label={`Statblock · ${record.request.target.campaign_scope??'World'}`}>
     <p>Saved statblock · {record.request.target.campaign_scope??'World'}</p>
     <SavedStatblockButton {...target} label="Preview and edit statblock"/>
+    {inlineHost&&<SavedStatblockButton {...target} inlineHost={inlineHost} onOpened={onInlineOpened} label="Edit here"/>}
     <a href={savedStatblockHref(target)} onClick={interceptPrimaryNavigationClick}>Open full statblock</a>
     <details><summary>Link details</summary><p>Saved version: {target.revisionId}</p><p>Linked at Graph revision: {record.request.target.graph_revision_id}</p><p>This link does not adopt mechanics into an encounter.</p></details>
    </section>;

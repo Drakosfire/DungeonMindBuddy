@@ -3,11 +3,11 @@ import {inspectNativeGraph} from '../api/liveApi';
 import {SourceCitationEvidence,type CitationChoice} from '../planSurface/components/SourceCitationEvidence';
 import {NativeObjectStatblock} from './NativeObjectStatblock';
 
-export function NativeGraphObjectDetails({detail,entityId,label,labels=new Map<string,string>([[entityId,label]])}:{detail:NativeGraphEntity;entityId:string;label:string;labels?:Map<string,string>}) {
+export function NativeGraphObjectDetails({detail,entityId,label,labels=new Map<string,string>([[entityId,label]]),inlineHost,onInlineOpened}:{detail:NativeGraphEntity;entityId:string;label:string;labels?:Map<string,string>;inlineHost?:HTMLElement;onInlineOpened?:()=>void}) {
  return <>
   <h3>{label}</h3>
   {!detail.entity.found?<p>This object is unavailable in the selected revision.</p>:<>
-   <NativeObjectStatblock key={JSON.stringify([detail.scope,entityId])} pin={detail.scope} entityId={entityId}/>
+   <NativeObjectStatblock key={JSON.stringify([detail.scope,entityId])} pin={detail.scope} entityId={entityId} inlineHost={inlineHost} onInlineOpened={onInlineOpened}/>
    {detail.entity.completeness.status!=='complete'?<p role="status">Some records are unavailable.</p>:null}
    {!detail.entity.assertions.length?<p>No admitted records for this object in this view.</p>:null}
    {detail.entity.assertions.map(a=><NativeRecord key={`${entityId}:${a.assertion_id}`} assertion={a} detail={detail} labels={labels}/>)}

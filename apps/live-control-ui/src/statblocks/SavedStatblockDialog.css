@@ -11,20 +11,32 @@
 }
 .saved-statblock-dialog[open] { display: flex; flex-direction: column; }
 .saved-statblock-dialog::backdrop { background: rgb(0 0 0 / .6); }
-.saved-statblock-dialog > header {
+.saved-statblock-frame > header {
   display: flex; align-items: center; justify-content: space-between; gap: 1rem;
   padding: .75rem 1rem; border-block-end: 1px solid var(--border-subtle, #586576);
 }
-.saved-statblock-dialog > header > div { display: flex; align-items: center; gap: .5rem; }
+.saved-statblock-frame > header > div { display: flex; align-items: center; gap: .5rem; }
 .saved-statblock-dialog__body { min-block-size: 0; overflow: auto; padding: 1rem; }
 .saved-statblock-dialog__body > .statblock-section { margin: 0; }
 .saved-statblock-dialog--expanded { inline-size: calc(100vw - 2rem); block-size: calc(100dvh - 2rem); }
 @media (max-width: 40rem) {
   .saved-statblock-dialog { inline-size: calc(100vw - 1rem); max-inline-size: calc(100vw - 1rem); max-block-size: calc(100dvh - 1rem); }
-  .saved-statblock-dialog > header { gap: .5rem; padding: .5rem; }
+  .saved-statblock-frame > header { gap: .5rem; padding: .5rem; }
   .saved-statblock-dialog__body { padding: .5rem; }
 }
 
 .saved-statblock-dialog__body > .statblock-section > label { display: block; max-inline-size: 100%; }
 .saved-statblock-dialog__body > .statblock-section > label > select,
 .saved-statblock-dialog__body > .statblock-section > label > input { box-sizing: border-box; inline-size: 100%; max-inline-size: 100%; }
+
+.saved-statblock-frame { min-inline-size:0; min-block-size:0; display:flex; flex-direction:column; }
+.saved-statblock-inline-slot:not(:empty) { margin-block:.75rem; border:1px solid var(--border-subtle,#586576); border-radius:.75rem; background:var(--surface-panel,#1c2837); color:var(--text-primary,#e2e7ee); }
+.saved-statblock-inline-slot .saved-statblock-dialog__body { overflow:visible; }
+.saved-statblock-inline-slot .saved-statblock-frame > header { flex-wrap:wrap; }
+
+.saved-statblock-mount { min-inline-size:0; min-block-size:0; display:flex; flex-direction:column; }
+
+/* A shared editable object uses the message track, not the text-bubble width. */
+.world-plan-agent-conversation__message:has(.saved-statblock-inline-slot:not(:empty)) { inline-size:100%; max-inline-size:100%; }
+
+.saved-statblock-frame fieldset { min-inline-size:0; max-inline-size:100%; margin-inline:0; box-sizing:border-box; }
