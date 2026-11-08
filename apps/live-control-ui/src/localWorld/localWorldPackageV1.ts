@@ -146,7 +146,9 @@ function exactKeys(value: Record<string, unknown>, expected: readonly string[], 
   const prototype = Object.getPrototypeOf(value);
   if (prototype !== Object.prototype && prototype !== null) fail("invalid-package", `${label} must be a plain JSON object.`);
   if (Object.getOwnPropertySymbols(value).length > 0) fail("invalid-package", `${label} cannot contain symbol fields.`);
-  const actual = Object.keys(value).sort();
+  // Include hidden own string properties in the schema check. Object.keys()
+  // would silently miss non-enumerable source/provenance fields during export.
+  const actual = Object.getOwnPropertyNames(value).sort();
   const wanted = [...expected].sort();
   if (actual.length !== wanted.length || actual.some((key, index) => key !== wanted[index])) {
     fail("invalid-package", `${label} has unsupported or missing fields.`);
@@ -217,7 +219,12 @@ function canonicalJson(value: unknown, maxBytes = LOCAL_WORLD_PACKAGE_V1.limits.
     if (Array.isArray(item)) {
       const descriptors = Object.getOwnPropertyDescriptors(item);
       for (const key of Object.getOwnPropertyNames(item)) {
-        if (key !== "length" && !/^(0|[1-9]\d*)$/.test(key)) fail("invalid-package", "JSON arrays cannot contain named properties.");
+        if (key === "length") continue;
+        if (!/^(0|[1-9]\d*)$/.test(key)) fail("invalid-package", "JSON arrays cannot contain named properties.");
+        const index = Number(key);
+        if (!Number.isSafeInteger(index) || index >= item.length || index > 0xffff_fffe) {
+          fail("invalid-package", "JSON arrays cannot contain non-index numeric properties.");
+        }
       }
       append("[");
       for (let index = 0; index < item.length; index += 1) {
@@ -331,12 +338,14 @@ function validateHistory(value: unknown, localRevision: number): readonly LocalW
   if (!Array.isArray(value)) fail("invalid-record", "History must be an array.");
   if (value.length > LOCAL_WORLD_PACKAGE_V1.limits.historyCount) fail("limit-exceeded", "History exceeds the 1,000 entry package limit.");
   const ids = new Set<string>();
-  let previousRevision = 0;
+  // Repository-created Worlds start at semantic revision 0 and carry a seed
+  // history event at that same revision. Later history entries remain strict.
+  let previousRevision = -1;
   for (const entryValue of value) {
     const entry = objectRecord(entryValue, "history entry");
     exactKeys(entry, ["id", "localRevision", "classification", "description"], "history entry");
     if (typeof entry.id !== "string" || !entry.id.startsWith("local-edit:") || ids.has(entry.id)) fail("invalid-record", "History contains an invalid or duplicate local edit ID.");
-    if (!isInteger(entry.localRevision, 1) || entry.localRevision > localRevision || entry.localRevision <= previousRevision) {
+    if (!isInteger(entry.localRevision) || entry.localRevision > localRevision || entry.localRevision <= previousRevision) {
       fail("invalid-record", "History revisions must be increasing and no greater than the local revision.");
     }
     if (entry.classification !== "supported-semantic-intent" && entry.classification !== "buddy-local-only") {

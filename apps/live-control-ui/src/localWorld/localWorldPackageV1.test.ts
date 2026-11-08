@@ -1,4 +1,6 @@
+// @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
+import { InMemoryLocalWorldRepository } from "./inMemoryLocalWorldRepository";
 import {
   encodeLocalWorldPackageV1,
   LOCAL_WORLD_PACKAGE_V1,
@@ -10,6 +12,7 @@ import {
   packageFixtureAttachmentBytes,
 } from "./localWorldPackageFixtures";
 import type { LocalWorldRecord } from "./localWorldRepository";
+import { createTestWorld, sequenceLocalIds } from "./localWorldContractFixtures";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -38,6 +41,44 @@ async function encodedFixture(record = createPackageTestRecord()): Promise<Map<s
 }
 
 describe("normalized local World package v1 core", () => {
+  it("round-trips the repository-created revision-zero seed and subsequent semantic/layout edits", async () => {
+    const repository = new InMemoryLocalWorldRepository({ idFactory: sequenceLocalIds() });
+    const seed = await createTestWorld(repository, "Repository seed");
+    expect(seed.localRevision).toBe(0);
+    expect(seed.history[0]).toMatchObject({ localRevision: 0, description: "Created local World draft" });
+
+    const encodedSeed = await encodeLocalWorldPackageV1(seed);
+    expect(encodedSeed.status).toBe("encoded");
+    if (encodedSeed.status !== "encoded") return;
+    const parsedSeed = await parseLocalWorldPackageV1(encodedSeed.members);
+    expect(parsedSeed.status).toBe("staged");
+    if (parsedSeed.status !== "staged") return;
+    expect(parsedSeed.candidate.record).toEqual(seed);
+
+    const edited = await repository.commitSemanticEdit({
+      worldId: seed.snapshot.worldId,
+      expectedLocalRevision: seed.localRevision,
+      nextSnapshot: { ...seed.snapshot, title: "Repository-edited World" },
+      edit: { classification: "buddy-local-only", description: "Updated the local title" },
+    });
+    expect(edited.status).toBe("committed");
+    if (edited.status !== "committed") return;
+    const laidOut = await repository.writeLayout({
+      worldId: seed.snapshot.worldId,
+      expectedLayoutRevision: edited.record.layoutRevision,
+      nextLayout: { ...edited.record.layout, viewport: { ...edited.record.layout.viewport, x: 18 } },
+    });
+    expect(laidOut.status).toBe("written");
+    if (laidOut.status !== "written") return;
+
+    const encodedUpdated = await encodeLocalWorldPackageV1(laidOut.record);
+    expect(encodedUpdated.status).toBe("encoded");
+    if (encodedUpdated.status !== "encoded") return;
+    const parsedUpdated = await parseLocalWorldPackageV1(encodedUpdated.members);
+    expect(parsedUpdated.status).toBe("staged");
+    if (parsedUpdated.status === "staged") expect(parsedUpdated.candidate.record).toEqual(laidOut.record);
+  });
+
   it("round-trips semantic identities, same-name objects, layout, history and honest limitations", async () => {
     const record = createPackageTestRecord();
     const encoded = await encodeLocalWorldPackageV1(record);
@@ -351,6 +392,19 @@ describe("normalized local World package v1 core", () => {
     const orphanBytes = encoder.encode("orphan");
     const orphan = await addPackageFixtureReferences(base, {}, new Map([["documents/orphan.txt", orphanBytes]]));
     expect(await parseLocalWorldPackageV1(orphan)).toMatchObject({ status: "error", code: "invalid-package" });
+  });
+
+  it("refuses hidden top-level data and non-index numeric array properties instead of dropping them", async () => {
+    const hiddenField = createPackageTestRecord();
+    Object.defineProperty(hiddenField, "sourceMetadata", { value: { document: "must-not-disappear" }, enumerable: false });
+    expect(await encodeLocalWorldPackageV1(hiddenField)).toMatchObject({ status: "error" });
+
+    const namedArrayProperty = createPackageTestRecord();
+    Object.defineProperty(namedArrayProperty.snapshot.objects[0].properties.tags as unknown[], "4294967295", {
+      value: "must-not-disappear",
+      enumerable: true,
+    });
+    expect(await encodeLocalWorldPackageV1(namedArrayProperty)).toMatchObject({ status: "error" });
   });
 
   it("keeps staged results isolated from both input buffers and package members", async () => {
