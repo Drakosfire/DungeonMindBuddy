@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { BlobWriter, Uint8ArrayReader, ZipWriter } from "@zip.js/zip.js";
 import { describe, expect, it } from "vitest";
-import { encodeLocalWorldPackageV1 } from "./localWorldPackageV1";
+import { encodeLocalWorldPackageV1, parseLocalWorldPackageV1 } from "./localWorldPackageV1";
 import { addPackageFixtureReferences, createPackageTestRecord, packageFixtureAttachmentBytes } from "./localWorldPackageFixtures";
 import { decodeLocalWorldPackageZipV1, encodeLocalWorldPackageZipV1, LOCAL_WORLD_PACKAGE_ZIP_V1 } from "./localWorldPackageZipV1";
 import { createTestWorld, sequenceLocalIds } from "./localWorldContractFixtures";
@@ -18,6 +18,14 @@ async function membersWithAssets() {
     documents: [{ id: "doc:opaque", status: "bundled", path: "documents/source.txt", mediaType: "text/plain", locator: null }],
     assets: [{ id: "asset:binary", status: "bundled", path: `assets/${assetName}`, mediaType: "application/octet-stream", locator: null }],
   }, new Map([["documents/source.txt", document], [`assets/${assetName}`, asset]]));
+}
+
+async function membersWithDocuments(paths: readonly string[]) {
+  const core = await encodeLocalWorldPackageV1(createPackageTestRecord());
+  if (core.status !== "encoded") throw new Error(core.message);
+  const references = paths.map((path, index) => ({ id: `doc:${index}`, status: "bundled" as const, path, mediaType: "text/plain", locator: null }));
+  const attachments = new Map(paths.map((path) => [path, new TextEncoder().encode(`Opaque document bytes for ${path}`)]));
+  return addPackageFixtureReferences(core.members, { documents: references }, attachments);
 }
 
 async function writeZip(members: ReadonlyMap<string, Uint8Array>): Promise<Blob> {
@@ -70,6 +78,36 @@ describe("bounded local World ZIP v1 transport", () => {
     const assetPath = [...members.keys()].find((path) => path.startsWith("assets/"))!;
     expect(decoded.parsed.candidate.members.get(assetPath)).toEqual(packageFixtureAttachmentBytes.asset);
     expect(decoded.parsed.candidate.record.snapshot.objects.filter((item) => item.name === "The Lantern Keeper")).toHaveLength(2);
+  });
+
+  it("round-trips valid Unicode paths and refuses UTF-8 byte overflow or portable collisions before writing", async () => {
+    const validPath = "documents/café-notes.txt";
+    const validMembers = await membersWithDocuments([validPath]);
+    const validArchive = await encodeLocalWorldPackageZipV1(validMembers);
+    expect(validArchive.status).toBe("encoded");
+    if (validArchive.status !== "encoded") return;
+    const validDecoded = await decodeLocalWorldPackageZipV1(validArchive.blob);
+    expect(validDecoded.status).toBe("staged");
+    if (validDecoded.status === "staged") expect(validDecoded.parsed.candidate.members.get(validPath)).toEqual(validMembers.get(validPath));
+
+    const oversizedPath = `documents/${"é".repeat(130)}`;
+    const oversizedMembers = await membersWithDocuments([oversizedPath]);
+    expect((await parseLocalWorldPackageV1(oversizedMembers)).status).toBe("error");
+    const oversizedExport = await encodeLocalWorldPackageZipV1(oversizedMembers);
+    expect(oversizedExport.status).toBe("error");
+    expect((await decodeLocalWorldPackageZipV1(await writeZip(new Map([[oversizedPath, new Uint8Array([1])]])))).status).toBe("error");
+    const illFormedUnicode = await membersWithDocuments(["documents/\ud800.txt"]);
+    expect((await parseLocalWorldPackageV1(illFormedUnicode)).status).toBe("error");
+    expect((await encodeLocalWorldPackageZipV1(illFormedUnicode)).status).toBe("error");
+    const trailingHighSurrogate = await membersWithDocuments(["documents/file\ud800"]);
+    expect((await parseLocalWorldPackageV1(trailingHighSurrogate)).status).toBe("error");
+
+    const collidingPaths = ["documents/Name.txt", "documents/name.txt"];
+    const collidingMembers = await membersWithDocuments(collidingPaths);
+    expect((await parseLocalWorldPackageV1(collidingMembers)).status).toBe("error");
+    const collidingExport = await encodeLocalWorldPackageZipV1(collidingMembers);
+    expect(collidingExport.status).toBe("error");
+    expect((await decodeLocalWorldPackageZipV1(await writeZip(new Map(collidingPaths.map((path) => [path, new Uint8Array([1])]))))).status).toBe("error");
   });
 
   it("captures caller bytes synchronously before asynchronous ZIP work", async () => {
