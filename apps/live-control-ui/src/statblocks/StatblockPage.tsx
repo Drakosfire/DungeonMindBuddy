@@ -7,6 +7,7 @@ import type {OpenSavedMechanicsVersion} from './revision/savedMechanicsRevisionT
 import {StatblockRenderer} from './render/StatblockRenderer';
 import {readSavedStatblockTarget,type SavedStatblockTarget} from './savedStatblockLocation';
 import './StatblockPage.css';
+import {SavedStatblockButton} from './SavedStatblockSession';
 
 /** One exact native read. It never consults the Workbench's selected-version hint. */
 export function SavedStatblockFullView({target}:{target:SavedStatblockTarget}) {
@@ -24,7 +25,7 @@ export function SavedStatblockFullView({target}:{target:SavedStatblockTarget}) {
  const current=state?.key===key?state:null;
  return <main className="saved-statblock-page" aria-label="Full saved statblock">
   {current?.error?<><p role="alert">{current.error}</p><button type="button" onClick={()=>setAttempt(value=>value+1)}>Retry statblock</button></>
-   :current?.packet?<StatblockRenderer revision={current.packet.resource} mode="full" chrome="campaign"/>
+   :current?.packet?<><SavedStatblockButton {...target} label="Edit this version"/><StatblockRenderer revision={current.packet.resource} mode="full" chrome="campaign"/></>
    :<p role="status">Opening saved statblock…</p>}
  </main>;
 }

@@ -9,7 +9,8 @@ import type {RevisionSaveOutcome} from './revision/savedMechanicsRevisionTypes';
 import {GenerationPlanProvider} from '../guidedTour/GenerationObservations';
 import {TourEncounterProvider,type TourEncounterScope} from '../guidedTour/EncounterScope';
 import {SavedStatblockProvider,SavedStatblockButton} from './SavedStatblockSession';
-function SessionHost(props:{worldId:string;draftId:string}) {return <SavedStatblockProvider worldId={props.worldId}><SavedStatblockButton {...props}/></SavedStatblockProvider>;}
+import {SavedStatblockFullView} from './StatblockPage';
+function SessionHost(props:{worldId:string;draftId:string;revisionId?:string}) {return <SavedStatblockProvider worldId={props.worldId}><SavedStatblockButton {...props}/></SavedStatblockProvider>;}
 const guidance=vi.hoisted(()=>({readings:[] as any[],captureMechanicsScope:vi.fn(()=>null)}));
 vi.mock('../guidedTour/GuidedTour',async(importOriginal)=>({...await importOriginal<typeof import('../guidedTour/GuidedTour')>(),useGuidedTour:()=>({captureScope:()=>null,captureMechanicsScope:guidance.captureMechanicsScope}),useTourOwnerReading:(reading:unknown)=>{if(reading)guidance.readings.push(reading);}}));
 vi.mock('../media/MediaImageWizard',()=>({MediaImageWizard:({onClose}:{onClose:()=>void})=><button onClick={onClose}>Close portrait studio</button>}));
@@ -179,4 +180,28 @@ it('does not retarget dirty work when another host opens the same statblock unde
  await userEvent.click(within(dialog).getByRole('button',{name:'Revert local edits'}));await userEvent.click(within(dialog).getByRole('button',{name:'Close statblock'}));await userEvent.click(within(screen.getByRole('region',{name:'Second scope'})).getByRole('button'));
  await waitFor(()=>expect(guidance.readings.filter(reading=>reading.step==='mechanics').at(-1)?.target).toEqual(secondScope.plan));
  expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(1);expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
+});
+
+function exactVersions(){
+ const successor={...locator,revision_id:'rev_successor'};const exact=structuredClone(resource);exact.revision_id=successor.revision_id;exact.definition.identity.name='Exact successor';
+ vi.mocked(api.listSavedMechanicsVersions).mockResolvedValue({world_id:world,draft_id:draft,name:'Creature',original:locator,operations:[{operation_id:'op-successor',state:'committed',base:locator,result:successor,refusal_code:null,change_summary:'Successor',created_at:'2026-11-08T00:00:00Z'}],pending:null,next_offset:null});
+ vi.mocked(api.openSavedMechanicsVersion).mockImplementation(async(_id,_w,revision)=>({world_id:world,draft_id:draft,locator:revision===successor.revision_id?successor:locator,resource:revision===successor.revision_id?exact:resource}));return successor;
+}
+it('opens the explicit revision despite the hint and shares dirty work with another exact trigger',async()=>{
+ const successor=exactVersions();sessionStorage.setItem('dmb-manual-mechanics-writer','writer');localStorage.setItem(`dmb-manual-mechanics:${JSON.stringify(['writer',world,draft])}:selected`,locator.revision_id);
+ render(<SavedStatblockProvider worldId={world}><SavedStatblockButton worldId={world} draftId={draft} revisionId={successor.revision_id}/><SavedStatblockButton worldId={world} draftId={draft} revisionId={successor.revision_id} label="Edit this version"/></SavedStatblockProvider>);
+ const dialog=await open();expect(api.openSavedMechanicsVersion).toHaveBeenCalledExactlyOnceWith(draft,world,successor.revision_id);const input=within(dialog).getByLabelText('Creature name');expect(input).toHaveValue('Exact successor');await userEvent.clear(input);await userEvent.type(input,'Retained exact edits');await userEvent.click(within(dialog).getByRole('button',{name:'Close statblock'}));await userEvent.click(screen.getByRole('button',{name:'Edit this version'}));expect(within(dialog).getByLabelText('Creature name')).toBe(input);expect(input).toHaveValue('Retained exact edits');expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(1);
+});
+it('guards a different revision and reselects an explicit target after the internal version chooser changes',async()=>{
+ const successor=exactVersions();render(<SavedStatblockProvider worldId={world}><SavedStatblockButton worldId={world} draftId={draft} revisionId={successor.revision_id}/><SavedStatblockButton worldId={world} draftId={draft} revisionId={locator.revision_id} label="Open original"/></SavedStatblockProvider>);
+ const dialog=await open();const input=within(dialog).getByLabelText('Creature name');await userEvent.clear(input);await userEvent.type(input,'Dirty successor');await userEvent.click(within(dialog).getByRole('button',{name:'Close statblock'}));await userEvent.click(screen.getByRole('button',{name:'Open original'}));expect(within(dialog).getByRole('alert')).toHaveTextContent(/Save, recover or revert/);expect(input).toHaveValue('Dirty successor');expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(1);
+ await userEvent.click(within(dialog).getByRole('button',{name:'Revert local edits'}));await userEvent.click(within(dialog).getByRole('button',{name:'Close statblock'}));await userEvent.click(screen.getByRole('button',{name:'Open original'}));await waitFor(()=>expect(within(dialog).getByLabelText('Creature name')).toHaveValue(resource.definition.identity.name));
+ await userEvent.selectOptions(within(dialog).getByRole('combobox',{name:'Saved mechanics version'}),successor.revision_id);await waitFor(()=>expect(within(dialog).getByLabelText('Creature name')).toHaveValue('Exact successor'));
+ await userEvent.click(within(dialog).getByRole('button',{name:'Close statblock'}));await userEvent.click(screen.getByRole('button',{name:'Open original'}));await waitFor(()=>expect(within(dialog).getByLabelText('Creature name')).toHaveValue(resource.definition.identity.name));expect(api.openSavedMechanicsVersion).toHaveBeenLastCalledWith(draft,world,locator.revision_id);expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
+});
+
+it('edits the full reader’s exact version with the same retained popup owner',async()=>{
+ const successor=exactVersions();render(<SavedStatblockProvider worldId={world}><SavedStatblockFullView target={{worldId:world,draftId:draft,revisionId:successor.revision_id}}/></SavedStatblockProvider>);
+ await screen.findByRole('heading',{name:'Exact successor'});await userEvent.click(screen.getByRole('button',{name:'Edit this version'}));const dialog=screen.getByRole('dialog',{name:'Saved statblock editor'});const input=await within(dialog).findByLabelText('Creature name');expect(input).toHaveValue('Exact successor');expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(2);for(const call of vi.mocked(api.openSavedMechanicsVersion).mock.calls)expect(call).toEqual([draft,world,successor.revision_id]);
+ await userEvent.clear(input);await userEvent.type(input,'Unsent popup edits');await userEvent.click(within(dialog).getByRole('button',{name:'Close statblock'}));expect(screen.getByRole('heading',{name:'Exact successor'})).toBeVisible();await userEvent.click(screen.getByRole('button',{name:'Edit this version'}));expect(within(dialog).getByLabelText('Creature name')).toBe(input);expect(input).toHaveValue('Unsent popup edits');expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(2);expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
 });
