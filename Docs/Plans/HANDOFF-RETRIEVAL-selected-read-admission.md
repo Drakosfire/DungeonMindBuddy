@@ -1,8 +1,9 @@
 # RETRIEVAL: consolidate selected-read admission validation
 
 Status: ACTIVE. Root owns implementation and independent review; PRIME merges/delivers.
-Topology: stacked on PR2255 exact06500fc553ade3e5f4e9337129e95decc1cb26b3.
-Merge order:2255 then this slice; rebase onto adopted2255 before final delivery.
+Topology: serial on adopted PR2255 merge a9ad7eb4647eb06d74a092dc3ed6fc388d988fe0.
+Original stack parent06500fc is settled in source; rebase complete. Runtime delivery
+remains PRIME-owned and is not claimed complete by the source merge.
 Branch:codex/retrieval-selected-read-admission, recorded-names-control checkout.
 Exclusive expected writes: this handoff; src/application_state/agent_conversation/native_reads.py;
 tests/application_state/test_native_plan_statements.py and test_surface_native_acquisition.py.
