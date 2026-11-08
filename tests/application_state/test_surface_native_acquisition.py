@@ -20,6 +20,7 @@ from tests.test_surface_native_writer import (
     published_case,
 )
 from tests.test_native_plan_statements import query
+from tests.application_state.test_native_plan_statements import native_read_admission_probes as native_read_admission_probes
 from tests.test_native_corpus_source_access import lane as lane
 from application_state.errors import (
     ApplicationStateValidationError,
@@ -59,7 +60,7 @@ def record_candidates(case):
 
 
 def test_actual_driver_selected_native_support_reads_use_shared_claim(
-    application_state_dsn, published_lane, monkeypatch
+    application_state_dsn, published_lane, monkeypatch, native_read_admission_probes
 ):
     context, record = published_case("plan", published_lane)
     record = execution(context.context_receipt_sha256, record.policy)
@@ -84,8 +85,9 @@ def test_actual_driver_selected_native_support_reads_use_shared_claim(
         type(e) is t.NativePlanStatementReadObservedV1
         for e in case.turn.graph_context_execution.events
     )
+    from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadObservedV2
     assert any(
-        type(e) is t.NativePlanAssertionReadObservedV1
+        type(e) is NativePlanAssertionReadObservedV2
         for e in case.turn.graph_context_execution.events
     )
     assert (

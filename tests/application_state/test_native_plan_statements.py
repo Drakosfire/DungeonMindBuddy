@@ -71,7 +71,22 @@ def native_read_admission_probes(monkeypatch):
         with pytest.raises(ApplicationStateValidationError):
             authorize(self, world_id, conversation_id, turn_id, **(kwargs | {"record_kind": other}))
         assert self.inspect_turn(world_id=world_id, turn_id=turn_id) == before
-        return authorize(self, world_id, conversation_id, turn_id, **kwargs)
+        from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
+        shared = type(before.graph_context_receipt) is SurfaceNativeContextReceiptV1
+        # A normalized typed ID may not reuse any existing event family.
+        if shared:
+            with pytest.raises(ApplicationStateValidationError):
+                authorize(self, world_id, conversation_id, turn_id,
+                    **(kwargs | {"event_id": str(before.graph_context_execution.events[0].event_id)}))
+            assert self.inspect_turn(world_id=world_id, turn_id=turn_id) == before
+        result = authorize(self, world_id, conversation_id, turn_id, **kwargs)
+        updated_turn, _ = result
+        if shared:
+            with pytest.raises(ApplicationStateValidationError):
+                authorize(self, world_id, conversation_id, turn_id,
+                    **(kwargs | {"expected_revision": updated_turn.revision}))
+            assert self.inspect_turn(world_id=world_id, turn_id=turn_id) == updated_turn
+        return result
 
     def checked_observe(self, world_id, conversation_id, turn_id, **kwargs):
         before = self.inspect_turn(world_id=world_id, turn_id=turn_id)
@@ -91,8 +106,22 @@ def native_read_admission_probes(monkeypatch):
             observe(self, world_id, conversation_id, turn_id,
                 **(kwargs | {"reads": (wrong,), "unavailable_ids": ()}))
         assert self.inspect_turn(world_id=world_id, turn_id=turn_id) == before
+        from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
+        shared = type(before.graph_context_receipt) is SurfaceNativeContextReceiptV1
+        if shared:
+            for reused in (before.graph_context_execution.events[0].event_id,
+                           kwargs["authorization_event_id"]):
+                with pytest.raises(ApplicationStateValidationError, match="event IDs must be unique"):
+                    observe(self, world_id, conversation_id, turn_id,
+                        **(kwargs | {"event_id": str(reused)}))
+                assert self.inspect_turn(world_id=world_id, turn_id=turn_id) == before
         result = observe(self, world_id, conversation_id, turn_id, **kwargs)
         updated_turn, _replayed = result
+        if shared:
+            with pytest.raises(ApplicationStateValidationError, match="event IDs must be unique"):
+                observe(self, world_id, conversation_id, turn_id,
+                    **(kwargs | {"expected_revision": updated_turn.revision}))
+            assert self.inspect_turn(world_id=world_id, turn_id=turn_id) == updated_turn
         with pytest.raises(ApplicationStateValidationError):
             observe(self, world_id, conversation_id, turn_id,
                 **(kwargs | {"expected_revision": updated_turn.revision, "event_id": uuid4()}))
