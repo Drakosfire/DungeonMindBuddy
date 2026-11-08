@@ -111,6 +111,49 @@ describe("atomic local package restore contract", () => {
     expect(await destination.readPackageData(staged.record.snapshot.worldId)).toEqual({ status: "missing" });
   });
 
+  it("rejects traversal paths at the direct restore boundary without storing the World or sidecar", async () => {
+    const source = new InMemoryLocalWorldRepository();
+    const staged = await stagedFrom(await createTestWorld(source));
+    const destination = new InMemoryLocalWorldRepository();
+    const documentBytes = Array.from(packageFixtureAttachmentBytes.document);
+    const assetBytes = Array.from(packageFixtureAttachmentBytes.asset);
+    const documentRef = staged.documents[0];
+    const assetRef = staged.assets[0];
+    const cases = [
+      {
+        path: "documents/../escape",
+        data: {
+          localWorldId: staged.record.snapshot.worldId,
+          documents: [{ ...documentRef, path: "documents/../escape" }],
+          assets: staged.assets,
+          bundledMembers: { "documents/../escape": documentBytes },
+          fidelity: staged.manifest.fidelity,
+          creatorProfileAssumptions: staged.manifest.creatorProfileAssumptions,
+        },
+      },
+      {
+        path: "assets/../escape",
+        data: {
+          localWorldId: staged.record.snapshot.worldId,
+          documents: staged.documents,
+          assets: [{ ...assetRef, status: "bundled" as const, path: "assets/../escape" }],
+          bundledMembers: {
+            "documents/source.txt": documentBytes,
+            "assets/../escape": assetBytes,
+          },
+          fidelity: staged.manifest.fidelity,
+          creatorProfileAssumptions: staged.manifest.creatorProfileAssumptions,
+        },
+      },
+    ];
+
+    for (const item of cases) {
+      expect((await destination.restorePackage(staged.record, item.data)).status, item.path).toBe("error");
+      expect(await destination.readWorld(staged.record.snapshot.worldId), item.path).toEqual({ status: "missing" });
+      expect(await destination.readPackageData(staged.record.snapshot.worldId), item.path).toEqual({ status: "missing" });
+    }
+  });
+
   it("preserves valid document and asset aliases while storing each shared member once", async () => {
     const repository = new InMemoryLocalWorldRepository();
     const record = await createTestWorld(repository);

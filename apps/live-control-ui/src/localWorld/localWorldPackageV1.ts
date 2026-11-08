@@ -1,4 +1,4 @@
-import { cloneLocalWorldValue, validateLocalWorldSnapshot } from "./localWorldRepository";
+import { cloneLocalWorldValue, isLocalWorldPackageMemberPath, LOCAL_WORLD_PACKAGE_MEMBER_PATH_LIMITS, validateLocalWorldSnapshot } from "./localWorldRepository";
 import type {
   LocalWorldHistoryEntry,
   LocalWorldId,
@@ -21,10 +21,12 @@ export const LOCAL_WORLD_PACKAGE_V1 = {
     relationshipCount: 10_000,
     historyCount: 1_000,
     jsonDepth: 64,
-    memberPathBytes: 256,
-    memberPathSegments: 16,
+    memberPathBytes: LOCAL_WORLD_PACKAGE_MEMBER_PATH_LIMITS.bytes,
+    memberPathSegments: LOCAL_WORLD_PACKAGE_MEMBER_PATH_LIMITS.segments,
   },
 } as const;
+
+export { isLocalWorldPackageMemberPath };
 
 export interface LocalWorldPackageMemberDescriptor {
   readonly path: string;
@@ -374,28 +376,6 @@ export function validateLocalWorldRecordForPackage(record: LocalWorldRecord): st
   } catch (error) {
     return error instanceof Error ? error.message : "The local World record is invalid.";
   }
-}
-
-export function isLocalWorldPackageMemberPath(path: string): boolean {
-  if (!path || !isWellFormedUnicode(path) || path.length > LOCAL_WORLD_PACKAGE_V1.limits.memberPathBytes || encoder.encode(path).byteLength > LOCAL_WORLD_PACKAGE_V1.limits.memberPathBytes || path.startsWith("/") || path.includes("\\") || /[\u0000-\u001f\u007f]/.test(path) || path !== path.normalize("NFC")) return false;
-  const segments = path.split("/");
-  if (segments.length > LOCAL_WORLD_PACKAGE_V1.limits.memberPathSegments || segments.some((segment) => !segment || segment === "." || segment === ".." || segment.includes(":"))) return false;
-  if (path === SEMANTIC_PATH || path === LAYOUT_PATH || path === HISTORY_PATH) return true;
-  if (path.startsWith("documents/")) return segments.length >= 2 && segments.slice(1).every((part) => part !== "");
-  if (path.startsWith("assets/")) return segments.length === 2 && SHA256_PATTERN.test(segments[1]);
-  return false;
-}
-
-function isWellFormedUnicode(value: string): boolean {
-  for (let index = 0; index < value.length; index += 1) {
-    const code = value.charCodeAt(index);
-    if (code >= 0xd800 && code <= 0xdbff) {
-      const next = value.charCodeAt(index + 1);
-      if (!(next >= 0xdc00 && next <= 0xdfff)) return false;
-      index += 1;
-    } else if (code >= 0xdc00 && code <= 0xdfff) return false;
-  }
-  return true;
 }
 
 /** Shared portable-path validation for the normalized map codec and archive transport. */
