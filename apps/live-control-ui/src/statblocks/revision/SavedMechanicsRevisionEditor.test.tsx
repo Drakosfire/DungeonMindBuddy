@@ -193,8 +193,8 @@ it('does not show a statblock before a delayed exact read resolves',async()=>{
   expect(await screen.findByRole('region',{name:'Saved statblock'})).toBeInTheDocument();
 });
 
-it('does not render a response belonging to another World',async()=>{
-  vi.mocked(api.openSavedMechanicsVersion).mockResolvedValueOnce({...opened(),world_id:'another-world'});
+it('does not render a source rejected by the shared response reader',async()=>{
+  vi.mocked(api.openSavedMechanicsVersion).mockRejectedValueOnce(new Error('Saved version identity changed.'));
   render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);
   await userEvent.click(screen.getByRole('button',{name:'Open saved mechanics'}));
   await screen.findByText('Saved version identity changed.');
@@ -218,7 +218,7 @@ it.each(['unavailable','identity'])('keeps a committed Save distinct from a fail
   vi.mocked(api.saveMechanicsRevision).mockImplementation(async(_d,body)=>({...outcome,operation_id:body.operation_id}));
   render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await load();await edit();await validate();
   if(failure==='unavailable')vi.mocked(api.openSavedMechanicsVersion).mockRejectedValueOnce(new Error('Saved successor temporarily unavailable'));
-  else vi.mocked(api.openSavedMechanicsVersion).mockResolvedValueOnce({...opened(next.revision_id),world_id:'another-world'});
+  else vi.mocked(api.openSavedMechanicsVersion).mockRejectedValueOnce(new Error('Saved version identity changed.'));
   await userEvent.click(screen.getByRole('button',{name:'Save new version'}));
   await screen.findByText(failure==='unavailable'?'Saved successor temporarily unavailable':'Saved version identity changed.');
   expect(screen.queryByText('New mechanics version saved. Encounters and World associations are unchanged.')).toBeNull();
@@ -238,4 +238,20 @@ it('retains a committed successor selection through reload after its read fails'
   render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await load();
   expect(within(screen.getByRole('region',{name:'Saved statblock'})).getByRole('heading',{name:'Stronger keeper'})).toBeInTheDocument();
   expect(api.openSavedMechanicsVersion).toHaveBeenLastCalledWith(draft,world,next.revision_id);expect(api.saveMechanicsRevision).toHaveBeenCalledTimes(1);
+});
+
+it('links the opened saved revision without copying local edits into the full-view target',async()=>{
+ render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await load();
+ const link=screen.getByRole('link',{name:'Open full saved statblock'}),href=link.getAttribute('href');
+ const url=new URL(href!,'http://localhost');expect(url.pathname).toBe('/statblock');
+ expect(Object.fromEntries(url.searchParams)).toEqual({world,draft,revision:base.revision_id});
+ await userEvent.clear(screen.getByLabelText('Creature name'));await userEvent.type(screen.getByLabelText('Creature name'),'Local only creature');
+ expect(link).toHaveAttribute('href',href);expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
+});
+
+it('keeps the independent original-history join check after shared response admission',async()=>{
+ const exact=structuredClone(opened());exact.locator.statblock_id='sb_other';exact.resource.statblock_id='sb_other';
+ vi.mocked(api.openSavedMechanicsVersion).mockResolvedValueOnce(exact);render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);
+ await userEvent.click(screen.getByRole('button',{name:'Open saved mechanics'}));
+ await screen.findByText('Saved version differs from this creature’s history.');expect(screen.queryByRole('region',{name:'Saved statblock'})).toBeNull();
 });

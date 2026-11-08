@@ -1,3 +1,4 @@
+import {savedStatblockHref} from '../savedStatblockLocation';
 import {useGenerationPlan} from '../../guidedTour/GenerationObservations';
 import type {GeneratedMechanicsScope} from '../../guidedTour/protocol';
 import {useTourNavigationGuard} from '../../guidedTour/Navigation';
@@ -68,8 +69,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false}:{w
       const selected=revision??page.pending?.base.revision_id??localStorage.getItem(`${scope}:selected`)??page.original.revision_id;
       const exact=await openSavedMechanicsVersion(draftId,worldId,selected);
       if(token!==epoch.current)return;
-      if(exact.world_id!==worldId||exact.draft_id!==draftId||exact.locator.revision_id!==selected
-        ||exact.resource.revision_id!==selected||exact.resource.statblock_id!==page.original.statblock_id)throw new Error('Saved version identity changed.');
+      if(exact.resource.statblock_id!==page.original.statblock_id)throw new Error('Saved version differs from this creature’s history.');
       let state=createEditorStateFromOutput(exact.resource.definition),changeSummary='Manual mechanics revision';
       const recovery=localStorage.getItem(sourceKey(selected));
       if(recovery){
@@ -166,6 +166,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false}:{w
     {opened&&editor&&<>
       <section aria-label="Saved statblock">
         <p>Saved version. Local edits appear in the fields below until you save a new version.</p>
+        <a href={savedStatblockHref({worldId,draftId,revisionId:opened.locator.revision_id})}>Open full saved statblock</a>
         <StatblockRenderer revision={opened.resource} mode="full" chrome="campaign"/>
       </section>
       <fieldset disabled={busy||!!pending||!!successorToOpen}>
