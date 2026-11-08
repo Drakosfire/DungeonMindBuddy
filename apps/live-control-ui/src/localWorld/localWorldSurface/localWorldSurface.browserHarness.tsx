@@ -18,6 +18,7 @@ function Harness() {
   const [surfaceMounted, setSurfaceMounted] = useState(true);
   const [result, setResult] = useState("Isolated browser database ready. No production database is opened.");
   const failNextSemanticCommit = useRef(false);
+  const delayedTitleResponse = useRef<{ pending: boolean; waiting: boolean; promise: Promise<void>; release: () => void } | null>(null);
   useEffect(() => {
     let live = true;
     void openIndexedDbLocalWorldRepository(dbName).then((opened) => {
@@ -35,6 +36,19 @@ function Harness() {
     setResult(event.defaultPrevented
       ? "PASS: this tab is protected while any local title draft or write is pending."
       : "PASS: no unload protection remains because local drafts and writes are settled.");
+  }, []);
+  const delayNextTitleResponse = useCallback(() => {
+    let release!: () => void;
+    const promise = new Promise<void>((resolve) => { release = resolve; });
+    delayedTitleResponse.current = { pending: true, waiting: false, promise, release };
+    setResult("The next title save will commit in IndexedDB, then hold its response until you release it.");
+  }, []);
+  const releaseTitleResponse = useCallback(() => {
+    const delayed = delayedTitleResponse.current;
+    if (!delayed?.waiting) { setResult("No committed title response is currently held."); return; }
+    delayed.release();
+    delayedTitleResponse.current = null;
+    setResult("Released the delayed title-save response.");
   }, []);
   const seedAttachment = useCallback(async () => {
     const opened = await openIndexedDbLocalWorldRepository(dbName);
@@ -123,7 +137,7 @@ function Harness() {
     setSurfaceMounted(false);
     window.setTimeout(() => {
     const request = indexedDB.deleteDatabase(dbName);
-    request.onsuccess = () => { setResult("Isolated test database deleted."); refresh(); setSurfaceMounted(true); };
+    request.onsuccess = () => { setResult("Isolated test database deleted."); setSurfaceMounted(false); };
     request.onerror = () => setResult("The isolated test database could not be deleted.");
     request.onblocked = () => setResult("Database deletion is blocked by another open test connection.");
     }, 50);
@@ -136,6 +150,20 @@ function Harness() {
         throw new Error("Injected title save failure for browser verification.");
       }
     } });
+    if (result.status === "opened") {
+      const commitSemanticEdit = result.repository.commitSemanticEdit.bind(result.repository);
+      result.repository.commitSemanticEdit = async (input) => {
+        const committed = await commitSemanticEdit(input);
+        const delayed = delayedTitleResponse.current;
+        if (delayed?.pending) {
+          delayed.pending = false;
+          delayed.waiting = true;
+          setResult("Title committed in IndexedDB; its UI response is held. Close/reopen, edit a newer title, then release it.");
+          await delayed.promise;
+        }
+        return committed;
+      };
+    }
     return result.status === "opened"
       ? { status: "opened" as const, repository: result.repository, close: () => result.repository.close() }
       : { status: "error" as const, message: result.message };
@@ -149,6 +177,8 @@ function Harness() {
       <button type="button" onClick={() => void verifyPackage()}>Verify current package round-trip</button>
       <button type="button" onClick={checkUnloadProtection}>Check tab unload guard</button>
       <button type="button" onClick={() => { failNextSemanticCommit.current = true; setResult("Next title write will fail before transaction commit."); }}>Fail next title write</button>
+      <button type="button" onClick={delayNextTitleResponse}>Delay next title save response</button>
+      <button type="button" onClick={releaseTitleResponse}>Release delayed title save</button>
       <button type="button" onClick={() => void advanceSelectedWorldElsewhere()}>Advance selected World from second connection</button>
       <button type="button" onClick={() => setSurfaceMounted(false)}>Close Surface</button>
       <button type="button" onClick={() => setSurfaceMounted(true)}>Reopen Surface</button>

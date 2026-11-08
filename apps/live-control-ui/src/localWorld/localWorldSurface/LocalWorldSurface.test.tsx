@@ -285,6 +285,61 @@ describe("local World Surface", () => {
     await waitFor(() => expect(beforeUnloadIsPrevented()).toBe(false));
   });
 
+  it("does not let an older save completion clear a newer draft created after route remount", async () => {
+    let releaseOldSave!: () => void;
+    let oldSaveStarted!: () => void;
+    const oldSaveGate = new Promise<void>((resolve) => { releaseOldSave = resolve; });
+    const oldSaveStartedPromise = new Promise<void>((resolve) => { oldSaveStarted = resolve; });
+    let holdFirstSemanticWrite = true;
+    const repository = new InMemoryLocalWorldRepository({ beforeCommit: async (point) => {
+      if (point === "semantic-edit" && holdFirstSemanticWrite) {
+        holdFirstSemanticWrite = false;
+        oldSaveStarted();
+        await oldSaveGate;
+      }
+    } });
+    const created = await repository.createWorld({ title: "Async race World" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+
+    const user = userEvent.setup();
+    const firstView = renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Async race World/ }));
+    await user.click(screen.getByRole("button", { name: "Edit World title" }));
+    await user.clear(screen.getByLabelText("World title"));
+    await user.type(screen.getByLabelText("World title"), "Older pending title");
+    await user.click(screen.getByRole("button", { name: "Save title" }));
+    await oldSaveStartedPromise;
+    firstView.unmount();
+    expect(beforeUnloadIsPrevented()).toBe(true);
+
+    const secondView = renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Async race World/ }));
+    expect(screen.getByLabelText("World title")).toHaveValue("Older pending title");
+    await user.clear(screen.getByLabelText("World title"));
+    await user.type(screen.getByLabelText("World title"), "Newer remounted title");
+    expect(beforeUnloadIsPrevented()).toBe(true);
+
+    await act(async () => {
+      releaseOldSave();
+      await waitFor(async () => {
+        const committed = await repository.readWorld(created.record.snapshot.worldId);
+        expect(committed.status === "found" && committed.record.snapshot.title).toBe("Older pending title");
+      });
+    });
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    secondView.unmount();
+
+    renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Older pending title/ }));
+    expect(screen.getByLabelText("World title")).toHaveValue("Newer remounted title");
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Save title" }));
+    expect(await screen.findByRole("heading", { name: "Newer remounted title" })).toBeTruthy();
+    expect(screen.getByText("Saved in this browser")).toBeTruthy();
+    expect(beforeUnloadIsPrevented()).toBe(false);
+  });
+
   it("disables duplicate creates while the first durable operation is pending", async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => { release = resolve; });
