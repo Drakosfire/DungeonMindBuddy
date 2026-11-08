@@ -39,6 +39,14 @@ class RevisionOperation(BaseModel):
             raise ValueError('Revision request changed parent or operation key')
         submitted=dict(operation_id=str(self.operation_id),world_id=self.world_id,base=self.base.model_dump(mode='json'),
             definition=self.request_body.get('definition'),change_summary=self.request_body.get('change_summary'))
+        through=self.request_body.get('accepted_through',{})
+        if not isinstance(through,dict):
+            raise ValueError('Revision acceptance metadata changed')
+        if 'buddy_portrait_asset_id' in through:
+            selected=through['buddy_portrait_asset_id']
+            if not isinstance(selected,str) or str(UUID(selected))!=selected:
+                raise ValueError('Selected portrait identity changed')
+            submitted['portrait_asset_id']=selected
         if digest(submitted)!=self.input_digest:
             raise ValueError('Submitted input digest changed')
         if digest(self.request_body)!=self.request_digest:

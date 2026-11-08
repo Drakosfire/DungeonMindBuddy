@@ -137,6 +137,8 @@ jobs:
           tests/test_world_container_registry.py
           tests/test_world_graph_binding.py
           tests/test_reviewed_native_graph_activation.py
+          tests/test_statblock_saved_revisions.py
+          tests/application_state/test_mechanics_revisions_postgres.py
 
       - name: Run ingestion and reviewed publication tests
         if: matrix.suite == 'ingestion-and-review'
