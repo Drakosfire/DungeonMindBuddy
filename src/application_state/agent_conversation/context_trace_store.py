@@ -19,6 +19,8 @@ from application_state.agent_conversation.context_trace import (
     TraceAuthoredGraphReferenceV1,
     TraceSourcePassage,
     TracePromptReference,
+    TraceProviderCall,
+    TraceContextDecision,
     TurnContextTraceV1,
 )
 from application_state.errors import (
@@ -266,10 +268,14 @@ class TurnContextTraceStore:
         with unit_of_work(_ready_dsn()) as conn:
             turn = conn.execute(
                 "SELECT conversation_id, status, revision, attempt, claim_expires_at, "
-                "clock_timestamp() AS now, graph_context_execution, sequence "
+                "clock_timestamp() AS now, "
+                "CASE WHEN %s THEN graph_context_execution ELSE NULL END, sequence "
                 "FROM agent.turn "
                 "WHERE world_id=%s AND turn_id=%s FOR UPDATE",
-                (world_id, turn_id),
+                # Only these exact observation types never inspect execution.
+                # Keep it available for all other and future validators.
+                (type(observation) not in {TraceProviderCall, TraceContextDecision},
+                 world_id, turn_id),
             ).fetchone()
             if turn is None or turn[0] != conversation_id:
                 raise ApplicationStateNotFoundError("trace turn is unavailable in this World conversation")
