@@ -6,6 +6,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, HTTPException, Query
 
 from apps.live_control_server.routes.statblock_storage import statblock_data_root
+from apps.live_control_server.routes.native_threat_creation import router as native_creation_router
 from apps.live_control_server.config import ManagedWorldDataRootError, managed_world_data_root, repo_root
 from apps.live_control_server.models.threat_draft import (
     DEFAULT_LIST_LIMIT,
@@ -126,3 +127,9 @@ def put_threat_draft(draft_id: str, body: UpdateThreatDraftRequest) -> dict[str,
     except ThreatDraftStoreError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return _draft_response(draft)
+
+
+# Native creation uses GM authority and WK/Core independently of the old campaign
+# publication ledgers. The parent retains ownership of the draft URL namespace.
+
+router.include_router(native_creation_router)

@@ -1,6 +1,7 @@
 # STATBLOCK: saved World creature controls
 
-ACTIVE under the operator's References/statblock goal and PRIME stewardship.
+SETTLED: merged/delivered; native creation is owned by the bounded successor
+HANDOFF-STATBLOCK-native-threat-creation.md.
 Serial successor to merged2240 (733eb54c7ee3a030ce67804ee9e01c362f20cd7e).
 Branch codex/saved-world-creature-controls from remote main64cb0b5c89f685505c7558207e4943e6cf76cac4;
 reuse buddy-context-loop, no new checkout/environment. ADVERSARY2242 owns native
@@ -38,3 +39,12 @@ move,164 workbench/panel cases and TypeScript/production build pass. Initial
 verification-command path typo is retained separately and is not the regression
 witness. No production request/authority behavior changed; review/CI/delivery
 remain pending for this successor.
+
+Settlement: sourcef0516d6 merged e420387cd; UIad53fdabbe99 is live on5202.
+Independent source/integration/frozen-artifact/transport approval,164 tests/build,
+all7CI, preflight and served ordinary-controls verification passed. Creature
+selection after saved-draft restore now shows158 exact scope choices/132 actors
+without loading the temporary candidate. One editor, unsaved text and portrait
+instructions survive Toolbox/full-reader/Back. No provider/content writes; retained
+rows/session/schema133 conserved. Original host timeout/red test retained. Native
+Graph threat creation, exact successor association and shared previews remain open.
