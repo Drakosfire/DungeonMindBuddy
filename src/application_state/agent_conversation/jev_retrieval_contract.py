@@ -102,9 +102,34 @@ class NativeBuildRetrievalDecisionInputV3(NativeBuildRetrievalDecisionInputV2):
         default="dmb_native_build_retrieval_decision_input_v3", alias="schema")
 
 
+class NativeRetrievalDecisionInputV2(NativeRetrievalDecisionInputV1):
+    """Current Plan navigation; shared relevance wording appears once."""
+    schema_: Literal["dmb_native_retrieval_decision_input_v2"] = Field(
+        default="dmb_native_retrieval_decision_input_v2", alias="schema")
+
+
+class NativeBuildRetrievalDecisionInputV4(NativeBuildRetrievalDecisionInputV3):
+    """Current Build navigation, retaining host-only accounting and phase."""
+    schema_: Literal["dmb_native_build_retrieval_decision_input_v4"] = Field(
+        default="dmb_native_build_retrieval_decision_input_v4", alias="schema")
+
+
+_SHARED_RELEVANCE = (
+    "include if this option is a relevant next step toward locating or obtaining "
+    "a requested detail or necessary relationship; otherwise exclude. "
+    "Discovery may return navigation rather than evidence.")
+_SHARED_RELEVANCE_TYPES = {NativeRetrievalDecisionInputV2, NativeBuildRetrievalDecisionInputV4}
+_NATIVE_TYPES = {NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInputV2,
+    NativeBuildRetrievalDecisionInputV3, *_SHARED_RELEVANCE_TYPES}
+
+
 def parse_native_retrieval_input(raw, *, surface_id):
     """One exact codec reader for native selection and its selected Rules offer."""
-    codec = (NativeBuildRetrievalDecisionInputV3
+    codec = (NativeBuildRetrievalDecisionInputV4
+        if isinstance(raw, dict) and raw.get("schema") == "dmb_native_build_retrieval_decision_input_v4"
+        else NativeRetrievalDecisionInputV2
+        if isinstance(raw, dict) and raw.get("schema") == "dmb_native_retrieval_decision_input_v2"
+        else NativeBuildRetrievalDecisionInputV3
         if isinstance(raw, dict) and raw.get("schema") == "dmb_native_build_retrieval_decision_input_v3"
         else NativeBuildRetrievalDecisionInputV2
         if isinstance(raw, dict) and raw.get("schema") == "dmb_native_build_retrieval_decision_input_v2"
@@ -146,6 +171,8 @@ def fallback_options(request: RetrievalDecisionInput) -> tuple[str, str]:
 
 def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=None) -> DecisionRequest:
     """One typed batch, without Plan bodies, host metadata or writer instructions."""
+    shared_relevance = (type(request) in _SHARED_RELEVANCE_TYPES
+        and any(c.kind != KEYWORD_KIND for c in request.candidates))
     questions = [ChoiceDecisionQuestion(
         name="operation", options=fallback_options(request),
         question=("Choose the fallback used only if all independent candidate relevance votes exclude. "
@@ -169,9 +196,8 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
         questions.append(ChoiceDecisionQuestion(
             name=f"candidate_{index}", options=("include", "exclude"),
             question=(f"Use {_candidate.label} ({_candidate.kind}) for user's question? "
-                      "Apply relevance_guidance: include if this option is a relevant next step toward locating or obtaining "
-                      "a requested detail or necessary relationship; otherwise exclude. "
-                      "Discovery may return navigation rather than evidence.")))
+                      + ("Apply relevance_guidance." if shared_relevance else
+                         "Apply relevance_guidance: " + _SHARED_RELEVANCE))))
     state = {"question": request.question,
              "relevance_guidance": (
                  "Judge usefulness for the current requested details, not general relatedness. "
@@ -212,7 +238,7 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
             "Names do not establish source coverage, chronology or factual support.")
     focus = [c for c in request.examined_candidates if c.kind == RETAINED_KEYWORD_KIND]
     if focus:
-        if type(request) not in {NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInputV2, NativeBuildRetrievalDecisionInputV3}:
+        if type(request) not in _NATIVE_TYPES:
             raise ValueError("Retained keyword focus requires the current native retrieval owner")
         if len({c.handle for c in focus}) != len(focus):
             raise ValueError("Duplicate retained keyword focus")
@@ -224,11 +250,13 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
     if request.dialogue:
         state["dialogue_reference"] = [row.model_dump() for row in request.dialogue]
     if controller_accounting is not None:
-        if type(request) not in {NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInputV2, NativeBuildRetrievalDecisionInputV3}:
+        if type(request) not in _NATIVE_TYPES:
             raise ValueError("Build accounting requires the current shared retrieval input")
-        if type(request) is not NativeBuildRetrievalDecisionInputV3:
+        if not isinstance(request, NativeBuildRetrievalDecisionInputV3):
             # Exact reconstruction of retained pre-V3 requests only.
             state.update(phase="navigate", context_accounting=controller_accounting)
+    if shared_relevance:
+        state["relevance_guidance"] += " " + _SHARED_RELEVANCE
     return DecisionRequest(provider=PROVIDER, model=MODEL,
         # UUIDs, digests, revision IDs and handles bind parent authority; the
         # model only needs semantic labels and index choices. Keep those machine

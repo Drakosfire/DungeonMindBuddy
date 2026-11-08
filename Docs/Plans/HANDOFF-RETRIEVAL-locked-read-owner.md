@@ -1,6 +1,6 @@
 # RETRIEVAL: consolidate locked native-read input validation
 
-Status: ACTIVE. Root owns design/implementation/review; PRIME merges/delivers.
+Status: DELIVERED. PRIME reports both2251/2252 delivered in API b1603d4163e1d419ab2bc80dd8d3f675929662f3; schema134. Historical activation and verification details follow.
 Base375be185b0414361f7afae676029365cd8ce0a61; branch codex/locked-native-read-owner.
 Topology: parallel-independent of2251 presentation/fence delivery; no unmerged
 behavior dependency, overlapping write lease, schema, runtime port or database.

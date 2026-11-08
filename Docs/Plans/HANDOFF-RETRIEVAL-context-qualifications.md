@@ -1,6 +1,6 @@
 # RETRIEVAL: factor repeated context qualifications
 
-Status: ACTIVE. Root designs/implements/reviews; PRIME merges/delivers.
+Status: DELIVERED. PRIME reports both2251/2252 delivered in API b1603d4163e1d419ab2bc80dd8d3f675929662f3; schema134. Historical activation and verification details follow.
 Base375be185b0414361f7afae676029365cd8ce0a61 after clean rebase from the initial
 design base6712cf07d22383e72cd3085c41fec515267c8743; branch codex/native-context-qualifications.
 Topology: serial. Former parallel-independent predecessors2244 and2249 are now
