@@ -407,6 +407,11 @@ def _read_assertions(context, identities, *, matches=None):
     inventory = {m.assertion_id: m for m in (query.assertion_matches if matches is None else matches)}
     read_context, access, _, _ = context.pinned
     reads, unavailable = [], []
+    # One materialization per support in this pinned child/source view. Store
+    # only frozen verified span values, never mutable Core response objects.
+    # Nothing survives this selected batch; unavailable reads/errors are not
+    # cached. Every assertion still passes its own Core and closure checks.
+    verified_spans = {}
     for identity in identities:
         result = EvidenceReadService().get_assertion_evidence(read_context, identity)
         if (result.identity.space_id, result.identity.revision_id) != (authority.native_world_id, authority.revision_id):
@@ -425,17 +430,20 @@ def _read_assertions(context, identities, *, matches=None):
             continue
         spans = []
         for ref in supports:
-            opened = open_admitted_native_text(access, ref.evidence_ref_id)
-            if opened.status != 'available':
-                break
-            # Core owns receipt, source identity, scope, digest and UTF8 admission.
-            # A valid source/span proof can predate this coherent view. Core
-            # owns membership and current access; proof age is not query authority.
-            text = opened.body_text.encode()[opened.span_start_byte:opened.span_end_byte].decode()
-            spans.append(NativeAssertionSpanV1(evidence_ref_id=ref.evidence_ref_id,
-                source_artifact_id=opened.source_artifact_id, source_revision_id=opened.source_revision_id,
-                body_sha256=opened.body_sha256, start_byte=opened.span_start_byte, end_byte=opened.span_end_byte,
-                span_sha256=opened.span_sha256, text=text))
+            span = verified_spans.get(ref.evidence_ref_id)
+            if span is None:
+                opened = open_admitted_native_text(access, ref.evidence_ref_id)
+                if opened.status != 'available':
+                    break
+                # Core owns membership, visibility, identity, digests and UTF8
+                # admission. Proof age is not current query authority.
+                text = opened.body_text.encode()[opened.span_start_byte:opened.span_end_byte].decode()
+                span = NativeAssertionSpanV1(evidence_ref_id=ref.evidence_ref_id,
+                    source_artifact_id=opened.source_artifact_id, source_revision_id=opened.source_revision_id,
+                    body_sha256=opened.body_sha256, start_byte=opened.span_start_byte, end_byte=opened.span_end_byte,
+                    span_sha256=opened.span_sha256, text=text)
+                verified_spans[ref.evidence_ref_id] = span
+            spans.append(span)
         if len(spans) != len(supports):
             unavailable.append(identity)
             continue

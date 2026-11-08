@@ -127,6 +127,139 @@ def test_context_only_evidence_is_not_support(application_state_dsn, tmp_path, m
     assert not reads and set(unavailable) == {m.assertion_id for m in context.query.assertion_matches}
 
 
+def test_support_materialization_is_once_per_exact_ref_and_never_crosses_invocations(lane, monkeypatch):
+    from collections import Counter
+    from pydantic import ValidationError
+    from apps.live_control_server.services import native_graph_reads as native
+    publish(lane, qualified=True)
+    context, _ = query(lane)
+    original = native.open_admitted_native_text
+    opens = Counter()
+    def counted(access, ref):
+        opens[ref] += 1
+        return original(access, ref)
+    monkeypatch.setattr(native, 'open_admitted_native_text', counted)
+    first, missing = read_selected(context, grant(context), GM)
+    assert first and not missing
+    refs = [span.evidence_ref_id for row in first for span in row.spans]
+    assert len(refs) > len(set(refs))  # Real shared support, not a vacuous fixture.
+    assert opens == Counter({ref: 1 for ref in refs})
+    assert first[0].spans[0].model_config['frozen'] is True
+    with pytest.raises(ValidationError):
+        first[0].spans[0].text = 'Changed through an aliased response'
+    second, missing = read_selected(context, grant(context), GM)
+    assert not missing and second == first
+    assert opens == Counter({ref: 2 for ref in refs})
+    admit_unrelated(lane, 'new-source-between-batches')
+    newer, _ = query(lane)
+    assert newer.pinned[1].source_view.epoch > context.pinned[1].source_view.epoch
+    third, missing = read_selected(newer, grant(newer), GM)
+    assert not missing and third == first
+    assert opens == Counter({ref: 3 for ref in refs})
+    with pytest.raises(ValueError, match='GM authority'):
+        read_selected(newer, grant(newer), replace(GM, role='player'))
+    assert opens == Counter({ref: 3 for ref in refs})
+
+
+def test_support_materialization_keeps_distinct_spans_from_the_same_source(lane, monkeypatch):
+    from collections import Counter
+    from apps.live_control_server.services import native_graph_reads as native
+    original_ref = lane.meta.evidence_ref_ids[0]
+    select_extension_support(lane)
+    lane.meta = replace(lane.meta, evidence_ref_ids=(original_ref, lane.meta.evidence_ref_ids[0]))
+    publish(lane, qualified=True)
+    context, _ = query(lane)
+    original = native.open_admitted_native_text
+    opens = Counter()
+    def counted(access, ref):
+        opens[ref] += 1
+        return original(access, ref)
+    monkeypatch.setattr(native, 'open_admitted_native_text', counted)
+    reads, missing = read_selected(context, grant(context), GM)
+    assert reads and not missing
+    account = next(row for row in reads if row.assertion.predicate == 'dnd5e:summary')
+    assert len(account.spans) == 2
+    assert len({span.source_artifact_id for span in account.spans}) == 1
+    assert {span.text for span in account.spans} == {BODY, BODY.splitlines(keepends=True)[0]}
+    assert all(count == 1 for count in opens.values())
+
+
+def test_support_materialization_retries_unavailable_without_skipping_assertion_checks(lane, monkeypatch):
+    from collections import Counter
+    from dungeonmind.contracts.vnext.native_source import NativeTextSourceAccessV1
+    from apps.live_control_server.services import native_graph_reads as native
+    publish(lane)
+    context, _ = query(lane)
+    target = lane.meta.evidence_ref_ids[0]
+    original = native.open_admitted_native_text
+    check = native.EvidenceReadService.get_assertion_evidence
+    opens = Counter()
+    checked = []
+    def unavailable_once(access, ref):
+        opens[ref] += 1
+        if ref == target and opens[ref] == 1:
+            return NativeTextSourceAccessV1(status='unavailable')
+        return original(access, ref)
+    def checked_assertion(service, read_context, identity):
+        checked.append(identity)
+        return check(service, read_context, identity)
+    monkeypatch.setattr(native, 'open_admitted_native_text', unavailable_once)
+    monkeypatch.setattr(native.EvidenceReadService, 'get_assertion_evidence', checked_assertion)
+    authorization = grant(context)
+    reads, missing = read_selected(context, authorization, GM)
+    assert checked == list(authorization.assertion_ids)
+    assert len(missing) == 1 and reads and opens[target] == 2
+    assert tuple(row.assertion.assertion_id for row in reads) == tuple(
+        identity for identity in authorization.assertion_ids if identity not in missing)
+
+
+def test_support_materialization_propagates_integrity_failure_and_next_batch_reopens(lane, monkeypatch):
+    from dungeonmind.application.vnext.errors import NativeTextSourceAccessIntegrityError
+    from apps.live_control_server.services import native_graph_reads as native
+    publish(lane)
+    context, _ = query(lane)
+    original = native.open_admitted_native_text
+    calls = []
+    def fail_once(access, ref):
+        calls.append(ref)
+        if len(calls) == 1:
+            raise NativeTextSourceAccessIntegrityError('synthetic immutable body corruption')
+        return original(access, ref)
+    monkeypatch.setattr(native, 'open_admitted_native_text', fail_once)
+    with pytest.raises(NativeTextSourceAccessIntegrityError):
+        read_selected(context, grant(context), GM)
+    assert len(calls) == 1
+    reads, missing = read_selected(context, grant(context), GM)
+    assert reads and not missing and calls[0] in calls[1:]
+
+
+def test_support_materialization_does_not_authorize_a_later_changed_assertion(lane, monkeypatch):
+    from apps.live_control_server.services import native_graph_reads as native
+    publish(lane)
+    context, _ = query(lane)
+    original = native.assertion_contract
+    source_open = native.open_admitted_native_text
+    contracts = []
+    opened = []
+    before_fault = []
+    def open_support(access, ref):
+        opened.append(ref)
+        return source_open(access, ref)
+    def changed_assertion(value):
+        parsed = original(value)
+        contracts.append(parsed.assertion_id)
+        if len(contracts) == 2:
+            before_fault.extend(opened)
+            return parsed.model_copy(update={'subject_entity_id': 'foreign-subject'})
+        return parsed
+    monkeypatch.setattr(native, 'open_admitted_native_text', open_support)
+    monkeypatch.setattr(native, 'assertion_contract', changed_assertion)
+    with pytest.raises(ValueError, match='changed after discovery'):
+        read_selected(context, grant(context), GM)
+    assert len(contracts) == 2
+    assert before_fault and opened == before_fault
+
+
 def _ordinary_native_case(
         lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None):
     import httpx2
