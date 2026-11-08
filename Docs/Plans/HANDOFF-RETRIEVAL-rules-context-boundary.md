@@ -123,3 +123,11 @@ all canonical seal validators, use the same closed binding union. This consumer
 was missed in initial inventory; review-v2 HOLD is retained. Source grep across
 src/apps found no other V1-only serialization consumer. Rerun affected routes;
 no new API, alternate normalization or response-quality experiment.
+
+CI fixture checkpoint: add only test_source_only_rules_completion_and_reload_has_no_fabricated_graph
+in tests/test_agent_native_corpus_sources.py to the lease. Saved-page CI passed519
+checks and failed this mock's historical discriminator/UUID against currentsemantic
+output. Use the existing semantic projection for its mock selector and rules_answer;
+retain every no-Graph/reload assertion and assert resolution to the original host
+support. Runtime/API/UI/migration code remains byte-identical to reviewed75f2.
+No new provider study or fallback; retain the original CI log.

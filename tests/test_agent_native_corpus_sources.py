@@ -470,15 +470,17 @@ def test_source_only_rules_completion_and_reload_has_no_fabricated_graph(source_
     asyncio.run(semantic.run(transport=DecisionWire(a), api_key='synthetic-not-secret'))
     rules = PlanRulesRuntime(a, rules_capability(graph=True))
     proof = asyncio.run(PlanJevDriver(a, rules=rules).run(transport=DecisionWire(a, select_rule=True), api_key='synthetic-not-secret'))
+    from application_state.agent_conversation.rules_authority_plan_packet import model_rules_frame
     frame = rules.frame()
-    support = frame.supports[0]
-    output = {'schema': 'dmb_rules_mixed_answer_v1', 'base_output': None,
+    support = model_rules_frame(frame).supports[0]
+    output = {'kind': 'rules_answer', 'base_output': None,
         'rules_segments': [{'kind': 'rules_claim', 'text': support.excerpt_text,
-            'support_ids': [str(support.support_id)]}], 'ordered_refs': [{'domain': 'rules', 'segment_index': 0}]}
+            'support_ids': [support.support_id]}], 'ordered_refs': [{'domain': 'rules', 'segment_index': 0}]}
     completed = asyncio.run(PlanJevWriter(a, proof, rules).run(transport=WriterWire(a, json.dumps(output)), api_key='synthetic-not-secret'))
     assert isinstance(completed, MixedCompletedTurnV1)
     assert completed.base_projection.kind == 'unclaimed' and not completed.accepted_binding.graph_used
     assert completed.base_projection.graph_context_receipt.graph_capability is None
+    assert completed.accepted_binding.support_table[0].support_id == frame.supports[0].support_id
     assert AgentConversationService().inspect_turn(world_id=a.world_id, turn_id=completed.envelope.turn_id) == completed
 
 
