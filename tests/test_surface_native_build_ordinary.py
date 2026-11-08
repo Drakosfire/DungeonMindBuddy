@@ -2,7 +2,7 @@
 import json
 from types import SimpleNamespace
 from hashlib import sha256
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 import httpx2
@@ -14,6 +14,7 @@ from tests.page_fixtures import create_page_fixture, save_page
 from tests.test_native_plan_assertions import lane as lane, publish, admit_unrelated
 from tests.test_build_jev_estimated_continuations import counter
 from application_state.agent_conversation import AgentConversationService, types as t
+from application_state.agent_conversation.native_plan_assertions import POLICY as NATIVE_ANSWER_POLICY
 from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1, AuthoredGraphReferencesV1
 from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
 
@@ -28,7 +29,7 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -132,6 +133,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             self.deny_routing=False
         async def handle_async_request(self, req):
             self.calls.append(req)
+            if before_provider is not None:
+                before_provider(writer.adapter, 'typesafe')
             body = json.loads(req.content)
             answers = {}
             candidates=body.get('state',{}).get('candidates',[])
@@ -159,10 +162,21 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
 
     class Writer(httpx.AsyncBaseTransport):
         def __init__(self):
+            from threading import local
             self.calls = []
-            self.adapter = None
+            self._execution = local()
+            self._last_adapter = None
             self.mode = proposal
             self.review = None
+        @property
+        def adapter(self):
+            return getattr(self._execution, 'adapter', self._last_adapter)
+        @adapter.setter
+        def adapter(self, value):
+            # The fake transport is shared by concurrent HTTP requests. Its
+            # provider assertions must inspect that request's own execution.
+            self._execution.adapter = value
+            self._last_adapter = value
         async def handle_async_request(self,req):
             try:
                 return await self._handle(req)
@@ -173,6 +187,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         async def _handle(self, req):
             mode=self.mode
             self.calls.append(req)
+            if before_provider is not None:
+                before_provider(self.adapter, 'openai')
             if failure=='retry_unknown':
                 raise httpx.ReadTimeout('synthetic unknown writer outcome',request=req)
             body = json.loads(req.content)
@@ -185,7 +201,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             inputs = [json.loads(body['input'])] if isinstance(body['input'], str) else [json.loads(row['content']) for row in body['input'] if row['content'].lstrip().startswith('{')]
             if mode:
                 inputs=[inputs[0]['native_evidence'],inputs[0]['surface_work']]
-            frame = next(row for row in inputs if row.get('schema') == 'dmb_surface_native_writer_evidence_v2')
+            frame = next(row for row in inputs if set(row)=={'input_status','user_question','native_body_evidence','native_statements','native_assertions'})
             work = next(row for row in inputs if row.get('schema')=='dmb_build_primary_work_evidence_v1')
             if not mode:
                 assert len(inputs)==3 and inputs[-1] == frame
@@ -223,7 +239,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     output_index=0,content_index=0,delta=text),dict(type='response.completed',sequence_number=2,response=response)]
                 return httpx.Response(200,request=req,headers={'content-type':'text/event-stream'},
                     content=''.join('data: '+json.dumps(e)+'\n\n' for e in events).encode())
-            candidate = dict(schema=frame['answer_policy'],
+            candidate = dict(schema=NATIVE_ANSWER_POLICY,
                 answer_segments=([dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)] if handles else [])+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,supporting_quotes=[r['text'] for r in work['artifact_under_edit']['sections']])] if saved else []),
                 limitations=[], requested_detail_gaps=[], collaboration=self.review)
             if native_body or authored_source:
@@ -240,7 +256,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert all(r.excerpt.text not in json.dumps(frame) for r in acquired)
             if connected_review:
                 section=next(row for row in work['artifact_under_edit']['sections'] if 'A proposed conversation.' in row['text'])
-                candidate['answer_segments']=[]
+                candidate['answer_segments']=([dict(kind='proposal',label='invented_idea',
+                    text='# A neighboring workshop\n\n' + '| 1 | An errand awaits. |\n' * 260)]
+                    if connected_review=='full_page' else [])
                 candidate['collaboration']={'kind':'connected_page','title':'A proposed neighboring workshop',
                     'read_id':str(uuid4()) if connected_review=='foreign_read' else section['read_id'],
                     'quote':'A phrase absent from the source.' if connected_review=='foreign_quote' else 'A proposed conversation.',
@@ -337,11 +355,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             expected_content_sha256=source.content_sha256), client_work_state='saved_clean',
         graph_request=dict(mode='world', world_id=world, campaign_id=None, revision_pin=None,
             focus=dict(kind='none', session_id=None, campaign_id=None)), graph_selection=None,
-        build_authored_references=selected.model_dump(mode='json', by_alias=True), message='Describe the selected object and source-local episode.' if native_body else 'Describe the object I selected.')
+        build_authored_references=selected.model_dump(mode='json', by_alias=True), message=message or ('Describe the selected object and source-local episode.' if native_body else 'Describe the object I selected.'))
     if draft is not None:
         body['build_draft_context']=draft.model_dump(mode='json',by_alias=True)
         body['client_work_state']='saved_dirty'
-    if proposal:
+    if proposal or capture_write:
         from application_state.build_proposal.types import BuildWriteCapability
         cap=BuildWriteCapability(idempotency_key=uuid4(),conversation_id=draft.conversation_id,
             expected_pointer_revision=draft.expected_pointer_revision,draft_markdown=draft.snapshot.draft_markdown,
@@ -349,9 +367,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 'content_sha256','visibility','draft_sha256','editor_sha256','draft_generation')},
                 caret=1,selection_generation=0))
         body['build_write_capability']=cap.model_dump(mode='json')
-        body['message']=('Add a scene about this: Can I end my move in an occupied space?'
-            if failure=='used_rules' else 'Prepare an illustration of a copper lamp beside the orchid.'
-            if proposal=='image' else 'Add a proposed copper lamp to this page.')
+        if proposal:
+            body['message']=('Add a scene about this: Can I end my move in an occupied space?'
+                if failure=='used_rules' else 'Prepare an illustration of a copper lamp beside the orchid.'
+                if proposal=='image' else 'Add a proposed copper lamp to this page.')
+    if connected_review:
+        body['message']='Prepare a separate connected page from the saved proposal.'
     def current_creative():
         if proposal=='image':
             from uuid import uuid5
@@ -462,8 +483,17 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert retained.json()['message']==body['message']
         retry={**body,'turn_id':str(uuid4()),'retry_of':{'turn_id':str(failed.turn_id),'revision':failed.revision,
             'retained_snapshot_sha256':draft.snapshot.snapshot_sha256}}
+        retry.pop('build_write_capability',None)
+        if capture_write:
+            from application_state.agent_conversation.build_draft_context import native_build_action
+            original_action=native_build_action(failed.graph_context_execution)
+            assert original_action.write_capability is not None
+            resolution,=[e for e in failed.graph_context_execution.events if type(e) is t.BuildRequestedWorkResolutionV1]
+            assert resolution.requested_work=='review_connected_page' and resolution.operation=='answer_from_sources'
         expected_page=source
-        if retry_mutation=='newer_page':
+        if retry_mutation=='write_capability':
+            retry['build_write_capability']=body['build_write_capability']
+        elif retry_mutation=='newer_page':
             save_page(tmp_path,page.document_id,'A newer saved author page must survive explicit Retry.')
             expected_page=get_workspace_document_snapshot(tmp_path,page.document_id)
         elif retry_mutation=='question':
@@ -488,7 +518,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             assert edges==[(1,)]
         else:
             answer=client.post('/api/live/agent/turn',json=retry)
-        if retry_mutation in {'question','reference','revision','newer_page'}:
+        if retry_mutation in {'question','reference','revision','newer_page','write_capability'}:
             assert answer.status_code==409,answer.text
             assert (len(decisions.calls),len(writer.calls))==all_calls
             assert get_workspace_document_snapshot(tmp_path,page.document_id)==expected_page
@@ -505,14 +535,25 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert get_workspace_document_snapshot(tmp_path,page.document_id)==expected_page
         after=client.get(prefix+'/retry-context',params={'turn_ids':str(failed.turn_id)})
         assert after.status_code==200 and after.json()['turns'][0]['context']['reason']=='retried',after.text
+        if capture_write:
+            successor_id=UUID(after.json()['turns'][0]['context']['successor_id'])
+            successor=AgentConversationService().inspect_turn(world_id=world,turn_id=successor_id)
+            action=native_build_action(successor.graph_context_execution)
+            assert action.write_capability is None and action.intent.build_write_capability_sha256 is None
+            assert successor.completion.collaboration.kind=='connected_page'
         original=writer.adapter.service.inspect_turn(world_id=world,turn_id=failed.turn_id)
-        assert original.status=='interrupted' and original.failure_code==failed.failure_code
+        assert original==failed
+        assert lane.repo.get_head(world).head_revision_id==current_revision
         return
-    if connected_review:
-        body['message']='Prepare a separate connected page from the saved proposal.'
     response = client.post('/api/live/agent/turn', json=body)
+    if failure=='initial_context':
+        assert response.status_code in {502,503},response.text
+        assert not decisions.calls and not writer.calls
+        assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
+        assert lane.repo.get_head(world).head_revision_id==current_revision
+        return SimpleNamespace(response=response,decisions=decisions,writer=writer)
     if connected_review:
-        if connected_review!='valid':
+        if connected_review not in {'valid','full_page'}:
             assert response.status_code==503,response.text
             assert len(writer.calls)==1
             assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
@@ -520,7 +561,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             return
         assert response.status_code==200,response.text
         completion=response.json()['knowledge_context']['completion']
-        assert completion['answer_segments']==[] and completion['collaboration']['kind']=='connected_page'
+        assert completion['collaboration']['kind']=='connected_page'
+        if connected_review=='full_page':
+            assert len(completion['answer_segments'][0]['text']) > 5737
+            assert completion['answer_segments'][0]['text']==json.loads(writer.actual_output)['answer_segments'][0]['text']
+        else:
+            assert completion['answer_segments']==[]
         current=writer.adapter.service.inspect_turn(world_id=world,turn_id=writer.adapter.turn.turn_id)
         assert current.status=='completed'
         from apps.live_control_server.services.agent_connected_page_origin import open_origin
@@ -653,9 +699,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert reads[0].event_id in writer_event.native_read_event_ids
         assert 'source-local episode' in reads[0].excerpt.text
         assert ('A proposed note.' in reads[0].excerpt.text)==(authored_source=='full_document')
-        citations=turn.completion.native_body_citations
-        assert len(citations)==1 and citations[0].read_event_id==reads[0].event_id
-        opened=client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-body-excerpts/0')
+        citations=[c for c in turn.completion.native_body_citations if c.read_event_id==reads[0].event_id]
+        assert len(citations)==1
+        citation_index=turn.completion.native_body_citations.index(citations[0])
+        opened=client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-body-excerpts/{citation_index}')
         assert opened.status_code==200,opened.text
         assert opened.json()['content']==reads[0].excerpt.text
         assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
@@ -676,6 +723,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     captures = [event for event in turn.graph_context_execution.events if isinstance(event, t.BuildAuthoredReferencesCapturedV1)]
     assert len(captures) == 1 and captures[0].references == selected
     if proposal:
+        from application_state.agent_conversation.retry import retained_discussion_capture, RetryUnavailableError
+        with pytest.raises(RetryUnavailableError,match='authoring target'):
+            retained_discussion_capture(turn)
         from application_state.build_proposal.service import BuildProposalService
         if proposal=='image':
             from uuid import uuid5
@@ -770,6 +820,44 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     return SimpleNamespace(client=client,world=world,page=page,source=source,request=body,
         draft=draft,selected=selected,writer=writer,decisions=decisions,turn=turn,service=service,
         revision=current_revision)
+
+
+@pytest.mark.parametrize('long_exchange', [False, True])
+def test_native_build_retrieval_receives_frozen_followup_dialogue(lane, tmp_path, monkeypatch, long_exchange):
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False)
+    initial = [json.loads(req.content)['state'] for req in case.decisions.calls
+        if 'candidates' in json.loads(req.content).get('state', {})]
+    assert initial and all('dialogue_reference' not in state for state in initial)
+    expected = [dict(role='user', content=case.request['message']),
+        dict(role='assistant', content=case.turn.assistant_text)]
+    messages = ['The proposed place is the copper observatory. 🌌']
+    if long_exchange:
+        messages[0] += ' Author-supplied possibility, not a played fact. ' * 320
+        assert len(messages[0]) > 12000
+    messages.append('Retrieve context for that place; do not treat my proposed details as played facts.')
+    for message in messages:
+        start = len(case.decisions.calls)
+        request = case.request | dict(turn_id=str(uuid4()), message=message)
+        response = case.client.post('/api/live/agent/turn', json=request)
+        assert response.status_code == 200, response.text
+        states = [json.loads(req.content)['state'] for req in case.decisions.calls[start:]
+            if 'candidates' in json.loads(req.content).get('state', {})]
+        assert states and all(state.get('dialogue_reference') == expected for state in states)
+        frozen = case.writer.adapter.build_frozen_history
+        assert [dict(role=role, content=pair[key]) for pair in frozen
+            for role, key in (('user', 'user'), ('assistant', 'assistant'))] == expected
+        assert all('not source evidence' in state['questions']['operation']['instructions']
+            or 'never evidence' in state['questions']['operation']['instructions']
+            for state in [json.loads(req.content) for req in case.decisions.calls[start:]
+                if 'candidates' in json.loads(req.content).get('state', {})])
+        counts = len(case.decisions.calls), len(case.writer.calls)
+        replay = case.client.post('/api/live/agent/turn', json=request)
+        assert replay.status_code == 200 and replay.json()['knowledge_context']['delivery_replay'] is True
+        assert (len(case.decisions.calls), len(case.writer.calls)) == counts
+        assert get_workspace_document_snapshot(tmp_path, case.page.document_id) == case.source
+        assert lane.repo.get_head(case.world).head_revision_id == case.revision
+        expected += [dict(role='user', content=message),
+            dict(role='assistant', content=response.json()['answer']['text'])]
 
 
 @pytest.mark.parametrize('kind,related,mutation,output_review',[
@@ -896,14 +984,14 @@ def test_native_failed_discussion_exposes_original_context_and_one_explicit_retr
         recovery_dsn=application_state_dsn,retry_mutation=mutation)
 
 
-@pytest.mark.parametrize('review',['valid','foreign_read','foreign_quote'])
+@pytest.mark.parametrize('review',['valid','full_page','foreign_read','foreign_quote'])
 def test_native_connected_page_review_uses_its_included_saved_origin(lane,tmp_path,monkeypatch,review):
     _fresh_case(lane,tmp_path,monkeypatch,None,True,True,False,connected_review=review)
 
 
 @pytest.mark.parametrize('judgment',['direct_support','qualification_or_conflict','uncertain','irrelevant'])
 def test_ordinary_build_selects_native_body_and_reopens_only_included_support(lane,tmp_path,monkeypatch,judgment):
-    from application_state.agent_conversation import native_corpus as corpus
+    from application_state.agent_conversation import native_corpus as corpus, writer_evidence_selection as selection
     case=_fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,native_body=judgment)
     events=case.turn.graph_context_execution.events
     vote,=[e for e in events if type(e) is t.BuildWriterEvidenceSelectionV2]
@@ -912,10 +1000,12 @@ def test_ordinary_build_selects_native_body_and_reopens_only_included_support(la
     assert {k:v for k,v in vote.judgments.items() if k.startswith('body:')}=={
         corpus.body_selection_unit_id(r):judgment for r in acquired}
     calls=[json.loads(r.content) for r in case.decisions.calls
-           if json.loads(r.content)['state'].get('phase')=='writer_selection']
+           if json.loads(r.content)['questions'] and all(k.startswith('s') and k[1:].isdigit() for k in json.loads(r.content)['questions'])]
     assert len(calls)==1
+    catalog = selection.acquired_catalog(case.turn.graph_context_execution,{'capture_status':'complete'})
     for read in acquired:
-        unit=calls[0]['state']['sources'][corpus.body_selection_unit_id(read)]
+        slot='s'+str(list(catalog).index(corpus.body_selection_unit_id(read)))
+        unit=calls[0]['state']['sources'][slot]
         assert unit['text']==read.excerpt.text
     citations=case.turn.completion.native_body_citations
     assert bool(citations)==(judgment!='irrelevant')
@@ -1005,7 +1095,7 @@ def test_native_writer_selector_uses_its_verified_long_context_at_app_boundary(l
     prefix=record.model_copy(update={'events':record.events[:event.sequence]})
     t.validate_provider_envelope_accounting(assembled,prefix,event)
     request,=[json.loads(req.content) for req in case.decisions.calls
-              if json.loads(req.content)['state'].get('phase')=='writer_selection']
+              if json.loads(req.content)['questions'] and all(k.startswith('s') and k[1:].isdigit() for k in json.loads(req.content)['questions'])]
     assert any(row['text']==text for row in request['state']['sources'].values())
     assert len(case.writer.calls)==1 and text not in case.writer.calls[0].content.decode()
     # A mode declaration alone cannot relax scope, phase or accounting. These
@@ -1074,3 +1164,154 @@ def test_saved_v3_human_source_request_retries_with_current_object_navigation(
 @pytest.mark.parametrize('failure',['writer_incomplete_limit','writer_incomplete_filter','writer_incomplete_unknown'])
 def test_native_build_reports_actual_incomplete_writer_reason_without_acceptance_or_retry(lane,tmp_path,monkeypatch,failure):
     _fresh_case(lane,tmp_path,monkeypatch,failure,True,False,False)
+
+
+@pytest.mark.parametrize('failure', [None, 'writer_incomplete_filter'])
+@pytest.mark.parametrize('prompt_capture', [False, True])
+def test_native_authorization_is_visible_before_actual_provider_transport(lane,tmp_path,monkeypatch,failure,prompt_capture):
+    if prompt_capture:
+        monkeypatch.setenv('DMB_AGENT_PROMPT_CAPTURE','1')
+    else:
+        monkeypatch.delenv('DMB_AGENT_PROMPT_CAPTURE',raising=False)
+    observed=[]
+    def inspect_before_response(adapter,provider):
+        capture=adapter.context_capture
+        attempt=adapter.last_provider_attempt_id
+        trace=capture.trace
+        assert trace.turn_id==adapter.fence.turn.turn_id
+        assert trace.conversation_id==adapter.fence.turn.conversation_id
+        assert trace.attempt==adapter.fence.turn.attempt
+        prompts=[o for o in trace.observations if o.kind=='prompt_reference' and o.provider_attempt_id==attempt]
+        grants=[o for o in trace.observations if o.kind=='provider_call' and o.provider_attempt_id==attempt and o.outcome=='authorized']
+        assert len(prompts)==len(grants)==1, 'Actual native provider entry lacks one recorded authorization'
+        assert grants[0].provider==prompts[0].provider==provider
+        assert grants[0].model==prompts[0].model
+        assert grants[0].sequence>prompts[0].sequence
+        assert not any(o.kind=='provider_call' and o.provider_attempt_id==attempt and o.outcome=='response_received'
+            for o in trace.observations)
+        observed.append((adapter,attempt,provider))
+    _fresh_case(lane,tmp_path,monkeypatch,failure,False,False,False,before_provider=inspect_before_response)
+    assert {provider for _,_,provider in observed}=={'typesafe','openai'}
+    assert len({attempt for _,attempt,_ in observed})==len(observed)
+    adapter=observed[-1][0]
+    trace=adapter.service.list_context_trace_attempts(world_id=adapter.turn.world_id,turn_id=adapter.turn.turn_id)[-1]
+    for _,attempt,_ in observed:
+        assert sum(o.kind=='provider_call' and o.provider_attempt_id==attempt and o.outcome=='authorized'
+            for o in trace.observations)==1
+    assert trace.terminal_status==('interrupted' if failure else 'completed')
+    if failure:
+        assert any(o.kind=='failure' and o.stage=='writer_generation' for o in trace.observations)
+
+
+@pytest.mark.parametrize('mutation',[None,'race','newer_page','question','reference','revision','unknown','write_capability'])
+def test_native_connected_review_retries_retained_context_without_inheriting_write_authority(lane,tmp_path,monkeypatch,application_state_dsn,mutation):
+    _fresh_case(lane,tmp_path,monkeypatch,'retry_unknown' if mutation=='unknown' else 'retry_discussion',
+        True,True,False,recovery_dsn=application_state_dsn,retry_mutation=mutation,
+        connected_review='valid',capture_write=True,authored_source='section')
+
+
+@pytest.mark.parametrize('draft',[False,True])
+def test_fresh_build_initial_sdk_exposes_semantic_context_and_keeps_authority_host_side(lane,tmp_path,monkeypatch,draft):
+    case=_fresh_case(lane,tmp_path,monkeypatch,None,draft,False,False,authored_source='section',capture_write=draft)
+    first=json.loads(case.decisions.calls[0].content)
+    assert set(first['state'])=={'user_question','interaction'}
+    context=first['state']['interaction']
+    assert set(context)<={'allowed_operations','current_page_title','history','page_target','working_draft_available','author_selected_references','related_page_labels'}
+    assert context['working_draft_available'] is draft
+    assert all(set(row)<={'kind','label','selection_kind'} for row in context['author_selected_references'])
+    assert any(row['kind']=='source' and row['selection_kind']=='section' for row in context['author_selected_references'])
+    assert case.turn.graph_context_receipt.assembled_input.assembler_version=='native_build_semantic_initial_v2'
+    retained=type(case.turn).model_validate_json(case.turn.model_dump_json(by_alias=True))
+    assert retained==case.turn
+
+
+@pytest.mark.parametrize('mutation',['user','title','operations','target','proposed_work','questions','request_id','codec','capability','destination'])
+def test_fresh_build_rejects_changed_initial_parent_before_provider(lane,tmp_path,monkeypatch,mutation):
+    from dataclasses import replace
+    from apps.live_control_server.services.build_jev_driver import BuildJevDriver,canonical
+    original=BuildJevDriver.stage
+    def changed(driver):
+        plan=original(driver)
+        if plan.host_phase!='select':return plan
+        state=plan.state()
+        updates={}
+        if mutation=='user':state['user_question']='A different task'
+        elif mutation=='title':state['interaction']['current_page_title']='Wrong destination'
+        elif mutation=='operations':state['interaction']['allowed_operations']=['propose_build_insertion']
+        elif mutation=='target':state['interaction']['page_target']={'kind':'replace_selection','text':'Uncaptured target'}
+        elif mutation=='proposed_work':state['interaction']['history']=[{'user':'Other request','assistant':'','proposed_work':{'kind':'questions','questions':[{'text':'Wrong question'}]}}]
+        elif mutation=='questions':updates['questions_json']=canonical({'requested_work':{'type':'choice','instructions':'Changed task','criteria':{'discuss':None}}})
+        elif mutation=='request_id':updates['request_id']='select:'+'f'*64
+        elif mutation=='codec':updates['host_phase']=None
+        elif mutation in {'capability','destination'}:
+            host=driver._interaction
+            if mutation=='capability':host['capability_sha256']='f'*64
+            else:host['current_page']['document_id']='foreign-page'
+            updates['host_interaction_json']=canonical(host)
+        updates['state_json']=canonical(state)
+        driver._pending=replace(plan,**updates)
+        return driver._pending
+    monkeypatch.setattr(BuildJevDriver,'stage',changed)
+    _fresh_case(lane,tmp_path,monkeypatch,'initial_context',False,False,False)
+
+
+def test_native_selection_semantic_sdk_wire_and_exact_legacy_v2_reader(lane,tmp_path,monkeypatch):
+    from copy import deepcopy
+    from application_state.agent_conversation import writer_evidence_selection as selection
+    append = AgentConversationService.record_build_writer_evidence_selection
+    checked=[]
+    def inspect(self,world,conversation,turn_id,**kwargs):
+        before=self.inspect_turn(world_id=world,turn_id=turn_id)
+        execution=before.graph_context_execution
+        assert before.graph_context_receipt.assembled_input.assembler_version=='native_build_semantic_initial_v2'
+        vote,proof=kwargs['selection'],kwargs['producer_proof']
+        auth=next(e for e in execution.events if isinstance(e,t.ProviderAttemptAuthorizedEventV5)
+                  and e.provider_attempt_id==vote.controller_attempt_id)
+        trace,=self.list_context_trace_attempts(world_id=world,turn_id=turn_id)
+        trace=trace.model_dump(mode='json',by_alias=True)
+        request,catalog=selection.validate_prepared_selection(before,auth,proof['request_json'],trace)
+        assert set(request['state'])=={'user_question','sources','rules'}
+        assert list(request['state']['sources'])==list(request['questions'])
+        host=selection.selection_state(before,catalog,vote.terminal_disposition,selection.selection_history(before,auth))
+        for key in ('catalog_sha256','basis_sha256','native_query_sha256','source_basis','historical_initial','context_accounting','phase'):
+            assert key not in request['state']
+        for key in catalog:
+            assert key not in proof['request_json']
+        for unit in catalog.values():
+            for key in ('source_artifact_id','source_revision_id'):
+                assert unit['passage'][key] not in proof['request_json']
+            assert any(row['text']==unit['passage']['text'] for row in request['state']['sources'].values())
+        legacy=dict(model=auth.model,state=host,questions=selection.questions(catalog))
+        legacy_raw=selection.canonical(legacy)
+        old_auth=auth.model_copy(update={'envelope_sha256':sha256(legacy_raw.encode()).hexdigest()})
+        selection.validate_prepared_selection(before,old_auth,legacy_raw,trace)
+        # A retained V2 initial receipt with legacy final-selection bytes still
+        # reconstructs the exact old host commitment and response closure.
+        old_execution=execution.model_copy(update={'events':[old_auth if e is auth else e for e in execution.events]})
+        old_before=before.model_copy(update={'graph_context_execution':old_execution})
+        old_vote=vote.model_copy(update={'controller_envelope_sha256':old_auth.envelope_sha256,
+            'basis_sha256':host['basis_sha256']})
+        selection.validate_selection_proof(old_before,old_vote,trace,{**proof,'request_json':legacy_raw})
+        selection.validate_selection_proof(before,vote,trace,proof)
+        for mutation in ('hybrid','unknown','text','question','source_id'):
+            changed=deepcopy(request)
+            if mutation=='hybrid':changed['state']['phase']='writer_selection'
+            elif mutation=='unknown':changed['state']['unexpected']='ignored?'
+            elif mutation=='text':next(iter(changed['state']['sources'].values()))['text']='Different evidence'
+            elif mutation=='question':changed['questions']['s0']['instructions']='Classify another source'
+            else:next(iter(changed['state']['sources'].values()))['source_artifact_id']='not allowed'
+            raw=selection.canonical(changed)
+            changed_auth=auth.model_copy(update={'envelope_sha256':sha256(raw.encode()).hexdigest()})
+            with pytest.raises(ValueError):selection.validate_prepared_selection(before,changed_auth,raw,trace)
+        for field in ('catalog_sha256','basis_sha256'):
+            bad_vote=vote.model_copy(update={field:'0'*64})
+            with pytest.raises(ValueError,match='basis'):
+                selection.validate_selection_proof(before,bad_vote,trace,proof)
+        bad_terminal=vote.model_copy(update={'terminal_disposition':{'status':'ready','reason':'invented'}})
+        with pytest.raises(ValueError,match='terminal'):
+            selection.validate_selection_proof(before,bad_terminal,trace,proof)
+        checked.append(True)
+        return append(self,world,conversation,turn_id,**kwargs)
+    monkeypatch.setattr(AgentConversationService,'record_build_writer_evidence_selection',inspect)
+    case=_fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,native_body='direct_support')
+    assert checked==[True] and case.turn.completion.native_body_citations
