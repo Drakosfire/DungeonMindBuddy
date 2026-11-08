@@ -73,6 +73,8 @@ interface AppChromeProps {
   pageActions?: AppChromeAction[];
   editorTools?: AppChromeToolsGeneration | null;
   editToolboxLayout?: "overlay" | "dock";
+  /** Local guest entry suppresses controls that call hosted World owners. */
+  localOnlyNavigation?: boolean;
   children: ReactNode;
 }
 
@@ -128,6 +130,7 @@ export function AppChrome({
   pageActions = [],
   editorTools,
   editToolboxLayout = "overlay",
+  localOnlyNavigation = false,
   workspaceLayout = "content",
   children,
 }: AppChromeProps) {
@@ -368,7 +371,7 @@ export function AppChrome({
       <div className="app-shell-layout">
         {editToolboxLayout === "dock" ? editHost : null}
         <header ref={chromeHeaderRef} className="app-chrome-header" data-testid="app-chrome-header">
-          <CompactAppNavigation activeRoute={activeRoute} />
+          <CompactAppNavigation activeRoute={activeRoute} localOnly={localOnlyNavigation} />
           <SurfaceContextHost />
         </header>
         {mainContent}
