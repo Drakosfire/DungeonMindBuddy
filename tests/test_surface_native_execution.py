@@ -483,3 +483,55 @@ def test_retained_history_keeps_event_and_provider_budget_limits():
     policy = record.policy.model_copy(update={'max_total_provider_input_tokens': event.input_tokens - 1})
     with pytest.raises(ValueError, match='provider token budget exceeded'):
         execution(context.context_receipt_sha256, policy, [event])
+
+
+def test_build_capabilities_reconstruct_fresh_python_data_without_wire_change():
+    context, record = component("build")
+    original = record.model_dump(mode="json", by_alias=True)
+    fresh = SurfaceNativeExecutionV1.model_validate(record.model_dump(mode="python", by_alias=True))
+    assert fresh.model_dump(mode="json", by_alias=True) == original
+    assert fresh.policy.action.capabilities is not record.policy.action.capabilities
+    assert validate_context_binding(context, record).model_dump(mode="json", by_alias=True) == original
+
+
+@pytest.mark.parametrize("field,value", [
+    ("operations", ["answer_from_sources"]),
+    ("operations", ("answer_from_sources", "answer_from_sources")),
+    ("operations", ("answer_from_sources", "foreign_operation")),
+    ("operations", ("answer_from_sources", {})),
+    ("reviews", ["questions"]),
+    ("plan_surface", "false"),
+    ("author_save", 1),
+    ("unknown_capability", True),
+])
+def test_python_capability_reconstruction_preserves_strict_refusals(field, value):
+    from pydantic import ValidationError
+    _, record = component("build")
+    data = record.policy.action.model_dump(mode="python", by_alias=True)
+    data["capabilities"][field] = value
+    with pytest.raises(ValidationError):
+        NativeBuildActionV1.model_validate(data)
+
+
+def test_mutated_existing_capability_is_reconstructed_before_binding():
+    from pydantic import ValidationError
+    context, record = component("build")
+    object.__setattr__(record.policy.action.capabilities, "operations",
+                       ("answer_from_sources", "foreign_operation"))
+    with pytest.raises(ValidationError):
+        validate_context_binding(context, record)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("plan_surface", "false"), ("author_save", 1),
+    ("operations", ["answer_from_sources", "foreign_operation"]),
+    ("operations", ["answer_from_sources", {}]),
+    ("unknown_capability", True),
+])
+def test_json_capability_reconstruction_keeps_existing_invalid_wire_refusals(field, value):
+    from pydantic import ValidationError
+    _, record = component("build")
+    data = record.policy.action.model_dump(mode="json", by_alias=True)
+    data["capabilities"][field] = value
+    with pytest.raises(ValidationError):
+        NativeBuildActionV1.model_validate_json(json.dumps(data))

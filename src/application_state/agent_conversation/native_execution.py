@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 from application_state.build_proposal.types import BuildWriteCapability
 from . import types as t
@@ -40,6 +40,23 @@ class NativeBuildActionV1(Strict):
     saved_source_char_count: int = Field(ge=0, strict=True)
     requested_work_menu_sha256: Digest
     response_resolver_sha256: Digest
+
+    @field_validator("capabilities", mode="before")
+    @classmethod
+    def reconstruct_capabilities(cls, value, info: ValidationInfo):
+        # Reconstruct through the existing validating owner. Only JSON arrays
+        # become tuples; Python callers must supply the strict tuple form.
+        if isinstance(value, dict):
+            data = dict(value)
+            if info.mode == "json":
+                for name in ("operations", "reviews"):
+                    if isinstance(data.get(name), list):
+                        data[name] = tuple(data[name])
+            try:
+                return Capabilities(**data)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(str(exc)) from exc
+        return value
 
     @model_validator(mode="after")
     def captured_work(self):
@@ -322,7 +339,7 @@ def validate_context_binding(context, execution) -> SurfaceNativeExecutionV1:
     if type(context) is not SurfaceNativeContextReceiptV1 or type(execution) is not SurfaceNativeExecutionV1:
         raise ValueError("Native execution requires its concrete shared context")
     context = SurfaceNativeContextReceiptV1.model_validate(context.model_dump(mode="python", by_alias=True))
-    execution = SurfaceNativeExecutionV1.model_validate_json(execution.model_dump_json(by_alias=True))
+    execution = SurfaceNativeExecutionV1.model_validate(execution.model_dump(mode="python", by_alias=True))
     action, work = execution.policy.action, context.work_context
     if (action.surface_id != work.surface_id or action.intent.world_id != work_world_id(work)
             or execution.context_receipt_sha256 != context.context_receipt_sha256
