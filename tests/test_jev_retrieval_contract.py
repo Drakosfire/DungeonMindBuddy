@@ -429,3 +429,55 @@ def test_current_build_navigation_keeps_accounting_and_identity_out_of_wire():
     assert parse_native_retrieval_input(current.model_dump(by_alias=True), surface_id="build") == current
     with pytest.raises(ValueError, match="actual Build owner"):
         parse_native_retrieval_input(current.model_dump(by_alias=True), surface_id="plan")
+
+
+def test_plan_source_relevance_changes_only_versioned_guidance():
+    from application_state.agent_conversation.jev_retrieval_contract import (
+        NativeRetrievalDecisionInputV1, NativePlanRetrievalDecisionInputV2,
+        parse_native_retrieval_input, validate_wire_body,
+    )
+    fields = request().model_dump(exclude={"schema_", "revision"}) | dict(
+        source_authority_status="available", source_revision="source:1", graph_revision="graph:1",
+        candidates=(RetrievalCandidate(handle="source:1", label="Session 8",
+            kind="Explicit admitted full-source read; metadata choice, not evidence"),))
+    old = NativeRetrievalDecisionInputV1(**fields)
+    new = NativePlanRetrievalDecisionInputV2(**fields)
+    before, after = prepare_decision(old), prepare_decision(new)
+    assert before.questions == after.questions
+    assert {k:v for k,v in before.state.items() if k != "full_document_selection_guidance"} == {
+        k:v for k,v in after.state.items() if k != "full_document_selection_guidance"}
+    assert "or no smaller section is available" in before.state["full_document_selection_guidance"]
+    assert "does not establish relevance" in after.state["full_document_selection_guidance"]
+    assert "explicitly requested sources and broad surveys" in after.state["full_document_selection_guidance"]
+    def wire(prepared):
+        return json.dumps(dict(model=MODEL, state=prepared.state, questions={
+            q.name:dict(type="choice", instructions=q.question, criteria=dict.fromkeys(q.options))
+            for q in prepared.questions})).encode()
+    validate_wire_body(old, wire(before))
+    validate_wire_body(new, wire(after))
+    for parent, raw in ((old, wire(after)), (new, wire(before))):
+        with pytest.raises(ValueError, match="changed"):
+            validate_wire_body(parent, raw)
+    raw = new.model_dump(mode="json", by_alias=True)
+    assert parse_native_retrieval_input(raw, surface_id="plan") == new
+    for surface in ("build", "play"):
+        with pytest.raises(ValueError, match="Plan source relevance"):
+            parse_native_retrieval_input(raw, surface_id=surface)
+    with pytest.raises(ValueError, match="Build accounting"):
+        prepare_decision(new, controller_accounting={})
+
+
+def test_plan_relevance_leaves_non_document_offers_unchanged_and_retains_keyword_focus():
+    from application_state.agent_conversation.jev_retrieval_contract import (
+        NativeRetrievalDecisionInputV1, NativePlanRetrievalDecisionInputV2, RETAINED_KEYWORD_KIND,
+    )
+    fields = request().model_dump(exclude={"schema_", "revision"}) | dict(
+        source_authority_status="available", source_revision="source:1", graph_revision="graph:1")
+    assert prepare_decision(NativeRetrievalDecisionInputV1(**fields)) == prepare_decision(
+        NativePlanRetrievalDecisionInputV2(**fields))
+    focus = RetrievalCandidate(handle="focus:1", label="strange meat", kind=RETAINED_KEYWORD_KIND)
+    current = NativePlanRetrievalDecisionInputV2(**(fields | dict(examined_candidates=(focus,))))
+    assert prepare_decision(current).state["selected_content_keywords"] == ["strange meat"]
+    duplicate = NativePlanRetrievalDecisionInputV2(**(fields | dict(examined_candidates=(focus, focus))))
+    with pytest.raises(ValueError, match="Duplicate retained keyword focus"):
+        prepare_decision(duplicate)

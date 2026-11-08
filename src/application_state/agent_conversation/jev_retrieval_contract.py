@@ -90,6 +90,12 @@ class NativeRetrievalDecisionInputV1(PlanSourceRetrievalDecisionInputV1):
         default="dmb_native_retrieval_decision_input_v1", alias="schema")
 
 
+class NativePlanRetrievalDecisionInputV2(NativeRetrievalDecisionInputV1):
+    """Plan relevance policy, preserving the historical V1 wire."""
+    schema_: Literal["dmb_native_plan_retrieval_decision_input_v2"] = Field(
+        default="dmb_native_plan_retrieval_decision_input_v2", alias="schema")
+
+
 class NativeBuildRetrievalDecisionInputV2(NativeRetrievalDecisionInputV1):
     """Build authoring relevance; V1 retains its exact captured wire contract."""
     schema_: Literal["dmb_native_build_retrieval_decision_input_v2"] = Field(
@@ -104,7 +110,9 @@ class NativeBuildRetrievalDecisionInputV3(NativeBuildRetrievalDecisionInputV2):
 
 def parse_native_retrieval_input(raw, *, surface_id):
     """One exact codec reader for native selection and its selected Rules offer."""
-    codec = (NativeBuildRetrievalDecisionInputV3
+    codec = (NativePlanRetrievalDecisionInputV2
+        if isinstance(raw, dict) and raw.get("schema") == "dmb_native_plan_retrieval_decision_input_v2"
+        else NativeBuildRetrievalDecisionInputV3
         if isinstance(raw, dict) and raw.get("schema") == "dmb_native_build_retrieval_decision_input_v3"
         else NativeBuildRetrievalDecisionInputV2
         if isinstance(raw, dict) and raw.get("schema") == "dmb_native_build_retrieval_decision_input_v2"
@@ -112,6 +120,8 @@ def parse_native_retrieval_input(raw, *, surface_id):
     parent = codec.model_validate(raw)
     if isinstance(parent, NativeBuildRetrievalDecisionInputV2) and surface_id != "build":
         raise ValueError("Build authoring relevance belongs only to its actual Build owner")
+    if isinstance(parent, NativePlanRetrievalDecisionInputV2) and surface_id != "plan":
+        raise ValueError("Plan source relevance belongs only to its actual Plan owner")
     return parent
 
 
@@ -202,6 +212,18 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
             "or no smaller section is available. Exclude it when offered or already acquired sections "
             "address those details. Full-document access is a separate explicit choice; ordinary section "
             "votes never authorize it. Do not select both merely because they concern the same subject.")
+    if "full_document_selection_guidance" in state and type(request) is NativePlanRetrievalDecisionInputV2:
+        state["full_document_selection_guidance"] = (
+            "First establish that the document is relevant to a requested detail. "
+            "The absence of smaller section choices does not establish relevance. "
+            "When source metadata cannot establish relevance, prefer offered content search "
+            "before selecting full documents. For a relevant document, select its full text "
+            "when complete context is needed or no relevant smaller section is available. "
+            "Honor explicitly requested sources and broad surveys without reading unrelated "
+            "sources merely because they share a campaign. Exclude full text when offered or "
+            "already acquired sections address the requested details. Full-document access "
+            "remains a separate explicit choice; section votes never authorize it. "
+            "Do not select both merely because they concern the same subject.")
     if any(c.kind == "Explicit admitted full-source read; metadata choice, not evidence" for c in request.candidates):
         state["source_catalogue_guidance"] = (
             "These admitted source names are metadata, not acquired evidence. For explicitly named sources, "
@@ -212,7 +234,7 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
             "Names do not establish source coverage, chronology or factual support.")
     focus = [c for c in request.examined_candidates if c.kind == RETAINED_KEYWORD_KIND]
     if focus:
-        if type(request) not in {NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInputV2, NativeBuildRetrievalDecisionInputV3}:
+        if type(request) not in {NativeRetrievalDecisionInputV1, NativePlanRetrievalDecisionInputV2, NativeBuildRetrievalDecisionInputV2, NativeBuildRetrievalDecisionInputV3}:
             raise ValueError("Retained keyword focus requires the current native retrieval owner")
         if len({c.handle for c in focus}) != len(focus):
             raise ValueError("Duplicate retained keyword focus")

@@ -82,6 +82,7 @@ def sdk_case(
     context_window_limit=128000,
     question=None,
     native=False,
+    plan_relevance_v2=False,
     include_final_decision=True,
     examined=None,
 ):
@@ -132,8 +133,8 @@ def sdk_case(
             )
             prepare = prepare_requested_work_decision
         else:
-            from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV1
-            parent = (NativeRetrievalDecisionInputV1 if native else PlanSourceRetrievalDecisionInputV1)(
+            from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV1, NativePlanRetrievalDecisionInputV2
+            parent = (NativePlanRetrievalDecisionInputV2 if plan_relevance_v2 else NativeRetrievalDecisionInputV1 if native else PlanSourceRetrievalDecisionInputV1)(
                 **common,
                 **_source_pins(case.turn.graph_context_receipt),
                 candidates=tuple(acquisitions[phase - 1][0](case))
@@ -411,10 +412,11 @@ def sdk_case(
 
 
 @pytest.mark.parametrize("unavailable", [False, True])
+@pytest.mark.parametrize("plan_relevance_v2", [False, True])
 def test_actual_shared_plan_sdk_selection_reload_and_no_resend(
-    application_state_dsn, unavailable
+    application_state_dsn, unavailable, plan_relevance_v2
 ):
-    case = sdk_case(application_state_dsn, unavailable=unavailable)
+    case = sdk_case(application_state_dsn, unavailable=unavailable, native=plan_relevance_v2, plan_relevance_v2=plan_relevance_v2)
     assert append(case)
     assert not append(case)
     step = case.steps[-1]
