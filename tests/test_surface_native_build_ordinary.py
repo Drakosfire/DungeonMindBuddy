@@ -706,7 +706,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             for e in turn.graph_context_execution.events]})
         with pytest.raises(ValueError,match='complete acquired extent closure'):
             selected_body_reads(altered)
-        writer_event=next(e for e in turn.graph_context_execution.events if e.kind=='native_writer_authorized_v1')
+        from application_state.agent_conversation.native_execution import NATIVE_WRITER_TYPES
+        writer_event=next(e for e in turn.graph_context_execution.events if type(e) in NATIVE_WRITER_TYPES)
         assert reads[0].event_id in writer_event.native_read_event_ids
         assert 'source-local episode' in reads[0].excerpt.text
         assert ('A proposed note.' in reads[0].excerpt.text)==(authored_source=='full_document')
