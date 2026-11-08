@@ -3567,7 +3567,10 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
       ) : null}
 
       {mechanicsSavedDraft && threatDraft?.schema === "dmb_threat_draft_v2" && !draftSnapshotUnavailable && !draftSnapshotPending && (
-        <SavedStatblockButton key={`${threatDraft.world_id}:${threatDraft.draft_id}`} worldId={threatDraft.world_id} draftId={threatDraft.draft_id}/>
+        <>
+          <SavedStatblockButton key={`${threatDraft.world_id}:${threatDraft.draft_id}`} worldId={threatDraft.world_id} draftId={threatDraft.draft_id}/>
+          <WorldMechanicsAssociationPanel draft={threatDraft} />
+        </>
       )}
 
       {activeCandidate ? (
@@ -3677,9 +3680,6 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
             />
           ) : null}
 
-          {mechanicsSavedDraft && threatDraft?.schema === "dmb_threat_draft_v2" ? (
-            <WorldMechanicsAssociationPanel key={threatDraft.draft_id} draft={threatDraft} />
-          ) : null}
           {mechanicsSavedDraft && threatDraft?.schema === "dmb_threat_draft_v2" ? (
             <p role="status" data-testid="world-publication-unavailable">
               World-only drafts can save mechanics. Campaign graph publication is unavailable for this scope.
