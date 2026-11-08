@@ -64,8 +64,8 @@ membership checks in full inspectors. Preview is display metadata, not admission
 - WorldPlanAgentConversation.tsx: lightweight read/pagination/display only;
   held Play2172 execution/context regions remain untouched.
 - Owning library/API/citation protocol/component/history tests/fixtures, excluding
-  Retry2188's test_surface_native_build_ordinary.py. Workflow only if a new owning
-  test needs registration, limited to the appropriate existing test list.
+  Retry2188's test_surface_native_build_ordinary.py. Workflows world-ownership-core.yml and hosted-validation.yml only for new owning
+  test registration in their existing lists; no job, environment or check-name change.
 
 ## Verification and delivery
 
@@ -123,3 +123,26 @@ and already visible citations do not offer redundant Show citations loading.
 Full cross-surface qualification, independent review, CI, protected paired delivery
 and ordinary retained-source opening remain gates. No runtime or provider operation
 has been executed for this resumed source slice. Operator acceptance remains open.
+
+Hosted CI at22b126f exposed seven transient reply-node detachments; a controlled
+before/after hydration test reproduces the defect. Keep the existing plain answer
+component directly mounted when no citation preview is ready, rather than wrapping
+it in a presentation component that unmounts during full hydration. The complete
+hosted UI selection now passes locally766 cases, with ordinary Plan checks and
+build. Register the new citation component tests in that existing hosted list.
+The initial hosted failure is retained, not rerun unchanged or called passing.
+
+The full cross-surface run produced81 failures:80 match the retained unchanged
+baseline exactly. The extra case is a retired Technical details gate assertion;
+exact d5d4103 parent reproduction confirms that failure too. Adopt the existing
+Options navigation while removing only the obsolete checkbox action; the actual
+Play source-reference transport/reload/retry test passes. Parent bytes were guarded
+and restored. No Play runtime implementation or hold change is part of this test
+adoption. All broad failures and failing transition controls remain retained.
+
+Read-only candidate browser verification uses the actual new active-message DB
+projection at read-only54331, a browser-local static asset overlay and unchanged
+native HTTP source owner. A retained current citation opens its exact body with one
+GET and zero full-history reads, Details closed, unsent draft preserved and no page
+or Graph writes. This is isolated candidate integration evidence, not deployment
+or operator acceptance. Production currently stays on delivered2217.

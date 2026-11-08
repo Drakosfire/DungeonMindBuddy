@@ -6325,3 +6325,15 @@ it('shows native citations on initial lightweight history without opening Detail
   expect(screen.getByText('Details').closest('details')).not.toHaveAttribute('open');
   expect(screen.queryByRole('button',{name:'Show citations'})).not.toBeInTheDocument();
 });
+
+it('keeps uncited lightweight reply text mounted when exact details hydrate',async()=>{
+  const turn=makeTurn(1,'plain-saved-turn','Which bridge?','Saved plain reply');
+  const page=history('conversation-a',4,[turn]);const api=setupApi(page,false);
+  render(conversationElement());await waitForConversationReady(false);
+  const before=await screen.findByText('Saved plain reply');
+  expect(api.getHistory).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByText('Details'));
+  await waitFor(()=>expect(api.getHistory).toHaveBeenCalledTimes(1));
+  await waitFor(()=>expect(screen.queryByText('Loading reply details…')).not.toBeInTheDocument());
+  expect(screen.getByText('Saved plain reply')).toBe(before);
+});

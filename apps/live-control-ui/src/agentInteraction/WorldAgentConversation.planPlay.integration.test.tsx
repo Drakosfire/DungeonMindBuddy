@@ -737,7 +737,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
       return;
     }
     await screen.findByText(/Reference transport interrupted/);
-    openConversationOptions();fireEvent.click(screen.getByRole('checkbox',{name:'Technical details'}));
+    openConversationOptions();
     fireEvent.click(screen.getByText('Saved request details'));
     expect(screen.getByRole('region',{name:'Saved request references'})).toHaveTextContent('Session 20 ending');
     expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
