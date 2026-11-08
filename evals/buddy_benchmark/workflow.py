@@ -2,6 +2,8 @@
 
 Run with ``python -m evals.buddy_benchmark.workflow --help``. Gold and semantic
 reviews belong to reporting only, never to the ordinary capture request.
+``writer-prepare`` and ``writer-capture`` isolate retained composition inputs;
+their results are provider-only diagnostics, never ordinary delivery or QA grades.
 """
 from __future__ import annotations
 
@@ -12,7 +14,7 @@ import os
 from pathlib import Path
 import secrets
 import time
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from .artifacts import immutable_save
 
@@ -26,10 +28,14 @@ def read_pin(pin, base):
     return data
 
 
-def load_manifest(path):
+def load_manifest(path, *, schema="dmb_ordinary_benchmark_v1"):
     path = Path(path).resolve()
-    manifest = json.loads(path.read_text())
-    if manifest.get("schema") != "dmb_ordinary_benchmark_v1":
+    if schema == "dmb_ordinary_benchmark_v1":
+        manifest = json.loads(path.read_text())
+    else:
+        from application_state.agent_conversation.source_writer_output import strict_json
+        manifest = strict_json(path.read_text())
+    if manifest.get("schema") != schema:
         raise ValueError("Unknown ordinary benchmark manifest")
     cases = manifest["cases"]
     ids = [case["id"] for case in cases]
@@ -402,16 +408,262 @@ def capture(manifest_path, output):
             raise ValueError("Native authority changed during ordinary capture")
 
 
+def _writer_replay_request(case, source, source_base, summary, *, case_base):
+    """Join retained witnesses, never manufacture an APP writer authorization."""
+    from application_state.agent_conversation.source_writer_output import strict_json
+    from application_state.agent_conversation.native_evidence_view import semantic_frame_in_request
+    from application_state.agent_conversation.types import canonical_sha256
+    import jsonschema
+
+    if set(case) != {"id", "question", "writer_attempt_id", "ledger"}:
+        raise ValueError("Replay case requires its exact retained writer and ledger")
+    identity = str(UUID(case["writer_attempt_id"]))
+    if case["question"] != source["question"] or summary["delivery"]["status"] != "pass":
+        raise ValueError("Replay requires the same completed ordinary question")
+    directory = Path(source["capture_dir"])
+    directory = directory if directory.is_absolute() else source_base / directory
+    if json.loads((directory / "request.json").read_text())["surface"].get("surface_id") != "plan":
+        raise ValueError("Replay currently supports retained ordinary Plan writers only")
+    trace = _wrapped(directory / "context-trace.json")["body"]
+    history = _wrapped(directory / "history-after.json")["body"]
+    witnesses = [(attempt, event) for attempt in trace["attempts"] for event in attempt["observations"]
+        if event["kind"] == "prompt_reference" and event.get("provider_attempt_id") == identity]
+    if len(witnesses) != 1:
+        raise ValueError("Replay needs one exact writer prompt witness")
+    trace_attempt, witness = witnesses[0]
+    if (witness.get("provider"), witness.get("api_mode"), witness.get("serializer_version")) != (
+            "openai", "responses", "openai-sdk-json-v1"):
+        raise ValueError("Replay witness is not a native answer writer")
+    evidence = str(UUID(witness["evidence_id"]))
+    root = Path(source["prompt_dir"])
+    path = (root if root.is_absolute() else source_base / root) / (evidence + ".json")
+    pin = {"path": str(path.resolve()), "sha256": witness["payload_sha256"]}
+    raw = read_pin(pin, source_base)
+    if len(raw) != witness["payload_utf8_bytes"]:
+        raise ValueError("Replay witness size differs")
+    body = strict_json(raw.decode())
+    ledger = strict_json(read_pin(case["ledger"], case_base).decode())
+    events = ledger["graph_context_execution"]["events"]
+    writers = [e for e in events if e["kind"] == "native_writer_authorized_v1"]
+    completions = [e for e in events if e["kind"] == "completion_binding"]
+    frame = semantic_frame_in_request(body, legacy_schemas=())
+    if (ledger["turn_id"] != summary["durable_turn_id"] or ledger["status"] != "completed"
+            or ledger["conversation_id"] != history["conversation_id"]
+            or len(writers) != 1 or len(completions) != 1 or frame is None):
+        raise ValueError("Replay requires its completed native writer binding")
+    writer = writers[0]
+    turn = next(t for t in history["turns"] if t["turn_id"] == ledger["turn_id"])
+    completion = turn["plan_context"]["completion"]
+    receipt = turn["plan_context"]["receipt"]
+    delivered_context = _wrapped(directory / "answer-http.json")["body"].get("plan_context")
+    if ((writer["provider_attempt_id"], writer["provider"], writer["api_mode"], writer["serializer_version"])
+            != (identity, "openai", "responses", "openai-sdk-json-v1")
+            or ledger["attempt"] != trace_attempt["attempt"]
+            or ledger["graph_context_receipt"] != receipt
+            or ledger["graph_context_execution"]["context_receipt_sha256"] != receipt["context_receipt_sha256"]
+            or completion["context_receipt_sha256"] != receipt["context_receipt_sha256"]
+            or completion["producing_provider_attempt_id"] != identity
+            or not isinstance(delivered_context, dict)
+            or delivered_context.get("completion") != completion or delivered_context.get("receipt") != receipt
+            or completions[0]["provider_attempt_id"] != identity
+            or completions[0]["completion_sha256"] != canonical_sha256(completion)
+            or writer["envelope_sha256"] != pin["sha256"]
+            or writer["frame_sha256"] != canonical_sha256(frame)
+            or frame["user_question"] != case["question"]
+            or (writer["model"], witness["model"]) != (body["model"], body["model"])):
+        raise ValueError("Replay writer request, frame or attempt binding differs")
+    attempt = summary["operation"]["attempts"].get(identity)
+    if (not attempt or (attempt["provider"], attempt["model"]) != ("openai", body["model"])
+            or "authorized" not in attempt["outcomes"] or "response_received" not in attempt["outcomes"]):
+        raise ValueError("Replay writer has no actual retained dispatch")
+    required = {"model", "input", "instructions", "tools", "stream", "text", "reasoning", "service_tier"}
+    if (not required <= set(body) or set(body) - required - {"max_output_tokens"}
+            or body["tools"] != [] or body["stream"] is not False or body["service_tier"] != "fast"
+            or not isinstance(body["instructions"], str) or not body["instructions"].strip()
+            or not isinstance(body["input"], list) or not body["input"]
+            or any(not isinstance(row, dict) or set(row) != {"role", "content"}
+                or row["role"] != "user" or not isinstance(row["content"], str) for row in body["input"])
+            or set(body["reasoning"]) != {"effort"}
+            or set(body["text"]) != {"format"}
+            or set(body["text"]["format"]) != {"type", "name", "schema", "strict"}
+            or body["text"]["format"]["type"] != "json_schema"
+            or body["text"]["format"]["name"] != "surface_native_evidence_selectors_v1"
+            or body["text"]["format"]["strict"] is not True):
+        raise ValueError("Unsupported retained native writer packet")
+    pending = [body["text"]["format"]["schema"]]
+    while pending:
+        value = pending.pop()
+        if isinstance(value, dict):
+            if (set(value) & {"$id", "$schema", "$dynamicRef", "$recursiveRef"}
+                    or "$ref" in value and (not isinstance(value["$ref"], str) or not value["$ref"].startswith("#/"))):
+                raise ValueError("Replay output schema must use only local native references")
+            pending.extend(value.values())
+        elif isinstance(value, list):
+            pending.extend(value)
+    jsonschema.Draft202012Validator.check_schema(body["text"]["format"]["schema"])
+    return body, pin, {"turn_id": ledger["turn_id"], "conversation_id": ledger["conversation_id"],
+        "world_id": history["world_id"], "writer_attempt_id": identity, "frame_sha256": writer["frame_sha256"]}
+
+
+async def _writer_replay_call(packet, directory=None, *, transport=None, expected_wire=None):
+    """Same provider/SDK as production; a missing directory is a denied offline preflight."""
+    import httpx
+    import jsonschema
+    from generationengine import GenerationClient, TextRequest
+    from generationengine.text_dispatch import TextDispatchGate
+    from apps.live_control_server.services.plan_jev_writer import PlanWriterProvider
+    from application_state.agent_conversation.source_writer_output import strict_json
+
+    prepared_wire, outcomes = [], []
+    async def authorize(prepared):
+        if ((prepared.provider, prepared.api_mode, prepared.model, prepared.method, prepared.url)
+                != ("openai", "responses", packet["model"], "POST", "https://api.openai.com/v1/responses")
+                or len(prepared.body) != prepared.body_size
+                or sha256(prepared.body).hexdigest() != prepared.body_sha256
+                or strict_json(prepared.body.decode()) != packet
+                or expected_wire is not None and expected_wire != {
+                    "sha256": prepared.body_sha256, "size": prepared.body_size}):
+            raise ValueError("Replay actual SDK wire differs from its frozen packet")
+        prepared_wire.append({"sha256": prepared.body_sha256, "size": prepared.body_size})
+        if directory is not None:
+            immutable_save(directory, "wire-request", {"provider_attempt_id": prepared.attempt_id,
+                "body": prepared.body.decode(), **prepared_wire[-1]})
+        return directory is not None
+    async def record(event):
+        outcomes.append(event.outcome)
+        if directory is not None:
+            immutable_save(directory, "dispatch-" + event.outcome, {
+                "provider_attempt_id": event.request.attempt_id, "outcome": event.outcome,
+                "http_status": event.http_status, "request_sha256": event.request.body_sha256})
+        return True
+    def offline(_request):
+        raise AssertionError("Offline writer preparation must not reach HTTP transport")
+    provider = PlanWriterProvider(dispatch_gate=TextDispatchGate(authorize, record),
+        **({"api_key": "offline-writer-preparation", "transport": httpx.MockTransport(offline)}
+           if directory is None else {"transport": transport}))
+    client = GenerationClient(text_providers={"openai": provider})
+    started = time.perf_counter()
+    try:
+        result = await client.generate_structured(TextRequest(provider="openai", model=packet["model"],
+            user_prompt=json.dumps(packet["input"], ensure_ascii=False), system_prompt=packet["instructions"],
+            reasoning_effort=packet["reasoning"]["effort"], temperature=None,
+            max_output_tokens=packet.get("max_output_tokens"), json_schema=packet["text"]["format"]["schema"],
+            schema_name=packet["text"]["format"]["name"], max_conformance_retries=0, max_transport_retries=0))
+        raw = provider.consume_completed_text(provider.actual_response, packet["model"])
+        jsonschema.validate(strict_json(raw), packet["text"]["format"]["schema"])
+        observation = result.observation.model_dump(mode="json")
+        immutable_save(directory, "result", {"status": "diagnostic_complete", "raw_text": raw,
+            "observation": observation, "elapsed_seconds": time.perf_counter()-started,
+            "billed_cost_usd": observation.get("cost_usd") if observation.get("cost_status") == "reported" else None,
+            "cost_status": observation.get("cost_status", "unavailable"),
+            "semantic_acceptance": "unknown", "ordinary_delivery": "not_exercised"})
+    except BaseException as exc:
+        if directory is None:
+            if not isinstance(exc, Exception):
+                raise
+            if len(prepared_wire) != 1 or outcomes != ["known_not_sent"]:
+                raise ValueError("Offline SDK preparation failed before its exact denied dispatch") from exc
+            return prepared_wire[0]
+        immutable_save(directory, "failure", {"status": "diagnostic_failed", "exception_type": type(exc).__name__,
+            "dispatch_outcomes": outcomes, "elapsed_seconds": time.perf_counter()-started,
+            "observation": (exc.observation.model_dump(mode="json")
+                if getattr(exc, "observation", None) is not None else None),
+            "ordinary_delivery": "not_exercised", "automatic_resume": False})
+        raise
+    finally:
+        if directory is not None and provider.actual_response is not None:
+            immutable_save(directory, "sdk-response", provider.actual_response.model_dump(mode="json"))
+        await client.aclose()
+
+
+def _writer_replay_plan(specification):
+    import asyncio
+    from copy import deepcopy
+    spec, base = load_manifest(specification, schema="dmb_writer_replay_spec_v1")
+    if set(spec) - {"schema", "cases", "runtime", "source_manifest", "instructions", "pins"}:
+        raise ValueError("Unknown writer replay specification fields")
+    verify_runtime(spec["runtime"], base)
+    source_pin = spec["source_manifest"]
+    read_pin(source_pin, base)
+    source_path = Path(source_pin["path"])
+    source_path = source_path if source_path.is_absolute() else base / source_path
+    sources, source_base = load_manifest(source_path)
+    summaries = {c["case_id"]: c for c in report(source_path)["cases"]}
+    source_cases = {c["id"]: c for c in sources["cases"]}
+    override = read_pin(spec["instructions"], base).decode() if spec.get("instructions") is not None else None
+    if override is not None and not override.strip():
+        raise ValueError("Empty shared replay instructions")
+    cases = []
+    for case in spec["cases"]:
+        if case["id"] not in source_cases:
+            raise ValueError("Replay case is not in its retained cohort")
+        original, pin, binding = _writer_replay_request(case, source_cases[case["id"]], source_base,
+            summaries[case["id"]], case_base=base)
+        packet = deepcopy(original)
+        if override is not None:
+            packet["instructions"] = override
+        wire = asyncio.run(_writer_replay_call(packet))
+        cases.append({"id": case["id"], "question": case["question"], "source_request": pin,
+            "binding": binding, "request_json": json.dumps(packet, ensure_ascii=False), "prepared_wire": wire,
+            "original_instructions_sha256": sha256(original["instructions"].encode()).hexdigest()})
+    path = Path(specification).resolve()
+    return {"schema": "dmb_writer_replay_plan_v1", "specification": {"path": str(path), "sha256": sha256(path.read_bytes()).hexdigest()},
+        "cases": cases, "scope": "provider_only_diagnostic; not APP authorization, citation acceptance or ordinary delivery"}
+
+
+def writer_prepare(specification, output):
+    plan = _writer_replay_plan(specification)
+    immutable_save(Path(output).resolve(), "plan", plan)
+    return plan
+
+
+def writer_capture(plan_path, output, *, transport=None):
+    import asyncio
+    from application_state.agent_conversation.source_writer_output import strict_json
+    plan_path = Path(plan_path).resolve()
+    directory = Path(output).resolve()
+    if directory.exists():
+        raise FileExistsError("Writer replay output already exists; no resume or replacement")
+    plan = strict_json(plan_path.read_text())
+    pin = plan["specification"]
+    read_pin(pin, plan_path.parent)
+    source = Path(pin["path"])
+    expected = _writer_replay_plan(source if source.is_absolute() else plan_path.parent / source)
+    if plan != expected:
+        raise ValueError("Prepared writer replay plan changed")
+    directory.mkdir(mode=0o700, parents=True, exist_ok=False)
+    immutable_save(directory, "plan", plan)
+    completed = []
+    for index, case in enumerate(plan["cases"]):
+        target = directory / case["id"]
+        immutable_save(target, "request", case)
+        try:
+            asyncio.run(_writer_replay_call(strict_json(case["request_json"]), target,
+                transport=transport, expected_wire=case["prepared_wire"]))
+        except BaseException:
+            immutable_save(directory, "cohort", {"status": "stopped", "completed_cases": completed,
+                "failed_case": case["id"], "unattempted_cases": [c["id"] for c in plan["cases"][index+1:]],
+                "automatic_resume": False, "ordinary_delivery": "not_exercised"})
+            raise
+        completed.append(case["id"])
+    immutable_save(directory, "cohort", {"status": "diagnostic_complete", "completed_cases": completed,
+        "ordinary_delivery": "not_exercised", "semantic_acceptance": "unknown"})
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("report", "capture"))
+    parser.add_argument("mode", choices=("report", "capture", "writer-prepare", "writer-capture"))
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--output", required=True)
     args = parser.parse_args(argv)
     if args.mode == "report":
         immutable_save(Path(args.output), "report", report(args.manifest))
-    else:
+    elif args.mode == "capture":
         capture(args.manifest, args.output)
+    elif args.mode == "writer-prepare":
+        writer_prepare(args.manifest, args.output)
+    else:
+        writer_capture(args.manifest, args.output)
 
 
 if __name__ == "__main__":
