@@ -162,3 +162,22 @@ def test_mixed_source_and_object_selection_retains_exact_closure():
     with pytest.raises(ValueError, match='exact current controller/query grant'):
         validate_selected_record_events(q, execution(q, ('asrt:0', 'asrt:2'),
             handles=('native-full-document:source',)))
+
+
+@pytest.mark.parametrize('surface', ['plan','build'])
+def test_current_dispatch_owns_new_codec_and_keeps_host_context_private(surface):
+    from tests.test_surface_native_execution import component
+    from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
+    from application_state.agent_conversation.jev_retrieval_contract import (
+        NativeRetrievalDecisionInputV2, NativeBuildRetrievalDecisionInputV4, parse_native_retrieval_input,
+    )
+    receipt,_=component(surface)
+    adapter=SimpleNamespace(request=SimpleNamespace(message='Find the requested source.'),
+        fence=SimpleNamespace(turn=SimpleNamespace(graph_context_receipt=receipt)))
+    dispatch=PlanJevDispatch(adapter,driver(query())._native_object_candidates())
+    assert type(dispatch.parent) is (NativeBuildRetrievalDecisionInputV4 if surface=='build' else NativeRetrievalDecisionInputV2)
+    assert parse_native_retrieval_input(dispatch.parent.model_dump(by_alias=True),surface_id=surface)==dispatch.parent
+    assert dispatch._host_phase()==('navigate' if surface=='build' else None)
+    prepared=prepare_decision(dispatch.parent)
+    assert 'context_accounting' not in prepared.state and 'phase' not in prepared.state
+    assert all(q.question.endswith('Apply relevance_guidance.') for q in prepared.questions[1:])
