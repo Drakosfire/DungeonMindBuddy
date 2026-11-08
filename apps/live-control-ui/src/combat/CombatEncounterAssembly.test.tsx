@@ -93,7 +93,7 @@ it('distinguishes same-name World identities by campaign and exact node', async 
 
 const associated = {association_id:'association-one',version:1,request:{target:{node_id:'npc-a',managed_world_id:'elderwyld'}}} as WorldMechanicsAssociation;
 const mechanics = {association_id:'association-one',association_version:1,
-  target:{managed_world_id:'elderwyld',native_world_id:'native-world',binding_version:2,graph_revision_id:'revision-a',node_id:'npc-a',label:'World Scout',kind:'npc',role:'npc',campaign_scope:null},
+  target:{managed_world_id:'elderwyld',native_world_id:'native-world',binding_version:2,graph_revision_id:'revision-a',node_id:'npc-a',label:'World Scout',kind:'npc',role:'',campaign_scope:null},
   resource:{definition:{identity:{name:'Saved Scout'}}},snapshot_digest:'sha256:verified'} as CombatMechanicsSnapshot;
 async function selectAssociated() {
   vi.mocked(api.listWorldMechanicsAssociations).mockResolvedValue([associated]);
@@ -183,4 +183,15 @@ it('ignores direct preview after unmount and pages saved drafts only on request'
   expect(screen.getByRole('button',{name:'Add to encounter draft'})).toBeDisabled();
   mounted.unmount();mount();await act(async()=>finish(directMechanics));
   expect(screen.queryByText('Exact saved mechanics loaded. Tracker AC and HP stay manual.')).toBeNull();
+});
+
+it('ignores the old World read when a host changes its World without unmounting',async()=>{
+  let finish!:(value:WorldCreatureCatalog)=>void;
+  vi.spyOn(api,'listWorldCreatures').mockReturnValue(new Promise(resolve=>{finish=resolve;}));
+  const mounted=mount();await userEvent.click(screen.getByRole('button',{name:'Find World creatures'}));
+  mounted.rerender(<CombatEncounterAssembly worldId="another-world" disabled={false} remainingSlots={100} onAdd={mounted.onAdd}/>);
+  fireEvent.click(screen.getByText('Add combatants'));
+  await act(async()=>finish(world));
+  expect(screen.queryByRole('list',{name:'World creatures'})).toBeNull();
+  expect(screen.getByRole('button',{name:'Find World creatures'})).toBeEnabled();
 });

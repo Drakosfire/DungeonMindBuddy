@@ -91,7 +91,10 @@ def save_world_combat_encounter(
         if key not in creature_views:
             creature_views[key] = creatures.catalog(world_id, revision_id=identity.graph_revision_id)
         projected = creature_views[key]
-        target = creatures.require_target(identity, projected)
+        try:
+            target = creatures.require_target(identity, projected)
+        except ApplicationStateConflictError as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
         expected = CombatWorldIdentity(**target.model_dump(mode='json'))
         verified[entity.id] = expected
         if isinstance(entity.mechanics_snapshot, CombatMechanicsSnapshot):
@@ -260,8 +263,3 @@ def _copy_suffix(index: int) -> str:
         index = index // 26 - 1
         if index < 0:
             return "".join(reversed(chars))
-
-
-def is_combat_candidate(kind: str, role: str) -> bool:
-    admitted = {"npc", "threat", "creature", "monster"}
-    return kind.casefold() in admitted or role.casefold() in admitted

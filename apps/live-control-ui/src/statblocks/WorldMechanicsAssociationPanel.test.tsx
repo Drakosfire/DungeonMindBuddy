@@ -144,3 +144,14 @@ describe("World mechanics explicit association",()=>{
   });
 
 });
+
+it('ignores an old native read after the same host switches World in place',async()=>{
+  let finish!:(value:WorldCreatureCatalog)=>void;
+  vi.mocked(api.listWorldCreatures).mockReturnValue(new Promise(resolve=>{finish=resolve;}));
+  const mounted=render(<WorldMechanicsAssociationPanel draft={draft}/>);
+  await userEvent.click(screen.getByRole('button',{name:'Load creatures'}));
+  mounted.rerender(<WorldMechanicsAssociationPanel draft={{...draft,world_id:'other-world'}}/>);
+  await act(async()=>finish(view));
+  expect(screen.queryByRole('combobox',{name:'World creature'})).toBeNull();
+  expect(screen.getByRole('button',{name:'Load creatures'})).toBeEnabled();
+});

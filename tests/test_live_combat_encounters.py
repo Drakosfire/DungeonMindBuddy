@@ -375,18 +375,19 @@ def _manual_world_actor():
             "source": "manual", "hp": 18, "max_hp": 18, "world_identity": {
                 "managed_world_id": "elderwyld", "native_world_id": "native-elderwyld",
                 "binding_version": 1, "graph_revision_id": "graph-a", "node_id": "scout-node",
-                "label": "Scout", "kind": "npc", "role": "npc", "campaign_scope": "campaign-c2"}}
+                "label": "Scout", "kind": "npc", "role": "", "campaign_scope": "campaign-c2"}}
 
 
 def _mock_world_identity(monkeypatch):
-    from apps.live_control_server.services import managed_world_graph_projection as projection
+    from apps.live_control_server.services import world_creature_selection as creatures
+    from application_state.world_mechanics.types import WorldMechanicsTarget
     calls = []
-    def project(request):
-        calls.append(request)
-        return SimpleNamespace(managed_world_id="elderwyld", native_world_id="native-elderwyld", binding_version=1,
-            projection=SimpleNamespace(snapshot=SimpleNamespace(revision_id="graph-a"),
-                nodes=[SimpleNamespace(node_id="scout-node", label="Scout", kind="npc", role="npc", campaign_scope="campaign-c2")]))
-    monkeypatch.setattr(projection, "project_managed_world_graph", project)
+    target=WorldMechanicsTarget(**_manual_world_actor()['world_identity'])
+    def read(world,**kwargs):
+        calls.append((world,kwargs))
+        return creatures.CreatureCatalog('elderwyld','native-elderwyld',1,'graph-a','graph-a',(target,),'complete')
+    monkeypatch.setattr(creatures,'catalog',read)
+    monkeypatch.setattr(creatures.native,'binding',lambda world:{'native_world_id':'native-elderwyld','binding_version':1})
     return calls
 
 
@@ -401,7 +402,7 @@ def test_world_assembly_verifies_once_and_preserves_instances_through_http_reope
     saved = test_client.put(path, json={"expected_revision": 1, "draft": draft})
     assert saved.status_code == 200, saved.text
     assert len(calls) == 1
-    assert calls[0].revision_pin == "graph-a"
+    assert calls[0] == ("elderwyld", {"revision_id":"graph-a"})
     assert saved.json()["draft"]["entities"][0]["ac"] is None
     assert saved.json()["draft"]["entities"][0]["world_identity"] == actor["world_identity"]
     replay = test_client.put(path, json={"expected_revision": 1, "draft": draft})

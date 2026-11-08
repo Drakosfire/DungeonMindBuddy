@@ -18,6 +18,9 @@ async function pendingStorage<T>(key: string, live: () => boolean, action: () =>
 
 /** Explicit association action, shared by every host of the statblock workbench. */
 export function WorldMechanicsAssociationPanel({ draft }: { draft: ThreatDraftV2 }) {
+  return <AssociationPanel key={JSON.stringify([draft.world_id,draft.draft_id])} draft={draft}/>;
+}
+function AssociationPanel({ draft }: { draft: ThreatDraftV2 }) {
   const key = `dmb.worldMechanics.pending:${draft.world_id}:${draft.draft_id}`;
   const [initial] = useState(() => {
     try {
@@ -153,7 +156,7 @@ export function WorldMechanicsAssociationPanel({ draft }: { draft: ThreatDraftV2
           </option>)}
         </select>
       </label>
-      {nodes.length === 0 ? <p>No creatures are present in the loaded World contents.</p> : null}
+      {nodes.length === 0 ? <p>No selectable creatures are available in this view.</p> : null}
       {previous ? <p>This creature already has associated mechanics. Replacing them keeps the previous association in history.</p> : null}
       <button type="button" onClick={start} disabled={!selected || busy || !!pending || !!initial.error}>
         {previous ? "Replace creature mechanics" : "Associate creature mechanics"}

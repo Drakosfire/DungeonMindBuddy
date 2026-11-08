@@ -59,7 +59,7 @@ export function verifyWorldCreatureCatalog(view: WorldCreatureCatalog, worldId: 
     || view.targets.some(n => !n || n.managed_world_id !== worldId || n.native_world_id !== view.native_world_id
       || n.binding_version !== view.binding_version || n.graph_revision_id !== view.revision_id
       || typeof n.node_id !== 'string' || !n.node_id || typeof n.label !== 'string' || !n.label
-      || n.kind !== 'npc' || n.role !== '' || n.campaign_scope !== null && (typeof n.campaign_scope !== 'string' || !n.campaign_scope))) {
+      || !['npc','character','creature'].includes(n.kind) || n.role !== '' || n.campaign_scope !== null && (typeof n.campaign_scope !== 'string' || !n.campaign_scope))) {
     throw new TypeError('Native creature selection did not match the selected World.');
   }
 }

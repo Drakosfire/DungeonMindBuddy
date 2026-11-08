@@ -7,10 +7,14 @@ import type { AcceptedCombatMechanicsChoice, CombatMechanicsSnapshot, CombatEnti
 import './combatAssembly.css';
 
 /** A Surface-owned draft editor. Loading identity never invents or loads mechanics. */
-export function CombatEncounterAssembly({ worldId, disabled, remainingSlots, onAdd }: {
+type AssemblyProps = {
   worldId: string; disabled: boolean; remainingSlots: number;
   onAdd: (entities: CombatEntity[], group: CombatGroup | null) => string | void;
-}) {
+};
+export function CombatEncounterAssembly(props:AssemblyProps) {
+  return <Assembly key={props.worldId} {...props}/>;
+}
+function Assembly({worldId,disabled,remainingSlots,onAdd}:AssemblyProps) {
   const [world, setWorld] = useState<WorldCreatureCatalog | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
