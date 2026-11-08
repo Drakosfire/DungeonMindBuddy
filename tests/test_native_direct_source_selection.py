@@ -267,3 +267,257 @@ def test_ordinary_batch_full_read_fulfills_selected_sections_without_false_failu
         unselected=batch.model_copy(update={'selected_handles':tuple(h for h in batch.selected_handles if h!=handle)})
         patch.setattr('application_state.agent_conversation.plan_jev_decision.current_selection',lambda _:unselected)
         assert not nav._fulfilled_in_current_selection(handle)
+
+
+def direct_grant_case(dsn, *, second_selection=False, boundary=False, count=3):
+    """Actual SDK selection; metadata grants do not claim that fake sources were read."""
+    from application_state.agent_conversation.jev_retrieval_contract import RetrievalCandidate
+    from tests.application_state.test_surface_native_decisions import sdk_case
+
+    def candidates(case):
+        authority = case.turn.graph_context_receipt.source_authority
+        if not hasattr(case, 'grants'):
+            case.grants = tuple(dict(event_id=uuid4(), source_artifact_id=f'artifact:{i}',
+                source_revision_id=f'revision:{i}', content_sha256=f'{i:064x}') for i in range(count))
+        rows = tuple(RetrievalCandidate(handle=native_direct_source_handle(authority,
+            row['source_artifact_id'], row['source_revision_id'], row['content_sha256']),
+            label=f'Source {i}', kind='Explicit admitted full-source read; metadata choice, not evidence')
+            for i, row in enumerate(case.grants))
+        if boundary:
+            from hashlib import sha256
+            from application_state.agent_conversation.native_corpus import native_corpus_search_handle
+            search = RetrievalCandidate(handle=native_corpus_search_handle(sha256(case.turn.user_text.encode()).hexdigest()),
+                label='Search source sections', kind='Source lexical navigation; not evidence or semantic completeness')
+            return (rows[0], search, *rows[1:])
+        return rows
+
+    def settle(case):
+        case.turn, _ = commit_grants(case)
+        for row in case.grants:
+            case.turn, _ = case.service.observe_native_direct_source(case.turn.world_id,
+                case.turn.conversation_id, case.turn.turn_id,
+                expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
+                event_id=uuid4(), authorization_event_id=row['event_id'], read=lambda _: None)
+    acquisitions = ((candidates, settle), (candidates, lambda _: None)) if second_selection else ((candidates, lambda _: None),)
+    return sdk_case(dsn, native=True, acquisitions=acquisitions, include_final_decision=False)
+
+
+def grant_snapshot(case):
+    import psycopg
+    with psycopg.connect(case.dsn) as conn:
+        return conn.execute('SELECT revision,graph_context_execution FROM agent.turn WHERE turn_id=%s',
+            (case.turn.turn_id,)).fetchone()
+
+
+def commit_grants(case, grants=None, **overrides):
+    return case.service.authorize_native_direct_sources(case.turn.world_id,
+        case.turn.conversation_id, case.turn.turn_id,
+        **(dict(expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
+            grants=case.grants if grants is None else grants) | overrides))
+
+
+def test_direct_grants_commit_together_and_complete_replay_does_not_advance(application_state_dsn):
+    case = direct_grant_case(application_state_dsn)
+    before = case.turn
+    case.turn, fresh = commit_grants(case)
+    assert fresh and case.turn.revision == before.revision + 1
+    appended = case.turn.graph_context_execution.events[len(before.graph_context_execution.events):]
+    assert len(appended) == 3 and all(type(e) is NativeDirectSourceAuthorizedV1 for e in appended)
+    assert [e.event_id for e in appended] == [row['event_id'] for row in case.grants]
+    assert [e.sequence for e in appended] == list(range(appended[0].sequence, appended[0].sequence + 3))
+    checkpoint = grant_snapshot(case)
+    replay, fresh = commit_grants(case)
+    assert not fresh and replay == case.turn and grant_snapshot(case) == checkpoint
+
+
+@pytest.mark.parametrize('count', [1, 2, 9, 10])
+def test_group_sizes_keep_individual_unavailable_observations(application_state_dsn, count):
+    case = direct_grant_case(application_state_dsn, count=count)
+    before = case.turn
+    case.turn, fresh = commit_grants(case)
+    assert fresh and case.turn.revision == before.revision + 1
+    for row in case.grants:
+        case.turn, fresh = case.service.observe_native_direct_source(case.turn.world_id,
+            case.turn.conversation_id, case.turn.turn_id,
+            expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
+            event_id=uuid4(), authorization_event_id=row['event_id'], read=lambda _: None)
+        assert fresh
+    # Grant batching removes only grant commits: every unavailable read still
+    # has its own durable observation, without inventing text or recovery.
+    assert case.turn.revision == before.revision + count + 1
+    added = case.turn.graph_context_execution.events[len(before.graph_context_execution.events):]
+    grants = [e for e in added if type(e) is NativeDirectSourceAuthorizedV1]
+    observed = [e for e in added if type(e) is NativeDirectSourceObservedV1]
+    assert len(grants) == len(observed) == count
+    assert [e.authorization_event_id for e in observed] == [e.event_id for e in grants]
+    assert all(e.catalog is None and e.failure_code for e in observed)
+
+
+@pytest.mark.parametrize('mutation', ['duplicate_id', 'duplicate_source', 'foreign', 'reordered', 'partial_replay', 'stale'])
+def test_direct_grant_batch_rejects_atomically(application_state_dsn, mutation):
+    from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
+    case = direct_grant_case(application_state_dsn)
+    if mutation == 'partial_replay':
+        case.turn, fresh = commit_grants(case, case.grants[:1])
+        assert fresh
+    grants = [dict(row) for row in case.grants]
+    extra = {}
+    if mutation == 'duplicate_id':
+        grants[1]['event_id'] = grants[0]['event_id']
+    elif mutation == 'duplicate_source':
+        grants[1] = dict(grants[0], event_id=grants[1]['event_id'])
+    elif mutation == 'foreign':
+        grants[-1]['source_artifact_id'] = 'artifact:foreign'
+    elif mutation == 'reordered':
+        grants.reverse()
+    elif mutation == 'stale':
+        extra['expected_revision'] = case.turn.revision - 1
+    before = grant_snapshot(case)
+    with pytest.raises((ApplicationStateConflictError, ApplicationStateValidationError)):
+        commit_grants(case, tuple(grants), **extra)
+    assert grant_snapshot(case) == before
+
+
+def test_direct_grant_batch_rolls_back_if_durable_return_fails(application_state_dsn, monkeypatch):
+    from application_state.agent_conversation import repository as repo
+    from application_state.errors import ApplicationStateIntegrityError
+    case = direct_grant_case(application_state_dsn)
+    before = grant_snapshot(case)
+    original = repo.update_graph_execution
+    attempted = []
+
+    def rejected_return(*args, **kwargs):
+        result = original(*args, **kwargs)
+        assert result is not None
+        attempted.append(True)
+        raise ApplicationStateIntegrityError('Injected durable return rejection')
+
+    monkeypatch.setattr(repo, 'update_graph_execution', rejected_return)
+    with pytest.raises(ApplicationStateIntegrityError, match='durable return rejection'):
+        commit_grants(case)
+    assert attempted and grant_snapshot(case) == before
+
+
+@pytest.mark.parametrize('mutation', ['changed_content', 'another_controller', 'stale_attempt', 'expired'])
+def test_direct_grant_replay_and_claim_fences(application_state_dsn, mutation):
+    import psycopg
+    from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
+    case = direct_grant_case(application_state_dsn, second_selection=mutation == 'another_controller')
+    if mutation == 'changed_content':
+        case.turn, _ = commit_grants(case)
+    grants = tuple(dict(row) for row in case.grants)
+    extra = {}
+    if mutation == 'changed_content':
+        grants[-1]['content_sha256'] = 'f' * 64
+    elif mutation == 'stale_attempt':
+        extra['expected_attempt'] = case.turn.attempt + 1
+    elif mutation == 'expired':
+        with psycopg.connect(case.dsn) as conn:
+            conn.execute("UPDATE agent.turn SET claim_expires_at=clock_timestamp()-interval '1 second' WHERE turn_id=%s", (case.turn.turn_id,))
+    before = grant_snapshot(case)
+    with pytest.raises((ApplicationStateConflictError, ApplicationStateValidationError)):
+        commit_grants(case, grants, **extra)
+    assert grant_snapshot(case) == before
+
+
+@pytest.mark.parametrize('mutation', ['empty', 'list', 'mixed', 'duplicate'])
+def test_native_batch_materializer_has_closed_event_family(application_state_dsn, mutation):
+    from application_state.agent_conversation.native_reads import authorize_direct_sources_locked
+    from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
+    case = direct_grant_case(application_state_dsn)
+    before = grant_snapshot(case)
+
+    def produce(turn):
+        grants = authorize_direct_sources_locked(turn, grants=case.grants)
+        if mutation == 'empty': return ()
+        if mutation == 'list': return list(grants)
+        if mutation == 'mixed': return (grants[0], turn.graph_context_execution.events[0])
+        return (grants[0], grants[0].model_copy(update={'sequence': grants[0].sequence + 1}))
+
+    with pytest.raises((ApplicationStateConflictError, ApplicationStateValidationError)):
+        case.service._append_native_read_materialization(case.turn.world_id, case.turn.conversation_id,
+            case.turn.turn_id, expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
+            materialize=produce)
+    assert grant_snapshot(case) == before
+
+
+def test_ordinary_multiple_direct_sources_are_granted_before_each_read(publication_lane, tmp_path, monkeypatch):
+    from tests.test_surface_native_build_ordinary import _fresh_case
+    from application_state.agent_conversation.plan_jev_decision import current_selection
+    from application_state.agent_conversation import AgentConversationService
+    adapters, calls, reads = [], [], []
+    original_grant = AgentConversationService.authorize_native_direct_sources
+    original_read = core.read_direct_native_source
+
+    def grant(service, *args, **kwargs):
+        result = original_grant(service, *args, **kwargs)
+        calls.append(len(kwargs['grants']))
+        return result
+
+    def read(context, **kwargs):
+        a = adapters[-1]
+        turn = a.service.inspect_turn(world_id=a.world_id, turn_id=a.fence.renewer._turn.turn_id)
+        selected = current_selection(turn)
+        grants = [e for e in turn.graph_context_execution.events if type(e) is NativeDirectSourceAuthorizedV1
+            and e.provider_attempt_id == selected.controller_attempt_id]
+        assert len(grants) > 1
+        observations = [e for e in turn.graph_context_execution.events if type(e) is NativeDirectSourceObservedV1
+            and e.authorization_event_id in {g.event_id for g in grants}]
+        assert not observations or max(g.sequence for g in grants) < min(e.sequence for e in observations)
+        trace = a.service.list_context_trace_attempts(world_id=a.world_id, turn_id=turn.turn_id)[-1]
+        activity = [e for e in trace.observations if e.kind == 'context_decision' and e.policy_version == 'native_source_document_read_progress_v2']
+        assert activity[-1].action == 'expanded'
+        reads.append((kwargs['source_artifact_id'], kwargs['source_revision_id']))
+        return original_read(context, **kwargs)
+
+    monkeypatch.setattr(AgentConversationService, 'authorize_native_direct_sources', grant)
+    monkeypatch.setattr(core, 'read_direct_native_source', read)
+    case = _fresh_case(publication_lane, tmp_path, monkeypatch, None, False, False, False,
+        native_body='direct_support', direct_source=True,
+        native_source_text='# Additional source\nSeparate source evidence.\n',
+        before_provider=lambda adapter, _: adapters.append(adapter))
+    events = case.turn.graph_context_execution.events
+    granted = [e for e in events if type(e) is NativeDirectSourceAuthorizedV1]
+    observed = [e for e in events if type(e) is NativeDirectSourceObservedV1]
+    assert len(calls) == 1 and calls[0] == len(granted) == len(observed) == len(reads) > 1
+    assert reads == [(g.source_artifact_id, g.source_revision_id) for g in granted]
+    assert case.turn.status == 'completed' and case.turn.completion.native_body_citations
+
+
+
+def test_direct_grant_batch_cannot_cross_selected_search(application_state_dsn):
+    from application_state.errors import ApplicationStateValidationError
+    case = direct_grant_case(application_state_dsn, boundary=True)
+    before = grant_snapshot(case)
+    with pytest.raises(ApplicationStateValidationError, match='not consecutive'):
+        commit_grants(case)
+    assert grant_snapshot(case) == before
+
+
+def test_mid_group_read_failure_retains_grants_and_prior_observation(publication_lane, tmp_path, monkeypatch):
+    from tests.test_surface_native_build_ordinary import _fresh_case
+    from application_state.agent_conversation.native_execution import NativeWriterAuthorizedV1
+    original = core.read_direct_native_source
+    adapters, reads = [], []
+
+    def failing_read(*args, **kwargs):
+        reads.append(kwargs['source_artifact_id'])
+        if len(reads) == 2:
+            raise RuntimeError('Injected second source read failure')
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(core, 'read_direct_native_source', failing_read)
+    with pytest.raises(AssertionError):  # Existing ordinary fixture requires HTTP200.
+        _fresh_case(publication_lane, tmp_path, monkeypatch, None, False, False, False,
+            native_body='direct_support', direct_source=True,
+            native_source_text='# Additional source\nSeparate source evidence.\n',
+            before_provider=lambda adapter, _: adapters.append(adapter))
+    a = adapters[-1]
+    turn = a.service.inspect_turn(world_id=a.world_id, turn_id=a.turn.turn_id)
+    events = turn.graph_context_execution.events
+    grants = [e for e in events if type(e) is NativeDirectSourceAuthorizedV1]
+    observed = [e for e in events if type(e) is NativeDirectSourceObservedV1]
+    assert len(reads) == 2 and len(grants) > 1 and len(observed) == 1
+    assert observed[0].authorization_event_id == grants[0].event_id
+    assert not any(type(e) is NativeWriterAuthorizedV1 for e in events)
+    assert turn.status == 'interrupted' and turn.completion is None

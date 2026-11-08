@@ -521,6 +521,9 @@ class NativeBodyNavigation:
             result = getattr(a.service, method)(turn.world_id, turn.conversation_id, turn.turn_id,
                 expected_revision=turn.revision, expected_attempt=turn.attempt, **fields)
         a.fence.renewer._turn = a.turn = result[0]
+        if method == 'authorize_native_direct_sources':
+            by_id = {event.event_id: event for event in result[0].graph_context_execution.events}
+            return tuple(by_id[row['event_id']] for row in fields['grants'])
         return result[0].graph_context_execution.events[-1]
 
     def _fulfilled_in_current_selection(self, handle):
@@ -566,7 +569,8 @@ class NativeBodyNavigation:
                 or any(handle not in offered and not self._fulfilled_in_current_selection(handle) for handle in handles)):
             raise ValueError("Native source selection differs from its offered current catalog")
         from .native_retrieval_activity import observe_native_retrieval
-        for handle in handles:
+        pending_direct = {}
+        for index, handle in enumerate(handles):
             if handle not in offered or self._fulfilled_in_current_selection(handle):
                 continue  # Its exact text was already read in this selected batch.
             with a.fence.renewer._lock:
@@ -574,9 +578,19 @@ class NativeBodyNavigation:
                 is_search = handle == native_corpus_search_handle(sha256(turn.user_text.encode()).hexdigest())
                 is_direct = handle.startswith('native-direct-source:')
                 if is_direct:
-                    pair, digest, display = self._source_choices()[handle]
-                    auth = self._commit('authorize_native_direct_source', event_id=uuid4(),
-                        source_artifact_id=pair[0], source_revision_id=pair[1], content_sha256=digest)
+                    choices = self._source_choices()
+                    if handle not in pending_direct:
+                        group = []
+                        for selected_handle in handles[index:]:
+                            if not selected_handle.startswith('native-direct-source:'):
+                                break
+                            pair, digest, _ = choices[selected_handle]
+                            group.append((selected_handle, dict(event_id=uuid4(),
+                                source_artifact_id=pair[0], source_revision_id=pair[1], content_sha256=digest)))
+                        grants = self._commit('authorize_native_direct_sources', grants=tuple(row for _, row in group))
+                        pending_direct.update((selected_handle, grant) for (selected_handle, _), grant in zip(group, grants, strict=True))
+                    auth = pending_direct.pop(handle)
+                    _, _, display = choices[handle]
                     operation = 'source_document_read'
                     label = source_display_name(display, 'Admitted source')
                 elif is_search:
