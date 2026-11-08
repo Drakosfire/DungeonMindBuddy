@@ -1,17 +1,13 @@
-import { verifyManagedWorldGraphProjectionResponse } from "../worldGraph/verifyManagedWorldGraphProjectionResponse";
+import {worldCreatureChoiceKey} from '../api/worldMechanicsTypes';
 import { useEffect, useRef, useState } from "react";
 import {
   associateWorldMechanics, listWorldMechanicsAssociations,
-  postManagedWorldGraphProjection, LiveApiError,
+  listWorldCreatures, LiveApiError,
 } from "../api/liveApi";
-import type { ThreatDraftV2, ManagedWorldGraphProjectionResponse } from "../api/types";
+import type { ThreatDraftV2 } from "../api/types";
 import type {
-  AssociateWorldMechanicsRequest, WorldMechanicsAssociation,
+  AssociateWorldMechanicsRequest, WorldMechanicsAssociation, WorldCreatureCatalog,
 } from "../api/worldMechanicsTypes";
-
-const eligible = (kind: string, role: string) => [kind, role].some(
-  value => ["npc", "threat", "creature", "monster"].includes(value.toLowerCase()),
-);
 
 async function pendingStorage<T>(key: string, live: () => boolean, action: () => T): Promise<T> {
   if (!navigator.locks) throw new Error("This browser cannot safely retain associations across tabs.");
@@ -23,6 +19,9 @@ async function pendingStorage<T>(key: string, live: () => boolean, action: () =>
 
 /** Explicit association action, shared by every host of the statblock workbench. */
 export function WorldMechanicsAssociationPanel({ draft }: { draft: ThreatDraftV2 }) {
+  return <AssociationPanel key={JSON.stringify([draft.world_id,draft.draft_id])} draft={draft}/>;
+}
+function AssociationPanel({ draft }: { draft: ThreatDraftV2 }) {
   const key = `dmb.worldMechanics.pending:${draft.world_id}:${draft.draft_id}`;
   const [initial] = useState(() => {
     try {
@@ -36,7 +35,7 @@ export function WorldMechanicsAssociationPanel({ draft }: { draft: ThreatDraftV2
   });
   const [pending, setPending] = useState<AssociateWorldMechanicsRequest | null>(initial.pending);
   const [error, setError] = useState<string | null>(initial.error);
-  const [view, setView] = useState<ManagedWorldGraphProjectionResponse | null>(null);
+  const [view, setView] = useState<WorldCreatureCatalog | null>(null);
   const [current, setCurrent] = useState<WorldMechanicsAssociation[]>([]);
   const [selected, setSelected] = useState("");
   const [busy, setBusy] = useState(false);
@@ -46,24 +45,20 @@ export function WorldMechanicsAssociationPanel({ draft }: { draft: ThreatDraftV2
   const live = useRef(true);
   const flight = useRef(false);
   useEffect(() => { live.current = true; return () => { live.current = false; }; }, []);
-  const nodes = view?.projection.nodes.filter(n => eligible(n.kind, n.role)) ?? [];
-  const previous = current.find(record => record.request.target.node_id === selected);
+  const nodes = view?.targets ?? [];
+  const selectedTarget = nodes.find(node => worldCreatureChoiceKey(node) === selected);
+  const previous = current.find(record => record.request.target.node_id === selectedTarget?.node_id);
 
   async function load() {
     if (flight.current || pending) return;
     flight.current = true; setBusy(true); setError(null); setView(null); setSelected("");
     try {
       const [projection, associations] = await Promise.all([
-        postManagedWorldGraphProjection({schema: "dmb_managed_world_graph_projection_request_v1", managedWorldId: draft.world_id}),
+        listWorldCreatures(draft.world_id),
         listWorldMechanicsAssociations(draft.world_id),
       ]);
-      const mismatch = verifyManagedWorldGraphProjectionResponse({
-        managedWorldId: draft.world_id, response: projection, revisionKind: "head",
-        request: { schema: "dmb_world_graph_projection_request_v1", worldId: draft.world_id,
-          campaignId: "", focus: {kind: "none", sessionId: null}, admissibility: "gm", scopeMode: "world" },
-      });
-      if (mismatch || associations.some(record => record.request.target.managed_world_id !== draft.world_id)) {
-        throw new Error(mismatch ?? "Association records belong to a different World");
+      if (associations.some(record => record.request.target.managed_world_id !== draft.world_id)) {
+        throw new Error("Association records belong to a different World");
       }
       if (live.current) { setView(projection); setCurrent(associations); }
     } catch (e) { if (live.current) setError(String(e)); }
@@ -138,17 +133,12 @@ export function WorldMechanicsAssociationPanel({ draft }: { draft: ThreatDraftV2
   }
 
   function start() {
-    const node = nodes.find(n => n.nodeId === selected);
+    const node = selectedTarget;
     if (!view || !node || initial.error) return;
     void submit({
       request_id: crypto.randomUUID(), draft_id: draft.draft_id,
       expected_draft_version: draft.version, expected_version: previous?.version ?? 0,
-      target: {
-        managed_world_id: draft.world_id, native_world_id: view.nativeWorldId,
-        binding_version: view.bindingVersion, graph_revision_id: view.projection.snapshot.revisionId,
-        node_id: node.nodeId, label: node.label, kind: node.kind, role: node.role,
-        campaign_scope: node.campaignScope ?? null,
-      },
+      target: {...node},
     });
   }
 
@@ -159,15 +149,16 @@ export function WorldMechanicsAssociationPanel({ draft }: { draft: ThreatDraftV2
       {view ? "Refresh creatures" : "Load creatures"}
     </button>
     {view ? <>
+      {view.completeness === "partial" && <p>Some creature records are unavailable in this view.</p>}
       <label>World creature
         <select aria-label="World creature" value={selected} onChange={e => setSelected(e.target.value)} disabled={busy || !!pending}>
           <option value="">Choose a creature</option>
-          {nodes.map(node => <option key={node.nodeId} value={node.nodeId}>
-            {node.label} · {node.kind}{node.campaignScope ? ` · ${node.campaignScope}` : ""} · {node.nodeId}
+          {nodes.map(node => <option key={worldCreatureChoiceKey(node)} value={worldCreatureChoiceKey(node)}>
+            {node.label} · {node.kind}{node.campaign_scope ? ` · ${node.campaign_scope}` : ""} · {node.node_id}
           </option>)}
         </select>
       </label>
-      {nodes.length === 0 ? <p>No creatures are present in the loaded World contents.</p> : null}
+      {nodes.length === 0 ? <p>No selectable creatures are available in this view.</p> : null}
       {previous ? <p>This creature already has associated mechanics. Replacing them keeps the previous association in history.</p> : null}
       <button type="button" onClick={start} disabled={!selected || busy || !!pending || !!initial.error}>
         {previous ? "Replace creature mechanics" : "Associate creature mechanics"}
