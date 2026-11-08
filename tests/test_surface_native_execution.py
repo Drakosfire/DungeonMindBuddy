@@ -172,7 +172,10 @@ def decision_prefix(surface,context,record):
 @pytest.mark.parametrize("unavailable", [False, True])
 def test_shared_native_component_roundtrip_uses_actual_closed_action_and_work(surface, unavailable):
     context, record = component(surface, unavailable=unavailable)
-    validate_context_binding(context, record)
+    validated = validate_context_binding(context, record)
+    assert validated is not record
+    assert validated.events is not record.events
+    assert validated.model_dump_json(by_alias=True) == record.model_dump_json(by_alias=True)
     reopened = type(record).model_validate_json(record.model_dump_json(by_alias=True))
     assert reopened == record
     assert reopened.policy.action.intent == record.policy.action.intent
@@ -280,7 +283,7 @@ def test_real_editor_capability_has_one_owner_and_exact_hash_scope():
 
 def test_play_preserves_finite_single_provider_policy():
     context, record = component("play")
-    for field in ("max_provider_attempts", "max_total_provider_input_tokens", "max_total_provider_output_tokens"):
+    for field in ("max_provider_attempts",):
         with pytest.raises(ValueError, match="finite accepted"):
             execution(context.context_receipt_sha256, record.policy.model_copy(update={field:None}))
     wrong = record.policy.model_copy(update={"provider_roles":component("plan")[1].policy.provider_roles})

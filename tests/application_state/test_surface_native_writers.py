@@ -562,3 +562,49 @@ def test_shared_rules_input_cannot_use_the_old_standalone_provider_route(
             prepared_request_json=raw,
         )
     assert snapshot(case) == before
+
+
+@pytest.mark.parametrize("phase", ["writer", "outcome"])
+@pytest.mark.parametrize("mutation", ["receipt", "execution"])
+def test_native_admission_rejects_mutated_locked_components_before_persistence(
+    application_state_dsn, monkeypatch, phase, mutation
+):
+    from application_state.agent_conversation import repository as repo
+    from application_state.errors import ApplicationStateValidationError
+
+    case = prepared_case(application_state_dsn)
+    raw = raw_request(case)
+    auth = writer_auth(case, raw)
+    if phase == "outcome":
+        assert admit(case, raw, auth)
+    before = snapshot(case)
+    original_lock = repo.lock_turn
+    original_update = repo.update_graph_execution
+    writes = []
+
+    def mutated_lock(*args, **kwargs):
+        turn = original_lock(*args, **kwargs)
+        if mutation == "receipt":
+            object.__setattr__(turn.graph_context_receipt, "context_receipt_sha256", "0" * 64)
+        else:
+            object.__setattr__(turn.graph_context_execution, "execution_policy_sha256", "0" * 64)
+        return turn
+
+    def track_update(*args, **kwargs):
+        writes.append(True)
+        return original_update(*args, **kwargs)
+
+    monkeypatch.setattr(repo, "lock_turn", mutated_lock)
+    monkeypatch.setattr(repo, "update_graph_execution", track_update)
+    with pytest.raises(ApplicationStateValidationError):
+        if phase == "writer":
+            admit(case, raw, auth)
+        else:
+            case.service.record_provider_outcome(
+                case.turn.world_id, case.turn.conversation_id, case.turn.turn_id,
+                expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
+                outcome=t.ProviderOutcomeEventV1(kind="provider_outcome", event_id=uuid4(),
+                    sequence=len(case.turn.graph_context_execution.events),
+                    provider_attempt_id=auth.provider_attempt_id, outcome="sdk_entered"))
+    assert not writes
+    assert snapshot(case) == before
