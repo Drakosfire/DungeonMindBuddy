@@ -1,0 +1,163 @@
+# RETRIEVAL: preserve multiple recorded navigation names
+
+Status: QUALIFIED / READY FOR MERGE AND DELIVERY under the user's clarified
+objective. Response writing and response-output grades are outside this lane.
+Root designs/owns backend; PRIME owns merge/delivery, not review approval.
+Branch codex/navigation-recorded-names; replacement PR2244 (closed PR2223 retained) on main
+3f4b02b970bcacc0e503f97dd7cdae29fc0f1290. Topology: serial;2245 tooling is
+merged, no unmerged dependency. Comparative context-only validation is complete; its exact source pins remain retained. The test-only append conflict retained both independently reviewed
+tests; runtime names delta remains unchanged. No2214 dependency. No response generation is required by this
+goal. Context-only capture must use the existing consolidated workflow before
+fresh full-cohort validation; no surrogate answer or per-question script.
+Original b229ae86c0024ee74dd1cb30d9848296672c3fb5 is preserved at Git tag
+codex-evidence/recorded-navigation-names-v1; no old stacked implementation imported.
+
+Outcome: one current _navigation_labels producer retains every distinct admitted
+scoped name as a deterministic sorted JSON list with explicit multiple-name label
+and existing local ordinal. Do not choose a canonical identity, infer aliases,
+merge entities, rewrite source facts or expand admission. Keep missing names
+unnamed; unique/duplicate-name behavior, exact scope and complete-read policy stay.
+Historical stored query labels/hashes remain frozen; new requests compute new ones.
+No schema, provider/model, instruction, ranking/filter, limit or publication change.
+
+Expected exclusive writes: this handoff;
+apps/live_control_server/services/native_graph_reads.py;
+tests/test_native_plan_assertions.py; tests/test_native_plan_statements.py;
+Docs/Plans/HANDOFF-RETRIEVAL-world-context-envelope.md;
+Docs/Plans/HANDOFF-RETRIEVAL-direct-source-grants.md;
+Docs/Plans/HANDOFF-RETRIEVAL-context-boundary-capture.md for completed predecessor
+settlement (its implementation lease is released).
+Root transfers its unadopted2225 native assertion test lease to this bounded slice;
+no source-local-modality behavior is imported. PRIME confirms its native-creature
+slice uses independent Core-admitted canonical actor labels, no query-navigation
+label dependency or source-write overlap. No UI/registry/routing/migration lease.
+
+Evidence: retrieval-selection-sufficiency-audit-v1/current-recorded-name-gap.json
+and recorded-names-prototype.json. All8 retained contexts offer20objects,8–13
+unnamed. Exact Core offline reconstruction reproduces frozen labels; the existing
+candidate changes only8–12 ambiguous-name entries, adding779–1246labelbytes.
+This proves navigation information is withheld, not a quality or latency benefit.
+Exact semantic deduplication saves less than0.7% and is not implemented. The
+alternative terminal-decision/word-annotation ideas remain read-only investigations.
+
+Design PASS: retrieval-recorded-names-isolated-v1/isolation-design-review.json.
+Variable: only admitted multiple-name navigation display. Controls: same corpus,
+Graph/epoch/role/scope, underlying identities/records, providers/settings/policy.
+Offline gates: actual controller SDK words and no host identities; missing/unique/
+conflicting names; foreign campaign, partial reads, ABOUT witness constraints;
+case/Unicode/JSON/literal identifiers and reversed input order; unchanged citation
+reopening, exact host/APP binding, current133 World prompt boundary and frozen
+historical query reads. Reuse valid prior59test findings and requalify changed main.
+Independent exact cumulative review required. Stop/split on scope/privacy change,
+canonicalization, data repair, read widening, extra layer or path beyond this lease.
+
+The separately reviewed ordinary-protocol.json owns paid comparison under standing
+user benchmark authorization; this implementation handoff alone does not dispatch.
+Before comparison
+record/review exact current clean-control and candidate pins, same-source isolated
+APP clones, ordinary Q01/Q09/Q14/Q15 schedule, no Gold/evidence hints, and per-fact
+coverage, unsupported claims, source attribution/chronology/uncertainty/citations,
+selection breadth, inclusive host costs, accepted-to-writer-authorization proxy,
+tokens/actual billed cost or unknown. Freeze acceptance and stopping rules before
+calls; retain all failures. No unchanged repeats or per-question scripts. A promising
+result needs predeclared repeated full15 validation before default adoption.
+
+Resources: fresh disposable evaluator55447 test/clones and unique evidence only.
+No primary/live/source Graph writes, original resource migrations, providers,
+ingestion/publication or correction-child resume in offline qualification. Preserve
+baseline original full15 sixcomplete/ninepartial and all dogfood/historical failures.
+Predecessor2239 and2218 delivery/release synchronization belongs in this slice;
+never pre-mark this in-flight capability complete or invent its future merge SHA.
+
+Current-main qualification:174 Core query, actual mocked controller SDK, shared
+writer and projection checks pass (87 inherited fixture serializer warnings).
+The new historical-query regression captures old-name production, stores its exact
+query JSON/hash, then restores the new producer and forbids search/name regeneration
+during reopen. All original selected assertions and source spans remain readable.
+Evidence: retrieval-recorded-names-isolated-v1/current-owner-tests.log. No paid
+comparison or default adoption is claimed; exact-head review remains a gate.
+
+Integration qualification: the names runtime diff is byte-identical after clean
+rebase onto2241. Reuse the existing names code/protocol reviews for unchanged
+behavior; refresh exact source inventories and prove paired runtime qualification
+before dispatch. No new plumbing review, correction tests or paid plumbing QA.
+
+User correction supersedes the earlier writer-output adoption gate. The eight-turn
+study's retrieval measurements remain valid: median accepted-to-writer-authorization
+proxy25.529609→16.498719s; all four cases reduce admitted assertions and writer
+input tokens, total input645888→378452. Four samples do not establish p95,
+causal reliability or exact context-ready timing. Actual billed cost is unknown.
+The writer omissions remain archived composition findings; they cannot reject
+retrieval when the required qualified evidence is supplied.
+
+Requalification uses exact retained SDK inputs, unchanged source-qualified Gold,
+per-required-fact support pointers, chronology/uncertainty and inspectable citation
+selectors. No new paid rerun of this study. Independent context-only mappings live
+in retrieval-recorded-names-ordinary-v2/context-only-*.json. Preserve original and
+reviewed effective source distinctions; document titles alone do not bind evidence.
+The original6complete/9partial score remains historical response evidence, not a
+retrieval score. Full15 repeated context sufficiency and the four-second target
+remain open; do not replace that requirement with answer grades.
+
+Current runtime diff is the same reviewed eight-line name display change. Reuse
+existing independent code approval; no additional correction tests/review cycle
+for an unchanged diff. This restoration does not adopt the parked modality stack,
+source edits, dictionary prototype or any alternate runtime producer.
+
+Full-cohort protocol: retrieval-context-full-cohort-v1/protocol.json freezes the
+original15 questions and qualified Gold, writerIO0, two concurrent matched cohorts
+and one gated candidate repetition. Existing original retrieval baseline was
+15/15 required support;6complete/9partial describes response composition only.
+Separate actual controller usage from prepared-context volume: the initial four
+pairs used controller input95363→113576 tokens while preparing smaller context.
+Do not claim the41.4% mixed historical input reduction is a controller cost saving.
+No new paid calls occur before exact runtime/resource qualification.
+
+
+## Full-cohort disposition
+
+ADOPT for delivery, not yet merged or delivered. The unchanged runtime at
+98d4c3acee4c0df00d59d2282b2208c3d7f1f16b was compared with control
+3f4b02b970bcacc0e503f97dd7cdae29fc0f1290 through the merged consolidated
+`capture-context` workflow. This final settlement changes documentation only.
+The recorded-name runtime remains byte-identical to its independent code approval.
+All seven hosted checks were green at the qualified head; combined owning tests
+passed148 checks with63 inherited serializer warnings. No further response QA is
+required: writer generation is outside this goal.
+
+The frozen full15 cohort excludes Q11. Independent, exact-request-bound reviews
+pass required evidence, attribution, chronology, uncertainty and inspectable
+source selectors for control15/15, candidate15/15 and the predeclared candidate
+repetition15/15. Canonical consolidated reports validate every binding. Writer
+requests sent: zero across all45 captures. Original6complete/9partial remains
+historical composition evidence only. Source APP and native Graph inventories
+are conserved; primary/live state was not mutated.
+
+Paired concurrent stage1: median accepted-to-admitted-context22.956360s to
+11.952508s (47.93% lower); observed maximum52.193181s to29.995676s.
+Actual supplied assertion count and prepared SDK request bytes are both lower in
+14/15 cases; Q10 increased and remains visible. Total prepared bytes8486790 to
+3653010. Controller attempts80 to67, but controller input295874 to308754 and
+output46874 to50730. Actual billed cost is unknown: smaller prepared context
+must not be described as cheaper retrieval-controller usage.
+
+The gated solo candidate repetition passed15/15 with median10.856044s and
+observed maximum26.089906s,63 controller attempts,285451 input/46729 output
+tokens, and3468632 prepared request bytes. Its timing is a distinct solo stratum,
+not a second paired concurrent speedup estimate. Samples do not establish
+population tail latency or causal reliability beyond the retained comparison.
+
+Evidence root: retrieval-context-full-cohort-v1. The immutable final-disposition.json
+pins protocol, source-qualified Gold, both paired reviewed reports, repeat reviewed
+report, measurement summaries, qualification and final conservation. Initial failed
+canonical assessment bindings and their archived originals are preserved; repairing
+those evidence records required no runtime changes or paid reruns.
+
+There is still one authoritative name-label producer; the replaced multi-name
+`Unnamed` branch is removed, with no compatibility toggle or fallback. Historical
+query bytes/hashes remain readable without regenerating names. No dictionary
+prototype, source-local modality branch, ingestion change or alternate producer is
+adopted. PRIME receives this bounded PR for merge/delivery only. The overall goal
+stays ACTIVE: approximately four seconds is not reached. Current existing spans
+still show material selection/application and admission work, and the next step is
+current-source profiling rather than deleting unproven mutable-state checks.

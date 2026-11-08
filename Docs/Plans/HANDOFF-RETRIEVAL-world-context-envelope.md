@@ -1,6 +1,6 @@
 # RETRIEVAL: keep World qualifications free of their host envelope
 
-Status: ACTIVE under the user retrieval/backend goal and explicit prompt-boundary
+Status: DELIVERED; implementation lease RELEASED. User retrieval/backend goal and explicit prompt-boundary
 policy. Root designs/owns backend; PRIME owns merge/delivery.
 Branch codex/world-context-prompt-envelope, base66a89f06ca3c43d876fce516cee07b0fd4463522.
 Owner checks ran before this UI-only2238 merge; no backend/test lease path changed.
@@ -75,3 +75,14 @@ checks and exact original host assertion/evidence reopening. No production path
 changed after the first formal review. Together with prior276,311distinct local
 checks pass across retained runs. Re-review and CI on the corrected head remain
 gates; no new provider calls or database authority changes.
+
+## Delivered predecessor settlement
+
+PR2239 merged7bbdaa98dc8dbd73c1573a4a457c818d29d9a859 after reviewed33dc96c4
+and all7CI checks. PRIME delivered APIe4ca114686360343a7ff15b3914105d6c0674d16
+on reader fence0133. Independent integration approval and109integrated checks
+(74writer/fence+35projection) passed; user rows/session/Core and UI were conserved.
+Resource receipt world-context-envelope-api-resources.json SHA256
+e34fad07ea283cc878272016d6d6e39f8c37e7ac02a1c14edc98888aaf39e7af
+records DELIVERED_TECHNICALLY_VERIFIED and RELEASED. Initial CI/integration failures
+remain retained. No new paid QA or latency claim; original6complete/9partial remains.
