@@ -49,7 +49,7 @@ def graph_finish(case, attempt):
                 sequence=len(case.turn.graph_context_execution.events), provider_attempt_id=attempt, outcome=outcome))
 
 
-def prepared(dsn, *, build=False, with_writer=True, uncapped=False):
+def prepared(dsn, *, build=False, with_writer=True, uncapped=False, semantic=False, two_supports=False):
     service = AgentConversationService()
     if build:
         from tests.application_state.test_build_graph_turns import _accept_claim
@@ -67,9 +67,28 @@ def prepared(dsn, *, build=False, with_writer=True, uncapped=False):
     authorization = broker.prepare_authorization(record.execution, "rules:1", args())
     record = service.authorize_rules_lookup(scope, expected_turn_revision=turn.revision,
         expected_ledger_revision=record.revision, event=authorization)
+    def local_reader(current):
+        original = broker.prepare_lookup(current, "rules:1", args())
+        if not two_supports:
+            return original
+        from application_state.agent_conversation.rules_authority_packet import RulesPacketV1
+        from application_state.agent_conversation.rules_authority_types import RulesSupportRefV1, canonical_sha256
+        first = original.new_supports[0]
+        second = first.model_copy(update={"support_id": uuid4(), "source_uri": first.source_uri + "#second",
+            "unit_id": digest(first.unit_id + ":second")})
+        capsules = tuple(sorted((first, second), key=lambda row: str(row.support_id)))
+        refs = tuple(RulesSupportRefV1(support_id=row.support_id, support_sha256=canonical_sha256(row)) for row in capsules)
+        packet = RulesPacketV1.model_validate_json(original.raw_output).model_copy(update={
+            "support_capsules": capsules, "support_refs": refs,
+            "emitted_support_ids": tuple(row.support_id for row in capsules)})
+        raw = canonical_bytes(packet).decode()
+        return broker._prepared(current, authorization, raw, "evidence", refs, capsules, capsules)
     delivery = service.execute_rules_lookup(scope, expected_turn_revision=turn.revision, call_id="rules:1",
-        local_reader=lambda current: broker.prepare_lookup(current, "rules:1", args()))
+        local_reader=local_reader)
     frame = build_plan_rules_frame(delivery.record.execution, ("rules:1",))
+    if semantic:
+        from application_state.agent_conversation.rules_authority_plan_packet import model_rules_frame
+        frame = model_rules_frame(frame)
     from tests.plan_writer_schema_fixture import with_plan_schema
     raw = json.dumps(with_plan_schema({"model": "synthetic-model", "tools": [], "input": [
         {"role": "user", "content": canonical_bytes(frame).decode()}]}, frame), ensure_ascii=False)
@@ -156,7 +175,8 @@ def test_final_packet_carrier_cannot_change_on_inclusion(application_state_dsn):
     assert persisted(case) == snapshot
 
 
-def test_native_packet_writer_accepts_and_replays_atomically(application_state_dsn):
+@pytest.mark.parametrize('historical_binding', [False, True])
+def test_native_packet_writer_accepts_and_replays_atomically(application_state_dsn, historical_binding):
     case = prepared(application_state_dsn); auth = authorization(case); append(case, auth, case.raw)
     append(case, inclusion(case, auth), case.raw); graph_finish(case, case.producer)
     ref = case.packet.observation.support_refs[0]
@@ -181,6 +201,89 @@ def test_native_packet_writer_accepts_and_replays_atomically(application_state_d
     completed = case.service.complete_mixed_turn(result)
     assert completed.assistant_text == text and completed.accepted_binding.base_disposition == "unclaimed"
     assert case.service.complete_mixed_turn(result) == completed
+    if historical_binding:
+        from psycopg.types.json import Jsonb
+        from application_state.agent_conversation.rules_authority_types import canonical_sha256
+        binding = completed.accepted_binding.model_dump(mode='json', by_alias=True)
+        del binding['producing_support_refs_sha256']
+        binding['schema'] = 'dmb_rules_accepted_binding_v1'
+        with psycopg.connect(case.dsn) as conn:
+            conn.execute("UPDATE agent.turn_rules_execution SET accepted_binding=%s,accepted_binding_sha256=%s "
+                "WHERE turn_id=%s AND product_attempt=%s", (Jsonb(binding), canonical_sha256(binding),
+                    case.turn.turn_id, case.scope.product_attempt))
+        historical = case.service.inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id)
+        assert historical.accepted_binding.schema_ == 'dmb_rules_accepted_binding_v1'
+        assert historical.assistant_text == text
+        assert case.service.complete_mixed_turn(result) == historical
+
+
+@pytest.mark.parametrize("mutation", [None, "unused_hash", "unused_id", "duplicate_map", "missing_map",
+    "binding_missing_map_digest", "binding_bad_map_digest", "reordered_map"])
+def test_semantic_second_support_survives_reload_and_rejects_unused_map_tampering(application_state_dsn, mutation):
+    from application_state.agent_conversation.rules_authority_output import parse_producing_answer
+    from application_state.agent_conversation.rules_authority_types import RulesAcceptedBindingV2
+    from application_state.agent_conversation.rules_authority_passages import RulesHistoricalPassageRequestV1
+    from psycopg.types.json import Jsonb
+    case = prepared(application_state_dsn, semantic=True, two_supports=True)
+    auth = authorization(case); append(case, auth, case.raw)
+    append(case, inclusion(case, auth), case.raw); graph_finish(case, case.producer)
+    refs = tuple(sorted(case.packet.observation.support_refs, key=lambda row: str(row.support_id)))
+    chosen = case.record.execution.supports[refs[1].support_id].support
+    raw_output = json.dumps({"kind": "rules_answer", "base_output": None,
+        "rules_segments": [{"kind": "rules_claim", "text": chosen.excerpt_text, "support_ids": ["rule_1"]}],
+        "ordered_refs": [{"domain": "rules", "segment_index": 0}]}, ensure_ascii=False)
+    capture = SimpleNamespace(authorization_id="semantic-rules", api_request_id="semantic-writer",
+        provider="test-provider", model="synthetic-model", api_mode="codex_responses",
+        request_sha256=digest(case.raw), status="answered", finish_reason="stop", text=raw_output,
+        text_sha256=digest(raw_output), text_utf8_bytes=len(raw_output.encode()), tool_calls=())
+    append(case, RulesNativeProviderOutcomeV1.from_capture(capture, event_id=uuid4(),
+        sequence=len(case.record.execution.events), execution_id=case.scope.execution_id,
+        provider_attempt_id=case.producer, request_envelope_sha256=digest(case.raw)))
+    composition = parse_producing_answer(raw_output, case.raw, refs).composition(
+        base_completion=None, supplied_refs=refs, base_segments=(), base_disposition="unclaimed")
+    result = NativeRulesMixedTurnResultV1(schema="dmb_native_rules_mixed_turn_result_v1", scope=case.scope,
+        expected_turn_revision=case.turn.revision, expected_rules_revision=case.record.revision,
+        assistant_text=composition.render(()), composition=composition, producing_provider_attempt_id=case.producer,
+        base_result=None, output_proof=NativeRulesOutputProofV1.from_capture(capture,
+            prepared_request_json=case.raw, rules_execution_id=case.scope.execution_id,
+            producing_provider_attempt_id=case.producer))
+    completed = case.service.complete_mixed_turn(result)
+    assert isinstance(completed.accepted_binding, RulesAcceptedBindingV2)
+    assert [row.support_id for row in completed.accepted_binding.support_table] == [refs[1].support_id]
+    assert result.output_proof.raw_output_sha256 == digest(raw_output)
+    assert case.service.inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id) == completed
+    request = RulesHistoricalPassageRequestV1(world_id=case.turn.world_id,
+        conversation_id=case.turn.conversation_id, turn_id=case.turn.turn_id, attempt=case.turn.attempt,
+        support_id=refs[1].support_id, support_sha256=refs[1].support_sha256)
+    assert case.service.inspect_rules_passage(request).support.source_uri == chosen.source_uri
+    assert case.service.complete_mixed_turn(result) == completed
+    if mutation is None:
+        return
+    if mutation.startswith('binding_'):
+        binding = completed.accepted_binding.model_dump(mode='json', by_alias=True)
+        if mutation == 'binding_missing_map_digest': del binding['producing_support_refs_sha256']
+        else: binding['producing_support_refs_sha256'] = 'not-a-digest'
+        with pytest.raises(psycopg.errors.CheckViolation):
+            with psycopg.connect(case.dsn) as conn:
+                conn.execute("UPDATE agent.turn_rules_execution SET accepted_binding=%s WHERE turn_id=%s AND product_attempt=%s",
+                    (Jsonb(binding), case.turn.turn_id, case.scope.product_attempt))
+        return
+    with psycopg.connect(case.dsn) as conn:
+        payload = conn.execute("SELECT payload FROM agent.turn_rules_execution WHERE turn_id=%s AND product_attempt=%s",
+            (case.turn.turn_id, case.scope.product_attempt)).fetchone()[0]
+        inc = next(row for row in payload['events'] if row['kind'] == 'plan_packet_provider_included')
+        if mutation == 'unused_hash': inc['support_refs'][0]['support_sha256'] = '0' * 64
+        elif mutation == 'unused_id': inc['support_refs'][0]['support_id'] = str(uuid4())
+        elif mutation == 'duplicate_map': inc['support_refs'].append(dict(inc['support_refs'][0]))
+        elif mutation == 'reordered_map': inc['support_refs'].reverse()
+        else: inc['support_refs'] = None
+        conn.execute("UPDATE agent.turn_rules_execution SET payload=%s WHERE turn_id=%s AND product_attempt=%s",
+            (Jsonb(payload), case.turn.turn_id, case.scope.product_attempt))
+    if mutation == 'reordered_map':
+        assert case.service.complete_mixed_turn(result) == completed
+        return
+    with pytest.raises(ApplicationStateValidationError):
+        case.service.complete_mixed_turn(result)
 
 
 def test_unknown_prior_rules_outcome_prevents_final_writer_admission(application_state_dsn):

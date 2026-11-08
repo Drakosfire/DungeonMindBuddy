@@ -6,7 +6,7 @@ import json
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 Digest = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
 Identity = Annotated[str, Field(min_length=1, max_length=128)]
@@ -280,3 +280,23 @@ class RulesAcceptedBindingV1(ClosedRulesModel):
         if base_texts and sha256(base_text.encode("utf-8")).hexdigest() != self.base_text_sha256:
             raise ValueError("Stored base answer hash does not match its subsequence")
         return base_text
+
+
+class RulesAcceptedBindingV2(RulesAcceptedBindingV1):
+    schema_: Literal["dmb_rules_accepted_binding_v2"] = Field(alias="schema")
+    producing_support_refs_sha256: Digest
+
+
+RulesAcceptedBinding = Annotated[
+    RulesAcceptedBindingV1 | RulesAcceptedBindingV2, Field(discriminator="schema_")]
+
+
+def read_accepted_binding(raw: str) -> RulesAcceptedBindingV1 | RulesAcceptedBindingV2:
+    return TypeAdapter(RulesAcceptedBinding).validate_json(raw)
+
+
+def producing_supports_sha256(refs: tuple[RulesSupportRefV1, ...]) -> str:
+    if len(refs) > 16 or len({row.support_id for row in refs}) != len(refs):
+        raise ValueError("Producing Rules supports must be bounded and unique")
+    return canonical_sha256([row.model_dump(mode="json")
+        for row in sorted(refs, key=lambda item: str(item.support_id))])

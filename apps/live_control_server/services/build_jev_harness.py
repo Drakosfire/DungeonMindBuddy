@@ -801,7 +801,8 @@ class BuildJevHarness:
         history = adapter.build_frozen_history
         native_context=None
         if native_rules is not None:
-            rule_frame=native_rules.frame()
+            from application_state.agent_conversation.rules_authority_plan_packet import model_rules_frame
+            rule_frame=model_rules_frame(native_rules.frame())
             if native_rules.native.record.execution.budget_use.calls or native_rules.native.record.execution.supports:
                 raise ValueError('Used Rules requires an explicit creative acceptance contract')
             turn=adapter.fence.turn

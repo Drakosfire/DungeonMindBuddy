@@ -133,11 +133,56 @@ class RulesWriterAnswerV1(ClosedRulesModel):
         return result
 
 
-def parse_answer(raw: str) -> RulesWriterAnswerV1:
+def parse_answer(raw: str, *, alias_refs: tuple[RulesSupportRefV1, ...] | None = None) -> RulesWriterAnswerV1:
     if not isinstance(raw, str) or len(raw.encode("utf-8")) > MAX_OUTPUT_BYTES:
         raise ValueError("Mixed writer output exceeds its UTF8 byte limit")
     parsed = base_writer.strict_json(raw)  # Duplicate keys and nonfinite numbers reject.
+    if alias_refs is not None:
+        from .rules_authority_types import producing_supports_sha256
+        producing_supports_sha256(alias_refs)  # Bound and unique; no source authority is granted here.
+        aliases = {f"rule_{index}": str(row.support_id) for index, row in
+            enumerate(sorted(alias_refs, key=lambda item: str(item.support_id)))}
+        if not isinstance(parsed, dict) or parsed.get("kind") != "rules_answer" or "schema" in parsed:
+            raise ValueError("Current Rules output requires its semantic answer kind")
+        parsed = dict(parsed)
+        del parsed["kind"]
+        parsed["schema"] = SCHEMA
+        segments = parsed.get("rules_segments")
+        if not isinstance(segments, list):
+            raise ValueError("Current Rules output requires typed segments")
+        for segment in segments:
+            if isinstance(segment, dict) and segment.get("kind") == "rules_claim":
+                selected = segment.get("support_ids")
+                if (not isinstance(selected, list) or any(not isinstance(key, str) or key not in aliases
+                        for key in selected)):
+                    raise ValueError("Rules output names an unsupplied alias")
+                segment["support_ids"] = [aliases[key] for key in selected]
     return RulesWriterAnswerV1.model_validate_json(json.dumps(parsed, ensure_ascii=False, allow_nan=False))
+
+
+def producing_rules_frame(prepared_request_json: str):
+    from .rules_authority_plan_packet import _frame_in_actual_request
+    body = base_writer.strict_json(prepared_request_json)
+    # Closed historical Chat Completions tool carrier. Its existing producer
+    # verifier owns the transcript; it never used request-local Rules aliases.
+    if isinstance(body, dict) and "messages" in body and "input" not in body:
+        return None
+    if isinstance(body, dict) and isinstance(body.get("input"), list) and any(
+            isinstance(item, dict) and item.get("type") in {"function_call", "function_call_output"}
+            for item in body["input"]):
+        return None  # Closed historical Responses tool carrier, verified by its owner.
+    return _frame_in_actual_request(body, allow_build=True)
+
+
+def parse_producing_answer(raw: str, prepared_request_json: str,
+                           supplied_refs: tuple[RulesSupportRefV1, ...]) -> RulesWriterAnswerV1:
+    from .rules_authority_plan_packet import ModelRulesFrame
+    frame = producing_rules_frame(prepared_request_json)
+    if isinstance(frame, ModelRulesFrame):
+        if tuple(row.support_id for row in frame.supports) != tuple(f"rule_{i}" for i in range(len(supplied_refs))):
+            raise ValueError("Rules aliases differ from the complete producing support map")
+        return parse_answer(raw, alias_refs=supplied_refs)
+    return parse_answer(raw)
 
 
 def _namespace_base_schema(schema: dict) -> tuple[dict, dict]:

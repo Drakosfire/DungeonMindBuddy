@@ -17,7 +17,7 @@ from application_state.errors import ApplicationStateIntegrityError
 from .rules_authority_types import (
     ClosedRulesModel,
     Digest,
-    RulesAcceptedBindingV1,
+    RulesAcceptedBindingV1, RulesAcceptedBinding,
     canonical_sha256,
 )
 from .types import (
@@ -214,7 +214,7 @@ class MixedCompletedTurnV1(ClosedRulesModel):
     schema_: Literal["dmb_mixed_completed_turn_v1"] = Field(alias="schema")
     envelope: CompletedTurnEnvelopeV1
     assistant_text: Annotated[str, Field(min_length=1, max_length=32000)]
-    accepted_binding: RulesAcceptedBindingV1
+    accepted_binding: RulesAcceptedBinding
     accepted_binding_sha256: Digest
     base_projection: RulesBaseProjectionV1
 
@@ -312,7 +312,7 @@ TurnReadModel = Turn | MixedCompletedTurnV1
 class MixedHistoryAttributionV1(ClosedRulesModel):
     schema_: Literal["dmb_mixed_history_attribution_v1"] = Field(alias="schema")
     source_sequence: Annotated[int, Field(ge=1)]
-    accepted_binding: RulesAcceptedBindingV1
+    accepted_binding: RulesAcceptedBinding
     base_attribution: "PlanEvidenceHistoryAttributionV5 | PlanEvidenceHistoryAttributionV4 | PlanEvidenceHistoryAttributionV3 | PlanEvidenceHistoryAttributionV2 | PlanEvidenceHistoryAttributionV1 | PlanAskHistoryAttributionV1 | None"
 
     @model_validator(mode="after")

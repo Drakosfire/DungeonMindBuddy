@@ -40,6 +40,38 @@ def verify(turn, owner, body):
     return verify_plan_rules_packet_input(owner, turn, raw, expected_envelope_sha256=sha256(raw.encode()).hexdigest())
 
 
+@pytest.mark.parametrize("mutation", [None, "alias", "quote", "edition", "availability", "withheld"])
+def test_semantic_rules_context_is_bound_to_the_same_sealed_capsules(mutation):
+    from application_state.agent_conversation.rules_authority_plan_packet import (
+        model_rules_frame, packet_input_records,
+    )
+    _turn, owner, result, body = case()
+    host = build_plan_rules_frame(owner, (result.observation.call_id,))
+    projected = model_rules_frame(host)
+    value = projected.model_dump(mode="json")
+    if mutation == "alias": value["supports"][0]["support_id"] = "rule_1"
+    elif mutation == "quote": value["supports"][0]["excerpt_text"] += " invented"
+    elif mutation == "edition": value["ruleset"] = "another_edition"
+    elif mutation == "availability": value["lookups"][0]["status"] = "no_evidence"
+    elif mutation == "withheld": value["supports"] = []
+    body["input"][0]["content"] = json.dumps(value, ensure_ascii=False)
+    raw = json.dumps(body, ensure_ascii=False)
+    def check():
+        return packet_input_records(owner, raw,
+            expected_envelope_sha256=sha256(raw.encode()).hexdigest())
+    if mutation is not None:
+        with pytest.raises(ValueError): check()
+        return
+    _body, actual, outputs, refs = check()
+    assert actual == projected and refs == result.observation.support_refs
+    assert outputs[0].packet_sha256 == result.observation.packet_sha256
+    assert set(value) == {"ruleset", "lookups", "supports"}
+    assert value["supports"][0]["support_id"] == "rule_0"
+    assert str(host.supports[0].support_id) not in body["input"][0]["content"]
+    assert value["supports"][0]["excerpt_text"] == host.supports[0].excerpt_text
+    assert value["supports"][0]["source_uri"] == host.supports[0].source_uri
+
+
 def test_real_rules_capsule_is_exposed_without_tool_call_and_without_source_reread(monkeypatch):
     turn, owner, result, body = case()
     from apps.live_control_server.services import rules_lookup

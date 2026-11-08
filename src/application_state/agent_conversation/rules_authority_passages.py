@@ -22,7 +22,7 @@ from .rules_authority_events import RulesStoredSupportV1
 from .rules_authority_types import (
     ClosedRulesModel,
     Digest,
-    RulesAcceptedBindingV1,
+    read_accepted_binding,
     RulesScopeV1,
     RulesSupportV1,
     canonical_bytes,
@@ -115,7 +115,7 @@ def read_historical_rules_passage(
             "Historical Rules answer has no bounded accepted authority"
         )
     try:
-        binding = RulesAcceptedBindingV1.model_validate_json(
+        binding = read_accepted_binding(
             json.dumps(row["binding"], ensure_ascii=False)
         )
         scope = RulesScopeV1.model_validate_json(

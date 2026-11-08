@@ -54,6 +54,38 @@ class PlanRulesEvidenceFrameV1(ClosedRulesModel):
         return self
 
 
+class ModelRulesLookup(ClosedRulesModel):
+    lookup: Annotated[int, Field(ge=0)]
+    status: Literal["evidence", "no_evidence", "unavailable"]
+
+
+class ModelRulesEvidence(PlanRulesEvidenceV1):
+    support_id: Annotated[str, Field(pattern=r"^rule_(?:[0-9]|1[0-5])$")]
+
+
+class ModelRulesFrame(ClosedRulesModel):
+    """Semantic projection; exact identity and admission stay with sealed Rules."""
+    ruleset: str
+    lookups: tuple[ModelRulesLookup, ...]
+    supports: Annotated[tuple[ModelRulesEvidence, ...], Field(max_length=16)]
+
+
+def model_rules_frame(frame: PlanRulesEvidenceFrameV1) -> ModelRulesFrame:
+    return ModelRulesFrame(ruleset=frame.ruleset,
+        lookups=tuple(ModelRulesLookup(lookup=row.lookup,
+            status=row.status if row.status in {"evidence", "no_evidence"} else "unavailable")
+            for row in frame.lookups),
+        supports=tuple(ModelRulesEvidence.model_validate(row.model_dump(mode="json") |
+            {"support_id": f"rule_{index}"}) for index, row in
+            enumerate(sorted(frame.supports, key=lambda item: str(item.support_id)))))
+
+
+def _decode_frame(value):
+    # The actual producing shape selects a closed historical or current reader.
+    codec = PlanRulesEvidenceFrameV1 if isinstance(value, dict) and "schema" in value else ModelRulesFrame
+    return codec.model_validate_json(json.dumps(value))
+
+
 class PlanRulesPacketExposureV1(ClosedRulesModel):
     """Metadata-only proof result, not an admitted event or citation receipt."""
     plan_context_receipt_sha256: Digest
@@ -101,14 +133,14 @@ def build_plan_rules_frame(execution: RulesExecutionV1, call_ids: tuple[str, ...
         lookups=tuple(lookups), supports=tuple(supports[key] for key in sorted(supports, key=str)))
 
 
-def _frame_in_actual_request(body, *, allow_build=False) -> PlanRulesEvidenceFrameV1:
+def _frame_in_actual_request(body, *, allow_build=False) -> PlanRulesEvidenceFrameV1 | ModelRulesFrame:
     if allow_build and isinstance(body,dict) and isinstance(body.get('input'),str):
         from .source_writer_output import strict_json
         packet=strict_json(body['input'])
         if (body.get('tools',[])!=[] or 'messages' in body or body.get('tool_choice') not in (None,'none')
                 or not isinstance(packet,dict) or packet.get('schema') not in {'dmb_build_compose_input_v1','dmb_build_image_direction_input_v1'}):
             raise ValueError('Build Rules frame requires its exact tool-free authoring packet')
-        return PlanRulesEvidenceFrameV1.model_validate_json(json.dumps(packet.get('rules_evidence')))
+        return _decode_frame(packet.get('rules_evidence'))
 
     if (not isinstance(body, dict) or "messages" in body or not isinstance(body.get("input"), list)
             or body.get("tools", []) != [] or body.get("tool_choice") not in (None, "none")):
@@ -139,8 +171,9 @@ def _frame_in_actual_request(body, *, allow_build=False) -> PlanRulesEvidenceFra
                 candidate = json.loads(text, object_pairs_hook=_unique_object)
             except json.JSONDecodeError:
                 continue
-            if isinstance(candidate, dict) and candidate.get("schema") == "dmb_plan_rules_evidence_v1":
-                frames.append(PlanRulesEvidenceFrameV1.model_validate_json(text))
+            if isinstance(candidate, dict) and (candidate.get("schema") == "dmb_plan_rules_evidence_v1"
+                    or set(candidate) == {"ruleset", "lookups", "supports"}):
+                frames.append(_decode_frame(candidate))
     if len(frames) != 1:
         raise ValueError("Plan writer requires one exact Rules packet frame")
     return frames[0]
@@ -158,6 +191,8 @@ def packet_input_records(execution, prepared_request_json, *, expected_envelope_
         raise ValueError("Plan Rules frame names an unread lookup")
     call_ids = tuple(observed_calls[item.lookup] for item in frame.lookups)
     expected = build_plan_rules_frame(execution, call_ids, allow_build=allow_build)
+    if isinstance(frame, ModelRulesFrame):
+        expected = model_rules_frame(expected)
     if canonical_bytes(frame) != canonical_bytes(expected):
         raise ValueError("Plan Rules evidence differs from sealed outputs")
     outputs, supports = [], {}
