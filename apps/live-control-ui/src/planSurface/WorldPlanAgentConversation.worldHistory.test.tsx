@@ -5145,6 +5145,14 @@ describe("World Plan conversation consumer", () => {
     }
     if(change==='unavailable'){await screen.findByText(answer);expect(open).not.toHaveBeenCalled();return;}
     await screen.findByText(answer);
+    const recordDetails=await screen.findByRole('region',{name:'Graph record details'});
+    const details=screen.getByText('Details',{selector:'summary'}).closest('details')!;
+    expect(details).toContainElement(recordDetails);
+    expect(screen.getAllByText('Details',{selector:'summary'})).toHaveLength(1);
+    expect(screen.queryByText('Graph record details',{selector:'summary'})).toBeNull();
+    const nativeClaim=context.completion!.answer_segments.find(segment=>segment.kind==='native_assertion_claim')!;
+    expect(recordDetails.querySelector('pre')?.textContent).toBe(JSON.stringify(nativeClaim.qualifications,null,2));
+    expect(screen.getByText(answer).closest('.world-plan-agent-conversation__message--assistant')).not.toContainElement(recordDetails);
     fireEvent.click(await screen.findByRole('button',{name:'Read Graph assertion source'}));
     await screen.findByRole('region',{name:'Opened source section'});
     expect(open).toHaveBeenCalledWith(worldId,turnId,0);

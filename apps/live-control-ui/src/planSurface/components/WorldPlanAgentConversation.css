@@ -1268,3 +1268,9 @@
 .plan-conversation-dock.is-fullscreen .buddy-activity__body {
   max-block-size: calc(100dvh - 12rem);
 }
+
+.world-plan-agent-conversation__graph-context pre {
+  max-inline-size: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
