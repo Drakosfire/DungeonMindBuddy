@@ -621,3 +621,78 @@ def test_core_source_integrity_failure_remains_fail_closed(lane, monkeypatch):
 
 def test_fresh_plan_cannot_dispatch_the_retired_optional_graph_contract(lane,tmp_path,monkeypatch,native_read_admission_probes):
     _ordinary_native_case(lane,tmp_path,monkeypatch,False,False,None,'legacy_policy',False,native_read_admission_probes)
+
+
+def test_navigation_labels_use_local_aliases_for_unnamed_conflicting_and_duplicate_names():
+    from apps.live_control_server.services.native_graph_reads import _navigation_labels
+    def entity(identity,names,*,complete=True):
+        return SimpleNamespace(found=True,completeness=SimpleNamespace(status='complete' if complete else 'partial'),
+            assertions=[SimpleNamespace(subject_entity_id=identity,predicate='dnd5e:name',
+                value=SimpleNamespace(kind='literal',value=name),metadata=SimpleNamespace(scope=[])) for name in names])
+    rows={'host-id-one':entity('host-id-one',['Twin']), 'host-id-two':entity('host-id-two',['Twin']),
+        'host-id-three':entity('host-id-three',[]),'host-id-four':entity('host-id-four',['Old','New']),
+        'host-id-five':entity('host-id-five',['Literal context_accounting and phase']),
+        'host-id-six':entity('host-id-six',['Partial name'],complete=False)}
+    labels=_navigation_labels(rows)
+    assert len(set(labels.values()))==len(rows)
+    assert labels['host-id-one'].startswith('Twin (object ')
+    assert labels['host-id-two'].startswith('Twin (object ')
+    assert labels['host-id-three'].startswith('Unnamed object ')
+    assert labels['host-id-four'].startswith('Unnamed object ')
+    assert labels['host-id-five']=='Literal context_accounting and phase'
+    assert all(identity not in label for identity in rows for label in labels.values())
+    assert _navigation_labels(dict(reversed(list(rows.items()))))==labels
+    assert _navigation_labels(rows,complete_only=True)['host-id-six'].startswith('Unnamed object ')
+    # A literal authored name is context even if it resembles an identifier.
+    assert _navigation_labels({'literal-id':entity('literal-id',['literal-id'])})['literal-id']=='literal-id'
+
+
+def test_subject_navigation_keeps_exact_scope_complete_read_and_about_witness():
+    from apps.live_control_server.services.native_graph_reads import _subject_labels
+    from apps.live_control_server.services import source_statements as statements
+    identity,statement='host-subject-id','host-statement-id'
+    name=lambda text,campaign:SimpleNamespace(subject_entity_id=identity,predicate='dnd5e:name',
+        value=SimpleNamespace(kind='literal',value=text),metadata=SimpleNamespace(scope=[SimpleNamespace(axis=statements.CAMPAIGN_SCOPE_AXIS,value=campaign)]))
+    about=SimpleNamespace(assertion_id='host-about-id',subject_entity_id=statement,predicate=statements.mapping.ABOUT,value=SimpleNamespace(entity_id=identity))
+    entity=SimpleNamespace(found=True,completeness=SimpleNamespace(status='complete'),assertions=[name('Right name','c2'),name('Other campaign','c1'),about])
+    rows={identity:entity};paths=[(identity,['host-about-id'])]
+    assert _subject_labels(statement,paths,rows,'c2')=='Right name'
+    entity.completeness.status='partial'
+    assert _subject_labels(statement,paths,rows,'c2').startswith('Unnamed object ')
+    with pytest.raises(ValueError,match='ABOUT witness'):
+        _subject_labels(statement,[(identity,['wrong-witness'])],rows,'c2')
+
+
+def test_native_query_labels_do_not_expose_entity_identity(lane):
+    publish(lane,qualified=True)
+    _,result=query(lane)
+    labels=[row.label for row in (*result.object_matches,*result.assertion_matches)]
+    assert labels
+    assert all(identity not in label for identity in result.discovered_entity_ids for label in labels)
+    assert any(row.subject_entity_id==lane.ids['B'] for row in result.assertion_matches)
+
+
+@pytest.mark.parametrize('scope_mode',['campaign','world'])
+def test_native_navigation_does_not_name_c1_assertion_from_c2_name(lane,monkeypatch,scope_mode):
+    from apps.live_control_server.services import native_graph_reads as native
+    publish(lane)
+    original=native.EntityReadService()
+    def read(context,identity):
+        entity=original.get_complete_entity(context,identity)
+        if identity!=lane.ids['B']:return entity
+        rows=[]
+        for row in entity.assertions:
+            if row.subject_entity_id==identity and row.predicate=='dnd5e:name':
+                row=replace(row,metadata=replace(row.metadata,
+                    scope=tuple(replace(binding,value='c2') for binding in row.metadata.scope)))
+            rows.append(row)
+        return replace(entity,assertions=tuple(rows))
+    monkeypatch.setattr(native,'EntityReadService',lambda:SimpleNamespace(get_complete_entity=read))
+    _,result=native.prepare_query(lane.world.world_id,'What did B do?',GM,repository=lane.repo,
+        resolve_binding=lambda _:bound(lane),scope_mode=scope_mode,campaign_id='c1' if scope_mode=='campaign' else None)
+    summaries=[row for row in result.assertion_matches if row.subject_entity_id==lane.ids['B'] and row.label.endswith(' · dnd5e:summary')]
+    assert summaries and all(row.label.startswith('Unnamed object ') for row in summaries)
+    if scope_mode=='campaign':
+        assert next(row.label for row in result.object_matches if row.entity_id==lane.ids['B']).startswith('Unnamed object ')
+    # Read identity and qualifications remain Core-owned; labels grant nothing.
+    assert all(row.subject_entity_id==lane.ids['B'] for row in summaries)
