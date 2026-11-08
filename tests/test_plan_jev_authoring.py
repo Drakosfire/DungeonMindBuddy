@@ -1379,6 +1379,12 @@ def _shared_plan_authoring_case(
         calls = len(decisions.calls), len(writer.calls)
         if response is None:
             assert turn.failure_code == refused[routing] and turn.completion is None
+            attempts = kwargs["conversation_service"].list_context_trace_attempts(
+                world_id=turn.world_id, turn_id=turn.turn_id)
+            failures = [event for event in attempts[-1].observations if event.kind == "failure"]
+            assert failures[-1].code == turn.failure_code
+            assert failures[-1].phase == "delivery"
+            assert attempts[-1].terminal_status == "interrupted"
             with pytest.raises(AgentTurnServiceError):
                 execute_agent_turn(plan_adapter.request, **kwargs)
         else:
