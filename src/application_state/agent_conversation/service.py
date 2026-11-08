@@ -1592,11 +1592,18 @@ class AgentConversationService:
             if isinstance(event, ProviderAttemptAuthorizedEventV5):
                 from .build_decision_context import validate_prepared
                 try:
-                    validate_prepared(event, execution, prepared_decision_json)
+                    from .native_context import is_semantic_build_input
+                    fresh_select = (native_build_decision and event.context_phase=='select'
+                        and is_semantic_build_input(turn.graph_context_receipt)
+                        and not any(isinstance(e,ProviderAttemptAuthorizedEventV5) for e in execution.events))
+                    host_phase = 'select' if fresh_select else None
                     if native_build_decision and event.context_phase=='writer_selection':
-                        from .writer_evidence_selection import validate_prepared_selection
+                        from .writer_evidence_selection import validate_prepared_selection, is_semantic_state
                         captured=conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',(turn.turn_id,turn.attempt)).fetchone()
-                        validate_prepared_selection(turn,event,prepared_decision_json,captured[0] if captured else {})
+                        request,_ = validate_prepared_selection(turn,event,prepared_decision_json,captured[0] if captured else {})
+                        if is_semantic_state(request['state']):
+                            host_phase = 'writer_selection'
+                    validate_prepared(event, execution, prepared_decision_json,host_phase=host_phase)
                 except (ValueError, KeyError, TypeError, AttributeError) as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
             elif prepared_decision_json is not None:
@@ -1763,14 +1770,26 @@ class AgentConversationService:
                 except (ValueError, TypeError, KeyError, AttributeError) as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
             # Materialize only after every existing owner/Rules writer fence.
+            source_batch = None
             if native_source_materializer is not None:
                 event = native_source_materializer(conn, turn)
-                for prior in execution.events:
-                    if prior.event_id == event.event_id:
-                        if prior != event:
-                            raise ApplicationStateConflictError("Native source event was reused with changed content")
-                        return turn, False
-            if event.sequence != len(execution.events) + (1 if native_inclusion is not None else 0):
+                if isinstance(event, (tuple, list)):
+                    from .native_corpus import NativeDirectSourceAuthorizedV1
+                    if type(event) is not tuple or not event or any(type(item) is not NativeDirectSourceAuthorizedV1 for item in event):
+                        raise ApplicationStateValidationError("Only direct source grants may share a native append")
+                    source_batch = event
+                produced = source_batch or (event,)
+                prior_by_id = {prior.event_id: prior for prior in execution.events}
+                known = [prior_by_id.get(item.event_id) for item in produced]
+                if any(known):
+                    if not all(known) or any(prior != item for prior, item in zip(known, produced)):
+                        raise ApplicationStateConflictError("Native source events were partially reused or changed")
+                    return turn, False
+                if source_batch is not None:
+                    event = source_batch[-1]
+            produced = source_batch or (event,)
+            if any(item.sequence != len(execution.events) + index + (1 if native_inclusion is not None else 0)
+                    for index, item in enumerate(produced)):
                 raise ApplicationStateConflictError("Graph execution event sequence is stale")
             if isinstance(event, ProviderAttemptAuthorizedEventV1):
                 receipt = turn.graph_context_receipt
@@ -1847,7 +1866,7 @@ class AgentConversationService:
                     validate_selection_proof(turn, event, captured[0] if captured else {}, writer_selection_proof)
                 except (ValueError, KeyError, TypeError, AttributeError) as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
-            events = [*execution.events, *([native_inclusion] if native_inclusion is not None else []), event,
+            events = [*execution.events, *([native_inclusion] if native_inclusion is not None else []), *produced,
                 *([section_inclusion] if section_inclusion is not None else []),
                 *([play_body_inclusion] if play_body_inclusion is not None else [])]
             try:
@@ -2096,13 +2115,12 @@ class AgentConversationService:
             materialize=lambda turn: observe_native_source_reference(turn, event_id=event_id,
                 reference_index=reference_index, materialize=materialize))
 
-    def authorize_native_direct_source(self, world_id, conversation_id, turn_id, *,
-            expected_revision, expected_attempt, event_id, source_artifact_id, source_revision_id, content_sha256):
-        from .native_reads import authorize_direct_source_locked
+    def authorize_native_direct_sources(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, grants):
+        from .native_reads import authorize_direct_sources_locked
         return self._append_native_read_materialization(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            materialize=lambda turn: authorize_direct_source_locked(turn, event_id=event_id,
-                source_artifact_id=source_artifact_id, source_revision_id=source_revision_id, content_sha256=content_sha256))
+            materialize=lambda turn: authorize_direct_sources_locked(turn, grants=grants))
 
     def observe_native_direct_source(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id, authorization_event_id, read):
@@ -2731,7 +2749,6 @@ class AgentConversationService:
 
         from .rules_authority_policy import capability_for_policy_sha256
         from .rules_authority_output import (
-            MAX_REQUEST_BYTES,
             parse_answer,
             verify_build_output,
         )
@@ -2887,7 +2904,6 @@ class AgentConversationService:
                         )
                         if (hashlib.sha256(request_bytes).hexdigest()
                                 != binding.request_envelope_sha256
-                                or len(request_bytes) > MAX_REQUEST_BYTES
                                 or len(output_bytes) != proof.raw_output_utf8_bytes
                                 or hashlib.sha256(output_bytes).hexdigest()
                                 != proof.raw_output_sha256

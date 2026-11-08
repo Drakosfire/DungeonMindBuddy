@@ -526,10 +526,14 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     class SourceWriter(WriterWire):
         async def handle_async_request(self, request):
             frames = [json.loads(row['content']) for row in json.loads(request.content)['input'][:-1]]
-            frame = next(row for row in frames if row.get('schema') == 'dmb_surface_native_writer_evidence_v2')
+            frame = next(row for row in frames if set(row) == {
+                'input_status','user_question','native_body_evidence',
+                'native_statements','native_assertions'})
             assert len(frames) == 3 and frames[-1] == frame
             handle = frame['native_body_evidence']['excerpts'][0]['excerpt_handle']
-            self.text = json.dumps({'schema': frame['answer_policy'], 'limitations': [], 'requested_detail_gaps': [],
+            from application_state.agent_conversation.native_plan_assertions import POLICY
+            assert handle == 'body0'
+            self.text = json.dumps({'schema': POLICY, 'limitations': [], 'requested_detail_gaps': [],
                 'answer_segments': [{'kind': 'native_body_claim', 'text': 'The source says Éphanna heard the guard.', 'excerpt_handles': [handle]}]})
             return await super().handle_async_request(request)
     wire = SourceWriter(None, '')

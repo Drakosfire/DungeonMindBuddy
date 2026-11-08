@@ -12,6 +12,8 @@ from uuid import UUID
 
 from pydantic import Field, model_validator
 
+from application_state.errors import ApplicationStateIntegrityError
+
 from .rules_authority_types import (
     ClosedRulesModel,
     Digest,
@@ -38,6 +40,17 @@ from .types import (
     validate_turn_graph_fields,
     validate_turn_lifecycle_fields,
 )
+
+
+def validate_base_composition_summary(summary) -> None:
+    """A base-only display cannot conceal accepted or malformed Rules authority."""
+    if summary is not None and (
+        summary["state"] not in {"active", "unused", "failed"}
+        or summary["oversized"]
+        or summary["binding"] is not None
+        or summary["seal"] is not None
+    ):
+        raise ApplicationStateIntegrityError("accepted Rules authority has no mixed turn marker")
 
 
 class CompletedTurnEnvelopeV1(ClosedRulesModel):

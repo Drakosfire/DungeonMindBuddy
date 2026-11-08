@@ -5,6 +5,7 @@ composition uses those owners without a page, Plan, writer or UI dependency.
 Query discovery never opens supporting text; selected reads and citation reopening
 share the same pinned authority and binding checks.
 """
+from collections import Counter
 from dataclasses import dataclass
 import json
 from dungeonmind.application.vnext import (
@@ -66,9 +67,36 @@ def _payload(entity, statement_id):
     return payloads[0]
 
 
-def _subject_labels(statement_id, paths, entities, campaign):
+def _navigation_labels(entities, *, scope=None, complete_only=False):
+    """Human names or query-local aliases; never host identity as prompt text.
+
+    Existing scoped Core reads own admissibility. These names are navigation,
+    not asserted facts or read grants; exact identities remain in the catalog.
+    """
+    identities = sorted(set(entities) | {a.subject_entity_id
+        for entity in entities.values() for a in entity.assertions})
+    names = {}
+    for identity in identities:
+        entity = entities.get(identity)
+        values = {a.value.value.strip() for a in entity.assertions
+            if a.subject_entity_id == identity and a.predicate == 'dnd5e:name'
+            and getattr(a.value,'kind',None) == 'literal'
+            and isinstance(a.value.value,str) and a.value.value.strip()
+            and (scope is None or tuple((b.axis,b.value) for b in a.metadata.scope) == scope)
+        } if entity is not None and (not complete_only or
+            entity.found and entity.completeness.status == 'complete') else set()
+        names[identity] = next(iter(values)) if len(values) == 1 else None
+    counts = Counter(name for name in names.values() if name is not None)
+    return {identity: (name if name is not None and counts[name] == 1 else
+            f'{name} (object {index+1})' if name is not None else f'Unnamed object {index+1}')
+        for index,(identity,name) in enumerate(names.items())}
+
+
+def _subject_labels(statement_id, paths, entities, campaign, *, labels=None):
     """Navigation from admitted ABOUT/name records, never statement meaning."""
     subjects = []
+    if labels is None:
+        labels = _navigation_labels(entities,scope=((statements.CAMPAIGN_SCOPE_AXIS,campaign),),complete_only=True)
     for identity, witnesses in paths:
         if identity == statement_id:
             continue
@@ -78,34 +106,29 @@ def _subject_labels(statement_id, paths, entities, campaign):
             and getattr(a.value, 'entity_id', None) == identity}
         if not set(witnesses) <= about:
             raise ValueError('Navigation subject differs from admitted ABOUT witness')
-        names = {a.value.value.strip() for a in entity.assertions
-            if a.subject_entity_id == identity and a.predicate == 'dnd5e:name'
-            and getattr(a.value, 'kind', None) == 'literal'
-            and isinstance(a.value.value, str) and a.value.value.strip()
-            and tuple((b.axis, b.value) for b in a.metadata.scope)
-                == ((statements.CAMPAIGN_SCOPE_AXIS, campaign),)} if entity.found and entity.completeness.status == 'complete' else set()
-        subjects.append(f'{next(iter(names))} [{identity}]' if len(names) == 1 else identity)
+        subjects.append(labels[identity])
     return ', '.join(sorted(set(subjects)))
 
 
-def _assertion_matches(entities, *, excluded_subjects):
+def _assertion_matches(entities, *, excluded_subjects, name_scope=None):
     """Only assertions returned by Core's scoped complete-entity reads; no body IO."""
     found = {}
+    scoped_labels = {}
     for entity_id, entity in entities.items():
         if not entity.found or entity.completeness.status != 'complete':
             continue
-        names = {a.value.value for a in entity.assertions if a.subject_entity_id == entity_id
-            and a.predicate == 'dnd5e:name' and getattr(a.value, 'kind', None) == 'literal'
-            and isinstance(a.value.value, str) and a.value.value.strip()}
-        label = next(iter(names)) if len(names) == 1 else entity_id
         for parsed in entity.assertions:
             if parsed.subject_entity_id in excluded_subjects:
                 continue  # Qualified source-statement semantics have their own contract.
             assertion = assertion_contract(parsed)
-            row = found.setdefault(assertion.assertion_id, [assertion, set(), assertion.subject_entity_id])
+            # A World query may contain facts from different campaigns. A name
+            # for one campaign must not silently name an assertion in another.
+            scope = name_scope if name_scope is not None else tuple((b.axis,b.value) for b in parsed.metadata.scope)
+            if scope not in scoped_labels:
+                scoped_labels[scope] = _navigation_labels(entities,scope=scope,complete_only=True)
+            labels = scoped_labels[scope]
+            row = found.setdefault(assertion.assertion_id, [assertion, set(), labels[assertion.subject_entity_id]])
             row[1].add(entity_id)
-            if assertion.subject_entity_id == entity_id:
-                row[2] = label
     return tuple(NativePlanAssertionMatchV1(assertion_id=a.assertion_id,
         subject_entity_id=a.subject_entity_id, discovered_entity_ids=tuple(sorted(witnesses)),
         assertion_sha256=digest(a), label=f'{label} · {a.predicate}')
@@ -131,6 +154,7 @@ def _entity_catalog(identities, pinned, *, space, revision_id, scope_mode, campa
                     and a.subject_entity_id != entity_id):
                 routes.setdefault(a.subject_entity_id, []).append((entity_id, [a.assertion_id]))
     matches = []
+    scoped_labels = {}
     qualified_subjects = set()
     for statement_id, paths in routes.items():
         obj = entities.get(statement_id)
@@ -157,14 +181,19 @@ def _entity_catalog(identities, pinned, *, space, revision_id, scope_mode, campa
         if not witness_ids <= own_ids:
             raise ValueError('Statement discovery links differ from admitted complete entity')
         logical = clause['logical_source']
-        subjects = _subject_labels(statement_id, paths, entities, clause['campaign'])
+        campaign = clause['campaign']
+        if campaign not in scoped_labels:
+            scoped_labels[campaign] = _navigation_labels(entities,
+                scope=((statements.CAMPAIGN_SCOPE_AXIS,campaign),),complete_only=True)
+        subjects = _subject_labels(statement_id, paths, entities,campaign,labels=scoped_labels[campaign])
         matches.append(NativePlanStatementMatchV1(statement_id=statement_id,
             discovered_entity_ids=tuple(sorted({node for node, _ in paths})),
             discovery_assertion_ids=tuple(sorted(witness_ids)), campaign_id=clause['campaign'],
             logical_source=logical, episode=payload['episode'],
             label=(f"About {subjects} · " if subjects else "")
                 + f"{logical['object_id']} — {payload['episode']} ({clause['campaign']})"))
-    return (tuple(matches), _assertion_matches(entities, excluded_subjects=qualified_subjects),
+    return (tuple(matches), _assertion_matches(entities, excluded_subjects=qualified_subjects,
+            name_scope=((statements.CAMPAIGN_SCOPE_AXIS,campaign_id),) if scope_mode=='campaign' else None),
         tuple(sorted(set(gaps))), entities)
 
 
@@ -267,15 +296,9 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
                 matches=target_matches, assertion_matches=target_assertions,
                 status=status, gap_codes=target_gaps))
             gaps.extend(target_gaps)
-    objects = []
-    for identity in discovered:
-        entity = _entities[identity]
-        names = {a.value.value.strip() for a in entity.assertions
-            if a.subject_entity_id == identity and a.predicate == 'dnd5e:name'
-            and getattr(a.value, 'kind', None) == 'literal'
-            and isinstance(a.value.value, str) and a.value.value.strip()}
-        objects.append(NativeObjectMatchV1(entity_id=identity,
-            label=next(iter(names)) if len(names) == 1 else identity))
+    labels = _navigation_labels(_entities,
+        scope=((statements.CAMPAIGN_SCOPE_AXIS,campaign_id),) if scope_mode=='campaign' else None)
+    objects = [NativeObjectMatchV1(entity_id=identity,label=labels[identity]) for identity in discovered]
     query = NativeGraphQueryV4(authority=authority, question=question,
         assertion_matches=assertion_matches,
         search_result_sha256=result.result_digest, discovered_entity_ids=discovered,
@@ -384,6 +407,11 @@ def _read_assertions(context, identities, *, matches=None):
     inventory = {m.assertion_id: m for m in (query.assertion_matches if matches is None else matches)}
     read_context, access, _, _ = context.pinned
     reads, unavailable = [], []
+    # One materialization per support in this pinned child/source view. Store
+    # only frozen verified span values, never mutable Core response objects.
+    # Nothing survives this selected batch; unavailable reads/errors are not
+    # cached. Every assertion still passes its own Core and closure checks.
+    verified_spans = {}
     for identity in identities:
         result = EvidenceReadService().get_assertion_evidence(read_context, identity)
         if (result.identity.space_id, result.identity.revision_id) != (authority.native_world_id, authority.revision_id):
@@ -402,17 +430,20 @@ def _read_assertions(context, identities, *, matches=None):
             continue
         spans = []
         for ref in supports:
-            opened = open_admitted_native_text(access, ref.evidence_ref_id)
-            if opened.status != 'available':
-                break
-            # Core owns receipt, source identity, scope, digest and UTF8 admission.
-            # A valid source/span proof can predate this coherent view. Core
-            # owns membership and current access; proof age is not query authority.
-            text = opened.body_text.encode()[opened.span_start_byte:opened.span_end_byte].decode()
-            spans.append(NativeAssertionSpanV1(evidence_ref_id=ref.evidence_ref_id,
-                source_artifact_id=opened.source_artifact_id, source_revision_id=opened.source_revision_id,
-                body_sha256=opened.body_sha256, start_byte=opened.span_start_byte, end_byte=opened.span_end_byte,
-                span_sha256=opened.span_sha256, text=text))
+            span = verified_spans.get(ref.evidence_ref_id)
+            if span is None:
+                opened = open_admitted_native_text(access, ref.evidence_ref_id)
+                if opened.status != 'available':
+                    break
+                # Core owns membership, visibility, identity, digests and UTF8
+                # admission. Proof age is not current query authority.
+                text = opened.body_text.encode()[opened.span_start_byte:opened.span_end_byte].decode()
+                span = NativeAssertionSpanV1(evidence_ref_id=ref.evidence_ref_id,
+                    source_artifact_id=opened.source_artifact_id, source_revision_id=opened.source_revision_id,
+                    body_sha256=opened.body_sha256, start_byte=opened.span_start_byte, end_byte=opened.span_end_byte,
+                    span_sha256=opened.span_sha256, text=text)
+                verified_spans[ref.evidence_ref_id] = span
+            spans.append(span)
         if len(spans) != len(supports):
             unavailable.append(identity)
             continue

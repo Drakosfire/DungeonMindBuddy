@@ -1,0 +1,30 @@
+.saved-statblock-dialog {
+  inline-size: min(70rem, calc(100vw - 2rem));
+  max-inline-size: calc(100vw - 2rem);
+  max-block-size: calc(100dvh - 2rem);
+  padding: 0;
+  color: var(--text-primary, #e2e7ee);
+  background: var(--surface-panel, #1c2837);
+  border: 1px solid var(--border-subtle, #586576);
+  border-radius: .75rem;
+  box-shadow: 0 1rem 4rem rgb(0 0 0 / .45);
+}
+.saved-statblock-dialog[open] { display: flex; flex-direction: column; }
+.saved-statblock-dialog::backdrop { background: rgb(0 0 0 / .6); }
+.saved-statblock-dialog > header {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: .75rem 1rem; border-block-end: 1px solid var(--border-subtle, #586576);
+}
+.saved-statblock-dialog > header > div { display: flex; align-items: center; gap: .5rem; }
+.saved-statblock-dialog__body { min-block-size: 0; overflow: auto; padding: 1rem; }
+.saved-statblock-dialog__body > .statblock-section { margin: 0; }
+.saved-statblock-dialog--expanded { inline-size: calc(100vw - 2rem); block-size: calc(100dvh - 2rem); }
+@media (max-width: 40rem) {
+  .saved-statblock-dialog { inline-size: calc(100vw - 1rem); max-inline-size: calc(100vw - 1rem); max-block-size: calc(100dvh - 1rem); }
+  .saved-statblock-dialog > header { gap: .5rem; padding: .5rem; }
+  .saved-statblock-dialog__body { padding: .5rem; }
+}
+
+.saved-statblock-dialog__body > .statblock-section > label { display: block; max-inline-size: 100%; }
+.saved-statblock-dialog__body > .statblock-section > label > select,
+.saved-statblock-dialog__body > .statblock-section > label > input { box-sizing: border-box; inline-size: 100%; max-inline-size: 100%; }

@@ -1,3 +1,6 @@
+import {useState} from 'react'
+import {ConversationReplyDetails} from './ConversationReplyDetails'
+import {BuddyContextTraceLoader} from './BuddyContextTraceLoader'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { BuddyActivity, activityObservations } from './BuddyActivity'
@@ -14,8 +17,9 @@ const trace = (observations: BuddyTurnContextTrace['observations']): BuddyTurnCo
 function mount(captured: BuddyTurnContextTrace, lifecycle: AgentConversationTurnLifecycleV1 = 'running') {
   const load=vi.fn().mockResolvedValue({schema:'dmb_agent_turn_context_trace_response_v1',world_id:'world',turn_id:'turn',attempts:[captured]})
   const loadPrompt=vi.fn()
+  function Activity() { const [open,setOpen]=useState(false); return <><BuddyActivity {...binding} lifecycle={lifecycle} onInspect={()=>setOpen(true)}/><ConversationReplyDetails id="test-details" open={open} onOpenChange={setOpen} loaded load={async()=>{}}><BuddyContextTraceLoader {...binding} enabled={open}/></ConversationReplyDetails></>; }
   render(<BuddyTurnInspection {...binding} lifecycle={lifecycle} load={load} loadPrompt={loadPrompt}>
-    <BuddyActivity {...binding} lifecycle={lifecycle} />
+    <Activity/>
   </BuddyTurnInspection>)
   return {load,loadPrompt}
 }
@@ -24,7 +28,7 @@ describe('live activity entrance',()=>{
     const {load,loadPrompt}=mount(trace([{kind:'provider_call',sequence:0,elapsed_ms:1200,
       provider:'typesafe',model:'jev',outcome:'response_received'}]))
     await screen.findByText('A response has arrived.')
-    const activity=screen.getByRole('status').closest('details')!
+    const activity=screen.getByRole('status').closest('button')!
     expect(activity).toHaveAttribute('data-running','true')
     expect(activity.querySelector('svg')).toHaveAttribute('aria-hidden','true')
     expect(activity.querySelector('svg')).toHaveAttribute('focusable','false')
@@ -40,16 +44,16 @@ describe('live activity entrance',()=>{
   it('does not fetch a completed trace until the quiet entry is opened',async()=>{
     const {load}=mount({...trace([]),terminal_status:'completed',closed_at:'2026-10-24T00:00:01Z',capture_status:'complete'},'completed')
     expect(load).not.toHaveBeenCalled()
-    const activity=screen.getByRole('status').closest('details')!
+    const activity=screen.getByRole('status').closest('button')!
     expect(activity).toHaveAttribute('data-running','false')
     expect(activity.querySelector('svg')).toBeNull()
-    fireEvent.click(screen.getByText('How this reply came together'))
+    fireEvent.click(screen.getByText('Reply details'))
     await waitFor(()=>expect(load).toHaveBeenCalledTimes(1))
     await screen.findByText(/Observable execution · attempt 1/)
   })
   it('keeps terminal failures in the same entry with the recorded error code',async()=>{
     mount({...trace([{kind:'failure',sequence:0,elapsed_ms:23700,phase:'delivery',code:'build_source_name_missing',stage:'context_acquisition'}]),terminal_status:'interrupted'},'interrupted')
-    const activity=screen.getByRole('status').closest('details')!
+    const activity=screen.getByRole('status').closest('button')!
     expect(activity).toHaveAttribute('data-running','false')
     expect(activity.querySelector('svg')).toBeNull()
     fireEvent.click(screen.getByText('Reply error report'))

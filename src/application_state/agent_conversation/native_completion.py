@@ -20,8 +20,8 @@ from . import native_plan_assertions as assertions
 from .native_writer import verify_input_records
 from .native_statement_input import Strict
 from .rules_authority_types import canonical_bytes, canonical_sha256
-from .source_writer_output import require_captured_answer, strict_json, RequestedDetailGap, gap_messages, LIMITATIONS
-from .surface_evidence_answer import (native_fact_segment, status_for, _limit,
+from .source_writer_output import require_captured_answer, strict_json, surface_limitation, project_surface_limitations
+from .surface_evidence_answer import (native_fact_segment, status_for,
     authored_block_index, authored_selected_segment, validate_authored_shape)
 
 NativeSegment = Annotated[
@@ -84,7 +84,7 @@ class SurfaceNativeCompletionV1(Strict):
         if len(keys) != len(set(keys)):
             raise ValueError('Native completion repeats a citation')
         for segment in self.answer_segments:
-            if isinstance(segment,t.SurfaceLimitationV1) and segment != _limit(segment.code,segment.question_phrase):
+            if isinstance(segment,t.SurfaceLimitationV1) and segment != surface_limitation(segment.code,segment.question_phrase):
                 raise ValueError('Native limitation prose must come from its owner')
         if len(canonical_bytes(self)) > 1_048_576:
             raise ValueError('Native completion exceeds the existing storage budget')
@@ -179,7 +179,7 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
             or candidate['schema'] != evidence.frame['answer_policy'] or not isinstance(candidate['answer_segments'],list)):
         raise ValueError('Native completion requires its exact producing answer policy')
     segments, body_cites, statement_cites, assertion_cites,saved_cites = [], [], [], [],[]
-    blocks,selectors=authored_block_index(evidence.authored,str(evidence.idempotency_key))
+    blocks,selectors=authored_block_index(evidence.authored,str(evidence.idempotency_key),local=evidence.authored_local)
     selected_blocks=set()
     for row in candidate['answer_segments']:
         if (not isinstance(row,dict) or row.get('kind') != 'authored_excerpt'
@@ -207,26 +207,16 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     collaboration=normalize_native_review(candidate['collaboration'],segments,evidence.work_frame) if review_enabled else None
     if review_enabled and not segments and collaboration is None:
         raise ValueError('Empty intentional response')
-    codes = candidate['limitations']
-    if (not isinstance(codes,list) or any(not isinstance(code,str) or code not in LIMITATIONS for code in codes)
-            or len(codes) != len(set(codes)) or not isinstance(candidate['requested_detail_gaps'],list)):
-        raise ValueError('Native completion contains an invalid limitation')
-    gaps = [RequestedDetailGap.model_validate(g) for g in candidate['requested_detail_gaps']]
-    gap_messages(SimpleNamespace(requested_detail_gaps=gaps), {'user_question':execution.policy.action.intent.message})
-    codes = list(codes)
-    if gaps and 'missing_requested_details' not in codes:
-        codes.append('missing_requested_details')
     # Missing native capability does not make an available Build draft/page
     # unavailable. Only native claims inherit that native retrieval qualification.
     local_build=(execution.policy.action.surface_id=='build'
         and (collaboration is not None or any(isinstance(s,(t.DraftReferenceClaimV1,t.RelatedPageClaim,t.SavedSourceClaimV1,DraftDiscussionV1)) for s in segments))
         and all(isinstance(s,(t.DraftReferenceClaimV1,t.RelatedPageClaim,t.SavedSourceClaimV1,DraftDiscussionV1,t.PlanWorldGraphProposalSegmentV1))
             for s in segments))
-    if evidence.frame['input_status'] == 'partial' and not local_build and 'partial_retrieval' not in codes:
-        codes.append('partial_retrieval')
-    segments += [_limit(code) for code in codes] + [_limit('missing_requested_details',g.question_phrase) for g in gaps]
-    if not segments and collaboration is None:
-        segments = [_limit('missing_requested_details')]
+    segments += project_surface_limitations(candidate['limitations'], candidate['requested_detail_gaps'],
+        user_question=execution.policy.action.intent.message, derive_missing=True,
+        host_partial=evidence.frame['input_status'] == 'partial' and not local_build,
+        empty_answer=not segments and collaboration is None, strict_gap_array=True)
     completion = SurfaceNativeCompletionV1(surface_id=execution.policy.action.surface_id,
         context_receipt_sha256=receipt.context_receipt_sha256,producing_provider_attempt_id=authorization.provider_attempt_id,
         answer_context_status=status_for(segments) if segments else 'discussion',answer_segments=segments,collaboration=collaboration,saved_source_citations=saved_cites,

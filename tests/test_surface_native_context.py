@@ -404,3 +404,17 @@ def test_shared_role_ordering_keeps_one_writer_and_owner_review_boundaries(chang
         reviewed = True
     with pytest.raises(ValueError):
         t.validate_controller_writer_execution(ledger, reviewed_action=reviewed)
+
+
+@pytest.mark.parametrize("surface",["build","plan","play"])
+def test_semantic_initial_codec_belongs_only_to_actual_build_work(surface):
+    value=wire(surface)
+    value['assembled_input']['assembler_version']='native_build_semantic_initial_v2'
+    value=seal(value)
+    if surface=='build':
+        from application_state.agent_conversation.native_context import NativeBuildProviderInputV2
+        parsed=read(value)
+        assert isinstance(parsed.assembled_input,NativeBuildProviderInputV2)
+        assert read(parsed.model_dump(mode='json',by_alias=True))==parsed
+    else:
+        with pytest.raises(ValidationError,match='actual Build work'):read(value)

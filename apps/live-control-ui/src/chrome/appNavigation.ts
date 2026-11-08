@@ -17,9 +17,10 @@ export type AppLocationRoute =
   | "play"
   | "ingest"
   | "build"
-  | "combat";
+  | "combat"
+  | "statblock";
 
-const PRIMARY_APP_PATHNAMES = new Set(["/", "/plan", "/play", "/ingest", "/build", "/combat"]);
+const PRIMARY_APP_PATHNAMES = new Set(["/", "/plan", "/play", "/ingest", "/build", "/combat", "/statblock"]);
 
 export interface NavigationClickLike {
   defaultPrevented: boolean;
@@ -62,6 +63,7 @@ export function appRouteFromPathname(pathname: string): AppLocationRoute {
   if (path === "/ingest") return "ingest";
   if (path === "/build") return "build";
   if (path === "/combat") return "combat";
+  if (path === "/statblock") return "statblock";
   return "index";
 }
 
@@ -108,7 +110,7 @@ export function navigatePrimaryAppHref(href: string): void {
   if (normalizeAppPathname(window.location.pathname) === pathname) {
     const currentWorld = new URLSearchParams(window.location.search).get("world");
     const nextWorld = url.searchParams.get("world");
-    if (currentWorld === nextWorld) return;
+    if (currentWorld === nextWorld && pathname !== "/statblock") return;
   }
   const next = `${pathname}${url.search}${url.hash}`;
   if (getAppLocationSnapshot() === next) return;

@@ -189,7 +189,7 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
             examined_inputs.extend(row for row in body.get('state', {}).get('examined_subjects', [])
                 if row['kind'].startswith('Previously selected native statement:'))
             assert BODY not in req.content.decode()
-            assert all(candidates[i]['label'].startswith('About B [') for i in native)
+            assert all(candidates[i]['label'].startswith('About B ·') for i in native)
             answers = {}
             for name, entry in body['questions'].items():
                 choice = ('discuss' if name == 'requested_work' else
@@ -292,7 +292,7 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
     assert response.status_code == 200, response.text + getattr(wire, 'failure', '')
     assert native_read_admission_probes
     assert len(examined_inputs) == 1
-    assert examined_inputs[0]['label'].startswith('About B [')
+    assert examined_inputs[0]['label'].startswith('About B ·')
     assert (': unavailable;' if unavailable_read else ': opened;') in examined_inputs[0]['kind']
     if unavailable_read:
         assert response.status_code == 200, response.text + getattr(wire, 'failure', '')
@@ -427,7 +427,8 @@ def test_navigation_names_require_unambiguous_admitted_scoped_identity(lane, mon
     monkeypatch.setattr(native, 'EntityReadService', lambda: SimpleNamespace(get_complete_entity=read))
     _, result = query(lane)
     assert len(result.matches) == 1
-    assert result.matches[0].label.startswith('About ' + lane.ids['B'] + ' · ')
+    assert result.matches[0].label.startswith('About Unnamed object ')
+    assert lane.ids['B'] not in result.matches[0].label
     assert 'About B [' not in result.matches[0].label and 'Other' not in result.matches[0].label
     assert len(calls) == len(set(calls))
     assert set(calls) <= set(result.discovered_entity_ids) | {m.statement_id for m in result.matches}
@@ -444,8 +445,8 @@ def test_shared_source_and_episode_labels_distinguish_about_subjects(lane, monke
     _, result = query(lane, 'A B')
     labels = [m.label for m in result.matches]
     assert len(labels) == 2
-    assert any(label.startswith('About A [') for label in labels)
-    assert any(label.startswith('About B [') for label in labels)
+    assert any(label.startswith('About A ·') for label in labels)
+    assert any(label.startswith('About B ·') for label in labels)
     assert all('episode-1 (c1)' in label for label in labels)
     assert all('flight' not in label and 'fled' not in label and 'uncertain' not in label for label in labels)
 

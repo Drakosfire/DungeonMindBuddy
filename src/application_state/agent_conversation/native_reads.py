@@ -249,21 +249,37 @@ def observe_body_read_locked(turn, *, event_id, authorization_event_id, read):
         authorization_event_id=auth.event_id, excerpt=excerpt, failure_code=failure)
 
 
-def authorize_direct_source_locked(turn, *, event_id, source_artifact_id, source_revision_id, content_sha256):
+def authorize_direct_sources_locked(turn, *, grants):
+    """Authorize one consecutive batch under the same acknowledged selection."""
     from .native_corpus import NativeDirectSourceAuthorizedV1, native_direct_source_handle
     from .native_context import SurfaceNativeContextReceiptV1
+    from .plan_jev_decision import current_selection
     receipt, execution = _owner(turn, require_source=True)
     if type(receipt) is not SurfaceNativeContextReceiptV1:
         raise ValueError("Direct source selection requires the current shared native owner")
-    prior = _prior_event(execution, event_id, NativeDirectSourceAuthorizedV1,
-        source_artifact_id=source_artifact_id, source_revision_id=source_revision_id, content_sha256=content_sha256)
-    if prior is not None:
-        return prior
-    handle = native_direct_source_handle(receipt.source_authority,
-        source_artifact_id, source_revision_id, content_sha256)
-    return NativeDirectSourceAuthorizedV1(event_id=event_id, sequence=len(execution.events),
-        provider_attempt_id=_selected_controller(turn, handle), authority=receipt.source_authority,
-        source_artifact_id=source_artifact_id, source_revision_id=source_revision_id, content_sha256=content_sha256)
+    fields = {"event_id", "source_artifact_id", "source_revision_id", "content_sha256"}
+    if not isinstance(grants, tuple) or not grants or any(type(row) is not dict or set(row) != fields for row in grants):
+        raise ValueError("Direct source grants require a nonempty closed batch")
+    handles = [native_direct_source_handle(receipt.source_authority,
+        row["source_artifact_id"], row["source_revision_id"], row["content_sha256"]) for row in grants]
+    if len({row["event_id"] for row in grants}) != len(grants) or len(set(handles)) != len(handles):
+        raise ValueError("Direct source batch repeats a grant or source")
+    selection = current_selection(turn)
+    if selection.operation != "select_candidates" or any(handle not in selection.selected_handles for handle in handles):
+        raise ValueError("Direct source batch differs from its acknowledged selection")
+    positions = [selection.selected_handles.index(handle) for handle in handles]
+    if positions != list(range(positions[0], positions[0] + len(positions))):
+        raise ValueError("Direct source batch is not consecutive in its selected order")
+    priors = [_prior_event(execution, row["event_id"], NativeDirectSourceAuthorizedV1,
+        **{key: value for key, value in row.items() if key != "event_id"}) for row in grants]
+    if any(priors):
+        if (not all(priors) or any(prior.provider_attempt_id != selection.controller_attempt_id for prior in priors)
+                or [prior.sequence for prior in priors] != list(range(priors[0].sequence, priors[0].sequence + len(priors)))):
+            raise ValueError("Direct source batch replay is partial, reordered or belongs to another controller")
+        return tuple(priors)
+    return tuple(NativeDirectSourceAuthorizedV1(**row, sequence=len(execution.events) + index,
+        provider_attempt_id=selection.controller_attempt_id, authority=receipt.source_authority)
+        for index, row in enumerate(grants))
 
 
 def observe_direct_source_locked(turn, *, event_id, authorization_event_id, read):

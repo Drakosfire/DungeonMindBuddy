@@ -14,6 +14,7 @@ from tests.application_state.test_native_plan_statements import native_read_admi
 from graph_memory.vnext.domain_runtime import dungeonbuddy_world_domain_contract, dungeonbuddy_dnd5e_custom_predicate_profile
 from apps.live_control_server.services.native_graph_reads import prepare_query, read_selected
 from application_state.agent_conversation.native_plan_assertions import NativePlanAssertionReadAuthorizedV1
+from application_state.agent_conversation.native_plan_assertions import POLICY as NATIVE_ANSWER_POLICY
 
 
 @pytest.fixture
@@ -126,6 +127,139 @@ def test_context_only_evidence_is_not_support(application_state_dsn, tmp_path, m
     assert not reads and set(unavailable) == {m.assertion_id for m in context.query.assertion_matches}
 
 
+def test_support_materialization_is_once_per_exact_ref_and_never_crosses_invocations(lane, monkeypatch):
+    from collections import Counter
+    from pydantic import ValidationError
+    from apps.live_control_server.services import native_graph_reads as native
+    publish(lane, qualified=True)
+    context, _ = query(lane)
+    original = native.open_admitted_native_text
+    opens = Counter()
+    def counted(access, ref):
+        opens[ref] += 1
+        return original(access, ref)
+    monkeypatch.setattr(native, 'open_admitted_native_text', counted)
+    first, missing = read_selected(context, grant(context), GM)
+    assert first and not missing
+    refs = [span.evidence_ref_id for row in first for span in row.spans]
+    assert len(refs) > len(set(refs))  # Real shared support, not a vacuous fixture.
+    assert opens == Counter({ref: 1 for ref in refs})
+    assert first[0].spans[0].model_config['frozen'] is True
+    with pytest.raises(ValidationError):
+        first[0].spans[0].text = 'Changed through an aliased response'
+    second, missing = read_selected(context, grant(context), GM)
+    assert not missing and second == first
+    assert opens == Counter({ref: 2 for ref in refs})
+    admit_unrelated(lane, 'new-source-between-batches')
+    newer, _ = query(lane)
+    assert newer.pinned[1].source_view.epoch > context.pinned[1].source_view.epoch
+    third, missing = read_selected(newer, grant(newer), GM)
+    assert not missing and third == first
+    assert opens == Counter({ref: 3 for ref in refs})
+    with pytest.raises(ValueError, match='GM authority'):
+        read_selected(newer, grant(newer), replace(GM, role='player'))
+    assert opens == Counter({ref: 3 for ref in refs})
+
+
+def test_support_materialization_keeps_distinct_spans_from_the_same_source(lane, monkeypatch):
+    from collections import Counter
+    from apps.live_control_server.services import native_graph_reads as native
+    original_ref = lane.meta.evidence_ref_ids[0]
+    select_extension_support(lane)
+    lane.meta = replace(lane.meta, evidence_ref_ids=(original_ref, lane.meta.evidence_ref_ids[0]))
+    publish(lane, qualified=True)
+    context, _ = query(lane)
+    original = native.open_admitted_native_text
+    opens = Counter()
+    def counted(access, ref):
+        opens[ref] += 1
+        return original(access, ref)
+    monkeypatch.setattr(native, 'open_admitted_native_text', counted)
+    reads, missing = read_selected(context, grant(context), GM)
+    assert reads and not missing
+    account = next(row for row in reads if row.assertion.predicate == 'dnd5e:summary')
+    assert len(account.spans) == 2
+    assert len({span.source_artifact_id for span in account.spans}) == 1
+    assert {span.text for span in account.spans} == {BODY, BODY.splitlines(keepends=True)[0]}
+    assert all(count == 1 for count in opens.values())
+
+
+def test_support_materialization_retries_unavailable_without_skipping_assertion_checks(lane, monkeypatch):
+    from collections import Counter
+    from dungeonmind.contracts.vnext.native_source import NativeTextSourceAccessV1
+    from apps.live_control_server.services import native_graph_reads as native
+    publish(lane)
+    context, _ = query(lane)
+    target = lane.meta.evidence_ref_ids[0]
+    original = native.open_admitted_native_text
+    check = native.EvidenceReadService.get_assertion_evidence
+    opens = Counter()
+    checked = []
+    def unavailable_once(access, ref):
+        opens[ref] += 1
+        if ref == target and opens[ref] == 1:
+            return NativeTextSourceAccessV1(status='unavailable')
+        return original(access, ref)
+    def checked_assertion(service, read_context, identity):
+        checked.append(identity)
+        return check(service, read_context, identity)
+    monkeypatch.setattr(native, 'open_admitted_native_text', unavailable_once)
+    monkeypatch.setattr(native.EvidenceReadService, 'get_assertion_evidence', checked_assertion)
+    authorization = grant(context)
+    reads, missing = read_selected(context, authorization, GM)
+    assert checked == list(authorization.assertion_ids)
+    assert len(missing) == 1 and reads and opens[target] == 2
+    assert tuple(row.assertion.assertion_id for row in reads) == tuple(
+        identity for identity in authorization.assertion_ids if identity not in missing)
+
+
+def test_support_materialization_propagates_integrity_failure_and_next_batch_reopens(lane, monkeypatch):
+    from dungeonmind.application.vnext.errors import NativeTextSourceAccessIntegrityError
+    from apps.live_control_server.services import native_graph_reads as native
+    publish(lane)
+    context, _ = query(lane)
+    original = native.open_admitted_native_text
+    calls = []
+    def fail_once(access, ref):
+        calls.append(ref)
+        if len(calls) == 1:
+            raise NativeTextSourceAccessIntegrityError('synthetic immutable body corruption')
+        return original(access, ref)
+    monkeypatch.setattr(native, 'open_admitted_native_text', fail_once)
+    with pytest.raises(NativeTextSourceAccessIntegrityError):
+        read_selected(context, grant(context), GM)
+    assert len(calls) == 1
+    reads, missing = read_selected(context, grant(context), GM)
+    assert reads and not missing and calls[0] in calls[1:]
+
+
+def test_support_materialization_does_not_authorize_a_later_changed_assertion(lane, monkeypatch):
+    from apps.live_control_server.services import native_graph_reads as native
+    publish(lane)
+    context, _ = query(lane)
+    original = native.assertion_contract
+    source_open = native.open_admitted_native_text
+    contracts = []
+    opened = []
+    before_fault = []
+    def open_support(access, ref):
+        opened.append(ref)
+        return source_open(access, ref)
+    def changed_assertion(value):
+        parsed = original(value)
+        contracts.append(parsed.assertion_id)
+        if len(contracts) == 2:
+            before_fault.extend(opened)
+            return parsed.model_copy(update={'subject_entity_id': 'foreign-subject'})
+        return parsed
+    monkeypatch.setattr(native, 'open_admitted_native_text', open_support)
+    monkeypatch.setattr(native, 'assertion_contract', changed_assertion)
+    with pytest.raises(ValueError, match='changed after discovery'):
+        read_selected(context, grant(context), GM)
+    assert len(contracts) == 2
+    assert before_fault and opened == before_fault
+
+
 def _ordinary_native_case(
         lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None):
     import httpx2
@@ -233,9 +367,18 @@ def _ordinary_native_case(
             body=json.loads(req.content)
             candidates=body.get('state',{}).get('candidates',[])
             native={i for i,c in enumerate(candidates) if c['kind'].startswith('Native Graph object') or mixed and c['kind']=='public_rules_lookup'}
+            if selected_references is not None and 'requested_work' in body['questions']:
+                rows=body['state']['author_selected_references']
+                assert len(rows)==len(selected_references.references)
+                for row,ref in zip(rows,selected_references.references,strict=True):
+                    if hasattr(ref,'selection_kind'):
+                        assert row=={'kind':'source','label':ref.label,'selection_kind':ref.selection_kind}
+                        assert json.dumps(ref.source_artifact_id) not in req.content.decode()
+                        assert json.dumps(ref.content_sha256) not in req.content.decode()
+                    else:
+                        assert row=={'kind':'graph_object','label':ref.label}
+                        assert json.dumps(ref.node_id) not in req.content.decode()
             if authored:
-                if 'requested_work' in body['questions']:
-                    assert body['state']['author_selected_references']==selected_references.model_dump(mode='json',by_alias=True)
                 native=set()  # Explicit human inclusion cannot depend on a model relevance vote.
             if authored_source and 'operation' in body['questions']:
                 examined = body['state']['examined_subjects']
@@ -253,18 +396,25 @@ def _ordinary_native_case(
     class Writer(WriterWire):
         async def handle_async_request(self, req):
             frames=[json.loads(item['content']) for item in json.loads(req.content)['input'][:-1]]
-            frame=next(item for item in frames if item.get('schema')=='dmb_surface_native_writer_evidence_v2')
+            frame=next(item for item in frames if set(item)=={'input_status','user_question','native_body_evidence','native_statements','native_assertions'})
             assert len(frames)==3
             assert frames[0 if authoring else -1] == frame
-            assert frame['answer_policy'] in json.loads(req.content)['instructions']
+            assert NATIVE_ANSWER_POLICY in json.loads(req.content)['instructions']
             assert 'dmb_surface_evidence_answer_v6' not in json.loads(req.content)['instructions']
             assert BODY not in req.content.decode() and 'span.text' not in req.content.decode()
             rows=frame['native_assertions']['assertions'] if frame['native_assertions'] else []
             if authored:
-                work_frame=next(item for item in frames if 'authored_references' in item)
-                from application_state.agent_conversation.authored_graph_references import provider_references
-                assert work_frame['authored_references']['selected_references']==provider_references(selected_references)
-                assert 'DISPLAY ONLY Plan selection' not in req.content.decode()
+                from application_state.agent_conversation.native_plan_work_view import is_semantic_frame
+                work_frame=next(item for item in frames if is_semantic_frame(item))
+                expected=[]
+                for i,ref in enumerate(selected_references.references):
+                    source=hasattr(ref,'selection_kind')
+                    expected.append(dict(reference=f'reference{i}',label=ref.label,
+                        kind='source' if source else 'object',
+                        read_status='partial' if unavailable and not source else 'complete',
+                        **({'extent':ref.selection_kind} if source else {})))
+                assert work_frame['selected_references']==expected
+                assert 'authored_references' not in work_frame
             if authored_source=='source_only':
                 assert not rows
                 segments=[]
@@ -283,10 +433,10 @@ def _ordinary_native_case(
             if authored_source:
                 exposed=frame['native_body_evidence']['excerpts']
                 assert len(exposed)==1 and 'source-local episode' in exposed[0]['text']
-                assert 'DISPLAY ONLY Plan source' not in req.content.decode()
+                assert 'DISPLAY ONLY Plan source' not in json.dumps(frame)  # Display selection is not evidence.
                 segments.append({'kind':'native_body_claim','text':'The source describes a source-local episode.',
                     'excerpt_handles':[exposed[0]['excerpt_handle']]})
-            candidate={'schema':frame['answer_policy'],'answer_segments':segments,
+            candidate={'schema':NATIVE_ANSWER_POLICY,'answer_segments':segments,
                 'limitations':limitations,'requested_detail_gaps':[]}
             if mixed:
                 candidate={'schema':'dmb_rules_mixed_answer_v1','base_output':candidate,
@@ -612,3 +762,78 @@ def test_core_source_integrity_failure_remains_fail_closed(lane, monkeypatch):
 
 def test_fresh_plan_cannot_dispatch_the_retired_optional_graph_contract(lane,tmp_path,monkeypatch,native_read_admission_probes):
     _ordinary_native_case(lane,tmp_path,monkeypatch,False,False,None,'legacy_policy',False,native_read_admission_probes)
+
+
+def test_navigation_labels_use_local_aliases_for_unnamed_conflicting_and_duplicate_names():
+    from apps.live_control_server.services.native_graph_reads import _navigation_labels
+    def entity(identity,names,*,complete=True):
+        return SimpleNamespace(found=True,completeness=SimpleNamespace(status='complete' if complete else 'partial'),
+            assertions=[SimpleNamespace(subject_entity_id=identity,predicate='dnd5e:name',
+                value=SimpleNamespace(kind='literal',value=name),metadata=SimpleNamespace(scope=[])) for name in names])
+    rows={'host-id-one':entity('host-id-one',['Twin']), 'host-id-two':entity('host-id-two',['Twin']),
+        'host-id-three':entity('host-id-three',[]),'host-id-four':entity('host-id-four',['Old','New']),
+        'host-id-five':entity('host-id-five',['Literal context_accounting and phase']),
+        'host-id-six':entity('host-id-six',['Partial name'],complete=False)}
+    labels=_navigation_labels(rows)
+    assert len(set(labels.values()))==len(rows)
+    assert labels['host-id-one'].startswith('Twin (object ')
+    assert labels['host-id-two'].startswith('Twin (object ')
+    assert labels['host-id-three'].startswith('Unnamed object ')
+    assert labels['host-id-four'].startswith('Unnamed object ')
+    assert labels['host-id-five']=='Literal context_accounting and phase'
+    assert all(identity not in label for identity in rows for label in labels.values())
+    assert _navigation_labels(dict(reversed(list(rows.items()))))==labels
+    assert _navigation_labels(rows,complete_only=True)['host-id-six'].startswith('Unnamed object ')
+    # A literal authored name is context even if it resembles an identifier.
+    assert _navigation_labels({'literal-id':entity('literal-id',['literal-id'])})['literal-id']=='literal-id'
+
+
+def test_subject_navigation_keeps_exact_scope_complete_read_and_about_witness():
+    from apps.live_control_server.services.native_graph_reads import _subject_labels
+    from apps.live_control_server.services import source_statements as statements
+    identity,statement='host-subject-id','host-statement-id'
+    name=lambda text,campaign:SimpleNamespace(subject_entity_id=identity,predicate='dnd5e:name',
+        value=SimpleNamespace(kind='literal',value=text),metadata=SimpleNamespace(scope=[SimpleNamespace(axis=statements.CAMPAIGN_SCOPE_AXIS,value=campaign)]))
+    about=SimpleNamespace(assertion_id='host-about-id',subject_entity_id=statement,predicate=statements.mapping.ABOUT,value=SimpleNamespace(entity_id=identity))
+    entity=SimpleNamespace(found=True,completeness=SimpleNamespace(status='complete'),assertions=[name('Right name','c2'),name('Other campaign','c1'),about])
+    rows={identity:entity};paths=[(identity,['host-about-id'])]
+    assert _subject_labels(statement,paths,rows,'c2')=='Right name'
+    entity.completeness.status='partial'
+    assert _subject_labels(statement,paths,rows,'c2').startswith('Unnamed object ')
+    with pytest.raises(ValueError,match='ABOUT witness'):
+        _subject_labels(statement,[(identity,['wrong-witness'])],rows,'c2')
+
+
+def test_native_query_labels_do_not_expose_entity_identity(lane):
+    publish(lane,qualified=True)
+    _,result=query(lane)
+    labels=[row.label for row in (*result.object_matches,*result.assertion_matches)]
+    assert labels
+    assert all(identity not in label for identity in result.discovered_entity_ids for label in labels)
+    assert any(row.subject_entity_id==lane.ids['B'] for row in result.assertion_matches)
+
+
+@pytest.mark.parametrize('scope_mode',['campaign','world'])
+def test_native_navigation_does_not_name_c1_assertion_from_c2_name(lane,monkeypatch,scope_mode):
+    from apps.live_control_server.services import native_graph_reads as native
+    publish(lane)
+    original=native.EntityReadService()
+    def read(context,identity):
+        entity=original.get_complete_entity(context,identity)
+        if identity!=lane.ids['B']:return entity
+        rows=[]
+        for row in entity.assertions:
+            if row.subject_entity_id==identity and row.predicate=='dnd5e:name':
+                row=replace(row,metadata=replace(row.metadata,
+                    scope=tuple(replace(binding,value='c2') for binding in row.metadata.scope)))
+            rows.append(row)
+        return replace(entity,assertions=tuple(rows))
+    monkeypatch.setattr(native,'EntityReadService',lambda:SimpleNamespace(get_complete_entity=read))
+    _,result=native.prepare_query(lane.world.world_id,'What did B do?',GM,repository=lane.repo,
+        resolve_binding=lambda _:bound(lane),scope_mode=scope_mode,campaign_id='c1' if scope_mode=='campaign' else None)
+    summaries=[row for row in result.assertion_matches if row.subject_entity_id==lane.ids['B'] and row.label.endswith(' · dnd5e:summary')]
+    assert summaries and all(row.label.startswith('Unnamed object ') for row in summaries)
+    if scope_mode=='campaign':
+        assert next(row.label for row in result.object_matches if row.entity_id==lane.ids['B']).startswith('Unnamed object ')
+    # Read identity and qualifications remain Core-owned; labels grant nothing.
+    assert all(row.subject_entity_id==lane.ids['B'] for row in summaries)

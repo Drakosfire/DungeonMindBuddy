@@ -144,9 +144,9 @@ def acquired_catalog(execution, trace, *, policy=None):
     return {key: units[key] for key in sorted(units)}
 
 
-def questions(catalog):
+def questions(catalog, *, semantic=False):
     return {f"s{i}": {"type": "choice",
-                       "instructions": f"Classify source {key} for the exact user question.",
+                       "instructions": f"Classify source {'s'+str(i) if semantic else key} for the exact user question.",
                        "criteria": {label: None for label in JUDGMENTS}}
             for i, key in enumerate(catalog)}
 
@@ -256,33 +256,110 @@ def selection_state(turn, catalog, terminal, historical_initial, *, policy=None)
     return state
 
 
+def host_basis(state, *, semantic=False):
+    """The existing receipt field commits the exact input codec and host scope."""
+    if not semantic:
+        return state['basis_sha256']
+    return digest(dict(input_codec='semantic_source_slots_v1',
+        host_state={key:value for key,value in state.items() if key!='basis_sha256'}))
+
+
+def native_build(turn):
+    from .native_execution import SurfaceNativeExecutionV1, NativeBuildActionV1
+    execution = turn.graph_context_execution
+    return (type(execution) is SurfaceNativeExecutionV1
+            and type(execution.policy.action) is NativeBuildActionV1)
+
+
+def semantic_state(turn, catalog):
+    """Semantic slots into the existing host catalog, never another source owner."""
+    from .native_corpus import acquired_body_catalogs
+    if not native_build(turn):
+        raise ValueError("Semantic selection requires native Build")
+    bodies = acquired_body_catalogs(turn.graph_context_execution)
+    sources = {}
+    for i, unit in enumerate(catalog.values()):
+        if unit['kind'] == 'native_body':
+            body = bodies[unit['catalog_sha256']]
+            row, extent = unit['passage'], unit['extent']
+            label, section = body.sections[0].label, extent['label']
+            extent_kind = 'full_document' if unit['selector_policy'] == 'native_full_document_v1' else 'section'
+        elif unit['kind'] == 'saved_section':
+            row = unit['section']
+            label, section, extent_kind = 'Current saved authored page', 'Opened passage', 'section'
+        else:
+            raise ValueError("Native selection has an unsupported source kind")
+        sources[f's{i}'] = dict(kind=unit['kind'], source_name=label, section_title=section,
+            source_meaning=row['source_class'], extent_kind=extent_kind,
+            line_start=row['line_start'], line_end=row['line_end'], text=row['text'])
+    return dict(user_question=turn.user_text, sources=sources, rules=RULES)
+
+
+def is_semantic_state(state):
+    # Exact, disjoint wire codec. All nested fields are compared to the owner
+    # projection below; unknown/hybrid shapes cannot match either exact codec.
+    return isinstance(state, dict) and set(state) == {'user_question', 'sources', 'rules'}
+
+
+def selection_history(turn, auth):
+    from . import types as t
+    receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
+    prior = [e for e in execution.events[:auth.sequence] if isinstance(e,t.ProviderAttemptAuthorizedEventV3)]
+    if not prior:
+        raise ValueError('Selection lacks its prior controller')
+    value = dict(context_receipt_sha256=receipt.context_receipt_sha256,
+        initial_envelope_sha256=prior[0].envelope_sha256, execution_policy_sha256=execution.execution_policy_sha256,
+        turn_id=str(turn.turn_id), turn_attempt=turn.attempt, event_sequence=auth.sequence,
+        prior_provider_attempt_id=str(prior[-1].provider_attempt_id))
+    if receipt.assembled_input.assembler_version == 'reviewed_author_admission_v1':
+        value['author_admission_sha256'] = receipt.assembled_input.assembled_input_sha256
+    preceding = execution.events[auth.sequence-1] if auth.sequence else None
+    if isinstance(preceding,t.BuildSectionProviderInclusionV1):
+        value['event_sequence'] -= 1
+    return value
+
+
+def native_terminal(turn, *, before_sequence=None):
+    from .native_retrieval import current_selection
+    if not native_build(turn):
+        raise ValueError('Semantic selection has no native Build terminal owner')
+    if before_sequence is not None:
+        turn = turn.model_copy(update={'graph_context_execution': turn.graph_context_execution.model_copy(
+            update={'events':turn.graph_context_execution.events[:before_sequence]})})
+    if current_selection(turn).operation != 'finish_retrieval':
+        raise ValueError('Semantic selection requires acknowledged finished retrieval')
+    return dict(status='ready', reason='native_retrieval_finished')
+
+
 def validate_prepared_selection(turn,auth,request_text,trace,terminal=None, *, policy=None):
     """One exact acquired-catalog input check, before dispatch and on acceptance."""
-    from . import types as t
     from .source_writer_output import strict_json
-    receipt,execution=turn.graph_context_receipt,turn.graph_context_execution
+    execution = turn.graph_context_execution
     if not enabled(execution.policy) or not isinstance(request_text,str) or hashlib.sha256(request_text.encode()).hexdigest()!=auth.envelope_sha256:
         raise ValueError('Selection prepared bytes differ from their owning authorization')
-    request=strict_json(request_text)
+    request = strict_json(request_text)
     if set(request)!={'model','state','questions'} or request['model']!=auth.model:
         raise ValueError('Selection producer request is malformed')
-    catalog=acquired_catalog(execution,trace,policy=policy)
-    prior=[e for e in execution.events[:auth.sequence] if isinstance(e,t.ProviderAttemptAuthorizedEventV3)]
-    if not catalog or not prior:
-        raise ValueError('Selection lacks its acquired catalog or prior controller')
-    historical=request['state'].get('historical_initial')
-    expected_history={'context_receipt_sha256':receipt.context_receipt_sha256,
-        'initial_envelope_sha256':prior[0].envelope_sha256,'execution_policy_sha256':execution.execution_policy_sha256,
-        'turn_id':str(turn.turn_id),'turn_attempt':turn.attempt,'event_sequence':auth.sequence,
-        'prior_provider_attempt_id':str(prior[-1].provider_attempt_id)}
-    if receipt.assembled_input.assembler_version=='reviewed_author_admission_v1':
-        expected_history['author_admission_sha256']=receipt.assembled_input.assembled_input_sha256
-    preceding=execution.events[auth.sequence-1] if auth.sequence else None
-    if isinstance(preceding,t.BuildSectionProviderInclusionV1):
-        expected_history['event_sequence']-=1
-    terminal=request['state'].get('terminal_disposition') if terminal is None else terminal
-    expected_state=selection_state(turn,catalog,terminal,expected_history,policy=policy)
-    if canonical(historical)!=canonical(expected_history) or canonical(request['state'])!=canonical(expected_state) or canonical(request['questions'])!=canonical(questions(catalog)):
+    catalog = acquired_catalog(execution,trace,policy=policy)
+    if not catalog:
+        raise ValueError('Selection lacks its acquired catalog')
+    expected_history = selection_history(turn,auth)
+    semantic = is_semantic_state(request['state'])
+    if semantic:
+        expected_terminal = native_terminal(turn,before_sequence=auth.sequence)
+        if terminal is not None and canonical(terminal) != canonical(expected_terminal):
+            raise ValueError('Selection terminal differs from acknowledged native finish')
+        expected_state = semantic_state(turn,catalog)
+    else:
+        # Retained old prepared bytes, including initial-V2 turns, keep their
+        # exact accepted serializer. Current native producers never emit it.
+        state = request['state']
+        if (not isinstance(state,dict) or state.get('schema') != 'dmb_build_jev_phase_controller_v1'
+                or state.get('phase') != 'writer_selection' or not isinstance(state.get('terminal_disposition'),dict)):
+            raise ValueError('Unknown selection input codec')
+        terminal = state['terminal_disposition'] if terminal is None else terminal
+        expected_state = selection_state(turn,catalog,terminal,expected_history,policy=policy)
+    if canonical(request['state'])!=canonical(expected_state) or canonical(request['questions'])!=canonical(questions(catalog,semantic=semantic)):
         raise ValueError('Selection question, scope, catalog, disposition or questions drifted')
     return request,catalog
 
@@ -317,7 +394,7 @@ def validate_selection_proof(turn, selection, trace, proof):
     if selection.mode == "empty_catalog":
         if catalog or proof:
             raise ValueError("Empty catalog settlement cannot manufacture a provider response")
-        judgments, historical = {}, {}
+        judgments, historical, semantic = {}, {}, False
     else:
         if not catalog or not isinstance(proof, dict) or set(proof) != {"request_json", "response_json"}:
             raise ValueError("Nonempty selection requires exact producer proof")
@@ -335,7 +412,8 @@ def validate_selection_proof(turn, selection, trace, proof):
         if verified_catalog!=catalog:
             raise ValueError('Selection acquired catalog changed')
         response=strict_json(response_text)
-        historical=request['state']['historical_initial']
+        semantic=is_semantic_state(request['state'])
+        historical=selection_history(turn,auth) if semantic else request['state']['historical_initial']
         item_id = f"unvalidated-controller-decision:{auth.provider_attempt_id}:{receipt.context_receipt_sha256}"
         captures = [m for o in trace.get("observations", [])
                     if o.get("kind") == "context_snapshot" and o.get("stage") == "after"
@@ -363,7 +441,7 @@ def validate_selection_proof(turn, selection, trace, proof):
             if actual_sections != selected_sections:
                 raise ValueError("Selection saved-section exposure differs from its catalog")
     state = selection_state(turn, catalog, selection.terminal_disposition, historical, policy=selection.policy)
-    if (selection.catalog_sha256 != digest(catalog) or selection.basis_sha256 != state["basis_sha256"]
+    if (selection.catalog_sha256 != digest(catalog) or selection.basis_sha256 != host_basis(state,semantic=semantic)
         or canonical(selection.judgments) != canonical(judgments)):
         raise ValueError("Selection receipt differs from its exact source basis or judgments")
     closure = close_selection(catalog, judgments)

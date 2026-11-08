@@ -119,7 +119,7 @@ def verify_input_records(receipt, execution, auth, proof, *, question, scope_sha
         from .plan_authoring import PlanRequestedWorkInputV1, validate_requested_work_wire
         if native_action is None and not isinstance(execution.policy, t.PlanAuthoringPolicyV1):
             raise ValueError('Plan destination decision requires its frozen authoring policy')
-        from .plan_placement import PlanRequestedWorkInputV2, PlanRequestedWorkInputV3, PlanRequestedWorkInputV4, PlanRequestedWorkInputV5
+        from .plan_placement import PlanRequestedWorkInputV2, PlanRequestedWorkInputV3, PlanRequestedWorkInputV4, PlanRequestedWorkInputV5, PlanRequestedWorkInputV6, PlanRequestedWorkInputV7
         placement = isinstance(auth, t.PlanRequestedWorkAuthorizedV2)
         if placement != (native_action is not None or isinstance(execution.policy, t.PlanPlacementAuthoringPolicyV1)):
             raise ValueError('Plan placement authorization differs from its current policy')
@@ -131,6 +131,8 @@ def verify_input_records(receipt, execution, auth, proof, *, question, scope_sha
                 "dmb_plan_requested_work_input_v3": PlanRequestedWorkInputV3,
                 "dmb_plan_requested_work_input_v4": PlanRequestedWorkInputV4,
                 "dmb_plan_requested_work_input_v5": PlanRequestedWorkInputV5,
+                "dmb_plan_requested_work_input_v6": PlanRequestedWorkInputV6,
+                "dmb_plan_requested_work_input_v7": PlanRequestedWorkInputV7,
             }.get(schema)
         else:
             parent_type = PlanRequestedWorkInputV1 if schema == "dmb_plan_requested_work_input_v1" else None

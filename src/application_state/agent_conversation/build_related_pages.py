@@ -87,8 +87,9 @@ def question_name(index):
     return f"related_page_{index}"
 
 
-def question_text(page):
-    return f"Read this exact saved authored page to serve the current request: {page.title} (revision {page.registry_revision})? Read requested existing pages before choosing people or shops. Skip unrelated pages. A title is navigation, not evidence."
+def question_text(page, *, semantic=False):
+    label = page.title if semantic else f"{page.title} (revision {page.registry_revision})"
+    return f"Read this exact saved authored page to serve the current request: {label}? Read requested existing pages before choosing people or shops. Skip unrelated pages. A title is navigation, not evidence."
 
 
 def catalog(policy):
@@ -254,7 +255,7 @@ def validate_events(execution):
             read_ids.add(event.read_id)
 
 
-def should_read_page(page, question, answer):
+def should_read_page(page, question, answer, *, semantic=False):
     """Resolve only optional eligible-page acquisition, preserving raw votes.
 
     A tie requests a read, not authoring action or factual authority. Exact
@@ -264,7 +265,7 @@ def should_read_page(page, question, answer):
 
     probs = answer.probabilities
     if (
-        question.get("instructions") != question_text(page)
+        question.get("instructions") != question_text(page, semantic=semantic)
         or set(question.get("criteria", {})) != {"read", "skip"}
         or answer.selected not in {"read", "skip"}
         or set(probs) != {"read", "skip"}
@@ -277,11 +278,13 @@ def should_read_page(page, question, answer):
 
 
 def validate_selection(turn, event, proof, trace):
+    from .native_context import is_semantic_build_input
     return validate_selection_records(turn.graph_context_execution, event, proof, trace,
-        world_id=turn.world_id, current_document_id=turn.provenance.primary_work.object_id)
+        world_id=turn.world_id, current_document_id=turn.provenance.primary_work.object_id,
+        semantic=is_semantic_build_input(turn.graph_context_receipt))
 
 
-def validate_selection_records(execution, event, proof, trace, *, world_id, current_document_id):
+def validate_selection_records(execution, event, proof, trace, *, world_id, current_document_id, semantic=False):
     """One exact controller vote proof over actual execution and work identity.
 
     The locked Turn owner supplies protected trace and work identity at admission;
@@ -302,15 +305,15 @@ def validate_selection_records(execution, event, proof, trace, *, world_id, curr
     request = strict_json(proof["request_json"])
     response = DecisionResult.model_validate(strict_json(proof["response_json"]))
     from .build_draft_context import native_build_action
-    state = (request['state']['decision']['state'] if native_build_action(execution) is not None
+    state = (request['state']['decision']['state'] if native_build_action(execution) is not None and not semantic
         else request['state'])
     if (
         sha256(proof["request_json"].encode()).hexdigest()
         != event.controller_envelope_sha256
         or sha256(proof["response_json"].encode()).hexdigest()
         != event.controller_response_sha256
-        or state.get("interaction", {}).get("related_page_catalog")
-        != [p.model_dump(mode="json") for p in offered]
+        or (state.get("interaction", {}).get("related_page_labels") != [p.title for p in offered]
+            if semantic else state.get("interaction", {}).get("related_page_catalog") != [p.model_dump(mode="json") for p in offered])
         or any(
             p.world_id != world_id
             or str(p.document_id) == str(current_document_id)
@@ -336,7 +339,7 @@ def validate_selection_records(execution, event, proof, trace, *, world_id, curr
         key = question_name(i)
         q = request["questions"][key]
         answer = response.answers[key]
-        if should_read_page(page, q, answer):
+        if should_read_page(page, q, answer, semantic=semantic):
             chosen.append(page.document_id)
     if sorted(chosen, key=str) != event.document_ids:
         raise ValueError("Related page selection differs from actual controller votes")

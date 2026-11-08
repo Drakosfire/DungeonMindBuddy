@@ -90,6 +90,9 @@ export async function nativeStatementDigestsBound(context:NativeStatementAnswerC
 
 
 export function isNativeClauseCitation(v:unknown,receiptHash:string):v is import('../api/types').NativeStatementClauseCitationV1 {
+  return isNativeClauseCitationShape(v)&&v.context_receipt_sha256===receiptHash;
+}
+export function isNativeClauseCitationShape(v:unknown):v is import('../api/types').NativeStatementClauseCitationV1 {
   return exact(v,['segment_index','statement_id','provider_attempt_id','envelope_sha256','context_receipt_sha256',
     'managed_world_id','native_world_id','campaign_id','read_revision_id','publication_revision_id','source_artifact_id',
     'source_revision_id','body_sha256','start_byte','end_byte','clause_sha256','semantic_digest'])
@@ -97,7 +100,7 @@ export function isNativeClauseCitation(v:unknown,receiptHash:string):v is import
     && [v.statement_id,v.provider_attempt_id,v.managed_world_id,v.native_world_id,v.campaign_id,v.read_revision_id,
       v.publication_revision_id,v.source_artifact_id,v.source_revision_id].every(text)
     && [v.envelope_sha256,v.body_sha256,v.clause_sha256,v.semantic_digest].every(hash)
-    && v.context_receipt_sha256===receiptHash && Number.isSafeInteger(v.start_byte) && Number(v.start_byte)>=0
+    && hash(v.context_receipt_sha256) && Number.isSafeInteger(v.start_byte) && Number(v.start_byte)>=0
     && Number.isSafeInteger(v.end_byte) && Number(v.end_byte)>Number(v.start_byte);
 }
 

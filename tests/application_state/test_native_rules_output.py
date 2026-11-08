@@ -436,3 +436,24 @@ def test_app_reconstructs_session_title_from_sealed_producing_input():
     assert 'Session 54' not in text and packet['title'] in text
     assert text.count(url)==1 and completion.answer_segments[0].evidence_sha256=='a'*64
     assert bindings=={}
+
+
+@pytest.mark.parametrize("material", ["a" * 1_100_000, "é" * 550_000], ids=["character-ceiling", "utf8-byte-ceiling"])
+def test_native_captured_request_has_no_second_size_admission(material):
+    from application_state.agent_conversation.native_rules_output import verify_captured_text
+    from apps.live_control_server.services.native_rules_capture import NativeProviderReply
+
+    request = json.dumps({"input": material}, ensure_ascii=False)
+    output = '{"captured":"complete"}'
+    capture = NativeProviderReply("captured-authorization", "captured-request", "openai",
+        "gpt-6-luna", "responses", sha256(request.encode()).hexdigest(), "stop", "answered",
+        output, sha256(output.encode()).hexdigest(), len(output.encode()), ())
+    proof = NativeRulesOutputProofV1.from_capture(capture, prepared_request_json=request,
+        rules_execution_id=uuid4(), producing_provider_attempt_id=uuid4())
+    values = dict(authorization_id=proof.authorization_id, api_request_id=proof.api_request_id,
+        request_envelope_sha256=proof.request_envelope_sha256,
+        prepared_request_json=proof.prepared_request_json, raw_output_json=proof.raw_output_json,
+        raw_output_sha256=proof.raw_output_sha256, raw_output_utf8_bytes=proof.raw_output_utf8_bytes)
+    verify_captured_text(capture, **values)
+    with pytest.raises(ValueError, match="exact prepared request"):
+        verify_captured_text(capture, **(values | {"prepared_request_json": request + " "}))

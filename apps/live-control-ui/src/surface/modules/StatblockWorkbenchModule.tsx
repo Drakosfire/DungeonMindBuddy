@@ -1,7 +1,7 @@
 import {samePin} from '../../guidedTour/protocol';
 import {useGuidedTour} from '../../guidedTour/GuidedTour';
 import {GenerationTourObservation,useGenerationPlan} from '../../guidedTour/GenerationObservations';
-import {SavedMechanicsRevisionEditor} from "../../statblocks/revision/SavedMechanicsRevisionEditor";
+import {SavedStatblockButton} from "../../statblocks/SavedStatblockSession";
 import { WorldMechanicsAssociationPanel } from "../../statblocks/WorldMechanicsAssociationPanel";
 import { verifyManagedWorldGraphProjectionResponse } from "../../worldGraph/verifyManagedWorldGraphProjectionResponse";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -2401,16 +2401,19 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
       return;
     }
     const restoreCandidate = initialGeneration.attempt?.candidate_id ?? stored?.candidate_id;
-    if (restoreCandidate) {
+    // A saved World statblock outlives its temporary generation candidate.
+    // Admit the durable draft before deciding which recovery view to open.
+    const draftId = initialGeneration.attempt?.draft_id ?? stored?.draft_id;
+    if (restoreCandidate && (!draftId || scope.mode !== "world")) {
       setCandidateIdInput(restoreCandidate);
       void loadCandidate(restoreCandidate);
       return;
     }
-    // A hint is not authority. Load/admit the durable draft before exposing its actions.
-    const draftId = initialGeneration.attempt?.draft_id ?? stored?.draft_id;
     if (draftId) {
       void (async () => {
         const opId = beginCandidateOp();
+        ownedDraftSnapshotIdRef.current = draftId;
+        setDraftSnapshotPending(true);
         try {
           const draft = await getThreatDraft(draftId);
           if (!isCurrentCandidateOp(opId)) return;
@@ -2419,6 +2422,15 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
           const identity = createdDraftFromResponse(draft);
           if (!identity) throw new Error("Restored draft identity unavailable.");
           applyCreatedDraftIdentity(identity);
+          if (draft.schema === "dmb_threat_draft_v2" && draft.workflow_state === "mechanics_saved") {
+            await refreshThreatDraftSnapshot(draftId);
+            return;
+          }
+          if (restoreCandidate) {
+            setCandidateIdInput(restoreCandidate);
+            await loadCandidate(restoreCandidate, { opId });
+            return;
+          }
           const attempt = initialGeneration.attempt;
           const completed = isUnresolvedGenerationAttempt(attempt) ? draft.candidate_refs.find((ref) => (
             ref.request_id === attempt.client_request_id
@@ -2431,7 +2443,12 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
           }
           await refreshThreatDraftSnapshot(draftId);
         } catch (error) {
-          if (isCurrentCandidateOp(opId)) setGenerationRecoveryError(error instanceof Error ? error.message : String(error));
+          if (isCurrentCandidateOp(opId)) {
+            setDraftSnapshotUnavailable(true);
+            setDraftSnapshotError(error instanceof Error ? error.message : String(error));
+          }
+        } finally {
+          if (isCurrentCandidateOp(opId)) setDraftSnapshotPending(false);
         }
       })();
     }
@@ -2941,7 +2958,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
   const onCreateAndGenerate = async (event: FormEvent) => {
     const tourScope=captureGenerationScope();
     event.preventDefault();
-    if (createAndGenerateInFlightRef.current || pendingGenerate || createPhase === "creating") {
+    if (createAndGenerateInFlightRef.current || pendingGenerate || generationRecoveryError != null || draftSnapshotUnavailable || draftSnapshotPending || createPhase === "creating") {
       return;
     }
     try {
@@ -3350,7 +3367,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
               type="submit"
               disabled={
                 pendingGenerate ||
-                generationRecoveryError != null || isUnresolvedGenerationAttempt(generationAttempt) ||
+                generationRecoveryError != null || draftSnapshotUnavailable || draftSnapshotPending || isUnresolvedGenerationAttempt(generationAttempt) ||
                 createPhase === "creating" ||
                 createPhase === "generating"
               }
@@ -3533,24 +3550,29 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
         />
       ) : null}
 
+      {draftSnapshotUnavailable ? (
+        <p className="statblock-command-error" role="alert" data-testid="draft-snapshot-unavailable">
+          ThreatDraft snapshot unavailable — revision and version-dependent save are disabled.{" "}
+          {draftSnapshotError}
+          {ownedDraftSnapshotIdRef.current ? (
+            <button
+              type="button"
+              className="statblock-inline-retry"
+              onClick={() => void refreshThreatDraftSnapshot(ownedDraftSnapshotIdRef.current!)}
+            >
+              Retry draft refresh
+            </button>
+          ) : null}
+        </p>
+      ) : null}
+
+      {mechanicsSavedDraft && threatDraft?.schema === "dmb_threat_draft_v2" && !draftSnapshotUnavailable && !draftSnapshotPending && (
+        <SavedStatblockButton key={`${threatDraft.world_id}:${threatDraft.draft_id}`} worldId={threatDraft.world_id} draftId={threatDraft.draft_id}/>
+      )}
+
       {activeCandidate ? (
         <section className="statblock-section" data-testid="candidate-view-modes">
           <h3>Candidate {activeCandidate.candidate_id}</h3>
-          {draftSnapshotUnavailable ? (
-            <p className="statblock-command-error" role="alert" data-testid="draft-snapshot-unavailable">
-              ThreatDraft snapshot unavailable — revision and version-dependent save are disabled.{" "}
-              {draftSnapshotError}
-              {reviseDraftId ? (
-                <button
-                  type="button"
-                  className="statblock-inline-retry"
-                  onClick={() => void refreshThreatDraftSnapshot(reviseDraftId)}
-                >
-                  Retry draft refresh
-                </button>
-              ) : null}
-            </p>
-          ) : null}
           {editorState && reviseDraftId && threatDraft ? (
             <ReviseWithAiPanel
               candidateId={
@@ -3654,8 +3676,6 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
               publicationDock={publicationDock}
             />
           ) : null}
-
-          {mechanicsSavedDraft && threatDraft?.schema === "dmb_threat_draft_v2" && <SavedMechanicsRevisionEditor key={`${threatDraft.world_id}:${threatDraft.draft_id}`} worldId={threatDraft.world_id} draftId={threatDraft.draft_id}/>}
 
           {mechanicsSavedDraft && threatDraft?.schema === "dmb_threat_draft_v2" ? (
             <WorldMechanicsAssociationPanel key={threatDraft.draft_id} draft={threatDraft} />

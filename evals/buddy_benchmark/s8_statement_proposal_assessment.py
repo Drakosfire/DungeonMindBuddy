@@ -18,6 +18,7 @@ from time import perf_counter
 from uuid import uuid4
 
 from . import q01_native_answer_proof as answer
+from . import artifacts
 from . import q01_native_fixture_proof as fixture
 
 AUTHORITY = "929ebb4fe3fd39e90870ff6ec6c53bc4fbca268d"
@@ -822,47 +823,9 @@ def verify_order_only_contrast(current_wire, prior_wire):
 
 
 def row_inventory(dsn):
-    """One repeatable-read snapshot, retaining exact operation identity too."""
-    from psycopg import sql
-
-    result = {}
-    with fixture.readonly(dsn) as conn:
-        conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
-        tables = conn.execute(
-            "SELECT table_schema,table_name FROM information_schema.tables WHERE table_type='BASE TABLE' AND table_schema NOT IN ('pg_catalog','information_schema') ORDER BY 1,2"
-        ).fetchall()
-        for table in tables:
-            name = table["table_schema"] + "." + table["table_name"]
-            rows = conn.execute(
-                sql.SQL("SELECT row_to_json(t)::text AS body FROM {}.{} t").format(
-                    sql.Identifier(table["table_schema"]),
-                    sql.Identifier(table["table_name"]),
-                )
-            ).fetchall()
-            inventory = []
-            for row in rows:
-                body = json.loads(row["body"])
-                inventory.append(
-                    {
-                        "sha256": fixture.sha(row["body"].encode()),
-                        "keys": {
-                            key: body[key]
-                            for key in (
-                                "world_id",
-                                "operation_id",
-                                "conversation_id",
-                                "turn_id",
-                                "command_id",
-                                "reference_role",
-                                "ordinal",
-                                "version_num",
-                            )
-                            if key in body
-                        },
-                    }
-                )
-            result[name] = sorted(inventory, key=lambda row: row["sha256"])
-    return result
+    return artifacts.row_inventory(dsn, readonly=fixture.readonly, keys=(
+        "world_id", "operation_id", "conversation_id", "turn_id", "command_id",
+        "reference_role", "ordinal", "version_num"))
 
 
 def capture(root):

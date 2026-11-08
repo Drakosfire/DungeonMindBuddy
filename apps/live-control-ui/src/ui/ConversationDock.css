@@ -153,7 +153,6 @@
 .conversation-dock__menu > summary::after { content: none; }
 .conversation-dock__menu > div { position: absolute; right: 0; top: 100%; z-index: 10; min-width: 15rem; max-width: min(24rem, 80vw); max-height: 60vh; overflow: auto; padding: .65rem; background: var(--conversation-dock-chat-background); border: 1px solid var(--conversation-dock-border); border-radius: .5rem; box-shadow: 0 6px 20px #0005; }
 .conversation-dock__menu:not([open]) > div { display: none; }
-.conversation-dock__diagnostics { display: flex; align-items: center; gap: .5rem; padding: .4rem; font-size: .85rem; }
 
 .conversation-dock__placement { display: flex; gap: .25rem; }
 .conversation-dock__placement button[aria-pressed="true"] { border-color: var(--ui-accent-action, #d9a441); }

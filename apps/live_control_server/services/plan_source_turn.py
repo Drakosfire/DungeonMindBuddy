@@ -122,7 +122,7 @@ def freeze(request, work, playable_target, view, budget, *, authority, graph_rec
 def freeze_build(request, work, view, budget, *, authority, native_query, provenance,
                  submitted_intent, projection, accounting, included_history=(), reviewed_admission=None):
     """Capture actual Build work and its first prepared semantic wire, without a Graph packet."""
-    from application_state.agent_conversation.native_context import BuildWorkContextV1, NativeProviderInputV1, NativeReviewedActionInputV1
+    from application_state.agent_conversation.native_context import BuildWorkContextV1, NativeBuildProviderInputV2, NativeReviewedActionInputV1
     from application_state.agent_conversation.native_execution import NativeBuildActionV1
     from application_state.agent_conversation.build_intentional_response import MENU_DIGEST, RESOLVER_DIGEST
     basis = work.build_source
@@ -144,7 +144,7 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
                 or body['state']!=projection.state() or body['questions']!=projection.questions()
                 or (view['provider'],view['model'],view['apiMode'])!=('typesafe','jev-1.14.0','typesafe_decision')):
             raise ValueError('Native Build initial prepared request changed before capture')
-        accounting.validate(body,raw,context_mode=view['contextMode'])
+        accounting.validate(body,raw,context_mode=view['contextMode'],host_phase=getattr(projection,'host_phase',None))
     actions = budget['buildJevActions']
     from types import SimpleNamespace
     from application_state.agent_conversation.build_intentional_response import policy_capabilities,captured_capabilities
@@ -159,7 +159,20 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
         saved_source_char_count=len(basis.markdown), requested_work_menu_sha256=MENU_DIGEST,
         response_resolver_sha256=RESOLVER_DIGEST)
     if not reviewed:
-        assembled = NativeProviderInputV1(provider_model_name=view['model'], provider_model_version=view['model'],
+        if getattr(projection,'host_phase',None)!='select':
+            raise ValueError('Fresh native Build requires semantic initial input')
+        from application_state.agent_conversation.build_intentional_response import semantic_routing_state, semantic_request_id, digest
+        from .agent_turn_service import _turn_idempotency_key
+        host = json.loads(projection.host_interaction_json)
+        if (host['current_page']!={'document_id':basis.document_id,'title':basis.title}
+            or host['allowed_operations']!=list(caps.operations)
+            or host['capability_sha256']!=(digest(request.build_write_capability.model_dump(mode='json')) if request.build_write_capability is not None else None)
+            or host.get('related_page_catalog')!=actions.get('related_page_catalog')
+            or body['state']!=semantic_routing_state(request.message,host,request.build_authored_references)
+            or projection.request_id!=semantic_request_id(body['state'],world_id=basis.world_id,
+                client_thread_id=request.client_thread_id,idempotency_key=_turn_idempotency_key(basis.world_id,request.turn_id))):
+            raise ValueError('Semantic Build input differs from its captured work and capability')
+        assembled = NativeBuildProviderInputV2(provider_model_name=view['model'], provider_model_version=view['model'],
             tokenizer_name=accounting.descriptor['policy'], tokenizer_version=accounting.tokenizer_version,
             provider_envelope_input_tokens=accounting.estimate(body), output_token_reserve=0,
             context_window_limit=budget['contextLimitTokens'],

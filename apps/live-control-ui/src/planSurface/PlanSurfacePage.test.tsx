@@ -691,11 +691,11 @@ beforeEach(() => {
   });
   vi.spyOn(conversationLibraryApi, 'readActiveConversationMessages').mockImplementation(async (owner, before) => {
     const page = serverHistorySnapshot(owner);
-    return {schema: 'dmb_active_conversation_messages_v1', world_id: owner, conversation_state: page.conversation_state,
+    return {schema: 'dmb_active_conversation_messages_v2', world_id: owner, conversation_state: page.conversation_state,
       conversation_id: page.conversation_id, active_conversation_id: page.active_conversation_id, pointer_revision: page.pointer_revision,
       next_before_sequence: null, messages: page.turns.filter(turn => before === undefined || turn.sequence < before).map(turn => ({
         turn_id: turn.turn_id, sequence: turn.sequence, status: turn.lifecycle_status, user_text: turn.user_text,
-        assistant_text: turn.assistant_text, revision: 1, idempotency_key: 'idempotency_key' in turn ? turn.idempotency_key : '', provenance: turn.provenance,
+        assistant_text: turn.assistant_text, citation_preview: null, revision: 1, idempotency_key: 'idempotency_key' in turn ? turn.idempotency_key : '', provenance: turn.provenance,
       }))};
   });
   vi.spyOn(liveApi, "getWorldPlanDocumentEditActions").mockImplementation(async (owner, documentId) => {
@@ -1093,7 +1093,7 @@ it("binds Ask to the exact committed revision and complete current working draft
   expect(renderedTurns.map((turn) => turn.getAttribute("data-sequence"))).toEqual(["1", "2"]);
   expect(renderedTurns[0]).toHaveTextContent("What Plan metadata can you see?");
   expect(renderedTurns[1]).toHaveTextContent("And what is its saved revision?");
-  for (const details of within(conversation).queryAllByRole("button", {name: "Sources and actions"})) fireEvent.click(details);
+  for (const details of within(conversation).queryAllByText("Details", {selector: "summary"})) if (!details.closest("details")?.open) fireEvent.click(details);
   await waitFor(() => expect(renderedTurns.every((turn) => turn.textContent?.includes(`plan ${savedAgentPlanId} · revision 4`))).toBe(true));
   expect(conversationLibraryApi.readActiveConversationMessages).toHaveBeenCalledWith(worldId, undefined, expect.any(AbortSignal));
   expect(vi.mocked(liveApi.getWorldAgentConversationHistory).mock.calls.every(([, options]) => options?.limit === 1)).toBe(true);
@@ -4568,7 +4568,7 @@ it.each(['valid','wrong_work_revision','lost_confirm','lost_confirm_newer','lost
     await waitFor(()=>expect(document.body.textContent).toContain('Lost confirmation'));
     expect(Object.keys(localStorage).filter(key=>key.startsWith('dmb:plan-application-hold:'))).toHaveLength(1);
     mounted.unmount();mounted=render(tree());await screen.findByTestId('world-owned-plan-markdown-editor');await openPlanConversation();
-    fireEvent.click(await screen.findByRole('button',{name:'Sources and actions'}));
+    fireEvent.click(await screen.findByText('Details', {selector: 'summary'}));
     expect(commands.mock.calls.filter(call=>call[2].operation==='confirm')).toHaveLength(1);
     expect(ordinary).not.toHaveBeenCalled();
     if(mode==='lost_before_commit')fireEvent.click(await screen.findByRole('button',{name:'Retry exact confirm operation'}));

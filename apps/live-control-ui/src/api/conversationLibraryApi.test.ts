@@ -52,8 +52,8 @@ it('accepts exact saved-message previews but never full-detail metadata in that 
 
 
 it('admits only scoped active-message metadata without execution or action grants',async()=>{
- const v={schema:'dmb_active_conversation_messages_v1',world_id:'world',conversation_state:'active',conversation_id:cid,active_conversation_id:cid,pointer_revision:4,
-  messages:[{turn_id:tid,idempotency_key:tid,revision:2,sequence:3,status:'completed',user_text:'Question',assistant_text:'Answer',provenance:{world_id:'world'}}],next_before_sequence:3};
+ const v={schema:'dmb_active_conversation_messages_v2',world_id:'world',conversation_state:'active',conversation_id:cid,active_conversation_id:cid,pointer_revision:4,
+  messages:[{turn_id:tid,idempotency_key:tid,revision:2,sequence:3,status:'completed',user_text:'Question',assistant_text:'Answer',citation_preview:null,provenance:{world_id:'world',surface_id:'build'}}],next_before_sequence:3};
  response(v);expect((await readActiveConversationMessages('world')).messages[0].assistant_text).toBe('Answer');
  for(const patch of [{world_id:'foreign'},{active_conversation_id:tid},{pointer_revision:-1},{next_before_sequence:4},{messages:[{...v.messages[0],completion:{}}]},{messages:[{...v.messages[0],provenance:{world_id:'foreign'}}]}]){response({...v,...patch});await expect(readActiveConversationMessages('world')).rejects.toThrow();}
  response(v);await expect(readActiveConversationMessages('world',3)).rejects.toThrow();

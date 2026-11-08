@@ -94,8 +94,8 @@ class SemanticWire(httpx2.AsyncBaseTransport):
         assert body["state"]["edit_target_available"] == (
             self.adapter.request.plan_authoring_capture is not None
         )
-        from application_state.agent_conversation.plan_authoring import CURRENT_REQUEST_INTENT_POLICY
-        assert body["state"]["intent_policy"] == CURRENT_REQUEST_INTENT_POLICY
+        from application_state.agent_conversation.plan_authoring import QUESTION_FIRST_INTENT_POLICY
+        assert body["state"]["intent_policy"] == QUESTION_FIRST_INTENT_POLICY
         assert set(body["questions"]) == {"requested_work"}
         current = self.adapter.service.list_turns(
             "world:one", self.adapter.turn.conversation_id
@@ -136,7 +136,7 @@ def test_semantic_destination_is_durable_without_granting_edit_authority(
     from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
 
     dispatch = PlanJevDispatch.requested_work(plan_adapter, page_title="Preparation")
-    assert dispatch.parent.schema_ == "dmb_plan_requested_work_input_v3"
+    assert dispatch.parent.schema_ == "dmb_plan_requested_work_input_v7"
     selected, _ = asyncio.run(
         dispatch.run(
             transport=SemanticWire(plan_adapter, choice), api_key="synthetic-not-secret"
@@ -1272,8 +1272,14 @@ def _shared_plan_authoring_case(
         async def handle_async_request(self, request):
             rows = json.loads(request.content)["input"]
             frames = [json.loads(row["content"]) for row in rows[:-1]]
-            native = next(row for row in frames if row.get("schema") == "dmb_surface_native_writer_evidence_v2")
-            work = next(row for row in frames if row.get("schema") == "dmb_plan_work_evidence_v1")
+            native = next(row for row in frames if set(row) == {
+                "input_status", "user_question", "native_body_evidence",
+                "native_statements", "native_assertions",
+            })
+            from application_state.agent_conversation.native_plan_work_view import is_semantic_frame
+            work = next(row for row in frames if is_semantic_frame(row))
+            assert 'schema' not in work
+            assert 'run_id' not in json.dumps(work)
             assert len(frames) == 3
             assert frames[-1 if routing in {"discuss", "clarify"} else 0] == native
             assert work["current_page_draft"]["markdown"] == capture.draft_markdown
@@ -1299,8 +1305,9 @@ def _shared_plan_authoring_case(
                         expected_active_conversation_id=capture.conversation_id,
                     )
                 )
+            from application_state.agent_conversation.native_plan_assertions import POLICY
             candidate = dict(
-                schema=native["answer_policy"],
+                schema=POLICY,
                 answer_segments=[
                     dict(
                         kind="proposal",

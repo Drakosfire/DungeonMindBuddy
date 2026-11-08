@@ -147,7 +147,7 @@ from apps.live_control_server.services import statblock_saved_revision as saved_
 from application_state.errors import ApplicationStateError,ApplicationStateConflictError,ApplicationStateIntegrityError
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import StatblockIntegrationError
 from fastapi import Query,Depends
-from apps.live_control_server.services.agent_graph_auth import native_graph_gm_dependency
+from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal,native_graph_gm_dependency
 
 
 def _revision_call(callback,**kwargs):
@@ -169,9 +169,9 @@ def open_saved_revision(draft_id:str,revision_id:str,world_id:str):
     return _revision_call(saved_versions.open_version,world_id=world_id,draft_id=draft_id,revision_id=revision_id)
 
 
-@router.post('/threat-drafts/{draft_id}/mechanics-revisions',dependencies=[Depends(native_graph_gm_dependency)])
-def save_manual_revision(draft_id:str,body:SaveMechanicsRevisionRequest):
-    return _revision_call(saved_versions.save,draft_id=draft_id,request=body)
+@router.post('/threat-drafts/{draft_id}/mechanics-revisions')
+def save_manual_revision(draft_id:str,body:SaveMechanicsRevisionRequest,principal:Annotated[NativeGraphPrincipal,Depends(native_graph_gm_dependency)]):
+    return _revision_call(saved_versions.save,draft_id=draft_id,request=body,media_owner=principal.subject)
 
 
 @router.post('/threat-drafts/{draft_id}/mechanics-revision-operations/{operation_id}:recover',dependencies=[Depends(native_graph_gm_dependency)])

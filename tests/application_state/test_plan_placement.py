@@ -238,3 +238,73 @@ def test_explicit_operation_restricts_actual_sdk_choices_and_rejects_wire_substi
     assert prepared.state['plan_requested_operation']==operation
     with pytest.raises(ValueError,match='wire differs'):
         validate_requested_work_wire(parent,frozen['wire_json'].encode())
+
+
+@pytest.mark.parametrize("operation",[None,"discuss","write_current_page"])
+@pytest.mark.parametrize("extent",["section","full_document"])
+def test_current_plan_reference_wire_keeps_semantics_and_host_binding_separate(operation,extent):
+    from pathlib import Path
+    from application_state.agent_conversation.authored_graph_references import (
+        AuthoredGraphReferenceV1, AuthoredSourceReferenceV1, AuthoredReferencesV2)
+    from application_state.agent_conversation.plan_placement import PlanRequestedWorkInputV6, PlanRequestedWorkInputV5
+    from application_state.agent_conversation.plan_authoring import prepare_requested_work_decision, validate_requested_work_wire
+    shared=dict(managed_world_id="managed-world-SENTINEL",native_world_id="native-world-SENTINEL",binding_version=42)
+    graph=AuthoredGraphReferenceV1(**shared,graph_revision="graph-revision-SENTINEL",node_id="node-SENTINEL",label="The Exchange")
+    source=AuthoredSourceReferenceV1(**shared,knowledge_revision="knowledge-SENTINEL",source_artifact_id="source-SENTINEL",
+        source_revision_id="source-revision-SENTINEL",evidence_ref_id="evidence-SENTINEL",content_sha256="e"*64,
+        selection_kind=extent,section_id="f"*64 if extent=="section" else None,label="Session 20 recap")
+    references=AuthoredReferencesV2(references=(graph,graph.model_copy(update={"node_id":"another-node-SENTINEL"}),source))
+    frozen=json.loads((Path(__file__).parents[1]/"fixtures/plan_requested_work_v2_wire.json").read_text())
+    values=frozen["parent"] | dict(schema="dmb_plan_requested_work_input_v6",plan_requested_operation=operation,
+        authored_references=references.model_dump(mode="json",by_alias=True))
+    parent=PlanRequestedWorkInputV6.model_validate(values)
+    prepared=prepare_requested_work_decision(parent)
+    assert prepared.state["author_selected_references"]==[
+        {"kind":"graph_object","label":"The Exchange"},{"kind":"graph_object","label":"The Exchange"},
+        {"kind":"source","label":"Session 20 recap","selection_kind":extent}]
+    raw=json.dumps(dict(model=prepared.model,state=prepared.state,questions={
+        q.name:dict(type="choice",instructions=q.question,criteria=dict.fromkeys(q.options)) for q in prepared.questions})).encode()
+    assert b"SENTINEL" not in raw
+    assert ("e"*64).encode() not in raw and ("f"*64).encode() not in raw
+    validate_requested_work_wire(parent,raw)
+    retained=PlanRequestedWorkInputV6.model_validate_json(parent.model_dump_json(by_alias=True))
+    assert retained.authored_references==references
+    # Identity is still committed by the parent although labels/semantic wire match.
+    changed=parent.model_copy(update={"authored_references":references.model_copy(update={"references":(
+        graph.model_copy(update={"graph_revision":"changed-host-pin"}),references.references[1],source)})})
+    assert changed.digest!=parent.digest
+    assert prepare_requested_work_decision(changed).state==prepared.state
+    old=PlanRequestedWorkInputV5.model_validate(values | dict(schema="dmb_plan_requested_work_input_v5",plan_requested_operation=operation or "discuss"))
+    assert prepare_requested_work_decision(old).state["author_selected_references"]==references.model_dump(mode="json",by_alias=True)
+    with pytest.raises(ValueError,match="wire differs"):
+        validate_requested_work_wire(old,raw)
+
+
+@pytest.mark.parametrize("operation", [None, "discuss", "write_current_page"])
+def test_intent_first_revision_preserves_old_wire_and_writing_options(operation):
+    from pathlib import Path
+    from application_state.agent_conversation.plan_placement import PlanRequestedWorkInputV6, PlanRequestedWorkInputV7
+    from application_state.agent_conversation.plan_authoring import (
+        CURRENT_REQUEST_INTENT_POLICY, QUESTION_FIRST_INTENT_POLICY,
+        prepare_requested_work_decision, validate_requested_work_wire)
+
+    frozen = json.loads((Path(__file__).parents[1] / "fixtures/plan_requested_work_v2_wire.json").read_text())
+    values = frozen["parent"] | dict(schema="dmb_plan_requested_work_input_v6",
+        authored_references=None, plan_requested_operation=operation)
+    old = PlanRequestedWorkInputV6.model_validate(values)
+    new = PlanRequestedWorkInputV7.model_validate(values | dict(schema="dmb_plan_requested_work_input_v7"))
+    before, after = prepare_requested_work_decision(old), prepare_requested_work_decision(new)
+    assert before.state["intent_policy"] == CURRENT_REQUEST_INTENT_POLICY
+    assert after.state["intent_policy"] == QUESTION_FIRST_INTENT_POLICY
+    assert before.questions == after.questions
+    assert {k:v for k,v in before.state.items() if k not in {"intent_policy", "placement_policy"}} == {
+        k:v for k,v in after.state.items() if k not in {"intent_policy", "placement_policy"}}
+    for parent, prepared in [(old,before),(new,after)]:
+        raw = json.dumps(dict(model=prepared.model,state=prepared.state,questions={
+            q.name:dict(type="choice",instructions=q.question,criteria=dict.fromkeys(q.options))
+            for q in prepared.questions})).encode()
+        validate_requested_work_wire(parent,raw)
+        other = new if parent is old else old
+        with pytest.raises(ValueError,match="wire differs"):
+            validate_requested_work_wire(other,raw)
+    assert PlanRequestedWorkInputV7.model_validate_json(new.model_dump_json(by_alias=True)) == new

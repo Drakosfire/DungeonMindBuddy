@@ -14,6 +14,7 @@ from tests.page_fixtures import create_page_fixture, save_page
 from tests.test_native_plan_assertions import lane as lane, publish, admit_unrelated
 from tests.test_build_jev_estimated_continuations import counter
 from application_state.agent_conversation import AgentConversationService, types as t
+from application_state.agent_conversation.native_plan_assertions import POLICY as NATIVE_ANSWER_POLICY
 from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1, AuthoredGraphReferencesV1
 from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
 
@@ -200,7 +201,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             inputs = [json.loads(body['input'])] if isinstance(body['input'], str) else [json.loads(row['content']) for row in body['input'] if row['content'].lstrip().startswith('{')]
             if mode:
                 inputs=[inputs[0]['native_evidence'],inputs[0]['surface_work']]
-            frame = next(row for row in inputs if row.get('schema') == 'dmb_surface_native_writer_evidence_v2')
+            frame = next(row for row in inputs if set(row)=={'input_status','user_question','native_body_evidence','native_statements','native_assertions'})
             work = next(row for row in inputs if row.get('schema')=='dmb_build_primary_work_evidence_v1')
             if not mode:
                 assert len(inputs)==3 and inputs[-1] == frame
@@ -238,7 +239,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     output_index=0,content_index=0,delta=text),dict(type='response.completed',sequence_number=2,response=response)]
                 return httpx.Response(200,request=req,headers={'content-type':'text/event-stream'},
                     content=''.join('data: '+json.dumps(e)+'\n\n' for e in events).encode())
-            candidate = dict(schema=frame['answer_policy'],
+            candidate = dict(schema=NATIVE_ANSWER_POLICY,
                 answer_segments=([dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)] if handles else [])+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,supporting_quotes=[r['text'] for r in work['artifact_under_edit']['sections']])] if saved else []),
                 limitations=[], requested_detail_gaps=[], collaboration=self.review)
             if native_body or authored_source:
@@ -545,6 +546,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert lane.repo.get_head(world).head_revision_id==current_revision
         return
     response = client.post('/api/live/agent/turn', json=body)
+    if failure=='initial_context':
+        assert response.status_code in {502,503},response.text
+        assert not decisions.calls and not writer.calls
+        assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
+        assert lane.repo.get_head(world).head_revision_id==current_revision
+        return SimpleNamespace(response=response,decisions=decisions,writer=writer)
     if connected_review:
         if connected_review not in {'valid','full_page'}:
             assert response.status_code==503,response.text
@@ -984,7 +991,7 @@ def test_native_connected_page_review_uses_its_included_saved_origin(lane,tmp_pa
 
 @pytest.mark.parametrize('judgment',['direct_support','qualification_or_conflict','uncertain','irrelevant'])
 def test_ordinary_build_selects_native_body_and_reopens_only_included_support(lane,tmp_path,monkeypatch,judgment):
-    from application_state.agent_conversation import native_corpus as corpus
+    from application_state.agent_conversation import native_corpus as corpus, writer_evidence_selection as selection
     case=_fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,native_body=judgment)
     events=case.turn.graph_context_execution.events
     vote,=[e for e in events if type(e) is t.BuildWriterEvidenceSelectionV2]
@@ -993,10 +1000,12 @@ def test_ordinary_build_selects_native_body_and_reopens_only_included_support(la
     assert {k:v for k,v in vote.judgments.items() if k.startswith('body:')}=={
         corpus.body_selection_unit_id(r):judgment for r in acquired}
     calls=[json.loads(r.content) for r in case.decisions.calls
-           if json.loads(r.content)['state'].get('phase')=='writer_selection']
+           if json.loads(r.content)['questions'] and all(k.startswith('s') and k[1:].isdigit() for k in json.loads(r.content)['questions'])]
     assert len(calls)==1
+    catalog = selection.acquired_catalog(case.turn.graph_context_execution,{'capture_status':'complete'})
     for read in acquired:
-        unit=calls[0]['state']['sources'][corpus.body_selection_unit_id(read)]
+        slot='s'+str(list(catalog).index(corpus.body_selection_unit_id(read)))
+        unit=calls[0]['state']['sources'][slot]
         assert unit['text']==read.excerpt.text
     citations=case.turn.completion.native_body_citations
     assert bool(citations)==(judgment!='irrelevant')
@@ -1086,7 +1095,7 @@ def test_native_writer_selector_uses_its_verified_long_context_at_app_boundary(l
     prefix=record.model_copy(update={'events':record.events[:event.sequence]})
     t.validate_provider_envelope_accounting(assembled,prefix,event)
     request,=[json.loads(req.content) for req in case.decisions.calls
-              if json.loads(req.content)['state'].get('phase')=='writer_selection']
+              if json.loads(req.content)['questions'] and all(k.startswith('s') and k[1:].isdigit() for k in json.loads(req.content)['questions'])]
     assert any(row['text']==text for row in request['state']['sources'].values())
     assert len(case.writer.calls)==1 and text not in case.writer.calls[0].content.decode()
     # A mode declaration alone cannot relax scope, phase or accounting. These
@@ -1199,3 +1208,110 @@ def test_native_connected_review_retries_retained_context_without_inheriting_wri
     _fresh_case(lane,tmp_path,monkeypatch,'retry_unknown' if mutation=='unknown' else 'retry_discussion',
         True,True,False,recovery_dsn=application_state_dsn,retry_mutation=mutation,
         connected_review='valid',capture_write=True,authored_source='section')
+
+
+@pytest.mark.parametrize('draft',[False,True])
+def test_fresh_build_initial_sdk_exposes_semantic_context_and_keeps_authority_host_side(lane,tmp_path,monkeypatch,draft):
+    case=_fresh_case(lane,tmp_path,monkeypatch,None,draft,False,False,authored_source='section',capture_write=draft)
+    first=json.loads(case.decisions.calls[0].content)
+    assert set(first['state'])=={'user_question','interaction'}
+    context=first['state']['interaction']
+    assert set(context)<={'allowed_operations','current_page_title','history','page_target','working_draft_available','author_selected_references','related_page_labels'}
+    assert context['working_draft_available'] is draft
+    assert all(set(row)<={'kind','label','selection_kind'} for row in context['author_selected_references'])
+    assert any(row['kind']=='source' and row['selection_kind']=='section' for row in context['author_selected_references'])
+    assert case.turn.graph_context_receipt.assembled_input.assembler_version=='native_build_semantic_initial_v2'
+    retained=type(case.turn).model_validate_json(case.turn.model_dump_json(by_alias=True))
+    assert retained==case.turn
+
+
+@pytest.mark.parametrize('mutation',['user','title','operations','target','proposed_work','questions','request_id','codec','capability','destination'])
+def test_fresh_build_rejects_changed_initial_parent_before_provider(lane,tmp_path,monkeypatch,mutation):
+    from dataclasses import replace
+    from apps.live_control_server.services.build_jev_driver import BuildJevDriver,canonical
+    original=BuildJevDriver.stage
+    def changed(driver):
+        plan=original(driver)
+        if plan.host_phase!='select':return plan
+        state=plan.state()
+        updates={}
+        if mutation=='user':state['user_question']='A different task'
+        elif mutation=='title':state['interaction']['current_page_title']='Wrong destination'
+        elif mutation=='operations':state['interaction']['allowed_operations']=['propose_build_insertion']
+        elif mutation=='target':state['interaction']['page_target']={'kind':'replace_selection','text':'Uncaptured target'}
+        elif mutation=='proposed_work':state['interaction']['history']=[{'user':'Other request','assistant':'','proposed_work':{'kind':'questions','questions':[{'text':'Wrong question'}]}}]
+        elif mutation=='questions':updates['questions_json']=canonical({'requested_work':{'type':'choice','instructions':'Changed task','criteria':{'discuss':None}}})
+        elif mutation=='request_id':updates['request_id']='select:'+'f'*64
+        elif mutation=='codec':updates['host_phase']=None
+        elif mutation in {'capability','destination'}:
+            host=driver._interaction
+            if mutation=='capability':host['capability_sha256']='f'*64
+            else:host['current_page']['document_id']='foreign-page'
+            updates['host_interaction_json']=canonical(host)
+        updates['state_json']=canonical(state)
+        driver._pending=replace(plan,**updates)
+        return driver._pending
+    monkeypatch.setattr(BuildJevDriver,'stage',changed)
+    _fresh_case(lane,tmp_path,monkeypatch,'initial_context',False,False,False)
+
+
+def test_native_selection_semantic_sdk_wire_and_exact_legacy_v2_reader(lane,tmp_path,monkeypatch):
+    from copy import deepcopy
+    from application_state.agent_conversation import writer_evidence_selection as selection
+    append = AgentConversationService.record_build_writer_evidence_selection
+    checked=[]
+    def inspect(self,world,conversation,turn_id,**kwargs):
+        before=self.inspect_turn(world_id=world,turn_id=turn_id)
+        execution=before.graph_context_execution
+        assert before.graph_context_receipt.assembled_input.assembler_version=='native_build_semantic_initial_v2'
+        vote,proof=kwargs['selection'],kwargs['producer_proof']
+        auth=next(e for e in execution.events if isinstance(e,t.ProviderAttemptAuthorizedEventV5)
+                  and e.provider_attempt_id==vote.controller_attempt_id)
+        trace,=self.list_context_trace_attempts(world_id=world,turn_id=turn_id)
+        trace=trace.model_dump(mode='json',by_alias=True)
+        request,catalog=selection.validate_prepared_selection(before,auth,proof['request_json'],trace)
+        assert set(request['state'])=={'user_question','sources','rules'}
+        assert list(request['state']['sources'])==list(request['questions'])
+        host=selection.selection_state(before,catalog,vote.terminal_disposition,selection.selection_history(before,auth))
+        for key in ('catalog_sha256','basis_sha256','native_query_sha256','source_basis','historical_initial','context_accounting','phase'):
+            assert key not in request['state']
+        for key in catalog:
+            assert key not in proof['request_json']
+        for unit in catalog.values():
+            for key in ('source_artifact_id','source_revision_id'):
+                assert unit['passage'][key] not in proof['request_json']
+            assert any(row['text']==unit['passage']['text'] for row in request['state']['sources'].values())
+        legacy=dict(model=auth.model,state=host,questions=selection.questions(catalog))
+        legacy_raw=selection.canonical(legacy)
+        old_auth=auth.model_copy(update={'envelope_sha256':sha256(legacy_raw.encode()).hexdigest()})
+        selection.validate_prepared_selection(before,old_auth,legacy_raw,trace)
+        # A retained V2 initial receipt with legacy final-selection bytes still
+        # reconstructs the exact old host commitment and response closure.
+        old_execution=execution.model_copy(update={'events':[old_auth if e is auth else e for e in execution.events]})
+        old_before=before.model_copy(update={'graph_context_execution':old_execution})
+        old_vote=vote.model_copy(update={'controller_envelope_sha256':old_auth.envelope_sha256,
+            'basis_sha256':host['basis_sha256']})
+        selection.validate_selection_proof(old_before,old_vote,trace,{**proof,'request_json':legacy_raw})
+        selection.validate_selection_proof(before,vote,trace,proof)
+        for mutation in ('hybrid','unknown','text','question','source_id'):
+            changed=deepcopy(request)
+            if mutation=='hybrid':changed['state']['phase']='writer_selection'
+            elif mutation=='unknown':changed['state']['unexpected']='ignored?'
+            elif mutation=='text':next(iter(changed['state']['sources'].values()))['text']='Different evidence'
+            elif mutation=='question':changed['questions']['s0']['instructions']='Classify another source'
+            else:next(iter(changed['state']['sources'].values()))['source_artifact_id']='not allowed'
+            raw=selection.canonical(changed)
+            changed_auth=auth.model_copy(update={'envelope_sha256':sha256(raw.encode()).hexdigest()})
+            with pytest.raises(ValueError):selection.validate_prepared_selection(before,changed_auth,raw,trace)
+        for field in ('catalog_sha256','basis_sha256'):
+            bad_vote=vote.model_copy(update={field:'0'*64})
+            with pytest.raises(ValueError,match='basis'):
+                selection.validate_selection_proof(before,bad_vote,trace,proof)
+        bad_terminal=vote.model_copy(update={'terminal_disposition':{'status':'ready','reason':'invented'}})
+        with pytest.raises(ValueError,match='terminal'):
+            selection.validate_selection_proof(before,bad_terminal,trace,proof)
+        checked.append(True)
+        return append(self,world,conversation,turn_id,**kwargs)
+    monkeypatch.setattr(AgentConversationService,'record_build_writer_evidence_selection',inspect)
+    case=_fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,native_body='direct_support')
+    assert checked==[True] and case.turn.completion.native_body_citations

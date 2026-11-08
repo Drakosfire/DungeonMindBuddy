@@ -22,7 +22,8 @@ LEGACY_SCHEMA = "dmb_surface_native_writer_evidence_v1"
 SCHEMA = "dmb_surface_native_writer_evidence_v2"
 AUTHORING_GUIDANCE = ('\nUse surface_work as the authored page and editor context. '
     'Use native_evidence as supplied World material; preserve uncertainty, attribution and temporal qualifications. '
-    'Authored drafts and proposed ideas do not establish played events.')
+    'Authored drafts and proposed ideas do not establish played events. '
+    'Local entity and citation aliases select supplied records; do not treat aliases as names or infer missing identities.')
 
 
 def json_container_count(value):
@@ -79,11 +80,17 @@ def model_frame(receipt, execution, *, schema=SCHEMA):
             if isinstance(query, assertions.NativePlanQueryV2) else None)
 
 
+def model_input_frame(receipt,execution):
+    from .native_evidence_view import semantic_frame
+    return semantic_frame(model_frame(receipt,execution))
+
+
 @dataclass(frozen=True)
 class NativeWriterEvidence:
     """Transient supports; eligibility still requires completion/output proof."""
     frame: dict
     work_frame: dict
+    output_work_frame: dict
     authored: tuple
     idempotency_key: UUID
     saved_sections: tuple
@@ -92,6 +99,7 @@ class NativeWriterEvidence:
     body_excerpts: tuple
     native_statements: tuple
     native_assertions: tuple
+    authored_local: bool = False
 
 
 def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_proof,
@@ -161,7 +169,7 @@ def authoring_input(native_context, capability, instruction, operation):
                 or origin.broker_operation_id!=selected.broker_operation_id
                 or origin.arguments_sha256!=selected.arguments_sha256):
             raise ValueError('Native proposal origin differs from its actual selected action')
-    return dict(native_evidence=model_frame(receipt,execution),
+    return dict(native_evidence=model_input_frame(receipt,execution),
         surface_work=model_work_frame(receipt,execution,**work))
 
 
@@ -174,8 +182,13 @@ def _input_frames(raw,execution,work_schema):
     schema={'propose_build_insertion':'dmb_build_compose_input_v1',
         'prepare_build_image':'dmb_build_image_direction_input_v1'}.get(operation)
     if schema is None:
-        return (responses_text_frame(raw,schemas={LEGACY_SCHEMA,SCHEMA},label='Native writer'),
-            responses_text_frame(raw,schemas={work_schema},label='Native surface work'))
+        from .native_evidence_view import semantic_frame_in_request
+        semantic=semantic_frame_in_request(strict_json(raw),legacy_schemas={LEGACY_SCHEMA,SCHEMA})
+        from .plan_jev_graph_packet import NATIVE_WORK_SCHEMA as PLAN_WORK_SCHEMA
+        from .native_plan_work_view import frame_in_request
+        work = frame_in_request(strict_json(raw)) if work_schema == PLAN_WORK_SCHEMA else None
+        return (semantic if semantic is not None else responses_text_frame(raw,schemas={LEGACY_SCHEMA,SCHEMA},label='Native writer'),
+            work if work is not None else responses_text_frame(raw,schemas={work_schema},label='Native surface work'))
     body=strict_json(raw)
     if (not isinstance(body,dict) or not isinstance(body.get('input'),str) or 'messages' in body
             or body.get('tools',[])!=[] or body.get('tool_choice') not in (None,'none')):
@@ -210,8 +223,14 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     frame,work_frame = _input_frames(raw,prefix,expected_work['schema'])
     if not isinstance(frame,dict):
         raise ValueError('Native writer requires its exact evidence presentation')
-    expected = model_frame(receipt, prefix, schema=frame.get('schema'))
-    if t.canonical_sha256(work_frame) != t.canonical_sha256(expected_work):
+    from .native_evidence_view import is_semantic_frame,expected_semantic_frame,output_frame
+    host = model_frame(receipt,prefix) if is_semantic_frame(frame) else model_frame(receipt,prefix,schema=frame.get('schema'))
+    expected = expected_semantic_frame(host, frame) if is_semantic_frame(frame) else host
+    schema_frame = output_frame(host,expected)
+    from .native_plan_work_view import is_semantic_frame as semantic_work, semantic_frame as plan_work_view
+    authored_local = semantic_work(work_frame)
+    expected_wire_work = plan_work_view(expected_work,prefix) if authored_local else expected_work
+    if t.canonical_sha256(work_frame) != t.canonical_sha256(expected_wire_work):
         raise ValueError('Native writer changed or omitted its exact surface work')
     body = strict_json(raw)
     from .native_execution import NativeWriterEstimatedBudgetV1
@@ -247,7 +266,9 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         related_pages=tuple(related_records(prefix))
         if prefix.policy.action.intent.build_draft_context_sha256 is not None:
             draft_record=context_record(prefix).record
-    return NativeWriterEvidence(frame=expected,work_frame=expected_work,authored=authored,idempotency_key=idempotency_key,
+    return NativeWriterEvidence(frame=schema_frame,work_frame=expected_work,output_work_frame=expected_work | expected_wire_work,
+        authored=authored,idempotency_key=idempotency_key,
+        authored_local=authored_local,
         saved_sections=saved_sections,related_pages=related_pages,draft_record=draft_record,
         **read_evidence_records(prefix,expected))
 
@@ -258,8 +279,8 @@ def read_evidence_records(prefix, frame):
     body_reads = bodies.selected_body_reads(prefix)
     statement_reads = statements.selected_read_records(prefix)
     assertion_reads = assertions.selected_read_records(prefix)
-    return dict(body_excerpts=tuple(bodies.NativeBodySupport(body_handle(read), read,
-            catalogs[read.excerpt.catalog_sha256]) for read in body_reads),
+    return dict(body_excerpts=tuple(bodies.NativeBodySupport(row['excerpt_handle'], read,
+            catalogs[read.excerpt.catalog_sha256]) for row,read in zip(frame['native_body_evidence']['excerpts'],body_reads,strict=True)),
         native_statements=tuple((row['statement_handle'], event, read) for row, (event, read)
             in zip(frame['native_statements']['statements'], statement_reads, strict=True)),
         native_assertions=tuple((row['assertion_handle'], event, read) for row, (event, read)

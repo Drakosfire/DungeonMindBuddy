@@ -292,3 +292,36 @@ it('names the actual document placement control in its block instructions', asyn
   expect(screen.getByText(/choose Place in Plan and click a block/)).toBeInTheDocument();
   expect(screen.queryByRole('button',{name:'Place on page'})).not.toBeInTheDocument();
 });
+
+ it('requires explicit media Save before portrait selection, without page placement or Plan observations',async()=>{
+   const api=createPort(),choose=vi.fn();
+   render(<MediaImageWizard selectionOnly requireSaved chooseLabel="Use as portrait" initialPrompt="Ooze portrait" port={api} onClose={()=>{}} onChoose={choose}/>);
+   await screen.findByRole('option',{name:'FLUX 2 Pro'});
+   expect(api.generate).not.toHaveBeenCalled();
+   fireEvent.click(screen.getByRole('button',{name:'Generate image'}));
+   const use=await screen.findByRole('button',{name:'Use as portrait'});
+   expect(use).toBeDisabled();expect(screen.queryByText(/Save the page/)).toBeNull();
+   expect(screen.getByRole('img',{name:'Edge'})).toHaveAttribute('draggable','false');
+   fireEvent.click(use);expect(choose).not.toHaveBeenCalled();
+   fireEvent.click(screen.getByRole('button',{name:'Save image'}));
+   await waitFor(()=>expect(use).toBeEnabled());fireEvent.click(use);
+   await waitFor(()=>expect(choose).toHaveBeenCalledTimes(1));
+   expect(choose.mock.calls[0][0]).toMatchObject({asset_id:'asset-1',state:'ready'});
+   expect(api.save).toHaveBeenCalledTimes(1);expect(api.generate).toHaveBeenCalledTimes(1);
+   expect(tourImage.generated).not.toHaveBeenCalled();expect(tourImage.placed).not.toHaveBeenCalled();
+ });
+
+it('chooses a ready library portrait without generating or uploading again and retains selection failure',async()=>{
+ const api=createPort(),choose=vi.fn().mockRejectedValueOnce(new Error('Recovery storage unavailable'));
+ const record={asset_id:'asset-1',state:'ready',mime_type:'image/png',data_url:'data:image/png;base64,original',delivery_url:'https://imagedelivery.net/test/asset-1/public',created_at:'2026-11-08T00:00:00Z',provenance:{prompt:'Saved ooze'}};
+ vi.mocked(api.list).mockResolvedValue({items:[record]});vi.mocked(api.get).mockResolvedValue(record);
+ render(<MediaImageWizard selectionOnly requireSaved chooseLabel="Use as portrait" port={api} onClose={()=>{}} onChoose={choose}/>);
+ await screen.findByRole('option',{name:'FLUX 2 Pro'});
+ fireEvent.click(screen.getByRole('button',{name:'Image library'}));fireEvent.click(await screen.findByRole('button',{name:'Saved ooze · Saved'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Use as portrait'}));
+ expect(await screen.findByRole('alert')).toHaveTextContent('Recovery storage unavailable');
+ expect(screen.getByRole('img',{name:'Saved ooze'})).toBeInTheDocument();
+ expect(api.generate).not.toHaveBeenCalled();expect(api.save).not.toHaveBeenCalled();
+ choose.mockResolvedValueOnce(undefined);fireEvent.click(screen.getByRole('button',{name:'Use as portrait'}));
+ await waitFor(()=>expect(choose).toHaveBeenCalledTimes(2));
+});
