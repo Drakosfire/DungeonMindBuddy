@@ -271,10 +271,17 @@ def _ordinary_native_case(
             assert BODY not in req.content.decode() and 'span.text' not in req.content.decode()
             rows=frame['native_assertions']['assertions'] if frame['native_assertions'] else []
             if authored:
-                work_frame=next(item for item in frames if 'authored_references' in item)
-                from application_state.agent_conversation.authored_graph_references import provider_references
-                assert work_frame['authored_references']['selected_references']==provider_references(selected_references)
-                assert 'DISPLAY ONLY Plan selection' not in req.content.decode()
+                from application_state.agent_conversation.native_plan_work_view import is_semantic_frame
+                work_frame=next(item for item in frames if is_semantic_frame(item))
+                expected=[]
+                for i,ref in enumerate(selected_references.references):
+                    source=hasattr(ref,'selection_kind')
+                    expected.append(dict(reference=f'reference{i}',label=ref.label,
+                        kind='source' if source else 'object',
+                        read_status='partial' if unavailable and not source else 'complete',
+                        **({'extent':ref.selection_kind} if source else {})))
+                assert work_frame['selected_references']==expected
+                assert 'authored_references' not in work_frame
             if authored_source=='source_only':
                 assert not rows
                 segments=[]
@@ -293,7 +300,7 @@ def _ordinary_native_case(
             if authored_source:
                 exposed=frame['native_body_evidence']['excerpts']
                 assert len(exposed)==1 and 'source-local episode' in exposed[0]['text']
-                assert 'DISPLAY ONLY Plan source' not in req.content.decode()
+                assert 'DISPLAY ONLY Plan source' not in json.dumps(frame)  # Display selection is not evidence.
                 segments.append({'kind':'native_body_claim','text':'The source describes a source-local episode.',
                     'excerpt_handles':[exposed[0]['excerpt_handle']]})
             candidate={'schema':NATIVE_ANSWER_POLICY,'answer_segments':segments,
