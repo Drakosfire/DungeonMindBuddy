@@ -1,6 +1,11 @@
 # RETRIEVAL: omit unused execution from trace appends
 
-Status: ACTIVE. Root owns design, implementation and independent review under
+Status: DELIVERED; implementation/resource leases RELEASED. PR2249 merged at
+375be185b0414361f7afae676029365cd8ce0a61; PRIME delivered
+API87bbb4f82af9dec75cf12753fb44e6821c43c822 on schema133 with retained state
+conserved. Seven hosted checks and exact-head review passed; no extra paid QA.
+Consuming slice: HANDOFF-RETRIEVAL-context-qualifications.md. Historical scope:
+Root owns design, implementation and independent review under
 the retrieval optimization goal; PRIME owns merge/delivery only.
 Base6712cf07d22383e72cd3085c41fec515267c8743, branch codex/trace-unused-ledger.
 Topology: parallel-independent of delivery-only names PR2244. This steward

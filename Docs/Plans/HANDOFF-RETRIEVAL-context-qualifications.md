@@ -1,8 +1,10 @@
 # RETRIEVAL: factor repeated context qualifications
 
 Status: ACTIVE. Root designs/implements/reviews; PRIME merges/delivers.
-Base6712cf07d22383e72cd3085c41fec515267c8743, branch codex/native-context-qualifications.
-Topology: parallel-independent of delivery-only2244 and2249; no unmerged behavior,
+Base375be185b0414361f7afae676029365cd8ce0a61 after clean rebase from the initial
+design base6712cf07d22383e72cd3085c41fec515267c8743; branch codex/native-context-qualifications.
+Topology: serial. Former parallel-independent predecessors2244 and2249 are now
+merged/delivered and their leases released. No unmerged behavior,
 source lease, port or database dependency. This steward declaration allocates one
 indivisible shared-presentation slice. Expected writes: this handoff;
 src/application_state/agent_conversation/native_evidence_view.py;
@@ -10,6 +12,9 @@ src/application_state/migrations/versions/20261108_0134_native_context_qualifica
 tests/test_surface_native_writer.py; tests/test_native_writer_projection.py;
 tests/application_state/test_surface_native_writers.py only if existing durable
 fixtures require the new current format. No broader replay or response capability.
+Truthful backward-looking settlement also owns the delivered status headers in
+HANDOFF-RETRIEVAL-recorded-navigation-names.md and
+HANDOFF-RETRIEVAL-trace-ledger-projection.md; no predecessor runtime changes.
 
 Owning-consumer discovery splits one additional existing test block into this
 lease: tests/test_native_plan_assertions.py's shared fake Writer transport around
@@ -56,3 +61,29 @@ Never migrate primary/live/retained benchmark resources. Fence migration changes
 no rows; delivery is separately PRIME-owned. Preserve original full15 qualified
 Gold, both names repetitions,6complete/9partial composition history and failures.
 Four seconds and the full retrieval goal remain active, not achieved by packing.
+
+Current qualification: owner reconstruction from all30 actual admitted prefixes
+reproduces the original inline semantic contexts exactly, preserving every claim,
+qualification, body and selector. Closed historical reconstruction also matches.
+The existing consolidated workflow's directory=None SDK preflight reproduces all
+30 original request bytes/hashes and prepares packed variants with known_not_sent
+and zero HTTP/provider calls. Median full-request bytes decrease26.07% (distinct
+from frame-only/token measurements above). No completed-turn replay is forged.
+
+Three fixed alternating local projection+consumer-expansion+serialization samples
+per context give median1.357ms original versus1.651ms packed, approximately0.294ms
+additional preparation CPU. This excludes host reconstruction, schema construction,
+admission and SDK; no readiness-cycle improvement is claimed. Volume utility is
+substantial with small observed local CPU cost, subject to independent review.
+
+Tests: initial owner run151passed with two obsolete0133 expectation failures;
+the expectations now target0134 and also refuse0133 readers. Broad consumer run
+366passed; ten mock-writer fixture failures assumed inline metadata, and26 setup
+errors/two failures hit a GM-authority guard reproduced on the unchanged qualified
+baseline. No authentication/runtime change is included. Corrected native-route/
+fence checks34passed; after clean rebase,116 native-route and consolidated-workflow
+checks pass, including actual context-only SDK admission. Preserve all initial logs
+and the inherited baseline failure; do not describe the broad run as fully green.
+Evidence files live in retrieval-context-packing-current-v1, notably
+current-owner-all30-reconstruction.json, all30-actual-sdk-offline-preparation.json,
+fixed-preparation-cost-comparison.json and rebased-context-boundary-tests.log.
