@@ -1,7 +1,15 @@
 # REFERENCE: native citations on lightweight saved messages
 
-Status: ACTIVE, resumed under the operator-reactivated References goal after the
-priority prompt-boundary cleanup merged. Previous paused evidence below is retained.
+Status: SETTLED. Merged2191 at1ef0248605082db40e62562693f2ec210ce2a9e4;
+independent exact-head approval393e5445 and all seven CI checks passed. Protected
+paired delivery runs8dca0f10 on5202/API8000, schema20261108_0130 unchanged.
+Retained rows/session files are conserved. Actual delivered browser checks passed
+initial citations, one exact native read without full history, controlled delayed
+source/details, failure/retry, turn identity, reload and unsent-draft retention.
+The implementation write lease is released. Remaining References integration and
+statblock work are separate; dogfooding/operator acceptance are outside the updated
+goal. Historical design and failed-attempt evidence below remain retained.
+
 Base origin/main d5d4103df2777c6130f7da95404a32dfdef7faca; branch
 codex/saved-native-citation-preview, existing buddy-context-loop checkout/dependencies.
 Topology: serial, updating existing PR2191 after merged conversation UI2217; no
