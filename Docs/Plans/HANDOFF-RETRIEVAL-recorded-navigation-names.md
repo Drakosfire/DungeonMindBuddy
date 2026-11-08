@@ -4,9 +4,10 @@ Status: ACTIVE for retrieval/context-only qualification under the user's clarifi
 objective. Response writing and response-output grades are outside this lane.
 Root designs/owns backend; PRIME owns merge/delivery, not review approval.
 Branch codex/navigation-recorded-names; existing PR2223 restored on main
-64cb0b5c89f685505c7558207e4943e6cf76cac4. Topology: parallel-independent of2242:
-source/test/handoff writes are disjoint, no unmerged behavioral dependency, separate
-isolated resources. No2214 dependency. No response generation is required by this
+3f4b02b970bcacc0e503f97dd7cdae29fc0f1290. Topology: serial;2245 tooling is
+merged, no unmerged dependency. This branch is frozen for comparative context-only
+validation. The test-only append conflict retained both independently reviewed
+tests; runtime names delta remains unchanged. No2214 dependency. No response generation is required by this
 goal. Context-only capture must use the existing consolidated workflow before
 fresh full-cohort validation; no surrogate answer or per-question script.
 Original b229ae86c0024ee74dd1cb30d9848296672c3fb5 is preserved at Git tag
@@ -24,7 +25,9 @@ Expected exclusive writes: this handoff;
 apps/live_control_server/services/native_graph_reads.py;
 tests/test_native_plan_assertions.py; tests/test_native_plan_statements.py;
 Docs/Plans/HANDOFF-RETRIEVAL-world-context-envelope.md;
-Docs/Plans/HANDOFF-RETRIEVAL-direct-source-grants.md.
+Docs/Plans/HANDOFF-RETRIEVAL-direct-source-grants.md;
+Docs/Plans/HANDOFF-RETRIEVAL-context-boundary-capture.md for completed predecessor
+settlement (its implementation lease is released).
 Root transfers its unadopted2225 native assertion test lease to this bounded slice;
 no source-local-modality behavior is imported. PRIME confirms its native-creature
 slice uses independent Core-admitted canonical actor labels, no query-navigation
@@ -101,3 +104,12 @@ Current runtime diff is the same reviewed eight-line name display change. Reuse
 existing independent code approval; no additional correction tests/review cycle
 for an unchanged diff. This restoration does not adopt the parked modality stack,
 source edits, dictionary prototype or any alternate runtime producer.
+
+Full-cohort protocol: retrieval-context-full-cohort-v1/protocol.json freezes the
+original15 questions and qualified Gold, writerIO0, two concurrent matched cohorts
+and one gated candidate repetition. Existing original retrieval baseline was
+15/15 required support;6complete/9partial describes response composition only.
+Separate actual controller usage from prepared-context volume: the initial four
+pairs used controller input95363→113576 tokens while preparing smaller context.
+Do not claim the41.4% mixed historical input reduction is a controller cost saving.
+No new paid calls occur before exact runtime/resource qualification.

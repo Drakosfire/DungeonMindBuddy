@@ -1,6 +1,10 @@
 # RETRIEVAL: capture response-ready context without generating a response
 
-Status: ACTIVE under the user's revised retrieval/context-only goal. Root owns
+Status: DELIVERED; PR2245 merged at3f4b02b970bcacc0e503f97dd7cdae29fc0f1290
+from reviewed384ba681cd7c2898b31425c8790353aeaa50d6ba with all7CI green.
+Source tooling delivered; no product runtime restart or paidQA. Implementation
+lease released. Consuming names validation owns its own frozen source/resources.
+Historical authority: the user's revised retrieval/context-only goal. Root owned
 design, implementation and verification; PRIME owns eventual merge/delivery.
 Branch `codex/benchmark-context-boundary`, base
 `90b91f08cd1cf662a679830d666887c26d01d1b1`. One tooling PR, no product runtime
