@@ -179,7 +179,7 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
             or candidate['schema'] != evidence.frame['answer_policy'] or not isinstance(candidate['answer_segments'],list)):
         raise ValueError('Native completion requires its exact producing answer policy')
     segments, body_cites, statement_cites, assertion_cites,saved_cites = [], [], [], [],[]
-    blocks,selectors=authored_block_index(evidence.authored,str(evidence.idempotency_key))
+    blocks,selectors=authored_block_index(evidence.authored,str(evidence.idempotency_key),local=evidence.authored_local)
     selected_blocks=set()
     for row in candidate['answer_segments']:
         if (not isinstance(row,dict) or row.get('kind') != 'authored_excerpt'

@@ -1276,7 +1276,10 @@ def _shared_plan_authoring_case(
                 "input_status", "user_question", "native_body_evidence",
                 "native_statements", "native_assertions",
             })
-            work = next(row for row in frames if row.get("schema") == "dmb_plan_work_evidence_v1")
+            from application_state.agent_conversation.native_plan_work_view import is_semantic_frame
+            work = next(row for row in frames if is_semantic_frame(row))
+            assert 'schema' not in work
+            assert 'run_id' not in json.dumps(work)
             assert len(frames) == 3
             assert frames[-1 if routing in {"discuss", "clarify"} else 0] == native
             assert work["current_page_draft"]["markdown"] == capture.draft_markdown

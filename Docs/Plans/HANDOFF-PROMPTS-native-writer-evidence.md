@@ -1,10 +1,13 @@
 # PROMPTS: semantic native World evidence
 
-Status: ACTIVE. PRIME implements the operator-prioritized host-metadata cleanup.
-The new actual-capture World-context finding is corrected in this slice; exact-head
-review, current tests and CI are still required before merge/delivery.
-Independent design critique approved this evidence-view boundary and reuse of the
-existing input, support and citation owners. No delivery is claimed.
+Status: DELIVERED. Reviewed head83d5dee5765dcc3048e2397f40156eeb61394138
+merged as6b9c38e400543d1a8084a086b82f6cae6fcbedd5 after independent source,
+composition and delivery-recipe approval and all seven CI checks. Live API
+integration37ea58e88666c79cd2077bb5dd6974cf9cdb2c42 runs schema129; only the
+schema-version row changed and retained historical citation reopening passed.
+No new provider calls or Graph/Gold changes. Runtime write lease is released.
+Whole-prompt cleanup, ordinary acceptance and retrieval improvement remain open;
+HANDOFF-PROMPTS-native-plan-work.md owns the bounded serial Plan work successor.
 
 Serial from fetched main9d60f54283014c1a2ef3c34e25df12e864292ab6 in the existing
 checkout/dependencies. PR2199 merged at that revision and delivered as APIintegration
@@ -63,7 +66,7 @@ same provider presentation boundary; do not alter publisher authority, retained
 Graph or Gold. Synthetic checked-in payload fixtures retain the captured key
 shapes and request hashes, with invented values/qualification text only. Current
 semantic SDK input/APP reconstruction and exact historical codecs are exercised.
-Fence129 has not been activated; it protects the corrected view on first delivery.
+Fence129 was activated with the corrected view at the delivery recorded above.
 
 Surface work/editor/Rules frames remain explicitly outside this slice. Preserve
 those full host reconstruction/normalization owners; do not claim whole-prompt

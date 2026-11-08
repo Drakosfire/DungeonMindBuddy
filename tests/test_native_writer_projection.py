@@ -157,3 +157,190 @@ def test_heavy_native_proofs_fit_unchanged_budget_without_losing_facts(published
     assert all(read.evidence and read.spans for _,_,read in accepted.native_assertions)
     assert [read.assertion.model_dump(mode='json') for _,_,read in
         accepted.native_assertions] == original  # Exact host identities/proofs remain admitted.
+
+
+def semantic_plan_produce(*, candidate=None, mutate=None):
+    from tests.test_surface_native_work_input import work_case, produce
+    from application_state.agent_conversation.native_plan_work_view import semantic_frame
+    context, record, work = work_case('plan')
+    host = model_work_frame(context, record, **work)
+    provider = semantic_frame(host, record)
+    def project(frame):
+        frame.clear()
+        frame.update(deepcopy(provider))
+        if mutate:
+            mutate(frame)
+    stored, auth, proof, _ = produce(context, record, work, candidate=candidate, mutate=project)
+    return context, record, work, host, provider, stored, auth, proof
+
+
+def test_semantic_plan_sdk_and_normalization_keep_exact_session_and_saved_owners():
+    from application_state.agent_conversation.native_completion import normalize_output, verify_completion
+    from application_state.agent_conversation.plan_writer_output_schema import native_output_format
+    from tests.test_surface_native_authored_output import candidate_for
+    from tests.test_plan_writer_output_schema import rules
+    from jsonschema import Draft202012Validator
+    case = semantic_plan_produce()
+    context, record, work, host, provider = case[:5]
+    candidate = candidate_for(provider)
+    context, record, work, host, provider, stored, auth, proof = semantic_plan_produce(candidate=candidate)
+    accepted = verify_input_records(context, stored, auth, proof['prepared_request_json'], **work)
+    assert accepted.authored_local and accepted.work_frame == host
+    Draft202012Validator(native_output_format(model_frame(context, record), rules(), host | provider)['schema']).validate(candidate)
+    result = normalize_output(context, stored, auth, **proof)
+    assert verify_completion(result, context, stored, auth, **proof) == result
+    plan, note, summary = result.answer_segments[:3]
+    assert plan.text == host['committed_plan_blocks'][0]['text'] and '\r\n' in plan.text
+    assert note.object_id == work['work_proof']['session_evidence'][0]['run_id']
+    assert all(s.revision == '3' and s.checkpoint_content_sha256 == 'e'*64 for s in summary.supports)
+    assert {s.entry_kind for s in summary.supports} == {'scene_note', 'closing_reflections'}
+    assert plan.source_handle.startswith('q') and not plan.source_handle.startswith('work')
+    import json
+    wire = json.dumps(provider)
+    for secret in (context.work_context.plan_basis.document_id, work['work_proof']['session_evidence'][0]['run_id'],
+                   'e'*64, host['authored_sources'][0]['handle'], host['committed_plan_blocks'][0]['selection_id']):
+        assert str(secret) not in wire
+    assert not {'run_id','review_revision','session_content_sha256'} & provider['session_evidence'][0].keys()
+    assert provider['session_evidence'][0]['ended_at'] == host['session_evidence'][0]['ended_at']
+    assert provider['focused_edit_target'] == host['focused_edit_target']
+
+
+@pytest.mark.parametrize('mutation', ['text','date','role','alias','extra','host_selector','session_kind'])
+def test_semantic_plan_work_cannot_change_meaning_or_owner_projection(mutation):
+    def change(frame):
+        if mutation == 'text': frame['committed_plan_blocks'][0]['text'] += 'Invented'
+        elif mutation == 'date': frame['session_evidence'][0]['ended_at'] = '1900-01-01T00:00:00Z'
+        elif mutation == 'role': frame['current_page_draft']['state'] = 'published_fact'
+        elif mutation == 'alias': frame['committed_plan_blocks'][0]['selection_id'] = 'body0'
+        elif mutation == 'extra': frame['world_id'] = 'foreign'
+        elif mutation == 'host_selector': frame['authored_sources'][0]['handle'] = 'q' + 'a'*64
+        else: frame['session_evidence'][0]['sources'][0]['kind'] = 'played_fact'
+    context, _, work, _, _, stored, auth, proof = semantic_plan_produce(mutate=change)
+    with pytest.raises(ValueError):
+        verify_input_records(context, stored, auth, proof['prepared_request_json'], **work)
+
+
+@pytest.mark.parametrize('mutation',['world_alias','old_alias','duplicate','plan_summary'])
+def test_local_plan_output_cannot_borrow_world_historical_or_wrong_source_family(mutation):
+    from tests.test_surface_native_authored_output import candidate_for, selected_rows
+    from application_state.agent_conversation.native_completion import normalize_output
+    _, _, _, host, provider, *_ = semantic_plan_produce()
+    candidate = candidate_for(provider)
+    if mutation == 'world_alias': candidate['answer_segments'][0]['selection_id'] = 'body0'
+    elif mutation == 'old_alias': candidate['answer_segments'][0]['selection_id'] = selected_rows(host)[0]
+    elif mutation == 'duplicate': candidate['answer_segments'] = [candidate['answer_segments'][0]]*2
+    else: candidate['answer_segments'] = [dict(kind='session_summary',text='Unsupported session claim.',
+        selection_ids=[selected_rows(provider)[0]])]
+    context, _, _, _, _, stored, auth, proof = semantic_plan_produce(candidate=candidate)
+    with pytest.raises(ValueError):
+        normalize_output(context, stored, auth, **proof)
+
+
+@pytest.mark.parametrize('mutation',['duplicate','hybrid','wrong_role','missing'])
+def test_semantic_plan_request_codec_has_no_historical_fallback(mutation):
+    import json
+    from tests.test_surface_native_writer import authorize
+    context, record, work, host, _, _, _, proof = semantic_plan_produce()
+    body = json.loads(proof['prepared_request_json'])
+    if mutation == 'duplicate': body['input'].append(deepcopy(body['input'][1]))
+    elif mutation == 'hybrid': body['input'].append(dict(role='user',content=json.dumps(host)))
+    elif mutation == 'wrong_role': body['input'][1]['role'] = 'developer'
+    else: body['input'] = body['input'][:1]
+    raw = json.dumps(body)
+    stored, auth = authorize(context, record, raw, model_frame(context, record))
+    with pytest.raises(ValueError):
+        verify_input_records(context, stored, auth, raw, **work)
+
+
+def test_plan_view_keeps_host_looking_literals_and_duplicate_text_as_distinct_blocks():
+    from application_state.agent_conversation.native_plan_work_view import semantic_frame
+    from tests.test_surface_native_work_input import work_case
+    context, record, work = work_case('plan')
+    host = model_work_frame(context, record, **work)
+    # Literal content is data, even when it resembles internal metadata or JSON.
+    literal = 'source_run_id=550e8400-e29b-41d4-a716-446655440000; ' + 'f'*64
+    host['dialogue_reference'][0]['content'] = literal
+    host['current_page_draft']['markdown'] = literal
+    host['committed_plan_blocks'][1]['text'] = host['committed_plan_blocks'][0]['text']
+    view = semantic_frame(host, record)
+    assert view['dialogue_reference'][0]['content'] == literal
+    assert view['current_page_draft']['markdown'] == literal
+    first, second = view['committed_plan_blocks'][:2]
+    assert first['text'] == second['text'] and first['selection_id'] != second['selection_id']
+    host['current_page_draft'] = dict(state='same_as_committed',primary_authoring_context=True,
+        body_path=['committed_plan_blocks'])
+    assert semantic_frame(host,record)['current_page_draft'] == dict(state='same_as_committed',
+        primary_authoring_context=True,uses_committed_plan=True)
+
+
+@pytest.mark.parametrize('authoring',[False,True])
+def test_current_plan_producer_uses_local_work_in_context_and_output_schema(authoring):
+    import json
+    from types import SimpleNamespace
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from tests.test_surface_native_work_input import work_case
+    from tests.test_plan_writer_output_schema import rules
+    context,record,work=work_case('plan',draft=authoring)
+    turn=SimpleNamespace(graph_context_receipt=context,graph_context_execution=record,
+        **{key:value for key,value in work.items() if key!='work_proof'})
+    adapter=SimpleNamespace(fence=SimpleNamespace(turn=turn),_broker_execution=lambda:record,
+        budget={'outputReserveTokens':4096,'contextLimitTokens':128000})
+    writer=PlanJevWriter(adapter,work['work_proof'],SimpleNamespace(frame=rules,
+        authoring=object() if authoring else None))
+    assert writer.provider_work['requested_work']==('write_current_page' if authoring else 'discuss')
+    wire=json.dumps({'input':writer.messages,'text':{'format':writer.output_format}})
+    assert writer.work_frame['authored_sources'][0]['handle'] not in wire
+    assert writer.work_frame['committed_plan_blocks'][0]['selection_id'] not in wire
+    assert 'work0' in wire and 'schema' not in writer.provider_work
+    assert writer.work_frame['session_evidence'][0]['run_id'] not in wire
+    raw=asyncio.run(actual_sdk_request(writer.provider_frame,work_frame=writer.provider_work))
+    stored,grant=authorize(context,record,raw,writer.provider_frame)
+    assert verify_input_records(context,stored,grant,raw,**work).authored_local
+
+
+@pytest.mark.parametrize('status',['unread','partial','complete'])
+def test_plan_selected_reference_labels_do_not_disclose_host_identity_or_claim_read_support(monkeypatch,status):
+    import json
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from application_state.agent_conversation import authored_graph_references as refs
+    from application_state.agent_conversation.native_plan_work_view import semantic_frame
+    from tests.test_surface_native_work_input import work_case
+    context,record,work=work_case('plan')
+    host=model_work_frame(context,record,**work)
+    reference=refs.AuthoredGraphReferenceV1(managed_world_id='private-managed',native_world_id='private-native',
+        binding_version=1,graph_revision='rev:private',node_id='private-node',label='The selected lighthouse')
+    selected=refs.AuthoredGraphReferencesV1(references=(reference,))
+    monkeypatch.setattr(refs,'native_references',lambda execution:selected)
+    events=[] if status=='unread' else [refs.BuildAuthoredReferenceReadV2(
+        event_id=uuid4(),sequence=0,capture_event_id=uuid4(),authorization_event_id=uuid4(),node_id=reference.node_id,
+        statement_reads=(),assertion_reads=(),unavailable_statement_ids=('unavailable',) if status=='partial' else (),
+        unavailable_assertion_ids=(),status=status)]
+    view=semantic_frame(host,SimpleNamespace(events=events))
+    assert view['selected_references']==[dict(reference='reference0',label=reference.label,
+        kind='object',read_status=status)]
+    assert all(secret not in json.dumps(view) for secret in ('private-managed','private-native','rev:private','private-node'))
+
+
+def test_plan_source_reference_extent_is_navigation_only_until_its_native_read(monkeypatch):
+    from types import SimpleNamespace
+    from application_state.agent_conversation import authored_graph_references as refs
+    from application_state.agent_conversation.native_plan_work_view import semantic_frame
+    from tests.test_surface_native_work_input import work_case
+    context,record,work=work_case('plan')
+    host=model_work_frame(context,record,**work)
+    reference=refs.AuthoredSourceReferenceV1(managed_world_id='private-managed',native_world_id='private-native',
+        binding_version=1,knowledge_revision='rev:private',source_artifact_id='private-artifact',
+        source_revision_id='private-revision',evidence_ref_id='private-evidence',content_sha256='a'*64,
+        selection_kind='section',section_id='b'*64,label='Session 20 — arrival')
+    native=model_frame(context,record)
+    monkeypatch.setattr(refs,'native_references',lambda execution:refs.AuthoredReferencesV2(references=(reference,)))
+    view=semantic_frame(host,SimpleNamespace(events=[]))
+    assert view['selected_references']==[dict(reference='reference0',label=reference.label,
+        kind='source',read_status='unread',extent='section')]
+    # These navigation slots never enter the authored-excerpt enum.
+    from application_state.agent_conversation.plan_writer_output_schema import native_output_format
+    from tests.test_plan_writer_output_schema import rules
+    import json
+    output=json.dumps(native_output_format(native,rules(),host|view))
+    assert 'reference0' not in output
