@@ -115,3 +115,11 @@ Base/Rules evidence assertions intact, and rerun the two affected parameters.
 Runtime/UI/migration blobs are unchanged by this fixture correction; reuse the
 other364 checks and UI25/typecheck evidence with exact blob-parity verification.
 Preserve the b8cf HOLD and original failures; no paid/prose correction study.
+
+Public-wrapper checkpoint: add only the import/accepted_binding annotation in
+apps/live_control_server/models/agent_turn.py to the lease. Actual route tests
+caught its V1-only annotation returning422 for V2; preserve outercontextV1 and
+all canonical seal validators, use the same closed binding union. This consumer
+was missed in initial inventory; review-v2 HOLD is retained. Source grep across
+src/apps found no other V1-only serialization consumer. Rerun affected routes;
+no new API, alternate normalization or response-quality experiment.
