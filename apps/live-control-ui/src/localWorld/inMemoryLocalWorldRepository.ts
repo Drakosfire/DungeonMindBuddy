@@ -21,6 +21,7 @@ import {
   validateLocalWorldSnapshot,
   validateLocalWorldPackageData,
 } from "./localWorldRepository";
+import { validateLocalWorldRecordForPackage } from "./localWorldPackageV1";
 
 /**
  * Shared only by in-memory repository facades. It deliberately has no browser
@@ -124,6 +125,8 @@ export class InMemoryLocalWorldRepository implements LocalWorldPackageRepository
       data = cloneLocalWorldValue(dataInput);
     } catch (error) { return { status: "error", message: errorMessage(error) }; }
     const worldId = record.snapshot.worldId;
+    const invalidRecord = validateLocalWorldRecordForPackage(record);
+    if (invalidRecord) return { status: "error", message: invalidRecord };
     const invalidData = validateLocalWorldPackageData(data, worldId);
     if (invalidData) return { status: "error", message: invalidData };
     const invalid = validateLocalWorldSnapshot(record.snapshot, worldId);

@@ -366,6 +366,16 @@ function validateRecord(record: LocalWorldRecord): void {
   validateHistory(record.history, record.localRevision);
 }
 
+/** Reusable complete record check for defensive repository writes. */
+export function validateLocalWorldRecordForPackage(record: LocalWorldRecord): string | null {
+  try {
+    validateRecord(record);
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : "The local World record is invalid.";
+  }
+}
+
 export function isLocalWorldPackageMemberPath(path: string): boolean {
   if (!path || !isWellFormedUnicode(path) || path.length > LOCAL_WORLD_PACKAGE_V1.limits.memberPathBytes || encoder.encode(path).byteLength > LOCAL_WORLD_PACKAGE_V1.limits.memberPathBytes || path.startsWith("/") || path.includes("\\") || /[\u0000-\u001f\u007f]/.test(path) || path !== path.normalize("NFC")) return false;
   const segments = path.split("/");
