@@ -204,6 +204,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             frame = next(row for row in inputs if set(row)=={'input_status','user_question','native_body_evidence','native_statements','native_assertions'})
             work = next(row for row in inputs if row.get('schema')=='dmb_build_primary_work_evidence_v1')
             if not mode:
+                assert body['instructions'].count("Determine an event's status from its supporting passage's heading") == 1
+                assert 'conditional possibilities, chronology and the distinction between proposed and played events.' not in body['instructions']
                 assert len(inputs)==3 and inputs[-1] == frame
             if self.adapter.submitted_intent.reviewed_step is not None:
                 from application_state.agent_conversation.reviewed_action import writer_scope,SCOPE_KEY

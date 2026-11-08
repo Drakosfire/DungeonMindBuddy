@@ -103,7 +103,7 @@ def work_submission(context,record):
             dict(plan_markdown=WORK_MARKDOWN,session_evidence=[],dialogue=[]) if record.policy.action.surface_id=='plan' else {}))
 
 
-async def actual_sdk_request(frame, *, model='gpt-6-luna', work_frame=None, output_limit=4096):
+async def actual_sdk_request(frame, *, model='gpt-6-luna', work_frame=None, output_limit=4096, instructions=None):
     sent = []
     def wire(request):
         sent.append(request.content.decode())
@@ -113,9 +113,39 @@ async def actual_sdk_request(frame, *, model='gpt-6-luna', work_frame=None, outp
             transport=httpx.MockTransport(wire))) as client:
         await client.responses.create(model=model, input=[dict(role='user',content=json.dumps(value))
             for value in ([frame] if work_frame is None else [frame,work_frame])],
-            tools=[], stream=False, **({} if output_limit is None else {"max_output_tokens":output_limit}))
+            tools=[], stream=False, **({} if output_limit is None else {"max_output_tokens":output_limit}),
+            **({} if instructions is None else {'instructions':instructions}))
     assert len(sent) == 1
     return sent[0]
+
+
+@pytest.mark.parametrize('source', [
+    '# Witnessed account\n\nThe envoy opens the gate.\n',
+    '# Proposed sequence\n\nThe envoy opens the gate.\n',
+    '# Account\n\nThe envoy arrived.\n\n# Possible continuation\n\nThe envoy opens the gate.\n',
+    '# Account\n\nThe witness believes that the envoy opened the gate.\n',
+    '# Possible sequence\n\nIf the messenger arrives, the envoy opens the gate.\n',
+    '# Notes\n\nThe envoy opens the gate.\n',
+])
+def test_source_local_modality_framing_survives_actual_sdk_and_authority(lane, monkeypatch, source):
+    import sys
+    from application_state.agent_conversation.native_writer import model_input_frame
+    from application_state.agent_conversation.surface_evidence_answer import BODY_INSTRUCTIONS
+    monkeypatch.setattr(sys.modules[__name__], 'BODY', source)
+    context, record, observed = body_case('plan',lane,full=True)
+    frame=model_input_frame(context,record)
+    assert frame['native_body_evidence']['excerpts'][0]['text']==source
+    work=work_submission(context,record)
+    raw=asyncio.run(actual_sdk_request(frame,work_frame=model_work_frame(context,record,**work),
+        instructions=BODY_INSTRUCTIONS))
+    body=json.loads(raw)
+    assert body['instructions']==BODY_INSTRUCTIONS
+    stored,auth=authorize(context,record,raw,frame)
+    accepted=verify_input_records(context,stored,auth,raw,**work)
+    assert accepted.body_excerpts[0].read.excerpt.text==source
+    assert observed.excerpt.text==source
+    # This proves transport/authority preserves framing, not a mock's judgment
+    # that an event occurred. Ordinary semantic assessment owns that claim.
 
 
 def authorize(context, record, raw, frame):

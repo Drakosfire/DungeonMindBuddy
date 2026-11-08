@@ -269,6 +269,9 @@ def _ordinary_native_case(
             return httpx2.Response(200,request=req,json={'model':'jev-1.14.0','answers':answers,'usage':{'input_tokens':37,'output_tokens':9}})
     class Writer(WriterWire):
         async def handle_async_request(self, req):
+            instructions=json.loads(req.content)['instructions']
+            assert instructions.count("Determine an event's status from its supporting passage's heading") == 1
+            assert 'conditional possibilities, chronology and the distinction between proposed and played events.' not in instructions
             frames=[json.loads(item['content']) for item in json.loads(req.content)['input'][:-1]]
             frame=next(item for item in frames if set(item)=={'input_status','user_question','native_body_evidence','native_statements','native_assertions'})
             assert len(frames)==3
