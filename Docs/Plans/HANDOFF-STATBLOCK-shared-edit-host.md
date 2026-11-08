@@ -47,7 +47,10 @@ Serial after delivered #2237; no unmerged parent or new environment/checkouts.
 - src/statblocks/revision/SavedMechanicsRevisionEditor.tsx/.test.tsx.
 - src/surface/modules/StatblockWorkbenchModule.tsx/.test.tsx (shared trigger and
   isolated tests using the real provider).
-- .github/workflows/hosted-validation.yml (replace the retired test entry).
+- src/combat/CombatMechanicsAdoption.tsx/.test.tsx: replace the remaining direct
+  manual editor with the shared launcher; preserve explicit exact-version actor
+  adoption and route the existing guided editor action to that same session.
+- .github/workflows/hosted-validation.yml (retired test replacement and caller test).
 - This handoff and truthful predecessor HANDOFF-STATBLOCK-popup-portraits.md sync.
 UI src paths above are relative to apps/live-control-ui. App.tsx is limited to
 the named import/managed wrapper; src/test/appNavigation.test.tsx may add an
@@ -55,6 +58,15 @@ owning managed-route session-retention regression. The guest route/auth and
 selected-World authorities remain unchanged. Do not couple statblock ownership
 to conversation or generic Peek state just to avoid a file collision. Local World2219/2213/guest routing and Play2172/2104
 holds remain intact. ADVERSARY backend lanes do not overlap these paths.
+
+## Review checkpoint
+
+Cycle1 HOLD at ee7fdf2cf73110c3a111b47a7458a1087ed600de found the active encounter
+manual-editor consumer outside the provider. PRIME extends this same capability
+lease to that caller and its tests; do not narrow the sole-owner invariant. No
+held Play query/retrieval implementation or Run/adoption backend is resumed.
+The shared encounter launcher changes only saved-statblock presentation, under
+this STATBLOCK authority; explicit Play2172/2104 source holds remain intact.
 
 ## Verification and limits
 
