@@ -1,12 +1,12 @@
 # SURFACE: validated local World package core
 
-Status: ACTIVE — bounded package-core implementation and reviewer corrections only. Independent review of #2207 at `bd340be6200d2c532d37f18f93606e62238bab13` returned HOLD for repository seed revision-0 compatibility, unsupported own-property loss, and test-environment/browser-crypto evidence. This correction lease is limited to those findings plus regression coverage and verification. ZIP archive transport, repository import mutation, UI/editor wiring, account adoption, graph renderer, merge, and deployment remain out of scope.
+Status: COMPLETED — package-core and reviewer corrections settled at exact head `381988b690ced4364bac3a71251cb668b5cc8260`. Independent review PASS cleared the revision-zero repository seed round-trip, hidden own-property rejection, and sparse/index-array loss probes; the default Node 22.23.0 suite passes. Native Chrome plus real IndexedDB seed/edited/layout roundtrips also passed. This predecessor lease is closed. ZIP archive transport is assigned only to the successor handoff `HANDOFF-SURFACE-phase2a3-zip-transport.md`; repository import mutation, UI/editor wiring, account adoption, graph renderer, merge, and deployment remain out of scope.
 
 Flow: SURFACE. Existing stack: `#2198 → #2202 → #2204 → #2207`. Exact correction base: Buddy PR #2207 head `bd340be6200d2c532d37f18f93606e62238bab13`, branch `codex/phase2a3-package-core`; its PR base remains `codex/phase2a2-indexeddb-local-world` at A2 head `18adc78a871b78a759793ed722dcb76194e88a6f`. No rebase onto `main` is implied. Serial integration and product acceptance remain open. No merge/deployment is authorized.
 
-Checkout: `/home/drakosfire/Projects/.codex/blank-surface-phase1-20261107/worktrees/DungeonMindBuddy`.
+Checkout: `/home/drakosfire/Projects/.codex/blank-surface-phase1-20261107/worktrees/DungeonMindBuddy` (original implementation checkout; successor work is isolated).
 
-Exclusive ACTIVE write lease for this slice:
+Historical exclusive write lease for the completed slice:
 - `Docs/Plans/HANDOFF-SURFACE-phase2a3-package-recovery.md`
 - `apps/live-control-ui/src/localWorld/localWorldPackageV1.ts`
 - `apps/live-control-ui/src/localWorld/localWorldPackageV1.test.ts`
@@ -14,7 +14,7 @@ Exclusive ACTIVE write lease for this slice:
 - `apps/live-control-ui/src/localWorld/localWorldPackageV1.browserHarness.html`
 - `apps/live-control-ui/src/localWorld/localWorldPackageV1.browserHarness.ts`
 
-No product UI, repository/IndexedDB implementation changes, dependency/lockfile, authoring adapter, route, owner service, ZIP transport, merge, or deployment changes are allowed. The browser harness may create and delete only its uniquely named temporary test database. Do not edit paths outside this exact allowlist.
+No further edits are authorized under this predecessor lease. The successor handoff has a separate path allowlist. The browser harness used only its uniquely named temporary test database.
 
 Design input: DungeonOverMind PR #106 at `7db578897e0eb40ab3672d26826eb3bbbee6007c`, `Docs/architecture/CONTRACT-local-world-execution-adoption-phase2.md`, blob `9ceb00c005a7e1a3e22c76bed22a01f501e8cb28`. It defines package v1 as a ZIP envelope with manifest, semantic snapshot, optional documents/assets, separate layout and optional bounded history. Unknown versions fail closed; import validates everything before mutation; local-ID collisions require fork or cancel. This handoff consumes that design only and does not claim #106 merged or activated.
 
