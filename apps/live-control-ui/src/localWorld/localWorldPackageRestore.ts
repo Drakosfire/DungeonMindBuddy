@@ -1,6 +1,11 @@
 import { cloneLocalWorldValue, validateLocalWorldSnapshot } from "./localWorldRepository";
 import type { LocalWorldPackageData, LocalWorldPackageRepository, LocalWorldRecord } from "./localWorldRepository";
-import { parseLocalWorldPackageV1, type StagedLocalWorldPackageV1 } from "./localWorldPackageV1";
+import {
+  LOCAL_WORLD_PACKAGE_V1,
+  parseLocalWorldPackageV1,
+  validateLocalWorldPackageMemberPaths,
+  type StagedLocalWorldPackageV1,
+} from "./localWorldPackageV1";
 
 export type RestoreStagedPackageResult =
   | { readonly status: "restored"; readonly record: LocalWorldRecord }
@@ -12,6 +17,32 @@ export async function restoreStagedLocalWorldPackage(
   repository: LocalWorldPackageRepository,
   staged: StagedLocalWorldPackageV1,
 ): Promise<RestoreStagedPackageResult> {
+  // Bound the map before cloning: a forged/mutated staged object must not make
+  // restore allocate unbounded attachment copies before the parser checks it.
+  if (!staged || !(staged.members instanceof Map)) {
+    return { status: "error", message: "The staged package member map is unavailable or unsupported." };
+  }
+  const limits = LOCAL_WORLD_PACKAGE_V1.limits;
+  if (staged.members.size < 1 || staged.members.size > limits.memberCount) {
+    return { status: "error", message: "The staged package member count is outside the package limit." };
+  }
+  let boundedBytes = 0;
+  const paths: string[] = [];
+  for (const [path, bytes] of staged.members) {
+    if (typeof path !== "string" || !(bytes instanceof Uint8Array)) {
+      return { status: "error", message: "The staged package contains an invalid member." };
+    }
+    const perMemberLimit = path.startsWith("documents/") || path.startsWith("assets/")
+      ? limits.attachmentBytes
+      : limits.jsonMemberBytes;
+    if (bytes.byteLength > perMemberLimit) return { status: "error", message: `Package member exceeds its size limit: ${path}` };
+    boundedBytes += bytes.byteLength;
+    if (boundedBytes > limits.totalBytes) return { status: "error", message: "The staged package exceeds the total byte limit." };
+    paths.push(path);
+  }
+  const pathError = validateLocalWorldPackageMemberPaths(paths);
+  if (pathError) return { status: "error", message: pathError };
+
   // Capture caller-controlled map contents synchronously before parsing awaits.
   let members: Map<string, Uint8Array>;
   try {

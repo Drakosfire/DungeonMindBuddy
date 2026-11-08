@@ -84,6 +84,7 @@ async function run(): Promise<void> {
       && sidecar.data.bundledMembers[documentPath].join(",") === Array.from(packageFixtureAttachmentBytes.document).join(",")
       && sidecar.data.bundledMembers[assetPath].join(",") === Array.from(assetBytes).join(","),
     "Bundled document or binary asset bytes changed during native restore.");
+    assert(sidecar.status === "found", "Supplemental readback is required for malformed-record probes.");
     const collision = await restoreStagedLocalWorldPackage(targetOpen.repository, decoded.parsed.candidate);
     assert(collision.status === "collision", "Existing local identity was not refused.");
 
@@ -120,6 +121,14 @@ async function run(): Promise<void> {
     const abortOpen = await openIndexedDbLocalWorldRepository(abortName, { beforeWrite: (point) => { if (point === "package-restore" && ++writes === 2) throw new DOMException("Simulated quota abort", "QuotaExceededError"); } });
     assert(abortOpen.status === "opened", abortOpen.status === "error" ? abortOpen.message : "Abort DB did not open.");
     close.push(() => abortOpen.repository.close());
+    const negativeRecord = { ...structuredClone(layout.record), localRevision: -1 };
+    const malformedHistory = {
+      ...structuredClone(layout.record),
+      history: [{ id: "garbage", localRevision: 0, classification: "invented", description: 5 }] as unknown as typeof layout.record.history,
+    };
+    assert((await abortOpen.repository.restorePackage(negativeRecord, sidecar.data)).status === "error", "Direct IndexedDB restore accepted a negative revision.");
+    assert((await abortOpen.repository.restorePackage(malformedHistory, sidecar.data)).status === "error", "Direct IndexedDB restore accepted malformed history.");
+    assert((await abortOpen.repository.readWorld(layout.record.snapshot.worldId)).status === "missing", "Malformed direct restores wrote a record.");
     const aborted = await restoreStagedLocalWorldPackage(abortOpen.repository, decoded.parsed.candidate);
     assert(aborted.status === "error", "Injected quota-shaped abort unexpectedly committed.");
     assert((await abortOpen.repository.readWorld(layout.record.snapshot.worldId)).status === "missing", "World record survived a paired transaction abort.");
@@ -144,7 +153,7 @@ async function run(): Promise<void> {
     preserved.close();
 
     output.dataset.status = "passed";
-    output.textContent = JSON.stringify({ status: "passed", runtime: "native browser IndexedDB/WebCrypto/ZIP", checks: ["edited repository record ZIP roundtrip", "atomic semantic record plus document/binary sidecar readback", "two-connection concurrent restore has one winner", "collision refusal", "valid v2 migration preserves local record and unrelated store", "simulated transaction abort preserves empty state", "malformed v2 migration refuses while preserving v2 version and data"], archiveBytes: archive.blob.size, durability: "not a crash, quota-exhaustion, eviction, or cross-browser guarantee" });
+    output.textContent = JSON.stringify({ status: "passed", runtime: "native browser IndexedDB/WebCrypto/ZIP", checks: ["edited repository record ZIP roundtrip", "atomic semantic record plus document/binary sidecar readback", "two-connection concurrent restore has one winner", "collision refusal", "direct invalid revision/history rejection before writes", "valid v2 migration preserves local record and unrelated store", "simulated transaction abort preserves empty state", "malformed v2 migration refuses while preserving v2 version and data"], archiveBytes: archive.blob.size, durability: "not a crash, quota-exhaustion, eviction, or cross-browser guarantee" });
   } finally {
     close.forEach((fn) => fn());
     for (const name of names) await deleteDb(name);

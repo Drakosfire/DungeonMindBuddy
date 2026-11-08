@@ -159,7 +159,7 @@ export function validateLocalWorldPackageData(data: LocalWorldPackageData, expec
       if (ref.locator !== null && typeof ref.locator !== "string") return "Package attachment locator must be text or null.";
       if (ref.status === "bundled") {
         const prefix = groupIndex === 0 ? "documents/" : "assets/";
-        if (!ref.path || !ref.path.startsWith(prefix) || bundledPaths.has(ref.path)) return "Bundled attachments require distinct paths in their declared namespace.";
+        if (!ref.path || !ref.path.startsWith(prefix)) return "Bundled attachment path is outside its declared namespace.";
         bundledPaths.add(ref.path);
       } else if (ref.path !== null) return "External or missing attachments cannot claim bundled member paths.";
     }

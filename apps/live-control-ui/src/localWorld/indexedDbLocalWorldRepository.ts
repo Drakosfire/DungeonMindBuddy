@@ -21,6 +21,7 @@ import {
   type ReadWorldResult,
   type WriteLayoutResult,
 } from "./localWorldRepository";
+import { validateLocalWorldRecordForPackage } from "./localWorldPackageV1";
 
 export const LOCAL_WORLD_DATABASE_SCHEMA_VERSION = 3;
 export const LOCAL_WORLD_DATABASE_STORES = {
@@ -450,6 +451,8 @@ export class IndexedDbLocalWorldRepository implements LocalWorldPackageRepositor
       data = cloneLocalWorldValue(dataInput);
     } catch (error) { return { status: "error", message: errorMessage(error) }; }
     const worldId = record.snapshot.worldId;
+    const invalidRecord = validateLocalWorldRecordForPackage(record);
+    if (invalidRecord) return { status: "error", message: invalidRecord };
     const invalidData = validateLocalWorldPackageData(data, worldId);
     if (invalidData) return { status: "error", message: invalidData };
     const invalid = validateLocalWorldSnapshot(record.snapshot, worldId);
