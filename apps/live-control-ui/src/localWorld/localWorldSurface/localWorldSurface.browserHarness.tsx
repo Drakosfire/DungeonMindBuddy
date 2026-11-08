@@ -29,6 +29,13 @@ function Harness() {
   }, [generation]);
 
   const refresh = useCallback(() => setGeneration((value) => value + 1), []);
+  const checkUnloadProtection = useCallback(() => {
+    const event = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(event);
+    setResult(event.defaultPrevented
+      ? "PASS: this tab is protected while any local title draft or write is pending."
+      : "PASS: no unload protection remains because local drafts and writes are settled.");
+  }, []);
   const seedAttachment = useCallback(async () => {
     const opened = await openIndexedDbLocalWorldRepository(dbName);
     if (opened.status !== "opened") { setResult(`Storage failed: ${opened.message}`); return; }
@@ -140,6 +147,7 @@ function Harness() {
       <span>Database: <code>{dbName}</code></span>
       <button type="button" onClick={() => void seedAttachment()}>Add restored attachment fixture</button>
       <button type="button" onClick={() => void verifyPackage()}>Verify current package round-trip</button>
+      <button type="button" onClick={checkUnloadProtection}>Check tab unload guard</button>
       <button type="button" onClick={() => { failNextSemanticCommit.current = true; setResult("Next title write will fail before transaction commit."); }}>Fail next title write</button>
       <button type="button" onClick={() => void advanceSelectedWorldElsewhere()}>Advance selected World from second connection</button>
       <button type="button" onClick={() => setSurfaceMounted(false)}>Close Surface</button>

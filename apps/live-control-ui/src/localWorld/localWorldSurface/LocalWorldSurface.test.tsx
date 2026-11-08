@@ -4,12 +4,18 @@ import { InMemoryLocalWorldRepository, InMemoryLocalWorldStore } from "../inMemo
 import { createPackageTestRecord, packageFixtureAttachmentBytes } from "../localWorldPackageFixtures";
 import type { LocalWorldPackageData } from "../localWorldRepository";
 import { LocalWorldSurface } from "./LocalWorldSurface";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 function renderSurface(repository: InMemoryLocalWorldRepository) {
   return render(<AgentInteractionProvider><LocalWorldSurface openRepository={async () => ({ status: "opened", repository })} /></AgentInteractionProvider>);
+}
+
+function beforeUnloadIsPrevented(): boolean {
+  const event = new Event("beforeunload", { cancelable: true });
+  window.dispatchEvent(event);
+  return event.defaultPrevented;
 }
 
 afterEach(() => {
@@ -182,18 +188,21 @@ describe("local World Surface", () => {
     await user.click(screen.getByRole("button", { name: "Edit World title" }));
     await user.clear(screen.getByLabelText("World title"));
     await user.type(screen.getByLabelText("World title"), "Uncommitted First World");
-    const beforeUnload = new Event("beforeunload", { cancelable: true });
-    window.dispatchEvent(beforeUnload);
-    expect(beforeUnload.defaultPrevented).toBe(true);
+    expect(beforeUnloadIsPrevented()).toBe(true);
 
+    await user.click(await screen.findByRole("button", { name: /Second World/ }));
+    expect(await screen.findByRole("heading", { name: "Second World" })).toBeTruthy();
+    expect(beforeUnloadIsPrevented()).toBe(true);
     await user.type(await screen.findByLabelText("Create a World"), "Third World");
     await user.click(screen.getByRole("button", { name: "Create World" }));
     expect(await screen.findByRole("heading", { name: "Third World" })).toBeTruthy();
+    expect(beforeUnloadIsPrevented()).toBe(true);
     await user.click(screen.getByRole("button", { name: /First World/ }));
     expect(screen.getByLabelText("World title")).toHaveValue("Uncommitted First World");
     expect(screen.getByText("Unsaved title change")).toBeTruthy();
 
     view.unmount(); // Models an in-app route transition/Back remount in the same tab.
+    expect(beforeUnloadIsPrevented()).toBe(true);
     renderSurface(repository);
     await user.click(await screen.findByRole("button", { name: /First World/ }));
     expect(screen.getByLabelText("World title")).toHaveValue("Uncommitted First World");
@@ -202,6 +211,78 @@ describe("local World Surface", () => {
     expect(unchanged.status).toBe("found");
     if (unchanged.status === "found") expect(unchanged.record.snapshot.title).toBe("First World");
     await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(beforeUnloadIsPrevented()).toBe(false);
+  });
+
+  it("keeps unload protection through an unmounted title write failure until the draft is resolved", async () => {
+    let release!: () => void;
+    let started!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const writeStarted = new Promise<void>((resolve) => { started = resolve; });
+    let shouldFail = true;
+    const repository = new InMemoryLocalWorldRepository({ beforeCommit: async (point) => {
+      if (point !== "semantic-edit") return;
+      started();
+      await gate;
+      if (shouldFail) throw new Error("Injected pending write failure.");
+    } });
+    const created = await repository.createWorld({ title: "Pending failure World" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+    const user = userEvent.setup();
+    const view = renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Pending failure World/ }));
+    await user.click(screen.getByRole("button", { name: "Edit World title" }));
+    await user.clear(screen.getByLabelText("World title"));
+    await user.type(screen.getByLabelText("World title"), "Kept after failure");
+    await user.click(screen.getByRole("button", { name: "Save title" }));
+    await writeStarted;
+    view.unmount();
+    expect(beforeUnloadIsPrevented()).toBe(true);
+
+    await act(async () => {
+      release();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    shouldFail = false;
+    renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Pending failure World/ }));
+    expect(screen.getByLabelText("World title")).toHaveValue("Kept after failure");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(beforeUnloadIsPrevented()).toBe(false);
+  });
+
+  it("keeps unload protection until a pending title write commits after route unmount", async () => {
+    let release!: () => void;
+    let started!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const writeStarted = new Promise<void>((resolve) => { started = resolve; });
+    const repository = new InMemoryLocalWorldRepository({ beforeCommit: async (point) => {
+      if (point === "semantic-edit") { started(); await gate; }
+    } });
+    const created = await repository.createWorld({ title: "Pending success World" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+    const user = userEvent.setup();
+    const view = renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Pending success World/ }));
+    await user.click(screen.getByRole("button", { name: "Edit World title" }));
+    await user.clear(screen.getByLabelText("World title"));
+    await user.type(screen.getByLabelText("World title"), "Committed after unmount");
+    await user.click(screen.getByRole("button", { name: "Save title" }));
+    await writeStarted;
+    view.unmount();
+    expect(beforeUnloadIsPrevented()).toBe(true);
+
+    await act(async () => {
+      release();
+      await waitFor(async () => {
+        const result = await repository.readWorld(created.record.snapshot.worldId);
+        expect(result.status === "found" && result.record.snapshot.title).toBe("Committed after unmount");
+      });
+    });
+    await waitFor(() => expect(beforeUnloadIsPrevented()).toBe(false));
   });
 
   it("disables duplicate creates while the first durable operation is pending", async () => {
