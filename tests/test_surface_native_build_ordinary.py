@@ -201,7 +201,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             inputs = [json.loads(body['input'])] if isinstance(body['input'], str) else [json.loads(row['content']) for row in body['input'] if row['content'].lstrip().startswith('{')]
             if mode:
                 inputs=[inputs[0]['native_evidence'],inputs[0]['surface_work']]
-            frame = next(row for row in inputs if set(row)=={'input_status','user_question','native_body_evidence','native_statements','native_assertions'})
+            frame = next(row for row in inputs if set(row)=={'input_status','user_question','native_body_evidence','native_statements','native_assertions','assertion_qualifications'})
             work = next(row for row in inputs if row.get('schema')=='dmb_build_primary_work_evidence_v1')
             if not mode:
                 assert len(inputs)==3 and inputs[-1] == frame

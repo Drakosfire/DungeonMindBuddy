@@ -339,6 +339,7 @@ def test_semantic_native_evidence_preserves_qualifiers_and_reopens_original_cita
     published_lane, surface, monkeypatch
 ):
     from application_state.agent_conversation.native_writer import model_input_frame
+    from application_state.agent_conversation.native_evidence_view import output_frame
     from application_state.agent_conversation.native_completion import normalize_output
     from application_state.agent_conversation.plan_writer_output_schema import (
         _native_variants,
@@ -354,6 +355,7 @@ def test_semantic_native_evidence_preserves_qualifiers_and_reopens_original_cita
         "native_body_evidence",
         "native_statements",
         "native_assertions",
+        "assertion_qualifications",
     }
     encoded = json.dumps(frame)
     for row in host["native_assertions"]["assertions"]:
@@ -362,7 +364,7 @@ def test_semantic_native_evidence_preserves_qualifiers_and_reopens_original_cita
         assert row["assertion"]["subject_entity_id"] not in encoded
     for old, new in zip(
         host["native_assertions"]["assertions"],
-        frame["native_assertions"]["assertions"],
+        output_frame(host, frame)["native_assertions"]["assertions"],
         strict=True,
     ):
         for key in (
@@ -596,7 +598,7 @@ def test_semantic_world_qualification_separates_only_typed_publisher_provenance(
     before = deepcopy(host)
     frame = semantic_frame(host)
     assert host == before
-    assert frame["native_assertions"]["assertions"][0]["assertion"]["metadata"][
+    assert frame["assertion_qualifications"][0]["metadata"][
         "domain_metadata"
     ] == [
         dict(
@@ -610,9 +612,7 @@ def test_semantic_world_qualification_separates_only_typed_publisher_provenance(
         "note": "Keep these literal words and IDs"
     }
     assert (
-        semantic_frame(host)["native_assertions"]["assertions"][0]["assertion"][
-            "metadata"
-        ]["domain_metadata"][0]["payload"]
+        semantic_frame(host)["assertion_qualifications"][0]["metadata"]["domain_metadata"][0]["payload"]
         == payload
     )
 
@@ -621,6 +621,49 @@ def _captured_world_context_cases():
     from pathlib import Path
     return json.loads((Path(__file__).parent / "fixtures" /
         "native_world_context_review_metadata.json").read_text())["cases"]
+
+
+@pytest.mark.parametrize("surface", ["build", "plan"])
+@pytest.mark.parametrize("presentation", ["historical_host_v1", "historical_host_v2", "historical_inline", "packed"])
+def test_exact_qualification_presentations_verify_actual_sdk(published_lane, surface, presentation):
+    from application_state.agent_conversation.native_evidence_view import (
+        _inline_semantic_frame, semantic_frame, output_frame,
+    )
+    context, record = published_case(surface, published_lane)
+    from application_state.agent_conversation.native_writer import LEGACY_SCHEMA
+    host = model_frame(context, record, **({'schema': LEGACY_SCHEMA} if presentation == 'historical_host_v1' else {}))
+    frame = host if presentation.startswith('historical_host_') else semantic_frame(host) if presentation == "packed" else _inline_semantic_frame(host)
+    work = work_submission(context, record)
+    raw = asyncio.run(actual_sdk_request(frame, work_frame=model_work_frame(context, record, **work)))
+    stored, auth = authorize(context, record, raw, frame)
+    accepted = verify_input_records(context, stored, auth, raw, **work)
+    assert accepted.frame == output_frame(host, frame)
+    assert accepted.native_assertions
+    expected = host if presentation.startswith('historical_host_') else _inline_semantic_frame(host)
+    assert accepted.frame["native_assertions"] == expected["native_assertions"]
+
+
+@pytest.mark.parametrize("change", ["metadata", "unknown_ref", "mixed_inline", "extra_dictionary", "missing_dictionary"])
+def test_qualification_tampering_fails_actual_request_binding(published_lane, change):
+    from application_state.agent_conversation.native_evidence_view import semantic_frame
+    context, record = published_case("plan", published_lane)
+    frame = semantic_frame(model_frame(context, record))
+    row = frame["native_assertions"]["assertions"][0]["assertion"]
+    if change == "metadata":
+        frame["assertion_qualifications"][0]["metadata"]["standing"] = "canonical"
+    elif change == "unknown_ref":
+        row["qualification_handle"] = "qualification999999"
+    elif change == "mixed_inline":
+        row["metadata"] = frame["assertion_qualifications"][0]["metadata"]
+    elif change == "extra_dictionary":
+        frame["assertion_qualifications"].append(deepcopy(frame["assertion_qualifications"][0]))
+    else:
+        del frame["assertion_qualifications"]
+    work = work_submission(context, record)
+    raw = asyncio.run(actual_sdk_request(frame, work_frame=model_work_frame(context, record, **work)))
+    stored, auth = authorize(context, record, raw, frame)
+    with pytest.raises(ValueError, match="differs from its actual producing SDK request"):
+        verify_input_records(context, stored, auth, raw, **work)
 
 
 @pytest.mark.parametrize("case", _captured_world_context_cases(), ids=lambda c:c["case"])
@@ -665,8 +708,8 @@ def test_actual_sdk_world_context_roles_preserve_exact_host_reads(published_lane
         for item in read.assertion.metadata.domain_metadata:
             if item.schema_term == "dungeonbuddy.domain_metadata:world_context_v1":
                 assert item.payload["ingestion_code_head"] == "b"*40
-    for row in frame["native_assertions"]["assertions"]:
-        for item in row["assertion"]["metadata"]["domain_metadata"]:
+    for row in frame["assertion_qualifications"]:
+        for item in row["metadata"]["domain_metadata"]:
             assert item["payload"] == {key:_ALL_HOST_REVIEW_FIELDS[key] for key in
                 ("source_qualification","uncertain","unknown_host_looking_sha256","notes")}
     assert record.model_dump_json(by_alias=True) == before

@@ -223,9 +223,9 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     frame,work_frame = _input_frames(raw,prefix,expected_work['schema'])
     if not isinstance(frame,dict):
         raise ValueError('Native writer requires its exact evidence presentation')
-    from .native_evidence_view import is_semantic_frame,semantic_frame,output_frame
+    from .native_evidence_view import is_semantic_frame,expected_semantic_frame,output_frame
     host = model_frame(receipt,prefix) if is_semantic_frame(frame) else model_frame(receipt,prefix,schema=frame.get('schema'))
-    expected = semantic_frame(host) if is_semantic_frame(frame) else host
+    expected = expected_semantic_frame(host,frame) if is_semantic_frame(frame) else host
     schema_frame = output_frame(host,expected)
     from .native_plan_work_view import is_semantic_frame as semantic_work, semantic_frame as plan_work_view
     authored_local = semantic_work(work_frame)

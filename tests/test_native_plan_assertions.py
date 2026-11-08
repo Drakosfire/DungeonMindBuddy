@@ -263,7 +263,7 @@ def _ordinary_native_case(
     class Writer(WriterWire):
         async def handle_async_request(self, req):
             frames=[json.loads(item['content']) for item in json.loads(req.content)['input'][:-1]]
-            frame=next(item for item in frames if set(item)=={'input_status','user_question','native_body_evidence','native_statements','native_assertions'})
+            frame=next(item for item in frames if set(item)=={'input_status','user_question','native_body_evidence','native_statements','native_assertions','assertion_qualifications'})
             assert len(frames)==3
             assert frames[0 if authoring else -1] == frame
             assert NATIVE_ANSWER_POLICY in json.loads(req.content)['instructions']
@@ -292,7 +292,8 @@ def _ordinary_native_case(
                 limitations=['partial_retrieval','missing_requested_details']
             else:
                 row=next(r for r in rows if r['assertion']['predicate']=='dnd5e:summary')
-                assert row['assertion']['metadata']['claim_mode']==('dungeonbuddy.claim:belief' if qualified else 'dungeonbuddy.claim:fact')
+                qualifications={q['qualification_handle']:q['metadata'] for q in frame['assertion_qualifications']}
+                assert qualifications[row['assertion']['qualification_handle']]['claim_mode']==('dungeonbuddy.claim:belief' if qualified else 'dungeonbuddy.claim:fact')
                 assert all('evidence' not in r and 'supporting_sources' not in r for r in rows)
                 segments=[{'kind':'native_assertion_claim','text':'A reports that B fled; uncertain.',
                     'assertion_handles':[row['assertion_handle']]}]

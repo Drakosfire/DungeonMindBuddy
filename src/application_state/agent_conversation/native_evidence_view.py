@@ -50,7 +50,7 @@ _WORLD_CONTEXT_HOST_FIELDS = frozenset({
 
 
 def is_semantic_frame(frame):
-    return isinstance(frame, dict) and set(frame) == FIELDS
+    return isinstance(frame, dict) and set(frame) in (FIELDS, FIELDS | {"assertion_qualifications"})
 
 
 def _domain_meaning(entries):
@@ -90,7 +90,7 @@ def _domain_meaning(entries):
     return result
 
 
-def semantic_frame(host):
+def _inline_semantic_frame(host):
     """Explicit projection of an owner-reconstructed current native host frame.
 
     Literal/domain payloads are context and never recursively scrubbed. Only typed
@@ -260,9 +260,38 @@ def semantic_frame(host):
     )
 
 
+def semantic_frame(host):
+    """One current producer: exact projected qualifications, stored once."""
+    from .types import canonical_sha256
+
+    frame = _inline_semantic_frame(host)
+    qualifications, addresses = [], {}
+    for row in (frame["native_assertions"]["assertions"] if frame["native_assertions"] else ()):
+        metadata = row["assertion"].pop("metadata")
+        # Hash indexes exact canonical objects, never semantic similarity. Local
+        # addresses are deterministic first-occurrence ordinals, not host IDs.
+        key = canonical_sha256(metadata)
+        if key not in addresses:
+            addresses[key] = len(qualifications)
+            qualifications.append(dict(qualification_handle=f"qualification{addresses[key]}", metadata=metadata))
+        elif qualifications[addresses[key]]["metadata"] != metadata:
+            raise ValueError("Qualification digest collision")
+        row["assertion"]["qualification_handle"] = f"qualification{addresses[key]}"
+    return frame | {"assertion_qualifications": qualifications}
+
+
+def expected_semantic_frame(host, actual):
+    """Select an exact historical codec by closed producing shape, never fallback."""
+    if not is_semantic_frame(actual):
+        raise ValueError("Unknown semantic native evidence presentation")
+    return semantic_frame(host) if "assertion_qualifications" in actual else _inline_semantic_frame(host)
+
+
 def output_frame(host, provider):
     """Transient shape for the existing output-schema owner, never sent as context."""
-    return host | provider
+    # Output-schema/selector owners keep full inline semantics reconstructed from
+    # authority. An untrusted packet dictionary is never expanded as authority.
+    return host | (_inline_semantic_frame(host) if is_semantic_frame(provider) else provider)
 
 
 def semantic_frame_in_request(body, *, legacy_schemas):
