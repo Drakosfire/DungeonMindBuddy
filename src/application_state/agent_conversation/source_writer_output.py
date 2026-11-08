@@ -9,11 +9,12 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from types import SimpleNamespace
 from typing import Literal
 
 from pydantic import Field, model_validator
 
-from .types import StrictModel
+from .types import StrictModel, SurfaceLimitationV1
 
 POLICY = "cited_facts_host_limitations_v1"
 SCHEMA_NAME = "build_cited_source_answer"
@@ -144,6 +145,44 @@ def gap_messages(answer, packet):
         messages.append({"kind": "connective", "text":
             f"The selected source excerpts do not establish: “{literal}”."})
     return messages
+
+
+def surface_limitation(code, phrase=None):
+    """Canonical persisted surface limitation, including historical wording."""
+    if code not in LIMITATIONS:
+        raise ValueError('Unknown limitation code')
+    text = LIMITATIONS[code]
+    if phrase is not None:
+        data = SimpleNamespace(requested_detail_gaps=[RequestedDetailGap(question_phrase=phrase)])
+        text = gap_messages(data, {'user_question': phrase})[0]['text']
+    return SurfaceLimitationV1(kind='limitation', code=code, text=text, question_phrase=phrase)
+
+
+def project_surface_limitations(codes, raw_gaps, *, user_question,
+                               derive_missing, host_partial, empty_answer, strict_gap_array):
+    """One parity-preserving projector; callers own acquisition/domain policy.
+
+    This validates declared shape and exact question selections, not entailment.
+    Historical duplicate generic/specific caveats deliberately remain unchanged.
+    Native decoding requires an array; existing surface codecs iterate their gap
+    value. Preserve that distinction, including empty non-array surface values.
+    """
+    if (not isinstance(codes, list)
+            or any(not isinstance(code, str) or code not in LIMITATIONS for code in codes)
+            or len(codes) != len(set(codes)) or strict_gap_array and not isinstance(raw_gaps, list)):
+        raise ValueError('Unknown or duplicate limitation, or invalid gap array')
+    gaps = [RequestedDetailGap.model_validate(gap) for gap in raw_gaps]
+    gap_messages(SimpleNamespace(requested_detail_gaps=gaps), {'user_question': user_question})
+    codes = list(codes)
+    if gaps and 'missing_requested_details' not in codes:
+        if not derive_missing:
+            raise ValueError('Gaps require missing-details limitation')
+        codes.append('missing_requested_details')
+    if host_partial and 'partial_retrieval' not in codes:
+        codes.append('partial_retrieval')
+    additions = ([surface_limitation(code) for code in codes]
+        + [surface_limitation('missing_requested_details', gap.question_phrase) for gap in gaps])
+    return additions or ([surface_limitation('missing_requested_details')] if empty_answer else [])
 
 
 def strict_json(raw: str):
