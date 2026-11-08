@@ -48,13 +48,13 @@ describe("LocalWorldRepository contract with the in-memory reference adapter", (
     let releaseWrite!: () => void;
     const gate = new Promise<void>((resolve) => { releaseWrite = resolve; });
     const repo = new InMemoryLocalWorldRepository({
-      idFactory: sequenceIds(),
+      idFactory: sequenceLocalIds(),
       beforeCommit: async (point) => {
         if (holdWrites && point === "semantic-edit") await gate;
       },
     });
-    const first = await makeWorld(repo);
-    const second = await makeWorld(repo);
+    const first = await createTestWorld(repo);
+    const second = await createTestWorld(repo);
     const winner = await repo.commitSemanticEdit({
       worldId: first.snapshot.worldId,
       expectedLocalRevision: 0,
@@ -91,12 +91,12 @@ describe("LocalWorldRepository contract with the in-memory reference adapter", (
     let releaseWrite!: () => void;
     const gate = new Promise<void>((resolve) => { releaseWrite = resolve; });
     const repo = new InMemoryLocalWorldRepository({
-      idFactory: sequenceIds(),
+      idFactory: sequenceLocalIds(),
       beforeCommit: async (point) => {
         if (holdWrites && point === "layout") await gate;
       },
     });
-    const initial = await makeWorld(repo);
+    const initial = await createTestWorld(repo);
     const winningLayout: LocalWorldLayout = {
       positions: { node: { x: 10, y: 10 } },
       viewport: { x: 0, y: 0, zoom: 1 },
@@ -128,7 +128,7 @@ describe("LocalWorldRepository contract with the in-memory reference adapter", (
     let releaseWrite!: () => void;
     const gate = new Promise<void>((resolve) => { releaseWrite = resolve; });
     const repo = new InMemoryLocalWorldRepository({
-      idFactory: sequenceIds(),
+      idFactory: sequenceLocalIds(),
       beforeCommit: async (point) => {
         if (holdWrites && point === "create") await gate;
       },

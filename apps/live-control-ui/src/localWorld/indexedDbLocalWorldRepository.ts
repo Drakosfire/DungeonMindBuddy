@@ -137,8 +137,13 @@ function upgradeDatabase(request: IDBOpenDBRequest, oldVersion: number): void {
 function hasCurrentSchema(db: IDBDatabase): boolean {
   if (!db.objectStoreNames.contains(WORLD_STORE) || !db.objectStoreNames.contains(CONFLICT_STORE)) return false;
   const transaction = db.transaction([WORLD_STORE, CONFLICT_STORE], "readonly");
+  const worlds = transaction.objectStore(WORLD_STORE);
   const conflicts = transaction.objectStore(CONFLICT_STORE);
-  return conflicts.indexNames.contains(CONFLICT_WORLD_INDEX);
+  if (worlds.keyPath !== "snapshot.worldId" || worlds.autoIncrement) return false;
+  if (conflicts.keyPath !== "id" || conflicts.autoIncrement) return false;
+  if (!conflicts.indexNames.contains(CONFLICT_WORLD_INDEX)) return false;
+  const worldIndex = conflicts.index(CONFLICT_WORLD_INDEX);
+  return worldIndex.keyPath === "worldId" && !worldIndex.unique && !worldIndex.multiEntry;
 }
 
 /** Open one isolated named IndexedDB database and fail closed on incompatible schema versions. */
@@ -147,6 +152,8 @@ export function openIndexedDbLocalWorldRepository(
   options: IndexedDbLocalWorldRepositoryOptions = {},
 ): Promise<OpenIndexedDbLocalWorldRepositoryResult> {
   let factory: IDBFactory | null | undefined;
+  const idFactory = options.idFactory ?? defaultIdFactory;
+  const beforeWrite = options.beforeWrite;
   try {
     factory = options.factory === undefined ? globalThis.indexedDB : options.factory;
   } catch (error) {
@@ -230,7 +237,7 @@ export function openIndexedDbLocalWorldRepository(
       db.onversionchange = () => db.close();
       finish({
         status: "opened",
-        repository: new IndexedDbLocalWorldRepository(db, options.idFactory ?? defaultIdFactory, options.beforeWrite),
+        repository: new IndexedDbLocalWorldRepository(db, idFactory, beforeWrite),
       });
     });
   });
@@ -253,9 +260,10 @@ export class IndexedDbLocalWorldRepository implements LocalWorldRepository {
   }
 
   async createWorld(input: { readonly title: string }): Promise<CreateWorldResult> {
+    const title = input.title;
     const worldId = `local-world:${this.idFactory()}` as LocalWorldId;
     const record: LocalWorldRecord = {
-      snapshot: { worldId, title: input.title, objects: [], relationships: [] },
+      snapshot: { worldId, title, objects: [], relationships: [] },
       localRevision: 0,
       publishedRevisionId: null,
       layout: emptyLayout(),
@@ -302,9 +310,11 @@ export class IndexedDbLocalWorldRepository implements LocalWorldRepository {
       readonly description: string;
     };
   }): Promise<CommitSemanticResult> {
+    const worldId = input.worldId;
+    const expectedLocalRevision = input.expectedLocalRevision;
     const proposedSnapshot = cloneLocalWorldValue(input.nextSnapshot);
     const proposedEdit = cloneLocalWorldValue(input.edit);
-    const validationError = validateLocalWorldSnapshot(proposedSnapshot, input.worldId);
+    const validationError = validateLocalWorldSnapshot(proposedSnapshot, worldId);
     if (validationError) return { status: "error", message: validationError };
 
     try {
@@ -314,14 +324,14 @@ export class IndexedDbLocalWorldRepository implements LocalWorldRepository {
         "readwrite",
         async (transaction) => {
           const worlds = transaction.objectStore(WORLD_STORE);
-          const current = await requestResult<LocalWorldRecord | undefined>(worlds.get(input.worldId));
+          const current = await requestResult<LocalWorldRecord | undefined>(worlds.get(worldId));
           if (!current) return { status: "missing" };
 
-          if (current.localRevision !== input.expectedLocalRevision) {
+          if (current.localRevision !== expectedLocalRevision) {
             const candidate: LocalWorldConflictCandidate = {
               id: `local-conflict:${this.idFactory()}` as LocalConflictId,
-              worldId: input.worldId,
-              baseLocalRevision: input.expectedLocalRevision,
+              worldId,
+              baseLocalRevision: expectedLocalRevision,
               currentLocalRevision: current.localRevision,
               proposedSnapshot,
               edit: proposedEdit,
@@ -361,13 +371,15 @@ export class IndexedDbLocalWorldRepository implements LocalWorldRepository {
     readonly expectedLayoutRevision: number;
     readonly nextLayout: LocalWorldLayout;
   }): Promise<WriteLayoutResult> {
+    const worldId = input.worldId;
+    const expectedLayoutRevision = input.expectedLayoutRevision;
     const nextLayout = cloneLocalWorldValue(input.nextLayout);
     try {
       return await inTransaction(this.db, WORLD_STORE, "readwrite", async (transaction) => {
         const worlds = transaction.objectStore(WORLD_STORE);
-        const current = await requestResult<LocalWorldRecord | undefined>(worlds.get(input.worldId));
+        const current = await requestResult<LocalWorldRecord | undefined>(worlds.get(worldId));
         if (!current) return { status: "missing" };
-        if (current.layoutRevision !== input.expectedLayoutRevision) {
+        if (current.layoutRevision !== expectedLayoutRevision) {
           return { status: "conflict", record: cloneLocalWorldValue(current) };
         }
         const next: LocalWorldRecord = {

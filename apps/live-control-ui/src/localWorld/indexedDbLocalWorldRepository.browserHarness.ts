@@ -17,7 +17,11 @@ const output = document.getElementById("result");
 const checks: string[] = [];
 const repositoryHandles: IndexedDbLocalWorldRepository[] = [];
 const rawDatabaseHandles: IDBDatabase[] = [];
-const testDatabaseNames = ["primary", "migration", "future", "schema", "blocked"];
+const testDatabaseNames = [
+  "primary", "migration", "future", "schema", "blocked",
+  "world-key-path", "world-auto-increment", "conflict-key-path", "conflict-auto-increment",
+  "index-key-path", "index-unique", "index-multi-entry",
+];
 const token = crypto.randomUUID();
 const names = Object.fromEntries(testDatabaseNames.map((name) => [
   name,
@@ -106,6 +110,42 @@ async function openLegacyVersionOneDatabase(name: string): Promise<{
   return { db, worldId, record };
 }
 
+interface MalformedSchemaOptions {
+  readonly worldsKeyPath?: string;
+  readonly worldsAutoIncrement?: boolean;
+  readonly conflictsKeyPath?: string;
+  readonly conflictsAutoIncrement?: boolean;
+  readonly indexKeyPath?: string;
+  readonly indexUnique?: boolean;
+  readonly indexMultiEntry?: boolean;
+  readonly omitIndex?: boolean;
+}
+
+async function openMalformedCurrentSchema(name: string, options: MalformedSchemaOptions): Promise<IDBDatabase> {
+  const worldId = `local-world:preserved-${token}`;
+  const request = indexedDB.open(name, LOCAL_WORLD_DATABASE_SCHEMA_VERSION);
+  request.addEventListener("upgradeneeded", () => {
+    const db = request.result;
+    const worlds = db.createObjectStore(LOCAL_WORLD_DATABASE_STORES.worlds, {
+      keyPath: options.worldsKeyPath ?? "snapshot.worldId",
+      autoIncrement: options.worldsAutoIncrement ?? false,
+    });
+    const conflicts = db.createObjectStore(LOCAL_WORLD_DATABASE_STORES.conflicts, {
+      keyPath: options.conflictsKeyPath ?? "id",
+      autoIncrement: options.conflictsAutoIncrement ?? false,
+    });
+    if (!options.omitIndex) {
+      conflicts.createIndex("worldId", options.indexKeyPath ?? "worldId", {
+        unique: options.indexUnique ?? false,
+        multiEntry: options.indexMultiEntry ?? false,
+      });
+    }
+    worlds.add({ id: "preserved-world", worldId, snapshot: { worldId }, marker: "retain-world" });
+    conflicts.add({ id: "preserved-candidate", worldId, marker: "retain-candidate" });
+  });
+  return requestResult(request);
+}
+
 async function run(): Promise<void> {
   const unavailable = await openTestRepository(names.primary, { factory: null });
   assert(unavailable.status === "error" && unavailable.code === "unavailable", "unavailable storage is explicit");
@@ -176,6 +216,62 @@ async function run(): Promise<void> {
   assert(loser.candidate.proposedSnapshot.title !== winner.record.snapshot.title, "losing candidate remains separate from current snapshot");
   assert(loser.candidate.proposedSnapshot.objects.length === 6 && loser.candidate.proposedSnapshot.relationships.length === 2, "candidate retains the complete semantic proposal");
 
+  const secondaryWorld = await createTestWorld(repository, "Untouched secondary World");
+  const semanticHeaderRequest = {
+    worldId: initial.snapshot.worldId,
+    expectedLocalRevision: 1,
+    nextSnapshot: { ...winner.record.snapshot, title: "Mutation-after-call candidate" },
+    edit: { classification: "buddy-local-only" as const, description: "Header mutation regression" },
+  };
+  const pendingSemanticHeader = repository.commitSemanticEdit(semanticHeaderRequest);
+  semanticHeaderRequest.worldId = secondaryWorld.snapshot.worldId;
+  semanticHeaderRequest.expectedLocalRevision = 2;
+  const semanticHeaderResult = await pendingSemanticHeader;
+  assert(
+    semanticHeaderResult.status === "conflict"
+      && semanticHeaderResult.candidate.worldId === initial.snapshot.worldId
+      && semanticHeaderResult.candidate.baseLocalRevision === 1
+      && semanticHeaderResult.candidate.proposedSnapshot.worldId === initial.snapshot.worldId,
+    "semantic CAS and identity headers are captured before IndexedDB request awaits",
+  );
+  const secondaryRead = await repository.readWorld(secondaryWorld.snapshot.worldId);
+  assert(
+    secondaryRead.status === "found" && secondaryRead.record.snapshot.title === "Untouched secondary World",
+    "mutating request identity after invocation cannot redirect a semantic write",
+  );
+
+  const layoutHeaderRequest = {
+    worldId: initial.snapshot.worldId,
+    expectedLayoutRevision: 0,
+    nextLayout: {
+      positions: { [winner.record.snapshot.objects[0].id]: { x: 222, y: 333 } },
+      viewport: { x: 0, y: 0, zoom: 1 },
+      layoutVersion: 1,
+    },
+  };
+  const pendingLayoutHeader = repository.writeLayout(layoutHeaderRequest);
+  layoutHeaderRequest.worldId = secondaryWorld.snapshot.worldId;
+  layoutHeaderRequest.expectedLayoutRevision = 1;
+  const layoutHeaderResult = await pendingLayoutHeader;
+  assert(
+    layoutHeaderResult.status === "conflict" && layoutHeaderResult.record.layoutRevision === 1,
+    "layout CAS and identity headers are captured before IndexedDB request awaits",
+  );
+  const secondaryAfterLayout = await repository.readWorld(secondaryWorld.snapshot.worldId);
+  assert(
+    secondaryAfterLayout.status === "found" && secondaryAfterLayout.record.layoutRevision === 0,
+    "mutating request identity after invocation cannot redirect a layout write",
+  );
+
+  const createHeaderRequest = { title: "Captured at invocation" };
+  const pendingCreateHeader = repository.createWorld(createHeaderRequest);
+  createHeaderRequest.title = "Mutated after invocation";
+  const createHeaderResult = await pendingCreateHeader;
+  assert(
+    createHeaderResult.status === "created" && createHeaderResult.record.snapshot.title === "Captured at invocation",
+    "create title is captured before the first transaction await",
+  );
+
   const failureConnection = await openTestRepository(names.primary, {
     idFactory: sequenceLocalIds(),
     beforeWrite: (point) => {
@@ -197,7 +293,7 @@ async function run(): Promise<void> {
   const afterAbort = await repository.readWorld(initial.snapshot.worldId);
   assert(afterAbort.status === "found" && afterAbort.record.localRevision === 2, "aborted transaction preserves the prior committed revision");
   const candidates = await repository.readConflictCandidates(initial.snapshot.worldId);
-  assert(candidates.status === "found" && candidates.candidates.length === 1, "conflict candidate is retained independently");
+  assert(candidates.status === "found" && candidates.candidates.length === 2, "conflict candidates from CAS and header mutation are retained independently");
 
   const persistedWorldId = initial.snapshot.worldId;
   repository.close();
@@ -210,7 +306,7 @@ async function run(): Promise<void> {
   assert(persisted.status === "found" && persisted.record.localRevision === 2, "reopen restores the latest semantic snapshot");
   assert(persisted.status === "found" && persisted.record.layoutRevision === 1, "reopen restores separate layout revision");
   const persistedCandidates = await repository.readConflictCandidates(persistedWorldId);
-  assert(persistedCandidates.status === "found" && persistedCandidates.candidates.length === 1, "reopen restores the losing candidate");
+  assert(persistedCandidates.status === "found" && persistedCandidates.candidates.length === 2, "reopen restores both retained conflict candidates");
   if (persisted.status !== "found") throw new Error(persisted.status);
   (persisted.record.snapshot.objects[0].properties as Record<string, unknown>).role = "mutated read result";
   const afterReadMutation = await repository.readWorld(persistedWorldId);
@@ -236,24 +332,74 @@ async function run(): Promise<void> {
   migration.repository.close();
   await deleteDatabase(names.migration);
 
-  const invalidSchemaRequest = indexedDB.open(names.schema, LOCAL_WORLD_DATABASE_SCHEMA_VERSION);
-  invalidSchemaRequest.addEventListener("upgradeneeded", () => {
-    invalidSchemaRequest.result.createObjectStore(LOCAL_WORLD_DATABASE_STORES.worlds, { keyPath: "snapshot.worldId" });
-    invalidSchemaRequest.result.createObjectStore(LOCAL_WORLD_DATABASE_STORES.conflicts, { keyPath: "id" });
-  });
-  const invalidSchemaDb = await requestResult(invalidSchemaRequest);
-  invalidSchemaDb.close();
-  const schemaRefusal = await openTestRepository(names.schema, { idFactory: sequenceLocalIds() });
-  assert(schemaRefusal.status === "error" && schemaRefusal.code === "incompatible-schema", "current version with missing required index fails closed");
-  const schemaUnchanged = await requestResult(indexedDB.open(names.schema));
-  assert(
-    schemaUnchanged.version === LOCAL_WORLD_DATABASE_SCHEMA_VERSION
-      && schemaUnchanged.objectStoreNames.contains(LOCAL_WORLD_DATABASE_STORES.worlds)
-      && !schemaUnchanged.transaction(LOCAL_WORLD_DATABASE_STORES.conflicts, "readonly").objectStore(LOCAL_WORLD_DATABASE_STORES.conflicts).indexNames.contains("worldId"),
-    "schema refusal leaves the incompatible database inspectable and unchanged",
-  );
-  schemaUnchanged.close();
-  await deleteDatabase(names.schema);
+  const malformedSchemas: Array<{
+    readonly name: string;
+    readonly label: string;
+    readonly options: MalformedSchemaOptions;
+  }> = [
+    { name: names.schema, label: "missing required index", options: { omitIndex: true } },
+    { name: names["world-key-path"], label: "world store keyPath", options: { worldsKeyPath: "worldId" } },
+    { name: names["world-auto-increment"], label: "world store autoIncrement", options: { worldsAutoIncrement: true } },
+    { name: names["conflict-key-path"], label: "conflict store keyPath", options: { conflictsKeyPath: "worldId" } },
+    { name: names["conflict-auto-increment"], label: "conflict store autoIncrement", options: { conflictsAutoIncrement: true } },
+    { name: names["index-key-path"], label: "conflict lookup index keyPath", options: { indexKeyPath: "id" } },
+    { name: names["index-unique"], label: "conflict lookup index unique flag", options: { indexUnique: true } },
+    { name: names["index-multi-entry"], label: "conflict lookup index multiEntry flag", options: { indexMultiEntry: true } },
+  ];
+  for (const malformed of malformedSchemas) {
+    const invalidDb = await openMalformedCurrentSchema(malformed.name, malformed.options);
+    const originalWorlds = invalidDb.transaction(LOCAL_WORLD_DATABASE_STORES.worlds, "readonly").objectStore(LOCAL_WORLD_DATABASE_STORES.worlds);
+    const originalConflicts = invalidDb.transaction(LOCAL_WORLD_DATABASE_STORES.conflicts, "readonly").objectStore(LOCAL_WORLD_DATABASE_STORES.conflicts);
+    const originalIndex = originalConflicts.indexNames.contains("worldId")
+      ? originalConflicts.index("worldId")
+      : undefined;
+    const originalSchema = {
+      version: invalidDb.version,
+      worldsKeyPath: originalWorlds.keyPath,
+      worldsAutoIncrement: originalWorlds.autoIncrement,
+      conflictsKeyPath: originalConflicts.keyPath,
+      conflictsAutoIncrement: originalConflicts.autoIncrement,
+      indexKeyPath: originalIndex?.keyPath,
+      indexUnique: originalIndex?.unique,
+      indexMultiEntry: originalIndex?.multiEntry,
+    };
+    invalidDb.close();
+    const refusal = await openTestRepository(malformed.name, { idFactory: sequenceLocalIds() });
+    assert(
+      refusal.status === "error" && refusal.code === "incompatible-schema",
+      `same-version schema with wrong ${malformed.label} fails closed`,
+    );
+    if (refusal.status === "opened") {
+      refusal.repository.close();
+      throw new Error(`Malformed same-version schema unexpectedly opened: ${malformed.label}`);
+    }
+    const preservedDb = await requestResult(indexedDB.open(malformed.name));
+    const tx = preservedDb.transaction([LOCAL_WORLD_DATABASE_STORES.worlds, LOCAL_WORLD_DATABASE_STORES.conflicts], "readonly");
+    const preservedWorldStore = tx.objectStore(LOCAL_WORLD_DATABASE_STORES.worlds);
+    const preservedConflictStore = tx.objectStore(LOCAL_WORLD_DATABASE_STORES.conflicts);
+    const preservedIndex = preservedConflictStore.indexNames.contains("worldId")
+      ? preservedConflictStore.index("worldId")
+      : undefined;
+    const [worldMarkers, conflictMarkers] = await Promise.all([
+      requestResult<Array<{ readonly marker?: string }>>(preservedWorldStore.getAll()),
+      requestResult<Array<{ readonly marker?: string }>>(preservedConflictStore.getAll()),
+    ]);
+    assert(
+      preservedDb.version === LOCAL_WORLD_DATABASE_SCHEMA_VERSION
+        && preservedWorldStore.keyPath === originalSchema.worldsKeyPath
+        && preservedWorldStore.autoIncrement === originalSchema.worldsAutoIncrement
+        && preservedConflictStore.keyPath === originalSchema.conflictsKeyPath
+        && preservedConflictStore.autoIncrement === originalSchema.conflictsAutoIncrement
+        && preservedIndex?.keyPath === originalSchema.indexKeyPath
+        && preservedIndex?.unique === originalSchema.indexUnique
+        && preservedIndex?.multiEntry === originalSchema.indexMultiEntry
+        && worldMarkers.some((record) => record.marker === "retain-world")
+        && conflictMarkers.some((record) => record.marker === "retain-candidate"),
+      `schema refusal preserves schema and data for ${malformed.label}`,
+    );
+    preservedDb.close();
+    await deleteDatabase(malformed.name);
+  }
 
   const futureDbRequest = indexedDB.open(names.future, LOCAL_WORLD_DATABASE_SCHEMA_VERSION + 1);
   futureDbRequest.addEventListener("upgradeneeded", () => futureDbRequest.result.createObjectStore("future-only", { keyPath: "id" }));

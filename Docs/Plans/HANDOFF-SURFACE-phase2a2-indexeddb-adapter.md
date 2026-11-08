@@ -2,7 +2,7 @@
 
 Status: ACTIVE — bounded browser-storage adapter slice.
 Authority: Alan's explicit continuation instruction authorizes this local adapter implementation. It does not authorize publication, Phase 1 acceptance, merge, deployment, account adoption, or renderer work.
-Flow: SURFACE. Topology: stacked; local branch `codex/phase2a2-indexeddb-local-world` is based on published Phase 2A1 head `d2421f9821a1a8fc60b127b28ce425aa5921ae27` (PR #2202). If published later, target `codex/phase2a1-local-world-repository`, then integrate/rebase serially after #2202 and #2198 settle. Preserve both predecessor branches. No push or PR creation is authorized in this slice.
+Flow: SURFACE. Topology: stacked; branch `codex/phase2a2-indexeddb-local-world` was created from published Phase 2A1 head `d2421f9821a1a8fc60b127b28ce425aa5921ae27` (PR #2202). Its current corrective successor must include the latest #2202 fix head and remain based on `codex/phase2a1-local-world-repository`; integrate/rebase serially after #2202 and #2198 settle. Preserve both predecessor branches. Alan's standing authorization covers publishing plan branches and updating/opening draft PRs in this repository; this repair updates existing PR #2204 only. No merge or deployment is authorized.
 Checkout: `/home/drakosfire/Projects/.codex/blank-surface-phase1-20261107/worktrees/DungeonMindBuddy`.
 Design input: OverMind PR #106 exact draft head `7db578897e0eb40ab3672d26826eb3bbbee6007c`, `Docs/architecture/CONTRACT-local-world-execution-adoption-phase2.md`, blob `9ceb00c005a7e1a3e22c76bed22a01f501e8cb28`, supplied verbatim in the coordination thread. This implementation consumes only Buddy's Phase2A1 port; it does not import OverMind files.
 
@@ -36,7 +36,7 @@ No package/lockfile, product UI, other adapter, owner service, app routes, or te
 
 ## Deliberately excluded
 
-No Dexie/`idb` or second store dependency, editor/UI wiring, package ZIP/import/export, source/document/assets, conflict resolution/discard UX, account adoption, semantic operation mapping, WorldKeeper/DungeonMind calls, graph renderer, demo data, production migration, merge, push, PR, or deployment. This local branch is prepared for review only; publication requires a later explicit decision.
+No Dexie/`idb` or second store dependency, editor/UI wiring, package ZIP/import/export, source/document/assets, conflict resolution/discard UX, account adoption, semantic operation mapping, WorldKeeper/DungeonMind calls, graph renderer, demo data, production migration, merge, or deployment. The authorized publication is limited to this existing #2204 draft branch/PR.
 
 ## Verification plan and evidence limits
 
@@ -52,3 +52,27 @@ Local verification completed:
 - No new package dependency was added. Direct IndexedDB was selected because browser-native readwrite transactions cover the two required stores atomically and native version upgrades support the exercised migration, while Dexie, `idb`, and fake IndexedDB are absent from the installed app dependencies. This does not prove the choice is best for a future larger schema.
 
 At final re-anchor, #2202 was OPEN/DRAFT/mergeable at exact head `d2421f9821a1a8fc60b127b28ce425aa5921ae27` with no GitHub review submissions; no contract blocker was reported. This successor remains local and unpublished pending final independent cumulative-diff review. It has no hosted CI because it has not been published.
+
+## Corrective review: request snapshot and schema identity
+
+The coordinating steward reported independent HOLD on #2202 at `d2421f9…` and #2204 at `c5751ba…`. The native-browser reproduction in `scratch/independent-a2/` showed mutable semantic request headers could change during an IndexedDB request await and that a wrong `worldId` index keyPath was accepted, hiding persisted conflict candidates. The #2202 request-capture fix is now on its existing branch at `15ce6c14cccf6985297a43aa7628ef476d827966`; the A2 corrective branch must be rebased/advanced to include that exact head before push/review. A2 captures IDs and expected semantic/layout revisions before awaiting IndexedDB requests; it also captures `createWorld` title and open options at invocation.
+
+`hasCurrentSchema` now needs exact v2 store and index validation: `worlds.keyPath === "snapshot.worldId"`, `conflicts.keyPath === "id"`, both stores `autoIncrement === false`, and `conflicts.index("worldId")` has keyPath `worldId`, `unique === false`, and `multiEntry === false`. Same-version malformed databases with each wrong schema property must be refused while their seeded world and candidate records remain readable and unchanged. No database upgrade/delete/repair may be attempted on a malformed current-version schema.
+
+Permanent regressions belong in the existing native IndexedDB browser harness: mutate semantic worldId/expected-revision and layout worldId/expected-layout-revision immediately after method invocation; verify stale CAS remains a conflict and cannot redirect writes; mutate create title; seed wrong store keyPaths/autoIncrement and wrong index keyPath/unique/multiEntry plus missing index; assert each is refused and preserves stored records. Record exact corrected heads and browser/test evidence below after completing the repair. Previous head reviews do not apply to either corrected head; no merge/deployment or package runtime work is authorized by this correction.
+
+The #2202 owning branch now contains the request-capture correction at `e8cf5b1091abd8c0b8c0ed4e33d009a03563c737` and its evidence sync at `15ce6c14cccf6985297a43aa7628ef476d827966`. The A2 branch is being advanced to include `15ce6c1…` before updating existing PR #2204. Local Phase 2A2 verification currently passes: shared contract tests 9/9, `npm --prefix apps/live-control-ui run typecheck`, production build, and 51 native IndexedDB assertions in isolated headless Chrome 150. The browser cases include mutable semantic/layout headers, title capture, eight malformed same-version schema variants, and preservation/readback of seeded World/conflict records after every refusal. Existing build warnings remain the dynamic/static import warning and >500 kB main chunk. The synthetic quota test is not actual quota exhaustion; private-mode and process/power-loss durability are not established. Hosted CI and exact-head independent re-review are pending after the corrected branch is published.
+
+## Corrected A2 implementation verification (2026-11-08)
+
+The local A2 branch is now based on `codex/phase2a1-local-world-repository` at `15ce6c14cccf6985297a43aa7628ef476d827966`. A merge commit carries that exact #2202 head into the original #2204 branch ancestry; the reviewed `c5751ba…` predecessor remains preserved. The correction adds synchronous request-header capture to every asynchronous IndexedDB write (`createWorld`, semantic edit, and layout write), validates the complete current schema shape (both store key paths and autoIncrement flags; index keyPath, unique, and multiEntry flags), and refuses malformed same-version databases without schema changes, data deletion, or repair. Open options are also captured before async open completion. The in-memory contract tests carried into this checkout now use the correct shared fixture helpers.
+
+Verification on the cumulative A1→A2 checkout:
+- `npm --prefix apps/live-control-ui test -- --run src/localWorld/localWorldRepository.test.ts`: 12/12 passed.
+- `npm --prefix apps/live-control-ui run typecheck`: passed.
+- `npm --prefix apps/live-control-ui run build`: passed, retaining the existing dynamic/static import and >500 kB main-chunk warnings.
+- Bundled `indexedDbLocalWorldRepository.browserHarness.ts` with the installed esbuild and ran it in native system Headless Chrome 150 with a fresh temporary profile: 51/51 checks passed. This includes the post-invocation semantic world/revision, layout world/revision, and title mutation cases; concurrent CAS; reopen; and eight malformed same-version schema shapes. For each malformed schema, the harness compares the original database version, store keyPaths and autoIncrement values, index keyPath/unique/multiEntry metadata, and seeded World/candidate records after fail-closed refusal.
+- Browser notes: synthetic `QuotaExceededError` only; actual quota exhaustion, private mode, abrupt termination/power loss, browser eviction, and cross-browser durability remain untested. Reopen proves only persistence within this Chrome profile.
+- `git diff --check`: passed before commit. Existing hosted checks and an independent review of the corrected cumulative head remain pending; prior exact-head reviews do not apply.
+
+The stale initial-handoff statements above saying “do not push” or describing the former 32/51-check state are historical records superseded by the coordinator's later explicit standing publication authorization and this correction section. Update this handoff with the final local commit and remote refs after publishing the existing #2204 branch. No new PR is to be created; no merge/deployment or package/runtime work is authorized.
