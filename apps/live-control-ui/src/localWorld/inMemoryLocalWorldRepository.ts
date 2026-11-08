@@ -71,9 +71,10 @@ export class InMemoryLocalWorldRepository implements LocalWorldRepository {
   }
 
   async createWorld(input: { readonly title: string }): Promise<CreateWorldResult> {
+    const title = input.title;
     const worldId = `local-world:${this.idFactory()}` as LocalWorldId;
     const record: LocalWorldRecord = {
-      snapshot: { worldId, title: input.title, objects: [], relationships: [] },
+      snapshot: { worldId, title, objects: [], relationships: [] },
       localRevision: 0,
       publishedRevisionId: null,
       layout: emptyLayout(),
@@ -120,26 +121,28 @@ export class InMemoryLocalWorldRepository implements LocalWorldRepository {
     };
   }): Promise<CommitSemanticResult> {
     // Capture caller-owned data before awaiting so later mutation cannot alter a queued write.
+    const worldId = input.worldId;
+    const expectedLocalRevision = input.expectedLocalRevision;
     const proposedSnapshot = cloneLocalWorldValue(input.nextSnapshot);
     const proposedEdit = cloneLocalWorldValue(input.edit);
-    const validationError = validateLocalWorldSnapshot(proposedSnapshot, input.worldId);
+    const validationError = validateLocalWorldSnapshot(proposedSnapshot, worldId);
     if (validationError) return { status: "error", message: validationError };
 
     try {
       await this.beforeCommit("semantic-edit");
-      const current = this.store.worlds.get(input.worldId);
+      const current = this.store.worlds.get(worldId);
       if (!current) return { status: "missing" };
-      if (current.localRevision !== input.expectedLocalRevision) {
+      if (current.localRevision !== expectedLocalRevision) {
         const candidate: LocalWorldConflictCandidate = {
           id: `local-conflict:${this.idFactory()}` as LocalConflictId,
-          worldId: input.worldId,
-          baseLocalRevision: input.expectedLocalRevision,
+          worldId,
+          baseLocalRevision: expectedLocalRevision,
           currentLocalRevision: current.localRevision,
           proposedSnapshot,
           edit: proposedEdit,
         };
-        const candidates = this.store.conflictCandidates.get(input.worldId) ?? [];
-        this.store.conflictCandidates.set(input.worldId, [...candidates, cloneLocalWorldValue(candidate)]);
+        const candidates = this.store.conflictCandidates.get(worldId) ?? [];
+        this.store.conflictCandidates.set(worldId, [...candidates, cloneLocalWorldValue(candidate)]);
         return {
           status: "conflict",
           committed: cloneLocalWorldValue(current),
@@ -159,7 +162,7 @@ export class InMemoryLocalWorldRepository implements LocalWorldRepository {
         }],
       };
       // One map replacement publishes snapshot and its history entry together.
-      this.store.worlds.set(input.worldId, cloneLocalWorldValue(next));
+      this.store.worlds.set(worldId, cloneLocalWorldValue(next));
       return { status: "committed", record: cloneLocalWorldValue(next) };
     } catch (error) {
       return { status: "error", message: errorMessage(error) };
@@ -171,12 +174,14 @@ export class InMemoryLocalWorldRepository implements LocalWorldRepository {
     readonly expectedLayoutRevision: number;
     readonly nextLayout: LocalWorldLayout;
   }): Promise<WriteLayoutResult> {
+    const worldId = input.worldId;
+    const expectedLayoutRevision = input.expectedLayoutRevision;
     const nextLayout = cloneLocalWorldValue(input.nextLayout);
     try {
       await this.beforeCommit("layout");
-      const current = this.store.worlds.get(input.worldId);
+      const current = this.store.worlds.get(worldId);
       if (!current) return { status: "missing" };
-      if (current.layoutRevision !== input.expectedLayoutRevision) {
+      if (current.layoutRevision !== expectedLayoutRevision) {
         return { status: "conflict", record: cloneLocalWorldValue(current) };
       }
       const next: LocalWorldRecord = {
@@ -184,7 +189,7 @@ export class InMemoryLocalWorldRepository implements LocalWorldRepository {
         layout: nextLayout,
         layoutRevision: current.layoutRevision + 1,
       };
-      this.store.worlds.set(input.worldId, cloneLocalWorldValue(next));
+      this.store.worlds.set(worldId, cloneLocalWorldValue(next));
       return { status: "written", record: cloneLocalWorldValue(next) };
     } catch (error) {
       return { status: "error", message: errorMessage(error) };

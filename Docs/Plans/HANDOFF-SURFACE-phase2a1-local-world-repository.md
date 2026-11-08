@@ -51,6 +51,14 @@ Completed before PR:
 
 No broad app test suite was run because this slice adds an unconnected contract/reference adapter and does not alter existing Surface or authoring consumers. This is not evidence of browser durability, package round-trip, conflict UI, or Phase 1 acceptance.
 
+## Corrective review: request snapshot boundary
+
+At the steward's report of independent HOLD on PR #2202 head `d2421f9821a1a8fc60b127b28ce425aa5921ae27`, native-browser reproduction showed that `commitSemanticEdit` cloned the proposed payload but read `worldId` and `expectedLocalRevision` from the caller-owned request again after an async hook. A caller mutation could therefore redirect the write or convert a stale CAS into a commit. The authorized corrective edit captures the entire request boundary synchronously before any await: IDs, expected semantic/layout revisions, title/scalar inputs, and cloned payloads. It adds contract tests that mutate semantic headers and layout revision immediately after invocation, plus a create-title snapshot case. The dependent IndexedDB implementation must receive the same correction and browser regression on its own branch before either PR can be re-reviewed.
+
+This correction is limited to the existing A1-owned paths above. It does not widen Phase 2 activation or change package, editor, storage-authority, merge, or deployment scope. Exact new commit/review evidence is recorded after the owning PR update; the earlier head's approvals, if any, do not apply to the corrected head.
+
+The initial correction was pushed to the existing PR #2202 branch as `e8cf5b1091abd8c0b8c0ed4e33d009a03563c737`, based on the prior A1 head `d2421f9821a1a8fc60b127b28ce425aa5921ae27`. Focused repository tests pass 11/11, TypeScript passes, production build passes with the existing dynamic/static import and >500 kB chunk warnings, and the cumulative diff check passes. This is author-run evidence; exact-head independent re-review and hosted CI remain pending.
+
 ## Questions for later slices
 
 An IndexedDB adapter evaluation must compare direct IndexedDB, Dexie and `idb` against the settled port/transaction requirements before adding dependencies. It must prove real reload restoration, quota/private-mode/error handling, crash/interrupted transaction behavior, two-tab CAS conflicts, migrations, and saved-state timing in supported browsers. Package format/limits, document/source references, history/semantic mapping, serialization/hash validation, collision/fork semantics, and adoption contracts remain decisions for their authorized later owner handoffs. Renderer evaluation remains independently gated.
