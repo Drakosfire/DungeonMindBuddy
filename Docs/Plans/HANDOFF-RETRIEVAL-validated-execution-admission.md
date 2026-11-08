@@ -1,8 +1,14 @@
 # RETRIEVAL: reuse execution reconstructed by its binding owner
 
-Status: ACTIVE under the user's retrieval goal and explicit plumbing clarification.
+Status: DELIVERED; runtime lease RELEASED. PR2241 merged at
+64cb0b5c89f685505c7558207e4943e6cf76cac4 and PRIME delivered API
+3a852858510df0a4495ec32dce8ffe27d6c4b813 on schema133. Seven CI checks passed;
+the protected restart conserved retained state with no provider/publication calls.
+The historical implementation scope below is retained as evidence. Successor
+authority lives in HANDOFF-RETRIEVAL-native-binding-reconstruction.md.
+User authority was the retrieval goal and explicit plumbing clarification.
 Root owns backend implementation; PRIME owns merge/delivery.
-Branch codex/admission-validated-execution, existing PR2216 reopened on main
+Branch codex/admission-validated-execution, replacement PR2241 on main
 7bbdaa98dc8dbd73c1573a4a457c818d29d9a859. Topology: parallel-independent relative to frozen2223 (disjoint source/test/doc
 writes, no unmerged behavioral dependency). Deliver2216 before resuming the
 queued2223 names comparison so both arms can share the settled plumbing baseline. No2214 dependency. Original reviewed db7eda360 is retained
