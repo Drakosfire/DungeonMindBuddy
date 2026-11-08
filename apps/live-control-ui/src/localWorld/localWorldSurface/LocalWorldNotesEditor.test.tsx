@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { AgentInteractionProvider } from "../../agentInteraction/AgentInteractionProvider";
 import { InMemoryLocalWorldRepository, InMemoryLocalWorldStore } from "../inMemoryLocalWorldRepository";
+import { clearPendingWorldNotesDraft, getPendingWorldNotesDraft, setPendingWorldNotesDraft } from "../localWorldDocumentAuthoring";
 import { LocalWorldSurface } from "./LocalWorldSurface";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -35,6 +36,116 @@ function renderSurface(repository: InMemoryLocalWorldRepository) {
 }
 
 describe("local World notes editor", () => {
+  it("keeps a newer tab draft separate while a persisted conflict is previewed or discarded", async () => {
+    const user = userEvent.setup();
+    const repository = new InMemoryLocalWorldRepository();
+    const created = await repository.createWorld({ title: "Coexisting drafts" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+    await repository.commitWorldNotes({ worldId: created.record.snapshot.worldId, expectedLocalRevision: 0, markdown: "Committed winner" });
+    const current = await repository.readWorld(created.record.snapshot.worldId);
+    expect(current.status).toBe("found");
+    if (current.status !== "found") return;
+    await repository.commitSemanticEdit({
+      worldId: created.record.snapshot.worldId,
+      expectedLocalRevision: current.record.localRevision,
+      nextSnapshot: { ...current.record.snapshot, title: "Coexisting drafts current" },
+      edit: { classification: "buddy-local-only", description: "Concurrent title edit" },
+    });
+    const stale = await repository.commitWorldNotes({ worldId: created.record.snapshot.worldId, expectedLocalRevision: 1, markdown: "Older persisted candidate" });
+    expect(stale.status).toBe("conflict");
+    setPendingWorldNotesDraft(created.record.snapshot.worldId, "Newer unsaved tab draft", "Committed winner");
+
+    renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Coexisting drafts current/ }));
+    const editor = await screen.findByRole("textbox", { name: "World notes editor" });
+    expect(editor).toHaveValue("Newer unsaved tab draft");
+    expect(editor).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Recover draft 1" }));
+    expect(editor).toHaveValue("Older persisted candidate");
+    expect(getPendingWorldNotesDraft(created.record.snapshot.worldId)?.value).toBe("Newer unsaved tab draft");
+    await user.click(screen.getByRole("button", { name: "Show newer unsaved tab draft" }));
+    expect(editor).toHaveValue("Newer unsaved tab draft");
+    expect(editor).toBeEnabled();
+    expect(getPendingWorldNotesDraft(created.record.snapshot.worldId)?.value).toBe("Newer unsaved tab draft");
+    await user.click(screen.getByRole("button", { name: "Recover draft 1" }));
+    await user.click(screen.getByRole("button", { name: "Keep saved version" }));
+    expect(editor).toHaveValue("Newer unsaved tab draft");
+    expect(getPendingWorldNotesDraft(created.record.snapshot.worldId)?.value).toBe("Newer unsaved tab draft");
+    clearPendingWorldNotesDraft(created.record.snapshot.worldId);
+  });
+
+  it("preserves a newer draft across delayed save, remount, and old conflict recovery", async () => {
+    let holdFirstSave = false;
+    let releaseOldSave!: () => void;
+    let signalSaveStarted!: () => void;
+    const oldSaveGate = new Promise<void>((resolve) => { releaseOldSave = resolve; });
+    const saveStarted = new Promise<void>((resolve) => { signalSaveStarted = resolve; });
+    const store = new InMemoryLocalWorldStore();
+    const repository = new InMemoryLocalWorldRepository({
+      store,
+      beforeCommit: async (point) => {
+        if (point === "document-edit" && holdFirstSave) {
+          holdFirstSave = false;
+          signalSaveStarted();
+          await oldSaveGate;
+        }
+      },
+    });
+    const created = await repository.createWorld({ title: "Delayed conflict drafts" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+    await repository.commitWorldNotes({ worldId: created.record.snapshot.worldId, expectedLocalRevision: 0, markdown: "Committed winner" });
+    holdFirstSave = true;
+
+    const user = userEvent.setup();
+    const first = renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Delayed conflict drafts/ }));
+    const oldEditor = await screen.findByRole("textbox", { name: "World notes editor" });
+    fireEvent.change(oldEditor, { target: { value: "Older in-flight save" } });
+    await saveStarted;
+    act(() => first.unmount());
+
+    const current = await repository.readWorld(created.record.snapshot.worldId);
+    expect(current.status).toBe("found");
+    if (current.status !== "found") return;
+    await repository.commitSemanticEdit({
+      worldId: created.record.snapshot.worldId,
+      expectedLocalRevision: current.record.localRevision,
+      nextSnapshot: { ...current.record.snapshot, title: "Delayed conflict current" },
+      edit: { classification: "buddy-local-only", description: "Concurrent title edit" },
+    });
+
+    const second = renderSurface(new InMemoryLocalWorldRepository({ store }));
+    await user.click(await screen.findByRole("button", { name: /Delayed conflict current/ }));
+    const newerEditor = await screen.findByRole("textbox", { name: "World notes editor" });
+    expect(newerEditor).toHaveValue("Older in-flight save");
+    fireEvent.change(newerEditor, { target: { value: "Newer draft typed after remount" } });
+    act(() => second.unmount());
+
+    await act(async () => {
+      releaseOldSave();
+      await waitFor(async () => {
+        const notes = await repository.readWorldNotes(created.record.snapshot.worldId);
+        expect(notes.status).toBe("found");
+        if (notes.status === "found") expect(notes.state.conflictCandidates).toHaveLength(1);
+      });
+    });
+    expect(getPendingWorldNotesDraft(created.record.snapshot.worldId)?.value).toBe("Newer draft typed after remount\n");
+
+    renderSurface(new InMemoryLocalWorldRepository({ store }));
+    await user.click(await screen.findByRole("button", { name: /Delayed conflict current/ }));
+    const reopenedEditor = await screen.findByRole("textbox", { name: "World notes editor" });
+    expect(reopenedEditor).toHaveValue("Newer draft typed after remount");
+    await user.click(screen.getByRole("button", { name: "Recover draft 1" }));
+    expect(reopenedEditor).toHaveValue("Older in-flight save");
+    expect(getPendingWorldNotesDraft(created.record.snapshot.worldId)?.value).toBe("Newer draft typed after remount\n");
+    await user.click(screen.getByRole("button", { name: "Show newer unsaved tab draft" }));
+    expect(reopenedEditor).toHaveValue("Newer draft typed after remount");
+    expect(reopenedEditor).toBeEnabled();
+    clearPendingWorldNotesDraft(created.record.snapshot.worldId);
+  });
+
   it("creates a real shared-editor document, autosaves it, and restores it after a Surface remount", async () => {
     const user = userEvent.setup();
     const store = new InMemoryLocalWorldStore();

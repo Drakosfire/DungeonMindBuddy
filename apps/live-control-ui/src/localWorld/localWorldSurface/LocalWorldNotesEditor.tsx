@@ -8,6 +8,7 @@ import {
   setPendingWorldNotesDraft,
   clearPendingWorldNotesDraft,
   readWorldNotesPackageData,
+  type PendingWorldNotesDraft,
 } from "../localWorldDocumentAuthoring";
 import type {
   LocalConflictId,
@@ -58,6 +59,7 @@ export function LocalWorldNotesEditor({
   const [status, setStatus] = useState<NotesStatus>("loading");
   const [message, setMessage] = useState<string | null>(null);
   const [conflictCandidates, setConflictCandidates] = useState<readonly LocalWorldConflictCandidate[]>([]);
+  const [preservedTabDraft, setPreservedTabDraft] = useState<PendingWorldNotesDraft | null>(null);
   const [selectedConflictId, setSelectedConflictId] = useState<LocalConflictId | null>(null);
   const [editorKey, setEditorKey] = useState(worldId + ":loading");
   const [editorRevision, setEditorRevision] = useState(0);
@@ -92,7 +94,11 @@ export function LocalWorldNotesEditor({
       const saved = result.state.markdown;
       const firstConflict = result.state.conflictCandidates[0] ?? null;
       const pending = getPendingWorldNotesDraft(worldId);
-      const hasDraft = firstConflict === null && pending !== undefined && pending.value !== saved;
+      const pendingAlreadyStoredAsConflict = pending !== undefined
+        && result.state.conflictCandidates.some((candidate) => notesFromCandidate(candidate) === pending.value);
+      const hasDraft = pending !== undefined && pending.value !== saved && !pendingAlreadyStoredAsConflict;
+      const retainedDraft = hasDraft ? pending : null;
+      setPreservedTabDraft(retainedDraft);
       const activeSource = hasDraft ? pending!.value : saved;
       frontmatter.current = splitLeadingYamlFrontmatter(activeSource).frontmatter;
       setDocumentExists(result.state.documentExists);
@@ -109,7 +115,8 @@ export function LocalWorldNotesEditor({
       setEditorRevision((value) => value + 1);
       setLoaded(true);
       updateStatus(firstConflict ? "conflict" : hasDraft ? "dirty" : "saved");
-      if (firstConflict) setMessage("A previous notes edit is preserved as a local conflict candidate. Choose Recover or Keep saved version.");
+      if (firstConflict && hasDraft) setMessage("A saved conflict and a newer unsaved tab draft are both preserved. Choose which draft to view; neither will replace the other.");
+      else if (firstConflict) setMessage("A previous notes edit is preserved as a local conflict candidate. Choose Recover or Keep saved version.");
       else if (hasDraft) setMessage("An unsaved notes draft was restored in this tab. Save it to keep the current revision.");
     } catch (error) {
       if (!mounted.current || current !== generation.current) return;
@@ -133,7 +140,8 @@ export function LocalWorldNotesEditor({
   const saveNotes = useCallback(async (value: string, conflictId: LocalConflictId | null = selectedConflict.current) => {
     if (busy.current || disabled) return;
     const capturedValue = value;
-    const capturedToken = getPendingWorldNotesDraft(worldId)?.token;
+    const pendingAtStart = getPendingWorldNotesDraft(worldId);
+    const capturedToken = pendingAtStart?.value === capturedValue ? pendingAtStart.token : undefined;
     const capturedGeneration = generation.current;
     const expectedLocalRevision = recordRef.current.localRevision;
     const releaseUnload = beginPendingWrite();
@@ -150,22 +158,33 @@ export function LocalWorldNotesEditor({
       if (result.status === "committed") {
         savedRef.current = capturedValue;
         setDocumentExists(true);
-        setConflictCandidates((current) => current.filter((candidate) => candidate.id !== conflictId));
         recordRef.current = result.record;
         if (mounted.current && capturedGeneration === generation.current) onRecordChange(result.record);
         if (capturedToken !== undefined) clearPendingWorldNotesDraft(worldId, capturedToken);
-        onPendingChange();
+        let failedConflictDiscard = false;
         if (conflictId) {
           const discarded = await repository.discardWorldNotesConflict(worldId, conflictId);
-          if (discarded !== "discarded") setMessage("The note was saved, but an older conflict candidate remains available for explicit cleanup.");
+          failedConflictDiscard = discarded !== "discarded";
+          if (failedConflictDiscard) setMessage("The note was saved, but the selected conflict candidate remains available for explicit cleanup.");
         }
         if (!mounted.current || capturedGeneration !== generation.current) return;
+        setConflictCandidates((current) => failedConflictDiscard
+          ? current
+          : current.filter((candidate) => candidate.id !== conflictId));
+        const remainingCandidates = conflictCandidates.filter((candidate) => failedConflictDiscard || candidate.id !== conflictId);
         const pending = getPendingWorldNotesDraft(worldId);
+        setPreservedTabDraft(pending && pending.value !== capturedValue ? pending : null);
+        onPendingChange();
         if (pending && pending.value !== capturedValue) {
           latestDraft.current = pending.value;
           setMarkdown(pending.value);
           updateStatus("dirty");
           setMessage("A newer note draft remains unsaved.");
+        } else if (remainingCandidates.length > 0) {
+          selectedConflict.current = null;
+          setSelectedConflictId(null);
+          updateStatus("conflict");
+          setMessage("This note was saved, and other retained conflict drafts still need an explicit choice.");
         } else {
           latestDraft.current = capturedValue;
           setMarkdown(capturedValue);
@@ -187,12 +206,26 @@ export function LocalWorldNotesEditor({
         setConflictCandidates((current) => current.some((candidate) => candidate.id === result.candidate.id)
           ? current
           : [...current, result.candidate]);
-        selectedConflict.current = result.candidate.id;
-        setSelectedConflictId(result.candidate.id);
-        setMarkdown(capturedValue);
-        latestDraft.current = capturedValue;
+        const newerPending = getPendingWorldNotesDraft(worldId);
+        const hasNewerPending = newerPending !== undefined
+          && newerPending.token !== capturedToken
+          && newerPending.value !== capturedValue;
+        if (hasNewerPending) {
+          setPreservedTabDraft(newerPending);
+          selectedConflict.current = null;
+          setSelectedConflictId(null);
+          setMarkdown(newerPending.value);
+          latestDraft.current = newerPending.value;
+        } else {
+          selectedConflict.current = result.candidate.id;
+          setSelectedConflictId(result.candidate.id);
+          setMarkdown(capturedValue);
+          latestDraft.current = capturedValue;
+        }
         updateStatus("conflict");
-        setMessage("Another tab saved a newer revision. Your complete note is stored as a conflict candidate; choose whether to reapply it or keep the saved version.");
+        setMessage(hasNewerPending
+          ? "Another tab saved a newer revision. The completed edit is retained as a conflict candidate and your newer tab draft is preserved separately."
+          : "Another tab saved a newer revision. Your complete note is stored as a conflict candidate; choose whether to reapply it or keep the saved version.");
         return;
       }
       if (!mounted.current || capturedGeneration !== generation.current) return;
@@ -206,9 +239,9 @@ export function LocalWorldNotesEditor({
     } finally {
       releaseUnload();
       busy.current = false;
-      onBusyChange(false);
+      if (mounted.current) onBusyChange(false);
     }
-  }, [beginPendingWrite, disabled, onBusyChange, onPendingChange, onRecordChange, repository, updateStatus, worldId]);
+  }, [beginPendingWrite, conflictCandidates, disabled, onBusyChange, onPendingChange, onRecordChange, repository, updateStatus, worldId]);
 
   const saveNotesRef = useRef(saveNotes);
   saveNotesRef.current = saveNotes;
@@ -244,12 +277,14 @@ export function LocalWorldNotesEditor({
         if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
         saveTimer.current = null;
         clearPendingWorldNotesDraft(worldId);
+        setPreservedTabDraft(null);
         onPendingChange();
         updateStatus("saved");
         setMessage(null);
         return;
       }
-      setPendingWorldNotesDraft(worldId, next, savedRef.current);
+      const pending = setPendingWorldNotesDraft(worldId, next, savedRef.current);
+      setPreservedTabDraft(pending ?? null);
       onPendingChange();
       if (selectedConflict.current) {
         updateStatus("conflict");
@@ -279,19 +314,49 @@ export function LocalWorldNotesEditor({
     frontmatter.current = splitLeadingYamlFrontmatter(body).frontmatter;
     latestDraft.current = body;
     setMarkdown(body);
-    setPendingWorldNotesDraft(worldId, body, savedRef.current);
-    onPendingChange();
+    // A persisted conflict is previewed in component state only. Do not put it
+    // in the one-slot tab draft map, where it could overwrite a newer draft.
     selectedConflict.current = candidate.id;
     setSelectedConflictId(candidate.id);
     setEditorKey(worldId + ":conflict:" + candidate.id + ":" + String(editorRevision + 1));
     setEditorRevision((value) => value + 1);
     updateStatus("conflict");
     setMessage("This recovered draft is a read-only preview. Reapply it first to continue editing from that revision, or keep the saved version.");
-  }, [editorRevision, onPendingChange, updateStatus, worldId]);
+  }, [editorRevision, updateStatus, worldId]);
+
+  const returnToPreservedTabDraft = useCallback(() => {
+    const current = getPendingWorldNotesDraft(worldId);
+    if (!current || current.token !== preservedTabDraft?.token) {
+      setPreservedTabDraft(current ?? null);
+      if (current) {
+        frontmatter.current = splitLeadingYamlFrontmatter(current.value).frontmatter;
+        latestDraft.current = current.value;
+        setMarkdown(current.value);
+        selectedConflict.current = null;
+        setSelectedConflictId(null);
+        setEditorKey(worldId + ":tab-draft-current:" + String(editorRevision + 1));
+        setEditorRevision((value) => value + 1);
+        updateStatus("dirty");
+        setMessage("The tab draft changed while this view was open. Its latest copy is selected; saved conflict candidates remain separate.");
+      } else {
+        setMessage("The tab draft was resolved while this view was open. Saved conflict candidates remain available below.");
+        updateStatus("conflict");
+      }
+      return;
+    }
+    frontmatter.current = splitLeadingYamlFrontmatter(current.value).frontmatter;
+    latestDraft.current = current.value;
+    setMarkdown(current.value);
+    selectedConflict.current = null;
+    setSelectedConflictId(null);
+    setEditorKey(worldId + ":tab-draft:" + String(editorRevision + 1));
+    setEditorRevision((value) => value + 1);
+    updateStatus("dirty");
+    setMessage("Your newer unsaved tab draft is selected. Saved conflict candidates remain separately available below.");
+  }, [editorRevision, preservedTabDraft, updateStatus, worldId]);
 
   const keepSavedVersion = useCallback(async (candidate: LocalWorldConflictCandidate) => {
     if (busy.current || disabled) return;
-    const capturedDraftToken = getPendingWorldNotesDraft(worldId)?.token;
     busy.current = true;
     onBusyChange(true);
     try {
@@ -302,17 +367,23 @@ export function LocalWorldNotesEditor({
         return;
       }
       setConflictCandidates((current) => current.filter((item) => item.id !== candidate.id));
-      if (capturedDraftToken !== undefined) clearPendingWorldNotesDraft(worldId, capturedDraftToken);
       onPendingChange();
       selectedConflict.current = null;
       setSelectedConflictId(null);
-      latestDraft.current = savedRef.current;
-      setMarkdown(savedRef.current);
-      frontmatter.current = splitLeadingYamlFrontmatter(savedRef.current).frontmatter;
+      const pending = getPendingWorldNotesDraft(worldId);
+      setPreservedTabDraft(pending && pending.value !== savedRef.current ? pending : null);
+      latestDraft.current = pending?.value !== undefined && pending.value !== savedRef.current ? pending.value : savedRef.current;
+      setMarkdown(latestDraft.current);
+      frontmatter.current = splitLeadingYamlFrontmatter(latestDraft.current).frontmatter;
       setEditorKey(worldId + ":saved:" + String(editorRevision + 1));
       setEditorRevision((value) => value + 1);
-      setMessage("Kept the current saved note and discarded the selected conflict candidate.");
-      updateStatus("saved");
+      setMessage(pending && pending.value !== savedRef.current
+        ? "Discarded the selected conflict candidate; your newer unsaved tab draft remains available."
+        : "Kept the current saved note and discarded the selected conflict candidate.");
+      const otherCandidatesRemain = conflictCandidates.some((item) => item.id !== candidate.id);
+      updateStatus(pending && pending.value !== savedRef.current
+        ? "dirty"
+        : otherCandidatesRemain ? "conflict" : "saved");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "The conflict candidate could not be discarded.");
       updateStatus("error");
@@ -320,7 +391,7 @@ export function LocalWorldNotesEditor({
       busy.current = false;
       onBusyChange(false);
     }
-  }, [disabled, editorRevision, onBusyChange, onPendingChange, repository, updateStatus, worldId]);
+  }, [conflictCandidates, disabled, editorRevision, onBusyChange, onPendingChange, repository, updateStatus, worldId]);
 
   const markdownParts = useMemo(() => splitLeadingYamlFrontmatter(markdown), [markdown]);
   const parsedMarkdown = useMemo(() => markdownToTiptapDoc(markdownParts.markdown), [markdownParts.markdown]);
@@ -359,6 +430,10 @@ export function LocalWorldNotesEditor({
       </div> : null}
       {conflictCandidates.length > 0 ? <div className="local-world-notes__conflicts" aria-label="Recovered World notes drafts">
         <p>{conflictCandidates.length} saved conflict {conflictCandidates.length === 1 ? "draft" : "drafts"} need an explicit choice.</p>
+        {preservedTabDraft && (selectedConflictId !== null || status === "conflict") ? <p>
+          A separate newer unsaved tab draft is also preserved.
+          <button type="button" disabled={disabled} onClick={returnToPreservedTabDraft}>Show newer unsaved tab draft</button>
+        </p> : null}
         <ul>
           {conflictCandidates.map((candidate, index) => <li key={candidate.id}>
             <span>Draft {index + 1}, based on revision {candidate.baseLocalRevision}; current revision {candidate.currentLocalRevision}</span>
