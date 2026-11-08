@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 
 import type {
   GeneratedStatblockCandidateV1,
@@ -331,4 +331,31 @@ describe("StatblockRenderer", () => {
     expect(screen.getByLabelText("Core combat statistics")).toBeInTheDocument();
     expect(screen.getByLabelText("Ability scores")).toBeInTheDocument();
   });
+});
+
+const portraitAsset={asset_id:'portrait-1',provider_kind:'cloudflare_images' as const,url:'https://imagedelivery.net/owner/image/public',mime_type:'image/png',created_at:'2026-11-08T00:00:00Z'};
+afterEach(cleanup);
+it.each(['default','campaign'] as const)('renders only the saved unphased portrait in %s chrome',chrome=>{
+ const saved={...revision,asset_bindings:[
+  {role:'token' as const,asset:{...portraitAsset,asset_id:'token'}},
+  {role:'portrait' as const,phase_key:'enraged',asset:{...portraitAsset,asset_id:'phase'}},
+  {role:'portrait' as const,asset:portraitAsset}]};
+ render(<StatblockRenderer revision={saved} chrome={chrome}/>);
+ expect(screen.getAllByRole('img')).toHaveLength(1);
+ expect(screen.getByRole('img')).toHaveAttribute('src',portraitAsset.url);
+ expect(screen.getByRole('img')).toHaveAttribute('alt',`Portrait of ${revision.definition.identity.name}`);
+});
+it('keeps mechanics visible on an unsafe or failed portrait and resets on a new version',()=>{
+ const saved={...revision,asset_bindings:[{role:'portrait' as const,asset:portraitAsset}]};
+ const view=render(<StatblockRenderer revision={saved}/>);
+ fireEvent.error(screen.getByRole('img'));expect(screen.getByText('Portrait unavailable.')).toBeInTheDocument();
+ expect(screen.getByRole('heading',{name:revision.definition.identity.name})).toBeInTheDocument();
+ view.rerender(<StatblockRenderer revision={{...saved,revision_id:'new-revision'}}/>);
+ expect(screen.getByRole('img')).toBeInTheDocument();
+ view.rerender(<StatblockRenderer revision={{...saved,asset_bindings:[{role:'portrait',asset:{...portraitAsset,url:'javascript:alert(1)'}}]}}/>);
+ expect(screen.queryByRole('img')).toBeNull();expect(screen.getByText('Portrait unavailable.')).toBeInTheDocument();
+});
+it('does not substitute a token or a phase portrait for the default portrait',()=>{
+ render(<StatblockRenderer revision={{...revision,asset_bindings:[{role:'token',asset:portraitAsset},{role:'portrait',phase_key:'enraged',asset:portraitAsset}]}}/>);
+ expect(screen.queryByRole('img')).toBeNull();
 });

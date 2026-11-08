@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import type {
+  AssetRefV1,
   GeneratedStatblockCandidateV1,
   StatblockRevisionResourceV1,
 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
@@ -32,6 +33,17 @@ export type StatblockRendererProps =
       mode?: StatblockRenderMode;
       chrome?: StatblockRendererChrome;
     };
+
+/** Native bindings own image identity; this projection only admits web image URLs. */
+function SavedPortrait({asset,name}:{asset:AssetRefV1;name:string}) {
+  const [failed,setFailed]=useState(false);
+  let url:string|null=null;
+  try {const parsed=new URL(asset.url);if(['https:','http:'].includes(parsed.protocol))url=parsed.href;} catch { /* Show an honest image-only failure. */ }
+  return <figure className="statblock-renderer-portrait" aria-label="Saved portrait">
+    {url&&!failed?<img src={url} alt={asset.alt_text?.trim()||`Portrait of ${name}`} width={asset.width??undefined} height={asset.height??undefined}
+      loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={()=>setFailed(true)}/>:<p role="status">Portrait unavailable.</p>}
+  </figure>;
+}
 
 function ValidationReceiptSection({ view }: { view: StatblockViewModel }) {
   if (!view.validation) return null;
@@ -279,7 +291,7 @@ function CampaignSectionCard({
   );
 }
 
-function CampaignStatblockBody({ view }: { view: StatblockViewModel }) {
+function CampaignStatblockBody({ view,portrait }: { view: StatblockViewModel;portrait:ReactNode }) {
   const sections = groupRuleElementsBySection(view.ruleElements);
   const damageRows = view.damageInteractions.map((entry) => ({
     label: formatDamageKindLabel(entry.kind),
@@ -298,6 +310,7 @@ function CampaignStatblockBody({ view }: { view: StatblockViewModel }) {
         <h3>{view.name}</h3>
         <p className="statblock-campaign-identity">{view.identityLine}</p>
       </header>
+      {portrait}
 
       <div className="statblock-campaign-grid">
         <div className="statblock-campaign-col">
@@ -502,6 +515,8 @@ export function StatblockRenderer({
   const view = buildStatblockViewModel(source, mode);
   const sections = groupRuleElementsBySection(view.ruleElements);
   const campaignChrome = chrome === "campaign";
+  const binding=revision?.asset_bindings?.find(item=>item.role==='portrait'&&item.phase_key==null);
+  const portrait=binding?<SavedPortrait key={`${revision!.revision_id}:${binding.asset.asset_id}:${binding.asset.url}`} asset={binding.asset} name={view.name}/>:null;
 
   return (
     <article
@@ -514,7 +529,7 @@ export function StatblockRenderer({
       aria-label={`Statblock ${view.recordKind} ${view.name}`}
     >
       {campaignChrome ? (
-        <CampaignStatblockBody view={view} />
+        <CampaignStatblockBody view={view} portrait={portrait} />
       ) : (
         <>
           <header className="statblock-renderer-header">
@@ -526,6 +541,7 @@ export function StatblockRenderer({
             </p>
             {view.flavorSummary ? <p className="statblock-renderer-flavor">{view.flavorSummary}</p> : null}
           </header>
+          {portrait}
 
           <dl className="statblock-renderer-core" aria-label="Core combat statistics">
             <div>
