@@ -1,3 +1,4 @@
+import {worldCreatureChoiceKey} from '../api/worldMechanicsTypes';
 import { useEffect, useRef, useState } from 'react';
 import { listWorldMechanicsAssociations, listWorldCreatures } from '../api/liveApi';
 import { listAcceptedCombatMechanics, previewAcceptedCombatMechanics, previewWorldCombatMechanics } from './combatApi';
@@ -128,8 +129,8 @@ function Assembly({worldId,disabled,remainingSlots,onAdd}:AssemblyProps) {
       {world && <>
         {world.completeness === 'partial' && <p>Some creature records are unavailable in this view.</p>}
         <label>Search creatures<input aria-label="Search World creatures" value={query} disabled={disabled} onChange={event => setQuery(event.target.value)} /></label>
-        <ul aria-label="World creatures" className="combat-assembly__candidates">{candidates.map(node => <li key={node.node_id}>
-          <button type="button" disabled={disabled} aria-pressed={selected?.node_id === node.node_id} onClick={() => {
+        <ul aria-label="World creatures" className="combat-assembly__candidates">{candidates.map(node => <li key={worldCreatureChoiceKey(node)}>
+          <button type="button" disabled={disabled} aria-pressed={selected !== null && worldCreatureChoiceKey(selected) === worldCreatureChoiceKey(node)} onClick={() => {
             discardPreview(); setError(null);
             setSelected({...node});
             setName(node.label);

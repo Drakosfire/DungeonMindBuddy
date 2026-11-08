@@ -63,33 +63,46 @@ def catalog(world_id, *, revision_id=None):
             repo, bound["native_world_id"], revision, None, "gm", scope_mode="world"
         )
         listing = EntityReadService().list_entities(read)
-        names, actors, campaigns = {}, {}, {}
-        # Do not admit records or aliases here. Only Core's admitted IDs from the
-        # same read context can contribute the classification/name witness.
+        names, actors = {}, {}
+        # Core owns admission. Each choice retains its actual classification
+        # scope; a union of campaigns is never a World-universal declaration.
         for identity in listing.admitted_assertion_ids:
             assertion = access.parsed.get_assertion(identity)
             value = assertion.value
-            if (
+            if assertion.predicate not in {"dnd5e:classification", "dnd5e:name"}:
+                continue
+            relevant = (
                 assertion.predicate == "dnd5e:classification"
                 and value.kind == "term_ref"
                 and value.term in _ACTOR_KINDS
-            ):
-                actors.setdefault(assertion.subject_entity_id, set()).add(value.term)
-                scopes = {
-                    item.value
-                    for item in assertion.metadata.scope
-                    if item.axis == CAMPAIGN_SCOPE_AXIS
-                }
-                campaigns.setdefault(assertion.subject_entity_id, set()).update(
-                    scopes or {None}
-                )
-            elif (
-                assertion.predicate == "dnd5e:name"
+                or assertion.predicate == "dnd5e:name"
                 and value.kind == "literal"
                 and isinstance(value.value, str)
                 and value.value.strip()
+            )
+            if not relevant:
+                continue
+            bindings = assertion.metadata.scope
+            scopes = {
+                binding.value
+                for binding in bindings
+                if binding.axis == CAMPAIGN_SCOPE_AXIS
+            }
+            if (
+                any(binding.axis != CAMPAIGN_SCOPE_AXIS for binding in bindings)
+                or len(scopes) > 1
             ):
-                names.setdefault(assertion.subject_entity_id, set()).add(value.value)
+                raise ApplicationStateUnavailableError(
+                    "Creature selection cannot represent this declared scope"
+                )
+            scope = next(iter(scopes), None)
+            key = (assertion.subject_entity_id, scope)
+            if assertion.predicate == "dnd5e:classification":
+                actors.setdefault(assertion.subject_entity_id, {}).setdefault(
+                    scope, set()
+                ).add(value.term)
+            else:
+                names.setdefault(key, set()).add(value.value)
         targets = tuple(
             WorldMechanicsTarget(
                 managed_world_id=world_id,
@@ -97,20 +110,26 @@ def catalog(world_id, *, revision_id=None):
                 binding_version=bound["binding_version"],
                 graph_revision_id=revision,
                 node_id=entity.entity_id,
-                label=" / ".join(sorted(names.get(entity.entity_id, ())))
+                label=" / ".join(
+                    sorted(
+                        names.get((entity.entity_id, scope), set())
+                        | names.get((entity.entity_id, None), set())
+                    )
+                )
                 or entity.entity_id,
                 kind=next(
                     _ACTOR_KINDS[term]
                     for term in _ACTOR_KINDS
-                    if term in actors[entity.entity_id]
+                    if term in actors[entity.entity_id][scope]
                 ),
                 role="",
-                campaign_scope=next(iter(campaigns[entity.entity_id]))
-                if len(campaigns[entity.entity_id]) == 1
-                else None,
+                campaign_scope=scope,
             )
             for entity in listing.entities
-            if entity.entity_id in actors
+            for scope in sorted(
+                actors.get(entity.entity_id, {}),
+                key=lambda scope: (scope is not None, scope or ""),
+            )
         )
         view = CreatureCatalog(
             world_id,
@@ -161,7 +180,13 @@ def require_target(target, view, *, head=False):
             "World contents changed; load creatures and confirm again"
         )
     actual = next(
-        (item for item in view.targets if item.node_id == target.node_id), None
+        (
+            item
+            for item in view.targets
+            if item.node_id == target.node_id
+            and item.campaign_scope == target.campaign_scope
+        ),
+        None,
     )
     if (
         actual is None

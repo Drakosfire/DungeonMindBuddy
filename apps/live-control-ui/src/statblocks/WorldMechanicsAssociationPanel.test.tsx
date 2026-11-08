@@ -1,3 +1,4 @@
+import {worldCreatureChoiceKey} from '../api/worldMechanicsTypes';
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -22,7 +23,7 @@ function result(request:AssociateWorldMechanicsRequest):AssociateWorldMechanicsR
 const key=`dmb.worldMechanics.pending:${draft.world_id}:${draft.draft_id}`;
 async function choose() {
   const user=userEvent.setup();await user.click(screen.getByRole("button",{name:"Load creatures"}));
-  await user.selectOptions(await screen.findByRole("combobox",{name:"World creature"}),"node:two");return user;
+  await user.selectOptions(await screen.findByRole("combobox",{name:"World creature"}),worldCreatureChoiceKey(view.targets[1]));return user;
 }
 beforeEach(()=>{
   localStorage.clear();
@@ -154,4 +155,17 @@ it('ignores an old native read after the same host switches World in place',asyn
   await act(async()=>finish(view));
   expect(screen.queryByRole('combobox',{name:'World creature'})).toBeNull();
   expect(screen.getByRole('button',{name:'Load creatures'})).toBeEnabled();
+});
+
+it('preserves separate campaign choices for one actor instead of broadening scope',async()=>{
+  vi.mocked(api.listWorldCreatures).mockResolvedValue({...view,targets:[
+    {...view.targets[0],campaign_scope:'c1'}, {...view.targets[0],campaign_scope:'c2'},
+  ]});
+  const save=vi.spyOn(api,'associateWorldMechanics').mockImplementation(async(_,request)=>result(request));
+  render(<WorldMechanicsAssociationPanel draft={draft}/>);
+  await userEvent.click(screen.getByRole('button',{name:'Load creatures'}));
+  await userEvent.selectOptions(await screen.findByRole('combobox',{name:'World creature'}),worldCreatureChoiceKey({...view.targets[0],campaign_scope:'c2'}));
+  await userEvent.click(screen.getByRole('button',{name:'Associate creature mechanics'}));
+  await waitFor(()=>expect(save).toHaveBeenCalledTimes(1));
+  expect(save.mock.calls[0][1].target).toMatchObject({node_id:'node:one',campaign_scope:'c2'});
 });

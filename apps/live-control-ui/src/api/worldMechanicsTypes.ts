@@ -49,13 +49,14 @@ export interface WorldCreatureCatalog {
   completeness: 'complete' | 'partial';
   targets: WorldMechanicsTarget[];
 }
+export const worldCreatureChoiceKey = (target:Pick<WorldMechanicsTarget,'node_id'|'campaign_scope'>):string => JSON.stringify([target?.node_id,target?.campaign_scope]);
 export function verifyWorldCreatureCatalog(view: WorldCreatureCatalog, worldId: string): void {
   if (view?.schema !== 'dmb_native_world_creatures_v1' || view.managed_world_id !== worldId
     || typeof view.native_world_id !== 'string' || !view.native_world_id
     || !Number.isSafeInteger(view.binding_version) || view.binding_version < 1
     || typeof view.revision_id !== 'string' || !view.revision_id
     || !['complete', 'partial'].includes(view.completeness) || !Array.isArray(view.targets)
-    || new Set(view.targets.map(n => n?.node_id)).size !== view.targets.length
+    || new Set(view.targets.map(worldCreatureChoiceKey)).size !== view.targets.length
     || view.targets.some(n => !n || n.managed_world_id !== worldId || n.native_world_id !== view.native_world_id
       || n.binding_version !== view.binding_version || n.graph_revision_id !== view.revision_id
       || typeof n.node_id !== 'string' || !n.node_id || typeof n.label !== 'string' || !n.label

@@ -1,3 +1,4 @@
+import {worldCreatureChoiceKey} from '../api/worldMechanicsTypes';
 import { useEffect, useRef, useState } from "react";
 import {
   associateWorldMechanics, listWorldMechanicsAssociations,
@@ -45,7 +46,8 @@ function AssociationPanel({ draft }: { draft: ThreatDraftV2 }) {
   const flight = useRef(false);
   useEffect(() => { live.current = true; return () => { live.current = false; }; }, []);
   const nodes = view?.targets ?? [];
-  const previous = current.find(record => record.request.target.node_id === selected);
+  const selectedTarget = nodes.find(node => worldCreatureChoiceKey(node) === selected);
+  const previous = current.find(record => record.request.target.node_id === selectedTarget?.node_id);
 
   async function load() {
     if (flight.current || pending) return;
@@ -131,7 +133,7 @@ function AssociationPanel({ draft }: { draft: ThreatDraftV2 }) {
   }
 
   function start() {
-    const node = nodes.find(n => n.node_id === selected);
+    const node = selectedTarget;
     if (!view || !node || initial.error) return;
     void submit({
       request_id: crypto.randomUUID(), draft_id: draft.draft_id,
@@ -151,7 +153,7 @@ function AssociationPanel({ draft }: { draft: ThreatDraftV2 }) {
       <label>World creature
         <select aria-label="World creature" value={selected} onChange={e => setSelected(e.target.value)} disabled={busy || !!pending}>
           <option value="">Choose a creature</option>
-          {nodes.map(node => <option key={node.node_id} value={node.node_id}>
+          {nodes.map(node => <option key={worldCreatureChoiceKey(node)} value={worldCreatureChoiceKey(node)}>
             {node.label} · {node.kind}{node.campaign_scope ? ` · ${node.campaign_scope}` : ""} · {node.node_id}
           </option>)}
         </select>

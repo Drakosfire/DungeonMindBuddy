@@ -219,3 +219,85 @@ def test_native_creature_read_requires_the_existing_gm_boundary(selected):
         headers={"Authorization": "Bearer wrong"},
     )
     assert response.status_code == 401
+
+
+def extend_actor_scope(x, scope, name):
+    metadata = replace(
+        x.meta,
+        scope=() if scope is None else (wk.ScopeBinding(CAMPAIGN_SCOPE_AXIS, scope),),
+    )
+    runtime = transport.runtime(
+        x.lane.repo,
+        x.lane.domain,
+        x.lane.profile,
+        now=datetime.now(UTC),
+        operation_id="actor-scope-" + str(scope),
+    )
+    intent = wk.WorldChangeIntent(
+        x.lane.bound["native_world_id"],
+        "scope fixture",
+        (
+            wk.UseExisting(
+                x.ids["one"],
+                (
+                    wk.CreateFact(
+                        "extra.kind",
+                        "dnd5e:classification",
+                        wk.TermRefFactValue("dungeonbuddy:creature"),
+                        metadata,
+                    ),
+                    wk.CreateFact(
+                        "extra.name", "dnd5e:name", wk.LiteralFactValue(name), metadata
+                    ),
+                ),
+            ),
+        ),
+    )
+    runtime.commit_prepared_change(
+        runtime.prepare_change(intent), confirmed_by="local_operator"
+    )
+
+
+def test_same_actor_campaigns_stay_distinct_and_cannot_claim_world_scope(selected):
+    x = selected
+    extend_actor_scope(x, "c2", "Second campaign name")
+    view = creatures.catalog("managed")
+    variants = [target for target in view.targets if target.node_id == x.ids["one"]]
+    assert {target.campaign_scope for target in variants} == {
+        x.lane.run.campaign_id,
+        "c2",
+    }
+    c1 = next(
+        target for target in variants if target.campaign_scope == x.lane.run.campaign_id
+    )
+    c2 = next(target for target in variants if target.campaign_scope == "c2")
+    assert (c1.label, c1.kind) == ("Same name", "character")
+    assert (c2.label, c2.kind) == ("Second campaign name", "creature")
+    for target in variants:
+        assert creatures.require_target(target, view, head=True) == target
+    with pytest.raises(ApplicationStateConflictError):
+        creatures.require_target(
+            c1.model_copy(update={"campaign_scope": None}), view, head=True
+        )
+
+
+def test_explicit_world_and_campaign_assertions_keep_both_scope_choices(selected):
+    x = selected
+    extend_actor_scope(x, None, "World name")
+    view = creatures.catalog("managed")
+    variants = [target for target in view.targets if target.node_id == x.ids["one"]]
+    assert {target.campaign_scope for target in variants} == {
+        None,
+        x.lane.run.campaign_id,
+    }
+    global_choice = next(target for target in variants if target.campaign_scope is None)
+    local_choice = next(
+        target for target in variants if target.campaign_scope is not None
+    )
+    assert global_choice.label == "World name" and global_choice.kind == "creature"
+    assert (
+        local_choice.label == "Same name / World name"
+        and local_choice.kind == "character"
+    )
+    for target in variants:
+        assert creatures.require_target(target, view, head=True) == target

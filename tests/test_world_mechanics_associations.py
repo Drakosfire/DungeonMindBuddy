@@ -173,3 +173,16 @@ def test_draft_lock_is_held_through_short_app_append(prepared,monkeypatch):
         monkeypatch.setattr(state,'append_verified',verify_lock)
         assert post(p).status_code==200
         assert observed[0].result(timeout=3)==p.draft
+
+
+def test_same_entity_scope_variants_save_only_the_explicit_selected_witness(prepared):
+    p=prepared
+    original=p.view.targets[0]
+    p.view.targets=[original.model_copy(update={'campaign_scope':'c1'}),original.model_copy(update={'campaign_scope':'c2'})]
+    p.body['target']['campaign_scope']='c2'
+    response=post(p)
+    assert response.status_code==200,response.text
+    assert response.json()['association']['request']['target']['campaign_scope']=='c2'
+    forged={**p.body,'request_id':str(uuid4()),'expected_version':1,'target':{**p.body['target'],'campaign_scope':None}}
+    assert post(p,forged).status_code==409
+    assert state.list_current(world_id='elderwyld')[0].request.target.campaign_scope=='c2'

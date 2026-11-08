@@ -82,12 +82,14 @@ it('keeps copies within the remaining owning draft capacity', () => {
 it('distinguishes same-name World identities by campaign and exact node', async () => {
   vi.spyOn(api,'listWorldCreatures').mockResolvedValue({...world,targets:[
     {...world.targets[0],campaign_scope:'campaign-one'},
-    {...world.targets[0],node_id:'npc-b',campaign_scope:'campaign-two'},
+    {...world.targets[0],campaign_scope:'campaign-two'},
   ]});
   const {onAdd}=mount();await userEvent.click(screen.getByRole('button',{name:'Find World creatures'}));
-  await userEvent.click(await screen.findByRole('button',{name:'World Scout npc · campaign-two · npc-b'}));
+  await userEvent.click(await screen.findByRole('button',{name:'World Scout npc · campaign-two · npc-a'}));
+  expect(screen.getByRole('button',{name:'World Scout npc · campaign-one · npc-a'})).toHaveAttribute('aria-pressed','false');
+  expect(screen.getByRole('button',{name:'World Scout npc · campaign-two · npc-a'})).toHaveAttribute('aria-pressed','true');
   await userEvent.click(screen.getByRole('button',{name:'Add to encounter draft'}));
-  expect(onAdd.mock.calls[0][0][0].world_identity).toMatchObject({node_id:'npc-b',campaign_scope:'campaign-two'});
+  expect(onAdd.mock.calls[0][0][0].world_identity).toMatchObject({node_id:'npc-a',campaign_scope:'campaign-two'});
 });
 
 

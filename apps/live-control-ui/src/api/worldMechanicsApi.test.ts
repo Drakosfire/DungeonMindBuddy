@@ -43,3 +43,10 @@ it.each(['world','revision','binding','kind','duplicate','coverage'])('refuses a
   vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json(view));
   await expect(listWorldCreatures('elderwyld')).rejects.toThrow('Native creature selection did not match');
 });
+
+it('keeps distinct campaign variants of one actor in the native response',async()=>{
+  setNativeGraphAccessToken('native-test-token');
+  const packet=structuredClone(native);packet.targets.push({...packet.targets[0],campaign_scope:'c2'});
+  vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json(packet));
+  expect((await listWorldCreatures('elderwyld')).targets).toEqual(packet.targets);
+});
