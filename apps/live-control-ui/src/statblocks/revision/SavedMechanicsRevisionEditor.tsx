@@ -29,7 +29,9 @@ function sameShape(base:unknown,value:unknown):boolean {
   return typeof value!=='number'||Number.isFinite(value);
 }
 
-export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,initialRevisionId,onSwitchGuardChange,onOpenedRevisionChange}:{worldId:string;draftId:string;autoLoad?:boolean;initialRevisionId?:string;onSwitchGuardChange?:(reason:string|null)=>void;onOpenedRevisionChange?:(revision:string)=>void}) {
+export type SavedMechanicsSessionState={revisionId:string|null;busy:boolean;switchReason:string|null};
+
+export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,initialRevisionId,onSessionStateChange}:{worldId:string;draftId:string;autoLoad?:boolean;initialRevisionId?:string;onSessionStateChange?:(state:SavedMechanicsSessionState)=>void}) {
  const guidance=useGuidedTour(),generationPlan=useGenerationPlan();
  const generatedScope=guidance&&generationPlan?guidance.captureMechanicsScope(generationPlan,draftId):null,latestGeneratedScope=useRef(generatedScope);latestGeneratedScope.current=generatedScope;
  const [generatedAcknowledged,setGeneratedAcknowledged]=useState<AcknowledgedGeneratedMechanicsSave|null>(null);
@@ -182,12 +184,11 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,ini
     }catch(error){if(token===epoch.current)setMessage(error instanceof Error?error.message:String(error));}
     finally{if(token===epoch.current)setBusy(false);}
   }
-  const switchReason=busy||pending||successorToOpen||studioSource===studioKey&&studioSource!==null||portraitAssetId!==null
+  const switchReason=busy?'Wait for the current statblock operation before opening another saved version.':pending||successorToOpen||studioSource===studioKey&&studioSource!==null||portraitAssetId!==null
     ||summary!=='Manual mechanics revision'||!!editor&&editor.baselineFingerprint!==fingerprintDefinition(editor.workingCopy)
     ?'Save, recover or revert the current statblock work before opening another statblock.':null;
-  useLayoutEffect(()=>{onSwitchGuardChange?.(switchReason);},[onSwitchGuardChange,switchReason]);
+  useLayoutEffect(()=>{onSessionStateChange?.({revisionId:opened?.locator.revision_id??null,busy,switchReason});},[opened,busy,switchReason,onSessionStateChange]);
   useTourNavigationGuard({worldId,reason:()=>switchReason});
-  useLayoutEffect(()=>{if(opened)onOpenedRevisionChange?.(opened.locator.revision_id);},[opened,onOpenedRevisionChange]);
   return <section className="statblock-section" aria-label="Saved mechanics versions">
     {!tourScope&&<GeneratedMechanicsTourObservation scope={generatedScope} opened={opened} history={history} acknowledged={generatedAcknowledged} blocked={switchReason!==null}/>}
     <MechanicsTourObservation scope={tourScope} opened={opened} history={history} acknowledged={tourAcknowledged} blocked={switchReason!==null}/>

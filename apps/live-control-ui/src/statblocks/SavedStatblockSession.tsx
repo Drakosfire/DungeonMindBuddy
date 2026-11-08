@@ -5,6 +5,7 @@ import {GenerationPlanProvider,useGenerationPlan} from '../guidedTour/Generation
 import {TourEncounterProvider,useTourEncounter,type TourEncounterScope} from '../guidedTour/EncounterScope';
 import type {TargetPin} from '../guidedTour/protocol';
 import './SavedStatblockDialog.css';
+import type {SavedMechanicsSessionState} from './revision/SavedMechanicsRevisionEditor';
 
 const Editor=deferredComponent(()=>import('./revision/SavedMechanicsRevisionEditor').then(module=>({default:module.SavedMechanicsRevisionEditor})),'saved statblock editor');
 type Target={worldId:string;draftId:string;revisionId?:string};
@@ -23,17 +24,16 @@ export function SavedStatblockProvider({worldId,children}:{worldId:string|null;c
 function WorldSession({worldId,children}:{worldId:string|null;children:ReactNode}) {
   const [selection,setSelection]=useState<Selection|null>(null),[open,setOpen]=useState(false),[expanded,setExpanded]=useState(false),[message,setMessage]=useState('');
   const [presentation,setPresentation]=useState<Presentation>({encounter:null,generationPlan:null});
-  const current=useRef<Selection|null>(null),openedRevision=useRef<string|null>(null),reason=useRef<string|null>(null),dialog=useRef<HTMLDialogElement>(null);
+  const current=useRef<Selection|null>(null),observed=useRef<SavedMechanicsSessionState>({revisionId:null,busy:true,switchReason:'Opening saved mechanics. Wait before choosing another statblock.'}),dialog=useRef<HTMLDialogElement>(null);
   const location=useSyncExternalStore(subscribeAppLocation,getAppLocationSnapshot),lastLocation=useRef(location);
   useEffect(()=>{if(lastLocation.current!==location){lastLocation.current=location;setOpen(false);}},[location]);
   const session=useMemo<Session>(()=>({worldId,openStatblock:(next,context={encounter:null,generationPlan:null})=>{
     if(!worldId||next.worldId!==worldId){setMessage('This statblock is unavailable in the selected World.');return;}
     if(context.encounter&&context.encounter.plan.worldId!==worldId||context.generationPlan&&context.generationPlan.worldId!==worldId){setMessage('The statblock presentation belongs to another World.');return;}
-    if(current.current&&sameDraft(current.current.target,next)&&(!next.revisionId||next.revisionId===openedRevision.current
-      ||openedRevision.current===null&&next.revisionId===current.current.target.revisionId)){if(!reason.current)setPresentation(structuredClone(context));setMessage('');setOpen(true);return;}
-    if(current.current&&reason.current){setMessage(reason.current);setOpen(true);return;}
+    if(current.current&&sameDraft(current.current.target,next)&&(!next.revisionId||!observed.current.busy&&next.revisionId===observed.current.revisionId)){if(!observed.current.switchReason)setPresentation(structuredClone(context));setMessage('');setOpen(true);return;}
+    if(current.current&&observed.current.switchReason){setMessage(observed.current.switchReason);setOpen(true);return;}
     const selected={target:next,serial:(current.current?.serial??0)+1};
-    current.current=selected;openedRevision.current=null;reason.current='Opening saved mechanics. Wait before choosing another statblock.';
+    current.current=selected;observed.current={revisionId:null,busy:true,switchReason:'Opening saved mechanics. Wait before choosing another statblock.'};
     setSelection(selected);setPresentation(structuredClone(context));setMessage('');setOpen(true);
   }}),[worldId]);
   useEffect(()=>{
@@ -53,8 +53,7 @@ function WorldSession({worldId,children}:{worldId:string|null;children:ReactNode
       <div className="saved-statblock-dialog__body">
         {message&&<p role="alert">{message}</p>}
         {target&&<TourEncounterProvider scope={presentation.encounter}><GenerationPlanProvider pin={presentation.generationPlan}><Editor key={key!} worldId={target.worldId} draftId={target.draftId} initialRevisionId={target.revisionId} autoLoad
-          onSwitchGuardChange={value=>{if(current.current?.serial===key)reason.current=value;}}
-          onOpenedRevisionChange={revision=>{if(current.current?.serial===key)openedRevision.current=revision;}}/></GenerationPlanProvider></TourEncounterProvider>}
+          onSessionStateChange={state=>{if(current.current?.serial===key)observed.current=state;}}/></GenerationPlanProvider></TourEncounterProvider>}
       </div>
     </dialog>
   </Context.Provider>;
