@@ -9,7 +9,6 @@ import type {RevisionSaveOutcome} from './revision/savedMechanicsRevisionTypes';
 import {GenerationPlanProvider} from '../guidedTour/GenerationObservations';
 import {TourEncounterProvider,type TourEncounterScope} from '../guidedTour/EncounterScope';
 import {SavedStatblockProvider,SavedStatblockButton} from './SavedStatblockSession';
-import {navigatePrimaryAppHref} from '../chrome/appNavigation';
 function SessionHost(props:{worldId:string;draftId:string}) {return <SavedStatblockProvider worldId={props.worldId}><SavedStatblockButton {...props}/></SavedStatblockProvider>;}
 const guidance=vi.hoisted(()=>({readings:[] as any[],captureMechanicsScope:vi.fn(()=>null)}));
 vi.mock('../guidedTour/GuidedTour',async(importOriginal)=>({...await importOriginal<typeof import('../guidedTour/GuidedTour')>(),useGuidedTour:()=>({captureScope:()=>null,captureMechanicsScope:guidance.captureMechanicsScope}),useTourOwnerReading:(reading:unknown)=>{if(reading)guidance.readings.push(reading);}}));
@@ -22,7 +21,7 @@ beforeAll(()=>{
  Object.defineProperty(HTMLDialogElement.prototype,'close',{configurable:true,value:function(this:HTMLDialogElement){this.removeAttribute('open');this.dispatchEvent(new Event('close'));}});
 });
 beforeEach(()=>{
- vi.resetAllMocks();guidance.readings=[];localStorage.clear();sessionStorage.clear();
+ vi.resetAllMocks();guidance.readings=[];localStorage.clear();sessionStorage.clear();window.history.replaceState({},'', '/build?world=world');
  vi.mocked(api.listSavedMechanicsVersions).mockResolvedValue({world_id:world,draft_id:draft,name:resource.definition.identity.name,original:locator,operations:[],pending:null,next_offset:null});
  vi.mocked(api.openSavedMechanicsVersion).mockResolvedValue({world_id:world,draft_id:draft,locator,resource});
  vi.mocked(api.validateStatblockDefinition).mockResolvedValue({schema:'dmb_statblock_definition_validation_v1',outcome:'success',definition_digest:resource.definition_digest,validation_receipt:resource.validation_receipt} as Awaited<ReturnType<typeof api.validateStatblockDefinition>>);
@@ -119,10 +118,13 @@ it('does not provide an isolated fallback editor or open a foreign World target'
  render(<SavedStatblockProvider worldId="other"><SavedStatblockButton worldId={world} draftId={draft}/></SavedStatblockProvider>);
  expect(screen.getByRole('button',{name:'Open statblock'})).toBeDisabled();expect(api.listSavedMechanicsVersions).not.toHaveBeenCalled();
 });
-it('same-World navigation hides the popup while retaining its editing owner',async()=>{
+it('the full saved link uses in-document navigation and retains the same editing owner',async()=>{
  render(<SessionHost worldId={world} draftId={draft}/>);const dialog=await open();const input=within(dialog).getByLabelText('Creature name');
  await userEvent.clear(input);await userEvent.type(input,'Retained across surfaces');
- act(()=>{navigatePrimaryAppHref('/plan?world=world');});
+ await userEvent.click(within(dialog).getByRole('link',{name:'Open full saved statblock'}));
+ await waitFor(()=>expect(window.location.pathname).toBe('/statblock'));
+ expect(window.location.search).toContain(`revision=${locator.revision_id}`);
+ expect(input.isConnected).toBe(true);
  await waitFor(()=>expect(screen.queryByRole('dialog',{name:'Saved statblock editor'})).toBeNull());
  await userEvent.click(screen.getByRole('button',{name:'Open statblock',exact:true}));
  expect(within(dialog).getByLabelText('Creature name')).toBe(input);expect(input).toHaveValue('Retained across surfaces');expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(1);
