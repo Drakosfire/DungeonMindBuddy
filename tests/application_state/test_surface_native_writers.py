@@ -377,28 +377,10 @@ def run_writer(case, *, timeout=False):
 
 @pytest.mark.parametrize("used", [False, True])
 def test_actual_sdk_shared_writer_atomically_seals_rules_and_replay_cannot_send(
-    application_state_dsn, used, monkeypatch
+    application_state_dsn, used
 ):
-    from application_state.agent_conversation.native_execution import SurfaceNativeExecutionV1
-    original_dump = SurfaceNativeExecutionV1.model_dump
-    admission_dumps = []
-
-    def track_dump(execution, *args, **kwargs):
-        dumped = original_dump(execution, *args, **kwargs)
-        if kwargs.get('exclude') == {'events'}:
-            old = original_dump(execution, mode='json', by_alias=True)
-            events = [event.model_dump(mode='json', by_alias=True)
-                      for event in execution.events]
-            assert dumped | {'events': events} == old | {'events': events}
-            admission_dumps.append(len(events))
-        return dumped
-
-    monkeypatch.setattr(SurfaceNativeExecutionV1, 'model_dump', track_dump)
     case = prepared_case(application_state_dsn, used=used)
-    preparation_dump_count = len(admission_dumps)
-    assert preparation_dump_count > 0
     run_writer(case)
-    assert len(admission_dumps) >= preparation_dump_count + 2
     owner = open_rules(case)
     auths = [e for e in owner.execution.events if type(e) is RulesProviderAuthorizedV1]
     included = [e for e in owner.execution.events if type(e) is RulesProviderIncludedV1]
@@ -579,4 +561,50 @@ def test_shared_rules_input_cannot_use_the_old_standalone_provider_route(
             event=auth,
             prepared_request_json=raw,
         )
+    assert snapshot(case) == before
+
+
+@pytest.mark.parametrize("phase", ["writer", "outcome"])
+@pytest.mark.parametrize("mutation", ["receipt", "execution"])
+def test_native_admission_rejects_mutated_locked_components_before_persistence(
+    application_state_dsn, monkeypatch, phase, mutation
+):
+    from application_state.agent_conversation import repository as repo
+    from application_state.errors import ApplicationStateValidationError
+
+    case = prepared_case(application_state_dsn)
+    raw = raw_request(case)
+    auth = writer_auth(case, raw)
+    if phase == "outcome":
+        assert admit(case, raw, auth)
+    before = snapshot(case)
+    original_lock = repo.lock_turn
+    original_update = repo.update_graph_execution
+    writes = []
+
+    def mutated_lock(*args, **kwargs):
+        turn = original_lock(*args, **kwargs)
+        if mutation == "receipt":
+            object.__setattr__(turn.graph_context_receipt, "context_receipt_sha256", "0" * 64)
+        else:
+            object.__setattr__(turn.graph_context_execution, "execution_policy_sha256", "0" * 64)
+        return turn
+
+    def track_update(*args, **kwargs):
+        writes.append(True)
+        return original_update(*args, **kwargs)
+
+    monkeypatch.setattr(repo, "lock_turn", mutated_lock)
+    monkeypatch.setattr(repo, "update_graph_execution", track_update)
+    with pytest.raises(ApplicationStateValidationError):
+        if phase == "writer":
+            admit(case, raw, auth)
+        else:
+            case.service.record_provider_outcome(
+                case.turn.world_id, case.turn.conversation_id, case.turn.turn_id,
+                expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
+                outcome=t.ProviderOutcomeEventV1(kind="provider_outcome", event_id=uuid4(),
+                    sequence=len(case.turn.graph_context_execution.events),
+                    provider_attempt_id=auth.provider_attempt_id, outcome="sdk_entered"))
+    assert not writes
     assert snapshot(case) == before

@@ -1474,11 +1474,10 @@ class AgentConversationService:
                 if not prior and event.sequence != len(execution.events):
                     raise ApplicationStateConflictError("Native writer execution sequence is stale")
                 try:
-                    prospective = execution if prior else SurfaceNativeExecutionV1.model_validate_json(json.dumps(
-                        execution.model_dump(mode='json',by_alias=True,exclude={'events'})
-                        | {'events':[item.model_dump(mode='json',by_alias=True) for item in [*execution.events,event]]}))
+                    prospective = execution if prior else execution.model_copy(
+                        update={'events': [*execution.events, event]})
                     from .native_execution import validate_context_binding
-                    validate_context_binding(turn.graph_context_receipt,prospective)
+                    prospective = validate_context_binding(turn.graph_context_receipt, prospective)
                     from .rules_authority_store import admit_native_writer_input_locked
                     _rules,fresh = admit_native_writer_input_locked(conn,turn,prospective,event,
                         expected_revision=native_writer_proof["expected_rules_revision"],
@@ -1858,19 +1857,21 @@ class AgentConversationService:
                 *([section_inclusion] if section_inclusion is not None else []),
                 *([play_body_inclusion] if play_body_inclusion is not None else [])]
             try:
-                execution_type = type(execution)
-                updated_execution = execution_type.model_validate_json(json.dumps(
-                    execution.model_dump(mode="json", by_alias=True, exclude={"events"})
-                    | {"events": [e.model_dump(mode="json", by_alias=True) for e in events]}
-                ))
-                if isinstance(updated_execution, SurfaceNativeExecutionV1):
+                if isinstance(execution, SurfaceNativeExecutionV1):
                     from .native_execution import validate_context_binding
-                    validate_context_binding(turn.graph_context_receipt, updated_execution)
-                elif turn.graph_context_receipt is not None:
-                    validate_related_recap_context_scope(
-                        turn.graph_context_receipt, updated_execution
-                    )
-                    validate_selected_source_binding(turn.graph_context_receipt, updated_execution)
+                    updated_execution = validate_context_binding(turn.graph_context_receipt,
+                        execution.model_copy(update={"events": events}))
+                else:
+                    execution_type = type(execution)
+                    updated_execution = execution_type.model_validate_json(json.dumps(
+                        execution.model_dump(mode="json", by_alias=True, exclude={"events"})
+                        | {"events": [e.model_dump(mode="json", by_alias=True) for e in events]}
+                    ))
+                    if turn.graph_context_receipt is not None:
+                        validate_related_recap_context_scope(
+                            turn.graph_context_receipt, updated_execution
+                        )
+                        validate_selected_source_binding(turn.graph_context_receipt, updated_execution)
             except ValueError as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
             updated = repo.update_graph_execution(
