@@ -353,3 +353,88 @@ describe("LocalWorldRepository contract with the in-memory reference adapter", (
     expect(failure).toEqual({ status: "error", message: "storage unavailable" });
   });
 });
+
+
+describe("Buddy-owned local World notes port", () => {
+  it("commits notes with local revision/history and retains a losing body through a fresh repository facade", async () => {
+    const store = new InMemoryLocalWorldStore();
+    const repo = new InMemoryLocalWorldRepository({ store, idFactory: sequenceLocalIds() });
+    const record = await createTestWorld(repo, "Notes world");
+    const empty = await repo.readWorldNotes(record.snapshot.worldId);
+    expect(empty.status).toBe("found");
+    if (empty.status !== "found") return;
+    expect(empty.state).toMatchObject({ localRevision: 0, documentExists: false, markdown: "" });
+
+    const saved = await repo.commitWorldNotes({ worldId: record.snapshot.worldId, expectedLocalRevision: 0, markdown: "# Harbor\n\nA blue door." });
+    expect(saved.status).toBe("committed");
+    if (saved.status !== "committed") return;
+    expect(saved.record.localRevision).toBe(1);
+    expect(saved.record.history.at(-1)).toMatchObject({ localRevision: 1, classification: "buddy-local-only" });
+
+    const stale = await repo.commitWorldNotes({ worldId: record.snapshot.worldId, expectedLocalRevision: 0, markdown: "# My unsaved harbor" });
+    expect(stale.status).toBe("conflict");
+    if (stale.status !== "conflict") return;
+    expect(stale.candidate.proposedPackageData).toBeDefined();
+    const reopened = await new InMemoryLocalWorldRepository({ store }).readWorldNotes(record.snapshot.worldId);
+    expect(reopened.status).toBe("found");
+    if (reopened.status !== "found") return;
+    expect(reopened.state.markdown).toBe("# Harbor\n\nA blue door.");
+    expect(reopened.state.conflictCandidates).toHaveLength(1);
+    const candidate = reopened.state.conflictCandidates[0];
+    expect(candidate.proposedPackageData?.bundledMembers["documents/buddy-world-notes.md"]).toEqual(Array.from(new TextEncoder().encode("# My unsaved harbor")));
+    expect(await repo.discardWorldNotesConflict(record.snapshot.worldId, candidate.id)).toBe("discarded");
+    const afterDiscard = await repo.readWorldNotes(record.snapshot.worldId);
+    expect(afterDiscard.status).toBe("found");
+    if (afterDiscard.status === "found") expect(afterDiscard.state.conflictCandidates).toHaveLength(0);
+  });
+
+  it("preserves committed note and revision when the atomic write hook fails", async () => {
+    let shouldFail = false;
+    const repo = new InMemoryLocalWorldRepository({ beforeCommit: (point) => { if (shouldFail && point === "document-edit") throw new Error("simulated transaction abort"); } });
+    const record = await createTestWorld(repo);
+    expect((await repo.commitWorldNotes({ worldId: record.snapshot.worldId, expectedLocalRevision: 0, markdown: "old body" })).status).toBe("committed");
+    shouldFail = true;
+    const failed = await repo.commitWorldNotes({ worldId: record.snapshot.worldId, expectedLocalRevision: 1, markdown: "new body" });
+    expect(failed.status).toBe("error");
+    const world = await repo.readWorld(record.snapshot.worldId);
+    const notes = await repo.readWorldNotes(record.snapshot.worldId);
+    expect(world.status).toBe("found");
+    if (world.status === "found") expect(world.record.localRevision).toBe(1);
+    expect(notes.status).toBe("found");
+    if (notes.status === "found") expect(notes.state.markdown).toBe("old body");
+  });
+
+  it("does not erase a later conflict candidate when an earlier discard is delayed", async () => {
+    let releaseDiscard!: () => void;
+    let discardStarted!: () => void;
+    const gate = new Promise<void>((resolve) => { releaseDiscard = resolve; });
+    const started = new Promise<void>((resolve) => { discardStarted = resolve; });
+    const repo = new InMemoryLocalWorldRepository({
+      beforeCommit: async (point) => {
+        if (point === "document-conflict-discard") { discardStarted(); await gate; }
+      },
+    });
+    const initial = await createTestWorld(repo);
+    await repo.commitSemanticEdit({
+      worldId: initial.snapshot.worldId,
+      expectedLocalRevision: 0,
+      nextSnapshot: { ...initial.snapshot, title: "Concurrent revision" },
+      edit: { classification: "buddy-local-only", description: "Concurrent title edit" },
+    });
+    const first = await repo.commitWorldNotes({ worldId: initial.snapshot.worldId, expectedLocalRevision: 0, markdown: "first candidate" });
+    expect(first.status).toBe("conflict");
+    if (first.status !== "conflict") return;
+    const discarding = repo.discardWorldNotesConflict(initial.snapshot.worldId, first.candidate.id);
+    await started;
+    const second = await repo.commitWorldNotes({ worldId: initial.snapshot.worldId, expectedLocalRevision: 0, markdown: "second candidate" });
+    expect(second.status).toBe("conflict");
+    releaseDiscard();
+    expect(await discarding).toBe("discarded");
+    const notes = await repo.readWorldNotes(initial.snapshot.worldId);
+    expect(notes.status).toBe("found");
+    if (notes.status === "found") {
+      expect(notes.state.conflictCandidates).toHaveLength(1);
+      expect(notes.state.conflictCandidates[0].proposedPackageData?.bundledMembers["documents/buddy-world-notes.md"]).toEqual(Array.from(new TextEncoder().encode("second candidate")));
+    }
+  });
+});

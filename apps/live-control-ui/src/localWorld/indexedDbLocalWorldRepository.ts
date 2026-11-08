@@ -1,8 +1,17 @@
 import {
+  emptyLocalWorldPackageData,
+  encodeWorldNotes,
+  isWorldNotesConflict,
+  LOCAL_WORLD_NOTES_HISTORY_DESCRIPTION,
+  readWorldNotesPackageData,
+  writeWorldNotesPackageData,
+} from "./localWorldDocumentAuthoring";
+import {
   cloneLocalWorldValue,
   validateLocalWorldSnapshot,
   validateLocalWorldPackageData,
   type CommitSemanticResult,
+  type CommitLocalWorldNotesResult,
   type CreateWorldResult,
   type LocalConflictId,
   type LocalEditId,
@@ -17,6 +26,7 @@ import {
   type RestoreLocalWorldPackageResult,
   type ReadLocalWorldPackageDataResult,
   type ListLocalWorldsResult,
+  type ReadLocalWorldNotesResult,
   type LocalWorldSnapshot,
   type ReadConflictCandidatesResult,
   type ReadWorldResult,
@@ -37,7 +47,7 @@ const CONFLICT_STORE = LOCAL_WORLD_DATABASE_STORES.conflicts;
 const PACKAGE_DATA_STORE = LOCAL_WORLD_DATABASE_STORES.packageData;
 const CONFLICT_WORLD_INDEX = "worldId";
 
-export type IndexedDbCommitPoint = "create" | "semantic-edit" | "layout" | "package-restore";
+export type IndexedDbCommitPoint = "create" | "semantic-edit" | "layout" | "package-restore" | "document-edit" | "document-edit-after-world" | "document-conflict-discard";
 export type IndexedDbCommitHook = (point: IndexedDbCommitPoint) => void;
 type IdFactory = () => string;
 type OpenErrorCode =
@@ -493,6 +503,112 @@ export class IndexedDbLocalWorldRepository implements LocalWorldPackageRepositor
         return data ? { status: "found", data: cloneLocalWorldValue(data) } : { status: "not-stored" };
       });
     } catch (error) { return { status: "error", message: errorMessage(error) }; }
+  }
+  async readWorldNotes(worldId: LocalWorldId): Promise<ReadLocalWorldNotesResult> {
+    try {
+      return await inTransaction(this.db, [WORLD_STORE, PACKAGE_DATA_STORE, CONFLICT_STORE], "readonly", async (transaction) => {
+        const worlds = transaction.objectStore(WORLD_STORE);
+        const current = await requestResult<LocalWorldRecord | undefined>(worlds.get(worldId));
+        if (!current) return { status: "missing" };
+        const storedData = await requestResult<LocalWorldPackageData | undefined>(transaction.objectStore(PACKAGE_DATA_STORE).get(worldId));
+        const data = storedData ?? emptyLocalWorldPackageData(worldId);
+        const notes = readWorldNotesPackageData(data, worldId);
+        if (notes.status === "error") return { status: "error", message: notes.message };
+        const candidates = await requestResult<LocalWorldConflictCandidate[]>(
+          transaction.objectStore(CONFLICT_STORE).index(CONFLICT_WORLD_INDEX).getAll(worldId),
+        );
+        const worldNotesCandidates = candidates.filter(isWorldNotesConflict);
+        for (const candidate of worldNotesCandidates) {
+          const candidateNotes = readWorldNotesPackageData(candidate.proposedPackageData!, worldId);
+          if (candidateNotes.status === "error" || !candidateNotes.documentExists) {
+            return { status: "error", message: candidateNotes.status === "error" ? candidateNotes.message : "A saved World notes conflict candidate is incomplete." };
+          }
+        }
+        return {
+          status: "found",
+          state: {
+            localRevision: current.localRevision,
+            documentExists: notes.documentExists,
+            markdown: notes.markdown,
+            conflictCandidates: cloneLocalWorldValue(worldNotesCandidates),
+          },
+        };
+      });
+    } catch (error) { return { status: "error", message: errorMessage(error) }; }
+  }
+
+  async commitWorldNotes(input: {
+    readonly worldId: LocalWorldId;
+    readonly expectedLocalRevision: number;
+    readonly markdown: string;
+  }): Promise<CommitLocalWorldNotesResult> {
+    // Copy scalar headers before any request/transaction can yield.
+    const worldId = input.worldId;
+    const expectedLocalRevision = input.expectedLocalRevision;
+    const encoded = encodeWorldNotes(input.markdown);
+    if ("error" in encoded) return { status: "error", message: encoded.error };
+    if (!Number.isSafeInteger(expectedLocalRevision) || expectedLocalRevision < 0) {
+      return { status: "error", message: "The expected local revision is invalid." };
+    }
+    try {
+      return await inTransaction(this.db, [WORLD_STORE, PACKAGE_DATA_STORE, CONFLICT_STORE], "readwrite", async (transaction) => {
+        const worlds = transaction.objectStore(WORLD_STORE);
+        const current = await requestResult<LocalWorldRecord | undefined>(worlds.get(worldId));
+        if (!current) return { status: "missing" };
+        const packageStore = transaction.objectStore(PACKAGE_DATA_STORE);
+        const storedData = await requestResult<LocalWorldPackageData | undefined>(packageStore.get(worldId));
+        const currentData = storedData ?? emptyLocalWorldPackageData(worldId);
+        const nextData = writeWorldNotesPackageData(currentData, worldId, encoded.bytes);
+        if (nextData.status !== "written") return { status: "error", message: nextData.message };
+
+        if (current.localRevision !== expectedLocalRevision) {
+          const candidate: LocalWorldConflictCandidate = {
+            id: `local-conflict:${this.idFactory()}` as LocalConflictId,
+            worldId,
+            baseLocalRevision: expectedLocalRevision,
+            currentLocalRevision: current.localRevision,
+            proposedSnapshot: cloneLocalWorldValue(current.snapshot),
+            edit: { classification: "buddy-local-only", description: LOCAL_WORLD_NOTES_HISTORY_DESCRIPTION },
+            proposedPackageData: cloneLocalWorldValue(nextData.data),
+          };
+          this.beforeWrite("document-edit");
+          await requestResult(transaction.objectStore(CONFLICT_STORE).add(candidate));
+          return { status: "conflict", committed: cloneLocalWorldValue(current), candidate: cloneLocalWorldValue(candidate) };
+        }
+
+        const nextRevision = current.localRevision + 1;
+        const nextRecord: LocalWorldRecord = {
+          ...current,
+          localRevision: nextRevision,
+          history: [...current.history, {
+            id: `local-edit:${this.idFactory()}` as LocalEditId,
+            localRevision: nextRevision,
+            classification: "buddy-local-only",
+            description: LOCAL_WORLD_NOTES_HISTORY_DESCRIPTION,
+          }],
+        };
+        this.beforeWrite("document-edit");
+        await requestResult(worlds.put(nextRecord));
+        this.beforeWrite("document-edit-after-world");
+        await requestResult(packageStore.put(nextData.data));
+        return { status: "committed", record: cloneLocalWorldValue(nextRecord) };
+      });
+    } catch (error) { return { status: "error", message: errorMessage(error) }; }
+  }
+
+  async discardWorldNotesConflict(worldId: LocalWorldId, conflictId: LocalConflictId): Promise<"discarded" | "missing" | "error"> {
+    try {
+      return await inTransaction(this.db, [WORLD_STORE, CONFLICT_STORE], "readwrite", async (transaction) => {
+        const current = await requestResult<LocalWorldRecord | undefined>(transaction.objectStore(WORLD_STORE).get(worldId));
+        if (!current) return "missing";
+        const conflicts = transaction.objectStore(CONFLICT_STORE);
+        const candidate = await requestResult<LocalWorldConflictCandidate | undefined>(conflicts.get(conflictId));
+        if (!candidate || candidate.worldId !== worldId || !isWorldNotesConflict(candidate)) return "missing";
+        this.beforeWrite("document-conflict-discard");
+        await requestResult(conflicts.delete(conflictId));
+        return "discarded";
+      });
+    } catch { return "error"; }
   }
 
   allocateObjectId(worldId: LocalWorldId): LocalObjectId {
