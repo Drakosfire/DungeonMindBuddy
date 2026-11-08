@@ -130,3 +130,27 @@ export type ReadConflictCandidatesResult =
 export function cloneLocalWorldValue<T>(value: T): T {
   return structuredClone(value);
 }
+
+/** Shared identity/reference validation for every Buddy-local repository adapter. */
+export function validateLocalWorldSnapshot(
+  snapshot: LocalWorldSnapshot,
+  expectedWorldId: LocalWorldId,
+): string | null {
+  if (snapshot.worldId !== expectedWorldId) return "The proposed snapshot belongs to another local World.";
+  const objectIds = new Set<string>();
+  for (const object of snapshot.objects) {
+    if (objectIds.has(object.id)) return "The proposed snapshot contains duplicate local object IDs.";
+    objectIds.add(object.id);
+  }
+  const relationshipIds = new Set<string>();
+  for (const relationship of snapshot.relationships) {
+    if (relationshipIds.has(relationship.id)) {
+      return "The proposed snapshot contains duplicate local relationship IDs.";
+    }
+    relationshipIds.add(relationship.id);
+    if (!objectIds.has(relationship.fromObjectId) || !objectIds.has(relationship.toObjectId)) {
+      return "The proposed relationship refers to a missing local object.";
+    }
+  }
+  return null;
+}

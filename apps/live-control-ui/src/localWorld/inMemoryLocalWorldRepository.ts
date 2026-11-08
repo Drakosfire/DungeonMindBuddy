@@ -15,6 +15,7 @@ import {
   type ReadConflictCandidatesResult,
   type ReadWorldResult,
   type WriteLayoutResult,
+  validateLocalWorldSnapshot,
 } from "./localWorldRepository";
 
 /**
@@ -50,26 +51,6 @@ function defaultIdFactory(): string {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "The in-memory local World operation failed.";
-}
-
-function validateSnapshot(snapshot: LocalWorldSnapshot, worldId: LocalWorldId): string | null {
-  if (snapshot.worldId !== worldId) return "The proposed snapshot belongs to another local World.";
-  const objectIds = new Set<string>();
-  for (const object of snapshot.objects) {
-    if (objectIds.has(object.id)) return "The proposed snapshot contains duplicate local object IDs.";
-    objectIds.add(object.id);
-  }
-  const relationshipIds = new Set<string>();
-  for (const relationship of snapshot.relationships) {
-    if (relationshipIds.has(relationship.id)) {
-      return "The proposed snapshot contains duplicate local relationship IDs.";
-    }
-    relationshipIds.add(relationship.id);
-    if (!objectIds.has(relationship.fromObjectId) || !objectIds.has(relationship.toObjectId)) {
-      return "The proposed relationship refers to a missing local object.";
-    }
-  }
-  return null;
 }
 
 /**
@@ -144,7 +125,7 @@ export class InMemoryLocalWorldRepository implements LocalWorldRepository {
     const expectedLocalRevision = input.expectedLocalRevision;
     const proposedSnapshot = cloneLocalWorldValue(input.nextSnapshot);
     const proposedEdit = cloneLocalWorldValue(input.edit);
-    const validationError = validateSnapshot(proposedSnapshot, worldId);
+    const validationError = validateLocalWorldSnapshot(proposedSnapshot, worldId);
     if (validationError) return { status: "error", message: validationError };
 
     try {
