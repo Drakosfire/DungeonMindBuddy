@@ -57,6 +57,8 @@ At the steward's report of independent HOLD on PR #2202 head `d2421f9821a1a8fc60
 
 This correction is limited to the existing A1-owned paths above. It does not widen Phase 2 activation or change package, editor, storage-authority, merge, or deployment scope. Exact new commit/review evidence is recorded after the owning PR update; the earlier head's approvals, if any, do not apply to the corrected head.
 
+The initial correction was pushed to the existing PR #2202 branch as `e8cf5b1091abd8c0b8c0ed4e33d009a03563c737`, based on the prior A1 head `d2421f9821a1a8fc60b127b28ce425aa5921ae27`. Focused repository tests pass 11/11, TypeScript passes, production build passes with the existing dynamic/static import and >500 kB chunk warnings, and the cumulative diff check passes. This is author-run evidence; exact-head independent re-review and hosted CI remain pending.
+
 ## Questions for later slices
 
 An IndexedDB adapter evaluation must compare direct IndexedDB, Dexie and `idb` against the settled port/transaction requirements before adding dependencies. It must prove real reload restoration, quota/private-mode/error handling, crash/interrupted transaction behavior, two-tab CAS conflicts, migrations, and saved-state timing in supported browsers. Package format/limits, document/source references, history/semantic mapping, serialization/hash validation, collision/fork semantics, and adoption contracts remain decisions for their authorized later owner handoffs. Renderer evaluation remains independently gated.
