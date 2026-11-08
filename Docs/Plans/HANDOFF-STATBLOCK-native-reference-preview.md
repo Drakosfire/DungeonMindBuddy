@@ -1,0 +1,13 @@
+# STATBLOCK: native reference previews
+
+Status: ACTIVE. PRIME owns this authorized goal slice. Base722b16ec09c6d4bcbcb46ecf7240bf845946a0a2; branch codex/native-threat-statblock-preview; existing buddy-context-loop checkout. Serial, no unmerged parent. Rules2255 owns its separate model-context paths and fence136; ingestion/local-World lanes do not overlap. Play2172/2104 holds remain.
+
+Outcome: inspect selected native object references from the shared surface/conversation reference renderer and open their associated exact saved mechanics using the existing shared editor and full reader. Reuse native inspection/source reader and APP association read; no new store, publisher or execution authority. Embedded conversation editing is a separate successor.
+
+Invariant critique: a label or node ID alone is insufficient. Match managed/native World and binding plus entity and campaign scope; display historical association Graph revision without implying current encounter adoption. Never pick an arbitrary campaign association. Entity-not-found, changed pins, failed association reads, stale responses and absent shared editor remain distinguishable. Loading neither mutates references nor submits a request. Exact saved revision, not draft latest, goes to shared editor/reader; dirty session guards remain its responsibility.
+
+Expected writes: this handoff; predecessor HANDOFF-STATBLOCK-exact-saved-association.md settlement; UI graphLens/{NativeGraphInspection,NativeGraphObjectDetails,NativeGraphObjectPreview,NativeObjectStatblock}{.tsx,.test.tsx}; surface/SurfaceGraphReferenceInput{.tsx,.test.tsx,.css}. Scope expansion requires a checkpoint. Existing dependencies only; no API/schema changes or provider runs. No primary/runtime write lease until qualified delivery. Runtime8000/5202 and evaluator55447 untouched during implementation.
+
+Validation: shared renderer tests for composer/read-only surface references, exact inspection pin and unchanged selections; association matching across native World/binding/campaign and delayed reads/errors; popup shared editor exact target/full reader; existing native inspection/source tests, TypeScript/build; cumulative review, independent Bugbot and CI before merge. Protected UI-only delivery and controlled browser checks follow review; preserve all APP/Core/draft/session state.
+
+Owning verification:42 tests passed across native inspector, native preview, scoped association, shared renderer and real shared editor suites. TypeScript and Vite build pass. Initial renderer test failure was the obsolete assumption that historical chips cannot be inspected; now it proves no automatic read/selection edit and allows explicit inspection. No runtime/provider/database writes. Independent review/CI/delivery pending.
