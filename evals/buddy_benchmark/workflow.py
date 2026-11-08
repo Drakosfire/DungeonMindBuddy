@@ -638,7 +638,13 @@ def writer_capture(plan_path, output, *, transport=None):
         target = directory / case["id"]
         immutable_save(target, "request", case)
         try:
-            asyncio.run(_writer_replay_call(strict_json(case["request_json"]), target,
+            from application_state.agent_conversation.native_evidence_view import (
+                semantic_frame_in_request, world_context_representation)
+            packet = strict_json(case["request_json"])
+            frame = semantic_frame_in_request(packet, legacy_schemas=())
+            if frame is not None and world_context_representation(frame) == "historical":
+                raise ValueError("Historical World host envelope is read-only; cannot dispatch replay")
+            asyncio.run(_writer_replay_call(packet, target,
                 transport=transport, expected_wire=case["prepared_wire"]))
         except BaseException:
             immutable_save(directory, "cohort", {"status": "stopped", "completed_cases": completed,

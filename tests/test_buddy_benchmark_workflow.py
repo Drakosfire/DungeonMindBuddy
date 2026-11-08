@@ -602,3 +602,31 @@ def test_replay_spec_rejects_duplicate_json_fields(writer_replay,tmp_path):
     r=writer_replay
     r.spec.write_text(r.spec.read_text().replace('"runtime": {}','"runtime": {},"runtime": {}'))
     with pytest.raises(ValueError):w.writer_prepare(r.spec,tmp_path/'prepared')
+
+
+def test_historical_world_envelope_is_readable_but_never_paid_replayed(writer_replay, tmp_path):
+    import httpx
+    from application_state.agent_conversation.types import canonical_sha256
+    r = writer_replay
+    frame = json.loads(r.packet['input'][0]['content'])
+    frame['native_assertions'] = {'assertions': [{'assertion': {'metadata': {
+        'domain_metadata': [{'schema': 'dungeonbuddy.domain_metadata:world_context_v1',
+            'payload': {'source_qualification': 'Reported speech, not an observed fact.'}}]}}}]}
+    r.packet['input'][0]['content'] = json.dumps(frame)
+    witness = r.trace['body']['attempts'][0]['observations'][-1]
+    prompt = r.root / (witness['evidence_id'] + '.json')
+    packet_pin = put(prompt, r.packet)
+    witness.update(payload_sha256=packet_pin['sha256'], payload_utf8_bytes=len(prompt.read_bytes()))
+    put(r.root / 'context-trace.json', r.trace)
+    r.ledger['graph_context_execution']['events'][0].update(
+        envelope_sha256=packet_pin['sha256'], frame_sha256=canonical_sha256(frame))
+    r.document['cases'][0]['ledger'] = put(r.ledger_path, r.ledger)
+    put(r.spec, r.document)
+    plan = w.writer_prepare(r.spec, tmp_path / 'prepared')
+    assert json.loads(plan['cases'][0]['request_json']) == r.packet
+    with pytest.raises(ValueError, match='Historical World host envelope'):
+        w.writer_capture(tmp_path / 'prepared/plan.json', tmp_path / 'capture',
+            transport=httpx.MockTransport(lambda _: pytest.fail('Historical prompt was dispatched')))
+    cohort = json.loads((tmp_path / 'capture/cohort.json').read_text())
+    assert cohort['status'] == 'stopped' and not cohort['automatic_resume']
+    assert not (tmp_path / 'capture' / r.case['id'] / 'wire-request.json').exists()

@@ -86,7 +86,9 @@ def _domain_meaning(entries):
             del payload["candidate_description_selection"]
             if not payload:
                 continue
-        result.append(value)
+        # The reserved discriminator belongs to the host's domain contract.
+        # Keep its meaning, including arbitrary literal/non-object payloads.
+        result.append({"world_context": payload} if value["schema"] == _WORLD_CONTEXT else value)
     return result
 
 
@@ -296,3 +298,45 @@ def semantic_frame_in_request(body, *, legacy_schemas):
     if len(candidates) > 1 or candidates and legacy_count:
         raise ValueError("Ambiguous semantic native evidence frame")
     return candidates[0] if candidates else None
+
+
+def world_context_representation(frame):
+    """Classify only declared qualification slots, never nested source text."""
+    forms = set()
+    try:
+        collection = frame["native_assertions"]
+        rows = collection["assertions"] if collection is not None else []
+        for row in rows:
+            for entry in row["assertion"]["metadata"]["domain_metadata"]:
+                if not isinstance(entry, dict):
+                    raise ValueError("Malformed domain qualification")
+                if entry.get("schema") == _WORLD_CONTEXT:
+                    if set(entry) != {"schema", "payload"}:
+                        raise ValueError("Malformed historical World qualification")
+                    forms.add("historical")
+                elif "world_context" in entry:
+                    if set(entry) != {"world_context"}:
+                        raise ValueError("Malformed semantic World qualification")
+                    forms.add("current")
+    except (KeyError, TypeError) as exc:
+        raise ValueError("Malformed native qualification frame") from exc
+    if len(forms) > 1:
+        raise ValueError("Mixed historical and current World qualifications")
+    return next(iter(forms), "current")
+
+
+def expected_semantic_frame(host, actual):
+    """Reconstruct retained producing bytes by their closed actual slot shape.
+
+    Current producers always use semantic_frame. This reader does not try hashes
+    or emit alternate prompts; original request and frame bindings remain exact.
+    """
+    expected = semantic_frame(host)
+    if world_context_representation(actual) == "historical":
+        collection = expected["native_assertions"]
+        for row in collection["assertions"] if collection is not None else []:
+            entries = row["assertion"]["metadata"]["domain_metadata"]
+            for index, entry in enumerate(entries):
+                if set(entry) == {"world_context"}:
+                    entries[index] = {"schema": _WORLD_CONTEXT, "payload": entry["world_context"]}
+    return expected
