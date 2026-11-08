@@ -20,6 +20,8 @@ export const LOCAL_WORLD_PACKAGE_V1 = {
     relationshipCount: 10_000,
     historyCount: 1_000,
     jsonDepth: 64,
+    memberPathBytes: 256,
+    memberPathSegments: 16,
   },
 } as const;
 
@@ -371,13 +373,40 @@ function validateRecord(record: LocalWorldRecord): void {
 }
 
 export function isLocalWorldPackageMemberPath(path: string): boolean {
-  if (!path || path.length > 256 || path.startsWith("/") || path.includes("\\") || /[\u0000-\u001f\u007f]/.test(path) || path !== path.normalize("NFC")) return false;
+  if (!path || !isWellFormedUnicode(path) || path.length > LOCAL_WORLD_PACKAGE_V1.limits.memberPathBytes || encoder.encode(path).byteLength > LOCAL_WORLD_PACKAGE_V1.limits.memberPathBytes || path.startsWith("/") || path.includes("\\") || /[\u0000-\u001f\u007f]/.test(path) || path !== path.normalize("NFC")) return false;
   const segments = path.split("/");
-  if (segments.length > 16 || segments.some((segment) => !segment || segment === "." || segment === ".." || segment.includes(":"))) return false;
+  if (segments.length > LOCAL_WORLD_PACKAGE_V1.limits.memberPathSegments || segments.some((segment) => !segment || segment === "." || segment === ".." || segment.includes(":"))) return false;
   if (path === SEMANTIC_PATH || path === LAYOUT_PATH || path === HISTORY_PATH) return true;
   if (path.startsWith("documents/")) return segments.length >= 2 && segments.slice(1).every((part) => part !== "");
   if (path.startsWith("assets/")) return segments.length === 2 && SHA256_PATTERN.test(segments[1]);
   return false;
+}
+
+function isWellFormedUnicode(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) return false;
+      index += 1;
+    } else if (code >= 0xdc00 && code <= 0xdfff) return false;
+  }
+  return true;
+}
+
+/** Shared portable-path validation for the normalized map codec and archive transport. */
+export function validateLocalWorldPackageMemberPaths(paths: readonly string[]): string | null {
+  const exactPaths = new Set<string>();
+  const portablePaths = new Set<string>();
+  for (const path of paths) {
+    if (path !== MANIFEST_PATH && !isLocalWorldPackageMemberPath(path)) return `Unsafe or unsupported package member path: ${path}`;
+    if (encoder.encode(path).byteLength > LOCAL_WORLD_PACKAGE_V1.limits.memberPathBytes) return `Package member path exceeds 256 UTF-8 bytes: ${path}`;
+    const portable = path.normalize("NFC").toLocaleLowerCase("en-US");
+    if (exactPaths.has(path) || portablePaths.has(portable)) return `Package contains duplicate or portable-filesystem-colliding member paths: ${path}`;
+    exactPaths.add(path);
+    portablePaths.add(portable);
+  }
+  return null;
 }
 
 function validateMediaType(value: unknown): value is string {
@@ -615,6 +644,8 @@ export async function parseLocalWorldPackageV1(inputMembers: ReadonlyMap<string,
     // Preflight advertised count/path/byte bounds before copying any member buffers.
     const inputEntries = [...inputMembers];
     if (inputEntries.length > LOCAL_WORLD_PACKAGE_V1.limits.memberCount) fail("limit-exceeded", "Package exceeds the 256 member limit.");
+    const pathProblem = validateLocalWorldPackageMemberPaths(inputEntries.map(([path]) => path));
+    if (pathProblem) fail("invalid-package", pathProblem);
     let advertisedBytes = 0;
     for (const [path, bytes] of inputEntries) {
       if (!ArrayBuffer.isView(bytes) || Object.prototype.toString.call(bytes) !== "[object Uint8Array]") {

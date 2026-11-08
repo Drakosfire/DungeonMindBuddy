@@ -9,14 +9,15 @@ import {
   isLocalWorldPackageMemberPath,
   LOCAL_WORLD_PACKAGE_V1,
   parseLocalWorldPackageV1,
+  validateLocalWorldPackageMemberPaths,
   type ParseLocalWorldPackageV1Result,
 } from "./localWorldPackageV1";
 
 export const LOCAL_WORLD_PACKAGE_ZIP_V1 = {
   maxArchiveBytes: 17 * 1024 * 1024,
   maxCentralDirectoryBytes: 256 * (46 + 256),
-  maxPathBytes: 256,
-  maxPathSegments: 16,
+  maxPathBytes: LOCAL_WORLD_PACKAGE_V1.limits.memberPathBytes,
+  maxPathSegments: LOCAL_WORLD_PACKAGE_V1.limits.memberPathSegments,
   supportedMethods: [0, 8] as const,
 } as const;
 
@@ -83,8 +84,6 @@ async function preflight(blob: Blob): Promise<CentralEntry[]> {
   const centralBytes = new Uint8Array(await blob.slice(centralOffset, eocdAbsolute).arrayBuffer());
   const view = new DataView(centralBytes.buffer, centralBytes.byteOffset, centralBytes.byteLength);
   const entries: CentralEntry[] = [];
-  const exactNames = new Set<string>();
-  const portableNames = new Set<string>();
   let cursor = 0;
   let totalExpanded = 0;
   for (let index = 0; index < count; index += 1) {
@@ -112,9 +111,6 @@ async function preflight(blob: Blob): Promise<CentralEntry[]> {
     let name = "";
     try { name = utf8.decode(nameBytes); } catch { fail("invalid-archive", "ZIP filename is not valid UTF-8."); }
     if (nameLength > LOCAL_WORLD_PACKAGE_ZIP_V1.maxPathBytes || name.split("/").length > LOCAL_WORLD_PACKAGE_ZIP_V1.maxPathSegments || !safePackagePath(name)) fail("invalid-archive", "ZIP member path is unsafe or outside package v1.");
-    const portable = name.normalize("NFC").toLocaleLowerCase("en-US");
-    if (exactNames.has(name) || portableNames.has(portable)) fail("invalid-archive", "ZIP contains duplicate or portable-filesystem-colliding paths.");
-    exactNames.add(name); portableNames.add(portable);
     const json = name === "manifest.json" || name === "semantic.json" || name === "layout.json" || name === "history.json";
     const perMemberLimit = json ? LOCAL_WORLD_PACKAGE_V1.limits.jsonMemberBytes : LOCAL_WORLD_PACKAGE_V1.limits.attachmentBytes;
     if (expandedSize > perMemberLimit) fail("limit-exceeded", `ZIP member exceeds its package expansion limit: ${name}`);
@@ -125,6 +121,8 @@ async function preflight(blob: Blob): Promise<CentralEntry[]> {
     cursor = end;
   }
   if (cursor !== centralBytes.length) fail("invalid-archive", "Central directory has unaccounted records or bytes.");
+  const pathProblem = validateLocalWorldPackageMemberPaths(entries.map((entry) => entry.name));
+  if (pathProblem) fail("invalid-archive", pathProblem);
   const ordered = [...entries].sort((a, b) => a.localOffset - b.localOffset);
   let expectedOffset = 0;
   for (const entry of ordered) {
