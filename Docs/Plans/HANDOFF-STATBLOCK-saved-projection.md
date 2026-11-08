@@ -59,7 +59,7 @@ not satisfy those remaining requirements or resume held Play integration.
 
 ## Candidate evidence
 
-The affected workbench/editor/renderer cohorts pass188 tests; TypeScript and Vite
+The affected workbench/editor/renderer cohorts pass193 tests; TypeScript and Vite
 production build pass. An isolated browser using candidate static assets opens an
 existing saved Sheep draft through Build Tools → Statblocks → Open saved mechanics.
 The actual exact revision and ability table render; local text edits leave the
@@ -67,3 +67,9 @@ saved render unchanged. Zero candidate reads, no provider/content writes, no
 browser errors or blocked writes, and the temporary read session was revoked.
 This witness exercises retained mechanics, not creation of the Corrupted Edge ooze.
 Independent review, CI, merge and protected delivery remain required.
+
+Saved-draft admission and refresh errors share an actionable read-only retry outside
+candidate presentation. A committed Save and opening its successor are separate
+outcomes: retain the committed revision as the selected recovery hint, keep exact
+read failures visible, pause edits to the old displayed source, and retry only the
+read. The same selection survives reload. Neither retry resubmits Save/generation.

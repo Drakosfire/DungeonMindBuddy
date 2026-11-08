@@ -2412,6 +2412,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
     if (draftId) {
       void (async () => {
         const opId = beginCandidateOp();
+        ownedDraftSnapshotIdRef.current = draftId;
         try {
           const draft = await getThreatDraft(draftId);
           if (!isCurrentCandidateOp(opId)) return;
@@ -2441,7 +2442,10 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
           }
           await refreshThreatDraftSnapshot(draftId);
         } catch (error) {
-          if (isCurrentCandidateOp(opId)) setGenerationRecoveryError(error instanceof Error ? error.message : String(error));
+          if (isCurrentCandidateOp(opId)) {
+            setDraftSnapshotUnavailable(true);
+            setDraftSnapshotError(error instanceof Error ? error.message : String(error));
+          }
         }
       })();
     }
@@ -3543,6 +3547,22 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
         />
       ) : null}
 
+      {draftSnapshotUnavailable ? (
+        <p className="statblock-command-error" role="alert" data-testid="draft-snapshot-unavailable">
+          ThreatDraft snapshot unavailable — revision and version-dependent save are disabled.{" "}
+          {draftSnapshotError}
+          {ownedDraftSnapshotIdRef.current ? (
+            <button
+              type="button"
+              className="statblock-inline-retry"
+              onClick={() => void refreshThreatDraftSnapshot(ownedDraftSnapshotIdRef.current!)}
+            >
+              Retry draft refresh
+            </button>
+          ) : null}
+        </p>
+      ) : null}
+
       {mechanicsSavedDraft && threatDraft?.schema === "dmb_threat_draft_v2" && !draftSnapshotUnavailable && !draftSnapshotPending && (
         <SavedMechanicsRevisionEditor key={`${threatDraft.world_id}:${threatDraft.draft_id}`} worldId={threatDraft.world_id} draftId={threatDraft.draft_id}/>
       )}
@@ -3550,21 +3570,6 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
       {activeCandidate ? (
         <section className="statblock-section" data-testid="candidate-view-modes">
           <h3>Candidate {activeCandidate.candidate_id}</h3>
-          {draftSnapshotUnavailable ? (
-            <p className="statblock-command-error" role="alert" data-testid="draft-snapshot-unavailable">
-              ThreatDraft snapshot unavailable — revision and version-dependent save are disabled.{" "}
-              {draftSnapshotError}
-              {reviseDraftId ? (
-                <button
-                  type="button"
-                  className="statblock-inline-retry"
-                  onClick={() => void refreshThreatDraftSnapshot(reviseDraftId)}
-                >
-                  Retry draft refresh
-                </button>
-              ) : null}
-            </p>
-          ) : null}
           {editorState && reviseDraftId && threatDraft ? (
             <ReviseWithAiPanel
               candidateId={

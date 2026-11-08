@@ -278,12 +278,37 @@ describe("World-scoped mounted Workbench", () => {
     expect(h.create).not.toHaveBeenCalled();expect(h.generate).not.toHaveBeenCalled();
   });
 
+  it("retries a failed initial saved draft read without loading or regenerating its candidate",async()=>{
+    const h=harness();h.drafts.set("draft-a",{...draft(),workflow_state:"mechanics_saved"});
+    h.getDraft.mockRejectedValueOnce(new Error("Saved draft temporarily unavailable"));
+    localStorage.setItem(scopedWorkbenchJoinKey(a),JSON.stringify({draft_id:"draft-a",version:1,candidate_id:"cand_expired"}));
+    render(<StatblockWorkbenchModule/>);
+    expect(await screen.findByTestId("draft-snapshot-unavailable")).toHaveTextContent("Saved draft temporarily unavailable");
+    await userEvent.click(screen.getByRole("button",{name:"Retry draft refresh"}));
+    expect(await screen.findByRole("button",{name:"Open saved mechanics"})).toBeInTheDocument();
+    expect(h.getDraft).toHaveBeenCalledTimes(2);expect(h.getCandidate).not.toHaveBeenCalled();
+    expect(h.create).not.toHaveBeenCalled();expect(h.generate).not.toHaveBeenCalled();
+  });
+
+  it("shows a read-only retry when saved draft refresh fails without an active candidate",async()=>{
+    const h=harness(),saved={...draft(),workflow_state:"mechanics_saved" as const};h.drafts.set("draft-a",saved);
+    h.getDraft.mockResolvedValueOnce(saved).mockRejectedValueOnce(new Error("Saved draft refresh unavailable"));
+    localStorage.setItem(scopedWorkbenchJoinKey(a),JSON.stringify({draft_id:"draft-a",version:1,candidate_id:"cand_expired"}));
+    render(<StatblockWorkbenchModule/>);
+    expect(await screen.findByTestId("draft-snapshot-unavailable")).toHaveTextContent("Saved draft refresh unavailable");
+    expect(screen.queryByRole("button",{name:"Open saved mechanics"})).toBeNull();
+    await userEvent.click(screen.getByRole("button",{name:"Retry draft refresh"}));
+    expect(await screen.findByRole("button",{name:"Open saved mechanics"})).toBeInTheDocument();
+    expect(h.getDraft).toHaveBeenCalledTimes(3);expect(h.getCandidate).not.toHaveBeenCalled();
+    expect(h.create).not.toHaveBeenCalled();expect(h.generate).not.toHaveBeenCalled();
+  });
+
   it("does not expose saved mechanics from a foreign World recovery hint", async () => {
     const h=harness();h.drafts.set("draft-b",{...draft(b,"draft-b"),workflow_state:"mechanics_saved"});
     localStorage.setItem(scopedWorkbenchJoinKey(a),JSON.stringify({draft_id:"draft-b",version:1,candidate_id:"cand_expired"}));
     render(<StatblockWorkbenchModule/>);
     await waitFor(()=>expect(h.getDraft).toHaveBeenCalledWith("draft-b"));
-    expect(await screen.findByTestId("generation-recovery-error")).toHaveTextContent("This ThreatDraft does not belong to the selected scope.");
+    expect(await screen.findByTestId("draft-snapshot-unavailable")).toHaveTextContent("This ThreatDraft does not belong to the selected scope.");
     expect(screen.queryByRole("button",{name:"Open saved mechanics"})).toBeNull();
     expect(h.getCandidate).not.toHaveBeenCalled();expect(h.create).not.toHaveBeenCalled();expect(h.generate).not.toHaveBeenCalled();
   });
@@ -654,7 +679,7 @@ describe("World-scoped mounted Workbench", () => {
     view.unmount();
     localStorage.setItem(scopedWorkbenchJoinKey(a), JSON.stringify({ draft_id: "draft-b" }));
     render(<StatblockWorkbenchModule />);
-    await waitFor(() => expect(screen.getByTestId("generation-recovery-error").textContent).toMatch(/selected scope/));
+    await waitFor(() => expect(screen.getByTestId("draft-snapshot-unavailable").textContent).toMatch(/selected scope/));
     expect(h.generate).not.toHaveBeenCalled();
   });
 
