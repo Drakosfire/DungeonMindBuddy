@@ -3,7 +3,7 @@
 Status: ACTIVE implementation; no live or primary migration authority.
 Steward: Root; PRIME owns merge/delivery.
 Branch: codex/retrieval-native-storage-check-owner, recorded-names-control checkout.
-Topology: stacked on PR2264 exact0747c25d5a2d7b72ceefd3a2731d1aebe144c593.
+Topology: stacked on PR2264 exactf5c50bbbd6b2a99908f84035fba7a32ad97e2827.
 Merge order2261,2264,this slice. No ports/services or retained DB writes leased.
 Exclusive writes: this handoff; new migration20261108_0139_native_storage_owner.py
 (after138); tests/application_state/test_native_storage_owner_migration.py.
@@ -59,3 +59,10 @@ immutablecommit binding and CI/merge/delivery remain.
 Predecessor2261 merged3b181c34b;2264 rebased onto that exact main, head0747c25d5.
 Both2264commits range-diff equal, including fixture-onlyV1/V2 lookup correction.
 This child re-anchored without source changes; historical testedsource retained.
+
+Post-CI fixture settlement: parentf5c50bbbd changes only two test files and
+lease documentation;9focused testsPASS23.04s, independentdeltaPASS. This
+rebase leaves all src/apps/evals blobs identical to benchmark candidatee40.
+Migration139/test/CI-entry implementation remains frozen; PRIME's serialPlan
+successor may reserve140 after this reader fence. Root does not edit the released
+shared runtime paths during the frozen comparison. Merge/delivery still pending.
