@@ -30,7 +30,7 @@ function Creation({draft}:{draft:ThreatDraftV2}) {
     });
   }
   async function run(action:'prepare'|'confirm'|'status') {
-    if(flight.current||!ready)return;
+    if(flight.current||(action!=='status'&&!ready))return;
     flight.current=true;setBusy(true);setError('');setMessage('');
     const captured=packet,expected=raw;
     try {
@@ -45,7 +45,12 @@ function Creation({draft}:{draft:ThreatDraftV2}) {
         if(!live.current)return; // Source admission alone creates no creature.
         const next=JSON.stringify(result);await store(expected,next);
         if(live.current){setPacket(result);setRaw(next);setConflict(false);}
-      }else if(live.current)setMessage('No native creature has been created for this draft yet.');
+      }else if(live.current){
+        setMessage('No native creature has been created for this draft yet. Review the saved concept to continue.');
+        // A server-owned empty status permits replacing an unusable local review
+        // explicitly; preserve its raw record until the new review is retained.
+        if(action==='status'&&!initial.error)setReady(true);
+      }
     }catch(e){if(live.current){setError(String(e));setConflict(e instanceof LiveApiError&&e.status===409);}}
     finally{flight.current=false;if(live.current)setBusy(false);}
   }
@@ -60,7 +65,7 @@ function Creation({draft}:{draft:ThreatDraftV2}) {
         <button type="button" disabled={busy} onClick={()=>void run('confirm')}>{error?'Recover same creation':'Create proposed creature'}</button>
         {conflict&&<button type="button" disabled={busy} onClick={()=>void run('prepare')}>Prepare a new review</button>}
       </>}
-      <button type="button" disabled={busy||!ready} onClick={()=>void run('status')}>Check existing creature</button>
+      <button type="button" disabled={busy} onClick={()=>void run('status')}>Check existing creature</button>
     </>}
     {busy&&<p role="status">{packet?'Checking the reviewed creature…':'Preparing the creature review…'}</p>}
     {message&&<p role="status">{message}</p>}

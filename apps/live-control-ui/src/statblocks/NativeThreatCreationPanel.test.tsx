@@ -55,3 +55,20 @@ it('keeps a stale review until explicit fresh preparation succeeds',async()=>{
  render(<NativeThreatCreationPanel draft={draft}/>);await userEvent.click(screen.getByRole('button',{name:'Review creature creation'}));await screen.findByRole('heading',{name:'Rolling ooze'});await userEvent.click(screen.getByRole('button',{name:'Create proposed creature'}));await screen.findByRole('alert');expect(localStorage.getItem(key)).not.toBeNull();
  await userEvent.click(screen.getByRole('button',{name:'Prepare a new review'}));await screen.findByText(/Creature created in the World Graph/);expect(localStorage.getItem(key)).toBeNull();
 });
+
+it('checks committed status despite malformed retained data and settles only that record',async()=>{
+ const raw='{broken review';localStorage.setItem(key,raw);vi.mocked(api.getNativeThreat).mockResolvedValue({...threatCreated(),replayed:true});
+ render(<NativeThreatCreationPanel draft={draft}/>);await screen.findByRole('alert');
+ await userEvent.click(screen.getByRole('button',{name:'Check existing creature'}));await screen.findByText(/Creature created in the World Graph/);
+ expect(api.getNativeThreat).toHaveBeenCalledExactlyOnceWith(draft.draft_id,draft.world_id);expect(localStorage.getItem(key)).toBeNull();expect(api.confirmNativeThreat).not.toHaveBeenCalled();expect(api.prepareNativeThreat).not.toHaveBeenCalled();
+});
+it('preserves a malformed review after empty status until explicit new review succeeds',async()=>{
+ const raw='{broken review';localStorage.setItem(key,raw);vi.mocked(api.getNativeThreat).mockResolvedValue(null);const packet=await threatPacket();vi.mocked(api.prepareNativeThreat).mockResolvedValue(packet);
+ render(<NativeThreatCreationPanel draft={draft}/>);await screen.findByRole('alert');expect(screen.getByRole('button',{name:'Review creature creation'})).toBeDisabled();
+ await userEvent.click(screen.getByRole('button',{name:'Check existing creature'}));await screen.findByText(/No native creature has been created/);expect(localStorage.getItem(key)).toBe(raw);expect(api.prepareNativeThreat).not.toHaveBeenCalled();
+ await userEvent.click(screen.getByRole('button',{name:'Review creature creation'}));await screen.findByRole('heading',{name:'Rolling ooze'});expect(JSON.parse(localStorage.getItem(key)!)).toEqual(packet);expect(api.confirmNativeThreat).not.toHaveBeenCalled();
+});
+it('preserves a competing record when status finds the committed creature',async()=>{
+ const raw='{broken review';localStorage.setItem(key,raw);let finish!:(value:ReturnType<typeof threatCreated>)=>void;vi.mocked(api.getNativeThreat).mockImplementation(()=>new Promise(resolve=>{finish=resolve}));
+ render(<NativeThreatCreationPanel draft={draft}/>);await screen.findByRole('alert');await userEvent.click(screen.getByRole('button',{name:'Check existing creature'}));localStorage.setItem(key,'newer record');await act(async()=>finish(threatCreated()));expect(await screen.findByRole('alert')).toHaveTextContent('Another view');expect(localStorage.getItem(key)).toBe('newer record');expect(api.confirmNativeThreat).not.toHaveBeenCalled();
+});
