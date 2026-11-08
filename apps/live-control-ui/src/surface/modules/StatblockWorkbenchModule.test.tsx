@@ -1,8 +1,10 @@
+import type {ReactNode} from 'react';
+import {SavedStatblockProvider} from '../../statblocks/SavedStatblockSession';
 import {GuidedTourProvider} from '../../guidedTour/GuidedTour';
 import {GenerationPlanProvider} from '../../guidedTour/GenerationObservations';
 import {createWalkthrough,reduceTour,type TargetPin} from '../../guidedTour/protocol';
 import {readWalkthrough,writeWalkthrough} from '../../guidedTour/storage';
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, render as renderWithoutHost, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -36,6 +38,8 @@ import {
 } from "./StatblockWorkbenchModule";
 
 beforeAll(()=>Object.defineProperty(HTMLDialogElement.prototype,'showModal',{configurable:true,value:function(this:HTMLDialogElement){this.setAttribute('open','');}}));
+function SessionTestHost({children}:{children:ReactNode}) {const scope=selectedWorld.useSelectedWorld();return <SavedStatblockProvider worldId={scope.kind==='managed'?scope.worldId:null}>{children}</SavedStatblockProvider>;}
+function render(ui:ReactNode,options?:Parameters<typeof renderWithoutHost>[1]) {return renderWithoutHost(ui,{wrapper:SessionTestHost,...options});}
 const candidate = fixture as GeneratedStatblockCandidateV1;
 
 const activeResponse: ReadStatblockCandidateResponseV1 = {
