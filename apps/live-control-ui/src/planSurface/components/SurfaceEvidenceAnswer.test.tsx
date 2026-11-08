@@ -115,13 +115,13 @@ it.each(['exact','changed-bytes','changed-revision'])('opens the actual shared n
   expect(getAgentNativeAssertionSource).toHaveBeenCalledWith(source.world_id,source.turn_id,0);
 });
 
-it('keeps exact native qualifications behind the existing technical-details disclosure',()=>{
+it('keeps raw native qualifications out of the answer while preserving supported prose',()=>{
  const completion=structuredClone(sharedWire.context.completion) as import('../../api/types').SurfaceNativeCompletionV1;
  const original=JSON.stringify(completion);
  render(<SurfaceEvidenceAnswer completion={completion}/>);
- const details=screen.getByText('Graph record details').closest('details')!;
- expect(details).toHaveClass('world-plan-agent-conversation__technical-details');
- expect(details.querySelector('pre')?.textContent).toContain('scope');
+ expect(screen.queryByText('Graph record details')).toBeNull();
+ expect(document.querySelector('details')).toBeNull();
+ expect(document.querySelector('pre')).toBeNull();
  expect(screen.queryByText('Qualifications',{exact:true})).toBeNull();
  expect(JSON.stringify(completion)).toBe(original);
  expect(screen.getByLabelText('World Graph fact')).toHaveTextContent('Reviewed World Graph');

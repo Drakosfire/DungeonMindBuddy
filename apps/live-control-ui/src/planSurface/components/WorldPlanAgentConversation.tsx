@@ -5487,6 +5487,7 @@ export function WorldPlanAgentConversation({
     const terminalFailureConfirmed = isHistoryTurnFailureConfirmed(turn.turn_id);
     const terminalFailureRecorded = isWorldHistoryTurnFailed(turn.turn_id);
     const claims = completion?.answer_segments.filter((segment) => segment.kind === "graph_claim") ?? [];
+    const nativeClaims = completion?.answer_segments.filter((segment) => segment.kind === "native_assertion_claim") ?? [];
     const citations = completion && "citation_map" in completion ? completion.citation_map?.entries ?? [] : [];
     const citationByClaim = new Map(citations.map((entry) => [entry.claim_id, entry]));
     return (
@@ -5496,6 +5497,13 @@ export function WorldPlanAgentConversation({
           : terminalFailureRecorded
             ? "This World history turn failed; no final Graph-context completion was recorded."
             : "No final Graph-context completion has been recorded for this turn yet."}</p>
+        {nativeClaims.length > 0 && <section aria-label="Graph record details">
+          <h4>Graph record details</h4>
+          {nativeClaims.map((claim, index) => <div key={`${turn.turn_id}-native-claim-${index}`}>
+            <p>Graph statement {index + 1}</p>
+            <pre>{JSON.stringify(claim.qualifications, null, 2)}</pre>
+          </div>)}
+        </section>}
         {claims.map((claim, index) => {
           const citation = citationByClaim.get(claim.claim_id);
           if (!citation) return null;

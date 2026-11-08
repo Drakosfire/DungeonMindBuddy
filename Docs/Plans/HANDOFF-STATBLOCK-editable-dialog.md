@@ -1,6 +1,15 @@
 # STATBLOCK — editable saved-statblock dialog
 
-ACTIVE. PRIME owns one serial UI slice after delivered2224 and API-only2226.
+SETTLED. PR2227 merged73353dfd686bedd0f0e7c05e0b20f62af09ab164 and delivered
+UI25db84d77d7876c9e2725c171176cd1d0e87d692 after independent source/composition/
+artifact/recipe approval and all seven CI checks. Live UI PID2591694, API57cf/PID
+2537878 unchanged; schema20261108_0130 and retained APP/Core/session state preserved.
+Delivered real-assets browser proof: statblock-dialog-delivered-browser.json in
+private runtime evidence root; focus, Escape, same dirty editor/reopen, exact saved
+render, no repeated reads and390px layout pass. No provider/content writes.
+Successor native-qualifications Details slice owns its separately named paths.
+
+Historical bounded authority: PRIME owned one serial UI slice after delivered2224 and API-only2226.
 Base6711fe778a6886239bb9abbd4eb0f4fe0e5c3ac2; branch
 codex/statblock-editable-dialog; existing buddy-context-loop checkout/dependencies.
 The approved live API57cf094e/UI47a9ec5d use immutable sources/assets. No process
