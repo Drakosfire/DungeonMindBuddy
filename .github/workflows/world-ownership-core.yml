@@ -109,6 +109,7 @@ jobs:
           tests/test_world_container_registry.py
           tests/test_world_graph_binding.py
           tests/test_native_world_creature_selection.py
+          tests/test_native_threat_creation.py
           tests/test_reviewed_native_graph_activation.py
           tests/test_world_admission_without_corpus_directory.py
           tests/test_live_world_containers.py
@@ -138,6 +139,7 @@ jobs:
           tests/test_world_container_registry.py
           tests/test_world_graph_binding.py
           tests/test_native_world_creature_selection.py
+          tests/test_native_threat_creation.py
           tests/test_world_mechanics_associations.py
           tests/test_combat_exact_world_mechanics.py
           tests/test_live_combat_encounters.py
