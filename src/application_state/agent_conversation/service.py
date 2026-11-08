@@ -1475,7 +1475,7 @@ class AgentConversationService:
                     raise ApplicationStateConflictError("Native writer execution sequence is stale")
                 try:
                     prospective = execution if prior else SurfaceNativeExecutionV1.model_validate_json(json.dumps(
-                        execution.model_dump(mode='json',by_alias=True)
+                        execution.model_dump(mode='json',by_alias=True,exclude={'events'})
                         | {'events':[item.model_dump(mode='json',by_alias=True) for item in [*execution.events,event]]}))
                     from .native_execution import validate_context_binding
                     validate_context_binding(turn.graph_context_receipt,prospective)
@@ -1860,7 +1860,7 @@ class AgentConversationService:
             try:
                 execution_type = type(execution)
                 updated_execution = execution_type.model_validate_json(json.dumps(
-                    execution.model_dump(mode="json", by_alias=True)
+                    execution.model_dump(mode="json", by_alias=True, exclude={"events"})
                     | {"events": [e.model_dump(mode="json", by_alias=True) for e in events]}
                 ))
                 if isinstance(updated_execution, SurfaceNativeExecutionV1):

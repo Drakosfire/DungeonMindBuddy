@@ -377,10 +377,28 @@ def run_writer(case, *, timeout=False):
 
 @pytest.mark.parametrize("used", [False, True])
 def test_actual_sdk_shared_writer_atomically_seals_rules_and_replay_cannot_send(
-    application_state_dsn, used
+    application_state_dsn, used, monkeypatch
 ):
+    from application_state.agent_conversation.native_execution import SurfaceNativeExecutionV1
+    original_dump = SurfaceNativeExecutionV1.model_dump
+    admission_dumps = []
+
+    def track_dump(execution, *args, **kwargs):
+        dumped = original_dump(execution, *args, **kwargs)
+        if kwargs.get('exclude') == {'events'}:
+            old = original_dump(execution, mode='json', by_alias=True)
+            events = [event.model_dump(mode='json', by_alias=True)
+                      for event in execution.events]
+            assert dumped | {'events': events} == old | {'events': events}
+            admission_dumps.append(len(events))
+        return dumped
+
+    monkeypatch.setattr(SurfaceNativeExecutionV1, 'model_dump', track_dump)
     case = prepared_case(application_state_dsn, used=used)
+    preparation_dump_count = len(admission_dumps)
+    assert preparation_dump_count > 0
     run_writer(case)
+    assert len(admission_dumps) >= preparation_dump_count + 2
     owner = open_rules(case)
     auths = [e for e in owner.execution.events if type(e) is RulesProviderAuthorizedV1]
     included = [e for e in owner.execution.events if type(e) is RulesProviderIncludedV1]
