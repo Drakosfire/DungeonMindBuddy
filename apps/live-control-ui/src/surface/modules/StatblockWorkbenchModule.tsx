@@ -2401,13 +2401,14 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
       return;
     }
     const restoreCandidate = initialGeneration.attempt?.candidate_id ?? stored?.candidate_id;
-    if (restoreCandidate) {
+    // A saved World statblock outlives its temporary generation candidate.
+    // Admit the durable draft before deciding which recovery view to open.
+    const draftId = initialGeneration.attempt?.draft_id ?? stored?.draft_id;
+    if (restoreCandidate && (!draftId || scope.mode !== "world")) {
       setCandidateIdInput(restoreCandidate);
       void loadCandidate(restoreCandidate);
       return;
     }
-    // A hint is not authority. Load/admit the durable draft before exposing its actions.
-    const draftId = initialGeneration.attempt?.draft_id ?? stored?.draft_id;
     if (draftId) {
       void (async () => {
         const opId = beginCandidateOp();
@@ -2419,6 +2420,15 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
           const identity = createdDraftFromResponse(draft);
           if (!identity) throw new Error("Restored draft identity unavailable.");
           applyCreatedDraftIdentity(identity);
+          if (draft.schema === "dmb_threat_draft_v2" && draft.workflow_state === "mechanics_saved") {
+            await refreshThreatDraftSnapshot(draftId);
+            return;
+          }
+          if (restoreCandidate) {
+            setCandidateIdInput(restoreCandidate);
+            await loadCandidate(restoreCandidate, { opId });
+            return;
+          }
           const attempt = initialGeneration.attempt;
           const completed = isUnresolvedGenerationAttempt(attempt) ? draft.candidate_refs.find((ref) => (
             ref.request_id === attempt.client_request_id
@@ -3533,6 +3543,10 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
         />
       ) : null}
 
+      {mechanicsSavedDraft && threatDraft?.schema === "dmb_threat_draft_v2" && !draftSnapshotUnavailable && !draftSnapshotPending && (
+        <SavedMechanicsRevisionEditor key={`${threatDraft.world_id}:${threatDraft.draft_id}`} worldId={threatDraft.world_id} draftId={threatDraft.draft_id}/>
+      )}
+
       {activeCandidate ? (
         <section className="statblock-section" data-testid="candidate-view-modes">
           <h3>Candidate {activeCandidate.candidate_id}</h3>
@@ -3654,8 +3668,6 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
               publicationDock={publicationDock}
             />
           ) : null}
-
-          {mechanicsSavedDraft && threatDraft?.schema === "dmb_threat_draft_v2" && <SavedMechanicsRevisionEditor key={`${threatDraft.world_id}:${threatDraft.draft_id}`} worldId={threatDraft.world_id} draftId={threatDraft.draft_id}/>}
 
           {mechanicsSavedDraft && threatDraft?.schema === "dmb_threat_draft_v2" ? (
             <WorldMechanicsAssociationPanel key={threatDraft.draft_id} draft={threatDraft} />

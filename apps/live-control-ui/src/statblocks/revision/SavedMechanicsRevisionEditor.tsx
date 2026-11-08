@@ -7,6 +7,7 @@ import {MechanicsTourObservation,GeneratedMechanicsTourObservation,sameGenerated
 import {useEffect,useRef,useState} from 'react';
 import {listSavedMechanicsVersions,openSavedMechanicsVersion,saveMechanicsRevision,recoverMechanicsRevision,inspectMechanicsRevision,validateStatblockDefinition} from '../../api/liveApi';
 import {StatblockDefinitionEditor} from '../editor/StatblockDefinitionEditor';
+import {StatblockRenderer} from '../render/StatblockRenderer';
 import {createEditorStateFromOutput,fingerprintDefinition,type StatblockEditorState} from '../editor/statblockEditorState';
 import type {ValidationIssueV1} from '../../contracts/dungeonbuddy-statblocks-v1/client';
 import type {SavedMechanicsVersionList,OpenSavedMechanicsVersion,RevisionSaveOutcome} from './savedMechanicsRevisionTypes';
@@ -156,6 +157,10 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
     </select></label>}
     {history?.next_offset!==null&&history?.next_offset!==undefined&&<button type="button" disabled={busy} onClick={()=>void load(opened?.locator.revision_id,history.next_offset!)}>More saved versions</button>}
     {opened&&editor&&<>
+      <section aria-label="Saved statblock">
+        <p>Saved version. Local edits appear in the fields below until you save a new version.</p>
+        <StatblockRenderer revision={opened.resource} mode="full" chrome="campaign"/>
+      </section>
       <fieldset disabled={busy||!!pending}>
         <StatblockDefinitionEditor output={opened.resource.definition} editorState={editor}
           recoveryHint={writer.recoverable?"Unsaved edits are retained in this browser tab for this creature and source version.":"Browser recovery is unavailable. Keep this editor open."}
