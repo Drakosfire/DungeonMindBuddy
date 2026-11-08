@@ -23,6 +23,7 @@ import {
   type LocalWorldPackageRepository,
   type RestoreLocalWorldPackageResult,
   type ReadLocalWorldPackageDataResult,
+  type ReadLocalWorldExportSnapshotResult,
   type ListLocalWorldsResult,
   type ReadLocalWorldNotesResult,
   type LocalWorldSnapshot,
@@ -165,6 +166,19 @@ export class InMemoryLocalWorldRepository implements LocalWorldPackageRepository
     if (!this.store.worlds.has(worldId)) return { status: "missing" };
     const data = this.store.packageData.get(worldId);
     return data ? { status: "found", data: cloneLocalWorldValue(data) } : { status: "not-stored" };
+  }
+
+  async readWorldExportSnapshot(worldId: LocalWorldId): Promise<ReadLocalWorldExportSnapshotResult> {
+    try {
+      const record = this.store.worlds.get(worldId);
+      if (!record) return { status: "missing" };
+      const data = this.store.packageData.get(worldId);
+      return {
+        status: "found",
+        record: cloneLocalWorldValue(record),
+        ...(data ? { data: cloneLocalWorldValue(data) } : {}),
+      };
+    } catch (error) { return { status: "error", message: errorMessage(error) }; }
   }
 
   async readWorldNotes(worldId: LocalWorldId): Promise<ReadLocalWorldNotesResult> {
