@@ -23,7 +23,7 @@ function sameShape(base:unknown,value:unknown):boolean {
   return typeof value!=='number'||Number.isFinite(value);
 }
 
-export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;draftId:string}) {
+export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false}:{worldId:string;draftId:string;autoLoad?:boolean}) {
  const guidance=useGuidedTour(),generationPlan=useGenerationPlan();
  const generatedScope=guidance&&generationPlan?guidance.captureMechanicsScope(generationPlan,draftId):null,latestGeneratedScope=useRef(generatedScope);latestGeneratedScope.current=generatedScope;
  const [generatedAcknowledged,setGeneratedAcknowledged]=useState<AcknowledgedGeneratedMechanicsSave|null>(null);
@@ -87,6 +87,8 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
     } catch(error){if(token===epoch.current)setMessage(error instanceof Error?error.message:String(error));}
     finally{if(token===epoch.current)setBusy(false);}
   }
+  // Hosts keep this identity mounted after first opening; visibility never reloads it.
+  useEffect(()=>{if(autoLoad)void load();},[autoLoad]);
   async function validate() {
     if(!editor)return;const token=++epoch.current,working=editor.workingCopy;setBusy(true);setIssues([]);setMessage('Validating new mechanics…');
     try {

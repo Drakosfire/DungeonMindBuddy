@@ -1,6 +1,14 @@
 # STATBLOCK — shared saved mechanics render
 
-Status: ACTIVE. PRIME owns this bounded serial slice under the operator's
+Status: SETTLED. PR2224 merged36d292301397fef96c9f6a097d21b745db41189c
+and delivered UI47a9ec5d31493ad904cf3f38feb7994dd43225a7 on5202. Exact source,
+integration and delivery-recipe review approved;193 owning tests/build and all
+seven CI checks passed. Delivered exact statblock render, read-only failure/retry,
+creation gate and dirty-input isolation passed with no candidate/provider/content
+writes. Protected APP/Core/session conservation passed; lease released. API-only
+2226 subsequently delivered57cf094e without changing this UI.
+
+Historical scope: PRIME owned this bounded serial slice under the operator's
 References/statblock goal. Base43a56972dd27b21d92c749f56be60cc8ae5c7497;
 branch codex/statblock-saved-projection in the existing buddy-context-loop checkout.
 No concurrent implementation lane owns these editor paths. ADVERSARY retrieval
