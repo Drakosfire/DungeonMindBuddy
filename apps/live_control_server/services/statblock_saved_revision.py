@@ -82,11 +82,14 @@ def _resume(record,client):
     try:
         result=client.append_revision(record.base.statblock_id,record.request_body)
         verify_exact_revision_mechanics_integrity(result)
+        accepted_through=(result.provenance or {}).get('accepted_through')
         if (result.statblock_id!=record.base.statblock_id or getattr(result.parent_revision_id,"root",result.parent_revision_id)!=record.base.revision_id
             or result.definition_digest!=record.definition_digest
             or result.validation_receipt.status==ValidationStatus.invalid
             or any(issue.severity==ValidationSeverity.error for issue in result.validation_receipt.issues or [])
-            or (result.provenance or {}).get('accepted_through',{})!=record.request_body['accepted_through']
+            or not isinstance(accepted_through,dict)
+            or accepted_through.get('buddy_manual_revision')!=str(record.operation_id)
+            or accepted_through!=record.request_body['accepted_through']
             or result.definition.ruleset.model_dump(mode='json')!=record.request_body['definition']['ruleset']
             or [b.model_dump(mode='json',exclude_none=True) for b in result.asset_bindings or []]
                 != [AssetBindingV1Input.model_validate(b).model_dump(mode='json',exclude_none=True) for b in record.request_body['asset_bindings']]):

@@ -39,8 +39,9 @@ class RevisionOperation(BaseModel):
             raise ValueError('Revision request changed parent or operation key')
         submitted=dict(operation_id=str(self.operation_id),world_id=self.world_id,base=self.base.model_dump(mode='json'),
             definition=self.request_body.get('definition'),change_summary=self.request_body.get('change_summary'))
-        through=self.request_body.get('accepted_through',{})
-        if not isinstance(through,dict):
+        through=self.request_body.get('accepted_through')
+        if (not isinstance(through,dict) or set(through)-{'buddy_manual_revision','buddy_portrait_asset_id'}
+            or through.get('buddy_manual_revision')!=str(self.operation_id)):
             raise ValueError('Revision acceptance metadata changed')
         if 'buddy_portrait_asset_id' in through:
             selected=through['buddy_portrait_asset_id']

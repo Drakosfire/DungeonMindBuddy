@@ -369,13 +369,17 @@ def test_omitted_and_null_portrait_keep_original_intent_digest(revision_case):
 
 
 
-def test_changed_portrait_acceptance_proof_remains_unknown_until_exact_recovery(revision_case,monkeypatch):
+@pytest.mark.parametrize('corruption',['manual','portrait','extra','nonmap'])
+def test_changed_portrait_acceptance_proof_remains_unknown_until_exact_recovery(revision_case,monkeypatch,corruption):
     p=revision_case;row=save_portrait(stage_portrait(),monkeypatch);append=p.manual.append_revision
     def mismatch(statblock,body):
         result=append(statblock,body)
-        return result.model_copy(update={'provenance':{'accepted_through':{
-            'buddy_manual_revision':body['accepted_through']['buddy_manual_revision'],
-            'buddy_portrait_asset_id':str(uuid4())}}})
+        through=deepcopy(body['accepted_through'])
+        if corruption=='manual':through['buddy_manual_revision']=str(uuid4())
+        elif corruption=='portrait':through['buddy_portrait_asset_id']=str(uuid4())
+        elif corruption=='extra':through['unrequested']='foreign proof'
+        else:through=None
+        return result.model_copy(update={'provenance':{'accepted_through':through}})
     monkeypatch.setattr(p.manual,'append_revision',mismatch)
     request=p.request|dict(portrait_asset_id=str(row['asset_id']))
     response=p.client.post(p.url,json=request);assert response.status_code==200,response.text

@@ -1,7 +1,7 @@
 # STATBLOCK — owner-admitted portrait revision
 
 ACTIVE. PRIME owns this serial slice after delivered #2231. Source base
-671c79d04f165f2eb7a70b13758f1ed5623482aa; branch
+dda8a90afc41080d7b38c3692d95b8ccf63adcc5; branch
 codex/statblock-owned-portrait-revision; reuse buddy-context-loop checkout and
 existing dependencies. The implementation has no runtime write lease. Live API
 d636d61c1a136b968b830bf4153fdbc3e600960a and UI
@@ -42,6 +42,7 @@ parent. Required writes:
 - tests/test_statblock_saved_revisions.py
 - tests/test_world_mechanics_associations.py (shared HTTP fixture/auth expectations only)
 - src/application_state/mechanics_revisions/types.py (exact submitted intent)
+- tests/application_state/test_mechanics_revisions_postgres.py (canonical fixture and journal-proof rejection)
 - src/application_state/migrations/versions/20261108_0131_portrait_revision_intent.py (no-op reader fence)
 - .github/workflows/world-ownership-core.yml (register owning Save tests only)
 - this handoff and truthful HANDOFF-STATBLOCK-exact-full-view.md settlement.
@@ -106,3 +107,30 @@ Original fixture rejection and journal-intent failures are retained in v1/v2;
 the later owning checks prove their corrections. CI registers both Save and
 journal owner tests. Cumulative diff check is clean. Independent review, CI and
 protected backend delivery remain pending; this source slice is not live yet.
+
+## Independent review cycle1 checkpoint
+
+HOLD at28864372be9c61710bd73b5e6d584bc5b12a5ec1: the newly compared native
+acceptance map must itself be bound to this operation. Tighten the existing
+journal validator to require exactly its manual marker and optional selected
+portrait UUID, with buddy_manual_revision equal to operation_id. Restore the
+explicit producer marker check as well as full map equality. Extend the lease to
+the existing journal unit test fixture/rejections. Read-only primary inspection
+found14retained manual operations and zero noncanonical acceptance maps; no data
+repair/fallback is needed. The initial HOLD remains retained. No other finding was
+reported for media ownership, selection ordering, frozen recovery or reader fence.
+
+## Cycle1 correction verification
+
+The full affected owner set now passes66checks with four existing warnings
+(owner-tests-v4.log), including strict/resealed journal metadata refusal and four
+producer metadata mismatches staying unknown until exact recovery. Eight unchanged
+media-storage checks remain passed. Read-only aggregate inspection proves all14
+retained real operation maps satisfy canonical manual identity/allowed keys; no
+row correction occurred. The actual pinned DMS AssetRef/AppendRevisionRequest
+schema accepts the generated CDN payload (pure schema proof, no append/HTTP/DB).
+
+Re-anchor includes tooling-only #2234 merged dda8a90afc41080d7b38c3692d95b8ccf63adcc5;
+no behavioral dependency or adoption of its experiments. The initial HOLD head is
+retained in branch history. Cycle2 review and current-head CI are pending; no
+backend/schema delivery has occurred.
