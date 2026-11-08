@@ -357,3 +357,248 @@ def test_relative_capture_output_qualifies_absolute_owned_paths(tmp_path, monkey
     assert (tmp_path / "relative-output/capture-manifest.json").exists()
     report = json.loads((tmp_path / "relative-output/report.json").read_text())
     assert report["cases"][0]["capture_status"] == "not_started"
+
+
+@pytest.fixture
+def writer_replay(retained,monkeypatch):
+    from application_state.agent_conversation.types import canonical_sha256
+    root,case,source=retained
+    request=json.loads((root/'request.json').read_text());request['surface']['surface_id']='plan';put(root/'request.json',request)
+    trace=json.loads((root/'context-trace.json').read_text());attempt=trace['body']['attempts'][0];attempt['attempt']=1
+    identity=attempt['observations'][0]['provider_attempt_id'];witness=attempt['observations'][-1]
+    frame=dict(input_status='complete',user_question=case['question'],native_body_evidence={},native_statements={},native_assertions=None)
+    packet=dict(model='fixed',instructions='Retained source instructions.',input=[dict(role='user',content=json.dumps(frame))],
+        tools=[],stream=False,reasoning={'effort':'low'},service_tier='fast',text={'format':dict(
+            type='json_schema',name='surface_native_evidence_selectors_v1',strict=True,
+            schema={'type':'object','properties':{'answer':{'type':'string'}},'required':['answer'],'additionalProperties':False})})
+    prompt=root/(witness['evidence_id']+'.json');prompt_pin=put(prompt,packet)
+    witness.update(provider='openai',api_mode='responses',model='fixed',provider_attempt_id=identity,
+        serializer_version='openai-sdk-json-v1',payload_sha256=prompt_pin['sha256'],payload_utf8_bytes=len(prompt.read_bytes()))
+    attempt['observations'].insert(0,dict(attempt['observations'][0],outcome='authorized',input_tokens=None,output_tokens=None))
+    put(root/'context-trace.json',trace)
+    history=json.loads((root/'history-after.json').read_text())['body']
+    receipt={'context_receipt_sha256':'c'*64}
+    completion=dict(schema='synthetic_completion',producing_provider_attempt_id=identity,context_receipt_sha256='c'*64)
+    history['turns'][0]['plan_context']=dict(completion=completion,receipt=receipt)
+    put(root/'history-after.json',{'http_status':200,'body':history})
+    answer=json.loads((root/'answer-http.json').read_text());answer['body']['plan_context']=deepcopy(history['turns'][0]['plan_context']);put(root/'answer-http.json',answer)
+    ledger=dict(turn_id=history['turns'][0]['turn_id'],conversation_id=history['conversation_id'],status='completed',attempt=1,
+        graph_context_receipt=receipt,graph_context_execution={'context_receipt_sha256':'c'*64,'events':[dict(kind='native_writer_authorized_v1',provider_attempt_id=identity,
+            provider='openai',api_mode='responses',model='fixed',serializer_version='openai-sdk-json-v1',
+            envelope_sha256=prompt_pin['sha256'],frame_sha256=canonical_sha256(frame)),
+            dict(kind='completion_binding',provider_attempt_id=identity,completion_sha256=canonical_sha256(completion))]})
+    ledger_path=root/'ledger.json';ledger_pin=put(ledger_path,ledger)
+    spec=root/'replay.json';spec_doc=dict(schema='dmb_writer_replay_spec_v1',runtime={},source_manifest={
+        'path':str(source),'sha256':sha256(source.read_bytes()).hexdigest()},cases=[dict(id=case['id'],
+            question=case['question'],writer_attempt_id=identity,ledger=ledger_pin)])
+    put(spec,spec_doc)
+    monkeypatch.setattr(w,'verify_runtime',lambda *_:None)
+    monkeypatch.setenv('OPENAI_API_KEY','test-key-not-real')
+    return SimpleNamespace(root=root,spec=spec,document=spec_doc,packet=packet,ledger=ledger,
+        ledger_path=ledger_path,trace=trace,identity=identity,source=source,case=case)
+
+
+def _writer_response(request,*,status='completed',text='{"answer":"Supported."}',refusal=False):
+    import httpx
+    return httpx.Response(200,request=request,json=dict(id='response-fixture',object='response',created_at=1,
+        model='fixed',status=status,error=None,output=[dict(id='message-fixture',type='message',role='assistant',
+            status='completed',content=[dict(type='refusal',refusal='Refused.') if refusal else
+                dict(type='output_text',text=text,annotations=[])])],
+        usage=dict(input_tokens=17,output_tokens=5,total_tokens=22)))
+
+
+def test_writer_prepare_is_offline_and_override_only_changes_shared_instructions(writer_replay,tmp_path,monkeypatch):
+    import psycopg
+    r=writer_replay
+    monkeypatch.setattr(psycopg,'connect',lambda *a,**k:pytest.fail('Replay accessed database'))
+    override=tmp_path/'instructions.txt';override.write_text('Shared alternative instructions, no new evidence.')
+    r.document['instructions']={'path':str(override),'sha256':sha256(override.read_bytes()).hexdigest()};put(r.spec,r.document)
+    plan=w.writer_prepare(r.spec,tmp_path/'prepared')
+    assert json.loads(plan['cases'][0]['request_json'])==r.packet|{'instructions':override.read_text()}
+    assert plan['cases'][0]['original_instructions_sha256']==sha256(r.packet['instructions'].encode()).hexdigest()
+    assert plan['cases'][0]['prepared_wire']['size']>0
+    assert 'not APP authorization' in plan['scope']
+    assert not (tmp_path/'prepared/result.json').exists()
+
+
+@pytest.mark.parametrize('mutation',['turn','attempt','envelope','frame','completion','completion_digest','receipt','ledger_attempt','witness','packet_field','tools','question','foreign_case','per_case_instructions'])
+def test_writer_preflight_refuses_misbound_or_unsupported_case_before_dispatch(writer_replay,tmp_path,monkeypatch,mutation):
+    r=writer_replay
+    if mutation in {'turn','attempt','envelope','frame','completion','completion_digest','receipt','ledger_attempt'}:
+        if mutation=='turn':r.ledger['turn_id']=str(uuid4())
+        elif mutation=='completion':r.ledger['graph_context_execution']['events'][1]['provider_attempt_id']=str(uuid4())
+        elif mutation=='completion_digest':r.ledger['graph_context_execution']['events'][1]['completion_sha256']='0'*64
+        elif mutation=='receipt':r.ledger['graph_context_execution']['context_receipt_sha256']='0'*64
+        elif mutation=='ledger_attempt':r.ledger['attempt']=2
+        else:r.ledger['graph_context_execution']['events'][0][{'attempt':'provider_attempt_id','envelope':'envelope_sha256','frame':'frame_sha256'}[mutation]]='0'*64
+        r.document['cases'][0]['ledger']=put(r.ledger_path,r.ledger)
+    elif mutation=='witness':
+        r.trace['body']['attempts'][0]['observations'][-1]['api_mode']='decision';put(r.root/'context-trace.json',r.trace)
+    elif mutation in {'packet_field','tools'}:
+        # Pins remain unchanged: changed source must be refused, never reinterpreted.
+        path=next(r.root.glob('????????-????-????-????-????????????.json'))
+        put(path,r.packet|({'temperature':0} if mutation=='packet_field' else {'tools':[{'type':'web_search'}]}))
+    elif mutation=='question':r.document['cases'][0]['question']='Another question'
+    elif mutation=='foreign_case':r.document['cases'][0]['id']='other'
+    else:r.document['cases'][0]['instructions']='Question-specific rewrite'
+    put(r.spec,r.document)
+    with pytest.raises(ValueError):w.writer_prepare(r.spec,tmp_path/'prepared')
+    assert not (tmp_path/'prepared').exists()
+
+
+def test_writer_capture_uses_actual_sdk_gate_and_preserves_raw_diagnostic_only(writer_replay,tmp_path,monkeypatch):
+    import httpx
+    import psycopg
+    monkeypatch.setattr(psycopg,'connect',lambda *a,**k:pytest.fail('Replay accessed database'))
+    r=writer_replay;sent=[]
+    def send(request):
+        sent.append(request)
+        assert str(request.url)=='https://api.openai.com/v1/responses'
+        assert json.loads(request.content)==r.packet
+        return _writer_response(request)
+    w.writer_prepare(r.spec,tmp_path/'prepared')
+    w.writer_capture(tmp_path/'prepared/plan.json',tmp_path/'capture',transport=httpx.MockTransport(send))
+    assert len(sent)==1
+    result=json.loads((tmp_path/'capture'/r.case['id']/'result.json').read_text())
+    assert result['status']=='diagnostic_complete' and result['ordinary_delivery']=='not_exercised'
+    assert result['semantic_acceptance']=='unknown' and result['billed_cost_usd'] is None
+    wire=json.loads((tmp_path/'capture'/r.case['id']/'wire-request.json').read_text())
+    assert wire['sha256']==sha256(sent[0].content).hexdigest()
+    assert wire['provider_attempt_id']!=r.identity
+    assert (tmp_path/'capture'/r.case['id']/'sdk-response.json').exists()
+    with pytest.raises(FileExistsError):w.writer_capture(tmp_path/'prepared/plan.json',tmp_path/'capture',transport=httpx.MockTransport(send))
+    assert len(sent)==1
+
+
+@pytest.mark.parametrize('status,text,refusal',[('incomplete','{"answer":"Partial"}',False),
+    ('completed','{',False),('completed','{"wrong":1}',False),('completed','',True)])
+def test_writer_capture_retains_actual_incomplete_invalid_or_refused_reply(writer_replay,tmp_path,status,text,refusal):
+    import httpx
+    r=writer_replay;sent=[]
+    def send(request):
+        sent.append(request);return _writer_response(request,status=status,text=text,refusal=refusal)
+    w.writer_prepare(r.spec,tmp_path/'prepared')
+    with pytest.raises(Exception):w.writer_capture(tmp_path/'prepared/plan.json',tmp_path/'capture',transport=httpx.MockTransport(send))
+    target=tmp_path/'capture'/r.case['id']
+    assert len(sent)==1 and (target/'sdk-response.json').exists() and (target/'failure.json').exists()
+    assert not (target/'result.json').exists()
+
+
+def test_writer_unknown_outcome_is_not_retried_or_resumed(writer_replay,tmp_path):
+    import httpx
+    r=writer_replay;sent=[]
+    def send(request):
+        sent.append(request);raise httpx.ReadError('Synthetic response loss',request=request)
+    w.writer_prepare(r.spec,tmp_path/'prepared')
+    with pytest.raises(Exception):w.writer_capture(tmp_path/'prepared/plan.json',tmp_path/'capture',transport=httpx.MockTransport(send))
+    target=tmp_path/'capture'/r.case['id'];failure=json.loads((target/'failure.json').read_text())
+    assert failure['dispatch_outcomes']==['sending','outcome_unknown'] and failure['automatic_resume'] is False
+    assert len(sent)==1 and not (target/'sdk-response.json').exists()
+    with pytest.raises(FileExistsError):w.writer_capture(tmp_path/'prepared/plan.json',tmp_path/'capture',transport=httpx.MockTransport(send))
+    assert len(sent)==1
+
+
+def test_writer_plan_tampering_and_late_case_failure_never_send(writer_replay,tmp_path):
+    import httpx
+    r=writer_replay;sent=[];transport=httpx.MockTransport(lambda q:sent.append(q) or _writer_response(q))
+    w.writer_prepare(r.spec,tmp_path/'prepared')
+    plan_path=tmp_path/'prepared/plan.json';plan=json.loads(plan_path.read_text());packet=json.loads(plan['cases'][0]['request_json']);packet['model']='another';plan['cases'][0]['request_json']=json.dumps(packet)
+    put(plan_path,plan)
+    with pytest.raises(ValueError,match='plan changed'):w.writer_capture(plan_path,tmp_path/'capture',transport=transport)
+    r.document['cases'].append(dict(r.document['cases'][0],id='late-invalid'))
+    put(r.spec,r.document)
+    with pytest.raises(ValueError):w.writer_prepare(r.spec,tmp_path/'other')
+    assert not sent and not (tmp_path/'capture').exists()
+
+
+@pytest.mark.parametrize('change',['model','body','endpoint'])
+def test_writer_offline_sdk_preparation_refuses_changed_actual_dispatch(writer_replay,tmp_path,monkeypatch,change):
+    from apps.live_control_server.services.plan_jev_writer import PlanWriterProvider
+    if change=='endpoint':
+        real=PlanWriterProvider.__init__
+        def altered(self,*a,**kw):
+            real(self,*a,**kw);self._client.base_url='https://example.invalid/v1'
+        monkeypatch.setattr(PlanWriterProvider,'__init__',altered)
+    else:
+        real=PlanWriterProvider._request_kwargs
+        def altered(self,*a,**kw):
+            body=real(self,*a,**kw);body['model' if change=='model' else 'instructions']='Changed';return body
+        monkeypatch.setattr(PlanWriterProvider,'_request_kwargs',altered)
+    with pytest.raises(ValueError,match='Offline SDK preparation failed'):
+        w.writer_prepare(writer_replay.spec,tmp_path/'prepared')
+
+
+def _repin_writer_packet(r,packet):
+    witness=r.trace['body']['attempts'][0]['observations'][-1]
+    pin=put(r.root/(witness['evidence_id']+'.json'),packet)
+    witness.update(payload_sha256=pin['sha256'],payload_utf8_bytes=len((r.root/(witness['evidence_id']+'.json')).read_bytes()))
+    put(r.root/'context-trace.json',r.trace)
+    r.ledger['graph_context_execution']['events'][0]['envelope_sha256']=pin['sha256']
+    r.document['cases'][0]['ledger']=put(r.ledger_path,r.ledger);put(r.spec,r.document)
+
+
+@pytest.mark.parametrize('mutation',['extra','tools','stream','tier','schema_ref','schema_id','schema_dynamic_ref'])
+def test_writer_rejects_rebound_unsupported_packet_not_just_bad_pin(writer_replay,tmp_path,mutation):
+    r=writer_replay;packet=deepcopy(r.packet)
+    if mutation=='extra':packet['temperature']=0
+    elif mutation=='tools':packet['tools']=[{'type':'web_search'}]
+    elif mutation=='stream':packet['stream']=True
+    elif mutation=='tier':packet['service_tier']='auto'
+    else:
+        packet['text']['format']['schema'][{'schema_ref':'$ref','schema_id':'$id','schema_dynamic_ref':'$dynamicRef'}[mutation]]='https://example.invalid/schema'
+    _repin_writer_packet(r,packet)
+    with pytest.raises(ValueError):w.writer_prepare(r.spec,tmp_path/'prepared')
+    assert not (tmp_path/'prepared').exists()
+
+
+def _second_writer_case(r):
+    source=json.loads(r.source.read_text());source['cases'].append(dict(r.case,id='second'))
+    r.document['source_manifest']=put(r.source,source)
+    ledger=r.root/'second-ledger.json'
+    r.document['cases'].append(dict(r.document['cases'][0],id='second',ledger=put(ledger,r.ledger)))
+    put(r.spec,r.document)
+    return ledger
+
+
+def test_late_invalid_pinned_case_blocks_all_paid_dispatch(writer_replay,tmp_path):
+    import httpx
+    r=writer_replay;ledger=_second_writer_case(r);sent=[]
+    w.writer_prepare(r.spec,tmp_path/'prepared')
+    put(ledger,{'changed':'after preparation'})
+    with pytest.raises(ValueError,match='pin mismatch'):
+        w.writer_capture(tmp_path/'prepared/plan.json',tmp_path/'capture',transport=httpx.MockTransport(lambda req:sent.append(req)))
+    assert not sent and not (tmp_path/'capture').exists()
+
+
+def test_known_failure_records_cohort_stop_and_unattempted_cases(writer_replay,tmp_path):
+    import httpx
+    r=writer_replay;_second_writer_case(r);sent=[]
+    w.writer_prepare(r.spec,tmp_path/'prepared')
+    def send(req):
+        sent.append(req);return _writer_response(req,text='{"wrong":1}')
+    with pytest.raises(Exception):w.writer_capture(tmp_path/'prepared/plan.json',tmp_path/'capture',transport=httpx.MockTransport(send))
+    cohort=json.loads((tmp_path/'capture/cohort.json').read_text())
+    assert len(sent)==1 and cohort['failed_case']==r.case['id'] and cohort['unattempted_cases']==['second']
+    assert cohort['automatic_resume'] is False and not (tmp_path/'capture/second').exists()
+
+
+def test_interrupted_writer_retains_unknown_and_cannot_resume(writer_replay,tmp_path):
+    import asyncio
+    import httpx
+    r=writer_replay;sent=[]
+    w.writer_prepare(r.spec,tmp_path/'prepared')
+    def send(req):
+        sent.append(req);raise asyncio.CancelledError()
+    with pytest.raises(asyncio.CancelledError):
+        w.writer_capture(tmp_path/'prepared/plan.json',tmp_path/'capture',transport=httpx.MockTransport(send))
+    failure=json.loads((tmp_path/'capture'/r.case['id']/'failure.json').read_text())
+    assert failure['exception_type']=='CancelledError' and failure['dispatch_outcomes']==['sending','outcome_unknown']
+    assert len(sent)==1 and json.loads((tmp_path/'capture/cohort.json').read_text())['status']=='stopped'
+    with pytest.raises(FileExistsError):w.writer_capture(tmp_path/'prepared/plan.json',tmp_path/'capture',transport=httpx.MockTransport(send))
+    assert len(sent)==1
+
+
+def test_replay_spec_rejects_duplicate_json_fields(writer_replay,tmp_path):
+    r=writer_replay
+    r.spec.write_text(r.spec.read_text().replace('"runtime": {}','"runtime": {},"runtime": {}'))
+    with pytest.raises(ValueError):w.writer_prepare(r.spec,tmp_path/'prepared')
