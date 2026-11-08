@@ -167,7 +167,9 @@ export function AgentInteractionChrome() {
     </div>
   );
 
-  if (!askPluginPresent) return null;
+  // A document workspace owns an available conversation dock even before a
+  // saved object is ready for agent execution. Readiness stays with the composer.
+  if (!workspaceOwned && !askPluginPresent) return null;
   if (workspaceOwned) return launcherHost ? createPortal(launcher, launcherHost) : null;
 
   return (

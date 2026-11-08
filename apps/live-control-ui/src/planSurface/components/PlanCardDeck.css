@@ -1,6 +1,6 @@
 .plan-cards-workspace {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: .75rem;
   align-items: start;
   width: 100%;
@@ -9,8 +9,12 @@
 .plan-cards-workspace[hidden] { display: none !important; }
 .plan-cards-workspace__reader { min-width: 0; }
 
-@media (max-width: 700px) {
-  .plan-cards-workspace { grid-template-columns: minmax(0, 1fr); }
+/* Reserve a navigation track only when this workspace renders Contents.
+   New drafts and unavailable navigation still receive a full document track. */
+@media (min-width: 701px) {
+  .plan-cards-workspace:has(> .surface-contents:not([hidden])) {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
 }
 
 .plan-cards-workspace__reader[hidden], .plan-card-outside { display: none !important; }

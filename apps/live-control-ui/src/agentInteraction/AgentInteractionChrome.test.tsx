@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useMemo } from "react";
+import { useMemo, useLayoutEffect } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { useConversationPlacement } from "../ui/conversationPlacement";
 beforeEach(() => window.localStorage.setItem("buddy.conversation.placement", "side"));
@@ -301,4 +301,20 @@ describe("AgentInteractionChrome", () => {
       Object.defineProperty(window, "innerHeight", { configurable: true, value: originalInnerHeight });
     }
   });
+});
+
+function DocumentWorkspace({ready}:{ready:boolean}) {
+  const slot=useAskPluginSlot();
+  useRegisterAskPluginPresence(ready);
+  useLayoutEffect(()=>{slot.setLayoutOwner('plan-workspace');return()=>slot.setLayoutOwner('chrome');},[slot.setLayoutOwner]);
+  return <div data-testid="document-launcher-host" ref={slot.setLauncherHost}/>;
+}
+it('keeps the document-owned launcher usable before saved-object readiness and through readiness changes',async()=>{
+  const user=userEvent.setup();
+  function Workspace({ready}:{ready:boolean}) {return <AgentInteractionProvider><AskPluginSlotProvider><DocumentWorkspace ready={ready}/><AgentInteractionChrome/></AskPluginSlotProvider></AgentInteractionProvider>;}
+  const view=render(<Workspace ready={false}/>);
+  const button=await screen.findByTestId('agent-interaction-open');expect(screen.getByTestId('document-launcher-host')).toContainElement(button);
+  expect(button).toHaveAttribute('aria-expanded','false');await user.click(button);expect(button).toHaveAttribute('aria-expanded','true');
+  view.rerender(<Workspace ready/>);expect(screen.getByTestId('agent-interaction-open')).toBe(button);
+  view.rerender(<Workspace ready={false}/>);expect(screen.getByTestId('agent-interaction-open')).toBe(button);expect(button).toHaveAttribute('aria-expanded','true');
 });
