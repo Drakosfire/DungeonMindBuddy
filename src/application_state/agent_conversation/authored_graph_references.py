@@ -813,3 +813,25 @@ def validate_stored_writer(conn, turn, writer, request_json=None):
         inclusion = next(e for e in execution.events if isinstance(e, BuildAuthoredProviderInclusionV1)
             and e.provider_attempt_id == writer.provider_attempt_id)
         validate_provider_inclusion(inclusion, execution, request_json, load_protected_source_material(conn, turn))
+
+
+def model_reference_choices(execution):
+    """Shared provider-only labels/status; identity stays with captured references."""
+    from .native_corpus import NativeAuthoredSourceReadV1
+    references = native_references(execution)
+    if references is not None and references.references:
+        selected = []
+        for i, reference in enumerate(references.references):
+            source = isinstance(reference, AuthoredSourceReferenceV1)
+            reads = [event for event in execution.events if (
+                isinstance(event, NativeAuthoredSourceReadV1) and source and event.reference_index == i
+                or isinstance(event, BuildAuthoredReferenceReadV2) and not source
+                    and event.node_id == reference.node_id)]
+            if len(reads) > 1:
+                raise ValueError('Ambiguous selected Plan reference read')
+            selected.append(dict(reference=f'reference{i}', label=reference.label,
+                kind='source' if source else 'object', read_status=(
+                    'complete' if source else reads[0].status) if reads else 'unread',
+                **({'extent': reference.selection_kind} if source else {})))
+        return selected
+    return None

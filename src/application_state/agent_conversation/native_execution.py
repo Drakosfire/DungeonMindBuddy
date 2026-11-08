@@ -196,6 +196,16 @@ class NativeWriterAuthorizedV1(t.ProviderAttemptAuthorizedEventV3):
         return self
 
 
+class NativeBuildWriterAuthorizedV2(NativeWriterAuthorizedV1):
+    """The existing writer owner commits all Build work, including unused reads."""
+    kind: Literal["native_build_writer_authorized_v2"] = "native_build_writer_authorized_v2"
+    work_frame_sha256: Digest
+
+
+NATIVE_WRITER_TYPES = (NativeWriterAuthorizedV1, NativeBuildWriterAuthorizedV2)
+NATIVE_WRITER_KINDS = frozenset({'native_writer_authorized_v1', 'native_build_writer_authorized_v2'})
+
+
 def native_read_event_ids(events):
     """One inclusion inventory for the current native writer."""
     return tuple(sorted((event.event_id for event in events if isinstance(event, (
@@ -208,7 +218,7 @@ def native_read_event_ids(events):
 SurfaceNativeEvent = Annotated[
     t.ProviderAttemptAuthorizedEventV3 | t.ProviderAttemptAuthorizedEventV5
     | t.PlanJevProviderAuthorizedV1 | NativeRetrievalAuthorizedV1 | t.PlanRequestedWorkAuthorizedV2
-    | NativeWriterAuthorizedV1 | t.ProviderOutcomeEventV1 | t.CompletionBindingEventV1
+    | NativeWriterAuthorizedV1 | NativeBuildWriterAuthorizedV2 | t.ProviderOutcomeEventV1 | t.CompletionBindingEventV1
     | t.PlanJevRetrievalSelectionV1 | NativeRetrievalSelectedV1 | t.PlanRequestedWorkSelectedV2
     | t.NativeBodySearchAuthorizedV1 | t.NativeBodySearchObservedV1
     | t.NativeBodyReadAuthorizedV1 | t.NativeBodyReadObservedV1 | t.NativeAuthoredSourceReadV1
@@ -258,7 +268,7 @@ class SurfaceNativeExecutionV1(Strict):
             if isinstance(event,t.ProviderOutcomeEventV1) and event.outcome=='response_received':
                 producer=next(e for e in self.events[:event.sequence]
                     if isinstance(e,t.ProviderAttemptAuthorizedEventV1) and e.provider_attempt_id==event.provider_attempt_id)
-                if type(producer) is NativeWriterAuthorizedV1 and (not event.request_id or not event.response_sha256):
+                if type(producer) in NATIVE_WRITER_TYPES and (not event.request_id or not event.response_sha256):
                     raise ValueError('Shared native writer response requires its exact selected output acknowledgement')
             if isinstance(event, _BUILD_WORK_EVENTS) and not isinstance(self.policy.action, NativeBuildActionV1):
                 raise ValueError("Build work event cannot acquire another action family")
@@ -266,7 +276,9 @@ class SurfaceNativeExecutionV1(Strict):
                 raise ValueError("Plan work event cannot acquire another action family")
             if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
                 identity = event.provider, event.model, event.api_mode
-                if type(event) is NativeWriterAuthorizedV1:
+                if type(event) in NATIVE_WRITER_TYPES:
+                    if type(event) is NativeBuildWriterAuthorizedV2 and not isinstance(self.policy.action, NativeBuildActionV1):
+                        raise ValueError('Build work authorization cannot authorize another surface')
                     writer_role = roles.writer if isinstance(roles, t.GraphControllerWriterRolesV1) else roles
                     if identity != writer_role.identity():
                         raise ValueError("Shared native inclusion belongs only to its exact writer role")
@@ -279,7 +291,7 @@ class SurfaceNativeExecutionV1(Strict):
                     if (isinstance(self.policy.action,NativeBuildActionV1)) != (event.build_context is not None):
                         raise ValueError("Native dispatch context differs from its concrete surface")
                 if isinstance(roles, t.GraphControllerWriterRolesV1):
-                    if identity == roles.writer.identity() and type(event) is not NativeWriterAuthorizedV1:
+                    if identity == roles.writer.identity() and type(event) not in NATIVE_WRITER_TYPES:
                         raise ValueError("Native writer requires its exact shared selected-read inclusion codec")
                     if (isinstance(self.policy.action, NativePlanActionV1)
                             and identity == roles.controller.identity()
