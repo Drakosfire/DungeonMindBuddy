@@ -39,7 +39,7 @@ No `SelectedWorldContext` or API server change, hosted auth policy change, globa
 - Guest view does not display World switcher, published-graph launch, hosted agent conversation, or agent assistant. The existing local World UI does not issue model/hosted API requests, and its save/export status remains explicitly browser-local.
 - Run the new focused guest App tests, relevant `App.test.tsx`, `App.surfaceInteraction.test.tsx`, `App.commandAccepted.test.tsx`, `chrome/AppChrome.test.tsx`, `src/test/appNavigation.test.tsx`, auth tests, full localWorld suite, typecheck, production build, exact base→head diff and independent exact-head review. Capture a browser verification on an isolated profile/database; do not inspect/delete/alter any disclosed user World.
 
-This change does not provide account persistence, sync, collaboration, graph node/edge authoring, or a claim of browser storage durability against eviction/private-mode/quota/crash. The foundation chain remains serially unmerged; no successor integration/deployment is authorized here.
+This change does not provide account persistence, sync, collaboration, graph node/edge authoring, or a claim of browser storage durability against eviction/private-mode/quota/crash. The remaining successor stack after merged #2198 and #2202 is still serially unmerged; PRIME owns integration and merge decisions, and deployment is not authorized.
 
 ## Verification recorded for this implementation head
 
