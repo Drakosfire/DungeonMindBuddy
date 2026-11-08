@@ -58,10 +58,10 @@ function LibraryThumbnail({ record, port }: { record: MediaRecord; port: ImageGe
 }
 
 /** Surface-independent generator. The host owns placement and any eventual document write. */
-export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initialPurpose = 'illustration', preparationId, chooseLabel = 'Insert into page', placeAfterBlock = false, port = livePort }: {
-  initialPrompt?: string; initialPurpose?: 'illustration' | 'map'; preparationId?: string; chooseLabel?: string; placeAfterBlock?: boolean; onClose: () => void; onChoose?: (image: GeneratedMediaImage, result: ImageGenerationResult, placement: { mode: 'click' | 'drag'; signal: AbortSignal }) => void | Promise<void>; port?: ImageGenerationPort;
+export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initialPurpose = 'illustration', preparationId, chooseLabel = 'Insert into page', placeAfterBlock = false, selectionOnly = false, requireSaved = false, port = livePort }: {
+  initialPrompt?: string; initialPurpose?: 'illustration' | 'map'; preparationId?: string; chooseLabel?: string; placeAfterBlock?: boolean; selectionOnly?: boolean; requireSaved?: boolean; onClose: () => void; onChoose?: (image: GeneratedMediaImage, result: ImageGenerationResult, placement: { mode: 'click' | 'drag'; signal: AbortSignal }) => void | Promise<void>; port?: ImageGenerationPort;
 }) {
-  const tourImage=useTourImage(),tour=useGuidedTour();
+  const imageObservation=useTourImage(),tourImage=selectionOnly?null:imageObservation,tour=useGuidedTour();
   const [collapsed, setCollapsed] = useState(false);
   const [placing, setPlacing] = useState(false);
   const placementAbort = useRef<AbortController | null>(null);
@@ -193,19 +193,20 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
       } catch { /* Leave existing preview intact; don't retry generation or upload. */ }
     } finally { saveBusy.current = false; setSaving(null); }
   };
+  const selectable = (image: GeneratedMediaImage) => ['staged', 'ready'].includes(image.state) && (!requireSaved || image.state === 'ready');
   const choose = async (image: GeneratedMediaImage, mode: 'click' | 'drag') => {
-    if (!onChoose || !result || !['staged', 'ready'].includes(image.state) || placementAbort.current) return;
+    if (!onChoose || !result || !selectable(image) || selectionOnly && mode === 'drag' || placementAbort.current) return;
     const controller = new AbortController(); placementAbort.current = controller;
-    setPlacing(true); setCollapsed(mode === 'click'); setError('');
+    setPlacing(true); setCollapsed(!selectionOnly && mode === 'click'); setError('');
     try { await onChoose(image, result, { mode, signal: controller.signal }); }
-    catch (reason) { if (!controller.signal.aborted) { setError(reason instanceof Error ? reason.message : 'The image could not be placed.'); setCollapsed(false); } }
+    catch (reason) { if (!controller.signal.aborted) { setError(reason instanceof Error ? reason.message : selectionOnly ? 'The image could not be selected.' : 'The image could not be placed.'); setCollapsed(false); } }
     finally { if (placementAbort.current === controller) placementAbort.current = null; setPlacing(false); }
   };
   const showCreate = () => { ++browseSequence.current; libraryOpenRef.current = false; setLibraryBusy(false); setLibraryOpen(false); setView('create'); };
   const cancelPlacement = () => { placementAbort.current?.abort(); placementAbort.current = null; setPlacing(false); setCollapsed(false); };
-  useTourNavigationGuard({worldId:null,reason:()=>pending||placing||saving!==null||!!prompt.trim()||!!result||!!completion?'Finish or explicitly close Image Studio before leaving its work.':null});
+  useTourNavigationGuard({worldId:null,reason:()=>!selectionOnly&&(pending||placing||saving!==null||!!prompt.trim()||!!result||!!completion)?'Finish or explicitly close Image Studio before leaving its work.':null});
   const placementLabel = chooseLabel === 'Insert into page' ? 'Place on page' : chooseLabel;
-  const phase = placing ? (placeAfterBlock ? 'Click or drop on a block to place the image after it' : 'Click the page or drop the image to place it') : pending ? 'Generating…' : saving ? 'Saving…' : error ? 'Couldn’t finish — expand for details' : completion || result ? 'Image ready' : 'Ready';
+  const phase = placing ? (selectionOnly ? 'Selecting image…' : placeAfterBlock ? 'Click or drop on a block to place the image after it' : 'Click the page or drop the image to place it') : pending ? 'Generating…' : saving ? 'Saving…' : error ? 'Couldn’t finish — expand for details' : completion || result ? 'Image ready' : 'Ready';
   return <section className={'media-image-wizard' + (collapsed ? ' is-collapsed' : '')} aria-label="Create an image" aria-busy={pending}>
     <header className="media-image-wizard__header" role="toolbar" aria-label="Image Studio controls">
       <div className="media-image-wizard__title-row"><h2>Image Studio</h2>
@@ -259,10 +260,10 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
       </details>}
     </div></fieldset>}
     {!libraryOpen && <footer><p>Generation is billed to DungeonBuddy’s configured fal account. New images are retained privately in your library. Save uploads the artwork to a public CDN; prompts and settings stay private.</p><button type="button" disabled={pending || placing || saving !== null || !configured || !libraryReady || !model || !prompt.trim()} onClick={submit}>{pending ? 'Generating your image…' : result ? 'Generate another image' : 'Generate image'}</button></footer>}
-    {pending && <p>Creating your image. Collapse Image Studio to keep working on your page.</p>}
+    {pending && <p>{selectionOnly ? 'Creating your image. You can collapse Image Studio while it finishes.' : 'Creating your image. Collapse Image Studio to keep working on your page.'}</p>}
     {purpose === 'map' && !libraryOpen && <details><summary>Map framing added to your prompt</summary><p>{mapFraming}</p></details>}
-    {result && onChoose && <p>{placeAfterBlock ? `Drag the retained image onto a block or choose ${placementLabel} and click a block. The image is placed after that whole block.` : `Drag the retained image onto the page or choose ${placementLabel} and click an insertion point.`} Save the page to keep its placement.</p>}
-    {result && <figure className="media-image-wizard__result" hidden={view !== 'preview' || libraryOpen}><figcaption><details><summary>Prompt used</summary><p>{result.prompt}</p></details></figcaption>{result.images.map((image, index) => <div key={index}><img src={image.delivery_url ?? image.data_url} alt={result.prompt} draggable={['staged', 'ready'].includes(image.state) && !!onChoose} onDragStart={event => { if (!['staged', 'ready'].includes(image.state) || !onChoose) { event.preventDefault(); return; } event.dataTransfer.clearData(); event.dataTransfer.setData('application/x-dmb-media', image.asset_id); event.dataTransfer.effectAllowed='copy'; void choose(image, 'drag'); }} /><div className="media-image-wizard__actions"><OriginalImageDownload dataUrl={image.data_url} mediaType={image.media_type} filename={`world-image-${index + 1}.${image.media_type.split('/')[1]}`} />{image.state === 'ready' ? <span role="status">Saved to CDN</span> : <button type="button" disabled={saving !== null || !storageConfigured} onClick={() => saveImage(image.asset_id)}>{saving === image.asset_id ? 'Saving…' : image.state === 'staged' ? 'Save image' : 'Check Save status'}</button>}{!storageConfigured && image.state !== 'ready' && <span>CDN storage needs configuration; your image is retained.</span>}{onChoose && ['staged', 'ready'].includes(image.state) && <button type="button" disabled={placing} onClick={() => void choose(image, 'click')}>{placementLabel}</button>}</div></div>)}</figure>}
+    {result && onChoose && <p>{selectionOnly ? (requireSaved ? 'Save the image before choosing it.' : 'Choose an image to return to the editor.') : placeAfterBlock ? `Drag the retained image onto a block or choose ${placementLabel} and click a block. The image is placed after that whole block.` : `Drag the retained image onto the page or choose ${placementLabel} and click an insertion point.`}{!selectionOnly && ' Save the page to keep its placement.'}</p>}
+    {result && <figure className="media-image-wizard__result" hidden={view !== 'preview' || libraryOpen}><figcaption><details><summary>Prompt used</summary><p>{result.prompt}</p></details></figcaption>{result.images.map((image, index) => <div key={index}><img src={image.delivery_url ?? image.data_url} alt={result.prompt} draggable={!selectionOnly && selectable(image) && !!onChoose} onDragStart={event => { if (selectionOnly || !selectable(image) || !onChoose) { event.preventDefault(); return; } event.dataTransfer.clearData(); event.dataTransfer.setData('application/x-dmb-media', image.asset_id); event.dataTransfer.effectAllowed='copy'; void choose(image, 'drag'); }} /><div className="media-image-wizard__actions"><OriginalImageDownload dataUrl={image.data_url} mediaType={image.media_type} filename={`world-image-${index + 1}.${image.media_type.split('/')[1]}`} />{image.state === 'ready' ? <span role="status">Saved to CDN</span> : <button type="button" disabled={saving !== null || !storageConfigured} onClick={() => saveImage(image.asset_id)}>{saving === image.asset_id ? 'Saving…' : image.state === 'staged' ? 'Save image' : 'Check Save status'}</button>}{!storageConfigured && image.state !== 'ready' && <span>CDN storage needs configuration; your image is retained.</span>}{onChoose && ['staged', 'ready'].includes(image.state) && <button type="button" disabled={placing || saving !== null || !selectable(image)} onClick={() => void choose(image, 'click')}>{placementLabel}</button>}</div></div>)}</figure>}
     </div>
   </section>;
 }
