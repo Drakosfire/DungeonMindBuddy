@@ -278,3 +278,33 @@ def test_current_plan_reference_wire_keeps_semantics_and_host_binding_separate(o
     assert prepare_requested_work_decision(old).state["author_selected_references"]==references.model_dump(mode="json",by_alias=True)
     with pytest.raises(ValueError,match="wire differs"):
         validate_requested_work_wire(old,raw)
+
+
+@pytest.mark.parametrize("operation", [None, "discuss", "write_current_page"])
+def test_intent_first_revision_preserves_old_wire_and_writing_options(operation):
+    from pathlib import Path
+    from application_state.agent_conversation.plan_placement import PlanRequestedWorkInputV6, PlanRequestedWorkInputV7
+    from application_state.agent_conversation.plan_authoring import (
+        CURRENT_REQUEST_INTENT_POLICY, QUESTION_FIRST_INTENT_POLICY,
+        prepare_requested_work_decision, validate_requested_work_wire)
+
+    frozen = json.loads((Path(__file__).parents[1] / "fixtures/plan_requested_work_v2_wire.json").read_text())
+    values = frozen["parent"] | dict(schema="dmb_plan_requested_work_input_v6",
+        authored_references=None, plan_requested_operation=operation)
+    old = PlanRequestedWorkInputV6.model_validate(values)
+    new = PlanRequestedWorkInputV7.model_validate(values | dict(schema="dmb_plan_requested_work_input_v7"))
+    before, after = prepare_requested_work_decision(old), prepare_requested_work_decision(new)
+    assert before.state["intent_policy"] == CURRENT_REQUEST_INTENT_POLICY
+    assert after.state["intent_policy"] == QUESTION_FIRST_INTENT_POLICY
+    assert before.questions == after.questions
+    assert {k:v for k,v in before.state.items() if k not in {"intent_policy", "placement_policy"}} == {
+        k:v for k,v in after.state.items() if k not in {"intent_policy", "placement_policy"}}
+    for parent, prepared in [(old,before),(new,after)]:
+        raw = json.dumps(dict(model=prepared.model,state=prepared.state,questions={
+            q.name:dict(type="choice",instructions=q.question,criteria=dict.fromkeys(q.options))
+            for q in prepared.questions})).encode()
+        validate_requested_work_wire(parent,raw)
+        other = new if parent is old else old
+        with pytest.raises(ValueError,match="wire differs"):
+            validate_requested_work_wire(other,raw)
+    assert PlanRequestedWorkInputV7.model_validate_json(new.model_dump_json(by_alias=True)) == new
