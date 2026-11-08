@@ -143,7 +143,12 @@ def test_heavy_native_proofs_fit_unchanged_budget_without_losing_facts(published
         assert semantic['subject'] != host['subject_entity_id']
         assert semantic['predicate'] == host['predicate']
         assert semantic['value'] == host['value']  # This fixture contains literal values.
-        assert semantic['metadata'] == {key: host['metadata'][key] for key in semantic_qualifiers}
+        expected_metadata = {key: host['metadata'][key] for key in semantic_qualifiers}
+        expected_metadata['domain_metadata'] = [
+            {'world_context': entry['payload']}
+            if entry['schema'] == 'dungeonbuddy.domain_metadata:world_context_v1' else entry
+            for entry in host['metadata']['domain_metadata']]
+        assert semantic['metadata'] == expected_metadata
     raw=current_prepared.body.decode()
     import json
     actual_frame = next(value for message in new['input']

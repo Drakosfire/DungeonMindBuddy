@@ -371,11 +371,14 @@ def test_semantic_native_evidence_preserves_qualifiers_and_reopens_original_cita
             "claim_mode",
             "standing",
             "temporal_scope",
-            "domain_metadata",
         ):
             assert (
                 new["assertion"]["metadata"][key] == old["assertion"]["metadata"][key]
             )
+        assert new["assertion"]["metadata"]["domain_metadata"] == [
+            {"world_context": entry["payload"]}
+            if entry["schema"] == "dungeonbuddy.domain_metadata:world_context_v1" else entry
+            for entry in old["assertion"]["metadata"]["domain_metadata"]]
         assert (
             "evidence_ref_ids" not in new["assertion"]["metadata"]
             and "visibility" not in new["assertion"]["metadata"]
@@ -599,10 +602,7 @@ def test_semantic_world_qualification_separates_only_typed_publisher_provenance(
     assert frame["native_assertions"]["assertions"][0]["assertion"]["metadata"][
         "domain_metadata"
     ] == [
-        dict(
-            schema="dungeonbuddy.domain_metadata:world_context_v1",
-            payload={"uncertain": ["who reported it"]},
-        )
+        dict(world_context={"uncertain": ["who reported it"]})
     ]
     assert "HOST-" not in json.dumps(frame)
     # Similar user data without the publisher's type tag is semantic, not a blacklist hit.
@@ -612,7 +612,7 @@ def test_semantic_world_qualification_separates_only_typed_publisher_provenance(
     assert (
         semantic_frame(host)["native_assertions"]["assertions"][0]["assertion"][
             "metadata"
-        ]["domain_metadata"][0]["payload"]
+        ]["domain_metadata"][0]["world_context"]
         == payload
     )
 
@@ -635,12 +635,12 @@ def test_world_context_presentation_omits_only_proven_host_slots(case):
     before = deepcopy(original)
     projected = _domain_meaning(original)
     expected = {key:value for key,value in payload.items() if key not in case["host_fields"]}
-    assert projected == [dict(schema=original[0]["schema"],payload=expected), *original[1:]]
+    assert projected == [dict(world_context=expected), original[1], dict(world_context=original[2]["payload"])]
     assert original == before
-    assert projected[0]["payload"]["source_qualification"] == payload["source_qualification"]
+    assert projected[0]["world_context"]["source_qualification"] == payload["source_qualification"]
     assert _domain_meaning([dict(schema=original[0]["schema"],payload={
         key:payload[key] for key in case["host_fields"]})]) == ([] if case["host_fields"] else [
-            dict(schema=original[0]["schema"],payload={})])
+            dict(world_context={})])
 
 
 _ALL_HOST_REVIEW_FIELDS = {key:value for case in _captured_world_context_cases()
@@ -658,6 +658,10 @@ def test_actual_sdk_world_context_roles_preserve_exact_host_reads(published_lane
     before = record.model_dump_json(by_alias=True)
     work = work_submission(context,record)
     raw = asyncio.run(actual_sdk_request(frame,work_frame=model_work_frame(context,record,**work)))
+    from application_state.agent_conversation.native_evidence_view import (
+        semantic_frame_in_request, world_context_representation)
+    actual = semantic_frame_in_request(json.loads(raw), legacy_schemas=())
+    assert actual == frame and world_context_representation(actual) == "current"
     stored, grant = authorize(context,record,raw,frame)
     accepted = verify_input_records(context,stored,grant,raw,**work)
     assert accepted.native_assertions
@@ -667,6 +671,88 @@ def test_actual_sdk_world_context_roles_preserve_exact_host_reads(published_lane
                 assert item.payload["ingestion_code_head"] == "b"*40
     for row in frame["native_assertions"]["assertions"]:
         for item in row["assertion"]["metadata"]["domain_metadata"]:
-            assert item["payload"] == {key:_ALL_HOST_REVIEW_FIELDS[key] for key in
+            assert set(item) == {"world_context"}
+            assert item["world_context"] == {key:_ALL_HOST_REVIEW_FIELDS[key] for key in
                 ("source_qualification","uncertain","unknown_host_looking_sha256","notes")}
     assert record.model_dump_json(by_alias=True) == before
+
+
+def test_world_context_reader_classifies_slots_without_scrubbing_literal_text():
+    from application_state.agent_conversation.native_evidence_view import (
+        world_context_representation)
+    marker = "dungeonbuddy.domain_metadata:world_context_v1"
+    def packet(entries):
+        return {"native_assertions": {"assertions": [{"assertion": {
+            "metadata": {"domain_metadata": entries}}}]}}
+    literal = {"schema": marker, "payload": "literal story words"}
+    assert world_context_representation(packet([
+        {"world_context": {"notes": literal}},
+        {"schema": "custom:authored-context", "payload": literal}])) == "current"
+    assert world_context_representation(packet([
+        {"schema": marker, "payload": [literal]}])) == "historical"
+    with pytest.raises(ValueError, match="Mixed"):
+        world_context_representation(packet([
+            {"world_context": literal}, {"schema": marker, "payload": literal}]))
+    with pytest.raises(ValueError, match="Malformed"):
+        world_context_representation(packet([{"world_context": {}, "payload": {}}]))
+    assert world_context_representation({"native_assertions": None}) == "current"
+
+
+@pytest.mark.parametrize("surface", ["build", "plan"])
+@pytest.mark.parametrize("historical", [False, True])
+def test_world_context_current_and_historical_exact_sdk_bindings(published_lane, surface, historical):
+    from application_state.agent_conversation.native_writer import model_input_frame
+    context, record = published_case(surface, published_lane)
+    frame = model_input_frame(context, record)
+    if historical:
+        for row in frame["native_assertions"]["assertions"]:
+            entries = row["assertion"]["metadata"]["domain_metadata"]
+            for index, entry in enumerate(entries):
+                if set(entry) == {"world_context"}:
+                    entries[index] = {"schema": "dungeonbuddy.domain_metadata:world_context_v1",
+                        "payload": entry["world_context"]}
+    before = record.model_dump_json(by_alias=True)
+    work = work_submission(context, record)
+    raw = asyncio.run(actual_sdk_request(frame, work_frame=model_work_frame(context, record, **work)))
+    stored, grant = authorize(context, record, raw, frame)
+    assert verify_input_records(context, stored, grant, raw, **work).native_assertions
+    assert record.model_dump_json(by_alias=True) == before
+    # A self-consistent request/hash cannot replace exact admitted qualifications.
+    changed = deepcopy(frame)
+    entry = next(entry for row in changed["native_assertions"]["assertions"]
+        for entry in row["assertion"]["metadata"]["domain_metadata"]
+        if (entry.get("schema") == "dungeonbuddy.domain_metadata:world_context_v1"
+            if historical else set(entry) == {"world_context"}))
+    entry["payload" if historical else "world_context"] = {"uncertain": ["invented certainty"]}
+    altered = asyncio.run(actual_sdk_request(changed, work_frame=model_work_frame(context, record, **work)))
+    altered_record, altered_grant = authorize(context, record, altered, changed)
+    with pytest.raises(ValueError, match="evidence differs"):
+        verify_input_records(context, altered_record, altered_grant, altered, **work)
+
+    # Historical and current forms may not be mixed, even with self-consistent hashes.
+    mixed = deepcopy(frame)
+    entries = next(row["assertion"]["metadata"]["domain_metadata"]
+        for row in mixed["native_assertions"]["assertions"]
+        if any((entry.get("schema") == "dungeonbuddy.domain_metadata:world_context_v1"
+            if historical else set(entry) == {"world_context"})
+            for entry in row["assertion"]["metadata"]["domain_metadata"]))
+    known = next(entry for entry in entries if
+        (entry.get("schema") == "dungeonbuddy.domain_metadata:world_context_v1"
+            if historical else set(entry) == {"world_context"}))
+    entries.append({"world_context": known["payload"]} if historical else
+        {"schema": "dungeonbuddy.domain_metadata:world_context_v1", "payload": known["world_context"]})
+    mixed_raw = asyncio.run(actual_sdk_request(mixed, work_frame=model_work_frame(context, record, **work)))
+    mixed_record, mixed_grant = authorize(context, record, mixed_raw, mixed)
+    with pytest.raises(ValueError, match="Mixed"):
+        verify_input_records(context, mixed_record, mixed_grant, mixed_raw, **work)
+
+
+@pytest.mark.parametrize("old_revision", ["20261108_0131", "20261108_0132"])
+def test_old_readers_refuse_world_projection_database(application_state_dsn, monkeypatch, old_revision):
+    from application_state import cli
+    from application_state.errors import ApplicationStateMigrationError
+    cli.assert_at_head(dsn=application_state_dsn)
+    assert cli._read_current_revision(application_state_dsn) == "20261108_0133"
+    monkeypatch.setattr(cli, "_alembic_head", lambda: old_revision)
+    with pytest.raises(ApplicationStateMigrationError):
+        cli.assert_at_head(dsn=application_state_dsn)
