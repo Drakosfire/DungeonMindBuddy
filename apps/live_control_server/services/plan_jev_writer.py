@@ -236,18 +236,21 @@ class PlanJevWriter:
         self.projection = None
         if self.shared:
             from application_state.agent_conversation.native_writer import model_frame, model_work_frame
+            from application_state.agent_conversation.native_evidence_view import semantic_frame,output_frame
             from application_state.agent_conversation.plan_writer_output_schema import native_output_format
             turn=adapter.fence.turn
             self.frame=model_frame(turn.graph_context_receipt,turn.graph_context_execution)
             self.work_frame=model_work_frame(turn.graph_context_receipt,turn.graph_context_execution,
                 provenance=turn.provenance,idempotency_key=turn.idempotency_key,work_proof=proof,
                 world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt)
+            self.provider_frame=semantic_frame(self.frame)
+            self.frame=output_frame(self.frame,self.provider_frame)
             self.output_format=native_output_format(self.frame,rule_frame,self.work_frame)
             # Discussion ends with current evidence rather than prior assistant
             # prose. Keep the exact frames; authoring keeps its current draft last.
-            frames=((self.work_frame,rule_frame,self.frame)
+            frames=((self.work_frame,rule_frame,self.provider_frame)
                 if getattr(rules,'authoring',None) is None
-                else (self.frame,rule_frame,self.work_frame))
+                else (self.provider_frame,rule_frame,self.work_frame))
         else:
             self.projection = project(adapter.fence.turn, proof, adapter.context_capture.trace.model_dump(mode='json'))
             self.frame=self.projection.frame
@@ -327,7 +330,7 @@ class PlanJevWriter:
         if self.shared:
             from application_state.errors import ApplicationStateConflictError
             try:
-                event=authorize_native_writer(a,self.rules,self.proof,prepared,expected,self.frame)
+                event=authorize_native_writer(a,self.rules,self.proof,prepared,expected,self.provider_frame)
             except ApplicationStateConflictError:
                 self.target_changed=self.rules.authoring is not None
                 raise

@@ -1,6 +1,13 @@
 # PROMPTS: human native Graph navigation labels
 
-Status: ACTIVE. PRIME owns the operator-prioritized host-metadata cleanup.
+Status: MERGED AND DELIVERED. PR2199 merged at
+9d60f54283014c1a2ef3c34e25df12e864292ab6 and delivered as APIintegration
+2bf01475839e93c366ce03ebc9d3e9ee9d82a5fd. Schema128/UI and all retained APP/Core
+rows/session fingerprints were unchanged. Independent source/composition/recipe
+review approved;61 owning tests and all seven CI checks passed. The plan below
+records that completed delivery, with no active runtime write lease. Other prompt
+roles and the full retrieval/References acceptance goal remain open.
+PRIME owned the operator-prioritized host-metadata cleanup.
 Serial from fetched main73d5db830b5073ddea367d7c805fd8c1e6c48150, same existing
 checkout and dependencies. PR2197 is merged at that revision and delivered as
 APIintegrationd4ca1ab062aa90137c954d9c785c0852a0e5b69e on fence128. Preserve its

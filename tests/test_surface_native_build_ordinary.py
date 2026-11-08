@@ -14,6 +14,7 @@ from tests.page_fixtures import create_page_fixture, save_page
 from tests.test_native_plan_assertions import lane as lane, publish, admit_unrelated
 from tests.test_build_jev_estimated_continuations import counter
 from application_state.agent_conversation import AgentConversationService, types as t
+from application_state.agent_conversation.native_plan_assertions import POLICY as NATIVE_ANSWER_POLICY
 from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1, AuthoredGraphReferencesV1
 from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
 
@@ -200,7 +201,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             inputs = [json.loads(body['input'])] if isinstance(body['input'], str) else [json.loads(row['content']) for row in body['input'] if row['content'].lstrip().startswith('{')]
             if mode:
                 inputs=[inputs[0]['native_evidence'],inputs[0]['surface_work']]
-            frame = next(row for row in inputs if row.get('schema') == 'dmb_surface_native_writer_evidence_v2')
+            frame = next(row for row in inputs if set(row)=={'input_status','user_question','native_body_evidence','native_statements','native_assertions'})
             work = next(row for row in inputs if row.get('schema')=='dmb_build_primary_work_evidence_v1')
             if not mode:
                 assert len(inputs)==3 and inputs[-1] == frame
@@ -238,7 +239,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     output_index=0,content_index=0,delta=text),dict(type='response.completed',sequence_number=2,response=response)]
                 return httpx.Response(200,request=req,headers={'content-type':'text/event-stream'},
                     content=''.join('data: '+json.dumps(e)+'\n\n' for e in events).encode())
-            candidate = dict(schema=frame['answer_policy'],
+            candidate = dict(schema=NATIVE_ANSWER_POLICY,
                 answer_segments=([dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)] if handles else [])+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,supporting_quotes=[r['text'] for r in work['artifact_under_edit']['sections']])] if saved else []),
                 limitations=[], requested_detail_gaps=[], collaboration=self.review)
             if native_body or authored_source:
