@@ -3,8 +3,8 @@
 Status: ACTIVE under the user's revised retrieval/context-only goal. Root owns
 design, implementation and verification; PRIME owns eventual merge/delivery.
 Branch `codex/benchmark-context-boundary`, base
-`64cb0b5c89f685505c7558207e4943e6cf76cac4`. One tooling PR, no product runtime
-dependency. Topology: parallel-independent of2242 and frozen2244. Names validation
+`90b91f08cd1cf662a679830d666887c26d01d1b1`. One tooling PR, no product runtime
+dependency. Topology: parallel-independent of frozen2244;2242 is delivered. Names validation
 consumes this tooling after qualification; tooling itself works without names.
 
 Outcome: extend the existing parameterized benchmark CLI with `capture-context`.
@@ -18,7 +18,9 @@ policy. Controller calls retain ordinary attempt/retry accounting.
 
 Expected exclusive writes: `evals/buddy_benchmark/workflow.py`;
 `evals/buddy_benchmark/context_capture.py`; `tests/test_buddy_benchmark_workflow.py`;
-`tests/test_native_plan_assertions.py`; this handoff. Root transfers the latter
+`tests/test_native_plan_assertions.py`; this handoff;
+`Docs/Plans/HANDOFF-RETRIEVAL-native-binding-reconstruction.md` for completed
+predecessor settlement (its prior lease is released). Root transfers the latter
 test path from its frozen names lane to this tooling slice. The names branch is
 read-only until tooling integration/rebase; no concurrent write lease exists.
 No PRIME statblock/UI source paths overlap. No new per-question scripts.
@@ -56,3 +58,14 @@ repeated context validation and the approximately four-second target remain open
 Stop/split for product hooks/flags, alternate producers, schema migration, writer
 generation, source mutation or paths beyond this lease. Finish owning verification,
 one independent cumulative review, commit/push and one bounded PR.
+
+Predecessor2242 merged at90b91f08cd1cf662a679830d666887c26d01d1b1 and was
+delivered as API7182798e3c565d8031c0eb7755a1b34e0bc91b36 on schema133;
+PRIME released its runtime lease. No whole-cycle improvement is inferred.
+
+Owning verification on delivered main90b91f08:107 workflow/native Plan tests
+pass (29 inherited fixture serializer warnings,33.04s). The first run retained
+a test prompt-directory mismatch; explicit isolated artifact routing fixed it.
+The actual ordinary route test proves full admission, exact packet/prompt joins,
+known_not_sent, no lower writer IO, interrupted/replay-fenced turn and no response
+completion. Negative packet mutations remain rejected. No paid calls occurred.
