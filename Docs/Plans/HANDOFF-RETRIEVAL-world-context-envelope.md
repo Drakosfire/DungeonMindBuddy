@@ -20,7 +20,8 @@ src/application_state/agent_conversation/native_writer.py;
 src/application_state/migrations/versions/20261108_0133_world_context_prompt_envelope.py;
 evals/buddy_benchmark/workflow.py;
 tests/test_surface_native_writer.py;
-tests/test_buddy_benchmark_workflow.py.
+tests/test_buddy_benchmark_workflow.py;
+tests/test_native_writer_projection.py.
 
 Indivisible review map: projection and exact historical reconstruction share one
 semantic owner; native_writer retains actual SDK/frame hashes and citations;
@@ -59,3 +60,18 @@ writer/workflow suite144passes including2newold-readerfence checks; unchanged
 runs, not a claimed single whollygreen initialrun. Current/historical qualifiers,
 mixed-shape rejection, rawSDK bindings, source reopening and paidreplayrefusal
 are exercised. No ordinary modelquality or retrievalspeed claim is made.
+
+CI scope checkpoint: PRIME holds delivery of head2ea8b9ab because the query/answer
+job passed1006 and failed one unchanged old-envelope expectation in the owning
+heavy native projection test. Root extends this same capability lease to
+tests/test_native_writer_projection.py. Correct the semantic envelope expectation
+while preserving literal values, every other qualification, capacity admission and
+exact host evidence/citation reopening checks. No production behavior expansion;
+re-review the new cumulative head. Initial CI failure remains retained.
+
+CI correction verification: all35 tests in the affected native writer projection
+suite pass, including unchanged budget rejection/admission, all other qualifier
+checks and exact original host assertion/evidence reopening. No production path
+changed after the first formal review. Together with prior276,311distinct local
+checks pass across retained runs. Re-review and CI on the corrected head remain
+gates; no new provider calls or database authority changes.
