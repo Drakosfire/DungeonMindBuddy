@@ -1,6 +1,6 @@
 # STATBLOCK: associate the explicitly selected saved revision
 
-Status: ACTIVE. PRIME owns design, implementation and delivery. Base
+Status: SETTLED; write/runtime leases RELEASED. Merged #2254 at722b16ec09c6d4bcbcb46ecf7240bf845946a0a2, reviewed sourcee1fee81c0c8daae18af86cd46144ff5f26f7be4c. Delivered API1181ca2499dac82ef14481bde558549bb485df64/schema135 and UIf9083d0f6a9d78d3ca6a9f1a6fcaff4ba6df450a. All seven CI checks passed; independent source and transport review approved. Real ooze portrait revision associated through the delivered shared popup; conservation audit permits only that known association append. Evidence: exact-saved-association-settled-proof.json in the established private runtime evidence root. The following records the original bounded execution contract. Base
 4b873f8d7216dadf3dc433d460c8b77e4921c7b2; branch
 codex/exact-saved-mechanics-association; existing buddy-context-loop checkout.
 Topology: serial, one coherent API/UI current-write contract. No unmerged parent.

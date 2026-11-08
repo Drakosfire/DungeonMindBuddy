@@ -2,14 +2,14 @@ import {act,cleanup,fireEvent,render,screen,within} from '@testing-library/react
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import type {AuthoredGraphReferenceV1} from '../api/types';
 import type {NativeGraphCatalog} from '../api/nativeGraphInspection';
-import {getNativeGraphCatalog,inspectNativeGraph,getNativeSourceCatalog,readNativeSource} from '../api/liveApi';
+import {getNativeGraphCatalog,listWorldMechanicsAssociations,inspectNativeGraph,getNativeSourceCatalog,readNativeSource} from '../api/liveApi';
 import {SurfaceGraphReferenceInput} from './SurfaceGraphReferenceInput';
-vi.mock('../api/liveApi',()=>({getNativeGraphCatalog:vi.fn(),inspectNativeGraph:vi.fn(),getNativeSourceCatalog:vi.fn(),readNativeSource:vi.fn()}));
+vi.mock('../api/liveApi',()=>({listWorldMechanicsAssociations:vi.fn().mockResolvedValue([]),getNativeGraphCatalog:vi.fn(),inspectNativeGraph:vi.fn(),getNativeSourceCatalog:vi.fn(),readNativeSource:vi.fn()}));
 const pin={managed_world_id:'quarry',native_world_id:'native',binding_version:3,revision_id:'rev-a',scope_mode:'world' as const,campaign_id:null};
 const ids=['first-box','second-box','fellinor'];
 const catalog:NativeGraphCatalog={schema:'dmb_native_graph_catalog_v1',scope:pin,catalogue:{identity:{space_id:'native',revision_id:'rev-a'},entities:ids.map(entity_id=>({entity_id})),admitted_assertion_ids:ids,completeness:{status:'complete',reason:null},request_sha256:'hash',result_digest:'digest'},assertions:ids.map((id,i)=>({assertion_id:id,subject_entity_id:id,predicate:'dnd5e:name',value:{kind:'literal',value:i===2?'Fellinor':'Cedar box'},metadata:{scope:[],visibility:{kind:'public'},epistemic_basis:'direct',claim_mode:'fact',standing:'admitted',evidence_ref_ids:[],temporal_scope:null,domain_metadata:[]}}))};
 const reference:AuthoredGraphReferenceV1={schema:'dmb_authored_graph_reference_v1',managed_world_id:'quarry',native_world_id:'native',binding_version:3,graph_revision:'rev-a',node_id:'first-box',label:'Cedar box'};
-beforeEach(()=>{vi.resetAllMocks();vi.mocked(getNativeGraphCatalog).mockResolvedValue(catalog);vi.mocked(inspectNativeGraph).mockResolvedValue({schema:'dmb_native_graph_entity_v1',scope:pin,entity:{found:true,assertions:[],evidence:[],completeness:{status:'complete',reason:null}}});});
+beforeEach(()=>{vi.resetAllMocks();vi.mocked(listWorldMechanicsAssociations).mockResolvedValue([]);vi.mocked(getNativeGraphCatalog).mockResolvedValue(catalog);vi.mocked(inspectNativeGraph).mockResolvedValue({schema:'dmb_native_graph_entity_v1',scope:pin,entity:{found:true,assertions:[],evidence:[],completeness:{status:'complete',reason:null}}});});
 afterEach(cleanup);
 async function open(){fireEvent.click(screen.getByRole('button',{name:'@ Reference'}));return screen.findByRole('searchbox',{name:'Find an object'});}
 it('finds Fellinor without a projection provider and selects the exact native revision without reading',async()=>{
@@ -54,7 +54,7 @@ it('discards an old World response before selecting in the new World',async()=>{
  expect(change).toHaveBeenCalledWith([{...reference,managed_world_id:'next',node_id:'fellinor',label:'Fellinor'}]);
 });
 it('shows historical selections without requesting fresh bytes or edits',()=>{
- render(<SurfaceGraphReferenceInput worldId="quarry" value={[reference]} onChange={vi.fn()} readOnly/>);expect(screen.getByText('@Cedar box')).toBeVisible();expect(screen.queryByRole('button')).toBeNull();expect(getNativeGraphCatalog).not.toHaveBeenCalled();
+ render(<SurfaceGraphReferenceInput worldId="quarry" value={[reference]} onChange={vi.fn()} readOnly/>);expect(screen.getByText('@Cedar box')).toBeVisible();expect(screen.getByRole('button',{name:'Inspect Cedar box'})).toBeEnabled();expect(screen.queryByRole('button',{name:'@ Reference'})).toBeNull();expect(getNativeGraphCatalog).not.toHaveBeenCalled();
 });
 it('keeps all returned objects reachable beyond the old forty-result ceiling and reports partial coverage',async()=>{
  const entities=Array.from({length:51},(_,i)=>({entity_id:`entity-${i}`}));vi.mocked(getNativeGraphCatalog).mockResolvedValue({...catalog,catalogue:{...catalog.catalogue,entities,completeness:{status:'partial',reason:'Some records unavailable'}},assertions:[]});

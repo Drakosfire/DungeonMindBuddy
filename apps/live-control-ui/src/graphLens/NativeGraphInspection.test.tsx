@@ -3,8 +3,8 @@ import {afterEach,beforeAll,beforeEach,expect,it,vi} from 'vitest';
 import {LoadedWorldGraphExplorer} from './LoadedWorldGraphExplorer';
 import {NativeGraphInspection} from './NativeGraphInspection';
 import type {NativeGraphCatalog,NativeGraphEntity,NativeGraphSource,NativeAssertion} from '../api/nativeGraphInspection';
-import {getNativeGraphCatalog,inspectNativeGraph} from '../api/liveApi';
-vi.mock('../api/liveApi',()=>({getNativeGraphCatalog:vi.fn(),inspectNativeGraph:vi.fn()}));
+import {getNativeGraphCatalog,listWorldMechanicsAssociations,inspectNativeGraph} from '../api/liveApi';
+vi.mock('../api/liveApi',()=>({listWorldMechanicsAssociations:vi.fn().mockResolvedValue([]),getNativeGraphCatalog:vi.fn(),inspectNativeGraph:vi.fn()}));
 vi.mock('../selectedWorld/SelectedWorldContext',()=>({useSelectedWorld:()=>({kind:'managed',worldId:'w',name:'World'})}));
 beforeAll(()=>{HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','')};HTMLDialogElement.prototype.close=function(){this.removeAttribute('open')};});
 afterEach(cleanup);
@@ -13,7 +13,7 @@ const record=(id:number):NativeAssertion=>({assertion_id:`a${id}`,subject_entity
 const packet:NativeGraphCatalog={schema:'dmb_native_graph_catalog_v1',scope,catalogue:{identity:{space_id:'n',revision_id:'r'},entities:Array.from({length:31},(_,i)=>({entity_id:`e${i}`})),admitted_assertion_ids:Array.from({length:30},(_,i)=>`a${i}`),completeness:{status:'complete',reason:null},request_sha256:'hash',result_digest:'digest'},assertions:Array.from({length:30},(_,i)=>record(i))};
 const detail=(id=0):NativeGraphEntity=>({schema:'dmb_native_graph_entity_v1',scope,entity:{found:true,assertions:[record(id)],evidence:[{evidence_ref_id:'ev',evidence_role:'support'}],completeness:{status:'complete',reason:null}}});
 const source:NativeGraphSource={schema:'dmb_native_graph_source_v1',scope,source:{status:'available',text:'Only the exact towér passage.',source_artifact_id:'src',source_revision_id:'srev',body_sha256:'body',span_sha256:'span',span_start_byte:0,span_end_byte:30,source_authority_epoch:23}};
-beforeEach(()=>{vi.resetAllMocks();vi.mocked(getNativeGraphCatalog).mockResolvedValue(packet);vi.mocked(inspectNativeGraph).mockImplementation(async(_pin,s)=>s.kind==='entity'?detail(Number(s.entity_id.slice(1))):source)});
+beforeEach(()=>{vi.resetAllMocks();vi.mocked(listWorldMechanicsAssociations).mockResolvedValue([]);vi.mocked(getNativeGraphCatalog).mockResolvedValue(packet);vi.mocked(inspectNativeGraph).mockImplementation(async(_pin,s)=>s.kind==='entity'?detail(Number(s.entity_id.slice(1))):source)});
 it('uses the existing modal, loads native only on explicit demand and opens only selected sources',async()=>{
  const original=JSON.stringify(packet);
  render(<LoadedWorldGraphExplorer/>);

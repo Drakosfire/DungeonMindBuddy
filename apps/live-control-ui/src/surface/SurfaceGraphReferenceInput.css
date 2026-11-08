@@ -21,3 +21,5 @@
 .surface-graph-reference-input__picker nav li button:first-child { flex:1; text-align:start; min-width:0; }
 .surface-graph-reference-input__picker article { margin-block-start:.75rem; overflow-wrap:anywhere; }
 .surface-graph-reference-input__picker pre { white-space:pre-wrap; }
+
+.native-graph-object-preview pre { white-space:pre-wrap; overflow-wrap:anywhere; }
