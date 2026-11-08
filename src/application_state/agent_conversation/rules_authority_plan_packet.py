@@ -276,7 +276,7 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
         output_format=dict(type='json_schema',name='build_image_direction' if operation=='prepare_build_image' else 'build_document_proposal',
             schema=(ImageDirectionV2 if operation=='prepare_build_image' else BuildComposeOutput).model_json_schema(),strict=True)
     else:
-        output_format=native_output_format(evidence.frame,frame,evidence.work_frame)
+        output_format=native_output_format(evidence.frame,frame,evidence.output_work_frame)
     if (auth.request_envelope_sha256 != expected_envelope_sha256
             or included.request_envelope_sha256 != expected_envelope_sha256
             or auth.matched_outputs != outputs or included.matched_outputs != outputs

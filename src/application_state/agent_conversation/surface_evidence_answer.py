@@ -432,11 +432,12 @@ def graph_bindings(segments, receipt, execution, auth):
 
 
 
-def authored_block_index(sources, scope):
+def authored_block_index(sources, scope, *, local=False):
     from .authored_excerpt_blocks import partition, selection_catalog
     blocks={block.block_handle:(source,block) for source in sources for block in partition(source.text,source.handle)}
-    selectors={row.selection_id:row.block.block_handle for row in selection_catalog(
-        ((source.handle,source.text) for source in sources),scope)} if scope is not None else {}
+    catalog=selection_catalog(((source.handle,source.text) for source in sources),scope) if scope is not None else ()
+    selectors={(f'work{i}' if local else row.selection_id):row.block.block_handle
+        for i,row in enumerate(catalog)}
     return blocks,selectors
 
 
