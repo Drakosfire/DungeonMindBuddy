@@ -16,6 +16,7 @@ import {
   type LocalWorldPackageRepository,
   type RestoreLocalWorldPackageResult,
   type ReadLocalWorldPackageDataResult,
+  type ListLocalWorldsResult,
   type LocalWorldSnapshot,
   type ReadConflictCandidatesResult,
   type ReadWorldResult,
@@ -24,6 +25,7 @@ import {
 import { validateLocalWorldRecordForPackage } from "./localWorldPackageV1";
 
 export const LOCAL_WORLD_DATABASE_SCHEMA_VERSION = 3;
+export const LOCAL_WORLD_DATABASE_NAME = "dungeonmindbuddy-local-worlds";
 export const LOCAL_WORLD_DATABASE_STORES = {
   worlds: "worlds",
   conflicts: "conflicts",
@@ -323,6 +325,16 @@ export class IndexedDbLocalWorldRepository implements LocalWorldPackageRepositor
     } catch (error) {
       return { status: "error", message: errorMessage(error) };
     }
+  }
+
+  async listWorlds(): Promise<ListLocalWorldsResult> {
+    try {
+      return await inTransaction(this.db, WORLD_STORE, "readonly", async (transaction) => {
+        const records = await requestResult<LocalWorldRecord[]>(transaction.objectStore(WORLD_STORE).getAll());
+        records.sort((left, right) => left.snapshot.title.localeCompare(right.snapshot.title) || left.snapshot.worldId.localeCompare(right.snapshot.worldId));
+        return { status: "found", records: cloneLocalWorldValue(records) };
+      });
+    } catch (error) { return { status: "error", message: errorMessage(error) }; }
   }
 
   async commitSemanticEdit(input: {

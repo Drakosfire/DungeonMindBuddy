@@ -18,8 +18,7 @@ import { WorldAgentConversation, WorldAgentConversationProvider } from "./agentI
 import { AskPluginSlotProvider } from "./agentInteraction/AskPluginSlot";
 import { AgentInteractionChrome } from "./agentInteraction/AgentInteractionChrome";
 import { IndexAgentConversation } from "./agentInteraction/IndexAgentConversation";
-import { BlankSurface } from "./blankSurface/BlankSurface";
-import { LANDING_SURFACE } from "./blankSurface/blankSurface";
+import { LocalWorldSurface } from "./localWorld/localWorldSurface/LocalWorldSurface";
 import { usePublishSurfaceInteraction } from "./agentInteraction/usePublishSurfaceInteraction";
 import {
   ROUTE_COMPATIBILITY_PUBLICATIONS,
@@ -266,9 +265,9 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
   } else if (route === "index") {
     content = (
       <AppChrome activeRoute="index">
-        <BlankSurface descriptor={LANDING_SURFACE}>
+        <LocalWorldSurface>
           <IndexAgentConversation />
-        </BlankSurface>
+        </LocalWorldSurface>
       </AppChrome>
     );
   } else if (route === "tiptap-callout-spike") {

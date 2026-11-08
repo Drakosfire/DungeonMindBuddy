@@ -1,0 +1,5 @@
+.surface-harness { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; padding: .8rem 1rem; background: #17221f; color: #eff5ee; font: 500 .8rem/1.4 system-ui, sans-serif; }
+.surface-harness code { overflow-wrap: anywhere; color: #bfe7bc; }
+.surface-harness button { border: 1px solid #6e8980; border-radius: .45rem; background: #233630; color: inherit; padding: .45rem .7rem; cursor: pointer; }
+.surface-harness button:focus-visible { outline: 3px solid #e8c969; outline-offset: 2px; }
+.surface-harness p { flex-basis: 100%; margin: 0; }
