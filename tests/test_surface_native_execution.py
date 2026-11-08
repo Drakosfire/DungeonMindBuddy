@@ -172,7 +172,10 @@ def decision_prefix(surface,context,record):
 @pytest.mark.parametrize("unavailable", [False, True])
 def test_shared_native_component_roundtrip_uses_actual_closed_action_and_work(surface, unavailable):
     context, record = component(surface, unavailable=unavailable)
-    validate_context_binding(context, record)
+    validated = validate_context_binding(context, record)
+    assert validated is not record
+    assert validated.events is not record.events
+    assert validated.model_dump_json(by_alias=True) == record.model_dump_json(by_alias=True)
     reopened = type(record).model_validate_json(record.model_dump_json(by_alias=True))
     assert reopened == record
     assert reopened.policy.action.intent == record.policy.action.intent

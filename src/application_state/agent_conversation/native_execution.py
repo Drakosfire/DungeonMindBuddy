@@ -314,8 +314,11 @@ class SurfaceNativeExecutionV1(Strict):
         return self
 
 
-def validate_context_binding(context, execution):
-    """Join components through real work and native record owners; grants no IO."""
+def validate_context_binding(context, execution) -> SurfaceNativeExecutionV1:
+    """Validate both mutable components and return the freshly reconstructed execution.
+
+    Joining their real work and record owners grants no IO authority.
+    """
     if type(context) is not SurfaceNativeContextReceiptV1 or type(execution) is not SurfaceNativeExecutionV1:
         raise ValueError("Native execution requires its concrete shared context")
     context = SurfaceNativeContextReceiptV1.model_validate_json(context.model_dump_json(by_alias=True))
@@ -366,6 +369,7 @@ def validate_context_binding(context, execution):
     validate_selected_record_events(query, execution)
     from .authored_graph_references import validate_native_context
     validate_native_context(query, execution)
+    return execution
 
 
 def validate_submission(submission):
