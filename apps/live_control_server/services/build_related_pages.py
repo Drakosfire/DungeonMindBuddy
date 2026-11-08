@@ -95,7 +95,8 @@ def select_pages(driver, prepared, response):
         [
             p.document_id
             for i, p in enumerate(offered)
-            if should_read_page(p, questions[f"related_page_{i}"], response.answers[f"related_page_{i}"])
+            if should_read_page(p, questions[f"related_page_{i}"], response.answers[f"related_page_{i}"],
+                semantic=getattr(driver._pending,"host_phase",None)=="select")
         ],
         key=str,
     )

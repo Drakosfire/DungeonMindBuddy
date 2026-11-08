@@ -192,7 +192,7 @@ def controller_exposure(base: Mapping[str, Any], *, event_sequence: int,
 
 def prepared_driver_view(prepared: Any, projection: Any, *, accounting: ExperimentalAccounting | None = None) -> dict:
     """Exact host-owned compact state AND questions; neither is worker authority."""
-    view = prepared_view(prepared, projection.state(), accounting=accounting)
+    view = prepared_view(prepared, projection.state(), accounting=accounting, host_phase=getattr(projection,"host_phase",None))
     body = _decode(view["payloadJson"])
     if canonical(body["questions"]) != canonical(projection.questions()):
         raise ValueError("Prepared driver questions/options differ from the parent plan")

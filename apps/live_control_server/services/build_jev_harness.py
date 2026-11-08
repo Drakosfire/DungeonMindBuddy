@@ -514,7 +514,7 @@ class BuildJevHarness:
             if accounting is None:
                 return DecisionContextMode.DEFAULT
             body = json.loads(prepared.body)
-            return DecisionContextMode(accounting.context_mode(body))
+            return DecisionContextMode(accounting.context_mode(body, host_phase=getattr(plan,"host_phase",None)))
 
         provider = TypeSafeDecisionProvider(
             dispatch_gate=DecisionDispatchGate(authorize, record, select_context),

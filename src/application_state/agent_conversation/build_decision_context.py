@@ -16,10 +16,10 @@ LONG_LIMIT = 262_000
 def phase(body, *, host_phase=None):
     state = body["state"]
     if host_phase is not None:
-        # Only the versioned native navigation owner uses the clean wire contract.
-        if (host_phase != "navigate" or not isinstance(state, dict)
+        # Only versioned native input owners use the clean wire contract.
+        if (host_phase not in {"navigate", "select"} or not isinstance(state, dict)
                 or any(key in state for key in ("phase", "decision", "context_accounting"))):
-            raise ValueError("Native navigation contains host control metadata")
+            raise ValueError("Native decision contains host control metadata")
         return host_phase
     value = state.get("decision", {}).get("phase", state.get("phase"))
     if value not in {"select", "navigate", "assess", "coverage", "retention", "writer_selection"}:

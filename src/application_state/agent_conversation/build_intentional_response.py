@@ -532,11 +532,14 @@ def validate_native_action_events(execution):
 
 
 def validate_selection(turn, event, proof, trace):
+    from .native_context import is_semantic_build_input
     return validate_selection_records(turn.graph_context_execution,event,proof,trace,
-        user_text=turn.user_text,turn_id=turn.turn_id,attempt=turn.attempt)
+        user_text=turn.user_text,turn_id=turn.turn_id,attempt=turn.attempt,
+        semantic_input=is_semantic_build_input(turn.graph_context_receipt),
+        idempotency_key=turn.idempotency_key)
 
 
-def validate_selection_records(execution, event, proof, trace, *, user_text, turn_id, attempt):
+def validate_selection_records(execution, event, proof, trace, *, user_text, turn_id, attempt, semantic_input=False, idempotency_key=None):
     from .source_writer_output import strict_json
     from generationengine.types import DecisionResult
     from . import types as t
@@ -574,6 +577,17 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
     }
     state = request.get("state", {})
     decision = state.get("decision", {})
+    if semantic_input:
+        from .native_execution import NativeBuildActionV1
+        action=execution.policy.action
+        if type(action) is not NativeBuildActionV1 or idempotency_key is None:
+            raise ValueError('Semantic Build input requires its actual submission')
+        if (set(state)!={'user_question','interaction'}
+            or state['interaction'].get('allowed_operations')!=list(caps.operations)
+            or state.get('user_question')!=user_text
+            or event.machine_request_id!=semantic_request_id(state,world_id=action.intent.world_id,
+                client_thread_id=action.intent.client_thread_id,idempotency_key=idempotency_key)):
+            raise ValueError('Semantic Build routing differs from its locked submission')
     if (
         len(prior) != 1
         or request.get("model") != prior[0].model
@@ -585,14 +599,13 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
         or set(response.answers) != set(request.get("questions", {}))
         or request.get("questions", {}).get("requested_work") != wire_question
         or "operation" in request.get("questions", {})
-        or decision.get("request_id") != "select:" + digest(decision.get("state", {}))
-        or decision.get("state", {}).get("interaction", {}).get("allowed_operations")
-        != list(caps.operations)
-        or decision.get("state", {}).get("interaction", {}).get("capability_sha256")
-        != capability
-        or decision.get("request_id") != event.machine_request_id
-        or decision.get("state", {}).get("requested_work_policy") != POLICY
-        or decision.get("state", {}).get("user_question") != user_text
+        or not semantic_input and (
+            decision.get("request_id") != "select:" + digest(decision.get("state", {}))
+            or decision.get("state", {}).get("interaction", {}).get("allowed_operations") != list(caps.operations)
+            or decision.get("state", {}).get("interaction", {}).get("capability_sha256") != capability
+            or decision.get("request_id") != event.machine_request_id
+            or decision.get("state", {}).get("requested_work_policy") != POLICY
+            or decision.get("state", {}).get("user_question") != user_text)
         or event.requested_work != label
         or event.intent_family != WORK[label].family
         or event.menu_sha256 != menu
@@ -1079,3 +1092,49 @@ def budget_fields(fields):
         "response_resolver_sha256": RESOLVER_DIGEST,
         "response_capabilities_sha256": digest(asdict(caps)),
     }
+
+
+def semantic_collaboration(card):
+    """Prior proposed work is human context; source read IDs are not."""
+    from copy import deepcopy
+    if card is None:
+        return None
+    kind = card.get("kind")
+    fields = {
+        "plan": {"kind", "objective", "steps"},
+        "questions": {"kind", "questions"},
+        "connected_page": {"kind", "title", "quote", "person_label", "relationships", "instructions"},
+        "relationship": {"kind", "quote", "source", "target", "predicate", "label", "context"},
+    }.get(kind)
+    if fields is None or set(card) - fields - {"read_id"}:
+        raise ValueError("Unknown proposed-work context presentation")
+    return {key: deepcopy(card[key]) for key in card if key in fields}
+
+
+def semantic_routing_state(question, interaction, references):
+    """Project typed parent context, never scrub arbitrary user/source strings."""
+    from .dialogue_projection import expand_dialogue
+    from .authored_graph_references import AuthoredSourceReferenceV1
+    history = []
+    for row in expand_dialogue(interaction["history"]):
+        history.append({"user": row["user"], "assistant": row["assistant"],
+            **({"proposed_work": semantic_collaboration(row["collaboration"])}
+               if row.get("collaboration") is not None else {})})
+    context = {"allowed_operations": list(interaction["allowed_operations"]),
+        "current_page_title": interaction["current_page"]["title"],
+        "history": history, "page_target": interaction["page_target"],
+        "working_draft_available": interaction["working_draft"] is not None}
+    if references is not None:
+        context["author_selected_references"] = [
+            {"kind": "source", "label": ref.label, "selection_kind": ref.selection_kind}
+            if isinstance(ref, AuthoredSourceReferenceV1) else {"kind": "graph_object", "label": ref.label}
+            for ref in references.references]
+    if "related_page_catalog" in interaction:
+        context["related_page_labels"] = [page["title"] for page in interaction["related_page_catalog"]]
+    return {"user_question": question, "interaction": context}
+
+
+def semantic_request_id(state, *, world_id, client_thread_id, idempotency_key):
+    """Existing host correlation bound to semantic bytes and actual submission."""
+    return "select:" + digest({"state": state, "world_id": world_id,
+        "client_thread_id": client_thread_id, "idempotency_key": str(idempotency_key)})
