@@ -1592,7 +1592,12 @@ class AgentConversationService:
             if isinstance(event, ProviderAttemptAuthorizedEventV5):
                 from .build_decision_context import validate_prepared
                 try:
-                    validate_prepared(event, execution, prepared_decision_json)
+                    from .native_context import is_semantic_build_input
+                    fresh_select = (native_build_decision and event.context_phase=='select'
+                        and is_semantic_build_input(turn.graph_context_receipt)
+                        and not any(isinstance(e,ProviderAttemptAuthorizedEventV5) for e in execution.events))
+                    validate_prepared(event, execution, prepared_decision_json,
+                        host_phase='select' if fresh_select else None)
                     if native_build_decision and event.context_phase=='writer_selection':
                         from .writer_evidence_selection import validate_prepared_selection
                         captured=conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',(turn.turn_id,turn.attempt)).fetchone()

@@ -545,6 +545,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert lane.repo.get_head(world).head_revision_id==current_revision
         return
     response = client.post('/api/live/agent/turn', json=body)
+    if failure=='initial_context':
+        assert response.status_code in {502,503},response.text
+        assert not decisions.calls and not writer.calls
+        assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
+        assert lane.repo.get_head(world).head_revision_id==current_revision
+        return SimpleNamespace(response=response,decisions=decisions,writer=writer)
     if connected_review:
         if connected_review not in {'valid','full_page'}:
             assert response.status_code==503,response.text
@@ -1199,3 +1205,48 @@ def test_native_connected_review_retries_retained_context_without_inheriting_wri
     _fresh_case(lane,tmp_path,monkeypatch,'retry_unknown' if mutation=='unknown' else 'retry_discussion',
         True,True,False,recovery_dsn=application_state_dsn,retry_mutation=mutation,
         connected_review='valid',capture_write=True,authored_source='section')
+
+
+@pytest.mark.parametrize('draft',[False,True])
+def test_fresh_build_initial_sdk_exposes_semantic_context_and_keeps_authority_host_side(lane,tmp_path,monkeypatch,draft):
+    case=_fresh_case(lane,tmp_path,monkeypatch,None,draft,False,False,authored_source='section',capture_write=draft)
+    first=json.loads(case.decisions.calls[0].content)
+    assert set(first['state'])=={'user_question','interaction'}
+    context=first['state']['interaction']
+    assert set(context)<={'allowed_operations','current_page_title','history','page_target','working_draft_available','author_selected_references','related_page_labels'}
+    assert context['working_draft_available'] is draft
+    assert all(set(row)<={'kind','label','selection_kind'} for row in context['author_selected_references'])
+    assert any(row['kind']=='source' and row['selection_kind']=='section' for row in context['author_selected_references'])
+    assert case.turn.graph_context_receipt.assembled_input.assembler_version=='native_build_semantic_initial_v2'
+    retained=type(case.turn).model_validate_json(case.turn.model_dump_json(by_alias=True))
+    assert retained==case.turn
+
+
+@pytest.mark.parametrize('mutation',['user','title','operations','target','proposed_work','questions','request_id','codec','capability','destination'])
+def test_fresh_build_rejects_changed_initial_parent_before_provider(lane,tmp_path,monkeypatch,mutation):
+    from dataclasses import replace
+    from apps.live_control_server.services.build_jev_driver import BuildJevDriver,canonical
+    original=BuildJevDriver.stage
+    def changed(driver):
+        plan=original(driver)
+        if plan.host_phase!='select':return plan
+        state=plan.state()
+        updates={}
+        if mutation=='user':state['user_question']='A different task'
+        elif mutation=='title':state['interaction']['current_page_title']='Wrong destination'
+        elif mutation=='operations':state['interaction']['allowed_operations']=['propose_build_insertion']
+        elif mutation=='target':state['interaction']['page_target']={'kind':'replace_selection','text':'Uncaptured target'}
+        elif mutation=='proposed_work':state['interaction']['history']=[{'user':'Other request','assistant':'','proposed_work':{'kind':'questions','questions':[{'text':'Wrong question'}]}}]
+        elif mutation=='questions':updates['questions_json']=canonical({'requested_work':{'type':'choice','instructions':'Changed task','criteria':{'discuss':None}}})
+        elif mutation=='request_id':updates['request_id']='select:'+'f'*64
+        elif mutation=='codec':updates['host_phase']=None
+        elif mutation in {'capability','destination'}:
+            host=driver._interaction
+            if mutation=='capability':host['capability_sha256']='f'*64
+            else:host['current_page']['document_id']='foreign-page'
+            updates['host_interaction_json']=canonical(host)
+        updates['state_json']=canonical(state)
+        driver._pending=replace(plan,**updates)
+        return driver._pending
+    monkeypatch.setattr(BuildJevDriver,'stage',changed)
+    _fresh_case(lane,tmp_path,monkeypatch,'initial_context',False,False,False)

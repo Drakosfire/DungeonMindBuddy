@@ -149,3 +149,16 @@ it.each(['count','reserve','hash','world'])('provider-owned capacity preserves c
   if(change==='world')c.receipt.source_authority.managed_world_id='foreign';
   expect(isSurfaceNativeReceipt(c.receipt,work)).toBe(false);
 });
+
+
+it('accepts semantic initial input only for fresh Build, preserving old receipt readers',()=>{
+  const build=structuredClone(buildWire.proposal_wire.response.knowledge_context.receipt);
+  expect(isSurfaceNativeReceipt(build,buildWork)).toBe(true);
+  Object.assign(build.assembled_input,{assembler_version:'native_build_semantic_initial_v2'});
+  expect(isSurfaceNativeReceipt(build,buildWork)).toBe(true);
+  const plan=context().receipt;
+  Object.assign(plan.assembled_input,{assembler_version:'native_build_semantic_initial_v2'});
+  expect(isSurfaceNativeReceipt(plan,work)).toBe(false);
+  Object.assign(build.assembled_input,{assembler_version:'unknown-native-input'});
+  expect(isSurfaceNativeReceipt(build,buildWork)).toBe(false);
+});

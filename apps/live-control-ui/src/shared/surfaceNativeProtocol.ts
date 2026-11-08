@@ -17,7 +17,7 @@ export function isNativeSourceAuthority(a:unknown,worldId:string):a is PlanSourc
     &&a.schema_version==='dmb_native_corpus_authority_v1'&&a.managed_world_id===worldId&&text(a.native_world_id)&&text(a.revision_id)&&integer(a.binding_version,1)
     &&(a.provisioning_id===null||text(a.provisioning_id))&&integer(a.acquisition_epoch)&&ref(a.domain_ref)&&ref(a.profile_ref)&&a.scope==='gm_world_cross_campaign_source_inspection'&&a.role==='gm';
 }
-export function isNativeProviderInput(input:unknown,assembler:'surface_native_initial_v1'|'plan_source_jev_initial_v1'):boolean {
+export function isNativeProviderInput(input:unknown,assembler:'surface_native_initial_v1'|'plan_source_jev_initial_v1'|'native_build_semantic_initial_v2'):boolean {
   return exact(input,['assembler_version','provider_model_name','provider_model_version','tokenizer_name','tokenizer_version','provider_envelope_input_tokens','output_token_reserve','context_window_limit','included_history','assembled_input_sha256'])
     &&input.assembler_version===assembler&&[input.provider_model_name,input.provider_model_version,input.tokenizer_name,input.tokenizer_version].every(text)
     &&integer(input.provider_envelope_input_tokens)&&integer(input.output_token_reserve)
@@ -37,7 +37,7 @@ export function isSurfaceNativeReceipt(v:unknown,validateWork:(work:unknown)=>wo
   const world=nativeWorkWorld(v.work_context),a=v.source_authority,q=v.native_query;
   if(!isNativeSourceAuthority(a,world)||!isNativeGraphQuery(q,world))return false;
   if(q.schema!=='dmb_native_plan_query_unavailable_v1'&&'schema_version' in a&&['native_world_id','binding_version','revision_id','domain_ref','profile_ref','acquisition_epoch'].some(k=>canonical(a[k as keyof typeof a])!==canonical(q.authority[k as keyof typeof q.authority])))return false;
-  return isNativeProviderInput(v.assembled_input,'surface_native_initial_v1')||v.work_context.surface_id==='build'&&exact(v.assembled_input,['assembler_version','submitted_intent_sha256','assembled_input_sha256'])&&v.assembled_input.assembler_version==='reviewed_author_admission_v1'&&hash(v.assembled_input.submitted_intent_sha256)&&hash(v.assembled_input.assembled_input_sha256);
+  return isNativeProviderInput(v.assembled_input,'surface_native_initial_v1')||v.work_context.surface_id==='build'&&isNativeProviderInput(v.assembled_input,'native_build_semantic_initial_v2')||v.work_context.surface_id==='build'&&exact(v.assembled_input,['assembler_version','submitted_intent_sha256','assembled_input_sha256'])&&v.assembled_input.assembler_version==='reviewed_author_admission_v1'&&hash(v.assembled_input.submitted_intent_sha256)&&hash(v.assembled_input.assembled_input_sha256);
 }
 export function isSurfaceNativeCompletion(v:unknown,r:SurfaceNativeContextReceiptV1):v is SurfaceNativeCompletionV1 {
   if(!exact(v,['schema','surface_id','context_receipt_sha256','producing_provider_attempt_id','answer_basis','answer_context_status','answer_segments','collaboration','saved_source_citations','native_body_citations','native_clause_citations','native_assertion_citations'])
