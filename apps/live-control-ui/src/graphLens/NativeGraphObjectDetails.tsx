@@ -3,7 +3,7 @@ import {inspectNativeGraph} from '../api/liveApi';
 import {SourceCitationEvidence,type CitationChoice} from '../planSurface/components/SourceCitationEvidence';
 import {NativeObjectStatblock} from './NativeObjectStatblock';
 
-export function NativeGraphObjectDetails({detail,entityId,label,labels=new Map<string,string>()}:{detail:NativeGraphEntity;entityId:string;label:string;labels?:Map<string,string>}) {
+export function NativeGraphObjectDetails({detail,entityId,label,labels=new Map<string,string>([[entityId,label]])}:{detail:NativeGraphEntity;entityId:string;label:string;labels?:Map<string,string>}) {
  return <>
   <h3>{label}</h3>
   {!detail.entity.found?<p>This object is unavailable in the selected revision.</p>:<>

@@ -28,3 +28,8 @@ it('retains the popup across equivalent reference hydration, and closes it on se
  view.rerender(<SurfaceGraphReferenceInput worldId="world" value={[]} onChange={vi.fn()} readOnly/>);expect(screen.queryByRole('dialog')).toBeNull();
  view.rerender(<SurfaceGraphReferenceInput worldId="world" value={[ref]} onChange={vi.fn()} readOnly/>);expect(screen.queryByRole('dialog')).toBeNull();
 });
+
+it('uses the selected object label for its own records without a whole catalogue read',async()=>{
+ vi.mocked(inspectNativeGraph).mockResolvedValueOnce({schema:'dmb_native_graph_entity_v1',scope:pin,entity:{found:true,assertions:[{assertion_id:'name',subject_entity_id:'ooze',predicate:'dnd5e:name',value:{kind:'literal',value:'Ooze'},metadata:{scope:[],visibility:{kind:'public'},epistemic_basis:'asserted',claim_mode:'fact',standing:'provisional',evidence_ref_ids:[],temporal_scope:null,domain_metadata:[]}}],evidence:[],completeness:{status:'complete',reason:null}}});
+ render(<SurfaceGraphReferenceInput worldId="world" value={[ref]} onChange={vi.fn()} readOnly/>);fireEvent.click(screen.getByRole('button',{name:'Inspect Ooze'}));expect(await screen.findByText('Ooze · name: Ooze')).toBeInTheDocument();
+});
