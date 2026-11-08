@@ -137,13 +137,13 @@ def prepare_image(harness, adapter, driver, *, native_rules=None, native_proof=N
             nonlocal prepared_native
             if native_rules is None:
                 return adapter.authorize_prepared_build_writer(prepared)
-            from application_state.agent_conversation.native_writer import model_frame
+            from application_state.agent_conversation.native_writer import model_input_frame
             if (prepared_native is not None or adapter.failure is not None
                     or getattr(adapter,'_build_native_acquisition_services',None) is not None
                     or getattr(adapter,'_plan_graph_read_services',None) is not None):
                 return False
             authorize_native_writer(adapter,native_rules,native_proof,prepared,expected,
-                model_frame(native_context[0],native_context[1]))
+                model_input_frame(native_context[0],native_context[1]))
             prepared_native=prepared
             return True
 
