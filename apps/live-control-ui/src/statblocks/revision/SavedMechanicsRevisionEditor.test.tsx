@@ -12,6 +12,13 @@ vi.mock('../../guidedTour/GuidedTour',()=>({useGuidedTour:()=>({captureScope:()=
 import {baseCandidateDefinition} from '../editor/editorFixtures';
 import type {OpenSavedMechanicsVersion,RevisionSaveOutcome,SavedMechanicsVersionList} from './savedMechanicsRevisionTypes';
 vi.mock('../../api/liveApi',()=>({listSavedMechanicsVersions:vi.fn(),openSavedMechanicsVersion:vi.fn(),saveMechanicsRevision:vi.fn(),recoverMechanicsRevision:vi.fn(),inspectMechanicsRevision:vi.fn(),validateStatblockDefinition:vi.fn()}));
+const portrait='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const studio=vi.hoisted(()=>({props:null as any}));
+vi.mock('../../media/MediaImageWizard',()=>({MediaImageWizard:(props:any)=>{
+ studio.props=props;
+ return <section aria-label="Portrait studio"><p>{props.initialPrompt}</p><button onClick={()=>props.onChoose({asset_id:portrait},null,{signal:new AbortController().signal,mode:'click'})}>Choose saved portrait</button><button onClick={props.onClose}>Close studio</button></section>;
+}}));
+vi.mock('../../media/SavedMediaImage',()=>({SavedMediaImage:({assetId}:{assetId:string})=><span>Selected asset {assetId}</span>}));
 const world='test-world',draft='11111111-1111-4111-8111-111111111111';
 const base={provider:'dungeonmind' as const,statblock_id:'sb_one',revision_id:'rev_original',contract:'dungeonmind.dungeonbuddy-statblocks',contract_version:'1.0.0',definition_digest:'sha256:'+'a'.repeat(64)};
 const next={...base,revision_id:'rev_next',definition_digest:'sha256:'+'b'.repeat(64)};
@@ -254,4 +261,72 @@ it('keeps the independent original-history join check after shared response admi
  vi.mocked(api.openSavedMechanicsVersion).mockResolvedValueOnce(exact);render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);
  await userEvent.click(screen.getByRole('button',{name:'Open saved mechanics'}));
  await screen.findByText('Saved version differs from this creature’s history.');expect(screen.queryByRole('region',{name:'Saved statblock'})).toBeNull();
+});
+
+async function choosePortrait(){
+ await userEvent.click(screen.getByRole('button',{name:'Generate or choose portrait'}));
+ expect(studio.props.selectionOnly).toBe(true);expect(studio.props.requireSaved).toBe(true);
+ expect(studio.props.initialPrompt).toContain('Portrait of ');
+ expect(studio.props.initialPrompt).not.toContain(draft);expect(studio.props.initialPrompt).not.toContain(world);
+ await userEvent.click(screen.getByRole('button',{name:'Choose saved portrait'}));
+ await screen.findByText(`Selected asset ${portrait}`);
+}
+it('retains only the portrait UUID with exact-source edits across remount and sends it on explicit Save',async()=>{
+ vi.mocked(api.saveMechanicsRevision).mockImplementation(async(_d,body)=>({...outcome,operation_id:body.operation_id}));
+ const first=render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await load();await edit();await choosePortrait();
+ expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
+ const key=Object.keys(localStorage).find(k=>k.endsWith(':version:rev_original'))!;
+ const record=JSON.parse(localStorage.getItem(key)!);expect(record.schema).toBe('dmb_manual_mechanics_work_v2');expect(record.portraitAssetId).toBe(portrait);
+ expect(localStorage.getItem(key)).not.toContain('data:image');
+ first.unmount();render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await load();
+ expect(screen.getByText(`Selected asset ${portrait}`)).toBeInTheDocument();expect(screen.getByLabelText('Creature name')).toHaveValue('Stronger keeper');
+ await validate();await userEvent.click(screen.getByRole('button',{name:'Save new version'}));
+ await screen.findByText(/New mechanics version saved/);
+ expect(vi.mocked(api.saveMechanicsRevision).mock.calls[0][1]).toMatchObject({base,portrait_asset_id:portrait});
+ expect(screen.queryByText(`Selected asset ${portrait}`)).toBeNull();
+});
+it('keeps the saved portrait by omitting an unsaved choice rather than removing native bindings',async()=>{
+ vi.mocked(api.saveMechanicsRevision).mockImplementation(async(_d,body)=>({...outcome,operation_id:body.operation_id}));
+ render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await load();await choosePortrait();
+ await userEvent.click(screen.getByRole('button',{name:'Keep saved portrait'}));expect(screen.queryByText(`Selected asset ${portrait}`)).toBeNull();
+ await validate();await userEvent.click(screen.getByRole('button',{name:'Save new version'}));await screen.findByText(/New mechanics version saved/);
+ expect(vi.mocked(api.saveMechanicsRevision).mock.calls[0][1]).not.toHaveProperty('portrait_asset_id');
+});
+it('adopts retained V1 mechanical edits without inventing a portrait',async()=>{
+ const first=render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await load();await edit();first.unmount();
+ const key=Object.keys(localStorage).find(k=>k.endsWith(':version:rev_original'))!;
+ const record=JSON.parse(localStorage.getItem(key)!);record.schema='dmb_manual_mechanics_work_v1';delete record.portraitAssetId;localStorage.setItem(key,JSON.stringify(record));
+ render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await load();expect(screen.getByLabelText('Creature name')).toHaveValue('Stronger keeper');
+ await choosePortrait();expect(JSON.parse(localStorage.getItem(key)!).schema).toBe('dmb_manual_mechanics_work_v2');
+});
+it('recovers an uncertain portrait Save with its original operation instead of resubmitting',async()=>{
+ let id='';vi.mocked(api.saveMechanicsRevision).mockImplementation(async(_d,body)=>{id=body.operation_id;throw new Error('lost acknowledgement');});
+ vi.mocked(api.inspectMechanicsRevision).mockImplementation(async()=>({operation:{...outcome,operation_id:id,state:'outcome_unknown',result:null}}));
+ vi.mocked(api.recoverMechanicsRevision).mockImplementation(async()=>({...outcome,operation_id:id}));
+ const first=render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await load();await choosePortrait();await validate();
+ await userEvent.click(screen.getByRole('button',{name:'Save new version'}));await screen.findByText(/Save outcome is unknown/);first.unmount();
+ render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await load();await userEvent.click(screen.getByRole('button',{name:'Recover Save'}));
+ await screen.findByText(/New mechanics version saved/);expect(api.recoverMechanicsRevision).toHaveBeenCalledWith(draft,world,id);
+ expect(api.saveMechanicsRevision).toHaveBeenCalledTimes(1);expect(vi.mocked(api.saveMechanicsRevision).mock.calls[0][1].portrait_asset_id).toBe(portrait);
+});
+
+it('rejects an old studio callback after source-version change and keeps choices scoped to the original',async()=>{
+ vi.mocked(api.listSavedMechanicsVersions).mockResolvedValue({...page(),operations:[outcome]});
+ render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await load();await choosePortrait();
+ const previous=studio.props.onChoose;
+ await userEvent.selectOptions(screen.getByLabelText('Saved mechanics version'),next.revision_id);
+ await waitFor(()=>expect(screen.getByLabelText('Creature name')).toHaveValue('Stronger keeper'));
+ expect(screen.queryByText(`Selected asset ${portrait}`)).toBeNull();
+ expect(()=>previous({asset_id:portrait},null,{signal:new AbortController().signal,mode:'click'})).toThrow('The source changed');
+ await userEvent.selectOptions(screen.getByLabelText('Saved mechanics version'),base.revision_id);
+ await screen.findByText(`Selected asset ${portrait}`);
+});
+it('retains malformed portrait recovery without replacing it or enabling an unverified source',async()=>{
+ const first=render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await load();await choosePortrait();first.unmount();
+ const key=Object.keys(localStorage).find(k=>k.endsWith(':version:rev_original'))!;
+ const record=JSON.parse(localStorage.getItem(key)!);record.portraitAssetId={data_url:'do not accept'};
+ const raw=JSON.stringify(record);localStorage.setItem(key,raw);
+ render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await userEvent.click(screen.getByRole('button',{name:'Open saved mechanics'}));
+ await screen.findByText(/Saved portrait choice could not be verified/);
+ expect(localStorage.getItem(key)).toBe(raw);expect(screen.queryByLabelText('Creature name')).toBeNull();expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
 });
