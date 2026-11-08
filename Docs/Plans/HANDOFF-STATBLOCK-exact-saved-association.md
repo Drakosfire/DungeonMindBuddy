@@ -41,7 +41,8 @@ apps/live-control-ui/src/statblocks/revision/SavedMechanicsRevisionEditor{.tsx,.
 apps/live-control-ui/src/surface/modules/StatblockWorkbenchModule{.tsx,.test.tsx};
 tests/test_world_mechanics_associations.py; tests/test_statblock_saved_revisions.py;
 tests/application_state/test_world_mechanics_associations_postgres.py;
-tests/test_combat_exact_world_mechanics.py; apps/live-control-ui/src/api/worldMechanicsApi.test.ts;
+tests/test_combat_exact_world_mechanics.py; src/application_state/combat_encounters/adoption.py;
+tests/test_combat_mechanics_adoption.py; tests/application_state/test_combat_mechanics_adoption_postgres.py; apps/live-control-ui/src/api/worldMechanicsApi.test.ts;
 and directly owning reader-fence migration expectations if head advancement requires them.
 No overlap with open local-World/ingestion/held Play work.
 
@@ -74,3 +75,18 @@ merged association parent and requalifies that delivery head. No paid experiment
 rerun is required solely for renumbering. There is no unmerged behavioral parent
 for this association slice; ordinary review/CI gates still apply. No two fence
 heads may ship. PRIME will return the exact association PR/head/merge revision.
+
+Caller audit correction: retained encounter adoption reads the original proof
+anchor directly. The typed association decoder now exposes its canonical origin
+locator/acceptance anchor for both closed historical and current saved proofs;
+the single adoption comparison consumes these properties. This is necessary to
+preserve the existing consumer, not a new adoption capability. Its HTTP/APP tests
+join the owning validation, including an actor built from a selected successor.
+
+Dependent consumer validation:56 adoption/APP/association checks pass in23.11s,
+including original and selected-successor actors surviving later association
+replacement and Graph head changes. Updated the old test's retired projection
+mocks to the existing native catalog. All44 pre-existing adoption-module lint
+findings match origin/main exactly; baseline/current JSON retained, no unrelated
+formatting. Other changed Python owners remain lint-clean. Evidence:
+exact-saved-association-adoption-tests-v1.log and adoption-lint-{base,current}.json.

@@ -85,6 +85,14 @@ class WorldMechanicsAssociation(ImmutableModel):
     actor: str = Field(min_length=1)
     created_at: datetime
 
+    @property
+    def origin_locator(self) -> MechanicsLocator:
+        return self.proof.origin_locator if isinstance(self.proof, SavedMechanicsProof) else self.proof.locator
+
+    @property
+    def origin_acceptance_operation_id(self) -> str:
+        return self.proof.origin_acceptance_operation_id if isinstance(self.proof, SavedMechanicsProof) else self.proof.acceptance_operation_id
+
     @model_validator(mode="after")
     def invariants(self):
         if isinstance(self.request, AssociateWorldMechanicsRequest):

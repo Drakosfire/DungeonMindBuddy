@@ -175,7 +175,7 @@ def _replace(conn,world_id,record,request,snapshot,origin):
             raise ApplicationStateConflictError(f'{entity.name}: ruleset differs')
         if isinstance(prior,CombatMechanicsSnapshot):
             association=_historical_association(conn,world_id,prior,historical_rows)
-            if association.request.draft_id!=snapshot.draft_id or str(association.proof.acceptance_operation_id)!=snapshot.origin_acceptance_operation_id or association.proof.locator!=origin:
+            if association.request.draft_id!=snapshot.draft_id or association.origin_acceptance_operation_id!=snapshot.origin_acceptance_operation_id or association.origin_locator!=origin:
                 raise ApplicationStateConflictError(f'{entity.name}: original mechanics anchor differs')
         elif isinstance(prior,AcceptedCombatMechanicsSnapshot):
             if prior.managed_world_id!=world_id or prior.draft_id!=snapshot.draft_id or prior.acceptance_operation_id!=snapshot.origin_acceptance_operation_id or prior.locator!=origin:
