@@ -262,6 +262,7 @@ def _ordinary_native_case(
             return httpx2.Response(200,request=req,json={'model':'jev-1.14.0','answers':answers,'usage':{'input_tokens':37,'output_tokens':9}})
     class Writer(WriterWire):
         async def handle_async_request(self, req):
+            assert json.loads(req.content)['reasoning'] == {'effort': 'medium'}
             frames=[json.loads(item['content']) for item in json.loads(req.content)['input'][:-1]]
             frame=next(item for item in frames if set(item)=={'input_status','user_question','native_body_evidence','native_statements','native_assertions'})
             assert len(frames)==3
@@ -405,6 +406,7 @@ def _ordinary_native_case(
     assert authored_source=='source_only' or opened_with_grant
     assert authored or native_read_admission_probes
     data=response.json()
+    assert data['answer']['trace']['model_calls'][-1]['request_summary'] == {'reasoning_effort': 'medium'}
     # Native evidence belongs to its own receipt. No legacy Graph request was
     # made; its delivery descriptor must remain wholly not-requested.
     expected_graph = {'status': 'not_requested', **{key: None for key in (
