@@ -7,7 +7,7 @@ import {NativeGraphObjectDetails} from './NativeGraphObjectDetails';
 import '../statblocks/SavedStatblockDialog.css';
 
 /** Inspect the reference's captured pin, without changing selection or resolving latest. */
-export function NativeGraphObjectPreview({reference:ref,onClose}:{reference:AuthoredGraphReferenceV1;onClose:()=>void}) {
+export function NativeGraphObjectPreview({reference:ref,onClose,inlineHost}:{reference:AuthoredGraphReferenceV1;onClose:()=>void;inlineHost?:HTMLElement}) {
  const dialog=useRef<HTMLDialogElement>(null);
  const [detail,setDetail]=useState<NativeGraphEntity|null>(null),[failure,setFailure]=useState<string|null>(null),[retry,setRetry]=useState(0);
  useEffect(()=>{const node=dialog.current;node?.showModal();return()=>node?.close();},[]);
@@ -24,7 +24,7 @@ export function NativeGraphObjectPreview({reference:ref,onClose}:{reference:Auth
  return createPortal(<dialog ref={dialog} className="saved-statblock-dialog native-graph-object-preview" aria-label={`Object · ${ref.label}`} onClose={onClose} onKeyDown={event=>{if(event.key==='Escape')event.stopPropagation();}}>
   <header><strong>Object reference</strong><button type="button" autoFocus aria-label="Close object preview" onClick={onClose}>×</button></header>
   <div className="saved-statblock-dialog__body">
-   {failure?<><p role="alert">{failure}</p><button type="button" onClick={()=>setRetry(v=>v+1)}>Retry object preview</button></>:!detail?<p role="status">Loading selected object…</p>:<NativeGraphObjectDetails detail={detail} entityId={ref.node_id} label={ref.label}/>}
+   {failure?<><p role="alert">{failure}</p><button type="button" onClick={()=>setRetry(v=>v+1)}>Retry object preview</button></>:!detail?<p role="status">Loading selected object…</p>:<NativeGraphObjectDetails detail={detail} entityId={ref.node_id} label={ref.label} inlineHost={inlineHost} onInlineOpened={onClose}/>}
   </div>
  </dialog>,document.body);
 }

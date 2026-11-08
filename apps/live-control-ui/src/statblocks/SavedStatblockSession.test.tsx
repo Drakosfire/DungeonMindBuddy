@@ -8,13 +8,14 @@ import type {StatblockRevisionResourceV1} from '../contracts/dungeonbuddy-statbl
 import type {RevisionSaveOutcome} from './revision/savedMechanicsRevisionTypes';
 import {GenerationPlanProvider} from '../guidedTour/GenerationObservations';
 import {TourEncounterProvider,type TourEncounterScope} from '../guidedTour/EncounterScope';
-import {SavedStatblockProvider,SavedStatblockButton} from './SavedStatblockSession';
+import {SavedStatblockProvider,SavedStatblockButton,SavedStatblockInlineHost} from './SavedStatblockSession';
+import {SurfaceGraphReferenceInput} from '../surface/SurfaceGraphReferenceInput';
 import {SavedStatblockFullView} from './StatblockPage';
 function SessionHost(props:{worldId:string;draftId:string;revisionId?:string}) {return <SavedStatblockProvider worldId={props.worldId}><SavedStatblockButton {...props}/></SavedStatblockProvider>;}
 const guidance=vi.hoisted(()=>({readings:[] as any[],captureMechanicsScope:vi.fn(()=>null)}));
 vi.mock('../guidedTour/GuidedTour',async(importOriginal)=>({...await importOriginal<typeof import('../guidedTour/GuidedTour')>(),useGuidedTour:()=>({captureScope:()=>null,captureMechanicsScope:guidance.captureMechanicsScope}),useTourOwnerReading:(reading:unknown)=>{if(reading)guidance.readings.push(reading);}}));
 vi.mock('../media/MediaImageWizard',()=>({MediaImageWizard:({onClose}:{onClose:()=>void})=><button onClick={onClose}>Close portrait studio</button>}));
-vi.mock('../api/liveApi',()=>({listSavedMechanicsVersions:vi.fn(),openSavedMechanicsVersion:vi.fn(),saveMechanicsRevision:vi.fn(),recoverMechanicsRevision:vi.fn(),inspectMechanicsRevision:vi.fn(),validateStatblockDefinition:vi.fn()}));
+vi.mock('../api/liveApi',()=>({inspectNativeGraph:vi.fn(),listWorldMechanicsAssociations:vi.fn(),listSavedMechanicsVersions:vi.fn(),openSavedMechanicsVersion:vi.fn(),saveMechanicsRevision:vi.fn(),recoverMechanicsRevision:vi.fn(),inspectMechanicsRevision:vi.fn(),validateStatblockDefinition:vi.fn()}));
 const world='world',draft='11111111-1111-4111-8111-111111111111',resource=revisionFixture as StatblockRevisionResourceV1;
 const locator={provider:'dungeonmind' as const,statblock_id:resource.statblock_id,revision_id:resource.revision_id,contract:resource.contract,contract_version:resource.contract_version,definition_digest:resource.definition_digest};
 beforeAll(()=>{
@@ -211,4 +212,61 @@ it('rejects an exact entry while an internal different-version read is still in 
  await userEvent.selectOptions(within(dialog).getByRole('combobox',{name:'Saved mechanics version'}),successor.revision_id);await waitFor(()=>expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(2));await userEvent.click(within(dialog).getByRole('button',{name:'Close statblock'}));await userEvent.click(screen.getByRole('button',{name:'Open statblock',exact:true}));expect(within(dialog).getByRole('alert')).toHaveTextContent('Wait for the current statblock operation');
  const exact=structuredClone(resource);exact.revision_id=successor.revision_id;exact.definition.identity.name='Exact successor';await act(async()=>finish({world_id:world,draft_id:draft,locator:successor,resource:exact}));await waitFor(()=>expect(within(dialog).getByLabelText('Creature name')).toHaveValue('Exact successor'));expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(2);
  await userEvent.click(within(dialog).getByRole('button',{name:'Close statblock'}));await userEvent.click(screen.getByRole('button',{name:'Open statblock',exact:true}));await waitFor(()=>expect(within(dialog).getByLabelText('Creature name')).toHaveValue(resource.definition.identity.name));expect(api.openSavedMechanicsVersion).toHaveBeenLastCalledWith(draft,world,locator.revision_id);expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
+});
+
+function InlineSessionHost({visible=true,inForm=false,hostWorld=world}:{visible?:boolean;inForm?:boolean;hostWorld?:string}) {
+ const [host,setHost]=useState<HTMLElement|null>(null);
+ const content=<>{visible&&<section aria-label="Conversation message"><SavedStatblockInlineHost worldId={hostWorld} onHost={setHost}/></section>}
+  {host&&<SavedStatblockButton worldId={world} draftId={draft} revisionId={locator.revision_id} inlineHost={host} label="Edit inline"/>}</>;
+ return <SavedStatblockProvider worldId={world}>{inForm?<form aria-label="Chat composer" onSubmit={event=>event.preventDefault()}>{content}</form>:content}
+  <SavedStatblockButton worldId={world} draftId={draft} revisionId={locator.revision_id}/>
+  <SavedStatblockButton worldId={world} draftId={draft} revisionId="different-version" label="Other version"/>
+ </SavedStatblockProvider>;
+}
+async function openInline(){await userEvent.click(await screen.findByRole('button',{name:'Edit inline'}));const message=screen.getByRole('region',{name:'Conversation message'});await within(message).findByRole('region',{name:'Saved statblock'});return message;}
+it('moves the very same dirty editor between a message and popup, and returns on close',async()=>{
+ render(<InlineSessionHost/>);const message=await openInline(),input=within(message).getByLabelText('Creature name');fireEvent.change(input,{target:{value:'Inline unsent creature'}});
+ await userEvent.click(within(message).getByRole('button',{name:'Open statblock popup'}));const dialog=screen.getByRole('dialog',{name:'Saved statblock editor'});expect(within(dialog).getByLabelText('Creature name')).toBe(input);expect(input).toHaveValue('Inline unsent creature');
+ await userEvent.click(within(dialog).getByRole('button',{name:'Close statblock'}));expect(within(message).getByLabelText('Creature name')).toBe(input);expect(screen.queryByRole('dialog')).toBeNull();
+ expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(1);expect(api.openSavedMechanicsVersion).toHaveBeenCalledWith(draft,world,locator.revision_id);expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
+});
+it('parks a removed message editor without losing dirty state or resurrecting the message preview',async()=>{
+ const view=render(<InlineSessionHost/>),message=await openInline(),input=within(message).getByLabelText('Creature name');fireEvent.change(input,{target:{value:'Kept after message removal'}});
+ view.rerender(<InlineSessionHost visible={false}/>);expect(input.isConnected).toBe(true);expect(input).not.toBeVisible();
+ view.rerender(<InlineSessionHost/>);expect(within(screen.getByRole('region',{name:'Conversation message'})).queryByLabelText('Creature name')).toBeNull();
+ await userEvent.click(screen.getByRole('button',{name:'Open statblock',exact:true}));const dialog=screen.getByRole('dialog',{name:'Saved statblock editor'});expect(within(dialog).getByLabelText('Creature name')).toBe(input);expect(input).toHaveValue('Kept after message removal');expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(1);
+});
+it.each([{inForm:true},{hostWorld:'foreign'}])('does not register a form or foreign-World inline host (%j)',async props=>{
+ render(<InlineSessionHost {...props}/>);expect(screen.queryByRole('button',{name:'Edit inline'})).toBeNull();const dialog=await open();expect(dialog.closest('form')).toBeNull();expect(within(dialog).getByRole('region',{name:'Saved statblock'})).toBeVisible();
+});
+it('keeps the original inline target when a dirty different version is requested',async()=>{
+ render(<InlineSessionHost/>);const message=await openInline(),input=within(message).getByLabelText('Creature name');fireEvent.change(input,{target:{value:'Do not retarget'}});
+ await userEvent.click(screen.getByRole('button',{name:'Other version'}));const dialog=screen.getByRole('dialog',{name:'Saved statblock editor'});expect(within(dialog).getByRole('alert')).toHaveTextContent('Save, recover or revert');expect(within(dialog).getByLabelText('Creature name')).toBe(input);
+ await userEvent.click(within(dialog).getByRole('button',{name:'Close statblock'}));expect(within(message).getByLabelText('Creature name')).toBe(input);expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(1);
+});
+it('keeps portrait studio state across the inline and popup placements',async()=>{
+ render(<InlineSessionHost/>);const message=await openInline();await userEvent.click(within(message).getByRole('button',{name:'Generate or choose portrait'}));const studio=within(message).getByRole('button',{name:'Close portrait studio'});
+ await userEvent.click(within(message).getByRole('button',{name:'Open statblock popup'}));const dialog=screen.getByRole('dialog',{name:'Saved statblock editor'});expect(within(dialog).getByRole('button',{name:'Close portrait studio'})).toBe(studio);await userEvent.click(within(dialog).getByRole('button',{name:'Close statblock'}));expect(within(message).getByRole('button',{name:'Close portrait studio'})).toBe(studio);expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(1);
+});
+it('keeps a dispatched Save and its operation when the inline editor moves to the popup',async()=>{
+ let finish!:(outcome:RevisionSaveOutcome)=>void;vi.mocked(api.saveMechanicsRevision).mockImplementation(()=>new Promise(resolve=>{finish=resolve}));
+ render(<InlineSessionHost/>);const message=await openInline();fireEvent.change(within(message).getByLabelText('Creature name'),{target:{value:'Saving inline'}});await userEvent.click(within(message).getByRole('button',{name:'Validate new version'}));await waitFor(()=>expect(within(message).getByRole('button',{name:'Save new version'})).toBeEnabled());await userEvent.click(within(message).getByRole('button',{name:'Save new version'}));await waitFor(()=>expect(api.saveMechanicsRevision).toHaveBeenCalledTimes(1));const body=vi.mocked(api.saveMechanicsRevision).mock.calls[0][1];
+ await userEvent.click(within(message).getByRole('button',{name:'Open statblock popup'}));await act(async()=>finish({operation_id:body.operation_id,state:'outcome_unknown',base:locator,result:null,refusal_code:null,change_summary:body.change_summary,created_at:'2026-11-08T00:00:00Z'}));const dialog=screen.getByRole('dialog',{name:'Saved statblock editor'});expect(within(dialog).getByRole('button',{name:'Recover Save'})).toBeVisible();expect(within(dialog).getByLabelText('Creature name')).toBeDisabled();expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(1);expect(api.saveMechanicsRevision).toHaveBeenCalledTimes(1);expect(api.recoverMechanicsRevision).not.toHaveBeenCalled();
+});
+
+it('edits an exact linked statblock in a saved message through the shared native reference renderer',async()=>{
+ const pin={managed_world_id:world,native_world_id:'native',binding_version:1,revision_id:'captured',scope_mode:'world' as const,campaign_id:null};
+ vi.mocked(api.inspectNativeGraph).mockResolvedValue({schema:'dmb_native_graph_entity_v1',scope:pin,entity:{found:true,assertions:[],evidence:[],completeness:{status:'complete',reason:null}}});
+ vi.mocked(api.listWorldMechanicsAssociations).mockResolvedValue([{association_id:'link',version:1,previous_association_id:null,request_digest:'digest',actor:'gm',created_at:'now',request:{request_id:'request',draft_id:draft,expected_draft_version:1,expected_version:0,target:{managed_world_id:world,native_world_id:'native',binding_version:1,graph_revision_id:'linked',node_id:'ooze',label:'Ooze',kind:'creature',role:'',campaign_scope:null}},proof:{locator,acceptance_operation_id:'original',accepted_from_draft_version:1,accepted_from_candidate_id:null,acceptance_request_digest:'digest'}}]);
+ const changed=vi.fn(),submitted=vi.fn();render(<SavedStatblockProvider worldId={world}>
+  <section aria-label="Saved message"><SurfaceGraphReferenceInput worldId={world} value={[{schema:'dmb_authored_graph_reference_v1',managed_world_id:world,native_world_id:'native',binding_version:1,graph_revision:'captured',node_id:'ooze',label:'Ooze'}]} readOnly onChange={changed}/></section>
+  <form aria-label="Message composer" onSubmit={event=>{event.preventDefault();submitted();}}><input aria-label="Chat input"/></form>
+ </SavedStatblockProvider>);
+ await userEvent.click(screen.getByRole('button',{name:'Inspect Ooze'}));const object=screen.getByRole('dialog',{name:'Object · Ooze'});await userEvent.click(await within(object).findByRole('button',{name:'Edit here'}));
+ const message=screen.getByRole('region',{name:'Saved message'});await within(message).findByRole('region',{name:'Saved statblock'});expect(screen.queryByRole('dialog')).toBeNull();const input=within(message).getByLabelText('Creature name');expect(input.closest('form')).toBeNull();await userEvent.type(input,'{enter}');expect(submitted).not.toHaveBeenCalled();expect(changed).not.toHaveBeenCalled();expect(api.openSavedMechanicsVersion).toHaveBeenCalledWith(draft,world,locator.revision_id);expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
+});
+
+it('restores message scroll after popup placement would clamp the shortened message',async()=>{
+ render(<InlineSessionHost/>);const message=await openInline();message.scrollTop=137;message.scrollLeft=11;await userEvent.click(within(message).getByRole('button',{name:'Open statblock popup'}));message.scrollTop=0;message.scrollLeft=0;
+ await userEvent.click(within(screen.getByRole('dialog',{name:'Saved statblock editor'})).getByRole('button',{name:'Close statblock'}));expect(within(message).getByLabelText('Creature name')).toBeVisible();expect(message.scrollTop).toBe(137);expect(message.scrollLeft).toBe(11);
 });

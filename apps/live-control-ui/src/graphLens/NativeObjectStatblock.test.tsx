@@ -6,7 +6,7 @@ import type {WorldMechanicsAssociation} from '../api/worldMechanicsTypes';
 import type {InspectionPin} from '../api/nativeGraphInspection';
 const opened=vi.hoisted(()=>vi.fn());
 vi.mock('../api/liveApi',()=>({listWorldMechanicsAssociations:vi.fn()}));
-vi.mock('../statblocks/SavedStatblockSession',()=>({SavedStatblockButton:({worldId,draftId,revisionId,label}:any)=><button onClick={()=>opened({worldId,draftId,revisionId})}>{label}</button>}));
+vi.mock('../statblocks/SavedStatblockSession',()=>({SavedStatblockButton:({worldId,draftId,revisionId,label,inlineHost,onOpened}:any)=><button onClick={()=>{opened({worldId,draftId,revisionId,...(inlineHost?{inlineHost}:{})});onOpened?.();}}>{label}</button>}));
 const pin:InspectionPin={managed_world_id:'world',native_world_id:'native',binding_version:3,revision_id:'current-graph',scope_mode:'world',campaign_id:null};
 function record(id:string,campaign:string|null=null):WorldMechanicsAssociation{return {association_id:id,version:1,previous_association_id:null,request_digest:'digest',actor:'gm',created_at:'now',request:{request_id:id,draft_id:'saved-draft',expected_draft_version:2,expected_version:0,target:{managed_world_id:'world',native_world_id:'native',binding_version:3,graph_revision_id:'linked-graph',node_id:'ooze',label:'Ooze',kind:'creature',role:'',campaign_scope:campaign}},proof:{locator:{provider:'dungeonmind',statblock_id:'sb',revision_id:'portrait-version',contract:'dungeonbuddy.statblock',contract_version:'1',definition_digest:'digest'},acceptance_operation_id:'operation',accepted_from_draft_version:1,accepted_from_candidate_id:null,acceptance_request_digest:'digest'}};}
 afterEach(cleanup);beforeEach(()=>{vi.resetAllMocks();vi.mocked(listWorldMechanicsAssociations).mockResolvedValue([]);});
@@ -27,4 +27,9 @@ it('discards delayed reads when the binding changes and supports explicit failur
  vi.mocked(listWorldMechanicsAssociations).mockRejectedValueOnce(new Error('Admission unavailable'));view.rerender(<NativeObjectStatblock pin={{...pin,binding_version:4}} entityId="ooze"/>);
  expect(await screen.findByRole('alert')).toHaveTextContent('Admission unavailable');await act(async()=>finish([record('old')]));expect(screen.queryByRole('link')).toBeNull();
  fireEvent.click(screen.getByRole('button',{name:'Retry linked statblocks'}));await screen.findByText('No statblock linked in this view.');expect(within(screen.getByRole('region',{name:'Linked statblocks'})).queryByRole('alert')).toBeNull();
+});
+
+it('opens inline through the same exact saved target and closes only its object preview',async()=>{
+ const host=document.createElement('div'),close=vi.fn();vi.mocked(listWorldMechanicsAssociations).mockResolvedValue([record('link')]);render(<NativeObjectStatblock pin={pin} entityId="ooze" inlineHost={host} onInlineOpened={close}/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Edit here'}));expect(opened).toHaveBeenCalledWith({worldId:'world',draftId:'saved-draft',revisionId:'portrait-version',inlineHost:host});expect(close).toHaveBeenCalledTimes(1);
 });
