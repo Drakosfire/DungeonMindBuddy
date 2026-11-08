@@ -25,6 +25,7 @@ import {
   type LocalWorldPackageRepository,
   type RestoreLocalWorldPackageResult,
   type ReadLocalWorldPackageDataResult,
+  type ReadLocalWorldExportSnapshotResult,
   type ListLocalWorldsResult,
   type ReadLocalWorldNotesResult,
   type LocalWorldSnapshot,
@@ -501,6 +502,22 @@ export class IndexedDbLocalWorldRepository implements LocalWorldPackageRepositor
         if (!record) return { status: "missing" };
         const data = await requestResult<LocalWorldPackageData | undefined>(transaction.objectStore(PACKAGE_DATA_STORE).get(worldId));
         return data ? { status: "found", data: cloneLocalWorldValue(data) } : { status: "not-stored" };
+      });
+    } catch (error) { return { status: "error", message: errorMessage(error) }; }
+  }
+
+  async readWorldExportSnapshot(worldId: LocalWorldId): Promise<ReadLocalWorldExportSnapshotResult> {
+    try {
+      return await inTransaction(this.db, [WORLD_STORE, PACKAGE_DATA_STORE], "readonly", async (transaction) => {
+        const worlds = transaction.objectStore(WORLD_STORE);
+        const record = await requestResult<LocalWorldRecord | undefined>(worlds.get(worldId));
+        if (!record) return { status: "missing" };
+        const data = await requestResult<LocalWorldPackageData | undefined>(transaction.objectStore(PACKAGE_DATA_STORE).get(worldId));
+        return {
+          status: "found",
+          record: cloneLocalWorldValue(record),
+          ...(data ? { data: cloneLocalWorldValue(data) } : {}),
+        };
       });
     } catch (error) { return { status: "error", message: errorMessage(error) }; }
   }

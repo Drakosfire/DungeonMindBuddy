@@ -184,12 +184,18 @@ export type ReadLocalWorldPackageDataResult =
   | { readonly status: "not-stored" }
   | { readonly status: "missing" }
   | { readonly status: "error"; readonly message: string };
+export type ReadLocalWorldExportSnapshotResult =
+  | { readonly status: "found"; readonly record: LocalWorldRecord; readonly data?: LocalWorldPackageData }
+  | { readonly status: "missing" }
+  | { readonly status: "error"; readonly message: string };
 
 /** Optional package restore capability; ordinary editor consumers remain on LocalWorldRepository. */
 export interface LocalWorldPackageRepository extends LocalWorldRepository {
   listWorlds(): Promise<ListLocalWorldsResult>;
   restorePackage(record: LocalWorldRecord, data: LocalWorldPackageData): Promise<RestoreLocalWorldPackageResult>;
   readPackageData(worldId: LocalWorldId): Promise<ReadLocalWorldPackageDataResult>;
+  /** Reads the semantic record and mutable package sidecar from one storage snapshot. */
+  readWorldExportSnapshot(worldId: LocalWorldId): Promise<ReadLocalWorldExportSnapshotResult>;
   readWorldNotes(worldId: LocalWorldId): Promise<ReadLocalWorldNotesResult>;
   commitWorldNotes(input: {
     readonly worldId: LocalWorldId;

@@ -356,6 +356,17 @@ describe("LocalWorldRepository contract with the in-memory reference adapter", (
 
 
 describe("Buddy-owned local World notes port", () => {
+  it("returns a World and its mutable sidecar as one export snapshot", async () => {
+    const repo = new InMemoryLocalWorldRepository({ idFactory: sequenceLocalIds() });
+    const record = await createTestWorld(repo);
+    await repo.commitWorldNotes({ worldId: record.snapshot.worldId, expectedLocalRevision: 0, markdown: "snapshot note" });
+    const snapshot = await repo.readWorldExportSnapshot(record.snapshot.worldId);
+    expect(snapshot.status).toBe("found");
+    if (snapshot.status !== "found") return;
+    expect(snapshot.record.localRevision).toBe(1);
+    expect(snapshot.data?.bundledMembers["documents/buddy-world-notes.md"]).toEqual(Array.from(new TextEncoder().encode("snapshot note")));
+  });
+
   it("commits notes with local revision/history and retains a losing body through a fresh repository facade", async () => {
     const store = new InMemoryLocalWorldStore();
     const repo = new InMemoryLocalWorldRepository({ store, idFactory: sequenceLocalIds() });

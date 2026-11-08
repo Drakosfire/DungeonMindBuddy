@@ -386,16 +386,13 @@ export function LocalWorldSurface({
     setMessage(null);
     const generation = operationGeneration.current;
     try {
-      const latest = await repository.readWorld(record.snapshot.worldId);
+      const latest = await repository.readWorldExportSnapshot(record.snapshot.worldId);
       if (latest.status !== "found") throw new Error(latest.status === "missing" ? "Local World is missing." : latest.message);
-      const supplemental = await repository.readPackageData(record.snapshot.worldId);
-      if (supplemental.status === "error") throw new Error(supplemental.message);
-      if (supplemental.status === "missing") throw new Error("Local World disappeared before export.");
       const [{ encodeLocalWorldPackageV1 }, { encodeLocalWorldPackageZipV1 }] = await Promise.all([
         import("../localWorldPackageV1"),
         import("../localWorldPackageZipV1"),
       ]);
-      const encoded = await encodeLocalWorldPackageV1(latest.record, supplemental.status === "found" ? supplemental.data : undefined);
+      const encoded = await encodeLocalWorldPackageV1(latest.record, latest.data);
       if (encoded.status !== "encoded") throw new Error(encoded.message);
       const archived = await encodeLocalWorldPackageZipV1(encoded.members);
       if (archived.status !== "encoded") throw new Error(archived.message);

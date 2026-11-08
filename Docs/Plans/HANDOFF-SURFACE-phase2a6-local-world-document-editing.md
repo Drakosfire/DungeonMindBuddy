@@ -1,6 +1,6 @@
 # SURFACE: edit one local World document
 
-Status: ACTIVE under Alan's explicit instruction to continue the Buddy front-door plan through PRIME-led merges. This is one stacked successor capability. Base is the exact reviewed code+handoff head `02d79ceb0e767a67872e4c8c83c2a539ce6829bf` on `codex/phase2a5-local-world-surface`; PR topology is #2213 → this successor draft (planned #2214). #2213 itself is still based on old #2210 `cd2bd138c9657487ba6ecf56f3c739ef1dc7b51d` and conflicts with corrected #2210 `9f0fe5be55c72ca52d6d5b8355944620288ee9d7`. This implementation may proceed against the pinned parent; it is not mergeable until PRIME reconciles the predecessor stack, then this slice is re-anchored, re-tested, and independently reviewed at the combined head. No deployment authority is implied.
+Status: ACTIVE under Alan's explicit instruction to continue the Buddy front-door plan through PRIME-led merges. This is one stacked successor capability. Base is the exact reviewed code+handoff head `02d79ceb0e767a67872e4c8c83c2a539ce6829bf` on `codex/phase2a5-local-world-surface`; draft PR #2219 targets that branch. PR topology is #2213 → #2219. #2213 itself is still based on old #2210 `cd2bd138c9657487ba6ecf56f3c739ef1dc7b51d` and conflicts with corrected #2210 `9f0fe5be55c72ca52d6d5b8355944620288ee9d7`. This implementation may proceed against the pinned parent; it is not mergeable until PRIME reconciles the predecessor stack, then this slice is re-anchored, re-tested, and independently reviewed at the combined head. No deployment authority is implied.
 
 Checkout: `/home/drakosfire/Projects/.codex/blank-surface-phase1-20261107/worktrees/DungeonMindBuddy-phase2a6-local-document-editing`.
 
@@ -22,6 +22,7 @@ Set a concrete UTF-8 body-size bound (maximum 1 MiB) and validate before allocat
 - `apps/live-control-ui/src/localWorld/inMemoryLocalWorldRepository.ts`
 - `apps/live-control-ui/src/localWorld/inMemoryLocalWorldRepository.test.ts`
 - `apps/live-control-ui/src/localWorld/indexedDbLocalWorldRepository.ts`
+- `apps/live-control-ui/src/localWorld/indexedDbLocalWorldRepository.browserHarness.ts`
 - `apps/live-control-ui/src/localWorld/indexedDbLocalWorldRepository.test.ts`
 - `apps/live-control-ui/src/localWorld/localWorldSurface/LocalWorldSurface.tsx`
 - `apps/live-control-ui/src/localWorld/localWorldSurface/LocalWorldNotesEditor.tsx` (new)
@@ -53,10 +54,10 @@ Anonymous guest entry remains a separate route/auth boundary slice. This handoff
 
 ## Current implementation evidence (2026-11-08)
 
-- Full `src/localWorld` suite: 7 files, 71 tests passed on Node 22.23.0. Typecheck and production build passed. The build retains existing dynamic/static import notices and the >500 kB main-chunk warning.
+- Full `src/localWorld` suite: 7 files, 72 tests passed on Node 22.23.0. Typecheck and production build passed. The build retains existing dynamic/static import notices and the >500 kB main-chunk warning.
 - Adjacent App/chrome/navigation suites: 55 passed, 7 failed. The same 3 App and 4 navigation failures reproduced on exact pinned parent `02d79ceb0e767a67872e4c8c83c2a539ce6829bf`; hosted-route failures are jsdom relative `/api/live/...` fetch/URL and navigation limitations. This slice did not alter hosted routing or auth.
 - Native Chrome checks used disposable `local-world-surface-test-<uuid>` IndexedDB databases. Verified create → real MarkdownEditorCore edit/autosave → Surface close/reopen → readback → package codec/ZIP decode. A second connection advanced the revision to create a note conflict; after reload, committed text was shown and explicit Recover → Reapply saved the candidate. Aborting after the World write request left both revision (2) and old committed note unchanged on second-connection readback; the attempted edit remained an unsaved draft with unload protection. No existing or disclosed user World was used or deleted.
 - The task-owned screenshot is `/media/drakosfire/Projects/.codex/2026-11-07/task/phase2a6-native-surface.png`.
 - Production bundle observation: the pinned Phase2A5 build artifact main entry was 596,490 raw / 169,704 gzip bytes. This build's main entry is 721,550 raw / 205,620 gzip (+125,060 raw / +35,916 gzip); `MarkdownEditorCore` is split as 83,770 raw / 24,830 gzip and is absent from the root's initial asset requests (main JS, CSS, launcher image only). It is requested after opening a notes document. ZIP remains separate at 174,500 raw / 73,490 gzip and is fetched only for export. These are measured artifact/request observations, not weak-device performance claims.
-- Independent review of the latest working tree passed conflict-preview, metadata, stale-draft and remount checks; exact committed-head review is pending. Earlier review results against mutable trees are superseded.
+- Independent exact-head review of commit `1a12903c36677780dcad0c55b7f51753c0e43670` found an export consistency race: separate World/sidecar reads could encode an old local revision with newer notes. The fix adds `readWorldExportSnapshot`, an atomic IndexedDB readonly transaction over the World and package-data stores, and switches the user export action to that snapshot. A native IndexedDB concurrency harness and repository test assert matching revision/content. Corrected exact-head review is pending.
 - Predecessor #2213 remains open/draft and conflicts with corrected #2210. This successor must be re-anchored, tested and independently reviewed on the composed stack before PRIME-led serial merge. No merge or deployment is authorized by this handoff.
