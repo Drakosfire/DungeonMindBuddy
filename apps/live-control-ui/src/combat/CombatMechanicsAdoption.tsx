@@ -7,15 +7,15 @@ import {adoptCombatMechanics,listAcceptedCombatMechanics,previewSavedCombatMecha
 import {listSavedMechanicsVersions} from '../api/liveApi';
 import type {AcceptedCombatMechanicsChoice,ActorMechanicsAdoption,CombatEncounterRecord,MechanicsAdoptionPreview} from './combatTypes';
 import type {SavedMechanicsLocator} from '../statblocks/revision/savedMechanicsRevisionTypes';
-import {SavedMechanicsRevisionEditor} from '../statblocks/revision/SavedMechanicsRevisionEditor';
+import {SavedStatblockButton,useSavedStatblockSession} from '../statblocks/SavedStatblockSession';
+import {useGenerationPlan} from '../guidedTour/GenerationObservations';
 import {CombatMechanicsInspection} from './CombatMechanicsInspection';
 import {SavedAdoptionHistory} from './SavedAdoptionHistory';
 import {readPendingAdoption,sameAdoptionValue,verifyAdoptionOutcome,type PendingMechanicsAdoption} from './CombatMechanicsAdoptionRecovery';
 
 export function CombatMechanicsAdoption({record,disabled,onLockChange,onReconciled,scope}:{record:CombatEncounterRecord;disabled:boolean;scope?:import("./runEncountersApi").RunEncounterScope;
   onLockChange:(locked:boolean)=>void;onReconciled:(current:CombatEncounterRecord)=>void}) {
- const guidance=useGuidedTour();
- const [mechanicsOpen,setMechanicsOpen]=useState(false);
+ const guidance=useGuidedTour(),statblockSession=useSavedStatblockSession(),generationPlan=useGenerationPlan();
   const tourScope=useTourEncounter(),latestTourScope=useRef(tourScope);latestTourScope.current=tourScope;
   const [tourAcknowledged,setTourAcknowledged]=useState<AcknowledgedMechanicsAdoption|null>(null);
   const [tourInspected,setTourInspected]=useState<AcknowledgedMechanicsAdoption|null>(null);
@@ -88,8 +88,8 @@ export function CombatMechanicsAdoption({record,disabled,onLockChange,onReconcil
   }
   useTourNavigationGuard({worldId,reason:()=>busy||pending||fatal?'Resolve the retained mechanics adoption before leaving these controls.':null});
   useTourNavigationOwner(tourScope?{role:'panel',worldId,surface:'plan',objectId:tourScope.plan.objectId,inspections:[{
-    id:'encounter-mechanics-editor',step:'mechanics',label:'Open saved mechanics editor',target:tourScope.plan,impact:'projection',unavailable:!source?'Choose a saved creature in the encounter first.':undefined,
-    perform:request=>{if(request.scope.sceneId&&request.scope.sceneId!==tourScope.sceneId)throw new Error('Select the scene recorded by this step first.');if(request.scope.draftId&&request.scope.draftId!==source?.draft_id)throw new Error('Choose the saved creature recorded by this step first.');if(request.isCurrent())setMechanicsOpen(true);},
+    id:'encounter-mechanics-editor',step:'mechanics',label:'Open saved mechanics editor',target:tourScope.plan,impact:'projection',unavailable:!source?'Choose a saved creature in the encounter first.':statblockSession?.worldId!==worldId?'The shared saved statblock editor is unavailable.':undefined,
+    perform:request=>{if(request.scope.sceneId&&request.scope.sceneId!==tourScope.sceneId)throw new Error('Select the scene recorded by this step first.');if(request.scope.draftId&&request.scope.draftId!==source?.draft_id)throw new Error('Choose the saved creature recorded by this step first.');if(request.isCurrent()&&source)statblockSession?.openStatblock({worldId,draftId:source.draft_id},{encounter:tourScope,generationPlan});},
   }]}:null);
   return <section aria-label="Use saved mechanics version">
     <AdoptionTourObservation scope={tourScope} worldId={worldId} encounterId={encounterId} acknowledged={tourAcknowledged} inspected={tourInspected} blocked={blocked}/>
@@ -113,10 +113,10 @@ export function CombatMechanicsAdoption({record,disabled,onLockChange,onReconcil
         <button type="button" onClick={()=>void openPreview()}>Preview exact version</button>
       </>}
     </fieldset>
-    {source&&!pending&&<details open={mechanicsOpen} onToggle={event=>setMechanicsOpen(event.currentTarget.open)}><summary>Edit saved mechanics separately</summary>
-      <SavedMechanicsRevisionEditor key={source.draft_id} worldId={worldId} draftId={source.draft_id}/>
+    {source&&!pending&&<section aria-label="Edit saved mechanics separately"><h4>Edit saved mechanics separately</h4>
+      <SavedStatblockButton worldId={worldId} draftId={source.draft_id}/>
       <p>After saving, refresh versions above and preview the version you want to use.</p>
-    </details>}
+    </section>}
     {preview&&<>
       <CombatMechanicsInspection snapshot={preview.snapshot}/>
       <p>Saved AC: {preview.armor_class??'unavailable'} · Maximum HP: {preview.hit_points??'unavailable'}</p>

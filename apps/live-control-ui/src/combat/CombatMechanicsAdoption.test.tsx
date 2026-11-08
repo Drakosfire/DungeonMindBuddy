@@ -1,19 +1,23 @@
-import {cleanup,render,screen} from '@testing-library/react';
+import {act,cleanup,render,screen,within,waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {afterEach,beforeEach,expect,it,vi} from 'vitest';
+import {afterEach,beforeAll,beforeEach,expect,it,vi} from 'vitest';
 import {webcrypto} from 'node:crypto';
+import {SavedStatblockProvider,SavedStatblockButton} from '../statblocks/SavedStatblockSession';
+import revisionFixture from '../../../../tests/fixtures/statblocks/v1/exact-revision-response.json';
+import type {StatblockRevisionResourceV1} from '../contracts/dungeonbuddy-statblocks-v1/client';
 import {CombatMechanicsAdoption} from './CombatMechanicsAdoption';
 import {TourEncounterProvider,type TourEncounterScope} from '../guidedTour/EncounterScope';
 import type {TourOwnerReading} from '../guidedTour/GuidedTour';
 const tourReadings=vi.hoisted(()=>new Map<string,TourOwnerReading>());
+const panels=vi.hoisted(()=>({latest:null as any}));
+vi.mock('../guidedTour/Navigation',async(importOriginal)=>({...await importOriginal<typeof import('../guidedTour/Navigation')>(),useTourNavigationOwner:(owner:unknown)=>{if(owner)panels.latest=owner;}}));
 vi.mock('../guidedTour/GuidedTour',()=>({useGuidedTour:()=>({captureScope:()=>null}),useTourOwnerReading:(reading:TourOwnerReading|null)=>{if(reading)tourReadings.set(reading.step,reading);}}));
 import * as api from './combatApi';
 import * as live from '../api/liveApi';
 import type {CombatEncounterRecord,MechanicsAdoptionOutcome,MechanicsAdoptionPreview,AdoptMechanicsRequest} from './combatTypes';
 import {adoptionRequestDigest,verifyAdoptionOutcome,type PendingMechanicsAdoption} from './CombatMechanicsAdoptionRecovery';
 vi.mock('./combatApi',()=>({listAcceptedCombatMechanics:vi.fn(),previewSavedCombatMechanics:vi.fn(),adoptCombatMechanics:vi.fn(),listCombatMechanicsAdoptions:vi.fn(),inspectCombatMechanicsAdoption:vi.fn()}));
-vi.mock('../api/liveApi',()=>({listSavedMechanicsVersions:vi.fn()}));
-vi.mock('../statblocks/revision/SavedMechanicsRevisionEditor',()=>({SavedMechanicsRevisionEditor:()=>null}));
+vi.mock('../api/liveApi',()=>({listSavedMechanicsVersions:vi.fn(),openSavedMechanicsVersion:vi.fn(),validateStatblockDefinition:vi.fn(),saveMechanicsRevision:vi.fn(),recoverMechanicsRevision:vi.fn(),inspectMechanicsRevision:vi.fn()}));
 vi.mock('./CombatMechanicsInspection',()=>({CombatMechanicsInspection:()=>null}));
 const world='elderwyld',id='11111111-1111-4111-8111-111111111111',draftId='22222222-2222-4222-8222-222222222222';
 const tourScope:TourEncounterScope={plan:{kind:'plan',worldId:world,objectId:'plan',revision:2,revisionId:'work-2',digest:'d'.repeat(64)},sceneId:'scene',encounterId:id};
@@ -22,10 +26,15 @@ const original={locator:{...locator,revision_id:'rev_one'},snapshot_digest:'sha2
 const record={world_id:world,encounter_id:id,revision:4,draft:{entities:[{id:'one',name:'Keeper',ac:12,hp:35,max_hp:40,temp_hp:7,defeated:true,mechanics_snapshot:original},
   {id:'other',name:'Sibling',ac:12,hp:10,max_hp:40,temp_hp:0,mechanics_snapshot:original}]}} as unknown as CombatEncounterRecord;
 const preview={snapshot:{origin:'buddy_saved_mechanics_override_v1',managed_world_id:world,draft_id:draftId,locator,snapshot_digest:'sha256:'+'c'.repeat(64)},armor_class:20,hit_points:28} as MechanicsAdoptionPreview;
+beforeAll(()=>{
+ Object.defineProperty(HTMLDialogElement.prototype,'showModal',{configurable:true,value:function(this:HTMLDialogElement){this.setAttribute('open','');}});
+ Object.defineProperty(HTMLDialogElement.prototype,'close',{configurable:true,value:function(this:HTMLDialogElement){this.removeAttribute('open');this.dispatchEvent(new Event('close'));}});
+});
 beforeEach(()=>{
-  vi.clearAllMocks();tourReadings.clear();localStorage.clear();sessionStorage.clear();vi.stubGlobal('crypto',webcrypto);
+  vi.clearAllMocks();panels.latest=null;tourReadings.clear();localStorage.clear();sessionStorage.clear();vi.stubGlobal('crypto',webcrypto);
   vi.mocked(api.listAcceptedCombatMechanics).mockResolvedValue({choices:[{name:'Keeper source',draft_id:draftId,draft_version:3}],nextOffset:null});
   vi.mocked(live.listSavedMechanicsVersions).mockResolvedValue({world_id:world,draft_id:draftId,name:'Keeper',original:locator,operations:[],pending:null,next_offset:null});
+  vi.mocked(live.openSavedMechanicsVersion).mockResolvedValue({world_id:world,draft_id:draftId,locator,resource:{...revisionFixture,statblock_id:locator.statblock_id,revision_id:locator.revision_id,definition_digest:locator.definition_digest} as StatblockRevisionResourceV1});
   vi.mocked(api.previewSavedCombatMechanics).mockResolvedValue(preview);
 });
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
@@ -159,4 +168,28 @@ it('does not reconcile a late acknowledgment into a newly opened World',async()=
   finish(await outcome(body));await Promise.resolve();
   expect(old).not.toHaveBeenCalled();expect(current).not.toHaveBeenCalled();
   expect(Object.keys(localStorage).some(key=>key.startsWith('dmb.combat.adoption:'))).toBe(true);
+});
+
+it('encounter and tool triggers share the same real manual editor without adopting mechanics',async()=>{
+ render(<SavedStatblockProvider worldId={world}><TourEncounterProvider scope={tourScope}>
+  <CombatMechanicsAdoption record={record} disabled={false} onLockChange={()=>{}} onReconciled={()=>{}}/>
+ </TourEncounterProvider><section aria-label="Tool trigger"><SavedStatblockButton worldId={world} draftId={draftId}/></section></SavedStatblockProvider>);
+ const panel=screen.getByRole('region',{name:'Use saved mechanics version'});
+ await userEvent.click(within(panel).getByRole('button',{name:'Find saved creatures'}));await userEvent.click(await within(panel).findByRole('button',{name:'Keeper source'}));
+ await userEvent.click(within(panel).getByRole('button',{name:'Open statblock'}));
+ const dialog=screen.getByRole('dialog',{name:'Saved statblock editor'});const input=await within(dialog).findByLabelText('Creature name');
+ await userEvent.type(input,' shared encounter edit');
+ await userEvent.click(within(dialog).getByRole('button',{name:'Close statblock'}));await userEvent.click(within(screen.getByRole('region',{name:'Tool trigger'})).getByRole('button'));
+ expect(within(dialog).getByLabelText('Creature name')).toBe(input);expect((input as HTMLInputElement).value).toContain(' shared encounter edit');
+ expect(document.querySelectorAll('[aria-label="Saved mechanics versions"]')).toHaveLength(1);expect(live.openSavedMechanicsVersion).toHaveBeenCalledTimes(1);
+ expect(tourReadings.get('mechanics')?.target).toEqual(tourScope.plan);expect(api.adoptCombatMechanics).not.toHaveBeenCalled();expect(live.saveMechanicsRevision).not.toHaveBeenCalled();
+});
+it('the existing guided encounter editor action opens the same shared session with its scene context',async()=>{
+ render(<SavedStatblockProvider worldId={world}><TourEncounterProvider scope={tourScope}><CombatMechanicsAdoption record={record} disabled={false} onLockChange={()=>{}} onReconciled={()=>{}}/></TourEncounterProvider></SavedStatblockProvider>);
+ await userEvent.click(screen.getByRole('button',{name:'Find saved creatures'}));await userEvent.click(await screen.findByRole('button',{name:'Keeper source'}));
+ const action=panels.latest.inspections.find((row:any)=>row.id==='encounter-mechanics-editor');expect(action.unavailable).toBeUndefined();
+ await act(async()=>action.perform({scope:{sceneId:tourScope.sceneId,draftId},isCurrent:()=>true}));
+ const dialog=screen.getByRole('dialog',{name:'Saved statblock editor'});await within(dialog).findByLabelText('Creature name');
+ expect(tourReadings.get('mechanics')?.target).toEqual(tourScope.plan);expect(live.openSavedMechanicsVersion).toHaveBeenCalledWith(draftId,world,locator.revision_id);
+ expect(api.adoptCombatMechanics).not.toHaveBeenCalled();expect(live.saveMechanicsRevision).not.toHaveBeenCalled();
 });

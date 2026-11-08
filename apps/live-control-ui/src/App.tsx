@@ -1,3 +1,4 @@
+import {SavedStatblockProvider} from './statblocks/SavedStatblockSession';
 import {WorldGuidedTour} from './guidedTour/WorldGuidedTour';
 import { DocumentReferenceSurfaceHost } from './documentReference/DocumentReferenceSurfaceHost';
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
@@ -377,6 +378,7 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
             managedWorldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null}
           >
             <WorldGraphLensProjectionProvider defaultCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}>
+              <SavedStatblockProvider worldId={selectedWorld.kind === 'managed' ? selectedWorld.worldId : null}>
               <SurfaceContextProvider>
                 <PeekRegionProvider key={selectedWorld.kind === "managed" ? selectedWorld.worldId : "legacy"}>
                   <DocumentReferenceSurfaceHost worldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null} surface={pageAdmitted ? route : "pending"}>
@@ -392,6 +394,7 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
                   </DocumentReferenceSurfaceHost>
                 </PeekRegionProvider>
               </SurfaceContextProvider>
+              </SavedStatblockProvider>
             </WorldGraphLensProjectionProvider>
           </WorldGraphLensProvider>
           </WorldGuidedTour>
