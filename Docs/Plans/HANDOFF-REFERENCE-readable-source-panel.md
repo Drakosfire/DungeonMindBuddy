@@ -1,6 +1,14 @@
 # REFERENCE: keep source-panel controls readable
 
-Status: ACTIVE. PRIME owns the observed References presentation correction under
+Status: SETTLED. PR2222 merged43a56972dd27b21d92c749f56be60cc8ae5c7497
+and delivered UI99e1f39ea30a8d4aa9abcf68a7d095d5719eb4d4 on5202. Independent
+source/integration/recipe review approved; seven CI checks passed. Delivered native
+source open/close, side/responsive sizing and retained unsent draft checks passed.
+API8dca0f10, schema0130, retained rows/session state unchanged; no providers or
+publication writes. Delivery lease released. Full References and held Play2172
+remain incomplete. Historical bounded scope follows.
+
+PRIME owned the observed References presentation correction under
 the operator's updated References/statblock goal. Serial after delivered2191;
 base origin/main1ef0248605082db40e62562693f2ec210ce2a9e4, branch
 codex/reference-source-header, reused checkout and dependencies. Independent review

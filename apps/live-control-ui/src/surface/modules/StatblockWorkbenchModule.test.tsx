@@ -28,6 +28,7 @@ import type {
 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
 import { readStoredReviseAttempt } from "../../statblocks/revision/statblockRevisionAttempt";
 import fixture from "../../../../../tests/fixtures/statblocks/v1/candidate-response.json";
+import savedRevisionFixture from "../../../../../tests/fixtures/statblocks/v1/exact-revision-response.json";
 import {
   ACCEPT_RESTORE_LOOKUP,
   presentCandidateStatus,
@@ -260,6 +261,62 @@ describe("World-scoped mounted Workbench", () => {
     await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
     expect.soft(h.getCandidate).toHaveBeenLastCalledWith("cand_next");
     expect(h.generate).toHaveBeenCalledTimes(2);
+  });
+
+  it("reopens admitted saved World mechanics without depending on the expired candidate", async () => {
+    const h=harness();
+    h.drafts.set("draft-a", {...draft(),workflow_state:"mechanics_saved"});
+    localStorage.setItem(scopedWorkbenchJoinKey(a),JSON.stringify({draft_id:"draft-a",version:1,candidate_id:"cand_expired"}));
+    const locator={provider:"dungeonmind" as const,statblock_id:"sb_saved",revision_id:"rev_saved",contract:"dungeonmind.dungeonbuddy-statblocks",contract_version:"1.0.0",definition_digest:`sha256:${"a".repeat(64)}`};
+    vi.spyOn(liveApi,"listSavedMechanicsVersions").mockResolvedValue({world_id:a.worldId,draft_id:"draft-a",name:"Saved brute",original:locator,operations:[],pending:null,next_offset:null});
+    vi.spyOn(liveApi,"openSavedMechanicsVersion").mockResolvedValue({world_id:a.worldId,draft_id:"draft-a",locator,resource:{...savedRevisionFixture,definition:candidate.definition,statblock_id:locator.statblock_id,revision_id:locator.revision_id} as unknown as Awaited<ReturnType<typeof liveApi.openSavedMechanicsVersion>>["resource"]});
+    render(<StatblockWorkbenchModule/>);
+    const open=await screen.findByRole("button",{name:"Open saved mechanics"});
+    expect(h.getCandidate).not.toHaveBeenCalled();
+    await userEvent.click(open);
+    expect(await screen.findByRole("region",{name:"Saved statblock"})).toBeInTheDocument();
+    expect(h.create).not.toHaveBeenCalled();expect(h.generate).not.toHaveBeenCalled();
+  });
+
+  it("retries a failed initial saved draft read without loading or regenerating its candidate",async()=>{
+    const h=harness();h.drafts.set("draft-a",{...draft(),workflow_state:"mechanics_saved"});
+    h.getDraft.mockRejectedValueOnce(new Error("Saved draft temporarily unavailable"));
+    localStorage.setItem(scopedWorkbenchJoinKey(a),JSON.stringify({draft_id:"draft-a",version:1,candidate_id:"cand_expired"}));
+    render(<StatblockWorkbenchModule/>);
+    expect(await screen.findByTestId("draft-snapshot-unavailable")).toHaveTextContent("Saved draft temporarily unavailable");
+    expect(screen.getByTestId("create-and-generate-submit")).toBeDisabled();
+    const retained=localStorage.getItem(scopedWorkbenchJoinKey(a));
+    await userEvent.click(screen.getByTestId("create-and-generate-submit"));
+    expect(localStorage.getItem(scopedWorkbenchJoinKey(a))).toBe(retained);
+    expect(h.create).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button",{name:"Retry draft refresh"}));
+    expect(await screen.findByRole("button",{name:"Open saved mechanics"})).toBeInTheDocument();
+    expect(h.getDraft).toHaveBeenCalledTimes(2);expect(h.getCandidate).not.toHaveBeenCalled();
+    expect(h.create).not.toHaveBeenCalled();expect(h.generate).not.toHaveBeenCalled();
+  });
+
+  it("shows a read-only retry when saved draft refresh fails without an active candidate",async()=>{
+    const h=harness(),saved={...draft(),workflow_state:"mechanics_saved" as const};h.drafts.set("draft-a",saved);
+    h.getDraft.mockResolvedValueOnce(saved).mockRejectedValueOnce(new Error("Saved draft refresh unavailable"));
+    localStorage.setItem(scopedWorkbenchJoinKey(a),JSON.stringify({draft_id:"draft-a",version:1,candidate_id:"cand_expired"}));
+    render(<StatblockWorkbenchModule/>);
+    expect(await screen.findByTestId("draft-snapshot-unavailable")).toHaveTextContent("Saved draft refresh unavailable");
+    expect(screen.getByTestId("create-and-generate-submit")).toBeDisabled();
+    expect(screen.queryByRole("button",{name:"Open saved mechanics"})).toBeNull();
+    await userEvent.click(screen.getByRole("button",{name:"Retry draft refresh"}));
+    expect(await screen.findByRole("button",{name:"Open saved mechanics"})).toBeInTheDocument();
+    expect(h.getDraft).toHaveBeenCalledTimes(3);expect(h.getCandidate).not.toHaveBeenCalled();
+    expect(h.create).not.toHaveBeenCalled();expect(h.generate).not.toHaveBeenCalled();
+  });
+
+  it("does not expose saved mechanics from a foreign World recovery hint", async () => {
+    const h=harness();h.drafts.set("draft-b",{...draft(b,"draft-b"),workflow_state:"mechanics_saved"});
+    localStorage.setItem(scopedWorkbenchJoinKey(a),JSON.stringify({draft_id:"draft-b",version:1,candidate_id:"cand_expired"}));
+    render(<StatblockWorkbenchModule/>);
+    await waitFor(()=>expect(h.getDraft).toHaveBeenCalledWith("draft-b"));
+    expect(await screen.findByTestId("draft-snapshot-unavailable")).toHaveTextContent("This ThreatDraft does not belong to the selected scope.");
+    expect(screen.queryByRole("button",{name:"Open saved mechanics"})).toBeNull();
+    expect(h.getCandidate).not.toHaveBeenCalled();expect(h.create).not.toHaveBeenCalled();expect(h.generate).not.toHaveBeenCalled();
   });
 
   it("creates an explicit World request, persists before generation, verifies lineage and restores dirty work A→B→A", async () => {
@@ -628,7 +685,7 @@ describe("World-scoped mounted Workbench", () => {
     view.unmount();
     localStorage.setItem(scopedWorkbenchJoinKey(a), JSON.stringify({ draft_id: "draft-b" }));
     render(<StatblockWorkbenchModule />);
-    await waitFor(() => expect(screen.getByTestId("generation-recovery-error").textContent).toMatch(/selected scope/));
+    await waitFor(() => expect(screen.getByTestId("draft-snapshot-unavailable").textContent).toMatch(/selected scope/));
     expect(h.generate).not.toHaveBeenCalled();
   });
 
