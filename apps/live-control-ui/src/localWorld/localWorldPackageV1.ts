@@ -370,7 +370,7 @@ function validateRecord(record: LocalWorldRecord): void {
   validateHistory(record.history, record.localRevision);
 }
 
-function safeMemberPath(path: string): boolean {
+export function isLocalWorldPackageMemberPath(path: string): boolean {
   if (!path || path.length > 256 || path.startsWith("/") || path.includes("\\") || /[\u0000-\u001f\u007f]/.test(path) || path !== path.normalize("NFC")) return false;
   const segments = path.split("/");
   if (segments.length > 16 || segments.some((segment) => !segment || segment === "." || segment === ".." || segment.includes(":"))) return false;
@@ -395,7 +395,7 @@ function validateReferences(value: unknown, expectedKind: "documents" | "assets"
     if (!validateMediaType(entry.mediaType)) fail("invalid-package", `${expectedKind} reference has an invalid media type.`);
     if (entry.locator !== null && typeof entry.locator !== "string") fail("invalid-package", `${expectedKind} locator must be text or null.`);
     if (entry.status === "bundled") {
-      if (typeof entry.path !== "string" || !safeMemberPath(entry.path) || !entry.path.startsWith(`${expectedKind}/`)) {
+      if (typeof entry.path !== "string" || !isLocalWorldPackageMemberPath(entry.path) || !entry.path.startsWith(`${expectedKind}/`)) {
         fail("invalid-package", `Bundled ${expectedKind} need a safe in-package path.`);
       }
     } else if (entry.path !== null) fail("invalid-package", `External or missing ${expectedKind} cannot point at a bundled member.`);
@@ -464,7 +464,7 @@ function manifestFromUnknown(value: unknown): LocalWorldPackageManifestV1 {
   const descriptors = manifest.members.map((entry) => {
     const descriptor = objectRecord(entry, "member descriptor");
     exactKeys(descriptor, ["path", "mediaType", "sizeBytes", "sha256"], "member descriptor");
-    if (typeof descriptor.path !== "string" || !safeMemberPath(descriptor.path) || descriptor.path === MANIFEST_PATH) fail("invalid-package", "Member path is unsafe or unsupported.");
+    if (typeof descriptor.path !== "string" || !isLocalWorldPackageMemberPath(descriptor.path) || descriptor.path === MANIFEST_PATH) fail("invalid-package", "Member path is unsafe or unsupported.");
     if (!validateMediaType(descriptor.mediaType) || !isInteger(descriptor.sizeBytes, 1) || typeof descriptor.sha256 !== "string" || !SHA256_PATTERN.test(descriptor.sha256)) {
       fail("invalid-package", `Member descriptor is invalid: ${descriptor.path}`);
     }
@@ -621,7 +621,7 @@ export async function parseLocalWorldPackageV1(inputMembers: ReadonlyMap<string,
         fail("invalid-package", "Package members must be Uint8Array values.");
       }
       const byteView = bytes as Uint8Array;
-      if (typeof path !== "string" || (path !== MANIFEST_PATH && !safeMemberPath(path))) fail("invalid-package", `Unsafe or unsupported member path: ${path}`);
+      if (typeof path !== "string" || (path !== MANIFEST_PATH && !isLocalWorldPackageMemberPath(path))) fail("invalid-package", `Unsafe or unsupported member path: ${path}`);
       const isJson = path === MANIFEST_PATH || path === SEMANTIC_PATH || path === LAYOUT_PATH || path === HISTORY_PATH;
       const maxSize = isJson ? LOCAL_WORLD_PACKAGE_V1.limits.jsonMemberBytes : LOCAL_WORLD_PACKAGE_V1.limits.attachmentBytes;
       if (byteView.byteLength > maxSize) fail("limit-exceeded", `Member exceeds its size limit: ${path}`);
@@ -637,7 +637,7 @@ export async function parseLocalWorldPackageV1(inputMembers: ReadonlyMap<string,
   try {
     if (new Set(capturedEntries.map(([path]) => path)).size !== capturedEntries.length) fail("invalid-package", "Package has duplicate member paths.");
     for (const [path, bytes] of capturedEntries) {
-      if (path !== MANIFEST_PATH && !safeMemberPath(path)) fail("invalid-package", `Unsafe or unsupported member path: ${path}`);
+      if (path !== MANIFEST_PATH && !isLocalWorldPackageMemberPath(path)) fail("invalid-package", `Unsafe or unsupported member path: ${path}`);
       if (path !== MANIFEST_PATH && !path.startsWith("documents/") && !path.startsWith("assets/") && bytes.byteLength > LOCAL_WORLD_PACKAGE_V1.limits.jsonMemberBytes) {
         fail("limit-exceeded", `JSON member exceeds 4 MiB: ${path}`);
       }
