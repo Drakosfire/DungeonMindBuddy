@@ -1,6 +1,7 @@
 # STATBLOCK: native creature mechanics selection
 
-ACTIVE under the operator's References/statblock goal and PRIME design authority.
+SETTLED: source merged and native selection delivered; saved-draft host gap is
+owned by HANDOFF-STATBLOCK-saved-creature-controls.md.
 Branch codex/native-creature-mechanics from7bbdaa98dc8dbd73c1573a4a457c818d29d9a859;
 reuse buddy-context-loop. Source is parallel-independent of ADVERSARY2239 (no
 shared write paths); delivery is serial;2239 is merged7bbdaa98 and delivered APIe4ca114/schema133.
@@ -63,3 +64,14 @@ Implementation validation:83 backend cases and42 UI/API cases pass; TypeScript/p
 Review cycle1 HOLD at6bc85b1a: aggregating campaigns into null incorrectly claimed World-universal scope. Correction preserves separate exact scope choices per entity (including explicit World and scoped declarations); compatible names and classification witnesses stay with their scope. Compound UI choice keys retain the same node across campaigns; backend selection validates the chosen scope rather than the first node match. APP current-slot identity remains one per World/node, with explicit replacement/history; no new slot model or schema. Add actual Core multi-campaign/mixed-scope, HTTP no-broadening and both UI scope-choice checks. Prior132 count was unique actors, not proof of132 universal choices. New exact-head review required.
 
 Cycle1 correction validation:86backend+44UI/API cases and build pass. Read-only retained data now yields132 unique actors with158 scope choices (52C1,90C2,16explicit World); every choice independently matches a Core-admitted classification of its exact scope. No campaign union synthesizes a universal scope. Evidence native-creature-retained-read-v3.json, owner/ui/build-v5 logs; exact new-head review/CI pending.
+
+Delivery settlement:2240 source0fa53c6 merged733eb54c7 after cycle2 independent
+APPROVE and all7CI. API0eea60327908/UIef5aee00035e delivered on8000/5202,
+schema133 unchanged; independent integration/transport/frozen-artifact checks
+passed.86API+44UI cases/build passed. Served read-only catalog confirms158 exact
+scope choices across132 actors at retained Core revision7c0f3c15799e06c9d3ed2f2d7b527e4f.
+Protected restarts conserved retained rows/session and made no provider/publication
+calls. Browser check native-creature-statblock-browser.json found the saved World
+host still nests association inside the skipped temporary candidate view; original
+timeout retained and no full-workflow completion claimed. Fix that in the bounded
+successor; native threat creation/exact successor association/previews remain open.
