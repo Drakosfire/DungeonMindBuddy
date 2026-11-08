@@ -498,7 +498,16 @@ def _ordinary_native_case(
         field=failure.removeprefix('selected_source_')
         wire_request['authored_references']['references'][-1][field]='f'*64 if field in ('content_sha256','section_id') else 'unavailable-source-revision'
         selected_references=AuthoredReferencesV2.model_validate(wire_request['authored_references'])
-    response=client.post('/api/live/agent/turn',json=wire_request)
+    if failure=='context_capture':
+        from evals.buddy_benchmark.workflow import capture_case
+        directory=tmp_path/'context-benchmark'
+        fields={'schema','surface','owner_scope','primary_work','client_work_state',
+            'graph_request','graph_selection','plan_context_policy'}
+        response=capture_case(client,world,{k:v for k,v in wire_request.items() if k in fields},
+            {'id':'ordinary-context','question':wire_request['message']},directory,context_only=True)
+        wire_request=json.loads((directory/'request.json').read_text())
+    else:
+        response=client.post('/api/live/agent/turn',json=wire_request)
     if failure and failure.startswith('selected_source_'):
         assert response.status_code==409,response.text+getattr(wire,'failure','')
         assert response.json()['detail']['code']=='authored_source_unavailable'
@@ -526,6 +535,12 @@ def _ordinary_native_case(
         writer=next(e for e in failed.graph_context_execution.events if type(e) is NativeWriterAuthorizedV1)
         assert not any(type(e) is t.ProviderOutcomeEventV1 and e.provider_attempt_id==writer.provider_attempt_id
             and e.outcome=='response_received' for e in failed.graph_context_execution.events)
+        if failure=='context_capture':
+            assert not wire.calls and failed.claim_expires_at is None
+            assert [e.outcome for e in failed.graph_context_execution.events
+                if type(e) is t.ProviderOutcomeEventV1 and e.provider_attempt_id==writer.provider_attempt_id] == ['known_not_sent']
+            assert lane.repo.get_head(world)==original_head
+            return dict(turn=failed, response=response, client=client, request=wire_request, world=world)
         before_replay_reads=len(opened_with_grant)
         replay=client.post('/api/live/agent/turn',json=request.model_dump(mode='json',by_alias=True))
         assert replay.status_code==409,replay.text+getattr(wire,'failure','')
@@ -837,3 +852,67 @@ def test_native_navigation_does_not_name_c1_assertion_from_c2_name(lane,monkeypa
         assert next(row.label for row in result.object_matches if row.entity_id==lane.ids['B']).startswith('Unnamed object ')
     # Read identity and qualifications remain Core-owned; labels grant nothing.
     assert all(row.subject_entity_id==lane.ids['B'] for row in summaries)
+
+
+def test_benchmark_context_boundary_uses_actual_sdk_admission_without_writer_io(
+        lane, tmp_path, monkeypatch, native_read_admission_probes):
+    from copy import deepcopy
+    from pathlib import Path
+    from evals.buddy_benchmark.context_capture import validate_context_packet
+    from evals.buddy_benchmark import workflow
+
+    directory = tmp_path / 'context-benchmark'
+    artifacts = tmp_path / 'artifacts'
+    artifacts.mkdir(mode=0o700)
+    monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT', str(artifacts))
+    observed = _ordinary_native_case(lane, tmp_path, monkeypatch, False, False,
+        None, 'context_capture', False, native_read_admission_probes)
+    client, turn = observed['client'], observed['turn']
+    case = dict(id='ordinary-context', question=observed['request']['message'],
+        capture_dir=str(directory), prompt_dir=str(artifacts / 'out/agent_request_evidence'),
+        capture_boundary='context_ready')
+    result = workflow.report_case(case, Path('.'))
+    assert result['capture_status'] == 'complete'
+    assert result['delivery']['status'] == 'not_requested'
+    assert result['delivery']['http_status'] == 503
+    assert result['boundaries']['composition']['status'] == 'not_reached'
+    assert result['operation']['writer_requests_sent'] == 0
+    assert result['operation']['output_tokens'] > 0  # real mocked controller accounting
+    assert result['context']['accepted_to_ready_ms'] >= 0
+    assert result['context']['prepared_request_bytes'] > 0
+    assert any(span['name'] == 'retrieval_decision' for span in result['context']['host_spans'])
+    assert result['boundaries']['retrieval']['status'] == 'unknown'  # needs a context review
+    replay = client.post('/api/live/agent/turn', json=observed['request'])
+    assert replay.status_code == 409 and replay.json()['detail']['code'] == 'turn_already_authorized'
+    # The next ordinary case starts a fresh conversation after the intentional
+    # interruption; no lingering hook, claim or writer attempt is resumed.
+    fields = {'schema', 'surface', 'owner_scope', 'primary_work', 'client_work_state',
+        'graph_request', 'graph_selection', 'plan_context_policy'}
+    second = directory / 'next-case'
+    workflow.capture_case(client, observed['world'], {k:v for k,v in observed['request'].items() if k in fields},
+        {'id':'next-context', 'question':'Which details are established about B?'}, second, context_only=True)
+    fresh = json.loads((second / 'history-after.json').read_text())['body']['turns']
+    assert len(fresh) == 1 and fresh[0]['turn_id'] != str(turn.turn_id)
+    assert fresh[0]['lifecycle_status'] == 'interrupted' and not fresh[0]['assistant_text']
+
+    ready = json.loads((directory / 'context-ready.json').read_text())
+    request = json.loads((directory / 'context-request.json').read_text())
+    terminal = json.loads((directory / 'context-stop.json').read_text())
+    for mutation in ('bytes', 'guard', 'repeat', 'lifecycle', 'turn', 'claim'):
+        changed_request, changed_terminal = deepcopy(request), deepcopy(terminal)
+        if mutation == 'bytes':
+            changed_request['body_hex'] += '20'
+        elif mutation == 'guard':
+            changed_terminal['writer_io_guard_hits'] = 1
+        elif mutation == 'repeat':
+            changed_terminal['authorization_calls'] = 2
+        elif mutation == 'lifecycle':
+            event = next(e for e in changed_terminal['turn']['graph_context_execution']['events']
+                if e.get('provider_attempt_id') == ready['provider_attempt_id'] and e['kind'] == 'provider_outcome')
+            event['outcome'] = 'sdk_entered'
+        elif mutation == 'turn':
+            changed_terminal['turn']['turn_id'] = str(uuid4())
+        else:
+            changed_terminal['turn']['status'] = 'running'
+        with pytest.raises(ValueError):
+            validate_context_packet(ready, changed_request, changed_terminal)

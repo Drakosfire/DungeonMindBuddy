@@ -1,6 +1,11 @@
 # RETRIEVAL: reconstruct native bindings without a JSON round trip
 
-Status: ACTIVE under the user's retrieval backend goal. Root owns implementation;
+Status: DELIVERED; runtime lease RELEASED. PR2242 merged at
+90b91f08cd1cf662a679830d666887c26d01d1b1; PRIME delivered API
+7182798e3c565d8031c0eb7755a1b34e0bc91b36 on schema133, conserving retained
+state with no provider/publication calls. Historical implementation scope follows.
+Successor authority: HANDOFF-RETRIEVAL-context-boundary-capture.md.
+User authority was the retrieval backend goal. Root owned implementation;
 PRIME owns merge and delivery. Branch `codex/native-binding-reconstruction`, base
 `64cb0b5c89f685505c7558207e4943e6cf76cac4`. Topology: serial, one implementation
 PR, no unmerged parent. The rejected names experiment is not a dependency.
