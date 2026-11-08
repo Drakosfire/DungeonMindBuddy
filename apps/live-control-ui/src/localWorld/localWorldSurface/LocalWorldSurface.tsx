@@ -8,7 +8,12 @@ import "./localWorldSurface.css";
 
 // Keep unsaved title candidates while App routes/components remount in this tab.
 // This is deliberately volatile presentation state, not a second durable ledger.
-const pendingTitleDrafts = new Map<LocalWorldId, string>();
+interface PendingTitleDraft {
+  readonly value: string;
+  readonly token: symbol;
+}
+
+const pendingTitleDrafts = new Map<LocalWorldId, PendingTitleDraft>();
 const pendingLocalWrites = new Set<symbol>();
 let beforeUnloadProtectionInstalled = false;
 
@@ -31,11 +36,13 @@ function syncBeforeUnloadProtection(): void {
 
 function setPendingTitleDraft(worldId: LocalWorldId, draft: string, committedTitle: string): void {
   if (draft.trim() === committedTitle) pendingTitleDrafts.delete(worldId);
-  else pendingTitleDrafts.set(worldId, draft);
+  else pendingTitleDrafts.set(worldId, { value: draft, token: Symbol("local-world-title-draft") });
   syncBeforeUnloadProtection();
 }
 
-function clearPendingTitleDraft(worldId: LocalWorldId): void {
+function clearPendingTitleDraft(worldId: LocalWorldId, expectedToken?: symbol): void {
+  const current = pendingTitleDrafts.get(worldId);
+  if (!current || (expectedToken !== undefined && current.token !== expectedToken)) return;
   pendingTitleDrafts.delete(worldId);
   syncBeforeUnloadProtection();
 }
@@ -247,10 +254,10 @@ export function LocalWorldSurface({
       }
       const localWorldId = worldId as LocalWorldId;
       const pendingDraft = pendingTitleDrafts.get(localWorldId);
-      const hasPendingChanges = pendingDraft !== undefined && pendingDraft.trim() !== result.record.snapshot.title;
+      const hasPendingChanges = pendingDraft !== undefined && pendingDraft.value.trim() !== result.record.snapshot.title;
       if (pendingDraft !== undefined && !hasPendingChanges) clearPendingTitleDraft(localWorldId);
       setRecord(result.record);
-      setTitleDraft(hasPendingChanges ? pendingDraft : result.record.snapshot.title);
+      setTitleDraft(hasPendingChanges ? pendingDraft.value : result.record.snapshot.title);
       setEditing(hasPendingChanges);
       setStatus(hasPendingChanges ? "dirty" : "saved");
     } catch (error) {
@@ -311,6 +318,7 @@ export function LocalWorldSurface({
     const finishPendingWrite = beginPendingLocalWrite();
     const generation = operationGeneration.current;
     const savedRecord = record;
+    const savedDraftToken = pendingTitleDrafts.get(savedRecord.snapshot.worldId)?.token;
     try {
       const result = await repository.commitSemanticEdit({
         worldId: savedRecord.snapshot.worldId,
@@ -319,7 +327,7 @@ export function LocalWorldSurface({
         edit: { classification: "buddy-local-only", description: "Renamed local World" },
       });
       if (result.status === "committed") {
-        clearPendingTitleDraft(savedRecord.snapshot.worldId);
+        if (savedDraftToken !== undefined) clearPendingTitleDraft(savedRecord.snapshot.worldId, savedDraftToken);
         if (!mounted.current || generation !== operationGeneration.current) return;
         setRecord(result.record);
         setRecords((current) => current.map((item) => item.snapshot.worldId === result.record.snapshot.worldId ? result.record : item)
