@@ -1,6 +1,8 @@
 """Plan parent orchestration: semantic decisions, unique reads, one writer."""
 import asyncio
 import json
+import logging
+import re
 
 from application_state.agent_conversation.rules_authority_policy import rules_capability
 from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
@@ -36,6 +38,7 @@ class PlanJevHarness:
         semantic = PlanJevDispatch.requested_work(adapter, page_title=page_title, dialogue=dialogue)
         rules = PlanRulesRuntime(adapter, rules_capability(graph=True))
         driver = writer = None
+        primary_error = False
         try:
             selected, _ = asyncio.run(semantic.run(transport=self.decision_transport, api_key=self.decision_api_key))
             if selected == 'different_destination':
@@ -70,6 +73,7 @@ class PlanJevHarness:
             adapter.turn = completed.envelope if isinstance(completed, MixedCompletedTurnV1) else completed
             return completed
         except BaseException as exc:
+            primary_error = True
             if writer is not None and writer.target_changed:
                 raise AgentTurnServiceError('The Plan or conversation changed during preparation, before writing was sent. The request is retained; review the current page location before trying again.',
                     code='plan_authoring_target_changed', status_code=409) from exc
@@ -78,7 +82,13 @@ class PlanJevHarness:
             self.calls = ([semantic.call] if semantic.call is not None else []) + (driver.calls if driver is not None else []) + ([writer.call] if writer is not None and writer.call is not None else [])
             self.output_limit_exceeded = writer.output_limit_exceeded if writer is not None else False
             if adapter.fence is not None:
-                adapter.stop()
+                try:
+                    adapter.stop()
+                except Exception:
+                    if not primary_error:
+                        raise
+                    logging.getLogger(__name__).exception(
+                        "Plan claim cleanup failed; preserving the original execution failure")
 
     def execute_response(self, adapter, *, owner, trace, dialogue=(), retained_navigation=()):
         from .agent_turn_service import AgentTurnServiceError, _completed_turn_replay, _interrupt_policy_delivery
@@ -86,6 +96,17 @@ class PlanJevHarness:
         try:
             completed=self.execute(adapter,dialogue=dialogue,retained_navigation=retained_navigation)
         except BaseException as exc:
+            # Observe before fail_turn closes the attempt capture. This is a
+            # diagnostic, never completion/evidence or permission to retry.
+            code = exc.code if isinstance(exc, AgentTurnServiceError) else 'plan_jev_delivery_failure'
+            if not isinstance(code, str) or re.fullmatch(r'[a-z][a-z0-9_]{0,63}', code) is None:
+                code = 'plan_jev_delivery_failure'
+            if adapter.context_capture is not None:
+                try:
+                    adapter.context_capture.observe(dict(kind='failure', phase='delivery', code=code))
+                except Exception:
+                    logging.getLogger(__name__).exception(
+                        "Plan failure observation could not be recorded; preserving the execution failure")
             trace.complete_phase(span,status='error')
             if adapter.fence is not None:
                 current=adapter.fence.turn
