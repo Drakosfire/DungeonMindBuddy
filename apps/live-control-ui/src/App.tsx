@@ -59,6 +59,7 @@ const SurfaceShell = deferredComponent(() => import("./surface/SurfaceShell").th
 const PlanSurfacePage = deferredComponent(() => import("./planSurface/PlanSurfacePage").then(module => ({ default: module.PlanSurfacePage })), "Plan");
 const PlaySurfacePage = deferredComponent(() => import("./playSurface/PlaySurfacePage").then(module => ({ default: module.PlaySurfacePage })), "Play");
 const BuildSurfacePage = deferredComponent(() => import("./buildSurface/BuildSurfacePage").then(module => ({ default: module.BuildSurfacePage })), "Build");
+const StatblockPage = deferredComponent(() => import("./statblocks/StatblockPage").then(module => ({ default: module.StatblockPage })), "Statblock");
 const CombatSurfacePage = deferredComponent(() => import("./combat/CombatSurfacePage").then(module => ({ default: module.CombatSurfacePage })), "Combat");
 const MemoryIngestPage = deferredComponent(() => import("./ingestSurface/MemoryIngestPage").then(module => ({ default: module.MemoryIngestPage })), "Ingest");
 const TiptapCalloutBridgeSpike = deferredComponent(() => import("./tiptap/TiptapCalloutBridgeSpike").then(module => ({ default: module.TiptapCalloutBridgeSpike })), "editor");
@@ -289,6 +290,8 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
     ].join("::")} />;
   } else if (route === "combat") {
     content = <CombatSurfacePage />;
+  } else if (route === "statblock") {
+    content = <StatblockPage />;
   } else if (route === "build") {
     content = <BuildSurfacePage />;
   } else {

@@ -1,6 +1,15 @@
 # CONVERSATION — native Graph qualifications in reply Details
 
-ACTIVE. PRIME owns one serial UI slice after delivered2227.
+SETTLED. PR2229 mergedcec51360c7b84d9bf4d43c2e17173daf936eb9d5 and delivered
+UIafac6db0329fc290e5c819c1260611c098eeb20a after independent source/integration/
+artifact/recipe approval and all seven CI checks. UI PID2628064, API57cf/PID2537878
+and schema20261108_0130 unchanged; retained APP/Core/session state conserved.
+Actual delivered-assets replay proves exact qualifications under one Details and
+narrow wrapping; current native citation opens without history and preserves draft
+through reload. Private evidence native-qualifications-delivered-{replay,citation}.json.
+No providers/publication writes. Successor exact-full-view has its own write set.
+
+Historical authority: PRIME owned one serial UI slice after delivered2227.
 Base73353dfd686bedd0f0e7c05e0b20f62af09ab164; branch
 codex/native-qualifications-details; reuse buddy-context-loop checkout/dependencies.
 Live API57cf094e/UI25db84d7 are immutable. No implementation restart lease.
