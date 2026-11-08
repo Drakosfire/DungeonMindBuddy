@@ -1,7 +1,7 @@
 import {samePin} from '../../guidedTour/protocol';
 import {useGuidedTour} from '../../guidedTour/GuidedTour';
 import {GenerationTourObservation,useGenerationPlan} from '../../guidedTour/GenerationObservations';
-import {SavedStatblockDialog} from "../../statblocks/SavedStatblockDialog";
+import {SavedStatblockButton} from "../../statblocks/SavedStatblockSession";
 import { WorldMechanicsAssociationPanel } from "../../statblocks/WorldMechanicsAssociationPanel";
 import { verifyManagedWorldGraphProjectionResponse } from "../../worldGraph/verifyManagedWorldGraphProjectionResponse";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -3567,7 +3567,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
       ) : null}
 
       {mechanicsSavedDraft && threatDraft?.schema === "dmb_threat_draft_v2" && !draftSnapshotUnavailable && !draftSnapshotPending && (
-        <SavedStatblockDialog key={`${threatDraft.world_id}:${threatDraft.draft_id}`} worldId={threatDraft.world_id} draftId={threatDraft.draft_id}/>
+        <SavedStatblockButton key={`${threatDraft.world_id}:${threatDraft.draft_id}`} worldId={threatDraft.world_id} draftId={threatDraft.draft_id}/>
       )}
 
       {activeCandidate ? (

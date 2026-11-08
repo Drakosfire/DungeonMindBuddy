@@ -9,7 +9,7 @@ import {useTourNavigationGuard} from '../../guidedTour/Navigation';
 import {useGuidedTour,type TourDispatchScope} from '../../guidedTour/GuidedTour';
 import {useTourEncounter,sameEncounterScope,type TourEncounterScope} from '../../guidedTour/EncounterScope';
 import {MechanicsTourObservation,GeneratedMechanicsTourObservation,sameGeneratedMechanicsScope,type AcknowledgedGeneratedMechanicsSave,sameMechanicsLocator,type AcknowledgedMechanicsSave} from '../../guidedTour/MechanicsObservations';
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {listSavedMechanicsVersions,openSavedMechanicsVersion,saveMechanicsRevision,recoverMechanicsRevision,inspectMechanicsRevision,validateStatblockDefinition} from '../../api/liveApi';
 import {StatblockDefinitionEditor} from '../editor/StatblockDefinitionEditor';
 import {StatblockRenderer} from '../render/StatblockRenderer';
@@ -28,7 +28,7 @@ function sameShape(base:unknown,value:unknown):boolean {
   return typeof value!=='number'||Number.isFinite(value);
 }
 
-export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false}:{worldId:string;draftId:string;autoLoad?:boolean}) {
+export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,onSwitchGuardChange}:{worldId:string;draftId:string;autoLoad?:boolean;onSwitchGuardChange?:(reason:string|null)=>void}) {
  const guidance=useGuidedTour(),generationPlan=useGenerationPlan();
  const generatedScope=guidance&&generationPlan?guidance.captureMechanicsScope(generationPlan,draftId):null,latestGeneratedScope=useRef(generatedScope);latestGeneratedScope.current=generatedScope;
  const [generatedAcknowledged,setGeneratedAcknowledged]=useState<AcknowledgedGeneratedMechanicsSave|null>(null);
@@ -166,10 +166,14 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false}:{w
     }catch(error){if(token===epoch.current)setMessage(error instanceof Error?error.message:String(error));}
     finally{if(token===epoch.current)setBusy(false);}
   }
-  useTourNavigationGuard({worldId,reason:()=>showStudio||busy||pending||portraitAssetId!==null||!!editor&&editor.baselineFingerprint!==fingerprintDefinition(editor.workingCopy)?'Save or recover the manual mechanics revision before leaving these controls.':null});
+  const switchReason=busy||pending||successorToOpen||studioSource===studioKey&&studioSource!==null||portraitAssetId!==null
+    ||summary!=='Manual mechanics revision'||!!editor&&editor.baselineFingerprint!==fingerprintDefinition(editor.workingCopy)
+    ?'Save, recover or revert the current statblock work before opening another statblock.':null;
+  useLayoutEffect(()=>{onSwitchGuardChange?.(switchReason);},[onSwitchGuardChange,switchReason]);
+  useTourNavigationGuard({worldId,reason:()=>switchReason});
   return <section className="statblock-section" aria-label="Saved mechanics versions">
-    {!tourScope&&<GeneratedMechanicsTourObservation scope={generatedScope} opened={opened} history={history} acknowledged={generatedAcknowledged} blocked={showStudio||busy||!!pending||portraitAssetId!==null||!!editor&&editor.baselineFingerprint!==fingerprintDefinition(editor.workingCopy)}/>}
-    <MechanicsTourObservation scope={tourScope} opened={opened} history={history} acknowledged={tourAcknowledged} blocked={showStudio||busy||!!pending||portraitAssetId!==null||!!editor&&editor.baselineFingerprint!==fingerprintDefinition(editor.workingCopy)}/>
+    {!tourScope&&<GeneratedMechanicsTourObservation scope={generatedScope} opened={opened} history={history} acknowledged={generatedAcknowledged} blocked={switchReason!==null}/>}
+    <MechanicsTourObservation scope={tourScope} opened={opened} history={history} acknowledged={tourAcknowledged} blocked={switchReason!==null}/>
     <h3>Saved versions</h3>
     <p>Edit saved mechanics and create a new version. Choosing it for a fight is a separate action.</p>
     <button type="button" data-guided-control="mechanics" disabled={busy||showStudio} onClick={()=>void load()}>Open saved mechanics</button>
@@ -199,7 +203,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false}:{w
           onEditorStateChange={next=>{setEditor(next);setValidated(null);setIssues([]);try{remember(next);}catch{setMessage('Browser recovery storage is unavailable. Keep this editor open.');}}}/>
         <label>Change summary <input value={summary} onChange={event=>{setSummary(event.target.value);try{remember(editor,event.target.value);}catch{setMessage('Browser recovery storage is unavailable.');}}}/></label>
       </fieldset>
-      <button type="button" disabled={busy||!!pending||!!successorToOpen} onClick={()=>{try{localStorage.removeItem(sourceKey(opened.locator.revision_id));setEditor(createEditorStateFromOutput(opened.resource.definition));setPortraitAssetId(null);setStudioOpen(false);setStudioSource(null);setValidated(null);setIssues([]);setMessage('Local edits reverted. Saved versions are unchanged.');}catch{setMessage('Could not clear local recovery; edits remain retained.');}}}>Revert local edits</button>
+      <button type="button" disabled={busy||!!pending||!!successorToOpen} onClick={()=>{try{localStorage.removeItem(sourceKey(opened.locator.revision_id));setEditor(createEditorStateFromOutput(opened.resource.definition));setPortraitAssetId(null);setStudioOpen(false);setStudioSource(null);setSummary('Manual mechanics revision');setValidated(null);setIssues([]);setMessage('Local edits reverted. Saved versions are unchanged.');}catch{setMessage('Could not clear local recovery; edits remain retained.');}}}>Revert local edits</button>
       <button type="button" disabled={busy||!!pending||!!successorToOpen} onClick={()=>void validate()}>Validate new version</button>
       <button type="button" disabled={!writer.recoverable||busy||!!pending||!!successorToOpen||!summary.trim()||validated!==fingerprintDefinition(editor.workingCopy)} onClick={()=>void save()}>Save new version</button>
       </div>

@@ -1,12 +1,17 @@
 # STATBLOCK — popup portrait generation, selection and render
 
-ACTIVE. PRIME owns one serial UI slice after merged/delivered #2235. Base
-ed4f0b30799b9b1ce58ae67908e1bcd4bd1cbfc6, branch
-codex/statblock-popup-portraits; reuse buddy-context-loop checkout/dependencies.
-Live API6d5d9d3bd83ae6dc21100bea8a37f409c4a2e204/schema0131 and
-UI8b22cacbbe50b099cc057cec67dc05407e28cfb2 are immutable. Implementation owns no
-runtime write lease. Current image capabilities report generation/library/CDN
-configured. No provider configuration or output-limit change.
+SETTLED / write lease RELEASED. Source93731eae45499a8753ac434743c041342e9ac739
+merged #2237 as194b49378e779be96913693c61fff0229cbd64bc. Delivered UI
+5c02f027d15397f2b53ea4bb69e5cdb46f1fa8ce on5202; source cycle2 and integration/
+recipe cycle1 APPROVE, all7CI checks,76source/91integration tests and build pass.
+Actual owned-library selection, UUID-only local recovery, reload and390px checks
+pass with no provider/upload/mechanics writes. API6d5d9d3/schema131/user rows and
+session unchanged at activation; subsequent independent #2218 delivery moved API
+to8008dc5 with UI unchanged and repeated portrait/citation checks passing.
+Evidence: private runtime-evidence/q01-published-graph-authority/
+statblock-popup-portrait-ui-resources.json and linked proofs. Earlier HOLD head,
+malformed-reference finding and failed test wait remain retained. This is context,
+not a live lease. Shared cross-host editing and real threat integration remain open.
 
 ## One capability and owner invariant
 
