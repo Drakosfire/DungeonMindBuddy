@@ -1,6 +1,6 @@
 # RETRIEVAL: commit consecutive selected direct-source grants together
 
-Status: ACTIVE. User retrieval optimization goal; root designs/owns backend;
+Status: DELIVERED; implementation lease RELEASED. User retrieval optimization goal; root designs/owns backend;
 PRIME owns merge/delivery. Branch codex/direct-source-grants.
 Topology: serial, independently isolated on fetched main
 ed4f0b30799b9b1ce58ae67908e1bcd4bd1cbfc6. Update existing PR2218; no new PR.
@@ -97,3 +97,14 @@ no implementation-path overlap but introduces APP131. Rebase preserves only this
 six-file capability; eight targeted fresh-schema131 durable/SDK checks pass,
 including group sizes, mid-read failure and shared Rules writer replay. Older isolated evaluator resources remain
 unchanged and are not upgraded by these disposable fixture tests.
+
+## Delivered predecessor settlement
+
+PR2218 merged d4f10895ce31c4c56744e1afafcc581376be7236, delivered by PRIME as
+API8008dc5144323f40958ec655c3d7ed87382df777 on schema131. Runtime receipt
+direct-source-grants-api-resources.json SHA256
+1cc9a6184465101293dcc9785961fd579b9a2e126c9d0895d8c93ea924b0c0e4
+records DELIVERED_TECHNICALLY_VERIFIED and RELEASED. All15 retained schedules
+proved fixed-schedule context parity, not new ordinary QA/latency. Later2239
+delivery conserves this behavior. Original6complete/9partial and the inconclusive
+ordinary nonregression record remain; no rejected2216 parse path was adopted.
