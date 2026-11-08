@@ -6,7 +6,8 @@ export type AppRouteKey =
   | "play"
   | "ingest"
   | "build"
-  | "combat";
+  | "combat"
+  | "statblock";
 
 export interface AppNavItem {
   route?: AppRouteKey;
@@ -56,6 +57,7 @@ export const APP_ROUTE_LABELS: Record<AppRouteKey, string> = {
   ingest: "Memory Ingest",
   build: "Build",
   combat: "Combat",
+  statblock: "Statblock",
   "tiptap-callout-spike": "Tiptap callout bridge",
 };
 

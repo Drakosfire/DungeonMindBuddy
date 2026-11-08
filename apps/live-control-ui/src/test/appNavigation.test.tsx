@@ -332,3 +332,10 @@ describe("App same-document primary navigation", () => {
     pushSpy.mockRestore();
   });
 });
+
+it('navigates exact statblock targets within the same World',()=>{
+ window.history.replaceState({},'', '/statblock?world=elderwyld&draft=a&revision=one');
+ expect(appRouteFromPathname('/statblock/')).toBe('statblock');expect(isPrimaryAppHref('/statblock?world=elderwyld&draft=a&revision=two')).toBe(true);
+ navigatePrimaryAppHref('/statblock?world=elderwyld&draft=a&revision=two');
+ expect(window.location.search).toBe('?world=elderwyld&draft=a&revision=two');
+});

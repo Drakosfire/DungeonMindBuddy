@@ -3141,7 +3141,14 @@ export async function listSavedMechanicsVersions(draftId:string,worldId:string,o
   return apiFetch(`/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics-revisions?world_id=${encodeURIComponent(worldId)}&offset=${offset}`);
 }
 export async function openSavedMechanicsVersion(draftId:string,worldId:string,revisionId:string):Promise<import('../statblocks/revision/savedMechanicsRevisionTypes').OpenSavedMechanicsVersion>{
-  return apiFetch(`/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics-revisions/${encodeURIComponent(revisionId)}?world_id=${encodeURIComponent(worldId)}`);
+  const packet=await apiFetch<import('../statblocks/revision/savedMechanicsRevisionTypes').OpenSavedMechanicsVersion>(`/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics-revisions/${encodeURIComponent(revisionId)}?world_id=${encodeURIComponent(worldId)}`);
+  if(!packet||packet.world_id!==worldId||packet.draft_id!==draftId||!packet.locator||!packet.resource
+    ||packet.locator.provider!=='dungeonmind'||packet.locator.contract!=='dungeonmind.dungeonbuddy-statblocks'||packet.locator.contract_version!=='1.0.0'
+    ||packet.locator.revision_id!==revisionId||packet.resource.revision_id!==revisionId
+    ||packet.resource.statblock_id!==packet.locator.statblock_id||packet.resource.definition_digest!==packet.locator.definition_digest
+    ||packet.resource.contract!==packet.locator.contract||packet.resource.contract_version!==packet.locator.contract_version)
+    throw new Error('Saved version identity changed. No other version was substituted.');
+  return packet;
 }
 export async function saveMechanicsRevision(draftId:string,request:import('../statblocks/revision/savedMechanicsRevisionTypes').RevisionSaveIntent):Promise<import('../statblocks/revision/savedMechanicsRevisionTypes').RevisionSaveOutcome>{
   return apiFetch(`/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics-revisions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request)});
