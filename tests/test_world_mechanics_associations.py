@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from apps.live_control_server.main import create_app
 from apps.live_control_server.services import world_mechanics_associations as orchestration
+from apps.live_control_server.services import statblock_saved_revision as saved_revision
 from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal, native_graph_gm_dependency
 from apps.live_control_server.services.threat_draft_store import create_threat_draft, append_candidate_ref, get_threat_draft
 from apps.live_control_server.models.threat_draft import CreateWorldThreatDraftRequest, ThreatDraftCandidateRefV1
@@ -64,14 +65,14 @@ def prepared(application_state_dsn,monkeypatch,tmp_path):
     binding=SimpleNamespace(native_world_id='world:opaque',binding_version=1)
     monkeypatch.setattr(creatures,'catalog',lambda world,**kwargs:view)
     monkeypatch.setattr(creatures.native,'binding',lambda world:vars(binding).copy())
-    monkeypatch.setattr(orchestration,'build_statblock_v1_client',lambda:dms)
+    monkeypatch.setattr(saved_revision,'build_statblock_v1_client',lambda:dms)
     monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(tmp_path))
     from apps.live_control_server.routes import world_mechanics_associations as routes
     monkeypatch.setattr(routes,'resolve_managed_world_binding',lambda world:binding)
     monkeypatch.setenv('DMB_AUTH_MODE','local_operator')
     monkeypatch.setenv('DMB_DEPLOYMENT_ENVIRONMENT','development')
     app=create_app();app.dependency_overrides[native_graph_gm_dependency]=lambda:NativeGraphPrincipal('gm-test','gm','local_operator')
-    body=dict(request_id=str(uuid4()),draft_id=draft.draft_id,expected_draft_version=draft.version,target=target,expected_version=0)
+    body=dict(request_id=str(uuid4()),draft_id=draft.draft_id,expected_draft_version=draft.version,target=target,expected_version=0,locator=draft.accepted_mechanics_ref.to_mechanics_locator().model_dump(mode="json"))
     return SimpleNamespace(client=TestClient(app,client=('127.0.0.1',50000)),app=app,body=body,dms=dms,view=view,binding=binding,root=tmp_path,draft=draft,revision=revision)
 
 
@@ -81,11 +82,12 @@ def post(p,body=None):return p.client.post('/api/live/world-mechanics/associatio
 def test_http_exact_proof_append_replay_and_reopen(prepared,monkeypatch):
     p=prepared;r=post(p);assert r.status_code==200,r.text
     record=r.json()['association'];assert r.json()['replayed'] is False
-    assert record['proof']['accepted_from_draft_version']==1
+    assert record['proof']['origin_locator']==p.body['locator']
+    assert record['proof']['revision_operation_id'] is None
     assert record['request']['expected_draft_version']==2
-    assert record['proof']['accepted_from_candidate_id']=='cand_fixture1'
+    assert record['proof']['origin_acceptance_operation_id']
     assert record['actor']=='gm-test' and p.dms.calls==1
-    monkeypatch.setattr(orchestration,'get_threat_draft',lambda *a:pytest.fail('Replay read external state'))
+    monkeypatch.setattr(saved_revision,'get_threat_draft',lambda *a:pytest.fail('Replay read external state'))
     monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(p.root/'unavailable'))
     replay=post(p);assert replay.json()=={'association':record,'replayed':True}
     assert p.dms.calls==1
@@ -111,7 +113,7 @@ def test_http_stale_or_forged_target_never_writes(prepared,change):
 
 def test_http_missing_acceptance_proof_and_tampered_exact_revision_refused(prepared,monkeypatch):
     p=prepared
-    monkeypatch.setattr(orchestration,'list_acceptance_operations_for_draft',lambda *a,**kw:[])
+    monkeypatch.setattr(saved_revision,'list_acceptance_operations_for_draft',lambda *a,**kw:[])
     assert post(p).status_code==500
     assert p.dms.calls==0 and state.list_current(world_id='elderwyld')==[]
 
@@ -151,7 +153,7 @@ def test_http_final_draft_recheck_refuses_concurrent_change(prepared,monkeypatch
 def test_http_corrupt_acceptance_journal_is_not_absence(prepared,monkeypatch):
     from apps.live_control_server.services.statblock_acceptance_reconciliation import AcceptanceReconciliationError
     def unavailable(*a,**kw):raise AcceptanceReconciliationError('Stored acceptance proof is invalid',status_code=500)
-    monkeypatch.setattr(orchestration,'list_acceptance_operations_for_draft',unavailable)
+    monkeypatch.setattr(saved_revision,'list_acceptance_operations_for_draft',unavailable)
     assert post(prepared).status_code==500
     assert prepared.dms.calls==0
     assert state.list_current(world_id='elderwyld')==[]
@@ -186,3 +188,26 @@ def test_same_entity_scope_variants_save_only_the_explicit_selected_witness(prep
     forged={**p.body,'request_id':str(uuid4()),'expected_version':1,'target':{**p.body['target'],'campaign_scope':None}}
     assert post(p,forged).status_code==409
     assert state.list_current(world_id='elderwyld')[0].request.target.campaign_scope=='c2'
+
+
+def test_current_writer_requires_explicit_exact_locator(prepared):
+    p=prepared
+    old={k:v for k,v in p.body.items() if k!='locator'}
+    assert post(p,old).status_code==422
+    for changed in ({**p.body['locator'],'revision_id':'rev_unknown'},
+                    {**p.body['locator'],'definition_digest':'sha256:'+'f'*64}):
+        assert post(p,{**p.body,'locator':changed}).status_code==409
+    assert p.dms.calls==0 and state.list_current(world_id='elderwyld')==[]
+
+
+def test_read_only_request_lookup_is_exact_and_world_scoped(prepared,monkeypatch):
+    p=prepared;record=post(p).json()['association']
+    path='/api/live/world-mechanics/associations/requests/'+p.body['request_id']
+    assert p.client.get(path+'?world_id=elderwyld').json()==record
+    assert p.client.get(path+'?world_id=foreign').json() is None
+    assert p.client.get(path.replace(p.body['request_id'],str(uuid4()))+'?world_id=elderwyld').json() is None
+    p.app.dependency_overrides.clear()
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE','local_operator')
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT','development')
+    monkeypatch.setenv('DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN','a'*40)
+    assert p.client.get(path+'?world_id=elderwyld').status_code==401

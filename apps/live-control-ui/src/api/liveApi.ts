@@ -3132,6 +3132,9 @@ export async function listWorldCreatures(worldId:string):Promise<import('./world
   verifyWorldCreatureCatalog(view,worldId);
   return view;
 }
+export async function findWorldMechanicsAssociationRequest(worldId:string,requestId:string):Promise<import("./worldMechanicsTypes").WorldMechanicsAssociation|null> {
+  return apiFetch(`/api/live/world-mechanics/associations/requests/${encodeURIComponent(requestId)}?world_id=${encodeURIComponent(worldId)}`);
+}
 export async function listWorldMechanicsAssociations(worldId: string): Promise<import("./worldMechanicsTypes").WorldMechanicsAssociation[]> {
   return apiFetch(`/api/live/world-mechanics/associations?world_id=${encodeURIComponent(worldId)}`);
 }

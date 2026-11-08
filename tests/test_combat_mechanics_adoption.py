@@ -184,15 +184,12 @@ def test_separate_transaction_races_are_atomic(adoption_case,monkeypatch,same_ke
     if same_key:assert responses[0].json()['receipt']==responses[1].json()['receipt']
 
 
-def test_historical_association_survives_new_slot_and_graph_head(adoption_case,monkeypatch):
+@pytest.mark.parametrize("selected_successor",[False,True])
+def test_historical_association_survives_new_slot_and_graph_head(adoption_case,monkeypatch,selected_successor):
     p=adoption_case
     from tests.test_world_mechanics_associations import post
-    from apps.live_control_server.services import world_mechanics_associations as association_service
-    monkeypatch.setattr(association_service,'build_statblock_v1_client',lambda:p.manual)
-    from apps.live_control_server.services import managed_world_graph_projection as graph
-    monkeypatch.setattr(graph,'project_managed_world_graph',lambda *a:p.view)
-    monkeypatch.setattr(mechanics,'project_managed_world_graph',lambda *a:p.view)
-    monkeypatch.setattr(mechanics,'resolve_managed_world_binding',lambda *a:p.binding)
+    from apps.live_control_server.services import world_creature_selection as creatures
+    if selected_successor:p.body['locator']=p.locator
     first=post(p);assert first.status_code==200,first.text
     selection=dict(association_id=first.json()['association']['association_id'],association_version=1,target=p.body['target'])
     snapshot=p.client.post('/api/live/combat/encounters/world-mechanics/preview?world_id=elderwyld',json=selection)
@@ -205,11 +202,10 @@ def test_historical_association_survives_new_slot_and_graph_head(adoption_case,m
     p.before=saved.json();p.adopt_url=f"/api/live/combat/encounters/{created['encounter_id']}/mechanics-adoptions?world_id=elderwyld"
     p.intent['actors'][0]['expected_snapshot_digest']=snapshot.json()['snapshot_digest']
     later=deepcopy(p.body);later.update(request_id=str(uuid4()),expected_version=1)
-    p.view.projection.snapshot.revision_id='rev:advanced';later['target']['graph_revision_id']='rev:advanced'
+    p.view.revision_id=p.view.head_revision_id='rev:advanced';later['target']['graph_revision_id']='rev:advanced'
+    p.view.targets=[target.model_copy(update={'graph_revision_id':'rev:advanced'}) for target in p.view.targets]
     second=post(p,later);assert second.status_code==200,second.text
-    monkeypatch.setattr(graph,'project_managed_world_graph',lambda *a:pytest.fail('Adoption must not resolve current Graph'))
-    monkeypatch.setattr(association_service,'project_managed_world_graph',lambda *a:pytest.fail('Adoption must not resolve current Graph'))
-    monkeypatch.setattr(mechanics,'project_managed_world_graph',lambda *a:pytest.fail('Adoption must not resolve current Graph'))
+    monkeypatch.setattr(creatures,'catalog',lambda *a,**kw:pytest.fail('Adoption must not resolve current Graph'))
     result=apply(p);assert result.status_code==200,result.text
     actor=result.json()['encounter']['draft']['entities'][0]
     assert actor['world_identity']==p.body['target'] and actor['mechanics_snapshot']['locator']==p.locator

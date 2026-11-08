@@ -1,3 +1,4 @@
+import {WorldMechanicsAssociationPanel} from '../WorldMechanicsAssociationPanel';
 import {interceptPrimaryNavigationClick} from '../../chrome/appNavigation';
 import {savedStatblockHref} from '../savedStatblockLocation';
 import {MediaImageWizard} from '../../media/MediaImageWizard';
@@ -45,6 +46,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,ini
   const tourScope=useTourEncounter(),latestTourScope=useRef(tourScope);latestTourScope.current=tourScope;
   const [tourAcknowledged,setTourAcknowledged]=useState<AcknowledgedMechanicsSave|null>(null);
   const [history,setHistory]=useState<SavedMechanicsVersionList|null>(null);
+  const [associationBusy,setAssociationBusy]=useState(false);
   const [opened,setOpened]=useState<OpenSavedMechanicsVersion|null>(null);
   const [editor,setEditor]=useState<StatblockEditorState|null>(null);
   const [summary,setSummary]=useState('Manual mechanics revision');
@@ -184,22 +186,23 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,ini
     }catch(error){if(token===epoch.current)setMessage(error instanceof Error?error.message:String(error));}
     finally{if(token===epoch.current)setBusy(false);}
   }
-  const switchReason=busy?'Wait for the current statblock operation before opening another saved version.':pending||successorToOpen||studioSource===studioKey&&studioSource!==null||portraitAssetId!==null
+  const workReason=busy?'Wait for the current statblock operation before opening another saved version.':pending||successorToOpen||studioSource===studioKey&&studioSource!==null||portraitAssetId!==null
     ||summary!=='Manual mechanics revision'||!!editor&&editor.baselineFingerprint!==fingerprintDefinition(editor.workingCopy)
     ?'Save, recover or revert the current statblock work before opening another statblock.':null;
-  useLayoutEffect(()=>{onSessionStateChange?.({revisionId:opened?.locator.revision_id??null,busy,switchReason});},[opened,busy,switchReason,onSessionStateChange]);
+  const switchReason=associationBusy?'Wait for the creature association before switching saved versions.':workReason;
+  useLayoutEffect(()=>{onSessionStateChange?.({revisionId:opened?.locator.revision_id??null,busy:busy||associationBusy,switchReason});},[opened,busy,associationBusy,switchReason,onSessionStateChange]);
   useTourNavigationGuard({worldId,reason:()=>switchReason});
   return <section className="statblock-section" aria-label="Saved mechanics versions">
     {!tourScope&&<GeneratedMechanicsTourObservation scope={generatedScope} opened={opened} history={history} acknowledged={generatedAcknowledged} blocked={switchReason!==null}/>}
     <MechanicsTourObservation scope={tourScope} opened={opened} history={history} acknowledged={tourAcknowledged} blocked={switchReason!==null}/>
     <h3>Saved versions</h3>
     <p>Edit saved mechanics and create a new version. Choosing it for a fight is a separate action.</p>
-    <button type="button" data-guided-control="mechanics" disabled={busy||showStudio} onClick={()=>void load(opened?.locator.revision_id??initialRevisionId)}>Open saved mechanics</button>
-    {history&&<label>Mechanics version <select aria-label="Saved mechanics version" disabled={busy||showStudio||!!pending||!!successorToOpen} value={opened?.locator.revision_id??''} onChange={event=>void load(event.target.value)}>
+    <button type="button" data-guided-control="mechanics" disabled={associationBusy||busy||showStudio} onClick={()=>void load(opened?.locator.revision_id??initialRevisionId)}>Open saved mechanics</button>
+    {history&&<label>Mechanics version <select aria-label="Saved mechanics version" disabled={associationBusy||busy||showStudio||!!pending||!!successorToOpen} value={opened?.locator.revision_id??''} onChange={event=>void load(event.target.value)}>
       <option value={history.original.revision_id}>Original saved mechanics</option>
       {history.operations.filter(op=>op.state==='committed'&&op.result).map((op,index)=><option key={op.operation_id} value={op.result!.revision_id}>Version {index+2} · {op.change_summary}</option>)}
     </select></label>}
-    {history?.next_offset!==null&&history?.next_offset!==undefined&&<button type="button" disabled={busy||showStudio} onClick={()=>void load(opened?.locator.revision_id,history.next_offset!)}>More saved versions</button>}
+    {history?.next_offset!==null&&history?.next_offset!==undefined&&<button type="button" disabled={associationBusy||busy||showStudio} onClick={()=>void load(opened?.locator.revision_id,history.next_offset!)}>More saved versions</button>}
     {opened&&editor&&<>
       <div hidden={showStudio}>
       <section aria-label="Saved statblock">
@@ -207,7 +210,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,ini
         <a onClick={interceptPrimaryNavigationClick} href={savedStatblockHref({worldId,draftId,revisionId:opened.locator.revision_id})}>Open full saved statblock</a>
         <StatblockRenderer revision={opened.resource} mode="full" chrome="campaign"/>
       </section>
-      <fieldset disabled={busy||!!pending||!!successorToOpen}>
+      <fieldset disabled={associationBusy||busy||!!pending||!!successorToOpen}>
         <section className="saved-mechanics-portrait-controls" aria-label="Portrait selection">
           <button type="button" disabled={!writer.recoverable} onClick={()=>{setStudioSource(studioKey);setStudioOpen(true);}}>Generate or choose portrait</button>
           {portraitAssetId&&<>
@@ -221,9 +224,9 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,ini
           onEditorStateChange={next=>{setEditor(next);setValidated(null);setIssues([]);try{remember(next);}catch{setMessage('Browser recovery storage is unavailable. Keep this editor open.');}}}/>
         <label>Change summary <input value={summary} onChange={event=>{setSummary(event.target.value);try{remember(editor,event.target.value);}catch{setMessage('Browser recovery storage is unavailable.');}}}/></label>
       </fieldset>
-      <button type="button" disabled={busy||!!pending||!!successorToOpen} onClick={()=>{try{localStorage.removeItem(sourceKey(opened.locator.revision_id));setEditor(createEditorStateFromOutput(opened.resource.definition));setPortraitAssetId(null);setStudioOpen(false);setStudioSource(null);setSummary('Manual mechanics revision');setValidated(null);setIssues([]);setMessage('Local edits reverted. Saved versions are unchanged.');}catch{setMessage('Could not clear local recovery; edits remain retained.');}}}>Revert local edits</button>
-      <button type="button" disabled={busy||!!pending||!!successorToOpen} onClick={()=>void validate()}>Validate new version</button>
-      <button type="button" disabled={!writer.recoverable||busy||!!pending||!!successorToOpen||!summary.trim()||validated!==fingerprintDefinition(editor.workingCopy)} onClick={()=>void save()}>Save new version</button>
+      <button type="button" disabled={associationBusy||busy||!!pending||!!successorToOpen} onClick={()=>{try{localStorage.removeItem(sourceKey(opened.locator.revision_id));setEditor(createEditorStateFromOutput(opened.resource.definition));setPortraitAssetId(null);setStudioOpen(false);setStudioSource(null);setSummary('Manual mechanics revision');setValidated(null);setIssues([]);setMessage('Local edits reverted. Saved versions are unchanged.');}catch{setMessage('Could not clear local recovery; edits remain retained.');}}}>Revert local edits</button>
+      <button type="button" disabled={associationBusy||busy||!!pending||!!successorToOpen} onClick={()=>void validate()}>Validate new version</button>
+      <button type="button" disabled={!writer.recoverable||associationBusy||busy||!!pending||!!successorToOpen||!summary.trim()||validated!==fingerprintDefinition(editor.workingCopy)} onClick={()=>void save()}>Save new version</button>
       </div>
       {studioSource===studioKey&&<div className="saved-mechanics-portrait-studio" hidden={!showStudio}>
         <MediaImageWizard key={studioKey!} selectionOnly requireSaved chooseLabel="Use as portrait"
@@ -237,12 +240,14 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,ini
           }}/>
       </div>}
     </>}
+    {opened&&<WorldMechanicsAssociationPanel worldId={worldId} draftId={draftId} locator={opened.locator}
+      disabledReason={workReason} onBusyChange={setAssociationBusy}/>}
     {successorToOpen&&<>
       <p role="status">A new version was saved but has not opened. The previous selected version is still displayed; editing is paused.</p>
-      <button type="button" disabled={busy} onClick={()=>void load(successorToOpen)}>Open saved successor</button>
+      <button type="button" disabled={associationBusy||busy} onClick={()=>void load(successorToOpen)}>Open saved successor</button>
     </>}
-    {blockedRecovery&&recoverySource&&<button type="button" disabled={busy} onClick={()=>void load(recoverySource)}>Open Save source for recovery</button>}
-    {pending&&<button type="button" disabled={busy||blockedRecovery&&!!recoverySource} onClick={()=>void recover()}>Recover Save</button>}
+    {blockedRecovery&&recoverySource&&<button type="button" disabled={associationBusy||busy} onClick={()=>void load(recoverySource)}>Open Save source for recovery</button>}
+    {pending&&<button type="button" disabled={associationBusy||busy||blockedRecovery&&!!recoverySource} onClick={()=>void recover()}>Recover Save</button>}
     {issues.length>0&&<ul aria-label="Mechanics validation issues">{issues.map((issue,index)=><li key={index}>{issue.message} <small>{issue.field_path}</small></li>)}</ul>}
     {message&&<p role="status">{message}</p>}
   </section>;

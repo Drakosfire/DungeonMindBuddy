@@ -402,3 +402,20 @@ def test_portrait_intent_cannot_be_rebound_by_resealing_only_the_append_body(rev
     with pytest.raises(ValueError,match='Submitted input digest changed'):RevisionOperation.model_validate(changed)
     with pytest.raises(RuntimeError,match='Older readers cannot reconstruct'):
         import_module('application_state.migrations.versions.20261108_0131_portrait_revision_intent').downgrade()
+
+
+def test_selected_successor_association_uses_existing_revision_proof_not_original_acceptance(revision_case):
+    from tests.test_world_mechanics_associations import post
+    from application_state.world_mechanics import service as associations
+    p=revision_case
+    saved=p.client.post(p.url,json=p.request).json()
+    assert saved['state']=='committed'
+    selected={**p.body,'locator':saved['result']}
+    response=post(p,selected);assert response.status_code==200,response.text
+    record=response.json()['association']
+    assert record['request']['locator']==record['proof']['locator']==saved['result']
+    assert record['proof']['origin_locator']==p.body['locator']
+    assert record['proof']['revision_operation_id']==p.request['operation_id']
+    assert associations.list_current(world_id='elderwyld')[0].proof.locator.revision_id==saved['result']['revision_id']
+    assert post(p,selected).json()=={'association':record,'replayed':True}
+    assert get_threat_draft(p.root,p.draft.draft_id)==p.draft

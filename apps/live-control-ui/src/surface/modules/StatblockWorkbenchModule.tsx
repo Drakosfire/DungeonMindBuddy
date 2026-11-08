@@ -3,7 +3,6 @@ import {samePin} from '../../guidedTour/protocol';
 import {useGuidedTour} from '../../guidedTour/GuidedTour';
 import {GenerationTourObservation,useGenerationPlan} from '../../guidedTour/GenerationObservations';
 import {SavedStatblockButton} from "../../statblocks/SavedStatblockSession";
-import { WorldMechanicsAssociationPanel } from "../../statblocks/WorldMechanicsAssociationPanel";
 import { verifyManagedWorldGraphProjectionResponse } from "../../worldGraph/verifyManagedWorldGraphProjectionResponse";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
@@ -3571,7 +3570,6 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
         <>
           <SavedStatblockButton key={`${threatDraft.world_id}:${threatDraft.draft_id}`} worldId={threatDraft.world_id} draftId={threatDraft.draft_id}/>
           <NativeThreatCreationPanel draft={threatDraft} />
-          <WorldMechanicsAssociationPanel draft={threatDraft} />
         </>
       )}
 

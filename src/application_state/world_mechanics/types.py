@@ -35,7 +35,7 @@ class MechanicsLocator(ImmutableModel):
     definition_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
 
 
-class AssociateWorldMechanicsRequest(ImmutableModel):
+class HistoricalAssociateWorldMechanicsRequest(ImmutableModel):
     request_id: UUID
     draft_id: UUID
     expected_draft_version: int = Field(gt=0)
@@ -48,6 +48,25 @@ class AssociateWorldMechanicsRequest(ImmutableModel):
         return hashlib.sha256(body.encode()).hexdigest()
 
 
+class AssociateWorldMechanicsRequest(HistoricalAssociateWorldMechanicsRequest):
+    locator: MechanicsLocator
+
+
+class SavedMechanicsProof(ImmutableModel):
+    locator: MechanicsLocator
+    origin_locator: MechanicsLocator
+    origin_acceptance_operation_id: str = Field(min_length=1)
+    revision_operation_id: UUID | None
+
+    @model_validator(mode="after")
+    def source_identity(self):
+        if self.locator.statblock_id != self.origin_locator.statblock_id:
+            raise ValueError("Selected mechanics belong to another statblock")
+        if (self.locator == self.origin_locator) != (self.revision_operation_id is None):
+            raise ValueError("Selected mechanics lack their exact revision operation")
+        return self
+
+
 class AcceptedMechanicsProof(ImmutableModel):
     locator: MechanicsLocator
     acceptance_operation_id: str = Field(min_length=1)
@@ -58,16 +77,29 @@ class AcceptedMechanicsProof(ImmutableModel):
 
 class WorldMechanicsAssociation(ImmutableModel):
     association_id: UUID
-    request: AssociateWorldMechanicsRequest
+    request: AssociateWorldMechanicsRequest | HistoricalAssociateWorldMechanicsRequest
     request_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     version: int = Field(gt=0)
     previous_association_id: UUID | None
-    proof: AcceptedMechanicsProof
+    proof: SavedMechanicsProof | AcceptedMechanicsProof
     actor: str = Field(min_length=1)
     created_at: datetime
 
+    @property
+    def origin_locator(self) -> MechanicsLocator:
+        return self.proof.origin_locator if isinstance(self.proof, SavedMechanicsProof) else self.proof.locator
+
+    @property
+    def origin_acceptance_operation_id(self) -> str:
+        return self.proof.origin_acceptance_operation_id if isinstance(self.proof, SavedMechanicsProof) else self.proof.acceptance_operation_id
+
     @model_validator(mode="after")
     def invariants(self):
+        if isinstance(self.request, AssociateWorldMechanicsRequest):
+            if not isinstance(self.proof, SavedMechanicsProof) or self.proof.locator != self.request.locator:
+                raise ValueError("Association proof differs from the requested saved revision")
+        elif not isinstance(self.proof, AcceptedMechanicsProof):
+            raise ValueError("Historical association requires its original proof shape")
         if self.request_digest != self.request.digest:
             raise ValueError("Association request digest is invalid")
         if self.version != self.request.expected_version + 1:
