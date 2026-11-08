@@ -1,0 +1,96 @@
+# SURFACE: validated local World package core
+
+Status: ACTIVE — bounded pure package-core implementation. The coordinating steward forwarded independent exact-head PASS for #2202 at `15ce6c14cccf6985297a43aa7628ef476d827966` and #2204 at `18adc78a871b78a759793ed722dcb76194e88a6f`, and explicitly activated this package slice. This grants no ZIP archive transport, repository import mutation, UI/editor wiring, account adoption, graph renderer, merge, or deployment authority.
+
+Flow: SURFACE. Topology: stacked successor `#2198 → #2202 → #2204 → #2205`. Exact implementation base: Buddy `codex/phase2a2-indexeddb-local-world` at `18adc78a871b78a759793ed722dcb76194e88a6f` (PR #2204). The predecessor remains preserved; no rebase onto `main` is implied. Target branch: `codex/phase2a3-package-core`, draft PR base `codex/phase2a2-indexeddb-local-world`. Serial integration still waits for the predecessor/product gates. No merge/deployment is authorized.
+
+Checkout: `/home/drakosfire/Projects/.codex/blank-surface-phase1-20261107/worktrees/DungeonMindBuddy`.
+
+Exclusive ACTIVE write lease for this slice:
+- `Docs/Plans/HANDOFF-SURFACE-phase2a3-package-recovery.md`
+- `apps/live-control-ui/src/localWorld/localWorldPackageV1.ts`
+- `apps/live-control-ui/src/localWorld/localWorldPackageV1.test.ts`
+- `apps/live-control-ui/src/localWorld/localWorldPackageFixtures.ts`
+
+No product UI, repository/IndexedDB mutation, dependency/lockfile, authoring adapter, route, owner service, ZIP transport, merge, or deployment changes are allowed. Do not edit paths outside this exact allowlist.
+
+Design input: DungeonOverMind PR #106 at `7db578897e0eb40ab3672d26826eb3bbbee6007c`, `Docs/architecture/CONTRACT-local-world-execution-adoption-phase2.md`, blob `9ceb00c005a7e1a3e22c76bed22a01f501e8cb28`. It defines package v1 as a ZIP envelope with manifest, semantic snapshot, optional documents/assets, separate layout and optional bounded history. Unknown versions fail closed; import validates everything before mutation; local-ID collisions require fork or cancel. This handoff consumes that design only and does not claim #106 merged or activated.
+
+## Activation and re-anchor (2026-11-08)
+
+PR #2202 is OPEN/DRAFT/mergeable at `15ce6c14cccf6985297a43aa7628ef476d827966`; PR #2204 is OPEN/DRAFT/mergeable at `18adc78a871b78a759793ed722dcb76194e88a6f`, with #2204 based on #2202's exact head. The independent reviewer passed both exact heads and independently reran A1 11/11, A2 12/12, native Chrome 51/51, TypeScript/build; both request-mutation probes preserve the winner and return conflict, and the malformed-index schema case now fails closed. This clears only bounded package-core development. Product acceptance, serial integration, merge and deployment remain open. Buddy `main` currently resolves to `38c3e11ff03f2d299c0b5c56249e456aa025eb86`; this successor remains stacked on #2204, not main.
+
+The source branch `codex/phase2a3-package-recovery-boundary` at `c5751ba7230537c7880fe9584ece814f2e0fec56` contained this previously untracked assessment handoff. It was preserved while this checkout moved to a new branch at exact A2 head `18adc78…`; this file now serves as the successor lease and learning record. The package design assessment below remains applicable; its former read-only status/review hold is superseded by this activation.
+
+The current A2 changed-file list contains only the A2 handoff and Buddy localWorld port/adapter/fixture/tests; no package-core path collision was found. A local `git ls-remote` attempt failed because this environment could not resolve `github.com`, so the connected GitHub API was used for current branch and PR refs. `.agents/skills` is absent; repository policy says legacy `.cursor` rules are not required. `git fetch origin main` refreshed local `FETCH_HEAD` to `38c3e11…`.
+
+## Prior read-only assessment snapshot
+
+Buddy `main` was fetched at `2f41ff02417f52e6ff5d358959803d2d3c0cbb91`. The current stack refs remain unchanged: #2198 OPEN/DRAFT at `64f166f…`; #2202 OPEN/DRAFT at `d2421f9…`; #2204 OPEN/DRAFT at `c5751ba…`. All three report mergeable. GitHub currently returns no submitted reviews or workflow runs for #2202/#2204. The coordinating steward says independent cumulative review is being actively run; its outcome is a hard runtime-implementation gate. No other SURFACE/local-World/package branch or PR title appeared in the open PR inventory checked; changed paths for unrelated PRs were not fetched, so this is not a full path-collision certification.
+
+The repository policy is `AGENTS.md`; `.agents/skills` is absent and legacy `.cursor` instructions are not required. Current Phase 2A2 port and native IndexedDB adapter are under `apps/live-control-ui/src/localWorld/`. Its package-relevant facts:
+
+- `LocalWorldRecord` contains a typed semantic snapshot, local revision, optional published revision ID, presentation layout/revision, and informational history. It has no typed source/document, fidelity, asset, creator/profile, conflict-candidate package or history-coverage fields.
+- Object/relationship `properties` are arbitrary JSON. The package core must preserve every JSON value exactly and must not interpret URLs as fetch instructions. Until the owning semantic contract identifies any source/asset-bearing meaning inside properties, the exporter cannot assert that no external meaning was omitted; that is a review question, not a field to fabricate.
+- The current IndexedDB adapter stores an unbounded history array and has no history-coverage metadata. Export may include it only if it fits the bound; it must either declare explicit omission/coverage allowed by the pinned package contract or return an actionable size-limit error. It must never silently truncate.
+- `LocalWorldRepository` has no atomic import/fork API. A pure codec can return a validated staged candidate but cannot claim storage recovery. A persistence/import mutation needs a later explicit repository port operation and one IndexedDB transaction; parsing or validation failure must happen before that transaction.
+- `apps/live-control-ui/package.json` has no ZIP library. Browser File/Blob APIs provide file bytes and user-mediated selection, not a package ZIP codec; no dependency is selected in this preparation.
+
+## Recommendation and slice boundary
+
+First implement a format-independent, pure package-v1 core over a normalized member map (`path → UTF-8 JSON or immutable bytes`) rather than starting with a download picker or coupling validation to a ZIP library. Name the proposed module `apps/live-control-ui/src/localWorld/localWorldPackageV1.ts`. It owns manifest/member validation, canonical semantic digest calculation, snapshot-to-package mapping for the fields the current port actually represents, and parse-to-staged-candidate. It does **not** read/write ZIP bytes, expose a UI, mutate IndexedDB, or by itself fulfill the portable ZIP v1 product promise. A later transport adapter must wrap exactly this validated member map in the specified ZIP envelope and be tested with real ZIP bytes.
+
+This ordering gives the package invariants one deterministic unit-test boundary while leaving the transport choice open. The browser has file APIs but the app has no ZIP dependency, so the eventual ZIP transport needs either a deliberately selected dependency or a separately proven implementation. Before choosing one, compare the smallest maintained browser-compatible ZIP option against the v1 requirements for binary preservation, safe path handling, streaming/memory bounds, deterministic members, archive-bomb defenses and supported browsers. Do not add multiple ZIP libraries or invent a JSON-only package format under the v1 label.
+
+The first runtime slice should remain narrowly package-core only after the review gate clears. Proposed future write set, to be confirmed as a new ACTIVE allowlist after review:
+
+- `Docs/Plans/HANDOFF-SURFACE-phase2a3-package-recovery.md`
+- `apps/live-control-ui/src/localWorld/localWorldPackageV1.ts`
+- `apps/live-control-ui/src/localWorld/localWorldPackageV1.test.ts`
+- `apps/live-control-ui/src/localWorld/localWorldPackageFixtures.ts`
+
+No product UI, `LocalWorldRepository`/IndexedDB mutation, dependency or lockfile change, authoring adapter, route, WorldKeeper/DungeonMind/OverMind change, merge or deployment is in this package-core slice. If the contract review requires persistence mutation or a ZIP dependency in the same slice, obtain an explicit revised allowlist and topology before editing.
+
+## Package-core acceptance proposal
+
+- Define one exact `kind` and supported version. Reject unknown major versions, malformed JSON, invalid UTF-8, duplicate normalized paths, absolute paths, traversal segments, backslashes, empty path components, duplicate identities, invalid relationships and dangling internal references before returning a staged package.
+- The normalized v1 member map represents the pinned ZIP members: `manifest.json`, `semantic.json`, `layout.json`, optional `history.json`, `documents/…`, and `assets/<sha256>`. Validate required/optional member declaration, media types, byte sizes, counts, digests, asset availability/external/missing declarations, and internal references. Never fetch external URLs or resolve them implicitly.
+- Calculate a deterministic semantic digest from canonical semantic JSON plus the declared bundled document bytes and asset digests. Exclude layout and optional history as specified by #106. ZIP order/timestamps are outside this pure core; the later ZIP transport must prove they do not alter the digest.
+- Preserve local world/object/relationship IDs, same-name distinct objects, semantic properties, local revision, layout and every included history item through encode/parse. Keep layout outside the semantic digest. Do not fabricate a DungeonMind ID/revision, receipt, provenance or executable history operation.
+- Declare absent data accurately. Current records have no profile/source/asset types, so the builder must say profile assumptions are not represented and source/fidelity coverage is limited by the current port. Do not claim “no sources/assets exist” unless the owning model proves that. If the model cannot make source/asset meaning loss detectable, fail closed for ambiguous unsupported inputs or stop for an owner-contract update; never omit bytes silently.
+- Enforce these fixed pure-core bounds: 16 MiB total member bytes; 256 members including `manifest.json`; 256 combined document/asset references; 4 MiB per JSON member; 8 MiB per document/asset member; 5,000 semantic objects; 10,000 relationships; 1,000 history entries; maximum JSON nesting depth 64; member paths at most 256 code units and 16 segments. Check input byte lengths and JSON-shape/count bounds before copying/decoding/serialization; oversized exports return a typed limit error and never truncate. These are member-map byte limits only. A later ZIP transport must independently enforce expanded-byte and compression-ratio limits.
+- Parsing is pure and produces a staged validated candidate only. It makes no repository mutation. Import into storage remains a follow-on gate that must use one transaction and return explicit collision disposition. On same imported `local_world_id` or any local identity collision, choose **cancel** for this first implementation; fork may be added only when the repository port can atomically allocate a new local world identity and remap every object, relationship endpoint and local history ID. Never overwrite, merge or resolve by name. Distinct same-name objects remain distinct.
+- A future repository restore operation must check collisions by IDs rather than names and atomically add the whole validated record; any transaction, quota or abort error leaves all existing Worlds unchanged. Do not implement this mutation in the pure-core slice.
+
+## Test plan for the gated runtime slice
+
+Use deterministic test-only fixtures: empty World; current typed four-node graph with two meaningful relationships; two same-name objects with distinct local IDs; layout-only variation; empty and bounded history; declared unsupported/missing/external document or asset metadata fixtures; bytes at limits and one byte/count beyond limits. No fixture may enter product storage or become demo content.
+
+Pure-core tests should cover:
+
+- semantic round-trip preserving all stable local IDs, graph references, same-name identities, JSON property values, local revision, layout, optional history and declared limitations;
+- deterministic semantic digest, unchanged by layout changes, member ordering or timestamps at the transport boundary, changed by semantic/document/asset-byte changes;
+- missing required members, unknown version, malformed/invalid UTF-8 JSON, duplicate IDs/paths, path traversal/absolute/backslash paths, false byte counts/digests, excessive member/count/size limits, duplicate relationships and broken references;
+- explicit `external` and `missing` assets without network requests; no bytes may be dropped or fetched implicitly;
+- history coverage/omission is explicit and oversized history is refused or declared omitted only if package v1 permits; never claim full provenance or complete history when the record cannot prove it;
+- staged parse has no side effects and leaves the source record and mutable byte inputs unchanged; separately test decoded buffers/records do not alias caller-owned mutable inputs.
+
+Do not treat pure-core tests as evidence for ZIP safety, actual browser download/reload, IndexedDB import atomicity, quota or cross-tab behavior. A later ZIP adapter needs adversarial real archive tests (traversal, duplicate entries, decompression limits, CRC/digest corruption and unknown members) and a later repository-restore slice needs atomic collision/failure/readback tests against native IndexedDB.
+
+## Active implementation acceptance and next gate
+
+Implement only the normalized member-map codec and its test-only fixtures/tests under the active allowlist. This is **not a JSON package format and not the complete ZIP/assets v1 promise**: it handles normalized UTF-8 JSON members plus opaque bytes supplied by a future archive adapter; it does not read/write ZIP bytes, trigger downloads, restore a repository record, or claim storage durability. Be explicit in types, test names and PR text.
+
+Before finish, run focused and relevant localWorld tests, typecheck, production build, `git diff --check`, inspect the full cumulative diff from `18adc78…`, obtain independent review of the exact head, commit/push and open one draft PR with base `codex/phase2a2-indexeddb-local-world`. Record exact remote head/base and hosted checks. Do not create a second PR, rebase the existing PRs, merge/deploy, or advance into ZIP, repository restore, UI, adoption or graph rendering. The ZIP transport and atomic IndexedDB import need separate successor gates; product acceptance and weak-client/browser reliability evidence remain open.
+
+## Implementation record (2026-11-08)
+
+The implementation is a pure normalized member-map codec in `localWorldPackageV1.ts`. `manifest.json`, `semantic.json`, and `layout.json` are required; `history.json` is included only when non-empty. UTF-8 JSON is canonicalized by sorted object keys. Member descriptors carry media type, exact byte count and SHA-256. The semantic digest covers canonical semantic JSON plus sorted bundled document/asset member digests; layout and history are excluded. It is independent of `Map` insertion order. Parsing copies its complete bounded input synchronously before the first digest await and returns a staged candidate only. No repository API is imported or called.
+
+The current `LocalWorldRecord` has no source/document, asset, creator/profile or provenance-coverage fields. Accordingly, encoding preserves every represented local field and arbitrary JSON property, emits no attachment references, and declares source/profile metadata as not represented and creator/profile assumptions as unrecorded. Parsing can preserve explicitly declared bundled, external or missing document/asset references in the staged candidate and returns bundled bytes separately; it never fetches a locator. A later repository restore must not convert a staged candidate to `LocalWorldRecord` while dropping those extra references. This codec is **not ZIP I/O**, not a JSON package transport, not a local restore/import implementation and not the complete ZIP/assets package v1 promise.
+
+The member-map acceptance bounds are fixed at 16 MiB total, 256 members, 256 combined attachment refs, 4 MiB per JSON member, 8 MiB per opaque attachment, 5,000 objects, 10,000 relationships, 1,000 history entries, JSON depth 64 and 256-code-unit/16-segment member paths. Paths are NFC-normalized relative paths without empty/dot/traversal/backslash segments; assets are addressed by their SHA-256 path. Invalid schema, unknown version, digest/size mismatch, dangling/duplicate identity, orphan member, oversized history or unsafe path fails with a typed error before any storage mutation. The codec does not resolve imported identity collisions; that remains a follow-on restore boundary, where only explicit fork or cancel is allowed by #106.
+
+Test-only fixtures cover a six-object graph with two distinct same-name people, two meaningful relationships, JSON properties, layout and bounded history; bundled/external/missing attachments; semantic/source digest changes; layout-only digest stability; mutable input/output isolation; invalid UTF-8; unsupported version; unsafe/non-NFC and overlong/overdeep paths with exact boundary acceptance; false byte counts/digests; all size/count/depth limits including an oversized manifest inventory with a low declared count; duplicate IDs and dangling relationship references; unknown schema fields; and unreferenced attachment rejection. No fixtures enter production storage. No ZIP parser/writer, IndexedDB import atomicity, real download, quota, private-mode or crash/eviction behavior is established by these tests.
+
+Current candidate verification: `npm --prefix apps/live-control-ui test -- --run src/localWorld` passes 23/23 across the repository contract and package-core suites; `npm --prefix apps/live-control-ui run typecheck` passes; production build passes with existing dynamic/static import and >500 kB main-chunk warnings; cumulative `git diff --check 18adc78…` passes. Package-core tests are 11 cases, all test-only. No browser/persistence claim is made for this pure codec. Independent review of the refreshed cumulative diff against exact parent `18adc78a871b78a759793ed722dcb76194e88a6f` returned PASS: the reviewer confirmed path-length/segment boundaries and pre-mapping manifest inventory rejection, bounded input capture, layout/history digest exclusion, attachment bytes preserved without fetching, unsupported schema rejection, and no repository mutation calls. The first review snapshot was stale; its findings were corrected and the refreshed exact diff was reviewed. This review covers only the normalized member-map codec, not ZIP transport, repository restore, browser persistence or product acceptance. No approval is inferred from Phase 2A1/2A2 reviews. After publication, record hosted CI and exact remote refs.
