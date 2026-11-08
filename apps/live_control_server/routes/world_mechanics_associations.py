@@ -14,9 +14,18 @@ from apps.live_control_server.services.world_graph_projection import WorldGraphP
 from apps.live_control_server.services.statblock_acceptance_reconciliation import AcceptanceReconciliationError
 from apps.live_control_server.services.threat_draft_store import ThreatDraftStoreError
 from apps.live_control_server.services.world_mechanics_associations import associate
+from apps.live_control_server.services import world_creature_selection as creatures
 
 router = APIRouter(prefix="/api/live/world-mechanics/associations", tags=["world-mechanics"])
 WorldId = Annotated[str, Query(pattern=r"^[a-z][a-z0-9_-]{0,62}$")]
+
+
+@router.get("/creatures")
+def list_creatures(world_id: WorldId, principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency)):
+    try:
+        return creatures.catalog(world_id).response()
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
 
 @router.get("", response_model=list[WorldMechanicsAssociation])

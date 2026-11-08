@@ -50,14 +50,11 @@ def get_world_combat_encounter(
 def save_world_combat_encounter(
     *, world_id: str, encounter_id: str, request: SaveCombatEncounterRequest, scope=None
 ) -> CombatEncounterRecord:
-    from apps.live_control_server.services.managed_world_graph_projection import (
-        ManagedWorldGraphProjectionRequest, project_managed_world_graph,
-    )
     before = get_world_combat_encounter(world_id=world_id, encounter_id=encounter_id, scope=scope)
     if before.revision != request.expected_revision:
         raise ApplicationStateConflictError("Combat encounter changed since it was opened; reload before saving")
     prior_ids = {entity.id for entity in before.draft.entities}
-    projections = {}
+    creature_views = {}
     verified = {}
     snapshots = {}
     verified_snapshots = {}
@@ -90,22 +87,15 @@ def save_world_combat_encounter(
         if identity.managed_world_id != world_id:
             raise ApplicationStateValidationError("Combatant belongs to a different World")
         key = (identity.graph_revision_id, identity.native_world_id, identity.binding_version)
-        if key not in projections:
-            projections[key] = project_managed_world_graph(ManagedWorldGraphProjectionRequest(
-                schema="dmb_managed_world_graph_projection_request_v1",
-                managed_world_id=world_id, revision_pin=identity.graph_revision_id,
-            ))
-        projected = projections[key]
-        node = next((item for item in projected.projection.nodes if item.node_id == identity.node_id), None)
-        if node is None:
-            raise ApplicationStateValidationError("Selected World creature is absent from the pinned revision")
-        expected = CombatWorldIdentity(
-            managed_world_id=projected.managed_world_id, native_world_id=projected.native_world_id,
-            binding_version=projected.binding_version, graph_revision_id=projected.projection.snapshot.revision_id,
-            node_id=node.node_id, label=node.label, kind=node.kind, role=node.role, campaign_scope=node.campaign_scope,
-        )
-        if identity != expected or not is_combat_candidate(node.kind, node.role):
-            raise ApplicationStateValidationError("Selected World creature identity does not match the pinned revision")
+        from apps.live_control_server.services import world_creature_selection as creatures
+        if key not in creature_views:
+            creature_views[key] = creatures.catalog(world_id, revision_id=identity.graph_revision_id)
+        projected = creature_views[key]
+        try:
+            target = creatures.require_target(identity, projected)
+        except ApplicationStateConflictError as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        expected = CombatWorldIdentity(**target.model_dump(mode='json'))
         verified[entity.id] = expected
         if isinstance(entity.mechanics_snapshot, CombatMechanicsSnapshot):
             from apps.live_control_server.services import combat_mechanics
@@ -117,7 +107,7 @@ def save_world_combat_encounter(
             if key not in snapshots:
                 snapshots[key] = combat_mechanics.preview(world_id=world_id,
                     selection=CombatMechanicsSelection(**snapshot.model_dump(include={"association_id","association_version","target"})),
-                    records=association_records,projection=projected)
+                    records=association_records,creature_view=projected)
             if snapshot != snapshots[key]:
                 raise ApplicationStateValidationError("Combat mechanics snapshot differs from verified exact resource")
             verified_snapshots[entity.id] = snapshots[key]
@@ -273,8 +263,3 @@ def _copy_suffix(index: int) -> str:
         index = index // 26 - 1
         if index < 0:
             return "".join(reversed(chars))
-
-
-def is_combat_candidate(kind: str, role: str) -> bool:
-    admitted = {"npc", "threat", "creature", "monster"}
-    return kind.casefold() in admitted or role.casefold() in admitted

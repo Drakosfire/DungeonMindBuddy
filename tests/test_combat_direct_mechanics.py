@@ -10,7 +10,7 @@ from application_state.combat_encounters import service as state
 from application_state.combat_encounters.types import AcceptedCombatMechanicsSnapshot, SaveCombatEncounterRequest
 from application_state.errors import ApplicationStateValidationError
 from apps.live_control_server.services import combat_mechanics as mechanics
-from apps.live_control_server.services import managed_world_graph_projection as graph
+from apps.live_control_server.services import world_creature_selection as graph
 
 
 @pytest.fixture
@@ -19,7 +19,7 @@ def direct(prepared, monkeypatch):
     monkeypatch.setattr(mechanics, 'build_statblock_v1_client', lambda: p.dms)
     from apps.live_control_server.routes import combat_encounters as routes
     monkeypatch.setattr(routes, 'resolve_managed_world_binding', lambda world, **kw: SimpleNamespace(managed_world_id=world))
-    monkeypatch.setattr(graph, 'project_managed_world_graph', lambda request: pytest.fail('Direct mechanics must not read Graph'))
+    monkeypatch.setattr(graph, 'catalog', lambda *a,**kw: pytest.fail('Direct mechanics must not read Graph'))
     p.selection = {'draft_id': p.draft.draft_id, 'draft_version': p.draft.version}
     p.preview_url = '/api/live/combat/encounters/accepted-mechanics/preview?world_id=elderwyld'
     p.encounter = p.client.post('/api/live/combat/encounters?world_id=elderwyld', json={'title': 'Direct mechanics'}).json()
@@ -134,7 +134,7 @@ def test_final_draft_recheck_and_exact_provider_failure_leave_no_actor(direct, m
 
 def test_optional_world_identity_is_independently_verified(direct, monkeypatch):
     p = direct; snapshot = preview(p); reads = []
-    monkeypatch.setattr(graph, 'project_managed_world_graph', lambda request: (reads.append(request) or p.view))
+    monkeypatch.setattr(graph, 'catalog', lambda world,**kwargs: (reads.append((world,kwargs)) or p.view))
     request = body(p, snapshot, 1); request['draft']['entities'][0]['world_identity'] = p.body['target']
     saved = p.client.put(p.url, json=request)
     assert saved.status_code == 200, saved.text
@@ -158,7 +158,7 @@ def test_optional_identity_failure_refuses_direct_snapshot_as_well(direct, monke
     identity = copy.deepcopy(p.body['target'])
     if change == 'foreign': identity['managed_world_id'] = 'foreign'
     else: identity['node_id'] = 'node:missing'
-    monkeypatch.setattr(graph, 'project_managed_world_graph', lambda request:p.view)
+    monkeypatch.setattr(graph, 'catalog', lambda *a,**kw:p.view)
     request['draft']['entities'][0]['world_identity'] = identity
     response = p.client.put(p.url, json=request)
     assert response.status_code == 422, response.text

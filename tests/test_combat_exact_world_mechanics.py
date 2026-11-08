@@ -10,7 +10,7 @@ from application_state.combat_encounters import service as state
 from application_state.combat_encounters.types import CombatMechanicsSnapshot, SaveCombatEncounterRequest
 from application_state.errors import ApplicationStateValidationError, ApplicationStateConflictError
 from apps.live_control_server.services import combat_mechanics
-from apps.live_control_server.services import managed_world_graph_projection as graph
+from apps.live_control_server.services import world_creature_selection as graph
 
 
 @pytest.fixture
@@ -18,11 +18,9 @@ def combat(prepared,monkeypatch):
     p=prepared
     assert post(p).status_code==200
     record=associations.list_current(world_id='elderwyld')[0]
-    monkeypatch.setattr(combat_mechanics,'project_managed_world_graph',lambda request:p.view)
-    monkeypatch.setattr(combat_mechanics,'resolve_managed_world_binding',lambda world:p.binding)
     monkeypatch.setattr(combat_mechanics,'build_statblock_v1_client',lambda:p.dms)
     p.graph_reads=[]
-    monkeypatch.setattr(graph,'project_managed_world_graph',lambda request:(p.graph_reads.append(request) or p.view))
+    monkeypatch.setattr(graph,'catalog',lambda world,**kwargs:(p.graph_reads.append((world,kwargs)) or p.view))
     from apps.live_control_server.routes import combat_encounters as route
     monkeypatch.setattr(route,'resolve_managed_world_binding',lambda world,**kwargs:SimpleNamespace(managed_world_id=world))
     p.selection=dict(association_id=str(record.association_id),association_version=record.version,target=p.body['target'])
@@ -57,7 +55,7 @@ def test_preview_save_copies_offline_reopen_and_independent_tracking(combat,monk
     assert all(e['hp'] is None and e['ac'] is None for e in data['draft']['entities'])
     replace(p)
     monkeypatch.setattr(combat_mechanics,'build_statblock_v1_client',lambda:pytest.fail('Offline saved actor must not read DMS'))
-    monkeypatch.setattr(graph,'project_managed_world_graph',lambda request:pytest.fail('Offline saved actor must not read Graph'))
+    monkeypatch.setattr(graph,'catalog',lambda *a,**kw:pytest.fail('Offline saved actor must not read Graph'))
     reopened=p.client.get(p.url);assert reopened.status_code==200
     draft=reopened.json()['draft'];draft['entities'][0].update(hp=7,temp_hp=2,conditions=['Prone'],notes='Independent')
     updated=p.client.put(p.url,json={'expected_revision':data['revision'],'draft':draft});assert updated.status_code==200,updated.text
@@ -68,10 +66,10 @@ def test_preview_save_copies_offline_reopen_and_independent_tracking(combat,monk
 @pytest.mark.parametrize('change',['head','mapping','missing','label','slot'])
 def test_stale_preview_refuses_save_without_writing_any_actor(combat,change):
     p=combat;r=preview(p);assert r.status_code==200
-    if change=='head':p.view.projection.snapshot.revision_id='rev:unrelated'
+    if change=='head':p.view.head_revision_id='rev:unrelated'
     elif change=='mapping':p.binding.binding_version+=1
-    elif change=='missing':p.view.projection.nodes=[]
-    elif change=='label':p.view.projection.nodes[0].label='Changed'
+    elif change=='missing':p.view.targets=[]
+    elif change=='label':p.view.targets[0]=p.view.targets[0].model_copy(update={'label':'Changed'})
     else:replace(p)
     refused=p.client.put(p.url,json=body(p,r.json()));assert refused.status_code in (409,422),refused.text
     assert p.client.get(p.url).json()['draft']['entities']==[]
@@ -119,7 +117,7 @@ def test_one_stale_slot_among_two_refuses_all_new_actors(combat):
     target={**p.body['target'],'node_id':'node:other','label':'Other Keeper'}
     request=AssociateWorldMechanicsRequest.model_validate({**p.body,'request_id':str(uuid4()),'target':target})
     second_record=associations.append_verified(request=request,proof=p.record.proof,actor='gm').association
-    p.view.projection.nodes.append(SimpleNamespace(node_id=target['node_id'],label=target['label'],kind='npc',role='',campaign_scope=None))
+    p.view.targets.append(type(p.view.targets[0])(**target))
     p.selection={'association_id':str(second_record.association_id),'association_version':1,'target':target}
     second=preview(p).json();request_body=body(p,first)
     request_body['draft']['entities'][1].update(world_identity=target,mechanics_snapshot=second)

@@ -521,3 +521,41 @@ def test_mid_group_read_failure_retains_grants_and_prior_observation(publication
     assert observed[0].authorization_event_id == grants[0].event_id
     assert not any(type(e) is NativeWriterAuthorizedV1 for e in events)
     assert turn.status == 'interrupted' and turn.completion is None
+
+
+def test_source_callback_mutated_locked_receipt_rejects_before_write(application_state_dsn, monkeypatch):
+    from application_state.agent_conversation import repository as repo
+    from application_state.errors import ApplicationStateValidationError
+
+    case = direct_grant_case(application_state_dsn)
+    case.turn, _ = commit_grants(case)
+    before = grant_snapshot(case)
+    locked = []
+    writes = []
+    original_lock = repo.lock_turn
+    original_update = repo.update_graph_execution
+
+    def lock(*args, **kwargs):
+        turn = original_lock(*args, **kwargs)
+        locked.append(turn)
+        return turn
+
+    def update(*args, **kwargs):
+        writes.append(True)
+        return original_update(*args, **kwargs)
+
+    def read(_authorization):
+        assert locked and locked[-1] is not None
+        object.__setattr__(locked[-1].graph_context_receipt,
+            'context_receipt_sha256', '0' * 64)
+        return None
+
+    monkeypatch.setattr(repo, 'lock_turn', lock)
+    monkeypatch.setattr(repo, 'update_graph_execution', update)
+    with pytest.raises(ApplicationStateValidationError):
+        case.service.observe_native_direct_source(case.turn.world_id,
+            case.turn.conversation_id, case.turn.turn_id,
+            expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
+            event_id=uuid4(), authorization_event_id=case.grants[0]['event_id'], read=read)
+    assert not writes
+    assert grant_snapshot(case) == before
