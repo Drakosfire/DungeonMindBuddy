@@ -13,7 +13,8 @@ from application_state.world_mechanics.types import MechanicsLocator
 def intent():
     origin=MechanicsLocator(provider='dungeonmind',statblock_id='sb_one',revision_id='rev_original',
         contract='dungeonmind.dungeonbuddy-statblocks',contract_version='1.0.0',definition_digest='sha256:'+'a'*64)
-    key=uuid4();draft=uuid4();body=dict(idempotency_key=str(key),parent_revision_id=origin.revision_id,definition={},change_summary='Edited')
+    key=uuid4();draft=uuid4();body=dict(idempotency_key=str(key),parent_revision_id=origin.revision_id,definition={},change_summary='Edited',
+        accepted_through={'buddy_manual_revision':str(key)})
     submitted=dict(operation_id=str(key),world_id='elderwyld',base=origin.model_dump(mode='json'),definition={},change_summary='Edited')
     now=datetime.now(UTC)
     return RevisionOperation(operation_id=key,world_id='elderwyld',draft_id=draft,origin=origin,base=origin,
@@ -86,3 +87,17 @@ def test_sql_rejects_null_discriminator_without_corrupting_the_operation(applica
         with psycopg.connect(application_state_dsn) as conn:
             conn.execute("UPDATE mechanics_revision.operation SET payload=jsonb_set(payload,'{schema}','null'::jsonb) WHERE operation_id=%s",(record.operation_id,))
     assert service.read(world_id=record.world_id,draft_id=record.draft_id,operation_id=record.operation_id)==record
+
+
+
+@pytest.mark.parametrize('change',['missing','changed','extra','invalid_portrait'])
+def test_resealed_acceptance_metadata_cannot_change_operation_authority(application_state_dsn,change):
+    from copy import deepcopy
+    record=intent();body=deepcopy(record.request_body);through=body['accepted_through']
+    if change=='missing':through.clear()
+    elif change=='changed':through['buddy_manual_revision']=str(uuid4())
+    elif change=='extra':through['unrequested']='foreign proof'
+    else:through['buddy_portrait_asset_id']=None
+    changed=record.model_copy(update={'request_body':body,'request_digest':digest(body)})
+    with pytest.raises(ValueError):service.claim(changed)
+    assert service.read(world_id=record.world_id,draft_id=record.draft_id,operation_id=record.operation_id) is None

@@ -12,3 +12,4 @@ class SaveMechanicsRevisionRequest(BaseModel):
     base: MechanicsLocatorV1
     definition: StatblockDefinitionV1Input
     change_summary: str=Field(min_length=1)
+    portrait_asset_id: UUID | None = None
