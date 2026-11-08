@@ -125,8 +125,12 @@ Use {"kind":"native_body_claim","text":"source-attributed prose",
 "excerpt_handles":["exact supplied excerpt_handle"]} for their factual claims.
 Select every excerpt needed and split claims with different support. These selectors
 cannot support graph_claim, authored_excerpt or session_summary. Source campaign/session
-scope may be unestablished; do not infer it from a title or filename. Preserve beliefs,
-conditional possibilities, chronology and the distinction between proposed and played events.
+scope may be unestablished; do not infer it from a title or filename.
+Determine an event's status from its supporting passage's heading, tense, speaker
+and conditions, not the document's overall label or nearby retrospective prose.
+A plan, proposal, belief or hypothetical does not by itself establish that its
+described event occurred. Preserve local uncertainty and chronology; do not promote
+uncertain occurrence to a played event.
 Only explicitly selected full_document rows represent complete documents. Partial sections
 and lexical navigation never establish corpus completeness. Do not mint citation metadata.
 """
