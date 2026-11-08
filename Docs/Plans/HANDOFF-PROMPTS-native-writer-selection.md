@@ -1,6 +1,13 @@
 # PROMPTS: native Build semantic evidence selection
 
-Status: ACTIVE. PRIME owns the operator-prioritized prompt cleanup. Independent
+Status: MERGED AND DELIVERED. PR2197 merged at
+73d5db830b5073ddea367d7c805fd8c1e6c48150 and delivered as APIintegration
+d4ca1ab062aa90137c954d9c785c0852a0e5b69e. Fence128 is live; all other retained
+APP/Core rows and sessions matched before/after. Independent source/composition/
+recipe review approved;151 owning tests and all seven CI checks passed. The plan
+below records that bounded delivery; it grants no active runtime write lease.
+Ordinary final-selection prompt proof and broader retrieval/References acceptance
+remain open. PRIME owned the operator-prioritized prompt cleanup. Independent
 critique approved reusing the exact APP prepared-input and closure owners, including
 closed-shape historical wire dispatch. This handoff does not claim delivery.
 
