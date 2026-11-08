@@ -98,6 +98,7 @@ class NativeWriterEvidence:
     body_excerpts: tuple
     native_statements: tuple
     native_assertions: tuple
+    authored_local: bool = False
 
 
 def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_proof,
@@ -182,8 +183,11 @@ def _input_frames(raw,execution,work_schema):
     if schema is None:
         from .native_evidence_view import semantic_frame_in_request
         semantic=semantic_frame_in_request(strict_json(raw),legacy_schemas={LEGACY_SCHEMA,SCHEMA})
+        from .plan_jev_graph_packet import NATIVE_WORK_SCHEMA as PLAN_WORK_SCHEMA
+        from .native_plan_work_view import frame_in_request
+        work = frame_in_request(strict_json(raw)) if work_schema == PLAN_WORK_SCHEMA else None
         return (semantic if semantic is not None else responses_text_frame(raw,schemas={LEGACY_SCHEMA,SCHEMA},label='Native writer'),
-            responses_text_frame(raw,schemas={work_schema},label='Native surface work'))
+            work if work is not None else responses_text_frame(raw,schemas={work_schema},label='Native surface work'))
     body=strict_json(raw)
     if (not isinstance(body,dict) or not isinstance(body.get('input'),str) or 'messages' in body
             or body.get('tools',[])!=[] or body.get('tool_choice') not in (None,'none')):
@@ -222,7 +226,10 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     host = model_frame(receipt,prefix) if is_semantic_frame(frame) else model_frame(receipt,prefix,schema=frame.get('schema'))
     expected = semantic_frame(host) if is_semantic_frame(frame) else host
     schema_frame = output_frame(host,expected)
-    if t.canonical_sha256(work_frame) != t.canonical_sha256(expected_work):
+    from .native_plan_work_view import is_semantic_frame as semantic_work, semantic_frame as plan_work_view
+    authored_local = semantic_work(work_frame)
+    expected_wire_work = plan_work_view(expected_work,prefix) if authored_local else expected_work
+    if t.canonical_sha256(work_frame) != t.canonical_sha256(expected_wire_work):
         raise ValueError('Native writer changed or omitted its exact surface work')
     body = strict_json(raw)
     from .native_execution import NativeWriterEstimatedBudgetV1
@@ -259,6 +266,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         if prefix.policy.action.intent.build_draft_context_sha256 is not None:
             draft_record=context_record(prefix).record
     return NativeWriterEvidence(frame=schema_frame,work_frame=expected_work,authored=authored,idempotency_key=idempotency_key,
+        authored_local=authored_local,
         saved_sections=saved_sections,related_pages=related_pages,draft_record=draft_record,
         **read_evidence_records(prefix,expected))
 

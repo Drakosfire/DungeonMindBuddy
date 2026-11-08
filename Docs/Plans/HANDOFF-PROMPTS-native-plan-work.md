@@ -40,14 +40,16 @@ checkout/environment is required for implementation.
 - src/application_state/agent_conversation/surface_evidence_answer.py
 - apps/live_control_server/services/plan_jev_writer.py
 - src/application_state/migrations/versions/20261108_0130_native_plan_work_view.py
-- tests/test_surface_native_work_input.py
-- tests/test_surface_native_authored_output.py
-- tests/test_native_writer_projection.py (only actual current Plan producer assertions)
+- tests/test_native_writer_projection.py (current SDK/host/output cases; historical fixtures remain unchanged)
 
 No shared runtime/resource lease. Tests use disposable generated databases on
 54329; primary APP/Core and operator drafts remain untouched. Other open lanes
-(INGEST, SURFACE, held reference/Play) were inspected and are disjoint from this
-write set. Re-anchor before expanding paths or activation.
+(INGEST, SURFACE, held reference/Play) were inspected. Explicit functional lease
+split with ADVERSARY: PRIME owns only PlanJevWriter shared frame/schema/message
+assembly; ADVERSARY owns its disjoint instruction assembly and
+hermes_product_prompt.py for the independently assessed generic coverage slice.
+Neither owns a runtime write lease here. Rebase/merge in readiness order; inspect
+the exact cumulative composition before delivery. Do not edit the other's region. Re-anchor before expanding paths or activation.
 
 ## Verification and delivery
 
