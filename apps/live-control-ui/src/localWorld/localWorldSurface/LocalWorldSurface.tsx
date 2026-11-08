@@ -9,6 +9,46 @@ import "./localWorldSurface.css";
 // Keep unsaved title candidates while App routes/components remount in this tab.
 // This is deliberately volatile presentation state, not a second durable ledger.
 const pendingTitleDrafts = new Map<LocalWorldId, string>();
+const pendingLocalWrites = new Set<symbol>();
+let beforeUnloadProtectionInstalled = false;
+
+function warnBeforeLeavingWithLocalWork(event: BeforeUnloadEvent): void {
+  event.preventDefault();
+  event.returnValue = "";
+}
+
+function syncBeforeUnloadProtection(): void {
+  if (typeof window === "undefined") return;
+  const shouldProtect = pendingTitleDrafts.size > 0 || pendingLocalWrites.size > 0;
+  if (shouldProtect && !beforeUnloadProtectionInstalled) {
+    window.addEventListener("beforeunload", warnBeforeLeavingWithLocalWork);
+    beforeUnloadProtectionInstalled = true;
+  } else if (!shouldProtect && beforeUnloadProtectionInstalled) {
+    window.removeEventListener("beforeunload", warnBeforeLeavingWithLocalWork);
+    beforeUnloadProtectionInstalled = false;
+  }
+}
+
+function setPendingTitleDraft(worldId: LocalWorldId, draft: string, committedTitle: string): void {
+  if (draft.trim() === committedTitle) pendingTitleDrafts.delete(worldId);
+  else pendingTitleDrafts.set(worldId, draft);
+  syncBeforeUnloadProtection();
+}
+
+function clearPendingTitleDraft(worldId: LocalWorldId): void {
+  pendingTitleDrafts.delete(worldId);
+  syncBeforeUnloadProtection();
+}
+
+function beginPendingLocalWrite(): () => void {
+  const token = Symbol("local-world-write");
+  pendingLocalWrites.add(token);
+  syncBeforeUnloadProtection();
+  return () => {
+    pendingLocalWrites.delete(token);
+    syncBeforeUnloadProtection();
+  };
+}
 
 type RepositoryResult = { readonly status: "opened"; readonly repository: LocalWorldPackageRepository; readonly close?: () => void }
   | { readonly status: "error"; readonly message: string };
@@ -124,16 +164,6 @@ export function LocalWorldSurface({
   const closeRepositoryRef = useRef<(() => void) | null>(null);
   const dirty = record !== null && titleDraft.trim() !== record.snapshot.title;
 
-  useEffect(() => {
-    if (!dirty && !busy) return;
-    const warnBeforeLeave = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", warnBeforeLeave);
-    return () => window.removeEventListener("beforeunload", warnBeforeLeave);
-  }, [busy, dirty]);
-
   const refreshList = useCallback(async (repo: LocalWorldPackageRepository, generation: number) => {
     const result = await repo.listWorlds();
     if (!mounted.current || generation !== operationGeneration.current) return false;
@@ -218,7 +248,7 @@ export function LocalWorldSurface({
       const localWorldId = worldId as LocalWorldId;
       const pendingDraft = pendingTitleDrafts.get(localWorldId);
       const hasPendingChanges = pendingDraft !== undefined && pendingDraft.trim() !== result.record.snapshot.title;
-      if (pendingDraft !== undefined && !hasPendingChanges) pendingTitleDrafts.delete(localWorldId);
+      if (pendingDraft !== undefined && !hasPendingChanges) clearPendingTitleDraft(localWorldId);
       setRecord(result.record);
       setTitleDraft(hasPendingChanges ? pendingDraft : result.record.snapshot.title);
       setEditing(hasPendingChanges);
@@ -237,6 +267,7 @@ export function LocalWorldSurface({
     setBusy(true);
     setStatus("saving");
     setMessage(null);
+    const finishPendingWrite = beginPendingLocalWrite();
     const generation = ++operationGeneration.current;
     const title = newTitle.trim();
     try {
@@ -260,6 +291,7 @@ export function LocalWorldSurface({
       }
     } finally {
       busyRef.current = false;
+      finishPendingWrite();
       if (mounted.current) setBusy(false);
     }
   }, [newTitle, refreshList, repository, repositoryError]);
@@ -276,6 +308,7 @@ export function LocalWorldSurface({
     setBusy(true);
     setStatus("saving");
     setMessage(null);
+    const finishPendingWrite = beginPendingLocalWrite();
     const generation = operationGeneration.current;
     const savedRecord = record;
     try {
@@ -286,7 +319,7 @@ export function LocalWorldSurface({
         edit: { classification: "buddy-local-only", description: "Renamed local World" },
       });
       if (result.status === "committed") {
-        pendingTitleDrafts.delete(savedRecord.snapshot.worldId);
+        clearPendingTitleDraft(savedRecord.snapshot.worldId);
         if (!mounted.current || generation !== operationGeneration.current) return;
         setRecord(result.record);
         setRecords((current) => current.map((item) => item.snapshot.worldId === result.record.snapshot.worldId ? result.record : item)
@@ -313,6 +346,7 @@ export function LocalWorldSurface({
       }
     } finally {
       busyRef.current = false;
+      finishPendingWrite();
       if (mounted.current && generation === operationGeneration.current) setBusy(false);
     }
   }, [dirty, record, repository, repositoryError, titleDraft]);
@@ -354,7 +388,7 @@ export function LocalWorldSurface({
 
   const cancelTitleEdit = useCallback(() => {
     if (busyRef.current || !record) return;
-    pendingTitleDrafts.delete(record.snapshot.worldId);
+    clearPendingTitleDraft(record.snapshot.worldId);
     setTitleDraft(record.snapshot.title);
     setEditing(false);
     setMessage(null);
@@ -413,7 +447,7 @@ export function LocalWorldSurface({
             <div className="local-world-surface__title-row">
               {editing ? <form onSubmit={(event) => { event.preventDefault(); void saveTitle(); }}>
                 <label htmlFor="local-world-title">World title</label>
-                <input id="local-world-title" autoFocus value={titleDraft} maxLength={160} disabled={busy} onChange={(event) => { const nextDraft = event.target.value; setTitleDraft(nextDraft); if (record) { if (nextDraft.trim() === record.snapshot.title) pendingTitleDrafts.delete(record.snapshot.worldId); else pendingTitleDrafts.set(record.snapshot.worldId, nextDraft); } setMessage(null); if (status === "error" || status === "conflict") setStatus("dirty"); }} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); cancelTitleEdit(); } }} />
+                <input id="local-world-title" autoFocus value={titleDraft} maxLength={160} disabled={busy} onChange={(event) => { const nextDraft = event.target.value; setTitleDraft(nextDraft); if (record) setPendingTitleDraft(record.snapshot.worldId, nextDraft, record.snapshot.title); setMessage(null); if (status === "error" || status === "conflict") setStatus("dirty"); }} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); cancelTitleEdit(); } }} />
                 <div className="local-world-surface__title-actions">
                   <button type="submit" disabled={busy || !dirty || !titleDraft.trim()}>{busy && status === "saving" ? "Saving…" : "Save title"}</button>
                   <button type="button" className="local-world-surface__quiet" disabled={busy} onClick={cancelTitleEdit}>Cancel</button>
