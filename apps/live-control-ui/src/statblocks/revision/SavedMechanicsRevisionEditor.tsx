@@ -1,6 +1,7 @@
 import {savedStatblockHref} from '../savedStatblockLocation';
 import {MediaImageWizard} from '../../media/MediaImageWizard';
 import {SavedMediaImage} from '../../media/SavedMediaImage';
+import {MEDIA_ASSET_ID} from '../../media/mediaReferences';
 import './SavedMechanicsRevisionEditor.css';
 import {useGenerationPlan} from '../../guidedTour/GenerationObservations';
 import type {GeneratedMechanicsScope} from '../../guidedTour/protocol';
@@ -86,7 +87,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false}:{w
           ||value.baseline!==state.baselineFingerprint||!sameShape(state.workingCopy,value.workingCopy)||typeof value.summary!=='string')
           throw new Error('Saved edits could not be verified; they remain retained in this browser.');
         if(value.schema==='dmb_manual_mechanics_work_v2'){
-          if(!(value.portraitAssetId===null||typeof value.portraitAssetId==='string'&&value.portraitAssetId.trim()))
+          if(!(value.portraitAssetId===null||typeof value.portraitAssetId==='string'&&MEDIA_ASSET_ID.test(value.portraitAssetId)))
             throw new Error('Saved portrait choice could not be verified; it remains retained in this browser.');
           restoredPortrait=value.portraitAssetId;
         }else if(value.portraitAssetId!==undefined)throw new Error('Saved edits contain an unknown portrait choice; they remain retained.');
@@ -207,6 +208,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false}:{w
           initialPrompt={[`Portrait of ${editor.workingCopy.identity.name}.`,editor.workingCopy.flavor_text?.summary??editor.workingCopy.flavor_text?.description??''].filter(Boolean).join(' ')}
           onClose={()=>setStudioOpen(false)} onChoose={(image,_result,placement)=>{
             if(placement.signal.aborted)return;
+            if(!MEDIA_ASSET_ID.test(image.asset_id))throw new Error('This image has no valid saved reference. Reopen it from your library.');
             if(selectionEpoch!==epoch.current||busy||pending||successorToOpen)throw new Error('The source changed. Reopen the portrait studio before choosing.');
             try{remember(editor,summary,image.asset_id);}catch{throw new Error('Could not retain this portrait choice. Keep the editor open and try again.');}
             setPortraitAssetId(image.asset_id);setStudioOpen(false);setMessage('Portrait selected. Save a new version to keep it.');

@@ -321,10 +321,10 @@ it('rejects an old studio callback after source-version change and keeps choices
  await userEvent.selectOptions(screen.getByLabelText('Saved mechanics version'),base.revision_id);
  await screen.findByText(`Selected asset ${portrait}`);
 });
-it('retains malformed portrait recovery without replacing it or enabling an unverified source',async()=>{
+it.each(['not-a-uuid',{data_url:'do not accept'}])('retains malformed portrait recovery %j without replacing it or enabling an unverified source',async invalid=>{
  const first=render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await load();await choosePortrait();first.unmount();
  const key=Object.keys(localStorage).find(k=>k.endsWith(':version:rev_original'))!;
- const record=JSON.parse(localStorage.getItem(key)!);record.portraitAssetId={data_url:'do not accept'};
+ const record=JSON.parse(localStorage.getItem(key)!);record.portraitAssetId=invalid;
  const raw=JSON.stringify(record);localStorage.setItem(key,raw);
  render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await userEvent.click(screen.getByRole('button',{name:'Open saved mechanics'}));
  await screen.findByText(/Saved portrait choice could not be verified/);
