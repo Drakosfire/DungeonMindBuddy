@@ -125,3 +125,22 @@ def test_failed_acquisitions_remain_partial_and_are_not_selector_units(lane):
     assert bodies.acquired_body_reads(chosen) == ()
     assert model_frame(context, chosen)['input_status'] == 'partial'
     assert any(e.event_id == read.event_id for e in chosen.events)
+
+
+def test_semantic_selection_slots_preserve_distinct_same_origin_text_and_no_host_ids(lane):
+    from types import SimpleNamespace
+    context,record,first,second,_=two_reads(lane)
+    catalog=selection.acquired_catalog(record,{'capture_status':'recording'})
+    turn=SimpleNamespace(graph_context_receipt=context,graph_context_execution=record,
+        user_text='Preserve literal context_accounting and phase in my request.')
+    state=selection.semantic_state(turn,catalog)
+    wire=selection.canonical(dict(state=state,questions=selection.questions(catalog,semantic=True)))
+    assert list(state['sources'])==['s0','s1']
+    assert state['sources']['s0']['source_name']==state['sources']['s1']['source_name']
+    assert 'context_accounting and phase' in state['user_question']
+    assert set(row['text'] for row in state['sources'].values())=={first.excerpt.text,second.excerpt.text}
+    for key,unit in catalog.items():
+        assert key not in wire and unit['catalog_sha256'] not in wire
+        assert unit['passage']['source_artifact_id'] not in wire
+        assert unit['passage']['source_revision_id'] not in wire
+    assert 'Classify source s0' in wire and 'Classify source s1' in wire

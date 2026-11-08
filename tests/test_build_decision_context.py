@@ -302,3 +302,16 @@ def test_proposed_card_projection_keeps_meaning_but_not_read_identity(card):
     projected=semantic_collaboration(card)
     assert 'read_id' not in projected and 'SENTINEL' not in json.dumps(projected)
     assert projected=={key:value for key,value in card.items() if key!='read_id'}
+
+
+def test_semantic_writer_selection_uses_host_phase_and_unchanged_capacity():
+    policy=constant(33000)
+    value=dict(model='jev-1.14.0',state=dict(user_question='question',sources={},rules='assess'),
+        questions={'s0':{'type':'choice','instructions':'Classify source s0','criteria':{'uncertain':None}}})
+    assert policy.context_mode(value,host_phase='writer_selection')=='long_context'
+    view=prepared_view(prepared(value,DecisionContextMode.LONG_CONTEXT),value['state'],
+        accounting=policy,host_phase='writer_selection')
+    assert view['contextPhase']=='writer_selection' and view['contextMode']=='long_context'
+    for key in ('phase','context_accounting','decision'):
+        changed={**value,'state':{**value['state'],key:'metadata'}}
+        with pytest.raises(ValueError):policy.context_mode(changed,host_phase='writer_selection')
