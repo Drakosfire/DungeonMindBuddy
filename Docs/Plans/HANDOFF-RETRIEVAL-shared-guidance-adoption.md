@@ -2,8 +2,8 @@
 
 Status: ACTIVE. Root designs/implements/reviews; PRIME merges and delivers.
 Branch:codex/retrieval-shared-guidance-adoption in recorded-names-control.
-Topology: stacked on PR2257 exact62ad40ba03a9e7132998bdfa8650386d6c3ab459.
-Merge order2257 then this slice, rebase on adopted parent before delivery.
+Topology: serial on adopted2257 merge1a19895fd3978fcb00900bb3fc0b328d32b6781e.
+Rebase complete; source merge does not claim pending PRIME runtime136 delivery.
 Parent owns native_reads and its two admission tests only; disjoint from this lease.
 
 Exclusive writes: this handoff; apps/live_control_server/services/plan_jev_dispatch.py;
