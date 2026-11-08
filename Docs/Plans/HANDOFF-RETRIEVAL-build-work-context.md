@@ -112,3 +112,16 @@ rejection of mixed historical/current creative carriers. Broad owners316PASS,
 Evidence:retrieval-build-context-audit-v1/unchanged-parent-failure-disposition.json.
 No broad-green claim. Independent closure review resolved source finding; final
 cumulative judgment and immutable commit review remain delivery gates.
+
+Owning-CI correction lease:tests/test_native_writer_token_accounting.py only
+existing current-writer lookup; test_surface_native_build_ordinary.py incomplete
+writer lookup and negative no-writer assertion use exact existing V1/V2family.
+All source, accounting, acknowledgement, output-refusal and replay assertions
+remain. No runtime or model request change; no paid rerun required for this fix.
+
+Source lease settlement: all runtime paths in this handoff are frozen and
+released for PRIME's serial Plan authored-page successor, particularly
+native_execution.py/native_writer.py/native_plan_work_view.py/connected_page_origins.py/
+service.py. Root retains only completion of these test/transport corrections;
+no additional runtime changes are planned in2264. CI/merge are still pending,
+so the successor consumes the exact settled merge rather than assuming delivery.
