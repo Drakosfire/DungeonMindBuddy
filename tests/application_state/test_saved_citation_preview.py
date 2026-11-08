@@ -214,6 +214,15 @@ def test_active_snapshot_projects_stored_native_metadata_without_full_turn_reads
     from application_state.agent_conversation import library, repository
     from tests.test_surface_native_build_ordinary import _fresh_case
 
+    before_response = []
+    def inspect_input(adapter, provider):
+        if provider == "typesafe" and not before_response:
+            selected = adapter.request.build_authored_references
+            snapshot = library.read_active_messages(adapter.world_id)
+            before_response.append(snapshot["messages"][-1]["authored_references"])
+            assert before_response[-1] == selected.model_dump(mode="json", by_alias=True)
+            assert not any(event.kind == "native_writer_authorized_v1" for event in adapter.fence.turn.graph_context_execution.events)
+
     case = _fresh_case(
         lane,
         tmp_path,
@@ -224,7 +233,9 @@ def test_active_snapshot_projects_stored_native_metadata_without_full_turn_reads
         False,
         native_body="direct_support",
         authored_source="full_document",
+        before_provider=inspect_input,
     )
+    assert before_response == [case.selected.model_dump(mode="json", by_alias=True)]
     pointer = case.service.get_world_pointer(case.world)
 
     def forbidden(*args, **kwargs):
@@ -233,8 +244,9 @@ def test_active_snapshot_projects_stored_native_metadata_without_full_turn_reads
     with monkeypatch.context() as patch:
         patch.setattr(repository, "_turn_from_row", forbidden)
         page = library.read_active_messages(case.world)
-    assert page["schema"] == "dmb_active_conversation_messages_v2"
+    assert page["schema"] == "dmb_active_conversation_messages_v3"
     message = page["messages"][0]
+    assert message["authored_references"] == case.selected.model_dump(mode="json", by_alias=True)
     import psycopg
 
     with psycopg.connect(

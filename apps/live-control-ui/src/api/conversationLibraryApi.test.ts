@@ -52,10 +52,22 @@ it('accepts exact saved-message previews but never full-detail metadata in that 
 
 
 it('admits only scoped active-message metadata without execution or action grants',async()=>{
- const v={schema:'dmb_active_conversation_messages_v2',world_id:'world',conversation_state:'active',conversation_id:cid,active_conversation_id:cid,pointer_revision:4,
-  messages:[{turn_id:tid,idempotency_key:tid,revision:2,sequence:3,status:'completed',user_text:'Question',assistant_text:'Answer',citation_preview:null,provenance:{world_id:'world',surface_id:'build'}}],next_before_sequence:3};
+ const v={schema:'dmb_active_conversation_messages_v3',world_id:'world',conversation_state:'active',conversation_id:cid,active_conversation_id:cid,pointer_revision:4,
+  messages:[{turn_id:tid,idempotency_key:tid,revision:2,sequence:3,status:'completed',user_text:'Question',assistant_text:'Answer',citation_preview:null,authored_references:null,provenance:{world_id:'world',surface_id:'build'}}],next_before_sequence:3};
  response(v);expect((await readActiveConversationMessages('world')).messages[0].assistant_text).toBe('Answer');
  for(const patch of [{world_id:'foreign'},{active_conversation_id:tid},{pointer_revision:-1},{next_before_sequence:4},{messages:[{...v.messages[0],completion:{}}]},{messages:[{...v.messages[0],provenance:{world_id:'foreign'}}]}]){response({...v,...patch});await expect(readActiveConversationMessages('world')).rejects.toThrow();}
  response(v);await expect(readActiveConversationMessages('world',3)).rejects.toThrow();
  response({...v,conversation_state:'absent',conversation_id:null,active_conversation_id:null,messages:[],next_before_sequence:null});expect((await readActiveConversationMessages('world')).conversation_state).toBe('absent');
+});
+
+it('loads saved selections in the lightweight contract and rejects foreign or forged input',async()=>{
+ const ref={schema:'dmb_authored_graph_reference_v1',managed_world_id:'world',native_world_id:'native',binding_version:1,graph_revision:'pinned',node_id:'node',label:'Selected object'};
+ const bundle={schema:'dmb_authored_references_v2',references:[ref]};
+ const v={schema:'dmb_active_conversation_messages_v3',world_id:'world',conversation_state:'active',conversation_id:cid,active_conversation_id:cid,pointer_revision:4,
+  messages:[{turn_id:tid,idempotency_key:tid,revision:2,sequence:3,status:'interrupted',user_text:'Question',assistant_text:null,citation_preview:null,authored_references:bundle,provenance:{world_id:'world',surface_id:'plan'}}],next_before_sequence:null};
+ response(v);expect((await readActiveConversationMessages('world')).messages[0].authored_references).toEqual(bundle);
+ for(const refs of [{...bundle,references:[{...ref,managed_world_id:'foreign'}]},{...bundle,authority:'granted'},{...bundle,schema:'unknown'}]){
+  response({...v,messages:[{...v.messages[0],authored_references:refs}]});await expect(readActiveConversationMessages('world')).rejects.toThrow();
+ }
+ const {authored_references:_,...missing}=v.messages[0];response({...v,messages:[missing]});await expect(readActiveConversationMessages('world')).rejects.toThrow();
 });
