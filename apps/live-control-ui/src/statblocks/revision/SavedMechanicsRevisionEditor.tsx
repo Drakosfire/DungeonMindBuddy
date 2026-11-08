@@ -29,7 +29,9 @@ function sameShape(base:unknown,value:unknown):boolean {
   return typeof value!=='number'||Number.isFinite(value);
 }
 
-export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,onSwitchGuardChange}:{worldId:string;draftId:string;autoLoad?:boolean;onSwitchGuardChange?:(reason:string|null)=>void}) {
+export type SavedMechanicsSessionState={revisionId:string|null;busy:boolean;switchReason:string|null};
+
+export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,initialRevisionId,onSessionStateChange}:{worldId:string;draftId:string;autoLoad?:boolean;initialRevisionId?:string;onSessionStateChange?:(state:SavedMechanicsSessionState)=>void}) {
  const guidance=useGuidedTour(),generationPlan=useGenerationPlan();
  const generatedScope=guidance&&generationPlan?guidance.captureMechanicsScope(generationPlan,draftId):null,latestGeneratedScope=useRef(generatedScope);latestGeneratedScope.current=generatedScope;
  const [generatedAcknowledged,setGeneratedAcknowledged]=useState<AcknowledgedGeneratedMechanicsSave|null>(null);
@@ -49,10 +51,11 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,onS
   const [portraitAssetId,setPortraitAssetId]=useState<string|null>(null);
   const [studioOpen,setStudioOpen]=useState(false),[studioSource,setStudioSource]=useState<string|null>(null);
   const [pending,setPending]=useState<string|null>(null);
+  const [recoverySource,setRecoverySource]=useState<string|null>(null),[blockedRecovery,setBlockedRecovery]=useState(false);
   const [successorToOpen,setSuccessorToOpen]=useState<string|null>(null);
   const [issues,setIssues]=useState<ValidationIssueV1[]>([]);
   const [validated,setValidated]=useState<string|null>(null);
-  const [busy,setBusy]=useState(false),[message,setMessage]=useState('');
+  const [busy,setBusy]=useState(autoLoad),[message,setMessage]=useState('');
   const epoch=useRef(0),selectionEpoch=epoch.current;
   const studioKey=opened?JSON.stringify([worldId,draftId,opened.locator.revision_id]):null;
   const showStudio=studioOpen&&studioSource===studioKey;
@@ -75,7 +78,20 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,onS
       const operation=page.pending?.operation_id??retained;
       setPending(operation);
       if(offset&&history){setMessage(operation?'A Save needs its outcome checked. Recover it before making another version.':'');return;} // Metadata paging preserves dirty source content.
-      const selected=revision??page.pending?.base.revision_id??localStorage.getItem(`${scope}:selected`)??page.original.revision_id;
+      // An exact entry point never borrows another version's Save base.
+      let pendingBase=page.pending?.base.revision_id;
+      if(operation&&revision&&!pendingBase){
+        const inspected=await inspectMechanicsRevision(draftId,worldId,operation);
+        if(token!==epoch.current)return;
+        pendingBase=inspected.operation?.base.revision_id;
+      }
+      if(operation&&revision&&pendingBase!==revision){
+        setRecoverySource(pendingBase??null);setBlockedRecovery(true);
+        setMessage(pendingBase?'A Save belongs to another version. Open its source and recover it before choosing this version.'
+          :'A retained Save has no confirmed source yet. Recover its original identity before opening this version.');
+        return;
+      }
+      const selected=revision??pendingBase??localStorage.getItem(`${scope}:selected`)??page.original.revision_id;
       const exact=await openSavedMechanicsVersion(draftId,worldId,selected);
       if(token!==epoch.current)return;
       if(exact.resource.statblock_id!==page.original.statblock_id)throw new Error('Saved version differs from this creature’s history.');
@@ -96,7 +112,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,onS
       }
       localStorage.setItem(`${scope}:selected`,selected);
       if(opened?.locator.revision_id!==selected){setStudioOpen(false);setStudioSource(null);}
-      setOpened(exact);setEditor(state);setSummary(changeSummary);setPortraitAssetId(restoredPortrait);setValidated(null);
+      setBlockedRecovery(false);setRecoverySource(null);setOpened(exact);setEditor(state);setSummary(changeSummary);setPortraitAssetId(restoredPortrait);setValidated(null);
       setSuccessorToOpen(current=>current===selected?null:current);
       setMessage(operation?'A Save needs its outcome checked. Recover it before making another version.':'');
       return exact;
@@ -104,7 +120,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,onS
     finally{if(token===epoch.current)setBusy(false);}
   }
   // Hosts keep this identity mounted after first opening; visibility never reloads it.
-  useEffect(()=>{if(autoLoad)void load();},[autoLoad]);
+  useEffect(()=>{if(autoLoad)void load(initialRevisionId);},[autoLoad]);
   async function validate() {
     if(!editor)return;const token=++epoch.current,working=editor.workingCopy;setBusy(true);setIssues([]);setMessage('Validating new mechanics…');
     try {
@@ -162,22 +178,23 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,onS
     if(!pending)return;const token=++epoch.current,tourAtDispatch=tourScope,originalDispatch=generatedDispatch.current?.operationId===pending?generatedDispatch.current:null,tourDispatch=originalDispatch?.dispatchScope??guidance?.captureScope()??null,generatedAtDispatch=originalDispatch?.scope??null;setBusy(true);setMessage('Checking saved result…');
     try{
       const result=await recoverMechanicsRevision(draftId,worldId,pending);if(token!==epoch.current)return;
-      if(!result){clearPending(pending);setMessage('Save was safely canceled before dispatch. Your edits are available.');return;}
+      if(!result){clearPending(pending);setBlockedRecovery(false);setRecoverySource(null);setMessage('Save was safely canceled before dispatch. Your edits are available.');return;}
+      if(!opened||blockedRecovery){setRecoverySource(result.base.revision_id);setBlockedRecovery(true);setMessage('The saved outcome belongs to its original source. Open that source to finish recovery.');return;}
       await applyOutcome(result,token,pending,tourAtDispatch,tourDispatch,generatedAtDispatch);
     }catch(error){if(token===epoch.current)setMessage(error instanceof Error?error.message:String(error));}
     finally{if(token===epoch.current)setBusy(false);}
   }
-  const switchReason=busy||pending||successorToOpen||studioSource===studioKey&&studioSource!==null||portraitAssetId!==null
+  const switchReason=busy?'Wait for the current statblock operation before opening another saved version.':pending||successorToOpen||studioSource===studioKey&&studioSource!==null||portraitAssetId!==null
     ||summary!=='Manual mechanics revision'||!!editor&&editor.baselineFingerprint!==fingerprintDefinition(editor.workingCopy)
     ?'Save, recover or revert the current statblock work before opening another statblock.':null;
-  useLayoutEffect(()=>{onSwitchGuardChange?.(switchReason);},[onSwitchGuardChange,switchReason]);
+  useLayoutEffect(()=>{onSessionStateChange?.({revisionId:opened?.locator.revision_id??null,busy,switchReason});},[opened,busy,switchReason,onSessionStateChange]);
   useTourNavigationGuard({worldId,reason:()=>switchReason});
   return <section className="statblock-section" aria-label="Saved mechanics versions">
     {!tourScope&&<GeneratedMechanicsTourObservation scope={generatedScope} opened={opened} history={history} acknowledged={generatedAcknowledged} blocked={switchReason!==null}/>}
     <MechanicsTourObservation scope={tourScope} opened={opened} history={history} acknowledged={tourAcknowledged} blocked={switchReason!==null}/>
     <h3>Saved versions</h3>
     <p>Edit saved mechanics and create a new version. Choosing it for a fight is a separate action.</p>
-    <button type="button" data-guided-control="mechanics" disabled={busy||showStudio} onClick={()=>void load()}>Open saved mechanics</button>
+    <button type="button" data-guided-control="mechanics" disabled={busy||showStudio} onClick={()=>void load(opened?.locator.revision_id??initialRevisionId)}>Open saved mechanics</button>
     {history&&<label>Mechanics version <select aria-label="Saved mechanics version" disabled={busy||showStudio||!!pending||!!successorToOpen} value={opened?.locator.revision_id??''} onChange={event=>void load(event.target.value)}>
       <option value={history.original.revision_id}>Original saved mechanics</option>
       {history.operations.filter(op=>op.state==='committed'&&op.result).map((op,index)=><option key={op.operation_id} value={op.result!.revision_id}>Version {index+2} · {op.change_summary}</option>)}
@@ -224,7 +241,8 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,onS
       <p role="status">A new version was saved but has not opened. The previous selected version is still displayed; editing is paused.</p>
       <button type="button" disabled={busy} onClick={()=>void load(successorToOpen)}>Open saved successor</button>
     </>}
-    {pending&&<button type="button" disabled={busy} onClick={()=>void recover()}>Recover Save</button>}
+    {blockedRecovery&&recoverySource&&<button type="button" disabled={busy} onClick={()=>void load(recoverySource)}>Open Save source for recovery</button>}
+    {pending&&<button type="button" disabled={busy||blockedRecovery&&!!recoverySource} onClick={()=>void recover()}>Recover Save</button>}
     {issues.length>0&&<ul aria-label="Mechanics validation issues">{issues.map((issue,index)=><li key={index}>{issue.message} <small>{issue.field_path}</small></li>)}</ul>}
     {message&&<p role="status">{message}</p>}
   </section>;

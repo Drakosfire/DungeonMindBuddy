@@ -330,3 +330,26 @@ it.each(['not-a-uuid',{data_url:'do not accept'}])('retains malformed portrait r
  await screen.findByText(/Saved portrait choice could not be verified/);
  expect(localStorage.getItem(key)).toBe(raw);expect(screen.queryByLabelText('Creature name')).toBeNull();expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
 });
+
+it('keeps an exact entry-point retry pinned instead of falling back to a selection hint',async()=>{
+ vi.mocked(api.openSavedMechanicsVersion).mockRejectedValueOnce(new Error('Requested version temporarily unavailable'));
+ render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft} autoLoad initialRevisionId={next.revision_id}/>);await screen.findByText('Requested version temporarily unavailable');
+ await userEvent.click(screen.getByRole('button',{name:'Open saved mechanics'}));await screen.findByLabelText('Creature name');expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(2);for(const call of vi.mocked(api.openSavedMechanicsVersion).mock.calls)expect(call[2]).toBe(next.revision_id);
+});
+it('requires explicit original-source recovery before opening another exact revision',async()=>{
+ let waiting=true;const unresolved={...outcome,state:'outcome_unknown' as const,result:null};vi.mocked(api.listSavedMechanicsVersions).mockImplementation(async()=>({...page(),pending:waiting?unresolved:null}));vi.mocked(api.recoverMechanicsRevision).mockImplementation(async()=>{waiting=false;return outcome;});
+ render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft} autoLoad initialRevisionId={next.revision_id}/>);await screen.findByText(/A Save belongs to another version/);expect(api.openSavedMechanicsVersion).not.toHaveBeenCalled();expect(screen.getByRole('button',{name:'Recover Save'})).toBeDisabled();
+ await userEvent.click(screen.getByRole('button',{name:'Open Save source for recovery'}));await screen.findByLabelText('Creature name');expect(api.openSavedMechanicsVersion).toHaveBeenLastCalledWith(draft,world,base.revision_id);
+ await userEvent.click(screen.getByRole('button',{name:'Recover Save'}));await screen.findByText('New mechanics version saved. Encounters and World associations are unchanged.');expect(api.recoverMechanicsRevision).toHaveBeenCalledExactlyOnceWith(draft,world,outcome.operation_id);expect(api.saveMechanicsRevision).not.toHaveBeenCalled();expect(api.openSavedMechanicsVersion).toHaveBeenLastCalledWith(draft,world,next.revision_id);
+});
+it('fences a retained preflight with no source before retrying the exact entry point',async()=>{
+ sessionStorage.setItem('dmb-manual-mechanics-writer','exact-writer');const key=`dmb-manual-mechanics:${JSON.stringify(['exact-writer',world,draft])}:pending`;localStorage.setItem(key,outcome.operation_id);vi.mocked(api.inspectMechanicsRevision).mockResolvedValue({operation:null});vi.mocked(api.recoverMechanicsRevision).mockResolvedValue(null);
+ render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft} autoLoad initialRevisionId={next.revision_id}/>);await screen.findByText(/A retained Save has no confirmed source/);expect(localStorage.getItem(key)).toBe(outcome.operation_id);expect(api.openSavedMechanicsVersion).not.toHaveBeenCalled();
+ await userEvent.click(screen.getByRole('button',{name:'Recover Save'}));await screen.findByText(/Save was safely canceled/);expect(localStorage.getItem(key)).toBeNull();await userEvent.click(screen.getByRole('button',{name:'Open saved mechanics'}));await screen.findByLabelText('Creature name');expect(api.recoverMechanicsRevision).toHaveBeenCalledExactlyOnceWith(draft,world,outcome.operation_id);expect(api.openSavedMechanicsVersion).toHaveBeenCalledExactlyOnceWith(draft,world,next.revision_id);
+});
+
+it('keeps a late committed outcome bound to its original source during exact-entry recovery',async()=>{
+ sessionStorage.setItem('dmb-manual-mechanics-writer','late-writer');const key=`dmb-manual-mechanics:${JSON.stringify(['late-writer',world,draft])}:pending`;localStorage.setItem(key,outcome.operation_id);vi.mocked(api.inspectMechanicsRevision).mockResolvedValueOnce({operation:null}).mockResolvedValue({operation:outcome});vi.mocked(api.recoverMechanicsRevision).mockResolvedValue(outcome);
+ render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft} autoLoad initialRevisionId={next.revision_id}/>);await screen.findByText(/A retained Save has no confirmed source/);await userEvent.click(screen.getByRole('button',{name:'Recover Save'}));await screen.findByText(/The saved outcome belongs to its original source/);expect(localStorage.getItem(key)).toBe(outcome.operation_id);expect(api.openSavedMechanicsVersion).not.toHaveBeenCalled();
+ await userEvent.click(screen.getByRole('button',{name:'Open Save source for recovery'}));await screen.findByLabelText('Creature name');expect(api.openSavedMechanicsVersion).toHaveBeenLastCalledWith(draft,world,base.revision_id);await userEvent.click(screen.getByRole('button',{name:'Recover Save'}));await screen.findByText(/New mechanics version saved/);expect(localStorage.getItem(key)).toBeNull();expect(api.recoverMechanicsRevision).toHaveBeenNthCalledWith(2,draft,world,outcome.operation_id);expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
+});

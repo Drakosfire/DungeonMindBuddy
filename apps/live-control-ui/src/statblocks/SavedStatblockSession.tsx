@@ -5,13 +5,15 @@ import {GenerationPlanProvider,useGenerationPlan} from '../guidedTour/Generation
 import {TourEncounterProvider,useTourEncounter,type TourEncounterScope} from '../guidedTour/EncounterScope';
 import type {TargetPin} from '../guidedTour/protocol';
 import './SavedStatblockDialog.css';
+import type {SavedMechanicsSessionState} from './revision/SavedMechanicsRevisionEditor';
 
 const Editor=deferredComponent(()=>import('./revision/SavedMechanicsRevisionEditor').then(module=>({default:module.SavedMechanicsRevisionEditor})),'saved statblock editor');
-type Target={worldId:string;draftId:string};
+type Target={worldId:string;draftId:string;revisionId?:string};
+type Selection={target:Target;serial:number};
 type Presentation={encounter:TourEncounterScope|null;generationPlan:TargetPin|null};
 type Session={worldId:string|null;openStatblock:(target:Target,presentation?:Presentation)=>void};
 const Context=createContext<Session|null>(null);
-const targetKey=(target:Target)=>JSON.stringify([target.worldId,target.draftId]);
+const sameDraft=(a:Target,b:Target)=>a.worldId===b.worldId&&a.draftId===b.draftId;
 export const useSavedStatblockSession=()=>useContext(Context);
 
 /** One owner per managed World; triggers never own an editing copy. */
@@ -20,24 +22,25 @@ export function SavedStatblockProvider({worldId,children}:{worldId:string|null;c
   return <WorldSession key={worldId??'unavailable'} worldId={worldId}>{children}</WorldSession>;
 }
 function WorldSession({worldId,children}:{worldId:string|null;children:ReactNode}) {
-  const [target,setTarget]=useState<Target|null>(null),[open,setOpen]=useState(false),[expanded,setExpanded]=useState(false),[message,setMessage]=useState('');
+  const [selection,setSelection]=useState<Selection|null>(null),[open,setOpen]=useState(false),[expanded,setExpanded]=useState(false),[message,setMessage]=useState('');
   const [presentation,setPresentation]=useState<Presentation>({encounter:null,generationPlan:null});
-  const current=useRef<Target|null>(null),reason=useRef<string|null>(null),dialog=useRef<HTMLDialogElement>(null);
+  const current=useRef<Selection|null>(null),observed=useRef<SavedMechanicsSessionState>({revisionId:null,busy:true,switchReason:'Opening saved mechanics. Wait before choosing another statblock.'}),dialog=useRef<HTMLDialogElement>(null);
   const location=useSyncExternalStore(subscribeAppLocation,getAppLocationSnapshot),lastLocation=useRef(location);
   useEffect(()=>{if(lastLocation.current!==location){lastLocation.current=location;setOpen(false);}},[location]);
   const session=useMemo<Session>(()=>({worldId,openStatblock:(next,context={encounter:null,generationPlan:null})=>{
     if(!worldId||next.worldId!==worldId){setMessage('This statblock is unavailable in the selected World.');return;}
     if(context.encounter&&context.encounter.plan.worldId!==worldId||context.generationPlan&&context.generationPlan.worldId!==worldId){setMessage('The statblock presentation belongs to another World.');return;}
-    if(current.current&&targetKey(current.current)===targetKey(next)){if(!reason.current)setPresentation(structuredClone(context));setMessage('');setOpen(true);return;}
-    if(current.current&&reason.current){setMessage(reason.current);setOpen(true);return;}
-    current.current=next;reason.current='Opening saved mechanics. Wait before choosing another statblock.';
-    setTarget(next);setPresentation(structuredClone(context));setMessage('');setOpen(true);
+    if(current.current&&sameDraft(current.current.target,next)&&(!next.revisionId||!observed.current.busy&&next.revisionId===observed.current.revisionId)){if(!observed.current.switchReason)setPresentation(structuredClone(context));setMessage('');setOpen(true);return;}
+    if(current.current&&observed.current.switchReason){setMessage(observed.current.switchReason);setOpen(true);return;}
+    const selected={target:next,serial:(current.current?.serial??0)+1};
+    current.current=selected;observed.current={revisionId:null,busy:true,switchReason:'Opening saved mechanics. Wait before choosing another statblock.'};
+    setSelection(selected);setPresentation(structuredClone(context));setMessage('');setOpen(true);
   }}),[worldId]);
   useEffect(()=>{
     const node=dialog.current;
     if(open&&node&&!node.open)node.showModal();else if(!open&&node?.open)node.close();
   },[open]);
-  const key=target?targetKey(target):null;
+  const target=selection?.target,key=selection?.serial;
   return <Context.Provider value={session}>
     {children}
     {!open&&message&&<p role="alert">{message}</p>}
@@ -49,15 +52,15 @@ function WorldSession({worldId,children}:{worldId:string|null;children:ReactNode
       </div></header>
       <div className="saved-statblock-dialog__body">
         {message&&<p role="alert">{message}</p>}
-        {target&&<TourEncounterProvider scope={presentation.encounter}><GenerationPlanProvider pin={presentation.generationPlan}><Editor key={key!} worldId={target.worldId} draftId={target.draftId} autoLoad
-          onSwitchGuardChange={value=>{if(current.current&&targetKey(current.current)===key)reason.current=value;}}/></GenerationPlanProvider></TourEncounterProvider>}
+        {target&&<TourEncounterProvider scope={presentation.encounter}><GenerationPlanProvider pin={presentation.generationPlan}><Editor key={key!} worldId={target.worldId} draftId={target.draftId} initialRevisionId={target.revisionId} autoLoad
+          onSessionStateChange={state=>{if(current.current?.serial===key)observed.current=state;}}/></GenerationPlanProvider></TourEncounterProvider>}
       </div>
     </dialog>
   </Context.Provider>;
 }
-export function SavedStatblockButton({worldId,draftId}:{worldId:string;draftId:string}) {
+export function SavedStatblockButton({worldId,draftId,revisionId,label='Open statblock'}:{worldId:string;draftId:string;revisionId?:string;label?:string}) {
   const encounter=useTourEncounter(),generationPlan=useGenerationPlan();
   const session=useSavedStatblockSession(),available=session?.worldId===worldId;
   return <button type="button" disabled={!available} title={available?undefined:'Saved statblock editing is unavailable in this host.'}
-    onClick={()=>session?.openStatblock({worldId,draftId},{encounter,generationPlan})}>Open statblock</button>;
+    onClick={()=>session?.openStatblock({worldId,draftId,revisionId},{encounter,generationPlan})}>{label}</button>;
 }

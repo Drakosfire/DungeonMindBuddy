@@ -17,6 +17,7 @@ it('reads only the explicit revision despite a different local selected-version 
  expect(api.openSavedMechanicsVersion).toHaveBeenCalledExactlyOnceWith(target.draftId,target.worldId,target.revisionId);
  expect(api.listSavedMechanicsVersions).not.toHaveBeenCalled();expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
  expect(screen.queryByLabelText('Creature name')).toBeNull();
+ expect(screen.getByRole('button',{name:'Edit this version'})).toBeDisabled();
 });
 it('keeps read failure explicit and retries the same target',async()=>{
  vi.mocked(api.openSavedMechanicsVersion).mockRejectedValueOnce(new Error('Exact revision unavailable'));render(<SavedStatblockFullView target={target}/>);
