@@ -273,15 +273,9 @@ def _turn_from_row(
     summary = row["rules_summary"]
     # Discriminate BEFORE ordinary Turn parsing, especially Build text equality.
     if marker == "base":
-        if summary is not None and (
-            summary["state"] not in {"active", "unused", "failed"}
-            or summary["oversized"]
-            or summary["binding"] is not None
-            or summary["seal"] is not None
-        ):
-            raise ApplicationStateIntegrityError(
-                "accepted Rules authority has no mixed turn marker"
-            )
+        from .rules_authority_reads import validate_base_composition_summary
+
+        validate_base_composition_summary(summary)
         try:
             turn = Turn(**fields)
         except ValidationError as exc:

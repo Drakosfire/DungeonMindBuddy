@@ -5,12 +5,11 @@ with the native producer; quote support is reconstructed from that exact envelop
 """
 from dataclasses import dataclass
 from hashlib import sha256
-from types import SimpleNamespace
 import json
 
 from . import types as t
 from .rules_authority_types import canonical_sha256, canonical_bytes
-from .source_writer_output import LIMITATIONS, RequestedDetailGap, gap_messages, strict_json
+from .source_writer_output import strict_json, surface_limitation, project_surface_limitations
 
 HISTORICAL_POLICY = 'dmb_surface_evidence_answer_v1'
 POLICY = 'dmb_surface_evidence_answer_v2'
@@ -327,15 +326,6 @@ def _current_carrier(text, submission_id):
     return (BODY_POLICY if row.get('native_body_evidence') is not None else PLAN_POLICY) if row.get('schema')=='dmb_native_play_input_v6' else SELECTOR_POLICY if row.get('schema')=='dmb_native_play_input_v5' else NATIVE_POLICY if row.get('schema')=='dmb_native_play_input_v4' else POLICY if row.get('schema')=='dmb_native_play_input_v3' else HISTORICAL_POLICY if row.get('schema')=='dmb_native_play_input_v2' else False
 
 
-def _limit(code, phrase=None):
-    if code not in LIMITATIONS: raise ValueError('Unknown limitation code')
-    text = LIMITATIONS[code]
-    if phrase is not None:
-        data = SimpleNamespace(requested_detail_gaps=[RequestedDetailGap(question_phrase=phrase)])
-        text = gap_messages(data, {'user_question': phrase})[0]['text']
-    return t.SurfaceLimitationV1(kind='limitation', code=code, text=text, question_phrase=phrase)
-
-
 def status_for(segments):
     from .build_draft_answer import DraftDiscussionV1
     partial = any(isinstance(s, t.SurfaceLimitationV1) for s in segments)
@@ -409,7 +399,7 @@ def validate_shape(c):
             raise ValueError('Native body citation changed its supported segment or extent')
         body_keys.add(key)
     for s in c.answer_segments:
-        if isinstance(s, t.SurfaceLimitationV1) and s != _limit(s.code, s.question_phrase):
+        if isinstance(s, t.SurfaceLimitationV1) and s != surface_limitation(s.code, s.question_phrase):
             raise ValueError('Model-authored limitation prose is not admitted')
     if len(canonical_bytes(c)) > 1_048_576: raise ValueError('Completion exceeds existing storage budget')
 
@@ -616,15 +606,6 @@ def normalize(candidate, turn, producer, support):
                 source_name=a.source_name, object_id=a.object_id, revision=a.revision, body_sha256=a.body_sha256, owner_sha256=a.owner_sha256))
         elif kind == 'proposal': segments.append(t.PlanWorldGraphProposalSegmentV1.model_validate(row))
         else: raise ValueError('Unbound factual or connective segment is not admitted')
-    codes = candidate['limitations']
-    if not isinstance(codes,list) or any(not isinstance(code,str) or code not in LIMITATIONS for code in codes) or len(set(codes)) != len(codes): raise ValueError('Unknown or duplicate limitation')
-    gaps = [RequestedDetailGap.model_validate(g) for g in candidate['requested_detail_gaps']]
-    gap_messages(SimpleNamespace(requested_detail_gaps=gaps), {'user_question':turn.user_text})
-    codes = list(codes)
-    if gaps and 'missing_requested_details' not in codes:
-        if not current: raise ValueError('Gaps require missing-details limitation')
-        # Validated exact selections already establish this closed display flag.
-        codes.append('missing_requested_details')
     bindings = graph_bindings(segments, receipt, execution, auth)
     citation_map = t.PlanWorldGraphCitationMapV2(context_receipt_sha256=receipt.context_receipt_sha256, entries=entries) if entries else None
     if entries:
@@ -633,9 +614,9 @@ def normalize(candidate, turn, producer, support):
             producing_provider_attempt_id=producer, claim_graph_event_ids=bindings, source_scope=execution.policy.source_read_scope)
         partial = derived != 'graph_grounded'
     else: partial = getattr(support, 'source_partial', False)
-    if partial and 'partial_retrieval' not in codes: codes.append('partial_retrieval')
-    segments += [_limit(code) for code in codes] + [_limit('missing_requested_details', g.question_phrase) for g in gaps]
-    if not segments: segments = [_limit('missing_requested_details')]
+    segments += project_surface_limitations(candidate['limitations'], candidate['requested_detail_gaps'],
+        user_question=turn.user_text, derive_missing=current, host_partial=partial,
+        empty_answer=not segments, strict_gap_array=False)
     c = (t.SurfaceEvidenceCompletionV7 if candidate['schema'] == ASSERTION_POLICY else t.SurfaceEvidenceCompletionV6 if candidate['schema'] == STATEMENT_POLICY else t.SurfaceEvidenceCompletionV5 if candidate['schema'] in {ASSERTION_POLICY, BODY_POLICY, STATEMENT_POLICY} else t.SurfaceEvidenceCompletionV4 if candidate['schema'] == PLAN_POLICY else t.SurfaceEvidenceCompletionV3 if native else t.SurfaceEvidenceCompletionV2 if current else t.SurfaceEvidenceCompletionV1)(surface_id=turn.provenance.surface_id, context_receipt_sha256=receipt.context_receipt_sha256,
         answer_context_status=status_for(segments), answer_segments=segments, citation_map=citation_map, source_citations=citations,
         **({'native_source_citations':native_citations} if native else {}),

@@ -60,12 +60,12 @@ it('does not refetch conversation sidecars for turn lifecycle changes, but refre
     expect(media.listPreparedImages).toHaveBeenCalledTimes(3);
   });
 });
-it('keeps generated prose out of conversation and exposes the page-owned review', async () => {
+it('shows generated prose inline and exposes the existing page-owned review', async () => {
   const hook = renderHook(() => useBuildCompose({worldId:'world',pageDocumentId:'doc',history,bridge,enabled:true,onHistory:vi.fn()}));
   await act(async()=>{await hook.result.current.submit('Create a table');});
   render(<>{hook.result.current.items.map(item=>item.element)}</>);
   expect(screen.getByRole('button',{name:'Review suggestion on page'})).toBeInTheDocument();
-  expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  expect(screen.getByRole('table')).toBeInTheDocument();
   expect(hook.result.current.pageElement).not.toBeNull();
   expect(api.composeBuildProposal).toHaveBeenCalledTimes(1);
 });
@@ -336,4 +336,14 @@ it('carries the frozen page-end offer through ordinary chat preparation without 
  expect(prepared?.capability?.basis).toEqual(captured.basis);
  expect(prepared?.capability?.basis.caret).toBe(1);
  expect(prepared?.draftContext?.snapshot.draft_markdown).toBe('# Edge');
+});
+
+it('keeps a generated suggestion readable after insertion without offering another insertion',async()=>{
+ vi.mocked(api.listBuildProposals).mockResolvedValue([{...receipt(),inserted_in_draft:true}]);
+ const hook=renderHook(()=>useBuildCompose({worldId:'world',pageDocumentId:'doc',history,bridge,enabled:true,onHistory:vi.fn()}));
+ await waitFor(()=>expect(hook.result.current.items).toHaveLength(1));
+ render(<>{hook.result.current.items.map(item=>item.element)}</>);
+ expect(screen.getByRole('table')).toHaveTextContent('Nella');expect(screen.getByText('Inserted into the draft.')).toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Review suggestion on page'})).not.toBeInTheDocument();
+ expect(bridge.insertProposal).not.toHaveBeenCalled();expect(api.composeBuildProposal).not.toHaveBeenCalled();
 });

@@ -205,14 +205,19 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
       ? <BuildPageProposal key={`${scope}:${active.action_id}`} record={active} bridge={bridge} sourceKey={JSON.stringify([worldId,pageDocumentId])}
           requestKey={selected?.generation??0} inspector={<BuildPrompt record={active}/>} onStatus={text=>setReviewStatus(previous=>({...previous,[active.action_id]:text}))}
           onComplete={state=>{if(state==='applied')setRecords(previous=>previous.scope===scope?{...previous,values:previous.values.map(value=>value.action_id===active.action_id?{...value,inserted_in_draft:true}:value)}:previous);}}/>:null,
-    items: [...values.map(record=>({key:record.action_id,afterSequence:Math.max(record.after_turn_sequence,
+    items: [...values.map(record=>({key:record.action_id,originTurnId:record.proposal&&record.reservation.basis.editor_sha256?record.reservation.origin?.durable_turn_id:undefined,
+      details:record.proposal&&record.reservation.origin?<SavedProposalHistory record={record}/>:null,afterSequence:Math.max(record.after_turn_sequence,
       history?.turns.find(turn=>turn.turn_id===record.reservation.origin?.durable_turn_id)?.sequence??record.after_turn_sequence),
-      element:record.proposal&&bridge&&record.reservation.basis.editor_sha256&&record.reservation.basis.document_id===pageDocumentId&&!record.inserted_in_draft&&reviewStatus[record.action_id]!=='Suggestion discarded'
-        ? <button type="button" key={record.action_id} onClick={()=>{setOpened(previous=>({action:record.action_id,documentId:record.reservation.basis.document_id,generation:(previous?.generation??0)+1}));onReviewOnPage?.();}}>
-            {reviewStatus[record.action_id]??(record.inserted_in_draft?'Kept on page':'Review suggestion on page')}
-          </button>
+      element:record.proposal&&record.reservation.basis.editor_sha256
+        ? <section className="build-compose-proposal" aria-label="Page suggestion">
+            <p className="world-plan-agent-conversation__context">Generated suggestion</p>
+            <WorldPlanAgentAnswer answer={record.proposal.replacement_markdown}/>
+            {bridge&&record.reservation.basis.editor_sha256&&record.reservation.basis.document_id===pageDocumentId&&!record.inserted_in_draft&&reviewStatus[record.action_id]!=='Suggestion discarded'?<button type="button" onClick={()=>{setOpened(previous=>({action:record.action_id,documentId:record.reservation.basis.document_id,generation:(previous?.generation??0)+1}));onReviewOnPage?.();}}>
+              {reviewStatus[record.action_id]??'Review suggestion on page'}
+            </button>:<><p>{record.inserted_in_draft?'Inserted into the draft.':reviewStatus[record.action_id]==='Suggestion discarded'?'Suggestion discarded.':'Open its original page to review this suggestion.'}</p>{!record.reservation.origin&&<EarlierBuildProposal record={record} label={reviewStatus[record.action_id]}/>}</>}
+          </section>
         : <EarlierBuildProposal key={record.action_id} record={record} label={reviewStatus[record.action_id]}/>})),
-      ...(imageRecords.scope===scope?imageRecords.values.map(record=>({key:record.action_id,afterSequence:Math.max(record.after_turn_sequence,history?.turns.find(turn=>turn.turn_id===record.reservation.origin?.durable_turn_id)?.sequence??record.after_turn_sequence),
+      ...(imageRecords.scope===scope?imageRecords.values.map(record=>({key:record.action_id,originTurnId:undefined,details:null,afterSequence:Math.max(record.after_turn_sequence,history?.turns.find(turn=>turn.turn_id===record.reservation.origin?.durable_turn_id)?.sequence??record.after_turn_sequence),
         element:<PreparedBuildImage key={record.action_id} record={record} bridge={bridge}
           active={history?.active_conversation_id===record.reservation.conversation_id&&history.pointer_revision===record.reservation.expected_pointer_revision}/>})):[])]};
 }

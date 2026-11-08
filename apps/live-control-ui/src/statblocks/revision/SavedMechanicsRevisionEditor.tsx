@@ -7,6 +7,7 @@ import {MechanicsTourObservation,GeneratedMechanicsTourObservation,sameGenerated
 import {useEffect,useRef,useState} from 'react';
 import {listSavedMechanicsVersions,openSavedMechanicsVersion,saveMechanicsRevision,recoverMechanicsRevision,inspectMechanicsRevision,validateStatblockDefinition} from '../../api/liveApi';
 import {StatblockDefinitionEditor} from '../editor/StatblockDefinitionEditor';
+import {StatblockRenderer} from '../render/StatblockRenderer';
 import {createEditorStateFromOutput,fingerprintDefinition,type StatblockEditorState} from '../editor/statblockEditorState';
 import type {ValidationIssueV1} from '../../contracts/dungeonbuddy-statblocks-v1/client';
 import type {SavedMechanicsVersionList,OpenSavedMechanicsVersion,RevisionSaveOutcome} from './savedMechanicsRevisionTypes';
@@ -40,6 +41,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
   const [editor,setEditor]=useState<StatblockEditorState|null>(null);
   const [summary,setSummary]=useState('Manual mechanics revision');
   const [pending,setPending]=useState<string|null>(null);
+  const [successorToOpen,setSuccessorToOpen]=useState<string|null>(null);
   const [issues,setIssues]=useState<ValidationIssueV1[]>([]);
   const [validated,setValidated]=useState<string|null>(null);
   const [busy,setBusy]=useState(false),[message,setMessage]=useState('');
@@ -79,6 +81,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
       }
       localStorage.setItem(`${scope}:selected`,selected);
       setOpened(exact);setEditor(state);setSummary(changeSummary);setValidated(null);
+      setSuccessorToOpen(current=>current===selected?null:current);
       setMessage(operation?'A Save needs its outcome checked. Recover it before making another version.':'');
       return exact;
     } catch(error){if(token===epoch.current)setMessage(error instanceof Error?error.message:String(error));}
@@ -104,7 +107,10 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
       clearPending(expectedId);
       if(outcome.state==='committed'&&outcome.result){
         if(opened)localStorage.removeItem(sourceKey(opened.locator.revision_id));
-        const exact=await load(outcome.result.revision_id);if(epoch.current===token+1){
+        // This is a retained selection hint from a committed outcome, not Save authority.
+        localStorage.setItem(`${scope}:selected`,outcome.result.revision_id);
+        setSuccessorToOpen(outcome.result.revision_id);setValidated(null);
+        const exact=await load(outcome.result.revision_id);if(epoch.current===token+1&&exact){
           setMessage('New mechanics version saved. Encounters and World associations are unchanged.');
           if(exact&&sameMechanicsLocator(exact.locator,outcome.result)&&generatedAtDispatch&&sameGeneratedMechanicsScope(generatedAtDispatch,latestGeneratedScope.current))setGeneratedAcknowledged({scope:generatedAtDispatch,dispatchScope:tourDispatch,operation:outcome});
           if(exact&&sameMechanicsLocator(exact.locator,outcome.result)&&tourAtDispatch&&sameEncounterScope(tourAtDispatch,latestTourScope.current))setTourAcknowledged({dispatchScope:tourDispatch,scope:tourAtDispatch,draftId,operation:outcome});
@@ -113,7 +119,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
     }else setMessage('Save outcome is unknown. Recover this Save; do not start another version.');
   }
   async function save() {
-    if(!writer.recoverable||!opened||!editor||pending||validated!==fingerprintDefinition(editor.workingCopy))return;
+    if(!writer.recoverable||!opened||!editor||pending||successorToOpen||validated!==fingerprintDefinition(editor.workingCopy))return;
     const retained=localStorage.getItem(`${scope}:pending`);if(retained){setPending(retained);setMessage('Recover the existing Save before making another version.');return;}
     const token=++epoch.current,id=crypto.randomUUID(),tourAtDispatch=tourScope,tourDispatch=guidance?.captureScope()??null,generatedAtDispatch=generatedScope;setBusy(true);setMessage('Saving new mechanics version…');
     generatedDispatch.current={operationId:id,scope:generatedAtDispatch,dispatchScope:tourDispatch};
@@ -150,21 +156,29 @@ export function SavedMechanicsRevisionEditor({worldId,draftId}:{worldId:string;d
     <h3>Saved versions</h3>
     <p>Edit saved mechanics and create a new version. Choosing it for a fight is a separate action.</p>
     <button type="button" data-guided-control="mechanics" disabled={busy} onClick={()=>void load()}>Open saved mechanics</button>
-    {history&&<label>Mechanics version <select aria-label="Saved mechanics version" disabled={busy||!!pending} value={opened?.locator.revision_id??''} onChange={event=>void load(event.target.value)}>
+    {history&&<label>Mechanics version <select aria-label="Saved mechanics version" disabled={busy||!!pending||!!successorToOpen} value={opened?.locator.revision_id??''} onChange={event=>void load(event.target.value)}>
       <option value={history.original.revision_id}>Original saved mechanics</option>
       {history.operations.filter(op=>op.state==='committed'&&op.result).map((op,index)=><option key={op.operation_id} value={op.result!.revision_id}>Version {index+2} · {op.change_summary}</option>)}
     </select></label>}
     {history?.next_offset!==null&&history?.next_offset!==undefined&&<button type="button" disabled={busy} onClick={()=>void load(opened?.locator.revision_id,history.next_offset!)}>More saved versions</button>}
     {opened&&editor&&<>
-      <fieldset disabled={busy||!!pending}>
+      <section aria-label="Saved statblock">
+        <p>Saved version. Local edits appear in the fields below until you save a new version.</p>
+        <StatblockRenderer revision={opened.resource} mode="full" chrome="campaign"/>
+      </section>
+      <fieldset disabled={busy||!!pending||!!successorToOpen}>
         <StatblockDefinitionEditor output={opened.resource.definition} editorState={editor}
           recoveryHint={writer.recoverable?"Unsaved edits are retained in this browser tab for this creature and source version.":"Browser recovery is unavailable. Keep this editor open."}
           onEditorStateChange={next=>{setEditor(next);setValidated(null);setIssues([]);try{remember(next);}catch{setMessage('Browser recovery storage is unavailable. Keep this editor open.');}}}/>
         <label>Change summary <input value={summary} onChange={event=>{setSummary(event.target.value);try{remember(editor,event.target.value);}catch{setMessage('Browser recovery storage is unavailable.');}}}/></label>
       </fieldset>
-      <button type="button" disabled={busy||!!pending} onClick={()=>{try{localStorage.removeItem(sourceKey(opened.locator.revision_id));setEditor(createEditorStateFromOutput(opened.resource.definition));setValidated(null);setIssues([]);setMessage('Local edits reverted. Saved versions are unchanged.');}catch{setMessage('Could not clear local recovery; edits remain retained.');}}}>Revert local edits</button>
-      <button type="button" disabled={busy||!!pending} onClick={()=>void validate()}>Validate new version</button>
-      <button type="button" disabled={!writer.recoverable||busy||!!pending||!summary.trim()||validated!==fingerprintDefinition(editor.workingCopy)} onClick={()=>void save()}>Save new version</button>
+      <button type="button" disabled={busy||!!pending||!!successorToOpen} onClick={()=>{try{localStorage.removeItem(sourceKey(opened.locator.revision_id));setEditor(createEditorStateFromOutput(opened.resource.definition));setValidated(null);setIssues([]);setMessage('Local edits reverted. Saved versions are unchanged.');}catch{setMessage('Could not clear local recovery; edits remain retained.');}}}>Revert local edits</button>
+      <button type="button" disabled={busy||!!pending||!!successorToOpen} onClick={()=>void validate()}>Validate new version</button>
+      <button type="button" disabled={!writer.recoverable||busy||!!pending||!!successorToOpen||!summary.trim()||validated!==fingerprintDefinition(editor.workingCopy)} onClick={()=>void save()}>Save new version</button>
+    </>}
+    {successorToOpen&&<>
+      <p role="status">A new version was saved but has not opened. The previous selected version is still displayed; editing is paused.</p>
+      <button type="button" disabled={busy} onClick={()=>void load(successorToOpen)}>Open saved successor</button>
     </>}
     {pending&&<button type="button" disabled={busy} onClick={()=>void recover()}>Recover Save</button>}
     {issues.length>0&&<ul aria-label="Mechanics validation issues">{issues.map((issue,index)=><li key={index}>{issue.message} <small>{issue.field_path}</small></li>)}</ul>}

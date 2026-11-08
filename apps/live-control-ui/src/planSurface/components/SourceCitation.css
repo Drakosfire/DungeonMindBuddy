@@ -19,4 +19,6 @@
   border-radius: .5rem; overflow-wrap: anywhere;
 }
 .source-citation-evidence__panel > header { display: flex; align-items: start; justify-content: space-between; gap: .75rem; }
-.source-citation-evidence__panel > header > strong { min-width: 0; }
+/* The title yields space; the close action remains readable at narrow widths. */
+.source-citation-evidence__panel > header > strong { flex: 1 1 auto; min-inline-size: 0; overflow-wrap: anywhere; }
+.source-citation-evidence__panel > header > button { flex: 0 0 auto; white-space: nowrap; }

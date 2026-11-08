@@ -1,6 +1,6 @@
 import {WorldGuidedTour} from './guidedTour/WorldGuidedTour';
 import { DocumentReferenceSurfaceHost } from './documentReference/DocumentReferenceSurfaceHost';
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 
 import { getEvents, getJobs, getPlanView, getSurface } from "./api/liveApi";
 import type {
@@ -18,7 +18,8 @@ import { WorldAgentConversation, WorldAgentConversationProvider } from "./agentI
 import { AskPluginSlotProvider } from "./agentInteraction/AskPluginSlot";
 import { AgentInteractionChrome } from "./agentInteraction/AgentInteractionChrome";
 import { IndexAgentConversation } from "./agentInteraction/IndexAgentConversation";
-import { useAgentInteraction } from "./agentInteraction/useAgentInteraction";
+import { BlankSurface } from "./blankSurface/BlankSurface";
+import { LANDING_SURFACE } from "./blankSurface/blankSurface";
 import { usePublishSurfaceInteraction } from "./agentInteraction/usePublishSurfaceInteraction";
 import {
   ROUTE_COMPATIBILITY_PUBLICATIONS,
@@ -31,7 +32,6 @@ import { AppChrome, type AppChromeToolsGeneration } from "./chrome/AppChrome";
 import {
   appRouteFromLocationSnapshot,
   getAppLocationSnapshot,
-  interceptPrimaryNavigationClick,
   subscribeAppLocation,
 } from "./chrome/appNavigation";
 import { WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID } from "./chrome/appChromeConfig";
@@ -54,7 +54,6 @@ import {
   useSelectedWorld,
 } from "./selectedWorld/SelectedWorldContext";
 import { WorldSelector } from "./selectedWorld/WorldSelector";
-import { worldScopedSurfaceHref } from "./selectedWorld/worldSelectionNavigation";
 
 const SurfaceShell = deferredComponent(() => import("./surface/SurfaceShell").then(module => ({ default: module.SurfaceShell })), "surface");
 const PlanSurfacePage = deferredComponent(() => import("./planSurface/PlanSurfacePage").then(module => ({ default: module.PlanSurfacePage })), "Plan");
@@ -76,29 +75,6 @@ function subscribeSelectedWorldLocation(onChange: () => void): () => void {
   };
 }
 
-function IndexSurfacePublisher() {
-  const { publishSurfaceContext } = useAgentInteraction();
-  const context = useMemo(
-    () => ({
-      surfaceId: "index",
-      label: "Command Board",
-      campaignId: null,
-      documentId: null,
-      sessionNumber: null,
-      ambientSummary: "Launcher · pick Plan, Play, Ingest, Build, or Combat",
-      sourceEnvelope: null,
-    }),
-    [],
-  );
-  useEffect(() => {
-    // Index conversation owns its World/no-owner local thread namespace.
-    // Displaying Index context does not allocate a synthetic campaign scope.
-    publishSurfaceContext({ ...context, updatedAt: new Date().toISOString() });
-  }, [context, publishSurfaceContext]);
-  usePublishSurfaceInteraction(ROUTE_COMPATIBILITY_PUBLICATIONS.index);
-  return null;
-}
-
 function SurfaceRouteLeasePublisher() {
   usePublishSurfaceInteraction(ROUTE_COMPATIBILITY_PUBLICATIONS.surface);
   return null;
@@ -107,52 +83,6 @@ function SurfaceRouteLeasePublisher() {
 function TiptapSpikeRouteLeasePublisher() {
   usePublishSurfaceInteraction(ROUTE_COMPATIBILITY_PUBLICATIONS.tiptapCalloutSpike);
   return null;
-}
-
-function MirewardIndex() {
-  const selectedWorld = useSelectedWorld();
-  const worldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
-  return (
-    <main className="launcher-root">
-      <IndexSurfacePublisher />
-      <IndexAgentConversation />
-      <header className="launcher-header">
-        <h1>Command Board</h1>
-        <p>Core surfaces for prep, live play, memory review, worldbuilding, and combat.</p>
-      </header>
-
-      <section className="launcher-grid" aria-label="Main surfaces">
-        <a className="launcher-card primary" href={worldScopedSurfaceHref("/plan", worldId)} onClick={interceptPrimaryNavigationClick}>
-          <span className="launcher-kicker">Plan</span>
-          <strong>Prep surface</strong>
-          <span>Session prep canvas with reference chips and planning tools.</span>
-        </a>
-        <a className="launcher-card" href={worldScopedSurfaceHref("/play", worldId)} onClick={interceptPrimaryNavigationClick}>
-          <span className="launcher-kicker">Play</span>
-          <strong>Runbook table deck</strong>
-          <span>Open one exact durable Run and play its bound Runbook.</span>
-        </a>
-        <a className="launcher-card" href={worldScopedSurfaceHref("/ingest", worldId)} onClick={interceptPrimaryNavigationClick}>
-          <span className="launcher-kicker">Ingest</span>
-          <strong>Memory review</strong>
-          <span>Graph Review workbench for reviewing and committing campaign memory.</span>
-        </a>
-        <a className="launcher-card" href={worldScopedSurfaceHref("/build", worldId)} onClick={interceptPrimaryNavigationClick}>
-          <span className="launcher-kicker">Build</span>
-          <strong>Worldbuilding source</strong>
-          <span>Create and edit worldbuilding workspace documents.</span>
-        </a>
-        <a className="launcher-card" href={worldScopedSurfaceHref("/combat", worldId)} onClick={interceptPrimaryNavigationClick}>
-          <span className="launcher-kicker">Combat Tracker</span>
-          <strong>Encounters</strong>
-          <span>
-            Create and reopen World-owned encounters. Track turns, HP and notes
-            with explicit saves.
-          </span>
-        </a>
-      </section>
-    </main>
-  );
 }
 
 function TiptapSpikeRoute() {
@@ -336,7 +266,9 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
   } else if (route === "index") {
     content = (
       <AppChrome activeRoute="index">
-        <MirewardIndex />
+        <BlankSurface descriptor={LANDING_SURFACE}>
+          <IndexAgentConversation />
+        </BlankSurface>
       </AppChrome>
     );
   } else if (route === "tiptap-callout-spike") {
@@ -370,6 +302,7 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
           <WorldGuidedTour worldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null} worldName={selectedWorld.kind === "managed" ? selectedWorld.name : undefined}>
           <WorldGraphLensProvider
             key={selectedWorld.kind === "managed" ? selectedWorld.worldId : "legacy"}
+            loadFocusOptions={pageAdmitted && route !== "index"}
             planCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}
             managedWorldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null}
           >

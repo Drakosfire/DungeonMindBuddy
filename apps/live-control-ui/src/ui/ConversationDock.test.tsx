@@ -297,7 +297,7 @@ it("can omit the repeated visual heading while retaining conversation accessibil
   expect(screen.getByRole("button", { name: "Expand conversation fullscreen" })).toBeInTheDocument();
 });
 
-it("keeps context and diagnostics behind one icon menu without losing draft state",async()=>{
+it("keeps context in one icon menu without a second reply-details gate or losing draft state",async()=>{
   const user=userEvent.setup();
   render(<ConversationDock reader="Page" showTitle={false} initialExpanded fullscreenEnabled contextLabel="context" contextDetails={<input aria-label="Context filter"/>} messages="Reply" composer={<textarea aria-label="Draft" defaultValue="Keep this"/>} headerActions={<button aria-label="New conversation">+</button>} menuActions={<button>Explore Graph</button>}/>);
   expect(screen.queryByRole("button",{name:"Show context"})).toBeNull();
@@ -305,8 +305,7 @@ it("keeps context and diagnostics behind one icon menu without losing draft stat
   const menu=screen.getByTitle("Conversation options");
   expect(menu).not.toHaveTextContent("Conversation options");
   await user.click(menu);
-  await user.click(screen.getByRole("checkbox",{name:"Technical details"}));
-  expect(screen.getByRole("log").closest(".conversation-dock")).toHaveAttribute("data-diagnostics-visible","true");
+  expect(screen.queryByRole("checkbox",{name:"Technical details"})).not.toBeInTheDocument();
   await user.click(screen.getByRole("button",{name:"Show context"}));
   expect(screen.getByLabelText("Context filter")).toBeVisible();
   expect(screen.getByLabelText("Draft")).toHaveValue("Keep this");

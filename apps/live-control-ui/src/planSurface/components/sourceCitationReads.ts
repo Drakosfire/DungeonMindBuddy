@@ -93,7 +93,7 @@ export function nativeChoices(completion:Partial<Pick<SurfaceEvidenceCompletionV
 }
 
 /** Open only the section IDs accepted in the native completion, never today's page. */
-export function nativeSavedChoices(completion:import('../../api/types').SurfaceNativeCompletionV1,
+export function nativeSavedChoices(completion:{surface_id:string;answer_segments:{kind:string;text:string;content_sha256?:string}[];saved_source_citations:SurfaceNativeCompletionV1['saved_source_citations']},
   basis:import('../../api/types').WorldBuildGraphReceiptV1['source_basis'],worldId:string,turnId:string,segmentIndex:number):CitationChoice[] {
   if(basis.world_id!==worldId||completion.surface_id!=='build')return [];
   return completion.saved_source_citations.filter(c=>c.segment_index===segmentIndex).flatMap(c=>c.section_event_ids.map(id=>({
