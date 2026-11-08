@@ -1,8 +1,9 @@
 """Explicit manual revision Save, producer CAS and durable exact-key recovery."""
 from datetime import UTC,datetime
-from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import ValidationStatus,ValidationSeverity,AssetBindingV1Input
+from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import ValidationStatus,ValidationSeverity,AssetBindingV1Input,AssetRefV1,ProviderKind,Role
 from uuid import UUID
 from application_state.errors import ApplicationStateConflictError,ApplicationStateIntegrityError,ApplicationStateUnavailableError
+from application_state import media
 from application_state.mechanics_revisions import service as operations
 from application_state.mechanics_revisions.types import RevisionOperation,digest
 from application_state.world_mechanics.types import MechanicsLocator
@@ -81,11 +82,14 @@ def _resume(record,client):
     try:
         result=client.append_revision(record.base.statblock_id,record.request_body)
         verify_exact_revision_mechanics_integrity(result)
+        accepted_through=(result.provenance or {}).get('accepted_through')
         if (result.statblock_id!=record.base.statblock_id or getattr(result.parent_revision_id,"root",result.parent_revision_id)!=record.base.revision_id
             or result.definition_digest!=record.definition_digest
             or result.validation_receipt.status==ValidationStatus.invalid
             or any(issue.severity==ValidationSeverity.error for issue in result.validation_receipt.issues or [])
-            or (result.provenance or {}).get('accepted_through',{}).get('buddy_manual_revision')!=str(record.operation_id)
+            or not isinstance(accepted_through,dict)
+            or accepted_through.get('buddy_manual_revision')!=str(record.operation_id)
+            or accepted_through!=record.request_body['accepted_through']
             or result.definition.ruleset.model_dump(mode='json')!=record.request_body['definition']['ruleset']
             or [b.model_dump(mode='json',exclude_none=True) for b in result.asset_bindings or []]
                 != [AssetBindingV1Input.model_validate(b).model_dump(mode='json',exclude_none=True) for b in record.request_body['asset_bindings']]):
@@ -102,8 +106,28 @@ def _resume(record,client):
         return record
 
 
-def save(root,*,draft_id,request,client=None):
-    intent=request.model_dump(mode='json')
+def _asset_bindings(exact,asset_id,owner):
+    bindings=list(exact.asset_bindings or [])
+    if asset_id is None:
+        return [binding.model_dump(mode='json') for binding in bindings]
+    # Media owns identity, owner access and verified storage receipts. Selection
+    # consumes a completed explicit media Save; it never uploads or accepts URLs.
+    row=media.get_asset(asset_id,owner)
+    if row['state']!='ready':
+        raise ApplicationStateConflictError('Save the selected image to the media library before attaching it')
+    receipt=row['receipt']
+    if receipt['backend']!='cloudflare_images' or receipt['visibility']!='public':
+        raise ApplicationStateConflictError('Select an image saved for public Cloudflare Images delivery')
+    portrait=AssetBindingV1Input(role=Role.portrait,asset=AssetRefV1(
+        asset_id=receipt['object_id'],provider_kind=ProviderKind.cloudflare_images,url=receipt['delivery_url'],
+        created_at=row['created_at'],mime_type=row['mime_type'],width=row['width'],height=row['height'],variants=[]))
+    kept=[binding for binding in bindings if not (binding.role==Role.portrait and binding.phase_key is None)]
+    return [binding.model_dump(mode='json') for binding in [*kept,portrait]]
+
+
+def save(root,*,draft_id,request,client=None,media_owner=None):
+    # No selection means the existing Save intent, not a new null-valued edit.
+    intent=request.model_dump(mode='json',exclude={'portrait_asset_id'} if request.portrait_asset_id is None else set())
     existing=operations.read(world_id=request.world_id,draft_id=draft_id,operation_id=request.operation_id)
     if existing and existing.input_digest!=digest(intent):
         raise ApplicationStateConflictError('Save key already belongs to different edits; recover its original outcome')
@@ -119,6 +143,7 @@ def save(root,*,draft_id,request,client=None):
         exact=_exact(active,base)
         if request.definition.ruleset.model_dump(mode='json')!=exact.definition.ruleset.model_dump(mode='json'):
             raise ApplicationStateConflictError('Manual revision cannot change the creature ruleset')
+        bindings=_asset_bindings(exact,request.portrait_asset_id,media_owner)
         validation=validate_definition(definition=request.definition,client=active)
         if validation.outcome!='success' or validation.validation_receipt is None:
             raise ApplicationStateUnavailableError('Mechanics validation is unavailable. Your edits are retained; try again when it is available.')
@@ -129,9 +154,12 @@ def save(root,*,draft_id,request,client=None):
         if validation.definition_digest!=expected or validation.validation_receipt.definition_digest!=expected:
             raise ApplicationStateIntegrityError('Validation receipt differs from the edited definition')
         from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import AppendRevisionRequestV1
+        accepted_through={'buddy_manual_revision':str(request.operation_id)}
+        if request.portrait_asset_id is not None:
+            accepted_through['buddy_portrait_asset_id']=str(request.portrait_asset_id)
         body=AppendRevisionRequestV1(idempotency_key=str(request.operation_id),parent_revision_id=base.revision_id,
             definition=request.definition,change_summary=request.change_summary,
-            asset_bindings=[b.model_dump(mode='json') for b in exact.asset_bindings or []],accepted_through={'buddy_manual_revision':str(request.operation_id)})
+            asset_bindings=bindings,accepted_through=accepted_through)
         payload=body.model_dump(mode='json',by_alias=True,exclude_none=False)
         now=datetime.now(UTC)
         record=RevisionOperation(operation_id=request.operation_id,world_id=request.world_id,draft_id=UUID(draft.draft_id),

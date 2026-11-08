@@ -67,9 +67,11 @@ def prepared(application_state_dsn,monkeypatch,tmp_path):
     monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(tmp_path))
     from apps.live_control_server.routes import world_mechanics_associations as routes
     monkeypatch.setattr(routes,'resolve_managed_world_binding',lambda world:binding)
+    monkeypatch.setenv('DMB_AUTH_MODE','local_operator')
+    monkeypatch.setenv('DMB_DEPLOYMENT_ENVIRONMENT','development')
     app=create_app();app.dependency_overrides[native_graph_gm_dependency]=lambda:NativeGraphPrincipal('gm-test','gm','local_operator')
     body=dict(request_id=str(uuid4()),draft_id=draft.draft_id,expected_draft_version=draft.version,target=target,expected_version=0)
-    return SimpleNamespace(client=TestClient(app),app=app,body=body,dms=dms,view=view,binding=binding,root=tmp_path,draft=draft,revision=revision)
+    return SimpleNamespace(client=TestClient(app,client=('127.0.0.1',50000)),app=app,body=body,dms=dms,view=view,binding=binding,root=tmp_path,draft=draft,revision=revision)
 
 
 def post(p,body=None):return p.client.post('/api/live/world-mechanics/associations?world_id=elderwyld',json=body or p.body)
@@ -127,9 +129,9 @@ def test_http_authentication_required_and_request_forbids_mechanics_injection(pr
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE','local_operator')
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT','development')
     monkeypatch.setenv('DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN','a'*40)
-    assert post(p).status_code == 403
-    local=TestClient(p.app,client=('127.0.0.1',50000))
-    assert local.post('/api/live/world-mechanics/associations?world_id=elderwyld',json=p.body).status_code==401
+    assert post(p).status_code == 401
+    external=TestClient(p.app,client=('198.51.100.1',50000))
+    assert external.post('/api/live/world-mechanics/associations?world_id=elderwyld',json=p.body).status_code==403
     assert state.list_current(world_id='elderwyld')==[]
 
 
