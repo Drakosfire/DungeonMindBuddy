@@ -38,3 +38,28 @@ export interface AssociateWorldMechanicsResponse {
   association: WorldMechanicsAssociation;
   replayed: boolean;
 }
+
+/** Consumer selection witnesses from one Core-admitted World view. */
+export interface WorldCreatureCatalog {
+  schema: 'dmb_native_world_creatures_v1';
+  managed_world_id: string;
+  native_world_id: string;
+  binding_version: number;
+  revision_id: string;
+  completeness: 'complete' | 'partial';
+  targets: WorldMechanicsTarget[];
+}
+export function verifyWorldCreatureCatalog(view: WorldCreatureCatalog, worldId: string): void {
+  if (view?.schema !== 'dmb_native_world_creatures_v1' || view.managed_world_id !== worldId
+    || typeof view.native_world_id !== 'string' || !view.native_world_id
+    || !Number.isSafeInteger(view.binding_version) || view.binding_version < 1
+    || typeof view.revision_id !== 'string' || !view.revision_id
+    || !['complete', 'partial'].includes(view.completeness) || !Array.isArray(view.targets)
+    || new Set(view.targets.map(n => n?.node_id)).size !== view.targets.length
+    || view.targets.some(n => !n || n.managed_world_id !== worldId || n.native_world_id !== view.native_world_id
+      || n.binding_version !== view.binding_version || n.graph_revision_id !== view.revision_id
+      || typeof n.node_id !== 'string' || !n.node_id || typeof n.label !== 'string' || !n.label
+      || n.kind !== 'npc' || n.role !== '' || n.campaign_scope !== null && (typeof n.campaign_scope !== 'string' || !n.campaign_scope))) {
+    throw new TypeError('Native creature selection did not match the selected World.');
+  }
+}

@@ -8,7 +8,7 @@ from apps.live_control_server.config import ArtifactDataRootError, artifact_data
 from application_state.world_mechanics import service as state
 from application_state.world_mechanics.types import (
     AcceptedMechanicsProof, AssociateWorldMechanicsRequest,
-    AssociateWorldMechanicsResponse, WorldMechanicsTarget,
+    AssociateWorldMechanicsResponse,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.client import (
     build_statblock_v1_client, verify_exact_revision_mechanics_integrity,
@@ -17,10 +17,7 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.definition_dig
 from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
     locator_from_exact_revision, same_mechanics_locator,
 )
-from apps.live_control_server.services.managed_world_graph_projection import (
-    ManagedWorldGraphProjectionRequest, project_managed_world_graph,
-    resolve_managed_world_binding,
-)
+from apps.live_control_server.services import world_creature_selection as creatures
 from apps.live_control_server.services.statblock_acceptance_reconciliation import list_acceptance_operations_for_draft
 from apps.live_control_server.services.threat_draft_store import get_threat_draft, locked_threat_draft
 
@@ -69,25 +66,8 @@ def associate(*, root: Path | None = None, request: AssociateWorldMechanicsReque
         if owned:
             exact_client.close()
     target = request.target
-    view = project_managed_world_graph(ManagedWorldGraphProjectionRequest(
-        schema="dmb_managed_world_graph_projection_request_v1", managed_world_id=target.managed_world_id,
-    ))
-    node = next((item for item in view.projection.nodes if item.node_id == target.node_id), None)
-    if (node is None or not view.projection.snapshot.is_head
-        or view.projection.snapshot.revision_id != target.graph_revision_id):
-        raise ApplicationStateConflictError("World contents changed; load creatures and confirm again")
-    verified = WorldMechanicsTarget(
-        managed_world_id=view.managed_world_id, native_world_id=view.native_world_id,
-        binding_version=view.binding_version, graph_revision_id=view.projection.snapshot.revision_id,
-        node_id=node.node_id, label=node.label, kind=node.kind, role=node.role,
-        campaign_scope=node.campaign_scope,
-    )
-    eligible = {"npc", "threat", "creature", "monster"}
-    if verified != target or not ({node.kind.casefold(), node.role.casefold()} & eligible):
-        raise ApplicationStateConflictError("Selected creature identity is not valid in this World")
-    binding = resolve_managed_world_binding(target.managed_world_id)
-    if (binding.native_world_id, binding.binding_version) != (target.native_world_id, target.binding_version):
-        raise ApplicationStateConflictError("World mapping changed; load creatures and confirm again")
+    view = creatures.catalog(target.managed_world_id)
+    creatures.require_target(target, view, head=True)
     with locked_threat_draft(root, draft.draft_id) as current:
         if current != draft:
             raise ApplicationStateConflictError("Saved mechanics draft changed during verification; reopen it")

@@ -1,3 +1,5 @@
+SETTLED: #2238 merged66a89f06ca3c43d876fce516cee07b0fd4463522; delivered UI91d9eb62e with independent source/integration/recipe review, all7CI and served browser continuity proof. API8008/schema131 and retained state preserved. Native association and conversation projection remain successor scope.
+
 # STATBLOCK — one saved editor session across hosts
 
 ACTIVE. PRIME designs and owns one serial UI slice on

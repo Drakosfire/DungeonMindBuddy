@@ -7,12 +7,10 @@ import type { AssociatedCombatMechanicsSnapshot as CombatMechanicsSnapshot } fro
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import * as api from '../api/liveApi';
 import { CombatEncounterAssembly } from './CombatEncounterAssembly';
-import type { ManagedWorldGraphProjectionResponse } from '../api/types';
-const world = {managedWorldId:'elderwyld', nativeWorldId:'native-world', bindingVersion:2,
-  projection:{snapshot:{worldId:'native-world',revisionId:'revision-a',scopeMode:'world'},nodes:[
-    {nodeId:'npc-a',label:'World Scout',kind:'npc',role:'npc',aliases:['Scout']},
-    {nodeId:'location-a',label:'Scout Camp',kind:'location',role:'location',aliases:[]},
-  ]}} as ManagedWorldGraphProjectionResponse;
+import type { WorldCreatureCatalog } from '../api/worldMechanicsTypes';
+const world:WorldCreatureCatalog = {schema:'dmb_native_world_creatures_v1',managed_world_id:'elderwyld',native_world_id:'native-world',binding_version:2,revision_id:'revision-a',completeness:'complete',targets:[
+  {managed_world_id:'elderwyld',native_world_id:'native-world',binding_version:2,graph_revision_id:'revision-a',node_id:'npc-a',label:'World Scout',kind:'npc',role:'',campaign_scope:null},
+]};
 beforeEach(() => {vi.spyOn(api, 'listWorldMechanicsAssociations').mockResolvedValue([]);});
 afterEach(() => {cleanup();vi.restoreAllMocks();});
 function mount(disabled = false, remainingSlots = 100) {
@@ -22,7 +20,7 @@ function mount(disabled = false, remainingSlots = 100) {
   return {...view,onAdd};
 }
 it('adds independent grouped manual actors to the draft without fetching or inventing mechanics', async () => {
-  const read=vi.spyOn(api,'postManagedWorldGraphProjection');const {onAdd}=mount();
+  const read=vi.spyOn(api,'listWorldCreatures');const {onAdd}=mount();
   await userEvent.type(screen.getByLabelText('Combatant name'),'Scout');
   fireEvent.change(screen.getByLabelText('Combatant copies'),{target:{value:'2'}});
   await userEvent.selectOptions(screen.getByLabelText('Combatant team'),'ally');
@@ -33,7 +31,7 @@ it('adds independent grouped manual actors to the draft without fetching or inve
   expect(group.member_ids).toEqual(actors.map((actor: {id:string})=>actor.id));expect(read).not.toHaveBeenCalled();
 });
 it('requires explicit World selection, searches locally and stores exact identity without inferred mechanics', async () => {
-  const read=vi.spyOn(api,'postManagedWorldGraphProjection').mockResolvedValue(world);const {onAdd}=mount();
+  const read=vi.spyOn(api,'listWorldCreatures').mockResolvedValue(world);const {onAdd}=mount();
   await userEvent.click(screen.getByRole('button',{name:'Find World creatures'}));
   await screen.findByRole('button',{name:'World Scout npc · World · npc-a'});
   expect(screen.queryByRole('button',{name:'Scout Camp location'})).not.toBeInTheDocument();
@@ -48,12 +46,12 @@ it('requires explicit World selection, searches locally and stores exact identit
 });
 it('ignores a pending discovery from an unmounted World/encounter', async () => {
   let resolve!: (value: ManagedWorldGraphProjectionResponse)=>void;
-  vi.spyOn(api,'postManagedWorldGraphProjection').mockReturnValue(new Promise(r=>{resolve=r}));
+  vi.spyOn(api,'listWorldCreatures').mockReturnValue(new Promise(r=>{resolve=r}));
   const {unmount}=mount();await userEvent.click(screen.getByRole('button',{name:'Find World creatures'}));unmount();
   mount();resolve(world);await waitFor(()=>expect(screen.queryByRole('button',{name:'World Scout npc · World · npc-a'})).not.toBeInTheDocument());
 });
 it('refuses a foreign projection and preserves manually entered name', async () => {
-  vi.spyOn(api,'postManagedWorldGraphProjection').mockResolvedValue({...world,managedWorldId:'other-world'});
+  vi.spyOn(api,'listWorldCreatures').mockRejectedValue(new TypeError('World identity could not be verified.'));
   mount();await userEvent.type(screen.getByLabelText('Combatant name'),'My PC');
   await userEvent.click(screen.getByRole('button',{name:'Find World creatures'}));
   expect(await screen.findByRole('alert')).toHaveTextContent('World identity could not be verified');
@@ -82,10 +80,10 @@ it('keeps copies within the remaining owning draft capacity', () => {
   expect(screen.getByRole('status')).toHaveTextContent('between 1 and 1');
 });
 it('distinguishes same-name World identities by campaign and exact node', async () => {
-  vi.spyOn(api,'postManagedWorldGraphProjection').mockResolvedValue({...world,projection:{...world.projection,nodes:[
-    {...world.projection.nodes[0],campaignScope:'campaign-one'},
-    {...world.projection.nodes[0],nodeId:'npc-b',campaignScope:'campaign-two'},
-  ]}});
+  vi.spyOn(api,'listWorldCreatures').mockResolvedValue({...world,targets:[
+    {...world.targets[0],campaign_scope:'campaign-one'},
+    {...world.targets[0],node_id:'npc-b',campaign_scope:'campaign-two'},
+  ]});
   const {onAdd}=mount();await userEvent.click(screen.getByRole('button',{name:'Find World creatures'}));
   await userEvent.click(await screen.findByRole('button',{name:'World Scout npc · campaign-two · npc-b'}));
   await userEvent.click(screen.getByRole('button',{name:'Add to encounter draft'}));
@@ -99,7 +97,7 @@ const mechanics = {association_id:'association-one',association_version:1,
   resource:{definition:{identity:{name:'Saved Scout'}}},snapshot_digest:'sha256:verified'} as CombatMechanicsSnapshot;
 async function selectAssociated() {
   vi.mocked(api.listWorldMechanicsAssociations).mockResolvedValue([associated]);
-  vi.spyOn(api,'postManagedWorldGraphProjection').mockResolvedValue(world);
+  vi.spyOn(api,'listWorldCreatures').mockResolvedValue(world);
   const mounted=mount();await userEvent.click(screen.getByRole('button',{name:'Find World creatures'}));
   await userEvent.click(await screen.findByRole('button',{name:'World Scout npc · World · npc-a'}));
   return mounted;
@@ -116,7 +114,7 @@ it('loads mechanics only explicitly and copies exact snapshots without inferring
   expect(actors[0].id).not.toEqual(actors[1].id);
   expect(actors[0].mechanics_snapshot).toEqual(mechanics);expect(actors[1].mechanics_snapshot).toEqual(mechanics);
   expect(actors[0]).toMatchObject({ac:null,hp:null,max_hp:null,init:null,source:'manual'});
-  expect(preview).toHaveBeenCalledTimes(1);expect(api.postManagedWorldGraphProjection).toHaveBeenCalledTimes(1);
+  expect(preview).toHaveBeenCalledTimes(1);expect(api.listWorldCreatures).toHaveBeenCalledTimes(1);
   expect(api.listWorldMechanicsAssociations).toHaveBeenCalledTimes(1);
 });
 it('removes loaded mechanics before adding a manual actor',async()=>{
@@ -147,7 +145,7 @@ const acceptedChoice = {draft_id:'draft-accepted',draft_version:2,name:'Saved Wo
 const directMechanics = {origin:'world_accepted_mechanics_v1',managed_world_id:'elderwyld',...acceptedChoice,
   resource:{definition:{identity:{name:'Saved Wolf'}}},snapshot_digest:'sha256:verified'} as unknown as import('./combatTypes').AcceptedCombatMechanicsSnapshot;
 it('selects accepted mechanics without World discovery and adds independent copies',async()=>{
-  const graph=vi.spyOn(api,'postManagedWorldGraphProjection');
+  const graph=vi.spyOn(api,'listWorldCreatures');
   vi.spyOn(mechanicsApi,'listAcceptedCombatMechanics').mockResolvedValue({choices:[acceptedChoice],nextOffset:null});
   const preview=vi.spyOn(mechanicsApi,'previewAcceptedCombatMechanics').mockResolvedValue(directMechanics);
   const {onAdd}=mount();expect(preview).not.toHaveBeenCalled();
