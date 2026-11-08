@@ -1,0 +1,24 @@
+.blank-surface {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - 8rem);
+  padding: 1.5rem;
+}
+
+.blank-surface h1 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.blank-surface p {
+  margin: 0.5rem 0 1.5rem;
+  color: #b7bdcb;
+}
+
+.blank-surface-space {
+  flex: 1;
+  min-height: 16rem;
+  border: 1px solid #343b49;
+  border-radius: 8px;
+  background: #171b24;
+}
