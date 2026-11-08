@@ -5,7 +5,8 @@ Created: 2026-11-08
 Conversation/workstream: Alan's blank Surface → local World → World Graph Canvas plan.
 Flow / owner: SURFACE / DungeonMindBuddy.
 Direction: DESIGN → CODE → REVIEW.
-**Design authority base:** `3b181c34b2ae064ec5d3910155ce572e74a363b4` (Buddy `origin/main`); design `Docs/Design/DESIGN-blank-surface-to-world-graph-canvas.md` at that base; existing local World repository contract at `apps/live-control-ui/src/localWorld/localWorldRepository.ts`.
+**Design authority base:** `3b181c34b2ae064ec5d3910155ce572e74a363b4`
+Design inputs: `Docs/Design/DESIGN-blank-surface-to-world-graph-canvas.md` and existing local World repository contract `apps/live-control-ui/src/localWorld/localWorldRepository.ts`.
 Activation authority: Alan explicitly assigned this bounded stewardship and implementation lane through the coordinating dot; the dot explicitly authorized resolving and activating the component/adapter/test handoff. No approval is attributed to PRIME or another unavailable person. The route/foundation lane remains separately owned.
 Activation gate: none — the exact local repository contract is present on the pinned base and the lane is explicitly authorized. This does not activate route wiring or integration.
 **Implementation base:** `3b181c34b2ae064ec5d3910155ce572e74a363b4` (`origin/main` when allocated).
