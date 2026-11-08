@@ -22,12 +22,13 @@ def lane(application_state_dsn, tmp_path, monkeypatch):
     return make_lane(tmp_path, monkeypatch, narrow=True)
 
 
-def publish(lane, *, qualified=False):
+def publish(lane, *, qualified=False, extra_name=None):
     meta = replace(lane.meta, claim_mode='dungeonbuddy.claim:belief', epistemic_basis='speculative', standing='provisional') if qualified else lane.meta
     runtime = transport.runtime(lane.repo, dungeonbuddy_world_domain_contract(),
         dungeonbuddy_dnd5e_custom_predicate_profile(), now=NOW, operation_id='ordinary-native-assertion-test')
     return runtime.commit_prepared_change(runtime.prepare_change(wk.WorldChangeIntent(lane.world.world_id, 'fixture', (
-        wk.UseExisting(lane.ids['B'], (wk.CreateFact('account', 'dnd5e:summary', wk.LiteralFactValue('A reports that B fled; uncertain.'), meta),)),
+        wk.UseExisting(lane.ids['B'], (wk.CreateFact('account', 'dnd5e:summary', wk.LiteralFactValue('A reports that B fled; uncertain.'), meta),)
+            + (() if extra_name is None else (wk.CreateFact('alternative-name','dnd5e:name',wk.LiteralFactValue(extra_name),meta),))),
     ))), confirmed_by=GM.subject)
 
 
@@ -261,7 +262,7 @@ def test_support_materialization_does_not_authorize_a_later_changed_assertion(la
 
 
 def _ordinary_native_case(
-        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None):
+        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None, extra_name=None):
     import httpx2
     from hashlib import sha256
     from fastapi import FastAPI
@@ -277,7 +278,7 @@ def _ordinary_native_case(
     from application_state.agent_conversation.native_execution import NativeWriterAuthorizedV1
     if advancement == 'extension':
         select_extension_support(lane)
-    publish(lane, qualified=qualified)
+    publish(lane, qualified=qualified, extra_name=extra_name)
     if advancement:
         admit_unrelated(lane, 'before-query')
     world = lane.world.world_id
@@ -362,10 +363,16 @@ def _ordinary_native_case(
         lambda *_:pytest.fail('Classic Plan resolver used for explicit native question'))
     if unavailable:
         monkeypatch.setattr(native_reads,'open_admitted_native_text',lambda *_:SimpleNamespace(status='unavailable'))
+    seen_name_requests=[]
     class Decisions(httpx2.AsyncBaseTransport):
         async def handle_async_request(self, req):
             body=json.loads(req.content)
             candidates=body.get('state',{}).get('candidates',[])
+            if extra_name is not None and any(c['kind'].startswith('Native Graph object') for c in candidates):
+                encoded=json.dumps(candidates,ensure_ascii=False)
+                assert 'Multiple recorded names' in encoded and extra_name in encoded
+                assert lane.ids['B'] not in req.content.decode()
+                seen_name_requests.append(sha256(req.content).hexdigest())
             native={i for i,c in enumerate(candidates) if c['kind'].startswith('Native Graph object') or mixed and c['kind']=='public_rules_lookup'}
             if selected_references is not None and 'requested_work' in body['questions']:
                 rows=body['state']['author_selected_references']
@@ -538,6 +545,8 @@ def _ordinary_native_case(
     assert authored_source=='source_only' or opened_with_grant
     assert authored or native_read_admission_probes
     data=response.json()
+    if extra_name is not None:
+        assert seen_name_requests
     # Native evidence belongs to its own receipt. No legacy Graph request was
     # made; its delivery descriptor must remain wholly not-requested.
     expected_graph = {'status': 'not_requested', **{key: None for key in (
@@ -710,6 +719,12 @@ def test_current_plan_authoring_keeps_actual_native_source_and_proposal_origin(l
     _ordinary_native_case(lane,tmp_path,monkeypatch,False,False,None,None,mixed,native_read_admission_probes,authoring=True)
 
 
+def test_recorded_name_ambiguity_reaches_actual_ordinary_controller_and_keeps_citations(
+        lane,tmp_path,monkeypatch,native_read_admission_probes):
+    _ordinary_native_case(lane,tmp_path,monkeypatch,False,False,None,None,False,
+        native_read_admission_probes,extra_name='Bee')
+
+
 @pytest.mark.parametrize('shape',['relationship','other-schema-json'])
 def test_native_assertion_shapes_do_not_require_qualified_summary_json(lane,shape):
     runtime=transport.runtime(lane.repo,dungeonbuddy_world_domain_contract(),
@@ -771,7 +786,7 @@ def test_navigation_labels_use_local_aliases_for_unnamed_conflicting_and_duplica
             assertions=[SimpleNamespace(subject_entity_id=identity,predicate='dnd5e:name',
                 value=SimpleNamespace(kind='literal',value=name),metadata=SimpleNamespace(scope=[])) for name in names])
     rows={'host-id-one':entity('host-id-one',['Twin']), 'host-id-two':entity('host-id-two',['Twin']),
-        'host-id-three':entity('host-id-three',[]),'host-id-four':entity('host-id-four',['Old','New']),
+        'host-id-three':entity('host-id-three',[]),'host-id-four':entity('host-id-four',['Old','New',' Old ']),
         'host-id-five':entity('host-id-five',['Literal context_accounting and phase']),
         'host-id-six':entity('host-id-six',['Partial name'],complete=False)}
     labels=_navigation_labels(rows)
@@ -779,13 +794,29 @@ def test_navigation_labels_use_local_aliases_for_unnamed_conflicting_and_duplica
     assert labels['host-id-one'].startswith('Twin (object ')
     assert labels['host-id-two'].startswith('Twin (object ')
     assert labels['host-id-three'].startswith('Unnamed object ')
-    assert labels['host-id-four'].startswith('Unnamed object ')
+    assert labels['host-id-four'].startswith('Multiple recorded names (object ')
+    assert json.loads(labels['host-id-four'].split(': ',1)[1]) == ['New','Old']
     assert labels['host-id-five']=='Literal context_accounting and phase'
     assert all(identity not in label for identity in rows for label in labels.values())
     assert _navigation_labels(dict(reversed(list(rows.items()))))==labels
     assert _navigation_labels(rows,complete_only=True)['host-id-six'].startswith('Unnamed object ')
     # A literal authored name is context even if it resembles an identifier.
     assert _navigation_labels({'literal-id':entity('literal-id',['literal-id'])})['literal-id']=='literal-id'
+
+
+def test_multiple_navigation_names_preserve_spelling_and_scoped_json_boundaries():
+    from apps.live_control_server.services.native_graph_reads import _navigation_labels
+    names=['Éname','E\u0301name','éname','Name, "quoted"\nnext']
+    def name(value,campaign):
+        return SimpleNamespace(subject_entity_id='host-id',predicate='dnd5e:name',
+            value=SimpleNamespace(kind='literal',value=value),
+            metadata=SimpleNamespace(scope=[SimpleNamespace(axis='campaign',value=campaign)]))
+    entity=SimpleNamespace(found=True,completeness=SimpleNamespace(status='complete'),
+        assertions=[*(name(n,'c1') for n in names),name('Foreign secret','c2')])
+    label=_navigation_labels({'host-id':entity},scope=(('campaign','c1'),),complete_only=True)['host-id']
+    assert label.startswith('Multiple recorded names (object 1): ')
+    assert json.loads(label.split(': ',1)[1])==sorted(names)
+    assert '\n' not in label and 'Foreign secret' not in label and 'host-id' not in label
 
 
 def test_subject_navigation_keeps_exact_scope_complete_read_and_about_witness():
@@ -837,3 +868,41 @@ def test_native_navigation_does_not_name_c1_assertion_from_c2_name(lane,monkeypa
         assert next(row.label for row in result.object_matches if row.entity_id==lane.ids['B']).startswith('Unnamed object ')
     # Read identity and qualifications remain Core-owned; labels grant nothing.
     assert all(row.subject_entity_id==lane.ids['B'] for row in summaries)
+
+
+def test_recorded_name_update_keeps_retained_query_hash_and_source_reopening(lane, monkeypatch):
+    """Reopen the stored query, never regenerate names/search under newer code."""
+    from apps.live_control_server.services import native_graph_reads as native
+    from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4
+    publish(lane, extra_name='Alternative B')
+    current_labels = native._navigation_labels
+
+    def historical_labels(entities, **kwargs):
+        labels = current_labels(entities, **kwargs)
+        return {identity: ('Unnamed object ' + label.split('(object ', 1)[1].split(')', 1)[0]
+                if label.startswith('Multiple recorded names (object ') else label)
+            for identity, label in labels.items()}
+
+    with monkeypatch.context() as patch:
+        patch.setattr(native, '_navigation_labels', historical_labels)
+        old_context, old_query = query(lane)
+    frozen = old_query.model_dump_json(by_alias=True)
+    stored = NativeGraphQueryV4.model_validate_json(frozen)
+    _, new_query = query(lane)
+    assert new_query.sha256 != stored.sha256
+    assert new_query.discovered_entity_ids == stored.discovered_entity_ids
+    assert new_query.search_result_sha256 == stored.search_result_sha256
+    assert any(m.label.startswith('Unnamed object ') for m in stored.object_matches)
+    assert any(m.label.startswith('Multiple recorded names') for m in new_query.object_matches)
+    monkeypatch.setattr(native, 'resolve_managed_world_binding', lambda _: old_context.binding)
+    monkeypatch.setattr(native.statements.native, 'repository', lambda: old_context.repository)
+    monkeypatch.setattr(native, 'prepare_query', lambda *a, **k: pytest.fail('Historical query searched again'))
+    monkeypatch.setattr(native, '_navigation_labels', lambda *a, **k: pytest.fail('Historical labels regenerated'))
+    reopened = native.reopen_context(stored, GM)
+    assert reopened.query.model_dump_json(by_alias=True) == frozen
+    assert reopened.query.sha256 == old_query.sha256
+    selected = grant(reopened)
+    reads, unavailable = native.read_selected(reopened, selected, GM)
+    assert reads and not unavailable
+    assert {read.assertion.assertion_id for read in reads} == set(selected.assertion_ids)
+    assert all(read.evidence and read.spans for read in reads)

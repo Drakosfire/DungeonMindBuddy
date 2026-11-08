@@ -2,6 +2,7 @@
 from dataclasses import replace
 from types import SimpleNamespace
 from uuid import uuid4
+import json
 import pytest
 from tests.application_state.test_native_plan_statements import native_read_admission_probes as native_read_admission_probes
 from tests.test_source_statements import lane as lane, commit, advance, GM, BODY
@@ -401,7 +402,7 @@ def test_core_not_found_is_typed_unavailable_but_incomplete_is_fatal(lane, monke
 
 
 @pytest.mark.parametrize('case', ['missing', 'conflicting', 'wrong_campaign', 'partial', 'other_predicate'])
-def test_navigation_names_require_unambiguous_admitted_scoped_identity(lane, monkeypatch, case):
+def test_navigation_names_preserve_admitted_scope_and_explicit_ambiguity(lane, monkeypatch, case):
     from apps.live_control_server.services import native_graph_reads as native
     commit(lane)
     original = native.EntityReadService()
@@ -427,9 +428,17 @@ def test_navigation_names_require_unambiguous_admitted_scoped_identity(lane, mon
     monkeypatch.setattr(native, 'EntityReadService', lambda: SimpleNamespace(get_complete_entity=read))
     _, result = query(lane)
     assert len(result.matches) == 1
-    assert result.matches[0].label.startswith('About Unnamed object ')
+    if case == 'conflicting':
+        assert result.matches[0].label.startswith('About Multiple recorded names (object ')
+        tail=result.matches[0].label.split(': ',1)[1]
+        names,end=json.JSONDecoder().raw_decode(tail)
+        assert names == ['B','Other']
+        assert tail[end:].startswith(' · ')
+    else:
+        assert result.matches[0].label.startswith('About Unnamed object ')
+        assert 'Other' not in result.matches[0].label
     assert lane.ids['B'] not in result.matches[0].label
-    assert 'About B [' not in result.matches[0].label and 'Other' not in result.matches[0].label
+    assert 'About B [' not in result.matches[0].label
     assert len(calls) == len(set(calls))
     assert set(calls) <= set(result.discovered_entity_ids) | {m.statement_id for m in result.matches}
 

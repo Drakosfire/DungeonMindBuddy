@@ -75,7 +75,7 @@ def _navigation_labels(entities, *, scope=None, complete_only=False):
     """
     identities = sorted(set(entities) | {a.subject_entity_id
         for entity in entities.values() for a in entity.assertions})
-    names = {}
+    names, multiple = {}, {}
     for identity in identities:
         entity = entities.get(identity)
         values = {a.value.value.strip() for a in entity.assertions
@@ -86,9 +86,13 @@ def _navigation_labels(entities, *, scope=None, complete_only=False):
         } if entity is not None and (not complete_only or
             entity.found and entity.completeness.status == 'complete') else set()
         names[identity] = next(iter(values)) if len(values) == 1 else None
+        if len(values) > 1:
+            multiple[identity] = sorted(values)
     counts = Counter(name for name in names.values() if name is not None)
     return {identity: (name if name is not None and counts[name] == 1 else
-            f'{name} (object {index+1})' if name is not None else f'Unnamed object {index+1}')
+            f'{name} (object {index+1})' if name is not None else
+            f'Multiple recorded names (object {index+1}): {json.dumps(multiple[identity],ensure_ascii=False)}'
+            if identity in multiple else f'Unnamed object {index+1}')
         for index,(identity,name) in enumerate(names.items())}
 
 
