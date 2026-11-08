@@ -17,7 +17,7 @@ def phase(body, *, host_phase=None):
     state = body["state"]
     if host_phase is not None:
         # Only versioned native input owners use the clean wire contract.
-        if (host_phase not in {"navigate", "select"} or not isinstance(state, dict)
+        if (host_phase not in {"navigate", "select", "writer_selection"} or not isinstance(state, dict)
                 or any(key in state for key in ("phase", "decision", "context_accounting"))):
             raise ValueError("Native decision contains host control metadata")
         return host_phase

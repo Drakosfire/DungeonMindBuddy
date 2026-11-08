@@ -29,10 +29,14 @@ class WriterSelectionDriver:
             or set(sections) != {unit["section"]["read_id"] for unit in self.catalog.values()
                                  if unit["kind"] == "saved_section"}):
             raise ValueError("Writer selection catalog differs from complete acquired material")
-        self.state = selection.selection_state(adapter.turn, self.catalog, terminal, continuation_binding(adapter))
-        self._questions = selection.questions(self.catalog)
+        self._semantic = selection.native_build(adapter.turn)
+        if self._semantic and terminal != selection.native_terminal(adapter.turn):
+            raise ValueError("Selection terminal differs from actual finished retrieval")
+        self._host_state = selection.selection_state(adapter.turn, self.catalog, terminal, continuation_binding(adapter))
+        self.state = selection.semantic_state(adapter.turn,self.catalog) if self._semantic else self._host_state
+        self._questions = selection.questions(self.catalog,semantic=self._semantic)
         self.step = DecisionIntent(request_id="writer-selection:" + selection.digest(self.state),
-            phase="writer_selection", state={"writer_selection_policy": self.state["writer_selection_policy"]},
+            phase="writer_selection", state={"writer_selection_policy": self._host_state["writer_selection_policy"]},
             questions=tuple(DecisionQuestion(name=name, kind="choice", question=q["instructions"],
                                              options=selection.JUDGMENTS)
                             for name, q in self._questions.items()))
@@ -57,7 +61,7 @@ class WriterSelectionDriver:
         _, sources, sections = self._material
         self._plan = DriverDecisionProjection(selection.canonical(self.state), selection.canonical(self._questions),
             self.step.request_id, len(a._broker_execution().events), str(a.last_provider_attempt_id),
-            (), sources, sections)
+            (), sources, sections,host_phase="writer_selection" if self._semantic else None)
         return self._plan
 
     def authorize(self, prepared):
@@ -114,14 +118,14 @@ class WriterSelectionDriver:
         auth = next(e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV3)
                     and e.provider_attempt_id == a.last_provider_attempt_id)
         closure = selection.close_selection(self.catalog, judgments)
-        native = self.state["writer_selection_policy"] == selection.NATIVE_POLICY
+        native = self._host_state["writer_selection_policy"] == selection.NATIVE_POLICY
         codec = ledger.BuildWriterEvidenceSelectionV2 if native else ledger.BuildWriterEvidenceSelectionV1
         event = codec(kind="build_writer_evidence_selection_v2" if native else "build_writer_evidence_selection_v1",
-            event_id=uuid4(), sequence=len(execution.events), policy=self.state["writer_selection_policy"],
+            event_id=uuid4(), sequence=len(execution.events), policy=self._host_state["writer_selection_policy"],
             mode="jev" if response_json is not None else "empty_catalog",
             controller_attempt_id=auth.provider_attempt_id, controller_envelope_sha256=auth.envelope_sha256,
             controller_response_sha256=hashlib.sha256(response_json.encode()).hexdigest() if response_json is not None else None,
-            catalog_sha256=selection.digest(self.catalog), basis_sha256=self.state["basis_sha256"],
+            catalog_sha256=selection.digest(self.catalog), basis_sha256=selection.host_basis(self._host_state,semantic=self._semantic and bool(self.catalog)),
             terminal_disposition=self.terminal, judgments=judgments, **closure)
         proof = ({"request_json": self._prepared.body.decode(), "response_json": response_json}
                  if response_json is not None else None)
