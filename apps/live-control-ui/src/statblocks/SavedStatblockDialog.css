@@ -38,3 +38,5 @@
 
 /* A shared editable object uses the message track, not the text-bubble width. */
 .world-plan-agent-conversation__message:has(.saved-statblock-inline-slot:not(:empty)) { inline-size:100%; max-inline-size:100%; }
+
+.saved-statblock-frame fieldset { min-inline-size:0; max-inline-size:100%; margin-inline:0; box-sizing:border-box; }
