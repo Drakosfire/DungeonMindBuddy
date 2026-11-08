@@ -6353,13 +6353,13 @@ export function WorldPlanAgentConversation({
     && lastDisplayEvent.turn.provenance.surface_id === (isBuild ? "build" : isReadOnly ? "play" : "plan")
     && lastDisplayEvent.turn.provenance.primary_work.object_id === (isBuild ? buildMode?.savedSource?.documentId : isReadOnly ? playMode?.admittedRun?.runId : documentId)
     ? lastDisplayEvent.turn.turn_id : null;
-  const renderReplyDetails = (turn: WorldAgentConversationHistoryTurn, loaded: boolean, content?: React.ReactNode) => {
+  const renderReplyDetails = (turn: WorldAgentConversationHistoryTurn, loaded: boolean, content?: React.ReactNode, previewReady = false) => {
     const key = `${verifiedWorldId}\u001f${turn.turn_id}`;
     const open = Boolean(openedTraceTurns[key]);
     return <ConversationReplyDetails key={`details:${scopeKey}:${turn.turn_id}`} id={`buddy-details-${turn.turn_id}`}
       open={open} onOpenChange={next => setOpenedTraceTurns(current => current[key] === next ? current : {...current, [key]: next})}
       loaded={loaded} load={signal => inspectSavedMessage(turn, signal)}
-      showSources={Boolean(turn.assistant_text && turn.lifecycle_status === 'completed' && !buildCompose.items.some(item => item.originTurnId === turn.turn_id))}>
+      showSources={Boolean(!previewReady && turn.assistant_text && turn.lifecycle_status === 'completed' && !buildCompose.items.some(item => item.originTurnId === turn.turn_id))}>
       {open && buildCompose.items.find(item => item.originTurnId === turn.turn_id)?.details}
       {content}
       {verifiedWorldId && history?.conversation_id && <BuddyContextTraceLoader enabled={open}
@@ -6379,9 +6379,9 @@ export function WorldPlanAgentConversation({
         <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--user"><span className="world-plan-agent-conversation__speaker">You</span><p>{turn.user_text}</p></div>
         <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
           <div className="world-plan-agent-conversation__reply-heading"><span className="world-plan-agent-conversation__speaker">Buddy</span></div>
-          {pageSuggestion ? pageSuggestion.element : turn.assistant_text ? <SavedCitationAnswer key={`${turn.turn_id}:${historyGenerationRef.current}`} preview={savedMessage?.citation_preview??null} answer={turn.assistant_text} worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : <p>{turn.lifecycle_status === 'completed' ? 'Open Details to inspect this reply.' : turn.lifecycle_status === 'failed' || turn.lifecycle_status === 'interrupted' ? 'This reply did not finish.' : 'Waiting for this reply…'}</p>}
+          {pageSuggestion ? pageSuggestion.element : turn.assistant_text ? <SavedCitationAnswer key={`${scopeKey}:${turn.turn_id}`} preview={savedMessage?.citation_preview??null} answer={turn.assistant_text} worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : <p>{turn.lifecycle_status === 'completed' ? 'Open Details to inspect this reply.' : turn.lifecycle_status === 'failed' || turn.lifecycle_status === 'interrupted' ? 'This reply did not finish.' : 'Waiting for this reply…'}</p>}
         </div>
-        <div className="world-plan-agent-conversation__turn-debug">{renderReplyDetails(turn, false)}</div>
+        <div className="world-plan-agent-conversation__turn-debug">{renderReplyDetails(turn, false, undefined, savedMessage?.citation_preview?.status === 'ready')}</div>
       </article></BuddyTurnInspection>;
     const turnReferences=turn.authored_references??(turn.retry_context?.schema==='dmb_turn_retry_context_row_v2'?turn.retry_context.authored_references:null);
     const replyText = turn.assistant_text ?? '';

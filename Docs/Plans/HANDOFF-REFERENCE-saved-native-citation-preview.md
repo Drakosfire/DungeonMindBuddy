@@ -1,15 +1,23 @@
 # REFERENCE: native citations on lightweight saved messages
 
-Status: PAUSED_FOR_HOST_METADATA_PRIORITY. PRIME owns design/implementation under the active References goal.
-Base origin/main36d482c228e919d0f1d563121412eff085edda82; branch
+Status: ACTIVE, resumed under the operator-reactivated References goal after the
+priority prompt-boundary cleanup merged. Previous paused evidence below is retained.
+Base origin/main d5d4103df2777c6130f7da95404a32dfdef7faca; branch
 codex/saved-native-citation-preview, existing buddy-context-loop checkout/dependencies.
-Topology: parallel-independent of Retry2188 at a12c225991f5960375f0c5367e823152d5dbe596.
-That PR owns retry.py/native ordinary retry fixtures. Its delivery coordinator was
-stopped before changing this checkout (exit130 while waiting for CI; resource still
-PREPARED_NO_RUNTIME_WRITE_LEASE). GitHub CI continues. Re-anchor its exact reviewed
-head and immutable integration before later merge/delivery. No concurrent mutable
-checkout consumer, new worktree/environment or runtime/DB/provider/migration lease.
-INGEST lanes and held Play2172 remain outside this lease.
+Topology: serial, updating existing PR2191 after merged conversation UI2217; no
+new PR or capability. Preserve its inline suggestion and single Details owner.
+Held Play2172 remains held. Open retrieval2214/2216/2218 touch service/native execution
+and reads, not this projection/UI/Rules-read lease; INGEST and local World lanes
+remain separate. Runtime UI2203603 serves immutable50050b8; API1932315 serves56785a4.
+No checkout-dependent process, live write lease, provider call, migration, or new
+worktree/dependency environment is allocated by this source implementation.
+
+The positive native fixture exposes Rules-record presence as the wrong discriminator.
+Extend the expected writes to repository.py and rules_authority_reads.py solely to
+extract/reuse the existing base-composition summary validation at its current owner.
+Use the existing bounded Rules summary projection and actual persisted composition
+marker. Do not introduce another Rules admissibility rule or load execution/ledgers.
+Unknown/accepted/malformed/mixed authority retains explicit Details fallback.
 
 ## One outcome and critique
 
@@ -87,3 +95,31 @@ fixture proves the SQL Rules-record-presence guard is too broad: its actual
 answer_composition_kind is base even though a Rules execution record exists.
 Use the existing composition owner before preview suppression; do not weaken it.
 No runtime, primary data, provider or publication changes were performed.
+
+## Resumption verification
+
+Rebased the retained draft onto merged2217/d5d4103, preserving inline suggestion
+and one Details owner. Prompt-boundary predecessors2192/2200/2211 are merged;
+the priority hold is satisfied, not silently waived. Kept Play2172 held.
+
+The ordinary native fixture now passes with its existing unused Rules record:
+base-only presentation uses the actual composition marker and the existing bounded
+Rules summary owner. The base predicate is extracted unchanged and reused by the
+full history owner and this presentation projection. Mixed, unknown, accepted or
+malformed authority retains Details fallback. No Rules execution body is loaded.
+
+Current verification:419 focused UI cases;74 server/source/Rules-read/route cases;
+6 ordinary native Build suggestion/hydration and recovery controls; TypeScript/Vite
+build. Three full library tests fail before this code on a GM-authority precondition.
+Exact d5d4103 main files reproduce all three; guarded restoration is verified and
+both failures remain private evidence. Fourteen other library tests pass. The prior
+unclassified GM failures are now classified, not suppressed or called passing.
+Original private evidence remains under saved-citation-* in PRIME runtime-evidence.
+
+The rebase exposed two UI integration regressions (retired disclosure expectation
+and transient-generation component key). They are corrected; unchanged replies keep
+DOM identity, native citations open without a heavy history read, unsent text stays,
+and already visible citations do not offer redundant Show citations loading.
+Full cross-surface qualification, independent review, CI, protected paired delivery
+and ordinary retained-source opening remain gates. No runtime or provider operation
+has been executed for this resumed source slice. Operator acceptance remains open.

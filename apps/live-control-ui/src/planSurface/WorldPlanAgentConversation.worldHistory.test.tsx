@@ -6309,7 +6309,7 @@ it.each(['conversation','turn'])('does not open another %s reply when inspecting
   expect(document.querySelector('details.buddy-activity')).toBeNull();
 });
 
-it('shows native citations on initial lightweight history without opening Sources and actions',async()=>{
+it('shows native citations on initial lightweight history without opening Details',async()=>{
   const {savedCitationPreviewFixture}=await import('../testSupport/savedCitationPreviewFixture');
   const {preview,answer,body,citation}=await savedCitationPreviewFixture('plan');
   const turn=makeTurn(1,'saved-native-turn','Which bridge?',answer);
@@ -6322,5 +6322,6 @@ it('shows native citations on initial lightweight history without opening Source
   fireEvent.click(screen.getByRole('button',{name:'Read source · Full document'}));
   expect(await screen.findByText(body)).toBeInTheDocument();expect(source).toHaveBeenCalledExactlyOnceWith(worldId,turn.turn_id,0);expect(api.getHistory).not.toHaveBeenCalled();
   expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('My unsent message');
-  expect(screen.getByRole('button',{name:'Sources and actions'})).toBeInTheDocument();
+  expect(screen.getByText('Details').closest('details')).not.toHaveAttribute('open');
+  expect(screen.queryByRole('button',{name:'Show citations'})).not.toBeInTheDocument();
 });

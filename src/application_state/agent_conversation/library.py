@@ -194,13 +194,12 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
     """Bounded message display; never load execution or a full context receipt."""
     from . import repository as repo
 
-    presentation = """,completion,
+    presentation = (""",completion,
         CASE WHEN jsonb_typeof(completion->'saved_source_citations')='array'
             AND completion->'saved_source_citations'<>'[]'::jsonb
             THEN graph_context_receipt->'work_context'->'source_basis'
             ELSE NULL END AS citation_source_basis,
-        EXISTS(SELECT 1 FROM agent.turn_rules_execution r
-            WHERE r.turn_id=t.turn_id) AS citation_has_rules""" if metadata else ""
+        t.answer_composition_kind, """ + repo._rules_summary_select("t")) if metadata else ""
     rows = conn.execute(
         f"""SELECT turn_id,sequence,status,user_text,assistant_text,idempotency_key,
             revision,world_id,surface_resolution,surface_id,surface_instance_id{presentation}
