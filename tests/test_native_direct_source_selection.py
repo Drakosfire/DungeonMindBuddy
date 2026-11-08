@@ -523,7 +523,8 @@ def test_mid_group_read_failure_retains_grants_and_prior_observation(publication
     assert turn.status == 'interrupted' and turn.completion is None
 
 
-def test_source_callback_mutated_locked_receipt_rejects_before_write(application_state_dsn, monkeypatch):
+@pytest.mark.parametrize('component', ['graph_context_receipt', 'graph_context_execution'])
+def test_source_callback_mutated_locked_receipt_rejects_before_write(application_state_dsn, monkeypatch, component):
     from application_state.agent_conversation import repository as repo
     from application_state.errors import ApplicationStateValidationError
 
@@ -546,7 +547,7 @@ def test_source_callback_mutated_locked_receipt_rejects_before_write(application
 
     def read(_authorization):
         assert locked and locked[-1] is not None
-        object.__setattr__(locked[-1].graph_context_receipt,
+        object.__setattr__(getattr(locked[-1], component),
             'context_receipt_sha256', '0' * 64)
         return None
 
@@ -559,3 +560,29 @@ def test_source_callback_mutated_locked_receipt_rejects_before_write(application
             event_id=uuid4(), authorization_event_id=case.grants[0]['event_id'], read=read)
     assert not writes
     assert grant_snapshot(case) == before
+
+
+@pytest.mark.parametrize('component', ['graph_context_receipt', 'graph_context_execution'])
+def test_persisted_native_corruption_is_rejected_before_source_io(application_state_dsn, component):
+    import psycopg
+    from psycopg import sql
+    from application_state.errors import ApplicationStateIntegrityError
+
+    case = direct_grant_case(application_state_dsn)
+    case.turn, _ = commit_grants(case)
+    path = (['provenance_sha256'] if component == 'graph_context_receipt'
+            else ['policy', 'source_authority_sha256'])
+    with psycopg.connect(case.dsn) as conn:
+        conn.execute(sql.SQL("UPDATE agent.turn SET {}=jsonb_set({}, %s::text[], %s::jsonb) "
+            "WHERE turn_id=%s").format(sql.Identifier(component), sql.Identifier(component)),
+            (path, '"' + '0' * 64 + '"', case.turn.turn_id))
+    corrupted = grant_snapshot(case)
+    reads = []
+    with pytest.raises(ApplicationStateIntegrityError):
+        case.service.observe_native_direct_source(case.turn.world_id,
+            case.turn.conversation_id, case.turn.turn_id,
+            expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
+            event_id=uuid4(), authorization_event_id=case.grants[0]['event_id'],
+            read=lambda _: reads.append(True))
+    assert not reads
+    assert grant_snapshot(case) == corrupted

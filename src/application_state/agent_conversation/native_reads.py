@@ -46,7 +46,12 @@ def validate_execution_binding(receipt, execution):
 
 
 def _owner(turn, *, require_source=False):
-    """Admit an actual running turn through its concrete supported surface owner."""
+    """Resolve a transaction-internal producer's actual running surface owner.
+
+    Shared inputs come only from APP's fresh locked Turn parse. That owner
+    validates the stored binding before IO and the materialized transition
+    again before persistence; this private helper is not a standalone binder.
+    """
     from .plan_jev_decision import _owner as plan_owner
     from .plan_source_context import validate_source_provenance
 
@@ -58,14 +63,11 @@ def _owner(turn, *, require_source=False):
         receipt, execution = plan_owner(turn)
     if turn.world_id != turn.provenance.world_id:
         raise ValueError("Native read turn differs from its owning World")
-    validate_execution_binding(receipt, execution)
+    if type(receipt) is not SurfaceNativeContextReceiptV1:
+        validate_execution_binding(receipt, execution)
     if require_source and not isinstance(receipt.source_authority, NativeCorpusAuthorityV1):
         raise ValueError("Native body acquisition requires its available frozen source authority")
-    from .native_context import SurfaceNativeContextReceiptV1
-    if type(receipt) is SurfaceNativeContextReceiptV1:
-        from .native_execution import validate_request_identity
-        validate_request_identity(receipt,execution,turn)
-    else:
+    if type(receipt) is not SurfaceNativeContextReceiptV1:
         validate_source_provenance(receipt, turn.provenance)
     return receipt, execution
 
