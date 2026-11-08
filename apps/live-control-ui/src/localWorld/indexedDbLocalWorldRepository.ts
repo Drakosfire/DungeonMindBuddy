@@ -1,6 +1,7 @@
 import {
   cloneLocalWorldValue,
   validateLocalWorldSnapshot,
+  validateLocalWorldPackageData,
   type CommitSemanticResult,
   type CreateWorldResult,
   type LocalConflictId,
@@ -11,24 +12,29 @@ import {
   type LocalWorldId,
   type LocalWorldLayout,
   type LocalWorldRecord,
-  type LocalWorldRepository,
+  type LocalWorldPackageData,
+  type LocalWorldPackageRepository,
+  type RestoreLocalWorldPackageResult,
+  type ReadLocalWorldPackageDataResult,
   type LocalWorldSnapshot,
   type ReadConflictCandidatesResult,
   type ReadWorldResult,
   type WriteLayoutResult,
 } from "./localWorldRepository";
 
-export const LOCAL_WORLD_DATABASE_SCHEMA_VERSION = 2;
+export const LOCAL_WORLD_DATABASE_SCHEMA_VERSION = 3;
 export const LOCAL_WORLD_DATABASE_STORES = {
   worlds: "worlds",
   conflicts: "conflicts",
+  packageData: "packageData",
 } as const;
 
 const WORLD_STORE = LOCAL_WORLD_DATABASE_STORES.worlds;
 const CONFLICT_STORE = LOCAL_WORLD_DATABASE_STORES.conflicts;
+const PACKAGE_DATA_STORE = LOCAL_WORLD_DATABASE_STORES.packageData;
 const CONFLICT_WORLD_INDEX = "worldId";
 
-export type IndexedDbCommitPoint = "create" | "semantic-edit" | "layout";
+export type IndexedDbCommitPoint = "create" | "semantic-edit" | "layout" | "package-restore";
 export type IndexedDbCommitHook = (point: IndexedDbCommitPoint) => void;
 type IdFactory = () => string;
 type OpenErrorCode =
@@ -122,6 +128,20 @@ async function inTransaction<T>(
 
 function upgradeDatabase(request: IDBOpenDBRequest, oldVersion: number): void {
   const db = request.result;
+  if (oldVersion > 0) {
+    const tx = request.transaction!;
+    if (!db.objectStoreNames.contains(WORLD_STORE) || !db.objectStoreNames.contains(CONFLICT_STORE)) throw new Error("Existing local World schema is missing required stores; upgrade refused.");
+    const worlds = tx.objectStore(WORLD_STORE);
+    const conflicts = tx.objectStore(CONFLICT_STORE);
+    if (worlds.keyPath !== "snapshot.worldId" || worlds.autoIncrement || conflicts.keyPath !== "id" || conflicts.autoIncrement) {
+      throw new Error("Existing local World schema has incompatible key semantics; upgrade refused.");
+    }
+    if (oldVersion >= 2) {
+      if (!conflicts.indexNames.contains(CONFLICT_WORLD_INDEX)) throw new Error("Existing conflict index is missing; upgrade refused.");
+      const index = conflicts.index(CONFLICT_WORLD_INDEX);
+      if (index.keyPath !== "worldId" || index.unique || index.multiEntry) throw new Error("Existing conflict index is incompatible; upgrade refused.");
+    }
+  }
   if (oldVersion < 1) {
     db.createObjectStore(WORLD_STORE, { keyPath: "snapshot.worldId" });
     db.createObjectStore(CONFLICT_STORE, { keyPath: "id" });
@@ -132,18 +152,21 @@ function upgradeDatabase(request: IDBOpenDBRequest, oldVersion: number): void {
       conflicts.createIndex(CONFLICT_WORLD_INDEX, "worldId", { unique: false });
     }
   }
+  if (oldVersion < 3) db.createObjectStore(PACKAGE_DATA_STORE, { keyPath: "localWorldId" });
 }
 
 function hasCurrentSchema(db: IDBDatabase): boolean {
-  if (!db.objectStoreNames.contains(WORLD_STORE) || !db.objectStoreNames.contains(CONFLICT_STORE)) return false;
-  const transaction = db.transaction([WORLD_STORE, CONFLICT_STORE], "readonly");
+  if (!db.objectStoreNames.contains(WORLD_STORE) || !db.objectStoreNames.contains(CONFLICT_STORE) || !db.objectStoreNames.contains(PACKAGE_DATA_STORE)) return false;
+  const transaction = db.transaction([WORLD_STORE, CONFLICT_STORE, PACKAGE_DATA_STORE], "readonly");
   const worlds = transaction.objectStore(WORLD_STORE);
   const conflicts = transaction.objectStore(CONFLICT_STORE);
+  const packageData = transaction.objectStore(PACKAGE_DATA_STORE);
   if (worlds.keyPath !== "snapshot.worldId" || worlds.autoIncrement) return false;
   if (conflicts.keyPath !== "id" || conflicts.autoIncrement) return false;
   if (!conflicts.indexNames.contains(CONFLICT_WORLD_INDEX)) return false;
   const worldIndex = conflicts.index(CONFLICT_WORLD_INDEX);
-  return worldIndex.keyPath === "worldId" && !worldIndex.unique && !worldIndex.multiEntry;
+  return worldIndex.keyPath === "worldId" && !worldIndex.unique && !worldIndex.multiEntry
+    && packageData.keyPath === "localWorldId" && !packageData.autoIncrement;
 }
 
 /** Open one isolated named IndexedDB database and fail closed on incompatible schema versions. */
@@ -244,7 +267,7 @@ export function openIndexedDbLocalWorldRepository(
 }
 
 /** Native IndexedDB adapter. All database names are supplied by the owning caller. */
-export class IndexedDbLocalWorldRepository implements LocalWorldRepository {
+export class IndexedDbLocalWorldRepository implements LocalWorldPackageRepository {
   constructor(
     private readonly db: IDBDatabase,
     private readonly idFactory: IdFactory = defaultIdFactory,
@@ -416,6 +439,45 @@ export class IndexedDbLocalWorldRepository implements LocalWorldRepository {
     } catch (error) {
       return { status: "error", message: errorMessage(error) };
     }
+  }
+
+  async restorePackage(recordInput: LocalWorldRecord, dataInput: LocalWorldPackageData): Promise<RestoreLocalWorldPackageResult> {
+    let record: LocalWorldRecord;
+    let data: LocalWorldPackageData;
+    try {
+      // Structured copies happen synchronously, before opening/awaiting a transaction.
+      record = cloneLocalWorldValue(recordInput);
+      data = cloneLocalWorldValue(dataInput);
+    } catch (error) { return { status: "error", message: errorMessage(error) }; }
+    const worldId = record.snapshot.worldId;
+    const invalidData = validateLocalWorldPackageData(data, worldId);
+    if (invalidData) return { status: "error", message: invalidData };
+    const invalid = validateLocalWorldSnapshot(record.snapshot, worldId);
+    if (invalid) return { status: "error", message: invalid };
+    try {
+      return await inTransaction(this.db, [WORLD_STORE, PACKAGE_DATA_STORE], "readwrite", async (transaction) => {
+        const worlds = transaction.objectStore(WORLD_STORE);
+        const existing = await requestResult<LocalWorldRecord | undefined>(worlds.get(worldId));
+        if (existing) return { status: "collision" };
+        this.beforeWrite("package-restore");
+        await requestResult(worlds.add(record));
+        this.beforeWrite("package-restore");
+        await requestResult(transaction.objectStore(PACKAGE_DATA_STORE).add(data));
+        return { status: "restored", record: cloneLocalWorldValue(record) };
+      });
+    } catch (error) { return { status: "error", message: errorMessage(error) }; }
+  }
+
+  async readPackageData(worldId: LocalWorldId): Promise<ReadLocalWorldPackageDataResult> {
+    try {
+      return await inTransaction(this.db, [WORLD_STORE, PACKAGE_DATA_STORE], "readonly", async (transaction) => {
+        const worlds = transaction.objectStore(WORLD_STORE);
+        const record = await requestResult<LocalWorldRecord | undefined>(worlds.get(worldId));
+        if (!record) return { status: "missing" };
+        const data = await requestResult<LocalWorldPackageData | undefined>(transaction.objectStore(PACKAGE_DATA_STORE).get(worldId));
+        return data ? { status: "found", data: cloneLocalWorldValue(data) } : { status: "not-stored" };
+      });
+    } catch (error) { return { status: "error", message: errorMessage(error) }; }
   }
 
   allocateObjectId(worldId: LocalWorldId): LocalObjectId {
