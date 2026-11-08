@@ -1,6 +1,11 @@
 # RETRIEVAL: preserve multiple recorded navigation names
 
-Status: QUALIFIED / READY FOR MERGE AND DELIVERY under the user's clarified
+Status: DELIVERED; implementation/resource leases RELEASED. PR2244 merged at
+5bc95298926d6c392abc9a18e391830357d0e022; PRIME delivered APIca2ede22158f01b72d77f7988efe2219f519d328,
+then successor87bbb4f82af9dec75cf12753fb44e6821c43c822 with2249. Schema133 and
+retained state conserved; existing qualified evidence reused, no paid reruns.
+Consuming slice: HANDOFF-RETRIEVAL-context-qualifications.md. Historical scope
+and pre-delivery qualification follow under the user's clarified
 objective. Response writing and response-output grades are outside this lane.
 Root designs/owns backend; PRIME owns merge/delivery, not review approval.
 Branch codex/navigation-recorded-names; replacement PR2244 (closed PR2223 retained) on main

@@ -356,13 +356,15 @@ def test_semantic_native_evidence_preserves_qualifiers_and_reopens_original_cita
         "native_assertions",
     }
     encoded = json.dumps(frame)
+    from application_state.agent_conversation.native_evidence_view import output_frame
+    inline = output_frame({}, frame)
     for row in host["native_assertions"]["assertions"]:
         assert row["assertion_handle"] not in encoded
         assert row["assertion"]["assertion_id"] not in encoded
         assert row["assertion"]["subject_entity_id"] not in encoded
     for old, new in zip(
         host["native_assertions"]["assertions"],
-        frame["native_assertions"]["assertions"],
+        inline["native_assertions"]["assertions"],
         strict=True,
     ):
         for key in (
@@ -570,7 +572,7 @@ def test_semantic_projection_refuses_unclassified_qualification(published_lane, 
 def test_semantic_world_qualification_separates_only_typed_publisher_provenance(
     published_lane,
 ):
-    from application_state.agent_conversation.native_evidence_view import semantic_frame
+    from application_state.agent_conversation.native_evidence_view import semantic_frame, output_frame
 
     context, record = published_case("build", published_lane)
     host = model_frame(context, record)
@@ -599,7 +601,7 @@ def test_semantic_world_qualification_separates_only_typed_publisher_provenance(
     before = deepcopy(host)
     frame = semantic_frame(host)
     assert host == before
-    assert frame["native_assertions"]["assertions"][0]["assertion"]["metadata"][
+    assert output_frame({}, frame)["native_assertions"]["assertions"][0]["assertion"]["metadata"][
         "domain_metadata"
     ] == [
         dict(world_context={"uncertain": ["who reported it"]})
@@ -610,7 +612,7 @@ def test_semantic_world_qualification_separates_only_typed_publisher_provenance(
         "note": "Keep these literal words and IDs"
     }
     assert (
-        semantic_frame(host)["native_assertions"]["assertions"][0]["assertion"][
+        output_frame({}, semantic_frame(host))["native_assertions"]["assertions"][0]["assertion"][
             "metadata"
         ]["domain_metadata"][0]["world_context"]
         == payload
@@ -669,7 +671,8 @@ def test_actual_sdk_world_context_roles_preserve_exact_host_reads(published_lane
         for item in read.assertion.metadata.domain_metadata:
             if item.schema_term == "dungeonbuddy.domain_metadata:world_context_v1":
                 assert item.payload["ingestion_code_head"] == "b"*40
-    for row in frame["native_assertions"]["assertions"]:
+    from application_state.agent_conversation.native_evidence_view import output_frame
+    for row in output_frame({}, frame)["native_assertions"]["assertions"]:
         for item in row["assertion"]["metadata"]["domain_metadata"]:
             assert set(item) == {"world_context"}
             assert item["world_context"] == {key:_ALL_HOST_REVIEW_FIELDS[key] for key in
@@ -702,9 +705,11 @@ def test_world_context_reader_classifies_slots_without_scrubbing_literal_text():
 @pytest.mark.parametrize("historical", [False, True])
 def test_world_context_current_and_historical_exact_sdk_bindings(published_lane, surface, historical):
     from application_state.agent_conversation.native_writer import model_input_frame
+    from application_state.agent_conversation.native_evidence_view import output_frame
     context, record = published_case(surface, published_lane)
     frame = model_input_frame(context, record)
     if historical:
+        frame = output_frame({}, frame)
         for row in frame["native_assertions"]["assertions"]:
             entries = row["assertion"]["metadata"]["domain_metadata"]
             for index, entry in enumerate(entries):
@@ -719,7 +724,7 @@ def test_world_context_current_and_historical_exact_sdk_bindings(published_lane,
     assert record.model_dump_json(by_alias=True) == before
     # A self-consistent request/hash cannot replace exact admitted qualifications.
     changed = deepcopy(frame)
-    entry = next(entry for row in changed["native_assertions"]["assertions"]
+    entry = next(entry for row in output_frame({}, changed)["native_assertions"]["assertions"]
         for entry in row["assertion"]["metadata"]["domain_metadata"]
         if (entry.get("schema") == "dungeonbuddy.domain_metadata:world_context_v1"
             if historical else set(entry) == {"world_context"}))
@@ -732,7 +737,7 @@ def test_world_context_current_and_historical_exact_sdk_bindings(published_lane,
     # Historical and current forms may not be mixed, even with self-consistent hashes.
     mixed = deepcopy(frame)
     entries = next(row["assertion"]["metadata"]["domain_metadata"]
-        for row in mixed["native_assertions"]["assertions"]
+        for row in output_frame({}, mixed)["native_assertions"]["assertions"]
         if any((entry.get("schema") == "dungeonbuddy.domain_metadata:world_context_v1"
             if historical else set(entry) == {"world_context"})
             for entry in row["assertion"]["metadata"]["domain_metadata"]))
@@ -747,12 +752,12 @@ def test_world_context_current_and_historical_exact_sdk_bindings(published_lane,
         verify_input_records(context, mixed_record, mixed_grant, mixed_raw, **work)
 
 
-@pytest.mark.parametrize("old_revision", ["20261108_0131", "20261108_0132"])
+@pytest.mark.parametrize("old_revision", ["20261108_0131", "20261108_0132", "20261108_0133"])
 def test_old_readers_refuse_world_projection_database(application_state_dsn, monkeypatch, old_revision):
     from application_state import cli
     from application_state.errors import ApplicationStateMigrationError
     cli.assert_at_head(dsn=application_state_dsn)
-    assert cli._read_current_revision(application_state_dsn) == "20261108_0133"
+    assert cli._read_current_revision(application_state_dsn) == "20261108_0134"
     monkeypatch.setattr(cli, "_alembic_head", lambda: old_revision)
     with pytest.raises(ApplicationStateMigrationError):
         cli.assert_at_head(dsn=application_state_dsn)

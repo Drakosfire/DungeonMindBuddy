@@ -13,6 +13,62 @@ from tests.test_surface_native_writer import (
 )
 
 
+@pytest.mark.parametrize('surface', ['build', 'plan'])
+def test_current_qualification_dictionary_and_retained_inline_bind_exactly(published_lane, surface):
+    from application_state.agent_conversation.native_writer import model_input_frame
+    from application_state.agent_conversation.native_evidence_view import output_frame
+    context, record = published_case(surface, published_lane)
+    frame = model_input_frame(context, record)
+    collection = frame['native_assertions']
+    assert collection['qualifications']
+    assert all('metadata' not in r['assertion'] for r in collection['assertions'])
+    inline = output_frame({}, frame)
+    assert 'qualifications' not in inline['native_assertions']
+    assert [r['assertion_handle'] for r in inline['native_assertions']['assertions']] == [
+        r['assertion_handle'] for r in collection['assertions']]
+    work = work_submission(context, record)
+    for actual in [frame, inline]:
+        raw = asyncio.run(actual_sdk_request(actual, work_frame=model_work_frame(context, record, **work)))
+        stored, grant = authorize(context, record, raw, actual)
+        assert verify_input_records(context, stored, grant, raw, **work).native_assertions
+
+
+@pytest.mark.parametrize('mutation', ['dangling', 'unused', 'changed', 'inline-mixed', 'rebound'])
+def test_qualification_dictionary_tampering_cannot_rebind_support(published_lane, mutation):
+    from application_state.agent_conversation.native_writer import model_input_frame
+    context, record = published_case('plan', published_lane)
+    frame = model_input_frame(context, record)
+    collection = frame['native_assertions']
+    row = collection['assertions'][0]['assertion']
+    alias = row['qualification']
+    if mutation == 'dangling': row['qualification'] = 'foreign'
+    elif mutation == 'unused': collection['qualifications']['unused'] = deepcopy(collection['qualifications'][alias])
+    elif mutation == 'changed': collection['qualifications'][alias]['standing'] = 'invented'
+    elif mutation == 'inline-mixed': row['metadata'] = deepcopy(collection['qualifications'][alias])
+    else:
+        other = next(k for k, v in collection['qualifications'].items() if v != collection['qualifications'][alias])
+        row['qualification'] = other
+    work = work_submission(context, record)
+    raw = asyncio.run(actual_sdk_request(frame, work_frame=model_work_frame(context, record, **work)))
+    stored, grant = authorize(context, record, raw, frame)
+    with pytest.raises(ValueError): verify_input_records(context, stored, grant, raw, **work)
+
+
+def test_qualification_dedup_preserves_boolean_and_integer_literals(published_lane):
+    from application_state.agent_conversation.native_evidence_view import semantic_frame
+    context, record = published_case('plan', published_lane)
+    host = model_frame(context, record)
+    first, second = host['native_assertions']['assertions'][:2]
+    second['assertion']['metadata'] = deepcopy(first['assertion']['metadata'])
+    first['assertion']['metadata']['domain_metadata'] = [{'schema': 'literal', 'payload': True}]
+    second['assertion']['metadata']['domain_metadata'] = [{'schema': 'literal', 'payload': 1}]
+    before = deepcopy(host)
+    collection = semantic_frame(host)['native_assertions']
+    a, b = collection['assertions'][:2]
+    assert a['assertion']['qualification'] != b['assertion']['qualification']
+    assert host == before
+
+
 @pytest.mark.parametrize('schema',[LEGACY_SCHEMA,SCHEMA])
 @pytest.mark.parametrize('surface',['build','plan'])
 def test_actual_sdk_versions_keep_exact_read_and_qualification_joins(published_lane,surface,schema):
