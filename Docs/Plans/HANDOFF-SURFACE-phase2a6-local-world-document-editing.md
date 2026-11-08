@@ -8,7 +8,7 @@ Checkout: `/home/drakosfire/Projects/.codex/blank-surface-phase1-20261107/worktr
 
 On an already-open local World, a user can explicitly start or resume one editable **World notes** Markdown document in the existing Buddy Surface. Use shared `MarkdownEditorCore` for its editor UI. Persist the document body through a Buddy-owned asynchronous local authoring adapter; never pass a Buddy-local ID/revision through `useWorkspaceDocumentAuthoring` or hosted snapshot/prepare/commit APIs. Report local save only after IndexedDB transaction completion. Keep the current hosted auth gate and `SelectedWorldProvider` behavior unchanged; this is not guest entry. Do not add graph objects/edges, account adoption, model/provider calls, or a renderer.
 
-The note is one bounded user-authored document per local World, stored as a normal bundled Markdown document in existing `LocalWorldPackageData.documents` / `bundledMembers`, so current validated package export carries it. Pick one reserved ID/path/media type for Buddy World notes. Refuse a collision with incompatible imported content; do not overwrite or normalize it. Every body commit must preserve all other sidecar references/bytes and append a Buddy-local history event while incrementing `LocalWorldRecord.localRevision`.
+The note is one bounded user-authored document per local World, stored as a normal bundled Markdown document in existing `LocalWorldPackageData.documents` / `bundledMembers`, so current validated package export carries it. Its reserved identity is `buddy-local-world-notes`, path `documents/buddy-world-notes.md`, media type `text/markdown`. Refuse a collision with incompatible imported content; do not overwrite or normalize it. Every body commit must preserve all other sidecar references/bytes and append a Buddy-local history event while incrementing `LocalWorldRecord.localRevision`.
 
 Use the existing schema-v3 `packageData` and `conflicts` stores if the current source confirms they can hold this boundary without schema migration. The write transaction must atomically commit the World revision/history, the updated notes member and preserved sidecar; a stale expected revision must leave current state intact and retain the complete proposed sidecar in a conflict candidate. No check-then-write. A conflict is not saved. Retain its candidate through route remount/reload and require an explicit reapply or discard action. Do not add generic document-management APIs or a second truth ledger.
 
@@ -18,11 +18,14 @@ Set a concrete UTF-8 body-size bound (maximum 1 MiB) and validate before allocat
 
 - `Docs/Plans/HANDOFF-SURFACE-phase2a6-local-world-document-editing.md`
 - `apps/live-control-ui/src/localWorld/localWorldRepository.ts`
+- `apps/live-control-ui/src/localWorld/localWorldRepository.test.ts`
 - `apps/live-control-ui/src/localWorld/inMemoryLocalWorldRepository.ts`
 - `apps/live-control-ui/src/localWorld/inMemoryLocalWorldRepository.test.ts`
 - `apps/live-control-ui/src/localWorld/indexedDbLocalWorldRepository.ts`
 - `apps/live-control-ui/src/localWorld/indexedDbLocalWorldRepository.test.ts`
 - `apps/live-control-ui/src/localWorld/localWorldSurface/LocalWorldSurface.tsx`
+- `apps/live-control-ui/src/localWorld/localWorldSurface/LocalWorldNotesEditor.tsx` (new)
+- `apps/live-control-ui/src/localWorld/localWorldSurface/LocalWorldNotesEditor.test.tsx` (new)
 - `apps/live-control-ui/src/localWorld/localWorldSurface/LocalWorldSurface.test.tsx`
 - `apps/live-control-ui/src/localWorld/localWorldSurface/localWorldSurface.css`
 - `apps/live-control-ui/src/localWorld/localWorldDocumentAuthoring.ts` (new, only if needed for the explicit async adapter)
@@ -36,7 +39,7 @@ No lockfiles/dependencies, schema upgrade, global routing/auth/selected-World ch
 ## Acceptance and evidence
 
 - An empty World displays an explicit Start writing action; mounting/opening never creates a document or mutates storage automatically.
-- Starting notes and editing/reloading/reopening preserves the same local World identity, title, note bytes, history and revision. Markdown serialization round-trips through `MarkdownEditorCore` without converting unsupported structures silently.
+- Starting notes and editing/reloading/reopening preserves the same local World identity, title, note bytes, history and revision. Markdown uses the shared `MarkdownEditorCore` behind a lazy import. YAML frontmatter is preserved byte-for-byte while editing the body; parser-warning constructs such as imported task-list Markdown render read-only with their original package bytes intact. A recovered conflict is a read-only preview until explicit Reapply; then it is the current saved note and can be edited.
 - Package export after editing decodes to the same note bytes plus every pre-existing attachment/source reference and byte. Same-named distinct Worlds remain independent.
 - Edits capture world ID, expected local revision and body before any await. Concurrent same-revision saves have one winner; the other complete body and sidecar are retained as a conflict candidate. Neither stale success nor error may clear or display over a newer draft. The conflict candidate survives unmount/remount/reload; reapply/discard is explicit.
 - Inject IndexedDB transaction abort/error and malformed/oversize body cases; committed body, history, sidecar and exported package remain unchanged and UI never says Saved. Test repeated input, pending navigation, and response ordering.
@@ -47,3 +50,13 @@ No lockfiles/dependencies, schema upgrade, global routing/auth/selected-World ch
 ## Deferred
 
 Anonymous guest entry remains a separate route/auth boundary slice. This handoff does not prove public unauthenticated safety. General multi-document lifecycle, import collision/fork UI, full history/provenance semantics, graph node/relationship authoring, local account adoption, real quota/private-mode/crash/eviction durability, cross-browser guarantees and weak-device performance remain unclaimed.
+
+## Current implementation evidence (2026-11-08)
+
+- Full `src/localWorld` suite: 7 files, 71 tests passed on Node 22.23.0. Typecheck and production build passed. The build retains existing dynamic/static import notices and the >500 kB main-chunk warning.
+- Adjacent App/chrome/navigation suites: 55 passed, 7 failed. The same 3 App and 4 navigation failures reproduced on exact pinned parent `02d79ceb0e767a67872e4c8c83c2a539ce6829bf`; hosted-route failures are jsdom relative `/api/live/...` fetch/URL and navigation limitations. This slice did not alter hosted routing or auth.
+- Native Chrome checks used disposable `local-world-surface-test-<uuid>` IndexedDB databases. Verified create → real MarkdownEditorCore edit/autosave → Surface close/reopen → readback → package codec/ZIP decode. A second connection advanced the revision to create a note conflict; after reload, committed text was shown and explicit Recover → Reapply saved the candidate. Aborting after the World write request left both revision (2) and old committed note unchanged on second-connection readback; the attempted edit remained an unsaved draft with unload protection. No existing or disclosed user World was used or deleted.
+- The task-owned screenshot is `/media/drakosfire/Projects/.codex/2026-11-07/task/phase2a6-native-surface.png`.
+- Production bundle observation: the pinned Phase2A5 build artifact main entry was 596,490 raw / 169,704 gzip bytes. This build's main entry is 721,550 raw / 205,620 gzip (+125,060 raw / +35,916 gzip); `MarkdownEditorCore` is split as 83,770 raw / 24,830 gzip and is absent from the root's initial asset requests (main JS, CSS, launcher image only). It is requested after opening a notes document. ZIP remains separate at 174,500 raw / 73,490 gzip and is fetched only for export. These are measured artifact/request observations, not weak-device performance claims.
+- Independent review of the latest working tree passed conflict-preview, metadata, stale-draft and remount checks; exact committed-head review is pending. Earlier review results against mutable trees are superseded.
+- Predecessor #2213 remains open/draft and conflicts with corrected #2210. This successor must be re-anchored, tested and independently reviewed on the composed stack before PRIME-led serial merge. No merge or deployment is authorized by this handoff.
