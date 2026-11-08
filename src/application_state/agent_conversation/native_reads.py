@@ -72,6 +72,18 @@ def _owner(turn, *, require_source=False):
     return receipt, execution
 
 
+def _validate_prospective_read(receipt, execution, event):
+    # Shared callbacks run only inside APP's locked append transaction. Its
+    # postcallback binder owns full prospective validation before persistence.
+    # Preserve the earlier duplicate-ID refusal before service replay handling.
+    from .native_context import SurfaceNativeContextReceiptV1
+    if type(receipt) is SurfaceNativeContextReceiptV1:
+        if any(prior.event_id == event.event_id for prior in execution.events):
+            raise ValueError("Graph execution event IDs must be unique")
+    else:
+        validate_execution_binding(receipt, execution.model_copy(update={"events": [*execution.events, event]}))
+
+
 def authorize_read(turn, *, event_id, record_kind, record_ids):
     """Authorize one native record family through the shared selected-read ledger."""
     from .plan_jev_decision import current_selection
@@ -90,7 +102,7 @@ def authorize_read(turn, *, event_id, record_kind, record_ids):
     event = event_type(event_id=event_id, sequence=len(execution.events),
         provider_attempt_id=current_selection(turn).controller_attempt_id,
         query_sha256=query.sha256, **{ids_field: tuple(record_ids)})
-    validate_execution_binding(receipt, execution.model_copy(update={"events": [*execution.events, event]}))
+    _validate_prospective_read(receipt, execution, event)
     return event
 
 
@@ -116,7 +128,7 @@ def observe_read(turn, *, event_id, authorization_event_id, reads, unavailable_i
         authorization_event_id=authorization_event_id, reads=tuple(reads),
         status="partial" if unavailable_ids else "complete",
         **{unavailable_field: tuple(unavailable_ids)})
-    validate_execution_binding(receipt, execution.model_copy(update={"events": [*execution.events, event]}))
+    _validate_prospective_read(receipt, execution, event)
     return event
 
 
