@@ -2,8 +2,9 @@
 
 Status: ACTIVE. Root designs/implements/reviews; PRIME merges/delivers.
 Branch:codex/retrieval-execution-owner-reconstruction; recorded-names-control.
-Topology:stacked on2260 exact52df027ba4a5ec828b5444ff3d201de6190835f6.
-Merge order2257 then2260 then this slice; rebase before delivery.
+Topology:stacked on2260 exactc0e0c1b59d4c2c549594c341d2fafdb8548c137c.
+2257source merged1a19895; merge order2260 then this slice. Rebase before delivery.
+Parent settlement does not claim pending runtime136 delivery.
 Exclusive expected writes:this handoff; src/application_state/agent_conversation/native_execution.py;
 tests/test_surface_native_execution.py. No ports/primary/live state or other source leases.
 Concurrent predecessor2260 owns shared relevance contracts/dispatch/fence137 and
