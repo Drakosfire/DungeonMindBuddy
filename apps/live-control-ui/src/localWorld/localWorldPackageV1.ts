@@ -1,4 +1,4 @@
-import { cloneLocalWorldValue, isLocalWorldPackageMemberPath, LOCAL_WORLD_PACKAGE_MEMBER_PATH_LIMITS, validateLocalWorldSnapshot } from "./localWorldRepository";
+import { cloneLocalWorldValue, isLocalWorldPackageMemberPath, LOCAL_WORLD_PACKAGE_MEMBER_PATH_LIMITS, validateLocalWorldPackageData, validateLocalWorldSnapshot } from "./localWorldRepository";
 import type {
   LocalWorldHistoryEntry,
   LocalWorldId,
@@ -6,6 +6,7 @@ import type {
   LocalWorldRecord,
   LocalWorldSnapshot,
   LocalPackageReference,
+  LocalWorldPackageData,
 } from "./localWorldRepository";
 
 export const LOCAL_WORLD_PACKAGE_V1 = {
@@ -499,9 +500,30 @@ function manifestFromUnknown(value: unknown): LocalWorldPackageManifestV1 {
  * Encode the fields represented by LocalWorldRecord into a normalized package
  * member map. This is not a ZIP writer or a complete portable package exporter.
  */
-export async function encodeLocalWorldPackageV1(record: LocalWorldRecord): Promise<EncodeLocalWorldPackageV1Result> {
+export async function encodeLocalWorldPackageV1(
+  recordInput: LocalWorldRecord,
+  supplementalDataInput?: LocalWorldPackageData,
+): Promise<EncodeLocalWorldPackageV1Result> {
+  let record: LocalWorldRecord;
+  let supplementalData: LocalWorldPackageData | undefined;
+  try {
+    // Validate own properties before cloning: structuredClone can drop non-enumerable
+    // fields and custom array properties, which must fail closed rather than disappear.
+    canonicalJson(recordInput);
+    if (supplementalDataInput) canonicalJson(supplementalDataInput);
+    // Snapshot all caller-owned state before any digest awaits.
+    record = cloneLocalWorldValue(recordInput);
+    supplementalData = supplementalDataInput ? cloneLocalWorldValue(supplementalDataInput) : undefined;
+  } catch (error) {
+    const problem = error instanceof PackageProblem ? error : new PackageProblem("invalid-record", error instanceof Error ? error.message : "Local World package inputs could not be copied.");
+    return { status: "error", code: problem.code, message: problem.message };
+  }
   try {
     validateRecord(record);
+    if (supplementalData) {
+      const invalidSupplement = validateLocalWorldPackageData(supplementalData, record.snapshot.worldId);
+      if (invalidSupplement) fail("invalid-record", invalidSupplement);
+    }
   } catch (error) {
     const problem = error instanceof PackageProblem ? error : new PackageProblem("invalid-record", "Local World record cannot be encoded.");
     return { status: "error", code: problem.code, message: problem.message };
@@ -512,8 +534,8 @@ export async function encodeLocalWorldPackageV1(record: LocalWorldRecord): Promi
       localRevision: record.localRevision,
       publishedRevisionId: record.publishedRevisionId,
       snapshot: record.snapshot,
-      documents: [],
-      assets: [],
+      documents: supplementalData?.documents ?? [],
+      assets: supplementalData?.assets ?? [],
     };
     const members = new Map<string, Uint8Array>();
     const semanticBytes = encodeJson(semantic);
@@ -527,9 +549,26 @@ export async function encodeLocalWorldPackageV1(record: LocalWorldRecord): Promi
     members.set(SEMANTIC_PATH, semanticBytes);
     members.set(LAYOUT_PATH, layoutBytes);
     if (historyBytes) members.set(HISTORY_PATH, historyBytes);
+    if (supplementalData) {
+      const bundledPaths = new Set([...supplementalData.documents, ...supplementalData.assets]
+        .filter((reference) => reference.status === "bundled")
+        .map((reference) => reference.path!));
+      for (const path of bundledPaths) {
+        const values = supplementalData.bundledMembers[path];
+        if (!values) fail("invalid-record", `Supplemental attachment bytes are missing: ${path}`);
+        const bytes = Uint8Array.from(values);
+        if (path.startsWith("assets/") && await sha256(bytes) !== path.slice("assets/".length)) {
+          fail("invalid-record", `Supplemental asset path does not match its SHA-256 bytes: ${path}`);
+        }
+        members.set(path, bytes);
+      }
+    }
     const descriptors: LocalWorldPackageMemberDescriptor[] = [];
     for (const [path, bytes] of members) {
-      descriptors.push({ path, mediaType: JSON_MEDIA_TYPE, sizeBytes: bytes.byteLength, sha256: await sha256(bytes) });
+      const attachment = supplementalData
+        ? [...supplementalData.documents, ...supplementalData.assets].find((reference) => reference.status === "bundled" && reference.path === path)
+        : undefined;
+      descriptors.push({ path, mediaType: attachment?.mediaType ?? JSON_MEDIA_TYPE, sizeBytes: bytes.byteLength, sha256: await sha256(bytes) });
     }
     descriptors.sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
     const manifest: LocalWorldPackageManifestV1 = {
@@ -548,13 +587,13 @@ export async function encodeLocalWorldPackageV1(record: LocalWorldRecord): Promi
           completeness: "unknown",
         }
         : { status: "omitted", entryCount: 0, firstLocalRevision: null, lastLocalRevision: null, completeness: "unknown" },
-      attachmentAvailability: expectedAvailability([], []),
-      fidelity: {
+      attachmentAvailability: expectedAvailability(semantic.documents, semantic.assets),
+      fidelity: supplementalData?.fidelity ?? {
         localRecord: "preserved",
         sourceMetadata: "not-represented-by-local-record",
         profileMetadata: "not-represented-by-local-record",
       },
-      creatorProfileAssumptions: { creator: "not-recorded", profile: "not-recorded" },
+      creatorProfileAssumptions: supplementalData?.creatorProfileAssumptions ?? { creator: "not-recorded", profile: "not-recorded" },
     };
     const manifestBytes = encodeJson(manifest);
     members.set(MANIFEST_PATH, manifestBytes);
