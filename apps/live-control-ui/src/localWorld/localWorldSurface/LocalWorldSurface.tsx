@@ -3,7 +3,9 @@ import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction"
 import { usePublishSurfaceInteraction } from "../../agentInteraction/usePublishSurfaceInteraction";
 import { buildSurfaceInteractionIdentity } from "../../surfaceInteraction/surfaceIdentity";
 import { openIndexedDbLocalWorldRepository, LOCAL_WORLD_DATABASE_NAME } from "../indexedDbLocalWorldRepository";
+import { hasPendingWorldNotesDrafts } from "../localWorldDocumentAuthoring";
 import type { LocalWorldId, LocalWorldPackageRepository, LocalWorldRecord } from "../localWorldRepository";
+import { LocalWorldNotesEditor } from "./LocalWorldNotesEditor";
 import "./localWorldSurface.css";
 
 // Keep unsaved title candidates while App routes/components remount in this tab.
@@ -24,7 +26,7 @@ function warnBeforeLeavingWithLocalWork(event: BeforeUnloadEvent): void {
 
 function syncBeforeUnloadProtection(): void {
   if (typeof window === "undefined") return;
-  const shouldProtect = pendingTitleDrafts.size > 0 || pendingLocalWrites.size > 0;
+  const shouldProtect = pendingTitleDrafts.size > 0 || hasPendingWorldNotesDrafts() || pendingLocalWrites.size > 0;
   if (shouldProtect && !beforeUnloadProtectionInstalled) {
     window.addEventListener("beforeunload", warnBeforeLeavingWithLocalWork);
     beforeUnloadProtectionInstalled = true;
@@ -164,12 +166,28 @@ export function LocalWorldSurface({
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<SaveStatus>("loading");
+  const [notesStatus, setNotesStatus] = useState<"loading" | "ready" | "dirty" | "saving" | "saved" | "conflict" | "error">("ready");
   const [message, setMessage] = useState<string | null>(null);
   const mounted = useRef(false);
   const operationGeneration = useRef(0);
   const busyRef = useRef(false);
   const closeRepositoryRef = useRef<(() => void) | null>(null);
+  const saveNotesRef = useRef<(() => void) | null>(null);
   const dirty = record !== null && titleDraft.trim() !== record.snapshot.title;
+  const onNotesRecordChange = useCallback((nextRecord: LocalWorldRecord) => {
+    setRecord(nextRecord);
+    setRecords((current) => current.map((item) => item.snapshot.worldId === nextRecord.snapshot.worldId ? nextRecord : item));
+  }, []);
+  const onNotesBusyChange = useCallback((nextBusy: boolean) => {
+    busyRef.current = nextBusy;
+    setBusy(nextBusy);
+  }, []);
+  const registerNotesSaveRequest = useCallback((save: (() => void) | null) => { saveNotesRef.current = save; }, []);
+  const displayStatus: SaveStatus = status === "error" || notesStatus === "error" ? "error"
+    : status === "conflict" || notesStatus === "conflict" ? "conflict"
+      : status === "saving" || notesStatus === "saving" ? "saving"
+        : dirty || status === "dirty" || notesStatus === "dirty" ? "dirty"
+          : notesStatus === "loading" ? "loading" : status;
 
   const refreshList = useCallback(async (repo: LocalWorldPackageRepository, generation: number) => {
     const result = await repo.listWorlds();
@@ -241,6 +259,7 @@ export function LocalWorldSurface({
     if (!repository) return;
     const generation = ++operationGeneration.current;
     setStatus("loading");
+    setNotesStatus("loading");
     setMessage(null);
     setRecord(null);
     try {
@@ -285,6 +304,7 @@ export function LocalWorldSurface({
         setStatus("error");
         return;
       }
+      setNotesStatus("loading");
       setRecord(result.record);
       setTitleDraft(result.record.snapshot.title);
       setNewTitle("");
@@ -366,16 +386,13 @@ export function LocalWorldSurface({
     setMessage(null);
     const generation = operationGeneration.current;
     try {
-      const latest = await repository.readWorld(record.snapshot.worldId);
+      const latest = await repository.readWorldExportSnapshot(record.snapshot.worldId);
       if (latest.status !== "found") throw new Error(latest.status === "missing" ? "Local World is missing." : latest.message);
-      const supplemental = await repository.readPackageData(record.snapshot.worldId);
-      if (supplemental.status === "error") throw new Error(supplemental.message);
-      if (supplemental.status === "missing") throw new Error("Local World disappeared before export.");
       const [{ encodeLocalWorldPackageV1 }, { encodeLocalWorldPackageZipV1 }] = await Promise.all([
         import("../localWorldPackageV1"),
         import("../localWorldPackageZipV1"),
       ]);
-      const encoded = await encodeLocalWorldPackageV1(latest.record, supplemental.status === "found" ? supplemental.data : undefined);
+      const encoded = await encodeLocalWorldPackageV1(latest.record, latest.data);
       if (encoded.status !== "encoded") throw new Error(encoded.message);
       const archived = await encodeLocalWorldPackageZipV1(encoded.members);
       if (archived.status !== "encoded") throw new Error(archived.message);
@@ -406,14 +423,14 @@ export function LocalWorldSurface({
   const publication = useMemo(() => makePublication({
     localWorldId: record?.snapshot.worldId ?? null,
     title: record?.snapshot.title ?? null,
-    status,
+    status: displayStatus,
     editing,
     titleDirty: dirty,
-    canExport: !!record && !repositoryError && !dirty && !busy && status !== "loading" && status !== "saving" && status !== "conflict",
+    canExport: !!record && !repositoryError && !dirty && !busy && notesStatus !== "dirty" && notesStatus !== "saving" && notesStatus !== "conflict" && notesStatus !== "error" && status !== "loading" && status !== "saving" && status !== "conflict",
     onEditTitle: () => { if (record && !busy) { setTitleDraft(record.snapshot.title); setEditing(true); } },
     onSaveTitle: () => { void saveTitle(); },
     onExport: () => { void exportPackage(); },
-  }), [busy, dirty, editing, exportPackage, record, repositoryError, saveTitle, status]);
+  }), [busy, dirty, displayStatus, editing, exportPackage, notesStatus, record, repositoryError, saveTitle]);
   usePublishSurfaceInteraction(publication);
 
   return (
@@ -470,18 +487,29 @@ export function LocalWorldSurface({
               <p>Your World begins here.</p>
               <small>People, places and moments can come later.</small>
             </div>
+            {repository ? <LocalWorldNotesEditor
+              repository={repository}
+              record={record}
+              disabled={busy}
+              onRecordChange={onNotesRecordChange}
+              onBusyChange={onNotesBusyChange}
+              onStatusChange={setNotesStatus}
+              onPendingChange={syncBeforeUnloadProtection}
+              beginPendingWrite={beginPendingLocalWrite}
+              registerSaveRequest={registerNotesSaveRequest}
+            /> : null}
           </section> : null}
 
           <details className="local-world-surface__save-menu">
             <summary>Save menu</summary>
             <p>Local Worlds are saved in this browser. Export creates a portable package you control.</p>
             <div>
-              <button type="button" onClick={() => { if (dirty) void saveTitle(); }} disabled={!dirty || busy}>{busy && status === "saving" ? "Saving…" : "Save in this browser"}</button>
-              <button type="button" onClick={() => void exportPackage()} disabled={!record || !!repositoryError || dirty || busy || status === "loading" || status === "saving" || status === "conflict"}>Download World package</button>
+              <button type="button" onClick={() => { if (dirty) void saveTitle(); else saveNotesRef.current?.(); }} disabled={(!dirty && notesStatus !== "dirty" && notesStatus !== "error") || busy || notesStatus === "conflict"}>{busy && (status === "saving" || notesStatus === "saving") ? "Saving…" : "Save in this browser"}</button>
+              <button type="button" onClick={() => void exportPackage()} disabled={!record || !!repositoryError || dirty || busy || notesStatus === "loading" || notesStatus === "dirty" || notesStatus === "saving" || notesStatus === "conflict" || notesStatus === "error" || status === "loading" || status === "saving" || status === "conflict"}>Download World package</button>
             </div>
           </details>
           <p className={`local-world-surface__save-status local-world-surface__save-status--${status}`} role="status" aria-live="polite">
-            {status === "loading" ? "Loading local World…" : status === "saving" ? "Saving to this browser…" : status === "conflict" ? "Conflict needs your choice" : status === "error" ? "Could not complete this local action" : status === "dirty" || dirty ? "Unsaved title change" : record ? "Saved in this browser" : "Ready to create a local World"}
+            {notesStatus === "saving" || status === "saving" ? "Saving to this browser…" : notesStatus === "conflict" || status === "conflict" ? "Conflict needs your choice" : notesStatus === "error" || status === "error" ? "Could not complete this local action" : dirty || status === "dirty" ? "Unsaved title change" : notesStatus === "dirty" ? "Unsaved notes" : status === "loading" ? "Loading local World…" : record ? "Saved in this browser" : "Ready to create a local World"}
           </p>
           {message ? <div className={`local-world-surface__notice ${status === "error" ? "local-world-surface__notice--error" : ""}`} role={status === "error" ? "alert" : "status"}>
             <p>{message}</p>

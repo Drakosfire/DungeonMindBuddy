@@ -76,6 +76,8 @@ export interface LocalWorldConflictCandidate {
   readonly currentLocalRevision: number;
   readonly proposedSnapshot: LocalWorldSnapshot;
   readonly edit: Omit<LocalWorldHistoryEntry, "id" | "localRevision">;
+  /** Full sidecar proposal for document edits; absent for earlier semantic conflicts. */
+  readonly proposedPackageData?: LocalWorldPackageData;
 }
 
 export interface LocalWorldRepository {
@@ -96,6 +98,24 @@ export interface LocalWorldRepository {
   allocateObjectId(worldId: LocalWorldId): LocalObjectId;
   allocateRelationshipId(worldId: LocalWorldId): LocalRelationshipId;
 }
+
+export interface LocalWorldNotesState {
+  readonly localRevision: number;
+  readonly documentExists: boolean;
+  readonly markdown: string;
+  readonly conflictCandidates: readonly LocalWorldConflictCandidate[];
+}
+
+export type ReadLocalWorldNotesResult =
+  | { readonly status: "found"; readonly state: LocalWorldNotesState }
+  | { readonly status: "missing" }
+  | { readonly status: "error"; readonly message: string };
+
+export type CommitLocalWorldNotesResult =
+  | { readonly status: "committed"; readonly record: LocalWorldRecord }
+  | { readonly status: "conflict"; readonly committed: LocalWorldRecord; readonly candidate: LocalWorldConflictCandidate }
+  | { readonly status: "missing" }
+  | { readonly status: "error"; readonly message: string };
 
 export interface LocalPackageReference {
   readonly id: string;
@@ -129,12 +149,25 @@ export type ReadLocalWorldPackageDataResult =
   | { readonly status: "not-stored" }
   | { readonly status: "missing" }
   | { readonly status: "error"; readonly message: string };
+export type ReadLocalWorldExportSnapshotResult =
+  | { readonly status: "found"; readonly record: LocalWorldRecord; readonly data?: LocalWorldPackageData }
+  | { readonly status: "missing" }
+  | { readonly status: "error"; readonly message: string };
 
 /** Optional package restore capability; ordinary editor consumers remain on LocalWorldRepository. */
 export interface LocalWorldPackageRepository extends LocalWorldRepository {
   listWorlds(): Promise<ListLocalWorldsResult>;
   restorePackage(record: LocalWorldRecord, data: LocalWorldPackageData): Promise<RestoreLocalWorldPackageResult>;
   readPackageData(worldId: LocalWorldId): Promise<ReadLocalWorldPackageDataResult>;
+  /** Reads the semantic record and mutable package sidecar from one storage snapshot. */
+  readWorldExportSnapshot(worldId: LocalWorldId): Promise<ReadLocalWorldExportSnapshotResult>;
+  readWorldNotes(worldId: LocalWorldId): Promise<ReadLocalWorldNotesResult>;
+  commitWorldNotes(input: {
+    readonly worldId: LocalWorldId;
+    readonly expectedLocalRevision: number;
+    readonly markdown: string;
+  }): Promise<CommitLocalWorldNotesResult>;
+  discardWorldNotesConflict(worldId: LocalWorldId, conflictId: LocalConflictId): Promise<"discarded" | "missing" | "error">;
 }
 
 export type ListLocalWorldsResult =
