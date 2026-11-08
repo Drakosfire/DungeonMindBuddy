@@ -41,3 +41,10 @@ tuples; Python data must already contain tuples. Existing constructor validates
 all fields and rejects unknown kwargs/type errors as ValidationError. No broad
 coercion or try-both parsing. Preserve initial failure evidence and verify exact
 canonical JSON as well as mutable capabilities and full surface owners.
+
+Same-capability checkpoint: the policy self-validation inside execution still
+encoded and parsed JSON after the full execution fix. The same capability owner
+decoder now permits a fresh recursive Python-data policy reconstruction as well.
+Remove that last internal roundtrip in native_execution.py, retaining all policy
+validators. No extra path/public contract/fallback. Prior variant head and all
+measurements remain evidence; qualify the new changed variant independently.

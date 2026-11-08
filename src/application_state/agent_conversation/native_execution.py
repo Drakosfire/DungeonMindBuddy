@@ -246,7 +246,7 @@ class SurfaceNativeExecutionV1(Strict):
     @model_validator(mode="after")
     def actual_records(self):
         # Recheck mutable owner models before trusting their frozen commitment.
-        SurfaceNativeExecutionPolicyV1.model_validate_json(self.policy.model_dump_json(by_alias=True))
+        SurfaceNativeExecutionPolicyV1.model_validate(self.policy.model_dump(mode="python", by_alias=True))
         expected = t.canonical_sha256(dict(schema=self.schema_,
             context_receipt_sha256=self.context_receipt_sha256,
             policy=self.policy.model_dump(mode="json", by_alias=True)))
