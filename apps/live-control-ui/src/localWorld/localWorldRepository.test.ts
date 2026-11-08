@@ -2,73 +2,45 @@ import { describe, expect, it } from "vitest";
 import {
   InMemoryLocalWorldRepository,
   InMemoryLocalWorldStore,
-  type LocalIdFactory,
 } from "./inMemoryLocalWorldRepository";
+import {
+  createTestWorld,
+  fourNodeWorldFixture,
+  sameNameWorldPeopleFixture,
+  sequenceLocalIds,
+} from "./localWorldContractFixtures";
+import { openIndexedDbLocalWorldRepository } from "./indexedDbLocalWorldRepository";
 import type {
-  LocalWorldId,
   LocalWorldLayout,
-  LocalWorldRecord,
-  LocalWorldSnapshot,
+  LocalWorldId,
 } from "./localWorldRepository";
-
-function sequenceIds(): LocalIdFactory {
-  let next = 0;
-  return () => `fixture-${++next}`;
-}
-
-async function makeWorld(repo: InMemoryLocalWorldRepository): Promise<LocalWorldRecord> {
-  const created = await repo.createWorld({ title: "Untitled World" });
-  if (created.status !== "created") throw new Error(created.message);
-  return created.record;
-}
-
-function fourNodeTestFixture(repo: InMemoryLocalWorldRepository, worldId: LocalWorldId): LocalWorldSnapshot {
-  const people = ["Mara Venn", "Tomas Reed"].map((name) => ({
-    id: repo.allocateObjectId(worldId),
-    name,
-    kind: "person",
-    properties: { role: "traveler" },
-  }));
-  const location = {
-    id: repo.allocateObjectId(worldId),
-    name: "The Glass Orchard",
-    kind: "location",
-    properties: { region: "North Reach" },
-  };
-  const event = {
-    id: repo.allocateObjectId(worldId),
-    name: "The Winter Accord",
-    kind: "event",
-    properties: { year: 412 },
-  };
-  const [mara, tomas] = people;
-  return {
-    worldId,
-    title: "The Ember Coast",
-    objects: [...people, location, event],
-    relationships: [
-      {
-        id: repo.allocateRelationshipId(worldId),
-        fromObjectId: mara.id,
-        toObjectId: event.id,
-        kind: "negotiated",
-        properties: { outcome: "signed" },
-      },
-      {
-        id: repo.allocateRelationshipId(worldId),
-        fromObjectId: tomas.id,
-        toObjectId: location.id,
-        kind: "protects",
-        properties: { since: "winter" },
-      },
-    ],
-  };
-}
 
 const localOnlyEdit = {
   classification: "buddy-local-only" as const,
   description: "Edited the local draft",
 };
+
+describe("IndexedDB adapter availability", () => {
+  it("reports unavailable when the browser IndexedDB accessor throws", async () => {
+    const previous = Object.getOwnPropertyDescriptor(globalThis, "indexedDB");
+    Object.defineProperty(globalThis, "indexedDB", {
+      configurable: true,
+      get() {
+        throw new DOMException("Storage is blocked", "SecurityError");
+      },
+    });
+
+    try {
+      await expect(openIndexedDbLocalWorldRepository("unused-test-db")).resolves.toMatchObject({
+        status: "error",
+        code: "unavailable",
+      });
+    } finally {
+      if (previous) Object.defineProperty(globalThis, "indexedDB", previous);
+      else delete (globalThis as typeof globalThis & { indexedDB?: IDBFactory }).indexedDB;
+    }
+  });
+});
 
 describe("LocalWorldRepository contract with the in-memory reference adapter", () => {
   it("captures every semantic request header before an asynchronous adapter hook", async () => {
@@ -76,13 +48,13 @@ describe("LocalWorldRepository contract with the in-memory reference adapter", (
     let releaseWrite!: () => void;
     const gate = new Promise<void>((resolve) => { releaseWrite = resolve; });
     const repo = new InMemoryLocalWorldRepository({
-      idFactory: sequenceIds(),
+      idFactory: sequenceLocalIds(),
       beforeCommit: async (point) => {
         if (holdWrites && point === "semantic-edit") await gate;
       },
     });
-    const first = await makeWorld(repo);
-    const second = await makeWorld(repo);
+    const first = await createTestWorld(repo);
+    const second = await createTestWorld(repo);
     const winner = await repo.commitSemanticEdit({
       worldId: first.snapshot.worldId,
       expectedLocalRevision: 0,
@@ -119,12 +91,12 @@ describe("LocalWorldRepository contract with the in-memory reference adapter", (
     let releaseWrite!: () => void;
     const gate = new Promise<void>((resolve) => { releaseWrite = resolve; });
     const repo = new InMemoryLocalWorldRepository({
-      idFactory: sequenceIds(),
+      idFactory: sequenceLocalIds(),
       beforeCommit: async (point) => {
         if (holdWrites && point === "layout") await gate;
       },
     });
-    const initial = await makeWorld(repo);
+    const initial = await createTestWorld(repo);
     const winningLayout: LocalWorldLayout = {
       positions: { node: { x: 10, y: 10 } },
       viewport: { x: 0, y: 0, zoom: 1 },
@@ -156,7 +128,7 @@ describe("LocalWorldRepository contract with the in-memory reference adapter", (
     let releaseWrite!: () => void;
     const gate = new Promise<void>((resolve) => { releaseWrite = resolve; });
     const repo = new InMemoryLocalWorldRepository({
-      idFactory: sequenceIds(),
+      idFactory: sequenceLocalIds(),
       beforeCommit: async (point) => {
         if (holdWrites && point === "create") await gate;
       },
@@ -173,8 +145,8 @@ describe("LocalWorldRepository contract with the in-memory reference adapter", (
   });
 
   it("creates stable local identities and keeps local and published revisions distinct", async () => {
-    const repo = new InMemoryLocalWorldRepository({ idFactory: sequenceIds() });
-    const record = await makeWorld(repo);
+    const repo = new InMemoryLocalWorldRepository({ idFactory: sequenceLocalIds() });
+    const record = await createTestWorld(repo);
     const objectId = repo.allocateObjectId(record.snapshot.worldId);
     const relationshipId = repo.allocateRelationshipId(record.snapshot.worldId);
 
@@ -187,22 +159,11 @@ describe("LocalWorldRepository contract with the in-memory reference adapter", (
 
   it("reads four related test nodes through a new facade and preserves same-name identities", async () => {
     const store = new InMemoryLocalWorldStore();
-    const repo = new InMemoryLocalWorldRepository({ store, idFactory: sequenceIds() });
-    const initial = await makeWorld(repo);
-    const fixture = fourNodeTestFixture(repo, initial.snapshot.worldId);
-    const sameNameA = {
-      id: repo.allocateObjectId(initial.snapshot.worldId),
-      name: "The Lantern Keeper",
-      kind: "person",
-      properties: { home: "east" },
-    };
-    const sameNameB = {
-      id: repo.allocateObjectId(initial.snapshot.worldId),
-      name: "The Lantern Keeper",
-      kind: "person",
-      properties: { home: "west" },
-    };
-    const snapshot = { ...fixture, objects: [...fixture.objects, sameNameA, sameNameB] };
+    const repo = new InMemoryLocalWorldRepository({ store, idFactory: sequenceLocalIds() });
+    const initial = await createTestWorld(repo);
+    const fixture = fourNodeWorldFixture(repo, initial.snapshot.worldId);
+    const sameNamePeople = sameNameWorldPeopleFixture(repo, initial.snapshot.worldId);
+    const snapshot = { ...fixture, objects: [...fixture.objects, ...sameNamePeople] };
     const committed = await repo.commitSemanticEdit({
       worldId: initial.snapshot.worldId,
       expectedLocalRevision: 0,
@@ -218,7 +179,7 @@ describe("LocalWorldRepository contract with the in-memory reference adapter", (
     expect(committed.record.snapshot.objects[4].id).not.toBe(committed.record.snapshot.objects[5].id);
 
     // A new facade can read this process-local store. This is not a browser reload test.
-    const reopenedFacade = new InMemoryLocalWorldRepository({ store, idFactory: sequenceIds() });
+    const reopenedFacade = new InMemoryLocalWorldRepository({ store, idFactory: sequenceLocalIds() });
     const read = await reopenedFacade.readWorld(initial.snapshot.worldId);
     expect(read.status).toBe("found");
     if (read.status === "found") {
@@ -227,13 +188,13 @@ describe("LocalWorldRepository contract with the in-memory reference adapter", (
       expect(read.record.history).toHaveLength(2);
     }
 
-    const freshStoreFacade = new InMemoryLocalWorldRepository({ idFactory: sequenceIds() });
+    const freshStoreFacade = new InMemoryLocalWorldRepository({ idFactory: sequenceLocalIds() });
     expect(await freshStoreFacade.readWorld(initial.snapshot.worldId)).toEqual({ status: "missing" });
   });
 
   it("preserves the committed version and the complete losing candidate on stale CAS", async () => {
-    const repo = new InMemoryLocalWorldRepository({ idFactory: sequenceIds() });
-    const initial = await makeWorld(repo);
+    const repo = new InMemoryLocalWorldRepository({ idFactory: sequenceLocalIds() });
+    const initial = await createTestWorld(repo);
     const winnerSnapshot = { ...initial.snapshot, title: "Winning title" };
     const winner = await repo.commitSemanticEdit({
       worldId: initial.snapshot.worldId,
@@ -243,7 +204,7 @@ describe("LocalWorldRepository contract with the in-memory reference adapter", (
     });
     expect(winner.status).toBe("committed");
 
-    const losingSnapshot = fourNodeTestFixture(repo, initial.snapshot.worldId);
+    const losingSnapshot = fourNodeWorldFixture(repo, initial.snapshot.worldId);
     const result = await repo.commitSemanticEdit({
       worldId: initial.snapshot.worldId,
       expectedLocalRevision: 0,
@@ -266,16 +227,16 @@ describe("LocalWorldRepository contract with the in-memory reference adapter", (
 
   it("atomically leaves snapshot and history unchanged when the transaction fails", async () => {
     const repo = new InMemoryLocalWorldRepository({
-      idFactory: sequenceIds(),
+      idFactory: sequenceLocalIds(),
       beforeCommit: (point) => {
         if (point === "semantic-edit") throw new Error("simulated transaction failure");
       },
     });
-    const initial = await makeWorld(repo);
+    const initial = await createTestWorld(repo);
     const result = await repo.commitSemanticEdit({
       worldId: initial.snapshot.worldId,
       expectedLocalRevision: 0,
-      nextSnapshot: fourNodeTestFixture(repo, initial.snapshot.worldId),
+      nextSnapshot: fourNodeWorldFixture(repo, initial.snapshot.worldId),
       edit: localOnlyEdit,
     });
     expect(result).toEqual({ status: "error", message: "simulated transaction failure" });
@@ -290,9 +251,9 @@ describe("LocalWorldRepository contract with the in-memory reference adapter", (
   });
 
   it("copies input and output values so callers cannot mutate repository state", async () => {
-    const repo = new InMemoryLocalWorldRepository({ idFactory: sequenceIds() });
-    const initial = await makeWorld(repo);
-    const input = fourNodeTestFixture(repo, initial.snapshot.worldId);
+    const repo = new InMemoryLocalWorldRepository({ idFactory: sequenceLocalIds() });
+    const initial = await createTestWorld(repo);
+    const input = fourNodeWorldFixture(repo, initial.snapshot.worldId);
     const result = await repo.commitSemanticEdit({
       worldId: initial.snapshot.worldId,
       expectedLocalRevision: 0,
@@ -316,10 +277,10 @@ describe("LocalWorldRepository contract with the in-memory reference adapter", (
     let release!: () => void;
     const gate = new Promise<void>((resolve) => { release = resolve; });
     const repo = new InMemoryLocalWorldRepository({
-      idFactory: sequenceIds(),
+      idFactory: sequenceLocalIds(),
       beforeCommit: async (point) => { if (point === "semantic-edit") await gate; },
     });
-    const initial = await makeWorld(repo);
+    const initial = await createTestWorld(repo);
     const a = repo.commitSemanticEdit({
       worldId: initial.snapshot.worldId,
       expectedLocalRevision: 0,
@@ -346,8 +307,8 @@ describe("LocalWorldRepository contract with the in-memory reference adapter", (
   });
 
   it("keeps layout writes on their own revision and outside semantic history", async () => {
-    const repo = new InMemoryLocalWorldRepository({ idFactory: sequenceIds() });
-    const initial = await makeWorld(repo);
+    const repo = new InMemoryLocalWorldRepository({ idFactory: sequenceLocalIds() });
+    const initial = await createTestWorld(repo);
     const layout: LocalWorldLayout = {
       positions: { "local-node": { x: 240, y: 90 } },
       viewport: { x: 12, y: -7, zoom: 1.4 },
@@ -375,12 +336,12 @@ describe("LocalWorldRepository contract with the in-memory reference adapter", (
 
   it("distinguishes missing Worlds from failed transactions", async () => {
     const repo = new InMemoryLocalWorldRepository({
-      idFactory: sequenceIds(),
+      idFactory: sequenceLocalIds(),
       beforeCommit: (point) => {
         if (point === "semantic-edit") throw new Error("storage unavailable");
       },
     });
-    const initial = await makeWorld(repo);
+    const initial = await createTestWorld(repo);
     const missing = await repo.readWorld("local-world:absent" as LocalWorldId);
     expect(missing).toEqual({ status: "missing" });
     const failure = await repo.commitSemanticEdit({
