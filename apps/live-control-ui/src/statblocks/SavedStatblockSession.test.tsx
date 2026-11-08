@@ -265,3 +265,8 @@ it('edits an exact linked statblock in a saved message through the shared native
  await userEvent.click(screen.getByRole('button',{name:'Inspect Ooze'}));const object=screen.getByRole('dialog',{name:'Object · Ooze'});await userEvent.click(await within(object).findByRole('button',{name:'Edit here'}));
  const message=screen.getByRole('region',{name:'Saved message'});await within(message).findByRole('region',{name:'Saved statblock'});expect(screen.queryByRole('dialog')).toBeNull();const input=within(message).getByLabelText('Creature name');expect(input.closest('form')).toBeNull();await userEvent.type(input,'{enter}');expect(submitted).not.toHaveBeenCalled();expect(changed).not.toHaveBeenCalled();expect(api.openSavedMechanicsVersion).toHaveBeenCalledWith(draft,world,locator.revision_id);expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
 });
+
+it('restores message scroll after popup placement would clamp the shortened message',async()=>{
+ render(<InlineSessionHost/>);const message=await openInline();message.scrollTop=137;message.scrollLeft=11;await userEvent.click(within(message).getByRole('button',{name:'Open statblock popup'}));message.scrollTop=0;message.scrollLeft=0;
+ await userEvent.click(within(screen.getByRole('dialog',{name:'Saved statblock editor'})).getByRole('button',{name:'Close statblock'}));expect(within(message).getByLabelText('Creature name')).toBeVisible();expect(message.scrollTop).toBe(137);expect(message.scrollLeft).toBe(11);
+});

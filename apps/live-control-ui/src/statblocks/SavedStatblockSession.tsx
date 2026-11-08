@@ -29,13 +29,20 @@ function WorldSession({worldId,children}:{worldId:string|null;children:ReactNode
   const [editorMount]=useState(()=>{const node=document.createElement('div');node.className='saved-statblock-mount';node.tabIndex=-1;return node;});
   const parking=useRef<HTMLDivElement>(null),hosts=useRef(new Set<HTMLElement>()),returnHost=useRef<HTMLElement|null>(null);
   const placementRef=useRef(placement);placementRef.current=placement;
+  const scrollReturn=useRef<{host:HTMLElement;positions:{node:HTMLElement;top:number;left:number}[]}|null>(null);
+  function rememberInlineScroll(){
+    const currentPlacement=placementRef.current;if(currentPlacement.kind!=='inline')return;
+    const positions:{node:HTMLElement;top:number;left:number}[]=[];
+    for(let node:HTMLElement|null=currentPlacement.host.parentElement;node;node=node.parentElement)positions.push({node,top:node.scrollTop,left:node.scrollLeft});
+    scrollReturn.current={host:currentPlacement.host,positions};
+  }
   const current=useRef<Selection|null>(null),observed=useRef<SavedMechanicsSessionState>({revisionId:null,busy:true,switchReason:'Opening saved mechanics. Wait before choosing another statblock.'}),dialog=useRef<HTMLDialogElement>(null);
   const location=useSyncExternalStore(subscribeAppLocation,getAppLocationSnapshot),lastLocation=useRef(location);
-  useEffect(()=>{if(lastLocation.current!==location){lastLocation.current=location;returnHost.current=null;setPlacement({kind:'hidden'});}},[location]);
+  useEffect(()=>{if(lastLocation.current!==location){lastLocation.current=location;returnHost.current=null;scrollReturn.current=null;setPlacement({kind:'hidden'});}},[location]);
   const session=useMemo<Session>(()=>({worldId,
     registerInlineHost:(host,owner)=>{if(owner!==worldId||!host.isConnected||host.closest('form'))return false;hosts.current.add(host);return true;},
     releaseInlineHost:host=>{
-      hosts.current.delete(host);if(returnHost.current===host)returnHost.current=null;
+      hosts.current.delete(host);if(returnHost.current===host)returnHost.current=null;if(scrollReturn.current?.host===host)scrollReturn.current=null;
       if(placementRef.current.kind==='inline'&&placementRef.current.host===host){
         // Move before React removes the message. The portal destination and editor stay alive.
         parking.current?.appendChild(editorMount);placementRef.current={kind:'hidden'};setPlacement({kind:'hidden'});
@@ -45,11 +52,11 @@ function WorldSession({worldId,children}:{worldId:string|null;children:ReactNode
       if(!worldId||next.worldId!==worldId){setMessage('This statblock is unavailable in the selected World.');return false;}
       if(context.encounter&&context.encounter.plan.worldId!==worldId||context.generationPlan&&context.generationPlan.worldId!==worldId){setMessage('The statblock presentation belongs to another World.');return false;}
       if(inlineHost&&(!hosts.current.has(inlineHost)||!inlineHost.isConnected||inlineHost.closest('form'))){setMessage('Inline statblock editing is unavailable here. Open the popup instead.');return false;}
-      const show=()=>{returnHost.current=inlineHost??null;setPlacement(inlineHost?{kind:'inline',host:inlineHost}:{kind:'dialog'});};
+      const show=()=>{scrollReturn.current=null;returnHost.current=inlineHost??null;setPlacement(inlineHost?{kind:'inline',host:inlineHost}:{kind:'dialog'});};
       if(current.current&&sameDraft(current.current.target,next)&&(!next.revisionId||!observed.current.busy&&next.revisionId===observed.current.revisionId)){
         if(!observed.current.switchReason)setPresentation(structuredClone(context));setMessage('');show();return true;
       }
-      if(current.current&&observed.current.switchReason){setMessage(observed.current.switchReason);setPlacement({kind:'dialog'});return false;}
+      if(current.current&&observed.current.switchReason){rememberInlineScroll();setMessage(observed.current.switchReason);setPlacement({kind:'dialog'});return false;}
       const selected={target:next,serial:(current.current?.serial??0)+1};
       current.current=selected;observed.current={revisionId:null,busy:true,switchReason:'Opening saved mechanics. Wait before choosing another statblock.'};
       setSelection(selected);setPresentation(structuredClone(context));setMessage('');show();return true;
@@ -59,7 +66,10 @@ function WorldSession({worldId,children}:{worldId:string|null;children:ReactNode
     const destination=placement.kind==='inline'?placement.host:placement.kind==='dialog'?dialog.current:parking.current;
     destination?.appendChild(editorMount);
     if(placement.kind==='inline'){
-      const frame=requestAnimationFrame(()=>{if(editorMount.isConnected)editorMount.focus();});
+      const snapshot=scrollReturn.current?.host===placement.host?scrollReturn.current:null;
+      const restore=()=>{for(const row of snapshot?.positions??[])if(row.node.isConnected){row.node.scrollTop=row.top;row.node.scrollLeft=row.left;}};
+      restore();
+      const frame=requestAnimationFrame(()=>{if(editorMount.isConnected)editorMount.focus({preventScroll:Boolean(snapshot)});restore();if(scrollReturn.current===snapshot)scrollReturn.current=null;});
       return()=>cancelAnimationFrame(frame);
     }
   },[placement,editorMount]);
@@ -71,7 +81,7 @@ function WorldSession({worldId,children}:{worldId:string|null;children:ReactNode
   function closePresentation(){
     const host=returnHost.current;
     if(placementRef.current.kind==='dialog'&&host&&hosts.current.has(host)&&host.isConnected)setPlacement({kind:'inline',host});
-    else {returnHost.current=null;setPlacement({kind:'hidden'});}
+    else {returnHost.current=null;scrollReturn.current=null;setPlacement({kind:'hidden'});}
   }
   const target=selection?.target,key=selection?.serial;
   return <Context.Provider value={session}>
@@ -82,7 +92,7 @@ function WorldSession({worldId,children}:{worldId:string|null;children:ReactNode
       aria-label="Saved statblock editor" onClose={()=>{if(placementRef.current.kind==='dialog')closePresentation();}} onKeyDown={event=>{if(event.key==='Escape')event.stopPropagation();}}/>
     {target&&createPortal(<div className="saved-statblock-frame" onKeyDown={event=>{if(event.key==='Escape')event.stopPropagation();}}>
       <header><strong>Statblock</strong><div>
-        {placement.kind==='inline'?<button type="button" onClick={()=>setPlacement({kind:'dialog'})}>Open statblock popup</button>:<button type="button" aria-pressed={expanded} onClick={()=>setExpanded(value=>!value)}>{expanded?'Restore size':'Expand statblock'}</button>}
+        {placement.kind==='inline'?<button type="button" onClick={()=>{rememberInlineScroll();setPlacement({kind:'dialog'});}}>Open statblock popup</button>:<button type="button" aria-pressed={expanded} onClick={()=>setExpanded(value=>!value)}>{expanded?'Restore size':'Expand statblock'}</button>}
         <button type="button" autoFocus aria-label="Close statblock" onClick={closePresentation}>×</button>
       </div></header>
       <div className="saved-statblock-dialog__body">
