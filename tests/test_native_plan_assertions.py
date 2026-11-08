@@ -498,7 +498,16 @@ def _ordinary_native_case(
         field=failure.removeprefix('selected_source_')
         wire_request['authored_references']['references'][-1][field]='f'*64 if field in ('content_sha256','section_id') else 'unavailable-source-revision'
         selected_references=AuthoredReferencesV2.model_validate(wire_request['authored_references'])
-    response=client.post('/api/live/agent/turn',json=wire_request)
+    if failure=='context_capture':
+        from evals.buddy_benchmark.workflow import capture_case
+        directory=tmp_path/'context-benchmark'
+        fields={'schema','surface','owner_scope','primary_work','client_work_state',
+            'graph_request','graph_selection','plan_context_policy'}
+        response=capture_case(client,world,{k:v for k,v in wire_request.items() if k in fields},
+            {'id':'ordinary-context','question':wire_request['message']},directory,context_only=True)
+        wire_request=json.loads((directory/'request.json').read_text())
+    else:
+        response=client.post('/api/live/agent/turn',json=wire_request)
     if failure and failure.startswith('selected_source_'):
         assert response.status_code==409,response.text+getattr(wire,'failure','')
         assert response.json()['detail']['code']=='authored_source_unavailable'
@@ -849,27 +858,16 @@ def test_benchmark_context_boundary_uses_actual_sdk_admission_without_writer_io(
         lane, tmp_path, monkeypatch, native_read_admission_probes):
     from copy import deepcopy
     from pathlib import Path
-    from evals.buddy_benchmark.context_capture import ContextCapture, validate_context_packet
+    from evals.buddy_benchmark.context_capture import validate_context_packet
     from evals.buddy_benchmark import workflow
-    from evals.buddy_benchmark.artifacts import immutable_save
 
     directory = tmp_path / 'context-benchmark'
     artifacts = tmp_path / 'artifacts'
     artifacts.mkdir(mode=0o700)
     monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT', str(artifacts))
-    stop = ContextCapture(directory)
-    with stop.install():
-        observed = _ordinary_native_case(lane, tmp_path, monkeypatch, False, False,
-            None, 'context_capture', False, native_read_admission_probes)
-    stop.finalize(observed['turn'])
-    client, turn, world = observed['client'], observed['turn'], observed['world']
-    immutable_save(directory, 'request', observed['request'])
-    immutable_save(directory, 'answer-http', workflow.response_envelope(observed['response']))
-    route = '/api/live/agent/worlds/' + world + '/conversation'
-    immutable_save(directory, 'history-after', workflow.response_envelope(
-        client.get(route, params={'include_turn_correlation': 'true'})))
-    immutable_save(directory, 'context-trace', workflow.response_envelope(
-        client.get(route + '/turns/' + str(turn.turn_id) + '/context-trace')))
+    observed = _ordinary_native_case(lane, tmp_path, monkeypatch, False, False,
+        None, 'context_capture', False, native_read_admission_probes)
+    client, turn = observed['client'], observed['turn']
     case = dict(id='ordinary-context', question=observed['request']['message'],
         capture_dir=str(directory), prompt_dir=str(artifacts / 'out/agent_request_evidence'),
         capture_boundary='context_ready')
@@ -882,9 +880,20 @@ def test_benchmark_context_boundary_uses_actual_sdk_admission_without_writer_io(
     assert result['operation']['output_tokens'] > 0  # real mocked controller accounting
     assert result['context']['accepted_to_ready_ms'] >= 0
     assert result['context']['prepared_request_bytes'] > 0
+    assert any(span['name'] == 'retrieval_decision' for span in result['context']['host_spans'])
     assert result['boundaries']['retrieval']['status'] == 'unknown'  # needs a context review
     replay = client.post('/api/live/agent/turn', json=observed['request'])
     assert replay.status_code == 409 and replay.json()['detail']['code'] == 'turn_already_authorized'
+    # The next ordinary case starts a fresh conversation after the intentional
+    # interruption; no lingering hook, claim or writer attempt is resumed.
+    fields = {'schema', 'surface', 'owner_scope', 'primary_work', 'client_work_state',
+        'graph_request', 'graph_selection', 'plan_context_policy'}
+    second = directory / 'next-case'
+    workflow.capture_case(client, observed['world'], {k:v for k,v in observed['request'].items() if k in fields},
+        {'id':'next-context', 'question':'Which details are established about B?'}, second, context_only=True)
+    fresh = json.loads((second / 'history-after.json').read_text())['body']['turns']
+    assert len(fresh) == 1 and fresh[0]['turn_id'] != str(turn.turn_id)
+    assert fresh[0]['lifecycle_status'] == 'interrupted' and not fresh[0]['assistant_text']
 
     ready = json.loads((directory / 'context-ready.json').read_text())
     request = json.loads((directory / 'context-request.json').read_text())

@@ -640,6 +640,24 @@ def test_context_capture_cli_is_explicit_and_does_not_select_a_response_mode(mon
     assert calls == [(('pinned.json', 'isolated'), {'context_only': True})]
 
 
+@pytest.mark.parametrize('policy', ['absent', None, {}, {'policy': 'auto_plan_world'}, {
+    'schema': 'dmb_plan_context_policy_v2', 'policy': 'auto_plan_world', 'graph_source': 'legacy_graph'}])
+def test_context_capture_rejects_routes_outside_its_guard_before_dispatch(tmp_path, policy):
+    client = Client('Explain the route.')
+    candidate = template()
+    if policy != 'absent':
+        candidate['plan_context_policy'] = policy
+    with pytest.raises(ValueError, match='explicit shared native Plan route'):
+        w.capture_case(client, 'world', candidate, {'question': client.question}, tmp_path, context_only=True)
+    assert not client.posts and not list(tmp_path.iterdir())
+
+
+def test_context_capture_accepts_only_the_supported_native_policy():
+    w.validate_template(template() | {'plan_context_policy': {
+        'schema': 'dmb_plan_context_policy_v2', 'policy': 'auto_plan_world',
+        'graph_source': 'reviewed_native_graph'}}, 'world', context_only=True)
+
+
 def test_context_report_does_not_relabel_old_response_as_context_success(retained):
     _, case, _ = retained
     result = w.report_case(case | {'capture_boundary': 'context_ready'}, Path('.'))

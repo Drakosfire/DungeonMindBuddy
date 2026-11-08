@@ -68,7 +68,7 @@ def _pointer(value, pointer):
     return value
 
 
-def validate_template(template, world):
+def validate_template(template, world, *, context_only=False):
     allowed = {"schema", "client_thread_id", "turn_id", "surface", "owner_scope",
         "primary_work", "client_work_state", "graph_request", "graph_selection", "plan_context_policy"}
     if (set(template) - allowed or template.get("schema") != "dmb_agent_turn_request_v1"
@@ -78,6 +78,10 @@ def validate_template(template, world):
         or template.get("owner_scope") != {"kind": "world", "world_id": world}
         or template.get("primary_work", {}).get("kind") != "plan"):
         raise ValueError("Ordinary capture template contains hints or an operation override")
+    if context_only and template.get("plan_context_policy") != {
+            "schema": "dmb_plan_context_policy_v2", "policy": "auto_plan_world",
+            "graph_source": "reviewed_native_graph"}:
+        raise ValueError("Context capture requires the explicit shared native Plan route")
 
 
 def report_case(case, base):
@@ -228,6 +232,8 @@ def report_case(case, base):
             "capture_boundary": "context_ready", "durable_turn_id": turn["turn_id"], "boundaries": boundaries,
             "context": {"status": "captured", "accepted_to_ready_ms": context_packet["elapsed_ms"],
                 "prepared_request_bytes": context_packet["prepared_bytes"],
+                "host_spans": documents["context-ready"].get("host_spans"),
+                "host_span_limits": "Existing pre-stop spans; cumulative/nested durations overlap and are not additive. Open phases are unfinished, not zero-cost.",
                 "timing_basis": "APP accepted_at to UTC observed immediately after real input authorization; same-host wallclock correlation, not nanosecond accuracy; excludes artifact IO and cleanup",
                 "input_accounting": {"kind": authorization.input_accounting_kind,
                     "amount": authorization.input_tokens, "estimator": authorization.input_estimator}},
@@ -268,7 +274,7 @@ def report(manifest_path):
 
 def capture_case(client, world, template, case, directory, *, context_only=False):
     """The single ordinary route sequence, shared by all question fixtures."""
-    validate_template(template, world)
+    validate_template(template, world, context_only=context_only)
     if directory.exists() and any(directory.iterdir()):
         raise ValueError("Case output already exists; do not redispatch")
     route = "/api/live/agent/worlds/" + world + "/conversation"
@@ -325,6 +331,7 @@ def capture_case(client, world, template, case, directory, *, context_only=False
             "elapsed_seconds": time.monotonic() - started, "automatic_restart": False})
     if error:
         raise error
+    return response
 
 
 def response_envelope(response):
@@ -372,7 +379,7 @@ def capture(manifest_path, output, *, context_only=False):
         raise ValueError("Capture requires pinned runtime/source evidence")
     verify_runtime(manifest["runtime"], base)
     template = manifest["request_template"]
-    validate_template(template, manifest["world"])
+    validate_template(template, manifest["world"], context_only=context_only)
     output = Path(output).resolve()
     output.mkdir(mode=0o700, parents=True, exist_ok=False)
     # The application must be configured against explicitly qualified test state.

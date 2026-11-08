@@ -4,6 +4,7 @@ No replacement input producer or response is supplied. The ordinary SDK prepares
 its request, APP/Rules authorize it, and GE records known_not_sent on our stop.
 """
 from contextlib import contextmanager
+from copy import deepcopy
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
@@ -111,6 +112,7 @@ class ContextCapture:
                 raise ContextReadyStop("Writer lifecycle has not retained its prepared context")
             if turn.graph_context_receipt.work_context.surface_id != "plan":
                 raise ContextReadyStop("Context capture requires the ordinary Plan owner")
+            trace = getattr(writer.adapter, "trace", None)
             immutable_save(owner.directory, "context-ready", {
                 "schema": "dmb_benchmark_context_ready_v1", "world_id": turn.world_id,
                 "conversation_id": str(turn.conversation_id), "turn_id": str(turn.turn_id),
@@ -119,6 +121,7 @@ class ContextCapture:
                 "context_receipt_sha256": turn.graph_context_receipt.context_receipt_sha256,
                 "frame_sha256": event.frame_sha256, "accepted_at": turn.accepted_at.isoformat(),
                 "ready_at": now.isoformat(), "ready_monotonic_ns": tick,
+                "host_spans": deepcopy(trace.spans) if trace is not None else None,
             })
             immutable_save(owner.directory, "context-request", {
                 "provider": prepared.provider, "model": prepared.model, "api_mode": prepared.api_mode,

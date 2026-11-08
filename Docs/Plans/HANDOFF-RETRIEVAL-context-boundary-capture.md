@@ -69,3 +69,13 @@ a test prompt-directory mismatch; explicit isolated artifact routing fixed it.
 The actual ordinary route test proves full admission, exact packet/prompt joins,
 known_not_sent, no lower writer IO, interrupted/replay-fenced turn and no response
 completion. Negative packet mutations remain rejected. No paid calls occurred.
+
+Review correction: context-only preflight requires the exact supported native
+Plan policy before any route dispatch; missing/None/legacy policies cannot reach
+Hermes or bypass the writer transport guard. Ordinary response mode is unchanged.
+The existing runner now exercises two successive real context captures, including
+fresh conversation CAS and interruption cleanup. After this correction,113 tests
+pass (29 inherited warnings,34.78s). Existing pre-stop host spans are copied without
+new instrumentation; the subsequent focused83 checks pass (one inherited warning,
+7.49s). Keep cumulative/nested/open span caveats; do not add overlapping costs.
+The first formal HOLD is retained; its changed-head review is pending.
