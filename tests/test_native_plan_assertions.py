@@ -526,6 +526,12 @@ def _ordinary_native_case(
         writer=next(e for e in failed.graph_context_execution.events if type(e) is NativeWriterAuthorizedV1)
         assert not any(type(e) is t.ProviderOutcomeEventV1 and e.provider_attempt_id==writer.provider_attempt_id
             and e.outcome=='response_received' for e in failed.graph_context_execution.events)
+        if failure=='context_capture':
+            assert not wire.calls and failed.claim_expires_at is None
+            assert [e.outcome for e in failed.graph_context_execution.events
+                if type(e) is t.ProviderOutcomeEventV1 and e.provider_attempt_id==writer.provider_attempt_id] == ['known_not_sent']
+            assert lane.repo.get_head(world)==original_head
+            return dict(turn=failed, response=response, client=client, request=wire_request, world=world)
         before_replay_reads=len(opened_with_grant)
         replay=client.post('/api/live/agent/turn',json=request.model_dump(mode='json',by_alias=True))
         assert replay.status_code==409,replay.text+getattr(wire,'failure','')
@@ -837,3 +843,67 @@ def test_native_navigation_does_not_name_c1_assertion_from_c2_name(lane,monkeypa
         assert next(row.label for row in result.object_matches if row.entity_id==lane.ids['B']).startswith('Unnamed object ')
     # Read identity and qualifications remain Core-owned; labels grant nothing.
     assert all(row.subject_entity_id==lane.ids['B'] for row in summaries)
+
+
+def test_benchmark_context_boundary_uses_actual_sdk_admission_without_writer_io(
+        lane, tmp_path, monkeypatch, native_read_admission_probes):
+    from copy import deepcopy
+    from pathlib import Path
+    from evals.buddy_benchmark.context_capture import ContextCapture, validate_context_packet
+    from evals.buddy_benchmark import workflow
+    from evals.buddy_benchmark.artifacts import immutable_save
+
+    directory = tmp_path / 'context-benchmark'
+    artifacts = tmp_path / 'artifacts'
+    artifacts.mkdir(mode=0o700)
+    monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT', str(artifacts))
+    stop = ContextCapture(directory)
+    with stop.install():
+        observed = _ordinary_native_case(lane, tmp_path, monkeypatch, False, False,
+            None, 'context_capture', False, native_read_admission_probes)
+    stop.finalize(observed['turn'])
+    client, turn, world = observed['client'], observed['turn'], observed['world']
+    immutable_save(directory, 'request', observed['request'])
+    immutable_save(directory, 'answer-http', workflow.response_envelope(observed['response']))
+    route = '/api/live/agent/worlds/' + world + '/conversation'
+    immutable_save(directory, 'history-after', workflow.response_envelope(
+        client.get(route, params={'include_turn_correlation': 'true'})))
+    immutable_save(directory, 'context-trace', workflow.response_envelope(
+        client.get(route + '/turns/' + str(turn.turn_id) + '/context-trace')))
+    case = dict(id='ordinary-context', question=observed['request']['message'],
+        capture_dir=str(directory), prompt_dir=str(artifacts / 'out/agent_request_evidence'),
+        capture_boundary='context_ready')
+    result = workflow.report_case(case, Path('.'))
+    assert result['capture_status'] == 'complete'
+    assert result['delivery']['status'] == 'not_requested'
+    assert result['delivery']['http_status'] == 503
+    assert result['boundaries']['composition']['status'] == 'not_reached'
+    assert result['operation']['writer_requests_sent'] == 0
+    assert result['operation']['output_tokens'] > 0  # real mocked controller accounting
+    assert result['context']['accepted_to_ready_ms'] >= 0
+    assert result['context']['prepared_request_bytes'] > 0
+    assert result['boundaries']['retrieval']['status'] == 'unknown'  # needs a context review
+    replay = client.post('/api/live/agent/turn', json=observed['request'])
+    assert replay.status_code == 409 and replay.json()['detail']['code'] == 'turn_already_authorized'
+
+    ready = json.loads((directory / 'context-ready.json').read_text())
+    request = json.loads((directory / 'context-request.json').read_text())
+    terminal = json.loads((directory / 'context-stop.json').read_text())
+    for mutation in ('bytes', 'guard', 'repeat', 'lifecycle', 'turn', 'claim'):
+        changed_request, changed_terminal = deepcopy(request), deepcopy(terminal)
+        if mutation == 'bytes':
+            changed_request['body_hex'] += '20'
+        elif mutation == 'guard':
+            changed_terminal['writer_io_guard_hits'] = 1
+        elif mutation == 'repeat':
+            changed_terminal['authorization_calls'] = 2
+        elif mutation == 'lifecycle':
+            event = next(e for e in changed_terminal['turn']['graph_context_execution']['events']
+                if e.get('provider_attempt_id') == ready['provider_attempt_id'] and e['kind'] == 'provider_outcome')
+            event['outcome'] = 'sdk_entered'
+        elif mutation == 'turn':
+            changed_terminal['turn']['turn_id'] = str(uuid4())
+        else:
+            changed_terminal['turn']['status'] = 'running'
+        with pytest.raises(ValueError):
+            validate_context_packet(ready, changed_request, changed_terminal)

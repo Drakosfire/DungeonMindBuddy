@@ -2,6 +2,7 @@
 from copy import deepcopy
 from hashlib import sha256
 import json
+from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -630,3 +631,75 @@ def test_historical_world_envelope_is_readable_but_never_paid_replayed(writer_re
     cohort = json.loads((tmp_path / 'capture/cohort.json').read_text())
     assert cohort['status'] == 'stopped' and not cohort['automatic_resume']
     assert not (tmp_path / 'capture' / r.case['id'] / 'wire-request.json').exists()
+
+
+def test_context_capture_cli_is_explicit_and_does_not_select_a_response_mode(monkeypatch):
+    calls = []
+    monkeypatch.setattr(w, 'capture', lambda *a, **kw: calls.append((a, kw)))
+    w.main(['capture-context', '--manifest', 'pinned.json', '--output', 'isolated'])
+    assert calls == [(('pinned.json', 'isolated'), {'context_only': True})]
+
+
+def test_context_report_does_not_relabel_old_response_as_context_success(retained):
+    _, case, _ = retained
+    result = w.report_case(case | {'capture_boundary': 'context_ready'}, Path('.'))
+    assert result['capture_status'] == 'not_started'
+    assert result['delivery']['status'] == 'not_requested'
+    assert 'context-ready' in result['missing_artifacts']
+
+
+def test_context_network_guard_is_below_sdk_preparation_and_restored(tmp_path, monkeypatch):
+    import asyncio
+    import httpx
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from evals.buddy_benchmark.context_capture import ContextCapture, WriterIODenied
+    sent = []
+    async def direct_run(writer, *, transport=None, api_key=None):
+        return await transport.handle_async_request(httpx.Request('POST', 'https://api.openai.com/v1/responses'))
+    monkeypatch.setattr(PlanJevWriter, 'run', direct_run)
+    original = PlanJevWriter.authorize
+    stop = ContextCapture(tmp_path)
+    supplied = httpx.MockTransport(lambda request: sent.append(request))
+    with stop.install(), pytest.raises(WriterIODenied):
+        asyncio.run(PlanJevWriter.run(SimpleNamespace(), transport=supplied))
+    assert stop.guard_hits == 1 and not sent and not stop.stop_issued
+    assert PlanJevWriter.run is direct_run and PlanJevWriter.authorize is original
+
+
+@pytest.mark.parametrize('failure', [False, ValueError('rejected input')])
+def test_failed_context_authorization_cannot_emit_a_ready_packet(tmp_path, monkeypatch, failure):
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from evals.buddy_benchmark.context_capture import ContextCapture
+    def reject(writer, prepared):
+        if isinstance(failure, Exception):
+            raise failure
+        return failure
+    monkeypatch.setattr(PlanJevWriter, 'authorize', reject)
+    stop = ContextCapture(tmp_path)
+    with stop.install():
+        if failure is False:
+            assert PlanJevWriter.authorize(SimpleNamespace(shared=True), object()) is False
+        else:
+            with pytest.raises(ValueError, match='rejected input'):
+                PlanJevWriter.authorize(SimpleNamespace(shared=True), object())
+    assert not stop.stop_issued and not list(tmp_path.iterdir())
+
+
+def test_context_artifact_failure_cannot_be_reported_as_an_issued_stop(tmp_path, monkeypatch):
+    from datetime import datetime, timezone
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from evals.buddy_benchmark import context_capture as cc
+    prepared = object()
+    turn = SimpleNamespace(world_id='world', conversation_id=uuid4(), turn_id=uuid4(), attempt=1,
+        accepted_at=datetime.now(timezone.utc), graph_context_receipt=SimpleNamespace(
+            context_receipt_sha256='a'*64, work_context=SimpleNamespace(surface_id='plan')))
+    event = SimpleNamespace(event_id=uuid4(), provider_attempt_id=uuid4(), frame_sha256='b'*64)
+    writer = SimpleNamespace(shared=True, prepared=prepared, authorization=event, adapter=SimpleNamespace(turn=turn))
+    monkeypatch.setattr(PlanJevWriter, 'authorize', lambda *a: True)
+    def fail_write(*a):
+        raise OSError('capture storage unavailable')
+    monkeypatch.setattr(cc, 'immutable_save', fail_write)
+    stop = cc.ContextCapture(tmp_path)
+    with stop.install(), pytest.raises(OSError, match='storage unavailable'):
+        PlanJevWriter.authorize(writer, prepared)
+    assert stop.authorization_calls == 1 and not stop.stop_issued and not list(tmp_path.iterdir())

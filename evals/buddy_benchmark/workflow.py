@@ -84,15 +84,22 @@ def report_case(case, base):
     """Facts from retained receipts; semantic grades only from pinned reviews."""
     directory = Path(case["capture_dir"])
     directory = directory if directory.is_absolute() else base / directory
-    paths = {name: directory / (name + ".json") for name in (
-        "request", "answer-http", "history-after", "context-trace")}
+    boundary = case.get("capture_boundary", "response")
+    if boundary not in {"response", "context_ready"}:
+        raise ValueError("Unknown capture boundary")
+    context_only = boundary == "context_ready"
+    names = ("request", "history-after", "context-trace") + (
+        ("context-ready", "context-request", "context-stop") if context_only else ("answer-http",))
+    paths = {name: directory / (name + ".json") for name in names}
+    if context_only and (directory / "answer-http.json").exists():
+        paths["answer-http"] = directory / "answer-http.json"
     missing = [name for name, path in paths.items() if not path.exists()]
     if missing:
         if case.get("assessment") is not None:
             raise ValueError("Reviewed capture evidence is missing")
         return {"case_id": case["id"], "question": case["question"],
         "capture_status": "incomplete" if (directory / "dispatch.json").exists() else "not_started", "missing_artifacts": missing,
-            "delivery": {"status": "unknown"},
+            "delivery": {"status": "not_requested" if context_only else "unknown"},
             "operation": {"provider_attempts": None, "billed_cost_usd": None},
             "boundaries": {name: {"status": "unknown"} for name in (
                 "ingestion_publication", "retrieval", "composition", "citations")}}
@@ -102,14 +109,14 @@ def report_case(case, base):
         raise ValueError("Retained request belongs to another question")
     history = _wrapped(paths["history-after"])
     trace = _wrapped(paths["context-trace"])
-    answer = _wrapped(paths["answer-http"])
+    answer = _wrapped(paths["answer-http"]) if "answer-http" in paths else {"http_status": None, "body": None}
     if (history["http_status"] != 200 or trace["http_status"] != 200
         or not isinstance(history["body"], dict) or not isinstance(trace["body"], dict)):
         if case.get("assessment") is not None:
             raise ValueError("Reviewed capture observations changed")
         return {"case_id": case["id"], "question": case["question"], "capture_status": "incomplete",
             "observation_status": {"history": history["http_status"], "trace": trace["http_status"]},
-            "delivery": {"status": "fail" if answer["http_status"] != 200 else "unknown",
+            "delivery": {"status": "not_requested" if context_only else "fail" if answer["http_status"] != 200 else "unknown",
                 "http_status": answer["http_status"]},
             "operation": {"provider_attempts": None, "billed_cost_usd": None},
             "boundaries": {name: {"status": "unknown"} for name in (
@@ -128,7 +135,7 @@ def report_case(case, base):
     if trace["body"]["turn_id"] != turn["turn_id"]:
         raise ValueError("Context trace belongs to another durable turn")
     attempts = trace["body"]["attempts"]
-    calls, failures, prompt_count = {}, [], 0
+    calls, failures, prompt_count, prompt_witnesses = {}, [], 0, []
     for attempt in attempts:
         if (attempt["turn_id"] != turn["turn_id"] or attempt["world_id"] != world
             or attempt["conversation_id"] != conversation):
@@ -159,6 +166,20 @@ def report_case(case, base):
                 if len(data) != event["payload_utf8_bytes"] or sha256(data).hexdigest() != event["payload_sha256"]:
                     raise ValueError("Prepared prompt witness mismatch")
                 prompt_count += 1
+                prompt_witnesses.append(event)
+    context_packet = None
+    if context_only:
+        from .context_capture import validate_context_packet
+        context_packet = validate_context_packet(documents["context-ready"], documents["context-request"], documents["context-stop"])
+        captured = context_packet["turn"]
+        authorization = context_packet["authorization"]
+        if ((str(captured.turn_id), str(captured.conversation_id), captured.world_id, captured.user_text)
+                != (turn["turn_id"], conversation, world, case["question"])):
+            raise ValueError("Captured context belongs to another ordinary turn")
+        if len([p for p in prompt_witnesses
+                if p.get("provider_attempt_id") == str(authorization.provider_attempt_id)
+                and p["payload_sha256"] == authorization.envelope_sha256]) != 1:
+            raise ValueError("Context capture has no unique admitted prompt witness")
     answer_body = answer["body"] if isinstance(answer["body"], dict) else {}
     delivered = (answer["http_status"] == 200 and turn["lifecycle_status"] == "completed"
         and bool(turn.get("assistant_text"))
@@ -194,6 +215,31 @@ def report_case(case, base):
                     raise ValueError("Assessment evidence binding differs")
             boundaries[name] = {**judgment, "basis": "capture-bound adopted review, not an automatic grade",
                 "assessment": case["assessment"]}
+    if context_only:
+        if assessment is not None and "composition" in assessment.get("boundaries", {}):
+            raise ValueError("Context-only capture cannot use response composition grades")
+        boundaries["composition"] = {"status": "not_reached", "reason": "No response requested"}
+        writer_attempt = str(context_packet["authorization"].provider_attempt_id)
+        controller_calls = {identity: call for identity, call in calls.items() if identity != writer_attempt}
+        def controller_total(key):
+            return sum(c[key] for c in controller_calls.values()) if controller_calls and all(
+                c[key] is not None for c in controller_calls.values()) else None
+        return {"case_id": case["id"], "question": case["question"], "capture_status": "complete",
+            "capture_boundary": "context_ready", "durable_turn_id": turn["turn_id"], "boundaries": boundaries,
+            "context": {"status": "captured", "accepted_to_ready_ms": context_packet["elapsed_ms"],
+                "prepared_request_bytes": context_packet["prepared_bytes"],
+                "timing_basis": "APP accepted_at to UTC observed immediately after real input authorization; same-host wallclock correlation, not nanosecond accuracy; excludes artifact IO and cleanup",
+                "input_accounting": {"kind": authorization.input_accounting_kind,
+                    "amount": authorization.input_tokens, "estimator": authorization.input_estimator}},
+            "delivery": {"status": "not_requested", "http_status": answer["http_status"],
+                "lifecycle_status": turn["lifecycle_status"]},
+            "operation": {"elapsed_ms": context_packet["elapsed_ms"], "provider_attempts": len(controller_calls),
+                "writer_requests_sent": 0, "writer_output": "not_requested", "input_tokens": controller_total("input_tokens"),
+                "output_tokens": controller_total("output_tokens"), "billed_cost_usd": None,
+                "cost_status": "unknown", "attempts": controller_calls},
+            "failures": failures, "verified_prompt_witnesses": prompt_count,
+            "artifacts": {name: {"path": str(path), "sha256": sha256(path.read_bytes()).hexdigest()}
+                for name, path in paths.items()}}
     elapsed = answer.get("elapsed_ms")
     if elapsed is None and (directory / "terminal.json").exists():
         elapsed = json.loads((directory / "terminal.json").read_text())["elapsed_seconds"] * 1000
@@ -220,7 +266,7 @@ def report(manifest_path):
             "Billing and missing measurements remain unknown; no estimated price is billed cost."]}
 
 
-def capture_case(client, world, template, case, directory):
+def capture_case(client, world, template, case, directory, *, context_only=False):
     """The single ordinary route sequence, shared by all question fixtures."""
     validate_template(template, world)
     if directory.exists() and any(directory.iterdir()):
@@ -250,8 +296,12 @@ def capture_case(client, world, template, case, directory):
     immutable_save(directory, "dispatch", {"state": "dispatching", "automatic_restart": False})
     started = time.monotonic()
     error, known_response = None, False
+    from contextlib import nullcontext
+    from .context_capture import ContextCapture
+    context_stop = ContextCapture(directory) if context_only else None
     try:
-        response = client.post("/api/live/agent/turn", json=request)
+        with context_stop.install() if context_stop is not None else nullcontext():
+            response = client.post("/api/live/agent/turn", json=request)
         immutable_save(directory, "answer-http", {**response_envelope(response),
             "elapsed_ms": (time.monotonic() - started) * 1000})
         known_response = True
@@ -264,6 +314,10 @@ def capture_case(client, world, template, case, directory):
             if len(turns) != 1:
                 raise ValueError("Question has no unique durable turn; do not redispatch")
             save("context-trace", client.get(route + "/turns/" + turns[0]["turn_id"] + "/context-trace"))
+            if context_stop is not None:
+                from application_state.agent_conversation import AgentConversationService
+                observed = AgentConversationService().inspect_turn(world_id=world, turn_id=UUID(turns[0]["turn_id"]))
+                context_stop.finalize(observed)
         except Exception as exc:
             error = error or exc
         immutable_save(directory, "terminal", {"status": "observed" if known_response else "outcome_unknown",
@@ -309,7 +363,7 @@ def verify_capture_environment(expected):
         raise ValueError("Runtime qualification changed; no question dispatched")
 
 
-def capture(manifest_path, output):
+def capture(manifest_path, output, *, context_only=False):
     """Explicit live entry point; never invoked by offline reporting."""
     manifest, base = load_manifest(manifest_path)
     if os.environ.get("DMB_AGENT_GRAPH_LOCAL_PROFILE"):
@@ -365,6 +419,10 @@ def capture(manifest_path, output):
     for case in manifest["cases"]:
         # A new capture never inherits an old semantic assessment.
         current = {key: value for key, value in case.items() if key not in {"assessment", "assessments"}}
+        if context_only:
+            current["capture_boundary"] = "context_ready"
+        elif current.get("capture_boundary", "response") != "response":
+            raise ValueError("Context capture requires the explicit capture-context mode")
         retained["cases"].append(dict(current, capture_dir=str((output / case["id"]).resolve()),
             prompt_dir=str((output / "runtime-artifacts/out/agent_request_evidence").resolve())))
     # Preserve relative input pins/review bindings by resolving them before moving
@@ -395,7 +453,7 @@ def capture(manifest_path, output):
                 raise ValueError("Effective ordinary provider policy differs")
             for case in manifest["cases"]:
                 verify_capture_environment(owned_env)
-                capture_case(client, manifest["world"], template, case, output / case["id"])
+                capture_case(client, manifest["world"], template, case, output / case["id"], context_only=context_only)
                 checkpoint = row_inventory(native_dsn, readonly=readonly)
                 immutable_save(output, "native-after-" + case["id"], checkpoint)
                 if checkpoint != native_before:
@@ -658,7 +716,7 @@ def writer_capture(plan_path, output, *, transport=None):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("report", "capture", "writer-prepare", "writer-capture"))
+    parser.add_argument("mode", choices=("report", "capture", "capture-context", "writer-prepare", "writer-capture"))
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--output", required=True)
     args = parser.parse_args(argv)
@@ -666,6 +724,8 @@ def main(argv=None):
         immutable_save(Path(args.output), "report", report(args.manifest))
     elif args.mode == "capture":
         capture(args.manifest, args.output)
+    elif args.mode == "capture-context":
+        capture(args.manifest, args.output, context_only=True)
     elif args.mode == "writer-prepare":
         writer_prepare(args.manifest, args.output)
     else:
