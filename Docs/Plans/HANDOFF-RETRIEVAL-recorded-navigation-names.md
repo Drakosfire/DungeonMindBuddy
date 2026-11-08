@@ -1,12 +1,14 @@
 # RETRIEVAL: preserve multiple recorded navigation names
 
-Status: ACTIVE for offline qualification under the user retrieval/backend goal.
-Root designs/owns backend; PRIME owns merge/delivery.
-Branch codex/navigation-recorded-names; existing draft PR2223, stacked on PR2241
-head8cefe0f70bd46d7ecadbadef1e9941931bf428ee. Merge/delivery order2241 then2223,
-only if the names experiment qualifies. Both isolated comparison arms include the
-same approved plumbing; live delivery is not an isolated experiment dependency.
-No2214 dependency. Reuse prepared pristine evaluator clones; do not recreate them.
+Status: ACTIVE for retrieval/context-only qualification under the user's clarified
+objective. Response writing and response-output grades are outside this lane.
+Root designs/owns backend; PRIME owns merge/delivery, not review approval.
+Branch codex/navigation-recorded-names; existing PR2223 restored on main
+64cb0b5c89f685505c7558207e4943e6cf76cac4. Topology: parallel-independent of2242:
+source/test/handoff writes are disjoint, no unmerged behavioral dependency, separate
+isolated resources. No2214 dependency. No response generation is required by this
+goal. Context-only capture must use the existing consolidated workflow before
+fresh full-cohort validation; no surrogate answer or per-question script.
 Original b229ae86c0024ee74dd1cb30d9848296672c3fb5 is preserved at Git tag
 codex-evidence/recorded-navigation-names-v1; no old stacked implementation imported.
 
@@ -77,3 +79,25 @@ Integration qualification: the names runtime diff is byte-identical after clean
 rebase onto2241. Reuse the existing names code/protocol reviews for unchanged
 behavior; refresh exact source inventories and prove paired runtime qualification
 before dispatch. No new plumbing review, correction tests or paid plumbing QA.
+
+User correction supersedes the earlier writer-output adoption gate. The eight-turn
+study's retrieval measurements remain valid: median accepted-to-writer-authorization
+proxy25.529609→16.498719s; all four cases reduce admitted assertions and writer
+input tokens, total input645888→378452. Four samples do not establish p95,
+causal reliability or exact context-ready timing. Actual billed cost is unknown.
+The writer omissions remain archived composition findings; they cannot reject
+retrieval when the required qualified evidence is supplied.
+
+Requalification uses exact retained SDK inputs, unchanged source-qualified Gold,
+per-required-fact support pointers, chronology/uncertainty and inspectable citation
+selectors. No new paid rerun of this study. Independent context-only mappings live
+in retrieval-recorded-names-ordinary-v2/context-only-*.json. Preserve original and
+reviewed effective source distinctions; document titles alone do not bind evidence.
+The original6complete/9partial score remains historical response evidence, not a
+retrieval score. Full15 repeated context sufficiency and the four-second target
+remain open; do not replace that requirement with answer grades.
+
+Current runtime diff is the same reviewed eight-line name display change. Reuse
+existing independent code approval; no additional correction tests/review cycle
+for an unchanged diff. This restoration does not adopt the parked modality stack,
+source edits, dictionary prototype or any alternate runtime producer.
