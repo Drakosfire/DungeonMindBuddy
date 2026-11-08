@@ -1,6 +1,14 @@
 # PROMPTS: fresh Build semantic initial context
 
-Status: ACTIVE. PRIME owns design/implementation under the operator's highest
+Status: MERGED AND DELIVERED; ordinary fresh-turn proof remains open.
+PR2196 merged at38c3e11ff03f2d299c0b5c56249e456aa025eb86. Reader UI
+f8ffef8aa45ccbc13287975858f9e289386245ef preceded API
+aff601828a012087f145e90baec47f9e04ea6e37 and fence127; retained data was
+unchanged. PR2206 subsequently delivered API5149e2985231fcdf1845ab1993d21dca84d8c8e3,
+retaining this behavior. The topology below records the original delivery plan;
+it grants no active write lease.
+
+PRIME owned design/implementation under the operator's highest
 priority to remove host metadata from product prompts. Independent design critique
 approved using the existing initial-input receipt codec rather than another
 authorization event or ledger. The prior source head was independently reviewed;

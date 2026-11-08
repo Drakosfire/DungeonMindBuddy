@@ -6,13 +6,22 @@ closed-shape historical wire dispatch. This handoff does not claim delivery.
 
 ## Boundary and topology
 
-Stacked on PR2196 exact da46cb3e37baf7ac905688ac23dc54a277f08ccc in the existing
-buddy-context-loop checkout. Merge/delivery order:2194,2195,2196,then this slice.
-Re-anchor and retarget after each parent merge. Navigation2194 is merged at
-2008cdcf57eb8c02d08456fe373a73ca11466094 and delivered separately on0125.
-The intervening SURFACE design document adds no runtime collision.
-No new checkout, dependency environment, provider call or runtime/database write.
-Held Play2172, citation2191 and INGEST remain outside scope.
+Serial from fetched main fdddd7932fbc75ebcd82aabd163db41108964786 in the existing
+buddy-context-loop checkout. PR2196 merged at38c3e11ff03f2d299c0b5c56249e456aa025eb86;
+its reader UI f8ffef8aa45ccbc13287975858f9e289386245ef and API
+ aff601828a012087f145e90baec47f9e04ea6e37 were delivered on fence127.
+PR2206 is merged and delivered over that API as
+5149e2985231fcdf1845ab1993d21dca84d8c8e3 without schema/UI changes.
+Preserve both and PR2205's request-proof fix. The old reviewed2197 head
+01de478fae624af02588d5a9a7c7e58aabff9138 is pinned at
+refs/codex/reviewed-heads/pr2197-01de478; its implementation rebases identically.
+No unmerged parent. Successors2199 and2200 remain separate; rebase only after
+this slice merges. No new checkout or dependency environment. Local tests use
+generated disposable databases on54329. Runtime lease remains released until
+exact composition/recipe review and CI pass; delivery is API-only fence128.
+Held Play2172, citation2191 and INGEST remain outside scope. ADVERSARY's benchmark
+tooling is disjoint and must not be edited. Ordinary prompt proof and the full
+retrieval/References/operator acceptance goal remain open.
 
 Outcome: current native Build final optional-source relevance selection sends only
 the user question, deterministic sN source rows, meaningful labels/kinds/extents,
@@ -42,6 +51,7 @@ read this proof body; no UI contract or redesign is included.
 ## Exclusive expected write set
 
 - This handoff.
+- Docs/Plans/HANDOFF-PROMPTS-build-initial-context.md (settle merged predecessor).
 - src/application_state/agent_conversation/writer_evidence_selection.py
 - src/application_state/agent_conversation/build_decision_context.py (host phase only)
 - src/application_state/agent_conversation/service.py (existing prepared proof owner)
