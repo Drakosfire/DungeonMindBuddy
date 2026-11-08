@@ -204,7 +204,10 @@ class PlanJevDriver:
                         raise ValueError("Plan subject query cannot repeat")
                     self.attempted_queries.add(key)  # consume even when IO fails
                     self._graph_read("search", query=query)
-            for handle in selected.selected_handles:
+            handled_sources = set()
+            for index, handle in enumerate(selected.selected_handles):
+                if handle in handled_sources:
+                    continue
                 if handle in self.saved_page_catalog:
                     if handle in self.attempted_saved_pages:
                         raise ValueError('Saved page block cannot be reacquired')
@@ -219,8 +222,15 @@ class PlanJevDriver:
                     # still owns this metadata-only action and all mixed reads.
                     self.native_sources.expand_selected(handle, parent=dispatch.parent)
                 elif handle in native_handles:
+                    group = [handle]
+                    if handle.startswith('native-direct-source:'):
+                        for following in selected.selected_handles[index + 1:]:
+                            if following not in native_handles or not following.startswith('native-direct-source:'):
+                                break
+                            group.append(following)
+                    handled_sources.update(group)
                     try:
-                        self.native_sources.select([handle])
+                        self.native_sources.select(group)
                     except (ValueError, ApplicationStateValidationError):
                         self.native_sources.unavailable('source_navigation_unavailable')
                 elif handle == rules_candidate().handle:
