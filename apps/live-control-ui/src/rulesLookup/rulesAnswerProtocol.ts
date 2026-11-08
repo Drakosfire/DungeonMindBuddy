@@ -15,10 +15,14 @@ export function isRulesAnswerContext(value: unknown, text: unknown, worldId: str
     || value.schema !== 'dmb_agent_rules_answer_context_v1' || !sha(value.accepted_binding_sha256)
     || typeof text !== 'string' || !text || Array.from(text).length > 32000) return false;
   const b = value.accepted_binding;
+  const v2 = rec(b) && b.schema === 'dmb_rules_accepted_binding_v2';
   if (!exact(b, ['schema','world_id','conversation_id','turn_id','corpus_sha256','ruleset_id','accepted_turn_revision','product_attempt',
     'execution_id','producing_provider_attempt_id','request_envelope_sha256','composition_sha256','assistant_text_sha256',
-    'base_text_sha256','base_disposition','segment_map','support_table','graph_used'])
-    || b.schema !== 'dmb_rules_accepted_binding_v1' || b.world_id !== worldId
+    'base_text_sha256','base_disposition','segment_map','support_table','graph_used',
+    ...(v2 ? ['producing_support_refs_sha256'] : [])])
+    || !['dmb_rules_accepted_binding_v1','dmb_rules_accepted_binding_v2'].includes(String(b.schema))
+    || (b.schema === 'dmb_rules_accepted_binding_v2' && !sha(b.producing_support_refs_sha256))
+    || b.world_id !== worldId
     || !['conversation_id','turn_id','execution_id','producing_provider_attempt_id'].every(k => uuid(b[k]))
     || (owner?.conversationId !== undefined && owner.conversationId !== b.conversation_id)
     || (owner?.turnId !== undefined && owner.turnId !== b.turn_id)

@@ -447,7 +447,7 @@ def _ordinary_native_case(
             candidate={'schema':NATIVE_ANSWER_POLICY,'answer_segments':segments,
                 'limitations':limitations,'requested_detail_gaps':[]}
             if mixed:
-                candidate={'schema':'dmb_rules_mixed_answer_v1','base_output':candidate,
+                candidate={'kind':'rules_answer','base_output':candidate,
                     'rules_segments':[{'kind':'rules_context','text':'No additional applicable rule is established.','category':'gap'}],
                     'ordered_refs':[{'domain':'base','segment_index':None},{'domain':'rules','segment_index':0}]}
             self.text='not-json' if failure=='malformed' else json.dumps(candidate)

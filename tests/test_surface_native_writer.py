@@ -752,7 +752,7 @@ def test_world_context_current_and_historical_exact_sdk_bindings(published_lane,
         verify_input_records(context, mixed_record, mixed_grant, mixed_raw, **work)
 
 
-@pytest.mark.parametrize("old_revision", ["20261108_0131", "20261108_0132", "20261108_0133", "20261108_0134"])
+@pytest.mark.parametrize("old_revision", ["20261108_0131", "20261108_0132", "20261108_0133", "20261108_0134", "20261108_0135"])
 def test_old_readers_refuse_world_projection_database(application_state_dsn, monkeypatch, old_revision):
     from application_state import cli
     from application_state.errors import ApplicationStateMigrationError

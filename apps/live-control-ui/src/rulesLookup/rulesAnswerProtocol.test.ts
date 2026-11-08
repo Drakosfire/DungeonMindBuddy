@@ -4,6 +4,19 @@ import { rulesAnswerFixture, fixtureHash } from '../test/rulesAnswerFixture';
 import { isRulesAnswerContext, rulesAnswerDigestsBound } from './rulesAnswerProtocol';
 import { rulesCanonical } from './rulesEvidence';
 beforeEach(() => vi.stubGlobal('crypto', webcrypto));
+it('reloads the sealed V2 support-map commitment without accepting a missing or changed digest', async () => {
+  const { context, answer } = rulesAnswerFixture();
+  context.accepted_binding = { ...context.accepted_binding,
+    schema: 'dmb_rules_accepted_binding_v2', producing_support_refs_sha256: 'a'.repeat(64) };
+  context.accepted_binding_sha256 = fixtureHash(rulesCanonical(context.accepted_binding));
+  expect(isRulesAnswerContext(context, answer, 'world-one', () => false)).toBe(true);
+  expect(await rulesAnswerDigestsBound(context, answer)).toBe(true);
+  const missing = structuredClone(context);
+  delete (missing.accepted_binding as unknown as Record<string, unknown>).producing_support_refs_sha256;
+  expect(isRulesAnswerContext(missing, answer, 'world-one', () => false)).toBe(false);
+  context.accepted_binding.producing_support_refs_sha256 = 'b'.repeat(64);
+  expect(await rulesAnswerDigestsBound(context, answer)).toBe(false);
+});
 it('validates a sealed Unicode answer map without inventing base authority', async () => {
   const { context, answer } = rulesAnswerFixture();
   expect(isRulesAnswerContext(context, answer, 'world-one', () => false)).toBe(true);

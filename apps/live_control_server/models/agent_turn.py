@@ -22,7 +22,7 @@ from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
 from .build_document_proposal import BuildWriteCapability
 from application_state.agent_conversation.build_draft_context import BuildDraftContextRequestV1
 
-from application_state.agent_conversation.rules_authority_types import RulesAcceptedBindingV1, canonical_sha256
+from application_state.agent_conversation.rules_authority_types import RulesAcceptedBinding, canonical_sha256
 
 from application_state.agent_conversation.types import (
     RetryTurnReference, PlayContentBasis, PlayRunTurnContextReceiptV1,
@@ -955,7 +955,7 @@ class AgentRulesAnswerContextV1(BaseModel):
     model_config = ConfigDict(extra="forbid")
     schema_: Literal["dmb_agent_rules_answer_context_v1"] = Field(
         default="dmb_agent_rules_answer_context_v1", alias="schema")
-    accepted_binding: RulesAcceptedBindingV1
+    accepted_binding: RulesAcceptedBinding
     accepted_binding_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     base_context: AgentSurfaceNativeContextResponseV1 | AgentBuildGraphContextResponseV1 | AgentPlanNativeContextResponseV1 | AgentPlanSourceContextResponseV1 | AgentPlanWorldGraphContextResponseV2 | AgentPlayWorldGraphContextResponseV1 | None
     unclaimed_context: AgentRulesUnclaimedContextV1 | None

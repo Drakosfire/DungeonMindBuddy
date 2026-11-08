@@ -2879,13 +2879,29 @@ class AgentConversationService:
                             support_id=item.support_id,
                             support_sha256=item.support_sha256,
                         ) for item in binding.support_table)
-                        from .rules_authority_output import parse_answer
+                        from .rules_authority_output import parse_producing_answer, producing_rules_frame
+                        from .rules_authority_types import RulesAcceptedBindingV2, producing_supports_sha256
+                        from .rules_authority_plan_packet import ModelRulesFrame
+                        from pydantic import TypeAdapter
                         request_bytes = proof.prepared_request_json.encode("utf-8")
                         output_bytes = proof.raw_output_json.encode("utf-8")
                         sealed = conn.execute(
                             """SELECT e.value->>'authorization_id',e.value->>'api_request_id',
                             e.value->>'request_envelope_sha256',e.value->>'output_sha256',
-                            (e.value->>'output_utf8_bytes')::integer
+                            (e.value->>'output_utf8_bytes')::integer,
+                            (SELECT jsonb_agg(jsonb_build_object(
+                                'request_envelope_sha256',CASE WHEN inc.value->>'request_envelope_sha256' ~ '^[a-f0-9]{64}$'
+                                    THEN inc.value->>'request_envelope_sha256' ELSE NULL END,
+                                'support_refs',CASE WHEN jsonb_typeof(inc.value->'support_refs')='array'
+                                    THEN CASE WHEN jsonb_array_length(inc.value->'support_refs')<=16
+                                      AND octet_length((inc.value->'support_refs')::text)<=4096
+                                      THEN inc.value->'support_refs' ELSE NULL END
+                                    ELSE NULL END))
+                             FROM (SELECT i.value FROM jsonb_array_elements(r.payload->'events') i(value)
+                               WHERE i.value->>'kind' IN ('provider_included',
+                                 'plan_packet_provider_included','build_provider_included')
+                               AND i.value->>'provider_attempt_id'=e.value->>'provider_attempt_id'
+                               LIMIT 2) inc)
                             FROM agent.turn_rules_execution r
                             CROSS JOIN LATERAL jsonb_array_elements(r.payload->'events') AS e(value)
                             WHERE r.turn_id=%s AND r.product_attempt=%s
@@ -2897,22 +2913,35 @@ class AgentConversationService:
                         ).fetchall()
                         if len(sealed) != 1:
                             raise ValueError("Replayed native output has no unique compact provider witness")
-                        derived = parse_answer(proof.raw_output_json).composition(
+                        if (hashlib.sha256(request_bytes).hexdigest() != binding.request_envelope_sha256
+                                or len(output_bytes) != proof.raw_output_utf8_bytes
+                                or hashlib.sha256(output_bytes).hexdigest() != proof.raw_output_sha256
+                                or (proof.authorization_id, proof.api_request_id,
+                                    proof.request_envelope_sha256, proof.raw_output_sha256,
+                                    proof.raw_output_utf8_bytes) != sealed[0][:5]):
+                            raise ValueError("Replayed native output differs from its sealed raw producer")
+                        frame = producing_rules_frame(proof.prepared_request_json)
+                        if isinstance(binding, RulesAcceptedBindingV2):
+                            maps = sealed[0][5]
+                            if (not isinstance(maps, list) or len(maps) != 1
+                                    or maps[0]['request_envelope_sha256'] != binding.request_envelope_sha256
+                                    or maps[0]['support_refs'] is None):
+                                raise ValueError("Replay has no unique bounded producing support map")
+                            supplied = TypeAdapter(tuple[RulesSupportRefV1, ...]).validate_json(
+                                json.dumps(maps[0]['support_refs']))
+                            if producing_supports_sha256(supplied) != binding.producing_support_refs_sha256:
+                                raise ValueError("Replayed producing support map differs from its accepted seal")
+                        elif isinstance(frame, ModelRulesFrame):
+                            raise ValueError("Semantic Rules replay requires its committed complete support map")
+                        derived = parse_producing_answer(proof.raw_output_json,
+                            proof.prepared_request_json, supplied).composition(
                             base_completion=None if result.base_result is None else result.base_result.completion,
                             supplied_refs=supplied,
                             base_segments=base_segments,
                             base_disposition=result.composition.base_disposition,
                         )
-                        if (hashlib.sha256(request_bytes).hexdigest()
-                                != binding.request_envelope_sha256
-                                or len(output_bytes) != proof.raw_output_utf8_bytes
-                                or hashlib.sha256(output_bytes).hexdigest()
-                                != proof.raw_output_sha256
-                                or (proof.authorization_id, proof.api_request_id,
-                                    proof.request_envelope_sha256, proof.raw_output_sha256,
-                                    proof.raw_output_utf8_bytes) != sealed[0]
-                                or derived != result.composition):
-                            raise ValueError("Replayed native output differs from the accepted producing request/composition")
+                        if derived != result.composition:
+                            raise ValueError("Replayed native output differs from the accepted composition")
                     except (ValueError, KeyError, TypeError, AttributeError, UnicodeError) as exc:
                         raise ApplicationStateValidationError(str(exc)) from exc
                 if (

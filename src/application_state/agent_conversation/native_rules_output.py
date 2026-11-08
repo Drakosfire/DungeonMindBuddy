@@ -26,7 +26,6 @@ from .rules_authority_events import (
 from .rules_authority_output import (
     POLICY,
     RulesWriterAnswerV1,
-    parse_answer,
 )
 from .rules_authority_input import verify_prepared_input
 from .rules_authority_types import AnswerCompositionV1, ClosedRulesModel
@@ -348,7 +347,6 @@ def verify_native_reply(
 def verify_native_output(graph_execution, rules_execution, proof, capture, *, plan_turn: Turn | None = None) -> RulesWriterAnswerV1:
     """Verify the actual producer, then parse its closed mixed answer."""
     verify_native_reply(graph_execution, rules_execution, proof, capture, plan_turn=plan_turn)
-    answer = parse_answer(proof.raw_output_json)
     included = _one(
         [event for event in rules_execution.events
          if isinstance(event, RulesProviderIncludedV1)
@@ -356,6 +354,8 @@ def verify_native_output(graph_execution, rules_execution, proof, capture, *, pl
          and event.provider_attempt_id == proof.producing_provider_attempt_id],
         "Native Rules output has no unique included input",
     )
+    from .rules_authority_output import parse_producing_answer
+    answer = parse_producing_answer(proof.raw_output_json, proof.prepared_request_json, included.support_refs)
     admitted_supports = {str(item.support_id) for item in included.support_refs}
     if any(
         not set(segment.support_ids) <= admitted_supports
@@ -515,7 +515,8 @@ def normalize_shared_native_output(receipt, graph_execution, rules_execution, pr
         and e.provider_attempt_id == proof.producing_provider_attempt_id)
     base, segments = None, ()
     if frame.lookups:
-        answer = parse_answer(proof.raw_output_json)
+        from .rules_authority_output import parse_producing_answer
+        answer = parse_producing_answer(proof.raw_output_json, proof.prepared_request_json, included.support_refs)
         if answer.base_output is not None:
             base = normalize_candidate(answer.base_output,receipt,graph_execution,auth,evidence)
             segments = tuple(segment.text for segment in base.answer_segments)

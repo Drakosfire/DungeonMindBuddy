@@ -1,6 +1,6 @@
 """Finite Plan output shapes; selectors constrain syntax, never evidence authority."""
 
-from .rules_authority_plan_packet import PlanRulesEvidenceFrameV1
+from .rules_authority_plan_packet import PlanRulesEvidenceFrameV1, ModelRulesFrame
 from .source_writer_output import LIMITATIONS
 from .rules_authority_types import canonical_bytes
 from .surface_evidence_answer import PLAN_POLICY, SELECTOR_POLICY, BODY_POLICY
@@ -102,7 +102,7 @@ def _native_variants(policy, prose, *, statement_rows=(), body_rows=(), assertio
 def _frozen_schema(frame, rules, policy, *, target_scoped=False):
     """One exact projection also verifies retained producer formats during reads."""
     if frame.get("answer_policy") != policy or not isinstance(
-        rules, PlanRulesEvidenceFrameV1
+        rules, (PlanRulesEvidenceFrameV1, ModelRulesFrame)
     ):
         raise ValueError("Plan output requires its current selector and Rules frames")
     prose = {"type": "string", "minLength": 1}
@@ -235,7 +235,8 @@ def _answer_schema(variants, policy, rules, prose):
         )
     mixed = _object(
         {
-            "schema": _literal("dmb_rules_mixed_answer_v1"),
+            **({"kind": _literal("rules_answer")} if isinstance(rules, ModelRulesFrame)
+               else {"schema": _literal("dmb_rules_mixed_answer_v1")}),
             "base_output": {"anyOf": [{"$ref": "#/$defs/Base"}, {"type": "null"}]},
             "rules_segments": _array({"anyOf": rule_variants}),
             "ordered_refs": _array(
@@ -255,7 +256,7 @@ def _answer_schema(variants, policy, rules, prose):
 def native_output_format(frame, rules, work_frame):
     from .native_writer import SCHEMA, LEGACY_SCHEMA
     if (frame.get('schema') not in {SCHEMA, LEGACY_SCHEMA} or frame.get('answer_policy') != ASSERTION_POLICY
-            or not isinstance(rules, PlanRulesEvidenceFrameV1)):
+            or not isinstance(rules, (PlanRulesEvidenceFrameV1, ModelRulesFrame))):
         raise ValueError('Shared native output requires its actual evidence and Rules frames')
     prose = {'type': 'string', 'minLength': 1}
     variants = _native_variants(ASSERTION_POLICY, prose,

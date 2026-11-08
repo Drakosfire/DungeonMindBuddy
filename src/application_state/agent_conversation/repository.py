@@ -210,7 +210,7 @@ def _turn_from_row(
         CompletedTurnEnvelopeV1,
         MixedCompletedTurnV1,
     )
-    from .rules_authority_types import RulesAcceptedBindingV1
+    from .rules_authority_types import read_accepted_binding
 
     provenance = turn_provenance(
         row,
@@ -300,7 +300,7 @@ def _turn_from_row(
     try:
         import json
 
-        binding = RulesAcceptedBindingV1.model_validate_json(
+        binding = read_accepted_binding(
             json.dumps(summary["binding"], ensure_ascii=False)
         )
         body = fields["assistant_text"]

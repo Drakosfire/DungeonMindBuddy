@@ -49,7 +49,7 @@ async def sdk(frame, rules, candidate, *, work_frame, mutate_request=None):
     return sent[0],response.output_text
 
 
-def producing_case(lane,surface,*,unused=False,base=True,mutation=None,context_record=None,candidate_mutation=None,work_override=None):
+def producing_case(lane,surface,*,unused=False,base=True,mutation=None,context_record=None,candidate_mutation=None,work_override=None,semantic=False):
     context,record = context_record if context_record is not None else body_case(surface,lane)[:2]
     frame=model_frame(context,record)
     intent=record.policy.action.intent
@@ -70,6 +70,9 @@ def producing_case(lane,surface,*,unused=False,base=True,mutation=None,context_r
         refs=result.observation.support_refs
         outputs=(r.RulesOutputRefV1(call_id=result.observation.call_id,packet_sha256=result.observation.packet_sha256),)
     rules=build_plan_rules_frame(owner,tuple(e.call_id for e in owner.events if isinstance(e,r.RulesQueryObservedV1)))
+    if semantic:
+        from application_state.agent_conversation.rules_authority_plan_packet import model_rules_frame
+        rules=model_rules_frame(rules)
     if frame['native_body_evidence']['excerpts']:
         handle=frame['native_body_evidence']['excerpts'][0]['excerpt_handle']
         candidate=answer([dict(kind='native_body_claim',text='The check revealed another plane.',excerpt_handles=[handle])])
@@ -83,6 +86,10 @@ def producing_case(lane,surface,*,unused=False,base=True,mutation=None,context_r
             rules_segments=[dict(kind='rules_claim',text='An occupied space prevents ending movement.',
                 support_ids=[str(refs[0].support_id)])],ordered_refs=(
                     [dict(domain='base',segment_index=None)] if base else [])+[dict(domain='rules',segment_index=0)])
+        if semantic:
+            del candidate['schema']
+            candidate['kind']='rules_answer'
+            candidate['rules_segments'][0]['support_ids']=['rule_0']
     if candidate_mutation:
         candidate_mutation(candidate)
     raw_request,raw_output=asyncio.run(sdk(frame,rules,candidate,work_frame=model_work_frame(context,record,**work),mutate_request=mutation))
@@ -113,6 +120,31 @@ def producing_case(lane,surface,*,unused=False,base=True,mutation=None,context_r
 def normalize(case):
     context,stored,owner,_auth,proof,capture,kwargs=case
     return normalize_shared_native_output(context,stored,owner,proof,capture,**kwargs)
+
+
+@pytest.mark.parametrize('surface',['plan','build'])
+@pytest.mark.parametrize('unused',[False,True])
+def test_current_semantic_rules_sdk_retains_sources_without_host_selectors(lane,surface,unused):
+    case=producing_case(lane,surface,unused=unused,semantic=True)
+    result=normalize(case)
+    request=case[4].prepared_request_json
+    assert 'dmb_plan_rules_evidence_v1' not in request
+    assert 'dmb_rules_mixed_answer_v1' not in request
+    for ref in case[2].supports:
+        assert str(ref) not in request
+    if not unused:
+        assert result.composition.rules_segments[0].support_refs
+        assert 'rule_0' in request
+    assert result.assistant_text
+    assert case[4].raw_output_sha256==sha256(case[4].raw_output_json.encode()).hexdigest()
+
+
+@pytest.mark.parametrize('surface',['plan','build'])
+def test_current_semantic_rules_rejects_unsupplied_alias(lane,surface):
+    case=producing_case(lane,surface,semantic=True,
+        candidate_mutation=lambda value:value['rules_segments'][0].update(support_ids=['rule_15']))
+    with pytest.raises(ValueError,match='unsupplied alias'):
+        normalize(case)
 
 
 @pytest.mark.parametrize('surface',['build','plan'])

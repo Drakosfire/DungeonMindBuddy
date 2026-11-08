@@ -14,12 +14,14 @@ from .rules_authority_events import (
     RulesCompletionV1,
     RulesExecutionV1,
     RulesProviderAuthorizedV1,
+    RulesProviderIncludedV1,
 )
 from .rules_authority_types import (
     AnswerCompositionV1,
     ClosedRulesModel,
     RulesScopeV1,
-    RulesAcceptedBindingV1,
+    RulesAcceptedBindingV2,
+    producing_supports_sha256,
     RulesClaimV1,
     RulesSupportRefV1,
     SegmentMapItemV1,
@@ -37,7 +39,7 @@ def prepare_rules_acceptance(
     event_id: UUID,
     base_segments: tuple[str, ...] = (),
     graph_used: bool = False,
-) -> tuple[RulesExecutionV1, RulesAcceptedBindingV1]:
+) -> tuple[RulesExecutionV1, RulesAcceptedBindingV2]:
     """Build a sealed map without source/answer copies in the history summary."""
     if execution.state != "active":
         raise ValueError("Only an active Rules attempt can prepare acceptance")
@@ -50,6 +52,11 @@ def prepare_rules_acceptance(
     ]
     if len(authorizations) != 1:
         raise ValueError("Rules acceptance has no unique producing request")
+    included = [item for item in execution.events
+        if isinstance(item, RulesProviderIncludedV1)
+        and item.provider_attempt_id == producing_provider_attempt_id]
+    if len(included) != 1 or included[0].request_envelope_sha256 != authorizations[0].request_envelope_sha256:
+        raise ValueError("Rules acceptance has no unique producing inclusion")
     source_refs = {}
     claim_refs = {}
     items = []
@@ -111,8 +118,9 @@ def prepare_rules_acceptance(
     scope = execution.scope
     from hashlib import sha256
 
-    binding = RulesAcceptedBindingV1(
-        schema="dmb_rules_accepted_binding_v1",
+    binding = RulesAcceptedBindingV2(
+        schema="dmb_rules_accepted_binding_v2",
+        producing_support_refs_sha256=producing_supports_sha256(included[0].support_refs),
         world_id=scope.world_id,
         conversation_id=scope.conversation_id,
         turn_id=scope.turn_id,

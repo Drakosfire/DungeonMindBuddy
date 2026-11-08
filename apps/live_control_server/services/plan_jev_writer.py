@@ -45,9 +45,9 @@ Headings, prose, lists and ordinary editable tables are supported; preserve exis
 tokens exactly when their captured selected content must be included. No page was saved.
 """
 RULES_INSTRUCTIONS = '''A Rules lookup was performed. Return its answer using exactly this outer object:
-{"schema":"dmb_rules_mixed_answer_v1","base_output": BASE_OR_NULL,
+{"kind":"rules_answer","base_output": BASE_OR_NULL,
 "rules_segments":[...],"ordered_refs":[...]}. BASE_OR_NULL follows the Plan answer contract above.
-A Rules claim is {"kind":"rules_claim","text":"prose","support_ids":["exact support_id"]}.
+A Rules claim is {"kind":"rules_claim","text":"prose","support_ids":["exact local support_id"]}.
 Only supports in the Rules frame establish Rules evidence; preserve their applicability.
 Interpretation or gaps use {"kind":"rules_context","text":"prose","category":"interpretation or gap or connective"}.
 Do not turn campaign prose into a Rules claim. Ignore Rules material irrelevant to the question.
@@ -232,7 +232,8 @@ class PlanJevWriter:
         self.output_reserve = native_budget.output_reserve_tokens if native_budget is not None else adapter.budget['outputReserveTokens']
         self.context_limit = native_budget.context_limit_tokens if native_budget is not None else adapter.budget['contextLimitTokens']
         self.shared = type(adapter.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1
-        rule_frame = rules.frame()
+        from application_state.agent_conversation.rules_authority_plan_packet import model_rules_frame
+        rule_frame = model_rules_frame(rules.frame())
         self.projection = None
         if self.shared:
             from application_state.agent_conversation.native_writer import model_frame, model_work_frame

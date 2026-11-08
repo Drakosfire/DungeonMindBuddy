@@ -238,3 +238,25 @@ def test_expanded_base_plus_rules_cannot_exceed_durable_map_budget():
     answer = parse_answer(json.dumps(raw_answer(with_base=True)))
     with pytest.raises(ValidationError):
         answer.composition(base_completion=None, supplied_refs=(), base_segments=("base",) * 128, base_disposition="approved")
+
+
+@pytest.mark.parametrize('selection', ['alias', 'unknown', 'uuid', 'duplicate'])
+def test_current_selector_normalization_preserves_literal_text_and_rejects_uuid_fallback(selection):
+    from uuid import uuid4
+    from hashlib import sha256
+    from application_state.agent_conversation.rules_authority_types import RulesSupportRefV1
+    ref = RulesSupportRefV1(support_id=uuid4(), support_sha256='a' * 64)
+    text = 'Literal rule_0 and rule_15 are preserved exactly.'
+    selectors = {'alias': ['rule_0'], 'unknown': ['rule_15'],
+        'uuid': [str(ref.support_id)], 'duplicate': ['rule_0', 'rule_0']}[selection]
+    raw = json.dumps({'kind': 'rules_answer', 'base_output': None,
+        'rules_segments': [{'kind': 'rules_claim', 'text': text, 'support_ids': selectors}],
+        'ordered_refs': [{'domain': 'rules', 'segment_index': 0}]})
+    original = sha256(raw.encode()).hexdigest()
+    if selection != 'alias':
+        with pytest.raises(ValueError): parse_answer(raw, alias_refs=(ref,))
+        return
+    parsed = parse_answer(raw, alias_refs=(ref,))
+    assert parsed.rules_segments[0].text == text
+    assert parsed.rules_segments[0].support_ids == (str(ref.support_id),)
+    assert sha256(raw.encode()).hexdigest() == original
