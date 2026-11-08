@@ -129,6 +129,30 @@ async function run(): Promise<void> {
     assert((await abortOpen.repository.restorePackage(negativeRecord, sidecar.data)).status === "error", "Direct IndexedDB restore accepted a negative revision.");
     assert((await abortOpen.repository.restorePackage(malformedHistory, sidecar.data)).status === "error", "Direct IndexedDB restore accepted malformed history.");
     assert((await abortOpen.repository.readWorld(layout.record.snapshot.worldId)).status === "missing", "Malformed direct restores wrote a record.");
+    const malformedPathCases = [
+      { namespace: "documents" as const, path: "documents/../escape", id: `local-world:document-path-${token}` },
+      { namespace: "assets" as const, path: "assets/../escape", id: `local-world:asset-path-${token}` },
+    ];
+    for (const item of malformedPathCases) {
+      const worldId = item.id as typeof layout.record.snapshot.worldId;
+      const malformedRecord = { ...structuredClone(layout.record), snapshot: { ...layout.record.snapshot, worldId } };
+      const malformedData = item.namespace === "documents"
+        ? {
+          ...sidecar.data,
+          localWorldId: worldId,
+          documents: sidecar.data.documents.map((ref, index) => index === 0 ? { ...ref, path: item.path } : ref),
+          bundledMembers: { [item.path]: sidecar.data.bundledMembers[documentPath], [assetPath]: sidecar.data.bundledMembers[assetPath] },
+        }
+        : {
+          ...sidecar.data,
+          localWorldId: worldId,
+          assets: sidecar.data.assets.map((ref, index) => index === 0 ? { ...ref, path: item.path } : ref),
+          bundledMembers: { [documentPath]: sidecar.data.bundledMembers[documentPath], [item.path]: sidecar.data.bundledMembers[assetPath] },
+        };
+      assert((await targetOpen.repository.restorePackage(malformedRecord, malformedData)).status === "error", `Direct IndexedDB restore accepted ${item.namespace} traversal path.`);
+      assert((await targetOpen.repository.readWorld(worldId)).status === "missing", `Malformed ${item.namespace} path wrote a World record.`);
+      assert((await targetOpen.repository.readPackageData(worldId)).status === "missing", `Malformed ${item.namespace} path wrote a package sidecar.`);
+    }
     const aborted = await restoreStagedLocalWorldPackage(abortOpen.repository, decoded.parsed.candidate);
     assert(aborted.status === "error", "Injected quota-shaped abort unexpectedly committed.");
     assert((await abortOpen.repository.readWorld(layout.record.snapshot.worldId)).status === "missing", "World record survived a paired transaction abort.");
@@ -153,7 +177,7 @@ async function run(): Promise<void> {
     preserved.close();
 
     output.dataset.status = "passed";
-    output.textContent = JSON.stringify({ status: "passed", runtime: "native browser IndexedDB/WebCrypto/ZIP", checks: ["edited repository record ZIP roundtrip", "atomic semantic record plus document/binary sidecar readback", "two-connection concurrent restore has one winner", "collision refusal", "direct invalid revision/history rejection before writes", "valid v2 migration preserves local record and unrelated store", "simulated transaction abort preserves empty state", "malformed v2 migration refuses while preserving v2 version and data"], archiveBytes: archive.blob.size, durability: "not a crash, quota-exhaustion, eviction, or cross-browser guarantee" });
+    output.textContent = JSON.stringify({ status: "passed", runtime: "native browser IndexedDB/WebCrypto/ZIP", checks: ["edited repository record ZIP roundtrip", "atomic semantic record plus document/binary sidecar readback", "two-connection concurrent restore has one winner", "collision refusal", "direct invalid revision/history and document/asset traversal rejection before writes", "valid v2 migration preserves local record and unrelated store", "simulated transaction abort preserves empty state", "malformed v2 migration refuses while preserving v2 version and data"], archiveBytes: archive.blob.size, durability: "not a crash, quota-exhaustion, eviction, or cross-browser guarantee" });
   } finally {
     close.forEach((fn) => fn());
     for (const name of names) await deleteDb(name);

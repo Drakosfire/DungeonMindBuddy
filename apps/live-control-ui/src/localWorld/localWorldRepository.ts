@@ -11,6 +11,41 @@ export type LocalEditId = string & { readonly __brand: "LocalEditId" };
 export type LocalConflictId = string & { readonly __brand: "LocalConflictId" };
 export type PublishedRevisionId = string & { readonly __brand: "PublishedRevisionId" };
 
+/** Package attachment path policy is owned here so both staged parsing and direct repository writes share it. */
+export const LOCAL_WORLD_PACKAGE_MEMBER_PATH_LIMITS = {
+  bytes: 256,
+  segments: 16,
+} as const;
+
+const packageMemberPathEncoder = new TextEncoder();
+const packageAssetPathPattern = /^assets\/[0-9a-f]{64}$/;
+
+export function isLocalWorldPackageMemberPath(path: string): boolean {
+  if (!path || !isWellFormedUnicode(path)
+    || path.length > LOCAL_WORLD_PACKAGE_MEMBER_PATH_LIMITS.bytes
+    || packageMemberPathEncoder.encode(path).byteLength > LOCAL_WORLD_PACKAGE_MEMBER_PATH_LIMITS.bytes
+    || path.startsWith("/") || path.includes("\\") || /[\u0000-\u001f\u007f]/.test(path)
+    || path !== path.normalize("NFC")) return false;
+  const segments = path.split("/");
+  if (segments.length > LOCAL_WORLD_PACKAGE_MEMBER_PATH_LIMITS.segments
+    || segments.some((segment) => !segment || segment === "." || segment === ".." || segment.includes(":"))) return false;
+  if (path === "semantic.json" || path === "layout.json" || path === "history.json") return true;
+  if (path.startsWith("documents/")) return segments.length >= 2;
+  return packageAssetPathPattern.test(path);
+}
+
+function isWellFormedUnicode(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) return false;
+      index += 1;
+    } else if (code >= 0xdc00 && code <= 0xdfff) return false;
+  }
+  return true;
+}
+
 export type LocalJsonValue =
   | null
   | boolean
@@ -159,7 +194,9 @@ export function validateLocalWorldPackageData(data: LocalWorldPackageData, expec
       if (ref.locator !== null && typeof ref.locator !== "string") return "Package attachment locator must be text or null.";
       if (ref.status === "bundled") {
         const prefix = groupIndex === 0 ? "documents/" : "assets/";
-        if (!ref.path || !ref.path.startsWith(prefix)) return "Bundled attachment path is outside its declared namespace.";
+        if (!ref.path || !ref.path.startsWith(prefix) || !isLocalWorldPackageMemberPath(ref.path)) {
+          return "Bundled attachment path is unsafe or outside its declared namespace.";
+        }
         bundledPaths.add(ref.path);
       } else if (ref.path !== null) return "External or missing attachments cannot claim bundled member paths.";
     }
