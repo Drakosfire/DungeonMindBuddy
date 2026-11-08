@@ -4,7 +4,7 @@ import {createWalkthrough,reduceTour,type TargetPin} from '../../guidedTour/prot
 import {readWalkthrough,writeWalkthrough} from '../../guidedTour/storage';
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
 import * as selectedWorld from "../../selectedWorld/SelectedWorldContext";
@@ -35,6 +35,7 @@ import {
   StatblockWorkbenchModule,
 } from "./StatblockWorkbenchModule";
 
+beforeAll(()=>Object.defineProperty(HTMLDialogElement.prototype,'showModal',{configurable:true,value:function(this:HTMLDialogElement){this.setAttribute('open','');}}));
 const candidate = fixture as GeneratedStatblockCandidateV1;
 
 const activeResponse: ReadStatblockCandidateResponseV1 = {
@@ -271,7 +272,7 @@ describe("World-scoped mounted Workbench", () => {
     vi.spyOn(liveApi,"listSavedMechanicsVersions").mockResolvedValue({world_id:a.worldId,draft_id:"draft-a",name:"Saved brute",original:locator,operations:[],pending:null,next_offset:null});
     vi.spyOn(liveApi,"openSavedMechanicsVersion").mockResolvedValue({world_id:a.worldId,draft_id:"draft-a",locator,resource:{...savedRevisionFixture,definition:candidate.definition,statblock_id:locator.statblock_id,revision_id:locator.revision_id} as unknown as Awaited<ReturnType<typeof liveApi.openSavedMechanicsVersion>>["resource"]});
     render(<StatblockWorkbenchModule/>);
-    const open=await screen.findByRole("button",{name:"Open saved mechanics"});
+    const open=await screen.findByRole("button",{name:"Open statblock"});
     expect(h.getCandidate).not.toHaveBeenCalled();
     await userEvent.click(open);
     expect(await screen.findByRole("region",{name:"Saved statblock"})).toBeInTheDocument();
@@ -290,7 +291,7 @@ describe("World-scoped mounted Workbench", () => {
     expect(localStorage.getItem(scopedWorkbenchJoinKey(a))).toBe(retained);
     expect(h.create).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button",{name:"Retry draft refresh"}));
-    expect(await screen.findByRole("button",{name:"Open saved mechanics"})).toBeInTheDocument();
+    expect(await screen.findByRole("button",{name:"Open statblock"})).toBeInTheDocument();
     expect(h.getDraft).toHaveBeenCalledTimes(2);expect(h.getCandidate).not.toHaveBeenCalled();
     expect(h.create).not.toHaveBeenCalled();expect(h.generate).not.toHaveBeenCalled();
   });
@@ -302,9 +303,9 @@ describe("World-scoped mounted Workbench", () => {
     render(<StatblockWorkbenchModule/>);
     expect(await screen.findByTestId("draft-snapshot-unavailable")).toHaveTextContent("Saved draft refresh unavailable");
     expect(screen.getByTestId("create-and-generate-submit")).toBeDisabled();
-    expect(screen.queryByRole("button",{name:"Open saved mechanics"})).toBeNull();
+    expect(screen.queryByRole("button",{name:"Open statblock"})).toBeNull();
     await userEvent.click(screen.getByRole("button",{name:"Retry draft refresh"}));
-    expect(await screen.findByRole("button",{name:"Open saved mechanics"})).toBeInTheDocument();
+    expect(await screen.findByRole("button",{name:"Open statblock"})).toBeInTheDocument();
     expect(h.getDraft).toHaveBeenCalledTimes(3);expect(h.getCandidate).not.toHaveBeenCalled();
     expect(h.create).not.toHaveBeenCalled();expect(h.generate).not.toHaveBeenCalled();
   });
@@ -315,7 +316,7 @@ describe("World-scoped mounted Workbench", () => {
     render(<StatblockWorkbenchModule/>);
     await waitFor(()=>expect(h.getDraft).toHaveBeenCalledWith("draft-b"));
     expect(await screen.findByTestId("draft-snapshot-unavailable")).toHaveTextContent("This ThreatDraft does not belong to the selected scope.");
-    expect(screen.queryByRole("button",{name:"Open saved mechanics"})).toBeNull();
+    expect(screen.queryByRole("button",{name:"Open statblock"})).toBeNull();
     expect(h.getCandidate).not.toHaveBeenCalled();expect(h.create).not.toHaveBeenCalled();expect(h.generate).not.toHaveBeenCalled();
   });
 
