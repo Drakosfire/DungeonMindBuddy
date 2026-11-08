@@ -36,11 +36,13 @@ checkout/environment is required for implementation.
 - This handoff and HANDOFF-PROMPTS-native-writer-evidence.md (settle #2200).
 - src/application_state/agent_conversation/native_plan_work_view.py
 - src/application_state/agent_conversation/native_writer.py
+- src/application_state/agent_conversation/rules_authority_plan_packet.py (verified work output-schema reconstruction only)
 - src/application_state/agent_conversation/native_completion.py
 - src/application_state/agent_conversation/surface_evidence_answer.py
 - apps/live_control_server/services/plan_jev_writer.py
 - src/application_state/migrations/versions/20261108_0130_native_plan_work_view.py
 - tests/test_native_writer_projection.py (current SDK/host/output cases; historical fixtures remain unchanged)
+- tests/test_plan_jev_authoring.py (current producer transport fixture)
 
 No shared runtime/resource lease. Tests use disposable generated databases on
 54329; primary APP/Core and operator drafts remain untouched. Other open lanes
@@ -65,3 +67,13 @@ exact-head review, commit/push/open PR, CI, then merge and guarded delivery unde
 standing PRIME authority. Fence delivery requires independent composition/recipe
 review and retained-state conservation. Ordinary dogfood and full goal acceptance
 remain open; this slice alone proves neither whole-prompt cleanliness nor latency.
+
+## Owning-boundary checkpoint
+
+The first broad run (head da8b9040aebe703d52e419d6b4503d8857f23e64)
+exposed a coupled Rules admission schema reconstruction still selecting old host
+IDs. The failed run is retained. The existing native writer evidence now exposes
+its verified transient output-schema work view to that one reconstruction call;
+Rules evidence, authority, support declarations and prompting are unchanged. This
+cannot ship separately from producer aliases without rejecting ordinary Plan
+authoring. Current HTTP authoring fixtures must recognize the new semantic wire.

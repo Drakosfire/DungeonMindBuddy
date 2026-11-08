@@ -90,6 +90,7 @@ class NativeWriterEvidence:
     """Transient supports; eligibility still requires completion/output proof."""
     frame: dict
     work_frame: dict
+    output_work_frame: dict
     authored: tuple
     idempotency_key: UUID
     saved_sections: tuple
@@ -265,7 +266,8 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         related_pages=tuple(related_records(prefix))
         if prefix.policy.action.intent.build_draft_context_sha256 is not None:
             draft_record=context_record(prefix).record
-    return NativeWriterEvidence(frame=schema_frame,work_frame=expected_work,authored=authored,idempotency_key=idempotency_key,
+    return NativeWriterEvidence(frame=schema_frame,work_frame=expected_work,output_work_frame=expected_work | expected_wire_work,
+        authored=authored,idempotency_key=idempotency_key,
         authored_local=authored_local,
         saved_sections=saved_sections,related_pages=related_pages,draft_record=draft_record,
         **read_evidence_records(prefix,expected))

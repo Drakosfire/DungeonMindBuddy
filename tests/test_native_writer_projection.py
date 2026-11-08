@@ -333,6 +333,7 @@ def test_plan_source_reference_extent_is_navigation_only_until_its_native_read(m
         binding_version=1,knowledge_revision='rev:private',source_artifact_id='private-artifact',
         source_revision_id='private-revision',evidence_ref_id='private-evidence',content_sha256='a'*64,
         selection_kind='section',section_id='b'*64,label='Session 20 — arrival')
+    native=model_frame(context,record)
     monkeypatch.setattr(refs,'native_references',lambda execution:refs.AuthoredReferencesV2(references=(reference,)))
     view=semantic_frame(host,SimpleNamespace(events=[]))
     assert view['selected_references']==[dict(reference='reference0',label=reference.label,
@@ -341,5 +342,5 @@ def test_plan_source_reference_extent_is_navigation_only_until_its_native_read(m
     from application_state.agent_conversation.plan_writer_output_schema import native_output_format
     from tests.test_plan_writer_output_schema import rules
     import json
-    output=json.dumps(native_output_format(model_frame(context,record),rules(),host|view))
+    output=json.dumps(native_output_format(native,rules(),host|view))
     assert 'reference0' not in output
