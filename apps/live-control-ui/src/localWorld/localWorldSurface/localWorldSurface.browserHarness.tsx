@@ -36,13 +36,15 @@ function Harness() {
     const original = createPackageTestRecord();
     const fixture = { ...original, snapshot: { ...original.snapshot, title: "Restored test with attachment" } };
     const docPath = "documents/harness/source.txt";
-    const assetDigestBytes = await crypto.subtle.digest("SHA-256", packageFixtureAttachmentBytes.asset);
+    const largeAssetBytes = new Uint8Array(2 * 1024 * 1024);
+    for (let index = 0; index < largeAssetBytes.length; index += 1) largeAssetBytes[index] = index % 251;
+    const assetDigestBytes = await crypto.subtle.digest("SHA-256", largeAssetBytes);
     const assetPath = `assets/${Array.from(new Uint8Array(assetDigestBytes), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
     const packageData = {
       localWorldId: fixture.snapshot.worldId,
       documents: [{ id: "doc:harness-source", status: "bundled" as const, path: docPath, mediaType: "text/plain", locator: null }],
       assets: [{ id: "asset:harness-binary", status: "bundled" as const, path: assetPath, mediaType: "application/octet-stream", locator: null }],
-      bundledMembers: { [docPath]: Array.from(packageFixtureAttachmentBytes.document), [assetPath]: Array.from(packageFixtureAttachmentBytes.asset) },
+      bundledMembers: { [docPath]: Array.from(packageFixtureAttachmentBytes.document), [assetPath]: Array.from(largeAssetBytes) },
       fidelity: { localRecord: "preserved" as const, sourceMetadata: "not-represented-by-local-record" as const, profileMetadata: "not-represented-by-local-record" as const },
       creatorProfileAssumptions: { creator: "not-recorded" as const, profile: "not-recorded" as const },
     };
@@ -140,6 +142,7 @@ function Harness() {
       <button type="button" onClick={() => void verifyPackage()}>Verify current package round-trip</button>
       <button type="button" onClick={() => { failNextSemanticCommit.current = true; setResult("Next title write will fail before transaction commit."); }}>Fail next title write</button>
       <button type="button" onClick={() => void advanceSelectedWorldElsewhere()}>Advance selected World from second connection</button>
+      <button type="button" onClick={() => setSurfaceMounted(false)}>Close Surface</button>
       <button type="button" onClick={() => setSurfaceMounted(true)}>Reopen Surface</button>
       <button type="button" onClick={() => void deleteTestDb()}>Delete isolated test database</button>
       <p role="status" aria-live="polite">{result}</p>

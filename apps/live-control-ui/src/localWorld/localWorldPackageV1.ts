@@ -379,6 +379,79 @@ export function validateLocalWorldRecordForPackage(record: LocalWorldRecord): st
   }
 }
 
+function validateAttachmentArraysBeforeCopy(data: LocalWorldPackageData): void {
+  if (!isRecord(data.bundledMembers) || Array.isArray(data.bundledMembers)) fail("invalid-record", "Bundled attachment bytes are malformed.");
+  const members = data.bundledMembers as Record<string, unknown>;
+  const prototype = Object.getPrototypeOf(members);
+  if (prototype !== Object.prototype && prototype !== null) fail("invalid-record", "Bundled attachment bytes must be a plain member map.");
+  if (Object.getOwnPropertySymbols(members).length > 0) fail("invalid-record", "Bundled attachment bytes cannot contain symbol fields.");
+  const descriptors = Object.getOwnPropertyDescriptors(members);
+  const paths = Object.getOwnPropertyNames(members);
+  if (paths.length > LOCAL_WORLD_PACKAGE_V1.limits.referenceCount) fail("limit-exceeded", "Package exceeds the 256 attachment-reference limit.");
+
+  let totalBytes = 0;
+  for (const path of paths) {
+    const descriptor = descriptors[path];
+    if (!descriptor.enumerable || !("value" in descriptor)) fail("invalid-record", "Bundled attachment members cannot contain hidden fields or accessors.");
+    const bytes = descriptor.value;
+    if (!Array.isArray(bytes)) fail("invalid-record", "Bundled attachment bytes must be byte arrays.");
+    if (bytes.length > LOCAL_WORLD_PACKAGE_V1.limits.attachmentBytes) fail("limit-exceeded", `Attachment exceeds the 8 MiB size limit: ${path}`);
+    totalBytes += bytes.length;
+    if (totalBytes > LOCAL_WORLD_PACKAGE_V1.limits.totalBytes) fail("limit-exceeded", "Bundled attachments exceed the 16 MiB bounded copy limit.");
+    if (Object.getPrototypeOf(bytes) !== Array.prototype || Object.getOwnPropertySymbols(bytes).length > 0) {
+      fail("invalid-record", "Bundled attachment byte arrays must be plain arrays without extra properties.");
+    }
+    // Count own names before indexing so hidden custom fields and sparse slots
+    // fail closed; inspect element descriptors lazily to avoid a map of millions
+    // of descriptor objects for a valid large attachment.
+    const ownNames = Object.getOwnPropertyNames(bytes);
+    if (ownNames.length !== bytes.length + 1 || Object.keys(bytes).length !== bytes.length) {
+      fail("invalid-record", "Bundled attachment byte arrays cannot contain holes or named properties.");
+    }
+    for (let index = 0; index < bytes.length; index += 1) {
+      const byte = Object.getOwnPropertyDescriptor(bytes, String(index));
+      if (!byte || !byte.enumerable || !("value" in byte) || !Number.isInteger(byte.value) || byte.value < 0 || byte.value > 255) {
+        fail("invalid-record", "Bundled attachment bytes must contain only integer byte values.");
+      }
+    }
+  }
+}
+
+function validateInputsBeforeClone(record: LocalWorldRecord, supplementalData?: LocalWorldPackageData): void {
+  validateRecord(record);
+  const semantic = {
+    localWorldId: record.snapshot.worldId,
+    localRevision: record.localRevision,
+    publishedRevisionId: record.publishedRevisionId,
+    snapshot: record.snapshot,
+    documents: supplementalData?.documents ?? [],
+    assets: supplementalData?.assets ?? [],
+  } satisfies PackageSemanticWire;
+  const layout = { layoutRevision: record.layoutRevision, layout: record.layout } satisfies PackageLayoutWire;
+  // Validate each emitted JSON member at its own limit. A full record or a
+  // numeric byte array is not itself a package member and must not be encoded
+  // into one shared JSON string for preflight.
+  canonicalJson(semantic);
+  canonicalJson(layout);
+  if (record.history.length > LOCAL_WORLD_PACKAGE_V1.limits.historyCount) fail("limit-exceeded", "History exceeds the 1,000 entry package limit.");
+  if (record.history.length > 0) canonicalJson(record.history);
+
+  if (!supplementalData) return;
+  exactKeys(supplementalData as unknown as Record<string, unknown>, ["localWorldId", "documents", "assets", "bundledMembers", "fidelity", "creatorProfileAssumptions"], "package sidecar");
+  if (!Array.isArray(supplementalData.documents) || !Array.isArray(supplementalData.assets)
+    || supplementalData.documents.length + supplementalData.assets.length > LOCAL_WORLD_PACKAGE_V1.limits.referenceCount) {
+    fail("limit-exceeded", "Package exceeds the 256 attachment-reference limit.");
+  }
+  // The references are JSON and are already represented by semantic.json;
+  // sidecar declarations are separate manifest fields.
+  canonicalJson(supplementalData.documents);
+  canonicalJson(supplementalData.assets);
+  canonicalJson(supplementalData.fidelity);
+  canonicalJson(supplementalData.creatorProfileAssumptions);
+  validateAttachmentArraysBeforeCopy(supplementalData);
+  const invalid = validateLocalWorldPackageData(supplementalData, record.snapshot.worldId);
+  if (invalid) fail("invalid-record", invalid);
+}
 /** Shared portable-path validation for the normalized map codec and archive transport. */
 export function validateLocalWorldPackageMemberPaths(paths: readonly string[]): string | null {
   const exactPaths = new Set<string>();
@@ -507,10 +580,10 @@ export async function encodeLocalWorldPackageV1(
   let record: LocalWorldRecord;
   let supplementalData: LocalWorldPackageData | undefined;
   try {
-    // Validate own properties before cloning: structuredClone can drop non-enumerable
-    // fields and custom array properties, which must fail closed rather than disappear.
-    canonicalJson(recordInput);
-    if (supplementalDataInput) canonicalJson(supplementalDataInput);
+    // Validate own properties and per-member bounds before cloning. structuredClone
+    // can drop non-enumerable fields, while JSON-stringifying attachment arrays
+    // multiplies their size and wrongly applies the JSON-member limit to binaries.
+    validateInputsBeforeClone(recordInput, supplementalDataInput);
     // Snapshot all caller-owned state before any digest awaits.
     record = cloneLocalWorldValue(recordInput);
     supplementalData = supplementalDataInput ? cloneLocalWorldValue(supplementalDataInput) : undefined;
@@ -520,10 +593,6 @@ export async function encodeLocalWorldPackageV1(
   }
   try {
     validateRecord(record);
-    if (supplementalData) {
-      const invalidSupplement = validateLocalWorldPackageData(supplementalData, record.snapshot.worldId);
-      if (invalidSupplement) fail("invalid-record", invalidSupplement);
-    }
   } catch (error) {
     const problem = error instanceof PackageProblem ? error : new PackageProblem("invalid-record", "Local World record cannot be encoded.");
     return { status: "error", code: problem.code, message: problem.message };

@@ -168,6 +168,42 @@ describe("local World Surface", () => {
     expect(screen.getByText("Saved in this browser")).toBeTruthy();
   });
 
+  it("keeps an unsaved title draft when creating or selecting another World and after a route-style remount", async () => {
+    const repository = new InMemoryLocalWorldRepository();
+    const first = await repository.createWorld({ title: "First World" });
+    const second = await repository.createWorld({ title: "Second World" });
+    expect(first.status).toBe("created");
+    expect(second.status).toBe("created");
+    if (first.status !== "created" || second.status !== "created") return;
+    const user = userEvent.setup();
+    const view = renderSurface(repository);
+
+    await user.click(await screen.findByRole("button", { name: /First World/ }));
+    await user.click(screen.getByRole("button", { name: "Edit World title" }));
+    await user.clear(screen.getByLabelText("World title"));
+    await user.type(screen.getByLabelText("World title"), "Uncommitted First World");
+    const beforeUnload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(beforeUnload);
+    expect(beforeUnload.defaultPrevented).toBe(true);
+
+    await user.type(await screen.findByLabelText("Create a World"), "Third World");
+    await user.click(screen.getByRole("button", { name: "Create World" }));
+    expect(await screen.findByRole("heading", { name: "Third World" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /First World/ }));
+    expect(screen.getByLabelText("World title")).toHaveValue("Uncommitted First World");
+    expect(screen.getByText("Unsaved title change")).toBeTruthy();
+
+    view.unmount(); // Models an in-app route transition/Back remount in the same tab.
+    renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /First World/ }));
+    expect(screen.getByLabelText("World title")).toHaveValue("Uncommitted First World");
+    expect(screen.getByText("Unsaved title change")).toBeTruthy();
+    const unchanged = await repository.readWorld(first.record.snapshot.worldId);
+    expect(unchanged.status).toBe("found");
+    if (unchanged.status === "found") expect(unchanged.record.snapshot.title).toBe("First World");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+  });
+
   it("disables duplicate creates while the first durable operation is pending", async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => { release = resolve; });

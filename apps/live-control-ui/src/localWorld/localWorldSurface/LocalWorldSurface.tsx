@@ -3,8 +3,12 @@ import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction"
 import { usePublishSurfaceInteraction } from "../../agentInteraction/usePublishSurfaceInteraction";
 import { buildSurfaceInteractionIdentity } from "../../surfaceInteraction/surfaceIdentity";
 import { openIndexedDbLocalWorldRepository, LOCAL_WORLD_DATABASE_NAME } from "../indexedDbLocalWorldRepository";
-import type { LocalWorldPackageRepository, LocalWorldRecord } from "../localWorldRepository";
+import type { LocalWorldId, LocalWorldPackageRepository, LocalWorldRecord } from "../localWorldRepository";
 import "./localWorldSurface.css";
+
+// Keep unsaved title candidates while App routes/components remount in this tab.
+// This is deliberately volatile presentation state, not a second durable ledger.
+const pendingTitleDrafts = new Map<LocalWorldId, string>();
 
 type RepositoryResult = { readonly status: "opened"; readonly repository: LocalWorldPackageRepository; readonly close?: () => void }
   | { readonly status: "error"; readonly message: string };
@@ -211,10 +215,14 @@ export function LocalWorldSurface({
         await refreshList(repository, generation);
         return;
       }
+      const localWorldId = worldId as LocalWorldId;
+      const pendingDraft = pendingTitleDrafts.get(localWorldId);
+      const hasPendingChanges = pendingDraft !== undefined && pendingDraft.trim() !== result.record.snapshot.title;
+      if (pendingDraft !== undefined && !hasPendingChanges) pendingTitleDrafts.delete(localWorldId);
       setRecord(result.record);
-      setTitleDraft(result.record.snapshot.title);
-      setEditing(false);
-      setStatus("saved");
+      setTitleDraft(hasPendingChanges ? pendingDraft : result.record.snapshot.title);
+      setEditing(hasPendingChanges);
+      setStatus(hasPendingChanges ? "dirty" : "saved");
     } catch (error) {
       if (!mounted.current || generation !== operationGeneration.current) return;
       setMessage(error instanceof Error ? error.message : "The local World could not be opened.");
@@ -277,15 +285,19 @@ export function LocalWorldSurface({
         nextSnapshot: { ...savedRecord.snapshot, title: nextTitle },
         edit: { classification: "buddy-local-only", description: "Renamed local World" },
       });
-      if (!mounted.current || generation !== operationGeneration.current) return;
       if (result.status === "committed") {
+        pendingTitleDrafts.delete(savedRecord.snapshot.worldId);
+        if (!mounted.current || generation !== operationGeneration.current) return;
         setRecord(result.record);
         setRecords((current) => current.map((item) => item.snapshot.worldId === result.record.snapshot.worldId ? result.record : item)
           .sort((left, right) => left.snapshot.title.localeCompare(right.snapshot.title) || left.snapshot.worldId.localeCompare(right.snapshot.worldId)));
         setTitleDraft(result.record.snapshot.title);
         setEditing(false);
         setStatus("saved");
-      } else if (result.status === "conflict") {
+        return;
+      }
+      if (!mounted.current || generation !== operationGeneration.current) return;
+      if (result.status === "conflict") {
         setRecord(result.committed);
         setRecords((current) => current.map((item) => item.snapshot.worldId === result.committed.snapshot.worldId ? result.committed : item));
         setMessage("Another tab saved a newer version. Your title is kept as a conflict candidate; choose whether to retry it.");
@@ -342,6 +354,7 @@ export function LocalWorldSurface({
 
   const cancelTitleEdit = useCallback(() => {
     if (busyRef.current || !record) return;
+    pendingTitleDrafts.delete(record.snapshot.worldId);
     setTitleDraft(record.snapshot.title);
     setEditing(false);
     setMessage(null);
@@ -400,7 +413,7 @@ export function LocalWorldSurface({
             <div className="local-world-surface__title-row">
               {editing ? <form onSubmit={(event) => { event.preventDefault(); void saveTitle(); }}>
                 <label htmlFor="local-world-title">World title</label>
-                <input id="local-world-title" autoFocus value={titleDraft} maxLength={160} disabled={busy} onChange={(event) => { setTitleDraft(event.target.value); setMessage(null); if (status === "error" || status === "conflict") setStatus("dirty"); }} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); cancelTitleEdit(); } }} />
+                <input id="local-world-title" autoFocus value={titleDraft} maxLength={160} disabled={busy} onChange={(event) => { const nextDraft = event.target.value; setTitleDraft(nextDraft); if (record) { if (nextDraft.trim() === record.snapshot.title) pendingTitleDrafts.delete(record.snapshot.worldId); else pendingTitleDrafts.set(record.snapshot.worldId, nextDraft); } setMessage(null); if (status === "error" || status === "conflict") setStatus("dirty"); }} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); cancelTitleEdit(); } }} />
                 <div className="local-world-surface__title-actions">
                   <button type="submit" disabled={busy || !dirty || !titleDraft.trim()}>{busy && status === "saving" ? "Saving…" : "Save title"}</button>
                   <button type="button" className="local-world-surface__quiet" disabled={busy} onClick={cancelTitleEdit}>Cancel</button>
