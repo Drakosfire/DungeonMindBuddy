@@ -13,15 +13,52 @@ FIELDS = frozenset(
 )
 
 
+# Prompt presentation only, never source/publication admissibility. Historical
+# Buddy reviewed World-context entries mixed these host provenance slots into
+# otherwise arbitrary JSON. Their exact top-level roles are explicit here; no
+# key patterns, value heuristics or recursive stripping apply. Unknown keys,
+# qualifications, literal bodies and all other metadata schemas stay intact.
+_WORLD_CONTEXT = "dungeonbuddy.domain_metadata:world_context_v1"
+_WORLD_CONTEXT_HOST_FIELDS = frozenset({
+    'actual_extraction_candidate_sha256',
+    'actual_extraction_run_id',
+    'identity_readiness_review_sha256',
+    'identity_readiness_sha256',
+    'identity_review_sha256',
+    'ingestion_code_head',
+    'ingestion_model',
+    'ingestion_profile',
+    'ingestion_runtime_manifest_sha256',
+    'ingestion_telemetry_sha256',
+    'owner_identity_adoption_sha256',
+    'publication_fidelity_review_sha256',
+    'publication_runtime_manifest_sha256',
+    'selected_field_decisions_sha256',
+    'semantic_correction_basis_sha256',
+    'source_candidate_sha256',
+    'source_effective_sha256',
+    'source_identity_adoption_sha256',
+    'source_identity_selection_proposal_sha256',
+    'source_original_sha256',
+    'source_qualifier_adjudication_sha256',
+    'source_read_mode',
+    'source_run_id',
+    'source_run_revision',
+    'source_selection_feasibility_sha256',
+    'source_selector',
+})
+
+
 def is_semantic_frame(frame):
     return isinstance(frame, dict) and set(frame) == FIELDS
 
 
 def _domain_meaning(entries):
-    """Separate the publisher's tagged host descriptor from semantic payload.
+    """Present semantic meaning without changing its exact admitted host record.
 
-    native_recap_preparation._metadata owns this reserved, versioned descriptor.
-    Do not match arbitrary keys/text or reinterpret admission/provenance here.
+    The current publisher's reserved descriptor and known older reviewer-supplied
+    provenance slots are host information. This presentation rule never admits,
+    rejects or substantiates a source, citation or publication decision.
     """
     result = []
     for entry in entries:
@@ -29,13 +66,19 @@ def _domain_meaning(entries):
         if set(value) != {"schema", "payload"}:
             raise ValueError("Unclassified domain qualification envelope")
         payload = value["payload"]
+        if value["schema"] == _WORLD_CONTEXT and isinstance(payload, dict):
+            payload = {key: item for key, item in payload.items()
+                       if key not in _WORLD_CONTEXT_HOST_FIELDS}
+            if not payload and value["payload"]:
+                continue
+            value["payload"] = payload
         descriptor = (
             payload.get("candidate_description_selection")
             if isinstance(payload, dict)
             else None
         )
         if (
-            value["schema"] == "dungeonbuddy.domain_metadata:world_context_v1"
+            value["schema"] == _WORLD_CONTEXT
             and isinstance(descriptor, dict)
             and descriptor.get("schema_version")
             == "dmb_candidate_description_extent_v1"

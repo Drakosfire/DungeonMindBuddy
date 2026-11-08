@@ -1,6 +1,8 @@
 # PROMPTS: semantic native World evidence
 
 Status: ACTIVE. PRIME implements the operator-prioritized host-metadata cleanup.
+The new actual-capture World-context finding is corrected in this slice; exact-head
+review, current tests and CI are still required before merge/delivery.
 Independent design critique approved this evidence-view boundary and reuse of the
 existing input, support and citation owners. No delivery is claimed.
 
@@ -45,10 +47,23 @@ selectors to exact admitted reads. Existing completion/citation validators still
 produce durable identities, qualifiers and source/revision pins. No new event,
 ledger, registry, citation store or provenance decision. Raw protected request
 capture retains exact provider bytes; normalized citations retain native identity.
-Output-schema selector enums must use the same local aliases, never leak old
-handles in a different provider channel. Recognize only the existing publisher-
-tagged description-selection provenance inside World context metadata and omit
-that host descriptor, preserving surrounding semantic payload and literal data.
+Output-schema selector enums use the same local aliases, never old handles in
+another provider channel. World-context presentation omits the current publisher's
+typed description-selection descriptor and the explicit known top-level historical
+review-provenance field roles. This is a formatting rule for the exact
+world_context_v1 schema, not a reservation or validation of arbitrary review input.
+Source qualification, every unknown key/value, nested literal content and other
+metadata schemas remain unchanged. No name-pattern/hash/UUID heuristics, recursive
+scrubbing, source admission or publication decisions are introduced.
+
+Actual pinned Q09/Q14 captures exposed these older flat fields; the retained
+standardized Session9 prepare request and Session1 producer/identity-read audit
+show reviewer-supplied provenance before publication. This correction stays at the
+same provider presentation boundary; do not alter publisher authority, retained
+Graph or Gold. Synthetic checked-in payload fixtures retain the captured key
+shapes and request hashes, with invented values/qualification text only. Current
+semantic SDK input/APP reconstruction and exact historical codecs are exercised.
+Fence129 has not been activated; it protects the corrected view on first delivery.
 
 Surface work/editor/Rules frames remain explicitly outside this slice. Preserve
 those full host reconstruction/normalization owners; do not claim whole-prompt
@@ -65,8 +80,11 @@ cleanliness or performance acceptance here. No limits/model/provider changes.
 - apps/live_control_server/services/build_image_writer.py (native image authorization frame)
 - src/application_state/migrations/versions/20261107_0129_native_evidence_view.py
 - tests/test_surface_native_writer.py
+- tests/fixtures/native_world_context_review_metadata.json (synthetic captured key shapes)
 - tests/test_surface_native_build_ordinary.py
 - tests/test_native_plan_assertions.py
+- tests/test_plan_jev_authoring.py (current semantic input transport fixture)
+- tests/test_native_writer_projection.py (semantic facts and exact host joins)
 
 Checkpoint before expanding another owner. Input, output enums and support mapping
 are one indivisible capability: splitting them would invalidate normal output or

@@ -244,14 +244,15 @@ def test_frozen_source_authority_cannot_be_replaced_by_self_consistent_search(la
 
 
 @pytest.fixture
-def published_lane(application_state_dsn, tmp_path, monkeypatch):
+def published_lane(application_state_dsn, tmp_path, monkeypatch, request):
     from tests.test_source_statements import make_lane, commit
     from tests.test_native_plan_assertions import publish
     value = make_lane(tmp_path, monkeypatch, narrow=True)
     from dataclasses import replace
     from tests.test_source_statements import wk
     value.meta = replace(value.meta,domain_metadata=(wk.DomainMetadata.from_json(
-        'dungeonbuddy.domain_metadata:world_context_v1',{'uncertain':['who reported it']}),))
+        'dungeonbuddy.domain_metadata:world_context_v1',
+        getattr(request,'param',{'uncertain':['who reported it']})),))
     commit(value)
     publish(value, qualified=True)
     return value
@@ -614,3 +615,58 @@ def test_semantic_world_qualification_separates_only_typed_publisher_provenance(
         ]["domain_metadata"][0]["payload"]
         == payload
     )
+
+
+def _captured_world_context_cases():
+    from pathlib import Path
+    return json.loads((Path(__file__).parent / "fixtures" /
+        "native_world_context_review_metadata.json").read_text())["cases"]
+
+
+@pytest.mark.parametrize("case", _captured_world_context_cases(), ids=lambda c:c["case"])
+def test_world_context_presentation_omits_only_proven_host_slots(case):
+    from application_state.agent_conversation.native_evidence_view import _domain_meaning
+    payload = deepcopy(case["payload"])
+    literal = {"source_run_id":"a literal character name", "future_manifest_sha256":"c"*64}
+    payload.update(unknown_host_looking_sha256="d"*64, notes=literal)
+    original = [dict(schema="dungeonbuddy.domain_metadata:world_context_v1",payload=payload),
+        dict(schema="custom:authored-context",payload=deepcopy(payload)),
+        dict(schema="dungeonbuddy.domain_metadata:world_context_v1",payload=[literal,"source_run_id"])]
+    before = deepcopy(original)
+    projected = _domain_meaning(original)
+    expected = {key:value for key,value in payload.items() if key not in case["host_fields"]}
+    assert projected == [dict(schema=original[0]["schema"],payload=expected), *original[1:]]
+    assert original == before
+    assert projected[0]["payload"]["source_qualification"] == payload["source_qualification"]
+    assert _domain_meaning([dict(schema=original[0]["schema"],payload={
+        key:payload[key] for key in case["host_fields"]})]) == ([] if case["host_fields"] else [
+            dict(schema=original[0]["schema"],payload={})])
+
+
+_ALL_HOST_REVIEW_FIELDS = {key:value for case in _captured_world_context_cases()
+    for key,value in case["payload"].items()}
+_ALL_HOST_REVIEW_FIELDS.update(uncertain=["who reported it"],
+    unknown_host_looking_sha256="e"*64, notes={"source_run_id":"literal story words"})
+
+
+@pytest.mark.parametrize("surface", ["build","plan"])
+@pytest.mark.parametrize("published_lane", [_ALL_HOST_REVIEW_FIELDS], indirect=True)
+def test_actual_sdk_world_context_roles_preserve_exact_host_reads(published_lane,surface):
+    from application_state.agent_conversation.native_writer import model_input_frame
+    context, record = published_case(surface,published_lane)
+    frame = model_input_frame(context,record)
+    before = record.model_dump_json(by_alias=True)
+    work = work_submission(context,record)
+    raw = asyncio.run(actual_sdk_request(frame,work_frame=model_work_frame(context,record,**work)))
+    stored, grant = authorize(context,record,raw,frame)
+    accepted = verify_input_records(context,stored,grant,raw,**work)
+    assert accepted.native_assertions
+    for _, _, read in accepted.native_assertions:
+        for item in read.assertion.metadata.domain_metadata:
+            if item.schema_term == "dungeonbuddy.domain_metadata:world_context_v1":
+                assert item.payload["ingestion_code_head"] == "b"*40
+    for row in frame["native_assertions"]["assertions"]:
+        for item in row["assertion"]["metadata"]["domain_metadata"]:
+            assert item["payload"] == {key:_ALL_HOST_REVIEW_FIELDS[key] for key in
+                ("source_qualification","uncertain","unknown_host_looking_sha256","notes")}
+    assert record.model_dump_json(by_alias=True) == before

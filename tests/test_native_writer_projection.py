@@ -131,10 +131,29 @@ def test_heavy_native_proofs_fit_unchanged_budget_without_losing_facts(published
     with pytest.raises(AdmissionReached):
         writer.authorize(current_prepared)
     assert len(admitted)==1 and writer.context_limit==128000
-    assert [r['assertion'] for r in writer.frame['native_assertions']['assertions']]==[
-        r['assertion'] for r in model_frame(context,record,schema=LEGACY_SCHEMA)['native_assertions']['assertions']]
+    original = [r['assertion'] for r in
+        model_frame(context,record,schema=LEGACY_SCHEMA)['native_assertions']['assertions']]
+    presented = [r['assertion'] for r in writer.frame['native_assertions']['assertions']]
+    assert len(presented) == len(original)
+    semantic_qualifiers = {'scope','epistemic_basis','claim_mode','standing',
+        'temporal_scope','domain_metadata'}
+    for semantic, host in zip(presented, original, strict=True):
+        assert set(semantic) == {'subject','predicate','value','metadata'}
+        assert semantic['subject'].startswith('entity')
+        assert semantic['subject'] != host['subject_entity_id']
+        assert semantic['predicate'] == host['predicate']
+        assert semantic['value'] == host['value']  # This fixture contains literal values.
+        assert semantic['metadata'] == {key: host['metadata'][key] for key in semantic_qualifiers}
     raw=current_prepared.body.decode()
-    stored,grant=authorize(context,record,raw,writer.frame)
+    import json
+    actual_frame = next(value for message in new['input']
+        if isinstance(message.get('content'),str)
+        for value in [json.loads(message['content'])]
+        if set(value) == {'input_status','user_question','native_body_evidence',
+            'native_statements','native_assertions'})
+    stored,grant=authorize(context,record,raw,actual_frame)
     accepted=verify_input_records(context,stored,grant,raw,**work)
     assert len(accepted.native_assertions)==len(writer.frame['native_assertions']['assertions'])
     assert all(read.evidence and read.spans for _,_,read in accepted.native_assertions)
+    assert [read.assertion.model_dump(mode='json') for _,_,read in
+        accepted.native_assertions] == original  # Exact host identities/proofs remain admitted.
