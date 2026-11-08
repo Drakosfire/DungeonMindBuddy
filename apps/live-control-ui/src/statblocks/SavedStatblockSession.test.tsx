@@ -9,12 +9,13 @@ import type {RevisionSaveOutcome} from './revision/savedMechanicsRevisionTypes';
 import {GenerationPlanProvider} from '../guidedTour/GenerationObservations';
 import {TourEncounterProvider,type TourEncounterScope} from '../guidedTour/EncounterScope';
 import {SavedStatblockProvider,SavedStatblockButton,SavedStatblockInlineHost} from './SavedStatblockSession';
+import {SurfaceGraphReferenceInput} from '../surface/SurfaceGraphReferenceInput';
 import {SavedStatblockFullView} from './StatblockPage';
 function SessionHost(props:{worldId:string;draftId:string;revisionId?:string}) {return <SavedStatblockProvider worldId={props.worldId}><SavedStatblockButton {...props}/></SavedStatblockProvider>;}
 const guidance=vi.hoisted(()=>({readings:[] as any[],captureMechanicsScope:vi.fn(()=>null)}));
 vi.mock('../guidedTour/GuidedTour',async(importOriginal)=>({...await importOriginal<typeof import('../guidedTour/GuidedTour')>(),useGuidedTour:()=>({captureScope:()=>null,captureMechanicsScope:guidance.captureMechanicsScope}),useTourOwnerReading:(reading:unknown)=>{if(reading)guidance.readings.push(reading);}}));
 vi.mock('../media/MediaImageWizard',()=>({MediaImageWizard:({onClose}:{onClose:()=>void})=><button onClick={onClose}>Close portrait studio</button>}));
-vi.mock('../api/liveApi',()=>({listSavedMechanicsVersions:vi.fn(),openSavedMechanicsVersion:vi.fn(),saveMechanicsRevision:vi.fn(),recoverMechanicsRevision:vi.fn(),inspectMechanicsRevision:vi.fn(),validateStatblockDefinition:vi.fn()}));
+vi.mock('../api/liveApi',()=>({inspectNativeGraph:vi.fn(),listWorldMechanicsAssociations:vi.fn(),listSavedMechanicsVersions:vi.fn(),openSavedMechanicsVersion:vi.fn(),saveMechanicsRevision:vi.fn(),recoverMechanicsRevision:vi.fn(),inspectMechanicsRevision:vi.fn(),validateStatblockDefinition:vi.fn()}));
 const world='world',draft='11111111-1111-4111-8111-111111111111',resource=revisionFixture as StatblockRevisionResourceV1;
 const locator={provider:'dungeonmind' as const,statblock_id:resource.statblock_id,revision_id:resource.revision_id,contract:resource.contract,contract_version:resource.contract_version,definition_digest:resource.definition_digest};
 beforeAll(()=>{
@@ -251,4 +252,16 @@ it('keeps a dispatched Save and its operation when the inline editor moves to th
  let finish!:(outcome:RevisionSaveOutcome)=>void;vi.mocked(api.saveMechanicsRevision).mockImplementation(()=>new Promise(resolve=>{finish=resolve}));
  render(<InlineSessionHost/>);const message=await openInline();fireEvent.change(within(message).getByLabelText('Creature name'),{target:{value:'Saving inline'}});await userEvent.click(within(message).getByRole('button',{name:'Validate new version'}));await waitFor(()=>expect(within(message).getByRole('button',{name:'Save new version'})).toBeEnabled());await userEvent.click(within(message).getByRole('button',{name:'Save new version'}));await waitFor(()=>expect(api.saveMechanicsRevision).toHaveBeenCalledTimes(1));const body=vi.mocked(api.saveMechanicsRevision).mock.calls[0][1];
  await userEvent.click(within(message).getByRole('button',{name:'Open statblock popup'}));await act(async()=>finish({operation_id:body.operation_id,state:'outcome_unknown',base:locator,result:null,refusal_code:null,change_summary:body.change_summary,created_at:'2026-11-08T00:00:00Z'}));const dialog=screen.getByRole('dialog',{name:'Saved statblock editor'});expect(within(dialog).getByRole('button',{name:'Recover Save'})).toBeVisible();expect(within(dialog).getByLabelText('Creature name')).toBeDisabled();expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(1);expect(api.saveMechanicsRevision).toHaveBeenCalledTimes(1);expect(api.recoverMechanicsRevision).not.toHaveBeenCalled();
+});
+
+it('edits an exact linked statblock in a saved message through the shared native reference renderer',async()=>{
+ const pin={managed_world_id:world,native_world_id:'native',binding_version:1,revision_id:'captured',scope_mode:'world' as const,campaign_id:null};
+ vi.mocked(api.inspectNativeGraph).mockResolvedValue({schema:'dmb_native_graph_entity_v1',scope:pin,entity:{found:true,assertions:[],evidence:[],completeness:{status:'complete',reason:null}}});
+ vi.mocked(api.listWorldMechanicsAssociations).mockResolvedValue([{association_id:'link',version:1,previous_association_id:null,request_digest:'digest',actor:'gm',created_at:'now',request:{request_id:'request',draft_id:draft,expected_draft_version:1,expected_version:0,target:{managed_world_id:world,native_world_id:'native',binding_version:1,graph_revision_id:'linked',node_id:'ooze',label:'Ooze',kind:'creature',role:'',campaign_scope:null}},proof:{locator,acceptance_operation_id:'original',accepted_from_draft_version:1,accepted_from_candidate_id:null,acceptance_request_digest:'digest'}}]);
+ const changed=vi.fn(),submitted=vi.fn();render(<SavedStatblockProvider worldId={world}>
+  <section aria-label="Saved message"><SurfaceGraphReferenceInput worldId={world} value={[{schema:'dmb_authored_graph_reference_v1',managed_world_id:world,native_world_id:'native',binding_version:1,graph_revision:'captured',node_id:'ooze',label:'Ooze'}]} readOnly onChange={changed}/></section>
+  <form aria-label="Message composer" onSubmit={event=>{event.preventDefault();submitted();}}><input aria-label="Chat input"/></form>
+ </SavedStatblockProvider>);
+ await userEvent.click(screen.getByRole('button',{name:'Inspect Ooze'}));const object=screen.getByRole('dialog',{name:'Object · Ooze'});await userEvent.click(await within(object).findByRole('button',{name:'Edit here'}));
+ const message=screen.getByRole('region',{name:'Saved message'});await within(message).findByRole('region',{name:'Saved statblock'});expect(screen.queryByRole('dialog')).toBeNull();const input=within(message).getByLabelText('Creature name');expect(input.closest('form')).toBeNull();await userEvent.type(input,'{enter}');expect(submitted).not.toHaveBeenCalled();expect(changed).not.toHaveBeenCalled();expect(api.openSavedMechanicsVersion).toHaveBeenCalledWith(draft,world,locator.revision_id);expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
 });
