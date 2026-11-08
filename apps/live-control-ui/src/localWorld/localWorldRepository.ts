@@ -97,6 +97,86 @@ export interface LocalWorldRepository {
   allocateRelationshipId(worldId: LocalWorldId): LocalRelationshipId;
 }
 
+export interface LocalPackageReference {
+  readonly id: string;
+  readonly status: "bundled" | "external" | "missing";
+  readonly path: string | null;
+  readonly mediaType: string;
+  readonly locator: string | null;
+}
+
+/** Supplemental package data is distinct from the semantic World record. */
+export interface LocalWorldPackageData {
+  readonly localWorldId: LocalWorldId;
+  readonly documents: readonly LocalPackageReference[];
+  readonly assets: readonly LocalPackageReference[];
+  /** Only bytes for references declared bundled are retained. */
+  readonly bundledMembers: Readonly<Record<string, readonly number[]>>;
+  readonly fidelity: {
+    readonly localRecord: "preserved";
+    readonly sourceMetadata: "not-represented-by-local-record";
+    readonly profileMetadata: "not-represented-by-local-record";
+  };
+  readonly creatorProfileAssumptions: { readonly creator: "not-recorded"; readonly profile: "not-recorded" };
+}
+
+export type RestoreLocalWorldPackageResult =
+  | { readonly status: "restored"; readonly record: LocalWorldRecord }
+  | { readonly status: "collision" }
+  | { readonly status: "error"; readonly message: string };
+export type ReadLocalWorldPackageDataResult =
+  | { readonly status: "found"; readonly data: LocalWorldPackageData }
+  | { readonly status: "not-stored" }
+  | { readonly status: "missing" }
+  | { readonly status: "error"; readonly message: string };
+
+/** Optional package restore capability; ordinary editor consumers remain on LocalWorldRepository. */
+export interface LocalWorldPackageRepository extends LocalWorldRepository {
+  restorePackage(record: LocalWorldRecord, data: LocalWorldPackageData): Promise<RestoreLocalWorldPackageResult>;
+  readPackageData(worldId: LocalWorldId): Promise<ReadLocalWorldPackageDataResult>;
+}
+
+export function validateLocalWorldPackageData(data: LocalWorldPackageData, expectedWorldId: LocalWorldId): string | null {
+  if (data.localWorldId !== expectedWorldId) return "Package data belongs to another local World.";
+  if (data.fidelity?.localRecord !== "preserved"
+    || data.fidelity?.sourceMetadata !== "not-represented-by-local-record"
+    || data.fidelity?.profileMetadata !== "not-represented-by-local-record"
+    || data.creatorProfileAssumptions?.creator !== "not-recorded"
+    || data.creatorProfileAssumptions?.profile !== "not-recorded") {
+    return "Package fidelity and creator/profile declarations are unsupported.";
+  }
+  const refs = [data.documents, data.assets];
+  const bundledPaths = new Set<string>();
+  for (const [groupIndex, group] of refs.entries()) {
+    if (!Array.isArray(group)) return "Package attachment references must be arrays.";
+    const ids = new Set<string>();
+    for (const ref of group) {
+      if (!ref || typeof ref !== "object") return "Package attachment reference is malformed.";
+      if (!ref.id || ids.has(ref.id)) return "Package attachment references contain an empty or duplicate ID.";
+      ids.add(ref.id);
+      if (ref.status !== "bundled" && ref.status !== "external" && ref.status !== "missing") return "Package attachment availability is unsupported.";
+      if (!/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/i.test(ref.mediaType)) return "Package attachment media type is invalid.";
+      if (ref.locator !== null && typeof ref.locator !== "string") return "Package attachment locator must be text or null.";
+      if (ref.status === "bundled") {
+        const prefix = groupIndex === 0 ? "documents/" : "assets/";
+        if (!ref.path || !ref.path.startsWith(prefix) || bundledPaths.has(ref.path)) return "Bundled attachments require distinct paths in their declared namespace.";
+        bundledPaths.add(ref.path);
+      } else if (ref.path !== null) return "External or missing attachments cannot claim bundled member paths.";
+    }
+  }
+  if (!data.bundledMembers || typeof data.bundledMembers !== "object" || Array.isArray(data.bundledMembers)) return "Bundled attachment bytes are malformed.";
+  const memberPaths = Object.keys(data.bundledMembers);
+  if (memberPaths.length !== bundledPaths.size || memberPaths.some((path) => !bundledPaths.has(path))) {
+    return "Bundled attachment bytes do not match the declared references.";
+  }
+  for (const bytes of Object.values(data.bundledMembers)) {
+    if (!Array.isArray(bytes) || bytes.some((byte) => !Number.isInteger(byte) || byte < 0 || byte > 255)) {
+      return "Bundled attachment bytes are malformed.";
+    }
+  }
+  return null;
+}
+
 export type ReadWorldResult =
   | { readonly status: "found"; readonly record: LocalWorldRecord }
   | { readonly status: "missing" }

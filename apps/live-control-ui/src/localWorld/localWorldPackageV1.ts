@@ -5,6 +5,7 @@ import type {
   LocalWorldLayout,
   LocalWorldRecord,
   LocalWorldSnapshot,
+  LocalPackageReference,
 } from "./localWorldRepository";
 
 export const LOCAL_WORLD_PACKAGE_V1 = {
@@ -35,14 +36,7 @@ export interface LocalWorldPackageMemberDescriptor {
 export type LocalWorldPackageReferenceStatus = "bundled" | "external" | "missing";
 
 /** A package attachment is preserved in staged parsing but is not a LocalWorldRecord field. */
-export interface LocalWorldPackageReference {
-  readonly id: string;
-  readonly status: LocalWorldPackageReferenceStatus;
-  readonly path: string | null;
-  readonly mediaType: string;
-  /** Informational locator only. The codec never navigates to or fetches it. */
-  readonly locator: string | null;
-}
+export type LocalWorldPackageReference = LocalPackageReference;
 
 export interface LocalWorldPackageManifestV1 {
   readonly kind: typeof LOCAL_WORLD_PACKAGE_V1.kind;

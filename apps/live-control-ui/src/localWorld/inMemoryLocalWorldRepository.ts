@@ -10,12 +10,16 @@ import {
   type LocalWorldId,
   type LocalWorldLayout,
   type LocalWorldRecord,
-  type LocalWorldRepository,
+  type LocalWorldPackageData,
+  type LocalWorldPackageRepository,
+  type RestoreLocalWorldPackageResult,
+  type ReadLocalWorldPackageDataResult,
   type LocalWorldSnapshot,
   type ReadConflictCandidatesResult,
   type ReadWorldResult,
   type WriteLayoutResult,
   validateLocalWorldSnapshot,
+  validateLocalWorldPackageData,
 } from "./localWorldRepository";
 
 /**
@@ -25,9 +29,10 @@ import {
 export class InMemoryLocalWorldStore {
   readonly worlds = new Map<LocalWorldId, LocalWorldRecord>();
   readonly conflictCandidates = new Map<LocalWorldId, LocalWorldConflictCandidate[]>();
+  readonly packageData = new Map<LocalWorldId, LocalWorldPackageData>();
 }
 
-export type InMemoryCommitPoint = "create" | "semantic-edit" | "layout";
+export type InMemoryCommitPoint = "create" | "semantic-edit" | "layout" | "package-restore";
 export type InMemoryCommitHook = (point: InMemoryCommitPoint) => void | Promise<void>;
 export type LocalIdFactory = () => string;
 
@@ -59,7 +64,7 @@ function errorMessage(error: unknown): string {
  * indivisible JavaScript turn for this test adapter. This is not a durability
  * or cross-tab guarantee.
  */
-export class InMemoryLocalWorldRepository implements LocalWorldRepository {
+export class InMemoryLocalWorldRepository implements LocalWorldPackageRepository {
   private readonly store: InMemoryLocalWorldStore;
   private readonly idFactory: LocalIdFactory;
   private readonly beforeCommit: InMemoryCommitHook;
@@ -109,6 +114,35 @@ export class InMemoryLocalWorldRepository implements LocalWorldRepository {
     } catch (error) {
       return { status: "error", message: errorMessage(error) };
     }
+  }
+
+  async restorePackage(recordInput: LocalWorldRecord, dataInput: LocalWorldPackageData): Promise<RestoreLocalWorldPackageResult> {
+    let record: LocalWorldRecord;
+    let data: LocalWorldPackageData;
+    try {
+      record = cloneLocalWorldValue(recordInput);
+      data = cloneLocalWorldValue(dataInput);
+    } catch (error) { return { status: "error", message: errorMessage(error) }; }
+    const worldId = record.snapshot.worldId;
+    const invalidData = validateLocalWorldPackageData(data, worldId);
+    if (invalidData) return { status: "error", message: invalidData };
+    const invalid = validateLocalWorldSnapshot(record.snapshot, worldId);
+    if (invalid) return { status: "error", message: invalid };
+    try {
+      await this.beforeCommit("package-restore");
+      if (this.store.worlds.has(worldId)) return { status: "collision" };
+      // Publish both maps synchronously only after all fallible preparation completes.
+      this.store.worlds.set(worldId, cloneLocalWorldValue(record));
+      this.store.conflictCandidates.set(worldId, []);
+      this.store.packageData.set(worldId, cloneLocalWorldValue(data));
+      return { status: "restored", record: cloneLocalWorldValue(record) };
+    } catch (error) { return { status: "error", message: errorMessage(error) }; }
+  }
+
+  async readPackageData(worldId: LocalWorldId): Promise<ReadLocalWorldPackageDataResult> {
+    if (!this.store.worlds.has(worldId)) return { status: "missing" };
+    const data = this.store.packageData.get(worldId);
+    return data ? { status: "found", data: cloneLocalWorldValue(data) } : { status: "not-stored" };
   }
 
   async commitSemanticEdit(input: {

@@ -1,0 +1,66 @@
+# SURFACE: atomic local package restore
+
+Status: ACTIVE — bounded add-only restoration of a validated local package into Buddy's local repository. The corrected transport prerequisite is PR #2209 exact reviewed head `10e3f59f1187e5d4f7d65b17e0809ae992549be7`, branch `codex/phase2a3-zip-transport`. This successor branch is `codex/phase2a4-local-package-restore`, based exactly on that unmerged head; its intended draft PR base is `codex/phase2a3-zip-transport`. Merge/rebase order is #2209 first, then this successor. This is stacked implementation authority only; product acceptance, serial integration, merge, deployment and browser durability gates remain separate.
+
+Checkout: `/home/drakosfire/Projects/.codex/blank-surface-phase1-20261107/worktrees/DungeonMindBuddy-phase2a4-restore`.
+
+## Re-anchor and contract
+
+Repository policy is `AGENTS.md`; `.agents/skills` is absent and the repository policy says legacy `.cursor` instructions are not required. Current `origin/main` fetched to `9d60f54283014c1a2ef3c34e25df12e864292ab6`; this work intentionally stacks on #2209, not main. PR #2209 is OPEN/DRAFT at exact head `10e3f59f1187e5d4f7d65b17e0809ae992549be7`, mergeable, targeting #2207 at `381988b690ced4364bac3a71251cb668b5cc8260`. Changed-file lists for #2202, #2204, #2207 and #2209 were inspected. Their overlaps with repository/IndexedDB/package paths are ancestors in the explicit serial stack; no independent open restore lane appeared in the localWorld/IndexedDB/package/restore PR search.
+
+Design input is OverMind PR #106 at `7db578897e0eb40ab3672d26826eb3bbbee6007c`, contract `Docs/architecture/CONTRACT-local-world-execution-adoption-phase2.md`. Buddy owns the reversible local package workflow and its local data. This slice creates no hosted publication, DungeonMind/WorldKeeper action, model call, renderer, or account adoption.
+
+## Exclusive write lease
+
+- `Docs/Plans/HANDOFF-SURFACE-phase2a4-local-restore.md`
+- `apps/live-control-ui/src/localWorld/localWorldRepository.ts`
+- `apps/live-control-ui/src/localWorld/localWorldPackageV1.ts` — only shared supplemental-content/package-metadata type alignment needed by the repository contract; do not change package wire semantics.
+- `apps/live-control-ui/src/localWorld/inMemoryLocalWorldRepository.ts`
+- `apps/live-control-ui/src/localWorld/indexedDbLocalWorldRepository.ts`
+- `apps/live-control-ui/src/localWorld/localWorldPackageRestore.ts`
+- `apps/live-control-ui/src/localWorld/localWorldPackageRestore.test.ts`
+- `apps/live-control-ui/src/localWorld/localWorldPackageRestore.browserHarness.html`
+- `apps/live-control-ui/src/localWorld/localWorldPackageRestore.browserHarness.ts`
+
+No package dependency/lockfile, product UI/editor integration, route, server/provider, WorldKeeper/DM authority, data migration of user records beyond the bounded schema bump, merge or deployment. Browser harnesses may create and delete only their uniquely named disposable database. Do not edit paths outside this list; return to the steward if another owner/path is required.
+
+## Scope and data model
+
+`StagedLocalWorldPackageV1` contains a validated `LocalWorldRecord`, document/asset references, the package manifest and a member map retaining referenced bytes. `LocalWorldRecord` contains semantic snapshot, Buddy-local revision, optional published-revision identity, layout/revision and history; it cannot store the package references or document/asset bytes. Persisting only the `record` would lose staged content.
+
+Add a typed supplemental content object keyed by `localWorldId`, containing document and asset references verbatim plus only referenced bundled document/asset bytes. Preserve bundled/external/missing status, media type, path and informational locator; never fetch locators. Keep semantic snapshot, local revision, published-revision identity, layout, layout revision and history in the existing record, preserving their values and separation. Preserve the currently supported `fidelity` and `creatorProfileAssumptions` declarations from the manifest in supplemental package metadata. Attachment counts, history coverage and semantic digest are derived values: recompute them from the restored record/supplement rather than persist a digest that could become stale after a later edit. Do not invent source/profile fields the package contract explicitly marks as not represented/not recorded.
+
+Introduce a repository restore operation and read-only supplemental-data readback. Restore is add-only: existing `localWorldId` returns an explicit collision result and changes neither store. There is no fork or ID remapping in this slice. Same-name distinct World IDs remain distinct; preserve object IDs, relationship IDs and endpoints exactly. A successful restore records the package record and supplemental references/bytes in one transaction. A failed or unsupported package is rejected before repository writes.
+
+Upgrade IndexedDB schema v2 → v3 by adding one `packageData` store keyed by `localWorldId`. A valid v2 World/history/conflict record is not rewritten; its package sidecar remains absent until restore. Before changing an existing database, verify its prior stores and key paths/indexes. An incompatible/malformed old schema fails closed and aborts the upgrade, leaving its original version and data intact. The current schema check includes exact key paths, auto-increment and required index semantics for all three stores. No opportunistic repair or deletion is allowed.
+
+Capture the full restore request, arrays, metadata and byte buffers synchronously before the first await; revalidate the captured immutable copy. IndexedDB uses a single readwrite transaction spanning `worlds` and `packageData`, checks for an existing World inside that transaction, then uses unique-key `add` operations. IndexedDB transaction serialization plus unique keys ensure concurrent restores of one ID cannot both win or leave an orphan sidecar. Do not run ZIP parsing, digesting, network, or other external async work inside the transaction. The in-memory implementation stages both copies before one synchronous state swap; it demonstrates contract atomicity only, not durability or cross-tab behavior.
+
+## Acceptance and evidence
+
+- Test `restore` with actual source-adapter-created records after semantic and layout edits through record → package codec → ZIP → staged decode → restore into a separate empty adapter → readback. Compare semantic and layout snapshots/revisions, local/published revisions, history, object/relationship IDs and endpoints.
+- Include bundled text documents and binary assets; verify exact supplemental reference/status/metadata and byte readback. Cover external/missing refs without fetching. Preserve same-name distinct object identities.
+- Existing-ID collision returns the typed collision result and leaves both the existing record and any sidecar byte-for-byte unchanged. A different local ID with an identical display name succeeds separately. No overwrite, merge or implicit fork.
+- Unknown package version, malformed ZIP, invalid digest/reference, unsafe/oversized path/content and unsupported fidelity fail before repository write invocation and leave destination state unchanged.
+- Inject failure/QuotaExceeded-style abort after the World add is queued but before the sidecar add; assert IndexedDB exposes neither record after transaction abort. Label injected quota as simulated, not actual quota exhaustion. Inject in-memory failure before the paired state swap and verify both maps remain unchanged.
+- Race two independent IndexedDB connections restoring one World ID: exactly one succeeds; the other reports collision/error, with one coherent World/sidecar pair. Test mutable request and byte-array changes after invocation and prove the captured operation is unchanged.
+- Browser harness uses a random disposable database only. Upgrade a valid v2 database with seeded data to v3 and read it unchanged; attempt upgrade from malformed v2 schema and verify refusal leaves prior schema version and data readable. Exercise actual native IndexedDB abort/readback and close/delete only the harness databases.
+- Run focused restore tests, all `src/localWorld` tests, typecheck, production build, cumulative diff inspection and independent exact-head review. In-memory or injected-failure tests do not prove browser durability, actual quota/private-mode behavior, crash recovery, eviction protection, cross-browser compatibility or cross-tab durability.
+
+## Explicit exclusions and next limits
+
+No UI/editor wiring, product Saved indicator, restore picker, user-facing collision/fork flow, ID remapping, package re-export/download UI, source admission, account adoption, hosted publication, graph renderer, model/provider call, server/live database mutation or arbitrary repair of existing records. The read-only supplemental-data API exists only to prove safe round-trip/readback and support a later export lane; it does not itself claim a portable backup UX. The schema migration is not a browser durability matrix. No merge or deployment is authorized.
+
+## Implementation evidence and learning
+
+The restore boundary is implemented in this successor. `LocalWorldPackageRepository` is an optional capability so existing editor consumers still use the unchanged base repository interface. Restore reparses a synchronous copy of staged normalized members before forming a sidecar; adapters defensively copy and validate record + supplemental data before the transaction. The sidecar stores references and only bundled bytes, plus the package's fixed fidelity/creator-profile declarations. It intentionally does not persist digest/history-coverage/availability counts that could go stale after future edits. Add-only identity collision is checked within the same readwrite transaction as unique-key adds to `worlds` and `packageData`; there is no check-then-write window, remapping, fork or overwrite.
+
+Schema v3 adds `packageData` keyed by `localWorldId`. The upgrade validates existing Buddy-owned store/index semantics before adding the new store and preserves unrelated stores. A valid v2 record and unrelated store/data survived the native Chrome upgrade probe. A malformed v2 key schema was refused while its original version and seeded record remained intact. Existing records without sidecars return `not-stored`; unknown worlds return `missing`.
+
+Validation run on Node 22.23.0: `npm run typecheck` passed; `npm test -- --run src/localWorld` passed (4 files, 38 tests); `npm run build` passed. Production output retains existing warnings: a dynamic/static import overlap for `connectedPageApi.ts`, and the main bundle exceeds 500 KiB (observed 547.15 kB / 155.71 kB gzip). No dependency or lockfile changed. `git diff --check` passed.
+
+Native Chrome harness at `/src/localWorld/localWorldPackageRestore.browserHarness.html` passed with actual browser IndexedDB, WebCrypto and ZIP: edited repository record through ZIP decode and restore, bundled text + binary byte equality, record/history/layout readback, two independent connections racing one ID (one restored, one collision), collision refusal, valid v2 migration preserving a separate store and record, simulated quota-shaped transaction abort leaving neither World nor sidecar, and malformed v2 upgrade refusal preserving old version/data. The abort is injected; these checks do not prove actual quota exhaustion, private-mode behavior, crash recovery, eviction resistance, cross-browser support or durability beyond the exercised Chrome transaction/readback.
+
+An independent review initially held on extra-store rejection and insufficient repository-boundary metadata validation. Both were corrected. A second exact-diff review found only a duplicated migration guard; it has been removed. Final review is being requested after rerunning validation. Current package tests exercise bundled, external and missing reference retention; no remote fetch occurs. This remains storage/contract evidence only: no restore UI, editor integration, product Saved state, package export workflow, fork/collision resolution, adoption, renderer, or live user database was touched.
+
+Phase 2A4 learning: package attachments cannot be attached to `LocalWorldRecord` without conflating semantic state and package fidelity, so an optional add-only repository capability and same-transaction sidecar are a small seam that protects existing consumers. The next slice should decide how product import chooses/derives a fresh local package identity (or what explicit collision/fork UX is authorized), and how locally authored document/source metadata should become a first-class supported record rather than being implied by attachment bytes. It must also decide sidecar update/delete semantics before any editor can change attachments; this slice deliberately only adds/restores and reads. Re-anchor the current package contract and migration rules before extending the sidecar or connecting import UI.
