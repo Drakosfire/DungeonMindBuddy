@@ -4,10 +4,23 @@ Status: ACTIVE. PRIME implements the operator-prioritized host-metadata cleanup.
 Independent design critique approved this evidence-view boundary and reuse of the
 existing input, support and citation owners. No delivery is claimed.
 
-Stacked on PR2199 exact33bae19cb0cea74193a41f1b0824c9a2de9abe4c in the existing
-checkout/dependencies. Merge/deliver2195,2196,2197,2199,then this slice. Retarget and
-re-anchor after parent merge. No new checkout, environment, provider calls or live
-runtime/database lease. Keep held Play, citation2191, SURFACE and INGEST separate.
+Serial from fetched main9d60f54283014c1a2ef3c34e25df12e864292ab6 in the existing
+checkout/dependencies. PR2199 merged at that revision and delivered as APIintegration
+2bf01475839e93c366ce03ebc9d3e9ee9d82a5fd, preserving2197 semantic selection,
+2196 initial input and2205/2206 runtime fixes. Schema128/UI reader are live.
+ADVERSARY's benchmark tooling2208 is also merged and remains disjoint. No unmerged
+parent. Prior reviewed2200 head2515b60e84d0864305500a73386386520878e5d7 is pinned at
+refs/codex/reviewed-heads/pr2200-2515b60; implementation range-diff is identical.
+
+No new checkout/environment/provider calls or runtime write lease. Local tests use
+generated disposable databases on54329. Delivery is API-only no-op fence129 after
+exact source/composition/recipe review, CI and merge. Held Play, citation2191,
+SURFACE and INGEST remain separate. One post2197 ordinary synthetic source question
+confirmed actual semantic selection bytes, grounded completion, and exact citation
+reopening through reloaded UI controls; it does not prove this World-view change,
+full References acceptance or faster generic retrieval. The actual same writer
+capture still contains Surface work identifiers/hashes in a separate frame, retained
+in the prompt audit for its next owning slice. Do not absorb that owner here.
 
 ## Outcome and contract
 
@@ -44,6 +57,7 @@ cleanliness or performance acceptance here. No limits/model/provider changes.
 ## Exclusive expected write set and review map
 
 - This handoff.
+- Docs/Plans/HANDOFF-PROMPTS-native-navigation-labels.md (settle merged predecessor).
 - src/application_state/agent_conversation/native_evidence_view.py (explicit semantic DTO)
 - src/application_state/agent_conversation/native_writer.py (existing reconstruction/support owner)
 - apps/live_control_server/services/plan_jev_writer.py (message/format/current producer)
