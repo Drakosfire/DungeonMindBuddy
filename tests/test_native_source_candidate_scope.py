@@ -86,3 +86,62 @@ def test_opened_reference_hint_preserves_explicit_scope_and_broad_requests(quest
 def test_missing_or_unavailable_reference_metadata_does_not_narrow(reference):
     rows={'other':display(), 'unknown':dict(display(),status='unavailable')}
     assert preferred_source_pairs('What happened?',rows,opened_reference_pairs=reference) is None
+
+
+@pytest.mark.parametrize('question', [
+    'before Session 4', 'AFTER session4', 'by Session 4', 'through Session4',
+    'until Session 4', 'since Session4', 'as of Session 4',
+    '(by the end of Session 4), what was known?',
+    'at the start of Session4', 'at the beginning of Session 4',
+    'between Session 1 and Session 8', 'from Session 1 to Session 8',
+    'Session 1 through Session 8', 'Session 1–8', 'Sessions 1-8',
+    'before C2S4', 'C2S1—C2S8', 'by the end of C2 S4',
+    'At the end of Session4, what is known from Winter recap?',
+])
+@pytest.mark.parametrize('opened', [(), ('boundary',)])
+def test_temporal_boundaries_and_ranges_do_not_select_only_the_endpoint(question, opened):
+    rows = {'earlier': display(session='session-1'),
+            'boundary': dict(display(session='session-4'), label='Winter recap'),
+            'later': display(session='session-8'),
+            'other': display('fixture-c2', 'session-4')}
+    assert preferred_source_pairs(question, rows, opened_reference_pairs=opened) is None
+
+
+@pytest.mark.parametrize('question', [
+    'In Session4, end with a concise answer.',
+    'From Session4 recap, extract the names.',
+    'What happened in Session4 after the fight?',
+    'Since we last met, tell me what happened in Session4.',
+])
+def test_temporal_words_elsewhere_do_not_disable_an_exact_session_hint(question):
+    rows = {'exact': display(session='session-4'), 'other': display(session='session-8')}
+    assert preferred_source_pairs(question, rows) == frozenset({'exact'})
+
+
+@pytest.mark.parametrize('question', [
+    'Campaign 2, by the end of Session4',
+    'Campaign 2 through C2S4',
+    'fixture-c2 before C2S4',
+])
+def test_temporal_hint_retains_independent_compatible_campaign_scope(question):
+    rows = {'earlier': display('fixture-c2', 'session-1'),
+            'boundary': display('fixture-c2', 'session-4'),
+            'later': display('fixture-c2', 'session-8'),
+            'other': display('fixture-c1', 'session-4'),
+            'unknown': dict(display(), status='unavailable'),
+            'stale': dict(display(), origin_matches_current_metadata=False)}
+    assert preferred_source_pairs(question, rows, opened_reference_pairs={'boundary'}) == frozenset(
+        {'earlier', 'boundary', 'later', 'unknown', 'stale'})
+
+
+@pytest.mark.parametrize('question', [
+    'campaign 1 through C2S4',
+    'fixture-c1 by the end of C2S4',
+    'campaign 1 by Session4, compared with C2S8',
+    'opaque-campaign through C2S4',
+])
+def test_temporal_hint_cannot_hide_conflicting_or_unreconciled_compact_campaign(question):
+    rows = {'one': display('fixture-c1', 'session-1'),
+            'two': display('fixture-c2', 'session-4'),
+            'opaque': display('opaque-campaign', 'session-4')}
+    assert preferred_source_pairs(question, rows, opened_reference_pairs={'one'}) is None

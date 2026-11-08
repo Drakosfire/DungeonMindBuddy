@@ -1,6 +1,15 @@
 """Reversible lexical source hints; Core membership and evidence stay unchanged."""
 import re
 
+_SESSION_REFERENCE = r'(?:sessions?\s*\d+|c\d+\s*s\d+)'
+_TEMPORAL_SESSION = re.compile(
+    rf'\b(?:before|after|by|through|until|since|as\s+of)\s+'
+    rf'(?:(?:the\s+)?(?:end|start|beginning)\s+of\s+)?{_SESSION_REFERENCE}\b'
+    rf'|\bat\s+(?:the\s+)?(?:end|start|beginning)\s+of\s+{_SESSION_REFERENCE}\b'
+    rf'|\bbetween\s+{_SESSION_REFERENCE}\s+and\s+(?:{_SESSION_REFERENCE}|\d+)\b'
+    rf'|\b{_SESSION_REFERENCE}\s*(?:[-–—]|to\b|through\b|until\b)\s*(?:{_SESSION_REFERENCE}|\d+)\b'
+)
+
 
 def _campaign_number(value):
     # Lexical ID suffix only, not a canonical campaign ordinal or identity alias.
@@ -26,11 +35,24 @@ def preferred_source_pairs(question, displays, *, opened_reference_pairs=()):
     if re.search(r"\b(?:no|not|never|cannot|except|exclude|excluding|outside|without)\b|\bother than\b|\b\w+n['’]t\b", scope_query):
         return None
     hints = {(int(c), int(s)) for c, s in re.findall(r"\bc(\d+)\s*s(\d+)\b", query)}
-    hints.update((int(c), None) for c in re.findall(r"\bcampaign\s+(\d+)\b", query))
+    campaigns = {(int(c), None) for c in re.findall(r"\bcampaign\s+(\d+)\b", query)}
+    hints.update(campaigns)
     sessions = {int(s) for s in re.findall(r"\bsession\s*(\d+)\b", query)}
     ids = {d['campaign_id'].casefold() for d in displays.values()
         if isinstance(d.get('campaign_id'), str) and d['campaign_id'] and
         re.search(r"(?<!\w)" + re.escape(d['campaign_id'].casefold()) + r"(?!\w)", query)}
+    if _TEMPORAL_SESSION.search(query):
+        # A cutoff/range is not a request for only its endpoint document. Keep
+        # independently stated campaign scope, but never hide another compact
+        # campaign reference or invent its relation to an opaque campaign ID.
+        compact_campaigns = {c for c, session in hints if session is not None}
+        id_numbers = {_campaign_number(identity) for identity in ids}
+        allowed = {c for c, _ in campaigns} | (id_numbers - {None})
+        if compact_campaigns and (None in id_numbers or not compact_campaigns <= allowed):
+            return None
+        hints, sessions = campaigns, set()
+        if not hints and not ids:
+            return None  # Do not re-narrow through opened references or labels.
     if not hints and not sessions and not ids:
         # Successful human reads are an initial navigation hint, not a source
         # restriction. Unknown/stale labels and explicitly named alternatives

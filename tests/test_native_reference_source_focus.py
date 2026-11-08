@@ -59,3 +59,39 @@ def test_ordinary_opened_reference_focus_preserves_search_and_writer_support(lan
         opened=response.json()
         assert opened['citation']==citation.model_dump(mode='json',by_alias=True)
         assert sha256(opened['content'].encode()).hexdigest()==citation.excerpt_sha256
+
+
+def test_temporal_boundary_offers_broader_metadata_without_automatic_reads(lane,tmp_path,monkeypatch):
+    from apps.live_control_server.services import native_source_display
+    from application_state.agent_conversation.native_retrieval import NativeRetrievalSelectedV1
+
+    def display(items,world_id):
+        return [dict(label=f'Source {index}',kind='recap',campaign_id='fixture-c1',
+            session_id=f'session-{index}',status='available',metadata_revision='fixture',
+            origin_matches_current_metadata=True) for index,_ in enumerate(items)]
+    monkeypatch.setattr(native_source_display,'source_display_metadata',display)
+    checked=[]
+    def before_provider(adapter,provider):
+        events=adapter.fence.turn.graph_context_execution.events
+        human=[e for e in events if isinstance(e,NativeAuthoredSourceReadV1)]
+        if provider!='typesafe' or not human or any(isinstance(e,NativeRetrievalSelectedV1) for e in events):
+            return
+        nav=NativeBodyNavigation(adapter)
+        offers=nav.offered()
+        selected={(e.catalog.source.artifact.source_artifact_id,e.catalog.source.revision.source_revision_id) for e in human}
+        all_pairs={pair for pair,_,_ in nav._source_choices().values()}
+        offered_pairs={nav._direct_sources[c.handle][0] for c in offers if c.handle in nav._direct_sources}
+        assert all_pairs-selected  # Nonvacuous broader admitted source catalog.
+        assert offered_pairs==all_pairs-selected
+        # Offering metadata has not selected or read those other bodies.
+        assert not any(isinstance(e,NativeBodySearchObservedV1) for e in events)
+        checked.append(True)
+    case=_fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,
+        authored_source='full_document',before_provider=before_provider,
+        message='By the end of Session 1, what was known? Discuss only; do not edit or save.')
+    assert checked
+    assert case.turn.completion.native_body_citations
+    for index,citation in enumerate(case.turn.completion.native_body_citations):
+        response=case.client.get(f'/api/live/agent/worlds/{case.world}/conversation/turns/{case.turn.turn_id}/native-body-excerpts/{index}')
+        assert response.status_code==200,response.text
+        assert sha256(response.json()['content'].encode()).hexdigest()==citation.excerpt_sha256
