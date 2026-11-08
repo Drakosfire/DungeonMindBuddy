@@ -2,8 +2,11 @@
 
 Status: ACTIVE for offline qualification under the user retrieval/backend goal.
 Root designs/owns backend; PRIME owns merge/delivery.
-Branch codex/navigation-recorded-names; existing PR2223, serial on delivered main
-7bbdaa98dc8dbd73c1573a4a457c818d29d9a859. No2214/2216/unmerged2218 dependency.
+Branch codex/navigation-recorded-names; existing draft PR2223, stacked on PR2241
+head8cefe0f70bd46d7ecadbadef1e9941931bf428ee. Merge/delivery order2241 then2223,
+only if the names experiment qualifies. Both isolated comparison arms include the
+same approved plumbing; live delivery is not an isolated experiment dependency.
+No2214 dependency. Reuse prepared pristine evaluator clones; do not recreate them.
 Original b229ae86c0024ee74dd1cb30d9848296672c3fb5 is preserved at Git tag
 codex-evidence/recorded-navigation-names-v1; no old stacked implementation imported.
 
@@ -44,7 +47,9 @@ historical query reads. Reuse valid prior59test findings and requalify changed m
 Independent exact cumulative review required. Stop/split on scope/privacy change,
 canonicalization, data repair, read widening, extra layer or path beyond this lease.
 
-No paid execution is authorized by this offline isolation handoff. Before comparison
+The separately reviewed ordinary-protocol.json owns paid comparison under standing
+user benchmark authorization; this implementation handoff alone does not dispatch.
+Before comparison
 record/review exact current clean-control and candidate pins, same-source isolated
 APP clones, ordinary Q01/Q09/Q14/Q15 schedule, no Gold/evidence hints, and per-fact
 coverage, unsupported claims, source attribution/chronology/uncertainty/citations,
@@ -67,3 +72,8 @@ query JSON/hash, then restores the new producer and forbids search/name regenera
 during reopen. All original selected assertions and source spans remain readable.
 Evidence: retrieval-recorded-names-isolated-v1/current-owner-tests.log. No paid
 comparison or default adoption is claimed; exact-head review remains a gate.
+
+Integration qualification: the names runtime diff is byte-identical after clean
+rebase onto2241. Reuse the existing names code/protocol reviews for unchanged
+behavior; refresh exact source inventories and prove paired runtime qualification
+before dispatch. No new plumbing review, correction tests or paid plumbing QA.
