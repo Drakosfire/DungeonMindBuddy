@@ -94,8 +94,8 @@ class SemanticWire(httpx2.AsyncBaseTransport):
         assert body["state"]["edit_target_available"] == (
             self.adapter.request.plan_authoring_capture is not None
         )
-        from application_state.agent_conversation.plan_authoring import CURRENT_REQUEST_INTENT_POLICY
-        assert body["state"]["intent_policy"] == CURRENT_REQUEST_INTENT_POLICY
+        from application_state.agent_conversation.plan_authoring import QUESTION_FIRST_INTENT_POLICY
+        assert body["state"]["intent_policy"] == QUESTION_FIRST_INTENT_POLICY
         assert set(body["questions"]) == {"requested_work"}
         current = self.adapter.service.list_turns(
             "world:one", self.adapter.turn.conversation_id
@@ -136,7 +136,7 @@ def test_semantic_destination_is_durable_without_granting_edit_authority(
     from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
 
     dispatch = PlanJevDispatch.requested_work(plan_adapter, page_title="Preparation")
-    assert dispatch.parent.schema_ == "dmb_plan_requested_work_input_v3"
+    assert dispatch.parent.schema_ == "dmb_plan_requested_work_input_v7"
     selected, _ = asyncio.run(
         dispatch.run(
             transport=SemanticWire(plan_adapter, choice), api_key="synthetic-not-secret"
