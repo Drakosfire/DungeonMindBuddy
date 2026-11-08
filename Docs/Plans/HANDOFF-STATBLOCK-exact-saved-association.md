@@ -67,9 +67,10 @@ exact-saved-association-{owning-tests-v2,ui-tests-v2,ui-tests-v4,build-v1}.log.
 No primary/runtime writes or provider calls. Independent review/CI/delivery remain
 pending; this evidence does not establish the full statblock goal as complete.
 
-Shared schema checkpoint: concurrent draft2253 also reserved fence0135 before
-PRIME received its coordination message. Neither fence has been applied. Source
-review proceeds independently; merge/delivery requires a single linear migration
-chain and exact requalification after the allocation is settled. Do not merge
-or activate competing0135 heads. PRIME notified the owning retrieval steward;
-no retrieval/model experiment is part of this association slice.
+Shared schema allocation resolved with the owning retrieval steward: this
+association slice owns shipping135 on134. Draft2253 remains experiment-only and
+non-deliverable until its author rebases/renumbers its fence136 on the exact
+merged association parent and requalifies that delivery head. No paid experiment
+rerun is required solely for renumbering. There is no unmerged behavioral parent
+for this association slice; ordinary review/CI gates still apply. No two fence
+heads may ship. PRIME will return the exact association PR/head/merge revision.
