@@ -1,3 +1,4 @@
+import {interceptPrimaryNavigationClick} from '../../chrome/appNavigation';
 import {savedStatblockHref} from '../savedStatblockLocation';
 import {MediaImageWizard} from '../../media/MediaImageWizard';
 import {SavedMediaImage} from '../../media/SavedMediaImage';
@@ -186,7 +187,7 @@ export function SavedMechanicsRevisionEditor({worldId,draftId,autoLoad=false,onS
       <div hidden={showStudio}>
       <section aria-label="Saved statblock">
         <p>Saved version. Local edits appear in the fields below until you save a new version.</p>
-        <a href={savedStatblockHref({worldId,draftId,revisionId:opened.locator.revision_id})}>Open full saved statblock</a>
+        <a onClick={interceptPrimaryNavigationClick} href={savedStatblockHref({worldId,draftId,revisionId:opened.locator.revision_id})}>Open full saved statblock</a>
         <StatblockRenderer revision={opened.resource} mode="full" chrome="campaign"/>
       </section>
       <fieldset disabled={busy||!!pending||!!successorToOpen}>

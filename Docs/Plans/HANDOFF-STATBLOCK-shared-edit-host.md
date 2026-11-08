@@ -68,6 +68,12 @@ held Play query/retrieval implementation or Run/adoption backend is resumed.
 The shared encounter launcher changes only saved-statblock presentation, under
 this STATBLOCK authority; explicit Play2172/2104 source holds remain intact.
 
+The subsequent strengthened browser audit found that the ordinary full saved
+anchor performed a document reload. Initial restored text was not proof of owner
+continuity. Adopt the existing in-document click helper at that link and require
+the same document token/editor DOM through full-reader navigation and Back. The
+unactivated integration662e5eb is invalidated; preserve its failure evidence.
+
 ## Verification and limits
 
 Use the real editor/API mocks to prove two triggers share one DOM/editor/read,
