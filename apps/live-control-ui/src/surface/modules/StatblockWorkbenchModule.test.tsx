@@ -275,8 +275,17 @@ describe("World-scoped mounted Workbench", () => {
     const locator={provider:"dungeonmind" as const,statblock_id:"sb_saved",revision_id:"rev_saved",contract:"dungeonmind.dungeonbuddy-statblocks",contract_version:"1.0.0",definition_digest:`sha256:${"a".repeat(64)}`};
     vi.spyOn(liveApi,"listSavedMechanicsVersions").mockResolvedValue({world_id:a.worldId,draft_id:"draft-a",name:"Saved brute",original:locator,operations:[],pending:null,next_offset:null});
     vi.spyOn(liveApi,"openSavedMechanicsVersion").mockResolvedValue({world_id:a.worldId,draft_id:"draft-a",locator,resource:{...savedRevisionFixture,definition:candidate.definition,statblock_id:locator.statblock_id,revision_id:locator.revision_id} as unknown as Awaited<ReturnType<typeof liveApi.openSavedMechanicsVersion>>["resource"]});
+    const creatures=vi.spyOn(liveApi,"listWorldCreatures").mockResolvedValue({schema:"dmb_native_world_creatures_v1",managed_world_id:a.worldId,native_world_id:"native-a",binding_version:1,revision_id:"rev:a",completeness:"complete",targets:[]});
+    vi.spyOn(liveApi,"listWorldMechanicsAssociations").mockResolvedValue([]);
     render(<StatblockWorkbenchModule/>);
+    expect(screen.queryByRole("region",{name:"Associate World creature"})).toBeNull();
     const open=await screen.findByRole("button",{name:"Open statblock"});
+    const association=await screen.findByRole("region",{name:"Associate World creature"});
+    expect(creatures).not.toHaveBeenCalled();
+    await userEvent.click(within(association).getByRole("button",{name:"Load creatures"}));
+    expect(await within(association).findByRole("combobox",{name:"World creature"})).toBeInTheDocument();
+    expect(creatures).toHaveBeenCalledExactlyOnceWith(a.worldId);
+    expect(h.project).not.toHaveBeenCalled();
     expect(h.getCandidate).not.toHaveBeenCalled();
     await userEvent.click(open);
     expect(await screen.findByRole("region",{name:"Saved statblock"})).toBeInTheDocument();
@@ -308,6 +317,7 @@ describe("World-scoped mounted Workbench", () => {
     expect(await screen.findByTestId("draft-snapshot-unavailable")).toHaveTextContent("Saved draft refresh unavailable");
     expect(screen.getByTestId("create-and-generate-submit")).toBeDisabled();
     expect(screen.queryByRole("button",{name:"Open statblock"})).toBeNull();
+    expect(screen.queryByRole("region",{name:"Associate World creature"})).toBeNull();
     await userEvent.click(screen.getByRole("button",{name:"Retry draft refresh"}));
     expect(await screen.findByRole("button",{name:"Open statblock"})).toBeInTheDocument();
     expect(h.getDraft).toHaveBeenCalledTimes(3);expect(h.getCandidate).not.toHaveBeenCalled();
@@ -321,6 +331,7 @@ describe("World-scoped mounted Workbench", () => {
     await waitFor(()=>expect(h.getDraft).toHaveBeenCalledWith("draft-b"));
     expect(await screen.findByTestId("draft-snapshot-unavailable")).toHaveTextContent("This ThreatDraft does not belong to the selected scope.");
     expect(screen.queryByRole("button",{name:"Open statblock"})).toBeNull();
+    expect(screen.queryByRole("region",{name:"Associate World creature"})).toBeNull();
     expect(h.getCandidate).not.toHaveBeenCalled();expect(h.create).not.toHaveBeenCalled();expect(h.generate).not.toHaveBeenCalled();
   });
 
