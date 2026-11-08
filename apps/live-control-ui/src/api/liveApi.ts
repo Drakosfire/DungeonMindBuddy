@@ -1,3 +1,4 @@
+import {verifyWorldCreatureCatalog} from './worldMechanicsTypes';
 import type {NativeSourceCatalog,NativeSourceBody,NativeSourceSelection} from './nativeSourceInspection';
 import type {InspectionScope,InspectionPin,InspectionSelection,NativeGraphCatalog,NativeGraphEntity,NativeGraphSource} from "./nativeGraphInspection";
 import {readBuildConstructionStream,ConstructionStreamError,type BuildObjectConstructionProgress} from './buildConstructionStream';
@@ -3127,6 +3128,11 @@ export function getHistoricalRulesPassage(target: import('./rulesLookupTypes').R
 }
 
 
+export async function listWorldCreatures(worldId:string):Promise<import('./worldMechanicsTypes').WorldCreatureCatalog> {
+  const view = await apiFetch<import('./worldMechanicsTypes').WorldCreatureCatalog>(`/api/live/world-mechanics/associations/creatures?world_id=${encodeURIComponent(worldId)}`);
+  verifyWorldCreatureCatalog(view,worldId);
+  return view;
+}
 export async function listWorldMechanicsAssociations(worldId: string): Promise<import("./worldMechanicsTypes").WorldMechanicsAssociation[]> {
   return apiFetch(`/api/live/world-mechanics/associations?world_id=${encodeURIComponent(worldId)}`);
 }
