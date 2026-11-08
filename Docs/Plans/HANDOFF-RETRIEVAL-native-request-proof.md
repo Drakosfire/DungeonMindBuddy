@@ -1,6 +1,7 @@
 # RETRIEVAL: keep captured-request proof with its admission owner
 
-Status: ACTIVE. PRIME owns this confirmed runtime correction under the retained
+Status: SETTLED by PR2205, merge 6f882ecdabcbdcd5fccea59fd5a1dc8f4c3ee4df.
+PRIME owned this confirmed runtime correction under the retained
 retrieval/delivery goal and standing implementation/merge authority. ADVERSARY
 keeps independent assessment; its frozen failures and corpus stay unchanged.
 
@@ -79,3 +80,15 @@ confirmed identical on the base; no unrelated formatting fix is absorbed. F-rule
 lint and cumulative whitespace checks are required. The optional SDK fixture
 allowance preserves its historical default and describes a synthetic test budget,
 not a change or claim about real-provider capacity.
+
+## Delivery settlement
+
+Exact head01e9692a72c256343ce6ed4e456b13733ecd60a2 passed independent review,
+all seven product CI checks and ADVERSARY's independently reviewed bounded
+acceptance (five retained captures, 25 negative controls, 46 owning tests).
+Delivered API integration bb56e91c857b26540d24d1f2f8d3a6b0aac08153 on8000;
+UI5202 and schema126 unchanged. Exact APP/Core table and session conservation
+passed; no provider calls or corpus/Gold changes. Runtime lease released.
+Prepared prompt API trees were invalidated to require recomposition over this
+fix. Historical failures and composition gaps remain retained. This settlement
+does not claim fresh Q01 HTTP delivery or completion of the broader goal.

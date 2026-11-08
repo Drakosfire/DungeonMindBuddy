@@ -3,15 +3,22 @@
 Status: ACTIVE. PRIME owns design/implementation under the operator's highest
 priority to remove host metadata from product prompts. Independent design critique
 approved using the existing initial-input receipt codec rather than another
-authorization event or ledger. No implementation is claimed by this handoff.
+authorization event or ledger. The prior source head was independently reviewed;
+this re-anchored delivery still requires exact-head review, CI and ordinary proof.
 
 ## Topology and ownership
 
-Stacked on PR2195 exact9bda3e0a91eeaf258c6d6189089c32fccb719c45, existing
-buddy-context-loop checkout/dependencies. Merge order:2192 (merged
-f91c6475e9ec72bd3bd7fe6cb6cdb11c8fa8270e),2194,2195, then this slice.
-Keep each reviewed parent unchanged; retarget/reanchor after its merge. No new
-checkout, environment, runtime write lease, provider call or database write.
+Serial from current main 6f882ecdabcbdcd5fccea59fd5a1dc8f4c3ee4df in the existing
+buddy-context-loop checkout/dependencies. PR2195 is already merged/delivered.
+PR2205 is merged and delivered as API integration
+bb56e91c857b26540d24d1f2f8d3a6b0aac08153; retain its request-proof/replay fix.
+Prior reviewed source da46cb3e37baf7ac905688ac23dc54a277f08ccc remains pinned in
+refs/codex/reviewed-heads/pr2196-da46cb3. Rebase this slice onto current main,
+review/verify, merge and deliver UI reader before API fence127. Then rebase and
+settle descendants in order2197,2199,2200; do not mutate those heads concurrently.
+No new checkout/environment/provider call or primary database write is allocated.
+Local verification uses generated disposable databases on54329. Runtime write
+lease remains released until the protected delivery is re-anchored/reviewed.
 
 Held Play2172 exact4b57a7cd66fad17df1106a16f0bc2be3c29ec8c3 remains held.
 Its PR-body PRIME authority settlement2026-11-07 supersedes the old ACTIVE shared
@@ -55,6 +62,7 @@ No visual redesign, legacy executor fallback, new global sanitizer or limit rais
 ## Exclusive expected write set and review map
 
 - This handoff.
+- Docs/Plans/HANDOFF-RETRIEVAL-native-request-proof.md (truthful predecessor settlement).
 - src/application_state/agent_conversation/native_context.py (initial codec/Build-only gate)
 - src/application_state/agent_conversation/build_intentional_response.py (semantic projection/request binding)
 - src/application_state/agent_conversation/build_related_pages.py (current indexed semantic offer proof)
@@ -91,3 +99,27 @@ delivery, then ordinary dogfood. Preserve original failure/corpus/drafts/state.
 All other prompt roles, reviewed auxiliary input, final evidence selection, writers,
 References operator acceptance and measured generic retrieval remain open. Do not
 claim overall prompt cleanliness, latency improvement or goal completion here.
+
+## Re-anchor after CI and request-proof delivery
+
+CI setup optimization #2203 is merged and measured twice without losing existing
+cases. #2205 passed independent source/integration/delivery review, all seven
+product checks and ADVERSARY's five retained-capture plus 25-negative-control
+assessment. Actual owned API moved from b6182730 to bb56e91c with schema126,
+UI unchanged and exact retained-table/session conservation. Old prepared API
+integrations are explicitly invalidated and must be recomposed; do not reuse
+an old API tree that omits the proof correction. The prepared UI source/release
+may be reused only after exact blob and current reader/base verification.
+
+The rebase applies the same bounded routing presentation change; it must not
+resume held Play/citation work or widen to final writer/auxiliary prompting.
+
+## Re-anchored local verification
+
+The implementation range-diff is unchanged against prior reviewed098684418/
+da46cb3; only parent history and consuming settlement change. On current main
+6f882ecd, 100 focused context/accounting/actual initial SDK/source-owner and
+oversized proof completion/replay cases pass in16.81s. Strict UI protocol52 cases
+and TypeScript build checking pass. No new provider or live state changes.
+The original broader legacy GM-authority fixture failure remains recorded in the
+prior evidence; this focused rerun does not claim that unrelated full suite.
