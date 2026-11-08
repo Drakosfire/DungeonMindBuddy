@@ -321,7 +321,7 @@ def validate_context_binding(context, execution) -> SurfaceNativeExecutionV1:
     """
     if type(context) is not SurfaceNativeContextReceiptV1 or type(execution) is not SurfaceNativeExecutionV1:
         raise ValueError("Native execution requires its concrete shared context")
-    context = SurfaceNativeContextReceiptV1.model_validate_json(context.model_dump_json(by_alias=True))
+    context = SurfaceNativeContextReceiptV1.model_validate(context.model_dump(mode="python", by_alias=True))
     execution = SurfaceNativeExecutionV1.model_validate_json(execution.model_dump_json(by_alias=True))
     action, work = execution.policy.action, context.work_context
     if (action.surface_id != work.surface_id or action.intent.world_id != work_world_id(work)
