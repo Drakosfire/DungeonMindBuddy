@@ -271,15 +271,18 @@ class PlanJevDriver:
             assertion_ids = object_record_ids(query, (handle,), assertion=True)
             if not statement_ids and not assertion_ids:
                 continue  # Query gap codes retain unavailable/empty discovery status.
-            remaining = (set(statement_ids) - self.native_statement_attempts
-                or set(assertion_ids) - self.native_assertion_attempts)
-            if bool(remaining) == examined:
+            remaining_statements = set(statement_ids) - self.native_statement_attempts
+            remaining_assertions = set(assertion_ids) - self.native_assertion_attempts
+            if bool(remaining_statements or remaining_assertions) == examined:
                 continue
             keys = {(False, i) for i in statement_ids} | {(True, i) for i in assertion_ids}
             status = 'opened' if keys <= set(opened) else 'partial' if keys & set(opened) else 'unavailable'
             result.append(RetrievalCandidate(handle=handle, label=match.label,
                 kind=(f'Previously selected native object: {status}; not an answer-sufficiency verdict' if examined else
-                    'Native Graph object; open its complete admitted statement and assertion support')))
+                    'Native Graph object; open its complete admitted statement and assertion support. '
+                    f'Opening now reads {len(remaining_assertions)} assertions and '
+                    f'{len(remaining_statements)} statements; overlapping objects can share records. '
+                    'Counts describe read size, not relevance or answer sufficiency.')))
         return tuple(result)
 
     def _native_object_examined(self):

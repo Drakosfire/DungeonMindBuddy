@@ -58,11 +58,44 @@ def test_captured_fanout_shape_keeps_all_records_with_twenty_votes():
         allowed_operations=('select_candidates','finish_retrieval'))
     prepared=prepare_decision(req)
     assert len(prepared.questions)==21
+    for candidate, visible in zip(offered, prepared.state['candidates']):
+        count = len(object_record_ids(q, (candidate.handle,), assertion=True))
+        assert f'Opening now reads {count} assertions and 0 statements' in visible['kind']
+        assert 'not relevance or answer sufficiency' in visible['kind']
     # Every record remains in the frozen query, none is repeated into semantic choices.
     assert 'asrt:' not in json.dumps(prepared.state)
     d.native_assertion_attempts.update(object_record_ids(q,(handles[0],),assertion=True))
     assert len(d._native_object_candidates())==19
     assert len(d._native_object_candidates(examined=True))==1
+
+
+def test_read_size_is_remaining_per_object_not_additive_or_success_count():
+    q = query()
+    shared = q.assertion_matches[0].model_copy(update={
+        'discovered_entity_ids': q.discovered_entity_ids})
+    statement = NativePlanStatementMatchV1(statement_id='ent:statement',
+        discovered_entity_ids=q.discovered_entity_ids,
+        discovery_assertion_ids=('asrt:discovery',), campaign_id='c1',
+        logical_source={'session': 's1'}, episode='s1', label='Shared statement')
+    q = q.model_copy(update={'assertion_matches': (shared, *q.assertion_matches[1:]),
+        'matches': (statement,)})
+    d = driver(q)
+    offered = d._native_object_candidates()
+    assert all('Opening now reads 2 assertions and 1 statements' in c.kind for c in offered)
+    # Per-object counts overlap; selecting both still opens only three assertions.
+    handles = tuple(c.handle for c in offered)
+    assert len(object_record_ids(q, handles, assertion=True)) == 3
+    # Attempts are consumed even when support was unavailable; no successful-read
+    # inference and no reoffer of the attempted shared record in either object.
+    d.native_assertion_attempts.add('asrt:0')
+    d.native_statement_attempts.add('ent:statement')
+    assert all('Opening now reads 1 assertions and 0 statements' in c.kind
+        for c in d._native_object_candidates())
+    d.native_assertion_attempts.add('asrt:2')
+    examined = d._native_object_candidates(examined=True, opened={(True, 'asrt:2')})
+    assert len(examined) == 1
+    assert examined[0].kind == 'Previously selected native object: partial; not an answer-sufficiency verdict'
+    assert [c.handle for c in d._native_object_candidates()] == [handles[1]]
 
 
 def test_overlap_deduplicates_and_attempted_records_cannot_reopen():
