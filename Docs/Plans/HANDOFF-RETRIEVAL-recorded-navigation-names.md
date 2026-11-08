@@ -1,12 +1,11 @@
 # RETRIEVAL: preserve multiple recorded navigation names
 
-Status: ACTIVE for retrieval/context-only qualification under the user's clarified
+Status: QUALIFIED / READY FOR MERGE AND DELIVERY under the user's clarified
 objective. Response writing and response-output grades are outside this lane.
 Root designs/owns backend; PRIME owns merge/delivery, not review approval.
-Branch codex/navigation-recorded-names; existing PR2223 restored on main
+Branch codex/navigation-recorded-names; replacement PR2244 (closed PR2223 retained) on main
 3f4b02b970bcacc0e503f97dd7cdae29fc0f1290. Topology: serial;2245 tooling is
-merged, no unmerged dependency. This branch is frozen for comparative context-only
-validation. The test-only append conflict retained both independently reviewed
+merged, no unmerged dependency. Comparative context-only validation is complete; its exact source pins remain retained. The test-only append conflict retained both independently reviewed
 tests; runtime names delta remains unchanged. No2214 dependency. No response generation is required by this
 goal. Context-only capture must use the existing consolidated workflow before
 fresh full-cohort validation; no surrogate answer or per-question script.
@@ -113,3 +112,52 @@ Separate actual controller usage from prepared-context volume: the initial four
 pairs used controller input95363→113576 tokens while preparing smaller context.
 Do not claim the41.4% mixed historical input reduction is a controller cost saving.
 No new paid calls occur before exact runtime/resource qualification.
+
+
+## Full-cohort disposition
+
+ADOPT for delivery, not yet merged or delivered. The unchanged runtime at
+98d4c3acee4c0df00d59d2282b2208c3d7f1f16b was compared with control
+3f4b02b970bcacc0e503f97dd7cdae29fc0f1290 through the merged consolidated
+`capture-context` workflow. This final settlement changes documentation only.
+The recorded-name runtime remains byte-identical to its independent code approval.
+All seven hosted checks were green at the qualified head; combined owning tests
+passed148 checks with63 inherited serializer warnings. No further response QA is
+required: writer generation is outside this goal.
+
+The frozen full15 cohort excludes Q11. Independent, exact-request-bound reviews
+pass required evidence, attribution, chronology, uncertainty and inspectable
+source selectors for control15/15, candidate15/15 and the predeclared candidate
+repetition15/15. Canonical consolidated reports validate every binding. Writer
+requests sent: zero across all45 captures. Original6complete/9partial remains
+historical composition evidence only. Source APP and native Graph inventories
+are conserved; primary/live state was not mutated.
+
+Paired concurrent stage1: median accepted-to-admitted-context22.956360s to
+11.952508s (47.93% lower); observed maximum52.193181s to29.995676s.
+Actual supplied assertion count and prepared SDK request bytes are both lower in
+14/15 cases; Q10 increased and remains visible. Total prepared bytes8486790 to
+3653010. Controller attempts80 to67, but controller input295874 to308754 and
+output46874 to50730. Actual billed cost is unknown: smaller prepared context
+must not be described as cheaper retrieval-controller usage.
+
+The gated solo candidate repetition passed15/15 with median10.856044s and
+observed maximum26.089906s,63 controller attempts,285451 input/46729 output
+tokens, and3468632 prepared request bytes. Its timing is a distinct solo stratum,
+not a second paired concurrent speedup estimate. Samples do not establish
+population tail latency or causal reliability beyond the retained comparison.
+
+Evidence root: retrieval-context-full-cohort-v1. The immutable final-disposition.json
+pins protocol, source-qualified Gold, both paired reviewed reports, repeat reviewed
+report, measurement summaries, qualification and final conservation. Initial failed
+canonical assessment bindings and their archived originals are preserved; repairing
+those evidence records required no runtime changes or paid reruns.
+
+There is still one authoritative name-label producer; the replaced multi-name
+`Unnamed` branch is removed, with no compatibility toggle or fallback. Historical
+query bytes/hashes remain readable without regenerating names. No dictionary
+prototype, source-local modality branch, ingestion change or alternate producer is
+adopted. PRIME receives this bounded PR for merge/delivery only. The overall goal
+stays ACTIVE: approximately four seconds is not reached. Current existing spans
+still show material selection/application and admission work, and the next step is
+current-source profiling rather than deleting unproven mutable-state checks.
