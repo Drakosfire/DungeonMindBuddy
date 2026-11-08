@@ -1,10 +1,22 @@
 # STATBLOCK — exact saved full view
 
-ACTIVE. PRIME owns one serial slice after delivered2229. Base
-cec51360c7b84d9bf4d43c2e17173daf936eb9d5; codex/statblock-exact-full-view;
-reuse buddy-context-loop checkout/dependencies. Live API57cf/UIafac6db0 immutable;
-no implementation runtime lease. No overlap with held2172/2223/2225 or backend
-ADVERSARY work.
+SETTLED / write lease RELEASED. #2231 source
+ca72a6664c619ec560eef55c1eb56361563fb8c0 merged as
+671c79d04f165f2eb7a70b13758f1ed5623482aa after independent review and seven
+successful CI checks. Delivered UI integration
+8b22cacbbe50b099cc057cec67dc05407e28cfb2 preserves the running shell through three
+bounded reviewed ports; API d636d61c1a136b968b830bf4153fdbc3e600960a was unchanged.
+Delivery-script initial HOLD for a missing source-review guard was corrected and
+approved at SHA 3fc7e7685e0b9afa29720a012d791f7a060a1675fca253152c2db8f5a28e7e51.
+
+Delivered browser checks prove popup/exact full route/reload/narrow/Back draft
+recovery; ambiguous or missing targets perform no mechanics read. Native citations
+still open one exact source lazily without history, preserving unsent drafts and
+reload. Activation conserved database rows/session state; no providers or
+publication/content writes. Evidence: private runtime-evidence/
+q01-published-graph-authority/statblock-full-view-port-ui-resources.json and
+statblock-full-view-delivered-browser.json / statblock-full-view-native-citation-browser.json.
+The design and candidate evidence below are historical, not a new write lease.
 
 ## Outcome and invariant
 
