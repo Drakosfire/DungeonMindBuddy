@@ -279,8 +279,10 @@ describe("World-scoped mounted Workbench", () => {
     vi.spyOn(liveApi,"listWorldMechanicsAssociations").mockResolvedValue([]);
     render(<StatblockWorkbenchModule/>);
     expect(screen.queryByRole("region",{name:"Associate World creature"})).toBeNull();
+    expect(screen.queryByRole("region",{name:"Create World creature"})).toBeNull();
     const open=await screen.findByRole("button",{name:"Open statblock"});
     const association=await screen.findByRole("region",{name:"Associate World creature"});
+    expect(screen.getByRole("region",{name:"Create World creature"})).toBeInTheDocument();
     expect(creatures).not.toHaveBeenCalled();
     await userEvent.click(within(association).getByRole("button",{name:"Load creatures"}));
     expect(await within(association).findByRole("combobox",{name:"World creature"})).toBeInTheDocument();
@@ -318,6 +320,7 @@ describe("World-scoped mounted Workbench", () => {
     expect(screen.getByTestId("create-and-generate-submit")).toBeDisabled();
     expect(screen.queryByRole("button",{name:"Open statblock"})).toBeNull();
     expect(screen.queryByRole("region",{name:"Associate World creature"})).toBeNull();
+    expect(screen.queryByRole("region",{name:"Create World creature"})).toBeNull();
     await userEvent.click(screen.getByRole("button",{name:"Retry draft refresh"}));
     expect(await screen.findByRole("button",{name:"Open statblock"})).toBeInTheDocument();
     expect(h.getDraft).toHaveBeenCalledTimes(3);expect(h.getCandidate).not.toHaveBeenCalled();
@@ -332,6 +335,7 @@ describe("World-scoped mounted Workbench", () => {
     expect(await screen.findByTestId("draft-snapshot-unavailable")).toHaveTextContent("This ThreatDraft does not belong to the selected scope.");
     expect(screen.queryByRole("button",{name:"Open statblock"})).toBeNull();
     expect(screen.queryByRole("region",{name:"Associate World creature"})).toBeNull();
+    expect(screen.queryByRole("region",{name:"Create World creature"})).toBeNull();
     expect(h.getCandidate).not.toHaveBeenCalled();expect(h.create).not.toHaveBeenCalled();expect(h.generate).not.toHaveBeenCalled();
   });
 
