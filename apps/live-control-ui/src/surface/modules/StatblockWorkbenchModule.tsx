@@ -2413,6 +2413,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
       void (async () => {
         const opId = beginCandidateOp();
         ownedDraftSnapshotIdRef.current = draftId;
+        setDraftSnapshotPending(true);
         try {
           const draft = await getThreatDraft(draftId);
           if (!isCurrentCandidateOp(opId)) return;
@@ -2446,6 +2447,8 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
             setDraftSnapshotUnavailable(true);
             setDraftSnapshotError(error instanceof Error ? error.message : String(error));
           }
+        } finally {
+          if (isCurrentCandidateOp(opId)) setDraftSnapshotPending(false);
         }
       })();
     }
@@ -2955,7 +2958,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
   const onCreateAndGenerate = async (event: FormEvent) => {
     const tourScope=captureGenerationScope();
     event.preventDefault();
-    if (createAndGenerateInFlightRef.current || pendingGenerate || createPhase === "creating") {
+    if (createAndGenerateInFlightRef.current || pendingGenerate || generationRecoveryError != null || draftSnapshotUnavailable || draftSnapshotPending || createPhase === "creating") {
       return;
     }
     try {
@@ -3364,7 +3367,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
               type="submit"
               disabled={
                 pendingGenerate ||
-                generationRecoveryError != null || isUnresolvedGenerationAttempt(generationAttempt) ||
+                generationRecoveryError != null || draftSnapshotUnavailable || draftSnapshotPending || isUnresolvedGenerationAttempt(generationAttempt) ||
                 createPhase === "creating" ||
                 createPhase === "generating"
               }

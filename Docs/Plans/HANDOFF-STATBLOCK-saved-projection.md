@@ -73,3 +73,8 @@ candidate presentation. A committed Save and opening its successor are separate
 outcomes: retain the committed revision as the selected recovery hint, keep exact
 read failures visible, pause edits to the old displayed source, and retry only the
 read. The same selection survives reload. Neither retry resubmits Save/generation.
+
+Draft read admission also gates Create & generate, in both presentation and the
+submit handler. Failed or pending reads cannot replace the retained recovery join.
+The controlled browser fault check verifies blocked creation, visible retry, exact
+saved render after recovery and no candidate/provider/content writes.

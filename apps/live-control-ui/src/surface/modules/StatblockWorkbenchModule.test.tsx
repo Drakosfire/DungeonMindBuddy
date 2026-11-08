@@ -284,6 +284,11 @@ describe("World-scoped mounted Workbench", () => {
     localStorage.setItem(scopedWorkbenchJoinKey(a),JSON.stringify({draft_id:"draft-a",version:1,candidate_id:"cand_expired"}));
     render(<StatblockWorkbenchModule/>);
     expect(await screen.findByTestId("draft-snapshot-unavailable")).toHaveTextContent("Saved draft temporarily unavailable");
+    expect(screen.getByTestId("create-and-generate-submit")).toBeDisabled();
+    const retained=localStorage.getItem(scopedWorkbenchJoinKey(a));
+    await userEvent.click(screen.getByTestId("create-and-generate-submit"));
+    expect(localStorage.getItem(scopedWorkbenchJoinKey(a))).toBe(retained);
+    expect(h.create).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button",{name:"Retry draft refresh"}));
     expect(await screen.findByRole("button",{name:"Open saved mechanics"})).toBeInTheDocument();
     expect(h.getDraft).toHaveBeenCalledTimes(2);expect(h.getCandidate).not.toHaveBeenCalled();
@@ -296,6 +301,7 @@ describe("World-scoped mounted Workbench", () => {
     localStorage.setItem(scopedWorkbenchJoinKey(a),JSON.stringify({draft_id:"draft-a",version:1,candidate_id:"cand_expired"}));
     render(<StatblockWorkbenchModule/>);
     expect(await screen.findByTestId("draft-snapshot-unavailable")).toHaveTextContent("Saved draft refresh unavailable");
+    expect(screen.getByTestId("create-and-generate-submit")).toBeDisabled();
     expect(screen.queryByRole("button",{name:"Open saved mechanics"})).toBeNull();
     await userEvent.click(screen.getByRole("button",{name:"Retry draft refresh"}));
     expect(await screen.findByRole("button",{name:"Open saved mechanics"})).toBeInTheDocument();
