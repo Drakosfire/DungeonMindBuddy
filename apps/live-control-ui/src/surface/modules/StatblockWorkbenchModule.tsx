@@ -1,3 +1,4 @@
+import {NativeThreatCreationPanel} from '../../statblocks/NativeThreatCreationPanel';
 import {samePin} from '../../guidedTour/protocol';
 import {useGuidedTour} from '../../guidedTour/GuidedTour';
 import {GenerationTourObservation,useGenerationPlan} from '../../guidedTour/GenerationObservations';
@@ -3569,6 +3570,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
       {mechanicsSavedDraft && threatDraft?.schema === "dmb_threat_draft_v2" && !draftSnapshotUnavailable && !draftSnapshotPending && (
         <>
           <SavedStatblockButton key={`${threatDraft.world_id}:${threatDraft.draft_id}`} worldId={threatDraft.world_id} draftId={threatDraft.draft_id}/>
+          <NativeThreatCreationPanel draft={threatDraft} />
           <WorldMechanicsAssociationPanel draft={threatDraft} />
         </>
       )}

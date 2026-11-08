@@ -1,3 +1,4 @@
+import {verifyNativeThreatReply,type NativeThreatReply,type PreparedNativeThreat,type PublishedNativeThreat} from './nativeThreatCreation';
 import {verifyWorldCreatureCatalog} from './worldMechanicsTypes';
 import type {NativeSourceCatalog,NativeSourceBody,NativeSourceSelection} from './nativeSourceInspection';
 import type {InspectionScope,InspectionPin,InspectionSelection,NativeGraphCatalog,NativeGraphEntity,NativeGraphSource} from "./nativeGraphInspection";
@@ -344,6 +345,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+$/.test(pathname) && requestBodyRecord(body)?.schema_version === "dmb_world_session_create_v1") return true;
   if (/^\/api\/live\/combat\/scene-templates(?:\/|$)/.test(pathname)) return true;
   if (pathname.startsWith("/api/live/world-mechanics/associations")) return true;
+  if (/^\/api\/live\/threat-drafts\/[^/]+\/native-creature(?:\/(?:prepare|confirm))?$/.test(pathname)) return true;
   if (/^\/api\/live\/threat-drafts\/[^/]+\/mechanics-(?:revisions(?:\/[^/]+)?|revision-operations\/[^/]+(?::recover)?)$/.test(pathname)) return true;
   if (pathname.startsWith("/api/live/world-session-evidence")) return true;
   if (/^\/api\/live\/world-play-runs\/v2\/[^/]+\/prepared-tables(?:\/receipts|\/commands\/[^/]+)?$/.test(pathname)) return true;
@@ -3219,4 +3221,25 @@ export function getNativeSourceCatalog(scope:InspectionScope,signal?:AbortSignal
 }
 export function readNativeSource(scope:InspectionPin,selection:NativeSourceSelection,signal?:AbortSignal):Promise<NativeSourceBody> {
  return apiFetch('/api/live/native-source-inspection/read',{method:'POST',cache:'no-store',signal,body:JSON.stringify({scope,...selection})});
+}
+
+export async function prepareNativeThreat(draft:string,world:string,version:number):Promise<NativeThreatReply> {
+  const value=await apiFetch<unknown>(`/api/live/threat-drafts/${encodeURIComponent(draft)}/native-creature/prepare`,{method:'POST',body:JSON.stringify({world_id:world,expected_draft_version:version})});
+  const reply=await verifyNativeThreatReply(value,world,draft);
+  if(reply.state==='prepared'&&reply.review.draft_version!==version)throw new Error('The prepared creature uses another draft version.');
+  return reply;
+}
+export async function confirmNativeThreat(packet:PreparedNativeThreat):Promise<PublishedNativeThreat> {
+  const r=packet.review;
+  const value=await apiFetch<unknown>(`/api/live/threat-drafts/${encodeURIComponent(r.draft_id)}/native-creature/confirm`,{method:'POST',body:JSON.stringify({review:r,prepared:packet.prepared,token:packet.token})});
+  const reply=await verifyNativeThreatReply(value,r.world_id,r.draft_id);
+  if(reply.state!=='published'||reply.native_world_id!==r.binding.native_world_id||reply.binding_version!==r.binding.binding_version)throw new Error('Creature confirmation belongs to another World binding. Keep the same review for recovery.');
+  return reply;
+}
+export async function getNativeThreat(draft:string,world:string):Promise<PublishedNativeThreat|null> {
+  const value=await apiFetch<unknown>(`/api/live/threat-drafts/${encodeURIComponent(draft)}/native-creature?world_id=${encodeURIComponent(world)}`);
+  if(value===null)return null;
+  const reply=await verifyNativeThreatReply(value,world,draft);
+  if(reply.state!=='published')throw new Error('Creature status is not a published result.');
+  return reply;
 }
