@@ -165,6 +165,12 @@ class PlanRequestedWorkInputV6(PlanRequestedWorkInputV5):
     plan_requested_operation: Literal["discuss", "write_current_page"] | None = None
 
 
+class PlanRequestedWorkInputV7(PlanRequestedWorkInputV6):
+    """Intent-first classification; earlier parents retain their exact wire proof."""
+    schema_: Literal["dmb_plan_requested_work_input_v7"] = Field(
+        default="dmb_plan_requested_work_input_v7", alias="schema")
+
+
 def work_choice(request: PlanRequestedWorkInputV2, selected: str):
     """Decode only offered choices; the selected target digest stays host-owned."""
     if selected in {"discuss", "clarify", "different_destination"}:
