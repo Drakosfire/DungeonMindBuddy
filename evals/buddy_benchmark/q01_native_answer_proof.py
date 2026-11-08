@@ -13,6 +13,8 @@ from pathlib import Path
 import subprocess
 
 from . import q01_native_fixture_proof as fixture
+from . import artifacts
+from .artifacts import immutable_save
 
 AUTHORITY = "7a6c83d81e1d915161ec44263c663ac8cd64595a"
 BASE = "7880f07b56533f7ffdbf6fd5de9b4788b1178956"
@@ -68,63 +70,10 @@ def validate_identity(value, native=False):
     )
 
 
-def immutable_save(directory, name, value):
-    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
-    target = directory / (name + ".json")
-    if target.exists():
-        require(
-            json.loads(target.read_text()) == value, "checkpoint collision: " + name
-        )
-        return
-    fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(fd, "w") as output:
-        json.dump(value, output, indent=2, sort_keys=True)
-        output.write("\n")
-        output.flush()
-        os.fsync(output.fileno())
 
 
 def row_inventory(dsn):
-    """Hash every logical row, retaining only routing keys for exact delta checks."""
-    from psycopg import sql
-
-    result = {}
-    with fixture.readonly(dsn) as conn:
-        conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
-        tables = conn.execute(
-            "SELECT table_schema,table_name FROM information_schema.tables WHERE table_type='BASE TABLE' AND table_schema NOT IN ('pg_catalog','information_schema') ORDER BY 1,2"
-        ).fetchall()
-        for table in tables:
-            name = table["table_schema"] + "." + table["table_name"]
-            rows = conn.execute(
-                sql.SQL("SELECT row_to_json(t)::text AS body FROM {}.{} t").format(
-                    sql.Identifier(table["table_schema"]),
-                    sql.Identifier(table["table_name"]),
-                )
-            ).fetchall()
-            inventory = []
-            for row in rows:
-                body = json.loads(row["body"])
-                inventory.append(
-                    {
-                        "sha256": fixture.sha(row["body"].encode()),
-                        "keys": {
-                            k: body[k]
-                            for k in (
-                                "world_id",
-                                "conversation_id",
-                                "turn_id",
-                                "command_id",
-                                "reference_role",
-                                "ordinal",
-                                "version_num",
-                            )
-                            if k in body
-                        },
-                    }
-                )
-            result[name] = sorted(inventory, key=lambda r: r["sha256"])
-    return result
+    return artifacts.row_inventory(dsn, readonly=fixture.readonly)
 
 
 def validate_pointer(pointer, old):
