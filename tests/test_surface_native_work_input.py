@@ -37,7 +37,7 @@ def work_case(surface,*,draft=True,selected=True):
     return context,record,work
 
 
-def produce(context,record,work,*,mutate=None,candidate=None):
+def produce(context,record,work,*,mutate=None,candidate=None,current=False):
     native=model_frame(context,record)
     frame=model_work_frame(context,record,**work)
     physical=deepcopy(frame)
@@ -45,7 +45,12 @@ def produce(context,record,work,*,mutate=None,candidate=None):
         mutate(physical)
     if candidate is None:
         candidate=answer([dict(kind='proposal',label='invented_idea',text='A possibility for review, not played fact.')])
-    raw,text=asyncio.run(sdk_reply(native,candidate,physical))
+    format_ = None
+    if current:
+        from application_state.agent_conversation.plan_writer_output_schema import native_output_format
+        from tests.test_plan_writer_output_schema import rules
+        format_ = native_output_format(native, rules(), physical)
+    raw,text=asyncio.run(sdk_reply(native,candidate,physical,format_))
     stored,auth=authorize(context,record,raw,native)
     request_id=f'generationengine:{auth.provider_attempt_id}'
     terminal=outcomes(auth,len(stored.events))

@@ -17,6 +17,7 @@ from application_state.agent_conversation.plan_writer_output_schema import nativ
 from application_state.build_proposal.types import BuildWriteCapability
 from tests.test_surface_native_execution import execution, build_resolution
 from tests.test_surface_native_work_input import work_case, produce
+from tests.test_surface_native_completion import current_output
 from tests.test_surface_native_related_pages import case as related_case
 from tests.test_plan_writer_output_schema import rules
 
@@ -84,8 +85,8 @@ def test_object_only_review_uses_actual_owners_without_invented_prose(kind,with_
     context,record,work=case(kind,with_draft=with_draft)
     frame=model_work_frame(context,record,**work)
     raw=output(frame,kind)
-    Draft202012Validator(native_output_format(model_frame(context,record),rules(),frame)['schema']).validate(raw)
-    stored,auth,proof,_=produce(context,record,work,candidate=raw)
+    Draft202012Validator(native_output_format(model_frame(context,record),rules(),frame)['schema']).validate(current_output(raw))
+    stored,auth,proof,_=produce(context,record,work,candidate=current_output(raw),current=True)
     completion=normalize_output(context,stored,auth,**proof)
     assert completion.answer_segments==[] and completion.answer_context_status=='discussion'
     assert completion.collaboration.model_dump(mode='json')==raw['collaboration']
@@ -106,7 +107,7 @@ def test_actual_sdk_mixed_rules_schema_keeps_review_and_existing_definitions(kin
     context,record,work=case(kind,with_related=kind=='connected_page')
     frame=model_work_frame(context,record,**work)
     def change(candidate):
-        candidate['base_output']=output(frame,kind,related=kind=='connected_page')
+        candidate['base_output']=current_output(output(frame,kind,related=kind=='connected_page'))
     result_case=producing_case(None,'build',context_record=(context,record),work_override=work,candidate_mutation=change)
     body=json.loads(result_case[4].prepared_request_json)
     fmt=body['text']['format']
@@ -183,7 +184,7 @@ def test_actual_sdk_object_only_without_rules_retains_the_review_directly(kind):
     frame=model_work_frame(context,record,**work)
     def change(candidate):
         candidate.clear()
-        candidate.update(output(frame,kind))
+        candidate.update(current_output(output(frame,kind)))
     produced=producing_case(None,'build',unused=True,context_record=(context,record),
         work_override=work,candidate_mutation=change)
     result=normalize(produced)
@@ -200,7 +201,7 @@ def test_object_only_composition_requires_the_actual_typed_normalized_base(mutat
     context,record,work=case()
     frame=model_work_frame(context,record,**work)
     def change(candidate):
-        candidate['base_output']=output(frame)
+        candidate['base_output']=current_output(output(frame))
     produced=producing_case(None,'build',context_record=(context,record),work_override=work,candidate_mutation=change)
     result=normalize(produced)
     base=result.base_completion
@@ -229,7 +230,7 @@ def test_mixed_object_only_base_still_requires_its_raw_partition_marker():
     context,record,work=case()
     frame=model_work_frame(context,record,**work)
     def change(candidate):
-        candidate['base_output']=output(frame)
+        candidate['base_output']=current_output(output(frame))
         candidate['ordered_refs']=[dict(domain='rules',segment_index=0)]
     produced=producing_case(None,'build',context_record=(context,record),work_override=work,candidate_mutation=change)
     with pytest.raises(ValueError,match='exactly one marker'):
@@ -264,7 +265,7 @@ def test_full_page_proposal_reaches_connected_review_without_truncation():
     page = '# A neighboring workshop\n\n' + ('| 1 | A small errand awaits. |\n' * 220)
     assert len(page) > 5737
     candidate['answer_segments'] = [dict(kind='proposal', label='invented_idea', text=page)]
-    Draft202012Validator(native_output_format(model_frame(context, record), rules(), frame)['schema']).validate(candidate)
+    Draft202012Validator(native_output_format(model_frame(context, record), rules(), frame)['schema']).validate(current_output(candidate))
     stored, auth, proof, _ = produce(context, record, work, candidate=candidate)
     completion = normalize_output(context, stored, auth, **proof)
     assert completion.answer_segments[0].text == page

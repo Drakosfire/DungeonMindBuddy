@@ -173,8 +173,11 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     uses this same algorithm without manufacturing a second provider response.
     """
     from .build_intentional_response import native_review_enabled, normalize_native_review
+    from .native_uncertainty import POLICY as UNCERTAINTY_POLICY, project_uncertainties
     review_enabled=execution.policy.action.surface_id=='build' and native_review_enabled(evidence.work_frame)
-    keys={'schema','answer_segments','limitations','requested_detail_gaps'} | ({'collaboration'} if review_enabled else set())
+    current = evidence.frame['answer_policy'] == UNCERTAINTY_POLICY
+    keys=({'schema','answer_segments','uncertainties'} if current else
+          {'schema','answer_segments','limitations','requested_detail_gaps'}) | ({'collaboration'} if review_enabled else set())
     if (not isinstance(candidate,dict) or set(candidate) != keys
             or candidate['schema'] != evidence.frame['answer_policy'] or not isinstance(candidate['answer_segments'],list)):
         raise ValueError('Native completion requires its exact producing answer policy')
@@ -198,7 +201,7 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
         elif row.get('kind') == 'proposal':
             segments.append(t.PlanWorldGraphProposalSegmentV1.model_validate(row))
         else:
-            segment, body, statement, assertion = native_fact_segment(row,policy=candidate['schema'],
+            segment, body, statement, assertion = native_fact_segment(row,policy=assertions.POLICY if current else candidate['schema'],
                 receipt=receipt,auth=authorization,support=evidence,index=len(segments))
             segments.append(segment)
             body_cites.extend(body)
@@ -213,10 +216,18 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
         and (collaboration is not None or any(isinstance(s,(t.DraftReferenceClaimV1,t.RelatedPageClaim,t.SavedSourceClaimV1,DraftDiscussionV1)) for s in segments))
         and all(isinstance(s,(t.DraftReferenceClaimV1,t.RelatedPageClaim,t.SavedSourceClaimV1,DraftDiscussionV1,t.PlanWorldGraphProposalSegmentV1))
             for s in segments))
-    segments += project_surface_limitations(candidate['limitations'], candidate['requested_detail_gaps'],
-        user_question=execution.policy.action.intent.message, derive_missing=True,
-        host_partial=evidence.frame['input_status'] == 'partial' and not local_build,
-        empty_answer=not segments and collaboration is None, strict_gap_array=True)
+    if current:
+        segments += project_uncertainties(candidate['uncertainties'],
+            raw_segments=candidate['answer_segments'],
+            citation_indices={c.segment_index for c in [*body_cites,*statement_cites,*assertion_cites,*saved_cites]},
+            user_question=execution.policy.action.intent.message,
+            host_partial=evidence.frame['input_status'] == 'partial' and not local_build,
+            empty_answer=not segments and collaboration is None)
+    else:
+        segments += project_surface_limitations(candidate['limitations'], candidate['requested_detail_gaps'],
+            user_question=execution.policy.action.intent.message, derive_missing=True,
+            host_partial=evidence.frame['input_status'] == 'partial' and not local_build,
+            empty_answer=not segments and collaboration is None, strict_gap_array=True)
     completion = SurfaceNativeCompletionV1(surface_id=execution.policy.action.surface_id,
         context_receipt_sha256=receipt.context_receipt_sha256,producing_provider_attempt_id=authorization.provider_attempt_id,
         answer_context_status=status_for(segments) if segments else 'discussion',answer_segments=segments,collaboration=collaboration,saved_source_citations=saved_cites,

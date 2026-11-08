@@ -240,7 +240,7 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
     from .rules_authority_events import validate_native_packet_writer
     from .rules_authority_policy import rules_capability, rules_submission_authorization_id
     from .rules_authority_events import ref_map
-    from .plan_writer_output_schema import native_output_format
+    from .plan_writer_output_schema import retained_native_output_format
     execution = RulesExecutionV1.model_validate_json(execution.model_dump_json(by_alias=True))
     writers = [e for e in graph_execution.events if type(e) is NativeWriterAuthorizedV1
         and e.provider_attempt_id == provider_attempt_id]
@@ -276,7 +276,7 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
         output_format=dict(type='json_schema',name='build_image_direction' if operation=='prepare_build_image' else 'build_document_proposal',
             schema=(ImageDirectionV2 if operation=='prepare_build_image' else BuildComposeOutput).model_json_schema(),strict=True)
     else:
-        output_format=native_output_format(evidence.frame,frame,evidence.output_work_frame)
+        output_format=retained_native_output_format(evidence.frame,frame,evidence.output_work_frame,body)
     if (auth.request_envelope_sha256 != expected_envelope_sha256
             or included.request_envelope_sha256 != expected_envelope_sha256
             or auth.matched_outputs != outputs or included.matched_outputs != outputs

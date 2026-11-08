@@ -13,7 +13,7 @@ from application_state.agent_conversation.native_completion import normalize_out
 from application_state.agent_conversation.plan_writer_output_schema import native_output_format
 from tests.test_surface_native_work_input import work_case, produce
 from tests.test_surface_native_execution import execution
-from tests.test_surface_native_completion import answer
+from tests.test_surface_native_completion import answer, current_output
 from tests.test_plan_writer_output_schema import rules
 
 BODY='# Neighbour\r\n\r\nA copper lamp awaits repair. 🌸\r\nKeep it dry.\r\n'
@@ -80,8 +80,8 @@ def test_absent_empty_and_unread_catalog_never_offer_related_fact_selectors(mode
         assert frame['related_authored_pages']['pages']==[]
     validator=Draft202012Validator(native_output_format(model_frame(context,record),rules(),frame)['schema'])
     with pytest.raises(SchemaError):
-        validator.validate(answer([dict(kind='related_page_claim',text='An unread page.',read_id=str(uuid4()),
-            supporting_quotes=['A copper lamp awaits repair. 🌸'])]))
+        validator.validate(current_output(answer([dict(kind='related_page_claim',text='An unread page.',read_id=str(uuid4()),
+            supporting_quotes=['A copper lamp awaits repair. 🌸'])])))
     stored,auth,proof,_=produce(context,record,work,candidate=answer([dict(kind='discussion',text='No related text supplied.')]))
     assert normalize_output(context,stored,auth,**proof).answer_context_status=='discussion'
 

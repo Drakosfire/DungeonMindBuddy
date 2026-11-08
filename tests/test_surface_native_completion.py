@@ -20,7 +20,7 @@ from tests.test_native_corpus_source_access import lane as lane
 from tests.test_surface_native_execution import execution, outcomes
 
 
-async def sdk_reply(frame, answer, work_frame):
+async def sdk_reply(frame, answer, work_frame, output_format=None):
     sent=[]
     raw=json.dumps(answer)
     def wire(request):
@@ -32,7 +32,8 @@ async def sdk_reply(frame, answer, work_frame):
     async with AsyncOpenAI(api_key='synthetic-not-secret',http_client=httpx.AsyncClient(
             transport=httpx.MockTransport(wire))) as client:
         response=await client.responses.create(model='gpt-6-luna',input=[dict(role='user',content=json.dumps(value)) for value in (frame,work_frame)],
-            tools=[],stream=False,max_output_tokens=4096)
+            tools=[],stream=False,max_output_tokens=4096,
+            **({'text': {'format': output_format}} if output_format is not None else {}))
     assert response.status=='completed' and response.output_text==raw and len(sent)==1
     return sent[0],response.output_text
 
@@ -41,12 +42,21 @@ def answer(rows, *, limitations=(), gaps=()):
     return dict(schema=POLICY,answer_segments=rows,limitations=list(limitations),requested_detail_gaps=list(gaps))
 
 
-def producing_case(context, record, candidate, *, work=None):
+def current_output(historical):
+    """Reuse factual test vectors under the current wire, never repair warnings."""
+    from application_state.agent_conversation.native_uncertainty import POLICY as current
+    assert historical['limitations'] == historical['requested_detail_gaps'] == []
+    return {key: value for key, value in historical.items()
+            if key not in {'schema', 'limitations', 'requested_detail_gaps'}} | {
+                'schema': current, 'uncertainties': []}
+
+
+def producing_case(context, record, candidate, *, work=None, output_format=None):
     record=with_work_selection(record)
     work=work_submission(context,record) if work is None else work
     identity={k:work[k] for k in ('world_id','conversation_id','turn_id','attempt')}
     frame=model_frame(context,record)
-    raw_request,raw_output=asyncio.run(sdk_reply(frame,candidate,model_work_frame(context,record,**work)))
+    raw_request,raw_output=asyncio.run(sdk_reply(frame,candidate,model_work_frame(context,record,**work),output_format))
     stored,auth=authorize(context,record,raw_request,frame)
     api_request_id=f'generationengine:{auth.provider_attempt_id}'
     terminal=outcomes(auth,len(stored.events))
@@ -60,6 +70,51 @@ def producing_case(context, record, candidate, *, work=None):
              'role':'assistant','state':'model_context','text':raw_output}]}]}
     proof=dict(prepared_request_json=raw_request,raw_output_json=raw_output,capture=capture,trace=trace,**work)
     return stored,auth,proof
+
+
+@pytest.mark.parametrize('surface', ['build', 'plan'])
+def test_current_uncertainty_codec_bound_by_actual_sdk_request(lane, surface):
+    from application_state.agent_conversation.native_uncertainty import POLICY as current
+    from application_state.agent_conversation.plan_writer_output_schema import native_output_format
+    from tests.test_plan_writer_output_schema import rules
+    context, record, _ = body_case(surface, lane)
+    work = work_submission(context, record)
+    frame = model_frame(context, record)
+    format_ = native_output_format(frame, rules(), model_work_frame(context, record, **work))
+    handle = frame['native_body_evidence']['excerpts'][0]['excerpt_handle']
+    candidate = dict(schema=current, answer_segments=[dict(kind='native_body_claim',
+        text='The check revealed another plane.', excerpt_handles=[handle])],
+        uncertainties=[dict(kind='source_conflict', explanation_segment_index=0)])
+    stored, auth, proof = producing_case(context, record, candidate, output_format=format_)
+    completion = normalize_output(context, stored, auth, **proof)
+    assert completion.schema_ == 'dmb_surface_native_completion_v1'
+    assert completion.native_body_citations[0].segment_index == 0
+    assert [s.code for s in completion.answer_segments if isinstance(s, t.SurfaceLimitationV1)] == ['unresolved_conflict', 'partial_retrieval']
+    assert verify_completion(completion, context, stored, auth, **proof) == completion
+    # Same response cannot borrow a legacy producing request or its policy.
+    stored, auth, proof = producing_case(context, record, candidate)
+    with pytest.raises(ValueError, match='producing answer policy'):
+        normalize_output(context, stored, auth, **proof)
+
+
+@pytest.mark.parametrize('surface', ['build', 'plan'])
+def test_current_empty_answer_requires_declared_gap_and_renders_once(lane, surface):
+    from application_state.agent_conversation.native_uncertainty import POLICY as current
+    from application_state.agent_conversation.plan_writer_output_schema import native_output_format
+    from tests.test_plan_writer_output_schema import rules
+    context, record, _ = body_case(surface, lane)
+    work = work_submission(context, record)
+    format_ = native_output_format(model_frame(context, record), rules(), model_work_frame(context, record, **work))
+    candidate = dict(schema=current, answer_segments=[], uncertainties=[])
+    stored, auth, proof = producing_case(context, record, candidate, output_format=format_)
+    with pytest.raises(ValueError, match='explicit missing detail'):
+        normalize_output(context, stored, auth, **proof)
+    candidate['uncertainties'] = [dict(kind='missing_detail', question_phrase=record.policy.action.intent.message)]
+    stored, auth, proof = producing_case(context, record, candidate, output_format=format_)
+    completion = normalize_output(context, stored, auth, **proof)
+    assert [s.code for s in completion.answer_segments] == ['missing_requested_details', 'partial_retrieval']
+    assert completion.answer_segments[0].code == 'missing_requested_details'
+    assert completion.answer_segments[0].question_phrase is None
 
 
 @pytest.mark.parametrize('surface',['build','plan'])

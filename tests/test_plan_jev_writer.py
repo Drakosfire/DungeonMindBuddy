@@ -686,6 +686,9 @@ def test_context_capacity_refusal_preserves_gate_cause_without_provider_entry(pl
     from apps.live_control_server.services.build_failure_diagnostic import failure_code
     from apps.live_control_server.services.build_jev_writer import WriterCapacityError
     writer = stage_graph(plan_adapter)
+    # This regression deliberately exercises the retained historical finite
+    # allowance path. The ordinary current provider-owned limit is None.
+    writer.context_limit = 128000
     writer.messages.append({'role': 'user', 'content': 'x' * writer.context_limit})
     wire = WriterWire(plan_adapter, '')
     with pytest.raises(GenerationEngineError) as failure:

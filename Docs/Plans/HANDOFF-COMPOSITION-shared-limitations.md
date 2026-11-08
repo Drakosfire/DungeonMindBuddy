@@ -1,7 +1,7 @@
 # COMPOSITION: one limitation projection owner
 
-Status: ACTIVE under user retrieval/demolition goal; root designing/implementing,
-PRIME merge/delivery. Branch codex/shared-answer-limitations.
+Status: COMPLETE. PR #2226 merged as6711fe778a6886239bb9abbd4eb0f4fe0e5c3ac2; PRIME delivered API integration57cf094eb07a99b4a59d65b672ec78ac88bbffb1 on APP0130. Root and PRIME independently reproduced35 helper tests and19 retained full segment arrays; all7 CI checks passed. Runtime/write lease released. Historical branch codex/shared-answer-limitations.
+Success is exact projection parity only, not semantic QA or latency improvement. Consuming native-uncertainties lane owns next backend changes.
 Topology: parallel-independent, exact base origin/main43a56972dd27b21d92c749f56be60cc8ae5c7497.
 No behavioral dependency on unadopted #2223/#2225. #2225 frozen atf720e5f55f5b357dba09977663306482d5188a65;
 root explicitly transfers its surface_evidence_answer.py write lease here. No

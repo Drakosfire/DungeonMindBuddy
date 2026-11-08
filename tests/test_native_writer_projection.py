@@ -186,7 +186,11 @@ def test_semantic_plan_sdk_and_normalization_keep_exact_session_and_saved_owners
     context, record, work, host, provider, stored, auth, proof = semantic_plan_produce(candidate=candidate)
     accepted = verify_input_records(context, stored, auth, proof['prepared_request_json'], **work)
     assert accepted.authored_local and accepted.work_frame == host
-    Draft202012Validator(native_output_format(model_frame(context, record), rules(), host | provider)['schema']).validate(candidate)
+    from application_state.agent_conversation.native_uncertainty import POLICY as current
+    # This retained SDK fixture omits a format and remains historical. Separately
+    # prove its unchanged factual selectors fit the current wire grammar.
+    current_candidate = dict(schema=current, answer_segments=candidate['answer_segments'], uncertainties=[])
+    Draft202012Validator(native_output_format(model_frame(context, record), rules(), host | provider)['schema']).validate(current_candidate)
     result = normalize_output(context, stored, auth, **proof)
     assert verify_completion(result, context, stored, auth, **proof) == result
     plan, note, summary = result.answer_segments[:3]
@@ -287,6 +291,13 @@ def test_current_plan_producer_uses_local_work_in_context_and_output_schema(auth
         budget={'outputReserveTokens':4096,'contextLimitTokens':128000})
     writer=PlanJevWriter(adapter,work['work_proof'],SimpleNamespace(frame=rules,
         authoring=object() if authoring else None))
+    from application_state.agent_conversation.native_uncertainty import POLICY as current, FORMAT
+    assert writer.output_format['name'] == FORMAT
+    assert writer.output_format['schema']['properties']['schema']['const'] == current
+    assert set(writer.output_format['schema']['properties']) == {'schema', 'answer_segments', 'uncertainties'}
+    assert 'review_revision' not in writer.instructions
+    assert '"kind":"graph_claim"' not in writer.instructions
+    assert '"requested_detail_gaps":[]' not in writer.instructions
     assert writer.provider_work['requested_work']==('write_current_page' if authoring else 'discuss')
     wire=json.dumps({'input':writer.messages,'text':{'format':writer.output_format}})
     assert writer.work_frame['authored_sources'][0]['handle'] not in wire

@@ -49,7 +49,7 @@ from application_state.errors import (
 from apps.live_control_server.services import rules_lookup_broker as broker
 from apps.live_control_server.services.plan_jev_writer import PlanWriterProvider
 from tests.test_surface_native_context import WORK_MARKDOWN
-from tests.test_surface_native_completion import answer
+from tests.test_surface_native_completion import current_output, answer
 from tests.application_state.test_surface_native_decisions import (
     sdk_case,
     append,
@@ -161,6 +161,7 @@ def prepared_case(dsn, *, used=False, acquired=None):
     base = answer(
         [dict(kind="proposal", label="invented_idea", text="An unplayed possibility.")]
     )
+    base = current_output(base)
     if used:
         base = dict(
             schema="dmb_rules_mixed_answer_v1",

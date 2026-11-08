@@ -9,7 +9,7 @@ from application_state.agent_conversation import types as t
 from application_state.agent_conversation.native_completion import normalize_output, verify_completion, SurfaceNativeCompletionV1
 from application_state.agent_conversation.native_writer import model_work_frame
 from tests.test_surface_native_work_input import work_case, produce
-from tests.test_surface_native_completion import answer
+from tests.test_surface_native_completion import answer, current_output
 from tests.test_surface_native_execution import execution
 from tests.test_surface_native_writer import body_case, work_submission
 from tests.test_native_corpus_source_access import lane as lane
@@ -133,18 +133,18 @@ def test_finite_build_work_schema_only_offers_current_saved_reads_and_draft(draf
     context,record,work=work_case('build',draft=draft)
     frame=model_work_frame(context,record,**work)
     validator=Draft202012Validator(native_output_format(model_frame(context,record),rules(),frame)['schema'])
-    validator.validate(saved_candidate(frame))
-    validator.validate(answer([dict(kind='discussion',text='Let us discuss.')]))
+    validator.validate(current_output(saved_candidate(frame)))
+    validator.validate(current_output(answer([dict(kind='discussion',text='Let us discuss.')])))
     candidate=saved_candidate(frame)
     candidate['answer_segments'][0]['section_read_ids']=[str(uuid4())]
     with pytest.raises(SchemaError):
-        validator.validate(candidate)
+        validator.validate(current_output(candidate))
     if draft:
-        validator.validate(answer([dict(kind='draft_reference_claim',text='This draft.',
-            draft_record_id=frame['working_draft_context']['record_id'])]))
+        validator.validate(current_output(answer([dict(kind='draft_reference_claim',text='This draft.',
+            draft_record_id=frame['working_draft_context']['record_id'])])))
     else:
         with pytest.raises(SchemaError):
-            validator.validate(answer([dict(kind='draft_reference_claim',text='A different copy.',draft_record_id=str(uuid4()))]))
+            validator.validate(current_output(answer([dict(kind='draft_reference_claim',text='A different copy.',draft_record_id=str(uuid4()))])))
 
 
 def test_mixed_rules_and_saved_claim_keep_one_reply_and_distinct_read_authorities():
@@ -152,7 +152,7 @@ def test_mixed_rules_and_saved_claim_keep_one_reply_and_distinct_read_authoritie
     context,record,work=work_case('build')
     frame=model_work_frame(context,record,**work)
     def change(candidate):
-        candidate['base_output']=saved_candidate(frame)
+        candidate['base_output']=current_output(saved_candidate(frame))
     case=producing_case(None,'build',context_record=(context,record),work_override=work,candidate_mutation=change)
     result=normalize(case)
     assert result.base_completion.saved_source_citations and not result.graph_used

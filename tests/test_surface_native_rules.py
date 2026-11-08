@@ -19,7 +19,11 @@ from application_state.agent_conversation.native_rules_output import NativeRules
 from application_state.agent_conversation.native_writer import model_frame, model_work_frame
 from apps.live_control_server.services.native_rules_capture import NativeProviderReply
 from tests.test_surface_native_writer import body_case, authorize, published_case, published_lane as published_lane, work_submission
-from tests.test_surface_native_completion import answer
+from application_state.agent_conversation.native_uncertainty import POLICY as CURRENT_POLICY
+
+
+def answer(rows):
+    return dict(schema=CURRENT_POLICY, answer_segments=rows, uncertainties=[])
 from tests.test_surface_native_execution import execution, outcomes
 from tests.test_native_corpus_source_access import lane as lane
 from tests.test_rules_lookup_broker import execution as initial_rules, lookup, args

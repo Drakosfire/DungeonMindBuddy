@@ -209,6 +209,18 @@ def _answer_schema(variants, policy, rules, prose):
             "requested_detail_gaps": _array(_object({"question_phrase": prose})),
         }
     )
+    from .native_uncertainty import POLICY as UNCERTAINTY_POLICY
+    if policy == UNCERTAINTY_POLICY:
+        # Current shared-native output has one uncertainty authority. Historical
+        # factories above retain their exact field sets for producing proof.
+        del base['properties']['limitations']
+        del base['properties']['requested_detail_gaps']
+        base['properties']['uncertainties'] = _array({'anyOf': [
+            _object({'kind': _literal('missing_detail'), 'question_phrase': prose}),
+            _object({'kind': _literal('source_conflict'),
+                     'explanation_segment_index': {'type': 'integer', 'minimum': 0}}),
+        ]})
+        base['required'] = list(base['properties'])
     if not rules.lookups:
         return base
     rule_variants = [
@@ -253,6 +265,21 @@ def _answer_schema(variants, policy, rules, prose):
 
 
 def native_output_format(frame, rules, work_frame):
+    """The sole current shared-native producer format."""
+    from .native_uncertainty import POLICY
+    return _native_schema_format(frame, rules, work_frame, POLICY)
+
+
+def retained_native_output_format(frame, rules, work_frame, body):
+    """Exact schema reconstruction for a bound historical/current request."""
+    from .native_uncertainty import producing_policy
+    policy = producing_policy(body)
+    # The evidence view policy is transient; host input reconstruction remains
+    # V8. Never let a caller pick a legacy current producer configuration.
+    return _native_schema_format(frame | {'answer_policy': ASSERTION_POLICY}, rules, work_frame, policy)
+
+
+def _native_schema_format(frame, rules, work_frame, policy):
     from .native_writer import SCHEMA, LEGACY_SCHEMA
     if (frame.get('schema') not in {SCHEMA, LEGACY_SCHEMA} or frame.get('answer_policy') != ASSERTION_POLICY
             or not isinstance(rules, PlanRulesEvidenceFrameV1)):
@@ -271,7 +298,10 @@ def native_output_format(frame, rules, work_frame):
         variants.extend(native_variants(work_frame,prose))
     else:
         raise ValueError('Shared output requires its actual supported work frame')
-    schema=_answer_schema(variants,ASSERTION_POLICY,rules,prose)
+    from .native_uncertainty import POLICY as UNCERTAINTY_POLICY, FORMAT
+    if policy not in {ASSERTION_POLICY, UNCERTAINTY_POLICY}:
+        raise ValueError('Unknown native producing policy')
+    schema=_answer_schema(variants,policy,rules,prose)
     if work_frame.get('schema')==BUILD_WORK_SCHEMA:
         from .build_intentional_response import native_review_enabled, native_review_schema
         if native_review_enabled(work_frame):
@@ -282,7 +312,7 @@ def native_output_format(frame, rules, work_frame):
             if definitions:
                 schema.setdefault('$defs',{}).update(definitions)
     from generationengine.utils.schema_utils import make_schema_strict
-    return {'type': 'json_schema', 'name': 'surface_native_evidence_selectors_v1', 'strict': True,
+    return {'type': 'json_schema', 'name': FORMAT if policy == UNCERTAINTY_POLICY else 'surface_native_evidence_selectors_v1', 'strict': True,
         'schema':make_schema_strict(schema)}
 
 

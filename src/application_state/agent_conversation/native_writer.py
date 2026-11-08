@@ -252,6 +252,11 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
             or t.canonical_sha256(expected) != authorization.frame_sha256):
         raise ValueError("Native writer evidence differs from its actual producing SDK request")
     validate_output_request(body,authorization.output_token_reserve)
+    if not isinstance(body.get('input'), str):
+        # Action-bound Build string packets were routed and checked by
+        # _input_frames; their compose/image codecs remain separately owned.
+        from .native_uncertainty import producing_policy
+        schema_frame = schema_frame | {'answer_policy': producing_policy(body)}
     authored,saved_sections,related_pages,draft_record = (),(),(),None
     from .native_context import PlanWorkContextV1,BuildWorkContextV1
     if isinstance(receipt.work_context,PlanWorkContextV1):

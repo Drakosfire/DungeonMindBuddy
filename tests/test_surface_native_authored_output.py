@@ -10,7 +10,7 @@ from application_state.agent_conversation.native_writer import model_frame, mode
 from application_state.agent_conversation.plan_writer_output_schema import native_output_format
 from application_state.agent_conversation.authored_excerpt_blocks import restore_selection_blocks
 from tests.test_surface_native_work_input import work_case, produce
-from tests.test_surface_native_completion import answer
+from tests.test_surface_native_completion import answer, current_output
 from tests.test_plan_writer_output_schema import rules
 
 
@@ -111,14 +111,14 @@ def test_dynamic_finite_output_uses_only_the_verified_saved_work_selectors(surfa
     fmt=native_output_format(native,rules(),frame)
     validator=Draft202012Validator(fmt['schema'])
     if surface=='plan':
-        validator.validate(candidate_for(frame))
+        validator.validate(current_output(candidate_for(frame)))
         invalid=candidate_for(frame)
         invalid['answer_segments'][0]['selection_id']='current_page_draft'
         with pytest.raises(SchemaError):
-            validator.validate(invalid)
+            validator.validate(current_output(invalid))
     else:
         with pytest.raises(SchemaError):
-            validator.validate(answer([dict(kind='authored_excerpt',selection_id='foreign-plan')]))
+            validator.validate(current_output(answer([dict(kind='authored_excerpt',selection_id='foreign-plan')])))
 
 
 @pytest.mark.parametrize('mixed',[False,True])
@@ -128,10 +128,10 @@ def test_rules_and_authored_output_share_one_captured_response_and_saved_support
     frame=model_work_frame(context,record,**work)
     def replace_base(candidate):
         if mixed:
-            candidate['base_output']=candidate_for(frame)
+            candidate['base_output']=current_output(candidate_for(frame))
         else:
             candidate.clear()
-            candidate.update(candidate_for(frame))
+            candidate.update(current_output(candidate_for(frame)))
     case=producing_case(None,'plan',context_record=(context,record),work_override=work,
         unused=not mixed,candidate_mutation=replace_base)
     result=normalize(case)
