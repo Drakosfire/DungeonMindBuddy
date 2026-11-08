@@ -2,8 +2,8 @@
 
 Status: ACTIVE. Root designs/implements/reviews; PRIME merges/delivers.
 Branch:codex/rules-context-boundary-current in recorded-names-control checkout.
-Topology:stacked on association PR2254 exact902d47d531f85b4c132dab58cd0aeb2eef7a5190;
-merge2254 first, then rebase/qualify Rules. Parent is published, not yet adopted.
+Topology:serial on adopted association2254 merge722b16ec09c6d4bcbcb46ecf7240bf845946a0a2.
+Originally stacked on902d47d5; rebase is complete. No unmerged parent remains.
 Only dependency is migration ordering; no association runtime capability changes.
 Reserve136 on135, absent from all fetchedrefs at activation. Disposable55447
 fixtures only; no primary/live/original benchmark migration/provider calls.
@@ -106,3 +106,12 @@ Responses tool-carrier reader failure; corrected explicitly by producing shape.
 These are intermediate checks, not final-head qualification. The earlier22legacy
 Build-parent fixtures fail at unchanged GM authorization before this slice; record
 them separately, never weaken authorization or claim that suite green.
+
+Final fixture checkpoint: add only the current mixed-reply discriminator line in
+tests/test_native_plan_assertions.py to this lease. Final b8cf owner run had364
+passes/two current mixed mocks emitting historicalschema; independent review HOLD
+found no other source blocker. Update these mocks to semantic rules_answer, keep
+Base/Rules evidence assertions intact, and rerun the two affected parameters.
+Runtime/UI/migration blobs are unchanged by this fixture correction; reuse the
+other364 checks and UI25/typecheck evidence with exact blob-parity verification.
+Preserve the b8cf HOLD and original failures; no paid/prose correction study.
