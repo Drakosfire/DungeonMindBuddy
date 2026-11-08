@@ -6,11 +6,13 @@ import {NativeSourceInspection} from '../graphLens/NativeSourceInspection';
 import {NativeGraphInspection} from '../graphLens/NativeGraphInspection';
 import type {InspectionPin} from '../api/nativeGraphInspection';
 import './SurfaceGraphReferenceInput.css';
+import {SavedStatblockInlineHost} from '../statblocks/SavedStatblockSession';
 import {NativeGraphObjectPreview} from '../graphLens/NativeGraphObjectPreview';
 
 /** One input renderer for composer, plan roots and pending steps. Selection is unread. */
 export function SurfaceGraphReferenceInput({worldId,value,onChange,disabled=false,readOnly=false,label='References',triggerHost,sourceOnly=false}:{worldId:string;value:AuthoredReference[];onChange:(next:AuthoredReference[])=>void;disabled?:boolean;readOnly?:boolean;label?:string;triggerHost?:HTMLElement|null;sourceOnly?:boolean}) {
  const pickerId=useId();
+ const [inlineHost,setInlineHost]=useState<HTMLElement|null>(null);
  const [preview,setPreview]=useState<AuthoredGraphReferenceV1|null>(null);
  const previewSelected=preview?.managed_world_id===worldId&&value.some(candidate=>candidate.schema==='dmb_authored_graph_reference_v1'&&referenceIdentity(candidate)===referenceIdentity(preview)&&candidate.binding_version===preview.binding_version&&candidate.graph_revision===preview.graph_revision);
  useEffect(()=>{if(!previewSelected)setPreview(null);},[previewSelected]);
@@ -26,7 +28,8 @@ export function SurfaceGraphReferenceInput({worldId,value,onChange,disabled=fals
   <div className="surface-graph-reference-input__chips">{value.map(ref=><span key={referenceIdentity(ref)} className="surface-graph-reference-input__chip">{ref.schema==='dmb_authored_graph_reference_v1'?<button type="button" disabled={ref.managed_world_id!==worldId} aria-label={`Inspect ${ref.label}`} onClick={()=>setPreview(ref)}>@{ref.label}</button>:<span title={readOnly?'Selected for this request; see its trace for read results.':'Selected, unread until this request runs'}>@{ref.label}</span>}{!readOnly&&<button type="button" disabled={disabled} aria-label={`Remove reference ${ref.label}`} onClick={()=>onChange(value.filter(item=>referenceIdentity(item)!==referenceIdentity(ref)))}>×</button>}</span>)}
    {triggerHost?createPortal(trigger,triggerHost):trigger}
   </div>
-  {preview&&previewSelected&&<NativeGraphObjectPreview key={JSON.stringify(preview)} reference={preview} onClose={()=>setPreview(null)}/>}
+  {preview&&previewSelected&&<NativeGraphObjectPreview key={JSON.stringify(preview)} reference={preview} onClose={()=>setPreview(null)} inlineHost={readOnly?inlineHost??undefined:undefined}/>}
+  {readOnly&&<SavedStatblockInlineHost worldId={worldId} onHost={setInlineHost}/>}
   {error&&<p role="alert">{error}</p>}
   {open&&!readOnly&&<div id={pickerId} className="surface-graph-reference-input__picker">
    <div role="group" aria-label="Reference type">{!sourceOnly&&<button type="button" aria-pressed={kind==='objects'} onClick={()=>setKind('objects')}>Objects</button>}<button type="button" aria-pressed={kind==='sources'} onClick={()=>setKind('sources')}>Sources</button></div>

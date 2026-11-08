@@ -8,7 +8,7 @@ import type {StatblockRevisionResourceV1} from '../contracts/dungeonbuddy-statbl
 import type {RevisionSaveOutcome} from './revision/savedMechanicsRevisionTypes';
 import {GenerationPlanProvider} from '../guidedTour/GenerationObservations';
 import {TourEncounterProvider,type TourEncounterScope} from '../guidedTour/EncounterScope';
-import {SavedStatblockProvider,SavedStatblockButton} from './SavedStatblockSession';
+import {SavedStatblockProvider,SavedStatblockButton,SavedStatblockInlineHost} from './SavedStatblockSession';
 import {SavedStatblockFullView} from './StatblockPage';
 function SessionHost(props:{worldId:string;draftId:string;revisionId?:string}) {return <SavedStatblockProvider worldId={props.worldId}><SavedStatblockButton {...props}/></SavedStatblockProvider>;}
 const guidance=vi.hoisted(()=>({readings:[] as any[],captureMechanicsScope:vi.fn(()=>null)}));
@@ -211,4 +211,44 @@ it('rejects an exact entry while an internal different-version read is still in 
  await userEvent.selectOptions(within(dialog).getByRole('combobox',{name:'Saved mechanics version'}),successor.revision_id);await waitFor(()=>expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(2));await userEvent.click(within(dialog).getByRole('button',{name:'Close statblock'}));await userEvent.click(screen.getByRole('button',{name:'Open statblock',exact:true}));expect(within(dialog).getByRole('alert')).toHaveTextContent('Wait for the current statblock operation');
  const exact=structuredClone(resource);exact.revision_id=successor.revision_id;exact.definition.identity.name='Exact successor';await act(async()=>finish({world_id:world,draft_id:draft,locator:successor,resource:exact}));await waitFor(()=>expect(within(dialog).getByLabelText('Creature name')).toHaveValue('Exact successor'));expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(2);
  await userEvent.click(within(dialog).getByRole('button',{name:'Close statblock'}));await userEvent.click(screen.getByRole('button',{name:'Open statblock',exact:true}));await waitFor(()=>expect(within(dialog).getByLabelText('Creature name')).toHaveValue(resource.definition.identity.name));expect(api.openSavedMechanicsVersion).toHaveBeenLastCalledWith(draft,world,locator.revision_id);expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
+});
+
+function InlineSessionHost({visible=true,inForm=false,hostWorld=world}:{visible?:boolean;inForm?:boolean;hostWorld?:string}) {
+ const [host,setHost]=useState<HTMLElement|null>(null);
+ const content=<>{visible&&<section aria-label="Conversation message"><SavedStatblockInlineHost worldId={hostWorld} onHost={setHost}/></section>}
+  {host&&<SavedStatblockButton worldId={world} draftId={draft} revisionId={locator.revision_id} inlineHost={host} label="Edit inline"/>}</>;
+ return <SavedStatblockProvider worldId={world}>{inForm?<form aria-label="Chat composer" onSubmit={event=>event.preventDefault()}>{content}</form>:content}
+  <SavedStatblockButton worldId={world} draftId={draft} revisionId={locator.revision_id}/>
+  <SavedStatblockButton worldId={world} draftId={draft} revisionId="different-version" label="Other version"/>
+ </SavedStatblockProvider>;
+}
+async function openInline(){await userEvent.click(await screen.findByRole('button',{name:'Edit inline'}));const message=screen.getByRole('region',{name:'Conversation message'});await within(message).findByRole('region',{name:'Saved statblock'});return message;}
+it('moves the very same dirty editor between a message and popup, and returns on close',async()=>{
+ render(<InlineSessionHost/>);const message=await openInline(),input=within(message).getByLabelText('Creature name');fireEvent.change(input,{target:{value:'Inline unsent creature'}});
+ await userEvent.click(within(message).getByRole('button',{name:'Open statblock popup'}));const dialog=screen.getByRole('dialog',{name:'Saved statblock editor'});expect(within(dialog).getByLabelText('Creature name')).toBe(input);expect(input).toHaveValue('Inline unsent creature');
+ await userEvent.click(within(dialog).getByRole('button',{name:'Close statblock'}));expect(within(message).getByLabelText('Creature name')).toBe(input);expect(screen.queryByRole('dialog')).toBeNull();
+ expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(1);expect(api.openSavedMechanicsVersion).toHaveBeenCalledWith(draft,world,locator.revision_id);expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
+});
+it('parks a removed message editor without losing dirty state or resurrecting the message preview',async()=>{
+ const view=render(<InlineSessionHost/>),message=await openInline(),input=within(message).getByLabelText('Creature name');fireEvent.change(input,{target:{value:'Kept after message removal'}});
+ view.rerender(<InlineSessionHost visible={false}/>);expect(input.isConnected).toBe(true);expect(input).not.toBeVisible();
+ view.rerender(<InlineSessionHost/>);expect(within(screen.getByRole('region',{name:'Conversation message'})).queryByLabelText('Creature name')).toBeNull();
+ await userEvent.click(screen.getByRole('button',{name:'Open statblock',exact:true}));const dialog=screen.getByRole('dialog',{name:'Saved statblock editor'});expect(within(dialog).getByLabelText('Creature name')).toBe(input);expect(input).toHaveValue('Kept after message removal');expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(1);
+});
+it.each([{inForm:true},{hostWorld:'foreign'}])('does not register a form or foreign-World inline host (%j)',async props=>{
+ render(<InlineSessionHost {...props}/>);expect(screen.queryByRole('button',{name:'Edit inline'})).toBeNull();const dialog=await open();expect(dialog.closest('form')).toBeNull();expect(within(dialog).getByRole('region',{name:'Saved statblock'})).toBeVisible();
+});
+it('keeps the original inline target when a dirty different version is requested',async()=>{
+ render(<InlineSessionHost/>);const message=await openInline(),input=within(message).getByLabelText('Creature name');fireEvent.change(input,{target:{value:'Do not retarget'}});
+ await userEvent.click(screen.getByRole('button',{name:'Other version'}));const dialog=screen.getByRole('dialog',{name:'Saved statblock editor'});expect(within(dialog).getByRole('alert')).toHaveTextContent('Save, recover or revert');expect(within(dialog).getByLabelText('Creature name')).toBe(input);
+ await userEvent.click(within(dialog).getByRole('button',{name:'Close statblock'}));expect(within(message).getByLabelText('Creature name')).toBe(input);expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(1);
+});
+it('keeps portrait studio state across the inline and popup placements',async()=>{
+ render(<InlineSessionHost/>);const message=await openInline();await userEvent.click(within(message).getByRole('button',{name:'Generate or choose portrait'}));const studio=within(message).getByRole('button',{name:'Close portrait studio'});
+ await userEvent.click(within(message).getByRole('button',{name:'Open statblock popup'}));const dialog=screen.getByRole('dialog',{name:'Saved statblock editor'});expect(within(dialog).getByRole('button',{name:'Close portrait studio'})).toBe(studio);await userEvent.click(within(dialog).getByRole('button',{name:'Close statblock'}));expect(within(message).getByRole('button',{name:'Close portrait studio'})).toBe(studio);expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(1);
+});
+it('keeps a dispatched Save and its operation when the inline editor moves to the popup',async()=>{
+ let finish!:(outcome:RevisionSaveOutcome)=>void;vi.mocked(api.saveMechanicsRevision).mockImplementation(()=>new Promise(resolve=>{finish=resolve}));
+ render(<InlineSessionHost/>);const message=await openInline();fireEvent.change(within(message).getByLabelText('Creature name'),{target:{value:'Saving inline'}});await userEvent.click(within(message).getByRole('button',{name:'Validate new version'}));await waitFor(()=>expect(within(message).getByRole('button',{name:'Save new version'})).toBeEnabled());await userEvent.click(within(message).getByRole('button',{name:'Save new version'}));await waitFor(()=>expect(api.saveMechanicsRevision).toHaveBeenCalledTimes(1));const body=vi.mocked(api.saveMechanicsRevision).mock.calls[0][1];
+ await userEvent.click(within(message).getByRole('button',{name:'Open statblock popup'}));await act(async()=>finish({operation_id:body.operation_id,state:'outcome_unknown',base:locator,result:null,refusal_code:null,change_summary:body.change_summary,created_at:'2026-11-08T00:00:00Z'}));const dialog=screen.getByRole('dialog',{name:'Saved statblock editor'});expect(within(dialog).getByRole('button',{name:'Recover Save'})).toBeVisible();expect(within(dialog).getByLabelText('Creature name')).toBeDisabled();expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(1);expect(api.saveMechanicsRevision).toHaveBeenCalledTimes(1);expect(api.recoverMechanicsRevision).not.toHaveBeenCalled();
 });
