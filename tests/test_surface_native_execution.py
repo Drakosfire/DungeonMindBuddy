@@ -283,7 +283,7 @@ def test_real_editor_capability_has_one_owner_and_exact_hash_scope():
 
 def test_play_preserves_finite_single_provider_policy():
     context, record = component("play")
-    for field in ("max_provider_attempts",):
+    for field in ("max_provider_attempts", "max_total_provider_input_tokens", "max_total_provider_output_tokens"):
         with pytest.raises(ValueError, match="finite accepted"):
             execution(context.context_receipt_sha256, record.policy.model_copy(update={field:None}))
     wrong = record.policy.model_copy(update={"provider_roles":component("plan")[1].policy.provider_roles})
