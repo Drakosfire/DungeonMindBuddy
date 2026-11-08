@@ -429,3 +429,73 @@ def test_current_build_navigation_keeps_accounting_and_identity_out_of_wire():
     assert parse_native_retrieval_input(current.model_dump(by_alias=True), surface_id="build") == current
     with pytest.raises(ValueError, match="actual Build owner"):
         parse_native_retrieval_input(current.model_dump(by_alias=True), surface_id="plan")
+
+
+@pytest.mark.parametrize('build', [False, True])
+@pytest.mark.parametrize('catalog', ['empty', 'single', 'mixed', 'keywords'])
+def test_current_shared_relevance_preserves_independent_choices_and_closed_wire(build,catalog):
+    from application_state.agent_conversation import jev_retrieval_contract as c
+    from application_state.agent_conversation.native_source_keywords import KEYWORD_KIND, RETAINED_KEYWORD_KIND
+    from apps.live_control_server.services.build_jev_accounting import ExperimentalAccounting
+    fields=request().model_dump(exclude={'schema_','revision'}) | dict(
+        source_authority_status='available',source_revision='source:private',graph_revision='graph:private',
+        dialogue=({'role':'user','content':'The previously mentioned place'},),
+        examined_candidates=(RetrievalCandidate(handle='examined:1',label='Read failed',kind='Unavailable source'),
+            RetrievalCandidate(handle='focus:1',label='swamp',kind=RETAINED_KEYWORD_KIND)))
+    keyword=RetrievalCandidate(handle='keyword:1',label="'swamp'",kind=KEYWORD_KIND)
+    body=RetrievalCandidate(handle='body:1',label='A source with 🌿',kind='Explicit admitted full-source read; metadata choice, not evidence')
+    fields['candidates']={'empty':(), 'single':(body,), 'mixed':(body,keyword,fields['candidates'][0]),'keywords':(keyword,)}[catalog]
+    old=(c.NativeBuildRetrievalDecisionInputV3 if build else c.NativeRetrievalDecisionInputV1)(**fields)
+    new=(c.NativeBuildRetrievalDecisionInputV4 if build else c.NativeRetrievalDecisionInputV2)(**fields)
+    accounting=ExperimentalAccounting('host-only-tokenizer',lambda _:1).descriptor if build else None
+    before=c.prepare_decision(old,controller_accounting=accounting)
+    after=c.prepare_decision(new,controller_accounting=accounting)
+    a,b=dict(before.state),dict(after.state)
+    old_rule=a.pop('relevance_guidance');new_rule=b.pop('relevance_guidance')
+    assert a==b
+    normal=any(row.kind!=KEYWORD_KIND for row in new.candidates)
+    assert new_rule==old_rule+(' '+c._SHARED_RELEVANCE if normal else '')
+    assert len(before.questions)==len(after.questions)==len(new.candidates)+1
+    for i,(left,right) in enumerate(zip(before.questions,after.questions,strict=True)):
+        assert left.name==right.name and left.options==right.options
+        if i==0 or new.candidates[i-1].kind==KEYWORD_KIND:
+            assert left.question==right.question
+        else:
+            assert left.question.removesuffix('Apply relevance_guidance: '+c._SHARED_RELEVANCE)==right.question.removesuffix('Apply relevance_guidance.')
+            assert right.question.endswith('Apply relevance_guidance.')
+    def wire(prepared):
+        return json.dumps(dict(model=MODEL,state=prepared.state,questions={q.name:dict(
+            type='choice',instructions=q.question,criteria=dict.fromkeys(q.options)) for q in prepared.questions})).encode()
+    for parent,prepared in [(old,before),(new,after)]:
+        c.validate_wire_body(parent,wire(prepared),controller_accounting=accounting)
+        assert c.parse_native_retrieval_input(parent.model_dump(by_alias=True),surface_id='build' if build else 'plan')==parent
+    assert 'context_accounting' not in after.state and 'phase' not in after.state
+    if normal:
+        with pytest.raises(ValueError,match='changed'):c.validate_wire_body(new,wire(before),controller_accounting=accounting)
+        with pytest.raises(ValueError,match='changed'):c.validate_wire_body(old,wire(after),controller_accounting=accounting)
+    if build:
+        assert c.BUILD_AUTHORING_RELEVANCE in new_rule
+        with pytest.raises(ValueError,match='actual Build owner'):
+            c.parse_native_retrieval_input(new.model_dump(by_alias=True),surface_id='plan')
+    raw=new.model_dump(by_alias=True)
+    for mutation in [dict(raw,schema='unknown'),dict(raw,extra_guidance='foreign')]:
+        with pytest.raises(ValueError):c.parse_native_retrieval_input(mutation,surface_id='build' if build else 'plan')
+
+
+@pytest.mark.parametrize('codec,expected', [
+    ('NativeRetrievalDecisionInputV1','b8c0f259f9633afbc0f83643813733bf18bcade38adf9f747933ace897b52ebb'),
+    ('NativeBuildRetrievalDecisionInputV2','5abd9cfbfc6b729fd61dcec844be59a58ee99f197a137106b47443010ed5e98b'),
+    ('NativeBuildRetrievalDecisionInputV3','39838056c31246526fe4e606960a7921b7436792671b0ddb493bf4fe14b519e5'),
+])
+def test_historical_native_question_bytes_remain_at_adopted_control(codec,expected):
+    # Exact SDK envelope hashes independently generated from adopted671c79d04.
+    from hashlib import sha256
+    from application_state.agent_conversation import jev_retrieval_contract as c
+    from apps.live_control_server.services.build_jev_accounting import ExperimentalAccounting
+    fields=request().model_dump(exclude={'schema_','revision'})|dict(
+        source_authority_status='available',source_revision='source:private',graph_revision='graph:private')
+    accounting=ExperimentalAccounting('historical-tokenizer',lambda _:1).descriptor if 'Build' in codec else None
+    d=c.prepare_decision(getattr(c,codec)(**fields),controller_accounting=accounting)
+    raw=json.dumps(dict(model=d.model,state=d.state,questions={q.name:dict(
+        type='choice',instructions=q.question,criteria=dict.fromkeys(q.options)) for q in d.questions}),sort_keys=True,separators=(',',':')).encode()
+    assert sha256(raw).hexdigest()==expected

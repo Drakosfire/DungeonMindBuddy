@@ -43,6 +43,7 @@ from application_state.errors import (
 from tests.application_state.test_agent_conversation_postgres import _new
 from tests.test_surface_native_context import provenance_for, seal
 from tests.test_surface_native_execution import component, execution
+from tests.test_surface_native_writer import published_lane as published_lane  # noqa: F401
 
 
 def digest(raw):
@@ -132,8 +133,9 @@ def sdk_case(
             )
             prepare = prepare_requested_work_decision
         else:
-            from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV1
-            parent = (NativeRetrievalDecisionInputV1 if native else PlanSourceRetrievalDecisionInputV1)(
+            from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV1, NativeRetrievalDecisionInputV2
+            parent = (NativeRetrievalDecisionInputV2 if native == 'current' else
+                NativeRetrievalDecisionInputV1 if native else PlanSourceRetrievalDecisionInputV1)(
                 **common,
                 **_source_pins(case.turn.graph_context_receipt),
                 candidates=tuple(acquisitions[phase - 1][0](case))
@@ -553,3 +555,38 @@ def test_native_plan_proof_cannot_authorize_another_actual_turn_or_generic_path(
         case.service.inspect_turn(world_id=before.world_id, turn_id=before.turn_id)
         == before
     )
+
+
+def test_current_plan_shared_guidance_sdk_admission_replay_and_codec_refusal(application_state_dsn,published_lane):
+    from tests.test_surface_native_writer import published_case
+    from tests.test_native_plan_statements import query
+    from tests.application_state.test_surface_native_acquisition import host,record_candidates
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+    from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV1,NativeRetrievalDecisionInputV2
+    from application_state.agent_conversation.native_retrieval import verify_input
+    context,record=published_case('plan',published_lane)
+    record=execution(context.context_receipt_sha256,record.policy)
+    query_context,result=query(published_lane,scope_mode='world')
+    assert context.native_query==result
+    def acquire(case):
+        with host(case,query_context=query_context) as adapter:
+            driver=PlanJevDriver(adapter)
+            driver._read_native('statement',[m.statement_id for m in result.matches])
+            driver._read_native('assertion',[m.assertion_id for m in result.assertion_matches])
+    case=sdk_case(application_state_dsn,context_record=(context,record),native='current',
+        acquisitions=((record_candidates,acquire),))
+    step=case.steps[1]
+    assert type(step.parent) is NativeRetrievalDecisionInputV2 and step.parent.candidates
+    body=json.loads(step.proof['request_json'])
+    assert all(v['instructions'].endswith('Apply relevance_guidance.')
+        for k,v in body['questions'].items() if k.startswith('candidate_'))
+    proof={key:step.proof[key] for key in ('parent_request_json','request_json')}
+    assert verify_input(case.turn,step.auth,proof)==step.parent
+    old=NativeRetrievalDecisionInputV1.model_validate(step.parent.model_dump(by_alias=True)|{'schema':'dmb_native_retrieval_decision_input_v1'})
+    changed=dict(proof,parent_request_json=old.model_dump_json(by_alias=True))
+    with pytest.raises(ValueError,match='changed'):
+        verify_input(case.turn,step.auth.model_copy(update={'parent_request_sha256':old.digest}),changed)
+    assert append(case)
+    sent=len(case.sent)
+    assert not append(case) and len(case.sent)==sent
+    assert case.service.inspect_turn(world_id=case.turn.world_id,turn_id=case.turn.turn_id)==case.turn
