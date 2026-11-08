@@ -66,9 +66,9 @@ class PlanJevDispatch:
         authority = getattr(adapter, "native_source_authority", None)
         if type(receipt) is t.SurfaceNativeContextReceiptV1:
             from application_state.agent_conversation.native_retrieval import source_pins
-            from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInputV3
-            codec = (NativeBuildRetrievalDecisionInputV3
-                if receipt.work_context.surface_id == "build" else NativeRetrievalDecisionInputV1)
+            from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV2, NativeBuildRetrievalDecisionInputV4
+            codec = (NativeBuildRetrievalDecisionInputV4
+                if receipt.work_context.surface_id == "build" else NativeRetrievalDecisionInputV2)
             self.parent = codec(**fields,**source_pins(receipt))
         elif authority is not None:
             from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
@@ -111,7 +111,7 @@ class PlanJevDispatch:
 
     def _host_phase(self):
         from application_state.agent_conversation.jev_retrieval_contract import NativeBuildRetrievalDecisionInputV3
-        return "navigate" if type(self.parent) is NativeBuildRetrievalDecisionInputV3 else None
+        return "navigate" if isinstance(self.parent, NativeBuildRetrievalDecisionInputV3) else None
 
     async def select_context(self, prepared):
         from generationengine.decision_dispatch import DecisionContextMode

@@ -170,7 +170,7 @@ def verify_input(turn, auth, proof):
 
         from .jev_retrieval_contract import NativeBuildRetrievalDecisionInputV3
         validate_prepared(auth, execution, proof["request_json"],
-            host_phase="navigate" if type(parent) is NativeBuildRetrievalDecisionInputV3 else None)
+            host_phase="navigate" if isinstance(parent, NativeBuildRetrievalDecisionInputV3) else None)
     validate_wire_body(
         parent, proof["request_json"].encode(), controller_accounting=accounting
     )
