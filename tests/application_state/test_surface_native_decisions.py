@@ -79,7 +79,11 @@ def sdk_case(
     unknown=False,
     acquisitions=(),
     context_record=None,
+    context_window_limit=128000,
     question=None,
+    native=False,
+    include_final_decision=True,
+    examined=None,
 ):
     context, ledger = (
         context_record
@@ -110,7 +114,7 @@ def sdk_case(
     case = SimpleNamespace(
         dsn=dsn, service=AgentConversationService(), sent=[], steps=[], trace_id=uuid4()
     )
-    for phase, semantic in enumerate((True, *([False] * (len(acquisitions) + 1)))):
+    for phase, semantic in enumerate((True, *([False] * (len(acquisitions) + int(include_final_decision))))):
         common = dict(
             request_id=uuid4(),
             parent_attempt_id=uuid4(),
@@ -128,12 +132,14 @@ def sdk_case(
             )
             prepare = prepare_requested_work_decision
         else:
-            parent = PlanSourceRetrievalDecisionInputV1(
+            from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV1
+            parent = (NativeRetrievalDecisionInputV1 if native else PlanSourceRetrievalDecisionInputV1)(
                 **common,
                 **_source_pins(case.turn.graph_context_receipt),
                 candidates=tuple(acquisitions[phase - 1][0](case))
                 if 0 < phase <= len(acquisitions)
                 else (),
+                examined_candidates=tuple(examined(case)) if examined is not None else (),
                 allowed_operations=("select_candidates", "finish_retrieval"),
             )
             prepare = prepare_decision
@@ -158,7 +164,7 @@ def sdk_case(
                     assembled_input_sha256=prepared.body_sha256,
                     provider_envelope_input_tokens=count,
                     output_token_reserve=200,
-                    context_window_limit=128000,
+                    context_window_limit=context_window_limit,
                     tokenizer_name=accounting.estimator,
                 )
                 admitted_context = type(context).model_validate_json(
@@ -208,15 +214,16 @@ def sdk_case(
                     "scope_sha256": scope_digest(case.turn),
                 }
             )
+            from application_state.agent_conversation.native_retrieval import NativeRetrievalAuthorizedV1
             cls = (
                 t.PlanRequestedWorkAuthorizedV2
                 if semantic
-                else t.PlanJevProviderAuthorizedV1
+                else NativeRetrievalAuthorizedV1 if native else t.PlanJevProviderAuthorizedV1
             )
             step.auth = cls(
                 kind="plan_requested_work_authorized_v2"
                 if semantic
-                else "plan_jev_provider_authorized_v1",
+                else "native_retrieval_authorized_v1" if native else "plan_jev_provider_authorized_v1",
                 event_id=uuid4(),
                 sequence=len(case.turn.graph_context_execution.events),
                 provider_attempt_id=UUID(prepared.attempt_id),
@@ -366,8 +373,9 @@ def sdk_case(
             )
         else:
             choice = decode_selection(step.parent, result)
-            step.selection = t.PlanJevRetrievalSelectionV1(
-                kind="plan_jev_retrieval_selected_v1",
+            from application_state.agent_conversation.native_retrieval import NativeRetrievalSelectedV1
+            step.selection = (NativeRetrievalSelectedV1 if native else t.PlanJevRetrievalSelectionV1)(
+                kind="native_retrieval_selected_v1" if native else "plan_jev_retrieval_selected_v1",
                 **fields,
                 operation=choice.operation,
                 selected_handles=list(choice.selected_handles),
@@ -386,7 +394,7 @@ def sdk_case(
                     stage="after",
                     materials=[
                         TraceContextMaterial(
-                            item_id=f"unvalidated-plan-jev-result:{step.auth.provider_attempt_id}",
+                            item_id=f"{'unvalidated-native-retrieval-result' if native and not semantic else 'unvalidated-plan-jev-result'}:{step.auth.provider_attempt_id}",
                             state="model_context",
                             role="fact",
                             text=raw,
