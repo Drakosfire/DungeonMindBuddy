@@ -1,5 +1,5 @@
 import {GenerationPlanProvider} from '../../guidedTour/GenerationObservations';
-import {render,screen,waitFor,cleanup} from '@testing-library/react';
+import {render,screen,waitFor,cleanup,within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
 import * as api from '../../api/liveApi';
@@ -41,6 +41,7 @@ it('validates edited exact source and saves a successor without an encounter mut
   expect((screen.getByRole('button',{name:'Save new version'}) as HTMLButtonElement).disabled).toBe(true);
   await validate();await userEvent.click(screen.getByRole('button',{name:'Save new version'}));
   await screen.findByText('New mechanics version saved. Encounters and World associations are unchanged.');
+  expect(within(screen.getByRole('region',{name:'Saved statblock'})).getByRole('heading',{name:'Stronger keeper'})).toBeInTheDocument();
   const [owner,body]=vi.mocked(api.saveMechanicsRevision).mock.calls[0]!;
   expect(owner).toBe(draft);expect(body.base).toEqual(base);expect(body.definition.identity.name).toBe('Stronger keeper');
   expect(api.saveMechanicsRevision).toHaveBeenCalledTimes(1);expect(api.recoverMechanicsRevision).not.toHaveBeenCalled();
@@ -164,4 +165,77 @@ it('does not transfer an interrupted generated Save acknowledgement after guidan
  generatedBinding.current={...generatedBinding.current!,dispatchRevision:6};mounted.rerender(<GenerationPlanProvider pin={tourScope.plan}><SavedMechanicsRevisionEditor worldId={world} draftId={draft}/></GenerationPlanProvider>);
  await userEvent.click(screen.getByRole('button',{name:'Recover Save'}));await screen.findByText('New mechanics version saved. Encounters and World associations are unchanged.');
  expect(tourReadings.get('mechanics')?.observation?.origin).toBe('existing');expect(api.saveMechanicsRevision).toHaveBeenCalledTimes(1);
+});
+
+
+it('renders the exact saved statblock while keeping local edits out of its saved projection',async()=>{
+  render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);
+  expect(screen.queryByRole('region',{name:'Saved statblock'})).toBeNull();
+  await load();
+  const saved=screen.getByRole('region',{name:'Saved statblock'});
+  expect(within(saved).getByRole('heading',{name:'Ironhide Brute'})).toBeInTheDocument();
+  expect(within(saved).getByRole('table',{name:'Ability scores'})).toBeInTheDocument();
+  await edit();
+  expect(within(saved).getByRole('heading',{name:'Ironhide Brute'})).toBeInTheDocument();
+  expect(within(saved).queryByRole('heading',{name:'Stronger keeper'})).toBeNull();
+  expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(1);
+  expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
+});
+
+it('does not show a statblock before a delayed exact read resolves',async()=>{
+  let resolve!:(value:OpenSavedMechanicsVersion)=>void;
+  vi.mocked(api.openSavedMechanicsVersion).mockImplementationOnce(()=>new Promise(done=>{resolve=done}));
+  render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);
+  await userEvent.click(screen.getByRole('button',{name:'Open saved mechanics'}));
+  await waitFor(()=>expect(api.openSavedMechanicsVersion).toHaveBeenCalledTimes(1));
+  expect(screen.queryByRole('region',{name:'Saved statblock'})).toBeNull();
+  resolve(opened());
+  expect(await screen.findByRole('region',{name:'Saved statblock'})).toBeInTheDocument();
+});
+
+it('does not render a response belonging to another World',async()=>{
+  vi.mocked(api.openSavedMechanicsVersion).mockResolvedValueOnce({...opened(),world_id:'another-world'});
+  render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);
+  await userEvent.click(screen.getByRole('button',{name:'Open saved mechanics'}));
+  await screen.findByText('Saved version identity changed.');
+  expect(screen.queryByRole('region',{name:'Saved statblock'})).toBeNull();
+  expect(screen.queryByLabelText('Creature name')).toBeNull();
+});
+
+it('keeps the failed read actionable without fabricating a statblock',async()=>{
+  vi.mocked(api.openSavedMechanicsVersion).mockRejectedValueOnce(new Error('Exact mechanics unavailable'));
+  render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);
+  await userEvent.click(screen.getByRole('button',{name:'Open saved mechanics'}));
+  await screen.findByText('Exact mechanics unavailable');
+  expect(screen.queryByRole('region',{name:'Saved statblock'})).toBeNull();
+  await load();
+  expect(screen.getByRole('region',{name:'Saved statblock'})).toBeInTheDocument();
+  expect(api.saveMechanicsRevision).not.toHaveBeenCalled();
+});
+
+
+it.each(['unavailable','identity'])('keeps a committed Save distinct from a failed successor read (%s)',async failure=>{
+  vi.mocked(api.saveMechanicsRevision).mockImplementation(async(_d,body)=>({...outcome,operation_id:body.operation_id}));
+  render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await load();await edit();await validate();
+  if(failure==='unavailable')vi.mocked(api.openSavedMechanicsVersion).mockRejectedValueOnce(new Error('Saved successor temporarily unavailable'));
+  else vi.mocked(api.openSavedMechanicsVersion).mockResolvedValueOnce({...opened(next.revision_id),world_id:'another-world'});
+  await userEvent.click(screen.getByRole('button',{name:'Save new version'}));
+  await screen.findByText(failure==='unavailable'?'Saved successor temporarily unavailable':'Saved version identity changed.');
+  expect(screen.queryByText('New mechanics version saved. Encounters and World associations are unchanged.')).toBeNull();
+  expect(within(screen.getByRole('region',{name:'Saved statblock'})).getByRole('heading',{name:'Ironhide Brute'})).toBeInTheDocument();
+  expect(screen.getByLabelText('Creature name')).toBeDisabled();
+  await userEvent.click(screen.getByRole('button',{name:'Open saved successor'}));
+  await waitFor(()=>expect(within(screen.getByRole('region',{name:'Saved statblock'})).getByRole('heading',{name:'Stronger keeper'})).toBeInTheDocument());
+  expect(screen.queryByRole('button',{name:'Open saved successor'})).toBeNull();
+  expect(api.saveMechanicsRevision).toHaveBeenCalledTimes(1);expect(api.recoverMechanicsRevision).not.toHaveBeenCalled();
+});
+
+it('retains a committed successor selection through reload after its read fails',async()=>{
+  vi.mocked(api.saveMechanicsRevision).mockImplementation(async(_d,body)=>({...outcome,operation_id:body.operation_id}));
+  const first=render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await load();await edit();await validate();
+  vi.mocked(api.openSavedMechanicsVersion).mockRejectedValueOnce(new Error('Saved successor temporarily unavailable'));
+  await userEvent.click(screen.getByRole('button',{name:'Save new version'}));await screen.findByText('Saved successor temporarily unavailable');first.unmount();
+  render(<SavedMechanicsRevisionEditor worldId={world} draftId={draft}/>);await load();
+  expect(within(screen.getByRole('region',{name:'Saved statblock'})).getByRole('heading',{name:'Stronger keeper'})).toBeInTheDocument();
+  expect(api.openSavedMechanicsVersion).toHaveBeenLastCalledWith(draft,world,next.revision_id);expect(api.saveMechanicsRevision).toHaveBeenCalledTimes(1);
 });
