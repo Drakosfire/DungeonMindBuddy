@@ -21,3 +21,10 @@ it('fails closed on a changed inspection pin and retries without changing the re
  vi.mocked(inspectNativeGraph).mockResolvedValueOnce({schema:'dmb_native_graph_entity_v1',scope:{...pin,revision_id:'latest'},entity:{found:true,assertions:[],evidence:[],completeness:{status:'complete',reason:null}}});
  render(<SurfaceGraphReferenceInput worldId="world" value={[ref]} onChange={vi.fn()} readOnly/>);fireEvent.click(screen.getByRole('button',{name:'Inspect Ooze'}));expect(await screen.findByRole('alert')).toHaveTextContent('did not match');expect(listWorldMechanicsAssociations).not.toHaveBeenCalled();fireEvent.click(screen.getByRole('button',{name:'Retry object preview'}));await screen.findByText('No statblock linked in this view.');
 });
+
+it('retains the popup across equivalent reference hydration, and closes it on selection removal',async()=>{
+ const view=render(<SurfaceGraphReferenceInput worldId="world" value={[ref]} onChange={vi.fn()} readOnly/>);fireEvent.click(screen.getByRole('button',{name:'Inspect Ooze'}));await screen.findByText('No statblock linked in this view.');
+ view.rerender(<SurfaceGraphReferenceInput worldId="world" value={[{...ref}]} onChange={vi.fn()} readOnly/>);expect(screen.getByRole('dialog',{name:'Object · Ooze'})).toBeVisible();expect(inspectNativeGraph).toHaveBeenCalledTimes(1);
+ view.rerender(<SurfaceGraphReferenceInput worldId="world" value={[]} onChange={vi.fn()} readOnly/>);expect(screen.queryByRole('dialog')).toBeNull();
+ view.rerender(<SurfaceGraphReferenceInput worldId="world" value={[ref]} onChange={vi.fn()} readOnly/>);expect(screen.queryByRole('dialog')).toBeNull();
+});
