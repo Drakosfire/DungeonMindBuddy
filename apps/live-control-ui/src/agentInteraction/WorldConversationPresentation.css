@@ -241,9 +241,5 @@
   }
 }
 
-/* Routine writing keeps diagnostics available through the shared menu. */
-.conversation-dock[data-diagnostics-visible="false"] .world-plan-agent-conversation__turn-debug,
-.conversation-dock[data-diagnostics-visible="false"] .world-plan-agent-conversation__evidence-trail { display: none; }
+/* Reply diagnostics live in their own closed Details view. No second menu gate. */
 .conversation-dock__menu > summary::after { content: none; }
-.conversation-dock[data-diagnostics-visible="false"] .world-plan-agent-conversation__technical-details { display: none; }
-.conversation-dock[data-diagnostics-visible="false"] .world-plan-agent-conversation__answer-basis { display: none; }

@@ -61,8 +61,9 @@ export function isSurfaceGraphInput(
     || typeof assembled.tokenizer_version !== "string" || !assembled.tokenizer_version.trim()
     || !Number.isSafeInteger(assembled.provider_envelope_input_tokens) || (assembled.provider_envelope_input_tokens as number) < 0
     || !Number.isSafeInteger(assembled.output_token_reserve) || (assembled.output_token_reserve as number) < 0
-    || !Number.isSafeInteger(assembled.context_window_limit) || (assembled.context_window_limit as number) < 1
-    || (assembled.provider_envelope_input_tokens as number) + (assembled.output_token_reserve as number) > (assembled.context_window_limit as number)
+    || (assembled.context_window_limit !== null && (
+      !Number.isSafeInteger(assembled.context_window_limit) || (assembled.context_window_limit as number) < 1
+      || (assembled.provider_envelope_input_tokens as number) + (assembled.output_token_reserve as number) > (assembled.context_window_limit as number)))
     || !isDigest(assembled.assembled_input_sha256)
     || !isSortedUniqueStringList(assembled.dispatched_assertion_ids, 512)
     || !isSortedUniqueStringList(assembled.dispatched_relationship_ids, 512)

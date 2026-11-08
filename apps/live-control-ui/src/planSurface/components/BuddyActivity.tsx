@@ -1,10 +1,8 @@
 import './BuddyActivity.css'
 import { nativeRetrievalActivity } from './nativeRetrievalActivity'
-import { useState } from 'react'
 import type { AgentConversationTurnLifecycleV1 } from '../../api/types'
 import type { BuddyTraceObservation } from '../../api/buddyContextTraceTypes'
 import { useBuddyTurnInspection } from './BuddyTurnInspection'
-import { BuddyContextTraceLoader } from './BuddyContextTraceLoader'
 
 /** Usage updates for one identified response are not another model arrival.
  * Keep the first receipt in place; the full trace still owns every observation.
@@ -18,6 +16,19 @@ export function activityObservations(observations: readonly BuddyTraceObservatio
     received.add(key)
     return true
   })
+}
+
+/** Presentation only: the capture owner already binds this material to its writer.
+ * This never establishes completion or grounding, and does not inspect response text.
+ */
+function capturedWriterAttempt(event: BuddyTraceObservation): string | null {
+  if(event.kind!=='context_snapshot'||event.snapshot_kind!=='provider_response')return null
+  const matches=event.materials.flatMap(material=>{
+    if(material.role!=='assistant'||material.state!=='model_context')return []
+    const match=/^unvalidated-provider-answer:([0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}):[0-9a-f]{64}$/.exec(material.item_id)
+    return match?[match[1]]:[]
+  })
+  return matches.length===1?matches[0]:null
 }
 
 function activity(event: BuddyTraceObservation): string {
@@ -42,11 +53,11 @@ function activity(event: BuddyTraceObservation): string {
           : request.observation_ids.join(', ');
       return `Graph ${request.operation}: ${focus} · ${event.result.outcome}.`;
     }
-    case 'provider_call': return event.outcome === 'authorized' ? 'Model call cleared for takeoff…'
-      : event.outcome === 'response_received' ? 'A model response just landed.' : `Model call · ${event.outcome}.`
-    case 'prompt_reference': return 'Notes packed for the next model call.'
+    case 'provider_call': return event.outcome === 'authorized' ? 'Waiting for a response…'
+      : event.outcome === 'response_received' ? 'A response has arrived.' : `Model call · ${event.outcome}.`
+    case 'prompt_reference': return 'Preparing the request…'
     case 'context_snapshot': return event.snapshot_kind === 'provider_input' ? 'Laying out the notes…'
-      : event.snapshot_kind === 'provider_response' ? 'Response captured for inspection.'
+      : event.snapshot_kind === 'provider_response' ? 'Checking the response…'
       : event.snapshot_kind === 'validated_answer' ? 'The reply is assembled.'
       : event.snapshot_kind === 'compaction_input' ? 'Taking stock of the notes…'
       : event.snapshot_kind === 'compaction_output' ? 'The notes after a tidy-up.' : 'A captured snapshot of the notes.'
@@ -57,25 +68,30 @@ function activity(event: BuddyTraceObservation): string {
 }
 
 /** Must live inside the exact turn inspection owner; no additional polling owner. */
-export function BuddyActivity({ worldId, conversationId, turnId, lifecycle }: { worldId: string; conversationId: string; turnId: string; lifecycle: AgentConversationTurnLifecycleV1 }) {
-  const [open, setOpen] = useState(false)
+export function BuddyActivity({ worldId, conversationId, turnId, lifecycle, onInspect }: { worldId: string; conversationId: string; turnId: string; lifecycle: AgentConversationTurnLifecycleV1; onInspect: () => void }) {
   const binding = {worldId, conversationId, turnId}
   // Running work is observed even while collapsed; terminal traces load on demand.
-  const inspection = useBuddyTurnInspection(binding, open || lifecycle === 'accepted' || lifecycle === 'running')
+  const inspection = useBuddyTurnInspection(binding, lifecycle === 'accepted' || lifecycle === 'running')
   const trace = inspection.data?.attempts.at(-1)
   const observations = activityObservations(trace?.observations ?? [])
   const last = observations.at(-1)
   const focus = [...observations].reverse().find(event => nativeRetrievalActivity(event) !== null || event.kind === 'graph_tool' || event.kind === 'source_passage'
     || event.kind === 'source_passage_reuse' || event.kind === 'authored_graph_reference_v1')
-  const progress = last && focus && last.kind !== 'failure'
-    && (last.kind === 'context_snapshot' && last.snapshot_kind !== 'validated_answer'
-      || last.kind === 'prompt_reference' && last.provider === 'typesafe'
-      || last.kind === 'provider_call' && last.provider === 'typesafe') ? focus : last
+  const writer = [...observations].reverse().find(event => capturedWriterAttempt(event) !== null)
+  // Usage arrives after capture; it is the same response, not another call or phase.
+  const checkpoint = [...observations].reverse().find(event => event.kind!=='provider_call' && event.kind!=='prompt_reference'
+    || event.kind==='provider_call' && event.outcome!=='response_received')
+  const candidate = last?.kind==='provider_call' && last.outcome==='response_received' && writer
+    && last.provider_attempt_id===capturedWriterAttempt(writer)
+    ? checkpoint && checkpoint.sequence>writer.sequence ? checkpoint : writer : last
+  const progress = candidate && focus && candidate.kind !== 'failure' && capturedWriterAttempt(candidate) === null
+    && (candidate.kind === 'context_snapshot' && candidate.snapshot_kind !== 'validated_answer'
+      || candidate.kind === 'prompt_reference' && candidate.provider === 'typesafe'
+      || candidate.kind === 'provider_call' && candidate.provider === 'typesafe') ? focus : candidate
   const failed = lifecycle === 'failed' || lifecycle === 'interrupted' || trace?.terminal_status === 'failed' || trace?.terminal_status === 'interrupted'
   const label = inspection.running ? progress ? activity(progress) : 'Getting the notes together…'
-    : failed ? 'Reply error report' : 'How this reply came together'
-  return <details className="buddy-activity" data-running={inspection.running} onToggle={event => setOpen(event.currentTarget.open)}>
-    <summary>
+    : failed ? 'Reply error report' : 'Reply details'
+  return <button type="button" className="buddy-activity buddy-activity--shortcut" data-running={inspection.running} onClick={onInspect}>
       {inspection.running && <svg className="buddy-activity__bubble" viewBox="0 0 32 28" width="28" height="25" aria-hidden="true" focusable="false">
         <path d="M8 20c-4-1-6-4-6-8C2 6 8 2 16 2s14 4 14 10-6 10-14 10h-3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
         <circle cx="8" cy="23" r="2" fill="none" stroke="currentColor" strokeWidth="1.4"/>
@@ -83,9 +99,5 @@ export function BuddyActivity({ worldId, conversationId, turnId, lifecycle }: { 
         {[10,16,22].map(cx=><circle key={cx} className="buddy-activity__dot" cx={cx} cy="12" r="1.7" fill="currentColor"/>)}
       </svg>}
       <span role="status" aria-live="polite" title={label}>{label}</span>
-    </summary>
-    {open && <div className="buddy-activity__body">
-      <BuddyContextTraceLoader {...binding} enabled />
-    </div>}
-  </details>
+  </button>
 }

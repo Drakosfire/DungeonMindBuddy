@@ -126,3 +126,39 @@ it('refuses campaign-scoped V4 presentation even with an empty authored catalog'
     authority:{...c.receipt.native_query.authority,scope_mode:'campaign',campaign_id:'c1'}};
   expect(isNativeGraphQuery(q,c.receipt.work_context.source_basis.world_id)).toBe(false);
 });
+
+
+import providerCapacityWire from '../test/surface-native-provider-capacity-http.json';
+it('accepts the actual current Plan HTTP receipt with provider-owned capacity',()=>{
+  const c=structuredClone(providerCapacityWire.context);
+  expect(c.receipt.assembled_input.context_window_limit).toBeNull();
+  expect(c.receipt.assembled_input.output_token_reserve).toBe(0);
+  expect(isSurfaceNativeReceipt(c.receipt,work)).toBe(true);
+  expect(isSurfaceNativeContext(c,work,()=>true)).toBe(true);
+});
+it.each([0,-1,'128000',false,undefined,Number.NaN])('refuses malformed current provider capacity %s',window=>{
+  const c=structuredClone(providerCapacityWire.context);
+  Object.assign(c.receipt.assembled_input,{context_window_limit:window});
+  expect(isSurfaceNativeReceipt(c.receipt,work)).toBe(false);
+});
+it.each(['count','reserve','hash','world'])('provider-owned capacity preserves current %s presentation checks',change=>{
+  const c=structuredClone(providerCapacityWire.context);
+  if(change==='count')c.receipt.assembled_input.provider_envelope_input_tokens=-1;
+  if(change==='reserve')c.receipt.assembled_input.output_token_reserve=-1;
+  if(change==='hash')c.receipt.assembled_input.assembled_input_sha256='not-a-hash';
+  if(change==='world')c.receipt.source_authority.managed_world_id='foreign';
+  expect(isSurfaceNativeReceipt(c.receipt,work)).toBe(false);
+});
+
+
+it('accepts semantic initial input only for fresh Build, preserving old receipt readers',()=>{
+  const build=structuredClone(buildWire.proposal_wire.response.knowledge_context.receipt);
+  expect(isSurfaceNativeReceipt(build,buildWork)).toBe(true);
+  Object.assign(build.assembled_input,{assembler_version:'native_build_semantic_initial_v2'});
+  expect(isSurfaceNativeReceipt(build,buildWork)).toBe(true);
+  const plan=context().receipt;
+  Object.assign(plan.assembled_input,{assembler_version:'native_build_semantic_initial_v2'});
+  expect(isSurfaceNativeReceipt(plan,work)).toBe(false);
+  Object.assign(build.assembled_input,{assembler_version:'unknown-native-input'});
+  expect(isSurfaceNativeReceipt(build,buildWork)).toBe(false);
+});

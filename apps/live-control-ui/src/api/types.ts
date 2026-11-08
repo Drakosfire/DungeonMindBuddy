@@ -1003,7 +1003,7 @@ export interface WorldPlanGraphContextReceiptV1 {
     tokenizer_version: string;
     provider_envelope_input_tokens: number;
     output_token_reserve: number;
-    context_window_limit: number;
+    context_window_limit: number | null;
     dispatched_packet_sha256: string | null;
     dispatched_assertion_ids: string[];
     dispatched_relationship_ids: string[];
@@ -1154,7 +1154,7 @@ export interface PlanSourceContextReceiptV1 {
   graph_capability:WorldPlanGraphContextReceiptV1|null;
   assembled_input:{assembler_version:'plan_source_jev_initial_v1';provider_model_name:string;provider_model_version:string;
     tokenizer_name:string;tokenizer_version:string;provider_envelope_input_tokens:number;output_token_reserve:number;
-    context_window_limit:number;included_history:WorldPlanGraphContextReceiptV1['assembled_input']['included_history'];assembled_input_sha256:string};
+    context_window_limit:number|null;included_history:WorldPlanGraphContextReceiptV1['assembled_input']['included_history'];assembled_input_sha256:string};
 }
 export interface NativePlanQueryAuthorityV1 {
   schema:'dmb_native_plan_query_authority_v1';managed_world_id:string;native_world_id:string;binding_version:number;
@@ -1202,7 +1202,7 @@ export interface SurfaceNativeContextReceiptV1 {
   context_receipt_sha256:string;provenance_sha256:string;work_context:SurfaceNativeWorkContextV1;
   source_authority:PlanSourceContextReceiptV1['source_authority'];
   native_query:NativeGraphQueryV4|NativeGraphQueryV3|NativePlanQueryV2|Extract<PlanNativeContextReceiptV1['native_query'],{schema:'dmb_native_plan_query_unavailable_v1'}>;
-  assembled_input:(Omit<PlanSourceContextReceiptV1['assembled_input'],'assembler_version'> & {assembler_version:'surface_native_initial_v1'})
+  assembled_input:(Omit<PlanSourceContextReceiptV1['assembled_input'],'assembler_version'> & {assembler_version:'surface_native_initial_v1'|'native_build_semantic_initial_v2'})
     | {assembler_version:'reviewed_author_admission_v1';submitted_intent_sha256:string;assembled_input_sha256:string};
 }
 export interface SurfaceNativeCompletionV1 {
