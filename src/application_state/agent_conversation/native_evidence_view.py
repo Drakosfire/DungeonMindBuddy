@@ -1,6 +1,7 @@
 """Provider-only World evidence; exact host reads remain the existing authority."""
 
 from copy import deepcopy
+import json
 
 FIELDS = frozenset(
     {
@@ -120,6 +121,8 @@ def semantic_frame(host):
             identities.add(value["value"]["entity_id"])
     entities = {identity: f"entity{i}" for i, identity in enumerate(sorted(identities))}
     assertions = []
+    qualifications = {}
+    qualification_aliases = {}
     for i, row in enumerate(assertion_rows):
         assertion = row["assertion"]
         value = deepcopy(assertion["value"])
@@ -162,6 +165,15 @@ def semantic_frame(host):
                 ),
             )
         )
+        presented = assertions[-1]['assertion']
+        metadata = presented.pop('metadata')
+        key = json.dumps(metadata, ensure_ascii=False, sort_keys=True,
+                         separators=(',', ':'), allow_nan=False)
+        if key not in qualification_aliases:
+            alias = f'qualification{len(qualification_aliases)}'
+            qualification_aliases[key] = alias
+            qualifications[alias] = metadata
+        presented['qualification'] = qualification_aliases[key]
     statements = []
     for i, row in enumerate(statement_rows):
         payload = row["payload"]
@@ -257,6 +269,7 @@ def semantic_frame(host):
         else dict(
             status=host["native_assertions"]["status"],
             assertions=assertions,
+            qualifications=qualifications,
             universal_absence_claimed=False,
         ),
     )
@@ -264,7 +277,36 @@ def semantic_frame(host):
 
 def output_frame(host, provider):
     """Transient shape for the existing output-schema owner, never sent as context."""
-    return host | provider
+    return host | _inline_qualifications(provider)
+
+
+def _inline_qualifications(frame):
+    """Resolve a closed dictionary presentation without granting evidence credit.
+
+    Inline frames are retained historical requests. Current producers always
+    emit the dictionary; exact host reconstruction still owns input admission.
+    """
+    collection = frame.get('native_assertions')
+    if collection is None or 'qualifications' not in collection:
+        return frame
+    definitions = collection['qualifications']
+    if not isinstance(definitions, dict):
+        raise ValueError('Malformed context qualification dictionary')
+    rows, used = [], set()
+    for row in collection['assertions']:
+        assertion = row['assertion']
+        alias = assertion.get('qualification')
+        if (not isinstance(alias, str) or alias not in definitions
+                or 'metadata' in assertion or not isinstance(definitions[alias], dict)):
+            raise ValueError('Unbound context qualification')
+        used.add(alias)
+        expanded = {key: value for key, value in assertion.items() if key != 'qualification'}
+        rows.append(row | {'assertion': expanded | {'metadata': definitions[alias]}})
+    if used != set(definitions):
+        raise ValueError('Unused context qualification')
+    return frame | {'native_assertions': {
+        key: value for key, value in collection.items() if key != 'qualifications'
+    } | {'assertions': rows}}
 
 
 def semantic_frame_in_request(body, *, legacy_schemas):
@@ -304,7 +346,7 @@ def world_context_representation(frame):
     """Classify only declared qualification slots, never nested source text."""
     forms = set()
     try:
-        collection = frame["native_assertions"]
+        collection = _inline_qualifications(frame)["native_assertions"]
         rows = collection["assertions"] if collection is not None else []
         for row in rows:
             for entry in row["assertion"]["metadata"]["domain_metadata"]:
@@ -332,7 +374,11 @@ def expected_semantic_frame(host, actual):
     or emit alternate prompts; original request and frame bindings remain exact.
     """
     expected = semantic_frame(host)
+    actual_collection = actual.get('native_assertions')
+    if actual_collection is not None and 'qualifications' not in actual_collection:
+        expected = _inline_qualifications(expected)
     if world_context_representation(actual) == "historical":
+        expected = _inline_qualifications(expected)
         collection = expected["native_assertions"]
         for row in collection["assertions"] if collection is not None else []:
             entries = row["assertion"]["metadata"]["domain_metadata"]
