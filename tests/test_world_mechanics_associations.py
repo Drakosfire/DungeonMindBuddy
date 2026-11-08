@@ -19,6 +19,8 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.generated impo
 from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import CreateStatblockResult, locator_from_exact_revision
 from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import canonicalize_definition_dict, source_definition_digest_from_body
 from application_state.world_mechanics import service as state
+from application_state.world_mechanics.types import WorldMechanicsTarget
+from apps.live_control_server.services import world_creature_selection as creatures
 
 FIXTURES=Path(__file__).parent/'fixtures/statblocks/v1'
 
@@ -57,12 +59,11 @@ def prepared(application_state_dsn,monkeypatch,tmp_path):
     draft=get_threat_draft(tmp_path,draft.draft_id)
     target=dict(managed_world_id='elderwyld',native_world_id='world:opaque',binding_version=1,
         graph_revision_id='rev:head',node_id='node:keeper',label='Keeper',kind='npc',role='',campaign_scope=None)
-    node=SimpleNamespace(node_id=target['node_id'],label=target['label'],kind='npc',role='',campaign_scope=None)
     view=SimpleNamespace(managed_world_id='elderwyld',native_world_id='world:opaque',binding_version=1,
-        projection=SimpleNamespace(nodes=[node],snapshot=SimpleNamespace(is_head=True,revision_id='rev:head')))
+        targets=[WorldMechanicsTarget(**target)],revision_id='rev:head',head_revision_id='rev:head')
     binding=SimpleNamespace(native_world_id='world:opaque',binding_version=1)
-    monkeypatch.setattr(orchestration,'project_managed_world_graph',lambda request:view)
-    monkeypatch.setattr(orchestration,'resolve_managed_world_binding',lambda world:binding)
+    monkeypatch.setattr(creatures,'catalog',lambda world,**kwargs:view)
+    monkeypatch.setattr(creatures.native,'binding',lambda world:vars(binding).copy())
     monkeypatch.setattr(orchestration,'build_statblock_v1_client',lambda:dms)
     monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(tmp_path))
     from apps.live_control_server.routes import world_mechanics_associations as routes
@@ -97,10 +98,10 @@ def test_http_exact_proof_append_replay_and_reopen(prepared,monkeypatch):
 @pytest.mark.parametrize('change',['head','mapping','label','kind','draft','foreign','node'])
 def test_http_stale_or_forged_target_never_writes(prepared,change):
     p=prepared
-    if change=='head':p.view.projection.snapshot.revision_id='rev:new'
+    if change=='head':p.view.revision_id='rev:new'
     elif change=='mapping':p.binding.binding_version=2
     elif change=='label':p.body['target']['label']='Forged'
-    elif change=='kind':p.view.projection.nodes[0].kind='location';p.body['target']['kind']='location'
+    elif change=='kind':p.view.targets[0]=p.view.targets[0].model_copy(update={'kind':'location'});p.body['target']['kind']='location'
     elif change=='draft':p.body['expected_draft_version']+=1
     elif change=='foreign':p.body['target']['managed_world_id']='foreign'
     elif change=='node':p.body['target']['node_id']='node:missing'
@@ -172,3 +173,16 @@ def test_draft_lock_is_held_through_short_app_append(prepared,monkeypatch):
         monkeypatch.setattr(state,'append_verified',verify_lock)
         assert post(p).status_code==200
         assert observed[0].result(timeout=3)==p.draft
+
+
+def test_same_entity_scope_variants_save_only_the_explicit_selected_witness(prepared):
+    p=prepared
+    original=p.view.targets[0]
+    p.view.targets=[original.model_copy(update={'campaign_scope':'c1'}),original.model_copy(update={'campaign_scope':'c2'})]
+    p.body['target']['campaign_scope']='c2'
+    response=post(p)
+    assert response.status_code==200,response.text
+    assert response.json()['association']['request']['target']['campaign_scope']=='c2'
+    forged={**p.body,'request_id':str(uuid4()),'expected_version':1,'target':{**p.body['target'],'campaign_scope':None}}
+    assert post(p,forged).status_code==409
+    assert state.list_current(world_id='elderwyld')[0].request.target.campaign_scope=='c2'
