@@ -357,16 +357,25 @@ export function LocalWorldNotesEditor({
 
   const keepSavedVersion = useCallback(async (candidate: LocalWorldConflictCandidate) => {
     if (busy.current || disabled) return;
+    const candidateId = candidate.id;
+    const candidateValue = notesFromCandidate(candidate);
+    const pendingAtStart = getPendingWorldNotesDraft(worldId);
     busy.current = true;
     onBusyChange(true);
     try {
-      const result = await repository.discardWorldNotesConflict(worldId, candidate.id);
+      const result = await repository.discardWorldNotesConflict(worldId, candidateId);
       if (result !== "discarded") {
         setMessage("The conflict candidate could not be discarded and remains stored.");
         updateStatus("error");
         return;
       }
-      setConflictCandidates((current) => current.filter((item) => item.id !== candidate.id));
+      const currentPending = getPendingWorldNotesDraft(worldId);
+      const discardsMatchingPending = pendingAtStart !== undefined
+        && candidateValue !== null
+        && pendingAtStart.value === candidateValue
+        && currentPending?.token === pendingAtStart.token;
+      if (discardsMatchingPending) clearPendingWorldNotesDraft(worldId, pendingAtStart.token);
+      setConflictCandidates((current) => current.filter((item) => item.id !== candidateId));
       onPendingChange();
       selectedConflict.current = null;
       setSelectedConflictId(null);
@@ -380,7 +389,7 @@ export function LocalWorldNotesEditor({
       setMessage(pending && pending.value !== savedRef.current
         ? "Discarded the selected conflict candidate; your newer unsaved tab draft remains available."
         : "Kept the current saved note and discarded the selected conflict candidate.");
-      const otherCandidatesRemain = conflictCandidates.some((item) => item.id !== candidate.id);
+      const otherCandidatesRemain = conflictCandidates.some((item) => item.id !== candidateId);
       updateStatus(pending && pending.value !== savedRef.current
         ? "dirty"
         : otherCandidatesRemain ? "conflict" : "saved");
