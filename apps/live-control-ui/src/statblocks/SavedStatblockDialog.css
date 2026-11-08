@@ -35,3 +35,6 @@
 .saved-statblock-inline-slot .saved-statblock-frame > header { flex-wrap:wrap; }
 
 .saved-statblock-mount { min-inline-size:0; min-block-size:0; display:flex; flex-direction:column; }
+
+/* A shared editable object uses the message track, not the text-bubble width. */
+.world-plan-agent-conversation__message:has(.saved-statblock-inline-slot:not(:empty)) { inline-size:100%; max-inline-size:100%; }

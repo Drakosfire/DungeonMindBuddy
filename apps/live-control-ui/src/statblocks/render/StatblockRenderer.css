@@ -139,3 +139,13 @@
 
 .statblock-renderer-portrait { margin: .8rem 0; break-inside: avoid; }
 .statblock-renderer-portrait img { display: block; max-width: 100%; max-height: 24rem; width: auto; height: auto; border-radius: .35rem; }
+
+/* Size the shared render to its host, including a narrow conversation column. */
+.statblock-renderer { container:statblock / inline-size; min-inline-size:0; max-inline-size:100%; box-sizing:border-box; }
+.statblock-renderer dd { min-inline-size:0; overflow-wrap:anywhere; }
+@container statblock (max-width:32rem) {
+  .statblock-renderer.statblock-renderer--campaign .statblock-campaign-grid,
+  .statblock-renderer.statblock-renderer--campaign .statblock-campaign-vitals div,
+  .statblock-renderer.statblock-renderer--campaign .statblock-campaign-quickfacts div,
+  .statblock-renderer-core div, .statblock-rule-meta div { grid-template-columns:minmax(0,1fr); }
+}
