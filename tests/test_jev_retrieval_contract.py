@@ -531,6 +531,20 @@ def test_acquired_records_are_data_not_choices_and_old_codecs_remain_closed():
     wire = json.dumps(dict(model=prepared.model, state=prepared.state, questions={q.name: dict(
         type='choice', instructions=q.question, criteria=dict.fromkeys(q.options)) for q in prepared.questions})).encode()
     c.validate_wire_body(parent, wire)
+    from dataclasses import replace
+    from hashlib import sha256
+    from generationengine.decision_dispatch import PreparedDecisionDispatch, DecisionContextMode
+    assert c.acquired_record_context_mode(parent) is DecisionContextMode.LONG_CONTEXT
+    dispatch = PreparedDecisionDispatch(str(uuid4()), PROVIDER, 'vercel_ai_gateway', MODEL,
+        'POST', 'https://ai-gateway.vercel.sh/typesafe/v1/systemone', wire,
+        sha256(wire).hexdigest(), len(wire))
+    with pytest.raises(ValueError, match='context mode'):
+        c.validate_prepared_decision(parent, dispatch)
+    c.validate_prepared_decision(parent, replace(dispatch, context_mode=DecisionContextMode.LONG_CONTEXT))
+    empty = parent.model_copy(update={'acquired_records': {
+        'native_statements': {'statements': []}, 'native_assertions': None}})
+    assert c.acquired_record_context_mode(empty) is DecisionContextMode.DEFAULT
+    assert not {'context_mode', 'context_accounting', 'phase'} & prepared.state.keys()
     changed = json.loads(wire)
     changed['state']['acquired_records']['native_assertions']['assertions'] = []
     with pytest.raises(ValueError, match='changed'):

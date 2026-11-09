@@ -101,3 +101,39 @@ that test to its142 owner passes; no runtime/Rules/schema fix was absorbed. Init
 wrong default test-DB configuration and fake-SDK rejected-grant lifecycle failures
 are preserved, corrected at their fixture owners, not presented as product passes.
 Evidence: retrieval-acquired-records-v1. Paid changed cohort remains pending.
+
+## First ordinary result and bounded revision
+
+The1882ab900 trial dispatched Q01/Q02/Q03 only. Q01 reached ready context and
+independently preserves its required source support. Q02/Q03 received TypeSafe
+INVALID_REQUEST on their first record-bearing continuation; both workers stopped,
+twelve cases never dispatched. The original contexts, exact requests, input
+observations and failures are retained; no unchanged calls were replayed.
+
+Q02/Q03 largest-question o200k proxies37917/31482 are consistent with Jev's
+published default32000-token per-question limit (64000 per request). Actual
+error bodies were not retained by GE's mapper, so this is a capacity hypothesis,
+not an independently proven specific error message. Source: docs.typesafe.ai/models.
+
+Root revises this same capability at its existing Plan dispatch owner: reuse GE's
+already installed LONG_CONTEXT transport for V3 inputs carrying admitted records;
+empty navigation stays DEFAULT. Verify the exact prepared mode before admission.
+Keep the mode host-side, not in model state. No token asset/dependency, new cap,
+truncation, fallback, provider/model change or new ledger. This conservative mode
+also covers small record-bearing inputs; its latency/reliability cost is part of
+the experiment, not a promised gain. Official long mode allows262k per request
+and question, with the same token price; it is documented as slower/less accurate.
+
+All existing source/byte/scope/accounting checks remain. Mode choice is derived
+from this closed Plan input contract and enforced against the actual prepared
+dispatch; source/code pins distinguish this revision from the DEFAULT trial.
+Requalify actual SDK header behavior and rejection of the wrong prepared mode.
+Only then run the same15cases under the changed configuration, fresh clones,
+normal accounting, retained failed first trial and unchanged control. No new
+expected write paths or independently useful capability are absorbed.
+
+Revised mode qualification:78 pure contract/object tests and18 actual SDK/APP
+checks pass. The real guarded SDK sends the long-context header exactly for
+record-bearing V3; empty navigation and all historical/Build renderers preserve
+their prior behavior. Wrong prepared mode refuses before dispatch; mode/accounting
+fields remain absent from model state. No new dependency or write path added.

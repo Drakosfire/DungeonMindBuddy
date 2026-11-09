@@ -181,6 +181,24 @@ def fallback_options(request: RetrievalDecisionInput) -> tuple[str, str]:
             else ("finish_retrieval", "finish_with_gaps"))
 
 
+def acquired_record_context_mode(request):
+    """Existing provider capacity mode, never a prompt field or evidence grant.
+
+    Plan has no prepared tokenizer dependency. Conservatively use the existing
+    long-context transport when supplying records, rather than truncate facts or
+    pretend an offline proxy is Jev's tokenizer. Empty navigation stays default.
+    """
+    from generationengine.decision_dispatch import DecisionContextMode
+
+    if type(request) is NativeRetrievalDecisionInputV3:
+        records = request.acquired_records
+        assertions = records.get("native_assertions") or {}
+        statements = records.get("native_statements") or {}
+        if assertions.get("assertions") or statements.get("statements"):
+            return DecisionContextMode.LONG_CONTEXT
+    return DecisionContextMode.DEFAULT
+
+
 def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=None) -> DecisionRequest:
     """One typed batch, without Plan bodies, host metadata or writer instructions."""
     shared_relevance = (type(request) in _SHARED_RELEVANCE_TYPES
@@ -381,6 +399,8 @@ def validate_prepared_decision(request: RetrievalDecisionInput, prepared, *, con
             or sha256(prepared.body).hexdigest() != prepared.body_sha256):
         raise ValueError("Prepared decision wire identity differs")
     UUID(prepared.attempt_id)
+    if type(request) is NativeRetrievalDecisionInputV3 and prepared.context_mode is not acquired_record_context_mode(request):
+        raise ValueError("Prepared record context mode differs from its Plan owner")
     validate_wire_body(request, prepared.body, controller_accounting=controller_accounting)
 
 

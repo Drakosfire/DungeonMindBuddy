@@ -120,6 +120,11 @@ class PlanJevDispatch:
 
     async def select_context(self, prepared):
         from generationengine.decision_dispatch import DecisionContextMode
+        from application_state.agent_conversation.jev_retrieval_contract import (
+            NativeRetrievalDecisionInputV3, acquired_record_context_mode,
+        )
+        if type(self.parent) is NativeRetrievalDecisionInputV3:
+            return acquired_record_context_mode(self.parent)
         if self._native_accounting() is None:
             return DecisionContextMode.DEFAULT
         accounting = self.adapter._build_jev_accounting

@@ -161,6 +161,9 @@ def sdk_case(
             from apps.live_control_server.services.agent_turn_service import (
                 _json_node_count,
             )
+            if not semantic and native == 'records':
+                from application_state.agent_conversation.jev_retrieval_contract import validate_prepared_decision
+                validate_prepared_decision(parent, prepared)
 
             count = len(prepared.body) + 64 * (
                 1 + _json_node_count(json.loads(prepared.body))
@@ -317,6 +320,11 @@ def sdk_case(
                 case.sent.append(request)
                 assert request.content == step.proof["request_json"].encode()
                 body = json.loads(request.content)
+                if not semantic and native == 'records':
+                    from application_state.agent_conversation.jev_retrieval_contract import acquired_record_context_mode
+                    mode = acquired_record_context_mode(parent)
+                    assert (request.headers.get('TypeSafe-Danger-Zone-Long-Context') == 'true') == (mode.value == 'long_context')
+                    assert 'context_mode' not in body['state']
                 assert not {"scope_sha256", "request_id", "parent_attempt_id"} & set(
                     body["state"]
                 )
@@ -348,12 +356,15 @@ def sdk_case(
                 )
 
         async def run():
+            async def select_context(prepared):
+                from application_state.agent_conversation.jev_retrieval_contract import acquired_record_context_mode
+                return acquired_record_context_mode(parent)
             client = GenerationClient(
                 decision_providers={
                     "typesafe": TypeSafeDecisionProvider(
                         api_key="synthetic-not-secret",
                         transport=Wire(),
-                        dispatch_gate=DecisionDispatchGate(authorize, record),
+                        dispatch_gate=DecisionDispatchGate(authorize, record, select_context=select_context),
                     )
                 }
             )
@@ -654,6 +665,8 @@ def test_acquired_records_use_exact_authorization_prefix_and_current_producer(ap
         assert type(current.parent) is NativeRetrievalDecisionInputV3
         assert current.parent.acquired_records == acquired_records(
             case.turn.graph_context_receipt, case.turn.graph_context_execution)
+        from generationengine.decision_dispatch import DecisionContextMode
+        assert asyncio.run(current.select_context(None)) is DecisionContextMode.LONG_CONTEXT
     assert append(case)
     assert not append(case)
     assert case.service.inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id) == case.turn
