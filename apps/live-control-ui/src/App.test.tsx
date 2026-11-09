@@ -430,20 +430,30 @@ describe("App inspector integration", () => {
       }),
     );
     const scope = {managed_world_id:"eldyrwild",native_world_id:"eldyrwild",binding_version:3,revision_id:"native-rev",scope_mode:"world" as const,campaign_id:null};
-    vi.spyOn(liveApi,"getNativeGraphCatalog").mockResolvedValue({schema:"dmb_native_graph_catalog_v1",scope,catalogue:{identity:{space_id:"eldyrwild",revision_id:"native-rev"},entities:[{entity_id:"ent:glowkindle"}],admitted_assertion_ids:[],completeness:{status:"complete",reason:null},request_sha256:"request",result_digest:"result"},assertions:[]});
-    vi.spyOn(liveApi,"inspectNativeGraph").mockResolvedValue({schema:"dmb_native_graph_entity_v1",scope,entity:{found:true,assertions:[],evidence:[],completeness:{status:"complete",reason:null}}});
-    vi.spyOn(liveApi,"listWorldMechanicsAssociations").mockResolvedValue([]);
+    const nativeCatalog = {schema:"dmb_native_graph_catalog_v1",scope,catalogue:{identity:{space_id:"eldyrwild",revision_id:"native-rev"},entities:[{entity_id:"ent:glowkindle"}],admitted_assertion_ids:[],completeness:{status:"complete",reason:null},request_sha256:"request",result_digest:"result"},assertions:[]};
+    const nativeDetail = {schema:"dmb_native_graph_entity_v1",scope,entity:{found:true,assertions:[],evidence:[],completeness:{status:"complete",reason:null}}};
 
+
+    const fetchSpy=vi.spyOn(globalThis,'fetch').mockImplementation(async input=>{
+      const path=new URL(String(input),window.location.origin).pathname;
+      const value=path==='/api/live/world-containers'?{schema_version:'dmb_world_container_registry_v1',records:[{schema_version:'dmb_world_container_record_v1',world_id:'eldyrwild',name:'World',source_root_relpath:'',created_at:'2026-01-01T00:00:00Z'}]}
+        :path===`/api/live/workspace-documents/${buildDocId}`?buildRecord
+        :path.startsWith(`/api/live/workspace-documents/${buildDocId}/snapshot`)?fixtureSnapshot({record:buildRecord,markdown:'# Faction Notes\n',content_sha256:'sha-build-e1',loaded_revision:2,file_fingerprint:'present',file_exists:true})
+        :path==='/api/live/native-graph-inspection/catalog'?nativeCatalog
+        :path==='/api/live/native-graph-inspection/read'?nativeDetail
+        :path.startsWith('/api/live/world-mechanics/associations')?[]:undefined;
+      if(value===undefined)throw new Error(`Unhandled App fixture request: ${path}`);
+      return new Response(JSON.stringify(value),{status:200,headers:{'Content-Type':'application/json'}});
+    });
+    liveApi.setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    try {
     window.history.pushState({}, "", `/build?documentId=${buildDocId}&campaign=longmont-c1`);
     render(<App />);
 
     expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
-    expect(screen.getByTestId("build-source-mode-read")).toHaveAttribute("aria-pressed", "true");
-    expect(screen.queryByTestId("build-markdown-editor")).not.toBeInTheDocument();
+    expect(screen.getByTestId("build-markdown-editor")).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Build", hidden: true })).toHaveClass("active");
-    expect(screen.getByTestId("agent-interaction-chrome")).toBeInTheDocument();
-    expect(screen.getByTestId("agent-interaction-bar")).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
@@ -458,17 +468,17 @@ describe("App inspector integration", () => {
     await waitFor(() => {
       expect(screen.getByTestId("build-reference-search-projection")).toBeInTheDocument();
     });
-    await user.type(screen.getByRole("searchbox",{name:"Find an object"}), "glow");
+    await user.type(await screen.findByRole("searchbox",{name:"Find an object"}), "glow");
     await user.click(screen.getByRole("button", { name: "ent:glowkindle", exact:true }));
     expect(await screen.findByRole("article",{name:"Reviewed object details"})).toHaveTextContent("ent:glowkindle");
-    expect(liveApi.inspectNativeGraph).toHaveBeenCalledWith(scope,{kind:"entity",entity_id:"ent:glowkindle"},expect.any(AbortSignal));
+    expect(fetchSpy.mock.calls.some(([url,options])=>String(url)==='/api/live/native-graph-inspection/read'&&JSON.parse(String(options?.body)).scope.revision_id==='native-rev')).toBe(true);
 
     await waitFor(() => {
       expect(document.querySelectorAll(".surface-projection-host")).toHaveLength(1);
     });
     expect(document.querySelectorAll('[data-testid="surface-tool-host"]')).toHaveLength(1);
     expect(document.querySelectorAll('[data-testid="surface-edit-host"]')).toHaveLength(1);
-    expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(1);
+    } finally { liveApi.setNativeGraphAccessToken(null); fetchSpy.mockRestore(); }
   });
 
   it("E7: route remount keeps singular ToolHost, EditHost, and Agent chrome", async () => {

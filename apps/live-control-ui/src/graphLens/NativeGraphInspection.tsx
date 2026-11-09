@@ -54,7 +54,7 @@ export function NativeGraphInspection({worldId,onChoose,disabled=false,selection
    <p>This describes the selected published revision, not the completeness of your sources.</p>
    <div className="loaded-graph-explorer__layout"><nav aria-label="Reviewed Graph objects">
     <label htmlFor={queryId}>Find an object</label><input id={queryId} type="search" autoFocus={Boolean(onChoose)} value={query} onChange={e=>setQuery(e.target.value)}/>
-    <ul>{nodes.map(n=><li key={n.entity_id}><button type="button" aria-current={selected===n.entity_id?'true':undefined}
+    <ul>{nodes.map(n=><li key={n.entity_id}><button type="button" aria-label={labels.get(n.entity_id)} aria-current={selected===n.entity_id?'true':undefined}
      onClick={()=>{if(selected===n.entity_id)return;setDetail(null);setDetailFailure(null);setSelected(n.entity_id);}}>{labels.get(n.entity_id)}{onChoose&&<small>{n.entity_id}</small>}</button>{onChoose&&<button type="button" disabled={disabled} aria-label={selectionAction==='Insert link'?`Insert link to ${labels.get(n.entity_id)}`:`Use ${labels.get(n.entity_id)} as context`} onClick={()=>{if(!disabled&&catalog.scope.managed_world_id===worldId)onChoose(catalog.scope,n.entity_id,labels.get(n.entity_id)??n.entity_id);}}>{selectionAction}</button>}</li>)}</ul>
     {!nodes.length?<p>{catalog.catalogue.entities.length?'No matching objects.':'No reviewed objects are available in this view.'}</p>:null}
    </nav><article aria-label="Reviewed object details">

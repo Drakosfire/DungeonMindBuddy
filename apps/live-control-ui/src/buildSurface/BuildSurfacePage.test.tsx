@@ -10,8 +10,6 @@ import * as markdownCanvasSessionModule from "../markdownCanvas/MarkdownCanvasSe
 import { useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
-import { buildGraphObjectCardFromNodeView } from "../graphObjectCard";
-import { referenceFromGraphNode } from "../graphReference/referenceFromGraphNode";
 import { MarkdownCanvasSessionProvider, useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
 import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
@@ -703,6 +701,7 @@ describe("BuildSurfacePage", () => {
       record: {
         schema_version: "dmb_workspace_document_record_v1",
         document_id: DOC_ID,
+        world_id: "eldyrwild",
         title: "Faction Notes",
         campaign_id: "eldyrwild",
         target_session: null,
@@ -740,108 +739,7 @@ describe("BuildSurfacePage", () => {
     local.tiptap_json = editorJson;
     window.localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), JSON.stringify(local));
 
-    const glowNodeView = {
-      node_id: "npc-glowkindle",
-      label: "Glowkindle",
-      kind: "npc",
-      role: "merchant",
-      aliases: ["Glow"],
-      source_domains: ["recap"],
-      evidence_badges: [],
-      adjacency: [
-        {
-          edge_id: "edge-inn",
-          node_id: "location-inn",
-          label: "The Inn",
-          kind: "location",
-          predicate: "located_in",
-          direction: "outgoing" as const,
-          anchored_to_focus_session: true,
-          source_domains: ["recap"],
-          evidence_ref_ids: [],
-          campaign_scope: "longmont-c1",
-        },
-      ],
-      anchored_to_focus_session: true,
-      summary: "A friendly merchant.",
-    };
-
-    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
-      schema: "dmb_world_graph_projection_v1",
-      snapshot: {
-        worldId: "eldyrwild",
-        campaignId: "longmont-c1",
-        revisionId: "rev-1",
-        headRevisionId: "rev-1",
-        isHead: true,
-        focus: { kind: "none", sessionId: null },
-        admissibility: "gm",
-        scopeMode: "campaign",
-      },
-      summary: {
-        nodeCount: 2,
-        relationshipCount: 0,
-        attributeCount: 0,
-        evidenceCount: 0,
-        sourceArtifactCount: 0,
-        projectionTruncated: false,
-      },
-      nodes: [
-        {
-          nodeId: "npc-glowkindle",
-          label: "Glowkindle",
-          kind: "npc",
-          role: "merchant",
-          aliases: ["Glow"],
-          sourceDomains: ["recap"],
-          evidenceBadges: [],
-          adjacency: [
-            {
-              edgeId: "edge-inn",
-              nodeId: "location-inn",
-              label: "The Inn",
-              kind: "location",
-              predicate: "located_in",
-              direction: "outgoing",
-              anchoredToFocusSession: true,
-              sourceDomains: ["recap"],
-              evidenceRefIds: [],
-              sessionIds: [],
-              campaignScope: "longmont-c1",
-            },
-          ],
-          suggestedExpansions: [],
-          evidenceRefIds: [],
-          sourceArtifactIds: [],
-          anchoredToFocusSession: true,
-          summary: "A friendly merchant.",
-        },
-        {
-          nodeId: "location-inn",
-          label: "The Inn",
-          kind: "location",
-          role: "location",
-          aliases: [],
-          sourceDomains: ["recap"],
-          evidenceBadges: [],
-          adjacency: [],
-          suggestedExpansions: [],
-          evidenceRefIds: [],
-          sourceArtifactIds: [],
-          anchoredToFocusSession: true,
-          summary: "Meeting place.",
-        },
-      ],
-      relationships: [],
-      attributes: [],
-      evidence: [],
-      sourceArtifacts: [],
-      diagnostics: [],
-    });
-
     let latestContext: BuildReferenceContextBinding | null = null;
-    let openGraphReference: ReturnType<typeof useAgentInteraction>["openGraphReference"] | null = null;
-    let closeProjection: (() => void) | null = null;
 
     function AuthorityProbe() {
       const session = useMarkdownCanvasSession();
@@ -863,8 +761,6 @@ describe("BuildSurfacePage", () => {
 
     function InteractionProbe() {
       const interaction = useAgentInteraction();
-      openGraphReference = interaction.openGraphReference;
-      closeProjection = interaction.close;
       const binding = interaction.surfaceInteractionPublication?.projectionBindings.find(
         (entry) => entry.id === BUILD_REFERENCE_CONTEXT_BINDING_ID,
       );
