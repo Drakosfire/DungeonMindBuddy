@@ -137,3 +137,32 @@ def test_repaired_modules_retain_all_original_test_definitions():
         assert actual == expected
         actual_params = sorted(ast.dump(node, show_empty=True) for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "parametrize")
         assert actual_params == manifest["original_parametrization"][path]
+
+
+def test_postgres_readiness_rejects_socket_only_initialization_server(monkeypatch):
+    instance = object.__new__(probe.Probe)
+    calls = []
+    sleeps = []
+
+    def docker(*args, **kwargs):
+        calls.append(args)
+        # A socket probe would incorrectly accept the temporary server at once.
+        is_tcp = "-h" in args and args[args.index("-h") + 1] == "127.0.0.1"
+        return SimpleNamespace(returncode=0 if not is_tcp or len(calls) == 3 else 1)
+
+    instance.docker = docker
+    monkeypatch.setattr(probe.time, "sleep", sleeps.append)
+    instance.wait_postgres("owned-postgres")
+    assert len(calls) == 3
+    assert sleeps == [1, 1]
+    assert all(args[-2:] == ("-d", "postgres") for args in calls)
+
+
+def test_postgres_readiness_is_bounded_and_fails_closed(monkeypatch):
+    instance = object.__new__(probe.Probe)
+    calls = []
+    instance.docker = lambda *args, **kwargs: (calls.append(args) or SimpleNamespace(returncode=1))
+    monkeypatch.setattr(probe.time, "sleep", lambda _: None)
+    with pytest.raises(probe.QualificationFailure, match="disposable_postgres_unavailable"):
+        instance.wait_postgres("owned-postgres")
+    assert len(calls) == 60
