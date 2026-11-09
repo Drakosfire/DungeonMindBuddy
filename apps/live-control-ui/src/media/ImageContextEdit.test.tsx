@@ -1,3 +1,5 @@
+import {useLayoutEffect} from 'react';
+import {ImageContextEdit} from './ImageContextEdit';
 import {Editor,EditorContent} from '@tiptap/react';
 import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
@@ -109,4 +111,26 @@ it('never replaces newer unpersisted text or mode with an older stored draft on 
  expect(screen.getByLabelText('Instructions')).toHaveValue('Newer instruction must survive');
  expect(screen.getByLabelText('Action')).toHaveValue('new');
  expect(JSON.parse(localStorage.getItem(draftKey)!).instructions).toBe('Older stored note');
+});
+
+
+it('keeps an edit opened at DOM commit through passive initialization',async()=>{
+ function OpenOnCommit(){
+  useLayoutEffect(()=>{fireEvent.click(screen.getByRole('button',{name:'Edit image'}));},[]);
+  return <ImageContextEdit assetId={parent} editable captureApply={()=>()=>{}}/>;
+ }
+ render(<OpenOnCommit/>);
+ expect(await screen.findByRole('dialog',{name:'Edit image'})).toBeVisible();
+ await waitFor(()=>expect(screen.getByLabelText('Instructions')).toBeEnabled());
+ expect(screen.getByRole('button',{name:'Edit image'})).toHaveAttribute('aria-expanded','true');
+});
+
+it('clears the prior asset menu and candidate before exposing a different asset',async()=>{
+ const view=render(<ImageContextEdit assetId={parent} editable captureApply={()=>()=>{}}/>);
+ await open();await submit();await screen.findByRole('button',{name:'Use this version'});
+ view.rerender(<ImageContextEdit assetId={child} editable captureApply={()=>()=>{}}/>);
+ expect(screen.queryByRole('dialog',{name:'Edit image'})).not.toBeInTheDocument();
+ await open();
+ expect(screen.queryByRole('button',{name:'Use this version'})).not.toBeInTheDocument();
+ expect(screen.getByLabelText('Instructions')).toHaveValue('');
 });
