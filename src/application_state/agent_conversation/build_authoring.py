@@ -51,7 +51,7 @@ def completion_for_proposal(record, receipt):
 def validate_native_authoring_binding(completion,receipt,execution,producer,bindings):
     """Stored object acknowledgement uses the actual shared Build action/writer."""
     from .native_context import BuildWorkContextV1
-    from .native_execution import NativeBuildActionV1, NativeWriterAuthorizedV1
+    from .native_execution import NativeBuildActionV1, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
     from .build_intentional_response import selected_action
     action=execution.policy.action
     image=isinstance(completion,BuildImagePreparationCompletionV1)
@@ -63,7 +63,7 @@ def validate_native_authoring_binding(completion,receipt,execution,producer,bind
             or completion.context_receipt_sha256!=receipt.context_receipt_sha256
             or completion.action_id!=(uuid5(action.write_capability.idempotency_key,'image') if image else action.write_capability.idempotency_key)):
         raise ValueError('Native authoring acknowledgement differs from its Build action')
-    writers=[e for e in execution.events if type(e) is NativeWriterAuthorizedV1]
+    writers=[e for e in execution.events if type(e) in NATIVE_WRITER_TYPES]
     if (len(writers)!=1 or completion.provider_attempt_id!=producer
             or writers[0].provider_attempt_id!=producer or completion.envelope_sha256!=writers[0].envelope_sha256):
         raise ValueError('Native authoring acknowledgement differs from its actual writer')
@@ -219,7 +219,7 @@ def validate_stored_proposal(conn, turn, completion):
             e
             for e in turn.graph_context_execution.events
             if getattr(e, "provider_attempt_id", None) == completion.provider_attempt_id
-            and e.kind == ("native_writer_authorized_v1" if shared else "provider_attempt_authorized_v3")
+            and e.kind in ({"native_writer_authorized_v1", "native_build_writer_authorized_v2"} if shared else {"provider_attempt_authorized_v3"})
         )
         if not shared:
             from .authored_graph_references import validate_stored_writer
@@ -321,7 +321,7 @@ def recover_prepared_proposal(service, turn, action_id):
 def _validate_native_image(turn,completion,image):
     """Existing image owner binds its inert fields to the admitted native writer."""
     from .build_intentional_response import selected_action
-    from .native_execution import NativeWriterAuthorizedV1
+    from .native_execution import NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
     from application_state.build_proposal.types import ImageDirectionV2
     from uuid import NAMESPACE_URL,uuid5
     execution,receipt=turn.graph_context_execution,turn.graph_context_receipt
@@ -332,7 +332,7 @@ def _validate_native_image(turn,completion,image):
     origin=reservation.origin
     if proof is None or origin is None:
         raise ValueError('Native image preparation lacks its actual owner proof')
-    writer=next(e for e in execution.events if type(e) is NativeWriterAuthorizedV1)
+    writer=next(e for e in execution.events if type(e) in NATIVE_WRITER_TYPES)
     decoded=ImageDirectionV2.model_validate_json(proof.raw_response)
     body=json.loads(proof.request_json)
     expected_format=dict(type='json_schema',name='build_image_direction',schema=ImageDirectionV2.model_json_schema(),strict=True)

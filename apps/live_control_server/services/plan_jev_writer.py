@@ -181,14 +181,27 @@ def authorize_native_writer(adapter, rules, proof, prepared, expected, frame):
     if limit is not None and estimate+reserve>limit:
         raise WriterCapacityError('Native writer exceeds the existing provider context allowance. The request is retained; the writing provider was not called. Narrow the requested context before retrying.',
             code='build_writer_context_over_budget', actual=estimate+reserve, limit=limit)
-    event=NativeWriterAuthorizedV1(event_id=uuid4(),sequence=len(adapter._broker_execution().events),
+    from application_state.agent_conversation.native_execution import NativeBuildActionV1, NativeBuildWriterAuthorizedV2
+    from application_state.agent_conversation.native_build_work_view import frame_in_request, is_semantic_frame
+    work_view = (strict_json(expected['input']).get('surface_work')
+        if isinstance(expected.get('input'),str) else frame_in_request(expected))
+    writer_type, work_commitment = NativeWriterAuthorizedV1, {}
+    if type(policy.action) is NativeBuildActionV1 and is_semantic_frame(work_view):
+        from application_state.agent_conversation.native_writer import model_work_frame
+        turn=adapter.fence.turn
+        host_work=model_work_frame(turn.graph_context_receipt,turn.graph_context_execution,
+            provenance=turn.provenance,idempotency_key=turn.idempotency_key,work_proof=proof,
+            world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt)
+        writer_type=NativeBuildWriterAuthorizedV2
+        work_commitment={'work_frame_sha256':canonical_sha256(host_work)}
+    event=writer_type(event_id=uuid4(),sequence=len(adapter._broker_execution().events),
         provider_attempt_id=UUID(prepared.attempt_id),envelope_sha256=prepared.body_sha256,
         serializer_version='openai-sdk-json-v1',provider='openai',model=model,api_mode='responses',
         tool_schema_sha256=canonical_sha256([]),input_accounting_kind=input_kind,
         input_estimator=estimator,input_tokens=estimate,output_token_reserve=reserve,
         frame_sha256=canonical_sha256(frame),included_graph_event_ids=[],included_source_read_event_ids=[],
         included_assertion_ids=[],included_relationship_ids=[],included_evidence_ref_ids=[],
-        native_read_event_ids=native_read_event_ids(adapter._broker_execution().events))
+        native_read_event_ids=native_read_event_ids(adapter._broker_execution().events),**work_commitment)
     adapter.turn=_require_fresh_execution_append(adapter.fence.append('authorize_native_writer','authorization',event,
         expected_rules_revision=rules.native.record.revision,prepared_request_json=prepared.body.decode(),work_proof=proof,
         **({'authoring_reservation':{'action_id':rules.authoring[0].action_id,'capture':rules.authoring[1]}}
@@ -251,8 +264,11 @@ class PlanJevWriter:
                 from application_state.agent_conversation.native_plan_work_view import semantic_frame as plan_work_view
                 self.provider_work=plan_work_view(self.work_frame,turn.graph_context_execution)
             else:
-                self.provider_work=self.work_frame
-            self.output_format=native_output_format(self.frame,rule_frame,self.work_frame | self.provider_work)
+                from application_state.agent_conversation.native_build_work_view import semantic_frame as build_work_view
+                self.provider_work=build_work_view(self.work_frame,turn.graph_context_execution)
+            self.output_format=native_output_format(self.frame,rule_frame,
+                self.work_frame | self.provider_work if self.work_frame.get('schema') == PLAN_WORK_SCHEMA else self.work_frame,
+                build_local=self.work_frame.get('schema') != PLAN_WORK_SCHEMA)
             # Discussion ends with current evidence rather than prior assistant
             # prose. Keep the exact frames; authoring keeps its current draft last.
             frames=((self.provider_work,rule_frame,self.provider_frame)

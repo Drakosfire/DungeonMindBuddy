@@ -1384,7 +1384,7 @@ class AgentConversationService:
             turn = _ordinary_mutation_turn(turn, conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
-            from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NativeBuildActionV1, NativeWriterAuthorizedV1
+            from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NativeBuildActionV1, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
             from .types import PlanJevProviderAuthorizedV1, ProviderAttemptAuthorizedEventV5
             native_plan_decision = (
                 type(turn.graph_context_execution) is SurfaceNativeExecutionV1
@@ -1405,7 +1405,7 @@ class AgentConversationService:
                 and type(event) is NativeRetrievalAuthorizedV1
                 and plan_jev_input_proof is not None)
             native_writer = (type(turn.graph_context_execution) is SurfaceNativeExecutionV1
-                and type(event) is NativeWriterAuthorizedV1 and native_writer_proof is not None)
+                and type(event) in NATIVE_WRITER_TYPES and native_writer_proof is not None)
             if (isinstance(turn.graph_context_execution, SurfaceNativeExecutionV1)
                     and isinstance(event, ProviderAttemptAuthorizedEventV1)
                     and not (native_plan_decision or native_build_decision or native_build_retrieval or native_writer)):
@@ -1941,8 +1941,8 @@ class AgentConversationService:
             expected_revision, expected_attempt, expected_rules_revision, authorization,
             prepared_request_json, work_proof, authoring_reservation=None):
         """A fresh shared writer plus its Rules input are one dispatch admission."""
-        from .native_execution import NativeWriterAuthorizedV1
-        if type(authorization) is not NativeWriterAuthorizedV1:
+        from .native_execution import NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
+        if type(authorization) not in NATIVE_WRITER_TYPES:
             raise ApplicationStateValidationError("The concrete shared writer authorization is required")
         return self._append_graph_execution_event(world_id,conversation_id,turn_id,
             expected_revision=expected_revision,expected_attempt=expected_attempt,event=authorization,

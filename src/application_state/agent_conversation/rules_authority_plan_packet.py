@@ -138,7 +138,9 @@ def _frame_in_actual_request(body, *, allow_build=False) -> PlanRulesEvidenceFra
         from .source_writer_output import strict_json
         packet=strict_json(body['input'])
         if (body.get('tools',[])!=[] or 'messages' in body or body.get('tool_choice') not in (None,'none')
-                or not isinstance(packet,dict) or packet.get('schema') not in {'dmb_build_compose_input_v1','dmb_build_image_direction_input_v1'}):
+                or not isinstance(packet,dict) or not (
+                    packet.get('schema') in {'dmb_build_compose_input_v1','dmb_build_image_direction_input_v1'} and 'task' not in packet
+                    or packet.get('task') in {'compose_current_page','prepare_image_direction'} and 'schema' not in packet)):
             raise ValueError('Build Rules frame requires its exact tool-free authoring packet')
         return _decode_frame(packet.get('rules_evidence'))
 
@@ -270,14 +272,14 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
     owns admitted capsules and selected output; native reads remain separately owned.
     """
     from . import types as t
-    from .native_execution import NativeWriterAuthorizedV1, NativeBuildActionV1
+    from .native_execution import NativeWriterAuthorizedV1, NativeBuildActionV1, NATIVE_WRITER_TYPES
     from .native_writer import verify_input_records
     from .rules_authority_events import validate_native_packet_writer
     from .rules_authority_policy import rules_capability, rules_submission_authorization_id
     from .rules_authority_events import ref_map
     from .plan_writer_output_schema import native_output_format
     execution = RulesExecutionV1.model_validate_json(execution.model_dump_json(by_alias=True))
-    writers = [e for e in graph_execution.events if type(e) is NativeWriterAuthorizedV1
+    writers = [e for e in graph_execution.events if type(e) in NATIVE_WRITER_TYPES
         and e.provider_attempt_id == provider_attempt_id]
     if len(writers) != 1:
         raise ValueError('Shared Rules input requires its exact native writer')
@@ -311,7 +313,7 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
         output_format=dict(type='json_schema',name='build_image_direction' if operation=='prepare_build_image' else 'build_document_proposal',
             schema=(ImageDirectionV2 if operation=='prepare_build_image' else BuildComposeOutput).model_json_schema(),strict=True)
     else:
-        output_format=native_output_format(evidence.frame,frame,evidence.output_work_frame)
+        output_format=native_output_format(evidence.frame,frame,evidence.output_work_frame,build_local=evidence.build_local)
     if (auth.request_envelope_sha256 != expected_envelope_sha256
             or included.request_envelope_sha256 != expected_envelope_sha256
             or auth.matched_outputs != outputs or included.matched_outputs != outputs
