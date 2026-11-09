@@ -1731,6 +1731,9 @@ def insert_legacy_turn(
             "idempotency_key": idempotency_key,
             "user_text": legacy_turn.user_text,
             "provenance": provenance,
+            # Verified transcripts have no current submitted intent. Keep the
+            # shared fresh-writer contract strict rather than guessing one.
+            "submitted_intent_v1": None,
         },
     )
     return insert_turn(

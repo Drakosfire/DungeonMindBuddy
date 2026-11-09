@@ -572,6 +572,7 @@
       "tests/application_state/test_world_catalog_postgres.py",
       "tests/test_agent_context_assembler.py",
       "tests/test_agent_graph_auth.py",
+      "tests/test_agent_legacy_import_intent.py",
       "tests/test_agent_native_corpus_sources.py",
       "tests/test_agent_turn_trace.py",
       "tests/test_application_state_database_fixture.py",
