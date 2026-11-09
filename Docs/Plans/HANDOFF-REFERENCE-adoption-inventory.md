@@ -1,12 +1,18 @@
 # REFERENCE: adoption and demolition inventory
 
-Status: ACTIVE audit/settlement slice; not full References completion. PRIME owns
-one serial documentation PR from `f5ba0f84da66f2121914c9ceb0324061f28987a2`, branch
-`codex/reference-adoption-inventory`, existing buddy-context-loop checkout.
+Status: ACTIVE audit settlement; not full References completion. PRIME owns one
+serial documentation slice from `d3182d5e7`, branch
+`codex/reference-caller-audit-settlement`, existing buddy-context-loop checkout.
 Authority: the operator's References/shared-statblock goal. No unmerged parent.
-Expected writes: this inventory, HANDOFF-REFERENCE-native-object-picker.md and
-HANDOFF-REFERENCE-retire-legacy-plan-picker.md. No product, CI, dependency, runtime,
-provider or retained-data writes. Coordination remains off.
+Expected writes: this inventory only. No product, CI, dependency, runtime,
+provider or retained-data writes. Coordination remains off. Validate the changed
+caller classifications against production imports and admission conditions,
+inspect the cumulative diff, and obtain independent review and required checks.
+
+This slice corrects a distinction in the earlier audit: a registered renderer
+is not necessarily reachable from a mounted production activation path. The
+older delivery checkpoint below remains historical evidence, not the currently
+served runtime revision.
 
 ## Audited ownership
 
@@ -47,8 +53,8 @@ for the other or resolve an old node by a similar label.
 | Document object links | Build native capability; `planSurface/components/WorldPlanGraphReferenceActivation.tsx`; shared `readCurrentNativeObjectReference.ts` / `NativeGraphObjectPreview.tsx` | Adopted by #2280/#2283. Actual World/editor identity gates late responses. Missing exact old IDs stay unavailable. |
 | Shared threat/statblock projection | `statblocks/SavedStatblockSession.tsx`, shared edit host and revision editor, native object preview | Retain one saved identity/version. Popup, conversation and full-view entry points use the shared owner. Generation/portrait proposals do not become established story facts. |
 | Old Plan canvas, picker and search | Unmounted `PlanSurfaceCanvas`, `PlanWorldGraphObjectsPanel`, `GraphReferenceSearch`, `searchGraphReferences` | Removed by #2286. Kept the exact mounted `PlanSurfaceCanvasFrame`; removed five tests of retired subjects and their inventory assignments. No alias/re-export remains. |
-| Plan diagnostic panels / old resolver adapter | `PlanDogfoodPanel`, `GraphObjectDogfoodPanel`, `usePlanGraphReferenceResolver`, `PlanReferenceProjectionBinding` | Further retirement candidate. Search finds no production mount for the two panels, provider or adapter. Tests still import them. Retire as a separate caller-proven closure; do not confuse the adapter with the live projection card below. |
-| Generic reference projection card | `PlanProjectionCatalogRegistration` dynamically loads `PlanReferenceObjectCard` | Retain pending its actual projection-call audit. Its tests and catalogue owner are not made obsolete merely by removing the old route adapter. |
+| Plan diagnostic panels / old resolver adapter | `PlanDogfoodPanel`, `GraphObjectDogfoodPanel`, `usePlanGraphReferenceResolver`, `PlanReferenceProjectionBinding` | Further retirement candidate. Search finds no production mount for the two panels, provider or adapter. Tests still import them. Retire as a separate caller-proven closure; audit its activation closure together with the registered card below. |
+| Generic reference projection card | `PlanProjectionCatalogRegistration` registers `PlanReferenceObjectCard`; `LegacyProjectionHostAdapter` supplies its active resolution | Registered but no mounted production activation found at this checkpoint. `openGraphReference` callers resolve to the unmounted diagnostic panel and resolver binding; the exported `useOpenGraphReference` hook has only its own test caller. Include the card and activation closure in the separately gated retirement audit, rather than calling registration proof of use. Retain the shared host and its live tool renderers. |
 | Manual publication and relationship review | `BuildRunReview` lazily mounts `BuildManualKnowledge`; `ConnectedPageReviewControl` mounts `BuildRelationshipReview` | Retain: exercised authoring/review callers, not duplicate reference search. Source references must not grant their publication authority. |
 | Classic Build authored-reference reader | receipt-family branches in `build_jev_harness.py` and `agent_turn_service.py`; writer/image recovery consumers | Not proven removable. Trace fresh non-native admission and retained retry separately before retirement. Do not claim this is historical-only or replace it with a permissive fallback. |
 | Old unowned server Plan proposal producer | held #2104 | Held, untouched. Removing the unmounted client canvas does not authorize server retirement or activate this PR. |
@@ -110,10 +116,20 @@ limitation is preserved rather than rewriting user content to create a witness.
    appear in `ci/test-classification.json`. Active CI #2288 owns overlapping
    qualification/inventory paths. Re-anchor that owner before a separate removal
    slice; do not silently edit its active write lease or frozen historical fixture.
-3. Audit the retained classic acquisition and live generic card callers before
-   deciding whether they must be adopted or retired. A type/name match alone is
-   insufficient deletion evidence.
-4. #2172 must be explicitly resumed and re-partitioned against current main before
+3. Retained classic acquisition remains necessary for historical receipt families.
+   Fresh governed Build requests select native source authority: see
+   `_governed_build_turn` and `native_surface_sources` in `agent_turn_service.py`.
+   Existing classic receipts route through `build_authored_references.py`, including
+   frozen object/source recovery and writer/image material. This does not prove
+   every non-governed request shape is rejected; audit that admission boundary
+   before narrowing or deleting the module. Do not replace retained exact recovery
+   with a fresh native read or a label match.
+4. The generic card is a retirement candidate, not a live caller established by
+   registration alone. Trace `AgentInteractionProvider.openGraphReference` through
+   its capability registration and `LegacyProjectionHostAdapter` before deleting
+   the closure. The shared projection host also serves mounted statblock, combat,
+   Rules and review tools and must not be removed with this card.
+5. #2172 must be explicitly resumed and re-partitioned against current main before
    native Play execution can close. This inventory neither resumes it nor treats
    its retained scaffold as implemented. #2104 remains a separate hold.
 
@@ -122,3 +138,33 @@ PR holds. Validate its relative document links and cumulative documentation diff
 obtain independent review and required PR checks before merge. No UI activation
 is needed for this documentation-only slice. The complete goal stays active:
 this inventory establishes decisions and remaining work, not full completion.
+
+## Recovery integration settled after the original checkpoint
+
+#2292 (merge `d39db0c6a2a0493800f82eb77d69e3ef3deb3d4e`) and #2295
+(merge `b1e319ede593e05ce7a45e137057af606fe6857b`) expose direct retry on
+eligible lightweight Plan and Build history. The existing exact full-turn reader
+is invoked on demand. Build dispatch uses the original retained request context
+and references; it no longer recaptures the current editor through a separate
+retry branch. Newer composer/editor state, receipt validation, duplicate-click
+protection and World/surface fences remain required.
+
+#2295's cumulative source review and all seven exact-head CI checks passed.
+Its focused mounted transport suite passed 22 cases, and the Plan history suite
+passed 301. The wider integration suite still had 75 inherited failures, with no
+newly failing names in the retained comparison; it is not a green full suite.
+The delivered UI is `3ca77749fbb41a5612d4f7abf54b26dac5dd9f36`; API remained
+`16cb2c50bd7ebd4b53de930932b0c070c5a3f3c2`, schema `20261109_0142` during this
+verification. The delivery lease is released.
+
+Controlled verification opened an actual saved Session 29 native citation from
+Build and displayed direct retry for the active failed request on Plan without
+opening reply Details. That request originated on Plan, so the Build view did
+not expose a Build retry for it. Positive Build retry dispatch is proven by
+mounted mock-transport tests, not a live provider replay. No user retry, Send,
+Save, generation or publication was invoked. APP/Core row multisets and retained
+session files were unchanged. Evidence:
+`build-light-retry-served-browser.json`, `build-light-retry-ui-proof.json` and
+`build-light-retry-ui-final-conservation.json` in the private evidence directory
+above. These checks settle this recovery slice, not held Play execution or the
+complete goal.
