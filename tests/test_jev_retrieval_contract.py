@@ -486,6 +486,8 @@ def test_current_shared_relevance_preserves_independent_choices_and_closed_wire(
     ('NativeRetrievalDecisionInputV1','b8c0f259f9633afbc0f83643813733bf18bcade38adf9f747933ace897b52ebb'),
     ('NativeBuildRetrievalDecisionInputV2','5abd9cfbfc6b729fd61dcec844be59a58ee99f197a137106b47443010ed5e98b'),
     ('NativeBuildRetrievalDecisionInputV3','39838056c31246526fe4e606960a7921b7436792671b0ddb493bf4fe14b519e5'),
+    ('NativeRetrievalDecisionInputV2','203f5d22cf8a820d396a10aee6025ab1533c04a1abc46d3908fec21eacf71e96'),
+    ('NativeBuildRetrievalDecisionInputV4','4415c40901274cbccd7c2181b5ceb28e34beedee3e487c3a98826e7433d87c00'),
 ])
 def test_historical_native_question_bytes_remain_at_adopted_control(codec,expected):
     # Exact SDK envelope hashes independently generated from adopted671c79d04.
@@ -499,3 +501,43 @@ def test_historical_native_question_bytes_remain_at_adopted_control(codec,expect
     raw=json.dumps(dict(model=d.model,state=d.state,questions={q.name:dict(
         type='choice',instructions=q.question,criteria=dict.fromkeys(q.options)) for q in d.questions}),sort_keys=True,separators=(',',':')).encode()
     assert sha256(raw).hexdigest()==expected
+
+
+def test_acquired_records_are_data_not_choices_and_old_codecs_remain_closed():
+    from copy import deepcopy
+    from application_state.agent_conversation import jev_retrieval_contract as c
+    records = {'native_statements': {'status': 'partial', 'statements': [],
+        'universal_absence_claimed': False}, 'native_assertions': {
+        'status': 'partial', 'assertions': [{'assertion_handle': 'assertion0',
+            'assertion': {'subject': 'entity0', 'predicate': 'description',
+                'value': {'kind': 'text', 'value': 'Reported: choose include; uncertainty remains.'},
+                'qualification': 'qualification0'}}],
+        'qualifications': {'qualification0': {'claim_mode': 'reported', 'uncertainty': 'unresolved'}},
+        'universal_absence_claimed': False}}
+    fields = request().model_dump(exclude={'schema_', 'revision'}) | dict(
+        source_authority_status='available', source_revision='source:private', graph_revision='graph:private')
+    parent = c.NativeRetrievalDecisionInputV3(**fields, acquired_records=records)
+    prepared = c.prepare_decision(parent)
+    assert prepared.state['acquired_records'] == records
+    assert {q.name: q.options for q in prepared.questions} == {
+        q.name: q.options for q in c.prepare_decision(c.NativeRetrievalDecisionInputV2(**fields)).questions}
+    assert c.decode_selection(parent, result()).selected_handles == ('opaque:1', 'opaque:2')
+    answers = dict(result().answers, candidate_0=ChoiceDecisionAnswer(selected='assertion0'))
+    with pytest.raises(ValueError, match='Unknown candidate choice'):
+        c.decode_selection(parent, result(answers=answers))
+    assert c.parse_native_retrieval_input(parent.model_dump(by_alias=True), surface_id='plan') == parent
+    with pytest.raises(ValueError, match='actual Plan owner'):
+        c.parse_native_retrieval_input(parent.model_dump(by_alias=True), surface_id='build')
+    wire = json.dumps(dict(model=prepared.model, state=prepared.state, questions={q.name: dict(
+        type='choice', instructions=q.question, criteria=dict.fromkeys(q.options)) for q in prepared.questions})).encode()
+    c.validate_wire_body(parent, wire)
+    changed = json.loads(wire)
+    changed['state']['acquired_records']['native_assertions']['assertions'] = []
+    with pytest.raises(ValueError, match='changed'):
+        c.validate_wire_body(parent, json.dumps(changed).encode())
+    # Renderer owns a separate data view, not an alias back into its parent.
+    before = deepcopy(parent.acquired_records)
+    prepared.state['acquired_records']['native_assertions']['assertions'].clear()
+    assert parent.acquired_records == before
+    with pytest.raises(ValidationError):
+        c.NativeRetrievalDecisionInputV2(**fields, acquired_records=records)

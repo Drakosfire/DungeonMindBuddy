@@ -1,6 +1,8 @@
 # RETRIEVAL: materialize native storage-check JSON once
 
-Status: ACTIVE bounded qualification; Root activates the expected write lease. Root owns this
+Status: MERGED; implementation lease RELEASED. PR2290 merged as
+7abfaccaccf63737a31a52e33c79a0df75e1b873 after exact-head independent review and
+all seven CI checks. Runtime deployment is not claimed. Root owned this
 human-authorized retrieval optimization design. Branch
 codex/retrieval-native-storage-json-owner, base18b992193b103b1e0a05490855bd8af620bed835.
 Serial topology, predecessor2287merged18b992193 with user approval. No unmerged
@@ -99,3 +101,12 @@ test file is removed, not registered as another parallel suite. No runtime or
 migration change after the benchmark pin. Evidence remains under
 retrieval-native-storage-json-owner-v1 and retrieval-native-storage-comparison-v1.
 PR2290 is implementation delivery, not adoption, deployment or goal completion.
+
+## Successor settlement
+
+The next serial capability is HANDOFF-RETRIEVAL-acquired-records.md. Retain this
+cleanup and its negative whole-cycle result; no unchanged paid replay. Read-only
+follow-up probes did not justify a new observation format or compression default.
+Exact ACK wire witnesses and ACK-only validation were not activated: independent
+review found typed-mutation and transient-callback counterexamples. Existing
+locked/prospective/ACK validation remains intact.

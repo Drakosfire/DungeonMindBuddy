@@ -67,9 +67,12 @@ class PlanJevDispatch:
         authority = getattr(adapter, "native_source_authority", None)
         if type(receipt) is t.SurfaceNativeContextReceiptV1:
             from application_state.agent_conversation.native_retrieval import source_pins
-            from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV2, NativeBuildRetrievalDecisionInputV4
+            from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV3, NativeBuildRetrievalDecisionInputV4
             codec = (NativeBuildRetrievalDecisionInputV4
-                if receipt.work_context.surface_id == "build" else NativeRetrievalDecisionInputV2)
+                if receipt.work_context.surface_id == "build" else NativeRetrievalDecisionInputV3)
+            if codec is NativeRetrievalDecisionInputV3:
+                from application_state.agent_conversation.native_evidence_view import acquired_records
+                fields["acquired_records"] = acquired_records(receipt, adapter.fence.turn.graph_context_execution)
             self.parent = codec(**fields,**source_pins(receipt))
         elif authority is not None:
             from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1

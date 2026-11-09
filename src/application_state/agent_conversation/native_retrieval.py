@@ -133,6 +133,25 @@ def verify_input(turn, auth, proof):
         )
     parent = parse_native_retrieval_input(strict_json(proof["parent_request_json"]),
         surface_id=execution.policy.action.surface_id)
+    from .jev_retrieval_contract import NativeRetrievalDecisionInputV3
+    if type(parent) is NativeRetrievalDecisionInputV3:
+        from .native_evidence_view import acquired_records
+        from .native_statement_input import canonical
+
+        # Authorization sees the current prefix; selection replay may see later
+        # reads or a writer. Never let that later material alter this request.
+        existing = [index for index, event in enumerate(execution.events)
+            if event.event_id == auth.event_id]
+        if existing:
+            if len(existing) != 1 or execution.events[existing[0]] != auth:
+                raise ValueError("Acquired records lack their exact authorization prefix")
+            prefix = execution.model_copy(update={"events": execution.events[:existing[0]]})
+        else:
+            if auth.sequence != len(execution.events):
+                raise ValueError("Acquired records require the current authorization prefix")
+            prefix = execution
+        if canonical(parent.acquired_records) != canonical(acquired_records(receipt, prefix)):
+            raise ValueError("Acquired records differ from actual admitted reads")
     role = execution.policy.provider_roles.controller
     if (
         parent.digest != auth.parent_request_sha256

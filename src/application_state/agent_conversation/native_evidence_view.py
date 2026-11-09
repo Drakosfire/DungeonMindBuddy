@@ -54,6 +54,18 @@ def is_semantic_frame(frame):
     return isinstance(frame, dict) and set(frame) == FIELDS
 
 
+def acquired_records(receipt, execution):
+    """Reuse the admitted semantic record view; never open or expose source bodies.
+
+    Callers must supply the prefix preceding the controller authorization. This
+    projection grants neither navigation handles nor additional evidence credit.
+    """
+    from .native_writer import model_input_frame
+
+    frame = model_input_frame(receipt, execution)
+    return {key: frame[key] for key in ("native_statements", "native_assertions")}
+
+
 def _domain_meaning(entries):
     """Present semantic meaning without changing its exact admitted host record.
 

@@ -85,6 +85,7 @@ def sdk_case(
     native=False,
     include_final_decision=True,
     examined=None,
+    retrieval_parent_transform=None,
 ):
     context, ledger = (
         context_record
@@ -133,10 +134,17 @@ def sdk_case(
             )
             prepare = prepare_requested_work_decision
         else:
-            from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV1, NativeRetrievalDecisionInputV2
-            parent = (NativeRetrievalDecisionInputV2 if native == 'current' else
+            from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV1, NativeRetrievalDecisionInputV2, NativeRetrievalDecisionInputV3
+            extra = {}
+            if native == 'records':
+                from application_state.agent_conversation.native_evidence_view import acquired_records
+                extra['acquired_records'] = acquired_records(case.turn.graph_context_receipt,
+                    case.turn.graph_context_execution)
+            parent = (NativeRetrievalDecisionInputV3 if native == 'records' else
+                NativeRetrievalDecisionInputV2 if native == 'current' else
                 NativeRetrievalDecisionInputV1 if native else PlanSourceRetrievalDecisionInputV1)(
                 **common,
+                **extra,
                 **_source_pins(case.turn.graph_context_receipt),
                 candidates=tuple(acquisitions[phase - 1][0](case))
                 if 0 < phase <= len(acquisitions)
@@ -144,8 +152,10 @@ def sdk_case(
                 examined_candidates=tuple(examined(case)) if examined is not None else (),
                 allowed_operations=("select_candidates", "finish_retrieval"),
             )
+            if retrieval_parent_transform is not None:
+                parent = retrieval_parent_transform(parent, case)
             prepare = prepare_decision
-        step = SimpleNamespace(parent=parent, semantic=semantic)
+        step = SimpleNamespace(parent=parent, semantic=semantic, authorized=False)
 
         async def authorize(prepared):
             from apps.live_control_server.services.agent_turn_service import (
@@ -251,16 +261,21 @@ def sdk_case(
                 parent_request_json=step.parent.model_dump_json(by_alias=True),
                 request_json=prepared.body.decode(),
             )
-            case.turn, fresh = case.service.authorize_plan_jev_provider(
-                case.turn.world_id,
-                case.turn.conversation_id,
-                case.turn.turn_id,
-                expected_revision=case.turn.revision,
-                expected_attempt=case.turn.attempt,
-                authorization=step.auth,
-                producer_proof=step.proof,
-            )
+            try:
+                case.turn, fresh = case.service.authorize_plan_jev_provider(
+                    case.turn.world_id,
+                    case.turn.conversation_id,
+                    case.turn.turn_id,
+                    expected_revision=case.turn.revision,
+                    expected_attempt=case.turn.attempt,
+                    authorization=step.auth,
+                    producer_proof=step.proof,
+                )
+            except ApplicationStateValidationError as exc:
+                case.admission_failure = exc
+                raise
             assert fresh
+            step.authorized = True
             assert (
                 AgentConversationService().inspect_turn(
                     world_id=case.turn.world_id, turn_id=case.turn.turn_id
@@ -270,6 +285,8 @@ def sdk_case(
             return True
 
         async def record(event):
+            if not step.authorized:
+                return False  # Match production: an uncommitted grant has no lifecycle owner.
             transition = (
                 "sdk_entered"
                 if event.outcome == "sending"
@@ -590,3 +607,96 @@ def test_current_plan_shared_guidance_sdk_admission_replay_and_codec_refusal(app
     sent=len(case.sent)
     assert not append(case) and len(case.sent)==sent
     assert case.service.inspect_turn(world_id=case.turn.world_id,turn_id=case.turn.turn_id)==case.turn
+
+
+def _record_context_case(dsn, lane, **options):
+    from tests.test_surface_native_writer import published_case
+    from tests.test_native_plan_statements import query
+    from tests.application_state.test_surface_native_acquisition import host, record_candidates
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+
+    context, record = published_case('plan', lane)
+    record = execution(context.context_receipt_sha256, record.policy)
+    query_context, result = query(lane, scope_mode='world')
+    assert context.native_query == result
+
+    def acquire(case):
+        with host(case, query_context=query_context) as adapter:
+            driver = PlanJevDriver(adapter)
+            driver._read_native('statement', [m.statement_id for m in result.matches])
+            driver._read_native('assertion', [m.assertion_id for m in result.assertion_matches])
+
+    return sdk_case(dsn, context_record=(context, record), native='records',
+        acquisitions=((record_candidates, acquire),), **options)
+
+
+def test_acquired_records_use_exact_authorization_prefix_and_current_producer(application_state_dsn, published_lane):
+    from application_state.agent_conversation.native_evidence_view import acquired_records
+    from application_state.agent_conversation.native_retrieval import verify_input
+    from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV3
+    from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
+    from tests.application_state.test_surface_native_acquisition import host
+
+    case = _record_context_case(application_state_dsn, published_lane)
+    early, later = case.steps[1:]
+    assert type(later.parent) is NativeRetrievalDecisionInputV3
+    records = later.parent.acquired_records
+    assert set(records) == {'native_statements', 'native_assertions'}
+    assert records['native_assertions']['assertions']
+    assert records != early.parent.acquired_records
+    assert json.loads(later.proof['request_json'])['state']['acquired_records'] == records
+    for step in (early, later):
+        proof = {key: step.proof[key] for key in ('parent_request_json', 'request_json')}
+        assert verify_input(case.turn, step.auth, proof) == step.parent
+    # The actual runtime emitter uses the same admitted-record projection.
+    with host(case) as adapter:
+        current = PlanJevDispatch(adapter, ())
+        assert type(current.parent) is NativeRetrievalDecisionInputV3
+        assert current.parent.acquired_records == acquired_records(
+            case.turn.graph_context_receipt, case.turn.graph_context_execution)
+    assert append(case)
+    assert not append(case)
+    assert case.service.inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id) == case.turn
+
+
+@pytest.mark.parametrize('change', ['omit', 'inject', 'qualification'])
+def test_forged_acquired_records_refused_by_app_before_sdk_io(application_state_dsn, published_lane, change):
+    from copy import deepcopy
+    from generationengine.types import GenerationEngineError
+    from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV3
+
+    held = []
+
+    def forge(parent, case):
+        if type(parent) is not NativeRetrievalDecisionInputV3 or not parent.acquired_records['native_assertions']['assertions']:
+            return parent
+        held.append((case, case.service.inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id)))
+        records = deepcopy(parent.acquired_records)
+        if change == 'omit':
+            records['native_assertions']['assertions'].pop()
+        elif change == 'inject':
+            records['native_assertions']['assertions'].append({'assertion_handle': 'assertion:foreign', 'assertion': {}})
+        else:
+            qualification = next(iter(records['native_assertions']['qualifications'].values()))
+            assert 'claim_mode' in qualification
+            qualification['claim_mode'] = 'forged-' + qualification['claim_mode']
+        return parent.model_copy(update={'acquired_records': records})
+
+    with pytest.raises(GenerationEngineError):
+        _record_context_case(application_state_dsn, published_lane, retrieval_parent_transform=forge)
+    [(case, before)] = held
+    assert isinstance(case.admission_failure, ApplicationStateValidationError)
+    assert 'Acquired records differ' in str(case.admission_failure)
+    assert len(case.sent) == 2  # Requested work and initial acquisition; forged continuation never sent.
+    assert case.service.inspect_turn(world_id=before.world_id, turn_id=before.turn_id) == before
+
+
+def test_acquired_record_reader_fence(application_state_dsn, monkeypatch):
+    from application_state import cli
+    from application_state.errors import ApplicationStateMigrationError
+
+    assert cli._current_and_head(application_state_dsn) == ('20261109_0143', '20261109_0143')
+    with monkeypatch.context() as patch:
+        patch.setattr(cli, '_alembic_head', lambda: '20261109_0142')
+        with pytest.raises(ApplicationStateMigrationError):
+            cli.assert_at_head(dsn=application_state_dsn)

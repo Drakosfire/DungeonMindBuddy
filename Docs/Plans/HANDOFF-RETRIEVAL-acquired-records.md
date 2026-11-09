@@ -1,0 +1,103 @@
+# RETRIEVAL: judge new reads against already acquired records
+
+Status: ACTIVE. Root owns design and implementation under the continuing
+six-second retrieval goal. Base7abfaccaccf63737a31a52e33c79a0df75e1b873,
+branch codex/retrieval-acquired-records. Serial: predecessor2290 is merged;
+no unmerged behavioral dependency. Rechecked active2291 Rules and2288 CI lanes
+are disjoint. The older2225 composition branch remains parked/unadopted; Root
+transfers only the specific shared runtime/test paths below for this slice.
+No PRIME review or delivery dependency; merge remains separate user authority.
+
+## Outcome and evidence
+
+Actual current cohort has59 retrieval decisions;44 continuations expose examined
+labels/status without acquired claim content. Native source append work is about
+three seconds median, cumulative within selection application. Hypothesis: let
+the existing Plan controller compare offered reads with the complete qualified
+Graph records it already selected, avoiding redundant acquisition and rounds.
+This does not use or grade writer output. Six seconds remains the goal.
+
+Reuse the existing semantic evidence projection, restricted to its complete
+native_statements/native_assertions collections. No manual summary, answer hints,
+Gold, fact filtering, new model pass, new source open, source body exposure,
+retrieval cap, forced finish, cache or second provenance authority. Frame-local
+aliases cannot select candidates or authorize IO. Qualifications, uncertainty,
+source attribution and bounds remain intact. Examined metadata still records
+attempts, not semantic coverage. Candidate/source/expansion rights are unchanged.
+
+Full-frame audit over59 actual preauthorization prefixes measured median17961
+o200k proxy tokens; record-only view9584 versus current4267, max60459 and264143
+bytes. All below existing1050000byte allowance. Plan host token policy is uncapped;
+provider capacity/billing are not proven by an offline proxy. Median full-frame
+projection construction51.5ms is a cost to include, not hide. Evidence is under
+retrieval-native-storage-json-owner-v1/controller-acquired-*-audit-v1.json.
+
+## Binding and historical behavior
+
+Add one closed current Plan parent codec; retain exact V1/V2 and Build renderers.
+The sole current Plan emitter advances. At authorization and selection replay,
+derive records from the exact execution prefix BEFORE that authorization, never
+later reads or the writer-bearing tail. Actual parent digest and SDK envelope
+already commit the exact request; retain those owners and producer evidence.
+Reject altered, injected, omitted or future records before provider dispatch.
+No new durable inclusion ledger: actual selected-read events remain authority.
+Use a no-op reader fence for the newly interpreted Plan input contract.
+
+## Exclusive expected writes
+
+- This handoff and HANDOFF-RETRIEVAL-native-storage-json-owner.md settlement.
+- src/application_state/agent_conversation/jev_retrieval_contract.py.
+- src/application_state/agent_conversation/native_evidence_view.py.
+- src/application_state/agent_conversation/native_retrieval.py.
+- apps/live_control_server/services/plan_jev_dispatch.py.
+- src/application_state/migrations/versions/20261109_0143_plan_acquired_records.py.
+- tests/test_jev_retrieval_contract.py.
+- tests/application_state/test_surface_native_decisions.py.
+- tests/test_native_object_retrieval.py: existing current-emitter contract only;
+  replace its metadata-only stub with actual native components and new Plan codec.
+- tests/application_state/test_native_storage_owner_migration.py: pin its historical
+  upgrade-conservation test to its142 owner, rather than whichever future head exists.
+
+No service append, repository, ingestion, writer behavior, Core, UI, primary
+state, shared CI registry or active Rules implementation edits. Stop/split if
+another owning contract or path is required; do not absorb adjacent capability.
+
+## Qualification and stopping decision
+
+Prove closed codec/wire and independent choices; exact old Plan/Build bytes;
+real SDK->APP->reload->selection binding before/after actual Core reads; altered
+record refusal, prefix replay, aliases not handles, unchanged source rights and
+freshness, reader fence. Inspect cumulative diff and independent subagent review.
+Deliver one bounded PR; reuse the consolidated capture-context workflow only.
+
+Compare one changed15-case cohort against the retained fresh142 cohort (runtime
+identical to merged7abfacc; only tests/reference docs differ). Two isolated workers;
+no writer IO, no unchanged paid control rerun. All72 required context atoms,
+quotations/selectors, attribution, chronology and uncertainty must pass. Retain
+provider/capacity failures without replay. Report elapsed median/tails, decision
+count, source/read work, actual tokens/cost and extra prompt construction costs.
+An implementation merits adoption only with preserved context quality and a
+material measured improvement (at least two seconds median or20percent); six
+seconds is not redefined by this experiment. Otherwise reject/remove the active
+experimental path, retain evidence and diagnose the failed hypothesis. No
+per-question scripts, new benchmark sessions or writer-output acceptance.
+
+Resources: owned isolated55447 APP clones and frozen native read-only corpus;
+existing environment and evidence roots. Primary and original evaluator unchanged.
+Normal product attempt/retry accounting; no arbitrary caps or extra providers.
+
+## Initial owner qualification
+
+Pure closed-wire/selection contracts62pass. Actual SDK->APP->Core acquisition/
+reload/prefix replay and forged omission/injection/qualification refusals18pass,
+five existing serializer-fixture warnings. Independent reviewer separately ran
+78pure contract/object tests and found no blocking source issue. Its actual
+qualification-entry tamper refinement is implemented and requalified.
+
+Broader producer/driver/authoring/storage run141pass, with nine Rules writer
+structured-schema failures reproduced exactly on the unchanged pinned predecessor
+and one historical142migration test incorrectly following future head143. Pinning
+that test to its142 owner passes; no runtime/Rules/schema fix was absorbed. Initial
+wrong default test-DB configuration and fake-SDK rejected-grant lifecycle failures
+are preserved, corrected at their fixture owners, not presented as product passes.
+Evidence: retrieval-acquired-records-v1. Paid changed cohort remains pending.

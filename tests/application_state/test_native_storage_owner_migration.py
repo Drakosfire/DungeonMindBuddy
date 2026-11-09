@@ -394,7 +394,7 @@ def test_upgrade_conserves_populated_rows_and_old_reader_fails(storage_predecess
                 dict(conn.execute("SELECT conname,pg_get_expr(conbin,conrelid) FROM pg_constraint "
                     "WHERE conrelid='agent.turn'::regclass AND conname<>'agent_turn_lifecycle_check'").fetchall()))
     before = snapshot()
-    command.upgrade(cli.alembic_config(), 'head')
+    command.upgrade(cli.alembic_config(), '20261109_0142')
     assert snapshot() == before
     with monkeypatch.context() as patch:
         patch.setattr(cli, '_alembic_head', lambda: '20261108_0141')
