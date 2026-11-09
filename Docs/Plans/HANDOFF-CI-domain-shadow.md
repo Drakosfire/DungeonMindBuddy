@@ -52,3 +52,12 @@ external outreach or native/ADV writes. Fresh process baseline after injections
 proves mutation removal. These bounded backend samples do not establish frontend
 or native publication fault detection, zero misses generally, main qualification,
 or stage5 readiness. Existing full gates and shadow-only mode remain unchanged.
+
+## Current-main reconciliation
+
+Standalone draft PR2302 reconciles main c93fe15abeb3b19adf3fd901ca8ec5ae558d43ab
+with an ordinary merge. The codec fix is inherited from actual main, not an
+unmerged dependency. The complete main-to-head delta remains seven shadow-owned
+files with one additive classification entry. Existing main gate/test bytes are
+unchanged. Fresh exact-head review and hosted checks remain required; no selective
+gating, qualification success or ready/merge authority is implied.
