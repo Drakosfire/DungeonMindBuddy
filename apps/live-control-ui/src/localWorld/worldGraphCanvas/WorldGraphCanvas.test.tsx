@@ -34,6 +34,57 @@ async function graphRecord(): Promise<{ repository: InMemoryLocalWorldRepository
   return { repository, record: result.record };
 }
 
+type DraftKind = "object" | "relationship" | "rename";
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; });
+  return { promise, resolve, reject };
+}
+
+async function enterDraft(user: ReturnType<typeof userEvent.setup>, kind: DraftKind, record: LocalWorldRecord) {
+  let input: HTMLInputElement;
+  let submitName: string;
+  let draft: string;
+  if (kind === "object") {
+    await user.click(screen.getByRole("button", { name: "Add object" }));
+    input = screen.getByLabelText("Object name") as HTMLInputElement;
+    draft = "Ashen Courier";
+    submitName = "Create object";
+  } else if (kind === "relationship") {
+    const graph = screen.getByRole("group", { name: `${record.snapshot.title} world graph` });
+    await user.click(within(graph).getByRole("button", { name: `${record.snapshot.objects[0].name}, person` }));
+    await user.click(within(graph).getByRole("button", { name: `${record.snapshot.objects[1].name}, person` }));
+    await user.click(screen.getByRole("button", { name: "Connect selected objects" }));
+    input = screen.getByLabelText("Relationship label") as HTMLInputElement;
+    draft = "trusts";
+    submitName = "Create relationship";
+  } else {
+    const first = record.snapshot.objects[0];
+    const graph = screen.getByRole("group", { name: `${record.snapshot.title} world graph` });
+    await user.click(within(graph).getByRole("button", { name: `${first.name}, ${first.kind}` }));
+    await user.click(screen.getByRole("button", { name: `Rename ${first.name}` }));
+    input = screen.getByLabelText("New name") as HTMLInputElement;
+    draft = "Mara Candidate";
+    submitName = "Save name";
+  }
+  if (kind === "rename") await user.clear(input);
+  await user.type(input, draft);
+  await user.click(screen.getByRole("button", { name: submitName }));
+  return { inputLabel: kind === "object" ? "Object name" : kind === "relationship" ? "Relationship label" : "New name", submitName, draft };
+}
+
+async function conflictFor(kind: DraftKind, repository: InMemoryLocalWorldRepository, record: LocalWorldRecord, draft: string): Promise<CommitSemanticResult> {
+  const adapter = createLocalWorldGraphAdapter(repository);
+  const firstId = record.snapshot.objects[0].id;
+  const secondId = record.snapshot.objects[1].id;
+  const winner = await adapter.renameObject(record, firstId, "Winning edit");
+  if (winner.status !== "committed") throw new Error("Unable to prepare stale conflict fixture.");
+  if (kind === "object") return adapter.createObject(record, { name: draft, kind: "person" });
+  if (kind === "relationship") return adapter.createRelationship(record, { fromObjectId: firstId, toObjectId: secondId, kind: draft });
+  return adapter.renameObject(record, firstId, draft);
+}
+
 describe("WorldGraphCanvas", () => {
   it("renders an accessible controlled cyclic-capable graph with parallel edges keyed by assertion identity", async () => {
     const { record } = await graphRecord();
@@ -42,13 +93,20 @@ describe("WorldGraphCanvas", () => {
       ...original,
       id: `${record.snapshot.worldId}:relationship:parallel` as LocalWorldRelationship["id"],
     };
+    const reciprocal: LocalWorldRelationship = {
+      ...original,
+      id: `${record.snapshot.worldId}:relationship:reciprocal` as LocalWorldRelationship["id"],
+      fromObjectId: original.toObjectId,
+      toObjectId: original.fromObjectId,
+      kind: "reciprocates",
+    };
     const loop: LocalWorldRelationship = {
       ...original,
       id: `${record.snapshot.worldId}:relationship:loop` as LocalWorldRelationship["id"],
       toObjectId: original.fromObjectId,
       kind: "remembers",
     };
-    const snapshot = { ...record.snapshot, relationships: [...record.snapshot.relationships, parallel, loop] };
+    const snapshot = { ...record.snapshot, relationships: [...record.snapshot.relationships, reciprocal, parallel, loop] };
     render(<WorldGraphCanvas record={{ ...record, snapshot }} />);
 
     const graph = screen.getByRole("group", { name: "The Ember Coast world graph" });
@@ -56,16 +114,138 @@ describe("WorldGraphCanvas", () => {
     expect(within(graph).getByRole("button", { name: "Tomas Reed, person" })).toBeVisible();
     expect(within(graph).getByRole("button", { name: "The Glass Orchard, location" })).toBeVisible();
     expect(within(graph).getByRole("button", { name: "The Winter Accord, event" })).toBeVisible();
-    expect(graph.querySelectorAll("[data-edge-id]")).toHaveLength(6);
+    expect(graph.querySelectorAll("[data-edge-id]")).toHaveLength(7);
     const firstEdge = graph.querySelector(`[data-edge-id="${original.id}"]`);
     const parallelEdge = graph.querySelector(`[data-edge-id="${parallel.id}"]`);
     expect(firstEdge?.querySelector("path")?.getAttribute("d"))
       .not.toBe(parallelEdge?.querySelector("path")?.getAttribute("d"));
     expect(firstEdge?.querySelector("text")?.getAttribute("y"))
       .not.toBe(parallelEdge?.querySelector("text")?.getAttribute("y"));
+    const reciprocalEdge = graph.querySelector(`[data-edge-id="${reciprocal.id}"]`);
+    expect(new Set([firstEdge, reciprocalEdge, parallelEdge].map((edge) => edge?.querySelector("path")?.getAttribute("d"))).size).toBe(3);
+    expect(new Set([firstEdge, reciprocalEdge, parallelEdge].map((edge) => edge?.querySelector("text")?.getAttribute("y"))).size).toBe(3);
     expect(firstEdge).toHaveAccessibleName("Mara Venn allies Tomas Reed");
     expect(graph.querySelector(`[data-edge-id="${loop.id}"] path`)?.getAttribute("d")).toContain(" C ");
     expect(screen.queryByRole("button", { name: /world, world/i })).not.toBeInTheDocument();
+  });
+
+  it.each(["object", "relationship", "rename"] as const)("retains a %s draft after callback rejection, error result and semantic conflict", async (kind) => {
+    for (const outcome of ["rejection", "failure", "conflict"] as const) {
+      const user = userEvent.setup();
+      const { repository, record } = await graphRecord();
+      const pending = deferred<CommitSemanticResult>();
+      const callback = vi.fn(() => pending.promise);
+      const props = kind === "object" ? { onCreateObject: callback }
+        : kind === "relationship" ? { onCreateRelationship: callback }
+          : { onRenameObject: callback };
+      const { unmount } = render(<WorldGraphCanvas record={record} {...props} />);
+      const { draft, inputLabel } = await enterDraft(user, kind, record);
+      if (outcome === "rejection") pending.reject(new Error("callback rejected"));
+      else pending.resolve(outcome === "failure"
+          ? { status: "error", message: "write interrupted" }
+          : await conflictFor(kind, repository, record, draft));
+      expect(await screen.findByText(outcome === "rejection" ? "callback rejected" : outcome === "failure" ? "write interrupted" : /conflict candidate/)).toBeVisible();
+      expect(screen.getByLabelText(inputLabel)).toHaveValue(draft);
+      expect(screen.getByRole("button", { name: kind === "object" ? "Create object" : kind === "relationship" ? "Create relationship" : "Save name" })).toBeVisible();
+      // Unmount between matrix cases so each row owns a clean canvas instance.
+      unmount();
+    }
+  });
+
+  it.each(["object", "relationship", "rename"] as const)("does not clear a newer %s draft when an older submission succeeds", async (kind) => {
+    const user = userEvent.setup();
+    const { record } = await graphRecord();
+    const pending = deferred<CommitSemanticResult>();
+    const callback = vi.fn(() => pending.promise);
+    const props = kind === "object" ? { onCreateObject: callback }
+      : kind === "relationship" ? { onCreateRelationship: callback }
+        : { onRenameObject: callback };
+    const { unmount } = render(<WorldGraphCanvas record={record} {...props} />);
+    const { draft, inputLabel } = await enterDraft(user, kind, record);
+    await user.type(screen.getByLabelText(inputLabel), " newer");
+    pending.resolve({ status: "committed", record });
+    expect(await screen.findByText("Edit recorded.")).toBeVisible();
+    expect(screen.getByLabelText(inputLabel)).toHaveValue(`${draft} newer`);
+    unmount();
+  });
+
+  it.each(["object", "relationship", "rename"] as const)("keeps a %s draft when edited away and back during submission", async (kind) => {
+    const user = userEvent.setup();
+    const { record } = await graphRecord();
+    const pending = deferred<CommitSemanticResult>();
+    const callback = vi.fn(() => pending.promise);
+    const props = kind === "object" ? { onCreateObject: callback }
+      : kind === "relationship" ? { onCreateRelationship: callback }
+        : { onRenameObject: callback };
+    const { unmount } = render(<WorldGraphCanvas record={record} {...props} />);
+    const { draft, inputLabel } = await enterDraft(user, kind, record);
+    const input = screen.getByLabelText(inputLabel);
+    await user.clear(input);
+    await user.type(input, draft);
+    pending.resolve({ status: "committed", record });
+    expect(await screen.findByText("Edit recorded.")).toBeVisible();
+    expect(screen.getByLabelText(inputLabel)).toHaveValue(draft);
+    unmount();
+  });
+
+  it("retains a changed object type when an older create submission succeeds", async () => {
+    const user = userEvent.setup();
+    const { record } = await graphRecord();
+    const pending = deferred<CommitSemanticResult>();
+    render(<WorldGraphCanvas record={record} onCreateObject={() => pending.promise} />);
+    await user.click(screen.getByRole("button", { name: "Add object" }));
+    await user.type(screen.getByLabelText("Object name"), "Ashen Courier");
+    await user.click(screen.getByRole("button", { name: "Create object" }));
+    await user.selectOptions(screen.getByLabelText("Type"), "event");
+    pending.resolve({ status: "committed", record });
+    expect(await screen.findByText("Edit recorded.")).toBeVisible();
+    expect(screen.getByLabelText("Object name")).toHaveValue("Ashen Courier");
+    expect(screen.getByLabelText("Type")).toHaveValue("event");
+  });
+
+  it("retains a changed relationship endpoint selection when an older create succeeds", async () => {
+    const user = userEvent.setup();
+    const { record } = await graphRecord();
+    const pending = deferred<CommitSemanticResult>();
+    render(<WorldGraphCanvas record={record} onCreateRelationship={() => pending.promise} />);
+    const graph = screen.getByRole("group", { name: `${record.snapshot.title} world graph` });
+    const mara = within(graph).getByRole("button", { name: "Mara Venn, person" });
+    const tomas = within(graph).getByRole("button", { name: "Tomas Reed, person" });
+    const orchard = within(graph).getByRole("button", { name: "The Glass Orchard, location" });
+    await user.click(mara);
+    await user.click(tomas);
+    await user.click(screen.getByRole("button", { name: "Connect selected objects" }));
+    await user.type(screen.getByLabelText("Relationship label"), "trusts");
+    await user.click(screen.getByRole("button", { name: "Create relationship" }));
+    await user.click(mara);
+    await user.click(orchard);
+    pending.resolve({ status: "committed", record });
+    expect(await screen.findByText("Edit recorded.")).toBeVisible();
+    expect(screen.getByLabelText("Relationship label")).toHaveValue("trusts");
+  });
+
+  it("ignores a pending semantic completion after the controlled World changes", async () => {
+    const user = userEvent.setup();
+    const { record } = await graphRecord();
+    const nextWorld = {
+      ...record,
+      snapshot: { ...record.snapshot, worldId: `${record.snapshot.worldId}:other` as typeof record.snapshot.worldId, title: "Other World" },
+    };
+    const pending = deferred<CommitSemanticResult>();
+    const callback = vi.fn(() => pending.promise);
+    const onSemanticResult = vi.fn();
+    const { rerender } = render(<WorldGraphCanvas record={record} onCreateObject={callback} onSemanticResult={onSemanticResult} />);
+    await user.click(screen.getByRole("button", { name: "Add object" }));
+    const input = screen.getByLabelText("Object name");
+    await user.type(input, "Draft for first World");
+    await user.click(screen.getByRole("button", { name: "Create object" }));
+    rerender(<WorldGraphCanvas record={nextWorld} onCreateObject={callback} onSemanticResult={onSemanticResult} />);
+    await user.click(screen.getByRole("button", { name: "Add object" }));
+    await user.type(screen.getByLabelText("Object name"), "Draft for second World");
+    pending.resolve({ status: "committed", record });
+    expect(await screen.findByLabelText("Object name")).toHaveValue("Draft for second World");
+    expect(onSemanticResult).not.toHaveBeenCalled();
+    expect(screen.getByRole("group", { name: `${nextWorld.snapshot.title} world graph` })).toBeVisible();
   });
 
   it("creates a relationship between two selected objects through the local CAS adapter", async () => {

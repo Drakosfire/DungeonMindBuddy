@@ -53,8 +53,11 @@ function edgeGeometry(
   }
   const start = { x: from.x + NODE_WIDTH / 2, y: from.y + NODE_HEIGHT / 2 };
   const end = { x: to.x + NODE_WIDTH / 2, y: to.y + NODE_HEIGHT / 2 };
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
+  const canonicalForward = edge.fromObjectId.localeCompare(edge.toObjectId) < 0;
+  const laneStart = canonicalForward ? start : end;
+  const laneEnd = canonicalForward ? end : start;
+  const dx = laneEnd.x - laneStart.x;
+  const dy = laneEnd.y - laneStart.y;
   const length = Math.hypot(dx, dy) || 1;
   const offset = (parallelIndex - (parallelCount - 1) / 2) * 30;
   const control = {
@@ -118,6 +121,28 @@ export function WorldGraphCanvas({
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [drag, setDrag] = useState<{ id: LocalObjectId; pointerX: number; pointerY: number; x: number; y: number } | null>(null);
+  const renameVersionRef = useRef(0);
+  const objectNameVersionRef = useRef(0);
+  const relationshipKindVersionRef = useRef(0);
+  const currentWorldIdRef = useRef(record.snapshot.worldId);
+  const worldGenerationRef = useRef(0);
+  if (currentWorldIdRef.current !== record.snapshot.worldId) {
+    currentWorldIdRef.current = record.snapshot.worldId;
+    worldGenerationRef.current += 1;
+    renameVersionRef.current += 1;
+    objectNameVersionRef.current += 1;
+    relationshipKindVersionRef.current += 1;
+    setSelectedIds([]);
+    setRenameId(null);
+    setRenameValue("");
+    setShowObjectForm(false);
+    setShowRelationshipForm(false);
+    setObjectName("");
+    setRelationshipKind("");
+    setBusy(false);
+    setStatus("");
+    setDrag(null);
+  }
   const dragMoved = useRef(false);
 
   const selectedObject = projection.nodes.find((node) => node.id === selectedIds.at(-1));
@@ -139,36 +164,47 @@ export function WorldGraphCanvas({
   });
 
   function selectNode(id: LocalObjectId) {
+    if (showRelationshipForm) relationshipKindVersionRef.current += 1;
     setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   }
 
-  async function runSemantic(action: () => Promise<CommitSemanticResult>) {
-    if (busy) return;
+  async function runSemantic(action: () => Promise<CommitSemanticResult>): Promise<CommitSemanticResult | null> {
+    if (busy) return null;
+    const submittedWorldId = record.snapshot.worldId;
+    const submittedGeneration = worldGenerationRef.current;
     setBusy(true);
     setStatus("Saving edit…");
     try {
       const result = await action();
-      onSemanticResult?.(result);
-      setStatus(messageForSemanticResult(result));
+      if (currentWorldIdRef.current === submittedWorldId && worldGenerationRef.current === submittedGeneration) {
+        onSemanticResult?.(result);
+        setStatus(messageForSemanticResult(result));
+      }
+      return result;
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "The edit could not be saved.");
+      if (currentWorldIdRef.current === submittedWorldId && worldGenerationRef.current === submittedGeneration) setStatus(error instanceof Error ? error.message : "The edit could not be saved.");
+      return null;
     } finally {
-      setBusy(false);
+      if (worldGenerationRef.current === submittedGeneration) setBusy(false);
     }
   }
 
   async function runLayout(positionsToWrite: Readonly<Record<string, { readonly x: number; readonly y: number }>>) {
     if (!onMoveObjects || busy) return;
+    const submittedWorldId = record.snapshot.worldId;
+    const submittedGeneration = worldGenerationRef.current;
     setBusy(true);
     setStatus("Saving canvas layout…");
     try {
       const result = await onMoveObjects(record, positionsToWrite);
-      onLayoutResult?.(result);
-      setStatus(messageForLayoutResult(result));
+      if (currentWorldIdRef.current === submittedWorldId && worldGenerationRef.current === submittedGeneration) {
+        onLayoutResult?.(result);
+        setStatus(messageForLayoutResult(result));
+      }
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "The canvas layout could not be saved.");
+      if (currentWorldIdRef.current === submittedWorldId && worldGenerationRef.current === submittedGeneration) setStatus(error instanceof Error ? error.message : "The canvas layout could not be saved.");
     } finally {
-      setBusy(false);
+      if (worldGenerationRef.current === submittedGeneration) setBusy(false);
     }
   }
 
@@ -207,31 +243,44 @@ export function WorldGraphCanvas({
     }
   }
 
-  function submitRename(event: FormEvent) {
+  async function submitRename(event: FormEvent) {
     event.preventDefault();
     if (!renameId || !onRenameObject) return;
     const submittedId = renameId;
     const submittedValue = renameValue;
-    void runSemantic(() => onRenameObject(record, submittedId, submittedValue));
-    setRenameId(null);
+    const submittedVersion = renameVersionRef.current;
+    const submittedGeneration = worldGenerationRef.current;
+    const result = await runSemantic(() => onRenameObject(record, submittedId, submittedValue));
+    if (result?.status === "committed" && currentWorldIdRef.current === record.snapshot.worldId && worldGenerationRef.current === submittedGeneration && renameVersionRef.current === submittedVersion && renameId === submittedId) {
+      setRenameId(null);
+      setRenameValue("");
+    }
   }
 
-  function submitObject(event: FormEvent) {
+  async function submitObject(event: FormEvent) {
     event.preventDefault();
     if (!onCreateObject) return;
     const input = { name: objectName, kind: objectKind };
-    void runSemantic(() => onCreateObject(record, input));
-    setObjectName("");
-    setShowObjectForm(false);
+    const submittedVersion = objectNameVersionRef.current;
+    const submittedGeneration = worldGenerationRef.current;
+    const result = await runSemantic(() => onCreateObject(record, input));
+    if (result?.status === "committed" && currentWorldIdRef.current === record.snapshot.worldId && worldGenerationRef.current === submittedGeneration && objectNameVersionRef.current === submittedVersion) {
+      setObjectName("");
+      setShowObjectForm(false);
+    }
   }
 
-  function submitRelationship(event: FormEvent) {
+  async function submitRelationship(event: FormEvent) {
     event.preventDefault();
     if (!onCreateRelationship || selectedIds.length !== 2) return;
     const input = { fromObjectId: selectedIds[0], toObjectId: selectedIds[1], kind: relationshipKind };
-    void runSemantic(() => onCreateRelationship(record, input));
-    setRelationshipKind("");
-    setShowRelationshipForm(false);
+    const submittedVersion = relationshipKindVersionRef.current;
+    const submittedGeneration = worldGenerationRef.current;
+    const result = await runSemantic(() => onCreateRelationship(record, input));
+    if (result?.status === "committed" && currentWorldIdRef.current === record.snapshot.worldId && worldGenerationRef.current === submittedGeneration && relationshipKindVersionRef.current === submittedVersion) {
+      setRelationshipKind("");
+      setShowRelationshipForm(false);
+    }
   }
 
   return (
@@ -239,27 +288,27 @@ export function WorldGraphCanvas({
       <div className="world-graph-canvas__toolbar" aria-label="Graph editing tools">
         {onCreateObject ? <button type="button" disabled={busy} onClick={() => setShowObjectForm((value) => !value)}>Add object</button> : null}
         {onCreateRelationship && selectedIds.length === 2 ? <button type="button" disabled={busy} onClick={() => setShowRelationshipForm((value) => !value)}>Connect selected objects</button> : null}
-        {onRenameObject && selectedObject ? <button type="button" disabled={busy} onClick={() => { setRenameId(selectedObject.id); setRenameValue(selectedObject.name); }}>Rename {selectedObject.name}</button> : null}
+        {onRenameObject && selectedObject ? <button type="button" disabled={busy} onClick={() => { renameVersionRef.current += 1; setRenameId(selectedObject.id); setRenameValue(selectedObject.name); }}>Rename {selectedObject.name}</button> : null}
       </div>
 
       {showObjectForm && onCreateObject ? (
         <form className="world-graph-canvas__form" onSubmit={submitObject}>
-          <label>Object name<input autoFocus value={objectName} onChange={(event) => setObjectName(event.target.value)} /></label>
-          <label>Type<select value={objectKind} onChange={(event) => setObjectKind(event.target.value)}><option value="person">Person</option><option value="location">Location</option><option value="event">Event</option><option value="faction">Faction</option></select></label>
+          <label>Object name<input autoFocus value={objectName} onChange={(event) => { objectNameVersionRef.current += 1; setObjectName(event.target.value); }} /></label>
+          <label>Type<select value={objectKind} onChange={(event) => { objectNameVersionRef.current += 1; setObjectKind(event.target.value); }}><option value="person">Person</option><option value="location">Location</option><option value="event">Event</option><option value="faction">Faction</option></select></label>
           <button type="submit" disabled={busy || !objectName.trim()}>Create object</button>
           <button type="button" onClick={() => setShowObjectForm(false)}>Cancel</button>
         </form>
       ) : null}
       {showRelationshipForm && onCreateRelationship && selectedIds.length === 2 ? (
         <form className="world-graph-canvas__form" onSubmit={submitRelationship}>
-          <label>Relationship label<input autoFocus value={relationshipKind} onChange={(event) => setRelationshipKind(event.target.value)} /></label>
+          <label>Relationship label<input autoFocus value={relationshipKind} onChange={(event) => { relationshipKindVersionRef.current += 1; setRelationshipKind(event.target.value); }} /></label>
           <button type="submit" disabled={busy || !relationshipKind.trim()}>Create relationship</button>
           <button type="button" onClick={() => setShowRelationshipForm(false)}>Cancel</button>
         </form>
       ) : null}
       {renameId && onRenameObject ? (
         <form className="world-graph-canvas__form" onSubmit={submitRename}>
-          <label>New name<input autoFocus value={renameValue} onChange={(event) => setRenameValue(event.target.value)} /></label>
+          <label>New name<input autoFocus value={renameValue} onChange={(event) => { renameVersionRef.current += 1; setRenameValue(event.target.value); }} /></label>
           <button type="submit" disabled={busy || !renameValue.trim()}>Save name</button>
           <button type="button" onClick={() => setRenameId(null)}>Cancel</button>
         </form>
