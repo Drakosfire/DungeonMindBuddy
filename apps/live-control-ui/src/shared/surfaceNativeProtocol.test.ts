@@ -176,3 +176,14 @@ it.each(['valid','foreign','build-draft','play'])('keeps saved authored-page cla
   if(mutation==='play')Object.assign(answer,{surface_id:'play'});
   expect(isSurfaceNativeCompletion(answer,c.receipt as SurfaceNativeContextReceiptV1)).toBe(mutation==='valid');
 });
+
+
+it('accepts only the shared connected-page review on Plan, not other Build collaborations',()=>{
+ const c=context();const answer:any=c.completion;
+ answer.answer_segments=[];answer.answer_context_status='discussion';
+ answer.native_assertion_citations=[];answer.native_clause_citations=[];answer.native_body_citations=[];answer.saved_source_citations=[];
+ answer.collaboration={kind:'connected_page',title:'The Old Bath House',read_id:'11111111-1111-4111-8111-111111111111',quote:'A saved Worldbuilding passage.',person_label:null,relationships:[],instructions:'Scaffold only'};
+ expect(isSurfaceNativeCompletion(answer,c.receipt as SurfaceNativeContextReceiptV1)).toBe(true);
+ answer.collaboration={kind:'questions',questions:['Which entrance?']};
+ expect(isSurfaceNativeCompletion(answer,c.receipt as SurfaceNativeContextReceiptV1)).toBe(false);
+});
