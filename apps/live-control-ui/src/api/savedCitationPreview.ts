@@ -1,12 +1,14 @@
 import type {SurfaceNativeCompletionV1,SurfaceEvidenceCompletionV3,WorldBuildGraphReceiptV1} from './types';
 import {exact,isBuildSourceBasis,isRelatedPageClaim} from '../shared/sourcePassageProtocol';
+import {isSessionSummary} from '../shared/surfaceEvidenceProtocol';
+import {sessionCitationTarget} from '../shared/sessionEvidenceCitation';
 import {isNativeBodyCitation,isNativeSourceCitation} from '../shared/nativeSourceCitationProtocol';
 import {isNativeClauseCitationShape} from '../shared/nativeStatementAnswerProtocol';
 import {isNativeAssertionCitationShape} from '../shared/nativeAssertionProtocol';
 
 export type SavedCitationPreview = {
   schema:'dmb_saved_native_citation_preview_v1';status:'ready';surface_id:'build'|'plan'|'play';
-  answer_segments:({kind:string;text:string;content_sha256?:string}|Extract<import('./types').WorldBuildRelatedPageCompletionV1['answer_segments'][number],{kind:'related_page_claim'}>)[];
+  answer_segments:({kind:string;text:string;content_sha256?:string}|Extract<import('./types').WorldBuildRelatedPageCompletionV1['answer_segments'][number],{kind:'related_page_claim'}>|import('./types').SessionSummarySegment)[];
   native_source_citations:SurfaceEvidenceCompletionV3['native_source_citations'];
   native_body_citations:SurfaceNativeCompletionV1['native_body_citations'];
   native_clause_citations:SurfaceNativeCompletionV1['native_clause_citations'];
@@ -25,7 +27,9 @@ export function readSavedCitationPreview(v:unknown,world:string,surface:string,a
     ||v.schema!=='dmb_saved_native_citation_preview_v1'||v.status!=='ready'||v.surface_id!==surface||!['build','plan','play'].includes(surface)
     ||!Array.isArray(v.answer_segments)||!v.answer_segments.length||v.answer_segments.length>128)return unavailable();
   const segments=v.answer_segments;
-  if(!segments.every(s=>s?.kind==='related_page_claim'
+  if(!segments.every(s=>s?.kind==='session_summary'
+      ? surface==='plan'&&isSessionSummary(s)&&s.supports.every(support=>{try {sessionCitationTarget(world,support);return true;}catch{return false;}})
+      : s?.kind==='related_page_claim'
       ? ['build','plan'].includes(surface)&&isRelatedPageClaim(s,world)
       : exact(s,s?.kind==='saved_source_claim'?['kind','text','content_sha256']:['kind','text'])
       &&['source_passage_claim','native_assertion_claim','saved_source_claim','proposal','limitation','discussion','draft_reference_claim'].includes(String(s.kind))

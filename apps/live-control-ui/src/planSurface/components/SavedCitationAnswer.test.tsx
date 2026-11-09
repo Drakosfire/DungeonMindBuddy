@@ -1,5 +1,8 @@
 import {render,screen,fireEvent,waitFor,cleanup} from '@testing-library/react';
 import {afterEach,expect,it,vi} from 'vitest';
+import {createHash} from 'node:crypto';
+import {canonical} from '../../shared/sourcePassageProtocol';
+import {sessionSummaryMarkdown} from '../../shared/sessionEvidenceCitation';
 import {SavedCitationAnswer} from './SavedCitationAnswer';
 import {readSavedCitationPreview} from '../../api/savedCitationPreview';
 import {savedCitationPreviewFixture} from '../../testSupport/savedCitationPreviewFixture';
@@ -125,4 +128,70 @@ it('discards a delayed saved-page result after changing turns',async()=>{
   resolve(result);
   await waitFor(()=>expect(screen.queryByRole('region',{name:'Opened source section'})).toBeNull());
   expect(screen.queryByText(body)).toBeNull();
+});
+
+
+function summaryFixture():import('../../api/types').SessionSummarySegment {
+  const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
+  const run='11111111-1111-4111-8111-111111111111';
+  const supports=(["scene_note","closing_reflections"] as const).map((kind,ordinal)=>{
+    const text=ordinal?'Ask which path next.':'The gate stayed closed. 🐸\r\n';
+    const digest=hash(text),element=ordinal?null:'scene:gate';
+    const entry=hash(canonical({kind,element_id:element,ordinal}));
+    const parent={source_kind:'session' as const,object_id:run,revision:'54',body_sha256:digest,owner_sha256:'b'.repeat(64),entry_identity:entry};
+    const source_handle='q'+hash(canonical(parent));
+    const block={partition_version:'markdown_source_blocks_v1' as const,source_handle,byte_start:0,byte_end:new TextEncoder().encode(text).length,block_sha256:digest};
+    return {kind:'authored_excerpt' as const,text,...parent,...block,block_handle:'b'+hash(canonical(block)),source_name:'Gate rehearsal — notes and reflections',source_ordinal:ordinal,entry_kind:kind,element_id:element,checkpoint_content_sha256:'c'.repeat(64)};
+  });
+  return {kind:'session_summary',text:'The rehearsal left the route unresolved.',supports};
+}
+
+it('renders exact Run entry links initially while preserving other source indexes and numbering',async()=>{
+  const {preview,answer,body,citation}=await savedCitationPreviewFixture();
+  const summary=summaryFixture();
+  preview.answer_segments.unshift(summary);citation.segment_index=1;
+  const rawAnswer=summary.text+'\n'+answer;
+  const parsed=readSavedCitationPreview(preview,'world','plan',rawAnswer);
+  expect(parsed?.status).toBe('ready');
+  const details=vi.spyOn(api,'getWorldAgentConversationHistory');
+  const source=vi.spyOn(api,'getAgentNativeBodyExcerpt').mockResolvedValue({schema:'dmb_agent_native_body_excerpt_read_v2',world_id:'world',turn_id:'turn',citation_index:0,citation,content:body,display_label:null});
+  const targets=sessionSummaryMarkdown(summary,'world',1).targets;
+  const view=render(<SavedCitationAnswer preview={parsed} answer={rawAnswer} worldId="world" turnId="turn"/>);
+  expect(screen.getByRole('link',{name:'1'})).toHaveAttribute('href',targets[0]);
+  expect(screen.getByRole('link',{name:'2'})).toHaveAttribute('href',targets[1]);
+  expect(screen.getByRole('link',{name:'1'})).toHaveAttribute('title','Gate rehearsal — notes and reflections · Scene notes');
+  expect(screen.getByRole('button',{name:'Read source · Full document'})).toHaveTextContent('3');
+  expect(details).not.toHaveBeenCalled();expect(source).not.toHaveBeenCalled();
+  expect(screen.queryByText(summary.supports[0]!.text.trim())).toBeNull();
+  fireEvent.click(screen.getByRole('button',{name:'Read source · Full document'}));
+  expect(await screen.findByText(body)).toBeInTheDocument();
+  expect(source).toHaveBeenCalledExactlyOnceWith('world','turn',0);
+  view.unmount();
+  render(<SavedCitationAnswer preview={parsed} answer={rawAnswer} worldId="world" turnId="turn"/>);
+  expect(screen.getByRole('link',{name:'1'})).toHaveAttribute('href',targets[0]);
+  expect(details).not.toHaveBeenCalled();
+});
+
+it.each(['surface','empty','entry','digest','run','revision','extra','answer'])('refuses malformed saved summary %s',async mutation=>{
+  const {preview}=await savedCitationPreviewFixture();const summary=summaryFixture();
+  preview.answer_segments=[summary];preview.native_body_citations=[];
+  if(mutation==='surface')preview.surface_id='play';
+  if(mutation==='empty')summary.supports=[];
+  if(mutation==='entry')summary.supports[0]!.entry_identity=null as unknown as string;
+  if(mutation==='digest')summary.supports[0]!.body_sha256='invalid';
+  if(mutation==='run')summary.supports[0]!.object_id='not-a-run';
+  if(mutation==='revision')summary.supports[0]!.revision='0';
+  if(mutation==='extra')Object.assign(summary.supports[0]!,{execution:{}});
+  expect(readSavedCitationPreview(preview,'world',preview.surface_id,mutation==='answer'?'Different answer':summary.text)?.status).toBe('details_required');
+});
+
+
+it('keeps newer hydrated answer text when a summary preview is stale',async()=>{
+  const {preview}=await savedCitationPreviewFixture();preview.answer_segments=[summaryFixture()];preview.native_body_citations=[];
+  const view=render(<SavedCitationAnswer preview={preview} answer={preview.answer_segments[0]!.text} worldId="world" turnId="turn"/>);
+  expect(screen.getByRole('link',{name:'1'})).toBeInTheDocument();
+  view.rerender(<SavedCitationAnswer preview={preview} answer="A newer hydrated answer." worldId="world" turnId="turn"/>);
+  expect(screen.getByText('A newer hydrated answer.')).toBeInTheDocument();
+  expect(screen.queryByRole('link')).toBeNull();
+  expect(screen.queryByText(preview.answer_segments[0]!.text)).toBeNull();
 });

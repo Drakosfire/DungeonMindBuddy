@@ -30,6 +30,7 @@ _SEGMENTS = {
     "discussion",
     "draft_reference_claim",
     "related_page_claim",
+    "session_summary",
 }
 
 
@@ -86,6 +87,8 @@ def project(row):
                 )
             ):
                 return details_required("invalid_presentation")
+        if completion.surface_id != "plan" and any(s.kind == "session_summary" for s in completion.answer_segments):
+            return details_required("unsupported_sources")
         related = [s for s in completion.answer_segments if s.kind == "related_page_claim"]
         if any(s.page.world_id != row["world_id"] for s in related):
             return details_required("invalid_presentation")
@@ -107,7 +110,7 @@ def project(row):
             "status": "ready",
             "surface_id": completion.surface_id,
             "answer_segments": [
-                {
+                s.model_dump(mode="json", by_alias=True) if s.kind == "session_summary" else {
                     "kind": s.kind,
                     "text": s.text,
                     **(
