@@ -22,13 +22,14 @@ def test_native_predicate_has_one_storage_owner(application_state_dsn):
         native = conn.execute("SELECT pg_get_expr(conbin,conrelid) FROM pg_constraint "
             "WHERE conrelid='pg_temp.native_expected_shape'::regclass AND conname='expected_native'").fetchone()[0]
         anchor = native.split('\n', 1)[0]
+        materialized = import_module('application_state.migrations.versions.20261109_0142_native_storage_json_owner')
         expression = rows['agent_turn_lifecycle_check']
-        tail = expression[expression.index(anchor) + len(anchor) + 1:]
-        indent = tail[:len(tail) - len(tail.lstrip(' '))]
-        assert expression.count(native.replace('\n', '\n' + indent)) == 1
+        assert expression.count(materialized._FUNCTION + '(') == 1
+        assert anchor not in expression
         for name, expression in rows.items():
             if name != 'agent_turn_lifecycle_check':
                 assert anchor not in expression
+                assert materialized._FUNCTION not in expression
                 # Both halves must still dispatch malformed mixed-generation rows.
                 assert 'dmb_surface_native_context_receipt_v1' in expression
                 assert 'dmb_surface_native_execution_v1' in expression
@@ -97,7 +98,7 @@ def test_upgrade_keeps_lifecycle_and_legacy_row_exact(predecessor_database, monk
     with psycopg.connect(predecessor_database) as conn:
         before = _definitions(conn)
         row_before = conn.execute('SELECT to_jsonb(t) FROM agent.turn t WHERE turn_id=%s', (turn.turn_id,)).fetchone()[0]
-    command.upgrade(cli.alembic_config(), 'head')
+    command.upgrade(cli.alembic_config(), '20261108_0139')
     with psycopg.connect(predecessor_database) as conn:
         after = _definitions(conn)
         row_after = conn.execute('SELECT to_jsonb(t) FROM agent.turn t WHERE turn_id=%s', (turn.turn_id,)).fetchone()[0]
@@ -117,7 +118,7 @@ def test_unmatched_predicate_refuses_upgrade_without_partial_changes(predecessor
     with psycopg.connect(predecessor_database) as conn:
         before = _definitions(conn)
     with pytest.raises(RuntimeError, match='Native storage predicate changed'):
-        command.upgrade(cli.alembic_config(), 'head')
+        command.upgrade(cli.alembic_config(), '20261108_0139')
     with psycopg.connect(predecessor_database) as conn:
         assert _definitions(conn) == before
         assert conn.execute('SELECT version_num FROM application_state.schema_migrations').fetchone() == ('20261108_0138',)
@@ -139,7 +140,7 @@ def test_mid_ddl_failure_rolls_back_all_constraints(predecessor_database):
     event.listen(Engine, 'after_cursor_execute', interrupt)
     try:
         with pytest.raises(RuntimeError, match='injected after first'):
-            command.upgrade(cli.alembic_config(), 'head')
+            command.upgrade(cli.alembic_config(), '20261108_0139')
     finally:
         event.remove(Engine, 'after_cursor_execute', interrupt)
     assert len(seen) == 1
@@ -152,13 +153,19 @@ def test_update_comparison_preserves_row_and_reports_cost(
     lane, tmp_path, monkeypatch, application_state_dsn, predecessor_database, record_property,
 ):
     import json
+    from alembic import command
+    from application_state import cli
     from application_state.config import APPLICATION_STATE_DSN_ENV
     with psycopg.connect(predecessor_database) as conn:
         old = _definitions(conn)
-    monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, application_state_dsn)
-    _fresh_case(lane, tmp_path, monkeypatch, None, True, False, False)
+    # This historical experiment qualifies migration139, not later owners.
+    command.upgrade(cli.alembic_config(), '20261108_0139')
+    with monkeypatch.context() as patch:
+        patch.setenv(APPLICATION_STATE_DSN_ENV, predecessor_database)
+        patch.setattr(cli, '_alembic_head', lambda: '20261108_0139')
+        _fresh_case(lane, tmp_path, patch, None, True, False, False)
     measurements = []
-    with psycopg.connect(application_state_dsn) as conn:
+    with psycopg.connect(predecessor_database) as conn:
         current = _definitions(conn)
         assert current['agent_turn_lifecycle_check'] == old['agent_turn_lifecycle_check']
         turn_id = conn.execute('SELECT turn_id FROM agent.turn WHERE world_id=%s ORDER BY accepted_at DESC LIMIT 1',
