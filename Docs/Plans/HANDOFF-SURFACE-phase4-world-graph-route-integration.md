@@ -3,8 +3,9 @@
 **Status:** ACTIVE — bounded stacked route integration authorized by Alan's front-door plan.
 Created: 2026-11-09
 Flow / owner: SURFACE / DungeonMindBuddy.
-Topology: stacked on graph primitives PR #2267, head `91264e2c1d7e6fa575d3843e5876fe12e157672a`; merge after #2267 and then re-anchor/qualify this successor.
+Topology: serial successor after graph primitives PR #2267 merged at `c14828cb50f57c426ded2f9ca80e866eb9f96282`. Current base: `main@c14828cb50f57c426ded2f9ca80e866eb9f96282`.
 Branch / isolated checkout: `codex/world-graph-surface-route-20261109` / task-owned `graph-route` worktree.
+PR: draft #2276; current implementation head before this truthful handoff sync: `145188f4bfb458f231e3aa177db3b6d84e09f440`.
 
 ## Mission
 
@@ -33,5 +34,9 @@ No wildcard. The graph component lane owns `worldGraphCanvas/*` and its handoff;
 ## Verification / acceptance
 
 Focused tests cover the Surface callbacks and graph component controls. Run the live UI build and inspect the emitted `WorldGraphCanvas-*.js` lazy chunk. Review the full cumulative diff from the final merged graph base. Current implementation has no route-level browser acceptance evidence, no hosted/guest deployment, and no browser download testing; do not claim Alan can review a remotely deployed route. After merge, the authenticated `/` route is the intended local review entry when Alan runs the Buddy app.
+
+Current local integrated verification on the route tree: focused Surface + graph component tests 47/47; `npm run typecheck`; `npm run build`; `git diff --check`. Vite emits `WorldGraphCanvas-*.js` as a separate approximately 11 KB chunk. Existing connectedPageApi/localWorldPackageV1 import warnings and the >500 KB eager index warning remain.
+
+The graph primitives are now in main, so this route slice is no longer stacked on an unmerged branch. It targets the existing authenticated Buddy Surface at `/`. Guest access is not part of this lease. Browser visual acceptance and a remotely deployed review route have not been verified; do not claim either. After merge, Alan can review through the authenticated local app setup.
 
 Stop if a required write path outside this lease is needed, if the graph parent changes behavior materially, or if exact current-main integration reveals a conflicting lease. No schema, dependency, lockfile, App route, or auth-boundary edits are authorized here.
