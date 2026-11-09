@@ -128,3 +128,31 @@ and one exactly traced leaked volume were cleaned, without global prune or chang
 to shared data. Added8GiB headroom refusal before any build/resources. Local full
 image verification is stopped until infrastructure/packaging scope is resolved.
 No false qualification success; all runtime acceptance gates remain outstanding.
+
+## Authorized historical migration test-contract extension
+
+The coordinator explicitly authorizes audited test-only historical schema setup,
+exact-base failure proof, forward schema behavior and production fence enforcement.
+Current main and open ownership were checked before edits: #2290 owns
+`test_native_storage_owner_migration.py` and its new production migration; neither
+will be edited. The migrated-template predecessor is SETTLED by #2203. No active
+competing conftest/test-contract writer was found.
+
+Additional bounded writes: `tests/application_state/conftest.py` (generalize existing
+migrate-once/clone-per-test to explicitly pinned historical revisions; default head
+behavior remains); `tests/application_state/historical_migrations.py` (owned test
+row projection into real historical schemas); `tests/application_state/test_historical_migration_contract.py`
+(real schema/isolation/fence guards); `tests/application_state/test_agent_conversation_postgres.py`
+and `tests/application_state/test_agent_conversation_provenance_migration.py`
+(audited stale-head and historical-transition witnesses only). Classification and
+owning CI guards may include these added tests. Other failing contracts will be
+reported/audited before extending this list. Production migrations, schema fences,
+operator databases and graph source remain outside scope.
+
+Historical witness design: create/migrate one empty owned template per exact
+historical revision; clone independently for each witness; seed only actual rows
+from another owned test database using the historical schema's columns and all
+its real constraints; fail on populated source tables absent from that schema.
+Do not stamp versions, disable constraints, run a historical writer against today's
+schema, or downgrade through unrelated later fences. All old assertions/cases stay
+represented; current-head downgrade denial is verified separately.
