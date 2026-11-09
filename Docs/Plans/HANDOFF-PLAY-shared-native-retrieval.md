@@ -121,6 +121,12 @@ existing classified PostgreSQL owner module after checking its active write leas
 no new test module or manifest entry is leased here. Checkpoint before expanding
 these boundaries.
 
+Owning verification also adopts the existing `tests/test_native_object_retrieval.py`
+dispatch fixture: provide the actual surface identity now consumed by the shared
+constructor. This does not add a runtime fallback for incomplete adapters. Keep
+the new reader fence’s forward-migration failure consistent with the existing
+no-downgrade contract.
+
 ## Verification and delivery gates
 
 Prove ordinary factory through real APP admission, actual prepared SDK requests,

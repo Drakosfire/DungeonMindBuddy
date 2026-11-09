@@ -13,4 +13,4 @@ def upgrade():
 
 
 def downgrade():
-    raise RuntimeError('Older readers cannot reconstruct shared native Play work and execution')
+    raise RuntimeError('Use a forward migration; older readers cannot reconstruct shared native Play work and execution')
