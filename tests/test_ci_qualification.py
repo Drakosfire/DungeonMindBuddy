@@ -166,3 +166,61 @@ def test_postgres_readiness_is_bounded_and_fails_closed(monkeypatch):
     with pytest.raises(probe.QualificationFailure, match="disposable_postgres_unavailable"):
         instance.wait_postgres("owned-postgres")
     assert len(calls) == 60
+
+
+def test_native_database_command_propagates_failure_and_scopes_dsn(tmp_path, monkeypatch):
+    from scripts.qualification import native_database as native
+
+    closed = []
+    calls = []
+    class OwnedDatabase:
+        def __init__(self, output):
+            assert output == tmp_path / "owned"
+        def __enter__(self):
+            return "postgresql://owned@127.0.0.1:1234/qualification_native_test"
+        def __exit__(self, *args):
+            closed.append(True)
+    def run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return SimpleNamespace(returncode=17)
+    monkeypatch.setattr(native, "NativeTestDatabase", OwnedDatabase)
+    monkeypatch.setattr(native.subprocess, "run", run)
+    monkeypatch.setattr(sys, "argv", ["native_database", "--output", str(tmp_path / "owned")])
+    assert native.main() == 17
+    assert closed == [True]
+    assert calls[0][0][-2:] == ["run", "full-regression"]
+    assert calls[0][1]["env"]["DMB_CUTOVER_TEST_DATABASE_URL"].endswith("/qualification_native_test")
+
+
+def test_native_database_cleanup_failure_is_fatal_and_named(tmp_path, monkeypatch):
+    from scripts.qualification import native_database as native
+
+    instance = native.NativeTestDatabase(tmp_path / "owned")
+    calls = []
+    def run(argv, **kwargs):
+        calls.append(argv)
+        return SimpleNamespace(returncode=1, stdout="", stderr="cleanup refused")
+    monkeypatch.setattr(native.subprocess, "run", run)
+    with pytest.raises(probe.QualificationFailure, match="cleanup failed"):
+        instance.__exit__(None, None, None)
+    assert calls == [["docker", "logs", instance.name], ["docker", "rm", "--force", "--volumes", instance.name]]
+    assert json.loads((instance.output / "result.json").read_text())["cleaned"] is False
+
+
+@pytest.mark.parametrize("peer,expected", [(None, 200), (("192.0.2.1", 50000), 403)])
+def test_scoped_local_test_client_preserves_real_auth_boundary(monkeypatch, peer, expected):
+    from fastapi import FastAPI
+    from apps.live_control_server.services.hosted_auth import install_hosted_request_boundary
+    from tests.local_operator_client import LocalOperatorTestClient, configure_local_operator
+
+    configure_local_operator(monkeypatch)
+    app = FastAPI()
+    install_hosted_request_boundary(app)
+    @app.get("/api/probe")
+    def probe_route():
+        return {"ok": True}
+    kwargs = {} if peer is None else {"client": peer}
+    response = LocalOperatorTestClient(app, **kwargs).get("/api/probe")
+    assert response.status_code == expected
+    if expected == 403:
+        assert response.json()["detail"]["code"] == "hosted_auth_local_boundary"

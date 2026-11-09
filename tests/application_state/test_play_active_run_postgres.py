@@ -9,7 +9,7 @@ from uuid import uuid4
 
 import psycopg
 import pytest
-from fastapi.testclient import TestClient
+from tests.local_operator_client import LocalOperatorTestClient as TestClient, configure_local_operator
 
 from application_state.content.service import commit_runbook, create_world_runbook
 from application_state.errors import ApplicationStateError
@@ -446,3 +446,8 @@ def test_active_run_latency_samples(tmp_path: Path, application_state_dsn: str) 
         f"resume_p50={resume_p50:.1f} resume_p95={resume_p95:.1f} "
         "(AS3 Runtime CAS ~74ms p95 retained; measurements are not merge gates)"
     )
+
+
+@pytest.fixture(autouse=True)
+def _authenticated_local_operator(monkeypatch):
+    configure_local_operator(monkeypatch)

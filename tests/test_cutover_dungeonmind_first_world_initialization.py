@@ -359,9 +359,11 @@ def native_first_world_client(
     monkeypatch.setattr(live_config, "repo_root", lambda: repo)
     monkeypatch.setattr(promote_svc, "repo_root", lambda: repo)
     monkeypatch.setattr(promotable_mod, "repo_root", lambda: repo)
-    from apps.live_control_server.services import world_container_registry
+    from application_state.world_catalog import service as world_catalog
+    from tests.local_operator_client import configure_local_operator
     from uuid import UUID
-    monkeypatch.setattr(world_container_registry, "uuid4", lambda: UUID("1" * 32))
+    monkeypatch.setattr(world_catalog, "uuid4", lambda: UUID("1" * 32))
+    configure_local_operator(monkeypatch)
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", LOCAL_TOKEN)

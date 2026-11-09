@@ -1048,7 +1048,6 @@ def _write_bld08_reviewable_run(
     candidate_path = _resolve_extraction_component_path(
         repo,
         run.components["candidate_graph"].uri,
-        label="candidate_graph",
     )
     candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
     candidate["session_id"] = session_id
@@ -1075,7 +1074,7 @@ def _mutate_extraction_candidate(repo, run_id: str, mutator) -> None:
 
     run = get_extraction_run(repo, run_id)
     candidate_path = _resolve_extraction_component_path(
-        repo, run.components["candidate_graph"].uri, label="candidate_graph"
+        repo, run.components["candidate_graph"].uri
     )
     payload = json.loads(candidate_path.read_text(encoding="utf-8"))
     mutator(payload)

@@ -50,6 +50,13 @@ No runtime source or shared database fixture lease is granted.
 | `tests/application_state/test_agent_conversation_postgres.py` | Audited historical witnesses and current HTTP/provider test prerequisites. |
 | `tests/application_state/test_agent_conversation_provenance_migration.py` | Audited provenance transition/refusal witnesses. |
 | `tests/application_state/test_agent_conversation_service.py` | Claim-recovery migration witness only; retain all original cases/assertions. |
+| `tests/local_operator_client.py` | Supported local boundary test helper, no auth override. |
+| `tests/application_state/test_plan_work_object_postgres.py` | Scoped authenticated endpoint and explicit World-owned Page prerequisites. |
+| `tests/application_state/test_play_active_run_postgres.py` | Scoped authenticated endpoint fixture only. |
+| `tests/test_graph_existing_object_resolver.py` | Scoped authenticated endpoint fixture only. |
+| `tests/test_live_artifact_reads.py` | Scoped authenticated endpoint fixture only. |
+| `tests/test_cutover_dungeonmind_first_world_initialization.py` | Current UUID allocator and real auth prerequisites in native client fixture only. |
+| `tests/_cutover_d3a_blocker_safe_fixtures.py` | Current extraction component resolver signature in owned synthetic-run mutation helpers only. |
 | `tests/test_graph_authoring_overlay_projection.py` | Existing declared collection repair. |
 | `tests/test_graph_authoring_overlay_projection_merge.py` | Existing declared collection repair. |
 | `tests/test_graph_authoring_visibility.py` | Existing declared collection repair. |
@@ -271,3 +278,98 @@ and its exact RAM-only container was removed. This is harness correctness, not
 production readiness or controlled performance proof. Current main re-anchored
 atf6e174e407ab83b4632160771412b77c09833ed0; unrelated reference settlement does
 not require rebasing the reviewed CI composition. PR2 remains HOLD.
+
+## Native test database provisioning batch
+
+Coordinator authorizes the separately migrated native Core test DB batch. Keep
+Buddy's existing Postgres16 service/template-clone fixture unchanged. The full
+qualification command additionally owns one uniquely named RAM-only pgvector
+cluster, bound to a random127.0.0.1 port, with no externally accepted DSN/volume.
+Create vector and run the exact installed Core pin's canonical migrations from
+a fresh checkout, then pass only that DSN as DMB_CUTOVER_TEST_DATABASE_URL to
+the unchanged declared full regression command. Retain migration/PG/cleanup logs;
+setup, test and cleanup errors fail qualification. Native tests retain their
+existing serial truncate/reset behavior inside this separate ephemeral cluster.
+No product DSN, shared operator data or APP fixture policy changes.
+
+Benchmark transfer remains pending: the active ADVERSARY task is working on
+accepted-prefix APP validation, while merged Q01 handoffs retain stale ACTIVE
+headers. No benchmark source/lease files have been edited pending narrow owner
+coordination. Native provisioning is independent within this CI write lease.
+
+Native provisioning author validation uses all54 original baseline IDs with the
+missing-native-DSN signature. Canonical Core430c1a6 migrated to
+0018_native_source_extensions, separate APP clone server unchanged; both owned
+clusters cleaned. Result7passed/3failed/44errors in8.52s: the absent-native-DSN
+error is gone;44now expose stale world_container_registry.uuid4 patching, and
+three reach later contracts. This is7observed passes, not54promised fixes;
+residual fixture work remains visible.26CI guards and Ruff pass.
+
+## Authenticated fixture batch ownership adoption
+
+Coordinator authorizes authenticated fixture corrections. Narrow CI test-only
+lease extension: tests/local_operator_client.py and four modules
+tests/application_state/test_plan_work_object_postgres.py,
+tests/application_state/test_play_active_run_postgres.py,
+tests/test_graph_existing_object_resolver.py, tests/test_live_artifact_reads.py.
+The APP foundation/play-continuity handoffs are DONE (#641/#649) and World active
+Run charter is MERGED/HISTORICAL (#952). Current active APP accepted-prefix work
+owns validators/storage, not these four endpoint fixtures. Graph route#2276
+ownership is independent and untouched. No auth production/policy/test denial
+lease is transferred. Configure only these non-auth owner tests to the actual
+supported local_operator mode over an explicit unproxied loopback peer, retaining
+all production middleware and original test bodies/IDs/assertions. Dedicated
+hosted and graph auth tests retain their own environments and must stay unchanged.
+This is explicit test authentication setup, not a global permissive test mode.
+
+Authenticated fixture author evidence: exact prior candidate5e08 allfour modules
+39passed/21failed in10.91s. Corrected same60IDs58passed/2failed, with69additional
+dedicated hosted/graph auth and CI guards allpassing (combined127passed/2failed
+in12.57s).19original failures resolved; remaining two directly create a Page
+without its required World owner. Test function ASTs and all60 ordered nodeIDs
+are identical, duplicates0. No product authorization or denial tests changed.
+Two explicit helper guards prove supported loopback succeeds and remote peer
+still receives real403 hosted_auth_local_boundary. Exact owned test DB removed.
+
+## Explicit source fixture correction batch
+
+Coordinator authorizes source fixture corrections. Extend this test-only lease
+to tests/test_cutover_dungeonmind_first_world_initialization.py solely for its
+native_first_world_client fixture: pin deterministic UUID at the actual APP
+world_catalog.service allocator (registry now delegates), and configure the real
+supported local middleware boundary alongside its existing token-based Graph
+auth. No fixture/test assertions or product source change. Legacy CUTOVER
+charters describe#651-era work; current origin/main includes the later1959,1960
+and2058 changes on this fixture. No active CUTOVER writer/task/worktree was found;
+current Graph route lane writes UI only. Adopt this narrow fixture seam into CI2;
+retain all broader CUTOVER acceptance obligations.
+
+The two existing Plan module residuals are in its already granted source fixture
+lease: create a real catalog World and supply its explicit world_id for the lore
+Page prerequisite. Preserve fail-closed unavailable-DB and latency assertions.
+
+The source correction batch additionally owns the two obsolete label keyword
+arguments in tests/_cutover_d3a_blocker_safe_fixtures.py. Their production helper
+now accepts only(repo,uri); synthetic fixture paths/payloads/digest resealing and
+all validation assertions remain. This helper belongs to the same historical
+CUTOVER fixture lane, with no current matching writer found.
+
+The Page outage witness reaches a genuine retired test contract: #1990 moved
+Worldbuilding Pages from file-backed storage into typed PostgreSQL. Keeping its
+old200-under-DB-outage expectation would require a prohibited production fallback.
+Retain the original positive200/exact-record assertions with the healthy owner
+before cutting its DSN, then assert503 for source-filtered outage as well as the
+original unfiltered/runbook outage assertions. This strengthens current fail-closed
+coverage without dropping a case or original assertion; it explicitly migrates
+the old file-availability assumption and requires independent contract review.
+
+Source batch final author results: all60original scoped endpoint IDs pass, plus
+69dedicated hosted/Graph auth and CI guards=129passed12.66s. Same54native baseline
+IDs now44passed/10failed28.97s, no errors:54missing-DSN baseline→7pass with native
+provisioning→44pass with current UUID/auth/resolver prerequisites. Residual10
+remain visible:2native Graph reference admission409s,1retired filesystem registry
+mutation,2removed internal patch seams,2file-only source/span tamper fixtures,
+and3continuity fixtures lacking auth. No assertion or product policy relaxed.
+Every original assert AST/decorator/name in the touched test modules is retained;
+the outage test adds the source-filtered503check. Both owning disposable DBs clean.
+Broader full totals remain pending and cannot be inferred by signature counts.
