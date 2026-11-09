@@ -1,5 +1,14 @@
 # REFERENCE: retire the unmounted selected-object card
 
+Status: SOURCE SETTLED. PR#2318 merged as
+`7953f83c434fc5fe4f1cc0b7f71a065a4721576e` after independent review of exact
+head `9b07f7f96c87cc1de2a4a1ac9ea51dcc89355f8a` and local verification.
+The source write lease is released. Runtime activation and complete goal proof
+remain held/open as recorded in HANDOFF-REFERENCE-adoption-inventory.md.
+The original execution record below is historical, not an active write lease.
+
+---
+
 Status: ACTIVE preparatory source retirement. PRIME owns one serial slice from
 verified main b4ccdd1ea74d569b7284ef9410338b488bcd167f on
 codex/reference-retire-selected-card in the existing buddy-context-loop checkout.
