@@ -1,0 +1,36 @@
+name: Local verifier contract guards
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - scripts/ci_local_frontend.py
+      - tests/test_ci_local_frontend.py
+      - .github/workflows/local-verifier.yml
+      - .github/workflows/hosted-validation.yml
+      - .github/workflows/world-ownership-core.yml
+      - AGENTS.md
+permissions:
+  contents: read
+jobs:
+  verifier-guards:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.13'
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
+        with:
+          version: '0.13.5'
+          enable-cache: false
+      - name: Locked local-verifier guards and inventory
+        run: |
+          python scripts/prepare_patched_hermes.py
+          uv sync --locked
+          uv run --locked python -m pytest -q tests/test_ci_local_frontend.py tests/test_ci_contract.py
+          uv run --locked python scripts/ci_contract.py inventory
