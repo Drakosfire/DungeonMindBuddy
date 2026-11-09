@@ -13,9 +13,10 @@ from uuid import UUID
 class _ProviderState:
     event_count: int = 0
     event_ids: frozenset[UUID] = frozenset()
-    # In insertion order: attempt identity and latest observed outcome. The
-    # original predicate only inspects empty/nonempty and the latest outcome.
-    attempts: tuple[tuple[UUID, str | None], ...] = ()
+    # In insertion order: identity, whether any outcome was seen, latest outcome.
+    # Presence is separate: a mutated typed model can contain outcome=None, which
+    # must not turn a nonempty observed history back into an empty one.
+    attempts: tuple[tuple[UUID, bool, str | None], ...] = ()
     input_total: int = 0
     output_total: int = 0
     completed: bool = False
@@ -25,7 +26,7 @@ def _advance(state, execution, events):
     """Fold one atomic group; this is not an authority-bearing append API.
 
     The caller supplies its actual execution to the existing Build accounting
-    owners. Aggregate limits finalize the group separately, just as replay does.
+    owners. Structural transitions finish before aggregate group checks.
     Immutable indexes describe the provider predicate only, not every invariant
     of a valid native prefix. They must never replace APP's locked-row admission.
     """
@@ -40,13 +41,14 @@ def _advance(state, execution, events):
         raise ValueError("Graph execution event IDs must be unique")
     if events and state.completed:
         raise ValueError("completion binding must be unique and the final execution event")
-    attempts = dict(state.attempts)
-    input_total, output_total, completed = state.input_total, state.output_total, state.completed
+    attempts = {identity: (seen, outcome) for identity, seen, outcome in state.attempts}
+    new_inputs, new_outputs = [], []
+    completed = state.completed
     for event in events:
         if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
             if event.provider_attempt_id in attempts:
                 raise ValueError("provider attempt ID was authorized more than once")
-            if attempts and next(reversed(attempts.values())) not in {"response_received", "known_not_sent"}:
+            if attempts and next(reversed(attempts.values()))[1] not in {"response_received", "known_not_sent"}:
                 raise ValueError("a new provider attempt requires a resolved prior attempt")
             if isinstance(event, t.ProviderAttemptAuthorizedEventV5):
                 from .build_decision_context import validate_event
@@ -58,44 +60,46 @@ def _advance(state, execution, events):
             elif (event.input_accounting_kind != execution.policy.provider_input_accounting.kind
                     or event.input_estimator != execution.policy.provider_input_accounting.estimator):
                 raise ValueError("provider attempt accounting differs from accepted policy")
-            attempts[event.provider_attempt_id] = None
-            input_total += event.input_tokens
-            output_total += event.output_token_reserve
+            attempts[event.provider_attempt_id] = (False, None)
+            # Defer arithmetic until structural checks finish. A mutable typed
+            # event can contain malformed numeric data; the original owner
+            # reports lifecycle/attempt-limit errors before aggregate type errors.
+            new_inputs.append(event.input_tokens)
+            new_outputs.append(event.output_token_reserve)
         elif isinstance(event, t.ProviderOutcomeEventV1):
             if event.provider_attempt_id not in attempts:
                 raise ValueError("provider outcome requires a prior authorization")
-            prior = attempts[event.provider_attempt_id]
-            if event.outcome == "sdk_entered" and prior is not None:
+            seen, prior = attempts[event.provider_attempt_id]
+            if event.outcome == "sdk_entered" and seen:
                 raise ValueError("SDK entry must be the first provider outcome")
-            if event.outcome == "known_not_sent" and prior is not None:
+            if event.outcome == "known_not_sent" and seen:
                 raise ValueError("known-not-sent must be recorded before SDK entry")
-            if event.outcome not in {"sdk_entered", "known_not_sent", "outcome_unknown"} and prior is None:
+            if event.outcome not in {"sdk_entered", "known_not_sent", "outcome_unknown"} and not seen:
                 raise ValueError("provider outcome requires observed SDK entry")
             if prior in {"response_received", "known_not_sent", "outcome_unknown"}:
                 raise ValueError("provider attempt already has a terminal outcome")
-            attempts[event.provider_attempt_id] = event.outcome
+            attempts[event.provider_attempt_id] = (True, event.outcome)
         elif isinstance(event, t.CompletionBindingEventV1):
             if completed or event.sequence != end - 1:
                 raise ValueError("completion binding must be unique and the final execution event")
-            if attempts.get(event.provider_attempt_id) != "response_received":
+            if attempts.get(event.provider_attempt_id) != (True, "response_received"):
                 raise ValueError("completion binding requires a response-received attempt")
             completed = True
-    return _ProviderState(event_count=end, event_ids=state.event_ids | ids,
-        attempts=tuple(attempts.items()), input_total=input_total,
-        output_total=output_total, completed=completed)
-
-
-def _check_limits(policy, state):
-    if policy.max_provider_attempts is not None and len(state.attempts) > policy.max_provider_attempts:
+    policy = execution.policy
+    if policy.max_provider_attempts is not None and len(attempts) > policy.max_provider_attempts:
         raise ValueError("provider attempt policy limit exceeded")
+    input_total = state.input_total + sum(new_inputs)
+    output_total = state.output_total + sum(new_outputs)
     if (policy.max_total_provider_input_tokens is not None
-            and state.input_total > policy.max_total_provider_input_tokens
+            and input_total > policy.max_total_provider_input_tokens
             or policy.max_total_provider_output_tokens is not None
-            and state.output_total > policy.max_total_provider_output_tokens):
+            and output_total > policy.max_total_provider_output_tokens):
         raise ValueError("provider token budget exceeded")
+    return _ProviderState(event_count=end, event_ids=state.event_ids | ids,
+        attempts=tuple((identity, seen, outcome) for identity, (seen, outcome) in attempts.items()),
+        input_total=input_total, output_total=output_total, completed=completed)
 
 
 def validate(execution):
     """Full recovery uses the same grouped transition implementation."""
-    state = _advance(_ProviderState(), execution, execution.events)
-    _check_limits(execution.policy, state)
+    _advance(_ProviderState(), execution, execution.events)

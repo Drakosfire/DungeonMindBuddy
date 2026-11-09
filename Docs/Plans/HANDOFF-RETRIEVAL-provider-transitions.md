@@ -72,7 +72,7 @@ latency establish the requested result.
 
 ## Owner qualification before PR
 
-Ninety pure provider/native context checks pass, including every grouping of the
+Ninety-two pure provider/native context checks pass, including every grouping of the
 short lifecycle fixtures,400 seeded partial/negative histories, error priority,
 non-provider positions, immutable indexes, and actual native Build mode/accounting
 owners. The frozen test oracle is AST-equal to the original predicate at the
@@ -94,3 +94,16 @@ Evidence: retrieval-append-critical-path-v1/provider-owner-qualification-v1.json
 retained-provider-fold-parity-v1.json, inherited-failure-disposition-v1.json and
 redacted logs. Source is pinned by hashes. This changes no provider request,
 source acquisition, durable schema or publication path. No latency gain claimed.
+
+Independent working review found two malformed mutable-model counterexamples:
+None must not erase the fact that an outcome was observed, and numeric arithmetic
+must not preempt earlier structural/attempt-limit refusals. Both are fixed and
+covered explicitly, with None/empty outcomes and malformed token values added to
+the seeded differential histories. The latest retained15execution/677prefix
+comparison passes again (retained-provider-fold-parity-v2.json).
+
+Complexity remains explicit: advancing a group copies prior event-ID and attempt
+indexes; existing Build role accounting still scans execution history. This is
+not constant-time APP incrementality. The immutable accepted-prefix session and
+remaining native predicate transfers are not implemented or authorized for
+activation by this provider-only state. No new latency claim follows from it.

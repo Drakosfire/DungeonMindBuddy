@@ -12,7 +12,7 @@ from application_state.agent_conversation.types import (
     ProviderOutcomeEventV1, CompletionBindingEventV1,
 )
 from application_state.agent_conversation.provider_execution import (
-    _ProviderState, _advance, _check_limits, validate,
+    _ProviderState, _advance, validate,
 )
 from tests.test_surface_native_context import provider_ledger, controller_writer_ledger
 
@@ -106,7 +106,6 @@ def test_every_valid_prefix_and_grouping_replays_the_same_fold(factory):
             for end in range(1, size + 1):
                 if end == size or mask & (1 << (end - 1)):
                     state = _advance(state, prefix, prefix.events[start:end])
-                    _check_limits(prefix.policy, state)
                     start = end
             assert state == expected
     assert ledger.policy == original.policy
@@ -124,8 +123,9 @@ def test_group_failure_does_not_mutate_the_previously_accepted_provider_indexes(
     with pytest.raises(FrozenInstanceError):
         prior.event_count = 200
     assert isinstance(prior.event_ids, frozenset)
-    assert all(isinstance(identity, UUID) and (outcome is None or type(outcome) is str)
-               for identity, outcome in prior.attempts)
+    assert all(isinstance(identity, UUID) and type(seen) is bool
+               and (outcome is None or type(outcome) is str)
+               for identity, seen, outcome in prior.attempts)
 
 
 @pytest.mark.parametrize("mutation", [
@@ -189,16 +189,19 @@ def test_seeded_negative_and_partial_histories_match_frozen_provider_predicate()
         if ledger.events:
             index = randomizer.randrange(len(ledger.events))
             event = ledger.events[index]
-            change = randomizer.choice(["sequence", "event_id", "provider_attempt_id", "outcome", "budget"])
+            change = randomizer.choice(["sequence", "event_id", "provider_attempt_id", "outcome", "budget", "input_type", "output_type"])
             if change == "sequence":
                 ledger.events[index] = event.model_copy(update={"sequence": randomizer.randrange(9)})
             elif change == "event_id":
                 ledger.events[index] = event.model_copy(update={"event_id": ledger.events[0].event_id})
             elif change == "provider_attempt_id" and hasattr(event, "provider_attempt_id"):
                 ledger.events[index] = event.model_copy(update={"provider_attempt_id": uuid4()})
+            elif change in {"input_type", "output_type"} and isinstance(event, t.ProviderAttemptAuthorizedEventV1):
+                ledger.events[index] = event.model_copy(update={
+                    "input_tokens" if change == "input_type" else "output_token_reserve": "bad"})
             elif change == "outcome" and isinstance(event, t.ProviderOutcomeEventV1):
                 ledger.events[index] = event.model_copy(update={"outcome": randomizer.choice([
-                    "sdk_entered", "response_received", "known_not_sent", "outcome_unknown"])})
+                    "sdk_entered", "response_received", "known_not_sent", "outcome_unknown", None, ""])})
             else:
                 ledger.policy.max_total_provider_input_tokens = randomizer.choice([None, 0, 12, 24])
         assert judgment(validate, ledger) == judgment(_original_validate, ledger)
@@ -232,3 +235,34 @@ def test_concrete_native_build_dispatch_and_role_accounting_remain_at_their_owne
     bad.events[0] = first.model_copy(update={"provider": "foreign"})
     assert judgment(validate, bad) == judgment(_original_validate, bad)
     assert judgment(validate, bad)[0] == "ValueError"
+
+
+def test_mutated_none_outcome_cannot_erase_observed_sdk_entry():
+    ledger = provider_ledger()
+    ledger.events = ledger.events[:3] + [
+        ledger.events[3].model_copy(update={"sequence": 3, "outcome": None}),
+        ledger.events[2].model_copy(update={"sequence": 4, "event_id": uuid4()}),
+    ]
+    expected = ("ValueError", "SDK entry must be the first provider outcome")
+    assert judgment(validate, ledger) == judgment(_original_validate, ledger) == expected
+    state = _advance(_ProviderState(), ledger, ledger.events[:4])
+    assert state.attempts[-1][1:] == (True, None)
+    with pytest.raises(ValueError, match="SDK entry must be the first"):
+        _advance(state, ledger, ledger.events[4:])
+
+
+def test_structural_failure_precedes_mutated_numeric_arithmetic():
+    ledger = provider_ledger()
+    first = ledger.events[1].model_copy(update={"input_tokens": "bad"})
+    next_attempt = first.model_copy(update={"sequence": 2, "event_id": uuid4(),
+        "provider_attempt_id": uuid4()})
+    ledger.events = [ledger.events[0], first, next_attempt]
+    expected = ("ValueError", "a new provider attempt requires a resolved prior attempt")
+    assert judgment(validate, ledger) == judgment(_original_validate, ledger) == expected
+    ledger.events = [ledger.events[0], first]
+    ledger.policy.max_provider_attempts = 0
+    expected = ("ValueError", "provider attempt policy limit exceeded")
+    assert judgment(validate, ledger) == judgment(_original_validate, ledger) == expected
+    ledger.policy.max_provider_attempts = 1
+    assert judgment(validate, ledger) == judgment(_original_validate, ledger)
+    assert judgment(validate, ledger)[0] == "TypeError"
