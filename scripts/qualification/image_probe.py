@@ -94,6 +94,18 @@ class Probe:
     def state(self, name: str) -> dict:
         return json.loads(self.docker("inspect", name).stdout)[0]["State"]
 
+    def wait_postgres(self, database: str) -> None:
+        # The official entrypoint starts a socket-only temporary server for
+        # initialization, then shuts it down before starting the real server.
+        # TCP readiness cannot accept that transient initialization process.
+        for _ in range(60):
+            ready = self.docker("exec", database, "pg_isready", "-h", "127.0.0.1",
+                                "-U", "qualification_admin", "-d", "postgres", check=False)
+            if ready.returncode == 0:
+                return
+            time.sleep(1)
+        raise QualificationFailure("disposable_postgres_unavailable")
+
     def wait_live(self, name: str, base: str, timeout: float = 120) -> None:
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
@@ -138,13 +150,7 @@ class Probe:
         mounts = json.loads(self.docker("container", "inspect", database).stdout)[0]["Mounts"]
         require(any(m.get("Name") == self.postgres_volume and m["Destination"] == "/var/lib/postgresql/data" for m in mounts),
                 "PostgreSQL data must use the explicitly owned volume")
-        for _ in range(60):
-            ready = self.docker("exec", database, "pg_isready", "-U", "qualification_admin", check=False)
-            if ready.returncode == 0:
-                break
-            time.sleep(1)
-        else:
-            raise QualificationFailure("disposable_postgres_unavailable")
+        self.wait_postgres(database)
         self.docker("exec", "-i", database, "psql", "-U", "qualification_admin", "-d", "postgres", "-v", "ON_ERROR_STOP=1", stdin=(
             f"CREATE ROLE qualification_app LOGIN PASSWORD '{password}';\n"
             f"CREATE ROLE qualification_core LOGIN PASSWORD '{password}';\n"

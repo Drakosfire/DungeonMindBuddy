@@ -248,3 +248,26 @@ witness remains CI-owned. All257 affected cases passed in the prior labeled
 candidate, including all95 service cases; exact consumed-head verification and
 full qualification are refreshed before disposition. Main's graph witness stays
 honestly blocked; no graph merge is inferred or requested by this consumption.
+
+## Completed baseline and startup race follow-through
+
+The original full candidate5d718dd3cdcc8da65b28e5d9e54d9bce2b3b339a run
+42581327676 completed (not timed out):1125 failed,15101 passed,154 skipped,
+36 deselected and358 setup errors in6916.48s. The preserved failure inventory
+spans203 failing and22 setup-error modules. This predates the reviewed runtime,
+legacy import and historical fixture repairs; it is not a current-head failure
+count. Backend failure prevented subsequent frontend/build/visual commands.
+No omissions or successful full-regression claim follow from this baseline.
+
+Candidate17b6a9d10415a1cd602839edcb77335c030a09a3 image run42595308008 exposed
+a disposable PostgreSQL entrypoint race before health checks: pg_isready accepted
+the socket-only initialization server, then psql encountered its shutdown. Wait
+for TCP127.0.0.1/postgres instead, which the official entrypoint enables only for
+the final server. Keep bounded60 polls and the same fail-closed lifecycle; do not
+retry application startup/fault assertions. Two added regression guards cover
+transient initialization and permanent unavailability. All24 CI guards pass; an
+owned postgres16-alpine fresh-cluster probe reached TCP then SELECT1 in1.117s,
+and its exact RAM-only container was removed. This is harness correctness, not
+production readiness or controlled performance proof. Current main re-anchored
+atf6e174e407ab83b4632160771412b77c09833ed0; unrelated reference settlement does
+not require rebasing the reviewed CI composition. PR2 remains HOLD.
