@@ -12,7 +12,6 @@ import type {
   WorkspaceDocumentSnapshot,
 } from "./api/types";
 import type { AppChromeTools, AppChromeToolsGeneration } from "./chrome/AppChrome";
-import { buildViewExactTestSeam } from "./buildSurface/reference/BuildReferenceCapability";
 import { fixtureWorkspaceDocumentRecord, FIXTURE_DOC_ID } from "./planSurface/config/planSessionDescriptor";
 import { NORTH_GATE_RUNBOOK_TARGET_RELPATH } from "./tiptap/descriptors/tiptapRunbookDescriptors";
 import { makeCapabilityResponse, makeRollTableArtifact, mockCatalog, mockLayout, mockPlanView, mockState } from "./test/fixtures";
@@ -403,26 +402,11 @@ describe("App inspector integration", () => {
     expect(screen.getByRole("link", { name: "Build", hidden: true })).toHaveClass("active");
   });
 
-  it("E1/E5: real App /build route renders composition and viewExact seam", async () => {
-    buildViewExactTestSeam.reset();
+  it("E1/E5: real App /build route renders composition and native object inspection", async () => {
     const buildDocId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-    const glowkindleNode = {
-      nodeId: "npc-glowkindle",
-      label: "Glowkindle",
-      kind: "npc",
-      role: "merchant",
-      aliases: ["Glow"],
-      sourceDomains: ["recap"],
-      evidenceBadges: [],
-      adjacency: [],
-      suggestedExpansions: [],
-      evidenceRefIds: [],
-      sourceArtifactIds: [],
-      anchoredToFocusSession: true,
-      summary: "A friendly merchant.",
-    };
     const buildRecord = fixtureWorkspaceDocumentRecord({
       document_id: buildDocId,
+      world_id: "eldyrwild",
       title: "Faction Notes",
       campaign_id: "longmont-c1",
       target_session: null,
@@ -445,33 +429,10 @@ describe("App inspector integration", () => {
         file_exists: true,
       }),
     );
-    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
-      schema: "dmb_world_graph_projection_v1",
-      snapshot: {
-        worldId: "eldyrwild",
-        campaignId: "longmont-c1",
-        revisionId: "rev-1",
-        headRevisionId: "rev-1",
-        isHead: true,
-        focus: { kind: "none", sessionId: null },
-        admissibility: "gm",
-        scopeMode: "campaign",
-      },
-      summary: {
-        nodeCount: 1,
-        relationshipCount: 0,
-        attributeCount: 0,
-        evidenceCount: 0,
-        sourceArtifactCount: 0,
-        projectionTruncated: false,
-      },
-      nodes: [glowkindleNode],
-      relationships: [],
-      attributes: [],
-      evidence: [],
-      sourceArtifacts: [],
-      diagnostics: [],
-    });
+    const scope = {managed_world_id:"eldyrwild",native_world_id:"eldyrwild",binding_version:3,revision_id:"native-rev",scope_mode:"world" as const,campaign_id:null};
+    vi.spyOn(liveApi,"getNativeGraphCatalog").mockResolvedValue({schema:"dmb_native_graph_catalog_v1",scope,catalogue:{identity:{space_id:"eldyrwild",revision_id:"native-rev"},entities:[{entity_id:"ent:glowkindle"}],admitted_assertion_ids:[],completeness:{status:"complete",reason:null},request_sha256:"request",result_digest:"result"},assertions:[]});
+    vi.spyOn(liveApi,"inspectNativeGraph").mockResolvedValue({schema:"dmb_native_graph_entity_v1",scope,entity:{found:true,assertions:[],evidence:[],completeness:{status:"complete",reason:null}}});
+    vi.spyOn(liveApi,"listWorldMechanicsAssociations").mockResolvedValue([]);
 
     window.history.pushState({}, "", `/build?documentId=${buildDocId}&campaign=longmont-c1`);
     render(<App />);
@@ -497,22 +458,10 @@ describe("App inspector integration", () => {
     await waitFor(() => {
       expect(screen.getByTestId("build-reference-search-projection")).toBeInTheDocument();
     });
-    await user.type(screen.getByLabelText("Find objects"), "glow");
-    await user.click(screen.getByRole("button", { name: "View" }));
-
-    await waitFor(() => {
-      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
-    });
-    expect(
-      within(screen.getByTestId("graph-object-projection-card")).getByText("Glowkindle"),
-    ).toBeInTheDocument();
-    expect(buildViewExactTestSeam.lastGraphNodeId).toBe("npc-glowkindle");
-    expect(buildViewExactTestSeam.lastGraphScope).toEqual({
-      worldId: "eldyrwild",
-      campaignId: "longmont-c1",
-      scopeMode: "campaign",
-      revisionId: "rev-1",
-    });
+    await user.type(screen.getByRole("searchbox",{name:"Find an object"}), "glow");
+    await user.click(screen.getByRole("button", { name: "ent:glowkindle", exact:true }));
+    expect(await screen.findByRole("article",{name:"Reviewed object details"})).toHaveTextContent("ent:glowkindle");
+    expect(liveApi.inspectNativeGraph).toHaveBeenCalledWith(scope,{kind:"entity",entity_id:"ent:glowkindle"},expect.any(AbortSignal));
 
     await waitFor(() => {
       expect(document.querySelectorAll(".surface-projection-host")).toHaveLength(1);

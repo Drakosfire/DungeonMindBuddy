@@ -48,6 +48,7 @@ function publishRuntime(next: GraphNodeChipRuntimeValue) {
     nodeViews: next.nodeViews,
     activeNodeId: next.activeNodeId,
     onSelectNode: next.onSelectNode,
+    onSelectEditorNode: next.onSelectEditorNode,
     deltaByNodeId: next.deltaByNodeId ?? {},
     exactGraphScope: next.exactGraphScope ?? null,
   };
@@ -83,6 +84,7 @@ export function GraphNodeChipRuntimeProvider({
       nodeViews: value.nodeViews,
       activeNodeId: value.activeNodeId,
       onSelectNode: value.onSelectNode,
+      onSelectEditorNode: value.onSelectEditorNode,
       deltaByNodeId: value.deltaByNodeId ?? {},
       exactGraphScope: value.exactGraphScope ?? null,
     }),
@@ -92,6 +94,7 @@ export function GraphNodeChipRuntimeProvider({
       value.exactGraphScope,
       value.nodeViews,
       value.onSelectNode,
+      value.onSelectEditorNode,
     ],
   );
 

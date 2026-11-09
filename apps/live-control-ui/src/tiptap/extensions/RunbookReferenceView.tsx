@@ -18,12 +18,12 @@ import {
  * TipTap NodeView for Plan runbook references.
  * Graph-native chips get the shared CSS hover glance; corpus chips stay md-ref spans.
  */
-export function RunbookReferenceView({ node }: NodeViewProps) {
+export function RunbookReferenceView({ node, editor }: NodeViewProps) {
   // In-memory attrs are semantic after versioned load migration.
   const attrs = normalizeRunbookReferenceAttrs(node.attrs as Partial<RunbookReferenceAttrs>, {
     labelSource: "semantic",
   });
-  const { nodeViews, activeNodeId, onSelectNode } = useGraphNodeChipRuntime();
+  const { nodeViews, activeNodeId, onSelectNode, onSelectEditorNode } = useGraphNodeChipRuntime();
   const supported = isSupportedRunbookReference(attrs);
   const isGraphNode = supported && attrs.refType === GRAPH_NODE_REF_TYPE;
 
@@ -35,7 +35,7 @@ export function RunbookReferenceView({ node }: NodeViewProps) {
           presentation={presentation}
           label={attrs.label || attrs.refId}
           pinned={activeNodeId === attrs.refId}
-          onSelect={() => onSelectNode(attrs.refId)}
+          onSelect={() => onSelectEditorNode ? onSelectEditorNode(attrs.refId, editor) : onSelectNode(attrs.refId)}
           tokenClassName={runbookReferenceClasses(attrs)}
           buttonProps={{
             "data-md-ref-kind": attrs.kind,
