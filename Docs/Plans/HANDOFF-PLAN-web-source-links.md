@@ -1,6 +1,8 @@
 # PLAN: preserve web source links through the shared Markdown editor
 
-Status: ACTIVE. PRIME designs/implements under the operator's Build→Plan→Play
+Status: IMPLEMENTATION MERGED in PR #1380 at06dbb61373a7251a2efdf5a571205c97589b97a6; the old write lease is released. This CI settlement does not claim operator delivery or full Build→Plan→Play acceptance.
+
+Historical activation: PRIME designs/implements under the operator's Build→Plan→Play
 continuity goal. ARCHITECTURE independently reviews the exact cumulative head.
 Base: origin/main@63b6297cd253ac4c8bc017caaf3ca9616afdd2bc.
 Branch: codex/markdown-web-source-links, existing buddy-context-loop/dependencies.

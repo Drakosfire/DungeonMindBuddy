@@ -57,3 +57,19 @@ that the restored exports should be hidden. Do not rename controls or weaken the
 unsaved-vs-durable checks merely to pass. Preserve these failures for a separately
 bounded current-owner contract audit. This correction restores attempted coverage;
 it does not establish frontend or five-minute readiness.
+
+### Released semantic Setext corpus contract
+
+Extend the test-only lease to
+apps/live-control-ui/src/tiptap/markdown/markdownIngressCorpus.test.ts and
+Docs/Plans/HANDOFF-PLAN-web-source-links.md (completed predecessor settlement
+only). Actual last corpus writer is3a54e18 in merged1380, merge06dbb61373a7251a2efdf5a571205c97589b97a6; its branch has no active checkout/openPR and is an ancestor of current main. The stale ACTIVE header is settled without claiming operator delivery or broader goal completion. Older corpus leases are superseded by that merged owner. No external outreach.
+
+Merged1877/1447a1fde55932fe8395dd99a88124d02f212d08 explicitly admits
+semantic Setext headings and canonical ATX export, preserves raw recovery/history
+and all other grammar refusals; its write lease is released. Both merge ancestors
+were verified before edits. Two old corpus booleans still demand spelling refusal.
+Update only those expectations to the released policy; retain their original IDs
+and add explicit heading level/text, clean safety, canonical export and exact
+model roundtrip checks. No parser, product, source Markdown or recovery change.
+All other corpus entries remain unchanged, including unsupported-context refusal.
