@@ -284,12 +284,15 @@ _BUILD_WORK_EVENTS = (
 _PLAN_WORK_EVENTS = (t.PlanRequestedWorkAuthorizedV2, t.PlanRequestedWorkSelectedV2)
 
 
+NATIVE_EXECUTION_EVENT_LIMIT = 2048
+
+
 class SurfaceNativeExecutionV1(Strict):
     schema_: Literal["dmb_surface_native_execution_v1"] = Field(default="dmb_surface_native_execution_v1", alias="schema")
     context_receipt_sha256: Digest
     execution_policy_sha256: Digest
     policy: SurfaceNativeExecutionPolicyV1
-    events: list[SurfaceNativeEvent] = Field(max_length=2048)
+    events: list[SurfaceNativeEvent] = Field(max_length=NATIVE_EXECUTION_EVENT_LIMIT)
 
     @model_validator(mode="after")
     def actual_records(self):
@@ -393,6 +396,22 @@ def validate_context_binding(context, execution) -> SurfaceNativeExecutionV1:
         raise ValueError("Native execution requires its concrete shared context")
     context = SurfaceNativeContextReceiptV1.model_validate(context.model_dump(mode="python", by_alias=True))
     execution = SurfaceNativeExecutionV1.model_validate(execution.model_dump(mode="python", by_alias=True))
+    return _join_context_binding(context, execution)
+
+
+def _validate_owned_context_binding(context, execution):
+    """Run the complete predicate owners on APP's exclusively owned prefix.
+
+    This pure function grants no IO authority. Its sole session caller must
+    prove fresh storage equality and nonescaping prefix ownership, strictly
+    decode the new event group, and preserve the validated header/prefix. Initial
+    admission, recovery and the real writer frontier still use the full codec.
+    """
+    if type(context) is not SurfaceNativeContextReceiptV1 or type(execution) is not SurfaceNativeExecutionV1:
+        raise ValueError('Owned native binding requires its concrete complete components')
+    if len(execution.events) > NATIVE_EXECUTION_EVENT_LIMIT:
+        raise ValueError('Native execution exceeds its event bound')
+    execution.actual_records()
     return _join_context_binding(context, execution)
 
 

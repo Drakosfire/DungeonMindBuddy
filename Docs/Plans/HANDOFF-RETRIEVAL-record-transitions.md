@@ -1,6 +1,7 @@
 # RETRIEVAL: one selected-record transition owner
 
-Status: ACTIVE. Root owns this bounded design/implementation under the continuing
+Status: MERGED as fff6c97095eb23827d4f3d83b839f29da229e483 (PR2301).
+Root owned this bounded design/implementation under the continuing
 six-second context-ready retrieval goal. Base5d63a5c742e60a3e5338847f3fecc02f12a9efc7
 (merged2297), branch codex/retrieval-record-transitions. Serial;2297 settled after
 explicit user approval.2300 Plan capture,2298/2299/2288 CI and existing surface
@@ -92,3 +93,19 @@ original AST apart from its name, qualified imports and one unused import bindin
 No APP cache, stored-prefix bypass, schema, provider request or timing behavior is
 activated. Group advance still reconstructs query dictionaries and copies indexes;
 its future reuse and actual response-ready measurement remain required.
+
+## Dependent dispatch topology
+
+Root adopts an explicit STACKED successor in HANDOFF-RETRIEVAL-plan-session.md,
+pinned to this PR2301head768efb710. This supersedes the serial dispatch gate for
+that one bounded child only.2301remains OPEN and unmerged; no authority to merge
+is inferred. Merge/rebase order remains2301then the refreshed integration child.
+Implementation continues under the portable child contract without editing this
+parent PR's reviewed source head.
+
+## Consumption settlement
+
+PR2301 merged under the user's standing full merge rights. PR2304 has rebased
+onto its settled main; its adoption remains separately unproven. The earlier
+stack dispatch supersession below is historical process evidence, not an open
+parent gate. No latency or writer-output claim is attached to this pure fold.

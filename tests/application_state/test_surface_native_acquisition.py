@@ -30,7 +30,8 @@ from application_state.errors import (
 
 @contextmanager
 def host(case, *, query_context=None, source_context=None):
-    fence = _ClaimFence(case.service, case.turn)
+    existing = getattr(case, 'fence', None)
+    fence = existing if existing is not None else _ClaimFence(case.service, case.turn)
     adapter = SimpleNamespace(
         fence=fence,
         service=case.service,
@@ -48,8 +49,12 @@ def host(case, *, query_context=None, source_context=None):
     try:
         yield adapter
     finally:
-        case.turn, error = fence.stop()
-        assert error is None
+        if existing is None:
+            case.turn, error = fence.stop()
+            assert error is None
+        else:
+            case.turn = fence.turn
+            assert fence.renewer._error is None
 
 
 def record_candidates(case):
@@ -59,9 +64,11 @@ def record_candidates(case):
         label=m.label, kind="Native Graph object") for m in q.object_matches]
 
 
+@pytest.mark.parametrize('session', [False, True])
 def test_actual_driver_selected_native_support_reads_use_shared_claim(
-    application_state_dsn, published_lane, monkeypatch, native_read_admission_probes
+    application_state_dsn, published_lane, monkeypatch, session, request
 ):
+    request.getfixturevalue('native_read_admission_probes')
     context, record = published_case("plan", published_lane)
     record = execution(context.context_receipt_sha256, record.policy)
     query_context, result = query(published_lane, scope_mode="world")
@@ -76,11 +83,22 @@ def test_actual_driver_selected_native_support_reads_use_shared_claim(
             )
             assert driver._native_object_examined()
 
+    def fence_factory(service, turn):
+        fence = _ClaimFence(service, turn)
+        request.addfinalizer(fence.stop)
+        return fence
     case = sdk_case(
         application_state_dsn,
         context_record=(context, record),
         acquisitions=((record_candidates, acquire),),
+        native='current' if session else False,
+        readonly_session=session,
+        fence_factory=fence_factory if session else None,
     )
+    if session:
+        assert case.fence.renewer._session is not None
+        case.turn, error = case.fence.stop()
+        assert error is None
     assert any(
         type(e) is t.NativePlanStatementReadObservedV1
         for e in case.turn.graph_context_execution.events
@@ -96,6 +114,14 @@ def test_actual_driver_selected_native_support_reads_use_shared_claim(
         )
         == case.turn
     )
+    if session:
+        from application_state.agent_conversation.native_writer import model_input_frame
+        recovered = case.service.inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id)
+        assert model_input_frame(case.turn.graph_context_receipt, case.turn.graph_context_execution) == model_input_frame(
+            recovered.graph_context_receipt, recovered.graph_context_execution)
+        # Current-session acceptance stops at genuine recovered context. The
+        # original variant below retains its separate legacy writer fixture.
+        return
 
     from tests.application_state.test_surface_native_completion import (
         completed_input,

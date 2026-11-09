@@ -13,7 +13,7 @@ from contextlib import contextmanager, nullcontext
 from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
-from threading import Event, Lock, Thread
+from threading import Event, Lock, RLock, Thread
 from time import monotonic
 from typing import Annotated, Any, Callable, Mapping, Protocol
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
@@ -1593,7 +1593,8 @@ class _TurnClaimRenewer:
         self._lease_seconds = lease_seconds
         self._renewal_interval_seconds = renewal_interval_seconds
         self._stop = Event()
-        self._lock = state_lock or Lock()
+        self._lock = state_lock or RLock()
+        self._session = None
         self._error: Exception | None = None
         self._thread = Thread(target=self._run, name="agent-turn-claim-renewer", daemon=True)
         self._thread.start()
@@ -1612,6 +1613,10 @@ class _TurnClaimRenewer:
                 if self._stop.is_set():
                     return
                 try:
+                    if self._session is not None:
+                        self._turn = self._session.renew(expected_revision=self._turn.revision,
+                            lease_seconds=self._lease_seconds)
+                        continue
                     self._turn = self._service.renew_turn_claim(
                         self._turn.world_id,
                         self._turn.conversation_id,
@@ -1645,22 +1650,53 @@ class _ClaimFence:
 
     def append(self, method_name: str, event_name: str, event: Any, **extras: Any) -> tuple[Turn, bool]:
         with self.renewer._lock:
-            current = self.renewer._turn
-            method = getattr(self.service, method_name, None)
-            if not callable(method):
-                raise ApplicationStateError(
-                    f"APP-STATE execution method {method_name} is unavailable."
-                )
+            # Retain the existing span boundary: claim-lock queue time is not
+            # relabelled as execution work by the shared source commit owner.
             with self.trace.measure_host_work("execution_append") if self.trace is not None else nullcontext():
-                updated, fresh = method(
-                    current.world_id,
-                    current.conversation_id,
-                    current.turn_id,
-                    expected_revision=current.revision,
-                    expected_attempt=current.attempt,
-                    **{event_name: event},
-                    **extras,
-                )
+                return self.commit(method_name, **{event_name: event}, **extras)
+
+    def commit(self, method_name: str, **fields: Any) -> tuple[Turn, bool]:
+        """One moving claim owner for controller and source-navigation writes."""
+        with self.renewer._lock:
+            if self.renewer._error is not None:
+                raise ApplicationStateError('APP-STATE claim owner has stopped after a failed operation') from self.renewer._error
+            current = self.renewer._turn
+            session_owned = self.renewer._session is not None
+            try:
+                method = getattr(self.service, method_name, None)
+                if not callable(method):
+                    raise ApplicationStateError(
+                        f"APP-STATE execution method {method_name} is unavailable."
+                    )
+                if self.renewer._session is not None:
+                    if method_name == 'authorize_native_writer':
+                        current = self.renewer._session.finish()
+                        self.renewer._session = None
+                        self.renewer._turn = current
+                    else:
+                        from application_state.agent_conversation.native_plan_session import PlanSessionCommand
+                        updated, fresh = self.renewer._session.execute(PlanSessionCommand(method_name),
+                            expected_revision=current.revision, expected_attempt=current.attempt, **fields)
+                        self.renewer._turn = updated
+                        return updated, fresh
+                updated, fresh = method(current.world_id, current.conversation_id, current.turn_id,
+                    expected_revision=current.revision, expected_attempt=current.attempt, **fields)
+                from application_state.agent_conversation.native_plan_session import NativePlanSession, eligible
+                # Other persistence ports and other action families keep their
+                # own owners. A current readonly Plan activates exactly once
+                # after the actual work-selection commit, never from a route flag.
+                if (method_name == 'record_plan_requested_work_selection' and fresh
+                        and type(self.service) is AgentConversationService and eligible(updated)):
+                    session_owned = True
+                    self.renewer._session = NativePlanSession(updated)
+            except BaseException as exc:
+                if session_owned:
+                    if self.renewer._session is not None:
+                        self.renewer._session.abort()
+                    self.renewer._session = None
+                    self.renewer._error = exc
+                    self.renewer._stop.set()
+                raise
             if not isinstance(fresh, bool):
                 raise ApplicationStateError(
                     "APP-STATE execution append returned an invalid disposition."
@@ -1668,8 +1704,31 @@ class _ClaimFence:
             self.renewer._turn = updated
             return updated, fresh
 
+    def rules_checkpoint(self, operation, record):
+        with self.renewer._lock:
+            if self.renewer._error is not None:
+                raise ApplicationStateError('APP-STATE claim owner has stopped') from self.renewer._error
+            if self.renewer._session is None:
+                return operation()
+            try:
+                return self.renewer._session.rules_checkpoint(operation, record)
+            except BaseException as exc:
+                if self.renewer._session is not None:
+                    self.renewer._session.abort()
+                self.renewer._session = None
+                self.renewer._error = exc
+                self.renewer._stop.set()
+                raise
+
     def stop(self) -> tuple[Turn, Exception | None]:
-        return self.renewer.stop_and_join()
+        turn, error = self.renewer.stop_and_join()
+        if self.renewer._session is not None:
+            try:
+                turn = self.renewer._session.finish()
+                self.renewer._turn = turn
+            finally:
+                self.renewer._session = None
+        return turn, error
 
 
 class _PolicyExecutionAdapter:
