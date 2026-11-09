@@ -26,6 +26,7 @@ from apps.live_control_server.integrations.dungeonmind.native_corpus_source impo
 )
 from tests.test_native_authored_source_references import selected, BODY
 from tests.test_native_corpus_source_access import lane as native_source_lane  # noqa: F401
+from tests.test_surface_native_writer import published_lane as published_lane  # noqa: F401
 from tests.test_play_graph_context import fixture, seal_receipt
 from tests.test_play_graph_authority import intent_wire
 
@@ -937,3 +938,187 @@ def test_exact_selected_play_source_admits_no_aggregate_token_ceiling(source_cas
     assert fresh and updated.graph_context_execution.policy.max_total_provider_input_tokens is None
     assert updated.graph_context_execution.policy.max_total_provider_output_tokens is None
     assert updated.graph_context_execution.policy.max_provider_attempts > 0
+
+
+@pytest.mark.parametrize("mode",["work","selected","automatic","memory","rules","graph","unknown","writer_failure","source_failure","forged_work"])
+def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answer(
+    application_state_dsn,monkeypatch,tmp_path,source_case,mode,request,
+):
+    from apps.live_control_server.models.agent_turn import AgentTurnRequest
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services.agent_turn_service import execute_agent_turn
+    from apps.live_control_server.services.play_jev_harness import PlayJevHarness
+    from apps.live_control_server.services.hermes_session_store import HermesSessionPointerStore
+    from application_state.agent_conversation import AgentConversationService
+    from tests.application_state.test_native_play_graph_postgres import make_submission
+    from tests.test_plan_jev_harness import Finish
+    import httpx2
+    from tests.test_plan_jev_writer import WriterWire
+    from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
+    import httpx
+    graph_lane=request.getfixturevalue('published_lane') if mode=='graph' else None
+    service,sub,_frame=make_submission(edition=True,world=graph_lane.world.world_id if graph_lane is not None else None)
+    world=sub.world_id
+    query_context=query_result=None
+    if graph_lane is not None:
+        from tests.test_native_plan_statements import query
+        query_context,query_result=query(graph_lane,scope_mode='world')
+    core=ref=None
+    if mode in {'selected','automatic','source_failure'}:
+        from apps.live_control_server.integrations.dungeonmind import native_corpus_source as native_owner
+        from tests.test_native_corpus_source_access import GM
+        old,ref,_sections=selected(source_case)
+        source_case.bound.managed_world_id=world
+        core=native_owner.prepare_native_source_context(managed_world_id=world,principal=GM,
+            repository=source_case.repo,resolve_identity=lambda _:source_case.bound)
+        ref=ref.model_copy(update={'managed_world_id':world})
+    intent=sub.submitted_intent_v2
+    if mode=='memory':
+        from application_state.play.session_review import commit_review,ReviewCommand
+        basis=sub.play_context_receipt
+        commit_review(world_id=world,run_id=basis.run_id,command_id=str(uuid4()),request=ReviewCommand(
+            action='end',expected_revision=0,expected_run_revision=basis.run_revision,
+            expected_content_sha256=basis.content_sha256,final_thoughts='Players want more exploration next time.'))
+    if mode=='graph':intent=intent.model_copy(update={'message':query_result.question})
+    if mode=='rules':
+        intent=intent.model_copy(update={'message':'Can I end my move in an occupied space?'})
+    request=AgentTurnRequest.model_validate_json(json.dumps(dict(
+        schema='dmb_agent_turn_request_v1',graph_selection=None,
+        client_thread_id='shared-play-native',turn_id=str(uuid4()),message=intent.message,
+        surface=dict(surface_id='play',instance_id=intent.surface_instance_id),
+        owner_scope=dict(kind='world',world_id=world),client_work_state='saved_clean',
+        primary_work=intent.primary_work.model_dump(mode='json'),
+        graph_request=intent.graph_request.model_dump(mode='json'),
+        play_target=intent.play_target.model_dump(mode='json'),
+        **({'authored_references':t.AuthoredReferencesV2(references=(ref,)).model_dump(mode='json',by_alias=True)}
+          if mode in {'selected','source_failure'} else {}))))
+    monkeypatch.setattr('apps.live_control_server.services.world_container_registry.get_world_container',
+        lambda root,world_id:SimpleNamespace(world_id=world_id,name="Synthetic Play World"))
+    monkeypatch.setattr(agent,'_managed_world_root',lambda:tmp_path)
+    monkeypatch.setattr('apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference',
+        lambda **_:('openai-api','gpt-6-luna','https://api.openai.com/v1'))
+    monkeypatch.setattr('apps.live_control_server.services.plan_source_turn.prepare',
+        lambda world_id,*_args,**_kwargs:(core,core.authority) if core is not None else (None,t.NativeCorpusUnavailableV1(
+            managed_world_id=world_id,failure_code='native_source_head_unavailable')))
+    class Decisions(Finish):
+        async def handle_async_request(self,request):
+            if mode=='unknown':
+                self.calls.append(request)
+                raise httpx2.ReadTimeout('Synthetic ambiguous Play controller outcome',request=request)
+            if mode not in {'automatic','rules','graph'}:return await super().handle_async_request(request)
+            self.calls.append(request);body=json.loads(request.content)
+            answers={}
+            for name,question in body['questions'].items():
+                include=name.startswith('candidate_') and body['state']['candidates'][int(name.split('_')[1])]['kind']==('public_rules_lookup' if mode=='rules' else 'Native Graph object; open its complete admitted statement and assertion support' if mode=='graph' else 'Explicit admitted full-source read; metadata choice, not evidence') and len(self.calls)==1
+                choice='finish_retrieval' if name=='operation' else 'include' if include else 'exclude'
+                answers[name]={'type':'choice','choice':choice,'confidence':1,
+                    'probabilities':{key:float(key==choice) for key in question['criteria']}}
+            return httpx2.Response(200,request=request,json={'model':'jev-1.14.0','answers':answers,
+                'usage':{'input_tokens':31,'output_tokens':7}})
+    decisions=Decisions()
+    class Answer(WriterWire):
+        async def handle_async_request(self,wire_request):
+            body=json.loads(wire_request.content)
+            frames=[json.loads(row['content']) for row in body['input'] if row['content'].startswith('{')]
+            work=next(frame for frame in frames if 'current_play' in frame)
+            evidence=next(frame for frame in frames if 'native_body_evidence' in frame)
+            selected=next(row for source in work['current_play'] if source['source_kind']=='scene_note'
+                for row in source['text_blocks'])
+            answer_segments=[dict(kind='authored_excerpt',selection_id=selected['selection_id'])]
+            if mode in {'selected','automatic'}:
+                excerpts=evidence['native_body_evidence']['excerpts']
+                assert len(excerpts)==1
+                answer_segments.append(dict(kind='native_body_claim',text=excerpts[0]['text'].strip(),
+                    excerpt_handles=[excerpts[0]['excerpt_handle']]))
+            if mode=='graph':
+                assertion=evidence['native_assertions']['assertions'][0]
+                answer_segments.append(dict(kind='native_assertion_claim',text=str(assertion['assertion']['value']),
+                    assertion_handles=[assertion['assertion_handle']]))
+            if mode=='memory':
+                source=next(source for packet in work['session_evidence'] for source in packet['sources']
+                    if source['kind']=='closing_reflections')
+                answer_segments.append(dict(kind='session_summary',text='Players want more exploration next time.',
+                    selection_ids=[block['selection_id'] for block in source['text_blocks']]))
+            output=dict(schema=evidence.get('answer_policy','dmb_surface_evidence_answer_v8'),
+                answer_segments=answer_segments,limitations=[],requested_detail_gaps=[])
+            if mode=='rules':
+                rule=next(frame for frame in frames if 'ruleset' in frame)['supports'][0]
+                output=dict(kind='rules_answer',base_output=output,
+                    rules_segments=[dict(kind='rules_claim',text=rule['excerpt_text'],support_ids=[rule['support_id']])],
+                    ordered_refs=[dict(domain='base',segment_index=None),dict(domain='rules',segment_index=0)])
+            self.text=json.dumps(output)
+            return await super().handle_async_request(wire_request)
+    wire=Answer(None,'',status='incomplete' if mode=='writer_failure' else 'completed')
+    class Harness(PlayJevHarness):
+        def execute(self,adapter,**kwargs):
+            wire.adapter=adapter
+            return super().execute(adapter,**kwargs)
+    harness=Harness(decision_transport=decisions,writer_transport=wire,
+        decision_api_key='synthetic-not-secret',writer_api_key='synthetic-not-secret')
+    monkeypatch.setattr('apps.live_control_server.services.play_jev_harness.default_play_jev_runtime',lambda:harness)
+    kwargs=dict(root=tmp_path,pointer_store=HermesSessionPointerStore(tmp_path/'pointers'),
+        owner_resolver=lambda _:{'kind':'world','id':world,'name':'Synthetic Play World'},
+        work_resolver=agent._work_resolver,conversation_service=service,native_principal=SimpleNamespace(role='gm'),
+        native_graph_query_resolver=lambda request,*_args:(query_context,query_result) if mode=='graph' else (None,t.NativePlanQueryUnavailableV1(
+            managed_world_id=world,reason='native_graph_head_unavailable')),
+        graph_resolver=lambda *_args:pytest.fail('No classic Graph fallback'),
+        plan_graph_resolver=lambda *_args:pytest.fail('No legacy Play Graph bootstrap'))
+    if mode=='source_failure':
+        def missing(*_args):raise ValueError('The exact selected source is unavailable')
+        monkeypatch.setattr('apps.live_control_server.services.native_authored_references.read_authored_source',missing)
+    if mode=='forged_work':
+        from apps.live_control_server.services import plan_source_turn
+        original=plan_source_turn.play_work_proof
+        def forged(*args):
+            proof=original(*args)
+            frames=[t.PlaySourcePayloadV1.model_validate_json(json.dumps(source)) for source in proof['source_frame']['sources']]
+            frames=[source.model_copy(update={'text':source.text+' Invented Run text.'})
+                if source.source_kind=='current_moment' else source for source in frames]
+            proof['source_frame']=play_source_frame(tuple(frames)).model_dump(mode='json',by_alias=True)
+            return proof
+        monkeypatch.setattr(plan_source_turn,'play_work_proof',forged)
+    if mode in {'unknown','writer_failure','source_failure','forged_work'}:
+        from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+        with pytest.raises(AgentTurnServiceError):execute_agent_turn(request,**kwargs)
+        kept=service.list_turns(world,wire.adapter.fence.turn.conversation_id)[-1]
+        assert kept.status in {'interrupted','failed'} and kept.completion is None
+        assert len(decisions.calls)==(0 if mode in {'source_failure','forged_work'} else 1)
+        assert len(wire.calls)==(1 if mode=='writer_failure' else 0)
+        if mode=='unknown':assert any(getattr(e,'outcome',None)=='outcome_unknown' for e in kept.graph_context_execution.events)
+        trace=service.list_context_trace_attempts(world_id=world,turn_id=kept.turn_id)[-1]
+        assert trace.capture_status!='recording'
+        before=(len(decisions.calls),len(wire.calls))
+        with pytest.raises(AgentTurnServiceError):execute_agent_turn(request,**kwargs)
+        assert before==(len(decisions.calls),len(wire.calls))
+        return
+    response=execute_agent_turn(request,**kwargs)
+    assert response.answer.status=='ok'  and response.answer.text.startswith('Saved native note 🦉.')
+    delivered=response.rules_context.base_context if mode=='rules' else response.play_context
+    assert type(delivered.receipt) is SurfaceNativeContextReceiptV1
+    assert delivered.delivery_replay is False
+    assert len(decisions.calls)==(2 if mode in {'automatic','rules','graph'} else 1) and len(wire.calls)==1
+    assert not any('requested_work' in json.loads(call.content)['questions'] for call in decisions.calls)
+    for call in [*decisions.calls,*wire.calls]:
+        assert 'max_output_tokens' not in json.loads(call.content)
+        raw=call.content.decode()
+        assert sub.play_context_receipt.run_id not in raw
+        assert sub.play_context_receipt.runbook_object_id not in raw
+        assert 'play_source_frame_sha256' not in raw and 'edition revision 1' not in raw
+    replay=execute_agent_turn(request,**kwargs)
+    assert (replay.rules_context.base_context if mode=='rules' else replay.play_context).delivery_replay is True
+    assert replay.answer.text==response.answer.text
+    assert len(decisions.calls)==(2 if mode in {'automatic','rules','graph'} else 1) and len(wire.calls)==1
+    stored=AgentConversationService().list_turns(world,wire.adapter.turn.conversation_id)[-1]
+    if mode=='rules':stored=stored.base_projection.turn
+    assert stored.play_context_receipt==sub.play_context_receipt
+    assert stored.completion.answer_segments[0].source_kind=='play'
+    if mode in {'selected','automatic'}:assert stored.completion.native_body_citations
+    if mode=='memory':assert stored.completion.answer_segments[-1].kind=='session_summary'
+    if mode=='graph':assert stored.completion.native_assertion_citations
+    if mode=='selected':
+        import os
+        from pathlib import Path
+        if destination:=os.environ.get('DMB_NATIVE_PLAY_WIRE'):
+            Path(destination).write_text(json.dumps(dict(response={key:response.model_dump(mode='json',by_alias=True)[key] for key in ('play_context','graph')},
+                request=request.model_dump(mode='json',by_alias=True),
+                provenance=stored.provenance.model_dump(mode='json',by_alias=True)),ensure_ascii=False,indent=2)+'\n')

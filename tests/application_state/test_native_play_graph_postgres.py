@@ -33,8 +33,8 @@ from tests.test_play_graph_authority import intent_wire,native_provider
 HEAD=ScriptDirectory.from_config(alembic_config()).get_current_head()
 
 
-def make_submission(*,edition=False):
-    service=AgentConversationService();world='native-pg-'+uuid4().hex
+def make_submission(*,edition=False,world=None):
+    service=AgentConversationService();world=world or 'native-pg-'+uuid4().hex
     conversation=_new(service,world)
     obj,revision=_create_world_plan(world,markdown=V2_SOURCE_MARKDOWN)
     created=historical_world_run(run_id=str(uuid4()), world_id=world, playable_artifact_id=obj.work_object_id, expected_playable_revision=revision.revision_n, expected_playable_content_sha256=revision.content_sha256)

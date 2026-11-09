@@ -54,7 +54,7 @@ def owner(turn):
     from .native_execution import (
         SurfaceNativeExecutionV1,
         NativeBuildActionV1,
-        NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES,
+        NativePlanActionV1, NativePlayActionV1, NATIVE_PLAN_ACTION_TYPES,
         validate_request_identity,
     )
 
@@ -64,7 +64,7 @@ def owner(turn):
         or type(turn.graph_context_receipt) is not SurfaceNativeContextReceiptV1
         or type(turn.graph_context_execution) is not SurfaceNativeExecutionV1
         or type(turn.graph_context_execution.policy.action)
-        not in (NativeBuildActionV1, *NATIVE_PLAN_ACTION_TYPES)
+        not in (NativeBuildActionV1, NativePlayActionV1, *NATIVE_PLAN_ACTION_TYPES)
         or turn.provenance.surface_resolution != "resolved"
         or turn.provenance.surface_id
         != turn.graph_context_execution.policy.action.surface_id
@@ -133,6 +133,10 @@ def verify_input(turn, auth, proof):
         )
     parent = parse_native_retrieval_input(strict_json(proof["parent_request_json"]),
         surface_id=execution.policy.action.surface_id)
+    from .jev_retrieval_contract import NativePlayRetrievalDecisionInputV1
+    if isinstance(parent,NativePlayRetrievalDecisionInputV1):
+        from .native_play_work import producing_authored_records
+        producing_authored_records(receipt.work_context,turn.provenance,parent.play_work,turn.idempotency_key)
     role = execution.policy.provider_roles.controller
     if (
         parent.digest != auth.parent_request_sha256

@@ -10,7 +10,11 @@ from . import rules_lookup_broker as broker
 class PlanRulesRuntime:
     def __init__(self, adapter, capability):
         self.capability = RulesCapabilityV1.model_validate(capability)
-        if (adapter.request.surface.surface_id not in {"plan", "build"} or self.capability != rules_capability(graph=True)
+        from .agent_turn_service import _governed_graph_turn
+        if adapter.request.surface.surface_id=='play' and (not _governed_graph_turn(adapter.request)
+                or adapter.request.primary_work is None or adapter.request.primary_work.kind!='run'):
+            raise ValueError('Play Rules requires the exact current Graph capability and Run')
+        if (adapter.request.surface.surface_id not in {"plan", "build", "play"} or self.capability != rules_capability(graph=True)
                 or adapter.rules_runtime is not None):
             raise ValueError("Plan Rules requires the exact current Graph capability")
         self.adapter, self.native = adapter, None

@@ -166,7 +166,8 @@ def _frozen_schema(frame, rules, policy, *, target_scoped=False):
 
 
 def _authored_variants(frame, policy, prose):
-    blocks = list(frame["committed_plan_blocks"])
+    blocks = ([block for source in frame["current_play"] for block in source["text_blocks"]]
+        if "current_play" in frame else list(frame["committed_plan_blocks"]))
     for session in frame["session_evidence"]:
         for source in session["sources"]:
             blocks.extend(source["text_blocks"])
@@ -272,6 +273,8 @@ def native_output_format(frame, rules, work_frame, *, build_local=False):
             variants.append(_object({'kind': _literal('related_page_claim'), 'text': prose,
                 'read_id': _enum(_values(related, 'read_id')),
                 'supporting_quotes': _array(prose, nonempty=True)}))
+    elif work_frame.get('schema') == 'dmb_native_play_work_v1':
+        variants.extend(_authored_variants(work_frame,ASSERTION_POLICY,prose))
     elif work_frame.get('schema') == BUILD_WORK_SCHEMA:
         from .build_draft_answer import native_variants
         variants.extend(native_variants(work_frame,prose,local=build_local))

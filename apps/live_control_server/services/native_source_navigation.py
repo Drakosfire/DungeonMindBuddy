@@ -45,7 +45,8 @@ def navigator(adapter):
         if (isinstance(receipt,t.PlanSourceContextReceiptV1) or
                 (type(receipt) is t.SurfaceNativeContextReceiptV1
                  and type(adapter.fence.turn.graph_context_execution) is t.SurfaceNativeExecutionV1
-                 and adapter.fence.turn.graph_context_execution.policy.action.surface_id in {"plan","build"})):
+                 and adapter.fence.turn.graph_context_execution.policy.action.surface_id in {"plan","build","play"})
+                or adapter.fence is None and adapter.native_source_authority is not None):
             from .corpus_source_navigation import NativeBodyNavigation
             adapter._native_source_navigator = NativeBodyNavigation(adapter)
         else:

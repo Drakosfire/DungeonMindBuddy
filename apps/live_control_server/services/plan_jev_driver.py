@@ -440,6 +440,9 @@ class PlanJevDriver:
         if type(a.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1:
             if a.fence.turn.graph_context_execution.policy.action.surface_id == "build":
                 return {}  # Build work is reconstructed from its actual captured APP records.
+            if a.fence.turn.graph_context_execution.policy.action.surface_id=='play':
+                from .plan_source_turn import play_work_proof
+                return play_work_proof(a.request,a.work,self.dialogue)
             return dict(plan_markdown=a.work.plan_markdown,
                 session_evidence=(a.work.session_evidence or {}).get('sessions',[]),dialogue=self.dialogue)
         names = {}

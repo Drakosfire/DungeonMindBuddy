@@ -98,9 +98,11 @@ class PlanJevHarness:
         except BaseException as exc:
             # Observe before fail_turn closes the attempt capture. This is a
             # diagnostic, never completion/evidence or permission to retry.
-            code = exc.code if isinstance(exc, AgentTurnServiceError) else 'plan_jev_delivery_failure'
+            surface=adapter.request.surface.surface_id
+            failure_code=f'{surface}_jev_delivery_failure'
+            code = exc.code if isinstance(exc, AgentTurnServiceError) else failure_code
             if not isinstance(code, str) or re.fullmatch(r'[a-z][a-z0-9_]{0,63}', code) is None:
-                code = 'plan_jev_delivery_failure'
+                code = failure_code
             if adapter.context_capture is not None:
                 try:
                     adapter.context_capture.observe(dict(kind='failure', phase='delivery', code=code))
@@ -117,8 +119,8 @@ class PlanJevHarness:
                         "authored_source_unavailable"} else None)
             trace.finalize_and_log(status='error',model_calls=self.calls,observed_model_call_count=len(self.calls))
             if isinstance(exc,AgentTurnServiceError): raise
-            raise AgentTurnServiceError('The Plan reply could not complete safely. No request was replayed.',
-                code='plan_jev_delivery_failure',status_code=503) from exc
+            raise AgentTurnServiceError(f'The {surface.title()} reply could not complete safely. No request was replayed.',
+                code=failure_code,status_code=503) from exc
         trace.complete_phase(span)
         final=trace.finalize_and_log(status='ok',model_calls=self.calls,observed_model_call_count=len(self.calls),
             hermes_fields={'conversation_context':'structured'})
@@ -127,8 +129,10 @@ class PlanJevHarness:
         payload['answer']['trace']=final
         # The durable projection deliberately omits live work on a replay. A
         # fresh response must carry the committed basis resolved for this turn.
-        payload['primary_work']['content_basis']=adapter.work.content_basis.model_dump(mode='json')
+        if adapter.request.surface.surface_id=='plan':
+            payload['primary_work']['content_basis']=adapter.work.content_basis.model_dump(mode='json')
         if payload.get('plan_context') is not None: payload['plan_context']['delivery_replay']=False
+        if payload.get('play_context') is not None: payload['play_context']['delivery_replay']=False
         if payload.get('rules_context') is not None:
             for key in ('base_context','unclaimed_context'):
                 if payload['rules_context'].get(key) is not None: payload['rules_context'][key]['delivery_replay']=False

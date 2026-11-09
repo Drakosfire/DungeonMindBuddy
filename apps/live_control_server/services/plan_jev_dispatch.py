@@ -41,6 +41,17 @@ def decision_client(*, authorize, record, transport=None, api_key=None, select_c
 
 def verify_initial_input(view, request, work, parent):
     from .agent_turn_service import _governed_graph_turn
+    from application_state.agent_conversation.jev_retrieval_contract import NativePlayRetrievalDecisionInputV1
+    if request.surface.surface_id=='play':
+        if (type(parent) is not NativePlayRetrievalDecisionInputV1 or not _governed_graph_turn(request)
+                or work.play_context_receipt is None or parent.question!=request.message
+                or (view.get('provider'),view.get('model'),view.get('apiMode'))!=(PROVIDER,MODEL,'decision')):
+            raise ValueError('Play Jev requires its exact governed Run question and provider')
+        raw=view['payloadJson'].encode()
+        if len(raw)!=view['payloadUtf8Bytes'] or sha256(raw).hexdigest()!=view['payloadSha256']:
+            raise ValueError('Play Jev wire bytes changed before claim')
+        validate_wire_body(parent,raw)
+        return
     if (not isinstance(parent, (RetrievalDecisionInput, PlanSourceRetrievalDecisionInputV1, PlanRequestedWorkInputV1)) or request.surface.surface_id != "plan"
             or not _governed_graph_turn(request) or work.content_basis is None
             or not isinstance(work.plan_markdown, str) or parent.question != request.message
@@ -65,7 +76,29 @@ class PlanJevDispatch:
             examined_candidates=tuple(examined_candidates), allowed_operations=tuple(allowed_operations))
         receipt = adapter.fence.turn.graph_context_receipt if adapter.fence is not None else None
         authority = getattr(adapter, "native_source_authority", None)
-        if type(receipt) is t.SurfaceNativeContextReceiptV1:
+        if adapter.request.surface.surface_id=='play' and authority is not None:
+            from application_state.agent_conversation.jev_retrieval_contract import NativePlayRetrievalDecisionInputV1
+            from application_state.agent_conversation.native_play_work import project_work
+            from application_state.agent_conversation.native_context import PlayWorkContextV1
+            from .plan_source_turn import play_work_proof
+            from .agent_turn_service import _conversation_provenance,_turn_idempotency_key
+            proof=play_work_proof(adapter.request,adapter.work,dialogue)
+            frame=t.PlaySourceFrameV1.model_validate_json(json.dumps(proof['source_frame']))
+            work=PlayWorkContextV1(play_basis=adapter.work.play_context_receipt,
+                play_sources=frame.manifest,play_source_frame_sha256=t.canonical_sha256(frame))
+            provenance=(adapter.fence.turn.provenance if adapter.fence is not None else
+                _conversation_provenance(adapter.request,world_id=adapter.world_id,work=adapter.work,
+                    playable_target=adapter.playable_target))
+            from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
+            from application_state.agent_conversation.native_plan_statements import NativePlanQueryV1
+            available=isinstance(authority,NativeCorpusAuthorityV1)
+            query=adapter.native_query
+            pins=dict(source_authority_status='available' if available else 'unavailable',
+                source_revision=authority.revision_id if available else None,
+                graph_revision=query.authority.revision_id if isinstance(query,NativePlanQueryV1) else None)
+            self.parent=NativePlayRetrievalDecisionInputV1(**fields,**pins,play_work=project_work(
+                work,provenance,_turn_idempotency_key(adapter.world_id,adapter.request.turn_id),proof))
+        elif type(receipt) is t.SurfaceNativeContextReceiptV1:
             from application_state.agent_conversation.native_retrieval import source_pins
             from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV2, NativeBuildRetrievalDecisionInputV4
             codec = (NativeBuildRetrievalDecisionInputV4
@@ -156,6 +189,10 @@ class PlanJevDispatch:
                     raise
                 finally:
                     a._active_plan_jev_request = None
+            if a.request.surface.surface_id=='play' and not any(isinstance(e,t.ProviderAttemptAuthorizedEventV1)
+                    for e in a.fence.turn.graph_context_execution.events):
+                from .native_authored_references import acquire
+                acquire(a)
             turn = a.fence.turn
             execution = turn.graph_context_execution
             native = not semantic and type(turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1

@@ -67,8 +67,9 @@ class SurfaceNativeCompletionV1(Strict):
         authored=[support for segment in self.answer_segments for support in
             (segment.supports if isinstance(segment,t.SessionSummaryV1) else [segment])
             if isinstance(support,t.SurfaceAuthoredQuoteV1)]
-        if authored and (self.surface_id != 'plan' or any(s.source_kind not in {'plan','session'} for s in authored)):
-            raise ValueError('Shared authored excerpts require their actual Plan or session owner')
+        allowed={'plan':{'plan','session'},'play':{'play','session'}}.get(self.surface_id,set())
+        if any(s.source_kind not in allowed for s in authored):
+            raise ValueError('Shared authored excerpts require their actual surface or session owner')
         if not self.answer_segments and self.collaboration is None:
             raise ValueError('Native completion cannot be empty')
         status=status_for(self.answer_segments) if self.answer_segments else 'discussion'
@@ -149,7 +150,7 @@ def _validate_citations(completion, receipt, execution, auth, evidence):
 
 def normalize_output(receipt, execution, authorization, *, prepared_request_json, raw_output_json,
                      capture, trace, world_id, conversation_id, turn_id, attempt,
-                     provenance, idempotency_key, work_proof):
+                     provenance, idempotency_key, work_proof, play_context_receipt=None):
     """Reconstruct completion from exact producing input and final captured SDK text.
 
     The caller supplies its locked Turn identity and protected trace. This helper
@@ -157,7 +158,8 @@ def normalize_output(receipt, execution, authorization, *, prepared_request_json
     """
     evidence = verify_input_records(receipt,execution,authorization,prepared_request_json,
         provenance=provenance,idempotency_key=idempotency_key,work_proof=work_proof,
-        world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt)
+        world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt,
+        play_context_receipt=play_context_receipt)
     responses = [e for e in execution.events if isinstance(e,t.ProviderOutcomeEventV1)
         and e.provider_attempt_id == authorization.provider_attempt_id and e.outcome == 'response_received']
     if (len(responses) != 1 or not responses[0].request_id
@@ -252,6 +254,9 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
         and (collaboration is not None or any(isinstance(s,(t.DraftReferenceClaimV1,t.RelatedPageClaim,t.SavedSourceClaimV1,DraftDiscussionV1)) for s in segments))
         and all(isinstance(s,(t.DraftReferenceClaimV1,t.RelatedPageClaim,t.SavedSourceClaimV1,DraftDiscussionV1,t.PlanWorldGraphProposalSegmentV1))
             for s in segments))
+    local_authored = local_authored or (execution.policy.action.surface_id=='play'
+        and any(isinstance(s,(t.SurfaceAuthoredExcerptV1,t.SessionSummaryV1)) for s in segments)
+        and all(isinstance(s,(t.SurfaceAuthoredExcerptV1,t.SessionSummaryV1,t.PlanWorldGraphProposalSegmentV1)) for s in segments))
     segments += project_surface_limitations(candidate['limitations'], candidate['requested_detail_gaps'],
         user_question=execution.policy.action.intent.message, derive_missing=True,
         host_partial=evidence.frame['input_status'] == 'partial' and not local_authored,
@@ -261,6 +266,8 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
         answer_context_status=status_for(segments) if segments else 'discussion',answer_segments=segments,collaboration=collaboration,saved_source_citations=saved_cites,
         native_body_citations=body_cites,native_clause_citations=statement_cites,native_assertion_citations=assertion_cites)
     _validate_citations(completion,receipt,execution,authorization,evidence)
+    from .surface_evidence_answer import validate_authored_owners
+    validate_authored_owners(completion,receipt)
     return completion
 
 

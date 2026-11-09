@@ -24,7 +24,7 @@ from tests.test_play_graph_authority import intent_wire
 def component(surface="plan", *, unavailable=False):
     data = wire(surface, unavailable=unavailable)
     # Real Build/Plan SDK fixtures share the existing 128k test writer allowance.
-    if surface in {"build", "plan"}:
+    if surface in {"build", "plan", "play"}:
         data["assembled_input"]["context_window_limit"] = 128000
     if not unavailable:
         data["native_query"]["authority"].update(scope_mode="world", campaign_id=None)
@@ -59,13 +59,10 @@ def component(surface="plan", *, unavailable=False):
         data["play_target"].update(beat_id=work.play_basis.beat_id, scene_id=work.play_basis.scene_id)
         intent = t.PlayGraphIntentV1.model_validate_json(json.dumps(data))
         action = NativePlayActionV1(intent=intent)
-        mode = None
-    if mode is None:
-        roles = t.GraphProviderRoleTargetV1(provider="openai", model="gpt-6-luna", api_mode="responses")
-    else:
-        roles = t.GraphControllerWriterRolesV1(
-            controller=t.GraphProviderRoleTargetV1(provider="typesafe", model="jev-1.14.0", api_mode=mode),
-            writer=t.GraphProviderRoleTargetV1(provider="openai", model="gpt-6-luna", api_mode="responses"))
+        mode = "decision"
+    roles = t.GraphControllerWriterRolesV1(
+        controller=t.GraphProviderRoleTargetV1(provider="typesafe", model="jev-1.14.0", api_mode=mode),
+        writer=t.GraphProviderRoleTargetV1(provider="openai", model="gpt-6-luna", api_mode="responses"))
     accounting = t.GraphExecutionAccountingV1(kind="conservative_upper_bound", estimator="synthetic")
     budget = t.BuildWriterContextBudgetV1.model_validate(dict(schema="dmb_build_writer_context_budget_v1",
         provider="openai", model="gpt-6-luna", api_mode="responses", estimator="utf8_json_bytes_plus_64_per_node_v1",
@@ -73,9 +70,9 @@ def component(surface="plan", *, unavailable=False):
     policy = SurfaceNativeExecutionPolicyV1(action=action,
         source_authority_sha256=t.canonical_sha256(context.source_authority),
         native_query_sha256=t.canonical_sha256(context.native_query), provider_roles=roles,
-        provider_input_accounting=accounting, max_provider_attempts=4 if surface=="play" else None,
-        max_total_provider_input_tokens=4096 if surface=="play" else None,
-        max_total_provider_output_tokens=4096 if surface=="play" else None,
+        provider_input_accounting=accounting, max_provider_attempts=None,
+        max_total_provider_input_tokens=None,
+        max_total_provider_output_tokens=None,
         controller_continuation_accounting=constant(1000).descriptor if surface=="build" else None,
         writer_context_budget=budget)
     return context, execution(context.context_receipt_sha256, policy)
@@ -90,15 +87,15 @@ def execution(context_sha, policy, events=()):
 
 
 def controller(surface, policy, *, sequence=0, semantic=True):
-    role = policy.provider_roles if surface=="play" else policy.provider_roles.controller
+    role = policy.provider_roles.controller
     fields = dict(event_id=uuid4(), sequence=sequence, provider_attempt_id=uuid4(),
-        envelope_sha256="d"*64, serializer_version="typesafe-sdk-json-v1" if surface!="play" else "openai-sdk-json-v1",
+        envelope_sha256="d"*64, serializer_version="typesafe-sdk-json-v1",
         provider=role.provider, model=role.model, api_mode=role.api_mode, tool_schema_sha256="e"*64,
         input_accounting_kind="conservative_upper_bound", input_estimator="synthetic", input_tokens=120,
         output_token_reserve=200, included_assertion_ids=[], included_relationship_ids=[],
         included_evidence_ref_ids=[], included_graph_event_ids=[], included_source_read_event_ids=[])
     if surface=="play":
-        return t.ProviderAttemptAuthorizedEventV3(kind="provider_attempt_authorized_v3", **fields)
+        return t.NativeRetrievalAuthorizedV1(**fields,decision_request_id=uuid4(),parent_request_sha256="f"*64)
     if surface=="plan":
         cls=t.PlanRequestedWorkAuthorizedV2 if semantic else t.NativeRetrievalAuthorizedV1
         return cls(kind="plan_requested_work_authorized_v2" if semantic else "native_retrieval_authorized_v1", **fields,
@@ -281,14 +278,16 @@ def test_real_editor_capability_has_one_owner_and_exact_hash_scope():
         NativeBuildActionV1.model_validate_json(json.dumps(tampered))
 
 
-def test_play_preserves_finite_single_provider_policy():
-    context, record = component("play")
-    for field in ("max_provider_attempts",):
-        with pytest.raises(ValueError, match="finite accepted"):
-            execution(context.context_receipt_sha256, record.policy.model_copy(update={field:None}))
-    wrong = record.policy.model_copy(update={"provider_roles":component("plan")[1].policy.provider_roles})
-    with pytest.raises(ValueError, match="single-provider"):
-        execution(context.context_receipt_sha256, wrong)
+def test_play_uses_actual_jev_and_writer_roles_without_application_limits():
+    context,record=component('play')
+    assert record.policy.provider_roles.controller.identity()==('typesafe','jev-1.14.0','decision')
+    assert record.policy.provider_roles.writer.identity()==('openai','gpt-6-luna','responses')
+    for field in ('max_provider_attempts','max_total_provider_input_tokens','max_total_provider_output_tokens'):
+        with pytest.raises(ValueError,match='provider-owned'):
+            execution(context.context_receipt_sha256,record.policy.model_copy(update={field:4}))
+    wrong=record.policy.model_copy(update={'provider_roles':record.policy.provider_roles.writer})
+    with pytest.raises(ValueError):
+        execution(context.context_receipt_sha256,wrong)
 
 
 def test_rehashed_query_cannot_narrow_world_request_to_a_campaign():
@@ -388,11 +387,9 @@ def test_shared_writer_retains_unavailable_native_read_settlement(surface):
         validate_context_binding(context,missing)
 
 
-def test_single_provider_cannot_smuggle_unknown_reads_in_shared_writer_codec():
+def test_play_writer_cannot_smuggle_unknown_reads_in_shared_writer_codec():
     context,record=component("play")
-    provider=controller("play",record.policy)
-    fields=provider.model_dump(exclude={"kind"})
-    shared=NativeWriterAuthorizedV1(**fields,frame_sha256="f"*64,native_read_event_ids=(uuid4(),))
+    shared=native_writer("play",record.policy,sequence=0,read_ids=(uuid4(),))
     with pytest.raises(ValueError,match="exact settled read inclusion"):
         execution(context.context_receipt_sha256,record.policy,[shared])
 
@@ -476,8 +473,8 @@ def test_native_plan_cannot_finish_with_pending_native_grant(family):
 
 
 def test_retained_history_keeps_event_and_provider_budget_limits():
-    context, record = component('play')
-    event = controller('play', record.policy)
+    context, record = component('plan')
+    event = controller('plan', record.policy)
     with pytest.raises(ValidationError, match='at most 2048'):
         execution(context.context_receipt_sha256, record.policy, [event] * 2049)
     policy = record.policy.model_copy(update={'max_total_provider_input_tokens': event.input_tokens - 1})

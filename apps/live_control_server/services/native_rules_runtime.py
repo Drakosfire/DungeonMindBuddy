@@ -452,7 +452,7 @@ class NativeRulesRuntime:
                 self.record.execution,proof,reply,trace=trace,work_proof=work_proof,
                 idempotency_key=turn.idempotency_key,submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2,
                 world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,
-                attempt=turn.attempt,provenance=turn.provenance)
+                attempt=turn.attempt,provenance=turn.provenance,play_context_receipt=turn.play_context_receipt)
         else:
             normalized = normalize_native_mixed_output(
                 turn, turn.graph_context_execution, self.record.execution, proof, reply,

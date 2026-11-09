@@ -405,3 +405,88 @@ def test_plan_source_reference_extent_is_navigation_only_until_its_native_read(m
     import json
     output=json.dumps(native_output_format(native,rules(),host|view))
     assert 'reference0' not in output
+
+
+def test_play_authored_local_aliases_resolve_exact_run_work_without_host_prompt_fields():
+    from uuid import uuid4
+    from tests.test_surface_native_context import native_play_supplied
+    from application_state.agent_conversation.native_play_work import (
+        project_work,semantic_frame,frame_in_request,producing_authored_records)
+    from application_state.agent_conversation.surface_evidence_answer import authored_block_index,authored_selected_segment
+    import json
+    work,provenance,proof=native_play_supplied(note='A saved possibility.\n\nStill unresolved.')
+    submission=uuid4()
+    host=project_work(work,provenance,submission,proof)
+    semantic=semantic_frame(host)
+    packet={'input':[{'role':'user','content':json.dumps(semantic)}]}
+    assert frame_in_request(packet)==semantic
+    sources=producing_authored_records(work,provenance,host,submission)
+    blocks,selectors=authored_block_index(sources,str(submission),local=True)
+    expected=[block['text'] for source in semantic['current_play'] for block in source['text_blocks']]
+    assert [blocks[selectors[f'work{i}']][1].text for i in range(len(selectors))]==expected
+    for i in range(len(selectors)):
+        segment=authored_selected_segment({'kind':'authored_excerpt','selection_id':f'work{i}'},
+            blocks=blocks,selectors=selectors,selected_blocks=set())
+        assert segment.source_kind=='play' and segment.text==expected[i]
+    for changed in [dict(packet,input=packet['input']*2),
+            {'input':[{'role':'user','content':json.dumps(host)}]},
+            {'input':[{'role':'assistant','content':json.dumps(semantic)}]}]:
+        with pytest.raises(ValueError):frame_in_request(changed)
+    altered=deepcopy(host);altered['source_frame']['sources'][0]['text_blocks'][0]['text']='Changed body.'
+    with pytest.raises(ValueError):producing_authored_records(work,provenance,altered,submission)
+
+
+def test_play_output_schema_offers_only_included_local_work_selections():
+    from uuid import uuid4
+    from tests.test_surface_native_context import native_play_supplied
+    from tests.test_surface_native_execution import component
+    from application_state.agent_conversation.native_play_work import project_work,semantic_frame
+    from application_state.agent_conversation.plan_writer_output_schema import native_output_format
+    from application_state.agent_conversation.rules_authority_plan_packet import model_rules_frame
+    from application_state.agent_conversation.rules_authority_plan_packet import PlanRulesEvidenceFrameV1
+    work,provenance,proof=native_play_supplied(note='Retained note.')
+    host=project_work(work,provenance,uuid4(),proof)
+    context,execution=component('play',unavailable=True)
+    frame=model_frame(context,execution)
+    rules=model_rules_frame(PlanRulesEvidenceFrameV1(schema='dmb_plan_rules_evidence_v1',ruleset='synthetic',lookups=(),supports=()))
+    schema=native_output_format(frame,rules,host|semantic_frame(host))['schema']
+    variants=schema['properties']['answer_segments']['items']['anyOf']
+    selected=next(v for v in variants if v['properties']['kind'].get('const')=='authored_excerpt'
+        or v['properties']['kind'].get('enum')==['authored_excerpt'])
+    assert selected['properties']['selection_id']['enum']==['work0','work1']
+
+
+def test_play_actual_sdk_work_proof_requires_original_receipt_and_exact_semantic_frame():
+    from uuid import uuid4
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.play_graph_authority import play_source_frame
+    from application_state.agent_conversation.native_play_work import semantic_frame
+    from tests.test_surface_native_execution import component,decision_prefix,choice,execution
+    context,record=component('play',unavailable=True)
+    data=context.model_dump(mode='json',by_alias=True)
+    data['assembled_input']['tokenizer_name']='synthetic'
+    from tests.test_surface_native_context import seal
+    context=type(context).model_validate_json(__import__('json').dumps(seal(data)))
+    record=execution(context.context_receipt_sha256,record.policy)
+    prefix,active=decision_prefix('play',context,record)
+    prefix.append(choice(context,record,active,len(prefix),'finish_retrieval'))
+    record=execution(context.context_receipt_sha256,record.policy,prefix)
+    work=work_submission(context,record)
+    basis=context.work_context.play_basis
+    source=play_source_frame((t.PlaySourcePayloadV1(source_kind='current_moment',
+        locator=t.play_source_locator(basis),text='Exact saved Play moment.'),))
+    work.update(play_context_receipt=basis,work_proof=dict(
+        source_frame=source.model_dump(mode='json',by_alias=True),session_evidence=[],dialogue=[]))
+    frame=model_frame(context,record)
+    host=model_work_frame(context,record,**work)
+    view=semantic_frame(host)
+    raw=asyncio.run(actual_sdk_request(frame,work_frame=view))
+    stored,grant=authorize(context,record,raw,frame)
+    verified=verify_input_records(context,stored,grant,raw,**work)
+    assert verified.authored_local and [s.text for s in verified.authored]==['Exact saved Play moment.']
+    with pytest.raises(ValueError,match='exact retained Run snapshot'):
+        verify_input_records(context,stored,grant,raw,**(work|{'play_context_receipt':None}))
+    for altered in [host,dict(view,current_play=[])]:
+        bad=asyncio.run(actual_sdk_request(frame,work_frame=altered))
+        record2,grant2=authorize(context,record,bad,frame)
+        with pytest.raises(ValueError):verify_input_records(context,record2,grant2,bad,**work)

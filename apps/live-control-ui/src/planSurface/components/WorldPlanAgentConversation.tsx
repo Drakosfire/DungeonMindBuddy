@@ -27,7 +27,7 @@ import { groupConversationAttempts, isUnansweredFailure } from "../../agentInter
 import {isSurfaceEvidenceCompletion,surfaceEvidenceReceiptBound} from "../../shared/surfaceEvidenceProtocol";
 import {SurfaceEvidenceAnswer} from "./SurfaceEvidenceAnswer";
 import { SurfaceImagePromptAction } from "../../shared/SurfaceImagePromptAction";
-import { isWorldPlayContextProjection, isWorldPlayGraphReceipt, isPlayContextProvenanceBound, playReceiptDigestsBound, isPlaySourceContext, isPlaySourceProvenanceBound, playSourceContextDigestBound } from '../../rulesLookup/playContextProtocol';
+import { isSharedPlayReceipt,sharedPlayGraphResponseMatches,isWorldPlayContextProjection, isWorldPlayGraphReceipt, isPlayContextProvenanceBound, playReceiptDigestsBound, isPlaySourceContext, isPlaySourceProvenanceBound, playSourceContextDigestBound } from '../../rulesLookup/playContextProtocol';
 import { isSurfaceGraphInput } from '../../rulesLookup/surfaceGraphInput';
 import { RulesAnswerEvidence } from '../../rulesLookup/RulesAnswerEvidence';
 import { isRulesAnswerContext, rulesAnswerDigestsBound } from '../../rulesLookup/rulesAnswerProtocol';
@@ -1510,6 +1510,9 @@ function isRulesUnclaimedContext(value: unknown, worldId: string,
       return provenance===undefined||isRecord(provenance)&&isHistoryBuildReceiptBound(receipt,provenance,worldId,question);
     }
     if(value.completion!==undefined&&value.completion!==null)return false;
+    if(isSharedPlayReceipt(receipt,request?.primary_work.kind==='run'?request as WorldPlayAgentTurnRequestV1:undefined))
+      return (!request||request.primary_work.kind==='run')&&receipt.work_context.play_basis.world_id===worldId
+        &&(provenance===undefined||isPlayContextProvenanceBound(receipt,provenance,worldId));
     if(!isSharedPlanReceipt(receipt,request?.primary_work.kind==='plan'?request as WorldPlanAgentTurnRequestV1:undefined)
       ||request&&request.primary_work.kind!=='plan'||receipt.work_context.plan_basis.world_id!==worldId)return false;
     return provenance===undefined||isHistoryPlanReceiptBound(receipt,provenance,worldId,question);
@@ -2024,7 +2027,7 @@ export async function confirmedNewConversationStatus(value: unknown, worldId: st
 
 async function isReceiptDigestBound(receipt: PlanSourceContextReceiptV1 | PlanNativeContextReceiptV1 | WorldPlanGraphContextReceiptV1 | WorldBuildGraphReceiptV1 | WorldPlayGraphContextReceiptV1 | import('../../api/types').SurfaceNativeContextReceiptV1): Promise<boolean> {
   try {
-    if (receipt.schema === "dmb_play_world_graph_context_receipt_v1") return await playReceiptDigestsBound(receipt);
+    if (receipt.schema === "dmb_play_world_graph_context_receipt_v1"||receipt.schema==='dmb_surface_native_context_receipt_v1'&&receipt.work_context.surface_id==='play') return await playReceiptDigestsBound(receipt);
     if((receipt.schema==='dmb_plan_source_context_receipt_v1' || receipt.schema==='dmb_plan_native_context_receipt_v1') && receipt.graph_capability!==null
       && !await isReceiptDigestBound(receipt.graph_capability)) return false;
     const { context_receipt_sha256: expected, ...payload } = receipt;
@@ -2039,7 +2042,7 @@ async function isReceiptDigestBound(receipt: PlanSourceContextReceiptV1 | PlanNa
 async function isHistoryReceiptDigestBound(turn: unknown): Promise<boolean> {
   if (!isRecord(turn)) return true;
   const rules=isRecord(turn.rules_context)?turn.rules_context:null;
-  const sharedContext=turn.knowledge_context??turn.plan_context??rules?.base_context??rules?.unclaimed_context;
+  const sharedContext=turn.knowledge_context??turn.plan_context??turn.play_context??rules?.base_context??rules?.unclaimed_context;
   if(isRecord(sharedContext)&&isRecord(sharedContext.receipt)&&sharedContext.receipt.schema==='dmb_surface_native_context_receipt_v1') {
     const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonicalJson(turn.provenance)));
     if(Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('')!==sharedContext.receipt.provenance_sha256)return false;
@@ -2157,7 +2160,7 @@ async function confirmedReadOnlyTurn(page: WorldAgentConversationHistoryResponse
         const context = graphContextForTurn(turn);
         const unclaimed = rulesContextForTurn(turn)?.unclaimed_context;
         const receipt = unclaimed?.receipt ?? context?.receipt;
-        return isWorldPlayGraphReceipt(receipt, request as WorldPlayAgentTurnRequestV1)
+        return (isWorldPlayGraphReceipt(receipt, request as WorldPlayAgentTurnRequestV1)||isSharedPlayReceipt(receipt,request as WorldPlayAgentTurnRequestV1))
           && isPlayContextProvenanceBound(receipt, turn.provenance, request.owner_scope.world_id);
       })()));
   });
@@ -4384,7 +4387,8 @@ export function WorldPlanAgentConversation({
         || response.primary_work.expected_revision !== request.primary_work.expected_revision
         || response.primary_work.revision_used !== request.primary_work.expected_revision
         || response.client_work_state_reported !== request.client_work_state
-        || !matchesPlayGraphResponse(response.graph, request)) {
+        || !(matchesPlayGraphResponse(response.graph, request)||request.primary_work.kind==='run'
+          &&sharedPlayGraphResponseMatches(mixed?response.rules_context.base_context?.receipt??response.rules_context.unclaimed_context?.receipt:'play_context' in response&&isRecord(response.play_context)?response.play_context.receipt:null,response.graph))) {
         throw new Error("The reply did not match the saved request. Check World history before continuing.");
       }
       if (request.primary_work.kind === "build" && request.graph_request.mode === "world") {
@@ -4418,12 +4422,15 @@ export function WorldPlanAgentConversation({
         const receipt = unclaimed?.receipt ?? context?.receipt;
         if (!(unclaimed ? isRulesUnclaimedContext(unclaimed, request.owner_scope.world_id, request)
             : context !== null)
-          || !receipt || !('graph_authority' in receipt) || !await isReceiptDigestBound(receipt)
-          || receipt.graph_authority.native_world_id !== response.graph.world_id
-          || receipt.graph_authority.graph_revision !== response.graph.revision_id
+          || !receipt || !await isReceiptDigestBound(receipt)
+          || !(receipt.schema==='dmb_surface_native_context_receipt_v1'?sharedPlayGraphResponseMatches(receipt,response.graph)
+            :'graph_authority' in receipt&&receipt.graph_authority.native_world_id===response.graph.world_id
+              &&receipt.graph_authority.graph_revision===response.graph.revision_id)
           || (!mixed && response.answer.text !== context!.completion!.answer_segments.map(s => s.text).join("\n"))
           || response.answer.status !== 'ok' || response.answer.code !== null || response.answer.message !== null
-          || response.answer.graph_grounded !== (context?.completion?.answer_basis.includes('world_graph') ?? false)) {
+          || response.answer.graph_grounded !== (context?.completion?.schema==='dmb_surface_native_completion_v1'
+            ?['graph_grounded','graph_grounded_partial'].includes(context.completion.answer_context_status)
+            :context?.completion?.answer_basis.includes('world_graph') ?? false)) {
           throw new Error("The reply did not match the saved Run edition, scene and World Graph. Its recovery record was retained.");
         }
       }

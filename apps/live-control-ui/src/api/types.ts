@@ -1067,7 +1067,12 @@ export interface WorldPlayGraphCompletionV1 {
   })[];
   citation_map: WorldPlanGraphCitationMapV2 | null;
 }
-export interface WorldPlayAgentContextV1 {
+export type PlaySurfaceNativeContextResponseV1=AgentSurfaceNativeContextResponseV1 & {
+  receipt:SurfaceNativeContextReceiptV1 & {work_context:Extract<SurfaceNativeWorkContextV1,{surface_id:'play'}>};
+  completion:SurfaceNativeCompletionV1|null;
+};
+export type WorldPlayAgentContextV1=LegacyWorldPlayAgentContextV1|PlaySurfaceNativeContextResponseV1;
+export interface LegacyWorldPlayAgentContextV1 {
   schema: "dmb_agent_play_world_graph_context_response_v1";
   receipt: WorldPlayGraphContextReceiptV1; completion: WorldPlayGraphCompletionV1 | SurfaceSourceCompletionV1 | SurfaceEvidenceCompletion | null;
   execution: WorldPlanGraphExecutionProjectionV1 | null; delivery_replay: boolean;
@@ -1196,7 +1201,7 @@ export interface AgentPlanSourceContextResponseV1 extends Omit<LegacyWorldPlanAg
 export type SurfaceNativeWorkContextV1 =
   | {surface_id:'build';source_basis:WorldBuildGraphReceiptV1['source_basis']}
   | {surface_id:'plan';plan_basis:WorldPlanGraphContextReceiptV1['plan_basis'];plan_context_policy:WorldPlanContextPolicyV2;playable_target:WorldPlanGraphContextReceiptV1['playable_target']}
-  | {surface_id:'play';play_basis:WorldPlayRunContextReceiptV2};
+  | {surface_id:'play';play_basis:WorldPlayRunContextReceiptV2;play_sources:WorldPlayGraphContextReceiptV1['play_sources'];play_source_frame_sha256:string};
 export interface SurfaceNativeContextReceiptV1 {
   schema:'dmb_surface_native_context_receipt_v1';receipt_serializer_version:'canonical-json-utf8-v1';
   context_receipt_sha256:string;provenance_sha256:string;work_context:SurfaceNativeWorkContextV1;

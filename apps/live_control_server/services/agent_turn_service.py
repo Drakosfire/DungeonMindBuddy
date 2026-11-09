@@ -73,6 +73,7 @@ from apps.live_control_server.models.agent_turn import (
     AgentRelatedRecapContextStatusV2,
     AgentPlanWorldGraphContextResponseV2,
     AgentPlayWorldGraphContextResponseV1,
+    AgentSurfaceNativeContextResponseV1,
     AgentBuildGraphContextResponseV1,
     AgentBuildGraphTurnResponseV1,
     AgentPlayGraphTurnResponseV1,
@@ -1984,6 +1985,11 @@ class _PolicyExecutionAdapter:
                     submitted_intent=self.submitted_intent,projection=getattr(self,'_active_build_driver_projection',None),
                     accounting=self._build_jev_accounting,included_history=getattr(self,'build_history_for_inclusion',()),
                     reviewed_admission=reviewed_admission)
+            elif self.native_source_authority is not None and self.request.surface.surface_id=='play':
+                from .plan_source_turn import freeze_play
+                receipt,execution,membership=freeze_play(self.request,self.work,view,self.budget,
+                    authority=self.native_source_authority,native_query=self.native_query,
+                    provenance=provenance,submitted_intent=self.submitted_intent,parent=plan_jev_request)
             elif self.native_source_authority is not None:
                 from .plan_source_turn import freeze
                 graph_receipt = graph_execution = None
@@ -5723,10 +5729,14 @@ def project_play_turn_context(
     turn: Turn,
     *,
     delivery_replay: bool,
-) -> AgentPlayWorldGraphContextResponseV1:
+) -> AgentPlayWorldGraphContextResponseV1 | AgentSurfaceNativeContextResponseV1:
     """Project the frozen native Run/ledger, including evidence-free terminal recovery."""
     receipt = turn.graph_context_receipt
     execution = getattr(turn, "graph_context_execution", None)
+    if type(receipt) is _app_state_graph_execution_types().SurfaceNativeContextReceiptV1:
+        if receipt.work_context.surface_id!='play':
+            raise AgentTurnServiceError('The stored work is not Play.',code='turn_receipt_unverifiable',status_code=409)
+        return project_plan_turn_context(turn,delivery_replay=delivery_replay)
     if not isinstance(receipt, PlayWorldGraphContextReceiptV1) or not isinstance(
         execution, PlayWorldGraphExecutionV1
     ):
@@ -6697,7 +6707,8 @@ def execute_agent_turn(
             'This Plan request uses a retired execution contract. Refresh the Plan before sending again; no request was dispatched.',
             code='plan_execution_contract_retired',status_code=409,provider_dispatched=False)
     native_surface_sources = ((request.surface.surface_id == "plan" and request.plan_context_policy is not None
-        or _governed_build_turn(request))
+        or _governed_build_turn(request)
+        or request.surface.surface_id=='play' and _governed_graph_turn(request))
         and (durable_turn is None or isinstance(durable_turn.graph_context_receipt,
             (graph_types.PlanSourceContextReceiptV1, graph_types.SurfaceNativeContextReceiptV1))))
     native_corpus_context = native_source_authority = None
@@ -7013,7 +7024,7 @@ def execute_agent_turn(
         )
         if request.plan_context_policy is not None:
             runtime_message += "\n\n" + _plan_graph_answer_instructions(durable_turn)
-    if request.surface.surface_id == "play" and request.play_target is not None:
+    if request.surface.surface_id == "play" and request.play_target is not None and not native_surface_sources:
         from .native_play_graph_owner import native_play_input_message, prepare_play_sources, prepare_authored_sources
         try:
             selected_sources = prepare_authored_sources(request, native_principal, existing_turn=durable_turn)
@@ -7076,14 +7087,14 @@ def execute_agent_turn(
         # The source owner is established first. A provisioning-only World has
         # no Graph capability; missing Graph cannot suppress source/Rules work.
         frozen_graph = frozen.graph_capability if isinstance(frozen, graph_types.PlanSourceContextReceiptV1) else None
-        if (_governed_build_turn(request) or isinstance(request.plan_context_policy, graph_types.PlanContextPolicyV2)) and native_graph_query_resolver is None:
+        if (_governed_build_turn(request) or request.surface.surface_id=='play' or isinstance(request.plan_context_policy, graph_types.PlanContextPolicyV2)) and native_graph_query_resolver is None:
             raise AgentTurnServiceError('The selected reviewed Graph reader is unavailable.',
                 code='native_graph_query_unavailable', status_code=503, provider_dispatched=False)
         # The ordinary request explicitly selects its Graph source. Retained
         # receipts pin that source; no empty-result or error-based fallback.
         if (native_graph_query_resolver is not None and (
                 isinstance(frozen, (graph_types.PlanNativeContextReceiptV1,graph_types.SurfaceNativeContextReceiptV1))
-                or frozen is None and (_governed_build_turn(request) or isinstance(request.plan_context_policy, graph_types.PlanContextPolicyV2)))):
+                or frozen is None and (_governed_build_turn(request) or request.surface.surface_id=='play' or isinstance(request.plan_context_policy, graph_types.PlanContextPolicyV2)))):
             with trace.phase('plan_native_statement_query'):
                 native_query_context, native_query = native_graph_query_resolver(
                     request, owner, work, frozen, native_corpus_context)
@@ -7457,6 +7468,7 @@ def execute_agent_turn(
         with trace.phase("runtime_creation"):
             from .build_jev_harness import BuildJevHarness
             from .plan_jev_harness import PlanJevHarness, default_plan_jev_runtime
+            from .play_jev_harness import default_play_jev_runtime
             from .build_jev_runtime import BuildJevRuntimeUnavailable as unavailable_type, PreparedBuildJevRuntime
             # Saved Build and Rules remain usable before source ingestion. The
             # current driver validates discovery status; never silently switch to
@@ -7468,7 +7480,8 @@ def execute_agent_turn(
                 runtime_factory() if runtime_factory is not None else None
             ) or ((build_runtime_factory or PreparedBuildJevRuntime()).create()
                 if default_build_jev else default_plan_jev_runtime()
-                if default_plan_jev else default_hermes_agent_runtime())
+                if default_plan_jev else default_play_jev_runtime()
+                if request.surface.surface_id=='play' and native_surface_sources else default_hermes_agent_runtime())
             descriptor = descriptor_for_runtime(selected_runtime)
     except Exception as exc:
         running_turn = _stop_claim_renewer(renewer, running_turn)

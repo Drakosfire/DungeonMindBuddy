@@ -829,7 +829,7 @@ class AgentPlayGraphTurnResponseV1(AgentTurnResponse):
     schema_: Literal["dmb_agent_play_graph_turn_response_v1"] = Field(
         default="dmb_agent_play_graph_turn_response_v1", alias="schema"
     )
-    play_context: AgentPlayWorldGraphContextResponseV1
+    play_context: AgentPlayWorldGraphContextResponseV1 | AgentSurfaceNativeContextResponseV1
 
 
 class AgentSavedBuildSectionTargetV1(BaseModel):
@@ -1106,11 +1106,11 @@ class AgentPlayRulesTurnResponseV1(AgentRulesTurnResponseV1):
 
 
 class AgentConversationHistoryPlayTurnV2(AgentConversationHistoryTurn):
-    play_context: AgentPlayWorldGraphContextResponseV1
+    play_context: AgentPlayWorldGraphContextResponseV1 | AgentSurfaceNativeContextResponseV1
 
 
 class AgentConversationHistoryPlayTurnV3(AgentConversationHistoryTurnV3):
-    play_context: AgentPlayWorldGraphContextResponseV1
+    play_context: AgentPlayWorldGraphContextResponseV1 | AgentSurfaceNativeContextResponseV1
 
 
 class AgentConversationHistoryBuildTurnV2(AgentConversationHistoryTurn):

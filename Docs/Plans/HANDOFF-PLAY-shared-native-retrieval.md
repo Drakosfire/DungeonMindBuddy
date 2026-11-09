@@ -21,7 +21,9 @@ The first slice is one complete backend capability: ordinary Play uses existing
 native corpus/Graph navigation, selected-reference reads, Jev decisions, writing,
 locked completion and saved citations with exact Run work. Its activation is
 indivisible across admission, actual SDK input and acceptance: shipping just the
-old work-frame scaffold does not deliver a usable request. No UI behavior change.
+old work-frame scaffold does not deliver a usable request. No picker or visual behavior change. The existing shared native wire reader must
+accept actual Play work and saved output; this is part of usable delivery, not a
+new presentation design.
 A later independently useful slice may enable Play object selection in the shared
 picker after this backend contract is proven. Retiring the old unmounted card /
 diagnostic closure is separate and follows the explicit CI manifest partition.
@@ -85,17 +87,32 @@ Host services: `agent_turn_service.py`, `plan_source_turn.py`,
 fresh native Play; retain exact historical rendering),
 `native_play_graph_owner.py`, new `play_jev_harness.py`, and existing shared
 `plan_jev_driver.py`, `plan_jev_dispatch.py`, `plan_jev_writer.py`,
-`native_source_navigation.py`, `plan_jev_rules_runtime.py`; agent route query scope
+`native_source_navigation.py`, `corpus_source_navigation.py` (pre-claim metadata
+offers only; acquisition remains claim-bound), `plan_jev_rules_runtime.py`, and the shared
+`native_rules_runtime.py` producing-proof call (actual Play receipt only); agent route query scope
 only if owning factory validation requires it.
+Transport/readers: `apps/live_control_server/models/agent_turn.py` Play context unions;
+`apps/live-control-ui/src/api/types.ts`, `shared/surfaceNativeProtocol.ts`,
+`rulesLookup/playContextProtocol.ts` and their existing classified tests,
+`test/surface-native-play-http.json` generated only from the actual provider-free
+APP/Core/SDK ordinary Play boundary test, and
+`planSurface/components/WorldPlanAgentConversation.tsx` only where existing
+shared context routing requires the actual Play wire. Leave CI's conversation
+integration-test file and fixtures unchanged.
 APP agent_conversation: `native_context.py`, `native_execution.py`,
 `native_retrieval.py`, `native_writer.py`, `native_completion.py`,
 `native_play_work.py`, `play_graph_source_owner.py`, `play_session_input.py`,
 `surface_evidence_answer.py`, `plan_writer_output_schema.py`,
 `authored_graph_references.py`, `jev_retrieval_contract.py`, Rules input/schema
 reconstruction owners only when coupled to actual Play input, and `service.py`.
-A no-op reader fence only after current-head inventory proves it necessary;
-no schema number is reserved now and no user rows may be rewritten.
+Current-head retained-state inventory found zero shared-native Play turns; the
+14 genuine historical Play receipts retain their readers. The changed Play work
+and provider-role codecs require no-op fence `20261109_0143` after `0142`; no
+user rows, source bytes or Run state may be rewritten. Older readers are refused
+before these new records can be stored.
 Tests use already-classified `test_play_authored_source_references.py`,
+`tests/application_state/test_native_play_graph_postgres.py` (reuse its actual Run
+fixture with an explicit synthetic World; no old admission tests removed),
 `test_agent_native_play_history.py`, `test_surface_native_context.py`,
 `test_surface_native_execution.py`, `test_native_writer_projection.py` and affected
 existing shared native writer/retrieval owner modules and

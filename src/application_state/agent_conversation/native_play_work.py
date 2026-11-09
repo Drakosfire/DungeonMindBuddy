@@ -98,3 +98,62 @@ def semantic_frame(host):
                 for entry in packet['sources']]})
     return dict(current_play=sources,session_evidence=sessions,
         dialogue_reference=deepcopy(host['dialogue']))
+
+
+def is_semantic_frame(value):
+    return isinstance(value,dict) and set(value) == {
+        'current_play','session_evidence','dialogue_reference'}
+
+
+def frame_in_request(body):
+    """Select one explicit Play packet, never search inside authored text."""
+    from .source_writer_output import strict_json
+    candidates=[]
+    for message in body.get('input',[]) if isinstance(body.get('input'),list) else []:
+        if not isinstance(message,dict) or not isinstance(message.get('content'),str):
+            continue
+        try:
+            value=strict_json(message['content'])
+        except ValueError:
+            continue
+        if not isinstance(value,dict):
+            continue
+        if value.get('schema') == SCHEMA:
+            raise ValueError('Host Play work must not enter provider input')
+        if 'current_play' in value:
+            if not is_semantic_frame(value) or message.get('role') != 'user':
+                raise ValueError('Malformed semantic Play surface work')
+            candidates.append(value)
+    if len(candidates) != 1:
+        raise ValueError('Native Play requires one exact semantic work packet')
+    return candidates[0]
+
+
+def proof_from_host(work,provenance,host,submission_id):
+    """Restore the existing captured packet and prove its exact commitment."""
+    from .play_session_input import restore,packet_sources
+    from .play_graph_input import unpack_selector_play_frame
+    if not isinstance(host,dict) or host.get('submission_id') != str(submission_id):
+        raise ValueError('Play work changed its actual submission')
+    sessions=restore(host['session_evidence'])
+    session_supports=packet_sources(sessions)
+    frame=unpack_selector_play_frame(host['source_frame'],str(submission_id),
+        [(s.handle,s.text) for s in session_supports])
+    proof=dict(source_frame=frame.model_dump(mode='json',by_alias=True),
+        session_evidence=sessions,dialogue=host['dialogue'])
+    if project_work(work,provenance,submission_id,proof) != host:
+        raise ValueError('Play authored selectors differ from their frozen work')
+    return frame,sessions,proof
+
+
+def producing_authored_records(work,provenance,host,submission_id):
+    """Resolve selectors through existing immutable Play and session owners."""
+    from .surface_evidence_answer import AuthoredSupport
+    from .play_session_input import packet_sources
+    frame,sessions,_=proof_from_host(work,provenance,host,submission_id)
+    sources=tuple(AuthoredSupport(entry.source_id,'play',
+        'Saved scene note' if source.source_kind=='scene_note' else 'Saved Play scene',
+        source.locator.run_id,str(source.locator.run_revision),entry.text_sha256,
+        entry.payload_sha256,source.text)
+        for source,entry in zip(frame.sources,frame.manifest.entries,strict=True))
+    return sources + packet_sources(sessions)

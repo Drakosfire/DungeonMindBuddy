@@ -1,0 +1,340 @@
+{
+  "response": {
+    "play_context": {
+      "schema": "dmb_agent_surface_native_context_response_v1",
+      "receipt": {
+        "schema": "dmb_surface_native_context_receipt_v1",
+        "receipt_serializer_version": "canonical-json-utf8-v1",
+        "context_receipt_sha256": "43fea550037cc91267227d334abb04e82045d9cd0ed777a279a9af990fa6bbb2",
+        "provenance_sha256": "f8e1d98e054d75b75f3c3348418fff7026cbbe2070c3da2241dad03fe8ce863d",
+        "work_context": {
+          "surface_id": "play",
+          "play_basis": {
+            "schema": "dmb_play_run_turn_context_receipt_v2",
+            "run_id": "43afba73-2977-4623-bdb9-9836a99f7aa4",
+            "run_revision": 2,
+            "runbook_object_id": "6c0431ca-e8ed-4afb-b1fd-2e4119ab2071",
+            "runbook_object_revision": 2,
+            "runbook_work_revision_id": "cf00b670-51a8-415c-a198-1e48bc116684",
+            "runbook_revision_n": 1,
+            "runbook_content_sha256": "53f21f37cd3845fa8ca61458cbfeb8d37e8f5a4664e7b44d82abae286d71c121",
+            "beat_id": "beat:arrival",
+            "scene_id": "scene:gate",
+            "marker_grammar_version": "v2",
+            "world_id": "native-pg-302fb0cfc1a643dcac34093725faf793",
+            "edition_revision": 1,
+            "edition_revision_id": "083dd21e-31fb-49be-9c14-83ead6cfb660",
+            "content_sha256": "f1c9401c0c27f3a9593ace7f95e0983d7ca21ab737244841df5ef300479078d5",
+            "scene_note": "Saved native note 🦉.",
+            "scene_note_sha256": "d98159248967be2aea2a02e4276175d3592c3cd395d3d685b541d4c9e14ba7fe"
+          },
+          "play_sources": {
+            "schema": "dmb_play_source_manifest_v1",
+            "entries": [
+              {
+                "source_id": "play-source:6a696e8e6cd993e55bf8bd14ef7b320f084f4833823a0d70f37331ba594432ed",
+                "source_kind": "current_moment",
+                "locator": {
+                  "world_id": "native-pg-302fb0cfc1a643dcac34093725faf793",
+                  "run_id": "43afba73-2977-4623-bdb9-9836a99f7aa4",
+                  "run_revision": 2,
+                  "edition": {
+                    "edition_revision": 1,
+                    "edition_revision_id": "083dd21e-31fb-49be-9c14-83ead6cfb660",
+                    "content_sha256": "f1c9401c0c27f3a9593ace7f95e0983d7ca21ab737244841df5ef300479078d5"
+                  },
+                  "beat_id": "beat:arrival",
+                  "scene_id": "scene:gate"
+                },
+                "payload_sha256": "6a696e8e6cd993e55bf8bd14ef7b320f084f4833823a0d70f37331ba594432ed",
+                "payload_utf8_bytes": 975,
+                "text_sha256": "1c88aaedaaf466f9295c4964afc40e2ae8d02eb41e089e049bdaaf64dba66dd5",
+                "text_utf8_bytes": 513,
+                "text_codepoints": 509
+              },
+              {
+                "source_id": "play-source:e5faf5180f1b6adf3328639675d7837d014717783e67d9598340fd853215ee09",
+                "source_kind": "scene_note",
+                "locator": {
+                  "world_id": "native-pg-302fb0cfc1a643dcac34093725faf793",
+                  "run_id": "43afba73-2977-4623-bdb9-9836a99f7aa4",
+                  "run_revision": 2,
+                  "edition": {
+                    "edition_revision": 1,
+                    "edition_revision_id": "083dd21e-31fb-49be-9c14-83ead6cfb660",
+                    "content_sha256": "f1c9401c0c27f3a9593ace7f95e0983d7ca21ab737244841df5ef300479078d5"
+                  },
+                  "beat_id": "beat:arrival",
+                  "scene_id": "scene:gate"
+                },
+                "payload_sha256": "e5faf5180f1b6adf3328639675d7837d014717783e67d9598340fd853215ee09",
+                "payload_utf8_bytes": 459,
+                "text_sha256": "d98159248967be2aea2a02e4276175d3592c3cd395d3d685b541d4c9e14ba7fe",
+                "text_utf8_bytes": 23,
+                "text_codepoints": 20
+              }
+            ],
+            "manifest_sha256": "dd8009c6dac16c525cb8907fad451fa5be6d314b67beebb87893635808efc637"
+          },
+          "play_source_frame_sha256": "86962acbfd2cef42f833269695a9a62c4f675fc8622947ff0e1bc9d3fde04a92"
+        },
+        "source_authority": {
+          "schema_version": "dmb_native_corpus_authority_v1",
+          "managed_world_id": "native-pg-302fb0cfc1a643dcac34093725faf793",
+          "native_world_id": "world:test",
+          "binding_version": 1,
+          "provisioning_id": "provisioned:not-graph-active",
+          "revision_id": "rev:36f7fcfa683718522ae8a59647faa94b",
+          "domain_ref": {
+            "authority_id": "dungeonbuddy.world",
+            "revision": "2",
+            "descriptor_sha256": "d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd"
+          },
+          "profile_ref": {
+            "authority_id": "dungeonbuddy.dnd5e",
+            "revision": "2",
+            "descriptor_sha256": "d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339"
+          },
+          "acquisition_epoch": 1,
+          "scope": "gm_world_cross_campaign_source_inspection",
+          "role": "gm"
+        },
+        "native_query": {
+          "schema": "dmb_native_plan_query_unavailable_v1",
+          "managed_world_id": "native-pg-302fb0cfc1a643dcac34093725faf793",
+          "reason": "native_graph_head_unavailable"
+        },
+        "assembled_input": {
+          "assembler_version": "surface_native_initial_v1",
+          "provider_model_name": "jev-1.14.0",
+          "provider_model_version": "jev-1.14.0",
+          "tokenizer_name": "utf8_json_bytes_plus_64_per_node_v1",
+          "tokenizer_version": "v1",
+          "provider_envelope_input_tokens": 7740,
+          "output_token_reserve": 0,
+          "context_window_limit": null,
+          "included_history": [],
+          "assembled_input_sha256": "425252957ea5fad8548beb8e879edff25acf5e3232bc32ec63ae32f9c7986b92"
+        }
+      },
+      "completion": {
+        "schema": "dmb_surface_native_completion_v1",
+        "surface_id": "play",
+        "context_receipt_sha256": "43fea550037cc91267227d334abb04e82045d9cd0ed777a279a9af990fa6bbb2",
+        "producing_provider_attempt_id": "389ab440-c7d1-4def-bd08-d29255e31086",
+        "answer_basis": "mixed_evidence",
+        "answer_context_status": "source_grounded_partial",
+        "answer_segments": [
+          {
+            "kind": "authored_excerpt",
+            "text": "Saved native note 🦉.",
+            "source_handle": "play-source:e5faf5180f1b6adf3328639675d7837d014717783e67d9598340fd853215ee09",
+            "source_kind": "play",
+            "source_name": "Saved scene note",
+            "object_id": "43afba73-2977-4623-bdb9-9836a99f7aa4",
+            "revision": "2",
+            "body_sha256": "d98159248967be2aea2a02e4276175d3592c3cd395d3d685b541d4c9e14ba7fe",
+            "owner_sha256": "e5faf5180f1b6adf3328639675d7837d014717783e67d9598340fd853215ee09",
+            "block_handle": "b86add848544e4ad989a9b8e9503a0863d23fae60111c1e66493f8816e5cfd342",
+            "partition_version": "markdown_source_blocks_v1",
+            "byte_start": 0,
+            "byte_end": 23,
+            "block_sha256": "d98159248967be2aea2a02e4276175d3592c3cd395d3d685b541d4c9e14ba7fe",
+            "entry_identity": null
+          },
+          {
+            "kind": "source_passage_claim",
+            "text": "# Episode\r\n🌿 The source describes a source-local episode."
+          },
+          {
+            "kind": "limitation",
+            "code": "partial_retrieval",
+            "text": "This answer uses partial retrieval and does not establish corpus completeness.",
+            "question_phrase": null
+          }
+        ],
+        "collaboration": null,
+        "saved_source_citations": [],
+        "native_body_citations": [
+          {
+            "segment_index": 1,
+            "text_sha256": "e755323bded92191dedf1b443889c35d58f79f134b34146b2635a3999cd8359e",
+            "provider_attempt_id": "389ab440-c7d1-4def-bd08-d29255e31086",
+            "envelope_sha256": "33db064254a8c4fb033033144dccc05e6255fece403cac678d67091f3ed620ed",
+            "read_event_id": "3e0df06a-b55f-4ecf-b3d5-1cc980dd8fca",
+            "catalog_sha256": "f98d5812691e22fd466d76e1499ec8a77bba56d88a6d885d2321aefabc453d5b",
+            "source_artifact_id": "src:28c8a185c3d515ef5346b3c04420320a296ae43de87e693f8910fa923d716c7f",
+            "native_source_revision_id": "srev:ca283aa8c34b3f2b51b604e6dfa54b3a3869e4499666691af6439cc160a7cdcc",
+            "content_sha256": "8aa0d7e7e34e57b922684bde9c5b218b260734cac3669e64c908c90403d9a774",
+            "excerpt_sha256": "e2ca391d8fdfeca6596bd7b01d22e2829090b29b4ae4d9146bd2c39ec86a1bc0",
+            "section_id": "066de39409f7128e85ef151b405db52f38517945a82a206de09925c1134cbdf3",
+            "selector_policy": "markdown_sections_v1",
+            "source_name": "Opening",
+            "section_title": "Episode",
+            "line_start": 3,
+            "line_end": 4
+          }
+        ],
+        "native_clause_citations": [],
+        "native_assertion_citations": []
+      },
+      "execution": {
+        "schema": "dmb_agent_plan_world_graph_execution_projection_v1",
+        "claimability": "completed",
+        "authorization_state": "response_received",
+        "automatic_redispatch": false
+      },
+      "delivery_replay": false
+    },
+    "graph": {
+      "status": "replayed",
+      "world_id": null,
+      "campaign_id": null,
+      "scope_mode": "world",
+      "revision_id": null,
+      "focus": {
+        "kind": "none",
+        "session_id": null,
+        "campaign_id": null
+      },
+      "selection_node_id": null,
+      "selection_found": null,
+      "head_revision_id": null,
+      "is_head": null
+    }
+  },
+  "request": {
+    "schema": "dmb_agent_turn_request_v1",
+    "client_thread_id": "shared-play-native",
+    "turn_id": "fe65e43f-5b89-4155-b715-b58738d219c5",
+    "surface": {
+      "surface_id": "play",
+      "instance_id": "play:run-one"
+    },
+    "owner_scope": {
+      "kind": "world",
+      "world_id": "native-pg-302fb0cfc1a643dcac34093725faf793"
+    },
+    "primary_work": {
+      "kind": "run",
+      "object_id": "43afba73-2977-4623-bdb9-9836a99f7aa4",
+      "expected_revision": 2,
+      "expected_revision_n": null,
+      "expected_content_sha256": null,
+      "play_content_basis": {
+        "edition_revision": 1,
+        "edition_revision_id": "083dd21e-31fb-49be-9c14-83ead6cfb660",
+        "content_sha256": "f1c9401c0c27f3a9593ace7f95e0983d7ca21ab737244841df5ef300479078d5"
+      }
+    },
+    "playable_target": null,
+    "play_target": {
+      "schema": "dmb_submitted_play_target_v1",
+      "beat_id": "beat:arrival",
+      "scene_id": "scene:gate",
+      "marker_grammar_version": "v2"
+    },
+    "client_work_state": "saved_clean",
+    "graph_request": {
+      "mode": "world",
+      "world_id": "native-pg-302fb0cfc1a643dcac34093725faf793",
+      "campaign_id": null,
+      "revision_pin": null,
+      "focus": {
+        "kind": "none",
+        "session_id": null,
+        "campaign_id": null
+      }
+    },
+    "graph_selection": null,
+    "selected_knowledge": null,
+    "native_statement_selection": null,
+    "build_write_capability": null,
+    "build_draft_context": null,
+    "build_authored_references": null,
+    "authored_references": {
+      "schema": "dmb_authored_references_v2",
+      "references": [
+        {
+          "schema": "dmb_authored_source_reference_v1",
+          "managed_world_id": "native-pg-302fb0cfc1a643dcac34093725faf793",
+          "native_world_id": "world:test",
+          "binding_version": 1,
+          "knowledge_revision": "rev:36f7fcfa683718522ae8a59647faa94b",
+          "source_artifact_id": "src:28c8a185c3d515ef5346b3c04420320a296ae43de87e693f8910fa923d716c7f",
+          "source_revision_id": "srev:ca283aa8c34b3f2b51b604e6dfa54b3a3869e4499666691af6439cc160a7cdcc",
+          "evidence_ref_id": "ev:425b17269fbb6d68cf3e841a2ced27e4e7f2841dd540b9615bd523d96aed8885",
+          "content_sha256": "8aa0d7e7e34e57b922684bde9c5b218b260734cac3669e64c908c90403d9a774",
+          "selection_kind": "section",
+          "section_id": "066de39409f7128e85ef151b405db52f38517945a82a206de09925c1134cbdf3",
+          "label": "Display only, never claim authority"
+        }
+      ]
+    },
+    "plan_requested_operation": null,
+    "retry_of": null,
+    "reviewed_step": null,
+    "plan_context_policy": null,
+    "plan_authoring_capture": null,
+    "plan_placement_catalog": null,
+    "message": "Discuss occupied space 🦉."
+  },
+  "provenance": {
+    "world_id": "native-pg-302fb0cfc1a643dcac34093725faf793",
+    "surface_resolution": "resolved",
+    "surface_id": "play",
+    "surface_instance_id": "play:run-one",
+    "primary_work": {
+      "resolution": "resolved",
+      "kind": "run",
+      "object_id": "43afba73-2977-4623-bdb9-9836a99f7aa4",
+      "revision": "2",
+      "content_sha256": null,
+      "object_revision": null,
+      "work_revision_id": null,
+      "revision_n": null
+    },
+    "supporting_work": [
+      {
+        "resolution": "resolved",
+        "kind": "dmb_play_runbook_v1",
+        "object_id": "6c0431ca-e8ed-4afb-b1fd-2e4119ab2071",
+        "revision": "2",
+        "content_sha256": "53f21f37cd3845fa8ca61458cbfeb8d37e8f5a4664e7b44d82abae286d71c121",
+        "object_revision": 2,
+        "work_revision_id": "cf00b670-51a8-415c-a198-1e48bc116684",
+        "revision_n": 1
+      },
+      {
+        "resolution": "resolved",
+        "kind": "dmb_play_current_beat_v1",
+        "object_id": "beat:arrival",
+        "revision": "v2",
+        "content_sha256": null,
+        "object_revision": null,
+        "work_revision_id": null,
+        "revision_n": null
+      },
+      {
+        "resolution": "resolved",
+        "kind": "dmb_play_current_scene_v1",
+        "object_id": "scene:gate",
+        "revision": "v2",
+        "content_sha256": null,
+        "object_revision": null,
+        "work_revision_id": null,
+        "revision_n": null
+      }
+    ],
+    "selected_object": {
+      "resolution": "absent",
+      "kind": null,
+      "object_id": null,
+      "revision": null,
+      "content_sha256": null,
+      "object_revision": null,
+      "work_revision_id": null,
+      "revision_n": null
+    }
+  }
+}

@@ -1384,7 +1384,7 @@ class AgentConversationService:
             turn = _ordinary_mutation_turn(turn, conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
-            from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES, NativeBuildActionV1, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
+            from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES, NativeBuildActionV1, NativePlayActionV1, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
             from .types import PlanJevProviderAuthorizedV1, ProviderAttemptAuthorizedEventV5
             native_plan_decision = (
                 type(turn.graph_context_execution) is SurfaceNativeExecutionV1
@@ -1399,16 +1399,16 @@ class AgentConversationService:
                 and type(event) is ProviderAttemptAuthorizedEventV5
                 and isinstance(prepared_decision_json, str))
             from .native_retrieval import NativeRetrievalAuthorizedV1
-            native_build_retrieval = (
+            native_surface_retrieval = (
                 type(turn.graph_context_execution) is SurfaceNativeExecutionV1
-                and type(turn.graph_context_execution.policy.action) is NativeBuildActionV1
+                and type(turn.graph_context_execution.policy.action) in (NativeBuildActionV1,NativePlayActionV1)
                 and type(event) is NativeRetrievalAuthorizedV1
                 and plan_jev_input_proof is not None)
             native_writer = (type(turn.graph_context_execution) is SurfaceNativeExecutionV1
                 and type(event) in NATIVE_WRITER_TYPES and native_writer_proof is not None)
             if (isinstance(turn.graph_context_execution, SurfaceNativeExecutionV1)
                     and isinstance(event, ProviderAttemptAuthorizedEventV1)
-                    and not (native_plan_decision or native_build_decision or native_build_retrieval or native_writer)):
+                    and not (native_plan_decision or native_build_decision or native_surface_retrieval or native_writer)):
                 raise ApplicationStateValidationError(
                     "Shared native provider requires its exact prepared-input admission owner")
             validate_authoring_writer(conn,action,turn,event)
@@ -1534,7 +1534,14 @@ class AgentConversationService:
             if isinstance(event, PlanJevProviderAuthorizedV1):
                 from .plan_jev_decision import verify_input
                 try:
-                    verify_input(turn, event, plan_jev_input_proof)
+                    parent=verify_input(turn, event, plan_jev_input_proof)
+                    if (type(execution) is SurfaceNativeExecutionV1
+                            and type(execution.policy.action) is NativePlayActionV1
+                            and not any(type(prior) is NativeRetrievalAuthorizedV1 for prior in execution.events)):
+                        from .native_play_work import proof_from_host,validate_owner_locked
+                        _frame,_sessions,proof=proof_from_host(turn.graph_context_receipt.work_context,
+                            turn.provenance,parent.play_work,turn.idempotency_key)
+                        validate_owner_locked(conn,turn.graph_context_receipt.work_context,turn.provenance,proof)
                 except (ValueError, TypeError, KeyError, AttributeError) as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
             elif (isinstance(execution.policy, PlanJevRetrievalPolicyV1)
@@ -1795,7 +1802,7 @@ class AgentConversationService:
                 assert receipt is not None
                 try:
                     from .types import PlanSourceContextReceiptV1
-                    if native_plan_decision or native_build_decision or native_build_retrieval:
+                    if native_plan_decision or native_build_decision or native_surface_retrieval:
                         # Each concrete surface checked its actual prepared wire.
                         # Share first-envelope accounting without constructing a
                         # classic Graph view or borrowing another work identity.
@@ -3017,7 +3024,7 @@ class AgentConversationService:
                             current.execution,proof,capture,trace=captured[0] if captured else None,
                             idempotency_key=turn.idempotency_key,submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2,
                             world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt,
-                            provenance=turn.provenance,work_proof=native_work_proof)
+                            provenance=turn.provenance,work_proof=native_work_proof,play_context_receipt=turn.play_context_receipt)
                     else:
                         normalized = normalize_native_mixed_output(
                             turn, turn.graph_context_execution, current.execution,

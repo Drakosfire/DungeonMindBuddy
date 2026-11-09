@@ -462,11 +462,15 @@ def admit_native_writer_input_locked(conn, turn, graph_execution, authorization,
         data['events'].extend(event.model_dump(mode='json',by_alias=True) for event in (auth,included))
         data['budget_use']['provider_requests'] += 1
         updated = RulesExecutionV1.model_validate_json(json.dumps(data,ensure_ascii=False))
+    from .native_context import PlayWorkContextV1
+    if isinstance(turn.graph_context_receipt.work_context,PlayWorkContextV1):
+        from .native_play_work import validate_owner_locked
+        validate_owner_locked(conn,turn.graph_context_receipt.work_context,turn.provenance,work_proof)
     verify_native_rules_packet_input(updated,turn.graph_context_receipt,graph_execution,prepared_request_json,
         provider_attempt_id=authorization.provider_attempt_id,expected_envelope_sha256=authorization.envelope_sha256,
         idempotency_key=turn.idempotency_key,submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2,
         world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt,
-        provenance=turn.provenance,work_proof=work_proof)
+        provenance=turn.provenance,work_proof=work_proof,play_context_receipt=turn.play_context_receipt)
     return (current if replay else _persist_provider_execution_locked(conn,current,updated)), not replay
 
 

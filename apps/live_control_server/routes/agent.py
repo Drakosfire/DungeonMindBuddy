@@ -747,7 +747,7 @@ def _plan_context_resolver(
     """Resolve one source-free, revision-pinned DungeonMind retrieval packet."""
     if native_query_mode:
         from apps.live_control_server.services.native_graph_reads import prepare_query
-        if owner is None or owner.get('kind') != 'world' or work is None or work.world_id != owner.get('id') or body.surface.surface_id not in {'plan', 'build'}:
+        if owner is None or owner.get('kind') != 'world' or work is None or work.world_id != owner.get('id') or body.surface.surface_id not in {'plan', 'build', 'play'}:
             raise AgentTurnServiceError('Native query scope differs from saved work.', code='plan_context_scope_rejected', status_code=403)
         from application_state.agent_conversation.native_plan_statements import NativePlanQueryV1
         frozen_query = getattr(frozen_receipt, 'native_query', None)

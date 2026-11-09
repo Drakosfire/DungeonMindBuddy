@@ -175,7 +175,7 @@ class SurfaceNativeExecutionPolicyV1(Strict):
     action: NativeAction
     source_authority_sha256: Digest
     native_query_sha256: Digest
-    provider_roles: t.GraphControllerWriterRolesV1 | t.GraphProviderRoleTargetV1
+    provider_roles: t.GraphControllerWriterRolesV1
     provider_input_accounting: t.GraphExecutionAccountingV1
     max_provider_attempts: int | None = Field(ge=1, strict=True)
     max_total_provider_input_tokens: int | None = Field(ge=1, strict=True)
@@ -186,15 +186,14 @@ class SurfaceNativeExecutionPolicyV1(Strict):
     @model_validator(mode="after")
     def exact_roles(self):
         roles, action = self.provider_roles, self.action
-        if isinstance(action, NativePlayActionV1):
-            if not isinstance(roles, t.GraphProviderRoleTargetV1):
-                raise ValueError("Play requires its actual single-provider policy, not manufactured roles")
-            if self.max_provider_attempts is None:
-                raise ValueError("Play retains its finite accepted attempt allowance")
-            if (self.max_total_provider_input_tokens is None) != (self.max_total_provider_output_tokens is None):
-                raise ValueError('Play aggregate token ceilings must be both finite or both absent')
-        elif not isinstance(roles, t.GraphControllerWriterRolesV1):
-            raise ValueError("Build and Plan require their actual controller/writer roles")
+        if not isinstance(roles,t.GraphControllerWriterRolesV1):
+            raise ValueError('Native surfaces require their actual controller/writer roles')
+        if isinstance(action,NativePlayActionV1):
+            if roles.controller.identity() != ('typesafe','jev-1.14.0','decision'):
+                raise ValueError('Play requires its exact native retrieval controller')
+            if any(value is not None for value in (self.max_provider_attempts,
+                    self.max_total_provider_input_tokens,self.max_total_provider_output_tokens)):
+                raise ValueError('Native Play uses provider-owned request allowances')
         if isinstance(action, NativeBuildActionV1):
             if (roles.controller.identity() != ("typesafe", "jev-1.14.0", "typesafe_decision")
                     or self.controller_continuation_accounting is None or self.writer_context_budget is None
@@ -320,7 +319,7 @@ class SurfaceNativeExecutionV1(Strict):
                 if type(event) in NATIVE_WRITER_TYPES:
                     if type(event) is NativeBuildWriterAuthorizedV2 and not isinstance(self.policy.action, NativeBuildActionV1):
                         raise ValueError('Build work authorization cannot authorize another surface')
-                    writer_role = roles.writer if isinstance(roles, t.GraphControllerWriterRolesV1) else roles
+                    writer_role = roles.writer
                     if identity != writer_role.identity():
                         raise ValueError("Shared native inclusion belongs only to its exact writer role")
                     reads = native_read_event_ids(self.events[:event.sequence])
@@ -334,17 +333,15 @@ class SurfaceNativeExecutionV1(Strict):
                 if isinstance(roles, t.GraphControllerWriterRolesV1):
                     if identity == roles.writer.identity() and type(event) not in NATIVE_WRITER_TYPES:
                         raise ValueError("Native writer requires its exact shared selected-read inclusion codec")
-                    if (isinstance(self.policy.action, NativePlanActionV1)
+                    if (isinstance(self.policy.action, (NativePlanActionV1,NativePlayActionV1))
                             and identity == roles.controller.identity()
                             and not isinstance(event, t.PlanJevProviderAuthorizedV1)):
-                        raise ValueError("Plan controller requires its actual producing decision codec")
+                        raise ValueError("Native decision controller requires its actual producing codec")
                 if (event.included_assertion_ids or event.included_relationship_ids
                         or event.included_evidence_ref_ids or event.included_graph_event_ids
                         or event.included_source_read_event_ids
                         or getattr(event, "included_source_reuse_event_ids", ())):
                     raise ValueError("Native provider cannot acquire absent classic Graph evidence")
-                if isinstance(roles, t.GraphProviderRoleTargetV1) and (event.provider, event.model, event.api_mode) != roles.identity():
-                    raise ValueError("Provider differs from its frozen single-provider identity")
         from .authored_graph_references import validate_native_execution
         validate_native_execution(self)
         if isinstance(self.policy.action,NativeBuildActionV1):

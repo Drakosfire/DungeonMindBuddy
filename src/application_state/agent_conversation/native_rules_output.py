@@ -482,12 +482,12 @@ def normalize_native_mixed_output(
 
 def verify_shared_native_producer(receipt, graph_execution, rules_execution, proof, capture, *,
                                  trace, idempotency_key, submitted_intent_fingerprint,
-                                 world_id, conversation_id, turn_id, attempt, provenance, work_proof):
+                                 world_id, conversation_id, turn_id, attempt, provenance, work_proof, play_context_receipt=None):
     """One actual producer proof; answer and editable-object normalization stay owned."""
     from .source_writer_output import require_captured_answer
     submission = dict(idempotency_key=idempotency_key,submitted_intent_fingerprint=submitted_intent_fingerprint,
         world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt,
-        provenance=provenance,work_proof=work_proof)
+        provenance=provenance,work_proof=work_proof,play_context_receipt=play_context_receipt)
     evidence, frame = verify_native_reply(graph_execution,rules_execution,proof,capture,
         native_context=receipt,native_submission=submission)
     require_captured_answer(trace,world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,
@@ -498,7 +498,7 @@ def verify_shared_native_producer(receipt, graph_execution, rules_execution, pro
 
 def normalize_shared_native_output(receipt, graph_execution, rules_execution, proof, capture, *,
                                    trace, idempotency_key, submitted_intent_fingerprint,
-                                   world_id, conversation_id, turn_id, attempt, provenance, work_proof):
+                                   world_id, conversation_id, turn_id, attempt, provenance, work_proof, play_context_receipt=None):
     """One captured response, two existing evidence owners, no synthetic Turn.
 
     The locked consumer must supply its actual submission identity and persist
@@ -508,7 +508,7 @@ def normalize_shared_native_output(receipt, graph_execution, rules_execution, pr
     evidence,frame=verify_shared_native_producer(receipt,graph_execution,rules_execution,proof,capture,
         trace=trace,idempotency_key=idempotency_key,submitted_intent_fingerprint=submitted_intent_fingerprint,
         world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt,
-        provenance=provenance,work_proof=work_proof)
+        provenance=provenance,work_proof=work_proof,play_context_receipt=play_context_receipt)
     auth = next(e for e in graph_execution.events
         if getattr(e,'provider_attempt_id',None) == proof.producing_provider_attempt_id and hasattr(e,'envelope_sha256'))
     included = next(e for e in rules_execution.events if type(e) is RulesProviderIncludedV1
@@ -629,7 +629,7 @@ def normalize_unused_native_output(turn, rules_execution, proof, *, work_proof=N
             rules_execution,proof,capture,trace=trace,idempotency_key=turn.idempotency_key,
             submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2,
             world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt,
-            provenance=turn.provenance,work_proof=work_proof)
+            provenance=turn.provenance,work_proof=work_proof,play_context_receipt=turn.play_context_receipt)
         return output.base_completion,output.claim_graph_event_ids,output.assistant_text
     verify_native_reply(turn.graph_context_execution, rules_execution, proof, capture, plan_turn=turn)
     if turn.graph_context_execution is None:
