@@ -34,7 +34,8 @@ def acquire(adapter):
             authorization_event_id=grant.event_id, materialize=lambda admitted: read_authored_reference(
                 adapter.native_query_context, admitted, adapter.native_query_context.principal))
         observed = adapter.fence.turn.graph_context_execution.events[-1]
-        if observed.unavailable_statement_ids or observed.unavailable_assertion_ids:
+        if (observed.unavailable_statement_ids or observed.unavailable_assertion_ids) and (
+                adapter.request.surface.surface_id == 'build'):
             raise AgentTurnServiceError(
                 'The selected Graph object has unavailable source support. Your reference and request are retained; no writer was authorized.',
                 code='build_authored_reference_source_gap', status_code=422,

@@ -836,6 +836,7 @@ def test_native_authored_source_loss_is_recorded_before_writer_refusal(monkeypat
         events.append(SimpleNamespace(event_id=uuid4()) if method=='authorize_native_authored_reference' else observed)
         return turn,True
     adapter=SimpleNamespace(fence=SimpleNamespace(turn=turn,append=append),
+        request=SimpleNamespace(surface=SimpleNamespace(surface_id='build')),
         native_query_context=SimpleNamespace(principal=object()))
     monkeypatch.setattr(owner,'native_references',lambda _:SimpleNamespace(references=(SimpleNamespace(node_id='entity:selected'),)))
     if unavailable:

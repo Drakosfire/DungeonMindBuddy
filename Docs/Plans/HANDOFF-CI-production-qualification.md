@@ -567,3 +567,16 @@ read evidence, then refuse before writer authority; never fabricate classic
 receipts or discard partial inventory. New current-native producer witness does
 not claim first-world D0 object migration. Source-loss replay must not silently
 redispatch and stored source must remain unchanged.
+
+### Full-suite scope regression correction
+
+Completed3491 qualification proves both real Build cases and all3new guards pass,
+but its sole unrelated status regression is existing
+test_plan_human_object_keeps_unavailable_support_partial (200→422). The shared
+acquirer serves Build and Plan; the coordinator-assigned hard-refusal invariant
+belongs to the original Build witnesses, while delivered REFERENCE Plan contract
+explicitly preserves partial object support. Narrow the new condition to Build.
+Keep Plan test/assertions untouched and include the actual Plan module in owning
+review, alongside46Build/native controls. No broad no-partial policy or source
+reference admission change is authorized. Full existing gates caught this scope
+error; do not classify it as timing noise or hide the failed case.
