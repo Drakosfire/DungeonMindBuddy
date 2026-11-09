@@ -29,3 +29,15 @@ coverage only; it is not actual injected-product fault detection. Full real faul
 injection/replay and measured zero misses, full qualification and owner response
 remain mandatory proof before any stage5 selector consumer/rollout. Main graph
 qualification stays HOLD; candidate proof never satisfies it.
+
+2026-11-09 bounded evidence extension under coordinator's explicit actual historical
+replay/controlled-fault authorization: adopt scripts/ci_shadow_evidence.py in this
+exclusive lease, plus existing shadow tests/workflow/handoff. Re-anchored main f6e174e;
+open PRs2297/2276/2262/2219 and ingest lanes inspected, no overlapping expected
+writes. Replay actual pinned historical commit diffs, not invented paths. Exercise
+process-local tenant/CAS/content-publication/draft faults against unchanged owner
+assertions and disposable APP template/clone fixtures; no product file edits,
+external outreach or native/ADV writes. Fresh process baseline after injections
+proves mutation removal. These bounded backend samples do not establish frontend
+or native publication fault detection, zero misses generally, main qualification,
+or stage5 readiness. Existing full gates and shadow-only mode remain unchanged.

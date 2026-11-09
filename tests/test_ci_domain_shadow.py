@@ -100,3 +100,37 @@ def test_malformed_mapping_shapes_publish_full_fallback(field,value):
     broken[field]=value
     result=shadow.select([('M',('Docs/x.md',))],broken)
     assert result['full_fallback'] and set(result['suites'])==shadow.ALL_SUITES
+
+
+def test_actual_pinned_historical_changes_replay_to_full():
+    from scripts.ci_shadow_evidence import historical_replay, HISTORY
+    results = historical_replay()
+    assert [row['commit'] for row in results] == list(HISTORY)
+    assert all(row['changes'] and row['parent'] != row['commit'] for row in results)
+    assert all(row['prediction']['gating_enabled'] is False and
+               row['prediction']['full_fallback'] for row in results)
+
+
+@pytest.mark.parametrize('outcome', ['error', 'skip', 'extra', 'absent', 'wrong-failure'])
+def test_fault_evidence_rejects_non_owner_assertion_outcomes(tmp_path, outcome):
+    from scripts.ci_shadow_evidence import check_junit
+    rows = {
+        'error': '<testcase><error>setup failure</error></testcase>',
+        'skip': '<testcase><skipped/></testcase>',
+        'extra': '<testcase/><testcase/>',
+        'absent': '<testcase/>',
+        'wrong-failure': '<testcase><failure>RuntimeError: unrelated defect</failure></testcase>',
+    }
+    path = tmp_path/'out.xml'
+    path.write_text('<testsuite>'+rows[outcome]+'</testsuite>')
+    with pytest.raises(RuntimeError):
+        check_junit(path, fault='tenant', expected=1)
+
+
+def test_fault_origins_are_backend_full_fallback_and_no_selection_consumer():
+    from scripts.ci_shadow_evidence import FAULTS
+    for target, path in FAULTS.values():
+        assert target.startswith('tests/') and '::test_' in target
+        prediction = shadow.select([('M', (path,))], mapping())
+        assert prediction['full_fallback'] and set(prediction['suites']) == shadow.ALL_SUITES
+        assert prediction['gating_enabled'] is False

@@ -10,6 +10,19 @@ jobs:
   shadow-report:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dungeonmind
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: postgres
+        ports: ['54329:5432']
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U dungeonmind -d postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      DMB_APPLICATION_STATE_TEST_DATABASE_URL: postgresql://dungeonmind@127.0.0.1:54329/postgres
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -29,6 +42,8 @@ jobs:
           uv sync --locked
           uv run --locked python scripts/ci_contract.py inventory
           uv run --locked python -m pytest -q tests/test_ci_domain_shadow.py
+      - name: Actual historical diffs and controlled disposable backend faults
+        run: uv run --locked python -m scripts.ci_shadow_evidence --output out/domain-shadow/evidence
       - name: Prediction only; never execute selection
         if: ${{ !cancelled() }}
         env:
@@ -39,5 +54,5 @@ jobs:
         if: always()
         with:
           name: domain-shadow-${{ github.sha }}
-          path: out/domain-shadow/report.json
+          path: out/domain-shadow/
           if-no-files-found: error
