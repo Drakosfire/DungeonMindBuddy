@@ -267,6 +267,11 @@ def native_output_format(frame, rules, work_frame, *, build_local=False):
     from .build_primary_context import NATIVE_WORK_SCHEMA as BUILD_WORK_SCHEMA
     if work_frame.get('schema') == PLAN_WORK_SCHEMA:
         variants.extend(_authored_variants(work_frame,ASSERTION_POLICY,prose))
+        related = work_frame.get('related_authored_pages', {}).get('pages', [])
+        if related:
+            variants.append(_object({'kind': _literal('related_page_claim'), 'text': prose,
+                'read_id': _enum(_values(related, 'read_id')),
+                'supporting_quotes': _array(prose, nonempty=True)}))
     elif work_frame.get('schema') == BUILD_WORK_SCHEMA:
         from .build_draft_answer import native_variants
         variants.extend(native_variants(work_frame,prose,local=build_local))

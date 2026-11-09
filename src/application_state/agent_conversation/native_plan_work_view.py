@@ -3,7 +3,7 @@ from copy import deepcopy
 
 REQUIRED = frozenset({'committed_plan_blocks', 'session_evidence',
     'dialogue_reference', 'authored_sources', 'requested_work'})
-OPTIONAL = frozenset({'current_page_draft', 'focused_edit_target', 'selected_references'})
+OPTIONAL = frozenset({'current_page_draft', 'focused_edit_target', 'selected_references', 'related_authored_pages'})
 
 
 def is_semantic_frame(frame):
@@ -15,7 +15,7 @@ def semantic_frame(host, execution):
     from .plan_jev_graph_packet import NATIVE_WORK_SCHEMA
     if host.get('schema') != NATIVE_WORK_SCHEMA:
         raise ValueError('Semantic Plan work requires its existing host frame')
-    if set(host) - (REQUIRED | {'schema', 'current_page_draft', 'focused_edit_target', 'authored_references'}):
+    if set(host) - (REQUIRED | {'schema', 'current_page_draft', 'focused_edit_target', 'authored_references', 'related_authored_pages'}):
         raise ValueError('Unclassified native Plan work fields')
     view = {key: deepcopy(host[key]) for key in ('committed_plan_blocks',
         'dialogue_reference', 'requested_work')}
@@ -62,6 +62,10 @@ def semantic_frame(host, execution):
     references = model_reference_choices(execution)
     if references is not None:
         view['selected_references'] = references
+    if 'related_authored_pages' in host:
+        view['related_authored_pages'] = {'role': host['related_authored_pages']['role'],
+            'pages': [{'read_id': f'page{i}', 'title': row['page']['title'], 'markdown': row['markdown']}
+                for i,row in enumerate(host['related_authored_pages']['pages'])]}
     return view
 
 

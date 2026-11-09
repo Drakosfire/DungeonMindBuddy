@@ -86,3 +86,9 @@ def test_explicit_operation_changes_frozen_intent_fingerprint():
     intents=[_submitted_turn_intent(type(request).model_validate(raw | {'plan_requested_operation':operation}),
         world_id=raw['owner_scope']['world_id']) for operation in ('discuss','write_current_page')]
     assert len({submitted_turn_intent_fingerprint_v2(intent) for intent in intents})==2
+
+
+def test_ordinary_plan_reads_saved_worldbuilding_and_reopens_exact_capture(
+        lane,tmp_path,monkeypatch,native_read_admission_probes):
+    _ordinary_native_case(lane,tmp_path,monkeypatch,False,False,None,None,False,
+        native_read_admission_probes,related_page=True)

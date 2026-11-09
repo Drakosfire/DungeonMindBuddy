@@ -142,6 +142,10 @@ def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_pr
             idempotency_key,work_proof,conversation_id=conversation_id))
         from .authored_graph_references import native_writer_context
         authored = native_writer_context(execution)
+        from .build_related_pages import project as related_project
+        related = related_project(execution)
+        if related is not None:
+            frame = frame | {'related_authored_pages': related}
         return frame if authored is None else frame | {'authored_references': authored}
     raise ValueError('Native Play writer requires its actual single-provider work-input owner')
 
@@ -190,6 +194,9 @@ def _input_frames(raw,execution,work_schema):
         from .native_plan_work_view import frame_in_request
         if work_schema == PLAN_WORK_SCHEMA:
             work = frame_in_request(strict_json(raw))
+            from .native_execution import NativePlanActionV2
+            if type(execution.policy.action) is NativePlanActionV2 and work is None:
+                raise ValueError('Current Plan saved-page work requires its semantic producer frame')
         else:
             from .native_build_work_view import frame_in_request as build_frame
             work = build_frame(strict_json(raw))
@@ -282,7 +289,9 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
             or t.canonical_sha256(expected) != authorization.frame_sha256):
         raise ValueError("Native writer evidence differs from its actual producing SDK request")
     validate_output_request(body,authorization.output_token_reserve)
-    authored,saved_sections,related_pages,draft_record = (),(),(),None
+    from .build_related_pages import records as related_records
+    related_pages = tuple(related_records(prefix))
+    authored,saved_sections,draft_record = (),(),None
     from .native_context import PlanWorkContextV1,BuildWorkContextV1
     if isinstance(receipt.work_context,PlanWorkContextV1):
         from .surface_evidence_answer import producing_plan_authored_records

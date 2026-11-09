@@ -94,8 +94,8 @@ def question_text(page, *, semantic=False):
 
 def catalog(policy):
     if getattr(policy, 'policy_version', None) == 'surface_native_execution_v1':
-        from .native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1
-        if type(policy) is SurfaceNativeExecutionPolicyV1 and type(policy.action) is NativeBuildActionV1:
+        from .native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1, NativePlanActionV2
+        if type(policy) is SurfaceNativeExecutionPolicyV1 and type(policy.action) in (NativeBuildActionV1, NativePlanActionV2):
             return policy.action.related_page_catalog
         return None
     if getattr(policy, "related_page_context_policy", None) != POLICY:
@@ -110,6 +110,18 @@ def records(execution):
 def project(execution):
     if catalog(execution.policy) is None:
         return None
+    if is_plan_catalog(execution):
+        if not plan_read_enabled(execution):
+            return None
+        acquired = {e.page.document_id for e in records(execution)}
+        return {"policy": POLICY, "role": ROLE,
+            "catalog_scope": "active_committed_worldbuilding_pages_in_this_world_excluding_current",
+            "absence_authority": "not_proven_by_this_saved_page_catalog",
+            "availability": [{"page": p.model_dump(mode="json"),
+                "acquisition": "read" if p.document_id in acquired else "not_read"}
+                for p in catalog(execution.policy)],
+            "pages": [{"read_id": str(e.read_id), "page": e.page.model_dump(mode="json"),
+                "markdown": e.markdown} for e in records(execution)]}
     choices = [e for e in execution.events if isinstance(e, RelatedPagesSelection)]
     from .types import BuildReviewedActionSelectionV1
     empty_reviewed = not catalog(execution.policy) and not choices and any(isinstance(e, BuildReviewedActionSelectionV1) for e in execution.events)
@@ -142,7 +154,55 @@ def project(execution):
     }
 
 
+def is_plan_catalog(execution):
+    from .native_execution import NativePlanActionV2
+    return type(getattr(execution.policy,'action',None)) is NativePlanActionV2
+
+
+def plan_read_enabled(execution):
+    from . import types as t
+    choices = [e for e in execution.events if isinstance(e, t.PlanRequestedWorkSelectedV2)]
+    return is_plan_catalog(execution) and len(choices) == 1 and choices[0].requested_work == 'discuss'
+
+
+def plan_handle(page):
+    return f"saved-authored-page:{page.document_id}"
+
+
+def _validate_plan_reads(execution):
+    """Use the admitted native selection; never create a second vote ledger."""
+    from .native_retrieval import NativeRetrievalSelectedV1
+    from . import types as t
+    offered = {p.document_id: p for p in catalog(execution.policy)}
+    seen, read_ids = set(), set()
+    for event in execution.events:
+        if isinstance(event, (RelatedPagesSelection, RelatedPageInclusion)):
+            raise ValueError("Plan saved pages use their native selection and writer inclusion")
+        if not isinstance(event, RelatedPageRead):
+            continue
+        if not plan_read_enabled(execution):
+            raise ValueError("Plan saved-page context is limited to discussion")
+        prior = execution.events[:event.sequence]
+        choices = [e for e in prior if isinstance(e, NativeRetrievalSelectedV1)]
+        selection = choices[-1] if choices else None
+        pointer = offered.get(event.page.document_id)
+        auths = [e for e in prior if isinstance(e, t.ProviderAttemptAuthorizedEventV1)]
+        if (pointer is None or event.page.model_dump(exclude={"content_sha256"}) != pointer.model_dump()
+                or selection is None or selection.event_id != event.selection_event_id
+                or selection.operation != 'select_candidates'
+                or plan_handle(pointer) not in selection.selected_handles
+                or not auths or auths[-1].provider_attempt_id != selection.controller_attempt_id
+                or event.page.document_id in seen or event.read_id in read_ids
+                or any((e.provider,e.model,e.api_mode) == execution.policy.provider_roles.writer.identity()
+                    for e in auths)):
+            raise ValueError("Plan saved-page read differs from its current acknowledged selection and catalogue")
+        seen.add(event.page.document_id)
+        read_ids.add(event.read_id)
+
+
 def validate_events(execution):
+    if is_plan_catalog(execution):
+        return _validate_plan_reads(execution)
     from .types import (
         ProviderAttemptAuthorizedEventV3,
         ProviderOutcomeEventV1,

@@ -36,6 +36,10 @@ class PlanJevDriver:
             if receipt.work_context.surface_id=='build':
                 from application_state.agent_conversation.build_section import saved_section_catalog
                 self.saved_page_catalog=saved_section_catalog(adapter.work.build_source.markdown,receipt.work_context.source_basis)
+        from application_state.agent_conversation.build_related_pages import plan_read_enabled, catalog, plan_handle
+        self.related_saved_pages = {plan_handle(p): p for p in catalog(adapter._broker_execution().policy)} if (
+            adapter.fence is not None and plan_read_enabled(adapter._broker_execution())) else {}
+        self.attempted_related_pages = set()
         self.finished = False
         self.calls = []
         self.gaps = []
@@ -98,6 +102,9 @@ class PlanJevDriver:
                 kind='Reviewed native Graph assertion; select to read its qualifications and exact supporting evidence')
                 for match in query.assertion_matches if match.assertion_id not in self.native_assertion_attempts)
         result.extend(candidate for handle,(candidate,_range) in self.saved_page_catalog.items() if handle not in self.attempted_saved_pages)
+        result.extend(RetrievalCandidate(handle=handle, label=page.title,
+            kind="Saved authored Worldbuilding page; read its exact current saved text, not played truth")
+            for handle,page in self.related_saved_pages.items() if handle not in self.attempted_related_pages)
         result.extend(self.native_sources.offered())
         return tuple(result)
 
@@ -208,7 +215,13 @@ class PlanJevDriver:
             for index, handle in enumerate(selected.selected_handles):
                 if handle in handled_sources:
                     continue
-                if handle in self.saved_page_catalog:
+                if handle in self.related_saved_pages:
+                    if handle in self.attempted_related_pages:
+                        raise ValueError('Related saved page cannot be reacquired')
+                    self.attempted_related_pages.add(handle)
+                    from .build_related_pages import acquire_plan_page
+                    acquire_plan_page(self.adapter, self.related_saved_pages[handle], dispatch.selection_event)
+                elif handle in self.saved_page_catalog:
                     if handle in self.attempted_saved_pages:
                         raise ValueError('Saved page block cannot be reacquired')
                     self.attempted_saved_pages.add(handle)
