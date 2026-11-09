@@ -371,8 +371,6 @@
       "apps/live-control-ui/src/playSurface/playRunEffectiveContent.test.ts",
       "apps/live-control-ui/src/playSurface/playRunbookAuthoringHref.test.ts",
       "apps/live-control-ui/src/playSurface/playSurfaceAgentContext.test.ts",
-      "apps/live-control-ui/src/playSurface/reference/PlayGraphObjectSheet.test.tsx",
-      "apps/live-control-ui/src/playSurface/reference/PlayThreatMechanicsSection.test.tsx",
       "apps/live-control-ui/src/playSurface/review/SessionEvidencePicker.test.tsx",
       "apps/live-control-ui/src/playSurface/review/SessionReviewPanel.test.tsx",
       "apps/live-control-ui/src/playSurface/review/sessionEvidenceHref.test.ts",

@@ -1,6 +1,10 @@
 # REFERENCE: retire the unmounted object diagnostic
 
-Status: ACTIVE source retirement. PRIME owns one serial slice from remote main
+Status: SOURCE SETTLED. PR2311 merged as
+868fe5e61dd111c804adbefa6f442473ee9cb2fe from reviewed
+875ab18a181d3541f351e27905b192005ce6f0fc; source write lease released.
+Runtime activation remains held. Historical allocation follows.
+Status at allocation: ACTIVE source retirement. PRIME owns one serial slice from remote main
 fff6c97095eb23827d4f3d83b839f29da229e483, branch
 codex/reference-object-diagnostic-retirement, existing buddy-context-loop checkout.
 No unmerged parent or runtime lease. Storage recovery hold and coordination-off

@@ -1,6 +1,11 @@
 # CI: await the actual encounter observation
 
-Status: ACTIVE. PRIME owns one serial prerequisite slice from verified main
+Status: SOURCE SETTLED. PR2314 merged as
+e2d75649b577f679af8f05e24329e4cb3f6121a6 from independently reviewed
+a2b68f743eab66795641c87ba52b14db8b3b41ab. Exact-head hosted/build validated;
+full discovered7443/164 matched current parent with no new/changed failures.
+Source lease released. No runtime change. Historical allocation follows.
+Status at allocation: ACTIVE. PRIME owns one serial prerequisite slice from verified main
  a22b77a406c6575eea7cc073139fb0774191cf50 on branch
 codex/ci-encounter-observation-wait in the existing buddy-context-loop checkout.
 No unmerged parent. Retirement PR2312 remains frozen at933f440c until this slice

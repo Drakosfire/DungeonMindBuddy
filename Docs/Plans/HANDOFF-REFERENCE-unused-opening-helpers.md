@@ -1,6 +1,10 @@
 # REFERENCE: retire unused opening helpers
 
-Status: ACTIVE source retirement. PRIME owns this serial slice from remote main
+Status: SOURCE SETTLED. PR2310 merged as
+062984f32a26ebfeaa1f1b914c32742f71d51570 from reviewed
+cd4040b7e33b3a303c5718b61c195b41a3841ed2; source write lease released.
+Runtime activation remains held. Historical allocation follows.
+Status at allocation: ACTIVE source retirement. PRIME owns this serial slice from remote main
 6d960ed05831ef5c4aeeae5500474a0b4d68b0f8, branch
 codex/reference-unused-opening-helpers, existing buddy-context-loop checkout.
 No unmerged parent. Runtime activation remains held during storage recovery;

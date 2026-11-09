@@ -192,3 +192,16 @@ three exclusive tests and private graph-object-dogfood CSS. Existing browser
 records are preserved. Shared Plan resolution, projection, native reference and
 saved-statblock owners remain; this source retirement does not claim their full
 integration or remove the separately gated Plan diagnostic/card closure.
+
+
+## Unmounted Play sheet source retirement
+
+HANDOFF-REFERENCE-unused-play-sheet.md retires PlayGraphObjectSheet and its
+exclusive PlayThreatMechanicsSection wrapper and tests. Exact source imports
+show no mounted caller; the historical P3C handoff already distinguishes this
+early composition from native Play routing/occurrence derivation. Retain shared
+mechanics readers/renderers, current native reference selection/preview and the
+shared saved-statblock editor. This decision removes an unused parallel wrapper;
+it does not establish runtime delivery or historical Runbook/Combat capability.
+Neither retired subject occurs in the frozen CI commands. The remaining Plan
+panel/resolver/card closure still requires its separate owning contract decision.
