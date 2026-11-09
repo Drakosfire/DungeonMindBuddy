@@ -1,6 +1,13 @@
 # REFERENCE: native Play object selection
 
-Status: ACTIVE, PRIME-owned serial slice from remote main
+Status: SOURCE SETTLED. PR2307 merged as
+6d960ed05831ef5c4aeeae5500474a0b4d68b0f8 from independently reviewed
+b413d2e57ea1fa7e7eb340dbd9af6596afc21b50. Retained exact-head logs record1142
+query-and-answer and145 owner tests passing; frontend/build qualification passed.
+The no-op0144 reader fence and mixed Play controls are not activated by this
+settlement. Runtime recovery hold remains; live verification is pending. Source
+write lease released. Historical allocation follows.
+Status at allocation: ACTIVE, PRIME-owned serial slice from remote main
 `c12bafca6b6949ae3aad5012c716eefbe6b61c81`, branch
 `codex/play-object-references`, existing buddy-context-loop checkout.
 Authority: the operator's cross-surface References goal and resumed Play work.

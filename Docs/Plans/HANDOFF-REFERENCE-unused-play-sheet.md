@@ -1,6 +1,13 @@
 # REFERENCE: retire the unused Play reference sheet
 
-Status: ACTIVE source retirement. PRIME owns this serial slice from verified
+Status: SOURCE SETTLED. PR2312 merged as
+4cf63addb3925f1f9dec775f8fba843c287de566 from independently reviewed
+93f8f2ac3319d969b08c1ba432b167f8c1d4a3bb. Exact-head local frontend/build and
+nine CI guards passed; discovered7435/164 removes exactly ten passing cases from
+qualified parent7445/164 with no new/changed failures. Full diagnostic stays red.
+Source write lease released. Runtime activation remains held. Historical
+allocation follows.
+Status at allocation: ACTIVE source retirement. PRIME owns this serial slice from verified
 remote main 7ec9bcec9beed23c71f911943062bfc9c94bda51, branch
 codex/reference-retire-unused-play-sheet, existing buddy-context-loop checkout.
 No unmerged parent, runtime lease, provider call or database operation. The
