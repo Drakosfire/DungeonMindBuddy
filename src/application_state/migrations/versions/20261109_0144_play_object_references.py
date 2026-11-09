@@ -13,4 +13,4 @@ def upgrade():
 
 
 def downgrade():
-    raise RuntimeError('Use recovery forward; older readers cannot reconstruct native Play object references')
+    raise RuntimeError('Use recovery forward with a forward migration; older readers cannot reconstruct native Play object references')
