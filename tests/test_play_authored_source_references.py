@@ -940,7 +940,7 @@ def test_exact_selected_play_source_admits_no_aggregate_token_ceiling(source_cas
     assert updated.graph_context_execution.policy.max_provider_attempts > 0
 
 
-@pytest.mark.parametrize("mode",["work","selected","automatic","memory","rules","graph","unknown","writer_failure","source_failure","forged_work"])
+@pytest.mark.parametrize("mode",["work","selected","automatic","memory","rules","graph","object","mixed","unknown","writer_failure","source_failure","forged_work"])
 def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answer(
     application_state_dsn,monkeypatch,tmp_path,source_case,mode,request,
 ):
@@ -956,7 +956,7 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
     from tests.test_plan_jev_writer import WriterWire
     from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
     import httpx
-    graph_lane=request.getfixturevalue('published_lane') if mode=='graph' else None
+    graph_lane=request.getfixturevalue('published_lane') if mode in {'graph','object','mixed'} else None
     service,sub,_frame=make_submission(edition=True,world=graph_lane.world.world_id if graph_lane is not None else None)
     world=sub.world_id
     query_context=query_result=None
@@ -972,6 +972,33 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
         core=native_owner.prepare_native_source_context(managed_world_id=world,principal=GM,
             repository=source_case.repo,resolve_identity=lambda _:source_case.bound)
         ref=ref.model_copy(update={'managed_world_id':world})
+    from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1, AuthoredSourceReferenceV1
+    references=()
+    if mode in {'selected','source_failure'}:
+        references=(ref,)
+    if mode in {'object','mixed'}:
+        authority=query_result.authority
+        object_ref=AuthoredGraphReferenceV1(managed_world_id=world,
+            native_world_id=authority.native_world_id,binding_version=authority.binding_version,
+            graph_revision=authority.revision_id,node_id=graph_lane.ids['B'],label='B')
+        references=(object_ref,)
+        if mode=='mixed':
+            from apps.live_control_server.integrations.dungeonmind import native_corpus_source as native_owner
+            from tests.test_native_corpus_source_access import GM
+            core=native_owner.prepare_native_source_context(managed_world_id=world,principal=GM,
+                repository=graph_lane.repo,resolve_identity=lambda _:SimpleNamespace(
+                    managed_world_id=world,native_world_id=world,binding_version=1,provisioning_id="synthetic-play"))
+            captured=native_owner.capture_native_sources(managed_world_id=world,principal=GM,prepared=core)
+            member=captured.members[0]
+            source_ref=AuthoredSourceReferenceV1(managed_world_id=world,native_world_id=world,
+                binding_version=1,knowledge_revision=core.authority.revision_id,
+                source_artifact_id=member.artifact.source_artifact_id,
+                source_revision_id=member.revision.source_revision_id,evidence_ref_id=member.evidence_ref_id,
+                content_sha256=member.revision.content_sha256,selection_kind='full_document',label='Selected source')
+            # Source first verifies that object grants do not renumber source indexes.
+            references=(source_ref,object_ref)
+        query_context,query_result=query(graph_lane,scope_mode='world',source_context=core,
+            authored_references=t.AuthoredReferencesV2(references=references))
     intent=sub.submitted_intent_v2
     if mode=='memory':
         from application_state.play.session_review import commit_review,ReviewCommand
@@ -979,7 +1006,7 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
         commit_review(world_id=world,run_id=basis.run_id,command_id=str(uuid4()),request=ReviewCommand(
             action='end',expected_revision=0,expected_run_revision=basis.run_revision,
             expected_content_sha256=basis.content_sha256,final_thoughts='Players want more exploration next time.'))
-    if mode=='graph':intent=intent.model_copy(update={'message':query_result.question})
+    if mode in {'graph','object','mixed'}:intent=intent.model_copy(update={'message':query_result.question})
     if mode=='rules':
         intent=intent.model_copy(update={'message':'Can I end my move in an occupied space?'})
     request=AgentTurnRequest.model_validate_json(json.dumps(dict(
@@ -990,8 +1017,8 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
         primary_work=intent.primary_work.model_dump(mode='json'),
         graph_request=intent.graph_request.model_dump(mode='json'),
         play_target=intent.play_target.model_dump(mode='json'),
-        **({'authored_references':t.AuthoredReferencesV2(references=(ref,)).model_dump(mode='json',by_alias=True)}
-          if mode in {'selected','source_failure'} else {}))))
+        **({'authored_references':t.AuthoredReferencesV2(references=references).model_dump(mode='json',by_alias=True)}
+          if references else {}))))
     monkeypatch.setattr('apps.live_control_server.services.world_container_registry.get_world_container',
         lambda root,world_id:SimpleNamespace(world_id=world_id,name="Synthetic Play World"))
     monkeypatch.setattr(agent,'_managed_world_root',lambda:tmp_path)
@@ -1025,12 +1052,12 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
             selected=next(row for source in work['current_play'] if source['source_kind']=='scene_note'
                 for row in source['text_blocks'])
             answer_segments=[dict(kind='authored_excerpt',selection_id=selected['selection_id'])]
-            if mode in {'selected','automatic'}:
+            if mode in {'selected','automatic','mixed'}:
                 excerpts=evidence['native_body_evidence']['excerpts']
                 assert len(excerpts)==1
                 answer_segments.append(dict(kind='native_body_claim',text=excerpts[0]['text'].strip(),
                     excerpt_handles=[excerpts[0]['excerpt_handle']]))
-            if mode=='graph':
+            if mode in {'graph','object','mixed'}:
                 assertion=evidence['native_assertions']['assertions'][0]
                 answer_segments.append(dict(kind='native_assertion_claim',text=str(assertion['assertion']['value']),
                     assertion_handles=[assertion['assertion_handle']]))
@@ -1059,7 +1086,7 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
     kwargs=dict(root=tmp_path,pointer_store=HermesSessionPointerStore(tmp_path/'pointers'),
         owner_resolver=lambda _:{'kind':'world','id':world,'name':'Synthetic Play World'},
         work_resolver=agent._work_resolver,conversation_service=service,native_principal=SimpleNamespace(role='gm'),
-        native_graph_query_resolver=lambda request,*_args:(query_context,query_result) if mode=='graph' else (None,t.NativePlanQueryUnavailableV1(
+        native_graph_query_resolver=lambda request,*_args:(query_context,query_result) if graph_lane is not None else (None,t.NativePlanQueryUnavailableV1(
             managed_world_id=world,reason='native_graph_head_unavailable')),
         graph_resolver=lambda *_args:pytest.fail('No classic Graph fallback'),
         plan_graph_resolver=lambda *_args:pytest.fail('No legacy Play Graph bootstrap'))
@@ -1120,9 +1147,15 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
         assert state['dialogue_reference']==[dict(role='user',content=request.message),
             dict(role='assistant',content=response.answer.text)]
         assert 'dialogue_reference' not in state['surface_work']
-    if mode in {'selected','automatic'}:assert stored.completion.native_body_citations
+    if mode in {'selected','automatic','mixed'}:assert stored.completion.native_body_citations
     if mode=='memory':assert stored.completion.answer_segments[-1].kind=='session_summary'
-    if mode=='graph':assert stored.completion.native_assertion_citations
+    if mode in {'graph','object','mixed'}:assert stored.completion.native_assertion_citations
+    if mode in {'object','mixed'}:
+        assert stored.graph_context_execution.policy.action.intent.authored_references.references==references
+        events=stored.graph_context_execution.events
+        assert len([event for event in events if event.kind=='build_authored_reference_read_v3'])==1
+        assert next(event.sequence for event in events if event.kind=='build_authored_reference_read_v3') < next(
+            event.sequence for event in events if isinstance(event,t.ProviderAttemptAuthorizedEventV1))
     if mode=='selected':
         import os
         from pathlib import Path
@@ -1130,3 +1163,26 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
             Path(destination).write_text(json.dumps(dict(response={key:response.model_dump(mode='json',by_alias=True)[key] for key in ('play_context','graph')},
                 request=request.model_dump(mode='json',by_alias=True),
                 provenance=stored.provenance.model_dump(mode='json',by_alias=True)),ensure_ascii=False,indent=2)+'\n')
+
+
+@pytest.mark.parametrize('fault',['foreign_world','graph_off','missing_target','empty'])
+def test_native_play_object_input_keeps_exact_scope_and_target(fault):
+    from apps.live_control_server.models.agent_turn import AgentTurnRequest
+    from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1
+    intent=intent_wire()
+    world=intent['world_id']
+    reference=AuthoredGraphReferenceV1(managed_world_id=world,native_world_id='native',
+        binding_version=1,graph_revision='revision:selected',node_id='entity:selected',label='Selected object')
+    refs=t.AuthoredReferencesV2(references=(reference,)).model_dump(mode='json',by_alias=True)
+    if fault=='foreign_world':refs['references'][0]['managed_world_id']='different-world'
+    elif fault=='empty':refs['references']=[]
+    intent['authored_references']=refs
+    if fault=='graph_off':intent['graph_request']={'mode':'none'}
+    elif fault=='missing_target':intent['play_target']=None
+    with pytest.raises(ValueError):t.PlayGraphIntentV1.model_validate(intent)
+    wire=dict(schema='dmb_agent_turn_request_v1',client_thread_id='play-test',turn_id=str(uuid4()),
+        message=intent['message'],surface=dict(surface_id='play',instance_id=intent['surface_instance_id']),
+        owner_scope=dict(kind='world',world_id=world),primary_work=intent['primary_work'],
+        client_work_state=intent['client_work_state'],graph_request=intent['graph_request'],
+        play_target=intent['play_target'],graph_selection=None,authored_references=refs)
+    with pytest.raises(ValueError):AgentTurnRequest.model_validate(wire)

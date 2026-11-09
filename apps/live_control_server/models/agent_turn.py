@@ -316,15 +316,13 @@ class AgentTurnRequest(BaseModel):
                 raise ValueError("Explicit Plan operation requires its actual saved Plan and current native policy")
         if self.authored_references is not None:
             if self.surface.surface_id == 'play':
-                from application_state.agent_conversation.authored_graph_references import AuthoredSourceReferenceV1
                 if (self.owner_scope is None or self.owner_scope.kind != 'world'
                         or self.primary_work is None or self.primary_work.kind != 'run'
                         or self.play_target is None or self.graph_request.mode != 'world'
                         or self.plan_context_policy is not None or self.graph_selection is not None
                         or self.native_statement_selection is not None or self.selected_knowledge is not None
-                        or self.build_authored_references is not None or not self.authored_references.references
-                        or any(not isinstance(ref, AuthoredSourceReferenceV1) for ref in self.authored_references.references)):
-                    raise ValueError('Play source references require the exact saved Run, World and target')
+                        or self.build_authored_references is not None or not self.authored_references.references):
+                    raise ValueError('Play references require the exact saved Run, World and target')
             elif (self.surface.surface_id != 'plan' or self.plan_context_policy is None
                     or self.owner_scope is None or self.owner_scope.kind != 'world'
                     or self.primary_work is None or self.primary_work.kind != 'plan'
