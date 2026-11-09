@@ -3,8 +3,9 @@ import { AgentInteractionProvider } from "../../agentInteraction/AgentInteractio
 import { InMemoryLocalWorldRepository, InMemoryLocalWorldStore } from "../inMemoryLocalWorldRepository";
 import { createPackageTestRecord, packageFixtureAttachmentBytes } from "../localWorldPackageFixtures";
 import type { LocalWorldPackageData } from "../localWorldRepository";
+import { encodeLocalWorldPackageV1, parseLocalWorldPackageV1 } from "../localWorldPackageV1";
 import { LocalWorldSurface } from "./LocalWorldSurface";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -58,6 +59,112 @@ describe("local World Surface", () => {
     renderSurface(repository);
     await user.click(await screen.findByRole("button", { name: /The Ember Coast/ }));
     expect(await screen.findByRole("heading", { name: "The Ember Coast" })).toBeTruthy();
+  });
+
+  it("starts an editable connected graph and preserves semantic and layout work through reopen and package round trip", async () => {
+    const user = userEvent.setup();
+    const repository = new InMemoryLocalWorldRepository();
+    const created = await repository.createWorld({ title: "The Ember Coast" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+
+    const view = renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /The Ember Coast/ }));
+    await user.click(screen.getByRole("button", { name: "Start with an example graph" }));
+    const graph = await screen.findByRole("group", { name: "The Ember Coast world graph" });
+    expect(within(graph).getByRole("button", { name: "Mara Venn, person" })).toBeVisible();
+    expect(within(graph).getByRole("button", { name: "Tomas Reed, person" })).toBeVisible();
+    expect(within(graph).getByRole("button", { name: "Amber Quay, location" })).toBeVisible();
+    expect(within(graph).getByRole("button", { name: "Lantern Festival, event" })).toBeVisible();
+    expect(within(graph).getByRole("img", { name: "Mara Venn knows Tomas Reed" })).toBeVisible();
+    expect(within(graph).getByRole("img", { name: "Lantern Festival held at Amber Quay" })).toBeVisible();
+
+    await user.click(within(graph).getByRole("button", { name: "Mara Venn, person" }));
+    await user.click(screen.getByRole("button", { name: "Rename Mara Venn" }));
+    await user.clear(screen.getByLabelText("New name"));
+    await user.type(screen.getByLabelText("New name"), "Mara Venn of the Quay");
+    await user.click(screen.getByRole("button", { name: "Save name" }));
+    const renamed = await screen.findByRole("button", { name: "Mara Venn of the Quay, person" });
+    renamed.focus();
+    await user.keyboard("{ArrowRight}");
+    await screen.findByText("Canvas layout updated.");
+
+    await user.click(screen.getByRole("button", { name: "Add object" }));
+    await user.type(screen.getByLabelText("Object name"), "Nella Quill");
+    await user.click(screen.getByRole("button", { name: "Create object" }));
+    const nella = await screen.findByRole("button", { name: "Nella Quill, person" });
+    await user.click(screen.getByRole("button", { name: "Mara Venn of the Quay, person" }));
+    await user.click(nella);
+    await user.click(screen.getByRole("button", { name: "Tomas Reed, person" }));
+    await user.click(screen.getByRole("button", { name: "Connect selected objects" }));
+    await user.type(screen.getByLabelText("Relationship label"), "protects");
+    await user.click(screen.getByRole("button", { name: "Create relationship" }));
+    expect(await screen.findByRole("img", { name: "Nella Quill protects Tomas Reed" })).toBeVisible();
+
+    const saved = await repository.readWorld(created.record.snapshot.worldId);
+    expect(saved.status).toBe("found");
+    if (saved.status !== "found") return;
+    expect(saved.record.localRevision).toBe(4);
+    expect(saved.record.layoutRevision).toBe(1);
+    expect(saved.record.snapshot.objects.find((item) => item.name === "Mara Venn of the Quay")).toBeTruthy();
+    expect(saved.record.snapshot.relationships).toHaveLength(5);
+    expect(saved.record.history.map((entry) => entry.description)).toContain("Started a small example graph");
+
+    const exportSnapshot = await repository.readWorldExportSnapshot(created.record.snapshot.worldId);
+    expect(exportSnapshot.status).toBe("found");
+    if (exportSnapshot.status !== "found") return;
+    const encoded = await encodeLocalWorldPackageV1(exportSnapshot.record, exportSnapshot.data);
+    expect(encoded.status).toBe("encoded");
+    if (encoded.status !== "encoded") return;
+    const parsed = await parseLocalWorldPackageV1(encoded.members);
+    expect(parsed.status).toBe("staged");
+    if (parsed.status !== "staged") return;
+    expect(parsed.candidate.record.snapshot).toEqual(saved.record.snapshot);
+    expect(parsed.candidate.record.layout).toEqual(saved.record.layout);
+
+    view.unmount();
+    renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /The Ember Coast/ }));
+    expect(await screen.findByRole("button", { name: "Mara Venn of the Quay, person" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Tomas Reed, person" })).toBeVisible();
+    expect(screen.getByRole("img", { name: "Nella Quill protects Tomas Reed" })).toBeVisible();
+  });
+
+  it("keeps a graph proposal visible after a semantic conflict and applies it only after a deliberate retry", async () => {
+    const user = userEvent.setup();
+    const repository = new InMemoryLocalWorldRepository();
+    const created = await repository.createWorld({ title: "Conflict Graph" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+    renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Conflict Graph/ }));
+    await user.click(screen.getByRole("button", { name: "Start with an example graph" }));
+    const mara = await screen.findByRole("button", { name: "Mara Venn, person" });
+    await user.click(mara);
+    await user.click(screen.getByRole("button", { name: "Rename Mara Venn" }));
+    await user.clear(screen.getByLabelText("New name"));
+    await user.type(screen.getByLabelText("New name"), "Mara after the storm");
+
+    const latest = await repository.readWorld(created.record.snapshot.worldId);
+    expect(latest.status).toBe("found");
+    if (latest.status !== "found") return;
+    await repository.commitSemanticEdit({
+      worldId: latest.record.snapshot.worldId,
+      expectedLocalRevision: latest.record.localRevision,
+      nextSnapshot: { ...latest.record.snapshot, title: "Conflict Graph, revised" },
+      edit: { classification: "buddy-local-only", description: "Renamed in another tab" },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Save name" }));
+    expect(await screen.findByRole("region", { name: "Saved graph conflict candidate" })).toBeVisible();
+    expect(screen.getByText(/Renamed Mara Venn was saved as a local conflict candidate/)).toBeVisible();
+    expect(screen.getByLabelText("New name")).toHaveValue("Mara after the storm");
+    expect(await repository.readConflictCandidates(created.record.snapshot.worldId)).toMatchObject({ status: "found" });
+
+    await user.click(screen.getByRole("button", { name: "Save name" }));
+    expect(await screen.findByRole("heading", { name: "Conflict Graph, revised" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "Mara after the storm, person" })).toBeVisible();
+    expect((await repository.readConflictCandidates(created.record.snapshot.worldId)).status).toBe("found");
   });
 
   it("exports the current World and preserves bundled sidecar attachments after a title edit", async () => {
