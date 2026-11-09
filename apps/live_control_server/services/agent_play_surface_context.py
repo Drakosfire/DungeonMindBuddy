@@ -1191,7 +1191,7 @@ def resolve_agent_play_world_surface_context_v2(
     )
 
 
-def render_agent_play_surface_context(context: AgentSurfaceContext) -> str | None:
+def render_agent_play_surface_context(context: AgentSurfaceContext, *, include_edition_revision: bool = True) -> str | None:
     """Render bounded CURRENT PLAY prose for resolved Play SurfaceContext."""
     play = context.current_play
     if play is None:
@@ -1201,7 +1201,8 @@ def render_agent_play_surface_context(context: AgentSurfaceContext) -> str | Non
         lines = [
             _PLAY_MODEL_BLOCK_PREFIX,
             "",
-            f'Effective saved session copy · edition revision {play.edition_revision}',
+            (f'Effective saved session copy · edition revision {play.edition_revision}'
+             if include_edition_revision else 'Effective saved session copy'),
             "",
             f'Current phase of play (Beat) — {json.dumps(play.current_beat.title, ensure_ascii=False)}',
             play.current_beat.body_markdown or "",

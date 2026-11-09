@@ -1,6 +1,7 @@
 # PLAY: shared native retrieval with actual Run evidence
 
-Status: RESUMED DESIGN/REPARTITION under the operator's 2026-11-09 instruction:
+Status: ACTIVE IMPLEMENTATION after independent design APPROVE at
+`5fa51dc18d6e7d8c983bc07e0b6283c19e35ff2a`. Resumed/repartitioned under the operator's 2026-11-09 instruction:
 "Resume #2172. That was your hold, not mine. Resolve the ownership overlap and
 keep going in small PRs. No need to ask again."
 The PRIME sequencing hold is lifted. This does not activate the retained scaffold
@@ -28,14 +29,27 @@ No stack or unmerged behavioral parent; implement and deliver serially.
 
 ## Ownership partition
 
-CI #2288 retains qualification, historical fixture repairs and its exact
-`native_authored_references.py` source-loss fix. This Play slice adopts that owner
-without editing it. CI #2298 retains shared conversation integration-test repairs;
-Play adds/uses its backend owner tests without editing that UI test file.
-`ci/contracts.json` and `ci/test-classification.json` are not leased here. PRIME
-has requested a bounded semantic split for obsolete test-entry removal; retirement
-will not edit those files before that split is resolved. Existing full gates and
-frozen original command fixtures remain intact. ADVERSARY coordination stays off.
+CI's narrowed authority is pinned at local commit
+`800a66240cdadc27c75ba1b9da331432bd56c833`,
+`/media/drakosfire/Projects/.codex/2026-11-08/task-5/worktrees/ci-production-qualification`,
+`Docs/Plans/HANDOFF-CI-production-qualification.md` (Current authority section).
+Its location is a portable contract; publication is not an execution gate.
+CI's active exclusivity is infrastructure only. Blanket runtime, database and
+shared-test claims are released; retained PR diffs are frozen, not discarded.
+Play can independently edit its named APP/host/backend-test owners.
+
+CI #2298 retains its bounded shared conversation integration-test repairs; this
+slice leaves that UI file unchanged. `native_authored_references.py` remains
+unchanged here: adopt the existing owner, preserving the separately reviewed
+Build-only source-gap correction rather than absorbing it into Play behavior.
+
+For a separate diagnostic/card retirement slice, PRIME may atomically remove only
+manifest entries for the exact test paths it actually retires. CI leaves those
+entries unchanged and retains only its additive harness/guard entries. Preserve
+all unrelated classifications, authoritative gates and frozen original-command
+fixtures. Pin and independently review the actual deletion list before removal;
+this is no blanket deletion permission. No whole-file manifest lease is implied.
+ADVERSARY coordination remains off.
 
 ## Invariant and review map
 
@@ -52,8 +66,10 @@ by stored turns; re-inventory before removing dormant shared-Play policy shapes.
   identities, hashes, frame commitments, receipts, accounting and telemetry in
   existing host proof owners. Test final serialized Jev/writer inputs; the old
   draft's project_work wire is host evidence, not acceptable model context.
-- Execution: reuse native retrieval, Rules and writer components at their owners;
-  keep Plan placement/authoring out of Play. Use actual controller/writer roles
+- Execution: reuse #2297's current `provider_execution.py` transition validator,
+  native retrieval, Rules and writer components at their owners;
+  keep Plan placement/authoring out of Play. #2300's closed Plan V1 edit-capture
+  contract confers no Play authority. Use actual controller/writer roles
   and configured request allowances, with no application-imposed output cap.
 - Completion: retain native corpus/Graph supports and independently admitted Play
   work/session supports. Validate actual producing input before accepting local
@@ -65,6 +81,8 @@ by stored turns; re-inventory before removing dormant shared-Play policy shapes.
 
 This handoff; `HANDOFF-REFERENCE-adoption-inventory.md` for the lifted hold only.
 Host services: `agent_turn_service.py`, `plan_source_turn.py`,
+`agent_play_surface_context.py` (omit only its renderer-owned edition counter in
+fresh native Play; retain exact historical rendering),
 `native_play_graph_owner.py`, new `play_jev_harness.py`, and existing shared
 `plan_jev_driver.py`, `plan_jev_dispatch.py`, `plan_jev_writer.py`,
 `native_source_navigation.py`, `plan_jev_rules_runtime.py`; agent route query scope
@@ -77,10 +95,14 @@ APP agent_conversation: `native_context.py`, `native_execution.py`,
 reconstruction owners only when coupled to actual Play input, and `service.py`.
 A no-op reader fence only after current-head inventory proves it necessary;
 no schema number is reserved now and no user rows may be rewritten.
-Tests: current Play acquisition/context/execution/history owners,
-`test_native_play_work.py`, `test_play_jev_harness.py`,
-`application_state/test_shared_native_play_postgres.py`, and affected shared
-native writer/retrieval owner cases. Checkpoint before expanding these boundaries.
+Tests use already-classified `test_play_authored_source_references.py`,
+`test_agent_native_play_history.py`, `test_surface_native_context.py`,
+`test_surface_native_execution.py`, `test_native_writer_projection.py` and affected
+existing shared native writer/retrieval owner modules and
+`test_agent_play_surface_context.py` for exact current/historical rendering. Real APP cases must use an
+existing classified PostgreSQL owner module after checking its active write lease;
+no new test module or manifest entry is leased here. Checkpoint before expanding
+these boundaries.
 
 ## Verification and delivery gates
 
@@ -99,4 +121,4 @@ Deliver only the complete tested capability. Protected delivery preserves primar
 APP/Core rows, documents, drafts, versions, Runs and session files. Controlled
 ordinary verification uses an existing Run and selected recap, with no Save,
 roll, publication or scene mutation. Technical proof is not operator acceptance.
-No fresh ingestion, manual Graph curation, model experiments or new provider pass.
+No fresh ingestion, manual Graph curation, model experiments or additional model stage.

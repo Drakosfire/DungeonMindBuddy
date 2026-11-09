@@ -6,7 +6,7 @@ from psycopg.rows import dict_row
 from . import types as t
 
 
-def read_native_play_current_moment(conn, basis: t.PlayRunTurnContextReceiptV2) -> str:
+def read_native_play_current_moment(conn, basis: t.PlayRunTurnContextReceiptV2, *, include_edition_revision: bool = True) -> str:
     """Read one accepted body and derive its moment with the existing v2 owner."""
     with conn.cursor(row_factory=dict_row) as cur:
         if basis.edition_revision == 0:
@@ -49,7 +49,7 @@ def read_native_play_current_moment(conn, basis: t.PlayRunTurnContextReceiptV2) 
         raise ValueError('Native Play source target has no authored body')
     context=_world_play_turn_context(basis.world_id,basis.world_id,basis,beat,scene,
         edition_revision=basis.edition_revision,scene_note=None)
-    text=render_agent_play_surface_context(context)
+    text=render_agent_play_surface_context(context,include_edition_revision=include_edition_revision)
     if not isinstance(text,str) or len(text.encode('utf-8'))>32768:
         raise ValueError('Native Play moment exceeds its source budget')
     return text
@@ -71,15 +71,20 @@ def resolve_native_play_source_owner(conn, turn: t.Turn, frame: t.PlaySourceFram
     return read_native_play_current_moment(conn,receipt.play_basis)
 
 
-def resolve_native_play_sessions(conn, turn, sessions):
-    from .play_session_input import validate_turn_packets
+def resolve_play_work_sessions(conn, basis, supporting_work, sessions, *, world_id):
+    from .play_session_input import validate_work_packets
     from application_state.play.session_evidence import evidence
-    validate_turn_packets(turn,sessions)
+    validate_work_packets(basis,supporting_work,sessions,world_id=world_id)
     for packet in sessions:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""SELECT e.payload FROM play.session_review_revision e
                 JOIN play.run r USING(run_id) WHERE r.world_id=%s AND e.run_id=%s AND e.revision_n=%s""",
-                (turn.world_id,packet['run_id'],packet['review_revision']))
+                (world_id,packet['run_id'],packet['review_revision']))
             row=cur.fetchone()
-        if row is None or evidence(row['payload'],turn.world_id,packet['run_id'],packet['review_revision']) != packet:
+        if row is None or evidence(row['payload'],world_id,packet['run_id'],packet['review_revision']) != packet:
             raise ValueError('Play packet differs from its immutable review owner')
+
+
+def resolve_native_play_sessions(conn, turn, sessions):
+    return resolve_play_work_sessions(conn,turn.graph_context_receipt.play_basis,
+        turn.provenance.supporting_work,sessions,world_id=turn.world_id)

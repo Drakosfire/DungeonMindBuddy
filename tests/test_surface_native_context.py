@@ -42,12 +42,17 @@ def work(surface):
             work_revision_id=uuid4(), revision_n=2, content_sha256=sha256(WORK_MARKDOWN.encode()).hexdigest()),
             plan_context_policy=t.PlanContextPolicyV2(policy="auto_plan_world",
                 graph_source="reviewed_native_graph"), playable_target=None)
-    return PlayWorkContextV1(play_basis=t.PlayRunTurnContextReceiptV2(
+    basis = t.PlayRunTurnContextReceiptV2(
         world_id="world-one", run_id="run-one", run_revision=3,
         runbook_object_id="plan-one", runbook_object_revision=4,
         runbook_work_revision_id=uuid4(), runbook_revision_n=2,
         runbook_content_sha256="a" * 64, beat_id="beat:one", scene_id="scene:one",
-        edition_revision=0, edition_revision_id=None, content_sha256="a" * 64))
+        edition_revision=0, edition_revision_id=None, content_sha256="a" * 64)
+    from application_state.agent_conversation.play_graph_authority import play_source_frame
+    frame = play_source_frame((t.PlaySourcePayloadV1(source_kind='current_moment',
+        locator=t.play_source_locator(basis), text='Exact saved Play moment.'),))
+    return PlayWorkContextV1(play_basis=basis, play_sources=frame.manifest,
+        play_source_frame_sha256=canonical_sha256(frame))
 
 
 def seal(wire):
@@ -698,3 +703,128 @@ def test_structural_failure_precedes_mutated_numeric_arithmetic():
     ledger.policy.max_provider_attempts = 1
     assert judgment(validate, ledger) == judgment(_original_validate, ledger)
     assert judgment(validate, ledger)[0] == "TypeError"
+
+
+# Resumed native Play: actual immutable work, not Plan identity or host model context.
+from application_state.agent_conversation.native_play_work import project_work, validate_owner_locked
+from application_state.agent_conversation.play_graph_authority import play_source_frame
+
+def native_play_supplied(*, note=None):
+    original=work('play')
+    basis=original.play_basis
+    if note is not None:
+        from hashlib import sha256
+        basis=type(basis).model_validate_json(basis.model_copy(update=dict(
+            scene_note=note,scene_note_sha256=sha256(note.encode()).hexdigest())).model_dump_json(by_alias=True))
+    sources=[t.PlaySourcePayloadV1(source_kind='current_moment',
+        locator=t.play_source_locator(basis),text='Exact saved Play moment.')]
+    if note is not None:
+        sources.append(t.PlaySourcePayloadV1(source_kind='scene_note',
+            locator=t.play_source_locator(basis),text=note))
+    frame=play_source_frame(tuple(sources))
+    context=PlayWorkContextV1(play_basis=basis,play_sources=frame.manifest,
+        play_source_frame_sha256=canonical_sha256(frame))
+    proof=dict(source_frame=frame.model_dump(mode='json',by_alias=True),
+        session_evidence=[],dialogue=[dict(role='user',content='What is here?')])
+    return context,provenance_for(context),proof
+
+
+def test_projection_uses_existing_selector_frame_and_keeps_scene_note_separate():
+    context,provenance,proof=native_play_supplied(note='A saved possibility.')
+    frame=project_work(context,provenance,uuid4(),proof)
+    assert frame['schema']=='dmb_native_play_work_v1'
+    assert {s['source_kind'] for s in frame['source_frame']['sources']}=={'current_moment','scene_note'}
+    assert all('text_blocks' in s and 'text' not in s for s in frame['source_frame']['sources'])
+    assert frame['dialogue']==proof['dialogue'] and frame['session_evidence']==[]
+
+
+def test_changed_body_cannot_reuse_frozen_manifest():
+    context,provenance,proof=native_play_supplied()
+    proof['source_frame']['sources'][0]['text']='Another scene.'
+    with pytest.raises(ValueError):project_work(context,provenance,uuid4(),proof)
+
+
+def test_same_world_foreign_run_cannot_borrow_provenance():
+    context,provenance,proof=native_play_supplied()
+    foreign=provenance.model_copy(update={'surface_instance_id':'play:foreign',
+        'primary_work':provenance.primary_work.model_copy(update={'object_id':'another-run'})})
+    with pytest.raises(ValueError):project_work(context,foreign,uuid4(),proof)
+
+
+def test_unadmitted_session_packet_cannot_become_work_memory():
+    context,provenance,proof=native_play_supplied()
+    proof['session_evidence']=[dict(schema_version='dmb_session_evidence_v1',world_id='other',run_id='other')]
+    with pytest.raises(ValueError):project_work(context,provenance,uuid4(),proof)
+
+
+def test_recomputed_caller_commitment_still_needs_independent_owner(monkeypatch):
+    from application_state.agent_conversation import play_graph_source_owner as owner
+    context,provenance,proof=native_play_supplied()
+    frame=t.PlaySourceFrameV1.model_validate_json(json.dumps(proof['source_frame']))
+    changed=play_source_frame(tuple(s.model_copy(update={'text':'Invented scene.'}) for s in frame.sources))
+    context=context.model_copy(update=dict(play_sources=changed.manifest,
+        play_source_frame_sha256=canonical_sha256(changed)))
+    proof['source_frame']=changed.model_dump(mode='json',by_alias=True)
+    # Even structurally valid self-supplied hashes do not establish source ownership.
+    project_work(context,provenance,uuid4(),proof)
+    seen=[]
+    monkeypatch.setattr(owner,'read_native_play_current_moment',lambda conn,basis,**kwargs: seen.append((basis,kwargs)) or 'Exact saved Play moment.')
+    monkeypatch.setattr(owner,'resolve_play_work_sessions',lambda *args,**kwargs: pytest.fail('Moment mismatch must fail first'))
+    with pytest.raises(ValueError,match='independent source owner'):
+        validate_owner_locked(object(),context,provenance,proof)
+    assert seen==[(context.play_basis,{'include_edition_revision':False})]
+
+
+def test_locked_validation_adopts_both_existing_immutable_owners(monkeypatch):
+    from application_state.agent_conversation import play_graph_source_owner as owner
+    context,provenance,proof=native_play_supplied(note='Saved scene note.')
+    conn=object(); seen=[]
+    monkeypatch.setattr(owner,'read_native_play_current_moment',lambda c,b,**kwargs: seen.append(('moment',c,b,kwargs)) or 'Exact saved Play moment.')
+    monkeypatch.setattr(owner,'resolve_play_work_sessions',lambda c,b,refs,sessions,**kw: seen.append(('sessions',c,b,refs,sessions,kw)))
+    validate_owner_locked(conn,context,provenance,proof)
+    assert seen[0]==('moment',conn,context.play_basis,{'include_edition_revision':False})
+    assert seen[1]==('sessions',conn,context.play_basis,provenance.supporting_work,[],{'world_id':provenance.world_id})
+
+
+def test_dropping_note_cannot_redefine_current_moment():
+    context,provenance,proof=native_play_supplied(note='Saved note.')
+    frame=t.PlaySourceFrameV1.model_validate_json(json.dumps(proof['source_frame']))
+    no_note=play_source_frame(tuple(s for s in frame.sources if s.source_kind=='current_moment'))
+    context=context.model_copy(update=dict(play_sources=no_note.manifest,
+        play_source_frame_sha256=canonical_sha256(no_note)))
+    proof['source_frame']=no_note.model_dump(mode='json',by_alias=True)
+    with pytest.raises(ValueError,match='separate saved note'):
+        project_work(context,provenance,uuid4(),proof)
+
+
+def test_native_play_semantic_work_has_only_meaningful_text_and_local_aliases():
+    from application_state.agent_conversation.native_play_work import semantic_frame
+    context,provenance,proof=native_play_supplied(note='A saved possibility.')
+    host=project_work(context,provenance,uuid4(),proof)
+    before=deepcopy(host)
+    view=semantic_frame(host)
+    assert host==before
+    assert set(view)=={'current_play','session_evidence','dialogue_reference'}
+    assert [s['source_kind'] for s in view['current_play']]==[s['source_kind'] for s in host['source_frame']['sources']]
+    assert {s['source_kind'] for s in view['current_play']}=={'current_moment','scene_note'}
+    rows=[b for source in view['current_play'] for b in source['text_blocks']]
+    assert [b['selection_id'] for b in rows]==['work0','work1']
+    assert {s['source_kind']:''.join(b['text'] for b in s['text_blocks']) for s in view['current_play']}=={'current_moment':'Exact saved Play moment.','scene_note':'A saved possibility.'}
+    raw=json.dumps(view)
+    for value in (host['submission_id'],context.play_source_frame_sha256,
+            str(context.play_basis.runbook_work_revision_id),context.play_basis.run_id):
+        assert value not in raw
+    changed=deepcopy(host);changed['source_frame']['sources'][1]['text_blocks'][0]['selection_id']=host['source_frame']['sources'][0]['text_blocks'][0]['selection_id']
+    with pytest.raises(ValueError,match='repeats an authored selector'):
+        semantic_frame(changed)
+
+
+def test_native_play_semantic_projection_preserves_literal_identifier_like_text():
+    from application_state.agent_conversation.native_play_work import semantic_frame
+    literal='The author wrote run-one and sha256:abc literally; keep this note.'
+    context,provenance,proof=native_play_supplied(note=literal)
+    proof['dialogue']=[dict(role='user',content=literal)]
+    view=semantic_frame(project_work(context,provenance,uuid4(),proof))
+    note=next(s for s in view['current_play'] if s['source_kind']=='scene_note')
+    assert ''.join(b['text'] for b in note['text_blocks'])==literal
+    assert view['dialogue_reference']==proof['dialogue']
