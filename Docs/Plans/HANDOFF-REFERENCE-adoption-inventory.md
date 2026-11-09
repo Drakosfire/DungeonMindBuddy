@@ -1,18 +1,21 @@
 # REFERENCE: adoption and demolition inventory
 
-Source baseline: `4cf63addb3925f1f9dec775f8fba843c287de566`.
-Status: current integration audit; the complete goal remains open. Source support,
+Source audit baseline: `a2716bdec99f0020aafe2f3b473d6a1d2f4d78f6`.
+Status: source settlement; the complete goal remains open. Source support,
 source qualification and proof on the running product are distinct below.
-This inventory grants no new runtime or implementation lease.
+This inventory grants no runtime or product-implementation lease.
 
-PRIME authors this serial audit on `codex/reference-current-integration-audit`
-in the existing buddy-context-loop checkout. Expected writes are this inventory
-and source-status settlement of HANDOFF-PLAY-shared-native-retrieval.md,
-HANDOFF-REFERENCE-play-object-selection.md and HANDOFF-REFERENCE-unused-play-sheet.md.
+PRIME owns this serial documentation settlement on
+`codex/reference-final-source-settlement` in the existing buddy-context-loop
+checkout, based on the audit baseline above. Expected writes are this inventory,
+HANDOFF-REFERENCE-unused-selected-card.md and
+HANDOFF-REFERENCE-build-reference-admission.md. No unmerged parent.
 No product, CI manifest, dependency, provider, database or service changes.
-Check classifications against callers and named tests, verify retained evidence
-and links, independently review the cumulative four-file diff, then merge.
-The operator recovery hold, #2104 hold and coordination-off instruction remain.
+Verify current callers, exact merge records and retained evidence, inspect the
+three-file cumulative diff and obtain independent review before source merge.
+Existing test runs below are pinned historical evidence, not new qualification
+of this documentation commit. The operator recovery hold, #2104 hold and
+coordination-off instruction remain.
 
 ## Audited ownership
 
@@ -63,10 +66,10 @@ UI paths are under `apps/live-control-ui/src`. Service paths are under
 | Retired Plan picker/canvas/search | #2286 | Removed unmounted `PlanSurfaceCanvas`, `PlanWorldGraphObjectsPanel`, `GraphReferenceSearch` and `searchGraphReferences`; retained the mounted `PlanSurfaceCanvasFrame`. |
 | Retired opening helpers and diagnostic collection | #2310 and #2311 | Removed unused opening hook/policy and `GraphObjectDogfoodPanel` with private model/storage/CSS. Existing browser records were not cleared. |
 | Retired Play sheet wrappers | #2312, merge `4cf63addb3925f1f9dec775f8fba843c287de566` | Removed unmounted `PlayGraphObjectSheet` and private `PlayThreatMechanicsSection` plus their exclusive tests. Shared mechanics readers/renderers remain. This does not implement historical Runbook occurrence derivation or Add to Combat. |
-| Unmounted selected-object presentation | `SelectedObjectCard` and private actions/source-preview/roll-format helpers | Preparatory source retirement in HANDOFF-REFERENCE-unused-selected-card.md. Keep the fallback model and its model tests, because the registered renderer still consumes them. This does not retire that renderer or the host capability. |
+| Retired selected-object presentation | #2318, merge `7953f83c434fc5fe4f1cc0b7f71a065a4721576e` | Removed unmounted `SelectedObjectCard` and its private actions/source-preview/roll-format helpers, exclusive tests and private CSS. The fallback model and nine model cases remain because the registered renderer consumes them. This does not retire that renderer or the host capability. |
 | Remaining Plan diagnostic/resolver/card | `PlanDogfoodPanel`, `usePlanGraphReferenceResolver`, `PlanReferenceProjectionBinding`, registered `PlanReferenceObjectCard` and activation APIs | Unmounted or unreachable retirement candidate, not proof of a live feature. Audit the whole activation closure. Preserve the shared host's mounted tools and statblock callers. Its frozen-CI-command dependency remains unresolved below. |
 | Manual publication/review | `BuildRunReview` → `BuildManualKnowledge`; `ConnectedPageReviewControl` → `BuildRelationshipReview` | Retain exercised publication/review owners. Reference selection does not grant publication authority. |
-| Classic authored-reference reader | Receipt-family dispatch in `build_jev_harness.py`, `agent_turn_service.py` and `build_authored_references.py` | Retain exact historical capture/recovery/writer/image consumers. Fresh governed requests use native source authority. Fresh non-governed admission has not been completely audited; do not call every classic path historical-only or remove its checks on that assumption. |
+| Classic authored-reference reader and fresh admission | Receipt-family dispatch in `build_jev_harness.py`, `agent_turn_service.py`, `build_authored_references.py` and `AgentTurnRequest` | #2319 requires the saved Build basis for authored references before dispatch. Existing Build-kind, saved-state, revision and digest checks remain. Such fresh requests therefore select governed/native execution; retained classic receipts still select their exact capture/recovery/writer/image consumers. Preserve those readers. This does not classify every generic Graph request or standalone classic helper as historical-only. |
 | Old server Plan proposal producer | #2104 | Explicitly held. Client retirement does not authorize this server change. |
 
 The current UI offers Include semantics. It offers no Only-selected control;
@@ -77,11 +80,12 @@ this audit adds no unused chronology framework.
 
 ## Requirement-by-requirement proof and remaining work
 
-The latest retained frontend diagnostic is exact head
-`93f8f2ac3319d969b08c1ba432b167f8c1d4a3bb`; its tree equals the source baseline
-above. Named cases below pass there. This is technical source evidence, not
-proof on the current running product. Mock transport and provider-free factory
-checks are labeled; neither establishes real-provider output quality.
+The latest retained full frontend diagnostic is exact head
+`9b07f7f96c87cc1de2a4a1ac9ea51dcc89355f8a`; its frontend tree equals the audit
+baseline's frontend tree. The named retained cases below pass there; the full
+diagnostic remains red. This is technical source evidence, not proof on the
+current running product. Mock transport and provider-free factory checks are
+labeled; neither establishes real-provider output quality.
 
 | Goal requirement | Existing owning evidence | What remains unproved |
 | --- | --- | --- |
@@ -91,10 +95,10 @@ checks are labeled; neither establishes real-provider output quality.
 | Submit, reload, continuation and exact retry | World-history mixed Play submission/pending reload and saved-selection hydration cases; Plan lightweight retry/refusal cases; Build direct retry owners | Ordinary live replay/continuation with preserved unsent work. Do not turn a positive mounted transport test into a paid-provider claim. |
 | Native Play actual execution and persisted citations | `tests/test_play_authored_source_references.py::test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answer`: provider-free ordinary factory, APP/Core fixtures, work/selected/automatic/memory/Rules/Graph/object/mixed/failure cases. `test_native_play_graph_postgres.py` covers durable admission/reconciliation | Activate the required reader fence only under the resolved recovery plan; prove supported ordinary delivery. The retained pre-deletion Play trace records `plan_writer_completion_rejected` and `play_jev_delivery_failure`; it is not positive answer-delivery proof. |
 | Exact native source opening | `SourceCitationEvidence` / native citation protocol and source-owner tests; native readers remain mounted | Current browser source opening, late/read-error behavior and exact revision on delivered code. |
-| Tool-created threat and mechanics association | Mounted `NativeThreatCreationPanel.test.tsx`10/10; `tests/test_native_threat_creation.py`, `test_world_mechanics_associations.py` and PostgreSQL owners | Re-establish complete ooze create/associate/reopen evidence on recoverable retained state; do not create another identity to manufacture proof. |
-| Popup / surface / conversation / full-view identity | `SavedStatblockSession.test.tsx`27/27, `NativeObjectStatblock.test.tsx`4/4, `NativeGraphObjectPreview.test.tsx`5/5, `StatblockPage.test.tsx`6/6 | Controlled exact-version journey across entry points, preserving caller position and draft after recovery. |
+| Tool-created threat and mechanics association | Mounted `NativeThreatCreationPanel.test.tsx`10/10; `tests/test_native_threat_creation.py`, `test_world_mechanics_associations.py` and PostgreSQL owners | Read-only retained checks now verify original acceptance, committed revision, association and Core-admitted creature identity. Complete the live create/associate/reopen proof on recoverable state; do not create another identity to manufacture proof. |
+| Popup / surface / conversation / full-view identity | `SavedStatblockSession.test.tsx`27/27, `NativeObjectStatblock.test.tsx`4/4, `NativeGraphObjectPreview.test.tsx`5/5, `StatblockPage.test.tsx`6/6 | Both retained exact versions are readable with matching mechanics digests; the newer revision has its original parent and one asset binding. The controlled cross-entry-point UI journey, caller position and draft preservation remain unproved after recovery. |
 | Portrait generation/selection, Save/reload and stale conflicts | Existing revision editor and portrait owner tests; same editor survives inline/popup moves, unknown Save and version refusal | Current end-to-end generation/review/selection/Save proof and source navigation. Existing portrait or mocked selection is not a new generation witness. |
-| Complete adoption/demolition inventory | Current caller decisions above; #2286/#2310/#2311/#2312 retirements | Resolve the remaining Plan diagnostic/activation closure's CI-owned dependency. Retain necessary classic exact recovery until admission is fully audited. |
+| Complete adoption/demolition inventory | Current caller decisions above; #2286/#2310/#2311/#2312 retirements | Resolve the remaining Plan diagnostic/activation closure's CI-owned dependency. #2318 settles the selected-card leaf; #2319 settles the missing fresh Build-reference basis. Retain exact classic recovery readers. |
 
 ## Evidence locations and qualification limits
 
@@ -109,6 +113,32 @@ runtime configuration or another provenance authority:
   removes exactly ten passing exclusive cases from qualified parent7445/164,
   with no added/newly failing cases or changed shared first-line causes.
   The full diagnostic remains red, not release-qualified.
+- `reference-selected-card-source-merge.json` and
+  `reference-selected-card-9b07f7f96/{source-audit,discovered-comparison}.json`:
+  #2318's exact reviewed source equals its merge tree. Nine CI guards and exact
+  local hosted frontend/build pass. Discovered7412/164 removes exactly23 passing
+  private cases, keeps the nine fallback-model cases and introduces no new failure
+  or changed shared first-line cause. The registered capability remains intact.
+- `reference-build-admission-7b6afef13/{source-merge,owning-comparison}.json`:
+  #2319's three owning blobs equal the reviewed head at its actual merge.
+  The original four orphan-reference HTTP cases fail before the repair; all eight
+  negative/positive cases pass afterward. Query-and-answer1179 passes at exact
+  7b6afef13c09a6daab843a8f449546d12d92bf1f. The wider backend diagnostic remains
+  82fail/2error on both base and candidate with identical IDs/error lines; candidate
+  adds eight passes. These are not a whole-current-main backend qualification.
+  The initial hosted sample's ten LocalWorld failures remain retained; exact-base
+  and exact-candidate recheck pass/validate with identical frontend/CI trees. The
+  nondeterministic UI failures were not repaired by this backend change.
+- `runtime-recovery-20261109/ooze-retained-identity-audit-20261109.json` and
+  `ooze-native-admission-audit-20261109.json`: the original draft/acceptance files
+  still match their protected hashes; existing typed invariants agree with the
+  surviving APP association and committed revision operation. Core's existing
+  read context and EntityReadService admit the exact creature at the native head.
+  Local DungeonMind GETs return original and selected exact statblock revisions
+  with valid canonical mechanics digests; the selected version has one asset
+  binding and the original parent. APP remains at0143, and neither database was
+  modified. This is surviving-state/read proof, not fresh generation, media
+  delivery, full UI editing, current Buddy authorization or activation proof.
 - `play-object-backend-b413d2e57/{query,reference-owners}.log`: retained exact
   b413d2e57ea1fa7e7eb340dbd9af6596afc21b50 records of1142 query-and-answer and145
   owner tests passing. These are historical backend qualification, not a new

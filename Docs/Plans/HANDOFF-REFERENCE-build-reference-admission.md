@@ -1,5 +1,14 @@
 # REFERENCE: require the Build basis for selected references
 
+Status: SOURCE SETTLED. PR#2319 merged as
+`a2716bdec99f0020aafe2f3b473d6a1d2f4d78f6` after independent review of exact
+head `7b6afef13c09a6daab843a8f449546d12d92bf1f` and local verification.
+The source write lease is released. Runtime activation and complete goal proof
+remain held/open as recorded in HANDOFF-REFERENCE-adoption-inventory.md.
+The original execution record below is historical, not an active write lease.
+
+---
+
 Status: ACTIVE, PRIME-owned serial repair from verified main
 7953f83c434fc5fe4f1cc0b7f71a065a4721576e on
 codex/reference-build-admission-basis, existing buddy-context-loop checkout.
