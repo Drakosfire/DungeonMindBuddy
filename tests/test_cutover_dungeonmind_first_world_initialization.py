@@ -1617,7 +1617,7 @@ def test_prepare_unavailability_is_not_invalid_choice_feedback(native_first_worl
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("changed", ["commitment", "source", "span_index"])
+@pytest.mark.parametrize("changed", ["commitment", "source", "span_index", "source_binding"])
 def test_frozen_source_changes_never_reach_initializer(native_first_world_client, monkeypatch, changed):
     from apps.live_control_server.services.graph_run_registry import get_extraction_run
     from application_state.ingest.components import get_component_bytes
@@ -1628,23 +1628,34 @@ def test_frozen_source_changes_never_reach_initializer(native_first_world_client
     spy = _install_preflight_spy(monkeypatch, world_root)
     if changed == "commitment":
         plan["sourceEvidenceSha256"] = "sha256:" + "f" * 64
-    else:
-        # Current ingestion opens exact DB components, never these files.
-        # Change the retained component under a new valid digest, leaving the
-        # prepared plan's frozen run/source commitment unchanged.
+    elif changed == "source":
+        from application_state.source import service as source_service
+        read_source = source_service.get_source_markdown
         run = get_extraction_run(repo, run_id)
-        kind = "source_artifact" if changed == "source" else "source_span_index"
-        ref = run.components[kind]
-        if changed == "source":
-            # Source bodies are immutable at their own source-store owner,
-            # not ingest outputs. Fault only this run's frozen source binding.
+        original = read_source(source_artifact_id=run.source_artifact_id,
+            content_sha256=run.components["source_artifact"].sha256)
+        assert original is not None
+        faulted = []
+        def corrupt_read(**kwargs):
+            record = read_source(**kwargs)
+            if record is not None and record.source_artifact_id == run.source_artifact_id:
+                faulted.append(record.content_sha256)
+                return record.model_copy(update={"markdown": "Changed frozen source."})
+            return record
+        monkeypatch.setattr(source_service, "get_source_markdown", corrupt_read)
+    else:
+        run = get_extraction_run(repo, run_id)
+        if changed == "source_binding":
+            # A separate fault changes the run binding, not immutable bytes.
             from apps.live_control_server.services.source_artifact_registry import load_registered_source_artifact_bytes
-            _, original = load_registered_source_artifact_bytes(repo, run.source_artifact_id)
+            _, original_bytes = load_registered_source_artifact_bytes(repo, run.source_artifact_id)
             _reseal_extraction_component_digest(
-                run_id, kind=kind, digest=hashlib.sha256(b"Changed frozen source.").hexdigest(),
+                run_id, kind="source_artifact", digest=hashlib.sha256(b"Changed frozen source.").hexdigest(),
             )
-            assert load_registered_source_artifact_bytes(repo, run.source_artifact_id)[1] == original
+            assert load_registered_source_artifact_bytes(repo, run.source_artifact_id)[1] == original_bytes
         else:
+            kind = "source_span_index"
+            ref = run.components[kind]
             current = get_component_bytes(run_id=run_id, kind=kind, content_sha256=ref.sha256)
             index = json.loads(current)
             index["spans"][0]["start_line"] += 1
@@ -1656,6 +1667,14 @@ def test_frozen_source_changes_never_reach_initializer(native_first_world_client
     assert response.status_code in {409, 422}, response.text
     assert spy.initializations == spy.preflights == 0
     assert _counts(dsn, NATIVE_RESERVED_WORLD_ID)["revisions"] == 0
+    if changed == "source":
+        assert faulted
+        # Call the original real service to prove the retained body/metadata
+        # and run binding were never rewritten by the read fault.
+        assert read_source(source_artifact_id=run.source_artifact_id,
+            content_sha256=run.components["source_artifact"].sha256) == original
+        assert get_extraction_run(repo, run_id) == run
+
 
 
 @pytest.mark.integration

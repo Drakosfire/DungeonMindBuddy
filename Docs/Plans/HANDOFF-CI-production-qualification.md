@@ -414,3 +414,23 @@ that API; no synthetic mutable source owner is introduced. Span variant persists
 real changed output under its new digest. Original request422/409, zero preflight
 and zero native revision checks remain. Activation failure now occurs at actual
 APP catalog.save_world with ApplicationStateUnavailableError, then real retry.
+
+Independent review ofc04 identified a coverage gap before approval: changing a
+run's source digest tests binding drift, not the original source-byte corruption
+path. Preserve[source] as a real source-service read fault: read the exact stored
+record, change only returned Markdown with original metadata, and require the
+actual registry digest check to reject it. Assert the fault was exercised and
+the real stored body/metadata and run binding remain unchanged. Retain the
+binding fault as one additional[source_binding] case; all three original
+parameter IDs and their rejection/zero-publication assertions remain. No
+production corruption, fallback, exclusion or compatibility relaxation.
+
+Corrected author boundary verification: full three native owning modules, the
+nine additional original selected cases and71auth/CI checks collect138cases;
+133pass/5fail31.72s, no errors. All original54subset IDs remain49pass/5fail;
+one new source_binding case passes separately. The real source-body fault
+[source] passes with fault-exercised, immutable-store and unchanged-run checks.
+Both named APP/Core clusters cleaned. The five remaining IDs are unchanged:
+two unavailable authored-selection snapshots, two managed/native-ID count
+assumptions, and one missing durable synthetic extraction output. Independent
+review must cover the corrected cumulative head before any disposition.
