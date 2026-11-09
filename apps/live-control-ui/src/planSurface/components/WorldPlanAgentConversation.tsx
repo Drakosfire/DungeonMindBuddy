@@ -403,8 +403,7 @@ function readPendingPlayTurn(worldId: string, serialized: string|null = window.l
       || !isRecord(value.request.graph_request)||value.request.graph_request.mode!=='world'
       || !isAuthoredReferences(value.request.authored_references,worldId)
       || value.request.authored_references.schema!=='dmb_authored_references_v2'
-      || !value.request.authored_references.references.length
-      || value.request.authored_references.references.some(ref=>ref.schema!=='dmb_authored_source_reference_v1')))
+      || !value.request.authored_references.references.length))
     || value.request.graph_selection !== null || typeof value.request.message !== "string"
     || !value.request.message.trim()) {
     throw new Error("The saved Play request is malformed. It was retained and cannot be retried automatically.");
@@ -1725,8 +1724,7 @@ function isHistoryTurn(
     return isAuthoredReferences(references,worldId)&&isRecord(value.provenance)
       &&(['plan','build'].includes(String(value.provenance.surface_id))
         || value.provenance.surface_id==='play' && references.schema==='dmb_authored_references_v2'
-          && references.references.length>0
-          && references.references.every(ref=>ref.schema==='dmb_authored_source_reference_v1'))
+          && references.references.length>0)
       &&isHistoryTurn(envelope,schema,worldId);
   }
   if(Object.hasOwn(value,'retry_context')){
@@ -4702,8 +4700,8 @@ export function WorldPlanAgentConversation({
     }
     if(!composerReferencesReady){setError('The local reference selection needs recovery; no request was sent.');return;}
     const referenceInput=composerReferences.length?authoredReferences(composerReferences):undefined;
-    if(referenceInput&&(!useWorldGraphForAsk||referenceInput.references.some(ref=>ref.schema!=='dmb_authored_source_reference_v1'))){
-      setError('Enable World context and select only sources or passages for this Play request. Nothing was sent.');return;
+    if(referenceInput&&!useWorldGraphForAsk){
+      setError('Enable World context to include references in this Play request. Nothing was sent.');return;
     }
     const referenceDraftAtSubmit=composerReferenceState.draft;
     const request: WorldPlayAgentTurnRequestV1 = {
@@ -7254,7 +7252,7 @@ export function WorldPlanAgentConversation({
           aria-describedby={`world-plan-agent-composer-hint${buildSourceMissing ? ` ${BUILD_SOURCE_REQUIRED_DESCRIPTION_ID}` : ""}`}
         />
         {referenceWorld&&referencePage&&<>
-          <SurfaceGraphReferenceInput triggerHost={referenceTriggerHost} worldId={referenceWorld} sourceOnly={isReadOnly&&!isBuild} label={isBuild?"Message Graph context":isReadOnly?"Play request references":"Plan request references"} value={composerReferences} disabled={(isReadOnly?!currentReadOnlyContext:!scopeMatches)||!composerReferencesReady||isReadOnly&&!isBuild&&playEditMode} onChange={changeComposerReferences}/>
+          <SurfaceGraphReferenceInput triggerHost={referenceTriggerHost} worldId={referenceWorld} label={isBuild?"Message Graph context":isReadOnly?"Play request references":"Plan request references"} value={composerReferences} disabled={(isReadOnly?!currentReadOnlyContext:!scopeMatches)||!composerReferencesReady||isReadOnly&&!isBuild&&playEditMode} onChange={changeComposerReferences}/>
           {composerReferenceState.error&&<p role="alert">{composerReferenceState.error}</p>}
           {!isBuild&&composerReferences.length>0&&!useWorldGraphForAsk&&<p role="note">Enable World context to include these references, or remove them before sending.</p>}
           {!isBuild&&composerReferences.length>0&&composerIntentCorrection&&<button type="button" onClick={()=>setComposerIntentCorrection(null)}>Use Automatic</button>}

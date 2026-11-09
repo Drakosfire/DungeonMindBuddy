@@ -912,11 +912,8 @@ class PlayGraphIntentV1(SubmittedTurnIntentV1):
             raise ValueError("Native Play Graph requires exact Run edition and current World-only intent")
         if self.authored_references is not None:
             if not self.authored_references.references:
-                raise ValueError('Play references must name selected sources')
+                raise ValueError('Play references must name selected objects or sources')
             self.authored_references.require_world(self.world_id)
-            from .authored_graph_references import AuthoredSourceReferenceV1
-            if any(not isinstance(ref, AuthoredSourceReferenceV1) for ref in self.authored_references.references):
-                raise ValueError('Play source references do not admit object selections')
         return self
 
 class PlayRulesIntentV1(SubmittedTurnIntentV1):
