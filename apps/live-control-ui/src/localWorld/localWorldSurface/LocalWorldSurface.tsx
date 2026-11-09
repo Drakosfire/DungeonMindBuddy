@@ -6,6 +6,7 @@ import { openIndexedDbLocalWorldRepository, LOCAL_WORLD_DATABASE_NAME } from "..
 import { hasPendingWorldNotesDrafts } from "../localWorldDocumentAuthoring";
 import type { CommitSemanticResult, LocalWorldConflictCandidate, LocalWorldId, LocalWorldPackageRepository, LocalWorldRecord, WriteLayoutResult } from "../localWorldRepository";
 import { createLocalWorldGraphAdapter } from "../worldGraphCanvas/localWorldGraphAdapter";
+import type { WorldGraphEditorDraft } from "../worldGraphCanvas/WorldGraphCanvas";
 import { LocalWorldNotesEditor } from "./LocalWorldNotesEditor";
 import "./localWorldSurface.css";
 
@@ -19,6 +20,12 @@ interface PendingTitleDraft {
 }
 
 const pendingTitleDrafts = new Map<LocalWorldId, PendingTitleDraft>();
+interface SavedGraphEditorDraft {
+  readonly version: number;
+  readonly draft: WorldGraphEditorDraft | null;
+}
+const graphEditorDrafts = new Map<LocalWorldId, SavedGraphEditorDraft>();
+const graphEditorDraftListeners = new Set<() => void>();
 const pendingLocalWrites = new Set<symbol>();
 let beforeUnloadProtectionInstalled = false;
 const MAX_GRAPH_EDITOR_SESSIONS = 3;
@@ -30,7 +37,8 @@ function warnBeforeLeavingWithLocalWork(event: BeforeUnloadEvent): void {
 
 function syncBeforeUnloadProtection(): void {
   if (typeof window === "undefined") return;
-  const shouldProtect = pendingTitleDrafts.size > 0 || hasPendingWorldNotesDrafts() || pendingLocalWrites.size > 0;
+  const hasGraphDraft = [...graphEditorDrafts.values()].some((item) => item.draft !== null);
+  const shouldProtect = pendingTitleDrafts.size > 0 || hasGraphDraft || hasPendingWorldNotesDrafts() || pendingLocalWrites.size > 0;
   if (shouldProtect && !beforeUnloadProtectionInstalled) {
     window.addEventListener("beforeunload", warnBeforeLeavingWithLocalWork);
     beforeUnloadProtectionInstalled = true;
@@ -38,6 +46,24 @@ function syncBeforeUnloadProtection(): void {
     window.removeEventListener("beforeunload", warnBeforeLeavingWithLocalWork);
     beforeUnloadProtectionInstalled = false;
   }
+}
+
+function readGraphEditorDraft(worldId: LocalWorldId): SavedGraphEditorDraft {
+  return graphEditorDrafts.get(worldId) ?? { version: 0, draft: null };
+}
+
+function writeGraphEditorDraft(worldId: LocalWorldId, draft: WorldGraphEditorDraft | null, version: number, expectedVersion?: number): void {
+  const current = readGraphEditorDraft(worldId);
+  if (expectedVersion !== undefined && current.version !== expectedVersion) return;
+  if (version < current.version) return;
+  graphEditorDrafts.set(worldId, { version, draft });
+  syncBeforeUnloadProtection();
+  for (const listener of graphEditorDraftListeners) listener();
+}
+
+function subscribeGraphEditorDrafts(listener: () => void): () => void {
+  graphEditorDraftListeners.add(listener);
+  return () => graphEditorDraftListeners.delete(listener);
 }
 
 function setPendingTitleDraft(worldId: LocalWorldId, draft: string, committedTitle: string): void {
@@ -168,6 +194,7 @@ export function LocalWorldSurface({
   const recordRef = useRef<LocalWorldRecord | null>(record);
   recordRef.current = record;
   const [graphSessions, setGraphSessions] = useState<readonly LocalWorldRecord[]>([]);
+  const [, setGraphDraftRevision] = useState(0);
   const [graphConflict, setGraphConflict] = useState<LocalWorldConflictCandidate | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [firstObjectName, setFirstObjectName] = useState("");
@@ -183,6 +210,7 @@ export function LocalWorldSurface({
   const busyRef = useRef(false);
   const closeRepositoryRef = useRef<(() => void) | null>(null);
   const saveNotesRef = useRef<(() => void) | null>(null);
+  useEffect(() => subscribeGraphEditorDrafts(() => setGraphDraftRevision((revision) => revision + 1)), []);
   const updateActiveRecord = useCallback((nextRecord: LocalWorldRecord | null) => {
     recordRef.current = nextRecord;
     setRecord(nextRecord);
@@ -726,6 +754,8 @@ export function LocalWorldSurface({
                 <WorldGraphCanvas
                   key={sessionRecord.snapshot.worldId}
                   record={canvasRecord}
+                  editorDraftState={readGraphEditorDraft(sessionRecord.snapshot.worldId)}
+                  onEditorDraftChange={(draft, version, expectedVersion) => writeGraphEditorDraft(sessionRecord.snapshot.worldId, draft, version, expectedVersion)}
                   onRenameObject={(submitted, objectId, name) => executeGraphSemantic(submitted, () => graphAdapter.renameObject(submitted, objectId, name))}
                   onCreateObject={(submitted, input) => executeGraphSemantic(submitted, () => graphAdapter.createObject(submitted, input))}
                   onCreateRelationship={(submitted, input) => executeGraphSemantic(submitted, () => graphAdapter.createRelationship(submitted, input))}

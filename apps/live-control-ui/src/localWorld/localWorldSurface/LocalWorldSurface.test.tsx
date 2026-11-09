@@ -217,6 +217,7 @@ describe("local World Surface", () => {
     const saved = await repository.readWorld(created.record.snapshot.worldId);
     expect(saved.status).toBe("found");
     if (saved.status === "found") expect(saved.record.snapshot.title).toBe("Remote rename");
+    await user.click(within(screen.getByRole("region", { name: "Local World graph canvas" })).getByRole("button", { name: "Cancel" }));
   });
 
   it("preserves a genuinely dirty title through an asynchronous graph conflict and keeps it intentionally saveable", async () => {
@@ -270,6 +271,7 @@ describe("local World Surface", () => {
     await user.click(screen.getByRole("button", { name: "Save title" }));
     expect(await screen.findByRole("heading", { name: "My intentional title draft" })).toBeVisible();
     expect((await repository.readConflictCandidates(created.record.snapshot.worldId)).status).toBe("found");
+    await user.click(within(screen.getByRole("region", { name: "Local World graph canvas" })).getByRole("button", { name: "Cancel" }));
   });
 
   it("preserves graph form drafts through World A to B to A navigation", async () => {
@@ -293,6 +295,7 @@ describe("local World Surface", () => {
     expect(await screen.findByRole("heading", { name: "World B" })).toBeVisible();
     await user.click(await screen.findByRole("button", { name: /World A/ }));
     expect(await screen.findByLabelText("New name")).toHaveValue("Unsaved idea");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
   });
 
   it("recovers a graph draft after a failed write and World A to B to A navigation", async () => {
@@ -327,6 +330,169 @@ describe("local World Surface", () => {
     await user.click(await screen.findByRole("button", { name: /World A/ }));
     expect(await screen.findByLabelText("New name")).toHaveValue("Recoverable proposal");
     expect(screen.getByRole("button", { name: "Save name" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+  });
+
+  it("recovers graph drafts after Surface unmount and keeps a newer draft when an older request succeeds", async () => {
+    let pauseNextSemanticEdit = false;
+    let release!: () => void;
+    let started!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const writeStarted = new Promise<void>((resolve) => { started = resolve; });
+    const repository = new InMemoryLocalWorldRepository({ beforeCommit: async (point) => {
+      if (point === "semantic-edit" && pauseNextSemanticEdit) {
+        pauseNextSemanticEdit = false;
+        started();
+        await gate;
+      }
+    } });
+    const created = await repository.createWorld({ title: "A returning World" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+    const user = userEvent.setup();
+    const firstSurface = renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /A returning World/ }));
+    await user.click(screen.getByRole("button", { name: "Start with an example graph" }));
+    await screen.findByRole("button", { name: "Mara Venn, person" });
+    await user.click(screen.getByRole("button", { name: "Mara Venn, person" }));
+    await user.click(screen.getByRole("button", { name: "Rename Mara Venn" }));
+    await user.clear(screen.getByLabelText("New name"));
+    await user.type(screen.getByLabelText("New name"), "Older request");
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    pauseNextSemanticEdit = true;
+    await user.click(screen.getByRole("button", { name: "Save name" }));
+    await writeStarted;
+
+    firstSurface.unmount();
+    const secondSurface = renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /A returning World/ }));
+    expect(await screen.findByLabelText("New name")).toHaveValue("Older request");
+    await user.clear(screen.getByLabelText("New name"));
+    await user.type(screen.getByLabelText("New name"), "Newer request");
+    expect(beforeUnloadIsPrevented()).toBe(true);
+
+    release();
+    await waitFor(() => expect(screen.getByLabelText("New name")).toHaveValue("Newer request"));
+    const committed = await repository.readWorld(created.record.snapshot.worldId);
+    expect(committed.status).toBe("found");
+    if (committed.status === "found") expect(committed.record.snapshot.objects[0].name).toBe("Older request");
+    expect(beforeUnloadIsPrevented()).toBe(true);
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(beforeUnloadIsPrevented()).toBe(false);
+    secondSurface.unmount();
+  });
+
+  it("clears a restored graph draft and unload warning when its exact pending request commits", async () => {
+    let pauseNextSemanticEdit = false;
+    let release!: () => void;
+    let started!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const writeStarted = new Promise<void>((resolve) => { started = resolve; });
+    const repository = new InMemoryLocalWorldRepository({ beforeCommit: async (point) => {
+      if (point === "semantic-edit" && pauseNextSemanticEdit) { pauseNextSemanticEdit = false; started(); await gate; }
+    } });
+    const created = await repository.createWorld({ title: "Resolved graph draft" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+    const user = userEvent.setup();
+    const firstSurface = renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Resolved graph draft/ }));
+    await user.click(screen.getByRole("button", { name: "Start with an example graph" }));
+    await screen.findByRole("button", { name: "Mara Venn, person" });
+    await user.click(screen.getByRole("button", { name: "Mara Venn, person" }));
+    await user.click(screen.getByRole("button", { name: "Rename Mara Venn" }));
+    await user.clear(screen.getByLabelText("New name"));
+    await user.type(screen.getByLabelText("New name"), "Committed rename");
+    pauseNextSemanticEdit = true;
+    await user.click(screen.getByRole("button", { name: "Save name" }));
+    await writeStarted;
+    firstSurface.unmount();
+
+    renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Resolved graph draft/ }));
+    expect(await screen.findByLabelText("New name")).toHaveValue("Committed rename");
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    release();
+
+    await waitFor(async () => {
+      const committed = await repository.readWorld(created.record.snapshot.worldId);
+      expect(committed.status === "found" && committed.record.snapshot.objects[0].name).toBe("Committed rename");
+    });
+    await waitFor(() => expect(screen.queryByLabelText("New name")).toBeNull());
+    await waitFor(() => expect(beforeUnloadIsPrevented()).toBe(false));
+  });
+
+  it("keeps a failed graph draft and unload warning across Surface unmount/remount", async () => {
+    let failNextSemanticEdit = false;
+    const repository = new InMemoryLocalWorldRepository({ beforeCommit: (point) => {
+      if (point === "semantic-edit" && failNextSemanticEdit) {
+        failNextSemanticEdit = false;
+        throw new Error("Graph transaction aborted.");
+      }
+    } });
+    const created = await repository.createWorld({ title: "Failed graph route" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+    const user = userEvent.setup();
+    const firstSurface = renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Failed graph route/ }));
+    await user.click(screen.getByRole("button", { name: "Start with an example graph" }));
+    await screen.findByRole("button", { name: "Mara Venn, person" });
+    await user.click(screen.getByRole("button", { name: "Mara Venn, person" }));
+    await user.click(screen.getByRole("button", { name: "Rename Mara Venn" }));
+    await user.clear(screen.getByLabelText("New name"));
+    await user.type(screen.getByLabelText("New name"), "Recover after route change");
+    failNextSemanticEdit = true;
+    await user.click(screen.getByRole("button", { name: "Save name" }));
+    expect(await screen.findAllByText("Graph transaction aborted.")).toHaveLength(2);
+    expect(beforeUnloadIsPrevented()).toBe(true);
+
+    firstSurface.unmount();
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Failed graph route/ }));
+    expect(await screen.findByLabelText("New name")).toHaveValue("Recover after route change");
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(beforeUnloadIsPrevented()).toBe(false);
+  });
+
+  it("keeps the unload warning until graph drafts from every World are resolved", async () => {
+    const repository = new InMemoryLocalWorldRepository();
+    const first = await repository.createWorld({ title: "First World" });
+    const second = await repository.createWorld({ title: "Second World" });
+    expect(first.status).toBe("created");
+    expect(second.status).toBe("created");
+    if (first.status !== "created" || second.status !== "created") return;
+    const user = userEvent.setup();
+    const surface = renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /First World/ }));
+    await user.click(screen.getByRole("button", { name: "Start with an example graph" }));
+    await screen.findByRole("button", { name: "Mara Venn, person" });
+    await user.click(screen.getByRole("button", { name: "Mara Venn, person" }));
+    await user.click(screen.getByRole("button", { name: "Rename Mara Venn" }));
+    await user.clear(screen.getByLabelText("New name"));
+    await user.type(screen.getByLabelText("New name"), "First candidate");
+    await user.click(await screen.findByRole("button", { name: /Second World/ }));
+    await user.click(screen.getByRole("button", { name: "Start with an example graph" }));
+    await screen.findByRole("button", { name: "Mara Venn, person" });
+    await user.click(screen.getByRole("button", { name: "Mara Venn, person" }));
+    await user.click(screen.getByRole("button", { name: "Rename Mara Venn" }));
+    const activeCanvas = within(screen.getByRole("region", { name: "Local World graph canvas" }));
+    await user.clear(activeCanvas.getByLabelText("New name"));
+    await user.type(activeCanvas.getByLabelText("New name"), "Second candidate");
+
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    await user.click(await screen.findByRole("button", { name: /First World/ }));
+    expect(await within(screen.getByRole("region", { name: "Local World graph canvas" })).findByLabelText("New name")).toHaveValue("First candidate");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    await user.click(await screen.findByRole("button", { name: /Second World/ }));
+    expect(await within(screen.getByRole("region", { name: "Local World graph canvas" })).findByLabelText("New name")).toHaveValue("Second candidate");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(beforeUnloadIsPrevented()).toBe(false);
+    surface.unmount();
   });
 
   it("lets a blank World begin with a custom first object", async () => {

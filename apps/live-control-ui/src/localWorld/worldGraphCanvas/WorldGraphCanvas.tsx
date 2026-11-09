@@ -16,6 +16,8 @@ const NODE_HEIGHT = 76;
 
 export interface WorldGraphCanvasProps {
   readonly record: LocalWorldRecord;
+  readonly editorDraftState?: { readonly version: number; readonly draft: WorldGraphEditorDraft | null };
+  readonly onEditorDraftChange?: (draft: WorldGraphEditorDraft | null, version: number, expectedVersion?: number) => void;
   readonly projectionOptions?: GraphProjectionOptions;
   readonly onRenameObject?: (record: LocalWorldRecord, objectId: LocalObjectId, name: string) => Promise<CommitSemanticResult>;
   readonly onCreateObject?: (record: LocalWorldRecord, input: NewLocalGraphObject) => Promise<CommitSemanticResult>;
@@ -23,6 +25,26 @@ export interface WorldGraphCanvasProps {
   readonly onMoveObjects?: (record: LocalWorldRecord, positions: Readonly<Record<string, { readonly x: number; readonly y: number }>>) => Promise<WriteLayoutResult>;
   readonly onSemanticResult?: (result: CommitSemanticResult) => void;
   readonly onLayoutResult?: (result: WriteLayoutResult) => void;
+}
+
+export interface WorldGraphEditorDraft {
+  readonly version: number;
+  readonly selectedIds: readonly LocalObjectId[];
+  readonly renameId: LocalObjectId | null;
+  readonly renameValue: string;
+  readonly showObjectForm: boolean;
+  readonly objectName: string;
+  readonly objectKind: string;
+  readonly showRelationshipForm: boolean;
+  readonly relationshipKind: string;
+}
+
+function emptyEditorDraft(version = 0): WorldGraphEditorDraft {
+  return { version, selectedIds: [], renameId: null, renameValue: "", showObjectForm: false, objectName: "", objectKind: "person", showRelationshipForm: false, relationshipKind: "" };
+}
+
+function hasEditorDraft(draft: WorldGraphEditorDraft): boolean {
+  return draft.renameId !== null || draft.showObjectForm || draft.objectName.length > 0 || draft.showRelationshipForm || draft.relationshipKind.length > 0;
 }
 
 interface EdgeGeometry {
@@ -100,6 +122,8 @@ function messageForLayoutResult(result: WriteLayoutResult): string {
 
 export function WorldGraphCanvas({
   record,
+  editorDraftState,
+  onEditorDraftChange,
   projectionOptions,
   onRenameObject,
   onCreateObject,
@@ -110,14 +134,16 @@ export function WorldGraphCanvas({
 }: WorldGraphCanvasProps) {
   const projection = projectLocalWorldGraph(record, projectionOptions);
   const markerId = `world-graph-arrow-${useId().replace(/:/g, "")}`;
-  const [selectedIds, setSelectedIds] = useState<LocalObjectId[]>([]);
-  const [renameId, setRenameId] = useState<LocalObjectId | null>(null);
-  const [renameValue, setRenameValue] = useState("");
-  const [showObjectForm, setShowObjectForm] = useState(false);
-  const [showRelationshipForm, setShowRelationshipForm] = useState(false);
-  const [objectName, setObjectName] = useState("");
-  const [objectKind, setObjectKind] = useState("person");
-  const [relationshipKind, setRelationshipKind] = useState("");
+  const initialDraft = editorDraftState?.draft ?? emptyEditorDraft(editorDraftState?.version ?? 0);
+  const [selectedIds, setSelectedIds] = useState<LocalObjectId[]>([...initialDraft.selectedIds]);
+  const [renameId, setRenameId] = useState<LocalObjectId | null>(initialDraft.renameId);
+  const [renameValue, setRenameValue] = useState(initialDraft.renameValue);
+  const [showObjectForm, setShowObjectForm] = useState(initialDraft.showObjectForm);
+  const [showRelationshipForm, setShowRelationshipForm] = useState(initialDraft.showRelationshipForm);
+  const [objectName, setObjectName] = useState(initialDraft.objectName);
+  const [objectKind, setObjectKind] = useState(initialDraft.objectKind);
+  const [relationshipKind, setRelationshipKind] = useState(initialDraft.relationshipKind);
+  const editorDraftRef = useRef<WorldGraphEditorDraft>(initialDraft);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [drag, setDrag] = useState<{ id: LocalObjectId; pointerX: number; pointerY: number; x: number; y: number } | null>(null);
@@ -134,18 +160,43 @@ export function WorldGraphCanvas({
     renameVersionRef.current += 1;
     objectNameVersionRef.current += 1;
     relationshipKindVersionRef.current += 1;
-    setSelectedIds([]);
-    setRenameId(null);
-    setRenameValue("");
-    setShowObjectForm(false);
-    setShowRelationshipForm(false);
-    setObjectName("");
-    setRelationshipKind("");
+    const nextDraft = editorDraftState?.draft ?? emptyEditorDraft(editorDraftState?.version ?? 0);
+    editorDraftRef.current = nextDraft;
+    setSelectedIds([...nextDraft.selectedIds]);
+    setRenameId(nextDraft.renameId);
+    setRenameValue(nextDraft.renameValue);
+    setShowObjectForm(nextDraft.showObjectForm);
+    setShowRelationshipForm(nextDraft.showRelationshipForm);
+    setObjectName(nextDraft.objectName);
+    setObjectKind(nextDraft.objectKind);
+    setRelationshipKind(nextDraft.relationshipKind);
     setBusy(false);
     setStatus("");
     setDrag(null);
   }
   const dragMoved = useRef(false);
+
+  function publishEditorDraft(patch: Partial<Omit<WorldGraphEditorDraft, "version">>) {
+    const current = editorDraftRef.current;
+    const next = { ...current, ...patch, version: current.version + 1 };
+    editorDraftRef.current = next;
+    if (hasEditorDraft(next)) onEditorDraftChange?.(next, next.version);
+    else onEditorDraftChange?.(null, next.version, current.version);
+  }
+
+  useEffect(() => {
+    if (!editorDraftState || editorDraftState.version <= editorDraftRef.current.version) return;
+    const next = editorDraftState.draft ?? emptyEditorDraft(editorDraftState.version);
+    editorDraftRef.current = next;
+    setSelectedIds([...next.selectedIds]);
+    setRenameId(next.renameId);
+    setRenameValue(next.renameValue);
+    setShowObjectForm(next.showObjectForm);
+    setObjectName(next.objectName);
+    setObjectKind(next.objectKind);
+    setShowRelationshipForm(next.showRelationshipForm);
+    setRelationshipKind(next.relationshipKind);
+  }, [editorDraftState]);
 
   useEffect(() => {
     instanceGenerationRef.current += 1;
@@ -176,10 +227,12 @@ export function WorldGraphCanvas({
 
   function selectNode(id: LocalObjectId) {
     if (showRelationshipForm) relationshipKindVersionRef.current += 1;
-    setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+    const next = selectedIds.includes(id) ? selectedIds.filter((item) => item !== id) : [...selectedIds, id];
+    setSelectedIds(next);
+    publishEditorDraft({ selectedIds: showRelationshipForm ? next : [], showRelationshipForm, relationshipKind });
   }
 
-  async function runSemantic(action: () => Promise<CommitSemanticResult>): Promise<CommitSemanticResult | null> {
+  async function runSemantic(action: () => Promise<CommitSemanticResult>, submittedDraftVersion?: number): Promise<CommitSemanticResult | null> {
     if (busy) return null;
     const submittedWorldId = record.snapshot.worldId;
     const submittedGeneration = worldGenerationRef.current;
@@ -190,6 +243,9 @@ export function WorldGraphCanvas({
       const result = await action();
       const isCurrent = instanceActiveRef.current && instanceGenerationRef.current === submittedInstanceGeneration &&
         currentWorldIdRef.current === submittedWorldId && worldGenerationRef.current === submittedGeneration;
+      if (!isCurrent && result.status === "committed" && submittedDraftVersion !== undefined) {
+        onEditorDraftChange?.(null, submittedDraftVersion + 1, submittedDraftVersion);
+      }
       if (isCurrent) {
         onSemanticResult?.(result);
         setStatus(messageForSemanticResult(result));
@@ -273,11 +329,13 @@ export function WorldGraphCanvas({
     const submittedId = renameId;
     const submittedValue = renameValue;
     const submittedVersion = renameVersionRef.current;
+    const submittedDraftVersion = editorDraftRef.current.version;
     const submittedGeneration = worldGenerationRef.current;
-    const result = await runSemantic(() => onRenameObject(record, submittedId, submittedValue));
+    const result = await runSemantic(() => onRenameObject(record, submittedId, submittedValue), submittedDraftVersion);
     if (result?.status === "committed" && currentWorldIdRef.current === record.snapshot.worldId && worldGenerationRef.current === submittedGeneration && renameVersionRef.current === submittedVersion && renameId === submittedId) {
       setRenameId(null);
       setRenameValue("");
+      publishEditorDraft({ renameId: null, renameValue: "" });
     }
   }
 
@@ -286,11 +344,13 @@ export function WorldGraphCanvas({
     if (!onCreateObject) return;
     const input = { name: objectName, kind: objectKind };
     const submittedVersion = objectNameVersionRef.current;
+    const submittedDraftVersion = editorDraftRef.current.version;
     const submittedGeneration = worldGenerationRef.current;
-    const result = await runSemantic(() => onCreateObject(record, input));
+    const result = await runSemantic(() => onCreateObject(record, input), submittedDraftVersion);
     if (result?.status === "committed" && currentWorldIdRef.current === record.snapshot.worldId && worldGenerationRef.current === submittedGeneration && objectNameVersionRef.current === submittedVersion) {
       setObjectName("");
       setShowObjectForm(false);
+      publishEditorDraft({ objectName: "", showObjectForm: false });
     }
   }
 
@@ -299,42 +359,59 @@ export function WorldGraphCanvas({
     if (!onCreateRelationship || selectedIds.length !== 2) return;
     const input = { fromObjectId: selectedIds[0], toObjectId: selectedIds[1], kind: relationshipKind };
     const submittedVersion = relationshipKindVersionRef.current;
+    const submittedDraftVersion = editorDraftRef.current.version;
     const submittedGeneration = worldGenerationRef.current;
-    const result = await runSemantic(() => onCreateRelationship(record, input));
+    const result = await runSemantic(() => onCreateRelationship(record, input), submittedDraftVersion);
     if (result?.status === "committed" && currentWorldIdRef.current === record.snapshot.worldId && worldGenerationRef.current === submittedGeneration && relationshipKindVersionRef.current === submittedVersion) {
       setRelationshipKind("");
       setShowRelationshipForm(false);
+      publishEditorDraft({ relationshipKind: "", showRelationshipForm: false });
     }
   }
 
   return (
     <section className="world-graph-canvas" aria-label="Local World graph canvas" aria-busy={busy}>
       <div className="world-graph-canvas__toolbar" aria-label="Graph editing tools">
-        {onCreateObject ? <button type="button" disabled={busy} onClick={() => setShowObjectForm((value) => !value)}>Add object</button> : null}
-        {onCreateRelationship && selectedIds.length === 2 ? <button type="button" disabled={busy} onClick={() => setShowRelationshipForm((value) => !value)}>Connect selected objects</button> : null}
-        {onRenameObject && selectedObject ? <button type="button" disabled={busy} onClick={() => { renameVersionRef.current += 1; setRenameId(selectedObject.id); setRenameValue(selectedObject.name); }}>Rename {selectedObject.name}</button> : null}
+        {onCreateObject ? <button type="button" disabled={busy} onClick={() => {
+          const show = !showObjectForm;
+          if (!show) setObjectName("");
+          setShowObjectForm(show);
+          publishEditorDraft({ showObjectForm: show, objectName: show ? objectName : "" });
+        }}>Add object</button> : null}
+        {onCreateRelationship && selectedIds.length === 2 ? <button type="button" disabled={busy} onClick={() => {
+          const show = !showRelationshipForm;
+          if (!show) setRelationshipKind("");
+          setShowRelationshipForm(show);
+          publishEditorDraft({ selectedIds, showRelationshipForm: show, relationshipKind: show ? relationshipKind : "" });
+        }}>Connect selected objects</button> : null}
+        {onRenameObject && selectedObject ? <button type="button" disabled={busy} onClick={() => {
+          renameVersionRef.current += 1;
+          setRenameId(selectedObject.id);
+          setRenameValue(selectedObject.name);
+          publishEditorDraft({ renameId: selectedObject.id, renameValue: selectedObject.name });
+        }}>Rename {selectedObject.name}</button> : null}
       </div>
 
       {showObjectForm && onCreateObject ? (
         <form className="world-graph-canvas__form" onSubmit={submitObject}>
-          <label>Object name<input autoFocus value={objectName} onChange={(event) => { objectNameVersionRef.current += 1; setObjectName(event.target.value); }} /></label>
-          <label>Type<select value={objectKind} onChange={(event) => { objectNameVersionRef.current += 1; setObjectKind(event.target.value); }}><option value="person">Person</option><option value="location">Location</option><option value="event">Event</option><option value="faction">Faction</option></select></label>
+          <label>Object name<input autoFocus value={objectName} onChange={(event) => { objectNameVersionRef.current += 1; setObjectName(event.target.value); publishEditorDraft({ objectName: event.target.value, objectKind }); }} /></label>
+          <label>Type<select value={objectKind} onChange={(event) => { objectNameVersionRef.current += 1; setObjectKind(event.target.value); publishEditorDraft({ objectName, objectKind: event.target.value }); }}><option value="person">Person</option><option value="location">Location</option><option value="event">Event</option><option value="faction">Faction</option></select></label>
           <button type="submit" disabled={busy || !objectName.trim()}>Create object</button>
-          <button type="button" onClick={() => setShowObjectForm(false)}>Cancel</button>
+          <button type="button" onClick={() => { setObjectName(""); setShowObjectForm(false); publishEditorDraft({ objectName: "", showObjectForm: false }); }}>Cancel</button>
         </form>
       ) : null}
       {showRelationshipForm && onCreateRelationship && selectedIds.length === 2 ? (
         <form className="world-graph-canvas__form" onSubmit={submitRelationship}>
-          <label>Relationship label<input autoFocus value={relationshipKind} onChange={(event) => { relationshipKindVersionRef.current += 1; setRelationshipKind(event.target.value); }} /></label>
+          <label>Relationship label<input autoFocus value={relationshipKind} onChange={(event) => { relationshipKindVersionRef.current += 1; setRelationshipKind(event.target.value); publishEditorDraft({ selectedIds, showRelationshipForm: true, relationshipKind: event.target.value }); }} /></label>
           <button type="submit" disabled={busy || !relationshipKind.trim()}>Create relationship</button>
-          <button type="button" onClick={() => setShowRelationshipForm(false)}>Cancel</button>
+          <button type="button" onClick={() => { setRelationshipKind(""); setShowRelationshipForm(false); publishEditorDraft({ showRelationshipForm: false, relationshipKind: "" }); }}>Cancel</button>
         </form>
       ) : null}
       {renameId && onRenameObject ? (
         <form className="world-graph-canvas__form" onSubmit={submitRename}>
-          <label>New name<input autoFocus value={renameValue} onChange={(event) => { renameVersionRef.current += 1; setRenameValue(event.target.value); }} /></label>
+          <label>New name<input autoFocus value={renameValue} onChange={(event) => { renameVersionRef.current += 1; setRenameValue(event.target.value); publishEditorDraft({ renameValue: event.target.value }); }} /></label>
           <button type="submit" disabled={busy || !renameValue.trim()}>Save name</button>
-          <button type="button" onClick={() => setRenameId(null)}>Cancel</button>
+          <button type="button" onClick={() => { setRenameId(null); setRenameValue(""); publishEditorDraft({ renameId: null, renameValue: "" }); }}>Cancel</button>
         </form>
       ) : null}
 
