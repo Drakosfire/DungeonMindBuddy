@@ -2,7 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import type {ConversationConnectedPageProposal} from '../../api/types';
 import {getAgentConnectedPageOrigin} from '../../api/liveApi';
 import {exact} from '../../shared/sourcePassageProtocol';
-import {useConnectedPageReviewHost} from '../../buildSurface/connectedPageReviewHost';
+import {useConnectedPageReviewHost} from '../../shared/connectedPageReviewHost';
 import type {SavedExcerptOrigin} from '../../api/connectedPageApi';
 
 export async function connectedReviewOrigin(raw:unknown,worldId:string,turnId:string,p:ConversationConnectedPageProposal):Promise<SavedExcerptOrigin>{
@@ -17,7 +17,7 @@ export async function connectedReviewOrigin(raw:unknown,worldId:string,turnId:st
  return o as unknown as SavedExcerptOrigin;
 }
 export function ConversationConnectedPageReview({worldId,documentId,turnId,proposal,disabled}:{worldId:string;documentId:string;turnId:string;proposal:ConversationConnectedPageProposal;disabled:boolean}){
- const host=useConnectedPageReviewHost(),[busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);
+ const host=useConnectedPageReviewHost(worldId,documentId),[busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);
  const identity=JSON.stringify([worldId,documentId,turnId,proposal]);const current=useRef<string|null>(identity);current.current=identity;
  useEffect(()=>()=>{current.current=null;},[]);
  const active=useRef(host);active.current=host;

@@ -1,3 +1,4 @@
+import {ConnectedPageReviewControl} from '../shared/ConnectedPageReviewControl';
 import {useStatblockWorkbenchProjection,STATBLOCK_WORKBENCH_TOOL,STATBLOCK_WORKBENCH_PROJECTION} from '../statblocks/statblockWorkbenchProjection';
 import {useTourNavigationOwner,useTourNavigationGuard,useTourNavigationRegistry} from '../guidedTour/Navigation';
 import {planPin as guidedPlanPin} from '../guidedTour/ownerPins';
@@ -2146,6 +2147,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         </div>}
       />
       {imageStudio.session ? <DocumentImageStudio key={mediaIdentity} initialPrompt={imageStudio.session.prompt} bridge={mediaBridge} targetLabel="Plan" onClose={imageStudio.close} /> : null}
+      {documentId&&status==='ready'&&<ConnectedPageReviewControl key={JSON.stringify([worldId,documentId])} surface="plan" worldId={worldId} documentId={documentId}/>}
       <PlanConversationDockAdapter contextLabel={focusTitle ? `${focusTitle} · Full saved Plan` : `${worldName} · Full saved Plan`} reader={(
       <main
         className="app-status world-owned-plan"
