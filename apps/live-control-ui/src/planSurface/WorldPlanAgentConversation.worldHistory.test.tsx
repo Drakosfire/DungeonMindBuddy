@@ -6445,3 +6445,37 @@ it.each(['read-failure','foreign-pointer','changed-references','changed-editor']
  expect(post).not.toHaveBeenCalled();expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep this newer draft');
  if(failure!=='changed-editor')expect(screen.getByRole('alert')).toBeInTheDocument();
 });
+
+
+it.each(['completed','interrupted'] as const)('renders selected Play passage on initial %s lightweight history without loading receipts',async status=>{
+ const {default:wire}=await import('../test/surface-native-play-http.json');
+ const selected=structuredClone(wire.request.authored_references);
+ selected.references[0]!.managed_world_id=worldId;
+ selected.references[0]!.label='Selected Play passage';
+ const provenance={...structuredClone(wire.provenance),world_id:worldId};
+ const turn={...makeTurn(1,'saved-play-reference','Use the selected Play passage',status==='completed'?'Saved Play answer':null),provenance,lifecycle_status:status};
+ const page=history('conversation-a',4,[turn]);const api=setupApi(page,false);
+ api.getMessages.mockImplementation(async()=>{const light=api.messages(page);return {...light,messages:light.messages.map(row=>({...row,authored_references:selected}))} as Awaited<ReturnType<typeof conversationLibraryApi.readActiveConversationMessages>>;});
+ render(conversationElement());await waitForConversationReady(false);
+ expect(screen.getByText('Use the selected Play passage')).toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'Inspect Selected Play passage'})).toBeInTheDocument();
+ expect(screen.queryByRole('group',{name:'World history unavailable'})).not.toBeInTheDocument();
+ expect(api.getHistory).not.toHaveBeenCalled();
+ fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'My unsent draft'}});
+ expect(screen.getByRole('button',{name:'Inspect Selected Play passage'})).toBeInTheDocument();
+ expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('My unsent draft');
+});
+
+it.each(['foreign-world','graph-selection','unknown-surface'] as const)('rejects %s in lightweight Play reference metadata',async fault=>{
+ const {default:wire}=await import('../test/surface-native-play-http.json');
+ const source={...structuredClone(wire.request.authored_references.references[0]!),managed_world_id:worldId,label:'Selected Play passage'};
+ const selected={schema:'dmb_authored_references_v2',references:[fault==='graph-selection'?{schema:'dmb_authored_graph_reference_v1',managed_world_id:worldId,native_world_id:'native',binding_version:1,graph_revision:'pinned',node_id:'node',label:'Selected Play passage'}:{...source,managed_world_id:fault==='foreign-world'?'other-world':worldId}]};
+ const provenance={...structuredClone(wire.provenance),world_id:worldId,...(fault==='unknown-surface'?{surface_id:'unknown'}:{})};
+ const turn={...makeTurn(1,'invalid-play-reference','Do not admit this selection',null),provenance,lifecycle_status:'interrupted' as const};
+ const page=history('conversation-a',4,[turn]);const api=setupApi(page,false);
+ api.getMessages.mockImplementation(async()=>{const light=api.messages(page);return {...light,messages:light.messages.map(row=>({...row,authored_references:selected}))} as Awaited<ReturnType<typeof conversationLibraryApi.readActiveConversationMessages>>;});
+ render(conversationElement());
+ expect(await screen.findByRole('group',{name:'World history unavailable'})).toBeInTheDocument();
+ expect(api.getHistory).not.toHaveBeenCalled();
+ expect(screen.queryByRole('button',{name:'Inspect Selected Play passage'})).not.toBeInTheDocument();
+});
