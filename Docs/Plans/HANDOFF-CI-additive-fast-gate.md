@@ -88,3 +88,16 @@ Preserve21case names/modes and mutation payloads, all fresh-turn assertions, rea
 validator/product code, provenance joins and source-call expectations. Do not
 reintroduce automatic full-history hydration or invent a preview producer. Other
 228cases in this module are outside this bounded family and remain untouched.
+
+Extend the same exclusive test-only lease to the two pinned-World session-evidence
+history cases in that file. Explicit Details invokes actual current full receipt
+validation; retain the original exact positive URL and negative foreign-World link
+absence assertions. Replace only retired eager-history error presentation with
+precise existing detail-owner refusal/role alert. Same two IDs, full fixture and
+foreign-World mutation unchanged; no production/API/preview projection change.
+Both full-detail responses now carry the existing deterministic correlation key
+and V3 correlated envelope, matching the lightweight row rather than fabricating
+acceptance. The only semantic difference between positive and negative fixtures
+remains the World in the evidence URL. Add an assertion that the actual limit1,
+beforeSequence2,includeTurnCorrelation full-detail read occurs. Exact9d baseline:
+0pass2fail4.29s. Candidate with prior21controls:23pass3.62s; full module pending.
