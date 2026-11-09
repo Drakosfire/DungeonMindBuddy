@@ -599,3 +599,16 @@ produces the same saved-only/mixed claim shapes through the real protected SDK
 and APP owner. No parser, schema or production fallback changes. Discovery binds
 the existing exact bootstrap record just as the legacy owner does, never a new
 status or fabricated completeness flag.
+
+### Full-suite scope regression correction
+
+Completed3491 qualification proves both real Build cases and all3new guards pass,
+but its sole unrelated status regression is existing
+test_plan_human_object_keeps_unavailable_support_partial (200→422). The shared
+acquirer serves Build and Plan; the coordinator-assigned hard-refusal invariant
+belongs to the original Build witnesses, while delivered REFERENCE Plan contract
+explicitly preserves partial object support. Narrow the new condition to Build.
+Keep Plan test/assertions untouched and include the actual Plan module in owning
+review, alongside46Build/native controls. No broad no-partial policy or source
+reference admission change is authorized. Full existing gates caught this scope
+error; do not classify it as timing noise or hide the failed case.
