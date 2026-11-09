@@ -1,0 +1,55 @@
+name: Rules-only runtime regression
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - apps/live_control_server/services/rules_only_runtime.py
+      - tests/test_rules_only_parent.py
+      - .github/workflows/rules-only-runtime.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rules-only-runtime-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rules-only-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dungeonmind
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: postgres
+        ports: ['54329:5432']
+        options: >-
+          --health-cmd "pg_isready -U dungeonmind -d postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      DMB_APPLICATION_STATE_TEST_DATABASE_URL: postgresql://dungeonmind@127.0.0.1:54329/postgres
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.13.5'
+          enable-cache: false
+      - name: Prepare locked dependencies
+        run: |
+          python scripts/prepare_patched_hermes.py
+          uv sync --locked
+      - name: Full owning regression and lint
+        run: |
+          uv run --locked pytest -q tests/test_rules_only_parent.py --durations=10
+          uv run --locked ruff check apps/live_control_server/services/rules_only_runtime.py tests/test_rules_only_parent.py
