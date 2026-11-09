@@ -1,9 +1,26 @@
 # REFERENCE: authored-page citations in lightweight replies
 
-Status: ACTIVE under PRIME's existing References completion authority. One serial
-slice on codex/reference-related-page-preview, based on c14828cb5 origin/main;
-predecessors2191 and2274 are merged and delivered. No unmerged parent. Open local
-World, INGEST, composition2225 and held Play2172 lanes do not own these paths.
+Status: SETTLED; source and runtime leases RELEASED. PR2277 merged at
+40c12509d037e3e8517f20b7fe8cc221cd1d1a33 from independently approved source
+e9a71e6907e7814ef4aa958c67f66b619daae5a7 after all seven CI checks passed.
+Protected paired delivery runs API d8a1f9f86021c04b13fb98d01381aff09e2b78a6
+and UI42371b60bb568ae9c7897ffae5d6e614988fdc7a on8000/5202, unchanged
+APP schema20261108_0141. Independent composition/recipe review and preflight passed.
+Every retained APP/Core table and session matched before/after activation and
+again after read-only browser checks. Actual delivered Plan reload displayed native
+citation markers; a retained Session29 source opened with Details closed and the
+original failed Bath House attempt/Retry preserved. The temporary tab was closed.
+Positive related-page coverage is provider-free persisted-native Plan/renderer
+verification: no current active related-page claim was available for a positive
+live browser witness. This does not claim full References closure, held Play
+cutover, operator acceptance, page creation or execution of the pending Edge edits.
+Evidence: related-page-{artifacts,activation-proof,readonly-proof,settled-proof}.json
+and owning candidate logs under the established PRIME runtime-evidence root.
+No provider calls, fresh ingestion, publication or authored-page mutation occurred.
+
+Historical slice: codex/reference-related-page-preview based on c14828cb5 main,
+serial with no unmerged parent. The exclusive write set below is released, not
+ongoing implementation authority.
 
 Outcome: initial lightweight Build/Plan replies preserve related_page_claim pins
 and expose their existing exact saved-page reader without loading Details.
