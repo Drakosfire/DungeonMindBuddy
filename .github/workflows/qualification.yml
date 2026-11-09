@@ -48,6 +48,10 @@ jobs:
     needs: source
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [0, 1, 2, 3]
     services:
       postgres:
         image: postgres:16-alpine
@@ -83,20 +87,112 @@ jobs:
           uv sync --locked
           npm ci --prefix apps/live-control-ui
           cd apps/live-control-ui && npx --no-install playwright install --with-deps chromium
-      - name: Full declared default non-live regression
+      - name: Full declared default backend partition
         shell: bash
         run: |
           set -o pipefail
           mkdir -p out/qualification/full
           uv run --locked python scripts/ci_contract.py inventory | tee out/qualification/full/inventory.log
-          uv run --locked python -m scripts.qualification.native_database --output out/qualification/full/native 2>&1 | tee out/qualification/full/regression.log
+          uv run --locked python -m scripts.qualification.native_database --output out/qualification/full/native --partition ${{ matrix.partition }} 2>&1 | tee out/qualification/full/regression.log
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: qualification-full-${{ needs.source.outputs.sha }}
+          name: qualification-backend-${{ needs.source.outputs.sha }}-${{ matrix.partition }}
           path: |
-            out/qualification/full/
+            out/qualification/full/*.log
+            out/qualification/full/collection.json
+            out/qualification/full/tests.xml
+            out/qualification/full/native/*.log
+            out/qualification/full/native/result.json
+          retention-days: 14
+
+  frontend-regression:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/out/qualification-browsers
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22.23.0'
+      - id: prepare
+        name: Prepare locked frontend dependencies
+        run: |
+          npm ci --prefix apps/live-control-ui
+          cd apps/live-control-ui && npx --no-install playwright install --with-deps chromium
+      - name: All discovered frontend tests
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p out/qualification/frontend
+          python scripts/ci_contract.py run qualification-vitest 2>&1 | tee out/qualification/frontend/vitest.log
+      - name: Full type and production build
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p out/qualification/frontend
+          python scripts/ci_contract.py run qualification-build 2>&1 | tee out/qualification/frontend/build.log
+      - name: Full visual regression
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p out/qualification/frontend
+          python scripts/ci_contract.py run qualification-visual 2>&1 | tee out/qualification/frontend/visual.log
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: qualification-frontend-${{ needs.source.outputs.sha }}
+          path: |
+            out/qualification/frontend/
             out/ui-visual-playwright/
+          retention-days: 14
+
+  collection-coverage:
+    if: always()
+    needs: [source, full-regression]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.13.5'
+          enable-cache: false
+      - name: Prepare locked verifier dependencies
+        run: |
+          python scripts/prepare_patched_hermes.py
+          uv sync --locked
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: qualification-backend-${{ needs.source.outputs.sha }}-*
+          path: out/qualification/partition-reports
+      - name: Verify complete collection and disjoint file ownership
+        shell: bash
+        run: |
+          set -o pipefail
+          uv run --locked python -m scripts.qualification.partition out/qualification/partition-reports | tee out/qualification/coverage.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: qualification-coverage-${{ needs.source.outputs.sha }}
+          path: out/qualification/coverage.json
           retention-days: 14
 
   image-and-browser:
@@ -140,14 +236,16 @@ jobs:
 
   qualification-result:
     if: always()
-    needs: [source, full-regression, image-and-browser]
+    needs: [source, full-regression, frontend-regression, collection-coverage, image-and-browser]
     runs-on: ubuntu-24.04
     env:
       SOURCE: ${{ needs.source.result }}
       FULL: ${{ needs.full-regression.result }}
+      FRONTEND: ${{ needs.frontend-regression.result }}
+      COVERAGE: ${{ needs.collection-coverage.result }}
       IMAGE: ${{ needs.image-and-browser.result }}
     steps:
       - name: Qualification owner and fail-closed aggregate
         run: |
           echo 'Failure owner: Drakosfire (Buddy CI coordinator). Any failure suspends selective rollout.'
-          test "$SOURCE" = success && test "$FULL" = success && test "$IMAGE" = success
+          test "$SOURCE" = success && test "$FULL" = success && test "$IMAGE" = success && test "$FRONTEND" = success && test "$COVERAGE" = success

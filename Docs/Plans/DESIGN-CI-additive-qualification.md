@@ -202,3 +202,33 @@ all test IDs/assertion intent, settles the delivered owner handoffs, and refresh
 exact-head/full qualification. Earlier candidate image proofs remain bound to their
 recorded SHAs; none becomes a main readiness claim. Main graph behavior remains
 absent and separate. No deployment, live-data, protection change or graph merge.
+
+## Full-lane runtime and stable execution partitions
+
+An older full run reached the configured120-minute boundary around88% without
+a completed summary. The additive lane now uses four stable Python file buckets,
+not raw parametrized node IDs (some contain generated UUID labels). Every worker
+first collects the entire default suite on clean pinned source. The plan proves
+its raw actual node Counter is the exact union of disjoint buckets; all cases in
+one canonical file belong to one bucket. Report/default selection drift, unknown
+paths, duplicate or empty cases/partitions and partial pytest flags fail closed.
+The same36live_llm default deselections remain.
+
+Cross-worker coverage requires all four same-source reports, recomputes each plan
+and validates the exact selected file union and parameter shapes. Only UUID
+parameter-label churn can differ across same-source collections; it never affects
+selection or the per-worker raw-ID union proof. Missing jobs/reports fail coverage.
+All backend jobs retain independent APP session-template/test clones and a fresh
+canonical native Core DB, locked tools/dependencies, fail-fast:false and120-minute
+limits. Existing PR gates and unpartitioned full-regression command are unchanged.
+
+Full Vitest, type/build and visual commands run in a separate source-pinned job.
+After successful setup each runs even when an earlier frontend command fails;
+ordinary failed-step status remains authoritative. This preserves the exact four
+commands of the unpartitioned contract while preventing Python failures from
+suppressing frontend execution. Qualification aggregate requires every backend,
+frontend, coverage verifier and the existing exact-image/browser witness.
+
+No latency claim is made from hash balance or case counts. Record actual hosted
+partition durations and full residual totals before calling the runtime barrier
+removed. This partition is an execution mechanism, not domain or change selection.

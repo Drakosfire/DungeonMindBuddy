@@ -85,10 +85,16 @@ class NativeTestDatabase:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--partition", type=int, choices=range(4))
     args = parser.parse_args()
+    if args.partition is not None and any(os.environ.get(name) for name in ("PYTEST_ADDOPTS", "PYTEST_PLUGINS", "PYTEST_DISABLE_PLUGIN_AUTOLOAD")):
+        parser.error("partitioned qualification forbids inherited pytest options before database allocation")
     with NativeTestDatabase(args.output) as dsn:
-        result = subprocess.run([sys.executable, str(ROOT / "scripts/ci_contract.py"), "run", "full-regression"],
-                                cwd=ROOT, env={**os.environ, "DMB_CUTOVER_TEST_DATABASE_URL": dsn})
+        command = [sys.executable, str(ROOT / "scripts/ci_contract.py"), "run",
+                   "full-regression" if args.partition is None else "full-backend"]
+        if args.partition is not None:
+            command += ["--partition", str(args.partition), "--partition-report", str(args.output.parent / "collection.json")]
+        result = subprocess.run(command, cwd=ROOT, env={**os.environ, "DMB_CUTOVER_TEST_DATABASE_URL": dsn})
     return result.returncode
 
 

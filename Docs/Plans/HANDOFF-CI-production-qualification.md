@@ -483,3 +483,35 @@ managed→native and provisional→canonical operand mapping, except the one
 documented retired file-URI assumption replaced by opaque-URI plus real-DB-body
 checks. All source bytes, span hashes, revisions, receipt counts and replay/
 idempotency assertions remain. Both owned database clusters cleaned.
+
+## Stable full qualification partition batch
+
+Coordinator explicitly authorizes coverage-preserving full-lane partitioning.
+Use four versioned SHA-256 buckets of canonical collected Python file paths.
+Keep every case in a file together; never hash generated UUID node labels. Each
+worker collects the full default suite first, proves the exact raw-node Counter
+union/disjointness, records the same36default deselections, and then selects its
+file bucket. Invalid arguments/paths, duplicates, empty collection/partition or
+deselection drift fail closed. Four source-pinned reports are mandatory; aggregate
+checks exact per-worker plans, file coverage and parameter shapes (only generated
+UUID labels may vary between same-source processes). No normalization affects
+selection or exact per-collection parity.
+
+Keep original unpartitioned full-regression CLI and all old PR commands unchanged.
+Every backend shard retains the old locked tool/dependency setup and independent
+APP template/clones plus separately migrated native Core cluster. Matrix fail-fast
+is false. Run all frontend tests/type/build/visual separately in parallel; a test
+failure does not suppress the other two commands, and every failed step still
+fails its job. Qualification aggregate requires all backends, frontend, collection
+coverage and the unchanged image/browser witness. This is execution partitioning,
+not domain/change selection or rollout. Existing120-minute backend limit remains;
+only real hosted measurements can establish the new latency.
+
+Independent review R5 atd7 reproduced inherited--ignore dropping10cases before
+collection while reduced reports agreed. Correct before approval: reject inherited
+PYTEST_ADDOPTS/PYTEST_PLUGINS before owned DB allocation and again in runner/hook;
+reject ignore/glob/config/root/plugin/discovery overrides and runtime early-stop
+options. Only cache/log timeout ini overrides remain permissible. Explicit
+collect-only diagnostic reports are marked and cannot satisfy execution coverage;
+parity verification must opt into a clearly labelled collection-only proof.
+Original worker/aggregate execution commands never pass that diagnostic option.

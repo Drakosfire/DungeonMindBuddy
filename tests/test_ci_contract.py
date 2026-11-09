@@ -91,3 +91,18 @@ def test_node_runner_propagates_failure_without_git_or_later_steps(tmp_path):
     assert result.returncode == 9
     assert not (tmp_path / "must-not-run").exists()
     assert json.loads(result.stdout.splitlines()[-1])["sha"] == "reviewed-sha"
+
+
+def test_split_qualification_commands_preserve_the_complete_full_regression(monkeypatch):
+    calls = []
+    monkeypatch.setattr(ci, "validate_inventory", lambda root: {})
+    monkeypatch.setattr(ci, "sha", lambda root: "a" * 40)
+    monkeypatch.setattr(ci.subprocess, "run", lambda argv, **kwargs: (calls.append((argv, kwargs["cwd"])) or subprocess.CompletedProcess(argv, 0)))
+    assert ci.execute("full-regression") == 0
+    original = list(calls)
+    calls.clear()
+    for name in ("full-backend", "qualification-vitest", "qualification-build", "qualification-visual"):
+        assert ci.execute(name) == 0
+    assert calls == original
+    assert [argv for argv, _ in original] == [[ci.sys.executable, "-m", "pytest", "tests"],
+        ["npm", "test"], ["npm", "run", "build"], ["npm", "run", "ui:visual"]]
