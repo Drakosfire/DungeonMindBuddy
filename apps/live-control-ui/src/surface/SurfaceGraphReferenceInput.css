@@ -12,7 +12,10 @@
 }
 
 /* The native inspector is also used in a compact conversation picker. */
-.surface-graph-reference-input__picker .loaded-graph-explorer__layout { display:block; min-height:0; }
+.surface-graph-reference-input__picker .loaded-graph-explorer__layout,
+.surface-graph-reference-input__picker .native-graph-inspection__layout { display:block; min-height:0; }
+.surface-graph-reference-input__picker .native-graph-inspection__layout > nav { padding:.5rem; border:0; }
+.surface-graph-reference-input__picker .native-graph-inspection__layout > nav button { width:auto; }
 .surface-graph-reference-input__picker nav { max-block-size:12rem; overflow:auto; }
 .surface-graph-reference-input__picker nav input { box-sizing:border-box; width:100%; }
 .surface-graph-reference-input__picker nav ul { list-style:none; padding:0; }

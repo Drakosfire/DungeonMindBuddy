@@ -1,6 +1,6 @@
 # REFERENCE: native object links in Build documents
 
-Status: ACTIVE. PRIME owns this bounded References integration slice under the active goal. Base `eb0eb9a093b275e8e8282d6c749309f2bdd687a6`, branch `codex/reference-native-document-links`, existing buddy-context-loop checkout. One serial PR; no unmerged parent. Independent exact-head review and CI precede protected delivery. No deployment or database writes in implementation.
+Status: SETTLED. #2280 merged at `34d8f65cc22e400e636910353f2972216dfe85ad` from reviewed source `fff54d027b28cc0ad3e52822dfd96a37b468627a`. UI `753dba8415c11aa9dffb3b84fe8598f426e51997` delivered on 5202; runtime lease released. Exact frozen UI tests (1,127), TypeScript/build, independent source/integration/recipe reviews, and read-only browser inspection passed. All retained APP/Core rows and session state were conserved. Browser inspection reached the native ooze and shared saved statblock editor without content writes. Embedded inspector layout overflow is owned separately by HANDOFF-REFERENCE-inspector-layout.md. PRIME owned this bounded References integration slice under the active goal. Base `eb0eb9a093b275e8e8282d6c749309f2bdd687a6`, branch `codex/reference-native-document-links`, existing buddy-context-loop checkout. One serial PR; no unmerged parent. Independent exact-head review and CI precede protected delivery. No deployment or database writes in implementation.
 
 ## Outcome and invariant
 
