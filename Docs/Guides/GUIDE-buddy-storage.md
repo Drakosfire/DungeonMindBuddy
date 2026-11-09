@@ -107,7 +107,8 @@ remain protected until safely reconciled.
 ## Exact cleanup approval and crash outcomes
 
 A plan envelope contains the plan and SHA-256 digest. Plans bind root identity,
-UUID, device/inode identities, mount ID, manifest hashes, protection snapshot,
+UUID, device/inode identities, mount ID, manifest hashes, the complete hashed
+candidate tree (including manifest and build contents), protection snapshot,
 generation and a 300-second expiry. Apply requires both the exact digest and
 exact candidate identity allowlist:
 
@@ -122,7 +123,8 @@ always reports incomplete/unproven coverage. There is no production apply bypass
 
 Within synthetic cooperating fixtures, apply revalidates the entire allowlist
 before the first transition, and each item again immediately before quarantine.
-It rechecks references before each unlink/rmdir. Read, traversal and removal use
+It compares the quarantined tree with the plan-bound snapshot before removal and
+rechecks each approved entry before unlink/rmdir. Read, traversal and removal use
 held descriptors and no-follow opens; metadata replacement uses relative directory
 descriptors and atomic rename/fsync. Links, unexpected hardlinks, mount changes,
 changed content or identity, incomplete observation and new references refuse.

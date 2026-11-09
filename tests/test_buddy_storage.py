@@ -431,6 +431,36 @@ class Lifecycle(unittest.TestCase):
         self.assertTrue((self.root/'saved-original/build/output.txt').exists())
         self.assertFalse((self.root/'candidates/.control/quarantine/one').exists())
 
+    def test_extra_file_arriving_before_approval_snapshot_is_preserved(self):
+        self.sealed()
+        result,p=self.planfile()
+        original=b.Storage.tree
+        injected=[]
+        def tree(storage, path, *args, **kwargs):
+            path=Path(path)
+            if path.name=='one' and path.parent.name=='quarantine' and not injected:
+                (path/'unique-local-data.txt').write_text('keep me')
+                injected.append(True)
+            return original(storage,path,*args,**kwargs)
+        with patch.object(b.Storage,'tree',tree):
+            self.apply(result,p,ok=False)
+        self.assertEqual((self.root/'candidates/.control/quarantine/one/unique-local-data.txt').read_text(), 'keep me')
+
+    def test_changed_build_before_approval_snapshot_is_preserved(self):
+        self.sealed()
+        result,p=self.planfile()
+        original=b.Storage.tree
+        injected=[]
+        def tree(storage, path, *args, **kwargs):
+            path=Path(path)
+            if path.name=='one' and path.parent.name=='quarantine' and not injected:
+                (path/'build/output.txt').write_text('changed local data')
+                injected.append(True)
+            return original(storage,path,*args,**kwargs)
+        with patch.object(b.Storage,'tree',tree):
+            self.apply(result,p,ok=False)
+        self.assertEqual((self.root/'candidates/.control/quarantine/one/build/output.txt').read_text(), 'changed local data')
+
     def test_malformed_control_metadata_is_protected(self):
         self.allocate()
         journal=self.root/'candidates/.control/journal/unknown.json'

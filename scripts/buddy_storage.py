@@ -494,7 +494,7 @@ class Storage:
             if not row['protected']:
                 candidate = Path(row['path']).name
                 path, m = self.eligible(candidate)
-                items.append(dict(id=candidate, identity=identity(path), manifest=digest(m)))
+                items.append(dict(id=candidate, identity=identity(path), manifest=digest(m), tree=self.tree(path)))
         plan = dict(schema=1, root=str(self.root), root_identity=self.root_identity, uuid=UUID,
                     generation=observation.get('generation'), protection=digest(observation),
                     created=self.system.now(), expires=self.system.now()+ttl, mount=self.mount, items=items)
@@ -516,12 +516,14 @@ class Storage:
             # Validate the whole allowlist before the first transition.
             for item in plan['items']:
                 path, m = self.eligible(item['id'])
-                require(identity(path) == item['identity'] and digest(m) == item['manifest'], 'stale candidate')
+                require(identity(path) == item['identity'] and digest(m) == item['manifest'] and
+                        self.tree(path) == item['tree'], 'stale candidate')
             for item in plan['items']:
                 self.validate()
                 require(digest(self.observe()) == plan['protection'], 'protection changed')
                 path, m = self.eligible(item['id'])
-                require(identity(path) == item['identity'] and digest(m) == item['manifest'], 'stale candidate')
+                require(identity(path) == item['identity'] and digest(m) == item['manifest'] and
+                        self.tree(path) == item['tree'], 'stale candidate')
                 journal = self.control / 'journal' / (approval + '-' + item['id'] + '.json')
                 operation = dict(state='pending', operation='remove', candidate=item['id'], identity=item['identity'], plan=approval)
                 atomic(journal, operation)
@@ -548,11 +550,9 @@ class Storage:
                 require(identity(target) == item['identity'], 'quarantine identity changed')
                 require(digest(self.observe()) == plan['protection'], 'protection changed')
                 require(digest(read_json(target / 'manifest.json')) == item['manifest'], 'quarantined manifest changed')
-                self.tree(target / 'build', m['files'])
-                require(set(p.name for p in target.iterdir()) == {'manifest.json', 'build'},
-                        'unknown quarantined data')
-                approved_tree = self.tree(target)
-                self.remove(target, plan['protection'], approved_tree)
+                require(self.tree(target) == item['tree'],
+                        'quarantined candidate contents changed or unknown')
+                self.remove(target, plan['protection'], item['tree'])
                 self.system.checkpoint('before_commit')
                 operation['state'] = 'done'
                 atomic(journal, operation)
