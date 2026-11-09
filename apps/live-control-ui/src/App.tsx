@@ -336,12 +336,36 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
   );
 }
 
+function isCanonicalLocalGuestEntry(locationSnapshot: string): boolean {
+  try {
+    const url = new URL(locationSnapshot, "http://localhost");
+    return url.pathname === "/" && url.search === "" && url.hash === "";
+  } catch {
+    return false;
+  }
+}
+
+function LocalGuestEntry() {
+  return (
+    <AgentInteractionProvider>
+      <SurfaceContextProvider>
+        <PeekRegionProvider>
+          <AppChrome activeRoute="index" localOnlyNavigation>
+            <LocalWorldSurface />
+          </AppChrome>
+        </PeekRegionProvider>
+      </SurfaceContextProvider>
+    </AgentInteractionProvider>
+  );
+}
+
 export function App() {
   const locationSnapshot = useSyncExternalStore(
     subscribeSelectedWorldLocation,
     getAppLocationSnapshot,
     getAppLocationSnapshot,
   );
+  if (import.meta.env.PROD && isCanonicalLocalGuestEntry(locationSnapshot)) return <LocalGuestEntry />;
   return (
     <HostedAuthGate enabled={import.meta.env.PROD}>
       <SelectedWorldProvider locationSnapshot={locationSnapshot}>

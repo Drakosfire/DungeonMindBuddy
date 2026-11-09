@@ -10,7 +10,7 @@ import { WorldSelector } from "../selectedWorld/WorldSelector";
 import { worldScopedSurfaceHref } from "../selectedWorld/worldSelectionNavigation";
 import "./CompactAppNavigation.css";
 
-export function CompactAppNavigation({ activeRoute }: { activeRoute: AppRouteKey }) {
+export function CompactAppNavigation({ activeRoute, localOnly = false }: { activeRoute: AppRouteKey; localOnly?: boolean }) {
   const world = useSelectedWorld();
   const tour = useGuidedTour();
   const campaignTrash = useCampaignTrashScope();
@@ -46,6 +46,6 @@ export function CompactAppNavigation({ activeRoute }: { activeRoute: AppRouteKey
       </a>)}
     </div>
     {tour?<button className="app-nav-tour" type="button" onClick={()=>{setExpanded(false);if(tour.entryLabel==='Start tour'||tour.entryLabel==='Resume tour')tour.teach();else tour.open();}}>{tour.entryLabel}</button>:null}
-    <div className="app-nav-world-context">{campaignTrash ? <WorkspaceTrashControl campaignId={campaignTrash} current={null} onTrashed={() => undefined} /> : world.kind === "managed" ? <WorkspaceTrashControl worldId={world.worldId} current={null} onTrashed={() => undefined} /> : null}<WorldSelector compact /><AppChromeWorldGraphStatus /></div>
+    {!localOnly ? <div className="app-nav-world-context">{campaignTrash ? <WorkspaceTrashControl campaignId={campaignTrash} current={null} onTrashed={() => undefined} /> : world.kind === "managed" ? <WorkspaceTrashControl worldId={world.worldId} current={null} onTrashed={() => undefined} /> : null}<WorldSelector compact /><AppChromeWorldGraphStatus /></div> : null}
   </nav>;
 }
