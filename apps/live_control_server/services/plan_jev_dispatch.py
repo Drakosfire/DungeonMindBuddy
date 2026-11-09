@@ -16,7 +16,7 @@ from application_state.agent_conversation.plan_authoring import (
     validate_prepared_requested_work, validate_requested_work_wire,
 )
 
-from application_state.agent_conversation.plan_placement import PlanRequestedWorkInputV2, PlanRequestedWorkInputV7, work_choice
+from application_state.agent_conversation.plan_placement import PlanRequestedWorkInputV2, PlanRequestedWorkInputV7, PlanRequestedWorkInputV8, work_choice
 
 
 def request_budget():
@@ -94,7 +94,8 @@ class PlanJevDispatch:
         capture = adapter.request.plan_authoring_capture
         references = adapter.request.authored_references
         operation = adapter.request.plan_requested_operation
-        dispatch.parent = PlanRequestedWorkInputV7(
+        parent_type = PlanRequestedWorkInputV8 if isinstance(adapter.request.plan_context_policy,t.PlanContextPolicyV2) else PlanRequestedWorkInputV7
+        dispatch.parent = parent_type(
             plan_requested_operation=operation, authored_references=references,
             request_id=uuid4(), parent_attempt_id=uuid4(),
             scope_sha256='0' * 64, question=adapter.request.message, page_title=page_title,
@@ -223,8 +224,10 @@ class PlanJevDispatch:
             'placement_catalog': self.parent.placement_catalog.model_dump(mode='json',by_alias=True) if self.parent.placement_catalog is not None else None,
             'placement_catalog_sha256': self.parent.placement_catalog.sha256 if self.parent.placement_catalog is not None else None,
         }) if placement else {'requested_work': selected, 'target_capture_sha256': self.parent.target_capture_sha256} if semantic else {'operation': selected.operation, 'selected_handles': list(selected.selected_handles)}
-        event_type = t.PlanRequestedWorkSelectedV2 if placement else t.PlanRequestedWorkSelectedV1 if semantic else NativeRetrievalSelectedV1 if native else t.PlanJevRetrievalSelectionV1
-        event = event_type(kind='plan_requested_work_selected_v2' if placement else 'plan_requested_work_selected_v1' if semantic else 'native_retrieval_selected_v1' if native else 'plan_jev_retrieval_selected_v1', event_id=uuid4(),
+        from application_state.agent_conversation.native_execution import NativePlanRequestedWorkSelectedV3
+        current_work = isinstance(self.parent, PlanRequestedWorkInputV8)
+        event_type = NativePlanRequestedWorkSelectedV3 if current_work else t.PlanRequestedWorkSelectedV2 if placement else t.PlanRequestedWorkSelectedV1 if semantic else NativeRetrievalSelectedV1 if native else t.PlanJevRetrievalSelectionV1
+        event = event_type(kind='plan_requested_work_selected_v3' if current_work else 'plan_requested_work_selected_v2' if placement else 'plan_requested_work_selected_v1' if semantic else 'native_retrieval_selected_v1' if native else 'plan_jev_retrieval_selected_v1', event_id=uuid4(),
             sequence=len(execution.events), context_receipt_sha256=execution.context_receipt_sha256,
             execution_policy_sha256=execution.execution_policy_sha256,
             controller_attempt_id=self.authorization.provider_attempt_id, decision_request_id=self.parent.request_id,

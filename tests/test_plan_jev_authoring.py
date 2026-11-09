@@ -94,8 +94,10 @@ class SemanticWire(httpx2.AsyncBaseTransport):
         assert body["state"]["edit_target_available"] == (
             self.adapter.request.plan_authoring_capture is not None
         )
-        from application_state.agent_conversation.plan_authoring import QUESTION_FIRST_INTENT_POLICY
-        assert body["state"]["intent_policy"] == QUESTION_FIRST_INTENT_POLICY
+        from application_state.agent_conversation import types as t
+        from application_state.agent_conversation.plan_authoring import QUESTION_FIRST_INTENT_POLICY,CONNECTED_PAGE_INTENT_POLICY
+        expected=CONNECTED_PAGE_INTENT_POLICY if isinstance(self.adapter.request.plan_context_policy,t.PlanContextPolicyV2) else QUESTION_FIRST_INTENT_POLICY
+        assert body["state"]["intent_policy"] == expected
         assert set(body["questions"]) == {"requested_work"}
         current = self.adapter.service.list_turns(
             "world:one", self.adapter.turn.conversation_id

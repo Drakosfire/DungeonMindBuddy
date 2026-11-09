@@ -287,6 +287,17 @@ def native_output_format(frame, rules, work_frame, *, build_local=False):
             base['required'].append('collaboration')
             if definitions:
                 schema.setdefault('$defs',{}).update(definitions)
+    if work_frame.get('schema')==PLAN_WORK_SCHEMA and work_frame.get('requested_work')=='review_connected_page':
+        from .collaboration import ProposedConnectedPage
+        rows=work_frame.get('related_authored_pages',{}).get('pages',[])
+        review={'type':'null'}
+        if rows:
+            proposal=ProposedConnectedPage.model_json_schema()
+            proposal['properties']['read_id']={'type':'string','enum':_values(rows,'read_id')}
+            review={'anyOf':[proposal,{'type':'null'}]}
+        base=schema['$defs']['Base'] if rules.lookups else schema
+        base['properties']['collaboration']=review
+        base['required'].append('collaboration')
     from generationengine.utils.schema_utils import make_schema_strict
     return {'type': 'json_schema', 'name': 'surface_native_evidence_selectors_v1', 'strict': True,
         'schema':make_schema_strict(schema)}

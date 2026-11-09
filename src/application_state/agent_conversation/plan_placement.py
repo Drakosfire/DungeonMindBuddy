@@ -171,8 +171,18 @@ class PlanRequestedWorkInputV7(PlanRequestedWorkInputV6):
         default="dmb_plan_requested_work_input_v7", alias="schema")
 
 
+class PlanRequestedWorkInputV8(PlanRequestedWorkInputV7):
+    """Page creation is explicit; an arbitrary other destination grants nothing."""
+    schema_: Literal["dmb_plan_requested_work_input_v8"] = Field(
+        default="dmb_plan_requested_work_input_v8", alias="schema")
+
+
 def work_choice(request: PlanRequestedWorkInputV2, selected: str):
     """Decode only offered choices; the selected target digest stays host-owned."""
+    if selected == 'review_connected_page':
+        if not isinstance(request, PlanRequestedWorkInputV8) or request.plan_requested_operation is not None:
+            raise ValueError('Connected-page review was not offered for this operation')
+        return dict(requested_work=selected, placement_selector=None, target_capture_sha256=None)
     if selected in {"discuss", "clarify", "different_destination"}:
         return dict(requested_work=selected, placement_selector=None, target_capture_sha256=None)
     if selected == "write_unavailable" and request.placement_catalog is None:
