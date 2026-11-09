@@ -1118,3 +1118,79 @@ def test_recorded_name_update_keeps_retained_query_hash_and_source_reopening(lan
     assert reads and not unavailable
     assert {read.assertion.assertion_id for read in reads} == set(selected.assertion_ids)
     assert all(read.evidence and read.spans for read in reads)
+
+
+# Prepared source membership already owns the immutable Graph revision. These
+# tests exercise the real Core query owner, not a replacement catalog producer.
+def _prepared_query_source(lane):
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import prepare_native_source_context
+    binding = SimpleNamespace(**vars(bound(lane)), provisioning_id=None)
+    context = prepare_native_source_context(managed_world_id=lane.world.world_id,
+        principal=GM, repository=lane.repo, resolve_identity=lambda _: binding)
+    return context, binding
+
+
+def test_prepared_native_query_reuses_core_revision_and_preserves_exact_catalog(lane, monkeypatch):
+    from apps.live_control_server.services import native_graph_reads as native
+    publish(lane, qualified=True)
+    source, binding = _prepared_query_source(lane)
+    _, expected = prepare_query(lane.world.world_id, 'What did B do?', GM,
+        repository=lane.repo, resolve_binding=lambda _: binding)
+    def redundant(*args, **kwargs):
+        pytest.fail('Prepared query reloaded its already admitted native revision')
+    monkeypatch.setattr(lane.repo, 'get_revision', redundant)
+    monkeypatch.setattr(native.statements.native, 'repository', redundant)
+    context, actual = prepare_query(lane.world.world_id, 'What did B do?', GM,
+        source_context=source, resolve_binding=lambda _: binding)
+    assert actual == expected
+    assert context.repository is source.repository
+    assert context.pinned[1] is source.access
+    assert context.pinned[2] == context.pinned[0].domain_contract
+    assert context.pinned[3] == context.pinned[0].semantic_profile
+    assert context.query.authority.acquisition_epoch == source.authority.acquisition_epoch
+
+
+@pytest.mark.parametrize('corruption', [
+    'world', 'revision', 'domain', 'profile', 'epoch', 'access_world', 'parsed_revision',
+])
+def test_prepared_native_query_refuses_mismatched_authority_before_search(lane, monkeypatch, corruption):
+    from apps.live_control_server.services import native_graph_reads as native
+    source, binding = _prepared_query_source(lane)
+    if corruption == 'world':
+        source = replace(source, authority=source.authority.model_copy(update={'native_world_id': 'other'}))
+    elif corruption == 'revision':
+        source = replace(source, authority=source.authority.model_copy(update={'revision_id': 'other'}))
+    elif corruption in {'domain', 'profile'}:
+        name = corruption + '_ref'
+        changed = getattr(source.authority, name).model_copy(update={'descriptor_sha256': 'f' * 64})
+        source = replace(source, authority=source.authority.model_copy(update={name: changed}))
+    elif corruption == 'epoch':
+        source = replace(source, authority=source.authority.model_copy(
+            update={'acquisition_epoch': source.authority.acquisition_epoch + 1}))
+    elif corruption == 'access_world':
+        source = replace(source, access=replace(source.access, space_id='other'))
+    else:
+        parsed = replace(source.access.parsed,
+            identity=replace(source.access.parsed.identity, revision_id='other'))
+        source = replace(source, access=replace(source.access, parsed=parsed))
+    monkeypatch.setattr(native.SearchReadService, 'search_entities',
+        lambda *a, **k: pytest.fail('Mismatched prepared authority reached Core search'))
+    with pytest.raises(ValueError, match='capabilities differ|Prepared native query differs'):
+        prepare_query(lane.world.world_id, 'What did B do?', GM,
+            source_context=source, repository=lane.repo, resolve_binding=lambda _: binding)
+
+
+def test_prepared_native_query_refuses_different_repository(lane):
+    source, binding = _prepared_query_source(lane)
+    with pytest.raises(ValueError, match='requires its source repository'):
+        prepare_query(lane.world.world_id, 'What did B do?', GM,
+            source_context=source, repository=object(), resolve_binding=lambda _: binding)
+
+
+def test_prepared_native_query_still_refuses_binding_movement(lane):
+    source, binding = _prepared_query_source(lane)
+    moved = SimpleNamespace(**(vars(binding) | {'binding_version': 2}))
+    bindings = iter((binding, moved))
+    with pytest.raises(ValueError, match='binding changed during native query'):
+        prepare_query(lane.world.world_id, 'What did B do?', GM,
+            source_context=source, repository=lane.repo, resolve_binding=lambda _: next(bindings))
