@@ -1,6 +1,6 @@
 # REFERENCE: native object activation in the current Plan route
 
-Status: ACTIVE. PRIME owns one serial PR from `534ff9c70499d6dc847c949465e95a32e1012467`, branch `codex/reference-plan-native-links`, existing buddy-context-loop checkout. No unmerged parent. Independent exact-head review and CI precede protected delivery.
+Status: SETTLED. #2283 merged at `9193d54ca874240ec181a47e8964905028794e05` from reviewed source `25969a83f45377e4aa291a9d2d08c731a2045c8d`. UI `2baeb50af8c7ace8b74b8ece4077232407292cd2` delivered on5202; lease released. All180frozen owner tests/build and CI passed. Positive actual Plan node/provider to real native Graph/exact saved statblock reads passed in an isolated read-only fixture. Live retained legacy references correctly report unavailable and restore focus; they have no exact native identity match and were not rewritten. Retained APP/Core rows/session state unchanged. Verification is qualified: no positive saved primary Plan/browser native-reference witness exists; full References/held Play integration remains open. PRIME owned one serial PR from `534ff9c70499d6dc847c949465e95a32e1012467`, branch `codex/reference-plan-native-links`, existing buddy-context-loop checkout. No unmerged parent. Independent exact-head review and CI precede protected delivery.
 
 ## Outcome and owner
 

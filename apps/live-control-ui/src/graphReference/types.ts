@@ -121,17 +121,6 @@ export interface GraphReferenceProjectionBinding {
   openTool(toolId: string): void;
 }
 
-export interface GraphReferenceSearchItem {
-  nodeId: string;
-  label: string;
-  kind: string;
-  role: string | null;
-  summary: string | null;
-  aliases: string[];
-  scopeLabel: string;
-  reference: RunbookReferenceAttrs;
-  nodeView: GraphProjectionNodeView;
-}
 
 export interface OpenGraphReferenceArgs {
   reference?: RunbookReferenceAttrs | null;

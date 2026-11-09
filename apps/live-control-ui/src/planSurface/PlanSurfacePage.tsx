@@ -56,7 +56,7 @@ import {
   useWorldPlanGraphReferenceActivation,
   WorldPlanGraphReferenceActivationProvider,
 } from "./components/WorldPlanGraphReferenceActivation";
-import { PlanSurfaceCanvasFrame } from "./components/PlanSurfaceCanvas";
+import { PlanSurfaceCanvasFrame } from "./components/PlanSurfaceCanvasFrame";
 import { PlanConversationDockAdapter } from "./components/PlanConversationDockAdapter";
 import { WorldPlanConversationRegistration } from "../agentInteraction/WorldAgentConversation";
 import {

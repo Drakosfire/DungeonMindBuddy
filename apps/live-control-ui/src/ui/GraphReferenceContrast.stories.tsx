@@ -3,7 +3,7 @@ import { GraphNodeChipRuntimeProvider, GraphNodeHoverToken, presentationForNodeI
 import type { GraphProjectionNodeView } from "../api/types";
 import { MarkdownEditorCore } from "../tiptap/MarkdownEditorCore";
 import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
-import { PlanSurfaceCanvasFrame } from "../planSurface/components/PlanSurfaceCanvas";
+import { PlanSurfaceCanvasFrame } from "../planSurface/components/PlanSurfaceCanvasFrame";
 import "../styles.css";
 import "../planSurface/planSurface.css";
 import "../tiptap/prepMarkdownThemes.css";

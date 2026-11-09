@@ -7,7 +7,6 @@ export type {
   GraphReferenceProjectionBinding,
   GraphReferenceProjectionState,
   GraphReferenceResolution,
-  GraphReferenceSearchItem,
   OpenGraphReferenceArgs,
 } from "./types";
 export {
@@ -17,9 +16,7 @@ export {
 } from "./GraphNodeChipRuntime";
 export { GraphNodeHoverToken, type GraphNodeHoverTokenProps } from "./GraphNodeHoverToken";
 export { fallbackGlance, presentationForNodeId, roleClass } from "./presentation";
-export { GraphReferenceSearch, type GraphReferenceSearchProps } from "./GraphReferenceSearch";
 export { referenceFromGraphNode } from "./referenceFromGraphNode";
-export { searchGraphReferences, sortGraphReferenceItems } from "./searchGraphReferences";
 export {
   buildWorldGraphNodeIndex,
   findGraphNodeInProjection,
