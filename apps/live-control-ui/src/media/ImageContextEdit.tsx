@@ -1,5 +1,5 @@
 import {useTourNavigationGuard} from '../guidedTour/Navigation';
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {ContextualAgentMenu} from '../contextualActions/ContextualAgentMenu';
 import {getNativeGraphAccessGeneration,NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT} from '../api/liveApi';
 import {imageEditContext,regenerateImage,type ImageContext,type ImageCandidate,type ImageEditMode} from './imageContextApi';
@@ -14,7 +14,8 @@ export function ImageContextEdit({assetId,editable,captureApply}:{assetId:string
  const pending=useRef<AbortController|null>(null);const active=useRef(true);const apply=useRef<((id:string)=>void)|null>(null);
  const hydrated=useRef(false);const candidateGeneration=useRef<number|null>(null);const tour=useTourImage();
  const key=`dmb:image-context-instructions:v1:${assetId}`;
- useEffect(()=>{
+ // Reset asset authority before the committed Edit control can be used.
+ useLayoutEffect(()=>{
   active.current=true;
   const reset=()=>{hydrated.current=false;pending.current?.abort();pending.current=null;setBusy(false);setApplying(false);setOpen(false);setContext(null);setCandidate(null);setInstructions('');setMode('image_to_image');setError('');apply.current=null;};
   reset();window.addEventListener(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT,reset);
