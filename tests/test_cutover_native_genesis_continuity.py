@@ -82,7 +82,9 @@ from dungeonmind.contracts.graph import PublishRevisionCommand
 from dungeonmind.infrastructure.memory import InMemoryWorldGraphRepository
 
 
-from fastapi.testclient import TestClient
+from tests.local_operator_client import (
+    NativeLocalOperatorTestClient as TestClient, configure_native_local_operator,
+)
 
 
 from graph_memory.projection.world_projection import WorldGraphProjectionRequest
@@ -477,6 +479,7 @@ def native_first_world_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(promotable_mod, "repo_root", lambda: repo)
 
 
+    configure_native_local_operator(monkeypatch)
     client = TestClient(create_app())
 
 

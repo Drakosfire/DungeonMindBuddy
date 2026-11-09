@@ -55,7 +55,9 @@ No runtime source or shared database fixture lease is granted.
 | `tests/application_state/test_play_active_run_postgres.py` | Scoped authenticated endpoint fixture only. |
 | `tests/test_graph_existing_object_resolver.py` | Scoped authenticated endpoint fixture only. |
 | `tests/test_live_artifact_reads.py` | Scoped authenticated endpoint fixture only. |
-| `tests/test_cutover_dungeonmind_first_world_initialization.py` | Current UUID allocator and real auth prerequisites in native client fixture only. |
+| `tests/test_cutover_dungeonmind_first_world_initialization.py` | Native client and five named residual witnesses: Page lineage, committed snapshot, activation outage and two frozen-component variants. |
+| `tests/test_cutover_graph_review_authoring_continuity.py` | Explicit supported operator authentication in existing native client fixture only. |
+| `tests/test_cutover_native_genesis_continuity.py` | Explicit supported operator authentication in existing native client fixture only. |
 | `tests/_cutover_d3a_blocker_safe_fixtures.py` | Current extraction component resolver signature in owned synthetic-run mutation helpers only. |
 | `tests/test_graph_authoring_overlay_projection.py` | Existing declared collection repair. |
 | `tests/test_graph_authoring_overlay_projection_merge.py` | Existing declared collection repair. |
@@ -373,3 +375,42 @@ and3continuity fixtures lacking auth. No assertion or product policy relaxed.
 Every original assert AST/decorator/name in the touched test modules is retained;
 the outage test adds the source-filtered503check. Both owning disposable DBs clean.
 Broader full totals remain pending and cannot be inferred by signature counts.
+
+## Native residual batch: current storage fault boundaries
+
+Coordinator authorizes the remaining native residuals without ADVERSARY overlap.
+This batch extends only the existing D3A test module lease: replace the deleted
+workspace registry mutation with an actual owned Page commit; use the current
+committed Page snapshot owner; inject activation outage at the current APP catalog
+save seam; and replace inert file source/span edits with current durable component
+mutation/resealing in the owned test DB. Preserve exact API rejection codes, zero
+preflight/publication assertions, recovery/idempotency and binding identity checks.
+No production writer/auth/admission change or external data mutation is allowed.
+The INGEST benchmark and APP accepted-prefix files remain read-only.
+
+The same coordinator-assigned ten-residual batch adopts two additional historical
+CUTOVER client fixtures: graph-review authoring continuity and native-genesis
+continuity. Last shared change is merged2058; no active writer/task was found
+on these fixtures. Add supported local operator configuration, explicit loopback
+peer and test-only bearer credential through the scoped helper. All real hosted
+and native Graph middleware/dependencies remain installed; preserve the test
+bodies, including fresh-client restart assertions. Dedicated denial tests remain
+unchanged and run alongside the batch. No ADVERSARY lease is touched.
+
+Native residual author subset: same54originalIDs now49passed/5failed with no
+setup errors;71dedicated auth/CI/fixture checks allpass (combined120passed/5failed
+in30.77s). Current principal setup advances three continuity witnesses past
+auth and exposes their next stale native-ID/durable-output assumptions. Two
+authored-reference cases still409; read-only exception observation identifies
+"Authored selection snapshot is unavailable": their first-world receipt pins
+legacy world_graph D0, while the current query checks a native vNext selection
+snapshot. This is an unresolved producer/reader contract, not permission to relax
+admission or silently replace the fixture with an easier path.
+
+The source variant now changes the sealed run's exact source reference digest
+through the existing owned test CAS helper and proves the immutable source body
+is unchanged. Source bytes are not ingest outputs and cannot be persisted via
+that API; no synthetic mutable source owner is introduced. Span variant persists
+real changed output under its new digest. Original request422/409, zero preflight
+and zero native revision checks remain. Activation failure now occurs at actual
+APP catalog.save_world with ApplicationStateUnavailableError, then real retry.
