@@ -109,3 +109,10 @@ No completion or future merge state is to be pre-recorded. After merge, the next
 - Tests include two People, one Location, one Event, a Person-to-Person assertion and all three connected to the Event; this fixture is test-only and uses distinct local IDs. No synthetic root entity is added.
 - Tests prove object/relationship identity preservation, parallel edges and labels, cycle/self-loop support, finite projection caps including 1,000 malformed relationships, missing endpoints, expanded-canvas pointer drag, semantic vs layout revision separation, conflict preservation, failed/interrupted/repeated edits, and accessible keyboard interaction.
 - Stop if implementation requires route/chrome wiring, package/lockfile/dependency mutation, repository schema or persistence changes, a new semantic allocator/history, hosted graph/network calls, or edits outside §4. Return the exact needed path/owner and proposed seam.
+
+## Current-main re-anchor qualification (2026-11-09)
+
+- Predecessor A4 #2210 merged at `50bb2f979320e0ee6bdbe52f01d1eaa86afa329b`. Main then advanced through #2269 to `659ca54894231cf51444afcd3dfd2576f29906d8`; the current task-owned graph candidate merged that exact main into its branch.
+- Before this handoff update, candidate head was `9583550e9aa2b55e9bc1bb93f7476ceab86ee668`. The cumulative main-to-head diff remains exactly the eight paths in §4 (+1,518/−0); A4 package/repository changes are part of base main, not graph PR scope. `git diff --check` passes.
+- Prior independent review passed on head `6c0d9bf3e3eb8e452841df066e2415ccd95533d3` / base `da00448bfd14e7809a2744435e1b03bc0feafaf2`. The graph source files are byte-identical; however, current base now contains the merged A4 repository/package contract, so exact integrated-tree review and fresh required CI remain gates.
+- The graph lane remains component/adapter only. It has no route, title chrome, user World selection, or persistence result handlers. Later Surface wiring must apply the handoff result guards and independently verify a user-reviewable route; no deployment, browser preview, or review accessibility is claimed here.
