@@ -92,3 +92,17 @@ def test_ordinary_plan_reads_saved_worldbuilding_and_reopens_exact_capture(
         lane,tmp_path,monkeypatch,native_read_admission_probes):
     _ordinary_native_case(lane,tmp_path,monkeypatch,False,False,None,None,False,
         native_read_admission_probes,related_page=True)
+
+
+def test_plan_new_page_uses_saved_worldbuilding_origin_and_existing_reviewed_publication(
+        lane,tmp_path,monkeypatch,native_read_admission_probes):
+    result=_ordinary_native_case(lane,tmp_path,monkeypatch,False,False,None,None,False,
+        native_read_admission_probes,connected_review=True)
+    assert result['confirmed']['phase']=='complete'
+
+
+@pytest.mark.parametrize('mutation',['alias','quote','kind'])
+def test_plan_new_page_rejects_unincluded_origin_or_other_collaboration(
+        lane,tmp_path,monkeypatch,native_read_admission_probes,mutation):
+    _ordinary_native_case(lane,tmp_path,monkeypatch,False,False,None,None,False,
+        native_read_admission_probes,connected_review=True,connected_mutation=mutation)

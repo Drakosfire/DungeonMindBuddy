@@ -92,3 +92,11 @@ def frame_in_request(body):
     if len(candidates) > 1 or candidates and historical:
         raise ValueError('Ambiguous semantic Plan surface work')
     return candidates[0] if candidates else None
+
+
+def resolve_related_read_alias(value, reads):
+    """The same input-local order as the provider work projection, no new ledger."""
+    aliases={f'page{i}':str(read.read_id) for i,read in enumerate(reads)}
+    if value not in aliases:
+        raise ValueError('Related Plan selection names an unincluded saved page')
+    return aliases[value]

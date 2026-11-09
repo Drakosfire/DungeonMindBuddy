@@ -119,7 +119,7 @@ def verify_input_records(receipt, execution, auth, proof, *, question, scope_sha
         from .plan_authoring import PlanRequestedWorkInputV1, validate_requested_work_wire
         if native_action is None and not isinstance(execution.policy, t.PlanAuthoringPolicyV1):
             raise ValueError('Plan destination decision requires its frozen authoring policy')
-        from .plan_placement import PlanRequestedWorkInputV2, PlanRequestedWorkInputV3, PlanRequestedWorkInputV4, PlanRequestedWorkInputV5, PlanRequestedWorkInputV6, PlanRequestedWorkInputV7
+        from .plan_placement import PlanRequestedWorkInputV2, PlanRequestedWorkInputV3, PlanRequestedWorkInputV4, PlanRequestedWorkInputV5, PlanRequestedWorkInputV6, PlanRequestedWorkInputV7, PlanRequestedWorkInputV8
         placement = isinstance(auth, t.PlanRequestedWorkAuthorizedV2)
         if placement != (native_action is not None or isinstance(execution.policy, t.PlanPlacementAuthoringPolicyV1)):
             raise ValueError('Plan placement authorization differs from its current policy')
@@ -133,6 +133,7 @@ def verify_input_records(receipt, execution, auth, proof, *, question, scope_sha
                 "dmb_plan_requested_work_input_v5": PlanRequestedWorkInputV5,
                 "dmb_plan_requested_work_input_v6": PlanRequestedWorkInputV6,
                 "dmb_plan_requested_work_input_v7": PlanRequestedWorkInputV7,
+                "dmb_plan_requested_work_input_v8": PlanRequestedWorkInputV8,
             }.get(schema)
         else:
             parent_type = PlanRequestedWorkInputV1 if schema == "dmb_plan_requested_work_input_v1" else None
@@ -237,6 +238,10 @@ def verify_selection_records(receipt, execution, event, proof, trace, *, questio
             from .plan_placement import PlanRequestedWorkInputV2, work_choice
             if not isinstance(request, PlanRequestedWorkInputV2):
                 raise ValueError('Plan placement selection lacks its exact V2 producer')
+            from .plan_placement import PlanRequestedWorkInputV8
+            from .native_execution import NativePlanRequestedWorkSelectedV3
+            if isinstance(request, PlanRequestedWorkInputV8) != (type(event) is NativePlanRequestedWorkSelectedV3):
+                raise ValueError('Plan selected work differs from its exact decision codec')
             fields = work_choice(request, selected)
             if (any(getattr(event, key) != value for key, value in fields.items())
                     or event.original_capture != (request.original_capture.model_dump(mode='json',by_alias=True) if request.original_capture is not None else None)
@@ -291,3 +296,14 @@ def current_selection(turn):
     if not outcomes or outcomes[-1].outcome != "response_received":
         raise ValueError("Plan acquisition controller has no settled response")
     return selections[-1]
+
+
+def connected_page_review_enabled(execution):
+    """One actual requested-work owner; a frame string never grants a review."""
+    from . import types as t
+    from .native_execution import NativePlanActionV2, NativePlanRequestedWorkSelectedV3
+    if type(getattr(execution.policy, 'action', None)) is not NativePlanActionV2:
+        return False
+    choices=[e for e in execution.events if isinstance(e,t.PlanRequestedWorkSelectedV2)]
+    return (len(choices)==1 and type(choices[0]) is NativePlanRequestedWorkSelectedV3
+        and choices[0].requested_work=='review_connected_page')
