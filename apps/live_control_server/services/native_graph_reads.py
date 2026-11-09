@@ -23,7 +23,7 @@ from application_state.agent_conversation.native_plan_statements import (
     NativePlanStatementMatchV1, NativePlanStatementReadV1, NativePlanStatementReadAuthorizedV1, validate_support_authority,
 )
 from . import source_statements as statements
-from .native_statement_answer_context import header, build_support
+from .native_statement_answer_context import header, build_support, authority as descriptor_reference
 from .managed_world_graph_projection import resolve_managed_world_binding
 from .world_graph_projection import WorldGraphProjectionServiceError
 
@@ -225,7 +225,12 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
             (ref.native_world_id, ref.binding_version) != (bound.native_world_id, bound.binding_version)
             for ref in object_selections(authored_references)):
         raise ValueError('Authored reference World binding changed')
-    repo = repository if repository is not None else statements.native.repository()
+    if source_context is not None:
+        if repository is not None and repository is not source_context.repository:
+            raise ValueError('Prepared native query requires its source repository')
+        repo = source_context.repository
+    else:
+        repo = repository if repository is not None else statements.native.repository()
     space = bound.native_world_id
     if source_context is not None:
         source = source_context.authority
@@ -236,12 +241,21 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
             raise ValueError('Independent native capabilities differ in pinned R')
         revision_id = source.revision_id
         access = source_context.access
+        parsed = access.parsed
+        h = dict(domain_ref=descriptor_reference(parsed.domain_contract_ref, 'domain'),
+            profile_ref=descriptor_reference(parsed.semantic_profile_ref, 'profile'))
+        if ((access.space_id, access.revision_id, parsed.space_id, parsed.revision_id)
+                != (space, revision_id, space, revision_id)
+                or source.domain_ref.model_dump(mode='json') != h['domain_ref']
+                or source.profile_ref.model_dump(mode='json') != h['profile_ref']
+                or source.acquisition_epoch != access.source_view.epoch):
+            raise ValueError('Prepared native query differs from its source authority')
         from graph_memory.vnext.domain_runtime import DungeonBuddyVNextProjectionInput, build_dungeonbuddy_read_context
         read = build_dungeonbuddy_read_context(parsed_revision=access.parsed,
             projection_input=DungeonBuddyVNextProjectionInput(world_id=space,
                 revision_id=revision_id, role='gm', scope_mode=scope_mode, campaign_id=campaign_id),
             source_reader=access.source_view)
-        domain, profile = statements.native.descriptors(repo, space, revision_id)
+        domain, profile = read.domain_contract, read.semantic_profile
         pinned = read, access, domain, profile
     else:
         if revision_id is None:
@@ -251,7 +265,7 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
                     reason='native_graph_head_unavailable')
             revision_id = head.head_revision_id
         pinned = statements._context(repo, space, revision_id, campaign_id, 'gm', scope_mode=scope_mode)
-    h = header(repo.get_revision(space, revision_id))
+        h = header(repo.get_revision(space, revision_id))
     authority = NativePlanQueryAuthorityV1(managed_world_id=managed_world_id, native_world_id=space,
         binding_version=bound.binding_version, revision_id=revision_id,
         domain_ref=h['domain_ref'], profile_ref=h['profile_ref'],

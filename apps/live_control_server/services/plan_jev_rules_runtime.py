@@ -43,7 +43,7 @@ class PlanRulesRuntime:
             raise ValueError("Plan Rules cannot repeat the same selected question")
         native = self._initialize()
         a = self.adapter
-        with a.fence.renewer._lock:
+        def lookup():
             turn = native._bind()
             event = prepare_authorization(native.record.execution, turn, parent_request_json)
             native.record = a.service.authorize_plan_jev_rules_lookup(native.record.execution.scope,
@@ -55,13 +55,15 @@ class PlanRulesRuntime:
                 local_reader=lambda current: broker.prepare_plan_lookup(current, event.call_id, turn.user_text))
             native.record = delivery.record
             self.call_ids = (event.call_id,)
-        return delivery
+            return delivery
+        return a.fence.rules_checkpoint(lookup, lambda: native.record)
 
     def frame(self):
         native = self._initialize()
-        with self.adapter.fence.renewer._lock:
+        def materialize():
             native._bind()
             return build_plan_rules_frame(native.record.execution, self.call_ids)
+        return self.adapter.fence.rules_checkpoint(materialize, lambda: native.record)
 
     def outcome(self, transition):
         if self.native is not None: self.native.outcome(transition)

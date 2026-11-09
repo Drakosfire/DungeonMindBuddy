@@ -64,37 +64,41 @@ def native_read_admission_probes(monkeypatch):
     calls = []
 
     def checked_authorize(self, world_id, conversation_id, turn_id, **kwargs):
+        # Refusal probes are independent APP calls, not reentrant calls through
+        # a session command whose successful generation is not published yet.
+        probe = AgentConversationService()
         before = self.inspect_turn(world_id=world_id, turn_id=turn_id)
         with pytest.raises(ApplicationStateValidationError, match="Unknown native"):
-            authorize(self, world_id, conversation_id, turn_id, **(kwargs | {"record_kind": "other"}))
+            authorize(probe, world_id, conversation_id, turn_id, **(kwargs | {"record_kind": "other"}))
         other = "statement" if kwargs["record_kind"] == "assertion" else "assertion"
         with pytest.raises(ApplicationStateValidationError):
-            authorize(self, world_id, conversation_id, turn_id, **(kwargs | {"record_kind": other}))
+            authorize(probe, world_id, conversation_id, turn_id, **(kwargs | {"record_kind": other}))
         assert self.inspect_turn(world_id=world_id, turn_id=turn_id) == before
         from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
         shared = type(before.graph_context_receipt) is SurfaceNativeContextReceiptV1
         # A normalized typed ID may not reuse any existing event family.
         if shared:
             with pytest.raises(ApplicationStateValidationError):
-                authorize(self, world_id, conversation_id, turn_id,
+                authorize(probe, world_id, conversation_id, turn_id,
                     **(kwargs | {"event_id": str(before.graph_context_execution.events[0].event_id)}))
             assert self.inspect_turn(world_id=world_id, turn_id=turn_id) == before
         result = authorize(self, world_id, conversation_id, turn_id, **kwargs)
         updated_turn, _ = result
         if shared:
             with pytest.raises(ApplicationStateValidationError):
-                authorize(self, world_id, conversation_id, turn_id,
+                authorize(probe, world_id, conversation_id, turn_id,
                     **(kwargs | {"expected_revision": updated_turn.revision}))
             assert self.inspect_turn(world_id=world_id, turn_id=turn_id) == updated_turn
         return result
 
     def checked_observe(self, world_id, conversation_id, turn_id, **kwargs):
+        probe = AgentConversationService()
         before = self.inspect_turn(world_id=world_id, turn_id=turn_id)
         with pytest.raises(ApplicationStateValidationError, match="exact retained read grant"):
-            observe(self, world_id, conversation_id, turn_id,
+            observe(probe, world_id, conversation_id, turn_id,
                 **(kwargs | {"authorization_event_id": uuid4()}))
         with pytest.raises(ApplicationStateValidationError):
-            observe(self, world_id, conversation_id, turn_id,
+            observe(probe, world_id, conversation_id, turn_id,
                 **(kwargs | {"reads": (), "unavailable_ids": ("foreign-record",)}))
         # A caller cannot change an assertion grant into a statement observation,
         # or a statement grant into an assertion observation.
@@ -103,7 +107,7 @@ def native_read_admission_probes(monkeypatch):
             and event.event_id == kwargs["authorization_event_id"]
             for event in before.graph_context_execution.events) else {"assertion": {}, "evidence": (), "spans": ()}
         with pytest.raises(ApplicationStateValidationError):
-            observe(self, world_id, conversation_id, turn_id,
+            observe(probe, world_id, conversation_id, turn_id,
                 **(kwargs | {"reads": (wrong,), "unavailable_ids": ()}))
         assert self.inspect_turn(world_id=world_id, turn_id=turn_id) == before
         from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
@@ -112,18 +116,18 @@ def native_read_admission_probes(monkeypatch):
             for reused in (before.graph_context_execution.events[0].event_id,
                            kwargs["authorization_event_id"]):
                 with pytest.raises(ApplicationStateValidationError, match="event IDs must be unique"):
-                    observe(self, world_id, conversation_id, turn_id,
+                    observe(probe, world_id, conversation_id, turn_id,
                         **(kwargs | {"event_id": str(reused)}))
                 assert self.inspect_turn(world_id=world_id, turn_id=turn_id) == before
         result = observe(self, world_id, conversation_id, turn_id, **kwargs)
         updated_turn, _replayed = result
         if shared:
             with pytest.raises(ApplicationStateValidationError, match="event IDs must be unique"):
-                observe(self, world_id, conversation_id, turn_id,
+                observe(probe, world_id, conversation_id, turn_id,
                     **(kwargs | {"expected_revision": updated_turn.revision}))
             assert self.inspect_turn(world_id=world_id, turn_id=turn_id) == updated_turn
         with pytest.raises(ApplicationStateValidationError):
-            observe(self, world_id, conversation_id, turn_id,
+            observe(probe, world_id, conversation_id, turn_id,
                 **(kwargs | {"expected_revision": updated_turn.revision, "event_id": uuid4()}))
         assert self.inspect_turn(world_id=world_id, turn_id=turn_id) == updated_turn
         calls.append(kwargs["authorization_event_id"])

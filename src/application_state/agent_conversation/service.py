@@ -1345,6 +1345,20 @@ class AgentConversationService:
                 raise ApplicationStateConflictError("Native writer claim expired during append")
             return updated, True
 
+    def _lock_execution_append_turn(self, conn, world_id, turn_id):
+        return repo.lock_turn(conn, world_id, turn_id)
+
+    def _persist_execution_append(self, conn, *, world_id, turn_id, expected_revision, execution):
+        return repo.update_graph_execution(conn, world_id=world_id, turn_id=turn_id,
+            expected_revision=expected_revision, execution=execution)
+
+    def _materialize_execution_source(self, materialize, conn, turn):
+        return materialize(conn, turn)
+
+    def _bind_execution_append(self, context, execution):
+        from .native_execution import validate_context_binding
+        return validate_context_binding(context, execution)
+
     def _append_graph_execution_event(
         self,
         world_id: str,
@@ -1380,7 +1394,7 @@ class AgentConversationService:
         with unit_of_work(dsn) as conn:
             action=(lock_authoring_writer(conn,plan_authoring_reservation,world_id=world_id,
                 conversation_id=conversation_id,turn_id=turn_id) if plan_authoring_reservation is not None else None)
-            turn = repo.lock_turn(conn, world_id, turn_id)
+            turn = self._lock_execution_append_turn(conn, world_id, turn_id)
             turn = _ordinary_mutation_turn(turn, conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
@@ -1487,7 +1501,7 @@ class AgentConversationService:
                     raise ApplicationStateValidationError(str(exc)) from exc
                 if not fresh:
                     return turn,False
-                updated = repo.update_graph_execution(conn,world_id=world_id,turn_id=turn_id,
+                updated = self._persist_execution_append(conn,world_id=world_id,turn_id=turn_id,
                     expected_revision=expected_revision,execution=prospective)
                 if updated is None:
                     raise ApplicationStateConflictError("Native writer claim expired during atomic admission")
@@ -1778,7 +1792,7 @@ class AgentConversationService:
             # Materialize only after every existing owner/Rules writer fence.
             source_batch = None
             if native_source_materializer is not None:
-                event = native_source_materializer(conn, turn)
+                event = self._materialize_execution_source(native_source_materializer, conn, turn)
                 if isinstance(event, (tuple, list)):
                     from .native_corpus import NativeDirectSourceAuthorizedV1
                     if type(event) is not tuple or not event or any(type(item) is not NativeDirectSourceAuthorizedV1 for item in event):
@@ -1877,8 +1891,7 @@ class AgentConversationService:
                 *([play_body_inclusion] if play_body_inclusion is not None else [])]
             try:
                 if isinstance(execution, SurfaceNativeExecutionV1):
-                    from .native_execution import validate_context_binding
-                    updated_execution = validate_context_binding(turn.graph_context_receipt,
+                    updated_execution = self._bind_execution_append(turn.graph_context_receipt,
                         execution.model_copy(update={"events": events}))
                 else:
                     execution_type = type(execution)
@@ -1893,7 +1906,7 @@ class AgentConversationService:
                         validate_selected_source_binding(turn.graph_context_receipt, updated_execution)
             except ValueError as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
-            updated = repo.update_graph_execution(
+            updated = self._persist_execution_append(
                 conn, world_id=world_id, turn_id=turn_id,
                 expected_revision=expected_revision, execution=updated_execution,
             )
@@ -2065,111 +2078,106 @@ class AgentConversationService:
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=inclusion, duplicate_key="event_id")
 
-    def _append_native_read_materialization(self, world_id, conversation_id, turn_id, *,
-            expected_revision, expected_attempt, materialize):
-        def produce(conn, turn):
-            try:
-                return materialize(turn)
-            except (ValueError, TypeError, KeyError, AttributeError) as exc:
-                raise ApplicationStateValidationError(str(exc)) from exc
+    def _append_native_read_operation(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, producer, **arguments):
+        from .native_reads import _NativeReadOperation
         return self._append_graph_execution_event(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            event=None, duplicate_key="event_id", native_source_materializer=produce)
+            event=None, duplicate_key="event_id",
+            native_source_materializer=_NativeReadOperation(producer, arguments))
 
     def authorize_native_read(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id, record_kind, record_ids):
         from .native_reads import authorize_read
-        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            materialize=lambda turn: authorize_read(turn, event_id=event_id,
-                record_kind=record_kind, record_ids=record_ids))
+            producer=authorize_read, event_id=event_id, record_kind=record_kind, record_ids=record_ids)
 
     def observe_native_read(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id, authorization_event_id, reads, unavailable_ids):
         from .native_reads import observe_read
-        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            materialize=lambda turn: observe_read(turn, event_id=event_id,
-                authorization_event_id=authorization_event_id, reads=reads,
-                unavailable_ids=unavailable_ids))
+            producer=observe_read, event_id=event_id, authorization_event_id=authorization_event_id,
+            reads=reads, unavailable_ids=unavailable_ids)
 
     def capture_native_authored_references(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id):
         from .authored_graph_references import capture_native_input
-        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            materialize=lambda turn: capture_native_input(turn, event_id=event_id))
+            producer=capture_native_input, event_id=event_id)
 
     def authorize_native_authored_reference(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id, node_id):
         from .authored_graph_references import authorize_native_reference
-        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            materialize=lambda turn: authorize_native_reference(turn, event_id=event_id, node_id=node_id))
+            producer=authorize_native_reference, event_id=event_id, node_id=node_id)
 
     def observe_native_authored_reference(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id, authorization_event_id, materialize):
         from .authored_graph_references import observe_native_reference
-        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            materialize=lambda turn: observe_native_reference(turn, event_id=event_id,
-                authorization_event_id=authorization_event_id, materialize=materialize))
+            producer=observe_native_reference, event_id=event_id,
+            authorization_event_id=authorization_event_id, materialize=materialize)
 
     def observe_native_authored_source(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id, reference_index, materialize):
         from .authored_graph_references import observe_native_source_reference
-        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            materialize=lambda turn: observe_native_source_reference(turn, event_id=event_id,
-                reference_index=reference_index, materialize=materialize))
+            producer=observe_native_source_reference, event_id=event_id,
+            reference_index=reference_index, materialize=materialize)
 
     def authorize_native_direct_sources(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, grants):
         from .native_reads import authorize_direct_sources_locked
-        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            materialize=lambda turn: authorize_direct_sources_locked(turn, grants=grants))
+            producer=authorize_direct_sources_locked, grants=grants)
 
     def observe_native_direct_source(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id, authorization_event_id, read):
         from .native_reads import observe_direct_source_locked
-        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            materialize=lambda turn: observe_direct_source_locked(turn, event_id=event_id,
-                authorization_event_id=authorization_event_id, read=read))
+            producer=observe_direct_source_locked, event_id=event_id,
+            authorization_event_id=authorization_event_id, read=read)
 
     def authorize_native_body_search(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id):
         from .native_reads import authorize_body_search_locked
-        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            materialize=lambda turn: authorize_body_search_locked(turn, event_id=event_id))
+            producer=authorize_body_search_locked, event_id=event_id)
 
     def observe_native_body_search(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id, authorization_event_id, capture):
         from .native_reads import observe_body_search_locked
-        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            materialize=lambda turn: observe_body_search_locked(turn, event_id=event_id,
-                authorization_event_id=authorization_event_id, capture=capture))
+            producer=observe_body_search_locked, event_id=event_id,
+            authorization_event_id=authorization_event_id, capture=capture)
 
     def authorize_native_body_read(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id, search_event_id, catalog_sha256,
             retrieval_kind, section_id):
         from .native_reads import authorize_body_read_locked
-        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            materialize=lambda turn: authorize_body_read_locked(turn, event_id=event_id,
-                search_event_id=search_event_id, catalog_sha256=catalog_sha256,
-                retrieval_kind=retrieval_kind, section_id=section_id))
+            producer=authorize_body_read_locked, event_id=event_id,
+            search_event_id=search_event_id, catalog_sha256=catalog_sha256,
+            retrieval_kind=retrieval_kind, section_id=section_id)
 
     def observe_native_body_read(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id, authorization_event_id, read):
         from .native_reads import observe_body_read_locked
-        return self._append_native_read_materialization(world_id, conversation_id, turn_id,
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            materialize=lambda turn: observe_body_read_locked(turn, event_id=event_id,
-                authorization_event_id=authorization_event_id, read=read))
+            producer=observe_body_read_locked, event_id=event_id,
+            authorization_event_id=authorization_event_id, read=read)
 
     def authorize_native_source_section(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *, expected_revision: int,
