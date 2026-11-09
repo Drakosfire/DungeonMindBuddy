@@ -134,6 +134,55 @@
     "tests/application_state/test_agent_conversation_provenance_migration.py": [
       "test_0011_receipts_survive_additive_typed_provenance_migration_and_fail_closed",
       "test_downgrade_refuses_to_discard_typed_provenance"
+    ],
+    "tests/application_state/test_agent_conversation_service.py": [
+      "test_absent_surface_cannot_carry_instance_identity",
+      "test_additive_null_provenance_fields_preserve_legacy_fingerprint_shape",
+      "test_archive_and_reopen_retries_do_not_reapply_lifecycle_changes",
+      "test_claim_recovery_migration_preserves_completed_legacy_turn",
+      "test_concurrent_turn_writers_use_conversation_revision_cas",
+      "test_content_reference_requires_complete_typed_revision_and_resolved_identity",
+      "test_delivered_traversal_evidence_does_not_require_every_passage",
+      "test_explicit_uncapped_policy_retains_ledger_and_historical_enforcement",
+      "test_failed_import_does_not_leave_partial_conversation_or_turns",
+      "test_graph_execution_records_enforce_event_order_and_policy",
+      "test_graph_execution_v2_enforces_each_aggregate_source_budget",
+      "test_graph_execution_v2_source_opened_requires_included_successful_read",
+      "test_graph_execution_v2_source_read_scope_receipt_and_budget_are_strict",
+      "test_graphless_turn_request_fingerprint_omits_new_null_policy_fields",
+      "test_historical_graph_operation_evidence_outside_initial_dispatch",
+      "test_legacy_turn_receipt_is_not_reconciled_from_resolved_provenance",
+      "test_new_commands_use_pointer_cas_and_receipt_only_replay",
+      "test_ordinary_accept_requires_submitted_intent_for_new_turns",
+      "test_play_graph_binding_codec_requires_exact_play_graph_basis",
+      "test_play_run_context_codec_validates_complete_reserved_group",
+      "test_play_v2_receipt_and_basis_validate_utf8_note_and_typed_witnesses",
+      "test_related_recap_context_inclusion_is_separate_and_dispatch_fenced",
+      "test_related_recap_context_may_bind_a_committed_selected_index",
+      "test_related_recap_context_may_bind_a_prior_validated_graph_operation",
+      "test_related_recap_context_uses_independent_turn_admitted_provenance",
+      "test_related_recap_continuation_binds_exact_descriptor_campaign",
+      "test_related_recap_v2_admission_rejects_retired_or_forged_selector",
+      "test_related_recap_v2_audit_rejects_forged_geometry_and_retired_kind",
+      "test_reset_fingerprint_full_canonical_unicode_vector",
+      "test_source_admission_v3_preserves_selected_commitment_and_legacy_bytes",
+      "test_source_admission_v3_rejects_unproven_extensions",
+      "test_source_admission_v3_requires_origin_evidence_and_bounded_storage",
+      "test_source_admission_v3_retains_character_batch_and_event_bounds",
+      "test_source_bound_draft_cas_submit_and_uncertain_retry",
+      "test_source_index_completion_requires_read_and_target_bound_graph_event",
+      "test_storage_boundary_requires_nonblank_world_and_fails_closed_when_db_is_down",
+      "test_submit_draft_rolls_back_turn_if_retirement_fails",
+      "test_submitted_turn_intent_rejects_incomplete_plan_or_mismatched_graph_scope",
+      "test_submitted_turn_intent_v1_fingerprint_covers_replayable_semantics",
+      "test_turn_claim_expiry_fences_old_worker_and_terminal_retries",
+      "test_turn_claim_lease_bounds_are_validated_before_database_access",
+      "test_turn_idempotency_order_provenance_and_truthful_lifecycle",
+      "test_turn_receipt_reconciliation_survives_pointer_rotation_and_fails_closed",
+      "test_uncapped_related_context_records_more_than_eight_calls",
+      "test_v1_accept_race_keeps_one_receipt_and_rejects_conflicting_intent",
+      "test_verified_legacy_import_is_bounded_exact_world_and_idempotent",
+      "test_world_identity_isolation_and_stable_conversation_ids"
     ]
   },
   "original_parametrization": {
@@ -162,6 +211,16 @@
       "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='winner'), List(elts=[Constant(value='old'), Constant(value='retire')], ctx=Load())], keywords=[])",
       "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Tuple(elts=[Constant(value='context_status'), Constant(value='coverage_status'), Constant(value='truncated'), Constant(value='has_graph_claim')], ctx=Load()), List(elts=[Tuple(elts=[Constant(value='graph_grounded'), Constant(value='complete'), Constant(value=False), Constant(value=True)], ctx=Load()), Tuple(elts=[Constant(value='graph_grounded_partial'), Constant(value='incomplete'), Constant(value=False), Constant(value=True)], ctx=Load()), Tuple(elts=[Constant(value='plan_only_graph_unused'), Constant(value='complete'), Constant(value=False), Constant(value=False)], ctx=Load())], ctx=Load())], keywords=[])"
     ],
-    "tests/application_state/test_agent_conversation_provenance_migration.py": []
+    "tests/application_state/test_agent_conversation_provenance_migration.py": [],
+    "tests/application_state/test_agent_conversation_service.py": [
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='change'), List(elts=[Constant(value='missing_origin'), Constant(value='late_origin'), Constant(value='pin'), Constant(value='evidence'), Constant(value='world'), Constant(value='native_world'), Constant(value='binding'), Constant(value='revision'), Constant(value='session'), Constant(value='rebind')], ctx=Load())], keywords=[])",
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='corruption'), List(elts=[Constant(value=None), Constant(value='missing'), Constant(value='nonproducing'), Constant(value='wrong_target'), Constant(value='wrong_ref'), Constant(value='excluded_ref')], ctx=Load())], keywords=[])",
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='mutation'), List(elts=[Constant(value=None), Constant(value='omitted-event'), Constant(value='omitted-ref'), Constant(value='unrelated-target'), Constant(value='foreign-revision'), Constant(value='truncated'), Constant(value='mixed-index'), Constant(value='unrelated-event')], ctx=Load())], keywords=[])",
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='opened'), List(elts=[Constant(value=False), Constant(value=True)], ctx=Load())], keywords=[])",
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='patch'), List(elts=[Dict(keys=[Constant(value='expected_session_id')], values=[Constant(value='session-022')]), Dict(keys=[Constant(value='expected_session_id')], values=[Constant(value='session-0')]), Dict(keys=[Constant(value='canonical_heading')], values=[Constant(value='# Session 21 Recap')]), Dict(keys=[Constant(value='legacy_session_heading')], values=[Constant(value='## Session 21:')]), Dict(keys=[Constant(value='legacy_recap_marker')], values=[Constant(value='Recap:')]), Dict(keys=[Constant(value='schema')], values=[Constant(value='dmb_agent_related_recap_context_admission_v1')]), Dict(keys=[Constant(value='context_anchor_id')], values=[Constant(value='dm-context-anchor:v1:session-22')])], ctx=Load())], keywords=[])",
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='patch'), List(elts=[Dict(keys=[Constant(value='session_heading_line')], values=[Constant(value=2)]), Dict(keys=[Constant(value='selected_form')], values=[Constant(value='legacy_h2')]), Dict(keys=[Constant(value='recap_marker_line')], values=[Constant(value=2)]), Dict(keys=[Constant(value='selected_form'), Constant(value='recap_marker_line')], values=[Constant(value='legacy_h2'), Constant(value=1)]), Dict(keys=[Constant(value='line_start')], values=[Constant(value=3)]), Dict(keys=[Constant(value='kind')], values=[Constant(value='validated_related_recap_context_v1')])], ctx=Load())], keywords=[])",
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='version'), List(elts=[Constant(value=1), Constant(value=2), Constant(value=3)], ctx=Load())], keywords=[])",
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='version'), List(elts=[Constant(value=1), Constant(value=2)], ctx=Load())], keywords=[])"
+    ]
   }
 }

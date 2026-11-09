@@ -44,6 +44,12 @@ No runtime source or shared database fixture lease is granted.
 | `ci/contracts.json` | Additive qualification contract only if required. |
 | `ci/test-classification.json` | Explicit classification/discovery contract for new tests. |
 | `ci/collection-repairs.json` | Preserve original definitions/parametrizations. |
+| `tests/application_state/conftest.py` | Exact historical templates/clones; preserve strict default head isolation. |
+| `tests/application_state/historical_migrations.py` | Audited test row projection and transactional owning refusal guards. |
+| `tests/application_state/test_historical_migration_contract.py` | Real PostgreSQL schema/isolation/fence guards. |
+| `tests/application_state/test_agent_conversation_postgres.py` | Audited historical witnesses and current HTTP/provider test prerequisites. |
+| `tests/application_state/test_agent_conversation_provenance_migration.py` | Audited provenance transition/refusal witnesses. |
+| `tests/application_state/test_agent_conversation_service.py` | Claim-recovery migration witness only; retain all original cases/assertions. |
 | `tests/test_graph_authoring_overlay_projection.py` | Existing declared collection repair. |
 | `tests/test_graph_authoring_overlay_projection_merge.py` | Existing declared collection repair. |
 | `tests/test_graph_authoring_visibility.py` | Existing declared collection repair. |
@@ -199,3 +205,21 @@ Hosted merge-composition testing exposed a new guard's accidental assumption tha
 specific production fence without another obsolete latest-head constant. Current
 head fixture guards remain dynamic/strict, and0142's own source/tests stay owned
 by its merged implementation. No rebase or production modification is needed.
+
+## Authorized claim-recovery witness repair
+
+The coordinator assigns the three reproduced conversation-service failures:
+APP's verified legacy producer bug is isolated in its own narrow product lane;
+CI2 owns only `tests/application_state/test_agent_conversation_service.py`'s stale
+historical claim-recovery witness and its original-definition/parameter manifest.
+No other open PR edits that test file. APP successor settles the historical
+#822/#867 implementation headers; CI2 does not concurrently edit those documents.
+CI2 pauses classification writes while the APP lane adds its one new owner-module
+entry. This explicitly splits that append from CI2's other manifest authority.
+
+Use a real0013 template/clone, seed the completed owned test row, downgrade only
+the owning0013→0012 edge, then upgrade the real chain to head. Preserve every
+fingerprint, provenance, attempt, result and legacy-unverifiable replay assertion.
+Only the later answer_composition_kind=base default is explicitly projected away
+and must be recreated by forward migration. No production downgrade through0142,
+version stamping, finite budget override or skipped case is permitted.
