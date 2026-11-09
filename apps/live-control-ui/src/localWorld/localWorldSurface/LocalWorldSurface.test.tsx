@@ -3,8 +3,9 @@ import { AgentInteractionProvider } from "../../agentInteraction/AgentInteractio
 import { InMemoryLocalWorldRepository, InMemoryLocalWorldStore } from "../inMemoryLocalWorldRepository";
 import { createPackageTestRecord, packageFixtureAttachmentBytes } from "../localWorldPackageFixtures";
 import type { LocalWorldPackageData } from "../localWorldRepository";
+import { encodeLocalWorldPackageV1, parseLocalWorldPackageV1 } from "../localWorldPackageV1";
 import { LocalWorldSurface } from "./LocalWorldSurface";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -58,6 +59,643 @@ describe("local World Surface", () => {
     renderSurface(repository);
     await user.click(await screen.findByRole("button", { name: /The Ember Coast/ }));
     expect(await screen.findByRole("heading", { name: "The Ember Coast" })).toBeTruthy();
+  });
+
+  it("starts an editable connected graph and preserves semantic and layout work through reopen and package round trip", async () => {
+    const user = userEvent.setup();
+    const repository = new InMemoryLocalWorldRepository();
+    const created = await repository.createWorld({ title: "The Ember Coast" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+
+    const view = renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /The Ember Coast/ }));
+    await user.click(screen.getByRole("button", { name: "Start with an example graph" }));
+    const graph = await screen.findByRole("group", { name: "The Ember Coast world graph" });
+    expect(within(graph).getByRole("button", { name: "Mara Venn, person" })).toBeVisible();
+    expect(within(graph).getByRole("button", { name: "Tomas Reed, person" })).toBeVisible();
+    expect(within(graph).getByRole("button", { name: "Amber Quay, location" })).toBeVisible();
+    expect(within(graph).getByRole("button", { name: "Lantern Festival, event" })).toBeVisible();
+    expect(within(graph).getByRole("img", { name: "Mara Venn knows Tomas Reed" })).toBeVisible();
+    expect(within(graph).getByRole("img", { name: "Lantern Festival held at Amber Quay" })).toBeVisible();
+
+    await user.click(within(graph).getByRole("button", { name: "Mara Venn, person" }));
+    await user.click(screen.getByRole("button", { name: "Rename Mara Venn" }));
+    await user.clear(screen.getByLabelText("New name"));
+    await user.type(screen.getByLabelText("New name"), "Mara Venn of the Quay");
+    await user.click(screen.getByRole("button", { name: "Save name" }));
+    const renamed = await screen.findByRole("button", { name: "Mara Venn of the Quay, person" });
+    renamed.focus();
+    await user.keyboard("{ArrowRight}");
+    await screen.findByText("Canvas layout updated.");
+
+    await user.click(screen.getByRole("button", { name: "Add object" }));
+    await user.type(screen.getByLabelText("Object name"), "Nella Quill");
+    await user.click(screen.getByRole("button", { name: "Create object" }));
+    const nella = await screen.findByRole("button", { name: "Nella Quill, person" });
+    await user.click(screen.getByRole("button", { name: "Mara Venn of the Quay, person" }));
+    await user.click(nella);
+    await user.click(screen.getByRole("button", { name: "Tomas Reed, person" }));
+    await user.click(screen.getByRole("button", { name: "Connect selected objects" }));
+    await user.type(screen.getByLabelText("Relationship label"), "protects");
+    await user.click(screen.getByRole("button", { name: "Create relationship" }));
+    expect(await screen.findByRole("img", { name: "Nella Quill protects Tomas Reed" })).toBeVisible();
+
+    const saved = await repository.readWorld(created.record.snapshot.worldId);
+    expect(saved.status).toBe("found");
+    if (saved.status !== "found") return;
+    expect(saved.record.localRevision).toBe(4);
+    expect(saved.record.layoutRevision).toBe(1);
+    expect(saved.record.snapshot.objects.find((item) => item.name === "Mara Venn of the Quay")).toBeTruthy();
+    expect(saved.record.snapshot.relationships).toHaveLength(5);
+    expect(saved.record.history.map((entry) => entry.description)).toContain("Started a small example graph");
+
+    const exportSnapshot = await repository.readWorldExportSnapshot(created.record.snapshot.worldId);
+    expect(exportSnapshot.status).toBe("found");
+    if (exportSnapshot.status !== "found") return;
+    const encoded = await encodeLocalWorldPackageV1(exportSnapshot.record, exportSnapshot.data);
+    expect(encoded.status).toBe("encoded");
+    if (encoded.status !== "encoded") return;
+    const parsed = await parseLocalWorldPackageV1(encoded.members);
+    expect(parsed.status).toBe("staged");
+    if (parsed.status !== "staged") return;
+    expect(parsed.candidate.record.snapshot).toEqual(saved.record.snapshot);
+    expect(parsed.candidate.record.layout).toEqual(saved.record.layout);
+
+    view.unmount();
+    renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /The Ember Coast/ }));
+    expect(await screen.findByRole("button", { name: "Mara Venn of the Quay, person" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Tomas Reed, person" })).toBeVisible();
+    expect(screen.getByRole("img", { name: "Nella Quill protects Tomas Reed" })).toBeVisible();
+  });
+
+  it("keeps a graph proposal visible after a semantic conflict and applies it only after a deliberate retry", async () => {
+    const user = userEvent.setup();
+    const repository = new InMemoryLocalWorldRepository();
+    const created = await repository.createWorld({ title: "Conflict Graph" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+    renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Conflict Graph/ }));
+    await user.click(screen.getByRole("button", { name: "Start with an example graph" }));
+    const mara = await screen.findByRole("button", { name: "Mara Venn, person" });
+    await user.click(mara);
+    await user.click(screen.getByRole("button", { name: "Rename Mara Venn" }));
+    await user.clear(screen.getByLabelText("New name"));
+    await user.type(screen.getByLabelText("New name"), "Mara after the storm");
+
+    const latest = await repository.readWorld(created.record.snapshot.worldId);
+    expect(latest.status).toBe("found");
+    if (latest.status !== "found") return;
+    await repository.commitSemanticEdit({
+      worldId: latest.record.snapshot.worldId,
+      expectedLocalRevision: latest.record.localRevision,
+      nextSnapshot: { ...latest.record.snapshot, title: "Conflict Graph, revised" },
+      edit: { classification: "buddy-local-only", description: "Renamed in another tab" },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Save name" }));
+    expect(await screen.findByRole("region", { name: "Saved graph conflict candidate" })).toBeVisible();
+    expect(screen.getByText(/Renamed Mara Venn was saved as a local conflict candidate/)).toBeVisible();
+    expect(screen.getByLabelText("New name")).toHaveValue("Mara after the storm");
+    expect(await repository.readConflictCandidates(created.record.snapshot.worldId)).toMatchObject({ status: "found" });
+
+    await user.click(screen.getByRole("button", { name: "Save name" }));
+    expect(await screen.findByRole("heading", { name: "Conflict Graph, revised" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "Mara after the storm, person" })).toBeVisible();
+    expect((await repository.readConflictCandidates(created.record.snapshot.worldId)).status).toBe("found");
+  });
+
+  it("syncs a clean title editor to a remote rename returned by a delayed graph conflict", async () => {
+    let pauseNextSemanticEdit = false;
+    let release!: () => void;
+    let started!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const writeStarted = new Promise<void>((resolve) => { started = resolve; });
+    const repository = new InMemoryLocalWorldRepository({ beforeCommit: async (point) => {
+      if (point === "semantic-edit" && pauseNextSemanticEdit) {
+        pauseNextSemanticEdit = false;
+        started();
+        await gate;
+      }
+    } });
+    const created = await repository.createWorld({ title: "Before remote rename" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+    const user = userEvent.setup();
+    renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Before remote rename/ }));
+    await user.click(screen.getByRole("button", { name: "Start with an example graph" }));
+    await screen.findByRole("button", { name: "Mara Venn, person" });
+    await user.click(screen.getByRole("button", { name: "Edit World title" }));
+    expect(screen.getByRole("button", { name: "Save title" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Mara Venn, person" }));
+    await user.click(screen.getByRole("button", { name: "Rename Mara Venn" }));
+    await user.clear(screen.getByLabelText("New name"));
+    await user.type(screen.getByLabelText("New name"), "Mara's proposal");
+    pauseNextSemanticEdit = true;
+    await user.click(screen.getByRole("button", { name: "Save name" }));
+    await writeStarted;
+
+    const current = await repository.readWorld(created.record.snapshot.worldId);
+    expect(current.status).toBe("found");
+    if (current.status !== "found") return;
+    await repository.commitSemanticEdit({
+      worldId: current.record.snapshot.worldId,
+      expectedLocalRevision: current.record.localRevision,
+      nextSnapshot: { ...current.record.snapshot, title: "Remote rename" },
+      edit: { classification: "buddy-local-only", description: "Renamed in another tab" },
+    });
+    release();
+    await screen.findByRole("region", { name: "Saved graph conflict candidate" });
+
+    expect(screen.getByLabelText("World title")).toHaveValue("Remote rename");
+    expect(screen.getByRole("button", { name: "Save title" })).toBeDisabled();
+    expect(screen.getByLabelText("New name")).toHaveValue("Mara's proposal");
+    const saved = await repository.readWorld(created.record.snapshot.worldId);
+    expect(saved.status).toBe("found");
+    if (saved.status === "found") expect(saved.record.snapshot.title).toBe("Remote rename");
+    await user.click(within(screen.getByRole("region", { name: "Local World graph canvas" })).getByRole("button", { name: "Cancel" }));
+  });
+
+  it("preserves a genuinely dirty title through an asynchronous graph conflict and keeps it intentionally saveable", async () => {
+    let pauseNextSemanticEdit = false;
+    let release!: () => void;
+    let started!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const writeStarted = new Promise<void>((resolve) => { started = resolve; });
+    const repository = new InMemoryLocalWorldRepository({ beforeCommit: async (point) => {
+      if (point === "semantic-edit" && pauseNextSemanticEdit) {
+        pauseNextSemanticEdit = false;
+        started();
+        await gate;
+      }
+    } });
+    const created = await repository.createWorld({ title: "Before remote rename" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+    const user = userEvent.setup();
+    renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Before remote rename/ }));
+    await user.click(screen.getByRole("button", { name: "Start with an example graph" }));
+    await screen.findByRole("button", { name: "Mara Venn, person" });
+    await user.click(screen.getByRole("button", { name: "Edit World title" }));
+    await user.clear(screen.getByLabelText("World title"));
+    await user.type(screen.getByLabelText("World title"), "My intentional title draft");
+
+    await user.click(screen.getByRole("button", { name: "Mara Venn, person" }));
+    await user.click(screen.getByRole("button", { name: "Rename Mara Venn" }));
+    await user.clear(screen.getByLabelText("New name"));
+    await user.type(screen.getByLabelText("New name"), "Mara's proposal");
+    pauseNextSemanticEdit = true;
+    await user.click(screen.getByRole("button", { name: "Save name" }));
+    await writeStarted;
+
+    const current = await repository.readWorld(created.record.snapshot.worldId);
+    expect(current.status).toBe("found");
+    if (current.status !== "found") return;
+    await repository.commitSemanticEdit({
+      worldId: current.record.snapshot.worldId,
+      expectedLocalRevision: current.record.localRevision,
+      nextSnapshot: { ...current.record.snapshot, title: "Remote rename" },
+      edit: { classification: "buddy-local-only", description: "Renamed in another tab" },
+    });
+    release();
+    await screen.findByRole("region", { name: "Saved graph conflict candidate" });
+
+    expect(screen.getByLabelText("World title")).toHaveValue("My intentional title draft");
+    expect(screen.getByRole("button", { name: "Save title" })).toBeEnabled();
+    expect(screen.getByLabelText("New name")).toHaveValue("Mara's proposal");
+    await user.click(screen.getByRole("button", { name: "Save title" }));
+    expect(await screen.findByRole("heading", { name: "My intentional title draft" })).toBeVisible();
+    expect((await repository.readConflictCandidates(created.record.snapshot.worldId)).status).toBe("found");
+    await user.click(within(screen.getByRole("region", { name: "Local World graph canvas" })).getByRole("button", { name: "Cancel" }));
+  });
+
+  it("preserves graph form drafts through World A to B to A navigation", async () => {
+    const user = userEvent.setup();
+    const repository = new InMemoryLocalWorldRepository();
+    const first = await repository.createWorld({ title: "World A" });
+    const second = await repository.createWorld({ title: "World B" });
+    expect(first.status).toBe("created");
+    expect(second.status).toBe("created");
+    if (first.status !== "created" || second.status !== "created") return;
+    renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /World A/ }));
+    await user.click(screen.getByRole("button", { name: "Start with an example graph" }));
+    await screen.findByRole("button", { name: "Mara Venn, person" });
+    await user.click(screen.getByRole("button", { name: "Mara Venn, person" }));
+    await user.click(screen.getByRole("button", { name: "Rename Mara Venn" }));
+    await user.clear(screen.getByLabelText("New name"));
+    await user.type(screen.getByLabelText("New name"), "Unsaved idea");
+
+    await user.click(await screen.findByRole("button", { name: /World B/ }));
+    expect(await screen.findByRole("heading", { name: "World B" })).toBeVisible();
+    await user.click(await screen.findByRole("button", { name: /World A/ }));
+    expect(await screen.findByLabelText("New name")).toHaveValue("Unsaved idea");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+  });
+
+  it("recovers a graph draft after a failed write and World A to B to A navigation", async () => {
+    let failNextSemanticEdit = false;
+    const repository = new InMemoryLocalWorldRepository({ beforeCommit: (point) => {
+      if (point === "semantic-edit" && failNextSemanticEdit) {
+        failNextSemanticEdit = false;
+        throw new Error("Injected graph write failure.");
+      }
+    } });
+    const first = await repository.createWorld({ title: "World A" });
+    const second = await repository.createWorld({ title: "World B" });
+    expect(first.status).toBe("created");
+    expect(second.status).toBe("created");
+    if (first.status !== "created" || second.status !== "created") return;
+    const user = userEvent.setup();
+    renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /World A/ }));
+    await user.click(screen.getByRole("button", { name: "Start with an example graph" }));
+    await screen.findByRole("button", { name: "Mara Venn, person" });
+    await user.click(screen.getByRole("button", { name: "Mara Venn, person" }));
+    await user.click(screen.getByRole("button", { name: "Rename Mara Venn" }));
+    await user.clear(screen.getByLabelText("New name"));
+    await user.type(screen.getByLabelText("New name"), "Recoverable proposal");
+    failNextSemanticEdit = true;
+    await user.click(screen.getByRole("button", { name: "Save name" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Injected graph write failure.");
+    expect(screen.getByLabelText("New name")).toHaveValue("Recoverable proposal");
+
+    await user.click(await screen.findByRole("button", { name: /World B/ }));
+    expect(await screen.findByRole("heading", { name: "World B" })).toBeVisible();
+    await user.click(await screen.findByRole("button", { name: /World A/ }));
+    expect(await screen.findByLabelText("New name")).toHaveValue("Recoverable proposal");
+    expect(screen.getByRole("button", { name: "Save name" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+  });
+
+  it("recovers graph drafts after Surface unmount and keeps a newer draft when an older request succeeds", async () => {
+    let pauseNextSemanticEdit = false;
+    let release!: () => void;
+    let started!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const writeStarted = new Promise<void>((resolve) => { started = resolve; });
+    const repository = new InMemoryLocalWorldRepository({ beforeCommit: async (point) => {
+      if (point === "semantic-edit" && pauseNextSemanticEdit) {
+        pauseNextSemanticEdit = false;
+        started();
+        await gate;
+      }
+    } });
+    const created = await repository.createWorld({ title: "A returning World" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+    const user = userEvent.setup();
+    const firstSurface = renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /A returning World/ }));
+    await user.click(screen.getByRole("button", { name: "Start with an example graph" }));
+    await screen.findByRole("button", { name: "Mara Venn, person" });
+    await user.click(screen.getByRole("button", { name: "Mara Venn, person" }));
+    await user.click(screen.getByRole("button", { name: "Rename Mara Venn" }));
+    await user.clear(screen.getByLabelText("New name"));
+    await user.type(screen.getByLabelText("New name"), "Older request");
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    pauseNextSemanticEdit = true;
+    await user.click(screen.getByRole("button", { name: "Save name" }));
+    await writeStarted;
+
+    firstSurface.unmount();
+    const secondSurface = renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /A returning World/ }));
+    expect(await screen.findByLabelText("New name")).toHaveValue("Older request");
+    await user.clear(screen.getByLabelText("New name"));
+    await user.type(screen.getByLabelText("New name"), "Newer request");
+    expect(beforeUnloadIsPrevented()).toBe(true);
+
+    release();
+    await waitFor(() => expect(screen.getByLabelText("New name")).toHaveValue("Newer request"));
+    const committed = await repository.readWorld(created.record.snapshot.worldId);
+    expect(committed.status).toBe("found");
+    if (committed.status === "found") expect(committed.record.snapshot.objects[0].name).toBe("Older request");
+    expect(beforeUnloadIsPrevented()).toBe(true);
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(beforeUnloadIsPrevented()).toBe(false);
+    secondSurface.unmount();
+  });
+
+  it("clears a restored graph draft and unload warning when its exact pending request commits", async () => {
+    let pauseNextSemanticEdit = false;
+    let release!: () => void;
+    let started!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const writeStarted = new Promise<void>((resolve) => { started = resolve; });
+    const repository = new InMemoryLocalWorldRepository({ beforeCommit: async (point) => {
+      if (point === "semantic-edit" && pauseNextSemanticEdit) { pauseNextSemanticEdit = false; started(); await gate; }
+    } });
+    const created = await repository.createWorld({ title: "Resolved graph draft" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+    const user = userEvent.setup();
+    const firstSurface = renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Resolved graph draft/ }));
+    await user.click(screen.getByRole("button", { name: "Start with an example graph" }));
+    await screen.findByRole("button", { name: "Mara Venn, person" });
+    await user.click(screen.getByRole("button", { name: "Mara Venn, person" }));
+    await user.click(screen.getByRole("button", { name: "Rename Mara Venn" }));
+    await user.clear(screen.getByLabelText("New name"));
+    await user.type(screen.getByLabelText("New name"), "Committed rename");
+    pauseNextSemanticEdit = true;
+    await user.click(screen.getByRole("button", { name: "Save name" }));
+    await writeStarted;
+    firstSurface.unmount();
+
+    renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Resolved graph draft/ }));
+    expect(await screen.findByLabelText("New name")).toHaveValue("Committed rename");
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    release();
+
+    await waitFor(async () => {
+      const committed = await repository.readWorld(created.record.snapshot.worldId);
+      expect(committed.status === "found" && committed.record.snapshot.objects[0].name).toBe("Committed rename");
+    });
+    await waitFor(() => expect(screen.queryByLabelText("New name")).toBeNull());
+    await waitFor(() => expect(beforeUnloadIsPrevented()).toBe(false));
+  });
+
+  it.each(["rename", "relationship", "newer-object"] as const)("clears only the submitted object draft and preserves %s after route unmount", async (remainingDraft) => {
+    let pauseNextSemanticEdit = false;
+    let release!: () => void;
+    let started!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const writeStarted = new Promise<void>((resolve) => { started = resolve; });
+    const repository = new InMemoryLocalWorldRepository({ beforeCommit: async (point) => {
+      if (point === "semantic-edit" && pauseNextSemanticEdit) {
+        pauseNextSemanticEdit = false;
+        started();
+        await gate;
+      }
+    } });
+    const created = await repository.createWorld({ title: `Partial draft clear ${remainingDraft}` });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+    const user = userEvent.setup();
+    const firstSurface = renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: new RegExp(`Partial draft clear ${remainingDraft}`) }));
+    await user.click(screen.getByRole("button", { name: "Start with an example graph" }));
+    const graph = await screen.findByRole("group", { name: `Partial draft clear ${remainingDraft} world graph` });
+    const mara = within(graph).getByRole("button", { name: "Mara Venn, person" });
+
+    if (remainingDraft === "rename") {
+      await user.click(mara);
+      await user.click(screen.getByRole("button", { name: "Rename Mara Venn" }));
+      await user.clear(screen.getByLabelText("New name"));
+      await user.type(screen.getByLabelText("New name"), "Keep my rename");
+    } else if (remainingDraft === "relationship") {
+      await user.click(mara);
+      await user.click(within(graph).getByRole("button", { name: "Tomas Reed, person" }));
+      await user.click(screen.getByRole("button", { name: "Connect selected objects" }));
+      await user.type(screen.getByLabelText("Relationship label"), "Keep my relationship");
+    }
+
+    await user.click(screen.getByRole("button", { name: "Add object" }));
+    await user.type(screen.getByLabelText("Object name"), "Ashen Courier");
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    pauseNextSemanticEdit = true;
+    await user.click(screen.getByRole("button", { name: "Create object" }));
+    await writeStarted;
+
+    firstSurface.unmount();
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    const secondSurface = renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: new RegExp(`Partial draft clear ${remainingDraft}`) }));
+
+    if (remainingDraft === "newer-object") {
+      expect(await screen.findByLabelText("Object name")).toHaveValue("Ashen Courier");
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(beforeUnloadIsPrevented()).toBe(true); // The original repository write is still pending.
+      secondSurface.unmount();
+
+      const thirdSurface = renderSurface(repository);
+      await user.click(await screen.findByRole("button", { name: new RegExp(`Partial draft clear ${remainingDraft}`) }));
+      await user.click(screen.getByRole("button", { name: "Add object" }));
+      const objectName = screen.getByLabelText("Object name");
+      await user.type(objectName, "Nella Quill");
+      await user.clear(objectName);
+      await user.type(objectName, "Ashen Courier"); // Same text as the submitted candidate, but a new draft token.
+      expect(beforeUnloadIsPrevented()).toBe(true);
+      release();
+      await waitFor(async () => {
+        const saved = await repository.readWorld(created.record.snapshot.worldId);
+        expect(saved.status === "found" && saved.record.snapshot.objects.some((item) => item.name === "Ashen Courier")).toBe(true);
+      });
+      expect(await screen.findByLabelText("Object name")).toHaveValue("Ashen Courier");
+      expect(beforeUnloadIsPrevented()).toBe(true);
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(beforeUnloadIsPrevented()).toBe(false);
+      thirdSurface.unmount();
+      return;
+    }
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    release();
+    await waitFor(async () => {
+      const saved = await repository.readWorld(created.record.snapshot.worldId);
+      expect(saved.status === "found" && saved.record.snapshot.objects.some((item) => item.name === "Ashen Courier")).toBe(true);
+    });
+
+    if (remainingDraft === "rename") {
+      expect(await screen.findByLabelText("New name")).toHaveValue("Keep my rename");
+      expect(screen.queryByLabelText("Object name")).toBeNull();
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
+    } else if (remainingDraft === "relationship") {
+      expect(await screen.findByLabelText("Relationship label")).toHaveValue("Keep my relationship");
+      expect(screen.queryByLabelText("Object name")).toBeNull();
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
+    } else {
+      expect(await screen.findByLabelText("Object name")).toHaveValue("Nella Quill");
+      expect(beforeUnloadIsPrevented()).toBe(true);
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
+    }
+    expect(beforeUnloadIsPrevented()).toBe(false);
+    secondSurface.unmount();
+  });
+
+  it("keeps a failed graph draft and unload warning across Surface unmount/remount", async () => {
+    let failNextSemanticEdit = false;
+    const repository = new InMemoryLocalWorldRepository({ beforeCommit: (point) => {
+      if (point === "semantic-edit" && failNextSemanticEdit) {
+        failNextSemanticEdit = false;
+        throw new Error("Graph transaction aborted.");
+      }
+    } });
+    const created = await repository.createWorld({ title: "Failed graph route" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+    const user = userEvent.setup();
+    const firstSurface = renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Failed graph route/ }));
+    await user.click(screen.getByRole("button", { name: "Start with an example graph" }));
+    await screen.findByRole("button", { name: "Mara Venn, person" });
+    await user.click(screen.getByRole("button", { name: "Mara Venn, person" }));
+    await user.click(screen.getByRole("button", { name: "Rename Mara Venn" }));
+    await user.clear(screen.getByLabelText("New name"));
+    await user.type(screen.getByLabelText("New name"), "Recover after route change");
+    failNextSemanticEdit = true;
+    await user.click(screen.getByRole("button", { name: "Save name" }));
+    expect(await screen.findAllByText("Graph transaction aborted.")).toHaveLength(2);
+    expect(beforeUnloadIsPrevented()).toBe(true);
+
+    firstSurface.unmount();
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Failed graph route/ }));
+    expect(await screen.findByLabelText("New name")).toHaveValue("Recover after route change");
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(beforeUnloadIsPrevented()).toBe(false);
+  });
+
+  it("keeps the unload warning until graph drafts from every World are resolved", async () => {
+    const repository = new InMemoryLocalWorldRepository();
+    const first = await repository.createWorld({ title: "First World" });
+    const second = await repository.createWorld({ title: "Second World" });
+    expect(first.status).toBe("created");
+    expect(second.status).toBe("created");
+    if (first.status !== "created" || second.status !== "created") return;
+    const user = userEvent.setup();
+    const surface = renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /First World/ }));
+    await user.click(screen.getByRole("button", { name: "Start with an example graph" }));
+    await screen.findByRole("button", { name: "Mara Venn, person" });
+    await user.click(screen.getByRole("button", { name: "Mara Venn, person" }));
+    await user.click(screen.getByRole("button", { name: "Rename Mara Venn" }));
+    await user.clear(screen.getByLabelText("New name"));
+    await user.type(screen.getByLabelText("New name"), "First candidate");
+    await user.click(await screen.findByRole("button", { name: /Second World/ }));
+    await user.click(screen.getByRole("button", { name: "Start with an example graph" }));
+    await screen.findByRole("button", { name: "Mara Venn, person" });
+    await user.click(screen.getByRole("button", { name: "Mara Venn, person" }));
+    await user.click(screen.getByRole("button", { name: "Rename Mara Venn" }));
+    const activeCanvas = within(screen.getByRole("region", { name: "Local World graph canvas" }));
+    await user.clear(activeCanvas.getByLabelText("New name"));
+    await user.type(activeCanvas.getByLabelText("New name"), "Second candidate");
+
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    await user.click(await screen.findByRole("button", { name: /First World/ }));
+    expect(await within(screen.getByRole("region", { name: "Local World graph canvas" })).findByLabelText("New name")).toHaveValue("First candidate");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    await user.click(await screen.findByRole("button", { name: /Second World/ }));
+    expect(await within(screen.getByRole("region", { name: "Local World graph canvas" })).findByLabelText("New name")).toHaveValue("Second candidate");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(beforeUnloadIsPrevented()).toBe(false);
+    surface.unmount();
+  });
+
+  it("discards only the confirmed oldest graph draft when opening a fourth graph", async () => {
+    const repository = new InMemoryLocalWorldRepository();
+    const worlds = [] as { title: string; worldId: string; objectName: string }[];
+    for (const title of ["World A", "World B", "World C", "World D"]) {
+      const created = await repository.createWorld({ title });
+      expect(created.status).toBe("created");
+      if (created.status !== "created") return;
+      const objectName = `${title} Person`;
+      const object = {
+        id: repository.allocateObjectId(created.record.snapshot.worldId),
+        name: objectName,
+        kind: "person",
+        properties: {},
+      };
+      const committed = await repository.commitSemanticEdit({
+        worldId: created.record.snapshot.worldId,
+        expectedLocalRevision: created.record.localRevision,
+        nextSnapshot: { ...created.record.snapshot, objects: [object] },
+        edit: { classification: "buddy-local-only", description: `Added ${objectName}` },
+      });
+      expect(committed.status).toBe("committed");
+      worlds.push({ title, worldId: created.record.snapshot.worldId, objectName });
+    }
+
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+    renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /World A/ }));
+    await user.click(screen.getByRole("button", { name: "World A Person, person" }));
+    await user.click(screen.getByRole("button", { name: "Rename World A Person" }));
+    await user.clear(screen.getByLabelText("New name"));
+    await user.type(screen.getByLabelText("New name"), "Keep this only if I cancel eviction");
+    expect(beforeUnloadIsPrevented()).toBe(true);
+
+    for (const world of worlds.slice(1, 3)) {
+      await user.click(await screen.findByRole("button", { name: new RegExp(world.title) }));
+      expect(await screen.findByRole("button", { name: `${world.objectName}, person` })).toBeVisible();
+    }
+
+    confirm.mockReturnValueOnce(false);
+    await user.click(await screen.findByRole("button", { name: /World D/ }));
+    expect(screen.getByLabelText("New name")).toHaveValue("Keep this only if I cancel eviction");
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    confirm.mockReturnValue(true);
+    await user.click(await screen.findByRole("button", { name: /World D/ }));
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("World A"));
+    expect(beforeUnloadIsPrevented()).toBe(false);
+    await user.click(await screen.findByRole("button", { name: /World A/ }));
+    expect(await screen.findByRole("button", { name: "World A Person, person" })).toBeVisible();
+    expect(screen.queryByLabelText("New name")).not.toBeInTheDocument();
+    expect(beforeUnloadIsPrevented()).toBe(false);
+  });
+
+  it("lets a blank World begin with a custom first object", async () => {
+    const repository = new InMemoryLocalWorldRepository();
+    const created = await repository.createWorld({ title: "A quiet beginning" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+    const user = userEvent.setup();
+    renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /A quiet beginning/ }));
+    await user.type(screen.getByLabelText("Or add your first object"), "Mara Venn");
+    await user.selectOptions(screen.getByLabelText("Type"), "person");
+    await user.click(screen.getByRole("button", { name: "Add first object" }));
+
+    expect(await screen.findByRole("button", { name: "Mara Venn, person" })).toBeVisible();
+    const saved = await repository.readWorld(created.record.snapshot.worldId);
+    expect(saved.status).toBe("found");
+    if (saved.status === "found") {
+      expect(saved.record.snapshot.objects).toHaveLength(1);
+      expect(saved.record.snapshot.objects[0]).toMatchObject({ name: "Mara Venn", kind: "person" });
+      expect(saved.record.localRevision).toBeGreaterThan(created.record.localRevision);
+    }
+  });
+
+  it("restores a failed custom first-object draft across Surface remount and protects it from unload", async () => {
+    let failNextSemanticEdit = false;
+    const repository = new InMemoryLocalWorldRepository({ beforeCommit: (point) => {
+      if (point === "semantic-edit" && failNextSemanticEdit) {
+        failNextSemanticEdit = false;
+        throw new Error("First object transaction aborted.");
+      }
+    } });
+    const created = await repository.createWorld({ title: "Custom start" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+    const user = userEvent.setup();
+    const firstSurface = renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Custom start/ }));
+    await user.type(screen.getByLabelText("Or add your first object"), "Mara Venn");
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    failNextSemanticEdit = true;
+    await user.click(screen.getByRole("button", { name: "Add first object" }));
+    expect(await screen.findAllByText("First object transaction aborted.")).not.toHaveLength(0);
+    expect(beforeUnloadIsPrevented()).toBe(true);
+
+    firstSurface.unmount();
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Custom start/ }));
+    expect(screen.getByLabelText("Or add your first object")).toHaveValue("Mara Venn");
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    await user.clear(screen.getByLabelText("Or add your first object"));
+    expect(beforeUnloadIsPrevented()).toBe(false);
   });
 
   it("exports the current World and preserves bundled sidecar attachments after a title edit", async () => {
