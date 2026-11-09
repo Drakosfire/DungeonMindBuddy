@@ -6,7 +6,7 @@ import { openIndexedDbLocalWorldRepository, LOCAL_WORLD_DATABASE_NAME } from "..
 import { hasPendingWorldNotesDrafts } from "../localWorldDocumentAuthoring";
 import type { CommitSemanticResult, LocalWorldConflictCandidate, LocalWorldId, LocalWorldPackageRepository, LocalWorldRecord, WriteLayoutResult } from "../localWorldRepository";
 import { createLocalWorldGraphAdapter } from "../worldGraphCanvas/localWorldGraphAdapter";
-import type { WorldGraphEditorDraft } from "../worldGraphCanvas/WorldGraphCanvas";
+import type { WorldGraphEditorDraft, WorldGraphEditorDraftField } from "../worldGraphCanvas/WorldGraphCanvas";
 import { LocalWorldNotesEditor } from "./LocalWorldNotesEditor";
 import "./localWorldSurface.css";
 
@@ -67,6 +67,26 @@ function writeGraphEditorDraft(worldId: LocalWorldId, draft: WorldGraphEditorDra
   graphEditorDrafts.set(worldId, { version, draft });
   syncBeforeUnloadProtection();
   notifyGraphEditorDraftListeners();
+}
+
+function clearGraphEditorDraftSubmission(worldId: LocalWorldId, field: WorldGraphEditorDraftField, submittedToken: number): void {
+  const saved = readGraphEditorDraft(worldId);
+  const current = saved.draft;
+  if (!current) return;
+  const tokenMatches = field === "rename" ? current.renameToken === submittedToken
+    : field === "object" ? current.objectToken === submittedToken
+      : current.relationshipToken === submittedToken;
+  if (!tokenMatches) return;
+
+  const version = saved.version + 1;
+  const next: WorldGraphEditorDraft = field === "rename"
+    ? { ...current, version, renameToken: current.renameToken + 1, renameId: null, renameValue: "" }
+    : field === "object"
+      ? { ...current, version, objectToken: current.objectToken + 1, showObjectForm: false, objectName: "" }
+      : { ...current, version, relationshipToken: current.relationshipToken + 1, showRelationshipForm: false, relationshipKind: "" };
+  const hasUnresolvedDraft = next.renameId !== null || next.showObjectForm || next.objectName.length > 0 ||
+    next.showRelationshipForm || next.relationshipKind.length > 0;
+  writeGraphEditorDraft(worldId, hasUnresolvedDraft ? next : null, version, saved.version);
 }
 
 function subscribeGraphEditorDrafts(listener: () => void): () => void {
@@ -808,6 +828,7 @@ export function LocalWorldSurface({
                   record={canvasRecord}
                   editorDraftState={readGraphEditorDraft(sessionRecord.snapshot.worldId)}
                   onEditorDraftChange={(draft, version, expectedVersion) => writeGraphEditorDraft(sessionRecord.snapshot.worldId, draft, version, expectedVersion)}
+                  onEditorDraftCommit={(field, submittedToken) => clearGraphEditorDraftSubmission(sessionRecord.snapshot.worldId, field, submittedToken)}
                   onRenameObject={(submitted, objectId, name) => executeGraphSemantic(submitted, () => graphAdapter.renameObject(submitted, objectId, name))}
                   onCreateObject={(submitted, input) => executeGraphSemantic(submitted, () => graphAdapter.createObject(submitted, input))}
                   onCreateRelationship={(submitted, input) => executeGraphSemantic(submitted, () => graphAdapter.createRelationship(submitted, input))}

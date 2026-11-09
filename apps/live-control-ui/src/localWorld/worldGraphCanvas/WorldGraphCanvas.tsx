@@ -18,6 +18,7 @@ export interface WorldGraphCanvasProps {
   readonly record: LocalWorldRecord;
   readonly editorDraftState?: { readonly version: number; readonly draft: WorldGraphEditorDraft | null };
   readonly onEditorDraftChange?: (draft: WorldGraphEditorDraft | null, version: number, expectedVersion?: number) => void;
+  readonly onEditorDraftCommit?: (field: WorldGraphEditorDraftField, submittedToken: number) => void;
   readonly projectionOptions?: GraphProjectionOptions;
   readonly onRenameObject?: (record: LocalWorldRecord, objectId: LocalObjectId, name: string) => Promise<CommitSemanticResult>;
   readonly onCreateObject?: (record: LocalWorldRecord, input: NewLocalGraphObject) => Promise<CommitSemanticResult>;
@@ -29,6 +30,9 @@ export interface WorldGraphCanvasProps {
 
 export interface WorldGraphEditorDraft {
   readonly version: number;
+  readonly renameToken: number;
+  readonly objectToken: number;
+  readonly relationshipToken: number;
   readonly selectedIds: readonly LocalObjectId[];
   readonly renameId: LocalObjectId | null;
   readonly renameValue: string;
@@ -39,8 +43,10 @@ export interface WorldGraphEditorDraft {
   readonly relationshipKind: string;
 }
 
+export type WorldGraphEditorDraftField = "rename" | "object" | "relationship";
+
 function emptyEditorDraft(version = 0): WorldGraphEditorDraft {
-  return { version, selectedIds: [], renameId: null, renameValue: "", showObjectForm: false, objectName: "", objectKind: "person", showRelationshipForm: false, relationshipKind: "" };
+  return { version, renameToken: version, objectToken: version, relationshipToken: version, selectedIds: [], renameId: null, renameValue: "", showObjectForm: false, objectName: "", objectKind: "person", showRelationshipForm: false, relationshipKind: "" };
 }
 
 function hasEditorDraft(draft: WorldGraphEditorDraft): boolean {
@@ -124,6 +130,7 @@ export function WorldGraphCanvas({
   record,
   editorDraftState,
   onEditorDraftChange,
+  onEditorDraftCommit,
   projectionOptions,
   onRenameObject,
   onCreateObject,
@@ -178,7 +185,17 @@ export function WorldGraphCanvas({
 
   function publishEditorDraft(patch: Partial<Omit<WorldGraphEditorDraft, "version">>) {
     const current = editorDraftRef.current;
-    const next = { ...current, ...patch, version: current.version + 1 };
+    const touchesRename = "renameId" in patch || "renameValue" in patch;
+    const touchesObject = "showObjectForm" in patch || "objectName" in patch || "objectKind" in patch;
+    const touchesRelationship = "showRelationshipForm" in patch || "relationshipKind" in patch || "selectedIds" in patch;
+    const next = {
+      ...current,
+      ...patch,
+      version: current.version + 1,
+      renameToken: current.renameToken + Number(touchesRename),
+      objectToken: current.objectToken + Number(touchesObject),
+      relationshipToken: current.relationshipToken + Number(touchesRelationship),
+    };
     editorDraftRef.current = next;
     if (hasEditorDraft(next)) onEditorDraftChange?.(next, next.version);
     else onEditorDraftChange?.(null, next.version, current.version);
@@ -232,7 +249,7 @@ export function WorldGraphCanvas({
     publishEditorDraft({ selectedIds: showRelationshipForm ? next : [], showRelationshipForm, relationshipKind });
   }
 
-  async function runSemantic(action: () => Promise<CommitSemanticResult>, submittedDraftVersion?: number): Promise<CommitSemanticResult | null> {
+  async function runSemantic(action: () => Promise<CommitSemanticResult>, submittedDraft?: { readonly field: WorldGraphEditorDraftField; readonly token: number }): Promise<CommitSemanticResult | null> {
     if (busy) return null;
     const submittedWorldId = record.snapshot.worldId;
     const submittedGeneration = worldGenerationRef.current;
@@ -243,8 +260,8 @@ export function WorldGraphCanvas({
       const result = await action();
       const isCurrent = instanceActiveRef.current && instanceGenerationRef.current === submittedInstanceGeneration &&
         currentWorldIdRef.current === submittedWorldId && worldGenerationRef.current === submittedGeneration;
-      if (!isCurrent && result.status === "committed" && submittedDraftVersion !== undefined) {
-        onEditorDraftChange?.(null, submittedDraftVersion + 1, submittedDraftVersion);
+      if (!isCurrent && result.status === "committed" && submittedDraft !== undefined) {
+        onEditorDraftCommit?.(submittedDraft.field, submittedDraft.token);
       }
       if (isCurrent) {
         onSemanticResult?.(result);
@@ -329,9 +346,9 @@ export function WorldGraphCanvas({
     const submittedId = renameId;
     const submittedValue = renameValue;
     const submittedVersion = renameVersionRef.current;
-    const submittedDraftVersion = editorDraftRef.current.version;
+    const submittedDraft = { field: "rename" as const, token: editorDraftRef.current.renameToken };
     const submittedGeneration = worldGenerationRef.current;
-    const result = await runSemantic(() => onRenameObject(record, submittedId, submittedValue), submittedDraftVersion);
+    const result = await runSemantic(() => onRenameObject(record, submittedId, submittedValue), submittedDraft);
     if (result?.status === "committed" && currentWorldIdRef.current === record.snapshot.worldId && worldGenerationRef.current === submittedGeneration && renameVersionRef.current === submittedVersion && renameId === submittedId) {
       setRenameId(null);
       setRenameValue("");
@@ -344,9 +361,9 @@ export function WorldGraphCanvas({
     if (!onCreateObject) return;
     const input = { name: objectName, kind: objectKind };
     const submittedVersion = objectNameVersionRef.current;
-    const submittedDraftVersion = editorDraftRef.current.version;
+    const submittedDraft = { field: "object" as const, token: editorDraftRef.current.objectToken };
     const submittedGeneration = worldGenerationRef.current;
-    const result = await runSemantic(() => onCreateObject(record, input), submittedDraftVersion);
+    const result = await runSemantic(() => onCreateObject(record, input), submittedDraft);
     if (result?.status === "committed" && currentWorldIdRef.current === record.snapshot.worldId && worldGenerationRef.current === submittedGeneration && objectNameVersionRef.current === submittedVersion) {
       setObjectName("");
       setShowObjectForm(false);
@@ -359,9 +376,9 @@ export function WorldGraphCanvas({
     if (!onCreateRelationship || selectedIds.length !== 2) return;
     const input = { fromObjectId: selectedIds[0], toObjectId: selectedIds[1], kind: relationshipKind };
     const submittedVersion = relationshipKindVersionRef.current;
-    const submittedDraftVersion = editorDraftRef.current.version;
+    const submittedDraft = { field: "relationship" as const, token: editorDraftRef.current.relationshipToken };
     const submittedGeneration = worldGenerationRef.current;
-    const result = await runSemantic(() => onCreateRelationship(record, input), submittedDraftVersion);
+    const result = await runSemantic(() => onCreateRelationship(record, input), submittedDraft);
     if (result?.status === "committed" && currentWorldIdRef.current === record.snapshot.worldId && worldGenerationRef.current === submittedGeneration && relationshipKindVersionRef.current === submittedVersion) {
       setRelationshipKind("");
       setShowRelationshipForm(false);
