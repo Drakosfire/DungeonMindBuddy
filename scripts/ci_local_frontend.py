@@ -299,6 +299,15 @@ def validate(report_path, expected_sha, suite, max_age=86400):
         raise ValueError(
             "working-tree diagnostics cannot qualify exact-SHA verification"
         )
+    if (
+        report["source_sha_after"] != expected_sha
+        or not report["source_boundaries"]
+        or any(
+            row["sha"] != expected_sha or row["dirty"]
+            for row in report["source_boundaries"]
+        )
+    ):
+        raise ValueError("execution source drift")
     if not report["cleanup_complete"] or report["error"] or report["exit_code"] != 0:
         raise ValueError("incomplete or failed verification")
     if report["node"] != NODE or report["npm"] != NPM:
@@ -344,6 +353,16 @@ def validate(report_path, expected_sha, suite, max_age=86400):
     return report
 
 
+def source_boundary(source, expected_sha, report, label):
+    actual = git(source, "rev-parse", "HEAD")
+    dirty = bool(git(source, "status", "--porcelain"))
+    report.setdefault("source_boundaries", []).append(
+        {"boundary": label, "sha": actual, "dirty": dirty}
+    )
+    if actual != expected_sha or dirty:
+        raise ValueError(f"exact source changed during {label}")
+
+
 def verify(args):
     repo = Path(args.repo).resolve()
     if (
@@ -368,6 +387,8 @@ def verify(args):
         "test_exit_code": None,
         "build_exit_code": None,
         "source_dirty_before": None,
+        "source_sha_after": None,
+        "source_boundaries": [],
         "source_dirty_after": None,
         "cleanup_complete": False,
         "error": None,
@@ -420,6 +441,7 @@ def verify(args):
                     report["source_dirty_before"] = bool(
                         git(source, "status", "--porcelain")
                     )
+                    source_boundary(source, args.sha, report, "checkout")
                     report["package_lock_sha256"] = digest(
                         frontend / "package-lock.json"
                     )
@@ -456,6 +478,7 @@ def verify(args):
                     )
                     if report["install"]["exit_code"]:
                         raise ValueError("locked dependency installation failed")
+                    source_boundary(source, args.sha, report, "install")
                     report["vitest"] = json.loads(
                         (frontend / "node_modules/vitest/package.json").read_text()
                     )["version"]
@@ -479,6 +502,7 @@ def verify(args):
                             out / f"inventory-{index}.log",
                             env,
                         )
+                        source_boundary(source, args.sha, report, f"inventory-{index}")
                         try:
                             keys = (
                                 inventory_keys(
@@ -501,6 +525,7 @@ def verify(args):
                             out / f"tests-{index}.log",
                             env,
                         )
+                        source_boundary(source, args.sha, report, f"tests-{index}")
                         result["inventory_file"] = inventory.name
                         result["results_file"] = result_path.name
                         result["discovered_cases"] = sum(keys.values())
@@ -518,6 +543,7 @@ def verify(args):
                         report["tests"].append(result)
                     # Even assertion failures must not suppress build/type evidence.
                     report["build"] = command(build, frontend, out / "build.log", env)
+                    source_boundary(source, args.sha, report, "build")
                     report["build_exit_code"] = report["build"]["exit_code"]
                     report["test_exit_code"] = next(
                         (
@@ -555,6 +581,10 @@ def verify(args):
                     )
                 finally:
                     if source.exists():
+                        report["source_sha_after"] = git(source, "rev-parse", "HEAD")
+                        report["source_dirty_after"] = bool(
+                            git(source, "status", "--porcelain")
+                        )
                         subprocess.run(
                             [
                                 "git",

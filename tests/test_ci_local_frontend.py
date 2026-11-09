@@ -506,3 +506,40 @@ def test_filtered_result_cannot_hide_duplicate_selected_case_as_unselected(tmp_p
     assert not local.case_parity(
         expected, result, tmp_path, ["npm", "test", "--", "-t", "selected"]
     )["collection_parity"]
+
+
+def test_clean_committed_source_drift_during_install_is_refused(sandbox, monkeypatch):
+    args, _, fake = sandbox
+
+    def move_head(argv, cwd, log, env):
+        result = fake(argv, cwd, log, env)
+        if argv[:2] == ["npm", "ci"]:
+            source = cwd.parents[1]
+            (source / "changed.txt").write_text("new committed source")
+            subprocess.run(["git", "-C", str(source), "add", "changed.txt"], check=True)
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(source),
+                    "-c",
+                    "user.name=Verifier",
+                    "-c",
+                    "user.email=verifier@example.test",
+                    "commit",
+                    "-qm",
+                    "source drift",
+                ],
+                check=True,
+            )
+            assert not local.git(source, "status", "--porcelain")
+        return result
+
+    monkeypatch.setattr(local, "command", move_head)
+    assert local.verify(args) == 1
+    report = json.loads((Path(args.output) / "evidence.json").read_text())
+    assert "exact source changed during install" in report["error"]
+    assert report["source_sha_after"] != args.sha and not report["source_dirty_after"]
+    assert report["cleanup_complete"]
+    with pytest.raises(ValueError):
+        local.validate(Path(args.output) / "evidence.json", args.sha, "discovered")
