@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from "react";
 import type {
   CommitSemanticResult,
   LocalObjectId,
@@ -126,6 +126,8 @@ export function WorldGraphCanvas({
   const relationshipKindVersionRef = useRef(0);
   const currentWorldIdRef = useRef(record.snapshot.worldId);
   const worldGenerationRef = useRef(0);
+  const instanceGenerationRef = useRef(0);
+  const instanceActiveRef = useRef(false);
   if (currentWorldIdRef.current !== record.snapshot.worldId) {
     currentWorldIdRef.current = record.snapshot.worldId;
     worldGenerationRef.current += 1;
@@ -144,6 +146,15 @@ export function WorldGraphCanvas({
     setDrag(null);
   }
   const dragMoved = useRef(false);
+
+  useEffect(() => {
+    instanceGenerationRef.current += 1;
+    instanceActiveRef.current = true;
+    return () => {
+      instanceActiveRef.current = false;
+      instanceGenerationRef.current += 1;
+    };
+  }, []);
 
   const selectedObject = projection.nodes.find((node) => node.id === selectedIds.at(-1));
   const canvasWidth = Math.max(WIDTH, ...projection.nodes.map((node) => node.x + NODE_WIDTH + 88));
@@ -172,20 +183,27 @@ export function WorldGraphCanvas({
     if (busy) return null;
     const submittedWorldId = record.snapshot.worldId;
     const submittedGeneration = worldGenerationRef.current;
+    const submittedInstanceGeneration = instanceGenerationRef.current;
     setBusy(true);
     setStatus("Saving edit…");
     try {
       const result = await action();
-      if (currentWorldIdRef.current === submittedWorldId && worldGenerationRef.current === submittedGeneration) {
+      const isCurrent = instanceActiveRef.current && instanceGenerationRef.current === submittedInstanceGeneration &&
+        currentWorldIdRef.current === submittedWorldId && worldGenerationRef.current === submittedGeneration;
+      if (isCurrent) {
         onSemanticResult?.(result);
         setStatus(messageForSemanticResult(result));
       }
-      return result;
+      return isCurrent ? result : null;
     } catch (error) {
-      if (currentWorldIdRef.current === submittedWorldId && worldGenerationRef.current === submittedGeneration) setStatus(error instanceof Error ? error.message : "The edit could not be saved.");
+      if (instanceActiveRef.current && instanceGenerationRef.current === submittedInstanceGeneration &&
+          currentWorldIdRef.current === submittedWorldId && worldGenerationRef.current === submittedGeneration) {
+        setStatus(error instanceof Error ? error.message : "The edit could not be saved.");
+      }
       return null;
     } finally {
-      if (worldGenerationRef.current === submittedGeneration) setBusy(false);
+      if (instanceActiveRef.current && instanceGenerationRef.current === submittedInstanceGeneration &&
+          worldGenerationRef.current === submittedGeneration) setBusy(false);
     }
   }
 
@@ -193,18 +211,24 @@ export function WorldGraphCanvas({
     if (!onMoveObjects || busy) return;
     const submittedWorldId = record.snapshot.worldId;
     const submittedGeneration = worldGenerationRef.current;
+    const submittedInstanceGeneration = instanceGenerationRef.current;
     setBusy(true);
     setStatus("Saving canvas layout…");
     try {
       const result = await onMoveObjects(record, positionsToWrite);
-      if (currentWorldIdRef.current === submittedWorldId && worldGenerationRef.current === submittedGeneration) {
+      if (instanceActiveRef.current && instanceGenerationRef.current === submittedInstanceGeneration &&
+          currentWorldIdRef.current === submittedWorldId && worldGenerationRef.current === submittedGeneration) {
         onLayoutResult?.(result);
         setStatus(messageForLayoutResult(result));
       }
     } catch (error) {
-      if (currentWorldIdRef.current === submittedWorldId && worldGenerationRef.current === submittedGeneration) setStatus(error instanceof Error ? error.message : "The canvas layout could not be saved.");
+      if (instanceActiveRef.current && instanceGenerationRef.current === submittedInstanceGeneration &&
+          currentWorldIdRef.current === submittedWorldId && worldGenerationRef.current === submittedGeneration) {
+        setStatus(error instanceof Error ? error.message : "The canvas layout could not be saved.");
+      }
     } finally {
-      if (worldGenerationRef.current === submittedGeneration) setBusy(false);
+      if (instanceActiveRef.current && instanceGenerationRef.current === submittedInstanceGeneration &&
+          worldGenerationRef.current === submittedGeneration) setBusy(false);
     }
   }
 

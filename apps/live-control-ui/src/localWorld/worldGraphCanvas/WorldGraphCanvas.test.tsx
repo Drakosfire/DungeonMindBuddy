@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { StrictMode } from "react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { InMemoryLocalWorldRepository } from "../inMemoryLocalWorldRepository";
 import { createTestWorld, sequenceLocalIds } from "../localWorldContractFixtures";
-import type { CommitSemanticResult, LocalWorldRecord, LocalWorldRelationship } from "../localWorldRepository";
+import type { CommitSemanticResult, LocalWorldRecord, LocalWorldRelationship, WriteLayoutResult } from "../localWorldRepository";
 import { createLocalWorldGraphAdapter } from "./localWorldGraphAdapter";
 import { WorldGraphCanvas } from "./WorldGraphCanvas";
 
@@ -246,6 +247,81 @@ describe("WorldGraphCanvas", () => {
     expect(await screen.findByLabelText("Object name")).toHaveValue("Draft for second World");
     expect(onSemanticResult).not.toHaveBeenCalled();
     expect(screen.getByRole("group", { name: `${nextWorld.snapshot.title} world graph` })).toBeVisible();
+  });
+
+  it("suppresses semantic and layout delivery from unmounted canvas instances", async () => {
+    const user = userEvent.setup();
+    const { repository, record } = await graphRecord();
+    const adapter = createLocalWorldGraphAdapter(repository);
+    const semanticGate = deferred<void>();
+    let semanticOperation: Promise<CommitSemanticResult> | undefined;
+    const staleSemanticResult = vi.fn();
+    const firstMount = render(<WorldGraphCanvas record={record}
+      onCreateObject={(current, input) => {
+        semanticOperation = semanticGate.promise.then(() => adapter.createObject(current, input));
+        return semanticOperation;
+      }} onSemanticResult={staleSemanticResult} />);
+    await user.click(screen.getByRole("button", { name: "Add object" }));
+    await user.type(screen.getByLabelText("Object name"), "Ashen Courier");
+    await user.click(screen.getByRole("button", { name: "Create object" }));
+    firstMount.unmount();
+
+    const currentSemanticResult = vi.fn();
+    render(<WorldGraphCanvas record={record} onSemanticResult={currentSemanticResult} />);
+    semanticGate.resolve(undefined);
+    const semanticResult = await semanticOperation;
+    expect(semanticResult?.status).toBe("committed");
+    const persisted = await repository.readWorld(record.snapshot.worldId);
+    expect(persisted.status).toBe("found");
+    if (persisted.status === "found") expect(persisted.record.snapshot.objects.some((object) => object.name === "Ashen Courier")).toBe(true);
+    expect(staleSemanticResult).not.toHaveBeenCalled();
+    expect(currentSemanticResult).not.toHaveBeenCalled();
+    expect(screen.getByRole("group", { name: `${record.snapshot.title} world graph` })).toBeVisible();
+
+    const layoutGate = deferred<void>();
+    let layoutOperation: Promise<WriteLayoutResult> | undefined;
+    const staleLayoutResult = vi.fn();
+    const secondMount = render(<WorldGraphCanvas record={record}
+      onMoveObjects={(current, positions) => {
+        layoutOperation = layoutGate.promise.then(() => adapter.moveObjects(current, positions));
+        return layoutOperation;
+      }} onLayoutResult={staleLayoutResult} />);
+    const node = screen.getAllByRole("button", { name: "Mara Venn, person" }).at(-1)!;
+    fireEvent.keyDown(node, { key: "ArrowRight" });
+    secondMount.unmount();
+    const currentLayoutResult = vi.fn();
+    render(<WorldGraphCanvas record={record} onLayoutResult={currentLayoutResult} />);
+    layoutGate.resolve(undefined);
+    const layoutResult = await layoutOperation;
+    expect(layoutResult?.status).toBe("written");
+    const savedLayout = await repository.readWorld(record.snapshot.worldId);
+    expect(savedLayout.status).toBe("found");
+    if (savedLayout.status === "found") expect(savedLayout.record.layoutRevision).toBe(record.layoutRevision + 1);
+    expect(staleLayoutResult).not.toHaveBeenCalled();
+    expect(currentLayoutResult).not.toHaveBeenCalled();
+  });
+
+  it("delivers mounted semantic and layout results after StrictMode effect replay", async () => {
+    const user = userEvent.setup();
+    const { record } = await graphRecord();
+    const semanticPending = deferred<CommitSemanticResult>();
+    const layoutPending = deferred<WriteLayoutResult>();
+    const onSemanticResult = vi.fn();
+    const onLayoutResult = vi.fn();
+    render(<StrictMode><WorldGraphCanvas record={record}
+      onCreateObject={() => semanticPending.promise}
+      onMoveObjects={() => layoutPending.promise}
+      onSemanticResult={onSemanticResult}
+      onLayoutResult={onLayoutResult} /></StrictMode>);
+    await user.click(screen.getByRole("button", { name: "Add object" }));
+    await user.type(screen.getByLabelText("Object name"), "Ashen Courier");
+    await user.click(screen.getByRole("button", { name: "Create object" }));
+    await act(async () => { semanticPending.resolve({ status: "committed", record }); });
+    expect(onSemanticResult).toHaveBeenCalledWith({ status: "committed", record });
+
+    fireEvent.keyDown(screen.getByRole("button", { name: "Mara Venn, person" }), { key: "ArrowRight" });
+    await act(async () => { layoutPending.resolve({ status: "written", record }); });
+    expect(onLayoutResult).toHaveBeenCalledWith({ status: "written", record });
   });
 
   it("creates a relationship between two selected objects through the local CAS adapter", async () => {
