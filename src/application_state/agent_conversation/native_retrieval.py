@@ -11,6 +11,7 @@ from __future__ import annotations
 from hashlib import sha256
 import json
 from typing import Literal
+from uuid import UUID
 
 from pydantic import ConfigDict, Field
 from . import types as t
@@ -34,6 +35,23 @@ class NativeRetrievalAuthorizedV1(t.PlanJevProviderAuthorizedV1):
 
 class NativeRetrievalSelectedV1(t.PlanJevRetrievalSelectionV1):
     kind: Literal["native_retrieval_selected_v1"] = "native_retrieval_selected_v1"
+
+
+class NativeRetrievalSelectedV2(NativeRetrievalSelectedV1):
+    kind: Literal['native_retrieval_selected_v2'] = 'native_retrieval_selected_v2'
+    post_read_plan: Literal['review_after_reads', 'finish_if_selected_reads_succeed']
+
+
+NATIVE_RETRIEVAL_SELECTION_TYPES = (NativeRetrievalSelectedV1, NativeRetrievalSelectedV2)
+
+
+class NativeReadBatchConcludedV1(t.StrictModel):
+    """APP fulfillment of a real prospective plan, not a provider response."""
+    kind: Literal['native_read_batch_concluded_v1'] = 'native_read_batch_concluded_v1'
+    event_id: UUID
+    sequence: int = Field(ge=0, strict=True)
+    selection_event_id: UUID
+    read_event_ids: tuple[UUID, ...]
 
 
 def _action(execution):
@@ -133,6 +151,11 @@ def verify_input(turn, auth, proof):
         )
     parent = parse_native_retrieval_input(strict_json(proof["parent_request_json"]),
         surface_id=execution.policy.action.surface_id)
+    from .jev_retrieval_contract import NativePlanBatchDecisionInputV3
+    if type(parent) is NativePlanBatchDecisionInputV3:
+        from .native_corpus import initial_source_discovery_enabled
+        if not initial_source_discovery_enabled(execution):
+            raise ValueError("Prospective read plans require current readonly Plan work")
     from .jev_retrieval_contract import NativePlayRetrievalDecisionInputV1
     if isinstance(parent,NativePlayRetrievalDecisionInputV1):
         from .native_play_work import producing_authored_records
@@ -188,7 +211,7 @@ def verify_selection(turn, event, proof, trace):
 
     receipt, execution = owner(turn)
     if (
-        type(event) is not NativeRetrievalSelectedV1
+        type(event) not in NATIVE_RETRIEVAL_SELECTION_TYPES
         or not isinstance(proof, dict)
         or set(proof) != {"parent_request_json", "request_json", "response_json"}
         or not all(isinstance(value, str) for value in proof.values())
@@ -208,6 +231,9 @@ def verify_selection(turn, event, proof, trace):
     parent = verify_input(
         turn, auth, {key: proof[key] for key in ("parent_request_json", "request_json")}
     )
+    from .jev_retrieval_contract import NativePlanBatchDecisionInputV3
+    if (type(event) is NativeRetrievalSelectedV2) != (type(parent) is NativePlanBatchDecisionInputV3):
+        raise ValueError('Prospective selection requires its exact versioned producer')
     raw = proof["response_json"]
     digest = sha256(raw.encode()).hexdigest()
     outcomes = [
@@ -267,6 +293,7 @@ def verify_selection(turn, event, proof, trace):
         or tuple(event.selected_handles) != selected.selected_handles
         or event.actual_input_tokens != result.observation.input_tokens
         or event.actual_output_tokens != result.observation.output_tokens
+        or type(event) is NativeRetrievalSelectedV2 and event.post_read_plan != selected.post_read_plan
     ):
         raise ValueError(
             "Native selection differs from its typed result, usage or committed scope"
@@ -359,6 +386,18 @@ def validate_decision_phases(execution):
     retrieval_finished = False
     initial_search = None
     for event in execution.events:
+        if isinstance(event, NativeReadBatchConcludedV1):
+            # Exact read closure joins the real query at context binding;
+            # this phase owner checks the actual controller intent and order.
+            if (retrieval_finished or writer is not None or pending_sources
+                    or pending_author_nodes or pending_author_sources
+                    or type(selected) is not NativeRetrievalSelectedV2
+                    or selected.operation != 'select_candidates'
+                    or selected.event_id != event.selection_event_id
+                    or selected.post_read_plan != 'finish_if_selected_reads_succeed'):
+                raise ValueError('Read batch conclusion lacks its active prospective plan')
+            retrieval_finished = True
+            continue
         if isinstance(event, t.NativeInitialSourceSearchAuthorizedV1):
             from .native_corpus import validate_initial_source_search
             validate_initial_source_search(execution, event)
@@ -453,10 +492,7 @@ def validate_decision_phases(execution):
                     or pending_sources
                     or retrieval_started
                     and not retrieval_finished
-                    or selected is None
-                    and not native_build
-                    or selected is not None
-                    and selected.operation != "finish_retrieval"
+                    or not native_build and not retrieval_finished
                 ):
                     raise ValueError(
                         "Native writer requires an explicit completed retrieval finish and settled reads"
@@ -502,6 +538,10 @@ def validate_decision_phases(execution):
             intent = event
             auth, outcome = None, None
         elif isinstance(event, t.PlanJevRetrievalSelectionV1):
+            if type(event) is NativeRetrievalSelectedV2:
+                from .native_corpus import initial_source_discovery_enabled
+                if not initial_source_discovery_enabled(execution):
+                    raise ValueError("Prospective read plans require current readonly Plan work")
             if native_build and type(event) is not NativeRetrievalSelectedV1:
                 raise ValueError("Build cannot borrow a Plan retrieval selection")
             if (
@@ -576,7 +616,7 @@ def validate_decision_phases(execution):
             )
         ):
             if (
-                writer is not None
+                writer is not None or retrieval_finished
                 or selected is None
                 or selected.operation == "finish_retrieval"
             ):

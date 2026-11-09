@@ -23,7 +23,7 @@ from .native_statement_input import Strict
 from .plan_authoring import PlanAuthoringCaptureV1
 from .plan_placement import PlanPlacementCatalogV1
 
-from .native_retrieval import NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1
+from .native_retrieval import NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2, NativeReadBatchConcludedV1
 from .authored_graph_references import BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2, BuildAuthoredReferenceReadV3
 from .native_plan_assertions import NativePlanAssertionReadObservedV2
 
@@ -257,7 +257,7 @@ SurfaceNativeEvent = Annotated[
     t.ProviderAttemptAuthorizedEventV3 | t.ProviderAttemptAuthorizedEventV5
     | t.PlanJevProviderAuthorizedV1 | NativeRetrievalAuthorizedV1 | t.PlanRequestedWorkAuthorizedV2
     | NativeWriterAuthorizedV1 | NativeBuildWriterAuthorizedV2 | t.ProviderOutcomeEventV1 | t.CompletionBindingEventV1
-    | t.PlanJevRetrievalSelectionV1 | NativeRetrievalSelectedV1 | t.PlanRequestedWorkSelectedV2 | NativePlanRequestedWorkSelectedV3
+    | t.PlanJevRetrievalSelectionV1 | NativeRetrievalSelectedV1 | NativeRetrievalSelectedV2 | NativeReadBatchConcludedV1 | t.PlanRequestedWorkSelectedV2 | NativePlanRequestedWorkSelectedV3
     | t.NativeBodySearchAuthorizedV1 | t.NativeInitialSourceSearchAuthorizedV1 | t.NativeBodySearchObservedV1
     | t.NativeBodyReadAuthorizedV1 | t.NativeBodyReadObservedV1 | t.NativeAuthoredSourceReadV1
     | t.NativeDirectSourceAuthorizedV1 | t.NativeDirectSourceObservedV1
@@ -463,6 +463,13 @@ def _join_context_binding(context, execution):
     validate_selected_record_events(query, execution)
     from .authored_graph_references import validate_native_context
     validate_native_context(query, execution)
+    from .native_batch_completion import selected_read_closure
+    for event in execution.events:
+        if type(event) is NativeReadBatchConcludedV1:
+            expected = selected_read_closure(context, execution, event.selection_event_id,
+                before_sequence=event.sequence)
+            if expected is None or event.read_event_ids != expected:
+                raise ValueError('Read-batch conclusion differs from its actual selected successful closure')
     return execution
 
 

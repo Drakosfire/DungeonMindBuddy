@@ -180,8 +180,8 @@ def verify_input_records(receipt, execution, auth, proof, *, question, scope_sha
 
 
 def verify_selection(turn, event, proof, trace):
-    from .native_retrieval import NativeRetrievalSelectedV1, verify_selection as native_verify
-    if type(event) is NativeRetrievalSelectedV1:
+    from .native_retrieval import NATIVE_RETRIEVAL_SELECTION_TYPES, verify_selection as native_verify
+    if type(event) in NATIVE_RETRIEVAL_SELECTION_TYPES:
         return native_verify(turn, event, proof, trace)
     receipt, execution = _owner(turn)
     return verify_selection_records(receipt, execution, event, proof, trace, question=turn.user_text,

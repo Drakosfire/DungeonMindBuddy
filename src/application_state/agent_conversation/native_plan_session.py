@@ -29,6 +29,7 @@ class PlanSessionCommand(str, Enum):
     CONTROLLER = 'authorize_plan_jev_provider'
     OUTCOME = 'record_provider_outcome'
     SELECTION = 'record_plan_jev_retrieval_selection'
+    BATCH_CONCLUSION = 'conclude_native_read_batch'
     RECORD_GRANT = 'authorize_native_read'
     RECORD_OBSERVATION = 'observe_native_read'
     DIRECT_GRANTS = 'authorize_native_direct_sources'

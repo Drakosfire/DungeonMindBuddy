@@ -553,6 +553,31 @@ def acquired_body_catalogs(execution):
     return catalogs
 
 
+def selected_batch_covering_reads(execution, selection, handle, *, before_sequence=None):
+    """Exact source extent already obtained by this acknowledged read batch."""
+    if (not handle.startswith('native-body:') or selection.operation != 'select_candidates'
+            or handle not in selection.selected_handles):
+        return ()
+    events = execution.events if before_sequence is None else execution.events[:before_sequence]
+    searches = [e for e in events if isinstance(e, NativeBodySearchObservedV1)]
+    if not searches:
+        return ()
+    catalog = next((c for c in searches[0].catalogs for s in c.sections
+        if handle == native_body_handle(c.catalog_sha256, s.section_id)), None)
+    if catalog is None:
+        return ()
+    section = next(s for s in catalog.sections if handle == native_body_handle(catalog.catalog_sha256, s.section_id))
+    def identity(c):
+        return (c.source.artifact.source_artifact_id,
+            c.source.revision.source_revision_id, c.source.revision.content_sha256)
+    catalogs = acquired_body_catalogs(execution)
+    return tuple(e.event_id for e in events if isinstance(e, (NativeBodyReadObservedV1, NativeAuthoredSourceReadV1))
+        and e.excerpt is not None and e.sequence > selection.sequence
+        and identity(catalogs[e.excerpt.catalog_sha256]) == identity(catalog)
+        and e.excerpt.section.byte_start <= section.byte_start
+        and e.excerpt.section.byte_end >= section.byte_end)
+
+
 def body_selection_unit_id(read):
     return "body:" + str(read.event_id)
 

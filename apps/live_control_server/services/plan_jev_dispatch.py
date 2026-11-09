@@ -103,6 +103,10 @@ class PlanJevDispatch:
             from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV2, NativeBuildRetrievalDecisionInputV4
             codec = (NativeBuildRetrievalDecisionInputV4
                 if receipt.work_context.surface_id == "build" else NativeRetrievalDecisionInputV2)
+            from application_state.agent_conversation.native_corpus import initial_source_discovery_enabled
+            if initial_source_discovery_enabled(adapter.fence.turn.graph_context_execution):
+                from application_state.agent_conversation.jev_retrieval_contract import NativePlanBatchDecisionInputV3
+                codec = NativePlanBatchDecisionInputV3
             self.parent = codec(**fields,**source_pins(receipt))
         elif authority is not None:
             from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
@@ -251,7 +255,7 @@ class PlanJevDispatch:
                 raise ValueError("Plan decision has no unique actual authorized producer")
             a = self.adapter
             raw = result.model_dump_json()
-            from application_state.agent_conversation.native_retrieval import NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1
+            from application_state.agent_conversation.native_retrieval import NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2
             native = type(self.authorization) is NativeRetrievalAuthorizedV1
             capture_name = "unvalidated-native-retrieval-result" if native else "unvalidated-plan-jev-result"
             a.context_capture.observe({"kind": "context_snapshot", "stage": "after", "materials": [{
@@ -269,9 +273,13 @@ class PlanJevDispatch:
                 'placement_catalog_sha256': self.parent.placement_catalog.sha256 if self.parent.placement_catalog is not None else None,
             }) if placement else {'requested_work': selected, 'target_capture_sha256': self.parent.target_capture_sha256} if semantic else {'operation': selected.operation, 'selected_handles': list(selected.selected_handles)}
             from application_state.agent_conversation.native_execution import NativePlanRequestedWorkSelectedV3
+            from application_state.agent_conversation.jev_retrieval_contract import NativePlanBatchDecisionInputV3
+            planned = type(self.parent) is NativePlanBatchDecisionInputV3
+            if planned:
+                selected_fields['post_read_plan'] = selected.post_read_plan
             current_work = isinstance(self.parent, PlanRequestedWorkInputV8)
-            event_type = NativePlanRequestedWorkSelectedV3 if current_work else t.PlanRequestedWorkSelectedV2 if placement else t.PlanRequestedWorkSelectedV1 if semantic else NativeRetrievalSelectedV1 if native else t.PlanJevRetrievalSelectionV1
-            event = event_type(kind='plan_requested_work_selected_v3' if current_work else 'plan_requested_work_selected_v2' if placement else 'plan_requested_work_selected_v1' if semantic else 'native_retrieval_selected_v1' if native else 'plan_jev_retrieval_selected_v1', event_id=uuid4(),
+            event_type = NativePlanRequestedWorkSelectedV3 if current_work else t.PlanRequestedWorkSelectedV2 if placement else t.PlanRequestedWorkSelectedV1 if semantic else NativeRetrievalSelectedV2 if planned else NativeRetrievalSelectedV1 if native else t.PlanJevRetrievalSelectionV1
+            event = event_type(kind='plan_requested_work_selected_v3' if current_work else 'plan_requested_work_selected_v2' if placement else 'plan_requested_work_selected_v1' if semantic else 'native_retrieval_selected_v2' if planned else 'native_retrieval_selected_v1' if native else 'plan_jev_retrieval_selected_v1', event_id=uuid4(),
                 sequence=len(execution.events), context_receipt_sha256=execution.context_receipt_sha256,
                 execution_policy_sha256=execution.execution_policy_sha256,
                 controller_attempt_id=self.authorization.provider_attempt_id, decision_request_id=self.parent.request_id,

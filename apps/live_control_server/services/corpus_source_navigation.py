@@ -315,11 +315,11 @@ class NativeBodyNavigation:
         return keyword_catalog(turn.user_text, scope_digest(turn))
 
     def _keyword_offers(self):
-        from application_state.agent_conversation.native_retrieval import NativeRetrievalSelectedV1
+        from application_state.agent_conversation.native_retrieval import NATIVE_RETRIEVAL_SELECTION_TYPES
         from application_state.agent_conversation.native_source_keywords import KEYWORD_KIND
         turn = self.adapter.fence.turn
         if (type(turn.graph_context_receipt) is not t.SurfaceNativeContextReceiptV1 or
-                any(type(e) is NativeRetrievalSelectedV1 for e in turn.graph_context_execution.events) or
+                any(type(e) in NATIVE_RETRIEVAL_SELECTION_TYPES for e in turn.graph_context_execution.events) or
                 self._acquired_extents()):
             return ()
         return tuple(RetrievalCandidate(handle=handle, label=repr(word), kind=KEYWORD_KIND)
@@ -341,9 +341,9 @@ class NativeBodyNavigation:
             'scope': scope_digest(turn), 'query': sha256(turn.user_text.encode()).hexdigest()})
 
     def _expanded(self):
-        from application_state.agent_conversation.native_retrieval import NativeRetrievalSelectedV1
+        from application_state.agent_conversation.native_retrieval import NATIVE_RETRIEVAL_SELECTION_TYPES
         handle = self.expansion_handle()
-        return any(type(event) is NativeRetrievalSelectedV1 and
+        return any(type(event) in NATIVE_RETRIEVAL_SELECTION_TYPES and
             event.operation == 'select_candidates' and handle in event.selected_handles
             for event in self.adapter.fence.turn.graph_context_execution.events)
 
@@ -589,27 +589,10 @@ class NativeBodyNavigation:
         once. Do not reopen the section or label its already acquired text as
         unavailable. Prior decisions and merely similar sources cannot satisfy it.
         """
-        if not handle.startswith('native-body:'):
-            return False
         from application_state.agent_conversation.plan_jev_decision import current_selection
-        selection = current_selection(self.adapter.fence.turn)
-        if selection.operation != 'select_candidates' or handle not in selection.selected_handles:
-            return False
-        _, search, _, _ = self._events()
-        if search is None:
-            return False
-        catalog = next((c for c in search.catalogs for section in c.sections
-            if handle == 'native-body:' + c.catalog_sha256 + ':' + section.section_id), None)
-        if catalog is None:
-            return False
-        section = next(s for s in catalog.sections if handle.endswith(':' + s.section_id))
-        def identity(catalog):
-            return (catalog.source.artifact.source_artifact_id,
-                catalog.source.revision.source_revision_id, catalog.source.revision.content_sha256)
-        return any(read.sequence > selection.sequence and identity(known) == identity(catalog)
-            and read.excerpt.section.byte_start <= section.byte_start
-            and read.excerpt.section.byte_end >= section.byte_end
-            for read, known in self._acquired_extents())
+        from application_state.agent_conversation.native_corpus import selected_batch_covering_reads
+        turn = self.adapter.fence.turn
+        return bool(selected_batch_covering_reads(turn.graph_context_execution, current_selection(turn), handle))
 
     def select(self, handles):
         from application_state.agent_conversation.native_corpus import native_corpus_search_handle

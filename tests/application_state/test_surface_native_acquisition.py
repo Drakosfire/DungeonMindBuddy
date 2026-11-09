@@ -65,6 +65,98 @@ def record_candidates(case):
         label=m.label, kind="Native Graph object") for m in q.object_matches]
 
 
+def test_prospective_codec_refuses_noncurrent_work_before_retrieval_transport(application_state_dsn):
+    from generationengine.types import GenerationEngineError
+    sent = []
+    with pytest.raises(GenerationEngineError) as failure:
+        sdk_case(application_state_dsn, native='current', readonly_session=False,
+            post_read_plan='finish_if_selected_reads_succeed', sent=sent)
+    chain, error = [], failure.value
+    while error is not None:
+        chain.append(str(error))
+        error = error.__cause__
+    assert any('readonly Plan' in message for message in chain)
+    assert len(sent) == 1  # Requested-work response only; no retrieval SDK IO.
+
+
+@pytest.mark.parametrize('plan', ['finish_if_selected_reads_succeed', 'review_after_reads'])
+@pytest.mark.parametrize('full', [False, True])
+@pytest.mark.parametrize('interrupted', [False, True])
+def test_prospective_source_batch_closes_only_actual_successful_reads(application_state_dsn, lane, plan, full, interrupted, monkeypatch):
+    from tests.test_surface_native_writer import body_case
+    from tests.test_native_corpus_source_access import GM
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import prepare_native_source_context
+    from application_state.agent_conversation.plan_jev_decision import current_selection
+    from application_state.agent_conversation.native_batch_completion import selected_read_closure
+    from application_state.agent_conversation.native_writer import model_input_frame
+    from application_state.agent_conversation.native_retrieval import NativeReadBatchConcludedV1
+    context, record, _ = body_case('plan', lane, full=full)
+    record = execution(context.context_receipt_sha256, record.policy)
+    source = prepare_native_source_context(managed_world_id='managed', principal=GM,
+        repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    def offered(case):
+        with host(case, source_context=source) as adapter:
+            driver = PlanJevDriver(adapter)
+            driver.native_sources.discover_initial()
+            prefix = 'native-direct-source:' if full else 'native-body:'
+            return tuple(row for row in driver.offered() if row.handle.startswith(prefix))[:1]
+    def acquire(case):
+        selection = current_selection(case.turn)
+        assert selected_read_closure(case.turn.graph_context_receipt,
+            case.turn.graph_context_execution, selection.event_id) is None
+        before = case.turn
+        with pytest.raises(ApplicationStateValidationError):
+            case.service.conclude_native_read_batch(world_id=before.world_id,
+                conversation_id=before.conversation_id, turn_id=before.turn_id,
+                expected_revision=before.revision, expected_attempt=before.attempt,
+                event_id=uuid4(), selection_event_id=selection.event_id)
+        assert case.service.inspect_turn(world_id=before.world_id, turn_id=before.turn_id) == before
+        with host(case, source_context=source) as adapter:
+            if interrupted:
+                from apps.live_control_server.integrations.dungeonmind import native_corpus_source as core
+                def stop_after_grant(*args, **kwargs):
+                    raise RuntimeError('interrupted source IO after durable grant')
+                with monkeypatch.context() as patch:
+                    patch.setattr(core, 'read_direct_native_source' if full else 'read_native_corpus_member', stop_after_grant)
+                    with pytest.raises(RuntimeError, match='interrupted source IO'):
+                        PlanJevDriver(adapter).native_sources.select(selection.selected_handles)
+            else:
+                PlanJevDriver(adapter).native_sources.select(selection.selected_handles)
+    case = sdk_case(application_state_dsn, context_record=(context, record), native='current',
+        readonly_session=True, post_read_plan=plan, acquisitions=((offered, acquire),),
+        include_final_decision=False)
+    before = case.turn
+    selection = current_selection(before)
+    params = dict(world_id=before.world_id, conversation_id=before.conversation_id,
+        turn_id=before.turn_id, expected_revision=before.revision, expected_attempt=before.attempt,
+        event_id=uuid4(), selection_event_id=selection.event_id)
+    if plan == 'review_after_reads' or interrupted:
+        with pytest.raises(ApplicationStateValidationError):
+            case.service.conclude_native_read_batch(**params)
+        assert case.service.inspect_turn(world_id=before.world_id, turn_id=before.turn_id) == before
+        return
+    reads = selected_read_closure(before.graph_context_receipt, before.graph_context_execution, selection.event_id)
+    assert reads
+    updated, fresh = case.service.conclude_native_read_batch(**params)
+    assert fresh
+    conclusion = updated.graph_context_execution.events[-1]
+    assert type(conclusion) is NativeReadBatchConcludedV1
+    assert conclusion.read_event_ids == reads
+    recovered = AgentConversationService().inspect_turn(world_id=before.world_id, turn_id=before.turn_id)
+    assert recovered == updated
+    assert model_input_frame(before.graph_context_receipt, before.graph_context_execution) == model_input_frame(
+        recovered.graph_context_receipt, recovered.graph_context_execution)
+    assert len(case.sent) == 2  # No synthetic terminal controller call.
+    replay, fresh = case.service.conclude_native_read_batch(**(params | {'expected_revision': updated.revision}))
+    assert not fresh and replay == updated
+    for changes in ({'read_event_ids': (uuid4(),)}, {'selection_event_id': uuid4()}):
+        wire = recovered.model_dump(mode='json', by_alias=True)
+        wire['graph_context_execution']['events'][-1].update(
+            json.loads(conclusion.model_copy(update=changes).model_dump_json(by_alias=True)))
+        with pytest.raises(ValueError):
+            type(recovered).model_validate(wire)
+
+
 @pytest.mark.parametrize('session', [False, True])
 def test_initial_source_discovery_commits_before_first_retrieval_without_body_exposure(
     application_state_dsn, lane, session, request, monkeypatch
@@ -268,7 +360,7 @@ def test_initial_discovery_reader_fence_has_no_row_rewrite(application_state_dsn
         fence.downgrade()
 
 
-@pytest.mark.parametrize('session', [False, True])
+@pytest.mark.parametrize('session', [False, True, 'prospective'])
 def test_actual_driver_selected_native_support_reads_use_shared_claim(
     application_state_dsn, published_lane, monkeypatch, session, request
 ):
@@ -281,6 +373,17 @@ def test_actual_driver_selected_native_support_reads_use_shared_claim(
     def acquire(case):
         with host(case, query_context=query_context) as adapter:
             driver = PlanJevDriver(adapter)
+            if session == 'prospective':
+                from generationengine.types import DecisionResult
+                from application_state.agent_conversation.jev_retrieval_contract import decode_selection
+                step = case.steps[-1]
+                dispatch = SimpleNamespace(parent=step.parent, authorization=step.auth,
+                    selection=decode_selection(step.parent, DecisionResult.model_validate_json(step.proof['response_json'])),
+                    selection_event=step.selection)
+                driver.current = dispatch
+                driver.apply(dispatch)
+                assert driver.finished
+                return
             driver._read_native("statement", [m.statement_id for m in result.matches])
             driver._read_native(
                 "assertion", [m.assertion_id for m in result.assertion_matches]
@@ -298,7 +401,15 @@ def test_actual_driver_selected_native_support_reads_use_shared_claim(
         native='current' if session else False,
         readonly_session=session,
         fence_factory=fence_factory if session else None,
+        post_read_plan='finish_if_selected_reads_succeed' if session == 'prospective' else None,
+        include_final_decision=session != 'prospective',
     )
+    if session == 'prospective':
+        from application_state.agent_conversation.native_retrieval import NativeReadBatchConcludedV1
+        concluded = case.turn.graph_context_execution.events[-1]
+        assert type(concluded) is NativeReadBatchConcludedV1
+        assert len(concluded.read_event_ids) == 2
+        assert len(case.sent) == 2
     if session:
         assert case.fence.renewer._session is not None
         case.turn, error = case.fence.stop()

@@ -7221,7 +7221,7 @@ class CommandResolutionRecordV1(StrictModel):
 # definitions exist. These records do not acquire historical Graph authority.
 from .native_context import SurfaceNativeContextReceiptV1  # noqa: E402
 from .native_execution import SurfaceNativeExecutionV1  # noqa: E402
-from .native_retrieval import NativeRetrievalAuthorizedV1 as NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1 as NativeRetrievalSelectedV1  # noqa: E402
+from .native_retrieval import NativeRetrievalAuthorizedV1 as NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1 as NativeRetrievalSelectedV1, NativeRetrievalSelectedV2 as NativeRetrievalSelectedV2, NativeReadBatchConcludedV1 as NativeReadBatchConcludedV1  # noqa: E402
 from .native_completion import SurfaceNativeCompletionV1  # noqa: E402
 TurnSubmission.model_rebuild()
 Turn.model_rebuild()

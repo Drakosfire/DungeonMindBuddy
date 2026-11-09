@@ -262,7 +262,7 @@ def test_support_materialization_does_not_authorize_a_later_changed_assertion(la
 
 
 def _ordinary_native_case(
-        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None, extra_name=None, related_page=False, connected_review=False, connected_mutation=None):
+        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None, extra_name=None, related_page=False, connected_review=False, connected_mutation=None, prospective=False):
     import httpx2
     from hashlib import sha256
     from fastapi import FastAPI
@@ -404,7 +404,7 @@ def _ordinary_native_case(
             assert BODY not in req.content.decode()
             answers={}
             for name,entry in body['questions'].items():
-                choice=(('review_connected_page' if connected_review else 'write:captured' if authoring else 'discuss') if name=='requested_work' else 'finish_retrieval' if name=='operation' else
+                choice=(('finish_if_selected_reads_succeed' if prospective else 'review_after_reads') if name=='post_read_plan' else ('review_connected_page' if connected_review else 'write:captured' if authoring else 'discuss') if name=='requested_work' else 'finish_retrieval' if name=='operation' else
                     'include' if name.startswith('candidate_') and int(name.split('_')[-1]) in native else 'exclude')
                 answers[name]={'type':'choice','choice':choice,'confidence':1,
                     'probabilities':{key:float(key==choice) for key in entry['criteria']}}
@@ -769,6 +769,13 @@ def _ordinary_native_case(
         grants=[e for e in turn.graph_context_execution.events if isinstance(e,t.NativePlanAssertionReadAuthorizedV1)]
         observations=[e for e in turn.graph_context_execution.events if isinstance(e,t.NativePlanAssertionReadObservedV1)]
     assert len(grants)==len(observations)==1 and grants[0].sequence<observations[0].sequence
+    if prospective:
+        from application_state.agent_conversation.native_retrieval import NativeReadBatchConcludedV1
+        conclusions = [e for e in turn.graph_context_execution.events if type(e) is NativeReadBatchConcludedV1]
+        assert bool(conclusions) != unavailable
+        if not unavailable:
+            assert not any(isinstance(e, t.PlanJevRetrievalSelectionV1) and e.operation == 'finish_retrieval'
+                for e in turn.graph_context_execution.events)
     if unavailable:
         assert not completion['native_assertion_citations'] and observations[0].status=='partial'
     else:
@@ -1194,3 +1201,10 @@ def test_prepared_native_query_still_refuses_binding_movement(lane):
     with pytest.raises(ValueError, match='binding changed during native query'):
         prepare_query(lane.world.world_id, 'What did B do?', GM,
             source_context=source, repository=lane.repo, resolve_binding=lambda _: next(bindings))
+
+
+@pytest.mark.parametrize('unavailable', [False, True])
+def test_prospective_batch_reaches_ordinary_writer_frontier_without_synthetic_finish(
+        lane, tmp_path, monkeypatch, unavailable, native_read_admission_probes):
+    _ordinary_native_case(lane, tmp_path, monkeypatch, False, unavailable,
+        None, None, False, native_read_admission_probes, prospective=True)
