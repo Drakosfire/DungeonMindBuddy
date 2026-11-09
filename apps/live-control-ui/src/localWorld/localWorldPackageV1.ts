@@ -1,4 +1,4 @@
-import { cloneLocalWorldValue, isLocalWorldPackageMemberPath, LOCAL_WORLD_PACKAGE_MEMBER_PATH_LIMITS, validateLocalWorldSnapshot } from "./localWorldRepository";
+import { cloneLocalWorldValue, isLocalWorldPackageMemberPath, LOCAL_WORLD_PACKAGE_MEMBER_PATH_LIMITS, validateLocalWorldPackageData, validateLocalWorldSnapshot } from "./localWorldRepository";
 import type {
   LocalWorldHistoryEntry,
   LocalWorldId,
@@ -6,6 +6,7 @@ import type {
   LocalWorldRecord,
   LocalWorldSnapshot,
   LocalPackageReference,
+  LocalWorldPackageData,
 } from "./localWorldRepository";
 
 export const LOCAL_WORLD_PACKAGE_V1 = {
@@ -378,6 +379,79 @@ export function validateLocalWorldRecordForPackage(record: LocalWorldRecord): st
   }
 }
 
+function validateAttachmentArraysBeforeCopy(data: LocalWorldPackageData): void {
+  if (!isRecord(data.bundledMembers) || Array.isArray(data.bundledMembers)) fail("invalid-record", "Bundled attachment bytes are malformed.");
+  const members = data.bundledMembers as Record<string, unknown>;
+  const prototype = Object.getPrototypeOf(members);
+  if (prototype !== Object.prototype && prototype !== null) fail("invalid-record", "Bundled attachment bytes must be a plain member map.");
+  if (Object.getOwnPropertySymbols(members).length > 0) fail("invalid-record", "Bundled attachment bytes cannot contain symbol fields.");
+  const descriptors = Object.getOwnPropertyDescriptors(members);
+  const paths = Object.getOwnPropertyNames(members);
+  if (paths.length > LOCAL_WORLD_PACKAGE_V1.limits.referenceCount) fail("limit-exceeded", "Package exceeds the 256 attachment-reference limit.");
+
+  let totalBytes = 0;
+  for (const path of paths) {
+    const descriptor = descriptors[path];
+    if (!descriptor.enumerable || !("value" in descriptor)) fail("invalid-record", "Bundled attachment members cannot contain hidden fields or accessors.");
+    const bytes = descriptor.value;
+    if (!Array.isArray(bytes)) fail("invalid-record", "Bundled attachment bytes must be byte arrays.");
+    if (bytes.length > LOCAL_WORLD_PACKAGE_V1.limits.attachmentBytes) fail("limit-exceeded", `Attachment exceeds the 8 MiB size limit: ${path}`);
+    totalBytes += bytes.length;
+    if (totalBytes > LOCAL_WORLD_PACKAGE_V1.limits.totalBytes) fail("limit-exceeded", "Bundled attachments exceed the 16 MiB bounded copy limit.");
+    if (Object.getPrototypeOf(bytes) !== Array.prototype || Object.getOwnPropertySymbols(bytes).length > 0) {
+      fail("invalid-record", "Bundled attachment byte arrays must be plain arrays without extra properties.");
+    }
+    // Count own names before indexing so hidden custom fields and sparse slots
+    // fail closed; inspect element descriptors lazily to avoid a map of millions
+    // of descriptor objects for a valid large attachment.
+    const ownNames = Object.getOwnPropertyNames(bytes);
+    if (ownNames.length !== bytes.length + 1 || Object.keys(bytes).length !== bytes.length) {
+      fail("invalid-record", "Bundled attachment byte arrays cannot contain holes or named properties.");
+    }
+    for (let index = 0; index < bytes.length; index += 1) {
+      const byte = Object.getOwnPropertyDescriptor(bytes, String(index));
+      if (!byte || !byte.enumerable || !("value" in byte) || !Number.isInteger(byte.value) || byte.value < 0 || byte.value > 255) {
+        fail("invalid-record", "Bundled attachment bytes must contain only integer byte values.");
+      }
+    }
+  }
+}
+
+function validateInputsBeforeClone(record: LocalWorldRecord, supplementalData?: LocalWorldPackageData): void {
+  validateRecord(record);
+  const semantic = {
+    localWorldId: record.snapshot.worldId,
+    localRevision: record.localRevision,
+    publishedRevisionId: record.publishedRevisionId,
+    snapshot: record.snapshot,
+    documents: supplementalData?.documents ?? [],
+    assets: supplementalData?.assets ?? [],
+  } satisfies PackageSemanticWire;
+  const layout = { layoutRevision: record.layoutRevision, layout: record.layout } satisfies PackageLayoutWire;
+  // Validate each emitted JSON member at its own limit. A full record or a
+  // numeric byte array is not itself a package member and must not be encoded
+  // into one shared JSON string for preflight.
+  canonicalJson(semantic);
+  canonicalJson(layout);
+  if (record.history.length > LOCAL_WORLD_PACKAGE_V1.limits.historyCount) fail("limit-exceeded", "History exceeds the 1,000 entry package limit.");
+  if (record.history.length > 0) canonicalJson(record.history);
+
+  if (!supplementalData) return;
+  exactKeys(supplementalData as unknown as Record<string, unknown>, ["localWorldId", "documents", "assets", "bundledMembers", "fidelity", "creatorProfileAssumptions"], "package sidecar");
+  if (!Array.isArray(supplementalData.documents) || !Array.isArray(supplementalData.assets)
+    || supplementalData.documents.length + supplementalData.assets.length > LOCAL_WORLD_PACKAGE_V1.limits.referenceCount) {
+    fail("limit-exceeded", "Package exceeds the 256 attachment-reference limit.");
+  }
+  // The references are JSON and are already represented by semantic.json;
+  // sidecar declarations are separate manifest fields.
+  canonicalJson(supplementalData.documents);
+  canonicalJson(supplementalData.assets);
+  canonicalJson(supplementalData.fidelity);
+  canonicalJson(supplementalData.creatorProfileAssumptions);
+  validateAttachmentArraysBeforeCopy(supplementalData);
+  const invalid = validateLocalWorldPackageData(supplementalData, record.snapshot.worldId);
+  if (invalid) fail("invalid-record", invalid);
+}
 /** Shared portable-path validation for the normalized map codec and archive transport. */
 export function validateLocalWorldPackageMemberPaths(paths: readonly string[]): string | null {
   const exactPaths = new Set<string>();
@@ -499,7 +573,24 @@ function manifestFromUnknown(value: unknown): LocalWorldPackageManifestV1 {
  * Encode the fields represented by LocalWorldRecord into a normalized package
  * member map. This is not a ZIP writer or a complete portable package exporter.
  */
-export async function encodeLocalWorldPackageV1(record: LocalWorldRecord): Promise<EncodeLocalWorldPackageV1Result> {
+export async function encodeLocalWorldPackageV1(
+  recordInput: LocalWorldRecord,
+  supplementalDataInput?: LocalWorldPackageData,
+): Promise<EncodeLocalWorldPackageV1Result> {
+  let record: LocalWorldRecord;
+  let supplementalData: LocalWorldPackageData | undefined;
+  try {
+    // Validate own properties and per-member bounds before cloning. structuredClone
+    // can drop non-enumerable fields, while JSON-stringifying attachment arrays
+    // multiplies their size and wrongly applies the JSON-member limit to binaries.
+    validateInputsBeforeClone(recordInput, supplementalDataInput);
+    // Snapshot all caller-owned state before any digest awaits.
+    record = cloneLocalWorldValue(recordInput);
+    supplementalData = supplementalDataInput ? cloneLocalWorldValue(supplementalDataInput) : undefined;
+  } catch (error) {
+    const problem = error instanceof PackageProblem ? error : new PackageProblem("invalid-record", error instanceof Error ? error.message : "Local World package inputs could not be copied.");
+    return { status: "error", code: problem.code, message: problem.message };
+  }
   try {
     validateRecord(record);
   } catch (error) {
@@ -512,8 +603,8 @@ export async function encodeLocalWorldPackageV1(record: LocalWorldRecord): Promi
       localRevision: record.localRevision,
       publishedRevisionId: record.publishedRevisionId,
       snapshot: record.snapshot,
-      documents: [],
-      assets: [],
+      documents: supplementalData?.documents ?? [],
+      assets: supplementalData?.assets ?? [],
     };
     const members = new Map<string, Uint8Array>();
     const semanticBytes = encodeJson(semantic);
@@ -527,9 +618,26 @@ export async function encodeLocalWorldPackageV1(record: LocalWorldRecord): Promi
     members.set(SEMANTIC_PATH, semanticBytes);
     members.set(LAYOUT_PATH, layoutBytes);
     if (historyBytes) members.set(HISTORY_PATH, historyBytes);
+    if (supplementalData) {
+      const bundledPaths = new Set([...supplementalData.documents, ...supplementalData.assets]
+        .filter((reference) => reference.status === "bundled")
+        .map((reference) => reference.path!));
+      for (const path of bundledPaths) {
+        const values = supplementalData.bundledMembers[path];
+        if (!values) fail("invalid-record", `Supplemental attachment bytes are missing: ${path}`);
+        const bytes = Uint8Array.from(values);
+        if (path.startsWith("assets/") && await sha256(bytes) !== path.slice("assets/".length)) {
+          fail("invalid-record", `Supplemental asset path does not match its SHA-256 bytes: ${path}`);
+        }
+        members.set(path, bytes);
+      }
+    }
     const descriptors: LocalWorldPackageMemberDescriptor[] = [];
     for (const [path, bytes] of members) {
-      descriptors.push({ path, mediaType: JSON_MEDIA_TYPE, sizeBytes: bytes.byteLength, sha256: await sha256(bytes) });
+      const attachment = supplementalData
+        ? [...supplementalData.documents, ...supplementalData.assets].find((reference) => reference.status === "bundled" && reference.path === path)
+        : undefined;
+      descriptors.push({ path, mediaType: attachment?.mediaType ?? JSON_MEDIA_TYPE, sizeBytes: bytes.byteLength, sha256: await sha256(bytes) });
     }
     descriptors.sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
     const manifest: LocalWorldPackageManifestV1 = {
@@ -548,13 +656,13 @@ export async function encodeLocalWorldPackageV1(record: LocalWorldRecord): Promi
           completeness: "unknown",
         }
         : { status: "omitted", entryCount: 0, firstLocalRevision: null, lastLocalRevision: null, completeness: "unknown" },
-      attachmentAvailability: expectedAvailability([], []),
-      fidelity: {
+      attachmentAvailability: expectedAvailability(semantic.documents, semantic.assets),
+      fidelity: supplementalData?.fidelity ?? {
         localRecord: "preserved",
         sourceMetadata: "not-represented-by-local-record",
         profileMetadata: "not-represented-by-local-record",
       },
-      creatorProfileAssumptions: { creator: "not-recorded", profile: "not-recorded" },
+      creatorProfileAssumptions: supplementalData?.creatorProfileAssumptions ?? { creator: "not-recorded", profile: "not-recorded" },
     };
     const manifestBytes = encodeJson(manifest);
     members.set(MANIFEST_PATH, manifestBytes);

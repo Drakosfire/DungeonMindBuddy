@@ -18,6 +18,14 @@ import { NORTH_GATE_RUNBOOK_TARGET_RELPATH } from "./tiptap/descriptors/tiptapRu
 import { makeCapabilityResponse, makeRollTableArtifact, mockCatalog, mockLayout, mockPlanView, mockState } from "./test/fixtures";
 
 const playShellHarness = vi.hoisted(() => ({ active: false }));
+vi.mock("./localWorld/indexedDbLocalWorldRepository", async importOriginal => {
+  const actual = await importOriginal<typeof import("./localWorld/indexedDbLocalWorldRepository")>();
+  const { InMemoryLocalWorldRepository } = await import("./localWorld/inMemoryLocalWorldRepository");
+  return { ...actual, openIndexedDbLocalWorldRepository: async () => ({
+    status: "opened" as const, repository: new InMemoryLocalWorldRepository(),
+  }) };
+});
+
 vi.mock("./selectedWorld/SelectedWorldContext", async importOriginal => {
   const actual = await importOriginal<typeof import("./selectedWorld/SelectedWorldContext")>();
   return { ...actual, SelectedWorldProvider: (props: { children: React.ReactNode; locationSnapshot: string }) =>
@@ -293,6 +301,9 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(screen.getByRole("heading", { name: /buddy surface/i })).toBeInTheDocument();
+    expect(await screen.findByText("No local Worlds yet. Create one when you’re ready.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create World" })).toBeDisabled();
+    expect(screen.getByText("Ready to create a local World")).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Open" })).toBeInTheDocument();
     expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-surface-id", "index");
     const navigation = screen.getByRole("navigation", { name: "Command board navigation" });
@@ -305,6 +316,12 @@ describe("App inspector integration", () => {
     expect(screen.queryByRole("link", { name: /tiptap|developer spike/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
+    await userEvent.setup().type(screen.getByLabelText("Create a World"), "Chrome-owned World");
+    await userEvent.setup().click(screen.getByRole("button", { name: "Create World" }));
+    expect(await screen.findByRole("heading", { name: "Chrome-owned World" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Projection" })).not.toBeInTheDocument();
     expect(liveApi.getSurface).not.toHaveBeenCalled();
   });
 
