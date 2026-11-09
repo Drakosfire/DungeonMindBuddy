@@ -1,25 +1,26 @@
 # CI: conservative domain prediction in shadow mode
 
-Status: ACTIVE private verification/design candidate under coordinator's permission
- to inspect whether shadow can stand alone without weakened gates/dependencies.
-Branch codex/ci-shadow-standalone-proof; base current-main
+Status: ACTIVE standalone shadow reporting implementation and draft publication
+under the coordinator's 2026-11-09 resequenced CI instruction. Branch
+codex/ci-shadow-standalone-proof; base current-main
 5d63a5c742e60a3e5338847f3fecc02f12a9efc7; isolated verification checkout.
-This is a local reviewable tree, not a replacement/publication/merge of PR2299.
-Published PR2299 stays frozen at844025e4, stacked onad540, and HOLD on its red stack.
+Independent complete-tree review of private predecessor e023831f found no fast-gate
+code or verification dependency. This draft is parallel-independent: current main
+plus only shadow-owned files and one inventory entry. All existing main workflows,
+commands and test coverage remain unchanged; PR2298 and its red discovered suite
+remain intact. Published PR2299 stays frozen at844025e4 and HOLD on its red stack;
+this draft does not clear that failure or authorize its merge/closure.
 
-Candidate topology parallel-independent: current main plus only shadow-owned
-files and one inventory entry. No B fast-gate command/workflow/test is a code
-or verification dependency. All existing main workflows/commands/test coverage
-must remain byte-identical; PR2298 and its failing discovered suite stay intact.
 No selector consumer, selection activation, skip/continue-on-error or qualification
-claim. Fresh complete-tree independent review and coordinator topology disposition
-are required before updating any published PR; no ready/merge action here.
+claim. Fresh exact-head review and hosted checks are required before any readiness
+judgment. No ready/merge action is authorized here. PR2300's recorded ready-action
+denial remains in force; this publication does not retry it.
 
 Expected exclusive writes: scripts/ci_domain_shadow.py; ci/domain-selection-v1.json;
 tests/test_ci_domain_shadow.py; .github/workflows/domain-shadow.yml; this handoff;
 ci/test-classification.json one new shadow guard entry only, copied onto current
 main classification with no removed entries. Published C classification lease stays
-frozen while its owner prepares this private proof; no concurrent writer. Other
+frozen while the same owner prepares this standalone draft; no concurrent writer. Other
 stage3/qualification files and their published branches remain untouched. No product/graph/ADV source edits.
 
 Version1 predicts docs-only and one explicitly scoped presentation CSS path.
