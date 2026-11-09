@@ -35,11 +35,20 @@ class PlanJevHarness:
         from .agent_turn_service import AgentTurnServiceError
         self.calls = []
         page_title = next((line[2:].strip() for line in adapter.work.plan_markdown.splitlines() if line.startswith('# ') and line[2:].strip()), 'Current Plan')
-        semantic = PlanJevDispatch.requested_work(adapter, page_title=page_title, dialogue=dialogue)
+        semantic = None
         rules = PlanRulesRuntime(adapter, rules_capability(graph=True))
         driver = writer = None
         primary_error = False
         try:
+            from application_state.agent_conversation import types as t
+            if type(adapter.request.plan_context_policy) is not t.PlanContextPolicyV2:
+                raise ValueError('Current Plan orchestration requires the governed native request protocol')
+            adapter.claim_native_plan_request(dialogue=dialogue)
+            from .native_authored_references import acquire
+            acquire(adapter)
+            driver = PlanJevDriver(adapter, dialogue=dialogue, rules=rules, retained_navigation=retained_navigation)
+            driver.native_sources.discover_initial()
+            semantic = PlanJevDispatch.requested_work(adapter, page_title=page_title, **driver.decision_arguments())
             selected, _ = asyncio.run(semantic.run(transport=self.decision_transport, api_key=self.decision_api_key))
             if selected == 'different_destination':
                 raise AgentTurnServiceError('This request needs another page or object. The request is retained; choose that destination before generating.',
@@ -62,14 +71,10 @@ class PlanJevHarness:
                     raise AgentTurnServiceError('The Plan or conversation changed before writing could start. The request is retained; review the current page location before trying again.',
                         code='plan_authoring_target_changed', status_code=409) from exc
                 rules.authoring = (action, capture)
-            from application_state.agent_conversation import types as t
-            if type(adapter.fence.turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1:
-                from .native_authored_references import acquire
-                acquire(adapter)
-            driver = PlanJevDriver(adapter, dialogue=dialogue, rules=rules, retained_navigation=retained_navigation)
-            from .corpus_source_navigation import NativeBodyNavigation
-            if isinstance(driver.native_sources, NativeBodyNavigation):
-                driver.native_sources.discover_initial()
+            if semantic.selection_event.operation is not None:
+                driver.apply_opening(semantic)
+            else:
+                driver = PlanJevDriver(adapter, dialogue=dialogue, rules=rules, retained_navigation=retained_navigation)
             proof = asyncio.run(driver.run(transport=self.decision_transport, api_key=self.decision_api_key))
             writer = PlanJevWriter(adapter, proof, rules)
             completed = asyncio.run(writer.run(transport=self.writer_transport, api_key=self.writer_api_key))
@@ -82,7 +87,7 @@ class PlanJevHarness:
                     code='plan_authoring_target_changed', status_code=409) from exc
             raise
         finally:
-            self.calls = ([semantic.call] if semantic.call is not None else []) + (driver.calls if driver is not None else []) + ([writer.call] if writer is not None and writer.call is not None else [])
+            self.calls = ([semantic.call] if semantic is not None and semantic.call is not None else []) + (driver.calls if driver is not None else []) + ([writer.call] if writer is not None and writer.call is not None else [])
             self.output_limit_exceeded = writer.output_limit_exceeded if writer is not None else False
             if adapter.fence is not None:
                 try:

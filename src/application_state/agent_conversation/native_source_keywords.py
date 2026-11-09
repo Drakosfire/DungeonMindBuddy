@@ -35,9 +35,9 @@ RECOVERY_KEYWORD_GUIDANCE = (
 
 def acknowledged_keyword_catalog(turn):
     """Reuse admitted choices; do not require execution ownership for plain listings."""
-    from .native_retrieval import NATIVE_RETRIEVAL_SELECTION_TYPES, scope_digest
+    from .native_retrieval import native_selection_types, scope_digest
     handles = {handle for event in turn.graph_context_execution.events
-        if type(event) in NATIVE_RETRIEVAL_SELECTION_TYPES and event.operation == 'select_candidates'
+        if type(event) in native_selection_types() and event.operation == 'select_candidates'
         for handle in event.selected_handles if handle.startswith(KEYWORD_PREFIX)}
     if not handles:
         return {}

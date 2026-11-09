@@ -33,6 +33,11 @@ class NativeRetrievalAuthorizedV1(t.PlanJevProviderAuthorizedV1):
     build_context: NativeBuildDecisionContextV1 | None = None
 
 
+class NativePlanOpeningAuthorizedV1(t.PlanRequestedWorkAuthorizedV2):
+    """One actual SDK envelope explicitly produces work and its first batch."""
+    kind: Literal['native_plan_opening_authorized_v1'] = 'native_plan_opening_authorized_v1'
+
+
 class NativeRetrievalSelectedV1(t.PlanJevRetrievalSelectionV1):
     kind: Literal["native_retrieval_selected_v1"] = "native_retrieval_selected_v1"
 
@@ -43,6 +48,17 @@ class NativeRetrievalSelectedV2(NativeRetrievalSelectedV1):
 
 
 NATIVE_RETRIEVAL_SELECTION_TYPES = (NativeRetrievalSelectedV1, NativeRetrievalSelectedV2)
+
+
+def native_selection_types():
+    """Closed native acquisition selections, including the real opening batch."""
+    from .native_execution import NativePlanOpeningSelectedV1
+    return (*NATIVE_RETRIEVAL_SELECTION_TYPES, NativePlanOpeningSelectedV1)
+
+
+def prospective_selection_types():
+    from .native_execution import NativePlanOpeningSelectedV1
+    return (NativeRetrievalSelectedV2, NativePlanOpeningSelectedV1)
 
 
 class NativeReadBatchConcludedV1(t.StrictModel):
@@ -391,12 +407,21 @@ def validate_decision_phases(execution):
             # this phase owner checks the actual controller intent and order.
             if (retrieval_finished or writer is not None or pending_sources
                     or pending_author_nodes or pending_author_sources
-                    or type(selected) is not NativeRetrievalSelectedV2
+                    or type(selected) not in prospective_selection_types()
                     or selected.operation != 'select_candidates'
                     or selected.event_id != event.selection_event_id
                     or selected.post_read_plan != 'finish_if_selected_reads_succeed'):
                 raise ValueError('Read batch conclusion lacks its active prospective plan')
             retrieval_finished = True
+            continue
+        if isinstance(event, t.NativePlanRequestSearchAuthorizedV1):
+            from .native_corpus import validate_request_source_search
+            validate_request_source_search(execution, event)
+            if (initial_search is not None or retrieval_started or writer is not None
+                    or pending_author_nodes or pending_author_sources or intent is not None):
+                raise ValueError('Request discovery requires settled human references before work/provider selection')
+            initial_search = event
+            pending_sources.add((type(event), event.event_id))
             continue
         if isinstance(event, t.NativeInitialSourceSearchAuthorizedV1):
             from .native_corpus import validate_initial_source_search
@@ -410,12 +435,14 @@ def validate_decision_phases(execution):
             continue
         if (isinstance(event, t.NativeBodySearchObservedV1) and initial_search is not None
                 and event.authorization_event_id == initial_search.event_id):
-            pending = (t.NativeInitialSourceSearchAuthorizedV1, initial_search.event_id)
+            pending = (type(initial_search), initial_search.event_id)
             if pending not in pending_sources or retrieval_started or writer is not None:
                 raise ValueError("Initial source discovery observation cannot repeat or follow retrieval")
             pending_sources.remove(pending)
             continue
         if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
+            if type(event) is NativePlanOpeningAuthorizedV1 and (pending_author_nodes or pending_author_sources):
+                raise ValueError('Opening provider requires settled actual human-selected references')
             identity = (event.provider, event.model, event.api_mode)
             if auth is not None and selected is None:
                 raise ValueError(
@@ -536,7 +563,20 @@ def validate_decision_phases(execution):
                     "Plan destination lacks its unique acknowledged controller and frozen target"
                 )
             intent = event
-            auth, outcome = None, None
+            from .native_execution import NativePlanOpeningSelectedV1
+            if type(event) is NativePlanOpeningSelectedV1:
+                if type(auth) is not NativePlanOpeningAuthorizedV1:
+                    raise ValueError('Opening selection requires its actual dual-purpose provider')
+                if event.operation is not None:
+                    selected = event
+                    retrieval_started = True
+                    retrieval_finished = event.operation == 'finish_retrieval'
+                else:
+                    auth, outcome = None, None
+            else:
+                if type(auth) is NativePlanOpeningAuthorizedV1:
+                    raise ValueError('Opening SDK cannot settle as historical work-only selection')
+                auth, outcome = None, None
         elif isinstance(event, t.PlanJevRetrievalSelectionV1):
             if type(event) is NativeRetrievalSelectedV2:
                 from .native_corpus import initial_source_discovery_enabled

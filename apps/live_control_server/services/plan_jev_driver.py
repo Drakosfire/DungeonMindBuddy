@@ -36,9 +36,7 @@ class PlanJevDriver:
             if receipt.work_context.surface_id=='build':
                 from application_state.agent_conversation.build_section import saved_section_catalog
                 self.saved_page_catalog=saved_section_catalog(adapter.work.build_source.markdown,receipt.work_context.source_basis)
-        from application_state.agent_conversation.build_related_pages import plan_read_enabled, catalog, plan_handle
-        self.related_saved_pages = {plan_handle(p): p for p in catalog(adapter._broker_execution().policy)} if (
-            adapter.fence is not None and plan_read_enabled(adapter._broker_execution())) else {}
+        self._refresh_related_catalog()
         self.attempted_related_pages = set()
         self.finished = False
         self.calls = []
@@ -61,6 +59,12 @@ class PlanJevDriver:
             node_id, kind = node.get(id_key), node.get("kind")
             if node_id and isinstance(kind, str) and kind.strip():
                 self.node_kinds[node_id] = kind
+
+    def _refresh_related_catalog(self):
+        from application_state.agent_conversation.build_related_pages import plan_catalog_available, catalog, plan_handle
+        a = self.adapter
+        self.related_saved_pages = ({plan_handle(p): p for p in catalog(a._broker_execution().policy)}
+            if a.fence is not None and plan_catalog_available(a.fence.turn.graph_context_receipt, a._broker_execution()) else {})
 
     def _collect_candidates(self, session):
         for row in session.get("candidates", []):
@@ -138,15 +142,28 @@ class PlanJevDriver:
     def apply(self, dispatch):
         if self.finished or dispatch is not self.current or dispatch.selection is None:
             raise ValueError("Plan acquisition requires its current acknowledged decision")
+        return self._apply_admitted(dispatch, dispatch.selection)
+
+    def apply_opening(self, dispatch):
+        from application_state.agent_conversation.native_plan_opening import NativePlanOpeningInputV1
+        from application_state.agent_conversation.native_execution import NativePlanOpeningSelectedV1
+        event = dispatch.selection_event
+        if (self.finished or self.current is not None or type(dispatch.parent) is not NativePlanOpeningInputV1
+                or type(event) is not NativePlanOpeningSelectedV1 or event.operation is None
+                or current_selection(self.adapter.fence.turn).event_id != event.event_id):
+            raise ValueError('Opening acquisition requires its actual active atomic selection')
+        self._refresh_related_catalog()  # Actual work now narrows conditional metadata.
+        return self._apply_admitted(dispatch, event)
+
+    def _apply_admitted(self, dispatch, selected):
         admitted = current_selection(self.adapter.fence.turn)
         if (admitted.controller_attempt_id != dispatch.authorization.provider_attempt_id
                 or admitted.decision_request_id != dispatch.parent.request_id
                 or admitted.parent_request_sha256 != dispatch.parent.digest
                 or admitted.controller_envelope_sha256 != dispatch.authorization.envelope_sha256
-                or admitted.operation != dispatch.selection.operation
-                or tuple(admitted.selected_handles) != dispatch.selection.selected_handles):
+                or admitted.operation != selected.operation
+                or tuple(admitted.selected_handles) != tuple(selected.selected_handles)):
             raise ValueError("Plan acquisition decision is no longer current")
-        selected = dispatch.selection
         self.current = None
         if selected.operation == "finish_retrieval":
             self.finished = True
@@ -404,7 +421,27 @@ class PlanJevDriver:
                     kind=f'Previously selected native statement: {status}; not an answer-sufficiency verdict'))
         return tuple(result)
 
+    def decision_arguments(self):
+        """One actual catalog producer for opening and subsequent decisions."""
+        operations = (('select_candidates', 'finish_retrieval') if self.discovered else
+            ('select_candidates', 'discover_more', 'finish_retrieval'))
+        examined = [candidate for node, candidate in self.catalog.values() if node in self.attempted_nodes]
+        if self.rules is not None and self.rules.selected:
+            examined.append(rules_candidate())
+        examined.extend(self.saved_page_catalog[h][0] for h in sorted(self.attempted_saved_pages))
+        examined.extend(self.native_sources.examined())
+        from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4
+        if isinstance(getattr(self.adapter, 'native_query', None), NativeGraphQueryV4):
+            examined.extend(self._native_object_examined())
+        else:
+            examined.extend(self._native_statement_examined())
+            examined.extend(self._native_assertion_examined())
+        return dict(candidates=self.offered(), dialogue=self.dialogue,
+            examined_candidates=examined, allowed_operations=operations)
+
     async def run(self, *, transport=None, api_key=None):
+        if self.finished:
+            return self.proof()
         async def authorize(prepared):
             return self.current.authorize(prepared) if self.current is not None else False
         async def record(event):
@@ -416,21 +453,7 @@ class PlanJevDriver:
             while not self.finished:
                 trace = getattr(self.adapter, "trace", None)
                 with trace.measure_host_work("retrieval_candidate_preparation") if trace is not None else nullcontext():
-                    operations = (("select_candidates", "finish_retrieval") if self.discovered else
-                                  ("select_candidates", "discover_more", "finish_retrieval"))
-                    examined = [candidate for node, candidate in self.catalog.values() if node in self.attempted_nodes]
-                    if self.rules is not None and self.rules.selected:
-                        examined.append(rules_candidate())
-                    examined.extend(self.saved_page_catalog[h][0] for h in sorted(self.attempted_saved_pages))
-                    examined.extend(self.native_sources.examined())
-                    from application_state.agent_conversation.native_plan_assertions import NativeGraphQueryV4
-                    if isinstance(getattr(self.adapter, 'native_query', None), NativeGraphQueryV4):
-                        examined.extend(self._native_object_examined())
-                    else:
-                        examined.extend(self._native_statement_examined())
-                        examined.extend(self._native_assertion_examined())
-                    dispatch = PlanJevDispatch(self.adapter, self.offered(), dialogue=self.dialogue,
-                        examined_candidates=examined, allowed_operations=operations)
+                    dispatch = PlanJevDispatch(self.adapter, **self.decision_arguments())
                 self.current = dispatch
                 try:
                     with trace.measure_host_work("retrieval_decision") if trace is not None else nullcontext():

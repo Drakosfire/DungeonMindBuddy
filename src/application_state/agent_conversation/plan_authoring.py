@@ -413,6 +413,13 @@ CONNECTED_PAGE_INTENT_POLICY = (
 
 
 def prepare_requested_work_decision(request: PlanRequestedWorkInputV1):
+    from .native_plan_opening import NativePlanOpeningInputV1, prepare_opening_decision
+    if type(request) is NativePlanOpeningInputV1:
+        return prepare_opening_decision(request)
+    return _prepare_requested_work_only(request)
+
+
+def _prepare_requested_work_only(request: PlanRequestedWorkInputV1):
     from generationengine.types import ChoiceDecisionQuestion, DecisionRequest
     from .jev_retrieval_contract import MODEL, PROVIDER
 
@@ -499,33 +506,26 @@ def prepare_requested_work_decision(request: PlanRequestedWorkInputV1):
 
 
 def decode_requested_work_decision(request: PlanRequestedWorkInputV1, result):
-    from generationengine.types import ChoiceDecisionAnswer, DecisionResult
-    from .jev_retrieval_contract import MODEL, PROVIDER
+    from .native_plan_opening import NativePlanOpeningInputV1, decode_opening_decision
+    if type(request) is NativePlanOpeningInputV1:
+        return decode_opening_decision(request, result)[0]
+    from .jev_retrieval_contract import validated_choice_answers
+    try:
+        choices = validated_choice_answers(result, {'requested_work'})
+    except ValueError as exc:
+        raise ValueError('Plan requested work result differs from the admitted decision') from exc
+    return requested_work_choice(request, choices['requested_work'])
 
-    if not isinstance(result, DecisionResult):
-        raise ValueError("Plan requested work requires an actual typed provider result")
-    observation = result.observation
-    if (
-        observation.state.value != "completed"
-        or observation.retry_count != 0
-        or observation.provider_attempt_count != 1
-        or observation.provider != PROVIDER
-        or observation.resolved_model != MODEL
-        or observation.response_model != MODEL
-        or set(result.answers) != {"requested_work"}
-    ):
-        raise ValueError(
-            "Plan requested work result differs from the admitted decision"
-        )
-    answer = result.answers["requested_work"]
+
+def requested_work_choice(request, selected):
     allowed = prepare_requested_work_decision(request).questions[0].options
-    if not isinstance(answer, ChoiceDecisionAnswer) or answer.selected not in allowed:
+    if selected not in allowed:
         raise ValueError("Plan requested work choice was not offered")
-    return answer.selected
+    return selected
 
 
 def validate_requested_work_wire(request: PlanRequestedWorkInputV1, raw: bytes) -> None:
-    """Verify the exact semantic-only wire, independently at APP authorization."""
+    """Verify the exact offered work/conditional navigation wire at APP authorization."""
     from .jev_retrieval_contract import MODEL
 
     body = strict_json(raw.decode("utf-8"))

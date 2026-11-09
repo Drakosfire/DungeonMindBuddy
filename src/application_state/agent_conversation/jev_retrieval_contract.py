@@ -146,7 +146,10 @@ _NATIVE_TYPES = {NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInp
 
 def parse_native_retrieval_input(raw, *, surface_id):
     """One exact codec reader for native selection and its selected Rules offer."""
-    codec = (NativePlanBatchDecisionInputV3
+    from .native_plan_opening import NativePlanOpeningInputV1
+    codec = (NativePlanOpeningInputV1
+        if isinstance(raw, dict) and raw.get('schema') == 'dmb_native_plan_opening_input_v1'
+        else NativePlanBatchDecisionInputV3
         if isinstance(raw, dict) and raw.get("schema") == "dmb_native_plan_batch_decision_input_v3"
         else NativePlayRetrievalDecisionInputV1
         if isinstance(raw,dict) and raw.get("schema")=="dmb_native_play_retrieval_decision_input_v1"
@@ -160,7 +163,7 @@ def parse_native_retrieval_input(raw, *, surface_id):
         if isinstance(raw, dict) and raw.get("schema") == "dmb_native_build_retrieval_decision_input_v2"
         else NativeRetrievalDecisionInputV1)
     parent = codec.model_validate(raw)
-    if type(parent) is NativePlanBatchDecisionInputV3 and surface_id != 'plan':
+    if type(parent) in (NativePlanBatchDecisionInputV3, NativePlanOpeningInputV1) and surface_id != 'plan':
         raise ValueError('Prospective read batches belong only to readonly Plan')
     if isinstance(parent, NativeBuildRetrievalDecisionInputV2) and surface_id != "build":
         raise ValueError("Build authoring relevance belongs only to its actual Build owner")
@@ -198,6 +201,13 @@ class PlannedRetrievalSelection(RetrievalSelection):
     post_read_plan: Literal['review_after_reads', 'finish_if_selected_reads_succeed']
 
 
+def _planned_input(request):
+    if type(request) is NativePlanBatchDecisionInputV3:
+        return True
+    from .native_plan_opening import NativePlanOpeningInputV1
+    return type(request) is NativePlanOpeningInputV1
+
+
 def fallback_options(request: RetrievalDecisionInput) -> tuple[str, str]:
     """Independent fallback judgments cannot select nonexistent candidate votes."""
     return (("discover_more", "finish_retrieval") if "discover_more" in request.allowed_operations
@@ -206,7 +216,7 @@ def fallback_options(request: RetrievalDecisionInput) -> tuple[str, str]:
 
 def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=None) -> DecisionRequest:
     """One typed batch, without Plan bodies, host metadata or writer instructions."""
-    shared_relevance = (type(request) in _SHARED_RELEVANCE_TYPES
+    shared_relevance = ((type(request) in _SHARED_RELEVANCE_TYPES or _planned_input(request))
         and any(c.kind != KEYWORD_KIND for c in request.candidates))
     questions = [ChoiceDecisionQuestion(
         name="operation", options=fallback_options(request),
@@ -221,7 +231,7 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
                   "Ending retrieval does not assert evidence sufficiency; the final writer must preserve actual gaps. "
                   "If discovery is unavailable, finish_with_gaps explicitly ends retrieval with unresolved questions. "
                   "This independent fallback never selects candidates or answers the user."))]
-    if type(request) is NativePlanBatchDecisionInputV3:
+    if _planned_input(request):
         questions.append(ChoiceDecisionQuestion(name='post_read_plan',
             options=('review_after_reads', 'finish_if_selected_reads_succeed'),
             question=('Make a conditional collection plan for this offered batch, independently of individual relevance votes. '
@@ -282,7 +292,7 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
             "Names do not establish source coverage, chronology or factual support.")
     focus = [c for c in request.examined_candidates if c.kind == RETAINED_KEYWORD_KIND]
     if focus:
-        if type(request) not in _NATIVE_TYPES:
+        if type(request) not in _NATIVE_TYPES and not _planned_input(request):
             raise ValueError("Retained keyword focus requires the current native retrieval owner")
         if len({c.handle for c in focus}) != len(focus):
             raise ValueError("Duplicate retained keyword focus")
@@ -315,8 +325,8 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
         max_transport_retries=0)
 
 
-def decode_selection(request: RetrievalDecisionInput, result: DecisionResult) -> RetrievalSelection:
-    """Decode actual typed GE choices. Confidence is never evidence authority."""
+def validated_choice_answers(result: DecisionResult, expected) -> dict[str, str]:
+    """Validate one real Jev result once, before any semantic projection."""
     if not isinstance(result, DecisionResult):
         raise ValueError("Typed decision result required")
     observation = result.observation
@@ -325,10 +335,6 @@ def decode_selection(request: RetrievalDecisionInput, result: DecisionResult) ->
             or observation.provider != PROVIDER or observation.resolved_model != MODEL
             or observation.response_model != MODEL):
         raise ValueError("Decision provider/model differs")
-    planned = type(request) is NativePlanBatchDecisionInputV3
-    expected = {"operation", *(f"candidate_{i}" for i in range(len(request.candidates)))}
-    if planned:
-        expected.add('post_read_plan')
     if set(result.answers) != expected:
         raise ValueError("Missing or unexpected decision answers")
     choices = {}
@@ -336,19 +342,31 @@ def decode_selection(request: RetrievalDecisionInput, result: DecisionResult) ->
         if not isinstance(answer, ChoiceDecisionAnswer):
             raise ValueError("Decision answer must be a typed choice")
         choices[name] = answer.selected
+    return choices
+
+
+def decode_selection(request: RetrievalDecisionInput, result: DecisionResult) -> RetrievalSelection:
+    """Decode actual typed GE choices. Confidence is never evidence authority."""
+    expected = {"operation", *(f"candidate_{i}" for i in range(len(request.candidates)))}
+    if _planned_input(request):
+        expected.add('post_read_plan')
+    return _selection_from_choices(request, validated_choice_answers(result, expected))
+
+
+def _selection_from_choices(request, choices, *, applicable_indexes=None):
+    _validate_selection_choices(request, choices)
+    planned = _planned_input(request)
     handles, keywords = [], []
     for index, candidate in enumerate(request.candidates):
         choice = choices[f"candidate_{index}"]
-        if choice not in {"include", "exclude"}:
-            raise ValueError("Unknown candidate choice")
+        if applicable_indexes is not None and index not in applicable_indexes:
+            continue
         if choice == "include":
             (keywords if candidate.kind == KEYWORD_KIND else handles).append(candidate.handle)
     # Hints cannot create a read or keep retrieval alive by themselves. Preserve
     # their actual votes in the captured SDK response even when fallback ends.
     if handles:
         handles.extend(keywords)
-    if choices["operation"] not in fallback_options(request):
-        raise ValueError("Fallback operation not offered by parent")
     # Independent relevance votes select offered reads. The global judgment is
     # only a fallback; it cannot discard an explicitly relevant candidate.
     fallback = "finish_retrieval" if choices["operation"] == "finish_with_gaps" else choices["operation"]
@@ -358,6 +376,17 @@ def decode_selection(request: RetrievalDecisionInput, result: DecisionResult) ->
     if selection.operation not in request.allowed_operations:
         raise ValueError("Operation not admitted by parent")
     return selection
+
+
+def _validate_selection_choices(request, choices):
+    if any(choices[f'candidate_{i}'] not in {'include', 'exclude'}
+            for i in range(len(request.candidates))):
+        raise ValueError('Unknown candidate choice')
+    if choices['operation'] not in fallback_options(request):
+        raise ValueError('Fallback operation not offered by parent')
+    if _planned_input(request) and choices['post_read_plan'] not in {
+            'review_after_reads', 'finish_if_selected_reads_succeed'}:
+        raise ValueError('Post-read plan not offered by parent')
 
 
 def validate_selection(request: RetrievalDecisionInput, selection: RetrievalSelection, *,

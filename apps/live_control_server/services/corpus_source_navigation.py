@@ -284,9 +284,9 @@ class NativeBodyNavigation:
             NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1, NativeDirectSourceAuthorizedV1,
         )
         events = (turn if turn is not None else self.adapter.fence.turn).graph_context_execution.events
-        from application_state.agent_conversation.native_corpus import NativeInitialSourceSearchAuthorizedV1
+        from application_state.agent_conversation.native_corpus import NativeInitialSourceSearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1
         grant = next((e for e in events if isinstance(e,
-            (NativeBodySearchAuthorizedV1, NativeInitialSourceSearchAuthorizedV1))), None)
+            (NativeBodySearchAuthorizedV1, NativeInitialSourceSearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1))), None)
         search = next((e for e in events if isinstance(e, NativeBodySearchObservedV1)), None)
         auths = [e for e in events if isinstance(e, (NativeBodyReadAuthorizedV1, NativeDirectSourceAuthorizedV1))]
         reads = {e.authorization_event_id: e for e in events if isinstance(e, NativeBodyReadObservedV1)}
@@ -315,11 +315,11 @@ class NativeBodyNavigation:
         return keyword_catalog(turn.user_text, scope_digest(turn))
 
     def _keyword_offers(self):
-        from application_state.agent_conversation.native_retrieval import NATIVE_RETRIEVAL_SELECTION_TYPES
+        from application_state.agent_conversation.native_retrieval import native_selection_types
         from application_state.agent_conversation.native_source_keywords import KEYWORD_KIND
         turn = self.adapter.fence.turn
         if (type(turn.graph_context_receipt) is not t.SurfaceNativeContextReceiptV1 or
-                any(type(e) in NATIVE_RETRIEVAL_SELECTION_TYPES for e in turn.graph_context_execution.events) or
+                any(type(e) in native_selection_types() for e in turn.graph_context_execution.events) or
                 self._acquired_extents()):
             return ()
         return tuple(RetrievalCandidate(handle=handle, label=repr(word), kind=KEYWORD_KIND)
@@ -341,9 +341,9 @@ class NativeBodyNavigation:
             'scope': scope_digest(turn), 'query': sha256(turn.user_text.encode()).hexdigest()})
 
     def _expanded(self):
-        from application_state.agent_conversation.native_retrieval import NATIVE_RETRIEVAL_SELECTION_TYPES
+        from application_state.agent_conversation.native_retrieval import native_selection_types
         handle = self.expansion_handle()
-        return any(type(event) in NATIVE_RETRIEVAL_SELECTION_TYPES and
+        return any(type(event) in native_selection_types() and
             event.operation == 'select_candidates' and handle in event.selected_handles
             for event in self.adapter.fence.turn.graph_context_execution.events)
 
@@ -417,27 +417,31 @@ class NativeBodyNavigation:
         """
         from application_state.agent_conversation.native_corpus import (
             NativeCorpusAuthorityV1, NativeInitialSourceSearchAuthorizedV1, initial_source_discovery_enabled,
+            NativePlanRequestSearchAuthorizedV1, request_source_discovery_enabled,
         )
         from ..integrations.dungeonmind.native_corpus_source import capture_native_sources
         a = self.adapter
         turn = a.fence.turn
-        if (not initial_source_discovery_enabled(turn.graph_context_execution)
+        request_owned = request_source_discovery_enabled(turn.graph_context_receipt, turn.graph_context_execution)
+        if (not (request_owned or initial_source_discovery_enabled(turn.graph_context_execution))
                 or not isinstance(turn.graph_context_receipt.source_authority, NativeCorpusAuthorityV1)):
             return
+        grant_type = NativePlanRequestSearchAuthorizedV1 if request_owned else NativeInitialSourceSearchAuthorizedV1
+        method = 'authorize_native_plan_request_search' if request_owned else 'authorize_initial_native_source_search'
         with a.fence.renewer._lock:
             grant, search, _, _ = self._events()
             if grant is not None:
-                if type(grant) is not NativeInitialSourceSearchAuthorizedV1:
+                if type(grant) is not grant_type:
                     raise ValueError("Readonly Plan requires request-owned initial discovery, not the retired search route")
                 # Replay through the actual APP owner refreshes/guards retained
                 # state; public event presence alone is not a durable receipt.
-                self._commit('authorize_initial_native_source_search', event_id=grant.event_id)
+                self._commit(method, event_id=grant.event_id)
                 grant, search, _, _ = self._events()
                 if (search is None or search.authorization_event_id != grant.event_id):
                     raise ValueError("Initial source discovery was interrupted; explicit recovery is required")
                 return
             context = a.native_corpus_context
-            grant = self._commit('authorize_initial_native_source_search', event_id=uuid4())
+            grant = self._commit(method, event_id=uuid4())
             self._commit('observe_native_body_search', event_id=uuid4(), authorization_event_id=grant.event_id,
                 capture=lambda: capture_native_sources(managed_world_id=turn.world_id,
                     principal=context.principal, prepared=context))
@@ -466,9 +470,12 @@ class NativeBodyNavigation:
         grant, search, auths, reads = self._events()
         from application_state.agent_conversation.native_corpus import (
             NativeInitialSourceSearchAuthorizedV1, initial_source_discovery_enabled,
+            NativePlanRequestSearchAuthorizedV1, request_source_discovery_enabled,
         )
-        if (initial_source_discovery_enabled(turn.graph_context_execution)
-                and type(grant) is not NativeInitialSourceSearchAuthorizedV1):
+        request_owned = request_source_discovery_enabled(turn.graph_context_receipt, turn.graph_context_execution)
+        expected_grant = NativePlanRequestSearchAuthorizedV1 if request_owned else NativeInitialSourceSearchAuthorizedV1
+        if ((request_owned or initial_source_discovery_enabled(turn.graph_context_execution))
+                and type(grant) is not expected_grant):
             raise ValueError("Readonly Plan requires initial source discovery before retrieval preparation")
         if any(auth.event_id not in reads for auth in auths):
             raise ValueError("Native source read has an unresolved durable grant")

@@ -17,13 +17,13 @@ from .build_intentional_response import Capabilities, RESOLVER_DIGEST, known_men
 from .build_related_pages import PagePointer
 from .native_context import (
     SurfaceNativeContextReceiptV1, BuildWorkContextV1, PlanWorkContextV1,
-    PlayWorkContextV1, NativeProviderInputV1, NativeReviewedActionInputV1, work_world_id,
+    PlayWorkContextV1, NativeProviderInputV1, NativeReviewedActionInputV1, NativePlanRequestAdmissionV1, work_world_id,
 )
 from .native_statement_input import Strict
 from .plan_authoring import PlanAuthoringCaptureV1
 from .plan_placement import PlanPlacementCatalogV1
 
-from .native_retrieval import NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2, NativeReadBatchConcludedV1
+from .native_retrieval import NativeRetrievalAuthorizedV1, NativePlanOpeningAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2, NativeReadBatchConcludedV1
 from .authored_graph_references import BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2, BuildAuthoredReferenceReadV3
 from .native_plan_assertions import NativePlanAssertionReadObservedV2
 
@@ -244,6 +244,27 @@ class NativePlanRequestedWorkSelectedV3(t.PlanRequestedWorkSelectedV2):
     requested_work: Literal['discuss', 'clarify', 'write_current_page', 'different_destination', 'review_connected_page']
 
 
+class NativePlanOpeningSelectedV1(NativePlanRequestedWorkSelectedV3, NativeRetrievalSelectedV2):
+    """Atomic actual work and conditionally applicable first-batch votes."""
+    kind: Literal['native_plan_opening_selected_v1'] = 'native_plan_opening_selected_v1'
+    operation: Literal['select_candidates', 'discover_more', 'finish_retrieval'] | None
+    post_read_plan: Literal['review_after_reads', 'finish_if_selected_reads_succeed'] | None
+
+    @model_validator(mode='after')
+    def applicable_read_plan(self):
+        active = self.requested_work in {'discuss', 'clarify'}
+        if active != (self.operation is not None and self.post_read_plan is not None):
+            raise ValueError('Opening read plan differs from its actual work branch')
+        if not active and (self.operation is not None or self.post_read_plan is not None or self.selected_handles):
+            raise ValueError('Inactive opening work cannot authorize a read plan')
+        if self.requested_work != 'discuss' and any(h.startswith('saved-authored-page:') for h in self.selected_handles):
+            raise ValueError('Opening saved-page votes require actual discussion permission')
+        return self
+
+
+NATIVE_PLAN_WORK_SELECTION_TYPES = (NativePlanRequestedWorkSelectedV3, NativePlanOpeningSelectedV1)
+
+
 def native_read_event_ids(events):
     """One inclusion inventory for the current native writer."""
     return tuple(sorted((event.event_id for event in events if isinstance(event, (
@@ -255,10 +276,10 @@ def native_read_event_ids(events):
 # source-anchor receipts deliberately have no branch in this native event union.
 SurfaceNativeEvent = Annotated[
     t.ProviderAttemptAuthorizedEventV3 | t.ProviderAttemptAuthorizedEventV5
-    | t.PlanJevProviderAuthorizedV1 | NativeRetrievalAuthorizedV1 | t.PlanRequestedWorkAuthorizedV2
+    | t.PlanJevProviderAuthorizedV1 | NativeRetrievalAuthorizedV1 | NativePlanOpeningAuthorizedV1 | t.PlanRequestedWorkAuthorizedV2
     | NativeWriterAuthorizedV1 | NativeBuildWriterAuthorizedV2 | t.ProviderOutcomeEventV1 | t.CompletionBindingEventV1
-    | t.PlanJevRetrievalSelectionV1 | NativeRetrievalSelectedV1 | NativeRetrievalSelectedV2 | NativeReadBatchConcludedV1 | t.PlanRequestedWorkSelectedV2 | NativePlanRequestedWorkSelectedV3
-    | t.NativeBodySearchAuthorizedV1 | t.NativeInitialSourceSearchAuthorizedV1 | t.NativeBodySearchObservedV1
+    | t.PlanJevRetrievalSelectionV1 | NativeRetrievalSelectedV1 | NativeRetrievalSelectedV2 | NativeReadBatchConcludedV1 | t.PlanRequestedWorkSelectedV2 | NativePlanRequestedWorkSelectedV3 | NativePlanOpeningSelectedV1
+    | t.NativeBodySearchAuthorizedV1 | t.NativeInitialSourceSearchAuthorizedV1 | t.NativePlanRequestSearchAuthorizedV1 | t.NativeBodySearchObservedV1
     | t.NativeBodyReadAuthorizedV1 | t.NativeBodyReadObservedV1 | t.NativeAuthoredSourceReadV1
     | t.NativeDirectSourceAuthorizedV1 | t.NativeDirectSourceObservedV1
     | t.NativePlanStatementReadAuthorizedV1 | t.NativePlanStatementReadObservedV1
@@ -439,12 +460,22 @@ def _join_context_binding(context, execution):
         from .play_graph_context import validate_work_intent
         validate_work_intent(work.play_basis, action.intent)
     assembled = context.assembled_input
+    if (not isinstance(assembled, NativePlanRequestAdmissionV1)
+            and any(isinstance(e, t.NativePlanRequestSearchAuthorizedV1) for e in execution.events)):
+        raise ValueError('Request-owned discovery requires its explicit Plan request-admission codec')
     if isinstance(assembled, NativeReviewedActionInputV1):
         from .reviewed_action import admission_manifest, digest
         if (not isinstance(action, NativeBuildActionV1) or action.intent.reviewed_step is None
                 or assembled.submitted_intent_sha256 != t.canonical_sha256(action.intent)
                 or assembled.assembled_input_sha256 != digest(admission_manifest(action.intent))):
             raise ValueError("Native reviewed admission differs from the actual author intent")
+    elif isinstance(assembled, NativePlanRequestAdmissionV1):
+        from .native_plan_opening import validate_request_admission
+        validate_request_admission(context, execution)
+        for index, event in enumerate(execution.events):
+            if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
+                t.validate_provider_envelope_accounting(assembled,
+                    execution.model_copy(update={'events': execution.events[:index]}), event)
     elif isinstance(assembled, NativeProviderInputV1):
         if isinstance(action, NativeBuildActionV1) and action.intent.reviewed_step is not None:
             raise ValueError("Native reviewed action requires its model-free admission")
