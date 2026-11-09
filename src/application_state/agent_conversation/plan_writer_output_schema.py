@@ -253,7 +253,7 @@ def _answer_schema(variants, policy, rules, prose):
     return mixed
 
 
-def native_output_format(frame, rules, work_frame):
+def native_output_format(frame, rules, work_frame, *, build_local=False):
     from .native_writer import SCHEMA, LEGACY_SCHEMA
     if (frame.get('schema') not in {SCHEMA, LEGACY_SCHEMA} or frame.get('answer_policy') != ASSERTION_POLICY
             or not isinstance(rules, (PlanRulesEvidenceFrameV1, ModelRulesFrame))):
@@ -269,14 +269,14 @@ def native_output_format(frame, rules, work_frame):
         variants.extend(_authored_variants(work_frame,ASSERTION_POLICY,prose))
     elif work_frame.get('schema') == BUILD_WORK_SCHEMA:
         from .build_draft_answer import native_variants
-        variants.extend(native_variants(work_frame,prose))
+        variants.extend(native_variants(work_frame,prose,local=build_local))
     else:
         raise ValueError('Shared output requires its actual supported work frame')
     schema=_answer_schema(variants,ASSERTION_POLICY,rules,prose)
     if work_frame.get('schema')==BUILD_WORK_SCHEMA:
         from .build_intentional_response import native_review_enabled, native_review_schema
         if native_review_enabled(work_frame):
-            review,definitions=native_review_schema(work_frame)
+            review,definitions=native_review_schema(work_frame,local=build_local)
             base=schema['$defs']['Base'] if rules.lookups else schema
             base['properties']['collaboration']=review
             base['required'].append('collaboration')

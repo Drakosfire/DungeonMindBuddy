@@ -376,9 +376,9 @@ def validate_native_body_events(execution):
                 pending = None
             provider, outcome = event.provider_attempt_id, None
             writer = (event.provider, event.model, event.api_mode) == execution.policy.provider_roles.writer.identity()
-            if event.kind == "native_writer_authorized_v1":
-                from .native_execution import NativeWriterAuthorizedV1
-                if type(event) is not NativeWriterAuthorizedV1 or not writer:
+            if event.kind in {"native_writer_authorized_v1", "native_build_writer_authorized_v2"}:
+                from .native_execution import NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
+                if type(event) not in NATIVE_WRITER_TYPES or not writer:
                     raise ValueError("Shared native inclusion requires its exact writer role")
                 # New native turns carry inclusion once on the actual writer.
                 # The root closes IDs across all families; this owner closes

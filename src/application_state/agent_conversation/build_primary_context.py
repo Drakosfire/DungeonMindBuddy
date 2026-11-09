@@ -216,9 +216,14 @@ def verify_native_work_input(execution, basis, raw):
     from .source_writer_output import responses_text_frame, strict_json
     from .rules_authority_types import canonical_bytes
     body=strict_json(raw)
-    frame=responses_text_frame(raw,schemas={NATIVE_WORK_SCHEMA},label='Native Build work')
+    from .native_build_work_view import frame_in_request, semantic_frame
+    frame=frame_in_request(body)
+    host=native_work_frame(execution,basis)
+    expected=semantic_frame(host,execution) if frame is not None else host
+    if frame is None:
+        frame=responses_text_frame(raw,schemas={NATIVE_WORK_SCHEMA},label='Native Build work')
     if (body.get('model') != execution.policy.provider_roles.writer.model
-            or canonical_bytes(frame) != canonical_bytes(native_work_frame(execution,basis))):
+            or canonical_bytes(frame) != canonical_bytes(expected)):
         raise ValueError('Native Build SDK input differs from its exact saved-work/draft owner')
     return sha256(raw.encode()).hexdigest()
 

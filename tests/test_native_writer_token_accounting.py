@@ -193,7 +193,8 @@ def test_ordinary_large_native_source_answers_with_estimated_authorization(
     assert isinstance(
         record.policy.writer_context_budget, NativeWriterEstimatedBudgetV1
     )
-    (event,) = [e for e in record.events if e.kind == "native_writer_authorized_v1"]
+    from application_state.agent_conversation.native_execution import NATIVE_WRITER_TYPES
+    (event,) = [e for e in record.events if type(e) in NATIVE_WRITER_TYPES]
     raw = case.writer.calls[0].content
     assert len(raw) > 128000
     assert event.input_tokens == counter().estimate(json.loads(raw))
