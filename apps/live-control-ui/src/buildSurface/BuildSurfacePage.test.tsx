@@ -10,8 +10,6 @@ import * as markdownCanvasSessionModule from "../markdownCanvas/MarkdownCanvasSe
 import { useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
-import { buildGraphObjectCardFromNodeView } from "../graphObjectCard";
-import { referenceFromGraphNode } from "../graphReference/referenceFromGraphNode";
 import { MarkdownCanvasSessionProvider, useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
 import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
@@ -118,6 +116,9 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     prepareTiptapMarkdownWrite: vi.fn(),
     commitTiptapMarkdownWrite: vi.fn(),
     postWorldGraphProjection: vi.fn(),
+    getNativeGraphCatalog: vi.fn(),
+    inspectNativeGraph: vi.fn(),
+    listWorldMechanicsAssociations: vi.fn(),
   };
 });
 
@@ -206,6 +207,10 @@ describe("BuildSurfacePage", () => {
   beforeEach(() => {
     vi.mocked(liveApi.getCommittedPageSnapshot).mockImplementation(id => liveApi.getWorkspaceDocumentSnapshot(id));
     vi.clearAllMocks();
+    const scope = {managed_world_id:"eldyrwild",native_world_id:"eldyrwild",binding_version:3,revision_id:"native-rev",scope_mode:"world" as const,campaign_id:null};
+    vi.mocked(liveApi.getNativeGraphCatalog).mockResolvedValue({schema:"dmb_native_graph_catalog_v1",scope,catalogue:{identity:{space_id:"eldyrwild",revision_id:"native-rev"},entities:[{entity_id:"ent:glowkindle"}],admitted_assertion_ids:[],completeness:{status:"complete",reason:null},request_sha256:"request",result_digest:"result"},assertions:[]});
+    vi.mocked(liveApi.inspectNativeGraph).mockResolvedValue({schema:"dmb_native_graph_entity_v1",scope,entity:{found:true,assertions:[],evidence:[],completeness:{status:"complete",reason:null}}});
+    vi.mocked(liveApi.listWorldMechanicsAssociations).mockResolvedValue([]);
     localStorage.clear();
     sessionStorage.clear();
     window.history.pushState({}, "", "/build");
@@ -625,28 +630,14 @@ describe("BuildSurfacePage", () => {
     expect(await screen.findByTestId("build-graph-object-context")).toBeInTheDocument();
   });
 
-  it("E5: BuildSurfacePage → ToolHost → Find existing → View → content renderer", async () => {
+  it("E5: BuildSurfacePage → ToolHost → shared native inspection", async () => {
     const user = userEvent.setup();
-    const glowkindle = {
-      nodeId: "npc-glowkindle",
-      label: "Glowkindle",
-      kind: "npc",
-      role: "merchant",
-      aliases: ["Glow"],
-      sourceDomains: ["recap"],
-      evidenceBadges: [],
-      adjacency: [],
-      suggestedExpansions: [],
-      evidenceRefIds: [],
-      sourceArtifactIds: [],
-      anchoredToFocusSession: true,
-      summary: "A friendly merchant.",
-    };
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
       schema_version: "dmb_workspace_document_snapshot_v1",
       record: {
         schema_version: "dmb_workspace_document_record_v1",
         document_id: DOC_ID,
+        world_id: "eldyrwild",
         title: "Faction Notes",
         campaign_id: "longmont-c1",
         target_session: null,
@@ -668,34 +659,6 @@ describe("BuildSurfacePage", () => {
       file_exists: false,
       loaded_revision: 1,
     });
-    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
-      schema: "dmb_world_graph_projection_v1",
-      snapshot: {
-        worldId: "eldyrwild",
-        campaignId: "longmont-c1",
-        revisionId: "rev-1",
-        headRevisionId: "rev-1",
-        isHead: true,
-        focus: { kind: "none", sessionId: null },
-        admissibility: "gm",
-        scopeMode: "campaign",
-      },
-      summary: {
-        nodeCount: 1,
-        relationshipCount: 0,
-        attributeCount: 0,
-        evidenceCount: 0,
-        sourceArtifactCount: 0,
-        projectionTruncated: false,
-      },
-      nodes: [glowkindle],
-      relationships: [],
-      attributes: [],
-      evidence: [],
-      sourceArtifacts: [],
-      diagnostics: [],
-    });
-
     window.history.pushState({}, "", `/build?documentId=${DOC_ID}&campaign=longmont-c1`);
     renderBuildPage();
 
@@ -714,18 +677,13 @@ describe("BuildSurfacePage", () => {
       within(host as HTMLElement).getByRole("button", { name: "Find existing object" }),
     ).toHaveAttribute("aria-pressed", "true");
 
-    await user.type(screen.getByLabelText("Find objects"), "glow");
-    await user.click(screen.getByRole("button", { name: "View" }));
-
-    await waitFor(() => {
-      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
-    });
-    expect(
-      within(screen.getByTestId("graph-object-projection-card")).getByText("Glowkindle"),
-    ).toBeInTheDocument();
+    await user.type(screen.getByRole("searchbox",{name:"Find an object"}), "glow");
+    await user.click(screen.getByRole("button",{name:"ent:glowkindle",exact:true}));
+    expect(await screen.findByRole("article",{name:"Reviewed object details"})).toHaveTextContent("ent:glowkindle");
+    expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
   });
 
-  it("E11: View/Expand/relationship/close/lens leave document authority unchanged", async () => {
+  it("E11: native object inspection and close leave dirty document authority unchanged", async () => {
     const user = userEvent.setup();
     const markdownBody = "# Faction Notes\n\nKeep this body intact.\n";
     const editorJson = {
@@ -743,6 +701,7 @@ describe("BuildSurfacePage", () => {
       record: {
         schema_version: "dmb_workspace_document_record_v1",
         document_id: DOC_ID,
+        world_id: "eldyrwild",
         title: "Faction Notes",
         campaign_id: "eldyrwild",
         target_session: null,
@@ -780,108 +739,7 @@ describe("BuildSurfacePage", () => {
     local.tiptap_json = editorJson;
     window.localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), JSON.stringify(local));
 
-    const glowNodeView = {
-      node_id: "npc-glowkindle",
-      label: "Glowkindle",
-      kind: "npc",
-      role: "merchant",
-      aliases: ["Glow"],
-      source_domains: ["recap"],
-      evidence_badges: [],
-      adjacency: [
-        {
-          edge_id: "edge-inn",
-          node_id: "location-inn",
-          label: "The Inn",
-          kind: "location",
-          predicate: "located_in",
-          direction: "outgoing" as const,
-          anchored_to_focus_session: true,
-          source_domains: ["recap"],
-          evidence_ref_ids: [],
-          campaign_scope: "longmont-c1",
-        },
-      ],
-      anchored_to_focus_session: true,
-      summary: "A friendly merchant.",
-    };
-
-    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
-      schema: "dmb_world_graph_projection_v1",
-      snapshot: {
-        worldId: "eldyrwild",
-        campaignId: "longmont-c1",
-        revisionId: "rev-1",
-        headRevisionId: "rev-1",
-        isHead: true,
-        focus: { kind: "none", sessionId: null },
-        admissibility: "gm",
-        scopeMode: "campaign",
-      },
-      summary: {
-        nodeCount: 2,
-        relationshipCount: 0,
-        attributeCount: 0,
-        evidenceCount: 0,
-        sourceArtifactCount: 0,
-        projectionTruncated: false,
-      },
-      nodes: [
-        {
-          nodeId: "npc-glowkindle",
-          label: "Glowkindle",
-          kind: "npc",
-          role: "merchant",
-          aliases: ["Glow"],
-          sourceDomains: ["recap"],
-          evidenceBadges: [],
-          adjacency: [
-            {
-              edgeId: "edge-inn",
-              nodeId: "location-inn",
-              label: "The Inn",
-              kind: "location",
-              predicate: "located_in",
-              direction: "outgoing",
-              anchoredToFocusSession: true,
-              sourceDomains: ["recap"],
-              evidenceRefIds: [],
-              sessionIds: [],
-              campaignScope: "longmont-c1",
-            },
-          ],
-          suggestedExpansions: [],
-          evidenceRefIds: [],
-          sourceArtifactIds: [],
-          anchoredToFocusSession: true,
-          summary: "A friendly merchant.",
-        },
-        {
-          nodeId: "location-inn",
-          label: "The Inn",
-          kind: "location",
-          role: "location",
-          aliases: [],
-          sourceDomains: ["recap"],
-          evidenceBadges: [],
-          adjacency: [],
-          suggestedExpansions: [],
-          evidenceRefIds: [],
-          sourceArtifactIds: [],
-          anchoredToFocusSession: true,
-          summary: "Meeting place.",
-        },
-      ],
-      relationships: [],
-      attributes: [],
-      evidence: [],
-      sourceArtifacts: [],
-      diagnostics: [],
-    });
-
     let latestContext: BuildReferenceContextBinding | null = null;
-    let openGraphReference: ReturnType<typeof useAgentInteraction>["openGraphReference"] | null = null;
-    let closeProjection: (() => void) | null = null;
 
     function AuthorityProbe() {
       const session = useMarkdownCanvasSession();
@@ -903,8 +761,6 @@ describe("BuildSurfacePage", () => {
 
     function InteractionProbe() {
       const interaction = useAgentInteraction();
-      openGraphReference = interaction.openGraphReference;
-      closeProjection = interaction.close;
       const binding = interaction.surfaceInteractionPublication?.projectionBindings.find(
         (entry) => entry.id === BUILD_REFERENCE_CONTEXT_BINDING_ID,
       );
@@ -993,74 +849,16 @@ describe("BuildSurfacePage", () => {
     await waitFor(() => {
       expect(screen.getByTestId("build-reference-search-projection")).toBeInTheDocument();
     });
-    await user.type(screen.getByLabelText("Find objects"), "glow");
-    await user.click(screen.getByRole("button", { name: "View" }));
-    await waitFor(() => {
-      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
-    });
+    await user.type(screen.getByRole("searchbox",{name:"Find an object"}), "glow");
+    await user.click(screen.getByRole("button", { name: "ent:glowkindle", exact:true }));
+    expect(await screen.findByRole("article",{name:"Reviewed object details"})).toHaveTextContent("ent:glowkindle");
 
     await user.click(screen.getByRole("button", { name: "Close toolbox" }));
     await waitFor(() => {
-      expect(screen.queryByTestId("graph-object-projection-card")).not.toBeInTheDocument();
+      expect(screen.queryByRole("article",{name:"Reviewed object details"})).not.toBeInTheDocument();
     });
 
-    expect(openGraphReference).not.toBeNull();
-    act(() => {
-      openGraphReference!({
-        resolution: {
-          kind: "resolved_graph",
-          locator: "dmb-node:npc-glowkindle",
-          reference: referenceFromGraphNode(glowNodeView),
-          graphNodeId: "npc-glowkindle",
-          graphObject: buildGraphObjectCardFromNodeView(glowNodeView),
-          graphScope: {
-            worldId: "eldyrwild",
-            campaignId: "longmont-c1",
-            scopeMode: "campaign",
-            revisionId: "rev-1",
-          },
-          projectionState: "ready",
-          message: "Resolved graph node Glowkindle.",
-        },
-        glanceOnly: true,
-      });
-    });
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Expand" })).toBeInTheDocument();
-    });
-    await user.click(screen.getByRole("button", { name: "Expand" }));
-    await waitFor(() => {
-      expect(screen.queryByRole("button", { name: "Expand" })).not.toBeInTheDocument();
-      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByRole("button", { name: /Open related object .*The Inn/i }));
-    await waitFor(() => {
-      expect(
-        within(screen.getByTestId("graph-object-projection-card")).getByText("The Inn"),
-      ).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByRole("button", { name: "Close toolbox" }));
-    await waitFor(() => {
-      expect(screen.queryByTestId("graph-object-projection-card")).not.toBeInTheDocument();
-    });
-
-    await waitFor(() => expect(latestContext).not.toBeNull());
-    act(() => {
-      latestContext!.selectCampaign("longmont-c2");
-    });
-    await waitFor(() => {
-      expect(new URLSearchParams(window.location.search).get("campaign")).toBe("longmont-c2");
-    });
-    act(() => {
-      latestContext!.selectCampaign("longmont-c1");
-    });
-    await waitFor(() => {
-      expect(new URLSearchParams(window.location.search).get("campaign")).toBe("longmont-c1");
-    });
-
-    expect(closeProjection).not.toBeNull();
+    await waitFor(() => expect(latestContext?.worldId).toBe("eldyrwild"));
     const after = readAuthoritySnapshot();
     expect(after).toEqual(before);
   });
@@ -1278,7 +1076,7 @@ describe("BuildSurfacePage", () => {
     );
   });
 
-  it("E4: graph projection failure leaves canvas dirty with Edit Save available", async () => {
+  it("E4: native inspection failure leaves canvas dirty with Edit Save available", async () => {
     const user = userEvent.setup();
     const editorJson = {
       type: "doc",
@@ -1379,11 +1177,9 @@ describe("BuildSurfacePage", () => {
     await waitFor(() => {
       expect(screen.getByTestId("build-reference-search-projection")).toBeInTheDocument();
     });
-    await user.type(screen.getByLabelText("Find objects"), "glow");
-    await user.click(screen.getByRole("button", { name: "View" }));
-    await waitFor(() => {
-      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
-    });
+    await user.type(screen.getByRole("searchbox",{name:"Find an object"}), "glow");
+    await user.click(screen.getByRole("button", { name: "ent:glowkindle", exact:true }));
+    expect(await screen.findByRole("article",{name:"Reviewed object details"})).toHaveTextContent("ent:glowkindle");
 
     window.history.pushState({}, "", `/build?documentId=${DOC_B}&campaign=longmont-c1`);
     window.dispatchEvent(new PopStateEvent("popstate"));
@@ -1394,7 +1190,7 @@ describe("BuildSurfacePage", () => {
     await waitFor(() => {
       expect(latestContext?.documentId).toBe(DOC_B);
     });
-    expect(screen.queryByTestId("graph-object-projection-card")).not.toBeInTheDocument();
+    expect(screen.queryByRole("article",{name:"Reviewed object details"})).not.toBeInTheDocument();
     expect(saveCommandDocumentId).toBe(DOC_B);
 
     const invokeRetained = retainedSaveA!;
@@ -1602,7 +1398,7 @@ describe("BuildSurfacePage", () => {
     });
   });
 
-  it("rename does not cold-reload World Graph projection", async () => {
+  it("rename does not cold-reload native object inspection", async () => {
     const user = userEvent.setup();
     const snapshot = buildLongmontSnapshot(DOC_ID, "Ironveil Property");
     vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
@@ -1628,7 +1424,8 @@ describe("BuildSurfacePage", () => {
     await waitFor(() => {
       expect(screen.getByTestId("build-reference-search-projection")).toBeInTheDocument();
     });
-    const projectionCallsBefore = vi.mocked(liveApi.postWorldGraphProjection).mock.calls.length;
+    await screen.findByRole("searchbox",{name:"Find an object"});
+    const projectionCallsBefore = vi.mocked(liveApi.getNativeGraphCatalog).mock.calls.length;
     expect(projectionCallsBefore).toBeGreaterThan(0);
 
     await user.click(screen.getByTestId("build-document-rename-open"));
@@ -1640,12 +1437,10 @@ describe("BuildSurfacePage", () => {
     await waitFor(() => {
       expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Ironveil Manufactory Grounds");
     });
-    expect(vi.mocked(liveApi.postWorldGraphProjection).mock.calls.length).toBe(projectionCallsBefore);
+    expect(vi.mocked(liveApi.getNativeGraphCatalog).mock.calls.length).toBe(projectionCallsBefore);
 
-    await user.type(screen.getByLabelText("Find objects"), "glow");
-    await user.click(screen.getByRole("button", { name: "View" }));
-    await waitFor(() => {
-      expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
-    });
+    await user.type(screen.getByRole("searchbox",{name:"Find an object"}), "glow");
+    await user.click(screen.getByRole("button", { name: "ent:glowkindle", exact:true }));
+    expect(await screen.findByRole("article",{name:"Reviewed object details"})).toHaveTextContent("ent:glowkindle");
   });
 });

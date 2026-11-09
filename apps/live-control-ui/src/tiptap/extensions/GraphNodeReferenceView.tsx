@@ -8,8 +8,8 @@ import {
 } from "../../graphReference";
 import type { GraphNodeReferenceAttrs } from "./GraphNodeReferenceNode";
 
-export function GraphNodeReferenceView({ node }: NodeViewProps) {
-  const { nodeViews, activeNodeId, onSelectNode, deltaByNodeId } = useGraphNodeChipRuntime();
+export function GraphNodeReferenceView({ node, editor }: NodeViewProps) {
+  const { nodeViews, activeNodeId, onSelectNode, onSelectEditorNode, deltaByNodeId } = useGraphNodeChipRuntime();
   const attrs = node.attrs as GraphNodeReferenceAttrs;
   const presentation = presentationForNodeId(nodeViews, attrs.nodeId, attrs.label);
   const delta = deltaByNodeId?.[attrs.nodeId];
@@ -20,7 +20,7 @@ export function GraphNodeReferenceView({ node }: NodeViewProps) {
         presentation={presentation}
         label={attrs.label || attrs.nodeId}
         pinned={activeNodeId === attrs.nodeId}
-        onSelect={() => onSelectNode(attrs.nodeId)}
+        onSelect={() => onSelectEditorNode ? onSelectEditorNode(attrs.nodeId, editor) : onSelectNode(attrs.nodeId)}
         deltaStatus={delta?.status}
         deltaLabel={delta?.label}
         deltaSummary={delta?.summary}

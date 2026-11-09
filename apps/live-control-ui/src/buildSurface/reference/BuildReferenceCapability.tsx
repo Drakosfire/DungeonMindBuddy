@@ -1,720 +1,115 @@
-import { useStatblockWorkbenchProjection } from "../../statblocks/statblockWorkbenchProjection";
-import { useRulesLookupProjection } from "../../rulesLookup/rulesLookupProjection";
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useSyncExternalStore,
-  type ReactNode,
-} from "react";
-
-import type { Editor } from "@tiptap/core";
-import { useAgentInteraction } from "../../agentInteraction/AgentInteractionProvider";
-import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
-import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
-import {
-  GraphNodeChipRuntimeProvider,
-} from "../../graphReference/GraphNodeChipRuntime";
-import { glanceOnlyForGraphReference } from "../../graphReference/openGraphReferencePolicy";
-import {
-  GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
-} from "../../graphReference/projectionBindings";
-import { referenceFromGraphNode } from "../../graphReference/referenceFromGraphNode";
-import { resolveGraphReference, extractExactGraphReferenceScope } from "../../graphReference/resolveGraphReference";
-import type {
-  ExactGraphReferenceScope,
-  GraphNodeChipRuntimeValue,
-  GraphReferenceProjectionState,
-  GraphReferenceResolution,
-} from "../../graphReference/types";
-import type { GraphProjectionNodeView, WorldGraphProjection } from "../../api/types";
-import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projection/projectionCatalog";
-import { adaptWorldGraphNodeView } from "../../worldGraph/worldGraphNodeViewAdapter";
-import { useOptionalWorldGraphLens } from "../../graphLens/WorldGraphLensContext";
-import {
-  useOptionalWorldGraphLensInformationChannel,
-  useWorldGraphLensProjectionDemand,
-  useOptionalWorldGraphLensProjection,
-} from "../../graphLens/useWorldGraphLensProjection";
-import { WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID } from "../../chrome/appChromeConfig";
-import { usePublishSurfaceInteraction } from "../../agentInteraction/usePublishSurfaceInteraction";
-import { insertMarkdownReference } from "../../graphReference/insertMarkdownReference";
-import { useOptionalMarkdownCanvasSession } from "../../markdownCanvas/MarkdownCanvasSession";
-import type { WorkspaceDocumentAuthoringPhase } from "../../workspaceDocument/workspaceDocumentAuthoringMachine";
-import { isEditorInteractive } from "../../workspaceDocument/workspaceDocumentAuthoringMachine";
-import { admitBuildObjectInsert } from "../../worldGraph/worldGraphSurfaceContext";
-import { writeBuildLastCampaignId } from "../buildBareEntryCampaign";
-import {
-  buildBuildSurfaceInteractionPublication,
-  type BuildReferenceContextBinding,
-} from "./buildBuildSurfaceInteractionPublication";
-import {
-  BUILD_REFERENCE_CONTEXT_BINDING_ID,
-  BUILD_REFERENCE_SEARCH_PROJECTION_ID,
-  BUILD_WORLD_GRAPH_INFORMATION_CHANNEL_BINDING_ID,
-} from "./buildReferenceIds";
-import { BuildReferenceObjectProjection } from "./BuildReferenceObjectProjection";
-import { BuildReferenceSearchProjection } from "./BuildReferenceSearchProjection";
-import { resolveBuildFindGraphLens } from "./resolveBuildGraphLens";
-import { useBuildWorldGraphProjection } from "./useBuildWorldGraphProjection";
-import {
-  BUILD_WORLD_GRAPH_FALLBACK_SNAPSHOT,
-  searchItemsFromWorldGraphState,
-} from "./buildWorldGraphSurfaceInformation";
-import type {
-  SurfaceInformationChannel,
-  SurfaceInformationSnapshot,
-  SurfaceInformationState,
-} from "../../surfaceInformation";
-
-const EMPTY_PUBLICATION_PHASES: ReadonlySet<WorkspaceDocumentAuthoringPhase> = new Set([
-  "unloaded",
-  "loading",
-  "load_error",
-  "conflict",
-]);
-
-/**
- * Vitest-only seam: last successful viewExact identity/scope for App-route E5 proof.
- * Idle outside Vitest; never read by production UI.
- */
-export const buildViewExactTestSeam = {
-  lastGraphNodeId: null as string | null,
-  lastGraphScope: null as ExactGraphReferenceScope | null,
-  reset() {
-    this.lastGraphNodeId = null;
-    this.lastGraphScope = null;
-  },
-};
-
-type BuildEditorGate = {
-  editor: Editor | null;
-  documentId: string | null;
-  documentCampaignId: string | null;
-  editorInteractive: boolean;
-};
-
-const CLOSED_BUILD_EDITOR_GATE: BuildEditorGate = {
-  editor: null,
-  documentId: null,
-  documentCampaignId: null,
-  editorInteractive: false,
-};
-
-function isBuildEditorLive(gate: BuildEditorGate): boolean {
-  return Boolean(gate.editor && gate.documentId && gate.editorInteractive);
-}
-
-function subscribeToLocationSearch(onStoreChange: () => void): () => void {
-  if (typeof window === "undefined") {
-    return () => undefined;
-  }
-  window.addEventListener("popstate", onStoreChange);
-  return () => window.removeEventListener("popstate", onStoreChange);
-}
-
-function getLocationSearchSnapshot(): string {
-  if (typeof window === "undefined") return "";
-  return window.location.search;
-}
-
-function readBuildGraphLensParams(search: string): {
-  requestedCampaignId: string | null;
-  requestedRevisionId: string | null;
-} {
-  const params = new URLSearchParams(search);
-  return {
-    requestedCampaignId: params.get("campaign")?.trim() || null,
-    requestedRevisionId: params.get("graphRevision")?.trim() || null,
-  };
-}
-
-function graphReferenceStateFromInformation(
-  state: SurfaceInformationState<WorldGraphProjection>,
-): GraphReferenceProjectionState {
-  if (state.status === "loading") return "loading";
-  if (state.status === "unavailable") return "unavailable";
-  if (state.status === "integrity_error" || state.status === "stale") return "error";
-  return "ready";
-}
-
-function liveWorldGraphState(
-  channel: SurfaceInformationChannel<WorldGraphProjection> | null,
-): SurfaceInformationState<WorldGraphProjection> | null {
-  return channel?.getSnapshot().state ?? null;
-}
-
-type RelationshipObservationLease = {
-  channel: SurfaceInformationChannel<WorldGraphProjection>;
-  generation: number;
-};
-
-const relationshipObservationByResolution = new WeakMap<
-  GraphReferenceResolution,
-  RelationshipObservationLease
->();
-
-function currentObservationLease(
-  channel: SurfaceInformationChannel<WorldGraphProjection> | null,
-): RelationshipObservationLease | null {
-  if (!channel) return null;
-  return { channel, generation: channel.getSnapshot().generation };
-}
-
-function observationLeaseMatches(
-  started: RelationshipObservationLease | null,
-  live: RelationshipObservationLease | null,
-): boolean {
-  return Boolean(
-    started
-    && live
-    && started.channel === live.channel
-    && started.generation === live.generation,
-  );
-}
-
-async function resolveBuildRelationshipTarget(input: {
-  relationship: GraphObjectRelationshipViewModel;
-  channel: SurfaceInformationChannel<WorldGraphProjection> | null;
-}): Promise<GraphReferenceResolution> {
-  const label = String(input.relationship.label || "").trim() || "Related object";
-  const targetId = String(input.relationship.targetId || "").trim() || null;
-  const targetKind = String(input.relationship.targetKind || "").trim() || null;
-  const locator = targetId ? `dmb-node:${targetId}` : label;
-  const reference = targetKind && targetId
-    ? { kind: "ref" as const, refType: targetKind, refId: targetId, label }
-    : null;
-  const information = liveWorldGraphState(input.channel);
-  if (!information) {
-    return {
-      kind: "unresolved",
-      locator,
-      reference,
-      projectionState: "unavailable",
-      message: "World Graph information channel is not current; relationship resolution unavailable.",
-    };
-  }
-  const projectionState = graphReferenceStateFromInformation(information);
-  const projection = information.status === "ready" ? information.value : null;
-
-  if (projectionState === "loading") {
-    return {
-      kind: "unresolved",
-      locator,
-      reference,
-      projectionState,
-      message: "World Graph projection is loading; relationship resolution deferred.",
-    };
-  }
-
-  if (projectionState === "error") {
-    return {
-      kind: "error",
-      locator,
-      reference,
-      projectionState,
-      message: "World Graph projection failed; relationship resolution unavailable.",
-    };
-  }
-
-  if (information.status === "empty") {
-    return {
-      kind: "unresolved",
-      locator,
-      reference,
-      projectionState: "ready",
-      message: `Could not resolve related object "${label}" from the loaded World Graph projection.`,
-    };
-  }
-
-  if (projectionState === "ready" && !projection) {
-    return {
-      kind: "error",
-      locator,
-      reference,
-      projectionState,
-      message:
-        "World Graph projection marked ready but no projection was supplied; relationship resolution unavailable.",
-    };
-  }
-
-  if (projectionState === "unavailable") {
-    return {
-      kind: "unresolved",
-      locator,
-      reference,
-      projectionState,
-      message: "World Graph is unavailable; relationship resolution unavailable.",
-    };
-  }
-
-  if (targetId && projection) {
-    const exactNode = projection.nodes.find((node) => node.nodeId === targetId) ?? null;
-    if (exactNode) {
-      const graphScope = extractExactGraphReferenceScope(projection);
-      if (!graphScope) {
-        return {
-          kind: "error",
-          locator,
-          reference,
-          projectionState,
-          message:
-            "World Graph projection is missing an exact scope; relationship resolution unavailable.",
-        };
-      }
-      const nodeView = adaptWorldGraphNodeView(exactNode);
-      return {
-        kind: "resolved_graph",
-        locator,
-        reference,
-        graphNodeId: exactNode.nodeId,
-        graphObject: buildGraphObjectCardFromNodeView(nodeView),
-        graphScope,
-        projectionState,
-        message: `Resolved graph node ${exactNode.label}.`,
-      };
-    }
-
-    return {
-      kind: "unresolved",
-      locator,
-      reference,
-      projectionState,
-      message: `Could not resolve related object "${label}" from the loaded World Graph projection.`,
-    };
-  }
-
-  if (projection) {
-    return resolveGraphReference({
-      locator: label,
-      label,
-      refType: targetKind,
-      projection,
-      projectionState,
-    });
-  }
-
-  return {
-    kind: "unresolved",
-    locator,
-    reference,
-    projectionState,
-    message: `Could not resolve related object "${label}" from graph memory.`,
-  };
-}
-
-function fallbackSubscribe(): () => void {
-  return () => undefined;
-}
-
-function getFallbackSnapshot(): SurfaceInformationSnapshot<WorldGraphProjection> {
-  return BUILD_WORLD_GRAPH_FALLBACK_SNAPSHOT;
-}
-
-function BuildWorldGraphChipRuntime({
-  channel,
-  onSelectNode,
-  children,
-}: {
-  channel: SurfaceInformationChannel<WorldGraphProjection> | null;
-  onSelectNode: (nodeId: string) => void;
-  children: ReactNode;
-}) {
-  const snapshot = useSyncExternalStore(
-    channel?.subscribe ?? fallbackSubscribe,
-    channel?.getSnapshot ?? getFallbackSnapshot,
-    channel?.getSnapshot ?? getFallbackSnapshot,
-  ) as SurfaceInformationSnapshot<WorldGraphProjection>;
-  const chipRuntime = useMemo<GraphNodeChipRuntimeValue>(() => {
-    const items = searchItemsFromWorldGraphState(snapshot.state);
-    const nodeViews: Record<string, GraphProjectionNodeView> = {};
-    for (const item of items) {
-      nodeViews[item.nodeId] = item.nodeView;
-    }
-    const projection =
-      snapshot.state.status === "ready" || snapshot.state.status === "stale"
-        ? snapshot.state.value
-        : null;
-    return {
-      nodeViews,
-      activeNodeId: null,
-      onSelectNode,
-      exactGraphScope: projection ? extractExactGraphReferenceScope(projection) : null,
-    };
-  }, [onSelectNode, snapshot]);
-  return (
-    <GraphNodeChipRuntimeProvider value={chipRuntime}>
-      {children}
-    </GraphNodeChipRuntimeProvider>
-  );
-}
-
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { Editor } from '@tiptap/core';
+import { useAgentInteraction } from '../../agentInteraction/AgentInteractionProvider';
+import { usePublishSurfaceInteraction } from '../../agentInteraction/usePublishSurfaceInteraction';
+import { getNativeGraphCatalog } from '../../api/liveApi';
+import { isCatalogForWorld, type InspectionPin } from '../../api/nativeGraphInspection';
+import type { AuthoredGraphReferenceV1 } from '../../api/types';
+import { GraphNodeChipRuntimeProvider } from '../../graphReference/GraphNodeChipRuntime';
+import { insertMarkdownReference } from '../../graphReference/insertMarkdownReference';
+import { NativeGraphObjectPreview } from '../../graphLens/NativeGraphObjectPreview';
+import { useOptionalMarkdownCanvasSession } from '../../markdownCanvas/MarkdownCanvasSession';
+import { useSelectedWorldAdmission } from '../../selectedWorld/SelectedWorldContext';
+import { useRulesLookupProjection } from '../../rulesLookup/rulesLookupProjection';
+import { useStatblockWorkbenchProjection } from '../../statblocks/statblockWorkbenchProjection';
+import { isEditorInteractive } from '../../workspaceDocument/workspaceDocumentAuthoringMachine';
+import { buildBuildSurfaceInteractionPublication, type BuildReferenceContextBinding } from './buildBuildSurfaceInteractionPublication';
+import { BUILD_REFERENCE_CONTEXT_BINDING_ID, BUILD_REFERENCE_SEARCH_PROJECTION_ID } from './buildReferenceIds';
+import { BuildReferenceSearchProjection } from './BuildReferenceSearchProjection';
+const unavailablePhases = new Set(['unloaded', 'loading', 'load_error', 'conflict']);
 export interface BuildReferenceCapabilityProps {
-  documentId: string | null;
-  children?: ReactNode;
+    documentId: string | null;
+    children?: ReactNode;
 }
-
+/** The admitted document owns World identity. Campaign labels are not Graph scopes. */
 export function BuildReferenceCapability({ documentId, children }: BuildReferenceCapabilityProps) {
-  const session = useOptionalMarkdownCanvasSession();
-  const {
-    openGraphReference,
-    openTool,
-    registerGraphReferenceBinding,
-    registerProjectionCatalog,
-  } = useAgentInteraction();
-  const locationSearch = useSyncExternalStore(
-    subscribeToLocationSearch,
-    getLocationSearchSnapshot,
-    () => "",
-  );
-  const lensParams = useMemo(
-    () => readBuildGraphLensParams(locationSearch),
-    [locationSearch],
-  );
-  const sharedGraphLens = useOptionalWorldGraphLens();
-  const sharedProjection = useOptionalWorldGraphLensProjection();
-  const sharedChannel = useOptionalWorldGraphLensInformationChannel();
-  const sharedLensIdentityKey = useMemo(() => {
-    if (!sharedGraphLens) return "";
-    const { selectedCampaignIds, focus } = sharedGraphLens.lens;
-    return JSON.stringify([
-      selectedCampaignIds,
-      focus?.campaignId ?? null,
-      focus?.sessionNumber ?? null,
-    ]);
-  }, [sharedGraphLens]);
-
-  const acceptedDocument = useMemo(() => {
-    if (!documentId || !session || session.documentId !== documentId) return null;
-    if (EMPTY_PUBLICATION_PHASES.has(session.phase)) return null;
-    if (!session.record || session.record.campaign_id === null) return null;
-    return {
-      documentId: session.record.document_id,
-      campaignId: session.record.campaign_id,
-    };
-  }, [
-    documentId,
-    session?.documentId,
-    session?.phase,
-    session?.record?.campaign_id,
-    session?.record?.document_id,
-  ]);
-
-  const lens = useMemo(() => {
-    if (!acceptedDocument) {
-      return {
-        status: "invalid" as const,
-        reason: "Build graph lens requires an accepted document.",
-      };
-    }
-    return resolveBuildFindGraphLens({
-      documentId: acceptedDocument.documentId,
-      documentCampaignId: acceptedDocument.campaignId,
-      requestedCampaignId: lensParams.requestedCampaignId,
-      requestedRevisionId: lensParams.requestedRevisionId,
-      sharedLens: sharedGraphLens?.lens ?? null,
-      sharedRequest: sharedProjection?.request ?? null,
-      defaultCampaignId: WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional shared identity keys
-  }, [
-    acceptedDocument,
-    lensParams.requestedCampaignId,
-    lensParams.requestedRevisionId,
-    sharedLensIdentityKey,
-    sharedProjection?.requestKey,
-  ]);
-
-  useWorldGraphLensProjectionDemand(Boolean(acceptedDocument) && lens.status === "ready");
-
-  const documentIdentity = useMemo(
-    () => ({
-      documentId: acceptedDocument?.documentId ?? "",
-      campaignId: acceptedDocument?.campaignId ?? "",
-    }),
-    [acceptedDocument?.campaignId, acceptedDocument?.documentId],
-  );
-
-  const graphInformation = useBuildWorldGraphProjection({
-    lens,
-    documentIdentity,
-    sharedProjection,
-    sharedChannel,
-  });
-
-  const editorGateRef = useRef<BuildEditorGate>(CLOSED_BUILD_EDITOR_GATE);
-  const liveChannelRef = useRef<SurfaceInformationChannel<WorldGraphProjection> | null>(null);
-
-  useLayoutEffect(() => {
-    editorGateRef.current = {
-      editor: session?.editor ?? null,
-      documentId: acceptedDocument?.documentId ?? null,
-      documentCampaignId: acceptedDocument?.campaignId ?? null,
-      editorInteractive: session ? isEditorInteractive(session.phase) : false,
-    };
-    return () => {
-      editorGateRef.current = CLOSED_BUILD_EDITOR_GATE;
-    };
-  }, [
-    acceptedDocument?.campaignId,
-    acceptedDocument?.documentId,
-    session,
-    session?.editor,
-    session?.phase,
-  ]);
-
-  useLayoutEffect(() => {
-    liveChannelRef.current = graphInformation.channel;
-    return () => {
-      liveChannelRef.current = null;
-    };
-  }, [graphInformation.channel]);
-
-  const selectCampaign = useCallback((campaignId: string) => {
-    if (typeof window === "undefined") return;
-    const trimmed = campaignId.trim();
-    const url = new URL(window.location.href);
-    url.searchParams.set("campaign", trimmed);
-    writeBuildLastCampaignId(trimmed);
-    window.history.pushState({}, "", url.toString());
-    window.dispatchEvent(new PopStateEvent("popstate"));
-  }, []);
-
-  const viewExact = useCallback(
-    (nodeId: string) => {
-      const channel = liveChannelRef.current;
-      if (!channel) return;
-      const state = channel.getSnapshot().state;
-      if (state.status !== "ready") return;
-      const trimmedNodeId = nodeId.trim();
-      if (!trimmedNodeId) return;
-      const exactNode = state.value.nodes.find((node) => node.nodeId === trimmedNodeId);
-      if (!exactNode) return;
-      const graphScope = extractExactGraphReferenceScope(state.value);
-      if (!graphScope) return;
-      const nodeView = adaptWorldGraphNodeView(exactNode);
-
-      if (import.meta.env.VITEST) {
-        buildViewExactTestSeam.lastGraphNodeId = exactNode.nodeId;
-        buildViewExactTestSeam.lastGraphScope = graphScope;
-      }
-
-      const resolution: GraphReferenceResolution = {
-        kind: "resolved_graph",
-        locator: `dmb-node:${exactNode.nodeId}`,
-        reference: referenceFromGraphNode(nodeView),
-        graphNodeId: exactNode.nodeId,
-        graphObject: buildGraphObjectCardFromNodeView(nodeView),
-        graphScope,
-        projectionState: "ready",
-        message: `Resolved graph node ${nodeView.label}.`,
-      };
-
-      openGraphReference({
-        resolution,
-        projectionState: "ready",
-        glanceOnly: glanceOnlyForGraphReference(resolution),
-      });
-    },
-    [openGraphReference],
-  );
-
-  const insertChip = useCallback((nodeId: string) => {
-    const gate = editorGateRef.current;
-    if (!isBuildEditorLive(gate) || gate.editor == null) return;
-    const channel = liveChannelRef.current;
-    if (!channel) return;
-    const state = channel.getSnapshot().state;
-    if (state.status !== "ready") return;
-    const trimmedNodeId = nodeId.trim();
-    if (!trimmedNodeId) return;
-    const exactNode = state.value.nodes.find((node) => node.nodeId === trimmedNodeId);
-    if (!exactNode) return;
-    const nodeView = adaptWorldGraphNodeView(exactNode);
-    const admission = admitBuildObjectInsert({
-      documentCampaignId: gate.documentCampaignId ?? undefined,
-      objectCampaignScope: nodeView.campaign_scope,
-    });
-    if (!admission.ok) return;
-    insertMarkdownReference(gate.editor, referenceFromGraphNode(nodeView));
-  }, []);
-
-  const editorInsertDisabled =
-    !session?.editor
-    || !isEditorInteractive(session.phase)
-    || lens.status !== "ready";
-
-  const referenceContext = useMemo<BuildReferenceContextBinding | null>(() => {
-    if (!acceptedDocument) return null;
-    return {
-      schema: "dmb_build_reference_context_v2",
-      documentId: acceptedDocument.documentId,
-      documentCampaignId: acceptedDocument.campaignId,
-      lens,
-      selectCampaign,
-      viewExact,
-      insertChip,
-      editorInsertDisabled,
-    };
-  }, [
-    acceptedDocument,
-    editorInsertDisabled,
-    insertChip,
-    lens,
-    selectCampaign,
-    viewExact,
-  ]);
-
-  const saveMountedRef = useRef(false);
-  const liveDocumentIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    saveMountedRef.current = true;
-    liveDocumentIdRef.current = documentId;
-    return () => {
-      saveMountedRef.current = false;
-      liveDocumentIdRef.current = null;
-    };
-  }, [documentId]);
-
-  const saveDocument = useMemo(() => {
-    const boundDocumentId = documentId;
-    const boundSession = session;
-    return async () => {
-      if (!saveMountedRef.current) return;
-      if (liveDocumentIdRef.current !== boundDocumentId) return;
-      if (!boundDocumentId || !boundSession || boundSession.documentId !== boundDocumentId) return;
-      if (EMPTY_PUBLICATION_PHASES.has(boundSession.phase)) return;
-      if (!boundSession.record || boundSession.record.document_id !== boundDocumentId) return;
-      if (!saveMountedRef.current) return;
-      if (liveDocumentIdRef.current !== boundDocumentId) return;
-      await boundSession.saveMarkdown();
-    };
-  }, [documentId, session]);
-
-  const documentSave = useMemo(() => {
-    if (!acceptedDocument || !session) return null;
-    return {
-      saveDisabled: session.saveDisabled,
-      disabledReason: session.saveDisabled
-        ? (session.statusLabel || "Save is unavailable for this document.")
-        : undefined,
-      save: () => saveDocument(),
-    };
-  }, [acceptedDocument, saveDocument, session]);
-
-  const publication = useMemo(
-    () =>
-      buildBuildSurfaceInteractionPublication({
-        documentId,
-        acceptedDocument,
-        referenceContext,
-        worldGraphChannel: graphInformation.channel,
-        documentSave,
-      }),
-    [acceptedDocument, documentId, documentSave, graphInformation.channel, referenceContext],
-  );
-
-  usePublishSurfaceInteraction(publication);
-  useRulesLookupProjection("build", true);
-  useStatblockWorkbenchProjection("build");
-
-  const catalogActive = Boolean(referenceContext && publication.tools.length > 0);
-
-  const channelSnapshot = useSyncExternalStore(
-    graphInformation.channel?.subscribe ?? fallbackSubscribe,
-    graphInformation.channel?.getSnapshot ?? getFallbackSnapshot,
-    graphInformation.channel?.getSnapshot ?? getFallbackSnapshot,
-  ) as SurfaceInformationSnapshot<WorldGraphProjection>;
-  const observationGeneration = graphInformation.channel ? channelSnapshot.generation : null;
-  const resolverState = graphInformation.channel
-    ? graphReferenceStateFromInformation(channelSnapshot.state)
-    : "unavailable";
-
-  useEffect(() => {
-    if (!catalogActive) return undefined;
-
-    const cleanups = [
-      registerProjectionCatalog({
-        projectionId: BUILD_REFERENCE_SEARCH_PROJECTION_ID,
-        surfaceId: "build",
-        kind: "tool",
-        preferredSize: "wide",
-        requiredBindingIds: [
-          BUILD_REFERENCE_CONTEXT_BINDING_ID,
-          BUILD_WORLD_GRAPH_INFORMATION_CHANNEL_BINDING_ID,
-        ],
-        render: ({ bindings }) => <BuildReferenceSearchProjection bindings={bindings} />,
-      }),
-      registerProjectionCatalog({
-        projectionId: GRAPH_REFERENCE_PROJECTION_ID,
-        surfaceId: "build",
-        kind: "content",
-        preferredSize: "wide",
-        requiredBindingIds: [GRAPH_REFERENCE_RESOLUTION_BINDING_ID],
-        render: ({ bindings, active }) => (
-          <BuildReferenceObjectProjection
-            bindings={bindings}
-            glanceOnly={active.glanceOnly === true}
-          />
-        ),
-      }),
-    ];
-
-    return () => {
-      for (const cleanup of cleanups) {
-        cleanup();
-      }
-    };
-  }, [catalogActive, registerProjectionCatalog]);
-
-  useEffect(() => {
-    if (!catalogActive) return undefined;
-
-    return registerGraphReferenceBinding({
-      resolverState,
-      resolveRelationship: async (relationship) => {
-        const started = currentObservationLease(liveChannelRef.current);
-        const resolution = await resolveBuildRelationshipTarget({
-          relationship,
-          channel: started?.channel ?? null,
-        });
-        if (started) {
-          relationshipObservationByResolution.set(resolution, started);
+    const session = useOptionalMarkdownCanvasSession();
+    const selection = useSelectedWorldAdmission();
+    const { registerProjectionCatalog } = useAgentInteraction();
+    const acceptedDocument = useMemo(() => {
+        if (!documentId || session?.documentId !== documentId || !session.record || session.record.document_id !== documentId || unavailablePhases.has(session.phase))
+            return null;
+        return { documentId, worldId: session.record.world_id?.trim() || null };
+    }, [documentId, session?.documentId, session?.record?.document_id, session?.record?.world_id, session?.phase]);
+    const worldId = acceptedDocument?.worldId
+        && selection.kind !== 'loading' && selection.kind !== 'error'
+        && (selection.kind !== 'managed' || selection.worldId === acceptedDocument.worldId)
+        ? acceptedDocument.worldId : null;
+    const owner = useMemo(() => ({ documentId: acceptedDocument?.documentId ?? null, worldId, editor: session?.editor ?? null }), [acceptedDocument?.documentId, worldId, session?.editor]);
+    const live = useRef<typeof owner | null>(null);
+    const request = useRef<AbortController | null>(null);
+    const [preview, setPreview] = useState<AuthoredGraphReferenceV1 | null>(null);
+    const [opening, setOpening] = useState<{
+        nodeId: string;
+        error: string | null;
+    } | null>(null);
+    useLayoutEffect(() => {
+        live.current = owner;
+        setPreview(null);
+        setOpening(null);
+        return () => { live.current = null; request.current?.abort(); };
+    }, [owner]);
+    const insertionAllowed = Boolean(owner.editor && !owner.editor.isDestroyed && session && isEditorInteractive(session.phase) && worldId);
+    const liveInsertionAllowed = useRef(false);
+    useLayoutEffect(() => { liveInsertionAllowed.current = insertionAllowed; return () => { liveInsertionAllowed.current = false; }; }, [insertionAllowed]);
+    const insertChip = useCallback((pin: InspectionPin, nodeId: string, label: string) => {
+        if (live.current !== owner || !liveInsertionAllowed.current || !owner.editor || owner.editor.isDestroyed || pin.managed_world_id !== owner.worldId || pin.scope_mode !== 'world' || pin.campaign_id !== null)
+            return;
+        insertMarkdownReference(owner.editor, { kind: 'ref', refType: 'graph-node', refId: nodeId, label });
+    }, [owner]);
+    const openNode = useCallback(async (nodeId: string, sourceEditor?: Editor) => {
+        // TipTap portals may use the module fallback runtime. Never use that fallback
+        // to resolve another editor's link under this document's World authority.
+        if (live.current !== owner || !owner.worldId || !owner.documentId || !sourceEditor || sourceEditor !== owner.editor || sourceEditor.isDestroyed)
+            return;
+        request.current?.abort();
+        const abort = new AbortController();
+        request.current = abort;
+        setPreview(null);
+        setOpening({ nodeId, error: null });
+        try {
+            const catalog = await getNativeGraphCatalog({ managed_world_id: owner.worldId, scope_mode: 'world', campaign_id: null }, abort.signal);
+            if (abort.signal.aborted || live.current !== owner)
+                return;
+            if (!isCatalogForWorld(catalog, owner.worldId))
+                throw new Error('The object catalogue did not match this World.');
+            if (!catalog.catalogue.entities.some(entity => entity.entity_id === nodeId))
+                throw new Error('This object is unavailable in the current reviewed Graph.');
+            const name = catalog.assertions.find(a => a.subject_entity_id === nodeId && a.predicate === 'dnd5e:name' && a.value.kind === 'literal' && typeof a.value.value === 'string');
+            const label = name?.value.kind === 'literal' ? String(name.value.value) : nodeId;
+            const pin = catalog.scope;
+            setOpening(null);
+            setPreview({ schema: 'dmb_authored_graph_reference_v1', managed_world_id: pin.managed_world_id, native_world_id: pin.native_world_id, binding_version: pin.binding_version, graph_revision: pin.revision_id, node_id: nodeId, label });
         }
-        return resolution;
-      },
-      openResolvedReference: (resolution, state) => {
-        const live = currentObservationLease(liveChannelRef.current);
-        const started = relationshipObservationByResolution.get(resolution) ?? null;
-        if (!observationLeaseMatches(started, live) || !live) return;
-        const current = live.channel.getSnapshot().state;
-        if (current.status !== "ready") return;
-        openGraphReference({
-          resolution,
-          projectionState: state ?? graphReferenceStateFromInformation(current),
-          glanceOnly: glanceOnlyForGraphReference(resolution),
-        });
-      },
-      openTool,
-    });
-  }, [
-    catalogActive,
-    graphInformation.channel,
-    observationGeneration,
-    openGraphReference,
-    openTool,
-    registerGraphReferenceBinding,
-    resolverState,
-  ]);
-
-  return (
-    <BuildWorldGraphChipRuntime
-      channel={graphInformation.channel}
-      onSelectNode={viewExact}
-    >
-      {children ?? null}
-    </BuildWorldGraphChipRuntime>
-  );
+        catch (error) {
+            if (!abort.signal.aborted && live.current === owner)
+                setOpening({ nodeId, error: error instanceof Error ? error.message : 'This object could not be opened.' });
+        }
+    }, [owner]);
+    const referenceContext = useMemo<BuildReferenceContextBinding | null>(() => worldId && acceptedDocument ? {
+        schema: 'dmb_build_reference_context_v3', documentId: acceptedDocument.documentId, worldId, insertChip, editorInsertDisabled: !insertionAllowed,
+    } : null, [worldId, acceptedDocument, insertChip, insertionAllowed]);
+    const mounted = useRef(false), liveDocument = useRef<string | null>(null);
+    useEffect(() => { mounted.current = true; liveDocument.current = documentId; return () => { mounted.current = false; liveDocument.current = null; }; }, [documentId]);
+    const saveDocument = useMemo(() => {
+        const boundId = documentId, boundSession = session;
+        return async () => {
+            if (!mounted.current || liveDocument.current !== boundId || !boundId || !boundSession || boundSession.documentId !== boundId || unavailablePhases.has(boundSession.phase) || boundSession.record?.document_id !== boundId)
+                return;
+            await boundSession.saveMarkdown();
+        };
+    }, [documentId, session]);
+    const publication = useMemo(() => buildBuildSurfaceInteractionPublication({ documentId, acceptedDocument, referenceContext,
+        documentSave: acceptedDocument && session ? { saveDisabled: session.saveDisabled, disabledReason: session.saveDisabled ? session.statusLabel : undefined, save: saveDocument } : null,
+    }), [documentId, acceptedDocument, referenceContext, session, saveDocument]);
+    usePublishSurfaceInteraction(publication);
+    useRulesLookupProjection('build', true);
+    useStatblockWorkbenchProjection('build');
+    useEffect(() => registerProjectionCatalog({ projectionId: BUILD_REFERENCE_SEARCH_PROJECTION_ID, surfaceId: 'build', kind: 'tool', preferredSize: 'wide', requiredBindingIds: [BUILD_REFERENCE_CONTEXT_BINDING_ID], render: ({ bindings }) => <BuildReferenceSearchProjection bindings={bindings}/> }), [registerProjectionCatalog]);
+    const runtime = useMemo(() => ({ nodeViews: {}, activeNodeId: preview?.node_id ?? null, onSelectNode: () => undefined, onSelectEditorNode: (nodeId: string, editor: Editor) => { void openNode(nodeId, editor); }, exactGraphScope: null }), [preview?.node_id, openNode]);
+    return <GraphNodeChipRuntimeProvider value={runtime}>
+  {children ?? null}
+  {opening && <section aria-label="Document object preview">{opening.error ? <><p role="alert">{opening.error}</p><button type="button" onClick={() => void openNode(opening.nodeId, owner.editor ?? undefined)}>Retry object</button></> : <p role="status">Opening object…</p>}<button type="button" onClick={() => { request.current?.abort(); setOpening(null); }}>Close object</button></section>}
+  {preview && <NativeGraphObjectPreview reference={preview} onClose={() => setPreview(null)}/>}
+ </GraphNodeChipRuntimeProvider>;
 }

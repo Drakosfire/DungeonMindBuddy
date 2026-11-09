@@ -87,3 +87,12 @@ it('shows and searches every admitted name while keeping entity and source pins'
  expect(await screen.findByText(`Object 1 · owns: ${label}`)).toBeInTheDocument();
  expect(JSON.stringify(catalog)).toBe(original);
 });
+
+it('keeps selection labels distinct for duplicate names without repeating unnamed object IDs',async()=>{
+ const duplicate=[{...record(0),value:{kind:'literal' as const,value:'Cedar box'}},{...record(1),value:{kind:'literal' as const,value:'Cedar box'}}];
+ vi.mocked(getNativeGraphCatalog).mockResolvedValue({...packet,catalogue:{...packet.catalogue,entities:[{entity_id:'e0'},{entity_id:'e1'},{entity_id:'e30'}]},assertions:duplicate});
+ render(<NativeGraphInspection worldId="w" onChoose={vi.fn()} selectionAction="Insert link"/>);
+ expect(await screen.findByRole('button',{name:'Cedar box e0',exact:true})).toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'Cedar box e1',exact:true})).toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'e30',exact:true})).toBeInTheDocument();
+});

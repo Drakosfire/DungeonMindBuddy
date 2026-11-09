@@ -19,3 +19,8 @@ export type NativeGraphSource={schema:'dmb_native_graph_source_v1';scope:Inspect
 
 /** Exact transport pin shared by native object and source inspection. */
 export const sameInspectionPin=(a:InspectionPin,b:InspectionPin)=>a.managed_world_id===b.managed_world_id&&a.native_world_id===b.native_world_id&&a.revision_id===b.revision_id&&a.binding_version===b.binding_version&&a.scope_mode===b.scope_mode&&a.campaign_id===b.campaign_id;
+
+/** Reuse the native catalogue admission check across inspection entry points. */
+export function isCatalogForWorld(packet:NativeGraphCatalog,worldId:string):boolean {
+ return packet.schema==='dmb_native_graph_catalog_v1'&&packet.scope.managed_world_id===worldId&&packet.scope.scope_mode==='world'&&packet.scope.campaign_id===null&&packet.catalogue.identity.space_id===packet.scope.native_world_id&&packet.catalogue.identity.revision_id===packet.scope.revision_id;
+}
