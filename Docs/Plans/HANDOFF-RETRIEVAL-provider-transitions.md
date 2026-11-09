@@ -47,7 +47,8 @@ Q01's initial classifier timeout remains unknown, retained without replay.
 - src/application_state/agent_conversation/provider_execution.py (pure owner).
 - src/application_state/agent_conversation/types.py: replace only
   validate_provider_execution body with its single recovery consumer.
-- tests/test_provider_execution_transitions.py (owner tests and fixed oracle).
+- tests/test_surface_native_context.py (existing lifecycle/context suite;
+  append owner cases and fixed qualification oracle).
 
 No schema, service/repository, runtime dispatch, model prompt, Core, Rules
 implementation, writer, UI, primary DB or dependency changes. No new harness,
@@ -107,3 +108,9 @@ indexes; existing Build role accounting still scans execution history. This is
 not constant-time APP incrementality. The immutable accepted-prefix session and
 remaining native predicate transfers are not implemented or authorized for
 activation by this provider-only state. No new latency claim follows from it.
+
+The first CI inventory refused the newly named provider test module as
+unclassified. Rather than editing the active CI lane's shared classification
+contract, the same tests are consolidated into the existing classified native
+context suite, alongside its provider lifecycle fixtures. No product logic or
+assessment expectations change. The failed CI run is retained, not a pass.
