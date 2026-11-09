@@ -535,3 +535,115 @@ def test_json_capability_reconstruction_keeps_existing_invalid_wire_refusals(fie
     data["capabilities"][field] = value
     with pytest.raises(ValidationError):
         NativeBuildActionV1.model_validate_json(json.dumps(data))
+
+
+# Current related authored pages reuse the native selection and exact quote owner.
+def related_plan_case():
+    from application_state.agent_conversation.native_execution import NativePlanActionV2
+    from application_state.agent_conversation import build_related_pages as related
+    from tests.test_surface_native_work_input import work_case
+    from tests.test_surface_native_execution import controller, outcomes, choice
+    context, old, work = work_case('plan', draft=False)
+    page = related.PagePointer(world_id=work['world_id'],document_id=uuid4(),
+        registry_revision=3,title='Edge',visibility='internal')
+    action = NativePlanActionV2(**old.policy.action.model_dump(mode='python',by_alias=True),related_page_catalog=(page,))
+    root = execution(context.context_receipt_sha256,old.policy.model_copy(update={'action':action}))
+    events = [e.model_copy(update={'execution_policy_sha256':root.execution_policy_sha256})
+        if hasattr(e,'execution_policy_sha256') else e for e in old.events[:-1]]
+    active = next(e for e in reversed(events) if isinstance(e,t.ProviderAttemptAuthorizedEventV1))
+    selected = choice(context,root,active,len(events),'select_candidates',(related.plan_handle(page),))
+    events.append(selected)
+    body = '# Edge\n\nThe old bath house stands by the east gate. 🌿\n'
+    read = related.RelatedPageRead(event_id=uuid4(),sequence=len(events),read_id=uuid4(),
+        selection_event_id=selected.event_id,page=related.PageReference(**page.model_dump(),
+            content_sha256=sha256(body.encode()).hexdigest()),markdown=body)
+    events.append(read)
+    active = controller('plan',root.policy,sequence=len(events),semantic=False)
+    events.extend([active,*outcomes(active,len(events)+1)])
+    events.append(choice(context,root,active,len(events),'finish_retrieval'))
+    return context,execution(context.context_receipt_sha256,root.policy,events),work,read
+
+
+def test_current_plan_saved_page_uses_local_writer_selector_and_exact_quote_owner():
+    from application_state.agent_conversation.native_plan_work_view import semantic_frame
+    from application_state.agent_conversation.native_writer import verify_input_records
+    from application_state.agent_conversation.native_completion import normalize_output
+    from tests.test_surface_native_work_input import produce
+    from tests.test_surface_native_completion import answer
+    context,record,work,read=related_plan_case()
+    def project(value):
+        view=semantic_frame(value,record);value.clear();value.update(view)
+    candidate=answer([dict(kind='related_page_claim',text='The saved Edge page places the bath house by the east gate.',
+        read_id='page0',supporting_quotes=['The old bath house stands by the east gate. 🌿'])])
+    stored,auth,proof,host=produce(context,record,work,mutate=project,candidate=candidate)
+    evidence=verify_input_records(context,stored,auth,proof['prepared_request_json'],**work)
+    wire=json.loads(proof['prepared_request_json'])
+    body=next(json.loads(m['content']) for m in wire['input'] if 'related_authored_pages' in m['content'])
+    assert body['related_authored_pages']['pages']==[dict(read_id='page0',title='Edge',markdown=read.markdown)]
+    assert str(read.read_id) not in json.dumps(body)
+    assert str(read.page.document_id) not in json.dumps(body)
+    assert evidence.related_pages==(read,)
+    completion=normalize_output(context,stored,auth,**proof)
+    assert completion.surface_id=='plan' and completion.answer_context_status=='authored_grounded'
+    assert completion.answer_segments[0].read_id==read.read_id
+    assert completion.answer_segments[0].page==read.page
+    assert completion.collaboration is None
+
+
+@pytest.mark.parametrize('mutation',['foreign_world','duplicate','hybrid','version','missing_catalog'])
+def test_saved_plan_action_rejects_foreign_and_ambiguous_catalogues(mutation):
+    from application_state.agent_conversation.native_execution import SurfaceNativeExecutionPolicyV1
+    context,record,work,read=related_plan_case()
+    raw=record.model_dump(mode='json',by_alias=True)
+    action=raw['policy']['action']
+    if mutation=='foreign_world':action['related_page_catalog'][0]['world_id']='foreign'
+    elif mutation=='duplicate':action['related_page_catalog']*=2
+    elif mutation=='hybrid':action.pop('action_version')
+    elif mutation=='version':action['action_version']='unknown'
+    else:action.pop('related_page_catalog')
+    with pytest.raises(ValueError):SurfaceNativeExecutionPolicyV1.model_validate_json(json.dumps(raw['policy']))
+
+
+@pytest.mark.parametrize('mutation',['unselected','selection','foreign_revision','wrong_world','duplicate','post_writer_selection','write_current_page'])
+def test_plan_related_read_cannot_escape_its_current_native_selection(mutation):
+    context,record,work,read=related_plan_case()
+    events=list(record.events)
+    index=read.sequence
+    if mutation=='unselected':events[index-1]=events[index-1].model_copy(update={'selected_handles':['node:unrelated']})
+    elif mutation=='selection':events[index]=read.model_copy(update={'selection_event_id':uuid4()})
+    elif mutation=='foreign_revision':events[index]=read.model_copy(update={'page':read.page.model_copy(update={'registry_revision':4})})
+    elif mutation=='wrong_world':events[index]=read.model_copy(update={'page':read.page.model_copy(update={'world_id':'foreign'})})
+    elif mutation=='duplicate':events.insert(index+1,read.model_copy(update={'event_id':uuid4()}))
+    elif mutation=='post_writer_selection':
+        # A later retrieval decision does not retroactively authorize this read.
+        events[index]=read.model_copy(update={'selection_event_id':events[-1].event_id})
+    else:events[3]=events[3].model_copy(update={'requested_work':'write_current_page'})
+    with pytest.raises(ValueError):execution(context.context_receipt_sha256,record.policy,
+        [e.model_copy(update={'sequence':i}) for i,e in enumerate(events)])
+
+
+@pytest.mark.parametrize('read_id,quotes',[('page0',['A fabricated quote.']),('page1',['The old bath house stands by the east gate. 🌿'])])
+def test_plan_related_claim_cannot_borrow_another_page_or_quote(read_id,quotes):
+    from application_state.agent_conversation.native_plan_work_view import semantic_frame
+    from application_state.agent_conversation.native_completion import normalize_output
+    from tests.test_surface_native_work_input import produce
+    from tests.test_surface_native_completion import answer
+    context,record,work,read=related_plan_case()
+    def project(value):
+        view=semantic_frame(value,record);value.clear();value.update(view)
+    candidate=answer([dict(kind='related_page_claim',text='A claim.',read_id=read_id,supporting_quotes=quotes)])
+    stored,auth,proof,_=produce(context,record,work,mutate=project,candidate=candidate)
+    with pytest.raises(ValueError):normalize_output(context,stored,auth,**proof)
+
+
+def test_old_plan_action_remains_a_closed_reader_and_current_producer_is_explicit_v2():
+    from application_state.agent_conversation.native_execution import NativePlanActionV1, NativePlanActionV2
+    from tests.test_surface_native_execution import component
+    context,old=component('plan')
+    reopened=type(old).model_validate_json(old.model_dump_json(by_alias=True))
+    assert type(reopened.policy.action) is NativePlanActionV1
+    assert 'action_version' not in reopened.policy.action.model_dump(mode='json',by_alias=True)
+    context,current,work,read=related_plan_case()
+    reopened=type(current).model_validate_json(current.model_dump_json(by_alias=True))
+    assert type(reopened.policy.action) is NativePlanActionV2
+    assert reopened.policy.action.action_version=='plan_saved_authored_pages_v2'
