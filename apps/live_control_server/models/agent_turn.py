@@ -333,6 +333,7 @@ class AgentTurnRequest(BaseModel):
             self.authored_references.require_world(self.owner_scope.world_id)
         if self.build_authored_references is not None:
             if (self.surface.surface_id != 'build' or self.owner_scope is None
+                or self.primary_work is None
                 or self.owner_scope.kind != 'world' or self.graph_request.mode != 'world'):
                 raise ValueError('Authored references require the current Build page and World context')
             self.build_authored_references.require_world(self.owner_scope.world_id)
