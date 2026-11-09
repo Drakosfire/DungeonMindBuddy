@@ -51,3 +51,14 @@ catalog and old-migration expectations. Both full logs retained. No claim that
 those five checks pass. Sandbox stalled pure attempt is not passing evidence;
 qualified rerun passed. All30 implemented populated Plan rows canonically equal;
 fixed-order local decode medians28.83 to19.30ms, not a whole-cycle speed claim.
+
+## Settlement
+
+PR2285 merged1128c3eb605d69fe93d75da2fe2c3085bb4eae1c after user approval,
+independent exact-head code review,7green CI checks and15/15fresh context quality
+passes covering72required atoms. First-pair response-ready medians11.175→12.128s
+with differing controller calls and a brief control fixture overlap: whole-cycle
+speedup NOT_DEMONSTRATED. No claim of six-second completion or runtime activation.
+Implementation lease released; evidence retained in retrieval-critical-path-next-v1
+and retrieval-native-codec-comparison-v1. Successor controller-host-accounting owns
+only instrumentation/accounting; writer and source-label work remain excluded.
