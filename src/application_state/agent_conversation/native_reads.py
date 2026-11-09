@@ -5,6 +5,8 @@ remain owned there. Record-family and corpus-body materializers share one strict
 Turn admission boundary, without a new receipt, event family or provenance ledger.
 Core continues to own source admission and current native source access.
 """
+from copy import deepcopy
+from dataclasses import dataclass
 from hashlib import sha256
 
 from .native_corpus import (
@@ -17,6 +19,38 @@ from .native_plan_statements import (
     NativePlanQueryV1, NativePlanStatementReadAuthorizedV1, NativePlanStatementReadObservedV1,
     validate_execution,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class _NativeReadOperation:
+    """Closed dispatch to existing read producers, never a generic Turn callback.
+
+    Only these owners may inspect the admitted Turn. External readers receive
+    detached grant/authority/reference values at their actual callback boundary.
+    """
+    producer: object
+    arguments: dict
+
+    def __post_init__(self):
+        from .authored_graph_references import (
+            capture_native_input, authorize_native_reference,
+            observe_native_reference, observe_native_source_reference,
+        )
+        if self.producer not in {
+            authorize_read, observe_read, capture_native_input,
+            authorize_native_reference, observe_native_reference, observe_native_source_reference,
+            authorize_direct_sources_locked, observe_direct_source_locked,
+            authorize_body_search_locked, observe_body_search_locked,
+            authorize_body_read_locked, observe_body_read_locked,
+        }:
+            raise ValueError('Native read requires its existing closed producer')
+
+    def __call__(self, conn, turn):
+        from application_state.errors import ApplicationStateValidationError
+        try:
+            return self.producer(turn, **self.arguments)
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
 
 
 def validate_execution_binding(receipt, execution):
@@ -48,8 +82,9 @@ def validate_execution_binding(receipt, execution):
 def _owner(turn, *, require_source=False):
     """Resolve a transaction-internal producer's actual running surface owner.
 
-    Shared inputs come only from APP's fresh locked Turn parse. That owner
-    validates the stored binding before IO and the materialized transition
+    Shared inputs come only from APP's current locked storage admission: its
+    complete initial/recovery codec or exclusively owned guarded session. That
+    owner validates the stored binding before IO and the materialized transition
     again before persistence; this private helper is not a standalone binder.
     """
     from .plan_jev_decision import _owner as plan_owner
@@ -249,7 +284,7 @@ def observe_body_read_locked(turn, *, event_id, authorization_event_id, read):
     if any(isinstance(event, NativeBodyReadObservedV1) and event.authorization_event_id == auth.event_id
             for event in execution.events):
         raise ValueError("Native body read already has an observation; reuse its receipt")
-    text = read(receipt.source_authority, catalog.source)
+    text = read(deepcopy(receipt.source_authority), deepcopy(catalog.source))
     if text is not None and not isinstance(text, str):
         raise ValueError("Native body owner must return verified text or explicit unavailability")
     excerpt, failure = None, "native_body_unavailable"
@@ -314,7 +349,7 @@ def observe_direct_source_locked(turn, *, event_id, authorization_event_id, read
     if any(isinstance(event, NativeDirectSourceObservedV1)
             and event.authorization_event_id == authorization_event_id for event in execution.events):
         raise ValueError("Direct source selection already has an observation; reuse its receipt")
-    result = read(auth)
+    result = read(deepcopy(auth))
     catalog, excerpt = result if result is not None else (None, None)
     return NativeDirectSourceObservedV1(event_id=event_id, sequence=len(execution.events),
         authorization_event_id=auth.event_id, catalog=catalog, excerpt=excerpt,

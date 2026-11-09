@@ -92,3 +92,12 @@ original AST apart from its name, qualified imports and one unused import bindin
 No APP cache, stored-prefix bypass, schema, provider request or timing behavior is
 activated. Group advance still reconstructs query dictionaries and copies indexes;
 its future reuse and actual response-ready measurement remain required.
+
+## Dependent dispatch topology
+
+Root adopts an explicit STACKED successor in HANDOFF-RETRIEVAL-plan-session.md,
+pinned to this PR2301head768efb710. This supersedes the serial dispatch gate for
+that one bounded child only.2301remains OPEN and unmerged; no authority to merge
+is inferred. Merge/rebase order remains2301then the refreshed integration child.
+Implementation continues under the portable child contract without editing this
+parent PR's reviewed source head.

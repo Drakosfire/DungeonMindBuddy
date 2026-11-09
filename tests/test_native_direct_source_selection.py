@@ -421,24 +421,51 @@ def test_direct_grant_replay_and_claim_fences(application_state_dsn, mutation):
 
 
 @pytest.mark.parametrize('mutation', ['empty', 'list', 'mixed', 'duplicate'])
-def test_native_batch_materializer_has_closed_event_family(application_state_dsn, mutation):
+def test_native_batch_materializer_has_closed_event_family(application_state_dsn, mutation, monkeypatch):
+    from application_state.agent_conversation import native_reads
     from application_state.agent_conversation.native_reads import authorize_direct_sources_locked
     from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
     case = direct_grant_case(application_state_dsn)
     before = grant_snapshot(case)
 
-    def produce(turn):
-        grants = authorize_direct_sources_locked(turn, grants=case.grants)
+    def produce(turn, *, grants):
+        grants = authorize_direct_sources_locked(turn, grants=grants)
         if mutation == 'empty': return ()
         if mutation == 'list': return list(grants)
         if mutation == 'mixed': return (grants[0], turn.graph_context_execution.events[0])
         return (grants[0], grants[0].model_copy(update={'sequence': grants[0].sequence + 1}))
 
+    monkeypatch.setattr(native_reads, 'authorize_direct_sources_locked', produce)
     with pytest.raises((ApplicationStateConflictError, ApplicationStateValidationError)):
-        case.service._append_native_read_materialization(case.turn.world_id, case.turn.conversation_id,
+        case.service.authorize_native_direct_sources(case.turn.world_id, case.turn.conversation_id,
             case.turn.turn_id, expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
-            materialize=produce)
+            grants=case.grants)
     assert grant_snapshot(case) == before
+
+
+def test_native_read_operation_rejects_generic_callback():
+    from application_state.agent_conversation.native_reads import _NativeReadOperation
+    with pytest.raises(ValueError, match='existing closed producer'):
+        _NativeReadOperation(lambda turn: pytest.fail('Generic producer ran'), {})
+
+
+def test_direct_source_callback_cannot_mutate_retained_grant(application_state_dsn):
+    case = direct_grant_case(application_state_dsn, count=1)
+    case.turn, _ = commit_grants(case)
+    grant = case.grants[0]
+    def unavailable(authority):
+        # Check alias isolation independently of the model's frozen attribute
+        # guard: a retained Python reference still has mutable model storage.
+        authority.__dict__['source_revision_id'] = 'changed callback argument'
+        return None
+    updated, fresh = case.service.observe_native_direct_source(
+        case.turn.world_id, case.turn.conversation_id, case.turn.turn_id,
+        expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
+        event_id=uuid4(), authorization_event_id=grant['event_id'], read=unavailable)
+    assert fresh
+    retained = next(e for e in updated.graph_context_execution.events if e.event_id == grant['event_id'])
+    assert retained.source_revision_id == grant['source_revision_id']
+    assert updated.graph_context_execution.events[-1].failure_code == 'native_body_unavailable'
 
 
 def test_ordinary_multiple_direct_sources_are_granted_before_each_read(publication_lane, tmp_path, monkeypatch):

@@ -533,11 +533,9 @@ class NativeBodyNavigation:
                         with trace.measure_host_work("native_source_materialization"):
                             return _materialize(*args, **kwargs)
                     fields[name] = measured
-        turn = a.fence.renewer._turn
         with trace.measure_host_work("native_source_append") if trace is not None else nullcontext():
-            result = getattr(a.service, method)(turn.world_id, turn.conversation_id, turn.turn_id,
-                expected_revision=turn.revision, expected_attempt=turn.attempt, **fields)
-        a.fence.renewer._turn = a.turn = result[0]
+            result = a.fence.commit(method, **fields)
+        a.turn = result[0]
         if method == 'authorize_native_direct_sources':
             by_id = {event.event_id: event for event in result[0].graph_context_execution.events}
             return tuple(by_id[row['event_id']] for row in fields['grants'])

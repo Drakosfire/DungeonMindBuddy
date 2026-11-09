@@ -71,11 +71,18 @@ def validate_context_packet(ready, request, terminal):
     if accepted != observed_accepted or elapsed_ms < 0 or type(ready["ready_monotonic_ns"]) is not int:
         raise ValueError("Context-ready clock correlation differs")
     payload = json.loads(body)
+    request_started = ready.get("request_started_monotonic_ns")
+    request_to_ready_ms = None
+    if request_started is not None:
+        if type(request_started) is not int or not 0 < request_started <= ready["ready_monotonic_ns"]:
+            raise ValueError("Context request-start clock correlation differs")
+        request_to_ready_ms = (ready["ready_monotonic_ns"] - request_started) / 1_000_000
     if (request["provider"], request["model"], request["api_mode"], request["method"], request["url"]) != (
             "openai", authorization.model, "responses", "POST", "https://api.openai.com/v1/responses"):
         raise ValueError("Context request provider identity differs")
     return {"turn": turn, "authorization": authorization, "payload": payload,
-            "elapsed_ms": elapsed_ms, "prepared_bytes": len(body)}
+            "elapsed_ms": elapsed_ms, "request_to_ready_ms": request_to_ready_ms,
+            "prepared_bytes": len(body)}
 
 
 class ContextCapture:
@@ -83,6 +90,7 @@ class ContextCapture:
         self.directory = Path(directory)
         self.authorization_calls = self.guard_hits = 0
         self.stop_issued = False
+        self.request_started_monotonic_ns = None
 
     @contextmanager
     def install(self):
@@ -121,6 +129,7 @@ class ContextCapture:
                 "context_receipt_sha256": turn.graph_context_receipt.context_receipt_sha256,
                 "frame_sha256": event.frame_sha256, "accepted_at": turn.accepted_at.isoformat(),
                 "ready_at": now.isoformat(), "ready_monotonic_ns": tick,
+                "request_started_monotonic_ns": owner.request_started_monotonic_ns,
                 "host_spans": deepcopy(trace.spans) if trace is not None else None,
             })
             immutable_save(owner.directory, "context-request", {
