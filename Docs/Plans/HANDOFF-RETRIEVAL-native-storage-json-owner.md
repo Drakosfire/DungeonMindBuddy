@@ -77,3 +77,25 @@ Both clones are isolated; no provider/CoreIO or primary effects. This synthetic
 large retained fixture is not a whole-cycle latency comparison. Evidence:
 retrieval-native-storage-json-owner-v1. Full30 retained contexts and controlled
 fresh comparison remain pending; do not claim six-second success or adoption.
+
+## Fresh qualification and CI settlement
+
+Pinned candidate c6096f063, parent18b992193. Both ordinary capture-context arms
+completed15/15 with two separate isolated workers per arm. Independent reviews
+verify72/72 required context atoms in each, exact quotes/selectors/source-local
+authority, chronology and uncertainty; zero writer I/O. Exact30 retained native
+benchmark rows also accepted by both actual lifecycle predicates, read-only.
+
+Fresh accepted-to-ready median9463.030→10086.765ms; nearest-rank p95
+19818.506→18613.693ms. Controller calls75→74. This pair DOES NOT demonstrate
+whole-cycle improvement. Preserve it; no unchanged replay. Local append
+improvement is not extrapolated into six-second success.
+
+CI initially refused the unclassified new test filename before tests ran.
+Consolidated the same17 tests into the existing CI-classified native storage
+owner suite, avoiding the active CI lane's registry. All function/fixture ASTs
+match the reviewed files exactly; consolidated suite17passes. The new standalone
+test file is removed, not registered as another parallel suite. No runtime or
+migration change after the benchmark pin. Evidence remains under
+retrieval-native-storage-json-owner-v1 and retrieval-native-storage-comparison-v1.
+PR2290 is implementation delivery, not adoption, deployment or goal completion.
