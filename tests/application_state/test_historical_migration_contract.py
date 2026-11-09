@@ -119,26 +119,26 @@ def test_projection_rejects_nonowned_database_before_connect(
             _project_owned_rows(source, target, expected_omissions={})
 
 
-def test_current_production_downgrade_fence_preserves_revision_and_rows(
-    application_state_dsn,
-):
-    with psycopg.connect(application_state_dsn) as conn:
-        conn.execute("CREATE SCHEMA fence_probe")
-        conn.execute("CREATE TABLE fence_probe.marker(value text)")
-        conn.execute("INSERT INTO fence_probe.marker VALUES ('unchanged')")
-    before = cli._current_and_head(application_state_dsn)
-    assert before[0] == before[1]
-    with pytest.raises(
-        RuntimeError,
-        match="Older readers cannot reconstruct Plan connected-page reviews",
-    ):
-        command.downgrade(cli.alembic_config(), "20261108_0140")
-    assert cli._current_and_head(application_state_dsn) == before
-    with psycopg.connect(application_state_dsn) as conn:
-        assert conn.execute("SELECT value FROM fence_probe.marker").fetchall() == [
-            ("unchanged",)
-        ]
-    cli.assert_at_head(dsn=application_state_dsn)
+def test_0141_production_reader_fence_preserves_revision_and_rows(historical_database):
+    # Reach this exact fence even after newer migrations add earlier refusals.
+    # This is a real pinned schema, not a stamped or mocked current-head marker.
+    with historical_database("20261108_0141") as application_state_dsn:
+        with psycopg.connect(application_state_dsn) as conn:
+            conn.execute("CREATE SCHEMA fence_probe")
+            conn.execute("CREATE TABLE fence_probe.marker(value text)")
+            conn.execute("INSERT INTO fence_probe.marker VALUES ('unchanged')")
+        before = cli._current_and_head(application_state_dsn)
+        assert before[0] == "20261108_0141"
+        with pytest.raises(
+            RuntimeError,
+            match="Older readers cannot reconstruct Plan connected-page reviews",
+        ):
+            command.downgrade(cli.alembic_config(), "20261108_0140")
+        assert cli._current_and_head(application_state_dsn) == before
+        with psycopg.connect(application_state_dsn) as conn:
+            assert conn.execute("SELECT value FROM fence_probe.marker").fetchall() == [
+                ("unchanged",)
+            ]
 
 
 def test_corrupt_historical_template_refuses_without_repair():
