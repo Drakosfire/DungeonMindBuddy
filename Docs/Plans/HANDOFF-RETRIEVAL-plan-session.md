@@ -105,6 +105,9 @@ genuine complete execution. Full initial/recovery/frontier codecs remain.
 - tests/test_native_direct_source_selection.py: preserve the actual producer's
   invalid batch-family checks and reject generic callback producers after removal
   of the superseded closure helper.
+- tests/test_native_reference_navigation.py: adapt the existing timing/failure
+  fixture to the real shared claim fence; preserve materializer timing and exact
+  exception identity assertions. Local CI exposed its obsolete fake fence.
 
 No migration/new durable schema, Core implementation, Rules implementation, prompt,
 model/provider setting, CI registry/config, UI, ingestion, primary mutation,

@@ -114,6 +114,7 @@ def test_navigation_rehydrates_from_the_existing_retained_event_inventory(lane):
 
 def test_source_append_timing_includes_materializer_and_preserves_failure(lane):
     from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
+    from apps.live_control_server.services.agent_turn_service import _ClaimFence
     nav, _, _ = navigation(lane)
     host = AgentTurnTraceBuilder(agent_thread_id=None, turn_id=None, runtime="test", backend="test", mode="test")
     adapter = nav.adapter
@@ -121,7 +122,6 @@ def test_source_append_timing_includes_materializer_and_preserves_failure(lane):
     turn = adapter.fence.turn
     turn.world_id, turn.conversation_id, turn.turn_id = "managed", uuid4(), uuid4()
     turn.revision, turn.attempt = 3, 1
-    adapter.fence.renewer = SimpleNamespace(_turn=turn)
     failure = ConnectionError("original source unavailable")
     def read(grant):
         assert grant == "original grant"
@@ -130,8 +130,12 @@ def test_source_append_timing_includes_materializer_and_preserves_failure(lane):
         assert kwargs["expected_revision"] == 3 and kwargs["expected_attempt"] == 1
         return kwargs["read"]("original grant")
     adapter.service = SimpleNamespace(observe=observe)
-    with pytest.raises(ConnectionError) as caught:
-        nav._commit("observe", read=read)
+    adapter.fence = _ClaimFence(adapter.service, turn)
+    try:
+        with pytest.raises(ConnectionError) as caught:
+            nav._commit("observe", read=read)
+    finally:
+        adapter.fence.stop()
     assert caught.value is failure and adapter.fence.renewer._turn is turn
     spans = {span["name"]: span for span in host.spans}
     assert set(spans) == {"native_source_materialization", "native_source_append"}
