@@ -821,7 +821,7 @@ it("restores Cards from the matching Plan URL after reopen and keeps the local e
   );
   const firstMount = render(pageTree);
   const page = await screen.findByTestId("world-owned-plan");
-  const cards = within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Cards" });
+  const cards = within(await screen.findByRole("group", { name: "Plan view" })).getByRole("button", { name: "Cards" });
   const document = within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Document" });
   await waitFor(() => expect(cards).toHaveAttribute("aria-pressed", "true"));
   expect(screen.getByTestId("world-plan-document-view")).not.toHaveAttribute("hidden");
