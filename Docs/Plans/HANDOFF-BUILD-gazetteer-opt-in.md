@@ -1,7 +1,8 @@
 # BUILD — explicit gazetteer extraction selection
 
-Status ACTIVE stacked consumer of #1157 head bc064cff30cc00af8162052d05c09dcb638ca06f;
-merge server first. No runtime launch before accepted server adoption.
+Status: IMPLEMENTATION MERGED in PR1158 at a430cf4db0ab8af4ab11f13ad08682443d6d7f49; old implementation write lease RELEASED. This CI settlement does not infer operator delivery or broader extraction acceptance.
+
+Historical activation: stacked consumer of #1157 head bc064cff30cc00af8162052d05c09dcb638ca06f; merge server first. No runtime launch before accepted server adoption.
 PRIME implementation; ARCHITECTURE review; DOGFOOD rendered inspection.
 Branch codex/build-gazetteer-opt-in; lane /tmp/buddy-gazetteer-opt-in.
 Design base a79c6f47970b95be5b1354bcc0123379ca08b157.

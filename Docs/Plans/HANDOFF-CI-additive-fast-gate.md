@@ -134,3 +134,17 @@ by the existing authenticated-read owner; no synthetic constant bypasses owner
 changes. Add one negative reader case requiring different-epoch ready metadata to
 stay unavailable/no image/source unchanged. All153original cases/assertions stay;
 additive154thguard and existing useSavedMediaImage owner-change/URL/race controls.
+
+### Extraction hook mock/current closed argument contract
+
+Adopt apps/live-control-ui/src/buildSurface/BuildGazetteerSelection.test.tsx and
+Docs/Plans/HANDOFF-BUILD-gazetteer-opt-in.md only for fixture correction and truthful
+old implementation-lease settlement. PR1158 merged a430cf4db0ab8af4ab11f13ad08682443d6d7f49;
+lasttestwriter e8e7ecf is its ancestor. Old /tmp/buddy-gazetteer-opt-in is absent;
+Git's leftover registration is prunable, no live writer/checkout. ActivePR/file
+handoff checks found no overlap, no external outreach. Return explicit empty
+retained-recap state from the mock. Preserve each exact document/profile assertion
+and selector/launch lock check, extending the closed hook-argument object with
+actual worldId:null/recap:null when no World/provider is selected. This strengthens
+scope rather than using partial object matching. No extraction/product/Graph
+change or fabricated source admission; all3original case IDs remain unchanged.
