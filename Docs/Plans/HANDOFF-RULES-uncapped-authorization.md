@@ -1,6 +1,6 @@
 # RULES: honor the declared uncapped provider budget
 
-**Status:** ACTIVE. The CI coordinator explicitly authorizes the narrowly reproduced
+**Status:** SETTLED — #2291 merged `d3182d5e7b890722518c1ef2e14a5d56982bbfe3` after root exact-head PASS at `a6923b5421ff7971508055b84c043e1470be63c7` and all8 green hosted checks. Verified on main; no deployment. Historical authorization: the CI coordinator explicitly authorizes the narrowly reproduced
 RulesOnlyRuntime.authorize repair as a separately owned/reviewable PR2 dependency.
 Owner: Buddy runtime repair lane, executed by the CI worker under that assignment.
 **Base revision:** `7abfaccaccf63737a31a52e33c79a0df75e1b873`

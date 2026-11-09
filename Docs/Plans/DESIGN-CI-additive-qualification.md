@@ -188,3 +188,17 @@ Isolated candidate5d718dd3cdcc8da65b28e5d9e54d9bce2b3b339a passed actual-image
 startup/readiness/API/static, startup fault, real graph draft/save/reopen and
 persistence fault in107.501s, all owned cleanup true. This proves the image witness
 at its recorded candidate only; it is not full regression or main qualification.
+
+
+## Material repair dependencies now merged
+
+Root reviewed and explicitly authorized expected-head merges of runtime#2291
+(d3182d5e7b890722518c1ef2e14a5d56982bbfe3) and APP#2294
+(0d0f5af3418ae3327a4760376ba1f25385626b5d); both reviewed heads and merges were
+verified on main after all8 owning/current checks passed. The uncapped Rules guard
+and verified legacy producer defects above are historical findings now corrected
+on main. CI2 consumes that main without rebasing for unrelated changes, preserves
+all test IDs/assertion intent, settles the delivered owner handoffs, and refreshes
+exact-head/full qualification. Earlier candidate image proofs remain bound to their
+recorded SHAs; none becomes a main readiness claim. Main graph behavior remains
+absent and separate. No deployment, live-data, protection change or graph merge.
