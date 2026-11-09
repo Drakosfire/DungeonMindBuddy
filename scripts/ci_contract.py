@@ -16,6 +16,7 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 LANES = {"fast", "domain-integration", "qualification"}
+FULL_NAMES = {"full-regression", "full-backend", "full-frontend", "qualification-vitest", "qualification-build", "qualification-visual"}
 
 
 def contracts(root: Path = ROOT) -> dict:
@@ -83,9 +84,12 @@ def emit(report: dict) -> None:
     print(json.dumps(report, sort_keys=True), flush=True)
 
 
-def execute(name: str, root: Path = ROOT) -> int:
+def execute(name: str, root: Path = ROOT, *, partition: int | None = None, partition_report: str | None = None) -> int:
     catalog = contracts(root)
-    if name == "full-regression":
+    if partition is not None or partition_report is not None:
+        if name != "full-backend" or partition not in range(4) or not partition_report:
+            raise ValueError("partition options require full-backend and an index/report")
+    if name in FULL_NAMES:
         validate_inventory(root)
         steps = [
             {"cwd": ".", "argv": ["{python}", "-m", "pytest", "tests"]},
@@ -93,6 +97,17 @@ def execute(name: str, root: Path = ROOT) -> int:
             {"cwd": "apps/live-control-ui", "argv": ["npm", "run", "build"]},
             {"cwd": "apps/live-control-ui", "argv": ["npm", "run", "ui:visual"]},
         ]
+        if name == "full-backend":
+            steps = steps[:1]
+            if partition is not None:
+                steps[0]["argv"] += ["-p", "scripts.qualification.partition",
+                    "--qualification-partition", str(partition), "--qualification-report", partition_report,
+                    "--durations=30", "--junitxml", str(Path(partition_report).with_name("tests.xml"))]
+        elif name == "full-frontend":
+            steps = steps[1:]
+        elif name in {"qualification-vitest", "qualification-build", "qualification-visual"}:
+            offset = {"qualification-vitest": 1, "qualification-build": 2, "qualification-visual": 3}[name]
+            steps = steps[offset:offset + 1]
     else:
         contract = catalog[name]
         steps = contract.get("steps", [contract])
@@ -116,7 +131,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=["inventory", "commands", "run"])
     parser.add_argument("contract", nargs="?")
+    parser.add_argument("--partition", type=int, choices=range(4))
+    parser.add_argument("--partition-report")
     args = parser.parse_args()
+    if (args.partition is not None or args.partition_report is not None) and (
+            args.action != "run" or args.contract != "full-backend" or args.partition is None or not args.partition_report):
+        parser.error("partition options require run full-backend with index and report")
     if args.action == "inventory":
         started = time.monotonic()
         try:
@@ -131,9 +151,9 @@ def main() -> int:
             for step in contract.get("steps", [contract]):
                 print(name, step["cwd"], shlex.join(step["argv"]), sep="\t")
         return 0
-    if args.contract not in {*contracts(), "full-regression"}:
+    if args.contract not in {*contracts(), *FULL_NAMES}:
         parser.error("run requires a named contract (see commands) or full-regression")
-    return execute(args.contract)
+    return execute(args.contract, partition=args.partition, partition_report=args.partition_report)
 
 
 if __name__ == "__main__":
