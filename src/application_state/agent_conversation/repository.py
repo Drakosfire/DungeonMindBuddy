@@ -122,6 +122,10 @@ def _reference_values(reference: HistoricalReference) -> tuple[Any, ...]:
 def _turn_references(
     conn: psycopg.Connection, turn_id: UUID
 ) -> tuple[HistoricalReference, list[HistoricalReference], HistoricalReference]:
+    return _references_from_rows(_turn_reference_rows(conn, turn_id))
+
+
+def _turn_reference_rows(conn, turn_id, *, lock=False):
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
@@ -132,11 +136,107 @@ def _turn_references(
             ORDER BY CASE reference_role WHEN 'primary' THEN 0 WHEN 'supporting' THEN 1 ELSE 2 END,
                      ordinal
             LIMIT 35
-            """,
+            """ + (" FOR SHARE" if lock else ""),
             (turn_id,),
         )
         rows = cur.fetchall()
-    return _references_from_rows(rows)
+    return rows
+
+
+def _lock_plan_session_image(conn, world_id, turn_id):
+    """Read the complete storage image without constructing mutable JSON models.
+
+    This is a transaction-local guard input, not an admission receipt. Its caller
+    must retain the root lock, validate the initial complete Turn and join fresh
+    source/Rules owners before IO. SQL NULL and JSON null remain distinct.
+    """
+    json_columns = frozenset({"graph_context_receipt", "graph_context_execution",
+                              "completion", "play_context_receipt"})
+    columns = tuple(name.strip() for name in _TURN_BASE_COLS.split(","))
+    selected = ", ".join(
+        f"pg_catalog.jsonb_send({name}) AS {name}" if name in json_columns else name
+        for name in (*columns, "answer_composition_kind", "request_fingerprint",
+                     "idempotency_fingerprint", "submitted_intent_schema"))
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(f"SELECT {selected} FROM agent.turn "
+                    "WHERE world_id=%s AND turn_id=%s FOR UPDATE", (world_id, turn_id))
+        row = cur.fetchone()
+        if row is None:
+            return None
+        references = _turn_reference_rows(conn, turn_id, lock=True)
+        # Apply the existing provenance bound and structural refusal owner.
+        _references_from_rows(references)
+        # Keep Rules' existing SQL transfer caps before moving either JSON body.
+        # Individual columns preserve SQL NULL, JSON null and scalar types.
+        cur.execute("SELECT turn_id,product_attempt,revision, "
+                    "CASE WHEN octet_length(payload::text)<=327680 "
+                    "THEN pg_catalog.jsonb_send(payload) ELSE NULL END AS payload, "
+                    "accepted_binding IS NOT NULL AND "
+                    "octet_length(accepted_binding::text)>40960 AS binding_oversized, "
+                    "CASE WHEN octet_length(accepted_binding::text)<=40960 "
+                    "THEN pg_catalog.jsonb_send(accepted_binding) ELSE NULL END AS accepted_binding, "
+                    "accepted_binding_sha256 FROM agent.turn_rules_execution "
+                    "WHERE turn_id=%s AND product_attempt=%s FOR SHARE",
+                    (turn_id, row["attempt"]))
+        rules = cur.fetchone()
+        if rules is not None and rules["payload"] is None:
+            raise ApplicationStateIntegrityError("Rules ledger exceeds its SQL transfer cap")
+        if rules is not None and rules["binding_oversized"]:
+            raise ApplicationStateIntegrityError("Rules accepted binding exceeds its SQL transfer cap")
+
+    def scalar(value):
+        if isinstance(value, (bytes, bytearray, memoryview)):
+            return bytes(value)
+        if value is None or type(value) in (str, int, bool, UUID, datetime):
+            return value
+        raise ApplicationStateIntegrityError("Session storage image contains an unexpected scalar")
+
+    return (tuple((name, scalar(value)) for name, value in row.items()),
+            tuple(tuple((name, scalar(value)) for name, value in reference.items())
+                  for reference in references),
+            None if rules is None else tuple((name, scalar(value)) for name, value in rules.items()))
+
+
+def _update_plan_session_execution(conn, *, world_id, turn_id, before, execution):
+    """Persist an admitted complete execution and verify its exact storage ACK.
+
+    Only the session admission owner may call this with its freshly locked image.
+    No success is published here: the transaction still has to commit. A trigger
+    changing any other root/child field causes refusal and caller rollback.
+    """
+    prior = dict(before[0])
+    if (prior["world_id"], prior["turn_id"], prior["status"]) != (world_id, turn_id, "running"):
+        raise ApplicationStateIntegrityError("Session execution ACK requires its running locked root")
+    started = database_clock(conn)
+    with conn.cursor(row_factory=dict_row) as cur:
+        # One parameter owns both the actual update and expected PostgreSQL
+        # encoding. Do not compare JSONB semantic equality or Python JSON hashes.
+        cur.execute("WITH expected AS (SELECT %s::jsonb AS execution) "
+                    "UPDATE agent.turn SET graph_context_execution=expected.execution, "
+                    "revision=revision+1,updated_at=clock_timestamp() FROM expected "
+                    "WHERE world_id=%s AND turn_id=%s AND status='running' "
+                    "AND revision=%s AND attempt=%s AND claim_expires_at>clock_timestamp() "
+                    "RETURNING pg_catalog.jsonb_send(agent.turn.graph_context_execution) AS actual, "
+                    "pg_catalog.jsonb_send(expected.execution) AS expected",
+                    (Jsonb(execution.model_dump(mode="json", by_alias=True)),
+                     world_id, turn_id, prior["revision"], prior["attempt"]))
+        acknowledgement = cur.fetchone()
+    if acknowledgement is None:
+        return None
+    if bytes(acknowledgement["actual"]) != bytes(acknowledgement["expected"]):
+        raise ApplicationStateIntegrityError("Session execution differs from its actual SQL acknowledgement")
+    after = _lock_plan_session_image(conn, world_id, turn_id)
+    finished = database_clock(conn)
+    if after is None:
+        raise ApplicationStateIntegrityError("Session root disappeared after execution acknowledgement")
+    current = dict(after[0])
+    expected = prior | {"revision": prior["revision"] + 1,
+                        "updated_at": current["updated_at"],
+                        "graph_context_execution": bytes(acknowledgement["expected"])}
+    if (current != expected or after[1:] != before[1:]
+            or not started <= current["updated_at"] <= finished):
+        raise ApplicationStateIntegrityError("Session execution acknowledgement changed its locked storage image")
+    return after
 
 
 def _references_from_rows(rows):

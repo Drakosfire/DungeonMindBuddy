@@ -231,6 +231,9 @@ def report_case(case, base):
         return {"case_id": case["id"], "question": case["question"], "capture_status": "complete",
             "capture_boundary": "context_ready", "durable_turn_id": turn["turn_id"], "boundaries": boundaries,
             "context": {"status": "captured", "accepted_to_ready_ms": context_packet["elapsed_ms"],
+                "request_to_ready_ms": context_packet["request_to_ready_ms"],
+                "request_timing_basis": ("Same-process monotonic clock from ordinary request dispatch to post-authorization context-ready; includes bootstrap, excludes capture installation, artifact IO and cleanup"
+                    if context_packet["request_to_ready_ms"] is not None else "Unknown: historical request-start tick was not retained"),
                 "prepared_request_bytes": context_packet["prepared_bytes"],
                 "host_spans": documents["context-ready"].get("host_spans"),
                 "host_span_limits": "Existing pre-stop spans; cumulative/nested durations overlap and are not additive. Open phases are unfinished, not zero-cost.",
@@ -307,6 +310,8 @@ def capture_case(client, world, template, case, directory, *, context_only=False
     context_stop = ContextCapture(directory) if context_only else None
     try:
         with context_stop.install() if context_stop is not None else nullcontext():
+            if context_stop is not None:
+                context_stop.request_started_monotonic_ns = time.monotonic_ns()
             response = client.post("/api/live/agent/turn", json=request)
         immutable_save(directory, "answer-http", {**response_envelope(response),
             "elapsed_ms": (time.monotonic() - started) * 1000})

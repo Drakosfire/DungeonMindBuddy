@@ -1,6 +1,7 @@
 """Author-selected identities and immutable context snapshots; never Graph facts."""
 from __future__ import annotations
 
+from copy import deepcopy
 from hashlib import sha256
 import json
 from typing import Annotated, Literal
@@ -328,7 +329,7 @@ def observe_native_reference(turn, *, event_id, authorization_event_id, material
     if len(grants) != 1:
         raise ValueError('Native human observation requires its retained grant')
     grant = grants[0]
-    support = materialize(grant)
+    support = materialize(deepcopy(grant))
     if support.query_sha256 != grant.query_sha256 or support.node_id != grant.node_id:
         raise ValueError('Native human materialization changed its query or target')
     event = BuildAuthoredReferenceReadV3(event_id=event_id, sequence=len(execution.events),
@@ -394,7 +395,7 @@ def observe_native_source_reference(turn, *, event_id, reference_index, material
     reference = captured.references.references[reference_index]
     if not isinstance(reference, AuthoredSourceReferenceV1):
         raise ValueError('Selected source read requires its actual source input')
-    catalog, excerpt = materialize(reference)
+    catalog, excerpt = materialize(deepcopy(reference))
     event = NativeAuthoredSourceReadV1(event_id=event_id, sequence=len(execution.events),
         capture_event_id=captured.event_id, reference_index=reference_index,
         catalog=catalog, excerpt=excerpt)

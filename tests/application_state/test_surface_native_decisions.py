@@ -50,6 +50,244 @@ def digest(raw):
     return sha256(raw.encode()).hexdigest()
 
 
+def test_plan_session_storage_image_covers_root_and_locked_provenance(application_state_dsn):
+    import psycopg
+    from application_state.agent_conversation import repository as repo
+
+    case = sdk_case(application_state_dsn, native='current')
+    turn = case.turn
+    with psycopg.connect(application_state_dsn) as conn:
+        before = repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id)
+        columns = {row[0] for row in conn.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema='agent' AND table_name='turn'")}
+        assert {name for name, _ in before[0]} == columns
+        assert before == repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id)
+        with psycopg.connect(application_state_dsn) as competing:
+            competing.execute("SET LOCAL lock_timeout='30ms'")
+            with pytest.raises(psycopg.errors.LockNotAvailable):
+                competing.execute("UPDATE agent.turn_reference SET ordinal=ordinal "
+                                  "WHERE turn_id=%s", (turn.turn_id,))
+            competing.rollback()
+        for statement in (
+            "UPDATE agent.turn SET request_fingerprint=repeat('f',64) WHERE turn_id=%s",
+            "UPDATE agent.turn_reference SET content_sha256=repeat('f',64) "
+            "WHERE turn_id=%s AND reference_role='primary'",
+        ):
+            with conn.transaction(force_rollback=True):
+                assert conn.execute(statement, (turn.turn_id,)).rowcount
+                changed = repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id)
+                assert changed != before
+                assert dict(changed[0])['revision'] == turn.revision
+            assert repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id) == before
+        with conn.transaction(force_rollback=True):
+            acknowledged = repo._update_plan_session_execution(conn,
+                world_id=turn.world_id, turn_id=turn.turn_id, before=before,
+                execution=turn.graph_context_execution)
+            assert dict(acknowledged[0])['revision'] == turn.revision + 1
+            assert acknowledged[1:] == before[1:]
+        assert repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id) == before
+        with conn.transaction(force_rollback=True):
+            conn.execute("CREATE FUNCTION pg_temp.change_session_ack() RETURNS trigger "
+                         "LANGUAGE plpgsql AS $$ BEGIN NEW.request_fingerprint := repeat('f',64); "
+                         "RETURN NEW; END $$")
+            conn.execute("CREATE TRIGGER change_session_ack BEFORE UPDATE ON agent.turn "
+                         "FOR EACH ROW EXECUTE FUNCTION pg_temp.change_session_ack()")
+            from application_state.errors import ApplicationStateIntegrityError
+            with pytest.raises(ApplicationStateIntegrityError, match='acknowledgement changed'):
+                repo._update_plan_session_execution(conn, world_id=turn.world_id,
+                    turn_id=turn.turn_id, before=before, execution=turn.graph_context_execution)
+        assert repo._lock_plan_session_image(conn, turn.world_id, turn.turn_id) == before
+        conn.rollback()
+
+
+def test_readonly_session_commits_detached_views_and_finishes_through_real_codec(application_state_dsn):
+    from application_state.agent_conversation.native_plan_session import NativePlanSession, PlanSessionCommand, eligible
+
+    case = sdk_case(application_state_dsn, native='current', readonly_session=True)
+    assert eligible(case.turn)
+    session = NativePlanSession(case.turn)
+    step = case.steps[-1]
+    updated, fresh = session.execute(PlanSessionCommand.SELECTION,
+        expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
+        selection=step.selection, producer_proof=step.proof)
+    assert fresh
+    revision = updated.revision
+    updated.graph_context_execution.events.clear()
+    updated.user_text = 'changed public export'
+    replay, fresh = session.execute(PlanSessionCommand.SELECTION,
+        expected_revision=revision, expected_attempt=case.turn.attempt,
+        selection=step.selection, producer_proof=step.proof)
+    assert not fresh and replay.graph_context_execution.events
+    assert replay.user_text == case.turn.user_text
+    final = session.finish()
+    assert final == case.service.inspect_turn(world_id=final.world_id, turn_id=final.turn_id)
+    assert final == replay
+    with pytest.raises(ApplicationStateConflictError, match='sealed'):
+        session.execute(PlanSessionCommand.SELECTION, expected_revision=revision,
+            expected_attempt=final.attempt, selection=step.selection, producer_proof=step.proof)
+
+
+def test_runtime_fence_activates_session_for_current_plan_and_preserves_renewal(application_state_dsn):
+    from contextlib import ExitStack
+    from apps.live_control_server.services.agent_turn_service import _ClaimFence
+
+    with ExitStack() as cleanup:
+        def make_fence(service, turn):
+            fence = _ClaimFence(service, turn)
+            cleanup.callback(fence.stop)
+            return fence
+        case = sdk_case(application_state_dsn, native='current', readonly_session=True,
+            fence_factory=make_fence)
+        assert case.fence.renewer._session is not None
+        assert append(case)
+        assert not append(case)
+        with case.fence.renewer._lock:
+            renewed = case.fence.renewer._session.renew(
+                expected_revision=case.turn.revision, lease_seconds=120)
+            case.fence.renewer._turn = renewed
+        assert renewed.revision == case.turn.revision + 1
+        final, error = case.fence.stop()
+        assert error is None and case.fence.renewer._session is None
+        assert final == case.service.inspect_turn(world_id=final.world_id, turn_id=final.turn_id)
+
+
+@pytest.mark.parametrize('phase', ['before_commit', 'after_commit'])
+def test_session_commit_failure_seals_without_publishing_or_replaying(application_state_dsn, monkeypatch, phase):
+    from contextlib import contextmanager
+    from application_state.agent_conversation import service as service_owner
+    from application_state.agent_conversation.native_plan_session import NativePlanSession, PlanSessionCommand
+
+    case = sdk_case(application_state_dsn, native='current', readonly_session=True)
+    session = NativePlanSession(case.turn)
+    original = service_owner.unit_of_work
+    @contextmanager
+    def broken_commit(dsn):
+        with original(dsn) as conn:
+            yield conn
+            if phase == 'before_commit':
+                raise RuntimeError('synthetic commit boundary failure')
+        raise RuntimeError('synthetic commit boundary failure')
+    step = case.steps[-1]
+    fields = dict(expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
+        selection=step.selection, producer_proof=step.proof)
+    with monkeypatch.context() as patch:
+        patch.setattr(service_owner, 'unit_of_work', broken_commit)
+        with pytest.raises(RuntimeError, match='commit boundary failure'):
+            session.execute(PlanSessionCommand.SELECTION, **fields)
+    with pytest.raises(ApplicationStateConflictError, match='sealed'):
+        session.execute(PlanSessionCommand.SELECTION, **fields)
+    actual = case.service.inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id)
+    assert actual.revision == case.turn.revision + (phase == 'after_commit')
+
+
+def test_session_refuses_unchanged_revision_storage_corruption(application_state_dsn):
+    import psycopg
+    from application_state.errors import ApplicationStateIntegrityError
+    from application_state.agent_conversation.native_plan_session import NativePlanSession, PlanSessionCommand
+
+    case = sdk_case(application_state_dsn, native='current', readonly_session=True)
+    session = NativePlanSession(case.turn)
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE agent.turn SET request_fingerprint=repeat('f',64) WHERE turn_id=%s", (case.turn.turn_id,))
+    step = case.steps[-1]
+    with pytest.raises(ApplicationStateIntegrityError, match='current locked storage'):
+        session.execute(PlanSessionCommand.SELECTION, expected_revision=case.turn.revision,
+            expected_attempt=case.turn.attempt, selection=step.selection, producer_proof=step.proof)
+    with pytest.raises(ApplicationStateConflictError, match='sealed'):
+        session.finish()
+
+
+def test_session_renewal_refuses_after_trigger_lease_change(application_state_dsn):
+    import psycopg
+    from application_state.errors import ApplicationStateIntegrityError
+    from application_state.agent_conversation.native_plan_session import NativePlanSession
+
+    case = sdk_case(application_state_dsn, native='current', readonly_session=True)
+    session = NativePlanSession(case.turn)
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("CREATE FUNCTION agent.session_renewal_probe() RETURNS trigger LANGUAGE plpgsql AS $$ "
+            "BEGIN IF pg_trigger_depth()=1 THEN UPDATE agent.turn "
+            "SET claim_expires_at=NEW.claim_expires_at+interval '1 hour' WHERE turn_id=NEW.turn_id; "
+            "END IF; RETURN NEW; END $$")
+        conn.execute("CREATE TRIGGER session_renewal_probe AFTER UPDATE ON agent.turn "
+            "FOR EACH ROW EXECUTE FUNCTION agent.session_renewal_probe()")
+    with pytest.raises(ApplicationStateIntegrityError, match='renewal changed'):
+        session.renew(expected_revision=case.turn.revision, lease_seconds=120)
+    assert case.service.inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id) == case.turn
+    with pytest.raises(ApplicationStateConflictError, match='sealed'):
+        session.finish()
+
+
+@pytest.mark.parametrize('forged_result', [False, True])
+def test_session_rules_checkpoint_requires_exact_committed_child_result(application_state_dsn, forged_result):
+    from application_state.errors import ApplicationStateIntegrityError
+    from application_state.agent_conversation.native_plan_session import NativePlanSession, PlanSessionCommand
+    from tests.application_state.test_plan_jev_decision_admission import rules_scope
+
+    case = sdk_case(application_state_dsn, native='current', readonly_session=True)
+    session = NativePlanSession(case.turn)
+    scope = rules_scope(case)
+    retained = {}
+    def begin():
+        retained['record'] = case.service.begin_rules_execution(scope,
+            expected_turn_revision=case.turn.revision)
+        return 'ordinary Rules frame checkpoint'
+    def expected():
+        actual = retained['record']
+        return actual.model_copy(update={'revision': actual.revision + 1}) if forged_result else actual
+    if forged_result:
+        with pytest.raises(ApplicationStateIntegrityError, match='committed owner result'):
+            session.rules_checkpoint(begin, expected)
+        with pytest.raises(ApplicationStateConflictError, match='sealed'):
+            session.finish()
+    else:
+        assert session.rules_checkpoint(begin, expected) == 'ordinary Rules frame checkpoint'
+        step = case.steps[-1]
+        updated, fresh = session.execute(PlanSessionCommand.SELECTION,
+            expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
+            selection=step.selection, producer_proof=step.proof)
+        assert fresh and session.finish() == updated
+    # The Rules owner's successful commit is preserved even if checkpoint
+    # verification fails; no unknown operation is silently replayed.
+    assert case.service.begin_rules_execution(scope,
+        expected_turn_revision=case.turn.revision + (not forged_result)) == retained['record']
+
+
+def test_session_checkpoint_reentry_refuses_before_another_transaction(application_state_dsn):
+    from application_state.agent_conversation.native_plan_session import NativePlanSession
+
+    case = sdk_case(application_state_dsn, native='current', readonly_session=True)
+    session = NativePlanSession(case.turn)
+    with pytest.raises(ApplicationStateConflictError, match='reenter'):
+        session.rules_checkpoint(session.finish, lambda: None)
+    assert case.service.inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id) == case.turn
+    with pytest.raises(ApplicationStateConflictError, match='sealed'):
+        session.finish()
+
+
+@pytest.mark.parametrize('command', ['missing_execution_method', 'inspect_turn'])
+def test_runtime_refusal_aborts_session_before_dispatch(application_state_dsn, command):
+    from contextlib import ExitStack
+    from apps.live_control_server.services.agent_turn_service import _ClaimFence
+    from application_state.errors import ApplicationStateError
+
+    with ExitStack() as cleanup:
+        def make_fence(service, turn):
+            fence = _ClaimFence(service, turn)
+            cleanup.callback(fence.stop)
+            return fence
+        case = sdk_case(application_state_dsn, native='current', readonly_session=True,
+            fence_factory=make_fence)
+        retained = case.fence.renewer._session
+        with pytest.raises((ApplicationStateError, ValueError)):
+            case.fence.commit(command)
+        assert case.fence.renewer._session is None
+        with pytest.raises(ApplicationStateConflictError, match='sealed'):
+            retained.finish()
+        assert case.service.inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id) == case.turn
+
+
 def append(case, **updates):
     step = case.steps[-1]
     params = dict(
@@ -63,12 +301,13 @@ def append(case, **updates):
         if step.semantic
         else case.service.record_plan_jev_retrieval_selection
     )
-    case.turn, fresh = method(
-        case.turn.world_id,
-        case.turn.conversation_id,
-        case.turn.turn_id,
-        **(params | updates),
-    )
+    if getattr(case, 'fence', None) is not None:
+        assert not updates
+        case.turn, fresh = case.fence.append(method.__name__, 'selection', step.selection,
+            producer_proof=step.proof)
+    else:
+        case.turn, fresh = method(case.turn.world_id, case.turn.conversation_id,
+            case.turn.turn_id, **(params | updates))
     return fresh
 
 
@@ -85,12 +324,19 @@ def sdk_case(
     native=False,
     include_final_decision=True,
     examined=None,
+    readonly_session=False,
+    fence_factory=None,
 ):
     context, ledger = (
         context_record
         if context_record is not None
         else component("plan", unavailable=unavailable)
     )
+    if readonly_session:
+        from application_state.agent_conversation.native_execution import NativePlanActionV2
+        action = NativePlanActionV2.model_validate(ledger.policy.action.model_dump(by_alias=True)
+            | {'action_version': 'plan_saved_authored_pages_v2', 'related_page_catalog': ()})
+        ledger = execution(context.context_receipt_sha256, ledger.policy.model_copy(update={'action': action}))
     if question is not None:
         wire = context.model_dump(mode="json", by_alias=True)
         if "question" in wire["native_query"]:
@@ -123,13 +369,15 @@ def sdk_case(
             question=ledger.policy.action.intent.message,
         )
         if semantic:
-            parent = PlanRequestedWorkInputV3(
+            from application_state.agent_conversation.plan_placement import PlanRequestedWorkInputV8
+            parent = (PlanRequestedWorkInputV8 if readonly_session else PlanRequestedWorkInputV3)(
                 **common,
                 page_title="Synthetic Plan",
                 target_available=False,
                 target_capture_sha256=None,
                 placement_catalog=None,
                 original_capture=None,
+                **({'authored_references': None} if readonly_session else {}),
             )
             prepare = prepare_requested_work_decision
         else:
@@ -201,6 +449,8 @@ def sdk_case(
                     accepted.turn_id,
                     expected_revision=accepted.revision,
                 ).turn
+                if fence_factory is not None:
+                    case.fence = fence_factory(case.service, case.turn)
                 case.service.start_context_trace(
                     world_id=case.turn.world_id,
                     conversation_id=case.turn.conversation_id,
@@ -251,15 +501,14 @@ def sdk_case(
                 parent_request_json=step.parent.model_dump_json(by_alias=True),
                 request_json=prepared.body.decode(),
             )
-            case.turn, fresh = case.service.authorize_plan_jev_provider(
-                case.turn.world_id,
-                case.turn.conversation_id,
-                case.turn.turn_id,
-                expected_revision=case.turn.revision,
-                expected_attempt=case.turn.attempt,
-                authorization=step.auth,
-                producer_proof=step.proof,
-            )
+            if getattr(case, 'fence', None) is not None:
+                case.turn, fresh = case.fence.append('authorize_plan_jev_provider', 'authorization',
+                    step.auth, producer_proof=step.proof)
+            else:
+                case.turn, fresh = case.service.authorize_plan_jev_provider(
+                    case.turn.world_id, case.turn.conversation_id, case.turn.turn_id,
+                    expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
+                    authorization=step.auth, producer_proof=step.proof)
             assert fresh
             assert (
                 AgentConversationService().inspect_turn(
@@ -284,14 +533,13 @@ def sdk_case(
                 provider_attempt_id=UUID(event.request.attempt_id),
                 outcome=transition,
             )
-            case.turn, fresh = case.service.record_provider_outcome(
-                case.turn.world_id,
-                case.turn.conversation_id,
-                case.turn.turn_id,
-                expected_revision=case.turn.revision,
-                expected_attempt=case.turn.attempt,
-                outcome=outcome,
-            )
+            if getattr(case, 'fence', None) is not None:
+                case.turn, fresh = case.fence.append('record_provider_outcome', 'outcome', outcome)
+            else:
+                case.turn, fresh = case.service.record_provider_outcome(
+                    case.turn.world_id, case.turn.conversation_id, case.turn.turn_id,
+                    expected_revision=case.turn.revision, expected_attempt=case.turn.attempt,
+                    outcome=outcome)
             assert fresh
             return True
 
@@ -362,8 +610,9 @@ def sdk_case(
             actual_output_tokens=result.observation.output_tokens,
         )
         if semantic:
-            step.selection = t.PlanRequestedWorkSelectedV2(
-                kind="plan_requested_work_selected_v2",
+            from application_state.agent_conversation.native_execution import NativePlanRequestedWorkSelectedV3
+            step.selection = (NativePlanRequestedWorkSelectedV3 if readonly_session else t.PlanRequestedWorkSelectedV2)(
+                kind="plan_requested_work_selected_v3" if readonly_session else "plan_requested_work_selected_v2",
                 **fields,
                 **work_choice(
                     step.parent, decode_requested_work_decision(step.parent, result)
