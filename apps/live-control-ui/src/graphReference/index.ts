@@ -32,8 +32,6 @@ export {
   type WorldGraphNodeIndex,
 } from "./resolveGraphReference";
 export { insertMarkdownReference } from "./insertMarkdownReference";
-export { useOpenGraphReference, type UseOpenGraphReferenceOptions } from "./useOpenGraphReference";
-export { glanceOnlyForGraphReference } from "./openGraphReferencePolicy";
 export {
   ResolvedGraphObjectProjection,
   type ResolvedGraphObjectProjectionProps,

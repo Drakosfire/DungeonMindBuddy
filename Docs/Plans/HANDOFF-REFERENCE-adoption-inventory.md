@@ -169,3 +169,16 @@ session files were unchanged. Evidence:
 `build-light-retry-ui-final-conservation.json` in the private evidence directory
 above. These checks settle this recovery slice, not held Play execution or the
 complete goal.
+
+
+## Unused opening-helper source retirement
+
+HANDOFF-REFERENCE-unused-opening-helpers.md removes useOpenGraphReference and
+openGraphReferencePolicy, their two unused barrel exports and exclusive tests.
+Current symbol/import searches show no production caller. Native object preview,
+shared statblock editing, the projection host and threat view-model remain.
+Only the two retired test classifications change; no current runtime or stored
+browser state is rewritten. The diagnostic/resolver/card closure remains a
+separate retirement. Its panel tests are still named by the frozen CI command
+fixture, whose equality guard requires an owning contract decision before that
+larger removal; it is not silently changed by this slice.
