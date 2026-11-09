@@ -261,6 +261,24 @@ def test_nested_work_mutation_cannot_bypass_root_revalidation():
         join(context, provenance)
 
 
+@pytest.mark.parametrize("surface", ["build", "plan", "play"])
+def test_work_join_rejects_mutated_nested_authority_fields(surface):
+    context, provenance = bound_context(surface)
+    object.__setattr__(context.source_authority, "binding_version", 0)
+    with pytest.raises(ValidationError) as error:
+        join(context, provenance)
+    assert any(item["loc"][-1] == "binding_version" for item in error.value.errors())
+
+
+@pytest.mark.parametrize("surface", ["build", "plan", "play"])
+def test_work_join_rejects_mutated_nested_provenance_fields(surface):
+    context, provenance = bound_context(surface)
+    object.__setattr__(provenance.primary_work, "resolution", "unverified")
+    with pytest.raises(ValidationError) as error:
+        join(context, provenance)
+    assert any(item["loc"][-1] == "resolution" for item in error.value.errors())
+
+
 def test_structural_provenance_view_is_not_accepted_as_a_work_join():
     from types import SimpleNamespace
     context, provenance = bound_context("plan")
