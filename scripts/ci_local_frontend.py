@@ -310,11 +310,13 @@ def verify(args):
                         json.loads((source / "ci/contracts.json").read_text()),
                         args.suite,
                     )
+                    for name in ("npm-user-config", "npm-global-config"):
+                        (out / name).write_text("")
                     report["install"] = command(
                         [
                             *install,
-                            "--userconfig=/dev/null",
-                            "--globalconfig=/dev/null",
+                            f"--userconfig={out / 'npm-user-config'}",
+                            f"--globalconfig={out / 'npm-global-config'}",
                         ],
                         frontend,
                         out / "install.log",

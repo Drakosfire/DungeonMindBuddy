@@ -145,7 +145,8 @@ def test_real_worktree_cleanup_and_source_bound_inventory(sandbox):
     assert not Path(report["source_frontend_path"]).exists()
     assert report["tests"][0]["discovered_cases"] == 1
     assert any("--maxWorkers=8" in call and "--minWorkers=8" in call for call in calls)
-    assert "--userconfig=/dev/null" in calls[0]
+    assert any(arg.startswith("--userconfig=") for arg in calls[0])
+    assert any(arg.startswith("--globalconfig=") for arg in calls[0])
     assert (
         len(local.git(args.repo, "worktree", "list", "--porcelain").split("worktree "))
         == 2
