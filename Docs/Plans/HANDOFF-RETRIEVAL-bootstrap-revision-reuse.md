@@ -1,6 +1,7 @@
 # RETRIEVAL: reuse the prepared native revision during Graph bootstrap
 
-Status: ACTIVE bounded design adopted by Root, the assigned retrieval steward,
+Status: MERGED as39f2c45f950fd6c2db4f82bc2b05a0a61f70b3bf (PR2309).
+Bounded design adopted by Root, the assigned retrieval steward,
 under the continuing user authorization to own generic retrieval optimization.
 This is the steward checkpoint for one independently useful bootstrap capability.
 Pinned base c12bafca6b6949ae3aad5012c716eefbe6b61c81. Implementation complete; local owner validation passed. Exact-head review and PR delivery follow.
@@ -56,3 +57,10 @@ User explicitly approved the independent three-file cleanup lane in this chat. R
 Runtime uses the existing locked Python environment in recorded-names-control, with PYTHONPATH explicitly selecting this worktree. Test databases are disposable on evaluator55447; no server/port changes or primary writes. Evidence output is retrieval-bootstrap-reuse-v1. No paid capture is active.
 
 Observed verification: all44 native assertion owner tests pass, including real-Core complete-query equality and mismatch/refusal cases. Provider-free old/candidate comparison over the frozen15ordinaryquestions yields15identical complete queries; median query bootstrap645.965→282.769ms,30→0revisionreloads. No end-to-end latency claim. Production Ruff passes;14test-file diagnostics exactly match pinnedbase. Initial erroneous object-identity assertion and its failurelog retained; Core properties return detached equal descriptors. Evidence: retrieval-bootstrap-reuse-v1. No new paidcalls, database schema changes or primary writes.
+
+## Consumption settlement
+
+Exact-head review passed atfd5328489a549bdf16b2456b5c3410109e639772. The user
+granted full merge rights; PR2309 merged without deployment or primary writes.
+Its implementation lease is settled. PR2304 now consumes this predecessor;
+646→283ms is component evidence only, not a whole-cycle or six-second result.

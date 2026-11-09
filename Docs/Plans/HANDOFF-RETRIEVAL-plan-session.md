@@ -2,17 +2,19 @@
 
 Status: ACTIVE design/implementation. Root is the designing steward and worker
 under the user's continuing six-second retrieval objective. Isolated branch
-codex/retrieval-plan-session, exact base768efb7100f0a722ab3f66f0ac4795d803586a89.
+codex/retrieval-plan-session, rebased base fff6c97095eb23827d4f3d83b839f29da229e483.
+Original capture head6170495a7 is retained by Git evidence tag
+evidence/retrieval-plan-session-capture-6170495.
 
-## Explicit stacked topology and ownership
+## Settled predecessor and serial topology
 
-Root revises this workstream from serial to STACKED before successor dispatch.
-Parent2301 at the exact base above is OPEN, independently reviewed, all7CIchecks
-passing; it is NOT merged or merge-authorized by this contract. This portable
-handoff supersedes the predecessor's serial dispatch gate only for this bounded
-child. Merge/rebase order:2301, then this child rebased on refreshed main.
-No merge occurs without separate user authority. This avoids treating a pending
-merge as a reason to stop already-authorized implementation.
+Parent2301 merged as fff6c97095eb23827d4f3d83b839f29da229e483. Independent
+bootstrap2309 merged as39f2c45f950fd6c2db4f82bc2b05a0a61f70b3bf, with15exact
+query pairs and44owner tests. This child has now been rebased onto their settled
+main. Topology is serial: PR2304 is this workstream's sole open implementation.
+The user granted standing full merge rights; source correctness, local owner
+verification and honest performance/context assessment remain required. This is
+not a declaration that2304 has met adoption or the six-second goal.
 
 Checked2302/2299/2298/2288 CI and2276surface lanes are disjoint.2225composition
 remains parked; Root transfers only the explicit retrieval/runtime paths below.
@@ -63,8 +65,8 @@ genuine complete execution. Full initial/recovery/frontier codecs remain.
 
 ## Expected exclusive writes and review map
 
-- This handoff and record-transition handoff's topology/consumption bookkeeping;
-  do not pre-mark2301merged.
+- This handoff, record-transition handoff and bootstrap-revision-reuse handoff's
+  truthful merged-predecessor settlement. Do not pre-mark2304 or successors done.
 - src/application_state/agent_conversation/native_plan_session.py: private session,
   typed commands, eligibility, owned materialization, commit lifecycle.
 - src/application_state/agent_conversation/repository.py: exact raw locked/ACK
