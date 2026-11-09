@@ -1,6 +1,15 @@
 import {
+  emptyLocalWorldPackageData,
+  encodeWorldNotes,
+  isWorldNotesConflict,
+  LOCAL_WORLD_NOTES_HISTORY_DESCRIPTION,
+  readWorldNotesPackageData,
+  writeWorldNotesPackageData,
+} from "./localWorldDocumentAuthoring";
+import {
   cloneLocalWorldValue,
   type CommitSemanticResult,
+  type CommitLocalWorldNotesResult,
   type CreateWorldResult,
   type LocalConflictId,
   type LocalEditId,
@@ -14,7 +23,9 @@ import {
   type LocalWorldPackageRepository,
   type RestoreLocalWorldPackageResult,
   type ReadLocalWorldPackageDataResult,
+  type ReadLocalWorldExportSnapshotResult,
   type ListLocalWorldsResult,
+  type ReadLocalWorldNotesResult,
   type LocalWorldSnapshot,
   type ReadConflictCandidatesResult,
   type ReadWorldResult,
@@ -34,7 +45,7 @@ export class InMemoryLocalWorldStore {
   readonly packageData = new Map<LocalWorldId, LocalWorldPackageData>();
 }
 
-export type InMemoryCommitPoint = "create" | "semantic-edit" | "layout" | "package-restore";
+export type InMemoryCommitPoint = "create" | "semantic-edit" | "layout" | "package-restore" | "document-edit" | "document-conflict-discard";
 export type InMemoryCommitHook = (point: InMemoryCommitPoint) => void | Promise<void>;
 export type LocalIdFactory = () => string;
 
@@ -155,6 +166,89 @@ export class InMemoryLocalWorldRepository implements LocalWorldPackageRepository
     if (!this.store.worlds.has(worldId)) return { status: "missing" };
     const data = this.store.packageData.get(worldId);
     return data ? { status: "found", data: cloneLocalWorldValue(data) } : { status: "not-stored" };
+  }
+
+  async readWorldExportSnapshot(worldId: LocalWorldId): Promise<ReadLocalWorldExportSnapshotResult> {
+    try {
+      const record = this.store.worlds.get(worldId);
+      if (!record) return { status: "missing" };
+      const data = this.store.packageData.get(worldId);
+      return {
+        status: "found",
+        record: cloneLocalWorldValue(record),
+        ...(data ? { data: cloneLocalWorldValue(data) } : {}),
+      };
+    } catch (error) { return { status: "error", message: errorMessage(error) }; }
+  }
+
+  async readWorldNotes(worldId: LocalWorldId): Promise<ReadLocalWorldNotesResult> {
+    const current = this.store.worlds.get(worldId);
+    if (!current) return { status: "missing" };
+    const data = this.store.packageData.get(worldId) ?? emptyLocalWorldPackageData(worldId);
+    const notes = readWorldNotesPackageData(data, worldId);
+    if (notes.status === "error") return { status: "error", message: notes.message };
+    const candidates = (this.store.conflictCandidates.get(worldId) ?? []).filter(isWorldNotesConflict);
+    for (const candidate of candidates) {
+      const proposed = readWorldNotesPackageData(candidate.proposedPackageData!, worldId);
+      if (proposed.status === "error" || !proposed.documentExists) {
+        return { status: "error", message: proposed.status === "error" ? proposed.message : "A saved World notes conflict candidate is incomplete." };
+      }
+    }
+    return { status: "found", state: { localRevision: current.localRevision, documentExists: notes.documentExists, markdown: notes.markdown, conflictCandidates: cloneLocalWorldValue(candidates) } };
+  }
+
+  async commitWorldNotes(input: { readonly worldId: LocalWorldId; readonly expectedLocalRevision: number; readonly markdown: string }): Promise<CommitLocalWorldNotesResult> {
+    const worldId = input.worldId;
+    const expectedLocalRevision = input.expectedLocalRevision;
+    const encoded = encodeWorldNotes(input.markdown);
+    if ("error" in encoded) return { status: "error", message: encoded.error };
+    if (!Number.isSafeInteger(expectedLocalRevision) || expectedLocalRevision < 0) return { status: "error", message: "The expected local revision is invalid." };
+    try {
+      await this.beforeCommit("document-edit");
+      const current = this.store.worlds.get(worldId);
+      if (!current) return { status: "missing" };
+      const currentData = this.store.packageData.get(worldId) ?? emptyLocalWorldPackageData(worldId);
+      const nextData = writeWorldNotesPackageData(currentData, worldId, encoded.bytes);
+      if (nextData.status !== "written") return { status: "error", message: nextData.message };
+      if (current.localRevision !== expectedLocalRevision) {
+        const candidate: LocalWorldConflictCandidate = {
+          id: `local-conflict:${this.idFactory()}` as LocalConflictId,
+          worldId,
+          baseLocalRevision: expectedLocalRevision,
+          currentLocalRevision: current.localRevision,
+          proposedSnapshot: cloneLocalWorldValue(current.snapshot),
+          edit: { classification: "buddy-local-only", description: LOCAL_WORLD_NOTES_HISTORY_DESCRIPTION },
+          proposedPackageData: cloneLocalWorldValue(nextData.data),
+        };
+        const candidates = this.store.conflictCandidates.get(worldId) ?? [];
+        this.store.conflictCandidates.set(worldId, [...candidates, cloneLocalWorldValue(candidate)]);
+        return { status: "conflict", committed: cloneLocalWorldValue(current), candidate: cloneLocalWorldValue(candidate) };
+      }
+      const nextRevision = current.localRevision + 1;
+      const nextRecord: LocalWorldRecord = { ...current, localRevision: nextRevision, history: [...current.history, {
+        id: `local-edit:${this.idFactory()}` as LocalEditId,
+        localRevision: nextRevision,
+        classification: "buddy-local-only",
+        description: LOCAL_WORLD_NOTES_HISTORY_DESCRIPTION,
+      }] };
+      this.store.worlds.set(worldId, cloneLocalWorldValue(nextRecord));
+      this.store.packageData.set(worldId, cloneLocalWorldValue(nextData.data));
+      return { status: "committed", record: cloneLocalWorldValue(nextRecord) };
+    } catch (error) { return { status: "error", message: errorMessage(error) }; }
+  }
+
+  async discardWorldNotesConflict(worldId: LocalWorldId, conflictId: LocalConflictId): Promise<"discarded" | "missing" | "error"> {
+    try {
+      if (!this.store.worlds.has(worldId)) return "missing";
+      const candidates = this.store.conflictCandidates.get(worldId) ?? [];
+      const candidate = candidates.find((item) => item.id === conflictId);
+      if (!candidate || !isWorldNotesConflict(candidate)) return "missing";
+      await this.beforeCommit("document-conflict-discard");
+      const latest = this.store.conflictCandidates.get(worldId) ?? [];
+      if (!latest.some((item) => item.id === conflictId)) return "missing";
+      this.store.conflictCandidates.set(worldId, latest.filter((item) => item.id !== conflictId));
+      return "discarded";
+    } catch { return "error"; }
   }
 
   async commitSemanticEdit(input: {

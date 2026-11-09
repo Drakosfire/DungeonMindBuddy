@@ -375,7 +375,7 @@ def test_active_messages_never_select_or_decode_execution_and_keep_exact_cursor(
         {
             k: v
             for k, v in row.items()
-            if k not in {"revision", "idempotency_key", "provenance", "citation_preview", "authored_references"}
+            if k not in {"revision", "idempotency_key", "provenance", "citation_preview", "authored_references", "reply_object"}
         }
         for row in page["messages"]
     ]

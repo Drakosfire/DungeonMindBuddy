@@ -5,7 +5,7 @@ import {decodeRetryContext,type TurnRetryContext} from './conversationRetryApi';
 import {authenticatedApiFetch,LiveApiError} from './liveApi';
 export interface ConversationSummary{conversation_id:string;world_id:string;title:string;name_revision:number;status:'active'|'archived'|'trashed';turn_count:number;created_at:string;updated_at:string}
 export interface LibraryPage{schema:'dmb_conversation_library_v1';world_id:string;status:'all'|'archived'|'trashed';items:ConversationSummary[];next_before:string|null}
-export interface LibraryObjectSource{world_id:string;conversation_id:string;turn_id:string;document_id:string;surface_id:'build'}
+export interface LibraryObjectSource{world_id:string;conversation_id:string;turn_id:string;document_id:string;surface_id:'build'|'plan'}
 export type LibraryReplyObject=({kind:'questions';questions:{text:string}[]}|{kind:'page_object';object_kind:'plan'|'connected_page'|'relationship'})&{source:LibraryObjectSource};
 export interface LibraryTurn{authored_references?:AuthoredReferenceInput;turn_id:string;sequence:number;status:string;user_text:string;assistant_text:string|null;reply_object:LibraryReplyObject|null;retry_context:TurnRetryContext|null}
 export interface LibraryTurns{schema:'dmb_conversation_library_turns_v3';world_id:string;conversation_id:string;turns:LibraryTurn[];next_before_sequence:number|null}
@@ -48,13 +48,13 @@ export function decodeLibraryTurns(value:any,world:string,id:string,before?:numb
 function exactObject(value:unknown,keys:string[]):boolean{
  return !!value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length===keys.length&&keys.every(k=>Object.hasOwn(value,k));
 }
-function validateReplyObject(value:unknown,world:string,conversation:string,turn:LibraryTurn){
+function validateReplyObject(value:unknown,world:string,conversation:string,turn:Pick<LibraryTurn,'turn_id'|'status'>){
  if(value===null)return;
  if(turn.status!=='completed'||!value||typeof value!=='object')throw new Error('Transcript object lacks a completed owner.');
  const obj=value as Record<string,unknown>,source=obj.source as Record<string,unknown>;
  if(!exactObject(source,['world_id','conversation_id','turn_id','document_id','surface_id'])
   ||source.world_id!==world||source.conversation_id!==conversation||source.turn_id!==turn.turn_id
-  ||source.surface_id!=='build'||typeof source.document_id!=='string'||!source.document_id.trim())throw new Error('Transcript object differs from its source page.');
+  ||!['build','plan'].includes(String(source.surface_id))||source.surface_id==='plan'&&!(obj.kind==='page_object'&&obj.object_kind==='connected_page')||typeof source.document_id!=='string'||!source.document_id.trim())throw new Error('Transcript object differs from its source page.');
  if(obj.kind==='questions'&&exactObject(obj,['kind','questions','source'])&&Array.isArray(obj.questions)&&obj.questions.length
   &&obj.questions.every(q=>exactObject(q,['text'])&&typeof q.text==='string'&&q.text.trim()))return;
  if(obj.kind==='page_object'&&exactObject(obj,['kind','object_kind','source'])&&['plan','connected_page','relationship'].includes(String(obj.object_kind)))return;
@@ -97,24 +97,26 @@ export async function readConversationMessages(world:string,id:string,before?:nu
 
 /** Display/correlation metadata only; never a verified execution or action grant. */
 export interface ActiveConversationMessages {
-  schema: 'dmb_active_conversation_messages_v3'; world_id: string; conversation_state: 'active' | 'absent';
+  schema: 'dmb_active_conversation_messages_v4'; world_id: string; conversation_state: 'active' | 'absent';
   conversation_id: string | null; active_conversation_id: string | null; pointer_revision: number;
-  messages: (ConversationMessage & { authored_references: AuthoredReferenceInput | null; revision: number; idempotency_key: string; provenance: import('./types').AgentConversationTurnProvenanceV1; citation_preview: SavedCitationPreview })[];
+  messages: (ConversationMessage & { reply_object: LibraryReplyObject | null; authored_references: AuthoredReferenceInput | null; revision: number; idempotency_key: string; provenance: import('./types').AgentConversationTurnProvenanceV1; citation_preview: SavedCitationPreview })[];
   next_before_sequence: number | null;
 }
 export async function readActiveConversationMessages(world: string, before?: number, signal?: AbortSignal): Promise<ActiveConversationMessages> {
   const q = new URLSearchParams({ limit: '50' }); if (before !== undefined) q.set('before_sequence', String(before));
   const v = await read(path(world) + '/active/messages?' + q, { signal });
   if (!exactObject(v, ['schema', 'world_id', 'conversation_state', 'conversation_id', 'active_conversation_id', 'pointer_revision', 'messages', 'next_before_sequence'])
-    || v.schema !== 'dmb_active_conversation_messages_v3' || v.world_id !== world || !['active', 'absent'].includes(v.conversation_state)
+    || v.schema !== 'dmb_active_conversation_messages_v4' || v.world_id !== world || !['active', 'absent'].includes(v.conversation_state)
     || !Number.isSafeInteger(v.pointer_revision) || v.pointer_revision < 0 || !Array.isArray(v.messages) || v.messages.length > 50
     || (v.conversation_state === 'active' ? !uuid(v.conversation_id) || v.active_conversation_id !== v.conversation_id
       : v.conversation_id !== null || v.active_conversation_id !== null || v.messages.length !== 0 || v.next_before_sequence !== null)) throw new Error('Active message page has a different owner.');
   let last = 0; for (const t of v.messages) {
-if (!exactObject(t, ['turn_id', 'sequence', 'status', 'user_text', 'assistant_text', 'revision', 'idempotency_key', 'provenance', 'citation_preview', 'authored_references'])
+if (!exactObject(t, ['turn_id', 'sequence', 'status', 'user_text', 'assistant_text', 'revision', 'idempotency_key', 'provenance', 'citation_preview', 'authored_references', 'reply_object'])
       || !uuid(t.turn_id) || !uuid(t.idempotency_key) || !Number.isSafeInteger(t.revision) || t.revision < 1 || !Number.isSafeInteger(t.sequence) || t.sequence <= last
       || before !== undefined && t.sequence >= before || !['accepted', 'running', 'completed', 'failed', 'interrupted'].includes(t.status)
       || typeof t.user_text !== 'string' || !(t.assistant_text === null || typeof t.assistant_text === 'string') || t.provenance?.world_id !== world) throw new Error('Active message metadata is invalid.');
+    validateReplyObject(t.reply_object,world,v.conversation_id,t);
+    if(t.reply_object&&(t.reply_object.source.surface_id!==t.provenance.surface_id||t.reply_object.source.document_id!==t.provenance.primary_work?.object_id))throw new Error('Saved review differs from its actual surface.');
     if(t.authored_references!==null&&!isAuthoredReferences(t.authored_references,world))throw new Error('Saved references have a different owner.');
     t.citation_preview=t.status==='completed'?readSavedCitationPreview(t.citation_preview,world,t.provenance.surface_id,t.assistant_text):null;
     last = t.sequence;

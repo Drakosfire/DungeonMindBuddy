@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 /** One disclosure for a reply. Saved text and independently owned actions never wait for it. */
-export function ConversationReplyDetails({ id, open, onOpenChange, loaded, load, showSources = false, children }: {
+export function ConversationReplyDetails({ id, open, onOpenChange, loaded, load, showSources = false, reviewLabel, children }: {
   id: string; open: boolean; onOpenChange: (open: boolean) => void; loaded: boolean;
-  load: (signal: AbortSignal) => Promise<void>; showSources?: boolean; children: ReactNode;
+  load: (signal: AbortSignal) => Promise<void>; showSources?: boolean; reviewLabel?: string; children: ReactNode;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +28,7 @@ export function ConversationReplyDetails({ id, open, onOpenChange, loaded, load,
   }, [open, loaded]);
 
   return <>
-    {showSources && !loaded && <button type="button" disabled={busy} onClick={inspect}>Show citations</button>}
+    {(showSources||reviewLabel) && !loaded && <button type="button" disabled={busy} onClick={inspect}>{reviewLabel??'Show citations'}</button>}
     {!open && busy && <p role="status">Loading reply sources…</p>}
     {!open && error && <p role="alert">{error}</p>}
     <details id={id} className="world-plan-agent-conversation__turn-details" open={open} onToggle={event => {

@@ -17,7 +17,8 @@ function Harness() {
   const [generation, setGeneration] = useState(0);
   const [surfaceMounted, setSurfaceMounted] = useState(true);
   const [result, setResult] = useState("Isolated browser database ready. No production database is opened.");
-  const failNextSemanticCommit = useRef(false);
+  const failNextLocalEdit = useRef(false);
+  const failNextNotesAfterWorldWrite = useRef(false);
   const delayedTitleResponse = useRef<{ pending: boolean; waiting: boolean; promise: Promise<void>; release: () => void } | null>(null);
   useEffect(() => {
     let live = true;
@@ -112,6 +113,21 @@ function Harness() {
     opened.repository.close();
   }, []);
 
+  const verifyStoredNotes = useCallback(async () => {
+    const selectedTitle = document.querySelector(".local-world-surface__canvas h2")?.textContent?.trim();
+    if (!selectedTitle) { setResult("Select a World before checking stored notes."); return; }
+    const opened = await openIndexedDbLocalWorldRepository(dbName);
+    if (opened.status !== "opened") { setResult(`Storage failed: ${opened.message}`); return; }
+    const listed = await opened.repository.listWorlds();
+    const selected = listed.status === "found" ? listed.records.find((candidate) => candidate.snapshot.title === selectedTitle) : undefined;
+    if (!selected) { opened.repository.close(); setResult("The selected stored World could not be read."); return; }
+    const notes = await opened.repository.readWorldNotes(selected.snapshot.worldId);
+    opened.repository.close();
+    setResult(notes.status === "found"
+      ? `Stored local revision ${notes.state.localRevision}; committed note: ${JSON.stringify(notes.state.markdown)}.`
+      : `Stored notes read returned ${notes.status}.`);
+  }, []);
+
 
   const advanceSelectedWorldElsewhere = useCallback(async () => {
     const selectedTitle = document.querySelector(".local-world-surface__world-picker button.is-selected span")?.textContent?.trim();
@@ -145,9 +161,13 @@ function Harness() {
 
   const openRepository = useCallback(async () => {
     const result = await openIndexedDbLocalWorldRepository(dbName, { beforeWrite: (point) => {
-      if (point === "semantic-edit" && failNextSemanticCommit.current) {
-        failNextSemanticCommit.current = false;
-        throw new Error("Injected title save failure for browser verification.");
+      if ((point === "semantic-edit" || point === "document-edit") && failNextLocalEdit.current) {
+        failNextLocalEdit.current = false;
+        throw new Error("Injected local edit failure for browser verification.");
+      }
+      if (point === "document-edit-after-world" && failNextNotesAfterWorldWrite.current) {
+        failNextNotesAfterWorldWrite.current = false;
+        throw new Error("Injected failure after the World revision write request.");
       }
     } });
     if (result.status === "opened") {
@@ -175,8 +195,10 @@ function Harness() {
       <span>Database: <code>{dbName}</code></span>
       <button type="button" onClick={() => void seedAttachment()}>Add restored attachment fixture</button>
       <button type="button" onClick={() => void verifyPackage()}>Verify current package round-trip</button>
+      <button type="button" onClick={() => void verifyStoredNotes()}>Read committed notes from second connection</button>
       <button type="button" onClick={checkUnloadProtection}>Check tab unload guard</button>
-      <button type="button" onClick={() => { failNextSemanticCommit.current = true; setResult("Next title write will fail before transaction commit."); }}>Fail next title write</button>
+      <button type="button" onClick={() => { failNextLocalEdit.current = true; setResult("Next local title or notes write will fail before transaction commit."); }}>Fail next local edit</button>
+      <button type="button" onClick={() => { failNextNotesAfterWorldWrite.current = true; setResult("Next notes transaction will fail after the World revision request, before sidecar commit."); }}>Fail notes after World write</button>
       <button type="button" onClick={delayNextTitleResponse}>Delay next title save response</button>
       <button type="button" onClick={releaseTitleResponse}>Release delayed title save</button>
       <button type="button" onClick={() => void advanceSelectedWorldElsewhere()}>Advance selected World from second connection</button>

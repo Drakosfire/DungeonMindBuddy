@@ -39,6 +39,23 @@
 .local-world-surface__spark { color: #d7b77e; font-size: 1.8rem; }
 .local-world-surface__empty-canvas p { margin: .25rem 0; font: 1.15rem Georgia, "Times New Roman", serif; }
 .local-world-surface__empty-canvas small { color: #a9a6b1; }
+.local-world-notes { margin-top: 1rem; border: 1px solid #494654; border-radius: .85rem; padding: 1rem; background: rgb(16 17 24 / 72%); }
+.local-world-notes__heading { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: .75rem; }
+.local-world-notes__heading h3 { margin: 0; font: 600 1.2rem Georgia, "Times New Roman", serif; }
+.local-world-notes__heading p, .local-world-notes__empty p, .local-world-notes__conflicts p { margin: .4rem 0; color: #b7bdcb; font-size: .86rem; }
+.local-world-notes__status { color: #a8d3b1; font-size: .8rem; }
+.local-world-notes__status--dirty, .local-world-notes__status--conflict { color: #f1c783; }
+.local-world-notes__status--error { color: #ffbbb1; }
+.local-world-notes__empty { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; margin-top: .75rem; }
+.local-world-notes__editor { min-height: 9rem; margin-top: .8rem; border: 1px solid #555363; border-radius: .65rem; padding: .75rem; color: #f6f1e7; background: #11131a; }
+.local-world-notes__editor [contenteditable="true"] { min-height: 7rem; outline: none; }
+.local-world-notes__editor [contenteditable="true"]:focus-visible { outline: 2px solid #e0b979; outline-offset: 3px; }
+.local-world-notes__conflicts { margin-top: .9rem; border-top: 1px solid #494654; padding-top: .6rem; }
+.local-world-notes__conflicts ul { display: grid; gap: .6rem; padding-left: 1.2rem; color: #c8c3d0; font-size: .84rem; }
+.local-world-notes__conflicts li > div { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .4rem; }
+.local-world-notes__message { color: #d8c393; font-size: .84rem; }
+.local-world-notes__message--error { color: #ffbbb1; }
+.local-world-notes button.local-world-notes__quiet { border-color: #625e6a; color: #e7e2d8; background: #292832; }
 .local-world-surface__save-menu { margin-top: 1rem; padding: .85rem 1rem; }
 .local-world-surface__save-menu summary { width: fit-content; color: #f4d29b; font-weight: 700; cursor: pointer; }
 .local-world-surface__save-menu p { color: #b7bdcb; font-size: .88rem; }
