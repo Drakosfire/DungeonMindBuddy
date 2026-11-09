@@ -1801,9 +1801,15 @@ class AgentConversationService:
             if native_source_materializer is not None:
                 event = self._materialize_execution_source(native_source_materializer, conn, turn)
                 if isinstance(event, (tuple, list)):
-                    from .native_corpus import NativeDirectSourceAuthorizedV1
-                    if type(event) is not tuple or not event or any(type(item) is not NativeDirectSourceAuthorizedV1 for item in event):
-                        raise ApplicationStateValidationError("Only direct source grants may share a native append")
+                    from .native_corpus import NativeDirectSourceAuthorizedV1, NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1
+                    from .native_reads import (_NativeReadOperation, authorize_direct_sources_locked,
+                        authorize_body_reads_locked, observe_body_reads_locked)
+                    family = ({authorize_direct_sources_locked: NativeDirectSourceAuthorizedV1,
+                        authorize_body_reads_locked: NativeBodyReadAuthorizedV1,
+                        observe_body_reads_locked: NativeBodyReadObservedV1}.get(native_source_materializer.producer)
+                        if type(native_source_materializer) is _NativeReadOperation else None)
+                    if type(event) is not tuple or not event or family is None or any(type(item) is not family for item in event):
+                        raise ApplicationStateValidationError("Native source groups require their exact closed producer and event family")
                     source_batch = event
                 produced = source_batch or (event,)
                 prior_by_id = {prior.event_id: prior for prior in execution.events}
@@ -2191,23 +2197,19 @@ class AgentConversationService:
             producer=observe_body_search_locked, event_id=event_id,
             authorization_event_id=authorization_event_id, capture=capture)
 
-    def authorize_native_body_read(self, world_id, conversation_id, turn_id, *,
-            expected_revision, expected_attempt, event_id, search_event_id, catalog_sha256,
-            retrieval_kind, section_id):
-        from .native_reads import authorize_body_read_locked
+    def authorize_native_body_reads(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, grants):
+        from .native_reads import authorize_body_reads_locked
         return self._append_native_read_operation(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            producer=authorize_body_read_locked, event_id=event_id,
-            search_event_id=search_event_id, catalog_sha256=catalog_sha256,
-            retrieval_kind=retrieval_kind, section_id=section_id)
+            producer=authorize_body_reads_locked, grants=grants)
 
-    def observe_native_body_read(self, world_id, conversation_id, turn_id, *,
-            expected_revision, expected_attempt, event_id, authorization_event_id, read):
-        from .native_reads import observe_body_read_locked
+    def observe_native_body_reads(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, reads, read):
+        from .native_reads import observe_body_reads_locked
         return self._append_native_read_operation(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
-            producer=observe_body_read_locked, event_id=event_id,
-            authorization_event_id=authorization_event_id, read=read)
+            producer=observe_body_reads_locked, reads=reads, read=read)
 
     def authorize_native_source_section(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *, expected_revision: int,

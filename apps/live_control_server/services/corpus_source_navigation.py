@@ -584,9 +584,9 @@ class NativeBodyNavigation:
         with trace.measure_host_work("native_source_append") if trace is not None else nullcontext():
             result = a.fence.commit(method, **fields)
         a.turn = result[0]
-        if method == 'authorize_native_direct_sources':
+        if method in {'authorize_native_direct_sources', 'authorize_native_body_reads', 'observe_native_body_reads'}:
             by_id = {event.event_id: event for event in result[0].graph_context_execution.events}
-            return tuple(by_id[row['event_id']] for row in fields['grants'])
+            return tuple(by_id[row['event_id']] for row in fields['reads' if method == 'observe_native_body_reads' else 'grants'])
         return result[0].graph_context_execution.events[-1]
 
     def _fulfilled_in_current_selection(self, handle):
@@ -616,8 +616,9 @@ class NativeBodyNavigation:
             raise ValueError("Native source selection differs from its offered current catalog")
         from .native_retrieval_activity import observe_native_retrieval
         pending_direct = {}
+        completed_body_handles = set()
         for index, handle in enumerate(handles):
-            if handle not in offered or self._fulfilled_in_current_selection(handle):
+            if handle in completed_body_handles or handle not in offered or self._fulfilled_in_current_selection(handle):
                 continue  # Its exact text was already read in this selected batch.
             with a.fence.renewer._lock:
                 turn = a.fence.renewer._turn
@@ -650,11 +651,38 @@ class NativeBodyNavigation:
                     else:
                         catalog_sha, section = handle.removeprefix("native-body:").split(":", 1)
                         kind = "section"
-                    auth = self._commit("authorize_native_body_read", event_id=uuid4(), search_event_id=search.event_id,
-                        catalog_sha256=catalog_sha, retrieval_kind=kind, section_id=section)
+                    from application_state.agent_conversation.plan_jev_decision import current_selection
+                    selection_handles = current_selection(turn).selected_handles
+                    group_handles = [handle]
+                    if kind == 'section' and 'native-full-document:' + catalog_sha not in selection_handles:
+                        position = selection_handles.index(handle)
+                        for following in handles[index + 1:]:
+                            if (not following.startswith('native-body:' + catalog_sha + ':')
+                                    or selection_handles.index(following) != position + len(group_handles)
+                                    or self._fulfilled_in_current_selection(following)):
+                                break
+                            group_handles.append(following)
+                    grants = self._commit('authorize_native_body_reads', grants=tuple(dict(
+                        event_id=uuid4(), search_event_id=search.event_id, catalog_sha256=catalog_sha,
+                        retrieval_kind=kind, section_id=None if kind == 'full_document' else h.removeprefix('native-body:').split(':', 1)[1])
+                        for h in group_handles))
                     operation = 'source_document_read' if kind == 'full_document' else 'source_section_read'
-                    catalog = next(row for row in search.catalogs if row.catalog_sha256 == auth.catalog_sha256)
-                    label = self._read_label(catalog, auth.section_id)
+                    catalog = next(row for row in search.catalogs if row.catalog_sha256 == catalog_sha)
+                    body_group = tuple((h, g, self._read_label(catalog, g.section_id))
+                        for h, g in zip(group_handles, grants, strict=True))
+            if not is_direct and not is_search:
+                for h, g, label in body_group:
+                    observe_native_retrieval(a, operation, h, label=label)
+                with a.fence.renewer._lock:
+                    results = self._commit('observe_native_body_reads', reads=tuple(dict(
+                        event_id=uuid4(), authorization_event_id=g.event_id) for _, g, _ in body_group),
+                        read=lambda authority, member: read_native_corpus_member(authority=authority, member=member,
+                            principal=context.principal, prepared=context))
+                for (h, _, label), result in zip(body_group, results, strict=True):
+                    observe_native_retrieval(a, operation, h, label=label, completed=True,
+                        unavailable=result.excerpt is None)
+                    completed_body_handles.add(h)
+                continue
             # Capture owns the same claim lock. Persist the issued request before
             # I/O, outside that lock; each materialization uses the latest turn.
             observe_native_retrieval(a, operation, handle, label=label)
@@ -667,10 +695,6 @@ class NativeBodyNavigation:
                 elif is_search:
                     result = self._commit("observe_native_body_search", event_id=uuid4(), authorization_event_id=auth.event_id,
                         capture=lambda: capture_native_sources(managed_world_id=turn.world_id,
-                            principal=context.principal, prepared=context))
-                else:
-                    result = self._commit("observe_native_body_read", event_id=uuid4(), authorization_event_id=auth.event_id,
-                        read=lambda authority, member: read_native_corpus_member(authority=authority, member=member,
                             principal=context.principal, prepared=context))
             observe_native_retrieval(a, operation, handle, label=label, completed=True,
                 unavailable=not is_search and result.excerpt is None)

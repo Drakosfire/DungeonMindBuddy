@@ -1,7 +1,11 @@
 # RETRIEVAL: one genuine opening work and retrieval decision
 
-Status: ACTIVE. Root adopts the independently reviewed design and owns the exact
-implementation lease below. No user approval is pending. Standing user
+Status: DELIVERED. PR2322 merged as9e4e68f79809d698f36d7ce3f47f597ee8d4f078 from
+reviewed/captured0ff4a6941ef188ec6ccb75d44c44cd83e3c45de4. Its implementation lease is
+released. Independent coverage/citation support15/15,72/72; actual median6.540902331s,
+so the broader six-second goal remains ACTIVE. Retained merge/conservation/qualified
+Q03 support evidence: out/retrieval-opening-batch-v1/comparison/merge-settlement-v1.json.
+The historical scope below records this delivered predecessor. No user approval is pending. Standing user
 authority covers retrieval implementation, local CI, independent review, ordinary
 benchmark calls and merge. Primary/original evaluator/native rows remain immutable.
 

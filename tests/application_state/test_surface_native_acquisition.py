@@ -30,7 +30,7 @@ from application_state.errors import (
 
 
 @contextmanager
-def host(case, *, query_context=None, source_context=None):
+def host(case, *, query_context=None, source_context=None, expected_claim_error=None):
     existing = getattr(case, 'fence', None)
     fence = existing if existing is not None else _ClaimFence(case.service, case.turn)
     adapter = SimpleNamespace(
@@ -55,7 +55,11 @@ def host(case, *, query_context=None, source_context=None):
             assert error is None
         else:
             case.turn = fence.turn
-            assert fence.renewer._error is None
+            if expected_claim_error is None:
+                assert fence.renewer._error is None
+            else:
+                assert isinstance(fence.renewer._error, expected_claim_error)
+                assert fence.renewer._session is None and fence.renewer._stop.is_set()
 
 
 def record_candidates(case):
@@ -220,6 +224,85 @@ def test_initial_source_discovery_commits_before_first_retrieval_without_body_ex
             allowed_operations=('select_candidates', 'finish_retrieval'), **_source_pins(stored.graph_context_receipt))
         prepared = prepare_decision(parent)
         assert 'Unselected private context.' not in str(prepared.state)
+
+
+@pytest.mark.parametrize('interrupted', [False, True])
+def test_actual_sdk_selects_multiple_extents_with_one_core_capture_and_complete_closure(
+        application_state_dsn, lane, monkeypatch, record_property, interrupted, request):
+    from tests.test_surface_native_writer import body_case, BODY
+    from tests.test_native_corpus_source_access import GM
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source as core
+    from application_state.agent_conversation.native_corpus import NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1
+    from application_state.agent_conversation.native_batch_completion import selected_read_closure
+    from application_state.agent_conversation.plan_jev_decision import current_selection
+    from application_state.agent_conversation.native_writer import model_input_frame
+    context, record, _ = body_case('plan', lane, all_sections=True)
+    record = execution(context.context_receipt_sha256, record.policy)
+    source = core.prepare_native_source_context(managed_world_id='managed', principal=GM,
+        repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    captures = []
+    active = []
+    original = core.read_native_corpus_member
+    def read_once(**kwargs):
+        adapter = active[0]
+        durable = AgentConversationService().inspect_turn(world_id=adapter.world_id,
+            turn_id=adapter.fence.turn.turn_id)
+        grants = [e for e in durable.graph_context_execution.events if type(e) is NativeBodyReadAuthorizedV1]
+        assert len(grants) == 2 and grants[1].sequence == grants[0].sequence + 1
+        assert not any(type(e) is NativeBodyReadObservedV1 for e in durable.graph_context_execution.events)
+        captures.append(kwargs['member'])
+        if interrupted:
+            raise RuntimeError('synthetic unknown physical group capture')
+        return original(**kwargs)
+    monkeypatch.setattr(core, 'read_native_corpus_member', read_once)
+    def make_fence(service, turn):
+        fence = _ClaimFence(service, turn)
+        request.addfinalizer(fence.stop)
+        return fence
+    def offered(case):
+        with host(case, source_context=source) as adapter:
+            driver = PlanJevDriver(adapter)
+            driver.native_sources.discover_initial()
+            return tuple(c for c in driver.offered() if c.handle.startswith('native-body:'))
+    def acquire(case):
+        from time import perf_counter
+        with host(case, source_context=source, expected_claim_error=RuntimeError if interrupted else None) as adapter:
+            active[:] = [adapter]
+            assert adapter.fence.renewer._session is not None
+            before_revision = adapter.fence.turn.revision
+            started = perf_counter()
+            driver = PlanJevDriver(adapter)
+            handles = current_selection(case.turn).selected_handles
+            if interrupted:
+                from application_state.errors import ApplicationStateError
+                with pytest.raises(RuntimeError, match='unknown physical group'):
+                    driver.native_sources.select(handles)
+                with pytest.raises((ValueError, ApplicationStateError)):
+                    driver.native_sources.select(handles)
+                return
+            driver.native_sources.select(handles)
+            elapsed_ms = (perf_counter() - started) * 1000
+            assert adapter.fence.turn.revision - before_revision == 2
+            record_property('source_group_complete_owner_elapsed_ms', elapsed_ms)
+            record_property('source_grant_observation_commits', 2)
+            record_property('physical_core_captures', len(captures))
+    case = sdk_case(application_state_dsn, context_record=(context, record), native='current',
+        readonly_session=True, post_read_plan='finish_if_selected_reads_succeed',
+        acquisitions=((offered, acquire),), include_final_decision=False,
+        question='What do the source and the other scene say about the check?', fence_factory=make_fence)
+    assert len(captures) == 1 and len(case.sent) == 2
+    turn = case.turn
+    closure = selected_read_closure(turn.graph_context_receipt, turn.graph_context_execution,
+        current_selection(turn).event_id)
+    if interrupted:
+        assert closure is None
+        assert not any(type(e) is NativeBodyReadObservedV1 for e in turn.graph_context_execution.events)
+        assert case.service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id) == turn
+        return
+    assert closure is not None and len(closure) == 2
+    frame = model_input_frame(turn.graph_context_receipt, turn.graph_context_execution)
+    assert ''.join(e['text'] for e in frame['native_body_evidence']['excerpts']) == BODY
+    assert case.service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id) == turn
 
 
 def test_interrupted_initial_discovery_does_not_repeat_core_or_fall_back(
