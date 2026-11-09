@@ -40,6 +40,12 @@
 .local-world-surface__empty-canvas p { margin: .25rem 0; font: 1.15rem Georgia, "Times New Roman", serif; }
 .local-world-surface__empty-canvas small { color: #a9a6b1; }
 .local-world-surface__graph-start-actions { display: flex; justify-content: center; margin-top: 1rem; }
+.local-world-surface__first-object { display: grid; grid-template-columns: minmax(0, 1fr); gap: .45rem; max-width: 28rem; margin: 1rem auto 0; text-align: left; }
+.local-world-surface__first-object label { color: #b7bdcb; font-size: .78rem; }
+.local-world-surface__first-object label:first-child { color: #d5c5a7; font-size: .85rem; font-weight: 650; }
+.local-world-surface__first-object input, .local-world-surface__first-object select { width: 100%; min-width: 0; border: 1px solid #555363; border-radius: .6rem; padding: .65rem .75rem; color: #fffaf1; background: #11131a; font: inherit; }
+.local-world-surface__first-object button { justify-self: center; margin-top: .35rem; }
+.local-world-surface__graph-session { margin: 1rem 0; }
 .local-world-surface__graph-loading { min-height: 13rem; display: grid; place-content: center; color: #c5bfce; }
 .local-world-surface__graph-conflict { margin-top: .85rem; border: 1px solid #796440; border-radius: .75rem; padding: .85rem 1rem; color: #f2d6a8; background: #28231d; }
 .local-world-surface__graph-conflict h3 { margin: 0 0 .35rem; font: 600 1rem Georgia, "Times New Roman", serif; }
