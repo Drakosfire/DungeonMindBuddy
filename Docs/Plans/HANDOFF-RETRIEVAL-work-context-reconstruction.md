@@ -1,9 +1,8 @@
 # RETRIEVAL: fresh work-context reconstruction
 
-Status: MERGED at `659ca54894231cf51444afcd3dfd2576f29906d8` (#2269),
-after exact-head independent PASS and seven green CI checks. The implementation
-write lease is released. PRIME retains delivery ownership; live activation is
-not established by the merge or the retained local verification.
+Status: MERGED #2269 at `659ca54894231cf51444afcd3dfd2576f29906d8`, exact head `011b1eabb5235bff006572337de1ce6565b412bc`, after independent PASS and seven green checks. No further latency experiment or native-Turn redesign is authorized by this settlement.
+
+Protected paired delivery verified on 2026-11-09: API `d8174ba9ad2e431fa534f39095a5d535311ba7f6`, UI `0e984f79b149c98b9851a1eaf1fa2147a2bdab40`, APP schema `20261108_0141`. Implementation and runtime write leases are RELEASED. Delivery preserved retained APP/Core rows and session inventory except the schema version; the original failed attempt was preserved. This is technical delivery evidence, not operator acceptance.
 
 ## Slice and topology
 
@@ -53,3 +52,6 @@ mutation rejection. Otherwise fix this owner or reject the slice; do not add a
 surface-specific fast path. Open one bounded PR after verification. Broader
 admission redesign and historical ingestion-script retirement remain outside
 this lease.
+
+
+Delivery evidence: `plan-page-settled-proof.json`, `plan-page-readonly-proof.json` and `plan-page-api-candidate-owners.log` under the established PRIME runtime-evidence root. The exact assembled API candidate passed243 owning cases with3 explicitly excluded inherited fixtures; UI TypeScript/Vite passed. No provider calls, fresh ingestion, publication or authored-page mutation occurred during delivery.

@@ -1,10 +1,8 @@
 # RETRIEVAL: adopt shared relevance instructions
 
-Status: ACTIVE. Root designs/implements/reviews; PRIME merges and delivers.
-Branch:codex/retrieval-shared-guidance-adoption in recorded-names-control.
-Topology: serial on adopted2257 merge1a19895fd3978fcb00900bb3fc0b328d32b6781e.
-Rebase complete; source merge does not claim pending PRIME runtime136 delivery.
-Parent owns native_reads and its two admission tests only; disjoint from this lease.
+Status: MERGED #2260 at `3f34e9932a7efb23eea9d26d4988dd5eecedd7c9`, exact head `c0e0c1b59d4c2c549594c341d2fafdb8548c137c`, after owning review/check gates. No new performance experiment or successor redesign is activated.
+
+Protected paired delivery verified on 2026-11-09: API `d8174ba9ad2e431fa534f39095a5d535311ba7f6`, UI `0e984f79b149c98b9851a1eaf1fa2147a2bdab40`, APP schema `20261108_0141`. Implementation and runtime write leases are RELEASED. Delivery preserved retained APP/Core rows and session inventory except the schema version; the original failed attempt was preserved. This is technical delivery evidence, not operator acceptance.
 
 Exclusive writes: this handoff; apps/live_control_server/services/plan_jev_dispatch.py;
 src/application_state/agent_conversation/{jev_retrieval_contract.py,native_retrieval.py};
@@ -39,3 +37,6 @@ This handoff explicitly records its necessity/allocation and exact conflict rule
 retain current dynamic-head assertion and all existing old-reader cases, adding136;
 do not restore the old fixed135 assertion or discard unrelated Rules-era tests.
 Independent review must verify this justification before delivery.
+
+
+Delivery evidence: `plan-page-settled-proof.json`, `plan-page-readonly-proof.json` and `plan-page-api-candidate-owners.log` under the established PRIME runtime-evidence root. The exact assembled API candidate passed243 owning cases with3 explicitly excluded inherited fixtures; UI TypeScript/Vite passed. No provider calls, fresh ingestion, publication or authored-page mutation occurred during delivery.

@@ -1,17 +1,8 @@
 # RETRIEVAL: one native storage predicate owner
 
-Status: ACTIVE implementation; no live or primary migration authority.
-Steward: Root; PRIME owns merge/delivery.
-Branch: codex/retrieval-native-storage-check-owner, recorded-names-control checkout.
-Topology: stacked on PR2264 exactf5c50bbbd6b2a99908f84035fba7a32ad97e2827.
-Merge order2261,2264,this slice. No ports/services or retained DB writes leased.
-Exclusive writes: this handoff; new migration20261108_0139_native_storage_owner.py
-(after138); tests/application_state/test_native_storage_owner_migration.py.
-Required validation lease expansion: .github/workflows/world-ownership-core.yml
-one query-and-answer test-list entry, so new migration owner tests run in the
-existing CI workflow. Checked current openSURFACE2262: no workflow overlap.
-No historical migration, runtime, prompts, Gold, ingestion or source changes.
-Migration139 scanned absent across fetched remote refs. PRIME notified of allocation.
+Status: MERGED #2265 at `5c49a30f37b11ac3b5706f553f0505b3b9a571cb`, exact head `5a3dbfae3d4a45c41eff2ab0d85589beefb6e365`, after independent approval and seven green checks. PRIME applied migration139 within the protected136→141 upgrade; this grants no separate live migration authority to other stewards.
+
+Protected paired delivery verified on 2026-11-09: API `d8174ba9ad2e431fa534f39095a5d535311ba7f6`, UI `0e984f79b149c98b9851a1eaf1fa2147a2bdab40`, APP schema `20261108_0141`. Implementation and runtime write leases are RELEASED. Delivery preserved retained APP/Core rows and session inventory except the schema version; the original failed attempt was preserved. This is technical delivery evidence, not operator acceptance.
 
 Evidence: context-rollup-v1/retained-readonly-combined-check-feasibility.json:
 allfour predicates124.284ms vs exactnative predicate22.052ms on retainedQ15.
@@ -66,3 +57,6 @@ rebase leaves all src/apps/evals blobs identical to benchmark candidatee40.
 Migration139/test/CI-entry implementation remains frozen; PRIME's serialPlan
 successor may reserve140 after this reader fence. Root does not edit the released
 shared runtime paths during the frozen comparison. Merge/delivery still pending.
+
+
+Delivery evidence: `plan-page-settled-proof.json`, `plan-page-readonly-proof.json` and `plan-page-api-candidate-owners.log` under the established PRIME runtime-evidence root. The exact assembled API candidate passed243 owning cases with3 explicitly excluded inherited fixtures; UI TypeScript/Vite passed. No provider calls, fresh ingestion, publication or authored-page mutation occurred during delivery.

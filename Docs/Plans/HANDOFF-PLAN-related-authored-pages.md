@@ -1,6 +1,8 @@
 # PLAN: exact related authored-page context
 
-Status: MERGED, runtime delivery pending the connected-page consumer. PR2268 exact1245eee52 merged da00448bf after independent APPROVE and all7CI. Source lease released to HANDOFF-PLAN-connected-page-review.md; no live140 claim. Operator authorization: fix retained Old Bath House request, turn ea43de8f-0374-4973-bbb3-b20a8806b847. PRIME designs and implements. Checkout buddy-context-loop; branch codex/plan-related-page-context. Pinned parent 5a3dbfae3d4a45c41eff2ab0d85589beefb6e365 (#2265 on #2264 atf5c50bb); re-anchor after their CI corrections. Topology stacked, merge2264 then2265 then this slice. References2266 is a separate pushed read/UI slice; no dependency or overlap with it.
+Status: MERGED #2268 at `da00448bfd14e7809a2744435e1b03bc0feafaf2` (reviewed head `1245eee52cf16195afdbc60e1e891886f3940d16`). Its connected-page and saved-review consumers are now merged through #2270/#2273/#2274.
+
+Protected paired delivery verified on 2026-11-09: API `d8174ba9ad2e431fa534f39095a5d535311ba7f6`, UI `0e984f79b149c98b9851a1eaf1fa2147a2bdab40`, APP schema `20261108_0141`. Implementation and runtime write leases are RELEASED. Delivery preserved retained APP/Core rows and session inventory except the schema version; the original failed attempt was preserved. This is technical delivery evidence, not operator acceptance.
 
 Outcome: ordinary Plan discussion can discover and acquire exact saved Worldbuilding pages through the existing APP catalogue and related-page owner, and quote them with inspectable saved-page support. This is the prerequisite for the retained other-page request; it does not itself create Old Bath House or edit Edge. The next serial slice must reuse reviewed connected-page creation and the shared review projection. Do not substitute diagnostics or manual New page for that full outcome.
 
@@ -12,3 +14,7 @@ Validation: real ordinary Plan caller with synthetic official-SDK transports and
 
 
 Owning qualification before independent source review:233 affected Plan/action/read/SDK tests passed (14 inherited serializer warnings);23 selected new-action and existing storage-owner cases passed after moving new tests into the already CI-selected execution module. The actual disposable-APP HTTP journey selects only Saved Edge, supplies its exact saved body with local page0 alias, persists a supported related-page claim, reopens the exact captured page and replays without another writer call. Shared UI reader56 tests and TypeScript/Vite passed. Original fixture/import failures remain in local evidence; they are corrected, not erased. The Old Bath House different_destination failure remains unchanged and is not claimed fixed by this prerequisite. Current output is discussion only; source review, exact-head CI, merge and protected delivery remain gates. No live data/provider writes occurred.
+
+
+Delivery evidence: `plan-page-settled-proof.json`, `plan-page-readonly-proof.json` and `plan-page-api-candidate-owners.log` under the established PRIME runtime-evidence root. The exact assembled API candidate passed243 owning cases with3 explicitly excluded inherited fixtures; UI TypeScript/Vite passed. No provider calls, fresh ingestion, publication or authored-page mutation occurred during delivery.
+The Old Bath House creation-review capability is delivered; the original request's existing Edge-page edits and related-page inline-citation expansion remain separate, unexecuted scope. Play holds2172/2104 remain.
