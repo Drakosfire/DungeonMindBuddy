@@ -1,7 +1,7 @@
 # REFERENCE: retire the unmounted object diagnostic
 
 Status: ACTIVE source retirement. PRIME owns one serial slice from remote main
-39f2c45f950fd6c2db4f82bc2b05a0a61f70b3bf, branch
+fff6c97095eb23827d4f3d83b839f29da229e483, branch
 codex/reference-object-diagnostic-retirement, existing buddy-context-loop checkout.
 No unmerged parent or runtime lease. Storage recovery hold and coordination-off
 instructions remain in force.
