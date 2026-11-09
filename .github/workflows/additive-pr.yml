@@ -1,0 +1,106 @@
+name: Additive PR verification
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+concurrency:
+  group: additive-pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.23.0'
+      - id: prepare
+        name: Locked frontend dependencies
+        working-directory: apps/live-control-ui
+        run: npm ci
+      - id: tests
+        name: All discovered frontend and graph draft regressions
+        run: |
+          mkdir -p out/additive
+          set -o pipefail
+          python scripts/ci_fast.py frontend-tests 2>&1 | tee out/additive/frontend-tests.log
+      - id: build
+        name: Full type and production build
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        run: |
+          mkdir -p out/additive
+          set -o pipefail
+          python scripts/ci_fast.py frontend-build 2>&1 | tee out/additive/frontend-build.log
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: additive-frontend-${{ github.sha }}
+          path: out/additive/
+          if-no-files-found: error
+  auth-database:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dungeonmind
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: postgres
+        ports: ['54329:5432']
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U dungeonmind -d postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      DMB_APPLICATION_STATE_TEST_DATABASE_URL: postgresql://dungeonmind@127.0.0.1:54329/postgres
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.13'
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
+        with:
+          version: '0.13.5'
+          enable-cache: false
+      - name: Locked dependencies
+        run: |
+          python scripts/prepare_patched_hermes.py
+          uv sync --locked
+      - name: Inventory and command guards
+        run: |
+          uv run --locked python scripts/ci_contract.py inventory
+          uv run --locked python -m pytest -q tests/test_ci_fast_gate.py tests/test_ci_contract.py
+      - name: Auth and isolated principal/CAS/rollback/history
+        run: |
+          mkdir -p out/additive
+          set -o pipefail
+          uv run --locked python scripts/ci_fast.py auth-database 2>&1 | tee out/additive/auth-database.log
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: additive-auth-database-${{ github.sha }}
+          path: out/additive/
+          if-no-files-found: error
+  additive-result:
+    if: always()
+    needs: [frontend, auth-database]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fail-closed additive aggregate
+        env:
+          FRONTEND: ${{ needs.frontend.result }}
+          AUTH_DATABASE: ${{ needs.auth-database.result }}
+        run: test "$FRONTEND" = success && test "$AUTH_DATABASE" = success

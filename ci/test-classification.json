@@ -544,6 +544,7 @@
       "apps/live-control-ui/src/worldGraph/worldGraphProjectionRequestKey.test.ts",
       "apps/live-control-ui/src/worldGraph/worldGraphSurfaceContext.test.ts",
       "tests/test_ci_contract.py",
+      "tests/test_ci_fast_gate.py",
       "tests/test_ownership_ci_partition.py"
     ],
     "domain-integration": [
