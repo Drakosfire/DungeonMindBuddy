@@ -115,6 +115,27 @@ def pytest_addoption(parser):
     group.addoption("--qualification-report", default=None)
 
 
+def reviewed_cli(config) -> bool:
+    # The production runner has fixed argv. Allow its output/isolation flags
+    # and explicit collection diagnostics, never an unknown plugin selector.
+    arguments = getattr(getattr(config, "invocation_params", None), "args", ())
+    switches = {"--collect-only", "--co", "--disable-warnings", "--strict-config", "--strict-markers", "-s", "--full-trace"}
+    values = {"-p", "--qualification-partition", "--qualification-report", "--durations", "--durations-min",
+              "--junitxml", "--junit-xml", "--basetemp", "-o", "--override-ini", "--tb", "--show-capture",
+              "--capture", "--color", "-m"}
+    position = 0
+    while position < len(arguments):
+        argument = str(arguments[position])
+        name = argument.split("=", 1)[0]
+        if name in values:
+            position += 1 if "=" in argument else 2
+        elif argument == "tests" or argument in switches or re.fullmatch(r"-[qv]+", argument):
+            position += 1
+        else:
+            return False
+    return position == len(arguments)
+
+
 def pytest_configure(config):
     index = config.getoption("qualification_partition")
     output = config.getoption("qualification_report")
@@ -122,13 +143,13 @@ def pytest_configure(config):
         return
     if index not in range(PARTITIONS) or not output:
         raise pytest.UsageError("qualification requires an index 0..3 and a report path")
-    if any(os.environ.get(name) for name in ("PYTEST_ADDOPTS", "PYTEST_PLUGINS")):
+    if any(os.environ.get(name) for name in ("PYTEST_ADDOPTS", "PYTEST_PLUGINS", "PYTEST_DISABLE_PLUGIN_AUTOLOAD")):
         raise pytest.UsageError("qualification forbids inherited pytest selection/plugin options")
     forbidden = ("ignore", "ignore_glob", "confcutdir", "noconftest", "pyargs", "doctestmodules", "doctestglob",
-                 "continue_on_collection_errors", "maxfail", "stepwise", "stepwise_skip")
+                 "continue_on_collection_errors", "maxfail", "stepwise", "stepwise_skip", "disable_plugin_autoload")
     overrides = getattr(config.option, "override_ini", None) or []
     plugins = getattr(config.option, "plugins", None) or []
-    if (config.args != ["tests"] or config.option.markexpr != "not live_llm"
+    if (not reviewed_cli(config) or config.args != ["tests"] or config.option.markexpr != "not live_llm"
             or config.option.keyword or config.option.deselect or config.option.lf
             or any(getattr(config.option, name, None) for name in forbidden)
             or getattr(config.option, "importmode", "prepend") != "prepend"

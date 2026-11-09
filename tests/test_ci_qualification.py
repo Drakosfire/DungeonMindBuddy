@@ -413,7 +413,7 @@ def test_partition_rejects_hidden_discovery_controls(option, value):
 
 
 @pytest.mark.parametrize("variable,value", [("PYTEST_ADDOPTS", "--ignore=tests/test_ci_contract.py"),
-        ("PYTEST_ADDOPTS", "--collect-only"), ("PYTEST_PLUGINS", "unreviewed.plugin")])
+        ("PYTEST_ADDOPTS", "--collect-only"), ("PYTEST_PLUGINS", "unreviewed.plugin"), ("PYTEST_DISABLE_PLUGIN_AUTOLOAD", "1")])
 def test_inherited_pytest_options_fail_before_owned_database_allocation(tmp_path, monkeypatch, variable, value):
     from scripts.qualification import native_database as native
     from scripts import ci_contract
@@ -445,3 +445,12 @@ def test_new_test_files_do_not_move_or_drop_existing_partition_cases():
     expanded = {node: index for index, group in enumerate(part.plan(nodes + ["tests/test_future.py::test_new"])) for node in group}
     assert {node: expanded[node] for node in nodes} == owners
     assert len(expanded) == len(owners) + 1
+
+
+def test_unknown_plugin_cli_controls_cannot_hide_behind_full_positional_args():
+    from scripts.qualification import partition as part
+    config = SimpleNamespace(args=["tests"], option=SimpleNamespace(markexpr="not live_llm", keyword="", deselect=[], lf=False),
+        invocation_params=SimpleNamespace(args=("tests", "--unreviewed-selector")),
+        getoption=lambda name: 0 if name == "qualification_partition" else "report")
+    with pytest.raises(pytest.UsageError, match="without discovery overrides"):
+        part.pytest_configure(config)
