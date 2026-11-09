@@ -169,9 +169,9 @@ def validate_selected_record_events(query, execution):
                     and set(grants) != {e.authorization_event_id for e in observations.values()}):
                 raise ValueError('Native object selection must acquire and settle its complete record closure before another provider')
             shared_writer = False
-            if event.kind == "native_writer_authorized_v1":
-                from .native_execution import NativeWriterAuthorizedV1
-                shared_writer = type(event) is NativeWriterAuthorizedV1
+            if event.kind in {"native_writer_authorized_v1", "native_build_writer_authorized_v2"}:
+                from .native_execution import NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
+                shared_writer = type(event) in NATIVE_WRITER_TYPES
             if shared_writer or isinstance(event, t.PlanJevWriterAuthorizedV1):
                 if not shared_writer:
                     expected = t.PlanNativeWriterAuthorizedV2 if isinstance(query, NativePlanQueryV2) else t.PlanNativeWriterAuthorizedV1

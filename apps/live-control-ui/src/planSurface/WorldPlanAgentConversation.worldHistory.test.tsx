@@ -1309,7 +1309,7 @@ function setupApi(initialHistory: WorldAgentConversationHistoryResponse, inspect
     schema: page.schema === 'dmb_agent_conversation_history_v4' ? page.schema : 'dmb_agent_conversation_history_v3',
     turns: page.turns.map(turn => ({ ...turn, idempotency_key: 'idempotency_key' in turn ? turn.idempotency_key : '00000000-0000-4000-8000-000000000099' }))
 } as WorldAgentConversationHistoryResponse);
-  const messages = (page: WorldAgentConversationHistoryResponse) => { const wire = liveHistory(page); return { schema: "dmb_active_conversation_messages_v2" as const, world_id: wire.world_id, conversation_state: wire.conversation_state, conversation_id: wire.conversation_id, active_conversation_id: wire.active_conversation_id, pointer_revision: wire.pointer_revision, next_before_sequence: wire.next_before_sequence ?? null, messages: wire.turns.map(turn => ({ turn_id: turn.turn_id, sequence: turn.sequence, status: turn.lifecycle_status, user_text: turn.user_text, assistant_text: turn.assistant_text, citation_preview: null, revision: 1, idempotency_key: "idempotency_key" in turn ? turn.idempotency_key : "", provenance: turn.provenance })) }; };
+  const messages = (page: WorldAgentConversationHistoryResponse) => { const wire = liveHistory(page); return { schema: "dmb_active_conversation_messages_v3" as const, world_id: wire.world_id, conversation_state: wire.conversation_state, conversation_id: wire.conversation_id, active_conversation_id: wire.active_conversation_id, pointer_revision: wire.pointer_revision, next_before_sequence: wire.next_before_sequence ?? null, messages: wire.turns.map(turn => ({ turn_id: turn.turn_id, sequence: turn.sequence, status: turn.lifecycle_status, user_text: turn.user_text, assistant_text: turn.assistant_text, citation_preview: null, authored_references: turn.authored_references??null, revision: 1, idempotency_key: "idempotency_key" in turn ? turn.idempotency_key : "", provenance: turn.provenance })) }; };
   const getMessages = vi.spyOn(conversationLibraryApi, 'readActiveConversationMessages').mockImplementation(async (_world, before, signal) => {
     historyCalls.push({ limit: 50, beforeSequence: before, signal });
     const page = liveHistory(before !== undefined ? (olderHandler ? await olderHandler() : olderPage ?? currentHistory) : currentHistory);
@@ -6344,4 +6344,36 @@ it('keeps uncited lightweight reply text mounted when exact details hydrate',asy
   await waitFor(()=>expect(api.getHistory).toHaveBeenCalledTimes(1));
   await waitFor(()=>expect(screen.queryByText('Loading reply details…')).not.toBeInTheDocument());
   expect(screen.getByText('Saved plain reply')).toBe(before);
+});
+
+it.each(['completed','interrupted'] as const)('shows saved selections before Details on an initial %s message and preserves them during hydration',async status=>{
+ const ref={schema:'dmb_authored_graph_reference_v1' as const,managed_world_id:worldId,native_world_id:'native',binding_version:1,graph_revision:'pinned',node_id:'selected-node',label:'Selected saved object'};
+ const selected={schema:'dmb_authored_references_v2' as const,references:[ref]};
+ const turn={...makeTurn(1,'saved-reference-turn','Use my selection',status==='completed'?'Saved reply':null),lifecycle_status:status};
+ const page=history('conversation-a',4,[turn]);const api=setupApi(page,false);
+ // The saved input stays visible even when full reply details omit it.
+ api.getMessages.mockImplementation(async()=>{const light=api.messages(page);return {...light,messages:light.messages.map(row=>({...row,authored_references:selected}))};});
+ render(conversationElement());await waitForConversationReady(false);
+ const chip=screen.getByRole('button',{name:'Inspect Selected saved object'});
+ expect(api.getHistory).not.toHaveBeenCalled();
+ fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'My unsent draft'}});
+ fireEvent.click(screen.getByText('Details',{selector:'summary'}));
+ await waitFor(()=>expect(api.getHistory).toHaveBeenCalledTimes(1));
+ await waitFor(()=>expect(screen.queryByText('Loading reply details…')).not.toBeInTheDocument());
+ expect(screen.getByRole('button',{name:'Inspect Selected saved object'})).toBe(chip);
+ expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('My unsent draft');
+ expect(screen.queryByRole('button',{name:'Remove reference Selected saved object'})).not.toBeInTheDocument();
+});
+
+it('loads selected references on an older lightweight page without loading reply details',async()=>{
+ const ref={schema:'dmb_authored_graph_reference_v1' as const,managed_world_id:worldId,native_world_id:'native',binding_version:1,graph_revision:'pinned',node_id:'older-node',label:'Earlier selected object'};
+ const older={...makeTurn(1,'older-reference-turn','Earlier request','Earlier answer'),authored_references:{schema:'dmb_authored_references_v2' as const,references:[ref]}};
+ const api=setupApi(history('conversation-a',4,[makeTurn(2,'newer-turn','New request','New answer')],2),false);
+ api.setOlder(history('conversation-a',4,[older]));
+ render(conversationElement());await waitForConversationReady(false);
+ fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'Unsent during pagination'}});
+ fireEvent.click(screen.getByRole('button',{name:'Load earlier messages'}));
+ expect(await screen.findByRole('button',{name:'Inspect Earlier selected object'})).toBeInTheDocument();
+ expect(api.getHistory).not.toHaveBeenCalled();
+ expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Unsent during pagination');
 });

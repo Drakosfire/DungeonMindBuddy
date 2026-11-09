@@ -58,25 +58,10 @@ def semantic_frame(host, execution):
         if set(target) - {'kind', 'location', 'selected_text', 'playable_body'}:
             raise ValueError('Unclassified Plan edit target fields')
         view['focused_edit_target'] = deepcopy(target)
-    from .authored_graph_references import (native_references,
-        AuthoredSourceReferenceV1, BuildAuthoredReferenceReadV2)
-    from .native_corpus import NativeAuthoredSourceReadV1
-    references = native_references(execution)
-    if references is not None and references.references:
-        selected = []
-        for i, reference in enumerate(references.references):
-            source = isinstance(reference, AuthoredSourceReferenceV1)
-            reads = [event for event in execution.events if (
-                isinstance(event, NativeAuthoredSourceReadV1) and source and event.reference_index == i
-                or isinstance(event, BuildAuthoredReferenceReadV2) and not source
-                    and event.node_id == reference.node_id)]
-            if len(reads) > 1:
-                raise ValueError('Ambiguous selected Plan reference read')
-            selected.append(dict(reference=f'reference{i}', label=reference.label,
-                kind='source' if source else 'object', read_status=(
-                    'complete' if source else reads[0].status) if reads else 'unread',
-                **({'extent': reference.selection_kind} if source else {})))
-        view['selected_references'] = selected
+    from .authored_graph_references import model_reference_choices
+    references = model_reference_choices(execution)
+    if references is not None:
+        view['selected_references'] = references
     return view
 
 

@@ -786,7 +786,7 @@ def native_origin_rows(frame):
     return selected_rows(frame.get('related_authored_pages',{}).get('pages',[]),primary,frame['source_basis'])
 
 
-def native_review_schema(frame):
+def native_review_schema(frame, *, local=False):
     """Existing typed review model with only the actual producing selectors."""
     from .collaboration import ProposedQuestions, ProposedPlanV3, ProposedConnectedPage
     from .relationship_review import ProposedRelationship
@@ -814,7 +814,10 @@ def native_review_schema(frame):
         rows=native_origin_rows(frame) if kind=='connected_page' else frame['artifact_under_edit']['sections']
         if not rows:
             return {'type':'null'},{}
-        schema['properties']['read_id']={'type':'string','enum':sorted(str(row['read_id']) for row in rows)}
+        from .native_build_work_view import selection_aliases
+        aliases=selection_aliases(frame) if local else None
+        schema['properties']['read_id']={'type':'string','enum':sorted(
+            aliases[str(row['read_id'])] if aliases is not None else str(row['read_id']) for row in rows)}
     return ({'anyOf':[schema,{'type':'null'}]} if kind not in {'questions','plan'} else schema),definitions
 
 

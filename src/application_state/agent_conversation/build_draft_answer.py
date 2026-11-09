@@ -287,24 +287,29 @@ def normalize_native_segment(row, *, draft_record, saved_sections, related_pages
     raise ValueError('Unknown native Build work segment')
 
 
-def native_variants(frame, prose):
+def native_variants(frame, prose, *, local=False):
     """Finite Build work choices from the one physically included work frame."""
     from .plan_writer_output_schema import _object, _literal, _array, _enum
     from uuid import UUID
+    from .native_build_work_view import selection_aliases
+    aliases=selection_aliases(frame) if local else None
+    def select(value):
+        identity=str(UUID(value))
+        return aliases[identity] if aliases is not None else identity
     variants=[_object({'kind':_literal('discussion'),'text':prose})]
     lane=frame.get('working_draft_context')
     if lane is not None:
-        record_id=str(UUID(lane['record_id']))
+        record_id=select(lane['record_id'])
         variants.append(_object({'kind':_literal('draft_reference_claim'),'text':prose,
             'draft_record_id':_enum([record_id])}))
     rows=frame['artifact_under_edit']['sections']
     if rows:
         variants.append(_object({'kind':_literal('saved_source_claim'),'text':prose,
-            'section_read_ids':_array(_enum(str(UUID(row['read_id'])) for row in rows),nonempty=True),
+            'section_read_ids':_array(_enum(select(row['read_id']) for row in rows),nonempty=True),
             'supporting_quotes':_array(prose,nonempty=True)}))
     related=frame.get('related_authored_pages',{}).get('pages',[])
     if related:
         variants.append(_object({'kind':_literal('related_page_claim'),'text':prose,
-            'read_id':_enum(str(UUID(row['read_id'])) for row in related),
+            'read_id':_enum(select(row['read_id']) for row in related),
             'supporting_quotes':_array(prose,nonempty=True)}))
     return variants

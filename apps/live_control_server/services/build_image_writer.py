@@ -41,8 +41,7 @@ POLICY = "captured_build_image_prompt_alt_purpose_v2"
 def writer_request(capability, question, history, related_authored_pages=None, authored_reference_material=None, *, writer_model: str, _native_context=None, _native_rules_frame=None):
     snapshot = _source(capability)
     history = project_dialogue(list(history))
-    packet = json.dumps(
-        {
+    body = {
             "schema": "dmb_build_image_direction_input_v1",
             **({"related_authored_pages":related_authored_pages} if related_authored_pages is not None else {}),
             **(authored_reference_material or {}),
@@ -53,10 +52,7 @@ def writer_request(capability, question, history, related_authored_pages=None, a
             "draft_markdown": capability.draft_markdown,
             "recent_dialogue": history,
             "source_class": "proposed_authored_worldbuilding_not_played_truth",
-        },
-        ensure_ascii=False,
-        separators=(",", ":"),
-    )
+        }
     if _native_context is not None:
         from application_state.agent_conversation.native_writer import authoring_input, AUTHORING_GUIDANCE
         if authored_reference_material is not None or related_authored_pages is not None:
@@ -64,13 +60,16 @@ def writer_request(capability, question, history, related_authored_pages=None, a
         material=authoring_input(_native_context,capability,question,'prepare_build_image')
         if writer_model!=_native_context[1].policy.provider_roles.writer.model:
             raise ValueError('Native image model differs from its frozen writer')
-        body=json.loads(packet)
         for key in ('source_basis','draft_markdown','captured_capability'):
             del body[key]
+        body.pop('schema')
+        body.pop('dialogue_sources',None)
+        body.pop('tool_origin',None)
+        body['task']='prepare_image_direction'
         body.update(material)
         if _native_rules_frame is not None:
             body['rules_evidence']=_native_rules_frame.model_dump(mode='json',by_alias=True)
-        packet=json.dumps(body,ensure_ascii=False,separators=(',',':'))
+    packet=json.dumps(body,ensure_ascii=False,separators=(',',':'))
     from application_state.agent_conversation.native_writer import output_request_fields
     reserve=4096 if _native_context is None else _native_context[1].policy.writer_context_budget.output_reserve_tokens
     return {

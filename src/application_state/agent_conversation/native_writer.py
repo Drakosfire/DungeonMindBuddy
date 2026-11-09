@@ -11,7 +11,7 @@ from uuid import UUID
 
 from . import types as t
 from .native_context import SurfaceNativeContextReceiptV1
-from .native_execution import NativeWriterAuthorizedV1, SurfaceNativeExecutionV1
+from .native_execution import NativeWriterAuthorizedV1, SurfaceNativeExecutionV1, NATIVE_WRITER_TYPES
 from .native_reads import validate_execution_binding
 from . import native_corpus as bodies
 from . import native_plan_statements as statements
@@ -63,7 +63,7 @@ def model_frame(receipt, execution, *, schema=SCHEMA):
     if (type(receipt), type(execution)) != (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1):
         raise ValueError("Native writer requires its exact shared receipt and execution")
     validate_execution_binding(receipt, execution)
-    if any(type(event) is NativeWriterAuthorizedV1 for event in execution.events):
+    if any(type(event) in NATIVE_WRITER_TYPES for event in execution.events):
         raise ValueError("Native evidence projection requires the prefix before its writer")
     query = receipt.native_query
     partial = (isinstance(receipt.source_authority, t.NativeCorpusUnavailableV1)
@@ -100,6 +100,7 @@ class NativeWriterEvidence:
     native_statements: tuple
     native_assertions: tuple
     authored_local: bool = False
+    build_local: bool = False
 
 
 def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_proof,
@@ -116,7 +117,7 @@ def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_pr
             or any(type(value) is not UUID for value in (idempotency_key,conversation_id,turn_id))
             or type(attempt) is not int or attempt < 1):
         raise ValueError('Native writer work differs from its actual submission identity')
-    if any(type(event) is NativeWriterAuthorizedV1 for event in execution.events):
+    if any(type(event) in NATIVE_WRITER_TYPES for event in execution.events):
         raise ValueError('Native work projection requires the prefix before its writer')
     if isinstance(receipt.work_context,BuildWorkContextV1):
         from .build_primary_context import native_work_frame
@@ -169,8 +170,9 @@ def authoring_input(native_context, capability, instruction, operation):
                 or origin.broker_operation_id!=selected.broker_operation_id
                 or origin.arguments_sha256!=selected.arguments_sha256):
             raise ValueError('Native proposal origin differs from its actual selected action')
+    from .native_build_work_view import semantic_frame as build_work_view
     return dict(native_evidence=model_input_frame(receipt,execution),
-        surface_work=model_work_frame(receipt,execution,**work))
+        surface_work=build_work_view(model_work_frame(receipt,execution,**work),execution))
 
 
 def _input_frames(raw,execution,work_schema):
@@ -186,7 +188,11 @@ def _input_frames(raw,execution,work_schema):
         semantic=semantic_frame_in_request(strict_json(raw),legacy_schemas={LEGACY_SCHEMA,SCHEMA})
         from .plan_jev_graph_packet import NATIVE_WORK_SCHEMA as PLAN_WORK_SCHEMA
         from .native_plan_work_view import frame_in_request
-        work = frame_in_request(strict_json(raw)) if work_schema == PLAN_WORK_SCHEMA else None
+        if work_schema == PLAN_WORK_SCHEMA:
+            work = frame_in_request(strict_json(raw))
+        else:
+            from .native_build_work_view import frame_in_request as build_frame
+            work = build_frame(strict_json(raw))
         return (semantic if semantic is not None else responses_text_frame(raw,schemas={LEGACY_SCHEMA,SCHEMA},label='Native writer'),
             work if work is not None else responses_text_frame(raw,schemas={work_schema},label='Native surface work'))
     body=strict_json(raw)
@@ -194,8 +200,20 @@ def _input_frames(raw,execution,work_schema):
             or body.get('tools',[])!=[] or body.get('tool_choice') not in (None,'none')):
         raise ValueError('Native authoring requires its one exact producer packet')
     packet=strict_json(body['input'])
-    if not isinstance(packet,dict) or packet.get('schema')!=schema:
-        raise ValueError('Native authoring requires its selected producer schema')
+    task={'propose_build_insertion':'compose_current_page',
+        'prepare_build_image':'prepare_image_direction'}[operation]
+    if (not isinstance(packet,dict) or not (
+            packet.get('schema')==schema and 'task' not in packet
+            or packet.get('task')==task and 'schema' not in packet)):
+        raise ValueError('Native authoring requires its selected producer kind')
+    from .native_build_work_view import is_semantic_frame as semantic_build_work
+    if ('task' in packet) != semantic_build_work(packet.get('surface_work')):
+        raise ValueError('Native authoring cannot mix historical and current work carriers')
+    if 'task' in packet:
+        allowed={'task','recent_dialogue','source_class','source_title','instruction',
+            'native_evidence','surface_work','rules_evidence','page_body_offer','page_end_offer'}
+        if set(packet)-allowed:
+            raise ValueError('Unclassified semantic Build authoring fields')
     if packet.get('instruction')!=execution.policy.action.intent.message:
         raise ValueError('Native authoring instruction differs from selected work')
     if any(key in packet for key in ('source_basis','draft_markdown','captured_capability',
@@ -207,11 +225,11 @@ def _input_frames(raw,execution,work_schema):
 def verify_input_records(receipt, execution, authorization, raw, *, provenance, idempotency_key,
                          work_proof, world_id, conversation_id, turn_id, attempt):
     """Bind one shared native frame to the exact stored producing SDK request."""
-    if (type(receipt), type(execution), type(authorization)) != (
-            SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1, NativeWriterAuthorizedV1):
+    if ((type(receipt), type(execution)) != (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1)
+            or type(authorization) not in NATIVE_WRITER_TYPES):
         raise ValueError("Native writer proof requires its concrete shared owner records")
     validate_execution_binding(receipt, execution)
-    writers = [event for event in execution.events if type(event) is NativeWriterAuthorizedV1]
+    writers = [event for event in execution.events if type(event) in NATIVE_WRITER_TYPES]
     if writers != [authorization] or execution.events[authorization.sequence] != authorization:
         raise ValueError("Native writer proof differs from its unique stored authorization")
     # Reparse actual records, not a legacy policy/view. Later outcomes never add
@@ -221,6 +239,15 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     expected_work = model_work_frame(receipt,prefix,provenance=provenance,idempotency_key=idempotency_key,
         work_proof=work_proof,world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt)
     frame,work_frame = _input_frames(raw,prefix,expected_work['schema'])
+    from .native_execution import NativeBuildWriterAuthorizedV2
+    from .native_build_work_view import is_semantic_frame as semantic_build_work
+    if type(authorization) is NativeBuildWriterAuthorizedV2:
+        if not semantic_build_work(work_frame):
+            raise ValueError('Build work authorization requires its current semantic carrier')
+        if authorization.work_frame_sha256 != t.canonical_sha256(expected_work):
+            raise ValueError('Build writer complete work commitment differs from its producing catalog')
+    elif semantic_build_work(work_frame):
+        raise ValueError('Semantic Build work requires its complete authorization commitment')
     if not isinstance(frame,dict):
         raise ValueError('Native writer requires its exact evidence presentation')
     from .native_evidence_view import is_semantic_frame,expected_semantic_frame,output_frame
@@ -229,7 +256,10 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     schema_frame = output_frame(host,expected)
     from .native_plan_work_view import is_semantic_frame as semantic_work, semantic_frame as plan_work_view
     authored_local = semantic_work(work_frame)
-    expected_wire_work = plan_work_view(expected_work,prefix) if authored_local else expected_work
+    from .native_build_work_view import is_semantic_frame as semantic_build, semantic_frame as build_work_view
+    build_local = semantic_build(work_frame)
+    expected_wire_work = (build_work_view(expected_work,prefix) if build_local
+        else plan_work_view(expected_work,prefix) if authored_local else expected_work)
     if t.canonical_sha256(work_frame) != t.canonical_sha256(expected_wire_work):
         raise ValueError('Native writer changed or omitted its exact surface work')
     body = strict_json(raw)
@@ -266,9 +296,9 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         related_pages=tuple(related_records(prefix))
         if prefix.policy.action.intent.build_draft_context_sha256 is not None:
             draft_record=context_record(prefix).record
-    return NativeWriterEvidence(frame=schema_frame,work_frame=expected_work,output_work_frame=expected_work | expected_wire_work,
+    return NativeWriterEvidence(frame=schema_frame,work_frame=expected_work,output_work_frame=expected_work if build_local else expected_work | expected_wire_work,
         authored=authored,idempotency_key=idempotency_key,
-        authored_local=authored_local,
+        authored_local=authored_local,build_local=build_local,
         saved_sections=saved_sections,related_pages=related_pages,draft_record=draft_record,
         **read_evidence_records(prefix,expected))
 

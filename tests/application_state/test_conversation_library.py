@@ -346,7 +346,11 @@ def test_active_messages_never_select_or_decode_execution_and_keep_exact_cursor(
 
     def audited(cursor, query, *args, **kwargs):
         if isinstance(query, str) and query.lstrip().lower().startswith("select"):
-            assert "graph_context_execution" not in query
+            from application_state.agent_conversation.authored_reference_preview import SELECT as reference_select
+            assert "graph_context_execution" not in query.replace(reference_select, "")
+            if "graph_context_execution" in query:
+                assert "AS authored_reference_inputs" in query
+                assert "jsonb_path_query_array" in query
             if "graph_context_receipt" in query:
                 assert query.count("graph_context_receipt") == 1
                 assert "graph_context_receipt->'work_context'->'source_basis'" in query
@@ -371,7 +375,7 @@ def test_active_messages_never_select_or_decode_execution_and_keep_exact_cursor(
         {
             k: v
             for k, v in row.items()
-            if k not in {"revision", "idempotency_key", "provenance", "citation_preview"}
+            if k not in {"revision", "idempotency_key", "provenance", "citation_preview", "authored_references"}
         }
         for row in page["messages"]
     ]

@@ -97,24 +97,25 @@ export async function readConversationMessages(world:string,id:string,before?:nu
 
 /** Display/correlation metadata only; never a verified execution or action grant. */
 export interface ActiveConversationMessages {
-  schema: 'dmb_active_conversation_messages_v2'; world_id: string; conversation_state: 'active' | 'absent';
+  schema: 'dmb_active_conversation_messages_v3'; world_id: string; conversation_state: 'active' | 'absent';
   conversation_id: string | null; active_conversation_id: string | null; pointer_revision: number;
-  messages: (ConversationMessage & { revision: number; idempotency_key: string; provenance: import('./types').AgentConversationTurnProvenanceV1; citation_preview: SavedCitationPreview })[];
+  messages: (ConversationMessage & { authored_references: AuthoredReferenceInput | null; revision: number; idempotency_key: string; provenance: import('./types').AgentConversationTurnProvenanceV1; citation_preview: SavedCitationPreview })[];
   next_before_sequence: number | null;
 }
 export async function readActiveConversationMessages(world: string, before?: number, signal?: AbortSignal): Promise<ActiveConversationMessages> {
   const q = new URLSearchParams({ limit: '50' }); if (before !== undefined) q.set('before_sequence', String(before));
   const v = await read(path(world) + '/active/messages?' + q, { signal });
   if (!exactObject(v, ['schema', 'world_id', 'conversation_state', 'conversation_id', 'active_conversation_id', 'pointer_revision', 'messages', 'next_before_sequence'])
-    || v.schema !== 'dmb_active_conversation_messages_v2' || v.world_id !== world || !['active', 'absent'].includes(v.conversation_state)
+    || v.schema !== 'dmb_active_conversation_messages_v3' || v.world_id !== world || !['active', 'absent'].includes(v.conversation_state)
     || !Number.isSafeInteger(v.pointer_revision) || v.pointer_revision < 0 || !Array.isArray(v.messages) || v.messages.length > 50
     || (v.conversation_state === 'active' ? !uuid(v.conversation_id) || v.active_conversation_id !== v.conversation_id
       : v.conversation_id !== null || v.active_conversation_id !== null || v.messages.length !== 0 || v.next_before_sequence !== null)) throw new Error('Active message page has a different owner.');
   let last = 0; for (const t of v.messages) {
-if (!exactObject(t, ['turn_id', 'sequence', 'status', 'user_text', 'assistant_text', 'revision', 'idempotency_key', 'provenance', 'citation_preview'])
+if (!exactObject(t, ['turn_id', 'sequence', 'status', 'user_text', 'assistant_text', 'revision', 'idempotency_key', 'provenance', 'citation_preview', 'authored_references'])
       || !uuid(t.turn_id) || !uuid(t.idempotency_key) || !Number.isSafeInteger(t.revision) || t.revision < 1 || !Number.isSafeInteger(t.sequence) || t.sequence <= last
       || before !== undefined && t.sequence >= before || !['accepted', 'running', 'completed', 'failed', 'interrupted'].includes(t.status)
       || typeof t.user_text !== 'string' || !(t.assistant_text === null || typeof t.assistant_text === 'string') || t.provenance?.world_id !== world) throw new Error('Active message metadata is invalid.');
+    if(t.authored_references!==null&&!isAuthoredReferences(t.authored_references,world))throw new Error('Saved references have a different owner.');
     t.citation_preview=t.status==='completed'?readSavedCitationPreview(t.citation_preview,world,t.provenance.surface_id,t.assistant_text):null;
     last = t.sequence;
 }
