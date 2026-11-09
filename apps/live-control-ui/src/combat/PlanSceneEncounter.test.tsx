@@ -24,7 +24,7 @@ describe('Plan scene encounter preparation',()=>{
   await userEvent.click(await screen.findByRole('button',{name:'Prepare encounter'}));
   expect(await screen.findByTestId('scoped-combat')).toHaveTextContent('33333333');
   expect(create.mock.calls[0][1].pin).toEqual(pin);expect(sessionStorage.length).toBe(0);
-  expect(tourReadings.get('encounter')?.observation).toMatchObject({origin:'acknowledged',target:{revision:1,revisionId:pin.work_revision_id,digest:pin.content_sha256},proof:{kind:'encounter',sceneId:context.sceneId,encounterId:'33333333-3333-4333-8333-333333333333',revision:1,digest:'sha256:'+'a'.repeat(64)}});
+  await waitFor(()=>expect(tourReadings.get('encounter')?.observation).toMatchObject({origin:'acknowledged',target:{revision:1,revisionId:pin.work_revision_id,digest:pin.content_sha256},proof:{kind:'encounter',sceneId:context.sceneId,encounterId:'33333333-3333-4333-8333-333333333333',revision:1,digest:'sha256:'+'a'.repeat(64)}}));
  });
  it('preserves an unknown creation across remount and retries the identical key and body',async()=>{
   const create=vi.spyOn(api,'createSceneTemplate').mockRejectedValueOnce(new Error('Response lost')).mockImplementation(async(_world,intent)=>result(intent));
