@@ -183,3 +183,33 @@ it.each([{ colspan: 2 }, { rowspan: 2 }, { colwidth: [120] }])("refuses lossy ta
   await expect(resolvePlayableBodyTarget(editor, { kind: "scene", id: "scene:table" })).rejects.toThrow(/unsupported Playable content/);
   expect(editor.getJSON()).toEqual(before);
 });
+
+
+it("refuses an ordinary link outside the selected body without changing the editor", async () => {
+  const markdown = "<!-- dmb-playable-element:v1 kind=scene id=scene:chosen -->\n## Chosen\nAllowed body.\n<!-- dmb-playable-element:v1 kind=scene id=scene:other -->\n## Other\n[Web source](https://example.test/source)\n";
+  const imported = markdownToTiptapDoc(markdown);
+  expect(imported.diagnostics.filter(row => row.level === "warning")).toEqual([]);
+  const editor = new Editor({extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: imported.doc});
+  editors.push(editor);
+  const before = editor.getJSON();
+  const selection = editor.state.selection.toJSON();
+  await expect(resolvePlayableBodyTarget(editor, {kind:"scene", id:"scene:chosen"})).rejects.toThrow(/Web links.*card edit proposals/);
+  expect(editor.getJSON()).toEqual(before);
+  expect(editor.state.selection.toJSON()).toEqual(selection);
+  expect(tiptapJsonToSemanticMarkdown(editor.getJSON())).toContain("[Web source](https://example.test/source)");
+});
+
+it("keeps a hard break outside the selected body available with exact V1 bytes", async () => {
+  const markdown = "<!-- dmb-playable-element:v1 kind=scene id=scene:chosen -->\n## Chosen\nAllowed body.\n<!-- dmb-playable-element:v1 kind=scene id=scene:other -->\n## Other\nLine one  \nLine two\n";
+  const imported = markdownToTiptapDoc(markdown);
+  expect(imported.diagnostics.filter(row => row.level === "warning")).toEqual([]);
+  const editor = new Editor({extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: imported.doc});
+  editors.push(editor);
+  const before = editor.getJSON();
+  const result = await resolvePlayableBodyTarget(editor, {kind:"scene", id:"scene:chosen"});
+  expect(result.targetBodyMarkdown).toBe("Allowed body.\n");
+  expect(result.bodySerializationVersion).toBe("plan-playable-body-markdown-v1");
+  expect(result.targetBodySha256).toBe("8bdf404853a05d16fcbfb1c86f11942796884f94fc4cfa3ccf43f27aa814458d");
+  expect(editor.getJSON()).toEqual(before);
+  expect(JSON.stringify(before)).toContain("hardBreak");
+});
