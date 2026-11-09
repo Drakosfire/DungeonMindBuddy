@@ -67,6 +67,9 @@ class PlanJevHarness:
                 from .native_authored_references import acquire
                 acquire(adapter)
             driver = PlanJevDriver(adapter, dialogue=dialogue, rules=rules, retained_navigation=retained_navigation)
+            from .corpus_source_navigation import NativeBodyNavigation
+            if isinstance(driver.native_sources, NativeBodyNavigation):
+                driver.native_sources.discover_initial()
             proof = asyncio.run(driver.run(transport=self.decision_transport, api_key=self.decision_api_key))
             writer = PlanJevWriter(adapter, proof, rules)
             completed = asyncio.run(writer.run(transport=self.writer_transport, api_key=self.writer_api_key))

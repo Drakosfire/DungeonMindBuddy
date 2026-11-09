@@ -2,6 +2,7 @@
 
 from contextlib import contextmanager
 from dataclasses import replace
+import json
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -62,6 +63,209 @@ def record_candidates(case):
     q = case.turn.graph_context_receipt.native_query
     return [RetrievalCandidate(handle=object_selection_handle(q, m.entity_id),
         label=m.label, kind="Native Graph object") for m in q.object_matches]
+
+
+@pytest.mark.parametrize('session', [False, True])
+def test_initial_source_discovery_commits_before_first_retrieval_without_body_exposure(
+    application_state_dsn, lane, session, request, monkeypatch
+):
+    from tests.test_surface_native_writer import body_case
+    from tests.test_native_corpus_source_access import GM
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import prepare_native_source_context
+    from application_state.agent_conversation.native_corpus import (
+        NativeInitialSourceSearchAuthorizedV1, NativeBodySearchObservedV1, acquired_body_reads,
+    )
+    from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV2, prepare_decision
+    from application_state.agent_conversation.plan_jev_decision import _source_pins
+
+    context, record, _ = body_case('plan', lane)
+    record = execution(context.context_receipt_sha256, record.policy)
+    source = prepare_native_source_context(managed_world_id='managed', principal=GM,
+        repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    def make_fence(service, turn):
+        fence = _ClaimFence(service, turn)
+        request.addfinalizer(fence.stop)
+        return fence
+    case = sdk_case(application_state_dsn, context_record=(context, record), native='current',
+        readonly_session=True, include_final_decision=False,
+        fence_factory=make_fence if session else None)
+    with host(case, source_context=source) as adapter:
+        driver = PlanJevDriver(adapter)
+        with pytest.raises(ValueError, match='initial source discovery'):
+            driver.offered()
+        driver.native_sources.discover_initial()
+        stored = case.service.inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id)
+        grants = [e for e in stored.graph_context_execution.events if isinstance(e, NativeInitialSourceSearchAuthorizedV1)]
+        observations = [e for e in stored.graph_context_execution.events if isinstance(e, NativeBodySearchObservedV1)]
+        assert len(grants) == len(observations) == 1
+        assert observations[0].authorization_event_id == grants[0].event_id
+        assert not hasattr(grants[0], 'provider_attempt_id')
+        assert observations[0].catalogs
+        assert acquired_body_reads(stored.graph_context_execution) == ()
+        before = adapter.fence.turn
+        from apps.live_control_server.integrations.dungeonmind import native_corpus_source as core
+        monkeypatch.setattr(core, 'capture_native_sources', lambda **_: pytest.fail('Settled discovery repeated Core IO'))
+        driver.native_sources.discover_initial()
+        assert adapter.fence.turn == before
+        forged = observations[0].model_copy(update={'unavailable_source_count': 999999})
+        def public_events(replacement):
+            return before.model_copy(update={'graph_context_execution': before.graph_context_execution.model_copy(
+                update={'events': tuple(replacement.get(e.event_id, e) for e in before.graph_context_execution.events)})})
+        adapter.fence.renewer._turn = public_events({forged.event_id: forged})
+        driver.native_sources.discover_initial()
+        assert adapter.fence.turn == before  # Actual replay discards forged public metadata.
+        legacy = t.NativeBodySearchAuthorizedV1(**grants[0].model_dump(exclude={'kind', 'work_selection_event_id'}),
+            provider_attempt_id=case.steps[0].auth.provider_attempt_id)
+        adapter.fence.renewer._turn = public_events({legacy.event_id: legacy})
+        with pytest.raises(ValueError, match='retired search route'):
+            driver.native_sources.discover_initial()
+        adapter.fence.renewer._turn = before
+        candidates = driver.offered()
+        assert not any(row.handle.startswith('native-corpus-search:') for row in candidates)
+        assert any(row.handle.startswith(('native-body:', 'native-full-document:')) for row in candidates)
+        parent = NativeRetrievalDecisionInputV2(request_id=uuid4(), parent_attempt_id=uuid4(),
+            scope_sha256='0' * 64, question=stored.user_text, candidates=candidates,
+            allowed_operations=('select_candidates', 'finish_retrieval'), **_source_pins(stored.graph_context_receipt))
+        prepared = prepare_decision(parent)
+        assert 'Unselected private context.' not in str(prepared.state)
+
+
+def test_interrupted_initial_discovery_does_not_repeat_core_or_fall_back(
+    application_state_dsn, lane, monkeypatch
+):
+    from tests.test_surface_native_writer import body_case
+    from tests.test_native_corpus_source_access import GM
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source as core
+    context, record, _ = body_case('plan', lane)
+    record = execution(context.context_receipt_sha256, record.policy)
+    source = core.prepare_native_source_context(managed_world_id='managed', principal=GM,
+        repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    case = sdk_case(application_state_dsn, context_record=(context, record), native='current',
+        readonly_session=True, include_final_decision=False)
+    turn, fresh = case.service.authorize_initial_native_source_search(case.turn.world_id,
+        case.turn.conversation_id, case.turn.turn_id, expected_revision=case.turn.revision,
+        expected_attempt=case.turn.attempt, event_id=uuid4())
+    assert fresh
+    case.turn = turn
+    monkeypatch.setattr(core, 'capture_native_sources', lambda **_: pytest.fail('Interrupted search repeated Core IO'))
+    with host(case, source_context=source) as adapter:
+        driver = PlanJevDriver(adapter)
+        with pytest.raises(ValueError, match='interrupted'):
+            driver.native_sources.discover_initial()
+        with pytest.raises(ValueError, match='unresolved durable grant'):
+            driver.offered()
+        assert adapter.fence.turn == turn
+
+
+@pytest.mark.parametrize('changed', ['work', 'question', 'context', 'policy', 'authority', 'duplicate', 'after_retrieval'])
+def test_initial_discovery_full_owner_rejects_forged_or_late_grants(application_state_dsn, changed):
+    from application_state.agent_conversation.native_execution import SurfaceNativeExecutionV1
+    case = sdk_case(application_state_dsn, native='current', readonly_session=True,
+        include_final_decision=changed == 'after_retrieval')
+    if changed == 'after_retrieval':
+        before = case.turn
+        with pytest.raises(ApplicationStateValidationError, match='original readonly work'):
+            case.service.authorize_initial_native_source_search(case.turn.world_id,
+                case.turn.conversation_id, case.turn.turn_id, expected_revision=case.turn.revision,
+                expected_attempt=case.turn.attempt, event_id=uuid4())
+        assert case.service.inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id) == before
+        return
+    turn, _ = case.service.authorize_initial_native_source_search(case.turn.world_id,
+        case.turn.conversation_id, case.turn.turn_id, expected_revision=case.turn.revision,
+        expected_attempt=case.turn.attempt, event_id=uuid4())
+    wire = turn.graph_context_execution.model_dump(mode='json', by_alias=True)
+    grant = wire['events'][-1]
+    if changed == 'work':
+        grant['work_selection_event_id'] = str(uuid4())
+    elif changed == 'question':
+        grant['query_sha256'] = '0' * 64
+    elif changed == 'context':
+        grant['context_receipt_sha256'] = '0' * 64
+    elif changed == 'policy':
+        grant['execution_policy_sha256'] = '0' * 64
+    elif changed == 'authority':
+        grant['authority']['acquisition_epoch'] += 1
+    elif changed == 'duplicate':
+        wire['events'].append(grant | {'event_id': str(uuid4()), 'sequence': grant['sequence'] + 1})
+    with pytest.raises(ValueError):
+        SurfaceNativeExecutionV1.model_validate_json(json.dumps(wire))
+
+
+def test_initial_catalog_is_metadata_only_in_actual_first_retrieval_sdk_request(application_state_dsn, lane):
+    from tests.test_surface_native_writer import body_case, BODY
+    from tests.test_native_corpus_source_access import GM
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import prepare_native_source_context
+    from application_state.agent_conversation.native_corpus import acquired_body_reads
+    context, record, _ = body_case('plan', lane)
+    record = execution(context.context_receipt_sha256, record.policy)
+    source = prepare_native_source_context(managed_world_id='managed', principal=GM,
+        repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    def offered(case):
+        with host(case, source_context=source) as adapter:
+            driver = PlanJevDriver(adapter)
+            driver.native_sources.discover_initial()
+            return driver.offered()
+    case = sdk_case(application_state_dsn, context_record=(context, record), native='current',
+        readonly_session=True, acquisitions=((offered, lambda _: None),), include_final_decision=False)
+    assert len(case.sent) == 2  # Real requested-work and first retrieval SDK envelopes.
+    raw = case.sent[-1].content.decode()
+    assert 'Unselected private context.' not in raw
+    assert BODY not in raw
+    assert not any(c.handle.startswith('native-corpus-search:') for c in case.steps[-1].parent.candidates)
+    assert acquired_body_reads(case.turn.graph_context_execution) == ()
+
+
+@pytest.mark.parametrize('full', [False, True])
+def test_initial_discovery_preserves_selected_extent_and_source_support(application_state_dsn, lane, full):
+    from tests.test_surface_native_writer import body_case, BODY
+    from tests.test_native_corpus_source_access import GM
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import prepare_native_source_context
+    from application_state.agent_conversation.plan_jev_decision import current_selection
+    from application_state.agent_conversation.native_corpus import (
+        acquired_body_reads, acquired_body_catalogs,
+        select_native_body_excerpt, select_native_full_document,
+    )
+    from application_state.agent_conversation.native_writer import model_frame, body_handle
+    context, record, _ = body_case('plan', lane, full=full)
+    record = execution(context.context_receipt_sha256, record.policy)
+    source = prepare_native_source_context(managed_world_id='managed', principal=GM,
+        repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    def offered(case):
+        with host(case, source_context=source) as adapter:
+            driver = PlanJevDriver(adapter)
+            driver.native_sources.discover_initial()
+            prefix = 'native-direct-source:' if full else 'native-body:'
+            return tuple(row for row in driver.offered() if row.handle.startswith(prefix))[:1]
+    def acquire(case):
+        with host(case, source_context=source) as adapter:
+            PlanJevDriver(adapter).native_sources.select(current_selection(case.turn).selected_handles)
+    case = sdk_case(application_state_dsn, context_record=(context, record), native='current',
+        readonly_session=True, acquisitions=((offered, acquire),))
+    (read,) = acquired_body_reads(case.turn.graph_context_execution)
+    catalog = acquired_body_catalogs(case.turn.graph_context_execution)[read.excerpt.catalog_sha256]
+    expected = (select_native_full_document(catalog, BODY) if full else
+        select_native_body_excerpt(catalog, BODY, read.excerpt.section.section_id))
+    assert read.excerpt == expected
+    frame = model_frame(case.turn.graph_context_receipt, case.turn.graph_context_execution)
+    (support,) = frame['native_body_evidence']['excerpts']
+    assert support['excerpt_handle'] == body_handle(read)
+    assert support['text'] == expected.text
+    assert ('Unselected private context.' in json.dumps(support)) == full
+    assert case.service.inspect_turn(world_id=case.turn.world_id, turn_id=case.turn.turn_id) == case.turn
+
+
+def test_initial_discovery_reader_fence_has_no_row_rewrite(application_state_dsn, monkeypatch):
+    from application_state import cli
+    from application_state.errors import ApplicationStateMigrationError
+    from importlib import import_module
+    cli.assert_at_head(dsn=application_state_dsn)
+    monkeypatch.setattr(cli, '_alembic_head', lambda: '20261109_0144')
+    with pytest.raises(ApplicationStateMigrationError):
+        cli.assert_at_head(dsn=application_state_dsn)
+    fence = import_module('application_state.migrations.versions.20261109_0145_initial_source_discovery')
+    assert fence.upgrade() is None
+    with pytest.raises(RuntimeError, match='older readers'):
+        fence.downgrade()
 
 
 @pytest.mark.parametrize('session', [False, True])

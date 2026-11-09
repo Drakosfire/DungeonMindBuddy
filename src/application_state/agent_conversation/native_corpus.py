@@ -221,6 +221,42 @@ class NativeBodySearchAuthorizedV1(NativeBodyEvent):
     query_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
+class NativeInitialSourceSearchAuthorizedV1(NativeBodyEvent):
+    """Readonly work authorizes host discovery, never model body exposure."""
+    kind: Literal["native_initial_source_search_authorized_v1"] = "native_initial_source_search_authorized_v1"
+    work_selection_event_id: UUID
+    context_receipt_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    execution_policy_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    authority: NativeCorpusAuthorityV1
+    query_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+def initial_source_discovery_enabled(execution):
+    from .native_execution import NativePlanActionV2, NativePlanRequestedWorkSelectedV3, SurfaceNativeExecutionV1
+    return (type(execution) is SurfaceNativeExecutionV1
+        and type(execution.policy.action) is NativePlanActionV2
+        and any(type(event) is NativePlanRequestedWorkSelectedV3
+            and event.requested_work in {"discuss", "clarify"} for event in execution.events))
+
+
+def validate_initial_source_search(execution, grant):
+    from .native_execution import NativePlanActionV2, NativePlanRequestedWorkSelectedV3
+    from .native_retrieval import NativeRetrievalAuthorizedV1
+    action = execution.policy.action
+    prefix = execution.events[:grant.sequence]
+    work = next((event for event in prefix if event.event_id == grant.work_selection_event_id), None)
+    if (type(action) is not NativePlanActionV2
+            or type(work) is not NativePlanRequestedWorkSelectedV3
+            or work.requested_work not in {"discuss", "clarify"}
+            or grant.context_receipt_sha256 != execution.context_receipt_sha256
+            or grant.execution_policy_sha256 != execution.execution_policy_sha256
+            or grant.query_sha256 != sha256(action.intent.message.encode()).hexdigest()
+            or sha256(canonical(grant.authority).encode()).hexdigest() != execution.policy.source_authority_sha256
+            or any(isinstance(event, (NativeRetrievalAuthorizedV1, NativeBodySearchAuthorizedV1,
+                NativeInitialSourceSearchAuthorizedV1)) for event in prefix)):
+        raise ValueError("Initial source discovery requires its unique original readonly work and question")
+
+
 class NativeBodySectionMatchV1(Strict):
     catalog_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     section_id: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -315,7 +351,7 @@ class NativeBodyProviderIncludedV1(NativeBodyEvent):
     frame_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
-NATIVE_BODY_EVENTS = (NativeBodySearchAuthorizedV1, NativeBodySearchObservedV1,
+NATIVE_BODY_EVENTS = (NativeBodySearchAuthorizedV1, NativeInitialSourceSearchAuthorizedV1, NativeBodySearchObservedV1,
     NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1, NativeBodyProviderIncludedV1, NativeAuthoredSourceReadV1,
     NativeDirectSourceAuthorizedV1, NativeDirectSourceObservedV1)
 
@@ -344,7 +380,7 @@ def body_frame(reads):
 
 
 def validate_native_body_events(execution):
-    """One selected search, unique reads and inclusion tied to actual providers."""
+    """One authorized search, unique reads and inclusion tied to actual providers."""
     from . import types as t
     grant = search = None
     reads, authorizations, selected_sections = {}, {}, set()
@@ -357,7 +393,7 @@ def validate_native_body_events(execution):
         return (selection is not None and selection.controller_attempt_id == provider
             and selection.operation == "select_candidates" and handle in selection.selected_handles)
     for event in execution.events:
-        if body_selection is not None and isinstance(event, (NativeBodySearchAuthorizedV1,
+        if body_selection is not None and isinstance(event, (NativeBodySearchAuthorizedV1, NativeInitialSourceSearchAuthorizedV1,
                 NativeBodySearchObservedV1, NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1, NativeAuthoredSourceReadV1, NativeDirectSourceAuthorizedV1)):
             raise ValueError("Native body acquisition cannot change after writer evidence selection")
         if isinstance(event, t.BuildWriterEvidenceSelectionV2):
@@ -426,6 +462,11 @@ def validate_native_body_events(execution):
                             != (authorized.source_artifact_id, authorized.source_revision_id, authorized.content_sha256)):
                     raise ValueError("Direct source result changed its selected source or authority")
             reads[event.event_id] = event
+        elif isinstance(event, NativeInitialSourceSearchAuthorizedV1):
+            validate_initial_source_search(execution, event)
+            if grant is not None or writer:
+                raise ValueError("Initial source discovery cannot repeat or follow the writer")
+            grant = event
         elif isinstance(event, NativeBodySearchAuthorizedV1):
             if (grant is not None or writer or provider != event.provider_attempt_id
                     or outcome != "response_received"
@@ -438,7 +479,8 @@ def validate_native_body_events(execution):
             grant = event
         elif isinstance(event, NativeBodySearchObservedV1):
             if (grant is None or search is not None or event.authorization_event_id != grant.event_id
-                    or writer or outcome != "response_received" or provider != grant.provider_attempt_id):
+                    or writer or (isinstance(grant, NativeBodySearchAuthorizedV1)
+                        and (outcome != "response_received" or provider != grant.provider_attempt_id))):
                 raise ValueError("Native search observation lacks its current authorization")
             pairs, catalogs = set(), {}
             for catalog in event.catalogs:

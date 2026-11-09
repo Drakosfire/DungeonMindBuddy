@@ -357,7 +357,25 @@ def validate_decision_phases(execution):
                               if isinstance(ref, AuthoredSourceReferenceV1)}
     retrieval_started = False
     retrieval_finished = False
+    initial_search = None
     for event in execution.events:
+        if isinstance(event, t.NativeInitialSourceSearchAuthorizedV1):
+            from .native_corpus import validate_initial_source_search
+            validate_initial_source_search(execution, event)
+            if (initial_search is not None or retrieval_started or writer is not None
+                    or pending_author_nodes or pending_author_sources
+                    or intent is None or event.work_selection_event_id != intent.event_id):
+                raise ValueError("Initial source discovery requires settled readonly work before retrieval")
+            initial_search = event
+            pending_sources.add((t.NativeInitialSourceSearchAuthorizedV1, event.event_id))
+            continue
+        if (isinstance(event, t.NativeBodySearchObservedV1) and initial_search is not None
+                and event.authorization_event_id == initial_search.event_id):
+            pending = (t.NativeInitialSourceSearchAuthorizedV1, initial_search.event_id)
+            if pending not in pending_sources or retrieval_started or writer is not None:
+                raise ValueError("Initial source discovery observation cannot repeat or follow retrieval")
+            pending_sources.remove(pending)
+            continue
         if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
             identity = (event.provider, event.model, event.api_mode)
             if auth is not None and selected is None:

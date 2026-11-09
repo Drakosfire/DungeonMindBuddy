@@ -29,7 +29,7 @@ from .build_related_pages import PagePointer, RelatedPagesSelection, RelatedPage
 from graph_memory.ingestion.selection_context import NativeStatementSelectionV1
 from .native_statement_input import NativeStatementContextReceiptV1, NativeStatementWriterPolicyV1, NativeStatementWriterPolicyV2, NativeStatementInputEventV1
 from .native_statement_answer import NativeStatementCompletionV1
-from .native_corpus import (NativeCorpusAuthorityV1, NativeBodySearchAuthorizedV1,
+from .native_corpus import (NativeCorpusAuthorityV1, NativeBodySearchAuthorizedV1, NativeInitialSourceSearchAuthorizedV1,
     NativeBodySearchObservedV1, NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1,
     NativeBodyProviderIncludedV1, NativeAuthoredSourceReadV1 as NativeAuthoredSourceReadV1,
     NativeDirectSourceAuthorizedV1, NativeDirectSourceObservedV1, NATIVE_BODY_EVENTS)
