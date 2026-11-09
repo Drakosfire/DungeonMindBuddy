@@ -50,6 +50,13 @@ No runtime source or shared database fixture lease is granted.
 | `tests/application_state/test_agent_conversation_postgres.py` | Audited historical witnesses and current HTTP/provider test prerequisites. |
 | `tests/application_state/test_agent_conversation_provenance_migration.py` | Audited provenance transition/refusal witnesses. |
 | `tests/application_state/test_agent_conversation_service.py` | Claim-recovery migration witness only; retain all original cases/assertions. |
+| `tests/local_operator_client.py` | Supported local boundary test helper, no auth override. |
+| `tests/application_state/test_plan_work_object_postgres.py` | Scoped authenticated endpoint and explicit World-owned Page prerequisites. |
+| `tests/application_state/test_play_active_run_postgres.py` | Scoped authenticated endpoint fixture only. |
+| `tests/test_graph_existing_object_resolver.py` | Scoped authenticated endpoint fixture only. |
+| `tests/test_live_artifact_reads.py` | Scoped authenticated endpoint fixture only. |
+| `tests/test_cutover_dungeonmind_first_world_initialization.py` | Current UUID allocator and real auth prerequisites in native client fixture only. |
+| `tests/_cutover_d3a_blocker_safe_fixtures.py` | Current extraction component resolver signature in owned synthetic-run mutation helpers only. |
 | `tests/test_graph_authoring_overlay_projection.py` | Existing declared collection repair. |
 | `tests/test_graph_authoring_overlay_projection_merge.py` | Existing declared collection repair. |
 | `tests/test_graph_authoring_visibility.py` | Existing declared collection repair. |
@@ -323,3 +330,46 @@ without its required World owner. Test function ASTs and all60 ordered nodeIDs
 are identical, duplicates0. No product authorization or denial tests changed.
 Two explicit helper guards prove supported loopback succeeds and remote peer
 still receives real403 hosted_auth_local_boundary. Exact owned test DB removed.
+
+## Explicit source fixture correction batch
+
+Coordinator authorizes source fixture corrections. Extend this test-only lease
+to tests/test_cutover_dungeonmind_first_world_initialization.py solely for its
+native_first_world_client fixture: pin deterministic UUID at the actual APP
+world_catalog.service allocator (registry now delegates), and configure the real
+supported local middleware boundary alongside its existing token-based Graph
+auth. No fixture/test assertions or product source change. Legacy CUTOVER
+charters describe#651-era work; current origin/main includes the later1959,1960
+and2058 changes on this fixture. No active CUTOVER writer/task/worktree was found;
+current Graph route lane writes UI only. Adopt this narrow fixture seam into CI2;
+retain all broader CUTOVER acceptance obligations.
+
+The two existing Plan module residuals are in its already granted source fixture
+lease: create a real catalog World and supply its explicit world_id for the lore
+Page prerequisite. Preserve fail-closed unavailable-DB and latency assertions.
+
+The source correction batch additionally owns the two obsolete label keyword
+arguments in tests/_cutover_d3a_blocker_safe_fixtures.py. Their production helper
+now accepts only(repo,uri); synthetic fixture paths/payloads/digest resealing and
+all validation assertions remain. This helper belongs to the same historical
+CUTOVER fixture lane, with no current matching writer found.
+
+The Page outage witness reaches a genuine retired test contract: #1990 moved
+Worldbuilding Pages from file-backed storage into typed PostgreSQL. Keeping its
+old200-under-DB-outage expectation would require a prohibited production fallback.
+Retain the original positive200/exact-record assertions with the healthy owner
+before cutting its DSN, then assert503 for source-filtered outage as well as the
+original unfiltered/runbook outage assertions. This strengthens current fail-closed
+coverage without dropping a case or original assertion; it explicitly migrates
+the old file-availability assumption and requires independent contract review.
+
+Source batch final author results: all60original scoped endpoint IDs pass, plus
+69dedicated hosted/Graph auth and CI guards=129passed12.66s. Same54native baseline
+IDs now44passed/10failed28.97s, no errors:54missing-DSN baseline→7pass with native
+provisioning→44pass with current UUID/auth/resolver prerequisites. Residual10
+remain visible:2native Graph reference admission409s,1retired filesystem registry
+mutation,2removed internal patch seams,2file-only source/span tamper fixtures,
+and3continuity fixtures lacking auth. No assertion or product policy relaxed.
+Every original assert AST/decorator/name in the touched test modules is retained;
+the outage test adds the source-filtered503check. Both owning disposable DBs clean.
+Broader full totals remain pending and cannot be inferred by signature counts.
