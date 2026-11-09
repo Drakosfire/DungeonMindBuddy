@@ -18,11 +18,13 @@ from application_state.agent_conversation.types import (
     TurnSubmission,
 )
 from application_state.cli import alembic_config
+from tests.application_state.historical_migrations import assert_historical_refusal
 from application_state.errors import ApplicationStateConflictError
 
 
 def test_0011_receipts_survive_additive_typed_provenance_migration_and_fail_closed(
     application_state_dsn: str,
+    historical_database,
 ) -> None:
     service = AgentConversationService()
     world_id = "provenance-migration-world"
@@ -101,76 +103,86 @@ def test_0011_receipts_survive_additive_typed_provenance_migration_and_fail_clos
             (draft.draft_id,),
         ).fetchone()
 
-    command.downgrade(alembic_config(), "20261001_0011")
-    command.upgrade(alembic_config(), "head")
+    # Real 0012 -> 0011 -> head transition, isolated from later reader fences.
+    # 0013's submitted-intent marker is intentionally absent from the legacy row;
+    # retain the original request/idempotency fingerprints and prove replay fails
+    # closed after the real forward chain, rather than pretending it is verifiable.
+    with historical_database("20261002_0012", source_dsn=application_state_dsn,
+                             expected_omissions={"agent.turn": {"answer_composition_kind": ["base"],
+                                                              "submitted_intent_fingerprint_v1": [turn.submitted_intent_fingerprint_v1]}}) as application_state_dsn:
+        command.downgrade(alembic_config(), "20261001_0011")
+        command.upgrade(alembic_config(), "head")
 
-    recovered = AgentConversationService()
-    loaded_turn = recovered.list_turns(world_id, conversation_receipt.conversation_id)[
-        0
-    ]
-    assert loaded_turn.turn_id == turn.turn_id
-    assert loaded_turn.status == "accepted"
-    assert loaded_turn.sequence == 1
-    assert loaded_turn.provenance.surface_id == "plan"
-    assert loaded_turn.provenance.surface_instance_id is None
-    assert loaded_turn.provenance.primary_work.revision == "legacy-work-revision-17"
-    assert loaded_turn.provenance.primary_work.content_sha256 == "a" * 64
-    assert loaded_turn.provenance.primary_work.object_revision is None
-    assert loaded_turn.provenance.primary_work.work_revision_id is None
-    assert loaded_turn.provenance.primary_work.revision_n is None
-    assert loaded_turn.graph_context_receipt is None
-    assert loaded_turn.completion is None
-    assert loaded_turn.graph_context_execution is None
-    assert loaded_turn.submitted_intent_fingerprint_v2 is None
-    with pytest.raises(
-        ApplicationStateConflictError, match="legacy-receipt-unverifiable"
-    ):
-        recovered.accept_turn(submission)
+        recovered = AgentConversationService()
+        loaded_turn = recovered.list_turns(world_id, conversation_receipt.conversation_id)[
+            0
+        ]
+        assert loaded_turn.turn_id == turn.turn_id
+        assert loaded_turn.submitted_intent_fingerprint_v1 is None
+        with psycopg.connect(application_state_dsn) as conn:
+            assert conn.execute("SELECT answer_composition_kind FROM agent.turn WHERE turn_id=%s", (turn.turn_id,)).fetchone() == ("base",)
+        assert loaded_turn.status == "accepted"
+        assert loaded_turn.sequence == 1
+        assert loaded_turn.provenance.surface_id == "plan"
+        assert loaded_turn.provenance.surface_instance_id is None
+        assert loaded_turn.provenance.primary_work.revision == "legacy-work-revision-17"
+        assert loaded_turn.provenance.primary_work.content_sha256 == "a" * 64
+        assert loaded_turn.provenance.primary_work.object_revision is None
+        assert loaded_turn.provenance.primary_work.work_revision_id is None
+        assert loaded_turn.provenance.primary_work.revision_n is None
+        assert loaded_turn.graph_context_receipt is None
+        assert loaded_turn.completion is None
+        assert loaded_turn.graph_context_execution is None
+        assert loaded_turn.submitted_intent_fingerprint_v2 is None
+        with pytest.raises(
+            ApplicationStateConflictError, match="legacy-receipt-unverifiable"
+        ):
+            recovered.accept_turn(submission)
 
-    loaded_draft = recovered.get_draft(
-        world_id, conversation_receipt.conversation_id, draft.draft_id
-    )
-    assert loaded_draft.body == "Preserve this legacy draft."
-    assert loaded_draft.provenance.surface_instance_id is None
-    assert loaded_draft.provenance.primary_work.revision == "legacy-work-revision-17"
-    assert loaded_draft.provenance.primary_work.content_sha256 == "a" * 64
-    assert loaded_draft.provenance.primary_work.object_revision is None
-
-    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
-        assert (
-            conn.execute(
-                """
-            SELECT request_fingerprint, idempotency_fingerprint
-            FROM agent.turn WHERE turn_id = %s
-            """,
-                (turn.turn_id,),
-            ).fetchone()
-            == fingerprints_before
+        loaded_draft = recovered.get_draft(
+            world_id, conversation_receipt.conversation_id, draft.draft_id
         )
-        assert (
-            conn.execute(
-                """
-                SELECT submitted_intent_fingerprint_v2, graph_context_receipt, completion,
-                       graph_context_execution
+        assert loaded_draft.body == "Preserve this legacy draft."
+        assert loaded_draft.provenance.surface_instance_id is None
+        assert loaded_draft.provenance.primary_work.revision == "legacy-work-revision-17"
+        assert loaded_draft.provenance.primary_work.content_sha256 == "a" * 64
+        assert loaded_draft.provenance.primary_work.object_revision is None
+
+        with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+            assert (
+                conn.execute(
+                    """
+                SELECT request_fingerprint, idempotency_fingerprint
                 FROM agent.turn WHERE turn_id = %s
                 """,
-                (turn.turn_id,),
-            ).fetchone()
-            == graph_fields_before
-            == (None, None, None, None)
-        )
-        assert (
-            conn.execute(
-                """
-            SELECT request_fingerprint, source_fingerprint
-            FROM agent.composer_draft WHERE draft_id = %s
-            """,
-                (draft.draft_id,),
-            ).fetchone()
-            == draft_fingerprint_before
-        )
+                    (turn.turn_id,),
+                ).fetchone()
+                == fingerprints_before
+            )
+            assert (
+                conn.execute(
+                    """
+                    SELECT submitted_intent_fingerprint_v2, graph_context_receipt, completion,
+                           graph_context_execution
+                    FROM agent.turn WHERE turn_id = %s
+                    """,
+                    (turn.turn_id,),
+                ).fetchone()
+                == graph_fields_before
+                == (None, None, None, None)
+            )
+            assert (
+                conn.execute(
+                    """
+                SELECT request_fingerprint, source_fingerprint
+                FROM agent.composer_draft WHERE draft_id = %s
+                """,
+                    (draft.draft_id,),
+                ).fetchone()
+                == draft_fingerprint_before
+            )
 
-    assert service.save_draft(draft_save) == draft
+        assert service.save_draft(draft_save) == draft
 
 
 def test_downgrade_refuses_to_discard_typed_provenance(
@@ -230,10 +242,8 @@ def test_downgrade_refuses_to_discard_typed_provenance(
         )
     )
 
-    with pytest.raises(
-        RuntimeError, match="cannot downgrade while typed Agent provenance exists"
-    ):
-        command.downgrade(alembic_config(), "20261001_0011")
+    assert_historical_refusal(application_state_dsn, "20261002_0012",
+                              match="cannot downgrade while typed Agent provenance exists")
 
     loaded = service.list_turns(world_id, conversation.conversation_id)[0]
     assert loaded == accepted

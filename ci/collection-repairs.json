@@ -1,6 +1,6 @@
 {
   "base": "be0ebf6c99f3d4b03b5810aa7e0a1ccc33ee35b0",
-  "scope": "Import/fixture migration to current owning contracts. Preserve original test definitions and parameter IDs; no exclusions. URI tests rehome to real source adapters; durable overlay test consumes real projection DTO instead of deleted Union builder.",
+  "scope": "Import/fixture migration to current owning contracts. Preserve original test definitions and parameter IDs; no exclusions. URI tests rehome to real source adapters; durable overlay test consumes real projection DTO instead of deleted Union builder. Historical migration tests additionally retain original definitions/parametrizations while using exact-revision templates and owning refusal guards; no production fence edits.",
   "original_test_definitions": {
     "tests/test_graph_authoring_overlay_projection.py": [
       "test_alias_decision_survives_store_reload_and_reprojects",
@@ -92,6 +92,48 @@
     ],
     "tests/test_source_packet_density.py": [
       "test_source_packet_retains_canonical_evidence_without_duplicate_unit"
+    ],
+    "tests/application_state/test_agent_conversation_postgres.py": [
+      "test_agent_conversation_history_auth_precedes_world_lookup",
+      "test_agent_conversation_migration_is_single_current_head",
+      "test_agent_route_persists_shared_world_history_and_provider_segments",
+      "test_completion_requires_final_attempt_evidence_membership_and_is_atomic",
+      "test_completion_validation_codes_are_closed_safe_and_valueerror_compatible",
+      "test_concurrent_both_miss_turn_claim_allows_one_semantic_intent",
+      "test_concurrent_route_both_miss_dispatches_provider_once",
+      "test_database_enforces_graph_execution_policy_and_storage_limits",
+      "test_delivery_settlement_preserves_unknown_and_owner_fences",
+      "test_distinct_concurrent_new_commands_are_fenced_by_pointer_revision",
+      "test_duplicate_turn_submission_concurrent_replay_returns_one_turn",
+      "test_execution_answer_status_derives_from_validated_producing_evidence",
+      "test_execution_partial_citations_require_sufficient_evidence",
+      "test_expired_authorized_execution_becomes_unknown_and_cannot_reclaim",
+      "test_fresh_service_instance_reads_committed_world_conversation",
+      "test_graph_completion_status_and_citation_membership_persist",
+      "test_graph_execution_v2_source_read_receipt_round_trip_through_fresh_service",
+      "test_graph_receipt_and_completion_round_trip_through_fresh_service",
+      "test_initial_provider_authorization_cannot_include_undispatched_candidates",
+      "test_interrupted_provider_attempt_can_retry_same_durable_turn",
+      "test_late_plan_completion_keeps_frozen_revision_and_plan_segment",
+      "test_play_run_context_complete_tuple_survives_fresh_service",
+      "test_play_v2_edition_and_saved_note_receipt_round_trip_and_replay_binding",
+      "test_playable_target_receipt_persists_and_replays_immutable_plan_basis",
+      "test_read_only_reset_receipt_actual_repository_route",
+      "test_related_recap_events_round_trip_through_fresh_service",
+      "test_selected_source_scope_jsonb_and_legacy_roundtrip",
+      "test_settled_source_read_receipts_reopen_and_release_capacity",
+      "test_stale_attempt_cannot_append_provider_outcome",
+      "test_terminal_empty_ledger_downgrade_and_nonterminal_cas_rolls_back",
+      "test_terminal_records_fresh_readback_immutable_and_downgrade_refused",
+      "test_terminal_reset_actual_lock_race_and_delayed_post",
+      "test_terminal_resolution_actual_http_binding_readback_and_auth",
+      "test_turn_and_draft_round_trip_exact_typed_provenance",
+      "test_turn_claim_renewal_expiry_reclaim_and_stale_fences",
+      "test_uncapped_execution_persists_accounting_and_guards_downgrade"
+    ],
+    "tests/application_state/test_agent_conversation_provenance_migration.py": [
+      "test_0011_receipts_survive_additive_typed_provenance_migration_and_fail_closed",
+      "test_downgrade_refuses_to_discard_typed_provenance"
     ]
   },
   "original_parametrization": {
@@ -111,6 +153,15 @@
     "tests/test_graph_review_authored_overlay.py": [],
     "tests/test_source_packet_density.py": [
       "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='unit,expected'), List(elts=[Tuple(elts=[Constant(value='span:canonical'), Constant(value='### span:canonical / lines 4-5')], ctx=Load()), Tuple(elts=[Constant(value='unit:distinct'), Constant(value='### span:canonical / unit:distinct / lines 4-5')], ctx=Load()), Tuple(elts=[Constant(value=None), Constant(value='### span:canonical / lines 4-5')], ctx=Load())], ctx=Load())], keywords=[])"
-    ]
+    ],
+    "tests/application_state/test_agent_conversation_postgres.py": [
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='execution_version'), List(elts=[Constant(value=1), Constant(value=2), Constant(value=3)], ctx=Load())], keywords=[])",
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='expired'), List(elts=[Constant(value=False), Constant(value=True)], ctx=Load())], keywords=[keyword(arg='ids', value=List(elts=[Constant(value='owned-claim'), Constant(value='expired-claim')], ctx=Load()))])",
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='outcome'), List(elts=[Constant(value='confirmed'), Constant(value='retired'), Constant(value='submitted_binding_blocked')], ctx=Load())], keywords=[])",
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='unavailable'), List(elts=[Constant(value=False), Constant(value=True)], ctx=Load())], keywords=[])",
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='winner'), List(elts=[Constant(value='old'), Constant(value='retire')], ctx=Load())], keywords=[])",
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Tuple(elts=[Constant(value='context_status'), Constant(value='coverage_status'), Constant(value='truncated'), Constant(value='has_graph_claim')], ctx=Load()), List(elts=[Tuple(elts=[Constant(value='graph_grounded'), Constant(value='complete'), Constant(value=False), Constant(value=True)], ctx=Load()), Tuple(elts=[Constant(value='graph_grounded_partial'), Constant(value='incomplete'), Constant(value=False), Constant(value=True)], ctx=Load()), Tuple(elts=[Constant(value='plan_only_graph_unused'), Constant(value='complete'), Constant(value=False), Constant(value=False)], ctx=Load())], ctx=Load())], keywords=[])"
+    ],
+    "tests/application_state/test_agent_conversation_provenance_migration.py": []
   }
 }

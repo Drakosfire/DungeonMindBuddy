@@ -1,12 +1,12 @@
 # Additive CI transition and qualification design
 
-Status: design delivered with PR 1; PR 2 implementation is not yet activated.
+Status: PR1 #2284 merged; PR2 #2288 ACTIVE, full qualification HOLD.
 Owner: CI transition coordinator. User's serial five-stage plan is authoritative.
 No current PR gate is removed, filtered, renamed or treated as optional.
 
 ## Stage boundaries
 
-1. Inventory/contract extraction: this PR. Classify all discovered files, fail
+1. Inventory/contract extraction: completed in #2284. Classify all discovered files, fail
    unclassified tests, publish file/case counts with distinct provenance, measured
    durations and source SHA. Classification does not yet drive PR selection.
 2. Qualification first: add a separate manual, scheduled and release-candidate
@@ -63,8 +63,10 @@ source/image IDs and test output. Use no existing operator browser profile/state
 Dependency: #2276 graph-route behavior is still unmerged at PR-1 base. Current main
 cannot honestly satisfy its graph-edit/draft route acceptance. PR 2 cannot report
 qualified by skipping these tests, testing a different development server, or
-merging the route into a hidden synthetic head. Wait for reviewed real-main route
-integration, or report the qualification lane red/blocked with the exact dependency.
+calling an isolated composition main-ready. The coordinator now explicitly permits
+a separately labeled candidate composition for harness proof while CI remains the
+priority. Keep main readiness red/blocked while the graph contract is absent; do
+not merge graph work to unblock CI.
 Do not edit the other lane's Surface/canvas files.
 
 Prove failure propagation with disposable fault controls owned by the qualification
@@ -131,10 +133,9 @@ filled root-disk cache; exact unused/unshared task-cache records were reclaimed
 (approximately2.93GB), restoring about3GB normal-user headroom. A new8GiB Docker
 headroom check stops before build/resource allocation. Further local image builds
 remain stopped; no global prune, mount or daemon configuration changed. Production
-startup, readiness and browser qualification are NOT green. A source-only
-src/corpus packaging inclusion needs explicit coordinator write-lease ownership
-before editing .dockerignore; do not mount missing code or switch to a dev image
-to hide the defect. A reviewable proposed patch remains in task scratch.
+image verification moved to hosted runners. The coordinator-approved source-only
+packaging inclusion and later runtime proof are recorded below; the original
+failures remain evidence, not current unresolved packaging work.
 
 ## Approved packaging extension and premerge self-validation
 
@@ -155,4 +156,35 @@ remain unfiltered and authoritative. Outdated qualification PR runs may cancel
 on material head changes; manual/scheduled/RC runs retain non-canceling behavior.
 Resolve one checkout SHA once and pass it to full-regression and image jobs.
 This is not domain selection or selective rollout. Actual graph/persistence runtime
-proof remains required after real-main #2276 integration; no skip or dev image.
+proof is required for main readiness; explicit isolated candidate proof is now
+authorized and separately labeled. No graph merge, skip or dev image substitution.
+
+
+## Historical migration contract repair and remaining production failure
+
+The first broad regression execution exposed old migration witnesses that attempted
+to downgrade today's schema through intentional later reader fences. Exact-base
+be0ebf6 reproduces16 failures among47 original conversation/provenance cases.
+An audited test-only repair pins one migrated template per actual historical
+revision, clones per witness, seeds real rows under unchanged constraints and
+checks exact projected rows/fingerprints. Populated omissions require explicit
+column/value policy: later default answer_composition_kind=base and the intentionally
+absent0013 v1 intent marker for the0011 legacy-unverifiable witness. Real forward
+migrations and original replay rejection assertions remain. Owning refusal tests
+run the exact guard inside a real rollback transaction and verify all rows and
+revision unchanged; a separate CLI test preserves the real0141 production fence.
+No migration, fake version marker, exclusion or weakened assertion is introduced.
+
+The remaining two route cases now supply real HTTP requests and valid uncapped
+synthetic provider envelopes instead of obsolete run-only doubles. They expose a
+production incompatibility: _policy_request_budget returns uncapped context=None
+and output reserve0, while RulesOnlyRuntime.authorize compares integer input size
+against None. A valid no-output-cap envelope reproduces TypeError before provider
+or DB IO. Do not disguise this with a finite test budget or bypassed authorization.
+Runtime-owner correction and fresh full-suite evidence are outstanding. This CI
+lease does not automatically grant production/auth-policy source edits.
+
+Isolated candidate5d718dd3cdcc8da65b28e5d9e54d9bce2b3b339a passed actual-image
+startup/readiness/API/static, startup fault, real graph draft/save/reopen and
+persistence fault in107.501s, all owned cleanup true. This proves the image witness
+at its recorded candidate only; it is not full regression or main qualification.
