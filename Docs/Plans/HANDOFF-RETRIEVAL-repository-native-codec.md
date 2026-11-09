@@ -1,6 +1,6 @@
 # RETRIEVAL: decode stored shared native Turns once
 
-Status: ACTIVE. Root owns design and implementation under the user-authorized
+Status: SETTLED implementation (#2285, merge1128c3eb605d69fe93d75da2fe2c3085bb4eae1c); the existing Settlement below releases this lease. Broader retrieval goals remain separate. Historical authority: Root owns design and implementation under the user-authorized
 retrieval critical-path goal. Serial topology: one bounded implementation PR,
 base 9193d54ca874240ec181a47e8964905028794e05, branch
 codex/retrieval-acknowledgement-critical-path. No unmerged dependency.

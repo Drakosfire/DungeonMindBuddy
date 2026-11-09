@@ -1,0 +1,57 @@
+name: Verified Agent legacy import regression
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - src/application_state/agent_conversation/repository.py
+      - tests/test_agent_legacy_import_intent.py
+      - tests/application_state/test_agent_conversation_service.py
+      - .github/workflows/agent-legacy-import.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-legacy-import-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verified-legacy-import:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dungeonmind
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: postgres
+        ports: ['54329:5432']
+        options: >-
+          --health-cmd "pg_isready -U dungeonmind -d postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      DMB_APPLICATION_STATE_TEST_DATABASE_URL: postgresql://dungeonmind@127.0.0.1:54329/postgres
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.13.5'
+          enable-cache: false
+      - name: Prepare locked dependencies
+        run: |
+          python scripts/prepare_patched_hermes.py
+          uv sync --locked
+      - name: Verify import contract, original idempotence and atomic rollback
+        run: |
+          uv run --locked pytest -q tests/test_agent_legacy_import_intent.py tests/application_state/test_agent_conversation_service.py::test_verified_legacy_import_is_bounded_exact_world_and_idempotent tests/application_state/test_agent_conversation_service.py::test_failed_import_does_not_leave_partial_conversation_or_turns
+          uv run --locked python scripts/ci_contract.py inventory
+          uv run --locked ruff check src/application_state/agent_conversation/repository.py tests/test_agent_legacy_import_intent.py
