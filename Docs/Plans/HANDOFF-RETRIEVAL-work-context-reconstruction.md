@@ -1,6 +1,9 @@
 # RETRIEVAL: fresh work-context reconstruction
 
-Status: ACTIVE. Root owns design and implementation under the retrieval goal.
+Status: MERGED at `659ca54894231cf51444afcd3dfd2576f29906d8` (#2269),
+after exact-head independent PASS and seven green CI checks. The implementation
+write lease is released. PRIME retains delivery ownership; live activation is
+not established by the merge or the retained local verification.
 
 ## Slice and topology
 

@@ -53,20 +53,25 @@ def _save_trace(conn, trace: TurnContextTraceV1) -> None:
         else CONTEXT_TRACE_TERMINAL_RESERVE_BYTES // 2
     )
     actual_bytes = conn.execute(
-        "SELECT octet_length(%s::jsonb::text)", (payload,),
+        """
+        WITH candidate AS MATERIALIZED (
+            SELECT %s::jsonb AS payload
+        ), measured AS MATERIALIZED (
+            SELECT payload, octet_length(payload::text) AS actual_bytes
+            FROM candidate
+        ), saved AS (
+            UPDATE agent.turn_context_trace AS trace SET payload = measured.payload
+            FROM measured
+            WHERE trace.turn_id = %s AND trace.attempt = %s AND trace.trace_id = %s
+              AND measured.actual_bytes <= %s
+        )
+        SELECT actual_bytes FROM measured
+        """,
+        (payload, trace.turn_id, trace.attempt, trace.trace_id,
+         MAX_CONTEXT_TRACE_BYTES - reserve),
     ).fetchone()[0]
     if actual_bytes > MAX_CONTEXT_TRACE_BYTES - reserve:
         raise ApplicationStateValidationError("trace exceeds the explicit 1 MiB per-attempt ceiling")
-    conn.execute(
-        "UPDATE agent.turn_context_trace SET payload=%s "
-        "WHERE turn_id=%s AND attempt=%s AND trace_id=%s",
-        (
-            payload,
-            trace.turn_id,
-            trace.attempt,
-            trace.trace_id,
-        ),
-    )
 
 
 def append_source_passages_locked(
