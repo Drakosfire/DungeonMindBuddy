@@ -11,7 +11,7 @@ These files form one removal closure: leaving the private picker/search/gates af
 ## Review map and exclusive write lease
 
 1. apps/live-control-ui/src/planSurface/components/PlanSurfaceCanvas.tsx → PlanSurfaceCanvasFrame.tsx: retain the frame body byte-for-byte; delete the unused canvas/authoring/insert code.
-2. PlanSurfacePage.tsx and ui/GraphReferenceContrast.stories.tsx: change only the frame import path.
+2. PlanSurfacePage.tsx and ui/GraphReferenceContrast.stories.tsx: change only the frame import path. PlanSurfacePage.test.tsx: await the actual Plan view controls on first mount, matching its existing reopen wait; preserve all Cards/draft/navigation assertions. Frozen release testing exposed that awaiting the shell alone did not prove toolbar readiness. The original179pass/1readiness failure is retained privately.
 3. planSurface/components/PlanWorldGraphObjectsPanel.tsx; graphReference/GraphReferenceSearch.tsx and searchGraphReferences.ts; graphReference/types.ts, index.ts and graphReference.css: delete the private picker/search closure, unused exports/type and picker-only styles. Source audit finds only arbitrary test tool IDs bearing the old name; no remaining rendered class uses these selectors.
 4. Delete PlanWorldGraphObjectsPanel.test.tsx, PlanSurfaceRunbookAuthoring.test.tsx, PlanAgentReviewedEdit.integration.test.tsx, GraphReferenceSearch.test.tsx and searchGraphReferences.test.ts. Their subject is the removed non-World canvas/picker, not the current route.
 5. ci/test-classification.json: remove exactly the five deleted test files from their assignments; preserve every other assignment, classification basis, runner, validator and selection contract.
