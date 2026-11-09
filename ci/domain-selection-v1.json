@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "mode": "shadow-only",
+  "shared_prefixes": [".github/", "ci/", "scripts/", "src/application_state/", "apps/live_control_server/services/hosted_auth", "apps/live_control_server/services/dms_principal", "apps/live_control_server/services/agent_graph_auth", "Docs/Plans/HANDOFF-CI", "Docs/Plans/DESIGN-CI"],
+  "shared_files": ["AGENTS.md", "pyproject.toml", "uv.lock", "apps/live-control-ui/package.json", "apps/live-control-ui/package-lock.json", "apps/live-control-ui/vite.config.ts", "apps/live-control-ui/vitest.config.ts", "apps/live-control-ui/src/styles.css"],
+  "domains": {
+    "docs": {"depends_on": [], "suites": []},
+    "presentation": {"depends_on": [], "suites": ["frontend-tests", "frontend-build", "qualification-visual"]},
+    "native": {"depends_on": ["agent"], "suites": []},
+    "agent": {"depends_on": ["runtime"], "suites": []},
+    "runtime": {"depends_on": [], "suites": ["full-regression"]}
+  },
+  "paths": [
+    {"prefix": "Docs/", "suffix": ".md", "domain": "docs"},
+    {"exact": "README.md", "domain": "docs"},
+    {"exact": "apps/live-control-ui/src/guidedTour/guidedTour.css", "domain": "presentation"},
+    {"prefix": "apps/live_control_server/services/native_", "domain": "native"},
+    {"prefix": "apps/live_control_server/", "domain": "runtime"},
+    {"prefix": "src/graph_memory/", "domain": "runtime"},
+    {"prefix": "src/agents/", "domain": "agent"}
+  ]
+}
