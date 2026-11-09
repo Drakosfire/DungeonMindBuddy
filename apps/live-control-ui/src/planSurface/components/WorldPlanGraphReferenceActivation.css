@@ -47,47 +47,6 @@
   cursor: pointer;
 }
 
-.world-plan-graph-reference-inspector > header .world-plan-graph-reference-back {
-  max-width: 8rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.world-plan-graph-reference-inspector > [data-complete-object-status],
-.world-plan-graph-reference-inspector > .world-plan-graph-reference-source {
-  min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-  padding: 0.8rem;
-}
-
-.world-plan-graph-reference-source blockquote {
-  margin: 0;
-  padding: 0.8rem 0.9rem;
-  border-left: 3px solid #8aa9c9;
-  border-radius: 0.25rem;
-  background: #222d3a;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.world-plan-graph-reference-source details {
-  margin-top: 1rem;
-}
-
-.world-plan-graph-reference-source dl {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.35rem 0.75rem;
-}
-
-.world-plan-graph-reference-source dd {
-  min-width: 0;
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
 @media (max-width: 900px) {
   .world-plan-graph-reference-inspector {
     top: var(--app-chrome-top, 10rem);

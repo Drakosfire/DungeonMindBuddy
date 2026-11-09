@@ -24,7 +24,7 @@ import { clearTrashedPlanRecovery } from "./clearTrashedPlanRecovery";
 import { WorkspaceTrashControl } from "../workspaceLifecycle/WorkspaceTrashControl";
 import { preserveLeadingYamlFrontmatter, splitLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
 import { insertPlanStructure, planStructureActions, promotePlanHeading } from "./planPlayableAuthoring";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import type { Editor, JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 
@@ -166,9 +166,7 @@ export function PlanSurfacePage() {
     return <AppChrome activeRoute="plan"><main className="app-status app-error"><h1>Plan</h1><p>{selectedWorld.message}</p></main></AppChrome>;
   }
   if (managedWorldId) return (
-    <WorldPlanGraphReferenceActivationProvider worldId={managedWorldId}>
-      <WorldOwnedPlanPage key={managedWorldId} worldId={managedWorldId} worldName={selectedWorld.kind === "managed" ? selectedWorld.name : managedWorldId} />
-    </WorldPlanGraphReferenceActivationProvider>
+    <WorldOwnedPlanPage key={managedWorldId} worldId={managedWorldId} worldName={selectedWorld.kind === "managed" ? selectedWorld.name : managedWorldId} />
   );
 
   return (
@@ -363,10 +361,14 @@ function durableTimestamp(value: string | null | undefined): string | null {
   return value && Number.isFinite(Date.parse(value)) ? value : null;
 }
 
+function ActivatingWorldPlanCards(props:Omit<ComponentProps<typeof WorldPlanCardProjection>,'onActivateGraphNode'>) {
+ const {activateNode}=useWorldPlanGraphReferenceActivation();
+ return <WorldPlanCardProjection {...props} onActivateGraphNode={activateNode}/>;
+}
+
 function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName: string }) {
  const guidance=useGuidedTour();
  const tourNavigation=useTourNavigationRegistry();
-  const { activateNode } = useWorldPlanGraphReferenceActivation();
   const [localDraft] = useState(() => {
     const existing = readWorldPlanLocalDraft(worldId);
     const requestedDocumentId = new URLSearchParams(window.location.search).get("documentId")?.trim();
@@ -2086,6 +2088,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     return find(savedCardProjection.roots);
   })();
   return (
+    <WorldPlanGraphReferenceActivationProvider worldId={worldId} ownerKey={editorIdentity} editor={editor} enabled={status==='ready'}>
     <TourImageProvider worldId={worldId} documentId={documentId} blockedReason={!documentId || status !== "ready" || fidelityBlocked || recoveryConflict ? "Open a ready Plan and resolve its recovery or fidelity block before using Image Studio." : null} verified={currentTourPlan?{pin:planPin(worldId,currentTourPlan.documentId,currentTourPlan.pin),assetIds:currentTourPlan.assetIds}:null}><AppChrome activeRoute="plan" editorTools={editorToolsGeneration} editToolboxLayout="dock" workspaceLayout="bounded">
       <PlanTourObservation label={title} verified={currentTourPlan} error={startPlayError} saved={tourPlanSave} registryRevision={savedBasis.status==="verified"?savedBasis.revision:null}/>
       <WorldPlanSurfaceContext
@@ -2273,7 +2276,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           </div>
         </div>
         <div className="plan-cards-workspace__reader" hidden={!cardsViewActive || focusedCardEditable}>
-          {documentId && cardsViewActive && !focusedCardEditable ? <WorldPlanCardProjection
+          {documentId && cardsViewActive && !focusedCardEditable ? <ActivatingWorldPlanCards
             key={editorIdentity}
             sceneId={navigationSceneId}
             worldId={worldId}
@@ -2288,7 +2291,6 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             selectedEditTarget={selectedPlayableEditTarget?.target ?? null}
             onSelectEditTarget={selectPlayableEditTarget}
             selectionStale={selectedPlayableTargetStale}
-            onActivateGraphNode={activateNode}
           /> : null}
           </div>
         </div>
@@ -2349,5 +2351,6 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       />}
       </PlanConversationDockAdapter>
     </AppChrome></TourImageProvider>
+    </WorldPlanGraphReferenceActivationProvider>
   );
 }

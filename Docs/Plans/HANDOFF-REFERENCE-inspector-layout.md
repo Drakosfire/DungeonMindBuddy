@@ -1,6 +1,6 @@
 # REFERENCE: contain the shared native object inspector
 
-Status: ACTIVE. PRIME owns one serial independently reviewable PR from `398d01a540bba5c4a53d99d65e3af34eb13b6c8e`, branch `codex/reference-inspector-layout`, existing buddy-context-loop checkout. No unmerged parent. Independent review and CI precede protected delivery.
+Status: SETTLED. #2282 merged at `534ff9c70499d6dc847c949465e95a32e1012467` from reviewed source `8ba79e1c05438246320cee6d992989313dc0d4e2`. UI `3e718e047f2f706287c2297fa89e293d88961523` delivered on 5202; lease released. Exact frozen tests (27), TypeScript/build, independent source/composition/recipe review, all seven CI checks and wide/narrow live rendering passed. Retained APP/Core rows and session state unchanged. PRIME owned one serial independently reviewable PR from `398d01a540bba5c4a53d99d65e3af34eb13b6c8e`, branch `codex/reference-inspector-layout`, existing buddy-context-loop checkout. No unmerged parent. Independent review and CI precede protected delivery.
 
 ## Outcome and boundary
 

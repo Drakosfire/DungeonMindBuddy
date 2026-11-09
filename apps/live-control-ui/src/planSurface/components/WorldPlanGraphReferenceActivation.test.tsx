@@ -1,401 +1,82 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {afterEach,beforeAll,beforeEach,describe,expect,it,vi} from 'vitest';
+import type {Editor} from '@tiptap/core';
+import type {NativeGraphCatalog,NativeGraphEntity,NativeAssertion} from '../../api/nativeGraphInspection';
+import * as api from '../../api/liveApi';
+import {useGraphNodeChipRuntime} from '../../graphReference/GraphNodeChipRuntime';
+import {WorldPlanGraphReferenceActivationProvider,useWorldPlanGraphReferenceActivation} from './WorldPlanGraphReferenceActivation';
 
-import type { WorldGraphProjection } from "../../api/types";
-import { useOptionalWorldGraphLensProjection } from "../../graphLens/useWorldGraphLensProjection";
-import { useGraphNodeChipRuntime } from "../../graphReference/GraphNodeChipRuntime";
-import { WorldPlanGraphReferenceActivationProvider, useWorldPlanGraphReferenceActivation } from "./WorldPlanGraphReferenceActivation";
-
-vi.mock("../../graphLens/useWorldGraphLensProjection", () => ({
-  useWorldGraphLensProjectionDemand: vi.fn(),
-  useOptionalWorldGraphLensProjection: vi.fn(),
-}));
-
-vi.mock("../../graphReference/ResolvedGraphObjectProjection", () => ({
-  ResolvedGraphObjectProjection: ({ resolution, onReadSourceEvidence }: { resolution: { graphNodeId: string; graphScope: { worldId: string; revisionId: string } }; onReadSourceEvidence?: (evidence: { id: string; label: string; sourceArtifactId: string; sourceSpanRefId: string; excerpt: string }) => void }) => {
-    function NestedReference() {
-      const { activateNode } = useWorldPlanGraphReferenceActivation();
-      return <button type="button" onClick={() => activateNode("loc:nested")}>Open related node</button>;
-    }
-    return (
-      <div data-testid="resolved-object" data-node-id={resolution.graphNodeId} data-world-id={resolution.graphScope.worldId} data-revision={resolution.graphScope.revisionId}>
-        <NestedReference />
-        {onReadSourceEvidence ? <button type="button" onClick={() => onReadSourceEvidence({ id: "ev-s25", label: "S25 recap passage", sourceArtifactId: "artifact:s25", sourceSpanRefId: "span:s25", excerpt: "Lysandra led the warehouse watch through the storm." })}>Read source</button> : null}
-      </div>
-    );
-  },
-}));
-
-const mockGraphLens = vi.mocked(useOptionalWorldGraphLensProjection);
-
-function projection(options: {
-  worldId?: string;
-  campaignId?: string;
-  revisionId?: string;
-  nodes?: WorldGraphProjection["nodes"];
-} = {}): WorldGraphProjection {
-  return {
-    schema: "dmb_world_graph_projection_v1",
-    snapshot: {
-      worldId: options.worldId ?? "eldyrwild",
-      campaignId: options.campaignId ?? "",
-      scopeMode: "world",
-      revisionId: options.revisionId ?? "world-rev-17",
-    },
-    summary: { nodeCount: 1, relationshipCount: 0, attributeCount: 0, evidenceCount: 0, sourceArtifactCount: 0, projectionTruncated: false },
-    nodes: options.nodes ?? [{
-      nodeId: "loc:ironveil-warehouse",
-      label: "Ironveil Warehouse",
-      kind: "location",
-      role: "place",
-      aliases: ["Warehouse"],
-      sourceDomains: [],
-      anchoredToFocusSession: false,
-      evidenceBadges: [],
-      adjacency: [],
-      suggestedExpansions: [],
-      evidenceRefIds: [],
-      sourceArtifactIds: [],
-      summary: "A guarded storage yard.",
-    }],
-    relationships: [],
-    attributes: [],
-    evidence: [],
-    sourceArtifacts: [],
-    diagnostics: [],
-  };
+vi.mock('../../api/liveApi',()=>({getNativeGraphCatalog:vi.fn(),inspectNativeGraph:vi.fn(),listWorldMechanicsAssociations:vi.fn(),postManagedWorldGraphProjection:vi.fn()}));
+const pin={managed_world_id:'elderwyld',native_world_id:'native',binding_version:3,revision_id:'r17',scope_mode:'world' as const,campaign_id:null};
+const record:NativeAssertion={assertion_id:'a',subject_entity_id:'ent:warehouse',predicate:'dnd5e:name',value:{kind:'literal',value:'Warehouse'},metadata:{scope:[],visibility:{kind:'public'},epistemic_basis:'speculative',claim_mode:'dungeonbuddy.claim:belief',standing:'provisional',evidence_ref_ids:['ev'],temporal_scope:{kind:'unknown'},domain_metadata:[]}};
+const catalog:NativeGraphCatalog={schema:'dmb_native_graph_catalog_v1',scope:pin,catalogue:{identity:{space_id:'native',revision_id:'r17'},entities:[{entity_id:'ent:warehouse'}],admitted_assertion_ids:['a'],completeness:{status:'complete',reason:null},request_sha256:'h',result_digest:'d'},assertions:[record]};
+const detail:NativeGraphEntity={schema:'dmb_native_graph_entity_v1',scope:pin,entity:{found:true,assertions:[record],evidence:[{evidence_ref_id:'ev',evidence_role:'support'}],completeness:{status:'complete',reason:null}}};
+const editor={isDestroyed:false} as Editor;
+let retained:(nodeId:string,trigger?:HTMLElement)=>void;
+function Trigger({id='ent:warehouse',label='Open warehouse'}:{id?:string;label?:string}) {
+ const {activateNode}=useWorldPlanGraphReferenceActivation();retained=activateNode;
+ return <button onClick={e=>activateNode(id,e.currentTarget)}>{label}</button>;
 }
-
-function ActivationButton({ nodeId = "loc:ironveil-warehouse", label = "Ironveil Warehouse" }: { nodeId?: string; label?: string }) {
-  const { activateNode } = useWorldPlanGraphReferenceActivation();
-  return <button type="button" onClick={(event) => activateNode(nodeId, event.currentTarget)}>{label}</button>;
+function EditorTrigger({source=editor}:{source?:Editor}) {
+ const runtime=useGraphNodeChipRuntime();
+ return <button onClick={()=>runtime.onSelectEditorNode?.('ent:warehouse',source)}>Editor link</button>;
 }
-
-function RuntimeReadout() {
-  const runtime = useGraphNodeChipRuntime();
-  return <div data-testid="runtime-readout" data-node-count={Object.keys(runtime.nodeViews).length} data-scope-world={runtime.exactGraphScope?.worldId ?? ""} />;
+function tree({worldId='elderwyld',ownerKey='plan-a',currentEditor=editor,enabled=true,id='ent:warehouse'}:{worldId?:string;ownerKey?:string;currentEditor?:Editor;enabled?:boolean;id?:string}={}) {
+ return <WorldPlanGraphReferenceActivationProvider worldId={worldId} ownerKey={ownerKey} editor={currentEditor} enabled={enabled}><Trigger id={id}/><EditorTrigger/></WorldPlanGraphReferenceActivationProvider>;
 }
+beforeAll(()=>{HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','')};HTMLDialogElement.prototype.close=function(){this.removeAttribute('open')};});
+afterEach(cleanup);
+beforeEach(()=>{vi.resetAllMocks();vi.mocked(api.getNativeGraphCatalog).mockResolvedValue(catalog);vi.mocked(api.inspectNativeGraph).mockResolvedValue(detail);vi.mocked(api.listWorldMechanicsAssociations).mockResolvedValue([]);});
 
-function mount(
-  graphProjection: WorldGraphProjection | null,
-  state: "loading" | "ready" | "unavailable" | "error" = "ready",
-  requestWorldId = "elderwyld",
-  requestKey: string | null = "managed:elderwyld:world",
-) {
-  mockGraphLens.mockReturnValue({
-    request: {
-      schema: "dmb_world_graph_projection_request_v1",
-      worldId: requestWorldId,
-      campaignId: "",
-      scopeMode: "world",
-      focus: { kind: "none", sessionId: null },
-      admissibility: "gm",
-    },
-    requestKey,
-    managedBinding:null,
-    projection: graphProjection,
-    projectionState: state,
-    projectionError: null,
-    nodeCount: graphProjection?.nodes.length ?? 0,
-    lastProjectionLoadMs: null,
-    lastProjectionLoadOutcome: state,
-  });
-  return render(
-    <WorldPlanGraphReferenceActivationProvider worldId="elderwyld">
-      <ActivationButton />
-      <RuntimeReadout />
-    </WorldPlanGraphReferenceActivationProvider>,
-  );
-}
-
-describe("WorldPlanGraphReferenceActivationProvider", () => {
-  beforeEach(() => mockGraphLens.mockReset());
-
-  it("opens the exact selected-World node through the existing complete-object inspector and restores trigger focus", async () => {
-    mount(projection());
-    const trigger = screen.getByRole("button", { name: "Ironveil Warehouse" });
-    fireEvent.click(trigger);
-
-    expect(await screen.findByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
-    const object = screen.getByTestId("resolved-object");
-    expect(object).toHaveAttribute("data-node-id", "loc:ironveil-warehouse");
-    expect(object).toHaveAttribute("data-world-id", "eldyrwild");
-    expect(screen.getByTestId("runtime-readout")).toHaveAttribute("data-scope-world", "eldyrwild");
-    expect(object).toHaveAttribute("data-revision", "world-rev-17");
-    expect(screen.getByRole("button", { name: "Close Ironveil Warehouse" })).toHaveFocus();
-
-    fireEvent.click(screen.getByRole("button", { name: "Close Ironveil Warehouse" }));
-    await waitFor(() => expect(trigger).toHaveFocus());
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  });
-
-  it("keeps the original Plan trigger as the close focus target after opening a related reference", async () => {
-    mount(projection());
-    const trigger = screen.getByRole("button", { name: "Ironveil Warehouse" });
-    trigger.focus();
-    fireEvent.click(trigger);
-    const dialog = await screen.findByRole("dialog", { name: "World Graph object" });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Open related node" }));
-    expect(await screen.findByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Close loc:nested" }));
-    await waitFor(() => expect(trigger).toHaveFocus());
-  });
-
-  it("shows a pinned source excerpt with a Back path, then closes to the original trigger without moving the reader", async () => {
-    const originalScrollY = window.scrollY;
-    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
-    Object.defineProperty(window, "scrollY", { configurable: true, value: 720 });
-    mount(projection());
-    const trigger = screen.getByRole("button", { name: "Ironveil Warehouse" });
-    trigger.focus();
-    fireEvent.click(trigger);
-    const dialog = await screen.findByRole("dialog", { name: "World Graph object" });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Read source" }));
-    expect(await screen.findByRole("dialog", { name: "Pinned source passage" })).toBeInTheDocument();
-    expect(screen.getByText("Lysandra led the warehouse watch through the storm.")).toBeInTheDocument();
-    expect(screen.getByText("Source details")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Back to World Graph object" }));
-    expect(await screen.findByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
-    fireEvent.click(within(screen.getByRole("dialog", { name: "World Graph object" })).getByRole("button", { name: "Read source" }));
-    expect(await screen.findByRole("dialog", { name: "Pinned source passage" })).toBeInTheDocument();
-    Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
-    fireEvent.keyDown(document, { key: "Escape" });
-    await waitFor(() => expect(trigger).toHaveFocus());
-    expect(scrollTo).toHaveBeenCalledWith({ top: 720, behavior: "auto" });
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    Object.defineProperty(window, "scrollY", { configurable: true, value: originalScrollY });
-    scrollTo.mockRestore();
-  });
-
-  it("hides an opened excerpt when the selected Graph head changes under the reader", async () => {
-    const view = mount(projection());
-    fireEvent.click(screen.getByRole("button", { name: "Ironveil Warehouse" }));
-    const dialog = await screen.findByRole("dialog", { name: "World Graph object" });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Read source" }));
-    expect(await screen.findByRole("dialog", { name: "Pinned source passage" })).toBeInTheDocument();
-
-    mockGraphLens.mockReturnValue({
-      request: {
-        schema: "dmb_world_graph_projection_request_v1",
-        worldId: "elderwyld",
-        campaignId: "",
-        scopeMode: "world",
-        focus: { kind: "none", sessionId: null },
-        admissibility: "gm",
-      },
-      requestKey: "managed:elderwyld:world",
-      projection: projection({ revisionId: "world-rev-18" }),
-      projectionState: "ready",
-      projectionError: null,
-      nodeCount: 1,
-      lastProjectionLoadMs: null,
-      lastProjectionLoadOutcome: "ready",
-    });
-    view.rerender(
-      <WorldPlanGraphReferenceActivationProvider worldId="elderwyld">
-        <ActivationButton />
-        <RuntimeReadout />
-      </WorldPlanGraphReferenceActivationProvider>,
-    );
-    expect(await screen.findByRole("status")).toHaveTextContent("head changed");
-    expect(screen.queryByRole("dialog", { name: "Pinned source passage" })).not.toBeInTheDocument();
-    expect(screen.queryByText("Lysandra led the warehouse watch through the storm.")).not.toBeInTheDocument();
-  });
-
-  it("does not consume Escape while focus is in the underlying reader", async () => {
-    mount(projection());
-    const trigger = screen.getByRole("button", { name: "Ironveil Warehouse" });
-    fireEvent.click(trigger);
-    const dialog = await screen.findByRole("dialog", { name: "World Graph object" });
-    trigger.focus();
-    fireEvent.keyDown(document, { key: "Escape" });
-    expect(screen.getByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
-    within(dialog).getByRole("button", { name: "Close Ironveil Warehouse" }).focus();
-    fireEvent.keyDown(document, { key: "Escape" });
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-  });
-
-  it("reports a ready exact-ID miss even when another node has the displayed label", async () => {
-    mount(projection({ nodes: [{
-      ...projection().nodes[0]!,
-      nodeId: "loc:other-warehouse",
-    }] }));
-    fireEvent.click(screen.getByRole("button", { name: "Ironveil Warehouse" }));
-
-    expect(await screen.findByRole("status")).toHaveTextContent("loc:ironveil-warehouse was not found");
-    expect(screen.queryByTestId("resolved-object")).not.toBeInTheDocument();
-  });
-
-  it("fails closed when the projection is campaign-scoped", async () => {
-    mount(projection({ campaignId: "campaign-1" }));
-    fireEvent.click(screen.getByRole("button", { name: "Ironveil Warehouse" }));
-
-    expect(await screen.findByRole("status")).toHaveTextContent("does not match the selected World");
-    expect(screen.queryByTestId("resolved-object")).not.toBeInTheDocument();
-    expect(screen.getByTestId("runtime-readout")).toHaveAttribute("data-node-count", "0");
-  });
-
-  it("uses the verified managed-owner request with its distinct native World projection ID", async () => {
-    mount(projection({ worldId: "eldyrwild" }));
-    fireEvent.click(screen.getByRole("button", { name: "Ironveil Warehouse" }));
-
-    const object = await screen.findByTestId("resolved-object");
-    expect(object).toHaveAttribute("data-node-id", "loc:ironveil-warehouse");
-    expect(object).toHaveAttribute("data-world-id", "eldyrwild");
-  });
-
-  it("rejects a ready projection whose verified request owner differs from the selected managed World", async () => {
-    mount(projection({ worldId: "eldyrwild" }), "ready", "another-managed-world");
-    fireEvent.click(screen.getByRole("button", { name: "Ironveil Warehouse" }));
-
-    expect(await screen.findByRole("status")).toHaveTextContent("does not match this World");
-    expect(screen.queryByTestId("resolved-object")).not.toBeInTheDocument();
-    expect(screen.getByTestId("runtime-readout")).toHaveAttribute("data-node-count", "0");
-  });
-
-  it("freezes native World binding on the first ready projection after opening while loading", async () => {
-    const view = mount(projection(), "loading");
-    fireEvent.click(screen.getByRole("button", { name: "Ironveil Warehouse" }));
-    expect(await screen.findByRole("status")).toHaveTextContent("is loading");
-
-    mockGraphLens.mockReturnValue({
-      request: {
-        schema: "dmb_world_graph_projection_request_v1",
-        worldId: "elderwyld",
-        campaignId: "",
-        scopeMode: "world",
-        focus: { kind: "none", sessionId: null },
-        admissibility: "gm",
-      },
-      requestKey: "managed:elderwyld:world",
-      projection: projection(),
-      projectionState: "ready",
-      projectionError: null,
-      nodeCount: 1,
-      lastProjectionLoadMs: null,
-      lastProjectionLoadOutcome: "ready",
-    });
-    view.rerender(
-      <WorldPlanGraphReferenceActivationProvider worldId="elderwyld">
-        <ActivationButton />
-        <RuntimeReadout />
-      </WorldPlanGraphReferenceActivationProvider>,
-    );
-    expect(await screen.findByTestId("resolved-object")).toHaveAttribute("data-world-id", "eldyrwild");
-
-    mockGraphLens.mockReturnValue({
-      request: {
-        schema: "dmb_world_graph_projection_request_v1",
-        worldId: "elderwyld",
-        campaignId: "",
-        scopeMode: "world",
-        focus: { kind: "none", sessionId: null },
-        admissibility: "gm",
-      },
-      requestKey: "managed:elderwyld:world",
-      projection: projection({ worldId: "another-native-world" }),
-      projectionState: "ready",
-      projectionError: null,
-      nodeCount: 1,
-      lastProjectionLoadMs: null,
-      lastProjectionLoadOutcome: "ready",
-    });
-    view.rerender(
-      <WorldPlanGraphReferenceActivationProvider worldId="elderwyld">
-        <ActivationButton />
-        <RuntimeReadout />
-      </WorldPlanGraphReferenceActivationProvider>,
-    );
-    expect(await screen.findByRole("status")).toHaveTextContent("binding changed");
-    expect(screen.queryByTestId("resolved-object")).not.toBeInTheDocument();
-  });
-
-  it.each([
-    ["request", "managed:elderwyld:world:focus-change", "world-rev-17", "eldyrwild", /request changed/],
-    ["head", "managed:elderwyld:world", "world-rev-18", "eldyrwild", /head changed/],
-    ["native binding", "managed:elderwyld:world", "world-rev-17", "changed-native-world", /binding changed/],
-  ] as const)("fails visibly if the open inspector's %s changes", async (_kind, nextKey, nextRevision, nextNativeWorldId, message) => {
-    const view = mount(projection());
-    fireEvent.click(screen.getByRole("button", { name: "Ironveil Warehouse" }));
-    expect(await screen.findByTestId("resolved-object")).toBeInTheDocument();
-
-    mockGraphLens.mockReturnValue({
-      request: {
-        schema: "dmb_world_graph_projection_request_v1",
-        worldId: "elderwyld",
-        campaignId: "",
-        scopeMode: "world",
-        focus: { kind: "none", sessionId: null },
-        admissibility: "gm",
-      },
-      requestKey: nextKey,
-      projection: projection({ revisionId: nextRevision, worldId: nextNativeWorldId }),
-      projectionState: "ready",
-      projectionError: null,
-      nodeCount: 1,
-      lastProjectionLoadMs: null,
-      lastProjectionLoadOutcome: "ready",
-    });
-    view.rerender(
-      <WorldPlanGraphReferenceActivationProvider worldId="elderwyld">
-        <ActivationButton />
-        <RuntimeReadout />
-      </WorldPlanGraphReferenceActivationProvider>,
-    );
-
-    expect(await screen.findByRole("status")).toHaveTextContent(message);
-    expect(screen.queryByTestId("resolved-object")).not.toBeInTheDocument();
-  });
-
-  it("captures the new Plan reference and returns focus there after the selected managed World changes", async () => {
-    const view = mount(projection());
-    const oldTrigger = screen.getByRole("button", { name: "Ironveil Warehouse" });
-    oldTrigger.focus();
-    fireEvent.click(oldTrigger);
-    expect(await screen.findByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
-
-    mockGraphLens.mockReturnValue({
-      request: {
-        schema: "dmb_world_graph_projection_request_v1",
-        worldId: "new-managed-world",
-        campaignId: "",
-        scopeMode: "world",
-        focus: { kind: "none", sessionId: null },
-        admissibility: "gm",
-      },
-      requestKey: "managed:new-managed-world:world",
-      projection: projection({ worldId: "new-native-world" }),
-      projectionState: "ready",
-      projectionError: null,
-      nodeCount: 1,
-      lastProjectionLoadMs: null,
-      lastProjectionLoadOutcome: "ready",
-    });
-    view.rerender(
-      <WorldPlanGraphReferenceActivationProvider worldId="new-managed-world">
-        <ActivationButton key="new-world-trigger" label="New World warehouse reference" />
-        <RuntimeReadout />
-      </WorldPlanGraphReferenceActivationProvider>,
-    );
-    expect(screen.queryByRole("dialog", { name: "World Graph object" })).not.toBeInTheDocument();
-    const newTrigger = screen.getByRole("button", { name: "New World warehouse reference" });
-    newTrigger.focus();
-    fireEvent.click(newTrigger);
-    expect(await screen.findByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Close Ironveil Warehouse" }));
-    await waitFor(() => expect(newTrigger).toHaveFocus());
-    expect(oldTrigger).not.toHaveFocus();
-  });
-
-  it.each([
-    ["loading", "loading"],
-    ["unavailable", "unavailable"],
-    ["error", "could not be loaded"],
-  ] as const)("surfaces the %s graph state without resolving by label", async (state, message) => {
-    mount(state === "loading" ? projection() : null, state);
-    fireEvent.click(screen.getByRole("button", { name: "Ironveil Warehouse" }));
-
-    expect(await screen.findByRole("status")).toHaveTextContent(message);
-    expect(screen.queryByTestId("resolved-object")).not.toBeInTheDocument();
-  });
+describe('current Plan native object activation',()=>{
+ it('does not eagerly load the old projection and opens an exact native object through the shared preview',async()=>{
+  render(tree());expect(api.getNativeGraphCatalog).not.toHaveBeenCalled();expect(api.postManagedWorldGraphProjection).not.toHaveBeenCalled();
+  const trigger=screen.getByRole('button',{name:'Open warehouse'});trigger.focus();fireEvent.click(trigger);
+  expect(await screen.findByRole('dialog',{name:'Object · Warehouse'})).toBeInTheDocument();await screen.findByText('Warehouse · name: Warehouse');
+  expect(api.getNativeGraphCatalog).toHaveBeenCalledWith({managed_world_id:'elderwyld',scope_mode:'world',campaign_id:null},expect.any(AbortSignal));
+  expect(api.inspectNativeGraph).toHaveBeenCalledWith(pin,{kind:'entity',entity_id:'ent:warehouse'},expect.any(AbortSignal));
+  expect(screen.getByRole('button',{name:'Close object preview'})).toHaveFocus();fireEvent.click(screen.getByRole('button',{name:'Close object preview'}));
+  await waitFor(()=>expect(trigger).toHaveFocus());expect(api.postManagedWorldGraphProjection).not.toHaveBeenCalled();
+ });
+ it('uses the native exact-source reader only after opening a citation',async()=>{
+  vi.mocked(api.inspectNativeGraph).mockImplementation(async(_pin,selection)=>selection.kind==='entity'?detail:{schema:'dmb_native_graph_source_v1',scope:pin,source:{status:'available',text:'Exact warehouse passage.',source_artifact_id:'src',source_revision_id:'srev',body_sha256:'body',span_sha256:'span',span_start_byte:0,span_end_byte:24,source_authority_epoch:3}});
+  render(tree());fireEvent.click(screen.getByRole('button',{name:'Open warehouse'}));fireEvent.click(await screen.findByRole('button',{name:'Read supporting source'}));expect(await screen.findByText('Exact warehouse passage.')).toBeInTheDocument();
+  expect(api.inspectNativeGraph).toHaveBeenLastCalledWith(pin,{kind:'source',assertion_id:'a',evidence_ref_id:'ev'});
+ });
+ it('retries a failed current catalogue read without a legacy fallback',async()=>{
+  vi.mocked(api.getNativeGraphCatalog).mockRejectedValueOnce(new Error('Read unavailable'));render(tree());fireEvent.click(screen.getByRole('button',{name:'Open warehouse'}));expect(await screen.findByRole('alert')).toHaveTextContent('Read unavailable');fireEvent.click(screen.getByRole('button',{name:'Retry object'}));expect(await screen.findByRole('dialog',{name:'Object · Warehouse'})).toBeInTheDocument();
+ });
+ it.each(['document','World','editor','disabled'] as const)('discards a delayed read and retained callbacks after %s changes',async change=>{
+  let finish!:(packet:NativeGraphCatalog)=>void;vi.mocked(api.getNativeGraphCatalog).mockReturnValueOnce(new Promise(resolve=>{finish=resolve}));
+  const view=render(tree());fireEvent.click(screen.getByRole('button',{name:'Open warehouse'}));const old=retained!;const signal=vi.mocked(api.getNativeGraphCatalog).mock.calls[0][1]!;
+  view.rerender(tree(change==='document'?{ownerKey:'plan-b'}:change==='World'?{worldId:'other'}:change==='editor'?{currentEditor:{isDestroyed:false} as Editor}:{enabled:false}));
+  expect(signal.aborted).toBe(true);await act(async()=>{finish(catalog);old('ent:warehouse');});expect(screen.queryByRole('dialog')).not.toBeInTheDocument();expect(api.getNativeGraphCatalog).toHaveBeenCalledTimes(1);expect(api.inspectNativeGraph).not.toHaveBeenCalled();
+ });
+ it('aborts on unmount and rejects the retained activation callback',async()=>{
+  let finish!:(packet:NativeGraphCatalog)=>void;vi.mocked(api.getNativeGraphCatalog).mockReturnValueOnce(new Promise(resolve=>{finish=resolve}));const view=render(tree());fireEvent.click(screen.getByRole('button',{name:'Open warehouse'}));const old=retained!;const signal=vi.mocked(api.getNativeGraphCatalog).mock.calls[0][1]!;view.unmount();await act(async()=>{finish(catalog);old('ent:warehouse');});expect(signal.aborted).toBe(true);expect(api.getNativeGraphCatalog).toHaveBeenCalledTimes(1);expect(api.inspectNativeGraph).not.toHaveBeenCalled();
+ });
+ it('accepts only the owning editor, leaving nested reader editors inert',async()=>{
+  const view=render(<WorldPlanGraphReferenceActivationProvider worldId="elderwyld" ownerKey="plan" editor={editor} enabled><EditorTrigger source={{isDestroyed:false} as Editor}/></WorldPlanGraphReferenceActivationProvider>);
+  fireEvent.click(screen.getByRole('button',{name:'Editor link'}));expect(api.getNativeGraphCatalog).not.toHaveBeenCalled();view.rerender(tree());fireEvent.click(screen.getByRole('button',{name:'Editor link'}));expect(await screen.findByRole('dialog',{name:'Object · Warehouse'})).toBeInTheDocument();
+ });
+ it('closes an opened preview on document change and discards a late native entity read',async()=>{
+  let finish!:(packet:NativeGraphEntity)=>void;vi.mocked(api.inspectNativeGraph).mockReturnValueOnce(new Promise(resolve=>{finish=resolve}));
+  const view=render(tree());fireEvent.click(screen.getByRole('button',{name:'Open warehouse'}));await screen.findByRole('dialog',{name:'Object · Warehouse'});
+  const signal=vi.mocked(api.inspectNativeGraph).mock.calls[0][2]!;view.rerender(tree({ownerKey:'plan-b'}));expect(signal.aborted).toBe(true);
+  await act(async()=>finish(detail));expect(screen.queryByRole('dialog')).not.toBeInTheDocument();expect(screen.queryByText('Warehouse · name: Warehouse')).not.toBeInTheDocument();
+ });
+ it('does not move scroll position when closing back to the original Plan control',async()=>{
+  const scroll=vi.spyOn(window,'scrollTo').mockImplementation(()=>{});const original=window.scrollY;Object.defineProperty(window,'scrollY',{configurable:true,value:720});
+  render(tree());const trigger=screen.getByRole('button',{name:'Open warehouse'});trigger.focus();fireEvent.click(trigger);await screen.findByRole('dialog',{name:'Object · Warehouse'});
+  fireEvent.click(screen.getByRole('button',{name:'Close object preview'}));await waitFor(()=>expect(trigger).toHaveFocus());expect(scroll).not.toHaveBeenCalled();Object.defineProperty(window,'scrollY',{configurable:true,value:original});scroll.mockRestore();
+ });
+ it('closes a delayed read with Escape and prevents its late completion from reopening',async()=>{
+  let finish!:(packet:NativeGraphCatalog)=>void;vi.mocked(api.getNativeGraphCatalog).mockReturnValueOnce(new Promise(resolve=>{finish=resolve}));render(tree());const trigger=screen.getByRole('button',{name:'Open warehouse'});trigger.focus();fireEvent.click(trigger);fireEvent.keyDown(screen.getByRole('button',{name:'Close object'}),{key:'Escape'});await act(async()=>finish(catalog));expect(screen.queryByRole('dialog')).not.toBeInTheDocument();await waitFor(()=>expect(trigger).toHaveFocus());
+ });
+ it.each(['bad id','ent:missing'])('does not resolve %s by a matching label',async id=>{
+  render(tree({id}));fireEvent.click(screen.getByRole('button',{name:'Open warehouse'}));expect(await screen.findByRole('alert')).toHaveTextContent(id==='bad id'?'invalid node ID':'unavailable');expect(api.inspectNativeGraph).not.toHaveBeenCalled();
+ });
+ it('rejects a campaign-scoped or different-World catalogue before object preview',async()=>{
+  vi.mocked(api.getNativeGraphCatalog).mockResolvedValue({...catalog,scope:{...pin,scope_mode:'campaign',campaign_id:'c1'}});render(tree());fireEvent.click(screen.getByRole('button',{name:'Open warehouse'}));expect(await screen.findByRole('alert')).toHaveTextContent('did not match this World');expect(api.inspectNativeGraph).not.toHaveBeenCalled();
+ });
 });
