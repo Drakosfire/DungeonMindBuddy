@@ -1,6 +1,8 @@
 # PLAN — preserve protected capture across editor round trips
 
-Status: ACTIVE. Owner: PRIME. Topology: serial, one implementation PR.
+Status: IMPLEMENTATION MERGED in PR1822 at04e1f9c2f116eeeadc113c29ce5aa463248ff28c; old implementation write lease RELEASED. This codec-parity settlement does not infer operator delivery or broader authoring acceptance.
+
+Historical activation: Owner PRIME. Topology serial, one implementation PR.
 Authority: operator-authorized goal work and the explicit 2026-10-27 direction
 that an ADVERSARY blocker does not block authoring/preparation/play acceptance.
 Base: origin/main 7a6509b06b61c3ffba870dbc3f617e2a31d3a6e6.
