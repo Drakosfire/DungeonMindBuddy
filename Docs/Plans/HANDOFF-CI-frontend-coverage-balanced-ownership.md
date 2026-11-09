@@ -1,7 +1,12 @@
 # CI: cover local World and balance ordinary Build ownership tests
 
-Status: ACTIVE implementation under Alan's explicit CI-first instruction, delegated
-2026-11-09. Publication is one draft PR; merge requires coordinator confirmation.
+Status: SETTLED. PR #2281 merged at
+643480036a0e8f79ab84dce330b06b7dcae27c08 after independent exact-head approval of
+88d1ca2df7389fd40c25b424566c9cdbadd0fa5d and all seven hosted checks passed.
+Alan explicitly authorized ready/merge; no deployment or protection change occurred.
+The exclusive write lease is released. The additive CI transition is a new serial
+capability; existing gates remain authoritative during its proof stages.
+Historical implementation base and branch follow.
 Base: eb0eb9a093b275e8e8282d6c749309f2bdd687a6. Branch:
 `codex/ci-frontend-coverage-balanced-ownership`.
 
@@ -63,3 +68,14 @@ coverage. Preserve all existing gates and independent exact-head review. Commit,
 push, open one draft PR, run hosted CI and report actual measurements separately
 from projections. No merge or deployment. Further main commits alone do not require
 a rebase; re-anchor only if integration/repository policy requires it.
+
+## Settlement evidence
+
+Actual collection retained all 2,560 original cases exactly once plus three guards.
+Hosted ownership run42560926259 passed2,561 with the same two skips; test steps
+were392/444/558/580s versus prior approximately148/276/435/809s. Hosted validation
+run42560926240 passed frontend1,211 plus retained targeted4+1 cases, auth/app and
+production Docker build without publishing. The longest step fell approximately28%
+in this single before/after comparison; different source revisions/runners mean
+these two runs are not controlled performance proof. No repeatable speed guarantee.
+Raw and normalized evidence remains in the task-owned ci-stage predecessor scratch.

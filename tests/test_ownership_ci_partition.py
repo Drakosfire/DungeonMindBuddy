@@ -1,31 +1,31 @@
 """Guard the workflow selection inventory and the ordinary Build partition."""
 
 import json
-import re
 from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
 
 from scripts import ownership_ci_partition as partition
+from scripts.ci_contract import contracts
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_workflow_retains_every_original_selector_once_except_partitioned_module():
     workflow = (ROOT / ".github/workflows/world-ownership-core.yml").read_text()
-    # Only pytest selections: ruff's inventory is deliberately excluded.
-    commands = re.findall(r"run: >-\n(.*?)(?=\n\n|\Z)", workflow, re.S)
-    commands = [command for command in commands if "pytest " in command]
-    actual = Counter(re.findall(r"^          (tests/\S+)\s*$", "\n".join(commands), re.M))
+    commands = [contracts()[suite]["argv"] for suite in partition.SUITES]
+    actual = Counter(arg for command in commands for arg in command if arg.startswith("tests/"))
     expected = Counter(json.loads((ROOT / "tests/fixtures/ownership_ci_selectors.json").read_text()))
     expected[partition.MODULE] = 3
     expected["tests/test_ownership_ci_partition.py"] = 1
     assert actual == expected
     assert len(commands) == 4
-    assert all("-p scripts.ownership_ci_partition --ownership-suite=${{ matrix.suite }}" in c for c in commands)
+    assert all("scripts.ownership_ci_partition" in c for c in commands)
+    for suite in partition.SUITES:
+        assert f"run: uv run --locked python scripts/ci_contract.py run {suite}" in workflow
+        assert f"--ownership-suite={suite}" in contracts()[suite]["argv"]
     for suite in set(partition.BUCKET_OWNERS):
-        step = workflow.split(f"if: matrix.suite == '{suite}'")[-1].split("\n\n", 1)[0]
-        assert partition.MODULE in step
+        assert partition.MODULE in contracts()[suite]["argv"]
 
 
 def test_partition_is_complete_disjoint_and_keeps_other_modules():
@@ -47,5 +47,5 @@ def test_partition_is_complete_disjoint_and_keeps_other_modules():
 
 
 def test_local_world_directory_is_in_hosted_frontend_gate():
-    workflow = (ROOT / ".github/workflows/hosted-validation.yml").read_text()
-    assert "npm test -- src/localWorld " in workflow
+    commands = contracts()["hosted-frontend"]["steps"]
+    assert any(step["argv"][:4] == ["npm", "test", "--", "src/localWorld"] for step in commands)
