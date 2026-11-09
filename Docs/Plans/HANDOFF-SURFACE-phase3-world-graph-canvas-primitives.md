@@ -55,6 +55,15 @@ The canvas keeps each form draft until a matching submission returns `committed`
 
 No wildcards. Any required path outside this list is a stop-and-return-for-amendment signal.
 
+### Narrow correction transfer to phase4 route lane (2026-11-09)
+
+The original graph author thread `01a1bd7f-bb4a-7634-95ed-0bf33fead006` is idle; its worktree at `codex/world-graph-canvas-20261108` is clean at `db70e0e07f78ce700c1a05663142c25f2f033b29`. Under root authorization recorded in the route-integration task, only these two paths transfer to the phase4 route lane for the bounded route-unmount draft-recovery correction:
+
+- `apps/live-control-ui/src/localWorld/worldGraphCanvas/WorldGraphCanvas.tsx`
+- `apps/live-control-ui/src/localWorld/worldGraphCanvas/WorldGraphCanvas.test.tsx`
+
+The transfer permits a versioned editor-draft snapshot callback/restore seam and its focused regression coverage, preserving repository completion and stale-callback lifecycle guards. It does not transfer projection, adapter, styling, repository, App/navigation, or other graph paths. The route lane records these two additional exact paths in its own lease; all other phase3 paths and responsibilities remain unchanged.
+
 ## §5 Exclusions and collision boundaries
 
 | Path | Reason |
