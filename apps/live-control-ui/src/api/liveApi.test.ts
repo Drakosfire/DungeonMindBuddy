@@ -432,6 +432,11 @@ describe("World Plan edit proposal transport", () => {
   });
 });
 
+function emptyHistoryResponse(schema: "dmb_agent_conversation_history_v1" | "dmb_agent_conversation_history_v3" = "dmb_agent_conversation_history_v1") {
+  return {schema,world_id:"world-a",conversation_state:"absent",conversation_id:null,
+    active_conversation_id:null,pointer_revision:0,turns:[],next_before_sequence:null};
+}
+
 function mockJsonResponse(
   payload: unknown,
   options: { ok?: boolean; status?: number; statusText?: string } = {},
@@ -604,7 +609,7 @@ describe("local operator API destination policy", () => {
     const api = await importLiveApiForBaseUrl("");
     api.setNativeGraphAccessToken("test-only-local-operator-credential-value");
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({ schema: "dmb_agent_conversation_history_v1" }),
+      mockJsonResponse(emptyHistoryResponse()),
     );
 
     await api.getWorldAgentConversationHistory("world-a", { limit: 50 });
@@ -631,7 +636,7 @@ describe("local operator API destination policy", () => {
     const api = await importLiveApiForBaseUrl("");
     api.setNativeGraphAccessToken("test-only-local-operator-credential-value");
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({ schema: "dmb_agent_conversation_history_v3" }),
+      mockJsonResponse(emptyHistoryResponse("dmb_agent_conversation_history_v3")),
     );
 
     await api.getWorldAgentConversationHistory("world-a", { limit: 25, includeTurnCorrelation: true });
@@ -676,7 +681,7 @@ describe("local operator API destination policy", () => {
     api.setNativeGraphAccessToken(null);
     const fetchSpy = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "test-csrf" }))
-      .mockResolvedValueOnce(mockJsonResponse({ schema: "dmb_agent_conversation_history_v1" }));
+      .mockResolvedValueOnce(mockJsonResponse(emptyHistoryResponse()));
 
     await api.getWorldAgentConversationHistory("world-a", { limit: 50 });
 
@@ -690,7 +695,7 @@ describe("local operator API destination policy", () => {
     const api = await importLiveApiForBaseUrl("");
     const fetchSpy = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "reload-csrf" }))
-      .mockResolvedValueOnce(mockJsonResponse({ schema: "dmb_agent_conversation_history_v1" }))
+      .mockResolvedValueOnce(mockJsonResponse(emptyHistoryResponse()))
       .mockResolvedValueOnce(mockJsonResponse({ schema: "dmb_agent_new_conversation_response_v1" }))
       .mockResolvedValueOnce(Response.json({ status: "revoked" }))
       .mockResolvedValueOnce(new Response(null, { status: 401 }))
@@ -797,7 +802,7 @@ describe("local operator API destination policy", () => {
       .mockReturnValueOnce(oldResponse)
       .mockResolvedValueOnce(new Response(null, { status: 401 }))
       .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "new-csrf" }))
-      .mockResolvedValueOnce(mockJsonResponse({ schema: "dmb_agent_conversation_history_v1" }));
+      .mockResolvedValueOnce(mockJsonResponse(emptyHistoryResponse()));
 
     await api.ensureNativeGraphSession();
     const oldRequest = api.getWorldAgentConversationHistory("world-a");
@@ -3290,7 +3295,7 @@ describe("bounded local cookie recovery", () => {
         const id = JSON.parse(String(init?.body)).command_id;
         if (!businessCommands.has(id)) { businessCommands.add(id); commandWork += 1; }
       }
-      return Response.json({ schema: "synthetic-success" });
+      return Response.json(String(url).endsWith("/new") ? { schema: "synthetic-success" } : emptyHistoryResponse());
     });
     await api.ensureNativeGraphSession();
     const command = { schema: "dmb_agent_new_conversation_request_v1" as const, command_id: "frozen-command", expected_pointer_revision: 7, expected_active_conversation_id: "prior-conversation" };

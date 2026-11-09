@@ -114,3 +114,23 @@ This is one shared fixture contract repair; do not seed retry input, invent save
 citation previews, hydrate full details automatically or relax receipt checks.
 Existing API validator/ConversationLibrary unit controls remain actual product
 boundary evidence. Main/active lanes re-anchored; no additional product writes.
+
+### Transport/media fixture prerequisites
+
+Adopt only apps/live-control-ui/src/api/liveApi.test.ts and
+apps/live-control-ui/src/markdownReader/ReadOnlyBodyContent.test.tsx for a shared
+fixture batch. Lastowners2052/ce41c101 and1421/3dfa43f are merged/delivered, leases
+released; both lastwriter commits are ancestors of fetched mainf6e174e. ActivePR
+paths checked; no liveApi product/media/graph/ADV edits. Credential-only tests must
+return an explicit empty World history envelope, not a schema-only object, and
+the bounded renewal's history response must match that owner. Preserve command
+responses, CAS, renewal bounds, auth headers, stale rejection and all assertions.
+Media projection test must preserve real API module exports while overriding only
+authenticatedApiFetch, retaining the real auth-generation invalidation owner and
+all unsafe URL/stale-result/source immutability assertions. No parser/production
+change, timeout increase, test exclusion or extra principal/acceptance fallback.
+Media metadata fixtures also carry the actual current requestEpoch, as required
+by the existing authenticated-read owner; no synthetic constant bypasses owner
+changes. Add one negative reader case requiring different-epoch ready metadata to
+stay unavailable/no image/source unchanged. All153original cases/assertions stay;
+additive154thguard and existing useSavedMediaImage owner-change/URL/race controls.
