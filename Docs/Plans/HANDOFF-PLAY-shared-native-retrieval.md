@@ -9,7 +9,7 @@ or authorize delivery before complete owning verification. #2104 remains held.
 ## Base, retained work and topology
 
 Serial first runtime slice from current remote main
-`f6e174e407ab83b4632160771412b77c09833ed0`, branch
+`c93fe15abeb3b19adf3fd901ca8ec5ae558d43ab`, branch
 `codex/play-native-references-resume`, existing buddy-context-loop checkout and
 shared dependencies. No new checkout, environment or runtime lease. Retained
 #2172 head `4b57a7cd66fad17df1106a16f0bc2be3c29ec8c3` is preserved at
