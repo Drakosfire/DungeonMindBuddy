@@ -91,3 +91,12 @@ def test_workflow_has_no_selector_consumer_or_write_permission():
     commands='\n'.join(step.get('run','') for step in data['jobs']['shadow-report']['steps'])
     assert 'ci_domain_shadow.py --base' in commands
     assert 'ci_fast.py' not in commands and 'ci_contract.py run' not in commands
+
+
+@pytest.mark.parametrize('field,value',[('domains',['runtime']),('domains','runtime'),('domains',None),
+    ('paths',None),('paths',[None]),('shared_files',None),('shared_prefixes',[None]),('version',True)])
+def test_malformed_mapping_shapes_publish_full_fallback(field,value):
+    broken=mapping()
+    broken[field]=value
+    result=shadow.select([('M',('Docs/x.md',))],broken)
+    assert result['full_fallback'] and set(result['suites'])==shadow.ALL_SUITES

@@ -15,15 +15,24 @@ def canonical(path: str) -> bool:
 
 
 def validate(mapping: dict) -> None:
-    if mapping['version'] != 1 or mapping['mode'] != 'shadow-only':
+    if not isinstance(mapping, dict) or type(mapping.get('version')) is not int or mapping['version'] != 1 or mapping.get('mode') != 'shadow-only':
         raise ValueError('unsupported mapping version/mode')
     domains = mapping['domains']
-    if not domains or any(set(row) != {'depends_on', 'suites'} or
+    if not isinstance(domains, dict) or not domains or any(not isinstance(row, dict) or set(row) != {'depends_on', 'suites'} or
+            not isinstance(row['depends_on'], list) or not isinstance(row['suites'], list) or
             not set(row['depends_on']) <= domains.keys() or not set(row['suites']) <= ALL_SUITES for row in domains.values()):
         raise ValueError('invalid domain closure or suite')
+    if not isinstance(mapping['paths'], list) or not mapping['paths']:
+        raise ValueError('invalid path list')
+    for field in ('shared_files', 'shared_prefixes'):
+        if not isinstance(mapping[field], list) or any(not isinstance(value, str) or not value for value in mapping[field]):
+            raise ValueError('invalid shared paths')
     for rule in mapping['paths']:
-        if rule['domain'] not in domains or ('exact' in rule) == ('prefix' in rule):
+        if not isinstance(rule, dict) or rule.get('domain') not in domains or ('exact' in rule) == ('prefix' in rule):
             raise ValueError('invalid path rule')
+        value = rule.get('exact', rule.get('prefix'))
+        if not isinstance(value, str) or not canonical(value.rstrip('/')) or not isinstance(rule.get('suffix', ''), str):
+            raise ValueError('invalid path match')
     for start in domains:
         def visit(node, active):
             if node in active:
