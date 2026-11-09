@@ -781,8 +781,9 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const original=authoredReferences([authoredRef('original-selection')]);
     const prior=turn('plan',1,'');
     const terminal={...prior,lifecycle_status:'interrupted' as const,
+      idempotency_key:'11111111-1111-4111-8111-000000000001',
       ...(hasReferences?{authored_references:original}:{})};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([terminal]));
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history([terminal]),schema:'dmb_agent_conversation_history_v3'});
     const newer=writeComposerReferences(sessionStorage,WORLD,'plan-one',null,[authoredRef('newer-selection')],null,'plan');
     vi.mocked(postWorldPlanAgentTurn).mockImplementation(()=>new Promise(()=>{}));
     render(<Harness initial="plan"/>);
