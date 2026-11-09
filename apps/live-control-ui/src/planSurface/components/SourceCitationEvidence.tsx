@@ -4,7 +4,7 @@ import {WorldPlanAgentAnswer} from './WorldPlanAgentAnswer';
 
 export type CitationChoice={key:string;number:number;segmentIndex?:number;title:string;label:string;kind:'passage'|'section';load:()=>Promise<string|{content:string;title:string}>};
 /** One disclosure owner; transport adapters must verify the exact cited bytes. */
-export function SourceCitationEvidence({identity,statements,answer,displaySegments}:{identity:string;statements:{text?:string;choices:CitationChoice[]}[];answer?:string;displaySegments?:readonly string[]}) {
+export function SourceCitationEvidence({identity,statements,answer,displaySegments,allowedInternalLinks=[]}:{identity:string;statements:{text?:string;choices:CitationChoice[]}[];answer?:string;displaySegments?:readonly string[];allowedInternalLinks?:readonly string[]}) {
   const panel=useId(),epoch=useRef(0);
   const [opened,setOpened]=useState<{choice:CitationChoice;status:'loading'|'ready'|'unavailable';content?:string;title?:string}|null>(null);
   useLayoutEffect(()=>{epoch.current++;setOpened(null);return()=>{epoch.current++;};},[identity]);
@@ -21,7 +21,7 @@ export function SourceCitationEvidence({identity,statements,answer,displaySegmen
   const aligned=displaySegments?.join("\n")===answer;
   return <div className="source-citation-evidence">
     {answer!==undefined ? <>
-      <WorldPlanAgentAnswer answer={answer} displaySegments={displaySegments} inlineCitations={aligned ? choices.map(c=>({
+      <WorldPlanAgentAnswer answer={answer} allowedInternalLinks={allowedInternalLinks} displaySegments={displaySegments} inlineCitations={aligned ? choices.map(c=>({
         segmentIndex:c.segmentIndex!,label:String(c.number),title:c.title,ariaLabel:c.label,
         expanded:opened?.choice.key===c.key,controls:opened?.choice.key===c.key ? panel : undefined,onOpen:()=>{void open(c);},
       })) : []}/>

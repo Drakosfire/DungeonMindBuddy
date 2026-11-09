@@ -8,6 +8,7 @@ from application_state.agent_conversation.saved_citation_preview import project
 from application_state.agent_conversation.authored_reference_preview import project as project_references
 from application_state.errors import ApplicationStateIntegrityError
 from tests.test_native_plan_assertions import lane as lane
+from tests.test_plan_jev_dispatch import plan_adapter as plan_adapter
 from tests.application_state.test_native_plan_statements import native_read_admission_probes as native_read_admission_probes
 
 
@@ -360,3 +361,73 @@ def test_persisted_native_plan_related_claim_survives_lightweight_reload_without
     assert claims[0]["page"]["world_id"] == lane.world.world_id
     assert claims[0]["page"]["title"] == "Saved Edge page"
     assert "\n".join(s["text"] for s in preview["answer_segments"]) == message["assistant_text"]
+
+
+def session_summary():
+    from application_state.agent_conversation.rules_authority_types import canonical_sha256
+    from application_state.agent_conversation.authored_excerpt_blocks import block_handle
+    supports=[]
+    run=str(uuid4())
+    for ordinal,kind in enumerate(("scene_note", "closing_reflections")):
+        text=("The gate stayed closed. 🐸\r\n" if ordinal==0 else "Ask which path to take next.")
+        digest=sha256(text.encode()).hexdigest()
+        element="scene:gate" if ordinal==0 else None
+        entry=canonical_sha256(dict(kind=kind,element_id=element,ordinal=ordinal))
+        identity=dict(source_kind="session",object_id=run,revision="54",
+                      body_sha256=digest,owner_sha256="b"*64,entry_identity=entry)
+        handle="q"+canonical_sha256(identity)
+        end=len(text.encode())
+        supports.append(dict(kind="authored_excerpt",text=text,source_handle=handle,
+            source_name="Gate rehearsal — notes and reflections",**identity,
+            block_handle=block_handle(handle,0,end,digest),partition_version="markdown_source_blocks_v1",
+            byte_start=0,byte_end=end,block_sha256=digest,source_ordinal=ordinal,
+            entry_kind=kind,element_id=element,checkpoint_content_sha256="c"*64))
+    return dict(kind="session_summary",text="The rehearsal left the route unresolved.",supports=supports)
+
+
+def test_plan_summary_preserves_exact_saved_entry_pins_and_native_indexes():
+    row=native_row("plan")
+    summary=session_summary()
+    row["completion"]["answer_segments"].insert(0,summary)
+    row["completion"]["native_body_citations"][0]["segment_index"]=1
+    row["completion"]["answer_context_status"]="source_grounded"
+    row["assistant_text"]=summary["text"]+"\n"+row["assistant_text"]
+    original=deepcopy(row)
+    result=project(row)
+    assert result["status"]=="ready"
+    assert result["answer_segments"][0]==summary
+    assert result["native_body_citations"][0]["segment_index"]==1
+    assert row==original
+    for mutation in ("text","entry","block","owner","source","surface","extra"):
+        damaged=deepcopy(row)
+        support=damaged["completion"]["answer_segments"][0]["supports"][0]
+        if mutation=="text": support["text"]+=" changed"
+        elif mutation=="entry": support["entry_identity"]="f"*64
+        elif mutation=="block": support["block_sha256"]="f"*64
+        elif mutation=="owner": support["owner_sha256"]="f"*64
+        elif mutation=="source": support["source_kind"]="play"
+        elif mutation=="surface": damaged["surface_id"]=damaged["completion"]["surface_id"]="play"
+        else: support["execution"]={}
+        assert project(damaged)["status"]=="details_required",mutation
+
+
+def test_persisted_summary_lightweight_reload_uses_no_full_turn(plan_adapter, monkeypatch):
+    import asyncio,json
+    from tests.test_plan_session_summaries import stage_summary
+    from tests.test_plan_jev_writer import WriterWire
+    from application_state.agent_conversation import library,repository
+    writer,packet,payload=stage_summary(plan_adapter)
+    result=asyncio.run(writer.run(transport=WriterWire(plan_adapter,json.dumps(payload)),api_key="synthetic"))
+    def forbidden(*args,**kwargs):
+        raise AssertionError("Saved summary presentation loaded a full Turn")
+    with monkeypatch.context() as patch:
+        patch.setattr(repository,"_turn_from_row",forbidden)
+        page=library.read_active_messages(result.world_id)
+        reloaded=library.read_active_messages(result.world_id)
+    assert page==reloaded
+    message=next(m for m in page["messages"] if m["turn_id"]==str(result.turn_id))
+    assert message["citation_preview"]["status"]=="ready"
+    summary=message["citation_preview"]["answer_segments"][0]
+    assert summary==result.completion.answer_segments[0].model_dump(mode="json")
+    assert [s["source_ordinal"] for s in summary["supports"]]==[0,1]
+    assert all(s["object_id"]==packet["run_id"] and s["revision"]=="4" for s in summary["supports"])
