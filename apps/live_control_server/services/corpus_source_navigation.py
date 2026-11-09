@@ -284,7 +284,9 @@ class NativeBodyNavigation:
             NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1, NativeDirectSourceAuthorizedV1,
         )
         events = (turn if turn is not None else self.adapter.fence.turn).graph_context_execution.events
-        grant = next((e for e in events if isinstance(e, NativeBodySearchAuthorizedV1)), None)
+        from application_state.agent_conversation.native_corpus import NativeInitialSourceSearchAuthorizedV1
+        grant = next((e for e in events if isinstance(e,
+            (NativeBodySearchAuthorizedV1, NativeInitialSourceSearchAuthorizedV1))), None)
         search = next((e for e in events if isinstance(e, NativeBodySearchObservedV1)), None)
         auths = [e for e in events if isinstance(e, (NativeBodyReadAuthorizedV1, NativeDirectSourceAuthorizedV1))]
         reads = {e.authorization_event_id: e for e in events if isinstance(e, NativeBodyReadObservedV1)}
@@ -407,6 +409,39 @@ class NativeBodyNavigation:
         # The admitted event already reconstructs the broad view. No grant,
         # source read, Graph operation, or extra state transition is needed.
 
+    def discover_initial(self):
+        """Commit request-owned lexical discovery once, before retrieval votes.
+
+        A retained grant without its observation is an interrupted search, not
+        permission to repeat Core reads or fall back to the old search action.
+        """
+        from application_state.agent_conversation.native_corpus import (
+            NativeCorpusAuthorityV1, NativeInitialSourceSearchAuthorizedV1, initial_source_discovery_enabled,
+        )
+        from ..integrations.dungeonmind.native_corpus_source import capture_native_sources
+        a = self.adapter
+        turn = a.fence.turn
+        if (not initial_source_discovery_enabled(turn.graph_context_execution)
+                or not isinstance(turn.graph_context_receipt.source_authority, NativeCorpusAuthorityV1)):
+            return
+        with a.fence.renewer._lock:
+            grant, search, _, _ = self._events()
+            if grant is not None:
+                if type(grant) is not NativeInitialSourceSearchAuthorizedV1:
+                    raise ValueError("Readonly Plan requires request-owned initial discovery, not the retired search route")
+                # Replay through the actual APP owner refreshes/guards retained
+                # state; public event presence alone is not a durable receipt.
+                self._commit('authorize_initial_native_source_search', event_id=grant.event_id)
+                grant, search, _, _ = self._events()
+                if (search is None or search.authorization_event_id != grant.event_id):
+                    raise ValueError("Initial source discovery was interrupted; explicit recovery is required")
+                return
+            context = a.native_corpus_context
+            grant = self._commit('authorize_initial_native_source_search', event_id=uuid4())
+            self._commit('observe_native_body_search', event_id=uuid4(), authorization_event_id=grant.event_id,
+                capture=lambda: capture_native_sources(managed_world_id=turn.world_id,
+                    principal=context.principal, prepared=context))
+
     def offered(self):
         from application_state.agent_conversation.native_corpus import (
             NativeCorpusAuthorityV1, native_corpus_search_handle, native_body_handle, native_full_document_handle,
@@ -429,6 +464,12 @@ class NativeBodyNavigation:
         if not isinstance(turn.graph_context_receipt.source_authority, NativeCorpusAuthorityV1):
             return ()
         grant, search, auths, reads = self._events()
+        from application_state.agent_conversation.native_corpus import (
+            NativeInitialSourceSearchAuthorizedV1, initial_source_discovery_enabled,
+        )
+        if (initial_source_discovery_enabled(turn.graph_context_execution)
+                and type(grant) is not NativeInitialSourceSearchAuthorizedV1):
+            raise ValueError("Readonly Plan requires initial source discovery before retrieval preparation")
         if any(auth.event_id not in reads for auth in auths):
             raise ValueError("Native source read has an unresolved durable grant")
         if grant is not None and search is None:

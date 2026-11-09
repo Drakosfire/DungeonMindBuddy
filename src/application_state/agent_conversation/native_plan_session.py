@@ -34,6 +34,7 @@ class PlanSessionCommand(str, Enum):
     DIRECT_GRANTS = 'authorize_native_direct_sources'
     DIRECT_OBSERVATION = 'observe_native_direct_source'
     BODY_SEARCH_GRANT = 'authorize_native_body_search'
+    INITIAL_SEARCH_GRANT = 'authorize_initial_native_source_search'
     BODY_SEARCH_OBSERVATION = 'observe_native_body_search'
     BODY_GRANT = 'authorize_native_body_read'
     BODY_OBSERVATION = 'observe_native_body_read'

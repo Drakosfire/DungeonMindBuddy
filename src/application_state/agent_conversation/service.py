@@ -2146,6 +2146,13 @@ class AgentConversationService:
             producer=observe_direct_source_locked, event_id=event_id,
             authorization_event_id=authorization_event_id, read=read)
 
+    def authorize_initial_native_source_search(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id):
+        from .native_reads import authorize_initial_source_search_locked
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=authorize_initial_source_search_locked, event_id=event_id)
+
     def authorize_native_body_search(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id):
         from .native_reads import authorize_body_search_locked

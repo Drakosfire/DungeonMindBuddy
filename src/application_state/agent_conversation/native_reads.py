@@ -11,6 +11,7 @@ from hashlib import sha256
 
 from .native_corpus import (
     NativeCorpusAuthorityV1, NativeBodySearchAuthorizedV1, NativeBodySearchObservedV1,
+    NativeInitialSourceSearchAuthorizedV1, initial_source_discovery_enabled, validate_initial_source_search,
     NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1, NativeBodySectionMatchV1,
     build_native_body_catalog, native_corpus_search_handle, native_body_handle,
     native_full_document_handle, select_native_full_document, select_native_body_excerpt,
@@ -41,6 +42,7 @@ class _NativeReadOperation:
             authorize_native_reference, observe_native_reference, observe_native_source_reference,
             authorize_direct_sources_locked, observe_direct_source_locked,
             authorize_body_search_locked, observe_body_search_locked,
+            authorize_initial_source_search_locked,
             authorize_body_read_locked, observe_body_read_locked,
         }:
             raise ValueError('Native read requires its existing closed producer')
@@ -189,6 +191,8 @@ def authorize_body_search_locked(turn, *, event_id):
     prior = _prior_event(execution, event_id, NativeBodySearchAuthorizedV1, query_sha256=query)
     if prior is not None:
         return prior
+    if initial_source_discovery_enabled(execution):
+        raise ValueError("Readonly Plan source discovery belongs to its initial work, not a later search vote")
     return NativeBodySearchAuthorizedV1(event_id=event_id, sequence=len(execution.events),
         provider_attempt_id=_selected_controller(turn, native_corpus_search_handle(query)),
         context_receipt_sha256=receipt.context_receipt_sha256,
@@ -196,17 +200,44 @@ def authorize_body_search_locked(turn, *, event_id):
         authority=receipt.source_authority, query_sha256=query)
 
 
+def authorize_initial_source_search_locked(turn, *, event_id):
+    from .native_execution import NativePlanRequestedWorkSelectedV3
+    receipt, execution = _owner(turn, require_source=True)
+    work = next((event for event in execution.events
+        if type(event) is NativePlanRequestedWorkSelectedV3), None)
+    if work is None:
+        raise ValueError("Initial source discovery requires its readonly work selection")
+    prior = _prior_event(execution, event_id, NativeInitialSourceSearchAuthorizedV1,
+        work_selection_event_id=work.event_id)
+    if prior is not None:
+        return prior
+    grant = NativeInitialSourceSearchAuthorizedV1(event_id=event_id, sequence=len(execution.events),
+        work_selection_event_id=work.event_id, context_receipt_sha256=receipt.context_receipt_sha256,
+        execution_policy_sha256=execution.execution_policy_sha256, authority=receipt.source_authority,
+        query_sha256=sha256(turn.user_text.encode()).hexdigest())
+    validate_initial_source_search(execution, grant)
+    return grant
+
+
 def observe_body_search_locked(turn, *, event_id, authorization_event_id, capture):
-    """The trusted Core capture runs only after a durable selected search grant."""
+    """The trusted Core capture runs only after a durable discovery grant."""
     from .corpus_source_search import terms
     receipt, execution = _owner(turn, require_source=True)
     prior = _prior_event(execution, event_id, NativeBodySearchObservedV1,
         authorization_event_id=authorization_event_id)
     if prior is not None:
         return prior
-    grant = next((event for event in execution.events if isinstance(event, NativeBodySearchAuthorizedV1)
+    grant = next((event for event in execution.events if isinstance(event,
+        (NativeBodySearchAuthorizedV1, NativeInitialSourceSearchAuthorizedV1))
         and event.event_id == authorization_event_id), None)
-    if grant is None or _selected_controller(turn, native_corpus_search_handle(grant.query_sha256)) != grant.provider_attempt_id:
+    if grant is None:
+        raise ValueError("Native source search lacks its current durable authorization")
+    if type(grant) is NativeInitialSourceSearchAuthorizedV1:
+        from .native_retrieval import NativeRetrievalAuthorizedV1
+        validate_initial_source_search(execution, grant)
+        if any(isinstance(event, NativeRetrievalAuthorizedV1) for event in execution.events[grant.sequence + 1:]):
+            raise ValueError("Initial source discovery cannot resume after retrieval started")
+    elif _selected_controller(turn, native_corpus_search_handle(grant.query_sha256)) != grant.provider_attempt_id:
         raise ValueError("Native source search lacks its current durable authorization")
     if any(isinstance(event, NativeBodySearchObservedV1) and event.authorization_event_id == grant.event_id
             for event in execution.events):
