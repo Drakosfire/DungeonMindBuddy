@@ -92,3 +92,36 @@ these are partial counts from a failed collection, not full-suite success, and
 subsequent new guard cases will increase them. Retain error logs and triage with
 test/product owners before claiming a green full qualification lane. Do not delete,
 exclude or stub these tests in the CI transition to obtain a successful run.
+
+## Stage 2 implemented probes and observed blockers
+
+PR1 merged atbe0ebf6c99f3d4b03b5810aa7e0a1ccc33ee35b0. The isolated successor
+repairs the seven collection imports/call sites using live production contracts:
+all89 affected cases pass, and broad collection completes16,726 cases with the
+existing36 deselections (before adding new qualification guards). No original
+test definition or parametrization is removed; collection-repairs.json freezes
+those definitions/parameter expressions. URI and durable-overlay tests explicitly
+move from the excised Union engine to current adapter/read-model boundaries, not
+a stub restoration. Preserve the limits of that owning-boundary migration.
+
+The manual/scheduled/rc-tag workflow resolves one source SHA and runs independent
+full-regression and exact-image/browser jobs with a fail-closed aggregate. The
+image harness uses canonical pinned Core migrations, real Buddy migrations, fresh
+logical DBs with distinct owners, isolated persistent roots, and a synthetic HTTPS
+DMS protocol fixture trusted only inside its disposable image process. No live
+DMS/provider/account, operator state or authentication bypass is used. It verifies
+production readiness, API auth/denial, served assets against actual image bytes,
+and real-image startup rejection. Browser tests use fresh contexts, actual UI
+navigation and save/reopen; only a persistence-boundary failure with an exercised
+IndexedDB denial can satisfy the negative probe. Missing graph behavior remains
+a hard failure with dependency#2276, never skip/xfail or a dev-server replacement.
+
+The first real image diagnostic caught a packaging defect: .dockerignore's
+**/corpus/ rule excludes executable src/corpus, so uvicorn import exits with
+ModuleNotFoundError: No module named src.corpus. The startup negative-control
+probe correctly refused to call this unrelated crash a successful fault injection.
+All allocated task containers/network/volume/image tag were removed. Production
+startup, readiness and browser qualification are NOT green. A source-only
+src/corpus packaging inclusion needs explicit coordinator write-lease ownership
+before editing .dockerignore; do not mount missing code or switch to a dev image
+to hide the defect. A reviewable proposed patch remains in task scratch.

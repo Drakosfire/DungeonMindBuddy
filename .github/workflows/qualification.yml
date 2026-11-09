@@ -1,0 +1,141 @@
+name: Full qualification
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Exact candidate ref to resolve once (empty means this workflow ref)
+        required: false
+        type: string
+  schedule:
+    - cron: '0 7 * * *'
+  push:
+    tags: ['rc/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qualification-${{ github.event.inputs.ref || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.inputs.ref || github.sha }}
+          persist-credentials: false
+      - id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  full-regression:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dungeonmind
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: postgres
+        ports: ['54329:5432']
+        options: >-
+          --health-cmd "pg_isready -U dungeonmind -d postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      DMB_APPLICATION_STATE_TEST_DATABASE_URL: postgresql://dungeonmind@127.0.0.1:54329/postgres
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/out/qualification-browsers
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22.23.0'
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.13.5'
+          enable-cache: false
+      - name: Prepare locked dependencies
+        run: |
+          python scripts/prepare_patched_hermes.py
+          uv sync --locked
+          npm ci --prefix apps/live-control-ui
+          cd apps/live-control-ui && npx --no-install playwright install --with-deps chromium
+      - name: Full declared default non-live regression
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p out/qualification/full
+          uv run --locked python scripts/ci_contract.py inventory | tee out/qualification/full/inventory.log
+          uv run --locked python scripts/ci_contract.py run full-regression 2>&1 | tee out/qualification/full/regression.log
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: qualification-full-${{ needs.source.outputs.sha }}
+          path: |
+            out/qualification/full/
+            out/ui-visual-playwright/
+          retention-days: 14
+
+  image-and-browser:
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/out/qualification-browsers
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22.23.0'
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.13.5'
+          enable-cache: false
+      - name: Prepare locked witness dependencies
+        run: |
+          python scripts/prepare_patched_hermes.py
+          uv sync --locked
+          npm ci --prefix apps/live-control-ui
+          cd apps/live-control-ui && npx --no-install playwright install --with-deps chromium
+      - name: Exact image, disposable production configuration and browser faults
+        run: uv run --locked python -m scripts.qualification.image_probe --output out/qualification/image
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: qualification-image-${{ needs.source.outputs.sha }}
+          path: |
+            out/qualification/image/result.json
+            out/qualification/image/*.log
+            out/qualification/image/browser/
+          retention-days: 14
+
+  qualification-result:
+    if: always()
+    needs: [source, full-regression, image-and-browser]
+    runs-on: ubuntu-24.04
+    env:
+      SOURCE: ${{ needs.source.result }}
+      FULL: ${{ needs.full-regression.result }}
+      IMAGE: ${{ needs.image-and-browser.result }}
+    steps:
+      - name: Qualification owner and fail-closed aggregate
+        run: |
+          echo 'Failure owner: CI qualification coordinator. Any failure suspends selective rollout.'
+          test "$SOURCE" = success && test "$FULL" = success && test "$IMAGE" = success

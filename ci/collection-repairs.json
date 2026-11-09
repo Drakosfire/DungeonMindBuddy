@@ -1,0 +1,116 @@
+{
+  "base": "be0ebf6c99f3d4b03b5810aa7e0a1ccc33ee35b0",
+  "scope": "Import/fixture migration to current owning contracts. Preserve original test definitions and parameter IDs; no exclusions. URI tests rehome to real source adapters; durable overlay test consumes real projection DTO instead of deleted Union builder.",
+  "original_test_definitions": {
+    "tests/test_graph_authoring_overlay_projection.py": [
+      "test_alias_decision_survives_store_reload_and_reprojects",
+      "test_alias_propagation_does_not_overwrite_existing_dmb_node_link",
+      "test_alias_propagation_skips_alias_with_multiple_targets",
+      "test_alias_propagation_supports_multi_word_alias",
+      "test_authored_node_ids_are_stable",
+      "test_authored_relationship_inherits_source_object_paragraph_excerpt",
+      "test_context_scoring_disambiguates_duplicate_selected_text",
+      "test_existing_extracted_nodes_preserved",
+      "test_gold_projection_does_not_enrich_with_authored_overlay",
+      "test_link_existing_alias_adds_authored_projection_mention",
+      "test_link_existing_alias_mention_ambiguous_without_source_anchor_context",
+      "test_link_existing_alias_mention_does_not_duplicate_existing_same_span_same_node",
+      "test_link_existing_alias_mention_materializes_external_existing_node",
+      "test_link_existing_alias_mention_preserves_source_markdown_semantics",
+      "test_link_existing_alias_mention_respects_visibility_audience",
+      "test_link_existing_alias_mention_selects_second_occurrence_with_source_anchor",
+      "test_link_existing_alias_mention_skips_conflicting_overlap",
+      "test_link_existing_alias_mention_targets_existing_node",
+      "test_link_existing_alias_mention_ungrounded_when_source_anchor_matches_none",
+      "test_link_existing_alias_propagates_to_other_safe_occurrences",
+      "test_link_existing_attaches_alias_to_existing_node",
+      "test_link_existing_materializes_external_existing_graph_node",
+      "test_malformed_overlay_returns_schema_error_diagnostic",
+      "test_manual_link_existing_becomes_authored_manual_node",
+      "test_missing_overlay_is_safe",
+      "test_object_assertion_becomes_node_view",
+      "test_object_source_anchor_adds_authored_projection_mention",
+      "test_relationship_assertion_adds_adjacency",
+      "test_retracted_assertion_not_projected",
+      "test_unresolved_link_existing_without_node_id_does_not_create_phantom_node"
+    ],
+    "tests/test_graph_authoring_overlay_projection_merge.py": [
+      "test_alias_seed_resolves_merged_away_link_existing_through_durable_redirect",
+      "test_durable_redirect_prevents_duplicate_overlay_merge",
+      "test_merge_assertion_collapses_duplicate_node_views",
+      "test_merge_into_party_anchor_hydrates_rich_ingest_projection",
+      "test_merge_resolves_legacy_node_ref_to_projection_node_id",
+      "test_overlay_local_merge_still_applies_without_durable_redirect",
+      "test_relationship_resolves_merged_away_target_through_durable_redirect"
+    ],
+    "tests/test_graph_authoring_visibility.py": [
+      "test_assertion_visibility_applies_to_link_existing_and_relationship",
+      "test_character_excludes_gm_private",
+      "test_character_excludes_nonmatching_character_specific",
+      "test_character_sees_matching_character_specific",
+      "test_character_sees_table_known_and_player_visible",
+      "test_filter_authored_assertions_preserves_only_visible_assertions",
+      "test_filter_authored_overlay_preserves_metadata_and_does_not_mutate_original",
+      "test_gm_projection_includes_gm_private_and_table_known_authored_nodes",
+      "test_gm_sees_all_visibility_values",
+      "test_hidden_until_revealed_not_visible_to_non_gm_until_revealed",
+      "test_hidden_until_revealed_visible_to_non_gm_when_revealed",
+      "test_missing_policy_defaults_private_for_non_gm",
+      "test_normalize_visibility_policy_defaults_to_gm_private",
+      "test_player_excludes_gm_private",
+      "test_player_excludes_nonmatching_character_specific",
+      "test_player_excludes_unrevealed_hidden",
+      "test_player_sees_matching_character_specific_via_player_ids",
+      "test_player_sees_table_known_and_player_visible",
+      "test_projected_authored_node_carries_full_visibility_policy_fields",
+      "test_projected_relationship_adjacency_carries_full_visibility_policy_fields",
+      "test_projection_adjacency_helper_respects_visibility",
+      "test_projection_helper_agrees_with_character_specific_matching_character",
+      "test_projection_helper_agrees_with_character_specific_matching_player",
+      "test_projection_helper_agrees_with_character_specific_nonmatching_character",
+      "test_projection_helper_agrees_with_hidden_until_revealed_when_revealed",
+      "test_projection_helper_agrees_with_hidden_until_revealed_when_unrevealed",
+      "test_projection_node_helper_treats_missing_visibility_as_private",
+      "test_projection_without_audience_preserves_gm_like_behavior",
+      "test_table_excludes_gm_private_and_character_specific",
+      "test_table_excludes_unrevealed_hidden_until_revealed",
+      "test_table_filtered_projection_excludes_gm_private_authored_node",
+      "test_table_sees_table_known_and_player_visible"
+    ],
+    "tests/test_graph_ingest_verified_snapshot_uri_shed.py": [
+      "test_assert_skips_worldbuilding_and_fixture_uris",
+      "test_is_non_filesystem_uri_detects_schemes"
+    ],
+    "tests/test_graph_object_authoring_merge_guard.py": [
+      "test_detect_merge_assertion_conflicts_blocks_against_existing_overlay",
+      "test_merge_assertions_conflict_when_cluster_overlaps_with_different_survivors",
+      "test_merge_assertions_do_not_conflict_when_proposed_supersedes_existing_survivor",
+      "test_merge_assertions_do_not_conflict_when_survivors_match"
+    ],
+    "tests/test_graph_review_authored_overlay.py": [
+      "test_enrich_projection_payload_adds_authored_overlay_block"
+    ],
+    "tests/test_source_packet_density.py": [
+      "test_source_packet_retains_canonical_evidence_without_duplicate_unit"
+    ]
+  },
+  "original_parametrization": {
+    "tests/test_graph_authoring_overlay_projection.py": [],
+    "tests/test_graph_authoring_overlay_projection_merge.py": [],
+    "tests/test_graph_authoring_visibility.py": [
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='builder'), List(elts=[Name(id='link_existing_assertion', ctx=Load()), Name(id='relationship_assertion', ctx=Load())], ctx=Load())], keywords=[])",
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='reveal_state'), List(elts=[Constant(value='unrevealed'), Constant(value='partial')], ctx=Load())], keywords=[])",
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='visibility'), List(elts=[Constant(value='gm_private'), Constant(value='character_specific')], ctx=Load())], keywords=[])",
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='visibility'), List(elts=[Constant(value='gm_private'), Constant(value='table_known'), Constant(value='player_visible'), Constant(value='character_specific'), Constant(value='hidden_until_revealed')], ctx=Load())], keywords=[])",
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='visibility'), List(elts=[Constant(value='table_known'), Constant(value='player_visible')], ctx=Load())], keywords=[])",
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='visibility'), List(elts=[Constant(value='table_known'), Constant(value='player_visible')], ctx=Load())], keywords=[])",
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='visibility'), List(elts=[Constant(value='table_known'), Constant(value='player_visible')], ctx=Load())], keywords=[])"
+    ],
+    "tests/test_graph_ingest_verified_snapshot_uri_shed.py": [],
+    "tests/test_graph_object_authoring_merge_guard.py": [],
+    "tests/test_graph_review_authored_overlay.py": [],
+    "tests/test_source_packet_density.py": [
+      "Call(func=Attribute(value=Attribute(value=Name(id='pytest', ctx=Load()), attr='mark', ctx=Load()), attr='parametrize', ctx=Load()), args=[Constant(value='unit,expected'), List(elts=[Tuple(elts=[Constant(value='span:canonical'), Constant(value='### span:canonical / lines 4-5')], ctx=Load()), Tuple(elts=[Constant(value='unit:distinct'), Constant(value='### span:canonical / unit:distinct / lines 4-5')], ctx=Load()), Tuple(elts=[Constant(value=None), Constant(value='### span:canonical / lines 4-5')], ctx=Load())], ctx=Load())], keywords=[])"
+    ]
+  }
+}

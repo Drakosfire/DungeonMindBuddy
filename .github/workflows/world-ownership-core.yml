@@ -66,8 +66,8 @@ jobs:
         if: matrix.suite == 'world-and-content'
         run: |
           uv run --locked python scripts/ci_contract.py inventory
-          uv run --locked pytest -q tests/test_ci_contract.py
-          uv run --locked ruff check scripts/ci_contract.py tests/test_ci_contract.py
+          uv run --locked pytest -q tests/test_ci_contract.py tests/test_ci_qualification.py
+          uv run --locked ruff check scripts/ci_contract.py tests/test_ci_contract.py scripts/qualification tests/test_ci_qualification.py
 
       - name: Lint ownership and binding changes
         if: matrix.suite == 'world-and-content'

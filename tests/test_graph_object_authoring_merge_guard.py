@@ -3,6 +3,7 @@ from __future__ import annotations
 from apps.live_control_server.models.graph_authoring_overlay import (
     AuthoredGraphMergeObjectsAssertion,
     AuthoredGraphObjectRef,
+    create_empty_authored_graph_overlay,
     default_graph_authoring_provenance,
 )
 from apps.live_control_server.services.graph_object_authoring_merge_guard import (
@@ -11,11 +12,30 @@ from apps.live_control_server.services.graph_object_authoring_merge_guard import
     find_superseded_merge_assertion_pairs,
     merge_assertions_conflict,
 )
-from tests.test_graph_memory_merge_reconciliation_planner import (
-    CAMPAIGN_ID,
-    merge_assertion,
-    overlay_with_assertions,
-)
+CAMPAIGN_ID = "longmont-c1"
+
+
+def merge_assertion(**overrides) -> AuthoredGraphMergeObjectsAssertion:
+    """Construct the real assertion formerly supplied by the retired test module."""
+    values = {
+        "assertion_id": "assert-merge",
+        "assertion_kind": "merge_objects",
+        "operation": "merge",
+        "campaign_id": CAMPAIGN_ID,
+        "session_id": "session-1",
+        "provenance": default_graph_authoring_provenance().model_dump(),
+        "survivor_object_ref": _ref("survivor").model_dump(),
+        "merged_object_refs": [_ref("merged").model_dump()],
+        "matched_features": ["same synthetic identity"],
+    }
+    values.update(overrides)
+    return AuthoredGraphMergeObjectsAssertion.model_validate(values)
+
+
+def overlay_with_assertions(*assertions):
+    return create_empty_authored_graph_overlay(CAMPAIGN_ID).model_copy(
+        update={"assertions": list(assertions)}
+    )
 
 
 def _ref(node_id: str, *, kind: str = "location") -> AuthoredGraphObjectRef:

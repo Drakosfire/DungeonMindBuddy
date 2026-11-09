@@ -1,7 +1,6 @@
 import pytest
 
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
-    _empty_party_context,
     _normalize_evidence_refs,
     _source_packet_md,
     render_category_pass_prompts,
@@ -33,7 +32,7 @@ def test_source_packet_retains_canonical_evidence_without_duplicate_unit(
     packet = _source_packet_md([row])
     assert packet == expected + "\n\n```text\nExact source\n  with indentation.\n```"
     prompts = render_category_pass_prompts(
-        [row], party_ctx=_empty_party_context("world"), profile=GAZETTEER_PROFILE
+        [row], profile=GAZETTEER_PROFILE
     )
     for prompt in prompts.values():
         assert packet in prompt
