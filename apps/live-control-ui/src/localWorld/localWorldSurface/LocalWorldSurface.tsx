@@ -89,6 +89,13 @@ function clearGraphEditorDraftSubmission(worldId: LocalWorldId, field: WorldGrap
   writeGraphEditorDraft(worldId, hasUnresolvedDraft ? next : null, version, saved.version);
 }
 
+function discardGraphEditorDrafts(worldId: LocalWorldId): void {
+  graphEditorDrafts.delete(worldId);
+  firstObjectDrafts.delete(worldId);
+  syncBeforeUnloadProtection();
+  notifyGraphEditorDraftListeners();
+}
+
 function subscribeGraphEditorDrafts(listener: () => void): () => void {
   graphEditorDraftListeners.add(listener);
   return () => graphEditorDraftListeners.delete(listener);
@@ -288,6 +295,7 @@ export function LocalWorldSurface({
     const oldest = graphSessions[0];
     const shouldEvict = window.confirm(`This tab keeps unfinished graph editor drafts for up to ${MAX_GRAPH_EDITOR_SESSIONS} Worlds. Opening “${title}” will remove the editor draft for “${oldest.snapshot.title}”; its already saved World remains safe. Continue?`);
     if (!shouldEvict) return false;
+    discardGraphEditorDrafts(oldest.snapshot.worldId);
     setGraphSessions((current) => current.filter((item) => item.snapshot.worldId !== oldest.snapshot.worldId));
     return true;
   }, [graphSessions]);

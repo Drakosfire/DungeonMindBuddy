@@ -592,6 +592,59 @@ describe("local World Surface", () => {
     surface.unmount();
   });
 
+  it("discards only the confirmed oldest graph draft when opening a fourth graph", async () => {
+    const repository = new InMemoryLocalWorldRepository();
+    const worlds = [] as { title: string; worldId: string; objectName: string }[];
+    for (const title of ["World A", "World B", "World C", "World D"]) {
+      const created = await repository.createWorld({ title });
+      expect(created.status).toBe("created");
+      if (created.status !== "created") return;
+      const objectName = `${title} Person`;
+      const object = {
+        id: repository.allocateObjectId(created.record.snapshot.worldId),
+        name: objectName,
+        kind: "person",
+        properties: {},
+      };
+      const committed = await repository.commitSemanticEdit({
+        worldId: created.record.snapshot.worldId,
+        expectedLocalRevision: created.record.localRevision,
+        nextSnapshot: { ...created.record.snapshot, objects: [object] },
+        edit: { classification: "buddy-local-only", description: `Added ${objectName}` },
+      });
+      expect(committed.status).toBe("committed");
+      worlds.push({ title, worldId: created.record.snapshot.worldId, objectName });
+    }
+
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+    renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /World A/ }));
+    await user.click(screen.getByRole("button", { name: "World A Person, person" }));
+    await user.click(screen.getByRole("button", { name: "Rename World A Person" }));
+    await user.clear(screen.getByLabelText("New name"));
+    await user.type(screen.getByLabelText("New name"), "Keep this only if I cancel eviction");
+    expect(beforeUnloadIsPrevented()).toBe(true);
+
+    for (const world of worlds.slice(1, 3)) {
+      await user.click(await screen.findByRole("button", { name: new RegExp(world.title) }));
+      expect(await screen.findByRole("button", { name: `${world.objectName}, person` })).toBeVisible();
+    }
+
+    confirm.mockReturnValueOnce(false);
+    await user.click(await screen.findByRole("button", { name: /World D/ }));
+    expect(screen.getByLabelText("New name")).toHaveValue("Keep this only if I cancel eviction");
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    confirm.mockReturnValue(true);
+    await user.click(await screen.findByRole("button", { name: /World D/ }));
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("World A"));
+    expect(beforeUnloadIsPrevented()).toBe(false);
+    await user.click(await screen.findByRole("button", { name: /World A/ }));
+    expect(await screen.findByRole("button", { name: "World A Person, person" })).toBeVisible();
+    expect(screen.queryByLabelText("New name")).not.toBeInTheDocument();
+    expect(beforeUnloadIsPrevented()).toBe(false);
+  });
+
   it("lets a blank World begin with a custom first object", async () => {
     const repository = new InMemoryLocalWorldRepository();
     const created = await repository.createWorld({ title: "A quiet beginning" });
