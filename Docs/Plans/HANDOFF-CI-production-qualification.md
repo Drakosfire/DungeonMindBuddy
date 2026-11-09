@@ -297,3 +297,29 @@ clusters cleaned. Result7passed/3failed/44errors in8.52s: the absent-native-DSN
 error is gone;44now expose stale world_container_registry.uuid4 patching, and
 three reach later contracts. This is7observed passes, not54promised fixes;
 residual fixture work remains visible.26CI guards and Ruff pass.
+
+## Authenticated fixture batch ownership adoption
+
+Coordinator authorizes authenticated fixture corrections. Narrow CI test-only
+lease extension: tests/local_operator_client.py and four modules
+tests/application_state/test_plan_work_object_postgres.py,
+tests/application_state/test_play_active_run_postgres.py,
+tests/test_graph_existing_object_resolver.py, tests/test_live_artifact_reads.py.
+The APP foundation/play-continuity handoffs are DONE (#641/#649) and World active
+Run charter is MERGED/HISTORICAL (#952). Current active APP accepted-prefix work
+owns validators/storage, not these four endpoint fixtures. Graph route#2276
+ownership is independent and untouched. No auth production/policy/test denial
+lease is transferred. Configure only these non-auth owner tests to the actual
+supported local_operator mode over an explicit unproxied loopback peer, retaining
+all production middleware and original test bodies/IDs/assertions. Dedicated
+hosted and graph auth tests retain their own environments and must stay unchanged.
+This is explicit test authentication setup, not a global permissive test mode.
+
+Authenticated fixture author evidence: exact prior candidate5e08 allfour modules
+39passed/21failed in10.91s. Corrected same60IDs58passed/2failed, with69additional
+dedicated hosted/graph auth and CI guards allpassing (combined127passed/2failed
+in12.57s).19original failures resolved; remaining two directly create a Page
+without its required World owner. Test function ASTs and all60 ordered nodeIDs
+are identical, duplicates0. No product authorization or denial tests changed.
+Two explicit helper guards prove supported loopback succeeds and remote peer
+still receives real403 hosted_auth_local_boundary. Exact owned test DB removed.

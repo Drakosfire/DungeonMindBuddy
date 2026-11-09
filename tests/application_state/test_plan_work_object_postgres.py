@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
+from tests.local_operator_client import LocalOperatorTestClient as TestClient, configure_local_operator
 
 from apps.live_control_server.main import create_app
 from apps.live_control_server.services.tiptap_markdown_write import (
@@ -947,3 +947,8 @@ def test_connection_owned_plan_commit_preserves_world_scope_refusal(
                 expected_revision=created.object_revision,
                 expected_world_id="another-world",
             )
+
+
+@pytest.fixture(autouse=True)
+def _authenticated_local_operator(monkeypatch):
+    configure_local_operator(monkeypatch)

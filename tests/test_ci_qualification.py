@@ -205,3 +205,22 @@ def test_native_database_cleanup_failure_is_fatal_and_named(tmp_path, monkeypatc
         instance.__exit__(None, None, None)
     assert calls == [["docker", "logs", instance.name], ["docker", "rm", "--force", "--volumes", instance.name]]
     assert json.loads((instance.output / "result.json").read_text())["cleaned"] is False
+
+
+@pytest.mark.parametrize("peer,expected", [(None, 200), (("192.0.2.1", 50000), 403)])
+def test_scoped_local_test_client_preserves_real_auth_boundary(monkeypatch, peer, expected):
+    from fastapi import FastAPI
+    from apps.live_control_server.services.hosted_auth import install_hosted_request_boundary
+    from tests.local_operator_client import LocalOperatorTestClient, configure_local_operator
+
+    configure_local_operator(monkeypatch)
+    app = FastAPI()
+    install_hosted_request_boundary(app)
+    @app.get("/api/probe")
+    def probe_route():
+        return {"ok": True}
+    kwargs = {} if peer is None else {"client": peer}
+    response = LocalOperatorTestClient(app, **kwargs).get("/api/probe")
+    assert response.status_code == expected
+    if expected == 403:
+        assert response.json()["detail"]["code"] == "hosted_auth_local_boundary"

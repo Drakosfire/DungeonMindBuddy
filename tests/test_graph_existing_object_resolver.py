@@ -1,6 +1,8 @@
+import pytest
+
 from pathlib import Path
 
-from fastapi.testclient import TestClient
+from tests.local_operator_client import LocalOperatorTestClient as TestClient, configure_local_operator
 
 from apps.live_control_server.main import app
 from apps.live_control_server.services import graph_existing_object_resolver as resolver_module
@@ -137,3 +139,8 @@ def test_session_without_gold_fixture_can_search_npc_registry():
     assert bubble_candidates
     assert any("float goat" in candidate.label.lower() for candidate in bubble_candidates)
     assert any("gold fixture" in warning.lower() for warning in response.warnings)
+
+
+@pytest.fixture(autouse=True)
+def _authenticated_local_operator(monkeypatch):
+    configure_local_operator(monkeypatch)
