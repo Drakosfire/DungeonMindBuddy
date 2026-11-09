@@ -197,7 +197,7 @@ def _native_writer_budget(budget, accounting):
 
 
 def _freeze_native(work_context, action, assembled, authority, native_query, provenance, budget,
-                   *, controller_accounting=None, writer_budget=None):
+                   *, controller_accounting=None, writer_budget=None, play_context_receipt=None):
     """One shared root composition; surface work and Core source identity keep their owners."""
     from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, validate_work_context
     from application_state.agent_conversation.native_execution import (
@@ -216,7 +216,7 @@ def _freeze_native(work_context, action, assembled, authority, native_query, pro
     wire = dict(schema='dmb_surface_native_execution_v1',context_receipt_sha256=receipt.context_receipt_sha256,
         policy=policy.model_dump(mode='json',by_alias=True))
     execution = SurfaceNativeExecutionV1.model_validate_json(json.dumps(wire|{'execution_policy_sha256':canonical_sha256(wire),'events':[]}))
-    validate_work_context(receipt,provenance)
+    validate_work_context(receipt,provenance,play_context_receipt=play_context_receipt)
     validate_context_binding(receipt,execution)
     return receipt,execution,([],[],[])
 
@@ -229,3 +229,43 @@ def _contains_text(value, text):
     if isinstance(value, dict):
         return any(_contains_text(item, text) for item in value.values())
     return False
+
+
+def play_work_proof(request,work,dialogue):
+    from .native_play_graph_owner import prepare_play_sources
+    frame,_=prepare_play_sources(request,work,native=True)
+    return dict(source_frame=frame.model_dump(mode='json',by_alias=True),
+        session_evidence=list((work.session_evidence or {}).get('sessions',[])),
+        dialogue=[dict(role=row['role'],content=row['content']) for row in dialogue])
+
+
+def freeze_play(request,work,view,budget,*,authority,native_query,provenance,submitted_intent,parent):
+    """Freeze actual Run work and exact first semantic Jev request together."""
+    from .agent_turn_service import _json_node_count,_turn_idempotency_key
+    from application_state.agent_conversation.jev_retrieval_contract import NativePlayRetrievalDecisionInputV1,validate_wire_body
+    from application_state.agent_conversation.native_play_work import project_work
+    from application_state.agent_conversation.native_context import PlayWorkContextV1,NativeProviderInputV1
+    from application_state.agent_conversation.native_execution import NativePlayActionV1
+    if (request.surface.surface_id!='play' or type(parent) is not NativePlayRetrievalDecisionInputV1
+            or parent.question!=request.message or work.play_context_receipt is None
+            or authority.managed_world_id!=work.play_context_receipt.world_id
+            or (view['provider'],view['model'],view['apiMode'])!=('typesafe','jev-1.14.0','decision')):
+        raise ValueError('Native Play requires its actual Run and retrieval controller')
+    proof=play_work_proof(request,work,[row.model_dump() for row in parent.dialogue])
+    frame=t.PlaySourceFrameV1.model_validate_json(json.dumps(proof['source_frame']))
+    context=PlayWorkContextV1(play_basis=work.play_context_receipt,
+        play_sources=frame.manifest,play_source_frame_sha256=t.canonical_sha256(frame))
+    if parent.play_work!=project_work(context,provenance,
+            _turn_idempotency_key(request.owner_scope.world_id,request.turn_id),proof):
+        raise ValueError('Native Play first request changed its exact work')
+    raw=view['payloadJson'].encode()
+    if len(raw)!=view['payloadUtf8Bytes'] or sha256(raw).hexdigest()!=view['payloadSha256']:
+        raise ValueError('Native Play first provider bytes changed before claim')
+    validate_wire_body(parent,raw)
+    assembled=NativeProviderInputV1(provider_model_name=view['model'],provider_model_version=view['model'],
+        tokenizer_name=budget['estimator'],tokenizer_version='v1',
+        provider_envelope_input_tokens=len(raw)+64*(1+_json_node_count(json.loads(raw))),
+        output_token_reserve=budget['outputReserveTokens'],context_window_limit=budget['contextLimitTokens'],
+        included_history=[],assembled_input_sha256=view['payloadSha256'])
+    return _freeze_native(context,NativePlayActionV1(intent=submitted_intent),assembled,
+        authority,native_query,provenance,budget,play_context_receipt=work.play_context_receipt)

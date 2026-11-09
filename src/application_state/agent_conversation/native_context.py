@@ -20,7 +20,7 @@ from .rules_authority_types import canonical_sha256
 from .types import (
     BuildSourceContextBasisV1, NativeCorpusUnavailableV1, PlanAskContextBasis,
     PlanContextPolicyV2, PlanPlayableTargetReceiptV1, PlanWorldGraphHistoryPinV1,
-    PlayRunTurnContextReceiptV2,
+    PlayRunTurnContextReceiptV2, PlaySourceManifestV1,
 )
 
 Digest = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$", strict=True)]
@@ -41,6 +41,8 @@ class PlanWorkContextV1(Strict):
 class PlayWorkContextV1(Strict):
     surface_id: Literal["play"] = "play"
     play_basis: PlayRunTurnContextReceiptV2
+    play_sources: PlaySourceManifestV1
+    play_source_frame_sha256: Digest
 
 
 SurfaceWorkContext = Annotated[

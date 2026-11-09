@@ -109,7 +109,7 @@ def acquire_authored_sources(adapter):
             reference_index=row.reference_index, materialize=selected)
 
 
-def prepare_play_sources(request: Any, work: Any) -> tuple[t.PlaySourceFrameV1, str]:
+def prepare_play_sources(request: Any, work: Any, *, native=False) -> tuple[t.PlaySourceFrameV1, str]:
     """Build current Play source values from the independently resolved Run owner."""
     basis = None if work is None else work.play_context_receipt
     target = getattr(request, "play_target", None)
@@ -137,7 +137,7 @@ def prepare_play_sources(request: Any, work: Any) -> tuple[t.PlaySourceFrameV1, 
     # into the larger current-moment payload.
     from dataclasses import replace
     moment_context = replace(context, current_play=replace(play, saved_scene_note=None))
-    moment = render_agent_play_surface_context(moment_context)
+    moment = render_agent_play_surface_context(moment_context,include_edition_revision=not native)
     if not isinstance(moment, str) or not moment.strip():
         raise ValueError("Play current moment is unavailable")
     locator = t.play_source_locator(basis)

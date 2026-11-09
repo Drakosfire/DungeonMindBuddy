@@ -237,7 +237,8 @@ class NativeBodyNavigation:
     def __init__(self, adapter):
         from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
         from ..integrations.dungeonmind.native_corpus_source import NativeCorpusContext
-        authority = adapter.fence.turn.graph_context_receipt.source_authority
+        authority = (adapter.fence.turn.graph_context_receipt.source_authority
+            if adapter.fence is not None else adapter.native_source_authority)
         context = getattr(adapter, "native_corpus_context", None)
         if isinstance(authority, NativeCorpusAuthorityV1) and (
                 not isinstance(context, NativeCorpusContext) or context.authority != authority):
@@ -410,6 +411,20 @@ class NativeBodyNavigation:
         from application_state.agent_conversation.native_corpus import (
             NativeCorpusAuthorityV1, native_corpus_search_handle, native_body_handle, native_full_document_handle,
         )
+        if self.adapter.fence is None:
+            if not isinstance(self.adapter.native_source_authority,NativeCorpusAuthorityV1):
+                return ()
+            # Pre-claim offers are Core metadata only; actual reads still require
+            # the acknowledged native decision under the accepted Turn claim.
+            rows=[RetrievalCandidate(handle=handle,
+                label='Read full document: '+source_display_name(display,'Admitted source'),
+                kind='Explicit admitted full-source read; metadata choice, not evidence')
+                for handle,(_pair,_digest,display) in self._source_choices().items()]
+            rows.append(RetrievalCandidate(handle=native_corpus_search_handle(
+                sha256(self.adapter.request.message.encode()).hexdigest()),
+                label='Search admitted native source sections for the current question',
+                kind='Source lexical navigation; not evidence or semantic completeness'))
+            return tuple(rows)
         turn = self.adapter.fence.turn
         if not isinstance(turn.graph_context_receipt.source_authority, NativeCorpusAuthorityV1):
             return ()
@@ -468,6 +483,8 @@ class NativeBodyNavigation:
 
     def examined(self):
         from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1, native_corpus_search_handle
+        if self.adapter.fence is None:
+            return ()
         turn = self.adapter.fence.turn
         authority = turn.graph_context_receipt.source_authority
         if not isinstance(authority, NativeCorpusAuthorityV1):

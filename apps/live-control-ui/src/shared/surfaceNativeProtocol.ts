@@ -51,8 +51,14 @@ export function isSurfaceNativeCompletion(v:unknown,r:SurfaceNativeContextReceip
     if(s.kind==='source_passage_claim') {if(!exact(s,['kind','text']))return false;sources.add(i);}
     else if(s.kind==='native_assertion_claim') {if(!isNativeAssertionClaim(s))return false;graphs.set(i,s.assertion_ids);}
     else if(s.kind==='authored_excerpt'||s.kind==='session_summary') {
-      if(work.surface_id!=='plan'||(s.kind==='session_summary'?!isSessionSummary(s):!isAuthoredExcerpt(s)))return false;
-      for(const q of s.kind==='session_summary'?s.supports:[s])if(q.source_kind==='play'||q.source_kind==='plan'&&(q.object_id!==work.plan_basis.document_id||q.revision!==work.plan_basis.work_revision_id||q.owner_sha256!==work.plan_basis.content_sha256||q.body_sha256!==q.owner_sha256))return false;
+      if(work.surface_id==='build'||(s.kind==='session_summary'?!isSessionSummary(s):!isAuthoredExcerpt(s)))return false;
+      for(const q of s.kind==='session_summary'?s.supports:[s]) {
+        if(work.surface_id==='plan') {
+          if(q.source_kind==='play'||q.source_kind==='plan'&&(q.object_id!==work.plan_basis.document_id||q.revision!==work.plan_basis.work_revision_id||q.owner_sha256!==work.plan_basis.content_sha256||q.body_sha256!==q.owner_sha256))return false;
+        } else if(q.source_kind==='plan'||q.object_id!==work.play_basis.run_id
+          ||q.source_kind==='play'&&!work.play_sources.entries.some(e=>e.source_id===q.source_handle&&e.text_sha256===q.body_sha256&&e.payload_sha256===q.owner_sha256&&String(e.locator.run_revision)===q.revision)
+          ||q.source_kind==='session'&&s.kind==='session_summary'&&q.checkpoint_content_sha256!==work.play_basis.content_sha256)return false;
+      }
       if(s.kind==='authored_excerpt'){if(blocks.has(s.block_handle))return false;blocks.add(s.block_handle);}authored=true;
     } else if(s.kind==='proposal') {if(!exact(s,['kind','text','label'])||!['invented_idea','image_prompt'].includes(String(s.label)))return false;proposal=true;}
     else if(s.kind==='limitation') {if(!exact(s,['kind','text','code','question_phrase'])||!['missing_requested_details','partial_retrieval','unresolved_conflict'].includes(String(s.code))||!(s.question_phrase===null||text(s.question_phrase)))return false;partial=true;}

@@ -1033,3 +1033,22 @@ def test_world_play_context_rejects_unsupported_kind_or_broken_membership(tmp_pa
             )
 
 pytestmark = pytest.mark.usefixtures("application_state_dsn")
+
+
+def test_native_play_moment_omits_renderer_counter_without_scrubbing_authored_text():
+    from apps.live_control_server.services.agent_runtime import AgentCurrentOwnerContext
+    literal='The inscription literally says edition revision 731 and run:literal.'
+    context=AgentSurfaceContext(surface_id='play',
+        current_owner=AgentCurrentOwnerContext(kind='world',owner_id='world-one',name='World'),
+        current_play=AgentPlayCurrentMomentContext(run_id='run:private',
+            playable_artifact_id='artifact:private',playable_revision=917,
+            current_beat=AgentPlayCurrentElementContext(kind='beat',element_id='beat:private',
+                title='Approach',body_text=literal,body_markdown=literal),
+            current_scene=None,edition_revision=731,saved_scene_note=None))
+    historical=render_agent_play_surface_context(context)
+    native=render_agent_play_surface_context(context,include_edition_revision=False)
+    assert historical==native.replace('Effective saved session copy',
+        'Effective saved session copy · edition revision 731',1)
+    assert literal in native
+    assert 'run:private' not in native and 'artifact:private' not in native
+    assert 'beat:private' not in native and '917' not in native

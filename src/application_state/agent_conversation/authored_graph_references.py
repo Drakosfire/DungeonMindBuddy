@@ -178,12 +178,14 @@ def native_references(execution):
     Captured/read wire names retain their original Build spelling. Their exact
     intent, context and read bindings are shared; no second event ledger exists.
     """
-    from .native_execution import NativeBuildActionV1, NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES
+    from .native_execution import NativeBuildActionV1, NativePlanActionV1, NativePlayActionV1, NATIVE_PLAN_ACTION_TYPES
     from . import types as t
     if isinstance(execution, t.PlayWorldGraphExecutionV1):
         ctx = execution.policy.authored_source_context
         return ctx.references if ctx is not None else None
     action = execution.policy.action
+    if type(action) is NativePlayActionV1:
+        return action.intent.authored_references
     if type(action) is NativeBuildActionV1 and type(action.intent) is t.BuildGraphIntentV2:
         return action.intent.authored_references
     if type(action) in NATIVE_PLAN_ACTION_TYPES and type(action.intent) in (t.SubmittedTurnIntentV3, t.SubmittedTurnIntentV4):

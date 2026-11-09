@@ -1,5 +1,5 @@
 import {isAuthoredReferences} from '../agentInteraction/authoredGraphReferences';
-import {isNativeSourceAuthority} from '../shared/surfaceNativeProtocol';
+import {isNativeSourceAuthority,isSurfaceNativeReceipt,isSurfaceNativeContext} from '../shared/surfaceNativeProtocol';
 import { isSurfaceEvidenceCompletion,surfaceEvidenceReceiptBound } from "../shared/surfaceEvidenceProtocol";
 import { isSurfaceSourceCompletion } from "../shared/sourcePassageProtocol";
 import type { WorldPlayAgentTurnRequestV1, WorldPlayGraphContextReceiptV1, WorldPlaySourceContextV1 } from '../api/types';
@@ -30,16 +30,7 @@ const edition = (v: unknown): boolean => keys(v, ['edition_revision', 'edition_r
   && integer(v.edition_revision, 0) && digest(v.content_sha256)
   && (v.edition_revision === 0 ? v.edition_revision_id === null : uuid(v.edition_revision_id));
 
-/** Pure, bounded native Play metadata admission. No source retrieval or Plan conversion. */
-export function isWorldPlayGraphReceipt(value: unknown, request?: WorldPlayAgentTurnRequestV1): value is WorldPlayGraphContextReceiptV1 {
-  if (!keys(value, ['schema', 'receipt_serializer_version', 'context_receipt_sha256', 'play_graph_policy', 'play_basis',
-    'play_sources', 'play_source_frame_sha256', 'retrieval_session_id', 'graph_authority', 'graph_packet', 'assembled_input', 'evidence_mode', 'source_opened',...(record(value)&&'authored_source_context' in value?['authored_source_context']:[])])
-    || value.schema !== 'dmb_play_world_graph_context_receipt_v1' || value.receipt_serializer_version !== 'canonical-json-utf8-v1'
-    || !digest(value.context_receipt_sha256) || !digest(value.play_source_frame_sha256) || !owner(value.retrieval_session_id)
-    || value.evidence_mode !== 'metadata_only' || value.source_opened !== false
-    || !keys(value.play_graph_policy, ['schema', 'policy']) || value.play_graph_policy.schema !== 'dmb_play_graph_policy_v1'
-    || value.play_graph_policy.policy !== 'native_play_world_v1') return false;
-  const b = value.play_basis;
+function isPlayWorkSources(b:unknown,m:unknown):boolean {
   if (!keys(b, ['schema', 'world_id', 'run_id', 'run_revision', 'runbook_object_id', 'runbook_object_revision',
     'runbook_work_revision_id', 'runbook_revision_n', 'runbook_content_sha256', 'beat_id', 'scene_id', 'marker_grammar_version',
     'edition_revision', 'edition_revision_id', 'content_sha256', 'scene_note', 'scene_note_sha256'])
@@ -52,7 +43,6 @@ export function isWorldPlayGraphReceipt(value: unknown, request?: WorldPlayAgent
     || (b.scene_id === null && (b.scene_note !== null || b.scene_note_sha256 !== null))
     || (b.scene_note === null ? b.scene_note_sha256 !== null : typeof b.scene_note !== 'string' || !unicode(b.scene_note)
       || bytes(b.scene_note) > 32768 || !digest(b.scene_note_sha256))) return false;
-  const m = value.play_sources;
   if (!keys(m, ['schema', 'entries', 'manifest_sha256']) || m.schema !== 'dmb_play_source_manifest_v1'
     || !digest(m.manifest_sha256) || !Array.isArray(m.entries) || m.entries.length > 2) return false;
   const locator = { world_id: b.world_id, run_id: b.run_id, run_revision: b.run_revision,
@@ -71,6 +61,53 @@ export function isWorldPlayGraphReceipt(value: unknown, request?: WorldPlayAgent
         || e.text_utf8_bytes !== bytes(b.scene_note as string) || e.text_codepoints !== Array.from(b.scene_note as string).length))) return false;
     previous = e.source_id; kinds.add(e.source_kind);
   }
+  return true;
+}
+
+export function isSharedPlayWork(value:unknown,request?:WorldPlayAgentTurnRequestV1):value is Extract<import('../api/types').SurfaceNativeWorkContextV1,{surface_id:'play'}> {
+  if(!keys(value,['surface_id','play_basis','play_sources','play_source_frame_sha256'])||value.surface_id!=='play'
+    ||!digest(value.play_source_frame_sha256)||!isPlayWorkSources(value.play_basis,value.play_sources))return false;
+  const entries=(value.play_sources as import('../api/types').WorldPlayGraphContextReceiptV1['play_sources']).entries;
+  if(!entries.some(e=>e.source_kind==='current_moment')||entries.some(e=>e.source_kind==='scene_note')!==((value.play_basis as import('../api/types').WorldPlayRunContextReceiptV2).scene_note!==null))return false;
+  const b=value.play_basis as import('../api/types').WorldPlayRunContextReceiptV2;
+  if(!request)return true;
+  return request.surface.surface_id==='play'&&request.primary_work.kind==='run'
+    &&request.owner_scope.world_id===b.world_id&&request.graph_request.mode==='world'
+    &&request.graph_request.world_id===b.world_id&&request.primary_work.object_id===b.run_id
+    &&request.primary_work.expected_revision===b.run_revision
+    &&rulesCanonical(request.primary_work.play_content_basis)===rulesCanonical({edition_revision:b.edition_revision,
+      edition_revision_id:b.edition_revision_id,content_sha256:b.content_sha256})
+    &&!!request.play_target&&request.play_target.beat_id===b.beat_id&&request.play_target.scene_id===b.scene_id
+    &&request.play_target.marker_grammar_version===b.marker_grammar_version;
+}
+
+export function isSharedPlayReceipt(value:unknown,request?:WorldPlayAgentTurnRequestV1):value is import('../api/types').PlaySurfaceNativeContextResponseV1['receipt'] {
+  return isSurfaceNativeReceipt(value,(work):work is Extract<import('../api/types').SurfaceNativeWorkContextV1,{surface_id:'play'}>=>isSharedPlayWork(work,request))
+    &&(!request||value.native_query.schema==='dmb_native_plan_query_unavailable_v1'||value.native_query.question===request.message);
+}
+
+export function sharedPlayGraphResponseMatches(receipt:unknown,graph:unknown):boolean {
+  if(!isSharedPlayReceipt(receipt)||!keys(graph,['status','world_id','campaign_id','scope_mode','revision_id','focus',
+    'selection_node_id','selection_found','head_revision_id','is_head'])||graph.status!=='replayed'
+    ||graph.scope_mode!=='world'||graph.campaign_id!==null||graph.selection_node_id!==null||graph.selection_found!==null
+    ||graph.head_revision_id!==null||graph.is_head!==null||!keys(graph.focus,['kind','session_id','campaign_id'])
+    ||graph.focus.kind!=='none'||graph.focus.session_id!==null||graph.focus.campaign_id!==null)return false;
+  const query=receipt.native_query;
+  return query.schema==='dmb_native_plan_query_unavailable_v1'?graph.world_id===null&&graph.revision_id===null
+    :graph.world_id===query.authority.native_world_id&&graph.revision_id===query.authority.revision_id;
+}
+
+/** Pure, bounded native Play metadata admission. No source retrieval or Plan conversion. */
+export function isWorldPlayGraphReceipt(value: unknown, request?: WorldPlayAgentTurnRequestV1): value is WorldPlayGraphContextReceiptV1 {
+  if (!keys(value, ['schema', 'receipt_serializer_version', 'context_receipt_sha256', 'play_graph_policy', 'play_basis',
+    'play_sources', 'play_source_frame_sha256', 'retrieval_session_id', 'graph_authority', 'graph_packet', 'assembled_input', 'evidence_mode', 'source_opened',...(record(value)&&'authored_source_context' in value?['authored_source_context']:[])])
+    || value.schema !== 'dmb_play_world_graph_context_receipt_v1' || value.receipt_serializer_version !== 'canonical-json-utf8-v1'
+    || !digest(value.context_receipt_sha256) || !digest(value.play_source_frame_sha256) || !owner(value.retrieval_session_id)
+    || value.evidence_mode !== 'metadata_only' || value.source_opened !== false
+    || !keys(value.play_graph_policy, ['schema', 'policy']) || value.play_graph_policy.schema !== 'dmb_play_graph_policy_v1'
+    || value.play_graph_policy.policy !== 'native_play_world_v1') return false;
+  const b = value.play_basis as WorldPlayGraphContextReceiptV1['play_basis'];
+  if(!isPlayWorkSources(b,value.play_sources))return false;
   if (!isSurfaceGraphInput({ graph_authority: value.graph_authority, graph_packet: value.graph_packet,
     assembled_input: value.assembled_input }, b.world_id, 'dmb_play_world_graph_packet_v1',
     ['play', 'history', 'graph', 'instructions', 'tools', 'message', 'rules'])
@@ -92,23 +129,27 @@ export function isWorldPlayGraphReceipt(value: unknown, request?: WorldPlayAgent
     && request.graph_request.mode === 'world' && request.graph_request.world_id === b.world_id
     && request.owner_scope.world_id === b.world_id && request.primary_work.object_id === b.run_id
     && request.primary_work.expected_revision === b.run_revision
-    && rulesCanonical(request.primary_work.play_content_basis) === rulesCanonical(locator.edition)
+    && rulesCanonical(request.primary_work.play_content_basis) === rulesCanonical({edition_revision:b.edition_revision,edition_revision_id:b.edition_revision_id,content_sha256:b.content_sha256})
     && !!request.play_target && request.play_target.beat_id === b.beat_id && request.play_target.scene_id === b.scene_id
     && request.play_target.marker_grammar_version === b.marker_grammar_version;
 }
 
 /** Verify only committed metadata and the inline saved note; never re-fetch Run or corpus content. */
 export async function playReceiptDigestsBound(value: unknown): Promise<boolean> {
-  if (!isWorldPlayGraphReceipt(value)) return false;
-  const { context_receipt_sha256, ...body } = value;
-  const { manifest_sha256, ...manifest } = value.play_sources;
+  const shared=isSurfaceNativeReceipt(value,isSharedPlayWork);
+  if (!shared&&!isWorldPlayGraphReceipt(value)) return false;
+  const receipt=value as WorldPlayGraphContextReceiptV1|import('../api/types').SurfaceNativeContextReceiptV1;
+  const work=receipt.schema==='dmb_surface_native_context_receipt_v1'?receipt.work_context:receipt;
+  if(!('play_basis' in work))return false;
+  const { context_receipt_sha256, ...body } = receipt;
+  const { manifest_sha256, ...manifest } = work.play_sources;
   const raw = rulesCanonical(value);
   if (bytes(raw) > 131072 || !unicode(raw)
     || await rulesDigest(rulesCanonical(body)) !== context_receipt_sha256
     || await rulesDigest(rulesCanonical(manifest)) !== manifest_sha256) return false;
-  const note = value.play_basis.scene_note;
-  if (note !== null && await rulesDigest(note) !== value.play_basis.scene_note_sha256) return false;
-  for (const entry of value.play_sources.entries) {
+  const note = work.play_basis.scene_note;
+  if (note !== null && await rulesDigest(note) !== work.play_basis.scene_note_sha256) return false;
+  for (const entry of work.play_sources.entries) {
     if (entry.source_kind !== 'scene_note') continue;
     const payload = rulesCanonical({ schema: 'dmb_play_source_payload_v1', source_kind: 'scene_note', locator: entry.locator, text: note });
     if (bytes(payload) !== entry.payload_utf8_bytes || await rulesDigest(payload) !== entry.payload_sha256) return false;
@@ -167,6 +208,8 @@ export function isWorldPlayGraphCompletion(value: unknown, receipt: WorldPlayGra
 
 export function isWorldPlayContextProjection(value: unknown, validateExecution: (v: unknown) => boolean,
   request?: WorldPlayAgentTurnRequestV1, history = false): value is import('../api/types').WorldPlayAgentContextV1 {
+  if(record(value)&&value.schema==='dmb_agent_surface_native_context_response_v1')
+    return isSurfaceNativeContext(value,(work):work is Extract<import('../api/types').SurfaceNativeWorkContextV1,{surface_id:'play'}>=>isSharedPlayWork(work,request),validateExecution,history)&&isSharedPlayReceipt(value.receipt,request);
   if (!keys(value, ['schema', 'receipt', 'completion', 'execution', 'delivery_replay'])
     || value.schema !== 'dmb_agent_play_world_graph_context_response_v1' || !isWorldPlayGraphReceipt(value.receipt, request)
     || typeof value.delivery_replay !== 'boolean' || (value.execution !== null && !validateExecution(value.execution))
@@ -175,10 +218,13 @@ export function isWorldPlayContextProjection(value: unknown, validateExecution: 
 }
 
 /** Join persisted provenance, including duplicate reserved references, before showing any source controls. */
-export function isPlayContextProvenanceBound(receipt: WorldPlayGraphContextReceiptV1, provenance: unknown, worldId: string): boolean {
+export function isPlayContextProvenanceBound(receipt: WorldPlayGraphContextReceiptV1|import('../api/types').SurfaceNativeContextReceiptV1, provenance: unknown, worldId: string): boolean {
   if (!record(provenance) || provenance.world_id !== worldId || provenance.surface_id !== 'play' || provenance.surface_resolution !== 'resolved'
     || !record(provenance.selected_object) || provenance.selected_object.resolution !== 'absent' || !Array.isArray(provenance.supporting_work)) return false;
-  const b = receipt.play_basis, a = receipt.graph_authority;
+  const shared=receipt.schema==='dmb_surface_native_context_receipt_v1';
+  if(shared&&receipt.work_context.surface_id!=='play')return false;
+  const b=shared?(receipt.work_context as Extract<import('../api/types').SurfaceNativeWorkContextV1,{surface_id:'play'}>).play_basis:receipt.play_basis;
+  const a=shared?null:receipt.graph_authority;
   if (b.world_id !== worldId) return false;
   const ref = (kind: string, object_id: string, revision: string, extra = {}) => ({ resolution: 'resolved', kind, object_id, revision,
     content_sha256: null, object_revision: null, work_revision_id: null, revision_n: null, ...extra });
@@ -188,7 +234,7 @@ export function isPlayContextProvenanceBound(receipt: WorldPlayGraphContextRecei
     work_revision_id: b.runbook_work_revision_id, revision_n: b.runbook_revision_n }),
     ref('dmb_play_current_beat_v1', b.beat_id, 'v2'),
     ...(b.scene_id === null ? [] : [ref('dmb_play_current_scene_v1', b.scene_id, 'v2')]),
-    ref('dmb_play_graph_binding_v1', a.native_world_id, String(a.binding_version)), ref('world_graph_revision', a.native_world_id, a.graph_revision)];
+    ...(a===null?[]:[ref('dmb_play_graph_binding_v1', a.native_world_id, String(a.binding_version)), ref('world_graph_revision', a.native_world_id, a.graph_revision)])];
   const reserved = new Set(['dmb_play_runbook_v1', 'dmb_play_current_beat_v1', 'dmb_play_current_scene_v1', 'dmb_play_graph_binding_v1', 'world_graph_revision', 'runbook']);
   const supplied = provenance.supporting_work.filter(r => record(r) && reserved.has(String(r.kind)));
   return supplied.length === expected.length && expected.every(e => supplied.filter(r => rulesCanonical(r) === rulesCanonical(e)).length === 1);

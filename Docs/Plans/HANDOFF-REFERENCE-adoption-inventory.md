@@ -31,7 +31,7 @@ flowchart TD
   W --> C[Lightweight saved citations and on-demand source reader]
   L[Build and Plan document node links] --> I[NativeGraphObjectPreview]
   I --> E[Shared saved-statblock editor / popup / full view]
-  Y[Play source picker] --> H[Existing Play execution: integration held]
+  Y[Play source picker] --> H[Existing Play execution: native integration resumed, incomplete]
 ```
 
 Selection, source opening, answer validation and publication have distinct jobs.
@@ -58,7 +58,7 @@ for the other or resolve an old node by a similar label.
 | Manual publication and relationship review | `BuildRunReview` lazily mounts `BuildManualKnowledge`; `ConnectedPageReviewControl` mounts `BuildRelationshipReview` | Retain: exercised authoring/review callers, not duplicate reference search. Source references must not grant their publication authority. |
 | Classic Build authored-reference reader | receipt-family branches in `build_jev_harness.py` and `agent_turn_service.py`; writer/image recovery consumers | Not proven removable. Trace fresh non-native admission and retained retry separately before retirement. Do not claim this is historical-only or replace it with a permissive fallback. |
 | Old unowned server Plan proposal producer | held #2104 | Held, untouched. Removing the unmounted client canvas does not authorize server retirement or activate this PR. |
-| Play native retrieval / selected-source execution | held #2172 at `4b57a7cd66fad17df1106a16f0bc2be3c29ec8c3` | Incomplete, explicitly held. Existing source browsing/retention does not prove successful ordinary native submission or answer delivery. |
+| Play native retrieval / selected-source execution | Resumed #2172; retained scaffold `4b57a7cd66fad17df1106a16f0bc2be3c29ec8c3` preserved | Operator lifted the PRIME sequencing hold on 2026-11-09. Current-main backend repartition is owned by HANDOFF-PLAY-shared-native-retrieval.md. Incomplete: browsing/retention and old scaffold tests do not prove ordinary native submission or answer delivery. |
 
 UI source paths in the table are under `apps/live-control-ui/src`; service paths
 are under `apps/live_control_server`; APP paths are under
@@ -129,9 +129,10 @@ limitation is preserved rather than rewriting user content to create a witness.
    its capability registration and `LegacyProjectionHostAdapter` before deleting
    the closure. The shared projection host also serves mounted statblock, combat,
    Rules and review tools and must not be removed with this card.
-5. #2172 must be explicitly resumed and re-partitioned against current main before
-   native Play execution can close. This inventory neither resumes it nor treats
-   its retained scaffold as implemented. #2104 remains a separate hold.
+5. The operator explicitly resumed #2172 on 2026-11-09. Re-anchor and re-partition
+   through its current handoff before implementation; preserve its complete
+   acceptance scope. This inventory does not treat its retained scaffold as
+   implemented. #2104 remains a separate hold.
 
 Review this inventory against code callers, exact delivery evidence and current
 PR holds. Validate its relative document links and cumulative documentation diff;

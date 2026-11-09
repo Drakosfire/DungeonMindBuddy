@@ -216,3 +216,30 @@ it('binds selected Play source context to the request and native World authority
     expect(isWorldPlayGraphReceipt(bad,req)).toBe(false);
   }
 });
+
+
+import sharedPlay from '../test/surface-native-play-http.json';
+import {isSharedPlayReceipt,isWorldPlayContextProjection,isPlayContextProvenanceBound,sharedPlayGraphResponseMatches} from './playContextProtocol';
+it('adopts actual ordinary APP/Core/SDK Play wire and exact source citation without an old Graph receipt',async()=>{
+  const value=structuredClone(sharedPlay);
+  const request=value.request as WorldPlayAgentTurnRequestV1;
+  expect(isSharedPlayReceipt(value.response.play_context.receipt,request)).toBe(true);
+  expect(isWorldPlayContextProjection(value.response.play_context,()=>true,request)).toBe(true);
+  expect(isPlayContextProvenanceBound(value.response.play_context.receipt,value.provenance,request.owner_scope.world_id)).toBe(true);
+  expect(await playReceiptDigestsBound(value.response.play_context.receipt)).toBe(true);
+  expect(sharedPlayGraphResponseMatches(value.response.play_context.receipt,value.response.graph)).toBe(true);
+  expect(value.response.play_context.completion.native_body_citations).toHaveLength(1);
+});
+it.each(['run','edition','manifest','note','source-role','foreign-graph','completion-surface'])('refuses altered ordinary native Play presentation: %s',mutation=>{
+  const value=structuredClone(sharedPlay),receipt=value.response.play_context.receipt;
+  if(mutation==='run')receipt.work_context.play_basis.run_id='foreign';
+  if(mutation==='edition')receipt.work_context.play_basis.content_sha256='f'.repeat(64);
+  if(mutation==='manifest')receipt.work_context.play_sources.entries.pop();
+  if(mutation==='note')receipt.work_context.play_basis.scene_note='Changed note';
+  if(mutation==='source-role')receipt.work_context.play_sources.entries.forEach(e=>e.source_kind='scene_note');
+  if(mutation==='foreign-graph')value.response.graph.world_id='foreign';
+  if(mutation==='completion-surface')value.response.play_context.completion.surface_id='plan';
+  const accepted=isWorldPlayContextProjection(value.response.play_context,()=>true,value.request as WorldPlayAgentTurnRequestV1)
+    &&sharedPlayGraphResponseMatches(receipt,value.response.graph);
+  expect(accepted).toBe(false);
+});

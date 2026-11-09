@@ -265,7 +265,7 @@ def verify_plan_rules_packet_input(execution: RulesExecutionV1, turn, prepared_r
 def verify_native_rules_packet_input(execution, receipt, graph_execution, prepared_request_json, *,
                                      provider_attempt_id, expected_envelope_sha256, idempotency_key,
                                      submitted_intent_fingerprint, world_id, conversation_id, turn_id, attempt,
-                                     provenance, work_proof):
+                                     provenance, work_proof, play_context_receipt=None):
     """Shared record proof; actual locked consumer identity remains mandatory.
 
     No synthetic Turn and no new Rules event family. The generic Rules ledger
@@ -286,7 +286,8 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
     writer = writers[0]
     evidence = verify_input_records(receipt,graph_execution,writer,prepared_request_json,
         provenance=provenance,idempotency_key=idempotency_key,work_proof=work_proof,
-        world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt)
+        world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt,
+        play_context_receipt=play_context_receipt)
     scope, action = execution.scope, graph_execution.policy.action
     capability = rules_capability(graph=True)
     if (execution.state != 'active'

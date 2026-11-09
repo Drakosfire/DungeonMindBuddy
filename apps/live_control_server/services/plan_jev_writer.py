@@ -191,7 +191,8 @@ def authorize_native_writer(adapter, rules, proof, prepared, expected, frame):
         turn=adapter.fence.turn
         host_work=model_work_frame(turn.graph_context_receipt,turn.graph_context_execution,
             provenance=turn.provenance,idempotency_key=turn.idempotency_key,work_proof=proof,
-            world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt)
+            world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt,
+                play_context_receipt=turn.play_context_receipt if turn.graph_context_receipt.work_context.surface_id=='play' else None)
         writer_type=NativeBuildWriterAuthorizedV2
         work_commitment={'work_frame_sha256':canonical_sha256(host_work)}
     event=writer_type(event_id=uuid4(),sequence=len(adapter._broker_execution().events),
@@ -256,19 +257,24 @@ class PlanJevWriter:
             self.frame=model_frame(turn.graph_context_receipt,turn.graph_context_execution)
             self.work_frame=model_work_frame(turn.graph_context_receipt,turn.graph_context_execution,
                 provenance=turn.provenance,idempotency_key=turn.idempotency_key,work_proof=proof,
-                world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt)
+                world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt,
+                play_context_receipt=turn.play_context_receipt if turn.graph_context_receipt.work_context.surface_id=='play' else None)
             self.provider_frame=semantic_frame(self.frame)
             self.frame=output_frame(self.frame,self.provider_frame)
             from application_state.agent_conversation.plan_jev_graph_packet import NATIVE_WORK_SCHEMA as PLAN_WORK_SCHEMA
-            if self.work_frame.get('schema') == PLAN_WORK_SCHEMA:
+            from application_state.agent_conversation.native_play_work import SCHEMA as PLAY_WORK_SCHEMA
+            if self.work_frame.get('schema') == PLAY_WORK_SCHEMA:
+                from application_state.agent_conversation.native_play_work import semantic_frame as play_work_view
+                self.provider_work=play_work_view(self.work_frame)
+            elif self.work_frame.get('schema') == PLAN_WORK_SCHEMA:
                 from application_state.agent_conversation.native_plan_work_view import semantic_frame as plan_work_view
                 self.provider_work=plan_work_view(self.work_frame,turn.graph_context_execution)
             else:
                 from application_state.agent_conversation.native_build_work_view import semantic_frame as build_work_view
                 self.provider_work=build_work_view(self.work_frame,turn.graph_context_execution)
             self.output_format=native_output_format(self.frame,rule_frame,
-                self.work_frame | self.provider_work if self.work_frame.get('schema') == PLAN_WORK_SCHEMA else self.work_frame,
-                build_local=self.work_frame.get('schema') != PLAN_WORK_SCHEMA)
+                self.work_frame | self.provider_work if self.work_frame.get('schema') in {PLAN_WORK_SCHEMA,PLAY_WORK_SCHEMA} else self.work_frame,
+                build_local=self.work_frame.get('schema') not in {PLAN_WORK_SCHEMA,PLAY_WORK_SCHEMA})
             # Discussion ends with current evidence rather than prior assistant
             # prose. Keep the exact frames; authoring keeps its current draft last.
             frames=((self.provider_work,rule_frame,self.provider_frame)

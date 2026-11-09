@@ -114,18 +114,35 @@ class NativeBuildRetrievalDecisionInputV4(NativeBuildRetrievalDecisionInputV3):
         default="dmb_native_build_retrieval_decision_input_v4", alias="schema")
 
 
+class NativePlayRetrievalDecisionInputV1(NativeRetrievalDecisionInputV2):
+    """Host reconstruction accompanies its semantic projection; no new store."""
+    schema_: Literal['dmb_native_play_retrieval_decision_input_v1'] = Field(
+        default='dmb_native_play_retrieval_decision_input_v1',alias='schema')
+    play_work: dict
+
+    @model_validator(mode='after')
+    def exact_work_projection(self):
+        from .native_play_work import semantic_frame
+        semantic_frame(self.play_work)
+        if self.play_work['dialogue'] != [row.model_dump() for row in self.dialogue]:
+            raise ValueError('Play work dialogue differs from its actual retrieval parent')
+        return self
+
+
 _SHARED_RELEVANCE = (
     "include if this option is a relevant next step toward locating or obtaining "
     "a requested detail or necessary relationship; otherwise exclude. "
     "Discovery may return navigation rather than evidence.")
-_SHARED_RELEVANCE_TYPES = {NativeRetrievalDecisionInputV2, NativeBuildRetrievalDecisionInputV4}
+_SHARED_RELEVANCE_TYPES = {NativeRetrievalDecisionInputV2, NativeBuildRetrievalDecisionInputV4, NativePlayRetrievalDecisionInputV1}
 _NATIVE_TYPES = {NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInputV2,
     NativeBuildRetrievalDecisionInputV3, *_SHARED_RELEVANCE_TYPES}
 
 
 def parse_native_retrieval_input(raw, *, surface_id):
     """One exact codec reader for native selection and its selected Rules offer."""
-    codec = (NativeBuildRetrievalDecisionInputV4
+    codec = (NativePlayRetrievalDecisionInputV1
+        if isinstance(raw,dict) and raw.get("schema")=="dmb_native_play_retrieval_decision_input_v1"
+        else NativeBuildRetrievalDecisionInputV4
         if isinstance(raw, dict) and raw.get("schema") == "dmb_native_build_retrieval_decision_input_v4"
         else NativeRetrievalDecisionInputV2
         if isinstance(raw, dict) and raw.get("schema") == "dmb_native_retrieval_decision_input_v2"
@@ -137,6 +154,10 @@ def parse_native_retrieval_input(raw, *, surface_id):
     parent = codec.model_validate(raw)
     if isinstance(parent, NativeBuildRetrievalDecisionInputV2) and surface_id != "build":
         raise ValueError("Build authoring relevance belongs only to its actual Build owner")
+    if isinstance(parent,NativePlayRetrievalDecisionInputV1) and surface_id != 'play':
+        raise ValueError('Play work belongs only to its actual Run surface')
+    if surface_id=='play' and type(parent) is not NativePlayRetrievalDecisionInputV1:
+        raise ValueError('Play retrieval requires its exact Run work input')
     return parent
 
 
@@ -247,6 +268,11 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
     examined = [c for c in request.examined_candidates if c.kind != RETAINED_KEYWORD_KIND]
     if examined:
         state["examined_subjects"] = [{"label": c.label, "kind": c.kind} for c in examined]
+    if isinstance(request,NativePlayRetrievalDecisionInputV1):
+        from .native_play_work import semantic_frame
+        work=semantic_frame(request.play_work)
+        del work['dialogue_reference']  # The parent supplies dialogue exactly once below.
+        state['surface_work']=work
     if request.dialogue:
         state["dialogue_reference"] = [row.model_dump() for row in request.dialogue]
     if controller_accounting is not None:
