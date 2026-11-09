@@ -2,7 +2,7 @@ import {createHash,webcrypto} from 'node:crypto';
 import {cleanup,fireEvent,render,screen,waitFor,act} from '@testing-library/react';
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import {ConversationConnectedPageReview,connectedReviewOrigin} from './ConversationConnectedPageReview';
-import {publishConnectedPageReviewHost} from '../../buildSurface/connectedPageReviewHost';
+import {publishConnectedPageReviewHost} from '../../shared/connectedPageReviewHost';
 import {getAgentConnectedPageOrigin} from '../../api/liveApi';
 vi.mock('../../api/liveApi',()=>({getAgentConnectedPageOrigin:vi.fn()}));
 const id='11111111-1111-4111-8111-111111111111';
