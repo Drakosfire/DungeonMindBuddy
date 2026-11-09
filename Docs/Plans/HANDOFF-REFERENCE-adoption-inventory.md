@@ -182,3 +182,13 @@ browser state is rewritten. The diagnostic/resolver/card closure remains a
 separate retirement. Its panel tests are still named by the frozen CI command
 fixture, whose equality guard requires an owning contract decision before that
 larger removal; it is not silently changed by this slice.
+
+
+## Private object diagnostic source retirement
+
+HANDOFF-REFERENCE-object-diagnostic-retirement.md removes the unmounted
+GraphObjectDogfoodPanel, its private collection model and browser-storage adapter,
+three exclusive tests and private graph-object-dogfood CSS. Existing browser
+records are preserved. Shared Plan resolution, projection, native reference and
+saved-statblock owners remain; this source retirement does not claim their full
+integration or remove the separately gated Plan diagnostic/card closure.
