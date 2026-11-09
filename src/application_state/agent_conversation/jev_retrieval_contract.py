@@ -124,6 +124,8 @@ class NativePlayRetrievalDecisionInputV1(NativeRetrievalDecisionInputV2):
     def exact_work_projection(self):
         from .native_play_work import semantic_frame
         semantic_frame(self.play_work)
+        if self.play_work['dialogue'] != [row.model_dump() for row in self.dialogue]:
+            raise ValueError('Play work dialogue differs from its actual retrieval parent')
         return self
 
 
@@ -268,7 +270,9 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
         state["examined_subjects"] = [{"label": c.label, "kind": c.kind} for c in examined]
     if isinstance(request,NativePlayRetrievalDecisionInputV1):
         from .native_play_work import semantic_frame
-        state['surface_work']=semantic_frame(request.play_work)
+        work=semantic_frame(request.play_work)
+        del work['dialogue_reference']  # The parent supplies dialogue exactly once below.
+        state['surface_work']=work
     if request.dialogue:
         state["dialogue_reference"] = [row.model_dump() for row in request.dialogue]
     if controller_accounting is not None:

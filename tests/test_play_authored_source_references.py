@@ -1112,6 +1112,14 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
     if mode=='rules':stored=stored.base_projection.turn
     assert stored.play_context_receipt==sub.play_context_receipt
     assert stored.completion.answer_segments[0].source_kind=='play'
+    if mode=='work':
+        followup=request.model_copy(update={'turn_id':str(uuid4()),'message':'Continue from my previous request.'})
+        next_reply=execute_agent_turn(followup,**kwargs)
+        assert next_reply.answer.status=='ok'
+        state=json.loads(decisions.calls[-1].content)['state']
+        assert state['dialogue_reference']==[dict(role='user',content=request.message),
+            dict(role='assistant',content=response.answer.text)]
+        assert 'dialogue_reference' not in state['surface_work']
     if mode in {'selected','automatic'}:assert stored.completion.native_body_citations
     if mode=='memory':assert stored.completion.answer_segments[-1].kind=='session_summary'
     if mode=='graph':assert stored.completion.native_assertion_citations

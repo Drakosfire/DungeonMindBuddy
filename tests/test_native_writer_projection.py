@@ -490,3 +490,26 @@ def test_play_actual_sdk_work_proof_requires_original_receipt_and_exact_semantic
         bad=asyncio.run(actual_sdk_request(frame,work_frame=altered))
         record2,grant2=authorize(context,record,bad,frame)
         with pytest.raises(ValueError):verify_input_records(context,record2,grant2,bad,**work)
+
+
+def test_play_retrieval_has_one_dialogue_location_and_rejects_divergent_host_copy():
+    from uuid import uuid4
+    from tests.test_surface_native_context import native_play_supplied
+    from application_state.agent_conversation.native_play_work import project_work
+    from application_state.agent_conversation.jev_retrieval_contract import NativePlayRetrievalDecisionInputV1,prepare_decision
+    work,provenance,proof=native_play_supplied(note='Saved note.')
+    proof['dialogue']=[dict(role='user',content='A unique prior request.'),
+        dict(role='assistant',content='A unique prior reply.')]
+    host=project_work(work,provenance,uuid4(),proof)
+    args=dict(request_id=uuid4(),parent_attempt_id=uuid4(),scope_sha256='0'*64,
+        question='What is here?',dialogue=tuple(proof['dialogue']),candidates=(),examined_candidates=(),
+        allowed_operations=('select_candidates','finish_retrieval'),source_authority_status='unavailable',
+        source_revision=None,graph_revision=None,play_work=host)
+    parent=NativePlayRetrievalDecisionInputV1(**args)
+    state=prepare_decision(parent).state
+    assert state['dialogue_reference']==proof['dialogue']
+    assert 'dialogue_reference' not in state['surface_work']
+    assert str(state).count('A unique prior request.')==str(state).count('A unique prior reply.')==1
+    for changed in [[],[dict(role='user',content='Substituted previous request.')]]:
+        with pytest.raises(ValueError,match='actual retrieval parent'):
+            NativePlayRetrievalDecisionInputV1(**(args|{'play_work':host|{'dialogue':changed}}))

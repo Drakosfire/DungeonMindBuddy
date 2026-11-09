@@ -133,7 +133,10 @@ fixture to grant a source or bypass a missing native reader.
 
 Baseline current source before adopting old changes. Preserve failures. Inspect
 cumulative diff, obtain independent design/source Bugbot review, satisfy required
-CI and independently review the exact runtime composition/delivery procedure.
+CI locally and independently review the exact runtime composition/delivery procedure.
+Per the operator's 2026-11-09 instruction, local CI is the development gate; do not
+use or wait for GitHub Actions. Independent review and protected delivery remain
+required. Preserve any actual repository protection rather than silently bypassing it.
 Deliver only the complete tested capability. Protected delivery preserves primary
 APP/Core rows, documents, drafts, versions, Runs and session files. Controlled
 ordinary verification uses an existing Run and selected recap, with no Save,
