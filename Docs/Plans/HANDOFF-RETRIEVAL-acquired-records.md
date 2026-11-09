@@ -1,6 +1,6 @@
 # RETRIEVAL: judge new reads against already acquired records
 
-Status: ACTIVE. Root owns design and implementation under the continuing
+Status: REJECTED / lease released. Root owned the bounded experiment under the continuing
 six-second retrieval goal. Base7abfaccaccf63737a31a52e33c79a0df75e1b873,
 branch codex/retrieval-acquired-records. Serial: predecessor2290 is merged;
 no unmerged behavioral dependency. Rechecked active2291 Rules and2288 CI lanes
@@ -137,3 +137,35 @@ checks pass. The real guarded SDK sends the long-context header exactly for
 record-bearing V3; empty navigation and all historical/Build renderers preserve
 their prior behavior. Wrong prepared mode refuses before dispatch; mode/accounting
 fields remain absent from model state. No new dependency or write path added.
+
+## Terminal disposition — rejected, not adopted
+
+The revised ordinary cohort completed fourteen contexts. Q01 stopped at its
+initial requested-work classifier with a provider timeout, before any retrieval;
+its missing context remains UNKNOWN and was not replayed. The first worker's
+seven never-dispatched cases completed through the existing parameterized workflow
+in a separate continuation. No per-question runner or writer call was added.
+Independent reviews pass all71 required atoms in the14 available contexts. This
+is not a full15-case pass and does not substitute the earlier configuration'sQ01.
+
+For the same14 completed cases, accepted-to-ready median increased from10054.682
+ms to11957.152ms (+18.9percent). Controller calls fell67→59, but reported input
+tokens rose282869→1239238 (4.38x). Source append cumulative median fell2995→2517ms,
+while total execution-append cumulative median rose2939→3513ms. These nested work
+medians are not additive; they are not pure elapsed critical-path or inference
+estimates. Q15 grew18613.693→31237.003ms. Billed cost remains unknown.
+
+The continuation ran alone after the initial worker stopped, so load is not a
+fully matched two-worker control. That limitation cannot turn the observed
+regression into evidence for the predeclared improvement gate. No adoption or
+six-second claim is supported. Reject2293 and retain accepted main behavior;
+this branch is historical experimental evidence, not an active runtime fallback.
+Release the exclusive write lease. No merge, deployment, primary mutation or
+repeat of an unchanged paid call is authorized by this disposition.
+
+Evidence: retrieval-acquired-records-comparison-v2/completed-timing-summary-v1.json,
+independent-candidate-b-quality-v1.json, independent-undispatched-a-quality-v1.json,
+original failure captures and continuation.json. Raw code, inputs, outputs,
+provider outcomes and frozen control remain retained. Next work must target the
+measured host persistence/reconstruction boundary rather than adding a bigger
+controller input or reopening writer grading.
