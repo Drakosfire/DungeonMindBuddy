@@ -4845,3 +4845,80 @@ def test_world_plan_real_pin_reaches_http_runtime_and_stale_run_does_not(
     assert len(runtime.invocations) == 1
 
 pytestmark = pytest.mark.usefixtures("application_state_dsn")
+
+
+def _build_reference_admission_payload(family: str) -> dict[str, Any]:
+    from application_state.agent_conversation.authored_graph_references import (
+        AuthoredGraphReferenceV1, AuthoredGraphReferencesV1, AuthoredReferencesV2,
+    )
+
+    reference = AuthoredGraphReferenceV1(
+        managed_world_id="world-a", native_world_id="native-world-a",
+        binding_version=1, graph_revision="revision-a", node_id="object:a", label="A",
+    )
+    references = (AuthoredGraphReferencesV1 if family == "classic" else AuthoredReferencesV2)(
+        references=(reference,),
+    )
+    return {
+        **_payload(),
+        "surface": {"surface_id": "build", "instance_id": "build-page-a"},
+        "owner_scope": {"kind": "world", "world_id": "world-a"},
+        "graph_request": {
+            "mode": "world", "world_id": "world-a", "campaign_id": None,
+            "revision_pin": None,
+            "focus": {"kind": "none", "session_id": None, "campaign_id": None},
+        },
+        "build_authored_references": references.model_dump(mode="json", by_alias=True),
+    }
+
+
+@pytest.mark.parametrize("family", ["classic", "native"])
+@pytest.mark.parametrize("work_state", ["none", "new_unsaved"])
+def test_build_references_without_page_are_rejected_before_dispatch(
+    monkeypatch: Any, family: str, work_state: str,
+) -> None:
+    from apps.live_control_server.routes import agent as route
+
+    dispatched = []
+    monkeypatch.setattr(route, "_execute_agent_turn", lambda body, request: dispatched.append(body) or {"unexpected": True})
+    app = FastAPI()
+    app.include_router(route.router, prefix="/api/live")
+    payload = {**_build_reference_admission_payload(family), "client_work_state": work_state}
+
+    async def send():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            return await client.post("/api/live/agent/turn", json=payload)
+
+    response = asyncio.run(send())
+    assert response.status_code == 422
+    assert "current Build page and World context" in response.text
+    assert dispatched == []
+
+
+@pytest.mark.parametrize("family", ["classic", "native"])
+@pytest.mark.parametrize("work_state", ["saved_clean", "saved_dirty"])
+def test_pinned_build_references_reach_governed_dispatch_unchanged(
+    monkeypatch: Any, family: str, work_state: str,
+) -> None:
+    from apps.live_control_server.routes import agent as route
+    from apps.live_control_server.services.agent_turn_service import _governed_build_turn
+
+    dispatched = []
+    monkeypatch.setattr(route, "_execute_agent_turn", lambda body, request: dispatched.append(body) or {"accepted": True})
+    app = FastAPI()
+    app.include_router(route.router, prefix="/api/live")
+    payload = {
+        **_build_reference_admission_payload(family), "client_work_state": work_state,
+        "primary_work": {"kind": "build", "object_id": "page-a", "expected_revision": 1,
+                         "expected_content_sha256": "a" * 64},
+    }
+
+    async def send():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            return await client.post("/api/live/agent/turn", json=payload)
+
+    response = asyncio.run(send())
+    assert response.status_code == 200
+    assert len(dispatched) == 1 and _governed_build_turn(dispatched[0])
+    assert dispatched[0].primary_work.model_dump(mode="json", exclude_none=True) == payload["primary_work"]
+    assert dispatched[0].build_authored_references.model_dump(mode="json", by_alias=True) == payload["build_authored_references"]
