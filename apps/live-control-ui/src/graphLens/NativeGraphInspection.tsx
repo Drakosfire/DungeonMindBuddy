@@ -1,3 +1,4 @@
+import './NativeGraphInspection.css';
 import {sameInspectionPin,isCatalogForWorld} from '../api/nativeGraphInspection';
 import {useEffect,useId,useRef,useState} from 'react';
 import {getNativeGraphCatalog,inspectNativeGraph} from '../api/liveApi';
@@ -46,13 +47,13 @@ export function NativeGraphInspection({worldId,onChoose,disabled=false,selection
   return [node.entity_id,names?.size?[...names].sort().join(' / '):node.entity_id];
  }));
  const nodes=(catalog?.catalogue.entities??[]).filter(n=>(labels.get(n.entity_id)??n.entity_id).toLocaleLowerCase().includes(query.toLocaleLowerCase()));
- return <section aria-label="Reviewed Graph inspection">
+ return <section className="native-graph-inspection" aria-label="Reviewed Graph inspection">
   <p role="note">{onChoose?(selectionAction==='Insert link'?'Insert a link to an existing object in this World.':'Select an object as context. Its sources are read when your request runs.'):'Read-only reviewed material. Question sources and publication are selected separately.'}</p>
   <button type="button" onClick={()=>{setCatalog(null);setDetail(null);setSelected(null);setRefresh(v=>v+1);}}>Refresh reviewed Graph</button>
   {failure?<p role="alert">{failure}</p>:!catalog?<p role="status">Loading reviewed Graph…</p>:<>
    <p role="status">{catalog.catalogue.entities.length} objects · {catalog.assertions.filter(a=>a.value.kind==='entity_ref').length} connections · {catalog.catalogue.completeness.status==='complete'?'Complete for this view':'Partial view'}</p>
    <p>This describes the selected published revision, not the completeness of your sources.</p>
-   <div className="loaded-graph-explorer__layout"><nav aria-label="Reviewed Graph objects">
+   <div className="native-graph-inspection__layout"><nav aria-label="Reviewed Graph objects">
     <label htmlFor={queryId}>Find an object</label><input id={queryId} type="search" autoFocus={Boolean(onChoose)} value={query} onChange={e=>setQuery(e.target.value)}/>
     <ul>{nodes.map(n=><li key={n.entity_id}><button type="button" aria-label={onChoose&&labels.get(n.entity_id)!==n.entity_id?`${labels.get(n.entity_id)} ${n.entity_id}`:labels.get(n.entity_id)} aria-current={selected===n.entity_id?'true':undefined}
      onClick={()=>{if(selected===n.entity_id)return;setDetail(null);setDetailFailure(null);setSelected(n.entity_id);}}>{labels.get(n.entity_id)}{onChoose&&<small>{n.entity_id}</small>}</button>{onChoose&&<button type="button" disabled={disabled} aria-label={selectionAction==='Insert link'?`Insert link to ${labels.get(n.entity_id)}`:`Use ${labels.get(n.entity_id)} as context`} onClick={()=>{if(!disabled&&catalog.scope.managed_world_id===worldId)onChoose(catalog.scope,n.entity_id,labels.get(n.entity_id)??n.entity_id);}}>{selectionAction}</button>}</li>)}</ul>
