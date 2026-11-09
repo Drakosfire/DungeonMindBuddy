@@ -4,9 +4,12 @@ import { join } from "node:path";
 
 async function navigate(page: Page, path: string) {
   const open = page.getByRole("button", { name: "Open navigation", exact: true });
-  if (await open.isVisible()) await open.click();
+  // The prior route closes its menu in an effect. Wait for that state instead of
+  // sampling isVisible between the route update and its effect.
+  await open.click();
   await page.locator(`a[href="${path}"]`).first().click();
   await expect(page).toHaveURL(new RegExp(`${path === "/" ? "/" : path}$`));
+  await expect(open).toBeVisible();
 }
 
 async function witness(browser: Browser, denyPersistence: boolean) {
@@ -19,6 +22,7 @@ async function witness(browser: Browser, denyPersistence: boolean) {
   await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
   const page = await context.newPage();
   page.on("dialog", (dialog) => void dialog.accept());
+  let witnessFailure: unknown;
   try {
     await page.goto("/");
     const world = `Qualification ${Date.now()} ${denyPersistence ? "fault" : "good"}`;
@@ -66,9 +70,20 @@ async function witness(browser: Browser, denyPersistence: boolean) {
     const retained = canvas.getByRole("button", { name: `${label}, person`, exact: true });
     if (!(await retained.isVisible())) throw new Error("persistence_witness_failed: graph object absent after save/reopen");
     await expect(retained).toBeVisible();
+  } catch (error) {
+    witnessFailure = error;
+    throw error;
   } finally {
-    await context.tracing.stop({ path: join(output, denyPersistence ? "fault-trace.zip" : "good-trace.zip") });
-    await context.close();
+    try {
+      await context.tracing.stop({ path: join(output, denyPersistence ? "fault-trace.zip" : "good-trace.zip") });
+    } catch (error) {
+      // Runner timeout can already have closed the context. Preserve the owning
+      // witness failure rather than replace it with a trace-cleanup exception.
+      if (!witnessFailure) throw error;
+      console.warn("Trace could not be finalized after witness failure:", error);
+    } finally {
+      await context.close();
+    }
   }
 }
 
