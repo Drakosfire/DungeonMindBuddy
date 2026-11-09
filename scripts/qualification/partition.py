@@ -56,10 +56,12 @@ def report(index: int, nodeids: list[str], default_deselected: list[str], sha: s
             "partition_counts": [len(group) for group in groups]}
 
 
-def verify_reports(reports: list[dict]) -> dict:
+def verify_reports(reports: list[dict], *, expected_sha: str | None = None) -> dict:
     if len(reports) != PARTITIONS or sorted(r["index"] for r in reports) != list(range(PARTITIONS)):
         raise ValueError("missing or duplicate partition reports")
     reference = reports[0]
+    if expected_sha is not None and reference["source_sha"] != expected_sha:
+        raise ValueError("partition source differs from verifier checkout")
     files = Counter(n.split("::", 1)[0] for n in reference["unpartitioned_nodeids"])
     # Only generated UUID parameter labels can differ across same-SHA jobs.
     # Selection and the exact per-collection union never normalize node IDs.
@@ -162,7 +164,7 @@ def main() -> int:
     args = parser.parse_args()
     reports = [json.loads(path.read_text()) for path in sorted(args.directory.rglob("collection.json"))]
     try:
-        result = verify_reports(reports)
+        result = verify_reports(reports, expected_sha=source_sha())
     except (ValueError, KeyError, TypeError) as error:
         parser.error(str(error))
     print(json.dumps(result, sort_keys=True))

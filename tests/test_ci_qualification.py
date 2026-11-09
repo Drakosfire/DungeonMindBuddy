@@ -335,6 +335,8 @@ def test_partitioned_workflow_keeps_every_backend_and_frontend_step_authoritativ
     assert backend["timeout-minutes"] == "120"
     assert "DMB_APPLICATION_STATE_TEST_DATABASE_URL" in backend["env"]
     assert "--partition ${{ matrix.partition }}" in backend["steps"][-2]["run"]
+    for name in ("frontend-regression", "collection-coverage"):
+        assert workflow["jobs"][name]["steps"][0]["with"]["ref"] == "${{ needs.source.outputs.sha }}"
     frontend = workflow["jobs"]["frontend-regression"]
     commands = [step for step in frontend["steps"] if "scripts/ci_contract.py run qualification-" in step.get("run", "")]
     assert len(commands) == 3
@@ -388,3 +390,10 @@ def test_invalid_partition_refuses_all_database_allocation(tmp_path, monkeypatch
     with pytest.raises(SystemExit) as stopped:
         native.main()
     assert stopped.value.code == 2
+
+
+def test_partition_artifacts_must_match_the_verifier_source_pin():
+    from scripts.qualification import partition as part
+    with pytest.raises(ValueError, match="verifier checkout"):
+        part.verify_reports(_partition_reports(), expected_sha="b" * 40)
+    assert part.verify_reports(_partition_reports(), expected_sha="a" * 40)["omissions"] == 0
