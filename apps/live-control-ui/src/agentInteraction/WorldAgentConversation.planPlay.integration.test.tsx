@@ -12,13 +12,14 @@ import {authoredReferences,readComposerReferences,writeComposerReferences,compos
 import {getWorkPlan,continueWorkPlan} from '../api/conversationWorkPlanApi';
 vi.mock('../api/conversationWorkPlanApi',async original=>({...await original<typeof import('../api/conversationWorkPlanApi')>(),getWorkPlan:vi.fn(async()=>null),saveWorkPlan:vi.fn(),continueWorkPlan:vi.fn()}));
 vi.mock('../api/conversationLibraryApi',()=>({
- readActiveConversationMessages:vi.fn(async(world:string)=>{
-   const page=await getWorldAgentConversationHistory(world);
+ readActiveConversationMessages:vi.fn(async(world:string,before?:number,signal?:AbortSignal)=>{
+   const page=await getWorldAgentConversationHistory(world,{limit:50,beforeSequence:before,signal});
    return {schema:'dmb_active_conversation_messages_v4',world_id:page.world_id,conversation_state:page.conversation_state,conversation_id:page.conversation_id,active_conversation_id:page.active_conversation_id,pointer_revision:page.pointer_revision,next_before_sequence:page.next_before_sequence,
      messages:page.turns.map(row=>({turn_id:row.turn_id,sequence:row.sequence,status:row.lifecycle_status,user_text:row.user_text,assistant_text:row.assistant_text,citation_preview:null,reply_object:null,authored_references:row.authored_references??null,revision:'revision' in row?row.revision:1,idempotency_key:'idempotency_key' in row?row.idempotency_key:`11111111-1111-4111-8111-${String(row.sequence).padStart(12,'0')}`,provenance:row.provenance}))};
  }),
  listConversations:vi.fn(async(world:string,status:string)=>({schema:'dmb_conversation_library_v1',world_id:world,status,items:[{conversation_id:'33333333-3333-4333-8333-333333333333',world_id:world,title:'Archived named work',status:'archived',name_revision:1,turn_count:1,created_at:'2026-10-24T00:00:00Z',updated_at:'2026-10-24T00:00:00Z'}],next_before:null})),
  readConversationName:vi.fn(async(world:string,id:string)=>({conversation_id:id,world_id:world,title:'Archived named work',status:'archived',name_revision:1,turn_count:1,created_at:'2026-10-24T00:00:00Z',updated_at:'2026-10-24T00:00:00Z'})),
+ readConversationMessages:vi.fn(async(world:string,id:string)=>({schema:'dmb_conversation_messages_v1',world_id:world,conversation_id:id,messages:[{turn_id:'44444444-4444-4444-8444-444444444444',sequence:1,status:'completed',user_text:'Archived library question',assistant_text:'Archived library answer'}],next_before_sequence:null})),
  readConversationTurns:vi.fn(async(world:string,id:string)=>({schema:'dmb_conversation_library_turns_v1',world_id:world,conversation_id:id,turns:[{turn_id:'44444444-4444-4444-8444-444444444444',sequence:1,status:'completed',user_text:'Archived library question',assistant_text:'Archived library answer'}],next_before_sequence:null})),renameConversation:vi.fn(),
 }));
 import {queueSurfaceConversationRequest,cancelSurfaceConversationRequest,claimSurfaceConversationRequest} from "./surfaceConversationRequests";
@@ -952,12 +953,15 @@ describe("one App-level World conversation host across Plan and Play", () => {
       fireEvent.click(screen.getByRole('button',{name:'Send message'}));
       await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
     }
+    if(!fresh&&mode!=='interrupted'){
+      fireEvent.click(await screen.findByText('Details',{selector:'summary'}));
+    }
     if(invalidFresh){
       await screen.findByText(/reply did not match the saved Build source and World Graph/);
       expect(getAgentNativeAssertionSource).not.toHaveBeenCalled();return;
     }
     if(['producer','revision','provenance','source','world','extra','mixed-question','mixed-unclaimed-question','mixed-object-prose'].includes(mode)){
-      await screen.findByRole('group',{name:'World history unavailable'});
+      expect(await screen.findByText('Reply details contained an invalid Graph-context receipt. The saved message and page suggestion were kept.')).toHaveAttribute('role','alert');
       expect(getAgentNativeAssertionSource).not.toHaveBeenCalled();return;
     }
     await screen.findByText(question);
@@ -1285,12 +1289,14 @@ describe("one App-level World conversation host across Plan and Play", () => {
     context.completion = {...context.completion!, answer_basis: "committed_plan_plus_session_evidence", answer_segments: [{kind:"session_evidence_claim",text,run_id:"11111111-1111-4111-8111-111111111111",review_revision:54,evidence_sha256:"a".repeat(64)}],citation_map:null};
     const prior = turn("plan",1,text);
     const basis = context.receipt.plan_basis;
-    const row = {...prior,provenance:{...prior.provenance,primary_work:{...prior.provenance.primary_work,revision:String(basis.object_revision),object_revision:basis.object_revision,revision_n:basis.revision_n,work_revision_id:basis.work_revision_id,content_sha256:basis.content_sha256}}};
-    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history([{...row,plan_context:context}]),schema:"dmb_agent_conversation_history_v2"} as WorldAgentConversationHistoryResponse);
+    const row = {...prior,idempotency_key:await expectedHistoryCorrelationKey(WORLD,prior.turn_id),provenance:{...prior.provenance,primary_work:{...prior.provenance.primary_work,revision:String(basis.object_revision),object_revision:basis.object_revision,revision_n:basis.revision_n,work_revision_id:basis.work_revision_id,content_sha256:basis.content_sha256}}};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history([{...row,plan_context:context}]),schema:"dmb_agent_conversation_history_v3"} as WorldAgentConversationHistoryResponse);
     render(<Harness initial="plan" />);
     fireEvent.click(await screen.findByRole("button", {name:"Open"}));
+    fireEvent.click(await screen.findByText('Details',{selector:'summary'}));
+    await waitFor(()=>expect(getWorldAgentConversationHistory).toHaveBeenCalledWith(WORLD,{limit:1,beforeSequence:2,includeTurnCorrelation:true,signal:expect.any(AbortSignal)}));
     if (foreign) {
-      await screen.findByText("The World conversation response did not match the selected World or contained an invalid Graph-context receipt. Refresh history before continuing.");
+      expect(await screen.findByText('Reply details contained an invalid Graph-context receipt. The saved message and page suggestion were kept.')).toHaveAttribute('role','alert');
       expect(screen.queryByRole("link", {name:"Closing reflections"})).not.toBeInTheDocument();
     } else {
       expect(await screen.findByRole("link", {name:"Closing reflections"})).toHaveAttribute("href", url);

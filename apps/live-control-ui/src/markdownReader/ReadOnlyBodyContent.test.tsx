@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { JSONContent } from "@tiptap/core";
-import { authenticatedApiFetch } from "../api/liveApi";
+import { authenticatedApiFetch, getNativeGraphAccessGeneration } from "../api/liveApi";
 import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
 import { tiptapJsonToSemanticMarkdown } from "../tiptap/markdown/calloutMarkdown";
 import { ReadOnlyBodyContent } from "./ReadOnlyBodyContent";
@@ -68,11 +68,14 @@ describe("ReadOnlyBodyContent Graph-reference activation", () => {
 });
 
 
-vi.mock("../api/liveApi", () => ({ authenticatedApiFetch: vi.fn() }));
+vi.mock("../api/liveApi", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../api/liveApi")>(),
+  authenticatedApiFetch: vi.fn(),
+}));
 const assetA = "ac6c15cc-8c68-4732-8ae2-d9f3f051393a";
 const assetB = "bc6c15cc-8c68-4732-8ae2-d9f3f051393a";
 function metadata(asset_id = assetA, delivery_url = "https://imagedelivery.net/account/map/public", state = "ready") {
-  return { response: { ok: true, json: async () => ({ asset_id, delivery_url, state }) } } as Awaited<ReturnType<typeof authenticatedApiFetch>>;
+  return { requestEpoch: getNativeGraphAccessGeneration(), response: { ok: true, json: async () => ({ asset_id, delivery_url, state }) } } as Awaited<ReturnType<typeof authenticatedApiFetch>>;
 }
 function imageBody(assetId = assetA, alt = "Edge map"): JSONContent[] {
   return [{ type: "paragraph", content: [{ type: "mediaImage", attrs: { assetId, alt } }] }];
@@ -120,6 +123,20 @@ describe("ReadOnlyBodyContent saved media projection", () => {
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
     expect(screen.getByText("Edge map")).toBeInTheDocument();
     expect(container.querySelector(`[data-media-asset-id="${assetA}"]`)).toBeInTheDocument();
+  });
+
+  it("refuses ready media returned for a different authenticated request epoch", async () => {
+    const body = imageBody();
+    const before = JSON.stringify(body);
+    vi.mocked(authenticatedApiFetch).mockResolvedValue({
+      ...metadata(), requestEpoch: getNativeGraphAccessGeneration() + 1,
+    });
+    render(<ReadOnlyBodyContent content={body} />);
+    expect(await screen.findByText(/Image unavailable/)).toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(screen.getByText("Edge map")).toBeInTheDocument();
+    expect(authenticatedApiFetch).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(body)).toBe(before);
   });
 
   it("ignores the old occurrence's metadata when captured content changes", async () => {

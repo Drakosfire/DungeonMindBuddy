@@ -5,13 +5,12 @@
  *
  * Two corpora:
  *
- * 1. ADVERSARIAL_CASES — source the bounded editor grammar cannot faithfully
- *    round-trip. Every case here MUST end up behind a blocking (warning)
- *    diagnostic so the source seals instead of flattening into a saveable
- *    lossy projection. `blockedOnMain` is the post-rescue contract: every
- *    flag is `true`. The `note` field records which cases were holes in the
- *    pre-rescue handwritten line/regex grammar (PR #529 review cycles) that
- *    the AST admission boundary closed structurally.
+ * 1. ADVERSARIAL_CASES — historically adversarial inputs. Unsupported
+ *    structures MUST stay behind a blocking diagnostic instead of becoming a
+ *    saveable lossy projection. Released semantic exceptions retain their IDs
+ *    and assert the admitted contract; all other `blockedOnMain` flags remain
+ *    true. The `note` field records holes in the pre-rescue line/regex grammar
+ *    (PR #529) that the AST admission boundary closed structurally.
  *
  * 2. PRESERVED_CLEAN_CASES — source that imports cleanly today and MUST stay
  *    clean after the rescue. The rescue changes how structure is recognized,
@@ -336,8 +335,8 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
     blockedOnMain: true,
     note: "tightened (PR #535 cycle 1): parses as a thematicBreak; only the canonical --- spelling is admitted",
   },
-  { name: "setext heading (level 1)", markdown: "Heading\n===", blockedOnMain: true },
-  { name: "setext heading (level 2)", markdown: "Heading\n-------", blockedOnMain: true },
+  { name: "setext heading (level 1)", markdown: "Heading\n===", blockedOnMain: false },
+  { name: "setext heading (level 2)", markdown: "Heading\n-------", blockedOnMain: false },
   { name: "hard break (trailing spaces)", markdown: "Line one  \nLine two", blockedOnMain: false },
   { name: "hard break (backslash)", markdown: "Line one\\\nLine two", blockedOnMain: false },
   { name: "raw HTML block", markdown: "<div>unsafe</div>", blockedOnMain: true },
@@ -563,6 +562,22 @@ describe("Markdown ingress corpus", () => {
           hasBlockingMarkdownImportDiagnostics(testCase.markdown),
           `expected blockedOnMain=${testCase.blockedOnMain}`,
         ).toBe(testCase.blockedOnMain);
+        // PR #1877 admits semantic Setext headings; preserve the original IDs
+        // while requiring canonical ATX export and exact model stability.
+        if (testCase.name.startsWith("setext heading")) {
+          const imported = markdownToTiptapDoc(testCase.markdown);
+          const level = testCase.name.includes("level 1") ? 1 : 2;
+          expect(imported.diagnostics).toEqual([]);
+          expect(imported.doc.content?.[0]).toMatchObject({
+            type: "heading", attrs: { level }, content: [{ type: "text", text: "Heading" }],
+          });
+          expect(semanticMarkdownSerializationDiagnostics(imported.doc)).toEqual([]);
+          const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+          expect(exported).toMatch(level === 1 ? /^# Heading\n?$/ : /^## Heading\n?$/);
+          const reopened = markdownToTiptapDoc(exported);
+          expect(reopened.diagnostics).toEqual([]);
+          expect(reopened.doc).toEqual(imported.doc);
+        }
       });
     }
   });
