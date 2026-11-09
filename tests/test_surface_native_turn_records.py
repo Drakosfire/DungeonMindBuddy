@@ -313,3 +313,39 @@ def test_standalone_turn_fields_keeps_request_commitment_checks(surface, change)
     with pytest.raises(ValueError, match='request or provenance'):
         validate_turn_fields(turn.graph_context_receipt, turn.graph_context_execution,
                              provenance, fingerprint, None, None)
+
+
+@pytest.mark.parametrize('surface', ['build', 'plan', 'play'])
+def test_native_turn_json_keeps_nested_adapter_and_schema_references(surface):
+    from pydantic import BaseModel, TypeAdapter
+
+    class Pair(BaseModel):
+        left: t.Turn
+        right: t.Turn
+
+    turn = retained(submission(surface))
+    wire = turn.model_dump(mode='json', by_alias=True)
+    pair = Pair.model_validate_json(json.dumps({'left': wire, 'right': wire}))
+    assert pair.left == turn == pair.right
+    assert TypeAdapter(list[t.Turn]).validate_json(json.dumps([wire])) == [turn]
+    import warnings
+    from pydantic.json_schema import PydanticJsonSchemaWarning
+
+    for mode in ('validation', 'serialization'):
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', PydanticJsonSchemaWarning)
+            schema = Pair.model_json_schema(mode=mode)
+
+        def resolve(value):
+            return schema['$defs'][value['$ref'].rsplit('/', 1)[1]] if '$ref' in value else value
+
+        left = resolve(schema['properties']['left'])
+        assert left == resolve(schema['properties']['right'])
+        for field in ('graph_context_receipt', 'graph_context_execution'):
+            assert 'discriminator' in left['properties'][field]['anyOf'][0]
+    python_pair = Pair.model_validate({'left': turn, 'right': turn})
+    assert python_pair.left is not turn and python_pair.right is not turn
+    assert python_pair.left.graph_context_receipt is not turn.graph_context_receipt
+    assert python_pair.right.graph_context_execution is not turn.graph_context_execution
+    python_list = TypeAdapter(list[t.Turn]).validate_python([turn])
+    assert python_list[0] is not turn

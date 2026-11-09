@@ -6895,7 +6895,26 @@ class Turn(StrictModel):
     completed_at: datetime | None
     updated_at: datetime
 
-    @model_validator(mode="wrap")
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source, handler):
+        from pydantic_core import core_schema
+
+        original = dict(handler(source))
+        if "ref" not in original:
+            return original  # The handler has already resolved this definition.
+        reference = core_schema.definition_reference_schema(original["ref"])
+        # Preserve the original strict JSON decoder. Only Python inputs can
+        # contain existing mutable model instances that need reconstruction.
+        return core_schema.definitions_schema(
+            core_schema.json_or_python_schema(
+                json_schema=reference,
+                python_schema=core_schema.no_info_wrap_validator_function(
+                    cls.reconstruct_native_components, reference
+                ),
+            ),
+            [original],
+        )
+
     @classmethod
     def reconstruct_native_components(cls, value, handler):
         # Existing BaseModel inputs otherwise skip field reconstruction. Normalize

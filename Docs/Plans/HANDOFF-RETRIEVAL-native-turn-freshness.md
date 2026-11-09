@@ -56,3 +56,37 @@ Final obsolete-path audit removed validate_turn_identity: repository-wide source
 application, script and test search found no remaining caller after Turn adoption.
 Its request and lifecycle predicates remain at the shared private owners; used
 public standalone wrappers remain defensive, not compatibility fallbacks.
+
+## JSON parser correction
+
+Final-head query CI exposed six regressions in d94e5ef81. A source-qualified
+complete parent archive passes all six; the first PYTHONPATH-only parent attempt
+was contaminated by test bootstrap and is not inherited-failure evidence.
+Pydantic model-wrap materializes JSON arrays and alters strict tuple decoding,
+even for historical families routed unchanged through handler(value).
+Replace the decorator with one Python-only owning core-schema wrapper; retain
+the original JSON decoder and hoist its reference so nested $defs/$ref identity
+remains unchanged. This is actual parser-mode dispatch, not a fallback, flag or
+new representation. The same freshness method and joins govern Python inputs.
+Qualification must now include the six actual CI failures, nested Turn/list
+JSON adapters, generated schema identity, populated retained JSON roundtrips,
+qualified source paths, and refreshed exact-head review. Earlier PASS artifacts
+and CI failures remain historical; they do not authorize delivery of this fix.
+
+Schema qualification refinement: duplicate inline core branches produced missing
+nested discriminator annotations and were rejected. A single registered original
+definition shared by JSON and Python parser branches preserves all semantic
+schema content. Standalone Turn schemas are byte-identical; nested Pair/list
+schemas differ only by standard inlining of an otherwise identical Turn $ref.
+Offline standard-reference expansion proves equality, without patching runtime
+JSON schemas. Nested Python instances must still reconstruct independently.
+This preserves the existing wire contract; literal $ref placement is not a new
+product contract or a replacement representation. Undefined-ref warnings and
+missing discriminators are acceptance failures. Source-qualified parent/current
+paths are mandatory for further comparisons.
+
+Corrected single-definition local gate: all 37 actual query/saved-page CI failures
+pass through the existing pytest nodes; 273 pure owner tests pass. Independent
+focused review passes 30 entry/schema cases and finds no new API/freshness hole.
+The prior d94e5ef81 review is superseded, not delivery authority. Retained parity,
+construction counts and local timing must be freshly bound to the corrected head.
