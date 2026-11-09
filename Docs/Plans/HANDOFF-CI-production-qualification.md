@@ -95,8 +95,10 @@ persistent roots. Assert supported production readiness, real API denial and act
 static asset bytes. Prove bad startup is detected. Browser create/edit/navigation/
 draft/save/reopen and denied-persistence probe must exercise the actual image route
 with a fresh profile, and must fail when graph behavior is absent. No skip/xfail or
-alternate dev server may claim qualification. #2276 exact real-main merge is a
-recorded dependency; keep qualification red/blocked if its graph contract is absent.
+alternate dev server may claim qualification. Main readiness stays blocked while
+the graph contract is absent. The coordinator separately authorizes an explicit
+isolated candidate composition as harness proof, never as main readiness or a
+reason to merge/expand graph work under the CI-first priority.
 Full suite errors beyond the repaired collection imports remain visible and require
 owner triage, not opportunistic deletion/expectation weakening.
 
@@ -106,15 +108,21 @@ rollout. Run applicable guards, actual owning-boundary probes and independent
 exact-head review plus unchanged PR CI before coordinator disposition. Merge is
 separate coordinator authority; no rollout stages3–5 are activated here.
 
-## Observed image boundary blocker
+## Observed image boundary and candidate proof
 
-The actual clean-built image fails import because .dockerignore excludes the
-executable src/corpus package. The coordinator has now extended the lease above for the narrow source-only inclusion.
-The original failure and proposed patch remain retained; applying the correction
-does not by itself establish successful runtime qualification. No startup/health/browser success is claimed,
-and no missing-code mount, local-mode substitution or test exclusion is permitted.
-Graph witness also requires real-main integration of#2276. The qualification lane
-remains red/blocked until actual positive and negative boundaries pass.
+The source-only packaging exception fixed the src/corpus import defect. Actual
+hosted image startup, readiness, auth/denial, static bytes and startup-fault checks
+passed at recorded PR test compositions. Main's graph witness correctly remains
+red because the route is absent; no skip or substitute server is allowed.
+
+Explicit candidate5d718dd3cdcc8da65b28e5d9e54d9bce2b3b339a combines CI68ffb2c36,
+main946813e3 and graph72107e9ad865ced7d515f49570ce7c1bf60c84c9. Run42581327676
+image job passed all six boundaries, including actual graph draft/navigation,
+save/reopen and exercised persistence denial, in107.501s. Image ID:
+sha256:7792c8a6c87669301fe03a21b5b1b8559712312eeac7e1ccbb294ef849bd72af.
+All exact-owned cleanup checks true. Image report qualified=true applies only to
+this isolated image probe; full-regression/aggregate and main readiness are NOT
+qualified. No graph/main merge occurred. Traces and IDs are retained in task evidence.
 
 ## Review correction and infrastructure limit
 
@@ -126,8 +134,8 @@ inspect/remove proof verifies the mount and absence of remaining owned resources
 Root disk filled during local build-cache allocation; verified task-only cache IDs
 and one exactly traced leaked volume were cleaned, without global prune or changes
 to shared data. Added8GiB headroom refusal before any build/resources. Local full
-image verification is stopped until infrastructure/packaging scope is resolved.
-No false qualification success; all runtime acceptance gates remain outstanding.
+image builds remain stopped because local free space is below the8GiB guard.
+Hosted image probes provide the evidence above; full qualification remains HOLD.
 
 ## Authorized historical migration test-contract extension
 
@@ -156,3 +164,29 @@ its real constraints; fail on populated source tables absent from that schema.
 Do not stamp versions, disable constraints, run a historical writer against today's
 schema, or downgrade through unrelated later fences. All old assertions/cases stay
 represented; current-head downgrade denial is verified separately.
+
+The same audited conversation module also exposed four existing route fixtures
+that supply only SimpleNamespace(app=app), while the current route negotiates via
+HTTP headers. Correct only those fixture arguments to real Starlette Request
+objects with empty Accept headers (the existing JSON path). Preserve every route,
+authentication, provider-once, history and concurrency assertion; no product route,
+shared auth fixture or streaming behavior changes. This is a prerequisite test
+fixture correction inside the already owned module, not runtime feature work.
+
+Refusal witnesses that contain modern receipt generations invoke the exact owning
+historical migration's refusal in a real rollback transaction rather than project
+unsupported future payloads into an old schema. The helper asserts the exact
+refusal message plus every row and revision unchanged; a missing refusal forces
+rollback and test failure. Separate actual CLI downgrade verifies the production
+head fence. Successful historical transitions still use real revision-pinned
+schema templates/clones. No version stamping or skipped full migration is used.
+The two Plan route fixtures then exposed their obsolete run-only provider doubles.
+Use the existing guarded-provider callback protocol in a local synthetic transport
+with the current uncapped envelope, retaining custom recording/nested-run behavior.
+The shared route FakeRuntime still fabricates a zero output cap and is not changed.
+The real authorization, SDK-entered/response-received and captured native-reply
+callbacks must succeed; do not bypass Rules-only authorization or edit that shared
+fixture. This corrects test prerequisites rather than relaxing production guards.
+Actual valid uncapped envelopes expose a production RulesOnlyRuntime TypeError
+(integer estimate compared with None); these two cases remain legitimate failures,
+not candidates for finite-budget test overrides. No runtime write lease is assumed.

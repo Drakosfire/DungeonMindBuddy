@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from tests.application_state.session_encounter_helpers import session_request
+from tests.application_state.historical_migrations import assert_historical_refusal
+from application_state import cli as migration_cli
 
 import hashlib
 import json
@@ -76,6 +78,47 @@ def _authorize_route_execution(
         "enforce_native_graph_gm",
         lambda _request: SimpleNamespace(subject="test-gm"),
     )
+
+
+class _CurrentConversationProvider:
+    """Synthetic provider transport; retain real uncapped Rules authorization."""
+
+    def run_with_provider_authorization(self, invocation, authorize, *, request_budget,
+            on_graph_operation, on_provider_lifecycle, on_native_provider_reply,
+            native_rules_capture_required):
+        from apps.live_control_server.services.native_rules_capture import NativeProviderReply
+
+        assert native_rules_capture_required
+        assert request_budget["schema"] == "dmb_agent_request_budget_uncapped_v1"
+        assert request_budget["contextLimitTokens"] is None
+        assert request_budget["outputReserveTokens"] == 0
+        # No fabricated finite budget or zero-valued provider output cap.
+        body = json.dumps({"model": request_budget["model"],
+                           "input": [{"role": "user", "content": invocation.message}]})
+        view = {key: request_budget[key] for key in ("provider", "model", "apiMode")}
+        view.update(payloadJson=body, payloadSha256=hashlib.sha256(body.encode()).hexdigest(),
+                    payloadUtf8Bytes=len(body.encode()))
+        assert authorize(view), str(getattr(getattr(authorize, "__self__", None), "failure", None))
+        assert on_provider_lifecycle({"transition": "sdk_entered"})
+        result = self.run(invocation)
+        assert result.status == "ok" and result.final_text
+        text = result.final_text
+        assert on_provider_lifecycle({"transition": "response_received"})
+        assert on_native_provider_reply(NativeProviderReply(
+            authorization_id="synthetic-qualification-provider", api_request_id=str(uuid4()),
+            provider=view["provider"], model=view["model"], api_mode=view["apiMode"],
+            request_sha256=view["payloadSha256"], finish_reason="stop", status="answered",
+            text=text, text_sha256=hashlib.sha256(text.encode()).hexdigest(),
+            text_utf8_bytes=len(text.encode()), tool_calls=(),
+        ))
+        return result
+
+
+def _agent_http_request(app):
+    # The route negotiates streaming through real HTTP headers. Preserve the
+    # existing JSON request contract with a real Request instead of a partial stub.
+    return Request({"type": "http", "method": "POST", "path": "/api/live/agent/turn",
+                    "headers": [], "query_string": b"", "app": app})
 
 
 def _reference(kind: str, object_id: str, revision: str, digest: str | None = None):
@@ -707,7 +750,12 @@ def test_agent_conversation_migration_is_single_current_head(
     application_state_dsn: str,
 ) -> None:
     current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20261022_0052"
+    from alembic.script import ScriptDirectory
+    from application_state.cli import alembic_config
+    scripts = ScriptDirectory.from_config(alembic_config())
+    assert scripts.get_heads() == [head]
+    assert current == head
+    assert "20261022_0052" in {r.revision for r in scripts.walk_revisions()}
 
 
 def test_completion_validation_codes_are_closed_safe_and_valueerror_compatible() -> (
@@ -1009,6 +1057,7 @@ def test_execution_answer_status_derives_from_validated_producing_evidence() -> 
 
 def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     application_state_dsn: str,
+    historical_database,
 ) -> None:
     import psycopg
     from alembic import command
@@ -1243,72 +1292,81 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
         expected_revision=accepted.revision,
     ).turn == completed
 
-    # A populated V1 execution row must satisfy the V1 check while 0018 is
-    # removed and restored; this exercises the 0017 -> 0018 upgrade path.
-    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
-        v1_execution_before = conn.execute(
-            "SELECT graph_context_execution FROM agent.turn WHERE turn_id = %s",
-            (accepted.turn_id,),
-        ).fetchone()[0]
-    assert v1_execution_before is not None
-    command.downgrade(alembic_config(), "20261005_0017")
-    assert _current_and_head(application_state_dsn) == (
-        "20261005_0017", "20261022_0052"
-    )
-    command.upgrade(alembic_config(), "head")
-    assert _current_and_head(application_state_dsn) == (
-        "20261022_0052", "20261022_0052"
-    )
-    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
-        assert conn.execute(
-            "SELECT graph_context_execution FROM agent.turn WHERE turn_id = %s",
-            (accepted.turn_id,),
-        ).fetchone()[0] == v1_execution_before
-
-    # Model a populated 0016 row: receipt/completion and legacy fingerprints
-    # exist, while the newly introduced execution column is still NULL.
-    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
-        conn.execute(
-            "UPDATE agent.turn SET graph_context_execution = NULL WHERE turn_id = %s",
-            (accepted.turn_id,),
+    from application_state.cli import _alembic_head
+    historical_revision = "20261007_0018"
+    # 0041 introduced this default; its value is explicitly audited here and
+    # real forward migration must recreate it. No populated payload is omitted.
+    with historical_database(historical_revision, source_dsn=application_state_dsn,
+                             expected_omissions={"agent.turn": {"answer_composition_kind": ["base"]}}) as application_state_dsn:
+        # A populated V1 execution row must satisfy the V1 check while 0018 is
+        # removed and restored; this exercises the 0017 -> 0018 upgrade path.
+        with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+            v1_execution_before = conn.execute(
+                "SELECT graph_context_execution FROM agent.turn WHERE turn_id = %s",
+                (accepted.turn_id,),
+            ).fetchone()[0]
+        assert v1_execution_before is not None
+        command.downgrade(alembic_config(), "20261005_0017")
+        assert _current_and_head(application_state_dsn) == (
+            "20261005_0017", _alembic_head()
         )
-        graph_state_before = conn.execute(
-            """SELECT request_fingerprint, idempotency_fingerprint,
-                      graph_context_receipt, completion, graph_context_execution
-               FROM agent.turn WHERE turn_id = %s""",
-            (accepted.turn_id,),
-        ).fetchone()
-    command.downgrade(alembic_config(), "20261004_0016")
-    command.upgrade(alembic_config(), "head")
-    assert _current_and_head(application_state_dsn) == (
-        "20261022_0052", "20261022_0052"
-    )
-    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
-        assert conn.execute(
-            """SELECT request_fingerprint, idempotency_fingerprint,
-                      graph_context_receipt, completion, graph_context_execution
-               FROM agent.turn WHERE turn_id = %s""",
-            (accepted.turn_id,),
-        ).fetchone() == graph_state_before
-    migrated = AgentConversationService().list_turns(world_id, conversation.conversation_id)[0]
-    assert migrated.graph_context_execution is None
-    assert migrated.graph_context_receipt == completed.graph_context_receipt
-    assert migrated.completion == completed.completion
-    legacy_receipt_replay = submission.model_copy(update={"graph_context_execution": None})
-    assert AgentConversationService().accept_turn(legacy_receipt_replay) == migrated
+        command.upgrade(alembic_config(), historical_revision)
+        assert _current_and_head(application_state_dsn) == (
+            historical_revision, _alembic_head()
+        )
+        with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+            assert conn.execute(
+                "SELECT graph_context_execution FROM agent.turn WHERE turn_id = %s",
+                (accepted.turn_id,),
+            ).fetchone()[0] == v1_execution_before
 
-    with pytest.raises(psycopg.errors.CheckViolation):
-        with psycopg.connect(application_state_dsn) as conn:
+        # Model a populated 0016 row: receipt/completion and legacy fingerprints
+        # exist, while the newly introduced execution column is still NULL.
+        with psycopg.connect(application_state_dsn, autocommit=True) as conn:
             conn.execute(
-                "UPDATE agent.turn SET graph_context_receipt = '{}'::jsonb WHERE turn_id = %s",
+                "UPDATE agent.turn SET graph_context_execution = NULL WHERE turn_id = %s",
                 (accepted.turn_id,),
             )
-    with pytest.raises(RuntimeError, match="refusing to drop non-null Agent Graph context"):
-        command.downgrade(alembic_config(), "20261004_0015")
-    assert _current_and_head(application_state_dsn) == (
-        "20261022_0052",
-        "20261022_0052",
-    )
+            graph_state_before = conn.execute(
+                """SELECT request_fingerprint, idempotency_fingerprint,
+                          graph_context_receipt, completion, graph_context_execution
+                   FROM agent.turn WHERE turn_id = %s""",
+                (accepted.turn_id,),
+            ).fetchone()
+        command.downgrade(alembic_config(), "20261004_0016")
+        command.upgrade(alembic_config(), historical_revision)
+        assert _current_and_head(application_state_dsn) == (
+            historical_revision, _alembic_head()
+        )
+        with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+            assert conn.execute(
+                """SELECT request_fingerprint, idempotency_fingerprint,
+                          graph_context_receipt, completion, graph_context_execution
+                   FROM agent.turn WHERE turn_id = %s""",
+                (accepted.turn_id,),
+            ).fetchone() == graph_state_before
+        with pytest.raises(psycopg.errors.CheckViolation):
+            with psycopg.connect(application_state_dsn) as conn:
+                conn.execute(
+                    "UPDATE agent.turn SET graph_context_receipt = '{}'::jsonb WHERE turn_id = %s",
+                    (accepted.turn_id,),
+                )
+        with pytest.raises(RuntimeError, match="refusing to drop non-null Agent Graph context"):
+            command.downgrade(alembic_config(), "20261004_0015")
+        assert _current_and_head(application_state_dsn) == (
+            historical_revision,
+            _alembic_head(),
+        )
+        command.upgrade(alembic_config(), "head")
+        with psycopg.connect(application_state_dsn) as conn:
+            assert conn.execute("SELECT answer_composition_kind FROM agent.turn WHERE turn_id=%s", (accepted.turn_id,)).fetchone() == ("base",)
+        migrated = AgentConversationService().list_turns(world_id, conversation.conversation_id)[0]
+        assert migrated.graph_context_execution is None
+        assert migrated.graph_context_receipt == completed.graph_context_receipt
+        assert migrated.completion == completed.completion
+        legacy_receipt_replay = submission.model_copy(update={"graph_context_execution": None})
+        assert AgentConversationService().accept_turn(legacy_receipt_replay) == migrated
+
 
 
 def test_execution_partial_citations_require_sufficient_evidence(
@@ -2601,7 +2659,7 @@ def test_concurrent_route_both_miss_dispatches_provider_once(
 
     def submit(_index: int):
         try:
-            return agent_route.post_agent_turn(body, SimpleNamespace(app=app))
+            return agent_route.post_agent_turn(body, _agent_http_request(app))
         except HTTPException as exc:
             return exc
 
@@ -2648,7 +2706,7 @@ def test_agent_route_persists_shared_world_history_and_provider_segments(
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "development")
     monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", token)
 
-    class RecordingRuntime:
+    class RecordingRuntime(_CurrentConversationProvider):
         descriptor = AgentRuntimeDescriptor("fake", "fake", "test", "conversation")
 
         def __init__(self) -> None:
@@ -2728,11 +2786,11 @@ def test_agent_route_persists_shared_world_history_and_provider_segments(
         turn_id="world-turn-one",
     )
     first = agent_route.post_agent_turn(
-        AgentTurnRequest.model_validate(first_payload), SimpleNamespace(app=app)
+        AgentTurnRequest.model_validate(first_payload), _agent_http_request(app)
     )
     replay_payload = {**first_payload, "client_thread_id": "different-client-thread"}
     replay = agent_route.post_agent_turn(
-        AgentTurnRequest.model_validate(replay_payload), SimpleNamespace(app=app)
+        AgentTurnRequest.model_validate(replay_payload), _agent_http_request(app)
     )
     assert state.lookups == 1  # A completed receipt replay skips app runtime lookup.
     with pytest.raises(HTTPException) as conflicting_retry:
@@ -2743,7 +2801,7 @@ def test_agent_route_persists_shared_world_history_and_provider_segments(
                     "message": "Changed request under a reused turn ID.",
                 }
             ),
-            SimpleNamespace(app=app),
+            _agent_http_request(app),
         )
     assert conflicting_retry.value.status_code == 409
     second = agent_route.post_agent_turn(
@@ -2755,7 +2813,7 @@ def test_agent_route_persists_shared_world_history_and_provider_segments(
                 turn_id="world-turn-two",
             )
         ),
-        SimpleNamespace(app=app),
+        _agent_http_request(app),
     )
     assert state.lookups == 2
 
@@ -2863,7 +2921,7 @@ def test_agent_route_persists_shared_world_history_and_provider_segments(
                 turn_id="world-turn-after-new-conversation",
             )
         ),
-        SimpleNamespace(app=app),
+        _agent_http_request(app),
     )
     assert post_new["conversation"]["conversation_id"] == str(
         new_conversation.conversation_id
@@ -2956,7 +3014,7 @@ def test_late_plan_completion_keeps_frozen_revision_and_plan_segment(
         message="Plan B question.",
     )
 
-    class PlanSwitchRuntime:
+    class PlanSwitchRuntime(_CurrentConversationProvider):
         descriptor = AgentRuntimeDescriptor("fake", "fake", "test", "conversation")
 
         def __init__(self) -> None:
@@ -2983,7 +3041,7 @@ def test_late_plan_completion_keeps_frozen_revision_and_plan_segment(
             if "Plan A question." in invocation.message:
                 self.nested_response = agent_route.post_agent_turn(
                     AgentTurnRequest.model_validate(payload_b),
-                    SimpleNamespace(app=self.app),
+                    _agent_http_request(self.app),
                 )
                 self.object_a_v2, self.revision_a_v2 = commit_plan(
                     str(plan_a.work_object_id),
@@ -3000,7 +3058,7 @@ def test_late_plan_completion_keeps_frozen_revision_and_plan_segment(
                             message="Ask under Plan A revision two.",
                         )
                     ),
-                    SimpleNamespace(app=self.app),
+                    _agent_http_request(self.app),
                 )
                 return AgentRuntimeResult(
                     status="ok",
@@ -3036,7 +3094,7 @@ def test_late_plan_completion_keeps_frozen_revision_and_plan_segment(
     )
     response_a = agent_route.post_agent_turn(
         AgentTurnRequest.model_validate(payload_a),
-        SimpleNamespace(app=app),
+        _agent_http_request(app),
     )
 
     assert runtime.nested_response is not None
@@ -3108,7 +3166,7 @@ def test_late_plan_completion_keeps_frozen_revision_and_plan_segment(
         hermes_session_id="provider-session-b",
     )
     replayed_a_v2 = agent_route.post_agent_turn(
-        AgentTurnRequest.model_validate(payload_a_v2), SimpleNamespace(app=app)
+        AgentTurnRequest.model_validate(payload_a_v2), _agent_http_request(app)
     )
     assert replayed_a_v2["answer"]["text"] == "Answer for Plan A v2."
     assert replayed_a_v2["conversation"]["conversation_id"] == runtime.revised_response[
@@ -3174,7 +3232,7 @@ def test_interrupted_provider_attempt_can_retry_same_durable_turn(
     )
     request = AgentTurnRequest.model_validate(payload)
     with pytest.raises(RuntimeError, match="fake provider interruption"):
-        agent_route.post_agent_turn(request, SimpleNamespace(app=app))
+        agent_route.post_agent_turn(request, _agent_http_request(app))
 
     active = service.get_active_conversation(world.world_id)
     assert active is not None
@@ -3185,7 +3243,7 @@ def test_interrupted_provider_attempt_can_retry_same_durable_turn(
     assert interrupted[0].user_text == payload["message"]
 
     runtime.fail = False
-    retry = agent_route.post_agent_turn(request, SimpleNamespace(app=app))
+    retry = agent_route.post_agent_turn(request, _agent_http_request(app))
     assert retry["answer"]["text"] == "Recovered answer."
     assert retry["conversation"]["conversation_id"] == str(active.conversation_id)
     turns = service.list_turns(world.world_id, active.conversation_id)
@@ -3545,12 +3603,10 @@ def test_graph_execution_v2_source_read_receipt_round_trip_through_fresh_service
     assert closed_trace.closed_at == failed.completed_at
     assert closed_trace.capture_status == "complete"
 
-    from alembic import command
 
-    from application_state.cli import alembic_config
-    with pytest.raises(RuntimeError, match="refusing to discard recorded context traces"):
-        command.downgrade(alembic_config(), "20261005_0017")
-    assert _current_and_head(application_state_dsn) == ("20261022_0052", "20261022_0052")
+    assert_historical_refusal(application_state_dsn, "20261013_0022",
+                              match="refusing to discard recorded context traces")
+    assert _current_and_head(application_state_dsn) == (migration_cli._alembic_head(), migration_cli._alembic_head())
     assert AgentConversationService().list_turns(world_id, conversation.conversation_id)[0] == failed
 
 
@@ -3956,8 +4012,6 @@ def test_terminal_reset_actual_lock_race_and_delayed_post(application_state_dsn,
 @pytest.mark.parametrize("outcome", ["confirmed", "retired", "submitted_binding_blocked"])
 def test_terminal_records_fresh_readback_immutable_and_downgrade_refused(application_state_dsn, outcome):
     import psycopg
-    from alembic import command as migration
-    from application_state.cli import alembic_config
     from pydantic import ValidationError
     service = AgentConversationService()
     original = ConversationCommand(world_id="terminal-record-world", command_id=uuid4(), expected_pointer_revision=0, expected_active_conversation_id=None)
@@ -3985,13 +4039,12 @@ def test_terminal_records_fresh_readback_immutable_and_downgrade_refused(applica
         with pytest.raises(psycopg.Error, match="immutable"):
             with psycopg.connect(application_state_dsn) as conn:
                 conn.execute(statement)
-    with pytest.raises(Exception, match="downgrade refused"):
-        migration.downgrade(alembic_config(), "20261007_0018")
-    assert _current_and_head(application_state_dsn) == ("20261022_0052", "20261022_0052")
+    assert_historical_refusal(application_state_dsn, "20261008_0019", match="downgrade refused")
+    assert _current_and_head(application_state_dsn) == (migration_cli._alembic_head(), migration_cli._alembic_head())
     assert service.get_command_resolution(request) == record
 
 
-def test_terminal_empty_ledger_downgrade_and_nonterminal_cas_rolls_back(application_state_dsn):
+def test_terminal_empty_ledger_downgrade_and_nonterminal_cas_rolls_back(application_state_dsn, historical_database):
     import psycopg
     from alembic import command as migration
     from application_state.cli import alembic_config
@@ -4002,10 +4055,11 @@ def test_terminal_empty_ledger_downgrade_and_nonterminal_cas_rolls_back(applicat
     with psycopg.connect(application_state_dsn) as conn:
         assert conn.execute("SELECT count(*) FROM agent.world_state WHERE world_id=%s", (original.world_id,)).fetchone()[0] == 0
         assert conn.execute("SELECT count(*) FROM agent.command_resolution").fetchone()[0] == 0
-    migration.downgrade(alembic_config(), "20261007_0018")
-    assert _current_and_head(application_state_dsn) == ("20261007_0018", "20261022_0052")
-    migration.upgrade(alembic_config(), "head")
-    assert _current_and_head(application_state_dsn) == ("20261022_0052", "20261022_0052")
+    with historical_database("20261008_0019", source_dsn=application_state_dsn) as application_state_dsn:
+        migration.downgrade(alembic_config(), "20261007_0018")
+        assert _current_and_head(application_state_dsn) == ("20261007_0018", migration_cli._alembic_head())
+        migration.upgrade(alembic_config(), "head")
+        assert _current_and_head(application_state_dsn) == (migration_cli._alembic_head(), migration_cli._alembic_head())
 
 
 def test_terminal_resolution_actual_http_binding_readback_and_auth(application_state_dsn, monkeypatch):
@@ -4099,7 +4153,7 @@ def test_selected_source_scope_jsonb_and_legacy_roundtrip(application_state_dsn,
 
 
 @pytest.mark.parametrize("execution_version", [1, 2, 3])
-def test_uncapped_execution_persists_accounting_and_guards_downgrade(application_state_dsn, execution_version):
+def test_uncapped_execution_persists_accounting_and_guards_downgrade(application_state_dsn, execution_version, historical_database):
     import psycopg
     from psycopg.types.json import Jsonb
     from alembic import command
@@ -4109,9 +4163,12 @@ def test_uncapped_execution_persists_accounting_and_guards_downgrade(application
     service = AgentConversationService()
     legacy_conversation, _, legacy, _ = _accepted_execution_turn(service, "finite-preservation")
     before = service.list_turns("finite-preservation", legacy_conversation.conversation_id)[0].model_dump_json(by_alias=True)
-    command.downgrade(alembic_config(), "20261016_0024")
-    command.upgrade(alembic_config(), "head")
-    assert AgentConversationService().list_turns("finite-preservation", legacy_conversation.conversation_id)[0].model_dump_json(by_alias=True) == before
+    with historical_database("20261016_0025", source_dsn=application_state_dsn,
+                             expected_omissions={"agent.turn": {"answer_composition_kind": ["base"]}}) as historical_dsn:
+        assert migration_cli._read_current_revision(historical_dsn) == "20261016_0025"
+        command.downgrade(alembic_config(), "20261016_0024")
+        command.upgrade(alembic_config(), "head")
+        assert AgentConversationService().list_turns("finite-preservation", legacy_conversation.conversation_id)[0].model_dump_json(by_alias=True) == before
 
     conversation, receipt, accepted, current = _accepted_execution_turn(service, "uncapped-persistence", uncapped=True, execution_version=execution_version)
     operation_type = ValidatedGraphOperationEventV3 if execution_version == 3 else ValidatedGraphOperationEventV1
@@ -4165,8 +4222,7 @@ def test_uncapped_execution_persists_accounting_and_guards_downgrade(application
     invalid = encoded | {"policy": encoded["policy"] | {"policy_version": "test-policy-v1"}}
     with pytest.raises(psycopg.errors.CheckViolation), psycopg.connect(application_state_dsn) as conn:
         conn.execute("UPDATE agent.turn SET graph_context_execution=%s WHERE turn_id=%s", (Jsonb(invalid), accepted.turn_id))
-    with pytest.raises(RuntimeError, match="retained uncapped"):
-        command.downgrade(alembic_config(), "20261016_0024")
+    assert_historical_refusal(application_state_dsn, "20261016_0025", match="retained uncapped")
     assert AgentConversationService().list_turns("uncapped-persistence", conversation.conversation_id)[0] == reopened
 
 
