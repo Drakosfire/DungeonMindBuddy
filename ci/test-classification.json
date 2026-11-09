@@ -353,7 +353,6 @@
       "apps/live-control-ui/src/planSurface/reference/usePlanGraphReferenceResolver.test.ts",
       "apps/live-control-ui/src/planSurface/save/planMarkdownSaveTypes.test.ts",
       "apps/live-control-ui/src/planSurface/save/usePlanMarkdownSave.test.ts",
-      "apps/live-control-ui/src/planSurface/selectedObject/SelectedObjectCard.test.tsx",
       "apps/live-control-ui/src/planSurface/selectedObject/selectedObjectCardModel.test.ts",
       "apps/live-control-ui/src/playSurface/PlaySurfacePage.test.tsx",
       "apps/live-control-ui/src/playSurface/StartRunPanel.test.tsx",
