@@ -486,3 +486,23 @@ def test_existing_output_is_never_overwritten(sandbox):
     with pytest.raises(FileExistsError):
         local.verify(args)
     assert evidence.read_bytes() == before
+
+
+def test_filtered_result_cannot_hide_duplicate_selected_case_as_unselected(tmp_path):
+    expected = local.inventory_keys(
+        [{"file": str(tmp_path / "test.ts"), "name": "selected"}], tmp_path
+    )
+    result = {
+        "testResults": [
+            {
+                "name": str(tmp_path / "test.ts"),
+                "assertionResults": [
+                    {"ancestorTitles": [], "title": "selected", "status": "passed"},
+                    {"ancestorTitles": [], "title": "selected", "status": "skipped"},
+                ],
+            }
+        ]
+    }
+    assert not local.case_parity(
+        expected, result, tmp_path, ["npm", "test", "--", "-t", "selected"]
+    )["collection_parity"]

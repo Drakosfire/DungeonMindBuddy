@@ -213,7 +213,9 @@ def case_parity(expected, result, frontend, argv):
     )
     # Existing hosted name filters report unselected skipped cases in Vitest JSON.
     # Default discovery permits no invented exclusion or additional case.
-    allowed = filtered and not (extra - skipped)
+    allowed = (
+        filtered and not (extra - skipped) and not any(key in expected for key in extra)
+    )
     return {
         "collection_parity": bool(expected)
         and not (expected - actual)
