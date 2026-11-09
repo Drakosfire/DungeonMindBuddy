@@ -1,6 +1,12 @@
 # Native object reference picker
 
-Status: ACTIVE. Owner: PRIME. Topology: serial. Base: origin/main
+Status: MERGED_AND_DELIVERED by #2080; original implementation lease closed.
+The native input remains adopted. #2280/#2283 replaced the remaining Build/Plan
+document activation callers; #2286 removed the old search closure. See
+[the adoption inventory](HANDOFF-REFERENCE-adoption-inventory.md) for current
+retention decisions and the held Play boundary. Historical slice scope follows.
+
+Owner: PRIME. Topology: serial. Base: origin/main
 04d9d6793e197f50069b5b77ea89b3db3d26c9af. Authority: operator's active reference goal;
 proposed design at 0f7c696ecbf2cb8d9cfe92a6927b5eada14e5f41.
 
@@ -13,7 +19,9 @@ Exclusive writes: this handoff and these apps/live-control-ui/src files:
 
 Adopt the existing native catalogue and inspector with optional explicit selection.
 Remove the picker's projection hooks, classic adapter and classic inspector dispatch.
-GraphReferenceSearch and its adapter retain other live callers; do not delete them.
+At this original slice, GraphReferenceSearch and its adapter retained other live
+callers and were outside its deletion scope. That boundary was superseded by
+#2280/#2283 adoption and the caller-proven #2286 removal.
 No endpoint, authority, provider call, dependency, durable schema or database mutation.
 ADVERSARY PR2079's ingestion runtime write set is disjoint.
 

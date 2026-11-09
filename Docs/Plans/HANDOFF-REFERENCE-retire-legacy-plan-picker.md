@@ -1,6 +1,17 @@
 # REFERENCE: retire the unmounted Plan canvas and old object picker
 
-Status: ACTIVE. PRIME owns one serial PR from `be0ebf6c99f3d4b03b5810aa7e0a1ccc33ee35b0` (re-anchored after CI2284 merged), branch `codex/reference-retire-legacy-plan-picker`, existing buddy-context-loop checkout. No unmerged parent. Independent review and CI precede delivery.
+Status: SETTLED. #2286 merged at `f5ba0f84da66f2121914c9ceb0324061f28987a2`
+from reviewed source `a68c1392f91e03d6187ce922663aab00b5fdb1d4`. UI
+`724ed4d58d7daae5e6d314d2ab8a37afd254885e` is delivered and technically verified
+on5202; API/schema unchanged, retained APP/Core/session state conserved, lease
+released. Independent review, seven CI gates, frozen route/native tests and
+controlled browser verification passed. The original DiskFull activation failure
+and prior-UI restoration remain recorded separately. The repaired delivery
+procedure was independently reviewed before successful activation. See
+[the adoption inventory](HANDOFF-REFERENCE-adoption-inventory.md) for remaining
+work and evidence limits. Historical implementation scope follows.
+
+PRIME owned one serial PR from `be0ebf6c99f3d4b03b5810aa7e0a1ccc33ee35b0` (re-anchored after CI2284 merged), branch `codex/reference-retire-legacy-plan-picker`, existing buddy-context-loop checkout. No unmerged parent. Independent review and CI precede delivery.
 
 ## Outcome and caller proof
 
