@@ -54,3 +54,15 @@ and cleanup/lock tests, actual clean pinned-source execution, short hosted guard
 publication/remote verification, then explicit merge authority. Local branch policy
 is not active on main before merge. Hosted manual checks remain available, and local
 success is not a GitHub check or deployment/selector/qualification claim.
+
+## Evidence/cleanup hardening from independent review
+
+Initial dac2 review reproduced header relabelling and a surviving grandchild; it
+was REQUEST_CHANGES, not approval. Successor binds the report to retained hashed
+source provenance and completion receipt, re-derives commands/lock/catalog from
+the requested Git object, and rejects header-only SHA/suite edits. Case parity
+counts existing hosted -t unselected skips separately, never permits extra cases
+in default discovery. Cleanup checks the process group independently of parent
+exit and escalates TERM to KILL; a real subprocess-tree regression covers a
+TERM-ignoring grandchild. Receipt hashes detect mismatched artifacts; this is
+source-bound audit evidence, not cryptographic remote attestation of a local user.

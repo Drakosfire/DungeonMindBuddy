@@ -94,6 +94,35 @@ def resources(workers, available=None, cpu=None, proc=Path("/proc")):
     }
 
 
+def group_alive(pgid):
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            fields = (entry / "stat").read_text().rsplit(")", 1)[1].split()
+            if int(fields[2]) == pgid and fields[0] != "Z":
+                return True
+        except (FileNotFoundError, PermissionError, ProcessLookupError):
+            pass
+    return False
+
+
+def stop_group(pgid):
+    # A direct parent's exit is not proof that its grandchildren exited.
+    for sig, grace in ((signal.SIGTERM, 2), (signal.SIGKILL, 5)):
+        if not group_alive(pgid):
+            return
+        try:
+            os.killpg(pgid, sig)
+        except ProcessLookupError:
+            return
+        deadline = time.monotonic() + grace
+        while group_alive(pgid) and time.monotonic() < deadline:
+            time.sleep(0.05)
+    if group_alive(pgid):
+        raise RuntimeError(f"owned process group {pgid} failed to stop")
+
+
 def command(argv, cwd, log, env):
     started = time.monotonic()
     with Path(log).open("w") as stream:
@@ -106,15 +135,10 @@ def command(argv, cwd, log, env):
             start_new_session=True,
         )
         try:
-            code = proc.wait()
-        except BaseException:
-            os.killpg(proc.pid, signal.SIGTERM)
-            try:
-                proc.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                os.killpg(proc.pid, signal.SIGKILL)
-                proc.wait()
-            raise
+            code = proc.wait(timeout=1800)
+        finally:
+            stop_group(proc.pid)
+            proc.wait(timeout=10)
     return {
         "argv": argv,
         "exit_code": code,
@@ -168,6 +192,37 @@ def result_keys(result, frontend):
     )
 
 
+def case_parity(expected, result, frontend, argv):
+    actual = result_keys(result, frontend)
+    skipped = Counter()
+    failed = 0
+    for file in result["testResults"]:
+        for case in file["assertionResults"]:
+            key = (
+                str(Path(file["name"]).relative_to(frontend)),
+                " > ".join([*case["ancestorTitles"], case["title"]]),
+            )
+            if case["status"] in {"skipped", "pending", "todo"}:
+                skipped[key] += 1
+            if case["status"] == "failed":
+                failed += 1
+    extra = actual - expected
+    filtered = any(
+        arg in {"-t", "--testNamePattern"} or arg.startswith("--testNamePattern=")
+        for arg in argv
+    )
+    # Existing hosted name filters report unselected skipped cases in Vitest JSON.
+    # Default discovery permits no invented exclusion or additional case.
+    allowed = filtered and not (extra - skipped)
+    return {
+        "collection_parity": bool(expected)
+        and not (expected - actual)
+        and (not extra or allowed),
+        "reported_unselected_skips": sum(extra.values()) if allowed else 0,
+        "failed_cases": failed,
+    }
+
+
 def validate(report_path, expected_sha, suite, max_age=86400):
     path = Path(report_path)
     report = json.loads(path.read_text())
@@ -177,6 +232,59 @@ def validate(report_path, expected_sha, suite, max_age=86400):
         or report["suite"] != suite
     ):
         raise ValueError("stale or mismatched source/suite evidence")
+    receipt_path = path.parent / "run-receipt.json"
+    if report["artifacts"].get(receipt_path.name) != digest(receipt_path) or json.loads(
+        receipt_path.read_text()
+    ) != {key: value for key, value in report.items() if key != "artifacts"}:
+        raise ValueError("run receipt/source provenance mismatch")
+    provenance_path = path.parent / "source-provenance.json"
+    if report["artifacts"].get(provenance_path.name) != digest(provenance_path):
+        raise ValueError("unbound source provenance")
+    provenance = json.loads(provenance_path.read_text())
+    if (
+        provenance["sha"],
+        provenance["suite"],
+        provenance["runner_sha"],
+        provenance["frontend_path"],
+        provenance["workers"],
+    ) != (
+        expected_sha,
+        suite,
+        report["runner_sha"],
+        report["source_frontend_path"],
+        report["workers"],
+    ):
+        raise ValueError("source or suite provenance mismatch")
+    raw_catalog = subprocess.check_output(
+        ["git", "-C", str(ROOT), "show", f"{expected_sha}:ci/contracts.json"]
+    )
+    raw_lock = subprocess.check_output(
+        [
+            "git",
+            "-C",
+            str(ROOT),
+            "show",
+            f"{expected_sha}:apps/live-control-ui/package-lock.json",
+        ]
+    )
+    if (
+        hashlib.sha256(raw_catalog).hexdigest() != report["contract_sha256"]
+        or hashlib.sha256(raw_lock).hexdigest() != report["package_lock_sha256"]
+    ):
+        raise ValueError("source contract/lockfile mismatch")
+    install, planned_tests, build = frontend_plan(json.loads(raw_catalog), suite)
+    if len(planned_tests) != len(report["tests"]) or report["build"]["argv"] != build:
+        raise ValueError("source command plan mismatch")
+    workers = [f"--maxWorkers={report['workers']}", f"--minWorkers={report['workers']}"]
+    for expected, step in zip(planned_tests, report["tests"], strict=True):
+        result_file = str(Path(provenance["output_dir"]) / step["results_file"])
+        if step["argv"] != [
+            *expected,
+            *workers,
+            "--reporter=json",
+            f"--outputFile={result_file}",
+        ]:
+            raise ValueError("test command mismatch")
     age = time.time() - report["finished_unix"]
     if age < -60 or age > max_age:
         raise ValueError("stale evidence timestamp")
@@ -196,7 +304,9 @@ def validate(report_path, expected_sha, suite, max_age=86400):
     if (
         not report["tests"]
         or any(
-            step["exit_code"] or not step["collection_parity"]
+            step["exit_code"]
+            or not step["collection_parity"]
+            or step.get("failed_cases", 0)
             for step in report["tests"]
         )
         or not report["build"]
@@ -216,10 +326,16 @@ def validate(report_path, expected_sha, suite, max_age=86400):
         expected = inventory_keys(
             json.loads((path.parent / names[0]).read_text()), frontend
         )
-        actual = result_keys(json.loads((path.parent / names[1]).read_text()), frontend)
+        parity = case_parity(
+            expected,
+            json.loads((path.parent / names[1]).read_text()),
+            frontend,
+            step["argv"],
+        )
         if (
             not expected
-            or expected != actual
+            or not parity["collection_parity"]
+            or parity["failed_cases"]
             or sum(expected.values()) != step["discovered_cases"]
         ):
             raise ValueError("discovery/result mismatch")
@@ -310,6 +426,20 @@ def verify(args):
                         json.loads((source / "ci/contracts.json").read_text()),
                         args.suite,
                     )
+                    (out / "source-provenance.json").write_text(
+                        json.dumps(
+                            {
+                                "sha": git(source, "rev-parse", "HEAD"),
+                                "suite": args.suite,
+                                "runner_sha": report["runner_sha"],
+                                "frontend_path": str(frontend),
+                                "workers": args.workers,
+                                "output_dir": str(out),
+                            },
+                            indent=2,
+                        )
+                        + "\n"
+                    )
                     for name in ("npm-user-config", "npm-global-config"):
                         (out / name).write_text("")
                     report["install"] = command(
@@ -373,12 +503,13 @@ def verify(args):
                         result["results_file"] = result_path.name
                         result["discovered_cases"] = sum(keys.values())
                         try:
-                            result["collection_parity"] = (
-                                bool(keys)
-                                and result_keys(
-                                    json.loads(result_path.read_text()), frontend
+                            result.update(
+                                case_parity(
+                                    keys,
+                                    json.loads(result_path.read_text()),
+                                    frontend,
+                                    result["argv"],
                                 )
-                                == keys
                             )
                         except (OSError, ValueError, KeyError):
                             result["collection_parity"] = False
@@ -395,6 +526,7 @@ def verify(args):
                         int(
                             any(
                                 not step["collection_parity"]
+                                or step.get("failed_cases", 0)
                                 for step in report["tests"]
                             )
                         ),
@@ -412,7 +544,9 @@ def verify(args):
                         or report["source_dirty_before"]
                         or report["source_dirty_after"]
                         or any(
-                            step["exit_code"] or not step["collection_parity"]
+                            step["exit_code"]
+                            or not step["collection_parity"]
+                            or step.get("failed_cases", 0)
                             for step in report["tests"]
                         )
                         or report["build"]["exit_code"] != 0
@@ -438,6 +572,13 @@ def verify(args):
         finally:
             report["finished_unix"] = time.time()
             report["finished_at"] = datetime.now(timezone.utc).isoformat()
+            (out / "run-receipt.json").write_text(
+                json.dumps(
+                    {key: value for key, value in report.items() if key != "artifacts"},
+                    indent=2,
+                )
+                + "\n"
+            )
             report["artifacts"] = {
                 p.name: digest(p) for p in out.iterdir() if p.is_file()
             }

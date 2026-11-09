@@ -1,6 +1,9 @@
 """Local-verifier boundaries, with real temporary Git worktrees and no npm load."""
 
 import json
+import os
+import signal
+import sys
 from pathlib import Path
 import subprocess
 import time
@@ -147,6 +150,13 @@ def test_real_worktree_cleanup_and_source_bound_inventory(sandbox):
     assert any("--maxWorkers=8" in call and "--minWorkers=8" in call for call in calls)
     assert any(arg.startswith("--userconfig=") for arg in calls[0])
     assert any(arg.startswith("--globalconfig=") for arg in calls[0])
+    configs = [
+        arg.split("=", 1)[1]
+        for arg in calls[0]
+        if arg.startswith(("--userconfig=", "--globalconfig="))
+    ]
+    assert len(set(configs)) == 2
+    assert all(Path(path).read_text() == "" for path in configs)
     assert (
         len(local.git(args.repo, "worktree", "list", "--porcelain").split("worktree "))
         == 2
@@ -310,6 +320,8 @@ def test_command_interrupt_terminates_owned_process_group(tmp_path, monkeypatch)
     child = Child()
     monkeypatch.setattr(local.subprocess, "Popen", lambda *a, **k: child)
     monkeypatch.setattr(local.os, "killpg", lambda pid, sig: signals.append((pid, sig)))
+    alive = iter([True, False, False])
+    monkeypatch.setattr(local, "group_alive", lambda _: next(alive))
     with pytest.raises(KeyboardInterrupt):
         local.command(["unused"], tmp_path, tmp_path / "child.log", {})
     assert signals == [(1234, local.signal.SIGTERM)]
@@ -334,3 +346,143 @@ def test_locked_run_retains_failure_without_worktree_allocation(
         len(local.git(args.repo, "worktree", "list", "--porcelain").split("worktree "))
         == 2
     )
+
+
+@pytest.mark.parametrize("filtered", [True, False])
+def test_only_declared_hosted_name_filters_allow_unselected_skips(tmp_path, filtered):
+    frontend = tmp_path
+    expected = local.inventory_keys(
+        [{"file": str(frontend / "test.ts"), "name": "selected"}], frontend
+    )
+    result = {
+        "testResults": [
+            {
+                "name": str(frontend / "test.ts"),
+                "assertionResults": [
+                    {"ancestorTitles": [], "title": "selected", "status": "passed"},
+                    {"ancestorTitles": [], "title": "unselected", "status": "skipped"},
+                ],
+            }
+        ]
+    }
+    argv = (
+        ["npm", "test", "--", "-t", "selected"] if filtered else ["npm", "test", "--"]
+    )
+    report = local.case_parity(expected, result, frontend, argv)
+    assert report["collection_parity"] == filtered
+    assert report["reported_unselected_skips"] == int(filtered)
+    result["testResults"][0]["assertionResults"][1]["status"] = "passed"
+    assert not local.case_parity(expected, result, frontend, argv)["collection_parity"]
+
+
+def test_header_cannot_relabel_hosted_as_discovered(sandbox):
+    args, _, _ = sandbox
+    args.suite = "hosted"
+    assert local.verify(args) == 0
+    path = Path(args.output) / "evidence.json"
+    report = json.loads(path.read_text())
+    report["suite"] = "discovered"
+    path.write_text(json.dumps(report))
+    with pytest.raises(ValueError, match="provenance"):
+        local.validate(path, args.sha, "discovered")
+
+
+def test_header_cannot_claim_a_new_existing_untested_commit(sandbox):
+    args, _, _ = sandbox
+    assert local.verify(args) == 0
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            args.repo,
+            "-c",
+            "user.name=Verifier",
+            "-c",
+            "user.email=verifier@example.test",
+            "commit",
+            "--allow-empty",
+            "-qm",
+            "new untested SHA",
+        ],
+        check=True,
+    )
+    new = local.git(args.repo, "rev-parse", "HEAD")
+    path = Path(args.output) / "evidence.json"
+    report = json.loads(path.read_text())
+    report["verified_sha"] = new
+    path.write_text(json.dumps(report))
+    with pytest.raises(ValueError, match="provenance"):
+        local.validate(path, new, "discovered")
+
+
+def test_real_interrupt_stops_grandchild_even_after_parent_exits(tmp_path):
+    grand_marker = tmp_path / "grand.pid"
+    parent_marker = tmp_path / "parent.pid"
+    grand_code = (
+        "import signal,time,os;from pathlib import Path;"
+        "signal.signal(signal.SIGTERM,signal.SIG_IGN);"
+        f"Path({str(grand_marker)!r}).write_text(str(os.getpid()));time.sleep(60)"
+    )
+    parent_code = (
+        "import subprocess,sys,time,os;from pathlib import Path;"
+        f"subprocess.Popen([sys.executable,'-c',{grand_code!r}]);"
+        f"marker=Path({str(grand_marker)!r})\n"
+        "while not marker.exists():time.sleep(0.02)\n"
+        f"Path({str(parent_marker)!r}).write_text(str(os.getpid()))\n"
+        "time.sleep(60)"
+    )
+    wrapper_code = (
+        "import sys,os;from pathlib import Path;"
+        f"sys.path.insert(0,{str(local.ROOT / 'scripts')!r});import ci_local_frontend as tool\n"
+        "try:\n"
+        f" tool.command([sys.executable,'-c',{parent_code!r}],Path({str(tmp_path)!r}),Path({str(tmp_path / 'tree.log')!r}),dict(os.environ))\n"
+        "except KeyboardInterrupt:pass\n"
+    )
+    wrapper = subprocess.Popen([sys.executable, "-c", wrapper_code])
+    pgid = None
+    try:
+        deadline = time.monotonic() + 5
+        while not parent_marker.exists() and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert parent_marker.exists()
+        pgid = int(parent_marker.read_text())
+        os.kill(wrapper.pid, signal.SIGINT)
+        assert wrapper.wait(timeout=15) == 0
+        assert not local.group_alive(pgid)
+    finally:
+        if wrapper.poll() is None:
+            wrapper.kill()
+            wrapper.wait()
+        if pgid is not None:
+            try:
+                os.killpg(pgid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
+
+def test_documented_trigger_rollback_preserves_manual_jobs():
+    block = "  pull_request:\n    branches: [main]\n    types: [opened, synchronize, reopened]\n"
+    for name in ["hosted-validation.yml", "world-ownership-core.yml"]:
+        text = (local.ROOT / ".github/workflows" / name).read_text()
+        paused = yaml.load(text, Loader=yaml.BaseLoader)
+        restored = yaml.load(
+            text.replace("  workflow_dispatch:\n", "  workflow_dispatch:\n" + block, 1),
+            Loader=yaml.BaseLoader,
+        )
+        assert set(restored["on"]) == {"workflow_dispatch", "pull_request"}
+        assert restored["on"]["pull_request"] == {
+            "branches": ["main"],
+            "types": ["opened", "synchronize", "reopened"],
+        }
+        assert restored["jobs"] == paused["jobs"]
+        assert restored["permissions"] == paused["permissions"]
+
+
+def test_existing_output_is_never_overwritten(sandbox):
+    args, _, _ = sandbox
+    assert local.verify(args) == 0
+    evidence = Path(args.output) / "evidence.json"
+    before = evidence.read_bytes()
+    with pytest.raises(FileExistsError):
+        local.verify(args)
+    assert evidence.read_bytes() == before
