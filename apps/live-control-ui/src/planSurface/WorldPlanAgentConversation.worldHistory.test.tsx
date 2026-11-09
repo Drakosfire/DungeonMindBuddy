@@ -6510,9 +6510,14 @@ it('retains mixed references through Play submission and pending-request reload'
  const key=`dmb:world-play-pending-turn:v1:${worldId}`,saved=localStorage.getItem(key);
  expect(saved).not.toBeNull();
  view.unmount();render(conversationElement({playMode}));await waitForConversationReady(false);
- expect(await screen.findByRole('region',{name:'Saved turn recovery'})).toBeInTheDocument();
- expect(screen.getByRole('button',{name:'Inspect Selected Play object'})).toBeInTheDocument();
+ fireEvent.click(await screen.findByRole('button',{name:'Check saved request'}));
+ const recovery=await screen.findByRole('region',{name:'Saved turn recovery'});
+ fireEvent.click(within(recovery).getByText('Saved request details',{selector:'summary'}));
+ expect(within(recovery).getByRole('button',{name:'Inspect Selected Play object'})).toBeInTheDocument();
  expect(localStorage.getItem(key)).toBe(saved);
  expect(post).toHaveBeenCalledTimes(1);
+ fireEvent.click(within(recovery).getByRole('button',{name:'Retry exact saved turn'}));
+ await waitFor(()=>expect(post).toHaveBeenCalledTimes(2));
+ expect(post.mock.calls[1]![0]).toEqual(post.mock.calls[0]![0]);
  expect(api.getHistory).not.toHaveBeenCalled();
 });
