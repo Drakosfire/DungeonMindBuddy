@@ -6469,9 +6469,10 @@ export function WorldPlanAgentConversation({
               source={{documentId:buildSource.document_id,revision:buildSource.registry_revision,contentSha256:buildSource.content_sha256}}
               proposal={collaboration}
               disabled={composerBusy||!isBuild||!visible||history?.active_conversation_id!==history?.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id}/>}
-            {verifiedWorldId&&buildSource&&collaboration?.kind==='connected_page'&&<ConversationConnectedPageReview
-              worldId={verifiedWorldId} documentId={buildSource.document_id} turnId={turn.turn_id} proposal={collaboration}
-              disabled={composerBusy||!isBuild||!visible||history?.active_conversation_id!==history?.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id}/>}
+            {verifiedWorldId&&collaboration?.kind==='connected_page'&&(buildSource||!isBuild&&documentId&&turn.provenance.surface_id==='plan')&&<ConversationConnectedPageReview
+              worldId={verifiedWorldId} documentId={isBuild?buildSource!.document_id:documentId!} turnId={turn.turn_id} proposal={collaboration}
+              disabled={composerBusy||!scopeMatches||!pageReady||!visible||isReadOnly||history?.active_conversation_id!==history?.conversation_id
+                ||(isBuild?buildSource?.document_id:documentId)!==turn.provenance.primary_work.object_id}/>}
             {turn.plan_proposal&&editBridge&&namespace&&history?.conversation_id&&visible&&!isReadOnly
               &&turn.plan_proposal.capture.world_id===worldId&&turn.plan_proposal.capture.document_id===documentId?<PlanPageProposal
               key={`plan-page:${turn.plan_proposal.origin.action_id}`} proposal={turn.plan_proposal} bridge={editBridge}
