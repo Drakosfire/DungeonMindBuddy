@@ -1723,7 +1723,11 @@ function isHistoryTurn(
   if(Object.hasOwn(value,'authored_references')){
     const {authored_references:references,...envelope}=value;
     return isAuthoredReferences(references,worldId)&&isRecord(value.provenance)
-      &&['plan','build'].includes(String(value.provenance.surface_id))&&isHistoryTurn(envelope,schema,worldId);
+      &&(['plan','build'].includes(String(value.provenance.surface_id))
+        || value.provenance.surface_id==='play' && references.schema==='dmb_authored_references_v2'
+          && references.references.length>0
+          && references.references.every(ref=>ref.schema==='dmb_authored_source_reference_v1'))
+      &&isHistoryTurn(envelope,schema,worldId);
   }
   if(Object.hasOwn(value,'retry_context')){
     const {retry_context:retry,...envelope}=value;
