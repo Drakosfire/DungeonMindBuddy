@@ -210,8 +210,6 @@ def _turn_from_row(
         CompletedTurnEnvelopeV1,
         MixedCompletedTurnV1,
     )
-    from .rules_authority_types import read_accepted_binding
-
     provenance = turn_provenance(
         row,
         references
@@ -286,23 +284,13 @@ def _turn_from_row(
 
         validate_stored_proposal(conn, turn, turn.completion)
         return turn
-    if (
-        marker != "rules_mixed_v1"
-        or summary is None
-        or summary["state"] != "accepted"
-        or summary["oversized"]
-        or summary["binding"] is None
-        or summary["seal"] is None
-    ):
-        raise ApplicationStateIntegrityError(
-            "mixed turn has missing or invalid accepted Rules summary"
-        )
+    if marker!='rules_mixed_v1':
+        raise ApplicationStateIntegrityError('mixed turn has missing or invalid accepted Rules summary')
     try:
-        import json
-
-        binding = read_accepted_binding(
-            json.dumps(summary["binding"], ensure_ascii=False)
-        )
+        from .rules_authority_reads import read_completed_binding_summary
+        binding=read_completed_binding_summary(summary,world_id=fields['world_id'],
+            conversation_id=fields['conversation_id'],turn_id=fields['turn_id'],
+            attempt=fields['attempt'],revision=fields['revision'])
         body = fields["assistant_text"]
         envelope = CompletedTurnEnvelopeV1(
             **{key: fields[key] for key in CompletedTurnEnvelopeV1.model_fields}

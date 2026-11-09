@@ -250,7 +250,7 @@ def test_active_snapshot_projects_stored_native_metadata_without_full_turn_reads
     with monkeypatch.context() as patch:
         patch.setattr(repository, "_turn_from_row", forbidden)
         page = library.read_active_messages(case.world)
-    assert page["schema"] == "dmb_active_conversation_messages_v3"
+    assert page["schema"] == "dmb_active_conversation_messages_v4"
     message = page["messages"][0]
     assert message["authored_references"] == case.selected.model_dump(mode="json", by_alias=True)
     import psycopg

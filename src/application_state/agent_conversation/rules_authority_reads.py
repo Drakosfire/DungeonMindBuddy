@@ -53,6 +53,24 @@ def validate_base_composition_summary(summary) -> None:
         raise ApplicationStateIntegrityError("accepted Rules authority has no mixed turn marker")
 
 
+def read_completed_binding_summary(summary, *, world_id,conversation_id,turn_id,attempt,revision):
+    """Shared stored summary reader; source/action authority remains in the full Turn."""
+    from .rules_authority_types import read_accepted_binding
+    import json
+    try:
+        if (summary is None or summary['state']!='accepted' or summary['oversized']
+                or summary['binding'] is None or summary['seal'] is None):
+            raise ValueError('Missing accepted Rules summary')
+        binding=read_accepted_binding(json.dumps(summary['binding'],ensure_ascii=False))
+        if (canonical_sha256(binding)!=summary['seal'] or (binding.world_id,binding.conversation_id,
+                binding.turn_id,binding.product_attempt,binding.accepted_turn_revision)
+                !=(world_id,conversation_id,turn_id,attempt,revision)):
+            raise ValueError('Accepted Rules summary differs from its exact owner or seal')
+        return binding
+    except (ValueError,TypeError,KeyError) as exc:
+        raise ApplicationStateIntegrityError('mixed turn has missing or invalid accepted Rules summary') from exc
+
+
 class CompletedTurnEnvelopeV1(ClosedRulesModel):
     turn_id: UUID
     conversation_id: UUID

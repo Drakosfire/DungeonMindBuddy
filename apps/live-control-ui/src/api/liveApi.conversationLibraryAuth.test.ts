@@ -54,7 +54,7 @@ it('shares the guarded active message read and never authorizes a near-miss rout
  const first=library.readActiveConversationMessages('world-one'),second=library.readActiveConversationMessages('world-one');
  await vi.waitFor(()=>expect(fetch).toHaveBeenCalledTimes(1));
  expect(new Headers(fetch.mock.calls[0][1]?.headers).get('Authorization')).toBe('Bearer synthetic-library-token');
- finish(Response.json({schema:'dmb_active_conversation_messages_v3',world_id:'world-one',conversation_state:'active',conversation_id:id,active_conversation_id:id,pointer_revision:3,messages:[],next_before_sequence:null}));
+ finish(Response.json({schema:'dmb_active_conversation_messages_v4',world_id:'world-one',conversation_state:'active',conversation_id:id,active_conversation_id:id,pointer_revision:3,messages:[],next_before_sequence:null}));
  await Promise.all([first,second]);
  fetch.mockResolvedValue(Response.json({}));await live.authenticatedApiFetch('/api/live/agent/worlds/world-one/conversations/active/messages-extra');
  expect(new Headers(fetch.mock.calls[1][1]?.headers).has('Authorization')).toBe(false);

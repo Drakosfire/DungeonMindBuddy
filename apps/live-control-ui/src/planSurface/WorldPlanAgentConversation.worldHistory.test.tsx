@@ -1309,7 +1309,7 @@ function setupApi(initialHistory: WorldAgentConversationHistoryResponse, inspect
     schema: page.schema === 'dmb_agent_conversation_history_v4' ? page.schema : 'dmb_agent_conversation_history_v3',
     turns: page.turns.map(turn => ({ ...turn, idempotency_key: 'idempotency_key' in turn ? turn.idempotency_key : '00000000-0000-4000-8000-000000000099' }))
 } as WorldAgentConversationHistoryResponse);
-  const messages = (page: WorldAgentConversationHistoryResponse) => { const wire = liveHistory(page); return { schema: "dmb_active_conversation_messages_v3" as const, world_id: wire.world_id, conversation_state: wire.conversation_state, conversation_id: wire.conversation_id, active_conversation_id: wire.active_conversation_id, pointer_revision: wire.pointer_revision, next_before_sequence: wire.next_before_sequence ?? null, messages: wire.turns.map(turn => ({ turn_id: turn.turn_id, sequence: turn.sequence, status: turn.lifecycle_status, user_text: turn.user_text, assistant_text: turn.assistant_text, citation_preview: null, authored_references: turn.authored_references??null, revision: 1, idempotency_key: "idempotency_key" in turn ? turn.idempotency_key : "", provenance: turn.provenance })) }; };
+  const messages = (page: WorldAgentConversationHistoryResponse) => { const wire = liveHistory(page); return { schema: "dmb_active_conversation_messages_v4" as const, world_id: wire.world_id, conversation_state: wire.conversation_state, conversation_id: wire.conversation_id, active_conversation_id: wire.active_conversation_id, pointer_revision: wire.pointer_revision, next_before_sequence: wire.next_before_sequence ?? null, messages: wire.turns.map(turn => ({ turn_id: turn.turn_id, sequence: turn.sequence, status: turn.lifecycle_status, user_text: turn.user_text, assistant_text: turn.assistant_text, citation_preview: null, reply_object: null, authored_references: turn.authored_references??null, revision: 1, idempotency_key: "idempotency_key" in turn ? turn.idempotency_key : "", provenance: turn.provenance })) }; };
   const getMessages = vi.spyOn(conversationLibraryApi, 'readActiveConversationMessages').mockImplementation(async (_world, before, signal) => {
     historyCalls.push({ limit: 50, beforeSequence: before, signal });
     const page = liveHistory(before !== undefined ? (olderHandler ? await olderHandler() : olderPage ?? currentHistory) : currentHistory);
@@ -6376,4 +6376,30 @@ it('loads selected references on an older lightweight page without loading reply
  expect(await screen.findByRole('button',{name:'Inspect Earlier selected object'})).toBeInTheDocument();
  expect(api.getHistory).not.toHaveBeenCalled();
  expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Unsent during pagination');
+});
+
+
+it('opens a lightweight saved Plan page review through one exact read without opening Details',async()=>{
+ const turn=makeTurn(1,'saved-page-review','Create The Old Bath House','Preview ready');
+ const page=history('conversation-a',4,[turn]);const api=setupApi(page,false);
+ api.getMessages.mockImplementation(async()=>{const light=api.messages(page);return {...light,messages:light.messages.map(row=>({...row,reply_object:{kind:'page_object' as const,object_kind:'connected_page' as const,source:{world_id:worldId,conversation_id:light.conversation_id!,turn_id:row.turn_id,document_id:row.provenance.primary_work.object_id!,surface_id:'plan' as const}}}))};});
+ render(conversationElement());await waitForConversationReady(false);
+ expect(api.getHistory).not.toHaveBeenCalled();fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'Keep my next thought'}});
+ fireEvent.click(screen.getByRole('button',{name:'Review new page'}));await waitFor(()=>expect(api.getHistory).toHaveBeenCalledTimes(1));
+ await waitFor(()=>expect(screen.queryByText('Loading reply sources…')).not.toBeInTheDocument());
+ expect(screen.getByText('Details',{selector:'summary'}).closest('details')).not.toHaveAttribute('open');
+ expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep my next thought');
+});
+
+
+it('keeps the saved Plan review, text and unsent draft when its exact read fails',async()=>{
+ const turn=makeTurn(1,'failed-page-review-read','Create The Old Bath House','Preview stays here');
+ const page=history('conversation-a',4,[turn]);const api=setupApi(page,false);
+ api.getMessages.mockImplementation(async()=>{const light=api.messages(page);return {...light,messages:light.messages.map(row=>({...row,reply_object:{kind:'page_object' as const,object_kind:'connected_page' as const,source:{world_id:worldId,conversation_id:light.conversation_id!,turn_id:row.turn_id,document_id:row.provenance.primary_work.object_id!,surface_id:'plan' as const}}}))};});
+ api.getHistory.mockRejectedValue(new Error('Exact page review temporarily unavailable'));
+ render(conversationElement());await waitForConversationReady(false);fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'Keep drafting'}});
+ fireEvent.click(screen.getByRole('button',{name:'Review new page'}));await screen.findByText('Exact page review temporarily unavailable');
+ expect(screen.getByText('Preview stays here')).toBeInTheDocument();expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep drafting');
+ expect(screen.getByRole('button',{name:'Review new page'})).toBeEnabled();
+ expect(screen.getByText('Details',{selector:'summary'}).closest('details')).not.toHaveAttribute('open');
 });
