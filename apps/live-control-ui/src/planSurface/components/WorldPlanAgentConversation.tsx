@@ -4755,6 +4755,30 @@ export function WorldPlanAgentConversation({
       throw new Error('Reply details no longer match this saved message. Refresh the conversation before opening them again.');
     return page.turns[0];
   }
+  async function retrySavedPlanMessage(row: WorldAgentConversationHistoryTurn) {
+    const snapshot = messagePageRef.current ? messagePresentation(messagePageRef.current) : null;
+    const generation = historyGenerationRef.current, fence = askPresentationFenceKey;
+    if (isBuild || isReadOnly || !snapshot || !snapshot.turns.some(item => sameSavedMessage(item, row)))
+      throw new Error('This saved Plan question is no longer selected. Nothing was sent.');
+    const full = await readExactMessageTurn(snapshot, row);
+    const current = historySnapshotRef.current;
+    if (!latestRef.current.mounted || !surfaceVisibleRef.current || generation !== historyGenerationRef.current
+      || latestRef.current.presentationFenceKey !== fence || !current || !sameHistoryPointer(current, snapshot))
+      throw new Error('The Plan or conversation changed while checking this question. Nothing was sent.');
+    if (full.assistant_text || !['failed','interrupted'].includes(full.lifecycle_status)
+      || full.provenance.surface_id !== 'plan' || full.provenance.primary_work.object_id !== documentId)
+      throw new Error('This saved question is no longer retryable from this Plan. Nothing was sent.');
+    if (graphContextForTurn(full)?.receipt.assembled_input.assembler_version === 'reviewed_author_admission_v1')
+      throw new Error('Use “Try step again” in the saved reviewed plan to retain this step’s action. Nothing was sent.');
+    const references = full.authored_references ?? (full.retry_context?.schema === 'dmb_turn_retry_context_row_v2' ? full.retry_context.authored_references : null);
+    if (canonicalJson(references ?? null) !== canonicalJson(row.authored_references ?? null)
+      || references && references.schema !== 'dmb_authored_references_v2')
+      throw new Error('The saved question references could not be verified. Refresh the conversation. Nothing was sent.');
+    setRetryPresentationOrigin({scopeKey,turnId:full.turn_id});
+    await submit({preventDefault:()=>undefined}, 'discuss', full.user_text,
+      references?.schema === 'dmb_authored_references_v2' ? references : null, full.plan_requested_operation);
+  }
+
   async function inspectSavedMessage(row: WorldAgentConversationHistoryTurn, signal: AbortSignal) {
     const snapshot = messagePageRef.current ? messagePresentation(messagePageRef.current) : null, generation = historyGenerationRef.current;
     if (!snapshot || !snapshot.turns.some(item => sameSavedMessage(item, row))) throw new Error('This message is no longer selected.');
@@ -6391,6 +6415,11 @@ export function WorldPlanAgentConversation({
           <div className="world-plan-agent-conversation__reply-heading"><span className="world-plan-agent-conversation__speaker">Buddy</span></div>
           {pageSuggestion ? pageSuggestion.element : turn.assistant_text ? savedMessage?.citation_preview?.status === 'ready' ? <SavedCitationAnswer key={`${scopeKey}:${turn.turn_id}`} preview={savedMessage.citation_preview} answer={turn.assistant_text} worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : <WorldPlanAgentAnswer answer={turn.assistant_text}/> : <p>{turn.lifecycle_status === 'completed' ? 'Open Details to inspect this reply.' : turn.lifecycle_status === 'failed' || turn.lifecycle_status === 'interrupted' ? 'This reply did not finish.' : 'Waiting for this reply…'}</p>}
         </div>
+        {!historicalAttempt && !isBuild && !isReadOnly && !turn.assistant_text
+          && ['failed','interrupted'].includes(turn.lifecycle_status) && turn.provenance.surface_id === 'plan'
+          && turn.provenance.primary_work.object_id === documentId
+          && history?.active_conversation_id === history?.conversation_id
+          && <ConversationRecovery question={turn.user_text} blocked={composerBusy} onRetry={() => retrySavedPlanMessage(turn)}/>}
         <div className="world-plan-agent-conversation__turn-debug">{renderReplyDetails(turn, false, undefined, savedMessage?.citation_preview?.status === 'ready',
             savedMessage?.reply_object?.kind==='page_object'&&savedMessage.reply_object.object_kind==='connected_page'
               &&!isReadOnly&&scopeMatches&&history?.active_conversation_id===history?.conversation_id
