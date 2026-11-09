@@ -190,3 +190,12 @@ fixture. This corrects test prerequisites rather than relaxing production guards
 Actual valid uncapped envelopes expose a production RulesOnlyRuntime TypeError
 (integer estimate compared with None); these two cases remain legitimate failures,
 not candidates for finite-budget test overrides. No runtime write lease is assumed.
+
+
+Hosted merge-composition testing exposed a new guard's accidental assumption that
+0141 remained the latest head. Main #2290 merged0142 at7abfaccaccf63737a31a52e33c79a0df75e1b873;
+0142 correctly refuses before0141. Correct the new witness to clone a real pinned
+0141 template and invoke the actual CLI downgrade to0140 there. This preserves the
+specific production fence without another obsolete latest-head constant. Current
+head fixture guards remain dynamic/strict, and0142's own source/tests stay owned
+by its merged implementation. No rebase or production modification is needed.
