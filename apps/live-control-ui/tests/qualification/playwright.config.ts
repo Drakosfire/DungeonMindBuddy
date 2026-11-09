@@ -9,5 +9,5 @@ export default defineConfig({
   reporter: [["list"], ["junit", { outputFile: `${process.env.QUALIFICATION_OUTPUT}/junit.xml` }]],
   // Each witness records and retains its fresh context explicitly, including the
   // expected persistence failure. Runner tracing would start that context twice.
-  use: { baseURL: process.env.QUALIFICATION_BASE_URL, browserName: "chromium", trace: "off", screenshot: "only-on-failure" },
+  use: { baseURL: process.env.QUALIFICATION_BASE_URL, browserName: "chromium", trace: "off", screenshot: "only-on-failure", actionTimeout: 10_000 },
 });
