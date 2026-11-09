@@ -4,10 +4,15 @@ Status: ACTIVE. Root owns design and implementation under the retrieval goal.
 
 ## Slice and topology
 
-Serial slice based on `5c49a30f37b11ac3b5706f553f0505b3b9a571cb`, branch
+Serial slice based on `da00448bfd14e7809a2744435e1b03bc0feafaf2`, branch
 `codex/retrieval-work-context-reconstruction`, in the recorded-names-control
-checkout. PRIME owns merge and delivery. No stacked dependency on open #2268.
-Its Plan runtime paths were inspected; this slice does not edit them.
+checkout. PRIME owns merge and delivery. The final pre-branch fetch included
+merged #2268 at that base. Its Plan runtime paths were inspected; this slice
+does not edit them. This is a main-based successor, not an unmerged stack.
+The work-context owner is byte-identical between the previously inspected
+`5c49a30f37b11ac3b5706f553f0505b3b9a571cb` and the actual base, so the retained
+old-code comparison remains valid. The 139 owner tests ran on this actual base
+plus the bounded change, including the merged Plan additions.
 
 Expected write lease:
 
