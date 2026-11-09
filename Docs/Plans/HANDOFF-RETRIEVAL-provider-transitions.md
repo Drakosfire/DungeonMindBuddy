@@ -1,6 +1,6 @@
 # RETRIEVAL: one provider execution transition owner
 
-Status: ACTIVE. Root authors/adopts this bounded implementation under the active
+Status: MERGED / lease released. Root authored/adopted this bounded implementation under the active
 six-second retrieval goal. Base f6e174e40 (fetched main), isolated branch
 codex/retrieval-append-critical-path. Serial:2293 is closed/rejected; no open
 implementation predecessor. Checked2288 CI and surface/reference/ingestion lanes
@@ -114,3 +114,12 @@ unclassified. Rather than editing the active CI lane's shared classification
 contract, the same tests are consolidated into the existing classified native
 context suite, alongside its provider lifecycle fixtures. No product logic or
 assessment expectations change. The failed CI run is retained, not a pass.
+
+## Settled predecessor
+
+User explicitly approved2297; merged as5d63a5c742e60a3e5338847f3fecc02f12a9efc7.
+Delivery headb1608cb57 passed independent code/delivery review,92focused tests,
+677retained provider-prefix comparisons and all7CIchecks. Final broader suite
+213pass/9skip/21inherited failures was retained, not waived. No latency gain,
+APP cache or accepted native prefix claimed. The exclusive write lease is released;
+the consuming record-transition handoff owns this truthful settlement.

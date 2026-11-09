@@ -152,88 +152,9 @@ def validate_execution(receipt, execution):
 
 
 def validate_selected_record_events(query, execution):
-    """Shared native selected-record checks; source admission remains with Core."""
-    from . import types as t
-    from .native_plan_assertions import (NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1,
-        NativePlanAssertionReadObservedV1, selection_handle as assertion_handle)
-    from .native_plan_assertions import NativeGraphQueryV4, object_record_ids
-    statements = {m.statement_id: m for m in query.matches} if isinstance(query, NativePlanQueryV1) else {}
-    assertions = {m.assertion_id: m for m in query.assertion_matches} if isinstance(query, NativePlanQueryV2) else {}
-    provider = outcome = selection = None
-    grants, observations, attempted = {}, {}, set()
-    writer = False
-    pending_object_reads = set()
-    for event in execution.events:
-        if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
-            if pending_object_reads or (isinstance(query, NativeGraphQueryV4)
-                    and set(grants) != {e.authorization_event_id for e in observations.values()}):
-                raise ValueError('Native object selection must acquire and settle its complete record closure before another provider')
-            shared_writer = False
-            if event.kind in {"native_writer_authorized_v1", "native_build_writer_authorized_v2"}:
-                from .native_execution import NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
-                shared_writer = type(event) in NATIVE_WRITER_TYPES
-            if shared_writer or isinstance(event, t.PlanJevWriterAuthorizedV1):
-                if not shared_writer:
-                    expected = t.PlanNativeWriterAuthorizedV2 if isinstance(query, NativePlanQueryV2) else t.PlanNativeWriterAuthorizedV1
-                    if not isinstance(event, expected) or (not isinstance(query, NativePlanQueryV2) and isinstance(event, t.PlanNativeWriterAuthorizedV2)):
-                        raise ValueError('Native query Plan requires its own writer inclusion')
-                if set(grants) != {e.authorization_event_id for e in observations.values()}:
-                    raise ValueError('Native writer requires every selected read grant to be settled')
-                # The shared root closes one inclusion set across every native
-                # family; immutable Plan codecs retain their original lists.
-                families = [] if shared_writer else [(NativePlanStatementReadObservedV1, event.native_statement_read_event_ids)]
-                if not shared_writer and isinstance(query, NativePlanQueryV2):
-                    families.append((NativePlanAssertionReadObservedV1, event.native_assertion_read_event_ids))
-                for observed_type, included in families:
-                    if (len(included) != len(set(included))
-                            or set(included) != {e.event_id for e in observations.values() if isinstance(e, observed_type)}):
-                        raise ValueError('Native writer changed selected support exposure')
-                writer = True
-            provider, outcome, selection = event.provider_attempt_id, None, None
-        elif isinstance(event, t.ProviderOutcomeEventV1) and event.provider_attempt_id == provider:
-            outcome = event.outcome
-        elif isinstance(event, t.PlanJevRetrievalSelectionV1):
-            selection = event
-            if isinstance(query, NativeGraphQueryV4):
-                pending_object_reads = {(family, identity) for family in (False, True)
-                    for identity in object_record_ids(query, event.selected_handles, assertion=family,
-                        attempted=(i for f, i in attempted if f == family))}
-        elif isinstance(event, (NativePlanStatementReadAuthorizedV1, NativePlanAssertionReadAuthorizedV1)):
-            assertion = isinstance(event, NativePlanAssertionReadAuthorizedV1)
-            ids = event.assertion_ids if assertion else event.statement_ids
-            matches = assertions if assertion else statements
-            handle = assertion_handle if assertion else selection_handle
-            if isinstance(query, NativeGraphQueryV4) and selection is not None:
-                expected_ids = object_record_ids(query, selection.selected_handles,
-                    assertion=assertion, attempted=(i for family, i in attempted if family == assertion))
-                selected_closure = set(ids) == set(expected_ids)
-            else:
-                selected_closure = (selection is not None and
-                    {handle(query, matches[i]) for i in ids if i in matches} <= set(selection.selected_handles))
-            keys = {(assertion, identity) for identity in ids}
-            if (writer or outcome != 'response_received' or selection is None
-                    or selection.operation != 'select_candidates' or event.provider_attempt_id != provider
-                    or not isinstance(query, NativePlanQueryV1) or event.query_sha256 != query.sha256
-                    or not set(ids) <= set(matches) or attempted & keys
-                    or not selected_closure):
-                raise ValueError('Native selected read lacks its exact current controller/query grant')
-            grants[event.event_id] = event
-            attempted.update(keys)
-            pending_object_reads.difference_update(keys)
-        elif isinstance(event, (NativePlanStatementReadObservedV1, NativePlanAssertionReadObservedV1)):
-            grant = grants.get(event.authorization_event_id)
-            assertion = isinstance(event, NativePlanAssertionReadObservedV1)
-            expected = NativePlanAssertionReadAuthorizedV1 if assertion else NativePlanStatementReadAuthorizedV1
-            ids = {r.assertion.assertion_id for r in event.reads} if assertion else {r.support.statement_id for r in event.reads}
-            unavailable = event.unavailable_assertion_ids if assertion else event.unavailable_statement_ids
-            granted = set(grant.assertion_ids if assertion else grant.statement_ids) if isinstance(grant, expected) else None
-            if (writer or granted is None or grant.provider_attempt_id != provider or outcome != 'response_received'
-                    or any(e.authorization_event_id == grant.event_id for e in observations.values())
-                    or granted != ids | set(unavailable)):
-                raise ValueError('Native read observation differs from selected grant')
-            validate_record_reads(query.authority, event.reads,
-                assertions if assertion else statements, assertion=assertion)
-            observations[event.event_id] = event
+    """Recover selected-record state through its one transition owner."""
+    from .native_record_execution import validate
+    validate(query, execution)
 
 
 def validate_record_reads(authority, reads, matches, *, assertion):
