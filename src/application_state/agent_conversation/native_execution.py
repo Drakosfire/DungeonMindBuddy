@@ -493,12 +493,6 @@ def _join_turn_fields(receipt, execution, completion, assistant_text):
     validate_retained_completion(completion,receipt,execution,bindings[0].provider_attempt_id,bindings[0].claim_graph_event_ids)
 
 
-def validate_turn_identity(turn):
-    """Bind stored work to real Turn identity; no manufactured submission/Turn."""
-    validate_request_identity(turn.graph_context_receipt,turn.graph_context_execution,turn)
-    _join_turn_lifecycle(turn)
-
-
 def _join_turn_lifecycle(turn):
     if ((turn.status=='completed' and (turn.completion is None or turn.completed_at is None))
             or (turn.status!='completed' and turn.completion is not None)

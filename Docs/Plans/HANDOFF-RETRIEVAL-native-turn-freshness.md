@@ -51,3 +51,8 @@ checks deselected after reproducing both failures unchanged on parent.
 Local construction qualification and limits are pinned in
 retrieval-native-turn-freshness-v1/variant2-qualification.json under the retained
 artifact root. No end-to-end latency claim. Formal committed-diff review pending.
+
+Final obsolete-path audit removed validate_turn_identity: repository-wide source,
+application, script and test search found no remaining caller after Turn adoption.
+Its request and lifecycle predicates remain at the shared private owners; used
+public standalone wrappers remain defensive, not compatibility fallbacks.
