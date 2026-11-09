@@ -14,6 +14,7 @@ import {
   type LocalWorldPackageRepository,
   type RestoreLocalWorldPackageResult,
   type ReadLocalWorldPackageDataResult,
+  type ListLocalWorldsResult,
   type LocalWorldSnapshot,
   type ReadConflictCandidatesResult,
   type ReadWorldResult,
@@ -115,6 +116,14 @@ export class InMemoryLocalWorldRepository implements LocalWorldPackageRepository
     } catch (error) {
       return { status: "error", message: errorMessage(error) };
     }
+  }
+
+  async listWorlds(): Promise<ListLocalWorldsResult> {
+    try {
+      const records = [...this.store.worlds.values()].map((record) => cloneLocalWorldValue(record));
+      records.sort((left, right) => left.snapshot.title.localeCompare(right.snapshot.title) || left.snapshot.worldId.localeCompare(right.snapshot.worldId));
+      return { status: "found", records };
+    } catch (error) { return { status: "error", message: errorMessage(error) }; }
   }
 
   async restorePackage(recordInput: LocalWorldRecord, dataInput: LocalWorldPackageData): Promise<RestoreLocalWorldPackageResult> {

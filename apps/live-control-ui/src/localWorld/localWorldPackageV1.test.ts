@@ -103,6 +103,58 @@ describe("normalized local World package v1 core", () => {
     expect(parsed.candidate.manifest.historyCoverage).toMatchObject({ status: "included", entryCount: 2, completeness: "unknown" });
   });
 
+  it("re-exports a restored 2 MiB binary attachment using attachment limits, not the JSON member limit", async () => {
+    const repository = new InMemoryLocalWorldRepository();
+    const record = createPackageTestRecord();
+    const pathBytes = new Uint8Array(2 * 1024 * 1024);
+    for (let index = 0; index < pathBytes.length; index += 1) pathBytes[index] = index % 251;
+    const digest = await hash(pathBytes);
+    const path = `assets/${digest}`;
+    const data = {
+      localWorldId: record.snapshot.worldId,
+      documents: [],
+      assets: [{ id: "asset:large-restored", status: "bundled" as const, path, mediaType: "application/octet-stream", locator: null }],
+      bundledMembers: { [path]: Array.from(pathBytes) },
+      fidelity: { localRecord: "preserved" as const, sourceMetadata: "not-represented-by-local-record" as const, profileMetadata: "not-represented-by-local-record" as const },
+      creatorProfileAssumptions: { creator: "not-recorded" as const, profile: "not-recorded" as const },
+    };
+    expect((await repository.restorePackage(record, data)).status).toBe("restored");
+    const sidecar = await repository.readPackageData(record.snapshot.worldId);
+    expect(sidecar.status).toBe("found");
+    if (sidecar.status !== "found") return;
+
+    const encoded = await encodeLocalWorldPackageV1(record, sidecar.data);
+    expect(encoded.status).toBe("encoded");
+    if (encoded.status !== "encoded") return;
+    expect(encoded.members.get(path)?.byteLength).toBe(pathBytes.byteLength);
+    const parsed = await parseLocalWorldPackageV1(encoded.members);
+    expect(parsed.status).toBe("staged");
+    if (parsed.status !== "staged") return;
+    expect(parsed.candidate.assets).toEqual(data.assets);
+    expect(parsed.candidate.members.get(path)).toEqual(pathBytes);
+    expect(parsed.candidate.manifest.fidelity).toEqual(data.fidelity);
+    expect(parsed.candidate.manifest.creatorProfileAssumptions).toEqual(data.creatorProfileAssumptions);
+  }, 30_000);
+
+  it("refuses an attachment over its byte limit before cloning caller-owned data", async () => {
+    const record = createPackageTestRecord();
+    const path = `documents/${"a".repeat(32)}.bin`;
+    const sidecar = {
+      localWorldId: record.snapshot.worldId,
+      documents: [{ id: "doc:oversized", status: "bundled" as const, path, mediaType: "application/octet-stream", locator: null }],
+      assets: [],
+      bundledMembers: { [path]: new Array(LOCAL_WORLD_PACKAGE_V1.limits.attachmentBytes + 1) },
+      fidelity: { localRecord: "preserved" as const, sourceMetadata: "not-represented-by-local-record" as const, profileMetadata: "not-represented-by-local-record" as const },
+      creatorProfileAssumptions: { creator: "not-recorded" as const, profile: "not-recorded" as const },
+    };
+    const clone = vi.spyOn(globalThis, "structuredClone");
+    const result = await encodeLocalWorldPackageV1(record, sidecar);
+    expect(result.status).toBe("error");
+    if (result.status === "error") expect(result.code).toBe("limit-exceeded");
+    expect(clone).not.toHaveBeenCalled();
+    clone.mockRestore();
+  });
+
   it("declares empty history as omitted without claiming complete provenance", async () => {
     const record = createPackageTestRecord();
     record.history = [];

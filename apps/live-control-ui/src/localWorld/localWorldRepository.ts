@@ -167,9 +167,14 @@ export type ReadLocalWorldPackageDataResult =
 
 /** Optional package restore capability; ordinary editor consumers remain on LocalWorldRepository. */
 export interface LocalWorldPackageRepository extends LocalWorldRepository {
+  listWorlds(): Promise<ListLocalWorldsResult>;
   restorePackage(record: LocalWorldRecord, data: LocalWorldPackageData): Promise<RestoreLocalWorldPackageResult>;
   readPackageData(worldId: LocalWorldId): Promise<ReadLocalWorldPackageDataResult>;
 }
+
+export type ListLocalWorldsResult =
+  | { readonly status: "found"; readonly records: readonly LocalWorldRecord[] }
+  | { readonly status: "error"; readonly message: string };
 
 export function validateLocalWorldPackageData(data: LocalWorldPackageData, expectedWorldId: LocalWorldId): string | null {
   if (data.localWorldId !== expectedWorldId) return "Package data belongs to another local World.";
@@ -182,6 +187,7 @@ export function validateLocalWorldPackageData(data: LocalWorldPackageData, expec
   }
   const refs = [data.documents, data.assets];
   const bundledPaths = new Set<string>();
+  const pathMediaTypes = new Map<string, string>();
   for (const [groupIndex, group] of refs.entries()) {
     if (!Array.isArray(group)) return "Package attachment references must be arrays.";
     const ids = new Set<string>();
@@ -198,6 +204,9 @@ export function validateLocalWorldPackageData(data: LocalWorldPackageData, expec
           return "Bundled attachment path is unsafe or outside its declared namespace.";
         }
         bundledPaths.add(ref.path);
+        const priorMediaType = pathMediaTypes.get(ref.path);
+        if (priorMediaType !== undefined && priorMediaType !== ref.mediaType) return "References sharing a bundled path must agree on media type.";
+        pathMediaTypes.set(ref.path, ref.mediaType);
       } else if (ref.path !== null) return "External or missing attachments cannot claim bundled member paths.";
     }
   }
