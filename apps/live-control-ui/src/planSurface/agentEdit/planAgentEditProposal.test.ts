@@ -1435,3 +1435,16 @@ it('restores an under-heading proposal and applies inside the section while pres
   expect(tiptapJsonToSemanticMarkdown(reloaded.getJSON())).toBe(tiptapJsonToSemanticMarkdown(editor.getJSON()));
   expect(prepared.afterMarkdown).toContain('id=beat:opening');
 });
+
+
+it.each(["ordinary-link", "hard-break"] as const)("refuses %s in actual V1 playable edit capture without mutating the draft", async kind => {
+  const body = kind === "ordinary-link" ? "[Web source](https://example.test/source)" : "Line one  \nLine two";
+  const markdown = `<!-- dmb-playable-element:v1 kind=scene id=scene:chosen -->\n## Chosen\n${body}\n`;
+  const {editor, state} = mountedState(markdown);
+  const before = editor.getJSON();
+  const selection = editor.state.selection.toJSON();
+  await expect(captureWorldPlanEditTarget({...worldState(state), playableTarget:{kind:"scene",id:"scene:chosen"}})).rejects.toThrow(/not supported by .*edit proposals/);
+  expect(editor.getJSON()).toEqual(before);
+  expect(editor.state.selection.toJSON()).toEqual(selection);
+  expect(state.sourceMarkdown).toBe(markdown);
+});

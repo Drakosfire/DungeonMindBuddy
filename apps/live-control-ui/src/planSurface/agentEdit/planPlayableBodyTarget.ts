@@ -174,7 +174,15 @@ function schemaDocument(editor: Editor, document: JSONContent): JSONContent {
   }
 }
 
+function containsNode(nodes: JSONContent[], matches: (node: JSONContent) => boolean): boolean {
+  return nodes.some(node => matches(node) || containsNode(node.content ?? [], matches));
+}
+
 function bodyMarkdownFor(editor: Editor, content: JSONContent[]): string {
+  // The editor can preserve more syntax than the closed edit codec V1 accepts.
+  if (containsNode(content, node => node.type === "hardBreak")) {
+    throw new PlayableBodyTargetError("Hard line breaks in this card body are not supported by edit proposals. The draft was kept.");
+  }
   const fragment = { type: "doc", content };
   if (semanticMarkdownSerializationDiagnostics(fragment).length || playableSerializationFailures(fragment).length) {
     throw new PlayableBodyTargetError("This card body contains content that cannot be represented safely in Markdown.");
@@ -281,6 +289,10 @@ export async function resolvePlayableBodyTarget(
     throw new PlayableBodyTargetError("The selected card identity is malformed. Select the card again.");
   }
   const document = editor.getJSON();
+  // Server V1 checks ordinary links over the whole submitted draft, not just the target.
+  if (containsNode([document], node => Boolean(node.marks?.some(mark => mark.type === "link")))) {
+    throw new PlayableBodyTargetError("Web links in this Plan are not supported by card edit proposals. The draft was kept.");
+  }
   if (semanticMarkdownSerializationDiagnostics(document).length || playableSerializationFailures(document).length) {
     throw new PlayableBodyTargetError("This Plan contains malformed or unsupported Playable content. Resolve it before proposing a card edit.");
   }
