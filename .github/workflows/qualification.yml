@@ -137,5 +137,5 @@ jobs:
     steps:
       - name: Qualification owner and fail-closed aggregate
         run: |
-          echo 'Failure owner: CI qualification coordinator. Any failure suspends selective rollout.'
+          echo 'Failure owner: Drakosfire (Buddy CI coordinator). Any failure suspends selective rollout.'
           test "$SOURCE" = success && test "$FULL" = success && test "$IMAGE" = success

@@ -43,6 +43,18 @@ def test_clean_source_required_before_full_qualification():
         instance.boot(image_only=False)
 
 
+def test_insufficient_docker_storage_stops_before_build_or_resource_allocation(monkeypatch):
+    instance = object.__new__(probe.Probe)
+    instance.dirty = False
+    instance.report = {}
+    calls = []
+    instance.docker = lambda *args: (calls.append(args) or SimpleNamespace(stdout="/docker-root\n"))
+    monkeypatch.setattr(probe.shutil, "disk_usage", lambda path: SimpleNamespace(free=1))
+    with pytest.raises(probe.QualificationFailure, match="less than 8 GiB"):
+        instance.boot(image_only=True)
+    assert calls == [("info", "--format", "{{.DockerRootDir}}")]
+
+
 @pytest.mark.parametrize("failed_cleanup", [False, True])
 def test_process_failure_or_cleanup_failure_cannot_publish_qualified(tmp_path, monkeypatch, failed_cleanup):
     class FakeProbe:
@@ -74,6 +86,8 @@ def test_cleanup_uses_only_explicit_owned_names_and_retains_logs(tmp_path):
     instance.prefix = "dmb-qualification-test-owned"
     instance.containers = [instance.prefix + "-api", instance.prefix + "-db"]
     instance.network, instance.volume = instance.prefix + "-network", instance.prefix + "-state"
+    instance.postgres_volume = instance.prefix + "-postgres-data"
+    instance.postgres_volume_created = True
     instance.network_created = instance.volume_created = True
     instance.report = {"cleanup": {}}
     calls = []
@@ -88,6 +102,8 @@ def test_cleanup_uses_only_explicit_owned_names_and_retains_logs(tmp_path):
     assert not any("prune" in args for args in calls)
     assert len(list(tmp_path.glob("*.log"))) == 2
     assert all(instance.report["cleanup"].values())
+    assert ("volume", "rm", instance.postgres_volume) in calls
+    assert all(("rm", "--force", "--volumes", name) in calls for name in instance.containers)
 
 
 def test_canonical_core_migrations_are_selected_by_installed_pin(monkeypatch, tmp_path):

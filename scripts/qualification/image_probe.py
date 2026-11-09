@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import shutil
 import subprocess
 import time
 import urllib.error
@@ -54,9 +55,11 @@ class Probe:
         self.prefix = f"dmb-qualification-{self.sha[:10]}-{secrets.token_hex(4)}"
         self.network = self.prefix + "-network"
         self.volume = self.prefix + "-state"
+        self.postgres_volume = self.prefix + "-postgres-data"
         self.containers: list[str] = []
         self.network_created = self.volume_created = False
-        self.report = {"owner": "CI qualification coordinator", "source_sha": self.sha, "dirty_worktree": self.dirty, "qualified": False,
+        self.postgres_volume_created = False
+        self.report = {"owner": "Drakosfire (Buddy CI coordinator)", "source_sha": self.sha, "dirty_worktree": self.dirty, "qualified": False,
                        "resource_prefix": self.prefix, "checks": {}, "cleanup": {}}
         self.sequence = 0
 
@@ -110,6 +113,10 @@ class Probe:
         from scripts.qualification.bootstrap_core import prepare_checkout
 
         require(image_only or not self.dirty, "full qualification requires a clean committed source")
+        docker_root = self.docker("info", "--format", "{{.DockerRootDir}}").stdout.strip()
+        free = shutil.disk_usage(docker_root).free
+        self.report["docker_storage"] = {"root": docker_root, "free_bytes_before": free}
+        require(free >= 8 * 1024**3, "Docker storage has less than 8 GiB free; no build/resources allocated")
 
         self.docker("buildx", "build", "--no-cache", "--file", "Dockerfile.production", "--label",
                     f"org.opencontainers.image.revision={self.sha}", "--tag", self.prefix, "--load", "--progress", "plain", ".")
@@ -121,9 +128,16 @@ class Probe:
         self.network_created = True
         self.docker("volume", "create", self.volume)
         self.volume_created = True
+        self.docker("volume", "create", self.postgres_volume)
+        self.postgres_volume_created = True
+        self.report["postgres_data_volume"] = self.postgres_volume
         password = secrets.token_hex(20)
         database = self.start("postgres", "--network", self.network, "--network-alias", "qualification-db",
+                              "--volume", f"{self.postgres_volume}:/var/lib/postgresql/data",
                               "--env", "POSTGRES_USER=qualification_admin", "--env", f"POSTGRES_PASSWORD={password}", POSTGRES_IMAGE)
+        mounts = json.loads(self.docker("container", "inspect", database).stdout)[0]["Mounts"]
+        require(any(m.get("Name") == self.postgres_volume and m["Destination"] == "/var/lib/postgresql/data" for m in mounts),
+                "PostgreSQL data must use the explicitly owned volume")
         for _ in range(60):
             ready = self.docker("exec", database, "pg_isready", "-U", "qualification_admin", check=False)
             if ready.returncode == 0:
@@ -223,15 +237,17 @@ class Probe:
     def cleanup(self) -> None:
         for name in reversed(self.containers):
             exists = self.docker("container", "inspect", name, check=False)
-            if exists.returncode and "No such container" in exists.stderr:
+            if exists.returncode and any(message in exists.stderr.lower() for message in ("no such container", "no such object")):
                 self.report["cleanup"][name] = True
                 continue
             logs = self.docker("logs", name, check=False)
             (self.output / (name + ".log")).write_text(logs.stdout + logs.stderr)
-            removed = self.docker("rm", "--force", name, check=False)
+            removed = self.docker("rm", "--force", "--volumes", name, check=False)
             self.report["cleanup"][name] = removed.returncode == 0
-        for kind, name in (("volume", self.volume), ("network", self.network)):
-            if not getattr(self, kind + "_created"):
+        for kind, name, created in (("volume", self.postgres_volume, self.postgres_volume_created),
+                                    ("volume", self.volume, self.volume_created),
+                                    ("network", self.network, self.network_created)):
+            if not created:
                 continue
             result = self.docker(kind, "rm", name, check=False)
             self.report["cleanup"][name] = result.returncode == 0

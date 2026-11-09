@@ -66,3 +66,16 @@ disposition; it has not been applied. No startup/health/browser success is claim
 and no missing-code mount, local-mode substitution or test exclusion is permitted.
 Graph witness also requires real-main integration of#2276. The qualification lane
 remains red/blocked until actual positive and negative boundaries pass.
+
+## Review correction and infrastructure limit
+
+Review cycle1 requested changes at31a89de7eacbcf636a0448adfc54852dc5b0f061:
+PostgreSQL's image declared a data VOLUME and initial cleanup left it anonymous.
+The correction explicitly creates/mounts/tracks/removes its named data volume and
+uses --volumes only when removing exact task-owned containers. Real Docker create/
+inspect/remove proof verifies the mount and absence of remaining owned resources.
+Root disk filled during local build-cache allocation; verified task-only cache IDs
+and one exactly traced leaked volume were cleaned, without global prune or changes
+to shared data. Added8GiB headroom refusal before any build/resources. Local full
+image verification is stopped until infrastructure/packaging scope is resolved.
+No false qualification success; all runtime acceptance gates remain outstanding.

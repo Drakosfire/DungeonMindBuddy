@@ -120,7 +120,17 @@ The first real image diagnostic caught a packaging defect: .dockerignore's
 **/corpus/ rule excludes executable src/corpus, so uvicorn import exits with
 ModuleNotFoundError: No module named src.corpus. The startup negative-control
 probe correctly refused to call this unrelated crash a successful fault injection.
-All allocated task containers/network/volume/image tag were removed. Production
+Named resources were removed, but independent review later identified an implicit
+PostgreSQL anonymous data-volume leak. The harness now mounts and removes an
+explicitly named data volume and removes anonymous volumes only with each exact
+owned container. A real never-started-container mount/teardown proof verifies the
+Docker boundary. One exact-head leaked volume was traced from retained inspect
+records and removed; an earlier untraced anonymous-volume candidate remains a
+cleanup follow-up rather than grounds for deleting unowned data. Local builds
+filled root-disk cache; exact unused/unshared task-cache records were reclaimed
+(approximately2.93GB), restoring about3GB normal-user headroom. A new8GiB Docker
+headroom check stops before build/resource allocation. Further local image builds
+remain stopped; no global prune, mount or daemon configuration changed. Production
 startup, readiness and browser qualification are NOT green. A source-only
 src/corpus packaging inclusion needs explicit coordinator write-lease ownership
 before editing .dockerignore; do not mount missing code or switch to a dev image
