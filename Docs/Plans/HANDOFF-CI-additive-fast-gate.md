@@ -101,3 +101,16 @@ acceptance. The only semantic difference between positive and negative fixtures
 remains the World in the evidence URL. Add an assertion that the actual limit1,
 beforeSequence2,includeTurnCorrelation full-detail read occurs. Exact9d baseline:
 0pass2fail4.29s. Candidate with prior21controls:23pass3.62s; full module pending.
+
+### Shared lightweight-message mock repair
+
+Extend this file's fixture-only lease to its conversationLibraryApi mock. The
+mock currently drops both AbortSignal and before-sequence paging from the actual
+readActiveConversationMessages contract, and omits readConversationMessages used
+by the archive's released lightweight reader. Forward limit50/beforeSequence/signal
+to the existing synthetic history producer; supply the same archived saved text
+through the current messages envelope. Keep every test body/assertion unchanged.
+This is one shared fixture contract repair; do not seed retry input, invent saved
+citation previews, hydrate full details automatically or relax receipt checks.
+Existing API validator/ConversationLibrary unit controls remain actual product
+boundary evidence. Main/active lanes re-anchored; no additional product writes.
