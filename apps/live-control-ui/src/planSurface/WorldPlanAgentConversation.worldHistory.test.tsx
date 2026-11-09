@@ -6403,3 +6403,45 @@ it('keeps the saved Plan review, text and unsent draft when its exact read fails
  expect(screen.getByRole('button',{name:'Review new page'})).toBeEnabled();
  expect(screen.getByText('Details',{selector:'summary'}).closest('details')).not.toHaveAttribute('open');
 });
+
+
+it.each([undefined,'discuss','write_current_page'] as const)('retries a lightweight failed Plan only after exact inspection with its saved references and operation %s',async operation=>{
+ const ref={schema:'dmb_authored_graph_reference_v1' as const,managed_world_id:worldId,native_world_id:'native',binding_version:1,graph_revision:'pinned',node_id:'original-node',label:'Original selection'};
+ const references={schema:'dmb_authored_references_v2' as const,references:[ref]};
+ const failed={...makeTurn(1,'light-retry','Original Plan question',null),lifecycle_status:'interrupted' as const,authored_references:references,...(operation?{plan_requested_operation:operation}:{})};
+ const api=setupApi(history('conversation-a',4,[failed]),false);
+ const pending=deferred<never>(),post=vi.spyOn(liveApi,'postWorldPlanAgentTurn').mockReturnValue(pending.promise);
+ render(conversationElement());await waitForConversationReady(false);
+ const retry=screen.getByRole('button',{name:'Retry question'});
+ expect(api.getHistory).not.toHaveBeenCalled();expect(post).not.toHaveBeenCalled();
+ fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'My newer independent draft'}});
+ fireEvent.click(retry);await waitFor(()=>expect(post).toHaveBeenCalledTimes(1));
+ const request=post.mock.calls[0][0];expect(request.message).toBe('Original Plan question');expect(request.authored_references).toEqual(references);expect(request.plan_requested_operation).toBe(operation);
+ expect(api.getHistory).toHaveBeenCalledExactlyOnceWith(worldId,expect.objectContaining({limit:1,beforeSequence:2,includeTurnCorrelation:true}));
+ expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('My newer independent draft');
+ expect(screen.getByText('Details',{selector:'summary'}).closest('details')).not.toHaveAttribute('open');
+});
+
+it.each(['read-failure','foreign-pointer','changed-references','changed-editor'] as const)('keeps a lightweight Plan retry unsent after %s',async failure=>{
+ const failed={...makeTurn(1,'guarded-light-retry','Retained question',null),lifecycle_status:'failed' as const};
+ const page=history('conversation-a',4,[failed]),api=setupApi(page,false);
+ const post=vi.spyOn(liveApi,'postWorldPlanAgentTurn');
+ const gate=deferred<WorldAgentConversationHistoryResponse>();
+ if(failure==='read-failure')api.getHistory.mockRejectedValue(new Error('Exact original unavailable'));
+ const view=render(conversationElement());await waitForConversationReady(false);
+ // Keep the display copy fixed while the deliberate exact read returns the changed owner.
+ if(failure==='foreign-pointer'||failure==='changed-references')api.getMessages.mockResolvedValue(api.messages(page));
+ if(failure==='foreign-pointer')api.setCurrent(history('conversation-b',5,[failed]));
+ if(failure==='changed-references')api.setCurrent(history('conversation-a',4,[{...failed,authored_references:{schema:'dmb_authored_references_v2',references:[{schema:'dmb_authored_graph_reference_v1',managed_world_id:worldId,native_world_id:'native',binding_version:1,graph_revision:'pinned',node_id:'invented-node',label:'Changed input'}]}}]));
+ if(failure==='changed-editor')api.getHistory.mockReturnValue(gate.promise);
+ fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'Keep this newer draft'}});
+ fireEvent.click(screen.getByRole('button',{name:'Retry question'}));
+ if(failure==='changed-editor'){
+  await waitFor(()=>expect(api.getHistory).toHaveBeenCalledTimes(1));
+  view.rerender(conversationElement({revision:8}));
+  gate.resolve({...page,schema:'dmb_agent_conversation_history_v3',turns:page.turns.map(row=>({...row,idempotency_key:'00000000-0000-4000-8000-000000000099'}))});
+ }
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Retry question'})).toHaveAttribute('aria-busy','false'));
+ expect(post).not.toHaveBeenCalled();expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep this newer draft');
+ if(failure!=='changed-editor')expect(screen.getByRole('alert')).toBeInTheDocument();
+});
