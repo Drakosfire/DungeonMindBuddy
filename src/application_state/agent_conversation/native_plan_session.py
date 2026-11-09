@@ -18,7 +18,7 @@ from application_state.errors import ApplicationStateConflictError, ApplicationS
 from application_state.unit_of_work import unit_of_work
 from . import repository as repo
 from .native_execution import (
-    NativePlanActionV2, NativePlanRequestedWorkSelectedV3, SurfaceNativeEvent,
+    NativePlanActionV2, NATIVE_PLAN_WORK_SELECTION_TYPES, SurfaceNativeEvent,
     SurfaceNativeExecutionV1, _join_turn_fields, _join_turn_lifecycle,
     _validate_owned_context_binding,
 )
@@ -36,6 +36,7 @@ class PlanSessionCommand(str, Enum):
     DIRECT_OBSERVATION = 'observe_native_direct_source'
     BODY_SEARCH_GRANT = 'authorize_native_body_search'
     INITIAL_SEARCH_GRANT = 'authorize_initial_native_source_search'
+    REQUEST_SEARCH_GRANT = 'authorize_native_plan_request_search'
     BODY_SEARCH_OBSERVATION = 'observe_native_body_search'
     BODY_GRANT = 'authorize_native_body_read'
     BODY_OBSERVATION = 'observe_native_body_read'
@@ -63,7 +64,7 @@ def eligible(turn):
     return (type(execution) is SurfaceNativeExecutionV1
         and type(execution.policy.action) is NativePlanActionV2
         and turn.status == 'running'
-        and len(choices) == 1 and type(choices[0]) is NativePlanRequestedWorkSelectedV3
+        and len(choices) == 1 and type(choices[0]) in NATIVE_PLAN_WORK_SELECTION_TYPES
         and choices[0].requested_work in {'discuss', 'clarify'})
 
 

@@ -262,7 +262,7 @@ def test_support_materialization_does_not_authorize_a_later_changed_assertion(la
 
 
 def _ordinary_native_case(
-        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None, extra_name=None, related_page=False, connected_review=False, connected_mutation=None, prospective=False):
+        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None, extra_name=None, related_page=False, connected_review=False, connected_mutation=None, prospective=False, opening_accounting_probe=False):
     import httpx2
     from hashlib import sha256
     from fastapi import FastAPI
@@ -276,6 +276,59 @@ def _ordinary_native_case(
     from tests.test_plan_jev_writer import WriterWire
     from application_state.agent_conversation import AgentConversationService, types as t
     from application_state.agent_conversation.native_execution import NativeWriterAuthorizedV1
+    opening_dispatches = []
+    if plan_operation is not None:
+        from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
+        requested_work = PlanJevDispatch.requested_work
+        def retain_opening(cls, *args, **kwargs):
+            dispatch = requested_work(*args, **kwargs)
+            opening_dispatches.append(dispatch)
+            return dispatch
+        monkeypatch.setattr(PlanJevDispatch, 'requested_work', classmethod(retain_opening))
+    opening_accounting_checked = []
+    opening_entry_checked = []
+    if opening_accounting_probe:
+        from application_state.agent_conversation import plan_jev_decision
+        from application_state.agent_conversation.native_retrieval import NativePlanOpeningAuthorizedV1
+        verify_input_records = plan_jev_decision.verify_input_records
+        def verify_accounting(receipt, execution, auth, proof, **kwargs):
+            if type(auth) is NativePlanOpeningAuthorizedV1:
+                for changed in ({'input_tokens': 1}, {'input_accounting_kind': 'exact_token_count'}):
+                    with pytest.raises(ValueError, match='Opening SDK accounting'):
+                        verify_input_records(receipt, execution, auth.model_copy(update=changed), proof, **kwargs)
+                opening_accounting_checked.append(auth.provider_attempt_id)
+            return verify_input_records(receipt, execution, auth, proof, **kwargs)
+        monkeypatch.setattr(plan_jev_decision, 'verify_input_records', verify_accounting)
+        original_outcome = AgentConversationService.record_provider_outcome
+        def guarded_entry(service, world_id, conversation_id, turn_id, **kwargs):
+            expected = kwargs.get('opening_authorization')
+            if expected is not None:
+                import psycopg
+                from psycopg.types.json import Jsonb
+                from application_state.agent_conversation.service import _ready_dsn
+                from application_state.errors import ApplicationStateValidationError
+                current = service.inspect_turn(world_id=world_id, turn_id=turn_id)
+                index = next(i for i, e in enumerate(current.graph_context_execution.events)
+                    if e.event_id == expected.event_id)
+                for field, changed in (('input_tokens', 1), ('envelope_sha256', 'f' * 64)):
+                    path = ['events', str(index), field]
+                    try:
+                        with psycopg.connect(_ready_dsn()) as conn:
+                            conn.execute('UPDATE agent.turn SET graph_context_execution=jsonb_set(graph_context_execution,%s,%s) WHERE turn_id=%s',
+                                (path, Jsonb(changed), turn_id))
+                        with pytest.raises(ApplicationStateValidationError, match='Opening SDK entry'):
+                            original_outcome(service, world_id, conversation_id, turn_id, **kwargs)
+                    finally:
+                        with psycopg.connect(_ready_dsn()) as conn:
+                            conn.execute('UPDATE agent.turn SET graph_context_execution=jsonb_set(graph_context_execution,%s,%s) WHERE turn_id=%s',
+                                (path, Jsonb(getattr(expected, field)), turn_id))
+                missing = dict(kwargs)
+                missing.pop('opening_authorization')
+                with pytest.raises(ApplicationStateValidationError, match='Opening SDK entry'):
+                    original_outcome(service, world_id, conversation_id, turn_id, **missing)
+                opening_entry_checked.append(expected.event_id)
+            return original_outcome(service, world_id, conversation_id, turn_id, **kwargs)
+        monkeypatch.setattr(AgentConversationService, 'record_provider_outcome', guarded_entry)
     if advancement == 'extension':
         select_extension_support(lane)
     publish(lane, qualified=qualified, extra_name=extra_name)
@@ -373,8 +426,12 @@ def _ordinary_native_case(
     if unavailable:
         monkeypatch.setattr(native_reads,'open_admitted_native_text',lambda *_:SimpleNamespace(status='unavailable'))
     seen_name_requests=[]
+    decision_requests=[]
     class Decisions(httpx2.AsyncBaseTransport):
         async def handle_async_request(self, req):
+            decision_requests.append(req)
+            if failure == 'opening_timeout':
+                raise httpx2.ReadTimeout('synthetic opening response unknown', request=req)
             body=json.loads(req.content)
             candidates=body.get('state',{}).get('candidates',[])
             if extra_name is not None and any(c['kind'].startswith('Native Graph object') for c in candidates):
@@ -588,6 +645,19 @@ def _ordinary_native_case(
             return
         failed=AgentConversationService().inspect_turn(world_id=world,turn_id=wire.adapter.turn.turn_id)
         assert failed.status=='interrupted' and failed.completion is None
+        if failure == 'opening_timeout':
+            from application_state.agent_conversation.native_retrieval import NativePlanOpeningAuthorizedV1
+            from application_state.agent_conversation.native_execution import NativePlanOpeningSelectedV1
+            events = failed.graph_context_execution.events
+            assert len(decision_requests) == 1 and not wire.calls
+            assert len([e for e in events if type(e) is NativePlanOpeningAuthorizedV1]) == 1
+            assert not any(type(e) in (NativePlanOpeningSelectedV1, NativeWriterAuthorizedV1) for e in events)
+            replay = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
+            assert replay.status_code == 409
+            assert len(decision_requests) == 1 and not wire.calls
+            assert AgentConversationService().inspect_turn(world_id=world, turn_id=failed.turn_id) == failed
+            assert lane.repo.get_head(world) == original_head
+            return
         writer=next(e for e in failed.graph_context_execution.events if type(e) is NativeWriterAuthorizedV1)
         assert not any(type(e) is t.ProviderOutcomeEventV1 and e.provider_attempt_id==writer.provider_attempt_id
             and e.outcome=='response_received' for e in failed.graph_context_execution.events)
@@ -606,6 +676,9 @@ def _ordinary_native_case(
         assert lane.repo.get_head(world)==original_head
         return
     assert response.status_code==200,response.text+getattr(wire,'failure','')
+    if opening_accounting_probe:
+        assert opening_accounting_checked
+        assert len(opening_entry_checked) == 1
     assert authored_source=='source_only' or opened_with_grant
     assert authored or native_read_admission_probes
     data=response.json()
@@ -690,6 +763,28 @@ def _ordinary_native_case(
     retained=AgentConversationService().inspect_turn(world_id=world,turn_id=wire.adapter.turn.turn_id)
     turn=retained.base_projection.turn if mixed else retained
     assert type(turn.completion) is t.SurfaceNativeCompletionV1
+    from application_state.agent_conversation.native_context import NativePlanRequestAdmissionV1
+    from application_state.agent_conversation.native_execution import NativePlanOpeningSelectedV1
+    from application_state.agent_conversation.native_retrieval import NativePlanOpeningAuthorizedV1
+    from application_state.agent_conversation.native_corpus import NativePlanRequestSearchAuthorizedV1, NativeBodySearchObservedV1
+    assert type(turn.graph_context_receipt.assembled_input) is NativePlanRequestAdmissionV1
+    opening_auths = [e for e in turn.graph_context_execution.events if type(e) is NativePlanOpeningAuthorizedV1]
+    opening_choices = [e for e in turn.graph_context_execution.events if type(e) is NativePlanOpeningSelectedV1]
+    assert len(opening_auths) == len(opening_choices) == 1
+    assert opening_auths[0].provider_attempt_id == opening_choices[0].controller_attempt_id
+    request_grants = [e for e in turn.graph_context_execution.events if type(e) is NativePlanRequestSearchAuthorizedV1]
+    assert len(request_grants) == 1
+    grant = request_grants[0]
+    search = next(e for e in turn.graph_context_execution.events if type(e) is NativeBodySearchObservedV1
+        and e.authorization_event_id == grant.event_id)
+    assert grant.sequence < search.sequence < opening_auths[0].sequence < opening_choices[0].sequence
+    assert grant.request_manifest_sha256 == turn.graph_context_receipt.assembled_input.manifest_sha256
+    if selected_references is not None:
+        assert turn.graph_context_execution.events[0].kind == 'build_authored_references_captured_v1'
+    if authoring:
+        assert opening_choices[0].operation is None
+        assert opening_choices[0].selected_handles == []
+        assert opening_choices[0].post_read_plan is None
     if related_page:
         from application_state.agent_conversation.build_related_pages import RelatedPageRead
         from application_state.agent_conversation.native_execution import NativePlanActionV2
@@ -726,15 +821,26 @@ def _ordinary_native_case(
         frozen=json.loads((Path(__file__).parent/'fixtures/plan_requested_work_v2_wire.json').read_text())
         auth=next(e for e in turn.graph_context_execution.events if isinstance(e,t.PlanRequestedWorkAuthorizedV2))
         refs=selected_references.model_dump(mode='json',by_alias=True) if selected_references else None
-        for altered in (
-                frozen['parent'] | {'schema':'dmb_plan_requested_work_input_v5','authored_references':refs,
-                    'plan_requested_operation':'discuss' if plan_operation=='write_current_page' else 'write_current_page'},
-                frozen['parent'] | ({'schema':'dmb_plan_requested_work_input_v4','authored_references':refs}
-                    if refs else {'schema':'dmb_plan_requested_work_input_v3'})):
-            with pytest.raises(ValueError,match='explicit author operation'):
+        actual_parent = opening_dispatches[0].parent
+        actual_proof = dict(parent_request_json=actual_parent.model_dump_json(by_alias=True),
+            request_json=opening_dispatches[0].prepared.body.decode())
+        verify_input_records(turn.graph_context_receipt, turn.graph_context_execution, auth, actual_proof,
+            question=turn.user_text, scope_sha256=actual_parent.scope_sha256)
+        actual_wire = actual_parent.model_dump(mode='json', by_alias=True)
+        missing_operation = dict(actual_wire)
+        missing_operation.pop('plan_requested_operation')
+        for altered, reason in (
+                (actual_wire | {'plan_requested_operation':
+                    'discuss' if plan_operation=='write_current_page' else 'write_current_page'}, 'explicit author operation'),
+                (missing_operation, 'explicit author operation'),
+                (frozen['parent'] | {'schema':'dmb_plan_requested_work_input_v5','authored_references':refs,
+                    'plan_requested_operation': plan_operation}, 'combined SDK producer'),
+                (frozen['parent'] | ({'schema':'dmb_plan_requested_work_input_v4','authored_references':refs}
+                    if refs else {'schema':'dmb_plan_requested_work_input_v3'}), 'combined SDK producer')):
+            with pytest.raises(ValueError,match=reason):
                 verify_input_records(turn.graph_context_receipt,turn.graph_context_execution,auth,
-                    {'parent_request_json':json.dumps(altered),'request_json':'{}'},
-                    question=turn.user_text,scope_sha256='0'*64)
+                    actual_proof | {'parent_request_json':json.dumps(altered)},
+                    question=turn.user_text,scope_sha256=actual_parent.scope_sha256)
     if authored_source:
         reads=[e for e in turn.graph_context_execution.events if isinstance(e,t.NativeAuthoredSourceReadV1)]
         assert len(reads)==1 and reads[0].catalog.source.revision.source_revision_id==source_ref.source_revision_id
@@ -1208,3 +1314,15 @@ def test_prospective_batch_reaches_ordinary_writer_frontier_without_synthetic_fi
         lane, tmp_path, monkeypatch, unavailable, native_read_admission_probes):
     _ordinary_native_case(lane, tmp_path, monkeypatch, False, unavailable,
         None, None, False, native_read_admission_probes, prospective=True)
+
+
+def test_opening_app_proof_rejects_forged_accounting_with_unchanged_actual_sdk_bytes(
+        lane, tmp_path, monkeypatch, native_read_admission_probes):
+    _ordinary_native_case(lane, tmp_path, monkeypatch, False, False,
+        None, None, False, native_read_admission_probes, prospective=True, opening_accounting_probe=True)
+
+
+def test_interrupted_actual_opening_retains_unknown_attempt_without_provider_replay(
+        lane, tmp_path, monkeypatch, native_read_admission_probes):
+    _ordinary_native_case(lane, tmp_path, monkeypatch, False, False,
+        None, 'opening_timeout', False, native_read_admission_probes)

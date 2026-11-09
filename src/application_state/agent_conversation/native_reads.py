@@ -12,6 +12,7 @@ from hashlib import sha256
 from .native_corpus import (
     NativeCorpusAuthorityV1, NativeBodySearchAuthorizedV1, NativeBodySearchObservedV1,
     NativeInitialSourceSearchAuthorizedV1, initial_source_discovery_enabled, validate_initial_source_search,
+    NativePlanRequestSearchAuthorizedV1, request_source_discovery_enabled, validate_request_source_search,
     NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1, NativeBodySectionMatchV1,
     build_native_body_catalog, native_corpus_search_handle, native_body_handle,
     native_full_document_handle, select_native_full_document, select_native_body_excerpt,
@@ -44,6 +45,7 @@ class _NativeReadOperation:
             authorize_direct_sources_locked, observe_direct_source_locked,
             authorize_body_search_locked, observe_body_search_locked,
             authorize_initial_source_search_locked,
+            authorize_request_source_search_locked,
             conclude_selected_batch,
             authorize_body_read_locked, observe_body_read_locked,
         }:
@@ -221,6 +223,23 @@ def authorize_initial_source_search_locked(turn, *, event_id):
     return grant
 
 
+def authorize_request_source_search_locked(turn, *, event_id):
+    receipt, execution = _owner(turn, require_source=True)
+    if not request_source_discovery_enabled(receipt, execution):
+        raise ValueError('Request source discovery requires its actual request-admission protocol')
+    manifest = receipt.assembled_input.manifest_sha256
+    prior = _prior_event(execution, event_id, NativePlanRequestSearchAuthorizedV1,
+        request_manifest_sha256=manifest)
+    if prior is not None:
+        return prior
+    grant = NativePlanRequestSearchAuthorizedV1(event_id=event_id, sequence=len(execution.events),
+        request_manifest_sha256=manifest, context_receipt_sha256=receipt.context_receipt_sha256,
+        execution_policy_sha256=execution.execution_policy_sha256, authority=receipt.source_authority,
+        query_sha256=sha256(turn.user_text.encode()).hexdigest())
+    validate_request_source_search(execution, grant)
+    return grant
+
+
 def observe_body_search_locked(turn, *, event_id, authorization_event_id, capture):
     """The trusted Core capture runs only after a durable discovery grant."""
     from .corpus_source_search import terms
@@ -230,11 +249,16 @@ def observe_body_search_locked(turn, *, event_id, authorization_event_id, captur
     if prior is not None:
         return prior
     grant = next((event for event in execution.events if isinstance(event,
-        (NativeBodySearchAuthorizedV1, NativeInitialSourceSearchAuthorizedV1))
+        (NativeBodySearchAuthorizedV1, NativeInitialSourceSearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1))
         and event.event_id == authorization_event_id), None)
     if grant is None:
         raise ValueError("Native source search lacks its current durable authorization")
-    if type(grant) is NativeInitialSourceSearchAuthorizedV1:
+    if type(grant) is NativePlanRequestSearchAuthorizedV1:
+        validate_request_source_search(execution, grant)
+        from . import types as t
+        if any(isinstance(e, t.ProviderAttemptAuthorizedEventV1) for e in execution.events[grant.sequence + 1:]):
+            raise ValueError('Request source discovery cannot resume after provider dispatch')
+    elif type(grant) is NativeInitialSourceSearchAuthorizedV1:
         from .native_retrieval import NativeRetrievalAuthorizedV1
         validate_initial_source_search(execution, grant)
         if any(isinstance(event, NativeRetrievalAuthorizedV1) for event in execution.events[grant.sequence + 1:]):

@@ -167,6 +167,12 @@ def plan_read_enabled(execution):
         or connected_page_review_enabled(execution))
 
 
+def plan_catalog_available(context, execution):
+    """Conditional opening metadata does not grant a saved-page body read."""
+    from .native_plan_opening import opening_metadata_available
+    return plan_read_enabled(execution) or opening_metadata_available(context, execution)
+
+
 def plan_handle(page):
     return f"saved-authored-page:{page.document_id}"
 

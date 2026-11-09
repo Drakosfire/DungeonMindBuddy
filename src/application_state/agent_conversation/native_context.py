@@ -95,8 +95,30 @@ class NativeReviewedActionInputV1(Strict):
     assembled_input_sha256: Digest
 
 
+class NativePlanRequestAdmissionV1(Strict):
+    """Actual request admission before any provider input has been prepared.
+
+    The manifest is request authority, never a substitute SDK envelope or a
+    measured token count. Every later provider keeps its real dispatch proof.
+    """
+    assembler_version: Literal['native_plan_request_admission_v1'] = 'native_plan_request_admission_v1'
+    manifest_sha256: Digest
+    submitted_intent_sha256: Digest
+    dialogue_sha256: Digest
+    tokenizer_name: str = Field(min_length=1)
+    tokenizer_version: str = Field(min_length=1)
+    context_window_limit: int | None = Field(gt=0, strict=True)
+    output_token_reserve: int = Field(ge=0, strict=True)
+
+    @model_validator(mode='after')
+    def coherent_request_allowance(self):
+        if self.context_window_limit is not None and self.output_token_reserve > self.context_window_limit:
+            raise ValueError('Plan request reserve exceeds its configured context allowance')
+        return self
+
+
 NativeInitialInput = Annotated[
-    NativeProviderInputV1 | NativeBuildProviderInputV2 | NativeReviewedActionInputV1,
+    NativeProviderInputV1 | NativeBuildProviderInputV2 | NativeReviewedActionInputV1 | NativePlanRequestAdmissionV1,
     Field(discriminator="assembler_version"),
 ]
 
@@ -119,6 +141,8 @@ class SurfaceNativeContextReceiptV1(Strict):
             raise ValueError("Model-free reviewed action admission requires actual Build work")
         if isinstance(self.assembled_input, NativeBuildProviderInputV2) and not isinstance(self.work_context, BuildWorkContextV1):
             raise ValueError("Semantic Build input requires actual Build work")
+        if isinstance(self.assembled_input, NativePlanRequestAdmissionV1) and not isinstance(self.work_context, PlanWorkContextV1):
+            raise ValueError('Plan request admission requires actual Plan work')
         query = self.native_query
         authority = query.authority if isinstance(query, NativePlanQueryV2) else query
         if self.source_authority.managed_world_id != world or authority.managed_world_id != world:

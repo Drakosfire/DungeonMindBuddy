@@ -40,6 +40,48 @@ def prepare(managed_world_id, principal, *, revision_id=None, repository=None, r
     return context, context.authority
 
 
+def _plan_basis(work):
+    basis = work.content_basis
+    return t.PlanAskContextBasis(world_id=basis.world_id, document_id=basis.document_id,
+        object_revision=basis.object_revision, work_revision_id=basis.work_revision_id,
+        revision_n=basis.revision_n, content_sha256=basis.content_sha256)
+
+
+def _native_plan_parts(request, basis, playable_target, submitted_intent):
+    from application_state.agent_conversation.native_context import PlanWorkContextV1
+    from application_state.agent_conversation.native_execution import NativePlanActionV2
+    from .build_related_pages import discover
+    return (PlanWorkContextV1(plan_basis=basis, plan_context_policy=request.plan_context_policy,
+            playable_target=playable_target),
+        NativePlanActionV2(intent=submitted_intent, authoring_capture=request.plan_authoring_capture,
+            placement_catalog=request.plan_placement_catalog, related_page_catalog=discover(request)))
+
+
+def freeze_plan_request(request, work, playable_target, budget, *, authority, native_query,
+        provenance, submitted_intent, dialogue):
+    """Admit a real governed request; no provider input exists at this boundary."""
+    from application_state.agent_conversation.native_context import NativePlanRequestAdmissionV1
+    from application_state.agent_conversation.native_plan_opening import request_manifest, opening_dialogue_sha256
+    if (request.surface.surface_id != 'plan' or type(request.plan_context_policy) is not t.PlanContextPolicyV2
+            or work.content_basis is None or native_query is None
+            or authority.managed_world_id != work.content_basis.world_id):
+        raise ValueError('Plan request admission requires its actual native World request and work')
+    work_context, action = _native_plan_parts(request, _plan_basis(work), playable_target, submitted_intent)
+    roles = t.GraphControllerWriterRolesV1.model_validate(budget['providerRoles'])
+    accounting = t.GraphExecutionAccountingV1(kind='conservative_upper_bound', estimator=budget['estimator'])
+    # Pure request-manifest sealing, never a placeholder provider envelope.
+    admission = NativePlanRequestAdmissionV1(manifest_sha256='0' * 64,
+        submitted_intent_sha256=t.canonical_sha256(action.intent), dialogue_sha256=opening_dialogue_sha256(dialogue),
+        tokenizer_name=budget['estimator'], tokenizer_version='v1',
+        output_token_reserve=budget['outputReserveTokens'], context_window_limit=budget['contextLimitTokens'])
+    manifest = request_manifest(action=action, work_context=work_context,
+        source_authority_sha256=t.canonical_sha256(authority), native_query_sha256=t.canonical_sha256(native_query),
+        provenance_sha256=t.canonical_sha256(provenance), provider_roles=roles,
+        provider_input_accounting=accounting, admission=admission)
+    admission = admission.model_copy(update={'manifest_sha256': t.canonical_sha256(manifest)})
+    return _freeze_native(work_context, action, admission, authority, native_query, provenance, budget)
+
+
 def freeze(request, work, playable_target, view, budget, *, authority, graph_receipt=None,
            graph_policy=None, included_history=(), plan_jev_request=None, native_query=None,
            provenance=None, submitted_intent=None):
@@ -71,19 +113,13 @@ def freeze(request, work, playable_target, view, budget, *, authority, graph_rec
         included_history=[t.PlanWorldGraphHistoryPinV1(turn_id=turn_id,
             answer_sha256=sha256(text.encode()).hexdigest()) for turn_id, text in included_history
             if text and _contains_text(body, text)], assembled_input_sha256=view["payloadSha256"])
-    plan_basis = t.PlanAskContextBasis(world_id=basis.world_id, document_id=basis.document_id,
-        object_revision=basis.object_revision, work_revision_id=basis.work_revision_id,
-        revision_n=basis.revision_n, content_sha256=basis.content_sha256)
+    plan_basis = _plan_basis(work)
     if native_query is not None:
-        from application_state.agent_conversation.native_context import NativeProviderInputV1, PlanWorkContextV1
-        from application_state.agent_conversation.native_execution import NativePlanActionV2
-        from .build_related_pages import discover
+        from application_state.agent_conversation.native_context import NativeProviderInputV1
         if graph_receipt is not None or graph_policy is not None:
             raise ValueError("Shared native Plan cannot inherit a second Graph capability")
-        return _freeze_native(
-            PlanWorkContextV1(plan_basis=plan_basis,plan_context_policy=request.plan_context_policy,playable_target=playable_target),
-            NativePlanActionV2(intent=submitted_intent,authoring_capture=request.plan_authoring_capture,
-                placement_catalog=request.plan_placement_catalog,related_page_catalog=discover(request)),
+        work_context, action = _native_plan_parts(request, plan_basis, playable_target, submitted_intent)
+        return _freeze_native(work_context, action,
             NativeProviderInputV1(**assembled.model_dump(exclude={'assembler_version'})),
             authority,native_query,provenance,budget)
     receipt_type = t.PlanSourceContextReceiptV1

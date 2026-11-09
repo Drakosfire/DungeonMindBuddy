@@ -2008,7 +2008,24 @@ class _PolicyExecutionAdapter:
             raise ValueError("Host admission is reserved for an exact reviewed action")
         return self._claim_initial(None, reviewed_admission=self.submitted_intent)
 
-    def _claim_initial(self, view, *, plan_jev_request=None, reviewed_admission=None):
+    def claim_native_plan_request(self, *, dialogue):
+        """Claim the actual current Plan request before preparing its first SDK."""
+        from application_state.agent_conversation.native_context import NativePlanRequestAdmissionV1
+        from application_state.agent_conversation.native_plan_opening import opening_dialogue_sha256
+        if (self.request.surface.surface_id != 'plan'
+                or type(self.request.plan_context_policy) is not _app_state_graph_execution_types().PlanContextPolicyV2
+                or self.native_source_authority is None or self.native_query is None or self.bootstrap is not None):
+            raise ValueError('Request-first admission requires the actual current native Plan route')
+        if self.fence is not None:
+            admission = self.fence.turn.graph_context_receipt.assembled_input
+            if (type(admission) is not NativePlanRequestAdmissionV1
+                    or admission.dialogue_sha256 != opening_dialogue_sha256(dialogue)):
+                raise ValueError('Retained Plan request cannot change its opening admission/dialogue')
+            return self.fence.turn
+        self._claim_initial(None, plan_request_dialogue=tuple(dialogue))
+        return self.fence.turn
+
+    def _claim_initial(self, view, *, plan_jev_request=None, reviewed_admission=None, plan_request_dialogue=None):
         if self.fence is not None:
             receipt = self.fence.turn.graph_context_receipt
             if receipt is None:
@@ -2049,6 +2066,11 @@ class _PolicyExecutionAdapter:
                 receipt,execution,membership=freeze_play(self.request,self.work,view,self.budget,
                     authority=self.native_source_authority,native_query=self.native_query,
                     provenance=provenance,submitted_intent=self.submitted_intent,parent=plan_jev_request)
+            elif plan_request_dialogue is not None:
+                from .plan_source_turn import freeze_plan_request
+                receipt, execution, membership = freeze_plan_request(self.request, self.work, self.playable_target,
+                    self.budget, authority=self.native_source_authority, native_query=self.native_query,
+                    provenance=provenance, submitted_intent=self.submitted_intent, dialogue=plan_request_dialogue)
             elif self.native_source_authority is not None:
                 from .plan_source_turn import freeze
                 graph_receipt = graph_execution = None
@@ -2106,6 +2128,11 @@ class _PolicyExecutionAdapter:
                 self.trace.bind_durable_turn(accepted)
         else:
             receipt = self.turn.graph_context_receipt
+            from application_state.agent_conversation.native_context import NativePlanRequestAdmissionV1
+            from application_state.agent_conversation.native_plan_opening import opening_dialogue_sha256
+            request_matches = (receipt is not None
+                and type(receipt.assembled_input) is NativePlanRequestAdmissionV1
+                and receipt.assembled_input.dialogue_sha256 == opening_dialogue_sha256(plan_request_dialogue)) if plan_request_dialogue is not None else None
             if (
                 receipt is None
                 or (self.native_source_authority is None and (
@@ -2115,8 +2142,9 @@ class _PolicyExecutionAdapter:
                     not isinstance(receipt, (_app_state_graph_execution_types().PlanSourceContextReceiptV1,
                     _app_state_graph_execution_types().SurfaceNativeContextReceiptV1))
                     or receipt.source_authority != self.native_source_authority))
-                or receipt.assembled_input.assembled_input_sha256
-                != (_canonical_sha256({"schema":"dmb_reviewed_action_admission_v1", "intent":reviewed_admission.model_dump(mode="json", by_alias=True)}) if reviewed_admission is not None else view["payloadSha256"])
+                or (not request_matches if plan_request_dialogue is not None else
+                    receipt.assembled_input.assembled_input_sha256
+                    != (_canonical_sha256({"schema":"dmb_reviewed_action_admission_v1", "intent":reviewed_admission.model_dump(mode="json", by_alias=True)}) if reviewed_admission is not None else view["payloadSha256"]))
             ):
                 raise AgentTurnServiceError(
                     "The retry provider envelope differs from the frozen receipt.",
@@ -2168,7 +2196,7 @@ class _PolicyExecutionAdapter:
             self.trace.bind_durable_turn(claim.turn)
         self.fence = _ClaimFence(self.service, claim.turn, trace=self.trace)
         # Build requires capture; existing Plan rollout remains explicitly opt-in.
-        if (plan_jev_request is not None or self._is_build_turn() or os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1"
+        if (plan_request_dialogue is not None or plan_jev_request is not None or self._is_build_turn() or os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1"
                 or os.environ.get("DMB_AGENT_PROMPT_CAPTURE") == "1"):
             self.context_capture = ContextTraceCollector(self.fence)
             if self.context_compaction_report is not None:
@@ -3091,7 +3119,7 @@ class _PolicyExecutionAdapter:
             "response_received": "response_received", "outcome_unknown": "outcome_unknown"}.get(event.outcome)
         return transition is not None and self.record_lifecycle({"transition": transition, "statusCode": event.http_status})
 
-    def record_lifecycle(self, lifecycle: Mapping[str, Any]) -> bool:
+    def record_lifecycle(self, lifecycle: Mapping[str, Any], *, opening_authorization=None) -> bool:
         try:
             if self.fence is None or self.last_provider_attempt_id is None:
                 return False
@@ -3110,7 +3138,8 @@ class _PolicyExecutionAdapter:
                 response_sha256=lifecycle.get("responseSha256"),
             )
             updated = _require_fresh_execution_append(
-                self.fence.append("record_provider_outcome", "outcome", event)
+                self.fence.append("record_provider_outcome", "outcome", event,
+                    **({'opening_authorization': opening_authorization} if opening_authorization is not None else {}))
             )
             self.turn = updated
             if self.rules_runtime is not None:

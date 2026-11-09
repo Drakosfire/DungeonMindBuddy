@@ -19,6 +19,32 @@ from application_state.errors import ApplicationStateValidationError
 from tests.application_state.test_agent_conversation_postgres import _new
 
 
+@pytest.mark.parametrize('mutation', [None, 'kind', 'digest', 'provider', 'attempt', 'before_trace', 'duplicate'])
+def test_opening_prompt_witness_requires_exact_current_durable_authorization(mutation):
+    from application_state.agent_conversation.context_trace import TracePromptReference
+    from application_state.agent_conversation.context_trace_store import validate_prompt_authorization
+    attempt = uuid4()
+    observation = TracePromptReference(sequence=0, elapsed_ms=0, evidence_id=uuid4(),
+        provider_attempt_id=attempt, provider='typesafe', model='controller', api_mode='decision',
+        serializer_version='actual-sdk-v1', payload_sha256='a' * 64, payload_utf8_bytes=123)
+    event = dict(kind='native_plan_opening_authorized_v1', sequence=3,
+        provider_attempt_id=str(attempt), provider=observation.provider, model=observation.model,
+        api_mode=observation.api_mode, serializer_version=observation.serializer_version,
+        envelope_sha256=observation.payload_sha256)
+    changes = {'kind': ('kind', 'invented_opening_authority'), 'digest': ('envelope_sha256', 'b' * 64),
+        'provider': ('provider', 'other'), 'attempt': ('provider_attempt_id', str(uuid4())),
+        'before_trace': ('sequence', 1)}
+    if mutation in changes:
+        key, value = changes[mutation]
+        event[key] = value
+    events = [event, dict(event)] if mutation == 'duplicate' else [event]
+    if mutation is None:
+        validate_prompt_authorization(observation, {'events': events}, 2)
+    else:
+        with pytest.raises(ApplicationStateValidationError, match='durable provider authorization'):
+            validate_prompt_authorization(observation, {'events': events}, 2)
+
+
 def _setup_turn():
     service = AgentConversationService()
     world_id = "trace-regression-" + uuid4().hex

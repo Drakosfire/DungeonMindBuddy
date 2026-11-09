@@ -1387,6 +1387,7 @@ class AgentConversationService:
         plan_authoring_reservation=None,
         prepared_decision_json=None,
         native_writer_proof=None,
+        opening_authorization=None,
     ) -> tuple[Turn, bool]:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
@@ -1426,6 +1427,12 @@ class AgentConversationService:
                 raise ApplicationStateValidationError(
                     "Shared native provider requires its exact prepared-input admission owner")
             validate_authoring_writer(conn,action,turn,event)
+            if isinstance(event, ProviderOutcomeEventV1):
+                from .native_plan_opening import validate_opening_sdk_entry
+                try:
+                    validate_opening_sdk_entry(turn.graph_context_execution, event, opening_authorization)
+                except ValueError as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
             from .work_plan import retained_bound_intent
             bound_intent = retained_bound_intent(conn, turn)
             from .types import BuildReviewedActionSelectionV1, BuildJevActionSelectionV1
@@ -2064,10 +2071,12 @@ class AgentConversationService:
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int,
         outcome: ProviderOutcomeEventV1,
+        opening_authorization=None,
     ) -> tuple[Turn, bool]:
         return self._append_graph_execution_event(
             world_id, conversation_id, turn_id, expected_revision=expected_revision,
             expected_attempt=expected_attempt, event=outcome, duplicate_key="event_id",
+            opening_authorization=opening_authorization,
         )
 
     def record_build_section_inclusion(
@@ -2159,6 +2168,13 @@ class AgentConversationService:
         return self._append_native_read_operation(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             producer=authorize_initial_source_search_locked, event_id=event_id)
+
+    def authorize_native_plan_request_search(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id):
+        from .native_reads import authorize_request_source_search_locked
+        return self._append_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=authorize_request_source_search_locked, event_id=event_id)
 
     def authorize_native_body_search(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id):

@@ -15,6 +15,7 @@ def test_refusal_is_observed_before_terminal_settlement(monkeypatch, code):
     harness.execute = Mock(side_effect=error)
     events = []
     adapter = SimpleNamespace(context_capture=SimpleNamespace(observe=lambda value: events.append(value)),
+        request=SimpleNamespace(surface=SimpleNamespace(surface_id='plan')),
         fence=SimpleNamespace(turn=SimpleNamespace(status='running')), service=object())
     def settle(*args, **kwargs):
         assert events == [dict(kind='failure', phase='delivery', code=code)]
@@ -36,7 +37,8 @@ def test_unexpected_failure_does_not_export_exception_text_or_disappear(monkeypa
         observed.append(event)
         if capture_fails:
             raise RuntimeError('observation unavailable')
-    adapter = SimpleNamespace(context_capture=SimpleNamespace(observe=observe), fence=None)
+    adapter = SimpleNamespace(context_capture=SimpleNamespace(observe=observe), fence=None,
+        request=SimpleNamespace(surface=SimpleNamespace(surface_id='plan')))
     trace = Mock()
     with pytest.raises(AgentTurnServiceError) as failed:
         harness.execute_response(adapter, owner=None, trace=trace)
@@ -55,8 +57,14 @@ def test_cleanup_cannot_replace_the_known_destination_refusal(monkeypatch):
     semantic.run = select
     monkeypatch.setattr(module.PlanJevDispatch, 'requested_work', lambda *args, **kwargs: semantic)
     monkeypatch.setattr(module, 'PlanRulesRuntime', lambda *args: object())
+    driver = Mock(calls=[])
+    driver.decision_arguments.return_value = {}
+    monkeypatch.setattr(module, 'PlanJevDriver', lambda *args, **kwargs: driver)
+    monkeypatch.setattr('apps.live_control_server.services.native_authored_references.acquire', lambda *args: None)
+    from application_state.agent_conversation.types import PlanContextPolicyV2
     adapter = SimpleNamespace(work=SimpleNamespace(plan_markdown='# Session preparation'),
-        fence=object(), stop=Mock(side_effect=RuntimeError('claim cleanup failed')))
+        request=SimpleNamespace(plan_context_policy=PlanContextPolicyV2(policy='auto_plan_world', graph_source='reviewed_native_graph')),
+        claim_native_plan_request=Mock(), fence=object(), stop=Mock(side_effect=RuntimeError('claim cleanup failed')))
     with pytest.raises(AgentTurnServiceError) as failed:
         harness.execute(adapter)
     assert failed.value.code == 'plan_authoring_destination_unavailable'

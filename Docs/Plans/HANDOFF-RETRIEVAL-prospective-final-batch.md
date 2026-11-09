@@ -1,6 +1,6 @@
 # RETRIEVAL: prospective final read batch
 
-Status: ACTIVE. Root resolves the exact owner inventory and activates implementation. Root is retrieval steward.
+Status: DELIVERED. PR2321 merged as06c42c079569f09c950cf623306d454570c57d3b from independently reviewed/captured cee04fd1dc784b223acd11f769d65f95b95a7999. Its implementation lease is released; the consuming opening-batch handoff records current authority. Root is retrieval steward.
 Authority is the user’s standing retrieval goal and full merge rights. No deployment or primary changes.
 Goal remains six-second actual request→context-ready with all15 contexts preserved.
 

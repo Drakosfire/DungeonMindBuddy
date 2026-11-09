@@ -29,7 +29,9 @@ from .build_related_pages import PagePointer, RelatedPagesSelection, RelatedPage
 from graph_memory.ingestion.selection_context import NativeStatementSelectionV1
 from .native_statement_input import NativeStatementContextReceiptV1, NativeStatementWriterPolicyV1, NativeStatementWriterPolicyV2, NativeStatementInputEventV1
 from .native_statement_answer import NativeStatementCompletionV1
-from .native_corpus import (NativeCorpusAuthorityV1, NativeBodySearchAuthorizedV1, NativeInitialSourceSearchAuthorizedV1,
+from .native_corpus import (NativeCorpusAuthorityV1, NativeBodySearchAuthorizedV1,
+    NativeInitialSourceSearchAuthorizedV1 as NativeInitialSourceSearchAuthorizedV1,
+    NativePlanRequestSearchAuthorizedV1 as NativePlanRequestSearchAuthorizedV1,
     NativeBodySearchObservedV1, NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1,
     NativeBodyProviderIncludedV1, NativeAuthoredSourceReadV1 as NativeAuthoredSourceReadV1,
     NativeDirectSourceAuthorizedV1, NativeDirectSourceObservedV1, NATIVE_BODY_EVENTS)
@@ -5443,6 +5445,18 @@ def validate_provider_envelope_accounting(assembled, execution, event) -> None:
         raise ValueError("provider envelope exceeds the frozen context window")
     previous_attempts = [e for e in execution.events if isinstance(e, ProviderAttemptAuthorizedEventV1)]
     if not previous_attempts:
+        from .native_context import NativePlanRequestAdmissionV1
+        if type(assembled) is NativePlanRequestAdmissionV1:
+            from .native_retrieval import NativePlanOpeningAuthorizedV1
+            if (type(event) is not NativePlanOpeningAuthorizedV1
+                    or (event.provider, event.model, event.api_mode) != execution.policy.provider_roles.controller.identity()
+                    or event.input_accounting_kind != execution.policy.provider_input_accounting.kind
+                    or event.input_estimator != assembled.tokenizer_name
+                    or event.output_token_reserve != assembled.output_token_reserve):
+                raise ValueError('First Plan opening requires its actual SDK role and configured accounting')
+            # Actual hash/byte/token equality is checked by the real dispatch
+            # proof owner. A request manifest is never a provider envelope.
+            return
         if assembled.assembler_version == "reviewed_author_admission_v1":
             selected = [e for e in execution.events if isinstance(e, BuildReviewedActionSelectionV1)]
             from .reviewed_action import admission_manifest

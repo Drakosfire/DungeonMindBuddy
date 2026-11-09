@@ -4,7 +4,7 @@ This proves only the selected batch's successful reads, never answer sufficiency
 or completeness of unselected World knowledge. It performs no IO or model call.
 """
 from . import types as t
-from .native_retrieval import NativeRetrievalSelectedV2, NativeReadBatchConcludedV1
+from .native_retrieval import NativeReadBatchConcludedV1
 
 
 def selected_read_closure(receipt, execution, selection_event_id, *, before_sequence=None):
@@ -23,7 +23,8 @@ def selected_read_closure(receipt, execution, selection_event_id, *, before_sequ
     events = execution.events if before_sequence is None else execution.events[:before_sequence]
     selections = [e for e in events if isinstance(e, t.PlanJevRetrievalSelectionV1)]
     selection = selections[-1] if selections else None
-    if (type(selection) is not NativeRetrievalSelectedV2 or selection.event_id != selection_event_id
+    from .native_retrieval import prospective_selection_types
+    if (type(selection) not in prospective_selection_types() or selection.event_id != selection_event_id
             or selection.operation != 'select_candidates'
             or selection.post_read_plan != 'finish_if_selected_reads_succeed'):
         return None
