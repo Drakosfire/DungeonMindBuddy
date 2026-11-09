@@ -135,3 +135,24 @@ startup, readiness and browser qualification are NOT green. A source-only
 src/corpus packaging inclusion needs explicit coordinator write-lease ownership
 before editing .dockerignore; do not mount missing code or switch to a dev image
 to hide the defect. A reviewable proposed patch remains in task scratch.
+
+## Approved packaging extension and premerge self-validation
+
+The coordinator approved the .dockerignore transfer after re-anchoring current
+main18b992193b103b1e0a05490855bd8af620bed835 and inspecting supported lease records.
+#1802 and #1814 are MERGED; the latter's stale ACTIVE header is settled. Supported
+steward_preflight parsing discovers21 candidate allowed paths and zero active
+record conflicts before .dockerignore edits. Open1512/1514 are policy-only and
+2289 is reference-doc-only; no current competing packaging writer was found.
+The source exception includes exactly src/corpus/__init__.py and
+src/corpus/session_recap_paths.py; all other corpus content remains excluded.
+No production source, state, auth mode, graph code or protection change is granted.
+
+Because workflow_dispatch cannot find a new workflow absent from default main,
+qualification now validates its own workflow/harness/package-contract PR changes.
+This is additional self-validation only: existing Hosted and ownership PR gates
+remain unfiltered and authoritative. Outdated qualification PR runs may cancel
+on material head changes; manual/scheduled/RC runs retain non-canceling behavior.
+Resolve one checkout SHA once and pass it to full-regression and image jobs.
+This is not domain selection or selective rollout. Actual graph/persistence runtime
+proof remains required after real-main #2276 integration; no skip or dev image.

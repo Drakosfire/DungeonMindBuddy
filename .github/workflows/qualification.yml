@@ -1,6 +1,18 @@
 name: Full qualification
 
 on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - .github/workflows/qualification.yml
+      - scripts/qualification/**
+      - scripts/ci_contract.py
+      - ci/**
+      - apps/live-control-ui/tests/qualification/**
+      - tests/test_ci_qualification.py
+      - Dockerfile.production
+      - .dockerignore
   workflow_dispatch:
     inputs:
       ref:
@@ -17,7 +29,7 @@ permissions:
 
 concurrency:
   group: qualification-${{ github.event.inputs.ref || github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   source:

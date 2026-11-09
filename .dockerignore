@@ -44,3 +44,9 @@ tests/fixtures/statblocks/*
 !tests/fixtures/statblocks/v1/
 tests/fixtures/statblocks/v1/*
 !tests/fixtures/statblocks/v1/candidate-response.json
+
+# Include only the executable corpus-path utilities, never corpus data/secrets.
+!src/corpus/
+src/corpus/**
+!src/corpus/__init__.py
+!src/corpus/session_recap_paths.py

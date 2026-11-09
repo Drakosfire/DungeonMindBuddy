@@ -1,11 +1,18 @@
 # CI: production qualification lane
 
-Status: ACTIVE under Alan's five-stage execute instruction and coordinator's explicit
+**Status:** ACTIVE under Alan's five-stage execute instruction and coordinator's explicit
 successor preparation assignment. This is PR 2 only. PR 1 #2284 merged at
 be0ebf6c99f3d4b03b5810aa7e0a1ccc33ee35b0 after independent reviews and all seven
 checks. Base is that real main merge; branch codex/ci-production-qualification in
 its own task-owned worktree. Topology: serial CI successor, no other CI PR open.
 No changes to PR1's reviewed branch. Graph route #2276 remains separately owned.
+
+**Base revision:** `be0ebf6c99f3d4b03b5810aa7e0a1ccc33ee35b0`
+
+| Lane field | Value |
+| --- | --- |
+| Branch / isolated checkout | `codex/ci-production-qualification` in the task-owned qualification worktree |
+| Runtime/state ownership | Ephemeral hosted runners, uniquely named disposable Docker services/volumes and fresh browser contexts only. No operator state, shared DB or profile. |
 
 ## Invariant and exclusive write lease
 
@@ -22,6 +29,48 @@ under apps/live-control-ui/tests/qualification/*; the seven existing collection-
 modules listed in the design. Update tests/test_ci_contract.py only if the additive
 qualification manifest needs contract guards; keep original command fixture intact.
 No runtime source or shared database fixture lease is granted.
+
+## §4 Expected path allowlist
+
+| Path | Bounded purpose |
+| --- | --- |
+| `.dockerignore` | Coordinator-approved inclusion of tracked src/corpus Python only; no corpus data/secrets. |
+| `.github/workflows/qualification.yml` | Own-path premerge validation, manual/scheduled/RC qualification. |
+| `.github/workflows/world-ownership-core.yml` | Add qualification guards only; preserve all existing PR suites/gates. |
+| `scripts/qualification/` | Qualification and disposable lifecycle harness. |
+| `apps/live-control-ui/tests/qualification/` | Fresh-browser image witness; no product/graph edits. |
+| `tests/test_ci_qualification.py` | Owning harness guards. |
+| `tests/test_ci_contract.py` | Additive contract guards only if required. |
+| `ci/contracts.json` | Additive qualification contract only if required. |
+| `ci/test-classification.json` | Explicit classification/discovery contract for new tests. |
+| `ci/collection-repairs.json` | Preserve original definitions/parametrizations. |
+| `tests/test_graph_authoring_overlay_projection.py` | Existing declared collection repair. |
+| `tests/test_graph_authoring_overlay_projection_merge.py` | Existing declared collection repair. |
+| `tests/test_graph_authoring_visibility.py` | Existing declared collection repair. |
+| `tests/test_graph_ingest_verified_snapshot_uri_shed.py` | Existing declared current-adapter contract migration. |
+| `tests/test_graph_object_authoring_merge_guard.py` | Existing declared real-model fixture migration. |
+| `tests/test_graph_review_authored_overlay.py` | Existing declared collection repair. |
+| `tests/test_source_packet_density.py` | Existing declared current-signature repair. |
+| `Docs/Plans/HANDOFF-CI-production-qualification.md` | Owning authority and honest evidence. |
+| `Docs/Plans/HANDOFF-CI-test-contract-inventory.md` | Truthful completed-predecessor settlement. |
+| `Docs/Plans/HANDOFF-HOSTED-buddy-validation-ci.md` | Settle merged #1814's stale ACTIVE lease before transfer. |
+| `Docs/Plans/DESIGN-CI-additive-qualification.md` | Qualification design/evidence/dependencies. |
+
+### Coordinator-approved packaging transfer (recorded before edits)
+
+Current main18b992193b103b1e0a05490855bd8af620bed835 and open PRs were inspected.
+Supported repository ownership records are the pinned handoffs; no separate lease
+connector or tracked .agents registry exists here. The supported read-only
+steward_preflight handoff parser is used to verify this candidate allowlist.
+HANDOFF-HOSTED-buddy-auth-packaging is already SETTLED (#1802). The validation
+successor #1814 is confirmed MERGED atc7f83c086d39e01f129fa7e31ef03262dbf65f91;
+its stale ACTIVE header is settled in this same consuming change. Open1512/1514
+are policy/document-only and do not write packaging; current2289 is reference
+document-only. No current competing packaging writer was found. The coordinator
+explicitly approves transfer/extension of .dockerignore solely for needed Python
+source inclusion, and safe qualification-own-path PR validation while old full PR
+gates remain authoritative. No source/graph/auth-policy/deployment lease is added.
+The prior proposals are now adopted authority; runtime success still requires proof.
 
 ## Test-contract repair scope
 
@@ -60,9 +109,9 @@ separate coordinator authority; no rollout stages3–5 are activated here.
 ## Observed image boundary blocker
 
 The actual clean-built image fails import because .dockerignore excludes the
-executable src/corpus package. This path is outside the current explicit lease.
-The proposed minimal source-only inclusion is retained for coordinator scope
-disposition; it has not been applied. No startup/health/browser success is claimed,
+executable src/corpus package. The coordinator has now extended the lease above for the narrow source-only inclusion.
+The original failure and proposed patch remain retained; applying the correction
+does not by itself establish successful runtime qualification. No startup/health/browser success is claimed,
 and no missing-code mount, local-mode substitution or test exclusion is permitted.
 Graph witness also requires real-main integration of#2276. The qualification lane
 remains red/blocked until actual positive and negative boundaries pass.

@@ -12,10 +12,12 @@ from scripts.qualification import image_probe as probe
 
 def test_qualification_workflow_pins_source_and_preserves_premerge_checks():
     workflow = yaml.load((probe.ROOT / ".github/workflows/qualification.yml").read_text(), Loader=yaml.BaseLoader)
-    assert set(workflow["on"]) == {"workflow_dispatch", "schedule", "push"}
+    assert set(workflow["on"]) == {"workflow_dispatch", "schedule", "push", "pull_request"}
     assert workflow["on"]["push"]["tags"] == ["rc/**"]
     assert workflow["permissions"] == {"contents": "read"}
-    assert workflow["concurrency"]["cancel-in-progress"] == "false"
+    assert workflow["concurrency"]["cancel-in-progress"] == "${{ github.event_name == 'pull_request' }}"
+    assert workflow["on"]["pull_request"]["branches"] == ["main"]
+    assert "scripts/qualification/**" in workflow["on"]["pull_request"]["paths"]
     for job in ("full-regression", "image-and-browser"):
         assert workflow["jobs"][job]["needs"] == "source"
         checkout = workflow["jobs"][job]["steps"][0]
@@ -27,6 +29,16 @@ def test_qualification_workflow_pins_source_and_preserves_premerge_checks():
     assert set(aggregate["needs"]) == {"source", "full-regression", "image-and-browser"}
     assert aggregate["if"] == "always()"
     assert 'test "$SOURCE" = success && test "$FULL" = success && test "$IMAGE" = success' in aggregate["steps"][0]["run"]
+
+
+def test_packaging_exception_is_source_only_and_old_pr_gates_remain_unfiltered():
+    rules = (probe.ROOT / ".dockerignore").read_text().splitlines()
+    source_rules = [line for line in rules if line.startswith("!src/corpus/")]
+    assert source_rules == ["!src/corpus/", "!src/corpus/__init__.py", "!src/corpus/session_recap_paths.py"]
+    assert "src/corpus/**" in rules and "**/corpus/" in rules
+    for filename in ("hosted-validation.yml", "world-ownership-core.yml"):
+        workflow = yaml.load((probe.ROOT / ".github/workflows" / filename).read_text(), Loader=yaml.BaseLoader)
+        assert set(workflow["on"]["pull_request"]) == {"branches", "types"}
 
 
 def test_startup_exit_is_reported_by_the_same_live_health_observer():
