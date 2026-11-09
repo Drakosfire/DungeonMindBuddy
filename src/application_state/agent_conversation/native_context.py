@@ -143,8 +143,8 @@ def validate_work_context(context, provenance, *, play_context_receipt=None):
     if type(context) is not SurfaceNativeContextReceiptV1 or type(provenance) is not t.TurnProvenance:
         raise ValueError("Native work binding requires its concrete context and provenance")
     # Revalidate nested mutable work models and the complete root commitment.
-    context = SurfaceNativeContextReceiptV1.model_validate_json(context.model_dump_json(by_alias=True))
-    provenance = t.TurnProvenance.model_validate_json(provenance.model_dump_json(by_alias=True))
+    context = SurfaceNativeContextReceiptV1.model_validate(context.model_dump(mode="python", by_alias=True))
+    provenance = t.TurnProvenance.model_validate(provenance.model_dump(mode="python", by_alias=True))
     work = context.work_context
     if (canonical_sha256(provenance) != context.provenance_sha256
         or provenance.world_id != work_world_id(work)
