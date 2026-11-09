@@ -998,6 +998,7 @@ function deferred<T>() {
 }
 
 interface ConversationTestProps {
+  playMode?:Parameters<typeof WorldPlanAgentConversation>[0]["playMode"];
   documentId?: string;
   revision?: number;
   editBridge?: any;
@@ -1031,6 +1032,7 @@ function conversationElement(props: ConversationTestProps = {}) {
     <WorldPlanAgentConversation
       worldId={worldId}
       worldName="Test World"
+      playMode={props.playMode}
       documentId={props.documentId ?? documentId}
       surfaceInstanceId={surfaceInstanceId}
       revision={revision}
@@ -6447,9 +6449,10 @@ it.each(['read-failure','foreign-pointer','changed-references','changed-editor']
 });
 
 
-it.each(['completed','interrupted'] as const)('renders selected Play passage on initial %s lightweight history without loading receipts',async status=>{
+it.each(['completed','interrupted'] as const)('renders mixed Play references on initial %s lightweight history without loading receipts',async status=>{
  const {default:wire}=await import('../test/surface-native-play-http.json');
- const selected=structuredClone(wire.request.authored_references);
+ const selected:import('../api/types').AuthoredReferencesV2=structuredClone(wire.request.authored_references);
+ selected.references.push({schema:'dmb_authored_graph_reference_v1',managed_world_id:worldId,native_world_id:'native',binding_version:1,graph_revision:'pinned',node_id:'node',label:'Selected Play object'});
  selected.references[0]!.managed_world_id=worldId;
  selected.references[0]!.label='Selected Play passage';
  const provenance={...structuredClone(wire.provenance),world_id:worldId};
@@ -6459,6 +6462,7 @@ it.each(['completed','interrupted'] as const)('renders selected Play passage on 
  render(conversationElement());await waitForConversationReady(false);
  expect(screen.getByText('Use the selected Play passage')).toBeInTheDocument();
  expect(screen.getByText('@Selected Play passage')).toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'Inspect Selected Play object'})).toBeInTheDocument();
  expect(screen.queryByRole('group',{name:'World history unavailable'})).not.toBeInTheDocument();
  expect(api.getHistory).not.toHaveBeenCalled();
  fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'My unsent draft'}});
@@ -6466,10 +6470,10 @@ it.each(['completed','interrupted'] as const)('renders selected Play passage on 
  expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('My unsent draft');
 });
 
-it.each(['foreign-world','graph-selection','unknown-surface'] as const)('rejects %s in lightweight Play reference metadata',async fault=>{
+it.each(['foreign-world','invalid-object','unknown-surface'] as const)('rejects %s in lightweight Play reference metadata',async fault=>{
  const {default:wire}=await import('../test/surface-native-play-http.json');
  const source={...structuredClone(wire.request.authored_references.references[0]!),managed_world_id:worldId,label:'Selected Play passage'};
- const selected={schema:'dmb_authored_references_v2',references:[fault==='graph-selection'?{schema:'dmb_authored_graph_reference_v1',managed_world_id:worldId,native_world_id:'native',binding_version:1,graph_revision:'pinned',node_id:'node',label:'Selected Play passage'}:{...source,managed_world_id:fault==='foreign-world'?'other-world':worldId}]};
+ const selected={schema:'dmb_authored_references_v2',references:[fault==='invalid-object'?{schema:'dmb_authored_graph_reference_v1',managed_world_id:worldId,native_world_id:'native',binding_version:1,graph_revision:'pinned',node_id:'',label:'Selected Play passage'}:{...source,managed_world_id:fault==='foreign-world'?'other-world':worldId}]};
  const provenance={...structuredClone(wire.provenance),world_id:worldId,...(fault==='unknown-surface'?{surface_id:'unknown'}:{})};
  const turn={...makeTurn(1,'invalid-play-reference','Do not admit this selection',null),provenance,lifecycle_status:'interrupted' as const};
  const page=history('conversation-a',4,[turn]);const api=setupApi(page,false);
@@ -6478,4 +6482,42 @@ it.each(['foreign-world','graph-selection','unknown-surface'] as const)('rejects
  expect(await screen.findByRole('group',{name:'World history unavailable'})).toBeInTheDocument();
  expect(api.getHistory).not.toHaveBeenCalled();
  expect(screen.queryByText('@Selected Play passage')).not.toBeInTheDocument();
+});
+
+it('retains mixed references through Play submission and pending-request reload',async()=>{
+ const {default:wire}=await import('../test/surface-native-play-http.json');
+ const runId=wire.request.primary_work.object_id;
+ const source={...structuredClone(wire.request.authored_references.references[0]!),managed_world_id:worldId};
+ const object:import('../api/types').AuthoredGraphReferenceV1={schema:'dmb_authored_graph_reference_v1',managed_world_id:worldId,native_world_id:source.native_world_id,binding_version:source.binding_version,graph_revision:source.knowledge_revision,node_id:'node:selected',label:'Selected Play object'};
+ const refs=[source,object];
+ writeComposerReferences(sessionStorage,worldId,runId,null,refs,null,'play');
+ const api=setupApi(history('conversation-a',4,[]),false);
+ const post=vi.spyOn(liveApi,'postWorldPlayAgentTurn').mockImplementation(()=>new Promise(()=>{}));
+ const playMode={admittedRun:{worldId,runId,runRevision:wire.request.primary_work.expected_revision,
+  contentBasis:wire.request.primary_work.play_content_basis,surfaceInstanceId:wire.request.surface.instance_id,
+  beatId:wire.request.play_target.beat_id,sceneId:wire.request.play_target.scene_id}};
+ const view=render(conversationElement({playMode}));await waitForConversationReady(false);
+ const input=screen.getByLabelText('Message DungeonBuddy');
+ await waitFor(()=>expect(input).toBeEnabled());
+ fireEvent.click(screen.getByRole('button',{name:'@ Reference'}));
+ expect(screen.getByRole('button',{name:'Objects',exact:true})).toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'Sources',exact:true})).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'@ Reference'}));
+ fireEvent.change(input,{target:{value:'Use these selected references without changing the Run.'}});
+ fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+ await waitFor(()=>expect(post).toHaveBeenCalledTimes(1));
+ expect(post.mock.calls[0]![0].authored_references).toEqual({schema:'dmb_authored_references_v2',references:refs});
+ const key=`dmb:world-play-pending-turn:v1:${worldId}`,saved=localStorage.getItem(key);
+ expect(saved).not.toBeNull();
+ view.unmount();render(conversationElement({playMode}));await waitForConversationReady(false);
+ fireEvent.click(await screen.findByRole('button',{name:'Check saved request'}));
+ const recovery=await screen.findByRole('region',{name:'Saved turn recovery'});
+ fireEvent.click(within(recovery).getByText('Saved request details',{selector:'summary'}));
+ expect(within(recovery).getByRole('button',{name:'Inspect Selected Play object'})).toBeInTheDocument();
+ expect(localStorage.getItem(key)).toBe(saved);
+ expect(post).toHaveBeenCalledTimes(1);
+ fireEvent.click(within(recovery).getByRole('button',{name:'Retry exact saved turn'}));
+ await waitFor(()=>expect(post).toHaveBeenCalledTimes(2));
+ expect(post.mock.calls[1]![0]).toEqual(post.mock.calls[0]![0]);
+ expect(api.getHistory).not.toHaveBeenCalled();
 });

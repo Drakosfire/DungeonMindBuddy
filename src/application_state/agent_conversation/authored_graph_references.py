@@ -300,9 +300,15 @@ def capture_native_input(turn, *, event_id):
     references = native_references(execution)
     if references is None or not references.references:
         raise ValueError('Native capture requires actual nonempty authored selections')
+    from .native_plan_statements import NativePlanQueryV1
+    # Object support belongs to the admitted Graph query even when corpus access
+    # is unavailable. Source-only turns keep their admitted corpus revision.
+    query = receipt.native_query
+    read_revision = (query.authority.revision_id if isinstance(query, NativePlanQueryV1)
+                     else receipt.source_authority.revision_id)
     event = t.BuildAuthoredReferencesCapturedV1(kind='build_authored_references_captured_v1',
         event_id=event_id, sequence=len(execution.events), references=references,
-        read_graph_revision=receipt.source_authority.revision_id,
+        read_graph_revision=read_revision,
         turn_id=turn.turn_id, conversation_id=turn.conversation_id, attempt=turn.attempt,
         submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2)
     validate_execution_binding(receipt, execution.model_copy(update={'events': [*execution.events, event]}))
