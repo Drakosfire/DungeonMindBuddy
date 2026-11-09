@@ -509,7 +509,7 @@ def _writer_replay_request(case, source, source_base, summary, *, case_base):
     body = strict_json(raw.decode())
     ledger = strict_json(read_pin(case["ledger"], case_base).decode())
     events = ledger["graph_context_execution"]["events"]
-    writers = [e for e in events if e["kind"] == "native_writer_authorized_v1"]
+    writers = [e for e in events if e["kind"] in {"native_writer_authorized_v1", "native_build_writer_authorized_v2"}]
     completions = [e for e in events if e["kind"] == "completion_binding"]
     frame = semantic_frame_in_request(body, legacy_schemas=())
     if (ledger["turn_id"] != summary["durable_turn_id"] or ledger["status"] != "completed"

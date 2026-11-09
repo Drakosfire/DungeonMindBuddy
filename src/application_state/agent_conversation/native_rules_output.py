@@ -178,7 +178,7 @@ def verify_native_reply(
     ):
         raise ValueError("Native Rules output belongs to another active execution")
     response_sha256 = None
-    from .native_execution import SurfaceNativeExecutionV1, NativeWriterAuthorizedV1
+    from .native_execution import SurfaceNativeExecutionV1, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
     shared = type(graph_execution) is SurfaceNativeExecutionV1
     if shared != (native_context is not None and native_submission is not None):
         raise ValueError("Shared Rules output requires its exact native context and submission")
@@ -187,7 +187,7 @@ def verify_native_reply(
     if getattr(capture, "api_mode", None) == "responses":
         from .types import PlanJevWriterAuthorizedV1
         if graph_execution is None or not any((isinstance(event, PlanJevWriterAuthorizedV1)
-                or shared and type(event) is NativeWriterAuthorizedV1)
+                or shared and type(event) in NATIVE_WRITER_TYPES)
                 and event.provider_attempt_id == proof.producing_provider_attempt_id for event in graph_execution.events):
             raise ValueError("Direct Responses capture requires its exact Plan Jev writer")
 

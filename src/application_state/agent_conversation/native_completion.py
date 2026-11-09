@@ -188,6 +188,9 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
         if row.get('kind') in {'draft_reference_claim','related_page_claim','saved_source_claim','discussion'}:
             if execution.policy.action.surface_id != 'build':
                 raise ValueError('Build work output cannot borrow another surface')
+            if evidence.build_local:
+                from .native_build_work_view import resolve_selectors
+                row=resolve_selectors(row,evidence.work_frame)
             segment,citation=normalize_native_segment(row,draft_record=evidence.draft_record,
                 saved_sections=evidence.saved_sections,related_pages=evidence.related_pages,source_basis=receipt.work_context.source_basis,index=len(segments))
             segments.append(segment)
@@ -204,7 +207,11 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
             body_cites.extend(body)
             statement_cites.extend(statement)
             assertion_cites.extend(assertion)
-    collaboration=normalize_native_review(candidate['collaboration'],segments,evidence.work_frame) if review_enabled else None
+    review=candidate.get('collaboration')
+    if review_enabled and evidence.build_local and review is not None:
+        from .native_build_work_view import resolve_selectors
+        review=resolve_selectors(review,evidence.work_frame)
+    collaboration=normalize_native_review(review,segments,evidence.work_frame) if review_enabled else None
     if review_enabled and not segments and collaboration is None:
         raise ValueError('Empty intentional response')
     # Missing native capability does not make an available Build draft/page
@@ -235,7 +242,7 @@ def verify_completion(completion, receipt, execution, authorization, **producing
 
 def validate_retained_completion(completion, receipt, execution, producer, bindings):
     """Validate stored native citations/binding; producing admission owns acceptance."""
-    from .native_execution import SurfaceNativeExecutionV1, NativeWriterAuthorizedV1, validate_context_binding
+    from .native_execution import SurfaceNativeExecutionV1, NativeWriterAuthorizedV1, validate_context_binding, NATIVE_WRITER_TYPES
     from .native_writer import model_frame, read_evidence_records
     from .surface_evidence_answer import validate_authored_owners
     validate_context_binding(receipt, execution)
@@ -249,7 +256,7 @@ def validate_retained_completion(completion, receipt, execution, producer, bindi
         raise ValueError('Retained native completion differs from its actual producing owner')
     if isinstance(completion,SurfaceNativeCompletionV1):
         completion = SurfaceNativeCompletionV1.model_validate_json(completion.model_dump_json(by_alias=True))
-    auths=[e for e in execution.events if type(e) is NativeWriterAuthorizedV1]
+    auths=[e for e in execution.events if type(e) in NATIVE_WRITER_TYPES]
     if len(auths)!=1 or auths[0].provider_attempt_id != producer:
         raise ValueError('Retained native completion requires its unique writer')
     auth=auths[0]
