@@ -51,3 +51,13 @@ Existing dispatch+trace owner suite45pass,4existing schema-shadow warnings. No
 paid requests were made by these tests. Independent review remains in progress;
 accounting evidence is not a speed improvement. Evidence retained in
 retrieval-controller-host-accounting-v1.
+
+## Settlement
+
+User authorized merge; PR2287 merged as18b992193b103b1e0a05490855bd8af620bed835.
+Independent code review,45 owner tests and seven CI checks passed. Measured
+cohort retained14 passing contexts and Q13 provider timeout without replay.
+Controller-round median4617.903ms includes disjoint inner host work median
+3169.322ms; residual1493.836ms is not pure provider latency. Instrumentation
+is delivered, not a speedup. The next bounded native-storage owner slice
+consumes this accounting; original evidence and baseline remain unchanged.
