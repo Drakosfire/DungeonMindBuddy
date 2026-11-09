@@ -1,6 +1,17 @@
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+
+async function finalizeWitness(context: Pick<BrowserContext, "tracing" | "close">, path: string, witnessFailure?: unknown) {
+  try {
+    await context.tracing.stop({ path });
+  } catch (error) {
+    // A persistence negative control must not consume a missing mandatory trace.
+    throw new Error("trace_finalization_failed", { cause: new AggregateError([witnessFailure, error]) });
+  } finally {
+    await context.close();
+  }
+}
 
 async function navigate(page: Page, path: string) {
   const open = page.getByRole("button", { name: "Open navigation", exact: true });
@@ -74,16 +85,7 @@ async function witness(browser: Browser, denyPersistence: boolean) {
     witnessFailure = error;
     throw error;
   } finally {
-    try {
-      await context.tracing.stop({ path: join(output, denyPersistence ? "fault-trace.zip" : "good-trace.zip") });
-    } catch (error) {
-      // Runner timeout can already have closed the context. Preserve the owning
-      // witness failure rather than replace it with a trace-cleanup exception.
-      if (!witnessFailure) throw error;
-      console.warn("Trace could not be finalized after witness failure:", error);
-    } finally {
-      await context.close();
-    }
+    await finalizeWitness(context, join(output, denyPersistence ? "fault-trace.zip" : "good-trace.zip"), witnessFailure);
   }
 }
 
@@ -95,4 +97,20 @@ test("same save/reopen witness detects deliberately denied persistence", async (
   // Only the persistence-boundary failure counts. Missing graph/startup/navigation
   // or an unexercised fault cannot be relabelled as a successful negative probe.
   await expect(witness(browser, true)).rejects.toThrow("persistence_witness_failed:");
+});
+
+test("missing fault trace cannot satisfy the expected persistence failure", async () => {
+  let closed = false;
+  const persistenceFailure = new Error("persistence_witness_failed: graph object absent after save/reopen");
+  const traceFailure = new Error("trace storage unavailable");
+  const context = {
+    tracing: { stop: async () => { throw traceFailure; } },
+    close: async () => { closed = true; },
+  } as unknown as Pick<BrowserContext, "tracing" | "close">;
+  const failure = await finalizeWitness(context, "unused-trace.zip", persistenceFailure).catch((error: Error) => error);
+  expect(failure).toBeInstanceOf(Error);
+  expect((failure as Error).message).toBe("trace_finalization_failed");
+  expect((failure as Error).message).not.toContain("persistence_witness_failed:");
+  expect(((failure as Error).cause as AggregateError).errors).toEqual([persistenceFailure, traceFailure]);
+  expect(closed).toBe(true);
 });
