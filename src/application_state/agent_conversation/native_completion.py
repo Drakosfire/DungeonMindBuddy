@@ -53,7 +53,11 @@ class SurfaceNativeCompletionV1(Strict):
         related = any(isinstance(s,t.RelatedPageClaim) for s in self.answer_segments)
         if related and self.surface_id not in {'build','plan'}:
             raise ValueError('Saved authored claims require their actual authoring surface')
-        if (build or self.collaboration is not None) and self.surface_id != 'build':
+        from .collaboration import ProposedConnectedPage
+        if self.collaboration is not None and self.surface_id != 'build' and not (
+                self.surface_id=='plan' and isinstance(self.collaboration,ProposedConnectedPage)):
+            raise ValueError('This surface does not own the proposed collaboration')
+        if build and self.surface_id != 'build':
             raise ValueError('Build work discussion and saved claims require their actual surface owner')
         saved={i:s for i,s in enumerate(self.answer_segments) if isinstance(s,t.SavedSourceClaimV1)}
         indices=[c.segment_index for c in self.saved_source_citations]
@@ -130,6 +134,13 @@ def _validate_citations(completion, receipt, execution, auth, evidence):
             from .connected_page_origins import execution_rows
             from .collaboration import saved_excerpt
             saved_excerpt(completion.collaboration,execution_rows(execution,receipt.work_context.source_basis,auth.provider_attempt_id))
+    if completion.surface_id=='plan' and completion.collaboration is not None:
+        from .plan_jev_decision import connected_page_review_enabled
+        from .collaboration import ProposedConnectedPage, saved_excerpt
+        from .connected_page_origins import execution_rows
+        if not connected_page_review_enabled(execution) or not isinstance(completion.collaboration,ProposedConnectedPage):
+            raise ValueError('Plan collaboration lacks its explicit creation-review selection')
+        saved_excerpt(completion.collaboration,execution_rows(execution,None,auth.provider_attempt_id))
     bindings = [e for e in execution.events if isinstance(e,t.CompletionBindingEventV1)]
     if bindings and (len(bindings) != 1 or bindings[0].provider_attempt_id != auth.provider_attempt_id
             or bindings[0].completion_sha256 != canonical_sha256(completion) or bindings[0].claim_graph_event_ids):
@@ -176,7 +187,9 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     uses this same algorithm without manufacturing a second provider response.
     """
     from .build_intentional_response import native_review_enabled, normalize_native_review
-    review_enabled=execution.policy.action.surface_id=='build' and native_review_enabled(evidence.work_frame)
+    from .plan_jev_decision import connected_page_review_enabled
+    plan_review=connected_page_review_enabled(execution)
+    review_enabled=plan_review or execution.policy.action.surface_id=='build' and native_review_enabled(evidence.work_frame)
     keys={'schema','answer_segments','limitations','requested_detail_gaps'} | ({'collaboration'} if review_enabled else set())
     if (not isinstance(candidate,dict) or set(candidate) != keys
             or candidate['schema'] != evidence.frame['answer_policy'] or not isinstance(candidate['answer_segments'],list)):
@@ -194,10 +207,8 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
                 if (row.get('kind') != 'related_page_claim' or not plan_read_enabled(execution)):
                     raise ValueError('Build work output cannot borrow another surface')
                 row = dict(row)
-                aliases = {f'page{i}': str(read.read_id) for i,read in enumerate(evidence.related_pages)}
-                if row.get('read_id') not in aliases:
-                    raise ValueError('Related Plan claim selects an unincluded saved page')
-                row['read_id'] = aliases[row['read_id']]
+                from .native_plan_work_view import resolve_related_read_alias
+                row['read_id'] = resolve_related_read_alias(row.get('read_id'),evidence.related_pages)
             if evidence.build_local:
                 from .native_build_work_view import resolve_selectors
                 row=resolve_selectors(row,evidence.work_frame)
@@ -221,7 +232,18 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     if review_enabled and evidence.build_local and review is not None:
         from .native_build_work_view import resolve_selectors
         review=resolve_selectors(review,evidence.work_frame)
-    collaboration=normalize_native_review(review,segments,evidence.work_frame) if review_enabled else None
+    if plan_review and review is not None:
+        from .collaboration import ProposedConnectedPage, saved_excerpt
+        from .native_plan_work_view import resolve_related_read_alias
+        from .connected_page_origins import execution_rows
+        if not isinstance(review,dict):
+            raise ValueError('Plan creation review requires its typed proposal')
+        review=dict(review)
+        review['read_id']=resolve_related_read_alias(review.get('read_id'),evidence.related_pages)
+        collaboration=ProposedConnectedPage.model_validate(review)
+        saved_excerpt(collaboration,execution_rows(execution,None,authorization.provider_attempt_id))
+    else:
+        collaboration=normalize_native_review(review,segments,evidence.work_frame) if review_enabled and not plan_review else None
     if review_enabled and not segments and collaboration is None:
         raise ValueError('Empty intentional response')
     # Missing native capability does not make an available authored page

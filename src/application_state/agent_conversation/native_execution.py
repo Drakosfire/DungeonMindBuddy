@@ -239,6 +239,12 @@ NATIVE_WRITER_TYPES = (NativeWriterAuthorizedV1, NativeBuildWriterAuthorizedV2)
 NATIVE_WRITER_KINDS = frozenset({'native_writer_authorized_v1', 'native_build_writer_authorized_v2'})
 
 
+class NativePlanRequestedWorkSelectedV3(t.PlanRequestedWorkSelectedV2):
+    """Explicit saved-origin review, with the same retained placement proof."""
+    kind: Literal['plan_requested_work_selected_v3'] = 'plan_requested_work_selected_v3'
+    requested_work: Literal['discuss', 'clarify', 'write_current_page', 'different_destination', 'review_connected_page']
+
+
 def native_read_event_ids(events):
     """One inclusion inventory for the current native writer."""
     return tuple(sorted((event.event_id for event in events if isinstance(event, (
@@ -252,7 +258,7 @@ SurfaceNativeEvent = Annotated[
     t.ProviderAttemptAuthorizedEventV3 | t.ProviderAttemptAuthorizedEventV5
     | t.PlanJevProviderAuthorizedV1 | NativeRetrievalAuthorizedV1 | t.PlanRequestedWorkAuthorizedV2
     | NativeWriterAuthorizedV1 | NativeBuildWriterAuthorizedV2 | t.ProviderOutcomeEventV1 | t.CompletionBindingEventV1
-    | t.PlanJevRetrievalSelectionV1 | NativeRetrievalSelectedV1 | t.PlanRequestedWorkSelectedV2
+    | t.PlanJevRetrievalSelectionV1 | NativeRetrievalSelectedV1 | t.PlanRequestedWorkSelectedV2 | NativePlanRequestedWorkSelectedV3
     | t.NativeBodySearchAuthorizedV1 | t.NativeBodySearchObservedV1
     | t.NativeBodyReadAuthorizedV1 | t.NativeBodyReadObservedV1 | t.NativeAuthoredSourceReadV1
     | t.NativeDirectSourceAuthorizedV1 | t.NativeDirectSourceObservedV1

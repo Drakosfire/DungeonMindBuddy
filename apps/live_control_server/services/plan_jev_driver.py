@@ -103,7 +103,7 @@ class PlanJevDriver:
                 for match in query.assertion_matches if match.assertion_id not in self.native_assertion_attempts)
         result.extend(candidate for handle,(candidate,_range) in self.saved_page_catalog.items() if handle not in self.attempted_saved_pages)
         result.extend(RetrievalCandidate(handle=handle, label=page.title,
-            kind="Saved authored Worldbuilding page; read its exact current saved text, not played truth")
+            kind="Saved authored Worldbuilding page; read its exact current saved text, not played truth. New connected-page review needs a relevant saved page origin.")
             for handle,page in self.related_saved_pages.items() if handle not in self.attempted_related_pages)
         result.extend(self.native_sources.offered())
         return tuple(result)

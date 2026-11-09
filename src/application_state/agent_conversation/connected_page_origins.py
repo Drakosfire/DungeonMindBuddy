@@ -82,6 +82,13 @@ def execution_rows(execution, basis, attempt_id):
     auth = auths[0]
     from .native_execution import SurfaceNativeExecutionV1,NativeBuildActionV1,NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
     if type(execution) is SurfaceNativeExecutionV1:
+        from .native_execution import NativePlanActionV2
+        if type(execution.policy.action) is NativePlanActionV2:
+            from .plan_jev_decision import connected_page_review_enabled
+            from .build_related_pages import records
+            if type(auth) is not NativeWriterAuthorizedV1 or not connected_page_review_enabled(execution):
+                raise ValueError('Plan origin requires its actual connected-page review writer')
+            return [read.model_dump(mode='json') for read in records(execution) if read.sequence<auth.sequence]
         if type(execution.policy.action) is not NativeBuildActionV1 or type(auth) not in NATIVE_WRITER_TYPES:
             raise ValueError('Native connected origin requires its actual Build writer')
         from .build_primary_context import native_work_frame

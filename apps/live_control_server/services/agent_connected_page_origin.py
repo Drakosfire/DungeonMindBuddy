@@ -13,13 +13,17 @@ def open_origin(service, world_id, turn_id):
         turn=turn.base_projection.turn
     turn=t.Turn.model_validate_json(turn.model_dump_json(by_alias=True))
     review=getattr(turn.completion,'collaboration',None)
-    from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1,BuildWorkContextV1
+    from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1,BuildWorkContextV1,PlanWorkContextV1
     receipt=turn.graph_context_receipt
     basis=(receipt.work_context.source_basis if type(receipt) is SurfaceNativeContextReceiptV1
         and type(receipt.work_context) is BuildWorkContextV1 else receipt.source_basis
         if isinstance(receipt,t.BuildGraphContextReceiptV1) else None)
+    from application_state.agent_conversation.plan_jev_decision import connected_page_review_enabled
+    plan_origin=(type(receipt) is SurfaceNativeContextReceiptV1
+        and type(receipt.work_context) is PlanWorkContextV1
+        and connected_page_review_enabled(turn.graph_context_execution))
     if (turn.world_id != world_id or turn.turn_id != turn_id or turn.status != 'completed'
-        or not isinstance(review,ProposedConnectedPage) or basis is None):
+        or not isinstance(review,ProposedConnectedPage) or basis is None and not plan_origin):
         raise ValueError('Connected origin requires its exact completed page review')
     bindings=[e for e in turn.graph_context_execution.events if isinstance(e,t.CompletionBindingEventV1)]
     if len(bindings)!=1:

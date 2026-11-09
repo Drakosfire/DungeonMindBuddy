@@ -549,12 +549,19 @@ def test_saved_excerpt_uses_coherent_committed_owner_projection(saved_case, monk
     monkeypatch.setattr(owner, "get_committed_page_snapshot", lambda *args: projection)
     intent = owner.parse_connected_page_intent(c.request)
     assert owner.verify_saved_excerpt(c.root, intent) == c.selector.content_sha256
+    # World ownership is explicit; a legacy campaign alias is not a second owner.
+    projection.record=original.record.model_copy(update={'campaign_id':None})
+    monkeypatch.setattr(owner,'get_workspace_document',lambda *_:projection.record)
+    assert owner._ownership(c.root,intent).world_id==intent.world_id
+    assert owner.verify_saved_excerpt(c.root,intent)==c.selector.content_sha256
     for changes in ({"content_status": "draft"}, {"document_id": str(uuid.uuid4())},
                     {"world_id": "foreign"}, {"revision": original.loaded_revision + 1},
                     {"status": "discarded"}):
         projection.record = original.record.model_copy(update=changes)
         with pytest.raises(owner.ConnectedPageError):
             owner.verify_saved_excerpt(c.root, intent)
+        if changes.get('world_id')=='foreign':
+            with pytest.raises(owner.ConnectedPageError):owner._ownership(c.root,intent)
     assert c.authority.publish_calls == 0
 
 

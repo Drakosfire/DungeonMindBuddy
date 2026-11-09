@@ -262,7 +262,7 @@ def test_support_materialization_does_not_authorize_a_later_changed_assertion(la
 
 
 def _ordinary_native_case(
-        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None, extra_name=None, related_page=False):
+        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None, extra_name=None, related_page=False, connected_review=False, connected_mutation=None):
     import httpx2
     from hashlib import sha256
     from fastapi import FastAPI
@@ -287,7 +287,8 @@ def _ordinary_native_case(
     monkeypatch.setattr(native_query, 'resolve_managed_world_binding', lambda _: binding)
     monkeypatch.setattr('apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference',
         lambda **_: ('openai-api','gpt-6-luna','https://api.openai.com/v1'))
-    related_body = '# Edge\n\nThe old bath house stands by the east gate. 🌿\n'
+    related_page = related_page or connected_review
+    related_body = ('# Edge\n\nA fort town stands at the edge of the swamp. 🌿\n' if connected_review else '# Edge\n\nThe old bath house stands by the east gate. 🌿\n')
     if related_page:
         from application_state.content import pages
         saved = pages.create_page(world_id=world,title='Saved Edge page',
@@ -299,7 +300,7 @@ def _ordinary_native_case(
     work = replace(work, world_id=world, owner_id=world, content_basis=work.content_basis.model_copy(update={
         'world_id':world, 'content_sha256':sha256(markdown.encode()).hexdigest(), 'work_revision_id':str(uuid4())}))
     capture=None
-    if authoring:
+    if authoring or connected_review:
         from application_state.content.service import create_world_plan,commit_plan
         from application_state.agent_conversation.plan_authoring import PlanAuthoringCaptureV1
         from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV1
@@ -309,13 +310,14 @@ def _ordinary_native_case(
         work=replace(work,object_id=str(obj.work_object_id),revision=obj.object_revision,content_basis=work.content_basis.model_copy(update={
             'document_id':str(obj.work_object_id),'object_revision':obj.object_revision,'work_revision_id':str(revision.work_revision_id),
             'revision_n':revision.revision_n,'content_sha256':revision.content_sha256}))
-        service=AgentConversationService()
-        service.new_conversation(t.ConversationCommand(world_id=world,command_id=uuid4(),expected_pointer_revision=0,expected_active_conversation_id=None))
-        pointer=service.get_world_pointer(world)
-        capture=PlanAuthoringCaptureV1.model_validate(capture_payload()|dict(world_id=world,document_id=str(obj.work_object_id),
-            base_revision=obj.object_revision,base_content_sha256=revision.content_sha256,conversation_id=str(pointer.active_conversation_id),expected_pointer_revision=pointer.revision))
-        catalog=PlanPlacementCatalogV1(original_capture_sha256=capture.sha256,editor_sha256=capture.editor_sha256,
-            entries=({'selector':'captured','kind':'captured_target','label':'Captured caret','root_boundary':None,'position':None,'target_capture_sha256':capture.sha256},))
+        if authoring:
+            service=AgentConversationService()
+            service.new_conversation(t.ConversationCommand(world_id=world,command_id=uuid4(),expected_pointer_revision=0,expected_active_conversation_id=None))
+            pointer=service.get_world_pointer(world)
+            capture=PlanAuthoringCaptureV1.model_validate(capture_payload()|dict(world_id=world,document_id=str(obj.work_object_id),
+                base_revision=obj.object_revision,base_content_sha256=revision.content_sha256,conversation_id=str(pointer.active_conversation_id),expected_pointer_revision=pointer.revision))
+            catalog=PlanPlacementCatalogV1(original_capture_sha256=capture.sha256,editor_sha256=capture.editor_sha256,
+                entries=({'selector':'captured','kind':'captured_target','label':'Captured caret','root_boundary':None,'position':None,'target_capture_sha256':capture.sha256},))
     selected_references=None
     if authored:
         from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1, AuthoredReferencesV2
@@ -350,7 +352,7 @@ def _ordinary_native_case(
     request = type(request).model_validate(request.model_dump(mode='json',by_alias=True) | {
         **({'plan_requested_operation':plan_operation} if plan_operation is not None else {}),
         **({'authored_references':selected_references.model_dump(mode='json',by_alias=True)} if selected_references else {}),
-        'turn_id':str(uuid4()),'message':('Describe the source-local episode.' if authored_source=='source_only' else 'Write a Plan note about what B did.' if authoring else 'What did B do?'),'owner_scope':{'kind':'world','world_id':world},
+        'turn_id':str(uuid4()),'message':('Create a page for The Old Bath House. We will develop it later.' if connected_review else 'Describe the source-local episode.' if authored_source=='source_only' else 'Write a Plan note about what B did.' if authoring else 'What did B do?'),'owner_scope':{'kind':'world','world_id':world},
         'primary_work':request.primary_work.model_dump(mode='json',by_alias=True) | {'object_id':work.object_id,'expected_revision':work.revision,'expected_revision_n':work.content_basis.revision_n,'expected_content_sha256':work.content_basis.content_sha256},
         'plan_context_policy':{'schema':'dmb_plan_context_policy_v2','policy':'auto_plan_world','graph_source':'reviewed_native_graph'},
         'graph_request':{'mode':'none'},**({'plan_authoring_capture':capture.model_dump(mode='json',by_alias=True),'plan_placement_catalog':catalog.model_dump(mode='json',by_alias=True)} if capture is not None else {})})
@@ -402,7 +404,7 @@ def _ordinary_native_case(
             assert BODY not in req.content.decode()
             answers={}
             for name,entry in body['questions'].items():
-                choice=(('write:captured' if authoring else 'discuss') if name=='requested_work' else 'finish_retrieval' if name=='operation' else
+                choice=(('review_connected_page' if connected_review else 'write:captured' if authoring else 'discuss') if name=='requested_work' else 'finish_retrieval' if name=='operation' else
                     'include' if name.startswith('candidate_') and int(name.split('_')[-1]) in native else 'exclude')
                 answers[name]={'type':'choice','choice':choice,'confidence':1,
                     'probabilities':{key:float(key==choice) for key in entry['criteria']}}
@@ -457,12 +459,21 @@ def _ordinary_native_case(
                 assert work_frame['related_authored_pages']['pages']==[
                     dict(read_id='page0',title='Saved Edge page',markdown=related_body)]
                 assert str(saved.page.work_object_id) not in json.dumps(work_frame)
-                segments.append(dict(kind='related_page_claim',text='The saved Edge page places the bath house by the east gate.',
-                    read_id='page0',supporting_quotes=['The old bath house stands by the east gate. 🌿']))
+                if not connected_review:
+                    segments.append(dict(kind='related_page_claim',text='The saved Edge page places the bath house by the east gate.',
+                        read_id='page0',supporting_quotes=['The old bath house stands by the east gate. 🌿']))
             candidate={'schema':NATIVE_ANSWER_POLICY,'answer_segments':segments,
                 'limitations':limitations,'requested_detail_gaps':[]}
+            if connected_review:
+                candidate['answer_segments']=[]
+                candidate['collaboration']=dict(kind='connected_page',title='The Old Bath House',read_id='page0',
+                    quote='A fort town stands at the edge of the swamp. 🌿',person_label=None,
+                    relationships=[],instructions='Scaffold only. Develop the details later.')
+            if connected_mutation=='alias':candidate['collaboration']['read_id']='page1'
+            elif connected_mutation=='quote':candidate['collaboration']['quote']='A fabricated source passage.'
+            elif connected_mutation=='kind':candidate['collaboration']['kind']='relationship'
             if mixed:
-                candidate={'kind':'rules_answer','base_output':candidate,
+                candidate={'kind':'rules_answer' ,'base_output':candidate,
                     'rules_segments':[{'kind':'rules_context','text':'No additional applicable rule is established.','category':'gap'}],
                     'ordered_refs':[{'domain':'base','segment_index':None},{'domain':'rules','segment_index':0}]}
             self.text='not-json' if failure=='malformed' else json.dumps(candidate)
@@ -487,6 +498,20 @@ def _ordinary_native_case(
         writer_transport=wire,decision_api_key='synthetic-not-secret',writer_api_key='synthetic-not-secret'))
     app=FastAPI()
     app.include_router(agent.router,prefix='/api/live')
+    if connected_review:
+        from apps.live_control_server.routes import workspace_documents
+        from apps.live_control_server.integrations.dungeonmind import native_registry_source as native, native_world_source_admission as admission
+        from apps.live_control_server.services.managed_world_graph_projection import ManagedWorldSourceIdentity
+        from dataclasses import asdict
+        native_binding=ManagedWorldSourceIdentity(world,world,1,None)
+        bound=asdict(native_binding);bound.pop('provisioning_id')
+        monkeypatch.setattr(native,'binding',lambda identity:dict(bound) if identity==world else pytest.fail('Foreign native binding'))
+        monkeypatch.setattr(native,'repository',lambda:lane.repo)
+        monkeypatch.setattr(native,'read_repository',lambda:lane.repo)
+        monkeypatch.setattr(admission,'_repository',lambda:lane.repo)
+        monkeypatch.setattr(admission,'_source_world_binding',lambda root,identity:native_binding if identity==world else pytest.fail('Foreign source binding'))
+        monkeypatch.setattr(workspace_documents,'_managed_world_root',lambda:tmp_path)
+        app.include_router(workspace_documents.router)
     client=TestClient(app,client=('127.0.0.1',42000),headers={'Authorization':'Bearer '+token})
     original_open=native_reads.open_admitted_native_text
     opened_with_grant=[]
@@ -531,6 +556,14 @@ def _ordinary_native_case(
         wire_request=json.loads((directory/'request.json').read_text())
     else:
         response=client.post('/api/live/agent/turn',json=wire_request)
+    if connected_mutation:
+        assert response.status_code==503,response.text
+        failed=AgentConversationService().inspect_turn(world_id=world,turn_id=wire.adapter.turn.turn_id)
+        assert failed.status!='complete' and failed.completion is None
+        assert lane.repo.get_head(world)==original_head
+        from application_state.content.service import snapshot_content
+        assert snapshot_content(work.object_id).markdown==markdown
+        return
     if failure and failure.startswith('selected_source_'):
         assert response.status_code==409,response.text+getattr(wire,'failure','')
         assert response.json()['detail']['code']=='authored_source_unavailable'
@@ -576,6 +609,42 @@ def _ordinary_native_case(
     assert authored_source=='source_only' or opened_with_grant
     assert authored or native_read_admission_probes
     data=response.json()
+    if connected_review:
+        from application_state.content.service import snapshot_content
+        from apps.live_control_server.services.workspace_document_registry import get_committed_page_snapshot
+        completion=data['plan_context']['completion']
+        assert completion['collaboration']['kind']=='connected_page'
+        assert completion['collaboration']['title']=='The Old Bath House'
+        assert completion['answer_segments']==[] and completion['answer_context_status']=='discussion'
+        turn=AgentConversationService().inspect_turn(world_id=world,turn_id=wire.adapter.turn.turn_id)
+        original_plan=snapshot_content(work.object_id)
+        assert original_plan.markdown==markdown
+        before_source=get_committed_page_snapshot(tmp_path,str(saved.page.work_object_id))
+        origin=client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/connected-page-origin')
+        assert origin.status_code==200,origin.text
+        assert origin.json()['origin']['document_id']==str(saved.page.work_object_id)
+        request_page=dict(operation_id=str(uuid4()),world_id=world,title='The Old Bath House',
+            origin=origin.json()['origin'],place=dict(label='The Old Bath House',kind='location',node_id=None),
+            person=None,relationships=[],mode='scaffold',instructions='Scaffold only. Develop the details later.')
+        prepared=client.post('/api/live/connected-pages/prepare',json=request_page)
+        assert prepared.status_code==200,prepared.text
+        prepared=prepared.json()
+        confirm_body=dict(operation_id=prepared['operation_id'],world_id=world,confirm_token=prepared['prepared']['confirm_token'])
+        confirmed=client.post('/api/live/connected-pages/confirm',json=confirm_body)
+        assert confirmed.status_code==200,confirmed.text
+        confirmed=confirmed.json()
+        assert confirmed['phase']=='complete' and confirmed['page']['title']=='The Old Bath House'
+        published=lane.repo.get_head(world)
+        again=client.post('/api/live/connected-pages/confirm',json=confirm_body)
+        assert again.status_code==200 and again.json()['page']==confirmed['page']
+        assert lane.repo.get_head(world)==published
+        assert snapshot_content(work.object_id)==original_plan
+        assert get_committed_page_snapshot(tmp_path,str(saved.page.work_object_id))==before_source
+        before_calls=len(wire.calls)
+        replay=client.post('/api/live/agent/turn',json=request.model_dump(mode='json',by_alias=True))
+        assert replay.status_code==200 and len(wire.calls)==before_calls
+        assert AgentConversationService().inspect_turn(world_id=world,turn_id=turn.turn_id)==turn
+        return dict(reply=data,origin=origin.json(),request=request_page,prepared=prepared,confirmed=confirmed)
     if extra_name is not None:
         assert seen_name_requests
     # Native evidence belongs to its own receipt. No legacy Graph request was

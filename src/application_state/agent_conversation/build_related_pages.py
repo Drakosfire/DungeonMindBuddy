@@ -162,7 +162,9 @@ def is_plan_catalog(execution):
 def plan_read_enabled(execution):
     from . import types as t
     choices = [e for e in execution.events if isinstance(e, t.PlanRequestedWorkSelectedV2)]
-    return is_plan_catalog(execution) and len(choices) == 1 and choices[0].requested_work == 'discuss'
+    from .plan_jev_decision import connected_page_review_enabled
+    return is_plan_catalog(execution) and len(choices) == 1 and (choices[0].requested_work == 'discuss'
+        or connected_page_review_enabled(execution))
 
 
 def plan_handle(page):
@@ -181,7 +183,7 @@ def _validate_plan_reads(execution):
         if not isinstance(event, RelatedPageRead):
             continue
         if not plan_read_enabled(execution):
-            raise ValueError("Plan saved-page context is limited to discussion")
+            raise ValueError("Plan saved-page context lacks its requested discussion or connected-page review")
         prior = execution.events[:event.sequence]
         choices = [e for e in prior if isinstance(e, NativeRetrievalSelectedV1)]
         selection = choices[-1] if choices else None
