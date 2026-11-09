@@ -147,11 +147,11 @@ def project_native_plan_work(receipt, execution, provenance, submission_idempote
     """
     from . import types as t
     from .native_context import PlanWorkContextV1, validate_work_context
-    from .native_execution import NativePlanActionV1, validate_context_binding
+    from .native_execution import NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES, validate_context_binding
     validate_context_binding(receipt,execution)
     validate_work_context(receipt,provenance)
     work,action=receipt.work_context,execution.policy.action
-    if (type(work) is not PlanWorkContextV1 or type(action) is not NativePlanActionV1
+    if (type(work) is not PlanWorkContextV1 or type(action) not in NATIVE_PLAN_ACTION_TYPES
             or type(submission_idempotency_key) is not UUID or type(conversation_id) is not UUID
             or not isinstance(proof,dict) or set(proof) != {'plan_markdown','session_evidence','dialogue'}):
         raise ValueError('Native Plan work requires its actual work, submission and exact body proof')

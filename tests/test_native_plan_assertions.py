@@ -262,7 +262,7 @@ def test_support_materialization_does_not_authorize_a_later_changed_assertion(la
 
 
 def _ordinary_native_case(
-        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None, extra_name=None):
+        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None, extra_name=None, related_page=False):
     import httpx2
     from hashlib import sha256
     from fastapi import FastAPI
@@ -287,6 +287,13 @@ def _ordinary_native_case(
     monkeypatch.setattr(native_query, 'resolve_managed_world_binding', lambda _: binding)
     monkeypatch.setattr('apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference',
         lambda **_: ('openai-api','gpt-6-luna','https://api.openai.com/v1'))
+    related_body = '# Edge\n\nThe old bath house stands by the east gate. 🌿\n'
+    if related_page:
+        from application_state.content import pages
+        saved = pages.create_page(world_id=world,title='Saved Edge page',
+            metadata=pages.PageMetadata(document_class='location'))
+        saved,_ = pages.commit_page(str(saved.page.work_object_id),related_body,world_id=world,
+            expected_revision=saved.page.object_revision,expected_working_copy_revision=None)
     markdown = '# Query Plan\n\nA proposed visit.\n'
     work = _pinned_plan_work(markdown)
     work = replace(work, world_id=world, owner_id=world, content_basis=work.content_basis.model_copy(update={
@@ -373,7 +380,7 @@ def _ordinary_native_case(
                 assert 'Multiple recorded names' in encoded and extra_name in encoded
                 assert lane.ids['B'] not in req.content.decode()
                 seen_name_requests.append(sha256(req.content).hexdigest())
-            native={i for i,c in enumerate(candidates) if c['kind'].startswith('Native Graph object') or mixed and c['kind']=='public_rules_lookup'}
+            native={i for i,c in enumerate(candidates) if c['kind'].startswith('Native Graph object') or mixed and c['kind']=='public_rules_lookup' or related_page and c['kind'].startswith('Saved authored Worldbuilding page') and c['label']=='Saved Edge page'}
             if selected_references is not None and 'requested_work' in body['questions']:
                 rows=body['state']['author_selected_references']
                 assert len(rows)==len(selected_references.references)
@@ -444,6 +451,14 @@ def _ordinary_native_case(
                 assert 'DISPLAY ONLY Plan source' not in json.dumps(frame)  # Display selection is not evidence.
                 segments.append({'kind':'native_body_claim','text':'The source describes a source-local episode.',
                     'excerpt_handles':[exposed[0]['excerpt_handle']]})
+            if related_page:
+                from application_state.agent_conversation.native_plan_work_view import is_semantic_frame
+                work_frame=next(item for item in frames if is_semantic_frame(item))
+                assert work_frame['related_authored_pages']['pages']==[
+                    dict(read_id='page0',title='Saved Edge page',markdown=related_body)]
+                assert str(saved.page.work_object_id) not in json.dumps(work_frame)
+                segments.append(dict(kind='related_page_claim',text='The saved Edge page places the bath house by the east gate.',
+                    read_id='page0',supporting_quotes=['The old bath house stands by the east gate. 🌿']))
             candidate={'schema':NATIVE_ANSWER_POLICY,'answer_segments':segments,
                 'limitations':limitations,'requested_detail_gaps':[]}
             if mixed:
@@ -579,6 +594,27 @@ def _ordinary_native_case(
     retained=AgentConversationService().inspect_turn(world_id=world,turn_id=wire.adapter.turn.turn_id)
     turn=retained.base_projection.turn if mixed else retained
     assert type(turn.completion) is t.SurfaceNativeCompletionV1
+    if related_page:
+        from application_state.agent_conversation.build_related_pages import RelatedPageRead
+        from application_state.agent_conversation.native_execution import NativePlanActionV2
+        assert type(turn.graph_context_execution.policy.action) is NativePlanActionV2
+        from application_state import cli
+        from application_state.agent_conversation.service import _ready_dsn
+        from application_state.errors import ApplicationStateMigrationError
+        with monkeypatch.context() as old_reader:
+            old_reader.setattr(cli,'_alembic_head',lambda:'20261108_0139')
+            with pytest.raises(ApplicationStateMigrationError):cli.assert_at_head(dsn=_ready_dsn())
+        reads=[e for e in turn.graph_context_execution.events if isinstance(e,RelatedPageRead)]
+        assert len(reads)==1 and reads[0].markdown==related_body
+        assert reads[0].page.document_id==saved.page.work_object_id
+        opened=client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/related-pages/{reads[0].read_id}')
+        assert opened.status_code==200,opened.text
+        assert opened.json()['markdown']==related_body
+        before_calls=len(wire.calls)
+        reopened=client.post('/api/live/agent/turn',json=request.model_dump(mode='json',by_alias=True))
+        assert reopened.status_code==200,reopened.text
+        assert len(wire.calls)==before_calls
+        assert AgentConversationService().inspect_turn(world_id=world,turn_id=turn.turn_id)==retained
     assert turn.graph_context_receipt.work_context.plan_context_policy.graph_source=='reviewed_native_graph'
     if authored:
         history=client.get(f'/api/live/agent/worlds/{world}/conversation?include_turn_correlation=true')

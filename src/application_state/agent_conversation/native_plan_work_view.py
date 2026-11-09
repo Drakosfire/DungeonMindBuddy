@@ -3,7 +3,7 @@ from copy import deepcopy
 
 REQUIRED = frozenset({'committed_plan_blocks', 'session_evidence',
     'dialogue_reference', 'authored_sources', 'requested_work'})
-OPTIONAL = frozenset({'current_page_draft', 'focused_edit_target', 'selected_references'})
+OPTIONAL = frozenset({'current_page_draft', 'focused_edit_target', 'selected_references', 'related_authored_pages'})
 
 
 def is_semantic_frame(frame):
@@ -15,7 +15,7 @@ def semantic_frame(host, execution):
     from .plan_jev_graph_packet import NATIVE_WORK_SCHEMA
     if host.get('schema') != NATIVE_WORK_SCHEMA:
         raise ValueError('Semantic Plan work requires its existing host frame')
-    if set(host) - (REQUIRED | {'schema', 'current_page_draft', 'focused_edit_target', 'authored_references'}):
+    if set(host) - (REQUIRED | {'schema', 'current_page_draft', 'focused_edit_target', 'authored_references', 'related_authored_pages'}):
         raise ValueError('Unclassified native Plan work fields')
     view = {key: deepcopy(host[key]) for key in ('committed_plan_blocks',
         'dialogue_reference', 'requested_work')}
@@ -58,25 +58,14 @@ def semantic_frame(host, execution):
         if set(target) - {'kind', 'location', 'selected_text', 'playable_body'}:
             raise ValueError('Unclassified Plan edit target fields')
         view['focused_edit_target'] = deepcopy(target)
-    from .authored_graph_references import (native_references,
-        AuthoredSourceReferenceV1, BuildAuthoredReferenceReadV2)
-    from .native_corpus import NativeAuthoredSourceReadV1
-    references = native_references(execution)
-    if references is not None and references.references:
-        selected = []
-        for i, reference in enumerate(references.references):
-            source = isinstance(reference, AuthoredSourceReferenceV1)
-            reads = [event for event in execution.events if (
-                isinstance(event, NativeAuthoredSourceReadV1) and source and event.reference_index == i
-                or isinstance(event, BuildAuthoredReferenceReadV2) and not source
-                    and event.node_id == reference.node_id)]
-            if len(reads) > 1:
-                raise ValueError('Ambiguous selected Plan reference read')
-            selected.append(dict(reference=f'reference{i}', label=reference.label,
-                kind='source' if source else 'object', read_status=(
-                    'complete' if source else reads[0].status) if reads else 'unread',
-                **({'extent': reference.selection_kind} if source else {})))
-        view['selected_references'] = selected
+    from .authored_graph_references import model_reference_choices
+    references = model_reference_choices(execution)
+    if references is not None:
+        view['selected_references'] = references
+    if 'related_authored_pages' in host:
+        view['related_authored_pages'] = {'role': host['related_authored_pages']['role'],
+            'pages': [{'read_id': f'page{i}', 'title': row['page']['title'], 'markdown': row['markdown']}
+                for i,row in enumerate(host['related_authored_pages']['pages'])]}
     return view
 
 

@@ -76,12 +76,14 @@ def freeze(request, work, playable_target, view, budget, *, authority, graph_rec
         revision_n=basis.revision_n, content_sha256=basis.content_sha256)
     if native_query is not None:
         from application_state.agent_conversation.native_context import NativeProviderInputV1, PlanWorkContextV1
-        from application_state.agent_conversation.native_execution import NativePlanActionV1
+        from application_state.agent_conversation.native_execution import NativePlanActionV2
+        from .build_related_pages import discover
         if graph_receipt is not None or graph_policy is not None:
             raise ValueError("Shared native Plan cannot inherit a second Graph capability")
         return _freeze_native(
             PlanWorkContextV1(plan_basis=plan_basis,plan_context_policy=request.plan_context_policy,playable_target=playable_target),
-            NativePlanActionV1(intent=submitted_intent,authoring_capture=request.plan_authoring_capture,placement_catalog=request.plan_placement_catalog),
+            NativePlanActionV2(intent=submitted_intent,authoring_capture=request.plan_authoring_capture,
+                placement_catalog=request.plan_placement_catalog,related_page_catalog=discover(request)),
             NativeProviderInputV1(**assembled.model_dump(exclude={'assembler_version'})),
             authority,native_query,provenance,budget)
     receipt_type = t.PlanSourceContextReceiptV1

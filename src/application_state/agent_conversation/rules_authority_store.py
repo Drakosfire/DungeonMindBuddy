@@ -208,11 +208,11 @@ def require_open_plan_jev_acquisition_locked(conn, scope):
     from .types import PlanJevRetrievalPolicyV1, PlanJevRetrievalSelectionV1, ProviderAttemptAuthorizedEventV1
     turn = repository.get_turn(conn, scope.world_id, scope.turn_id)
     execution = getattr(turn, "graph_context_execution", None)
-    from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NativeWriterAuthorizedV1
+    from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
     shared = type(execution) is SurfaceNativeExecutionV1
-    if shared and any(type(event) is NativeWriterAuthorizedV1 for event in execution.events):
+    if shared and any(type(event) in NATIVE_WRITER_TYPES for event in execution.events):
         raise ApplicationStateValidationError("Shared native writer closes Rules acquisition")
-    shared_plan = shared and type(execution.policy.action) is NativePlanActionV1
+    shared_plan = shared and type(execution.policy.action) in NATIVE_PLAN_ACTION_TYPES
     if execution is None or not (shared_plan or isinstance(execution.policy, PlanJevRetrievalPolicyV1)):
         return turn
     selections = [event for event in execution.events if isinstance(event, PlanJevRetrievalSelectionV1)]
@@ -275,10 +275,10 @@ def append_lookup_event_locked(
                 from .plan_jev_rules_lookup import verify_authorization
                 verify_authorization(current.execution, turn, event, plan_jev_parent_request_json)
             elif turn.graph_context_execution is not None:
-                from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1
+                from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES
                 graph = turn.graph_context_execution
                 if (isinstance(graph.policy, PlanJevRetrievalPolicyV1)
-                        or type(graph) is SurfaceNativeExecutionV1 and type(graph.policy.action) is NativePlanActionV1):
+                        or type(graph) is SurfaceNativeExecutionV1 and type(graph.policy.action) in NATIVE_PLAN_ACTION_TYPES):
                     raise ValueError("Plan Jev Rules lookup requires its actual selected decision proof")
             data = current.execution.model_dump(mode="json", by_alias=True)
             data["events"].append(event.model_dump(mode="json", by_alias=True))
@@ -429,13 +429,13 @@ def admit_native_writer_input_locked(conn, turn, graph_execution, authorization,
     This grants no independent SDK dispatch. The service commits the shared
     provider event in the same transaction; only that fresh commit grants a send.
     """
-    from .native_execution import NativeWriterAuthorizedV1, NativeBuildActionV1
+    from .native_execution import NativeWriterAuthorizedV1, NativeBuildActionV1, NATIVE_WRITER_TYPES
     from .rules_authority_plan_packet import packet_input_records, verify_native_rules_packet_input
     current = load_turn_rules_locked(conn, turn)
     if current is None or current.revision != expected_revision:
         raise ApplicationStateConflictError("Native writer differs from its current Rules ledger")
     stored = [event for event in turn.graph_context_execution.events
-        if type(event) is NativeWriterAuthorizedV1]
+        if type(event) in NATIVE_WRITER_TYPES]
     replay = bool(stored)
     if replay and stored != [authorization]:
         raise ApplicationStateConflictError("Native writer authorization changed on replay")

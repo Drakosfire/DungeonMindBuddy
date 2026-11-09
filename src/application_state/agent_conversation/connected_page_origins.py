@@ -80,9 +80,9 @@ def execution_rows(execution, basis, attempt_id):
         or (auths[0].provider,auths[0].model,auths[0].api_mode) != execution.policy.provider_roles.writer.identity()):
         raise ValueError('Connected origin lacks its successful producing writer')
     auth = auths[0]
-    from .native_execution import SurfaceNativeExecutionV1,NativeBuildActionV1,NativeWriterAuthorizedV1
+    from .native_execution import SurfaceNativeExecutionV1,NativeBuildActionV1,NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
     if type(execution) is SurfaceNativeExecutionV1:
-        if type(execution.policy.action) is not NativeBuildActionV1 or type(auth) is not NativeWriterAuthorizedV1:
+        if type(execution.policy.action) is not NativeBuildActionV1 or type(auth) not in NATIVE_WRITER_TYPES:
             raise ValueError('Native connected origin requires its actual Build writer')
         from .build_primary_context import native_work_frame
         from .build_intentional_response import native_origin_rows

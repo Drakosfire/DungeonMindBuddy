@@ -19,7 +19,7 @@ def strict_json(raw):
 def _owner(turn):
     from . import types as t
     from .native_context import SurfaceNativeContextReceiptV1
-    from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1
+    from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES
     if (not isinstance(turn, t.Turn) or turn.status != "running"
             or turn.provenance.surface_id != "plan" or turn.provenance.surface_resolution != "resolved"):
         raise ValueError("Jev decision requires the current resolved Plan owner and frozen policy")
@@ -27,7 +27,7 @@ def _owner(turn):
     if type(receipt) is SurfaceNativeContextReceiptV1 or type(execution) is SurfaceNativeExecutionV1:
         if (type(receipt) is not SurfaceNativeContextReceiptV1
                 or type(execution) is not SurfaceNativeExecutionV1
-                or type(execution.policy.action) is not NativePlanActionV1):
+                or type(execution.policy.action) not in NATIVE_PLAN_ACTION_TYPES):
             raise ValueError("Jev decision requires its concrete shared Plan owner")
     elif not (
             ((isinstance(receipt, t.PlanSourceContextReceiptV1)
@@ -43,7 +43,7 @@ def _owner(turn):
 def _native_plan_action(execution):
     if getattr(execution.policy, "policy_version", None) != "surface_native_execution_v1":
         return None
-    from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1
+    from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES
     if type(execution) is SurfaceNativeExecutionV1:
         if not isinstance(execution.policy.action, NativePlanActionV1):
             raise ValueError("Plan decision proof requires its actual Plan action")

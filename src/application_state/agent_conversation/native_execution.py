@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import ConfigDict, Field, ValidationInfo, field_validator, model_validator
+from pydantic import ConfigDict, Discriminator, Tag, Field, ValidationInfo, field_validator, model_validator
 
 from application_state.build_proposal.types import BuildWriteCapability
 from . import types as t
@@ -110,9 +110,42 @@ class NativePlayActionV1(Strict):
     intent: t.PlayGraphIntentV1
 
 
+class NativePlanActionV2(NativePlanActionV1):
+    """Current Plan freezes the same saved-page capability used by Build."""
+    action_version: Literal['plan_saved_authored_pages_v2'] = 'plan_saved_authored_pages_v2'
+    related_page_catalog: tuple[PagePointer, ...]
+
+    @field_validator("related_page_catalog", mode="before")
+    @classmethod
+    def catalog_tuple(cls, value):
+        return tuple(value) if isinstance(value, list) else value
+
+    @model_validator(mode="after")
+    def saved_pages(self):
+        rows = self.related_page_catalog
+        if (len({p.document_id for p in rows}) != len(rows)
+                or any(p.world_id != self.intent.world_id
+                    or str(p.document_id) == str(self.intent.primary_work.object_id) for p in rows)):
+            raise ValueError("Related Plan pages differ from the actual work World")
+        return self
+
+
+NATIVE_PLAN_ACTION_TYPES = (NativePlanActionV1, NativePlanActionV2)
+
+
+def _action_kind(value):
+    if isinstance(value, dict):
+        surface = value.get('surface_id')
+        return 'plan_saved_pages' if surface == 'plan' and value.get('action_version') == 'plan_saved_authored_pages_v2' else surface
+    return 'plan_saved_pages' if type(value) is NativePlanActionV2 else getattr(value, 'surface_id', None)
+
+
 NativeAction = Annotated[
-    NativeBuildActionV1 | NativePlanActionV1 | NativePlayActionV1,
-    Field(discriminator="surface_id"),
+    Annotated[NativeBuildActionV1, Tag('build')]
+    | Annotated[NativePlanActionV1, Tag('plan')]
+    | Annotated[NativePlanActionV2, Tag('plan_saved_pages')]
+    | Annotated[NativePlayActionV1, Tag('play')],
+    Discriminator(_action_kind),
 ]
 
 
@@ -196,6 +229,16 @@ class NativeWriterAuthorizedV1(t.ProviderAttemptAuthorizedEventV3):
         return self
 
 
+class NativeBuildWriterAuthorizedV2(NativeWriterAuthorizedV1):
+    """The existing writer owner commits all Build work, including unused reads."""
+    kind: Literal["native_build_writer_authorized_v2"] = "native_build_writer_authorized_v2"
+    work_frame_sha256: Digest
+
+
+NATIVE_WRITER_TYPES = (NativeWriterAuthorizedV1, NativeBuildWriterAuthorizedV2)
+NATIVE_WRITER_KINDS = frozenset({'native_writer_authorized_v1', 'native_build_writer_authorized_v2'})
+
+
 def native_read_event_ids(events):
     """One inclusion inventory for the current native writer."""
     return tuple(sorted((event.event_id for event in events if isinstance(event, (
@@ -208,7 +251,7 @@ def native_read_event_ids(events):
 SurfaceNativeEvent = Annotated[
     t.ProviderAttemptAuthorizedEventV3 | t.ProviderAttemptAuthorizedEventV5
     | t.PlanJevProviderAuthorizedV1 | NativeRetrievalAuthorizedV1 | t.PlanRequestedWorkAuthorizedV2
-    | NativeWriterAuthorizedV1 | t.ProviderOutcomeEventV1 | t.CompletionBindingEventV1
+    | NativeWriterAuthorizedV1 | NativeBuildWriterAuthorizedV2 | t.ProviderOutcomeEventV1 | t.CompletionBindingEventV1
     | t.PlanJevRetrievalSelectionV1 | NativeRetrievalSelectedV1 | t.PlanRequestedWorkSelectedV2
     | t.NativeBodySearchAuthorizedV1 | t.NativeBodySearchObservedV1
     | t.NativeBodyReadAuthorizedV1 | t.NativeBodyReadObservedV1 | t.NativeAuthoredSourceReadV1
@@ -231,7 +274,7 @@ _BUILD_WORK_EVENTS = (
     t.BuildSectionReadAuthorizationV1, t.ValidatedBuildSectionReadV1,
     t.BuildRequestedWorkResolutionV1, t.BuildReviewedActionSelectionV1,
     t.BuildWriterEvidenceSelectionV1, t.BuildPlanOutputContractV2,
-    t.RelatedPagesSelection, t.RelatedPageRead,
+    t.RelatedPagesSelection,
 )
 _PLAN_WORK_EVENTS = (t.PlanRequestedWorkAuthorizedV2, t.PlanRequestedWorkSelectedV2)
 
@@ -258,15 +301,19 @@ class SurfaceNativeExecutionV1(Strict):
             if isinstance(event,t.ProviderOutcomeEventV1) and event.outcome=='response_received':
                 producer=next(e for e in self.events[:event.sequence]
                     if isinstance(e,t.ProviderAttemptAuthorizedEventV1) and e.provider_attempt_id==event.provider_attempt_id)
-                if type(producer) is NativeWriterAuthorizedV1 and (not event.request_id or not event.response_sha256):
+                if type(producer) in NATIVE_WRITER_TYPES and (not event.request_id or not event.response_sha256):
                     raise ValueError('Shared native writer response requires its exact selected output acknowledgement')
             if isinstance(event, _BUILD_WORK_EVENTS) and not isinstance(self.policy.action, NativeBuildActionV1):
                 raise ValueError("Build work event cannot acquire another action family")
+            if isinstance(event, t.RelatedPageRead) and type(self.policy.action) not in (NativeBuildActionV1, NativePlanActionV2):
+                raise ValueError("Saved-page read lacks its actual surface capability")
             if isinstance(event, _PLAN_WORK_EVENTS) and not isinstance(self.policy.action, NativePlanActionV1):
                 raise ValueError("Plan work event cannot acquire another action family")
             if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
                 identity = event.provider, event.model, event.api_mode
-                if type(event) is NativeWriterAuthorizedV1:
+                if type(event) in NATIVE_WRITER_TYPES:
+                    if type(event) is NativeBuildWriterAuthorizedV2 and not isinstance(self.policy.action, NativeBuildActionV1):
+                        raise ValueError('Build work authorization cannot authorize another surface')
                     writer_role = roles.writer if isinstance(roles, t.GraphControllerWriterRolesV1) else roles
                     if identity != writer_role.identity():
                         raise ValueError("Shared native inclusion belongs only to its exact writer role")
@@ -279,7 +326,7 @@ class SurfaceNativeExecutionV1(Strict):
                     if (isinstance(self.policy.action,NativeBuildActionV1)) != (event.build_context is not None):
                         raise ValueError("Native dispatch context differs from its concrete surface")
                 if isinstance(roles, t.GraphControllerWriterRolesV1):
-                    if identity == roles.writer.identity() and type(event) is not NativeWriterAuthorizedV1:
+                    if identity == roles.writer.identity() and type(event) not in NATIVE_WRITER_TYPES:
                         raise ValueError("Native writer requires its exact shared selected-read inclusion codec")
                     if (isinstance(self.policy.action, NativePlanActionV1)
                             and identity == roles.controller.identity()
@@ -310,6 +357,9 @@ class SurfaceNativeExecutionV1(Strict):
                     validate_selection_origin(self,event)
                     if event.source_event_ids:
                         raise ValueError('Native World evidence cannot acquire a second classic source inclusion set')
+        elif type(self.policy.action) is NativePlanActionV2:
+            from .build_related_pages import validate_events as validate_related_events
+            validate_related_events(self)
         if isinstance(roles, t.GraphControllerWriterRolesV1):
             reviewed = [event for event in self.events if isinstance(event, t.BuildReviewedActionSelectionV1)]
             if reviewed:
