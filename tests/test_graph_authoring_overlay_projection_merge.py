@@ -16,7 +16,7 @@ from apps.live_control_server.services.graph_authoring_overlay_projection import
 from apps.live_control_server.services.graph_authoring_overlay_store import GraphAuthoringOverlayStore
 from graph_memory.projection.focus_overlay import GraphFocusOverlay, GraphProjectionEvidenceBadge
 from graph_memory.projection.node_view import GraphProjectionNodeView
-from graph_memory.projection.recap_projection import RecapGraphProjection
+from graph_memory.projection.recap_projection_contracts import RecapGraphProjection
 from tests.test_graph_authoring_overlay_models import CAMPAIGN_ID, STAMP, object_ref, provenance
 
 TEST_CAMPAIGN_REL = "Test Campaign/A10i"
@@ -310,15 +310,21 @@ def test_overlay_local_merge_still_applies_without_durable_redirect(
 def test_durable_redirect_prevents_duplicate_overlay_merge(
     store: GraphAuthoringOverlayStore,
 ) -> None:
-    from graph_memory.projection.recap_projection import build_recap_graph_projection
-    from tests.test_graph_memory_union_projection_identity_redirects import (
-        _lysandra_applied_store,
-    )
-
-    durable_projection = build_recap_graph_projection(
-        _lysandra_applied_store(),
-        session_id="session-23",
-        markdown="[Lysandra](dmb-node:node:lysandra) traveled.",
+    # This service consumes the current read-model contract. The retired Union
+    # builder is no longer an authority; durable identity records arrive in the
+    # projection DTO, as in the adjacent durable relationship/alias tests.
+    durable_projection = RecapGraphProjection(
+        campaign_id=CAMPAIGN_ID, session_id="session-23", graph_id="graph-1",
+        markdown="[Lysandra](dmb-node:party:captain_lysandra_ironveil) traveled.",
+        focus=GraphFocusOverlay(focus_session_id="session-23"),
+        node_views={"party:captain_lysandra_ironveil": GraphProjectionNodeView(
+            node_id="party:captain_lysandra_ironveil", label="Captain Lysandra Ironveil",
+            kind="companion", role="companion", aliases=["Lysandra"],
+            source_domains=["recap"], evidence_badges=[], adjacency=[],
+            merged_away_ids=["node:lysandra"],
+        )},
+        mentions=[], source_spans=[],
+        union_identity_applied_assertion_ids=["assert-merge-lysandra"],
     )
     overlay = create_empty_authored_graph_overlay(CAMPAIGN_ID, created_at=STAMP).model_copy(
         update={

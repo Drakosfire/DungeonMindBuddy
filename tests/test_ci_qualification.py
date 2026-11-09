@@ -1,0 +1,456 @@
+"""Fail-closed qualification orchestration contracts; real image evidence is separate."""
+import ast
+import json
+import sys
+from types import SimpleNamespace
+
+import pytest
+import yaml
+
+from scripts.qualification import image_probe as probe
+
+
+def test_qualification_workflow_pins_source_and_preserves_premerge_checks():
+    workflow = yaml.load((probe.ROOT / ".github/workflows/qualification.yml").read_text(), Loader=yaml.BaseLoader)
+    assert set(workflow["on"]) == {"workflow_dispatch", "schedule", "push", "pull_request"}
+    assert workflow["on"]["push"]["tags"] == ["rc/**"]
+    assert workflow["permissions"] == {"contents": "read"}
+    assert workflow["concurrency"]["cancel-in-progress"] == "${{ github.event_name == 'pull_request' }}"
+    assert workflow["on"]["pull_request"]["branches"] == ["main"]
+    assert "scripts/qualification/**" in workflow["on"]["pull_request"]["paths"]
+    for job in ("full-regression", "image-and-browser"):
+        assert workflow["jobs"][job]["needs"] == "source"
+        checkout = workflow["jobs"][job]["steps"][0]
+        assert checkout["with"]["ref"] == "${{ needs.source.outputs.sha }}"
+    commands = "\n".join(step.get("run", "") for step in workflow["jobs"]["image-and-browser"]["steps"])
+    assert "python -m scripts.qualification.image_probe --output" in commands
+    assert "--image-only" not in commands
+    aggregate = workflow["jobs"]["qualification-result"]
+    assert set(aggregate["needs"]) == {"source", "full-regression", "frontend-regression", "collection-coverage", "image-and-browser"}
+    assert aggregate["if"] == "always()"
+    assert 'test "$SOURCE" = success && test "$FULL" = success && test "$IMAGE" = success' in aggregate["steps"][0]["run"]
+
+
+def test_packaging_exception_is_source_only_and_old_pr_gates_remain_unfiltered():
+    rules = (probe.ROOT / ".dockerignore").read_text().splitlines()
+    source_rules = [line for line in rules if line.startswith("!src/corpus/")]
+    assert source_rules == ["!src/corpus/", "!src/corpus/__init__.py", "!src/corpus/session_recap_paths.py"]
+    assert "src/corpus/**" in rules and "**/corpus/" in rules
+    for filename in ("hosted-validation.yml", "world-ownership-core.yml"):
+        workflow = yaml.load((probe.ROOT / ".github/workflows" / filename).read_text(), Loader=yaml.BaseLoader)
+        assert set(workflow["on"]["pull_request"]) == {"branches", "types"}
+
+
+def test_startup_exit_is_reported_by_the_same_live_health_observer():
+    instance = object.__new__(probe.Probe)
+    instance.state = lambda name: {"Running": False, "ExitCode": 23}
+    with pytest.raises(probe.QualificationFailure, match="startup_exit:23"):
+        instance.wait_live("owned-probe", "http://127.0.0.1:1")
+
+
+def test_clean_source_required_before_full_qualification():
+    instance = object.__new__(probe.Probe)
+    instance.dirty = True
+    with pytest.raises(probe.QualificationFailure, match="clean committed source"):
+        instance.boot(image_only=False)
+
+
+def test_insufficient_docker_storage_stops_before_build_or_resource_allocation(monkeypatch):
+    instance = object.__new__(probe.Probe)
+    instance.dirty = False
+    instance.report = {}
+    calls = []
+    instance.docker = lambda *args: (calls.append(args) or SimpleNamespace(stdout="/docker-root\n"))
+    monkeypatch.setattr(probe.shutil, "disk_usage", lambda path: SimpleNamespace(free=1))
+    with pytest.raises(probe.QualificationFailure, match="less than 8 GiB"):
+        instance.boot(image_only=True)
+    assert calls == [("info", "--format", "{{.DockerRootDir}}")]
+
+
+@pytest.mark.parametrize("failed_cleanup", [False, True])
+def test_process_failure_or_cleanup_failure_cannot_publish_qualified(tmp_path, monkeypatch, failed_cleanup):
+    class FakeProbe:
+        def __init__(self, output):
+            self.output = output
+            self.output.mkdir()
+            self.report = {"qualified": False, "cleanup": {}}
+
+        def boot(self, *, image_only):
+            if failed_cleanup:
+                self.report["qualified"] = True
+            else:
+                raise probe.QualificationFailure("real startup boundary failed")
+
+        def cleanup(self):
+            self.report["cleanup"]["owned-resource"] = not failed_cleanup
+
+    monkeypatch.setattr(probe, "Probe", FakeProbe)
+    monkeypatch.setattr(sys, "argv", ["image_probe", "--output", str(tmp_path / "evidence")])
+    assert probe.main() == 1
+    report = json.loads((tmp_path / "evidence/result.json").read_text())
+    assert report["qualified"] is False
+    assert "cleanup_error" in report if failed_cleanup else "failure" in report
+
+
+def test_cleanup_uses_only_explicit_owned_names_and_retains_logs(tmp_path):
+    instance = object.__new__(probe.Probe)
+    instance.output = tmp_path
+    instance.prefix = "dmb-qualification-test-owned"
+    instance.containers = [instance.prefix + "-api", instance.prefix + "-db"]
+    instance.network, instance.volume = instance.prefix + "-network", instance.prefix + "-state"
+    instance.postgres_volume = instance.prefix + "-postgres-data"
+    instance.postgres_volume_created = True
+    instance.network_created = instance.volume_created = True
+    instance.report = {"cleanup": {}}
+    calls = []
+
+    def docker(*args, **kwargs):
+        calls.append(args)
+        return SimpleNamespace(returncode=0, stdout="owned log", stderr="")
+
+    instance.docker = docker
+    instance.cleanup()
+    assert all(any(name.startswith(instance.prefix) for name in args) for args in calls)
+    assert not any("prune" in args for args in calls)
+    assert len(list(tmp_path.glob("*.log"))) == 2
+    assert all(instance.report["cleanup"].values())
+    assert ("volume", "rm", instance.postgres_volume) in calls
+    assert all(("rm", "--force", "--volumes", name) in calls for name in instance.containers)
+
+
+def test_canonical_core_migrations_are_selected_by_installed_pin(monkeypatch, tmp_path):
+    from scripts.qualification import bootstrap_core
+
+    direct = {"url": "https://github.com/Drakosfire/DungeonMind.git", "vcs_info": {"commit_id": "a" * 40}}
+    monkeypatch.setattr(bootstrap_core.importlib.metadata, "distribution", lambda name: SimpleNamespace(read_text=lambda path: json.dumps(direct)))
+    assert bootstrap_core.installed_core_pin() == "a" * 40
+    direct["url"] = "https://wrong-owner.test/repo.git"
+    with pytest.raises(ValueError, match="source owner"):
+        bootstrap_core.installed_core_pin()
+
+
+def test_repaired_modules_retain_all_original_test_definitions():
+    manifest = json.loads((probe.ROOT / "ci/collection-repairs.json").read_text())
+    for path, expected in manifest["original_test_definitions"].items():
+        tree = ast.parse((probe.ROOT / path).read_text())
+        actual = sorted(node.name for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_"))
+        assert actual == expected
+        actual_params = sorted(ast.dump(node, show_empty=True) for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "parametrize")
+        assert actual_params == manifest["original_parametrization"][path]
+
+
+def test_postgres_readiness_rejects_socket_only_initialization_server(monkeypatch):
+    instance = object.__new__(probe.Probe)
+    calls = []
+    sleeps = []
+
+    def docker(*args, **kwargs):
+        calls.append(args)
+        # A socket probe would incorrectly accept the temporary server at once.
+        is_tcp = "-h" in args and args[args.index("-h") + 1] == "127.0.0.1"
+        return SimpleNamespace(returncode=0 if not is_tcp or len(calls) == 3 else 1)
+
+    instance.docker = docker
+    monkeypatch.setattr(probe.time, "sleep", sleeps.append)
+    instance.wait_postgres("owned-postgres")
+    assert len(calls) == 3
+    assert sleeps == [1, 1]
+    assert all(args[-2:] == ("-d", "postgres") for args in calls)
+
+
+def test_postgres_readiness_is_bounded_and_fails_closed(monkeypatch):
+    instance = object.__new__(probe.Probe)
+    calls = []
+    instance.docker = lambda *args, **kwargs: (calls.append(args) or SimpleNamespace(returncode=1))
+    monkeypatch.setattr(probe.time, "sleep", lambda _: None)
+    with pytest.raises(probe.QualificationFailure, match="disposable_postgres_unavailable"):
+        instance.wait_postgres("owned-postgres")
+    assert len(calls) == 60
+
+
+def test_native_database_command_propagates_failure_and_scopes_dsn(tmp_path, monkeypatch):
+    from scripts.qualification import native_database as native
+
+    closed = []
+    calls = []
+    class OwnedDatabase:
+        def __init__(self, output):
+            assert output == tmp_path / "owned"
+        def __enter__(self):
+            return "postgresql://owned@127.0.0.1:1234/qualification_native_test"
+        def __exit__(self, *args):
+            closed.append(True)
+    def run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return SimpleNamespace(returncode=17)
+    monkeypatch.setattr(native, "NativeTestDatabase", OwnedDatabase)
+    monkeypatch.setattr(native.subprocess, "run", run)
+    monkeypatch.setattr(sys, "argv", ["native_database", "--output", str(tmp_path / "owned")])
+    assert native.main() == 17
+    assert closed == [True]
+    assert calls[0][0][-2:] == ["run", "full-regression"]
+    assert calls[0][1]["env"]["DMB_CUTOVER_TEST_DATABASE_URL"].endswith("/qualification_native_test")
+
+
+def test_native_database_cleanup_failure_is_fatal_and_named(tmp_path, monkeypatch):
+    from scripts.qualification import native_database as native
+
+    instance = native.NativeTestDatabase(tmp_path / "owned")
+    calls = []
+    def run(argv, **kwargs):
+        calls.append(argv)
+        return SimpleNamespace(returncode=1, stdout="", stderr="cleanup refused")
+    monkeypatch.setattr(native.subprocess, "run", run)
+    with pytest.raises(probe.QualificationFailure, match="cleanup failed"):
+        instance.__exit__(None, None, None)
+    assert calls == [["docker", "logs", instance.name], ["docker", "rm", "--force", "--volumes", instance.name]]
+    assert json.loads((instance.output / "result.json").read_text())["cleaned"] is False
+
+
+@pytest.mark.parametrize("peer,expected", [(None, 200), (("192.0.2.1", 50000), 403)])
+def test_scoped_local_test_client_preserves_real_auth_boundary(monkeypatch, peer, expected):
+    from fastapi import FastAPI
+    from apps.live_control_server.services.hosted_auth import install_hosted_request_boundary
+    from tests.local_operator_client import LocalOperatorTestClient, configure_local_operator
+
+    configure_local_operator(monkeypatch)
+    app = FastAPI()
+    install_hosted_request_boundary(app)
+    @app.get("/api/probe")
+    def probe_route():
+        return {"ok": True}
+    kwargs = {} if peer is None else {"client": peer}
+    response = LocalOperatorTestClient(app, **kwargs).get("/api/probe")
+    assert response.status_code == expected
+    if expected == 403:
+        assert response.json()["detail"]["code"] == "hosted_auth_local_boundary"
+
+
+@pytest.mark.parametrize("authorization,expected", [(None, 200), ("Bearer wrong-token", 401)])
+def test_native_fixture_credential_uses_real_graph_auth(monkeypatch, authorization, expected):
+    from fastapi import FastAPI, Request
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from apps.live_control_server.services.hosted_auth import install_hosted_request_boundary
+    from tests.local_operator_client import NativeLocalOperatorTestClient, configure_native_local_operator
+
+    configure_native_local_operator(monkeypatch)
+    app = FastAPI()
+    install_hosted_request_boundary(app)
+    @app.get("/api/probe")
+    def probe_route(request: Request):
+        principal = enforce_native_graph_gm(request)
+        return {"subject": principal.subject, "role": principal.role}
+    kwargs = {} if authorization is None else {"headers": {"Authorization": authorization}}
+    response = NativeLocalOperatorTestClient(app, **kwargs).get("/api/probe")
+    assert response.status_code == expected
+    if expected == 200:
+        assert response.json() == {"subject": "local_operator", "role": "gm"}
+
+
+def _partition_reports():
+    from scripts.qualification import partition as part
+    nodes = [f"tests/test_partition_{i}.py::test_case[value-{i}]" for i in range(64)]
+    omitted = [f"tests/test_live.py::test_live[{i}]" for i in range(36)]
+    return [part.report(index, nodes, omitted, "a" * 40) for index in range(4)]
+
+
+def test_file_partition_preserves_exact_actual_nodeids_and_uuid_labels():
+    from collections import Counter
+    from scripts.qualification import partition as part
+    nodes = [node for report in _partition_reports()[:1] for node in report["unpartitioned_nodeids"]]
+    nodes += ["tests/test_uuid.py::test_generated[11111111-1111-4111-8111-111111111111]",
+              "tests/test_uuid.py::test_generated[22222222-2222-4222-8222-222222222222]"]
+    groups = part.plan(nodes)
+    assert Counter(node for group in groups for node in group) == Counter(nodes)
+    assert sum(bool(set(group) & set(nodes[-2:])) for group in groups) == 1
+    assert part.plan(list(reversed(nodes))) == [list(reversed(group)) for group in groups]
+    assert part.verify_reports(_partition_reports())["unpartitioned_cases"] == 64
+
+
+@pytest.mark.parametrize("path", ["../tests/test_escape.py", "/tests/test_absolute.py", "tests/../test_escape.py",
+                                  "other/test_wrong.py", "tests/test_wrong.txt", "tests//test_alias.py", "tests\\test_windows.py"])
+def test_partition_rejects_unknown_or_noncanonical_collected_paths(path):
+    from scripts.qualification import partition as part
+    with pytest.raises(ValueError, match="unsupported collected file"):
+        part.bucket(path)
+
+
+@pytest.mark.parametrize("mutation", ["missing", "duplicate", "source", "selected", "default", "parameter"])
+def test_partition_report_verifier_fails_closed_on_coverage_or_contract_drift(mutation):
+    from scripts.qualification import partition as part
+    reports = _partition_reports()
+    if mutation == "missing":
+        reports.pop()
+    elif mutation == "duplicate":
+        reports[1] = reports[0]
+    elif mutation == "source":
+        reports[1]["source_sha"] = "b" * 40
+    elif mutation == "selected":
+        reports[1]["selected_nodeids"].pop()
+    elif mutation == "default":
+        reports[1]["default_deselected_nodeids"].pop()
+    else:
+        old = reports[1]
+        nodes = [node.replace("[value-0]", "[changed-static-parameter]") for node in old["unpartitioned_nodeids"]]
+        reports[1] = part.report(1, nodes, old["default_deselected_nodeids"], old["source_sha"])
+    with pytest.raises(ValueError):
+        part.verify_reports(reports)
+
+
+def test_partition_allows_only_generated_uuid_parameter_churn_between_same_source_jobs():
+    from scripts.qualification import partition as part
+    reports = _partition_reports()
+    for index, old in enumerate(reports):
+        nodes = old["unpartitioned_nodeids"] + [f"tests/test_uuid.py::test_generated[{index:08x}-1111-4111-8111-111111111111]"]
+        reports[index] = part.report(index, nodes, old["default_deselected_nodeids"], old["source_sha"])
+    assert part.verify_reports(reports)["unpartitioned_cases"] == 65
+
+
+@pytest.mark.parametrize("index,output,args,marker", [(4, "report", ["tests"], "not live_llm"),
+        (0, None, ["tests"], "not live_llm"), (0, "report", ["tests/test_one.py"], "not live_llm"),
+        (0, "report", ["tests"], "integration")])
+def test_partition_options_cannot_turn_full_qualification_into_partial_selection(index, output, args, marker):
+    from scripts.qualification import partition as part
+    config = SimpleNamespace(args=args, option=SimpleNamespace(markexpr=marker, keyword="", deselect=[], lf=False),
+        getoption=lambda name: index if name == "qualification_partition" else output)
+    with pytest.raises(pytest.UsageError):
+        part.pytest_configure(config)
+
+
+def test_partition_rejects_empty_duplicate_or_changed_default_collection():
+    from scripts.qualification import partition as part
+    with pytest.raises(ValueError, match="empty or duplicate"):
+        part.plan([])
+    with pytest.raises(ValueError, match="empty or duplicate"):
+        part.plan(["tests/test_one.py::test_one"] * 2)
+    with pytest.raises(ValueError, match="default deselection"):
+        part.report(0, _partition_reports()[0]["unpartitioned_nodeids"], [], "a" * 40)
+
+
+def test_partitioned_workflow_keeps_every_backend_and_frontend_step_authoritative():
+    workflow = yaml.load((probe.ROOT / ".github/workflows/qualification.yml").read_text(), Loader=yaml.BaseLoader)
+    backend = workflow["jobs"]["full-regression"]
+    assert backend["strategy"] == {"fail-fast": "false", "matrix": {"partition": ["0", "1", "2", "3"]}}
+    assert backend["timeout-minutes"] == "120"
+    assert "DMB_APPLICATION_STATE_TEST_DATABASE_URL" in backend["env"]
+    assert "--partition ${{ matrix.partition }}" in backend["steps"][-2]["run"]
+    for name in ("frontend-regression", "collection-coverage"):
+        assert workflow["jobs"][name]["steps"][0]["with"]["ref"] == "${{ needs.source.outputs.sha }}"
+    frontend = workflow["jobs"]["frontend-regression"]
+    commands = [step for step in frontend["steps"] if "scripts/ci_contract.py run qualification-" in step.get("run", "")]
+    assert len(commands) == 3
+    assert all(step["if"] == "${{ !cancelled() && steps.prepare.outcome == 'success' }}" for step in commands)
+    assert all("continue-on-error" not in step for step in commands)
+    coverage = workflow["jobs"]["collection-coverage"]
+    assert coverage["if"] == "always()" and set(coverage["needs"]) == {"source", "full-regression"}
+    assert any("python -m scripts.qualification.partition" in step.get("run", "") for step in coverage["steps"])
+    aggregate = workflow["jobs"]["qualification-result"]["steps"][0]["run"]
+    assert 'test "$FRONTEND" = success && test "$COVERAGE" = success' in aggregate
+
+
+def test_partition_refuses_dirty_source_before_claiming_a_pinned_collection(monkeypatch):
+    from scripts.qualification import partition as part
+    calls = []
+    def changed(argv, **kwargs):
+        calls.append(argv)
+        return " M tests/test_changed.py\n"
+    monkeypatch.setattr(part.subprocess, "check_output", changed)
+    with pytest.raises(ValueError, match="clean committed source"):
+        part.source_sha()
+    assert calls == [["git", "status", "--porcelain"]]
+
+
+def test_partitioned_backend_failure_keeps_owned_database_scope_and_cleanup(tmp_path, monkeypatch):
+    from scripts.qualification import native_database as native
+    closed, calls = [], []
+    class OwnedDatabase:
+        def __init__(self, output):
+            assert output == tmp_path / "native"
+        def __enter__(self):
+            return "postgresql://owned@127.0.0.1:1234/qualification_native_test"
+        def __exit__(self, *args):
+            closed.append(True)
+    def run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return SimpleNamespace(returncode=19)
+    monkeypatch.setattr(native, "NativeTestDatabase", OwnedDatabase)
+    monkeypatch.setattr(native.subprocess, "run", run)
+    monkeypatch.setattr(sys, "argv", ["native_database", "--output", str(tmp_path / "native"), "--partition", "2"])
+    assert native.main() == 19 and closed == [True]
+    command, options = calls[0]
+    assert command[-6:] == ["run", "full-backend", "--partition", "2", "--partition-report", str(tmp_path / "collection.json")]
+    assert options["env"]["DMB_CUTOVER_TEST_DATABASE_URL"].endswith("/qualification_native_test")
+
+
+def test_invalid_partition_refuses_all_database_allocation(tmp_path, monkeypatch):
+    from scripts.qualification import native_database as native
+    monkeypatch.setattr(native, "NativeTestDatabase", lambda _: pytest.fail("invalid index allocated a database"))
+    monkeypatch.setattr(sys, "argv", ["native_database", "--output", str(tmp_path / "native"), "--partition", "4"])
+    with pytest.raises(SystemExit) as stopped:
+        native.main()
+    assert stopped.value.code == 2
+
+
+def test_partition_artifacts_must_match_the_verifier_source_pin():
+    from scripts.qualification import partition as part
+    with pytest.raises(ValueError, match="verifier checkout"):
+        part.verify_reports(_partition_reports(), expected_sha="b" * 40)
+    assert part.verify_reports(_partition_reports(), expected_sha="a" * 40)["omissions"] == 0
+
+
+@pytest.mark.parametrize("option,value", [("ignore", ["tests/test_ci_contract.py"]),
+        ("ignore_glob", ["tests/test_ci*"]), ("confcutdir", "/tmp"), ("noconftest", True),
+        ("pyargs", True), ("doctestmodules", True), ("maxfail", 1), ("stepwise", True),
+        ("override_ini", ["python_files=test_ci_qualification.py"]), ("plugins", ["no:mark"])])
+def test_partition_rejects_hidden_discovery_controls(option, value):
+    from scripts.qualification import partition as part
+    options = SimpleNamespace(markexpr="not live_llm", keyword="", deselect=[], lf=False)
+    setattr(options, option, value)
+    config = SimpleNamespace(args=["tests"], option=options,
+        getoption=lambda name: 0 if name == "qualification_partition" else "report")
+    with pytest.raises(pytest.UsageError, match="without discovery overrides"):
+        part.pytest_configure(config)
+
+
+@pytest.mark.parametrize("variable,value", [("PYTEST_ADDOPTS", "--ignore=tests/test_ci_contract.py"),
+        ("PYTEST_ADDOPTS", "--collect-only"), ("PYTEST_PLUGINS", "unreviewed.plugin"), ("PYTEST_DISABLE_PLUGIN_AUTOLOAD", "1")])
+def test_inherited_pytest_options_fail_before_owned_database_allocation(tmp_path, monkeypatch, variable, value):
+    from scripts.qualification import native_database as native
+    from scripts import ci_contract
+    monkeypatch.setenv(variable, value)
+    monkeypatch.setattr(native, "NativeTestDatabase", lambda _: pytest.fail("hidden selector allocated a database"))
+    monkeypatch.setattr(sys, "argv", ["native_database", "--output", str(tmp_path / "native"), "--partition", "0"])
+    with pytest.raises(SystemExit) as stopped:
+        native.main()
+    assert stopped.value.code == 2
+    with pytest.raises(ValueError, match="inherited pytest"):
+        ci_contract.execute("full-backend", partition=0, partition_report="report")
+
+
+def test_collection_only_diagnostics_cannot_satisfy_execution_coverage():
+    from scripts.qualification import partition as part
+    reports = _partition_reports()
+    for index, old in enumerate(reports):
+        reports[index] = part.report(index, old["unpartitioned_nodeids"], old["default_deselected_nodeids"],
+                                     old["source_sha"], collection_only=True)
+    with pytest.raises(ValueError, match="cannot qualify execution"):
+        part.verify_reports(reports)
+    assert part.verify_reports(reports, collection_only_proof=True)["collection_only_proof"] is True
+
+
+def test_new_test_files_do_not_move_or_drop_existing_partition_cases():
+    from scripts.qualification import partition as part
+    nodes = _partition_reports()[0]["unpartitioned_nodeids"]
+    owners = {node: index for index, group in enumerate(part.plan(nodes)) for node in group}
+    expanded = {node: index for index, group in enumerate(part.plan(nodes + ["tests/test_future.py::test_new"])) for node in group}
+    assert {node: expanded[node] for node in nodes} == owners
+    assert len(expanded) == len(owners) + 1
+
+
+def test_unknown_plugin_cli_controls_cannot_hide_behind_full_positional_args():
+    from scripts.qualification import partition as part
+    config = SimpleNamespace(args=["tests"], option=SimpleNamespace(markexpr="not live_llm", keyword="", deselect=[], lf=False),
+        invocation_params=SimpleNamespace(args=("tests", "--unreviewed-selector")),
+        getoption=lambda name: 0 if name == "qualification_partition" else "report")
+    with pytest.raises(pytest.UsageError, match="without discovery overrides"):
+        part.pytest_configure(config)

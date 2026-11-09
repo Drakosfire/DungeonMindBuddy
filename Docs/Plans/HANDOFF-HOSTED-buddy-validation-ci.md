@@ -1,6 +1,6 @@
 # HANDOFF-HOSTED-buddy-validation-ci
 
-**Status:** ACTIVE — authorized validation-only CI lane; no merge, deployment, World-policy change, or Actions settings change.  
+**Status:** SETTLED — PR #1814 merged at `c7f83c086d39e01f129fa7e31ef03262dbf65f91` on 2026-10-27. Its validation/packaging write lease ended at merge. Original implementation/run evidence below is historical, not a current lease or launch claim. The 2026-11-09 CI coordinator explicitly transfers only the needed `.dockerignore` source-package inclusion to qualification PR #2288; no deployment, World-policy or runtime-data authority is transferred.
 **Date:** 2026-10-27 UTC  
 **Owning repository:** Drakosfire/DungeonMindBuddy  
 **Topology:** serial; one successor to merged PR #1802  

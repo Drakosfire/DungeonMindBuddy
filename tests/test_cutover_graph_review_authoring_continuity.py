@@ -13,13 +13,16 @@ from tests.page_fixtures import create_page_fixture, save_page
 from apps.live_control_server.services.workspace_document_registry import get_workspace_document
 
 
+import copy
 import hashlib
 import json
 from pathlib import Path
 
 
 import pytest
-from fastapi.testclient import TestClient
+from tests.local_operator_client import (
+    NativeLocalOperatorTestClient as TestClient, configure_native_local_operator,
+)
 
 import apps.live_control_server.config as live_config
 import apps.live_control_server.services.extract_promote as promote_svc
@@ -194,6 +197,19 @@ def _merge_proposal() -> dict[str, object]:
 
 
 def _authoring_body(run_id: str, proposals: list[dict[str, object]], **extra) -> dict[str, object]:
+    from apps.live_control_server.services.graph_run_registry import load_reviewable_extraction_data
+    from apps.live_control_server.models.graph_authoring_overlay import normalize_selected_text
+    data = load_reviewable_extraction_data(promotable_mod.repo_root(), run_id)
+    lines = data.source_bytes.decode().splitlines()
+    proposals = copy.deepcopy(proposals)
+    for proposal in proposals:
+        selection = proposal.get("selection")
+        if isinstance(selection, dict) and selection.get("selectedText"):
+            selected = normalize_selected_text(selection["selectedText"])
+            matches = [span.source_span_id for span in data.span_index.spans
+                       if selected in normalize_selected_text("\n".join(lines[span.start_line - 1:span.end_line]))]
+            assert len(matches) == 1, "fixture selection needs one real frozen source span"
+            selection["sourceSpanRefId"] = matches[0]
     payload: dict[str, object] = {
         "campaignId": GLASS_ORCHARD_WORLD_ID,
         "campaignRel": "The Glass Orchard",
@@ -242,6 +258,7 @@ def native_first_world_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(live_config, "repo_root", lambda: repo)
     monkeypatch.setattr(promote_svc, "repo_root", lambda: repo)
     monkeypatch.setattr(promotable_mod, "repo_root", lambda: repo)
+    configure_native_local_operator(monkeypatch)
     client = TestClient(create_app())
     return client, world_root, repo, dsn
 
@@ -363,6 +380,10 @@ def _write_post_genesis_graph_review_run(repo: Path) -> str:
         session_id=None,
         profile_id="worldbuilding_plumbing_v0@0.1",
     )
+    from application_state.ingest.components import persist_component_payload
+    for kind, payload_path in (("candidate_graph", candidate_path), ("source_span_index", span_path)):
+        persist_component_payload(run_id=run.run_id, expected_revision=run.revision,
+                                  kind=kind, payload=payload_path.read_bytes())
     for step in (
         ExtractionRunStatus.PREPARED,
         ExtractionRunStatus.EXTRACTED,
@@ -409,8 +430,14 @@ def test_graph_review_authoring_continuity_one_world_sequence(
     confirm = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
     assert confirm.status_code == 200, confirm.text
     d0 = confirm.json()["committedRevisionId"]
+    from apps.live_control_server.services.world_container_registry import get_world_container
+    binding = get_world_container(repo, GLASS_ORCHARD_WORLD_ID).native_graph_binding
+    native_world_id = binding.native_world_id
+    assert native_world_id != GLASS_ORCHARD_WORLD_ID
+    core_scope = {"world_id": native_world_id, "campaign_id": "", "scope_mode": "world"}
+
     assert d0
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 1
+    assert _counts(dsn, native_world_id)["revisions"] == 1
 
 
     _explode_kernel(monkeypatch)
@@ -448,14 +475,14 @@ def test_graph_review_authoring_continuity_one_world_sequence(
         object_prepare["assertions_preview"][0]["assertion_id"]
     )
     assert object_body["parent_revision_id"] == d0
-    assert object_body["world_id"] == GLASS_ORCHARD_WORLD_ID
+    assert object_body["world_id"] == native_world_id
     assert object_body["idempotency_status"] == "published"
     assert object_body["operation_id"].startswith("grauth:")
     assert object_body["audit_status"] == "skipped"
     assert object_body.get("overlay_path") is None
     assert object_body.get("event_log_path") is None
     assert d1 != d0
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 2
+    assert _counts(dsn, native_world_id)["revisions"] == 2
 
 
     retry = client.post(
@@ -473,7 +500,7 @@ def test_graph_review_authoring_continuity_one_world_sequence(
     assert retry_body["idempotency_status"] == "already_applied"
     assert retry_body["audit_status"] == "skipped"
     assert retry_body.get("overlay_path") is None
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 2
+    assert _counts(dsn, native_world_id)["revisions"] == 2
 
 
     fresh = TestClient(create_app())
@@ -491,7 +518,7 @@ def test_graph_review_authoring_continuity_one_world_sequence(
     assert lost.json()["idempotency_status"] == "already_applied"
     assert lost.json()["audit_status"] == "skipped"
     assert lost.json().get("overlay_path") is None
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 2
+    assert _counts(dsn, native_world_id)["revisions"] == 2
 
 
     from apps.live_control_server.integrations.dungeonmind.world_graph_authority_adapter import (
@@ -500,16 +527,16 @@ def test_graph_review_authoring_continuity_one_world_sequence(
 
 
     adapter = DungeonMindWorldGraphAuthorityAdapter(database_url=dsn)
-    d1_view = adapter.read_revision(GLASS_ORCHARD_WORLD_ID, d1)
+    d1_view = adapter.read_revision(native_world_id, d1)
     assert reviewed_node_id in d1_view.objects
     assert EXISTING_NODE_ID in d1_view.objects
 
 
     services = direct.direct_services_from_bundle(
-        _bundle(dsn), GLASS_ORCHARD_WORLD_ID
+        _bundle(dsn), native_world_id
     )
     projection = direct.project_world_graph_direct(
-        services, _projection_request(revision_pin=d1)
+        services, _projection_request(revision_pin=d1, **core_scope)
     )
     projected_ids = {node.node_id for node in projection.nodes}
     assert reviewed_node_id in projected_ids
@@ -519,7 +546,7 @@ def test_graph_review_authoring_continuity_one_world_sequence(
         WorldGraphSearchRequest(
             schema="dmb_world_graph_search_request_v1",
             queryText="D2C4 Reviewed Object",
-            **_retrieval_context(revision_pin=d1),
+            **_retrieval_context(revision_pin=d1, **core_scope),
         ),
     )
     assert reviewed_node_id in set(search.matched_node_ids)
@@ -528,7 +555,7 @@ def test_graph_review_authoring_continuity_one_world_sequence(
         WorldGraphObjectRequest(
             schema="dmb_world_graph_object_request_v1",
             nodeId=reviewed_node_id,
-            **_retrieval_context(revision_pin=d1),
+            **_retrieval_context(revision_pin=d1, **core_scope),
         ),
     )
     assert [node.node_id for node in exact.nodes] == [reviewed_node_id]
@@ -546,15 +573,15 @@ def test_graph_review_authoring_continuity_one_world_sequence(
         WorldGraphSourceAnchorReadRequest(
             schema="dmb_world_graph_source_anchor_read_request_v1",
             anchorId=anchor.anchor_id,
-            **_retrieval_context(revision_pin=d1),
+            **_retrieval_context(revision_pin=d1, **core_scope),
         ),
         repo_root=repo,
     )
     from apps.live_control_server.services.source_artifact_registry import (
         get_source_artifact,
         load_source_span_index,
+        load_registered_source_artifact_bytes,
     )
-    from apps.live_control_server.config import artifact_data_root
     from graph_memory.retrieval.source_reader import parse_repo_uri
 
     assert resolved_anchor.outcome == "enough"
@@ -564,8 +591,11 @@ def test_graph_review_authoring_continuity_one_world_sequence(
     index = load_source_span_index(repo, buddy_artifact_id)
     span = next(item for item in index.spans if item.source_span_id == anchor.source_span_ref_id)
     relative = parse_repo_uri(registered.uri)
-    assert relative is not None
-    source_bytes = (artifact_data_root(repo) / relative).read_bytes()
+    # Current registered locators are opaque, never a file-read authority.
+    assert relative is None
+    assert registered.uri == f"object://{buddy_artifact_id}"
+    exact, source_bytes = load_registered_source_artifact_bytes(repo, buddy_artifact_id)
+    assert exact == registered
     lines = source_bytes.decode("utf-8").splitlines()
     assert resolved_anchor.content == "\n".join(lines[span.start_line - 1 : span.end_line])
     assert resolved_anchor.content_sha256 == hashlib.sha256(source_bytes).hexdigest()
@@ -583,8 +613,8 @@ def test_graph_review_authoring_continuity_one_world_sequence(
     d2 = link_body["published_revision_id"]
     assert link_body["parent_revision_id"] == d1
     assert d2 != d1
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 3
-    d2_view = adapter.read_revision(GLASS_ORCHARD_WORLD_ID, d2)
+    assert _counts(dsn, native_world_id)["revisions"] == 3
+    d2_view = adapter.read_revision(native_world_id, d2)
     assert EXISTING_NODE_ID in d2_view.objects
     aliases = d2_view.objects[EXISTING_NODE_ID].aliases
     assert "vial" in aliases or aliases
@@ -598,8 +628,8 @@ def test_graph_review_authoring_continuity_one_world_sequence(
     rel_body = rel_commit.json()
     d3 = rel_body["published_revision_id"]
     assert rel_body["parent_revision_id"] == d2
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 4
-    d3_view = adapter.read_revision(GLASS_ORCHARD_WORLD_ID, d3)
+    assert _counts(dsn, native_world_id)["revisions"] == 4
+    d3_view = adapter.read_revision(native_world_id, d3)
     assert reviewed_node_id in d3_view.objects
     assert any(
         rel.subject_object_id == reviewed_node_id
@@ -623,8 +653,8 @@ def test_graph_review_authoring_continuity_one_world_sequence(
     )
     assert merge_commit.status_code == 409, merge_commit.text
     assert merge_commit.json()["detail"]["code"] == "governed_write_inexpressible"
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 4
-    assert _bundle(dsn).world_graph.get_head(GLASS_ORCHARD_WORLD_ID).head_revision_id == d3
+    assert _counts(dsn, native_world_id)["revisions"] == 4
+    assert _bundle(dsn).world_graph.get_head(native_world_id).head_revision_id == d3
 
 
     unknown = client.post(
@@ -635,7 +665,7 @@ def test_graph_review_authoring_continuity_one_world_sequence(
         ),
     )
     assert unknown.status_code == 422
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 4
+    assert _counts(dsn, native_world_id)["revisions"] == 4
 
 
     missing_body = _authoring_body(run_id, [_object_proposal()])
@@ -644,8 +674,8 @@ def test_graph_review_authoring_continuity_one_world_sequence(
     assert missing_source.status_code in {409, 422}
     if missing_source.status_code == 409:
         assert missing_source.json()["detail"]["code"] == "source_unresolved"
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 4
-    assert adapter.current_head(GLASS_ORCHARD_WORLD_ID).revision_id == d3
+    assert _counts(dsn, native_world_id)["revisions"] == 4
+    assert adapter.current_head(native_world_id).revision_id == d3
 
 
 @pytest.mark.integration
@@ -658,6 +688,11 @@ def test_graph_review_stale_parent_fails_closed(
     confirm = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
     assert confirm.status_code == 200, confirm.text
     d0 = confirm.json()["committedRevisionId"]
+    from apps.live_control_server.services.world_container_registry import get_world_container
+    binding = get_world_container(repo, GLASS_ORCHARD_WORLD_ID).native_graph_binding
+    native_world_id = binding.native_world_id
+    assert native_world_id != GLASS_ORCHARD_WORLD_ID
+
     _explode_kernel(monkeypatch)
     _arm_legacy_writer_tripwires(monkeypatch)
 
@@ -687,11 +722,11 @@ def test_graph_review_stale_parent_fails_closed(
     )
     assert stale_commit.status_code == 409, stale_commit.text
     assert stale_commit.json()["detail"]["code"] == "stale_parent"
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 2
+    assert _counts(dsn, native_world_id)["revisions"] == 2
     from apps.live_control_server.integrations.dungeonmind.world_graph_authority_adapter import (
         DungeonMindWorldGraphAuthorityAdapter,
     )
 
 
     adapter = DungeonMindWorldGraphAuthorityAdapter(database_url=dsn)
-    assert adapter.current_head(GLASS_ORCHARD_WORLD_ID).revision_id == d1
+    assert adapter.current_head(native_world_id).revision_id == d1

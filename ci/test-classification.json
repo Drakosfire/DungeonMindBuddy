@@ -544,6 +544,7 @@
       "apps/live-control-ui/src/worldGraph/worldGraphProjectionRequestKey.test.ts",
       "apps/live-control-ui/src/worldGraph/worldGraphSurfaceContext.test.ts",
       "tests/test_ci_contract.py",
+      "tests/test_ci_qualification.py",
       "tests/test_ownership_ci_partition.py"
     ],
     "domain-integration": [
@@ -553,6 +554,7 @@
       "tests/application_state/test_conversation_library.py",
       "tests/application_state/test_conversation_messages.py",
       "tests/application_state/test_conversation_trash.py",
+      "tests/application_state/test_historical_migration_contract.py",
       "tests/application_state/test_ingest_components_postgres.py",
       "tests/application_state/test_ingest_run_postgres.py",
       "tests/application_state/test_mechanics_revisions_postgres.py",
@@ -657,6 +659,7 @@
       "tests/test_world_mechanics_associations.py"
     ],
     "qualification": [
+      "apps/live-control-ui/tests/qualification/local-world.pw.ts",
       "apps/live-control-ui/tests/ui-visual.pw.ts",
       "tests/application_state/test_agent_controller_writer_policy.py",
       "tests/application_state/test_agent_conversation_ask_projection_postgres.py",
@@ -1513,6 +1516,7 @@
   },
   "discovery_config": {
     "apps/live-control-ui/vite.config.ts": "4a77325643fc2a07721565d16cd1b637b5df4ff7baac840043ab00c55107a36d",
-    "apps/live-control-ui/playwright.ui.config.ts": "443b42d94721f1de96aef4db9601bc624778722649e57b6eb8268cb6ea962e46"
+    "apps/live-control-ui/playwright.ui.config.ts": "443b42d94721f1de96aef4db9601bc624778722649e57b6eb8268cb6ea962e46",
+    "apps/live-control-ui/tests/qualification/playwright.config.ts": "2c0367e02f5c40f5363d5b36ad5edfb74be315b8c4949fa676afe4c4368d74db"
   }
 }

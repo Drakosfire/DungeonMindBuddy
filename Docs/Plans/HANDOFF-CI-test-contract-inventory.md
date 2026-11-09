@@ -1,11 +1,16 @@
 # CI: inventory and reusable regression contracts
 
-Status: ACTIVE. Alan authorized a five-PR additive CI transition; this is PR 1 only.
-Base: 534ff9c70499d6dc847c949465e95a32e1012467.
-Branch: codex/ci-test-contract-inventory. Topology: serial CI workstream; PR 2 is
-not active before this reviewed PR is qualified and the coordinator authorizes
-its successor. Opening this draft PR is authorized; deployment/protection changes
-are not. Do not interpret the five-stage plan as permission to weaken current gates.
+Status: SETTLED. PR1 #2284 merged at
+be0ebf6c99f3d4b03b5810aa7e0a1ccc33ee35b0 on2026-11-09 after independent exact-head
+reviews approved699c9f3cff6bdcd81766c75f1dc3b59c11ff33d2 and all seven checks passed.
+All2,782 original selections were retained exactly once and nine contract guards
+added separately. Hosted test steps measured469/458/503/555s; this extraction-only
+change claims no speed gain. Source-bound inventory1506files (547/107/852), and
+545 actual Vitest files matched. Frontend1212+4+1, type/build and clean image build
+passed. Qualification is not proven by image build alone. The exclusive lease is
+released to the serial qualification successor; no deployment/protection change.
+Historical base534ff9c70499d6dc847c949465e95a32e1012467, branch
+codex/ci-test-contract-inventory. Coordinator explicitly authorized its ready/merge.
 
 ## Ownership and predecessor settlement
 

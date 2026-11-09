@@ -359,9 +359,11 @@ def native_first_world_client(
     monkeypatch.setattr(live_config, "repo_root", lambda: repo)
     monkeypatch.setattr(promote_svc, "repo_root", lambda: repo)
     monkeypatch.setattr(promotable_mod, "repo_root", lambda: repo)
-    from apps.live_control_server.services import world_container_registry
+    from application_state.world_catalog import service as world_catalog
+    from tests.local_operator_client import configure_local_operator
     from uuid import UUID
-    monkeypatch.setattr(world_container_registry, "uuid4", lambda: UUID("1" * 32))
+    monkeypatch.setattr(world_catalog, "uuid4", lambda: UUID("1" * 32))
+    configure_local_operator(monkeypatch)
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", LOCAL_TOKEN)
@@ -1066,31 +1068,23 @@ def test_native_workspace_drift_fails_before_publication(
     from apps.live_control_server.services.source_artifact_registry import (
         get_source_artifact,
     )
+    from application_state.content import pages
     from apps.live_control_server.services.workspace_document_registry import (
-        WorkspaceDocumentRegistryDocument,
-        get_workspace_document,
-        workspace_documents_path,
+        get_workspace_document, get_committed_page_snapshot,
     )
-    from src.live_play.live_store import load_json, write_json
-
 
     client, _world, repo, dsn = native_first_world_client
     _run_id, plan = _prepare_native_plan(client, repo)
     artifact = get_source_artifact(repo, plan["sourceArtifactId"])
-    workspace_path = workspace_documents_path(repo)
-    workspace_doc = WorkspaceDocumentRegistryDocument.model_validate(load_json(workspace_path))
-    rewritten = []
-    for row in workspace_doc.records:
-        if row.document_id == artifact.workspace_document_id:
-            rewritten.append(row.model_copy(update={"revision": int(row.revision) + 1}))
-        else:
-            rewritten.append(row)
-    write_json(
-        workspace_path,
-        WorkspaceDocumentRegistryDocument(
-            schema_version=workspace_doc.schema_version,
-            records=rewritten,
-        ).model_dump(mode="json"),
+    snapshot = get_committed_page_snapshot(repo, artifact.workspace_document_id)
+    state = pages.get_page(artifact.workspace_document_id, world_id=snapshot.record.world_id)
+    pages.commit_page(
+        artifact.workspace_document_id, snapshot.markdown + "\nChanged lineage.\n",
+        world_id=snapshot.record.world_id,
+        expected_revision=state.page.object_revision,
+        expected_working_copy_revision=pages.snapshot_page(
+            artifact.workspace_document_id, world_id=snapshot.record.world_id
+        ).working_copy_revision,
     )
     assert get_workspace_document(repo, artifact.workspace_document_id).revision != int(
         plan["workspaceDocumentRevision"]
@@ -1373,7 +1367,7 @@ def test_fresh_source_receipt_survives_reviewed_graph_activation(native_first_wo
     client, _, repo, dsn = native_first_world_client
     _, plan = _prepare_native_plan(client, repo)
     source_id = plan["workspaceDocumentId"]
-    snapshot = native.get_workspace_document_snapshot(repo, source_id)
+    snapshot = native.get_committed_page_snapshot(repo, source_id)
     admitted = native.admit_native_world_source(repo, source_id,
         expected_revision=snapshot.loaded_revision, expected_body_sha256=snapshot.content_sha256)
     before = get_world_container(repo, plan["worldId"]).native_graph_binding
@@ -1404,10 +1398,11 @@ def test_published_graph_recovers_after_activation_write_failure(native_first_wo
     client, _, repo, dsn = native_first_world_client
     run_id, plan = _prepare_native_plan(client, repo)
     reservation = get_world_container(repo, plan["worldId"]).native_graph_binding
-    original = binding._save_cas
+    from application_state.errors import ApplicationStateUnavailableError
+    original = binding.catalog.save_world
     def unavailable(*args, **kwargs):
-        raise OSError("synthetic registry write interruption")
-    monkeypatch.setattr(binding, "_save_cas", unavailable)
+        raise ApplicationStateUnavailableError("synthetic registry write interruption")
+    monkeypatch.setattr(binding.catalog, "save_world", unavailable)
     interrupted = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
     assert interrupted.status_code == 503, interrupted.text
     assert interrupted.json()["code"] == "native_graph_activation_pending"
@@ -1418,7 +1413,7 @@ def test_published_graph_recovers_after_activation_write_failure(native_first_wo
     rebuilt = client.post(FIRST_WORLD_PREPARE_URL, json=_first_world_prepare_body(run_id, _first_world_decisions()))
     assert rebuilt.status_code == 200, rebuilt.text
     assert rebuilt.json() == plan
-    monkeypatch.setattr(binding, "_save_cas", original)
+    monkeypatch.setattr(binding.catalog, "save_world", original)
     recovered = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(rebuilt.json()))
     assert recovered.status_code == 200, recovered.text
     assert recovered.json()["outcome"] == "already_initialized"
@@ -1622,30 +1617,64 @@ def test_prepare_unavailability_is_not_invalid_choice_feedback(native_first_worl
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("changed", ["commitment", "source", "span_index"])
+@pytest.mark.parametrize("changed", ["commitment", "source", "span_index", "source_binding"])
 def test_frozen_source_changes_never_reach_initializer(native_first_world_client, monkeypatch, changed):
-    from apps.live_control_server.services.promotable_ingest_run import resolve_promotable_ingest_run
+    from apps.live_control_server.services.graph_run_registry import get_extraction_run
+    from application_state.ingest.components import get_component_bytes
+    from tests._cutover_d3a_blocker_safe_fixtures import _reseal_extraction_component_digest
     import json
     client, world_root, repo, dsn = native_first_world_client
     run_id, plan = _prepare_native_plan(client, repo)
-    resolved = resolve_promotable_ingest_run(run_id, root=repo)
     spy = _install_preflight_spy(monkeypatch, world_root)
     if changed == "commitment":
         plan["sourceEvidenceSha256"] = "sha256:" + "f" * 64
     elif changed == "source":
-        read_bytes = Path.read_bytes
-        target = resolved.normalized_recap_path
-        monkeypatch.setattr(Path, "read_bytes", lambda path, *args, **kwargs: (
-            b"Changed frozen source." if path == target else read_bytes(path, *args, **kwargs)
-        ))
+        from application_state.source import service as source_service
+        read_source = source_service.get_source_markdown
+        run = get_extraction_run(repo, run_id)
+        original = read_source(source_artifact_id=run.source_artifact_id,
+            content_sha256=run.components["source_artifact"].sha256)
+        assert original is not None
+        faulted = []
+        def corrupt_read(**kwargs):
+            record = read_source(**kwargs)
+            if record is not None and record.source_artifact_id == run.source_artifact_id:
+                faulted.append(record.content_sha256)
+                return record.model_copy(update={"markdown": "Changed frozen source."})
+            return record
+        monkeypatch.setattr(source_service, "get_source_markdown", corrupt_read)
     else:
-        payload = json.loads(resolved.source_span_index_path.read_text())
-        payload["spans"][0]["start_line"] += 1
-        resolved.source_span_index_path.write_text(json.dumps(payload))
+        run = get_extraction_run(repo, run_id)
+        if changed == "source_binding":
+            # A separate fault changes the run binding, not immutable bytes.
+            from apps.live_control_server.services.source_artifact_registry import load_registered_source_artifact_bytes
+            _, original_bytes = load_registered_source_artifact_bytes(repo, run.source_artifact_id)
+            _reseal_extraction_component_digest(
+                run_id, kind="source_artifact", digest=hashlib.sha256(b"Changed frozen source.").hexdigest(),
+            )
+            assert load_registered_source_artifact_bytes(repo, run.source_artifact_id)[1] == original_bytes
+        else:
+            kind = "source_span_index"
+            ref = run.components[kind]
+            current = get_component_bytes(run_id=run_id, kind=kind, content_sha256=ref.sha256)
+            index = json.loads(current)
+            index["spans"][0]["start_line"] += 1
+            payload = json.dumps(index).encode()
+            _reseal_extraction_component_digest(
+                run_id, kind=kind, digest=hashlib.sha256(payload).hexdigest(), payload=payload,
+            )
     response = client.post(FIRST_WORLD_CONFIRM_URL, json=_first_world_confirm_body(plan))
     assert response.status_code in {409, 422}, response.text
     assert spy.initializations == spy.preflights == 0
     assert _counts(dsn, NATIVE_RESERVED_WORLD_ID)["revisions"] == 0
+    if changed == "source":
+        assert faulted
+        # Call the original real service to prove the retained body/metadata
+        # and run binding were never rewritten by the read fault.
+        assert read_source(source_artifact_id=run.source_artifact_id,
+            content_sha256=run.components["source_artifact"].sha256) == original
+        assert get_extraction_run(repo, run_id) == run
+
 
 
 @pytest.mark.integration

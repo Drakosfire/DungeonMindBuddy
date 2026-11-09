@@ -566,7 +566,7 @@ def test_actual_native_authored_source_to_sdk_app(native_first_world_client,monk
     _,plan=_prepare_native_plan(client,repo)
     from apps.live_control_server.integrations.dungeonmind import native_world_source_admission as admission
     snap=get_workspace_document_snapshot(repo,plan['workspaceDocumentId'])
-    admission.admit_native_world_source(repo,plan['workspaceDocumentId'],expected_revision=snap.loaded_revision,expected_body_sha256=snap.content_sha256)
+    admitted=admission.admit_native_world_source(repo,plan['workspaceDocumentId'],expected_revision=snap.loaded_revision,expected_body_sha256=snap.content_sha256)
     confirmed=client.post(FIRST_WORLD_CONFIRM_URL,json=_first_world_confirm_body(plan))
     assert confirmed.status_code==200,confirmed.text
     world=plan['worldId']
@@ -574,21 +574,109 @@ def test_actual_native_authored_source_to_sdk_app(native_first_world_client,monk
     source=get_workspace_document_snapshot(repo,plan['workspaceDocumentId'])
     monkeypatch.setattr(agent,'_managed_world_root',lambda:repo)
     monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT',str(repo))
+    # First-world D0 belongs to the legacy world_graph namespace. Current
+    # authored selection must name a real vNext producer receipt, never alias D0.
+    from apps.live_control_server.integrations.dungeonmind import native_registry_source
+    from apps.live_control_server.integrations.worldkeeper import registry_standing_consumer as transport
+    from tests.test_source_statements import wk, NOW, GM
+    from graph_memory.vnext.domain_runtime import GM_LABEL
+    repository=native_registry_source.repository()
+    assert repository.get_revision(binding.native_world_id,confirmed.json()['committedRevisionId']) is None
+    assert repository.get_revision(binding.native_world_id,admitted.published_revision_id) is not None
+    domain,profile=native_registry_source.descriptors(repository,binding.native_world_id,
+        repository.get_head(binding.native_world_id).head_revision_id)
+    from dungeonmind.application.vnext import publish_native_source_evidence_extension
+    from dungeonmind.contracts.vnext.native_source import NativeSourceEvidenceExtensionV1
+    from hashlib import sha256
+    raw=source.markdown.encode()
+    passage=next(line for line in source.markdown.splitlines() if line.strip())
+    passage_bytes=passage.encode()
+    start=raw.index(passage_bytes)
+    support=publish_native_source_evidence_extension(repository=repository,domain_contract=domain,
+        semantic_profile=profile,audience_labels=(GM_LABEL,),request=NativeSourceEvidenceExtensionV1(
+            space_id=binding.native_world_id,extension_id='authored-vial-support',
+            original_admission_id=admitted.admission_id,source_artifact_id=admitted.source_artifact_id,
+            source_revision_id=admitted.source_revision_id,expected_body_sha256=source.content_sha256,
+            expected_parent_revision_id=repository.get_head(binding.native_world_id).head_revision_id,
+            expected_source_authority_epoch=repository.open_native_source_view(binding.native_world_id).epoch,
+            created_at=NOW,spans=[dict(client_ref='vial-source',evidence_role='support',start_byte=start,
+                end_byte=start+len(passage_bytes),expected_slice_sha256=sha256(passage_bytes).hexdigest())]))
+    support_id=support.bindings[0].evidence_ref_id
+    meta=wk.AssertionMetadata(scope=(),visibility=wk.Visibility('labels_any',(GM_LABEL,)),
+        epistemic_basis='asserted',claim_mode='dungeonbuddy.claim:fact',standing='established',
+        evidence_ref_ids=(support_id,),temporal_scope=wk.TemporalScope(kind='unknown'))
+    runtime=transport.runtime(repository,domain,profile,now=NOW,operation_id='authored-reference-fixture')
+    published=runtime.commit_prepared_change(runtime.prepare_change(wk.WorldChangeIntent(
+        binding.native_world_id,'fixture',(wk.CreateObject('vial',(
+            wk.CreateFact('name','dnd5e:name',wk.LiteralFactValue('Session 22 vial'),meta),
+            wk.CreateFact('source','dnd5e:summary',wk.LiteralFactValue(passage),meta),
+        )),))),confirmed_by=GM.subject)
+    selected_id=published.object_results[0].durable_object_id
+    assert repository.get_revision(binding.native_world_id,published.child_revision_id) is not None
+    from apps.live_control_server.services import native_graph_reads as current_reads
+    legacy_refs=AuthoredGraphReferencesV1(references=(AuthoredGraphReferenceV1(managed_world_id=world,
+        native_world_id=binding.native_world_id,binding_version=binding.binding_version,
+        graph_revision=confirmed.json()['committedRevisionId'],node_id='obj_session22_vial',label='Display only'),))
+    with pytest.raises(ValueError,match='Authored selection snapshot is unavailable'):
+        current_reads.prepare_query(world,'Discuss the referenced object using its source.',GM,
+            authored_references=legacy_refs)
+    opened_source=[]
+    original_open=current_reads.open_admitted_native_text
     if not source_available:
-        from apps.live_control_server.services import world_graph_retrieval as retrieval
-        read=retrieval.read_source_anchors_internal_v2
-        def unavailable_root(*args,**kwargs):
-            return read(*args,**{**kwargs,'repo_root':repo / 'missing-source-root'})
-        monkeypatch.setattr(retrieval,'read_source_anchors_internal_v2',unavailable_root)
+        def unavailable_source(access,evidence_ref_id):
+            opened=original_open(access,evidence_ref_id)
+            assert opened.status=='available'
+            assert opened.body_sha256==source.content_sha256
+            opened_source.append(evidence_ref_id)
+            return SimpleNamespace(status='unavailable')
+        monkeypatch.setattr(current_reads,'open_admitted_native_text',unavailable_source)
     monkeypatch.setenv('TYPESAFE_JEV_API_KEY','synthetic-only')
     monkeypatch.setenv('OPENAI_API_KEY','synthetic-only')
-    writer=AuthoredProfileWriter()
+    import httpx
+    import httpx2
+    class NativeDecisions(httpx2.AsyncBaseTransport):
+        def __init__(self):
+            self.calls=[]
+        async def handle_async_request(self,request):
+            self.calls.append(request)
+            packet=json.loads(request.content)
+            answers={}
+            for name,question in packet['questions'].items():
+                choices=question['criteria']
+                chosen=('discuss' if name=='requested_work' else 'finish_retrieval' if name=='operation'
+                    else 'direct_support' if name.startswith('s') and name[1:].isdigit() else 'exclude')
+                assert chosen in choices,(name,choices)
+                answers[name]=dict(type='choice',choice=chosen,confidence=1,
+                    probabilities={key:float(key==chosen) for key in choices})
+            return httpx2.Response(200,request=request,json=dict(model='jev-1.14.0',answers=answers,
+                usage=dict(input_tokens=37,output_tokens=9)))
+    class NativeWriter(httpx.AsyncBaseTransport):
+        def __init__(self):
+            self.calls=[]
+        async def handle_async_request(self,request):
+            self.calls.append(request)
+            packet=json.loads(request.content)
+            frames=[json.loads(row['content']) for row in packet['input'] if row['content'].lstrip().startswith('{')]
+            frame=next(row for row in frames if 'native_assertions' in row)
+            assertions=frame['native_assertions']['assertions'] if frame['native_assertions'] else []
+            handles=[row['assertion_handle'] for row in assertions]
+            from application_state.agent_conversation.native_plan_assertions import POLICY
+            answer=dict(schema=POLICY,answer_segments=([dict(kind='native_assertion_claim',
+                text='The selected vial is described in its source.',assertion_handles=handles)] if handles else [dict(kind='proposal',label='invented_idea',text='Discuss a proposed source-independent idea.')]),
+                limitations=[],requested_detail_gaps=[],collaboration=None)
+            return httpx.Response(200,request=request,json=dict(id='native-profile-proof',object='response',
+                created_at=1,status='completed',model=packet['model'],output=[dict(type='message',id='native-message',
+                    role='assistant',status='completed',content=[dict(type='output_text',text=json.dumps(answer),annotations=[])])],
+                usage=dict(input_tokens=100,output_tokens=40,total_tokens=140)))
+    from application_state.agent_conversation.rules_authority_policy import rules_capability
+    writer=NativeWriter()
     harness=BuildJevHarness(world_context=True,named_citations=True,related_pages=True,
-        accounting=counter(),decision_transport=WorldDecisions(),writer_transport=writer)
+        accounting=counter(),rules_capability=rules_capability(graph=True),
+        decision_transport=NativeDecisions(),writer_transport=writer)
     client.app.state.build_jev_runtime_factory=SimpleNamespace(create=lambda:harness)
     refs=AuthoredGraphReferencesV1(references=(AuthoredGraphReferenceV1(managed_world_id=world,
         native_world_id=binding.native_world_id,binding_version=binding.binding_version,
-        graph_revision=confirmed.json()['committedRevisionId'],node_id='obj_session22_vial',label='Display only'),))
+        graph_revision=published.child_revision_id,node_id=selected_id,label='Display only'),))
     body={'schema':'dmb_agent_turn_request_v1','client_thread_id':str(uuid4()),'turn_id':str(uuid4()),
         'surface':{'surface_id':'build','instance_id':source.record.document_id},'owner_scope':{'kind':'world','world_id':world},
         'primary_work':{'kind':'build','object_id':source.record.document_id,'expected_revision':source.loaded_revision,'expected_content_sha256':source.content_sha256},
@@ -596,32 +684,50 @@ def test_actual_native_authored_source_to_sdk_app(native_first_world_client,monk
         'build_authored_references':refs.model_dump(mode='json',by_alias=True),'message':'Discuss the referenced object using its source.'}
     response=client.post('/api/live/agent/turn',json=body)
     if not source_available:
+        assert opened_source and set(opened_source)=={support_id}
+        assert get_workspace_document_snapshot(repo,plan['workspaceDocumentId']).markdown==source.markdown
         assert response.status_code==422,response.text
         assert response.json()['detail']['code']=='build_authored_reference_source_gap'
         # The ordinary initial routing call precedes acquisition; no writer is authorized.
         assert not writer.calls and len(harness.decision_transport.calls)==1
         service=AgentConversationService()
         turn=service.list_turns(world,service.get_world_pointer(world).active_conversation_id)[0]
-        gaps=[event for event in turn.graph_context_execution.events if isinstance(event,t.BuildAuthoredReferenceReadV1)]
-        assert len(gaps)==1 and gaps[0].outcome=='source_gap'
+        from application_state.agent_conversation.authored_graph_references import BuildAuthoredReferenceReadV3
+        gaps=[event for event in turn.graph_context_execution.events if isinstance(event,BuildAuthoredReferenceReadV3)]
+        assert len(gaps)==1 and gaps[0].status=='partial'
+        assert gaps[0].unavailable_assertion_ids and not gaps[0].assertion_reads
+        assert not gaps[0].statement_reads
+        captures=[event for event in turn.graph_context_execution.events if isinstance(event,t.BuildAuthoredReferencesCapturedV1)]
+        assert len(captures)==1 and captures[0].references==refs
+        assert gaps[0].capture_event_id==captures[0].event_id
         role=turn.graph_context_execution.policy.provider_roles.writer.identity()
         assert not any(isinstance(event,t.ProviderAttemptAuthorizedEventV1)
             and (event.provider,event.model,event.api_mode)==role for event in turn.graph_context_execution.events)
-        receipts=[row for event in turn.graph_context_execution.events if isinstance(event,t.ValidatedSourceReadEventV2) for row in event.receipts]
-        assert receipts and all(row.outcome=='unavailable' for row in receipts)
+        from application_state.agent_conversation.native_execution import NATIVE_WRITER_TYPES
+        assert not any(type(event) in NATIVE_WRITER_TYPES for event in turn.graph_context_execution.events)
+        before=(len(harness.decision_transport.calls),len(writer.calls))
+        replay=client.post('/api/live/agent/turn',json=body)
+        assert replay.status_code==409,replay.text
+        assert (len(harness.decision_transport.calls),len(writer.calls))==before
+        assert get_workspace_document_snapshot(repo,plan['workspaceDocumentId']).markdown==source.markdown
         return
     assert response.status_code==200,response.text
     assert len(writer.calls)==1
-    packet=json.loads(json.loads(writer.calls[0].content)['input'])
-    assert packet['opened_passages']
-    assert packet['authored_reference_context']['selected_references']['references'][0]['node_id']=='obj_session22_vial'
+    packet=json.loads(writer.calls[0].content)
+    frames=[json.loads(row['content']) for row in packet['input'] if row['content'].lstrip().startswith('{')]
+    frame=next(row for row in frames if 'native_assertions' in row)
+    assert frame['native_assertions']['assertions']
     service=AgentConversationService()
     turn=service.list_turns(world,service.get_world_pointer(world).active_conversation_id)[0]
     assert turn.status=='completed'
-    acquired=[event for event in turn.graph_context_execution.events if isinstance(event,t.BuildAuthoredReferenceReadV1)]
-    assert len(acquired)==1 and acquired[0].outcome=='read'
-    assert acquired[0].source_read_event_ids
-    assert turn.completion.source_citations
+    captures=[event for event in turn.graph_context_execution.events if isinstance(event,t.BuildAuthoredReferencesCapturedV1)]
+    assert len(captures)==1 and captures[0].references==refs
+    from application_state.agent_conversation.authored_graph_references import BuildAuthoredReferenceReadV3
+    acquired=[event for event in turn.graph_context_execution.events if isinstance(event,BuildAuthoredReferenceReadV3)]
+    assert len(acquired)==1 and acquired[0].status=='complete'
+    assert acquired[0].assertion_reads and not acquired[0].unavailable_assertion_ids
+    assert all(read.assertion.subject_entity_id==selected_id for read in acquired[0].assertion_reads)
+    assert turn.completion.native_assertion_citations
 
 
 @pytest.mark.parametrize('tamper',[None,'omit','text','origin'])
@@ -712,3 +818,33 @@ def test_shared_authored_batch_is_actual_nonselectable_controller_context(build_
     writer_attempts=[e for e in turn.graph_context_execution.events if isinstance(e,t.ProviderAttemptAuthorizedEventV1) and (e.provider,e.model,e.api_mode)==role]
     assert len(writer_attempts)==1 and batch.event_id in writer_attempts[0].included_source_read_event_ids
     assert turn.completion.source_citations
+
+
+@pytest.mark.parametrize('unavailable', ['statement', 'assertion', None])
+def test_native_authored_source_loss_is_recorded_before_writer_refusal(monkeypatch, unavailable):
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from apps.live_control_server.services import native_authored_references as owner
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    observed=SimpleNamespace(unavailable_statement_ids=('statement:missing',) if unavailable=='statement' else (),
+        unavailable_assertion_ids=('assertion:missing',) if unavailable=='assertion' else ())
+    events=[]
+    turn=SimpleNamespace(graph_context_execution=SimpleNamespace(events=events))
+    calls=[]
+    def append(method, *_args, **_kwargs):
+        calls.append(method)
+        events.append(SimpleNamespace(event_id=uuid4()) if method=='authorize_native_authored_reference' else observed)
+        return turn,True
+    adapter=SimpleNamespace(fence=SimpleNamespace(turn=turn,append=append),
+        request=SimpleNamespace(surface=SimpleNamespace(surface_id='build')),
+        native_query_context=SimpleNamespace(principal=object()))
+    monkeypatch.setattr(owner,'native_references',lambda _:SimpleNamespace(references=(SimpleNamespace(node_id='entity:selected'),)))
+    if unavailable:
+        with pytest.raises(AgentTurnServiceError) as caught:
+            owner.acquire(adapter)
+        assert caught.value.status_code==422
+        assert caught.value.code=='build_authored_reference_source_gap'
+    else:
+        owner.acquire(adapter)
+    assert calls==['authorize_native_authored_reference','observe_native_authored_reference']
+    assert events[-1] is observed

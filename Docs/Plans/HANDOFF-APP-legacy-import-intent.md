@@ -1,6 +1,6 @@
 # APP: preserve explicit intent absence in verified legacy import
 
-**Status:** ACTIVE under the coordinator's assignment to investigate and correct
+**Status:** SETTLED — #2294 merged `0d0f5af3418ae3327a4760376ba1f25385626b5d` after root exact-head PASS at `a8b5d8382fc2fca0ded3b4eef796a5d6ffbd6a16` and all8 green hosted checks. Verified on main; no deployment. Historical authority: the coordinator's assignment to investigate and correct
 the reproduced exact-base legacy-import failures as part of CI qualification.
 **Base revision:** `d39db0c6a2a0493800f82eb77d69e3ef3deb3d4e`
 Owner: narrow APP legacy-import successor, executed by the CI worker.

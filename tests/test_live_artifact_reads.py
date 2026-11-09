@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
+from tests.local_operator_client import LocalOperatorTestClient as TestClient, configure_local_operator
 
 from apps.live_control_server.config import SESSION_DIR_ENV
 from apps.live_control_server.main import create_app
@@ -241,3 +241,8 @@ def test_get_capabilities_rejects_forbidden_path_query_fields(client: TestClient
         },
     )
     assert response.status_code == 422
+
+
+@pytest.fixture(autouse=True)
+def _authenticated_local_operator(monkeypatch):
+    configure_local_operator(monkeypatch)

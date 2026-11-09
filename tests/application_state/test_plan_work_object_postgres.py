@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
+from tests.local_operator_client import LocalOperatorTestClient as TestClient, configure_local_operator
 
 from apps.live_control_server.main import create_app
 from apps.live_control_server.services.tiptap_markdown_write import (
@@ -20,6 +20,7 @@ from apps.live_control_server.services.workspace_document_registry import (
     get_workspace_document_snapshot,
     list_workspace_documents,
 )
+from apps.live_control_server.services.world_container_registry import create_world_container
 from application_state.cli import assert_at_head
 from application_state.errors import (
     ApplicationStateConflictError,
@@ -558,6 +559,7 @@ def test_unfiltered_document_list_fails_closed_when_app_state_is_down(
     world = create_workspace_document(
         tmp_path,
         title="Visible lore",
+        world_id=create_world_container(tmp_path, name="Source fixture World").world_id,
         campaign_id="eldyrwild",
         kind="worldbuilding_source",
         source_domain="worldbuilding",
@@ -565,6 +567,16 @@ def test_unfiltered_document_list_fails_closed_when_app_state_is_down(
         authority_state="draft",
         visibility_state="internal",
     )
+    # Pages now share the typed PostgreSQL owner (#1990). Preserve the
+    # positive source-list witness while its owner is available, then require
+    # the same fail-closed outage behavior as every other Content kind.
+    worldbuilding = client.get(
+        "/api/live/workspace-documents", params={"kind": "worldbuilding_source"}
+    )
+    assert worldbuilding.status_code == 200, worldbuilding.text
+    assert [row["document_id"] for row in worldbuilding.json()["records"]] == [
+        world.document_id
+    ]
     monkeypatch.setenv(
         "DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL",
         "postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:1/dungeonbuddy_app_state_down",
@@ -576,13 +588,11 @@ def test_unfiltered_document_list_fails_closed_when_app_state_is_down(
     assert unfiltered.status_code == 503, unfiltered.text
     filtered = client.get("/api/live/workspace-documents", params={"kind": "runbook"})
     assert filtered.status_code == 503, filtered.text
-    worldbuilding = client.get(
+
+    worldbuilding_outage = client.get(
         "/api/live/workspace-documents", params={"kind": "worldbuilding_source"}
     )
-    assert worldbuilding.status_code == 200, worldbuilding.text
-    assert [row["document_id"] for row in worldbuilding.json()["records"]] == [
-        world.document_id
-    ]
+    assert worldbuilding_outage.status_code == 503, worldbuilding_outage.text
 
 
 def test_authoring_canonicalizes_trailing_newlines_and_rejects_whitespace_only(
@@ -762,6 +772,7 @@ def test_plan_load_and_commit_latency(
     baseline = create_workspace_document(
         tmp_path,
         title="latency baseline",
+        world_id=create_world_container(tmp_path, name="Source fixture World").world_id,
         campaign_id="eldyrwild",
         kind="worldbuilding_source",
         source_domain="worldbuilding",
@@ -947,3 +958,8 @@ def test_connection_owned_plan_commit_preserves_world_scope_refusal(
                 expected_revision=created.object_revision,
                 expected_world_id="another-world",
             )
+
+
+@pytest.fixture(autouse=True)
+def _authenticated_local_operator(monkeypatch):
+    configure_local_operator(monkeypatch)
