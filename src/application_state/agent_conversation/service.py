@@ -1384,11 +1384,11 @@ class AgentConversationService:
             turn = _ordinary_mutation_turn(turn, conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
-            from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NativeBuildActionV1, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
+            from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES, NativeBuildActionV1, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
             from .types import PlanJevProviderAuthorizedV1, ProviderAttemptAuthorizedEventV5
             native_plan_decision = (
                 type(turn.graph_context_execution) is SurfaceNativeExecutionV1
-                and type(turn.graph_context_execution.policy.action) is NativePlanActionV1
+                and type(turn.graph_context_execution.policy.action) in NATIVE_PLAN_ACTION_TYPES
                 and isinstance(event, PlanJevProviderAuthorizedV1)
                 and plan_jev_input_proof is not None)
             # Build retains its actual mode-bound prepared-input owner below.

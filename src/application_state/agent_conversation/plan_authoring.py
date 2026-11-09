@@ -601,9 +601,9 @@ def _authoring_binding(receipt, execution):
 
 def _is_authoring_writer(execution, event):
     from . import types as t
-    from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NativeWriterAuthorizedV1
+    from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES, NativeWriterAuthorizedV1
     if type(execution) is SurfaceNativeExecutionV1:
-        return type(execution.policy.action) is NativePlanActionV1 and type(event) is NativeWriterAuthorizedV1
+        return type(execution.policy.action) in NATIVE_PLAN_ACTION_TYPES and type(event) is NativeWriterAuthorizedV1
     return isinstance(event, t.PlanJevWriterAuthorizedV1)
 
 
