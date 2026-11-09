@@ -1,6 +1,13 @@
 # REFERENCE: direct retry from lightweight Plan history
 
-Status: ACTIVE bounded PRIME slice under the References goal. Base:
+Status: SETTLED predecessor. PR2292 merged at
+`d39db0c6a2a0493800f82eb77d69e3ef3deb3d4e`; delivered UI
+`e994d7b1a31f65e2cbc4cb9132ce66a2cd4fd5b0`. Independent source, composition
+and procedure reviews plus all seven CI gates passed. Controlled read-only
+verification confirmed direct retry visibility without Details, native citation
+opening and unchanged Plan/reload; no user request was retried. APP/Core/session
+conservation passed; API/schema stayed unchanged. This does not close held Play
+or the broader References goal. Original slice base:
 `7abfaccaccf63737a31a52e33c79a0df75e1b873`; branch
 `codex/reference-plan-light-retry`, existing buddy-context-loop checkout.
 Topology: serial, no unmerged parent. Coordination remains off.

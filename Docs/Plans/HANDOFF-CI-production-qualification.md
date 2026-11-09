@@ -61,6 +61,8 @@ No runtime source or shared database fixture lease is granted.
 | `Docs/Plans/HANDOFF-CI-test-contract-inventory.md` | Truthful completed-predecessor settlement. |
 | `Docs/Plans/HANDOFF-HOSTED-buddy-validation-ci.md` | Settle merged #1814's stale ACTIVE lease before transfer. |
 | `Docs/Plans/DESIGN-CI-additive-qualification.md` | Qualification design/evidence/dependencies. |
+| `Docs/Plans/HANDOFF-RULES-uncapped-authorization.md` | Settle actual merged #2291 dependency only. |
+| `Docs/Plans/HANDOFF-APP-legacy-import-intent.md` | Settle actual merged #2294 dependency only. |
 
 ### Coordinator-approved packaging transfer (recorded before edits)
 
@@ -223,3 +225,26 @@ fingerprint, provenance, attempt, result and legacy-unverifiable replay assertio
 Only the later answer_composition_kind=base default is explicitly projected away
 and must be recreated by forward migration. No production downgrade through0142,
 version stamping, finite budget override or skipped case is permitted.
+
+
+## Verified dependency consumption
+
+Root independently PASSed runtime#2291 at a6923b5421ff7971508055b84c043e1470be63c7
+and APP#2294 at a8b5d8382fc2fca0ded3b4eef796a5d6ffbd6a16, then explicitly
+assigned expected-head ready/merge. Both had8/8 live green checks and clean
+mergeability; no classic branch protection or effective main rules required a
+rebase or bypass. #2291 merged d3182d5e7b890722518c1ef2e14a5d56982bbfe3 at
+09:31:53UTC; #2294 merged0d0f5af3418ae3327a4760376ba1f25385626b5d at09:34:04UTC
+on2026-11-09. Fresh fetch and ancestry checks verify both exact reviewed heads
+on main. No deployment, graph merge, live-data or protection change occurred.
+
+This consuming CI branch merges that actual main for the two material repairs;
+it does not rebase solely for unrelated UI commits. The review base for the
+resulting CI-only delta is actual main0d0f5af3418ae3327a4760376ba1f25385626b5d;
+be0ebf6 remains the original implementation authority/history. The two owning
+handoffs above are narrowly transferred for factual already-merged settlement.
+Both original production failures are fixed on main, and the corrected historical
+witness remains CI-owned. All257 affected cases passed in the prior labeled
+candidate, including all95 service cases; exact consumed-head verification and
+full qualification are refreshed before disposition. Main's graph witness stays
+honestly blocked; no graph merge is inferred or requested by this consumption.
