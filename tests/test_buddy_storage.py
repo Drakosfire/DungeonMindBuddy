@@ -386,5 +386,59 @@ class Lifecycle(unittest.TestCase):
             b.System().source(source,commit)
 
 
+
+    def test_replaced_manifest_during_removal_is_preserved(self):
+        self.sealed()
+        result,p=self.planfile()
+        replacement = self.root/'replacement.json'
+        replacement.write_text('unique replacement data')
+        def hook(label):
+            if label=='partial_removal' and replacement.exists():
+                target=self.root/'candidates/.control/quarantine/one/manifest.json'
+                os.replace(replacement, target)
+        self.backend.hook=hook
+        self.apply(result,p,ok=False)
+        target=self.root/'candidates/.control/quarantine/one/manifest.json'
+        self.assertEqual(target.read_text(),'unique replacement data')
+        self.assertEqual(self.cli('plan')['plan']['items'],[])
+
+    def test_inplace_change_during_removal_is_preserved(self):
+        self.sealed()
+        result,p=self.planfile()
+        changed=[]
+        def hook(label):
+            if label=='partial_removal' and not changed:
+                target=self.root/'candidates/.control/quarantine/one/manifest.json'
+                target.write_text('unique in-place data')
+                changed.append(True)
+        self.backend.hook=hook
+        self.apply(result,p,ok=False)
+        target=self.root/'candidates/.control/quarantine/one/manifest.json'
+        self.assertEqual(target.read_text(),'unique in-place data')
+
+    def test_candidate_replaced_before_quarantine_stays_put(self):
+        self.sealed()
+        result,p=self.planfile()
+        def hook(label):
+            if label=='before_quarantine':
+                original=self.root/'candidates/one'
+                original.rename(self.root/'saved-original')
+                original.mkdir(mode=0o700)
+                (original/'unique').write_text('preserve')
+        self.backend.hook=hook
+        self.apply(result,p,ok=False)
+        self.assertEqual((self.root/'candidates/one/unique').read_text(),'preserve')
+        self.assertTrue((self.root/'saved-original/build/output.txt').exists())
+        self.assertFalse((self.root/'candidates/.control/quarantine/one').exists())
+
+    def test_malformed_control_metadata_is_protected(self):
+        self.allocate()
+        journal=self.root/'candidates/.control/journal/unknown.json'
+        for content in ('[]','{"state":"done","state":"pending"}'):
+            journal.write_text(content)
+            self.assertEqual(self.cli('plan')['plan']['items'],[])
+            self.cli('complete','one',ok=False)
+
+
 if __name__=='__main__':
     unittest.main()

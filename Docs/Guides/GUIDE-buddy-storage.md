@@ -126,6 +126,9 @@ It rechecks references before each unlink/rmdir. Read, traversal and removal use
 held descriptors and no-follow opens; metadata replacement uses relative directory
 descriptors and atomic rename/fsync. Links, unexpected hardlinks, mount changes,
 changed content or identity, incomplete observation and new references refuse.
+Each entry is bound to the approved tree snapshot again before unlink; a swapped
+manifest or newly introduced file is preserved and leaves a pending journal.
+Metadata must be an object with unique keys; malformed control metadata stays protected.
 Process scanning alone cannot serialize consumers. The future consumer adapter
 must cover tasks, processes, cwd/executable/open files, services and rollback
 references, all namespaces and all consumers, together with the shared reference

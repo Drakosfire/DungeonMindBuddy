@@ -58,6 +58,14 @@ def no_links(path):
         require(not part.is_symlink(), 'symlink path refused')
 
 
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        require(key not in result, 'duplicate metadata keys')
+        result[key] = value
+    return result
+
+
 def read_json(path):
     s = path.lstat()
     require(stat.S_ISREG(s.st_mode) and s.st_nlink == 1 and s.st_size <= 1024 * 1024,
@@ -66,7 +74,9 @@ def read_json(path):
     with os.fdopen(fd) as stream:
         require([os.fstat(stream.fileno()).st_dev, os.fstat(stream.fileno()).st_ino] ==
                 [s.st_dev, s.st_ino], 'metadata changed')
-        return json.load(stream)
+        value = json.load(stream, object_pairs_hook=unique_object)
+        require(isinstance(value, dict), 'metadata object required')
+        return value
 
 
 def open_dir(path):
@@ -517,8 +527,22 @@ class Storage:
                 atomic(journal, operation)
                 self.system.checkpoint('before_quarantine')
                 target = self.control / 'quarantine' / item['id']
-                os.rename(path, target)
-                fsync_dir(path.parent)
+                # The checkpoint can represent a paused operation: do not move
+                # a replacement object installed since approval was checked.
+                self.validate()
+                require(digest(self.observe()) == plan['protection'], 'protection changed')
+                source_parent = open_dir(self.candidates)
+                target_parent = open_dir(target.parent)
+                try:
+                    require(identity_at(source_parent, item['id']) == item['identity'],
+                            'candidate replaced before quarantine')
+                    require(not os.listdir(target_parent), 'quarantine no longer empty')
+                    os.rename(item['id'], item['id'], src_dir_fd=source_parent, dst_dir_fd=target_parent)
+                    os.fsync(source_parent)
+                    os.fsync(target_parent)
+                finally:
+                    os.close(source_parent)
+                    os.close(target_parent)
                 fsync_dir(target.parent)
                 self.system.checkpoint('after_quarantine')
                 require(identity(target) == item['identity'], 'quarantine identity changed')
@@ -527,8 +551,8 @@ class Storage:
                 self.tree(target / 'build', m['files'])
                 require(set(p.name for p in target.iterdir()) == {'manifest.json', 'build'},
                         'unknown quarantined data')
-                self.tree(target)
-                self.remove(target, plan['protection'])
+                approved_tree = self.tree(target)
+                self.remove(target, plan['protection'], approved_tree)
                 self.system.checkpoint('before_commit')
                 operation['state'] = 'done'
                 atomic(journal, operation)
@@ -546,19 +570,25 @@ class Storage:
         operation['state'] = 'done'
         atomic(journal, operation)
 
-    def remove(self, path, protection):
+    def remove(self, path, protection, approved_tree):
         fd = open_dir(path)
         try:
             mount = self.system.mount_id(fd)
-            def walk(parent):
+            def walk(parent, prefix=''):
                 for name in sorted(os.listdir(parent)):
+                    rel = prefix + name
+                    require(rel in approved_tree, 'unknown data during removal')
+                    expected = approved_tree[rel]
                     s = os.stat(name, dir_fd=parent, follow_symlinks=False)
                     require(s.st_dev == self.device, 'foreign device during removal')
+                    require([s.st_dev, s.st_ino] == expected['identity'],
+                            'entry replaced during removal')
                     if stat.S_ISDIR(s.st_mode):
                         child = os.open(name, NOFOLLOW, dir_fd=parent)
                         try:
                             require(self.system.mount_id(child) == mount, 'mount changed during removal')
-                            walk(child)
+                            require(identity_fd(child) == expected['identity'], 'directory replaced')
+                            walk(child, rel + '/')
                             require(identity_fd(child) == identity_at(parent, name), 'directory swapped')
                         finally:
                             os.close(child)
@@ -567,9 +597,19 @@ class Storage:
                         os.rmdir(name, dir_fd=parent)
                     else:
                         require(stat.S_ISREG(s.st_mode) and s.st_nlink == 1, 'unsafe removal entry')
-                        self.validate()
-                        require(digest(self.observe()) == protection, 'protection changed during removal')
-                        os.unlink(name, dir_fd=parent)
+                        handle = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=parent)
+                        try:
+                            require(identity_fd(handle) == expected['identity'], 'file replaced during removal')
+                            h = hashlib.sha256()
+                            while chunk := os.read(handle, 1024 * 1024):
+                                h.update(chunk)
+                            require(h.hexdigest() == expected['sha256'], 'file changed during removal')
+                            self.validate()
+                            require(digest(self.observe()) == protection, 'protection changed during removal')
+                            require(identity_at(parent, name) == expected['identity'], 'file swapped before unlink')
+                            os.unlink(name, dir_fd=parent)
+                        finally:
+                            os.close(handle)
                     self.system.checkpoint('partial_removal')
                 os.fsync(parent)
             walk(fd)
