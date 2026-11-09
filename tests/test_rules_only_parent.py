@@ -1,6 +1,5 @@
-
-from tests.application_state.session_encounter_helpers import session_request, historical_world_run
 """Actual ordinary Plan/Play admission, Rules broker and APP; synthetic provider IO."""
+from tests.application_state.session_encounter_helpers import session_request, historical_world_run
 from dataclasses import replace
 from hashlib import sha256
 import json
@@ -49,8 +48,9 @@ class RulesOnlyProvider(FakeRuntime):
         assert mapped.capability_policy.enabled_tool_names == ("lookup_rules",)
         assert native_rules_capture_required
         body = {"model": request_budget["model"], "input": [{"role":"user", "content":mapped.question}],
-            "tools": [{"type":"function", **rules_tool_definition()["function"]}],
-            "max_output_tokens": request_budget["outputReserveTokens"]}
+            "tools": [{"type":"function", **rules_tool_definition()["function"]}]}
+        if request_budget["outputReserveTokens"] > 0:
+            body["max_output_tokens"] = request_budget["outputReserveTokens"]
         def view_for(body):
             raw = json.dumps(body, sort_keys=True, separators=(",", ":"))
             return {"provider":request_budget["provider"], "model":request_budget["model"],
@@ -308,3 +308,103 @@ def test_large_saved_play_source_crosses_actual_ipc_without_truncation(applicati
     assert read_retained() == retained
 
 pytestmark = pytest.mark.usefixtures("application_state_dsn")
+
+
+# Envelope tests exercise this owner's real guard before its durable delegate;
+# the existing parent cases above exercise the actual delegate, claim and capture.
+def _authorization_probe(budget, body):
+    from types import SimpleNamespace
+    from apps.live_control_server.services.rules_only_runtime import RulesOnlyRuntime
+
+    delegated = []
+    runtime = object.__new__(RulesOnlyRuntime)
+    runtime.failure = None
+    runtime.fence = SimpleNamespace(renewer=SimpleNamespace(_error=None))
+    runtime.last_provider_attempt_id = None
+    runtime.rules_runtime = SimpleNamespace(last_reply=None,
+        authorize=lambda view: (delegated.append(view) or True))
+    runtime.budget = budget
+    raw = json.dumps(body, sort_keys=True, separators=(",", ":"))
+    view = {key: budget[key] for key in ("provider", "model", "apiMode")}
+    view.update(payloadJson=raw, payloadSha256=sha256(raw.encode()).hexdigest(),
+                payloadUtf8Bytes=len(raw.encode()))
+    return runtime, view, delegated
+
+
+def _bounded_budget():
+    return {"provider": "openai-api", "model": "test-model", "apiMode": "codex_responses",
+            "contextLimitTokens": 4096, "outputReserveTokens": 256,
+            "maxProviderRequestBytes": 1_050_000}
+
+
+def test_rules_only_accepts_actual_uncapped_budget_without_finite_substitute():
+    from apps.live_control_server.services.agent_turn_service import _policy_request_budget
+
+    budget = _policy_request_budget()
+    assert budget["contextLimitTokens"] is None and budget["outputReserveTokens"] == 0
+    # Bigger than the old finite envelope; still within the unchanged wire bound.
+    body = {"model": budget["model"], "input": [{"role": "user", "content": "x" * 131072}]}
+    runtime, view, delegated = _authorization_probe(budget, body)
+    assert runtime.authorize(view), repr(runtime.failure)
+    assert delegated == [view]
+    assert runtime.failure is None
+    assert runtime.budget is budget and budget["contextLimitTokens"] is None
+
+
+@pytest.mark.parametrize("field", ["max_output_tokens", "max_completion_tokens", "max_tokens"])
+@pytest.mark.parametrize("cap", [0, 1, True, "256"])
+def test_rules_only_uncapped_request_rejects_retained_output_cap(field, cap):
+    budget = _bounded_budget() | {"contextLimitTokens": None, "outputReserveTokens": 0}
+    runtime, view, delegated = _authorization_probe(budget, {"model": budget["model"], field: cap})
+    assert not runtime.authorize(view)
+    assert delegated == [] and runtime.failure is not None
+
+
+@pytest.mark.parametrize("field", ["max_output_tokens", "max_completion_tokens", "max_tokens"])
+@pytest.mark.parametrize("cap", [1, 256])
+def test_rules_only_finite_output_reserve_accepts_its_bound(field, cap):
+    budget = _bounded_budget()
+    runtime, view, delegated = _authorization_probe(budget, {"model": budget["model"], field: cap})
+    assert runtime.authorize(view), repr(runtime.failure)
+    assert delegated == [view]
+
+
+@pytest.mark.parametrize("cap", [None, 0, -1, 257, True, "256"])
+def test_rules_only_finite_output_reserve_refuses_invalid_or_excessive_cap(cap):
+    budget = _bounded_budget()
+    body = {"model": budget["model"]}
+    if cap is not None:
+        body["max_output_tokens"] = cap
+    runtime, view, delegated = _authorization_probe(budget, body)
+    assert not runtime.authorize(view)
+    assert delegated == [] and runtime.failure is not None
+
+
+@pytest.mark.parametrize("excess", [0, 1])
+def test_rules_only_finite_context_boundary_still_enforced(excess):
+    from apps.live_control_server.services.agent_turn_service import _json_node_count
+
+    budget = _bounded_budget()
+    body = {"model": budget["model"], "input": [{"role": "user", "content": "bounded"}],
+            "max_output_tokens": budget["outputReserveTokens"]}
+    runtime, view, delegated = _authorization_probe(budget, body)
+    committed_estimate = view["payloadUtf8Bytes"] + 64 * (1 + _json_node_count(body))
+    budget["contextLimitTokens"] = committed_estimate + budget["outputReserveTokens"] - excess
+    assert runtime.authorize(view) is (excess == 0)
+    assert len(delegated) == (1 if excess == 0 else 0)
+
+
+@pytest.mark.parametrize("reserve", [-1, False, None, "256"])
+def test_rules_only_invalid_output_reserve_never_delegates(reserve):
+    budget = _bounded_budget() | {"contextLimitTokens": None, "outputReserveTokens": reserve}
+    runtime, view, delegated = _authorization_probe(budget, {"model": budget["model"]})
+    assert not runtime.authorize(view)
+    assert delegated == [] and runtime.failure is not None
+
+
+def test_rules_only_uncapped_cap_cannot_hide_behind_null_alias():
+    budget = _bounded_budget() | {"contextLimitTokens": None, "outputReserveTokens": 0}
+    body = {"model": budget["model"], "max_output_tokens": None, "max_tokens": 256}
+    runtime, view, delegated = _authorization_probe(budget, body)
+    assert not runtime.authorize(view)
+    assert delegated == [] and runtime.failure is not None

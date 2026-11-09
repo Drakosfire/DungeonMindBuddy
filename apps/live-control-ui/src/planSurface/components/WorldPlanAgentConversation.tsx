@@ -2974,6 +2974,7 @@ export function WorldPlanAgentConversation({
   const sectionScanRef = useRef<PlanSectionScan | null>(null);
   const sectionOperationRef = useRef<symbol | null>(null);
   const latestRef = useRef({
+    buildSurface: isBuild,
     fenceKey: requestFenceKey,
     presentationFenceKey: askPresentationFenceKey,
     buildPlacementFenceKey,
@@ -3157,6 +3158,7 @@ export function WorldPlanAgentConversation({
     setNewReplyAvailable(false);
   }
 
+  latestRef.current.buildSurface = isBuild;
   latestRef.current.fenceKey = requestFenceKey;
   latestRef.current.presentationFenceKey = askPresentationFenceKey;
   latestRef.current.buildPlacementFenceKey = buildPlacementFenceKey;
@@ -4538,7 +4540,7 @@ export function WorldPlanAgentConversation({
     let stored:StoredPendingPlayTurn|undefined;
     try {
       const original=await readDiscussionRetryInput(world,conversation,retry.turn_id,retry.revision);
-      if(!latestRef.current.mounted||!surfaceVisibleRef.current||latestRef.current.verifiedWorldId!==world
+      if(!latestRef.current.mounted||!surfaceVisibleRef.current||!latestRef.current.buildSurface||latestRef.current.verifiedWorldId!==world
         ||historySnapshotRef.current?.conversation_id!==conversation||historySnapshotRef.current?.active_conversation_id!==conversation
         ||historySnapshotRef.current?.pointer_revision!==original.pointer_revision)throw new Error('The conversation changed while preparing this retry. Nothing was sent.');
       const snapshot=original.snapshot;
@@ -4566,7 +4568,7 @@ export function WorldPlanAgentConversation({
     if(stored)await dispatchSavedPlayTurn(stored,false,tourDispatch);
   }
 
-  async function submitPlay(event?: Pick<FormEvent<HTMLFormElement>, "preventDefault">, discussionOnly = false, questionOverride?: string, explicitRequest?: SurfaceConversationRequest, retryOf?:TurnRetryContext) {
+  async function submitPlay(event?: Pick<FormEvent<HTMLFormElement>, "preventDefault">, discussionOnly = false, questionOverride?: string, explicitRequest?: SurfaceConversationRequest) {
     event?.preventDefault();
     const tourDispatch=guidance?.captureScope()??null;
     if(surfacePreparationRef.current&&!explicitRequest)return;
@@ -4583,22 +4585,19 @@ export function WorldPlanAgentConversation({
       return;
     }
     if (isBuild) {
-      if(retryOf&&!buildMode?.composeBridge)throw new Error('Open the page editor to capture the current working copy before retrying. Nothing was sent.');
       if (!visible || !source || source.worldId !== verifiedWorldId || !historySnapshotRef.current
         || historyLoading || historyError || !message || sending
         || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) return;
       if (discussionOnly && !visibleBuildPlacementFailure) return;
       if(explicitRequest?.reviewedStep&&!useWorldGraphForAsk)throw new Error('Enable World context, then resume this step from its saved plan. Nothing was sent.');
-      if(!retryOf&&!explicitRequest&&!composerReferencesReady){setError('The local reference selection needs recovery; no request was sent.');return;}
-      const referenceInput=retryOf?.schema==='dmb_turn_retry_context_row_v2'?retryOf.authored_references
-        :retryOf?undefined:explicitRequest?explicitRequest.authoredReferences
+      if(!explicitRequest&&!composerReferencesReady){setError('The local reference selection needs recovery; no request was sent.');return;}
+      const referenceInput=explicitRequest?explicitRequest.authoredReferences
         :composerReferences.length?authoredReferences(composerReferences):undefined;
       if(referenceInput&&!useWorldGraphForAsk){setError('Enable World context to read the selected references. Nothing was sent.');return;}
       const referenceDraftAtSubmit=composerReferenceState.draft;
       const request: WorldBuildAgentTurnRequestV1 = {
         ...(referenceInput?{build_authored_references:referenceInput}:{}),
         ...(explicitRequest?.reviewedStep?{reviewed_step:explicitRequest.reviewedStep}:{}),
-        ...(retryOf?{retry_of:{turn_id:retryOf.turn_id,revision:retryOf.revision}}:{}),
         schema: "dmb_agent_turn_request_v1", client_thread_id: explicitRequest?.clientThreadId ?? crypto.randomUUID(), turn_id: explicitRequest?.turnId ?? crypto.randomUUID(),
         surface: { surface_id: "build", instance_id: source.surfaceInstanceId },
         owner_scope: { kind: "world", world_id: source.worldId },
@@ -4672,14 +4671,14 @@ export function WorldPlanAgentConversation({
       if(explicitRequest)acceptSurfaceConversationRequest(explicitRequest.id);
       const stored = { storageKey, serialized, request };
       setPendingPlayTurn(stored);
-      if(!retryOf&&!explicitRequest&&questionOverride===undefined&&composerEditGenerationRef.current===composerGenerationAtSubmit){
+      if(!explicitRequest&&questionOverride===undefined&&composerEditGenerationRef.current===composerGenerationAtSubmit){
         if(referenceWorld&&referencePage&&referenceDraftAtSubmit&&referenceInput){
           try{const draft=writeComposerReferences(sessionStorage,referenceWorld,referencePage,referenceDraftAtSubmit.serialized,[],request.turn_id);setComposerReferenceState({key:referenceScopeKey,draft,error:null});}
           catch(reason){failedReferenceRetirements.current.add(request.turn_id);setError(String(reason));}
         }
         setComposerMessage(current => current.trim() === message ? "" : current);
       }
-      await dispatchSavedPlayTurn(stored,!retryOf&&!explicitRequest&&questionOverride===undefined,tourDispatch);
+      await dispatchSavedPlayTurn(stored,!explicitRequest&&questionOverride===undefined,tourDispatch);
       return;
     }
 
@@ -4755,6 +4754,42 @@ export function WorldPlanAgentConversation({
       throw new Error('Reply details no longer match this saved message. Refresh the conversation before opening them again.');
     return page.turns[0];
   }
+  async function retrySavedMessage(row: WorldAgentConversationHistoryTurn) {
+    const snapshot = messagePageRef.current ? messagePresentation(messagePageRef.current) : null;
+    const generation = historyGenerationRef.current, fence = askPresentationFenceKey;
+    if ((!isBuild && isReadOnly) || !snapshot || !snapshot.turns.some(item => sameSavedMessage(item, row)))
+      throw new Error('This saved question is no longer selected. Nothing was sent.');
+    const full = await readExactMessageTurn(snapshot, row);
+    const current = historySnapshotRef.current;
+    if (!latestRef.current.mounted || !surfaceVisibleRef.current || generation !== historyGenerationRef.current
+      || latestRef.current.buildSurface !== isBuild || (!isBuild && latestRef.current.presentationFenceKey !== fence)
+      || !current || !sameHistoryPointer(current, snapshot))
+      throw new Error('The page or conversation changed while checking this question. Nothing was sent.');
+    if (isBuild) {
+      if (full.assistant_text || !['failed','interrupted'].includes(full.lifecycle_status)
+        || full.provenance.surface_id !== 'build' || !full.retry_context?.eligible)
+        throw new Error('This saved attempt cannot be retried safely. Inspect its result or continue from its reviewed plan. Nothing was sent.');
+      const originalReferences = full.authored_references ?? (full.retry_context.schema === 'dmb_turn_retry_context_row_v2' ? full.retry_context.authored_references : null);
+      if (row.authored_references && canonicalJson(row.authored_references) !== canonicalJson(originalReferences))
+        throw new Error('The saved question references could not be verified. Refresh the conversation. Nothing was sent.');
+      setRetryPresentationOrigin({scopeKey,turnId:full.turn_id});
+      await retryRetainedDiscussion(full.retry_context);
+      return;
+    }
+    if (full.assistant_text || !['failed','interrupted'].includes(full.lifecycle_status)
+      || full.provenance.surface_id !== 'plan' || full.provenance.primary_work.object_id !== documentId)
+      throw new Error('This saved question is no longer retryable from this Plan. Nothing was sent.');
+    if (graphContextForTurn(full)?.receipt.assembled_input.assembler_version === 'reviewed_author_admission_v1')
+      throw new Error('Use “Try step again” in the saved reviewed plan to retain this step’s action. Nothing was sent.');
+    const references = full.authored_references ?? (full.retry_context?.schema === 'dmb_turn_retry_context_row_v2' ? full.retry_context.authored_references : null);
+    if (canonicalJson(references ?? null) !== canonicalJson(row.authored_references ?? null)
+      || references && references.schema !== 'dmb_authored_references_v2')
+      throw new Error('The saved question references could not be verified. Refresh the conversation. Nothing was sent.');
+    setRetryPresentationOrigin({scopeKey,turnId:full.turn_id});
+    await submit({preventDefault:()=>undefined}, 'discuss', full.user_text,
+      references?.schema === 'dmb_authored_references_v2' ? references : null, full.plan_requested_operation);
+  }
+
   async function inspectSavedMessage(row: WorldAgentConversationHistoryTurn, signal: AbortSignal) {
     const snapshot = messagePageRef.current ? messagePresentation(messagePageRef.current) : null, generation = historyGenerationRef.current;
     if (!snapshot || !snapshot.turns.some(item => sameSavedMessage(item, row))) throw new Error('This message is no longer selected.');
@@ -6390,6 +6425,12 @@ export function WorldPlanAgentConversation({
         <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
           <div className="world-plan-agent-conversation__reply-heading"><span className="world-plan-agent-conversation__speaker">Buddy</span></div>
           {pageSuggestion ? pageSuggestion.element : turn.assistant_text ? savedMessage?.citation_preview?.status === 'ready' ? <SavedCitationAnswer key={`${scopeKey}:${turn.turn_id}`} preview={savedMessage.citation_preview} answer={turn.assistant_text} worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : <WorldPlanAgentAnswer answer={turn.assistant_text}/> : <p>{turn.lifecycle_status === 'completed' ? 'Open Details to inspect this reply.' : turn.lifecycle_status === 'failed' || turn.lifecycle_status === 'interrupted' ? 'This reply did not finish.' : 'Waiting for this reply…'}</p>}
+          {!historicalAttempt && (isBuild || !isReadOnly) && !turn.assistant_text
+            && ['failed','interrupted'].includes(turn.lifecycle_status)
+            && (isBuild ? turn.provenance.surface_id === 'build'
+              : turn.provenance.surface_id === 'plan' && turn.provenance.primary_work.object_id === documentId)
+            && history?.active_conversation_id === history?.conversation_id
+            && <ConversationRecovery question={turn.user_text} blocked={composerBusy} onRetry={() => retrySavedMessage(turn)}/>}
         </div>
         <div className="world-plan-agent-conversation__turn-debug">{renderReplyDetails(turn, false, undefined, savedMessage?.citation_preview?.status === 'ready',
             savedMessage?.reply_object?.kind==='page_object'&&savedMessage.reply_object.object_kind==='connected_page'
@@ -6522,19 +6563,19 @@ export function WorldPlanAgentConversation({
         ) : failed || interrupted ? (
           <div className="world-plan-agent-conversation__turn-status">
           {!historicalAttempt && isBuild && turn.provenance.surface_id==='build'
-            && turn.provenance.primary_work.object_id!==buildMode?.savedSource?.documentId && turn.retry_context?.eligible
+            && turn.retry_context?.eligible
             ? <><span>Retry using this request’s original page context.</span><ConversationRecovery question={turn.user_text} blocked={composerBusy}
                 onRetry={async()=>{setRetryPresentationOrigin({scopeKey,turnId:turn.turn_id});await retryRetainedDiscussion(turn.retry_context!);}}/></>
-            : !historicalAttempt && turn.provenance.surface_id === (isBuild ? "build" : isReadOnly ? "play" : "plan")
-            && turn.provenance.primary_work.object_id === (isBuild ? buildMode?.savedSource?.documentId : isReadOnly ? playMode?.admittedRun?.runId : documentId)
+            : !historicalAttempt && !isBuild && turn.provenance.surface_id === (isReadOnly ? "play" : "plan")
+            && turn.provenance.primary_work.object_id === (isReadOnly ? playMode?.admittedRun?.runId : documentId)
             ? graphContextForTurn(turn)?.receipt.assembled_input.assembler_version==='reviewed_author_admission_v1'
               ? <p>Use “Try step again” in the saved reviewed plan to retain this step’s action.</p>
-              : (!isBuild||turn.retry_context?.eligible) ? <ConversationRecovery question={turn.user_text} blocked={composerBusy}
+              : <ConversationRecovery question={turn.user_text} blocked={composerBusy}
                 onRetry={async(question)=>{
                   setRetryPresentationOrigin({scopeKey,turnId:turn.turn_id});
-                  if(isReadOnly)await submitPlay(undefined,false,question,undefined,isBuild?turn.retry_context??undefined:undefined);
+                  if(isReadOnly)await submitPlay(undefined,false,question);
                   else await submit({preventDefault:()=>undefined},"discuss",question,turnReferences?.schema==='dmb_authored_references_v2'?turnReferences:null,turn.plan_requested_operation);
-                }} /> : null : null}
+                }} /> : null}
           </div>
         ) : null}
         <div className="world-plan-agent-conversation__turn-debug">

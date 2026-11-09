@@ -244,7 +244,7 @@ def _turn_from_row(
     from .native_execution import SurfaceNativeExecutionV1
     from .native_completion import SurfaceNativeCompletionV1
 
-    for key, model in (
+    column_codecs = (
         ("graph_context_receipt", SurfaceNativeContextReceiptV1),
         ("graph_context_execution", SurfaceNativeExecutionV1),
         ("completion", SurfaceNativeCompletionV1),
@@ -258,7 +258,23 @@ def _turn_from_row(
         ("graph_context_receipt", NativeStatementContextReceiptV1),
         ("graph_context_execution", NativeStatementExecutionV1),
         ("completion", NativeStatementCompletionV1),
-    ):
+    )
+    shared_models = (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1, SurfaceNativeCompletionV1)
+    integrity_models = (*shared_models, NativeStatementContextReceiptV1,
+                        NativeStatementExecutionV1, NativeStatementCompletionV1)
+    matched_codecs = {
+        key: model for key, model in column_codecs
+        if isinstance(fields.get(key), dict)
+        and fields[key].get("schema") == model.model_fields["schema_"].default
+    }
+    shared_base = (row["answer_composition_kind"] == "base"
+                   and any(model in shared_models for model in matched_codecs.values()))
+    for key, model in matched_codecs.items():
+        if shared_base:
+            # One complete wire decoder owns shared-native database freshness.
+            # Parsing each column here and then constructing a Python Turn would
+            # reconstruct the same mutable components a second time.
+            break
         value = fields.get(key)
         if isinstance(value, dict) and value.get("schema") == model.model_fields["schema_"].default:
             try:
@@ -267,15 +283,37 @@ def _turn_from_row(
                 if model in (NativeStatementContextReceiptV1, NativeStatementExecutionV1, NativeStatementCompletionV1, SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1, SurfaceNativeCompletionV1):
                     raise ApplicationStateIntegrityError("Stored native context failed typed validation") from exc
                 raise
+    shared_turn = None
+    root_error = None
+    if shared_base:
+        from pydantic_core import to_json
+
+        try:
+            shared_turn = Turn.model_validate_json(to_json(fields))
+        except ValidationError as exc:
+            # Preserve component-codec error priority before summary/root checks,
+            # without a second decode of either the components or the Turn.
+            bad_columns = {error["loc"][0] for error in exc.errors(include_url=False)
+                           if error["loc"]}
+            for key, model in matched_codecs.items():
+                if key in bad_columns:
+                    if model in integrity_models:
+                        raise ApplicationStateIntegrityError("Stored native context failed typed validation") from exc
+                    raise
+            root_error = exc
     marker = row["answer_composition_kind"]
     summary = row["rules_summary"]
-    # Discriminate BEFORE ordinary Turn parsing, especially Build text equality.
+    # Mixed Rules bodies must reach their existing owner before Turn text equality.
     if marker == "base":
         from .rules_authority_reads import validate_base_composition_summary
 
         validate_base_composition_summary(summary)
+        if root_error is not None:
+            if matched_codecs.get("graph_context_receipt") in integrity_models:
+                raise ApplicationStateIntegrityError("Native completion differs from its captured producing output") from root_error
+            raise root_error
         try:
-            turn = Turn(**fields)
+            turn = shared_turn if shared_base else Turn(**fields)
         except ValidationError as exc:
             if isinstance(fields.get("graph_context_receipt"), (NativeStatementContextReceiptV1, SurfaceNativeContextReceiptV1)):
                 raise ApplicationStateIntegrityError("Native completion differs from its captured producing output") from exc
@@ -1693,6 +1731,9 @@ def insert_legacy_turn(
             "idempotency_key": idempotency_key,
             "user_text": legacy_turn.user_text,
             "provenance": provenance,
+            # Verified transcripts have no current submitted intent. Keep the
+            # shared fresh-writer contract strict rather than guessing one.
+            "submitted_intent_v1": None,
         },
     )
     return insert_turn(

@@ -77,7 +77,12 @@ def controller(adapter):
     return PlanJevDispatch(adapter, (RetrievalCandidate(handle='node:park-pond', label='Park pond', kind='location'),))
 
 
-def test_actual_first_plan_decision_freezes_wire_claim_and_selection(plan_adapter):
+@pytest.mark.parametrize('traced', [False, True])
+def test_actual_first_plan_decision_freezes_wire_claim_and_selection(plan_adapter, traced):
+    if traced:
+        from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
+        plan_adapter.trace = AgentTurnTraceBuilder(agent_thread_id=None, turn_id=None,
+            runtime='plan-jev', backend='generationengine', mode='graph')
     dispatch = controller(plan_adapter); wire = Wire(plan_adapter)
     selection, result = asyncio.run(dispatch.run(transport=wire, api_key='synthetic-not-secret'))
     turn = plan_adapter.fence.turn
@@ -90,6 +95,13 @@ def test_actual_first_plan_decision_freezes_wire_claim_and_selection(plan_adapte
     assert execution.events[-1].actual_input_tokens == result.observation.input_tokens == 37
     assert execution.events[-1].actual_output_tokens == 9
     assert plan_adapter.context_capture.trace.capture_status == 'recording'
+    if traced:
+        spans = {span['name']: span for span in plan_adapter.trace.spans}
+        expected = {'controller_round': 1, 'controller_authorization': 1,
+            'controller_lifecycle_acknowledgement': 2, 'controller_selection_acknowledgement': 1}
+        for name, count in expected.items():
+            assert spans[name]['attributes']['count'] == count
+            assert spans[name]['attributes']['error_count'] == 0
     assert [row.kind for row in execution.events] == ['plan_jev_provider_authorized_v1',
         'provider_outcome', 'provider_outcome', 'plan_jev_retrieval_selected_v1']
     assert not dispatch.authorize(dispatch.prepared)
@@ -209,3 +221,41 @@ def test_explicit_gap_finish_is_acknowledged_and_qualifies_writer(plan_adapter):
     assert any(o.kind == 'failure' and o.code == 'controller_finished_with_gaps'
         for o in plan_adapter.context_capture.trace.observations)
     assert len(wire.calls) == 1
+
+
+@pytest.mark.parametrize('traced', [False, True])
+def test_controller_accounting_preserves_refusal_and_exception_identity(monkeypatch, traced):
+    from apps.live_control_server.services import plan_jev_dispatch as module
+    from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
+
+    trace = (AgentTurnTraceBuilder(agent_thread_id=None, turn_id=None,
+        runtime='probe', backend='probe', mode='probe') if traced else None)
+    dispatch = object.__new__(PlanJevDispatch)
+    dispatch.adapter = SimpleNamespace(trace=trace, fence=None)
+    dispatch.parent = SimpleNamespace()
+    dispatch.prepared = dispatch.authorization = dispatch.selection = dispatch.call = None
+    failure = RuntimeError('unchanged failure')
+    def refuse(*args, **kwargs):
+        raise failure
+    monkeypatch.setattr(module, 'validate_prepared_decision', refuse)
+    with pytest.raises(RuntimeError) as caught:
+        dispatch.authorize(None)
+    assert caught.value is failure
+    assert dispatch.record(SimpleNamespace()) is False
+    with pytest.raises(ValueError, match='unique actual authorized producer'):
+        dispatch.acknowledge(None)
+    monkeypatch.setattr(module, 'prepare_decision', lambda *args, **kwargs: {})
+    class Client:
+        async def decide(self, *args, **kwargs):
+            raise failure
+    with pytest.raises(RuntimeError) as caught:
+        asyncio.run(dispatch.run(client=Client()))
+    assert caught.value is failure
+    if traced:
+        spans = {span['name']: span for span in trace.spans}
+        assert {name: span['attributes']['count'] for name, span in spans.items()} == {
+            'controller_authorization': 1, 'controller_lifecycle_acknowledgement': 1,
+            'controller_selection_acknowledgement': 1, 'controller_round': 1}
+        assert {name: span['attributes']['error_count'] for name, span in spans.items()} == {
+            'controller_authorization': 1, 'controller_lifecycle_acknowledgement': 0,
+            'controller_selection_acknowledgement': 1, 'controller_round': 1}

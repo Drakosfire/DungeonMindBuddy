@@ -349,3 +349,107 @@ def test_native_turn_json_keeps_nested_adapter_and_schema_references(surface):
     assert python_pair.right.graph_context_execution is not turn.graph_context_execution
     python_list = TypeAdapter(list[t.Turn]).validate_python([turn])
     assert python_list[0] is not turn
+
+
+def stored_row(turn):
+    """Actual psycopg shape: SQL scalars plus undecoded native JSON columns."""
+    row = turn.model_dump(mode="python", by_alias=True)
+    provenance = row.pop("provenance")
+    for key in ("graph_context_receipt", "graph_context_execution", "completion"):
+        value = getattr(turn, key)
+        row[key] = None if value is None else json.loads(value.model_dump_json(by_alias=True))
+    row.update(
+        surface_resolution=turn.provenance.surface_resolution,
+        surface_id=turn.provenance.surface_id,
+        surface_instance_id=turn.provenance.surface_instance_id,
+        answer_composition_kind="base", rules_summary=None,
+    )
+    refs = (turn.provenance.primary_work, turn.provenance.supporting_work,
+            turn.provenance.selected_object)
+    return row, refs
+
+
+@pytest.mark.parametrize("surface", ["build", "plan", "play"])
+def test_repository_native_wire_decode_once(surface, monkeypatch):
+    from application_state.agent_conversation import repository
+    from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
+
+    turn = retained(submission(surface))
+    row, refs = stored_row(turn)
+    # Component-only decoding must not precede the complete Turn wire decoder.
+    def duplicate_decode(*args, **kwargs):
+        raise AssertionError("repository decoded the context twice")
+    monkeypatch.setattr(SurfaceNativeContextReceiptV1, "model_validate_json", duplicate_decode)
+    restored = repository._turn_from_row(None, row, references=refs)
+    assert restored.model_dump_json(by_alias=True) == turn.model_dump_json(by_alias=True)
+
+
+@pytest.mark.parametrize("surface", ["build", "plan", "play"])
+@pytest.mark.parametrize("mutation", ["receipt", "execution", "world", "revision"])
+def test_repository_native_wire_corruption_stays_integrity_error(surface, mutation):
+    from application_state.agent_conversation import repository
+    from application_state.errors import ApplicationStateIntegrityError
+
+    row, refs = stored_row(retained(submission(surface)))
+    if mutation == "receipt":
+        row["graph_context_receipt"]["context_receipt_sha256"] = "0" * 64
+    elif mutation == "execution":
+        row["graph_context_execution"]["context_receipt_sha256"] = "0" * 64
+    elif mutation == "world":
+        row["world_id"] = "another-world"
+    else:
+        row["revision"] = -1
+    with pytest.raises(ApplicationStateIntegrityError):
+        repository._turn_from_row(None, row, references=refs)
+
+
+@pytest.mark.parametrize("surface", ["build", "plan", "play"])
+def test_repository_shared_execution_does_not_hide_corrupt_native_statement_receipt(surface):
+    from application_state.agent_conversation import repository
+    from application_state.errors import ApplicationStateIntegrityError
+
+    row, refs = stored_row(retained(submission(surface)))
+    row["graph_context_receipt"] = {"schema": "dmb_native_statement_context_receipt_v1"}
+    with pytest.raises(ApplicationStateIntegrityError, match="Stored native context failed typed validation"):
+        repository._turn_from_row(None, row, references=refs)
+
+
+@pytest.mark.parametrize("surface", ["build", "plan", "play"])
+@pytest.mark.parametrize("column,model_name", [
+    ("graph_context_execution", "PlanNativeExecutionV1"),
+    ("graph_context_execution", "PlanSourceExecutionV1"),
+    ("graph_context_execution", "PlayWorldGraphExecutionV1"),
+    ("completion", "PlayWorldGraphCompletionV1"),
+])
+def test_repository_shared_receipt_keeps_historical_codec_error_owner(surface, column, model_name):
+    from application_state.agent_conversation import repository
+
+    row, refs = stored_row(retained(submission(surface)))
+    row[column] = {"schema": getattr(t, model_name).model_fields["schema_"].default}
+    with pytest.raises(ValidationError):
+        repository._turn_from_row(None, row, references=refs)
+
+
+@pytest.mark.parametrize("surface", ["build", "plan", "play"])
+def test_repository_error_precedence_follows_existing_component_codec_order(surface):
+    from application_state.agent_conversation import repository
+
+    row, refs = stored_row(retained(submission(surface)))
+    # Shared completion is recognized first, while malformed historical execution
+    # precedes malformed NativeStatement receipt in the existing codec table.
+    row["completion"] = {"schema": t.SurfaceNativeCompletionV1.model_fields["schema_"].default}
+    row["graph_context_execution"] = {"schema": t.PlanNativeExecutionV1.model_fields["schema_"].default}
+    row["graph_context_receipt"] = {"schema": t.NativeStatementContextReceiptV1.model_fields["schema_"].default}
+    from application_state.errors import ApplicationStateIntegrityError
+    with pytest.raises(ApplicationStateIntegrityError):
+        repository._turn_from_row(None, row, references=refs)
+
+
+def test_repository_component_failure_precedes_malformed_composition_summary():
+    from application_state.agent_conversation import repository
+
+    row, refs = stored_row(retained(submission()))
+    row["graph_context_execution"] = {"schema": t.PlanNativeExecutionV1.model_fields["schema_"].default}
+    row["rules_summary"] = {"invalid": True}
+    with pytest.raises(ValidationError):
+        repository._turn_from_row(None, row, references=refs)

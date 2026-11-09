@@ -59,10 +59,19 @@ class RulesOnlyRuntime:
             if not isinstance(body, dict) or body.get("model") != self.budget["model"]:
                 raise ValueError("Rules-only provider body must use the configured model")
             estimate = len(raw) + 64 * (1 + _json_node_count(body))
-            if estimate + self.budget["outputReserveTokens"] > self.budget["contextLimitTokens"]:
+            context_limit = self.budget["contextLimitTokens"]
+            output_reserve = self.budget["outputReserveTokens"]
+            if type(output_reserve) is not int or output_reserve < 0:
+                raise ValueError("Rules-only provider output reserve is invalid")
+            if context_limit is not None and estimate + output_reserve > context_limit:
                 raise ValueError("Rules-only provider envelope exceeds its context budget")
             output_limit = body.get("max_output_tokens", body.get("max_completion_tokens", body.get("max_tokens")))
-            if type(output_limit) is not int or not 1 <= output_limit <= self.budget["outputReserveTokens"]:
+            if output_reserve == 0:
+                # Match the native provider guard: uncapped requests must not
+                # silently retain a finite SDK cap under any supported alias.
+                if any(body.get(field) is not None for field in ("max_output_tokens", "max_completion_tokens", "max_tokens")):
+                    raise ValueError("Rules-only uncapped provider request retains an output cap")
+            elif type(output_limit) is not int or not 1 <= output_limit <= output_reserve:
                 raise ValueError("Rules-only provider output reserve is not bounded")
             tools = body.get("tools", [])
             if not isinstance(tools,list) or len(tools) > 1:

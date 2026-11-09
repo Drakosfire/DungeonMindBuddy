@@ -1,6 +1,6 @@
 # APP-STATE — World-scoped Agent conversation continuity
 
-**Status:** ACTIVE — APP-STATE storage/domain-service lease granted by PRIME
+**Status:** SETTLED — implementation #822 merged `0e49c4d708d3e16c8068384549adb50e863bf64a`; its historical write lease is released. Narrow legacy-import successor: `HANDOFF-APP-legacy-import-intent.md`.
 **Owner:** APP-STATE
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Design PR:** #821, merge `16d5e549b34593d68c447ef18f1428128c3f46ba`
@@ -273,7 +273,7 @@ Keep these serial unless PRIME later verifies independent path/runtime
 ownership. Do not dispatch steps 2–3 before the predecessor gate and explicit
 owner leases resolve.
 
-## 6. ACTIVE APP-STATE implementation write set
+## 6. Historical APP-STATE implementation write set (SETTLED)
 
 PRIME's serial implementation lease is based on
 `main@16d5e549b34593d68c447ef18f1428128c3f46ba` and grants these exact paths:
