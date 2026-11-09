@@ -12,6 +12,7 @@ from application_state.agent_conversation.service import (
 )
 from application_state.unit_of_work import unit_of_work
 from application_state.errors import (
+    ApplicationStateIntegrityError,
     ApplicationStateConflictError,
     ApplicationStateNotFoundError,
     ApplicationStateValidationError,
@@ -156,7 +157,7 @@ def rename(world: str, conversation: UUID, change: NameChange):
 
 def _reply_object(turn, world, conversation):
     """Project validated historical objects without supplying action authority."""
-    from .types import Turn, BuildCollaborationCompletionV1, BuildIntentionalResponseCompletionV1
+    from .types import Turn
     from .rules_authority_reads import MixedCompletedTurnV1, RulesApprovedBaseV1
 
     meta = getattr(turn, "envelope", turn)
@@ -169,25 +170,60 @@ def _reply_object(turn, world, conversation):
             meta.world_id, meta.conversation_id, meta.turn_id, meta.provenance.primary_work
         ):
             return None
-    if not isinstance(base, Turn) or base.status != "completed" or (
-        base.world_id != world or base.conversation_id != conversation
-        or base.provenance.surface_id != "build"
-        or base.provenance.primary_work.kind != "build"
-        or not base.provenance.primary_work.object_id
-        or not isinstance(base.completion, (BuildCollaborationCompletionV1, BuildIntentionalResponseCompletionV1))
-    ):
+    if not isinstance(base, Turn) or base.status != "completed" or (base.world_id,base.conversation_id)!=(world,conversation):
         return None
-    obj = base.completion.collaboration
-    if obj is None:
+    return _reply_object_projection(base.completion,base.provenance,world,conversation,base.turn_id)
+
+
+def _reply_object_projection(completion, provenance, world, conversation, turn_id):
+    """One display descriptor owner for full and lightweight saved messages."""
+    from .types import BuildCollaborationCompletionV1,BuildIntentionalResponseCompletionV1
+    from .native_completion import SurfaceNativeCompletionV1
+    codecs=(BuildCollaborationCompletionV1,BuildIntentionalResponseCompletionV1,SurfaceNativeCompletionV1)
+    work=provenance.primary_work
+    surface=provenance.surface_id
+    if (surface not in {'build','plan'} or provenance.surface_resolution!='resolved' or work.resolution!='resolved' or provenance.world_id!=world
+            or work.kind!=surface or not work.object_id or not isinstance(completion,codecs)
+            or isinstance(completion,SurfaceNativeCompletionV1) and completion.surface_id!=surface
+            or not isinstance(completion,SurfaceNativeCompletionV1) and surface!='build'):
         return None
-    source = {"world_id": world, "conversation_id": str(conversation),
-              "turn_id": str(base.turn_id), "document_id": base.provenance.primary_work.object_id,
-              "surface_id": "build"}
-    if obj.kind == "questions":
-        return {"kind": "questions", "questions": [{"text": q.text} for q in obj.questions], "source": source}
-    if obj.kind in {"plan", "connected_page", "relationship"}:
-        return {"kind": "page_object", "object_kind": obj.kind, "source": source}
+    obj=completion.collaboration
+    if obj is None or surface=='plan' and (not isinstance(completion,SurfaceNativeCompletionV1) or obj.kind!='connected_page'):
+        return None
+    source={'world_id':world,'conversation_id':str(conversation),'turn_id':str(turn_id),
+        'document_id':work.object_id,'surface_id':surface}
+    if obj.kind=='questions':
+        return {'kind':'questions','questions':[{'text':q.text} for q in obj.questions],'source':source}
+    if obj.kind in {'plan','connected_page','relationship'}:
+        return {'kind':'page_object','object_kind':obj.kind,'source':source}
     return None
+
+
+def _message_reply_object(row, provenance, conversation):
+    """Parse stored completion only; opening the review still reads its exact Turn."""
+    if row['status']!='completed':return None
+    from .types import BuildCollaborationCompletionV1,BuildIntentionalResponseCompletionV1
+    from .native_completion import SurfaceNativeCompletionV1
+    from pydantic import ValidationError
+    raw=row['completion']
+    codecs={cls.model_fields['schema_'].default:cls for cls in (
+        BuildCollaborationCompletionV1,BuildIntentionalResponseCompletionV1,SurfaceNativeCompletionV1)}
+    codec=codecs.get(raw.get('schema')) if isinstance(raw,dict) else None
+    if codec is None:return None
+    try:completion=codec.model_validate(raw)
+    except (ValidationError,ValueError,TypeError):return None
+    try:
+        from .rules_authority_reads import validate_base_composition_summary,read_completed_binding_summary
+        if row['answer_composition_kind']=='base':
+            validate_base_composition_summary(row['rules_summary'])
+        elif row['answer_composition_kind']=='rules_mixed_v1':
+            binding=read_completed_binding_summary(row['rules_summary'],world_id=row['world_id'],
+                conversation_id=conversation,turn_id=row['turn_id'],attempt=row['attempt'],revision=row['revision'])
+            if binding.base_disposition!='approved':return None
+            binding.validate_text(row['assistant_text'],tuple(s.text for s in completion.answer_segments))
+        else:return None
+    except (ApplicationStateIntegrityError,ValueError,TypeError,KeyError):return None
+    return _reply_object_projection(completion,provenance,row['world_id'],conversation,row['turn_id'])
 
 
 def _message_page(conn, world, conversation, limit, before_sequence, *, metadata=False):
@@ -203,7 +239,7 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
         t.answer_composition_kind, """ + reference_select + ", " + repo._rules_summary_select("t")) if metadata else ""
     rows = conn.execute(
         f"""SELECT turn_id,sequence,status,user_text,assistant_text,idempotency_key,
-            revision,world_id,surface_resolution,surface_id,surface_instance_id{presentation}
+            revision,world_id,surface_resolution,surface_id,surface_instance_id,attempt{presentation}
         FROM agent.turn t WHERE world_id=%s AND conversation_id=%s
             AND (%s::bigint IS NULL OR sequence<%s)
         ORDER BY sequence DESC LIMIT %s""",
@@ -220,14 +256,14 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
         message["turn_id"] = str(row["turn_id"])
         if metadata:
             from .saved_citation_preview import project
+            provenance=repo.turn_provenance(row,references[row["turn_id"]])
             message.update(
+                reply_object=_message_reply_object(row,provenance,conversation),
                 citation_preview=project(row),
                 authored_references=reference_preview(row["authored_reference_inputs"], world),
                 idempotency_key=str(row["idempotency_key"]),
                 revision=row["revision"],
-                provenance=repo.turn_provenance(
-                    row, references[row["turn_id"]]
-                ).model_dump(mode="json"),
+                provenance=provenance.model_dump(mode="json"),
             )
         messages.append(message)
     return messages, page[0]["sequence"] if len(rows) > limit else None
@@ -291,7 +327,7 @@ def read_active_messages(
             else ([], None)
         )
     return {
-        "schema": "dmb_active_conversation_messages_v3",
+        "schema": "dmb_active_conversation_messages_v4",
         "world_id": world,
         "conversation_state": "active" if ident else "absent",
         "conversation_id": str(ident) if ident else None,

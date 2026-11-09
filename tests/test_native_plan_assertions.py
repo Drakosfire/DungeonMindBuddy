@@ -465,7 +465,7 @@ def _ordinary_native_case(
             candidate={'schema':NATIVE_ANSWER_POLICY,'answer_segments':segments,
                 'limitations':limitations,'requested_detail_gaps':[]}
             if connected_review:
-                candidate['answer_segments']=[]
+                candidate['answer_segments']=[dict(kind='related_page_claim',text='The saved Edge page describes a fort town by the swamp.',read_id='page0',supporting_quotes=['A fort town stands at the edge of the swamp. 🌿'])] if mixed else []
                 candidate['collaboration']=dict(kind='connected_page',title='The Old Bath House',read_id='page0',
                     quote='A fort town stands at the edge of the swamp. 🌿',person_label=None,
                     relationships=[],instructions='Scaffold only. Develop the details later.')
@@ -612,11 +612,38 @@ def _ordinary_native_case(
     if connected_review:
         from application_state.content.service import snapshot_content
         from apps.live_control_server.services.workspace_document_registry import get_committed_page_snapshot
-        completion=data['plan_context']['completion']
+        completion=(data['rules_context']['base_context'] if mixed else data['plan_context'])['completion']
         assert completion['collaboration']['kind']=='connected_page'
         assert completion['collaboration']['title']=='The Old Bath House'
-        assert completion['answer_segments']==[] and completion['answer_context_status']=='discussion'
-        turn=AgentConversationService().inspect_turn(world_id=world,turn_id=wire.adapter.turn.turn_id)
+        assert bool(completion['answer_segments'])==mixed and completion['answer_context_status']==('authored_grounded' if mixed else 'discussion')
+        retained=AgentConversationService().inspect_turn(world_id=world,turn_id=wire.adapter.turn.turn_id)
+        turn=retained.base_projection.turn if mixed else retained
+        from application_state.agent_conversation import library
+        pointer=AgentConversationService().get_world_pointer(world)
+        light=library.read_active_messages(world)
+        assert light['schema']=='dmb_active_conversation_messages_v4'
+        descriptor=light['messages'][-1]['reply_object']
+        assert descriptor==dict(kind='page_object',object_kind='connected_page',source=dict(
+            world_id=world,conversation_id=str(turn.conversation_id),turn_id=str(turn.turn_id),
+            document_id=str(work.object_id),surface_id='plan'))
+        assert 'graph_context_receipt' not in light['messages'][-1] and 'graph_context_execution' not in light['messages'][-1]
+        assert library.read_turns(world,turn.conversation_id)['turns'][-1]['reply_object']==descriptor
+        if mixed:
+            from copy import deepcopy
+            row=dict(status='completed',answer_composition_kind='rules_mixed_v1',completion=turn.completion.model_dump(mode='json',by_alias=True),
+                rules_summary=dict(state='accepted',oversized=False,revision=1,binding=retained.accepted_binding.model_dump(mode='json',by_alias=True),seal=retained.accepted_binding_sha256),
+                world_id=world,turn_id=turn.turn_id,attempt=turn.attempt,revision=turn.revision,assistant_text=retained.assistant_text)
+            assert library._message_reply_object(row,turn.provenance,turn.conversation_id)==descriptor
+            for mutation in ('seal','world','turn','attempt','revision','text','unclaimed'):
+                changed=deepcopy(row)
+                if mutation=='seal':changed['rules_summary']['seal']='0'*64
+                elif mutation=='world':changed['world_id']='foreign'
+                elif mutation=='turn':changed['turn_id']=uuid4()
+                elif mutation in {'attempt','revision'}:changed[mutation]+=1
+                elif mutation=='text':changed['assistant_text']+=' Changed'
+                else:changed['rules_summary']['binding']['base_disposition']='unclaimed'
+                assert library._message_reply_object(changed,turn.provenance,turn.conversation_id) is None
+        assert AgentConversationService().get_world_pointer(world)==pointer
         original_plan=snapshot_content(work.object_id)
         assert original_plan.markdown==markdown
         before_source=get_committed_page_snapshot(tmp_path,str(saved.page.work_object_id))
@@ -643,7 +670,7 @@ def _ordinary_native_case(
         before_calls=len(wire.calls)
         replay=client.post('/api/live/agent/turn',json=request.model_dump(mode='json',by_alias=True))
         assert replay.status_code==200 and len(wire.calls)==before_calls
-        assert AgentConversationService().inspect_turn(world_id=world,turn_id=turn.turn_id)==turn
+        assert AgentConversationService().inspect_turn(world_id=world,turn_id=turn.turn_id)==retained
         return dict(reply=data,origin=origin.json(),request=request_page,prepared=prepared,confirmed=confirmed)
     if extra_name is not None:
         assert seen_name_requests

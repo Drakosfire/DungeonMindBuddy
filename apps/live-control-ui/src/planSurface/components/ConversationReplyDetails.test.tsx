@@ -57,3 +57,18 @@ it('retires an old inspection error when the owner supplies verified details',as
  fireEvent.click(screen.getByRole('button',{name:'Accept verified details'}));
  await waitFor(()=>expect(screen.queryByRole('alert')).not.toBeInTheDocument());expect(load).toHaveBeenCalledTimes(1);
 });
+
+
+it('uses the same exact read for direct page review without opening Details',async()=>{
+ const load=vi.fn();
+ function Harness(){const[open,setOpen]=useState(false),[loaded,setLoaded]=useState(false);return <>
+  <textarea aria-label="Unsent draft" defaultValue="Keep this thought"/>
+  {loaded&&<p>Exact saved page review</p>}
+  <ConversationReplyDetails id="reply" open={open} onOpenChange={setOpen} loaded={loaded} showSources reviewLabel="Review new page"
+    load={async()=>{await load();setLoaded(true);}}><p>Advanced receipt</p></ConversationReplyDetails>
+ </>;}
+ render(<Harness/>);expect(load).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('button',{name:'Review new page'}));await screen.findByText('Exact saved page review');
+ expect(load).toHaveBeenCalledTimes(1);expect(screen.getByText('Details').closest('details')).not.toHaveAttribute('open');
+ expect(screen.getByLabelText('Unsent draft')).toHaveValue('Keep this thought');
+});
