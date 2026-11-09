@@ -1,5 +1,28 @@
 # [IDEA] Graph V2 — semantic-frame kernel, contract factory, and corpus rejuvenation
 
+> **Historical design context — not dispatchable (re-anchored 2026-11-09).**
+> This July 2026 semantic-kernel proposal is distinct from the current interactive
+> World Graph Canvas. Its incident descriptions, Graph V1/V2 labels, priorities
+> and 40–75 PR estimates below describe that historical proposal, not current
+> status or an authorized implementation sequence.
+>
+> **Current owners:** Buddy's [Blank Surface → Local World → World Graph Canvas
+> design](../Design/DESIGN-blank-surface-to-world-graph-canvas.md) owns the current
+> product direction; bounded ACTIVE handoffs own execution. Semantic persistence
+> and cross-repository sequencing remain with the WorldKeeper/DungeonMind and
+> DungeonOverMind owners named there. This reference grants no storage redesign
+> or implementation lease.
+>
+> **Ideas to retain when evaluating that design:** exact source provenance,
+> discrete events versus persistent relationships, fictional time versus source
+> time, and derived projections remain useful questions for the owning contracts.
+> They do not require adopting this proposed kernel. The existing [deferred
+> spatial workspace guidance](../../Backlog.md#deferred-composable-spatial-workspace--instant-theme-packs)
+> preserves cheap pan/zoom, viewport culling, level of detail, separate
+> layout/theme/domain concerns and no duplicate truth store. Carry those constraints
+> into graph Surface design reviews without activating the broader spatial workspace
+> or changing the separate high-priority grid page constructor.
+
 **Captured:** 2026-07-28  
 **Status:** LONG-TERM IDEA / ARCHITECTURE GOAL  
 **Priority:** Deferred behind immediate Graph V1 containment and active product dogfood  
