@@ -308,3 +308,24 @@ def test_intent_first_revision_preserves_old_wire_and_writing_options(operation)
         with pytest.raises(ValueError,match="wire differs"):
             validate_requested_work_wire(other,raw)
     assert PlanRequestedWorkInputV7.model_validate_json(new.model_dump_json(by_alias=True)) == new
+
+
+@pytest.mark.parametrize('operation',[None,'discuss','write_current_page'])
+def test_connected_page_choice_is_explicit_and_cannot_override_interface_operation(operation):
+    from pathlib import Path
+    from application_state.agent_conversation.plan_placement import PlanRequestedWorkInputV7,PlanRequestedWorkInputV8,work_choice
+    from application_state.agent_conversation.plan_authoring import prepare_requested_work_decision
+    frozen=json.loads((Path(__file__).parents[1]/'fixtures/plan_requested_work_v2_wire.json').read_text())
+    values=frozen['parent']|dict(schema='dmb_plan_requested_work_input_v8',authored_references=None,plan_requested_operation=operation)
+    current=PlanRequestedWorkInputV8.model_validate(values)
+    old=PlanRequestedWorkInputV7.model_validate(values|dict(schema='dmb_plan_requested_work_input_v7'))
+    before,after=prepare_requested_work_decision(old),prepare_requested_work_decision(current)
+    assert 'review_connected_page' not in before.questions[0].options
+    assert ('review_connected_page' in after.questions[0].options)==(operation is None)
+    assert set(after.questions[0].options)-{'review_connected_page'}==set(before.questions[0].options)
+    assert PlanRequestedWorkInputV8.model_validate_json(current.model_dump_json(by_alias=True))==current
+    with pytest.raises(ValueError):work_choice(old,'review_connected_page')
+    if operation is not None:
+        with pytest.raises(ValueError):work_choice(current,'review_connected_page')
+    else:
+        assert work_choice(current,'review_connected_page')==dict(requested_work='review_connected_page',placement_selector=None,target_capture_sha256=None)

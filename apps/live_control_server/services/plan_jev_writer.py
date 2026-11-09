@@ -321,6 +321,15 @@ class PlanJevWriter:
             instructions += ('\nSaved authored pages describe authored material, not played truth. '
                 'Use related_page_claim with the supplied local read_id and supporting_quotes containing '
                 'exact nonblank quotes from that same saved page. Do not ask for a supplied page again.\n')
+        from application_state.agent_conversation.plan_jev_decision import connected_page_review_enabled
+        if self.shared and connected_page_review_enabled(adapter._broker_execution()):
+            instructions += ('\nPrepare the requested new location page as a connected_page collaboration, '
+                'using one included saved authored page local read_id and a unique exact quote from that page. '
+                'Its origin is authoring context, not proof that a newly invented place is a played fact. '
+                'Use the author-selected name and scope; preserve deferred development and other-page edits '
+                'as unexecuted. Nothing has been created, saved or published. Do not write this into the Plan. '
+                'If no included saved page can supply the origin, leave collaboration null and explain what '
+                'is needed rather than inventing a quote.\n')
         self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
             RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
         self.model = adapter._broker_execution().policy.provider_roles.writer.model

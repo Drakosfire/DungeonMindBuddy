@@ -169,7 +169,7 @@ def verify_saved_excerpt(root, intent):
     snapshot = get_committed_page_snapshot(root, str(origin.document_id))
     source = snapshot.record
     if (source.kind != 'worldbuilding_source' or source.status != 'active'
-            or source.world_id != intent.world_id or source.campaign_id != intent.world_id
+            or source.world_id != intent.world_id
             or source.document_id != str(origin.document_id) or source.revision != origin.revision
             or source.content_status != 'committed'
             or source.source_domain != 'worldbuilding'
@@ -186,7 +186,7 @@ def verify_saved_excerpt(root, intent):
 def _ownership(root, intent, *, initial=False):
     source = get_workspace_document(root, str(intent.origin.document_id))
     if (source.kind != 'worldbuilding_source' or source.status != 'active'
-            or source.world_id != intent.world_id or source.campaign_id != intent.world_id):
+            or source.world_id != intent.world_id):
         raise ConnectedPageError('The source page no longer belongs to this World')
     if initial:
         snapshot = get_committed_page_snapshot(root, source.document_id)
