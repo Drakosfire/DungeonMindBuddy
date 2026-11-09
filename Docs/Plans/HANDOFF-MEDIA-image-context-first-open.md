@@ -1,6 +1,11 @@
 # MEDIA: diagnose image contextual-menu first opening
 
-Status: ACTIVE bounded investigation/fix. PRIME owns the existing
+Status: SOURCE SETTLED. PR2315 merged as
+7ec9bcec9beed23c71f911943062bfc9c94bda51 from independently reviewed
+7f64c98f5a9dc06b6bbf50128ed82e3aabfc71ab. Exact hosted/build evidence validates;
+full7445/164 adds two passing regressions with no new/changed failures. Source
+lease released; runtime activation remains held. Historical allocation follows.
+Status at allocation: ACTIVE bounded investigation/fix. PRIME owns the existing
 buddy-context-loop checkout on codex/image-context-first-open from verified
 main e2d75649b577f679af8f05e24329e4cb3f6121a6. Source retirement PR2312 stays
 frozen at ce59f851d10b258a44f2459edd84dddddb2868f4 until qualification resolves.
