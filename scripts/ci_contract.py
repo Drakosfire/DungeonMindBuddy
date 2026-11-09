@@ -6,6 +6,7 @@ import argparse
 from collections import Counter
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shlex
@@ -87,6 +88,8 @@ def emit(report: dict) -> None:
 def execute(name: str, root: Path = ROOT, *, partition: int | None = None, partition_report: str | None = None) -> int:
     catalog = contracts(root)
     if partition is not None or partition_report is not None:
+        if any(os.environ.get(key) for key in ("PYTEST_ADDOPTS", "PYTEST_PLUGINS")):
+            raise ValueError("partitioned qualification forbids inherited pytest options")
         if name != "full-backend" or partition not in range(4) or not partition_report:
             raise ValueError("partition options require full-backend and an index/report")
     if name in FULL_NAMES:

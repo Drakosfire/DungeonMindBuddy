@@ -5,6 +5,7 @@ import argparse
 from collections import Counter
 import hashlib
 import json
+import os
 import re
 from pathlib import Path, PurePosixPath
 import subprocess
@@ -38,11 +39,13 @@ def plan(nodeids: list[str]) -> list[list[str]]:
     return groups
 
 
-def report(index: int, nodeids: list[str], default_deselected: list[str], sha: str) -> dict:
+def report(index: int, nodeids: list[str], default_deselected: list[str], sha: str, *, collection_only: bool = False) -> dict:
     if type(index) is not int or index not in range(PARTITIONS):
         raise ValueError("invalid qualification partition")
     if re.fullmatch(r"[0-9a-f]{40}", sha) is None:
         raise ValueError("qualification source must be an exact SHA")
+    if type(collection_only) is not bool:
+        raise ValueError("invalid collection-only mode")
     groups = plan(nodeids)
     if not groups[index]:
         raise ValueError("empty qualification partition")
@@ -50,13 +53,13 @@ def report(index: int, nodeids: list[str], default_deselected: list[str], sha: s
         raise ValueError("default deselection contract changed")
     if set(default_deselected) & set(nodeids):
         raise ValueError("default deselection overlaps selected collection")
-    return {"version": VERSION, "partitions": PARTITIONS, "index": index, "source_sha": sha,
+    return {"version": VERSION, "partitions": PARTITIONS, "index": index, "source_sha": sha, "collection_only": collection_only,
             "unpartitioned_nodeids": nodeids, "selected_nodeids": groups[index],
             "default_deselected_nodeids": default_deselected,
             "partition_counts": [len(group) for group in groups]}
 
 
-def verify_reports(reports: list[dict], *, expected_sha: str | None = None) -> dict:
+def verify_reports(reports: list[dict], *, expected_sha: str | None = None, collection_only_proof: bool = False) -> dict:
     if len(reports) != PARTITIONS or sorted(r["index"] for r in reports) != list(range(PARTITIONS)):
         raise ValueError("missing or duplicate partition reports")
     reference = reports[0]
@@ -79,8 +82,10 @@ def verify_reports(reports: list[dict], *, expected_sha: str | None = None) -> d
             raise ValueError("partition contract version changed")
         if item["source_sha"] != reference["source_sha"]:
             raise ValueError("partition sources differ")
+        if item["collection_only"] and not collection_only_proof:
+            raise ValueError("collection-only diagnostic cannot qualify execution")
         expected = report(item["index"], item["unpartitioned_nodeids"],
-                          item["default_deselected_nodeids"], item["source_sha"])
+                          item["default_deselected_nodeids"], item["source_sha"], collection_only=item["collection_only"])
         if item != expected:
             raise ValueError("partition report differs from actual collection plan")
         if Counter(item["default_deselected_nodeids"]) != Counter(reference["default_deselected_nodeids"]):
@@ -90,11 +95,12 @@ def verify_reports(reports: list[dict], *, expected_sha: str | None = None) -> d
             raise ValueError("unpartitioned file/parameter collections differ")
         selected_files.update(n.split("::", 1)[0] for n in item["selected_nodeids"])
     if selected_files != files:
-        raise ValueError("executed file union differs from full collection")
+        raise ValueError("assigned file union differs from full collection")
     return {"source_sha": reference["source_sha"], "version": VERSION,
             "unpartitioned_cases": sum(files.values()), "files": len(files),
             "partition_counts": [len(r["selected_nodeids"]) for r in sorted(reports, key=lambda r: r["index"])],
-            "default_deselections": DEFAULT_DESELECTIONS, "omissions": 0, "duplicates": 0}
+            "default_deselections": DEFAULT_DESELECTIONS, "omissions": 0, "duplicates": 0,
+            "collection_only_proof": collection_only_proof}
 
 
 def source_sha() -> str:
@@ -116,9 +122,21 @@ def pytest_configure(config):
         return
     if index not in range(PARTITIONS) or not output:
         raise pytest.UsageError("qualification requires an index 0..3 and a report path")
+    if any(os.environ.get(name) for name in ("PYTEST_ADDOPTS", "PYTEST_PLUGINS")):
+        raise pytest.UsageError("qualification forbids inherited pytest selection/plugin options")
+    forbidden = ("ignore", "ignore_glob", "confcutdir", "noconftest", "pyargs", "doctestmodules", "doctestglob",
+                 "continue_on_collection_errors", "maxfail", "stepwise", "stepwise_skip")
+    overrides = getattr(config.option, "override_ini", None) or []
+    plugins = getattr(config.option, "plugins", None) or []
     if (config.args != ["tests"] or config.option.markexpr != "not live_llm"
-            or config.option.keyword or config.option.deselect or config.option.lf):
-        raise pytest.UsageError("qualification partitions require the full default tests collection")
+            or config.option.keyword or config.option.deselect or config.option.lf
+            or any(getattr(config.option, name, None) for name in forbidden)
+            or getattr(config.option, "importmode", "prepend") != "prepend"
+            or any(value.split("=", 1)[0] not in {"cache_dir", "faulthandler_timeout"} for value in overrides)
+            or any(name not in {"scripts.qualification.partition", "tests.application_state.isolate_dsn"} for name in plugins)
+            or Path(getattr(config, "rootpath", ROOT)).resolve() != ROOT
+            or Path(getattr(config, "inipath", ROOT / "pyproject.toml")).resolve() != ROOT / "pyproject.toml"):
+        raise pytest.UsageError("qualification partitions require the full default tests collection without discovery overrides")
     config._qualification_default_deselected = []
     config._qualification_partitioning = False
 
@@ -142,7 +160,8 @@ def pytest_collection_modifyitems(config, items):
             if actual != item.nodeid.split("::", 1)[0]:
                 raise ValueError("collected path differs from node identity")
         sha = source_sha()
-        result = report(index, [item.nodeid for item in items], config._qualification_default_deselected, sha)
+        result = report(index, [item.nodeid for item in items], config._qualification_default_deselected, sha,
+                        collection_only=config.option.collectonly)
         selected = set(result["selected_nodeids"])
         removed = [item for item in items if item.nodeid not in selected]
         items[:] = [item for item in items if item.nodeid in selected]
@@ -161,10 +180,11 @@ def pytest_collection_modifyitems(config, items):
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("directory", type=Path)
+    parser.add_argument("--collection-only-proof", action="store_true", help="diagnostic parity only; never execution qualification")
     args = parser.parse_args()
     reports = [json.loads(path.read_text()) for path in sorted(args.directory.rglob("collection.json"))]
     try:
-        result = verify_reports(reports, expected_sha=source_sha())
+        result = verify_reports(reports, expected_sha=source_sha(), collection_only_proof=args.collection_only_proof)
     except (ValueError, KeyError, TypeError) as error:
         parser.error(str(error))
     print(json.dumps(result, sort_keys=True))

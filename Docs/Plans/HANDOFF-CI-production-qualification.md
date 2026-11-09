@@ -506,3 +506,12 @@ fails its job. Qualification aggregate requires all backends, frontend, collecti
 coverage and the unchanged image/browser witness. This is execution partitioning,
 not domain/change selection or rollout. Existing120-minute backend limit remains;
 only real hosted measurements can establish the new latency.
+
+Independent review R5 atd7 reproduced inherited--ignore dropping10cases before
+collection while reduced reports agreed. Correct before approval: reject inherited
+PYTEST_ADDOPTS/PYTEST_PLUGINS before owned DB allocation and again in runner/hook;
+reject ignore/glob/config/root/plugin/discovery overrides and runtime early-stop
+options. Only cache/log timeout ini overrides remain permissible. Explicit
+collect-only diagnostic reports are marked and cannot satisfy execution coverage;
+parity verification must opt into a clearly labelled collection-only proof.
+Original worker/aggregate execution commands never pass that diagnostic option.

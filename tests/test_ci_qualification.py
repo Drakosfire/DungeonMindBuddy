@@ -263,7 +263,6 @@ def test_file_partition_preserves_exact_actual_nodeids_and_uuid_labels():
     groups = part.plan(nodes)
     assert Counter(node for group in groups for node in group) == Counter(nodes)
     assert sum(bool(set(group) & set(nodes[-2:])) for group in groups) == 1
-    assert part.bucket("tests/test_uuid.py") == part.bucket("tests/test_uuid.py")
     assert part.plan(list(reversed(nodes))) == [list(reversed(group)) for group in groups]
     assert part.verify_reports(_partition_reports())["unpartitioned_cases"] == 64
 
@@ -397,3 +396,52 @@ def test_partition_artifacts_must_match_the_verifier_source_pin():
     with pytest.raises(ValueError, match="verifier checkout"):
         part.verify_reports(_partition_reports(), expected_sha="b" * 40)
     assert part.verify_reports(_partition_reports(), expected_sha="a" * 40)["omissions"] == 0
+
+
+@pytest.mark.parametrize("option,value", [("ignore", ["tests/test_ci_contract.py"]),
+        ("ignore_glob", ["tests/test_ci*"]), ("confcutdir", "/tmp"), ("noconftest", True),
+        ("pyargs", True), ("doctestmodules", True), ("maxfail", 1), ("stepwise", True),
+        ("override_ini", ["python_files=test_ci_qualification.py"]), ("plugins", ["no:mark"])])
+def test_partition_rejects_hidden_discovery_controls(option, value):
+    from scripts.qualification import partition as part
+    options = SimpleNamespace(markexpr="not live_llm", keyword="", deselect=[], lf=False)
+    setattr(options, option, value)
+    config = SimpleNamespace(args=["tests"], option=options,
+        getoption=lambda name: 0 if name == "qualification_partition" else "report")
+    with pytest.raises(pytest.UsageError, match="without discovery overrides"):
+        part.pytest_configure(config)
+
+
+@pytest.mark.parametrize("variable,value", [("PYTEST_ADDOPTS", "--ignore=tests/test_ci_contract.py"),
+        ("PYTEST_ADDOPTS", "--collect-only"), ("PYTEST_PLUGINS", "unreviewed.plugin")])
+def test_inherited_pytest_options_fail_before_owned_database_allocation(tmp_path, monkeypatch, variable, value):
+    from scripts.qualification import native_database as native
+    from scripts import ci_contract
+    monkeypatch.setenv(variable, value)
+    monkeypatch.setattr(native, "NativeTestDatabase", lambda _: pytest.fail("hidden selector allocated a database"))
+    monkeypatch.setattr(sys, "argv", ["native_database", "--output", str(tmp_path / "native"), "--partition", "0"])
+    with pytest.raises(SystemExit) as stopped:
+        native.main()
+    assert stopped.value.code == 2
+    with pytest.raises(ValueError, match="inherited pytest"):
+        ci_contract.execute("full-backend", partition=0, partition_report="report")
+
+
+def test_collection_only_diagnostics_cannot_satisfy_execution_coverage():
+    from scripts.qualification import partition as part
+    reports = _partition_reports()
+    for index, old in enumerate(reports):
+        reports[index] = part.report(index, old["unpartitioned_nodeids"], old["default_deselected_nodeids"],
+                                     old["source_sha"], collection_only=True)
+    with pytest.raises(ValueError, match="cannot qualify execution"):
+        part.verify_reports(reports)
+    assert part.verify_reports(reports, collection_only_proof=True)["collection_only_proof"] is True
+
+
+def test_new_test_files_do_not_move_or_drop_existing_partition_cases():
+    from scripts.qualification import partition as part
+    nodes = _partition_reports()[0]["unpartitioned_nodeids"]
+    owners = {node: index for index, group in enumerate(part.plan(nodes)) for node in group}
+    expanded = {node: index for index, group in enumerate(part.plan(nodes + ["tests/test_future.py::test_new"])) for node in group}
+    assert {node: expanded[node] for node in nodes} == owners
+    assert len(expanded) == len(owners) + 1

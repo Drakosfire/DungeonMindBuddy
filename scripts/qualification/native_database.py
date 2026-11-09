@@ -87,6 +87,8 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--partition", type=int, choices=range(4))
     args = parser.parse_args()
+    if args.partition is not None and any(os.environ.get(name) for name in ("PYTEST_ADDOPTS", "PYTEST_PLUGINS")):
+        parser.error("partitioned qualification forbids inherited pytest options before database allocation")
     with NativeTestDatabase(args.output) as dsn:
         command = [sys.executable, str(ROOT / "scripts/ci_contract.py"), "run",
                    "full-regression" if args.partition is None else "full-backend"]
