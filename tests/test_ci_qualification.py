@@ -357,3 +357,34 @@ def test_partition_refuses_dirty_source_before_claiming_a_pinned_collection(monk
     with pytest.raises(ValueError, match="clean committed source"):
         part.source_sha()
     assert calls == [["git", "status", "--porcelain"]]
+
+
+def test_partitioned_backend_failure_keeps_owned_database_scope_and_cleanup(tmp_path, monkeypatch):
+    from scripts.qualification import native_database as native
+    closed, calls = [], []
+    class OwnedDatabase:
+        def __init__(self, output):
+            assert output == tmp_path / "native"
+        def __enter__(self):
+            return "postgresql://owned@127.0.0.1:1234/qualification_native_test"
+        def __exit__(self, *args):
+            closed.append(True)
+    def run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return SimpleNamespace(returncode=19)
+    monkeypatch.setattr(native, "NativeTestDatabase", OwnedDatabase)
+    monkeypatch.setattr(native.subprocess, "run", run)
+    monkeypatch.setattr(sys, "argv", ["native_database", "--output", str(tmp_path / "native"), "--partition", "2"])
+    assert native.main() == 19 and closed == [True]
+    command, options = calls[0]
+    assert command[-6:] == ["run", "full-backend", "--partition", "2", "--partition-report", str(tmp_path / "collection.json")]
+    assert options["env"]["DMB_CUTOVER_TEST_DATABASE_URL"].endswith("/qualification_native_test")
+
+
+def test_invalid_partition_refuses_all_database_allocation(tmp_path, monkeypatch):
+    from scripts.qualification import native_database as native
+    monkeypatch.setattr(native, "NativeTestDatabase", lambda _: pytest.fail("invalid index allocated a database"))
+    monkeypatch.setattr(sys, "argv", ["native_database", "--output", str(tmp_path / "native"), "--partition", "4"])
+    with pytest.raises(SystemExit) as stopped:
+        native.main()
+    assert stopped.value.code == 2

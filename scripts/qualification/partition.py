@@ -39,7 +39,7 @@ def plan(nodeids: list[str]) -> list[list[str]]:
 
 
 def report(index: int, nodeids: list[str], default_deselected: list[str], sha: str) -> dict:
-    if index not in range(PARTITIONS):
+    if type(index) is not int or index not in range(PARTITIONS):
         raise ValueError("invalid qualification partition")
     if re.fullmatch(r"[0-9a-f]{40}", sha) is None:
         raise ValueError("qualification source must be an exact SHA")
@@ -72,7 +72,8 @@ def verify_reports(reports: list[dict]) -> dict:
     shapes = Counter(map(label_shape, reference["unpartitioned_nodeids"]))
     selected_files: Counter = Counter()
     for item in reports:
-        if item["version"] != VERSION or item["partitions"] != PARTITIONS:
+        if (type(item["version"]) is not int or item["version"] != VERSION
+                or type(item["partitions"]) is not int or item["partitions"] != PARTITIONS):
             raise ValueError("partition contract version changed")
         if item["source_sha"] != reference["source_sha"]:
             raise ValueError("partition sources differ")
