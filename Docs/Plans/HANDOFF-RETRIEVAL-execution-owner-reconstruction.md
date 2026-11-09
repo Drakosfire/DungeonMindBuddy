@@ -1,6 +1,6 @@
 # RETRIEVAL: reconstruct execution at its typed owners
 
-Status: ACTIVE. Root designs/implements/reviews; PRIME merges/delivers.
+Status: MERGED #2261 at 3b181c34b2ae064ec5d3910155ce572e74a363b4. Implementation lease RELEASED. Native Turn freshness successor adopts only its declared paths; historical evidence remains retained.
 Branch:codex/retrieval-execution-owner-reconstruction; recorded-names-control.
 Topology:stacked on2260 exactc0e0c1b59d4c2c549594c341d2fafdb8548c137c.
 2257source merged1a19895; merge order2260 then this slice. Rebase before delivery.

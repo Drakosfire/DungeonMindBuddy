@@ -12,7 +12,7 @@ from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
 import hashlib
 from hashlib import sha256
 import json
-from collections.abc import Sequence
+from collections.abc import Sequence, Mapping
 from datetime import datetime
 from enum import Enum
 from typing import Annotated, ClassVar, Literal, NoReturn, Protocol, Union
@@ -6895,6 +6895,48 @@ class Turn(StrictModel):
     completed_at: datetime | None
     updated_at: datetime
 
+    @model_validator(mode="wrap")
+    @classmethod
+    def reconstruct_native_components(cls, value, handler):
+        # Existing BaseModel inputs otherwise skip field reconstruction. Normalize
+        # only the native family, leaving historical codecs at their own owners.
+        fields = ({name: getattr(value, name) for name in cls.model_fields}
+                  if isinstance(value, cls) else value)
+        if not isinstance(fields, Mapping):
+            return handler(value)
+        owners = {"graph_context_receipt": SurfaceNativeContextReceiptV1,
+                  "graph_context_execution": SurfaceNativeExecutionV1}
+        native = any(isinstance(fields.get(name), owner) or
+                     (isinstance(fields.get(name), Mapping) and
+                      any(fields[name].get(alias) == owner.model_fields["schema_"].default
+                          for alias in ("schema", "schema_")))
+                     for name, owner in owners.items())
+        if not native:
+            return handler(value)
+        fresh = dict(fields)
+        for name, owner in owners.items():
+            component = fresh.get(name)
+            if isinstance(component, owner):
+                if type(component) is not owner or component.schema_ != owner.model_fields["schema_"].default:
+                    raise ValueError("Native Turn component cannot change its model family")
+        def reconstruct(component):
+            if isinstance(component, BaseModel):
+                return component.model_dump(mode="python", by_alias=True)
+            if isinstance(component, Mapping):
+                return {key: reconstruct(item) for key, item in component.items()}
+            if isinstance(component, tuple):
+                return tuple(reconstruct(item) for item in component)
+            if isinstance(component, list):
+                return [reconstruct(item) for item in component]
+            return component
+
+        for name in (*owners, "provenance", "play_context_receipt"):
+            fresh[name] = reconstruct(fresh.get(name))
+        result = handler(fresh)
+        if any(type(getattr(result, name)) is not owner for name, owner in owners.items()):
+            raise ValueError("Native Turn requires its concrete component family")
+        return result
+
     @model_validator(mode="after")
     def validate_claim_expiry(self) -> "Turn":
         validate_turn_lifecycle_fields(
@@ -6908,8 +6950,19 @@ class Turn(StrictModel):
         )
         if (isinstance(self.graph_context_receipt, SurfaceNativeContextReceiptV1)
                 or isinstance(self.graph_context_execution, SurfaceNativeExecutionV1)):
-            from .native_execution import validate_turn_identity
-            validate_turn_identity(self)
+            from .native_context import _join_work_context
+            from .native_execution import (_join_request_identity, _join_turn_lifecycle,
+                                           _join_context_binding, _join_turn_fields)
+            if (type(self.graph_context_receipt) is not SurfaceNativeContextReceiptV1
+                    or type(self.graph_context_execution) is not SurfaceNativeExecutionV1):
+                raise ValueError("Native Turn requires its concrete context and execution")
+            _join_work_context(self.graph_context_receipt, self.provenance,
+                               play_context_receipt=self.play_context_receipt)
+            _join_request_identity(self.graph_context_receipt, self.graph_context_execution, self)
+            _join_turn_lifecycle(self)
+            _join_context_binding(self.graph_context_receipt, self.graph_context_execution)
+            _join_turn_fields(self.graph_context_receipt, self.graph_context_execution,
+                              self.completion, self.assistant_text)
         if isinstance(self.graph_context_execution, PlayWorldGraphExecutionV1):
             from .authored_graph_references import validate_native_capture_identity
             validate_native_capture_identity(self.graph_context_execution,
@@ -6928,14 +6981,15 @@ class Turn(StrictModel):
             raise ValueError("Source-capable Plan lifecycle requires its validated completion")
         if isinstance(self.graph_context_receipt, NativeStatementContextReceiptV1) and (self.submitted_intent_fingerprint_v1 is None or (self.status == "completed" and self.completion is None)):
             raise ValueError("Native receipt requires its exact submitted-intent fingerprint")
-        validate_turn_graph_fields(
-            provenance=self.provenance,
-            submitted_intent_fingerprint_v2=self.submitted_intent_fingerprint_v2,
-            graph_context_receipt=self.graph_context_receipt,
-            graph_context_execution=self.graph_context_execution,
-            completion=self.completion,
-            assistant_text=self.assistant_text,
-        )
+        if not isinstance(self.graph_context_receipt, SurfaceNativeContextReceiptV1):
+            validate_turn_graph_fields(
+                provenance=self.provenance,
+                submitted_intent_fingerprint_v2=self.submitted_intent_fingerprint_v2,
+                graph_context_receipt=self.graph_context_receipt,
+                graph_context_execution=self.graph_context_execution,
+                completion=self.completion,
+                assistant_text=self.assistant_text,
+            )
         if isinstance(self.graph_context_receipt, PlanSourceContextReceiptV1):
             for event in self.graph_context_execution.events:
                 if isinstance(event, NativeBodySearchAuthorizedV1) and event.query_sha256 != sha256(self.user_text.encode()).hexdigest():

@@ -228,3 +228,88 @@ def test_http_unclaimed_model_resolves_registered_shared_receipt():
     from apps.live_control_server.models.agent_turn import AgentRulesUnclaimedContextV1
     assert AgentRulesUnclaimedContextV1.__pydantic_complete__
     assert 'SurfaceNativeContextReceiptV1' in AgentRulesUnclaimedContextV1.model_json_schema()['$defs']
+
+
+@pytest.mark.parametrize('surface', ['build', 'plan', 'play'])
+@pytest.mark.parametrize('entry', ['constructor', 'instance', 'copy', 'json', 'mapping'])
+def test_native_turn_construction_owns_fresh_components(surface, entry):
+    original = retained(submission(surface))
+    before = original.model_dump(mode='json', by_alias=True)
+    if entry == 'constructor':
+        restored = t.Turn(**{name: getattr(original, name) for name in t.Turn.model_fields})
+    elif entry == 'mapping':
+        from collections import UserDict
+        restored = t.Turn.model_validate(UserDict({name: getattr(original, name) for name in t.Turn.model_fields}))
+    elif entry == 'instance':
+        restored = t.Turn.model_validate(original)
+    elif entry == 'copy':
+        restored = t.Turn.model_validate(original.model_copy())
+    else:
+        restored = t.Turn.model_validate_json(original.model_dump_json(by_alias=True))
+    assert restored.model_dump(mode='json', by_alias=True) == before
+    assert restored is not original
+    assert restored.graph_context_receipt is not original.graph_context_receipt
+    assert restored.graph_context_execution is not original.graph_context_execution
+    assert restored.provenance is not original.provenance
+    assert restored.graph_context_execution.policy is not original.graph_context_execution.policy
+
+
+@pytest.mark.parametrize('surface', ['build', 'plan', 'play'])
+@pytest.mark.parametrize('entry', ['constructor', 'instance', 'copy'])
+@pytest.mark.parametrize('change', ['provenance', 'execution', 'context', 'context_family', 'execution_family'])
+def test_native_turn_reconstruction_refuses_mutated_components(surface, entry, change):
+    original = retained(submission(surface))
+    if change == 'provenance':
+        original.provenance.world_id = 'foreign'
+    elif change == 'execution':
+        object.__setattr__(original.graph_context_execution.policy, 'source_authority_sha256', '0' * 64)
+    elif change == 'context':
+        object.__setattr__(original.graph_context_receipt, 'provenance_sha256', '0' * 64)
+    elif change == 'context_family':
+        object.__setattr__(original.graph_context_receipt, 'schema_', 'dmb_plan_source_context_receipt_v1')
+    else:
+        object.__setattr__(original.graph_context_execution, 'schema_', 'dmb_plan_source_execution_v1')
+    with pytest.raises(ValidationError):
+        if entry == 'constructor':
+            t.Turn(**{name: getattr(original, name) for name in t.Turn.model_fields})
+        else:
+            t.Turn.model_validate(original if entry == 'instance' else original.model_copy())
+
+
+@pytest.mark.parametrize('surface', ['build', 'plan', 'play'])
+@pytest.mark.parametrize('alias', ['schema', 'schema_'])
+@pytest.mark.parametrize('corrupt', [False, True])
+def test_native_turn_mapping_discriminators_reconstruct_nested_models(surface, alias, corrupt):
+    from collections import UserDict
+    original = retained(submission(surface))
+    values = {name: getattr(original, name) for name in t.Turn.model_fields}
+    for slot in ('graph_context_receipt', 'graph_context_execution'):
+        component = values[slot]
+        mapping = {name: getattr(component, name) for name in type(component).model_fields}
+        mapping[alias] = mapping.pop('schema_')
+        values[slot] = UserDict(mapping)
+    if corrupt:
+        object.__setattr__(original.graph_context_execution.policy, 'source_authority_sha256', '0' * 64)
+        with pytest.raises(ValidationError):
+            t.Turn.model_validate(UserDict(values))
+    else:
+        fresh = t.Turn.model_validate(UserDict(values))
+        assert fresh.model_dump(mode='json', by_alias=True) == original.model_dump(mode='json', by_alias=True)
+        assert fresh.graph_context_receipt.work_context is not original.graph_context_receipt.work_context
+        assert fresh.graph_context_execution.policy is not original.graph_context_execution.policy
+
+
+@pytest.mark.parametrize('surface', ['build', 'plan', 'play'])
+@pytest.mark.parametrize('change', ['provenance', 'fingerprint'])
+def test_standalone_turn_fields_keeps_request_commitment_checks(surface, change):
+    from application_state.agent_conversation.native_execution import validate_turn_fields
+    turn = retained(submission(surface))
+    provenance = turn.provenance
+    fingerprint = turn.submitted_intent_fingerprint_v2
+    if change == 'provenance':
+        provenance = provenance.model_copy(update={'surface_instance_id': 'foreign'})
+    else:
+        fingerprint = '0' * 64
+    with pytest.raises(ValueError, match='request or provenance'):
+        validate_turn_fields(turn.graph_context_receipt, turn.graph_context_execution,
+                             provenance, fingerprint, None, None)
