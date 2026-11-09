@@ -98,6 +98,10 @@ genuine complete execution. Full initial/recovery/frontier codecs remain.
 - tests/application_state/test_surface_native_acquisition.py: reuse its real
   statement/assertion and source fixtures through the same active runtime fence;
   qualify acquisition, support detachment and exact context without a new harness.
+- tests/application_state/test_native_plan_statements.py: keep every existing
+  invalid family/ID/duplicate refusal probe, but issue each through an independent
+  real APP service rather than reentering an unpublished session generation.
+  The valid call still uses its actual runtime/session owner. No probe is skipped.
 - tests/test_native_direct_source_selection.py: preserve the actual producer's
   invalid batch-family checks and reject generic callback producers after removal
   of the superseded closure helper.
