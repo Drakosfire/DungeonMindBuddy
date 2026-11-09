@@ -2,8 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import type { Editor } from '@tiptap/core';
 import { useAgentInteraction } from '../../agentInteraction/AgentInteractionProvider';
 import { usePublishSurfaceInteraction } from '../../agentInteraction/usePublishSurfaceInteraction';
-import { getNativeGraphCatalog } from '../../api/liveApi';
-import { isCatalogForWorld, type InspectionPin } from '../../api/nativeGraphInspection';
+import type { InspectionPin } from '../../api/nativeGraphInspection';
+import {readCurrentNativeObjectReference} from '../../graphLens/readCurrentNativeObjectReference';
 import type { AuthoredGraphReferenceV1 } from '../../api/types';
 import { GraphNodeChipRuntimeProvider } from '../../graphReference/GraphNodeChipRuntime';
 import { insertMarkdownReference } from '../../graphReference/insertMarkdownReference';
@@ -68,18 +68,11 @@ export function BuildReferenceCapability({ documentId, children }: BuildReferenc
         setPreview(null);
         setOpening({ nodeId, error: null });
         try {
-            const catalog = await getNativeGraphCatalog({ managed_world_id: owner.worldId, scope_mode: 'world', campaign_id: null }, abort.signal);
+            const reference = await readCurrentNativeObjectReference(owner.worldId, nodeId, abort.signal);
             if (abort.signal.aborted || live.current !== owner)
                 return;
-            if (!isCatalogForWorld(catalog, owner.worldId))
-                throw new Error('The object catalogue did not match this World.');
-            if (!catalog.catalogue.entities.some(entity => entity.entity_id === nodeId))
-                throw new Error('This object is unavailable in the current reviewed Graph.');
-            const name = catalog.assertions.find(a => a.subject_entity_id === nodeId && a.predicate === 'dnd5e:name' && a.value.kind === 'literal' && typeof a.value.value === 'string');
-            const label = name?.value.kind === 'literal' ? String(name.value.value) : nodeId;
-            const pin = catalog.scope;
             setOpening(null);
-            setPreview({ schema: 'dmb_authored_graph_reference_v1', managed_world_id: pin.managed_world_id, native_world_id: pin.native_world_id, binding_version: pin.binding_version, graph_revision: pin.revision_id, node_id: nodeId, label });
+            setPreview(reference);
         }
         catch (error) {
             if (!abort.signal.aborted && live.current === owner)

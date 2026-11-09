@@ -378,43 +378,12 @@ const graphActivationMarkdown = [
   "Read [Ironveil Warehouse](dmb-node:loc:ironveil-warehouse) before entering.",
 ].join("\n") + "\n";
 
-function managedGraphProjectionFixture() {
-  const node = {
-    nodeId: "loc:ironveil-warehouse",
-    label: "Ironveil Warehouse",
-    kind: "Location",
-    role: "location",
-    aliases: [],
-    sourceDomains: [],
-    anchoredToFocusSession: false,
-    evidenceBadges: [],
-    adjacency: [],
-    suggestedExpansions: [],
-    evidenceRefIds: [],
-    sourceArtifactIds: [],
-  };
-  const snapshot = {
-    worldId: "eldyrwild",
-    campaignId: "",
-    revisionId: "managed-head-3",
-    headRevisionId: "managed-head-3",
-    isHead: true,
-    focus: { kind: "none" as const },
-    admissibility: "gm" as const,
-    scopeMode: "world" as const,
-  };
-  return {
-    schema: "dmb_managed_world_graph_projection_v1" as const,
-    managedWorldId: "elderwyld",
-    nativeWorldId: "eldyrwild",
-    bindingVersion: 1,
-    projection: {
-      schema: "dmb_world_graph_projection_v1" as const,
-      snapshot,
-      summary: { nodeCount: 1, relationshipCount: 0, attributeCount: 0, evidenceCount: 0, sourceArtifactCount: 0, projectionTruncated: false },
-      nodes: [node], relationships: [], attributes: [], evidence: [], sourceArtifacts: [], diagnostics: [],
-    },
-  };
+function nativeGraphActivationFixture() {
+ const scope={managed_world_id:'elderwyld',native_world_id:'eldyrwild',binding_version:3,revision_id:'native-head-3',scope_mode:'world' as const,campaign_id:null};
+ const record:import('../api/nativeGraphInspection').NativeAssertion={assertion_id:'a:s25',subject_entity_id:'loc:ironveil-warehouse',predicate:'dnd5e:name',value:{kind:'literal',value:'Ironveil Warehouse'},metadata:{scope:[],visibility:{kind:'public'},epistemic_basis:'speculative',claim_mode:'dungeonbuddy.claim:belief',standing:'provisional',evidence_ref_ids:['ev:s25'],temporal_scope:{kind:'unknown'},domain_metadata:[]}};
+ const catalog:import('../api/nativeGraphInspection').NativeGraphCatalog={schema:'dmb_native_graph_catalog_v1',scope,catalogue:{identity:{space_id:'eldyrwild',revision_id:'native-head-3'},entities:[{entity_id:record.subject_entity_id}],admitted_assertion_ids:[record.assertion_id],completeness:{status:'complete',reason:null},request_sha256:'hash',result_digest:'digest'},assertions:[record]};
+ const detail:import('../api/nativeGraphInspection').NativeGraphEntity={schema:'dmb_native_graph_entity_v1',scope,entity:{found:true,assertions:[record],evidence:[{evidence_ref_id:'ev:s25',evidence_role:'support'}],completeness:{status:'complete',reason:null}}};
+ return {scope,catalog,detail};
 }
 
 function canonicalFixtureJson(value: unknown): string {
@@ -669,6 +638,8 @@ function PublicationProbe() {
 }
 
 beforeAll(() => {
+  Object.defineProperty(HTMLDialogElement.prototype,'showModal',{configurable:true,value:function(this:HTMLDialogElement){this.setAttribute('open','');}});
+  Object.defineProperty(HTMLDialogElement.prototype,'close',{configurable:true,value:function(this:HTMLDialogElement){this.removeAttribute('open');}});
   Object.defineProperty(globalThis, "crypto", { configurable: true, value: webcrypto });
 });
 
@@ -726,133 +697,39 @@ afterEach(() => {
   chromeCapture.editorTools = null;
 });
 
-it("opens exact managed World Graph references from Document and Cards without changing Plan content", async () => {
-  const owner = "elderwyld";
-  const record = mockSavedPlanForAgent("saved-plan-graph-activation", 7, 7, graphActivationMarkdown, owner);
-  const managedProjection = managedGraphProjectionFixture();
-  const projectionRequest = vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockResolvedValue(managedProjection);
-  const completeRead = vi.spyOn(liveApi, "postWorldGraphCompleteObject").mockResolvedValue({
-    schema: "dmb_world_graph_object_projection_v1",
-    found: true,
-    completeness: { status: "complete", reason: null, truncatedFields: [] },
-    snapshot: managedProjection.projection.snapshot,
-    requestedNodeId: "loc:ironveil-warehouse",
-    resolvedNodeId: "loc:ironveil-warehouse",
-    node: {
-      nodeId: "loc:ironveil-warehouse",
-      label: "Ironveil Warehouse",
-      kind: "location",
-      role: "place",
-      aliases: ["Warehouse"],
-      sourceDomains: ["session_recap"],
-      anchoredToFocusSession: false,
-      evidenceBadges: [{
-        evidenceRefId: "ev:s25",
-        sourceArtifactId: "artifact:s25",
-        sourceSpanRefId: "span:s25",
-        sourceDomain: "session_recap",
-        evidenceRole: "supporting",
-        isFocusSessionEvidence: false,
-        canOpenSource: true,
-        canHighlightSpan: false,
-        label: "S25 recap passage",
-      }],
-      adjacency: [],
-      suggestedExpansions: [],
-      evidenceRefIds: ["ev:s25"],
-      sourceArtifactIds: ["artifact:s25"],
-    },
-    relatedNodes: [],
-    semanticFingerprint: "graph-object-fingerprint",
-    sourceBindings: [{
-      evidenceRefId: "ev:s25",
-      sourceArtifactId: "artifact:s25",
-      sourceRevisionId: "artifact-rev:s25",
-      contentSha256: "a".repeat(64),
-      sourceSpanRefId: "span:s25",
-      sourceDomain: "session_recap",
-      provenanceStatus: "excerpt_ready",
-      excerpt: "Lysandra led the warehouse watch through the storm.",
-    }],
-  });
-  const save = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite");
-  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
-  render(
-    <SelectedWorldProvider locationSnapshot={`/plan?world=${owner}&documentId=${record.document_id}`}>
-      <GraphEnabledAgentPlanPage owner={owner} />
-    </SelectedWorldProvider>,
-  );
-
-  const page = await screen.findByTestId("world-owned-plan");
-  await waitFor(() => expect(projectionRequest).toHaveBeenCalledWith(expect.objectContaining({ managedWorldId: owner }), expect.any(AbortSignal)));
-  fireEvent.click(await screen.findByRole("button", { name: "Open", exact: true }));
-  const documentReference = await screen.findByRole("button", { name: "Ironveil Warehouse" });
-  const editorDom = screen.getByTestId("world-owned-plan-markdown-editor").querySelector(".ProseMirror") as HTMLElement & { editor: import("@tiptap/core").Editor };
-  const editorContent = editorDom.editor.getJSON();
-  fireEvent.click(documentReference);
-  const inspector = await screen.findByRole("dialog", { name: "World Graph object" });
-  expect(inspector).toHaveClass("world-plan-graph-reference-inspector");
-  const agentConversation = screen.getByRole("region", { name: "World conversation" });
-  expect(agentConversation).not.toBeNull();
-  expect(inspector).not.toContainElement(agentConversation);
-  const conversationText = agentConversation?.textContent;
-  await waitFor(() => expect(completeRead).toHaveBeenCalledWith(expect.objectContaining({
-    worldId: "eldyrwild", campaignId: "", scopeMode: "world", nodeId: "loc:ironveil-warehouse", revisionPin: "managed-head-3",
-  })));
-  expect(within(inspector).getByRole("article", { name: "Ironveil Warehouse World Graph object" })).toBeInTheDocument();
-  fireEvent.click(await within(inspector).findByRole("button", { name: "Read source" }));
-  expect(await screen.findByRole("dialog", { name: "Pinned source passage" })).toBeInTheDocument();
-  expect(screen.getByText("Lysandra led the warehouse watch through the storm.")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Back to World Graph object" }));
-  expect(await screen.findByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
-  expect(documentReference.isConnected).toBe(true);
-  expect(screen.getByRole("region", { name: "World conversation" })).toBe(agentConversation);
-  expect(agentConversation?.textContent).toBe(conversationText);
-  const cardsTab = within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Cards" });
-  fireEvent.click(cardsTab);
-  const cards = await screen.findByRole("region", { name: "Focused Plan scene" });
-  expect(documentReference.closest(".world-plan-document-view")).not.toHaveAttribute("hidden");
-  fireEvent.click(within(inspector).getByRole("button", { name: "Close Ironveil Warehouse" }));
-  await waitFor(() => expect(documentReference).toHaveFocus());
-
-  expect(within(cards).getByText(/before entering\./)).toBeInTheDocument();
-  const cardReference = await within(cards).findByRole("button", { name: "Ironveil Warehouse" });
-  expect(cardReference).toBe(documentReference);
-  expect(cardReference).toHaveFocus();
-  fireEvent.click(cardReference);
-  const cardInspector = await screen.findByRole("dialog", { name: "World Graph object" });
-  expect(cardReference.isConnected).toBe(true);
-  expect(cards.querySelectorAll('button.recap-node-token[data-graph-node-id="loc:ironveil-warehouse"]')).toHaveLength(1);
-  await waitFor(() => expect(completeRead).toHaveBeenCalledTimes(2));
-  expect(within(cardInspector).getByRole("article", { name: "Ironveil Warehouse World Graph object" })).toBeInTheDocument();
-  expect(within(cards).getByText(/before entering\./)).toBeInTheDocument();
-  fireEvent.click(await within(cardInspector).findByRole("button", { name: "Read source" }));
-  expect(await screen.findByRole("dialog", { name: "Pinned source passage" })).toBeInTheDocument();
-  expect(cardReference.isConnected).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "Back to World Graph object" }));
-  expect(await screen.findByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
-  expect(cardReference.isConnected).toBe(true);
-  fireEvent.click(within(cardInspector).getByRole("button", { name: "Close Ironveil Warehouse" }));
-  const restoredCardReference = within(cards).getByRole("button", { name: "Ironveil Warehouse" });
-  expect(restoredCardReference).toBe(cardReference);
-  await waitFor(() => expect(restoredCardReference).toHaveFocus());
-
-  fireEvent.click(restoredCardReference);
-  const reverseInspector = await screen.findByRole("dialog", { name: "World Graph object" });
-  fireEvent.click(await within(reverseInspector).findByRole("button", { name: "Read source" }));
-  expect(await screen.findByRole("dialog", { name: "Pinned source passage" })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Back to World Graph object" }));
-  expect(await screen.findByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
-  const documentTab = within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Document" });
-  fireEvent.click(documentTab);
-  expect(screen.getByTestId("world-plan-document-view")).not.toHaveAttribute("hidden");
-  fireEvent.click(within(reverseInspector).getByRole("button", { name: "Close Ironveil Warehouse" }));
-  await waitFor(() => expect(restoredCardReference).toHaveFocus());
-  expect(screen.queryByRole("region", { name: "Focused Plan scene" })).not.toBeInTheDocument();
-  expect(editorDom.isConnected).toBe(true);
-  expect(editorDom.editor.getJSON()).toEqual(editorContent);
-  expect(save).not.toHaveBeenCalled();
-  expect(prepare).not.toHaveBeenCalled();
+it("opens exact native World objects and source passages from Document and Cards without changing Plan or conversation", async () => {
+ const owner='elderwyld';
+ const record=mockSavedPlanForAgent('saved-plan-graph-activation',7,7,graphActivationMarkdown,owner);
+ const {scope,catalog,detail}=nativeGraphActivationFixture();
+ const projection=vi.spyOn(liveApi,'postManagedWorldGraphProjection');
+ const legacy=vi.spyOn(liveApi,'postWorldGraphCompleteObject');
+ const lookup=vi.spyOn(liveApi,'getNativeGraphCatalog').mockResolvedValue(catalog);
+ vi.spyOn(liveApi,'listWorldMechanicsAssociations').mockResolvedValue([]);
+ const read=vi.spyOn(liveApi,'inspectNativeGraph').mockImplementation(async(_pin,selection)=>selection.kind==='entity'?detail:{schema:'dmb_native_graph_source_v1',scope,source:{status:'available',text:'Lysandra led the warehouse watch through the storm.',source_artifact_id:'artifact:s25',source_revision_id:'srev',body_sha256:'body',span_sha256:'span',span_start_byte:0,span_end_byte:49,source_authority_epoch:3}});
+ const save=vi.spyOn(liveApi,'commitWorldOwnedPlanMarkdownWrite');const prepare=vi.spyOn(liveApi,'prepareTiptapMarkdownWrite');
+ render(<SelectedWorldProvider locationSnapshot={`/plan?world=${owner}&documentId=${record.document_id}`}><GraphEnabledAgentPlanPage owner={owner}/></SelectedWorldProvider>);
+ await screen.findByTestId('world-owned-plan');fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+ const originalReference=await screen.findByRole('button',{name:'Ironveil Warehouse'});
+ const editorDom=screen.getByTestId('world-owned-plan-markdown-editor').querySelector('.ProseMirror') as HTMLElement&{editor:import('@tiptap/core').Editor};
+ const content=editorDom.editor.getJSON();const conversation=screen.getByRole('region',{name:'World conversation'});const conversationText=conversation.textContent;
+ expect(lookup).not.toHaveBeenCalled();expect(projection).not.toHaveBeenCalled();
+ originalReference.focus();fireEvent.click(originalReference);
+ const inspector=await screen.findByRole('dialog',{name:'Object · Ironveil Warehouse'});
+ expect(inspector).toHaveClass('native-graph-object-preview');expect(inspector).not.toContainElement(conversation);
+ fireEvent.click(await within(inspector).findByRole('button',{name:'Read supporting source'}));
+ expect(await within(inspector).findByText('Lysandra led the warehouse watch through the storm.')).toBeInTheDocument();
+ expect(read).toHaveBeenLastCalledWith(scope,{kind:'source',assertion_id:'a:s25',evidence_ref_id:'ev:s25'});
+ fireEvent.click(within(inspector).getByRole('button',{name:'Close passage'}));
+ fireEvent.click(within(inspector).getByRole('button',{name:'Close object preview'}));await waitFor(()=>expect(originalReference).toHaveFocus());
+ expect(screen.getByRole('region',{name:'World conversation'})).toBe(conversation);expect(conversation.textContent).toBe(conversationText);
+ fireEvent.click(within(screen.getByRole('group',{name:'Plan view'})).getByRole('button',{name:'Cards'}));
+ const cards=await screen.findByRole('region',{name:'Focused Plan scene'});const cardReference=within(cards).getByRole('button',{name:'Ironveil Warehouse'});
+ expect(cardReference).toBe(originalReference);cardReference.focus();fireEvent.click(cardReference);
+ const cardInspector=await screen.findByRole('dialog',{name:'Object · Ironveil Warehouse'});
+ fireEvent.click(await within(cardInspector).findByRole('button',{name:'Read supporting source'}));await within(cardInspector).findByText('Lysandra led the warehouse watch through the storm.');
+ fireEvent.click(within(cardInspector).getByRole('button',{name:'Close object preview'}));await waitFor(()=>expect(cardReference).toHaveFocus());
+ fireEvent.click(within(screen.getByRole('group',{name:'Plan view'})).getByRole('button',{name:'Document'}));
+ expect(editorDom.isConnected).toBe(true);expect(editorDom.editor.getJSON()).toEqual(content);expect(projection).not.toHaveBeenCalled();expect(legacy).not.toHaveBeenCalled();expect(save).not.toHaveBeenCalled();expect(prepare).not.toHaveBeenCalled();
 });
 
 it("keeps the local blank Plan out of Agent scope until it has been saved", async () => {
