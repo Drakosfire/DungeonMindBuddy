@@ -499,3 +499,28 @@ def test_historical_native_question_bytes_remain_at_adopted_control(codec,expect
     raw=json.dumps(dict(model=d.model,state=d.state,questions={q.name:dict(
         type='choice',instructions=q.question,criteria=dict.fromkeys(q.options)) for q in d.questions}),sort_keys=True,separators=(',',':')).encode()
     assert sha256(raw).hexdigest()==expected
+
+
+@pytest.mark.parametrize('plan', ['review_after_reads', 'finish_if_selected_reads_succeed'])
+@pytest.mark.parametrize('included', [False, True])
+def test_prospective_plan_is_explicit_independent_and_does_not_replace_fallback(plan, included):
+    from application_state.agent_conversation import jev_retrieval_contract as c
+    fields = request().model_dump(exclude={'schema_', 'revision'}) | dict(
+        source_authority_status='available', source_revision='private', graph_revision='private')
+    parent = c.NativePlanBatchDecisionInputV3(**fields)
+    assert c.parse_native_retrieval_input(parent.model_dump(by_alias=True), surface_id='plan') == parent
+    with pytest.raises(ValueError):
+        c.parse_native_retrieval_input(parent.model_dump(by_alias=True), surface_id='build')
+    prepared = c.prepare_decision(parent)
+    assert {q.name for q in prepared.questions} == {'operation', 'post_read_plan', 'candidate_0', 'candidate_1'}
+    answers = dict(operation=ChoiceDecisionAnswer(selected='discover_more'),
+        post_read_plan=ChoiceDecisionAnswer(selected=plan),
+        candidate_0=ChoiceDecisionAnswer(selected='include' if included else 'exclude'),
+        candidate_1=ChoiceDecisionAnswer(selected='exclude'))
+    selection = c.decode_selection(parent, result(answers=answers))
+    assert selection.post_read_plan == plan
+    assert selection.operation == ('select_candidates' if included else 'discover_more')
+    assert selection.selected_handles == (('opaque:1',) if included else ())
+    answers.pop('post_read_plan')
+    with pytest.raises(ValueError, match='Missing'):
+        c.decode_selection(parent, result(answers=answers))

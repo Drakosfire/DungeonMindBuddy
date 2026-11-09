@@ -249,6 +249,16 @@ class PlanJevDriver:
                 elif handle == rules_candidate().handle:
                     if self.rules is None or self.rules.selected: raise ValueError("Plan Rules offer was already used")
                     self.rules.lookup_selected(dispatch.parent.model_dump_json(by_alias=True))
+            from application_state.agent_conversation.native_batch_completion import selected_read_closure
+            turn = self.adapter.fence.turn
+            if selected_read_closure(turn.graph_context_receipt, turn.graph_context_execution,
+                    admitted.event_id) is not None:
+                from uuid import uuid4
+                self.adapter.turn, fresh = self.adapter.fence.commit('conclude_native_read_batch',
+                    event_id=uuid4(), selection_event_id=admitted.event_id)
+                if not fresh:
+                    raise ValueError('Read-batch conclusion requires its actual committed successor')
+                self.finished = True
             return
         self._read_new_sources(operations)
 

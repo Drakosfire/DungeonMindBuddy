@@ -326,6 +326,8 @@ def sdk_case(
     examined=None,
     readonly_session=False,
     fence_factory=None,
+    post_read_plan=None,
+    sent=None,
 ):
     context, ledger = (
         context_record
@@ -359,7 +361,7 @@ def sdk_case(
             ),
         )
     case = SimpleNamespace(
-        dsn=dsn, service=AgentConversationService(), sent=[], steps=[], trace_id=uuid4()
+        dsn=dsn, service=AgentConversationService(), sent=[] if sent is None else sent, steps=[], trace_id=uuid4()
     )
     for phase, semantic in enumerate((True, *([False] * (len(acquisitions) + int(include_final_decision))))):
         common = dict(
@@ -381,8 +383,8 @@ def sdk_case(
             )
             prepare = prepare_requested_work_decision
         else:
-            from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV1, NativeRetrievalDecisionInputV2
-            parent = (NativeRetrievalDecisionInputV2 if native == 'current' else
+            from application_state.agent_conversation.jev_retrieval_contract import NativeRetrievalDecisionInputV1, NativeRetrievalDecisionInputV2, NativePlanBatchDecisionInputV3
+            parent = (NativePlanBatchDecisionInputV3 if post_read_plan is not None else NativeRetrievalDecisionInputV2 if native == 'current' else
                 NativeRetrievalDecisionInputV1 if native else PlanSourceRetrievalDecisionInputV1)(
                 **common,
                 **_source_pins(case.turn.graph_context_receipt),
@@ -519,6 +521,11 @@ def sdk_case(
             return True
 
         async def record(event):
+            if event.outcome == 'known_not_sent' and not any(
+                    isinstance(e, t.ProviderAttemptAuthorizedEventV1)
+                    and str(e.provider_attempt_id) == event.request.attempt_id
+                    for e in case.turn.graph_context_execution.events):
+                return True  # Refused before APP admission: no durable attempt to settle.
             transition = (
                 "sdk_entered"
                 if event.outcome == "sending"
@@ -554,7 +561,9 @@ def sdk_case(
                 answers = {}
                 for name, question in body["questions"].items():
                     selected = (
-                        "discuss"
+                        post_read_plan
+                        if name == "post_read_plan"
+                        else "discuss"
                         if name == "requested_work"
                         else "include"
                         if 0 < phase <= len(acquisitions) and name != "operation"
@@ -624,12 +633,13 @@ def sdk_case(
             )
         else:
             choice = decode_selection(step.parent, result)
-            from application_state.agent_conversation.native_retrieval import NativeRetrievalSelectedV1
-            step.selection = (NativeRetrievalSelectedV1 if native else t.PlanJevRetrievalSelectionV1)(
-                kind="native_retrieval_selected_v1" if native else "plan_jev_retrieval_selected_v1",
+            from application_state.agent_conversation.native_retrieval import NativeRetrievalSelectedV1, NativeRetrievalSelectedV2
+            step.selection = (NativeRetrievalSelectedV2 if post_read_plan is not None else NativeRetrievalSelectedV1 if native else t.PlanJevRetrievalSelectionV1)(
+                kind="native_retrieval_selected_v2" if post_read_plan is not None else "native_retrieval_selected_v1" if native else "plan_jev_retrieval_selected_v1",
                 **fields,
                 operation=choice.operation,
                 selected_handles=list(choice.selected_handles),
+                **({'post_read_plan': choice.post_read_plan} if post_read_plan is not None else {}),
             )
         if semantic or capture:
             case.service.append_context_trace(

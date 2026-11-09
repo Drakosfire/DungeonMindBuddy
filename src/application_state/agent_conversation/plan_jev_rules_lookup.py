@@ -34,7 +34,7 @@ def _selected_offer(turn, parent_request_json):
     from .plan_jev_decision import _source_pins
     from .native_context import SurfaceNativeContextReceiptV1
     source_owned = isinstance(receipt, (PlanSourceContextReceiptV1, SurfaceNativeContextReceiptV1))
-    from .native_retrieval import NativeRetrievalSelectedV1
+    from .native_retrieval import NATIVE_RETRIEVAL_SELECTION_TYPES
     from .jev_retrieval_contract import parse_native_retrieval_input
     choices = [e for e in graph.events if isinstance(e, PlanJevRetrievalSelectionV1)]
     providers = [e for e in graph.events if isinstance(e, ProviderAttemptAuthorizedEventV1)]
@@ -42,7 +42,7 @@ def _selected_offer(turn, parent_request_json):
         raise ValueError("Plan Rules read requires an acknowledged selected offer")
     choice, provider = choices[-1], providers[-1]
     raw_parent = strict_json(parent_request_json)
-    if type(choice) is NativeRetrievalSelectedV1:
+    if type(choice) in NATIVE_RETRIEVAL_SELECTION_TYPES:
         parent = parse_native_retrieval_input(raw_parent, surface_id=graph.policy.action.surface_id)
     else:
         parent_type = PlanSourceRetrievalDecisionInputV1 if source_owned else RetrievalDecisionInput

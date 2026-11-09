@@ -37,12 +37,14 @@ class _NativeReadOperation:
             capture_native_input, authorize_native_reference,
             observe_native_reference, observe_native_source_reference,
         )
+        from .native_batch_completion import conclude_selected_batch
         if self.producer not in {
             authorize_read, observe_read, capture_native_input,
             authorize_native_reference, observe_native_reference, observe_native_source_reference,
             authorize_direct_sources_locked, observe_direct_source_locked,
             authorize_body_search_locked, observe_body_search_locked,
             authorize_initial_source_search_locked,
+            conclude_selected_batch,
             authorize_body_read_locked, observe_body_read_locked,
         }:
             raise ValueError('Native read requires its existing closed producer')

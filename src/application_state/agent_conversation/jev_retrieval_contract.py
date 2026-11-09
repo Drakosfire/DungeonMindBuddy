@@ -108,6 +108,12 @@ class NativeRetrievalDecisionInputV2(NativeRetrievalDecisionInputV1):
         default="dmb_native_retrieval_decision_input_v2", alias="schema")
 
 
+class NativePlanBatchDecisionInputV3(NativeRetrievalDecisionInputV2):
+    """Readonly Plan may prospectively designate its successful final batch."""
+    schema_: Literal["dmb_native_plan_batch_decision_input_v3"] = Field(
+        default="dmb_native_plan_batch_decision_input_v3", alias="schema")
+
+
 class NativeBuildRetrievalDecisionInputV4(NativeBuildRetrievalDecisionInputV3):
     """Current Build navigation, retaining host-only accounting and phase."""
     schema_: Literal["dmb_native_build_retrieval_decision_input_v4"] = Field(
@@ -133,14 +139,16 @@ _SHARED_RELEVANCE = (
     "include if this option is a relevant next step toward locating or obtaining "
     "a requested detail or necessary relationship; otherwise exclude. "
     "Discovery may return navigation rather than evidence.")
-_SHARED_RELEVANCE_TYPES = {NativeRetrievalDecisionInputV2, NativeBuildRetrievalDecisionInputV4, NativePlayRetrievalDecisionInputV1}
+_SHARED_RELEVANCE_TYPES = {NativeRetrievalDecisionInputV2, NativePlanBatchDecisionInputV3, NativeBuildRetrievalDecisionInputV4, NativePlayRetrievalDecisionInputV1}
 _NATIVE_TYPES = {NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInputV2,
     NativeBuildRetrievalDecisionInputV3, *_SHARED_RELEVANCE_TYPES}
 
 
 def parse_native_retrieval_input(raw, *, surface_id):
     """One exact codec reader for native selection and its selected Rules offer."""
-    codec = (NativePlayRetrievalDecisionInputV1
+    codec = (NativePlanBatchDecisionInputV3
+        if isinstance(raw, dict) and raw.get("schema") == "dmb_native_plan_batch_decision_input_v3"
+        else NativePlayRetrievalDecisionInputV1
         if isinstance(raw,dict) and raw.get("schema")=="dmb_native_play_retrieval_decision_input_v1"
         else NativeBuildRetrievalDecisionInputV4
         if isinstance(raw, dict) and raw.get("schema") == "dmb_native_build_retrieval_decision_input_v4"
@@ -152,6 +160,8 @@ def parse_native_retrieval_input(raw, *, surface_id):
         if isinstance(raw, dict) and raw.get("schema") == "dmb_native_build_retrieval_decision_input_v2"
         else NativeRetrievalDecisionInputV1)
     parent = codec.model_validate(raw)
+    if type(parent) is NativePlanBatchDecisionInputV3 and surface_id != 'plan':
+        raise ValueError('Prospective read batches belong only to readonly Plan')
     if isinstance(parent, NativeBuildRetrievalDecisionInputV2) and surface_id != "build":
         raise ValueError("Build authoring relevance belongs only to its actual Build owner")
     if isinstance(parent,NativePlayRetrievalDecisionInputV1) and surface_id != 'play':
@@ -184,6 +194,10 @@ class RetrievalSelection(_Frozen):
         return self
 
 
+class PlannedRetrievalSelection(RetrievalSelection):
+    post_read_plan: Literal['review_after_reads', 'finish_if_selected_reads_succeed']
+
+
 def fallback_options(request: RetrievalDecisionInput) -> tuple[str, str]:
     """Independent fallback judgments cannot select nonexistent candidate votes."""
     return (("discover_more", "finish_retrieval") if "discover_more" in request.allowed_operations
@@ -207,6 +221,15 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
                   "Ending retrieval does not assert evidence sufficiency; the final writer must preserve actual gaps. "
                   "If discovery is unavailable, finish_with_gaps explicitly ends retrieval with unresolved questions. "
                   "This independent fallback never selects candidates or answers the user."))]
+    if type(request) is NativePlanBatchDecisionInputV3:
+        questions.append(ChoiceDecisionQuestion(name='post_read_plan',
+            options=('review_after_reads', 'finish_if_selected_reads_succeed'),
+            question=('Make a conditional collection plan for this offered batch, independently of individual relevance votes. '
+                'After the evidence reads you judge relevant succeed, should retrieval end or should you review another batch? '
+                'Choose finish_if_selected_reads_succeed when this collection plan should finish after those successful reads; '
+                'choose review_after_reads when further navigation or follow-up collection is needed. '
+                'This does not claim unseen evidence is complete. A failed, unsupported, or navigation-only selection requires review. '
+                'If every relevance vote excludes, the separate fallback question alone decides what happens.')))
     for index, _candidate in enumerate(request.candidates):
         if _candidate.kind == KEYWORD_KIND:
             questions.append(ChoiceDecisionQuestion(name=f"candidate_{index}", options=("include", "exclude"),
@@ -302,7 +325,10 @@ def decode_selection(request: RetrievalDecisionInput, result: DecisionResult) ->
             or observation.provider != PROVIDER or observation.resolved_model != MODEL
             or observation.response_model != MODEL):
         raise ValueError("Decision provider/model differs")
+    planned = type(request) is NativePlanBatchDecisionInputV3
     expected = {"operation", *(f"candidate_{i}" for i in range(len(request.candidates)))}
+    if planned:
+        expected.add('post_read_plan')
     if set(result.answers) != expected:
         raise ValueError("Missing or unexpected decision answers")
     choices = {}
@@ -326,8 +352,9 @@ def decode_selection(request: RetrievalDecisionInput, result: DecisionResult) ->
     # Independent relevance votes select offered reads. The global judgment is
     # only a fallback; it cannot discard an explicitly relevant candidate.
     fallback = "finish_retrieval" if choices["operation"] == "finish_with_gaps" else choices["operation"]
-    selection = RetrievalSelection(operation="select_candidates" if handles else fallback,
-        selected_handles=tuple(handles))
+    selection = (PlannedRetrievalSelection if planned else RetrievalSelection)(
+        operation="select_candidates" if handles else fallback, selected_handles=tuple(handles),
+        **({'post_read_plan': choices['post_read_plan']} if planned else {}))
     if selection.operation not in request.allowed_operations:
         raise ValueError("Operation not admitted by parent")
     return selection

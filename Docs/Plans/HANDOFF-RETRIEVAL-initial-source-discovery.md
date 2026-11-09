@@ -1,6 +1,6 @@
 # RETRIEVAL: initial source discovery
 
-Status: ACTIVE. Root owns design, implementation, local verification and delivery.
+Status: DELIVERED. PR2317 merged as33a21f7928babcde59c3be3250c2713cc0526822 from independently reviewed b29844f0049e1ca62d258e84b5772650a139de1d. The implementation lease is released. Root owns the consuming prospective-final-batch slice.
 The user grants standing merge authority. No deployment or primary migration is
 included. Six-second request-start→context-ready retrieval remains unproven.
 
