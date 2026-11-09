@@ -10,6 +10,7 @@ NativeGraphInspection must own its reusable layout rather than depending on the 
 
 - This handoff.
 - apps/live-control-ui/src/graphLens/NativeGraphInspection.tsx and NativeGraphInspection.css.
+- apps/live-control-ui/src/surface/SurfaceGraphReferenceInput.css: migrate the existing compact embedding selector and preserve flex button widths. Required consumer correction found in independent review, within the same layout outcome.
 - Docs/Plans/HANDOFF-REFERENCE-native-document-links.md: truthful backward-looking settlement of delivered #2280.
 
 No API, schema, dependency or content changes. Open LocalWorld and held Play work remain outside this slice. Runtime activation requires a separate pinned lease and reviewed delivery recipe. Coordination with ADVERSARY remains off.
