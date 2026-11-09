@@ -952,12 +952,15 @@ describe("one App-level World conversation host across Plan and Play", () => {
       fireEvent.click(screen.getByRole('button',{name:'Send message'}));
       await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
     }
+    if(!fresh&&mode!=='interrupted'){
+      fireEvent.click(await screen.findByText('Details',{selector:'summary'}));
+    }
     if(invalidFresh){
       await screen.findByText(/reply did not match the saved Build source and World Graph/);
       expect(getAgentNativeAssertionSource).not.toHaveBeenCalled();return;
     }
     if(['producer','revision','provenance','source','world','extra','mixed-question','mixed-unclaimed-question','mixed-object-prose'].includes(mode)){
-      await screen.findByRole('group',{name:'World history unavailable'});
+      expect(await screen.findByText('Reply details contained an invalid Graph-context receipt. The saved message and page suggestion were kept.')).toHaveAttribute('role','alert');
       expect(getAgentNativeAssertionSource).not.toHaveBeenCalled();return;
     }
     await screen.findByText(question);

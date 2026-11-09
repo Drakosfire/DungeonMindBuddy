@@ -73,3 +73,18 @@ Update only those expectations to the released policy; retain their original IDs
 and add explicit heading level/text, clean safety, canonical export and exact
 model roundtrip checks. No parser, product, source Markdown or recovery change.
 All other corpus entries remain unchanged, including unsupported-context refusal.
+
+### Explicit saved-detail test contract (bounded21-case family)
+
+Under coordinator's frontend owner-contract repair authorization, adopt only the
+`consumes ordinary shared native Build HTTP and history` family and its historical
+mode setup in agentInteraction/WorldAgentConversation.planPlay.integration.test.tsx.
+Main f6e174e and open2297/2276/2262/2219 scopes rechecked; no overlapping writes.
+Latest943ed44 is merged main; released2191 citation-preview owner explicitly keeps
+full receipt/source authority at explicit detail inspection. This is test-only:
+open the existing Details disclosure for historical modes, then require the same
+valid receipt/source behavior or precise full-detail refusal with zero source IO.
+Preserve21case names/modes and mutation payloads, all fresh-turn assertions, real
+validator/product code, provenance joins and source-call expectations. Do not
+reintroduce automatic full-history hydration or invent a preview producer. Other
+228cases in this module are outside this bounded family and remain untouched.
