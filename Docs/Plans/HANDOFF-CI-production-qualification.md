@@ -271,3 +271,29 @@ and its exact RAM-only container was removed. This is harness correctness, not
 production readiness or controlled performance proof. Current main re-anchored
 atf6e174e407ab83b4632160771412b77c09833ed0; unrelated reference settlement does
 not require rebasing the reviewed CI composition. PR2 remains HOLD.
+
+## Native test database provisioning batch
+
+Coordinator authorizes the separately migrated native Core test DB batch. Keep
+Buddy's existing Postgres16 service/template-clone fixture unchanged. The full
+qualification command additionally owns one uniquely named RAM-only pgvector
+cluster, bound to a random127.0.0.1 port, with no externally accepted DSN/volume.
+Create vector and run the exact installed Core pin's canonical migrations from
+a fresh checkout, then pass only that DSN as DMB_CUTOVER_TEST_DATABASE_URL to
+the unchanged declared full regression command. Retain migration/PG/cleanup logs;
+setup, test and cleanup errors fail qualification. Native tests retain their
+existing serial truncate/reset behavior inside this separate ephemeral cluster.
+No product DSN, shared operator data or APP fixture policy changes.
+
+Benchmark transfer remains pending: the active ADVERSARY task is working on
+accepted-prefix APP validation, while merged Q01 handoffs retain stale ACTIVE
+headers. No benchmark source/lease files have been edited pending narrow owner
+coordination. Native provisioning is independent within this CI write lease.
+
+Native provisioning author validation uses all54 original baseline IDs with the
+missing-native-DSN signature. Canonical Core430c1a6 migrated to
+0018_native_source_extensions, separate APP clone server unchanged; both owned
+clusters cleaned. Result7passed/3failed/44errors in8.52s: the absent-native-DSN
+error is gone;44now expose stale world_container_registry.uuid4 patching, and
+three reach later contracts. This is7observed passes, not54promised fixes;
+residual fixture work remains visible.26CI guards and Ruff pass.

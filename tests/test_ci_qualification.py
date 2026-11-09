@@ -166,3 +166,42 @@ def test_postgres_readiness_is_bounded_and_fails_closed(monkeypatch):
     with pytest.raises(probe.QualificationFailure, match="disposable_postgres_unavailable"):
         instance.wait_postgres("owned-postgres")
     assert len(calls) == 60
+
+
+def test_native_database_command_propagates_failure_and_scopes_dsn(tmp_path, monkeypatch):
+    from scripts.qualification import native_database as native
+
+    closed = []
+    calls = []
+    class OwnedDatabase:
+        def __init__(self, output):
+            assert output == tmp_path / "owned"
+        def __enter__(self):
+            return "postgresql://owned@127.0.0.1:1234/qualification_native_test"
+        def __exit__(self, *args):
+            closed.append(True)
+    def run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return SimpleNamespace(returncode=17)
+    monkeypatch.setattr(native, "NativeTestDatabase", OwnedDatabase)
+    monkeypatch.setattr(native.subprocess, "run", run)
+    monkeypatch.setattr(sys, "argv", ["native_database", "--output", str(tmp_path / "owned")])
+    assert native.main() == 17
+    assert closed == [True]
+    assert calls[0][0][-2:] == ["run", "full-regression"]
+    assert calls[0][1]["env"]["DMB_CUTOVER_TEST_DATABASE_URL"].endswith("/qualification_native_test")
+
+
+def test_native_database_cleanup_failure_is_fatal_and_named(tmp_path, monkeypatch):
+    from scripts.qualification import native_database as native
+
+    instance = native.NativeTestDatabase(tmp_path / "owned")
+    calls = []
+    def run(argv, **kwargs):
+        calls.append(argv)
+        return SimpleNamespace(returncode=1, stdout="", stderr="cleanup refused")
+    monkeypatch.setattr(native.subprocess, "run", run)
+    with pytest.raises(probe.QualificationFailure, match="cleanup failed"):
+        instance.__exit__(None, None, None)
+    assert calls == [["docker", "logs", instance.name], ["docker", "rm", "--force", "--volumes", instance.name]]
+    assert json.loads((instance.output / "result.json").read_text())["cleaned"] is False
