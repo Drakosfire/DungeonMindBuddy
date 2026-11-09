@@ -224,3 +224,24 @@ def test_scoped_local_test_client_preserves_real_auth_boundary(monkeypatch, peer
     assert response.status_code == expected
     if expected == 403:
         assert response.json()["detail"]["code"] == "hosted_auth_local_boundary"
+
+
+@pytest.mark.parametrize("authorization,expected", [(None, 200), ("Bearer wrong-token", 401)])
+def test_native_fixture_credential_uses_real_graph_auth(monkeypatch, authorization, expected):
+    from fastapi import FastAPI, Request
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+    from apps.live_control_server.services.hosted_auth import install_hosted_request_boundary
+    from tests.local_operator_client import NativeLocalOperatorTestClient, configure_native_local_operator
+
+    configure_native_local_operator(monkeypatch)
+    app = FastAPI()
+    install_hosted_request_boundary(app)
+    @app.get("/api/probe")
+    def probe_route(request: Request):
+        principal = enforce_native_graph_gm(request)
+        return {"subject": principal.subject, "role": principal.role}
+    kwargs = {} if authorization is None else {"headers": {"Authorization": authorization}}
+    response = NativeLocalOperatorTestClient(app, **kwargs).get("/api/probe")
+    assert response.status_code == expected
+    if expected == 200:
+        assert response.json() == {"subject": "local_operator", "role": "gm"}

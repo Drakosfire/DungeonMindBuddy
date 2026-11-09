@@ -19,7 +19,9 @@ from pathlib import Path
 
 
 import pytest
-from fastapi.testclient import TestClient
+from tests.local_operator_client import (
+    NativeLocalOperatorTestClient as TestClient, configure_native_local_operator,
+)
 
 import apps.live_control_server.config as live_config
 import apps.live_control_server.services.extract_promote as promote_svc
@@ -242,6 +244,7 @@ def native_first_world_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(live_config, "repo_root", lambda: repo)
     monkeypatch.setattr(promote_svc, "repo_root", lambda: repo)
     monkeypatch.setattr(promotable_mod, "repo_root", lambda: repo)
+    configure_native_local_operator(monkeypatch)
     client = TestClient(create_app())
     return client, world_root, repo, dsn
 
