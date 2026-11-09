@@ -68,11 +68,7 @@ def record_candidates(case):
 def test_actual_driver_selected_native_support_reads_use_shared_claim(
     application_state_dsn, published_lane, monkeypatch, session, request
 ):
-    if not session:
-        # This probe deliberately makes several service calls inside a single
-        # method wrapper, including one after its commit. Keep that independent
-        # admission test; session commands instead have one commit/publication.
-        request.getfixturevalue('native_read_admission_probes')
+    request.getfixturevalue('native_read_admission_probes')
     context, record = published_case("plan", published_lane)
     record = execution(context.context_receipt_sha256, record.policy)
     query_context, result = query(published_lane, scope_mode="world")
