@@ -691,11 +691,11 @@ beforeEach(() => {
   });
   vi.spyOn(conversationLibraryApi, 'readActiveConversationMessages').mockImplementation(async (owner, before) => {
     const page = serverHistorySnapshot(owner);
-    return {schema: 'dmb_active_conversation_messages_v2', world_id: owner, conversation_state: page.conversation_state,
+    return {schema: 'dmb_active_conversation_messages_v3', world_id: owner, conversation_state: page.conversation_state,
       conversation_id: page.conversation_id, active_conversation_id: page.active_conversation_id, pointer_revision: page.pointer_revision,
       next_before_sequence: null, messages: page.turns.filter(turn => before === undefined || turn.sequence < before).map(turn => ({
         turn_id: turn.turn_id, sequence: turn.sequence, status: turn.lifecycle_status, user_text: turn.user_text,
-        assistant_text: turn.assistant_text, citation_preview: null, revision: 1, idempotency_key: 'idempotency_key' in turn ? turn.idempotency_key : '', provenance: turn.provenance,
+        assistant_text: turn.assistant_text, citation_preview: null, authored_references: null, revision: 1, idempotency_key: 'idempotency_key' in turn ? turn.idempotency_key : '', provenance: turn.provenance,
       }))};
   });
   vi.spyOn(liveApi, "getWorldPlanDocumentEditActions").mockImplementation(async (owner, documentId) => {

@@ -1869,7 +1869,7 @@ function messagePresentation(page: ActiveConversationMessages): WorldAgentConver
   return {
 schema: 'dmb_agent_conversation_history_v3', world_id: page.world_id, conversation_state: page.conversation_state,
     conversation_id: page.conversation_id, active_conversation_id: page.active_conversation_id, pointer_revision: page.pointer_revision,
-    next_before_sequence: page.next_before_sequence, turns: page.messages.map(({ status, revision, citation_preview, ...row }) => ({ ...row, lifecycle_status: status as import('../../api/types').AgentConversationTurnLifecycleV1 }))
+    next_before_sequence: page.next_before_sequence, turns: page.messages.map(({ status, revision, citation_preview, authored_references, ...row }) => ({ ...row, ...(authored_references ? {authored_references} : {}), lifecycle_status: status as import('../../api/types').AgentConversationTurnLifecycleV1 }))
 };
 }
 function sameSavedMessage(a: WorldAgentConversationHistoryTurn, b: WorldAgentConversationHistoryTurn) {
@@ -6382,16 +6382,16 @@ export function WorldPlanAgentConversation({
     const savedMessage=messagePage&&messageHistory&&messageHistory.world_id===turn.provenance.world_id
       &&history&&sameHistoryPointer(messageHistory,history)&&messageHistory.turns.some(row=>sameSavedMessage(turn,row))
       ?messagePage.messages.find(row=>row.turn_id===turn.turn_id):undefined;
+    const turnReferences=turn.authored_references??(turn.retry_context?.schema==='dmb_turn_retry_context_row_v2'?turn.retry_context.authored_references:null)??savedMessage?.authored_references;
     if (!history?.turns.some(full => sameSavedMessage(full, turn))) return <BuddyTurnInspection key={`world:${turn.turn_id}`} worldId={verifiedWorldId ?? ''} conversationId={history?.conversation_id ?? ''} turnId={turn.turn_id} lifecycle={turn.lifecycle_status}>
       <article className={`world-plan-agent-conversation__turn world-plan-agent-conversation__turn--${turn.assistant_text ? 'complete' : turn.lifecycle_status}`} data-turn-id={turn.turn_id} data-sequence={turn.sequence} tabIndex={-1}>
-        <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--user"><span className="world-plan-agent-conversation__speaker">You</span><p>{turn.user_text}</p></div>
+        <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--user"><span className="world-plan-agent-conversation__speaker">You</span><p>{turn.user_text}</p>{turnReferences&&<SurfaceGraphReferenceInput worldId={verifiedWorldId??''} label="Message references" readOnly value={turnReferences.references} onChange={()=>{}}/>}</div>
         <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
           <div className="world-plan-agent-conversation__reply-heading"><span className="world-plan-agent-conversation__speaker">Buddy</span></div>
           {pageSuggestion ? pageSuggestion.element : turn.assistant_text ? savedMessage?.citation_preview?.status === 'ready' ? <SavedCitationAnswer key={`${scopeKey}:${turn.turn_id}`} preview={savedMessage.citation_preview} answer={turn.assistant_text} worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : <WorldPlanAgentAnswer answer={turn.assistant_text}/> : <p>{turn.lifecycle_status === 'completed' ? 'Open Details to inspect this reply.' : turn.lifecycle_status === 'failed' || turn.lifecycle_status === 'interrupted' ? 'This reply did not finish.' : 'Waiting for this reply…'}</p>}
         </div>
         <div className="world-plan-agent-conversation__turn-debug">{renderReplyDetails(turn, false, undefined, savedMessage?.citation_preview?.status === 'ready')}</div>
       </article></BuddyTurnInspection>;
-    const turnReferences=turn.authored_references??(turn.retry_context?.schema==='dmb_turn_retry_context_row_v2'?turn.retry_context.authored_references:null);
     const replyText = turn.assistant_text ?? '';
     const completed=graphContextForTurn(turn)?.completion;
     const collaboration=completed&&'collaboration' in completed?completed.collaboration:undefined;
