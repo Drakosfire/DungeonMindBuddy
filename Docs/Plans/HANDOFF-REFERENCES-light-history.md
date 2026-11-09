@@ -1,6 +1,8 @@
 # REFERENCES: saved selections in lightweight history
 
-Status: ACTIVE. PRIME owns this authorized References completion slice. Base3b181c34b2ae064ec5d3910155ce572e74a363b4; branch codex/reference-light-history; reuse buddy-context-loop checkout. Serial after merged2191,2258 and2263; 2261 is now merged; parallel-independent of2264. No edits to their execution, producer, provenance or migration paths. No live write lease until protected delivery.
+Status: MERGED #2266 at `7de8666c8d5ed6c2ca8e40c0c708e9c68c16bdc2`, source `f3488ca7d0dae3350edd367089adc79bfd9c601f`, after independent approval and seven green checks. Initially delivered as active v3; #2274 adopts its saved selections unchanged into the closed active v4 presentation contract.
+
+Protected paired delivery verified on 2026-11-09: API `d8174ba9ad2e431fa534f39095a5d535311ba7f6`, UI `0e984f79b149c98b9851a1eaf1fa2147a2bdab40`, APP schema `20261108_0141`. Implementation and runtime write leases are RELEASED. Delivery preserved retained APP/Core rows and session inventory except the schema version; the original failed attempt was preserved. This is technical delivery evidence, not operator acceptance.
 
 Outcome: saved user-selected object/source references appear with the originating message on initial lightweight history, pagination and reload, and remain mounted while Details hydrate. Use the existing reference renderer and object preview owner; source citations retain their separate native reader. Selecting a saved reference is not evidence, read success, a retry capability or publication permission.
 
@@ -15,3 +17,6 @@ Validation: provider-free typed projection tests and real disposable-APP active-
 Owning evidence before review:43 projection/native capture tests PASS, including real SDK/APP input visibility before provider response;14 applicable library tests PASS. Three older library fixture failures reproduce unchanged base. UI:623PASS/80FAIL across703 tests; all80 failure identities reproduce unchanged baseline (162PASS/80FAIL in that shared module). The other four changed UI modules pass, including292 real history cases and138 Plan cases. TypeScript/Vite PASS. Preserve inherited failures for later assessment, not an overall integration completion claim.
 
 CI ownership checkpoint: the workflow explicitly selects the existing test_saved_citation_preview.py module. Keep the11 pure input-projection cases in that suite rather than a separate unselected module; no workflow change or coverage exclusion. The pre-response assertion follows the actual writer-role identity, not one writer event version.
+
+
+Delivery evidence: `plan-page-settled-proof.json`, `plan-page-readonly-proof.json` and `plan-page-api-candidate-owners.log` under the established PRIME runtime-evidence root. The exact assembled API candidate passed243 owning cases with3 explicitly excluded inherited fixtures; UI TypeScript/Vite passed. No provider calls, fresh ingestion, publication or authored-page mutation occurred during delivery.

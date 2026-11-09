@@ -1,10 +1,8 @@
 # RETRIEVAL: semantic Build work context
 
-Status: ACTIVE revised contract implementation; producer activation remains gated.
-Root adopts explicit Build authorizationV2 design; PRIME merges/delivers.
-Branch:codex/retrieval-build-work-context, recorded-names-control checkout.
-Topology:stacked on2261 exact92c1a91ee1d792f989e30cb3833a4e42b7b30eeb.
-Merge order2260,2261,this slice; rebase before delivery. No runtime ports leased.
+Status: MERGED #2264 at `41554c8f387206593c06f667da6d8db97a3f8459`, exact head `f5c50bbbd6b2a99908f84035fba7a32ad97e2827`, after independent approval and seven green checks. Source lease previously transferred to the bounded Plan successor and is now released.
+
+Protected paired delivery verified on 2026-11-09: API `d8174ba9ad2e431fa534f39095a5d535311ba7f6`, UI `0e984f79b149c98b9851a1eaf1fa2147a2bdab40`, APP schema `20261108_0141`. Implementation and runtime write leases are RELEASED. Delivery preserved retained APP/Core rows and session inventory except the schema version; the original failed attempt was preserved. This is technical delivery evidence, not operator acceptance.
 
 Exclusive writes: this handoff; src/application_state/agent_conversation/
 {native_build_work_view.py,build_primary_context.py,build_draft_context.py,
@@ -125,3 +123,6 @@ native_execution.py/native_writer.py/native_plan_work_view.py/connected_page_ori
 service.py. Root retains only completion of these test/transport corrections;
 no additional runtime changes are planned in2264. CI/merge are still pending,
 so the successor consumes the exact settled merge rather than assuming delivery.
+
+
+Delivery evidence: `plan-page-settled-proof.json`, `plan-page-readonly-proof.json` and `plan-page-api-candidate-owners.log` under the established PRIME runtime-evidence root. The exact assembled API candidate passed243 owning cases with3 explicitly excluded inherited fixtures; UI TypeScript/Vite passed. No provider calls, fresh ingestion, publication or authored-page mutation occurred during delivery.

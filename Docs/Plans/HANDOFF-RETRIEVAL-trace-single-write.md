@@ -1,6 +1,8 @@
 # RETRIEVAL: single trace-payload transmission
 
-Status: ACTIVE. Root owns this bounded retrieval implementation.
+Status: MERGED #2271 at `888d9cc209a4f3b371f007fd9861cc7e4bb440ab`, exact head `0c2270b4543adfc2e6e933e7d6c8d1a20ae661de`, after independent PASS and seven green checks. Root transferred the completed implementation lease to PRIME for this guarded settlement; that lease is RELEASED.
+
+Protected paired delivery verified on 2026-11-09: API `d8174ba9ad2e431fa534f39095a5d535311ba7f6`, UI `0e984f79b149c98b9851a1eaf1fa2147a2bdab40`, APP schema `20261108_0141`. Implementation and runtime write leases are RELEASED. Delivery preserved retained APP/Core rows and session inventory except the schema version; the original failed attempt was preserved. This is technical delivery evidence, not operator acceptance.
 
 ## Authority, ownership and topology
 
@@ -67,3 +69,6 @@ Verify these preconditions in the disposable owner tests. No live changes.
 Fix at this owner or reject if the single statement cannot retain these
 properties. No new paid calls, ingestion, publication, migrations, primary-data
 writes or dogfood changes are included.
+
+
+Delivery evidence: `plan-page-settled-proof.json`, `plan-page-readonly-proof.json` and `plan-page-api-candidate-owners.log` under the established PRIME runtime-evidence root. The exact assembled API candidate passed243 owning cases with3 explicitly excluded inherited fixtures; UI TypeScript/Vite passed. No provider calls, fresh ingestion, publication or authored-page mutation occurred during delivery.
