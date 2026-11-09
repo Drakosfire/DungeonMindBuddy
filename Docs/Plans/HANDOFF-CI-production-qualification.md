@@ -56,6 +56,7 @@ No runtime source or shared database fixture lease is granted.
 | `tests/test_graph_existing_object_resolver.py` | Scoped authenticated endpoint fixture only. |
 | `tests/test_live_artifact_reads.py` | Scoped authenticated endpoint fixture only. |
 | `apps/live_control_server/services/native_authored_references.py` | Coordinator-authorized native source-loss hard422/zero-writer policy only, after real unavailable read admission. No Core/APP schema or reader changes. |
+| `tests/test_agent_saved_sections.py` | Explicit retained SDK/APP completion producer in historical reader fixture only; preserve all46 original cases/assertions (45 affected fixture cases) and separate fresh-admission denial coverage. |
 | `tests/test_build_authored_references.py` | Coordinator-assigned two real-Core owner-contract witnesses only: actual current producer receipt/selection and current source-storage loss; preserve legacy rejection and all original cases/assertions. |
 | `tests/test_cutover_dungeonmind_first_world_initialization.py` | Native client and five named residual witnesses: Page lineage, committed snapshot, activation outage and two frozen-component variants. |
 | `tests/test_cutover_graph_review_authoring_continuity.py` | Native operator fixture and current native-ID/durable-output prerequisites in existing continuity witnesses. |
@@ -567,3 +568,47 @@ read evidence, then refuse before writer authority; never fabricate classic
 receipts or discard partial inventory. New current-native producer witness does
 not claim first-world D0 object migration. Source-loss replay must not silently
 redispatch and stored source must remain unchanged.
+
+### Bounded legacy historical saved-section fixture
+
+Coordinator separates A full legacy rehabilitation from B additive gate delivery
+and C shadow evidence; this A batch is not a B/C dependency. Local successor
+branch codex/ci-retained-saved-sections starts at3491, leaving current full run
+untouched. Latest saved-section owners1350/1590/1859 are merged/settled with leases
+released; current open PRs have no overlapping path. No external outreach.
+
+The module's saved_only/saved fixtures explicitly freeze retained pre-primary
+completion contracts, and intentional_v3 exercises retained citation readback.
+Produce these records through actual protected SDK/APP component execution with
+its original declared budget, source/work/bootstrap/intent, events, capture and
+completion; inspect the durable result and return its real completion projection.
+Do not pass a classic bootstrap to fresh ordinary native routing, mock reconcile,
+rewrite receipt type or seed generic fresh helpers. A fixture-local test-helper
+executor substitution is limited to this module's intentional_v3 producer; all
+other helper defaults stay unchanged. Original46cases/assertions (45 affected fixture cases) remain. Add
+separate fresh no-GM/player denial witnesses; preserve real authorization and
+current native routing. Synthetic Graph/transport boundaries are labelled; real
+APP template/clone isolation stays unchanged. This is historical reader proof,
+not ordinary fresh-native or real-Core continuity proof. Independent exact-head
+review and collection parity precede incorporation into2288.
+
+The retained pre-primary writer fixture uses the actual old exposure.saved_sections
+wire and its exact read IDs; the shared OutputWire has since migrated to primary
+context and must not be globally weakened. A local synthetic retained transport
+produces the same saved-only/mixed claim shapes through the real protected SDK
+and APP owner. No parser, schema or production fallback changes. Discovery binds
+the existing exact bootstrap record just as the legacy owner does, never a new
+status or fabricated completeness flag.
+
+### Full-suite scope regression correction
+
+Completed3491 qualification proves both real Build cases and all3new guards pass,
+but its sole unrelated status regression is existing
+test_plan_human_object_keeps_unavailable_support_partial (200→422). The shared
+acquirer serves Build and Plan; the coordinator-assigned hard-refusal invariant
+belongs to the original Build witnesses, while delivered REFERENCE Plan contract
+explicitly preserves partial object support. Narrow the new condition to Build.
+Keep Plan test/assertions untouched and include the actual Plan module in owning
+review, alongside46Build/native controls. No broad no-partial policy or source
+reference admission change is authorized. Full existing gates caught this scope
+error; do not classify it as timing noise or hide the failed case.

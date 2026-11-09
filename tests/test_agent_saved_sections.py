@@ -1,6 +1,10 @@
-"""Ordinary SDK→APP completion→fresh authenticated historical authored read."""
+"""Retained SDK/APP completion→fresh authenticated historical authored read.
+
+The historical component producer is not fresh ordinary native-route coverage.
+"""
 
 from copy import deepcopy
+from dataclasses import replace
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -25,9 +29,10 @@ from apps.live_control_server.services.build_jev_harness import BuildJevHarness
 from tests.test_agent_build_jev_ordinary_harness import (
     ordinary_case,
     build_case as _build_case,
+    WriterWire,
 )
 from tests.test_agent_build_governed_graph import execute
-from tests.test_build_cited_writer_output import SavedThenGraphWire, OutputWire
+from tests.test_build_cited_writer_output import SavedThenGraphWire
 from tests.test_build_jev_estimated_continuations import counter
 
 
@@ -36,10 +41,62 @@ def build_case(tmp_path, monkeypatch, application_state_dsn):
     return _build_case.__wrapped__(tmp_path, monkeypatch, application_state_dsn)
 
 
+class _RetainedSectionWriter(WriterWire):
+    """Synthetic provider response for the frozen pre-primary wire format."""
+    def __init__(self, variant):
+        super().__init__()
+        self.variant = variant
+
+    async def handle_async_request(self, request):
+        import json
+        import httpx
+        response = await super().handle_async_request(request)
+        value = response.json()
+        output = value['output'][0]['content'][0]
+        answer = json.loads(output['text'])
+        packet = json.loads(json.loads(request.content)['input'])
+        sections = packet['exposure']['saved_sections']
+        assert sections and sections[0]['kind'] == 'validated_build_section_read_v1'
+        if self.variant == 'saved_only':
+            answer['answer_segments'] = []
+            answer['answer_context_status'] = 'source_grounded_partial'
+        answer['answer_segments'].append({'kind': 'saved_source_claim', 'text': 'An authored note.',
+            'section_read_ids': [sections[0]['read_id']]})
+        output['text'] = json.dumps(answer)
+        return httpx.Response(200, request=request, json=value)
+
+
+def _produce_retained_completion(case, root, runtime, *, operator_subject=None):
+    from apps.live_control_server.services import agent_turn_service as owner
+    _, request, bootstrap = case
+    world_id = 'elderwyld'
+    service = AgentConversationService()
+    work = agent._work_resolver(request, {'kind': 'world', 'id': world_id})
+    # The normal legacy owner binds this exact discovery record from bootstrap.
+    work = replace(work, build_source_discovery=bootstrap.build_source_discovery)
+    adapter = owner._PolicyExecutionAdapter(service=service, root=root, request=request,
+        world_id=world_id, work=work, bootstrap=bootstrap, playable_target=None,
+        submitted_intent=owner._submitted_turn_intent(request, world_id=world_id),
+        existing_turn=None, budget=runtime.configured_budget(request), context_read_enabled=True)
+    adapter.build_image_owner = operator_subject
+    produced = runtime.execute(adapter)
+    retained = AgentConversationService().inspect_turn(world_id=world_id, turn_id=produced.turn_id)
+    assert retained.status == 'completed'
+    assert retained.graph_context_receipt == produced.graph_context_receipt
+    assert retained.graph_context_execution == produced.graph_context_execution
+    assert retained.completion == produced.completion
+    assert service.list_context_trace_attempts(world_id=world_id, turn_id=produced.turn_id)
+    return owner._completed_turn_replay(request, owner={'kind': 'world', 'id': world_id}, turn=retained)
+
+
 @pytest.fixture(params=["saved_only", "saved", "intentional_v3"])
 def completed(build_case, monkeypatch, tmp_path, request):
     if request.param == "intentional_v3":
         from tests.test_build_claim_local_citations import make_mixed_answer
+        from tests import test_build_related_pages as related_fixture
+        # Only this retained-fixture producer uses the historical component path.
+        # The shared helper's fresh-route default is not changed outside this test.
+        monkeypatch.setattr(related_fixture, "execute", _produce_retained_completion)
 
         turn, *_ = make_mixed_answer(
             build_case, monkeypatch, tmp_path, mode="multi_related_quotes_cap"
@@ -59,12 +116,12 @@ def completed(build_case, monkeypatch, tmp_path, request):
 
     monkeypatch.setattr(BuildJevHarness, "budget", staticmethod(historical_budget))
     case, _ = ordinary_case(build_case, monkeypatch)
-    execute(
+    _produce_retained_completion(
         case,
         tmp_path,
         BuildJevHarness(
             decision_transport=SavedThenGraphWire(),
-            writer_transport=OutputWire(request.param),
+            writer_transport=_RetainedSectionWriter(request.param),
             accounting=counter(),
         ),
     )
@@ -258,3 +315,18 @@ def test_foreign_turn_world_never_resolves_saved_name(completed, monkeypatch):
     from apps.live_control_server.services.agent_source_names import source_names_for_turns
     monkeypatch.setattr(registry, "get_source_artifacts", lambda *_: pytest.fail("Foreign World metadata read"))
     assert source_names_for_turns([completed.model_copy(update={"world_id": "foreign"})]) == []
+
+
+@pytest.mark.parametrize('role', [None, 'player'])
+def test_retained_component_fixture_does_not_admit_fresh_without_gm(build_case, tmp_path, role):
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    principal = None if role is None else NativeGraphPrincipal('reader', role, 'local_operator')
+    runtime = SimpleNamespace(run_with_provider_authorization=lambda *a, **k: pytest.fail('provider dispatch'))
+    service = AgentConversationService()
+    before = service.get_world_pointer('elderwyld')
+    with pytest.raises(AgentTurnServiceError) as caught:
+        execute(build_case, tmp_path, runtime, native_principal=principal)
+    assert caught.value.code == 'native_source_access_denied'
+    assert caught.value.status_code == 403
+    assert service.get_world_pointer('elderwyld') == before
