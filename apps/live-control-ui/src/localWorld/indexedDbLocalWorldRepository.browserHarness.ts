@@ -263,6 +263,30 @@ async function run(): Promise<void> {
     "mutating request identity after invocation cannot redirect a layout write",
   );
 
+  const atomicExportWorld = await createTestWorld(repository, "Atomic export World");
+  const pendingExportSnapshot = repository.readWorldExportSnapshot(atomicExportWorld.snapshot.worldId);
+  const pendingNotesWrite = repository.commitWorldNotes({
+    worldId: atomicExportWorld.snapshot.worldId,
+    expectedLocalRevision: 0,
+    markdown: "committed after snapshot read began",
+  });
+  const [exportSnapshot, notesWrite] = await Promise.all([pendingExportSnapshot, pendingNotesWrite]);
+  assert(notesWrite.status === "committed", "concurrent notes write commits after export snapshot begins");
+  assert(
+    exportSnapshot.status === "found"
+      && ((exportSnapshot.record.localRevision === 0 && exportSnapshot.data === undefined)
+        || (exportSnapshot.record.localRevision === 1
+          && exportSnapshot.data?.bundledMembers["documents/buddy-world-notes.md"] !== undefined)),
+    "atomic export snapshot never pairs an old revision with newer note bytes",
+  );
+  const completedExportSnapshot = await repository.readWorldExportSnapshot(atomicExportWorld.snapshot.worldId);
+  assert(
+    completedExportSnapshot.status === "found"
+      && completedExportSnapshot.record.localRevision === 1
+      && new TextDecoder().decode(Uint8Array.from(completedExportSnapshot.data!.bundledMembers["documents/buddy-world-notes.md"])) === "committed after snapshot read began",
+    "completed atomic export snapshot contains the matching note revision",
+  );
+
   const createHeaderRequest = { title: "Captured at invocation" };
   const pendingCreateHeader = repository.createWorld(createHeaderRequest);
   createHeaderRequest.title = "Mutated after invocation";
