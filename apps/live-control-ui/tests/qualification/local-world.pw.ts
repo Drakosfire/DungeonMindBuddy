@@ -52,6 +52,9 @@ async function witness(browser: Browser, denyPersistence: boolean) {
     // Exercise real same-document route clicks while the graph draft is unsaved.
     await navigate(page, "/plan");
     await navigate(page, "/");
+    // The route returns to the local World chooser; resume the same World before
+    // checking its preserved draft, as a user does after leaving the Surface.
+    await page.getByRole("list", { name: "Resume a local World" }).getByRole("button", { name: new RegExp(`^${world}`) }).click();
     await expect(canvas.getByLabel("Object name", { exact: true })).toHaveValue(label);
     if (denyPersistence) {
       await page.evaluate(() => {
