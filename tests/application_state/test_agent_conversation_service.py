@@ -1133,6 +1133,7 @@ def test_turn_claim_lease_bounds_are_validated_before_database_access() -> None:
 
 def test_claim_recovery_migration_preserves_completed_legacy_turn(
     application_state_dsn: str,
+    historical_database,
 ) -> None:
     import psycopg
     from alembic import command
@@ -1174,44 +1175,49 @@ def test_claim_recovery_migration_preserves_completed_legacy_turn(
             (accepted.turn_id,),
         ).fetchone()
 
-    command.downgrade(alembic_config(), "20261002_0012")
-    command.upgrade(alembic_config(), "head")
-    assert _current_and_head(application_state_dsn) == (
-        "20261020_0042",
-        "20261020_0042",
-    )
+    # Reach the owning0013 edge in a real historical clone, retaining later
+    # irreversible reader fences on the current serving schema.
+    with historical_database("20261002_0013", source_dsn=application_state_dsn,
+                             expected_omissions={"agent.turn": {"answer_composition_kind": ["base"]}}) as application_state_dsn:
+        assert _current_and_head(application_state_dsn)[0] == "20261002_0013"
+        command.downgrade(alembic_config(), "20261002_0012")
+        command.upgrade(alembic_config(), "head")
+        current, head = _current_and_head(application_state_dsn)
+        assert current == head
+        with psycopg.connect(application_state_dsn) as conn:
+            assert conn.execute("SELECT answer_composition_kind FROM agent.turn WHERE turn_id=%s", (accepted.turn_id,)).fetchone() == ("base",)
 
-    loaded = AgentConversationService().list_turns(
-        "turn-claim-migration-world", conversation.conversation_id
-    )[0]
-    assert loaded.turn_id == completed.turn_id
-    assert loaded.sequence == completed.sequence
-    assert loaded.revision == completed.revision
-    assert loaded.status == "completed"
-    assert loaded.user_text == completed.user_text
-    assert loaded.assistant_text == completed.assistant_text
-    assert loaded.failure_code is None
-    assert loaded.provenance == completed.provenance
-    assert loaded.attempt == completed.attempt
-    assert loaded.submitted_intent_fingerprint_v1 is None
-    assert loaded.claim_expires_at is None
-    assert submission.submitted_intent_v1 is not None
-    with pytest.raises(ApplicationStateConflictError, match="legacy-receipt-unverifiable"):
-        service.reconcile_turn(
-            "turn-claim-migration-world",
-            submission.idempotency_key,
-            submission.submitted_intent_v1,
-        )
-    with pytest.raises(ApplicationStateConflictError, match="legacy-receipt-unverifiable"):
-        service.accept_turn(submission)
-    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
-        assert (
-            conn.execute(
-                "SELECT request_fingerprint, idempotency_fingerprint FROM agent.turn WHERE turn_id = %s",
-                (accepted.turn_id,),
-            ).fetchone()
-            == fingerprints_before
-        )
+        loaded = AgentConversationService().list_turns(
+            "turn-claim-migration-world", conversation.conversation_id
+        )[0]
+        assert loaded.turn_id == completed.turn_id
+        assert loaded.sequence == completed.sequence
+        assert loaded.revision == completed.revision
+        assert loaded.status == "completed"
+        assert loaded.user_text == completed.user_text
+        assert loaded.assistant_text == completed.assistant_text
+        assert loaded.failure_code is None
+        assert loaded.provenance == completed.provenance
+        assert loaded.attempt == completed.attempt
+        assert loaded.submitted_intent_fingerprint_v1 is None
+        assert loaded.claim_expires_at is None
+        assert submission.submitted_intent_v1 is not None
+        with pytest.raises(ApplicationStateConflictError, match="legacy-receipt-unverifiable"):
+            service.reconcile_turn(
+                "turn-claim-migration-world",
+                submission.idempotency_key,
+                submission.submitted_intent_v1,
+            )
+        with pytest.raises(ApplicationStateConflictError, match="legacy-receipt-unverifiable"):
+            service.accept_turn(submission)
+        with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+            assert (
+                conn.execute(
+                    "SELECT request_fingerprint, idempotency_fingerprint FROM agent.turn WHERE turn_id = %s",
+                    (accepted.turn_id,),
+                ).fetchone()
+                == fingerprints_before
+            )
 
 
 def test_absent_surface_cannot_carry_instance_identity() -> None:
