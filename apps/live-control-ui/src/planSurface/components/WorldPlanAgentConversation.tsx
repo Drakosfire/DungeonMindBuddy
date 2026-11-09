@@ -6414,12 +6414,12 @@ export function WorldPlanAgentConversation({
         <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
           <div className="world-plan-agent-conversation__reply-heading"><span className="world-plan-agent-conversation__speaker">Buddy</span></div>
           {pageSuggestion ? pageSuggestion.element : turn.assistant_text ? savedMessage?.citation_preview?.status === 'ready' ? <SavedCitationAnswer key={`${scopeKey}:${turn.turn_id}`} preview={savedMessage.citation_preview} answer={turn.assistant_text} worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : <WorldPlanAgentAnswer answer={turn.assistant_text}/> : <p>{turn.lifecycle_status === 'completed' ? 'Open Details to inspect this reply.' : turn.lifecycle_status === 'failed' || turn.lifecycle_status === 'interrupted' ? 'This reply did not finish.' : 'Waiting for this reply…'}</p>}
+          {!historicalAttempt && !isBuild && !isReadOnly && !turn.assistant_text
+            && ['failed','interrupted'].includes(turn.lifecycle_status) && turn.provenance.surface_id === 'plan'
+            && turn.provenance.primary_work.object_id === documentId
+            && history?.active_conversation_id === history?.conversation_id
+            && <ConversationRecovery question={turn.user_text} blocked={composerBusy} onRetry={() => retrySavedPlanMessage(turn)}/>}
         </div>
-        {!historicalAttempt && !isBuild && !isReadOnly && !turn.assistant_text
-          && ['failed','interrupted'].includes(turn.lifecycle_status) && turn.provenance.surface_id === 'plan'
-          && turn.provenance.primary_work.object_id === documentId
-          && history?.active_conversation_id === history?.conversation_id
-          && <ConversationRecovery question={turn.user_text} blocked={composerBusy} onRetry={() => retrySavedPlanMessage(turn)}/>}
         <div className="world-plan-agent-conversation__turn-debug">{renderReplyDetails(turn, false, undefined, savedMessage?.citation_preview?.status === 'ready',
             savedMessage?.reply_object?.kind==='page_object'&&savedMessage.reply_object.object_kind==='connected_page'
               &&!isReadOnly&&scopeMatches&&history?.active_conversation_id===history?.conversation_id
