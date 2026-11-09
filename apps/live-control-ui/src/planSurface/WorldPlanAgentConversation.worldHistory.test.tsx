@@ -6458,11 +6458,11 @@ it.each(['completed','interrupted'] as const)('renders selected Play passage on 
  api.getMessages.mockImplementation(async()=>{const light=api.messages(page);return {...light,messages:light.messages.map(row=>({...row,authored_references:selected}))} as Awaited<ReturnType<typeof conversationLibraryApi.readActiveConversationMessages>>;});
  render(conversationElement());await waitForConversationReady(false);
  expect(screen.getByText('Use the selected Play passage')).toBeInTheDocument();
- expect(screen.getByRole('button',{name:'Inspect Selected Play passage'})).toBeInTheDocument();
+ expect(screen.getByText('@Selected Play passage')).toBeInTheDocument();
  expect(screen.queryByRole('group',{name:'World history unavailable'})).not.toBeInTheDocument();
  expect(api.getHistory).not.toHaveBeenCalled();
  fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'My unsent draft'}});
- expect(screen.getByRole('button',{name:'Inspect Selected Play passage'})).toBeInTheDocument();
+ expect(screen.getByText('@Selected Play passage')).toBeInTheDocument();
  expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('My unsent draft');
 });
 
@@ -6477,5 +6477,5 @@ it.each(['foreign-world','graph-selection','unknown-surface'] as const)('rejects
  render(conversationElement());
  expect(await screen.findByRole('group',{name:'World history unavailable'})).toBeInTheDocument();
  expect(api.getHistory).not.toHaveBeenCalled();
- expect(screen.queryByRole('button',{name:'Inspect Selected Play passage'})).not.toBeInTheDocument();
+ expect(screen.queryByText('@Selected Play passage')).not.toBeInTheDocument();
 });
