@@ -29,6 +29,7 @@ _SEGMENTS = {
     "limitation",
     "discussion",
     "draft_reference_claim",
+    "related_page_claim",
 }
 
 
@@ -85,6 +86,9 @@ def project(row):
                 )
             ):
                 return details_required("invalid_presentation")
+        related = [s for s in completion.answer_segments if s.kind == "related_page_claim"]
+        if any(s.page.world_id != row["world_id"] for s in related):
+            return details_required("invalid_presentation")
         families = {
             name: [
                 c.model_dump(mode="json", by_alias=True)
@@ -106,6 +110,11 @@ def project(row):
                 {
                     "kind": s.kind,
                     "text": s.text,
+                    **(
+                        {"read_id": str(s.read_id), "page": s.page.model_dump(mode="json")}
+                        if s.kind == "related_page_claim"
+                        else {}
+                    ),
                     **(
                         {"content_sha256": s.content_sha256}
                         if s.kind == "saved_source_claim"
