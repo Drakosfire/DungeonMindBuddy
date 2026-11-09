@@ -91,6 +91,53 @@ merge authority. Direct Git/GitHub tools are valid when they preserve these rule
 The pinned ACTIVE handoff and cumulative change are the review contract; the PR
 body is its transport summary.
 
+## Local verification standard and hosted pause
+
+Alan requested local-first verification and pausing long automatic GitHub PR runs.
+The operational standard after this policy lands is local exact-source evidence,
+not waiting for the long Hosted validation/World ownership workflows. Those two
+workflows remain manually dispatchable with all commands/tests intact. Short
+focused regression/security checks remain automatic. No branch protection is changed.
+
+Before review/merge, use an isolated full commit SHA and the repo-owned verifier:
+`python scripts/ci_local_frontend.py run --sha <full-SHA> --suite hosted --output <new-external-directory>`.
+It uses the shared frontend CI manifest, Node22.23.0/npm10.9.8, fresh locked install,
+8workers by default, and a per-user global resource lock. Configurable workers are
+recorded. Never start a competing Vitest benchmark/run around that lock; honor
+`/tmp/dungeonmind-frontend-verification-<uid>.lock` for other local frontend tools.
+Keep outputs outside the source tree. Validate retained evidence against the exact
+reviewed SHA with the verifier's validate subcommand. Dirty-runner results are
+working-tree diagnostics, not qualifying evidence. Never reuse a different SHA,
+modified report, stale inventory or failed/incomplete run as a passing check.
+
+For frontend changes also run the full default-discovered diagnostic (`--suite
+discovered`) at a meaningful integrated checkpoint, avoiding duplicate heavy runs.
+Keep known legacy failures visibly red with exact IDs/source/environment/results;
+a passing hosted-contract safety sample does not make that diagnostic green or
+establish release qualification. New failures, collection omissions, build errors
+or uncertain baseline comparisons block acceptance until scoped resolution or an
+independently approved contract/retirement change. Do not delete tests merely for
+speed. Existing verified benchmark artifacts can inform worker choice, not stand
+in for exact-current-source verification.
+
+Run affected backend contracts locally in an isolated exact-SHA checkout using
+`scripts/ci_contract.py run <contract>` and the owning locked Python environment.
+Database contracts require uniquely owned disposable databases and existing
+session-template/per-test-clone isolation; never operator/live data or providers.
+Retain SHA, commands, versions, isolation/cleanup and all exit/failure evidence.
+Auth/principal/CAS/rollback/history and graph draft-loss protections remain required
+when affected. Independent exact-head review and user/process merge authority
+remain separate from test evidence. The local tool is not a self-hosted runner or
+a replacement GitHub status check; no fabricated hosted-green claim is permitted.
+Manual full qualification remains red/not release-qualified until actual proof;
+no selector activation or exemption is implied. Existing unmerged CI drafts do not
+silently reactivate long PR runs: reconcile triggers/authority with this policy.
+
+Rollback: restore only the two removed pull_request trigger blocks from the parent
+revision after an explicit reviewed rollback decision; the manual commands/tests
+are unchanged. Review workflow changes and local guard evidence together. Never
+change protections/security rules or deployment as part of this policy.
+
 ## State settlement and documentation
 
 Name mutable authority documents that need to record the completed predecessor

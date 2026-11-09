@@ -2,9 +2,7 @@ name: World ownership core tests
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened]
+
 
 permissions:
   contents: read
