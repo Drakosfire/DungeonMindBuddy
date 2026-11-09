@@ -1,12 +1,13 @@
 # HANDOFF — Safe candidate lifecycle tooling
 
 **Created:** 2026-11-09
-**Status:** BLOCKED — publication approval denied; no effective write lease or dispatch
+**Status:** ACTIVE — fixture-only storage lifecycle tooling
 **Flow / owner:** STORAGE / coordinator stewardship
 **Implementation owner:** task `01a1c171-e939-700d-87a6-d289ba3d1033`
 **Design authority base:** `51c961d39602710cef7e093720852570f4194f0e`
 **Handoff locator:** this path at the immutable stewardship commit supplied with dispatch; steward publishes the branch before dispatch.
-**Activation gate:** obtain explicit approval for publishing this stewardship branch to `Drakosfire/DungeonMindBuddy`, publish the pinned contract, refresh collision preflight, then steward records ACTIVE. Automatic approval review rejected the attempted push as insufficiently authorized; no push executed. No runtime readiness dependency.
+**Activation gate:** satisfied. Alan explicitly approved this branch publication on 2026-11-09; prior denied push created no remote ref. Steward published and verified `a243215ddf2f85a19bf8ab8b11daca2fa6e46b19`, refreshed current main and collision preflight, then recorded ACTIVE. Publication of this activation commit is required before dispatch. No runtime readiness dependency.
+**Activation authority snapshot:** `origin/main` at `c12bafca6` (full implementation base below); only unrelated Play history paths changed since design; AGENTS policy unchanged. The reviewed mission, three-file lease and runtime exclusions remain unchanged.
 **PR topology:** serial — one open STORAGE implementation PR maximum. Recovery and existing product/CI work are nonconflicting context through disjoint new files and fixture-only runtime ownership; this lane has no unmerged behavioral dependency on them.
 **PR authorization:** open/update exactly one `STORAGE: bound candidate allocation and cleanup` implementation PR; no merge, deployment, scheduler installation, live invocation, or successor PR is authorized.
 
@@ -20,7 +21,7 @@ Critique: a stale cleanup plan followed by a new process reference, symlink swap
 
 ## §2 Authority, topology and ownership
 
-Current remote main was fetched at design time. Its AGENTS.md supersedes dirty-checkout policy and legacy Cursor gates: portable pinned authority is permitted; a worker must not author its own authority. This is a steward-authored contract intended for publication separately from implementation; publication is currently blocked. No tracked preventive tooling is changed by the steward.
+Current remote main was fetched at design time. Its AGENTS.md supersedes dirty-checkout policy and legacy Cursor gates: portable pinned authority is permitted; a worker must not author its own authority. This is a steward-authored contract published separately from implementation; current main permits this portable pinned branch authority. No tracked preventive tooling is changed by the steward.
 
 Concurrent owners checked: recovery task `01a1c166-361d-76b6-8262-4cf2ca9d100f` and PRIME own old home runtime restoration; this lane has no access lease to those files, services or ports. Open PR metadata was read on 2026-11-09: no STORAGE PR; unrelated CI, retrieval, ingest, surface and deployment drafts remain outside this new-file lease. Local worktrees were inventoried; no existing lane owns the three new implementation paths below. Run current collision preflight again before implementation.
 
@@ -29,7 +30,9 @@ Concurrent owners checked: recovery task `01a1c166-361d-76b6-8262-4cf2ca9d100f` 
 | Branch / isolated checkout | `codex/storage-safe-candidate-lifecycle`, task-owned Projects checkout allocated after publication |
 | Runtime/state ownership | Synthetic task-owned fixture roots only; no ports, services, operational root or live data lease |
 
-Implementation branch: `codex/storage-safe-candidate-lifecycle`. Allocate an isolated checkout beneath the task-owned Projects `.codex` root from the published handoff commit, recording exact base and checkout path in PR evidence. Never use dirty main or the steward checkout for implementation. Do not allocate before publication.
+Implementation branch: `codex/storage-safe-candidate-lifecycle`. Consume the handoff at its separately published exact commit. Allocate the implementation checkout from the freshly fetched integration base recorded below, recording the exact handoff commit independently in PR evidence. Never use dirty main or the steward checkout for implementation. Do not allocate before publication.
+
+Exact implementation base: `c12bafca6b6949ae3aad5012c716eefbe6b61c81`. Implementation checkout: `/media/drakosfire/Projects/.codex/2026-11-09/task-6/worktrees/storage-implementation`; branch `codex/storage-safe-candidate-lifecycle`. No implementation code is authored by this stewardship task.
 
 State-authority sync set after merge: this handoff only, updated by steward after exact-head review and authorized merge; implementation may report evidence in the PR but may not activate or redesign its authority.
 
@@ -56,7 +59,7 @@ Every path must preserve §1. Unknown state reports protected with a reason. No 
 | Create | `tests/test_buddy_storage.py` | CLI/filesystem adversarial and crash/concurrency evidence |
 | Create | `Docs/Guides/GUIDE-buddy-storage.md` | Exact CLI contract, retention, limitations and separate activation gate |
 
-This table is prospective only while BLOCKED; it grants no effective write lease.
+This table grants the narrow fixture-only implementation lease once this activation commit is published and pinned at dispatch.
 
 Bounded discovery exception: none. Changes outside these exact paths return to steward. No dependency/lockfile/config change is authorized. Steward alone owns this handoff.
 
