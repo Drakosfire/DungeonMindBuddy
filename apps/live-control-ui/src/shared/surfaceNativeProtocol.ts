@@ -58,8 +58,8 @@ export function isSurfaceNativeCompletion(v:unknown,r:SurfaceNativeContextReceip
     else if(s.kind==='limitation') {if(!exact(s,['kind','text','code','question_phrase'])||!['missing_requested_details','partial_retrieval','unresolved_conflict'].includes(String(s.code))||!(s.question_phrase===null||text(s.question_phrase)))return false;partial=true;}
     else if(work.surface_id==='build'&&s.kind==='discussion') {if(!exact(s,['kind','text']))return false;discussion=true;}
     else if(work.surface_id==='build'&&s.kind==='draft_reference_claim') {if(!isDraftReferenceClaim(s))return false;buildAuthored=true;}
-    else if(work.surface_id==='build'&&s.kind==='related_page_claim') {
-      if(!isRelatedPageClaim(s,work.source_basis.world_id))return false;buildAuthored=true;
+    else if((work.surface_id==='build'||work.surface_id==='plan')&&s.kind==='related_page_claim') {
+      if(!isRelatedPageClaim(s,nativeWorkWorld(work)))return false;buildAuthored=true;
     } else if(work.surface_id==='build'&&s.kind==='saved_source_claim') {if(!isSavedSourceClaim(s,work.source_basis.content_sha256))return false;saved.add(i);}
     else return false;
   }

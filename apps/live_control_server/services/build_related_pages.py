@@ -27,6 +27,7 @@ def root():
 
 
 def discover(request):
+    """Build and Plan share the actual World/primary-work request identity."""
     world_id = request.owner_scope.world_id
     primary = request.primary_work.object_id
     return [
@@ -186,6 +187,7 @@ def acquire_selected_pages(a):
 
 def open_page(service, world_id, turn_id, read_id):
     turn = service.inspect_turn(world_id=world_id, turn_id=turn_id)
+    from application_state.agent_conversation.native_completion import SurfaceNativeCompletionV1
     from application_state.agent_conversation.types import (
         Turn,
         BuildDraftContextCompletionV1, BuildIntentionalResponseCompletionV1,
@@ -203,7 +205,7 @@ def open_page(service, world_id, turn_id, read_id):
     if (
         not isinstance(turn, Turn)
         or turn.status != "completed"
-        or not isinstance(turn.completion, (BuildDraftContextCompletionV1, BuildIntentionalResponseCompletionV1))
+        or not isinstance(turn.completion, (BuildDraftContextCompletionV1, BuildIntentionalResponseCompletionV1, SurfaceNativeCompletionV1))
     ):
         raise ValueError("Related page requires its completed authored answer")
     matches = [
@@ -234,3 +236,25 @@ def open_page(service, world_id, turn_id, read_id):
         "page": rows[0].page.model_dump(mode="json"),
         "markdown": rows[0].markdown,
     }
+
+
+def acquire_plan_page(adapter, pointer, selection):
+    """A Plan selection grants only its frozen exact saved-page read."""
+    from application_state.agent_conversation.native_retrieval import current_selection
+    from application_state.agent_conversation.build_related_pages import catalog, plan_handle, plan_read_enabled, records
+    from .agent_turn_service import _require_fresh_execution_append
+    current = current_selection(adapter.fence.turn)
+    if (not plan_read_enabled(adapter._broker_execution())
+            or current != selection or current.operation != 'select_candidates'
+            or plan_handle(pointer) not in current.selected_handles
+            or pointer not in catalog(adapter._broker_execution().policy)
+            or any(read.page.document_id == pointer.document_id for read in records(adapter._broker_execution()))):
+        raise ValueError('Saved-page acquisition requires its current native selection')
+    actual = materialize(pointer)
+    markdown = actual.pop('markdown')
+    read = RelatedPageRead(event_id=uuid4(), sequence=len(adapter._broker_execution().events),
+        read_id=uuid4(), selection_event_id=current.event_id,
+        page=PageReference.model_validate(actual), markdown=markdown)
+    adapter.turn = _require_fresh_execution_append(adapter.fence.append('record_build_related_pages',
+        'event', read, materializer=lambda: materialize(pointer)))
+    return read

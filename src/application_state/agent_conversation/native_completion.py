@@ -49,7 +49,10 @@ class SurfaceNativeCompletionV1(Strict):
     @model_validator(mode='after')
     def supported_shape(self):
         validate_authored_shape(self.answer_segments)
-        build=[s for s in self.answer_segments if isinstance(s,(t.DraftReferenceClaimV1,t.RelatedPageClaim,t.SavedSourceClaimV1,DraftDiscussionV1))]
+        build=[s for s in self.answer_segments if isinstance(s,(t.DraftReferenceClaimV1,t.SavedSourceClaimV1,DraftDiscussionV1))]
+        related = any(isinstance(s,t.RelatedPageClaim) for s in self.answer_segments)
+        if related and self.surface_id not in {'build','plan'}:
+            raise ValueError('Saved authored claims require their actual authoring surface')
         if (build or self.collaboration is not None) and self.surface_id != 'build':
             raise ValueError('Build work discussion and saved claims require their actual surface owner')
         saved={i:s for i,s in enumerate(self.answer_segments) if isinstance(s,t.SavedSourceClaimV1)}
@@ -187,12 +190,19 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
             raise ValueError('Native completion contains an invalid segment')
         if row.get('kind') in {'draft_reference_claim','related_page_claim','saved_source_claim','discussion'}:
             if execution.policy.action.surface_id != 'build':
-                raise ValueError('Build work output cannot borrow another surface')
+                from .build_related_pages import plan_read_enabled
+                if (row.get('kind') != 'related_page_claim' or not plan_read_enabled(execution)):
+                    raise ValueError('Build work output cannot borrow another surface')
+                row = dict(row)
+                aliases = {f'page{i}': str(read.read_id) for i,read in enumerate(evidence.related_pages)}
+                if row.get('read_id') not in aliases:
+                    raise ValueError('Related Plan claim selects an unincluded saved page')
+                row['read_id'] = aliases[row['read_id']]
             if evidence.build_local:
                 from .native_build_work_view import resolve_selectors
                 row=resolve_selectors(row,evidence.work_frame)
             segment,citation=normalize_native_segment(row,draft_record=evidence.draft_record,
-                saved_sections=evidence.saved_sections,related_pages=evidence.related_pages,source_basis=receipt.work_context.source_basis,index=len(segments))
+                saved_sections=evidence.saved_sections,related_pages=evidence.related_pages,source_basis=getattr(receipt.work_context,'source_basis',None),index=len(segments))
             segments.append(segment)
             if citation is not None:
                 saved_cites.append(citation)
@@ -214,15 +224,15 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     collaboration=normalize_native_review(review,segments,evidence.work_frame) if review_enabled else None
     if review_enabled and not segments and collaboration is None:
         raise ValueError('Empty intentional response')
-    # Missing native capability does not make an available Build draft/page
+    # Missing native capability does not make an available authored page
     # unavailable. Only native claims inherit that native retrieval qualification.
-    local_build=(execution.policy.action.surface_id=='build'
+    local_authored=(execution.policy.action.surface_id in {'build','plan'}
         and (collaboration is not None or any(isinstance(s,(t.DraftReferenceClaimV1,t.RelatedPageClaim,t.SavedSourceClaimV1,DraftDiscussionV1)) for s in segments))
         and all(isinstance(s,(t.DraftReferenceClaimV1,t.RelatedPageClaim,t.SavedSourceClaimV1,DraftDiscussionV1,t.PlanWorldGraphProposalSegmentV1))
             for s in segments))
     segments += project_surface_limitations(candidate['limitations'], candidate['requested_detail_gaps'],
         user_question=execution.policy.action.intent.message, derive_missing=True,
-        host_partial=evidence.frame['input_status'] == 'partial' and not local_build,
+        host_partial=evidence.frame['input_status'] == 'partial' and not local_authored,
         empty_answer=not segments and collaboration is None, strict_gap_array=True)
     completion = SurfaceNativeCompletionV1(surface_id=execution.policy.action.surface_id,
         context_receipt_sha256=receipt.context_receipt_sha256,producing_provider_attempt_id=authorization.provider_attempt_id,

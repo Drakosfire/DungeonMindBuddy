@@ -317,6 +317,10 @@ class PlanJevWriter:
                 instructions += '\nAsk the specific clarifying question. Do not draft yet.'
             if getattr(rules,'authoring',None) is not None:
                 instructions += '\n' + AUTHORING_INSTRUCTIONS
+        if self.shared and self.provider_work.get('related_authored_pages', {}).get('pages'):
+            instructions += ('\nSaved authored pages describe authored material, not played truth. '
+                'Use related_page_claim with the supplied local read_id and supporting_quotes containing '
+                'exact nonblank quotes from that same saved page. Do not ask for a supplied page again.\n')
         self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
             RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
