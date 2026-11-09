@@ -162,3 +162,17 @@ it('accepts semantic initial input only for fresh Build, preserving old receipt 
   Object.assign(build.assembled_input,{assembler_version:'unknown-native-input'});
   expect(isSurfaceNativeReceipt(build,buildWork)).toBe(false);
 });
+
+
+it.each(['valid','foreign','build-draft','play'])('keeps saved authored-page claims distinct on Plan: %s',mutation=>{
+  const c=context();const world=c.receipt.work_context.plan_basis.world_id;
+  const segment={kind:'related_page_claim' as const,text:'The saved Edge page describes the old bath house.',
+    read_id:'00000000-0000-4000-8000-000000000001',page:{world_id:world,
+      document_id:'00000000-0000-4000-8000-000000000002',registry_revision:3,title:'Edge',visibility:'internal' as const,content_sha256:'a'.repeat(64)}};
+  const answer={...c.completion,answer_segments:[segment],answer_context_status:'authored_grounded',
+    native_body_citations:[],native_clause_citations:[],native_assertion_citations:[],saved_source_citations:[]};
+  if(mutation==='foreign')segment.page.world_id='foreign';
+  if(mutation==='build-draft')Object.assign(segment,{kind:'draft_reference_claim',draft_record_id:segment.read_id});
+  if(mutation==='play')Object.assign(answer,{surface_id:'play'});
+  expect(isSurfaceNativeCompletion(answer,c.receipt as SurfaceNativeContextReceiptV1)).toBe(mutation==='valid');
+});
