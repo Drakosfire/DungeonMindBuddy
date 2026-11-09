@@ -6,7 +6,7 @@ import { InMemoryLocalWorldRepository } from "../inMemoryLocalWorldRepository";
 import { createTestWorld, sequenceLocalIds } from "../localWorldContractFixtures";
 import type { CommitSemanticResult, LocalWorldRecord, LocalWorldRelationship, WriteLayoutResult } from "../localWorldRepository";
 import { createLocalWorldGraphAdapter } from "./localWorldGraphAdapter";
-import { WorldGraphCanvas } from "./WorldGraphCanvas";
+import { WorldGraphCanvas, type WorldGraphEditorDraft } from "./WorldGraphCanvas";
 
 async function graphRecord(): Promise<{ repository: InMemoryLocalWorldRepository; record: LocalWorldRecord }> {
   const repository = new InMemoryLocalWorldRepository({ idFactory: sequenceLocalIds() });
@@ -151,6 +151,33 @@ describe("WorldGraphCanvas", () => {
       // Unmount between matrix cases so each row owns a clean canvas instance.
       unmount();
     }
+  });
+
+  it.each(["object", "relationship", "rename"] as const)("restores a failed %s draft from the route-owned versioned snapshot", async (kind) => {
+    const user = userEvent.setup();
+    const { record } = await graphRecord();
+    const error = { status: "error", message: "write interrupted" } as const;
+    const callbacks = kind === "object" ? { onCreateObject: async () => error }
+      : kind === "relationship" ? { onCreateRelationship: async () => error }
+        : { onRenameObject: async () => error };
+    let saved: { version: number; draft: WorldGraphEditorDraft | null } = { version: 0, draft: null };
+    const onDraftChange = (draft: WorldGraphEditorDraft | null, version: number, expectedVersion?: number) => {
+      if (expectedVersion !== undefined && saved.version !== expectedVersion) return;
+      if (version >= saved.version) saved = { version, draft };
+    };
+    const renderCanvas = () => render(<WorldGraphCanvas record={record} editorDraftState={saved}
+      onEditorDraftChange={onDraftChange} {...callbacks} />);
+
+    const first = renderCanvas();
+    const { draft, inputLabel } = await enterDraft(user, kind, record);
+    expect(await screen.findByText("write interrupted")).toBeVisible();
+    expect(saved.draft).not.toBeNull();
+    first.unmount();
+
+    renderCanvas();
+    expect(screen.getByLabelText(inputLabel)).toHaveValue(draft);
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(saved.draft).toBeNull();
   });
 
   it.each(["object", "relationship", "rename"] as const)("does not clear a newer %s draft when an older submission succeeds", async (kind) => {

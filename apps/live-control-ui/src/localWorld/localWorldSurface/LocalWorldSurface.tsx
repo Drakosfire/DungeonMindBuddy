@@ -1,12 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
 import { usePublishSurfaceInteraction } from "../../agentInteraction/usePublishSurfaceInteraction";
 import { buildSurfaceInteractionIdentity } from "../../surfaceInteraction/surfaceIdentity";
 import { openIndexedDbLocalWorldRepository, LOCAL_WORLD_DATABASE_NAME } from "../indexedDbLocalWorldRepository";
 import { hasPendingWorldNotesDrafts } from "../localWorldDocumentAuthoring";
-import type { LocalWorldId, LocalWorldPackageRepository, LocalWorldRecord } from "../localWorldRepository";
+import type { CommitSemanticResult, LocalWorldConflictCandidate, LocalWorldId, LocalWorldPackageRepository, LocalWorldRecord, WriteLayoutResult } from "../localWorldRepository";
+import { createLocalWorldGraphAdapter } from "../worldGraphCanvas/localWorldGraphAdapter";
+import type { WorldGraphEditorDraft, WorldGraphEditorDraftField } from "../worldGraphCanvas/WorldGraphCanvas";
 import { LocalWorldNotesEditor } from "./LocalWorldNotesEditor";
 import "./localWorldSurface.css";
+
+const WorldGraphCanvas = lazy(() => import("../worldGraphCanvas/WorldGraphCanvas").then((module) => ({ default: module.WorldGraphCanvas })));
 
 // Keep unsaved title candidates while App routes/components remount in this tab.
 // This is deliberately volatile presentation state, not a second durable ledger.
@@ -16,8 +20,18 @@ interface PendingTitleDraft {
 }
 
 const pendingTitleDrafts = new Map<LocalWorldId, PendingTitleDraft>();
+interface SavedGraphEditorDraft {
+  readonly version: number;
+  readonly draft: WorldGraphEditorDraft | null;
+}
+const graphEditorDrafts = new Map<LocalWorldId, SavedGraphEditorDraft>();
+interface FirstObjectDraft { readonly name: string; readonly kind: string }
+interface SavedFirstObjectDraft { readonly version: number; readonly draft: FirstObjectDraft | null }
+const firstObjectDrafts = new Map<LocalWorldId, SavedFirstObjectDraft>();
+const graphEditorDraftListeners = new Set<() => void>();
 const pendingLocalWrites = new Set<symbol>();
 let beforeUnloadProtectionInstalled = false;
+const MAX_GRAPH_EDITOR_SESSIONS = 3;
 
 function warnBeforeLeavingWithLocalWork(event: BeforeUnloadEvent): void {
   event.preventDefault();
@@ -26,7 +40,9 @@ function warnBeforeLeavingWithLocalWork(event: BeforeUnloadEvent): void {
 
 function syncBeforeUnloadProtection(): void {
   if (typeof window === "undefined") return;
-  const shouldProtect = pendingTitleDrafts.size > 0 || hasPendingWorldNotesDrafts() || pendingLocalWrites.size > 0;
+  const hasGraphDraft = [...graphEditorDrafts.values()].some((item) => item.draft !== null);
+  const hasFirstObjectDraft = [...firstObjectDrafts.values()].some((item) => item.draft !== null);
+  const shouldProtect = pendingTitleDrafts.size > 0 || hasGraphDraft || hasFirstObjectDraft || hasPendingWorldNotesDrafts() || pendingLocalWrites.size > 0;
   if (shouldProtect && !beforeUnloadProtectionInstalled) {
     window.addEventListener("beforeunload", warnBeforeLeavingWithLocalWork);
     beforeUnloadProtectionInstalled = true;
@@ -34,6 +50,67 @@ function syncBeforeUnloadProtection(): void {
     window.removeEventListener("beforeunload", warnBeforeLeavingWithLocalWork);
     beforeUnloadProtectionInstalled = false;
   }
+}
+
+function notifyGraphEditorDraftListeners(): void {
+  for (const listener of graphEditorDraftListeners) listener();
+}
+
+function readGraphEditorDraft(worldId: LocalWorldId): SavedGraphEditorDraft {
+  return graphEditorDrafts.get(worldId) ?? { version: 0, draft: null };
+}
+
+function writeGraphEditorDraft(worldId: LocalWorldId, draft: WorldGraphEditorDraft | null, version: number, expectedVersion?: number): void {
+  const current = readGraphEditorDraft(worldId);
+  if (expectedVersion !== undefined && current.version !== expectedVersion) return;
+  if (version < current.version) return;
+  graphEditorDrafts.set(worldId, { version, draft });
+  syncBeforeUnloadProtection();
+  notifyGraphEditorDraftListeners();
+}
+
+function clearGraphEditorDraftSubmission(worldId: LocalWorldId, field: WorldGraphEditorDraftField, submittedToken: number): void {
+  const saved = readGraphEditorDraft(worldId);
+  const current = saved.draft;
+  if (!current) return;
+  const tokenMatches = field === "rename" ? current.renameToken === submittedToken
+    : field === "object" ? current.objectToken === submittedToken
+      : current.relationshipToken === submittedToken;
+  if (!tokenMatches) return;
+
+  const version = saved.version + 1;
+  const next: WorldGraphEditorDraft = field === "rename"
+    ? { ...current, version, renameToken: current.renameToken + 1, renameId: null, renameValue: "" }
+    : field === "object"
+      ? { ...current, version, objectToken: current.objectToken + 1, showObjectForm: false, objectName: "" }
+      : { ...current, version, relationshipToken: current.relationshipToken + 1, showRelationshipForm: false, relationshipKind: "" };
+  const hasUnresolvedDraft = next.renameId !== null || next.showObjectForm || next.objectName.length > 0 ||
+    next.showRelationshipForm || next.relationshipKind.length > 0;
+  writeGraphEditorDraft(worldId, hasUnresolvedDraft ? next : null, version, saved.version);
+}
+
+function subscribeGraphEditorDrafts(listener: () => void): () => void {
+  graphEditorDraftListeners.add(listener);
+  return () => graphEditorDraftListeners.delete(listener);
+}
+
+function readFirstObjectDraft(worldId: LocalWorldId): SavedFirstObjectDraft {
+  return firstObjectDrafts.get(worldId) ?? { version: 0, draft: null };
+}
+
+function saveFirstObjectDraft(worldId: LocalWorldId, name: string, kind: string): void {
+  const current = readFirstObjectDraft(worldId);
+  const version = current.version + 1;
+  writeFirstObjectDraft(worldId, name.trim() ? { name, kind } : null, version, name.trim() ? undefined : current.version);
+}
+
+function writeFirstObjectDraft(worldId: LocalWorldId, draft: FirstObjectDraft | null, version: number, expectedVersion?: number): void {
+  const current = readFirstObjectDraft(worldId);
+  if (expectedVersion !== undefined && current.version !== expectedVersion) return;
+  if (version < current.version) return;
+  firstObjectDrafts.set(worldId, { version, draft });
+  syncBeforeUnloadProtection();
+  notifyGraphEditorDraftListeners();
 }
 
 function setPendingTitleDraft(worldId: LocalWorldId, draft: string, committedTitle: string): void {
@@ -53,9 +130,11 @@ function beginPendingLocalWrite(): () => void {
   const token = Symbol("local-world-write");
   pendingLocalWrites.add(token);
   syncBeforeUnloadProtection();
+  notifyGraphEditorDraftListeners();
   return () => {
     pendingLocalWrites.delete(token);
     syncBeforeUnloadProtection();
+    notifyGraphEditorDraftListeners();
   };
 }
 
@@ -161,7 +240,14 @@ export function LocalWorldSurface({
   const [repositoryError, setRepositoryError] = useState<string | null>(null);
   const [records, setRecords] = useState<readonly LocalWorldRecord[]>([]);
   const [record, setRecord] = useState<LocalWorldRecord | null>(null);
+  const recordRef = useRef<LocalWorldRecord | null>(record);
+  recordRef.current = record;
+  const [graphSessions, setGraphSessions] = useState<readonly LocalWorldRecord[]>([]);
+  const [graphDraftRevision, setGraphDraftRevision] = useState(0);
+  const [graphConflict, setGraphConflict] = useState<LocalWorldConflictCandidate | null>(null);
   const [newTitle, setNewTitle] = useState("");
+  const [firstObjectName, setFirstObjectName] = useState("");
+  const [firstObjectKind, setFirstObjectKind] = useState("person");
   const [titleDraft, setTitleDraft] = useState("");
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -173,11 +259,46 @@ export function LocalWorldSurface({
   const busyRef = useRef(false);
   const closeRepositoryRef = useRef<(() => void) | null>(null);
   const saveNotesRef = useRef<(() => void) | null>(null);
+  const firstObjectDraftWorldRef = useRef<LocalWorldId | null>(null);
+  const firstObjectDraftVersionRef = useRef(-1);
+  useEffect(() => subscribeGraphEditorDrafts(() => setGraphDraftRevision((revision) => revision + 1)), []);
+  useEffect(() => {
+    if (!record) return;
+    const worldId = record.snapshot.worldId;
+    const saved = readFirstObjectDraft(worldId);
+    if (firstObjectDraftWorldRef.current === worldId && firstObjectDraftVersionRef.current === saved.version) return;
+    firstObjectDraftWorldRef.current = worldId;
+    firstObjectDraftVersionRef.current = saved.version;
+    setFirstObjectName(saved.draft?.name ?? "");
+    setFirstObjectKind(saved.draft?.kind ?? "person");
+  }, [graphDraftRevision, record?.snapshot.worldId]);
+  const updateActiveRecord = useCallback((nextRecord: LocalWorldRecord | null) => {
+    recordRef.current = nextRecord;
+    setRecord(nextRecord);
+  }, []);
+  const rememberGraphRecord = useCallback((nextRecord: LocalWorldRecord) => {
+    if (!nextRecord.snapshot.objects.length) return;
+    setGraphSessions((current) => {
+      const withoutCurrent = current.filter((item) => item.snapshot.worldId !== nextRecord.snapshot.worldId);
+      return [...withoutCurrent, nextRecord];
+    });
+  }, []);
+  const prepareGraphSessionSlot = useCallback((worldId: LocalWorldId, title: string) => {
+    if (graphSessions.some((item) => item.snapshot.worldId === worldId) || graphSessions.length < MAX_GRAPH_EDITOR_SESSIONS) return true;
+    const oldest = graphSessions[0];
+    const shouldEvict = window.confirm(`This tab keeps unfinished graph editor drafts for up to ${MAX_GRAPH_EDITOR_SESSIONS} Worlds. Opening “${title}” will remove the editor draft for “${oldest.snapshot.title}”; its already saved World remains safe. Continue?`);
+    if (!shouldEvict) return false;
+    setGraphSessions((current) => current.filter((item) => item.snapshot.worldId !== oldest.snapshot.worldId));
+    return true;
+  }, [graphSessions]);
   const dirty = record !== null && titleDraft.trim() !== record.snapshot.title;
   const onNotesRecordChange = useCallback((nextRecord: LocalWorldRecord) => {
-    setRecord(nextRecord);
-    setRecords((current) => current.map((item) => item.snapshot.worldId === nextRecord.snapshot.worldId ? nextRecord : item));
-  }, []);
+    const current = recordRef.current;
+    if (!current || current.snapshot.worldId !== nextRecord.snapshot.worldId || nextRecord.localRevision < current.localRevision) return;
+    updateActiveRecord(nextRecord);
+    rememberGraphRecord(nextRecord);
+    setRecords((items) => items.map((item) => item.snapshot.worldId === nextRecord.snapshot.worldId && item.localRevision <= nextRecord.localRevision ? nextRecord : item));
+  }, [rememberGraphRecord, updateActiveRecord]);
   const onNotesBusyChange = useCallback((nextBusy: boolean) => {
     busyRef.current = nextBusy;
     setBusy(nextBusy);
@@ -257,11 +378,16 @@ export function LocalWorldSurface({
 
   const selectWorld = useCallback(async (worldId: string) => {
     if (!repository) return;
+    const listedWorld = records.find((item) => item.snapshot.worldId === worldId as LocalWorldRecord["snapshot"]["worldId"]);
+    if (listedWorld?.snapshot.objects.length && !prepareGraphSessionSlot(listedWorld.snapshot.worldId, listedWorld.snapshot.title)) return;
+    const currentRecord = recordRef.current;
+    if (currentRecord?.snapshot.objects.length) rememberGraphRecord(currentRecord);
     const generation = ++operationGeneration.current;
     setStatus("loading");
     setNotesStatus("loading");
     setMessage(null);
-    setRecord(null);
+    updateActiveRecord(null);
+    setGraphConflict(null);
     try {
       const result = await repository.readWorld(worldId as LocalWorldRecord["snapshot"]["worldId"]);
       if (!mounted.current || generation !== operationGeneration.current) return;
@@ -273,22 +399,28 @@ export function LocalWorldSurface({
       }
       const localWorldId = worldId as LocalWorldId;
       const pendingDraft = pendingTitleDrafts.get(localWorldId);
+      const firstObjectDraft = readFirstObjectDraft(localWorldId).draft;
       const hasPendingChanges = pendingDraft !== undefined && pendingDraft.value.trim() !== result.record.snapshot.title;
       if (pendingDraft !== undefined && !hasPendingChanges) clearPendingTitleDraft(localWorldId);
-      setRecord(result.record);
+      updateActiveRecord(result.record);
+      rememberGraphRecord(result.record);
+      setGraphConflict(null);
       setTitleDraft(hasPendingChanges ? pendingDraft.value : result.record.snapshot.title);
       setEditing(hasPendingChanges);
+      setFirstObjectName(firstObjectDraft?.name ?? "");
+      setFirstObjectKind(firstObjectDraft?.kind ?? "person");
       setStatus(hasPendingChanges ? "dirty" : "saved");
     } catch (error) {
       if (!mounted.current || generation !== operationGeneration.current) return;
       setMessage(error instanceof Error ? error.message : "The local World could not be opened.");
       setStatus("error");
     }
-  }, [refreshList, repository]);
+  }, [prepareGraphSessionSlot, records, refreshList, rememberGraphRecord, repository, updateActiveRecord]);
 
   const createWorld = useCallback(async (event: FormEvent) => {
     event.preventDefault();
     if (!repository || repositoryError || busyRef.current || !newTitle.trim()) return;
+    if (recordRef.current?.snapshot.objects.length) rememberGraphRecord(recordRef.current);
     busyRef.current = true;
     setBusy(true);
     setStatus("saving");
@@ -305,9 +437,13 @@ export function LocalWorldSurface({
         return;
       }
       setNotesStatus("loading");
-      setRecord(result.record);
+      updateActiveRecord(result.record);
+      setGraphConflict(null);
       setTitleDraft(result.record.snapshot.title);
       setNewTitle("");
+      const firstObjectDraft = readFirstObjectDraft(result.record.snapshot.worldId).draft;
+      setFirstObjectName(firstObjectDraft?.name ?? "");
+      setFirstObjectKind(firstObjectDraft?.kind ?? "person");
       setEditing(false);
       setStatus("saved");
       await refreshList(repository, generation);
@@ -321,7 +457,7 @@ export function LocalWorldSurface({
       finishPendingWrite();
       if (mounted.current) setBusy(false);
     }
-  }, [newTitle, refreshList, repository, repositoryError]);
+  }, [newTitle, refreshList, rememberGraphRecord, repository, repositoryError, updateActiveRecord]);
 
   const saveTitle = useCallback(async () => {
     if (!repository || repositoryError || !record || !dirty || busyRef.current) return;
@@ -349,7 +485,8 @@ export function LocalWorldSurface({
       if (result.status === "committed") {
         if (savedDraftToken !== undefined) clearPendingTitleDraft(savedRecord.snapshot.worldId, savedDraftToken);
         if (!mounted.current || generation !== operationGeneration.current) return;
-        setRecord(result.record);
+        updateActiveRecord(result.record);
+        rememberGraphRecord(result.record);
         setRecords((current) => current.map((item) => item.snapshot.worldId === result.record.snapshot.worldId ? result.record : item)
           .sort((left, right) => left.snapshot.title.localeCompare(right.snapshot.title) || left.snapshot.worldId.localeCompare(right.snapshot.worldId)));
         setTitleDraft(result.record.snapshot.title);
@@ -359,7 +496,8 @@ export function LocalWorldSurface({
       }
       if (!mounted.current || generation !== operationGeneration.current) return;
       if (result.status === "conflict") {
-        setRecord(result.committed);
+        updateActiveRecord(result.committed);
+        rememberGraphRecord(result.committed);
         setRecords((current) => current.map((item) => item.snapshot.worldId === result.committed.snapshot.worldId ? result.committed : item));
         setMessage("Another tab saved a newer version. Your title is kept as a conflict candidate; choose whether to retry it.");
         setStatus("conflict");
@@ -377,7 +515,7 @@ export function LocalWorldSurface({
       finishPendingWrite();
       if (mounted.current && generation === operationGeneration.current) setBusy(false);
     }
-  }, [dirty, record, repository, repositoryError, titleDraft]);
+  }, [dirty, record, rememberGraphRecord, repository, repositoryError, titleDraft, updateActiveRecord]);
 
   const exportPackage = useCallback(async () => {
     if (!repository || repositoryError || !record || dirty || busyRef.current) return;
@@ -419,6 +557,163 @@ export function LocalWorldSurface({
     setMessage(null);
     setStatus("saved");
   }, [record]);
+
+  const graphAdapter = useMemo(() => repository ? createLocalWorldGraphAdapter(repository) : null, [repository]);
+
+  const isCurrentGraphOperation = (worldId: LocalWorldId, generation: number) =>
+    mounted.current && generation === operationGeneration.current && recordRef.current?.snapshot.worldId === worldId;
+
+  const executeGraphSemantic = useCallback(async (
+    submittedRecord: LocalWorldRecord,
+    command: () => Promise<CommitSemanticResult>,
+  ): Promise<CommitSemanticResult> => {
+    const generation = operationGeneration.current;
+    const current = recordRef.current;
+    if (!mounted.current || busyRef.current || !current || current.snapshot.worldId !== submittedRecord.snapshot.worldId ||
+        current.localRevision !== submittedRecord.localRevision) {
+      return { status: "error", message: "This World changed before the edit started. Review the latest graph and retry." };
+    }
+    busyRef.current = true;
+    setBusy(true);
+    setStatus("saving");
+    const finishPendingWrite = beginPendingLocalWrite();
+    try {
+      return await command();
+    } catch (error) {
+      return { status: "error", message: error instanceof Error ? error.message : "The graph edit could not be saved." };
+    } finally {
+      busyRef.current = false;
+      finishPendingWrite();
+      if (mounted.current && generation === operationGeneration.current) setBusy(false);
+    }
+  }, []);
+
+  const executeGraphLayout = useCallback(async (
+    submittedRecord: LocalWorldRecord,
+    command: () => Promise<WriteLayoutResult>,
+  ): Promise<WriteLayoutResult> => {
+    const generation = operationGeneration.current;
+    const current = recordRef.current;
+    if (!mounted.current || busyRef.current || !current || current.snapshot.worldId !== submittedRecord.snapshot.worldId ||
+        current.layoutRevision !== submittedRecord.layoutRevision) {
+      return { status: "error", message: "This World layout changed before the move started. Review the latest canvas and retry." };
+    }
+    busyRef.current = true;
+    setBusy(true);
+    setStatus("saving");
+    const finishPendingWrite = beginPendingLocalWrite();
+    try {
+      return await command();
+    } catch (error) {
+      return { status: "error", message: error instanceof Error ? error.message : "The canvas layout could not be saved." };
+    } finally {
+      busyRef.current = false;
+      finishPendingWrite();
+      if (mounted.current && generation === operationGeneration.current) setBusy(false);
+    }
+  }, []);
+
+  const applyGraphSemanticResult = useCallback((worldId: LocalWorldId, generation: number, result: CommitSemanticResult) => {
+    if (!isCurrentGraphOperation(worldId, generation)) return;
+    if (result.status === "committed" || result.status === "conflict") {
+      const incoming = result.status === "committed" ? result.record : result.committed;
+      const current = recordRef.current;
+      if (!current || current.snapshot.worldId !== worldId || incoming.localRevision < current.localRevision) return;
+      const accepted = incoming.layoutRevision < current.layoutRevision
+        ? { ...incoming, layout: current.layout, layoutRevision: current.layoutRevision }
+        : incoming;
+      updateActiveRecord(accepted);
+      rememberGraphRecord(accepted);
+      const titleDraft = pendingTitleDrafts.get(worldId);
+      if (!titleDraft || titleDraft.value.trim() === accepted.snapshot.title) {
+        if (titleDraft) clearPendingTitleDraft(worldId, titleDraft.token);
+        setTitleDraft(accepted.snapshot.title);
+      }
+      setRecords((items) => items.map((item) => {
+        if (item.snapshot.worldId !== worldId || item.localRevision > accepted.localRevision) return item;
+        return item.layoutRevision > accepted.layoutRevision
+          ? { ...accepted, layout: item.layout, layoutRevision: item.layoutRevision }
+          : accepted;
+      }));
+      if (result.status === "committed") {
+        setGraphConflict(null);
+        setMessage(null);
+        setStatus("saved");
+      } else {
+        setGraphConflict(result.candidate);
+        setMessage("Your graph proposal is saved as a local conflict candidate. The canvas now shows the committed version; review it, then submit your still-open edit again if it remains appropriate.");
+        setStatus("conflict");
+      }
+      return;
+    }
+    setMessage(result.status === "missing" ? "This local World was removed before the graph edit could be saved." : result.message);
+    setStatus("error");
+  }, [rememberGraphRecord, updateActiveRecord]);
+
+  const applyGraphLayoutResult = useCallback((worldId: LocalWorldId, generation: number, result: WriteLayoutResult) => {
+    if (!isCurrentGraphOperation(worldId, generation)) return;
+    if (result.status === "written" || result.status === "conflict") {
+      const current = recordRef.current;
+      if (!current || current.snapshot.worldId !== worldId || result.record.snapshot.worldId !== worldId || result.record.layoutRevision < current.layoutRevision) return;
+      const accepted = { ...current, layout: result.record.layout, layoutRevision: result.record.layoutRevision };
+      updateActiveRecord(accepted);
+      rememberGraphRecord(accepted);
+      setRecords((items) => items.map((item) => item.snapshot.worldId === worldId && item.layoutRevision <= accepted.layoutRevision
+        ? { ...item, layout: accepted.layout, layoutRevision: accepted.layoutRevision }
+        : item));
+      setMessage(result.status === "conflict" ? "Another tab changed this graph layout. The newest saved positions are shown; move the nodes again if you still want to change them." : null);
+      setStatus(result.status === "written" ? "saved" : "conflict");
+      return;
+    }
+    setMessage(result.status === "missing" ? "This local World was removed before its layout could be saved." : result.message);
+    setStatus("error");
+  }, [rememberGraphRecord, updateActiveRecord]);
+
+  const seedStarterGraph = useCallback(async () => {
+    const current = recordRef.current;
+    if (!repository || !current || current.snapshot.objects.length || current.snapshot.relationships.length || busyRef.current || pendingLocalWrites.size > 0 || firstObjectName.trim()) return;
+    if (!prepareGraphSessionSlot(current.snapshot.worldId, current.snapshot.title)) return;
+    const generation = operationGeneration.current;
+    const people = [
+      { id: repository.allocateObjectId(current.snapshot.worldId), name: "Mara Venn", kind: "person", properties: {} },
+      { id: repository.allocateObjectId(current.snapshot.worldId), name: "Tomas Reed", kind: "person", properties: {} },
+    ];
+    const location = { id: repository.allocateObjectId(current.snapshot.worldId), name: "Amber Quay", kind: "location", properties: {} };
+    const event = { id: repository.allocateObjectId(current.snapshot.worldId), name: "Lantern Festival", kind: "event", properties: {} };
+    const objects = [...people, location, event];
+    const relationships = [
+      { fromObjectId: people[0].id, toObjectId: people[1].id, kind: "knows" },
+      { fromObjectId: people[0].id, toObjectId: event.id, kind: "attends" },
+      { fromObjectId: people[1].id, toObjectId: event.id, kind: "attends" },
+      { fromObjectId: event.id, toObjectId: location.id, kind: "held at" },
+    ].map((relationship) => ({ ...relationship, id: repository.allocateRelationshipId(current.snapshot.worldId), properties: {} }));
+    const result = await executeGraphSemantic(current, () => repository.commitSemanticEdit({
+      worldId: current.snapshot.worldId,
+      expectedLocalRevision: current.localRevision,
+      nextSnapshot: { ...current.snapshot, objects, relationships },
+      edit: { classification: "buddy-local-only", description: "Started a small example graph" },
+    }));
+    applyGraphSemanticResult(current.snapshot.worldId, generation, result);
+  }, [applyGraphSemanticResult, executeGraphSemantic, firstObjectName, prepareGraphSessionSlot, repository]);
+
+  const createFirstObject = useCallback(async (event: FormEvent) => {
+    event.preventDefault();
+    const current = recordRef.current;
+    if (!repository || !graphAdapter || !current || current.snapshot.objects.length || current.snapshot.relationships.length ||
+        !firstObjectName.trim() || busyRef.current || pendingLocalWrites.size > 0 || !prepareGraphSessionSlot(current.snapshot.worldId, current.snapshot.title)) return;
+    const generation = operationGeneration.current;
+    const worldId = current.snapshot.worldId;
+    const submittedDraft = readFirstObjectDraft(worldId);
+    const result = await executeGraphSemantic(current, () => graphAdapter.createObject(current, { name: firstObjectName.trim(), kind: firstObjectKind }));
+    applyGraphSemanticResult(current.snapshot.worldId, generation, result);
+    if (result.status === "committed") {
+      writeFirstObjectDraft(worldId, null, submittedDraft.version + 1, submittedDraft.version);
+      if (mounted.current && generation === operationGeneration.current && recordRef.current?.snapshot.worldId === worldId) {
+        setFirstObjectName("");
+        setFirstObjectKind("person");
+      }
+    }
+  }, [applyGraphSemanticResult, executeGraphSemantic, firstObjectKind, firstObjectName, graphAdapter, prepareGraphSessionSlot, repository]);
 
   const publication = useMemo(() => makePublication({
     localWorldId: record?.snapshot.worldId ?? null,
@@ -482,11 +777,33 @@ export function LocalWorldSurface({
                 <button type="button" className="local-world-surface__pencil" aria-label="Edit World title" title="Edit World title" disabled={busy} onClick={() => { setTitleDraft(record.snapshot.title); setEditing(true); setStatus("saved"); }}><span aria-hidden="true">✎</span></button>
               </>}
             </div>
-            <div className="local-world-surface__empty-canvas" aria-label="Empty World canvas">
-              <span className="local-world-surface__spark" aria-hidden="true">✦</span>
-              <p>Your World begins here.</p>
-              <small>People, places and moments can come later.</small>
-            </div>
+            {record.snapshot.objects.length === 0 && record.snapshot.relationships.length === 0 ? (
+              <div className="local-world-surface__empty-canvas" aria-label="Empty World canvas">
+                <span className="local-world-surface__spark" aria-hidden="true">✦</span>
+                <p>Your World begins here.</p>
+                <small>Add connected people, a place and an event in one step. You can then rename, add, connect and move objects.</small>
+                <div className="local-world-surface__graph-start-actions">
+                  <button type="button" disabled={busy || pendingLocalWrites.size > 0 || !!repositoryError || !!firstObjectName.trim()} onClick={() => void seedStarterGraph()}>Start with an example graph</button>
+                </div>
+                {graphAdapter ? <form className="local-world-surface__first-object" onSubmit={(event) => void createFirstObject(event)}>
+                  <label htmlFor="local-world-first-object-name">Or add your first object</label>
+                  <input id="local-world-first-object-name" value={firstObjectName} onChange={(event) => { const name = event.target.value; setFirstObjectName(name); if (record) saveFirstObjectDraft(record.snapshot.worldId, name, firstObjectKind); }} maxLength={160} placeholder="Object name" disabled={busy || pendingLocalWrites.size > 0} />
+                  <label htmlFor="local-world-first-object-kind">Type</label>
+                  <select id="local-world-first-object-kind" value={firstObjectKind} onChange={(event) => { const kind = event.target.value; setFirstObjectKind(kind); if (record) saveFirstObjectDraft(record.snapshot.worldId, firstObjectName, kind); }} disabled={busy || pendingLocalWrites.size > 0}>
+                    <option value="person">Person</option><option value="location">Location</option><option value="event">Event</option><option value="faction">Faction</option>
+                  </select>
+                  <button type="submit" disabled={busy || pendingLocalWrites.size > 0 || !!repositoryError || !firstObjectName.trim()}>Add first object</button>
+                </form> : null}
+              </div>
+            ) : null}
+            {graphConflict && graphConflict.worldId === record.snapshot.worldId ? (
+              <section className="local-world-surface__graph-conflict" aria-label="Saved graph conflict candidate">
+                <h3>Graph edit needs review</h3>
+                <p>{graphConflict.edit.description} was saved as a local conflict candidate based on revision {graphConflict.baseLocalRevision}; the current World is at revision {graphConflict.currentLocalRevision}.</p>
+                <p>The graph now shows the committed version. The canvas keeps the proposal open so you can review and submit it again against the current World.</p>
+                <button type="button" className="local-world-surface__quiet" onClick={() => setGraphConflict(null)}>Dismiss this notice</button>
+              </section>
+            ) : null}
             {repository ? <LocalWorldNotesEditor
               repository={repository}
               record={record}
@@ -499,6 +816,29 @@ export function LocalWorldSurface({
               registerSaveRequest={registerNotesSaveRequest}
             /> : null}
           </section> : null}
+
+          {graphAdapter ? graphSessions.map((sessionRecord) => {
+            const active = record?.snapshot.worldId === sessionRecord.snapshot.worldId;
+            const canvasRecord = active ? record! : sessionRecord;
+            const generation = operationGeneration.current;
+            return <div className="local-world-surface__graph-session" key={sessionRecord.snapshot.worldId} hidden={!active} aria-hidden={!active}>
+              <Suspense fallback={<p className="local-world-surface__graph-loading" role="status">Opening the local graph editor…</p>}>
+                <WorldGraphCanvas
+                  key={sessionRecord.snapshot.worldId}
+                  record={canvasRecord}
+                  editorDraftState={readGraphEditorDraft(sessionRecord.snapshot.worldId)}
+                  onEditorDraftChange={(draft, version, expectedVersion) => writeGraphEditorDraft(sessionRecord.snapshot.worldId, draft, version, expectedVersion)}
+                  onEditorDraftCommit={(field, submittedToken) => clearGraphEditorDraftSubmission(sessionRecord.snapshot.worldId, field, submittedToken)}
+                  onRenameObject={(submitted, objectId, name) => executeGraphSemantic(submitted, () => graphAdapter.renameObject(submitted, objectId, name))}
+                  onCreateObject={(submitted, input) => executeGraphSemantic(submitted, () => graphAdapter.createObject(submitted, input))}
+                  onCreateRelationship={(submitted, input) => executeGraphSemantic(submitted, () => graphAdapter.createRelationship(submitted, input))}
+                  onMoveObjects={(submitted, positions) => executeGraphLayout(submitted, () => graphAdapter.moveObjects(submitted, positions))}
+                  onSemanticResult={(result) => applyGraphSemanticResult(sessionRecord.snapshot.worldId, generation, result)}
+                  onLayoutResult={(result) => applyGraphLayoutResult(sessionRecord.snapshot.worldId, generation, result)}
+                />
+              </Suspense>
+            </div>;
+          }) : null}
 
           <details className="local-world-surface__save-menu">
             <summary>Save menu</summary>
