@@ -79,6 +79,71 @@ def test_near_capacity_trace_preserves_core_terminal_and_marks_overflow(applicat
         assert conn.execute("SELECT octet_length(payload::text) FROM agent.turn_context_trace WHERE turn_id=%s", (turn.turn_id,)).fetchone()[0] <= MAX_CONTEXT_TRACE_BYTES
 
 
+@pytest.mark.parametrize("state", ["recording", "incomplete", "closed"])
+def test_exact_trace_byte_limit_rejects_without_updating_row(application_state_dsn, state):
+    from application_state.agent_conversation.context_trace_store import _save_trace
+
+    _, turn, _, trace = _setup_turn()
+    reserve = CONTEXT_TRACE_TERMINAL_RESERVE_BYTES
+    if state == "incomplete":
+        trace.capture_status = "incomplete"
+        trace.capture_failure_code = "trace_size_limit"
+        reserve //= 2
+    elif state == "closed":
+        trace.closed_at = datetime.now(UTC)
+        trace.terminal_status = "failed"
+        trace.capture_status = "complete"
+        reserve = 0
+    material = TraceContextMaterial(item_id="question", state="model_context", role="user", text='é🦉"\\')
+    trace.observations = [TraceContextSnapshot(sequence=0, elapsed_ms=0, stage="before", materials=[material])]
+    ceiling = MAX_CONTEXT_TRACE_BYTES - reserve
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute(
+            "SELECT NOT relrowsecurity AND NOT relforcerowsecurity "
+            "AND has_table_privilege(current_user,oid,'UPDATE') "
+            "FROM pg_class WHERE oid='agent.turn_context_trace'::regclass"
+        ).fetchone()[0]
+        assert not conn.execute(
+            "SELECT 1 FROM pg_trigger WHERE tgrelid='agent.turn_context_trace'::regclass "
+            "AND (tgtype::int & 1)=0"
+        ).fetchall()
+        conn.execute("SELECT turn_id FROM agent.turn_context_trace WHERE turn_id=%s FOR UPDATE", (turn.turn_id,))
+        size = conn.execute("SELECT octet_length(%s::jsonb::text)",
+            (Jsonb(trace.model_dump(mode="json", by_alias=True)),)).fetchone()[0]
+        material.text += "x" * (ceiling - size)
+        expected = trace.model_dump(mode="json", by_alias=True)
+        _save_trace(conn, trace)
+        before = conn.execute("SELECT payload,xmin::text,ctid::text,octet_length(payload::text) "
+            "FROM agent.turn_context_trace WHERE turn_id=%s", (turn.turn_id,)).fetchone()
+        assert before[0] == expected and before[3] == ceiling
+        material.text += "x"
+        with pytest.raises(ApplicationStateValidationError, match="explicit 1 MiB"):
+            _save_trace(conn, trace)
+        # Catch without rolling back: a no-op UPDATE in this same transaction
+        # would retain xmin, but change the row's tuple location (ctid).
+        after = conn.execute("SELECT payload,xmin::text,ctid::text,octet_length(payload::text) "
+            "FROM agent.turn_context_trace WHERE turn_id=%s", (turn.turn_id,)).fetchone()
+        assert after == before
+
+
+def test_missing_trace_retains_noop_and_oversize_error(application_state_dsn):
+    from application_state.agent_conversation.context_trace_store import _save_trace
+
+    _, turn, _, trace = _setup_turn()
+    trace.trace_id = uuid4()
+    with psycopg.connect(application_state_dsn) as conn:
+        before = conn.execute("SELECT payload,xmin::text,ctid::text FROM agent.turn_context_trace WHERE turn_id=%s",
+            (turn.turn_id,)).fetchone()
+        _save_trace(conn, trace)
+        trace.observations = [TraceContextSnapshot(sequence=0, elapsed_ms=0, stage="before", materials=[
+            TraceContextMaterial(item_id="question", state="model_context", role="user", text="x" * MAX_CONTEXT_TRACE_BYTES),
+        ])]
+        with pytest.raises(ApplicationStateValidationError, match="explicit 1 MiB"):
+            _save_trace(conn, trace)
+        assert conn.execute("SELECT payload,xmin::text,ctid::text FROM agent.turn_context_trace WHERE turn_id=%s",
+            (turn.turn_id,)).fetchone() == before
+
+
 def test_unknown_present_source_is_rejected_and_core_failure_still_commits(application_state_dsn):
     service, turn, identity, _ = _setup_turn()
     event = TraceContextSnapshot(sequence=0, elapsed_ms=0, stage="after", materials=[
