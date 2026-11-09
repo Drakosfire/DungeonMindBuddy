@@ -55,6 +55,8 @@ No runtime source or shared database fixture lease is granted.
 | `tests/application_state/test_play_active_run_postgres.py` | Scoped authenticated endpoint fixture only. |
 | `tests/test_graph_existing_object_resolver.py` | Scoped authenticated endpoint fixture only. |
 | `tests/test_live_artifact_reads.py` | Scoped authenticated endpoint fixture only. |
+| `apps/live_control_server/services/native_authored_references.py` | Coordinator-authorized native source-loss hard422/zero-writer policy only, after real unavailable read admission. No Core/APP schema or reader changes. |
+| `tests/test_build_authored_references.py` | Coordinator-assigned two real-Core owner-contract witnesses only: actual current producer receipt/selection and current source-storage loss; preserve legacy rejection and all original cases/assertions. |
 | `tests/test_cutover_dungeonmind_first_world_initialization.py` | Native client and five named residual witnesses: Page lineage, committed snapshot, activation outage and two frozen-component variants. |
 | `tests/test_cutover_graph_review_authoring_continuity.py` | Native operator fixture and current native-ID/durable-output prerequisites in existing continuity witnesses. |
 | `tests/test_cutover_native_genesis_continuity.py` | Native operator fixture and current native-ID/durable-output prerequisites in existing continuity witnesses. |
@@ -515,3 +517,53 @@ options. Only cache/log timeout ini overrides remain permissible. Explicit
 collect-only diagnostic reports are marked and cannot satisfy execution coverage;
 parity verification must opt into a clearly labelled collection-only proof.
 Original worker/aggregate execution commands never pass that diagnostic option.
+
+### Current authored-reference test-contract repair
+
+Coordinator explicitly assigns the two remaining real-Core cases. Remote main
+was fetched and open PR/leases inspected before edits; no active open writer
+owns this test file. Historical AGENT authored-context design is BLOCKED and
+BUILD same-page quote lease is DELIVERED; REFERENCE authored input is delivered.
+No ADVERSARY path is touched or outreach sent. Local successor preparation at
+de0e4504462ab3335b03d06814cc1da305bbb1d9 preserves the running PR head.
+
+The first-world confirmation receipt identifies its legacy world_graph D0, not
+a current vNext entity-selection receipt. The test must not silently treat it as
+a valid current revision. Keep real first-world initialization and immutable
+source admission, then publish the selected entity using the current governed
+Core producer with evidence from that exact admitted source. Select the actual
+returned entity ID and child revision; verify both real repository snapshots and
+explicitly reject the legacy receipt before source reads. No automatic migration
+or production fallback is implied. Source-loss injection belongs at the current
+Core source-body read and must be exercised, preserve stored source bytes, forbid
+the writer and retain exact unavailable receipts. Original two parameter IDs and
+positive/negative APP outcome assertions remain mandatory.
+
+Graph witness sequencing remains an explicit coordinator/user decision, not a
+technical waiver: (A) retain stage2 HOLD until graph work resumes and its reviewed
+behavior is on main, then rerun the same mandatory witness; this postpones stage2
+completion despite candidate proof. (B) explicitly revise the staged contract so
+CI infrastructure/other proven portions can advance while main graph/persistence
+acceptance remains a separately named unresolved required gate; candidate proof
+must remain labelled candidate-only and cannot set main readiness true. Option B
+changes the original stage2 acceptance sequencing and therefore needs coordinator
+resolution with Alan before implementation. Neither option merges graph early,
+removes the witness, claims qualification on main, or changes existing PR gates.
+Current code implements A/HOLD. Candidate915b142b6a8109b494578c57bcc1b4a2ff9bbe4d
+passes all6 image/browser/fault checks102.846s with all11 cleanup checks. Current
+main-based composition54fdb76b5bf1ccbae3bc45bd69ccf2e0b156d7e5 passes5 image
+checks125.161s but refuses graph_route_dependency_missing; all11 cleanup checks
+pass. These measurements are not a controlled performance comparison.
+
+Coordinator disposition now preserves hard422/zero-writer source loss. The shared
+native acquisition owner is adopted for this narrow product correction: its only
+tracked exclusive implementation lease (REFERENCE plan-authored-input) is
+MERGED_AND_DELIVERED, and no open writer owns this file. RETRIEVAL verified-support-
+once owns native_graph_reads.py, which remains untouched; ADVERSARY's provider
+execution/types/context-test lease remains untouched. No outside outreach. This
+is an explicit bounded exception to the earlier test-only qualification scope,
+not permission for broader runtime changes. Record actual native unavailable
+read evidence, then refuse before writer authority; never fabricate classic
+receipts or discard partial inventory. New current-native producer witness does
+not claim first-world D0 object migration. Source-loss replay must not silently
+redispatch and stored source must remain unchanged.
