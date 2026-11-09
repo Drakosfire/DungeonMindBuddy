@@ -1,6 +1,14 @@
 # PLAY: shared native retrieval with actual Run evidence
 
-Status: ACTIVE IMPLEMENTATION after independent design APPROVE at
+Status: SOURCE SETTLED. PR2172 merged as
+3a80a46b47a01bb8c782e209f8badb2e525ed443 from reviewed
+c48f69db653663f5eeeed1dc0425f6be132f0b10. The native
+Play source contract is implemented, not merely a retained scaffold. Follow-up
+object/mixed admission is source-merged in PR2307. Runtime recovery hold remains;
+this settlement does not claim successful ordinary live answer delivery. The
+retained pre-deletion Play trace records plan_writer_completion_rejected and
+play_jev_delivery_failure; it remains failure evidence. Source write lease released. Historical allocation follows.
+Status at allocation: ACTIVE IMPLEMENTATION after independent design APPROVE at
 `5fa51dc18d6e7d8c983bc07e0b6283c19e35ff2a`. Resumed/repartitioned under the operator's 2026-11-09 instruction:
 "Resume #2172. That was your hold, not mine. Resolve the ownership overlap and
 keep going in small PRs. No need to ask again."
