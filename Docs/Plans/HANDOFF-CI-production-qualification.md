@@ -56,8 +56,8 @@ No runtime source or shared database fixture lease is granted.
 | `tests/test_graph_existing_object_resolver.py` | Scoped authenticated endpoint fixture only. |
 | `tests/test_live_artifact_reads.py` | Scoped authenticated endpoint fixture only. |
 | `tests/test_cutover_dungeonmind_first_world_initialization.py` | Native client and five named residual witnesses: Page lineage, committed snapshot, activation outage and two frozen-component variants. |
-| `tests/test_cutover_graph_review_authoring_continuity.py` | Explicit supported operator authentication in existing native client fixture only. |
-| `tests/test_cutover_native_genesis_continuity.py` | Explicit supported operator authentication in existing native client fixture only. |
+| `tests/test_cutover_graph_review_authoring_continuity.py` | Native operator fixture and current native-ID/durable-output prerequisites in existing continuity witnesses. |
+| `tests/test_cutover_native_genesis_continuity.py` | Native operator fixture and current native-ID/durable-output prerequisites in existing continuity witnesses. |
 | `tests/_cutover_d3a_blocker_safe_fixtures.py` | Current extraction component resolver signature in owned synthetic-run mutation helpers only. |
 | `tests/test_graph_authoring_overlay_projection.py` | Existing declared collection repair. |
 | `tests/test_graph_authoring_overlay_projection_merge.py` | Existing declared collection repair. |
@@ -434,3 +434,52 @@ Both named APP/Core clusters cleaned. The five remaining IDs are unchanged:
 two unavailable authored-selection snapshots, two managed/native-ID count
 assumptions, and one missing durable synthetic extraction output. Independent
 review must cover the corrected cumulative head before any disposition.
+
+## Native continuity identity/output batch
+
+Coordinator's remaining-native assignment adopts only the existing two continuity
+modules' fixture prerequisites and native Core call operands. Current first-world
+creation reserves a native UUID distinct from the managed World ID. Read that
+actual binding after confirm; use it for Core counts, direct snapshot/read/write
+calls and native response assertions. Keep managed IDs in product HTTP requests
+and the legacy-file tripwire. Use explicit World scope/campaign=None for the
+uncampaigned native first-world genesis instead of an invented managed campaign.
+Preserve all original receipt/revision/idempotency/source/privacy assertions and
+counts; add separation assertions. The post-genesis synthetic run must persist
+its actual candidate/span bytes through the existing ingest component API before
+freezing status; no production path reads these files as fallback. No producer/
+reader admission relaxation or ADVERSARY path is authorized.
+
+Continuity request fixtures now select the actual unique frozen span ID for their
+existing selected text, as the current manual authoring API requires. The hint
+is derived from the real retained source/index and still verified by production;
+no source-span check is patched or weakened. Direct v1 wire DTOs require a string
+campaign field, so World-scope requests send the supported empty string, which
+the adapter maps to Core campaign=None; no campaign is invented.
+
+Two later prerequisites surfaced after correcting native IDs: registered source
+locators are now object:// identities, not repo-file grants, so the source-read
+witness asserts the opaque locator and reads actual registered DB bytes, retaining
+all exact excerpt/digest/revision assertions. The child publication fixture must
+actually admit its synthetic recap source through the existing real Core admission
+helper, as its sibling D3A witness already does; a sealed hash alone is no source
+authority. Preserve admission and idempotency fences rather than bypassing them.
+The one retired URI-parsing assertion is explicitly migrated to the current
+anti-filesystem contract; no positive source-body/excerpt check is removed.
+
+The continuity child fixture uses the actual sealed identity gate's node_id_map
+for its published canonical child ID, rather than assuming a provisional preview
+ID survives promotion. Assert the mapped child was absent at D0, exists at D1
+with its exact intended label, and retains the original parent/source/retry/
+recovery checks. No guessed mapping or production identity override is introduced.
+
+Continuity batch author result: complete138-case native/auth boundary now
+136passed/2failed in33.21s, no errors. All three continuity journeys pass actual
+read/write/source/restart/recovery checks. Original54subset now52pass/2fail;
+eight of the ten initial native residuals resolved. The only two failures remain
+the independently diagnosed legacy-D0/native-vNext authored selection contract.
+Test names/decorators unchanged; every original assertion retained after explicit
+managed→native and provisional→canonical operand mapping, except the one
+documented retired file-URI assumption replaced by opaque-URI plus real-DB-body
+checks. All source bytes, span hashes, revisions, receipt counts and replay/
+idempotency assertions remain. Both owned database clusters cleaned.

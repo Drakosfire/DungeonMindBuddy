@@ -552,7 +552,10 @@ def _explode_kernel(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(builtins, "__import__", _guarded_import)
 
 
-def _projection_request(*, revision_pin: str | None = None) -> WorldGraphProjectionRequest:
+def _projection_request(*, revision_pin: str | None = None,
+                        world_id: str = GLASS_ORCHARD_WORLD_ID,
+                        campaign_id: str = GLASS_ORCHARD_WORLD_ID,
+                        scope_mode: str = "campaign") -> WorldGraphProjectionRequest:
 
 
     return WorldGraphProjectionRequest(
@@ -561,16 +564,16 @@ def _projection_request(*, revision_pin: str | None = None) -> WorldGraphProject
         schema="dmb_world_graph_projection_request_v1",
 
 
-        world_id=GLASS_ORCHARD_WORLD_ID,
+        world_id=world_id,
 
 
-        campaign_id=GLASS_ORCHARD_WORLD_ID,
+        campaign_id=campaign_id,
 
 
         admissibility="gm",
 
 
-        scope_mode="campaign",
+        scope_mode=scope_mode,
 
 
         revision_pin=revision_pin,
@@ -579,22 +582,25 @@ def _projection_request(*, revision_pin: str | None = None) -> WorldGraphProject
     )
 
 
-def _retrieval_context(*, revision_pin: str | None = None) -> dict:
+def _retrieval_context(*, revision_pin: str | None = None,
+                       world_id: str = GLASS_ORCHARD_WORLD_ID,
+                       campaign_id: str = GLASS_ORCHARD_WORLD_ID,
+                       scope_mode: str = "campaign") -> dict:
 
 
     fields = {
 
 
-        "worldId": GLASS_ORCHARD_WORLD_ID,
+        "worldId": world_id,
 
 
-        "campaignId": GLASS_ORCHARD_WORLD_ID,
+        "campaignId": campaign_id,
 
 
         "admissibility": "gm",
 
 
-        "scopeMode": "campaign",
+        "scopeMode": scope_mode,
 
 
     }
@@ -677,7 +683,13 @@ def test_reviewed_init_d0_native_read_write_continuity(
     assert not glass_dir.exists()
 
 
-    counts = _counts(dsn, GLASS_ORCHARD_WORLD_ID)
+    from apps.live_control_server.services.world_container_registry import get_world_container
+    binding = get_world_container(repo, GLASS_ORCHARD_WORLD_ID).native_graph_binding
+    native_world_id = binding.native_world_id
+    assert native_world_id != GLASS_ORCHARD_WORLD_ID
+    core_scope = {"world_id": native_world_id, "campaign_id": "", "scope_mode": "world"}
+
+    counts = _counts(dsn, native_world_id)
 
 
     assert counts["receipts"] == 1
@@ -695,7 +707,7 @@ def test_reviewed_init_d0_native_read_write_continuity(
     bundle = _bundle(dsn)
 
 
-    stored_d0 = bundle.world_graph.get_revision(GLASS_ORCHARD_WORLD_ID, d0)
+    stored_d0 = bundle.world_graph.get_revision(native_world_id, d0)
 
 
     assert stored_d0 is not None
@@ -704,10 +716,10 @@ def test_reviewed_init_d0_native_read_write_continuity(
     assert stored_d0.revision.parent_revision_id is None
 
 
-    assert bundle.existing_world_adoptions.get_for_world(GLASS_ORCHARD_WORLD_ID) is None
+    assert bundle.existing_world_adoptions.get_for_world(native_world_id) is None
 
 
-    init = bundle.reviewed_world_initializations.get_for_world(GLASS_ORCHARD_WORLD_ID)
+    init = bundle.reviewed_world_initializations.get_for_world(native_world_id)
 
 
     assert init is not None
@@ -749,7 +761,7 @@ def test_reviewed_init_d0_native_read_write_continuity(
     assert retry_init.json()["committedRevisionId"] == d0
 
 
-    replayed = bundle.reviewed_world_initializations.get_for_world(GLASS_ORCHARD_WORLD_ID)
+    replayed = bundle.reviewed_world_initializations.get_for_world(native_world_id)
 
 
     assert replayed is not None
@@ -761,16 +773,16 @@ def test_reviewed_init_d0_native_read_write_continuity(
     assert replayed.published_revision_id == d0
 
 
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["revisions"] == 1
+    assert _counts(dsn, native_world_id)["revisions"] == 1
 
 
-    assert _counts(dsn, GLASS_ORCHARD_WORLD_ID)["receipts"] == 1
+    assert _counts(dsn, native_world_id)["receipts"] == 1
 
 
     _explode_kernel(monkeypatch)
 
 
-    services = direct.direct_services_from_bundle(bundle, GLASS_ORCHARD_WORLD_ID)
+    services = direct.direct_services_from_bundle(bundle, native_world_id)
 
 
     assert services.binding.genesis == "reviewed_world_initialization"
@@ -791,7 +803,7 @@ def test_reviewed_init_d0_native_read_write_continuity(
     projection = direct.project_world_graph_direct(
 
 
-        services, _projection_request(revision_pin=d0)
+        services, _projection_request(revision_pin=d0, **core_scope)
 
 
     )
@@ -809,7 +821,7 @@ def test_reviewed_init_d0_native_read_write_continuity(
     assert projection.snapshot.revision_id == d0
 
 
-    reread_d0 = bundle.world_graph.get_revision(GLASS_ORCHARD_WORLD_ID, d0)
+    reread_d0 = bundle.world_graph.get_revision(native_world_id, d0)
 
 
     assert reread_d0 is not None
@@ -839,7 +851,7 @@ def test_reviewed_init_d0_native_read_write_continuity(
             queryText="vial",
 
 
-            **_retrieval_context(revision_pin=d0),
+            **_retrieval_context(revision_pin=d0, **core_scope),
 
 
         ),
@@ -866,7 +878,7 @@ def test_reviewed_init_d0_native_read_write_continuity(
             nodeId="obj_session22_vial",
 
 
-            **_retrieval_context(revision_pin=d0),
+            **_retrieval_context(revision_pin=d0, **core_scope),
 
 
         ),
@@ -881,10 +893,10 @@ def test_reviewed_init_d0_native_read_write_continuity(
     adapter = DungeonMindWorldGraphAuthorityAdapter(database_url=dsn)
 
 
-    assert adapter.current_head(GLASS_ORCHARD_WORLD_ID).revision_id == d0
+    assert adapter.current_head(native_world_id).revision_id == d0
 
 
-    d0_view = adapter.read_revision(GLASS_ORCHARD_WORLD_ID, d0)
+    d0_view = adapter.read_revision(native_world_id, d0)
 
 
     assert d0_view.parent_revision_id is None
@@ -893,7 +905,7 @@ def test_reviewed_init_d0_native_read_write_continuity(
     assert "obj_session22_vial" in d0_view.objects
 
 
-    context = adapter.mutation_context(GLASS_ORCHARD_WORLD_ID, d0)
+    context = adapter.mutation_context(native_world_id, d0)
 
 
     assert context.revision_id == d0
@@ -908,7 +920,7 @@ def test_reviewed_init_d0_native_read_write_continuity(
     mutation_context = world_graph_writes.load_production_mutation_context(
 
 
-        GLASS_ORCHARD_WORLD_ID, database_url=dsn
+        native_world_id, database_url=dsn
 
 
     )
@@ -938,6 +950,15 @@ def test_reviewed_init_d0_native_read_write_continuity(
     )
 
 
+    child_node_id = package["effect"]["node_id_map"][CHILD_NODE_ID]
+    assert child_node_id not in d0_view.objects
+
+    from tests.test_cutover_dungeonmind_first_world_initialization import _admit_recap_source_fixture
+    _admit_recap_source_fixture(
+        dsn, native_world_id, tmp_path / "d2c3-continuity-child-recap.md",
+        "artifact:recap:longmont-c2:d2c3-continuity-child", "session-26",
+    )
+
     _, contribution = resolve_merged_contribution_from_package(
 
 
@@ -947,7 +968,7 @@ def test_reviewed_init_d0_native_read_write_continuity(
         confirming_principal="gm@confirm",
 
 
-        world_id_hint=GLASS_ORCHARD_WORLD_ID,
+        world_id_hint=native_world_id,
 
 
         root=None,
@@ -973,7 +994,7 @@ def test_reviewed_init_d0_native_read_write_continuity(
     request = WorldGraphPublishRequest(
 
 
-        world_id=GLASS_ORCHARD_WORLD_ID,
+        world_id=native_world_id,
 
 
         expected_parent_revision_id=d0,
@@ -994,7 +1015,7 @@ def test_reviewed_init_d0_native_read_write_continuity(
         decision="create_new",
 
 
-        threat_node_id=CHILD_NODE_ID,
+        threat_node_id=child_node_id,
 
 
         operation_namespace="threat",
@@ -1018,16 +1039,17 @@ def test_reviewed_init_d0_native_read_write_continuity(
     assert d1 != d0
 
 
-    assert adapter.current_head(GLASS_ORCHARD_WORLD_ID).revision_id == d1
+    assert adapter.current_head(native_world_id).revision_id == d1
 
 
-    child = adapter.read_revision(GLASS_ORCHARD_WORLD_ID, d1)
+    child = adapter.read_revision(native_world_id, d1)
 
 
     assert child.parent_revision_id == d0
 
 
-    assert CHILD_NODE_ID in child.objects
+    assert child_node_id in child.objects
+    assert child.objects[child_node_id].label == "D2C3 Continuity Child"
 
 
     assert "obj_session22_vial" in child.objects
@@ -1045,7 +1067,7 @@ def test_reviewed_init_d0_native_read_write_continuity(
     recovered = adapter.recover(
 
 
-        GLASS_ORCHARD_WORLD_ID,
+        native_world_id,
 
 
         operation_id,
@@ -1075,10 +1097,10 @@ def test_reviewed_init_d0_native_read_write_continuity(
     assert recovered.parent_revision_id == d0
 
 
-    assert adapter.current_head(GLASS_ORCHARD_WORLD_ID).revision_id == d1
+    assert adapter.current_head(native_world_id).revision_id == d1
 
 
-    after = _counts(dsn, GLASS_ORCHARD_WORLD_ID)
+    after = _counts(dsn, native_world_id)
 
 
     assert after["receipts"] == 1
@@ -1099,7 +1121,7 @@ def test_reviewed_init_d0_native_read_write_continuity(
     child_services = direct.direct_services_from_bundle(
 
 
-        _bundle(dsn), GLASS_ORCHARD_WORLD_ID
+        _bundle(dsn), native_world_id
 
 
     )
@@ -1120,7 +1142,7 @@ def test_reviewed_init_d0_native_read_write_continuity(
     child_projection = direct.project_world_graph_direct(
 
 
-        child_services, _projection_request(revision_pin=d1)
+        child_services, _projection_request(revision_pin=d1, **core_scope)
 
 
     )
