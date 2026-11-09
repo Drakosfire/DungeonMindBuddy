@@ -517,6 +517,37 @@ describe("local World Surface", () => {
     }
   });
 
+  it("restores a failed custom first-object draft across Surface remount and protects it from unload", async () => {
+    let failNextSemanticEdit = false;
+    const repository = new InMemoryLocalWorldRepository({ beforeCommit: (point) => {
+      if (point === "semantic-edit" && failNextSemanticEdit) {
+        failNextSemanticEdit = false;
+        throw new Error("First object transaction aborted.");
+      }
+    } });
+    const created = await repository.createWorld({ title: "Custom start" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+    const user = userEvent.setup();
+    const firstSurface = renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Custom start/ }));
+    await user.type(screen.getByLabelText("Or add your first object"), "Mara Venn");
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    failNextSemanticEdit = true;
+    await user.click(screen.getByRole("button", { name: "Add first object" }));
+    expect(await screen.findAllByText("First object transaction aborted.")).not.toHaveLength(0);
+    expect(beforeUnloadIsPrevented()).toBe(true);
+
+    firstSurface.unmount();
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    renderSurface(repository);
+    await user.click(await screen.findByRole("button", { name: /Custom start/ }));
+    expect(screen.getByLabelText("Or add your first object")).toHaveValue("Mara Venn");
+    expect(beforeUnloadIsPrevented()).toBe(true);
+    await user.clear(screen.getByLabelText("Or add your first object"));
+    expect(beforeUnloadIsPrevented()).toBe(false);
+  });
+
   it("exports the current World and preserves bundled sidecar attachments after a title edit", async () => {
     const user = userEvent.setup();
     const sharedStore = new InMemoryLocalWorldStore();
