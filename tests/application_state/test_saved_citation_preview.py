@@ -8,6 +8,7 @@ from application_state.agent_conversation.saved_citation_preview import project
 from application_state.agent_conversation.authored_reference_preview import project as project_references
 from application_state.errors import ApplicationStateIntegrityError
 from tests.test_native_plan_assertions import lane as lane
+from tests.application_state.test_native_plan_statements import native_read_admission_probes as native_read_admission_probes
 
 
 def native_row(surface="build"):
@@ -310,3 +311,52 @@ def test_invalid_or_ambiguous_selection_never_becomes_display_or_authority(chang
     else:raw[0]['references'][0]['reader_authority']='forged'
     with pytest.raises(ApplicationStateIntegrityError,match='cannot be displayed safely'):
         project_references(raw,'world-one')
+
+
+@pytest.mark.parametrize("surface", ["build", "plan"])
+def test_related_saved_page_preview_reuses_exact_claim_without_source_io(surface):
+    row = native_row(surface)
+    page = dict(world_id=row["world_id"], document_id=str(uuid4()), registry_revision=3,
+                title="Edge", visibility="internal", content_sha256="b" * 64)
+    claim = dict(kind="related_page_claim", text="Edge has an old bath house.",
+                 read_id=str(uuid4()), page=page)
+    row["assistant_text"] = claim["text"]
+    row["completion"].update(answer_segments=[claim], native_body_citations=[],
+                              answer_context_status="authored_grounded")
+    original = deepcopy(row)
+    assert project(row)["answer_segments"] == [claim]
+    assert row == original
+    for change in ("world", "read", "revision", "digest", "surface", "text"):
+        damaged = deepcopy(row)
+        segment = damaged["completion"]["answer_segments"][0]
+        if change == "world": segment["page"]["world_id"] = "another-world"
+        elif change == "read": segment["read_id"] = "invalid"
+        elif change == "revision": segment["page"]["registry_revision"] = 0
+        elif change == "digest": segment["page"]["content_sha256"] = "invalid"
+        elif change == "surface":
+            damaged["surface_id"] = damaged["completion"]["surface_id"] = "play"
+        else: damaged["assistant_text"] = "Different visible answer"
+        assert project(damaged)["status"] == "details_required", change
+
+
+def test_persisted_native_plan_related_claim_survives_lightweight_reload_without_full_turn(
+        lane, tmp_path, monkeypatch, native_read_admission_probes):
+    from tests.test_native_plan_assertions import _ordinary_native_case
+    from application_state.agent_conversation import library, repository
+    _ordinary_native_case(lane, tmp_path, monkeypatch, False, False, None, None,
+                          False, native_read_admission_probes, related_page=True)
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Lightweight authored citations loaded a full turn")
+    with monkeypatch.context() as patch:
+        patch.setattr(repository, "_turn_from_row", forbidden)
+        first = library.read_active_messages(lane.world.world_id)
+        reloaded = library.read_active_messages(lane.world.world_id)
+    assert first == reloaded
+    message = first["messages"][-1]
+    preview = message["citation_preview"]
+    assert preview["status"] == "ready"
+    claims = [s for s in preview["answer_segments"] if s["kind"] == "related_page_claim"]
+    assert len(claims) == 1
+    assert claims[0]["page"]["world_id"] == lane.world.world_id
+    assert claims[0]["page"]["title"] == "Saved Edge page"
+    assert "\n".join(s["text"] for s in preview["answer_segments"]) == message["assistant_text"]

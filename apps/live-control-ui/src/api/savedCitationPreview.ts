@@ -1,12 +1,12 @@
 import type {SurfaceNativeCompletionV1,SurfaceEvidenceCompletionV3,WorldBuildGraphReceiptV1} from './types';
-import {exact,isBuildSourceBasis} from '../shared/sourcePassageProtocol';
+import {exact,isBuildSourceBasis,isRelatedPageClaim} from '../shared/sourcePassageProtocol';
 import {isNativeBodyCitation,isNativeSourceCitation} from '../shared/nativeSourceCitationProtocol';
 import {isNativeClauseCitationShape} from '../shared/nativeStatementAnswerProtocol';
 import {isNativeAssertionCitationShape} from '../shared/nativeAssertionProtocol';
 
 export type SavedCitationPreview = {
   schema:'dmb_saved_native_citation_preview_v1';status:'ready';surface_id:'build'|'plan'|'play';
-  answer_segments:{kind:string;text:string;content_sha256?:string}[];
+  answer_segments:({kind:string;text:string;content_sha256?:string}|Extract<import('./types').WorldBuildRelatedPageCompletionV1['answer_segments'][number],{kind:'related_page_claim'}>)[];
   native_source_citations:SurfaceEvidenceCompletionV3['native_source_citations'];
   native_body_citations:SurfaceNativeCompletionV1['native_body_citations'];
   native_clause_citations:SurfaceNativeCompletionV1['native_clause_citations'];
@@ -25,7 +25,9 @@ export function readSavedCitationPreview(v:unknown,world:string,surface:string,a
     ||v.schema!=='dmb_saved_native_citation_preview_v1'||v.status!=='ready'||v.surface_id!==surface||!['build','plan','play'].includes(surface)
     ||!Array.isArray(v.answer_segments)||!v.answer_segments.length||v.answer_segments.length>128)return unavailable();
   const segments=v.answer_segments;
-  if(!segments.every(s=>exact(s,s?.kind==='saved_source_claim'?['kind','text','content_sha256']:['kind','text'])
+  if(!segments.every(s=>s?.kind==='related_page_claim'
+      ? ['build','plan'].includes(surface)&&isRelatedPageClaim(s,world)
+      : exact(s,s?.kind==='saved_source_claim'?['kind','text','content_sha256']:['kind','text'])
       &&['source_passage_claim','native_assertion_claim','saved_source_claim','proposal','limitation','discussion','draft_reference_claim'].includes(String(s.kind))
       &&typeof s.text==='string'&&!!s.text.trim()&&(s.kind!=='saved_source_claim'||hash(s.content_sha256)))
     ||segments.map(s=>s.text).join('\n')!==answer)return unavailable();

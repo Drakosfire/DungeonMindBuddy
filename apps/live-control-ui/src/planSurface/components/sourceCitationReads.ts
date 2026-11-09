@@ -30,9 +30,15 @@ export function passageChoices(completion:PassageCompletion,worldId:string,turnI
   });
   const pages: CitationChoice[]=completion.answer_segments.flatMap((segment,index)=>{
     if(segment.kind!=='related_page_claim' || segmentIndex!==undefined && index!==segmentIndex)return [];
+    return [{...relatedPageChoice(segment,worldId,turnId,index),number:('source_citations' in completion ? completion.source_citations.length : 0)+index+1}];
+  });
+  return [...passages,...pages];
+}
+/** Shared saved-page reader; lightweight presentation never grants read authority. */
+export function relatedPageChoice(segment:Extract<import('../../api/types').WorldBuildRelatedPageCompletionV1['answer_segments'][number],{kind:'related_page_claim'}>,worldId:string,turnId:string,index:number):CitationChoice {
     const page=segment.page;
     const title=`${page.title} · saved revision ${page.registry_revision}`;
-    return [{key:`related:${segment.read_id}:${index}`,number:('source_citations' in completion ? completion.source_citations.length : 0)+index+1,segmentIndex:index,
+    return {key:`related:${segment.read_id}:${index}`,number:index+1,segmentIndex:index,
       title,label:`Read ${title}`,kind:'section' as const,load:async()=>{
         const result=await getAgentRelatedPage(worldId,turnId,segment.read_id);
         if(page.world_id!==worldId || !exact(result,['schema','world_id','turn_id','read_id','page','markdown'])
@@ -40,10 +46,9 @@ export function passageChoices(completion:PassageCompletion,worldId:string,turnI
           || result.read_id!==segment.read_id || canonical(result.page)!==canonical(page)
           || typeof result.markdown!=='string' || await hash(result.markdown)!==page.content_sha256)throw new Error('Related page binding differs');
         return result.markdown;
-      }}];
-  });
-  return [...passages,...pages];
+      }};
 }
+
 export function nativeChoices(completion:Partial<Pick<SurfaceEvidenceCompletionV3,"native_source_citations"> & Pick<SurfaceEvidenceCompletionV5,"native_body_citations"> & Pick<SurfaceEvidenceCompletionV6,"native_clause_citations"> & Pick<SurfaceEvidenceCompletionV7,"native_assertion_citations">>,worldId:string,turnId:string,segmentIndex:number):CitationChoice[] {
   const sections=(completion.native_source_citations??[]).flatMap((citation,index)=>citation.segment_index!==segmentIndex ? [] : [{
     key:`section:${index}`,number:index+1,title:`${citation.source_name} · ${citation.section_title}`,
