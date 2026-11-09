@@ -4171,67 +4171,9 @@ GraphExecutionEventV1 = Annotated[
 
 
 def validate_provider_execution(execution) -> None:
-    """Validate the actual typed record; never project native events to V1."""
-    policy, events = execution.policy, execution.events
-    if [event.sequence for event in events] != list(range(len(events))):
-        raise ValueError("Graph execution events must have contiguous sequence numbers")
-    if len({event.event_id for event in events}) != len(events):
-        raise ValueError("Graph execution event IDs must be unique")
-    attempts: dict[UUID, ProviderAttemptAuthorizedEventV1] = {}
-    outcomes: dict[UUID, list[str]] = {}
-    completion_bindings = 0
-    for event in events:
-        if isinstance(event, ProviderAttemptAuthorizedEventV1):
-            if event.provider_attempt_id in attempts:
-                raise ValueError("provider attempt ID was authorized more than once")
-            if attempts:
-                latest_attempt_id = next(reversed(attempts))
-                prior_outcomes = outcomes[latest_attempt_id]
-                if not prior_outcomes or prior_outcomes[-1] not in {"response_received", "known_not_sent"}:
-                    raise ValueError("a new provider attempt requires a resolved prior attempt")
-            if isinstance(event, ProviderAttemptAuthorizedEventV5):
-                from .build_decision_context import validate_event
-                validate_event(event, execution)
-            from .build_decision_context import uses_role_accounting
-            if uses_role_accounting(policy):
-                from .build_decision_context import validate_accounting
-                validate_accounting(event, execution, provider_index=len(attempts))
-            elif (event.input_accounting_kind != policy.provider_input_accounting.kind
-                    or event.input_estimator != policy.provider_input_accounting.estimator):
-                raise ValueError("provider attempt accounting differs from accepted policy")
-            attempts[event.provider_attempt_id] = event
-            outcomes[event.provider_attempt_id] = []
-        elif isinstance(event, ProviderOutcomeEventV1):
-            if event.provider_attempt_id not in attempts:
-                raise ValueError("provider outcome requires a prior authorization")
-            prior = outcomes[event.provider_attempt_id]
-            if event.outcome == "sdk_entered" and prior:
-                raise ValueError("SDK entry must be the first provider outcome")
-            if event.outcome == "known_not_sent" and prior:
-                raise ValueError("known-not-sent must be recorded before SDK entry")
-            if event.outcome not in {"sdk_entered", "known_not_sent", "outcome_unknown"} and not prior:
-                raise ValueError("provider outcome requires observed SDK entry")
-            if prior and prior[-1] in {"response_received", "known_not_sent", "outcome_unknown"}:
-                raise ValueError("provider attempt already has a terminal outcome")
-            prior.append(event.outcome)
-        elif isinstance(event, CompletionBindingEventV1):
-            completion_bindings += 1
-            if completion_bindings > 1 or event.sequence != len(events) - 1:
-                raise ValueError("completion binding must be unique and the final execution event")
-            if event.provider_attempt_id not in attempts or outcomes[event.provider_attempt_id][-1:] != ["response_received"]:
-                raise ValueError("completion binding requires a response-received attempt")
-    if policy.max_provider_attempts is not None and len(attempts) > policy.max_provider_attempts:
-        raise ValueError("provider attempt policy limit exceeded")
-    input_total = sum(event.input_tokens for event in attempts.values())
-    output_total = sum(event.output_token_reserve for event in attempts.values())
-    if (
-        policy.max_total_provider_input_tokens is not None
-        and input_total > policy.max_total_provider_input_tokens
-    ) or (
-        policy.max_total_provider_output_tokens is not None
-        and output_total > policy.max_total_provider_output_tokens
-    ):
-        raise ValueError("provider token budget exceeded")
+    """Recover provider lifecycle through its single pure transition owner."""
+    from .provider_execution import validate
+    validate(execution)
 
 
 def validate_graph_operation_execution(execution) -> None:
