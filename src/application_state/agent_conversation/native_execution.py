@@ -396,6 +396,11 @@ def validate_context_binding(context, execution) -> SurfaceNativeExecutionV1:
         raise ValueError("Native execution requires its concrete shared context")
     context = SurfaceNativeContextReceiptV1.model_validate(context.model_dump(mode="python", by_alias=True))
     execution = SurfaceNativeExecutionV1.model_validate(execution.model_dump(mode="python", by_alias=True))
+    return _join_context_binding(context, execution)
+
+
+def _join_context_binding(context, execution):
+    """Join components freshly validated by the calling construction owner."""
     action, work = execution.policy.action, context.work_context
     if (action.surface_id != work.surface_id or action.intent.world_id != work_world_id(work)
             or execution.context_receipt_sha256 != context.context_receipt_sha256
@@ -472,6 +477,11 @@ def validate_turn_fields(receipt, execution, provenance, intent_fingerprint, com
     if (t.canonical_sha256(provenance) != receipt.provenance_sha256
             or t.submitted_turn_intent_fingerprint_v2(execution.policy.action.intent) != intent_fingerprint):
         raise ValueError("Stored shared native request or provenance differs from admission")
+    _join_turn_fields(receipt, execution, completion, assistant_text)
+
+
+def _join_turn_fields(receipt, execution, completion, assistant_text):
+    """Complete the structural join after the caller's request/provenance checks."""
     bindings=[event for event in execution.events if isinstance(event,t.CompletionBindingEventV1)]
     if completion is None:
         if assistant_text is not None or bindings:
@@ -483,9 +493,7 @@ def validate_turn_fields(receipt, execution, provenance, intent_fingerprint, com
     validate_retained_completion(completion,receipt,execution,bindings[0].provider_attempt_id,bindings[0].claim_graph_event_ids)
 
 
-def validate_turn_identity(turn):
-    """Bind stored work to real Turn identity; no manufactured submission/Turn."""
-    validate_request_identity(turn.graph_context_receipt,turn.graph_context_execution,turn)
+def _join_turn_lifecycle(turn):
     if ((turn.status=='completed' and (turn.completion is None or turn.completed_at is None))
             or (turn.status!='completed' and turn.completion is not None)
             or (turn.status in {'accepted','running'} and turn.completed_at is not None)):
@@ -498,6 +506,10 @@ def validate_request_identity(receipt, execution, envelope):
         raise ValueError('Stored shared native Turn requires its concrete context and execution')
     from .native_context import validate_work_context
     validate_work_context(receipt,envelope.provenance,play_context_receipt=envelope.play_context_receipt)
+    _join_request_identity(receipt, execution, envelope)
+
+
+def _join_request_identity(receipt, execution, envelope):
     action=execution.policy.action
     intent=action.intent
     if (envelope.submitted_intent_fingerprint_v1 is not None

@@ -145,6 +145,12 @@ def validate_work_context(context, provenance, *, play_context_receipt=None):
     # Revalidate nested mutable work models and the complete root commitment.
     context = SurfaceNativeContextReceiptV1.model_validate(context.model_dump(mode="python", by_alias=True))
     provenance = t.TurnProvenance.model_validate(provenance.model_dump(mode="python", by_alias=True))
+    return _join_work_context(context, provenance, play_context_receipt=play_context_receipt)
+
+
+def _join_work_context(context, provenance, *, play_context_receipt=None):
+    """Join components freshly validated by the calling construction owner."""
+    from . import types as t
     work = context.work_context
     if (canonical_sha256(provenance) != context.provenance_sha256
         or provenance.world_id != work_world_id(work)
