@@ -1,6 +1,10 @@
 # CI: classify the merged response-assembly test
 
-ACTIVE PRIME serial prerequisite from60d28dda015c46ffd9e345f72bf48216684a30a3,
+SETTLED: #2347 merged at2a375d79331e42f4fa97b8ee1b79ff123740d53e after
+independent exact-head approval.65 guards/actual response cases pass;1490 files
+classified. Source-only; no runtime changes. References rebased onto this merge.
+
+Historical ACTIVE PRIME serial prerequisite from60d28dda015c46ffd9e345f72bf48216684a30a3,
 branch codex/ci-response-assembly-inventory in existing context-loop checkout.
 The authorized References slice found current main inventory red after merged
 COMPOSITION2345 added tests/test_plan_jev_response_assembly.py without classifying
