@@ -1,6 +1,6 @@
 # QA: replay current native Plan writer requests
 
-ACTIVE serial successor to merged #2385 at 009c95118b95cc4fdcb58ff3372b58c175888fc4.
+MERGED in #2387 at d043600202a3e0cc5d6b81f88d6eb5019ec7c3c9. Write lease released.
 Branch codex/qa-current-writer-replay, non-serving QA checkout.
 
 The ordinary Q16 turn completed on this base. Its retained writer request and
