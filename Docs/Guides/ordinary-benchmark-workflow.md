@@ -181,6 +181,18 @@ bookkeeping leakage in retained legacy qualification prose must be resolved at
 its owner before sending that context in another paid comparison.
 # Reviewed qualification separation in writer experiments
 
+Ordinary native Plan/Play/Build writer calls assemble the versioned response
+compiler at `PlanJevWriter` after actual work reconstruction. Plan requires its
+unique ordinary discussion selection; Build requires actual discuss/fulfill/
+answer-from-sources resolution; native Play owns a read-only Run question.
+Clarification, authoring and reviewed collaboration keep their capability owners.
+Rules guidance requires a supplied lookup; related-page guidance requires supplied
+saved pages. `writer.prompt_components` is host-only inspectability, never model
+input. Ordinary calls do not first construct the superseded broad instruction
+string. Native schema, messages, admission and citation authority are unchanged.
+This integration does not import experimental data repair or flat presentation
+into runtime, repair historical database metadata, or deploy the app.
+
 The current flat experiment uses `flat_native_assertions_v2`. It prints each
 byte-identical complete qualification once, with the full list of its original
 handles. Assertions still reference their original handles; no factual values or

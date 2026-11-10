@@ -56,11 +56,12 @@ using exact, unique, nonoverlapping phrases copied from the original question.
 Do not mark answered dimensions as missing or fill gaps with unrelated excerpts.""")
 
 
-def compose_response_prompt(*, rules_instructions=None):
+def compose_response_prompt(*, rules_instructions=None, related_page_instructions=None):
     """One assembly for an ordinary response; no retrieval/edit/image capability."""
     components = (VOICE, EVIDENCE, CITATIONS, OUTPUT)
-    if rules_instructions is not None:
-        if not isinstance(rules_instructions, str) or not rules_instructions.strip():
-            raise ValueError("Active Rules response instructions must be nonblank")
-        components += (ResponsePromptComponent("rules_response", "1", rules_instructions),)
+    for name, text in (("rules_response", rules_instructions), ("related_pages_response", related_page_instructions)):
+        if text is not None:
+            if not isinstance(text, str) or not text.strip():
+                raise ValueError("Active response instructions must be nonblank")
+            components += (ResponsePromptComponent(name, "1", text),)
     return ResponsePrompt(components)

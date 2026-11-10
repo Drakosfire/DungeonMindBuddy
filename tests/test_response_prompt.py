@@ -39,3 +39,13 @@ def test_rules_response_guidance_is_present_only_when_active():
     assert active.instructions.startswith(base.instructions)
     with pytest.raises(ValueError):
         compose_response_prompt(rules_instructions=" ")
+
+
+def test_related_page_guidance_is_an_explicit_separate_component():
+    prompt = compose_response_prompt(rules_instructions="Supplied Rules.",
+                                     related_page_instructions="Quote the supplied page.")
+    assert [c.name for c in prompt.components][-2:] == ['rules_response', 'related_pages_response']
+    assert prompt.instructions.endswith('Quote the supplied page.')
+    assert 'Quote the supplied page.' not in compose_response_prompt().instructions
+    with pytest.raises(ValueError):
+        compose_response_prompt(related_page_instructions=' ')
