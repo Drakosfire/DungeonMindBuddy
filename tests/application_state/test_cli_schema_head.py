@@ -118,8 +118,9 @@ def test_captured_source_name_reader_fence_refuses_predecessor(application_state
     assert actual == cli._alembic_head()
     # An old binary's installed-head discovery refuses the new database before
     # parsing any stored source/member records. No downgrade or row edits.
-    monkeypatch.setattr(cli, '_alembic_head', lambda: fence.down_revision)
-    with pytest.raises(ApplicationStateMigrationError):
-        cli.assert_at_head(dsn=application_state_dsn)
+    with monkeypatch.context() as old_reader:
+        old_reader.setattr(cli, '_alembic_head', lambda: fence.down_revision)
+        with pytest.raises(ApplicationStateMigrationError):
+            cli.assert_at_head(dsn=application_state_dsn)
     with pytest.raises(RuntimeError, match='forward recovery'):
         fence.downgrade()
