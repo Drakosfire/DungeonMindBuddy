@@ -1,5 +1,5 @@
 """Actual APP CAS and authenticated HTTP review, without source/provider writes."""
-from apps.live_control_server.services.workspace_document_registry import get_workspace_document
+from tests.page_fixtures import page_text, save_page
 
 import asyncio
 from uuid import uuid4
@@ -58,7 +58,7 @@ def test_review_edit_cas_reload_and_original_evidence_are_distinct(review_case):
     with pytest.raises(ApplicationStateConflictError):
         command("save", opened.revision, markdown="Stale copy")
     assert BuildProposalService().get("elderwyld", proposal.action_id) == proposal
-    assert (root / source.record.target_relpath).read_text() == source.markdown
+    assert page_text(root, source.record.document_id) == source.markdown
     assert len(wire.calls) == 1
 
 
@@ -80,7 +80,7 @@ def test_discard_is_durable_terminal_and_does_not_touch_source(review_case):
     ]:
         with pytest.raises(ApplicationStateConflictError):
             command(operation, discarded.revision, **fields)
-    assert (root / source.record.target_relpath).read_text() == source.markdown
+    assert page_text(root, source.record.document_id) == source.markdown
     assert (
         not BuildProposalService()
         .get("elderwyld", proposal.action_id)
@@ -118,7 +118,7 @@ def test_apply_reservation_and_ack_recover_without_reinterpreting_bytes(review_c
     saved = BuildProposalService().get("elderwyld", proposal.action_id)
     assert saved.inserted_in_draft and saved.proposal == proposal.proposal
     assert saved.request_fingerprint == proposal.request_fingerprint
-    assert (root / source.record.target_relpath).read_text() == source.markdown
+    assert page_text(root, source.record.document_id) == source.markdown
     assert len(wire.calls) == 1
 
 
@@ -221,7 +221,7 @@ def test_review_move_is_durable_cas_and_bound_into_apply(review_case):
     with pytest.raises(ApplicationStateConflictError):
         command("move", prepared.revision, placement_caret=original)
     assert BuildProposalService().get("elderwyld", proposal.action_id) == proposal
-    assert (root / source.record.target_relpath).read_text() == source.markdown
+    assert page_text(root, source.record.document_id) == source.markdown
     assert len(wire.calls) == 1
 
 
@@ -287,7 +287,7 @@ def test_retained_review_migration_keeps_exact_original_placement(
     assert restored == opened
     assert restored.placement_caret == proposal.reservation.basis.caret
     assert BuildProposalService().get("elderwyld", proposal.action_id) == proposal
-    assert (root / source.record.target_relpath).read_text() == source.markdown
+    assert page_text(root, source.record.document_id) == source.markdown
 
 
 def test_selected_revision_review_stays_pinned_and_recovers_exact_apply(request_case):
@@ -328,8 +328,7 @@ def test_fresh_placement_preserves_uncertain_receipt_without_regeneration(review
     from hashlib import sha256
     from apps.live_control_server.services.workspace_document_registry import (get_workspace_document_snapshot)
     newer_text=source.markdown+"\nNewer saved author writing.\n"
-    (root/source.record.target_relpath).write_text(newer_text)
-    get_workspace_document(root, source.record.document_id)
+    save_page(root, source.record.document_id, newer_text)
     newer=get_workspace_document_snapshot(root,source.record.document_id)
     cap = PlacementCapability(command_id=uuid4(), conversation_id=proposal.reservation.conversation_id,
         expected_pointer_revision=proposal.reservation.expected_pointer_revision,
@@ -350,7 +349,7 @@ def test_fresh_placement_preserves_uncertain_receipt_without_regeneration(review
         command("prepare",fresh.revision,apply_id=pending.apply.apply_id,
             after_editor_sha256="a"*64,after_draft_sha256="b"*64)
     assert BuildProposalService().get("elderwyld",proposal.action_id) == proposal
-    assert (root/source.record.target_relpath).read_text() == newer.markdown
+    assert page_text(root, source.record.document_id) == newer.markdown
     assert len(wire.calls)==1
     # A fresh placement is durable new vocabulary; an older runtime may not erase it.
     from importlib import import_module
@@ -456,7 +455,7 @@ def test_whole_page_review_resolves_target_and_never_becomes_a_moved_insertion(r
     applied=command('confirm',pending.revision,apply_id=apply_id)
     assert applied.state=='applied' and applied.apply.page_body_target==request.page_body_offer
     assert len(wire.calls)==1
-    assert (root/source.record.target_relpath).read_text()==source.markdown
+    assert page_text(root, source.record.document_id)==source.markdown
 
 
 def test_page_end_review_rejects_old_tab_ack_and_preserves_exact_recovery(request_case):
@@ -491,4 +490,4 @@ def test_page_end_review_rejects_old_tab_ack_and_preserves_exact_recovery(reques
         command('prepare',review.revision,**fields)
     applied=command('confirm',pending.revision,apply_id=apply_id)
     assert applied.state=='applied' and applied.apply.page_end_target==request.page_end_offer
-    assert (root/source.record.target_relpath).read_text()==source.markdown and len(wire.calls)==1
+    assert page_text(root, source.record.document_id)==source.markdown and len(wire.calls)==1
