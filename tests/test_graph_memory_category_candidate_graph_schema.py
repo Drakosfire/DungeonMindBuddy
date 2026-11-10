@@ -176,3 +176,17 @@ def test_node_evidence_schema_binds_only_advertised_ids_without_mutating_default
     Draft202012Validator(original).validate(payload)  # Unbound/default contract stays unchanged.
     with pytest.raises(ValueError, match='advertised'):
         node_schema_with_advertised_spans(schema, [])
+
+
+def test_only_opted_in_pass_spec_admits_source_precedence():
+    from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
+    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    from src.graph_memory.extraction.worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
+    import jsonschema
+    edge = {"edge_id": "before", "from_node_id": "arrival", "to_node_id": "departure",
+            "label": "Earlier occurrence", "relationship_type": "precedes",
+            "predicate_family": "temporal_sequence", "evidence_refs": []}
+    output = {"observation_edges": [edge]}
+    jsonschema.validate(output, schema_for_pass_spec(RECAP_EXTRACTION_PROFILE.edge_pass))
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(output, schema_for_pass_spec(WORLDBUILDING_PROFILE.edge_pass))

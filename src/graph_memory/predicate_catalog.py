@@ -33,6 +33,45 @@ PREDICATE_FAMILY_IDS = frozenset(
 # v1 exact predicates grouped by runtime predicate family.
 V1_EXACT_PREDICATES: dict[str, str] = dict(ir.PREDICATE_FAMILY)
 
+RECAP_SOURCE_ORDER = "recap_source_order"
+SOURCE_PRECEDENCE_PREDICATE = "precedes"
+# family, domain meaning, requires producer-nominated relationship evidence.
+_CAPABILITY_PREDICATES = {
+    RECAP_SOURCE_ORDER: {
+        SOURCE_PRECEDENCE_PREDICATE: (
+            "temporal_sequence",
+            "This source account places occurrence subject earlier than occurrence object "
+            "at its narrated granularity. Both endpoints must describe specific occurred "
+            "events, including an actual planning or reporting act, not its proposed future "
+            "outcome. Do not infer order from paragraph position or use this for persistent "
+            "people, places, topics, unknown order or overlapping occurrences. This does not "
+            "assert causation, elapsed time or a total timeline. Nominate evidence for the "
+            "order itself; endpoint citations alone are insufficient.",
+            True,
+        ),
+    },
+}
+
+
+def _capability_predicates(capabilities: tuple[str, ...]):
+    for capability in capabilities:
+        if capability not in _CAPABILITY_PREDICATES:
+            raise ValueError(f"Unknown predicate capability: {capability}")
+        yield from _CAPABILITY_PREDICATES[capability].items()
+
+
+def _exact_predicates(capabilities: tuple[str, ...]) -> dict[str, str]:
+    return {**V1_EXACT_PREDICATES,
+            **{term: spec[0] for term, spec in _capability_predicates(capabilities)}}
+
+
+def requires_relationship_evidence(
+    relationship_type: str, *, capabilities: tuple[str, ...] = (),
+) -> bool:
+    return any(term == relationship_type and spec[2]
+               for term, spec in _capability_predicates(capabilities))
+
+
 PREDICATE_VALIDATION_CODES = frozenset(
     {
         "unknown_relationship_type",
@@ -47,24 +86,24 @@ def predicate_family_ids() -> tuple[str, ...]:
     return tuple(sorted(PREDICATE_FAMILY_IDS))
 
 
-def exact_predicate_ids() -> tuple[str, ...]:
+def exact_predicate_ids(*, capabilities: tuple[str, ...] = ()) -> tuple[str, ...]:
     """Sorted v1 exact ``relationship_type`` ids allowed in edge extraction."""
-    return tuple(sorted(V1_EXACT_PREDICATES))
+    return tuple(sorted(_exact_predicates(capabilities)))
 
 
-def predicates_by_family() -> dict[str, tuple[str, ...]]:
+def predicates_by_family(*, capabilities: tuple[str, ...] = ()) -> dict[str, tuple[str, ...]]:
     grouped: dict[str, list[str]] = {}
-    for predicate, family in sorted(V1_EXACT_PREDICATES.items()):
+    for predicate, family in sorted(_exact_predicates(capabilities).items()):
         grouped.setdefault(family, []).append(predicate)
     return {family: tuple(sorted(predicates)) for family, predicates in sorted(grouped.items())}
 
 
-def predicate_family_for_type(relationship_type: str) -> str:
+def predicate_family_for_type(relationship_type: str, *, capabilities: tuple[str, ...] = ()) -> str:
     """Catalogue family for a catalog predicate; unknown verbs use ``rel:<verb>``."""
     raw = (relationship_type or "").strip().lower()
     if not raw:
         return "rel:unknown"
-    return V1_EXACT_PREDICATES.get(raw, f"rel:{raw}")
+    return _exact_predicates(capabilities).get(raw, f"rel:{raw}")
 
 
 def edge_predicate_family(edge: Any) -> str:
@@ -78,28 +117,31 @@ def edge_predicate_family(edge: Any) -> str:
 def validate_edge_predicate(
     relationship_type: str,
     predicate_family: str | None,
+    *, capabilities: tuple[str, ...] = (),
 ) -> list[str]:
     """Return validation issue codes for a relationship_type / predicate_family pair."""
     rel = (relationship_type or "").strip().lower()
     fam = (predicate_family or "").strip()
     issues: list[str] = []
+    predicates = _exact_predicates(capabilities)
 
-    if rel and rel not in V1_EXACT_PREDICATES:
+    if rel and rel not in predicates:
         issues.append("unknown_relationship_type")
 
     if fam:
         if fam not in PREDICATE_FAMILY_IDS:
             issues.append("unknown_predicate_family")
-        elif rel in V1_EXACT_PREDICATES and V1_EXACT_PREDICATES[rel] != fam:
+        elif rel in predicates and predicates[rel] != fam:
             issues.append("relationship_family_mismatch")
-    elif rel in V1_EXACT_PREDICATES:
+    elif rel in predicates:
         # Missing family is not an error during normalization; caller may fill it in.
         pass
 
     return issues
 
 
-def prompt_markdown(*, max_predicates_per_family: int | None = None) -> str:
+def prompt_markdown(*, max_predicates_per_family: int | None = None,
+                    capabilities: tuple[str, ...] = ()) -> str:
     """Compact markdown catalog grouped by runtime predicate family."""
     lines = [
         "## Controlled edge predicates (v1)",
@@ -110,7 +152,7 @@ def prompt_markdown(*, max_predicates_per_family: int | None = None) -> str:
         "",
     ]
     for family in predicate_family_ids():
-        predicates = predicates_by_family().get(family, ())
+        predicates = predicates_by_family(capabilities=capabilities).get(family, ())
         if not predicates:
             continue
         shown = predicates
@@ -215,7 +257,7 @@ RECAP_PREDICATE_MEANINGS: dict[str, str] = {
 }
 
 
-def recap_predicate_meaning_guidance() -> str:
+def recap_predicate_meaning_guidance(*, capabilities: tuple[str, ...] = ()) -> str:
     """Render one source of custom meanings for the Recap edge instruction."""
     lines = [
         "## Recap relationship meanings",
@@ -224,8 +266,10 @@ def recap_predicate_meaning_guidance() -> str:
         "do not prove source support or authorize canonical identity changes.",
         "",
     ]
+    meanings = {**RECAP_PREDICATE_MEANINGS,
+                **{term: spec[1] for term, spec in _capability_predicates(capabilities)}}
     lines.extend(
         f"- `{predicate}`: {meaning}"
-        for predicate, meaning in sorted(RECAP_PREDICATE_MEANINGS.items())
+        for predicate, meaning in sorted(meanings.items())
     )
     return "\n".join(lines)

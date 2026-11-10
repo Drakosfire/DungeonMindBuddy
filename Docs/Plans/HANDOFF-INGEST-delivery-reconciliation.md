@@ -1,43 +1,84 @@
-# INGEST: reconcile deferred delivery — provider-owned output capacity
+# INGEST: reconcile deferred delivery — source-supported order
 
-ACTIVE serial correction under explicit user direction: the earlier dedicated
-“remove token limits” work must govern ingestion too. Historical study allocations
-are evidence, not authority to reimpose caps. Root owns this bounded slice.
+ACTIVE stage1 of the user’s deferred-fundamentals goal; root designs/owns this
+serial recovery. Accepted C1S1–10 evidence/Gold remain intact; citation/voice
+experiments stay deferred. Do not reimpose token caps from the study reference.
 
-Base3ed6cf28f087e174c64401b045a41e4010507cd5; branch
-codex/ingest-provider-output-capacity; non-serving recorded-names-control checkout.
-2360 recovered2093;2361 recovered2094 but its32768ordinary cap is now explicitly
-superseded by user direction. Original study outputs/settings stay immutable.
-Writer cap-removal handoff is already delivered on main; this corrects the missed
-separate ingestion caller, not GenerationEngine policy or writer behavior.
+## Settled predecessors and corrected policy
 
-Chronology recovery is parked with full patch, fixture, design review and226passing
-working-tree diagnostics under out/fundamentals-reconciliation-v1/
-direct-source-precedence-delivery/. No chronology code or lease is active here.
+2360 mergedaf88d3ac71232d02fe9f4cde72ae5cca50f4fe32 recovered2093 advertised
+node evidence; old2093 closed with source parity.2361 merged3ed6cf28f087e174c64401b045a41e4010507cd5 recovered2094 headroom, but the
+user explicitly corrected its application output ceiling.2362 mergeda17e3f12a99bbee5375f6816dc69efa772dcd774 from reviewed97b6c788a7669e6ddf000b4c3f7176b659f34d46 removes ordinary ingestion output caps.
+100owner tests,610ingestion-and-review (82ownershipdeselected,51warnings), local
+exact-SHA hosted verifier/build and independent review PASS. SDK cap omission
+proved; incomplete outputs still fail. Old study limits stay historical evidence,
+not desired defaults. Prior leases released; no deployment/primary changes.
 
-Outcome/invariant: new ordinary recap passes omit application output ceilings,
-including edges and predecessor profile. RecapExecutionLimits defaults to None;
-explicit positive historical/experiment settings remain representable without an
-arbitrary32768validation ceiling. SDK serializes no token-max parameter for None.
-Provider/model capacity remains real; incomplete output remains failed, never
-reviewable success. Retain actual usage, evidence, strict structured output,
-route/reasoning/schema controls and non-token execution guards unchanged.
+## Current bounded serial slice
 
-Exclusive expected writes: this handoff;
-apps/live_control_server/services/graph_preview_runner.py;
-src/graph_memory/extraction/bounded_recap_execution.py;
-tests/test_bounded_recap_execution.py;
-tests/test_recap_generationengine_default.py.
+Basea17e3f12a99bbee5375f6816dc69efa772dcd774; branch
+codex/ingest-source-order-delivery-current; non-serving recorded-names-control
+checkout. No unmerged dependency. Surface/Storage/CI open lanes do not own the
+listed files; historical ingestion branches grant no concurrent active lease.
+Independent design critique PASS before activation. Parked226passing working-tree
+diagnostics and original patch retained; current exact-SHA qualification required.
 
-Verification: exact SDK parameter omission, ordinary pass/ledger None values,
-explicit positive historical configurations and invalid-value rejection; existing
-incomplete/refusal failure tests. Focused tests and ingestion-and-review in locked
-Python environment, exact-SHA local hosted frontend verifier; independent exact-head
-review. One bounded PR, full user merge rights. No new provider experiment.
-Resources: fresh fixture-owned APP/Core test databases only on55447, pinned430c
-Core migrations and existing cleanup; primary/retained DBs, services, environments
-and serving runtime untouched. No migration/publication/deployment authority.
+Recover2079 structural capability fromf8e6df2d7854b520f87b71065e4544236b4ff797.
+Accepted frozen configuration explicitly has recap_source_order and source-order
+guidance; main lacks that capability. Historical2079 semantic quality HOLD remains
+preserved: structural recovery does not establish model quality acceptance. No
+paid repeat study. Source order is distinct from paragraph/presentation rank.
 
-Evidence out/fundamentals-reconciliation-v1/provider-output-capacity-delivery/.
-The full reconciliation and subsequent QA/worldbuilding/collaboration/retrieval
-stages remain active and incomplete; citation/voice studies remain deferred.
+Exclusive expected write lease:
+- this handoff
+- apps/live_control_server/services/native_recap_preparation.py
+- src/graph_memory/extraction/category_candidate_graph_extractor.py
+- src/graph_memory/extraction/category_candidate_graph_schema.py
+- src/graph_memory/extraction/extraction_profile.py
+- src/graph_memory/extraction/recap_extraction_profile.py
+- src/graph_memory/predicate_catalog.py
+- tests/fixtures/recap_prompt_scope_before_direct_precedence.json
+- tests/test_category_candidate_graph_extractor.py
+- tests/test_graph_memory_category_candidate_graph_schema.py
+- tests/test_graph_memory_predicate_catalog.py
+- tests/test_native_recap_preparation.py
+- tests/test_recap_source_faithfulness_profile.py
+
+Invariant: only opted-in recap passes admit direct source-supported precedes.
+Each selected endpoint is an event with selected description; relationship evidence
+must be producer-nominated, never inherited merely from endpoints. Refuse canonical
+self/cycles, held/non-event endpoints, missing/foreign support, incompatible
+Core-admitted classifications and unadopted profile. No inferred paragraph order,
+total timeline or causation; actual planning/reporting act differs from future
+outcome. Core owns standing/scope/source admission. Defaults/worldbuilding stay
+unextended. Catalogue/schema/producer/publication remain one coherent capability;
+splitting exposes an advertised-but-unpublishable or unguarded relation.
+
+## Verification and resources
+
+Existing synthetic producer, schema/prompt scope and native review negative tests;
+real disposable PostgreSQL prepare→confirm→freshreader evidence and idempotent
+readback. Fix manual fixture invocation for new request argument. Exact-SHA locked
+Python focused tests plus ci_contract ingestion-and-review; exact-SHA repo-owned
+local hosted frontend verifier and validate; independent cumulative exact-head
+review. No frontend changes/full discovered-release qualification claim.
+
+Only existing fixture-owned new dungeonbuddy_app_state_test_* APP templates/clones
+and dmb_recap_source_test_* Core databases on55447 may be created/migrated/dropped;
+pinned430c Core migration snapshot and existing cleanup. No retained/operator DB,
+foreign sessions, primary state, services, environment, deployment or provider calls.
+Use inert credentials and redact diagnostics. Preserve sandbox connection failures
+and unknowns honestly. No per-question launcher or new evaluation harness.
+
+Evidence out/fundamentals-reconciliation-v1/direct-source-precedence-delivery/.
+Standing full merge authority applies; implementation must reach one bounded PR.
+Retire old2079 only after actual owning proof and current-source delivery, preserving
+historical quality hold and later descendants separately.
+
+## Remaining objective
+
+Initial47open INGEST inventory is not47proved bugs. Configuration, later
+materialization/assessment changes and full current ordinary DB-owned chain remain
+unproven. Serving API76bb8c4b/UI04f5f0ad are not current-main proof; no runtime
+change in this slice. QA, Mirathorn, collaboration and six-second retrieval remain
+subsequent obligations. Entire goal remains active and incomplete.
