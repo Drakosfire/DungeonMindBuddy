@@ -125,6 +125,7 @@ vi.mock("./api/liveApi", async (importOriginal) => {
     commitTiptapMarkdownWrite: vi.fn(),
     listWorkspaceDocuments: vi.fn(),
     getWorkspaceDocument: vi.fn(),
+    getWorkspaceDocumentAny: vi.fn(),
     getWorkspaceDocumentSnapshot: vi.fn(),
     getPlayActiveRun: vi.fn(),
     putPlayActiveRun: vi.fn(),
@@ -254,6 +255,10 @@ describe("App inspector integration", () => {
       }
       return fixtureWorkspaceDocumentRecord({ document_id: documentId });
     });
+    vi.mocked(liveApi.getWorkspaceDocumentAny).mockImplementation(async (documentId) => {
+      if (documentId === FIXTURE_DOC_ID) return northGateRunbookRecord();
+      return fixtureWorkspaceDocumentRecord({ document_id: documentId });
+    });
     vi.mocked(liveApi.createWorkspaceDocument).mockImplementation(async (payload) => {
       if (payload.kind === "runbook") {
         return northGateRunbookRecord();
@@ -332,7 +337,10 @@ describe("App inspector integration", () => {
 
     expect(await screen.findByRole("heading", { name: /buddy graph playground/i })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Lina, person" })).toBeInTheDocument();
-    expect(screen.getByText(/private demo graph is separate from your existing Worlds/i)).toBeInTheDocument();
+    expect(screen.getByText("Buddy playground · private graph")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add object" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Connect" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export snapshot" })).toBeInTheDocument();
     expect(screen.getByText("Existing browser-only Worlds and notes")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "My World" })).not.toBeInTheDocument();
 
@@ -341,7 +349,6 @@ describe("App inspector integration", () => {
     expect(await screen.findByRole("button", { name: "Mara Venn, person" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create World" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Edit World title" })).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "Open" })).toBeInTheDocument();
     const navigation = screen.getByRole("navigation", { name: "Command board navigation" });
     fireEvent.click(within(navigation).getByRole("button", { name: "Open navigation" }));
     expect(within(navigation).getByRole("link", { name: "Plan" })).toHaveAttribute("href", "/plan");
@@ -351,12 +358,12 @@ describe("App inspector integration", () => {
     expect(screen.queryByRole("link", { name: /retrieval/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /tiptap|developer spike/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("surface-context-module")).getByRole("button", { name: "Add object" })).toBeInTheDocument();
     await userEvent.setup().type(screen.getByLabelText("Create a World"), "Chrome-owned World");
     await userEvent.setup().click(screen.getByRole("button", { name: "Create World" }));
     expect(await screen.findByRole("heading", { name: "Chrome-owned World" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("surface-context-module")).getByRole("button", { name: "Add object" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Projection" })).not.toBeInTheDocument();
     expect(liveApi.getSurface).not.toHaveBeenCalled();
   });

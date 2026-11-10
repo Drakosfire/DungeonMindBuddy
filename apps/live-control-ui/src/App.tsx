@@ -1,7 +1,7 @@
 import {SavedStatblockProvider} from './statblocks/SavedStatblockSession';
 import {WorldGuidedTour} from './guidedTour/WorldGuidedTour';
 import { DocumentReferenceSurfaceHost } from './documentReference/DocumentReferenceSurfaceHost';
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { getEvents, getJobs, getPlanView, getSurface } from "./api/liveApi";
 import type {
@@ -18,10 +18,10 @@ import { AgentInteractionProvider } from "./agentInteraction/AgentInteractionPro
 import { WorldAgentConversation, WorldAgentConversationProvider } from "./agentInteraction/WorldAgentConversation";
 import { AskPluginSlotProvider } from "./agentInteraction/AskPluginSlot";
 import { AgentInteractionChrome } from "./agentInteraction/AgentInteractionChrome";
-import { IndexAgentConversation } from "./agentInteraction/IndexAgentConversation";
 import { LocalWorldSurface } from "./localWorld/localWorldSurface/LocalWorldSurface";
 import { NativeGraphDemo } from "./nativeGraphDemo/NativeGraphDemo";
 import { createBuddyIndexGraphApi } from "./nativeGraphDemo/buddyIndexGraphApi";
+import { createManagedNativeGraphApi } from "./nativeGraphDemo/managedNativeGraphApi";
 import { usePublishSurfaceInteraction } from "./agentInteraction/usePublishSurfaceInteraction";
 import {
   ROUTE_COMPATIBILITY_PUBLICATIONS,
@@ -44,7 +44,7 @@ import {
 
 import type { InspectorPaneState } from "./surface/InspectorPane";
 import { deferredComponent } from "./ui/deferredComponent";
-import { HostedAuthGate } from "./auth/HostedAuthGate";
+import { dungeonMindLoginHref, HostedAuthGate, useHostedAuthStatus } from "./auth/HostedAuthGate";
 
 import type { PaneTarget } from "./surface/targetTypes";
 
@@ -99,18 +99,57 @@ function TiptapSpikeRoute() {
   );
 }
 
-function BuddyIndexPage({ localOnlyNavigation = false }: { readonly localOnlyNavigation?: boolean }) {
-  const api = useMemo(() => createBuddyIndexGraphApi(), []);
+function BuddyIndexPage({
+  localOnlyNavigation = false,
+  locationSnapshot,
+}: {
+  readonly localOnlyNavigation?: boolean;
+  readonly locationSnapshot: string;
+}) {
+  const auth = useHostedAuthStatus();
+  const selectedWorld = useSelectedWorld();
+  const managedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
+  const managedClient = useMemo(() => managedWorldId ? createManagedNativeGraphApi(managedWorldId) : null, [managedWorldId]);
+  const playgroundApi = useMemo(() => createBuddyIndexGraphApi(), []);
   const [legacyWorldsOpen, setLegacyWorldsOpen] = useState(false);
 
+  useEffect(() => () => managedClient?.invalidate(), [managedClient]);
+
+  let explorer: ReactNode;
+  if (managedClient && selectedWorld.kind === "managed") {
+    explorer = <NativeGraphDemo
+      key={`managed:${selectedWorld.worldId}`}
+      api={managedClient.api}
+      embedded
+      mode="managed"
+      worldTitle={selectedWorld.name}
+      stateScopeId={`managed:${selectedWorld.worldId}`}
+    />;
+  } else if (auth.status === "local_operator") {
+    explorer = <NativeGraphDemo api={playgroundApi} embedded mode="playground" />;
+  } else if (auth.status === "signed_out") {
+    explorer = <main className="app-status" aria-labelledby="buddy-playground-title">
+      <p className="module-muted">BUDDY · PLAYGROUND</p>
+      <h1 id="buddy-playground-title">Buddy graph playground</h1>
+      <p>The hosted service does not expose the local-only playground graph. Sign in to load a managed World’s native graph.</p>
+      <a href={dungeonMindLoginHref(locationSnapshot)}>Sign in with DungeonMind</a>
+    </main>;
+  } else {
+    explorer = <main className="app-status" aria-labelledby="buddy-playground-title">
+      <p className="module-muted">BUDDY · PLAYGROUND</p>
+      <h1 id="buddy-playground-title">Buddy graph playground</h1>
+      <p>Choose a managed World in the navigation above to load its native graph. The synthetic playground is available on local Buddy deployments only.</p>
+    </main>;
+  }
+
   return (
-    <AppChrome activeRoute="index" localOnlyNavigation={localOnlyNavigation}>
-      <NativeGraphDemo api={api} embedded />
+    <AppChrome activeRoute="index" localOnlyNavigation={localOnlyNavigation} workspaceLayout="bounded">
+      {explorer}
       <details className="buddy-index-legacy" onToggle={(event) => setLegacyWorldsOpen(event.currentTarget.open)}>
         <summary>Existing browser-only Worlds and notes</summary>
         <p>These older Worlds stay in this browser and remain separate from the private DungeonMind graph above. Opening them does not migrate or publish them.</p>
         {legacyWorldsOpen
-          ? <LocalWorldSurface>{localOnlyNavigation ? null : <IndexAgentConversation />}</LocalWorldSurface>
+          ? <LocalWorldSurface />
           : null}
       </details>
     </AppChrome>
@@ -263,6 +302,7 @@ function LiveControlApp() {
 }
 
 function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
+  const auth = useHostedAuthStatus();
   const selectedWorld = useSelectedWorld();
   const retrySelectedWorld = useRetrySelectedWorld();
   const admission = useSelectedWorldAdmission();
@@ -280,12 +320,18 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
     );
   }
   const route = appRouteFromLocationSnapshot(locationSnapshot);
+  if (route === "index" && selectedWorld.kind === "legacy") {
+    return <IsolatedIndexEntry
+      localOnlyNavigation={auth.status === "signed_out"}
+      locationSnapshot={locationSnapshot}
+    />;
+  }
   const pageAdmitted = admission.kind !== "loading";
   let content;
   if (!pageAdmitted) {
     content = <main className="app-status" role="status">Verifying page selection…</main>;
   } else if (route === "index") {
-    content = <BuddyIndexPage />;
+    content = <BuddyIndexPage locationSnapshot={locationSnapshot} />;
   } else if (route === "tiptap-callout-spike") {
     content = <TiptapSpikeRoute />;
   } else if (route === "plan") {
@@ -359,12 +405,18 @@ function isCanonicalLocalGuestEntry(locationSnapshot: string): boolean {
   }
 }
 
-function LocalGuestEntry() {
+function IsolatedIndexEntry({
+  localOnlyNavigation,
+  locationSnapshot,
+}: {
+  readonly localOnlyNavigation: boolean;
+  readonly locationSnapshot: string;
+}) {
   return (
     <AgentInteractionProvider>
       <SurfaceContextProvider>
         <PeekRegionProvider>
-          <BuddyIndexPage localOnlyNavigation />
+          <BuddyIndexPage localOnlyNavigation={localOnlyNavigation} locationSnapshot={locationSnapshot} />
         </PeekRegionProvider>
       </SurfaceContextProvider>
     </AgentInteractionProvider>
@@ -377,9 +429,11 @@ export function App() {
     getAppLocationSnapshot,
     getAppLocationSnapshot,
   );
-  if (import.meta.env.PROD && isCanonicalLocalGuestEntry(locationSnapshot)) return <LocalGuestEntry />;
   return (
-    <HostedAuthGate enabled={import.meta.env.PROD}>
+    <HostedAuthGate
+      enabled={import.meta.env.PROD}
+      allowSignedOutChildren={import.meta.env.PROD && isCanonicalLocalGuestEntry(locationSnapshot)}
+    >
       <SelectedWorldProvider locationSnapshot={locationSnapshot}>
         <SelectedWorldApp locationSnapshot={locationSnapshot} />
       </SelectedWorldProvider>

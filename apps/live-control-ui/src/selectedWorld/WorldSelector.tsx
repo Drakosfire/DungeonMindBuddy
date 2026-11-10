@@ -1,11 +1,12 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { createWorldContainer, listWorldContainers } from "../api/liveApi";
+import { getAppLocationSnapshot, navigatePrimaryAppHref } from "../chrome/appNavigation";
 import type { WorldContainerRecord } from "../api/types";
-import { useRetrySelectedWorld, useSelectedWorld } from "./SelectedWorldContext";
+import { SELECTED_WORLD_LOCATION_CHANGED_EVENT, useRetrySelectedWorld, useSelectedWorld } from "./SelectedWorldContext";
 import { selectWorldFromLocation, worldScopedSurfaceHref } from "./worldSelectionNavigation";
 
-export function WorldSelector({ compact = false }: { compact?: boolean } = {}) {
+export function WorldSelector({ compact = false, creationPath = "/plan" }: { compact?: boolean; creationPath?: string } = {}) {
   const selected = useSelectedWorld();
   const retrySelection = useRetrySelectedWorld();
   const [open, setOpen] = useState(false);
@@ -14,6 +15,20 @@ export function WorldSelector({ compact = false }: { compact?: boolean } = {}) {
   const [error, setError] = useState<string | null>(null);
   const [newWorldName, setNewWorldName] = useState("");
   const [creatingWorld, setCreatingWorld] = useState(false);
+  const navigationChanged = useRef(false);
+  const mounted = useRef(false);
+
+  useEffect(() => {
+    mounted.current = true;
+    const markNavigation = () => { navigationChanged.current = true; };
+    window.addEventListener("popstate", markNavigation);
+    window.addEventListener(SELECTED_WORLD_LOCATION_CHANGED_EVENT, markNavigation);
+    return () => {
+      mounted.current = false;
+      window.removeEventListener("popstate", markNavigation);
+      window.removeEventListener(SELECTED_WORLD_LOCATION_CHANGED_EVENT, markNavigation);
+    };
+  }, []);
 
   const refresh = useCallback(async () => {
     setStatus("loading");
@@ -66,29 +81,36 @@ export function WorldSelector({ compact = false }: { compact?: boolean } = {}) {
             event.preventDefault();
             const name = newWorldName.trim();
             if (!name || creatingWorld) return;
+            const startingLocation = getAppLocationSnapshot();
+            navigationChanged.current = false;
             setCreatingWorld(true);
             setError(null);
             void createWorldContainer({ name }).then((world) => {
+              if (!mounted.current) return;
               setWorlds((current) => [world, ...current.filter((item) => item.world_id !== world.world_id)]);
               setNewWorldName("");
               setOpen(false);
-              window.history.pushState({}, "", `/plan?world=${encodeURIComponent(world.world_id)}`);
-              window.dispatchEvent(new PopStateEvent("popstate"));
+              if (!navigationChanged.current && getAppLocationSnapshot() === startingLocation) {
+                navigatePrimaryAppHref(worldScopedSurfaceHref(creationPath, world.world_id));
+              }
             }).catch((reason) => {
-              setError(reason instanceof Error ? reason.message : "World could not be created.");
-            }).finally(() => setCreatingWorld(false));
+              if (mounted.current) setError(reason instanceof Error ? reason.message : "World could not be created.");
+            }).finally(() => { if (mounted.current) setCreatingWorld(false); });
           }}>
             <label>
               New World name
               <input value={newWorldName} onChange={(event) => setNewWorldName(event.target.value)} />
             </label>
             <button type="submit" disabled={!newWorldName.trim() || creatingWorld}>
-              {creatingWorld ? "Creating…" : "Create World and Plan"}
+              {creatingWorld ? "Creating…" : creationPath === "/" ? "Create World and open graph" : "Create World and Plan"}
             </button>
           </form>
           <a href={worldScopedSurfaceHref("/build", selected.kind === "managed" ? selected.worldId : null)}>
-            New World in Build
+            {selected.kind === "managed" ? "Open this World in Build" : "New World in Build"}
           </a>
+          <p className="app-world-selector__hint">
+            Creating a World reserves its identity. Initialize its first native graph through the reviewed Build workflow before editing it here.
+          </p>
           {selected.kind === "error" ? (
             <button type="button" onClick={retrySelection}>Retry selection</button>
           ) : null}

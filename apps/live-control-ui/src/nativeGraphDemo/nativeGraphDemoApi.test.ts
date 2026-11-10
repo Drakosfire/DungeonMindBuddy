@@ -113,4 +113,110 @@ describe("native graph demo API", () => {
 
     await expect(api.readGraph()).rejects.toMatchObject({ code: "invalid_response" });
   });
+
+  it("accepts optional complete and partial native catalogue coverage while preserving guest compatibility", async () => {
+    document.head.innerHTML = '<meta name="native-demo-capability" content="demo">';
+    const fetcher = vi.fn(async () => jsonResponse({
+      ...graph,
+      completeness: {
+        status: "partial",
+        listed_entities: 10,
+        omitted_entities: 1,
+        unexamined_entities: 2,
+        listed_assertions: 7,
+        omitted_assertions: 0,
+        unexamined_assertions: 3,
+        reasons: ["The native catalogue reached its bounded page limit."],
+      },
+    }));
+    const api = createNativeGraphDemoApi({ fetcher });
+
+    await expect(api.readGraph()).resolves.toMatchObject({
+      completeness: { status: "partial", omitted_entities: 1, unexamined_assertions: 3 },
+    });
+    const guestCompatible = createNativeGraphDemoApi({ fetcher: vi.fn(async () => jsonResponse(graph)) });
+    await expect(guestCompatible.readGraph()).resolves.not.toHaveProperty("completeness");
+  });
+
+  it("rejects inconsistent completeness counts instead of claiming a full native read", async () => {
+    document.head.innerHTML = '<meta name="native-demo-capability" content="demo">';
+    const fetcher = vi.fn(async () => jsonResponse({
+      ...graph,
+      completeness: {
+        status: "complete",
+        listed_entities: 10,
+        omitted_entities: 1,
+        unexamined_entities: 0,
+        listed_assertions: 7,
+        omitted_assertions: 0,
+        unexamined_assertions: 0,
+        reasons: [],
+      },
+    }));
+    const api = createNativeGraphDemoApi({ fetcher });
+
+    await expect(api.readGraph()).rejects.toMatchObject({ code: "invalid_response" });
+  });
+
+  it("preserves only server-verified created node IDs present in the committed graph", async () => {
+    document.head.innerHTML = '<meta name="native-demo-capability" content="demo">';
+    const committedGraph = {
+      ...graph,
+      nodes: [{ id: "entity:mira", name: "Mira", kind: "person" }],
+    };
+    const api = createNativeGraphDemoApi({ fetcher: vi.fn(async () => jsonResponse({
+      status: "committed",
+      operation_id: "op-create",
+      created_node_id: "entity:mira",
+      graph: committedGraph,
+    })) });
+
+    await expect(api.confirm("op-create")).resolves.toMatchObject({
+      status: "committed",
+      created_node_id: "entity:mira",
+      graph: { nodes: [{ id: "entity:mira" }] },
+    });
+
+    const invalidApi = createNativeGraphDemoApi({ fetcher: vi.fn(async () => jsonResponse({
+      status: "committed",
+      operation_id: "op-create",
+      created_node_id: "entity:not-in-readback",
+      graph: committedGraph,
+    })) });
+    await expect(invalidApi.confirm("op-create")).rejects.toMatchObject({ code: "invalid_response" });
+  });
+
+  it("validates a recovered created node ID against an included graph", async () => {
+    document.head.innerHTML = '<meta name="native-demo-capability" content="demo">';
+    const invalidApi = createNativeGraphDemoApi({ fetcher: vi.fn(async () => jsonResponse({
+      status: "committed",
+      operation_id: "op-recovered",
+      created_node_id: "entity:missing",
+      graph,
+    })) });
+
+    await expect(invalidApi.readOperation("op-recovered")).rejects.toMatchObject({ code: "invalid_response" });
+  });
+
+  it("validates and preserves descriptor-approved predicate capabilities", async () => {
+    document.head.innerHTML = '<meta name="native-demo-capability" content="demo">';
+    const managedGraph = {
+      ...graph,
+      capabilities: {
+        ...graph.capabilities,
+        allowed_predicates: ["located_in", "allied_with"],
+        allows_custom_predicates: false,
+      },
+    };
+    const api = createNativeGraphDemoApi({ fetcher: vi.fn(async () => jsonResponse(managedGraph)) });
+    await expect(api.readGraph()).resolves.toMatchObject({
+      capabilities: { allowed_predicates: ["located_in", "allied_with"], allows_custom_predicates: false },
+    });
+
+    const invalidApi = createNativeGraphDemoApi({ fetcher: vi.fn(async () => jsonResponse({
+      ...managedGraph,
+      capabilities: { ...managedGraph.capabilities, allowed_predicates: ["located_in", 7] },
+    })) });
+    await expect(invalidApi.readGraph()).rejects.toMatchObject({ code: "invalid_response" });
+  });
 });

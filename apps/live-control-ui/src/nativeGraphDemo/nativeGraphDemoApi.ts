@@ -20,6 +20,22 @@ export interface NativeGraphCapabilities {
   readonly delete: boolean;
   /** The exact typed object kinds this demo profile currently accepts. */
   readonly object_kinds: readonly NativeObjectKind[];
+  /** Descriptor-approved labels usable by the managed connector. Absent in legacy demo APIs. */
+  readonly allowed_predicates?: readonly string[];
+  /** True only when the active native descriptor accepts custom predicate labels. */
+  readonly allows_custom_predicates?: boolean;
+}
+
+/** How much of the server-owned native catalogue was examined for this read. */
+export interface NativeGraphCompleteness {
+  readonly status: "complete" | "partial";
+  readonly listed_entities: number;
+  readonly omitted_entities: number;
+  readonly unexamined_entities: number;
+  readonly listed_assertions: number;
+  readonly omitted_assertions: number;
+  readonly unexamined_assertions: number;
+  readonly reasons: readonly string[];
 }
 
 export interface NativeGraph {
@@ -31,6 +47,8 @@ export interface NativeGraph {
   readonly storage: "postgres";
   readonly limitations: readonly string[];
   readonly capabilities: NativeGraphCapabilities;
+  /** Optional for the original standalone and guest APIs. Managed reads report it. */
+  readonly completeness?: NativeGraphCompleteness;
 }
 
 export interface CreateObjectRequest {
@@ -70,6 +88,8 @@ export type PrepareResult = PreparedOperation | AlreadyExistsResult;
 export interface CommittedResult {
   readonly status: "committed";
   readonly graph: NativeGraph;
+  /** Exact durable ID from the verified native receipt, only present for committed creates. */
+  readonly created_node_id?: string;
 }
 
 export type ConfirmResult = CommittedResult
@@ -78,7 +98,7 @@ export type ConfirmResult = CommittedResult
 
 export type OperationLookupResult =
   | { readonly status: "prepared"; readonly operation_id: string; readonly parent_revision_id?: string; readonly review?: { readonly summary: string } }
-  | { readonly status: "committed"; readonly operation_id: string; readonly graph?: NativeGraph }
+  | { readonly status: "committed"; readonly operation_id: string; readonly graph?: NativeGraph; readonly created_node_id?: string }
   | { readonly status: "not_found"; readonly operation_id: string }
   | { readonly status: "rejected"; readonly operation_id: string; readonly code: string; readonly error: string }
   | { readonly status: "unknown"; readonly operation_id: string };
@@ -131,6 +151,27 @@ function isNativeGraph(value: unknown): value is NativeGraph {
     || typeof capabilities.rename !== "boolean" || typeof capabilities.delete !== "boolean"
     || !Array.isArray(capabilities.object_kinds)
     || !capabilities.object_kinds.every((kind) => NATIVE_OBJECT_KINDS.includes(kind as NativeObjectKind))) return false;
+  if ((capabilities.allowed_predicates === undefined) !== (capabilities.allows_custom_predicates === undefined)) return false;
+  if (capabilities.allowed_predicates !== undefined && (!Array.isArray(capabilities.allowed_predicates)
+    || !capabilities.allowed_predicates.every((predicate) => typeof predicate === "string" && Boolean(predicate.trim()))
+    || new Set(capabilities.allowed_predicates).size !== capabilities.allowed_predicates.length
+    || typeof capabilities.allows_custom_predicates !== "boolean")) return false;
+  if (value.completeness !== undefined) {
+    if (!record(value.completeness)) return false;
+    const completeness = value.completeness;
+    if ((completeness.status !== "complete" && completeness.status !== "partial")
+      || !Number.isSafeInteger(completeness.listed_entities) || (completeness.listed_entities as number) < 0
+      || !Number.isSafeInteger(completeness.omitted_entities) || (completeness.omitted_entities as number) < 0
+      || !Number.isSafeInteger(completeness.unexamined_entities) || (completeness.unexamined_entities as number) < 0
+      || !Number.isSafeInteger(completeness.listed_assertions) || (completeness.listed_assertions as number) < 0
+      || !Number.isSafeInteger(completeness.omitted_assertions) || (completeness.omitted_assertions as number) < 0
+      || !Number.isSafeInteger(completeness.unexamined_assertions) || (completeness.unexamined_assertions as number) < 0
+      || !Array.isArray(completeness.reasons) || !completeness.reasons.every((reason) => typeof reason === "string")) return false;
+    if (completeness.status === "complete" && (
+      completeness.omitted_entities !== 0 || completeness.unexamined_entities !== 0
+      || completeness.omitted_assertions !== 0 || completeness.unexamined_assertions !== 0
+    )) return false;
+  }
   return true;
 }
 
@@ -228,7 +269,11 @@ export function createNativeGraphDemoApi(options: {
       });
       if (!record(value)) throw invalidResponse();
       if (value.operation_id !== undefined && value.operation_id !== operationId) throw invalidResponse();
-      if (value.status === "committed" && isNativeGraph(value.graph)) return value as unknown as CommittedResult;
+      if (value.status === "committed" && isNativeGraph(value.graph)) {
+        if (value.created_node_id !== undefined && (typeof value.created_node_id !== "string" || !value.created_node_id
+          || !value.graph.nodes.some((node) => node.id === value.created_node_id))) throw invalidResponse();
+        return value as unknown as CommittedResult;
+      }
       if (value.status === "unknown" && typeof value.message === "string") return value as unknown as ConfirmResult;
       if (value.status === "rejected" && typeof value.code === "string" && typeof value.error === "string") return value as unknown as ConfirmResult;
       throw invalidResponse();
@@ -239,7 +284,11 @@ export function createNativeGraphDemoApi(options: {
       if (value.status === "prepared" && (value.review === undefined || record(value.review) && typeof value.review.summary === "string")) {
         return value as unknown as OperationLookupResult;
       }
-      if (value.status === "committed" && (value.graph === undefined || isNativeGraph(value.graph))) return value as unknown as OperationLookupResult;
+      if (value.status === "committed" && (value.graph === undefined || isNativeGraph(value.graph))) {
+        if (value.created_node_id !== undefined && (typeof value.created_node_id !== "string" || !value.created_node_id
+          || value.graph !== undefined && !value.graph.nodes.some((node) => node.id === value.created_node_id))) throw invalidResponse();
+        return value as unknown as OperationLookupResult;
+      }
       if (value.status === "not_found" || value.status === "unknown") return value as unknown as OperationLookupResult;
       if (value.status === "rejected" && typeof value.code === "string" && typeof value.error === "string") return value as unknown as OperationLookupResult;
       throw invalidResponse();

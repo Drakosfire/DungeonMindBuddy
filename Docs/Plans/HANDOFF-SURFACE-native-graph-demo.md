@@ -293,3 +293,64 @@ After workers freeze, reconcile the integration lane once onto the verified main
 preserving all unrelated changes. Prior baseline diagnostics remain checkpoint
 rather than final-source evidence; compare exact test identities and account for
 independently authorized Plan test retirements. No gate or failure is suppressed.
+
+## Integrated explorer completion gates
+
+The navbar flow uses the actual selected managed World and preserves the index
+route after creation. Creating a managed World only reserves its native identity;
+it does not silently publish a synthetic graph. An uninitialized World remains an
+explicit managed-graph error with the existing Build workflow available. Hosted
+signed-out native access is not provided by the current local-only backend; the
+root states that limitation rather than substituting browser data. Existing
+local-operator playground and initialized managed Worlds are the runnable scope.
+
+The presentation checkpoint adds circle nodes, placement and connector intents,
+primary Surface navbar actions, revision-pinned read-only snapshot export, and
+scope-isolated recovery. TypeScript, 95 focused cases in seven files and the
+production build pass on the shared working tree. This is not exact-source final
+qualification or browser acceptance. The exact source still needs rebase,
+aggregate checks, independent final review and actual runtime/browser proof.
+
+The coordinator's inventory lease is extended additively to four exact test paths:
+`apps/live-control-ui/src/api/liveApi.nativeGraphExplorerAuth.test.ts`,
+`apps/live-control-ui/src/nativeGraphDemo/managedNativeGraphApi.test.ts`,
+`tests/test_native_graph_explorer.py`, and
+`tests/test_native_graph_explorer_storage.py`. The first two use `fast`, the latter
+two the existing `domain-integration` lane. Preserve all unrelated main inventory
+changes; no gate or classification basis is changed.
+
+Independent pre-review identified an owning recovery requirement: existing Core
+receipt identity and a matching child hash alone do not prove the stored prepared
+intent was published. Before reporting a recovered operation committed, verify
+the source receipt and stored preparation, require both immutable publication
+aggregate and durable receipt, and use the pinned public WorldKeeper idempotent
+verification path with the exact stored publication ID. Never enter this path for
+an absent or partial receipt. Compare the verified full results and exact child
+before changing APP recovery state or returning a created node ID. Normal commit
+already uses the full verifier. The new managed adapter's deterministic native
+source/publication IDs must also include the principal and managed-World scope,
+matching the APP journal's ownership boundary. No old guest ID is changed.
+
+Final runtime evidence uses a unique synthetic Core database in the existing
+verified task-owned no-network PostgreSQL container, a distinct APP test clone,
+and task-only artifacts under a scrubbed child environment. Normal synthetic
+managed World creation and reviewed first-world prepare/confirm establish the
+actual binding, followed by the actual graph routes and local GM authentication.
+No dependency override may replace the binding, principal, native repository or
+operation store in that proof. In-memory unit contracts remain separate evidence.
+All proof data is retained; live API/UI, primary databases and old previews remain
+untouched. Browser proof waits the exact frozen source and isolated service pair.
+
+Storage-test ownership split: the backend owner explicitly froze
+`tests/test_native_graph_explorer_storage.py` after its starter; the dedicated
+storage-verification worker now owns only that path. The backend retains store,
+service, route, model, migration and service-test ownership. The independent test
+lane uses existing unique APP clone fixtures, never native or operator databases.
+
+The mode/API checkpoint reports 64 focused passing tests, one passing root App
+case, TypeScript/build and clean diff checks. Its full App suite remains red with
+31 passes and the same two retained baseline failures: the `/plan` rendering case
+and E7 singular ToolHost/EditHost/Agent route-remount case. The raw App log is
+retained externally; other checkpoint results are author-reported working-tree
+evidence, not qualifying exact-source logs. No test is disabled. The final
+repository verifier remains required.

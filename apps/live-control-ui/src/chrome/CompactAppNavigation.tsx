@@ -46,6 +46,6 @@ export function CompactAppNavigation({ activeRoute, localOnly = false }: { activ
       </a>)}
     </div>
     {tour?<button className="app-nav-tour" type="button" onClick={()=>{setExpanded(false);if(tour.entryLabel==='Start tour'||tour.entryLabel==='Resume tour')tour.teach();else tour.open();}}>{tour.entryLabel}</button>:null}
-    {!localOnly ? <div className="app-nav-world-context">{campaignTrash ? <WorkspaceTrashControl campaignId={campaignTrash} current={null} onTrashed={() => undefined} /> : world.kind === "managed" ? <WorkspaceTrashControl worldId={world.worldId} current={null} onTrashed={() => undefined} /> : null}<WorldSelector compact /><AppChromeWorldGraphStatus /></div> : null}
+    {!localOnly ? <div className="app-nav-world-context">{campaignTrash ? <WorkspaceTrashControl campaignId={campaignTrash} current={null} onTrashed={() => undefined} /> : world.kind === "managed" ? <WorkspaceTrashControl worldId={world.worldId} current={null} onTrashed={() => undefined} /> : null}<WorldSelector compact creationPath={activeRoute === "index" ? "/" : "/plan"} /><AppChromeWorldGraphStatus /></div> : null}
   </nav>;
 }
