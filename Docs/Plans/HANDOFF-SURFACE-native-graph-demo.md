@@ -377,3 +377,13 @@ behavior is transferred. The existing Build link manages World content; it must
 not promise that legacy first-world initialization creates a compatible vNext
 graph. Hosted anonymous access, empty managed-World vNext initialization, and live
 cutover remain separate unsatisfied product gates.
+
+The real APP journal storage checkpoint passes 15 isolated PostgreSQL clone tests
+with inherited environment, dotenv loading and pytest plugin autoload excluded.
+It covers reopen, all five payload hashes, rollback before/after checkpoint,
+independent-connection lock ownership/release, scope-local retained operation caps
+and actual migrated-DDL constraints. Scoped lint/format/diff checks pass. Retained
+logs are `verification/storage-managed-graph-final-20261110T081015Z-973790.log`
+and `verification/storage-managed-graph-quality-20261110T081028Z-974219.log`.
+There is no named CI contract for these new tests; direct owning-boundary tests
+supplement, rather than alter, the repository's existing aggregate contracts.
