@@ -639,7 +639,7 @@ def test_one_writer_atomically_stores_plan_result_and_exact_replay(
             isinstance(completed, MixedCompletedTurnV1)
             and completed.base_projection.kind == "unclaimed"
         )
-        assert proposal.replacement_markdown == support.excerpt_text
+        assert proposal.replacement_markdown == support['excerpt_text']
     else:
         assert "| Lead | Follow-up |" in proposal.replacement_markdown
         assert "\n\n## Possible approach" in proposal.replacement_markdown

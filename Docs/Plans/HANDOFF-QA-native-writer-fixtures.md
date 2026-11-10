@@ -41,6 +41,11 @@ support ordering and atomic save/CAS/rollback/replay assertions. Use support tex
 and local aliases from actual composed Rules messages, not host UUIDs. Assert the
 offered strict schema has that root kind. Independent addendum PASS; no production
 codec, lookup or acceptance change. Old failures remain preserved.
+Reached boundary: two mixed classic-Graph authoring cases now reach the retained
+completion owner and refuse absent/ambiguous complete Graph evidence. Preserve
+that refusal and the tests; do not weaken the owner or remove Graph claims to
+manufacture green. Necessity/legacy-producer triage is separate from this test-only
+slice. All fresh shared-native mixed cases pass targeted protocol verification.
 No new test runner, per-question branch, provider call, primary write or deployment.
 
 Validation: targeted previously failed integration cases, existing affected
