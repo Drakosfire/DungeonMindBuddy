@@ -201,12 +201,20 @@ def test_ordinary_process_review_publish_and_fresh_database_readback(
     values = {row["predicate"]: row["value"] for row in child.graph_payload["assertions"]}
     assert values["dnd5e:name"] == {"kind": "literal", "value": node["label"]}
     assert values["dnd5e:classification"] == {"kind": "term_ref", "term": "dnd5e:location"}
+    for row in child.graph_payload["assertions"]:
+        assert row["metadata"]["evidence_ref_ids"] == [evidence_id]
+        assert row["metadata"]["scope"] == [
+            {"axis": "dungeonbuddy.scope:campaign", "value": "longmont-c2"}]
     _, access = native.access_context(reader, space)
     opened = open_admitted_native_text(access, evidence_id)
+    assert opened.status == "available"
     assert opened.source_artifact_id == admitted["source_artifact_id"]
     assert opened.source_revision_id == admitted["source_revision_id"]
     assert opened.body_sha256 == source.content_sha256
     assert opened.body_text.encode() == data.source_bytes
+    assert (opened.span_start_byte, opened.span_end_byte) == (support_start, support_end)
+    assert opened.span_sha256 == hashlib.sha256(reviewed_text).hexdigest()
+    assert opened.body_text.encode()[opened.span_start_byte:opened.span_end_byte] == reviewed_text
     reopened = load_reviewable_extraction_data(root, run_id)
     assert (reopened.source_bytes, reopened.candidate_bytes, reopened.span_bytes) == frozen
     # The standard pytest report retains the exact join after fixture teardown.
@@ -223,6 +231,8 @@ def test_ordinary_process_review_publish_and_fresh_database_readback(
         "publication_receipt": jsonable_encoder(receipt),
         "fresh_assertions": child.graph_payload["assertions"],
         "fresh_source_evidence_id": evidence_id,
+        "fresh_source_span": {"start_byte": opened.span_start_byte,
+            "end_byte": opened.span_end_byte, "sha256": opened.span_sha256},
         "idempotent_confirmation_verified": True,
         "APP_source_candidate_and_span_bytes_unchanged": True,
     }, sort_keys=True))
