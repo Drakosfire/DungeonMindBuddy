@@ -311,7 +311,7 @@ def verify_native_reply(
             validate_native_packet_writer(rules_execution,proof.producing_provider_attempt_id,require_reply=True)
             exposure = verify_native_rules_packet_input(rules_execution,native_context,graph_execution,
                 proof.prepared_request_json,provider_attempt_id=proof.producing_provider_attempt_id,
-                expected_envelope_sha256=proof.request_envelope_sha256,**native_submission)
+                expected_envelope_sha256=proof.request_envelope_sha256,allow_retained_format=True,**native_submission)
             responses = [e for e in graph_execution.events if isinstance(e,ProviderOutcomeEventV1)
                 and e.provider_attempt_id == proof.producing_provider_attempt_id and e.outcome == 'response_received']
             if (len(responses) != 1 or responses[0].request_id != proof.api_request_id

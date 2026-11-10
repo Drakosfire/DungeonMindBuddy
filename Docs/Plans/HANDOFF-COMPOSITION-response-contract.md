@@ -93,7 +93,7 @@ Independent exact-head review passed669c82b752700633bdc966bb996410d57e62699f;
 33 focused tests and3 actual APP reviewed-discussion boundary cases passed locally.
 No deployment is claimed. Retained evidence is under conversation-task-tests.
 
-## Slice8 ACTIVE — native schema is the format authority
+## Slice8 COMPLETE — native schema is the format authority
 
 Serial after2352; branch codex/native-writer-schema-instruction; base
 fde9a8040f02ead831f098558dccb167b88d01f6. Exclusive writes: this handoff,
@@ -110,6 +110,47 @@ message, removing format authority, or changing legacy requests. Verify actual
 Plan/Build/Play constructor and serialized SDK input at the owning boundary;
 no paid writer rerun is necessary for this message-only deletion. Independent
 exact-head review, local tests and one bounded PR; no competing format fallback.
+
+Slice8 merged as PR2353 at ba17476a6ef4435facde5c147d680ed2dbb56447;
+exact-head independent review passed7b35c6acf805ccc0a668f4ca2ba32cf519493019,
+and33 local tests passed. No paid calls, database changes or deployment.
+
+## Slice9 ACTIVE — replay-safe native image capability removal
+
+Serial after2353; branch codex/native-writer-active-schema; base
+ba17476a6ef4435facde5c147d680ed2dbb56447. Exclusive writes: this handoff;
+src/application_state/agent_conversation/plan_writer_output_schema.py;
+tests/test_plan_jev_response_assembly.py; tests/test_plan_writer_output_schema.py.
+No overlapping open UI/storage/CI lease. No provider, database or deployment effects.
+
+Invariant: ordinary shared native writer is not the selected image-preparation
+owner. Its schema must not advertise image_prompt. Keep invented_idea proposals
+for requested creative collaboration; preserve all claim/citation variants,
+strict output and dedicated image owner. Existing non-native schema and historical
+output readers remain unchanged. Verify actual Plan/PlanV2/Build/Play native schemas
+reject image_prompt and accept invented_idea, and legacy schema still reads its
+existing shape. Review exact cumulative diff; local verification; one bounded PR.
+This is capability removal, not factual pruning or an answer-quality claim.
+
+Scope checkpoint after exact-head review453c233941e846041d9940e1d7ee839e5a5f4637:
+the existing producer verifier reconstructs the format during admission and reply
+recovery. Extend this same serial PR lease to
+src/application_state/agent_conversation/rules_authority_plan_packet.py,
+src/application_state/agent_conversation/native_rules_output.py,
+src/application_state/agent_conversation/rules_authority_store.py,
+tests/test_surface_native_rules.py. Checked current open UI/storage/CI lanes;
+none owns these files. No DB or provider effects. This transition is indivisible
+from capability removal: keeping unchanged version1 breaks historical readback.
+
+The single schema builder defaults to format version2 without image_prompt;
+version1 is a closed historical grammar. Fresh admission requires version2.
+Already recorded admission replay and captured reply verification may reconstruct
+version1 only from its exact named sealed format. Unknown versions or modified
+enums still fail exact schema/envelope/receipt checks. No repair, heuristic
+fallback or historical producer dispatch. Prove current admission rejects old
+format, historical normalization accepts exact old captures and rejects modified
+old schemas, and current native routes still exclude image capability. Retain
+historical artifacts under their original immutable pins.
 
 ## Remaining completion gates
 
