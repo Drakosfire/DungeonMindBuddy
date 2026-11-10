@@ -328,7 +328,8 @@ class PlanJevWriter:
             self.output_format=output_format(self.frame,rule_frame)
             frames=(self.frame,rule_frame)
         self.messages=[{'role':'user','content':canonical_bytes(frame).decode()} for frame in frames]
-        self.messages.append({'role':'user','content':'Return JSON.'})
+        if not self.shared:
+            self.messages.append({'role':'user','content':'Return JSON.'})
         self.prompt_components = None
         task = (_conversation_response_task(adapter._broker_execution())
                 if self.shared and getattr(rules, 'authoring', None) is None else None)

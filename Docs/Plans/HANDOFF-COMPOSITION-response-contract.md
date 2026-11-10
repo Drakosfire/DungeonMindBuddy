@@ -62,7 +62,7 @@ review, not automatic stripping. These are not all established leaks. Broader
 corpus correction is a separate prospective slice, pending user scope steering;
 no expanded database write lease is active. Original90-record correction is done.
 
-## Slice7 ACTIVE — conversation-only task components
+## Slice7 COMPLETE — conversation-only task components
 
 Serial after2351; branch codex/conversation-task-components at exact fetched
 ac2a8a30c544f2456c222541a80882c208607d17. Exclusive writes: this handoff;
@@ -87,6 +87,29 @@ unconditional image guidance for native conversation. Verify actual work
 reconstruction/SDK bytes, task constraints and inactive-capability exclusion
 locally; independent exact-head review before delivery. Broader corpus priority
 question remains optional/pending; this slice does not expand its write lease.
+
+Slice7 merged as PR2352 at fde9a8040f02ead831f098558dccb167b88d01f6.
+Independent exact-head review passed669c82b752700633bdc966bb996410d57e62699f;
+33 focused tests and3 actual APP reviewed-discussion boundary cases passed locally.
+No deployment is claimed. Retained evidence is under conversation-task-tests.
+
+## Slice8 ACTIVE — native schema is the format authority
+
+Serial after2352; branch codex/native-writer-schema-instruction; base
+fde9a8040f02ead831f098558dccb167b88d01f6. Exclusive writes: this handoff,
+apps/live_control_server/services/plan_jev_writer.py,
+tests/test_plan_jev_response_assembly.py. Existing open UI/storage/CI lanes do not
+overlap. No database, deployment or provider effects in this implementation slice.
+
+Invariant: actual shared native writer calls already send strict native output
+format through the provider API. Remove their redundant terminal user message
+Return JSON. Preserve all evidence/work/rules message bytes and ordering, the
+system compiler and output schema. Non-native legacy behavior is outside this
+slice and remains unchanged. Failure cases: accidentally dropping an evidence
+message, removing format authority, or changing legacy requests. Verify actual
+Plan/Build/Play constructor and serialized SDK input at the owning boundary;
+no paid writer rerun is necessary for this message-only deletion. Independent
+exact-head review, local tests and one bounded PR; no competing format fallback.
 
 ## Remaining completion gates
 

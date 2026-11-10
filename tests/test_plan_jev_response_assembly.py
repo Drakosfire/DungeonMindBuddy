@@ -82,6 +82,12 @@ def test_actual_ordinary_writer_uses_compiler_in_actual_sdk_bytes(surface):
     assert sent[0]['instructions'] == compose_response_prompt().instructions
     assert sent[0]['input'] == writer.messages
     assert sent[0]['text']['format'] == writer.output_format
+    assert writer.output_format['type'] == 'json_schema'
+    assert writer.output_format['strict'] is True
+    assert len(sent[0]['input']) == 3
+    assert all(message['content'] != 'Return JSON.' for message in sent[0]['input'])
+    # Every remaining message is one intact owned frame, with no format-only tail.
+    assert all(isinstance(json.loads(message['content']), dict) for message in sent[0]['input'])
     assert sent[0]['tools'] == []
     assert 'instructions_sha256' not in json.dumps(sent[0])
     assert 'image_prompt' not in sent[0]['instructions']
