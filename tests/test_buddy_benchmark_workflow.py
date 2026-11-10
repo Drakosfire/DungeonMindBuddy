@@ -76,7 +76,8 @@ def test_context_tasting_freezes_shared_input_and_retains_failures(tmp_path, mon
 
 
 @pytest.mark.parametrize("reviewed", [False, True, "pending"])
-def test_flat_tasting_changes_only_exact_evidence_frame(tmp_path, monkeypatch, reviewed):
+@pytest.mark.parametrize("presentation", ["flat_native_assertions_v1", "retained_json"])
+def test_flat_tasting_changes_only_exact_evidence_frame(tmp_path, monkeypatch, reviewed, presentation):
     import generationengine
     from application_state.agent_conversation import native_evidence_view, types
     from application_state.agent_conversation.native_evidence_presentation import restore_flat_native_evidence
@@ -91,7 +92,7 @@ def test_flat_tasting_changes_only_exact_evidence_frame(tmp_path, monkeypatch, r
     ready = put(tmp_path / "ready.json", {"frame_sha256": types.canonical_sha256(frame)})
     manifest = tmp_path / "manifest.json"
     specification = {"schema": "dmb_context_tasting_v1", "source_request": request, "context_ready": ready,
-        "models": ["test/model"], "presentation": "flat_native_assertions_v1"}
+        "models": ["test/model"], "presentation": presentation}
     if reviewed:
         compact = lambda x: json.dumps(x, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
         review = {"schema": "dmb_reviewed_qualification_parts_v1", "reviewer": "Independent reviewer",
@@ -118,17 +119,23 @@ def test_flat_tasting_changes_only_exact_evidence_frame(tmp_path, monkeypatch, r
         assert seen == [] and not output.exists()
         return
     w.context_tasting(manifest, output)
-    flat = json.loads((output / "flat-presentation.json").read_text())
     expected = deepcopy(frame)
     if reviewed:
         expected["native_assertions"]["qualifications"]["q0"]["domain_metadata"][0]["world_context"]["source_qualification"] = "Report only. "
         assert json.loads((output / "frozen-packet.json").read_text()) == packet
         assert "host-binding" not in seen[0].user_prompt
         assert "source_frame_sha256" not in seen[0].user_prompt
-    assert restore_flat_native_evidence(flat["text"], flat["readback_proof"]) == expected
+    if presentation == "flat_native_assertions_v1":
+        flat = json.loads((output / "flat-presentation.json").read_text())
+        assert restore_flat_native_evidence(flat["text"], flat["readback_proof"]) == expected
+        text = flat["text"]
+    else:
+        text = seen[0].user_prompt.removesuffix("\n\nReturn JSON.")
+        assert json.loads(text) == expected
+        assert not (output / "flat-presentation.json").exists()
     assert seen[0].system_prompt == packet["instructions"]
     assert seen[0].json_schema == packet["text"]["format"]["schema"]
-    assert seen[0].user_prompt == flat["text"] + "\n\nReturn JSON."
+    assert seen[0].user_prompt == text + "\n\nReturn JSON."
     assert "readback_proof" not in seen[0].user_prompt
 
 
