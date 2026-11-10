@@ -429,3 +429,63 @@ def test_compose_requires_actual_complete_selected_sdk_response(request_case,mon
     assert asyncio.run(owner.compose(request,transport=wire))==record
     assert len(wire.calls)==1
     assert get_workspace_document_snapshot(root,source.record.document_id)==source
+
+
+@pytest.mark.parametrize("elapsed,budget,completes", [(61.0, 300_000, True), (301.0, 300_000, False), (61.0, 60_000, False)])
+def test_streaming_artifact_owns_total_deadline(request_case, monkeypatch, elapsed, budget, completes):
+    """Actual SDK streaming + durable proposal acceptance past the old deadline.
+
+    Advance only GE's clock, not asyncio, DB leases, or the process clock.
+    No sleeping and no provider calls. A partial delta is never an accepted result.
+    """
+    import importlib
+    from types import SimpleNamespace
+    sdk = importlib.import_module('generationengine.client')
+    assert owner.BUILD_PROPOSAL_DEADLINE_MS == 300_000
+    monkeypatch.setattr(owner, 'BUILD_PROPOSAL_DEADLINE_MS', budget)
+    clock = [0.0]
+    monkeypatch.setattr(sdk, 'time', SimpleNamespace(monotonic=lambda: clock[0]))
+    request, _, _ = request_case
+    wire = Wire(request)
+    closed = []
+
+    class Stream(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            delta = dict(type='response.output_text.delta', sequence_number=1,
+                         item_id='msg', output_index=0, content_index=0, delta=wire.text)
+            yield ('data: '+json.dumps(delta)+'\n\n').encode()
+            clock[0] = elapsed
+            # Force another SDK iteration after the elapsed interval.
+            yield ('data: '+json.dumps({**delta, 'sequence_number':2, 'delta':' '})+'\n\n').encode()
+            response = {'id':'resp_compose','object':'response','created_at':1,
+                'status':'completed','model':'gpt-6-luna','output':[{'type':'message','id':'msg',
+                'role':'assistant','status':'completed','content':[{'type':'output_text',
+                'text':wire.text,'annotations':[]}]}],
+                'usage':{'input_tokens':100,'output_tokens':40,'total_tokens':140}}
+            yield ('data: '+json.dumps(dict(type='response.completed',sequence_number=3,
+                                            response=response))+'\n\n').encode()
+        async def aclose(self):
+            closed.append(True)
+
+    async def handle(http_request):
+        # Retain the existing exact-capture / durable dispatch assertions.
+        await Wire.handle_async_request(wire, http_request)
+        body = json.loads(http_request.content)
+        assert 'deadline_ms' not in body
+        assert body == owner._writer_request(request, owner._source(request), 'gpt-6-luna')
+        return httpx.Response(200, request=http_request,
+                              headers={'content-type':'text/event-stream'}, stream=Stream())
+    wire.handle_async_request = handle
+    if completes:
+        result = asyncio.run(owner.compose(request, transport=wire))
+        assert result.state == 'proposed' and result.raw_response == wire.text
+        assert result.proposal.replacement_markdown == TABLE
+        assert asyncio.run(owner.compose(request, transport=wire)) == result
+    else:
+        with pytest.raises(GenerationEngineError) as failure:
+            asyncio.run(owner.compose(request, transport=wire))
+        assert failure.value.failure.code.value == 'PROVIDER_TIMEOUT'
+        result = BuildProposalService().get('elderwyld', request.idempotency_key)
+        assert result.state == 'unknown' and result.proposal is None
+        assert asyncio.run(owner.compose(request, transport=wire)).state == 'unknown'
+    assert len(wire.calls) == 1 and closed
