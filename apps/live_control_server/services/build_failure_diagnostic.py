@@ -65,6 +65,9 @@ def store_failure(exc, *, stage, turn_id, attempt):
 def failure_code(exc):
     """Only an exact host-owned failure gets an explanatory public code."""
     from .build_jev_writer import WriterCapacityError, WriterAccountingError
+    from application_state.build_proposal.types import BuildComposeTargetMismatch
+    if type(exc) is BuildComposeTargetMismatch and str(exc) == "build_compose_target_unavailable":
+        return "build_compose_target_unavailable"
     current = exc
     seen = set()
     while current is not None and id(current) not in seen and len(seen) < 8:

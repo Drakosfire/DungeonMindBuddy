@@ -4463,7 +4463,10 @@ export function WorldPlanAgentConversation({
       if (requestRef.current?.token !== token || !latestRef.current.mounted) return;
       const terminalMatches = sharedConversation?.history && await confirmedReadOnlyTurn(sharedConversation.history, stored);
       if (requestRef.current?.token !== token || !latestRef.current.mounted) return;
+      const buildTargetUnavailable = request.surface.surface_id === "build"
+        && reason instanceof LiveApiError && reason.code === "build_compose_target_unavailable";
       if (terminalMatches && sharedConversation) {
+        if (buildTargetUnavailable) setError(reason.message);
         if (clearSavedPlayTurn(stored)) sharedConversation.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
         return;
       }
@@ -4516,7 +4519,7 @@ export function WorldPlanAgentConversation({
       }
       const graphFailure = reason instanceof LiveApiError
         && ["graph_unavailable", "native_binding_invalid", "graph_revision_unavailable", "graph_read_failed"].includes(reason.code ?? "");
-      const notice = rejectedBeforeDispatch
+      const notice = buildTargetUnavailable ? reason.message : rejectedBeforeDispatch
         ? `This message was not sent. ${localOperatorCredentialFailure(reason, "send this message again")
           ?? (reason instanceof Error ? reason.message : "Reopen the saved work.")}`
         : graphFailure

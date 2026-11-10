@@ -165,10 +165,13 @@ class BuildJevHarness:
         except Exception as exc:
             if adapter.turn is None and not self.calls:
                 logging.getLogger(__name__).exception("Build preparation failed before durable admission or provider dispatch")
+            from .build_failure_diagnostic import failure_code
+            target_unavailable = failure_code(exc) == "build_compose_target_unavailable"
             trace.complete_phase(span, status="error")
             if adapter.turn is not None and not isinstance(adapter.turn, MixedCompletedTurnV1) and adapter.turn.status == "running":
                 _interrupt_policy_delivery(adapter.service, adapter.turn,
-                    output_limit_exceeded=self.output_limit_exceeded)
+                    output_limit_exceeded=self.output_limit_exceeded,
+                    failure_code_override="build_compose_target_unavailable" if target_unavailable else None)
             trace.finalize_and_log(
                 status="error",
                 model_calls=self.calls,
@@ -176,6 +179,11 @@ class BuildJevHarness:
             )
             if isinstance(exc, AgentTurnServiceError):
                 raise
+            if target_unavailable:
+                raise AgentTurnServiceError(
+                    "Select the passage you want Buddy to revise, then send your request again.",
+                    code="build_compose_target_unavailable", status_code=409,
+                ) from exc
             if self.output_limit_exceeded:
                 raise AgentTurnServiceError(
                     "Buddy stopped before finishing the reply. Your request and activity are saved.",
