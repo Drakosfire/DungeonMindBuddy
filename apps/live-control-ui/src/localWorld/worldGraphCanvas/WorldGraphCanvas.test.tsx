@@ -262,14 +262,24 @@ describe("WorldGraphCanvas", () => {
       disconnect() {}
     }
     vi.stubGlobal("ResizeObserver", TestResizeObserver);
+    const oldVisualViewport = Object.getOwnPropertyDescriptor(window, "visualViewport");
+    const visibleWindow = new EventTarget() as VisualViewport;
+    Object.defineProperties(visibleWindow, {
+      offsetLeft: { configurable: true, value: 0 },
+      offsetTop: { configurable: true, value: 12 },
+      width: { configurable: true, writable: true, value: 390 },
+      height: { configurable: true, writable: true, value: 320 },
+    });
+    Object.defineProperty(window, "visualViewport", { configurable: true, value: visibleWindow });
     const originalGetRect = HTMLDivElement.prototype.getBoundingClientRect;
     vi.spyOn(HTMLDivElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLDivElement) {
       if (this.classList.contains("world-graph-canvas__palette")) {
-        return { x: 0, y: 0, top: 0, left: 0, right: 160, bottom: 104, width: 160, height: 104, toJSON: () => ({}) };
+        return { x: 0, y: 0, top: 0, left: 0, right: 160, bottom: 158, width: 160, height: 158, toJSON: () => ({}) };
       }
       return originalGetRect.call(this);
     });
     const onCanvasCreateRequest = vi.fn();
+    let svgTop = 180;
     try {
       render(<>
         <button type="button">Outside canvas control</button>
@@ -279,16 +289,22 @@ describe("WorldGraphCanvas", () => {
       </>);
 
       const svg = screen.getByRole("group", { name: "The Ember Coast world graph" });
-      captureRect(svg, 180, 120);
-      act(() => resize([{ contentRect: { width: 180, height: 120 } } as ResizeObserverEntry], {} as ResizeObserver));
-      dispatchPointer(svg, "pointerdown", { button: 0, pointerId: 50, clientX: 160, clientY: 110 });
-      dispatchPointer(svg, "pointerup", { pointerId: 50, clientX: 160, clientY: 110 });
+      vi.spyOn(svg, "getBoundingClientRect").mockImplementation(() => ({ width: 390, height: 120, x: 0, y: svgTop,
+        top: svgTop, right: 390, bottom: svgTop + 120, left: 0, toJSON: () => ({}) }));
+      act(() => resize([{ contentRect: { width: 390, height: 120 } } as ResizeObserverEntry], {} as ResizeObserver));
+      dispatchPointer(svg, "pointerdown", { button: 0, pointerId: 50, clientX: 380, clientY: 295 });
+      dispatchPointer(svg, "pointerup", { pointerId: 50, clientX: 380, clientY: 295 });
 
       const palette = screen.getByTestId("node-palette");
       const choices = palette.querySelector(".world-graph-canvas__palette-choices")!;
       const cancel = within(palette).getByRole("button", { name: "Cancel placement" });
-      expect(palette.style.left).toBe("12px");
-      expect(palette.style.top).toBe("8px");
+      expect(palette.parentElement).toBe(document.body);
+      expect(palette).toHaveStyle({ position: "fixed" });
+      expect(Number(palette.style.left.replace("px", ""))).toBeGreaterThanOrEqual(8);
+      const initialTop = Number(palette.style.top.replace("px", ""));
+      expect(initialTop).toBeGreaterThanOrEqual(20);
+      expect(initialTop + 158).toBeLessThanOrEqual(324);
+      const originalGraphY = palette.getAttribute("data-position-y");
       expect(cancel).toBeVisible();
       expect(choices).not.toContainElement(cancel);
       expect(screen.getByRole("button", { name: "Person" })).toHaveFocus();
@@ -296,15 +312,21 @@ describe("WorldGraphCanvas", () => {
       await user.tab();
       await user.tab();
       expect(cancel).toHaveFocus();
-      act(() => resize([{ contentRect: { width: 220, height: 160 } } as ResizeObserverEntry], {} as ResizeObserver));
+      svgTop = 120;
+      act(() => window.dispatchEvent(new Event("scroll")));
+      expect(Number(palette.style.top.replace("px", ""))).not.toBe(initialTop);
+      expect(palette.getAttribute("data-position-y")).toBe(originalGraphY);
+      Object.defineProperty(visibleWindow, "height", { configurable: true, writable: true, value: 270 });
+      act(() => visibleWindow.dispatchEvent(new Event("resize")));
+      expect(Number(palette.style.top.replace("px", "")) + 158).toBeLessThanOrEqual(274);
       expect(cancel).toHaveFocus();
       await user.keyboard("{Enter}");
       expect(screen.queryByTestId("node-palette")).not.toBeInTheDocument();
       await waitFor(() => expect(svg).toHaveFocus());
       expect(onCanvasCreateRequest).not.toHaveBeenCalled();
 
-      dispatchPointer(svg, "pointerdown", { button: 0, pointerId: 51, clientX: 150, clientY: 100 });
-      dispatchPointer(svg, "pointerup", { pointerId: 51, clientX: 150, clientY: 100 });
+      dispatchPointer(svg, "pointerdown", { button: 0, pointerId: 51, clientX: 380, clientY: 235 });
+      dispatchPointer(svg, "pointerup", { pointerId: 51, clientX: 380, clientY: 235 });
       expect(screen.getByTestId("node-palette")).toBeVisible();
       screen.getByRole("button", { name: "Outside canvas control" }).focus();
       await user.keyboard("{Escape}");
@@ -314,6 +336,8 @@ describe("WorldGraphCanvas", () => {
     } finally {
       vi.unstubAllGlobals();
       vi.restoreAllMocks();
+      if (oldVisualViewport) Object.defineProperty(window, "visualViewport", oldVisualViewport);
+      else Reflect.deleteProperty(window, "visualViewport");
     }
   });
 

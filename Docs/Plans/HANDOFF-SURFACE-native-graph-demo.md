@@ -594,3 +594,29 @@ with fresh usable clients and permanent invalidation of retired clients. Re-run
 exact-source aggregate checks on the corrected successor and request independent
 review of the material correction. Keep predecessor test reports labeled with
 their actual SHA; do not relabel 1ca2 evidence as successor qualification.
+
+### Short-screen palette browser correction
+
+Real-browser c836 acceptance passed the primary desktop placement exits, help
+hover/focus/toggle/Escape, exact displayed-revision inspection, Focus/Exit camera
+restoration and refresh behavior without graph mutation requests. It found one
+remaining feedback defect at 390 by 320 CSS pixels: the palette was clamped to the
+canvas rather than the visible browser viewport, leaving Cancel below the fold.
+The c836 source/evidence remains retained and published; this correction does not
+relabel that browser finding as a pass.
+
+The existing UI worker is ACTIVE again only for WorldGraphCanvas.tsx,
+worldGraphCanvas.css and WorldGraphCanvas.test.tsx under the prior exact paths.
+Keep the palette and its exit inside the visible viewport, including short-screen
+or scrolled placement, while preserving the actual requested graph coordinate,
+style, keyboard focus and all native intent/review boundaries. A presentation-only
+portal or visible-viewport bound is permitted; no dependency, API, auth, graph
+layout authority or semantic-write change is included. Keep the old preview
+running until the successor is qualified. Add focused positioning/exit regression
+coverage, then exact-source aggregate verification and targeted browser recheck.
+
+The correction re-anchored at main
+`765e05b50f3648561427fd45e7c10ab2474e25cb`. New ingestion and Play reference
+changes since af88d3ac do not overlap the three canvas files or agent policy.
+The existing unmerged parent and hosted successor remain separate; no App,
+authorization, production service, database or deployment change is included.

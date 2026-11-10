@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from "react";
+import { createPortal } from "react-dom";
 import type {
   CommitSemanticResult,
   LocalObjectId,
@@ -108,6 +109,31 @@ interface GraphPoint { readonly x: number; readonly y: number }
 
 interface CanvasPalette {
   readonly point: GraphPoint;
+}
+
+interface PaletteScreenPosition {
+  readonly x: number;
+  readonly y: number;
+  readonly maxWidth: number;
+  readonly maxHeight: number;
+}
+
+interface VisibleViewportBounds {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+function visibleViewportBounds(): VisibleViewportBounds {
+  const visualViewport = typeof window === "undefined" ? null : window.visualViewport;
+  const left = visualViewport?.offsetLeft ?? 0;
+  const top = visualViewport?.offsetTop ?? 0;
+  const width = Math.max(0, visualViewport?.width ?? (typeof window === "undefined" ? WIDTH : window.innerWidth));
+  const height = Math.max(0, visualViewport?.height ?? (typeof window === "undefined" ? HEIGHT : window.innerHeight));
+  return { left, top, right: left + width, bottom: top + height, width, height };
 }
 
 function nodeDimensions(shape: NodeShape) {
@@ -314,7 +340,7 @@ export function WorldGraphCanvas({
   const [dragPreview, setDragPreview] = useState<{ id: LocalObjectId; x: number; y: number } | null>(null);
   const [isPanning, setIsPanning] = useState(false);
   const [palette, setPalette] = useState<CanvasPalette | null>(null);
-  const [paletteSize, setPaletteSize] = useState<{ readonly width: number; readonly height: number } | null>(null);
+  const [paletteScreen, setPaletteScreen] = useState<PaletteScreenPosition | null>(null);
   const [connectPreview, setConnectPreview] = useState<{ sourceId: LocalObjectId; point: GraphPoint } | null>(null);
   const gestureRef = useRef<CanvasGesture | null>(null);
   const paletteRef = useRef<HTMLDivElement>(null);
@@ -518,17 +544,60 @@ export function WorldGraphCanvas({
       paletteFocusPendingRef.current = false;
       paletteFirstActionRef.current?.focus();
     }
-    const rect = paletteRef.current?.getBoundingClientRect();
-    if (!rect || rect.width <= 0 || rect.height <= 0) return;
-    const next = { width: Math.ceil(rect.width), height: Math.ceil(rect.height) };
-    setPaletteSize((current) => current?.width === next.width && current.height === next.height ? current : next);
-  }, [palette, creationSignature, viewport.width, viewport.height]);
+    const updatePalettePosition = () => {
+      const menuRect = paletteRef.current?.getBoundingClientRect();
+      if (!menuRect || menuRect.width <= 0 || menuRect.height <= 0) return;
+      const bounds = visibleViewportBounds();
+      const svgRect = svgRef.current?.getBoundingClientRect();
+      const scaleX = svgRect?.width && viewport.width ? svgRect.width / viewport.width : 1;
+      const scaleY = svgRect?.height && viewport.height ? svgRect.height / viewport.height : 1;
+      const graphScreenX = camera.x + palette.point.x * camera.zoom;
+      const graphScreenY = camera.y + palette.point.y * camera.zoom;
+      const anchorX = (svgRect?.left ?? 0) + graphScreenX * scaleX;
+      const anchorY = (svgRect?.top ?? 0) + graphScreenY * scaleY;
+      const maxWidth = Math.max(0, bounds.width - 16);
+      const maxHeight = Math.max(0, bounds.height - 16);
+      const menuWidth = Math.min(menuRect.width, maxWidth);
+      const menuHeight = Math.min(menuRect.height, maxHeight);
+      let x = anchorX;
+      let y = anchorY;
+      if (x + menuWidth > bounds.right - 8) {
+        const leftOfAnchor = anchorX - menuWidth;
+        if (leftOfAnchor >= bounds.left + 8) x = leftOfAnchor;
+      }
+      if (y + menuHeight > bounds.bottom - 8) {
+        const aboveAnchor = anchorY - menuHeight;
+        if (aboveAnchor >= bounds.top + 8) y = aboveAnchor;
+      }
+      x = Math.max(bounds.left + 8, Math.min(bounds.right - menuWidth - 8, x));
+      y = Math.max(bounds.top + 8, Math.min(bounds.bottom - menuHeight - 8, y));
+      setPaletteScreen((current) => current
+        && Math.abs(current.x - x) < 0.1 && Math.abs(current.y - y) < 0.1
+        && Math.abs(current.maxWidth - maxWidth) < 0.1 && Math.abs(current.maxHeight - maxHeight) < 0.1
+        ? current : { x, y, maxWidth, maxHeight });
+    };
+    updatePalettePosition();
+    window.addEventListener("resize", updatePalettePosition);
+    // A page or nested scroll can move the clicked canvas anchor under a fixed popover.
+    window.addEventListener("scroll", updatePalettePosition, true);
+    const visualViewport = window.visualViewport;
+    visualViewport?.addEventListener("resize", updatePalettePosition);
+    visualViewport?.addEventListener("scroll", updatePalettePosition);
+    return () => {
+      window.removeEventListener("resize", updatePalettePosition);
+      window.removeEventListener("scroll", updatePalettePosition, true);
+      visualViewport?.removeEventListener("resize", updatePalettePosition);
+      visualViewport?.removeEventListener("scroll", updatePalettePosition);
+    };
+  }, [camera.x, camera.y, camera.zoom, creationSignature, palette, paletteScreen, viewport.height, viewport.width]);
 
   useLayoutEffect(() => {
     if (!palette) return;
     const onGlobalKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Escape") return;
       setPalette(null);
+      setPaletteScreen(null);
+      paletteFocusPendingRef.current = false;
       queueMicrotask(() => paletteTriggerRef.current?.focus());
       event.preventDefault();
       event.stopPropagation();
@@ -556,7 +625,9 @@ export function WorldGraphCanvas({
     paletteTriggerRef.current = trigger
       ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     paletteFocusPendingRef.current = true;
-    setPaletteSize(null);
+    const bounds = visibleViewportBounds();
+    setPaletteScreen({ x: bounds.left + 8, y: bounds.top + 8,
+      maxWidth: Math.max(0, bounds.width - 16), maxHeight: Math.max(0, bounds.height - 16) });
     setPalette({ point });
   }
 
@@ -569,6 +640,7 @@ export function WorldGraphCanvas({
 
   function closePalette(restoreFocus = false) {
     setPalette(null);
+    setPaletteScreen(null);
     paletteFocusPendingRef.current = false;
     if (restoreFocus) queueMicrotask(() => paletteTriggerRef.current?.focus());
   }
@@ -608,17 +680,6 @@ export function WorldGraphCanvas({
   const nodeNames = new Map(projection.nodes.map((node) => [node.id, node.name]));
   const renderedEdges = renderEdges(projection.edges, positions, nodeShape);
   const connectTargetId = connectPreview ? nodeAt(connectPreview.point) : null;
-  const paletteScreen = palette ? (() => {
-    if (!paletteSize) return { x: 8, y: 8 };
-    const desiredX = camera.x + palette.point.x * camera.zoom;
-    const desiredY = camera.y + palette.point.y * camera.zoom;
-    const maxX = Math.max(8, viewport.width - paletteSize.width - 8);
-    const maxY = Math.max(8, viewport.height - paletteSize.height - 8);
-    return {
-      x: Math.max(8, Math.min(maxX, desiredX)),
-      y: Math.max(8, Math.min(maxY, desiredY)),
-    };
-  })() : null;
 
   function selectNode(id: LocalObjectId) {
     if (showRelationshipForm) relationshipKindVersionRef.current += 1;
@@ -1026,9 +1087,10 @@ export function WorldGraphCanvas({
           </g>
           </g>
         </svg>
-        {palette && paletteScreen && creationKinds?.length ? <div ref={paletteRef} className="world-graph-canvas__palette" role="group" aria-label="Choose node type"
-          style={{ left: paletteScreen.x, top: paletteScreen.y }} data-testid="node-palette"
-          data-position-x={palette.point.x} data-position-y={palette.point.y}>
+        {palette && paletteScreen && creationKinds?.length && typeof document !== "undefined" ? createPortal(
+          <div ref={paletteRef} className="world-graph-canvas__palette" role="group" aria-label="Choose node type"
+            style={{ position: "fixed", left: paletteScreen.x, top: paletteScreen.y, maxWidth: paletteScreen.maxWidth, maxHeight: paletteScreen.maxHeight }} data-testid="node-palette"
+            data-position-x={palette.point.x} data-position-y={palette.point.y}>
           <div className="world-graph-canvas__palette-header">
             <span className="world-graph-canvas__palette-title">Place a node here</span>
           </div>
@@ -1043,7 +1105,7 @@ export function WorldGraphCanvas({
           <div className="world-graph-canvas__palette-actions">
             <button type="button" className="world-graph-canvas__palette-cancel" aria-keyshortcuts="Escape" onClick={() => closePalette(true)}>Cancel placement</button>
           </div>
-        </div> : null}
+          </div>, document.body) : null}
       </div>
 
       <div className="world-graph-canvas__feedback" role="status" aria-live="polite">
