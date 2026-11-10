@@ -76,6 +76,93 @@ def query(lane):
         resolve_binding=lambda _: bound(lane), scope_mode='campaign', campaign_id='c1')
 
 
+def _object_catalog_query():
+    from application_state.agent_conversation.native_plan_assertions import (
+        NativeGraphQueryV4, NativeObjectMatchV1, NativePlanAssertionMatchV1,
+    )
+    from application_state.agent_conversation.native_plan_statements import (
+        NativePlanQueryAuthorityV1, NativePlanStatementMatchV1,
+    )
+    authority = NativePlanQueryAuthorityV1(managed_world_id='world', native_world_id='native',
+        binding_version=1, revision_id='revision', acquisition_epoch=1,
+        domain_ref=dict(authority_id='domain', revision='1', descriptor_sha256='a' * 64),
+        profile_ref=dict(authority_id='profile', revision='1', descriptor_sha256='b' * 64),
+        scope_mode='world', campaign_id=None)
+    membership = (('b', ('B',)), ('shared', ('A', 'B', 'A')), ('a', ('A',)))
+    return NativeGraphQueryV4(authority=authority, question='What happened?',
+        search_result_sha256='c' * 64, discovered_entity_ids=('A', 'B', 'empty'),
+        matches=tuple(NativePlanStatementMatchV1(statement_id='ent:' + name,
+            discovered_entity_ids=witnesses, discovery_assertion_ids=('discovery',),
+            campaign_id='campaign', logical_source={'kind': 'recap'}, episode='session', label=name)
+            for name, witnesses in membership),
+        assertion_matches=tuple(NativePlanAssertionMatchV1(assertion_id='assertion:' + name,
+            subject_entity_id=witnesses[0], discovered_entity_ids=witnesses,
+            assertion_sha256='d' * 64, label=name) for name, witnesses in membership),
+        object_matches=tuple(NativeObjectMatchV1(entity_id=identity, label=identity)
+            for identity in ('A', 'B', 'empty')), authored_targets=(), status='complete', gap_codes=())
+
+
+@pytest.mark.parametrize('assertion,prefix', [(False, 'ent:'), (True, 'assertion:')])
+def test_object_catalog_preserves_global_order_overlap_attempts_and_unknowns(assertion, prefix):
+    from application_state.agent_conversation.native_plan_assertions import (
+        object_record_catalog, object_record_ids, object_selection_handle,
+    )
+    q = _object_catalog_query()
+    catalog = object_record_catalog(q)
+    a, b, empty = (object_selection_handle(q, identity) for identity in ('A', 'B', 'empty'))
+    assert tuple(unit.handle for unit in catalog.units) == (a, b, empty)
+    assert catalog.record_ids((a,), assertion=assertion) == (prefix + 'shared', prefix + 'a')
+    assert catalog.record_ids((b,), assertion=assertion) == (prefix + 'b', prefix + 'shared')
+    assert catalog.record_ids((a, b, a), assertion=assertion) == tuple(prefix + n for n in ('b', 'shared', 'a'))
+    assert catalog.record_ids((a, b), assertion=assertion, attempted=(prefix + 'shared',)) == (prefix + 'b', prefix + 'a')
+    for handles in ((), (empty,), ('native-object:unknown',), ('native-body:unrelated',)):
+        assert catalog.record_ids(handles, assertion=assertion) == ()
+        assert object_record_ids(q, handles, assertion=assertion) == ()
+    assert object_record_ids(q, (a, b), assertion=assertion) == catalog.record_ids((a, b), assertion=assertion)
+
+
+def test_object_catalog_hashes_once_and_does_not_cache_mutable_query_state(monkeypatch):
+    from application_state.agent_conversation.native_plan_assertions import object_record_catalog
+    from application_state.agent_conversation.native_plan_statements import NativePlanQueryV1
+    q, calls = _object_catalog_query(), []
+    original = NativePlanQueryV1.sha256.fget
+    monkeypatch.setattr(NativePlanQueryV1, 'sha256', property(lambda value: calls.append(value) or original(value)))
+    first = object_record_catalog(q)
+    assert len(calls) == 1
+    q.matches[0].logical_source['detail'] = 'changed nested value'
+    second = object_record_catalog(q)
+    assert len(calls) == 2 and second.query_sha256 != first.query_sha256
+    assert tuple(unit.statement_ids for unit in first.units) == (('ent:shared', 'ent:a'), ('ent:b', 'ent:shared'), ())
+
+
+def test_nonobject_selection_does_not_build_or_hash_an_object_catalog(monkeypatch):
+    from application_state.agent_conversation.native_plan_assertions import object_record_ids
+    from application_state.agent_conversation.native_plan_statements import NativePlanQueryV1
+    q = _object_catalog_query()
+    monkeypatch.setattr(NativePlanQueryV1, 'sha256', property(lambda _: pytest.fail('Unselected query was hashed')))
+    assert object_record_ids(q, ('native-body:section', 'rules:read'), assertion=True) == ()
+
+
+def test_bulk_object_navigation_keeps_attempted_and_opened_status():
+    from application_state.agent_conversation.native_plan_assertions import object_record_catalog
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+    q = _object_catalog_query()
+    driver = object.__new__(PlanJevDriver)
+    driver.adapter = SimpleNamespace(native_query=q)
+    driver.native_statement_attempts = set()
+    driver.native_assertion_attempts = set()
+    units = object_record_catalog(q).units
+    assert tuple(c.handle for c in driver._native_object_candidates()) == tuple(u.handle for u in units[:2])
+    assert driver._native_object_candidates(examined=True) == ()
+    driver.native_statement_attempts = {m.statement_id for m in q.matches}
+    driver.native_assertion_attempts = {m.assertion_id for m in q.assertion_matches}
+    assert driver._native_object_candidates() == ()
+    opened = tuple((family, identity) for family, ids in ((False, units[0].statement_ids), (True, units[0].assertion_ids)) for identity in ids)
+    examined = driver._native_object_candidates(examined=True, opened=opened)
+    assert tuple(c.handle for c in examined) == tuple(u.handle for u in units[:2])
+    assert ': opened;' in examined[0].kind and ': partial;' in examined[1].kind
+
+
 def grant(context, ids=None):
     return NativePlanAssertionReadAuthorizedV1(event_id=uuid4(), sequence=0, provider_attempt_id=uuid4(),
         query_sha256=context.query.sha256, assertion_ids=ids or tuple(m.assertion_id for m in context.query.assertion_matches))

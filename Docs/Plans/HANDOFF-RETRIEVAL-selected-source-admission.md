@@ -1,9 +1,12 @@
 # RETRIEVAL: settle one actual selected-source batch efficiently
 
-Status: ACTIVE. Root adopts the reviewed same-exact-member mechanism below under
-the active six-second goal. Standing user authority covers implementation, local
-CI, independent review, ordinary changed benchmark calls and merge. No permission
-is pending; the exact write lease below is exclusive.
+Status: MERGED as2323, ec649ddc1da3b663853d3c5e9122bcf75cf7afb6. The exact
+reviewed/captured head was19b07a250c7fb92078f84173de4870aa5320869d. Its write
+lease is released; the consuming object-catalog handoff owns the next slice.
+Fixed comparison-v2 independently passed15/15 cases72/72 atoms and conservation;
+median request-start to genuine context-ready6375.155123ms, writerHTTP0. First
+d49 comparison remains INCONCLUSIVE_NOT_EXERCISED, with all evidence preserved.
+Primary/original APP/native data remain unchanged. No deployment; goal still active.
 
 Base: fetched main 9e4e68f79809d698f36d7ce3f47f597ee8d4f078, merged2322.
 Topology: serial, no unmerged parent. The2322 implementation lease is released;

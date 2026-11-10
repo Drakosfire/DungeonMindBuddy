@@ -313,13 +313,11 @@ class PlanJevDriver:
             self.gaps.append(f"native_{record_kind}_support_unavailable")
 
     def _native_object_candidates(self, *, examined=False, opened=()):
-        from application_state.agent_conversation.native_plan_assertions import object_record_ids, object_selection_handle
+        from application_state.agent_conversation.native_plan_assertions import object_record_catalog
         query = self.adapter.native_query
         result = []
-        for match in query.object_matches:
-            handle = object_selection_handle(query, match.entity_id)
-            statement_ids = object_record_ids(query, (handle,), assertion=False)
-            assertion_ids = object_record_ids(query, (handle,), assertion=True)
+        for unit in object_record_catalog(query).units:
+            statement_ids, assertion_ids = unit.statement_ids, unit.assertion_ids
             if not statement_ids and not assertion_ids:
                 continue  # Query gap codes retain unavailable/empty discovery status.
             remaining = (set(statement_ids) - self.native_statement_attempts
@@ -328,7 +326,7 @@ class PlanJevDriver:
                 continue
             keys = {(False, i) for i in statement_ids} | {(True, i) for i in assertion_ids}
             status = 'opened' if keys <= set(opened) else 'partial' if keys & set(opened) else 'unavailable'
-            result.append(RetrievalCandidate(handle=handle, label=match.label,
+            result.append(RetrievalCandidate(handle=unit.handle, label=unit.label,
                 kind=(f'Previously selected native object: {status}; not an answer-sufficiency verdict' if examined else
                     'Native Graph object; open its complete admitted statement and assertion support')))
         return tuple(result)

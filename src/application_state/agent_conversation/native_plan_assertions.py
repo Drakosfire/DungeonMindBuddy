@@ -1,6 +1,7 @@
 """Selected native assertions for Plan; Core owns admission and source provenance."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from hashlib import sha256
 from typing import Literal
 from uuid import UUID
@@ -100,10 +101,62 @@ class NativeGraphQueryV4(NativeGraphQueryV3):
         return self
 
 
+def _object_selection_handle(query_digest, entity_id):
+    return 'native-object:' + digest({'query': query_digest, 'object': entity_id})
+
+
 def object_selection_handle(query, entity_id):
     if not isinstance(query, NativeGraphQueryV4) or entity_id not in query.discovered_entity_ids:
         raise ValueError('Object was not discovered by this native query')
-    return 'native-object:' + digest({'query': query.sha256, 'object': entity_id})
+    return _object_selection_handle(query.sha256, entity_id)
+
+
+@dataclass(frozen=True, slots=True)
+class _ObjectRecordUnit:
+    handle: str
+    label: str
+    statement_ids: tuple[str, ...]
+    assertion_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ObjectRecordCatalog:
+    """Invocation-local value projection; never evidence or a query cache."""
+    query_sha256: str
+    units: tuple[_ObjectRecordUnit, ...]
+    statement_order: tuple[str, ...]
+    assertion_order: tuple[str, ...]
+
+    def record_ids(self, handles, *, assertion, attempted=()):
+        selected, excluded = set(handles), set(attempted)
+        included = {identity for unit in self.units if unit.handle in selected
+            for identity in (unit.assertion_ids if assertion else unit.statement_ids)}
+        order = self.assertion_order if assertion else self.statement_order
+        return tuple(identity for identity in order if identity in included and identity not in excluded)
+
+
+def object_record_catalog(query):
+    """Hash one exact query and invert its ordered witness membership once."""
+    if not isinstance(query, NativeGraphQueryV4):
+        raise ValueError('Object closure requires its versioned native query')
+    discovered = set(query.discovered_entity_ids)
+    if any(match.entity_id not in discovered for match in query.object_matches):
+        raise ValueError('Object was not discovered by this native query')
+    members = {match.entity_id: ([], []) for match in query.object_matches}
+    for family, matches in enumerate((query.matches, query.assertion_matches)):
+        for match in matches:
+            identity = match.assertion_id if family else match.statement_id
+            # Duplicate witnesses do not duplicate a record's membership.
+            for entity_id in set(match.discovered_entity_ids):
+                if entity_id in members:
+                    members[entity_id][family].append(identity)
+    query_digest = query.sha256
+    return ObjectRecordCatalog(query_digest, tuple(_ObjectRecordUnit(
+        _object_selection_handle(query_digest, match.entity_id), match.label,
+        tuple(members[match.entity_id][0]), tuple(members[match.entity_id][1]))
+        for match in query.object_matches),
+        tuple(match.statement_id for match in query.matches),
+        tuple(match.assertion_id for match in query.assertion_matches))
 
 
 def object_record_ids(query, handles, *, assertion, attempted=()):
@@ -115,15 +168,7 @@ def object_record_ids(query, handles, *, assertion, attempted=()):
     # the entire frozen query for each family on every retained source append.
     if not any(isinstance(handle, str) and handle.startswith('native-object:') for handle in selected):
         return ()
-    # Compute the immutable query digest once, not once per record or object.
-    query_digest = query.sha256
-    roots = {m.entity_id for m in query.object_matches if
-        'native-object:' + digest({'query': query_digest, 'object': m.entity_id}) in selected}
-    matches = query.assertion_matches if assertion else query.matches
-    excluded = set(attempted)
-    return tuple(identity for m in matches
-        if roots.intersection(m.discovered_entity_ids)
-        and (identity := m.assertion_id if assertion else m.statement_id) not in excluded)
+    return object_record_catalog(query).record_ids(selected, assertion=assertion, attempted=attempted)
 
 
 def selection_handle(query, match):
