@@ -166,3 +166,16 @@ The system prompt and native output schema stay fixed. The original `retained_js
 presentation remains the frozen control; this explicit experiment is not a new
 product default or an error fallback. Reuse retained control outputs and routes
 rather than rerunning retrieval or unchanged baselines.
+
+For prompt-only experiments, `instructions` pins a UTF-8 system-prompt file and
+`prompt_components` pins its versioned host-only manifest. The latter records
+contract, ordered named/versioned component texts and hashes. Every component hash
+is recomputed and the exact joined texts must equal the final instructions before
+any dispatch. Manifest data is retained separately, never added to messages.
+`application_state.agent_conversation.response_prompt` compiles the initial
+response-only voice/evidence/citation/output components; Rules guidance is added
+only when active. This compiler is experimental until cleaned-context comparison
+and product-owner integration; the current app default is not changed here.
+Do not change prompt and evidence presentation in the same experiment. Known
+bookkeeping leakage in retained legacy qualification prose must be resolved at
+its owner before sending that context in another paid comparison.

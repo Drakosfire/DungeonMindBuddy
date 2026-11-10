@@ -736,7 +736,7 @@ def context_tasting(manifest_path, output):
     path = Path(manifest_path).resolve()
     spec = json.loads(path.read_text())
     required = {"schema", "source_request", "context_ready", "models"}
-    if not required <= set(spec) or set(spec) - required - {"endpoint_catalog", "presentation"} or spec["schema"] != "dmb_context_tasting_v1":
+    if not required <= set(spec) or set(spec) - required - {"endpoint_catalog", "presentation", "instructions", "prompt_components"} or spec["schema"] != "dmb_context_tasting_v1":
         raise ValueError("Unknown context tasting specification")
     envelope = json.loads(read_pin(spec["source_request"], path.parent))
     ready = json.loads(read_pin(spec["context_ready"], path.parent))
@@ -753,6 +753,29 @@ def context_tasting(manifest_path, output):
     if any(set(row) != {"role", "content"} or row["role"] != "user"
            or not isinstance(row["content"], str) for row in packet["input"]):
         raise ValueError("Tasting adapter requires ordered user text messages")
+    instructions = packet["instructions"]
+    prompt_components = None
+    if spec.get("instructions") is not None:
+        instructions = read_pin(spec["instructions"], path.parent).decode("utf-8")
+        if not instructions.strip() or spec.get("prompt_components") is None:
+            raise ValueError("Prompt experiment requires nonblank instructions and versioned component manifest")
+    if spec.get("prompt_components") is not None:
+        prompt_components = json.loads(read_pin(spec["prompt_components"], path.parent))
+        components = prompt_components.get("components", [])
+        if (set(prompt_components) != {"contract", "components", "instructions_sha256"}
+                or not isinstance(prompt_components["contract"], str) or not prompt_components["contract"].strip()
+                or not isinstance(components, list) or not components
+                or any(not isinstance(c, dict) or set(c) != {"name", "version", "text", "sha256"}
+                    or any(not isinstance(c[k], str) or not c[k].strip() for k in ("name", "version", "text", "sha256"))
+                    for c in components)):
+            raise ValueError("Invalid versioned prompt component manifest")
+        if len({c["name"] for c in components}) != len(components):
+            raise ValueError("Prompt component names must be unique")
+        if (any(c["sha256"] != sha256(c["text"].encode()).hexdigest() for c in components)
+                or "\n\n".join(c["text"] for c in components) != instructions):
+            raise ValueError("Prompt component texts or hashes differ from compiled instructions")
+        if prompt_components.get("instructions_sha256") != sha256(instructions.encode()).hexdigest():
+            raise ValueError("Prompt components differ from actual instructions")
     presentation = spec.get("presentation", "retained_json")
     if presentation not in {"retained_json", "flat_native_assertions_v1"}:
         raise ValueError("Unknown evidence presentation")
@@ -792,6 +815,8 @@ def context_tasting(manifest_path, output):
     directory.mkdir(parents=True, mode=0o700)
     immutable_save(directory, "specification", spec)
     immutable_save(directory, "frozen-packet", packet)
+    if prompt_components is not None:
+        immutable_save(directory, "prompt-components", prompt_components)
     if flat is not None:
         immutable_save(directory, "flat-presentation", flat)
     secrets.SystemRandom().shuffle(models)
@@ -800,7 +825,7 @@ def context_tasting(manifest_path, output):
     # GE's public request has one user string. Preserve raw ordered content,
     # rather than JSON-escaping the original message array inside user content.
     shared = dict(provider="openrouter", user_prompt="\n\n".join(input_contents),
-        system_prompt=packet["instructions"], temperature=None,
+        system_prompt=instructions, temperature=None,
         json_schema=packet["text"]["format"]["schema"], schema_name=packet["text"]["format"]["name"],
         reasoning_effort=packet["reasoning"]["effort"],
         max_output_tokens=packet.get("max_output_tokens"), max_conformance_retries=0, max_transport_retries=0)
