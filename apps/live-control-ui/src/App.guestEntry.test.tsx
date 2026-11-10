@@ -753,6 +753,66 @@ describe("canonical local guest entry", () => {
     }
   });
 
+  it("inspects a hosted canvas point at the exact loaded pin without source or statblock requests", async () => {
+    const dom = (globalThis as unknown as { jsdom: { reconfigure: (options: { url: string }) => void } }).jsdom;
+    const originalUrl = window.location.href;
+    dom.reconfigure({ url: "https://buddy.example/?world=world-a" });
+    const envelope = managedGraphEnvelope("world-a", "Aster");
+    const pin = { managed_world_id: "world-a", native_world_id: "native-world-a", binding_version: 1,
+      revision_id: "revision-world-a", scope_mode: "world", campaign_id: null };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      if (path === "/api/auth/session") return Response.json({ status: "authenticated", subject: "hosted-owner" });
+      if (path === "/api/live/world-containers") return Response.json({ schema_version: "dmb_world_container_registry_v1",
+        records: [managedWorldRecord("world-a", "Owned World")] });
+      if (path === "/api/live/native-graph-explorer/graph") return Response.json(envelope);
+      if (path === "/api/live/native-graph-inspection/read") {
+        expect(JSON.parse(String(init?.body))).toEqual({ scope: pin, selection: { kind: "entity", entity_id: "entity:world-a" } });
+        return Response.json({ schema: "dmb_native_graph_entity_v1", scope: pin, entity: {
+          found: true,
+          assertions: [{ assertion_id: "assertion:description", subject_entity_id: "entity:world-a", predicate: "custom:description",
+            value: { kind: "literal", value: "Keeps the observatory charts." }, metadata: {
+              scope: [], visibility: { kind: "public" }, epistemic_basis: "reported", claim_mode: "dungeonbuddy.claim:belief",
+              standing: "provisional", evidence_ref_ids: ["evidence:source"], temporal_scope: { kind: "unknown" }, domain_metadata: [],
+            } }],
+          evidence: [{ evidence_ref_id: "evidence:source", evidence_role: "support" }],
+          completeness: { status: "complete", reason: null },
+        } });
+      }
+      throw new Error(`Unexpected hosted request: ${path}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    const mounted = render(<App />, { reactStrictMode: true });
+    try {
+      const point = await screen.findByRole("button", { name: "Aster, person" });
+      expect(fetchMock.mock.calls.some(([path]) => String(path) === "/api/live/native-graph-inspection/read")).toBe(false);
+      await user.click(point);
+      expect(await screen.findByText("Aster · description: Keeps the observatory charts.")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Object details" })).toBeInTheDocument();
+      expect(screen.getByText("belief · reported · provisional")).toBeInTheDocument();
+      expect(screen.getByText("Source excerpts and linked statblocks are not available in the hosted explorer yet.")).toBeInTheDocument();
+      await user.click(screen.getByText("Record qualifications"));
+      expect(screen.getByText(/"temporal_scope"/)).toHaveTextContent("unknown");
+      expect(screen.queryByRole("button", { name: "Read supporting source" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Linked statblocks" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Focus", exact: true }));
+      await user.click(screen.getByRole("button", { name: "Close details" }));
+      expect(screen.queryByText("Aster · description: Keeps the observatory charts.")).not.toBeInTheDocument();
+      const reads = fetchMock.mock.calls.filter(([path]) => String(path) === "/api/live/native-graph-inspection/read");
+      expect(reads).toHaveLength(1);
+      expect(reads[0][1]).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
+      expect(new Headers(reads[0][1]?.headers).has("Authorization")).toBe(false);
+      expect(new Headers(reads[0][1]?.headers).has("X-DMB-Graph-CSRF")).toBe(false);
+      expect(fetchMock.mock.calls.every(([path]) => ["/api/auth/session", "/api/live/world-containers",
+        "/api/live/native-graph-explorer/graph", "/api/live/native-graph-inspection/read"].includes(String(path)))).toBe(true);
+    } finally {
+      mounted.unmount();
+      dom.reconfigure({ url: originalUrl });
+    }
+  });
+
   it("rechecks World selection on account switch and isolates graph drafts even for the same World ID", async () => {
     let subject = "owner-a";
     const backend = managedServerFetch();

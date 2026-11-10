@@ -2,6 +2,7 @@ import {act,cleanup,fireEvent,render,screen,waitFor,within} from '@testing-libra
 import {afterEach,beforeAll,beforeEach,expect,it,vi} from 'vitest';
 import {LoadedWorldGraphExplorer} from './LoadedWorldGraphExplorer';
 import {NativeGraphInspection} from './NativeGraphInspection';
+import {NativeGraphObjectDetails} from './NativeGraphObjectDetails';
 import type {NativeGraphCatalog,NativeGraphEntity,NativeGraphSource,NativeAssertion} from '../api/nativeGraphInspection';
 import {getNativeGraphCatalog,listWorldMechanicsAssociations,inspectNativeGraph} from '../api/liveApi';
 vi.mock('../api/liveApi',()=>({listWorldMechanicsAssociations:vi.fn().mockResolvedValue([]),getNativeGraphCatalog:vi.fn(),inspectNativeGraph:vi.fn()}));
@@ -95,4 +96,49 @@ it('keeps selection labels distinct for duplicate names without repeating unname
  expect(await screen.findByRole('button',{name:'Cedar box e0',exact:true})).toBeInTheDocument();
  expect(screen.getByRole('button',{name:'Cedar box e1',exact:true})).toBeInTheDocument();
  expect(screen.getByRole('button',{name:'e30',exact:true})).toBeInTheDocument();
+});
+
+it('keeps local detail defaults with linked statblocks and explicitly opened supporting sources',async()=>{
+ render(<NativeGraphObjectDetails detail={detail()} entityId="e0" label="Object 0"/>);
+ await waitFor(()=>expect(listWorldMechanicsAssociations).toHaveBeenCalledWith('w'));
+ expect(await screen.findByText('No statblock linked in this view.')).toBeInTheDocument();
+ expect(inspectNativeGraph).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('button',{name:'Read supporting source'}));
+ expect(await screen.findByText(source.source.text)).toBeInTheDocument();
+ expect(inspectNativeGraph).toHaveBeenCalledWith(scope,{kind:'source',assertion_id:'a0',evidence_ref_id:'ev'});
+ expect(screen.queryByText(/not available in the hosted explorer yet/)).not.toBeInTheDocument();
+});
+
+it('renders hosted entity facts and qualifications without mounting statblock or source loaders',async()=>{
+ const partial={...detail(),entity:{...detail().entity,completeness:{status:'partial' as const,reason:'Restricted records'}}};
+ render(<NativeGraphObjectDetails detail={partial} entityId="e0" label="Object 0" entityOnly/>);
+ expect(screen.getByText('Source excerpts and linked statblocks are not available in the hosted explorer yet.')).toBeInTheDocument();
+ expect(screen.getByText('Object 0 · name: Object 0')).toBeInTheDocument();
+ expect(screen.getByText('belief · speculative · provisional')).toBeInTheDocument();
+ expect(screen.getByText('Some records are unavailable.')).toBeInTheDocument();
+ fireEvent.click(screen.getByText('Record qualifications'));
+ expect(screen.getByText(/"temporal_scope"/)).toHaveTextContent('unknown');
+ expect(screen.queryByRole('region',{name:'Linked statblocks'})).not.toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Read supporting source'})).not.toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Retry linked statblocks'})).not.toBeInTheDocument();
+ expect(listWorldMechanicsAssociations).not.toHaveBeenCalled();
+ expect(inspectNativeGraph).not.toHaveBeenCalled();
+});
+
+it.each(['pending','ready'])('removes a %s source when entity-only presentation is selected',async phase=>{
+ let finish!:(value:NativeGraphSource)=>void;
+ vi.mocked(inspectNativeGraph).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}));
+ const view=render(<NativeGraphObjectDetails detail={detail()} entityId="e0" label="Object 0"/>);
+ fireEvent.click(screen.getByRole('button',{name:'Read supporting source'}));
+ expect(screen.getByText('Opening passage…')).toBeInTheDocument();
+ if(phase==='ready'){await act(async()=>finish(source));expect(screen.getByText(source.source.text)).toBeInTheDocument();}
+ const loads=vi.mocked(listWorldMechanicsAssociations).mock.calls.length;
+ view.rerender(<NativeGraphObjectDetails detail={detail()} entityId="e0" label="Object 0" entityOnly/>);
+ if(phase==='pending')await act(async()=>finish(source));
+ expect(screen.queryByText(source.source.text)).not.toBeInTheDocument();
+ expect(screen.queryByRole('region',{name:'Opened source passage'})).not.toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Read supporting source'})).not.toBeInTheDocument();
+ expect(screen.getByText('Object 0 · name: Object 0')).toBeInTheDocument();
+ expect(listWorldMechanicsAssociations).toHaveBeenCalledTimes(loads);
+ expect(inspectNativeGraph).toHaveBeenCalledTimes(1);
 });

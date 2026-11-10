@@ -102,6 +102,7 @@ function TiptapSpikeRoute() {
 function ManagedWorldGraph({ worldId, worldTitle, stateScopeId }: {
   readonly worldId: string; readonly worldTitle: string; readonly stateScopeId: string;
 }) {
+  const auth = useHostedAuthStatus();
   const [client, setClient] = useState<ReturnType<typeof createManagedNativeGraphApi> | null>(null);
   useEffect(() => {
     // Own the client within the effect lifetime, including StrictMode's setup /
@@ -111,7 +112,7 @@ function ManagedWorldGraph({ worldId, worldTitle, stateScopeId }: {
     return () => owned.invalidate();
   }, [worldId]);
   return client
-    ? <NativeGraphDemo api={client.api} embedded mode="managed" worldTitle={worldTitle} stateScopeId={stateScopeId} />
+    ? <NativeGraphDemo api={client.api} embedded mode="managed" worldTitle={worldTitle} stateScopeId={stateScopeId} entityOnlyDetails={auth.status === "authenticated"} />
     : <main className="app-status" role="status">Loading World graph…</main>;
 }
 
