@@ -7,6 +7,27 @@ quality dimensions and calibrate a judge before trusting scores.
 
 ## Serial delivery
 
+Slice1 settled: PR2337 merged 2dd7d020e7e835e70624c546d627777619a0c294.
+Compiler and experiment component pins are delivered; product activation and
+measured prompt adoption remain incomplete.
+
+Slice2 ACTIVE: explicit reviewed qualification separation for frozen diagnostic
+experiments only. Branch codex/reviewed-writer-qualifications from fetched
+origin/main 4e1138ebb. Exclusive write lease: this handoff;
+src/application_state/agent_conversation/native_evidence_presentation.py;
+evals/buddy_benchmark/workflow.py; tests/test_native_evidence_presentation.py;
+tests/test_buddy_benchmark_workflow.py; Docs/Guides/ordinary-benchmark-workflow.md.
+Serial after2337; inspected open UI/storage lanes do not overlap. No ports,
+database writes or paid calls. Verify exact original request first; require a
+pinned complete reviewed partition of qualification text, reconstruct every
+original byte, retain semantic parts verbatim and remove only explicitly
+classified host parts. Reject pending/incomplete/misbound partitions before
+dispatch. Preserve original and derived frame bindings separately. This is not
+new APP authorization, publication authority or a runtime source registry. Local
+owner and workflow tests plus independent exact-head review are required.
+Historical mixed prose remains unchanged; future publication annotations must
+put audit values in existing typed host slots rather than append them to prose.
+
 Predecessor PR2334 merged a236fbfa6de55c442799a620c1a3cd16dde4f2b3.
 Its flat format remains an experiment: input -10.1%,9/9 concepts,2 citation gaps.
 

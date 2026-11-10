@@ -736,7 +736,7 @@ def context_tasting(manifest_path, output):
     path = Path(manifest_path).resolve()
     spec = json.loads(path.read_text())
     required = {"schema", "source_request", "context_ready", "models"}
-    if not required <= set(spec) or set(spec) - required - {"endpoint_catalog", "presentation", "instructions", "prompt_components"} or spec["schema"] != "dmb_context_tasting_v1":
+    if not required <= set(spec) or set(spec) - required - {"endpoint_catalog", "presentation", "instructions", "prompt_components", "qualification_review"} or spec["schema"] != "dmb_context_tasting_v1":
         raise ValueError("Unknown context tasting specification")
     envelope = json.loads(read_pin(spec["source_request"], path.parent))
     ready = json.loads(read_pin(spec["context_ready"], path.parent))
@@ -781,8 +781,10 @@ def context_tasting(manifest_path, output):
         raise ValueError("Unknown evidence presentation")
     input_contents = [row["content"] for row in packet["input"]]
     flat = None
-    if presentation == "flat_native_assertions_v1":
-        from application_state.agent_conversation.native_evidence_presentation import flat_native_evidence
+    qualification_repair = None
+    if presentation == "flat_native_assertions_v1" or spec.get("qualification_review") is not None:
+        from application_state.agent_conversation.native_evidence_presentation import (
+            flat_native_evidence, reviewed_qualification_frame)
         positions = []
         for index, content in enumerate(input_contents):
             try:
@@ -791,10 +793,18 @@ def context_tasting(manifest_path, output):
             except json.JSONDecodeError:
                 continue
         if len(positions) != 1:
-            raise ValueError("Flattening requires one exact retained semantic frame")
-        text, proof = flat_native_evidence(frame)
+            raise ValueError("Presentation requires one exact retained semantic frame")
+        presented_frame = frame
+        if spec.get("qualification_review") is not None:
+            review = json.loads(read_pin(spec["qualification_review"], path.parent))
+            presented_frame, binding = reviewed_qualification_frame(frame, review)
+            qualification_repair = {"review": review, "binding": binding, "presented_frame": presented_frame}
+        if presentation == "flat_native_assertions_v1":
+            text, proof = flat_native_evidence(presented_frame)
+            flat = {"text": text, "readback_proof": proof}
+        else:
+            text = json.dumps(presented_frame, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
         input_contents[positions[0]] = text
-        flat = {"text": text, "readback_proof": proof}
     models = spec["models"]
     if not models or len(models) != len(set(models)) or any(not isinstance(m, str) or "/" not in m for m in models):
         raise ValueError("Tasting requires distinct explicit OpenRouter model identifiers")
@@ -815,6 +825,8 @@ def context_tasting(manifest_path, output):
     directory.mkdir(parents=True, mode=0o700)
     immutable_save(directory, "specification", spec)
     immutable_save(directory, "frozen-packet", packet)
+    if qualification_repair is not None:
+        immutable_save(directory, "qualification-review", qualification_repair)
     if prompt_components is not None:
         immutable_save(directory, "prompt-components", prompt_components)
     if flat is not None:

@@ -75,12 +75,14 @@ def test_context_tasting_freezes_shared_input_and_retains_failures(tmp_path, mon
     assert len(seen) == 2
 
 
-def test_flat_tasting_changes_only_exact_evidence_frame(tmp_path, monkeypatch):
+@pytest.mark.parametrize("reviewed", [False, True, "pending"])
+def test_flat_tasting_changes_only_exact_evidence_frame(tmp_path, monkeypatch, reviewed):
     import generationengine
     from application_state.agent_conversation import native_evidence_view, types
     from application_state.agent_conversation.native_evidence_presentation import restore_flat_native_evidence
     frame = {"user_question": "Question", "native_assertions": {"assertions": [
-        {"assertion_handle": "a0", "fact": "Exact fact"}], "qualifications": {"q0": {"standing": "provisional"}}}}
+        {"assertion_handle": "a0", "fact": "Exact fact"}], "qualifications": {"q0": {"standing": "provisional",
+        "domain_metadata": [{"world_context": {"source_qualification": "Report only. host-binding"}}]}}}}
     packet = {"tools": [], "instructions": "Unchanged instructions", "input": [
         {"role": "user", "content": json.dumps(frame)}, {"role": "user", "content": "Return JSON."}],
         "text": {"format": {"schema": {"type": "object"}, "name": "answer"}}, "reasoning": {"effort": "low"}}
@@ -88,8 +90,18 @@ def test_flat_tasting_changes_only_exact_evidence_frame(tmp_path, monkeypatch):
     request = put(tmp_path / "request.json", {"body_hex": raw.hex(), "body_size": len(raw), "body_sha256": sha256(raw).hexdigest()})
     ready = put(tmp_path / "ready.json", {"frame_sha256": types.canonical_sha256(frame)})
     manifest = tmp_path / "manifest.json"
-    put(manifest, {"schema": "dmb_context_tasting_v1", "source_request": request, "context_ready": ready,
-        "models": ["test/model"], "presentation": "flat_native_assertions_v1"})
+    specification = {"schema": "dmb_context_tasting_v1", "source_request": request, "context_ready": ready,
+        "models": ["test/model"], "presentation": "flat_native_assertions_v1"}
+    if reviewed:
+        compact = lambda x: json.dumps(x, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+        review = {"schema": "dmb_reviewed_qualification_parts_v1", "reviewer": "Independent reviewer",
+            "source_frame_sha256": sha256(compact(frame).encode()).hexdigest(), "records": [
+                {"qualification_handle": "q0", "domain_index": 0,
+                 "original_sha256": sha256(b"Report only. host-binding").hexdigest(), "parts": [
+                     {"role": "meaning", "text": "Report only. "},
+                     {"role": "pending" if reviewed == "pending" else "host_audit", "text": "host-binding"}]}]}
+        specification["qualification_review"] = put(tmp_path / "review.json", review)
+    put(manifest, specification)
     monkeypatch.setattr(native_evidence_view, "semantic_frame_in_request", lambda *a, **k: frame)
     seen = []
     class Client:
@@ -100,9 +112,20 @@ def test_flat_tasting_changes_only_exact_evidence_frame(tmp_path, monkeypatch):
             pass
     monkeypatch.setattr(generationengine, "GenerationClient", Client)
     output = tmp_path / "output"
+    if reviewed == "pending":
+        with pytest.raises(ValueError, match="Unresolved"):
+            w.context_tasting(manifest, output)
+        assert seen == [] and not output.exists()
+        return
     w.context_tasting(manifest, output)
     flat = json.loads((output / "flat-presentation.json").read_text())
-    assert restore_flat_native_evidence(flat["text"], flat["readback_proof"]) == frame
+    expected = deepcopy(frame)
+    if reviewed:
+        expected["native_assertions"]["qualifications"]["q0"]["domain_metadata"][0]["world_context"]["source_qualification"] = "Report only. "
+        assert json.loads((output / "frozen-packet.json").read_text()) == packet
+        assert "host-binding" not in seen[0].user_prompt
+        assert "source_frame_sha256" not in seen[0].user_prompt
+    assert restore_flat_native_evidence(flat["text"], flat["readback_proof"]) == expected
     assert seen[0].system_prompt == packet["instructions"]
     assert seen[0].json_schema == packet["text"]["format"]["schema"]
     assert seen[0].user_prompt == flat["text"] + "\n\nReturn JSON."
