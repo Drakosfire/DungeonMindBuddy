@@ -1,6 +1,6 @@
 # CONNECTEDPAGE: reviewable new-location default
 
-ACTIVE PRIME serial UI slice on codex/connected-page-location-review. Parent
+SETTLED PRIME serial UI slice on codex/connected-page-location-review. Parent
 PR2335 merged6f7520b56bac2e82fec28a4c35d63ff0de195dff; this slice is rebased
 onto that merge with no unmerged dependency. Independently qualify final head,
 then merge/deliver.
@@ -30,3 +30,11 @@ and frozen retries preserve exact identity, Plan and Build share the control.
 Run owning tests, cumulative review, exact-head hosted/build/discovered evidence.
 Independent Bugbot review and PRIME standing authority govern delivery. Browser
 bridge currently unavailable; DOM/API/asset checks are not rendered proof.
+
+Merged2336 f99642591340d9b7af4f411600bf6381d1c76a73; reviewed5d4 UI delivered
+as681692 on5202, API447264 unchanged. Exact hosted1262+5/build passed. Repeated
+full diagnostic7292pass/164fail/1pending has identical parent failures/collection
+error plus3new passes/no removals. Original extra navigation assertion-timing
+failure and focused rerun retained. Independent source/qualification/integration
+gates approved; served component hashes/cookie Graph1404 verified. No rendered
+layout, real creation or provider proof is implied by these checks.
