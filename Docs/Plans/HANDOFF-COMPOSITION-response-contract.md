@@ -22,44 +22,55 @@ sample per configuration does not prove variation or general prose preference.
 Evidence/pins: out/response-writing-contract-v1/. Historical write leases and
 implementations remain in pinned Git history, not competing ACTIVE contracts.
 
-## Slice5 ACTIVE — reusable writer judge calibration
+## Slice5 settled — reusable writer judge calibration
 
-Serial after2345. Branch codex/writer-judge-calibration from fetched origin/main
-60d28dda0 (actual parent; main advanced before allocation). Existing isolated
-checkout. Expected exclusive writes:
-- evals/buddy_benchmark/workflow.py
-- evals/buddy_benchmark/writer_assessment.py
-- tests/test_buddy_benchmark_workflow.py
-- tests/test_writer_assessment.py
-- Docs/Guides/ordinary-benchmark-workflow.md
-- this handoff
+PR2348 merged18359e0713763e55d986daa8a7966c3371aa09c5.135local tests;
+four reviewed frozen batches:47/50 agreement with25known human axes shown twice,
+24/25paired stability. One grounding disagreement is ambiguous; two observations
+miss one minor chronology issue. No automatic factual grading or taste inference.
+Six answers/one question do not establish general reliability. No writer/retrieval
+reruns. Exact data/code/results pinned under judge-calibration-v1/.
 
-Inspected open reference/UI/storage work does not overlap. Extend context-tasting,
-not another transport/harness. Explicit versioned judge role plus pinned semantic
-candidate answers, reference concepts and native schema; never transfer hidden
-human grades or model/cost identities. Reject incomplete/wrong-role inputs before
-dispatch. Retain actual requests, raw outputs/failures, costs/timings and separate
-calibration reports. Compare seven axes; unknown human judgments stay unscored.
-No automatic QA acceptance or user-taste inference from judge scores.
+## Slice6 settled — existing Core owner metadata correction
 
-Verify local owner/workflow/mock-native tests and independent exact-head review.
-Then freeze reviewed retained examples and acceptance/stopping rules before any
-calibration call. No new writer or retrieval runs; primary unchanged. No DB writes
-or deployment in this slice. Product metadata repair and capability-specific
-prompt cleanup are not delegated to this diagnostic path.
+Pinned execution authority9cbfefdd5005adcc53ace516f89fe2334cb2eeaf; no further
+writes granted by this settled slice. Preparation, exact allowed diff and Core
+publication were independently reviewed. One publication on the fresh named clone
+benchmark_writer_qualification_clean_20261110_v1 committed child
+rev:a5577d74fae9102ea29342a17a88a82b, payload
+aae3ba761bb9f423b82038663605a9194ae723e8459bbe290d8e31606701426d.
+90same-ID corrections/42slots;2456assertions conserved.375captured assertions
+expand to the approved semantic context with78shared qualifiers. Actual97Core
+source opens match original identities/body hashes/offsets/span hashes. Individual
+source-admission epochs are not the global source-view counter26.
+
+Original benchmark_retrieval_c1_native_20261107_v1 parent
+rev:673d18b7feea48b47c8740d4018d1442/payload/source counter and primary data remain
+unchanged. All raw audit notes remain in immutable parent/history; existing typed
+adjudication hash binds retained reviewed data. Unproven producer-field promotion
+was skipped. No new correction implementation, fact producer, runtime registry,
+SQL graph patch, providers, migrations, session termination or APP mutation.
+
+Evidence: out/response-writing-contract-v1/owner-correction-v1/, including
+execution-report-v1.json, independent-postpublication-review-v1.json and
+independent-source-readback-v1.json. Source/clone DSNs remain private, uncommitted.
+
+Scope checkpoint: broader graph inventory contains864other qualifier occurrences,
+331distinct strings outside the frozen study context.261occurrences exactly match
+five previously approved audit-bearing originals; other strings need source-level
+review, not automatic stripping. These are not all established leaks. Broader
+corpus correction is a separate prospective slice, pending user scope steering;
+no expanded database write lease is active. Original90-record correction is done.
 
 ## Remaining completion gates
 
-- Verify current isolated graph parent/publication correspondence, then correct
- historical mixed qualifications through existing native Core supersession,
- preserving original history/evidence/receipts and typed audit fields. Exact
- 375native-assertion/97qualification mapping is recovered; current head and original
- publication correspondence still unproven. No runtime scrubbing or registry.
+- Settle broader corpus hygiene scope without treating pattern candidates as
+ confirmed leaks or claiming full-world cleanup from the corrected writer frame.
 - Keep capability-specific guidance conditional at its owning assembly, including
  reviewed discussion continuations; do not prebuild superseded ordinary text.
-- Complete native-schema judge calibration against retained reviewed examples;
- report disagreements/abstention/stability before trusting scores. Human prose
- preference stays separate from factual correctness.
+- Judge calibration is completed for the retained six-answer cohort; keep scores
+ untrusted for automatic factual grading and preserve the measured limitations.
+ Human prose preference remains separate and unknown.
 - Audit actual assembly, preserved context/citations, reproducible configuration,
  prompt tradeoffs and remaining limitations. No broad completion claim from helper
  tests, one Q15 answer or successful source-body retrieval alone.
