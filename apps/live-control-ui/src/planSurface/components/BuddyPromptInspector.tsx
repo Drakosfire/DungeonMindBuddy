@@ -49,7 +49,7 @@ export function CapturedPrompt({ trace, reference, previousReference }: { trace:
   return <>
     {state.comparisonUnavailable && <p role="note">The previous captured input is unavailable. No comparison is reconstructed.</p>}
     <PreparedRequestInspector payloadJson={evidence.payload_json} previousPayloadJson={state.previous?.payload_json} />
-    <details><summary>Capture identity</summary><p>{reference.provider} · {reference.model} · {reference.api_mode} · {reference.serializer_version}</p>
+    <details className="buddy-prompt__disclosure"><summary>Capture identity<span className="buddy-prompt__collapse" aria-hidden="true">Collapse</span></summary><p>{reference.provider} · {reference.model} · {reference.api_mode} · {reference.serializer_version}</p>
       <p>{reference.payload_utf8_bytes.toLocaleString()} UTF-8 bytes · SHA-256 {reference.payload_sha256}</p>
       <p>Provider attempt {reference.provider_attempt_id}</p></details>
   </>
