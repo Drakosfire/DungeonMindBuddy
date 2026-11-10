@@ -1,7 +1,8 @@
 # CI: one live command authority
 
-BLOCKED at verification after authorized implementation; preserve source. PRIME serial slice under the operator's References adoption/demolition goal.
-Branch codex/ci-live-command-authority from4e1138ebbeb17375f6eb13cabef6f06c599f6192,
+ACTIVE PRIME serial slice under the operator's References adoption/demolition goal.
+Branch codex/ci-live-command-authority rebased onto merged inventory repair2339
+02c03e9ac566c07043f93ae97fbf31d1f2ee0851,
 existing context-loop checkout/dependencies. No unmerged parent; no runtime lease.
 
 The original extraction2284 is merged. Its frozen fixture remains byte-for-byte
@@ -17,7 +18,8 @@ prohibited by this guard. No retirement allowlist or compatibility filtering.
 
 PRIME explicitly adopts this narrow split from the completed extraction lease:
 exclusive writes are this handoff, predecessor HANDOFF-CI-test-contract-inventory.md
-settlement, and tests/test_ci_contract.py first workflow guard/new live-contract
+settlement, HANDOFF-CI-current-test-inventory.md settlement, and
+tests/test_ci_contract.py first workflow guard/new live-contract
 checks. CI2288 retains its additive qualification work and appended split-command
 test; no draft branch edits or activation. Re-anchor that additive hunk on the
 merged guard before consuming any future CI2288 candidate. No change to
@@ -38,3 +40,7 @@ Checkpoint: the owner run has45passes/1failure because current main leaves three
 new test files unclassified. Inventory repair is a separate serial predecessor;
 no selectors or tests are omitted to make this slice pass. Rebase and requalify
 this guard after that predecessor merges. Original failure log retained privately.
+
+Inventory predecessor2339 is merged and its79-case exact source/inventory proof
+passes. The preserved initial guard failure is historical; requalification at
+this rebased source is required. Frozen original commands remain untouched.

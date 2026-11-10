@@ -1,6 +1,6 @@
 # CI: classify current-main test additions
 
-ACTIVE PRIME serial repair on codex/ci-current-test-inventory from
+SETTLED PRIME serial repair on codex/ci-current-test-inventory from
 4e1138ebbeb17375f6eb13cabef6f06c599f6192, existing context-loop checkout/dependencies.
 The active References retirement goal exposed current inventory failure on exact
 main: native_plan_opening, native_evidence_presentation and response_prompt test
@@ -25,3 +25,8 @@ Verify exact before failure, inventory and existingCI/verifier/partition guards,
 all three owning test files, cumulative diff and unchanged command/fixture blobs.
 Independent exact-head review before PRIME merge. Source-only settlement; no
 runtime restart or full-CI-green claim. Successor guard/deletion work remains open.
+
+Merged2339 as02c03e9ac566c07043f93ae97fbf31d1f2ee0851 after independent
+exact4729 source/guard review.79tests pass; all1498 files classified once.
+Actual merge tree equals reviewed head. No product, command, workflow or runtime
+changes. The successor live-command guard is rebased on this merge.
