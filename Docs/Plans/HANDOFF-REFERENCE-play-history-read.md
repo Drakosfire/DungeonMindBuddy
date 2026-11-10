@@ -1,6 +1,6 @@
 # REFERENCE — read back captured native Play references
 
-Status: ACTIVE, serial PRIME repair under the current References closure goal.
+Status: MERGED / API DELIVERED through PR2363, merge77f5ad83f2822407a2d97829649511fc39fde0da; reviewed headb2206aee3, runtime candidate dea8520d8dc9bb3212eafba59769dce5f1f3cca1. Original full-history reads now200 in both modes, exact answer/references and statblock retained. Browser recovery exposed the separate legacy byte-limit gap owned by HANDOFF-REFERENCE-native-play-receipt-validation.md. This backend write lease is released.
 Source base: 3ed6cf28f087e174c64401b045a41e4010507cd5; branch codex/play-reference-history in the existing buddy-context-loop checkout. No unmerged parent.
 
 Ordinary live mixed-reference Play delivered a supported answer and an exact opening citation, but the subsequent saved-history read returned500. The base history DTO rejects authored references for Play; native Play receipts also fall through the Plan history projection branch. Preserve the original turn0746c2a4-820b-4c88-83b5-5103f08c3369, its answer, source/revision pins and private original failure witness. Do not replay inference to repair a read.
