@@ -3,66 +3,67 @@
 ACTIVE stage1 of the operator's deferred-fundamentals goal. Preserve the accepted
 C1 Sessions1–10 quality baseline. Citation/voice experiments remain deferred.
 
-## Current bounded serial slice
+## Settled predecessor
 
-Outcome: deliver the missing advertised-node-source-span constraint from reviewed
-PR2093, original head cdcdcd16e295ba62acc15f75a1bc603e8498b6ec, on current main.
-Base8f3b08fad0528cc7bd9d96e45011a6f9777cb0f6; branch
-codex/ingest-advertised-evidence-delivery; isolated non-serving recorded-names-control
-checkout. No unmerged dependency: all three source files match the old prechange
-content exactly. PR2358 citation deferral merged; its lease is released. Other
-historical ingestion stacks are under reconciliation, not authorized concurrent
-writers. Open Surface/Storage/CI lanes do not own these paths.
+PR2360 merged af88d3ac71232d02fe9f4cde72ae5cca50f4fe32 from reviewed/qualified
+7399722f6b619ffcecbb620e5e9b8c846e43b980. Its advertised-node-evidence constraint
+exactly recovers original2093 source behavior; old2093 closed as superseded without
+deleting branch or evidence.108owner tests,609affected-contract passes plus its
+separately qualified1Core case, and1256hosted cases/build passed. Initial stale
+SDK-test failure and2resource-lock refusals remain visible. Lease released;
+no deployment or whole-ingestion completion claimed. Evidence and source parity:
+out/fundamentals-reconciliation-v1/advertised-evidence-delivery/.
+
+## Current bounded serial slice — standard-v2 output headroom
+
+Outcome: recover reviewed2094 at9100bf59280c584c0c8799d3d35bea55ca2e3b7d onto
+current main. Base af88d3ac71232d02fe9f4cde72ae5cca50f4fe32; branch
+codex/ingest-output-headroom-delivery; non-serving recorded-names-control checkout.
+No unmerged dependency: predecessor2093 is now integrated with exact source parity.
+Open Surface/Storage/CI lanes do not own the current write set. Historical ingestion
+stacks remain under reconciliation; they grant no concurrent lease here.
 
 Exclusive expected writes: this handoff;
+apps/live_control_server/services/graph_preview_runner.py;
 src/graph_memory/extraction/bounded_recap_execution.py;
-src/graph_memory/extraction/category_candidate_graph_extractor.py;
-src/graph_memory/extraction/category_candidate_graph_schema.py;
 tests/test_bounded_recap_execution.py;
-tests/test_category_candidate_graph_extractor.py;
-tests/test_graph_memory_category_candidate_graph_schema.py.
+tests/test_recap_generationengine_default.py.
 
-Invariant: standard node/disposition output can nominate only paragraph span IDs
-actually advertised in its prepared source packet. Retain raw output and explain
-rejected references; do not silently launder unsupported identity into a supported
-citation. Empty advertised node evidence stops before provider dispatch. Preserve
-actor Q-handle path, quotes, model/profile, allocations, source authority and
-historical records. This recovers accepted study engineering, not new tuning.
-Failure cases: a guessed/foreign span is accepted; empty context dispatches;
-reference dropping is unaudited; actor sentence handling or canonical schema
-mutates; retention failure silently continues.
+Invariant: the ordinary registered recap_category_v2@2.0 producer reserves32768
+shared reasoning+JSON output tokens per pass, retaining low requested reasoning.
+Predecessor profile stays16384non-edge/32768edge; generic RecapExecutionLimits
+constructor default8192 stays unchanged. Only its explicit ceiling rises32768.
+Retained accepted configuration record independently confirms standard-v2
+max_output_tokens32768, edge32768, low effort,7calls and existing deadlines.
+This is delivery of the frozen study reference, not a new tuning experiment.
 
-Reuse the original reviewed owner tests and critique cumulative changes against
-current main. Local exact-SHA hosted verifier and affected ingestion-and-review
-backend contract required before review/merge. Backend tests use the locked owning
-Python dependencies and existing uniquely named disposable APP databases on55447;
-fixture templates/clones only, with fixture-owned teardown. No retained evaluator,
-primary DB, operator sessions, inference providers or deployed services may change.
-No new test harness or per-session launcher. Evidence directory:
-out/fundamentals-reconciliation-v1/advertised-evidence-delivery; qualifying CI outputs
-outside the source tree. Independent exact-head review and standing full merge
-rights apply. Supersede old2093 only after exact owner behavior is delivered;
-never blanket-merge or close the remaining stack.
+Failure cases: invalid limits accepted; profile-specific allowance accidentally
+applies to predecessor; effective SDK request and retained ledger disagree;
+profile/model/route/deadline/attempt or receipt policy changes. Verify actual
+ordinary controller requests and ledger under the existing fake provider fixtures,
+including predecessor behavior and zero conformance retries. No paid inference.
 
-## Reconciliation evidence and next boundaries
+Qualify isolated exact full SHA under current repo policy: local hosted verifier
+and affected ingestion-and-review contract, plus focused owner tests in the
+separate uv.lock-synced Python environment. Existing test fixtures may create,
+migrate and remove only their new uniquely named dungeonbuddy_app_state_test_*
+APP templates/clones and dmb_recap_source_test_* Core databases on55447. Core
+migration snapshot pinned430c1a6db631d097dfa0a273f8933067f708bc56; connection-local
+write options only. No retained/operator DB, foreign sessions, primary state,
+existing environment, service, schema or deployment changes. Provider credentials
+in tests are inert; redact sensitive diagnostics. No per-question launcher.
 
-Pinned inventory at main999a5eabe00b282d605c72044c9bf8a15e3c8ee3 found47open
-INGEST PRs. None is an ancestor/patch-equivalent as a complete PR; individual
-capabilities still require behavior review. Existing source-file comparisons and
-initial runtime manifest inventory are retained in out/fundamentals-reconciliation-v1.
-API8000 is packaged release76bb8c4b38178158e9a94a4b00cf65773edbda87 (reviewed
-head52885c3169e4ca91a04f877e63a28e4fb8f34873); UI5202 has separate release
-04f5f0adcb9627605312343b8fc3c7af482ddf95. No current-main deployment is inferred.
-Both main and packaged API omit the inspected later configuration integration and
-cross-group source-unit normalization. These are integration findings, not47bugs.
-After this one slice, continue capability-by-capability dependency/behavior review,
-consolidating confirmed replacements and preserving unique evidence. Database-owned
-review/publication and current runtime qualification remain required stage1 gates.
+Independent exact-head review and standing merge rights apply. Supersede2094
+only after exact source and owner behavior are delivered; preserve original ref
+and evidence. Do not blanket-merge the downstream stack. Qualifying CI output
+outside source; persistent evidence index:
+out/fundamentals-reconciliation-v1/output-headroom-delivery/.
 
-Integration finding: the unmodified main test for DeepSeek SDK kwargs expected the
-retired prompt-only GenerationEngine schema transport. The actual locked GE563ae
-uses native strict response_format. Update that existing test to assert exact
-native schema, unchanged system text and explicit route, not weaken validation.
-Initial dirty-tree diagnostics:107pass/1inherited stale-contract failure, retained
-redacted under /tmp/buddy-ingestion-owner-diagnostics-v1. A fresh isolated locked
-venv was created at /tmp/buddy-ingest-locked-env-v1; original environments unchanged.
+## Remaining reconciliation
+
+Initial inventory at999a5eabe00b282d605c72044c9bf8a15e3c8ee3 found47open
+INGEST PRs; individual behavior review is required, not47presumed bugs. After2093
+retirement, configuration integration, later materialization/assessment/publication
+changes and full ordinary current-code chain remain unproven. Serving API release
+76bb8c4b38178158e9a94a4b00cf65773edbda87 and separate UI release04f5f0adcb9627605312343b8fc3c7af482ddf95 are not current-main delivery evidence. No runtime change
+is authorized by this slice. Continue next capability only after this serial PR settles.
