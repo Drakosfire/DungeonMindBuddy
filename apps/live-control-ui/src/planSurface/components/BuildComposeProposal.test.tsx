@@ -340,10 +340,12 @@ it('captures the nearest saved image above selected text and offers only the pas
     '![Saved map](dmb-media:' + map + ')',
     '## Map plan', 'Original layout.', '## Origin',
   ].join('\n\n');
-  const editor = new Editor({
-    extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,
-    content: markdownToTiptapDoc(markdown).doc,
+  const doc = markdownToTiptapDoc(markdown).doc;
+  const headingIndex = doc.content!.findIndex(node => node.type === 'heading');
+  doc.content!.splice(headingIndex, 0, {
+    type: 'heading', attrs: {level: 2}, content: [{type: 'text', text: '  '}],
   });
+  const editor = new Editor({extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: doc});
   const realBridge = createBuildComposeBridge(() => ({
     editor, worldId:'world', documentId:'doc', revision:1, contentSha256:'a'.repeat(64),
     visibility:'internal', draftGeneration:0, selectionGeneration:0, canEdit:true,

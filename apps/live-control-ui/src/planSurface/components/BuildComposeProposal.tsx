@@ -120,8 +120,11 @@ export function useBuildCompose({ worldId, history, bridge, enabled, readHistory
       let index = selectionStart.index(0) - 1;
       while (index >= 0) {
         const preceding = doc.child(index--);
-        if (preceding.isTextblock && !preceding.textContent.trim()
-            && (!preceding.firstChild || preceding.firstChild.type.name === 'hardBreak')) continue;
+        let spacer = preceding.isTextblock && !preceding.textContent.trim();
+        preceding.forEach(child => {
+          if (!child.isText && child.type.name !== 'hardBreak') spacer = false;
+        });
+        if (spacer) continue;
         const image = preceding.type.name === 'mediaImage' ? preceding
           : preceding.childCount === 1 && preceding.firstChild?.type.name === 'mediaImage'
             ? preceding.firstChild : null;
