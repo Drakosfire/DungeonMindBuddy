@@ -62,6 +62,32 @@ review, not automatic stripping. These are not all established leaks. Broader
 corpus correction is a separate prospective slice, pending user scope steering;
 no expanded database write lease is active. Original90-record correction is done.
 
+## Slice7 ACTIVE — conversation-only task components
+
+Serial after2351; branch codex/conversation-task-components at exact fetched
+ac2a8a30c544f2456c222541a80882c208607d17. Exclusive writes: this handoff;
+src/application_state/agent_conversation/response_prompt.py;
+apps/live_control_server/services/plan_jev_writer.py;
+tests/test_response_prompt.py; tests/test_plan_jev_response_assembly.py;
+Docs/Guides/ordinary-benchmark-workflow.md. Existing open UI/storage lanes do not
+overlap. No retained/native/corpus/primary database, deployment or paid provider
+effects. Existing APP boundary tests may create/migrate/drop only their generated
+dungeonbuddy_app_state_test_* and dungeonbuddy_app_state_test_template_* databases
+on the retained test cluster. Graph fixtures are in-memory; fixture teardown may
+terminate sessions only in its newly owned disposable names. No existing database
+may be changed or removed.
+
+One shared compiler for actual native conversation tasks: ordinary answer,
+clarification, scoped reviewed discussion and capability-limit/destination
+explanation. Use actual selected work/contract and reviewed-scope owner, never
+model/frame strings for authority. Keep active writing/review/image preparation
+owners unchanged; native response writer does not prepare images (Build image
+preparation has its separate selected owner). Retire superseded helper and
+unconditional image guidance for native conversation. Verify actual work
+reconstruction/SDK bytes, task constraints and inactive-capability exclusion
+locally; independent exact-head review before delivery. Broader corpus priority
+question remains optional/pending; this slice does not expand its write lease.
+
 ## Remaining completion gates
 
 - Settle broader corpus hygiene scope without treating pattern candidates as

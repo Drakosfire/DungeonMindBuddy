@@ -56,9 +56,33 @@ using exact, unique, nonoverlapping phrases copied from the original question.
 Do not mark answered dimensions as missing or fill gaps with unrelated excerpts.""")
 
 
-def compose_response_prompt(*, rules_instructions=None, related_page_instructions=None):
+TASKS = {
+    'answer': None,
+    'clarify': ResponsePromptComponent('clarification_task', '1',
+        'Ask focused questions needed to resolve the current request. Keep the clarification '
+        'in conversation or its offered questions object; do not draft or carry out follow-up work.'),
+    'scoped_discussion': ResponsePromptComponent('reviewed_discussion_task', '1',
+        'The selected task in reviewed_task.task is the only assignment for this reply. '
+        'Its objective and siblings are context, including deferred writing. Discuss that task '
+        'with useful comparisons or necessary questions. Do not draft a page, prepare another '
+        'plan or perform sibling tasks. Use only an offered questions object if an author choice is needed.'),
+    'explain_capability': ResponsePromptComponent('capability_explanation_task', '1',
+        'Explain the selected request limit using the supplied barrier detail and available follow-ups. '
+        'Do not turn an unavailable executor into a product-wide claim, invent another workflow '
+        'or substitute unrequested writing or mechanics. Explain what can actually happen next.'),
+    'different_destination': ResponsePromptComponent('destination_task', '1',
+        'Explain the requested destination and what is needed to continue there. '
+        'Do not draft into the current page or imply that another page was created or changed.'),
+}
+
+
+def compose_response_prompt(*, task='answer', rules_instructions=None, related_page_instructions=None):
     """One assembly for an ordinary response; no retrieval/edit/image capability."""
     components = (VOICE, EVIDENCE, CITATIONS, OUTPUT)
+    if task not in TASKS:
+        raise ValueError('Unknown conversation response task')
+    if TASKS[task] is not None:
+        components += (TASKS[task],)
     for name, text in (("rules_response", rules_instructions), ("related_pages_response", related_page_instructions)):
         if text is not None:
             if not isinstance(text, str) or not text.strip():
