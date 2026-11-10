@@ -52,8 +52,9 @@ def ready(row):
     return media.complete_upload(row["asset_id"], row["owner_id"], fence, receipt)
 
 
+@pytest.mark.parametrize("state", ["staged", "ready"])
 def test_prepared_image_association_and_actual_source_save_reopen(
-    request_case, monkeypatch
+    request_case, monkeypatch, state
 ):
     request, source, root = request_case
     tool, message, _, _ = image_tool(request, monkeypatch)
@@ -61,13 +62,13 @@ def test_prepared_image_association_and_actual_source_save_reopen(
     store = BuildImageService()
     record = store.get(action, "local_operator")
     image = saved_image("local_operator")
-    with pytest.raises(ApplicationStateConflictError):
-        store.associate(action, image["asset_id"], "local_operator", record.revision)
-    ready(image)
+    if state == "ready":
+        ready(image)
     updated = store.associate(
         action, image["asset_id"], "local_operator", record.revision
     )
     assert updated.asset_id == image["asset_id"]
+    assert media.get_asset(image["asset_id"], "local_operator")["state"] == state
     assert (
         store.associate(action, image["asset_id"], "local_operator", record.revision)
         == updated
@@ -232,3 +233,16 @@ def test_contextual_candidate_real_app_save_and_reopen_preserves_original(reques
         writer_confirm_token=prepared.writer_confirm_token))
     assert get_workspace_document_snapshot(root, source.record.document_id).markdown == markdown
     assert media.read_staged_bytes(child['asset_id'], 'local_operator') == content.getvalue()
+
+
+def test_prepared_image_refuses_upload_in_progress(request_case, monkeypatch):
+    request, _, _ = request_case
+    tool, message, _, _ = image_tool(request, monkeypatch)
+    action = UUID(json.loads(tool.dispatch(message)["resultJson"])["action_id"])
+    store = BuildImageService()
+    before = store.get(action, "local_operator")
+    image = saved_image("local_operator")
+    media.claim_upload(image["asset_id"], "local_operator")
+    with pytest.raises(ApplicationStateConflictError, match="unavailable for placement"):
+        store.associate(action, image["asset_id"], "local_operator", before.revision)
+    assert store.get(action, "local_operator") == before
