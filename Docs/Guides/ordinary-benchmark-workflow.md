@@ -145,6 +145,17 @@ than another executable runtime path. New questions add case data and reviewed
 assessment bindings, not another launcher.
 # Frozen-context model tasting
 
+For a controlled citation-first experiment, `schema_order: citation_first` moves
+the selector property before prose in native assertion/body/statement claim
+variants. All schema constraints, prompts and evidence remain unchanged. This
+option is diagnostic only; it does not change the production schema default.
+The workflow inspects final SDK request bytes before HTTP dispatch and refuses
+the send if the strict native schema loses that ordering. `provider-wire-N.json`
+retains raw body hex/hash and explicit property-order arrays, without headers.
+Ordinary artifact dictionaries sort keys, so their printed key order is not wire
+evidence. Inspect returned raw segment order as well: reaching the provider does
+not prove the model used that order. Reuse a retained control; do not rerun retrieval.
+
 `context-tasting --manifest tasting.json --output new-directory` reuses a pinned
 context-ready writer capture through GenerationEngine's OpenRouter adapter. It
 does not retrieve evidence, resume an APP turn, or publish anything. Manifest

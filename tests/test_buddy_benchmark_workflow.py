@@ -966,3 +966,66 @@ def test_context_artifact_failure_cannot_be_reported_as_an_issued_stop(tmp_path,
     with stop.install(), pytest.raises(OSError, match='storage unavailable'):
         PlanJevWriter.authorize(writer, prepared)
     assert stop.authorization_calls == 1 and not stop.stop_issued and not list(tmp_path.iterdir())
+
+
+def _native_order_schema():
+    return {'type': 'object', 'properties': {
+        'kind': {'type': 'string', 'const': 'native_assertion_claim'},
+        'text': {'type': 'string'},
+        'assertion_handles': {'type': 'array', 'items': {'type': 'string', 'enum': ['assertion0']}, 'minItems': 1}},
+        'required': ['kind', 'text', 'assertion_handles'], 'additionalProperties': False}
+
+
+def test_citation_first_changes_only_property_order():
+    from copy import deepcopy
+    original = _native_order_schema()
+    before = deepcopy(original)
+    changed = w.citation_first_schema(original)
+    assert changed == before and original == before
+    assert list(original['properties']) == ['kind', 'text', 'assertion_handles']
+    assert list(changed['properties']) == ['kind', 'assertion_handles', 'text']
+    assert changed['required'] == before['required']
+    with pytest.raises(ValueError, match='native claim'):
+        w.citation_first_schema({'type': 'object', 'properties': {}})
+
+
+@pytest.mark.parametrize('lose_order', [False, True])
+def test_context_tasting_checks_actual_wire_before_http(tmp_path, monkeypatch, lose_order):
+    import httpx
+    from application_state.agent_conversation import native_evidence_view, types
+    frame = {'user_question': 'A generic question'}
+    monkeypatch.setattr(native_evidence_view, 'semantic_frame_in_request', lambda *a, **k: frame)
+    packet = {'tools': [], 'instructions': 'Frozen voice', 'input': [{'role': 'user', 'content': 'Frozen evidence'}],
+        'text': {'format': {'schema': _native_order_schema(), 'name': 'answer'}}, 'reasoning': {'effort': 'low'}}
+    raw = json.dumps(packet).encode()
+    source = put(tmp_path/'source.json', {'body_hex': raw.hex(), 'body_sha256': sha256(raw).hexdigest(), 'body_size': len(raw)})
+    ready = put(tmp_path/'ready.json', {'frame_sha256': types.canonical_sha256(frame)})
+    manifest = tmp_path/'manifest.json'
+    put(manifest, {'schema': 'dmb_context_tasting_v1', 'source_request': source, 'context_ready': ready,
+        'models': ['test/model'], 'schema_order': 'citation_first'})
+    if lose_order:
+        monkeypatch.setattr(w, 'citation_first_schema', lambda schema: schema)
+    seen = []
+    def reply(request):
+        body = json.loads(request.content)
+        seen.append(body)
+        output = {'kind': 'native_assertion_claim', 'assertion_handles': ['assertion0'], 'text': 'Supported.'}
+        return httpx.Response(200, json={'id': 'offline', 'object': 'chat.completion', 'created': 1,
+            'model': body['model'], 'choices': [{'index': 0, 'message': {'role': 'assistant',
+            'content': json.dumps(output)}, 'finish_reason': 'stop'}],
+            'usage': {'prompt_tokens': 10, 'completion_tokens': 5, 'total_tokens': 15}})
+    target = tmp_path/'out'
+    w.context_tasting(manifest, target, transport=httpx.MockTransport(reply))
+    if lose_order:
+        assert not seen
+        assert (target/'A/failure.json').exists()
+        assert not (target/'A/provider-wire-1.json').exists()
+    else:
+        assert len(seen) == 1
+        proof = json.loads((target/'A/provider-wire-1.json').read_text())
+        assert proof['citation_first_verified']
+        assert proof['body_sha256'] == sha256(bytes.fromhex(proof['body_hex'])).hexdigest()
+        assert proof['claim_property_orders'][0]['fields'] == ['kind', 'assertion_handles', 'text']
+        assert seen[0]['messages'] == [{'role': 'system', 'content': 'Frozen voice'},
+            {'role': 'user', 'content': 'Frozen evidence'}]
+        assert (target/'A/result.json').exists()
