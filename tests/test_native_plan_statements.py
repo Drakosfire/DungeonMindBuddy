@@ -128,7 +128,8 @@ def test_query_does_not_open_clauses_before_selected_read(lane, monkeypatch):
 
 
 @pytest.mark.parametrize('whole_clause,unavailable_read', [(False, False), (True, False), (False, True)])
-def test_historical_native_http_retry_preserves_reader_support_and_citations(lane, application_state_dsn, monkeypatch, tmp_path, whole_clause, unavailable_read, native_read_admission_probes):
+@pytest.mark.parametrize('shared_sdk_receipt', [False, True], ids=['historical-native', 'shared-native-sdk'])
+def test_historical_native_http_retry_preserves_reader_support_and_citations(lane, application_state_dsn, monkeypatch, tmp_path, whole_clause, unavailable_read, native_read_admission_probes, shared_sdk_receipt):
     import json
     import httpx2
     from hashlib import sha256
@@ -164,7 +165,9 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
         'owner_scope': {'kind': 'world', 'world_id': world},
         'primary_work': request.primary_work.model_dump(mode='json', by_alias=True) | {
             'expected_content_sha256': work.content_basis.content_sha256},
-        'plan_context_policy': {'policy': 'auto_plan_world'}, 'graph_request': {'mode': 'none'}})
+        'plan_context_policy': ({'schema': 'dmb_plan_context_policy_v2', 'policy': 'auto_plan_world',
+            'graph_source': 'reviewed_native_graph'} if shared_sdk_receipt else {'policy': 'auto_plan_world'}),
+        'graph_request': {'mode': 'none'}})
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE', 'local_operator')
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT', 'local')
     token = 'synthetic-native-plan-test-token-1234567890'
@@ -179,22 +182,28 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
     monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config',
         lambda *_: pytest.fail('Historical native retry changed its reader'))
     examined_inputs = []
+    selected_object_labels = []
     if unavailable_read:
         monkeypatch.setattr(native_query, 'read_selected', lambda context, authorization, principal:
-            ((), authorization.statement_ids))
+            ((), authorization.statement_ids if hasattr(authorization, 'statement_ids') else authorization.assertion_ids))
     class Decisions(httpx2.AsyncBaseTransport):
         async def handle_async_request(self, req):
             body = json.loads(req.content)
             candidates = body.get('state', {}).get('candidates', [])
-            native = {i for i, c in enumerate(candidates) if str(c.get('kind', '')).startswith('Qualified native')}
+            native = {i for i, c in enumerate(candidates) if str(c.get('kind', '')).startswith(
+                'Native Graph object' if shared_sdk_receipt else 'Qualified native')
+                and (not shared_sdk_receipt or c['label'] in expected_native_labels)}
+            if shared_sdk_receipt:
+                selected_object_labels.extend(candidates[i]['label'] for i in native)
             examined_inputs.extend(row for row in body.get('state', {}).get('examined_subjects', [])
-                if row['kind'].startswith('Previously selected native statement:'))
+                if row['kind'].startswith('Previously selected native object:' if shared_sdk_receipt else 'Previously selected native statement:'))
             assert BODY not in req.content.decode()
-            assert all(candidates[i]['label'].startswith('About B ·') for i in native)
+            assert all(candidates[i]['label'] in expected_native_labels if shared_sdk_receipt else candidates[i]['label'].startswith('About B ·') for i in native)
             answers = {}
             for name, entry in body['questions'].items():
                 choice = ('discuss' if name == 'requested_work' else
                     'finish_retrieval' if name == 'operation' else
+                    'finish_if_selected_reads_succeed' if name == 'post_read_plan' else
                     'include' if name.startswith('candidate_') and int(name.split('_')[-1]) in native else 'exclude')
                 answers[name] = {'type': 'choice', 'choice': choice, 'confidence': 1,
                     'probabilities': {key: float(key == choice) for key in entry['criteria']}}
@@ -202,10 +211,18 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
                 'usage': {'input_tokens': 37, 'output_tokens': 9}})
     class Writer(WriterWire):
         async def handle_async_request(self, req):
-            frame = json.loads(json.loads(req.content)['input'][0]['content'])
+            frames = [json.loads(item['content']) for item in json.loads(req.content)['input'][:-1]]
+            if shared_sdk_receipt:
+                from application_state.agent_conversation.native_evidence_view import is_semantic_frame
+                from application_state.agent_conversation.native_plan_assertions import POLICY
+                frame = next(item for item in frames if is_semantic_frame(item))
+                answer_policy = POLICY
+            else:
+                frame = frames[0]
+                answer_policy = frame['answer_policy']
             if unavailable_read:
                 assert not frame['native_statements']['statements']
-                self.text = json.dumps({'schema': frame['answer_policy'], 'answer_segments': [],
+                self.text = json.dumps({'schema': answer_policy, 'answer_segments': [],
                     'limitations': ['missing_requested_details', 'partial_retrieval'],
                     'requested_detail_gaps': [{'question_phrase': 'What did B do?'}]})
                 return await super().handle_async_request(req)
@@ -215,7 +232,7 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
             assert len(frame['native_statements']['statements']) == 1
             assert 'clause_text' not in row
             assert json.dumps(frame).count(json.dumps(row['payload']['quote'])) == 1
-            self.text = json.dumps({'schema': frame['answer_policy'], 'limitations': [], 'requested_detail_gaps': [],
+            self.text = json.dumps({'schema': answer_policy, 'limitations': [], 'requested_detail_gaps': [],
                 'answer_segments': [{'kind': 'native_statement_report', 'text': 'A reports that B fled, with uncertainty.',
                     'statement_handles': [row['statement_handle']]}]})
             return await super().handle_async_request(req)
@@ -243,8 +260,13 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
     context, query_record = native_query.prepare_query(world, request.message, GM,
         source_context=corpus)
     from application_state.agent_conversation.native_plan_statements import NativePlanQueryV1
-    query_record = NativePlanQueryV1.model_validate(query_record.model_dump(mode='json', by_alias=True, exclude={'assertion_matches','authored_targets','object_matches'}) | {'schema':'dmb_native_plan_query_v1'})
+    if not shared_sdk_receipt:
+        query_record = NativePlanQueryV1.model_validate(query_record.model_dump(mode='json', by_alias=True, exclude={'assertion_matches','authored_targets','object_matches'}) | {'schema':'dmb_native_plan_query_v1'})
     context = replace(context, query=query_record)
+    if shared_sdk_receipt:
+        expected_native_labels = {m.label for m in query_record.object_matches if m.entity_id == lane.ids['B']}
+        assert len(expected_native_labels) == 1
+        assert sum(m.label in expected_native_labels for m in query_record.object_matches) == 1
     service = AgentConversationService()
     prior = owner._PolicyExecutionAdapter(service=service, request=request,
         world_id=world, work=work, bootstrap=None, playable_target=None,
@@ -263,6 +285,8 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
         from application_state.agent_conversation.rules_authority_types import canonical_sha256
         freeze_source=plan_source_turn.freeze
         def historical_freeze(*args,native_query=None,**kwargs):
+            if shared_sdk_receipt:
+                return freeze_source(*args,native_query=native_query,**kwargs)
             receipt,ledger,membership=freeze_source(*args,native_query=None,**kwargs)
             data=receipt.model_dump(mode='json',by_alias=True,exclude={'context_receipt_sha256'})
             data.update(schema='dmb_plan_native_context_receipt_v1',native_query=native_query.model_dump(mode='json',by_alias=True))
@@ -279,7 +303,8 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
             with pytest.raises(Exception):
                 asyncio.run(initial.run(transport=Decisions(), api_key='synthetic-not-secret'))
         retained = prior.fence.turn
-        assert isinstance(retained.graph_context_receipt, t.PlanNativeContextReceiptV1)
+        assert type(retained.graph_context_receipt) is (t.SurfaceNativeContextReceiptV1 if shared_sdk_receipt else t.PlanNativeContextReceiptV1)
+        frozen_receipt = retained.graph_context_receipt
         assert retained.graph_context_execution.events == []
         service.fail_turn(t.TurnFailure(world_id=world, conversation_id=retained.conversation_id,
             turn_id=retained.turn_id, expected_revision=retained.revision,
@@ -289,12 +314,22 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
             prior.fence.renewer.stop_and_join()
     app = FastAPI(); app.include_router(agent.router, prefix='/api/live')
     client = TestClient(app, client=('127.0.0.1', 42000), headers={'Authorization': 'Bearer ' + token})
+    altered = request.model_dump(mode='json', by_alias=True) | {'message': 'A different question'}
+    refused = client.post('/api/live/agent/turn', json=altered)
+    assert refused.status_code == 409, refused.text
+    assert not wire.calls and not examined_inputs
     response = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
     assert response.status_code == 200, response.text + getattr(wire, 'failure', '')
+    assert wire.adapter.turn.graph_context_receipt == frozen_receipt
     assert native_read_admission_probes
-    assert len(examined_inputs) == 1
-    assert examined_inputs[0]['label'].startswith('About B ·')
-    assert (': unavailable;' if unavailable_read else ': opened;') in examined_inputs[0]['kind']
+    if shared_sdk_receipt:
+        assert set(selected_object_labels) == expected_native_labels
+        # Shared support can mark another object examined without selecting it.
+        assert expected_native_labels <= {row['label'] for row in examined_inputs}
+    else:
+        assert len(examined_inputs) == 1
+        assert examined_inputs[0]['label'].startswith('About B ·')
+    assert any((': unavailable;' if unavailable_read else ': opened;') in row['kind'] for row in examined_inputs)
     if unavailable_read:
         assert response.status_code == 200, response.text + getattr(wire, 'failure', '')
         assert not response.json()['plan_context']['completion']['native_clause_citations']
@@ -305,11 +340,26 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
     assert response.status_code == 200, response.text + getattr(wire, "failure", "")
     data = response.json()
     assert data['answer']['status'] == 'ok', data
-    assert data['plan_context']['schema'] == 'dmb_agent_plan_native_context_response_v1'
-    assert data['plan_context']['receipt']['graph_capability'] is None
+    assert data['plan_context']['schema'] == ('dmb_agent_surface_native_context_response_v1' if shared_sdk_receipt
+        else 'dmb_agent_plan_native_context_response_v1')
+    if not shared_sdk_receipt:
+        assert data['plan_context']['receipt']['graph_capability'] is None
     completion = data['plan_context']['completion']
-    assert completion['schema'] == 'dmb_surface_evidence_completion_v6' and completion['native_clause_citations']
+    assert completion['schema'] == ('dmb_surface_native_completion_v1' if shared_sdk_receipt else 'dmb_surface_evidence_completion_v6')
+    assert completion['native_clause_citations']
     turn = wire.adapter.turn
+    advance(lane)
+    opened = client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-source-clauses/0')
+    assert opened.status_code == 200, opened.text
+    assert opened.json()['content'] == expected_quote
+    replay = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
+    assert replay.status_code == 200, replay.text
+    assert replay.json()['plan_context']['completion'] == completion and len(wire.calls) == 1
+    history = client.get(f'/api/live/agent/worlds/{world}/conversation?include_turn_correlation=true')
+    assert history.status_code == 200, history.text
+    assert history.json()['turns'][0]['plan_context']['completion'] == completion
+    if shared_sdk_receipt:
+        return  # Shared codec mutation guards are covered by its own native execution tests.
     from application_state.agent_conversation.native_plan_statements import (
         validate_execution, NativePlanStatementReadObservedV1)
     events = turn.graph_context_execution.events
@@ -351,16 +401,6 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
     with pytest.raises(ValueError, match='observation differs'):
         asyncio.run(driver.run(transport=NoProvider(), api_key='synthetic-not-secret'))
     monkeypatch.setattr(wire.adapter, '_broker_execution', original_execution)
-    advance(lane)
-    opened = client.get(f'/api/live/agent/worlds/{world}/conversation/turns/{turn.turn_id}/native-source-clauses/0')
-    assert opened.status_code == 200, opened.text
-    assert opened.json()['content'] == expected_quote
-    replay = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
-    assert replay.status_code == 200, replay.text
-    assert replay.json()['plan_context']['completion'] == completion and len(wire.calls) == 1
-    history = client.get(f'/api/live/agent/worlds/{world}/conversation?include_turn_correlation=true')
-    assert history.status_code == 200, history.text
-    assert history.json()['turns'][0]['plan_context']['completion'] == completion
 
 
 @pytest.mark.parametrize('failure', ['statement_payload_invalid', 'statement_receipt_invalid',
