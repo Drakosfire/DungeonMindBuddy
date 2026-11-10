@@ -35,7 +35,7 @@ from graph_memory.vnext.domain_runtime import (
     CAMPAIGN_SCOPE_AXIS, DUNGEONBUDDY_PROFILE_ID, DUNGEONBUDDY_CUSTOM_PROFILE_REVISION,
     DungeonBuddyVNextProjectionInput, build_dungeonbuddy_read_context,
 )
-from src.graph_memory.predicate_catalog import SOURCE_PRECEDENCE_PREDICATE
+from src.graph_memory.predicate_catalog import SOURCE_PRECEDENCE_PREDICATE, source_precedence_endpoints_admitted
 
 # Product representation only. Classification does not establish role or source truth.
 _KINDS = {kind: f"dungeonbuddy:{kind}" for kind in NODE_TYPES}
@@ -291,10 +291,12 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
                 _require(profile_ref.profile_id == DUNGEONBUDDY_PROFILE_ID
                          and profile_ref.profile_revision == DUNGEONBUDDY_CUSTOM_PROFILE_REVISION,
                          "precedence_profile_not_adopted")
+                _require(source_precedence_endpoints_admitted(
+                    records[("node", edge.from_node_id)].node_type,
+                    records[("node", edge.to_node_id)].node_type,
+                ), "precedence_requires_event_occurrence")
                 for node_id in (edge.from_node_id, edge.to_node_id):
-                    node = records[("node", node_id)]
                     node_selection = by_key[("node", node_id)]
-                    _require(node.node_type == "event", "precedence_requires_event_occurrence")
                     _require(any(f.field == "description" for f in node_selection.facts),
                              "precedence_requires_selected_description")
                 precedences.append((endpoints[edge.from_node_id], endpoints[edge.to_node_id]))
