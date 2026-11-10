@@ -144,7 +144,8 @@ export async function playReceiptDigestsBound(value: unknown): Promise<boolean> 
   const { context_receipt_sha256, ...body } = receipt;
   const { manifest_sha256, ...manifest } = work.play_sources;
   const raw = rulesCanonical(value);
-  if (bytes(raw) > 131072 || !unicode(raw)
+  // The old Graph packet bound does not describe the shared native receipt.
+  if ((!shared && bytes(raw) > 131072) || !unicode(raw)
     || await rulesDigest(rulesCanonical(body)) !== context_receipt_sha256
     || await rulesDigest(rulesCanonical(manifest)) !== manifest_sha256) return false;
   const note = work.play_basis.scene_note;

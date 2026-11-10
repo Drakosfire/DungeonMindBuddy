@@ -243,3 +243,39 @@ it.each(['run','edition','manifest','note','source-role','foreign-graph','comple
     &&sharedPlayGraphResponseMatches(receipt,value.response.graph);
   expect(accepted).toBe(false);
 });
+
+
+async function largeNativePlayReceipt() {
+  const r=structuredClone(sharedPlay.response.play_context.receipt);
+  // NativeProviderInput owns unique retained-history pins and has no legacy packet byte bound.
+  r.assembled_input.included_history=Array.from({length:1200},(_,i)=>({
+    turn_id:`00000000-0000-4000-8000-${i.toString(16).padStart(12,'0')}`,answer_sha256:'a'.repeat(64),
+  }));
+  const {context_receipt_sha256:_,...body}=r;
+  r.context_receipt_sha256=await rulesDigest(rulesCanonical(body));
+  return r;
+}
+it('verifies a complete shared native Play receipt beyond the old Graph packet byte bound',async()=>{
+  const r=await largeNativePlayReceipt();
+  expect(new TextEncoder().encode(rulesCanonical(r)).length).toBeGreaterThan(131072);
+  expect(isSharedPlayReceipt(r)).toBe(true);
+  expect(await playReceiptDigestsBound(r)).toBe(true);
+});
+it.each(['receipt','manifest','note','note-payload','foreign-work'] as const)(
+  'still rejects %s corruption in a large shared native Play receipt',async mutation=>{
+    const r=await largeNativePlayReceipt();
+    if(mutation==='receipt')r.context_receipt_sha256='e'.repeat(64);
+    if(mutation==='manifest')r.work_context.play_sources.manifest_sha256='e'.repeat(64);
+    if(mutation==='note')r.work_context.play_basis.scene_note+=' Changed.';
+    if(mutation==='note-payload'){
+      r.work_context.play_sources.entries.find(e=>e.source_kind==='scene_note')!.payload_utf8_bytes++;
+      const {manifest_sha256:_,...body}=r.work_context.play_sources;
+      r.work_context.play_sources.manifest_sha256=await rulesDigest(rulesCanonical(body));
+    }
+    if(mutation==='foreign-work')r.work_context.play_basis.world_id='foreign';
+    if(mutation!=='receipt'){
+      const {context_receipt_sha256:_,...body}=r;
+      r.context_receipt_sha256=await rulesDigest(rulesCanonical(body));
+    }
+    expect(await playReceiptDigestsBound(r)).toBe(false);
+  });
