@@ -5,6 +5,7 @@ import type {
 } from "../localWorldRepository";
 
 export const DEFAULT_GRAPH_LIMITS = Object.freeze({ nodes: 48, edges: 96 });
+export const MAX_GRAPH_LIMITS = Object.freeze({ nodes: 512, edges: 1024 });
 const MAX_GRAPH_COORDINATE = 6000;
 const MAX_ENDPOINT_DIAGNOSTICS = 12;
 
@@ -56,8 +57,8 @@ export function projectLocalWorldGraph(
   record: Pick<LocalWorldRecord, "snapshot" | "layout">,
   options: GraphProjectionOptions = {},
 ): GraphProjection {
-  const maxNodes = boundedLimit(options.maxNodes, DEFAULT_GRAPH_LIMITS.nodes);
-  const maxEdges = boundedLimit(options.maxEdges, DEFAULT_GRAPH_LIMITS.edges);
+  const maxNodes = options.maxNodes === undefined ? DEFAULT_GRAPH_LIMITS.nodes : boundedLimit(options.maxNodes, MAX_GRAPH_LIMITS.nodes);
+  const maxEdges = options.maxEdges === undefined ? DEFAULT_GRAPH_LIMITS.edges : boundedLimit(options.maxEdges, MAX_GRAPH_LIMITS.edges);
   const objects = record.snapshot.objects;
   const relationships = record.snapshot.relationships;
   const visibleObjects = objects.slice(0, maxNodes);

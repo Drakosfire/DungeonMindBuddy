@@ -6,6 +6,7 @@ import { InMemoryLocalWorldRepository } from "../inMemoryLocalWorldRepository";
 import { createTestWorld, sequenceLocalIds } from "../localWorldContractFixtures";
 import type { CommitSemanticResult, LocalWorldRecord, LocalWorldRelationship, WriteLayoutResult } from "../localWorldRepository";
 import { createLocalWorldGraphAdapter } from "./localWorldGraphAdapter";
+import { projectLocalWorldGraph } from "./graphProjection";
 import { WorldGraphCanvas, type WorldGraphEditorDraft } from "./WorldGraphCanvas";
 
 async function graphRecord(): Promise<{ repository: InMemoryLocalWorldRepository; record: LocalWorldRecord }> {
@@ -41,6 +42,27 @@ function deferred<T>() {
   let reject!: (reason: unknown) => void;
   const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; });
   return { promise, resolve, reject };
+}
+
+function cameraFromScene(scene: Element): { readonly x: number; readonly y: number; readonly zoom: number } {
+  const match = scene.getAttribute("transform")?.match(/translate\(([-.\d]+) ([-.\d]+)\) scale\(([-.\d]+)\)/);
+  if (!match) throw new Error("Graph scene transform is missing.");
+  return { x: Number(match[1]), y: Number(match[2]), zoom: Number(match[3]) };
+}
+
+function screenPoint(camera: { readonly x: number; readonly y: number; readonly zoom: number }, point: { readonly x: number; readonly y: number }) {
+  return { x: camera.x + point.x * camera.zoom, y: camera.y + point.y * camera.zoom };
+}
+
+function captureRect(element: Element, width = 960, height = 520) {
+  return vi.spyOn(element, "getBoundingClientRect").mockReturnValue({ width, height, x: 0, y: 0,
+    top: 0, right: width, bottom: height, left: 0, toJSON: () => ({}) });
+}
+
+function dispatchPointer(element: Element, type: "pointerdown" | "pointermove" | "pointerup" | "pointercancel", init: MouseEventInit & { readonly pointerId: number }) {
+  const event = new MouseEvent(type, { bubbles: true, cancelable: true, ...init });
+  Object.defineProperty(event, "pointerId", { configurable: true, value: init.pointerId });
+  fireEvent(element, event);
 }
 
 async function enterDraft(user: ReturnType<typeof userEvent.setup>, kind: DraftKind, record: LocalWorldRecord) {
@@ -128,6 +150,163 @@ describe("WorldGraphCanvas", () => {
     expect(firstEdge).toHaveAccessibleName("Mara Venn allies Tomas Reed");
     expect(graph.querySelector(`[data-edge-id="${loop.id}"] path`)?.getAttribute("d")).toContain(" C ");
     expect(screen.queryByRole("button", { name: /world, world/i })).not.toBeInTheDocument();
+  });
+
+  it("uses true circles, clips curved edges to their radii, fits the initial graph and retains a manually moved camera", async () => {
+    const { record } = await graphRecord();
+    const first = record.snapshot.objects[0];
+    const loop: LocalWorldRelationship = {
+      ...record.snapshot.relationships[0],
+      id: `${record.snapshot.worldId}:relationship:circle-loop` as LocalWorldRelationship["id"],
+      fromObjectId: first.id,
+      toObjectId: first.id,
+      kind: "remembers",
+    };
+    const expanded = { ...record, snapshot: { ...record.snapshot, relationships: [...record.snapshot.relationships, loop] } };
+    const layout = vi.fn();
+    const view = render(<WorldGraphCanvas record={expanded} nodeShape="circle" onMoveObjects={layout} />);
+    const graph = screen.getByRole("group", { name: "The Ember Coast world graph" });
+    const firstNode = graph.querySelector(`[data-node-id="${first.id}"]`)!;
+    expect(firstNode.querySelector(".world-graph-canvas__node-circle")).toHaveAttribute("r", "56");
+    expect(firstNode.querySelector("rect")).toBeNull();
+    expect(graph.querySelectorAll(".world-graph-canvas__node-circle")).toHaveLength(4);
+
+    const camera = cameraFromScene(screen.getByTestId("graph-scene"));
+    for (const node of projectLocalWorldGraph(expanded).nodes) {
+      expect((node.x * camera.zoom + camera.x)).toBeGreaterThanOrEqual(-1);
+      expect(((node.x + 112) * camera.zoom + camera.x)).toBeLessThanOrEqual(961);
+      expect((node.y * camera.zoom + camera.y)).toBeGreaterThanOrEqual(-1);
+      expect(((node.y + 112) * camera.zoom + camera.y)).toBeLessThanOrEqual(521);
+    }
+
+    const sourcePosition = projectLocalWorldGraph(expanded).nodes[0];
+    for (const edgeId of [record.snapshot.relationships[0].id, loop.id]) {
+      const path = graph.querySelector(`[data-edge-id="${edgeId}"] path`)!;
+      const match = path.getAttribute("d")?.match(/^M\s+([-\d.]+)\s+([-\d.]+)/);
+      expect(match).not.toBeNull();
+      const startX = Number(match?.[1]);
+      const startY = Number(match?.[2]);
+      const distance = Math.hypot(startX - (sourcePosition.x + 56), startY - (sourcePosition.y + 56));
+      expect(distance).toBeCloseTo(61, 4);
+    }
+    expect(graph.querySelector(`[data-edge-id="${loop.id}"] path`)?.getAttribute("d")).toContain(" C ");
+
+    const svg = graph;
+    captureRect(svg);
+    const beforePan = screen.getByTestId("graph-scene").getAttribute("transform");
+    dispatchPointer(svg, "pointerdown", { button: 0, pointerId: 20, clientX: 100, clientY: 100 });
+    dispatchPointer(svg, "pointermove", { pointerId: 20, clientX: 180, clientY: 140 });
+    dispatchPointer(svg, "pointerup", { pointerId: 20, clientX: 180, clientY: 140 });
+    const afterPan = screen.getByTestId("graph-scene").getAttribute("transform");
+    expect(afterPan).not.toBe(beforePan);
+    view.rerender(<WorldGraphCanvas record={{ ...expanded, localRevision: expanded.localRevision + 1 }} nodeShape="circle" onMoveObjects={layout} />);
+    expect(screen.getByTestId("graph-scene").getAttribute("transform")).toBe(afterPan);
+    expect(layout).not.toHaveBeenCalled();
+  });
+
+  it("opens an accessible palette at the clicked graph coordinate after pan and zoom, and only emits the chosen draft intent", async () => {
+    const user = userEvent.setup();
+    const { record } = await graphRecord();
+    const onCanvasCreateRequest = vi.fn();
+    render(<WorldGraphCanvas record={record} nodeShape="circle"
+      creationKinds={[{ kind: "person", label: "Person" }, { kind: "location", label: "Location" }]}
+      onCanvasCreateRequest={onCanvasCreateRequest} />);
+    const svg = screen.getByRole("group", { name: "The Ember Coast world graph" });
+    captureRect(svg);
+    dispatchPointer(svg, "pointerdown", { button: 0, pointerId: 21, clientX: 40, clientY: 40 });
+    dispatchPointer(svg, "pointermove", { pointerId: 21, clientX: 130, clientY: 90 });
+    dispatchPointer(svg, "pointerup", { pointerId: 21, clientX: 130, clientY: 90 });
+    await user.click(screen.getByRole("button", { name: "Zoom in" }));
+    const camera = cameraFromScene(screen.getByTestId("graph-scene"));
+    const pointer = { x: 720, y: 420 };
+    const expected = {
+      x: Math.max(0, Math.min(6000, (pointer.x - camera.x) / camera.zoom)),
+      y: Math.max(0, Math.min(6000, (pointer.y - camera.y) / camera.zoom)),
+    };
+    dispatchPointer(svg, "pointerdown", { button: 0, pointerId: 22, clientX: pointer.x, clientY: pointer.y });
+    dispatchPointer(svg, "pointerup", { pointerId: 22, clientX: pointer.x, clientY: pointer.y });
+    const palette = screen.getByTestId("node-palette");
+    expect(palette).toHaveAccessibleName("Choose node type");
+    expect(Number(palette.getAttribute("data-position-x"))).toBeCloseTo(expected.x, 4);
+    expect(Number(palette.getAttribute("data-position-y"))).toBeCloseTo(expected.y, 4);
+    expect(onCanvasCreateRequest).not.toHaveBeenCalled();
+    await user.click(within(palette).getByRole("button", { name: "Person" }));
+    expect(onCanvasCreateRequest).toHaveBeenCalledExactlyOnceWith({ kind: "person", position: expected });
+
+    await user.click(screen.getByRole("button", { name: "Place node" }));
+    expect(screen.getByTestId("node-palette")).toBeVisible();
+    fireEvent.keyDown(screen.getByRole("button", { name: "Person" }), { key: "Escape" });
+    expect(screen.queryByTestId("node-palette")).not.toBeInTheDocument();
+    expect(onCanvasCreateRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it("captures connector-dot drags, previews a curve and emits only real-node drops", async () => {
+    const { record } = await graphRecord();
+    const onConnectRequest = vi.fn();
+    const view = render(<WorldGraphCanvas record={record} nodeShape="circle" onConnectRequest={onConnectRequest} />);
+    const svg = screen.getByRole("group", { name: "The Ember Coast world graph" });
+    captureRect(svg);
+    const scene = screen.getByTestId("graph-scene");
+    const originalTransform = scene.getAttribute("transform");
+    const camera = cameraFromScene(scene);
+    const projected = projectLocalWorldGraph(record).nodes;
+    const [source, target] = projected;
+    const sourceNode = svg.querySelector(`[data-node-id="${source.id}"]`)!;
+    const port = screen.getByTestId(`connect-port-${source.id}`);
+    const capture = vi.fn();
+    const release = vi.fn();
+    Object.defineProperty(port, "setPointerCapture", { configurable: true, value: capture });
+    Object.defineProperty(port, "releasePointerCapture", { configurable: true, value: release });
+    const start = screenPoint(camera, { x: source.x + 110, y: source.y + 56 });
+    const end = screenPoint(camera, { x: target.x + 56, y: target.y + 56 });
+
+    dispatchPointer(port, "pointerdown", { button: 0, pointerId: 31, clientX: start.x, clientY: start.y });
+    expect(capture).toHaveBeenCalledExactlyOnceWith(31);
+    dispatchPointer(svg, "pointermove", { pointerId: 31, clientX: end.x, clientY: end.y });
+    expect(screen.getByTestId("connect-preview")).toBeVisible();
+    expect(sourceNode).toHaveAttribute("transform", `translate(${source.x} ${source.y})`);
+    expect(svg).not.toHaveClass("is-panning");
+    expect(scene.getAttribute("transform")).toBe(originalTransform);
+    dispatchPointer(svg, "pointerup", { pointerId: 31, clientX: end.x, clientY: end.y });
+    expect(onConnectRequest).toHaveBeenCalledExactlyOnceWith({ sourceId: source.id, targetId: target.id });
+    expect(release).toHaveBeenCalledExactlyOnceWith(31);
+    expect(screen.queryByTestId("connect-preview")).not.toBeInTheDocument();
+    expect(svg.querySelector(`[data-node-id="${source.id}"]`)).toHaveAttribute("aria-pressed", "false");
+
+    dispatchPointer(port, "pointerdown", { button: 0, pointerId: 32, clientX: start.x, clientY: start.y });
+    dispatchPointer(svg, "pointermove", { pointerId: 32, clientX: end.x, clientY: end.y });
+    dispatchPointer(svg, "pointercancel", { pointerId: 32 });
+    dispatchPointer(svg, "pointerup", { pointerId: 32, clientX: end.x, clientY: end.y });
+    dispatchPointer(port, "pointerdown", { button: 0, pointerId: 34, clientX: start.x, clientY: start.y });
+    dispatchPointer(svg, "pointermove", { pointerId: 34, clientX: end.x, clientY: end.y });
+    fireEvent.keyDown(svg, { key: "Escape" });
+    dispatchPointer(svg, "pointerup", { pointerId: 34, clientX: end.x, clientY: end.y });
+    dispatchPointer(port, "pointerdown", { button: 0, pointerId: 33, clientX: start.x, clientY: start.y });
+    dispatchPointer(svg, "pointermove", { pointerId: 33, clientX: -1000, clientY: -1000 });
+    dispatchPointer(svg, "pointerup", { pointerId: 33, clientX: -1000, clientY: -1000 });
+    dispatchPointer(port, "pointerdown", { button: 0, pointerId: 35, clientX: start.x, clientY: start.y });
+    dispatchPointer(svg, "pointermove", { pointerId: 35, clientX: end.x, clientY: end.y });
+    const otherWorld = { ...record, snapshot: { ...record.snapshot, worldId: `${record.snapshot.worldId}:other` as typeof record.snapshot.worldId } };
+    view.rerender(<WorldGraphCanvas record={otherWorld} nodeShape="circle" onConnectRequest={onConnectRequest} />);
+    dispatchPointer(svg, "pointerup", { pointerId: 35, clientX: end.x, clientY: end.y });
+    expect(onConnectRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the default card geometry and legacy local editor behavior", async () => {
+    const user = userEvent.setup();
+    const { record } = await graphRecord();
+    const onCreateObject = vi.fn(async () => ({ status: "error", message: "keep draft" }) as CommitSemanticResult);
+    render(<WorldGraphCanvas record={record} onCreateObject={onCreateObject} />);
+    const graph = screen.getByRole("group", { name: "The Ember Coast world graph" });
+    const node = graph.querySelector(`[data-node-id="${record.snapshot.objects[0].id}"]`)!;
+    expect(node.querySelector("rect")).toBeInTheDocument();
+    expect(node.querySelector(".world-graph-canvas__node-circle")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Add object" }));
+    await user.type(screen.getByLabelText("Object name"), "Ashen Courier");
+    await user.click(screen.getByRole("button", { name: "Create object" }));
+    expect(onCreateObject).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText("keep draft")).toBeVisible();
+    expect(screen.getByLabelText("Object name")).toHaveValue("Ashen Courier");
   });
 
   it.each(["object", "relationship", "rename"] as const)("retains a %s draft after callback rejection, error result and semantic conflict", async (kind) => {

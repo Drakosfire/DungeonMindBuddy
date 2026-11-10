@@ -56,7 +56,7 @@
   font: inherit;
 }
 
-.world-graph-canvas__viewport { height: clamp(360px, 62vh, 720px); overflow: hidden; border: 1px solid #d8ceb8; border-radius: 10px; background: #f8f4eb; }
+.world-graph-canvas__viewport { position: relative; height: clamp(360px, 62vh, 720px); overflow: hidden; border: 1px solid #d8ceb8; border-radius: 10px; background: #f8f4eb; }
 .world-graph-canvas__svg { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; user-select: none; }
 .world-graph-canvas__svg.is-panning { cursor: grabbing; }
 .world-graph-canvas__view-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -73,6 +73,18 @@
 .world-graph-canvas__node:hover rect { stroke: var(--graph-gold); }
 .world-graph-canvas__node.is-selected rect { stroke: #765619; stroke-width: 3; fill: #fff8e8; }
 .world-graph-canvas__node:focus-visible rect { stroke: #5c4210; stroke-width: 4; }
+.world-graph-canvas__node-circle { fill: var(--graph-card); stroke: #c8b995; stroke-width: 1.8; }
+.world-graph-canvas__node:hover .world-graph-canvas__node-circle { stroke: var(--graph-gold); }
+.world-graph-canvas__node.is-selected .world-graph-canvas__node-circle { stroke: #765619; stroke-width: 3; fill: #fff8e8; }
+.world-graph-canvas__node:focus-visible .world-graph-canvas__node-circle { stroke: #5c4210; stroke-width: 4; }
+.world-graph-canvas__node.is-connect-target .world-graph-canvas__node-circle,
+.world-graph-canvas__node.is-connect-target rect { stroke: #9a742f; stroke-width: 4; fill: #f7edda; }
+.world-graph-canvas__node-port { fill: var(--graph-gold); stroke: #fffdf7; stroke-width: 2; cursor: crosshair; }
+.world-graph-canvas__node-port:hover { fill: #755619; stroke-width: 3; }
+.world-graph-canvas__connect-preview { fill: none; stroke: #9a742f; stroke-width: 3; stroke-dasharray: 8 6; pointer-events: none; }
+.world-graph-canvas__palette { position: absolute; z-index: 2; display: grid; gap: 6px; width: max-content; max-width: min(220px, calc(100% - 16px)); padding: 10px; border: 1px solid #b9aa87; border-radius: 10px; background: #fffdf7; box-shadow: 0 8px 24px #29251d2b; }
+.world-graph-canvas__palette-title { color: var(--graph-muted); font-size: 12px; font-weight: 700; }
+.world-graph-canvas__palette button { min-height: 32px; padding: 4px 10px; text-align: left; }
 .world-graph-canvas__node-kind { fill: var(--graph-muted); font-size: 11px; text-transform: capitalize; }
 .world-graph-canvas__node-name { fill: var(--graph-ink); font-size: 15px; font-weight: 700; }
 .world-graph-canvas__feedback { min-height: 24px; padding-top: 8px; color: #484130; }
