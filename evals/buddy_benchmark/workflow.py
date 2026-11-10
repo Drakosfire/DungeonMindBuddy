@@ -726,9 +726,81 @@ def writer_capture(plan_path, output, *, transport=None):
         "ordinary_delivery": "not_exercised", "semantic_acceptance": "unknown"})
 
 
+def context_tasting(manifest_path, output):
+    """Provider-only comparison; never resume a product turn or retrieve evidence."""
+    import asyncio
+    from generationengine import GenerationClient, TextRequest
+    from application_state.agent_conversation.native_evidence_view import semantic_frame_in_request
+    from application_state.agent_conversation.types import canonical_sha256
+
+    path = Path(manifest_path).resolve()
+    spec = json.loads(path.read_text())
+    if set(spec) != {"schema", "source_request", "context_ready", "models"} or spec["schema"] != "dmb_context_tasting_v1":
+        raise ValueError("Unknown context tasting specification")
+    envelope = json.loads(read_pin(spec["source_request"], path.parent))
+    ready = json.loads(read_pin(spec["context_ready"], path.parent))
+    raw = bytes.fromhex(envelope["body_hex"])
+    if (sha256(raw).hexdigest() != envelope["body_sha256"]
+            or len(raw) != envelope["body_size"] or ready["frame_sha256"] is None):
+        raise ValueError("Frozen writer request integrity differs")
+    packet = json.loads(raw)
+    frame = semantic_frame_in_request(packet, legacy_schemas=())
+    if frame is None or canonical_sha256(frame) != ready["frame_sha256"]:
+        raise ValueError("Frozen writer context-ready frame differs")
+    if packet["tools"] != [] or not packet["instructions"] or not packet["input"]:
+        raise ValueError("Tasting requires a tool-free retained writer packet")
+    models = spec["models"]
+    if not models or len(models) != len(set(models)) or any(not isinstance(m, str) or "/" not in m for m in models):
+        raise ValueError("Tasting requires distinct explicit OpenRouter model identifiers")
+    directory = Path(output).resolve()
+    if directory.exists():
+        raise FileExistsError("Tasting output exists; no automatic replay")
+    directory.mkdir(parents=True, mode=0o700)
+    immutable_save(directory, "specification", spec)
+    immutable_save(directory, "frozen-packet", packet)
+    secrets.SystemRandom().shuffle(models)
+    mapping = {chr(65+i): model for i, model in enumerate(models)}
+    immutable_save(directory, "identity-key", mapping)
+    shared = dict(provider="openrouter", user_prompt=json.dumps(packet["input"], ensure_ascii=False),
+        system_prompt=packet["instructions"], temperature=None,
+        json_schema=packet["text"]["format"]["schema"], schema_name=packet["text"]["format"]["name"],
+        reasoning_effort=packet["reasoning"]["effort"],
+        max_output_tokens=packet.get("max_output_tokens"), max_conformance_retries=0, max_transport_retries=0)
+    immutable_save(directory, "shared-request", shared)
+
+    async def run():
+        semaphore = asyncio.Semaphore(2)
+        async def one(label, model):
+            async with semaphore:
+                target = directory / label
+                immutable_save(target, "request", {**shared, "model": model})
+                started = time.perf_counter()
+                client = GenerationClient()
+                async def retain_attempt(event):
+                    immutable_save(target, "attempt-" + str(event.ordinal), event.model_dump(mode="json"))
+                try:
+                    result = await client.generate_structured(TextRequest(model=model, **shared),
+                        on_attempt_completed=retain_attempt)
+                    immutable_save(target, "result", {"text": result.text, "parsed": result.parsed,
+                        "observation": result.observation.model_dump(mode="json"),
+                        "elapsed_seconds": time.perf_counter()-started})
+                    return {"label": label, "status": "returned"}
+                except Exception as exc:
+                    observation = getattr(exc, "observation", None)
+                    immutable_save(target, "failure", {"exception_type": type(exc).__name__,
+                        "message": str(exc), "elapsed_seconds": time.perf_counter()-started,
+                        "observation": observation.model_dump(mode="json") if observation is not None else None})
+                    return {"label": label, "status": "failed"}
+                finally:
+                    await client.aclose()
+        return await asyncio.gather(*(one(label, model) for label, model in mapping.items()))
+    immutable_save(directory, "cohort", {"results": asyncio.run(run()),
+        "scope": "provider_only; no retrieval, APP delivery or local hardware measurement"})
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("report", "capture", "capture-context", "writer-prepare", "writer-capture"))
+    parser.add_argument("mode", choices=("report", "capture", "capture-context", "writer-prepare", "writer-capture", "context-tasting"))
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--output", required=True)
     args = parser.parse_args(argv)
@@ -740,6 +812,8 @@ def main(argv=None):
         capture(args.manifest, args.output, context_only=True)
     elif args.mode == "writer-prepare":
         writer_prepare(args.manifest, args.output)
+    elif args.mode == "context-tasting":
+        context_tasting(args.manifest, args.output)
     else:
         writer_capture(args.manifest, args.output)
 

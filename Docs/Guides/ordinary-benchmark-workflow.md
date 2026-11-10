@@ -122,3 +122,23 @@ The ad hoc ordinary Q09 launcher is superseded by this workflow after retained
 parity verification. Preserve its hash and nonexecuting provenance text rather
 than another executable runtime path. New questions add case data and reviewed
 assessment bindings, not another launcher.
+# Frozen-context model tasting
+
+`context-tasting --manifest tasting.json --output new-directory` reuses a pinned
+context-ready writer capture through GenerationEngine's OpenRouter adapter. It
+does not retrieve evidence, resume an APP turn, or publish anything. Manifest
+schema `dmb_context_tasting_v1` requires `source_request` and `context_ready`
+file/hash pins and distinct explicit `models`. The request body hash/size and
+semantic frame hash are checked before dispatch.
+
+The retained system prompt, input content, reasoning effort and output schema
+are shared across models. Provider-native wrappers differ from the original
+OpenAI Responses wire; this is a controlled provider-only comparison, not exact
+original wire replay. Gold is not added. Models run once each, two concurrently,
+without transport/conformance retry. Returned outputs and failures are retained.
+OpenRouter's reported cost is authoritative when supplied; missing cost is unknown.
+
+Random blind labels are assigned before execution. `identity-key.json` is separate
+from the response presentation; do not include it in a blind answer packet.
+Hosted open-weight runs do not measure local hardware performance. Existing output
+directories are refused, so an interrupted or failed tasting cannot silently replay.

@@ -12,6 +12,41 @@ from evals.buddy_benchmark import workflow as w
 from evals.buddy_benchmark.artifacts import immutable_save, row_inventory
 
 
+def test_context_tasting_freezes_shared_input_and_retains_failures(tmp_path, monkeypatch):
+    import generationengine
+    from application_state.agent_conversation import native_evidence_view, types
+    frame = {"user_question": "A generic question"}
+    monkeypatch.setattr(native_evidence_view, "semantic_frame_in_request", lambda *a, **k: frame)
+    packet = {"tools": [], "instructions": "Same voice", "input": [{"role": "user", "content": "Evidence"}],
+        "text": {"format": {"schema": {"type": "object"}, "name": "answer"}}, "reasoning": {"effort": "low"}}
+    raw = json.dumps(packet).encode()
+    request = put(tmp_path / "source.json", {"body_hex": raw.hex(), "body_sha256": sha256(raw).hexdigest(), "body_size": len(raw)})
+    ready = put(tmp_path / "ready.json", {"frame_sha256": types.canonical_sha256(frame)})
+    seen = []
+    class Client:
+        async def generate_structured(self, request, **kwargs):
+            seen.append(request)
+            if request.model == "test/failure":
+                raise ValueError("retained failure")
+            return SimpleNamespace(text='{}', parsed={}, observation=SimpleNamespace(model_dump=lambda **k: {"cost_status": "unavailable"}))
+        async def aclose(self):
+            pass
+    monkeypatch.setattr(generationengine, "GenerationClient", Client)
+    manifest = tmp_path / "manifest.json"
+    put(manifest, {"schema": "dmb_context_tasting_v1", "source_request": request, "context_ready": ready,
+        "models": ["test/success", "test/failure"]})
+    output = tmp_path / "output"
+    w.context_tasting(manifest, output)
+    assert len(seen) == 2
+    assert {r.system_prompt for r in seen} == {"Same voice"}
+    assert len({r.user_prompt for r in seen}) == 1
+    cohort = json.loads((output / "cohort.json").read_text())
+    assert {r["status"] for r in cohort["results"]} == {"returned", "failed"}
+    with pytest.raises(FileExistsError):
+        w.context_tasting(manifest, output)
+    assert len(seen) == 2
+
+
 def put(path, value):
     path.write_text(json.dumps(value))
     return {"path": str(path), "sha256": sha256(path.read_bytes()).hexdigest()}
