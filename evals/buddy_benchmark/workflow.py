@@ -735,7 +735,8 @@ def context_tasting(manifest_path, output):
 
     path = Path(manifest_path).resolve()
     spec = json.loads(path.read_text())
-    if set(spec) != {"schema", "source_request", "context_ready", "models"} or spec["schema"] != "dmb_context_tasting_v1":
+    required = {"schema", "source_request", "context_ready", "models"}
+    if not required <= set(spec) or set(spec) - required - {"endpoint_catalog"} or spec["schema"] != "dmb_context_tasting_v1":
         raise ValueError("Unknown context tasting specification")
     envelope = json.loads(read_pin(spec["source_request"], path.parent))
     ready = json.loads(read_pin(spec["context_ready"], path.parent))
@@ -755,6 +756,17 @@ def context_tasting(manifest_path, output):
     models = spec["models"]
     if not models or len(models) != len(set(models)) or any(not isinstance(m, str) or "/" not in m for m in models):
         raise ValueError("Tasting requires distinct explicit OpenRouter model identifiers")
+    routes = {}
+    if spec.get("endpoint_catalog") is not None:
+        catalog = json.loads(read_pin(spec["endpoint_catalog"], path.parent))
+        for model in models:
+            entry = catalog.get(model, {}).get("data", {})
+            if entry.get("id") != model:
+                raise ValueError("Endpoint catalog model binding differs")
+            routes[model] = sorted({endpoint["tag"] for endpoint in entry.get("endpoints", [])
+                if isinstance(endpoint.get("tag"), str) and endpoint["tag"]
+                and {"structured_outputs", "response_format"} <= set(endpoint.get("supported_parameters") or [])
+                and (packet["reasoning"]["effort"] is None or "reasoning" in (endpoint.get("supported_parameters") or []))})
     directory = Path(output).resolve()
     if directory.exists():
         raise FileExistsError("Tasting output exists; no automatic replay")
@@ -778,13 +790,22 @@ def context_tasting(manifest_path, output):
         async def one(label, model):
             async with semaphore:
                 target = directory / label
+                if model in routes and not routes[model]:
+                    immutable_save(target, "excluded", {"reason": "No declared native structured-output endpoint with requested parameters", "provider_attempt_count": 0})
+                    return {"label": label, "status": "excluded"}
                 immutable_save(target, "request", {**shared, "model": model})
                 started = time.perf_counter()
                 client = GenerationClient()
                 async def retain_attempt(event):
                     immutable_save(target, "attempt-" + str(event.ordinal), event.model_dump(mode="json"))
                 try:
-                    result = await client.generate_structured(TextRequest(model=model, **shared),
+                    parameters = dict(shared)
+                    if model in routes:
+                        from generationengine.types import ProviderRoute
+                        parameters["provider_route"] = ProviderRoute(order=tuple(routes[model]),
+                            allow_fallbacks=False, require_parameters=True)
+                        immutable_save(target, "route", parameters["provider_route"].model_dump(mode="json"))
+                    result = await client.generate_structured(TextRequest(model=model, **parameters),
                         on_attempt_completed=retain_attempt)
                     immutable_save(target, "result", {"text": result.text, "parsed": result.parsed,
                         "observation": result.observation.model_dump(mode="json"),
@@ -808,7 +829,7 @@ def context_tasting(manifest_path, output):
             result = json.loads(result_path.read_text())
             blind.append({"label": label, "text": result["text"], "parsed": result["parsed"]})
         else:
-            blind.append({"label": label, "status": "failed"})
+            blind.append({"label": label, "status": "excluded" if (directory / label / "excluded.json").exists() else "failed"})
     immutable_save(directory, "blind-answers", blind)
 
 

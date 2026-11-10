@@ -17,3 +17,16 @@ Hosted open-weight runs do not prove local performance. Not ordinary APP deliver
 
 Verification: local offline owner tests, cumulative diff inspection, immutable
 request hashes, actual GE usage/cost observations, manual source-grounded assessment.
+
+## Native structured-output adoption (user-authorized successor in this PR)
+
+GE PR33 merged as 563ae839cd9fef9510e0e389e115ebb8671eb8ed after exact-head
+independent PASS and435 local tests. Native strict schema replaces OpenRouter
+schema prose; parameter-supporting routes are required. Historical tasting remains
+immutable. The lease also includes pyproject.toml and uv.lock solely for this GE
+pin, plus optional pinned endpoint-catalog filtering in the existing workflow and
+its tests. Serial owner dependency is satisfied; no second Buddy PR.
+Use a separate candidate environment; leave original .venv and prior artifacts
+unchanged. Gold excluded; no retrieval/primary data effects. Exclude endpoints
+without declared structured_outputs/response_format/reasoning support. Do not
+weaken the schema, repair results manually or downgrade after an endpoint failure.

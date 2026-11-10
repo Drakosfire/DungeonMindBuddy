@@ -137,8 +137,14 @@ message contents are joined with two newlines, without JSON-escaping their text.
 This common message-boundary adaptation and provider-native wrappers differ from
 the original OpenAI Responses wire; this is a provider-only comparison, not exact
 original wire replay. Gold is not added.
-GE's existing OpenRouter adapter also appends the same JSON schema instructions
-to the system message for every model, instead of native Responses strict format.
+The pinned GE OpenRouter adapter sends native strict JSON Schema in
+`response_format` and requires parameter-supporting endpoints. It does not append
+schema instructions to system/user prose or downgrade to prompt-only JSON.
+Optional `endpoint_catalog` pins a model-keyed public endpoints response snapshot;
+the workflow binds model IDs and allows only tags declaring `structured_outputs`,
+`response_format` and the requested reasoning control. No eligible endpoint means
+excluded, zero provider attempts. Explicit routes disable outside-list fallback.
+The original prompt-only tasting remains retained as a historical diagnostic.
 Models run once each, two concurrently, without transport/conformance retry.
 Returned outputs and failures are retained.
 OpenRouter's reported cost is authoritative when supplied; missing cost is unknown.

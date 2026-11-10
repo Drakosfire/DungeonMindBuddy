@@ -58,9 +58,8 @@ def test_tasting_adapter_actual_sdk_wire_is_common_across_models():
     from openai import AsyncOpenAI
     from generationengine import GenerationClient, TextRequest
     from generationengine.providers.openrouter_text import OpenRouterTextProvider
-    from generationengine.conformance import schema_instruction
     wires = []
-    schema = {"type": "object", "properties": {}, "additionalProperties": False}
+    schema = {"type": "object", "properties": {}, "required": [], "additionalProperties": False}
     def reply(request):
         wires.append(json.loads(request.content))
         return httpx.Response(200, json={"id": "offline-response", "object": "chat.completion",
@@ -82,8 +81,31 @@ def test_tasting_adapter_actual_sdk_wire_is_common_across_models():
     asyncio.run(run())
     assert len(wires) == 2
     assert wires[0]["messages"] == wires[1]["messages"] == [
-        {"role": "system", "content": "Frozen voice\n\n" + schema_instruction(schema)},
+        {"role": "system", "content": "Frozen voice"},
         {"role": "user", "content": "First context\n\nSecond context"}]
+    assert all(wire["response_format"] == {"type": "json_schema", "json_schema": {
+        "name": "answer", "strict": True, "schema": schema}} for wire in wires)
+    assert all(wire["provider"]["require_parameters"] is True for wire in wires)
+
+
+def test_tasting_excludes_unsupported_endpoint_without_constructing_provider(tmp_path, monkeypatch):
+    import generationengine
+    from application_state.agent_conversation import native_evidence_view, types
+    frame = {"user_question": "Generic"}
+    monkeypatch.setattr(native_evidence_view, "semantic_frame_in_request", lambda *a, **k: frame)
+    monkeypatch.setattr(generationengine, "GenerationClient", lambda: pytest.fail("Excluded endpoint dispatched"))
+    packet = {"tools": [], "instructions": "Same voice", "input": [{"role": "user", "content": "Evidence"}],
+        "reasoning": {"effort": "low"}, "text": {"format": {"schema": {"type": "object"}, "name": "answer"}}}
+    raw = json.dumps(packet).encode()
+    request = put(tmp_path / "request.json", {"body_hex": raw.hex(), "body_size": len(raw), "body_sha256": sha256(raw).hexdigest()})
+    ready = put(tmp_path / "ready.json", {"frame_sha256": types.canonical_sha256(frame)})
+    catalog = put(tmp_path / "catalog.json", {"fixture/model": {"data": {"id": "fixture/model", "endpoints": [
+        {"tag": "unsupported", "supported_parameters": ["response_format", "reasoning"]}]}}})
+    manifest = tmp_path / "manifest.json"
+    put(manifest, {"schema": "dmb_context_tasting_v1", "models": ["fixture/model"],
+        "source_request": request, "context_ready": ready, "endpoint_catalog": catalog})
+    w.context_tasting(manifest, tmp_path / "output")
+    assert json.loads((tmp_path / "output" / "cohort.json").read_text())["results"] == [{"label": "A", "status": "excluded"}]
 
 
 def put(path, value):
