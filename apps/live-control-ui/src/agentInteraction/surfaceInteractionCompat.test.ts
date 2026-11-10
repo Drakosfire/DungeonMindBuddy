@@ -69,17 +69,12 @@ describe("surfaceInteractionCompat", () => {
       preferredSize: "wide",
       bindingIds: [],
     });
-    expect(neutral.projections).toContainEqual({
-      id: GRAPH_REFERENCE_PROJECTION_ID,
-      kind: "content",
-      preferredSize: "wide",
-      bindingIds: [],
-    });
+    expect(neutral.projections).toHaveLength(1);
     expect(neutral.projectionBindings).toEqual([]);
     expect(validateSurfaceInteractionPublication(neutral).valid).toBe(true);
   });
 
-  it("adds graph-reference content descriptor only for authorized Plan publications", () => {
+  it("does not invent graph-reference capability for legacy publications", () => {
     const planValidated = validateProjectionSurfacePublication({
       identity: buildPlanSurfaceIdentity({
         documentId: FIXTURE_DOC_ID,
@@ -104,9 +99,9 @@ describe("surfaceInteractionCompat", () => {
     const planNeutral = adaptProjectionSurfaceToNeutralBase(planValidated);
     expect(planNeutral.projections.some(
       (entry) => entry.id === GRAPH_REFERENCE_PROJECTION_ID && entry.kind === "content",
-    )).toBe(true);
+    )).toBe(false);
 
-    // Compat still emits the descriptor without context; Provider lease gate revokes authority.
+    // A legacy Plan does not acquire native content authority, with or without context.
     const planWithoutContext = validateProjectionSurfacePublication({
       identity: { surfaceId: "plan", instanceKey: "plan\u001fno-context" },
       config: {
@@ -123,7 +118,7 @@ describe("surfaceInteractionCompat", () => {
       planWithoutContextNeutral.projections.some(
         (entry) => entry.id === GRAPH_REFERENCE_PROJECTION_ID,
       ),
-    ).toBe(true);
+    ).toBe(false);
 
     const ingestValidated = validateProjectionSurfacePublication({
       identity: { surfaceId: "ingest", instanceKey: "ingest\u001ftest" },

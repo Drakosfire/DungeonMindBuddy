@@ -67,11 +67,11 @@ UI paths are under `apps/live-control-ui/src`. Service paths are under
 | Retired Plan picker/canvas/search | #2286 | Removed unmounted `PlanSurfaceCanvas`, `PlanWorldGraphObjectsPanel`, `GraphReferenceSearch` and `searchGraphReferences`; retained the mounted `PlanSurfaceCanvasFrame`. |
 | Retired opening helpers and diagnostic collection | #2310 and #2311 | Removed unused opening hook/policy and `GraphObjectDogfoodPanel` with private model/storage/CSS. Existing browser records were not cleared. |
 | Retired Play sheet wrappers | #2312, merge `4cf63addb3925f1f9dec775f8fba843c287de566` | Removed unmounted `PlayGraphObjectSheet` and private `PlayThreatMechanicsSection` plus their exclusive tests. Shared mechanics readers/renderers remain. This does not implement historical Runbook occurrence derivation or Add to Combat. |
-| Retired selected-object presentation | #2318, merge `7953f83c434fc5fe4f1cc0b7f71a065a4721576e` | Removed unmounted `SelectedObjectCard` and its private actions/source-preview/roll-format helpers, exclusive tests and private CSS. The fallback model and nine model cases remain because the registered renderer consumes them. This does not retire that renderer or the host capability. |
-| Retired Plan checklist | `PlanDogfoodPanel`, private report/state, exclusive tests and `.plan-dogfood-*` styles | Removed in this source after zero production-mount/caller audit. Two live manifest/classification entries retire atomically; the frozen original-command fixture and stored browser notes remain untouched. Delivery qualification is separate. |
-| Retired Plan card | `PlanReferenceObjectCard`, exclusive corpus-fallback/model and catalog entry | Removed in this slice: the old opener/binding has no production mount; current Plan object links use native activation/preview. Generic provider/host and shared statblock actions remain. |
-| Retired Plan resolver/binding | `usePlanGraphReferenceResolver`, `PlanReferenceProjectionBinding` and exclusive graph/corpus lookup/request helpers | Removed in this source after caller closure. Shared revision event moves unchanged to World Graph; load state and derived-view resolution adopt existing shared types. Actions, native activation and generic provider APIs remain. |
-| Remaining Plan advertisement | Synthetic `graph-reference` descriptor in `surfaceInteractionCompat` | Separate authority-contract retirement remains. Preserve generic native Build capability, binding/revocation and lease tests; remove implicit Plan advertisement coherently. |
+| Retired selected-object presentation | #2318, merge `7953f83c434fc5fe4f1cc0b7f71a065a4721576e` | Removed unmounted `SelectedObjectCard` and its private actions/source-preview/roll-format helpers, exclusive tests and private CSS. The model/nine model cases were retained in that slice, then removed with their exclusive renderer in #2344. Shared host capabilities remain. |
+| Retired Plan checklist | `PlanDogfoodPanel`, private report/state, exclusive tests and `.plan-dogfood-*` styles | Removed in #2342 after zero production-mount/caller audit. Two live manifest/classification entries retired atomically; the frozen original-command fixture and stored browser notes remain untouched. Delivery qualification is separate. |
+| Retired Plan card | `PlanReferenceObjectCard`, exclusive corpus-fallback/model and catalog entry | Removed in #2344: the old opener/binding had no production mount; current Plan object links use native activation/preview. Generic provider/host and shared statblock actions remain. |
+| Retired Plan resolver/binding | `usePlanGraphReferenceResolver`, `PlanReferenceProjectionBinding` and exclusive graph/corpus lookup/request helpers | Removed in #2346 after caller closure. Shared revision event moved unchanged to World Graph; load state and derived-view resolution adopt existing shared types. Actions, native activation and generic provider APIs remain. |
+| Retired Plan advertisement | Synthetic `graph-reference` descriptor in `surfaceInteractionCompat` and provider Plan-only exception | Removed in this source. Authority requires explicit effective publication plus a live current-lease binding. Generic lifecycle tests adopt explicit native Build declarations; legacy Plan identity alone is tested to fail closed. |
 | Manual publication/review | `BuildRunReview` → `BuildManualKnowledge`; `ConnectedPageReviewControl` → `BuildRelationshipReview` | Retain exercised publication/review owners. Reference selection does not grant publication authority. |
 | Classic authored-reference reader and fresh admission | Receipt-family dispatch in `build_jev_harness.py`, `agent_turn_service.py`, `build_authored_references.py` and `AgentTurnRequest` | #2319 requires the saved Build basis for authored references before dispatch. Existing Build-kind, saved-state, revision and digest checks remain. Such fresh requests therefore select governed/native execution; retained classic receipts still select their exact capture/recovery/writer/image consumers. Preserve those readers. This does not classify every generic Graph request or standalone classic helper as historical-only. |
 | Old server Plan proposal producer | #2104 | Explicitly held. Client retirement does not authorize this server change. |
@@ -97,12 +97,12 @@ labeled; neither establishes real-provider output quality.
 | Delayed hydration, failures, one Details, drafts and direct review | Same suite: uncited text stays mounted during hydration; exact-detail failure/mismatch; single Details; lightweight page-review and retry cases | Current controlled browser proof, including failure handling; old browser reports alone are insufficient. |
 | Objects, recaps, exact passages and supported filters | `SurfaceGraphReferenceInput.test.tsx`12/12; `NativeSourceInspection.test.tsx`23/23; shared native catalogue/body tests | Cross-surface live selection/source-opening journey on the delivered version. |
 | Submit, reload, continuation and exact retry | World-history mixed Play submission/pending reload and saved-selection hydration cases; Plan lightweight retry/refusal cases; Build direct retry owners | Ordinary live replay/continuation with preserved unsent work. Do not turn a positive mounted transport test into a paid-provider claim. |
-| Native Play actual execution and persisted citations | `tests/test_play_authored_source_references.py::test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answer`: provider-free ordinary factory, APP/Core fixtures, work/selected/automatic/memory/Rules/Graph/object/mixed/failure cases. `test_native_play_graph_postgres.py` covers durable admission/reconciliation | Activate the required reader fence only under the resolved recovery plan; prove supported ordinary delivery. The retained pre-deletion Play trace records `plan_writer_completion_rejected` and `play_jev_delivery_failure`; it is not positive answer-delivery proof. |
+| Native Play actual execution and persisted citations | `tests/test_play_authored_source_references.py::test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answer`: provider-free ordinary factory, APP/Core fixtures, work/selected/automatic/memory/Rules/Graph/object/mixed/failure cases. `test_native_play_graph_postgres.py` covers durable admission/reconciliation | The process hold is released and the schema147 reader fence is delivered. Prove supported ordinary delivery; do not treat the former deployment hold as a blocker. The retained pre-deletion Play trace records `plan_writer_completion_rejected` and `play_jev_delivery_failure`; it is not positive answer-delivery proof. |
 | Exact native source opening | `SourceCitationEvidence` / native citation protocol and source-owner tests; native readers remain mounted | Current browser source opening, late/read-error behavior and exact revision on delivered code. |
 | Tool-created threat and mechanics association | Mounted `NativeThreatCreationPanel.test.tsx`10/10; `tests/test_native_threat_creation.py`, `test_world_mechanics_associations.py` and PostgreSQL owners | Read-only retained checks now verify original acceptance, committed revision, association and Core-admitted creature identity. Complete the live create/associate/reopen proof on recoverable state; do not create another identity to manufacture proof. |
 | Popup / surface / conversation / full-view identity | `SavedStatblockSession.test.tsx`27/27, `NativeObjectStatblock.test.tsx`4/4, `NativeGraphObjectPreview.test.tsx`5/5, `StatblockPage.test.tsx`6/6 | Both retained exact versions are readable with matching mechanics digests; the newer revision has its original parent and one asset binding. The controlled cross-entry-point UI journey, caller position and draft preservation remain unproved after recovery. |
 | Portrait generation/selection, Save/reload and stale conflicts | Existing revision editor and portrait owner tests; same editor survives inline/popup moves, unknown Save and version refusal | Current end-to-end generation/review/selection/Save proof and source navigation. Existing portrait or mocked selection is not a new generation witness. |
-| Complete adoption/demolition inventory | Current caller decisions above; #2286/#2310/#2311/#2312 retirements | CI2341 settled the historical-freeze decision. #2342 retired the unmounted checklist; #2344 retired the old card/fallback. This source retires the unmounted resolver/binding and adopts its surviving shared dependencies. The synthetic Plan capability advertisement remains for a separate authority-contract slice. Retain exact classic recovery readers. |
+| Complete adoption/demolition inventory | Current caller decisions above; #2286/#2310/#2311/#2312 retirements | CI2341 settled the historical-freeze decision. #2342 retired the unmounted checklist; #2344 retired the old card/fallback.  #2346 retired the unmounted resolver/binding and adopted surviving shared dependencies. This source removes the synthetic Plan advertisement with equivalent explicit-native lifecycle coverage. Source adoption/demolition decisions are settled; current browser journey proof remains open. Retain exact classic recovery readers. |
 
 ## Evidence locations and qualification limits
 
@@ -162,9 +162,10 @@ click being erased by passive initialization. They are qualified separate slices
 
 1. The operator released the original process hold. Protected recovery delivered
    API76bb8c4b38178158e9a94a4b00cf65773edbda87/schema147; latest verified UI is
-   c780758b0e77de522e7857a006d75fdac07a8eed (merged2338), API447264 unchanged.
-   Private `table-label-delivered.json` binds served assets and authenticated
-   Graph access. Both surviving PostgreSQL stores were preserved; no old dump
+   94f59ccba3ff6be5cf269d512769a5856f22490e (merged #2346), API447264 unchanged.
+   Private `reference-resolver-delivered.json` binds served index/JS and retained
+   Graph access through the normal browser-cookie API flow. Backend-only merged
+   work is not activated by these UI-only deliveries. Both surviving PostgreSQL stores were preserved; no old dump
    was restored. Original runtime/session22 is not established as fully recovered.
 2. Current live-proxy read witnesses are
    `goal-reference-native-read-reanchor.json` and
@@ -182,12 +183,12 @@ click being erased by passive initialization. They are qualified separate slices
 4. CI2341 makes reviewed `ci/contracts.json` the live command authority while
    keeping original extraction bytes. Required suite/real-command/path checks,
    workflow consumers, backend partition guards and full discovery remain. This
-   source follows #2342 checklist and #2344 card/fallback retirement by removing
-   the unmounted resolver/binding. Their exclusive tests retire with their owner;
-   shared refresh events, reference types, tools and saved statblocks survive.
-   The synthetic Plan advertisement still needs its own authority-contract
-   retirement with preserved generic provider safety coverage. Do not claim all
-   References closed yet.
+   source follows #2342 checklist, #2344 card/fallback and #2346 resolver/binding
+   retirements by removing implicit Plan capability advertisement. Shared refresh
+   events, reference types, tools and saved statblocks survive. Generic provider
+   safety tests use explicit native declarations rather than retired Plan inference.
+   Source remainder is settled; current browser/runtime journey proof is still
+   required before claiming complete References closure.
 5. Keep #2104's explicit hold and ADVERSARY coordination off. Retrieval and
    benchmark experiments remain outside this implementation work. The Index
    feedback was handed by the operator to another model; no LocalWorld edits.

@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
@@ -25,6 +25,10 @@ import {
 import * as graphReferenceProjectionBindings from "../../graphReference/projectionBindings";
 import { LegacyProjectionHostAdapter } from "./LegacyProjectionHostAdapter";
 import { AgentInteractionProjectionTestHost } from "./projectionTestHost";
+import { AgentInteractionProvider, useAgentInteraction } from "../../agentInteraction/AgentInteractionProvider";
+import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projection/projectionCatalog";
+import { buildSurfaceInteractionIdentity } from "../../surfaceInteraction/surfaceIdentity";
+import type { SurfaceInteractionPublication } from "../../surfaceInteraction/types";
 import { useProjection } from "./projectionContext";
 import { GraphReviewLiveStateProvider } from "../graphReviewWorkbench/GraphReviewLiveStateContext";
 import { GraphReviewDiagnosticsProjectionBinding } from "../graphReviewWorkbench/GraphReviewDiagnosticsProjectionBinding";
@@ -43,23 +47,28 @@ vi.mock("../../api/liveApi", async (importOriginal) => {
 
 const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: 21 });
 
-const surfaceConfig: SurfaceConfig = {
-  id: "plan",
-  label: "Plan",
-  context: {
-    campaignId: "longmont-c2",
-    headerLabel: sessionDescriptor.planningDocument.title,
-    ingestSession: 21,
-    liveSession: 22,
-  },
-  tools: [
-    { id: "recap", label: "Recap", size: "wide" },
-    { id: "statblock", label: "Statblock", size: "wide" },
-  ],
-  canvas: { documentId: sessionDescriptor.planningDocument.documentId },
-  theme: {},
-  sessionDescriptor,
+// Binding lease tests exercise the explicit native capability, not retired Plan inference.
+const nativeReferencePublication: SurfaceInteractionPublication = {
+  surfaceId: "build",
+  label: "Build",
+  identity: buildSurfaceInteractionIdentity({ surfaceId: "build", instanceParts: ["binding-test"] }),
+  canvas: null,
+  agentContext: null,
+  tools: [],
+  editCommands: [],
+  projections: [{ id: GRAPH_REFERENCE_PROJECTION_ID, kind: "content", preferredSize: "wide", bindingIds: [] }],
+  projectionBindings: [],
 };
+
+function NativeReferencePublisher({ children }: { children: ReactNode }) {
+  const { publishSurfaceInteractionPublication } = useAgentInteraction();
+  useLayoutEffect(() => publishSurfaceInteractionPublication(nativeReferencePublication), [publishSurfaceInteractionPublication]);
+  return children;
+}
+
+function NativeReferenceBindingTestHost({ children }: { children: ReactNode }) {
+  return <AgentInteractionProvider><NativeReferencePublisher>{children}</NativeReferencePublisher></AgentInteractionProvider>;
+}
 
 const ingestSurfaceConfig: SurfaceConfig = {
   id: "ingest",
@@ -256,10 +265,10 @@ describe("projectionBindings sibling topology", () => {
     }
 
     render(
-      <AgentInteractionProjectionTestHost config={surfaceConfig}>
+      <NativeReferenceBindingTestHost>
         <Registrar />
         <LegacyProjectionHostAdapter />
-      </AgentInteractionProjectionTestHost>,
+      </NativeReferenceBindingTestHost>,
     );
 
     await waitFor(() => {
@@ -313,10 +322,10 @@ describe("projectionBindings sibling topology", () => {
     }
 
     render(
-      <AgentInteractionProjectionTestHost config={surfaceConfig}>
+      <NativeReferenceBindingTestHost>
         <Registrar />
         <LegacyProjectionHostAdapter />
-      </AgentInteractionProjectionTestHost>,
+      </NativeReferenceBindingTestHost>,
     );
 
     await waitFor(() => {
@@ -362,10 +371,10 @@ describe("projectionBindings sibling topology", () => {
     }
 
     render(
-      <AgentInteractionProjectionTestHost config={surfaceConfig}>
+      <NativeReferenceBindingTestHost>
         <Registrar />
         <LegacyProjectionHostAdapter />
-      </AgentInteractionProjectionTestHost>,
+      </NativeReferenceBindingTestHost>,
     );
 
     await waitFor(() => {

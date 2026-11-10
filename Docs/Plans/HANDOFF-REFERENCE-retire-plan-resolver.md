@@ -1,6 +1,11 @@
 # REFERENCE: retire the unmounted Plan resolver
 
-ACTIVE PRIME serial slice from d8f1bd8b92fc6b0d33217034d85a307466712403,
+SETTLED: merged #2346 at60d28dda015c46ffd9e345f72bf48216684a30a3;
+reviewed UI94f59ccba3ff6be5cf269d512769a5856f22490e delivered on5202.
+Exact hosted/build passed. Full comparison removed exactly52 exclusive/obsolete
+cases; shared statuses and collection error unchanged. Full diagnostic remains red.
+
+Historical ACTIVE PRIME serial slice from d8f1bd8b92fc6b0d33217034d85a307466712403,
 branch codex/reference-retire-plan-resolver in the existing context-loop checkout.
 Predecessor #2344 is merged and UI-only delivered; no unmerged parent. Active
 References goal authorizes this retirement. Index work belongs elsewhere;

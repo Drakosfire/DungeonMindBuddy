@@ -216,22 +216,9 @@ function publicationDeclaresGraphReferenceCapability(
   return matches === 1;
 }
 
-/**
- * Lease-aware declaration: legacy Plan loses graph-reference authority when
- * projectionsEnabled is false (context loss), even if the neutral adapter still
- * emits the content descriptor.
- */
+/** Capability authority comes only from the effective publication on this lease. */
 function leaseDeclaresGraphReferenceCapability(bundle: ProviderLeaseBundle | null): boolean {
-  if (!bundle?.snapshot.effectivePublication) return false;
-  const legacy = bundle.legacyProjection?.validated;
-  if (
-    legacy
-    && legacy.publication.identity.surfaceId === "plan"
-    && !legacy.projectionsEnabled
-  ) {
-    return false;
-  }
-  return publicationDeclaresGraphReferenceCapability(bundle.snapshot.effectivePublication);
+  return publicationDeclaresGraphReferenceCapability(bundle?.snapshot.effectivePublication);
 }
 
 function graphReferenceBindingRegisteredOnLease(
