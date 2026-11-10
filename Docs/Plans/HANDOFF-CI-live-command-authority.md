@@ -1,6 +1,6 @@
 # CI: one live command authority
 
-ACTIVE PRIME serial slice under the operator's References adoption/demolition goal.
+SETTLED PRIME serial slice under the operator's References adoption/demolition goal.
 Branch codex/ci-live-command-authority rebased onto merged inventory repair2339
 02c03e9ac566c07043f93ae97fbf31d1f2ee0851,
 existing context-loop checkout/dependencies. No unmerged parent; no runtime lease.
@@ -44,3 +44,8 @@ this guard after that predecessor merges. Original failure log retained privatel
 Inventory predecessor2339 is merged and its79-case exact source/inventory proof
 passes. The preserved initial guard failure is historical; requalification at
 this rebased source is required. Frozen original commands remain untouched.
+
+Merged2341 as171bd4fbf217ea9fbe5a3f9baab445fde25aafa0 after independent
+exact75951 review;46guards and all1498-file inventory pass. Actual integration
+tree equaled reviewed head. Current commands/fixture/runners/workflows unchanged.
+The shared-file proof preserves CI2288 additive test without activating it.
