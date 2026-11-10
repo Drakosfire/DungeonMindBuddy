@@ -6,6 +6,10 @@ import json
 from typing import Any, Callable
 
 import psycopg
+from dungeonmind.domain.errors import (
+    PersistenceIntegrityError,
+    PersistenceUnavailableError,
+)
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
@@ -105,6 +109,18 @@ def _with_service(
         return _error(
             "application_state_unavailable",
             "Buddy application state is unavailable, so the graph operation outcome could not be verified. Check the same operation ID before trying again.",
+            503,
+        )
+    except PersistenceUnavailableError:
+        return _error(
+            "native_authority_unavailable",
+            "DungeonMind native readback is unavailable. A durable reservation or source admission may already exist. Check this same operation ID and use it for any recovery attempt; do not create a replacement operation.",
+            503,
+        )
+    except PersistenceIntegrityError:
+        return _error(
+            "native_authority_integrity_failure",
+            "DungeonMind could not verify its saved native evidence. The operation outcome may be uncertain. Check this same operation ID before recovery; do not create a replacement or assume it was committed.",
             503,
         )
     except (OSError, TypeError, ValueError):

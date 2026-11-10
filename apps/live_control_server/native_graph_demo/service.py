@@ -2000,6 +2000,12 @@ class NativeGraphDemoService:
     def _map_native_error(self, exc: Exception, fallback: str) -> DemoError:
         if isinstance(exc, DemoError):
             return exc
+        if isinstance(exc, PersistenceIntegrityError):
+            return DemoError(
+                "native_authority_integrity_failure",
+                "DungeonMind could not verify its saved native evidence. The operation outcome may be uncertain. Check this same operation ID before recovery; do not create a replacement or assume it was committed.",
+                503,
+            )
         if isinstance(exc, (PersistenceUnavailableError, OSError)):
             return DemoError("native_authority_unavailable", fallback, 503)
         if isinstance(exc, StaleParentRevisionError):

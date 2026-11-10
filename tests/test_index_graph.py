@@ -12,10 +12,16 @@ from starlette.testclient import TestClient
 from application_state.engine import connect
 from application_state.index_graph import sessions
 from application_state.index_graph.sessions import local_profile
+from application_state.index_graph.sessions import lookup_session
 from apps.live_control_server.routes import index_graph
 from apps.live_control_server.services import index_graph as index_graph_service
+from apps.live_control_server.native_graph_demo import NativeGraphDemoService
 from dungeonmind.infrastructure.memory.vnext_sources import (
     InMemoryNativeSourceEvidenceRepository,
+)
+from dungeonmind.domain.errors import (
+    PersistenceIntegrityError,
+    PersistenceUnavailableError,
 )
 
 
@@ -309,6 +315,165 @@ def test_prepare_body_limit_and_duplicate_json_keys_are_rejected(
         content=b'{"operation_id":"a","operation_id":"b"}',
     )
     assert duplicate.status_code == 400
+
+
+@pytest.mark.parametrize(
+    ("native_failure", "expected_code"),
+    [
+        (PersistenceUnavailableError, "native_authority_unavailable"),
+        (PersistenceIntegrityError, "native_authority_integrity_failure"),
+    ],
+)
+def test_native_readback_failure_after_checkpoint_recovers_same_operation(
+    application_state_dsn: str,
+    local_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    native_failure: type[Exception],
+    expected_code: str,
+) -> None:
+    sentinel = "native-secret-detail-sentinel"
+
+    class FaultingRepository(InMemoryNativeSourceEvidenceRepository):
+        fail_next_head = False
+
+        def get_head(self, space_id: str):
+            if self.fail_next_head:
+                self.fail_next_head = False
+                raise native_failure(sentinel)
+            return super().get_head(space_id)
+
+    repository = FaultingRepository()
+
+    class FaultingService(NativeGraphDemoService):
+        def _admit_operation_source(self, request, *, expected_parent_revision_id):
+            receipt = super()._admit_operation_source(
+                request, expected_parent_revision_id=expected_parent_revision_id
+            )
+            repository.fail_next_head = True
+            return receipt
+
+    monkeypatch.setattr(index_graph_service, "repository", lambda: repository)
+    monkeypatch.setattr(index_graph_service, "NativeGraphDemoService", FaultingService)
+    client = local_client
+    session_response = client.post("/api/live/index-graph/session")
+    csrf = session_response.json()["csrf_token"]
+    graph = client.get("/api/live/index-graph/graph").json()
+    operation_id = str(uuid.uuid4())
+    request = _operation(graph, operation_id, "Nima")
+
+    interrupted = client.post(
+        "/api/live/index-graph/prepare",
+        headers={"X-DMB-Index-Graph-CSRF": csrf},
+        json=request,
+    )
+    assert interrupted.status_code == 503
+    assert interrupted.json()["code"] == expected_code
+    assert "same operation ID" in interrupted.json()["error"]
+    assert sentinel not in str(interrupted.json())
+    assert (
+        repository.get_native_source_admission_receipt(
+            graph["world_id"],
+            "native-graph-demo:operation-source:" + operation_id.replace("-", ""),
+        )
+        is not None
+    )
+
+    _origin, _host, cookie_name = local_profile()
+    credential = client.cookies.get(cookie_name)
+    assert isinstance(credential, str) and credential
+    session = lookup_session(credential)
+    with index_graph_service.open_index_graph_service(session) as service:
+        with service._store.atomic():
+            reservation = service._store.get_reservation(operation_id)
+    assert reservation is not None
+    assert reservation["request"] == request
+
+    recovered = client.get(f"/api/live/index-graph/operations/{operation_id}")
+    assert recovered.status_code == 200
+    assert recovered.json()["status"] == "prepared"
+    committed = client.post(
+        "/api/live/index-graph/confirm",
+        headers={"X-DMB-Index-Graph-CSRF": csrf},
+        json={"operation_id": operation_id},
+    )
+    assert committed.status_code == 200
+    assert committed.json()["status"] == "committed"
+    assert any(node["name"] == "Nima" for node in committed.json()["graph"]["nodes"])
+
+
+def test_native_integrity_error_during_prepare_retains_reservation_for_recovery(
+    application_state_dsn: str,
+    local_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sentinel = "native-integrity-detail-sentinel"
+    fail_next_prepare = {"enabled": False}
+
+    class FaultingRuntime:
+        def prepare_change(self, _intent: Any) -> Any:
+            raise PersistenceIntegrityError(sentinel)
+
+    class FaultingService(NativeGraphDemoService):
+        def _runtime(self, *, prepared_id: str):
+            if fail_next_prepare["enabled"]:
+                fail_next_prepare["enabled"] = False
+                return FaultingRuntime()
+            return super()._runtime(prepared_id=prepared_id)
+
+    repository = InMemoryNativeSourceEvidenceRepository()
+    monkeypatch.setattr(index_graph_service, "repository", lambda: repository)
+    monkeypatch.setattr(index_graph_service, "NativeGraphDemoService", FaultingService)
+    client = local_client
+    session_response = client.post("/api/live/index-graph/session")
+    csrf = session_response.json()["csrf_token"]
+    graph = client.get("/api/live/index-graph/graph").json()
+    operation_id = str(uuid.uuid4())
+    request = _operation(graph, operation_id, "Integrity Recovery")
+    fail_next_prepare["enabled"] = True
+
+    interrupted = client.post(
+        "/api/live/index-graph/prepare",
+        headers={"X-DMB-Index-Graph-CSRF": csrf},
+        json=request,
+    )
+    assert interrupted.status_code == 503
+    assert interrupted.json()["code"] == "native_authority_integrity_failure"
+    assert "same operation ID" in interrupted.json()["error"]
+    assert sentinel not in str(interrupted.json())
+    assert (
+        repository.get_native_source_admission_receipt(
+            graph["world_id"],
+            "native-graph-demo:operation-source:" + operation_id.replace("-", ""),
+        )
+        is not None
+    )
+
+    _origin, _host, cookie_name = local_profile()
+    credential = client.cookies.get(cookie_name)
+    assert isinstance(credential, str) and credential
+    session = lookup_session(credential)
+    with index_graph_service.open_index_graph_service(session) as service:
+        with service._store.atomic():
+            reservation = service._store.get_reservation(operation_id)
+            rejected_or_prepared = service._store.get_operation(operation_id)
+    assert reservation is not None
+    assert reservation["request"] == request
+    assert rejected_or_prepared is None
+
+    recovered = client.get(f"/api/live/index-graph/operations/{operation_id}")
+    assert recovered.status_code == 200
+    assert recovered.json()["status"] == "prepared"
+    committed = client.post(
+        "/api/live/index-graph/confirm",
+        headers={"X-DMB-Index-Graph-CSRF": csrf},
+        json={"operation_id": operation_id},
+    )
+    assert committed.status_code == 200
+    assert committed.json()["status"] == "committed"
+    assert any(
+        node["name"] == "Integrity Recovery"
+        for node in committed.json()["graph"]["nodes"]
+    )
 
 
 def test_main_registers_index_graph_without_hosted_world_exemption(
