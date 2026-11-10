@@ -736,7 +736,7 @@ def context_tasting(manifest_path, output):
     path = Path(manifest_path).resolve()
     spec = json.loads(path.read_text())
     required = {"schema", "source_request", "context_ready", "models"}
-    if not required <= set(spec) or set(spec) - required - {"endpoint_catalog", "presentation", "instructions", "prompt_components", "qualification_review"} or spec["schema"] != "dmb_context_tasting_v1":
+    if not required <= set(spec) or set(spec) - required - {"endpoint_catalog", "presentation", "instructions", "prompt_components", "qualification_review", "assessment"} or spec["schema"] != "dmb_context_tasting_v1":
         raise ValueError("Unknown context tasting specification")
     envelope = json.loads(read_pin(spec["source_request"], path.parent))
     ready = json.loads(read_pin(spec["context_ready"], path.parent))
@@ -805,6 +805,22 @@ def context_tasting(manifest_path, output):
         else:
             text = json.dumps(presented_frame, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
         input_contents[positions[0]] = text
+    assessment = None
+    output_schema = packet["text"]["format"]["schema"]
+    schema_name = packet["text"]["format"]["name"]
+    judge_role = prompt_components is not None and prompt_components['contract'] == 'buddy_writer_judge_v1'
+    if (spec.get('assessment') is not None) != judge_role:
+        raise ValueError('Judge inputs require an explicit versioned judge role; never ordinary writer inputs')
+    if judge_role:
+        from .writer_assessment import validate_judge_inputs
+        pins = spec['assessment']
+        if not isinstance(pins, dict) or set(pins) != {'candidates', 'reference', 'schema'}:
+            raise ValueError('Invalid pinned judge task')
+        assessment = {key: json.loads(read_pin(pin, path.parent)) for key, pin in pins.items()}
+        validate_judge_inputs(assessment['candidates'], assessment['reference'], assessment['schema'])
+        output_schema, schema_name = assessment['schema'], 'writer_quality_assessment_v1'
+        input_contents += ['REFERENCE CRITERIA\n' + json.dumps(assessment['reference'], ensure_ascii=False),
+                           'CANDIDATE REPLIES TO ASSESS\n' + json.dumps(assessment['candidates'], ensure_ascii=False)]
     models = spec["models"]
     if not models or len(models) != len(set(models)) or any(not isinstance(m, str) or "/" not in m for m in models):
         raise ValueError("Tasting requires distinct explicit OpenRouter model identifiers")
@@ -825,6 +841,8 @@ def context_tasting(manifest_path, output):
     directory.mkdir(parents=True, mode=0o700)
     immutable_save(directory, "specification", spec)
     immutable_save(directory, "frozen-packet", packet)
+    if assessment is not None:
+        immutable_save(directory, "assessment-task", assessment)
     if qualification_repair is not None:
         immutable_save(directory, "qualification-review", qualification_repair)
     if prompt_components is not None:
@@ -838,7 +856,7 @@ def context_tasting(manifest_path, output):
     # rather than JSON-escaping the original message array inside user content.
     shared = dict(provider="openrouter", user_prompt="\n\n".join(input_contents),
         system_prompt=instructions, temperature=None,
-        json_schema=packet["text"]["format"]["schema"], schema_name=packet["text"]["format"]["name"],
+        json_schema=output_schema, schema_name=schema_name,
         reasoning_effort=packet["reasoning"]["effort"],
         max_output_tokens=packet.get("max_output_tokens"), max_conformance_retries=0, max_transport_retries=0)
     immutable_save(directory, "shared-request", shared)

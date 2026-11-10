@@ -15,6 +15,26 @@ Repeated lifecycle observations do not become additional calls or tokens.
 Missing usage or billing stays unknown. This trace format does not supply actual
 invoice costs; token-price estimates are not substituted for billed cost.
 
+## Writer judge calibration
+
+The same `context-tasting` transport accepts an explicit `assessment` object with
+file pins `candidates`, `reference` and `schema`, only with a compiled prompt
+manifest whose contract is `buddy_writer_judge_v1`. Ordinary writer roles reject
+assessment input. Candidates have blind local `candidate_id` and semantic `answer`
+fields (answer_segments, limitations, requested_detail_gaps), without model/cost
+identities. Reference data contains only `required_concepts` with id/description;
+hidden expected candidate grades stay in the offline calibration file.
+
+The pinned native schema must equal `writer_assessment.quality_schema` for those
+candidate/concept IDs. Original capture verification, route controls, raw attempt
+retention and usage/cost/time accounting are shared with writer experiments.
+Judge results are provider-only diagnostics, not QA acceptance or citation proof.
+`writer_assessment.calibration_report` compares explicit reviewed seven-axis
+judgments, excluding unknown human axes and reporting false passes, false failures,
+abstentions and internal coverage inconsistencies. It does not infer human taste
+or automatically authorize score-based grading. Freeze reference labels and
+stopping rules before calls, retain rejected judges and test order variation.
+
 ## Retained manifest
 
 The manifest has schema `dmb_ordinary_benchmark_v1`, optional shared `pins`, and
