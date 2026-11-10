@@ -28,6 +28,10 @@ class RetryUnavailableError(ApplicationStateConflictError):
     """A new retry was refused before acceptance or provider authorization."""
 
 
+class AuthoringRetryRequiredError(RetryUnavailableError):
+    """Retained no-write replay is unavailable; capture fresh authoring authority."""
+
+
 class RetryContext(StrictModel):
     world_id: str
     conversation_id: UUID
@@ -242,7 +246,7 @@ def retained_discussion_capture(turn):
     execution = turn.graph_context_execution
     decisions = [e for e in execution.events if isinstance(e, BuildRequestedWorkResolutionV1)] if execution else []
     if len(decisions) != 1 or decisions[0].operation != "answer_from_sources":
-        raise RetryUnavailableError("This request needs its authoring target; it cannot be retried as a discussion")
+        raise AuthoringRetryRequiredError("This request needs its authoring target; it cannot be retried as a discussion")
     try:
         captured = context_record(execution).record
         validate_record(captured, turn)

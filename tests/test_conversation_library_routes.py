@@ -213,3 +213,17 @@ def test_active_messages_auth_scope_and_selector_use_the_light_owner(client):
     assert TestClient(client.app).get(url).status_code == 403
     client.world.assert_not_called()
     client.service.read_active_messages.assert_not_called()
+
+
+def test_retained_discussion_reports_typed_authoring_capture_requirement(client, monkeypatch):
+    from application_state.agent_conversation import retry
+    read=Mock(side_effect=retry.AuthoringRetryRequiredError('Authoring needs fresh page context'))
+    monkeypatch.setattr(retry,'read_discussion_retry_input',read)
+    cid,tid=uuid4(),uuid4()
+    url=f'/api/live/agent/worlds/world-one/conversations/{cid}/turns/{tid}/discussion-retry-input?revision=4'
+    denied=client.client.get(url,headers={'Authorization':'Bearer invalid'})
+    assert denied.status_code in {401,403} and not read.called
+    response=client.client.get(url)
+    assert response.status_code==409
+    assert response.json()=={'detail':{'code':'build_authoring_retry_required','message':'Authoring needs fresh page context'}}
+    read.assert_called_once_with('world-one',cid,tid,4)

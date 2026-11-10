@@ -163,3 +163,10 @@ def test_writing_failure_cannot_be_downgraded_to_retained_discussion(failed_case
     _, _, _, parent, _, _, _ = failed_case
     with pytest.raises(retry.RetryUnavailableError, match="authoring target"):
         retry.read_discussion_retry_input(parent.world_id, parent.conversation_id, parent.turn_id, parent.revision)
+
+
+def test_unresolved_selection_requires_fresh_authoring_not_inferred_discussion():
+    from types import SimpleNamespace
+    unresolved=SimpleNamespace(graph_context_execution=SimpleNamespace(events=[]))
+    with pytest.raises(retry.AuthoringRetryRequiredError,match='authoring target'):
+        retry.retained_discussion_capture(unresolved)

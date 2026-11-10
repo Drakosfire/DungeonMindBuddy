@@ -52,7 +52,11 @@ export async function readDiscussionRetryInput(world:string,conversation:string,
  if(!retryUuid(conversation)||!retryUuid(turn)||!Number.isSafeInteger(revision)||revision<1)throw new Error('Select a saved failed request.');
  const {response}=await authenticatedApiFetch('/api/live/agent/worlds/'+encodeURIComponent(world)+'/conversations/'+conversation+'/turns/'+turn+'/discussion-retry-input?'+new URLSearchParams({revision:String(revision)}),{cache:'no-store'});
  const v=await response.json();
- if(!response.ok)throw new LiveApiError(typeof v.detail==='string'?v.detail:'The original request context is unavailable.',response.status);
+ if(!response.ok){
+  const detail=v.detail;
+  throw new LiveApiError(typeof detail==='string'?detail:typeof detail?.message==='string'?detail.message:'The original request context is unavailable.',response.status,
+    response.status===409&&detail?.code==='build_authoring_retry_required'?{code:detail.code}:undefined);
+ }
  const sha=(x:unknown):x is string=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
  if(!exact(v,['schema','world_id','conversation_id','turn_id','revision','pointer_revision','surface_instance_id','message','client_work_state','snapshot','snapshot_sha256','authored_references'])
   ||v.schema!=='dmb_build_retained_discussion_retry_input_v1'||v.world_id!==world||v.conversation_id!==conversation||v.turn_id!==turn||v.revision!==revision
