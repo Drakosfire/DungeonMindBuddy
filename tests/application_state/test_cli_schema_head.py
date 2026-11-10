@@ -98,6 +98,14 @@ def test_actual_postgres_drift_is_refused(application_state_dsn):
             )
             with pytest.raises(ApplicationStateMigrationError):
                 cli.assert_at_head(dsn=application_state_dsn)
+        conn.execute("DELETE FROM application_state.schema_migrations")
+        with pytest.raises(ApplicationStateMigrationError):
+            cli.assert_at_head(dsn=application_state_dsn)
+        conn.execute(
+            "INSERT INTO application_state.schema_migrations (version_num) VALUES (%s)",
+            (head,),
+        )
+    cli.assert_at_head(dsn=application_state_dsn)
 
 
 def test_captured_source_name_reader_fence_refuses_predecessor(application_state_dsn, monkeypatch):
@@ -115,11 +123,3 @@ def test_captured_source_name_reader_fence_refuses_predecessor(application_state
         cli.assert_at_head(dsn=application_state_dsn)
     with pytest.raises(RuntimeError, match='forward recovery'):
         fence.downgrade()
-        conn.execute("DELETE FROM application_state.schema_migrations")
-        with pytest.raises(ApplicationStateMigrationError):
-            cli.assert_at_head(dsn=application_state_dsn)
-        conn.execute(
-            "INSERT INTO application_state.schema_migrations (version_num) VALUES (%s)",
-            (head,),
-        )
-    cli.assert_at_head(dsn=application_state_dsn)
