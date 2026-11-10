@@ -1,6 +1,6 @@
 # SURFACE — readable page suggestions across conversations
 
-Status: ACTIVE. PRIME owns this serial slice under the active usable-authoring goal.
+Status: MERGED/DELIVERED in #2359, merge4618102de53c4f7cd4b4e5bbbbbefa0c1e7d1df3; reviewed UIbecc5c4c76c40d12a2993fc5ccbd6b36609afd10. Live Plan/Play each show both retained suggestions without wrong-surface review controls. Exact source/integration/artifact Bugbot approval, hosted/build and full unchanged-baseline comparison are retained in the private cross-surface-proposal evidence. UI1517059 delivered; API447264 unchanged. This is bounded source settlement, not whole-goal completion.
 Base: 999a5eabe00b282d605c72044c9bf8a15e3c8ee3, existing buddy-context-loop checkout, branch codex/conversation-proposal-history.
 
 Live Build renders retained proposal text, while the same World conversation in Plan/Play shows only its generic preview acknowledgement. The proposal-history read is incorrectly coupled to Build write capability. Reuse its existing read/projection without granting placement authority to another surface. Keep current-page writes gated by Build eligibility and its original bridge/basis. Do not activate new API revisions or mutate retained story data for verification.
