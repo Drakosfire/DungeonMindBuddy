@@ -629,8 +629,8 @@ def _source_body(payload: dict[str, Any]) -> str:
             f"(classification: {payload['object_kind']}).\n"
         )
     return (
-        f"Authored World graph relationship between native objects {payload['source_id']} "
-        f"and {payload['target_id']} using predicate {payload['predicate']}.\n"
+        f"Authored World graph relationship with predicate {payload['predicate']} "
+        "between the selected source object and selected target object.\n"
     )
 
 

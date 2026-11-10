@@ -14,6 +14,7 @@ from uuid import uuid4
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from starlette.requests import Request
 from worldkeeper.application import contracts as wk
 from worldkeeper.application.commit import CommittedChangeOutcomeUnknown
 
@@ -425,6 +426,34 @@ def test_registered_connection_is_published_as_exact_native_predicate(explorer):
     prepared = x.client.post("/api/live/native-graph-explorer/prepare", json=request)
     assert prepared.status_code == 200, prepared.text
     assert prepared.json()["status"] == "prepared"
+    stored = InMemoryExplorerStore.rows[
+        (x.principal.subject, "managed", request["operation_id"])
+    ]
+    admitted = x.lane.repo.get_native_source_admission_receipt(
+        x.bound["native_world_id"], stored["source_admission_id"]
+    )
+    _, source_access, _, _ = service.native.read_context(
+        x.lane.repo,
+        x.bound["native_world_id"],
+        admitted.published_revision_id,
+        None,
+        x.principal.role,
+        scope_mode="world",
+    )
+    authored = service.open_admitted_native_text(
+        source_access, admitted.bindings[0].evidence_ref_id
+    )
+    assert ids["alice"] not in authored.body_text
+    assert ids["tower"] not in authored.body_text
+    assert "located_in" in authored.body_text
+    prepared_packet = InMemoryExplorerStore(
+        x.principal.subject, "managed"
+    ).get_operation(request["operation_id"])["prepared"]
+    prepared_value = service.transport.decode_prepared(prepared_packet)
+    relationship = prepared_value.prepared_operations[0]
+    assert relationship.source.durable_object_id == ids["alice"]
+    assert relationship.target.durable_object_id == ids["tower"]
+    assert relationship.predicate == "dnd5e:located_in"
     body = {"managed_world_id": "managed", "operation_id": request["operation_id"]}
     result = x.client.post("/api/live/native-graph-explorer/confirm", json=body)
     assert result.status_code == 200, result.text
@@ -621,6 +650,9 @@ def test_operation_id_reuse_and_cross_principal_read_fail_closed(explorer, monke
     )
     other_source_id = service._source_admission_id(operation_id, other.subject, x.bound)
     assert other_source_id != original_source_id
+    assert service._publication_id(
+        operation_id, other.subject, x.bound
+    ) != service._publication_id(operation_id, x.principal.subject, x.bound)
     assert (
         x.lane.repo.get_native_source_admission_receipt(
             x.bound["native_world_id"], original_source_id
@@ -763,7 +795,7 @@ def test_lost_commit_response_recovers_receipt_and_same_created_node_id(
 
 @pytest.mark.parametrize("journal_status", ["unknown", "committed"])
 def test_mutated_native_aggregate_never_becomes_committed_on_recovery(
-    explorer, monkeypatch, journal_status
+    explorer, journal_status
 ):
     x = explorer
     graph = _read(x).json()["graph"]
@@ -789,26 +821,20 @@ def test_mutated_native_aggregate_never_becomes_committed_on_recovery(
     if journal_status == "unknown":
         row["status"] = "unknown"
 
-    real_state = service._publication_state
+    from dungeonmind.domain.canonical import canonical_sha256
 
-    def corrupted_state(repo, bound, saved_prepared):
-        state, aggregate = real_state(repo, bound, saved_prepared)
-        if state != "committed" or aggregate is None:
-            return state, aggregate
-        changed_result = copy.copy(aggregate.prospective_result)
-        object.__setattr__(
-            changed_result,
-            "results",
-            (
-                *aggregate.prospective_result.results,
-                aggregate.prospective_result.results[0],
-            ),
-        )
-        changed_aggregate = copy.copy(aggregate)
-        object.__setattr__(changed_aggregate, "prospective_result", changed_result)
-        return state, changed_aggregate
-
-    monkeypatch.setattr(service, "_publication_state", corrupted_state)
+    publication_id = service._publication_id(
+        request["operation_id"], x.principal.subject, x.bound
+    )
+    publication_key = (x.bound["native_world_id"], publication_id)
+    original_result = x.lane.repo._prospective_results[publication_key]
+    changed_result = original_result.model_copy(
+        update={"prospective_request_sha256": "f" * 64}
+    )
+    x.lane.repo._prospective_results[publication_key] = changed_result
+    x.lane.repo._prospective_fingerprints[publication_key] = canonical_sha256(
+        changed_result.model_dump(mode="json")
+    )
     recovered = x.client.post(
         "/api/live/native-graph-explorer/operations/read", json=body
     )
@@ -875,7 +901,9 @@ def test_stale_expected_revision_is_rejected_before_operation_reservation(explor
     assert InMemoryExplorerStore.rows == {}
 
 
-def test_non_gm_and_unconfigured_auth_cannot_read_or_write(explorer, monkeypatch):
+def test_non_gm_and_unconfigured_auth_cannot_read_or_write(
+    explorer, monkeypatch, tmp_path
+):
     x = explorer
     x.app.dependency_overrides[native_graph_gm_dependency] = lambda: (
         NativeGraphPrincipal("player", "player", "local_operator")
@@ -883,6 +911,58 @@ def test_non_gm_and_unconfigured_auth_cannot_read_or_write(explorer, monkeypatch
     denied = _read(x)
     assert denied.status_code == 403
     assert denied.json()["detail"]["code"] == "graph_gm_required"
+
+    from apps.live_control_server.services import agent_graph_local_session as session
+
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
+    monkeypatch.setenv(
+        "DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN",
+        "synthetic-local-operator-token-0123456789",
+    )
+    monkeypatch.setenv(session.ORIGIN_ENV, "http://127.0.0.1:5202")
+    monkeypatch.setenv(session.HOST_ENV, "127.0.0.1:8000")
+    monkeypatch.setenv(session.STORE_ENV, str(tmp_path / "graph-sessions.json"))
+    session_app = FastAPI()
+    session_app.include_router(router)
+    scope = {
+        "type": "http",
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/api/live/native-graph-explorer/graph",
+        "raw_path": b"/api/live/native-graph-explorer/graph",
+        "query_string": b"",
+        "headers": [
+            (b"host", b"127.0.0.1:8000"),
+            (b"origin", b"http://127.0.0.1:5202"),
+            (b"sec-fetch-site", b"same-origin"),
+        ],
+        "client": ("127.0.0.1", 50000),
+        "server": ("127.0.0.1", 8000),
+        "app": session_app,
+    }
+    session_id, csrf = session.issue_session(Request(scope))
+    headers = {
+        "host": "127.0.0.1:8000",
+        "origin": "http://127.0.0.1:5202",
+        "sec-fetch-site": "same-origin",
+    }
+    client = TestClient(session_app, client=("127.0.0.1", 50000))
+    client.cookies.set(session.session_cookie_name(), session_id)
+    csrf_rejected = client.post(
+        "/api/live/native-graph-explorer/graph",
+        json={"managed_world_id": "managed"},
+        headers=headers,
+    )
+    assert csrf_rejected.status_code == 403
+    assert csrf_rejected.json()["detail"]["code"] == "graph_auth_csrf_rejected"
+    csrf_accepted = client.post(
+        "/api/live/native-graph-explorer/graph",
+        json={"managed_world_id": "managed"},
+        headers={**headers, "x-dmb-graph-csrf": csrf},
+    )
+    assert csrf_accepted.status_code == 200, csrf_accepted.text
 
     for name in (
         "DMB_AGENT_GRAPH_AUTH_MODE",
