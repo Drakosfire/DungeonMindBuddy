@@ -273,18 +273,26 @@ def test_actual_sdk_selects_multiple_extents_with_one_core_capture_and_complete_
             started = perf_counter()
             driver = PlanJevDriver(adapter)
             handles = current_selection(case.turn).selected_handles
+            from generationengine.types import DecisionResult
+            from application_state.agent_conversation.jev_retrieval_contract import decode_selection
+            step = case.steps[-1]
+            dispatch = SimpleNamespace(parent=step.parent, authorization=step.auth,
+                selection=decode_selection(step.parent, DecisionResult.model_validate_json(step.proof['response_json'])),
+                selection_event=step.selection)
+            driver.current = dispatch
             if interrupted:
                 from application_state.errors import ApplicationStateError
                 with pytest.raises(RuntimeError, match='unknown physical group'):
-                    driver.native_sources.select(handles)
+                    driver.apply(dispatch)
                 with pytest.raises((ValueError, ApplicationStateError)):
                     driver.native_sources.select(handles)
                 return
-            driver.native_sources.select(handles)
+            driver.apply(dispatch)
             elapsed_ms = (perf_counter() - started) * 1000
-            assert adapter.fence.turn.revision - before_revision == 2
-            record_property('source_group_complete_owner_elapsed_ms', elapsed_ms)
+            assert adapter.fence.turn.revision - before_revision == 3 and driver.finished
+            record_property('ordinary_selection_complete_owner_elapsed_ms', elapsed_ms)
             record_property('source_grant_observation_commits', 2)
+            record_property('closure_commits', 1)
             record_property('physical_core_captures', len(captures))
     case = sdk_case(application_state_dsn, context_record=(context, record), native='current',
         readonly_session=True, post_read_plan='finish_if_selected_reads_succeed',
@@ -292,14 +300,16 @@ def test_actual_sdk_selects_multiple_extents_with_one_core_capture_and_complete_
         question='What do the source and the other scene say about the check?', fence_factory=make_fence)
     assert len(captures) == 1 and len(case.sent) == 2
     turn = case.turn
+    conclusions = [e for e in turn.graph_context_execution.events if e.kind == 'native_read_batch_concluded_v1']
     closure = selected_read_closure(turn.graph_context_receipt, turn.graph_context_execution,
-        current_selection(turn).event_id)
+        current_selection(turn).event_id, before_sequence=conclusions[0].sequence if conclusions else None)
     if interrupted:
         assert closure is None
         assert not any(type(e) is NativeBodyReadObservedV1 for e in turn.graph_context_execution.events)
         assert case.service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id) == turn
         return
     assert closure is not None and len(closure) == 2
+    assert len(conclusions) == 1 and conclusions[0].read_event_ids == closure
     frame = model_input_frame(turn.graph_context_receipt, turn.graph_context_execution)
     assert ''.join(e['text'] for e in frame['native_body_evidence']['excerpts']) == BODY
     assert case.service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id) == turn

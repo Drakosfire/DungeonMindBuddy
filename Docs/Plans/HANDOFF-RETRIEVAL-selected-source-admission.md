@@ -145,6 +145,7 @@ gates before paid execution, not claimed completed by this activation.
 - src/application_state/agent_conversation/service.py
 - src/application_state/agent_conversation/native_plan_session.py
 - apps/live_control_server/services/corpus_source_navigation.py
+- apps/live_control_server/services/plan_jev_driver.py (ordinary caller must pass consecutive source reads to the one navigation grouping owner)
 - tests/application_state/test_native_corpus_sources.py (migrate owning single-item port tests and cover group failures)
 - tests/application_state/test_surface_native_acquisition.py
 - tests/application_state/test_surface_native_decisions.py
@@ -156,3 +157,12 @@ data, frozen dependencies and all retained evidence remain unchanged. Artifacts
 use Projects-backed out/retrieval-source-extents-v1. No provider worker is active.
 Exact code review, source/inventory pins and explicit experiment acceptance precede
 any changed paid cohort; no unchanged baseline. No deployment.
+
+Owning integration checkpoint: the first changed cohort atd49e25d8633c19b5cb983341aaf3465ad7aa3d03
+produced zero multi-section groups. The actual Plan driver only grouped direct
+sources and passed body handles individually. Root extends this same slice's lease
+to that caller; no new capability. Preserve comparison/ as failed-integration
+evidence. Extend the actual SDK test through PlanJevDriver.apply, not only direct
+navigation.select. Re-review the changed head and use a distinct changed capture
+only after this real dispatch boundary is proven; never relabel the first run as
+successful grouping or repeat unchanged code.
