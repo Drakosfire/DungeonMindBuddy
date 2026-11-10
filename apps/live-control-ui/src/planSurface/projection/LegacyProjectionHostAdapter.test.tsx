@@ -3,11 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useEffect } from "react";
 
-import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
-import { referenceFromGraphNode } from "../../graphReference";
-import type { GraphReferenceResolution } from "../../graphReference/types";
 import { getRecapArtifacts } from "../../api/liveApi";
-import type { GraphProjectionNodeView, RecapArtifactsListResponse } from "../../api/types";
+import type { RecapArtifactsListResponse } from "../../api/types";
 import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import type { SurfaceConfig } from "../types";
 import { buildSurfaceInteractionIdentity } from "../../surfaceInteraction/surfaceIdentity";
@@ -21,7 +18,6 @@ import {
 } from "../../agentInteraction/AgentInteractionProvider";
 import { buildPlanSurfaceIdentity } from "../../agentInteraction/projectionSurfacePublication";
 import { AgentInteractionProjectionTestHost } from "./projectionTestHost";
-import { useProjection } from "./projectionContext";
 
 vi.mock("../../api/liveApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../api/liveApi")>();
@@ -56,70 +52,6 @@ const surfaceConfig: SurfaceConfig = {
   theme: {},
   sessionDescriptor,
 };
-
-const bubblesNode: GraphProjectionNodeView = {
-  node_id: "creature:bubbles",
-  label: "Bubbles the Float Goat",
-  kind: "creature",
-  role: "creature",
-  aliases: [],
-  source_domains: ["recap"],
-  evidence_badges: [],
-  adjacency: [],
-  anchored_to_focus_session: true,
-  summary: "A float goat rescued from the flooded river.",
-};
-
-function StubGraphReferenceBinding() {
-  const { registerGraphReferenceBinding, openGraphReference, openTool } = useProjection();
-  useEffect(() => {
-    return registerGraphReferenceBinding({
-      resolverState: "ready",
-      resolveRelationship: vi.fn(async () => ({
-        kind: "resolved_graph" as const,
-        locator: `dmb-node:${bubblesNode.node_id}`,
-        reference: referenceFromGraphNode(bubblesNode),
-        graphObject: buildGraphObjectCardFromNodeView(bubblesNode),
-        graphNodeId: bubblesNode.node_id,
-        message: `Resolved graph node ${bubblesNode.label}.`,
-        projectionState: "ready",
-      })),
-      openResolvedReference: (nextResolution, projectionState) => {
-        openGraphReference({
-          resolution: nextResolution,
-          projectionState: projectionState ?? "ready",
-        });
-      },
-      openTool,
-    });
-  }, [openGraphReference, openTool, registerGraphReferenceBinding]);
-  return null;
-}
-
-function OpenReferenceButton() {
-  const { openGraphReference } = useProjection();
-  return (
-    <button
-      type="button"
-      onClick={() =>
-        openGraphReference({
-          resolution: {
-            kind: "resolved_graph",
-            locator: `dmb-node:${bubblesNode.node_id}`,
-            reference: referenceFromGraphNode(bubblesNode),
-            graphObject: buildGraphObjectCardFromNodeView(bubblesNode),
-            graphNodeId: bubblesNode.node_id,
-            message: `Resolved graph node ${bubblesNode.label}.`,
-            projectionState: "ready",
-          } satisfies GraphReferenceResolution,
-          projectionState: "ready",
-        })
-      }
-    >
-      Open Bubbles
-    </button>
-  );
-}
 
 describe("LegacyProjectionHostAdapter content reference chrome", () => {
   beforeEach(() => {
@@ -381,46 +313,6 @@ describe("LegacyProjectionHostAdapter content reference chrome", () => {
     const host = document.querySelector(".surface-projection-host");
     expect(host).toHaveAttribute("data-md-theme", "mireward");
     expect(host).toHaveStyle({ "--projection-accent": "red" });
-  });
-
-  it("hides toolbox tool nav and uses Reference header without duplicating the object title", async () => {
-    const user = userEvent.setup();
-    render(
-      <AgentInteractionProjectionTestHost config={surfaceConfig}>
-        <StubGraphReferenceBinding />
-        <OpenReferenceButton />
-        <LegacyProjectionHostAdapter />
-      </AgentInteractionProjectionTestHost>,
-    );
-
-    await user.click(screen.getByRole("button", { name: "Open Bubbles" }));
-
-    await waitFor(() => {
-      expect(document.querySelector(".surface-projection-host--reference")).toBeTruthy();
-    });
-
-    const nav = document.querySelector(".surface-projection-nav");
-    expect(nav).toHaveAttribute("hidden");
-
-    const drawer = document.querySelector("#surface-projection-drawer");
-    expect(drawer).toBeTruthy();
-    expect(screen.getByRole("heading", { level: 2, name: "Reference" })).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { level: 4, name: "Bubbles the Float Goat" })).toBeInTheDocument();
-  });
-
-  it("renders content with a registered binding and does not crash", async () => {
-    const user = userEvent.setup();
-    render(
-      <AgentInteractionProjectionTestHost config={surfaceConfig}>
-        <StubGraphReferenceBinding />
-        <OpenReferenceButton />
-        <LegacyProjectionHostAdapter />
-      </AgentInteractionProjectionTestHost>,
-    );
-
-    await user.click(screen.getByRole("button", { name: "Open Bubbles" }));
-    expect(await screen.findByRole("heading", { level: 4, name: "Bubbles the Float Goat" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Open related object/i })).not.toBeInTheDocument();
   });
 
   it("updates drawer size class and accessibility label when the same tool revises its metadata", async () => {

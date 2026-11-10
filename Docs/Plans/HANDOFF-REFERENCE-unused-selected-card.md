@@ -69,3 +69,10 @@ Next reassess the atomic registered capability closure only with its CI owner
 contract settled; do not delete a renderer while leaving usable advertisement or
 invent a compatibility wrapper to get around that dependency. Protected runtime
 activation and controlled verification remain separate, held goal requirements.
+
+## Successor renderer retirement
+
+The former nine-test model retention above was correct for that historical slice.
+The successor HANDOFF-REFERENCE-retire-plan-card.md retires its exclusive card/
+corpus fallback consumer and model together. Shared native references, statblock
+actions and generic host/provider contracts remain; resolver closure is separate.

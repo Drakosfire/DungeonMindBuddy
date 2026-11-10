@@ -1,23 +1,14 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 
-import {
-  GRAPH_REFERENCE_PROJECTION_ID,
-  type ProjectionCatalogRenderRequest,
-} from "../../surfaceInteraction/projection/projectionCatalog";
+import type { ProjectionCatalogRenderRequest } from "../../surfaceInteraction/projection/projectionCatalog";
 import type { ProjectionKind, ProjectionSize } from "../../surfaceInteraction/projection/types";
 import type { SurfaceInteractionProjectionDescriptor } from "../../surfaceInteraction/types";
 
 import {
   GRAPH_REFERENCE_BINDING_ID,
-  GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
   PLAN_CONTEXT_BINDING_ID,
-  PLAN_SURFACE_CONFIG_BINDING_ID,
-  readGraphReferenceBinding,
-  readGraphReferenceProjectionStateBinding,
-  readGraphReferenceResolutionBinding,
   readPlanContextBinding,
-  readPlanSurfaceConfigBinding,
   stabilizeStringSetMembership,
 } from "./projectionBindings";
 import { useProjection } from "./projectionContext";
@@ -30,7 +21,6 @@ const GraphPreviewModule = deferredComponent(() => import("../graphPreview/Graph
 const GraphGoldReviewModule = deferredComponent(() => import("../graphGoldReview/GraphGoldReviewModule").then(module => ({ default: module.GraphGoldReviewModule })), "graph review");
 const ManualReviewModule = deferredComponent(() => import("../manualReview/ManualReviewModule").then(module => ({ default: module.ManualReviewModule })), "manual review");
 const RecapGraphModule = deferredComponent(() => import("../graphPreview/RecapGraphModule").then(module => ({ default: module.RecapGraphModule })), "recaps");
-const PlanReferenceObjectCard = deferredComponent(() => import("../reference/PlanReferenceObjectCard").then(module => ({ default: module.PlanReferenceObjectCard })), "reference");
 
 export interface PlanProjectionDefinition {
   projectionId: string;
@@ -83,30 +73,6 @@ export const PLAN_PROJECTION_DEFINITIONS: readonly PlanProjectionDefinition[] = 
     preferredSize: "wide",
     requiredBindingIds: [],
     render: () => <ManualReviewModule />,
-  },
-  {
-    projectionId: GRAPH_REFERENCE_PROJECTION_ID,
-    kind: "content",
-    preferredSize: "wide",
-    requiredBindingIds: [
-      PLAN_SURFACE_CONFIG_BINDING_ID,
-      GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
-    ],
-    render: ({ active, bindings }) => {
-      const config = readPlanSurfaceConfigBinding(bindings);
-      const resolution = readGraphReferenceResolutionBinding(bindings);
-      const projectionState = readGraphReferenceProjectionStateBinding(bindings);
-      const graphReferenceBinding = readGraphReferenceBinding(bindings);
-      return (
-        <PlanReferenceObjectCard
-          resolution={resolution}
-          sessionDescriptor={config.sessionDescriptor}
-          projectionState={projectionState ?? null}
-          graphReferenceBinding={graphReferenceBinding ?? null}
-          glanceOnly={active.glanceOnly === true}
-        />
-      );
-    },
   },
 ];
 
