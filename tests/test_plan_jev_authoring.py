@@ -547,15 +547,16 @@ def test_one_writer_atomically_stores_plan_result_and_exact_replay(
         }
     )
     if mode != "base":
-        support = writer.rules.frame().supports[0]
+        support = json.loads(writer.messages[1]["content"])["supports"][0]
+        assert writer.output_format['schema']['properties']['kind']['const'] == 'rules_answer'
         answer = {
-            "schema": "dmb_rules_mixed_answer_v1",
+            "kind": "rules_answer",
             "base_output": None if mode == "rules_only" else answer,
             "rules_segments": [
                 {
                     "kind": "rules_claim",
-                    "text": support.excerpt_text,
-                    "support_ids": [str(support.support_id)],
+                    "text": support['excerpt_text'],
+                    "support_ids": [support['support_id']],
                 }
             ],
             "ordered_refs": (
@@ -867,15 +868,16 @@ def test_mixed_rules_acceptance_rolls_back_with_plan_terminal_cas(
     writer, action, capture = authoring_writer(
         plan_adapter, rules_used=True, graph_used=False
     )
-    support = writer.rules.frame().supports[0]
+    support = json.loads(writer.messages[1]["content"])["supports"][0]
+    assert writer.output_format['schema']['properties']['kind']['const'] == 'rules_answer'
     answer = {
-        "schema": "dmb_rules_mixed_answer_v1",
+        "kind": "rules_answer",
         "base_output": None,
         "rules_segments": [
             {
                 "kind": "rules_claim",
-                "text": support.excerpt_text,
-                "support_ids": [str(support.support_id)],
+                "text": support['excerpt_text'],
+                "support_ids": [support['support_id']],
             }
         ],
         "ordered_refs": [{"domain": "rules", "segment_index": 0}],
@@ -1325,8 +1327,9 @@ def _shared_plan_authoring_case(
             if mode != "base":
                 rules = json.loads(rows[1]["content"])
                 support = rules["supports"][0]
+                assert json.loads(request.content)['text']['format']['schema']['properties']['kind']['const'] == 'rules_answer'
                 candidate = dict(
-                    schema="dmb_rules_mixed_answer_v1",
+                    kind="rules_answer",
                     base_output=None if mode == "rules_only" else candidate,
                     rules_segments=[
                         dict(

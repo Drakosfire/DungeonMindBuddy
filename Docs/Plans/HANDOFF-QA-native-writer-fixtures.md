@@ -34,6 +34,13 @@ replay's no-extra-call checks and all reopen/changed-binding/foreign-query check
 
 Do not absorb the separate native_direct_source_selection negative-batch case,
 runtime fixes or further newly exposed behavior without a scope checkpoint.
+Checkpoint: wider module scan exposed9 mixed-Rules fixture failures, all9 also
+reproduced on frozen83877. Same test-only protocol outcome and same leased file:
+update3 fixture roots to current offered kind=rules_answer, retaining Base schema,
+support ordering and atomic save/CAS/rollback/replay assertions. Use support text
+and local aliases from actual composed Rules messages, not host UUIDs. Assert the
+offered strict schema has that root kind. Independent addendum PASS; no production
+codec, lookup or acceptance change. Old failures remain preserved.
 No new test runner, per-question branch, provider call, primary write or deployment.
 
 Validation: targeted previously failed integration cases, existing affected
