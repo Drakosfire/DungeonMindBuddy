@@ -555,7 +555,8 @@ def _ordinary_native_case(
             return httpx2.Response(200,request=req,json={'model':'jev-1.14.0','answers':answers,'usage':{'input_tokens':37,'output_tokens':9}})
     class Writer(WriterWire):
         async def handle_async_request(self, req):
-            frames=[json.loads(item['content']) for item in json.loads(req.content)['input'][:-1]]
+            frames=[json.loads(item['content']) for item in json.loads(req.content)['input']
+                    if item['content'] != 'Return JSON.']
             frame=next(item for item in frames if set(item)=={'input_status','user_question','native_body_evidence','native_statements','native_assertions'})
             assert len(frames)==3
             assert frames[0 if authoring else -1] == frame
