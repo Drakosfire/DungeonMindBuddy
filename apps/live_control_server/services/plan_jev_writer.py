@@ -44,16 +44,12 @@ Do not mint object IDs, dmb-node references, playable markers or unknown compone
 Headings, prose, lists and ordinary editable tables are supported; preserve existing protected
 tokens exactly when their captured selected content must be included. No page was saved.
 """
-RULES_INSTRUCTIONS = '''A Rules lookup was performed. Return its answer using exactly this outer object:
-{"kind":"rules_answer","base_output": BASE_OR_NULL,
-"rules_segments":[...],"ordered_refs":[...]}. BASE_OR_NULL follows the Plan answer contract above.
-A Rules claim is {"kind":"rules_claim","text":"prose","support_ids":["exact local support_id"]}.
-Only supports in the Rules frame establish Rules evidence; preserve their applicability.
-Interpretation or gaps use {"kind":"rules_context","text":"prose","category":"interpretation or gap or connective"}.
-Do not turn campaign prose into a Rules claim. Ignore Rules material irrelevant to the question.
-ordered_refs includes {"domain":"base","segment_index":null} once if base_output is present,
-and {"domain":"rules","segment_index":0} for every Rules segment, in reading order.
-'''
+RULES_INSTRUCTIONS = """A Rules lookup was performed. Use only supplied Rules supports for Rules claims,
+preserving their applicability. Keep interpretation and gaps distinct from supported
+Rules claims; campaign prose does not establish Rules. Ignore irrelevant Rules material.
+Use the supplied native schema to combine the campaign response and relevant Rules
+segments in reading order. Every included segment must appear once in that order.
+"""
 
 
 @dataclass(frozen=True)
