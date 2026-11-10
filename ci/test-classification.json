@@ -537,7 +537,9 @@
       "apps/live-control-ui/src/worldGraph/worldGraphSurfaceContext.test.ts",
       "tests/test_ci_contract.py",
       "tests/test_ci_local_frontend.py",
-      "tests/test_ownership_ci_partition.py"
+      "tests/test_native_evidence_presentation.py",
+      "tests/test_ownership_ci_partition.py",
+      "tests/test_response_prompt.py"
     ],
     "domain-integration": [
       "tests/application_state/test_agent_conversation_service.py",
@@ -612,6 +614,7 @@
       "tests/test_native_ingest_review_context.py",
       "tests/test_native_object_retrieval.py",
       "tests/test_native_plan_assertions.py",
+      "tests/test_native_plan_opening.py",
       "tests/test_native_plan_statements.py",
       "tests/test_native_recap_preparation.py",
       "tests/test_native_recap_source_admission.py",
