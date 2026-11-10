@@ -632,6 +632,7 @@
       "tests/test_statblock_saved_revisions.py",
       "tests/test_surface_native_build_decision.py",
       "tests/test_surface_native_build_ordinary.py",
+      "tests/test_plan_jev_response_assembly.py",
       "tests/test_surface_native_execution.py",
       "tests/test_surface_native_writer.py",
       "tests/test_tiptap_markdown_write.py",
