@@ -25,7 +25,8 @@ implementations remain in pinned Git history, not competing ACTIVE contracts.
 ## Slice5 ACTIVE — reusable writer judge calibration
 
 Serial after2345. Branch codex/writer-judge-calibration from fetched origin/main
-27f468699. Existing isolated checkout. Expected exclusive writes:
+60d28dda0 (actual parent; main advanced before allocation). Existing isolated
+checkout. Expected exclusive writes:
 - evals/buddy_benchmark/workflow.py
 - evals/buddy_benchmark/writer_assessment.py
 - tests/test_buddy_benchmark_workflow.py

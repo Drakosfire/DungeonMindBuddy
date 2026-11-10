@@ -20,14 +20,26 @@ def quality_schema(candidate_ids, concept_ids):
         'minItems': len(candidate_ids), 'maxItems': len(candidate_ids)}})
 
 
-def validate_judge_inputs(candidates, reference, schema):
+def validate_judge_inputs(candidates, reference, schema, *, answer_schema):
+    import jsonschema
     if (not isinstance(candidates, list) or not candidates
             or any(not isinstance(c, dict) or set(c) != {'candidate_id', 'answer'}
                 or not isinstance(c['candidate_id'], str) or not c['candidate_id'].strip()
                 or not isinstance(c['answer'], dict)
-                or set(c['answer']) != {'answer_segments', 'limitations', 'requested_detail_gaps'}
-                or not all(isinstance(c['answer'][key], list) for key in c['answer']) for c in candidates)):
+                or 'schema' in c['answer'] for c in candidates)):
         raise ValueError('Judge candidates require blind local IDs and semantic answers only')
+    # Reuse the captured native answer owner's complete nested contract. Its
+    # discriminator is omitted from model-visible candidate data, not invented
+    # by a second permissive candidate representation.
+    discriminator = answer_schema.get('properties', {}).get('schema', {}).get('const')
+    if (not isinstance(discriminator, str) or answer_schema.get('type') != 'object'
+            or answer_schema.get('additionalProperties') is not False):
+        raise ValueError('Judge requires a captured native answer schema')
+    for candidate in candidates:
+        try:
+            jsonschema.validate({'schema': discriminator, **candidate['answer']}, answer_schema)
+        except jsonschema.ValidationError as exc:
+            raise ValueError('Candidate differs from captured native answer contract') from exc
     ids = [c['candidate_id'] for c in candidates]
     if len(ids) != len(set(ids)):
         raise ValueError('Repeated judge candidate')

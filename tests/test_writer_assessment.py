@@ -10,7 +10,16 @@ def inputs():
             {'required_concepts': [{'id': 'concept0', 'description': 'A required source-supported detail.'}]})
 
 
-@pytest.mark.parametrize('corrupt', [None, 'identity', 'grades', 'schema', 'repeat'])
+def native_answer_schema():
+    return {'type': 'object', 'properties': {'schema': {'type': 'string', 'const': 'native_answer'},
+        'answer_segments': {'type': 'array', 'items': {'type': 'object', 'properties': {'text': {'type': 'string'}},
+            'required': ['text'], 'additionalProperties': False}},
+        'limitations': {'type': 'array', 'items': {'type': 'string'}},
+        'requested_detail_gaps': {'type': 'array', 'items': {'type': 'string'}}},
+        'required': ['schema', 'answer_segments', 'limitations', 'requested_detail_gaps'], 'additionalProperties': False}
+
+
+@pytest.mark.parametrize('corrupt', [None, 'identity', 'grades', 'schema', 'repeat', 'nested', 'limitation'])
 def test_judge_input_contract_excludes_hidden_grades_and_provider_identity(corrupt):
     candidates, reference = inputs()
     schema = quality_schema(['sample0'], ['concept0'])
@@ -18,10 +27,12 @@ def test_judge_input_contract_excludes_hidden_grades_and_provider_identity(corru
     elif corrupt == 'grades': reference['expected_grades'] = {'sample0': 'pass'}
     elif corrupt == 'schema': schema['properties'] = {}
     elif corrupt == 'repeat': candidates.append(deepcopy(candidates[0]))
+    elif corrupt == 'nested': candidates[0]['answer']['answer_segments'] = [{'text': 'A claim', 'model': 'hidden', 'expected_grades': {}}]
+    elif corrupt == 'limitation': candidates[0]['answer']['limitations'] = [{'human_expected_grade': 'fail'}]
     if corrupt:
-        with pytest.raises(ValueError): validate_judge_inputs(candidates, reference, schema)
+        with pytest.raises(ValueError): validate_judge_inputs(candidates, reference, schema, answer_schema=native_answer_schema())
     else:
-        validate_judge_inputs(candidates, reference, schema)
+        validate_judge_inputs(candidates, reference, schema, answer_schema=native_answer_schema())
 
 
 def test_calibration_counts_false_passes_failures_abstention_and_unknown_reference_separately():

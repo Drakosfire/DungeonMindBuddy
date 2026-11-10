@@ -21,8 +21,9 @@ The same `context-tasting` transport accepts an explicit `assessment` object wit
 file pins `candidates`, `reference` and `schema`, only with a compiled prompt
 manifest whose contract is `buddy_writer_judge_v1`. Ordinary writer roles reject
 assessment input. Candidates have blind local `candidate_id` and semantic `answer`
-fields (answer_segments, limitations, requested_detail_gaps), without model/cost
-identities. Reference data contains only `required_concepts` with id/description;
+fields, validated against the captured native answer owner’s full nested schema.
+The host reattaches its fixed schema discriminator for validation only. Model/cost
+identity fields and invented candidate envelopes are rejected. Reference data contains only `required_concepts` with id/description;
 hidden expected candidate grades stay in the offline calibration file.
 
 The pinned native schema must equal `writer_assessment.quality_schema` for those

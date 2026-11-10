@@ -12,15 +12,16 @@ from evals.buddy_benchmark import workflow as w
 from evals.buddy_benchmark.artifacts import immutable_save, row_inventory
 
 
-@pytest.mark.parametrize('invalid', [None, 'writer_role', 'hidden_grades', 'schema'])
+@pytest.mark.parametrize('invalid', [None, 'writer_role', 'hidden_grades', 'schema', 'nested'])
 def test_pinned_judge_role_and_native_contract_are_separate_from_writer_inputs(tmp_path, monkeypatch, invalid):
     import generationengine
     from application_state.agent_conversation import native_evidence_view, types
     from evals.buddy_benchmark.writer_assessment import quality_schema
+    from tests.test_writer_assessment import native_answer_schema
     frame = {'user_question': 'A question'}
     monkeypatch.setattr(native_evidence_view, 'semantic_frame_in_request', lambda *a, **k: frame)
     packet = {'tools': [], 'instructions': 'Original writer.', 'input': [{'role': 'user', 'content': 'Evidence'}],
-        'text': {'format': {'schema': {'type': 'object'}, 'name': 'answer'}}, 'reasoning': {'effort': 'low'}}
+        'text': {'format': {'schema': native_answer_schema(), 'name': 'answer'}}, 'reasoning': {'effort': 'low'}}
     raw = json.dumps(packet).encode()
     text = 'Assess replies against supplied evidence; do not answer the campaign question.'
     instruction = tmp_path / 'instructions.txt'; instruction.write_text(text)
@@ -28,6 +29,7 @@ def test_pinned_judge_role_and_native_contract_are_separate_from_writer_inputs(t
         'components': [{'name': 'judge_task', 'version': '1', 'text': text, 'sha256': sha256(text.encode()).hexdigest()}],
         'instructions_sha256': sha256(text.encode()).hexdigest()}
     candidates = [{'candidate_id': 'sample0', 'answer': {'answer_segments': [], 'limitations': [], 'requested_detail_gaps': []}}]
+    if invalid == 'nested': candidates[0]['answer']['answer_segments'] = [{'text': 'A claim', 'expected_grades': {'grounding': 'pass'}}]
     reference = {'required_concepts': [{'id': 'concept0', 'description': 'A detail'}]}
     if invalid == 'hidden_grades': reference['expected_grades'] = {'sample0': 'pass'}
     schema = quality_schema(['sample0'], ['concept0'])

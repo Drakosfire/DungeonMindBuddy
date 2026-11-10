@@ -817,7 +817,8 @@ def context_tasting(manifest_path, output):
         if not isinstance(pins, dict) or set(pins) != {'candidates', 'reference', 'schema'}:
             raise ValueError('Invalid pinned judge task')
         assessment = {key: json.loads(read_pin(pin, path.parent)) for key, pin in pins.items()}
-        validate_judge_inputs(assessment['candidates'], assessment['reference'], assessment['schema'])
+        validate_judge_inputs(assessment['candidates'], assessment['reference'], assessment['schema'],
+                              answer_schema=output_schema)
         output_schema, schema_name = assessment['schema'], 'writer_quality_assessment_v1'
         input_contents += ['REFERENCE CRITERIA\n' + json.dumps(assessment['reference'], ensure_ascii=False),
                            'CANDIDATE REPLIES TO ASSESS\n' + json.dumps(assessment['candidates'], ensure_ascii=False)]
