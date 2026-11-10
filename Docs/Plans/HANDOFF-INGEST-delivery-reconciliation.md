@@ -1,8 +1,24 @@
-# INGEST: reconcile deferred delivery — database-owned candidate correction
+# INGEST: reconcile deferred delivery — source-order correction successor
 
-ACTIVE serial stage1 slice under user deferred-fundamentals goal; root owns design
-and implementation. Preserve accepted C1S1–10 Gold/evidence/failures. Citation/voice
-studies deferred; ordinary output capacity remains provider-owned None.
+Stage1 under the authorized deferred-fundamentals goal. Preserve accepted C1S1–10
+Gold, raw failures and retained study evidence. Output capacity remains None;
+citation/voice studies remain deferred. Primary and serving state unchanged.
+
+## Settled database-authority predecessor
+
+2372 merged67c8fec544752e2b450e4b029b0233ff40a91974 from exact reviewed
+88702784bb8b6cf9e4f87367c4c2cc7f2a9dee9a. Generic correction create/retry/recovery
+now uses canonical APP source/output bytes and parent-scoped advisory transaction
+lease. POSIX package/lock machinery removed; orphan files neither evidence nor veto.
+808 ingestion-and-review passes,82ownership deselections,52warnings,exit0; exact
+local hosted1254tests+build and evidence validation PASS; independent finalreviewPASS.
+185 preliminary owner/integration passes were diagnostic before current-main rebase.
+All earlier failure logs retained. V11 current-v2 positives preserved; prior claim
+that V11 was legacy-only was disproved. V9 manual fixture remains explicitlyv1.
+2145closed superseded. Evidence correction-database-authority-delivery/ under the
+existing external fundamentals-reconciliation-v1 root. Predecessor lease released.
+No deployment/provider/primary effects or whole ingestion quality acceptance.
+Concurrent2373 changed only REFERENCE handoffs, disjoint from implementation.
 
 ## Settled predecessor
 
@@ -17,93 +33,42 @@ serving/primary change. Prior lease released. Evidence node-evidence-delivery/ u
 out/fundamentals-reconciliation-v1/. Initial interrupted fixture cleanup not fully
 proved; never prune unknown databases.
 
-## Current bounded serial authority
+## Current serial slice — ACTIVE
 
-Base96e5635611532e3730894cc0b4dc5e543f9b9ca8; branch
-codex/ingest-database-correction-delivery; non-serving recorded-names-control checkout.
-Root adopts independent design+addendum PASS before recovery. Inspected open storage
-2308 touches only storage CLI/guide/tests, not APP components. Open CI drafts overlap
-ci/test-classification.json, which this slice does not edit; none touchci/contracts.json.
-MEDIA2370 advanced remote main before branch creation; its10files are disjoint.
-The correction/auth/component baseline blobs are unchanged from55e329913.
-No relevant active path overlap; historical INGEST handoffs do not activate concurrent
-writes. Root records this durable contract before further implementation/dispatch.
+Base67c8fec544752e2b450e4b029b0233ff40a91974; branch
+codex/ingest-correction-source-order-delivery; same non-serving isolated checkout.
+Root adopts independent design PASS in correction-source-order-delivery/design-review-v1.json.
+Exact historical2144delta de669649dccc33138c54ab4ff81afa0f98462d17 to
+71652b262ec7a7e4e859fa0028b267fe5be448d6 is the recovery reference.
+Current owner probe rejects capability-admitted event/event source order with
+final-candidate-tuple error; parent unchanged. Evidence baseline-rejection-v1.json.
 
-One independently useful outcome: recover generic package-authority removal from
-2145/ceecc1854eea05558b5109e97442d02a3ec378e5. Creation, exact retry and recovery use
-canonical source records and immutable APP output bytes, serialized by parent-scoped
-APP advisory transaction lease. Delete local package source/candidate checks, writes,
-POSIX lock and directory machinery; locator strings remain sealed provenance only.
-Keep CAS, immutable frozen evidence, replay identity, held-review semantics and
-concurrent decision preservation. Missing/corrupt frozen DB output cannot be repaired
-by retry or rescued by any file. DRAFT recovery may persist only exact owned outputs.
-No schema/migration, provider, native publication or semantic policy changes.
+Outcome: align correction planning/replay with the saved recap profile's declared
+predicate capability; shared event/event endpoint rule reused by native preparation.
+Historical v1 has no new capabilities; unknown/non-recap profile refuses. Retain
+incident-edge checks, exact source/quote/revision integrity, held child, DBauthority,
+publication selected-description/event/cycle/evidence guards. No chronology inference
+or automatically accepted/published correction. No producer/prompt/schema/migration.
 
-Exclusive expected writes:
-- this handoff
+Exclusive writes:
+- this handoff (includes predecessor settlement)
 - apps/live_control_server/services/recap_semantic_candidate_correction.py
-- src/application_state/ingest/components.py
+- apps/live_control_server/services/native_recap_preparation.py
+- src/graph_memory/predicate_catalog.py
 - tests/test_recap_semantic_candidate_correction.py
-- tests/integration/test_recap_evidence_append.py
-- ci/contracts.json
 
-Scope checkpoint: existing integration proof hooks removed filesystem helpers.
-Adapt those hooks to DB row creation/APP lease; retain crash/recovery and stale-parent
-assertions. Use existing session-template/per-testclone fixture instead of bespoke
-Rake admin fixture. Gate whole integration module too, no new isolation runner.
-Legacy test settlement: V9 alone is explicitly legacy-v1; its manual fixture stays
-v1. Exact base V11 already admits v1/v2/preview, so preserve all current-v2 actor
-recovery positives. The prior conditional V11 retirement diagnosis was disproved
-and withdrawn; no model widening or test retirement. Local source-mirror drift and
-orphan packages cannot block DB-owned correction; keep those bytes unchanged while
-proving authoritative DB readback. Exact legacy rows reuse, mismatched/stranded
-legacy rows still refuse; orphan-only files create a separate DB-owned child.
-MEDIA2371 advanced remote main to113f12de2 during verification; source paths disjoint,
-but pyproject/uv lock changed and must be reconciled before final qualification.
-
-Consolidate original2145 real DB cases into existing classified correction test module
-under TestDatabaseCorrectionAuthority, class-scoped usefixtures(application_state_dsn).
-Preserve all original functions/parameter variants; adapt owner namespaces only, with
-local APP service imports aliased to avoid shadowing. Gate the WHOLE existing module
-in ingestion-and-review, no selective exclusions/new runner/classifier/workflow change.
-
-## Explicit boundaries and baseline
-
-2144source-order correction capability alignment is a separate BLOCKED successor
-until this serial PR settles. Existing correction rejection of precedes is not fixed
-or claimed accepted here. Existing V9 explicit party-registry file authority also
-remains unresolved, outside generic source/candidate package removal. No all-file-
-authority-gone or whole pipeline claim.
-
-Historical auth fixture503vs401 reproduced on unmodified3a6cdff6b source: missing
-DMB_AUTH_MODE global local configuration. Same test/source passes when canonical
-global local-mode configuration is supplied. Add scoped monkeypatch local mode to
-fixture, preserve complete401/403/principal/CSRF matrix; product auth unchanged.
-Evidence baseline-auth-disposition-v1.json and both logs. Missing old branch-only
-test_database_semantic_replay is not imported or silently claimed passing.
-
-## Verification/resources
-
-Real disposable APP tests: all run files unavailable; create/retry/replay; type-only
-exact delta; missing/corrupt frozen evidence refusal; DRAFT/partial/status recovery;
-legacy DB reuse/refusal; recorded/concurrent disposition; advisory lease contention,
-release and parent isolation. Existing memory tests retain CAS/source-drift/semantic
-boundaries with only fixture-local nullcontext lease seam; production has no fallback.
-Inspect exact cumulative diff; locked-Python owner checks+expanded ingestion-and-review;
-repo-owned exact-SHA local hosted verifier+validate; independent exact-head review.
-No frontend change/full discovered or merged-main release qualification claim.
-
-Only fresh existing fixture-owned APP dungeonbuddy_app_state_test_* templates/clones
-and optional Core dmb_recap_source_test_* DBs on55447; pinned430c Core migrations and
-existing cleanup. No retained/operator DB, foreign sessions, primary, service/runtime,
-provider, existing environment or deployment changes. Inert credentials and redacted
-streamed logs. One bounded PR; full merge rights. Retire2145 only after ownerproof;
-record original stack split and preserve all historical failures.
-Evidence out/fundamentals-reconciliation-v1/correction-database-authority-delivery/.
+Single serial PR after2372. Open2144 is historical source, not concurrent ACTIVE lane.
+Open CI drafts share classification, not these paths; no classification/CI edit.
+Recover original tests into existing fully gated module, adapting only fixture
+owner/readback references. No new boutique harness. Existing native preparation
+positive/negative tests retain publication boundary proof. Exact-source locked
+Python ingestion-and-review, repo-owned local hosted+validate and independent
+exact-head review required before merge. Dispose only own APP/Core test fixtures;
+primary/retained/operator DBs/services/providers untouched. No paid calls.
 
 ## Remaining objective
 
 Source-order correction, V9 roster authority, quote-nomination necessity, scoped IDs,
 configuration/evaluation and full ordinary current DB-owned chain still require
 reconciliation. Serving releases separate from main. QA, Mirathorn, collaboration
-and six-second retrieval remain subsequent active stages; no goal-complete claim.
+and six-second retrieval remain subsequent stages; no goal-complete claim.
