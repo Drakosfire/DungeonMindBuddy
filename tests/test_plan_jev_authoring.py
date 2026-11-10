@@ -1274,7 +1274,8 @@ def _shared_plan_authoring_case(
     class Proposed(WriterWire):
         async def handle_async_request(self, request):
             rows = json.loads(request.content)["input"]
-            frames = [json.loads(row["content"]) for row in rows[:-1]]
+            frames = [json.loads(row["content"]) for row in rows
+                      if row["content"] != "Return JSON."]
             native = next(row for row in frames if set(row) == {
                 "input_status", "user_question", "native_body_evidence",
                 "native_statements", "native_assertions",
