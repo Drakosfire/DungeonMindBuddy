@@ -12,7 +12,8 @@ from evals.buddy_benchmark import workflow as w
 from evals.buddy_benchmark.artifacts import immutable_save, row_inventory
 
 
-def test_context_tasting_freezes_shared_input_and_retains_failures(tmp_path, monkeypatch):
+@pytest.mark.parametrize("prompt_override,bad_manifest", [(False, None), (True, None), (True, "instructions"), (True, "component")])
+def test_context_tasting_freezes_shared_input_and_retains_failures(tmp_path, monkeypatch, prompt_override, bad_manifest):
     import generationengine
     from application_state.agent_conversation import native_evidence_view, types
     frame = {"user_question": "A generic question"}
@@ -33,13 +34,35 @@ def test_context_tasting_freezes_shared_input_and_retains_failures(tmp_path, mon
             pass
     monkeypatch.setattr(generationengine, "GenerationClient", Client)
     manifest = tmp_path / "manifest.json"
-    put(manifest, {"schema": "dmb_context_tasting_v1", "source_request": request, "context_ready": ready,
-        "models": ["test/success", "test/failure"]})
+    specification = {"schema": "dmb_context_tasting_v1", "source_request": request, "context_ready": ready,
+        "models": ["test/success", "test/failure"]}
+    expected = "Same voice"
+    if prompt_override:
+        from application_state.agent_conversation.response_prompt import compose_response_prompt
+        response = compose_response_prompt()
+        expected = response.instructions
+        instructions = tmp_path / "instructions.txt"
+        instructions.write_text(expected)
+        specification["instructions"] = {"path": str(instructions), "sha256": sha256(instructions.read_bytes()).hexdigest()}
+        component_manifest = response.manifest()
+        if bad_manifest == "instructions":
+            component_manifest["instructions_sha256"] = "0" * 64
+        elif bad_manifest == "component":
+            component_manifest["components"][0]["sha256"] = "bogus"
+        specification["prompt_components"] = put(tmp_path / "components.json", component_manifest)
+    put(manifest, specification)
     output = tmp_path / "output"
+    if bad_manifest:
+        with pytest.raises(ValueError, match="Prompt component"):
+            w.context_tasting(manifest, output)
+        assert seen == [] and not output.exists()
+        return
     w.context_tasting(manifest, output)
     assert len(seen) == 2
 
-    assert {r.system_prompt for r in seen} == {"Same voice"}
+    assert {r.system_prompt for r in seen} == {expected}
+    assert (output / "prompt-components.json").exists() == prompt_override
+    assert all("instructions_sha256" not in r.system_prompt for r in seen)
     assert len({r.user_prompt for r in seen}) == 1
     assert seen[0].user_prompt == "Evidence"
     cohort = json.loads((output / "cohort.json").read_text())
@@ -87,12 +110,15 @@ def test_flat_tasting_changes_only_exact_evidence_frame(tmp_path, monkeypatch):
 
 
 
-def test_tasting_adapter_actual_sdk_wire_is_common_across_models():
+@pytest.mark.parametrize("response_contract", [False, True])
+def test_tasting_adapter_actual_sdk_wire_is_common_across_models(response_contract):
     import asyncio
     import httpx
     from openai import AsyncOpenAI
     from generationengine import GenerationClient, TextRequest
     from generationengine.providers.openrouter_text import OpenRouterTextProvider
+    from application_state.agent_conversation.response_prompt import compose_response_prompt
+    system = compose_response_prompt().instructions if response_contract else "Frozen voice"
     wires = []
     schema = {"type": "object", "properties": {}, "required": [], "additionalProperties": False}
     def reply(request):
@@ -108,7 +134,7 @@ def test_tasting_adapter_actual_sdk_wire_is_common_across_models():
         try:
             for model in ["test/one", "test/two"]:
                 await client.generate_structured(TextRequest(provider="openrouter", model=model,
-                    system_prompt="Frozen voice", user_prompt="First context\n\nSecond context",
+                    system_prompt=system, user_prompt="First context\n\nSecond context",
                     temperature=None, json_schema=schema, schema_name="answer",
                     max_conformance_retries=0, max_transport_retries=0))
         finally:
@@ -116,7 +142,7 @@ def test_tasting_adapter_actual_sdk_wire_is_common_across_models():
     asyncio.run(run())
     assert len(wires) == 2
     assert wires[0]["messages"] == wires[1]["messages"] == [
-        {"role": "system", "content": "Frozen voice"},
+        {"role": "system", "content": system},
         {"role": "user", "content": "First context\n\nSecond context"}]
     assert all(wire["response_format"] == {"type": "json_schema", "json_schema": {
         "name": "answer", "strict": True, "schema": schema}} for wire in wires)
