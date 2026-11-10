@@ -201,8 +201,11 @@ for triage and untrusted for automatic factual acceptance. The retrospective run
 inventory is explicitly not an execution-time attestation. No deployment is claimed.
 
 No implementation or database write lease remains active in this handoff. Historical
-artifacts/reviews are preserved under out/response-writing-contract-v1, with current
-response-study.md, response-style-decision.md and completion-evidence-check-v1.json.
+artifacts/reviews are preserved under out/response-writing-contract-v1.
+current-response-study.md and response-style-decision.md show the current disposition;
+user-prose-preference-v1.json records the explicit choice. The earlier
+completion-evidence-check-v1.json is a pre-decision audit: its pending-preference
+statements are superseded by that decision receipt, not rewritten as past knowledge.
 Broader corpus hygiene and any further style study require a separately bounded
 next slice; neither is an unfinished obligation of this initial frozen-context study.
 This guarded settlement synchronizes merged predecessor authority because no consuming
