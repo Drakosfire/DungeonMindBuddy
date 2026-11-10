@@ -1031,7 +1031,7 @@ class AgentConversationHistoryTurn(BaseModel):
             raise ValueError("Explicit Plan operation history requires actual Plan work")
         if self.authored_references is not None:
             self.authored_references.require_world(self.provenance.world_id)
-            if self.provenance.surface_id not in {'build','plan'}:
+            if self.provenance.surface_id not in {'build','plan','play'}:
                 raise ValueError('Captured references require their actual authoring surface')
         return self
 

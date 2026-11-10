@@ -1438,20 +1438,25 @@ def get_world_conversation_history(
             and (turn.base_projection.kind == "absent" if isinstance(turn,MixedCompletedTurnV1) else turn.graph_context_receipt is None))
     contains_play_source = any(source_only_play(turn) for turn in turns)
     contains_mixed = any(isinstance(turn, MixedCompletedTurnV1) for turn in turns)
+    from application_state.agent_conversation.native_statement_input import NativeStatementContextReceiptV1
+    from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, BuildWorkContextV1, PlayWorkContextV1
+    def has_play_context(turn):
+        receipt = turn.graph_context_receipt
+        return isinstance(receipt, PlayWorldGraphContextReceiptV1) or (
+            isinstance(receipt, SurfaceNativeContextReceiptV1)
+            and isinstance(receipt.work_context, PlayWorkContextV1)
+        )
     contains_play_context = any(
-        not isinstance(turn, MixedCompletedTurnV1)
-        and isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1)
+        not isinstance(turn, MixedCompletedTurnV1) and has_play_context(turn)
         for turn in turns
     )
-    from application_state.agent_conversation.native_statement_input import NativeStatementContextReceiptV1
-    from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, BuildWorkContextV1
     from apps.live_control_server.models.agent_turn import AgentConversationHistoryNativeStatementTurnV1
     contains_native_statement = any(not isinstance(turn, MixedCompletedTurnV1)
         and isinstance(turn.graph_context_receipt, NativeStatementContextReceiptV1) for turn in turns)
     contains_plan_context = any(
         not isinstance(turn, MixedCompletedTurnV1)
         and turn.graph_context_receipt is not None
-        and not isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1)
+        and not has_play_context(turn)
         for turn in turns
     )
     from apps.live_control_server.services.agent_source_names import source_names_for_turns
@@ -1517,7 +1522,7 @@ def get_world_conversation_history(
             build_model = AgentConversationHistoryBuildTurnV3 if include_turn_correlation else AgentConversationHistoryBuildTurnV2
             history_turns.append(build_model(**values,
                 knowledge_context=project_plan_turn_context(turn, delivery_replay=True, source_names=source_names)))
-        elif isinstance(turn.graph_context_receipt, PlayWorldGraphContextReceiptV1):
+        elif has_play_context(turn):
             play_model = (
                 AgentConversationHistoryPlayTurnV3
                 if include_turn_correlation
