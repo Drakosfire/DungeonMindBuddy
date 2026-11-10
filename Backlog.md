@@ -53,18 +53,6 @@ Do not infer a current blocker or READY assignment from them.
 **Surfaces when:** Selecting map generation/editor work, shared coordinates, spatial placement, or map media/Graph integration. This capture grants no implementation or provider-call authority and does not change current sequencing.
 **Refs:** Old Bath House document `77940b05-c350-428a-88a3-2fc433ad6df0`; current Image Studio dogfood; shared grid page constructor entry below; `Docs/Roadmaps/ROADMAP-demo.md`; conversation `01a0ef89-ca57-7b82-9c9c-215b02d0fc3b`.
 
-## [IDEA] Compact Image Studio controls into one header row — captured 2026-11-10
-**Kind:** UI / USABILITY
-**Owner:** Buddy Image Studio
-**Captured:** 2026-11-10
-**Last verified:** 2026-11-10 operator screenshot of the Image Studio controls.
-**Context:** The toolbar currently spends multiple rows on its title, Illustration/Map mode, library, minimize/close, Ready state and Generate image action.
-**Insight:** These controls consume a large amount of space that should remain available for the prompt and artwork; the operator expects the container's navigation and actions in one compact top row.
-**Action:** Design a single compact header row for title/mode, useful state, generation/edit/library actions and window controls. Keep the prompt editable and primary actions reachable, with a deliberate narrow-screen fallback. Reuse existing controls and remove superseded header rows instead of adding another toolbar.
-**Surfaces when:** The next Image Studio usability pass. Captured feedback only; no implementation dispatched.
-**Refs:** `.media-image-wizard__header`; Old Bath House Image Studio screenshot, 2026-11-10; conversation `01a0ef89-ca57-7b82-9c9c-215b02d0fc3b`.
-
-
 ## [IDEA] Resume answer-citation experiments after fundamentals settle — captured 2026-11-10
 **Kind:** RESEARCH / RESPONSE ASSESSMENT
 **Owner:** Buddy response composition
