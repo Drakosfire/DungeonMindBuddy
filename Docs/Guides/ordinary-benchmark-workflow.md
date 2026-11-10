@@ -195,8 +195,8 @@ is recomputed and the exact joined texts must equal the final instructions befor
 any dispatch. Manifest data is retained separately, never added to messages.
 `application_state.agent_conversation.response_prompt` compiles the initial
 response-only voice/evidence/citation/output components; Rules guidance is added
-only when active. This compiler is experimental until cleaned-context comparison
-and product-owner integration; the current app default is not changed here.
+only when active. Ordinary native conversation calls use this compiler at their
+product owner; experimental context presentations remain separately selected.
 Do not change prompt and evidence presentation in the same experiment. Known
 bookkeeping leakage in retained legacy qualification prose must be resolved at
 its owner before sending that context in another paid comparison.
@@ -204,9 +204,13 @@ its owner before sending that context in another paid comparison.
 
 Ordinary native Plan/Play/Build writer calls assemble the versioned response
 compiler at `PlanJevWriter` after actual work reconstruction. Plan requires its
-unique ordinary discussion selection; Build requires actual discuss/fulfill/
-answer-from-sources resolution; native Play owns a read-only Run question.
-Clarification, authoring and reviewed collaboration keep their capability owners.
+unique selected work; Build requires its actual answer-from-sources contract or
+reviewed task binding; native Play owns a read-only Run question.
+Actual clarification, reviewed discussion, capability-limit explanation and
+destination explanation select one small task component through the same compiler.
+Reviewed discussion takes only its bound selected task as the assignment; sibling
+tasks remain context. Writing, review execution and image preparation retain
+their capability owners. Native conversational replies carry no image instructions.
 Rules guidance requires a supplied lookup; related-page guidance requires supplied
 saved pages. `writer.prompt_components` is host-only inspectability, never model
 input. Ordinary calls do not first construct the superseded broad instruction
