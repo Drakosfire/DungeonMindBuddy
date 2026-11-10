@@ -192,13 +192,13 @@ def _authored_variants(frame, policy, prose):
                                  "selection_ids": _array(_enum(session_selections), nonempty=True)}))
     return variants
 
-def _answer_schema(variants, policy, rules, prose):
+def _answer_schema(variants, policy, rules, prose, *, proposal_labels=("invented_idea", "image_prompt")):
     variants.append(
         _object(
             {
                 "kind": _literal("proposal"),
                 "text": prose,
-                "label": _enum(["invented_idea", "image_prompt"]),
+                "label": _enum(proposal_labels),
             }
         )
     )
@@ -280,7 +280,8 @@ def native_output_format(frame, rules, work_frame, *, build_local=False):
         variants.extend(native_variants(work_frame,prose,local=build_local))
     else:
         raise ValueError('Shared output requires its actual supported work frame')
-    schema=_answer_schema(variants,ASSERTION_POLICY,rules,prose)
+    schema=_answer_schema(variants,ASSERTION_POLICY,rules,prose,
+        proposal_labels=("invented_idea",))
     if work_frame.get('schema')==BUILD_WORK_SCHEMA:
         from .build_intentional_response import native_review_enabled, native_review_schema
         if native_review_enabled(work_frame):

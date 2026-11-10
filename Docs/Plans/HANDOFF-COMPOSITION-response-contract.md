@@ -93,7 +93,7 @@ Independent exact-head review passed669c82b752700633bdc966bb996410d57e62699f;
 33 focused tests and3 actual APP reviewed-discussion boundary cases passed locally.
 No deployment is claimed. Retained evidence is under conversation-task-tests.
 
-## Slice8 ACTIVE — native schema is the format authority
+## Slice8 COMPLETE — native schema is the format authority
 
 Serial after2352; branch codex/native-writer-schema-instruction; base
 fde9a8040f02ead831f098558dccb167b88d01f6. Exclusive writes: this handoff,
@@ -110,6 +110,27 @@ message, removing format authority, or changing legacy requests. Verify actual
 Plan/Build/Play constructor and serialized SDK input at the owning boundary;
 no paid writer rerun is necessary for this message-only deletion. Independent
 exact-head review, local tests and one bounded PR; no competing format fallback.
+
+Slice8 merged as PR2353 at ba17476a6ef4435facde5c147d680ed2dbb56447;
+exact-head independent review passed7b35c6acf805ccc0a668f4ca2ba32cf519493019,
+and33 local tests passed. No paid calls, database changes or deployment.
+
+## Slice9 ACTIVE — remove inactive native image proposal capability
+
+Serial after2353; branch codex/native-writer-active-schema; base
+ba17476a6ef4435facde5c147d680ed2dbb56447. Exclusive writes: this handoff;
+src/application_state/agent_conversation/plan_writer_output_schema.py;
+tests/test_plan_jev_response_assembly.py; tests/test_plan_writer_output_schema.py.
+No overlapping open UI/storage/CI lease. No provider, database or deployment effects.
+
+Invariant: ordinary shared native writer is not the selected image-preparation
+owner. Its schema must not advertise image_prompt. Keep invented_idea proposals
+for requested creative collaboration; preserve all claim/citation variants,
+strict output and dedicated image owner. Existing non-native schema and historical
+output readers remain unchanged. Verify actual Plan/PlanV2/Build/Play native schemas
+reject image_prompt and accept invented_idea, and legacy schema still reads its
+existing shape. Review exact cumulative diff; local verification; one bounded PR.
+This is capability removal, not factual pruning or an answer-quality claim.
 
 ## Remaining completion gates
 
