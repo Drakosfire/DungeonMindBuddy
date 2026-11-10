@@ -29,7 +29,7 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -156,7 +156,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     else (native_body if native_body and body['state']['sources'][list(body['state']['sources'])[int(name[1:])]]['kind']=='native_body' else 'direct_support') if name.startswith('s') and name[1:].isdigit() else 'skip')
                 assert chosen in choices, (name, choices)
                 answers[name] = dict(type='choice', choice=chosen, confidence=1,
-                    probabilities={key: float(key == chosen) for key in choices})
+                    probabilities=(selection_probabilities if name=='requested_work' and selection_probabilities is not None else {key: float(key == chosen) for key in choices}))
             return httpx2.Response(200, request=req, json=dict(model='jev-1.14.0', answers=answers,
                 usage=dict(input_tokens=37, output_tokens=9)))
 
@@ -1329,3 +1329,14 @@ def test_native_selection_semantic_sdk_wire_and_exact_legacy_v2_reader(lane,tmp_
     monkeypatch.setattr(AgentConversationService,'record_build_writer_evidence_selection',inspect)
     case=_fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,native_body='direct_support')
     assert checked==[True] and case.turn.completion.native_body_citations
+
+
+def test_low_score_valid_image_selection_prepares_review_through_ordinary_http(lane,tmp_path,monkeypatch):
+    # Captured controller shape: unique maximum .40, no response-contract resolution
+    # previously survived the duplicated .90 gate. No image provider is called.
+    scores=dict(build_encounter=0.0,change_mechanics=0.0,clarify_creation=.07,clarify_request=.04,
+        discuss=0.0,other_creation=.27,place_map_coordinates=0.0,plan=.02,prepare_image=.40,
+        publish_relationships=0.0,review_connected_page=.01,review_relationship=0.0,
+        save_page=0.0,write_current_page=.19)
+    _fresh_case(lane,tmp_path,monkeypatch,None,True,False,'image',selection_probabilities=scores,
+        message='Create an interior design detailed enough to generate a map from.')
