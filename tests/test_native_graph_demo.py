@@ -149,6 +149,7 @@ class NativeGraphDemoServiceTests(unittest.TestCase):
         self.assertEqual(len(after["edges"]), len(before["edges"]))
         created = next(node for node in after["nodes"] if node["name"] == "Ivo")
         self.assertEqual(created["kind"], "person")
+        self.assertEqual(committed["created_node_id"], created["id"])
         receipt = self.repository.get_prospective_publication(
             before["world_id"], "prepared:" + request["operation_id"].replace("-", "")
         )
@@ -160,9 +161,13 @@ class NativeGraphDemoServiceTests(unittest.TestCase):
         replay = self.service.confirm(request["operation_id"])
         self.assertEqual(replay["graph"]["revision_id"], after["revision_id"])
         self.assertEqual(len(replay["graph"]["nodes"]), 4)
+        self.assertEqual(replay["created_node_id"], created["id"])
+        operation_status = self.service.operation(request["operation_id"])
+        self.assertEqual(operation_status["created_node_id"], created["id"])
         prepared_replay = self.service.prepare(request)
         self.assertEqual(prepared_replay["status"], "committed")
         self.assertEqual(prepared_replay["graph"]["revision_id"], after["revision_id"])
+        self.assertEqual(prepared_replay["created_node_id"], created["id"])
 
     def test_connect_uses_safe_custom_predicate_and_duplicate_intent_is_refused(
         self,
@@ -179,6 +184,7 @@ class NativeGraphDemoServiceTests(unittest.TestCase):
         prepared = self.service.prepare(request)
         self.assertEqual(prepared["status"], "prepared")
         result = self.service.confirm(request["operation_id"])
+        self.assertNotIn("created_node_id", result)
         self.assertEqual(len(result["graph"]["edges"]), 5)
         new_edge = next(
             edge
@@ -186,6 +192,12 @@ class NativeGraphDemoServiceTests(unittest.TestCase):
             if edge["predicate"] == "helps.out"
         )
         self.assertTrue(new_edge["id"].startswith("asrt:"))
+        self.assertNotIn(
+            "created_node_id", self.service.operation(request["operation_id"])
+        )
+        self.assertNotIn(
+            "created_node_id", self.service.confirm(request["operation_id"])
+        )
 
         duplicate_graph = result["graph"]
         duplicate = self.service.prepare(
@@ -196,6 +208,7 @@ class NativeGraphDemoServiceTests(unittest.TestCase):
             }
         )
         self.assertEqual(duplicate["status"], "already_exists")
+        self.assertNotIn("created_node_id", duplicate)
         self.assertEqual(
             duplicate["graph"]["revision_id"], duplicate_graph["revision_id"]
         )
@@ -270,9 +283,20 @@ class NativeGraphDemoServiceTests(unittest.TestCase):
         self.service.prepare(request)
         committed = self.service.confirm(request["operation_id"])
         self.assertEqual(committed["status"], "committed")
+        publication = self.repository.get_prospective_publication(
+            graph["world_id"], "prepared:" + request["operation_id"].replace("-", "")
+        )
+        self.assertIsNotNone(publication)
+        native_created = next(
+            item
+            for item in publication.prospective_result.results
+            if item.client_op_id == "new-object" and item.result_kind == "entity"
+        )
+        self.assertEqual(committed["created_node_id"], native_created.durable_id)
         maras = [node for node in committed["graph"]["nodes"] if node["name"] == "Mara"]
         self.assertEqual(len(maras), 2)
         self.assertEqual(len({node["id"] for node in maras}), 2)
+        self.assertIn(committed["created_node_id"], {node["id"] for node in maras})
         self.service.close()
 
         restarted = NativeGraphDemoService(
@@ -283,6 +307,10 @@ class NativeGraphDemoServiceTests(unittest.TestCase):
                 [node for node in restarted.graph()["nodes"] if node["name"] == "Mara"]
             ),
             2,
+        )
+        self.assertEqual(
+            restarted.operation(request["operation_id"])["created_node_id"],
+            native_created.durable_id,
         )
         restarted.close()
 
@@ -301,8 +329,16 @@ class NativeGraphDemoServiceTests(unittest.TestCase):
         recovered = self.service.operation(request["operation_id"])
         self.assertEqual(recovered["status"], "committed")
         self.assertEqual(len(recovered["graph"]["nodes"]), 4)
+        recovered_node = next(
+            node for node in recovered["graph"]["nodes"] if node["name"] == "Rin"
+        )
+        self.assertEqual(recovered["created_node_id"], recovered_node["id"])
         self.assertEqual(
             self.service.operation(request["operation_id"])["status"], "committed"
+        )
+        self.assertEqual(
+            self.service.operation(request["operation_id"])["created_node_id"],
+            recovered_node["id"],
         )
 
     def test_unknown_commit_without_receipt_stays_unknown_and_is_not_redispatched(

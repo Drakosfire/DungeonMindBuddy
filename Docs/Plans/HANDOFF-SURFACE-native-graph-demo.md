@@ -247,3 +247,49 @@ Use the narrow transport prefix `/api/live/native-graph-explorer` with POST `gra
 The mode/client worker owns `App.tsx`, `App.test.tsx`, `App.guestEntry.test.tsx`, `auth/HostedAuthGate.tsx` and its tests, `selectedWorld/WorldSelector.tsx` and its tests, `chrome/CompactAppNavigation.tsx` and its tests, new `nativeGraphDemo/managedNativeGraphApi.ts` and its test, and only exact new native route allowlist entries in `api/liveApi.ts`. Paths are relative to `apps/live-control-ui/src`. Existing protected-route behavior stays unchanged. Root must check observable authentication status; authenticated/local-operator managed selection drives both canvas API and verified title, signed-out root gets an explicitly separate playground, and loading/error never silently falls back to another graph. World creation/selection reuse the existing navbar selector with an index-preserving destination; no automatic World creation or migration. Keep legacy browser data accessible only as explicitly separate older content, never a mismatched selected-World workspace.
 
 Ownership preflight found those mode files clean in registered worktrees except an unrelated unpublished HTML-error wording edit in `api/liveApi.ts` in the old DungeonOverMind checkout. This lane's allowlist change is strictly additive to exact new route strings, disjoint from that parser change; preserve the other checkout. Coordinator owns this handoff, new test inventory entries, integrated commits and publication. No worker may edit another lane's files without a transfer.
+
+The mode/client worker also owns a narrow additive optional completeness type/validator change in `nativeGraphDemo/nativeGraphDemoApi.ts` and its existing test. The managed envelope schema is `dmb_native_graph_explorer_v1`, containing verified managed/native World IDs, binding version and the existing graph DTO. Managed native completeness and frontend projection truncation are separate facts and must both remain visible; guest/standalone DTOs without the optional field remain compatible.
+
+The mode/client worker may add `api/liveApi.nativeGraphExplorerAuth.test.ts` to prove the actual authenticatedApiFetch boundary for the new exact routes, including lookalike/remote rejection, CSRF and no blind mutation retry. This does not transfer unrelated liveApi behavior or existing test sections. The coordinator classifies the new file additively.
+
+Positioning authority amendment: a committed create response and its recovered operation status may include `created_node_id`, taken only from the verified native publication entity-result binding. The guest foundation worker owns this narrow response addition in `native_graph_demo/service.py` and existing tests; the managed backend owns the equivalent new adapter result. The mode/client worker owns the optional DTO/type/validation addition in the shared native API, and the presentation worker consumes it. Never identify a created object by name/kind or graph difference. Apply client placement only to the exact returned ID in the proper scope/readback; otherwise keep a truthful recoverable limitation. Connect and already-existing responses omit it.
+
+
+## Explorer descriptor and evidence continuation
+
+The managed graph capability DTO may add optional `allowed_predicates` and
+`allows_custom_predicates`. Resolve both from the exact selected native profile.
+Standard Buddy V2 permits the registered entity-reference labels `located_in`
+and `allied_with`; arbitrary labels are available only when the actual V3 profile
+admits the custom entity-reference namespace. The frontend must present the finite
+set for V2, never silently invent a predicate namespace or alter immutable profiles.
+The mode worker owns only this additive shared DTO validation and its tests; the
+presentation worker consumes it in the existing review flow.
+
+The guest CREATE result extension is verified by 30 tests and 10 subtests, with
+lint, formatting and compilation checks. It derives `created_node_id` from the
+exact verified entity-result binding, including committed replay and recovery;
+connect and already-existing responses omit it. These are working-tree checks,
+not final expanded-head qualification.
+
+The real Buddy API checkpoint at clean source
+`59d4254a909b8165e00d8c95b95b628c22bf6a89` passed two isolated guest allocations,
+create/connect and exact readback, replay/duplicate/foreign-World denials, security
+boundaries and a fresh-process restart with exact graph signatures and receipt
+reads. The external harness hit a reporting-only dict attribute error after those
+assertions; its evidence was finalized transparently after read-only database
+correspondence checks, without repeating mutations. Retained task evidence is
+`task/verification/buddy-index-runtime/runs/59d4254a/api-retry-3/api-proof.json`.
+All three APP clones and the dedicated Core proof database remain retained. This
+checkpoint does not qualify the expanded managed explorer or browser UX.
+
+Re-anchor after worker recovery found remote main
+`18359e0713763e55d986daa8a7966c3371aa09c5`, already present in the shared local
+object store. A normal read-only fetch was blocked by the environment policy and
+was not retried. The newer main retires obsolete Plan resolver paths, changes two
+unrelated liveApi references and updates its own test inventory. Open PR #2349
+continues Plan-only capability retirement; it does not own this explorer's paths.
+After workers freeze, reconcile the integration lane once onto the verified main,
+preserving all unrelated changes. Prior baseline diagnostics remain checkpoint
+rather than final-source evidence; compare exact test identities and account for
+independently authorized Plan test retirements. No gate or failure is suppressed.

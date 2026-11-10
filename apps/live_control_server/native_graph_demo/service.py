@@ -245,11 +245,15 @@ class NativeGraphDemoService:
                 if existing["status"] == "committed":
                     prepared = self._record_prepared(existing)
                     self._verify_committed_record(prepared, existing)
-                    return {
+                    response = {
                         "operation_id": operation_id,
                         "status": "committed",
                         "graph": self._read_graph(),
                     }
+                    self._add_created_node_id(
+                        response, prepared, existing["request"], existing["committed"]
+                    )
+                    return response
                 if existing["status"] == "rejected":
                     rejected = existing.get("rejected") or {}
                     return {
@@ -383,11 +387,15 @@ class NativeGraphDemoService:
             prepared = self._record_prepared(record)
             if record["status"] == "committed":
                 self._verify_committed_record(prepared, record)
-                return {
+                response = {
                     "operation_id": operation_id,
                     "status": "committed",
                     "graph": self._read_graph(),
                 }
+                self._add_created_node_id(
+                    response, prepared, record["request"], record["committed"]
+                )
+                return response
             if record["status"] == "unknown":
                 state = self._recover_native_publication(prepared)
                 if state == "committed":
@@ -463,11 +471,15 @@ class NativeGraphDemoService:
             prepared = self._record_prepared(record)
             if record["status"] == "committed":
                 self._verify_committed_record(prepared, record)
-                return {
+                response = {
                     "operation_id": operation_id,
                     "status": "committed",
                     "graph": self._read_graph(),
                 }
+                self._add_created_node_id(
+                    response, prepared, record["request"], record["committed"]
+                )
+                return response
             recovered = self._recover_native_publication(prepared)
             if recovered == "committed":
                 return self._confirm_record(
@@ -1784,11 +1796,15 @@ class NativeGraphDemoService:
             self._store.mark_operation_committed(
                 operation_id, committed_json=committed_json, updated_at=_iso_now()
             )
-            return {
+            response = {
                 "operation_id": operation_id,
                 "status": "committed",
                 "graph": self._read_graph(),
             }
+            self._add_created_node_id(
+                response, prepared, record["request"], json.loads(committed_json)
+            )
+            return response
         except PreparedChangeStale:
             message = "The graph changed after review. Review the current graph and prepare a new operation."
             self._store.mark_operation_rejected(
@@ -1841,6 +1857,46 @@ class NativeGraphDemoService:
             if mapped.status >= 500:
                 self._store.mark_operation_unknown(operation_id, updated_at=_iso_now())
             raise mapped from exc
+
+    @staticmethod
+    def _add_created_node_id(
+        response: dict[str, Any],
+        prepared: PreparedWorldChange,
+        request: dict[str, Any],
+        committed: dict[str, Any],
+    ) -> None:
+        """Expose the exact verified entity result for CREATE operations only."""
+        if request.get("kind") != "create_object":
+            return
+        create_operation_ids = [
+            operation.client_op_id
+            for operation in prepared.prepared_operations
+            if isinstance(operation, CreateObject)
+        ]
+        objects = committed.get("objects")
+        if len(create_operation_ids) != 1 or not isinstance(objects, list):
+            raise DemoError(
+                "native_result_integrity_failure",
+                "The committed CREATE result does not contain one verified entity identity.",
+                503,
+            )
+        matched = [
+            item
+            for item in objects
+            if isinstance(item, dict)
+            and item.get("client_op_id") == create_operation_ids[0]
+        ]
+        if (
+            len(matched) != 1
+            or not isinstance(matched[0].get("id"), str)
+            or not matched[0]["id"]
+        ):
+            raise DemoError(
+                "native_result_integrity_failure",
+                "The committed CREATE result does not contain one verified entity identity.",
+                503,
+            )
+        response["created_node_id"] = matched[0]["id"]
 
     def _mark_operation_unknown_before_dispatch(self, operation_id: str) -> None:
         """Durably mark the native write attempt before calling WorldKeeper."""
