@@ -15,7 +15,7 @@ def selected_read_closure(receipt, execution, selection_event_id, *, before_sequ
     )
     from .native_plan_assertions import (
         NativeGraphQueryV4, NativePlanAssertionReadAuthorizedV1,
-        NativePlanAssertionReadObservedV1, object_record_ids, object_selection_handle,
+        NativePlanAssertionReadObservedV1, object_record_catalog,
     )
     from .native_plan_statements import NativePlanStatementReadAuthorizedV1, NativePlanStatementReadObservedV1
     if not initial_source_discovery_enabled(execution):
@@ -41,7 +41,8 @@ def selected_read_closure(receipt, execution, selection_event_id, *, before_sequ
         query = receipt.native_query
         if not isinstance(query, NativeGraphQueryV4):
             return None
-        known = {object_selection_handle(query, m.entity_id) for m in query.object_matches}
+        catalog = object_record_catalog(query)
+        known = {unit.handle for unit in catalog.units}
         if not set(object_handles) <= known:
             return None
         expected_by_family = []
@@ -50,13 +51,13 @@ def selected_read_closure(receipt, execution, selection_event_id, *, before_sequ
             (NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1, 'assertion_ids', True),
         ):
             attempted = {i for e in before if isinstance(e, grant_type) for i in getattr(e, ids_field)}
-            expected = set(object_record_ids(query, object_handles, assertion=assertion, attempted=attempted))
+            expected = set(catalog.record_ids(object_handles, assertion=assertion, attempted=attempted))
             expected_by_family.append((assertion, attempted))
             fulfilled = set()
             for grant in after:
                 if not isinstance(grant, grant_type):
                     continue
-                if grant.provider_attempt_id != selection.controller_attempt_id or grant.query_sha256 != query.sha256:
+                if grant.provider_attempt_id != selection.controller_attempt_id or grant.query_sha256 != catalog.query_sha256:
                     return None
                 observed = [e for e in after if isinstance(e, observed_type) and e.authorization_event_id == grant.event_id]
                 if len(observed) != 1 or observed[0].status != 'complete':
@@ -66,7 +67,7 @@ def selected_read_closure(receipt, execution, selection_event_id, *, before_sequ
             if expected != fulfilled:
                 return None
         for handle in object_handles:
-            if not any(object_record_ids(query, (handle,), assertion=assertion, attempted=attempted)
+            if not any(catalog.record_ids((handle,), assertion=assertion, attempted=attempted)
                     for assertion, attempted in expected_by_family):
                 return None  # An empty or already attempted target is not a new successful read.
     grants = [e for e in after if isinstance(e, (NativeBodyReadAuthorizedV1, NativeDirectSourceAuthorizedV1))]
