@@ -43,6 +43,23 @@ function response(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), { status, headers: { "Content-Type": "application/json" } });
 }
 
+function graphEnvelope(revisionId: string) {
+  return envelope({ graph: { ...nativeGraph, revision_id: revisionId } });
+}
+
+function entityDetail(scope: unknown) {
+  return {
+    schema: "dmb_native_graph_entity_v1",
+    scope,
+    entity: {
+      found: true,
+      assertions: [],
+      evidence: [],
+      completeness: { status: "complete", reason: null },
+    },
+  };
+}
+
 describe("managed native graph API", () => {
   it("reads and validates a graph against the selected World and exact binding", async () => {
     const fetcher = vi.fn(async () => response(envelope()));
@@ -57,6 +74,177 @@ describe("managed native graph API", () => {
     expect(fetcher.mock.calls[0]?.[0]).toBe("/api/live/native-graph-explorer/graph");
     expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toEqual({ managed_world_id: "managed-a" });
     expect(fetcher.mock.calls[0]?.[1]?.method).toBe("POST");
+  });
+
+  it("inspects the pinned displayed revision even after the current native head advances", async () => {
+    let graphReads = 0;
+    const fetcher = vi.fn(async (path: RequestInfo | URL, init?: RequestInit) => {
+      if (String(path).endsWith("/graph")) {
+        graphReads += 1;
+        return response(graphEnvelope(graphReads === 1 ? "revision-1" : "revision-2"));
+      }
+      if (String(path).endsWith("/native-graph-inspection/read")) {
+        const request = JSON.parse(String(init?.body)) as { scope: Record<string, unknown> };
+        return response(entityDetail(request.scope));
+      }
+      return response({ error: "unexpected route", code: "unexpected" }, 404);
+    });
+    const client = createManagedNativeGraphApi("managed-a", { fetcher });
+    const displayedGraph = await client.api.readGraph();
+    await client.api.readGraph();
+
+    await expect(client.api.inspectNode?.(displayedGraph, "entity:lina")).resolves.toMatchObject({
+      schema: "dmb_native_graph_entity_v1",
+      scope: {
+        managed_world_id: "managed-a",
+        native_world_id: "native-world-1",
+        binding_version: 1,
+        scope_mode: "world",
+        campaign_id: null,
+        revision_id: "revision-1",
+      },
+    });
+    expect(fetcher.mock.calls.map(([path]) => String(path))).toEqual([
+      "/api/live/native-graph-explorer/graph",
+      "/api/live/native-graph-explorer/graph",
+      "/api/live/native-graph-inspection/read",
+    ]);
+    expect(JSON.parse(String(fetcher.mock.calls[2]?.[1]?.body))).toEqual({
+      scope: {
+        managed_world_id: "managed-a",
+        native_world_id: "native-world-1",
+        binding_version: 1,
+        scope_mode: "world",
+        campaign_id: null,
+        revision_id: "revision-1",
+      },
+      selection: { kind: "entity", entity_id: "entity:lina" },
+    });
+  });
+
+  it("accepts an unavailable-at-revision entity only with the exact snapshot pin", async () => {
+    const fetcher = vi.fn(async (path: RequestInfo | URL, init?: RequestInit) => {
+      if (String(path).endsWith("/graph")) return response(graphEnvelope("revision-1"));
+      const request = JSON.parse(String(init?.body)) as { scope: Record<string, unknown> };
+      return response({ ...entityDetail(request.scope), entity: {
+        found: false,
+        assertions: [],
+        evidence: [],
+        completeness: { status: "complete", reason: null },
+      } });
+    });
+    const client = createManagedNativeGraphApi("managed-a", { fetcher });
+    const graph = await client.api.readGraph();
+    await expect(client.api.inspectNode?.(graph, "entity:lina")).resolves.toMatchObject({
+      entity: { found: false },
+      scope: { revision_id: "revision-1" },
+    });
+  });
+
+  it("registers exact pins from every graph-producing operation flow", async () => {
+    const operationId = "f01d8ed1-9886-4fd5-8b9f-f6c8b788084d";
+    const revisions: string[] = [];
+    const fetcher = vi.fn(async (path: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(path);
+      if (url.endsWith("/graph")) return response(graphEnvelope("read-graph"));
+      if (url.endsWith("/prepare")) return response({
+        schema: "dmb_native_graph_explorer_v1", status: "already_exists", operation_id: operationId,
+        managed_world_id: "managed-a", native_world_id: "native-world-1", binding_version: 1,
+        message: "The connection is already present.", graph: graphEnvelope("prepare-result"),
+      });
+      if (url.endsWith("/confirm")) return response({
+        schema: "dmb_native_graph_explorer_v1", status: "committed", operation_id: operationId,
+        managed_world_id: "managed-a", native_world_id: "native-world-1", binding_version: 1,
+        graph: graphEnvelope("confirm-result"),
+      });
+      if (url.endsWith("/operations/read")) return response({
+        schema: "dmb_native_graph_explorer_v1", status: "committed", operation_id: operationId,
+        managed_world_id: "managed-a", native_world_id: "native-world-1", binding_version: 1,
+        graph: graphEnvelope("operation-result"),
+      });
+      if (url.endsWith("/native-graph-inspection/read")) {
+        const request = JSON.parse(String(init?.body)) as { scope: { revision_id: string } };
+        revisions.push(request.scope.revision_id);
+        return response(entityDetail(request.scope));
+      }
+      return response({ error: `unexpected route ${url}`, code: "unexpected" }, 404);
+    });
+    const client = createManagedNativeGraphApi("managed-a", { fetcher });
+    const readGraph = await client.api.readGraph();
+    const prepared = await client.api.prepare({
+      operation_id: operationId,
+      expected_revision_id: "read-graph",
+      kind: "connect",
+      source_id: "entity:lina",
+      target_id: "entity:lina",
+      predicate: "allied_with",
+    });
+    const committed = await client.api.confirm(operationId);
+    const recovered = await client.api.readOperation(operationId);
+
+    const producedGraphs = [
+      readGraph,
+      prepared.status === "already_exists" ? prepared.graph : null,
+      committed.status === "committed" ? committed.graph : null,
+      recovered.status === "committed" ? recovered.graph ?? null : null,
+    ];
+    expect(producedGraphs.every(Boolean)).toBe(true);
+    for (const graph of producedGraphs) {
+      await client.api.inspectNode?.(graph!, "entity:lina");
+    }
+    expect(revisions).toEqual(["read-graph", "prepare-result", "confirm-result", "operation-result"]);
+  });
+
+  it("rejects cloned snapshots, unknown nodes, and response scopes outside the exact pin", async () => {
+    const calls: unknown[] = [];
+    const fetcher = vi.fn(async (path: RequestInfo | URL, init?: RequestInit) => {
+      if (String(path).endsWith("/graph")) return response(graphEnvelope("revision-1"));
+      if (String(path).endsWith("/native-graph-inspection/read")) {
+        const request = JSON.parse(String(init?.body)) as { scope: Record<string, unknown> };
+        calls.push(request);
+        return response(entityDetail({ ...request.scope, revision_id: "revision-other" }));
+      }
+      return response({ error: "unexpected route", code: "unexpected" }, 404);
+    });
+    const client = createManagedNativeGraphApi("managed-a", { fetcher });
+    const graph = await client.api.readGraph();
+    await expect(client.api.inspectNode?.({ ...graph }, "entity:lina")).rejects.toMatchObject({ code: "invalid_managed_world_response" });
+    await expect(client.api.inspectNode?.(graph, "entity:unknown")).rejects.toMatchObject({ code: "invalid_managed_world_response" });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    await expect(client.api.inspectNode?.(graph, "entity:lina")).rejects.toMatchObject({ code: "invalid_managed_world_response" });
+    expect(calls).toHaveLength(1);
+    (graph.nodes as Array<{ id: string; name: string; kind: string }>).push({ id: "entity:altered", name: "Altered", kind: "person" });
+    await expect(client.api.inspectNode?.(graph, "entity:lina")).rejects.toMatchObject({ code: "invalid_managed_world_response" });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("aborts pending inspection and rejects results from an invalidated client", async () => {
+    let graphReads = 0;
+    const fetcher = vi.fn(async (path: RequestInfo | URL, init?: RequestInit) => {
+      if (String(path).endsWith("/graph")) {
+        graphReads += 1;
+        return response(graphEnvelope(`revision-${graphReads}`));
+      }
+      if (String(path).endsWith("/native-graph-inspection/read")) {
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+        });
+      }
+      return response({ error: "unexpected route", code: "unexpected" }, 404);
+    });
+    const client = createManagedNativeGraphApi("managed-a", { fetcher });
+    const graph = await client.api.readGraph();
+    const controller = new AbortController();
+    const pending = client.api.inspectNode?.(graph, "entity:lina", controller.signal);
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    expect(fetcher.mock.calls[1]?.[1]?.signal?.aborted).toBe(true);
+
+    const nextClient = createManagedNativeGraphApi("managed-a", { fetcher });
+    const nextGraph = await nextClient.api.readGraph();
+    const invalidatedInspection = nextClient.api.inspectNode?.(nextGraph, "entity:lina");
+    nextClient.invalidate();
+    await expect(invalidatedInspection).rejects.toMatchObject({ code: "invalid_managed_world_response" });
   });
 
   it("binds prepare, confirm, and operation reads to the graph’s verified World", async () => {

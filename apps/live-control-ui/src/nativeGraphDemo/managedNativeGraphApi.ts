@@ -1,6 +1,8 @@
 import { authenticatedApiFetch } from "../api/liveApi";
+import { sameInspectionPin, type InspectionPin, type NativeGraphEntity } from "../api/nativeGraphInspection";
 import {
   createNativeGraphDemoApi,
+  NativeGraphDemoApiError,
   type NativeGraph,
   type NativeGraphDemoApi,
   type NativeGraphDemoTransport,
@@ -12,6 +14,7 @@ const GRAPH_PATH = `${BASE}/graph`;
 const PREPARE_PATH = `${BASE}/prepare`;
 const CONFIRM_PATH = `${BASE}/confirm`;
 const OPERATIONS_READ_PATH = `${BASE}/operations/read`;
+const INSPECTION_READ_PATH = "/api/live/native-graph-inspection/read";
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -74,6 +77,62 @@ function errorFromResponse(response: Response, body: unknown): Response {
 
 async function responseBody(response: Response): Promise<unknown> {
   return response.clone().json().catch(() => null);
+}
+
+function isInspectionPin(value: unknown): value is InspectionPin {
+  return isRecord(value)
+    && nonEmptyString(value.managed_world_id)
+    && value.scope_mode === "world"
+    && value.campaign_id === null
+    && nonEmptyString(value.native_world_id)
+    && Number.isSafeInteger(value.binding_version)
+    && (value.binding_version as number) >= 1
+    && nonEmptyString(value.revision_id);
+}
+
+function isNativeAssertion(value: unknown): boolean {
+  if (!isRecord(value) || !nonEmptyString(value.assertion_id)
+    || !nonEmptyString(value.subject_entity_id) || !nonEmptyString(value.predicate)
+    || !isRecord(value.value) || !isRecord(value.metadata)) return false;
+  const assertionValue = value.value;
+  if (assertionValue.kind === "literal") {
+    if (!("value" in assertionValue)) return false;
+  } else if (assertionValue.kind === "term_ref") {
+    if (!nonEmptyString(assertionValue.term)) return false;
+  } else if (assertionValue.kind === "entity_ref") {
+    if (!nonEmptyString(assertionValue.entity_id)) return false;
+  } else return false;
+  const metadata = value.metadata;
+  return Array.isArray(metadata.scope)
+    && metadata.scope.every((item) => isRecord(item) && typeof item.axis === "string" && typeof item.value === "string")
+    && typeof metadata.epistemic_basis === "string"
+    && typeof metadata.claim_mode === "string"
+    && typeof metadata.standing === "string"
+    && Array.isArray(metadata.evidence_ref_ids)
+    && metadata.evidence_ref_ids.every((id) => typeof id === "string")
+    && Array.isArray(metadata.domain_metadata);
+}
+
+function isNativeGraphEntityForPin(value: unknown, pin: InspectionPin): value is NativeGraphEntity {
+  if (!isRecord(value) || value.schema !== "dmb_native_graph_entity_v1"
+    || !isInspectionPin(value.scope) || !sameInspectionPin(value.scope, pin)
+    || !isRecord(value.entity) || typeof value.entity.found !== "boolean"
+    || !Array.isArray(value.entity.assertions) || !value.entity.assertions.every(isNativeAssertion)
+    || !Array.isArray(value.entity.evidence)
+    || !value.entity.evidence.every((item) => isRecord(item)
+      && nonEmptyString(item.evidence_ref_id) && typeof item.evidence_role === "string")
+    || !isRecord(value.entity.completeness)) return false;
+  const completeness = value.entity.completeness;
+  return (completeness.status === "complete" || completeness.status === "partial")
+    && (completeness.reason === null || typeof completeness.reason === "string");
+}
+
+function abortError(): DOMException {
+  return new DOMException("The inspection request was cancelled.", "AbortError");
+}
+
+function isAbortError(error: unknown): boolean {
+  return isRecord(error) && error.name === "AbortError";
 }
 
 function graphEnvelope(value: unknown, managedWorldId: string): GraphEnvelope | null {
@@ -164,6 +223,76 @@ export function createManagedNativeGraphApi(
   let generation = 0;
   let invalidated = false;
   const activeControllers = new Set<AbortController>();
+  const snapshotPins = new WeakMap<NativeGraph, {
+    readonly pin: InspectionPin;
+    readonly nodeIds: ReadonlySet<string>;
+    readonly serializedGraph: string;
+  }>();
+
+  function invalidManagedGraph(message: string): NativeGraphDemoApiError {
+    return new NativeGraphDemoApiError(message, "invalid_managed_world_response", 502);
+  }
+
+  function registerSnapshot(graph: NativeGraph, startedGeneration: number): NativeGraph {
+    if (invalidated || startedGeneration !== generation) {
+      throw invalidManagedGraph("The selected World changed before this graph snapshot could be used.");
+    }
+    if (!binding || graph.world_id !== binding.nativeWorldId || !nonEmptyString(graph.revision_id)) {
+      throw invalidManagedGraph("The graph snapshot did not match the verified managed World binding.");
+    }
+    const pin: InspectionPin = Object.freeze({
+      managed_world_id: binding.managedWorldId,
+      native_world_id: binding.nativeWorldId,
+      binding_version: binding.bindingVersion,
+      scope_mode: "world",
+      campaign_id: null,
+      revision_id: graph.revision_id,
+    });
+    snapshotPins.set(graph, {
+      pin,
+      nodeIds: new Set(graph.nodes.map((node) => node.id)),
+      serializedGraph: JSON.stringify(graph),
+    });
+    return graph;
+  }
+
+  function assertCurrentSnapshot(graph: NativeGraph, nodeId: string): InspectionPin {
+    if (invalidated) throw invalidManagedGraph("The selected World changed before this graph inspection completed.");
+    const snapshot = snapshotPins.get(graph);
+    if (!snapshot) throw invalidManagedGraph("This graph was not read from the currently selected managed World client.");
+    let serializedGraph: string;
+    try {
+      serializedGraph = JSON.stringify(graph);
+    } catch {
+      throw invalidManagedGraph("The graph snapshot was modified after it was loaded.");
+    }
+    if (serializedGraph !== snapshot.serializedGraph) {
+      throw invalidManagedGraph("The graph snapshot was modified after it was loaded.");
+    }
+    if (!binding || !sameInspectionPin(snapshot.pin, {
+      managed_world_id: managedWorldId,
+      native_world_id: binding.nativeWorldId,
+      binding_version: binding.bindingVersion,
+      scope_mode: "world",
+      campaign_id: null,
+      revision_id: graph.revision_id,
+    }) || graph.world_id !== snapshot.pin.native_world_id || graph.revision_id !== snapshot.pin.revision_id) {
+      throw invalidManagedGraph("The graph snapshot no longer matches its verified managed World pin.");
+    }
+    if (!nonEmptyString(nodeId) || !snapshot.nodeIds.has(nodeId)) {
+      throw invalidManagedGraph("The selected object is not part of this exact graph snapshot.");
+    }
+    return snapshot.pin;
+  }
+
+  async function throwInspectionResponseError(response: Response, body: unknown): Promise<never> {
+    const normalized = await responseBody(errorFromResponse(response, body));
+    const message = isRecord(normalized) && nonEmptyString(normalized.error)
+      ? normalized.error
+      : `The managed graph service returned HTTP ${response.status}.`;
+    const code = isRecord(normalized) && nonEmptyString(normalized.code) ? normalized.code : "managed_graph_error";
+    throw new NativeGraphDemoApiError(message, code, response.status);
+  }
 
   async function send(path: string, init: RequestInit, startedGeneration: number): Promise<Response> {
     if (invalidated || startedGeneration !== generation) {
@@ -307,7 +436,66 @@ export function createManagedNativeGraphApi(
     return jsonResponse({ error: "The managed graph request is unsupported.", code: "unsupported_request" }, 400);
   };
 
-  const api = createNativeGraphDemoApi({ transport });
+  const baseApi = createNativeGraphDemoApi({ transport });
+  const api: NativeGraphDemoApi = {
+    async readGraph() {
+      const startedGeneration = generation;
+      return registerSnapshot(await baseApi.readGraph(), startedGeneration);
+    },
+    async prepare(input) {
+      const startedGeneration = generation;
+      const result = await baseApi.prepare(input);
+      if (result.status === "already_exists") registerSnapshot(result.graph, startedGeneration);
+      return result;
+    },
+    async confirm(operationId) {
+      const startedGeneration = generation;
+      const result = await baseApi.confirm(operationId);
+      if (result.status === "committed") registerSnapshot(result.graph, startedGeneration);
+      return result;
+    },
+    async readOperation(operationId) {
+      const startedGeneration = generation;
+      const result = await baseApi.readOperation(operationId);
+      if (result.status === "committed" && result.graph) registerSnapshot(result.graph, startedGeneration);
+      return result;
+    },
+    async inspectNode(graph, nodeId, signal) {
+      const pin = assertCurrentSnapshot(graph, nodeId);
+      if (signal?.aborted) throw abortError();
+      const startedGeneration = generation;
+      let response: Response;
+      try {
+        response = await send(INSPECTION_READ_PATH, {
+          method: "POST",
+          headers: { Accept: "application/json", "Content-Type": "application/json" },
+          body: JSON.stringify({ scope: pin, selection: { kind: "entity", entity_id: nodeId } }),
+          signal,
+        }, startedGeneration);
+      } catch (error) {
+        if (invalidated || startedGeneration !== generation) {
+          throw invalidManagedGraph("The selected World changed before this graph inspection could be applied.");
+        }
+        if (isAbortError(error)) throw error;
+        if (error instanceof NativeGraphDemoApiError) throw error;
+        throw new NativeGraphDemoApiError(
+          error instanceof Error ? error.message : "The managed graph inspection could not be reached.",
+          "network_error",
+          0,
+        );
+      }
+      const body = await responseBody(response);
+      if (signal?.aborted) throw abortError();
+      if (invalidated || startedGeneration !== generation) {
+        throw invalidManagedGraph("The selected World changed before this graph inspection could be applied.");
+      }
+      if (!response.ok) await throwInspectionResponseError(response, body);
+      if (!isNativeGraphEntityForPin(body, pin)) {
+        throw invalidManagedGraph("The native inspection response did not match the selected World and exact graph revision.");
+      }
+      return body;
+    },
+  };
   return {
     api,
     invalidate() {

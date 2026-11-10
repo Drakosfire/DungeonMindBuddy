@@ -8,7 +8,7 @@ import {writeWalkthrough,pointerKey,recordKey} from '../guidedTour/storage';
 
 vi.mock("../selectedWorld/SelectedWorldContext", () => ({ useSelectedWorld: () => ({ kind: "managed", worldId: "elderwyld", name: "Elderwyld" }) }));
 vi.mock("../selectedWorld/WorldSelector", () => ({ WorldSelector: () => <button>Switch World: Elderwyld</button> }));
-vi.mock("./AppChromeWorldGraphStatus", () => ({ AppChromeWorldGraphStatus: () => <button>World graph: Elderwyld · Ready</button> }));
+vi.mock("./AppChromeWorldGraphStatus", () => ({ AppChromeWorldGraphStatus: (props: { activeRoute?: string }) => <button data-active-route={props.activeRoute}>World graph: Elderwyld · Ready</button> }));
 
 describe("compact command-board navigation", () => {
   it("starts collapsed with World selection and graph health always reachable", () => {
@@ -19,6 +19,11 @@ describe("compact command-board navigation", () => {
     expect(within(screen.getByRole("navigation",{name:"Command board navigation"})).getByRole("button",{name:"Trash",exact:true})).toBeVisible();
     expect(screen.getByRole("button", { name: "Switch World: Elderwyld" })).toBeVisible();
     expect(screen.getByRole("button", { name: "World graph: Elderwyld · Ready" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "World graph: Elderwyld · Ready" })).toHaveAttribute("data-active-route", "plan");
+  });
+  it("passes the index route so the graph control targets its loaded canvas", () => {
+    render(<CompactAppNavigation activeRoute="index" />);
+    expect(screen.getByRole("button", { name: "World graph: Elderwyld · Ready" })).toHaveAttribute("data-active-route", "index");
   });
   it("reveals World-scoped routes and dismisses them with Escape without navigation", () => {
     render(<CompactAppNavigation activeRoute="plan" />);

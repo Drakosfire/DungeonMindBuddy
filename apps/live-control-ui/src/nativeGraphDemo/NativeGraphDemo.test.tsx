@@ -6,6 +6,7 @@ import { URL as NodeURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NativeGraphDemo, type NativeGraphDemoProps } from "./NativeGraphDemo";
 import { NativeGraphDemoApiError, type NativeGraph, type NativeGraphDemoApi, type OperationLookupResult, type PrepareResult } from "./nativeGraphDemoApi";
+import type { NativeGraphEntity } from "../api/nativeGraphInspection";
 import { SurfaceContextHost, SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 
 const graph: NativeGraph = {
@@ -69,6 +70,21 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
+function entityDetail(revisionId: string, found = false, nativeWorldId = "space:native-demo"): NativeGraphEntity {
+  return {
+    schema: "dmb_native_graph_entity_v1",
+    scope: {
+      managed_world_id: "managed:world-17",
+      native_world_id: nativeWorldId,
+      binding_version: 1,
+      revision_id: revisionId,
+      scope_mode: "world",
+      campaign_id: null,
+    },
+    entity: { found, assertions: [], evidence: [], completeness: { status: "complete", reason: null } },
+  };
+}
+
 describe("NativeGraphDemo", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -103,6 +119,8 @@ describe("NativeGraphDemo", () => {
     expect(screen.getByRole("button", { name: /Mara, npc/i })).toHaveAttribute("data-node-id", "entity:mara");
     expect(screen.getByText(/Event typing is not supported by this DungeonMind profile yet/)).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /Event · unavailable/ })).toBeDisabled();
+    expect(document.querySelector(".native-demo-graph-meta")).toHaveTextContent("3 objects");
+    expect(document.querySelector(".world-graph-canvas__feedback")).toHaveTextContent("3 objects · 1 relationships");
     expect(screen.getByText(/Rename is unavailable/)).toBeInTheDocument();
     expect(screen.getByText(/Delete is unavailable/)).toBeInTheDocument();
 
@@ -142,6 +160,32 @@ describe("NativeGraphDemo", () => {
     expect(navbar.getByRole("button", { name: "Refresh" })).toBeEnabled();
     expect(navbar.getByRole("button", { name: "Info" })).toBeEnabled();
     expect(navbar.getByRole("button", { name: "Export snapshot" })).toBeEnabled();
+    expect(navbar.getByText("3 objects · 1 relationships")).toBeInTheDocument();
+    expect(document.querySelector(".native-demo-graph-meta")).toBeNull();
+    expect(document.querySelector(".world-graph-canvas__feedback")).toBeEmptyDOMElement();
+    expect(document.querySelector(".native-demo-canvas-note")).toBeNull();
+    const helpButton = screen.getByRole("button", { name: "Graph interaction help" });
+    const helpTooltip = document.querySelector(".native-demo-canvas-help__tooltip")!;
+    expect(helpButton).toHaveAttribute("aria-describedby", helpTooltip.id);
+    expect(helpTooltip).toHaveAttribute("role", "tooltip");
+    expect(helpTooltip).toHaveTextContent(/Use Place node to choose where a new node should go/);
+    helpButton.focus();
+    expect(helpButton).toHaveFocus();
+    expect(helpButton).toHaveAttribute("aria-expanded", "false");
+    await user.click(helpButton);
+    expect(helpButton).toHaveAttribute("aria-expanded", "true");
+    await user.click(helpButton);
+    expect(helpButton).toHaveAttribute("aria-expanded", "false");
+    expect(helpButton.parentElement).toHaveAttribute("data-dismissed", "true");
+    await user.click(helpButton);
+    expect(helpButton).toHaveAttribute("aria-expanded", "true");
+    await user.keyboard("{Escape}");
+    expect(helpButton).toHaveAttribute("aria-expanded", "false");
+    expect(helpButton.parentElement).toHaveAttribute("data-dismissed", "true");
+    await user.click(helpButton);
+    expect(helpButton).toHaveAttribute("aria-expanded", "true");
+    const helpCss = readFileSync(new NodeURL("./nativeGraphDemo.css", import.meta.url), "utf8");
+    expect(helpCss).toMatch(/\.native-demo-canvas-help:hover \.native-demo-canvas-help__tooltip,[\s\S]*?\.native-demo-canvas-help:focus-within \.native-demo-canvas-help__tooltip/);
     expect(screen.queryByRole("heading", { name: "The graph so far" })).not.toBeInTheDocument();
     expect(screen.getByTestId("graph-scene").querySelector(".world-graph-canvas__node circle")).not.toBeNull();
     expect(document.querySelector(".native-demo-shell--embedded .world-graph-canvas__viewport")).toBeInTheDocument();
@@ -163,6 +207,114 @@ describe("NativeGraphDemo", () => {
     expect(screen.getByText(/Clearing cookies or session expiry loses the link to this graph/)).toBeInTheDocument();
   });
 
+  it("shows loaded snapshot connections, focuses only on request, restores focus camera and lets Fit clear focus", async () => {
+    const user = userEvent.setup();
+    const api = makeApi();
+    let notifySvgResize!: ResizeObserverCallback;
+    class TestResizeObserver {
+      constructor(private readonly callback: ResizeObserverCallback) {}
+      observe(target: Element) { if (target.tagName.toLowerCase() === "svg") notifySvgResize = this.callback; }
+      unobserve() {}
+      disconnect() {}
+    }
+    vi.stubGlobal("ResizeObserver", TestResizeObserver);
+    renderEmbeddedDemo({ api });
+
+    const mara = await screen.findByRole("button", { name: /Mara, npc/i });
+    const canvas = document.getElementById("loaded-native-graph-canvas");
+    expect(canvas).toHaveAttribute("tabindex", "-1");
+    const svg = screen.getByRole("group", { name: "DungeonMind native graph world graph" });
+    let svgWidth = 640;
+    vi.spyOn(svg, "getBoundingClientRect").mockImplementation(() => ({ width: svgWidth, height: 360, x: 0, y: 0, top: 0, right: svgWidth, bottom: 360, left: 0, toJSON: () => ({}) }));
+    act(() => notifySvgResize([{ contentRect: { width: 640, height: 360 } } as ResizeObserverEntry], {} as ResizeObserver));
+    const scene = screen.getByTestId("graph-scene");
+    const beforeSelection = scene.getAttribute("transform");
+
+    await user.click(mara);
+    expect(screen.getByRole("heading", { name: "Mara" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Connections in this loaded snapshot" })).toBeInTheDocument();
+    expect(screen.getByText("stays_at → Lantern Inn")).toBeInTheDocument();
+    svgWidth = 500;
+    act(() => notifySvgResize([{ contentRect: { width: 500, height: 360 } } as ResizeObserverEntry], {} as ResizeObserver));
+    expect(scene.getAttribute("transform")).toBe(beforeSelection);
+    expect(api.inspectNode).toBeUndefined();
+
+    await user.click(screen.getByRole("button", { name: "Focus" }));
+    await waitFor(() => expect(scene.getAttribute("transform")).not.toBe(beforeSelection));
+    const cameraMatch = scene.getAttribute("transform")!.match(/translate\(([-.\d]+) ([-.\d]+)\) scale\(([-.\d]+)\)/)!;
+    const [cameraX, cameraY, zoom] = cameraMatch.slice(1).map(Number);
+    const node = document.querySelector('[data-node-id="entity:mara"]')!;
+    const nodeMatch = node.getAttribute("transform")!.match(/translate\(([-.\d]+) ([-.\d]+)\)/)!;
+    const nodeX = Number(nodeMatch[1]) + 56;
+    const nodeY = Number(nodeMatch[2]) + 56;
+    expect(nodeX * zoom + cameraX).toBeCloseTo(250, 0);
+    expect(nodeY * zoom + cameraY).toBeCloseTo(180, 0);
+
+    await user.click(screen.getByRole("button", { name: "Exit focus" }));
+    await waitFor(() => expect(scene.getAttribute("transform")).toBe(beforeSelection));
+    expect(screen.queryByRole("button", { name: "Exit focus" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Focus" }));
+    await waitFor(() => expect(scene.getAttribute("transform")).not.toBe(beforeSelection));
+    await user.click(screen.getByRole("button", { name: "Fit graph" }));
+    expect(screen.queryByRole("button", { name: "Exit focus" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Close details" }));
+    await waitFor(() => expect(mara).toHaveFocus());
+    expect(screen.queryByRole("heading", { name: "Connections in this loaded snapshot" })).not.toBeInTheDocument();
+    await user.click(mara);
+    expect(screen.getByRole("heading", { name: "Connections in this loaded snapshot" })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(mara).toHaveFocus());
+    expect(screen.queryByRole("heading", { name: "Connections in this loaded snapshot" })).not.toBeInTheDocument();
+  });
+
+  it("shows managed inspection from the exact loaded snapshot through the shared details view", async () => {
+    const user = userEvent.setup();
+    const api = makeApi({ inspectNode: vi.fn().mockResolvedValue(entityDetail(graph.revision_id, false)) });
+    renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:world-17" });
+    await user.click(await screen.findByRole("button", { name: /Mara, npc/i }));
+
+    expect(await screen.findByText("This object is unavailable in the selected revision.")).toBeInTheDocument();
+    expect(api.inspectNode).toHaveBeenCalledWith(graph, "entity:mara", expect.any(AbortSignal));
+    expect(screen.getByRole("heading", { name: "Object details" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Mara" })).toBeInTheDocument();
+  });
+
+  it("rejects late managed inspection responses after the selected node changes", async () => {
+    const user = userEvent.setup();
+    const maraDetail = deferred<NativeGraphEntity>();
+    const api = makeApi({
+      inspectNode: vi.fn((_snapshot, nodeId) => nodeId === "entity:mara" ? maraDetail.promise : Promise.reject(new Error("Tomas detail unavailable"))),
+    });
+    renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:world-17" });
+    const mara = await screen.findByRole("button", { name: /Mara, npc/i });
+    await user.click(mara);
+    expect(await screen.findByText(/Loading this object from the loaded World revision/)).toBeInTheDocument();
+    expect(api.inspectNode).toHaveBeenCalledWith(graph, "entity:mara", expect.any(AbortSignal));
+    await user.click(screen.getByRole("button", { name: /Tomas, npc/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Tomas detail unavailable");
+
+    maraDetail.resolve(entityDetail(graph.revision_id, false));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Tomas detail unavailable"));
+    expect(screen.queryByText("This object is unavailable in the selected revision.")).not.toBeInTheDocument();
+  });
+
+  it("discards managed details when the loaded snapshot changes before inspection returns", async () => {
+    const user = userEvent.setup();
+    const delayed = deferred<NativeGraphEntity>();
+    const revisedGraph = { ...graph, revision_id: "revision-003", graph_sha256: "sha256:graph-003" };
+    const readGraph = vi.fn().mockResolvedValueOnce(graph).mockResolvedValueOnce(revisedGraph);
+    const api = makeApi({ readGraph, inspectNode: vi.fn(() => delayed.promise) });
+    renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:world-17" });
+    await user.click(await screen.findByRole("button", { name: /Mara, npc/i }));
+    expect(await screen.findByText(/Loading this object from the loaded World revision/)).toBeInTheDocument();
+    await user.click(within(screen.getByTestId("surface-context-host")).getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(readGraph).toHaveBeenCalledTimes(2));
+
+    delayed.resolve(entityDetail(graph.revision_id, false));
+    await waitFor(() => expect(screen.queryByText("This object is unavailable in the selected revision.")).not.toBeInTheDocument());
+    expect(screen.queryByRole("heading", { name: "Mara" })).not.toBeInTheDocument();
+  });
+
   it("shows a partial native read separately from canvas projection limits", async () => {
     const partialGraph = {
       ...graph,
@@ -182,8 +334,12 @@ describe("NativeGraphDemo", () => {
     renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:world-17" });
 
     expect(await screen.findByRole("button", { name: /Mara, npc/i })).toBeInTheDocument();
-    expect(within(screen.getByTestId("surface-context-host")).getByText("Partial native read")).toBeInTheDocument();
+    const navbar = within(screen.getByTestId("surface-context-host"));
+    expect(navbar.getByText("Partial native read")).toBeInTheDocument();
+    expect(navbar.getByText("Listed 3 objects · listed 1 relationships")).toBeInTheDocument();
+    expect(document.querySelector(".native-demo-graph-meta")).toBeNull();
     expect(screen.getByText(/2 entities omitted, 0 unexamined; 1 assertions omitted, 0 unexamined/)).toBeInTheDocument();
+    expect(document.querySelector(".native-demo-completeness")).toBeInTheDocument();
     await user.click(within(screen.getByTestId("surface-context-host")).getByRole("button", { name: "Info" }));
     expect(screen.getAllByText("Some entities have no usable name").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Some assertions could not be represented as graph edges").length).toBeGreaterThan(0);
@@ -375,6 +531,14 @@ describe("NativeGraphDemo", () => {
     expect(prepared.pending.operation_id).toBe("bb9c10ac-c94a-4693-b7bc-4d001c398770");
     expect(prepared.placement).toMatchObject({ operation_id: prepared.pending.operation_id, base_revision_id: graph.revision_id, created_node_id: null });
     expect(localStorage.getItem(`dungeonmind-native-demo:layout:${encodeURIComponent(graph.world_id)}`)).toBeNull();
+    const confirmButton = screen.getByRole("button", { name: "Confirm in DungeonMind" });
+    confirmButton.focus();
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("button", { name: "Confirm in DungeonMind" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("surface-context-host")).getByText("Placement ready")).toBeInTheDocument();
+    const afterEscape = JSON.parse(sessionStorage.getItem(draftKey) ?? "null");
+    expect(afterEscape.pending.operation_id).toBe(prepared.pending.operation_id);
+    expect(afterEscape.placement.operation_id).toBe(prepared.pending.operation_id);
 
     await user.click(screen.getByRole("button", { name: "Confirm in DungeonMind" }));
     expect(await screen.findByRole("button", { name: "Mira, person" })).toBeInTheDocument();
@@ -383,6 +547,45 @@ describe("NativeGraphDemo", () => {
       expect(saved?.["entity:mira"]).toEqual(placement);
     });
     expect(JSON.parse(sessionStorage.getItem(draftKey) ?? "null").placement).toBeNull();
+  });
+
+  it("cancels only an unprepared placement intent and keeps the typed draft through re-entry", async () => {
+    const user = userEvent.setup();
+    const api = makeApi();
+    renderEmbeddedDemo({ api });
+    await screen.findByRole("button", { name: /Mara, npc/i });
+
+    await user.click(screen.getByRole("button", { name: "Place node" }));
+    await user.click(within(screen.getByTestId("node-palette")).getByRole("button", { name: "Person" }));
+    const nameInput = screen.getByLabelText("Name");
+    await user.type(nameInput, "Mira");
+    const draftKey = `dungeonmind-native-demo:draft:${encodeURIComponent(graph.world_id)}`;
+    expect(JSON.parse(sessionStorage.getItem(draftKey) ?? "null").placement.operation_id).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Cancel placement" }));
+    expect(nameInput).toHaveValue("Mira");
+    expect(nameInput).toHaveFocus();
+    expect(await screen.findByText(/Placement canceled\. Your name and type draft are still saved/)).toBeInTheDocument();
+    expect(within(screen.getByTestId("surface-context-host")).queryByText("Placement ready")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancel placement" })).not.toBeInTheDocument();
+    expect(JSON.parse(sessionStorage.getItem(draftKey) ?? "null")).toMatchObject({
+      draft: { objectName: "Mira", objectKind: "person" },
+      placement: null,
+      pending: null,
+    });
+    expect(api.prepare).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Place node" }));
+    await user.click(within(screen.getByTestId("node-palette")).getByRole("button", { name: "Person" }));
+    await user.keyboard("{Escape}");
+    expect(nameInput).toHaveValue("Mira");
+    expect(screen.queryByRole("button", { name: "Cancel placement" })).not.toBeInTheDocument();
+    expect(JSON.parse(sessionStorage.getItem(draftKey) ?? "null")).toMatchObject({
+      draft: { objectName: "Mira", objectKind: "person" },
+      placement: null,
+      pending: null,
+    });
+    expect(api.prepare).not.toHaveBeenCalled();
   });
 
   it("turns connector-dot drags into a relationship draft without preparing automatically", async () => {

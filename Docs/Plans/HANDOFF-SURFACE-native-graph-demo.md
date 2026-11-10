@@ -417,3 +417,156 @@ case and the same inherited collection error. Results artifact hash and exact
 failed case IDs are retained in task `verification/baseline-e988-ui-*` for final
 comparison only, not as explorer qualification. This accounts for the authorized
 retired/renamed Plan cases without suppressing any failure.
+
+## Annotated graph feedback continuation
+
+Status: ACTIVE for the bounded UI correction below. Alan reported that the node
+placement popup has no clear exit, asked to move the persistent "Explore the
+graph" guidance into an information control with hover/focus help, and asked to
+remove repeated object/relationship counts below the canvas. He also said,
+"Otherwise wire this up, I like this alot." Preserve the existing palette and
+native graph direction. This does not authorize merge, deployment, a new hosted
+anonymous API, a live database change or bypassing existing authentication.
+
+The preceding implementation is published at
+`b0322b7d2e21714f5abefef3cbd5b09affb62b33`. Its exact hosted frontend verifier,
+112 directly affected backend cases, 219 auth cases and 14 CI guards passed. The
+full discovered diagnostic remains red with 7,307 passes, 159 unchanged inherited
+failures, one pending case and the inherited mock-export collection error. Real
+isolated PostgreSQL restart/native receipt readback and production-browser guest
+and managed read/write proofs passed. The final width-only successor preserves
+identical backend objects; a separate final-width connector gesture/cancel proof
+also passed. Retained evidence is in task `verification/frontend-b0322b7d/`,
+`verification/discovered-b0322b7d/`, `task/verification/backend-b0322b7d2/` and
+`verification/browser-qa/artifact-digests-b032.json`. These are predecessor
+results, not acceptance of the new UI changes.
+
+Re-anchor: remote main and the fetched shared main are
+`999a5eabe00b282d605c72044c9bf8a15e3c8ee3`; subsequent main changes are disjoint
+COMPOSITION/writer work. The integration checkout is clean at b032 before this
+continuation. PR #2330 remains the same open draft, with that published head and
+its old stacked base. The attempted main retarget/title/body update was separately
+denied; its unchanged outcome was verified. Do not retry that metadata operation
+without relevant new approval or use another transport to bypass the denial.
+Keep predecessor refs, preview data and proof artifacts.
+
+### UI write ownership and invariants
+
+The new UI worker exclusively owns these six existing files for this correction:
+
+- `apps/live-control-ui/src/localWorld/worldGraphCanvas/WorldGraphCanvas.tsx`
+- `apps/live-control-ui/src/localWorld/worldGraphCanvas/worldGraphCanvas.css`
+- `apps/live-control-ui/src/localWorld/worldGraphCanvas/WorldGraphCanvas.test.tsx`
+- `apps/live-control-ui/src/nativeGraphDemo/NativeGraphDemo.tsx`
+- `apps/live-control-ui/src/nativeGraphDemo/nativeGraphDemo.css`
+- `apps/live-control-ui/src/nativeGraphDemo/NativeGraphDemo.test.tsx`
+
+The coordinator owns this handoff. No backend, auth, dependency, migration,
+registry, other route or shared global CSS lease is added. The existing managed
+World adapters are already wired to native read/create/connect; a read-only
+assessment of remaining initialization gaps does not allocate an implementation
+lease or turn the playground into a managed-World initializer.
+
+Make placement cancellation explicit in the palette and after selection but
+before native preparation. Escape must exit that unprepared placement state,
+with sensible focus and without losing typed input. Cancellation is presentation
+only: do not dispatch native writes, erase pending operation identities, discard
+uncertain outcomes, or imitate semantic cancellation. A pending native operation
+keeps the existing explicit review/recovery behavior.
+
+Move exploration help into a keyboard-focusable information control with an
+accessible hover/focus description and retained help content. Remove only neutral
+repeated counts from the embedded index; keep navbar counts, empty-state feedback,
+projection/omission warnings, action feedback and standalone/other-canvas defaults.
+Do not hide limitations or incomplete graph data in the name of visual cleanup.
+
+### Verification and preview ownership
+
+Run affected canvas/native surface tests and typecheck/build under the existing
+frontend lock. Freeze and independently review the exact successor, run the
+repository hosted verifier and discovered diagnostic with inherited failures
+preserved, then verify real-browser Escape/Cancel/re-entry, tooltip hover/focus,
+count placement, unchanged native review boundaries and responsive layout.
+
+The task-owned production UI preview is loopback port 5382 against the retained
+synthetic API on 8382. Replace only its owned UI process/build after verification,
+using the same API and storage. Preserve old build/source, browser drafts, all
+native data and proof records. Do not restart or modify live Buddy 8000/5202,
+primary databases, other previews, or existing production configuration. Empty
+managed-World vNext initialization and hosted authentication expansion still need
+their owning design/authorization; do not invent either as a UI shortcut.
+
+### Loaded snapshot inspection continuation
+
+Alan clarified the requested wiring: "I mean that I want what graph is displayed
+in the visualizer to track with what graph is loaded. I want to be able to pick a
+point on that graph and zoom in and inspect." This is ACTIVE as the same bounded
+explorer continuation on the b032 source pin and same PR. Preserve the preceding
+feedback changes. No new API, schema, principal or graph publication contract is
+introduced.
+
+The canvas already uses the selected managed World's native explorer snapshot.
+The independent navbar Graph dialog currently fetches a fresh catalogue, so it
+can disagree with the displayed revision. On the index, make this control target
+the loaded canvas instead. Retain the independent browser on other routes.
+Selected managed objects must use the existing native inspection read route at
+the exact managed World, native World, binding version, revision and World-scope
+pin that produced the displayed snapshot. Do not fetch a newer catalogue first.
+Reject mismatched/stale replies and clear details when selection or loaded graph
+changes. Guest details may describe only the actual returned toy node/edges.
+
+Add an inspect/details panel using existing native record presentation. Selection
+and camera focus are separate actions: explicit Focus zooms to the selection;
+Exit focus restores the prior camera; Fit graph clears focus. Keep native pending
+review and recovery prominent and unchanged. Preserve partial/omission feedback,
+manual camera changes, drafts and World isolation. This is not a live subscription.
+
+The API/header worker additionally owns:
+
+- `apps/live-control-ui/src/nativeGraphDemo/nativeGraphDemoApi.ts`
+- `apps/live-control-ui/src/nativeGraphDemo/managedNativeGraphApi.ts`
+- `apps/live-control-ui/src/nativeGraphDemo/managedNativeGraphApi.test.ts`
+- `apps/live-control-ui/src/chrome/AppChromeWorldGraphStatus.tsx`
+- `apps/live-control-ui/src/chrome/AppChromeWorldGraphStatus.test.tsx`
+- `apps/live-control-ui/src/chrome/CompactAppNavigation.tsx`
+- `apps/live-control-ui/src/chrome/CompactAppNavigation.test.tsx`
+
+The existing six UI files remain exclusively with the UI worker, serialized after
+its annotated-feedback patch. Coordinate the optional inspection method and the
+index-only focus target before integration. The separately authorized hosted
+owner-access lane owns its own backend/auth transport work; App.tsx, WorldSelector,
+liveApi and HostedAuthGate paths are released to that lane, not edited here.
+
+Add regressions for displayed revision versus a concurrently advanced head,
+response pin rejection, invalidation/abort, stale selection, keyboard details,
+Focus/Exit camera restoration and Fit reset. Run final exact-source verification
+and browser evidence as above; record unchanged inherited failures honestly.
+
+Alan's colorful sortable/rearrangeable bubble-chart reference is the longer-term
+visual direction, not a claim that this slice finishes it. Use actual graph types
+and relationships; proximity must not imply a relationship and no importance
+metric is invented. Keep stable positions and camera behavior as the foundation.
+
+The final pre-freeze re-anchor observed main
+`af88d3ac71232d02fe9f4cde72ae5cca50f4fe32`. Its delta from the preceding 999a5eab
+observation is proposal-history and ingestion work, with no overlapping graph
+feedback paths or agent-policy changes. This branch retains its existing e988
+merge base; no unrelated main change is reverted or imported during verification.
+The separately authorized hosted owner-access lane is a dependent successor, not
+part of this UI acceptance claim. It must reconcile the finalized parent SHA and
+run its own cumulative exact-source checks.
+
+The implemented inspection boundary registers validated graph objects from read,
+existing-object preparation, confirmation and operation recovery against immutable
+native inspection pins. A later head advance does not retarget an already loaded
+snapshot. Selection inspection remains read-only, and valid unavailable entities
+are shown as unavailable rather than replaced by a guest object. The index Graph
+button focuses the canvas without opening an independent latest-head dialog or
+changing the URL. Non-index Graph browsers retain their existing behavior.
+
+The feedback also covers first measured fit versus subsequent panel resizing,
+selection/focus reset on a changed snapshot, explicit Close details and Exit
+focus, and keyboard restoration. Tooltip and placement exits are presentation
+changes, never semantic graph cancellations. Final exact-SHA and browser evidence
+is required before claiming preview acceptance; working-tree focused tests are
+only diagnostics.

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from "react";
 import type {
   CommitSemanticResult,
   LocalObjectId,
@@ -37,6 +37,7 @@ export interface CanvasConnectIntent {
 type NodeShape = "card" | "circle";
 
 export interface WorldGraphCanvasProps {
+  readonly canvasId?: string;
   readonly record: LocalWorldRecord;
   readonly editorDraftState?: { readonly version: number; readonly draft: WorldGraphEditorDraft | null };
   readonly onEditorDraftChange?: (draft: WorldGraphEditorDraft | null, version: number, expectedVersion?: number) => void;
@@ -53,7 +54,14 @@ export interface WorldGraphCanvasProps {
   readonly onCanvasCreateRequest?: (intent: CanvasCreateIntent) => void;
   readonly onConnectRequest?: (intent: CanvasConnectIntent) => void;
   readonly onSelectionChange?: (id: LocalObjectId | null) => void;
+  readonly cameraFocusRequest?: { readonly nodeId: LocalObjectId | null; readonly requestId: number };
+  readonly clearCameraFocusRequest?: number;
+  readonly clearSelectionRequest?: number;
+  readonly onCameraFocusChange?: (nodeId: LocalObjectId | null) => void;
   readonly interactionDisabled?: boolean;
+  readonly showSummaryCounts?: boolean;
+  /** Preserve the current camera on viewport changes after the first measured fit. */
+  readonly preserveCameraOnResize?: boolean;
 }
 
 export interface WorldGraphEditorDraft {
@@ -260,6 +268,7 @@ function messageForLayoutResult(result: WriteLayoutResult): string {
 }
 
 export function WorldGraphCanvas({
+  canvasId,
   record,
   editorDraftState,
   onEditorDraftChange,
@@ -276,7 +285,13 @@ export function WorldGraphCanvas({
   onCanvasCreateRequest,
   onConnectRequest,
   onSelectionChange,
+  cameraFocusRequest,
+  clearCameraFocusRequest,
+  clearSelectionRequest,
+  onCameraFocusChange,
   interactionDisabled = false,
+  showSummaryCounts = true,
+  preserveCameraOnResize = false,
 }: WorldGraphCanvasProps) {
   const projection = projectLocalWorldGraph(record, projectionOptions);
   const markerId = `world-graph-arrow-${useId().replace(/:/g, "")}`;
@@ -294,14 +309,23 @@ export function WorldGraphCanvas({
   const [status, setStatus] = useState("");
   const svgRef = useRef<SVGSVGElement>(null);
   const [viewport, setViewport] = useState({ width: WIDTH, height: HEIGHT });
+  const [viewportMeasured, setViewportMeasured] = useState(false);
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, zoom: 1 });
   const [dragPreview, setDragPreview] = useState<{ id: LocalObjectId; x: number; y: number } | null>(null);
   const [isPanning, setIsPanning] = useState(false);
   const [palette, setPalette] = useState<CanvasPalette | null>(null);
+  const [paletteSize, setPaletteSize] = useState<{ readonly width: number; readonly height: number } | null>(null);
   const [connectPreview, setConnectPreview] = useState<{ sourceId: LocalObjectId; point: GraphPoint } | null>(null);
   const gestureRef = useRef<CanvasGesture | null>(null);
+  const paletteRef = useRef<HTMLDivElement>(null);
   const paletteFirstActionRef = useRef<HTMLButtonElement>(null);
-  const paletteTriggerRef = useRef<HTMLElement | null>(null);
+  const paletteFocusPendingRef = useRef(false);
+  const paletteTriggerRef = useRef<HTMLElement | SVGSVGElement | null>(null);
+  const originalCameraBeforeFocusRef = useRef<Camera | null>(null);
+  const lastCameraFocusRequestRef = useRef<number | null>(null);
+  const lastCameraFocusClearRequestRef = useRef<number | null>(null);
+  const lastSelectionClearRequestRef = useRef<number | null>(null);
+  const initialFitWorldRef = useRef<string | null>(null);
   const suppressClickRef = useRef<LocalObjectId | null>(null);
   const manualCameraRef = useRef(false);
   const renameVersionRef = useRef(0);
@@ -336,6 +360,7 @@ export function WorldGraphCanvas({
     gestureRef.current = null;
     suppressClickRef.current = null;
     manualCameraRef.current = false;
+    originalCameraBeforeFocusRef.current = null;
     setCamera({ x: 0, y: 0, zoom: 1 });
   }
 
@@ -402,10 +427,14 @@ export function WorldGraphCanvas({
 
   useEffect(() => {
     const svg = svgRef.current;
-    if (!svg || typeof ResizeObserver === "undefined") return;
+    if (!svg || typeof ResizeObserver === "undefined") {
+      setViewportMeasured(true);
+      return;
+    }
     const observer = new ResizeObserver(([entry]) => {
       if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
         setViewport({ width: entry.contentRect.width, height: entry.contentRect.height });
+        setViewportMeasured(true);
       }
     });
     observer.observe(svg);
@@ -413,10 +442,64 @@ export function WorldGraphCanvas({
   }, []);
 
   useEffect(() => {
-    if (!manualCameraRef.current) setCamera(fittedCamera());
+    if (!manualCameraRef.current && (!preserveCameraOnResize || viewportMeasured && initialFitWorldRef.current !== record.snapshot.worldId)) {
+      setCamera(fittedCamera());
+      if (preserveCameraOnResize && viewportMeasured) initialFitWorldRef.current = record.snapshot.worldId;
+    }
     // Fit initial visibility and responsive size, never re-fit after user pan/zoom or node edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewport.width, viewport.height, record.snapshot.worldId]);
+  }, [viewport.width, viewport.height, viewportMeasured, record.snapshot.worldId, preserveCameraOnResize]);
+
+  useLayoutEffect(() => {
+    if (!cameraFocusRequest || lastCameraFocusRequestRef.current === cameraFocusRequest.requestId) return;
+    lastCameraFocusRequestRef.current = cameraFocusRequest.requestId;
+    if (cameraFocusRequest.nodeId === null) {
+      const previousCamera = originalCameraBeforeFocusRef.current;
+      originalCameraBeforeFocusRef.current = null;
+      if (previousCamera) {
+        manualCameraRef.current = true;
+        setCamera(previousCamera);
+      }
+      onCameraFocusChange?.(null);
+      return;
+    }
+    const node = projection.nodes.find((candidate) => candidate.id === cameraFocusRequest.nodeId);
+    if (!node) {
+      originalCameraBeforeFocusRef.current = null;
+      onCameraFocusChange?.(null);
+      return;
+    }
+    const rect = svgRef.current?.getBoundingClientRect();
+    const measuredViewport = {
+      width: rect?.width && rect.width > 0 ? rect.width : viewport.width,
+      height: rect?.height && rect.height > 0 ? rect.height : viewport.height,
+    };
+    if (measuredViewport.width !== viewport.width || measuredViewport.height !== viewport.height) {
+      setViewport(measuredViewport);
+    }
+    if (!originalCameraBeforeFocusRef.current) originalCameraBeforeFocusRef.current = camera;
+    const zoom = Math.max(camera.zoom, 1.35);
+    const centerX = node.x + dimensions.width / 2;
+    const centerY = node.y + dimensions.height / 2;
+    manualCameraRef.current = true;
+    setCamera({ zoom, x: measuredViewport.width / 2 - centerX * zoom,
+      y: measuredViewport.height / 2 - centerY * zoom });
+    onCameraFocusChange?.(node.id);
+  }, [camera, cameraFocusRequest, dimensions.height, dimensions.width, onCameraFocusChange, projection.nodes, viewport.height, viewport.width]);
+
+  useLayoutEffect(() => {
+    if (clearCameraFocusRequest === undefined || lastCameraFocusClearRequestRef.current === clearCameraFocusRequest) return;
+    lastCameraFocusClearRequestRef.current = clearCameraFocusRequest;
+    originalCameraBeforeFocusRef.current = null;
+    onCameraFocusChange?.(null);
+  }, [clearCameraFocusRequest, onCameraFocusChange]);
+
+  useEffect(() => {
+    if (clearSelectionRequest === undefined || lastSelectionClearRequestRef.current === clearSelectionRequest) return;
+    lastSelectionClearRequestRef.current = clearSelectionRequest;
+    setSelectedIds([]);
+    onSelectionChange?.(null);
+  }, [clearSelectionRequest, onSelectionChange]);
 
   useEffect(() => {
     // A new controlled revision invalidates an unfinished drag, rather than saving it over newer layout.
@@ -427,8 +510,31 @@ export function WorldGraphCanvas({
     setPalette(null);
   }, [record.snapshot.worldId, record.localRevision, record.layoutRevision]);
 
-  useEffect(() => {
-    if (palette) paletteFirstActionRef.current?.focus();
+  const creationSignature = creationKinds?.map((item) => `${item.kind}:${item.label}`).join("|") ?? "";
+
+  useLayoutEffect(() => {
+    if (!palette) return;
+    if (paletteFocusPendingRef.current) {
+      paletteFocusPendingRef.current = false;
+      paletteFirstActionRef.current?.focus();
+    }
+    const rect = paletteRef.current?.getBoundingClientRect();
+    if (!rect || rect.width <= 0 || rect.height <= 0) return;
+    const next = { width: Math.ceil(rect.width), height: Math.ceil(rect.height) };
+    setPaletteSize((current) => current?.width === next.width && current.height === next.height ? current : next);
+  }, [palette, creationSignature, viewport.width, viewport.height]);
+
+  useLayoutEffect(() => {
+    if (!palette) return;
+    const onGlobalKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setPalette(null);
+      queueMicrotask(() => paletteTriggerRef.current?.focus());
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    window.addEventListener("keydown", onGlobalKeyDown, true);
+    return () => window.removeEventListener("keydown", onGlobalKeyDown, true);
   }, [palette]);
 
   useEffect(() => {
@@ -445,9 +551,12 @@ export function WorldGraphCanvas({
     };
   }
 
-  function openPalette(point: GraphPoint) {
+  function openPalette(point: GraphPoint, trigger?: HTMLElement | SVGSVGElement | null) {
     if (interactionDisabled || !onCanvasCreateRequest || !creationKinds?.length) return;
-    paletteTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    paletteTriggerRef.current = trigger
+      ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    paletteFocusPendingRef.current = true;
+    setPaletteSize(null);
     setPalette({ point });
   }
 
@@ -455,11 +564,12 @@ export function WorldGraphCanvas({
     openPalette({
       x: Math.max(0, Math.min(MAX_NODE_COORDINATE, (viewport.width / 2 - camera.x) / camera.zoom)),
       y: Math.max(0, Math.min(MAX_NODE_COORDINATE, (viewport.height / 2 - camera.y) / camera.zoom)),
-    });
+    }, document.activeElement instanceof HTMLElement ? document.activeElement : null);
   }
 
   function closePalette(restoreFocus = false) {
     setPalette(null);
+    paletteFocusPendingRef.current = false;
     if (restoreFocus) queueMicrotask(() => paletteTriggerRef.current?.focus());
   }
 
@@ -488,13 +598,27 @@ export function WorldGraphCanvas({
         y: viewport.height / 2 - (viewport.height / 2 - current.y) * ratio };
     });
   }
+  function fitGraph() {
+    cancelGesture();
+    manualCameraRef.current = true;
+    originalCameraBeforeFocusRef.current = null;
+    setCamera(fittedCamera());
+    onCameraFocusChange?.(null);
+  }
   const nodeNames = new Map(projection.nodes.map((node) => [node.id, node.name]));
   const renderedEdges = renderEdges(projection.edges, positions, nodeShape);
   const connectTargetId = connectPreview ? nodeAt(connectPreview.point) : null;
-  const paletteScreen = palette ? {
-    x: Math.max(8, Math.min(viewport.width - 216, camera.x + palette.point.x * camera.zoom)),
-    y: Math.max(8, Math.min(viewport.height - 120, camera.y + palette.point.y * camera.zoom)),
-  } : null;
+  const paletteScreen = palette ? (() => {
+    if (!paletteSize) return { x: 8, y: 8 };
+    const desiredX = camera.x + palette.point.x * camera.zoom;
+    const desiredY = camera.y + palette.point.y * camera.zoom;
+    const maxX = Math.max(8, viewport.width - paletteSize.width - 8);
+    const maxY = Math.max(8, viewport.height - paletteSize.height - 8);
+    return {
+      x: Math.max(8, Math.min(maxX, desiredX)),
+      y: Math.max(8, Math.min(maxY, desiredY)),
+    };
+  })() : null;
 
   function selectNode(id: LocalObjectId) {
     if (showRelationshipForm) relationshipKindVersionRef.current += 1;
@@ -643,7 +767,7 @@ export function WorldGraphCanvas({
       const targetId = nodeAt(graphPointAt(event.clientX, event.clientY, gesture.camera));
       if (targetId) emitConnectRequest(gesture.sourceId, targetId);
     } else if (!gesture.moved && gesture.kind === "pan") {
-      openPalette(graphPointAt(event.clientX, event.clientY, gesture.camera));
+      openPalette(graphPointAt(event.clientX, event.clientY, gesture.camera), svgRef.current);
     } else if (gesture.moved && gesture.node && onMoveObjects && !interactionDisabled) {
       suppressClickRef.current = gesture.node.id;
       const x = Math.max(0, Math.min(MAX_NODE_COORDINATE, gesture.node.x + (event.clientX - gesture.pointerX) * gesture.scaleX / gesture.camera.zoom));
@@ -721,9 +845,10 @@ export function WorldGraphCanvas({
   }
 
   return (
-    <section className="world-graph-canvas" aria-label="Local World graph canvas" aria-busy={busy}
+    <section id={canvasId} tabIndex={canvasId ? -1 : undefined} className="world-graph-canvas" aria-label="Local World graph canvas" aria-busy={busy}
       onKeyDown={(event) => {
         if (event.key !== "Escape") return;
+        if (!palette && !gestureRef.current) return;
         cancelGesture();
         if (palette) closePalette(true);
         event.preventDefault();
@@ -780,7 +905,7 @@ export function WorldGraphCanvas({
         <button type="button" aria-label="Zoom out" disabled={camera.zoom <= MIN_ZOOM} onClick={() => zoomBy(1 / 1.25)}>−</button>
         <span aria-label="Graph zoom">{Math.round(camera.zoom * 100)}%</span>
         <button type="button" aria-label="Zoom in" disabled={camera.zoom >= MAX_ZOOM} onClick={() => zoomBy(1.25)}>+</button>
-        <button type="button" onClick={() => { cancelGesture(); manualCameraRef.current = true; setCamera(fittedCamera()); }}>Fit graph</button>
+        <button type="button" onClick={fitGraph}>Fit graph</button>
         <button type="button" onClick={() => zoomBy(1 / camera.zoom)}>100%</button>
       </div>
       <p className="world-graph-canvas__hint" id={`${markerId}-help`}>
@@ -803,7 +928,14 @@ export function WorldGraphCanvas({
           onPointerCancel={cancelGesture}
           onLostPointerCapture={cancelGesture}
           onKeyDown={(event) => {
-            if (event.key === "Escape") { cancelGesture(); return; }
+            if (event.key === "Escape") {
+              if (gestureRef.current) {
+                event.preventDefault();
+                event.stopPropagation();
+                cancelGesture();
+              }
+              return;
+            }
             if (event.target !== event.currentTarget) return;
             if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
               event.preventDefault();
@@ -814,7 +946,7 @@ export function WorldGraphCanvas({
                 y: current.y + (event.key === "ArrowUp" ? amount : event.key === "ArrowDown" ? -amount : 0) }));
             } else if (["+", "=", "-", "0"].includes(event.key)) {
               event.preventDefault();
-              if (event.key === "0") { cancelGesture(); manualCameraRef.current = true; setCamera(fittedCamera()); }
+              if (event.key === "0") fitGraph();
               else zoomBy(event.key === "-" ? 1 / 1.25 : 1.25);
             }
           }}
@@ -894,23 +1026,29 @@ export function WorldGraphCanvas({
           </g>
           </g>
         </svg>
-        {palette && paletteScreen && creationKinds?.length ? <div className="world-graph-canvas__palette" role="group" aria-label="Choose node type"
+        {palette && paletteScreen && creationKinds?.length ? <div ref={paletteRef} className="world-graph-canvas__palette" role="group" aria-label="Choose node type"
           style={{ left: paletteScreen.x, top: paletteScreen.y }} data-testid="node-palette"
           data-position-x={palette.point.x} data-position-y={palette.point.y}>
-          <span className="world-graph-canvas__palette-title">Place a node here</span>
-          {creationKinds.map((item, index) => <button type="button" key={item.kind} ref={index === 0 ? paletteFirstActionRef : undefined}
-            onClick={() => {
-              onCanvasCreateRequest?.({ kind: item.kind, position: palette.point });
-              closePalette();
-              setStatus(`${item.label} draft opened.`);
-            }}>{item.label}</button>)}
-          <button type="button" onClick={() => closePalette(true)}>Cancel</button>
+          <div className="world-graph-canvas__palette-header">
+            <span className="world-graph-canvas__palette-title">Place a node here</span>
+          </div>
+          <div className="world-graph-canvas__palette-choices" aria-label="Node types">
+            {creationKinds.map((item, index) => <button type="button" key={item.kind} ref={index === 0 ? paletteFirstActionRef : undefined}
+              onClick={() => {
+                onCanvasCreateRequest?.({ kind: item.kind, position: palette.point });
+                closePalette();
+                setStatus(`${item.label} draft opened.`);
+              }}>{item.label}</button>)}
+          </div>
+          <div className="world-graph-canvas__palette-actions">
+            <button type="button" className="world-graph-canvas__palette-cancel" aria-keyshortcuts="Escape" onClick={() => closePalette(true)}>Cancel placement</button>
+          </div>
         </div> : null}
       </div>
 
       <div className="world-graph-canvas__feedback" role="status" aria-live="polite">
         {status || (projection.nodes.length || projection.omittedNodes
-          ? `${projection.nodes.length}${projection.omittedNodes ? " displayed" : ""} objects · ${projection.edges.length}${projection.omittedEdges ? " displayed" : ""} relationships`
+          ? showSummaryCounts ? `${projection.nodes.length}${projection.omittedNodes ? " displayed" : ""} objects · ${projection.edges.length}${projection.omittedEdges ? " displayed" : ""} relationships` : ""
           : "This World has no objects yet. Add an object to begin.")}
       </div>
       {projection.omittedNodes || projection.omittedEdges ? <p className="world-graph-canvas__diagnostic">Showing a bounded view. {projection.omittedNodes} objects and {projection.omittedEdges} relationships omitted.</p> : null}

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { StrictMode } from "react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -233,11 +233,109 @@ describe("WorldGraphCanvas", () => {
     await user.click(within(palette).getByRole("button", { name: "Person" }));
     expect(onCanvasCreateRequest).toHaveBeenCalledExactlyOnceWith({ kind: "person", position: expected });
 
-    await user.click(screen.getByRole("button", { name: "Place node" }));
-    expect(screen.getByTestId("node-palette")).toBeVisible();
-    fireEvent.keyDown(screen.getByRole("button", { name: "Person" }), { key: "Escape" });
+    const trigger = screen.getByRole("button", { name: "Place node" });
+    await user.click(trigger);
+    const nextPalette = screen.getByTestId("node-palette");
+    expect(nextPalette).toBeVisible();
+    const cancel = within(nextPalette).getByRole("button", { name: "Cancel placement" });
+    expect(cancel).toHaveAttribute("aria-keyshortcuts", "Escape");
+    await user.click(cancel);
     expect(screen.queryByTestId("node-palette")).not.toBeInTheDocument();
+    await waitFor(() => expect(trigger).toHaveFocus());
     expect(onCanvasCreateRequest).toHaveBeenCalledTimes(1);
+
+    await user.click(trigger);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByTestId("node-palette")).not.toBeInTheDocument();
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(onCanvasCreateRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the exit visible and reachable in a short viewport after a blank-canvas click", async () => {
+    const user = userEvent.setup();
+    const { record } = await graphRecord();
+    let resize!: ResizeObserverCallback;
+    class TestResizeObserver {
+      constructor(callback: ResizeObserverCallback) { resize = callback; }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    vi.stubGlobal("ResizeObserver", TestResizeObserver);
+    const originalGetRect = HTMLDivElement.prototype.getBoundingClientRect;
+    vi.spyOn(HTMLDivElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLDivElement) {
+      if (this.classList.contains("world-graph-canvas__palette")) {
+        return { x: 0, y: 0, top: 0, left: 0, right: 160, bottom: 104, width: 160, height: 104, toJSON: () => ({}) };
+      }
+      return originalGetRect.call(this);
+    });
+    const onCanvasCreateRequest = vi.fn();
+    try {
+      render(<>
+        <button type="button">Outside canvas control</button>
+        <WorldGraphCanvas record={record} nodeShape="circle"
+          creationKinds={[{ kind: "person", label: "Person" }, { kind: "location", label: "Location" }]}
+          onCanvasCreateRequest={onCanvasCreateRequest} />
+      </>);
+
+      const svg = screen.getByRole("group", { name: "The Ember Coast world graph" });
+      captureRect(svg, 180, 120);
+      act(() => resize([{ contentRect: { width: 180, height: 120 } } as ResizeObserverEntry], {} as ResizeObserver));
+      dispatchPointer(svg, "pointerdown", { button: 0, pointerId: 50, clientX: 160, clientY: 110 });
+      dispatchPointer(svg, "pointerup", { pointerId: 50, clientX: 160, clientY: 110 });
+
+      const palette = screen.getByTestId("node-palette");
+      const choices = palette.querySelector(".world-graph-canvas__palette-choices")!;
+      const cancel = within(palette).getByRole("button", { name: "Cancel placement" });
+      expect(palette.style.left).toBe("12px");
+      expect(palette.style.top).toBe("8px");
+      expect(cancel).toBeVisible();
+      expect(choices).not.toContainElement(cancel);
+      expect(screen.getByRole("button", { name: "Person" })).toHaveFocus();
+
+      await user.tab();
+      await user.tab();
+      expect(cancel).toHaveFocus();
+      act(() => resize([{ contentRect: { width: 220, height: 160 } } as ResizeObserverEntry], {} as ResizeObserver));
+      expect(cancel).toHaveFocus();
+      await user.keyboard("{Enter}");
+      expect(screen.queryByTestId("node-palette")).not.toBeInTheDocument();
+      await waitFor(() => expect(svg).toHaveFocus());
+      expect(onCanvasCreateRequest).not.toHaveBeenCalled();
+
+      dispatchPointer(svg, "pointerdown", { button: 0, pointerId: 51, clientX: 150, clientY: 100 });
+      dispatchPointer(svg, "pointerup", { pointerId: 51, clientX: 150, clientY: 100 });
+      expect(screen.getByTestId("node-palette")).toBeVisible();
+      screen.getByRole("button", { name: "Outside canvas control" }).focus();
+      await user.keyboard("{Escape}");
+      expect(screen.queryByTestId("node-palette")).not.toBeInTheDocument();
+      await waitFor(() => expect(svg).toHaveFocus());
+      expect(onCanvasCreateRequest).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("keeps empty-state and interaction feedback when neutral graph counts are hidden", async () => {
+    const user = userEvent.setup();
+    const { record } = await graphRecord();
+    const onConnectRequest = vi.fn();
+    const { rerender } = render(<WorldGraphCanvas record={record} onConnectRequest={onConnectRequest} />);
+    const feedback = document.querySelector(".world-graph-canvas__feedback")!;
+    expect(feedback).toHaveTextContent("4 objects · 4 relationships");
+    rerender(<WorldGraphCanvas record={record} onConnectRequest={onConnectRequest} showSummaryCounts={false} />);
+    expect(feedback).toBeEmptyDOMElement();
+
+    await user.click(screen.getByRole("button", { name: "Mara Venn, person" }));
+    await user.click(screen.getByRole("button", { name: "Tomas Reed, person" }));
+    await user.click(screen.getByRole("button", { name: "Connect selected nodes" }));
+    expect(feedback).toHaveTextContent("Connection draft opened.");
+    expect(onConnectRequest).toHaveBeenCalledExactlyOnceWith({ sourceId: record.snapshot.objects[0].id, targetId: record.snapshot.objects[1].id });
+
+    const emptyRecord = { ...record, snapshot: { ...record.snapshot, objects: [], relationships: [] } };
+    const emptyView = render(<WorldGraphCanvas record={emptyRecord} showSummaryCounts={false} />);
+    expect(emptyView.container.querySelector(".world-graph-canvas__feedback")).toHaveTextContent("This World has no objects yet. Add an object to begin.");
   });
 
   it("captures connector-dot drags, previews a curve and emits only real-node drops", async () => {

@@ -82,9 +82,13 @@
 .world-graph-canvas__node-port { fill: var(--graph-gold); stroke: #fffdf7; stroke-width: 2; cursor: crosshair; }
 .world-graph-canvas__node-port:hover { fill: #755619; stroke-width: 3; }
 .world-graph-canvas__connect-preview { fill: none; stroke: #9a742f; stroke-width: 3; stroke-dasharray: 8 6; pointer-events: none; }
-.world-graph-canvas__palette { position: absolute; z-index: 2; display: grid; gap: 6px; width: max-content; max-width: min(220px, calc(100% - 16px)); padding: 10px; border: 1px solid #b9aa87; border-radius: 10px; background: #fffdf7; box-shadow: 0 8px 24px #29251d2b; }
+.world-graph-canvas__palette { position: absolute; z-index: 2; display: flex; flex-direction: column; gap: 6px; box-sizing: border-box; width: max-content; max-width: min(220px, calc(100% - 16px)); max-height: calc(100% - 16px); overflow: hidden; padding: 10px; border: 1px solid #b9aa87; border-radius: 10px; background: #fffdf7; box-shadow: 0 8px 24px #29251d2b; }
+.world-graph-canvas__palette-header { display: grid; flex: 0 0 auto; gap: 6px; min-width: 0; }
 .world-graph-canvas__palette-title { color: var(--graph-muted); font-size: 12px; font-weight: 700; }
-.world-graph-canvas__palette button { min-height: 32px; padding: 4px 10px; text-align: left; }
+.world-graph-canvas__palette-choices { display: grid; flex: 1 1 auto; gap: 6px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.world-graph-canvas__palette-actions { flex: 0 0 auto; padding-top: 4px; border-top: 1px solid #e5ddca; }
+.world-graph-canvas__palette button { box-sizing: border-box; min-width: 0; max-width: 100%; min-height: 32px; padding: 4px 10px; text-align: left; white-space: normal; }
+.world-graph-canvas__palette-cancel { width: 100%; border-color: #9a742f !important; font-weight: 700 !important; }
 .world-graph-canvas__node-kind { fill: var(--graph-muted); font-size: 11px; text-transform: capitalize; }
 .world-graph-canvas__node-name { fill: var(--graph-ink); font-size: 15px; font-weight: 700; }
 .world-graph-canvas__feedback { min-height: 24px; padding-top: 8px; color: #484130; }
