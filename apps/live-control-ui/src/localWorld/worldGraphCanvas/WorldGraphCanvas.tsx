@@ -86,6 +86,7 @@ interface EdgeGeometry {
   readonly path: string;
   readonly labelX: number;
   readonly labelY: number;
+  readonly bounds: { readonly left: number; readonly top: number; readonly right: number; readonly bottom: number };
 }
 
 function edgeGeometry(
@@ -98,7 +99,7 @@ function edgeGeometry(
 ): EdgeGeometry {
   const from = positions.get(edge.fromObjectId)!;
   const to = positions.get(edge.toObjectId)!;
-  if (edge.fromObjectId === edge.toObjectId) {
+  if (edge.fromObjectId === edge.toObjectId || (from.x === to.x && from.y === to.y)) {
     // Concentric loops put their plates side by side, with no shared label band.
     const spread = parallelIndex * (labelWidth + 12) * 4 / 3;
     const start = { x: from.x + NODE_WIDTH + 5, y: from.y + 15 };
@@ -109,6 +110,8 @@ function edgeGeometry(
       path: `M ${start.x} ${start.y} C ${controlOne.x} ${controlOne.y} ${controlTwo.x} ${controlTwo.y} ${end.x} ${end.y}`,
       labelX: (start.x + 3 * controlOne.x + 3 * controlTwo.x + end.x) / 8 + 4,
       labelY: (start.y + 3 * controlOne.y + 3 * controlTwo.y + end.y) / 8,
+      bounds: { left: Math.min(start.x, end.x, controlOne.x, controlTwo.x), top: Math.min(start.y, end.y, controlOne.y, controlTwo.y),
+        right: Math.max(start.x, end.x, controlOne.x, controlTwo.x), bottom: Math.max(start.y, end.y, controlOne.y, controlTwo.y) },
     };
   }
   const start = { x: from.x + NODE_WIDTH / 2, y: from.y + NODE_HEIGHT / 2 };
@@ -141,7 +144,27 @@ function edgeGeometry(
     path: `M ${pathStart.x} ${pathStart.y} Q ${control.x} ${control.y} ${pathEnd.x} ${pathEnd.y}`,
     labelX: (start.x + 2 * control.x + end.x) / 4,
     labelY: (start.y + 2 * control.y + end.y) / 4 - (tight ? NODE_HEIGHT + 30 : 0),
+    bounds: { left: Math.min(pathStart.x, pathEnd.x, control.x), top: Math.min(pathStart.y, pathEnd.y, control.y),
+      right: Math.max(pathStart.x, pathEnd.x, control.x), bottom: Math.max(pathStart.y, pathEnd.y, control.y) },
   };
+}
+
+function renderEdges(edges: readonly ProjectedGraphEdge[], positions: ReadonlyMap<string, { x: number; y: number }>) {
+  const edgeGroups = new Map<string, { count: number; width: number; height: number }>();
+  for (const edge of edges) {
+    const key = [edge.fromObjectId, edge.toObjectId].sort().join("\u0000");
+    const previous = edgeGroups.get(key) ?? { count: 0, width: 0, height: 0 };
+    const box = labelBox(edge.kind);
+    edgeGroups.set(key, { count: previous.count + 1, width: Math.max(previous.width, box.width), height: Math.max(previous.height, box.height) });
+  }
+  const edgeGroupIndexes = new Map<string, number>();
+  return edges.map((edge) => {
+    const key = [edge.fromObjectId, edge.toObjectId].sort().join("\u0000");
+    const index = edgeGroupIndexes.get(key) ?? 0;
+    edgeGroupIndexes.set(key, index + 1);
+    const group = edgeGroups.get(key)!;
+    return { edge, box: labelBox(edge.kind), geometry: edgeGeometry(edge, positions, index, group.count, group.width, group.height) };
+  });
 }
 
 function accessibleRelationshipLabel(
@@ -286,20 +309,15 @@ export function WorldGraphCanvas({
 
   function fittedCamera(): Camera {
     if (!projection.nodes.length) return { x: 0, y: 0, zoom: 1 };
-    const xs = projection.nodes.map((node) => node.x);
-    const ys = projection.nodes.map((node) => node.y);
-    const left = Math.min(...xs) - 72;
-    const top = Math.min(...ys) - 80;
-    const loopGroups = new Map<string, { count: number; width: number }>();
-    for (const edge of projection.edges) {
-      if (edge.fromObjectId !== edge.toObjectId) continue;
-      const previous = loopGroups.get(edge.fromObjectId) ?? { count: 0, width: 0 };
-      loopGroups.set(edge.fromObjectId, { count: previous.count + 1, width: Math.max(previous.width, labelBox(edge.kind).width) });
-    }
-    const rightPadding = Math.max(120, ...[...loopGroups.values()].map(({ count, width }) => 70 + count * (width + 12)));
-    const width = Math.max(...xs) + NODE_WIDTH + rightPadding - left;
-    const height = Math.max(...ys) + NODE_HEIGHT + 80 - top;
-    const zoom = Math.max(MIN_ZOOM, Math.min(1, viewport.width / width, viewport.height / height));
+    const edges = renderEdges(projection.edges, new Map(projection.nodes.map((node) => [node.id, { x: node.x, y: node.y }])));
+    const left = Math.min(...projection.nodes.map((node) => node.x), ...edges.flatMap(({ geometry, box }) => [geometry.bounds.left, geometry.labelX - box.width / 2])) - 56;
+    const top = Math.min(...projection.nodes.map((node) => node.y), ...edges.flatMap(({ geometry, box }) => [geometry.bounds.top, geometry.labelY - box.height / 2])) - 56;
+    const right = Math.max(...projection.nodes.map((node) => node.x + NODE_WIDTH), ...edges.flatMap(({ geometry, box }) => [geometry.bounds.right, geometry.labelX + box.width / 2])) + 56;
+    const bottom = Math.max(...projection.nodes.map((node) => node.y + NODE_HEIGHT), ...edges.flatMap(({ geometry, box }) => [geometry.bounds.bottom, geometry.labelY + box.height / 2])) + 56;
+    const width = right - left;
+    const height = bottom - top;
+    // Fit includes every visible edge/plate even when the bounded graph needs a scale below manual zoom-out.
+    const zoom = Math.min(1, viewport.width / width, viewport.height / height);
     return { x: (viewport.width - width * zoom) / 2 - left * zoom,
       y: (viewport.height - height * zoom) / 2 - top * zoom, zoom };
   }
@@ -333,28 +351,14 @@ export function WorldGraphCanvas({
     cancelGesture();
     manualCameraRef.current = true;
     setCamera((current) => {
-      const zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, current.zoom * factor));
+      const zoom = Math.max(Math.min(MIN_ZOOM, current.zoom), Math.min(MAX_ZOOM, current.zoom * factor));
       const ratio = zoom / current.zoom;
       return { zoom, x: viewport.width / 2 - (viewport.width / 2 - current.x) * ratio,
         y: viewport.height / 2 - (viewport.height / 2 - current.y) * ratio };
     });
   }
   const nodeNames = new Map(projection.nodes.map((node) => [node.id, node.name]));
-  const edgeGroups = new Map<string, { count: number; width: number; height: number }>();
-  for (const edge of projection.edges) {
-    const key = [edge.fromObjectId, edge.toObjectId].sort().join("\u0000");
-    const previous = edgeGroups.get(key) ?? { count: 0, width: 0, height: 0 };
-    const box = labelBox(edge.kind);
-    edgeGroups.set(key, { count: previous.count + 1, width: Math.max(previous.width, box.width), height: Math.max(previous.height, box.height) });
-  }
-  const edgeGroupIndexes = new Map<string, number>();
-  const renderedEdges = projection.edges.map((edge) => {
-    const key = [edge.fromObjectId, edge.toObjectId].sort().join("\u0000");
-    const index = edgeGroupIndexes.get(key) ?? 0;
-    edgeGroupIndexes.set(key, index + 1);
-    const group = edgeGroups.get(key)!;
-    return { edge, box: labelBox(edge.kind), geometry: edgeGeometry(edge, positions, index, group.count, group.width, group.height) };
-  });
+  const renderedEdges = renderEdges(projection.edges, positions);
 
   function selectNode(id: LocalObjectId) {
     if (showRelationshipForm) relationshipKindVersionRef.current += 1;

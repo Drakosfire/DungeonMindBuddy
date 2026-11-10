@@ -548,7 +548,7 @@ describe("WorldGraphCanvas", () => {
     expect(edge.querySelector("path")?.getAttribute("d")).not.toContain("M 164 118 ");
   });
 
-  it.each(["vertical reciprocal", "horizontal multiline", "self loops"])("keeps %s predicate plates disjoint", async (shape) => {
+  it.each(["vertical reciprocal", "horizontal multiline", "self loops", "coincident endpoints"])("keeps %s predicate plates disjoint", async (shape) => {
     const { record } = await graphRecord();
     const [first, second] = record.snapshot.objects;
     const relationships = [0, 1, 2].map((index) => ({ ...record.snapshot.relationships[0],
@@ -557,7 +557,7 @@ describe("WorldGraphCanvas", () => {
       toObjectId: shape === "self loops" || (shape === "vertical reciprocal" && index === 1) ? first.id : second.id,
       kind: shape === "horizontal multiline" ? "has promised to protect during the winter gathering and beyond" : "attends",
     }));
-    const positions = { [first.id]: { x: 100, y: 100 }, [second.id]: shape === "vertical reciprocal" ? { x: 100, y: 500 } : { x: 700, y: 100 } };
+    const positions = { [first.id]: { x: 100, y: 100 }, [second.id]: shape === "vertical reciprocal" ? { x: 100, y: 500 } : shape === "coincident endpoints" ? { x: 100, y: 100 } : { x: 700, y: 100 } };
     render(<WorldGraphCanvas record={{ ...record, snapshot: { ...record.snapshot, relationships }, layout: { ...record.layout, positions } }} />);
     const plates = [...document.querySelectorAll(".world-graph-canvas__edge-label")].map((element) => ({
       x: Number(element.getAttribute("x")), y: Number(element.getAttribute("y")),
@@ -570,6 +570,39 @@ describe("WorldGraphCanvas", () => {
         expect(a.x + a.width < b.x || b.x + b.width < a.x || a.y + a.height < b.y || b.y + b.height < a.y).toBe(true);
       }
     }
+  });
+
+  it("fits all multiline parallel and reciprocal predicate plates into a narrow viewport", async () => {
+    const { record } = await graphRecord();
+    const [first, second] = record.snapshot.objects;
+    let resize!: ResizeObserverCallback;
+    class TestResizeObserver {
+      constructor(callback: ResizeObserverCallback) { resize = callback; }
+      observe() {} unobserve() {} disconnect() {}
+    }
+    vi.stubGlobal("ResizeObserver", TestResizeObserver);
+    try {
+      const relationships = Array.from({ length: 7 }, (_, index) => ({ ...record.snapshot.relationships[0],
+        id: `${record.snapshot.worldId}:relationship:fit-${index}` as LocalWorldRelationship["id"],
+        fromObjectId: index % 2 ? second.id : first.id, toObjectId: index % 2 ? first.id : second.id,
+        kind: "abcdefghijklmnopqrstuvwx protects the winter gathering and beyond",
+      }));
+      const positions = { [first.id]: { x: 100, y: 100 }, [second.id]: { x: 100, y: 500 } };
+      render(<WorldGraphCanvas record={{ ...record, snapshot: { ...record.snapshot, objects: [first, second], relationships }, layout: { ...record.layout, positions } }} />);
+      act(() => resize([{ contentRect: { width: 600, height: 520 } } as ResizeObserverEntry], {} as ResizeObserver));
+      fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+      fireEvent.click(screen.getByRole("button", { name: "Fit graph" }));
+      const transform = screen.getByTestId("graph-scene").getAttribute("transform")!;
+      const [, x, y, zoom] = transform.match(/translate\(([-.\d]+) ([-.\d]+)\) scale\(([-.\d]+)\)/)!.map(Number);
+      for (const plate of document.querySelectorAll(".world-graph-canvas__edge-label")) {
+        const left = Number(plate.getAttribute("x")); const top = Number(plate.getAttribute("y"));
+        const right = left + Number(plate.getAttribute("width")); const bottom = top + Number(plate.getAttribute("height"));
+        expect(left * zoom + x).toBeGreaterThanOrEqual(0);
+        expect(top * zoom + y).toBeGreaterThanOrEqual(0);
+        expect(right * zoom + x).toBeLessThanOrEqual(600);
+        expect(bottom * zoom + y).toBeLessThanOrEqual(520);
+      }
+    } finally { vi.unstubAllGlobals(); }
   });
 
   it("keeps stale conflict candidates and reports them without replacing the controlled graph", async () => {
