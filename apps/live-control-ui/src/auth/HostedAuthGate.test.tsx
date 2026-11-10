@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useEffect, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { HostedAuthGate } from "./HostedAuthGate";
+import { HostedAuthGate, useHostedAuthStatus } from "./HostedAuthGate";
 
 function response(status: number, payload: Record<string, string>): Response {
   return {
@@ -68,7 +69,7 @@ describe("HostedAuthGate", () => {
   it("offers retry while DMS session status is unavailable", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(response(503, { status: "unavailable" }))
-      .mockResolvedValueOnce(response(200, { status: "authenticated" }));
+      .mockResolvedValueOnce(response(200, { status: "authenticated", subject: "owner-a" }));
     vi.stubGlobal("fetch", fetchMock);
 
     render(<HostedAuthGate enabled><div>Protected Buddy screen</div></HostedAuthGate>);
@@ -87,9 +88,9 @@ describe("HostedAuthGate", () => {
     expect(screen.queryByRole("link", { name: "Sign in with DungeonMind" })).not.toBeInTheDocument();
   });
 
-  it("shows the app after prior authentication if status refresh is temporarily unavailable", async () => {
+  it("unmounts sensitive children when an authenticated refresh becomes unavailable", async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(response(200, { status: "authenticated" }))
+      .mockResolvedValueOnce(response(200, { status: "authenticated", subject: "owner-a" }))
       .mockResolvedValueOnce(response(503, { status: "unavailable" }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -97,13 +98,13 @@ describe("HostedAuthGate", () => {
     expect(await screen.findByText("Authenticated screen")).toBeInTheDocument();
     fireEvent(window, new Event("focus"));
 
-    expect(await screen.findByRole("status")).toHaveTextContent(/could not refresh your session status/i);
-    expect(screen.getByText("Authenticated screen")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Sign-in status is unavailable" })).toBeInTheDocument();
+    expect(screen.queryByText("Authenticated screen")).not.toBeInTheDocument();
   });
 
   it("returns to signed-out recovery when a focused tab discovers an expired session", async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(response(200, { status: "authenticated" }))
+      .mockResolvedValueOnce(response(200, { status: "authenticated", subject: "owner-a" }))
       .mockResolvedValueOnce(response(401, { status: "signed_out" }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -124,4 +125,50 @@ describe("HostedAuthGate", () => {
     expect(screen.getByText("Local screen")).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
   });
+});
+
+function AccountState({ onUnmount }: { onUnmount?: () => void }) {
+  const { subject } = useHostedAuthStatus();
+  const [draft, setDraft] = useState("");
+  useEffect(() => () => onUnmount?.(), [onUnmount]);
+  return <><p>{subject}</p><input aria-label="Account draft" value={draft} onChange={event => setDraft(event.target.value)} /></>;
+}
+
+it("replaces the whole account subtree on subject change and preserves it for the same subject", async () => {
+  const onUnmount = vi.fn();
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(response(200, { status: "authenticated", subject: "owner-a" }))
+    .mockResolvedValueOnce(response(200, { status: "authenticated", subject: "owner-a" }))
+    .mockResolvedValueOnce(response(200, { status: "authenticated", subject: "owner-b" }));
+  vi.stubGlobal("fetch", fetchMock);
+  render(<HostedAuthGate enabled><AccountState onUnmount={onUnmount} /></HostedAuthGate>);
+  await screen.findByText("owner-a");
+  fireEvent.change(screen.getByLabelText("Account draft"), { target: { value: "Private A draft" } });
+  await act(async () => { fireEvent(window, new Event("focus")); });
+  expect(screen.getByLabelText("Account draft")).toHaveValue("Private A draft");
+  expect(onUnmount).not.toHaveBeenCalled();
+  fireEvent(window, new Event("focus"));
+  await screen.findByText("owner-b");
+  expect(screen.getByLabelText("Account draft")).toHaveValue("");
+  expect(onUnmount).toHaveBeenCalledTimes(1);
+});
+
+it.each([undefined, "", "   ", " owner-a ", 42, null])("rejects an authenticated session with invalid subject %s", async subject => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(200, { status: "authenticated", subject } as Record<string, string>)));
+  render(<HostedAuthGate enabled><div>Private graph</div></HostedAuthGate>);
+  await screen.findByText("Sign-in status is unavailable");
+  expect(screen.queryByText("Private graph")).not.toBeInTheDocument();
+});
+
+it("ignores an older account response after a newer logout response", async () => {
+  let resolveOld!: (value: Response) => void;
+  const fetchMock = vi.fn()
+    .mockReturnValueOnce(new Promise<Response>(resolve => { resolveOld = resolve; }))
+    .mockResolvedValueOnce(response(401, { status: "signed_out" }));
+  vi.stubGlobal("fetch", fetchMock);
+  render(<HostedAuthGate enabled><div>Private graph</div></HostedAuthGate>);
+  fireEvent(window, new Event("focus"));
+  await screen.findByRole("link", { name: "Sign in with DungeonMind" });
+  await act(async () => resolveOld(response(200, { status: "authenticated", subject: "old-owner" })));
+  expect(screen.queryByText("Private graph")).not.toBeInTheDocument();
 });

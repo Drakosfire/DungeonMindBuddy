@@ -194,6 +194,16 @@ let nativeGraphSessionRecovery: {
 } | null = null;
 export function getNativeGraphAccessGeneration(): number { return nativeGraphSessionEpoch; }
 
+let hostedGraphSubject: string | null = null;
+/** Ends old read acquisitions when the UI learns that account admission changed.
+ * This is cancellation/presentation isolation, never server authorization. */
+export function invalidateHostedGraphAccess(subject: string | null): void {
+  if (hostedGraphSubject === subject) return;
+  hostedGraphSubject = subject;
+  nativeGraphSessionEpoch += 1;
+  startReadWave();
+}
+
 export const NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT = "dmb:native-graph-access-token-changed";
 
 function localGraphSessionTarget(): string {
@@ -407,19 +417,66 @@ function isLoopbackApiDestination(requestUrl: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 }
 
+const HOSTED_EXPLORER_PATHS = new Set([
+  "/api/live/native-graph-explorer/graph",
+  "/api/live/native-graph-explorer/prepare",
+  "/api/live/native-graph-explorer/confirm",
+  "/api/live/native-graph-explorer/operations/read",
+]);
+
+function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
+  const method = (init?.method ?? "GET").toUpperCase();
+  if (path === "/api/live/world-containers") return method === "GET" && init?.body == null;
+  if (method !== "POST") return false;
+  if (HOSTED_EXPLORER_PATHS.has(path)) return true;
+  if (path !== "/api/live/native-graph-inspection/read") return false;
+  const body = requestBodyRecord(init?.body);
+  const selection = body?.selection;
+  const scope = body?.scope;
+  return typeof scope === "object" && scope !== null
+    && (scope as Record<string, unknown>).scope_mode === "world"
+    && (scope as Record<string, unknown>).campaign_id === null
+    && typeof selection === "object" && selection !== null
+    && (selection as Record<string, unknown>).kind === "entity";
+}
+
 function apiRequestTarget(
   path: string,
-  body: BodyInit | null | undefined,
-): { url: string; localGraphRequest: boolean } {
+  init?: RequestInit,
+): { url: string; localGraphRequest: boolean; hostedGraphRequest: boolean } {
   const url = `${baseUrl}${path}`;
-  const localGraphRequest = requiresNativeGraphAuthorization(path, body);
-  if (localGraphRequest && !isLoopbackApiDestination(url)) {
+  const localGraphRequest = requiresNativeGraphAuthorization(path, init?.body);
+  const pageUrl = typeof window === "undefined" ? undefined : window.location.href;
+  let normalizedPath = path;
+  try { normalizedPath = decodeURIComponent(new URL(path, pageUrl).pathname); } catch { /* Not an admitted hosted URL. */ }
+  const graphSurface = /^\/api\/live\/(?:native-graph-explorer|native-graph-inspection|world-containers)/.test(normalizedPath);
+  if (isLoopbackApiDestination(url)) return { url, localGraphRequest, hostedGraphRequest: false };
+  if (localGraphRequest || graphSurface) {
+    // Exact relative paths only: explicit API bases, URL credentials, queries,
+    // encoded/lookalike routes and insecure origins never enter hosted transport.
+    let secureSameOrigin = false;
+    try {
+      const page = new URL(pageUrl!);
+      const destination = new URL(url, page);
+      secureSameOrigin = !baseUrl && page.protocol === "https:"
+        && destination.origin === page.origin && !destination.username && !destination.password;
+    } catch { /* Fail closed. */ }
+    if (secureSameOrigin && isHostedGraphRequest(path, init)) {
+      return { url, localGraphRequest: false, hostedGraphRequest: true };
+    }
     throw new LiveApiError(
-      "Local operator Agent/Graph requests are blocked unless the configured API destination is loopback.",
+      "Local operator Agent/Graph requests require loopback; hosted graph requests require an exact same-origin HTTPS route.",
       0,
     );
   }
-  return { url, localGraphRequest };
+  return { url, localGraphRequest, hostedGraphRequest: false };
+}
+
+function hostedGraphHeaders(headers: Record<string, string>): Record<string, string> {
+  // Do not allow local bearer/session credentials or caller identity headers into
+  // this cookie-authenticated request. Ownership comes only from the server.
+  return Object.fromEntries(Object.entries(headers).filter(([key]) =>
+    ["accept", "content-type"].includes(key.toLowerCase())));
 }
 
 function headerRecord(headers: HeadersInit | undefined): Record<string, string> {
@@ -637,7 +694,7 @@ async function trustedLocalSessionRejection(response: Response): Promise<boolean
 async function authenticatedApiFetchOnce(path: string, init?: RequestInit): Promise<{
   response: Response; csrf: string | null; requestEpoch: number;
 }> {
-  const target = apiRequestTarget(path, init?.body);
+  const target = apiRequestTarget(path, init);
   // Keep immutable request bytes/CAS/correlation for the sole permitted retry.
   const frozenInit = { ...init, headers: headerRecord(init?.headers) };
   const dispatch = async (expectedEpoch?: number) => {
@@ -652,12 +709,24 @@ async function authenticatedApiFetchOnce(path: string, init?: RequestInit): Prom
     const usedBearer = Boolean(nativeGraphAccessToken);
     const response = await fetch(target.url, {
       ...frozenInit,
-      ...(target.localGraphRequest ? { redirect: "error" as const, credentials: "same-origin" as const } : {}),
-      headers: nativeGraphHeaders(path, frozenInit.body, {
+      ...(target.localGraphRequest || target.hostedGraphRequest
+        ? { redirect: "error" as const, credentials: "same-origin" as const } : {}),
+      ...(target.hostedGraphRequest ? { cache: "no-store" as const, mode: "same-origin" as const } : {}),
+      headers: target.hostedGraphRequest ? hostedGraphHeaders({ "Content-Type": "application/json", ...frozenInit.headers }) : nativeGraphHeaders(path, frozenInit.body, {
         "Content-Type": "application/json", ...frozenInit.headers,
         ...(csrf && (frozenInit.method ?? "GET").toUpperCase() !== "GET" ? { "X-DMB-Graph-CSRF": csrf } : {}),
       }),
     });
+    if (target.hostedGraphRequest) {
+      const assertCurrent = () => {
+        if (requestEpoch !== nativeGraphSessionEpoch || frozenInit.signal?.aborted) {
+          throw new LiveApiError("The signed-in account changed during this request. Check the saved operation before retrying.",
+            401, { code: "hosted_graph_session_changed" });
+        }
+      };
+      assertCurrent();
+      return { response: admittedReadResponse(response, assertCurrent), csrf: null, requestEpoch, usedBearer: false };
+    }
     return { response, csrf, requestEpoch, usedBearer };
   };
   const first = await dispatch();
@@ -765,7 +834,7 @@ export async function authenticatedApiFetch(path: string, init?: RequestInit): P
   response: Response; csrf: string | null; requestEpoch: number;
 }> {
   // Validate the destination before touching a shared acquisition.
-  apiRequestTarget(path, init?.body);
+  const target = apiRequestTarget(path, init);
   if (!isShareableRead(path, init)) {
     if (["GET", "HEAD"].includes((init?.method ?? "GET").toUpperCase())) return authenticatedApiFetchOnce(path, init);
     startReadWave();
@@ -786,7 +855,7 @@ export async function authenticatedApiFetch(path: string, init?: RequestInit): P
     .sort(([a], [b]) => a.localeCompare(b));
   const key = JSON.stringify([baseUrl, acquisitionEpoch, path, requestOptions]);
   const result = await shareInFlightRead(key, ownedSignal => {
-    if (acquisitionEpoch !== nativeGraphSessionEpoch || nativeGraphSessionRevoked) {
+    if (acquisitionEpoch !== nativeGraphSessionEpoch || !target.hostedGraphRequest && nativeGraphSessionRevoked) {
       throw new LiveApiError("Local session changed before this read. Retry deliberately.", 401,
         { code: "local_graph_session_changed" });
     }
@@ -794,7 +863,7 @@ export async function authenticatedApiFetch(path: string, init?: RequestInit): P
   }, signal);
   const assertCurrent = () => {
     if (signal?.aborted) throw signal.reason ?? new DOMException("Read cancelled", "AbortError");
-    if (result.requestEpoch !== nativeGraphSessionEpoch || nativeGraphSessionRevoked) {
+    if (result.requestEpoch !== nativeGraphSessionEpoch || !target.hostedGraphRequest && nativeGraphSessionRevoked) {
       throw new LiveApiError("Local session changed during this read. Retry deliberately.", 401,
         { code: "local_graph_session_changed" });
     }

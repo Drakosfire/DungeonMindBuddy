@@ -124,14 +124,18 @@ function BuddyIndexPage({
 }) {
   const auth = useHostedAuthStatus();
   const selectedWorld = useSelectedWorld();
-  const managedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
+  const admitted = auth.status === "local_operator" || auth.status === "authenticated" && auth.subject !== null;
+  const managedWorldId = admitted && selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
+  const stateScopeId = auth.status === "authenticated"
+    ? JSON.stringify(["hosted", auth.subject, managedWorldId])
+    : `managed:${managedWorldId}`;
   const playgroundApi = useMemo(() => createBuddyIndexGraphApi(), []);
   const [legacyWorldsOpen, setLegacyWorldsOpen] = useState(false);
 
   let explorer: ReactNode;
   if (managedWorldId && selectedWorld.kind === "managed") {
-    explorer = <ManagedWorldGraph key={`managed:${managedWorldId}`} worldId={managedWorldId}
-      worldTitle={selectedWorld.name} stateScopeId={`managed:${managedWorldId}`} />;
+    explorer = <ManagedWorldGraph key={stateScopeId} worldId={managedWorldId}
+      worldTitle={selectedWorld.name} stateScopeId={stateScopeId} />;
   } else if (auth.status === "local_operator") {
     explorer = <NativeGraphDemo api={playgroundApi} embedded mode="playground" />;
   } else if (auth.status === "signed_out") {

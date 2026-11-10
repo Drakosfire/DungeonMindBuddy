@@ -1,3 +1,5 @@
+import { invalidateHostedGraphAccess } from "../api/liveApi";
+
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 export type HostedAuthStatus = "checking" | "authenticated" | "signed_out" | "unavailable" | "local_operator";
@@ -5,9 +7,11 @@ export type HostedAuthStatus = "checking" | "authenticated" | "signed_out" | "un
 interface HostedAuthContextValue {
   readonly status: HostedAuthStatus;
   readonly refreshWarning: boolean;
+  /** Presentation scope only. The server remains the owner/access authority. */
+  readonly subject: string | null;
 }
 
-const HostedAuthContext = createContext<HostedAuthContextValue>({ status: "local_operator", refreshWarning: false });
+const HostedAuthContext = createContext<HostedAuthContextValue>({ status: "local_operator", refreshWarning: false, subject: null });
 
 type HostedAuthGateProps = {
   children: ReactNode;
@@ -32,53 +36,49 @@ export function dungeonMindLoginHref(locationHref: string): string {
 }
 
 export function HostedAuthGate({ children, enabled, allowSignedOutChildren = false }: HostedAuthGateProps) {
-  const [status, setStatus] = useState<HostedAuthStatus>(enabled ? "checking" : "local_operator");
-  const [refreshWarning, setRefreshWarning] = useState(false);
-  const confirmedAuthenticated = useRef(false);
+  const [session, setSession] = useState<{ status: HostedAuthStatus; subject: string | null }>({
+    status: enabled ? "checking" : "local_operator", subject: null,
+  });
+  const { status, subject } = enabled ? session : { status: "local_operator" as const, subject: null };
   const requestSequence = useRef(0);
 
   const refreshSession = useCallback(async () => {
     if (!enabled) return;
     const sequence = ++requestSequence.current;
+    const accept = (nextStatus: HostedAuthStatus, nextSubject: string | null = null) => {
+      invalidateHostedGraphAccess(nextSubject);
+      setSession({ status: nextStatus, subject: nextSubject });
+    };
     try {
       const response = await fetch(SESSION_PATH, {
         method: "GET",
-        credentials: "include",
+        credentials: "same-origin",
+        redirect: "error",
+        cache: "no-store",
         headers: { Accept: "application/json" },
       });
       if (sequence !== requestSequence.current) return;
       if (response.status === 401) {
-        confirmedAuthenticated.current = false;
-        setRefreshWarning(false);
-        setStatus("signed_out");
+        accept("signed_out");
         return;
       }
       if (!response.ok) throw new Error("Session status is unavailable");
-      const payload = await response.json() as { status?: string };
+      const payload = await response.json() as { status?: unknown; subject?: unknown };
       if (sequence !== requestSequence.current) return;
-      if (payload.status === "authenticated") {
-        confirmedAuthenticated.current = true;
-        setRefreshWarning(false);
-        setStatus("authenticated");
+      if (payload.status === "authenticated" && typeof payload.subject === "string"
+        && payload.subject.length > 0 && payload.subject === payload.subject.trim()) {
+        accept("authenticated", payload.subject);
       } else if (payload.status === "local_operator") {
-        confirmedAuthenticated.current = false;
-        setRefreshWarning(false);
-        setStatus("local_operator");
+        accept("local_operator");
       } else if (payload.status === "signed_out") {
-        confirmedAuthenticated.current = false;
-        setRefreshWarning(false);
-        setStatus("signed_out");
+        accept("signed_out");
       } else {
         throw new Error("Session status is unavailable");
       }
     } catch {
       if (sequence !== requestSequence.current) return;
-      if (confirmedAuthenticated.current) {
-        setRefreshWarning(true);
-        setStatus("authenticated");
-      } else {
-        setStatus("unavailable");
-      }
+      // Never retain the previous account's sensitive children on an auth outage.
+      accept("unavailable");
     }
   }, [enabled]);
 
@@ -90,6 +90,7 @@ export function HostedAuthGate({ children, enabled, allowSignedOutChildren = fal
     const timer = window.setInterval(onFocus, SESSION_REFRESH_MS);
     return () => {
       requestSequence.current += 1;
+      invalidateHostedGraphAccess(null);
       window.removeEventListener("focus", onFocus);
       window.clearInterval(timer);
     };
@@ -98,12 +99,10 @@ export function HostedAuthGate({ children, enabled, allowSignedOutChildren = fal
   if (!enabled || status === "authenticated" || status === "local_operator"
     || status === "signed_out" && allowSignedOutChildren) {
     return (
-      <HostedAuthContext.Provider value={{ status, refreshWarning }}>
-        {refreshWarning ? (
-          <div role="status" className="hosted-auth-refresh-warning">
-            DungeonMind could not refresh your session status. Protected requests may ask you to sign in again.
-          </div>
-        ) : null}
+      <HostedAuthContext.Provider
+        key={JSON.stringify([status, subject])}
+        value={{ status, subject, refreshWarning: false }}
+      >
         {children}
       </HostedAuthContext.Provider>
     );
