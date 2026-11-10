@@ -387,6 +387,10 @@ def validate_predecessor(conn, submission, capability=None):
     ):
         raise RetryUnavailableError("Retry requires the same question and Build page")
     validate_reference_retry(parent, intent)
+    native = _native_action(parent.graph_context_execution)
+    original_image = native.intent.build_reference_image_id if native is not None else None
+    if intent.build_reference_image_id != original_image:
+        raise RetryUnavailableError("Select the passage and use Revise with image above to send an image-grounded revision.")
     if author_interaction(old.surface_id, old.primary_work.kind, parent.status, parent.failure_code) == "select_passage":
         from .build_draft_context import digest
         from application_state.build_proposal.types import BuildWriteCapability
@@ -422,7 +426,6 @@ def validate_predecessor(conn, submission, capability=None):
         "action_capability_sha256",
         None,
     )
-    native=_native_action(parent.graph_context_execution)
     if native is not None:
         previous_capability=native.intent.build_write_capability_sha256
     if (

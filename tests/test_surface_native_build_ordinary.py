@@ -33,7 +33,12 @@ def test_build_proposal_without_a_target_returns_selection_guidance(lane, tmp_pa
     _fresh_case(lane, tmp_path, monkeypatch, "target_unavailable", True, False, True)
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None):
+@pytest.mark.parametrize("reference_image", ["saved", "unbound"])
+def test_build_selected_revision_uses_only_the_bound_saved_image(lane, tmp_path, monkeypatch, reference_image):
+    _fresh_case(lane, tmp_path, monkeypatch, None, True, False, True, reference_image=reference_image)
+
+
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -56,7 +61,18 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     page = create_page_fixture(tmp_path, world_id=world, campaign_id=world, title='Working page',
         kind='worldbuilding_source', source_domain='worldbuilding', document_class='lore',
         authority_state='draft', visibility_state='internal')
-    save_page(tmp_path, page.document_id, '# Working page\n\nA proposed conversation.\n')
+    image_markdown = ''
+    if reference_image:
+        from io import BytesIO
+        from PIL import Image
+        from application_state import media
+
+        original = BytesIO()
+        Image.new("RGB", (64, 48), (217, 22, 67)).save(original, format="PNG")
+        asset = media.stage_image(original.getvalue(), "local_operator", {"fixture": "bath house map"})
+        image_markdown = f"![Bath house map](dmb-media:{asset['asset_id']})\n\n"
+    save_page(tmp_path, page.document_id, '# Working page\n\n'
+        + (image_markdown if reference_image == "saved" else '') + 'A proposed conversation.\n')
     source = get_workspace_document_snapshot(tmp_path, page.document_id)
     draft = None
     if with_draft:
@@ -65,7 +81,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         service = AgentConversationService()
         conversation = _new(service,world)
         pointer = service.get_world_pointer(world)
-        text = 'An unsaved orchid possibility. Never a played fact. 🌸'
+        text = image_markdown + 'An unsaved orchid possibility. Never a played fact. 🌸'
         snapshot = BuildDraftSnapshotV1(world_id=world,document_id=page.document_id,
             registry_revision=source.loaded_revision,content_sha256=source.content_sha256,visibility='internal',
             draft_markdown=text,draft_sha256=sha256(text.encode()).hexdigest(),editor_sha256='c'*64,draft_generation=3)
@@ -202,6 +218,24 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     'message': 'Unsupported reasoning effort for configured writer',
                     'type': 'invalid_request_error', 'param': 'reasoning.effort',
                     'code': 'unsupported_value'}})
+            if reference_image == 'saved':
+                from base64 import b64decode
+                from io import BytesIO
+                from PIL import Image
+
+                assert len(body['input']) == 1 and body['input'][0]['role'] == 'user'
+                packet, image = body['input'][0]['content']
+                assert packet['type'] == 'input_text'
+                assert image['type'] == 'input_image' and image['detail'] == 'high'
+                assert 'attached page image' in body['instructions']
+                prefix, encoded = image['image_url'].split(',', 1)
+                assert prefix == 'data:image/jpeg;base64'
+                with Image.open(BytesIO(b64decode(encoded))) as pixels:
+                    assert pixels.size == (64, 48)
+                    assert all(abs(a-b) < 5 for a,b in zip(pixels.getpixel((20, 20)), (217, 22, 67)))
+                # Only the outgoing transport contains pixels. The unchanged
+                # semantic packet is validated below as for a text-only proposal.
+                body['input'] = packet['text']
             inputs = [json.loads(body['input'])] if isinstance(body['input'], str) else [json.loads(row['content']) for row in body['input'] if row['content'].lstrip().startswith('{')]
             if mode:
                 inputs=[inputs[0]['native_evidence'],inputs[0]['surface_work']]
@@ -384,6 +418,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 'content_sha256','visibility','draft_sha256','editor_sha256','draft_generation')},
                 caret=1,selection_generation=0))
         body['build_write_capability']=cap.model_dump(mode='json')
+        if reference_image:
+            body['build_write_capability']['reference_image_id'] = str(asset['asset_id'])
+            body['build_write_capability']['basis']['selection'] = {'end': 3, 'text': 'An'}
         if proposal:
             body['message']=('Add a scene about this: Can I end my move in an occupied space?'
                 if failure=='used_rules' else 'Prepare an illustration of a copper lamp beside the orchid.'
@@ -778,6 +815,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             assert service.inspect_turn(world_id=world, turn_id=original.turn_id) == original
             assert get_workspace_document_snapshot(tmp_path,page.document_id) == source
             assert lane.repo.get_head(world).head_revision_id == current_revision
+        return
+    if reference_image == 'unbound':
+        assert response.status_code == 503, response.text
+        assert not writer.calls
+        assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
         return
     assert response.status_code == 200, response.text + str(classic_calls)
     assert not classic_calls and len(writer.calls) == 1

@@ -211,10 +211,12 @@ def _input_frames(raw,execution,work_schema):
         return (semantic if semantic is not None else responses_text_frame(raw,schemas={LEGACY_SCHEMA,SCHEMA},label='Native writer'),
             work if work is not None else responses_text_frame(raw,schemas={work_schema},label='Native surface work'))
     body=strict_json(raw)
-    if (not isinstance(body,dict) or not isinstance(body.get('input'),str) or 'messages' in body
+    from .build_proposal_input import proposal_packet_text
+    packet_text = proposal_packet_text(body) if isinstance(body, dict) else None
+    if (not isinstance(body,dict) or packet_text is None or 'messages' in body
             or body.get('tools',[])!=[] or body.get('tool_choice') not in (None,'none')):
         raise ValueError('Native authoring requires its one exact producer packet')
-    packet=strict_json(body['input'])
+    packet=strict_json(packet_text)
     task={'propose_build_insertion':'compose_current_page',
         'prepare_build_image':'prepare_image_direction'}[operation]
     if (not isinstance(packet,dict) or not (
@@ -255,6 +257,16 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         work_proof=work_proof,world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt,
         play_context_receipt=play_context_receipt)
     frame,work_frame = _input_frames(raw,prefix,expected_work['schema'])
+    from .build_proposal_input import proposal_packet_text
+    body = strict_json(raw)
+    has_image = isinstance(body.get("input"), list) and proposal_packet_text(body) is not None
+    from .native_execution import NativeBuildActionV1
+    if isinstance(prefix.policy.action, NativeBuildActionV1):
+        image_id = prefix.policy.action.intent.build_reference_image_id
+        if has_image != bool(image_id) or expected_work.get("captured_editor", {}).get("reference_image_id") != (
+            str(image_id) if image_id is not None else None
+        ):
+            raise ValueError("Build writer image differs from the captured editor reference")
     from .native_execution import NativeBuildWriterAuthorizedV2
     from .native_build_work_view import is_semantic_frame as semantic_build_work
     if type(authorization) is NativeBuildWriterAuthorizedV2:
@@ -281,7 +293,6 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         else plan_work_view(expected_work,prefix) if authored_local else expected_work)
     if t.canonical_sha256(work_frame) != t.canonical_sha256(expected_wire_work):
         raise ValueError('Native writer changed or omitted its exact surface work')
-    body = strict_json(raw)
     from .native_execution import NativeWriterEstimatedBudgetV1
     if isinstance(execution.policy.writer_context_budget, NativeWriterEstimatedBudgetV1):
         # Trusted host estimation has the same boundary as controller accounting.

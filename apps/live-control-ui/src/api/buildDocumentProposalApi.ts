@@ -11,6 +11,7 @@ export interface BuildPageEndTarget { end: number }
 export interface BuildProposalRequest {
   page_body_offer?: BuildPageBodyTarget | null;
   page_end_offer?: BuildPageEndTarget | null;
+  reference_image_id?: string;
   idempotency_key: string; conversation_id: string; expected_pointer_revision: number;
   basis: BuildProposalBasis; instruction: string; draft_markdown: string;
   origin?: { client_turn_id: string; durable_turn_id: string; turn_attempt: number; broker_operation_id: string; arguments_sha256: string } | null;

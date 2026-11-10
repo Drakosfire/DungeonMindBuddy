@@ -5300,7 +5300,8 @@ def _submitted_turn_intent(
         return (BuildGraphIntentV2 if request.build_authored_references is not None else BuildGraphIntentV1)(**common,
             **({"authored_references": request.build_authored_references} if request.build_authored_references is not None else {}), retry_of=request.retry_of, reviewed_step=reviewed_step, build_draft_context_sha256=(
             None if request.build_draft_context is None else _canonical_sha256(request.build_draft_context.model_dump(mode="json", by_alias=True))), build_write_capability_sha256=(
-            None if request.build_write_capability is None else _canonical_sha256(request.build_write_capability.model_dump(mode="json"))))
+            None if request.build_write_capability is None else _canonical_sha256(request.build_write_capability.model_dump(mode="json"))),
+            build_reference_image_id=request.build_write_capability.reference_image_id if request.build_write_capability else None)
     if request.surface.surface_id == "play" and primary_work is not None and request.graph_request.mode == "none":
         if request.play_target is None:
             raise AgentTurnServiceError("Rules-only Play requires its exact current target.",

@@ -1,7 +1,9 @@
 """One guarded, tool-free creative Build proposal; never a source/Graph write."""
 from __future__ import annotations
 
+from base64 import b64encode
 from hashlib import sha256
+from io import BytesIO
 import json
 import os
 from contextlib import aclosing
@@ -130,6 +132,56 @@ def _source(request):
     return snapshot
 
 
+def load_reference_image(request, operator_subject: str) -> str:
+    """Read pixels only from the captured saved page and the operator's media."""
+    from markdown_it import MarkdownIt
+    from PIL import Image
+    from application_state import media
+    from application_state.errors import ApplicationStateError
+
+    snapshot = _source(request)
+    destination = f"dmb-media:{request.reference_image_id}"
+
+    def contains_image(markdown):
+        return any(
+            child.type == "image" and child.attrGet("src") == destination
+            for token in MarkdownIt("commonmark").parse(markdown)
+            for child in token.children or []
+        )
+
+    if (request.reference_image_id is None or not operator_subject
+            or not contains_image(snapshot.markdown) or not contains_image(request.draft_markdown)):
+        raise BuildComposeError("The selected image must belong to the saved page and its current draft.")
+    try:
+        original = media.read_staged_bytes(request.reference_image_id, operator_subject)
+    except ApplicationStateError as exc:
+        raise BuildComposeError("The selected page image could not be opened.") from exc
+    with Image.open(BytesIO(original)) as image:
+        image.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
+        encoded = BytesIO()
+        image.convert("RGB").save(encoded, format="JPEG", quality=88)
+    return "data:image/jpeg;base64," + b64encode(encoded.getvalue()).decode("ascii")
+
+
+def _image_input(packet, image):
+    return [{"role": "user", "content": [
+        {"type": "input_text", "text": packet},
+        {"type": "input_image", "image_url": image, "detail": "high"},
+    ]}]
+
+
+class ProposalWriterProvider(CapturedWriterProvider):
+    def __init__(self, *args, reference_image=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.reference_image = reference_image
+
+    def _request_kwargs(self, call, *, streaming=False):
+        options = super()._request_kwargs(call, streaming=streaming)
+        if self.reference_image is not None:
+            options["input"] = _image_input(call.user_prompt, self.reference_image)
+        return options
+
+
 def _public(record):
     # Raw model output is research evidence, not a second message in normal history.
     return record.model_dump(mode="json", exclude={"raw_response"})
@@ -146,7 +198,7 @@ def read_prompt(world_id: str, action_id: UUID):
 
 
 async def compose_with_writer(
-    request: BuildDocumentProposalRequest, writer_gate: TextDispatchGate, *, writer_model: str, transport=None, frozen_history=None, related_authored_pages=None, authored_reference_material=None, _native_context=None, _native_rules_frame=None, _native_output_capture=None,
+    request: BuildDocumentProposalRequest, writer_gate: TextDispatchGate, *, writer_model: str, transport=None, frozen_history=None, related_authored_pages=None, authored_reference_material=None, _native_context=None, _native_rules_frame=None, _native_output_capture=None, _reference_image=None,
 ):
     """Trusted parent seam: one proposal call, jointly authorized; never import text.
 
@@ -156,14 +208,14 @@ async def compose_with_writer(
     """
     if not isinstance(writer_gate, TextDispatchGate) or request.origin is None:
         raise BuildComposeError("build_compose_writer_origin_required")
-    return await _compose(request, transport=transport, writer_gate=writer_gate, writer_model=writer_model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material, _native_context=_native_context, _native_rules_frame=_native_rules_frame, _native_output_capture=_native_output_capture)
+    return await _compose(request, transport=transport, writer_gate=writer_gate, writer_model=writer_model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material, _native_context=_native_context, _native_rules_frame=_native_rules_frame, _native_output_capture=_native_output_capture, _reference_image=_reference_image)
 
 
 async def compose(request: BuildDocumentProposalRequest, *, transport=None):
     return await _compose(request, transport=transport)
 
 
-async def _compose(request: BuildDocumentProposalRequest, *, transport=None, writer_gate=None, writer_model=None, frozen_history=None, related_authored_pages=None, authored_reference_material=None, _native_context=None, _native_rules_frame=None, _native_output_capture=None):
+async def _compose(request: BuildDocumentProposalRequest, *, transport=None, writer_gate=None, writer_model=None, frozen_history=None, related_authored_pages=None, authored_reference_material=None, _native_context=None, _native_rules_frame=None, _native_output_capture=None, _reference_image=None):
     if (_native_output_capture is not None and (not callable(_native_output_capture) or _native_context is None)):
         raise BuildComposeError("build_compose_native_capture_required")
     store = BuildProposalService()
@@ -186,8 +238,9 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
     def advance(state, **fields):
         nonlocal record
         record = store.advance(world, record.action_id, expected_revision=record.revision, state=state, **fields)
-    expected = _writer_request(request, snapshot, model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material, _native_context=_native_context, _native_rules_frame=_native_rules_frame)
-    packet = expected["input"]
+    expected = _writer_request(request, snapshot, model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material, _native_context=_native_context, _native_rules_frame=_native_rules_frame, _reference_image=_reference_image)
+    from application_state.agent_conversation.build_proposal_input import proposal_packet_text
+    packet = proposal_packet_text(expected)
     schema = expected["text"]["format"]["schema"]
     record, created = store.reserve(reservation)
     if not created:
@@ -277,7 +330,7 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
 
     client = None
     try:
-        provider = CapturedWriterProvider(api_key=os.environ.get("OPENAI_API_KEY"), dispatch_gate=TextDispatchGate(authorize, lifecycle), transport=transport)
+        provider = ProposalWriterProvider(reference_image=_reference_image, api_key=os.environ.get("OPENAI_API_KEY"), dispatch_gate=TextDispatchGate(authorize, lifecycle), transport=transport)
         client = GenerationClient(text_providers={"openai": ObservedProvider(provider)})
         result = None
         async for event in client.stream_text(TextRequest(provider="openai", model=model,
@@ -317,15 +370,15 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
             await client.aclose()
 
 
-def prepare_writer_request(request, *, writer_model: str, frozen_history=None, related_authored_pages=None, authored_reference_material=None, _native_context=None, _native_rules_frame=None):
+def prepare_writer_request(request, *, writer_model: str, frozen_history=None, related_authored_pages=None, authored_reference_material=None, _native_context=None, _native_rules_frame=None, _reference_image=None):
     """Owned deterministic request for trusted staging; never reserves or sends."""
     snapshot = _source(request)
     if not isinstance(writer_model, str) or not writer_model.strip():
         raise BuildComposeError("build_compose_writer_model_required")
-    return _writer_request(request, snapshot, writer_model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material, _native_context=_native_context, _native_rules_frame=_native_rules_frame)
+    return _writer_request(request, snapshot, writer_model, frozen_history=frozen_history, related_authored_pages=related_authored_pages, authored_reference_material=authored_reference_material, _native_context=_native_context, _native_rules_frame=_native_rules_frame, _reference_image=_reference_image)
 
 
-def _writer_request(request, snapshot, model, *, frozen_history=None, related_authored_pages=None, authored_reference_material=None, _native_context=None, _native_rules_frame=None):
+def _writer_request(request, snapshot, model, *, frozen_history=None, related_authored_pages=None, authored_reference_material=None, _native_context=None, _native_rules_frame=None, _reference_image=None):
     reservation = request.reservation_only()
     world = reservation.basis.world_id
     if frozen_history is None:
@@ -372,4 +425,14 @@ def _writer_request(request, snapshot, model, *, frozen_history=None, related_au
         expected.pop('max_output_tokens')
         expected.update(output_request_fields(_native_context[1].policy.writer_context_budget.output_reserve_tokens))
         expected['instructions']+=AUTHORING_GUIDANCE
+    if bool(request.reference_image_id) != (_reference_image is not None) or (
+            _reference_image is not None and _native_context is None):
+        raise BuildComposeError("Image-grounded revision requires the authorized Build writer.")
+    if _reference_image is not None:
+        expected["input"] = _image_input(packet, _reference_image)
+        expected["instructions"] += (
+            "\nRevise the captured passage against the attached page image. Use visible layout "
+            "and features to correct discrepancies. Preserve author decisions and encounter details "
+            "the image cannot establish. Do not invent measurements or claim the image shows unseen details."
+        )
     return expected

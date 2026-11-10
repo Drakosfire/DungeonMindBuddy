@@ -326,6 +326,49 @@ it('captures real work-plan NodeSelection as discussion context without inventin
 });
 
 
+it('captures the nearest saved image above selected text and offers only the passage', async () => {
+  const {Editor} = await import('@tiptap/core');
+  const {webcrypto} = await import('node:crypto');
+  vi.stubGlobal('crypto', webcrypto);
+  const {DEFAULT_MARKDOWN_EDITOR_EXTENSIONS} = await import('../../tiptap/MarkdownEditorCore');
+  const {createBuildComposeBridge} = await import('../../buildSurface/buildComposeBridge');
+  const {markdownToTiptapDoc} = await import('../../tiptap/markdown/markdownToTiptap');
+  const artwork = '11111111-1111-4111-8111-111111111111';
+  const map = '22222222-2222-4222-8222-222222222222';
+  const markdown = [
+    '![Earlier artwork](dmb-media:' + artwork + ')',
+    '![Saved map](dmb-media:' + map + ')',
+    '## Map plan', 'Original layout.', '## Origin',
+  ].join('\n\n');
+  const editor = new Editor({
+    extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,
+    content: markdownToTiptapDoc(markdown).doc,
+  });
+  const realBridge = createBuildComposeBridge(() => ({
+    editor, worldId:'world', documentId:'doc', revision:1, contentSha256:'a'.repeat(64),
+    visibility:'internal', draftGeneration:0, selectionGeneration:0, canEdit:true,
+  }), vi.fn());
+  try {
+    const hook = renderHook(() => useBuildCompose({
+      worldId:'world', pageDocumentId:'doc', history, bridge:realBridge, enabled:true, onHistory:vi.fn(),
+    }));
+    const positions = new Map<string, number>();
+    editor.state.doc.descendants((node, pos) => {
+      if (node.isTextblock) positions.set(node.textContent, pos + 1);
+    });
+    editor.commands.setTextSelection({from:positions.get('Map plan')!,
+      to:positions.get('Original layout.')! + 'Original layout.'.length});
+    const prepared = await hook.result.current.prepareHarnessTurn('33333333-3333-4333-8333-333333333333', false, false, true);
+    expect(prepared.capability?.reference_image_id).toBe(map);
+    expect(prepared.capability?.basis.selection?.text).toBe('Map plan\nOriginal layout.');
+    expect(prepared.capability?.page_body_offer).toBeUndefined();
+    expect(prepared.capability?.page_end_offer).toBeUndefined();
+    hook.unmount();
+  } finally {
+    editor.destroy();
+  }
+});
+
 it('carries the frozen page-end offer through ordinary chat preparation without moving the caret',async()=>{
  const frozen={...captured,pageEndOffer:{end:83}};
  vi.mocked(bridge.capture).mockResolvedValue(frozen);
