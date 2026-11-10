@@ -334,6 +334,114 @@ class NativeGraphDemoServiceTests(unittest.TestCase):
             )
         )
 
+    def test_substituted_operation_row_id_cannot_confirm_prepared_intent(self) -> None:
+        graph = self.service.graph()
+        request = self._create_request(graph, name="Rhea")
+        self.service.prepare(request)
+        substituted_id = self._operation_id()
+        connection = sqlite3.connect(self.state_dir / "native_graph_demo.sqlite3")
+        try:
+            connection.execute(
+                "UPDATE demo_operations SET operation_id = ? WHERE operation_id = ?",
+                (substituted_id, request["operation_id"]),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        with self.assertRaises(DemoError) as tampered:
+            self.service.confirm(substituted_id)
+        self.assertEqual(
+            tampered.exception.code, "prepared_operation_integrity_failure"
+        )
+        self.assertIsNone(
+            self.repository.get_publication_receipt(
+                graph["world_id"],
+                "prepared:" + substituted_id.replace("-", ""),
+            )
+        )
+
+    def test_reservation_parent_must_match_hashed_request_before_recovery(self) -> None:
+        graph = self.service.graph()
+        request = self._create_request(graph, name="Sera")
+        normalized, request_json = self.service._validate_prepare_request(request)
+        with self.service._store.atomic():
+            self.service._store.reserve_operation(
+                operation_id=request["operation_id"],
+                request_json=request_json,
+                parent_revision_id=graph["revision_id"],
+                updated_at="test",
+            )
+
+        connection = sqlite3.connect(self.state_dir / "native_graph_demo.sqlite3")
+        try:
+            connection.execute(
+                "UPDATE demo_operation_reservations SET parent_revision_id = ? WHERE operation_id = ?",
+                ("tampered-parent", request["operation_id"]),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        recovered = self.service.operation(normalized["operation_id"])
+        self.assertEqual(recovered["status"], "unknown")
+        self.assertEqual(
+            self.repository.get_head(graph["world_id"]).head_revision_id,
+            graph["revision_id"],
+        )
+        self.assertIsNone(
+            self.repository.get_native_source_admission_receipt(
+                graph["world_id"],
+                "native-graph-demo:operation-source:"
+                + request["operation_id"].replace("-", ""),
+            )
+        )
+
+    def test_commit_crash_persists_unknown_before_dispatch_across_restart(self) -> None:
+        graph = self.service.graph()
+        request = self._create_request(graph, name="Tera")
+        self.service.prepare(request)
+        publication_id = "prepared:" + request["operation_id"].replace("-", "")
+        dispatches: list[str] = []
+
+        class SimulatedProcessCrash(BaseException):
+            pass
+
+        class CrashingRuntime:
+            def commit_prepared_change(self, *_args: Any, **_kwargs: Any) -> Any:
+                dispatches.append("attempted")
+                raise SimulatedProcessCrash()
+
+        self.service._runtime = lambda **_kwargs: CrashingRuntime()
+        with self.assertRaises(SimulatedProcessCrash):
+            self.service.confirm(request["operation_id"])
+        record = self.service._store.get_operation(request["operation_id"])
+        self.assertEqual(record["status"], "unknown")
+        self.assertEqual(dispatches, ["attempted"])
+        self.assertIsNone(
+            self.repository.get_publication_receipt(graph["world_id"], publication_id)
+        )
+
+        self.service.close()
+        restarted = NativeGraphDemoService(
+            self.repository, self.state_dir, storage_label="test-memory"
+        )
+        self.service = restarted
+
+        class NeverDispatchRuntime:
+            def commit_prepared_change(self, *_args: Any, **_kwargs: Any) -> Any:
+                dispatches.append("redispatched")
+                raise AssertionError("unknown commit outcome must not be redispatched")
+
+        restarted._runtime = lambda **_kwargs: NeverDispatchRuntime()
+        self.assertEqual(
+            restarted.operation(request["operation_id"])["status"], "unknown"
+        )
+        self.assertEqual(
+            restarted.confirm(request["operation_id"])["status"], "unknown"
+        )
+        self.assertEqual(dispatches, ["attempted"])
+
     def test_stale_preparation_after_other_source_admission_requires_new_review(
         self,
     ) -> None:

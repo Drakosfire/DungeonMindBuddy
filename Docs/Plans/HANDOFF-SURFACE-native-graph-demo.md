@@ -97,3 +97,15 @@ The implementation checkpoint passes 39 isolated backend/HTTP/launcher tests, 14
 Before commit, GitHub re-anchor found main `76bb8c4b38178158e9a94a4b00cf65773edbda87` (Plan request-admission presentation #2328, disjoint paths). Stacked parent #2326 remains open/draft at exact `b30833ede97cb4c79acf17a1fe55ff50446c7452`. This slice remains pinned to that parent; no unrelated merge or rebase is inferred.
 
 The native runtime has no Event support in this pinned Buddy profile, not a claim that DungeonMind's general ontology excludes Event. Parent ontology discussion remains open. This slice does not decide that ontology or extend the accepted profile.
+
+## Retained integrated qualification and publication gate
+
+At clean integrated head `0c8a511d46d2c7ec1f28a5b7eaacf36c85a7a2bf`, the unchanged repository hosted verifier completed with npm offline mode using the existing local cache: 1,262 + 4 + 1 cases passed, exact collection parity, strict TypeScript/build, clean isolated source and successful cleanup. Receipt validation passed. Evidence: task `verification/hosted-0c8a511d4-offline/evidence.json`.
+
+The full default-discovered diagnostic at the same head remains RED: 7,317 passing cases, 164 failed cases, one skipped case, and the inherited `SELECTED_WORLD_LOCATION_CHANGED_EVENT` mock-export collection failure. All 164 failed test IDs exactly match the retained predecessor integrated baseline `d4f47f301b30a8207c2af5107fcb3730b2afa07d`; no new or missing failures. Evidence: task `verification/discovered-0c8a511d4-offline/evidence.json` and `verification/failure-comparison-0c8a511d4.json`. This is an integrated checkpoint, not final-head discovered or release qualification.
+
+Initial normal npm installation was denied by network policy at registry.npmjs.org before testing. No network retry was made; offline cache installation is a distinct no-network verification path. The interrupted initial verifier worktree under task `scratch/dmb-local-frontend-nktazttj/source` is retained, not represented as cleaned or passing.
+
+Branch push was denied by network policy at github.com:443, known not executed. No alternative write route was attempted; no new PR exists yet. Publication requires an authorized transport, not bypassing this denial. No merge/deploy authority is granted.
+
+The launcher additionally refuses ambient `PG*` process variables before importing or connecting through psycopg. Cleaning child-process environments alone is insufficient because libpq can also consult the current process environment. This refusal changes no user security setting and avoids exposing or using those values.

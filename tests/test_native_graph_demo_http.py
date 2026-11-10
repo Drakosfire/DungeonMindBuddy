@@ -332,6 +332,21 @@ class LauncherIsolationTest(unittest.TestCase):
         cls.launcher = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(cls.launcher)
 
+    def test_ambient_libpq_settings_are_rejected_before_any_connection(self):
+        for name in ("PGHOSTADDR", "PGSERVICE", "PGOPTIONS", "PGPASSFILE"):
+            with (
+                self.subTest(name=name),
+                mock.patch.dict(os.environ, {name: "must-not-be-read"}, clear=True),
+                mock.patch("psycopg.connect") as connect,
+            ):
+                with self.assertRaises(self.launcher.LaunchBlocked):
+                    next(
+                        self.launcher.isolated_database(
+                            Path("/unused"), {}, Path("/unused")
+                        )
+                    )
+                connect.assert_not_called()
+
     def test_missing_postgres_does_not_fallback_to_docker_or_environment(self):
         with tempfile.TemporaryDirectory(prefix="native-demo-tools-") as temporary:
             with self.assertRaises(self.launcher.LaunchBlocked):

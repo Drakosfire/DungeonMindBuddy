@@ -1019,6 +1019,17 @@ class NativeGraphDemoService:
         allow_source_admission: bool,
     ) -> dict[str, Any]:
         operation_id = request["operation_id"]
+        if (
+            reservation.get("operation_id") != operation_id
+            or reservation.get("request") != request
+            or reservation.get("parent_revision_id")
+            != request.get("expected_revision_id")
+        ):
+            raise DemoError(
+                "journal_integrity_failure",
+                "The saved operation reservation does not match its reviewed request.",
+                503,
+            )
         expected_parent_revision_id = reservation["parent_revision_id"]
         current = self._read_graph()
         source = self._existing_operation_source(request)
@@ -1556,6 +1567,7 @@ class NativeGraphDemoService:
     def _prepared_response(
         self, operation_id: str, request: dict[str, str], record: dict[str, Any]
     ) -> dict[str, Any]:
+        self._record_prepared(record)
         if record["status"] == "committed":
             self._verify_committed_record(self._record_prepared(record), record)
         return {
@@ -1576,18 +1588,88 @@ class NativeGraphDemoService:
 
     def _record_prepared(self, record: dict[str, Any]) -> PreparedWorldChange:
         try:
+            operation_id = record.get("operation_id")
+            request = record.get("request")
+            if not isinstance(operation_id, str) or not isinstance(request, dict):
+                raise ValueError("operation identity is missing from its journal row")
             prepared = decode_prepared(record["prepared"])
             if not isinstance(prepared, PreparedWorldChange):
                 raise ValueError(
                     "prepared record did not decode to a WorldKeeper change"
                 )
+            if request.get("kind") == "seed":
+                expected_request = {
+                    "kind": "seed",
+                    "seed_version": 1,
+                    "source_admission_id": _SEED_ADMISSION_ID,
+                    "expected_revision_id": record["parent_revision_id"],
+                }
+                if (
+                    operation_id != _SEED_OPERATION_ID
+                    or request != expected_request
+                    or prepared.prepared_change_id != _SEED_PREPARED_ID
+                ):
+                    raise ValueError("seed operation identity does not match its row")
+                source = self._repository.get_native_source_admission_receipt(
+                    self._space_id, _SEED_ADMISSION_ID
+                )
+                if (
+                    source is None
+                    or source.published_revision_id != record["parent_revision_id"]
+                ):
+                    raise ValueError("seed source receipt is unavailable")
+                self._verify_seed_source(source)
+                intent = self._seed_intent(source)
+            else:
+                normalized_request, request_json = self._validate_prepare_request(
+                    request
+                )
+                if (
+                    normalized_request != request
+                    or request_json != canonical_json(request)
+                    or normalized_request["operation_id"] != operation_id
+                    or prepared.prepared_change_id
+                    != f"prepared:{operation_id.replace('-', '')}"
+                ):
+                    raise ValueError(
+                        "operation row, request, parent, and prepared ids do not match"
+                    )
+                source = self._existing_operation_source(normalized_request)
+                if (
+                    source is None
+                    or source.publication_receipt.expected_parent_revision_id
+                    != normalized_request["expected_revision_id"]
+                    or source.published_revision_id != record["parent_revision_id"]
+                    or source.published_revision_id
+                    != prepared.expected_parent_revision_id
+                ):
+                    raise ValueError("operation source does not bind to its request")
+                self._verify_operation_source(source, normalized_request)
+                intent, _summary = self._intent_for_request(
+                    normalized_request,
+                    evidence_ref_id=source.bindings[0].evidence_ref_id,
+                )
             if (
                 prepared.space_id != self._space_id
+                or prepared.producer != "native-graph-demo"
                 or prepared.expected_parent_revision_id != record["parent_revision_id"]
                 or prepared.prepared_change_id != prepared.dungeonmind_publication_id
+                or prepared.prepared_operations != intent.operations
             ):
                 raise ValueError(
-                    "prepared record identity does not match its journal row"
+                    "prepared record identity or intent does not match its journal row"
+                )
+            parent = self._repository.get_revision(
+                self._space_id, prepared.expected_parent_revision_id
+            )
+            if (
+                parent is None
+                or parent.graph_payload_sha256 != prepared.parent_graph_payload_sha256
+                or canonical_sha256(parent.graph_payload)
+                != prepared.parent_graph_payload_sha256
+            ):
+                raise ValueError(
+                    "prepared parent payload does not match native readback"
                 )
             return prepared
         except Exception as exc:
@@ -1616,6 +1698,10 @@ class NativeGraphDemoService:
                     "status": "unknown",
                     "message": "Native publication receipts are incomplete; the outcome remains uncertain.",
                 }
+        # A process can die after the native write starts but before its response
+        # or local receipt update is observed. Commit the unknown state first so
+        # that recovery never treats an attempted publication as merely prepared.
+        self._mark_operation_unknown_before_dispatch(operation_id)
         try:
             # WorldKeeper replays through the same native publication id and
             # verifies the exact child. A lost response therefore cannot mint a
@@ -1714,6 +1800,12 @@ class NativeGraphDemoService:
             if mapped.status >= 500:
                 self._store.mark_operation_unknown(operation_id, updated_at=_iso_now())
             raise mapped from exc
+
+    def _mark_operation_unknown_before_dispatch(self, operation_id: str) -> None:
+        """Durably mark the native write attempt before calling WorldKeeper."""
+        self._store.mark_operation_unknown(operation_id, updated_at=_iso_now())
+        with self._store.checkpoint():
+            pass
 
     def _recover_native_publication(self, prepared: PreparedWorldChange) -> str:
         """Check native receipts before any exact WorldKeeper replay."""

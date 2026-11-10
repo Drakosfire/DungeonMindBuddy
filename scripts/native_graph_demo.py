@@ -31,6 +31,15 @@ class LaunchBlocked(RuntimeError):
     pass
 
 
+def verify_runtime_environment() -> None:
+    # libpq reads PGHOSTADDR/PGSERVICE/etc in this process even when child
+    # processes get a clean environment. Refuse them before any connection.
+    if any(key.startswith("PG") for key in os.environ):
+        raise LaunchBlocked(
+            "The native demo refuses ambient PG* connection settings. Launch it from a clean environment; no connection was attempted."
+        )
+
+
 def postgres_tools(directory: Path | None = None):
     result = {}
     for name in ("initdb", "pg_ctl"):
@@ -173,6 +182,7 @@ def clean_env(state: Path):
 
 
 def isolated_database(state: Path, tools, source: Path):
+    verify_runtime_environment()
     import psycopg
     from psycopg import sql
 
@@ -329,6 +339,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     previous_sigterm = None
     try:
+        verify_runtime_environment()
         tools = postgres_tools(args.postgres_bin)
         source = verified_source(args.dungeonmind_source)
         verified_dependencies()
