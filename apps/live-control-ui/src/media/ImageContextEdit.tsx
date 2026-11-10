@@ -6,12 +6,12 @@ import {imageEditContext,regenerateImage,type ImageContext,type ImageCandidate,t
 import {SavedMediaImage} from './SavedMediaImage';
 import {useTourImage} from '../guidedTour/ImageObservations';
 
-export function ImageContextEdit({assetId,editable,captureApply}:{assetId:string;editable:boolean;captureApply:()=>((assetId:string)=>void)}) {
+export function ImageContextEdit({assetId,editable,captureApply,previewOnly=false}:{assetId:string;editable:boolean;captureApply:()=>((assetId:string)=>void|Promise<void>);previewOnly?:boolean}) {
  const [open,setOpen]=useState(false);const [mode,setMode]=useState<ImageEditMode>('image_to_image');
  const [instructions,setInstructions]=useState('');const [context,setContext]=useState<ImageContext|null>(null);
  const [busy,setBusy]=useState(false);const [applying,setApplying]=useState(false);const [error,setError]=useState('');const [storageWarning,setStorageWarning]=useState('');
  const [candidate,setCandidate]=useState<ImageCandidate|null>(null);
- const pending=useRef<AbortController|null>(null);const active=useRef(true);const apply=useRef<((id:string)=>void)|null>(null);
+ const pending=useRef<AbortController|null>(null);const active=useRef(true);const apply=useRef<((id:string)=>void|Promise<void>)|null>(null);
  const hydrated=useRef(false);const candidateGeneration=useRef<number|null>(null);const tour=useTourImage();
  const key=`dmb:image-context-instructions:v1:${assetId}`;
  // Reset asset authority before the committed Edit control can be used.
@@ -44,7 +44,7 @@ export function ImageContextEdit({assetId,editable,captureApply}:{assetId:string
  async function generate(){
   if(!context||pending.current||!editable)return;
   const generation=getNativeGraphAccessGeneration();const abort=new AbortController();
-  let captured:(id:string)=>void;
+  let captured:(id:string)=>void|Promise<void>;
   try{captured=captureApply();}catch(reason){setError(reason instanceof Error?reason.message:'The page changed.');return;}
   const scope=tour?.captureScope()??null;
   pending.current=abort;setBusy(true);setError('');setCandidate(null);apply.current=null;
@@ -64,7 +64,9 @@ export function ImageContextEdit({assetId,editable,captureApply}:{assetId:string
    await imageEditContext(candidate.asset_id,generation,abort.signal);
    if(!active.current||abort.signal.aborted||generation!==getNativeGraphAccessGeneration())return;
    if(!apply.current)throw new Error('The page changed. The image remains in your library.');
-   apply.current(candidate.asset_id);tour?.placed(candidate.asset_id);setOpen(false);
+   await apply.current(candidate.asset_id);
+   if(!active.current||abort.signal.aborted||generation!==getNativeGraphAccessGeneration())return;
+   if(!previewOnly)tour?.placed(candidate.asset_id);setOpen(false);
   }catch(reason){if(active.current&&!abort.signal.aborted)setError(reason instanceof Error?reason.message:'The page changed. The image remains in your library.');}
   finally{if(pending.current===abort){pending.current=null;if(active.current)setApplying(false);}}
  }

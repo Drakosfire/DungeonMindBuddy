@@ -5,6 +5,8 @@ import { createPortal } from 'react-dom';
 import { authenticatedApiFetch } from '../api/liveApi';
 import './MediaImageWizard.css';
 import { OriginalImageDownload } from './OriginalImageDownload';
+import { ImageContextEdit } from './ImageContextEdit';
+import { getNativeGraphAccessGeneration } from '../api/liveApi';
 
 type Model = { id: string; label: string; formats: string[]; controls: string[]; description?: string };
 export type GeneratedMediaImage = { data_url: string; media_type: string; asset_id: string; state: string; delivery_url?: string | null };
@@ -98,6 +100,9 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
   const [catalogError, setCatalogError] = useState('');
   const catalogInFlight = useRef(false);
   const model = models.find(item => item.id === modelId);
+  const currentResult = useRef(result); currentResult.current = result;
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => {
     let active = true;
     setCapabilityState('loading');
@@ -224,6 +229,20 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
       {!collapsed && !libraryOpen && <div className="media-image-wizard__actions">
         <button type="button" disabled={pending || placing || saving !== null || !configured || !libraryReady || !model || !prompt.trim()} onClick={submit}>{pending ? 'Generating your image…' : result ? 'Generate another image' : 'Generate image'}</button>
         {result?.images.map((image, index) => <span className="media-image-wizard__image-actions" key={image.asset_id}>
+          {['staged', 'ready'].includes(image.state) && <ImageContextEdit key={image.asset_id} assetId={image.asset_id} previewOnly
+            editable={!pending && !placing && saving === null} captureApply={() => {
+              const parent = result, sequence = browseSequence.current, generation = getNativeGraphAccessGeneration();
+              return async assetId => {
+                const record = await port.get(assetId);
+                if (!mounted.current || generation !== getNativeGraphAccessGeneration() || currentResult.current !== parent || sequence !== browseSequence.current || inFlight.current || saveBusy.current || placementAbort.current)
+                  throw new Error('The Studio image changed. Your alternative remains in the library.');
+                if (record.asset_id !== assetId || !['staged', 'ready'].includes(record.state) || !(record.data_url || record.delivery_url))
+                  throw new Error('The alternative could not be opened. Your current image is unchanged.');
+                const replacement = {asset_id:record.asset_id, state:record.state, media_type:record.mime_type, data_url:record.data_url ?? '', delivery_url:record.delivery_url};
+                setResult({...parent, images:parent.images.map(item => item.asset_id === image.asset_id ? replacement : item), prompt:record.provenance.prompt ?? parent.prompt, model:record.provenance.model ?? parent.model});
+                setCompletion(replacement);
+              };
+            }} />}
           {onChoose && ['staged', 'ready'].includes(image.state) && <button type="button" disabled={pending || placing || saving !== null || !selectable(image)} onClick={() => void choose(image, 'click')}>{placementLabel}</button>}
           <OriginalImageDownload dataUrl={image.data_url} mediaType={image.media_type} filename={`world-image-${index + 1}.${image.media_type.split('/')[1]}`} />
         </span>)}

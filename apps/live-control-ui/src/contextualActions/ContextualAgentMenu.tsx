@@ -33,6 +33,6 @@ export function ContextualAgentMenu({ label, open, onOpen, onClose, disabled, mo
       <label>Instructions<textarea rows={3} maxLength={16000} value={instructions} disabled={busy||!canSubmit} onChange={event=>onInstructions(event.target.value)} placeholder="Describe what you want…"/></label>
       <button type="button" disabled={busy||!canSubmit||!instructions.trim()} onClick={onSubmit}>{busy?busyLabel:submitLabel}</button>
       {children}
-    </div>,document.body)}
+    </div>,trigger.current?.closest('dialog[open]') ?? document.body)}
   </span>;
 }
