@@ -41,7 +41,7 @@ dependencies = [
     "worldkeeper @ git+https://github.com/Drakosfire/WorldKeeper.git@ef9c50f2d6aa89a35e9408f83fc4d0ba47825ca2",
     # Exact source pin: reviewed GenerationEngine #32 merge (provider-reported charge accounting).
     # This source pin does not update any deployed/serving runtime.
-    "generationengine[openai,openrouter,typesafe,fal,vercel] @ git+https://github.com/Drakosfire/GenerationEngine.git@18ea21dc2fbae4e55128dd18790676c890a78985",
+    "generationengine[openai,openrouter,typesafe,fal,vercel] @ git+https://github.com/Drakosfire/GenerationEngine.git@7c929082bfa9b8c5af9815e6429db5230d9caefe",
     "psycopg[binary]>=3.2",
     "pillow>=10",
     "alembic>=1.16",
