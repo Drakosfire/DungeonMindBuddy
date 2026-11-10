@@ -4556,7 +4556,7 @@ export function WorldPlanAgentConversation({
       const references=turn.authored_references??(retry.schema==='dmb_turn_retry_context_row_v2'?retry.authored_references:undefined);
       await submitPlay(undefined,false,turn.user_text,undefined,{context:retry,references});
     };
-    if(retry.author_interaction==='select_passage'){
+    if(retry.author_interaction==='select_passage'||retry.reference_image_id){
       await continueWithFreshPlacement();
       return;
     }
@@ -4663,7 +4663,8 @@ export function WorldPlanAgentConversation({
         setSending(true);
         try {
           const prepared=await buildCompose.prepareHarnessTurn(request.turn_id,discussionOnly||explicitRequest?.reviewedKind==='discuss',
-            freshBuildRetry?.context.author_interaction==='select_passage',useImageAbove);
+            freshBuildRetry?.context.author_interaction==='select_passage',useImageAbove||!!freshBuildRetry?.context.reference_image_id,
+            freshBuildRetry?.context.reference_image_id);
           if(prepared.placementError){
             if(latestRef.current.mounted&&latestRef.current.buildPlacementFenceKey===placementFence
               &&latestRef.current.buildPlacementEpoch===epoch&&latestRef.current.buildPlacementBridge===bridge

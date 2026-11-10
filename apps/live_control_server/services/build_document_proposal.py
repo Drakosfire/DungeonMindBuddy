@@ -142,16 +142,35 @@ def load_reference_image(request, operator_subject: str) -> str:
     snapshot = _source(request)
     destination = f"dmb-media:{request.reference_image_id}"
 
-    def contains_image(markdown):
-        return any(
-            child.type == "image" and child.attrGet("src") == destination
-            for token in MarkdownIt("commonmark").parse(markdown)
-            for child in token.children or []
-        )
-
+    parser = MarkdownIt("commonmark")
+    saved = parser.parse(snapshot.markdown)
+    opening = request.basis.selection.text.split("\n", 1)[0].strip() if request.basis.selection else ""
+    draft = parser.parse(request.draft_markdown)
+    preceding_image = None
+    matches = []
+    for index, token in enumerate(draft):
+        if token.level != 0 or token.nesting == -1:
+            continue
+        children = (draft[index + 1].children or []) if (
+            token.type in {"heading_open", "paragraph_open"} and index + 1 < len(draft)
+        ) else []
+        if len(children) == 1 and children[0].type == "image":
+            preceding_image = children[0].attrGet("src")
+            continue
+        if token.type in {"heading_open", "paragraph_open"}:
+            # Inline markup does not appear in the editor's plain text selection.
+            plain = "".join(child.content for child in children
+                            if child.type in {"text", "code_inline"}).strip()
+            if not plain and all(child.type in {"text", "softbreak", "hardbreak"} for child in children):
+                continue
+            if opening and opening in plain:
+                matches.append(preceding_image)
+        preceding_image = None
     if (request.reference_image_id is None or not operator_subject
-            or not contains_image(snapshot.markdown) or not contains_image(request.draft_markdown)):
-        raise BuildComposeError("The selected image must belong to the saved page and its current draft.")
+            or matches != [destination]
+            or not any(child.type == "image" and child.attrGet("src") == destination
+                for token in saved for child in token.children or [])):
+        raise BuildComposeError("Select text directly below the image on the saved page.")
     try:
         original = media.read_staged_bytes(request.reference_image_id, operator_subject)
     except ApplicationStateError as exc:

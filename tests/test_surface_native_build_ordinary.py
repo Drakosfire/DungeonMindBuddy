@@ -33,9 +33,14 @@ def test_build_proposal_without_a_target_returns_selection_guidance(lane, tmp_pa
     _fresh_case(lane, tmp_path, monkeypatch, "target_unavailable", True, False, True)
 
 
-@pytest.mark.parametrize("reference_image", ["saved", "unbound"])
+@pytest.mark.parametrize("reference_image", ["saved", "unbound", "wrong_same_page"])
 def test_build_selected_revision_uses_only_the_bound_saved_image(lane, tmp_path, monkeypatch, reference_image):
     _fresh_case(lane, tmp_path, monkeypatch, None, True, False, True, reference_image=reference_image)
+
+
+def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_path, monkeypatch):
+    _fresh_case(lane, tmp_path, monkeypatch, "target_unavailable", True, False, True,
+        reference_image="saved")
 
 
 def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None):
@@ -70,9 +75,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         original = BytesIO()
         Image.new("RGB", (64, 48), (217, 22, 67)).save(original, format="PNG")
         asset = media.stage_image(original.getvalue(), "local_operator", {"fixture": "bath house map"})
-        image_markdown = f"![Bath house map](dmb-media:{asset['asset_id']})\n\n"
+        wrong = media.stage_image(original.getvalue(), "local_operator", {"fixture": "unrelated artwork"})
+        image_markdown = (f"![Other artwork](dmb-media:{wrong['asset_id']})\n\n"
+            + "Unrelated introduction.\n\n"
+            + f"![Bath house map](dmb-media:{asset['asset_id']})\n\n")
     save_page(tmp_path, page.document_id, '# Working page\n\n'
-        + (image_markdown if reference_image == "saved" else '') + 'A proposed conversation.\n')
+        + (image_markdown if reference_image in {"saved", "wrong_same_page"} else '') + 'A proposed conversation.\n')
     source = get_workspace_document_snapshot(tmp_path, page.document_id)
     draft = None
     if with_draft:
@@ -419,7 +427,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 caret=1,selection_generation=0))
         body['build_write_capability']=cap.model_dump(mode='json')
         if reference_image:
-            body['build_write_capability']['reference_image_id'] = str(asset['asset_id'])
+            body['build_write_capability']['reference_image_id'] = str((wrong if reference_image == 'wrong_same_page' else asset)['asset_id'])
             body['build_write_capability']['basis']['selection'] = {'end': 3, 'text': 'An'}
         if proposal:
             body['message']=('Add a scene about this: Can I end my move in an occupied space?'
@@ -756,6 +764,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             assert retry.status_code == 200, retry.text
             assert retry.json()['turns'][0]['context']['author_interaction'] == 'select_passage'
             assert retry.json()['turns'][0]['context']['eligible'] is True
+            if reference_image:
+                assert retry.json()['turns'][0]['context']['reference_image_id'] == str(asset['asset_id'])
         else:
             assert response.status_code == 503, response.text
         assert len(writer.calls)==(0 if failure in {'native_work','rules_frame','used_rules'} else 1)
@@ -805,6 +815,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 assert wider.json()['detail']['code'] == 'build_retry_unavailable'
                 assert (len(decisions.calls), len(writer.calls)) == before_calls
                 del capability[offer]
+            if reference_image:
+                original_id = capability.pop('reference_image_id')
+                text_only = client.post('/api/live/agent/turn', json=resumed)
+                assert text_only.status_code == 409, text_only.text
+                assert (len(decisions.calls), len(writer.calls)) == before_calls
+                capability['reference_image_id'] = original_id
             result = client.post('/api/live/agent/turn', json=resumed)
             assert result.status_code == 200, result.text
             assert len(writer.calls) == 2
@@ -816,7 +832,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             assert get_workspace_document_snapshot(tmp_path,page.document_id) == source
             assert lane.repo.get_head(world).head_revision_id == current_revision
         return
-    if reference_image == 'unbound':
+    if reference_image in {'unbound', 'wrong_same_page'}:
         assert response.status_code == 503, response.text
         assert not writer.calls
         assert get_workspace_document_snapshot(tmp_path, page.document_id) == source

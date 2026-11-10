@@ -43,6 +43,7 @@ class RetryContext(StrictModel):
     ordinal: int = Field(strict=True, ge=0)
     eligible: bool
     author_interaction: Literal["select_passage"] | None = None
+    reference_image_id: UUID | None = None
     reason: Literal[
         "ready",
         "not_terminal",
@@ -219,6 +220,9 @@ def context(conn, turn, *, active):
         meta.provenance.surface_id, meta.provenance.primary_work.kind,
         meta.status, getattr(turn, "failure_code", None),
     )
+    execution = getattr(turn, "graph_context_execution", None)
+    native = _native_action(execution)
+    image_id = native.intent.build_reference_image_id if native is not None else None
     value = RetryContext(
         world_id=meta.world_id,
         conversation_id=meta.conversation_id,
@@ -231,9 +235,9 @@ def context(conn, turn, *, active):
         eligible=reason == "ready",
         reason=reason,
         author_interaction=interaction,
+        reference_image_id=image_id,
     )
-    exclude = {"author_interaction"} if interaction is None else None
-    execution = getattr(turn, 'graph_context_execution', None)
+    exclude = {field for field in ("author_interaction", "reference_image_id") if getattr(value, field) is None}
     references=(_references(execution) if execution is not None and (_native_action(execution) is not None
         or any(e.kind=='build_authored_references_captured_v1' for e in execution.events)) else None)
     if references is not None:

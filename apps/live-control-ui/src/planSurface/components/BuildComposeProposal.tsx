@@ -98,7 +98,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, readHistory
       return false;
     } finally { running.current = false; if (mounted.current) setBusy(false); }
   }
-  async function prepareHarnessTurn(turnId:string,discussionOnly=false,requirePassage=false,useImageAbove=false) {
+  async function prepareHarnessTurn(turnId:string,discussionOnly=false,requirePassage=false,useImageAbove=false,expectedReferenceImageId?:string) {
     const start=current.current;
     if(!start.enabled||!start.bridge||!start.history)throw new Error('Open the current page and conversation before sending.');
     const snapshot=await start.bridge.captureContext();
@@ -132,6 +132,8 @@ export function useBuildCompose({ worldId, history, bridge, enabled, readHistory
         break;
       }
       if (!referenceImageId) return {placementError:'Select text directly below a saved page image.'};
+      if (expectedReferenceImageId && referenceImageId !== expectedReferenceImageId)
+        return {placementError:'Select the passage below the original reference image to continue.'};
     }
     if(!mounted.current||current.current.scope!==start.scope||current.current.epoch!==start.epoch
       ||current.current.bridge!==start.bridge)throw new Error('The page or conversation changed before sending.');
