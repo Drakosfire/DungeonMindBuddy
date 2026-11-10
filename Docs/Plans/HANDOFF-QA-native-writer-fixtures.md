@@ -1,6 +1,11 @@
 # QA: restore current native writer integration checks
 
-ACTIVE serial successor to merged2382/1c238dcaa9d549afc3d292c02709fab9b3dc5b57.
+SETTLED in #2385/009c95118b95cc4fdcb58ff3372b58c175888fc4. The fixture
+write lease is released. The query contract passed 1,222 cases, while two
+classic Graph plus Rules refusals and one baseline saved-reader failure remain
+in the retained qualification record.
+
+Historical serial successor to merged2382/1c238dcaa9d549afc3d292c02709fab9b3dc5b57.
 Branch codex/qa-native-writer-fixtures; isolated non-serving checkout. No other
 implementation PR in this lane. All later deferred fundamentals remain in scope
 of the goal, not this individual PR.

@@ -653,9 +653,12 @@ def _writer_response(request,*,status='completed',text='{"answer":"Supported."}'
         usage=dict(input_tokens=17,output_tokens=5,total_tokens=22)))
 
 
-def test_writer_prepare_is_offline_and_override_only_changes_shared_instructions(writer_replay,tmp_path,monkeypatch):
+@pytest.mark.parametrize('format_version', [1, 2])
+def test_writer_prepare_is_offline_and_override_only_changes_shared_instructions(writer_replay,tmp_path,monkeypatch,format_version):
     import psycopg
     r=writer_replay
+    r.packet['text']['format']['name']=f'surface_native_evidence_selectors_v{format_version}'
+    _repin_writer_packet(r,r.packet)
     monkeypatch.setattr(psycopg,'connect',lambda *a,**k:pytest.fail('Replay accessed database'))
     override=tmp_path/'instructions.txt';override.write_text('Shared alternative instructions, no new evidence.')
     r.document['instructions']={'path':str(override),'sha256':sha256(override.read_bytes()).hexdigest()};put(r.spec,r.document)
@@ -783,13 +786,14 @@ def _repin_writer_packet(r,packet):
     r.document['cases'][0]['ledger']=put(r.ledger_path,r.ledger);put(r.spec,r.document)
 
 
-@pytest.mark.parametrize('mutation',['extra','tools','stream','tier','schema_ref','schema_id','schema_dynamic_ref'])
+@pytest.mark.parametrize('mutation',['extra','tools','stream','tier','schema_name','schema_ref','schema_id','schema_dynamic_ref'])
 def test_writer_rejects_rebound_unsupported_packet_not_just_bad_pin(writer_replay,tmp_path,mutation):
     r=writer_replay;packet=deepcopy(r.packet)
     if mutation=='extra':packet['temperature']=0
     elif mutation=='tools':packet['tools']=[{'type':'web_search'}]
     elif mutation=='stream':packet['stream']=True
     elif mutation=='tier':packet['service_tier']='auto'
+    elif mutation=='schema_name':packet['text']['format']['name']='surface_native_evidence_selectors_v3'
     else:
         packet['text']['format']['schema'][{'schema_ref':'$ref','schema_id':'$id','schema_dynamic_ref':'$dynamicRef'}[mutation]]='https://example.invalid/schema'
     _repin_writer_packet(r,packet)
