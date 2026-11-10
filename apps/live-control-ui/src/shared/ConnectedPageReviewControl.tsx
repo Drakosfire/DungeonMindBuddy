@@ -2,7 +2,7 @@ import {PlanConnectedPageContinuation} from './PlanConnectedPageContinuation';
 import type {BuildWorkspaceDocumentController} from '../buildSurface/useBuildWorkspaceDocumentController';
 import {BuildRelationshipReview} from '../buildSurface/BuildRelationshipReview';
 import type {RelationshipSeed} from '../buildSurface/buildRelationshipRecovery';
-import {useEffect,useLayoutEffect,useRef,useState} from 'react';
+import {useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import type {MarkdownCanvasSessionValue} from '../markdownCanvas/markdownCanvasTypes';
 import {useOptionalAgentInteraction} from '../agentInteraction/AgentInteractionProvider';
@@ -19,6 +19,7 @@ const errorText=(reason:unknown)=>reason instanceof Error?reason.message:'The pa
 type Props={surface:'build';session:MarkdownCanvasSessionValue|null;relationshipsHost?:HTMLElement|null;selectDocument:BuildWorkspaceDocumentController['selectDocument'];refreshDocuments:()=>unknown}
   |{surface:'plan';worldId:string;documentId:string};
 export function ConnectedPageReviewControl(props:Props){
+  const locationHelpId=useId();
   const session=props.surface==='build'?props.session:null,agent=useOptionalAgentInteraction();
   const relationshipsHost=props.surface==='build'?props.relationshipsHost??null:null;
   const current=useRef(session);current.current=session;
@@ -32,7 +33,7 @@ export function ConnectedPageReviewControl(props:Props){
   const [mode,setMode]=useState<'scaffold'|'build_out'>('scaffold'),[instructions,setInstructions]=useState('');
   const [reviewSeed,setReviewSeed]=useState<ConnectedPageReviewSeed|null>(null);
   const [reviewDraftError,setReviewDraftError]=useState('');
-  const [nodes,setNodes]=useState<ConnectedPageIdentity[]>([]),[loading,setLoading]=useState(false);
+  const [nodes,setNodes]=useState<ConnectedPageIdentity[]>([]),[loading,setLoading]=useState(false),[identitiesChecked,setIdentitiesChecked]=useState(false);
   const world=props.surface==='plan'?props.worldId:session?.record?.world_id,documentId=props.surface==='plan'?props.documentId:session?.record?.document_id;
   const scope=useRef({world,documentId,epoch:0});
   if(scope.current.world!==world||scope.current.documentId!==documentId)scope.current={world,documentId,epoch:scope.current.epoch+1};
@@ -83,11 +84,11 @@ export function ConnectedPageReviewControl(props:Props){
   },[world,documentId,session?.record?.connected_page_operation_id]);
   async function loadCandidates(worldId:string){
     const isCurrent=captureScope();
-    setNodes([]);setLoading(true);
+    setNodes([]);setLoading(true);setIdentitiesChecked(false);
     try{
       const graph=await getNativeGraphCatalog({managed_world_id:worldId,scope_mode:'world',campaign_id:null});
       const identities=connectedPageIdentities(graph,worldId);
-      if(isCurrent())setNodes(identities);
+      if(isCurrent()){setNodes(identities);setIdentitiesChecked(true);}
     }catch(reason){if(isCurrent())setError(errorText(reason));}
     finally{if(isCurrent())setLoading(false);}
   }
@@ -110,6 +111,8 @@ export function ConnectedPageReviewControl(props:Props){
   }
   const matches=(label:string,kind:string)=>nodes.filter(n=>n.kind===kind&&n.names.some(name=>name.toLowerCase().includes(label.trim().toLowerCase())));
   const people=matches(personLabel,'npc'),places=matches(title,'location');
+  const canDefaultNewLocation=identitiesChecked&&!loading&&!!title.trim()&&places.length===0;
+  useEffect(()=>{if(canDefaultNewLocation&&!placeChoice&&!retained)setPlaceChoice('__new__');},[canDefaultNewLocation,placeChoice,retained]);
   async function openCreated(result:ConnectedPageOperation,buildOut:boolean,isCurrent=captureScope()){
     if(!isCurrent())return;
     if(!result.page)throw new Error("The created page is not available yet.");
@@ -214,10 +217,11 @@ export function ConnectedPageReviewControl(props:Props){
       <blockquote>{displayed?.origin.selected_text??origin?.selected_text}</blockquote>
       <form onSubmit={event=>{event.preventDefault();void create();}}>
         <fieldset disabled={busy||frozen}>
-          <label>Page title<input value={displayed?.title??title} onChange={event=>{setTitle(event.target.value);setPlaceChoice('');}} required maxLength={200}/></label>
-          <label>Location<select value={displayed?.place.node_id??(displayed?'__new__':placeChoice)} onChange={event=>setPlaceChoice(event.target.value)}>
+          <label>Page title <span aria-hidden="true">*</span><input aria-label="Page title" value={displayed?.title??title} onChange={event=>{setTitle(event.target.value);setPlaceChoice('');}} required maxLength={200}/></label>
+          <label>Location <span aria-hidden="true">*</span><select required aria-label="Location" aria-describedby={locationHelpId} value={displayed?.place.node_id??(displayed?'__new__':placeChoice)} onChange={event=>setPlaceChoice(event.target.value)}>
             <option value="">Choose a location identity</option><option value="__new__">New location: {displayed?.place.label??title}</option>{places.map(n=><option key={n.nodeId} value={n.nodeId}>Existing: {n.label} ({n.nodeId})</option>)}
           </select></label>
+          <p id={locationHelpId}>Create a new Graph location for this page, or link it to an existing location.</p>
           <label>Related person (optional)<input value={displayed?.person?.label??personLabel} onChange={event=>{setPersonLabel(event.target.value);setPersonChoice('');}} placeholder="Who owns or runs this place?"/></label>
           {(personLabel||displayed?.person)&&<><label>Person identity<select value={displayed?.person?.node_id??(displayed?.person?'__new__':personChoice)} onChange={event=>setPersonChoice(event.target.value)}>
             <option value="">Choose a person</option>{people.map(n=><option key={n.nodeId} value={n.nodeId}>Existing: {n.label} ({n.nodeId})</option>)}

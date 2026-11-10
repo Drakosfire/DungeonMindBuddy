@@ -56,6 +56,30 @@ afterEach(()=>{cleanup();editor.destroy();vi.restoreAllMocks();});
 async function open(){fireEvent.click(screen.getByRole('button',{name:'＋ New page'}));await screen.findByRole('dialog',{name:'New page from selection'});await waitFor(()=>expect(screen.queryByText('Finding existing people and places…')).not.toBeInTheDocument());fireEvent.change(screen.getByLabelText('Location'),{target:{value:'__new__'}});}
 async function connections(){fireEvent.change(screen.getByLabelText('Person identity'),{target:{value:'ent:brin'}});
  fireEvent.click(screen.getByRole('checkbox',{name:'Brin owns Brin’s Blacksmithy'}));fireEvent.click(screen.getByRole('checkbox',{name:'Brin operates Brin’s Blacksmithy'}));}
+it('defaults a fresh page to a new location after checking there are no existing matches',async()=>{
+ vi.mocked(getNativeGraphCatalog).mockResolvedValue(catalog([]));
+ render(<BuildConnectedPageControl selectDocument={vi.fn(async()=>true)} refreshDocuments={vi.fn()}/>);
+ fireEvent.click(screen.getByRole('button',{name:'＋ New page'}));
+ const location=await screen.findByRole('combobox',{name:'Location'});
+ await waitFor(()=>expect(screen.queryByText('Finding existing people and places…')).not.toBeInTheDocument());
+ expect(location).toHaveValue('__new__');expect(location).toBeRequired();
+ expect(screen.getByRole('textbox',{name:'Page title'})).toBeRequired();
+ expect(location).toHaveAccessibleDescription('Create a new Graph location for this page, or link it to an existing location.');
+ expect(screen.getByRole('button',{name:'Create page'})).toBeEnabled();
+ expect(api.prepareConnectedPage).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('button',{name:'Create page'}));
+ await waitFor(()=>expect(api.prepareConnectedPage).toHaveBeenCalledTimes(1));
+ expect(vi.mocked(api.prepareConnectedPage).mock.calls[0][0].place).toEqual({node_id:null,label:'Brin’s Blacksmithy',kind:'location'});
+});
+it('uses an explicitly selected existing location and retires it when the page title changes',async()=>{
+ vi.mocked(getNativeGraphCatalog).mockResolvedValue(catalog([{nodeId:'ent:shop',label:'Brin’s Blacksmithy',kind:'location'}]));
+ render(<BuildConnectedPageControl selectDocument={vi.fn(async()=>true)} refreshDocuments={vi.fn()}/>);await open();
+ fireEvent.change(screen.getByRole('combobox',{name:'Location'}),{target:{value:'ent:shop'}});
+ expect(screen.getByRole('combobox',{name:'Location'})).toHaveValue('ent:shop');
+ fireEvent.change(screen.getByRole('textbox',{name:'Page title'}),{target:{value:'New Bath House'}});
+ await waitFor(()=>expect(screen.getByRole('combobox',{name:'Location'})).toHaveValue('__new__'));
+ expect(screen.getByRole('option',{name:'New location: New Bath House'})).toBeInTheDocument();
+});
 it('reviews exact existing Brin and both relationships before one create/confirm, preserving the dirty source',async()=>{
  const select=vi.fn(async()=>true),before=editor.getJSON();
  render(<BuildConnectedPageControl selectDocument={select} refreshDocuments={vi.fn()}/>);await open();await connections();
@@ -288,6 +312,13 @@ it('creates a reviewed Plan scaffold in place with the saved Edge origin, withou
  fireEvent.click(screen.getByRole('button',{name:'Done'}));
  expect(workflow.readConnectedPageRecovery('elderwyld',plan)).toBeNull();
  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+it('defaults an unmatched Plan proposal to a new location without an extra identity selection',async()=>{
+ render(<PlanReview/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Review Plan page proposal'}));
+ await waitFor(()=>expect(screen.getByRole('combobox',{name:'Location'})).toHaveValue('__new__'));
+ expect(screen.getByRole('button',{name:'Create page'})).toBeEnabled();
+ expect(api.prepareConnectedPage).not.toHaveBeenCalled();
 });
 it('restores a completed Plan operation after reload using only recovery reads',async()=>{
  const request:ConnectedPageIntent={operation_id:'44444444-4444-4444-8444-444444444444',world_id:'elderwyld',title:'Copper Workshop',origin:planSeed.origin,place:{node_id:null,label:'Copper Workshop',kind:'location'},person:null,relationships:[],mode:'scaffold',instructions:'Develop later'};
