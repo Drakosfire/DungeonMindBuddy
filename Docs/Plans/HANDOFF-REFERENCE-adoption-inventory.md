@@ -14,8 +14,9 @@ No product, CI manifest, dependency, provider, database or service changes.
 Verify current callers, exact merge records and retained evidence, inspect the
 three-file cumulative diff and obtain independent review before source merge.
 Existing test runs below are pinned historical evidence, not new qualification
-of this documentation commit. The operator recovery hold, #2104 hold and
-coordination-off instruction remain.
+of this documentation commit. The original process hold was explicitly released by the operator; #2104 and
+coordination-off remain. Current delivery evidence below supersedes old hold-era
+readiness statements, without inventing a recovered runtime/session22 backup.
 
 ## Audited ownership
 
@@ -56,7 +57,7 @@ UI paths are under `apps/live-control-ui/src`. Service paths are under
 
 | Capability | Current owner / caller | Decision |
 | --- | --- | --- |
-| Build, Plan and Play selection | `surface/SurfaceGraphReferenceInput.tsx`, mounted by `planSurface/components/WorldPlanAgentConversation.tsx` | Adopted shared object/source picker. The composer no longer passes Play's former `sourceOnly` restriction. Mixed native Play selection is source-complete in #2307, not yet proven on the held runtime. |
+| Build, Plan and Play selection | `surface/SurfaceGraphReferenceInput.tsx`, mounted by `planSurface/components/WorldPlanAgentConversation.tsx` | Adopted shared object/source picker. The composer no longer passes Play's former `sourceOnly` restriction. Mixed native Play selection is source-complete in #2307; the original runtime hold is released. Current cross-surface browser proof remains open. |
 | Object and source discovery | `graphLens/NativeGraphInspection.tsx`, `NativeSourceInspection.tsx` and native catalogue APIs | Retain supported search/type/campaign/session and exact-section navigation. No second search protocol. Revision, section and Python-offset checks remain at their existing owners. |
 | Selection and recovery | `agentInteraction/authoredGraphReferences.ts`, conversation pending/retry owners and APP `authored_graph_references.py` | Retain exact snapshots and human indexes through submit/history/replay. Conflicts, invalid recovery copies and newer drafts remain protected. |
 | Native acquisition | `native_authored_references.py`, native Build/Plan/Play harnesses, shared native execution and APP completion | Adopted across the three governed surfaces. #2172 implemented ordinary native Play execution; #2307 enabled object/mixed admission and capture. Do not duplicate the executor or infer a successful live answer from a picker test. |
@@ -67,7 +68,8 @@ UI paths are under `apps/live-control-ui/src`. Service paths are under
 | Retired opening helpers and diagnostic collection | #2310 and #2311 | Removed unused opening hook/policy and `GraphObjectDogfoodPanel` with private model/storage/CSS. Existing browser records were not cleared. |
 | Retired Play sheet wrappers | #2312, merge `4cf63addb3925f1f9dec775f8fba843c287de566` | Removed unmounted `PlayGraphObjectSheet` and private `PlayThreatMechanicsSection` plus their exclusive tests. Shared mechanics readers/renderers remain. This does not implement historical Runbook occurrence derivation or Add to Combat. |
 | Retired selected-object presentation | #2318, merge `7953f83c434fc5fe4f1cc0b7f71a065a4721576e` | Removed unmounted `SelectedObjectCard` and its private actions/source-preview/roll-format helpers, exclusive tests and private CSS. The fallback model and nine model cases remain because the registered renderer consumes them. This does not retire that renderer or the host capability. |
-| Remaining Plan diagnostic/resolver/card | `PlanDogfoodPanel`, `usePlanGraphReferenceResolver`, `PlanReferenceProjectionBinding`, registered `PlanReferenceObjectCard` and activation APIs | Unmounted or unreachable retirement candidate, not proof of a live feature. Audit the whole activation closure. Preserve the shared host's mounted tools and statblock callers. Its frozen-CI-command dependency remains unresolved below. |
+| Retired Plan checklist | `PlanDogfoodPanel`, private report/state, exclusive tests and `.plan-dogfood-*` styles | Removed in this source after zero production-mount/caller audit. Two live manifest/classification entries retire atomically; the frozen original-command fixture and stored browser notes remain untouched. Delivery qualification is separate. |
+| Remaining Plan resolver/card | `usePlanGraphReferenceResolver`, `PlanReferenceProjectionBinding`, registered `PlanReferenceObjectCard` and neutral host activation APIs | Continue the whole activation caller-closure audit in a separate bounded slice. Preserve mounted shared tools and statblock callers; registration alone does not prove a live entry point. The historical command-freeze dependency is settled by #2341. |
 | Manual publication/review | `BuildRunReview` → `BuildManualKnowledge`; `ConnectedPageReviewControl` → `BuildRelationshipReview` | Retain exercised publication/review owners. Reference selection does not grant publication authority. |
 | Classic authored-reference reader and fresh admission | Receipt-family dispatch in `build_jev_harness.py`, `agent_turn_service.py`, `build_authored_references.py` and `AgentTurnRequest` | #2319 requires the saved Build basis for authored references before dispatch. Existing Build-kind, saved-state, revision and digest checks remain. Such fresh requests therefore select governed/native execution; retained classic receipts still select their exact capture/recovery/writer/image consumers. Preserve those readers. This does not classify every generic Graph request or standalone classic helper as historical-only. |
 | Old server Plan proposal producer | #2104 | Explicitly held. Client retirement does not authorize this server change. |
@@ -98,7 +100,7 @@ labeled; neither establishes real-provider output quality.
 | Tool-created threat and mechanics association | Mounted `NativeThreatCreationPanel.test.tsx`10/10; `tests/test_native_threat_creation.py`, `test_world_mechanics_associations.py` and PostgreSQL owners | Read-only retained checks now verify original acceptance, committed revision, association and Core-admitted creature identity. Complete the live create/associate/reopen proof on recoverable state; do not create another identity to manufacture proof. |
 | Popup / surface / conversation / full-view identity | `SavedStatblockSession.test.tsx`27/27, `NativeObjectStatblock.test.tsx`4/4, `NativeGraphObjectPreview.test.tsx`5/5, `StatblockPage.test.tsx`6/6 | Both retained exact versions are readable with matching mechanics digests; the newer revision has its original parent and one asset binding. The controlled cross-entry-point UI journey, caller position and draft preservation remain unproved after recovery. |
 | Portrait generation/selection, Save/reload and stale conflicts | Existing revision editor and portrait owner tests; same editor survives inline/popup moves, unknown Save and version refusal | Current end-to-end generation/review/selection/Save proof and source navigation. Existing portrait or mocked selection is not a new generation witness. |
-| Complete adoption/demolition inventory | Current caller decisions above; #2286/#2310/#2311/#2312 retirements | Resolve the remaining Plan diagnostic/activation closure's CI-owned dependency. #2318 settles the selected-card leaf; #2319 settles the missing fresh Build-reference basis. Retain exact classic recovery readers. |
+| Complete adoption/demolition inventory | Current caller decisions above; #2286/#2310/#2311/#2312 retirements | CI2341 settled the historical-freeze decision. This source retires the unmounted checklist; complete the remaining resolver/card/activation caller-closure decision. #2318 settled the selected-card leaf; #2319 settled fresh Build-reference basis. Retain exact classic recovery readers. |
 
 ## Evidence locations and qualification limits
 
@@ -154,30 +156,38 @@ omission is used to label an unresolved failure inherited. #2314 fixed the
 encounter test's asynchronous observation; #2315 fixed the actual first image-edit
 click being erased by passive initialization. They are qualified separate slices.
 
-## Held dependencies and next bounded actions
+## Current delivery evidence and next bounded actions
 
-1. The operator instructed that the original API/UI processes remain running
-   while deleted runtime/session/config/evidence recovery is assessed. Both
-   PostgreSQL volumes survived; do not restore old dumps over them. No verified
-   full `runtime/session22` backup has been established. Do not invent a session,
-   regenerate credentials or interpret an automatic continuation as lifting this hold.
-2. #2307's no-op reader fence `20261109_0144` is source-merged; this audit does
-   not apply it or claim current-schema readiness. Re-anchor actual schema,
-   launch configuration, exact source and retained-state conservation before
-   any eventual activation. #2172 and #2307 source completion are distinct from
-   successful current-runtime proof.
-3. The browser bridge's most recent read-only inventory returned no browsers:
-   native pipe unavailable. Re-establish it before controlled browser verification;
-   do not substitute an unrelated mock UI for delivered-version proof.
-4. `PlanDogfoodPanel.test.tsx` and `planDogfoodReport.test.ts` are named by both
-   `ci/contracts.json` and the frozen original-command fixture. The current guard
-   requires exact historical equality. CI #2288 owns additive qualification/guard
-   work; the shared Play handoff permits only atomic retired-test manifest entries.
-   Retiring this closure needs an owning contract decision. Keep the frozen
-   fixture, unrelated checks and necessary shared tools; do not add dummy tests,
-   a retirement allowlist or a compatibility wrapper to preserve dead paths.
+1. The operator released the original process hold. Protected recovery delivered
+   API76bb8c4b38178158e9a94a4b00cf65773edbda87/schema147; latest verified UI is
+   c780758b0e77de522e7857a006d75fdac07a8eed (merged2338), API447264 unchanged.
+   Private `table-label-delivered.json` binds served assets and authenticated
+   Graph access. Both surviving PostgreSQL stores were preserved; no old dump
+   was restored. Original runtime/session22 is not established as fully recovered.
+2. Current live-proxy read witnesses are
+   `goal-reference-native-read-reanchor.json` and
+   `goal-statblock-read-reanchor.json` in the established private Buddy evidence
+   root. Native source enumeration reports59 entries/complete, while navigation
+   metadata reports incomplete. C2S20/S30 exact source bytes/hash and section
+   ranges pass; the retained ooze has one exact association and both original/
+   selected statblock revisions open with matching native definition digests.
+   These are read/identity proofs, not rendered selection, source-click, retry,
+   editing/image-generation, paid answer-quality or cross-entry-point UI proof.
+3. Controlled current-browser verification is still missing. Reinitializing the
+   browser tool returned no browsers and native-pipe unavailable. Do not replace
+   that proof with a mock UI, served-asset hashes or historical browser reports.
+   Other independently verifiable source/API work need not wait on this bridge.
+4. CI2341 makes reviewed `ci/contracts.json` the live command authority while
+   keeping original extraction bytes. Required suite/real-command/path checks,
+   workflow consumers, backend partition guards and full discovery remain. This
+   source removes only9panel+2report exclusive passing cases with their dead
+   owner. The remaining resolver/binding/card/neutral activation closure needs
+   its own caller audit and adoption/deletion decision; shared tools and saved
+   statblock owners must survive. Do not claim all References closed yet.
 5. Keep #2104's explicit hold and ADVERSARY coordination off. Retrieval and
-   benchmark experiments are not this audit's implementation work.
+   benchmark experiments remain outside this implementation work. The Index
+   feedback was handed by the operator to another model; no LocalWorld edits.
 
-The complete goal requires the missing technical journeys and protected delivery.
+The complete goal still requires current cross-surface technical journeys,
+remaining adoption/demolition decisions and shared statblock verification.
 Source merges, test counts and this inventory do not establish completion.

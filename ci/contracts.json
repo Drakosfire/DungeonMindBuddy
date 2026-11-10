@@ -273,9 +273,7 @@
             "src/planSurface/graphReviewWorkbench/CandidateNativeReview.test.tsx",
             "src/worldGraph/verifyWorldGraphProjectionResponse.test.ts",
             "src/planSurface/components/prepMemoryQa.test.ts",
-            "src/planSurface/components/agentInteractionHistory.test.ts",
-            "src/planSurface/dogfood/PlanDogfoodPanel.test.tsx",
-            "src/planSurface/dogfood/planDogfoodReport.test.ts"
+            "src/planSurface/components/agentInteractionHistory.test.ts"
           ]
         },
         {
