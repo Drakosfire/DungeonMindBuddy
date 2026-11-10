@@ -437,7 +437,7 @@ class DockerPostgresRunner:
                     mount["Type"],
                     str(Path(mount["Source"]).resolve(strict=True)),
                     mount["Target"],
-                    mount["ReadOnly"],
+                    mount.get("ReadOnly", False),
                     (mount.get("BindOptions") or {}).get("Propagation"),
                 )
                 for mount in host["Mounts"]
@@ -498,6 +498,7 @@ class DockerPostgresRunner:
             or unexpected_mount_modes
             or host.get("NetworkMode") != "none"
             or port_bindings not in (None, {})
+            or host.get("PublishAllPorts") is not False
             or host.get("Privileged") is not False
             or host.get("ReadonlyRootfs") is not True
             or (host.get("CapAdd") or [])

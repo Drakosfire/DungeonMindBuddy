@@ -424,6 +424,7 @@ class LauncherIsolationTest(unittest.TestCase):
             "HostConfig": {
                 "NetworkMode": "none",
                 "PortBindings": None,
+                "PublishAllPorts": False,
                 "Privileged": False,
                 "ReadonlyRootfs": True,
                 "CapAdd": None,
@@ -445,14 +446,12 @@ class LauncherIsolationTest(unittest.TestCase):
                         "Type": "bind",
                         "Source": str((state / "pgdata").resolve()),
                         "Target": self.launcher.PGVECTOR_IMAGE_PGDATA,
-                        "ReadOnly": False,
                         "BindOptions": {"Propagation": "rprivate"},
                     },
                     {
                         "Type": "bind",
                         "Source": str((state / "s").resolve()),
                         "Target": str(state / "s"),
-                        "ReadOnly": False,
                         "BindOptions": {"Propagation": "rprivate"},
                     },
                     {
@@ -635,6 +634,14 @@ class LauncherIsolationTest(unittest.TestCase):
                 "bridge": {},
             }
             cases.append(altered_network)
+            published_ports = self.container_inspect(state, runner, runner.container_id)
+            published_ports["HostConfig"]["PublishAllPorts"] = True
+            cases.append(published_ports)
+            missing_readonly = self.container_inspect(
+                state, runner, runner.container_id
+            )
+            del missing_readonly["HostConfig"]["Mounts"][2]["ReadOnly"]
+            cases.append(missing_readonly)
             altered_mount = self.container_inspect(state, runner, runner.container_id)
             altered_mount["Mounts"].append(
                 {
