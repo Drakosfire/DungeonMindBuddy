@@ -952,7 +952,9 @@ def context_tasting(manifest_path, output, *, transport=None):
                             "body_size": len(raw), "claim_property_orders": orders,
                             "citation_first_verified": schema_order == "citation_first"})
                     api_key = os.environ.get("OPENROUTER_API_KEY")
-                    if not api_key and transport is not None:
+                    if not api_key:
+                        if transport is None:
+                            raise ValueError("OPENROUTER_API_KEY is required for tasting")
                         api_key = "offline-test"
                     sdk = AsyncOpenAI(api_key=api_key, base_url=OPENROUTER_BASE_URL, max_retries=0,
                         http_client=httpx.AsyncClient(transport=transport, event_hooks={"request": [retain_wire]}))
