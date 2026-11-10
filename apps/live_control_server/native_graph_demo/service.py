@@ -1672,11 +1672,37 @@ class NativeGraphDemoService:
                     "prepared parent payload does not match native readback"
                 )
             return prepared
-        except Exception as exc:
+        except (PersistenceUnavailableError, OSError) as exc:
+            raise DemoError(
+                "native_authority_unavailable",
+                "Native authority is unavailable for verification. The saved operation and its outcome are unchanged.",
+                503,
+            ) from exc
+        except PersistenceIntegrityError as exc:
+            raise DemoError(
+                "native_authority_integrity_failure",
+                "Native authority could not be verified. The saved operation and its outcome are unchanged.",
+                503,
+            ) from exc
+        except DemoError as exc:
+            if exc.status >= 500:
+                raise
             raise DemoError(
                 "prepared_operation_integrity_failure",
-                "The saved preparation failed integrity verification and was not committed.",
+                "The saved preparation failed verification. No new publication was attempted.",
                 409,
+            ) from exc
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            raise DemoError(
+                "prepared_operation_integrity_failure",
+                "The saved preparation failed verification. No new publication was attempted.",
+                409,
+            ) from exc
+        except Exception as exc:
+            raise DemoError(
+                "native_authority_error",
+                "Native authority could not be verified. The saved operation and its outcome are unchanged.",
+                503,
             ) from exc
 
     def _confirm_record(

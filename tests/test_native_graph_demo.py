@@ -4,6 +4,11 @@ import sqlite3
 import tempfile
 import unittest
 import uuid
+from unittest import mock
+from dungeonmind.domain.errors import (
+    PersistenceUnavailableError,
+    PersistenceIntegrityError,
+)
 from pathlib import Path
 from typing import Any
 
@@ -541,6 +546,47 @@ class NativeGraphDemoServiceTests(unittest.TestCase):
         self.assertEqual(prepared["status"], "prepared")
         self.assertEqual(observations, [True])
         self.assertIsNone(self.service._store.get_reservation(request["operation_id"]))
+
+    def test_native_read_outage_does_not_relabel_committed_outcome(self) -> None:
+        graph = self.service.graph()
+        request = self._create_request(graph, name="Native outage witness")
+        self.service.prepare(request)
+        committed = self.service.confirm(request["operation_id"])
+        self.assertEqual(committed["status"], "committed")
+        head = self.repository.get_head(graph["world_id"])
+        failures = (
+            PersistenceUnavailableError("offline"),
+            PersistenceIntegrityError("unverifiable"),
+            OSError("transport unavailable"),
+            RuntimeError("unexpected read failure"),
+            DemoError("native_authority_unavailable", "Unavailable", 503),
+        )
+        for method in ("get_native_source_admission_receipt", "get_revision"):
+            for failure in failures:
+                with self.subTest(method=method, failure=type(failure).__name__):
+                    with (
+                        mock.patch.object(self.repository, method, side_effect=failure),
+                        mock.patch.object(
+                            self.service,
+                            "_runtime",
+                            side_effect=AssertionError("must not redispatch"),
+                        ),
+                    ):
+                        for action in (self.service.operation, self.service.confirm):
+                            with self.assertRaises(DemoError) as error:
+                                action(request["operation_id"])
+                            self.assertEqual(error.exception.status, 503)
+                            self.assertNotIn("was not committed", str(error.exception))
+                    self.assertEqual(
+                        self.service._store.get_operation(request["operation_id"])[
+                            "status"
+                        ],
+                        "committed",
+                    )
+                    self.assertEqual(self.repository.get_head(graph["world_id"]), head)
+        recovered = self.service.operation(request["operation_id"])
+        self.assertEqual(recovered["status"], "committed")
+        self.assertEqual(recovered["graph"], committed["graph"])
 
     def test_operation_quota_is_enforced_before_native_source_or_head_change(
         self,
