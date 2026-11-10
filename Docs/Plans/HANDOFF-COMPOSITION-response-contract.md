@@ -115,7 +115,7 @@ Slice8 merged as PR2353 at ba17476a6ef4435facde5c147d680ed2dbb56447;
 exact-head independent review passed7b35c6acf805ccc0a668f4ca2ba32cf519493019,
 and33 local tests passed. No paid calls, database changes or deployment.
 
-## Slice9 ACTIVE — replay-safe native image capability removal
+## Slice9 COMPLETE — replay-safe native image capability removal
 
 Serial after2353; branch codex/native-writer-active-schema; base
 ba17476a6ef4435facde5c147d680ed2dbb56447. Exclusive writes: this handoff;
@@ -151,6 +151,26 @@ fallback or historical producer dispatch. Prove current admission rejects old
 format, historical normalization accepts exact old captures and rejects modified
 old schemas, and current native routes still exclude image capability. Retain
 historical artifacts under their original immutable pins.
+
+Slice9 merged as PR2354 at8739531f4c3c92ebe4f881fc960595040ae17a68.
+Exact-head review2e466c9b67210be7d74ffa652e2e615964a52207 passed;140 local tests
+and8 exact prechange historical schema comparisons passed. Actual locked APP
+DB replay was source-inspected, not newly integration-tested. No deployment.
+
+## Slice10 ACTIVE — self-contained active Rules response guidance
+
+Serial after2354; branch codex/writer-rules-guidance; base
+8739531f4c3c92ebe4f881fc960595040ae17a68. Exclusive writes: this handoff,
+apps/live_control_server/services/plan_jev_writer.py,
+tests/test_plan_jev_response_assembly.py. Current open UI/storage/CI leases checked;
+no overlap. No provider/database/deployment effects. Preserve native output schema,
+Rules/frame bytes, host checks and all inactive-call bytes. Remove the active Rules
+prose JSON template and dangling Plan-contract-above reference; retain support
+attribution, applicability, distinction from interpretation, relevance and ordered
+answer composition. One shared Rules instruction constant, no alternative prompt
+path. Verify actual SDK active/inactive assembly and unchanged strict native
+format. This is prompt simplification, not a claim of measured answer improvement.
+Independent exact-head review and one bounded PR; no paid rerun for this cleanup.
 
 ## Remaining completion gates
 

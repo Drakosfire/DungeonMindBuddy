@@ -99,6 +99,16 @@ def test_rules_guidance_requires_actual_supplied_lookup():
     active, _ = staged('plan', rules=True)
     assert active.instructions == compose_response_prompt(rules_instructions=RULES_INSTRUCTIONS).instructions
     assert plain.instructions != active.instructions
+    assert 'contract above' not in active.instructions
+    assert 'BASE_OR_NULL' not in active.instructions
+    assert '{"kind":"rules_answer"' not in active.instructions
+    assert 'supplied Rules supports' in active.instructions
+    assert 'applicability' in active.instructions
+    assert 'reading order' in active.instructions
+    assert active.output_format['type'] == 'json_schema'
+    assert active.output_format['strict'] is True
+    # The capability guidance must not leak into an ordinary no-lookup response.
+    assert plain.instructions == compose_response_prompt().instructions
 
 
 def test_clarify_uses_only_its_active_task_component():
