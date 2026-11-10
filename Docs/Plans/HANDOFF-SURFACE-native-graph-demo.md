@@ -333,9 +333,14 @@ matching the APP journal's ownership boundary. No old guest ID is changed.
 
 Final runtime evidence uses a unique synthetic Core database in the existing
 verified task-owned no-network PostgreSQL container, a distinct APP test clone,
-and task-only artifacts under a scrubbed child environment. Normal synthetic
-managed World creation and reviewed first-world prepare/confirm establish the
-actual binding, followed by the actual graph routes and local GM authentication.
+and task-only artifacts under a scrubbed child environment. Fixture-only provisioning creates a real vNext KnowledgeSpace through the public
+Core API and links its exact receipt/immutable Buddy descriptors through the owning
+APP world catalog service in the isolated clone. The actual graph routes and local
+GM authentication then run without overrides. This does not prove user-facing
+World creation or bootstrap: inspection found that the existing first-world Build
+initializer writes legacy WorldGraph, not a vNext KnowledgeSpace, and cannot safely
+activate this explorer. Do not relabel, migrate or alter an existing World to bridge
+that boundary in this slice.
 No dependency override may replace the binding, principal, native repository or
 operation store in that proof. In-memory unit contracts remain separate evidence.
 All proof data is retained; live API/UI, primary databases and old previews remain
@@ -354,3 +359,21 @@ and E7 singular ToolHost/EditHost/Agent route-remount case. The raw App log is
 retained externally; other checkpoint results are author-reported working-tree
 evidence, not qualifying exact-source logs. No test is disabled. The final
 repository verifier remains required.
+
+
+The managed service checkpoint passes 16 focused native route/service tests,
+including exact receipt recovery, corrupted aggregate refusal, principal-scoped
+native IDs, and both registered/custom predicate contracts. Scoped lint/format and
+diff checks pass. Raw logs are retained externally under
+`verification/managed-backend-a4f33323a/`; final exact-SHA tests remain required.
+A residual prototype limit is that the 8 MiB response guard runs after catalogue
+construction; it is not a per-request memory/work bound. No new pagination or
+upstream read contract is introduced here.
+
+Following the verified legacy/vNext initialization distinction, the frozen mode
+worker transfers only `selectedWorld/WorldSelector.tsx` and its test to the
+presentation worker for accurate setup wording. No navigation, auth or creation
+behavior is transferred. The existing Build link manages World content; it must
+not promise that legacy first-world initialization creates a compatible vNext
+graph. Hosted anonymous access, empty managed-World vNext initialization, and live
+cutover remain separate unsatisfied product gates.

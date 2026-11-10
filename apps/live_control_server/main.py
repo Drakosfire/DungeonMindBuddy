@@ -89,6 +89,9 @@ from apps.live_control_server.routes.source_navigation import (
     router as source_navigation_router,
 )
 from apps.live_control_server.routes.index_graph import router as index_graph_router
+from apps.live_control_server.routes.native_graph_explorer import (
+    router as native_graph_explorer_router,
+)
 from apps.live_control_server.services.hermes_graph_agent_host import (
     get_hermes_graph_agent_host,
     shutdown_hermes_graph_agent_host,
@@ -218,6 +221,7 @@ def create_app() -> FastAPI:
     application.include_router(statblock_candidates_router)
     application.include_router(source_navigation_router)
     application.include_router(index_graph_router)
+    application.include_router(native_graph_explorer_router)
 
     install_hosted_request_boundary(
         application, world_scope_resolvers=HOSTED_WORLD_SCOPE_RESOLVERS
