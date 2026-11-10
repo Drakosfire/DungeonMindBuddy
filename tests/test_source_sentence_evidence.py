@@ -3,13 +3,13 @@ import pytest
 from dataclasses import replace
 from src.graph_memory.extraction.source_sentence_evidence import (
     compile_source_sentence_packet as compile_packet,
-    materialize_actor_evidence,
+    materialize_node_evidence,
     render_source_sentence_packet,
 )
 
 
 def materialize(p, source, parsed, *, expected_packet_id):
-    return materialize_actor_evidence(
+    return materialize_node_evidence(
         replace(p, source=source), parsed, expected_packet_id=expected_packet_id
     )
 
@@ -125,4 +125,77 @@ def test_damaged_offsets_cannot_keep_old_packet_digest():
     p = packet('Ari waits. Bea returns.')
     bad = replace(p, units=(replace(p.units[0], end=len(p.source) + 1),))
     with pytest.raises(ValueError, match='source_revision_mismatch'):
-        materialize_actor_evidence(bad, response(p, ['Q001']), expected_packet_id=p.packet_id)
+        materialize_node_evidence(bad, response(p, ['Q001']), expected_packet_id=p.packet_id)
+
+
+def test_node_dispositions_share_exact_handle_wire_and_preserve_empty_refs():
+    from jsonschema import validate
+    from src.graph_memory.extraction.source_sentence_evidence import node_wire_schema
+    from src.graph_memory.extraction.category_candidate_graph_schema import category_node_pass_json_schema
+    p = packet("It did have a job board. The town was hardly known.")
+    base = category_node_pass_json_schema(include_dispositions=True)
+    wire = node_wire_schema(base, p)
+    node = {"node_id": "town", "label": "Town", "node_type": "location",
+            "description": "The town was hardly known.", "importance": "high",
+            "evidence_refs": [{"source_quote_ids": ["Q001", "Q002"]}]}
+    disposition = {"item_id": "held", "label": "Unknown", "reason": "No claim",
+                   "suggested_next_step": None, "evidence_refs": []}
+    raw = {"observation_nodes": [node], "ignored_items": [disposition],
+           "deferred_items": [{**disposition, "evidence_refs": [{"source_quote_ids": ["Q001"]}]}]}
+    validate(raw, wire)
+    normalized = materialize_node_evidence(p, raw, expected_packet_id=p.packet_id)
+    validate(normalized, base)
+    assert normalized["observation_nodes"][0]["evidence_refs"][0]["anchor_quotes"] == ["It did have a job board."]
+    assert normalized["ignored_items"][0]["evidence_refs"] == []
+    assert normalized["deferred_items"][0]["evidence_refs"][0]["anchor_quotes"] == ["It did have a job board."]
+    assert raw["observation_nodes"][0]["evidence_refs"] == [{"source_quote_ids": ["Q001", "Q002"]}]
+
+
+@pytest.mark.parametrize("collection", ["ignored_items", "deferred_items"])
+def test_unknown_disposition_handle_rejects_without_partial_materialization(collection):
+    p = packet("The gate stayed closed.")
+    raw = {"observation_nodes": [], collection: [{"evidence_refs": [{"source_quote_ids": ["Q999"]}]}]}
+    original = deepcopy(raw)
+    with pytest.raises(ValueError, match="unknown_or_duplicate_unit"):
+        materialize_node_evidence(p, raw, expected_packet_id=p.packet_id)
+    assert raw == original
+
+
+@pytest.mark.parametrize('collection', ['observation_nodes', 'ignored_items', 'deferred_items'])
+def test_cross_group_repeated_known_units_emit_once_in_first_seen_order(collection):
+    from jsonschema import validate
+    from src.graph_memory.extraction.source_sentence_evidence import node_wire_schema
+    from src.graph_memory.extraction.category_candidate_graph_schema import category_node_pass_json_schema
+    p = packet('Ari waits. Bea returns. Ari waits.')
+    base = category_node_pass_json_schema(include_dispositions=True)
+    refs = [{'source_quote_ids': ['Q002', 'Q001']},
+            {'source_quote_ids': ['Q001', 'Q003', 'Q002']}]
+    item = ({'node_id': 'x', 'label': 'Ari', 'node_type': 'character',
+             'description': 'Ari waits.', 'importance': 'high', 'evidence_refs': refs}
+            if collection == 'observation_nodes' else
+            {'item_id': 'x', 'label': 'Ari', 'reason': 'Held',
+             'suggested_next_step': None, 'evidence_refs': refs})
+    raw = {'observation_nodes': [], 'ignored_items': [], 'deferred_items': []}
+    raw[collection] = [item]
+    original = deepcopy(raw)
+    validate(raw, node_wire_schema(base, p))
+    normalized = materialize_node_evidence(p, raw, expected_packet_id=p.packet_id)
+    validate(normalized, base)
+    quotes = [r['anchor_quotes'][0] for r in normalized[collection][0]['evidence_refs']]
+    assert quotes == ['Bea returns.', 'Ari waits.', 'Ari waits.']
+    # Q001/Q003 share text and span, but identify distinct exact source positions.
+    assert p.units[0].span_id == p.units[2].span_id
+    assert p.units[0].start != p.units[2].start
+    assert raw == original
+
+
+@pytest.mark.parametrize('collection', ['observation_nodes', 'ignored_items', 'deferred_items'])
+@pytest.mark.parametrize('later_group', [['Q001', 'Q001'], ['Q001', 'Q999']])
+def test_later_invalid_group_cannot_hide_behind_cross_group_deduplication(collection, later_group):
+    p = packet('Ari waits. Bea returns.')
+    raw = {'observation_nodes': [], collection: [{'evidence_refs': [
+        {'source_quote_ids': ['Q001']}, {'source_quote_ids': later_group}]}]}
+    original = deepcopy(raw)
+    with pytest.raises(ValueError, match='unknown_or_duplicate_unit'):
+        materialize_node_evidence(p, raw, expected_packet_id=p.packet_id)
+    assert raw == original
