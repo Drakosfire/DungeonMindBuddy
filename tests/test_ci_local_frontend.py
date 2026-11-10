@@ -17,6 +17,10 @@ from scripts import ci_local_frontend as local
 
 @pytest.fixture
 def sandbox(tmp_path, monkeypatch):
+    allocations = tmp_path / "allocations"
+    allocations.mkdir()
+    monkeypatch.setattr(local, "DEFAULT_WORKSPACE_ROOT", allocations)
+    monkeypatch.setattr(local, "filesystem_uuid", lambda path: local.PROJECTS_UUID)
     repo = tmp_path / "repo"
     repo.mkdir()
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
@@ -543,3 +547,145 @@ def test_clean_committed_source_drift_during_install_is_refused(sandbox, monkeyp
     assert report["cleanup_complete"]
     with pytest.raises(ValueError):
         local.validate(Path(args.output) / "evidence.json", args.sha, "discovered")
+
+
+@pytest.mark.parametrize("ambient", [None, "/tmp", "/var/tmp"])
+def test_default_allocation_ignores_ambient_temp_and_routes_child_storage(
+    sandbox, monkeypatch, ambient
+):
+    args, _, fake = sandbox
+    if ambient is None:
+        monkeypatch.delenv("TMPDIR", raising=False)
+    else:
+        monkeypatch.setenv("TMPDIR", ambient)
+    monkeypatch.setenv("npm_config_cache", "/tmp/inherited-npm-cache")
+    monkeypatch.setenv("NPM_CONFIG_CACHE", "/tmp/inherited-uppercase-npm-cache")
+    monkeypatch.setenv("NODE_COMPILE_CACHE", "/tmp/inherited-node-cache")
+    monkeypatch.setattr(local.tempfile, "tempdir", "/tmp")
+    before = dict(os.environ)
+    observed = []
+
+    def command(argv, cwd, log, env):
+        source = Path(cwd).parents[1]
+        run = source.parent.parent
+        assert run.parent == local.DEFAULT_WORKSPACE_ROOT
+        assert source == run / "verification/source"
+        for key in ("TMPDIR", "TMP", "TEMP", "npm_config_cache", "NPM_CONFIG_CACHE",
+                    "UV_CACHE_DIR", "XDG_CACHE_HOME", "NODE_COMPILE_CACHE"):
+            path = Path(env[key])
+            assert path.is_dir() and path.is_relative_to(run)
+        # Exercise an actual subprocess's temporary-file choice, not only a dict.
+        actual = subprocess.check_output(
+            [sys.executable, "-c", "import tempfile; print(tempfile.gettempdir())"],
+            env=env, text=True,
+        ).strip()
+        assert actual == env["TMPDIR"]
+        observed.append(run)
+        return fake(argv, cwd, log, env)
+
+    monkeypatch.setattr(local, "command", command)
+    assert local.verify(args) == 0
+    report = local.validate(Path(args.output) / "evidence.json", args.sha, args.suite)
+    assert observed and report["workspace_uuid"] == local.PROJECTS_UUID
+    assert report["workspace_root"] == str(local.DEFAULT_WORKSPACE_ROOT)
+    assert report["temporary_root"] == str(observed[0])
+    assert not observed[0].exists()
+    assert dict(os.environ) == before
+
+
+@pytest.mark.parametrize("failure", ["missing", "file", "unwritable", "wrong-uuid", "empty-uuid"])
+def test_storage_preflight_refuses_before_output_or_worktree_allocation(
+    sandbox, monkeypatch, failure
+):
+    args, calls, _ = sandbox
+    root = local.DEFAULT_WORKSPACE_ROOT
+    if failure == "missing":
+        args.workspace_root = str(root / "absent")
+    elif failure == "file":
+        target = root / "not-a-directory"
+        target.write_text("retained")
+        args.workspace_root = str(target)
+    elif failure == "unwritable":
+        monkeypatch.setattr(local.os, "access", lambda *_: False)
+    else:
+        args.workspace_uuid = "other-device" if failure == "wrong-uuid" else ""
+    monkeypatch.setattr(
+        local.tempfile, "TemporaryDirectory",
+        lambda **_: pytest.fail("allocated before storage validation"),
+    )
+    with pytest.raises((ValueError, OSError)):
+        local.verify(args)
+    assert not Path(args.output).exists()
+    assert not calls
+    assert len(local.git(args.repo, "worktree", "list", "--porcelain").split("worktree ")) == 2
+
+
+def test_explicit_workspace_and_uuid_support_an_authorized_other_executor(sandbox, monkeypatch):
+    args, _, _ = sandbox
+    root = Path(args.repo).parent / "explicit-workspace"
+    root.mkdir()
+    args.workspace_root = str(root)
+    args.workspace_uuid = "authorized-device"
+    monkeypatch.setattr(local, "filesystem_uuid", lambda _: "authorized-device")
+    assert local.verify(args) == 0
+    report = local.validate(Path(args.output) / "evidence.json", args.sha, args.suite)
+    assert Path(report["temporary_root"]).parent == root
+    assert report["workspace_uuid"] == "authorized-device"
+    assert not list(root.iterdir())
+
+
+def test_symlink_escape_is_checked_on_actual_backing_filesystem(sandbox, monkeypatch):
+    args, _, _ = sandbox
+    root = local.DEFAULT_WORKSPACE_ROOT
+    outside = root.parent / "other-filesystem"
+    outside.mkdir()
+    alias = root / "escape"
+    alias.symlink_to(outside, target_is_directory=True)
+    args.workspace_root = str(alias)
+    monkeypatch.setattr(local, "filesystem_uuid", lambda path: "wrong" if path == outside else local.PROJECTS_UUID)
+    with pytest.raises(ValueError, match="filesystem"):
+        local.verify(args)
+    assert not Path(args.output).exists()
+    assert not list(outside.iterdir())
+
+
+def test_evidence_on_another_filesystem_is_refused_before_mkdir(sandbox, monkeypatch):
+    args, _, _ = sandbox
+    root = local.DEFAULT_WORKSPACE_ROOT
+    monkeypatch.setattr(local, "filesystem_uuid", lambda path: local.PROJECTS_UUID if path == root else "wrong")
+    with pytest.raises(ValueError, match="filesystem"):
+        local.verify(args)
+    assert not Path(args.output).exists()
+
+
+@pytest.mark.parametrize("field", ["output", "workspace_root"])
+def test_repository_local_allocations_are_refused(sandbox, field):
+    args, _, _ = sandbox
+    setattr(args, field, str(Path(args.repo) / "ci"))
+    with pytest.raises(ValueError, match="outside the source repository"):
+        local.verify(args)
+
+
+def test_filesystem_uuid_uses_backing_mount_not_empty_automount_row(monkeypatch):
+    observed = []
+
+    def probe(argv, **kwargs):
+        observed.append(argv)
+        return "\n48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8\n"
+
+    monkeypatch.setattr(local.subprocess, "check_output", probe)
+    assert local.filesystem_uuid(Path("/example")) == local.PROJECTS_UUID
+    assert observed == [["findmnt", "--target", "/example", "--noheadings", "--output", "UUID"]]
+
+
+def test_filesystem_probe_error_fails_closed_without_allocation(sandbox, monkeypatch):
+    args, calls, _ = sandbox
+
+    def unavailable(_):
+        raise FileNotFoundError("findmnt unavailable")
+
+    monkeypatch.setattr(local, "filesystem_uuid", unavailable)
+    with pytest.raises(FileNotFoundError, match="findmnt unavailable"):
+        local.verify(args)
+    assert not Path(args.output).exists()
+    assert not calls

@@ -23,6 +23,65 @@ ROOT = Path(__file__).resolve().parents[1]
 NODE = "v22.23.0"
 NPM = "10.9.8"
 LOCK = Path(f"/tmp/dungeonmind-frontend-verification-{os.getuid()}.lock")
+DEFAULT_WORKSPACE_ROOT = Path.home() / "Projects/.codex"
+PROJECTS_UUID = "48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8"
+
+
+def filesystem_uuid(path):
+    rows = subprocess.check_output(
+        ["findmnt", "--target", str(path), "--noheadings", "--output", "UUID"],
+        text=True,
+    ).split()
+    # An automount may also report an empty systemd row. The backing mount wins.
+    return rows[-1] if rows else ""
+
+
+def checked_storage(path, expected_uuid):
+    resolved = Path(path).expanduser().resolve(strict=True)
+    if not resolved.is_dir() or not os.access(resolved, os.W_OK | os.X_OK):
+        raise ValueError(
+            f"verification storage is not a writable directory: {resolved}"
+        )
+    if not expected_uuid or filesystem_uuid(resolved) != expected_uuid:
+        raise ValueError(
+            f"verification storage must be on filesystem {expected_uuid}: {resolved}"
+        )
+    return resolved
+
+
+def allocation_paths(args, repo):
+    expected_uuid = getattr(args, "workspace_uuid", PROJECTS_UUID)
+    root = checked_storage(
+        getattr(args, "workspace_root", DEFAULT_WORKSPACE_ROOT), expected_uuid
+    )
+    out = Path(args.output).expanduser().resolve()
+    ancestor = out.parent
+    while not ancestor.exists():
+        ancestor = ancestor.parent
+    checked_storage(ancestor, expected_uuid)
+    if out.is_relative_to(repo) or root.is_relative_to(repo):
+        raise ValueError(
+            "verification workspace and evidence must be outside the source repository"
+        )
+    return root, out, expected_uuid
+
+
+def child_environment(run, inherited):
+    env = dict(inherited)
+    paths = {
+        "TMPDIR": run / "scratch",
+        "TMP": run / "scratch",
+        "TEMP": run / "scratch",
+        "npm_config_cache": run / "cache/npm",
+        "NPM_CONFIG_CACHE": run / "cache/npm",
+        "UV_CACHE_DIR": run / "cache/uv",
+        "XDG_CACHE_HOME": run / "cache/xdg",
+        "NODE_COMPILE_CACHE": run / "cache/node",
+    }
+    for key, path in paths.items():
+        path.mkdir(parents=True, exist_ok=True)
+        env[key] = str(path)
+    return env
 
 
 def git(repo, *args):
@@ -370,11 +429,13 @@ def verify(args):
         or git(repo, "rev-parse", args.sha + "^{commit}") != args.sha
     ):
         raise ValueError("a full existing commit SHA is required")
-    out = Path(args.output).resolve()
+    workspace_root, out, workspace_uuid = allocation_paths(args, repo)
     out.mkdir(parents=True, exist_ok=False)
     report = {
         "version": 1,
         "verified_sha": args.sha,
+        "workspace_root": str(workspace_root),
+        "workspace_uuid": workspace_uuid,
         "runner_sha": git(ROOT, "rev-parse", "HEAD"),
         "runner_dirty": bool(git(ROOT, "status", "--porcelain")),
         "caller_dirty": bool(git(repo, "status", "--porcelain")),
@@ -412,16 +473,29 @@ def verify(args):
             if forbidden:
                 raise ValueError(f"inherited test controls forbidden: {forbidden}")
             report["resources"] = resources(args.workers)
-            report["node"] = subprocess.check_output(
-                ["node", "--version"], text=True
-            ).strip()
-            report["npm"] = subprocess.check_output(
-                ["npm", "--version"], text=True
-            ).strip()
-            if (report["node"], report["npm"]) != (NODE, NPM):
-                raise ValueError(f"require Node {NODE} and npm {NPM}")
-            with tempfile.TemporaryDirectory(prefix="dmb-local-frontend-") as temp:
-                source = Path(temp) / "source"
+            with tempfile.TemporaryDirectory(
+                prefix="frontend-verification-", dir=workspace_root
+            ) as temp:
+                run = Path(temp)
+                env = child_environment(run, env)
+                report["temporary_root"] = str(run)
+                report["child_storage"] = {
+                    key: env[key]
+                    for key in (
+                        "TMPDIR", "npm_config_cache", "UV_CACHE_DIR",
+                        "XDG_CACHE_HOME", "NODE_COMPILE_CACHE",
+                    )
+                }
+                report["node"] = subprocess.check_output(
+                    ["node", "--version"], text=True, env=env
+                ).strip()
+                report["npm"] = subprocess.check_output(
+                    ["npm", "--version"], text=True, env=env
+                ).strip()
+                if (report["node"], report["npm"]) != (NODE, NPM):
+                    raise ValueError(f"require Node {NODE} and npm {NPM}")
+                source = run / "verification/source"
+                source.parent.mkdir()
                 try:
                     subprocess.run(
                         [
@@ -435,6 +509,7 @@ def verify(args):
                             args.sha,
                         ],
                         check=True,
+                        env=env,
                     )
                     frontend = source / "apps/live-control-ui"
                     report["source_frontend_path"] = str(frontend)
@@ -596,6 +671,7 @@ def verify(args):
                                 str(source),
                             ],
                             check=True,
+                            env=env,
                         )
                     report["cleanup_complete"] = not source.exists()
         except (Exception, KeyboardInterrupt) as exc:
@@ -627,6 +703,16 @@ def main():
     run.add_argument("--output", required=True)
     run.add_argument("--suite", choices=["discovered", "hosted"], default="discovered")
     run.add_argument("--workers", type=int, default=8)
+    run.add_argument(
+        "--workspace-root",
+        default=str(DEFAULT_WORKSPACE_ROOT),
+        help="existing external allocation parent (default: ~/Projects/.codex; no temp fallback)",
+    )
+    run.add_argument(
+        "--workspace-uuid",
+        default=PROJECTS_UUID,
+        help="required backing filesystem UUID for workspace and evidence",
+    )
     check = sub.add_parser("validate")
     check.add_argument("evidence")
     check.add_argument("--sha", required=True)

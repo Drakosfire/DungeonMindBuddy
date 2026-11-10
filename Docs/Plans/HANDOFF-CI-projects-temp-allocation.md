@@ -5,10 +5,13 @@ Status: ACTIVE. PR topology: parallel-independent.
 ## Authority and lane
 
 The coordinator adopts this bounded repair under the user's request to fix
-continuing temporary-file disk exhaustion. Base is main
-573d72f9a5e4f296fdb7de055b85882a568969bb, confirmed through the read-only GitHub
-connector on 2026-11-10. Direct Git fetch was network-policy blocked; the matching
-commit is present locally. Branch: codex/frontend-projects-temp-allocator.
+continuing temporary-file disk exhaustion. Design base was main
+573d72f9a5e4f296fdb7de055b85882a568969bb. Publication re-anchor is main
+49ac23cebc1194d84ae7bc67d2e7a63cf5060010, confirmed through the read-only GitHub
+connector on 2026-11-10. Only unrelated BUILD paths advanced. Direct Git fetch
+was network-policy blocked; both matching commits were already present locally.
+The lane was rebased onto the new main with unchanged implementation blobs.
+Branch: codex/frontend-projects-temp-allocator.
 
 ## Invariant
 
@@ -41,3 +44,30 @@ Task root: /home/drakosfire/Projects/.codex/frontend-temp-allocator-20261110.
 Its worktree, scratch and cache are owned by this repair. Retain source and evidence
 for review; no existing files, shared caches or other worktrees are deleted.
 Clean up retained reproducible task artifacts only after review and authorization.
+
+## Implementation evidence
+
+The allocator ignores ambient temp/cache defaults, checks the resolved workspace
+and evidence filesystem before allocation, and passes task-owned temp/cache
+settings to Node/npm/Git children. The tiny persistent `/tmp` lock remains the
+same inode/coordination boundary. `--workspace-root` plus `--workspace-uuid`
+provides explicit portability; there is no automatic storage fallback.
+
+Local guard result: 44 passed, including real fixture Git worktrees, a real child
+Python temp-path probe, cancellation cleanup and storage failure cases. Actual
+host preflight confirms the expected Projects UUID. AST parsing and diff whitespace
+checks pass. Existing Python plugin deprecation warnings remain.
+
+The adjacent contract suite is 13 passed / 1 failed on both the candidate and an
+isolated exact-base 573d72f9a checkout: inventory lacks classification for
+`apps/live-control-ui/src/media/MediaImageWizard.edit.test.tsx`. The inventory
+command reports that same inherited failure. No classification is silently added
+outside this lease. No npm download, full frontend run or product build is claimed.
+
+Retained paths under the task root: `worktrees/buddy` (implementation, about 313 MB),
+`verification/baseline` (exact-base failure witness, about 313 MB), `scratch`
+(test fixtures/logs, about 3 MB), `cache` (empty). All are on the Projects UUID.
+No prior data, shared caches or other-task files were removed; reclaimed bytes: 0.
+Only newly generated fixture worktrees/temp directories were cleaned by their tests.
+The worktree is not on main. After review/publication, request scoped cleanup of
+retained reproducible artifacts; preserve implementation commits and evidence first.
