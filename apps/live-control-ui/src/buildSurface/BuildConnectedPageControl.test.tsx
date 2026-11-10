@@ -313,6 +313,13 @@ it('creates a reviewed Plan scaffold in place with the saved Edge origin, withou
  expect(workflow.readConnectedPageRecovery('elderwyld',plan)).toBeNull();
  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });
+it('defaults an unmatched Plan proposal to a new location without an extra identity selection',async()=>{
+ render(<PlanReview/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Review Plan page proposal'}));
+ await waitFor(()=>expect(screen.getByRole('combobox',{name:'Location'})).toHaveValue('__new__'));
+ expect(screen.getByRole('button',{name:'Create page'})).toBeEnabled();
+ expect(api.prepareConnectedPage).not.toHaveBeenCalled();
+});
 it('restores a completed Plan operation after reload using only recovery reads',async()=>{
  const request:ConnectedPageIntent={operation_id:'44444444-4444-4444-8444-444444444444',world_id:'elderwyld',title:'Copper Workshop',origin:planSeed.origin,place:{node_id:null,label:'Copper Workshop',kind:'location'},person:null,relationships:[],mode:'scaffold',instructions:'Develop later'};
  workflow.retainConnectedPageRequest(request,plan);
