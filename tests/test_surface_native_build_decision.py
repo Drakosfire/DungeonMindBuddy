@@ -166,11 +166,12 @@ def test_controller_proof_cannot_change_identity_capture_or_auxiliary_answers(mu
         semantic.validate_selection_records(record,event,proof,trace,**identity)
 
 
-def test_image_selection_keeps_its_existing_confidence_threshold():
-    _context,record,event,proof,trace,work=sdk_case('prepare_image',capable=True,probability=.85)
-    with pytest.raises(ValueError,match='admission threshold'):
-        semantic.validate_selection_records(record,event,proof,trace,user_text=record.policy.action.intent.message,
-            turn_id=work['turn_id'],attempt=1)
+@pytest.mark.parametrize('probability',[.40,.85,1.0])
+def test_image_prompt_review_uses_actual_selection_not_an_extra_confidence_floor(probability):
+    _context,record,event,proof,trace,work=sdk_case('prepare_image',capable=True,probability=probability)
+    semantic.validate_selection_records(record,event,proof,trace,user_text=record.policy.action.intent.message,
+        turn_id=work['turn_id'],attempt=1)
+    assert event.operation=='prepare_build_image' and event.requested_work=='prepare_image'
 
 
 @pytest.mark.parametrize('mutation',['missing','duplicate','unacknowledged','operation','resolution','capabilities','menu','turn'])

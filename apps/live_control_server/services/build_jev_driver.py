@@ -1232,8 +1232,6 @@ class BuildJevDriver:
                 execution = a._broker_execution()
                 resolution = resolution_for(execution.policy, label)
                 selected = resolution['operation']
-                if selected == 'prepare_build_image' and answers['requested_work']['probabilities'][label] < .9:
-                    raise ValueError('Image semantic selection did not meet admission threshold')
                 authorization = next(e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV3) and e.provider_attempt_id == a.last_provider_attempt_id)
                 event = ledger.BuildRequestedWorkResolutionV1(kind='build_requested_work_resolved_v1', event_id=uuid4(), sequence=len(execution.events),
                     controller_attempt_id=authorization.provider_attempt_id, controller_envelope_sha256=authorization.envelope_sha256,
