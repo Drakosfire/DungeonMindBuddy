@@ -12,6 +12,56 @@ from evals.buddy_benchmark import workflow as w
 from evals.buddy_benchmark.artifacts import immutable_save, row_inventory
 
 
+@pytest.mark.parametrize('invalid', [None, 'writer_role', 'hidden_grades', 'schema', 'nested'])
+def test_pinned_judge_role_and_native_contract_are_separate_from_writer_inputs(tmp_path, monkeypatch, invalid):
+    import generationengine
+    from application_state.agent_conversation import native_evidence_view, types
+    from evals.buddy_benchmark.writer_assessment import quality_schema
+    from tests.test_writer_assessment import native_answer_schema
+    frame = {'user_question': 'A question'}
+    monkeypatch.setattr(native_evidence_view, 'semantic_frame_in_request', lambda *a, **k: frame)
+    packet = {'tools': [], 'instructions': 'Original writer.', 'input': [{'role': 'user', 'content': 'Evidence'}],
+        'text': {'format': {'schema': native_answer_schema(), 'name': 'answer'}}, 'reasoning': {'effort': 'low'}}
+    raw = json.dumps(packet).encode()
+    text = 'Assess replies against supplied evidence; do not answer the campaign question.'
+    instruction = tmp_path / 'instructions.txt'; instruction.write_text(text)
+    components = {'contract': 'buddy_response_v1' if invalid == 'writer_role' else 'buddy_writer_judge_v1',
+        'components': [{'name': 'judge_task', 'version': '1', 'text': text, 'sha256': sha256(text.encode()).hexdigest()}],
+        'instructions_sha256': sha256(text.encode()).hexdigest()}
+    candidates = [{'candidate_id': 'sample0', 'answer': {'answer_segments': [], 'limitations': [], 'requested_detail_gaps': []}}]
+    if invalid == 'nested': candidates[0]['answer']['answer_segments'] = [{'text': 'A claim', 'expected_grades': {'grounding': 'pass'}}]
+    reference = {'required_concepts': [{'id': 'concept0', 'description': 'A detail'}]}
+    if invalid == 'hidden_grades': reference['expected_grades'] = {'sample0': 'pass'}
+    schema = quality_schema(['sample0'], ['concept0'])
+    if invalid == 'schema': schema['required'] = []
+    spec = {'schema': 'dmb_context_tasting_v1', 'models': ['test/model'],
+        'source_request': put(tmp_path / 'request.json', {'body_hex': raw.hex(), 'body_size': len(raw), 'body_sha256': sha256(raw).hexdigest()}),
+        'context_ready': put(tmp_path / 'ready.json', {'frame_sha256': types.canonical_sha256(frame)}),
+        'instructions': {'path': str(instruction), 'sha256': sha256(instruction.read_bytes()).hexdigest()},
+        'prompt_components': put(tmp_path / 'components.json', components),
+        'assessment': {k: put(tmp_path / (k+'.json'), v) for k,v in
+            [('candidates', candidates), ('reference', reference), ('schema', schema)]}}
+    manifest = tmp_path / 'manifest.json'; put(manifest, spec)
+    seen = []
+    class Client:
+        async def generate_structured(self, request, **kwargs):
+            seen.append(request)
+            return SimpleNamespace(text='{}', parsed={}, observation=SimpleNamespace(model_dump=lambda **k: {}))
+        async def aclose(self): pass
+    monkeypatch.setattr(generationengine, 'GenerationClient', Client)
+    output = tmp_path / 'output'
+    if invalid:
+        with pytest.raises(ValueError): w.context_tasting(manifest, output)
+        assert not seen and not output.exists()
+    else:
+        w.context_tasting(manifest, output)
+        assert seen[0].json_schema == schema
+        assert seen[0].system_prompt == text
+        assert 'REFERENCE CRITERIA' in seen[0].user_prompt and 'sample0' in seen[0].user_prompt
+        assert 'expected_grades' not in seen[0].user_prompt and 'instructions_sha256' not in seen[0].user_prompt
+        assert json.loads((output / 'frozen-packet.json').read_text()) == packet
+
+
 @pytest.mark.parametrize("prompt_override,bad_manifest", [(False, None), (True, None), (True, "instructions"), (True, "component")])
 def test_context_tasting_freezes_shared_input_and_retains_failures(tmp_path, monkeypatch, prompt_override, bad_manifest):
     import generationengine
@@ -140,7 +190,7 @@ def test_flat_tasting_changes_only_exact_evidence_frame(tmp_path, monkeypatch, r
 
 
 
-@pytest.mark.parametrize("response_contract", [False, True])
+@pytest.mark.parametrize("response_contract", [False, True, 'judge'])
 def test_tasting_adapter_actual_sdk_wire_is_common_across_models(response_contract):
     import asyncio
     import httpx
@@ -151,11 +201,19 @@ def test_tasting_adapter_actual_sdk_wire_is_common_across_models(response_contra
     system = compose_response_prompt().instructions if response_contract else "Frozen voice"
     wires = []
     schema = {"type": "object", "properties": {}, "required": [], "additionalProperties": False}
+    output = {}
+    if response_contract == 'judge':
+        from evals.buddy_benchmark.writer_assessment import AXES, quality_schema
+        system = 'Assess the supplied replies, not the campaign question.'
+        schema = quality_schema(['sample0'], ['concept0'])
+        output = {'assessments': [{'candidate_id': 'sample0', 'covered_concepts': ['concept0'],
+            'dimensions': {axis: {'judgment': 'pass', 'reason': 'Supported.',
+                'segment_indices': [], 'support_handles': []} for axis in AXES}}]}
     def reply(request):
         wires.append(json.loads(request.content))
         return httpx.Response(200, json={"id": "offline-response", "object": "chat.completion",
             "created": 1, "model": wires[-1]["model"],
-            "choices": [{"index": 0, "message": {"role": "assistant", "content": "{}"}, "finish_reason": "stop"}],
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": json.dumps(output)}, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 12}})
     async def run():
         sdk = AsyncOpenAI(api_key="offline", base_url="https://openrouter.ai/api/v1",

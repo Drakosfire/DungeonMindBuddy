@@ -1,115 +1,65 @@
 # COMPOSITION: response-writing contract
 
-ACTIVE: user armed the response-writing goal: separate voice/task/evidence/native
-schema; remove inactive capabilities; remove host bookkeeping at owners and factor
-exact qualification repetition; make frozen experiments routine; assess independent
-quality dimensions and calibrate a judge before trusting scores.
+ACTIVE objective: one inspectable minimal writer assembly; owner-cleaned evidence
+and shared qualifications; controlled frozen experiments; separate quality axes
+and calibrated judging. Preserve primary data and historical evidence. No
+question-specific executables, unchanged paid reruns or invented perfect scores.
 
-## Serial delivery
+## Settled predecessors
 
-Slice1 settled: PR2337 merged 2dd7d020e7e835e70624c546d627777619a0c294.
-Compiler and experiment component pins are delivered; product activation and
-measured prompt adoption remain incomplete.
+- PR2337: component compiler and frozen prompt pins, merge2dd7d020e7e835e70624c546d627777619a0c294.
+- PR2340: explicit reviewed diagnostic qualification separation, merge0af325132b98eb9dba327126df3ae89029a0f644.
+- PR2343: lossless shared flat presentation, mergeb8c049283d90c1c79e7ac0fe9bb488ee16a65ce9.
+- PR2345: actual ordinary Plan/Build/Play compiler integration, merge27f468699955d33e8b15cae766828ae83c2162fb.
+ 139localchecks plus23focused checks in original app environment; actual native
+ constructors/mock SDK bytes, not locked APP admission or deployment.
 
-Slice2 settled: PR2340 merged 0af325132b98eb9dba327126df3ae89029a0f644.
-Explicit reviewed qualification separation is available in frozen diagnostics;
-live metadata cleanup and product assembly integration remain incomplete. Fresh
-Q15 reference failed native JSON; response-only prompt completed with9/9 required
-concepts and two minor grounding/chronology findings. Neither proves adoption.
+Retained Q15 original-prompt fresh reference failed native JSON. Response-only
+prompt covered9/9 concepts with minor grounding/chronology findings. Shared flat
+presentation used16.4% fewer input tokens, but introduced two citation gaps and a
+decision/action overreach. Keep JSON reference; no flat default adoption. One
+sample per configuration does not prove variation or general prose preference.
+Evidence/pins: out/response-writing-contract-v1/. Historical write leases and
+implementations remain in pinned Git history, not competing ACTIVE contracts.
 
-Slice3 settled: PR2343 merged b8c049283d90c1c79e7ac0fe9bb488ee16a65ce9.
-Exact sharing/readback passes. One flat/shared diagnostic used16.4% fewer input
-tokens but introduced two own-citation gaps and one decision/action overreach;
-not adopted as default. JSON remains the reference presentation.
+## Slice5 ACTIVE — reusable writer judge calibration
 
-Slice4 ACTIVE: ordinary writer compiler integration. Branch
-codex/ordinary-response-assembly from fetched origin/main b8c049283. Exclusive
-write lease: this handoff; apps/live_control_server/services/plan_jev_writer.py;
-src/application_state/agent_conversation/response_prompt.py;
-tests/test_response_prompt.py; tests/test_plan_jev_response_assembly.py;
-Docs/Guides/ordinary-benchmark-workflow.md. Serial after2343. Inspected open
-UI/storage/source-local-modality lanes do not overlap these files. Select ordinary
-work through actual native Plan/Play/Build owners before legacy construction.
-Preserve authoring, clarify, image and reviewed collaboration branches. Conditional
-Rules/related-page components only with supplied material; no proof/manifest in
-model context. Verify owner guards and actual constructor/SDK bytes locally, with
-independent exact-head review. No paid calls, runtime deployment, DB or primary
-changes. Diagnostic repair/flat presentation must never become product authority;
-live historical metadata hygiene remains an explicit separate completion gate.
+Serial after2345. Branch codex/writer-judge-calibration from fetched origin/main
+60d28dda0 (actual parent; main advanced before allocation). Existing isolated
+checkout. Expected exclusive writes:
+- evals/buddy_benchmark/workflow.py
+- evals/buddy_benchmark/writer_assessment.py
+- tests/test_buddy_benchmark_workflow.py
+- tests/test_writer_assessment.py
+- Docs/Guides/ordinary-benchmark-workflow.md
+- this handoff
 
-Slice3 contract: exact qualification sharing in the existing flat presentation.
-Branch codex/shared-writer-qualifications from fetched origin/main0af325132.
-Exclusive write lease: this handoff;
-src/application_state/agent_conversation/native_evidence_presentation.py;
-evals/buddy_benchmark/workflow.py; tests/test_native_evidence_presentation.py;
-tests/test_buddy_benchmark_workflow.py; Docs/Guides/ordinary-benchmark-workflow.md.
-Serial after2340. Open composition2225 and UI/storage lanes were inspected and do
-not overlap these paths. Preserve every original handle, field, qualification,
-quotation and input order on exact readback. Group only byte-identical complete
-qualification values, never similar text. Replace the old flat format rather
-than keep another runtime implementation; historical code pins retain readback.
-Verify local tests and full retained frame, then independent exact-head review.
-No primary/database/retrieval changes. After verification, one changed-presentation
-writer diagnostic may compare with the retained response-only JSON reference;
-context meaning, system prompt, model/route/schema/settings must remain fixed.
+Inspected open reference/UI/storage work does not overlap. Extend context-tasting,
+not another transport/harness. Explicit versioned judge role plus pinned semantic
+candidate answers, reference concepts and native schema; never transfer hidden
+human grades or model/cost identities. Reject incomplete/wrong-role inputs before
+dispatch. Retain actual requests, raw outputs/failures, costs/timings and separate
+calibration reports. Compare seven axes; unknown human judgments stay unscored.
+No automatic QA acceptance or user-taste inference from judge scores.
 
-Slice2 contract: explicit reviewed qualification separation for frozen diagnostic
-experiments only. Branch codex/reviewed-writer-qualifications from fetched
-origin/main 4e1138ebb. Exclusive write lease: this handoff;
-src/application_state/agent_conversation/native_evidence_presentation.py;
-evals/buddy_benchmark/workflow.py; tests/test_native_evidence_presentation.py;
-tests/test_buddy_benchmark_workflow.py; Docs/Guides/ordinary-benchmark-workflow.md.
-Serial after2337; inspected open UI/storage lanes do not overlap. No ports,
-database writes or paid calls. Verify exact original request first; require a
-pinned complete reviewed partition of qualification text, reconstruct every
-original byte, retain semantic parts verbatim and remove only explicitly
-classified host parts. Reject pending/incomplete/misbound partitions before
-dispatch. Preserve original and derived frame bindings separately. This is not
-new APP authorization, publication authority or a runtime source registry. Local
-owner and workflow tests plus independent exact-head review are required.
-Historical mixed prose remains unchanged; future publication annotations must
-put audit values in existing typed host slots rather than append them to prose.
+Verify local owner/workflow/mock-native tests and independent exact-head review.
+Then freeze reviewed retained examples and acceptance/stopping rules before any
+calibration call. No new writer or retrieval runs; primary unchanged. No DB writes
+or deployment in this slice. Product metadata repair and capability-specific
+prompt cleanup are not delegated to this diagnostic path.
 
-Predecessor PR2334 merged a236fbfa6de55c442799a620c1a3cd16dde4f2b3.
-Its flat format remains an experiment: input -10.1%,9/9 concepts,2 citation gaps.
+## Remaining completion gates
 
-Slice1: response prompt compiler and versioned frozen-prompt workflow. Branch
-codex/response-writing-contract from fetched origin/main; same existing isolated
-checkout. Exclusive write lease: this handoff;
-src/application_state/agent_conversation/response_prompt.py;
-apps/live_control_server/services/plan_jev_writer.py;
-evals/buddy_benchmark/workflow.py; tests/test_response_prompt.py;
-tests/test_buddy_benchmark_workflow.py; tests/test_plan_jev_writer.py;
-Docs/Guides/ordinary-benchmark-workflow.md.
-No active open PR overlaps these backend paths. No runtime/port/database writes.
-Local tests and actual SDK mock request verification; independent exact-head review.
-Keep product activation, native schema, evidence projection and all
-author/image/clarify operations unchanged in this slice. The actual product owner
-integration follows cleaned-context prompt comparisons; it must remove superseded
-discussion assembly rather than override an already-built oversized prompt.
-Component/version records are host-only. This ordering avoids known bookkeeping
-exposure in another paid call and avoids changing prompt plus evidence in one test.
-
-Subsequent serial slices remain required, not fulfilled by slice1:
-- Trace and remove bookkeeping at qualification creation/projection owners; do not
-  regex-scrub mixed semantic prose. Factor byte-identical qualification blocks while
-  preserving distinct meaning, support and traceability. No factual pruning.
-- Qualify other active ordinary response owners with the same contract, leaving
-  capability instructions only where actually granted/selected.
-- Freeze cleaned context/model/route/schema; compare component changes separately
-  through existing tooling, retaining exact requests, failures, answers, usage,
-  cost/timing and assessments. No retrieval replay or per-question launchers.
-- Calibrate a native-schema judge against retained independently reviewed pass,
-  omission, chronology and citation-failure examples; report disagreement/stability
-  before using its multidimensional scores. Human prose preference stays separate.
-
-## Completion evidence still required
-
-One inspectable actual response assembly path; a defensible measured initial prompt;
-no model-visible host bookkeeping; lossless shared qualification references;
-versioned component/configuration control; frozen reproducible response experiments;
-separate completeness/grounding/attribution/chronology/citation/directness/prose
-assessments; calibrated judge limitations; obsolete assembly paths removed.
-Paid writer comparisons wait for known context bookkeeping leakage to be resolved.
-Primary data and all historical evidence remain unchanged. Goal stays active until
-the full objective is verified, not merely this first implementation slice.
+- Verify current isolated graph parent/publication correspondence, then correct
+ historical mixed qualifications through existing native Core supersession,
+ preserving original history/evidence/receipts and typed audit fields. Exact
+ 375native-assertion/97qualification mapping is recovered; current head and original
+ publication correspondence still unproven. No runtime scrubbing or registry.
+- Keep capability-specific guidance conditional at its owning assembly, including
+ reviewed discussion continuations; do not prebuild superseded ordinary text.
+- Complete native-schema judge calibration against retained reviewed examples;
+ report disagreements/abstention/stability before trusting scores. Human prose
+ preference stays separate from factual correctness.
+- Audit actual assembly, preserved context/citations, reproducible configuration,
+ prompt tradeoffs and remaining limitations. No broad completion claim from helper
+ tests, one Q15 answer or successful source-body retrieval alone.
