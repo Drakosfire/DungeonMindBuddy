@@ -557,7 +557,8 @@ def _writer_replay_request(case, source, source_base, summary, *, case_base):
             or set(body["text"]) != {"format"}
             or set(body["text"]["format"]) != {"type", "name", "schema", "strict"}
             or body["text"]["format"]["type"] != "json_schema"
-            or body["text"]["format"]["name"] != "surface_native_evidence_selectors_v1"
+            or body["text"]["format"]["name"] not in (
+                "surface_native_evidence_selectors_v1", "surface_native_evidence_selectors_v2")
             or body["text"]["format"]["strict"] is not True):
         raise ValueError("Unsupported retained native writer packet")
     pending = [body["text"]["format"]["schema"]]
