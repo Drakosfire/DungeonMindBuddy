@@ -95,3 +95,14 @@ The lane is rebased onto independently verified main
 The prior inherited failure and original evidence remain historical facts. Run
 the exact updated head's guards/inventory and publish only the narrow repair;
 independent review and merge authority remain separate.
+
+
+## Final integration refresh
+
+Main advanced to b8e67118bafd697bec15c543a9fa45e3656cf030 after the prior green
+hosted composition. Its changes are confined to unrelated QA handoff updates and
+existing backend fixture files. The merge attempt was denied because that exact
+base was untested; no merge occurred. The coordinator directs a rebase and fresh
+local/hosted evidence plus independent review before considering another merge.
+The allocator, its tests and the one-entry inventory correction are unchanged.
+No deployment, global setting change or preexisting data cleanup is authorized.
