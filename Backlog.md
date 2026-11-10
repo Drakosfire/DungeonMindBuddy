@@ -224,6 +224,33 @@ Freeze a minimal `SpatialWorkspacePort` / spatial-item contract and a theme-pack
 
 **Refs:** `Docs/Design/DECISION-tl01-temporal-prompt-calibration-close.md`; `Docs/Reports/REPORT-tl01g-grounding-path-recovery.md`; PRs #468, #486, #500.
 
+
+## [IDEA] Build extraction fails on the Old Bath House
+
+**Kind:** BUG / REPRODUCE AND REPAIR
+**Owner:** Build extraction / workspace source ownership
+**Captured:** 2026-11-10
+
+**Observed:** In Elderwyld Build, running extraction on the Old Bath House reported `workspace document has no target_relpath`. The current extraction route explicitly rejects a workspace record without that field before creating a source artifact. The reason this document reaches that route without the field still needs reproduction.
+
+**Next slice:** Reproduce through the ordinary Build action. Trace the committed document's backing source and revision through workspace registration and extraction. Establish whether extraction should read the existing committed revision directly or needs a repaired source association.
+
+**Exit proof:** Extraction starts from the Old Bath House's exact committed revision and returns a reviewable result. Verify the same behavior for another document with the same backing. Stale revisions and genuinely unavailable sources still get actionable messages.
+
+**Refs:** `apps/live_control_server/routes/graph_preview.py`; Old Bath House document `77940b05-c350-428a-88a3-2fc433ad6df0`.
+
+## [IDEA] Searchable Build document browser with recaps
+
+**Kind:** UX / DESIGN
+**Owner:** Build document navigation
+**Captured:** 2026-11-10
+
+**Observed:** The Build document dropdown is already crowded. The operator wants to see recaps in Build and explore or search documents by hierarchy.
+
+**Direction:** Replace the flat dropdown as the primary browsing control with a searchable, expandable document browser. Include available recaps alongside other Build documents. Use the existing World, campaign, and session structure for recap grouping and inspect the existing document metadata for other useful groups. Search across groups and show where each result belongs.
+
+**Exit proof:** From Build, browse to a session recap or search for a document such as the Old Bath House and open it directly. Verify that switching between a recap and an ordinary document preserves the current editing safeguards and that users can find the same documents as the catalog grows.
+
 ## [DEFERRED] Ecology/resource extraction pass
 **Kind:** DESIGN / EXPERIMENT  
 **Owner:** Graph extraction  
