@@ -250,3 +250,22 @@ does not clean live records or activate a new product prompt. Future source revi
 annotations should keep provenance in existing typed host fields, outside semantic
 qualification prose. Use one change per comparison; combining this option with a
 prompt or flattening change is not a controlled single-variable experiment.
+
+# Initial response-contract disposition
+
+The initial Q15 voice-only study retained the tighter, more direct baseline after
+explicit user preference on2026-11-10. This taste judgment remains separate from
+coverage, grounding and citations. Both answers covered9/9 required concepts;
+baseline retains a minor coercion overstatement and the longer variant has a minor
+own-citation gap. Keep these findings rather than treating taste as factual acceptance.
+
+Ordinary native writer requests use strict formatv2 without image_prompt. The
+existing producer verifier retains exact formatv1 reconstruction for recorded
+replies/replay only; fresh admission requires current format. Historical experiment
+requests are not silently upgraded. Native calls omit the redundant Return JSON
+message; active Rules guidance relies on the supplied schema instead of a prose
+JSON template. Conditional related-page and active writing/image owners are unchanged.
+
+Use the existing context-tasting command with pinned prompt components to test the
+next single change. Preserve failed outputs, unknown measurements and judge limits.
+No fresh retrieval or unchanged paid baseline is needed merely to begin a new study.

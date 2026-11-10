@@ -1,6 +1,6 @@
 # COMPOSITION: response-writing contract
 
-ACTIVE objective: one inspectable minimal writer assembly; owner-cleaned evidence
+SETTLED initial objective: one inspectable minimal writer assembly; owner-cleaned evidence
 and shared qualifications; controlled frozen experiments; separate quality axes
 and calibrated judging. Preserve primary data and historical evidence. No
 question-specific executables, unchanged paid reruns or invented perfect scores.
@@ -157,7 +157,7 @@ Exact-head review2e466c9b67210be7d74ffa652e2e615964a52207 passed;140 local tests
 and8 exact prechange historical schema comparisons passed. Actual locked APP
 DB replay was source-inspected, not newly integration-tested. No deployment.
 
-## Slice10 ACTIVE — self-contained active Rules response guidance
+## Slice10 COMPLETE — self-contained active Rules response guidance
 
 Serial after2354; branch codex/writer-rules-guidance; base
 8739531f4c3c92ebe4f881fc960595040ae17a68. Exclusive writes: this handoff,
@@ -172,15 +172,38 @@ path. Verify actual SDK active/inactive assembly and unchanged strict native
 format. This is prompt simplification, not a claim of measured answer improvement.
 Independent exact-head review and one bounded PR; no paid rerun for this cleanup.
 
-## Remaining completion gates
+Slice10 merged as PR2355 at ca9576c6d7243223e503e222f79027358bf8738f.
+Exact-head review453b41bbbf439307e5f6176618ada0bff40e08f1 passed;140 local tests.
+The active Rules text is self-contained; native schema and evidence are unchanged.
 
-- Settle broader corpus hygiene scope without treating pattern candidates as
- confirmed leaks or claiming full-world cleanup from the corrected writer frame.
-- Keep capability-specific guidance conditional at its owning assembly, including
- reviewed discussion continuations; do not prebuild superseded ordinary text.
-- Judge calibration is completed for the retained six-answer cohort; keep scores
- untrusted for automatic factual grading and preserve the measured limitations.
- Human prose preference remains separate and unknown.
-- Audit actual assembly, preserved context/citations, reproducible configuration,
- prompt tradeoffs and remaining limitations. No broad completion claim from helper
- tests, one Q15 answer or successful source-body retrieval alone.
+## Initial response-contract disposition — 2026-11-10
+
+The user selected **Baseline: tighter and more direct** from the retained Q15
+voice comparison. Keep the existing voice component; do not adopt the longer
+briefing variant. This is the user's prose preference, not a factual quality score.
+Both answers cover9/9 concepts. Baseline has one minor prison-coercion overstatement;
+the variant fixes that wording but has one opening-segment citation gap. Neither
+is a perfect-score claim. The baseline remains a defensible initial response prompt,
+not a generally validated best model or prose configuration.
+
+Current ordinary native Plan/Build/Play requests use one response compiler with
+actual-task components and conditional Rules/pages guidance. Strict native formatv2
+omits inactive image preparation; exact historical formatv1 remains a read grammar,
+not a fresh admission option. Repeated complete qualifications are shared by the
+existing owner projection. The isolated corrected frozen context has375assertions
+and78shared qualification entries; wider corpus cleanliness is not established.
+
+The existing context-tasting workflow retains exact composed requests, component
+hashes, answers, assessments, usage, reported cost and time. Fresh baseline versus
+voice-only variant:21.27s/831outputtokens/$0.121761 versus31.69s/1273/$0.13885135.
+One pair does not establish a general latency effect. Calibration remains useful
+for triage and untrusted for automatic factual acceptance. The retrospective runtime
+inventory is explicitly not an execution-time attestation. No deployment is claimed.
+
+No implementation or database write lease remains active in this handoff. Historical
+artifacts/reviews are preserved under out/response-writing-contract-v1, with current
+response-study.md, response-style-decision.md and completion-evidence-check-v1.json.
+Broader corpus hygiene and any further style study require a separately bounded
+next slice; neither is an unfinished obligation of this initial frozen-context study.
+This guarded settlement synchronizes merged predecessor authority because no consuming
+implementation is pending; it adds no runtime behavior or experiment scaffolding.
