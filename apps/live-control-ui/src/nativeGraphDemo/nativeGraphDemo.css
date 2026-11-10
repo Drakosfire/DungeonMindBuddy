@@ -234,7 +234,7 @@
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
-  width: min(1600px, 100%);
+  width: 100%;
   margin: 0 auto;
 }
 .native-demo-layout--embedded > .native-demo-notice,
@@ -282,6 +282,11 @@
 .native-demo-side-panel--embedded > :only-child { margin: 0; }
 .native-demo-shell--embedded .native-demo-error-card,
 .native-demo-shell--embedded .native-demo-loading { margin: auto; }
+
+/* The native graph owns the bounded index workspace, so release the global article-width cap only while it is embedded here. */
+.app-wrap[data-workspace-layout="bounded"]:has(.native-demo-shell--embedded) {
+  max-width: none;
+}
 
 @media (max-width: 900px) {
   .native-demo-workspace--embedded.has-panel { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(260px, 1fr) minmax(0, min(40vh, 320px)); }

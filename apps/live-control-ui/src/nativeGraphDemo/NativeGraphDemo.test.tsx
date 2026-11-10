@@ -1,6 +1,8 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Blob as NodeBlob } from "node:buffer";
+import { readFileSync } from "node:fs";
+import { URL as NodeURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NativeGraphDemo, type NativeGraphDemoProps } from "./NativeGraphDemo";
 import { NativeGraphDemoApiError, type NativeGraph, type NativeGraphDemoApi, type OperationLookupResult, type PrepareResult } from "./nativeGraphDemoApi";
@@ -79,6 +81,15 @@ describe("NativeGraphDemo", () => {
     restoreUrlObjectUrlMethods();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  it("lets the embedded bounded index graph use the available page width", () => {
+    const css = readFileSync(new NodeURL("./nativeGraphDemo.css", import.meta.url), "utf8");
+    expect(css).toMatch(/\.app-wrap\[data-workspace-layout="bounded"\]:has\(\.native-demo-shell--embedded\)\s*\{\s*max-width:\s*none;\s*\}/);
+    const embeddedLayout = css.match(/\.native-demo-shell--embedded > \.native-demo-layout--embedded\s*\{([^}]+)\}/)?.[1] ?? "";
+    expect(embeddedLayout).toMatch(/width:\s*100%;/);
+    expect(embeddedLayout).not.toMatch(/max-width|1600px/);
+    expect(css).toMatch(/\.native-demo-layout\s*\{\s*width:\s*min\(1500px,\s*100%\);/);
   });
 
   it("uses the server graph and makes create a prepare-review-confirm sequence", async () => {
