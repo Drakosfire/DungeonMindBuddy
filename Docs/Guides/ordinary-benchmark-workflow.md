@@ -132,13 +132,19 @@ file/hash pins and distinct explicit `models`. The request body hash/size and
 semantic frame hash are checked before dispatch.
 
 The retained system prompt, input content, reasoning effort and output schema
-are shared across models. Provider-native wrappers differ from the original
-OpenAI Responses wire; this is a controlled provider-only comparison, not exact
-original wire replay. Gold is not added. Models run once each, two concurrently,
-without transport/conformance retry. Returned outputs and failures are retained.
+are shared across models. GE accepts a single user string: original ordered user
+message contents are joined with two newlines, without JSON-escaping their text.
+This common message-boundary adaptation and provider-native wrappers differ from
+the original OpenAI Responses wire; this is a provider-only comparison, not exact
+original wire replay. Gold is not added.
+GE's existing OpenRouter adapter also appends the same JSON schema instructions
+to the system message for every model, instead of native Responses strict format.
+Models run once each, two concurrently, without transport/conformance retry.
+Returned outputs and failures are retained.
 OpenRouter's reported cost is authoritative when supplied; missing cost is unknown.
 
 Random blind labels are assigned before execution. `identity-key.json` is separate
-from the response presentation; do not include it in a blind answer packet.
+from `blind-answers.json`, which contains only labels, answers and failure status.
+Model-bearing request/observation files remain audit-only.
 Hosted open-weight runs do not measure local hardware performance. Existing output
 directories are refused, so an interrupted or failed tasting cannot silently replay.

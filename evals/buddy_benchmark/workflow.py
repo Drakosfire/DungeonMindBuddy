@@ -749,6 +749,9 @@ def context_tasting(manifest_path, output):
         raise ValueError("Frozen writer context-ready frame differs")
     if packet["tools"] != [] or not packet["instructions"] or not packet["input"]:
         raise ValueError("Tasting requires a tool-free retained writer packet")
+    if any(set(row) != {"role", "content"} or row["role"] != "user"
+           or not isinstance(row["content"], str) for row in packet["input"]):
+        raise ValueError("Tasting adapter requires ordered user text messages")
     models = spec["models"]
     if not models or len(models) != len(set(models)) or any(not isinstance(m, str) or "/" not in m for m in models):
         raise ValueError("Tasting requires distinct explicit OpenRouter model identifiers")
@@ -761,7 +764,9 @@ def context_tasting(manifest_path, output):
     secrets.SystemRandom().shuffle(models)
     mapping = {chr(65+i): model for i, model in enumerate(models)}
     immutable_save(directory, "identity-key", mapping)
-    shared = dict(provider="openrouter", user_prompt=json.dumps(packet["input"], ensure_ascii=False),
+    # GE's public request has one user string. Preserve raw ordered content,
+    # rather than JSON-escaping the original message array inside user content.
+    shared = dict(provider="openrouter", user_prompt="\n\n".join(row["content"] for row in packet["input"]),
         system_prompt=packet["instructions"], temperature=None,
         json_schema=packet["text"]["format"]["schema"], schema_name=packet["text"]["format"]["name"],
         reasoning_effort=packet["reasoning"]["effort"],
@@ -796,6 +801,15 @@ def context_tasting(manifest_path, output):
         return await asyncio.gather(*(one(label, model) for label, model in mapping.items()))
     immutable_save(directory, "cohort", {"results": asyncio.run(run()),
         "scope": "provider_only; no retrieval, APP delivery or local hardware measurement"})
+    blind = []
+    for label in mapping:
+        result_path = directory / label / "result.json"
+        if result_path.exists():
+            result = json.loads(result_path.read_text())
+            blind.append({"label": label, "text": result["text"], "parsed": result["parsed"]})
+        else:
+            blind.append({"label": label, "status": "failed"})
+    immutable_save(directory, "blind-answers", blind)
 
 
 def main(argv=None):

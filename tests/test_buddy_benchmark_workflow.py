@@ -38,13 +38,52 @@ def test_context_tasting_freezes_shared_input_and_retains_failures(tmp_path, mon
     output = tmp_path / "output"
     w.context_tasting(manifest, output)
     assert len(seen) == 2
+
     assert {r.system_prompt for r in seen} == {"Same voice"}
     assert len({r.user_prompt for r in seen}) == 1
+    assert seen[0].user_prompt == "Evidence"
     cohort = json.loads((output / "cohort.json").read_text())
     assert {r["status"] for r in cohort["results"]} == {"returned", "failed"}
+    blind = (output / "blind-answers.json").read_text()
+    assert "test/success" not in blind and "test/failure" not in blind
+    assert "observation" not in blind
     with pytest.raises(FileExistsError):
         w.context_tasting(manifest, output)
     assert len(seen) == 2
+
+
+def test_tasting_adapter_actual_sdk_wire_is_common_across_models():
+    import asyncio
+    import httpx
+    from openai import AsyncOpenAI
+    from generationengine import GenerationClient, TextRequest
+    from generationengine.providers.openrouter_text import OpenRouterTextProvider
+    from generationengine.conformance import schema_instruction
+    wires = []
+    schema = {"type": "object", "properties": {}, "additionalProperties": False}
+    def reply(request):
+        wires.append(json.loads(request.content))
+        return httpx.Response(200, json={"id": "offline-response", "object": "chat.completion",
+            "created": 1, "model": wires[-1]["model"],
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": "{}"}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 12}})
+    async def run():
+        sdk = AsyncOpenAI(api_key="offline", base_url="https://openrouter.ai/api/v1",
+            max_retries=0, http_client=httpx.AsyncClient(transport=httpx.MockTransport(reply)))
+        client = GenerationClient(text_providers={"openrouter": OpenRouterTextProvider(client=sdk)})
+        try:
+            for model in ["test/one", "test/two"]:
+                await client.generate_structured(TextRequest(provider="openrouter", model=model,
+                    system_prompt="Frozen voice", user_prompt="First context\n\nSecond context",
+                    temperature=None, json_schema=schema, schema_name="answer",
+                    max_conformance_retries=0, max_transport_retries=0))
+        finally:
+            await client.aclose()
+    asyncio.run(run())
+    assert len(wires) == 2
+    assert wires[0]["messages"] == wires[1]["messages"] == [
+        {"role": "system", "content": "Frozen voice\n\n" + schema_instruction(schema)},
+        {"role": "user", "content": "First context\n\nSecond context"}]
 
 
 def put(path, value):
