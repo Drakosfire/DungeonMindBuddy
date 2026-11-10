@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
+from contextlib import contextmanager
 
 from application_state.cli import assert_at_head
 from application_state.config import load_runtime_dsn
@@ -275,3 +276,22 @@ def verify_transition_component_bytes(*, run_id: str, expected_revision: int,
             if ref is None or normalize_content_digest(ref.sha256) != digest:
                 raise ApplicationStateConflictError("frozen extraction output binding cannot change")
         return _verified_payload_bytes(conn, run_id=run_id, kind=kind, digest=digest)
+
+
+@contextmanager
+def correction_parent_lease(parent_run_id: str):
+    """Serialize correction creation/recovery in the authoritative APP database.
+
+    Dedicated transaction owns only an advisory lock, never a row lock: nested
+    owner transactions must remain free to perform their existing CAS updates.
+    Connection closure releases the lease even after interruption. No local-file
+    fallback exists. Parent scope also serializes legacy/current child lookup.
+    """
+    if not isinstance(parent_run_id, str) or not parent_run_id.strip():
+        raise ApplicationStateValidationError("correction parent run is required")
+    key = int.from_bytes(hashlib.sha256(
+        ("dmb:recap-correction-parent:v1:" + parent_run_id).encode("utf-8")
+    ).digest()[:8], "big", signed=True)
+    with unit_of_work(load_runtime_dsn()) as conn:
+        conn.execute("SELECT pg_advisory_xact_lock(%s)", (key,))
+        yield

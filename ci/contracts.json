@@ -71,6 +71,8 @@
         "tests/test_database_literal_correction_parent.py",
         "tests/test_database_worldbuilding_correction_parent.py",
         "tests/test_recap_literal_evidence_correction.py",
+        "tests/test_recap_semantic_candidate_correction.py",
+        "tests/integration/test_recap_evidence_append.py",
         "tests/test_demo_derived_candidate_evidence_correction.py",
         "tests/test_native_recap_source_admission.py::test_native_admission_identity_is_stable_across_record_version",
         "tests/test_build_recap_source.py",
