@@ -105,7 +105,16 @@ It uses the shared frontend CI manifest, Node22.23.0/npm10.9.8, fresh locked ins
 8workers by default, and a per-user global resource lock. Configurable workers are
 recorded. Never start a competing Vitest benchmark/run around that lock; honor
 `/tmp/dungeonmind-frontend-verification-<uid>.lock` for other local frontend tools.
-Keep outputs outside the source tree. Validate retained evidence against the exact
+The verifier defaults allocations to `~/Projects/.codex` on filesystem UUID
+`48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8`. It checks that existing parent and the
+external evidence destination before allocation, and fails rather than falling
+back to system temp. Each run owns a temporary task directory containing its
+verification worktree, scratch and caches; subprocess TMPDIR/npm/Node/UV/XDG
+caches stay there. Ambient TMPDIR/cache settings do not redirect these writes.
+For another explicitly authorized executor, pass both `--workspace-root` and
+`--workspace-uuid` for its existing external storage. No global settings change.
+Keep outputs outside the source tree on that same verified filesystem. Validate
+retained evidence against the exact
 reviewed SHA with the verifier's validate subcommand. Dirty-runner results are
 working-tree diagnostics, not qualifying evidence. Never reuse a different SHA,
 modified report, stale inventory or failed/incomplete run as a passing check.
