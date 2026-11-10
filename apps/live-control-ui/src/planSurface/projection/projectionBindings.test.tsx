@@ -1,16 +1,13 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect, useState } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import { referenceFromGraphNode } from "../../graphReference";
 import type { GraphReferenceResolution } from "../../graphReference/types";
 import type { GraphProjectionNodeView } from "../../api/types";
 import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
-import { PlanReferenceProjectionBinding } from "../reference/PlanReferenceProjectionBinding";
-import { PlanGraphLensProvider } from "../../graphLens/WorldGraphLensContext";
-import { PlanGraphReferenceResolverProvider } from "../reference/usePlanGraphReferenceResolver";
 import type { SurfaceConfig } from "../types";
 import {
   GRAPH_REFERENCE_BINDING_ID,
@@ -41,11 +38,8 @@ vi.mock("../../api/liveApi", async (importOriginal) => {
   return {
     ...actual,
     getRecapArtifacts: vi.fn(async () => ({ records: [] })),
-    postWorldGraphProjection: vi.fn(),
   };
 });
-
-import * as liveApi from "../../api/liveApi";
 
 const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: 21 });
 
@@ -84,33 +78,6 @@ const ingestSurfaceConfig: SurfaceConfig = {
   theme: {},
 };
 
-const bubblesNode: GraphProjectionNodeView = {
-  node_id: "creature:bubbles",
-  label: "Bubbles the Float Goat",
-  kind: "creature",
-  role: "creature",
-  aliases: [],
-  source_domains: ["recap"],
-  evidence_badges: [],
-  adjacency: [
-    {
-      edge_id: "edge-1",
-      node_id: "location-inn",
-      label: "Inn",
-      kind: "location",
-      predicate: "met at",
-      direction: "outgoing",
-      related_summary: null,
-      evidence_ref_ids: [],
-      source_domains: ["recap"],
-      anchored_to_focus_session: true,
-      session_ids: [],
-    },
-  ],
-  anchored_to_focus_session: true,
-  summary: "A float goat rescued from the flooded river.",
-};
-
 const innNode: GraphProjectionNodeView = {
   node_id: "location-inn",
   label: "Inn",
@@ -133,89 +100,6 @@ const innResolution: GraphReferenceResolution = {
   message: "Resolved Inn.",
   projectionState: "ready",
 };
-
-const readyWorldGraphProjection = {
-  schema: "dmb_world_graph_projection_v1" as const,
-  snapshot: {
-    worldId: "eldyrwild",
-    campaignId: "longmont-c2",
-    revisionId: "rev-1",
-    headRevisionId: "rev-1",
-    isHead: true,
-    focus: { kind: "session" as const, sessionId: "session-21" },
-    admissibility: "gm" as const,
-  },
-  summary: {
-    nodeCount: 2,
-    relationshipCount: 0,
-    attributeCount: 0,
-    evidenceCount: 0,
-    sourceArtifactCount: 0,
-    sourceTruncated: false,
-  },
-  nodes: [
-    {
-      nodeId: "creature:bubbles",
-      label: "Bubbles the Float Goat",
-      kind: "creature",
-      role: "creature",
-      aliases: [],
-      sourceDomains: ["recap"],
-      summary: "A float goat rescued from the flooded river.",
-      anchoredToFocusSession: true,
-      evidenceBadges: [],
-      adjacency: [],
-      suggestedExpansions: [],
-      evidenceRefIds: [],
-      sourceArtifactIds: [],
-    },
-    {
-      nodeId: "location-inn",
-      label: "Inn",
-      kind: "location",
-      role: "location",
-      aliases: [],
-      sourceDomains: ["recap"],
-      summary: "Meeting place.",
-      anchoredToFocusSession: true,
-      evidenceBadges: [],
-      adjacency: [],
-      suggestedExpansions: [],
-      evidenceRefIds: [],
-      sourceArtifactIds: [],
-    },
-  ],
-  relationships: [],
-  attributes: [],
-  evidence: [],
-  sourceArtifacts: [],
-  diagnostics: [],
-};
-
-function OpenReferenceButton() {
-  const { openGraphReference } = useProjection();
-  return (
-    <button
-      type="button"
-      onClick={() =>
-        openGraphReference({
-          resolution: {
-            kind: "resolved_graph",
-            locator: `dmb-node:${bubblesNode.node_id}`,
-            reference: referenceFromGraphNode(bubblesNode),
-            graphObject: buildGraphObjectCardFromNodeView(bubblesNode),
-            graphNodeId: bubblesNode.node_id,
-            message: `Resolved graph node ${bubblesNode.label}.`,
-            projectionState: "ready",
-          } satisfies GraphReferenceResolution,
-          projectionState: "ready",
-        })
-      }
-    >
-      Open Bubbles
-    </button>
-  );
-}
 
 function OpenDiagnosticsButton() {
   const { openTool } = useProjection();
@@ -330,42 +214,6 @@ function readyDiagnosticsPayload(
 }
 
 describe("projectionBindings sibling topology", () => {
-  beforeEach(() => {
-    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue(readyWorldGraphProjection as never);
-  });
-
-  it("renders Plan content and relationship traversal with production adapter and sibling container", async () => {
-    const user = userEvent.setup();
-
-    render(
-      <AgentInteractionProjectionTestHost config={surfaceConfig}>
-        <PlanGraphLensProvider planCampaignId={sessionDescriptor.campaignId}>
-          <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
-            <PlanReferenceProjectionBinding />
-          </PlanGraphReferenceResolverProvider>
-        </PlanGraphLensProvider>
-        <OpenReferenceButton />
-        <LegacyProjectionHostAdapter />
-      </AgentInteractionProjectionTestHost>,
-    );
-
-    await user.click(screen.getByRole("button", { name: "Open Bubbles" }));
-    await waitFor(() => {
-      expect(screen.getByLabelText(/Bubbles the Float Goat graph object/i)).toBeInTheDocument();
-    });
-
-    const related = await screen.findByRole("button", { name: /Open related object .*Inn/i });
-    await waitFor(() => {
-      expect(related).toBeEnabled();
-    });
-    await user.click(related);
-
-    await waitFor(() => {
-      expect(screen.getByLabelText(/Inn graph object/i)).toBeInTheDocument();
-    });
-    expect(screen.queryByLabelText(/Bubbles the Float Goat graph object/i)).not.toBeInTheDocument();
-  });
-
   it("renders Graph Review diagnostics with container outside live-state provider", async () => {
     const user = userEvent.setup();
     render(
@@ -393,60 +241,6 @@ describe("projectionBindings sibling topology", () => {
       await screen.findByText(/Select a live run with a projection to inspect diagnostics/i),
     ).toBeInTheDocument();
     expect(screen.queryByTestId("graph-review-diagnostics-unavailable")).not.toBeInTheDocument();
-  });
-
-  it("does not open projection when Plan binding is superseded during relationship resolve", async () => {
-    const user = userEvent.setup();
-    let resolveDeferred!: (resolution: GraphReferenceResolution) => void;
-    const deferred = new Promise<GraphReferenceResolution>((resolve) => {
-      resolveDeferred = resolve;
-    });
-    const openFromFirst = vi.fn();
-    const openFromSecond = vi.fn();
-
-    function ControllablePlanBinding() {
-      const { registerGraphReferenceBinding } = useProjection();
-      const [generation, setGeneration] = useState(0);
-      useEffect(() => {
-        return registerGraphReferenceBinding({
-          resolverState: "ready",
-          resolveRelationship: () => deferred,
-          openResolvedReference: generation === 0 ? openFromFirst : openFromSecond,
-          openTool: vi.fn(),
-        });
-      }, [generation, registerGraphReferenceBinding]);
-      return (
-        <button type="button" onClick={() => setGeneration(1)}>
-          Supersede binding
-        </button>
-      );
-    }
-
-    render(
-      <AgentInteractionProjectionTestHost config={surfaceConfig}>
-        <ControllablePlanBinding />
-        <OpenReferenceButton />
-        <LegacyProjectionHostAdapter />
-      </AgentInteractionProjectionTestHost>,
-    );
-
-    await user.click(screen.getByRole("button", { name: "Open Bubbles" }));
-    await waitFor(() => {
-      expect(screen.getByLabelText(/Bubbles the Float Goat graph object/i)).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByRole("button", { name: /Open related object .*Inn/i }));
-    await user.click(screen.getByRole("button", { name: "Supersede binding" }));
-
-    await act(async () => {
-      resolveDeferred(innResolution);
-      await deferred;
-    });
-
-    expect(openFromFirst).not.toHaveBeenCalled();
-    expect(openFromSecond).not.toHaveBeenCalled();
-    expect(screen.getByLabelText(/Bubbles the Float Goat graph object/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Inn graph object/i)).not.toBeInTheDocument();
   });
 
   it("blocks superseded binding completion before provider rerender", async () => {

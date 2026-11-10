@@ -1,5 +1,5 @@
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
-import type { ReferenceResolution } from "../reference/referenceResolver";
+import type { GraphReferenceCorpusFallback as ReferenceResolution } from "../../graphReference/types";
 
 /** Ladder vocabulary: source artifact -> source anchor -> source unit */
 

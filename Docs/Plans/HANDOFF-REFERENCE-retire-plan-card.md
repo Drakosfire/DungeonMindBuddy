@@ -1,6 +1,12 @@
 # REFERENCE: retire the obsolete Plan reference renderer
 
-ACTIVE PRIME serial slice from b8c049283d90c1c79e7ac0fe9bb488ee16a65ce9,
+SETTLED: merged #2344 at d8f1bd8b92fc6b0d33217034d85a307466712403;
+reviewed UI 4116dca0653672cede48428b36710ba38d12ac13 delivered on5202.
+Exact hosted/build passed; all shared full-diagnostic statuses and the existing
+collection error matched the parent after31 deliberate case retirements.
+Full diagnostic remains red; no rendered journey claim.
+
+Historical ACTIVE PRIME serial slice from b8c049283d90c1c79e7ac0fe9bb488ee16a65ce9,
 branch codex/reference-retire-plan-card in the existing context-loop checkout.
 The active goal authorizes References adoption/demolition; no unmerged parent.
 Index/LocalWorld work is owned elsewhere. Coordination remains off; #2104 held.
