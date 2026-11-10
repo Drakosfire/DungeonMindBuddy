@@ -192,7 +192,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             if failure=='retry_unknown':
                 raise httpx.ReadTimeout('synthetic unknown writer outcome',request=req)
             body = json.loads(req.content)
-            assert body['model'] == 'gpt-6.1-sol'
+            assert body['model'] == self.adapter._broker_execution().policy.provider_roles.writer.model
             if body.get('reasoning', {}).get('effort') != 'low':
                 return httpx.Response(400, request=req, json={'error': {
                     'message': 'Unsupported reasoning effort for configured writer',
