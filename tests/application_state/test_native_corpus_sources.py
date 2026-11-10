@@ -183,7 +183,7 @@ def test_generic_graph_policy_cannot_claim_source_only_uncapped_version(operatio
         t.GraphExecutionPolicyV1.model_validate(generic)
 
 
-def native_body_ledger(lane, *, failed_read=False, full_document=False, all_sections=False, body_override=None):
+def native_body_ledger(lane, *, failed_read=False, full_document=False, all_sections=False, body_override=None, second_body=None):
     from hashlib import sha256
     from application_state.agent_conversation.native_corpus import (
         NativeBodySearchAuthorizedV1, NativeBodySearchObservedV1, NativeBodySectionMatchV1,
@@ -195,7 +195,11 @@ def native_body_ledger(lane, *, failed_read=False, full_document=False, all_sect
     from tests.test_native_corpus_source_access import BODY
     body = BODY + "\n## Unrelated scene\nUnrelated source context.\n" if body_override is None else body_override
     admit(lane, body=body)
+    if second_body is not None:
+        admit(lane, 'second', body=second_body)
     captured = capture(lane)
+    member = captured.members[0]
+    body = captured.bodies[(member.artifact.source_artifact_id, member.revision.source_revision_id)]
     catalog = build_native_body_catalog(captured.authority, captured.members[0], body)
     section = catalog.sections[0]
     query_sha = sha256(b"What did the party learn about the source context?").hexdigest()
@@ -735,7 +739,7 @@ def test_source_and_graph_cannot_combine_different_world_bindings(lane, field, v
         t.PlanSourceContextReceiptV1.model_validate_json(json.dumps(rehash(payload)))
 
 
-def native_acquisition_fixture(lane, application_state_dsn, *, full_document=False, body_override=None):
+def native_acquisition_fixture(lane, application_state_dsn, *, full_document=False, body_override=None, second_body=None):
     """Synthetic acknowledged decisions; real APP acquisition and Core body IO.
 
     Provider request/response proof is covered separately by the actual SDK gate
@@ -748,7 +752,7 @@ def native_acquisition_fixture(lane, application_state_dsn, *, full_document=Fal
     from application_state.agent_conversation import AgentConversationService
     from application_state.agent_conversation.native_corpus import NativeBodySearchAuthorizedV1
     from tests.application_state.test_agent_conversation_postgres import _new
-    ledger = native_body_ledger(lane, full_document=full_document, body_override=body_override)
+    ledger = native_body_ledger(lane, full_document=full_document, body_override=body_override, second_body=second_body)
     grant = next(e for e in ledger.events if isinstance(e, NativeBodySearchAuthorizedV1))
     question = "What did the party learn about the source context?"
     sub = source_submission(lane, captured=SimpleNamespace(authority=grant.authority), question=question)
@@ -792,6 +796,156 @@ def append_native(fixture, method, **kwargs):
     return updated.graph_context_execution.events[-1], fresh
 
 
+def selected_body_group(lane, dsn, *, two_members=False, full=False):
+    """Reuse the acknowledged-prefix fixture; APP/Core acquisition is real."""
+    from application_state.agent_conversation.native_corpus import (
+        NativeBodySearchObservedV1, NativeBodyReadAuthorizedV1, native_body_handle, native_full_document_handle)
+    fixture = native_acquisition_fixture(lane, dsn,
+        body_override='# Source\nFirst context.\n## Second\nSecond context.\n## Third\nThird context.\n',
+        second_body='# Other source\nOther context.\n## More\nMore context.\n' if two_members else None)
+    grant, _ = append_native(fixture, 'authorize_native_body_search', event_id=uuid4())
+    search, _ = append_native(fixture, 'observe_native_body_search', event_id=uuid4(),
+        authorization_event_id=grant.event_id, capture=lambda: capture(lane, revision_id=grant.authority.revision_id))
+    old_search = next(e for e in fixture.ledger.events if isinstance(e, NativeBodySearchObservedV1))
+    old_grant = next(e for e in fixture.ledger.events if isinstance(e, NativeBodyReadAuthorizedV1))
+    prefix = [*fixture.current.graph_context_execution.events,
+        *fixture.ledger.events[old_search.sequence + 1:old_grant.sequence]]
+    handles = [native_body_handle(c.catalog_sha256, s.section_id) for c in search.catalogs for s in c.sections]
+    if full:
+        handles = [native_full_document_handle(c.catalog_sha256) for c in search.catalogs] + handles
+    prefix[-1] = prefix[-1].model_copy(update={'selected_handles': handles})
+    fixture.current = fixture.seed(prefix)
+    def specifications(catalog):
+        return tuple(dict(event_id=uuid4(), search_event_id=search.event_id,
+            catalog_sha256=catalog.catalog_sha256, retrieval_kind='section', section_id=s.section_id)
+            for s in catalog.sections)
+    return fixture, search, specifications
+
+
+@pytest.mark.parametrize('outcome', ['actual', 'unavailable', 'corrupt', 'access_changed', 'command_mutated', 'projection_raised', 'sql_raised'])
+def test_same_member_group_has_one_real_capture_and_atomic_exact_observations(
+        application_state_dsn, lane, monkeypatch, outcome):
+    from application_state.agent_conversation import AgentConversationService, native_reads
+    from application_state.agent_conversation.native_corpus import NativeBodyReadObservedV1, select_native_body_excerpt
+    from application_state.errors import ApplicationStateValidationError
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import (
+        prepare_native_source_context, read_native_corpus_member)
+    from tests.test_native_corpus_source_access import GM
+    fixture, search, specifications = selected_body_group(lane, application_state_dsn)
+    catalog = search.catalogs[0]
+    specs = specifications(catalog)
+    append_native(fixture, 'authorize_native_body_reads', grants=specs)
+    granted = fixture.current
+    grants = tuple(granted.graph_context_execution.events[-len(specs):])
+    rows = tuple(dict(event_id=uuid4(), authorization_event_id=g.event_id) for g in grants)
+    context = prepare_native_source_context(managed_world_id='managed', principal=GM,
+        revision_id=granted.graph_context_receipt.source_authority.revision_id,
+        repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    calls = []
+    actual_bodies = []
+    def read(authority, member):
+        calls.append(member)
+        durable = AgentConversationService().inspect_turn(world_id='managed', turn_id=granted.turn_id)
+        assert durable == granted  # All individual grants committed before IO.
+        if outcome == 'access_changed':
+            from types import SimpleNamespace
+            lane.bound = SimpleNamespace(**(vars(lane.bound) | {'binding_version': lane.bound.binding_version + 1}))
+        if outcome == 'command_mutated':
+            rows[0]['event_id'] = uuid4()
+        if outcome == 'unavailable':
+            return None
+        if outcome == 'corrupt':
+            return 'not the admitted body'
+        text = read_native_corpus_member(authority=authority, member=member, principal=GM, prepared=context)
+        actual_bodies.append(text)
+        return text
+    if outcome == 'projection_raised':
+        projection = native_reads._body_observation
+        projected = []
+        def fail_second(*args, **kwargs):
+            if projected:
+                raise RuntimeError('synthetic second projection failure')
+            projected.append(True)
+            return projection(*args, **kwargs)
+        monkeypatch.setattr(native_reads, '_body_observation', fail_second)
+    if outcome == 'sql_raised':
+        import psycopg
+        def fail_sql(service, conn, **kwargs):
+            conn.execute('SELECT 1/0')  # Actual late SQL failure, after capture/projection.
+        monkeypatch.setattr(AgentConversationService, '_persist_execution_append', fail_sql)
+    failed = outcome in {'access_changed', 'command_mutated', 'projection_raised', 'sql_raised'}
+    with pytest.raises(ApplicationStateValidationError, match='complete issued group'):
+        append_native(fixture, 'observe_native_body_reads', reads=rows[:1], read=read)
+    assert calls == []
+    if failed:
+        import psycopg
+        with pytest.raises((ApplicationStateValidationError, RuntimeError, psycopg.errors.DivisionByZero)):
+            append_native(fixture, 'observe_native_body_reads', reads=rows, read=read)
+        assert AgentConversationService().inspect_turn(world_id='managed', turn_id=granted.turn_id) == granted
+    else:
+        append_native(fixture, 'observe_native_body_reads', reads=rows, read=read)
+        observations = fixture.current.graph_context_execution.events[-len(rows):]
+        assert all(type(e) is NativeBodyReadObservedV1 for e in observations)
+        assert [e.authorization_event_id for e in observations] == [g.event_id for g in grants]
+        if outcome == 'actual':
+            assert [e.excerpt for e in observations] == [select_native_body_excerpt(catalog, actual_bodies[0], g.section_id) for g in grants]
+        else:
+            assert all(e.excerpt is None and e.failure_code == ('native_body_unavailable' if outcome == 'unavailable' else 'native_body_integrity_error') for e in observations)
+        _, fresh = append_native(fixture, 'observe_native_body_reads', reads=rows, read=read)
+        assert not fresh
+        for changed in (rows[:1], tuple(reversed(rows)),
+                (rows[0], *(dict(event_id=uuid4(), authorization_event_id=r['authorization_event_id']) for r in rows[1:]))):
+            with pytest.raises(ApplicationStateValidationError):
+                append_native(fixture, 'observe_native_body_reads', reads=changed, read=read)
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize('mutation', ['reordered', 'duplicate', 'foreign_catalog', 'nonconsecutive', 'full_document_dependency'])
+def test_same_member_group_refuses_invalid_grants_before_any_capture(application_state_dsn, lane, mutation):
+    from application_state.errors import ApplicationStateValidationError
+    fixture, search, specifications = selected_body_group(lane, application_state_dsn,
+        two_members=True, full=mutation == 'full_document_dependency')
+    catalog = max(search.catalogs, key=lambda c: len(c.sections))
+    specs = specifications(catalog)
+    if mutation == 'reordered':
+        specs = tuple(reversed(specs))
+    elif mutation == 'duplicate':
+        specs = (specs[0], specs[0])
+    elif mutation == 'foreign_catalog':
+        other = next(c for c in search.catalogs if c.catalog_sha256 != catalog.catalog_sha256)
+        specs = (specs[0], specifications(other)[0])
+    elif mutation == 'nonconsecutive':
+        specs = (specs[0], specs[-1])
+    before = fixture.current
+    with pytest.raises(ApplicationStateValidationError):
+        append_native(fixture, 'authorize_native_body_reads', grants=specs)
+    assert fixture.service.inspect_turn(world_id='managed', turn_id=before.turn_id) == before
+
+
+def test_later_physical_group_failure_preserves_previous_committed_extents(application_state_dsn, lane):
+    from application_state.errors import ApplicationStateValidationError
+    fixture, search, specifications = selected_body_group(lane, application_state_dsn)
+    specs = specifications(search.catalogs[0])
+    append_native(fixture, 'authorize_native_body_reads', grants=specs[:2])
+    rows = tuple(dict(event_id=uuid4(), authorization_event_id=r['event_id']) for r in specs[:2])
+    body = capture(lane).bodies
+    member = search.catalogs[0].source
+    text = body[(member.artifact.source_artifact_id, member.revision.source_revision_id)]
+    append_native(fixture, 'observe_native_body_reads', reads=rows, read=lambda *_: text)
+    committed = fixture.current.graph_context_execution.events
+    append_native(fixture, 'authorize_native_body_reads', grants=specs[2:])
+    pending = fixture.current
+    with pytest.raises(ApplicationStateValidationError, match='physical capture failed'):
+        append_native(fixture, 'observe_native_body_reads',
+            reads=(dict(event_id=uuid4(), authorization_event_id=specs[2]['event_id']),),
+            read=lambda *_: (_ for _ in ()).throw(ValueError('physical capture failed')))
+    retained = fixture.service.inspect_turn(world_id='managed', turn_id=pending.turn_id)
+    assert retained == pending
+    assert retained.graph_context_execution.events[:len(committed)] == committed
+    with pytest.raises(ApplicationStateValidationError, match='unresolved capture'):
+        append_native(fixture, 'authorize_native_body_reads', grants=(dict(specs[2], event_id=uuid4()),))
+
+
 @pytest.mark.parametrize("body_result,full_document", [
     ("actual", False), ("actual", True), ("unavailable", False),
     ("corrupt", False), ("authority_changed", False),
@@ -831,10 +985,10 @@ def test_native_body_acquisition_uses_durable_grants_and_actual_core_bytes(appli
     fixture.current = fixture.seed([*current, *fixture.ledger.events[original_search.sequence+1:original_read.sequence]])
     catalog = search.catalogs[0]
     selected = catalog.sections[0]
-    auth, _ = append_native(fixture, "authorize_native_body_read", event_id=uuid4(),
+    auth, _ = append_native(fixture, "authorize_native_body_reads", grants=(dict(event_id=uuid4(),
         search_event_id=search.event_id, catalog_sha256=catalog.catalog_sha256,
         retrieval_kind="full_document" if full_document else "section",
-        section_id=None if full_document else selected.section_id)
+        section_id=None if full_document else selected.section_id),))
     def read(authority, member):
         calls["read"] += 1
         durable = AgentConversationService().list_turns("managed", fixture.current.conversation_id)[0]
@@ -851,12 +1005,12 @@ def test_native_body_acquisition_uses_durable_grants_and_actual_core_bytes(appli
                 resolve_identity=lambda _: lane.bound))
     if body_result == "authority_changed":
         with pytest.raises(ApplicationStateValidationError, match="authority changed"):
-            append_native(fixture, "observe_native_body_read", event_id=uuid4(),
-                authorization_event_id=auth.event_id, read=read)
+            append_native(fixture, "observe_native_body_reads", reads=(dict(event_id=uuid4(),
+                authorization_event_id=auth.event_id),), read=read)
         assert AgentConversationService().list_turns("managed", fixture.current.conversation_id)[0].graph_context_execution.events[-1] == auth
     else:
-        observed, _ = append_native(fixture, "observe_native_body_read", event_id=uuid4(),
-            authorization_event_id=auth.event_id, read=read)
+        observed, _ = append_native(fixture, "observe_native_body_reads", reads=(dict(event_id=uuid4(),
+            authorization_event_id=auth.event_id),), read=read)
         assert calls["read"] == 1
         if body_result == "actual":
             expected = BODY + "\n## Unrelated scene\nUnrelated source context.\n" if full_document else BODY + "\n"
@@ -866,12 +1020,12 @@ def test_native_body_acquisition_uses_durable_grants_and_actual_core_bytes(appli
         else:
             assert observed.excerpt is None
             assert observed.failure_code == ("native_body_unavailable" if body_result == "unavailable" else "native_body_integrity_error")
-        _, fresh = append_native(fixture, "observe_native_body_read", event_id=observed.event_id,
-            authorization_event_id=auth.event_id, read=read)
+        _, fresh = append_native(fixture, "observe_native_body_reads", reads=(dict(event_id=observed.event_id,
+            authorization_event_id=auth.event_id),), read=read)
         assert not fresh and calls["read"] == 1
         with pytest.raises(ApplicationStateValidationError, match="already has an observation"):
-            append_native(fixture, "observe_native_body_read", event_id=uuid4(),
-                authorization_event_id=auth.event_id, read=read)
+            append_native(fixture, "observe_native_body_reads", reads=(dict(event_id=uuid4(),
+                authorization_event_id=auth.event_id),), read=read)
         assert calls["read"] == 1
 
 
@@ -909,6 +1063,12 @@ def test_native_navigator_uses_ordinary_app_controls_without_classic_registry(ap
         def __init__(self): self.renewer = renewer
         @property
         def turn(self): return self.renewer._turn
+        def commit(self, method, **fields):
+            current = self.turn
+            updated, fresh = getattr(fixture.service, method)(current.world_id, current.conversation_id,
+                current.turn_id, expected_revision=current.revision, expected_attempt=current.attempt, **fields)
+            self.renewer._turn = fixture.current = updated
+            return updated, fresh
     adapter = SimpleNamespace(fence=Fence(), service=fixture.service, turn=fixture.current,
         native_corpus_context=context, context_capture=None)
     def obsolete(*args, **kwargs):

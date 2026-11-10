@@ -253,9 +253,10 @@ class PlanJevDriver:
                     self.native_sources.expand_selected(handle, parent=dispatch.parent)
                 elif handle in native_handles:
                     group = [handle]
-                    if handle.startswith('native-direct-source:'):
+                    source_reads = ('native-direct-source:', 'native-body:', 'native-full-document:', 'native-corpus-search:')
+                    if handle.startswith(source_reads):
                         for following in selected.selected_handles[index + 1:]:
-                            if following not in native_handles or not following.startswith('native-direct-source:'):
+                            if following not in native_handles or not following.startswith(source_reads):
                                 break
                             group.append(following)
                     handled_sources.update(group)

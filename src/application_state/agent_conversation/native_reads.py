@@ -6,6 +6,7 @@ Turn admission boundary, without a new receipt, event family or provenance ledge
 Core continues to own source admission and current native source access.
 """
 from copy import deepcopy
+from uuid import UUID
 from dataclasses import dataclass
 from hashlib import sha256
 
@@ -47,7 +48,7 @@ class _NativeReadOperation:
             authorize_initial_source_search_locked,
             authorize_request_source_search_locked,
             conclude_selected_batch,
-            authorize_body_read_locked, observe_body_read_locked,
+            authorize_body_reads_locked, observe_body_reads_locked,
         }:
             raise ValueError('Native read requires its existing closed producer')
 
@@ -289,19 +290,17 @@ def observe_body_search_locked(turn, *, event_id, authorization_event_id, captur
         unavailable_source_count=captured.unavailable_source_count)
 
 
-def authorize_body_read_locked(turn, *, event_id, search_event_id, catalog_sha256,
-                               retrieval_kind, section_id):
-    _, execution = _owner(turn, require_source=True)
-    prior = _prior_event(execution, event_id, NativeBodyReadAuthorizedV1,
-        search_event_id=search_event_id, catalog_sha256=catalog_sha256,
-        retrieval_kind=retrieval_kind, section_id=section_id)
-    if prior is not None:
-        return prior
+def _body_catalog(execution, search_event_id, catalog_sha256):
     search = next((event for event in execution.events if isinstance(event, NativeBodySearchObservedV1)
         and event.event_id == search_event_id), None)
     catalog = next((row for row in search.catalogs if row.catalog_sha256 == catalog_sha256), None) if search else None
     if catalog is None:
         raise ValueError("Selected native source catalog is unavailable")
+    return catalog
+
+
+def _body_handle(catalog, retrieval_kind, section_id):
+    catalog_sha256 = catalog.catalog_sha256
     if retrieval_kind == "section":
         section = next((row for row in catalog.sections if row.section_id == section_id), None)
         if section is None:
@@ -313,46 +312,119 @@ def authorize_body_read_locked(turn, *, event_id, search_event_id, catalog_sha25
         handle = native_full_document_handle(catalog_sha256)
     else:
         raise ValueError("Native body read requires an explicit section or full-document selector")
-    return NativeBodyReadAuthorizedV1(event_id=event_id, sequence=len(execution.events),
-        provider_attempt_id=_selected_controller(turn, handle), search_event_id=search_event_id,
-        catalog_sha256=catalog_sha256, retrieval_kind=retrieval_kind, section_id=section_id)
+    return handle
 
 
-def observe_body_read_locked(turn, *, event_id, authorization_event_id, read):
-    """Read through the trusted Core owner; select only the authorized exact extent."""
-    receipt, execution = _owner(turn, require_source=True)
-    prior = _prior_event(execution, event_id, NativeBodyReadObservedV1,
-        authorization_event_id=authorization_event_id)
-    if prior is not None:
-        return prior
-    auth = next((event for event in execution.events if isinstance(event, NativeBodyReadAuthorizedV1)
-        and event.event_id == authorization_event_id), None)
-    if auth is None:
-        raise ValueError("Native body read lacks its durable authorization")
-    full = auth.retrieval_kind == "full_document"
-    handle = native_full_document_handle(auth.catalog_sha256) if full else native_body_handle(auth.catalog_sha256, auth.section_id)
-    if _selected_controller(turn, handle) != auth.provider_attempt_id:
-        raise ValueError("Native body read authorization is no longer current")
-    search = next(event for event in execution.events if isinstance(event, NativeBodySearchObservedV1)
-        and event.event_id == auth.search_event_id)
-    catalog = next(row for row in search.catalogs if row.catalog_sha256 == auth.catalog_sha256)
-    # Access/authority failures from the owner propagate. They cannot become an
-    # apparently successful empty read or permit a provider to skip the grant.
-    if any(isinstance(event, NativeBodyReadObservedV1) and event.authorization_event_id == auth.event_id
-            for event in execution.events):
-        raise ValueError("Native body read already has an observation; reuse its receipt")
-    text = read(deepcopy(receipt.source_authority), deepcopy(catalog.source))
-    if text is not None and not isinstance(text, str):
-        raise ValueError("Native body owner must return verified text or explicit unavailability")
+def _body_group(turn, execution, grants, *, settled=False):
+    """One exact catalog binds the complete immutable member/access span."""
+    from . import types as t
+    if not grants or len({g.event_id for g in grants}) != len(grants):
+        raise ValueError('Native body group repeats a grant')
+    first = grants[0]
+    if any((g.search_event_id, g.catalog_sha256, g.provider_attempt_id)
+            != (first.search_event_id, first.catalog_sha256, first.provider_attempt_id) for g in grants):
+        raise ValueError('Native body group requires the same exact catalog and source member')
+    catalog = _body_catalog(execution, first.search_event_id, first.catalog_sha256)
+    handles = [_body_handle(catalog, g.retrieval_kind, g.section_id) for g in grants]
+    if len(set(handles)) != len(handles):
+        raise ValueError('Native body group repeats a selected extent')
+    choices = [e for e in execution.events if isinstance(e, t.PlanJevRetrievalSelectionV1)
+        and e.controller_attempt_id == first.provider_attempt_id and e.operation == 'select_candidates']
+    if len(choices) != 1:
+        raise ValueError('Native body group lacks its exact producing selection')
+    selection = choices[0]
+    if not settled and any(_selected_controller(turn, h) != selection.controller_attempt_id for h in handles):
+        raise ValueError('Native body group changed its current controller')
+    positions = [selection.selected_handles.index(h) for h in handles]
+    if positions != list(range(positions[0], positions[0] + len(positions))):
+        raise ValueError('Native body group must follow consecutive selected order')
+    if len(grants) > 1 and (any(g.retrieval_kind != 'section' for g in grants)
+            or native_full_document_handle(first.catalog_sha256) in selection.selected_handles):
+        raise ValueError('Full-document coverage is a native body group boundary')
+    return catalog, selection
+
+
+def authorize_body_reads_locked(turn, *, grants):
+    """Commit every extent grant before the group's single physical capture."""
+    _, execution = _owner(turn, require_source=True)
+    fields = {'event_id', 'search_event_id', 'catalog_sha256', 'retrieval_kind', 'section_id'}
+    if type(grants) is not tuple or not grants or any(type(g) is not dict or set(g) != fields for g in grants):
+        raise ValueError('Native body grants require a nonempty closed group')
+    proposed = tuple(NativeBodyReadAuthorizedV1(**g, sequence=len(execution.events) + i,
+        provider_attempt_id=_selected_controller(turn, _body_handle(
+            _body_catalog(execution, g['search_event_id'], g['catalog_sha256']), g['retrieval_kind'], g['section_id'])))
+        for i, g in enumerate(grants))
+    _, selection = _body_group(turn, execution, proposed)
+    priors = tuple(_prior_event(execution, g['event_id'], NativeBodyReadAuthorizedV1,
+        **{k: v for k, v in g.items() if k != 'event_id'}) for g in grants)
+    if any(priors):
+        if (not all(priors) or any(g.provider_attempt_id != selection.controller_attempt_id for g in priors)
+                or [g.sequence for g in priors] != list(range(priors[0].sequence, priors[0].sequence + len(priors)))):
+            raise ValueError('Native body group replay is partial, reordered or cross-controller')
+        return priors
+    observed = {e.authorization_event_id for e in execution.events if type(e) is NativeBodyReadObservedV1}
+    if any(type(e) is NativeBodyReadAuthorizedV1 and e.event_id not in observed for e in execution.events):
+        raise ValueError('Native body group has an unresolved capture; automatic replay is forbidden')
+    return proposed
+
+
+def _body_observation(auth, catalog, text, *, event_id, sequence):
     excerpt, failure = None, "native_body_unavailable"
     if text is not None:
         try:
-            excerpt = select_native_full_document(catalog, text) if full else select_native_body_excerpt(catalog, text, auth.section_id)
+            excerpt = select_native_full_document(catalog, text) if auth.retrieval_kind == 'full_document' else select_native_body_excerpt(catalog, text, auth.section_id)
             failure = None
         except (ValueError, UnicodeError):
             failure = "native_body_integrity_error"
-    return NativeBodyReadObservedV1(event_id=event_id, sequence=len(execution.events),
+    return NativeBodyReadObservedV1(event_id=event_id, sequence=sequence,
         authorization_event_id=auth.event_id, excerpt=excerpt, failure_code=failure)
+
+
+def observe_body_reads_locked(turn, *, reads, read):
+    """Capture one durable exact member once; commit all its selected extents."""
+    receipt, execution = _owner(turn, require_source=True)
+    if (type(reads) is not tuple or not reads
+            or any(type(r) is not dict or set(r) != {'event_id', 'authorization_event_id'} for r in reads)
+            or any(type(v) is not UUID for r in reads for v in r.values())
+            or len({r['event_id'] for r in reads}) != len(reads)
+            or len({r['authorization_event_id'] for r in reads}) != len(reads)):
+        raise ValueError('Native body observations require a nonempty unique closed group')
+    command = tuple((r['event_id'], r['authorization_event_id']) for r in reads)
+    priors = tuple(_prior_event(execution, r['event_id'], NativeBodyReadObservedV1,
+        authorization_event_id=r['authorization_event_id']) for r in reads)
+    by_id = {e.event_id: e for e in execution.events if type(e) is NativeBodyReadAuthorizedV1}
+    grants = tuple(by_id.get(r['authorization_event_id']) for r in reads)
+    if any(g is None for g in grants):
+        raise ValueError('Native body group lacks durable grants')
+    if [g.sequence for g in grants] != list(range(grants[0].sequence, grants[0].sequence + len(grants))):
+        raise ValueError('Native body group grants are reordered or not contiguous')
+    start, end = grants[0].sequence, grants[-1].sequence + 1
+    while start and type(execution.events[start - 1]) is NativeBodyReadAuthorizedV1:
+        start -= 1
+    while end < len(execution.events) and type(execution.events[end]) is NativeBodyReadAuthorizedV1:
+        end += 1
+    if [e.event_id for e in execution.events[start:end]] != [g.event_id for g in grants]:
+        raise ValueError('Native body observations must settle the complete issued group')
+    if any(priors):
+        if not all(priors) or [p.sequence for p in priors] != list(range(priors[0].sequence, priors[0].sequence + len(priors))):
+            raise ValueError('Native body observation replay is partial or reordered')
+        _body_group(turn, execution, grants, settled=True)
+        return priors
+    catalog, selection = _body_group(turn, execution, grants)
+    if any(g.provider_attempt_id != selection.controller_attempt_id for g in grants):
+        raise ValueError('Native body authorization is no longer current')
+    group_ids = {g.event_id for g in grants}
+    if any(type(e) is NativeBodyReadObservedV1 and e.authorization_event_id in group_ids for e in execution.events):
+        raise ValueError('Native body group already has an observation; reuse its receipt')
+    # External code sees detached authority/member only, never the private Turn.
+    # Exceptions propagate. A failed physical capture is not unavailability.
+    text = read(deepcopy(receipt.source_authority), deepcopy(catalog.source))
+    if reads != tuple(dict(event_id=eid, authorization_event_id=aid) for eid, aid in command):
+        raise ValueError('Native body group command changed during physical capture')
+    if text is not None and not isinstance(text, str):
+        raise ValueError('Native body owner must return verified text or explicit unavailability')
+    return tuple(_body_observation(g, catalog, text, event_id=eid,
+        sequence=len(execution.events) + i) for i, (g, (eid, _)) in enumerate(zip(grants, command, strict=True)))
 
 
 def authorize_direct_sources_locked(turn, *, grants):
