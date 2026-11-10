@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from functools import cached_property
 from types import MappingProxyType
 from collections.abc import Callable, Mapping
 from typing import Any
@@ -29,6 +30,11 @@ class NativeCorpusContext:
     resolve_identity: Callable
     principal: Any
     repository: Any
+
+    @cached_property
+    def presentation_names(self):
+        from ...services.native_source_display import captured_source_names
+        return MappingProxyType(captured_source_names(self.access, self.authority.managed_world_id))
 
 
 @dataclass(frozen=True)
@@ -106,6 +112,12 @@ def open_native_corpus_member(prepared, evidence_ref_id):
             or member.proof_epoch > authority.acquisition_epoch):
         raise ValueError("Native corpus access differs from its coherent selected source")
     member.verify_body(opened.body_text)
+    # Freeze optional naming only after Core has verified the exact source read.
+    # It is not consulted again during replay or citation reconstruction.
+    name = prepared.presentation_names.get(
+        (pair[0], pair[1], revision.content_sha256), 'Source name unavailable')
+    member = NativeCorpusMemberV1.model_validate(member.model_dump(mode='json') | {
+        'presentation_name': name})
     if prepared.resolve_identity(authority.managed_world_id) != prepared.binding:
         raise ValueError("Native source ownership changed during opening")
     return member, opened.body_text
