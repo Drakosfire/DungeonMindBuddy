@@ -50,7 +50,7 @@ describe("World selector", () => {
     expect(listWorldContainers).toHaveBeenCalledTimes(1);
   });
 
-  it("makes first native graph setup discoverable for the selected World", async () => {
+  it("explains that a new World reserves identity without promising native graph setup", async () => {
     vi.mocked(listWorldContainers).mockResolvedValue({
       schema_version: "dmb_world_container_registry_v1",
       records: [{
@@ -67,7 +67,9 @@ describe("World selector", () => {
     await user.click(await screen.findByRole("button", { name: "Switch World: World B" }));
     expect(screen.getByRole("link", { name: "Open this World in Build" })).toHaveAttribute("href", "/build?world=world-b");
     expect(screen.getByText(/creating a World reserves its identity/i)).toBeInTheDocument();
-    expect(screen.getByText(/reviewed Build workflow/i)).toBeInTheDocument();
+    expect(screen.getByText(/native graph initialization is not available in this explorer yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/compatible existing Worlds can be explored here/i)).toBeInTheDocument();
+    expect(screen.queryByText(/initialize its first native graph through the reviewed Build workflow/i)).not.toBeInTheDocument();
   });
 
   it("keeps the error visible and permits a fresh registry request", async () => {

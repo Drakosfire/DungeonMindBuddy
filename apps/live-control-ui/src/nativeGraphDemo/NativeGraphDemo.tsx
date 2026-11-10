@@ -33,10 +33,10 @@ import "./nativeGraphDemo.css";
 const STORAGE_VERSION = 1;
 const MAX_COORDINATE = 6000;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const PREDICATE_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
-const NAMESPACED_PREDICATE_PATTERN = /^[a-z0-9][a-z0-9._-]*:[a-z0-9][a-z0-9._-]*$/;
-const PREDICATE_PATTERN_HTML = "[a-z0-9][a-z0-9._-]*";
-const NAMESPACED_PREDICATE_PATTERN_HTML = "[a-z0-9][a-z0-9._-]*:[a-z0-9][a-z0-9._-]*";
+const PREDICATE_PATTERN = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
+const PREDICATE_PATTERN_HTML = "[a-z0-9]+([._-][a-z0-9]+)*";
+const MAX_NATIVE_NAME_UTF8_BYTES = 128;
+const CUSTOM_PREDICATE_OPTION = "__custom_predicate__";
 const OBJECT_KINDS: readonly NativeObjectKind[] = ["person", "location", "event"];
 
 interface DemoFormDraft {
@@ -72,7 +72,7 @@ interface LayoutState {
   readonly revision: number;
 }
 
-type PendingStatus = "none" | "not_sent" | "checking" | "not_found" | "rejected" | "unknown" | "prepared";
+type PendingStatus = "none" | "not_sent" | "preparing" | "checking" | "not_found" | "rejected" | "unknown" | "prepared";
 type NoticeKind = "success" | "info" | "warning" | "error";
 interface Notice { readonly kind: NoticeKind; readonly text: string }
 
@@ -287,7 +287,7 @@ function usesFinitePredicateOptions(graph: NativeGraph): boolean {
 function isPredicateAllowed(graph: NativeGraph, predicate: string): boolean {
   const { allowed_predicates: allowedPredicates, allows_custom_predicates: allowsCustom } = graph.capabilities;
   if (allowedPredicates?.includes(predicate)) return true;
-  if (allowsCustom === true) return NAMESPACED_PREDICATE_PATTERN.test(predicate);
+  if (allowsCustom === true) return PREDICATE_PATTERN.test(predicate);
   if (allowedPredicates !== undefined || allowsCustom === false) return false;
   // Older playground profiles predate predicate descriptors and keep their existing syntax.
   return PREDICATE_PATTERN.test(predicate);
@@ -363,7 +363,7 @@ function NativeGraphDemoContext({
   const completeness = graph ? graphCompleteness(graph) : null;
   const status = loading && !graph ? "Opening graph…"
     : !graph ? "Graph unavailable"
-      : hasPendingOperation ? pendingStatus === "prepared" ? "Review ready" : pendingStatus === "checking" ? "Checking review" : "Review needs attention"
+      : hasPendingOperation ? pendingStatus === "prepared" ? "Review ready" : pendingStatus === "preparing" ? "Preparing review" : pendingStatus === "checking" ? "Checking review" : "Review needs attention"
         : completeness?.status === "partial" ? "Partial native read" : "Saved to DungeonMind";
   const identity = mode === "managed"
     ? `World · ${worldTitle?.trim() || "Selected World"}`
@@ -382,7 +382,7 @@ function NativeGraphDemoContext({
         <div className="native-demo-context__actions" aria-label={mode === "managed" ? "World graph controls" : "Graph playground controls"}>
           <SurfaceContextAction className="native-demo-context__action" aria-pressed={activePanel === "create"} disabled={!canCreate || hasPendingOperation} title={!canCreate && graph ? "Object creation is read-only for this graph." : undefined} onClick={() => onPanelChange(activePanel === "create" ? null : "create")}>Add object</SurfaceContextAction>
           <SurfaceContextAction className="native-demo-context__action" aria-pressed={activePanel === "connect"} disabled={!canConnect || hasPendingOperation} title={!canConnect && graph ? "Connections are read-only for this graph." : undefined} onClick={() => onPanelChange(activePanel === "connect" ? null : "connect")}>Connect</SurfaceContextAction>
-          <SurfaceContextAction className="native-demo-context__action" disabled={!canRefresh || loading || refreshing} onClick={onRefresh}>Refresh</SurfaceContextAction>
+          <SurfaceContextAction className="native-demo-context__action" disabled={!canRefresh || loading || refreshing || hasPendingOperation} onClick={onRefresh}>Refresh</SurfaceContextAction>
           <SurfaceContextAction className="native-demo-context__action" aria-pressed={activePanel === "info"} disabled={!graph || hasPendingOperation} onClick={() => onPanelChange(activePanel === "info" ? null : "info")}>Info</SurfaceContextAction>
           <SurfaceContextAction className="native-demo-context__action" disabled={!graph} onClick={onExport}>Export snapshot</SurfaceContextAction>
         </div>
@@ -425,6 +425,8 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const pendingPhaseRef = useRef<"prepare" | "confirm">("prepare");
   const [pendingStatus, setPendingStatus] = useState<PendingStatus>("none");
   const [pendingErrorCode, setPendingErrorCode] = useState<string | null>(null);
+  const stalePrepareRejectionRef = useRef(false);
+  const [customPredicateMode, setCustomPredicateMode] = useState(false);
   const [reviewSummary, setReviewSummary] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [layout, setLayout] = useState<LayoutState>({ worldId: "", positions: {}, revision: 0 });
@@ -466,6 +468,8 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     setPendingPhaseState("prepare");
     setPendingStatus("none");
     setPendingErrorCode(null);
+    stalePrepareRejectionRef.current = false;
+    setCustomPredicateMode(false);
     pendingActionRef.current = null;
     setReviewSummary(null);
     placementIntentRef.current = null;
@@ -481,10 +485,14 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     if (!embedded || pendingOperation) return;
     if (activePanel === "create") createNameInputRef.current?.focus();
     else if (activePanel === "connect") (connectPredicateInputRef.current ?? connectPredicateSelectRef.current)?.focus();
-  }, [activePanel, embedded, pendingOperation]);
+  }, [activePanel, customPredicateMode, embedded, pendingOperation]);
 
   function ownsMount(owner: number | null): owner is number {
     return owner !== null && mountedOwnerRef.current === owner;
+  }
+
+  function ownsOperation(owner: number | null, operationId: string): boolean {
+    return ownsMount(owner) && pendingRef.current?.operation_id === operationId;
   }
 
   function installReadGraph(nextGraph: NativeGraph, requestGeneration: number, owner: number | null): boolean {
@@ -504,6 +512,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
 
   const setPendingOperation = useCallback((operation: PendingNativeOperation | null, phase: "prepare" | "confirm" = "prepare") => {
     pendingRef.current = operation;
+    stalePrepareRejectionRef.current = false;
     pendingPhaseRef.current = phase;
     setPendingPhaseState(phase);
     setPendingOperationState(operation);
@@ -523,14 +532,14 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   }, []);
 
   const recoverOperation = useCallback(async (operation: PendingNativeOperation, priorErrorCode: string | null = null, owner: number | null = mountedOwnerRef.current) => {
-    if (!ownsMount(owner)) return;
+    if (!ownsOperation(owner, operation.operation_id)) return;
     setPendingStatus("checking");
     try {
       const lookup = await api.readOperation(operation.operation_id);
-      if (!ownsMount(owner)) return;
+      if (!ownsOperation(owner, operation.operation_id)) return;
       await applyOperationLookup(lookup, operation, priorErrorCode, owner);
     } catch (error) {
-      if (!ownsMount(owner)) return;
+      if (!ownsOperation(owner, operation.operation_id)) return;
       setPendingStatus("unknown");
       setPendingErrorCode(priorErrorCode ?? asApiError(error)?.code ?? null);
       setNotice({ kind: "warning", text: `The operation status could not be verified. Keep this draft and use the same operation ID: ${describeError(error)}` });
@@ -569,7 +578,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   }
 
   async function clearRecoveredOperation(message: string, owner: number | null = mountedOwnerRef.current, completedOperation?: PendingNativeOperation, committedGraph?: NativeGraph, applyPlacement = true, createdNodeId: string | null = null) {
-    if (!ownsMount(owner)) return;
+    if (!ownsMount(owner) || completedOperation && pendingRef.current?.operation_id !== completedOperation.operation_id) return;
     const currentGraph = graphRef.current;
     let currentDraft = draftRef.current;
     const currentScopeId = stateScopeIdRef.current;
@@ -609,7 +618,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   }
 
   async function applyOperationLookup(lookup: OperationLookupResult, operation: PendingNativeOperation, priorErrorCode: string | null = null, owner: number | null = mountedOwnerRef.current) {
-    if (!ownsMount(owner)) return;
+    if (!ownsOperation(owner, operation.operation_id)) return;
     if (lookup.status === "prepared") {
       setPendingStatus("prepared");
       setPendingErrorCode(null);
@@ -625,7 +634,9 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       setReviewSummary(null);
       setNotice(pendingPhaseRef.current === "confirm"
         ? { kind: "error", text: "DungeonMind has no operation record after the confirmation attempt. Recovery is unavailable; keep this ID and draft, and check for an exact outcome later. Do not replay prepare or start a new review." }
-        : { kind: "warning", text: "DungeonMind has no operation record for this request. The exact draft and operation ID are preserved; an explicit retry may use this same ID and input." });
+        : priorErrorCode === "stale_revision" && stalePrepareRejectionRef.current
+          ? { kind: "warning", text: "DungeonMind rejected this prepare as stale_revision, and the exact operation ID has no record. Refreshing and starting a new review is now safe." }
+          : { kind: "warning", text: "DungeonMind has no operation record yet. The exact draft and operation ID are preserved; a missing record alone does not prove the request cannot still arrive. Check status or retry the same ID; do not start a new review." });
       return;
     }
     if (lookup.status === "rejected") {
@@ -640,14 +651,14 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       if (!committedGraph) {
         const graphRequest = ++graphRequestGenerationRef.current;
         committedGraph = await api.readGraph();
-        if (!ownsMount(owner)) return;
+        if (!ownsOperation(owner, operation.operation_id)) return;
         if (graphRequest !== graphRequestGenerationRef.current) {
           setPendingStatus("unknown");
           setNotice({ kind: "warning", text: "DungeonMind reports this operation committed, but the graph readback was superseded. Check the exact operation again before continuing." });
           return;
         }
       }
-      if (!ownsMount(owner)) return;
+      if (!ownsOperation(owner, operation.operation_id)) return;
       installServerGraph(committedGraph);
       await clearRecoveredOperation(`${operationName(operation)} is committed in DungeonMind. The current graph has been read back from the server.`, owner, operation, committedGraph, true, createdNodeIdFromResult(lookup));
       return;
@@ -676,6 +687,8 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       const restoredDraft = saved?.draft ?? EMPTY_DRAFT;
       draftRef.current = restoredDraft;
       setDraft(restoredDraft);
+      setCustomPredicateMode(Boolean(loadedGraph.capabilities.allows_custom_predicates && restoredDraft.predicate
+        && !loadedGraph.capabilities.allowed_predicates?.includes(restoredDraft.predicate)));
       setDraftReadyWorldId(loadedGraph.world_id);
       placementIntentRef.current = saved?.placement ?? null;
       setPlacementIntent(saved?.placement ?? null);
@@ -703,11 +716,12 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
 
   const refreshGraph = useCallback(async () => {
     const owner = mountedOwnerRef.current;
-    if (!ownsMount(owner) || refreshing) return;
+    if (!ownsMount(owner) || refreshing || pendingRef.current) return;
     const graphRequest = ++graphRequestGenerationRef.current;
     setRefreshing(true);
     try {
       const nextGraph = await api.readGraph();
+      if (!ownsMount(owner) || pendingRef.current) return;
       if (!installReadGraph(nextGraph, graphRequest, owner)) return;
       if (nextGraph.world_id !== layout.worldId) {
         const positions = readLayout(nextGraph.world_id, stateScopeId);
@@ -717,6 +731,8 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         const nextDraft = saved?.draft ?? EMPTY_DRAFT;
         draftRef.current = nextDraft;
         setDraft(nextDraft);
+        setCustomPredicateMode(Boolean(nextGraph.capabilities.allows_custom_predicates && nextDraft.predicate
+          && !nextGraph.capabilities.allowed_predicates?.includes(nextDraft.predicate)));
         placementIntentRef.current = saved?.placement ?? null;
         setPlacementIntent(saved?.placement ?? null);
         setPendingOperation(saved?.pending ?? null);
@@ -780,24 +796,25 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       return;
     }
     setStorageWarning(false);
-    setPendingStatus("unknown");
+    setPendingStatus("preparing");
     setNotice({ kind: "info", text: "Preparing a review in DungeonMind. Objects and relationships are not published until you confirm; source evidence may be saved for recovery." });
     try {
       const result = await api.prepare(operation);
-      if (!ownsMount(owner)) return;
+      if (!ownsOperation(owner, operation.operation_id)) return;
       await applyPrepareResult(result, operation, owner);
     } catch (error) {
-      if (!ownsMount(owner)) return;
+      if (!ownsOperation(owner, operation.operation_id)) return;
       const apiError = asApiError(error);
       setPendingErrorCode(apiError?.code ?? null);
       setPendingStatus("unknown");
+      stalePrepareRejectionRef.current = apiError?.status === 409 && apiError.code === "stale_revision";
       setNotice({ kind: "warning", text: `The prepare response was not verified. The same operation ID is retained; checking its server record now. ${describeError(error)}` });
       await recoverOperation(operation, apiError?.code ?? null, owner);
     }
   }
 
   async function applyPrepareResult(result: PrepareResult, operation: PendingNativeOperation, owner: number | null = mountedOwnerRef.current) {
-    if (!ownsMount(owner)) return;
+    if (!ownsOperation(owner, operation.operation_id)) return;
     if (result.status === "already_exists") {
       installServerGraph(result.graph);
       await clearRecoveredOperation(`${result.message} The latest graph was read from DungeonMind.`, owner, operation, result.graph, false);
@@ -814,6 +831,10 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     if (!graph || pendingRef.current || !graph.capabilities.create || !isNativeKindSupported(graph, draft.objectKind)) return;
     const name = draft.objectName.trim();
     if (!name) return;
+    if (new TextEncoder().encode(name).length > MAX_NATIVE_NAME_UTF8_BYTES) {
+      setNotice({ kind: "warning", text: `Names must use ${MAX_NATIVE_NAME_UTF8_BYTES} UTF-8 bytes or fewer. Your draft is still editable.` });
+      return;
+    }
     if (embedded) setActivePanel(null);
     await dispatchPrepare({
       operation_id: crypto.randomUUID(),
@@ -843,10 +864,11 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
 
   async function retrySamePrepare() {
     const operation = pendingRef.current;
-    if (!operation || pendingPhase !== "prepare" || (pendingStatus !== "not_found" && pendingStatus !== "not_sent")) return;
+    if (!operation || pendingPhase !== "prepare" || (pendingStatus !== "not_found" && pendingStatus !== "not_sent")
+      || pendingStatus === "not_found" && stalePrepareRejectionRef.current) return;
     // The existing ID is already pending, so retry its exact request without allocating or replacing it.
     const owner = mountedOwnerRef.current;
-    if (!ownsMount(owner)) return;
+    if (!ownsOperation(owner, operation.operation_id)) return;
     setReviewSummary(null);
     if (!graph || !safeWriteDraft(graph.world_id, draftRef.current, operation, "prepare", undefined, stateScopeId)) {
       setPendingStatus("not_sent");
@@ -855,16 +877,19 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       return;
     }
     setStorageWarning(false);
-    setPendingStatus("unknown");
+    stalePrepareRejectionRef.current = false;
+    setPendingStatus("preparing");
     setNotice({ kind: "info", text: "Retrying the exact prepared input with the same operation ID. No replacement ID was created." });
     try {
       const result = await api.prepare(operation);
-      if (ownsMount(owner)) await applyPrepareResult(result, operation, owner);
+      if (ownsOperation(owner, operation.operation_id)) await applyPrepareResult(result, operation, owner);
     } catch (error) {
-      if (!ownsMount(owner)) return;
+      if (!ownsOperation(owner, operation.operation_id)) return;
       const code = asApiError(error)?.code ?? null;
       setPendingErrorCode(code);
       setPendingStatus("unknown");
+      const apiError = asApiError(error);
+      stalePrepareRejectionRef.current = apiError?.status === 409 && apiError.code === "stale_revision";
       setNotice({ kind: "warning", text: `The retry response was not verified. The same operation ID remains saved. ${describeError(error)}` });
       await recoverOperation(operation, code, owner);
     }
@@ -873,14 +898,14 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   async function checkPendingStatus() {
     const operation = pendingRef.current;
     const owner = mountedOwnerRef.current;
-    if (!operation || pendingStatus === "checking" || !ownsMount(owner)) return;
+    if (!operation || pendingStatus === "checking" || pendingStatus === "preparing" || !ownsOperation(owner, operation.operation_id)) return;
     await recoverOperation(operation, pendingErrorCode, owner);
   }
 
   async function confirmPrepared() {
     const operation = pendingRef.current;
     const owner = mountedOwnerRef.current;
-    if (!operation || pendingStatus !== "prepared" || !reviewSummary || !ownsMount(owner) || pendingActionRef.current !== null) return;
+    if (!operation || pendingStatus !== "prepared" || !reviewSummary || !ownsOperation(owner, operation.operation_id) || pendingActionRef.current !== null) return;
     pendingActionRef.current = "confirm";
     const currentGraph = graphRef.current;
     if (!currentGraph || !safeWriteDraft(currentGraph.world_id, draftRef.current, operation, "confirm", undefined, stateScopeId)) {
@@ -895,7 +920,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     setNotice({ kind: "info", text: "Confirming the reviewed operation in DungeonMind…" });
     try {
       const result = await api.confirm(operation.operation_id);
-      if (!ownsMount(owner)) return;
+      if (!ownsOperation(owner, operation.operation_id)) return;
       if (result.status === "committed") {
         installServerGraph(result.graph);
         await clearRecoveredOperation(`${operationName(operation)} is committed. The graph below is the server readback.`, owner, operation, result.graph, true, createdNodeIdFromResult(result));
@@ -911,7 +936,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         setNotice({ kind: "warning", text: `${result.message} The outcome is recorded as uncertain. Do not retry or replace this operation ID; check its status again.` });
       }
     } catch (error) {
-      if (!ownsMount(owner)) return;
+      if (!ownsOperation(owner, operation.operation_id)) return;
       const code = asApiError(error)?.code ?? null;
       setPendingErrorCode(code);
       setNotice({ kind: "warning", text: `The confirmation response was not verified. The operation stays attached to the same ID; checking its server record now. ${describeError(error)}` });
@@ -925,20 +950,20 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     const operation = pendingRef.current;
     const owner = mountedOwnerRef.current;
     if (!operation || pendingStatus !== "prepared" || pendingPhase !== "prepare" || pendingPhaseRef.current !== "prepare"
-      || !ownsMount(owner) || pendingActionRef.current !== null) return;
+      || !ownsOperation(owner, operation.operation_id) || pendingActionRef.current !== null) return;
     pendingActionRef.current = "edit";
     setPendingStatus("checking");
     setNotice({ kind: "info", text: "Refreshing the latest graph before releasing this tab's prepared review…" });
     try {
       const before = await api.readOperation(operation.operation_id);
-      if (!ownsMount(owner)) return;
+      if (!ownsOperation(owner, operation.operation_id)) return;
       if (before.status !== "prepared") {
         await applyOperationLookup(before, operation, null, owner);
         return;
       }
       const graphRequest = ++graphRequestGenerationRef.current;
       const latestGraph = await api.readGraph();
-      if (!ownsMount(owner)) return;
+      if (!ownsOperation(owner, operation.operation_id)) return;
       if (graphRequest !== graphRequestGenerationRef.current) {
         setPendingStatus("prepared");
         setNotice({ kind: "warning", text: "A newer graph read is in progress. This prepared review remains attached; try Edit draft again." });
@@ -946,7 +971,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       }
       if (!installReadGraph(latestGraph, graphRequest, owner)) return;
       const after = await api.readOperation(operation.operation_id);
-      if (!ownsMount(owner)) return;
+      if (!ownsOperation(owner, operation.operation_id)) return;
       if (after.status !== "prepared") {
         await applyOperationLookup(after, operation, null, owner);
         return;
@@ -965,7 +990,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       setReviewSummary(null);
       setNotice({ kind: "success", text: `Draft unlocked after refreshing the latest graph. Server review and source evidence remain; this only set aside the local pointer and did not delete or cancel them. Retained operation ID: ${operation.operation_id}` });
     } catch (error) {
-      if (!ownsMount(owner)) return;
+      if (!ownsOperation(owner, operation.operation_id)) return;
       setPendingStatus("prepared");
       setNotice({ kind: "error", text: `Could not safely release the draft. The prepared review remains available: ${describeError(error)}` });
     } finally {
@@ -976,23 +1001,25 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   async function startFreshAfterStaleReview() {
     const operation = pendingRef.current;
     const owner = mountedOwnerRef.current;
+    const definitiveStalePrepare = pendingPhaseRef.current === "prepare" && pendingErrorCode === "stale_revision"
+      && (stalePrepareRejectionRef.current || pendingStatus === "rejected");
     const canStartFresh = pendingStatus === "rejected" && pendingErrorCode === "stale_revision"
-      || pendingStatus === "not_found" && pendingPhase === "prepare";
-    if (!operation || !canStartFresh || !ownsMount(owner)) return;
+      || pendingStatus === "not_found" && definitiveStalePrepare;
+    if (!operation || !canStartFresh || !ownsOperation(owner, operation.operation_id)) return;
     setPendingStatus("checking");
     setNotice({ kind: "info", text: "Verifying that the old operation is safe to leave before refreshing the graph…" });
     try {
       const lookup = await api.readOperation(operation.operation_id);
-      if (!ownsMount(owner)) return;
+      if (!ownsOperation(owner, operation.operation_id)) return;
       const stillSafeToStartFresh = lookup.status === "rejected" && lookup.code === "stale_revision"
-        || lookup.status === "not_found" && pendingPhaseRef.current === "prepare";
+        || lookup.status === "not_found" && definitiveStalePrepare;
       if (!stillSafeToStartFresh) {
         await applyOperationLookup(lookup, operation, pendingErrorCode, owner);
         return;
       }
       const graphRequest = ++graphRequestGenerationRef.current;
       const freshGraph = await api.readGraph();
-      if (!ownsMount(owner)) return;
+      if (!ownsOperation(owner, operation.operation_id)) return;
       if (graphRequest !== graphRequestGenerationRef.current) {
         setPendingStatus("unknown");
         setNotice({ kind: "warning", text: "A newer graph read is already in progress. The stale review ID is still preserved; check it again before starting a fresh review." });
@@ -1010,7 +1037,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       setReviewSummary(null);
       setNotice({ kind: "success", text: "The old review has a definitive safe outcome and the latest DungeonMind graph is loaded. Your form draft remains; prepare again to create a new review ID." });
     } catch (error) {
-      if (!ownsMount(owner)) return;
+      if (!ownsOperation(owner, operation.operation_id)) return;
       setPendingStatus("unknown");
       setNotice({ kind: "error", text: `Could not safely start a fresh review. The original ID and form draft remain: ${describeError(error)}` });
     }
@@ -1166,6 +1193,9 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         <label htmlFor="native-demo-name">Name</label>
         <input ref={createNameInputRef} id="native-demo-name" name="name" autoComplete="off" maxLength={120} required value={draft.objectName}
           onChange={(event) => updateDraft({ objectName: event.target.value })} disabled={Boolean(pendingOperation)} placeholder="e.g. Mara" />
+        {new TextEncoder().encode(draft.objectName.trim()).length > MAX_NATIVE_NAME_UTF8_BYTES
+          ? <p className="native-demo-limitation" role="alert">Names must use {MAX_NATIVE_NAME_UTF8_BYTES} UTF-8 bytes or fewer. Shorten this draft to prepare a review.</p>
+          : null}
         <label htmlFor="native-demo-kind">Type</label>
         <select id="native-demo-kind" name="kind" value={draft.objectKind}
           onChange={(event) => updateCreateKind(event.target.value as NativeObjectKind)} disabled={Boolean(pendingOperation)}>
@@ -1174,7 +1204,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         </select>
         {graph.capabilities.create && !graph.capabilities.object_kinds.length ? <p className="native-demo-limitation">This graph profile has no supported object types to create.</p> : null}
         {!isNativeKindSupported(graph, "event") ? <p className="native-demo-limitation">{embedded ? "Event typing is not supported by this DungeonMind profile." : "Event typing is not supported by this DungeonMind profile yet. This demo is incomplete until the native profile accepts it."}</p> : null}
-        <button className="native-demo-button native-demo-button--gold" type="submit" disabled={!graph.capabilities.create || !isNativeKindSupported(graph, draft.objectKind) || Boolean(pendingOperation) || pendingStatus === "not_sent"}>
+        <button className="native-demo-button native-demo-button--gold" type="submit" disabled={!graph.capabilities.create || !isNativeKindSupported(graph, draft.objectKind) || new TextEncoder().encode(draft.objectName.trim()).length > MAX_NATIVE_NAME_UTF8_BYTES || Boolean(pendingOperation) || pendingStatus === "not_sent"}>
           {pendingOperation?.kind === "create_object" ? "Review is in progress" : "Prepare object"}
         </button>
       </form>
@@ -1184,7 +1214,11 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const finitePredicateOptions = usesFinitePredicateOptions(graph);
   const allowedPredicates = graph.capabilities.allowed_predicates ?? [];
   const allowsCustomPredicates = graph.capabilities.allows_custom_predicates === true;
-  const predicateInputPattern = allowsCustomPredicates ? NAMESPACED_PREDICATE_PATTERN_HTML : PREDICATE_PATTERN_HTML;
+  const showPredicateOptions = finitePredicateOptions || allowsCustomPredicates && allowedPredicates.length > 0;
+  const showCustomPredicateInput = allowsCustomPredicates
+    ? allowedPredicates.length === 0 || customPredicateMode
+    : !finitePredicateOptions;
+  const predicateInputPattern = PREDICATE_PATTERN_HTML;
   const connectPanel = (
     <section className="native-demo-action-card" aria-labelledby="native-demo-connect-title">
       <p className="native-demo-eyebrow">AUTHOR A DIRECTED EDGE</p>
@@ -1192,7 +1226,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       <p className="native-demo-copy">{finitePredicateOptions
         ? "Choose the source, destination, and an approved relationship label. DungeonMind checks the current graph revision."
         : allowsCustomPredicates
-          ? "Choose the source and destination, then enter a namespaced relationship label. DungeonMind checks the current graph revision."
+          ? "Choose a registered label or enter a plain custom label. DungeonMind checks the current graph revision."
           : "Choose the source, destination, and predicate. DungeonMind checks the current graph revision."}</p>
       <form className="native-demo-form" onSubmit={(event) => void submitConnect(event)}>
         <label htmlFor="native-demo-source">From</label>
@@ -1207,22 +1241,37 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
           <option value="">Choose an object</option>
           {graph.nodes.map((node) => <option key={node.id} value={node.id}>{node.name} · {node.kind}</option>)}
         </select>
-        <label htmlFor="native-demo-predicate">Relationship</label>
-        {finitePredicateOptions ? (
-          <select ref={connectPredicateSelectRef} id="native-demo-predicate" name="predicate" required
-            value={draft.predicate} disabled={Boolean(pendingOperation) || !allowedPredicates.length}
-            onChange={(event) => updateDraft({ predicate: event.target.value })}>
+        <label htmlFor={showPredicateOptions ? "native-demo-predicate-choice" : "native-demo-predicate"}>Relationship</label>
+        {showPredicateOptions ? (
+          <select ref={connectPredicateSelectRef} id="native-demo-predicate-choice" name="predicate_choice" required
+            value={customPredicateMode && allowsCustomPredicates ? CUSTOM_PREDICATE_OPTION : draft.predicate}
+            disabled={Boolean(pendingOperation)}
+            onChange={(event) => {
+              if (event.target.value === CUSTOM_PREDICATE_OPTION) {
+                setCustomPredicateMode(true);
+                if (allowedPredicates.includes(draft.predicate)) updateDraft({ predicate: "" });
+              } else {
+                setCustomPredicateMode(false);
+                updateDraft({ predicate: event.target.value });
+              }
+            }}>
             <option value="">Choose an approved label</option>
             {allowedPredicates.map((predicate) => <option value={predicate} key={predicate}>{predicate}</option>)}
+            {allowsCustomPredicates ? <option value={CUSTOM_PREDICATE_OPTION}>Enter a custom label…</option> : null}
           </select>
-        ) : (
-          <input ref={connectPredicateInputRef} id="native-demo-predicate" name="predicate" autoComplete="off" maxLength={64} required pattern={predicateInputPattern}
-            title={allowsCustomPredicates ? "Use a lowercase namespace and predicate separated by a colon, such as story:knows." : "Use lowercase letters, numbers, dots, underscores, or hyphens only. Example: works_at."}
-            onChange={(event) => updateDraft({ predicate: event.target.value })} value={draft.predicate} disabled={Boolean(pendingOperation)} placeholder={allowsCustomPredicates ? "e.g. story:knows" : "e.g. works_at"} />
-        )}
+        ) : null}
+        {showCustomPredicateInput ? (
+          <>
+            {showPredicateOptions ? <label htmlFor="native-demo-predicate">Custom label</label> : null}
+            <input ref={connectPredicateInputRef} id="native-demo-predicate" name="predicate" autoComplete="off" maxLength={64} required pattern={predicateInputPattern}
+              title="Use lowercase letters, numbers, dots, underscores, or hyphens only. Example: works_at."
+              onChange={(event) => { setCustomPredicateMode(true); updateDraft({ predicate: event.target.value }); }}
+              value={draft.predicate} disabled={Boolean(pendingOperation)} placeholder="e.g. works_at" />
+          </>
+        ) : null}
         <p className="native-demo-predicate-help">{finitePredicateOptions
           ? allowedPredicates.length ? "Only labels approved by the selected World can be used." : "No approved relationship labels are available for this World."
-          : allowsCustomPredicates ? "Use a lowercase namespace and predicate separated by a colon."
+          : allowsCustomPredicates ? "Choose a registered label or enter a plain lowercase custom label; DungeonMind stores custom labels in the approved namespace."
             : "Use lowercase letters, numbers, dots, underscores, and hyphens only."}</p>
         <button className="native-demo-button native-demo-button--gold" type="submit" disabled={!canConnectGraph(graph) || graph.nodes.length < 1 || Boolean(pendingOperation) || pendingStatus === "not_sent"}>
           {pendingOperation?.kind === "connect" ? "Review is in progress" : "Prepare connection"}
@@ -1246,13 +1295,14 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       {pendingStatus === "unknown" || pendingStatus === "not_sent" || pendingStatus === "not_found" || pendingStatus === "rejected" ? (
         <div className="native-demo-recovery-actions">
           {pendingStatus !== "not_sent" ? <button className="native-demo-button native-demo-button--light" type="button" onClick={() => void checkPendingStatus()}>Check status</button> : null}
-          {(pendingStatus === "not_found" && pendingPhase === "prepare" || pendingStatus === "not_sent") ? <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void retrySamePrepare()}>Retry same operation ID</button> : null}
-          {(pendingStatus === "rejected" && pendingErrorCode === "stale_revision" || pendingStatus === "not_found" && pendingPhase === "prepare")
+          {(pendingStatus === "not_found" && pendingPhase === "prepare" && !stalePrepareRejectionRef.current || pendingStatus === "not_sent") ? <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void retrySamePrepare()}>Retry same operation ID</button> : null}
+          {(pendingStatus === "rejected" && pendingErrorCode === "stale_revision" || pendingStatus === "not_found" && pendingPhase === "prepare" && pendingErrorCode === "stale_revision" && stalePrepareRejectionRef.current)
             ? <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void startFreshAfterStaleReview()}>Refresh and start a fresh review</button> : null}
           {pendingStatus === "rejected" && pendingErrorCode !== "stale_revision" ? <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void clearRecoveredOperation("The rejected operation is dismissed. Your form draft is still here; edit it and prepare a new review.")}>Dismiss rejected operation</button> : null}
         </div>
       ) : null}
       {pendingStatus === "checking" ? <p className="native-demo-checking" role="status">Checking the exact operation ID…</p> : null}
+      {pendingStatus === "preparing" ? <p className="native-demo-checking" role="status">Waiting for DungeonMind to accept this exact request. Status checks stay unavailable until the response settles.</p> : null}
       <p className="native-demo-no-cancel">If the response was lost, this panel keeps the same ID. It will never create a replacement operation automatically. Setting aside a prepared review only releases this tab's pointer; it does not delete server-side source or review records.</p>
     </section>
   ) : null;
@@ -1267,7 +1317,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       <p className="native-demo-limit-detail">Drag the background to pan, move nodes to arrange this view, and use the canvas controls to zoom or fit. The arrangement is saved in this browser only.</p>
       <ul>
         <li className={graph.capabilities.create ? "is-available" : "is-unavailable"}>{graph.capabilities.create ? `Create ${graph.capabilities.object_kinds.map((kind) => kind.replace(/[_-]+/g, " ")).join(", ") || "supported native objects"}` : "Object creation is read-only here"}</li>
-        <li className={canConnectGraph(graph) ? "is-available" : "is-unavailable"}>{!graph.capabilities.connect ? "Connections are read-only here" : !canConnectGraph(graph) ? "No approved relationship labels are available" : finitePredicateOptions ? `Connect using ${allowedPredicates.length} approved relationship label${allowedPredicates.length === 1 ? "" : "s"}` : allowsCustomPredicates ? "Connect using namespaced relationship labels" : "Connect objects with a predicate"}</li>
+        <li className={canConnectGraph(graph) ? "is-available" : "is-unavailable"}>{!graph.capabilities.connect ? "Connections are read-only here" : !canConnectGraph(graph) ? "No approved relationship labels are available" : finitePredicateOptions ? `Connect using ${allowedPredicates.length} approved relationship label${allowedPredicates.length === 1 ? "" : "s"}` : allowsCustomPredicates ? "Use registered relationship labels or plain labels in DungeonMind’s approved custom namespace" : "Connect objects with a predicate"}</li>
         <li className="is-unavailable">Rename is unavailable</li>
         <li className="is-unavailable">Delete is unavailable</li>
       </ul>
@@ -1317,7 +1367,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                   <p className="native-demo-eyebrow">PUBLISHED WORLD</p>
                   <h2 id="native-demo-graph-heading">The living graph</h2>
                 </div>
-                <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void refreshGraph()} disabled={refreshing}>
+                <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void refreshGraph()} disabled={refreshing || Boolean(pendingOperation)}>
                   <span aria-hidden="true">↻</span> {refreshing ? "Refreshing…" : "Refresh"}
                 </button>
               </div>

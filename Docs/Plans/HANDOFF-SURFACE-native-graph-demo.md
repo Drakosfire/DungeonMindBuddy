@@ -387,3 +387,33 @@ logs are `verification/storage-managed-graph-final-20261110T081015Z-973790.log`
 and `verification/storage-managed-graph-quality-20261110T081028Z-974219.log`.
 There is no named CI contract for these new tests; direct owning-boundary tests
 supplement, rather than alter, the repository's existing aggregate contracts.
+
+## Frozen explorer reconciliation
+
+The final scoped UI correction passes 30 focused tests with a retained log at
+`task-verification/buddy-index-predicate-recovery-selector-focused-final.log`.
+Custom relationship input now uses the server's exact plain-label grammar, with
+registered options preserved. Preparation has a distinct in-flight state; a bare
+`not_found` cannot release the old operation ID. Fresh review requires verified
+stale rejection, and asynchronous results/errors retain their operation scope.
+Client name input enforces the same 128 UTF-8-byte bound. Setup copy explicitly
+states that new vNext graph initialization is unavailable in this explorer.
+
+A separately authorized read-only live metadata check confirmed Elderwyld is an
+existing compatible vNext World, using `dungeonbuddy.world@2` and
+`dungeonbuddy.dnd5e@2`. Its APP binding also retains a legacy validated head; the
+native inspector correctly selects the current KnowledgeSpace head and exact
+binding version, without changing either history. No graph content or live state
+was changed. The initialization gap applies to new Worlds, not that existing
+native graph.
+
+The coordinator re-anchored main at
+`e988a03747a4a195a2f018108c825dc7b2ba5ec6` and inspected current open work before
+reconciliation. Preserve unrelated Plan retirement, composition and CI inventory
+changes. The prior reviewed frontend source `04f5f0adcb9627605312343b8fc3c7af482ddf95`
+has the identical UI tree `a251927d7190d115d13fbed1c72e8b0e95cf3b26` as that main.
+Its retained default-discovered baseline has 7,203 passes, 159 failures, one pending
+case and the same inherited collection error. Results artifact hash and exact
+failed case IDs are retained in task `verification/baseline-e988-ui-*` for final
+comparison only, not as explorer qualification. This accounts for the authorized
+retired/renamed Plan cases without suppressing any failure.

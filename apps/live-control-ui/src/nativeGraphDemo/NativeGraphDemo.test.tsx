@@ -1,9 +1,9 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Blob as NodeBlob } from "node:buffer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NativeGraphDemo, type NativeGraphDemoProps } from "./NativeGraphDemo";
-import type { NativeGraph, NativeGraphDemoApi, OperationLookupResult } from "./nativeGraphDemoApi";
+import { NativeGraphDemoApiError, type NativeGraph, type NativeGraphDemoApi, type OperationLookupResult, type PrepareResult } from "./nativeGraphDemoApi";
 import { SurfaceContextHost, SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 
 const graph: NativeGraph = {
@@ -212,7 +212,7 @@ describe("NativeGraphDemo", () => {
       ...graph,
       capabilities: {
         ...graph.capabilities,
-        allowed_predicates: ["dnd5e:located_in", "dungeonbuddy:allied_with"],
+        allowed_predicates: ["located_in", "allied_with"],
         allows_custom_predicates: false,
       },
     };
@@ -223,24 +223,24 @@ describe("NativeGraphDemo", () => {
 
     const relationship = screen.getByLabelText("Relationship");
     expect(relationship.tagName).toBe("SELECT");
-    expect(within(relationship).getByRole("option", { name: "dnd5e:located_in" })).toBeInTheDocument();
-    expect(within(relationship).getByRole("option", { name: "dungeonbuddy:allied_with" })).toBeInTheDocument();
+    expect(within(relationship).getByRole("option", { name: "located_in" })).toBeInTheDocument();
+    expect(within(relationship).getByRole("option", { name: "allied_with" })).toBeInTheDocument();
     fireEvent.change(relationship, { target: { value: "custom:unsupported" } });
     fireEvent.submit(relationship.closest("form")!);
     expect(api.prepare).not.toHaveBeenCalled();
 
-    await user.selectOptions(relationship, "dungeonbuddy:allied_with");
+    await user.selectOptions(relationship, "allied_with");
     await user.selectOptions(screen.getByLabelText("From"), "entity:mara");
     await user.selectOptions(screen.getByLabelText("To"), "entity:tomas");
     fireEvent.submit(relationship.closest("form")!);
-    await waitFor(() => expect(api.prepare).toHaveBeenCalledWith(expect.objectContaining({ predicate: "dungeonbuddy:allied_with" })));
+    await waitFor(() => expect(api.prepare).toHaveBeenCalledWith(expect.objectContaining({ predicate: "allied_with" })));
   });
 
-  it("accepts namespaced custom predicates only when the descriptor allows them", async () => {
+  it("offers registered labels and accepts only valid plain custom labels when the descriptor allows them", async () => {
     const user = userEvent.setup();
     const managedGraph: NativeGraph = {
       ...graph,
-      capabilities: { ...graph.capabilities, allowed_predicates: [], allows_custom_predicates: true },
+      capabilities: { ...graph.capabilities, allowed_predicates: ["located_in", "allied_with"], allows_custom_predicates: true },
     };
     const api = makeApi({ readGraph: vi.fn().mockResolvedValue(managedGraph) });
     renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:world-17" });
@@ -248,17 +248,27 @@ describe("NativeGraphDemo", () => {
     await user.click(within(screen.getByTestId("surface-context-host")).getByRole("button", { name: "Connect" }));
 
     const relationship = screen.getByLabelText("Relationship");
-    expect(relationship).toHaveAttribute("pattern", "[a-z0-9][a-z0-9._-]*:[a-z0-9][a-z0-9._-]*");
+    expect(relationship.tagName).toBe("SELECT");
+    expect(within(relationship).getByRole("option", { name: "located_in" })).toBeInTheDocument();
+    expect(within(relationship).getByRole("option", { name: "allied_with" })).toBeInTheDocument();
+    await user.selectOptions(relationship, "__custom_predicate__");
+    const customLabel = screen.getByLabelText("Custom label");
+    expect(customLabel).toHaveAttribute("pattern", "[a-z0-9]+([._-][a-z0-9]+)*");
     await user.selectOptions(screen.getByLabelText("From"), "entity:mara");
     await user.selectOptions(screen.getByLabelText("To"), "entity:tomas");
-    fireEvent.change(relationship, { target: { value: "not-namespaced" } });
-    fireEvent.submit(relationship.closest("form")!);
+    fireEvent.change(customLabel, { target: { value: "story:knows" } });
+    fireEvent.submit(customLabel.closest("form")!);
     expect(api.prepare).not.toHaveBeenCalled();
 
-    await user.clear(relationship);
-    await user.type(relationship, "story:knows");
-    fireEvent.submit(relationship.closest("form")!);
-    await waitFor(() => expect(api.prepare).toHaveBeenCalledWith(expect.objectContaining({ predicate: "story:knows" })));
+    await user.clear(customLabel);
+    await user.type(customLabel, "works__at");
+    fireEvent.submit(customLabel.closest("form")!);
+    expect(api.prepare).not.toHaveBeenCalled();
+
+    await user.clear(customLabel);
+    await user.type(customLabel, "works_at");
+    fireEvent.submit(customLabel.closest("form")!);
+    await waitFor(() => expect(api.prepare).toHaveBeenCalledWith(expect.objectContaining({ predicate: "works_at" })));
   });
 
   it("keeps pending drafts isolated by the managed World scope", async () => {
@@ -463,6 +473,87 @@ describe("NativeGraphDemo", () => {
     expect(api.prepare.mock.calls[0]?.[0]).toEqual(api.prepare.mock.calls[1]?.[0]);
   });
 
+  it("keeps recovery controls unavailable while prepare is pending and reuses its ID after not_found", async () => {
+    const user = userEvent.setup();
+    const preparing = deferred<PrepareResult>();
+    const operationId = "4a4a77ef-4182-4050-86cf-e9c7e06935f8";
+    const api = makeApi({
+      prepare: vi.fn().mockReturnValueOnce(preparing.promise).mockResolvedValueOnce({
+        status: "prepared",
+        operation_id: operationId,
+        parent_revision_id: graph.revision_id,
+        review: { summary: "Create Mira as a native person in the current World." },
+      }),
+      readOperation: vi.fn().mockResolvedValue({ status: "not_found", operation_id: operationId }),
+    });
+    vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue(operationId);
+    render(<NativeGraphDemo api={api} />);
+
+    await screen.findByRole("heading", { name: "The living graph" });
+    await user.type(screen.getByLabelText("Name"), "Mira");
+    await user.click(screen.getByRole("button", { name: "Prepare object" }));
+    expect(await screen.findByText(/Status checks stay unavailable until the response settles/)).toBeInTheDocument();
+    expect(api.prepare).toHaveBeenCalledTimes(1);
+    expect(api.readOperation).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Check status" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry same operation ID" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Refresh and start a fresh review" })).not.toBeInTheDocument();
+
+    await act(async () => { preparing.reject(new Error("connection dropped")); });
+    expect(await screen.findByText(/missing record alone does not prove the request cannot still arrive/)).toBeInTheDocument();
+    expect(api.readOperation).toHaveBeenCalledWith(operationId);
+    expect(screen.queryByRole("button", { name: "Refresh and start a fresh review" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry same operation ID" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Retry same operation ID" }));
+    expect(await screen.findByText("Create Mira as a native person in the current World.")).toBeInTheDocument();
+    expect(api.prepare).toHaveBeenCalledTimes(2);
+    expect(api.prepare.mock.calls[0]?.[0]).toEqual(api.prepare.mock.calls[1]?.[0]);
+  });
+
+  it("allows a fresh review only after prepare is definitively rejected stale and its exact ID is not found", async () => {
+    const user = userEvent.setup();
+    const firstId = "4a4a77ef-4182-4050-86cf-e9c7e06935f8";
+    const secondId = "b121ad7a-c50a-4a58-9e62-91eea9e3972d";
+    const latestGraph = { ...graph, revision_id: "revision-latest", graph_sha256: "sha256-latest" };
+    const api = makeApi({
+      readGraph: vi.fn().mockResolvedValueOnce(graph).mockResolvedValueOnce(latestGraph),
+      prepare: vi.fn()
+        .mockRejectedValueOnce(new NativeGraphDemoApiError("stale", "stale_revision", 409))
+        .mockResolvedValueOnce({ status: "prepared", operation_id: secondId, parent_revision_id: latestGraph.revision_id, review: { summary: "Fresh review." } }),
+      readOperation: vi.fn().mockResolvedValue({ status: "not_found", operation_id: firstId }),
+    });
+    vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValueOnce(firstId).mockReturnValueOnce(secondId);
+    render(<NativeGraphDemo api={api} />);
+
+    await screen.findByRole("heading", { name: "The living graph" });
+    await user.type(screen.getByLabelText("Name"), "Mira");
+    await user.click(screen.getByRole("button", { name: "Prepare object" }));
+    expect(await screen.findByText(/rejected this prepare as stale_revision, and the exact operation ID has no record/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Refresh and start a fresh review" }));
+    expect(await screen.findByText(/definitive safe outcome and the latest DungeonMind graph is loaded/)).toBeInTheDocument();
+    expect(api.prepare).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole("button", { name: "Prepare object" }));
+    expect(await screen.findByText("Fresh review.")).toBeInTheDocument();
+    expect(api.prepare).toHaveBeenCalledTimes(2);
+    expect(api.prepare.mock.calls[0]?.[0].operation_id).toBe(firstId);
+    expect(api.prepare.mock.calls[1]?.[0].operation_id).toBe(secondId);
+  });
+
+  it("blocks names over DungeonMind's UTF-8 byte limit before allocating an operation", async () => {
+    const api = makeApi();
+    const uuid = vi.spyOn(globalThis.crypto, "randomUUID");
+    render(<NativeGraphDemo api={api} />);
+
+    await screen.findByRole("heading", { name: "The living graph" });
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "é".repeat(80) } });
+    expect(screen.getByRole("alert")).toHaveTextContent("Names must use 128 UTF-8 bytes or fewer");
+    expect(screen.getByRole("button", { name: "Prepare object" })).toBeDisabled();
+    expect(uuid).not.toHaveBeenCalled();
+    expect(api.prepare).not.toHaveBeenCalled();
+  });
+
   it("preserves a form draft across navigation and constrains directed relationship predicates", async () => {
     const user = userEvent.setup();
     const api = makeApi();
@@ -478,7 +569,7 @@ describe("NativeGraphDemo", () => {
     await user.selectOptions(screen.getByLabelText("To"), "entity:tomas");
     const predicate = screen.getByLabelText("Relationship");
     await user.type(predicate, "Knows people");
-    expect(predicate).toHaveAttribute("pattern", "[a-z0-9][a-z0-9._-]*");
+    expect(predicate).toHaveAttribute("pattern", "[a-z0-9]+([._-][a-z0-9]+)*");
     expect(screen.getByText(/lowercase letters, numbers, dots, underscores, and hyphens only/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Prepare connection" }));
     expect(api.prepare).not.toHaveBeenCalled();

@@ -109,7 +109,7 @@ export function WorldSelector({ compact = false, creationPath = "/plan" }: { com
             {selected.kind === "managed" ? "Open this World in Build" : "New World in Build"}
           </a>
           <p className="app-world-selector__hint">
-            Creating a World reserves its identity. Initialize its first native graph through the reviewed Build workflow before editing it here.
+            Creating a World reserves its identity. Native graph initialization is not available in this explorer yet; compatible existing Worlds can be explored here. Open this World in Build to manage its content.
           </p>
           {selected.kind === "error" ? (
             <button type="button" onClick={retrySelection}>Retry selection</button>
