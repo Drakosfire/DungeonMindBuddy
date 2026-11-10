@@ -1,5 +1,6 @@
-"""Owning-boundary guards for additive CI command extraction and classification."""
+"""Owning-boundary guards for live CI commands and complete file classification."""
 
+import copy
 import json
 import os
 import shutil
@@ -10,9 +11,7 @@ import pytest
 from scripts import ci_contract as ci
 
 
-def test_original_commands_are_preserved_exactly_and_workflows_consume_them():
-    expected = json.loads((ci.ROOT / "tests/fixtures/ci_original_commands.json").read_text())
-    assert ci.contracts() == expected["contracts"]
+def test_workflows_consume_the_live_named_contracts():
     world = (ci.ROOT / ".github/workflows/world-ownership-core.yml").read_text()
     hosted = (ci.ROOT / ".github/workflows/hosted-validation.yml").read_text()
     for suite in ("world-and-content", "ingestion-and-review", "query-and-answer", "saved-page-readers"):
@@ -20,6 +19,53 @@ def test_original_commands_are_preserved_exactly_and_workflows_consume_them():
     assert "run: uv run --locked python scripts/ci_contract.py run auth-app" in hosted
     assert "node /workspace/scripts/ci_frontend_contract.mjs" in hosted
     assert '--env GITHUB_SHA="${GITHUB_SHA}"' in hosted
+
+
+def assert_live_contracts(catalog, root):
+    python_suites = {"world-and-content", "ingestion-and-review", "query-and-answer", "saved-page-readers", "auth-app"}
+    assert python_suites | {"hosted-frontend"} <= catalog.keys()
+    for name, contract in catalog.items():
+        steps = contract.get("steps", [contract])
+        assert isinstance(steps, list) and steps
+        for step in steps:
+            workdir = (root / step["cwd"]).resolve()
+            assert workdir.is_relative_to(root.resolve()) and workdir.is_dir()
+            argv = step["argv"]
+            assert isinstance(argv, list) and argv and all(isinstance(arg, str) and arg for arg in argv)
+            paths = [arg.split("::", 1)[0] for arg in argv if arg == "tests" or arg.startswith(("tests/", "src/"))]
+            for path in paths:
+                selected = (workdir / path).resolve()
+                assert selected.is_relative_to(workdir) and selected.exists(), (name, path)
+            if name in python_suites:
+                assert argv[:3] == ["{python}", "-m", "pytest"] and paths
+        if name == "hosted-frontend":
+            assert steps[0]["argv"] == ["npm", "ci"]
+            assert steps[-1]["argv"] == ["npm", "run", "build"]
+            assert len(steps) > 2
+            for step in steps[1:-1]:
+                assert step["argv"][:3] == ["npm", "test", "--"]
+                assert any(arg.startswith("src/") for arg in step["argv"])
+
+
+def test_live_contracts_select_existing_sources_and_real_test_commands():
+    # The historical extraction snapshot is evidence, not a second live selector authority.
+    # Current selection changes require review of ci/contracts.json and full discovery.
+    assert_live_contracts(ci.contracts(), ci.ROOT)
+
+
+@pytest.mark.parametrize("invalid", ["empty-command", "stale-selector", "escaping-workdir", "empty-frontend"])
+def test_live_contract_guards_reject_invalid_commands(invalid):
+    catalog = copy.deepcopy(ci.contracts())
+    if invalid == "empty-command":
+        catalog["auth-app"]["argv"] = []
+    elif invalid == "stale-selector":
+        catalog["auth-app"]["argv"].append("tests/no-such-selected-test.py::test_missing")
+    elif invalid == "escaping-workdir":
+        catalog["auth-app"]["cwd"] = ".."
+    else:
+        catalog["hosted-frontend"]["steps"] = []
+    with pytest.raises(AssertionError):
+        assert_live_contracts(catalog, ci.ROOT)
 
 
 def test_all_discovered_files_are_classified_once():

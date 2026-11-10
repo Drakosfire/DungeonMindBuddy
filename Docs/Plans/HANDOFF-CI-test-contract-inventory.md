@@ -1,6 +1,12 @@
 # CI: inventory and reusable regression contracts
 
-Status: ACTIVE. Alan authorized a five-PR additive CI transition; this is PR 1 only.
+Status: SETTLED extraction. PR2284 merged at be0ebf6c99f3d4b03b5810aa7e0a1ccc33ee35b0.
+The original command-equality invariant below proved that extraction, not a
+permanent requirement to preserve retired test selectors. The narrow live-guard
+successor is HANDOFF-CI-live-command-authority.md. Its write split does not
+activate or alter CI2288 qualification work.
+
+Alan authorized a five-PR additive CI transition; this recorded PR 1 only.
 Base: 534ff9c70499d6dc847c949465e95a32e1012467.
 Branch: codex/ci-test-contract-inventory. Topology: serial CI workstream; PR 2 is
 not active before this reviewed PR is qualified and the coordinator authorizes
