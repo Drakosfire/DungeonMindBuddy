@@ -20,7 +20,7 @@
 .buddy-context-trace__tabs { display: flex; gap: 6px; border-bottom: 1px solid #3b5163; margin-bottom: 16px; }
 .buddy-context-trace__tabs button { padding: 10px 16px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: inherit; }
 .buddy-context-trace__tabs button[aria-selected="true"] { border-bottom-color: #d5aa54; color: #f2d390; }
-.buddy-prompt { min-width: 0; }
+.buddy-prompt { min-width: 0; max-inline-size: 100%; }
 .buddy-prompt > p { font-size: .85rem; color: var(--text-secondary, #a8b8ca); }
 .buddy-prompt select { max-width: 100%; margin: 0 0 12px 10px; }
 .buddy-prompt__toolbar { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
@@ -47,3 +47,10 @@
 .buddy-prompt__changes h6 { font-size: .85rem; margin: 8px 0; }
 
 .buddy-context-trace__error-report{border:1px solid #b95f55;border-radius:8px;padding:12px;margin:12px 0;background:#482c2c33}.buddy-context-trace__error-report h5{margin:0 0 10px}.buddy-context-trace__error-report code{overflow-wrap:anywhere}
+
+/* Keep the identity and native collapse action reachable in long nested captures. */
+.buddy-prompt__disclosure > summary { display: list-item; cursor: pointer; overflow-wrap: anywhere; }
+.buddy-prompt__disclosure[open] > summary { position: sticky; inset-block-start: 0; z-index: 2; background: #222a38; padding-block: .45rem; }
+.buddy-prompt__collapse { display: none; margin-inline-start: .75rem; font-size: .8rem; font-weight: normal; }
+.buddy-prompt__disclosure[open] > summary > .buddy-prompt__collapse { display: inline; }
+.buddy-prompt__changes pre { white-space: pre-wrap; overflow-wrap: anywhere; max-inline-size: 100%; }

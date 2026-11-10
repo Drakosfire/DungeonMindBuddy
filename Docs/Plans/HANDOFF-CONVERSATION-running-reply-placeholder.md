@@ -1,6 +1,14 @@
 # CONVERSATION: one running activity presentation
 
-ACTIVE PRIME serial UI-only slice based on185e07be2557825a8fd7b14477cbe2d819972ad1,
+SOURCE SETTLED / write lease RELEASED. PR2332 reviewedcc5165a4bfa24fa5265e0a2db632ad18490f7313,
+merged7517a42083d7244f8adf6ff3166027b7cfedbdd0 and delivered UIcc5165 on5202.
+All314 history cases, exact hosted1259+5 and build passed. Discovered7449total/
+7284pass/164fail/1pending has unchanged failed identities/collection error, net3
+passing guards. Independent bounded source/evidence/delivery approval. API447264,
+schema147 and retained state unchanged; actual bundle hashes/cookie Graph1404
+verified. No browser journey claimed. Full goal remains open.
+
+Historical PRIME serial UI-only slice based on185e07be2557825a8fd7b14477cbe2d819972ad1,
 branch codex/conversation-running-placeholder, existing context-loop checkout/deps.
 No unmerged parent. Operator dogfood identified “Waiting for this reply…” blinking
 as Buddy speech beside the desired gold activity status. No new runtime/state owner.
