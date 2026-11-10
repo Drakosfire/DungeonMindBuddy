@@ -76,8 +76,9 @@ def restore_flat_native_evidence(text, proof):
         restored.append(rows)
     state["assertions"] = restored[0]
     state["qualifications"] = {row["qualification_handle"]: row["qualification"] for row in restored[1]}
+    state = {key: state[key] for key in proof["assertion_keys"]}
     envelope["native_assertions"] = state
-    return envelope
+    return {key: envelope[key] for key in proof["envelope_keys"]}
 
 
 def flat_native_evidence(frame):
@@ -95,7 +96,8 @@ def flat_native_evidence(frame):
         "Table headers list original field paths in column order. Cells are JSON values separated by tabs. "
         "A bare _ means that field is absent, not false or null. Citation handles and qualifications retain their original meaning.", _json(envelope),
         "ASSERTION STATE (scope/completeness qualifiers; not universal absence)", _json(state), facts, qualifications])
-    proof = {"tables": [fact_proof, qualification_proof]}
-    if restore_flat_native_evidence(text, proof) != frame:
+    proof = {"tables": [fact_proof, qualification_proof], "envelope_keys": list(frame),
+        "assertion_keys": list(assertions)}
+    if _json(restore_flat_native_evidence(text, proof)) != _json(frame):
         raise ValueError("Flat presentation changed evidence")
     return text, proof
