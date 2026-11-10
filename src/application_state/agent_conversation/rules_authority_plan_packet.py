@@ -265,7 +265,7 @@ def verify_plan_rules_packet_input(execution: RulesExecutionV1, turn, prepared_r
 def verify_native_rules_packet_input(execution, receipt, graph_execution, prepared_request_json, *,
                                      provider_attempt_id, expected_envelope_sha256, idempotency_key,
                                      submitted_intent_fingerprint, world_id, conversation_id, turn_id, attempt,
-                                     provenance, work_proof, play_context_receipt=None):
+                                     provenance, work_proof, play_context_receipt=None, allow_retained_format=False):
     """Shared record proof; actual locked consumer identity remains mandatory.
 
     No synthetic Turn and no new Rules event family. The generic Rules ledger
@@ -314,7 +314,11 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
         output_format=dict(type='json_schema',name='build_image_direction' if operation=='prepare_build_image' else 'build_document_proposal',
             schema=(ImageDirectionV2 if operation=='prepare_build_image' else BuildComposeOutput).model_json_schema(),strict=True)
     else:
-        output_format=native_output_format(evidence.frame,frame,evidence.output_work_frame,build_local=evidence.build_local)
+        # Historical grammar is read-only: fresh admission never opts into it.
+        retained = (allow_retained_format and body.get('text', {}).get('format', {}).get('name')
+            == 'surface_native_evidence_selectors_v1')
+        output_format=native_output_format(evidence.frame,frame,evidence.output_work_frame,
+            build_local=evidence.build_local,format_version=1 if retained else 2)
     if (auth.request_envelope_sha256 != expected_envelope_sha256
             or included.request_envelope_sha256 != expected_envelope_sha256
             or auth.matched_outputs != outputs or included.matched_outputs != outputs

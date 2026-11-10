@@ -115,7 +115,7 @@ Slice8 merged as PR2353 at ba17476a6ef4435facde5c147d680ed2dbb56447;
 exact-head independent review passed7b35c6acf805ccc0a668f4ca2ba32cf519493019,
 and33 local tests passed. No paid calls, database changes or deployment.
 
-## Slice9 BLOCKED — remove inactive native image proposal capability
+## Slice9 ACTIVE — replay-safe native image capability removal
 
 Serial after2353; branch codex/native-writer-active-schema; base
 ba17476a6ef4435facde5c147d680ed2dbb56447. Exclusive writes: this handoff;
@@ -132,24 +132,25 @@ reject image_prompt and accept invented_idea, and legacy schema still reads its
 existing shape. Review exact cumulative diff; local verification; one bounded PR.
 This is capability removal, not factual pruning or an answer-quality claim.
 
-Slice9 exact-head review453c233941e846041d9940e1d7ee839e5a5f4637 found a
-retained-native replay defect: verify_native_rules_packet_input reconstructs the
-current schema for both fresh admission and captured reply verification. Removing
-an enum under unchanged surface_native_evidence_selectors_v1 would invalidate old
-sealed packets. PR2354 is held; current60 tests do not prove retained-native replay.
+Scope checkpoint after exact-head review453c233941e846041d9940e1d7ee839e5a5f4637:
+the existing producer verifier reconstructs the format during admission and reply
+recovery. Extend this same serial PR lease to
+src/application_state/agent_conversation/rules_authority_plan_packet.py,
+src/application_state/agent_conversation/native_rules_output.py,
+src/application_state/agent_conversation/rules_authority_store.py,
+tests/test_surface_native_rules.py. Checked current open UI/storage/CI lanes;
+none owns these files. No DB or provider effects. This transition is indivisible
+from capability removal: keeping unchanged version1 breaks historical readback.
 
-Required bounded redesign before reactivation: current native schema gets a new
-explicit format version. The existing exact producer verifier must select the
-historical closed shape only for an already authorized retained/replayed packet;
-fresh authorization must require current format. No heuristic fallback, schema
-repair, alternate producer or weakening of envelope/receipt checks. Keep the one
-schema builder with finite versioned grammar, not parallel response pipelines.
-Potential additional owning files: rules_authority_plan_packet.py,
-native_rules_output.py, rules_authority_store.py and existing surface-native Rules
-tests. Re-anchor ownership and explicitly extend the lease before editing them.
-Prove both directions at owner boundaries: old captured replies remain verifiable;
-new dispatch cannot select the old image-capable format; unknown versions fail.
-This version transition is indivisible from removing the inactive capability.
+The single schema builder defaults to format version2 without image_prompt;
+version1 is a closed historical grammar. Fresh admission requires version2.
+Already recorded admission replay and captured reply verification may reconstruct
+version1 only from its exact named sealed format. Unknown versions or modified
+enums still fail exact schema/envelope/receipt checks. No repair, heuristic
+fallback or historical producer dispatch. Prove current admission rejects old
+format, historical normalization accepts exact old captures and rejects modified
+old schemas, and current native routes still exclude image capability. Retain
+historical artifacts under their original immutable pins.
 
 ## Remaining completion gates
 

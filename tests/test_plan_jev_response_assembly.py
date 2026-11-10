@@ -192,6 +192,7 @@ def test_native_response_schema_does_not_advertise_image_preparation(surface):
     from jsonschema import Draft202012Validator, ValidationError
     writer, _ = staged(surface)
     schema = writer.output_format['schema']
+    assert writer.output_format['name'] == 'surface_native_evidence_selectors_v2'
     assert 'image_prompt' not in json.dumps(schema)
     candidate = {'schema': schema['properties']['schema']['const'],
         'answer_segments': [{'kind': 'proposal', 'label': 'invented_idea', 'text': 'A requested idea.'}],
