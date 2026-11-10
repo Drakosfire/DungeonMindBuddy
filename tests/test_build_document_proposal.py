@@ -486,6 +486,9 @@ def test_streaming_artifact_owns_total_deadline(request_case, monkeypatch, elaps
             asyncio.run(owner.compose(request, transport=wire))
         assert failure.value.failure.code.value == 'PROVIDER_TIMEOUT'
         result = BuildProposalService().get('elderwyld', request.idempotency_key)
-        assert result.state == 'unknown' and result.proposal is None
-        assert asyncio.run(owner.compose(request, transport=wire)).state == 'unknown'
+        # The provider final arrived, but GE rejected its expired operation.
+        # Retain that evidence without admitting it as a proposal.
+        assert result.state == 'failed' and result.proposal is None
+        assert result.raw_response == wire.text
+        assert asyncio.run(owner.compose(request, transport=wire)) == result
     assert len(wire.calls) == 1 and closed

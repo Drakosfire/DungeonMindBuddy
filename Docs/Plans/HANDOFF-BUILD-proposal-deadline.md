@@ -7,7 +7,7 @@ operation budget: explicit300seconds on Build proposal TextRequest only. This
 is a finite starting policy, not a measured optimal duration or token limit.
 No GE default, prompt, provider selection, claim lease, schema or retry change.
 Complete provider evidence, schema validation and native acceptance remain gates;
-partial output cannot become a proposal. Timeout stays unknown/no unchanged replay.
+partial output cannot become a proposal. Timeout preserves existing failure/unknown handling and forbids unchanged replay.
 
 Reused buddy-context-loop, branch codex/build-proposal-deadline from fetched main.
 Exclusive write lease: services/build_document_proposal.py,
