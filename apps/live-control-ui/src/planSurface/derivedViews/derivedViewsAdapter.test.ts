@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { chipToSourceAnchor, resolutionToSourceUnit } from "./derivedViewsAdapter";
-import type { ReferenceResolution } from "../reference/referenceResolver";
+import type { GraphReferenceCorpusFallback as ReferenceResolution } from "../../graphReference/types";
 
 describe("derivedViewsAdapter", () => {
   it("maps chip attrs to source anchor without declaring taxonomy", () => {

@@ -70,7 +70,8 @@ UI paths are under `apps/live-control-ui/src`. Service paths are under
 | Retired selected-object presentation | #2318, merge `7953f83c434fc5fe4f1cc0b7f71a065a4721576e` | Removed unmounted `SelectedObjectCard` and its private actions/source-preview/roll-format helpers, exclusive tests and private CSS. The fallback model and nine model cases remain because the registered renderer consumes them. This does not retire that renderer or the host capability. |
 | Retired Plan checklist | `PlanDogfoodPanel`, private report/state, exclusive tests and `.plan-dogfood-*` styles | Removed in this source after zero production-mount/caller audit. Two live manifest/classification entries retire atomically; the frozen original-command fixture and stored browser notes remain untouched. Delivery qualification is separate. |
 | Retired Plan card | `PlanReferenceObjectCard`, exclusive corpus-fallback/model and catalog entry | Removed in this slice: the old opener/binding has no production mount; current Plan object links use native activation/preview. Generic provider/host and shared statblock actions remain. |
-| Remaining Plan resolver/binding | `usePlanGraphReferenceResolver`, `PlanReferenceProjectionBinding`, synthetic Plan descriptor | Unmounted path still requires a bounded successor retirement. Move surviving Graph revision-event/type consumers first; do not remove generic provider APIs or native activation. |
+| Retired Plan resolver/binding | `usePlanGraphReferenceResolver`, `PlanReferenceProjectionBinding` and exclusive graph/corpus lookup/request helpers | Removed in this source after caller closure. Shared revision event moves unchanged to World Graph; load state and derived-view resolution adopt existing shared types. Actions, native activation and generic provider APIs remain. |
+| Remaining Plan advertisement | Synthetic `graph-reference` descriptor in `surfaceInteractionCompat` | Separate authority-contract retirement remains. Preserve generic native Build capability, binding/revocation and lease tests; remove implicit Plan advertisement coherently. |
 | Manual publication/review | `BuildRunReview` → `BuildManualKnowledge`; `ConnectedPageReviewControl` → `BuildRelationshipReview` | Retain exercised publication/review owners. Reference selection does not grant publication authority. |
 | Classic authored-reference reader and fresh admission | Receipt-family dispatch in `build_jev_harness.py`, `agent_turn_service.py`, `build_authored_references.py` and `AgentTurnRequest` | #2319 requires the saved Build basis for authored references before dispatch. Existing Build-kind, saved-state, revision and digest checks remain. Such fresh requests therefore select governed/native execution; retained classic receipts still select their exact capture/recovery/writer/image consumers. Preserve those readers. This does not classify every generic Graph request or standalone classic helper as historical-only. |
 | Old server Plan proposal producer | #2104 | Explicitly held. Client retirement does not authorize this server change. |
@@ -101,7 +102,7 @@ labeled; neither establishes real-provider output quality.
 | Tool-created threat and mechanics association | Mounted `NativeThreatCreationPanel.test.tsx`10/10; `tests/test_native_threat_creation.py`, `test_world_mechanics_associations.py` and PostgreSQL owners | Read-only retained checks now verify original acceptance, committed revision, association and Core-admitted creature identity. Complete the live create/associate/reopen proof on recoverable state; do not create another identity to manufacture proof. |
 | Popup / surface / conversation / full-view identity | `SavedStatblockSession.test.tsx`27/27, `NativeObjectStatblock.test.tsx`4/4, `NativeGraphObjectPreview.test.tsx`5/5, `StatblockPage.test.tsx`6/6 | Both retained exact versions are readable with matching mechanics digests; the newer revision has its original parent and one asset binding. The controlled cross-entry-point UI journey, caller position and draft preservation remain unproved after recovery. |
 | Portrait generation/selection, Save/reload and stale conflicts | Existing revision editor and portrait owner tests; same editor survives inline/popup moves, unknown Save and version refusal | Current end-to-end generation/review/selection/Save proof and source navigation. Existing portrait or mocked selection is not a new generation witness. |
-| Complete adoption/demolition inventory | Current caller decisions above; #2286/#2310/#2311/#2312 retirements | CI2341 settled the historical-freeze decision. This source retires the unmounted checklist; complete the remaining resolver/card/activation caller-closure decision. #2318 settled the selected-card leaf; #2319 settled fresh Build-reference basis. Retain exact classic recovery readers. |
+| Complete adoption/demolition inventory | Current caller decisions above; #2286/#2310/#2311/#2312 retirements | CI2341 settled the historical-freeze decision. #2342 retired the unmounted checklist; #2344 retired the old card/fallback. This source retires the unmounted resolver/binding and adopts its surviving shared dependencies. The synthetic Plan capability advertisement remains for a separate authority-contract slice. Retain exact classic recovery readers. |
 
 ## Evidence locations and qualification limits
 
@@ -181,10 +182,12 @@ click being erased by passive initialization. They are qualified separate slices
 4. CI2341 makes reviewed `ci/contracts.json` the live command authority while
    keeping original extraction bytes. Required suite/real-command/path checks,
    workflow consumers, backend partition guards and full discovery remain. This
-   source removes only9panel+2report exclusive passing cases with their dead
-   owner. The remaining resolver/binding/card/neutral activation closure needs
-   its own caller audit and adoption/deletion decision; shared tools and saved
-   statblock owners must survive. Do not claim all References closed yet.
+   source follows #2342 checklist and #2344 card/fallback retirement by removing
+   the unmounted resolver/binding. Their exclusive tests retire with their owner;
+   shared refresh events, reference types, tools and saved statblocks survive.
+   The synthetic Plan advertisement still needs its own authority-contract
+   retirement with preserved generic provider safety coverage. Do not claim all
+   References closed yet.
 5. Keep #2104's explicit hold and ADVERSARY coordination off. Retrieval and
    benchmark experiments remain outside this implementation work. The Index
    feedback was handed by the operator to another model; no LocalWorld edits.

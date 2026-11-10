@@ -1,7 +1,7 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
 import * as api from './liveApi';
 import {getReadWaveVersion} from './inFlightReads';
-import {WORLD_GRAPH_REVISION_COMMITTED_EVENT} from '../planSurface/reference/planGraphContextRequest';
+import {WORLD_GRAPH_REVISION_COMMITTED_EVENT} from '../worldGraph/worldGraphRevisionEvents';
 import type {WorldGraphProjectionRequest} from './types';
 const request:WorldGraphProjectionRequest={schema:'dmb_world_graph_projection_request_v1',worldId:'native-world',campaignId:'',scopeMode:'world',focus:{kind:'none',sessionId:null},admissibility:'gm'};
 const kinds=['native','recap','managed'] as const;

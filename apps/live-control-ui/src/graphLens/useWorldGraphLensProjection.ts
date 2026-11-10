@@ -34,7 +34,7 @@ import { verifyManagedWorldGraphProjectionResponse } from "../worldGraph/verifyM
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { isFocusValidationBlocking } from "./planGraphFocusOptions";
 import { useOptionalWorldGraphLens } from "./WorldGraphLensContext";
-import { WORLD_GRAPH_REVISION_COMMITTED_EVENT } from "../planSurface/reference/planGraphContextRequest";
+import { WORLD_GRAPH_REVISION_COMMITTED_EVENT } from "../worldGraph/worldGraphRevisionEvents";
 import {
   buildWorldGraphLensProjectionRequest,
   getWorldGraphContextFromLens,

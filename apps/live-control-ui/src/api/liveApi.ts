@@ -177,7 +177,7 @@ import type {
   ThreatQueryHydrationResponseV1,
 } from "./types";
 import { normalizeHermesOutboundConversationHistory } from "../agentInteraction/hermesConversationHistory";
-import { WORLD_GRAPH_REVISION_COMMITTED_EVENT } from "../planSurface/reference/planGraphContextRequest";
+import { WORLD_GRAPH_REVISION_COMMITTED_EVENT } from "../worldGraph/worldGraphRevisionEvents";
 import { shareInFlightRead, startReadWave } from "./inFlightReads";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
