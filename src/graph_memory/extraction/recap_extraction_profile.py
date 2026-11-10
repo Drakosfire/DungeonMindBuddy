@@ -38,7 +38,15 @@ _NODE_DESCRIPTION_COVERAGE = (
     "that contribute knowledge about the referent. Retain these observations even "
     "when they also belong in a scene or beat summary. Keep the observations "
     "within their supported referent and scene, using the existing evidence and "
-    "source-faithfulness requirements."
+    "source-faithfulness requirements. State the source-supported participants, "
+    "actions, affected objects, and outcomes explicitly in the description. "
+    "Retain explicit source-supported before/after relationships in descriptions, "
+    "naming the related occurrences sufficiently to understand the order without "
+    "relying on paragraph, node, or list position. Do not impose order on "
+    "concurrent or unresolved actions. "
+    "Do not leave a material detail only in an evidence quote, beat summary, "
+    "or relationship label. Preserve source ambiguity rather than filling "
+    "missing details by inference."
 )
 
 # These instructions belong to recap extraction only. Keep them out of the
@@ -137,6 +145,11 @@ _SOURCE_ORDER_OCCURRENCES = (
     "Retain specific occurred events needed to express source-supported before/after "
     "relationships as event nodes. These can be actual discoveries, discussions, "
     "decisions or planning acts; a proposed future outcome is a different occurrence. "
+    "For a definitely occurred action needed to express source-supported order, "
+    "emit an event candidate rather than only a clue for what was learned. "
+    "An uncertain object or result does not make a definite occurrence unresolved; "
+    "preserve uncertainty about whether an action occurred. Reuse the occurrence "
+    "rather than duplicating it as both event and clue solely for categorization. "
     "Bind each description to its source-supported episode, journey or situation so "
     "relative references remain understandable without paragraph or node order. "
     "Do not turn persistent people, places or topics into events. Keep concurrent "
