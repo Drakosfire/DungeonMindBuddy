@@ -6525,7 +6525,7 @@ export function WorldPlanAgentConversation({
               proposal={collaboration}
               disabled={composerBusy||!isBuild||!visible||history?.active_conversation_id!==history?.conversation_id||buildMode?.savedSource?.documentId!==turn.provenance.primary_work.object_id}/>}
             {verifiedWorldId&&collaboration?.kind==='connected_page'&&(buildSource||!isBuild&&documentId&&turn.provenance.surface_id==='plan')&&<ConversationConnectedPageReview
-              worldId={verifiedWorldId} documentId={isBuild?buildSource!.document_id:documentId!} turnId={turn.turn_id} proposal={collaboration}
+              worldId={verifiedWorldId} documentId={isBuild?buildSource!.document_id:documentId!} turnId={turn.turn_id} proposal={collaboration} originalRequest={turn.user_text}
               disabled={composerBusy||!scopeMatches||!pageReady||!visible||isReadOnly||history?.active_conversation_id!==history?.conversation_id
                 ||(isBuild?buildSource?.document_id:documentId)!==turn.provenance.primary_work.object_id}/>}
             {turn.plan_proposal&&editBridge&&namespace&&history?.conversation_id&&visible&&!isReadOnly

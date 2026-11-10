@@ -1,6 +1,13 @@
 # REFERENCE: present current Plan request admissions
 
-Status: ACTIVE bounded PRIME UI contract repair. Base 77006af9a813cf74dde12e35a29341b1d450087e;
+Status: SOURCE SETTLED. PR2328 reviewed52885c3169e4ca91a04f877e63a28e4fb8f34873,
+merged76bb8c4b38178158e9a94a4b00cf65773edbda87; exact hosted1248passed/build,
+backend24passed. Discovered retains the same164failed/1pending as the qualified
+baseline, adding26passes. Independent approval; source write lease released.
+Protected activation followed explicit operator hold release: API/UI76bb, APP147;
+53tables/5800rows unchanged; actual history/citation/statblock reads passed. Browser
+proof remains pending (connection unavailable). Full References goal stays open.
+Historical bounded PRIME UI contract repair: Base 77006af9a813cf74dde12e35a29341b1d450087e;
 branch codex/plan-request-admission-ui, existing context-loop checkout. Serial after
 merged PR2327; no unmerged parent. No new runtime, database or provider lease.
 Original process hold, data protections, 2104 hold and coordination-off remain.

@@ -1,7 +1,7 @@
 import {useSyncExternalStore} from 'react';
 import type {ConversationConnectedPageProposal} from '../api/types';
 import type {SavedExcerptOrigin} from '../api/connectedPageApi';
-export type ConnectedPageReviewSeed={worldId:string;ownerDocumentId:string;sourceTurnId:string;proposal:ConversationConnectedPageProposal;origin:SavedExcerptOrigin};
+export type ConnectedPageReviewSeed={worldId:string;ownerDocumentId:string;sourceTurnId:string;proposal:ConversationConnectedPageProposal;origin:SavedExcerptOrigin;originalRequest?:string};
 export type ConnectedPageReviewHost={worldId:string;documentId:string;open:(seed:ConnectedPageReviewSeed)=>void};
 // Ephemeral scoped registrations: opening a source reader must not replace the
 // Plan's review owner. This contains no proposal, publication or recovery state.
