@@ -22,31 +22,60 @@ sample per configuration does not prove variation or general prose preference.
 Evidence/pins: out/response-writing-contract-v1/. Historical write leases and
 implementations remain in pinned Git history, not competing ACTIVE contracts.
 
-## Slice5 ACTIVE — reusable writer judge calibration
+## Slice5 settled — reusable writer judge calibration
 
-Serial after2345. Branch codex/writer-judge-calibration from fetched origin/main
-60d28dda0 (actual parent; main advanced before allocation). Existing isolated
-checkout. Expected exclusive writes:
-- evals/buddy_benchmark/workflow.py
-- evals/buddy_benchmark/writer_assessment.py
-- tests/test_buddy_benchmark_workflow.py
-- tests/test_writer_assessment.py
-- Docs/Guides/ordinary-benchmark-workflow.md
-- this handoff
+PR2348 merged18359e0713763e55d986daa8a7966c3371aa09c5.135local tests;
+four reviewed frozen batches:47/50 agreement with25known human axes shown twice,
+24/25paired stability. One grounding disagreement is ambiguous; two observations
+miss one minor chronology issue. No automatic factual grading or taste inference.
+Six answers/one question do not establish general reliability. No writer/retrieval
+reruns. Exact data/code/results pinned under judge-calibration-v1/.
 
-Inspected open reference/UI/storage work does not overlap. Extend context-tasting,
-not another transport/harness. Explicit versioned judge role plus pinned semantic
-candidate answers, reference concepts and native schema; never transfer hidden
-human grades or model/cost identities. Reject incomplete/wrong-role inputs before
-dispatch. Retain actual requests, raw outputs/failures, costs/timings and separate
-calibration reports. Compare seven axes; unknown human judgments stay unscored.
-No automatic QA acceptance or user-taste inference from judge scores.
+## Slice6 ACTIVE — existing Core owner metadata correction
 
-Verify local owner/workflow/mock-native tests and independent exact-head review.
-Then freeze reviewed retained examples and acceptance/stopping rules before any
-calibration call. No new writer or retrieval runs; primary unchanged. No DB writes
-or deployment in this slice. Product metadata repair and capability-specific
-prompt cleanup are not delegated to this diagnostic path.
+Serial after2348. Branch codex/qualification-owner-correction from fetched main
+e988a0374. Repository write lease: this handoff only. Data/operation lease:
+out/response-writing-contract-v1/owner-correction-v1/; source connection from the
+retained private-comparison-v2 native_dsn is READ-ONLY. Never mutate the original
+benchmark_retrieval_c1_native_20261107_v1 or primary data. A separately named clone
+benchmark_writer_qualification_clean_20261110_v1 is the only prospective write
+resource. No ports/services/provider calls/migrations/connection termination.
+
+Buddy owns world_context_v1 qualifier/audit meaning; Core owns existing
+KnowledgeContribution→SupersedeAssertion→materialize_governed_revision→
+publish_governed_materialization CAS/receipt contract. No Core/WK implementation
+change, new fact producer, prompt scrubber, registry or parallel correction API.
+Use existing APIs directly; prepared contributions are data, not per-question
+executables. Expected exact parent is rev:673d18b7feea48b47c8740d4018d1442;
+payload222188659348d7c847cbd18da24de8866edc601b6160fc64580b851c52c923bb,
+source authority epoch26. Re-verify live exact parent before clone/publication.
+
+97reviewed slots bind375native assertions;42slots contain host text, affecting
+90native assertions. Supersede only those exact originals, retaining assertion IDs,
+subjects/predicates/values, all source refs/quotes/spans, scope/visibility/temporal/
+epistemic/claim/standing and all nonreviewed metadata. Replace source_qualification
+only with approved verbatim meaning fragments. Move known exact run/revision/hash/
+selector data to existing typed host slots only when original provenance proves
+it. Add existing source_qualifier_adjudication_sha256 to bind the retained review.
+Opaque notes stay in immutable parent/history, not invented payload fields.
+
+Preserve conditional identity clauses: separating host text does not adopt an
+identity. Mapping,97-source-spans,50ancestors and23publication receipts were
+verified read-only in current-native-owner-correspondence-v1.json. Retain all
+source/review files and immutable receipts; never claim full review payload is
+newly stored in contribution.diagnostics (not persisted by this path).
+
+Before any clone/write: build pure prospective Core materialization from the
+actual parent; inspect complete metadata-only diff and independently review exact
+contribution,dispositions,publication identity and review pins. Reject any extra
+entity/alias/assertion/evidence or nonallowed field change. No superseding IDs may
+be inferred from local aliases alone. Source store remains read-only. Clone must
+be fresh/absent; do not drop/reuse a database or terminate sessions to create it.
+After reviewed clone creation, verify identical parent, publish via exact CAS,
+retain/recover exact receipt on ambiguous outcome (no blind retry), read child
+and evidence back at Core, compare expanded semantic projection to approved
+cleaned context allowing owner-local qualifier alias sharing. Original graph head,
+history and source bodies must remain unchanged. No paid rerun needed.
 
 ## Remaining completion gates
 
