@@ -41,6 +41,18 @@ Do not infer a current blocker or READY assignment from them.
 
 # Independent ideas requiring re-verification
 
+## [IDEA] Resume answer-citation experiments after fundamentals settle — captured 2026-11-10
+**Kind:** RESEARCH / RESPONSE ASSESSMENT
+**Owner:** Buddy response composition
+**Captured:** 2026-11-10
+**Last verified:** 2026-11-10
+**Context:** The operator selected ingestion delivery reconciliation and completion of older fundamentals, explicitly parking citation work. Voice design is separately deferred to the operator; the tighter prompt is a fixed control.
+**Insight:** The citation-first Q15 pilot reached the actual provider wire and all eight response segments used structured citation handles before prose. Selected citations passed review, but coverage fell9/9→8/9 by omitting the approximate Abyssal-like scroll clue. No adoption or retry is justified by that one result.
+**Action:** Preserve the failed pilot and baseline. Do not resume answer-citation optimization, schema-order experiments, additional citation judges or prompt layers during fundamentals closeout. Existing source-integrity and citation checks remain in force; this is no waiver of them.
+**Surfaces when:** Ingestion delivery, QA fundamentals, bounded worldbuilding and real collaborative follow-through have settled and the operator explicitly selects citation work again. This entry grants no implementation or provider authority.
+**Refs:** `Docs/Plans/HANDOFF-COMPOSITION-citation-first-experiment.md`; PR2357; retained `out/response-writing-contract-v1/citation-first-experiment-v1/`.
+
+
 ## [IDEA] High priority — shared grid page constructor
 **Priority:** HIGH — explicitly requested by the operator.
 **Kind:** DESIGN → bounded implementation slices
