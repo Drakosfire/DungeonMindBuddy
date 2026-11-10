@@ -1477,17 +1477,18 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const pendingKey = `dmb:world-play-pending-turn:v1:${encodeURIComponent(WORLD)}`;
     expect(localStorage.getItem(pendingKey)).not.toBeNull();
 
-    let finishHistory!: (page: WorldAgentConversationHistoryResponseV1) => void;
-    const delayedHistory = new Promise<WorldAgentConversationHistoryResponseV1>(resolve => { finishHistory = resolve; });
+    let finishHistory!: (page: WorldAgentConversationHistoryResponse) => void;
+    const delayedHistory = new Promise<WorldAgentConversationHistoryResponse>(resolve => { finishHistory = resolve; });
     vi.mocked(getWorldAgentConversationHistory).mockReturnValue(delayedHistory);
     const guidance = 'Select the passage you want Buddy to revise, then send your request again.';
     await act(async () => reject(new LiveApiError(guidance, 409, {code: 'build_compose_target_unavailable'})));
     expect(await screen.findByText(guidance)).toBeVisible();
 
     const base = turn('plan', 1, '');
-    const terminal: WorldAgentConversationHistoryResponseV1["turns"][number] = {
+    const terminal = {
       ...base,
       turn_id: request.turn_id,
+      idempotency_key: await expectedHistoryCorrelationKey(WORLD, request.turn_id),
       lifecycle_status: 'interrupted' as const,
       user_text: request.message,
       provenance: {
@@ -1496,7 +1497,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
         surface_instance_id: request.surface.instance_id,
         primary_work: {
           ...base.provenance.primary_work,
-          kind: 'build',
+          kind: 'build' as const,
           object_id: request.primary_work.object_id,
           revision: String(request.primary_work.expected_revision),
           content_sha256: request.primary_work.expected_content_sha256,
@@ -1508,7 +1509,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
         ordinal: 0, eligible: true, reason: 'ready' as const,
       },
     };
-    await act(async () => finishHistory(history([terminal])));
+    await act(async () => finishHistory({...initial, schema: "dmb_agent_conversation_history_v3", turns: [terminal]}));
     await waitFor(() => expect(localStorage.getItem(pendingKey)).toBeNull());
     expect(screen.getByText(guidance)).toBeVisible();
     expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
