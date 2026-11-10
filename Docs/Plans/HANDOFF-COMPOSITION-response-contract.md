@@ -17,7 +17,27 @@ live metadata cleanup and product assembly integration remain incomplete. Fresh
 Q15 reference failed native JSON; response-only prompt completed with9/9 required
 concepts and two minor grounding/chronology findings. Neither proves adoption.
 
-Slice3 ACTIVE: exact qualification sharing in the existing flat presentation.
+Slice3 settled: PR2343 merged b8c049283d90c1c79e7ac0fe9bb488ee16a65ce9.
+Exact sharing/readback passes. One flat/shared diagnostic used16.4% fewer input
+tokens but introduced two own-citation gaps and one decision/action overreach;
+not adopted as default. JSON remains the reference presentation.
+
+Slice4 ACTIVE: ordinary writer compiler integration. Branch
+codex/ordinary-response-assembly from fetched origin/main b8c049283. Exclusive
+write lease: this handoff; apps/live_control_server/services/plan_jev_writer.py;
+src/application_state/agent_conversation/response_prompt.py;
+tests/test_response_prompt.py; tests/test_plan_jev_response_assembly.py;
+Docs/Guides/ordinary-benchmark-workflow.md. Serial after2343. Inspected open
+UI/storage/source-local-modality lanes do not overlap these files. Select ordinary
+work through actual native Plan/Play/Build owners before legacy construction.
+Preserve authoring, clarify, image and reviewed collaboration branches. Conditional
+Rules/related-page components only with supplied material; no proof/manifest in
+model context. Verify owner guards and actual constructor/SDK bytes locally, with
+independent exact-head review. No paid calls, runtime deployment, DB or primary
+changes. Diagnostic repair/flat presentation must never become product authority;
+live historical metadata hygiene remains an explicit separate completion gate.
+
+Slice3 contract: exact qualification sharing in the existing flat presentation.
 Branch codex/shared-writer-qualifications from fetched origin/main0af325132.
 Exclusive write lease: this handoff;
 src/application_state/agent_conversation/native_evidence_presentation.py;

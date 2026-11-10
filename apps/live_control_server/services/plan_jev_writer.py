@@ -238,6 +238,34 @@ def capture_native_reply(adapter,rules,prepared,received,raw):
     return reply
 
 
+def _ordinary_response_selected(execution):
+    """An actual work decision selects response guidance; prompt text never does."""
+    from application_state.agent_conversation.native_execution import (
+        SurfaceNativeExecutionV1, NativePlanActionV1, NativePlanActionV2,
+        NativePlayActionV1, NativeBuildActionV1, NATIVE_PLAN_WORK_SELECTION_TYPES)
+    if type(execution) is not SurfaceNativeExecutionV1:
+        return False
+    action = execution.policy.action
+    if type(action) is NativePlayActionV1:
+        return True  # This action owns only a read-only Run question.
+    if type(action) in (NativePlanActionV1, NativePlanActionV2):
+        choices = [e for e in execution.events if isinstance(e, t.PlanRequestedWorkSelectedV2)]
+        accepted = NATIVE_PLAN_WORK_SELECTION_TYPES if type(action) is NativePlanActionV2 else (t.PlanRequestedWorkSelectedV2,)
+        return len(choices) == 1 and type(choices[0]) in accepted and choices[0].requested_work == 'discuss'
+    if type(action) is NativeBuildActionV1:
+        from application_state.agent_conversation.build_intentional_response import selected_contract
+        contract = selected_contract(execution)
+        return (contract is not None and contract['requested_work'] == 'discuss'
+            and contract['purpose'] == 'fulfill' and contract['operation'] == 'answer_from_sources')
+    return False
+
+
+RELATED_PAGE_RESPONSE = (
+    'Saved authored pages describe authored material, not played truth. '
+    'Use related_page_claim with the supplied local read_id and supporting_quotes containing '
+    'exact nonblank quotes from that same saved page. Do not ask for a supplied page again.')
+
+
 class PlanJevWriter:
     def __init__(self, adapter, proof, rules):
         self.adapter, self.proof, self.rules = adapter, proof, rules
@@ -288,56 +316,65 @@ class PlanJevWriter:
             frames=(self.frame,rule_frame)
         self.messages=[{'role':'user','content':canonical_bytes(frame).decode()} for frame in frames]
         self.messages.append({'role':'user','content':'Return JSON.'})
-        from application_state.agent_conversation.surface_evidence_answer import PLAN_INSTRUCTIONS, BODY_INSTRUCTIONS
-        instructions = INSTRUCTIONS.replace(EVIDENCE_INSTRUCTIONS,
-            BODY_INSTRUCTIONS if isinstance(adapter.fence.turn.graph_context_receipt, t.PlanSourceContextReceiptV1) else PLAN_INSTRUCTIONS)
-        instructions = instructions.replace('exact block_handle', 'exact selection_id')
-        if isinstance(adapter.fence.turn.graph_context_receipt, t.PlanSourceContextReceiptV1):
-            instructions = instructions.replace('native_source_claim uses its selected section_handles',
-                'native_body_claim uses its selected excerpt_handles')
-        if (self.work_frame if self.shared else self.frame).get('requested_work') == 'clarify':
-            instructions += '\nAsk the specific clarifying question needed to resolve the intended work or destination. Keep it in conversation; do not draft the page yet.'
-        if getattr(rules,'authoring',None) is not None:
-            instructions=instructions.replace('Answer the current co-GM question directly using relevant supplied material.',
-                'Write the requested Plan fragment using the current page and relevant supplied material.')
-            instructions=instructions.replace('For image grounding give a coherent visual brief and unresolved composition question;\nprepare an image_prompt only when requested. No edit or generation happened.\n','')
-            instructions += '\n' + AUTHORING_INSTRUCTIONS
-        if isinstance(adapter.fence.turn.graph_context_receipt, t.PlanNativeContextReceiptV1):
-            from application_state.agent_conversation.native_plan_statements import INSTRUCTIONS as STATEMENT_INSTRUCTIONS
-            from application_state.agent_conversation.native_plan_statements import POLICY as STATEMENT_POLICY
-            from application_state.agent_conversation.surface_evidence_answer import BODY_POLICY
-            instructions = instructions.replace(BODY_POLICY, STATEMENT_POLICY) + '\n' + STATEMENT_INSTRUCTIONS
-        if self.frame.get('schema') == 'dmb_plan_jev_writer_frame_v8':
-            from application_state.agent_conversation.native_plan_assertions import INSTRUCTIONS as ASSERTION_INSTRUCTIONS, POLICY as ASSERTION_POLICY
-            instructions = instructions.replace(STATEMENT_POLICY, ASSERTION_POLICY) + '\n' + ASSERTION_INSTRUCTIONS
-        if self.shared:
-            from application_state.agent_conversation.native_writer import AUTHORING_GUIDANCE
-            from application_state.agent_conversation.native_plan_statements import INSTRUCTIONS as STATEMENT_INSTRUCTIONS
-            from application_state.agent_conversation.native_plan_assertions import INSTRUCTIONS as ASSERTION_INSTRUCTIONS
-            from application_state.agent_conversation.surface_evidence_answer import BODY_POLICY
-            instructions = SOURCE_ATTRIBUTION_INSTRUCTIONS + BODY_INSTRUCTIONS.replace(BODY_POLICY,self.frame['answer_policy']) + STATEMENT_INSTRUCTIONS + ASSERTION_INSTRUCTIONS + AUTHORING_GUIDANCE
-            from application_state.agent_conversation.reviewed_action import SCOPE_KEY,SCOPE_GUIDANCE
-            if SCOPE_KEY in self.work_frame:
-                instructions += '\n' + SCOPE_GUIDANCE
-            if self.work_frame.get('requested_work') == 'clarify':
-                instructions += '\nAsk the specific clarifying question. Do not draft yet.'
+        self.prompt_components = None
+        if (self.shared and getattr(rules, 'authoring', None) is None
+                and _ordinary_response_selected(adapter._broker_execution())):
+            from application_state.agent_conversation.response_prompt import compose_response_prompt
+            prompt = compose_response_prompt(
+                rules_instructions=RULES_INSTRUCTIONS if rule_frame.lookups else None,
+                related_page_instructions=RELATED_PAGE_RESPONSE
+                    if self.provider_work.get('related_authored_pages', {}).get('pages') else None)
+            self.instructions = prompt.instructions
+            self.prompt_components = prompt.manifest()  # Host-only inspectability.
+        else:
+            from application_state.agent_conversation.surface_evidence_answer import PLAN_INSTRUCTIONS, BODY_INSTRUCTIONS
+            instructions = INSTRUCTIONS.replace(EVIDENCE_INSTRUCTIONS,
+                BODY_INSTRUCTIONS if isinstance(adapter.fence.turn.graph_context_receipt, t.PlanSourceContextReceiptV1) else PLAN_INSTRUCTIONS)
+            instructions = instructions.replace('exact block_handle', 'exact selection_id')
+            if isinstance(adapter.fence.turn.graph_context_receipt, t.PlanSourceContextReceiptV1):
+                instructions = instructions.replace('native_source_claim uses its selected section_handles',
+                    'native_body_claim uses its selected excerpt_handles')
+            if (self.work_frame if self.shared else self.frame).get('requested_work') == 'clarify':
+                instructions += '\nAsk the specific clarifying question needed to resolve the intended work or destination. Keep it in conversation; do not draft the page yet.'
             if getattr(rules,'authoring',None) is not None:
+                instructions=instructions.replace('Answer the current co-GM question directly using relevant supplied material.',
+                    'Write the requested Plan fragment using the current page and relevant supplied material.')
+                instructions=instructions.replace('For image grounding give a coherent visual brief and unresolved composition question;\nprepare an image_prompt only when requested. No edit or generation happened.\n','')
                 instructions += '\n' + AUTHORING_INSTRUCTIONS
-        if self.shared and self.provider_work.get('related_authored_pages', {}).get('pages'):
-            instructions += ('\nSaved authored pages describe authored material, not played truth. '
-                'Use related_page_claim with the supplied local read_id and supporting_quotes containing '
-                'exact nonblank quotes from that same saved page. Do not ask for a supplied page again.\n')
-        from application_state.agent_conversation.plan_jev_decision import connected_page_review_enabled
-        if self.shared and connected_page_review_enabled(adapter._broker_execution()):
-            instructions += ('\nPrepare the requested new location page as a connected_page collaboration, '
-                'using one included saved authored page local read_id and a unique exact quote from that page. '
-                'Its origin is authoring context, not proof that a newly invented place is a played fact. '
-                'Use the author-selected name and scope; preserve deferred development and other-page edits '
-                'as unexecuted. Nothing has been created, saved or published. Do not write this into the Plan. '
-                'If no included saved page can supply the origin, leave collaboration null and explain what '
-                'is needed rather than inventing a quote.\n')
-        self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
-            RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
+            if isinstance(adapter.fence.turn.graph_context_receipt, t.PlanNativeContextReceiptV1):
+                from application_state.agent_conversation.native_plan_statements import INSTRUCTIONS as STATEMENT_INSTRUCTIONS
+                from application_state.agent_conversation.native_plan_statements import POLICY as STATEMENT_POLICY
+                from application_state.agent_conversation.surface_evidence_answer import BODY_POLICY
+                instructions = instructions.replace(BODY_POLICY, STATEMENT_POLICY) + '\n' + STATEMENT_INSTRUCTIONS
+            if self.frame.get('schema') == 'dmb_plan_jev_writer_frame_v8':
+                from application_state.agent_conversation.native_plan_assertions import INSTRUCTIONS as ASSERTION_INSTRUCTIONS, POLICY as ASSERTION_POLICY
+                instructions = instructions.replace(STATEMENT_POLICY, ASSERTION_POLICY) + '\n' + ASSERTION_INSTRUCTIONS
+            if self.shared:
+                from application_state.agent_conversation.native_writer import AUTHORING_GUIDANCE
+                from application_state.agent_conversation.native_plan_statements import INSTRUCTIONS as STATEMENT_INSTRUCTIONS
+                from application_state.agent_conversation.native_plan_assertions import INSTRUCTIONS as ASSERTION_INSTRUCTIONS
+                from application_state.agent_conversation.surface_evidence_answer import BODY_POLICY
+                instructions = SOURCE_ATTRIBUTION_INSTRUCTIONS + BODY_INSTRUCTIONS.replace(BODY_POLICY,self.frame['answer_policy']) + STATEMENT_INSTRUCTIONS + ASSERTION_INSTRUCTIONS + AUTHORING_GUIDANCE
+                from application_state.agent_conversation.reviewed_action import SCOPE_KEY,SCOPE_GUIDANCE
+                if SCOPE_KEY in self.work_frame:
+                    instructions += '\n' + SCOPE_GUIDANCE
+                if self.work_frame.get('requested_work') == 'clarify':
+                    instructions += '\nAsk the specific clarifying question. Do not draft yet.'
+                if getattr(rules,'authoring',None) is not None:
+                    instructions += '\n' + AUTHORING_INSTRUCTIONS
+            if self.shared and self.provider_work.get('related_authored_pages', {}).get('pages'):
+                instructions += '\n' + RELATED_PAGE_RESPONSE + '\n'
+            from application_state.agent_conversation.plan_jev_decision import connected_page_review_enabled
+            if self.shared and connected_page_review_enabled(adapter._broker_execution()):
+                instructions += ('\nPrepare the requested new location page as a connected_page collaboration, '
+                    'using one included saved authored page local read_id and a unique exact quote from that page. '
+                    'Its origin is authoring context, not proof that a newly invented place is a played fact. '
+                    'Use the author-selected name and scope; preserve deferred development and other-page edits '
+                    'as unexecuted. Nothing has been created, saved or published. Do not write this into the Plan. '
+                    'If no included saved page can supply the origin, leave collaboration null and explain what '
+                    'is needed rather than inventing a quote.\n')
+            self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
+                RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
         self.prepared = self.authorization = self.call = self.received_event = None
         self._usage_recorded = False
