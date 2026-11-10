@@ -1,8 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Blob as NodeBlob } from "node:buffer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { NativeGraphDemo } from "./NativeGraphDemo";
-import type { NativeGraph, NativeGraphDemoApi } from "./nativeGraphDemoApi";
+import { NativeGraphDemo, type NativeGraphDemoProps } from "./NativeGraphDemo";
+import type { NativeGraph, NativeGraphDemoApi, OperationLookupResult } from "./nativeGraphDemoApi";
+import { SurfaceContextHost, SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 
 const graph: NativeGraph = {
   world_id: "space:native-demo",
@@ -26,6 +28,16 @@ const createdGraph: NativeGraph = {
   nodes: [...graph.nodes, { id: "entity:mira", name: "Mira", kind: "person" }],
 };
 
+const initialCreateObjectURL = Object.getOwnPropertyDescriptor(URL, "createObjectURL");
+const initialRevokeObjectURL = Object.getOwnPropertyDescriptor(URL, "revokeObjectURL");
+
+function restoreUrlObjectUrlMethods(): void {
+  if (initialCreateObjectURL) Object.defineProperty(URL, "createObjectURL", initialCreateObjectURL);
+  else Reflect.deleteProperty(URL, "createObjectURL");
+  if (initialRevokeObjectURL) Object.defineProperty(URL, "revokeObjectURL", initialRevokeObjectURL);
+  else Reflect.deleteProperty(URL, "revokeObjectURL");
+}
+
 function makeApi(overrides: Partial<NativeGraphDemoApi> = {}): NativeGraphDemoApi {
   return {
     readGraph: vi.fn().mockResolvedValue(graph),
@@ -35,10 +47,17 @@ function makeApi(overrides: Partial<NativeGraphDemoApi> = {}): NativeGraphDemoAp
       parent_revision_id: graph.revision_id,
       review: { summary: "Create Mira as a native person in the current World." },
     }),
-    confirm: vi.fn().mockResolvedValue({ status: "committed", graph: createdGraph }),
+    confirm: vi.fn().mockResolvedValue({ status: "committed", created_node_id: "entity:mira", graph: createdGraph }),
     readOperation: vi.fn().mockResolvedValue({ status: "unknown", operation_id: "bb9c10ac-c94a-4693-b7bc-4d001c398770" }),
     ...overrides,
   };
+}
+
+function renderEmbeddedDemo(props: Omit<NativeGraphDemoProps, "embedded"> = {}) {
+  return render(<SurfaceContextProvider>
+    <header className="app-chrome-header"><SurfaceContextHost /></header>
+    <NativeGraphDemo {...props} embedded />
+  </SurfaceContextProvider>);
 }
 
 function deferred<T>() {
@@ -57,6 +76,8 @@ describe("NativeGraphDemo", () => {
 
   afterEach(() => {
     cleanup();
+    restoreUrlObjectUrlMethods();
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
@@ -94,6 +115,318 @@ describe("NativeGraphDemo", () => {
     expect(await screen.findByRole("button", { name: /Mira, person/i })).toHaveAttribute("data-node-id", "entity:mira");
     expect(api.confirm).toHaveBeenCalledWith("bb9c10ac-c94a-4693-b7bc-4d001c398770");
     expect(uuid).toHaveBeenCalledOnce();
+  });
+
+  it("puts the embedded explorer in Surface context and keeps only one compact panel open", async () => {
+    const user = userEvent.setup();
+    const api = makeApi();
+    renderEmbeddedDemo({ api });
+
+    expect(await screen.findByRole("button", { name: /Mara, npc/i })).toBeInTheDocument();
+    const navbar = within(screen.getByTestId("surface-context-host"));
+    expect(navbar.getByText("Buddy playground · private graph")).toBeInTheDocument();
+    expect(navbar.getByText("Saved to DungeonMind")).toBeInTheDocument();
+    expect(navbar.getByRole("button", { name: "Add object" })).toBeEnabled();
+    expect(navbar.getByRole("button", { name: "Connect" })).toBeEnabled();
+    expect(navbar.getByRole("button", { name: "Refresh" })).toBeEnabled();
+    expect(navbar.getByRole("button", { name: "Info" })).toBeEnabled();
+    expect(navbar.getByRole("button", { name: "Export snapshot" })).toBeEnabled();
+    expect(screen.queryByRole("heading", { name: "The graph so far" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("graph-scene").querySelector(".world-graph-canvas__node circle")).not.toBeNull();
+    expect(document.querySelector(".native-demo-shell--embedded .world-graph-canvas__viewport")).toBeInTheDocument();
+
+    await user.click(navbar.getByRole("button", { name: "Add object" }));
+    await user.type(screen.getByLabelText("Name"), "Aster");
+    await user.click(navbar.getByRole("button", { name: "Connect" }));
+    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Relationship")).toBeInTheDocument();
+    await user.click(navbar.getByRole("button", { name: "Add object" }));
+    expect(screen.getByLabelText("Name")).toHaveValue("Aster");
+    expect(screen.queryByLabelText("Relationship")).not.toBeInTheDocument();
+
+    await user.click(navbar.getByRole("button", { name: "Info" }));
+    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+    expect(screen.getByText(/This private synthetic graph is backed by DungeonMind/)).toBeInTheDocument();
+    expect(screen.getByText("Rename is unavailable")).toBeInTheDocument();
+    expect(screen.getByText("Delete is unavailable")).toBeInTheDocument();
+    expect(screen.getByText(/Clearing cookies or session expiry loses the link to this graph/)).toBeInTheDocument();
+  });
+
+  it("shows a partial native read separately from canvas projection limits", async () => {
+    const partialGraph = {
+      ...graph,
+      completeness: {
+        status: "partial" as const,
+        listed_entities: 3,
+        omitted_entities: 2,
+        unexamined_entities: 0,
+        listed_assertions: 1,
+        omitted_assertions: 1,
+        unexamined_assertions: 0,
+        reasons: ["entity_name_missing", "non_graph_assertions"],
+      },
+    } as NativeGraph;
+    const api = makeApi({ readGraph: vi.fn().mockResolvedValue(partialGraph) });
+    const user = userEvent.setup();
+    renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:world-17" });
+
+    expect(await screen.findByRole("button", { name: /Mara, npc/i })).toBeInTheDocument();
+    expect(within(screen.getByTestId("surface-context-host")).getByText("Partial native read")).toBeInTheDocument();
+    expect(screen.getByText(/2 entities omitted, 0 unexamined; 1 assertions omitted, 0 unexamined/)).toBeInTheDocument();
+    await user.click(within(screen.getByTestId("surface-context-host")).getByRole("button", { name: "Info" }));
+    expect(screen.getAllByText("Some entities have no usable name").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Some assertions could not be represented as graph edges").length).toBeGreaterThan(0);
+  });
+
+  it("keeps authoring controls disabled when the selected graph is read-only", async () => {
+    const user = userEvent.setup();
+    const readOnlyGraph = {
+      ...graph,
+      capabilities: { ...graph.capabilities, create: false, connect: false, object_kinds: [] },
+    };
+    const api = makeApi({ readGraph: vi.fn().mockResolvedValue(readOnlyGraph) });
+    renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:world-17" });
+
+    expect(await screen.findByRole("button", { name: /Mara, npc/i })).toBeInTheDocument();
+    const navbar = within(screen.getByTestId("surface-context-host"));
+    expect(navbar.getByRole("button", { name: "Add object" })).toBeDisabled();
+    expect(navbar.getByRole("button", { name: "Connect" })).toBeDisabled();
+    await user.click(navbar.getByRole("button", { name: "Info" }));
+    expect(screen.getByText("Object creation is read-only here")).toBeInTheDocument();
+    expect(screen.getByText("Connections are read-only here")).toBeInTheDocument();
+  });
+
+  it("fails closed instead of showing the playground graph when managed mode has no verified API", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    renderEmbeddedDemo({ mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:world-17" });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("This managed World graph needs its verified API binding.");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /Mara, npc/i })).not.toBeInTheDocument();
+  });
+
+  it("limits managed connections to descriptor-approved predicate labels", async () => {
+    const user = userEvent.setup();
+    const managedGraph: NativeGraph = {
+      ...graph,
+      capabilities: {
+        ...graph.capabilities,
+        allowed_predicates: ["dnd5e:located_in", "dungeonbuddy:allied_with"],
+        allows_custom_predicates: false,
+      },
+    };
+    const api = makeApi({ readGraph: vi.fn().mockResolvedValue(managedGraph) });
+    renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:world-17" });
+    await screen.findByRole("button", { name: /Mara, npc/i });
+    await user.click(within(screen.getByTestId("surface-context-host")).getByRole("button", { name: "Connect" }));
+
+    const relationship = screen.getByLabelText("Relationship");
+    expect(relationship.tagName).toBe("SELECT");
+    expect(within(relationship).getByRole("option", { name: "dnd5e:located_in" })).toBeInTheDocument();
+    expect(within(relationship).getByRole("option", { name: "dungeonbuddy:allied_with" })).toBeInTheDocument();
+    fireEvent.change(relationship, { target: { value: "custom:unsupported" } });
+    fireEvent.submit(relationship.closest("form")!);
+    expect(api.prepare).not.toHaveBeenCalled();
+
+    await user.selectOptions(relationship, "dungeonbuddy:allied_with");
+    await user.selectOptions(screen.getByLabelText("From"), "entity:mara");
+    await user.selectOptions(screen.getByLabelText("To"), "entity:tomas");
+    fireEvent.submit(relationship.closest("form")!);
+    await waitFor(() => expect(api.prepare).toHaveBeenCalledWith(expect.objectContaining({ predicate: "dungeonbuddy:allied_with" })));
+  });
+
+  it("accepts namespaced custom predicates only when the descriptor allows them", async () => {
+    const user = userEvent.setup();
+    const managedGraph: NativeGraph = {
+      ...graph,
+      capabilities: { ...graph.capabilities, allowed_predicates: [], allows_custom_predicates: true },
+    };
+    const api = makeApi({ readGraph: vi.fn().mockResolvedValue(managedGraph) });
+    renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:world-17" });
+    await screen.findByRole("button", { name: /Mara, npc/i });
+    await user.click(within(screen.getByTestId("surface-context-host")).getByRole("button", { name: "Connect" }));
+
+    const relationship = screen.getByLabelText("Relationship");
+    expect(relationship).toHaveAttribute("pattern", "[a-z0-9][a-z0-9._-]*:[a-z0-9][a-z0-9._-]*");
+    await user.selectOptions(screen.getByLabelText("From"), "entity:mara");
+    await user.selectOptions(screen.getByLabelText("To"), "entity:tomas");
+    fireEvent.change(relationship, { target: { value: "not-namespaced" } });
+    fireEvent.submit(relationship.closest("form")!);
+    expect(api.prepare).not.toHaveBeenCalled();
+
+    await user.clear(relationship);
+    await user.type(relationship, "story:knows");
+    fireEvent.submit(relationship.closest("form")!);
+    await waitFor(() => expect(api.prepare).toHaveBeenCalledWith(expect.objectContaining({ predicate: "story:knows" })));
+  });
+
+  it("keeps pending drafts isolated by the managed World scope", async () => {
+    const user = userEvent.setup();
+    const guestKey = `dungeonmind-native-demo:draft:${encodeURIComponent(graph.world_id)}`;
+    const managedKey = `dungeonmind-native-demo:draft:${encodeURIComponent("managed:world-17")}:${encodeURIComponent(graph.world_id)}`;
+    const pending = {
+      operation_id: "c965d040-2d72-49eb-b417-31ccba7c7510",
+      expected_revision_id: graph.revision_id,
+      kind: "create_object",
+      name: "Guest-only draft",
+      object_kind: "person",
+    };
+    const envelope = (name: string, operation: typeof pending | null) => ({
+      version: 1,
+      world_id: graph.world_id,
+      draft: { objectName: name, objectKind: "person", sourceId: "", targetId: "", predicate: "" },
+      pending: operation,
+      pending_phase: "prepare",
+    });
+    sessionStorage.setItem(guestKey, JSON.stringify(envelope("Guest-only draft", pending)));
+    sessionStorage.setItem(managedKey, JSON.stringify(envelope("Managed draft", null)));
+    const api = makeApi();
+    renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:world-17" });
+
+    expect(await screen.findByRole("button", { name: /Mara, npc/i })).toBeInTheDocument();
+    await user.click(within(screen.getByTestId("surface-context-host")).getByRole("button", { name: "Add object" }));
+    expect(screen.getByLabelText("Name")).toHaveValue("Managed draft");
+    expect(api.readOperation).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem(guestKey)).toContain("Guest-only draft");
+  });
+
+  it("recovers the new managed scope with the same API without writing the prior scope", async () => {
+    const operationA = "c965d040-2d72-49eb-b417-31ccba7c7510";
+    const operationB = "4a4a77ef-4182-4050-86cf-e9c7e06935f8";
+    const keyFor = (scope: string) => `dungeonmind-native-demo:draft:${encodeURIComponent(scope)}:${encodeURIComponent(graph.world_id)}`;
+    const layoutKeyFor = (scope: string) => `dungeonmind-native-demo:layout:${encodeURIComponent(scope)}:${encodeURIComponent(graph.world_id)}`;
+    const makeEnvelope = (name: string, operationId: string, position: { x: number; y: number }) => ({
+      version: 1,
+      world_id: graph.world_id,
+      draft: { objectName: name, objectKind: "person", sourceId: "", targetId: "", predicate: "" },
+      pending: { operation_id: operationId, expected_revision_id: graph.revision_id, kind: "create_object", name, object_kind: "person" },
+      pending_phase: "confirm",
+      placement: { kind: "person", position, operation_id: operationId, base_revision_id: graph.revision_id, created_node_id: null },
+    });
+    sessionStorage.setItem(keyFor("managed:world-a"), JSON.stringify(makeEnvelope("Draft A", operationA, { x: 100, y: 120 })));
+    sessionStorage.setItem(keyFor("managed:world-b"), JSON.stringify(makeEnvelope("Draft B", operationB, { x: 340, y: 420 })));
+    const oldLookup = deferred<OperationLookupResult>();
+    const api = makeApi({
+      readOperation: vi.fn((operationId: string) => operationId === operationA
+        ? oldLookup.promise
+        : Promise.resolve({ status: "committed", operation_id: operationId, graph: createdGraph, created_node_id: "entity:mira" })),
+    });
+    const view = render(<NativeGraphDemo api={api} mode="managed" worldTitle="World A" stateScopeId="managed:world-a" />);
+    await waitFor(() => expect(api.readOperation).toHaveBeenCalledWith(operationA));
+
+    view.rerender(<NativeGraphDemo api={api} mode="managed" worldTitle="World B" stateScopeId="managed:world-b" />);
+    await waitFor(() => expect(api.readOperation).toHaveBeenCalledWith(operationB));
+    await waitFor(() => {
+      expect(JSON.parse(sessionStorage.getItem(keyFor("managed:world-b")) ?? "null").pending).toBeNull();
+      expect(JSON.parse(sessionStorage.getItem(keyFor("managed:world-a")) ?? "null").pending.operation_id).toBe(operationA);
+      expect(JSON.parse(localStorage.getItem(layoutKeyFor("managed:world-b")) ?? "null")["entity:mira"]).toEqual({ x: 340, y: 420 });
+      expect(localStorage.getItem(layoutKeyFor("managed:world-a"))).toBeNull();
+    });
+
+    oldLookup.resolve({ status: "prepared", operation_id: operationA, review: { summary: "Old scope review" } });
+    await waitFor(() => expect(JSON.parse(sessionStorage.getItem(keyFor("managed:world-a")) ?? "null").pending.operation_id).toBe(operationA));
+  });
+
+  it("retains a canvas placement with its exact operation and applies it only after server readback", async () => {
+    const user = userEvent.setup();
+    const api = makeApi();
+    vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue("bb9c10ac-c94a-4693-b7bc-4d001c398770");
+    renderEmbeddedDemo({ api });
+
+    await screen.findByRole("button", { name: /Mara, npc/i });
+    await user.click(screen.getByRole("button", { name: "Place node" }));
+    const palette = screen.getByTestId("node-palette");
+    expect(palette).toBeVisible();
+    await user.click(within(palette).getByRole("button", { name: "Person" }));
+    await user.type(screen.getByLabelText("Name"), "Mira");
+
+    const draftKey = `dungeonmind-native-demo:draft:${encodeURIComponent(graph.world_id)}`;
+    const beforePrepare = JSON.parse(sessionStorage.getItem(draftKey) ?? "null");
+    expect(beforePrepare.placement).toMatchObject({ kind: "person", operation_id: null, base_revision_id: graph.revision_id });
+    const placement = beforePrepare.placement.position;
+    expect(api.prepare).not.toHaveBeenCalled();
+    expect(localStorage.getItem(`dungeonmind-native-demo:layout:${encodeURIComponent(graph.world_id)}`)).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Prepare object" }));
+    expect(await screen.findByText("Create Mira as a native person in the current World.")).toBeInTheDocument();
+    const prepared = JSON.parse(sessionStorage.getItem(draftKey) ?? "null");
+    expect(prepared.pending.operation_id).toBe("bb9c10ac-c94a-4693-b7bc-4d001c398770");
+    expect(prepared.placement).toMatchObject({ operation_id: prepared.pending.operation_id, base_revision_id: graph.revision_id, created_node_id: null });
+    expect(localStorage.getItem(`dungeonmind-native-demo:layout:${encodeURIComponent(graph.world_id)}`)).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Confirm in DungeonMind" }));
+    expect(await screen.findByRole("button", { name: "Mira, person" })).toBeInTheDocument();
+    await waitFor(() => {
+      const saved = JSON.parse(localStorage.getItem(`dungeonmind-native-demo:layout:${encodeURIComponent(graph.world_id)}`) ?? "null");
+      expect(saved?.["entity:mira"]).toEqual(placement);
+    });
+    expect(JSON.parse(sessionStorage.getItem(draftKey) ?? "null").placement).toBeNull();
+  });
+
+  it("turns connector-dot drags into a relationship draft without preparing automatically", async () => {
+    const api = makeApi();
+    renderEmbeddedDemo({ api });
+    await screen.findByRole("button", { name: /Mara, npc/i });
+
+    const svg = screen.getByRole("group", { name: "DungeonMind native graph world graph" });
+    vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({ width: 960, height: 520, x: 0, y: 0, top: 0, right: 960, bottom: 520, left: 0, toJSON: () => ({}) });
+    const scene = screen.getByTestId("graph-scene");
+    const transform = scene.getAttribute("transform")?.match(/translate\(([-.\d]+) ([-.\d]+)\) scale\(([-.\d]+)\)/);
+    expect(transform).not.toBeNull();
+    const camera = { x: Number(transform?.[1]), y: Number(transform?.[2]), zoom: Number(transform?.[3]) };
+    const sourceTransform = svg.querySelector('[data-node-id="entity:mara"]')?.getAttribute("transform")?.match(/translate\(([-.\d]+) ([-.\d]+)\)/);
+    const targetTransform = svg.querySelector('[data-node-id="entity:tomas"]')?.getAttribute("transform")?.match(/translate\(([-.\d]+) ([-.\d]+)\)/);
+    expect(sourceTransform).not.toBeNull();
+    expect(targetTransform).not.toBeNull();
+    const start = { x: camera.x + (Number(sourceTransform?.[1]) + 110) * camera.zoom, y: camera.y + (Number(sourceTransform?.[2]) + 56) * camera.zoom };
+    const end = { x: camera.x + (Number(targetTransform?.[1]) + 56) * camera.zoom, y: camera.y + (Number(targetTransform?.[2]) + 56) * camera.zoom };
+    const port = screen.getByTestId("connect-port-entity:mara");
+    const pointer = (target: Element, type: "pointerdown" | "pointermove" | "pointerup", pointerId: number, point: { readonly x: number; readonly y: number }) => {
+      const event = new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: point.x, clientY: point.y });
+      Object.defineProperty(event, "pointerId", { configurable: true, value: pointerId });
+      fireEvent(target, event);
+    };
+    pointer(port, "pointerdown", 71, start);
+    pointer(svg, "pointermove", 71, end);
+    expect(screen.getByTestId("connect-preview")).toBeVisible();
+    pointer(svg, "pointerup", 71, end);
+
+    expect(await screen.findByLabelText("Relationship")).toBeInTheDocument();
+    expect(screen.getByLabelText("From")).toHaveValue("entity:mara");
+    expect(screen.getByLabelText("To")).toHaveValue("entity:tomas");
+    expect(api.prepare).not.toHaveBeenCalled();
+  });
+
+  it("exports a pinned read-only snapshot with browser layout, not a restorable World backup", async () => {
+    const user = userEvent.setup();
+    const worldKey = encodeURIComponent(graph.world_id);
+    localStorage.setItem(`dungeonmind-native-demo:layout:${encodeURIComponent("managed:world-17")}:${worldKey}`, JSON.stringify({ "entity:mara": { x: 120, y: 240 } }));
+    vi.stubGlobal("Blob", NodeBlob);
+    let exported: NodeBlob | null = null;
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn((blob: Blob) => { exported = blob as NodeBlob; return "blob:native-graph-snapshot"; }) });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    const api = makeApi();
+    renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:world-17" });
+
+    await screen.findByRole("button", { name: /Mara, npc/i });
+    const navbar = within(screen.getByTestId("surface-context-host"));
+    expect(navbar.getByText("World · Elderwyld")).toBeInTheDocument();
+    expect(navbar.queryByText(/private graph/i)).not.toBeInTheDocument();
+    await user.click(navbar.getByRole("button", { name: "Export snapshot" }));
+    expect(await screen.findByText(/not a restorable World backup/)).toBeInTheDocument();
+    expect(exported).not.toBeNull();
+    const payload = JSON.parse(await exported!.text());
+    expect(payload).toMatchObject({
+      format: "dungeonmind-index-graph-snapshot-v1",
+      kind: "read-only-revision-pinned-snapshot",
+      world_id: graph.world_id,
+      revision_id: graph.revision_id,
+      presentation: { positions: { "entity:mara": { x: 120, y: 240 } } },
+    });
+    expect(payload.note).toMatch(/not a restorable World backup/);
+    expect(api.prepare).not.toHaveBeenCalled();
   });
 
   it("keeps the exact operation ID and form draft after an uncertain prepare response", async () => {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type {
   LocalObjectId,
   LocalRelationshipId,
@@ -12,18 +12,31 @@ import {
   createNativeGraphDemoApi,
   NativeGraphDemoApiError,
   type NativeGraph,
+  type NativeGraphCompleteness,
   type NativeGraphDemoApi,
   type NativeObjectKind,
   type NativePrepareRequest,
   type OperationLookupResult,
   type PrepareResult,
 } from "./nativeGraphDemoApi";
+import { buildSurfaceInteractionIdentity } from "../surfaceInteraction/surfaceIdentity";
+import {
+  SurfaceContextAction,
+  SurfaceContextBadge,
+  SurfaceContextModule,
+  SurfaceContextStatus,
+  SurfaceContextValue,
+  useSurfaceContextContribution,
+} from "../surfaceInteraction/contextHost";
 import "./nativeGraphDemo.css";
 
 const STORAGE_VERSION = 1;
 const MAX_COORDINATE = 6000;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PREDICATE_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
+const NAMESPACED_PREDICATE_PATTERN = /^[a-z0-9][a-z0-9._-]*:[a-z0-9][a-z0-9._-]*$/;
+const PREDICATE_PATTERN_HTML = "[a-z0-9][a-z0-9._-]*";
+const NAMESPACED_PREDICATE_PATTERN_HTML = "[a-z0-9][a-z0-9._-]*:[a-z0-9][a-z0-9._-]*";
 const OBJECT_KINDS: readonly NativeObjectKind[] = ["person", "location", "event"];
 
 interface DemoFormDraft {
@@ -42,6 +55,15 @@ interface StoredDraftEnvelope {
   readonly draft: DemoFormDraft;
   readonly pending: PendingNativeOperation | null;
   readonly pending_phase: "prepare" | "confirm";
+  readonly placement?: StoredPlacementIntent | null;
+}
+
+interface StoredPlacementIntent {
+  readonly kind: NativeObjectKind;
+  readonly position: { readonly x: number; readonly y: number };
+  readonly operation_id: string | null;
+  readonly base_revision_id: string | null;
+  readonly created_node_id: string | null;
 }
 
 interface LayoutState {
@@ -62,8 +84,16 @@ const EMPTY_DRAFT: DemoFormDraft = {
   predicate: "",
 };
 
-function storageKey(kind: "layout" | "draft", worldId: string): string {
-  return `dungeonmind-native-demo:${kind}:${encodeURIComponent(worldId)}`;
+const MISSING_MANAGED_API: NativeGraphDemoApi = {
+  readGraph: () => Promise.reject(new Error("This managed World graph needs its verified API binding.")),
+  prepare: () => Promise.reject(new Error("This managed World graph needs its verified API binding.")),
+  confirm: () => Promise.reject(new Error("This managed World graph needs its verified API binding.")),
+  readOperation: () => Promise.reject(new Error("This managed World graph needs its verified API binding.")),
+};
+
+function storageKey(kind: "layout" | "draft", worldId: string, stateScopeId?: string): string {
+  const scope = stateScopeId === undefined ? "" : `${encodeURIComponent(stateScopeId)}:`;
+  return `dungeonmind-native-demo:${kind}:${scope}${encodeURIComponent(worldId)}`;
 }
 
 function parseKind(value: unknown): value is NativeObjectKind {
@@ -93,6 +123,24 @@ function parseStoredDraft(value: unknown, worldId: string): StoredDraftEnvelope 
   const pending = envelope.pending === null ? null : parsePending(envelope.pending);
   if (envelope.pending !== null && pending === null) return null;
   if (envelope.pending_phase !== undefined && envelope.pending_phase !== "prepare" && envelope.pending_phase !== "confirm") return null;
+  let placement: StoredPlacementIntent | null = null;
+  if (envelope.placement && typeof envelope.placement === "object") {
+    const candidate = envelope.placement as Record<string, unknown>;
+    const position = candidate.position && typeof candidate.position === "object" ? candidate.position as Record<string, unknown> : null;
+    if (parseKind(candidate.kind) && position && typeof position.x === "number" && Number.isFinite(position.x)
+      && typeof position.y === "number" && Number.isFinite(position.y)
+      && (candidate.operation_id === null || typeof candidate.operation_id === "string")
+      && (candidate.base_revision_id === null || typeof candidate.base_revision_id === "string")
+      && (candidate.created_node_id === undefined || candidate.created_node_id === null || typeof candidate.created_node_id === "string")) {
+      placement = {
+        kind: candidate.kind,
+        position: { x: Math.max(0, Math.min(MAX_COORDINATE, position.x)), y: Math.max(0, Math.min(MAX_COORDINATE, position.y)) },
+        operation_id: candidate.operation_id as string | null,
+        base_revision_id: candidate.base_revision_id as string | null,
+        created_node_id: typeof candidate.created_node_id === "string" ? candidate.created_node_id : null,
+      };
+    }
+  }
   return {
     version: STORAGE_VERSION,
     world_id: worldId,
@@ -105,43 +153,47 @@ function parseStoredDraft(value: unknown, worldId: string): StoredDraftEnvelope 
     },
     pending,
     pending_phase: envelope.pending_phase === "confirm" ? "confirm" : "prepare",
+    placement,
   };
 }
 
-function safeReadDraft(worldId: string): StoredDraftEnvelope | null {
+function safeReadDraft(worldId: string, stateScopeId?: string): StoredDraftEnvelope | null {
   try {
     // sessionStorage is isolated per tab and survives reload/navigation in that tab.
     // A second tab cannot overwrite this tab's operation ID or recovery form.
-    const raw = window.sessionStorage.getItem(storageKey("draft", worldId));
+    const raw = window.sessionStorage.getItem(storageKey("draft", worldId, stateScopeId));
     return raw ? parseStoredDraft(JSON.parse(raw), worldId) : null;
   } catch {
     return null;
   }
 }
 
-function safeWriteDraft(worldId: string, draft: DemoFormDraft, pending: PendingNativeOperation | null, phase: "prepare" | "confirm" = "prepare"): boolean {
+function safeWriteDraft(worldId: string, draft: DemoFormDraft, pending: PendingNativeOperation | null, phase: "prepare" | "confirm" = "prepare", placement: StoredPlacementIntent | null | undefined = undefined, stateScopeId?: string): boolean {
   try {
-    const envelope: StoredDraftEnvelope = { version: STORAGE_VERSION, world_id: worldId, draft, pending, pending_phase: phase };
-    window.sessionStorage.setItem(storageKey("draft", worldId), JSON.stringify(envelope));
+    const retainedPlacement = placement === undefined ? safeReadDraft(worldId, stateScopeId)?.placement ?? null : placement;
+    const envelope: StoredDraftEnvelope = { version: STORAGE_VERSION, world_id: worldId, draft, pending, pending_phase: phase, placement: retainedPlacement };
+    window.sessionStorage.setItem(storageKey("draft", worldId, stateScopeId), JSON.stringify(envelope));
     return true;
   } catch {
     return false;
   }
 }
 
-function safeClearDraft(worldId: string, draft: DemoFormDraft): boolean {
-  return safeWriteDraft(worldId, draft, null);
+function safeClearDraft(worldId: string, draft: DemoFormDraft, stateScopeId?: string): boolean {
+  return safeWriteDraft(worldId, draft, null, "prepare", undefined, stateScopeId);
 }
 
-function readLayout(worldId: string, allowedIds: ReadonlySet<string>): Readonly<Record<string, { readonly x: number; readonly y: number }>> {
+function readLayout(worldId: string, stateScopeId?: string): Readonly<Record<string, { readonly x: number; readonly y: number }>> {
   try {
-    const raw = window.localStorage.getItem(storageKey("layout", worldId));
+    const raw = window.localStorage.getItem(storageKey("layout", worldId, stateScopeId));
     if (!raw) return {};
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-    const positions: Record<string, { x: number; y: number }> = {};
-    for (const [id, value] of Object.entries(parsed)) {
-      if (!allowedIds.has(id) || !value || typeof value !== "object") continue;
+    const positions: Record<string, { x: number; y: number }> = Object.create(null) as Record<string, { x: number; y: number }>;
+    // Keep presentation coordinates for temporarily omitted native nodes in partial reads.
+    // They remain inert unless a matching node ID appears in a later server readback.
+    for (const [id, value] of Object.entries(parsed).slice(0, 4096)) {
+      if (!id || id.length > 512 || id === "__proto__" || id === "constructor" || id === "prototype" || !value || typeof value !== "object") continue;
       const candidate = value as Record<string, unknown>;
       if (typeof candidate.x !== "number" || !Number.isFinite(candidate.x) || typeof candidate.y !== "number" || !Number.isFinite(candidate.y)) continue;
       positions[id] = {
@@ -155,9 +207,9 @@ function readLayout(worldId: string, allowedIds: ReadonlySet<string>): Readonly<
   }
 }
 
-function writeLayout(worldId: string, positions: Readonly<Record<string, { readonly x: number; readonly y: number }>>): boolean {
+function writeLayout(worldId: string, positions: Readonly<Record<string, { readonly x: number; readonly y: number }>>, stateScopeId?: string): boolean {
   try {
-    window.localStorage.setItem(storageKey("layout", worldId), JSON.stringify(positions));
+    window.localStorage.setItem(storageKey("layout", worldId, stateScopeId), JSON.stringify(positions));
     return true;
   } catch {
     return false;
@@ -219,18 +271,147 @@ function isNativeKindSupported(graph: NativeGraph, kind: NativeObjectKind): bool
   return Array.isArray(kinds) && kinds.includes(kind);
 }
 
+function canConnectGraph(graph: NativeGraph | null): boolean {
+  if (!graph || !graph.capabilities.connect) return false;
+  const { allowed_predicates: allowedPredicates, allows_custom_predicates: allowsCustom } = graph.capabilities;
+  return (allowedPredicates === undefined && allowsCustom === undefined)
+    || allowsCustom === true
+    || Boolean(allowedPredicates?.length);
+}
+
+function usesFinitePredicateOptions(graph: NativeGraph): boolean {
+  return (graph.capabilities.allowed_predicates !== undefined && graph.capabilities.allows_custom_predicates !== true)
+    || (graph.capabilities.allowed_predicates === undefined && graph.capabilities.allows_custom_predicates === false);
+}
+
+function isPredicateAllowed(graph: NativeGraph, predicate: string): boolean {
+  const { allowed_predicates: allowedPredicates, allows_custom_predicates: allowsCustom } = graph.capabilities;
+  if (allowedPredicates?.includes(predicate)) return true;
+  if (allowsCustom === true) return NAMESPACED_PREDICATE_PATTERN.test(predicate);
+  if (allowedPredicates !== undefined || allowsCustom === false) return false;
+  // Older playground profiles predate predicate descriptors and keep their existing syntax.
+  return PREDICATE_PATTERN.test(predicate);
+}
+
 function operationName(operation: PendingNativeOperation): string {
   return operation.kind === "create_object" ? `Create ${operation.object_kind}` : "Connect objects";
+}
+
+function graphCompleteness(graph: NativeGraph): NativeGraphCompleteness | null {
+  return graph.completeness ?? null;
+}
+
+function completenessReasonLabel(reason: string): string {
+  switch (reason) {
+    case "non_graph_assertions": return "Some assertions could not be represented as graph edges";
+    case "entity_name_missing": return "Some entities have no usable name";
+    case "entity_name_conflict": return "Some entity names conflict";
+    case "entity_classification_ambiguous": return "Some entity types are ambiguous";
+    default: return reason.replace(/[_-]+/g, " ");
+  }
+}
+
+function createdNodeIdFromResult(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const id = (value as Record<string, unknown>).created_node_id;
+  return typeof id === "string" && id.length > 0 ? id : null;
+}
+
+type EmbeddedPanel = "create" | "connect" | "info" | null;
+
+interface NativeGraphDemoContextProps {
+  readonly graph: NativeGraph | null;
+  readonly activePanel: EmbeddedPanel;
+  readonly mode: "playground" | "managed";
+  readonly worldTitle?: string;
+  readonly loading: boolean;
+  readonly refreshing: boolean;
+  readonly hasPendingOperation: boolean;
+  readonly pendingStatus: PendingStatus;
+  readonly hasPlacementIntent: boolean;
+  readonly selectedNodeName: string | null;
+  readonly canCreate: boolean;
+  readonly canConnect: boolean;
+  readonly onPanelChange: (panel: EmbeddedPanel) => void;
+  readonly onRefresh: () => void;
+  readonly onExport: () => void;
+  readonly canRefresh: boolean;
+}
+
+function NativeGraphDemoContext({
+  graph,
+  activePanel,
+  mode,
+  worldTitle,
+  loading,
+  refreshing,
+  hasPendingOperation,
+  pendingStatus,
+  hasPlacementIntent,
+  selectedNodeName,
+  canCreate,
+  canConnect,
+  onPanelChange,
+  onRefresh,
+  onExport,
+  canRefresh,
+}: NativeGraphDemoContextProps) {
+  const surfaceIdentity = useMemo(() => buildSurfaceInteractionIdentity({
+    surfaceId: "index",
+    instanceParts: ["buddy-native-graph-playground"],
+  }), []);
+  const completeness = graph ? graphCompleteness(graph) : null;
+  const status = loading && !graph ? "Opening graph…"
+    : !graph ? "Graph unavailable"
+      : hasPendingOperation ? pendingStatus === "prepared" ? "Review ready" : pendingStatus === "checking" ? "Checking review" : "Review needs attention"
+        : completeness?.status === "partial" ? "Partial native read" : "Saved to DungeonMind";
+  const identity = mode === "managed"
+    ? `World · ${worldTitle?.trim() || "Selected World"}`
+    : "Buddy playground · private graph";
+  const content = useMemo(() => (
+    <SurfaceContextModule className="native-demo-context">
+      <div className="native-demo-context__row">
+        <SurfaceContextValue className="native-demo-context__identity" title={identity}>{identity}</SurfaceContextValue>
+        {graph ? <SurfaceContextBadge className="native-demo-context__counts">{completeness?.status === "partial" ? "Listed " : ""}{graph.nodes.length} objects · {completeness?.status === "partial" ? "listed " : ""}{graph.edges.length} relationships</SurfaceContextBadge> : null}
+        {completeness?.status === "partial" ? <SurfaceContextBadge className="native-demo-context__partial">Partial view</SurfaceContextBadge> : null}
+        {selectedNodeName ? <SurfaceContextBadge className="native-demo-context__selection">Selected · {selectedNodeName}</SurfaceContextBadge> : null}
+        {hasPlacementIntent ? <SurfaceContextBadge className="native-demo-context__placement">Placement ready</SurfaceContextBadge> : null}
+        <SurfaceContextStatus className="native-demo-context__status" tone={!graph && !loading ? "error" : hasPendingOperation || completeness?.status === "partial" ? "warning" : "neutral"}>
+          {refreshing ? "Refreshing…" : status}
+        </SurfaceContextStatus>
+        <div className="native-demo-context__actions" aria-label={mode === "managed" ? "World graph controls" : "Graph playground controls"}>
+          <SurfaceContextAction className="native-demo-context__action" aria-pressed={activePanel === "create"} disabled={!canCreate || hasPendingOperation} title={!canCreate && graph ? "Object creation is read-only for this graph." : undefined} onClick={() => onPanelChange(activePanel === "create" ? null : "create")}>Add object</SurfaceContextAction>
+          <SurfaceContextAction className="native-demo-context__action" aria-pressed={activePanel === "connect"} disabled={!canConnect || hasPendingOperation} title={!canConnect && graph ? "Connections are read-only for this graph." : undefined} onClick={() => onPanelChange(activePanel === "connect" ? null : "connect")}>Connect</SurfaceContextAction>
+          <SurfaceContextAction className="native-demo-context__action" disabled={!canRefresh || loading || refreshing} onClick={onRefresh}>Refresh</SurfaceContextAction>
+          <SurfaceContextAction className="native-demo-context__action" aria-pressed={activePanel === "info"} disabled={!graph || hasPendingOperation} onClick={() => onPanelChange(activePanel === "info" ? null : "info")}>Info</SurfaceContextAction>
+          <SurfaceContextAction className="native-demo-context__action" disabled={!graph} onClick={onExport}>Export snapshot</SurfaceContextAction>
+        </div>
+      </div>
+    </SurfaceContextModule>
+  ), [activePanel, canConnect, canCreate, canRefresh, completeness, graph, hasPendingOperation, hasPlacementIntent, identity, loading, mode, onExport, onPanelChange, onRefresh, pendingStatus, refreshing, selectedNodeName, status, worldTitle]);
+
+  useSurfaceContextContribution({
+    id: "buddy-native-graph-playground",
+    order: 10,
+    surfaceIdentity,
+    content,
+  });
+  return null;
 }
 
 export interface NativeGraphDemoProps {
   readonly api?: NativeGraphDemoApi;
   /** Render inside Buddy's existing AppChrome frame instead of a standalone page. */
   readonly embedded?: boolean;
+  /** The playground is a private synthetic graph; managed mode is supplied only by a verified route composition. */
+  readonly mode?: "playground" | "managed";
+  readonly worldTitle?: string;
+  /** Stable managed-world identity used only to isolate browser draft and layout storage. */
+  readonly stateScopeId?: string;
 }
 
-export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGraphDemoProps) {
-  const api = useMemo(() => providedApi ?? createNativeGraphDemoApi(), [providedApi]);
+export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "playground", worldTitle, stateScopeId }: NativeGraphDemoProps) {
+  const api = useMemo(() => providedApi ?? (mode === "managed" ? MISSING_MANAGED_API : createNativeGraphDemoApi()), [mode, providedApi]);
   const [graph, setGraph] = useState<NativeGraph | null>(null);
   const graphRef = useRef<NativeGraph | null>(null);
   const [loading, setLoading] = useState(true);
@@ -247,11 +428,60 @@ export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGr
   const [reviewSummary, setReviewSummary] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [layout, setLayout] = useState<LayoutState>({ worldId: "", positions: {}, revision: 0 });
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
   const [storageWarning, setStorageWarning] = useState(false);
+  const [activePanel, setActivePanel] = useState<EmbeddedPanel>(null);
+  const [placementIntent, setPlacementIntent] = useState<StoredPlacementIntent | null>(null);
+  const placementIntentRef = useRef<StoredPlacementIntent | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const createNameInputRef = useRef<HTMLInputElement | null>(null);
+  const connectPredicateInputRef = useRef<HTMLInputElement | null>(null);
+  const connectPredicateSelectRef = useRef<HTMLSelectElement | null>(null);
   const generationRef = useRef(0);
   const graphRequestGenerationRef = useRef(0);
   const mountedOwnerRef = useRef<number | null>(null);
   const pendingActionRef = useRef<"confirm" | "edit" | null>(null);
+  const componentScope = `${mode}:${stateScopeId ?? "default"}`;
+  const componentScopeRef = useRef(componentScope);
+  const stateScopeIdRef = useRef(stateScopeId);
+  stateScopeIdRef.current = stateScopeId;
+
+  useLayoutEffect(() => {
+    if (componentScopeRef.current === componentScope) return;
+    componentScopeRef.current = componentScope;
+    mountedOwnerRef.current = null;
+    generationRef.current += 1;
+    graphRequestGenerationRef.current += 1;
+    graphRef.current = null;
+    setGraph(null);
+    setLoading(true);
+    setRefreshing(false);
+    draftRef.current = EMPTY_DRAFT;
+    setDraft(EMPTY_DRAFT);
+    setDraftReadyWorldId(null);
+    pendingRef.current = null;
+    setPendingOperationState(null);
+    pendingPhaseRef.current = "prepare";
+    setPendingPhaseState("prepare");
+    setPendingStatus("none");
+    setPendingErrorCode(null);
+    pendingActionRef.current = null;
+    setReviewSummary(null);
+    placementIntentRef.current = null;
+    setPlacementIntent(null);
+    setLayout({ worldId: "", positions: {}, revision: 0 });
+    setSelectedNodeId(null);
+    setActivePanel(null);
+    setStorageWarning(false);
+    setNotice(null);
+  }, [componentScope]);
+
+  useEffect(() => {
+    if (!embedded || pendingOperation) return;
+    if (activePanel === "create") createNameInputRef.current?.focus();
+    else if (activePanel === "connect") (connectPredicateInputRef.current ?? connectPredicateSelectRef.current)?.focus();
+  }, [activePanel, embedded, pendingOperation]);
 
   function ownsMount(owner: number | null): owner is number {
     return owner !== null && mountedOwnerRef.current === owner;
@@ -269,8 +499,8 @@ export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGr
     draftRef.current = next;
     setDraft(next);
     if (!worldId || draftReadyWorldId !== worldId) return;
-    setStorageWarning(!safeWriteDraft(worldId, next, pendingRef.current));
-  }, [draftReadyWorldId, graph?.world_id]);
+    setStorageWarning(!safeWriteDraft(worldId, next, pendingRef.current, "prepare", undefined, stateScopeId));
+  }, [draftReadyWorldId, graph?.world_id, stateScopeId]);
 
   const setPendingOperation = useCallback((operation: PendingNativeOperation | null, phase: "prepare" | "confirm" = "prepare") => {
     pendingRef.current = operation;
@@ -309,10 +539,48 @@ export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGr
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api]);
 
-  async function clearRecoveredOperation(message: string, owner: number | null = mountedOwnerRef.current, completedOperation?: PendingNativeOperation) {
+  function applyCreatedNodePlacement(operation: PendingNativeOperation, committedGraph: NativeGraph, placement: StoredPlacementIntent | null, createdNodeId: string | null): string | null {
+    if (operation.kind !== "create_object" || !placement || placement.operation_id !== operation.operation_id) return null;
+    if (placement.kind !== operation.object_kind) return "The object was saved, but its type no longer matches the requested canvas placement. Its position was left unchanged.";
+    if (placement.base_revision_id !== operation.expected_revision_id) return "The object was saved, but the placement belongs to a different graph revision. Its position was left unchanged.";
+    if (committedGraph.world_id !== graphRef.current?.world_id) return "The object was saved, but the verified readback is for a different graph. Its requested canvas position was not applied.";
+    if (!createdNodeId) return "DungeonMind confirmed the object, but did not return its exact new node ID. The requested canvas position was not applied.";
+    const created = committedGraph.nodes.find((node) => node.id === createdNodeId);
+    if (!created) return "DungeonMind returned the new node ID, but this readback does not include it. The requested position was discarded; refresh the graph and arrange the node manually if it appears.";
+    if (created.kind !== operation.object_kind) return `DungeonMind returned the exact new node ID, but its graph type is ${created.kind}, not ${operation.object_kind}. Its requested position was not applied.`;
+    if (!committedGraph.nodes.slice(0, 512).some((node) => node.id === createdNodeId)) {
+      return "DungeonMind returned the new node ID, but it is outside the 512-node canvas view. The requested position was discarded; arrange the node manually if it comes into view.";
+    }
+    const currentScopeId = stateScopeIdRef.current;
+    const positions = readLayout(committedGraph.world_id, currentScopeId);
+    const nextPositions = { ...positions, [createdNodeId]: placement.position };
+    const nextLayout: LayoutState = {
+      worldId: committedGraph.world_id,
+      positions: nextPositions,
+      revision: layoutRef.current.worldId === committedGraph.world_id ? layoutRef.current.revision + 1 : 1,
+    };
+    setLayout(nextLayout);
+    if (!writeLayout(committedGraph.world_id, nextPositions, currentScopeId)) {
+      setStorageWarning(true);
+      return "DungeonMind saved the object. This browser could not save its requested canvas position, so drag it into place manually.";
+    }
+    setStorageWarning(false);
+    return null;
+  }
+
+  async function clearRecoveredOperation(message: string, owner: number | null = mountedOwnerRef.current, completedOperation?: PendingNativeOperation, committedGraph?: NativeGraph, applyPlacement = true, createdNodeId: string | null = null) {
     if (!ownsMount(owner)) return;
     const currentGraph = graphRef.current;
     let currentDraft = draftRef.current;
+    const currentScopeId = stateScopeIdRef.current;
+    const savedPlacement = placementIntentRef.current
+      ?? (currentGraph ? safeReadDraft(currentGraph.world_id, currentScopeId)?.placement ?? null : null);
+    const placementBelongsToOperation = Boolean(completedOperation && savedPlacement?.operation_id === completedOperation.operation_id);
+    const placementNotice = completedOperation && placementBelongsToOperation && !applyPlacement
+      ? "The existing object is shown in DungeonMind; its canvas position was left unchanged."
+      : completedOperation && committedGraph && placementBelongsToOperation
+      ? applyCreatedNodePlacement(completedOperation, committedGraph, savedPlacement, createdNodeId)
+      : null;
     if (completedOperation?.kind === "create_object"
       && currentDraft.objectName.trim() === completedOperation.name
       && currentDraft.objectKind === completedOperation.object_kind) {
@@ -324,8 +592,12 @@ export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGr
       currentDraft = { ...currentDraft, sourceId: "", targetId: "", predicate: "" };
     }
     if (currentGraph) {
-      const cleared = safeClearDraft(currentGraph.world_id, currentDraft);
-      setStorageWarning(!cleared);
+      const cleared = safeWriteDraft(currentGraph.world_id, currentDraft, null, "prepare", placementBelongsToOperation ? null : savedPlacement, currentScopeId);
+      setStorageWarning(!cleared || Boolean(placementNotice?.includes("could not save its requested canvas position")));
+    }
+    if (placementBelongsToOperation) {
+      placementIntentRef.current = null;
+      setPlacementIntent(null);
     }
     draftRef.current = currentDraft;
     setDraft(currentDraft);
@@ -333,7 +605,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGr
     setPendingStatus("none");
     setPendingErrorCode(null);
     setReviewSummary(null);
-    setNotice({ kind: "success", text: message });
+    setNotice(placementNotice ? { kind: "warning", text: `${message} ${placementNotice}` } : { kind: "success", text: message });
   }
 
   async function applyOperationLookup(lookup: OperationLookupResult, operation: PendingNativeOperation, priorErrorCode: string | null = null, owner: number | null = mountedOwnerRef.current) {
@@ -377,7 +649,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGr
       }
       if (!ownsMount(owner)) return;
       installServerGraph(committedGraph);
-      await clearRecoveredOperation(`${operationName(operation)} is committed in DungeonMind. The current graph has been read back from the server.`, owner, operation);
+      await clearRecoveredOperation(`${operationName(operation)} is committed in DungeonMind. The current graph has been read back from the server.`, owner, operation, committedGraph, true, createdNodeIdFromResult(lookup));
       return;
     }
     setPendingStatus("unknown");
@@ -391,20 +663,29 @@ export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGr
     mountedOwnerRef.current = owner;
     const graphRequest = ++graphRequestGenerationRef.current;
     setLoading(true);
+      if (mode === "managed" && !stateScopeId) {
+        setLoading(false);
+        setNotice({ kind: "error", text: "This managed graph is missing its verified World scope. Reselect the World to continue safely." });
+        return () => {
+          if (mountedOwnerRef.current === owner) mountedOwnerRef.current = null;
+        };
+      }
     api.readGraph().then(async (loadedGraph) => {
       if (!installReadGraph(loadedGraph, graphRequest, owner)) return;
-      const saved = safeReadDraft(loadedGraph.world_id);
+      const saved = safeReadDraft(loadedGraph.world_id, stateScopeId);
       const restoredDraft = saved?.draft ?? EMPTY_DRAFT;
       draftRef.current = restoredDraft;
       setDraft(restoredDraft);
       setDraftReadyWorldId(loadedGraph.world_id);
+      placementIntentRef.current = saved?.placement ?? null;
+      setPlacementIntent(saved?.placement ?? null);
       setPendingOperation(saved?.pending ?? null);
       pendingPhaseRef.current = saved?.pending_phase ?? "prepare";
       setPendingPhaseState(saved?.pending_phase ?? "prepare");
       pendingRef.current = saved?.pending ?? null;
       setLayout({
         worldId: loadedGraph.world_id,
-        positions: readLayout(loadedGraph.world_id, new Set(loadedGraph.nodes.map((node) => node.id))),
+        positions: readLayout(loadedGraph.world_id, stateScopeId),
         revision: 0,
       });
       setLoading(false);
@@ -418,9 +699,9 @@ export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGr
     return () => {
       if (mountedOwnerRef.current === owner) mountedOwnerRef.current = null;
     };
-  }, [api, recoverOperation]);
+  }, [api, componentScope, recoverOperation, stateScopeId]);
 
-  async function refreshGraph() {
+  const refreshGraph = useCallback(async () => {
     const owner = mountedOwnerRef.current;
     if (!ownsMount(owner) || refreshing) return;
     const graphRequest = ++graphRequestGenerationRef.current;
@@ -429,13 +710,15 @@ export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGr
       const nextGraph = await api.readGraph();
       if (!installReadGraph(nextGraph, graphRequest, owner)) return;
       if (nextGraph.world_id !== layout.worldId) {
-        const positions = readLayout(nextGraph.world_id, new Set(nextGraph.nodes.map((node) => node.id)));
+        const positions = readLayout(nextGraph.world_id, stateScopeId);
         setLayout({ worldId: nextGraph.world_id, positions, revision: 0 });
         setDraftReadyWorldId(nextGraph.world_id);
-        const saved = safeReadDraft(nextGraph.world_id);
+        const saved = safeReadDraft(nextGraph.world_id, stateScopeId);
         const nextDraft = saved?.draft ?? EMPTY_DRAFT;
         draftRef.current = nextDraft;
         setDraft(nextDraft);
+        placementIntentRef.current = saved?.placement ?? null;
+        setPlacementIntent(saved?.placement ?? null);
         setPendingOperation(saved?.pending ?? null);
         pendingPhaseRef.current = saved?.pending_phase ?? "prepare";
         setPendingPhaseState(saved?.pending_phase ?? "prepare");
@@ -451,10 +734,26 @@ export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGr
     } finally {
       if (ownsMount(owner)) setRefreshing(false);
     }
-  }
+  }, [api, installServerGraph, layout, recoverOperation, refreshing, setPendingOperation, setPendingPhase, stateScopeId]);
 
   function updateDraft(patch: Partial<DemoFormDraft>) {
     setDraftAndPersist({ ...draftRef.current, ...patch });
+  }
+
+  function updateCreateKind(kind: NativeObjectKind) {
+    const currentPlacement = placementIntentRef.current;
+    if (!currentPlacement) {
+      updateDraft({ objectKind: kind });
+      return;
+    }
+    const nextDraft = { ...draftRef.current, objectKind: kind };
+    const nextPlacement = { ...currentPlacement, kind };
+    draftRef.current = nextDraft;
+    setDraft(nextDraft);
+    placementIntentRef.current = nextPlacement;
+    setPlacementIntent(nextPlacement);
+    if (!graph || draftReadyWorldId !== graph.world_id) return;
+    setStorageWarning(!safeWriteDraft(graph.world_id, nextDraft, pendingRef.current, pendingPhaseRef.current, nextPlacement, stateScopeId));
   }
 
   async function dispatchPrepare(operation: PendingNativeOperation) {
@@ -463,7 +762,18 @@ export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGr
     setPendingOperation(operation, "prepare");
     setReviewSummary(null);
     setPendingErrorCode(null);
-    if (!graph || !safeWriteDraft(graph.world_id, draftRef.current, operation, "prepare")) {
+    const currentPlacement = placementIntentRef.current;
+    const operationPlacement = operation.kind === "create_object"
+      ? graph && currentPlacement?.kind === operation.object_kind ? {
+          ...currentPlacement,
+          operation_id: operation.operation_id,
+          base_revision_id: operation.expected_revision_id,
+          created_node_id: null,
+        } : null
+      : currentPlacement;
+    placementIntentRef.current = operationPlacement;
+    setPlacementIntent(operationPlacement);
+    if (!graph || !safeWriteDraft(graph.world_id, draftRef.current, operation, "prepare", operationPlacement, stateScopeId)) {
       setPendingStatus("not_sent");
       setStorageWarning(true);
       setNotice({ kind: "error", text: "This browser could not save the recovery draft, so the request was not sent. Keep the page open and try again after browser storage is available." });
@@ -490,7 +800,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGr
     if (!ownsMount(owner)) return;
     if (result.status === "already_exists") {
       installServerGraph(result.graph);
-      await clearRecoveredOperation(`${result.message} The latest graph was read from DungeonMind.`, owner);
+      await clearRecoveredOperation(`${result.message} The latest graph was read from DungeonMind.`, owner, operation, result.graph, false);
       return;
     }
     setPendingStatus("prepared");
@@ -504,6 +814,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGr
     if (!graph || pendingRef.current || !graph.capabilities.create || !isNativeKindSupported(graph, draft.objectKind)) return;
     const name = draft.objectName.trim();
     if (!name) return;
+    if (embedded) setActivePanel(null);
     await dispatchPrepare({
       operation_id: crypto.randomUUID(),
       expected_revision_id: graph.revision_id,
@@ -515,10 +826,11 @@ export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGr
 
   async function submitConnect(event: FormEvent) {
     event.preventDefault();
-    if (!graph || pendingRef.current || !graph.capabilities.connect) return;
+    if (!graph || pendingRef.current || !canConnectGraph(graph)) return;
     if (!graph.nodes.some((node) => node.id === draft.sourceId) || !graph.nodes.some((node) => node.id === draft.targetId)) return;
     const predicate = draft.predicate.trim();
-    if (!predicate || !PREDICATE_PATTERN.test(predicate)) return;
+    if (!predicate || !isPredicateAllowed(graph, predicate)) return;
+    if (embedded) setActivePanel(null);
     await dispatchPrepare({
       operation_id: crypto.randomUUID(),
       expected_revision_id: graph.revision_id,
@@ -536,7 +848,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGr
     const owner = mountedOwnerRef.current;
     if (!ownsMount(owner)) return;
     setReviewSummary(null);
-    if (!graph || !safeWriteDraft(graph.world_id, draftRef.current, operation, "prepare")) {
+    if (!graph || !safeWriteDraft(graph.world_id, draftRef.current, operation, "prepare", undefined, stateScopeId)) {
       setPendingStatus("not_sent");
       setStorageWarning(true);
       setNotice({ kind: "error", text: "This browser still cannot save the recovery draft, so the request was not sent." });
@@ -571,7 +883,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGr
     if (!operation || pendingStatus !== "prepared" || !reviewSummary || !ownsMount(owner) || pendingActionRef.current !== null) return;
     pendingActionRef.current = "confirm";
     const currentGraph = graphRef.current;
-    if (!currentGraph || !safeWriteDraft(currentGraph.world_id, draftRef.current, operation, "confirm")) {
+    if (!currentGraph || !safeWriteDraft(currentGraph.world_id, draftRef.current, operation, "confirm", undefined, stateScopeId)) {
       setStorageWarning(true);
       setNotice({ kind: "error", text: "This browser could not save the confirmation recovery step, so confirmation was not sent." });
       pendingActionRef.current = null;
@@ -586,7 +898,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGr
       if (!ownsMount(owner)) return;
       if (result.status === "committed") {
         installServerGraph(result.graph);
-        await clearRecoveredOperation(`${operationName(operation)} is committed. The graph below is the server readback.`, owner, operation);
+        await clearRecoveredOperation(`${operationName(operation)} is committed. The graph below is the server readback.`, owner, operation, result.graph, true, createdNodeIdFromResult(result));
       } else if (result.status === "rejected") {
         setPendingStatus("rejected");
         setPendingErrorCode(result.code);
@@ -639,7 +951,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGr
         await applyOperationLookup(after, operation, null, owner);
         return;
       }
-      if (!safeClearDraft(latestGraph.world_id, draftRef.current)) {
+      if (!safeClearDraft(latestGraph.world_id, draftRef.current, stateScopeId)) {
         setPendingStatus("prepared");
         setStorageWarning(true);
         setReviewSummary(after.review?.summary ?? reviewSummary);
@@ -688,9 +1000,9 @@ export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGr
       }
       if (!installReadGraph(freshGraph, graphRequest, owner)) return;
       if (freshGraph.world_id !== layout.worldId) {
-        setLayout({ worldId: freshGraph.world_id, positions: readLayout(freshGraph.world_id, new Set(freshGraph.nodes.map((node) => node.id))), revision: 0 });
+        setLayout({ worldId: freshGraph.world_id, positions: readLayout(freshGraph.world_id, stateScopeId), revision: 0 });
       }
-      const cleared = safeClearDraft(freshGraph.world_id, draftRef.current);
+      const cleared = safeClearDraft(freshGraph.world_id, draftRef.current, stateScopeId);
       setStorageWarning(!cleared);
       setPendingOperation(null);
       setPendingStatus("none");
@@ -722,35 +1034,265 @@ export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGr
     const nextLayout: LayoutState = { worldId: graph.world_id, positions: mergedPositions, revision: current.revision + 1 };
     setLayout(nextLayout);
     const nextRecord = toCanvasRecord(graph, nextLayout);
-    if (!writeLayout(graph.world_id, mergedPositions)) {
+    if (!writeLayout(graph.world_id, mergedPositions, stateScopeId)) {
       return { status: "error", message: "This arrangement is visible for now, but the browser could not save its presentation-only layout." };
     }
     return { status: "written", record: nextRecord };
-  }, [graph, layout]);
+  }, [graph, layout, stateScopeId]);
+
+  const creationKinds = graph?.capabilities.create
+    ? graph.capabilities.object_kinds.map((kind) => ({ kind, label: kind.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) }))
+    : [];
+  const selectedNodeName = graph?.nodes.find((node) => node.id === selectedNodeId)?.name ?? null;
+
+  function handleCanvasCreateRequest(intent: { readonly kind: string; readonly position: { readonly x: number; readonly y: number } }) {
+    if (!graph || pendingRef.current || !graph.capabilities.create || !isNativeKindSupported(graph, intent.kind as NativeObjectKind)
+      || !Number.isFinite(intent.position.x) || !Number.isFinite(intent.position.y)) return;
+    const kind = intent.kind as NativeObjectKind;
+    const nextDraft = { ...draftRef.current, objectKind: kind };
+    setDraftAndPersist(nextDraft);
+    const nextIntent: StoredPlacementIntent = {
+      kind,
+      position: { x: Math.max(0, Math.min(MAX_COORDINATE, intent.position.x)), y: Math.max(0, Math.min(MAX_COORDINATE, intent.position.y)) },
+      operation_id: null,
+      base_revision_id: graph.revision_id,
+      created_node_id: null,
+    };
+    placementIntentRef.current = nextIntent;
+    setPlacementIntent(nextIntent);
+    setStorageWarning(!safeWriteDraft(graph.world_id, nextDraft, pendingRef.current, pendingPhaseRef.current, nextIntent, stateScopeId));
+    setActivePanel("create");
+    setNotice({ kind: "info", text: `Choose a name for the ${kind}. Its requested spot is saved locally and will be applied only after DungeonMind confirms the new node.` });
+  }
+
+  function handleConnectRequest(intent: { readonly sourceId: string; readonly targetId: string }) {
+    if (!graph || pendingRef.current || !canConnectGraph(graph)
+      || !graph.nodes.some((node) => node.id === intent.sourceId)
+      || !graph.nodes.some((node) => node.id === intent.targetId)) return;
+    updateDraft({ sourceId: intent.sourceId, targetId: intent.targetId });
+    setActivePanel("connect");
+    setNotice({ kind: "info", text: "Add a relationship label, then review it with DungeonMind before confirming." });
+  }
+
+  const exportSnapshot = useCallback(() => {
+    if (!graph) return;
+    const positions = readLayout(graph.world_id, stateScopeId);
+    const snapshot = {
+      format: "dungeonmind-index-graph-snapshot-v1",
+      kind: "read-only-revision-pinned-snapshot",
+      note: "This is a read-only graph snapshot with browser presentation layout. It is not a restorable World backup.",
+      exported_at: new Date().toISOString(),
+      world_id: graph.world_id,
+      revision_id: graph.revision_id,
+      graph_sha256: graph.graph_sha256,
+      graph,
+      presentation: { layout_revision: layout.worldId === graph.world_id ? layout.revision : 0, positions },
+      ...(mode === "managed" ? { selected_world_title: worldTitle ?? null } : {}),
+    };
+    try {
+      const url = URL.createObjectURL(new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" }));
+      const anchor = document.createElement("a");
+      const slug = (mode === "managed" ? worldTitle ?? "world" : "playground").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "graph";
+      anchor.href = url;
+      anchor.download = `dungeonmind-${slug}-${graph.revision_id}.json`;
+      anchor.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      setNotice({ kind: "success", text: `Read-only snapshot of revision ${graph.revision_id} downloaded with this browser's canvas layout. It is not a restorable World backup.` });
+    } catch (error) {
+      setNotice({ kind: "error", text: `The snapshot could not be downloaded: ${describeError(error)}` });
+    }
+  }, [graph, layout, mode, stateScopeId, worldTitle]);
+  const refreshFromContext = useCallback(() => { void refreshGraph(); }, [refreshGraph]);
+
+  const embeddedContext = embedded ? (
+    <NativeGraphDemoContext
+      graph={graph}
+      activePanel={activePanel}
+      mode={mode}
+      worldTitle={worldTitle}
+      loading={loading}
+      refreshing={refreshing}
+      hasPendingOperation={Boolean(pendingOperation)}
+      pendingStatus={pendingStatus}
+      hasPlacementIntent={Boolean(placementIntent)}
+      selectedNodeName={selectedNodeName}
+      canCreate={Boolean(graph?.capabilities.create && graph.capabilities.object_kinds.length)}
+      canConnect={canConnectGraph(graph)}
+      onPanelChange={setActivePanel}
+      onRefresh={refreshFromContext}
+      onExport={exportSnapshot}
+      canRefresh={mode !== "managed" || Boolean(stateScopeId)}
+    />
+  ) : null;
+
 
   if (loading && !graph) {
-    return <main className={`native-demo-shell${embedded ? " native-demo-shell--embedded" : ""}`}><div className="native-demo-loading" role="status">Opening the DungeonMind graph…</div></main>;
+    return <main className={`native-demo-shell${embedded ? " native-demo-shell--embedded" : ""}`}>
+      {embeddedContext}
+      <h1 className={embedded ? "native-demo-sr-only" : undefined}>{embedded ? mode === "managed" ? `${worldTitle?.trim() || "Selected World"} graph` : "Buddy graph playground" : ""}</h1>
+      <div className="native-demo-loading" role="status">Opening the DungeonMind graph…</div>
+    </main>;
   }
 
   if (!graph) {
     return (
       <main className={`native-demo-shell${embedded ? " native-demo-shell--embedded" : ""}`}>
+        {embeddedContext}
         <section className="native-demo-error-card" aria-labelledby="native-demo-title">
-          <p className="native-demo-kicker">{embedded ? "BUDDY · GRAPH PLAYGROUND" : "DUNGEONMIND · NATIVE GRAPH"}</p>
+          <p className="native-demo-kicker">{embedded ? mode === "managed" ? `BUDDY · ${worldTitle?.trim() || "SELECTED WORLD"}` : "BUDDY · GRAPH PLAYGROUND" : "DUNGEONMIND · NATIVE GRAPH"}</p>
           <h1 id="native-demo-title">The graph is not available yet</h1>
-          <p role="alert">{notice?.text ?? (embedded ? "Buddy could not open this private graph right now." : "The isolated DungeonMind service has not returned a graph.")}</p>
-          <button className="native-demo-button native-demo-button--light" type="button" onClick={() => void refreshGraph()} disabled={refreshing}>
+          <p role="alert">{notice?.text ?? (embedded ? mode === "managed" ? `Buddy could not open ${worldTitle?.trim() || "the selected World"} right now.` : "Buddy could not open the private playground right now." : "The isolated DungeonMind service has not returned a graph.")}</p>
+          {mode !== "managed" || stateScopeId ? <button className="native-demo-button native-demo-button--light" type="button" onClick={() => void refreshGraph()} disabled={refreshing}>
             {refreshing ? "Checking…" : "Try again"}
-          </button>
+          </button> : null}
         </section>
       </main>
     );
   }
 
+  const completeness = graphCompleteness(graph);
+  const partialReadSummary = completeness?.status === "partial"
+    ? `Partial native graph read: ${completeness.omitted_entities} entities omitted, ${completeness.unexamined_entities} unexamined; ${completeness.omitted_assertions} assertions omitted, ${completeness.unexamined_assertions} unexamined.`
+    : null;
+
+  const createPanel = (
+    <section className="native-demo-action-card" aria-labelledby="native-demo-create-title">
+      <p className="native-demo-eyebrow">AUTHOR A NODE</p>
+      <h2 id="native-demo-create-title">Add an object</h2>
+      <p className="native-demo-copy">{placementIntent
+        ? `This ${placementIntent.kind} will be placed where you clicked after DungeonMind confirms the new node.`
+        : "Create a typed object. Review every change before it is saved by DungeonMind."}</p>
+      <form className="native-demo-form" onSubmit={(event) => void submitCreate(event)}>
+        <label htmlFor="native-demo-name">Name</label>
+        <input ref={createNameInputRef} id="native-demo-name" name="name" autoComplete="off" maxLength={120} required value={draft.objectName}
+          onChange={(event) => updateDraft({ objectName: event.target.value })} disabled={Boolean(pendingOperation)} placeholder="e.g. Mara" />
+        <label htmlFor="native-demo-kind">Type</label>
+        <select id="native-demo-kind" name="kind" value={draft.objectKind}
+          onChange={(event) => updateCreateKind(event.target.value as NativeObjectKind)} disabled={Boolean(pendingOperation)}>
+          {graph.capabilities.object_kinds.map((kind) => <option value={kind} key={kind}>{kind.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase())}</option>)}
+          {!isNativeKindSupported(graph, "event") ? <option value="event" disabled>Event · unavailable</option> : null}
+        </select>
+        {graph.capabilities.create && !graph.capabilities.object_kinds.length ? <p className="native-demo-limitation">This graph profile has no supported object types to create.</p> : null}
+        {!isNativeKindSupported(graph, "event") ? <p className="native-demo-limitation">{embedded ? "Event typing is not supported by this DungeonMind profile." : "Event typing is not supported by this DungeonMind profile yet. This demo is incomplete until the native profile accepts it."}</p> : null}
+        <button className="native-demo-button native-demo-button--gold" type="submit" disabled={!graph.capabilities.create || !isNativeKindSupported(graph, draft.objectKind) || Boolean(pendingOperation) || pendingStatus === "not_sent"}>
+          {pendingOperation?.kind === "create_object" ? "Review is in progress" : "Prepare object"}
+        </button>
+      </form>
+    </section>
+  );
+
+  const finitePredicateOptions = usesFinitePredicateOptions(graph);
+  const allowedPredicates = graph.capabilities.allowed_predicates ?? [];
+  const allowsCustomPredicates = graph.capabilities.allows_custom_predicates === true;
+  const predicateInputPattern = allowsCustomPredicates ? NAMESPACED_PREDICATE_PATTERN_HTML : PREDICATE_PATTERN_HTML;
+  const connectPanel = (
+    <section className="native-demo-action-card" aria-labelledby="native-demo-connect-title">
+      <p className="native-demo-eyebrow">AUTHOR A DIRECTED EDGE</p>
+      <h2 id="native-demo-connect-title">Connect two objects</h2>
+      <p className="native-demo-copy">{finitePredicateOptions
+        ? "Choose the source, destination, and an approved relationship label. DungeonMind checks the current graph revision."
+        : allowsCustomPredicates
+          ? "Choose the source and destination, then enter a namespaced relationship label. DungeonMind checks the current graph revision."
+          : "Choose the source, destination, and predicate. DungeonMind checks the current graph revision."}</p>
+      <form className="native-demo-form" onSubmit={(event) => void submitConnect(event)}>
+        <label htmlFor="native-demo-source">From</label>
+        <select id="native-demo-source" value={draft.sourceId} required disabled={Boolean(pendingOperation)}
+          onChange={(event) => updateDraft({ sourceId: event.target.value })}>
+          <option value="">Choose an object</option>
+          {graph.nodes.map((node) => <option key={node.id} value={node.id}>{node.name} · {node.kind}</option>)}
+        </select>
+        <label htmlFor="native-demo-target">To</label>
+        <select id="native-demo-target" value={draft.targetId} required disabled={Boolean(pendingOperation)}
+          onChange={(event) => updateDraft({ targetId: event.target.value })}>
+          <option value="">Choose an object</option>
+          {graph.nodes.map((node) => <option key={node.id} value={node.id}>{node.name} · {node.kind}</option>)}
+        </select>
+        <label htmlFor="native-demo-predicate">Relationship</label>
+        {finitePredicateOptions ? (
+          <select ref={connectPredicateSelectRef} id="native-demo-predicate" name="predicate" required
+            value={draft.predicate} disabled={Boolean(pendingOperation) || !allowedPredicates.length}
+            onChange={(event) => updateDraft({ predicate: event.target.value })}>
+            <option value="">Choose an approved label</option>
+            {allowedPredicates.map((predicate) => <option value={predicate} key={predicate}>{predicate}</option>)}
+          </select>
+        ) : (
+          <input ref={connectPredicateInputRef} id="native-demo-predicate" name="predicate" autoComplete="off" maxLength={64} required pattern={predicateInputPattern}
+            title={allowsCustomPredicates ? "Use a lowercase namespace and predicate separated by a colon, such as story:knows." : "Use lowercase letters, numbers, dots, underscores, or hyphens only. Example: works_at."}
+            onChange={(event) => updateDraft({ predicate: event.target.value })} value={draft.predicate} disabled={Boolean(pendingOperation)} placeholder={allowsCustomPredicates ? "e.g. story:knows" : "e.g. works_at"} />
+        )}
+        <p className="native-demo-predicate-help">{finitePredicateOptions
+          ? allowedPredicates.length ? "Only labels approved by the selected World can be used." : "No approved relationship labels are available for this World."
+          : allowsCustomPredicates ? "Use a lowercase namespace and predicate separated by a colon."
+            : "Use lowercase letters, numbers, dots, underscores, and hyphens only."}</p>
+        <button className="native-demo-button native-demo-button--gold" type="submit" disabled={!canConnectGraph(graph) || graph.nodes.length < 1 || Boolean(pendingOperation) || pendingStatus === "not_sent"}>
+          {pendingOperation?.kind === "connect" ? "Review is in progress" : "Prepare connection"}
+        </button>
+      </form>
+    </section>
+  );
+
+  const reviewPanel = pendingOperation ? (
+    <section className="native-demo-review-card" aria-labelledby="native-demo-review-title">
+      <p className="native-demo-eyebrow">EXPLICIT REVIEW</p>
+      <h2 id="native-demo-review-title">{operationName(pendingOperation)}</h2>
+      {reviewSummary ? <p className="native-demo-review-summary">{reviewSummary}</p> : <p className="native-demo-copy">The saved form draft and stable operation ID are being reconciled with DungeonMind.</p>}
+      <p className="native-demo-operation-id">Operation <code>{pendingOperation.operation_id}</code></p>
+      {pendingStatus === "prepared" && reviewSummary ? (
+        <>
+          <button className="native-demo-button native-demo-button--confirm" type="button" onClick={() => void confirmPrepared()}>Confirm in DungeonMind</button>
+          {pendingPhase === "prepare" ? <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void setAsidePreparedForEditing()}>Edit draft (keep review record)</button> : null}
+        </>
+      ) : null}
+      {pendingStatus === "unknown" || pendingStatus === "not_sent" || pendingStatus === "not_found" || pendingStatus === "rejected" ? (
+        <div className="native-demo-recovery-actions">
+          {pendingStatus !== "not_sent" ? <button className="native-demo-button native-demo-button--light" type="button" onClick={() => void checkPendingStatus()}>Check status</button> : null}
+          {(pendingStatus === "not_found" && pendingPhase === "prepare" || pendingStatus === "not_sent") ? <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void retrySamePrepare()}>Retry same operation ID</button> : null}
+          {(pendingStatus === "rejected" && pendingErrorCode === "stale_revision" || pendingStatus === "not_found" && pendingPhase === "prepare")
+            ? <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void startFreshAfterStaleReview()}>Refresh and start a fresh review</button> : null}
+          {pendingStatus === "rejected" && pendingErrorCode !== "stale_revision" ? <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void clearRecoveredOperation("The rejected operation is dismissed. Your form draft is still here; edit it and prepare a new review.")}>Dismiss rejected operation</button> : null}
+        </div>
+      ) : null}
+      {pendingStatus === "checking" ? <p className="native-demo-checking" role="status">Checking the exact operation ID…</p> : null}
+      <p className="native-demo-no-cancel">If the response was lost, this panel keeps the same ID. It will never create a replacement operation automatically. Setting aside a prepared review only releases this tab's pointer; it does not delete server-side source or review records.</p>
+    </section>
+  ) : null;
+
+  const infoPanel = (
+    <section className="native-demo-limits-card" aria-labelledby="native-demo-limits-title">
+      <p className="native-demo-eyebrow">ABOUT THIS GRAPH</p>
+      <h2 id="native-demo-limits-title">{mode === "managed" ? worldTitle?.trim() || "Selected World" : "A small, scoped playground"}</h2>
+      <p className="native-demo-copy">{mode === "managed"
+        ? "This is the selected World graph from DungeonMind. Semantic edits stay behind the native review and confirmation flow."
+        : "This private synthetic graph is backed by DungeonMind. It does not edit or publish your account Worlds."}</p>
+      <p className="native-demo-limit-detail">Drag the background to pan, move nodes to arrange this view, and use the canvas controls to zoom or fit. The arrangement is saved in this browser only.</p>
+      <ul>
+        <li className={graph.capabilities.create ? "is-available" : "is-unavailable"}>{graph.capabilities.create ? `Create ${graph.capabilities.object_kinds.map((kind) => kind.replace(/[_-]+/g, " ")).join(", ") || "supported native objects"}` : "Object creation is read-only here"}</li>
+        <li className={canConnectGraph(graph) ? "is-available" : "is-unavailable"}>{!graph.capabilities.connect ? "Connections are read-only here" : !canConnectGraph(graph) ? "No approved relationship labels are available" : finitePredicateOptions ? `Connect using ${allowedPredicates.length} approved relationship label${allowedPredicates.length === 1 ? "" : "s"}` : allowsCustomPredicates ? "Connect using namespaced relationship labels" : "Connect objects with a predicate"}</li>
+        <li className="is-unavailable">Rename is unavailable</li>
+        <li className="is-unavailable">Delete is unavailable</li>
+      </ul>
+      <p className="native-demo-limit-detail">Rename and delete are not part of the native operation contract.</p>
+      {completeness?.status === "partial" ? (
+        <div className="native-demo-completeness native-demo-completeness--info" role="status">
+          <strong>Partial native graph read</strong>
+          <p>{partialReadSummary}</p>
+          {completeness.reasons.length ? <ul>{completeness.reasons.map((reason) => <li key={reason}>{completenessReasonLabel(reason)}</li>)}</ul> : null}
+        </div>
+      ) : null}
+      {limitations.map((limitation) => <p className="native-demo-limit-detail" key={limitation}>{limitation}</p>)}
+      <p className="native-demo-limit-detail">Revision <code>{graph.revision_id}</code> · digest <code>{graph.graph_sha256.slice(0, 16)}…</code></p>
+      {mode === "playground" ? <p className="native-demo-limit-detail">Saved for this browser session. Clearing cookies or session expiry loses the link to this graph.</p> : null}
+      <p className="native-demo-limit-detail">Browser storage holds presentation layout and a tab-scoped recovery draft only; DungeonMind remains the semantic authority.</p>
+    </section>
+  );
+
+
   return (
     <main className={`native-demo-shell${embedded ? " native-demo-shell--embedded" : ""}`}>
-      <div className="native-demo-layout">
-        <header className="native-demo-header">
+      {embeddedContext}
+      {embedded ? <h1 className="native-demo-sr-only">{mode === "managed" ? `${worldTitle?.trim() || "Selected World"} graph` : "Buddy graph playground"}</h1> : null}
+      <div className={`native-demo-layout${embedded ? " native-demo-layout--embedded" : ""}`}>
+        {!embedded ? <header className="native-demo-header">
           <div className="native-demo-brand-mark" aria-hidden="true"><span>{embedded ? "B" : "DM"}</span></div>
           <div className="native-demo-heading">
             <p className="native-demo-kicker">{embedded ? "BUDDY · GRAPH PLAYGROUND" : "A SMALL, REAL GRAPH WORKSPACE"}</p>
@@ -760,128 +1302,96 @@ export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGr
               : "Explore the published World graph, then prepare and review a native change before confirming it."}</p>
           </div>
           <div className="native-demo-storage-pill"><span aria-hidden="true" /> {embedded ? "Private · DungeonMind" : "PostgreSQL · server-backed"}</div>
-        </header>
+        </header> : null}
 
         {notice ? <div className={`native-demo-notice native-demo-notice--${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}>{notice.text}</div> : null}
         {storageWarning ? <div className="native-demo-storage-note" role="status">Browser storage is unavailable. Form drafts may not survive a page reload, and new requests will wait until a recovery draft can be saved.</div> : null}
 
-        <div className="native-demo-workspace">
-          <section className="native-demo-graph-card" aria-labelledby="native-demo-graph-heading">
-            <div className="native-demo-card-heading">
-              <div>
-                <p className="native-demo-eyebrow">{embedded ? "SYNTHETIC GRAPH" : "PUBLISHED WORLD"}</p>
-                <h2 id="native-demo-graph-heading">{embedded ? "The graph so far" : "The living graph"}</h2>
+        <div className={`native-demo-workspace${embedded ? ` native-demo-workspace--embedded${pendingOperation || activePanel ? " has-panel" : ""}` : ""}`}>
+          <section className={`native-demo-graph-card${embedded ? " native-demo-graph-card--embedded" : ""}`} aria-labelledby="native-demo-graph-heading">
+            {embedded ? (
+              <h2 id="native-demo-graph-heading" className="native-demo-sr-only">DungeonMind graph</h2>
+            ) : (
+              <div className="native-demo-card-heading">
+                <div>
+                  <p className="native-demo-eyebrow">PUBLISHED WORLD</p>
+                  <h2 id="native-demo-graph-heading">The living graph</h2>
+                </div>
+                <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void refreshGraph()} disabled={refreshing}>
+                  <span aria-hidden="true">↻</span> {refreshing ? "Refreshing…" : "Refresh"}
+                </button>
               </div>
-              <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void refreshGraph()} disabled={refreshing}>
-                <span aria-hidden="true">↻</span> {refreshing ? "Refreshing…" : "Refresh"}
-              </button>
-            </div>
-            <div className="native-demo-canvas-note">Pan the canvas by dragging its background. Move a node to arrange this view. Those positions stay in this browser only. Semantic edits always come from DungeonMind.</div>
-            {record ? <WorldGraphCanvas key={`${graph.world_id}:${graph.revision_id}`} record={record} onMoveObjects={saveLayout} /> : null}
+            )}
+            {embedded ? <p className="native-demo-canvas-note">{pendingOperation
+              ? "The graph is paused while this review is resolved. Use the review controls above."
+              : graph.capabilities.create && canConnectGraph(graph)
+                ? "Explore the graph. Use the canvas tools to place a node or drag a connector to another node."
+                : graph.capabilities.create
+                  ? "Explore the graph. Use the canvas tools to place a node where you want it."
+                  : canConnectGraph(graph)
+                    ? "Explore the graph. Drag a connector to another node to prepare a relationship."
+                    : "Explore the graph. Drag the background to pan, move nodes to arrange this view, and use the canvas controls to zoom or fit."}</p> : null}
+            {record ? (
+              <WorldGraphCanvas
+                key={graph.world_id}
+                record={record}
+                onMoveObjects={saveLayout}
+                {...(embedded ? {
+                  nodeShape: "circle" as const,
+                  projectionOptions: { maxNodes: 512, maxEdges: 1024 },
+                  creationKinds,
+                  onCanvasCreateRequest: graph.capabilities.create ? handleCanvasCreateRequest : undefined,
+                  onConnectRequest: canConnectGraph(graph) ? handleConnectRequest : undefined,
+                  onSelectionChange: setSelectedNodeId,
+                  interactionDisabled: Boolean(pendingOperation),
+                } : {})}
+              />
+            ) : null}
             <div className="native-demo-graph-meta">
-              <span><strong>{graph.nodes.length}</strong> objects</span>
-              <span><strong>{graph.edges.length}</strong> relationships</span>
-              <span className="native-demo-meta-ellipsis" title={graph.revision_id}>Revision <code>{graph.revision_id}</code></span>
+              <span><strong>{graph.nodes.length}</strong> {completeness?.status === "partial" ? "listed objects" : "objects"}</span>
+              <span><strong>{graph.edges.length}</strong> {completeness?.status === "partial" ? "listed relationships" : "relationships"}</span>
+              {!embedded ? <span className="native-demo-meta-ellipsis" title={graph.revision_id}>Revision <code>{graph.revision_id}</code></span> : null}
             </div>
+            {partialReadSummary ? <div className="native-demo-completeness" role="status"><strong>Partial native graph read</strong><span>{partialReadSummary}</span>{completeness?.reasons.map((reason) => <span key={reason}>{completenessReasonLabel(reason)}</span>)}</div> : null}
           </section>
 
-          <aside className="native-demo-side-panel" aria-label="Native graph actions">
-            <section className="native-demo-action-card" aria-labelledby="native-demo-create-title">
-              <p className="native-demo-eyebrow">AUTHOR A NODE</p>
-              <h2 id="native-demo-create-title">Add an object</h2>
-              <p className="native-demo-copy">Create a typed DungeonMind object. It stays a draft until you review and confirm.</p>
-              <form className="native-demo-form" onSubmit={(event) => void submitCreate(event)}>
-                <label htmlFor="native-demo-name">Name</label>
-                <input id="native-demo-name" name="name" autoComplete="off" maxLength={120} required value={draft.objectName}
-                  onChange={(event) => updateDraft({ objectName: event.target.value })} disabled={Boolean(pendingOperation)} placeholder="e.g. Mara" />
-                <label htmlFor="native-demo-kind">Type</label>
-                <select id="native-demo-kind" name="kind" value={draft.objectKind}
-                  onChange={(event) => updateDraft({ objectKind: event.target.value as NativeObjectKind })} disabled={Boolean(pendingOperation)}>
-                  <option value="person">Person</option>
-                  <option value="location">Location</option>
-                  <option value="event" disabled={!isNativeKindSupported(graph, "event")}>Event{!isNativeKindSupported(graph, "event") ? " · unavailable" : ""}</option>
-                </select>
-                {!isNativeKindSupported(graph, "event") ? <p className="native-demo-limitation">Event typing is not supported by this DungeonMind profile yet. This demo is incomplete until the native profile accepts it.</p> : null}
-                <button className="native-demo-button native-demo-button--gold" type="submit" disabled={!graph.capabilities.create || !isNativeKindSupported(graph, draft.objectKind) || Boolean(pendingOperation) || pendingStatus === "not_sent"}>
-                  {pendingOperation?.kind === "create_object" ? "Review is in progress" : "Prepare object"}
-                </button>
-              </form>
-            </section>
-
-            <section className="native-demo-action-card" aria-labelledby="native-demo-connect-title">
-              <p className="native-demo-eyebrow">AUTHOR A DIRECTED EDGE</p>
-              <h2 id="native-demo-connect-title">Connect two objects</h2>
-              <p className="native-demo-copy">Choose the source, destination, and predicate. DungeonMind checks the current graph revision.</p>
-              <form className="native-demo-form" onSubmit={(event) => void submitConnect(event)}>
-                <label htmlFor="native-demo-source">From</label>
-                <select id="native-demo-source" value={draft.sourceId} required disabled={Boolean(pendingOperation)}
-                  onChange={(event) => updateDraft({ sourceId: event.target.value })}>
-                  <option value="">Choose an object</option>
-                  {graph.nodes.map((node) => <option key={node.id} value={node.id}>{node.name} · {node.kind}</option>)}
-                </select>
-                <label htmlFor="native-demo-target">To</label>
-                <select id="native-demo-target" value={draft.targetId} required disabled={Boolean(pendingOperation)}
-                  onChange={(event) => updateDraft({ targetId: event.target.value })}>
-                  <option value="">Choose an object</option>
-                  {graph.nodes.map((node) => <option key={node.id} value={node.id}>{node.name} · {node.kind}</option>)}
-                </select>
-                <label htmlFor="native-demo-predicate">Relationship</label>
-                <input id="native-demo-predicate" name="predicate" autoComplete="off" maxLength={64} required pattern="[a-z0-9][a-z0-9._-]*" title="Use lowercase letters, numbers, dots, underscores, or hyphens only. Example: works_at."
-                  onChange={(event) => updateDraft({ predicate: event.target.value })} value={draft.predicate} disabled={Boolean(pendingOperation)} placeholder="e.g. works_at" />
-                <p className="native-demo-predicate-help">Use lowercase letters, numbers, dots, underscores, and hyphens only.</p>
-                <button className="native-demo-button native-demo-button--gold" type="submit" disabled={!graph.capabilities.connect || graph.nodes.length < 1 || Boolean(pendingOperation) || pendingStatus === "not_sent"}>
-                  {pendingOperation?.kind === "connect" ? "Review is in progress" : "Prepare connection"}
-                </button>
-              </form>
-            </section>
-
-            {pendingOperation ? (
-              <section className="native-demo-review-card" aria-labelledby="native-demo-review-title">
-                <p className="native-demo-eyebrow">EXPLICIT REVIEW</p>
-                <h2 id="native-demo-review-title">{operationName(pendingOperation)}</h2>
-                {reviewSummary ? <p className="native-demo-review-summary">{reviewSummary}</p> : <p className="native-demo-copy">The saved form draft and stable operation ID are being reconciled with DungeonMind.</p>}
-                <p className="native-demo-operation-id">Operation <code>{pendingOperation.operation_id}</code></p>
-                {pendingStatus === "prepared" && reviewSummary ? (
-                  <>
-                    <button className="native-demo-button native-demo-button--confirm" type="button" onClick={() => void confirmPrepared()}>Confirm in DungeonMind</button>
-                    {pendingPhase === "prepare" ? <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void setAsidePreparedForEditing()}>Edit draft (keep review record)</button> : null}
-                  </>
-                ) : null}
-                {pendingStatus === "unknown" || pendingStatus === "not_sent" || pendingStatus === "not_found" || pendingStatus === "rejected" ? (
-                  <div className="native-demo-recovery-actions">
-                    {pendingStatus !== "not_sent" ? <button className="native-demo-button native-demo-button--light" type="button" onClick={() => void checkPendingStatus()}>Check status</button> : null}
-                    {(pendingStatus === "not_found" && pendingPhase === "prepare" || pendingStatus === "not_sent") ? <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void retrySamePrepare()}>Retry same operation ID</button> : null}
-                    {(pendingStatus === "rejected" && pendingErrorCode === "stale_revision" || pendingStatus === "not_found" && pendingPhase === "prepare")
-                      ? <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void startFreshAfterStaleReview()}>Refresh and start a fresh review</button> : null}
-                    {pendingStatus === "rejected" && pendingErrorCode !== "stale_revision" ? <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void clearRecoveredOperation("The rejected operation is dismissed. Your form draft is still here; edit it and prepare a new review.")}>Dismiss rejected operation</button> : null}
-                  </div>
-                ) : null}
-                {pendingStatus === "checking" ? <p className="native-demo-checking" role="status">Checking the exact operation ID…</p> : null}
-                <p className="native-demo-no-cancel">If the response was lost, this panel keeps the same ID. It will never create a replacement operation automatically. Setting aside a prepared review only releases this tab's pointer; it does not delete server-side source or review records.</p>
+          {embedded ? (
+            pendingOperation ? (
+              <aside className="native-demo-side-panel native-demo-side-panel--embedded" aria-label="Pending graph review">
+                {reviewPanel}
+              </aside>
+            ) : activePanel ? (
+              <aside className="native-demo-side-panel native-demo-side-panel--embedded" aria-label={activePanel === "info" ? "Graph information" : "Graph actions"}>
+                {activePanel === "create" ? createPanel : activePanel === "connect" ? connectPanel : infoPanel}
+              </aside>
+            ) : null
+          ) : (
+            <aside className="native-demo-side-panel" aria-label="Native graph actions">
+              {createPanel}
+              {connectPanel}
+              {reviewPanel}
+              <section className="native-demo-limits-card" aria-labelledby="native-demo-limits-title">
+                <p className="native-demo-eyebrow">CURRENT PROFILE</p>
+                <h2 id="native-demo-limits-title">What this demo can do</h2>
+                <ul>
+                  <li className={graph.capabilities.create ? "is-available" : "is-unavailable"}>Create supported native objects</li>
+                  <li className={canConnectGraph(graph) ? "is-available" : "is-unavailable"}>{canConnectGraph(graph) ? "Connect objects with an approved relationship label" : "Connections are read-only here"}</li>
+                  <li className="is-unavailable">Rename is unavailable</li>
+                  <li className="is-unavailable">Delete is unavailable</li>
+                </ul>
+                <p className="native-demo-limit-detail">Rename and delete are not implemented by the native operation contract, so this demo does not imitate them with other assertions.</p>
+                {limitations.map((limitation) => <p className="native-demo-limit-detail" key={limitation}>{limitation}</p>)}
               </section>
-            ) : null}
-
-            <section className="native-demo-limits-card" aria-labelledby="native-demo-limits-title">
-              <p className="native-demo-eyebrow">CURRENT PROFILE</p>
-              <h2 id="native-demo-limits-title">What this demo can do</h2>
-              <ul>
-                <li className={graph.capabilities.create ? "is-available" : "is-unavailable"}>Create supported native objects</li>
-                <li className={graph.capabilities.connect ? "is-available" : "is-unavailable"}>Connect objects with a predicate</li>
-                <li className="is-unavailable">Rename is unavailable</li>
-                <li className="is-unavailable">Delete is unavailable</li>
-              </ul>
-              <p className="native-demo-limit-detail">Rename and delete are not implemented by the native operation contract, so this demo does not imitate them with other assertions.</p>
-              {limitations.map((limitation) => <p className="native-demo-limit-detail" key={limitation}>{limitation}</p>)}
-            </section>
-          </aside>
+            </aside>
+          )}
         </div>
 
-        <footer className="native-demo-footer">
+        {!embedded ? <footer className="native-demo-footer">
           <span>{embedded ? "This private demo graph is separate from your existing Worlds." : "DungeonMind is the semantic authority for this graph."}</span>
           {embedded ? <span>This graph is saved by DungeonMind for this browser session. If the session expires or its cookie is cleared, this browser may lose its link to the graph.</span> : null}
           <span>Graph digest <code>{graph.graph_sha256.slice(0, 16)}…</code></span>
           <span>Browser storage holds only view layout and tab-scoped recoverable drafts.</span>
-        </footer>
+        </footer> : null}
       </div>
     </main>
   );
