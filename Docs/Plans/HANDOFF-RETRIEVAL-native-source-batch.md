@@ -99,10 +99,22 @@ open PRs #143 and #145–150). Recheck active leases before activation.
 - src/dungeonmind/application/vnext/__init__.py (public export only)
 - src/dungeonmind/infrastructure/postgres/vnext_sources.py
 - src/dungeonmind/infrastructure/postgres/vnext_operator_sources.py
+- src/dungeonmind/infrastructure/postgres/vnext_knowledge.py (extract the existing
+  publication-receipt row validator used by extension lineage; no publication
+  behavior or new capability)
 - src/dungeonmind/infrastructure/memory/vnext_sources.py
 - src/dungeonmind/infrastructure/memory/vnext_operator_sources.py
 - Existing native/operator source unit and Postgres integration tests, with a
   focused batch test file only if their owning structure requires it
+
+SQL-owner review checkpoint: extension reconstruction also verifies its original
+admission's full record/body/span index and the actual publication receipt. The
+bulk snapshot must supply those rows to shared pure validators. Factor the current
+fetch/validation helpers at their owners; do not copy predicates or introduce a
+connection-shaped snapshot adapter that pretends additional queries are real IO.
+This required extraction is part of the same atomic-read capability, not a new
+publication slice. Existing legacy artifact/revision reconstruction helpers are
+already pure and need no change.
 
 Core checkout must be a managed isolated checkout under the verified Projects
 filesystem, never the dirty legacy Core checkout. The managed worktree tool refused
