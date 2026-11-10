@@ -76,7 +76,7 @@ def test_context_tasting_freezes_shared_input_and_retains_failures(tmp_path, mon
 
 
 @pytest.mark.parametrize("reviewed", [False, True, "pending"])
-@pytest.mark.parametrize("presentation", ["flat_native_assertions_v1", "retained_json"])
+@pytest.mark.parametrize("presentation", ["flat_native_assertions_v2", "retained_json"])
 def test_flat_tasting_changes_only_exact_evidence_frame(tmp_path, monkeypatch, reviewed, presentation):
     import generationengine
     from application_state.agent_conversation import native_evidence_view, types
@@ -125,7 +125,7 @@ def test_flat_tasting_changes_only_exact_evidence_frame(tmp_path, monkeypatch, r
         assert json.loads((output / "frozen-packet.json").read_text()) == packet
         assert "host-binding" not in seen[0].user_prompt
         assert "source_frame_sha256" not in seen[0].user_prompt
-    if presentation == "flat_native_assertions_v1":
+    if presentation == "flat_native_assertions_v2":
         flat = json.loads((output / "flat-presentation.json").read_text())
         assert restore_flat_native_evidence(flat["text"], flat["readback_proof"]) == expected
         text = flat["text"]

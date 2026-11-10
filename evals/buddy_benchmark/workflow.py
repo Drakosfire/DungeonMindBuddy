@@ -777,12 +777,12 @@ def context_tasting(manifest_path, output):
         if prompt_components.get("instructions_sha256") != sha256(instructions.encode()).hexdigest():
             raise ValueError("Prompt components differ from actual instructions")
     presentation = spec.get("presentation", "retained_json")
-    if presentation not in {"retained_json", "flat_native_assertions_v1"}:
+    if presentation not in {"retained_json", "flat_native_assertions_v2"}:
         raise ValueError("Unknown evidence presentation")
     input_contents = [row["content"] for row in packet["input"]]
     flat = None
     qualification_repair = None
-    if presentation == "flat_native_assertions_v1" or spec.get("qualification_review") is not None:
+    if presentation == "flat_native_assertions_v2" or spec.get("qualification_review") is not None:
         from application_state.agent_conversation.native_evidence_presentation import (
             flat_native_evidence, reviewed_qualification_frame)
         positions = []
@@ -799,7 +799,7 @@ def context_tasting(manifest_path, output):
             review = json.loads(read_pin(spec["qualification_review"], path.parent))
             presented_frame, binding = reviewed_qualification_frame(frame, review)
             qualification_repair = {"review": review, "binding": binding, "presented_frame": presented_frame}
-        if presentation == "flat_native_assertions_v1":
+        if presentation == "flat_native_assertions_v2":
             text, proof = flat_native_evidence(presented_frame)
             flat = {"text": text, "readback_proof": proof}
         else:

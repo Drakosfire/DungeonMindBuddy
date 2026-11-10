@@ -71,18 +71,20 @@ def reviewed_qualification_frame(frame, review):
                     "scope": "reviewed diagnostic presentation; original APP authority unchanged"}
 
 
-def _walk(value, path=()):
+def _walk(value, path=(), *, atomic=()):
+    if path in atomic:
+        return {"cell": list(path)}, {path: value}
     if isinstance(value, dict) and value:
         children, leaves = [], {}
         for key, item in value.items():
-            layout, cells = _walk(item, (*path, key))
+            layout, cells = _walk(item, (*path, key), atomic=atomic)
             children.append([key, layout])
             leaves.update(cells)
         return {"object": children}, leaves
     if isinstance(value, list) and value:
         children, leaves = [], {}
         for index, item in enumerate(value):
-            layout, cells = _walk(item, (*path, index))
+            layout, cells = _walk(item, (*path, index), atomic=atomic)
             children.append(layout)
             leaves.update(cells)
         return {"array": children}, leaves
@@ -97,17 +99,17 @@ def _restore(layout, cells):
     return cells[tuple(layout["cell"])]
 
 
-def _table(title, rows):
+def _table(title, rows, *, atomic=()):
     layouts, leaves, columns = [], [], []
     for row in rows:
-        layout, cells = _walk(row)
+        layout, cells = _walk(row, atomic=atomic)
         layouts.append(layout)
         leaves.append(cells)
         for path in cells:
             if path not in columns:
                 columns.append(path)
     # Display citation handles before content, without changing record order.
-    columns.sort(key=lambda path: (path not in {("assertion_handle",), ("qualification_handle",)},))
+    columns.sort(key=lambda path: (path not in {("assertion_handle",), ("qualification_handles",)},))
     header = _json([list(path) for path in columns])
     lines = [title, header]
     lines += ["\t".join(_json(cells[path]) if path in cells else "_" for path in columns) for cells in leaves]
@@ -116,6 +118,8 @@ def _table(title, rows):
 
 def restore_flat_native_evidence(text, proof):
     """Offline/owner readback check; not a product input or alternate producer."""
+    if proof.get("schema") != "flat_native_assertions_v2":
+        raise ValueError("Read historical flat artifacts with their pinned renderer")
     sections = text.split("\n\n")
     envelope = json.loads(sections[1])
     state = json.loads(sections[3])
@@ -134,7 +138,18 @@ def restore_flat_native_evidence(text, proof):
             rows.append(_restore(layout, cells))
         restored.append(rows)
     state["assertions"] = restored[0]
-    state["qualifications"] = {row["qualification_handle"]: row["qualification"] for row in restored[1]}
+    definitions = {}
+    for row in restored[1]:
+        handles = row["qualification_handles"]
+        if not isinstance(handles, list) or not handles or any(not isinstance(h, str) for h in handles):
+            raise ValueError("Invalid shared qualification handles")
+        for handle in handles:
+            if handle in definitions:
+                raise ValueError("Duplicate shared qualification handle")
+            definitions[handle] = deepcopy(row["qualification"])
+    if set(definitions) != set(proof["qualification_keys"]):
+        raise ValueError("Shared qualification handles differ")
+    state["qualifications"] = {key: definitions[key] for key in proof["qualification_keys"]}
     state = {key: state[key] for key in proof["assertion_keys"]}
     envelope["native_assertions"] = state
     return {key: envelope[key] for key in proof["envelope_keys"]}
@@ -148,15 +163,23 @@ def flat_native_evidence(frame):
         raise ValueError("Flat presentation requires native assertion records")
     state = {key: value for key, value in assertions.items() if key not in {"assertions", "qualifications"}}
     facts, fact_proof = _table("FACTS — one row per original assertion", assertions["assertions"])
-    qualifications, qualification_proof = _table("QUALIFICATIONS — shared, referenced by original handle", [
-        {"qualification_handle": key, "qualification": value} for key, value in assertions["qualifications"].items()])
+    groups = {}
+    for handle, value in assertions["qualifications"].items():
+        # Byte equality includes value types and object order. Do not normalize,
+        # compare prose similarity, or infer equivalent source restrictions.
+        group = groups.setdefault(_json(value), {"qualification_handles": [], "qualification": value})
+        group["qualification_handles"].append(handle)
+    qualifications, qualification_proof = _table(
+        "QUALIFICATIONS — every listed original handle names the complete value in its row",
+        list(groups.values()), atomic={("qualification_handles",)})
     text = "\n\n".join([
         "EVIDENCE ENVELOPE (native_assertions follow below; all other fields unchanged)\n"
         "Table headers list original field paths in column order. Cells are JSON values separated by tabs. "
         "A bare _ means that field is absent, not false or null. Citation handles and qualifications retain their original meaning.", _json(envelope),
         "ASSERTION STATE (scope/completeness qualifiers; not universal absence)", _json(state), facts, qualifications])
-    proof = {"tables": [fact_proof, qualification_proof], "envelope_keys": list(frame),
-        "assertion_keys": list(assertions)}
+    proof = {"schema": "flat_native_assertions_v2", "tables": [fact_proof, qualification_proof],
+        "envelope_keys": list(frame), "assertion_keys": list(assertions),
+        "qualification_keys": list(assertions["qualifications"])}
     if _json(restore_flat_native_evidence(text, proof)) != _json(frame):
         raise ValueError("Flat presentation changed evidence")
     return text, proof

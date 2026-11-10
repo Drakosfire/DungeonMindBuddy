@@ -11,7 +11,29 @@ Slice1 settled: PR2337 merged 2dd7d020e7e835e70624c546d627777619a0c294.
 Compiler and experiment component pins are delivered; product activation and
 measured prompt adoption remain incomplete.
 
-Slice2 ACTIVE: explicit reviewed qualification separation for frozen diagnostic
+Slice2 settled: PR2340 merged 0af325132b98eb9dba327126df3ae89029a0f644.
+Explicit reviewed qualification separation is available in frozen diagnostics;
+live metadata cleanup and product assembly integration remain incomplete. Fresh
+Q15 reference failed native JSON; response-only prompt completed with9/9 required
+concepts and two minor grounding/chronology findings. Neither proves adoption.
+
+Slice3 ACTIVE: exact qualification sharing in the existing flat presentation.
+Branch codex/shared-writer-qualifications from fetched origin/main0af325132.
+Exclusive write lease: this handoff;
+src/application_state/agent_conversation/native_evidence_presentation.py;
+evals/buddy_benchmark/workflow.py; tests/test_native_evidence_presentation.py;
+tests/test_buddy_benchmark_workflow.py; Docs/Guides/ordinary-benchmark-workflow.md.
+Serial after2340. Open composition2225 and UI/storage lanes were inspected and do
+not overlap these paths. Preserve every original handle, field, qualification,
+quotation and input order on exact readback. Group only byte-identical complete
+qualification values, never similar text. Replace the old flat format rather
+than keep another runtime implementation; historical code pins retain readback.
+Verify local tests and full retained frame, then independent exact-head review.
+No primary/database/retrieval changes. After verification, one changed-presentation
+writer diagnostic may compare with the retained response-only JSON reference;
+context meaning, system prompt, model/route/schema/settings must remain fixed.
+
+Slice2 contract: explicit reviewed qualification separation for frozen diagnostic
 experiments only. Branch codex/reviewed-writer-qualifications from fetched
 origin/main 4e1138ebb. Exclusive write lease: this handoff;
 src/application_state/agent_conversation/native_evidence_presentation.py;
