@@ -1,85 +1,92 @@
-# INGEST: reconcile deferred delivery — attributed source observations
+# INGEST: reconcile deferred delivery — all-node exact source evidence
 
-ACTIVE serial stage1 slice under user deferred-fundamentals goal; root owns design
-and implementation. Preserve accepted C1S1–10 evidence/Gold and historical failures.
-Citation/voice studies deferred. Provider-owned output capacity stays uncapped by
-Buddy; historical token allocations do not define desired current defaults.
+ACTIVE serial stage1 slice under user deferred-fundamentals goal; root designs and
+implements. Preserve accepted C1S1–10 Gold/evidence/failures. Citation/voice studies
+deferred. Provider-owned output capacity stays None; no historical token cap returns.
 
 ## Settled predecessors
 
-2360 recovered2093 source-reference constraints;2362/a17e3f12 removed ordinary
-output ceilings after correcting2361.2364/2ac251f9 delivered direct precedence;
-2365/8d8c805e delivered self-contained occurrence claims.2366 merged
-4b2669164cb8c9e720c32f39d8997158441b8ad3 from reviewed90f146ba606bfebf9225f68ccef745ab2dcc6f79, recovering final temporal evidence block.
-329focused checks,623ingestion-and-review (82ownershipdeselected,52warnings), exact
-local hosted verifier/build and independent review PASS. First lock refusal and
-bounded queue expiration retained; no test bypass. Profile matches originalad421f8cc.
-2111/2116/2120closed as duplicate code, all semantic/publication HOLDs preserved.
-2367Play receipt validation is a disjoint concurrent main change. No deployment or
-merged-main full release claim. Prior leases released. Evidence:
-out/fundamentals-reconciliation-v1/temporal-witness-delivery/settlement-v1.json.
+2360source refs,2362output-cap removal,2364direct precedence,2365occurrence claims
+and2366temporal witness guidance delivered.2368 merged765e05b50f3648561427fd45e7c10ab2474e25cb from reviewed6a6a6db2865e88c8bb8d9e8d04b6a0b51fffa0af, replacing shared attributed-source policy.
+331focused checks,623ingestion-and-review (82ownershipdeselected,52warnings), exact
+local hosted suite/build and independent review PASS. Production profile matches
+2475ba08d and all serialized profile fields match frozen accepted reference.2126
+closed duplicate code; actual quality pending preserved. Prior lease released, no
+serving-runtime/primary change. Evidence attributed-source-delivery/settlement-v1.json
+under out/fundamentals-reconciliation-v1/. This is not full pipeline acceptance.
 
-## Current bounded authority
+## Current bounded serial authority
 
-Base4b2669164cb8c9e720c32f39d8997158441b8ad3; branch
-codex/ingest-attributed-policy-delivery; non-serving recorded-names-control checkout.
-No unmerged dependency or overlapping live Surface/Storage/CI write lease; historical
-INGEST branch handoffs are evidence, not concurrent activation. Independent design
-critique PASS before activation.
+Base765e05b50f3648561427fd45e7c10ab2474e25cb; branch
+codex/ingest-node-evidence-delivery; non-serving recorded-names-control checkout.
+Refreshed remote main/open PRs: no overlapping active Surface/Storage/CI lease;
+historical ingestion stacks do not activate concurrent writes. Independent design
+critique PASS before activation. One coherent evidence-unit capability combines
+2123/59143ed478706b0c894997bc4d8ed6829081d2f7 with2193/5fef1e198f8823955c31dbba7585b12af2196216 instead of delivering the known failing
+intermediate materializer.
 
-Recover2126/2475ba08dce5a632cea7d4e18cee9f98e7832933: replace the existing final
-_RECAP_SOURCE_FAITHFULNESS paragraph; do not append a second rule. Retain material
-narrator/character evaluations and comparisons as attributed observations, not
-objective mechanics/properties. Figurative description alone does not create literal
-class/ability/identity/object/possession/event; rhetorical question is not its answer.
-Preserve table/world/both uncertainty using existing deferred dispositions. Explicit
-in-world parenthetical objects/actions remain eligible; punctuation is not authority.
-The paragraph is in the frozen accepted configuration. Historical2126 actual model
-quality remains pending; this is policy recovery, not proven causal error reduction.
+Reuse existing sentence packet for all five ordinary recap node passes. Models
+select Q handles; host materializes exact source slices into existing canonical
+paragraph/quote evidence. Handles establish location, never truth. Ignored/deferred
+items use same wire while legal empty references remain legal. Positive nodes need
+support. Remove actor-only helper/capability/context names coherently, no aliases or
+alternate producer. Other recap preview profiles preserve prior actor-only policy;
+Worldbuilding, beat, edge and encounter/job contracts stay unchanged.
+
+Normalize repeated known units across separate valid evidence groups once per item,
+in first-seen order. Still reject duplicates within one group, unknown IDs, invalid
+reference shapes and stale/source-mismatched packets atomically. Do not merge by
+quote text or paragraph span: distinct source positions survive. Preserve immutable
+raw wire, normalized canonical response, packet units and hashes in existing DB
+receipt owners; retained historical rows/hashes are never rewritten.
 
 Exclusive expected writes:
 - this handoff
-- src/graph_memory/extraction/recap_extraction_profile.py
+- src/graph_memory/extraction/bounded_recap_execution.py
+- src/graph_memory/extraction/category_candidate_graph_extractor.py
+- src/graph_memory/extraction/source_sentence_evidence.py
+- tests/test_bounded_recap_execution.py
+- tests/test_category_candidate_graph_extractor.py
+- tests/test_source_sentence_evidence.py
+- tests/test_worldbuilding_collective_source_fidelity.py
+- tests/test_worldbuilding_location_source_fidelity.py
 - tests/test_recap_source_faithfulness_profile.py
 
-No new pass/schema/repair/source producer/corpus rule/fallback. Recap shared policy
-reaches node/beat/edge/preview passes; Worldbuilding/source authority partition,
-object dispositions, inference policy and quote guards unchanged.
+Current-history adaptation: replace prior slice's actor_source_packet policy test
+with actual node_source_packet interface; scope expands here intentionally. Historical
+test append contexts absent on main are adapted at existing function boundaries,
+without importing unrelated tests/implementations. #2118 quote-nomination repair
+is not a prerequisite and is not imported; its necessity/obsolescence for remaining
+beat/edge paths remains under separate reconciliation, no silent fallback.
 
-## Dependency discovery and honest test scope
+## Verification and resources
 
-Historical2126 test uses node_source_packet from2123. Current main exposes only
-actor_source_packet. Adapt the policy visibility test to that real current interface:
-all recap prompts still receive source rows/policy, but only actor source packet is
-structured this way. This does NOT prove generalized all-node evidence handles,
-canonical materialization or exact quote-to-span binding.2123 remains separately
-unintegrated and is the next owning evidence-binding boundary; no substitute path.
+Source packet/schema/disposition cases; all-five actual GE requests and canonical
+DB capture; non-node refusal before provider; foreign/unknown IDs and malformed
+later groups after duplicates; exact source bytes, first-seen ordering, distinct
+positions with identical text and unchanged raw inputs. Verify Worldbuilding and
+preview preservation and absence of actor-only executable APIs. Replay retained
+S1failure1cc0f4dd offline from pinned request/raw bundle/context rows using existing
+materializer; its29handle selections become28citations without any other field change.
+Do not publish/repair failed historical runs or regrade semantic Gold.
 
-Restore the exact prior authority paragraph only in historical fixture comparisons;
-never rewrite historical fixtures. Construct independent old/current profiles to
-prove unrelated instructions/fields/wire schemas unchanged. Synthetic comparison,
-boast, question, handout, world object and unresolved/both cases remain source, not
-production benchmark hints. No semantic-model compliance assertion from prompt tests.
+Qualify exact clean SHA using locked Python focused source/extractor/schema/SDK/
+Worldbuilding tests and ingestion-and-review; repo-owned local hosted verifier+
+validate; independent cumulative exact-head review. No frontend changes/full
+discovered-release claim. No paid rerun. Source handles do not prove claim entailment,
+current Gold coverage or full publication. Old scope/model failures remain preserved.
 
-## Verification/resources
+Only fresh fixture-owned APP dungeonbuddy_app_state_test_* templates/clones and Core
+ dmb_recap_source_test_* DBs on55447, pinned430c Core migrations/existing cleanup.
+No retained/operator DB, foreign sessions, primary, service/runtime/environment,
+provider, migration/deployment changes. Inert credentials and redacted diagnostics.
+Evidence out/fundamentals-reconciliation-v1/node-evidence-delivery/. One bounded PR,
+standing full merge rights; retire original code PRs only after owner proof/parity.
 
-Qualify exact clean SHA with locked Python owning renderer/schema/extractor and
-SDK cap-omission/incomplete tests plus ingestion-and-review. Repo-owned exact-SHA
-local hosted frontend verifier+validate; independent cumulative exact-head review.
-No frontend change/full discovered-release qualification claim. One bounded PR;
-standing full merge rights. Retire2126 only after actual source parity/ownerproof,
-retaining its quality pending status and downstream dependencies.
+## Remaining goal
 
-Only existing fresh fixture-owned APP dungeonbuddy_app_state_test_* templates/clones
-and Core dmb_recap_source_test_* DBs on55447; pinned430c Core migrations/cleanup.
-No retained/operator DB, foreign sessions, primary state, runtime/service/environment,
-provider, migration or deployment changes. Inert credentials; redact diagnostics.
-Evidence out/fundamentals-reconciliation-v1/attributed-source-delivery/.
-
-## Remaining objective
-
-Next reconcile all-node evidence binding/materialization, configuration/evaluation
-and publication/correction capabilities, then prove current ordinary DB-owned full
-chain. Initial47open INGEST inventory is not47bugs. Serving API76bb8c4b/UI04f5f0ad
-not current-main evidence. QA, Mirathorn, collaboration and six-second retrieval
-remain subsequent obligations; full goal active and incomplete.
+Reconcile remaining evidence/quote binding, scoped IDs, DB correction/publication,
+versioned configuration/evaluation tooling, then prove current ordinary full DB-owned
+chain. Serving API76bb8c4b/UI04f5f0ad remain separate from main. QA, Mirathorn,
+collaboration and six-second retrieval remain subsequent active obligations. No
+full-goal acceptance or new current semantic model-quality claim.

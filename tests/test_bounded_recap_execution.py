@@ -1029,7 +1029,7 @@ def test_profile_budget_supports_nine_pass_recap_without_changing_deadlines():
     assert limits.run_deadline_ms == 480000
 
 
-def actor_handle_packet(source='Dr. Ari did not enter.\n\nShe waited unless Bea returned.'):
+def node_handle_packet(source='Dr. Ari did not enter.\n\nShe waited unless Bea returned.'):
     from src.graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
     return compile_source_sentence_packet(source, [
         {'source_span_ref_id': 'span:a', 'text': source.split('\n\n')[0], 'line_start': 1},
@@ -1037,7 +1037,7 @@ def actor_handle_packet(source='Dr. Ari did not enter.\n\nShe waited unless Bea 
     ])
 
 
-def actor_handle_response(ids=None):
+def node_handle_response(ids=None):
     return {'observation_nodes': [{
         'node_id': 'actor:ari', 'label': 'Ari', 'node_type': 'character',
         'description': 'Ari stayed outside unless Bea returned.', 'importance': 'medium',
@@ -1046,11 +1046,17 @@ def actor_handle_response(ids=None):
 
 
 @pytest.mark.usefixtures("application_state_dsn")
-def test_actor_handle_wire_materializes_canonical_evidence_and_retains_both(tmp_path):
-    from src.graph_memory.extraction.category_candidate_graph_schema import category_pass_text_format
+@pytest.mark.parametrize("pass_name", ["actor_pass", "location_pass", "collective_pass", "object_pass", "thread_pass"])
+def test_node_handle_wire_materializes_canonical_evidence_and_retains_both(tmp_path, pass_name):
+    from src.graph_memory.extraction.category_candidate_graph_schema import category_pass_text_format_for_spec
+    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    spec = next(p for p in RECAP_EXTRACTION_PROFILE.node_passes if p.pass_id == pass_name)
     from jsonschema import validate
-    packet = actor_handle_packet()
-    raw = actor_handle_response()
+    packet = node_handle_packet()
+    raw = node_handle_response()
+    raw["observation_nodes"][0]["node_type"] = spec.default_node_type
+    if pass_name in {"object_pass", "thread_pass"}:
+        raw.update(ignored_items=[], deferred_items=[])
     engine = Engine(TextResult(text=json.dumps(raw), parsed=raw, observation=deepseek_observation()))
     client = BoundedRecapPassClient(
         RecapExecutionLimits(provider='openrouter', model=DEEPSEEK_MODEL),
@@ -1058,14 +1064,14 @@ def test_actor_handle_wire_materializes_canonical_evidence_and_retains_both(tmp_
         request_context_hashes={'source_content': packet.source_sha256},
     )
     bind_private_client(client, source_sha256=packet.source_sha256)
-    result = client.run_pass('actor_pass', model_id=DEEPSEEK_MODEL,
-                             instructions='Extract actors', user_content='host rendered source',
+    result = client.run_pass(pass_name, model_id=DEEPSEEK_MODEL,
+                             instructions='Extract nodes', user_content='host rendered source', pass_spec=spec,
                              source_evidence_packet=packet)
     schema = engine.requests[0].json_schema
     ref_schema = schema['properties']['observation_nodes']['items']['properties']['evidence_refs']['items']
     assert ref_schema['properties']['source_quote_ids']['items']['enum'] == ['Q001', 'Q002']
     assert 'source_span_ref_id' not in ref_schema['properties']
-    validate(result['parsed'], category_pass_text_format('actor_pass')['format']['schema'])
+    validate(result['parsed'], category_pass_text_format_for_spec(spec)['format']['schema'])
     assert result['parsed']['observation_nodes'][0]['evidence_refs'] == [
         {'source_span_ref_id': 'span:a', 'anchor_quotes': ['Dr. Ari did not enter.']},
         {'source_span_ref_id': 'span:b', 'anchor_quotes': ['She waited unless Bea returned.']},
@@ -1078,14 +1084,14 @@ def test_actor_handle_wire_materializes_canonical_evidence_and_retains_both(tmp_
     normalized_payload = json.loads(normalized['response']['text'])
     assert normalized_payload['parsed'] == result['parsed']
     assert len(normalized_payload['source_units']) == 2
-    assert raw_evidence['context_sha256']['actor_source_packet'] == packet.packet_id
+    assert raw_evidence['context_sha256']['node_source_packet'] == packet.packet_id
     assert normalized['context_sha256'] == raw_evidence['context_sha256']
 
 
 @pytest.mark.parametrize('ids', [['Q999'], ['Q001', 'Q001']])
 def test_actor_invalid_handles_reject_whole_pass(ids):
-    packet = actor_handle_packet()
-    raw = actor_handle_response(ids)
+    packet = node_handle_packet()
+    raw = node_handle_response(ids)
     engine = Engine(TextResult(text=json.dumps(raw), parsed=raw, observation=deepseek_observation()))
     client = BoundedRecapPassClient(
         RecapExecutionLimits(provider='openrouter', model=DEEPSEEK_MODEL), engine_factory=lambda: engine,
@@ -1097,7 +1103,7 @@ def test_actor_invalid_handles_reject_whole_pass(ids):
 
 
 def test_actor_packet_swap_rejected_before_provider_call():
-    packet = actor_handle_packet()
+    packet = node_handle_packet()
     engine = Engine(None)
     client = BoundedRecapPassClient(
         RecapExecutionLimits(provider='openrouter', model=DEEPSEEK_MODEL), engine_factory=lambda: engine,
@@ -1114,13 +1120,13 @@ def test_real_recap_producer_supplies_packet_to_ge_and_receives_canonical_result
         CategoryGraphExtractionOptions, extract_category_candidate_graph,
     )
     from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
-    packet = actor_handle_packet()
+    packet = node_handle_packet()
 
     class PipelineEngine(Engine):
         async def generate_structured(self, request, *, on_attempt_completed=None):
             self.requests.append(request)
             payload = (
-                actor_handle_response() if request.schema_name == 'category_graph_actor_pass'
+                node_handle_response() if request.schema_name == 'category_graph_actor_pass'
                 else {key: [] for key in request.json_schema['required']}
             )
             return await _complete_fake_structured_result(
@@ -1145,18 +1151,23 @@ def test_real_recap_producer_supplies_packet_to_ge_and_receives_canonical_result
     assert '### Q001\nDr. Ari did not enter.' in actor.user_prompt
     assert '### Q002\nShe waited unless Bea returned.' in actor.user_prompt
     assert 'source_quote_ids' in actor.user_prompt
-    assert 'source_quote_ids' not in engine.requests[1].json_schema['properties']['observation_nodes']['items']['properties']['evidence_refs']['items']['properties']
+    for request in engine.requests[:5]:
+        refs_schema = request.json_schema['properties']['observation_nodes']['items']['properties']['evidence_refs']['items']
+        assert refs_schema['properties']['source_quote_ids']['items']['enum'] == ['Q001', 'Q002']
+        assert '### Q001\nDr. Ari did not enter.' in request.user_prompt
+    for request in engine.requests[5:]:
+        assert 'source_quote_ids' not in json.dumps(request.json_schema)
     refs = result.pass_outputs['actor_pass']['observation_nodes'][0]['evidence_refs']
     assert refs[0]['anchor_quotes'] == ['Dr. Ari did not enter.']
     assert refs[1]['source_span_ref_id'] == 'span:b'
-    assert client.calls[0]['source_evidence_context']['actor_source_packet'] == packet.packet_id
+    assert client.calls[0]['source_evidence_context']['node_source_packet'] == packet.packet_id
     assert result.candidate_graph['nodes']
 
 
 @pytest.mark.usefixtures("application_state_dsn")
 def test_failed_normalized_evidence_persistence_preserves_wire_and_stops(tmp_path, monkeypatch):
-    packet = actor_handle_packet()
-    raw = actor_handle_response()
+    packet = node_handle_packet()
+    raw = node_handle_response()
     engine = Engine(TextResult(text=json.dumps(raw), parsed=raw, observation=deepseek_observation()))
     client = BoundedRecapPassClient(
         RecapExecutionLimits(provider='openrouter', model=DEEPSEEK_MODEL), engine_factory=lambda: engine,
@@ -1353,3 +1364,17 @@ def test_advertised_node_ids_reach_real_ge_conformance_and_retain_invalid_attemp
     assert [json.loads(r['response']['text']) for r in attempts] == [payload('paragraph:45'), payload('paragraph:45-45')]
     wire = wire_requests[0].json_schema
     assert wire['properties']['observation_nodes']['items']['properties']['evidence_refs']['items']['properties']['source_span_ref_id']['enum'] == ['paragraph:45-45']
+
+
+@pytest.mark.parametrize("pass_name", ["beat_pass", "edge_pass", "encounter_pass"])
+def test_source_handle_wire_rejects_non_node_pass_before_provider_dispatch(pass_name):
+    packet = node_handle_packet()
+    engine = Engine(None)
+    client = BoundedRecapPassClient(
+        RecapExecutionLimits(provider='openrouter', model=DEEPSEEK_MODEL),
+        engine_factory=lambda: engine,
+    )
+    with pytest.raises((CategoryGraphExtractionError, ValueError)):
+        client.run_pass(pass_name, model_id=DEEPSEEK_MODEL, instructions='Extract',
+                        user_content='source', source_evidence_packet=packet)
+    assert engine.requests == []

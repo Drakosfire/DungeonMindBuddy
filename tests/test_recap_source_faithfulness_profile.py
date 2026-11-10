@@ -583,7 +583,7 @@ def test_cross_passage_transition_guards_and_source_frames_reach_thread_prompt()
 
 
 def test_attributed_observations_and_unresolved_presentation_reach_recap_prompts_only():
-    """Policy/source visibility via current actor packet; not all-node evidence binding."""
+    """Policy/source visibility across node packets; not semantic-model compliance."""
     from src.graph_memory.extraction.extraction_profile import get_extraction_profile
     from src.graph_memory.extraction.worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
     from src.graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
@@ -601,7 +601,7 @@ def test_attributed_observations_and_unresolved_presentation_reach_recap_prompts
             for i, text in enumerate(texts, 1)]
     packet = compile_source_sentence_packet(source, rows)
     for profile in (RECAP_EXTRACTION_PROFILE, get_extraction_profile("recap_category_encounter_job_preview", "2.0")):
-        prompts = render_category_pass_prompts(rows, profile=profile, actor_source_packet=packet)
+        prompts = render_category_pass_prompts(rows, profile=profile, node_source_packet=packet)
         for prompt in prompts.values():
             assert "as attributed observations" in prompt
             assert "not objective properties" in prompt
