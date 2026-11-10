@@ -1,0 +1,236 @@
+export type NativeObjectKind = "person" | "location" | "event";
+
+export interface NativeGraphNode {
+  readonly id: string;
+  readonly name: string;
+  readonly kind: string;
+}
+
+export interface NativeGraphEdge {
+  readonly id: string;
+  readonly source_id: string;
+  readonly target_id: string;
+  readonly predicate: string;
+}
+
+export interface NativeGraphCapabilities {
+  readonly create: boolean;
+  readonly connect: boolean;
+  readonly rename: boolean;
+  readonly delete: boolean;
+  /** The exact typed object kinds this demo profile currently accepts. */
+  readonly object_kinds: readonly NativeObjectKind[];
+}
+
+export interface NativeGraph {
+  readonly world_id: string;
+  readonly revision_id: string;
+  readonly graph_sha256: string;
+  readonly nodes: readonly NativeGraphNode[];
+  readonly edges: readonly NativeGraphEdge[];
+  readonly storage: "postgres";
+  readonly limitations: readonly string[];
+  readonly capabilities: NativeGraphCapabilities;
+}
+
+export interface CreateObjectRequest {
+  readonly operation_id: string;
+  readonly expected_revision_id: string;
+  readonly kind: "create_object";
+  readonly name: string;
+  readonly object_kind: NativeObjectKind;
+}
+
+export interface ConnectRequest {
+  readonly operation_id: string;
+  readonly expected_revision_id: string;
+  readonly kind: "connect";
+  readonly source_id: string;
+  readonly target_id: string;
+  readonly predicate: string;
+}
+
+export type NativePrepareRequest = CreateObjectRequest | ConnectRequest;
+
+export interface PreparedOperation {
+  readonly status: "prepared";
+  readonly operation_id: string;
+  readonly parent_revision_id: string;
+  readonly review: { readonly summary: string };
+}
+
+export interface AlreadyExistsResult {
+  readonly status: "already_exists";
+  readonly message: string;
+  readonly graph: NativeGraph;
+}
+
+export type PrepareResult = PreparedOperation | AlreadyExistsResult;
+
+export interface CommittedResult {
+  readonly status: "committed";
+  readonly graph: NativeGraph;
+}
+
+export type ConfirmResult = CommittedResult
+  | { readonly status: "unknown"; readonly message: string; readonly operation_id?: string }
+  | { readonly status: "rejected"; readonly code: string; readonly error: string; readonly operation_id?: string };
+
+export type OperationLookupResult =
+  | { readonly status: "prepared"; readonly operation_id: string; readonly parent_revision_id?: string; readonly review?: { readonly summary: string } }
+  | { readonly status: "committed"; readonly operation_id: string; readonly graph?: NativeGraph }
+  | { readonly status: "not_found"; readonly operation_id: string }
+  | { readonly status: "rejected"; readonly operation_id: string; readonly code: string; readonly error: string }
+  | { readonly status: "unknown"; readonly operation_id: string };
+
+type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+type CapabilityReader = () => string;
+
+export interface NativeGraphDemoApi {
+  readGraph(): Promise<NativeGraph>;
+  prepare(input: NativePrepareRequest): Promise<PrepareResult>;
+  confirm(operationId: string): Promise<ConfirmResult>;
+  readOperation(operationId: string): Promise<OperationLookupResult>;
+}
+
+export class NativeGraphDemoApiError extends Error {
+  readonly code: string;
+  readonly status: number;
+
+  constructor(message: string, code: string, status: number) {
+    super(message);
+    this.name = "NativeGraphDemoApiError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
+const NATIVE_OBJECT_KINDS: readonly NativeObjectKind[] = ["person", "location", "event"];
+
+function record(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isNativeGraph(value: unknown): value is NativeGraph {
+  if (!record(value) || typeof value.world_id !== "string" || !value.world_id
+    || typeof value.revision_id !== "string" || !value.revision_id
+    || typeof value.graph_sha256 !== "string" || value.storage !== "postgres"
+    || !Array.isArray(value.nodes) || !Array.isArray(value.edges) || !Array.isArray(value.limitations)
+    || !value.limitations.every((item) => typeof item === "string") || !record(value.capabilities)) return false;
+  if (!value.nodes.every((node) => record(node) && typeof node.id === "string" && Boolean(node.id)
+    && typeof node.name === "string" && typeof node.kind === "string")) return false;
+  if (!value.edges.every((edge) => record(edge) && typeof edge.id === "string" && Boolean(edge.id)
+    && typeof edge.source_id === "string" && typeof edge.target_id === "string" && typeof edge.predicate === "string")) return false;
+  const capabilities = value.capabilities;
+  if (typeof capabilities.create !== "boolean" || typeof capabilities.connect !== "boolean"
+    || typeof capabilities.rename !== "boolean" || typeof capabilities.delete !== "boolean"
+    || !Array.isArray(capabilities.object_kinds)
+    || !capabilities.object_kinds.every((kind) => NATIVE_OBJECT_KINDS.includes(kind as NativeObjectKind))) return false;
+  return true;
+}
+
+function invalidResponse(): NativeGraphDemoApiError {
+  return new NativeGraphDemoApiError("The native graph service returned an incomplete or unsupported response.", "invalid_response", 200);
+}
+
+function readCapabilityFromDocument(): string {
+  if (typeof document === "undefined") return "";
+  return document.querySelector<HTMLMetaElement>('meta[name="native-demo-capability"]')?.content.trim() ?? "";
+}
+
+function errorFromBody(body: unknown, status: number): NativeGraphDemoApiError {
+  const candidate = body && typeof body === "object" ? body as Record<string, unknown> : {};
+  const message = typeof candidate.error === "string" && candidate.error.trim()
+    ? candidate.error
+    : `The native graph service returned HTTP ${status}.`;
+  const code = typeof candidate.code === "string" && candidate.code.trim() ? candidate.code : "http_error";
+  return new NativeGraphDemoApiError(message, code, status);
+}
+
+export function createNativeGraphDemoApi(options: {
+  readonly fetcher?: FetchLike;
+  readonly readCapability?: CapabilityReader;
+} = {}): NativeGraphDemoApi {
+  const fetcher = options.fetcher ?? ((input, init) => globalThis.fetch(input, init));
+  const readCapability = options.readCapability ?? readCapabilityFromDocument;
+
+  async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+    const capability = readCapability();
+    if (!capability) {
+      throw new NativeGraphDemoApiError(
+        "The native demo capability is missing from this page. Open the demo from its local DungeonMind service.",
+        "missing_capability",
+        0,
+      );
+    }
+
+    const headers = new Headers(init.headers);
+    headers.set("Accept", "application/json");
+    headers.set("X-Demo-Capability", capability);
+    if (init.body !== undefined) headers.set("Content-Type", "application/json");
+
+    let response: Response;
+    try {
+      response = await fetcher(path, {
+        ...init,
+        headers,
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+    } catch (error) {
+      throw new NativeGraphDemoApiError(
+        error instanceof Error ? error.message : "The native graph service could not be reached.",
+        "network_error",
+        0,
+      );
+    }
+
+    const body: unknown = await response.json().catch(() => null);
+    if (!response.ok) throw errorFromBody(body, response.status);
+    if (body === null) throw new NativeGraphDemoApiError("The native graph service returned an unreadable response.", "invalid_response", response.status);
+    return body as T;
+  }
+
+  return {
+    async readGraph() {
+      const value = await request<unknown>("/api/graph");
+      if (!isNativeGraph(value)) throw invalidResponse();
+      return value;
+    },
+    async prepare(input) {
+      const value = await request<unknown>("/api/prepare", { method: "POST", body: JSON.stringify(input) });
+      if (!record(value)) throw invalidResponse();
+      if (value.status === "prepared" && value.operation_id === input.operation_id
+        && typeof value.parent_revision_id === "string" && record(value.review) && typeof value.review.summary === "string") {
+        return value as unknown as PreparedOperation;
+      }
+      if (value.status === "already_exists" && typeof value.message === "string" && isNativeGraph(value.graph)) {
+        return value as unknown as AlreadyExistsResult;
+      }
+      throw invalidResponse();
+    },
+    async confirm(operationId) {
+      const value = await request<unknown>("/api/confirm", {
+        method: "POST",
+        body: JSON.stringify({ operation_id: operationId }),
+      });
+      if (!record(value)) throw invalidResponse();
+      if (value.operation_id !== undefined && value.operation_id !== operationId) throw invalidResponse();
+      if (value.status === "committed" && isNativeGraph(value.graph)) return value as unknown as CommittedResult;
+      if (value.status === "unknown" && typeof value.message === "string") return value as unknown as ConfirmResult;
+      if (value.status === "rejected" && typeof value.code === "string" && typeof value.error === "string") return value as unknown as ConfirmResult;
+      throw invalidResponse();
+    },
+    async readOperation(operationId) {
+      const value = await request<unknown>(`/api/operations/${encodeURIComponent(operationId)}`);
+      if (!record(value) || value.operation_id !== operationId) throw invalidResponse();
+      if (value.status === "prepared" && (value.review === undefined || record(value.review) && typeof value.review.summary === "string")) {
+        return value as unknown as OperationLookupResult;
+      }
+      if (value.status === "committed" && (value.graph === undefined || isNativeGraph(value.graph))) return value as unknown as OperationLookupResult;
+      if (value.status === "not_found" || value.status === "unknown") return value as unknown as OperationLookupResult;
+      if (value.status === "rejected" && typeof value.code === "string" && typeof value.error === "string") return value as unknown as OperationLookupResult;
+      throw invalidResponse();
+    },
+  };
+}

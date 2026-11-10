@@ -33,7 +33,7 @@ Only supported operations are exposed. Native rename/retract/delete are unavaila
 - `scripts/native_graph_demo.py`
 - `apps/live-control-ui/native-demo.html`
 - `apps/live-control-ui/src/nativeGraphDemo/NativeGraphDemo.tsx`
-- `apps/live-control-ui/src/nativeGraphDemo/nativeGraphDemo.tsx`
+- `apps/live-control-ui/src/nativeGraphDemo/nativeGraphDemoEntry.tsx`
 - `apps/live-control-ui/src/nativeGraphDemo/nativeGraphDemo.css`
 - `apps/live-control-ui/src/nativeGraphDemo/nativeGraphDemoApi.ts`
 - `apps/live-control-ui/src/nativeGraphDemo/NativeGraphDemo.test.tsx`
@@ -61,3 +61,39 @@ Use task-owned outputs and existing frontend verification lock. Run affected tes
 ## State and retention
 
 #2326 is a usable browser-local preview, not completion of this native demo. Existing local records remain untouched. Retain the new worktree, source, local proof and outputs for review; no cleanup permission is inferred. Later task completion must inventory retained paths and note cleanup follow-up.
+
+## Discovered capability and inventory boundaries
+
+The existing accepted Buddy vNext V2/V3 profiles classify only `dnd5e:npc`, `dnd5e:location`, `dungeonbuddy:faction` and `dungeonbuddy:organization`. The legacy recap vocabulary's `dnd5e:event` is a separate contract and is not accepted by the WorldKeeper vNext resolver. `observed_event` is an assertion claim mode, not an Event classification. Therefore this implementation proves genuine native People (NPCs) and Location creation/connect, keeps Event visibly unavailable, and does not claim the originally requested four-node example complete. A native Event profile extension needs an owning semantic slice; do not mutate immutable profile declarations or relabel an untyped entity as Event.
+
+The new graph response includes explicit supported object kinds and limitations. Native rename/retract/delete remain unavailable. The incomplete seed has two People and one Location, not a falsely represented Event. This is a partial native implementation, not a replacement completion criterion.
+
+Inventory preflight inspected current pinned CI handoffs from #2298/#2299/#2302/#2288 and relevant local CI worktrees. Their classification leases are narrowed to their own individual CI guard entries; the inspected inventory files are clean. Under coordinator direction, this slice's classification lease is split to its five new test filenames only: two frontend entries and three Python entries. No existing entry, CI guard, classification basis, discovery configuration or gate is changed. Preserve this additive-only delta when reconciling the stack.
+
+## Local run contract
+
+Build only `apps/live-control-ui/native-demo.html` through `native-demo.vite.config.ts`. The result is an asset bundle for the dedicated Python host, not a static replacement for port 4182. A plain Vite preview has no native API/session capability and is not a working DungeonMind demo.
+
+The launcher is `scripts/native_graph_demo.py`. Required arguments are `--state-dir` (a new private task-owned directory), `--dungeonmind-source` (clean exact Core pin including migrations), and `--assets` (the isolated build directory). Optional `--postgres-bin` names an already authorized installed PostgreSQL binary directory; no software is downloaded or installed by this script. `--check` is read-only. Default HTTP port is 4183. The launcher initializes a dedicated cluster with Unix-socket peer authentication, disables TCP listening, checks the actual data-directory identity and required pgvector extension, applies existing pinned Core migrations, and stops its own PostgreSQL process on normal exit. Semantic data survives in that owned data directory; this guarantee still requires actual restart verification before acceptance.
+
+Do not pass the ordinary Buddy database URL, use the old `.env`, alter Docker permissions, or supply an operator/live cluster. No arbitrary DSN parameter exists. The session capability rotates every HTTP launch and appears only in the same-origin served HTML, never a URL or saved browser credential. Browser state stores only layout and recoverable input/operation IDs. PostgreSQL and the native receipt remain graph authority.
+
+Inventory qualification found one inherited omission from #2313/#2326: `apps/live-control-ui/src/App.guestEntry.test.tsx` was absent from all classification lanes. The coordinator authorized the additive predecessor repair separately. This existing Vitest file is now classified in `fast`, alongside the new demo UI tests. Its contents and all gates remain unchanged. Total inventory delta is six added lines; zero removed or reclassified entries.
+
+## Verification checkpoint (working tree only)
+
+A scoped independent transport/launcher review found and then cleared three issues: migration pin checks now verify the exact on-disk inventory and Git-object bytes (including ignored files), Git repository overrides are excluded from verification calls, and SIGTERM/uncertain startup outcomes are handled before the owned PostgreSQL process is started. Its rerun passed 18 HTTP/launcher tests, including a real HTTP-to-WorldKeeper-to-DungeonMind in-memory create/readback/replay case. A later transport regression also permits a top-level link into the HTML entry while continuing to deny cross-site API/iframe access. These are working-tree diagnostics, not final exact-SHA qualification or PostgreSQL evidence.
+
+The isolated launcher `--check` currently exits 2 with the explicit PostgreSQL-server-tools blocker, before allocating runtime state. No PostgreSQL database, ordinary Buddy service, existing preview or browser profile was touched.
+
+Backend owning tests are intentionally run as the three explicit `unittest` modules with `PYTHONPATH=.:src`, a task-owned `TMPDIR` and the already-installed exact-pin Python environment. They do not load the root pytest dotenv fixture. Existing named CI contracts remain unchanged: their historical-exactness guard does not permit adding a new contract without a separate CI guard/fixture change, which this slice does not take over. Full backend/PG qualification remains unrun.
+
+Frontend entry allowlist amendment: `nativeGraphDemoEntry.tsx` replaces the untracked planned `nativeGraphDemo.tsx` entry. This avoids TypeScript case-only collision with `NativeGraphDemo.tsx`; no shared config or other path is transferred.
+
+## Integrated source checkpoint
+
+The implementation checkpoint passes 39 isolated backend/HTTP/launcher tests, 14 focused UI tests, strict TypeScript, the separate native-demo build, Python lint and the complete test inventory. HTTP/service cleanup now closes the SQLite journal explicitly. These are pre-commit diagnostics, not final exact-SHA or durable PostgreSQL evidence.
+
+Before commit, GitHub re-anchor found main `76bb8c4b38178158e9a94a4b00cf65773edbda87` (Plan request-admission presentation #2328, disjoint paths). Stacked parent #2326 remains open/draft at exact `b30833ede97cb4c79acf17a1fe55ff50446c7452`. This slice remains pinned to that parent; no unrelated merge or rebase is inferred.
+
+The native runtime has no Event support in this pinned Buddy profile, not a claim that DungeonMind's general ontology excludes Event. Parent ontology discussion remains open. This slice does not decide that ontology or extend the accepted profile.
