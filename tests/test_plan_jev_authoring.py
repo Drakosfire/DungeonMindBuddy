@@ -81,7 +81,12 @@ class SemanticWire(httpx2.AsyncBaseTransport):
 
     async def handle_async_request(self, request):
         body = json.loads(request.content)
-        assert set(body["state"]) == {
+        current = self.adapter.service.list_turns(
+            "world:one", self.adapter.turn.conversation_id
+        )[0]
+        from application_state.agent_conversation.native_context import NativePlanRequestAdmissionV1
+        opening = type(current.graph_context_receipt.assembled_input) is NativePlanRequestAdmissionV1
+        expected_state = {
             "user_request",
             "current_page_title",
             "dialogue_reference",
@@ -90,6 +95,9 @@ class SemanticWire(httpx2.AsyncBaseTransport):
             "offered_page_locations",
             "placement_policy",
         }
+        if opening:
+            expected_state |= {"candidates", "examined_subjects", "relevance_guidance", "conditional_read_plan_policy"}
+        assert set(body["state"]) == expected_state
         assert body["state"]["user_request"] == self.adapter.request.message
         assert body["state"]["edit_target_available"] == (
             self.adapter.request.plan_authoring_capture is not None
@@ -98,33 +106,26 @@ class SemanticWire(httpx2.AsyncBaseTransport):
         from application_state.agent_conversation.plan_authoring import QUESTION_FIRST_INTENT_POLICY,CONNECTED_PAGE_INTENT_POLICY
         expected=CONNECTED_PAGE_INTENT_POLICY if isinstance(self.adapter.request.plan_context_policy,t.PlanContextPolicyV2) else QUESTION_FIRST_INTENT_POLICY
         assert body["state"]["intent_policy"] == expected
-        assert set(body["questions"]) == {"requested_work"}
-        current = self.adapter.service.list_turns(
-            "world:one", self.adapter.turn.conversation_id
-        )[0]
+        expected_questions = {"requested_work"}
+        if opening:
+            expected_questions |= {"operation", "post_read_plan", *(f"candidate_{i}" for i in range(len(body["state"]["candidates"])))}
+        assert set(body["questions"]) == expected_questions
         assert current.graph_context_execution.events[-1].outcome == "sdk_entered"
         choice = self.choice
         if choice == "write_current_page":
             choice = "write:captured" if self.adapter.request.plan_authoring_capture is not None else "write_unavailable"
-        return httpx2.Response(
-            200,
-            request=request,
-            json={
-                "model": "jev-1.14.0",
-                "answers": {
-                    "requested_work": {
-                        "type": "choice",
-                        "choice": choice,
-                        "confidence": 1.0,
-                        "probabilities": {
-                            name: float(name == choice)
-                            for name in body["questions"]["requested_work"]["criteria"]
-                        },
-                    }
-                },
-                "usage": {"input_tokens": 31, "output_tokens": 7},
-            },
-        )
+        answers = {}
+        for name, question in body["questions"].items():
+            selected = (choice if name == "requested_work" else
+                "finish_retrieval" if name == "operation" else
+                "review_after_reads" if name == "post_read_plan" else "exclude")
+            assert selected in question["criteria"]
+            answers[name] = dict(type="choice", choice=selected, confidence=1.0,
+                probabilities={option: float(option == selected) for option in question["criteria"]})
+        return httpx2.Response(200, request=request, json={
+            "model": "jev-1.14.0", "answers": answers,
+            "usage": {"input_tokens": 31, "output_tokens": 7},
+        })
 
 
 @pytest.mark.parametrize(
@@ -1363,7 +1364,7 @@ def _shared_plan_authoring_case(
             response = execute_agent_turn(plan_adapter.request, **kwargs)
             assert response.answer.status == "ok" and response.plan_proposal is None
             assert "plan_proposal" not in response.model_dump(mode="json")
-            assert len(writer.calls) == 1 and len(decisions.calls) == 2
+            assert len(writer.calls) == 1 and len(decisions.calls) == 1
         turn = kwargs["conversation_service"].inspect_turn(
             world_id=capture.world_id, turn_id=wire.adapter.turn.turn_id)
         assert turn.graph_context_receipt.schema_ == "dmb_surface_native_context_receipt_v1"
