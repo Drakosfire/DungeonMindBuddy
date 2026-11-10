@@ -719,6 +719,45 @@ def test_writer_capture_uses_actual_sdk_gate_and_preserves_raw_diagnostic_only(w
     assert len(sent)==1
 
 
+def test_writer_paragraph_layout_changes_only_admitted_body_presentation(writer_replay, tmp_path):
+    import httpx
+    from application_state.agent_conversation.types import canonical_sha256
+
+    replay = writer_replay
+    body = "First café paragraph.\n\nSecond paragraph.\n"
+    frame = json.loads(replay.packet["input"][0]["content"])
+    frame["native_body_evidence"] = {"excerpts": [{"excerpt_handle": "body0", "text": body}]}
+    replay.packet["input"][0]["content"] = json.dumps(frame)
+    replay.ledger["graph_context_execution"]["events"][0]["frame_sha256"] = canonical_sha256(frame)
+    _repin_writer_packet(replay, replay.packet)
+    replay.document["body_layout"] = "paragraphs"
+    put(replay.spec, replay.document)
+    prepared = tmp_path / "prepared"
+    plan = w.writer_prepare(replay.spec, prepared)
+    candidate = json.loads(plan["cases"][0]["request_json"])
+    candidate_frame = json.loads(candidate["input"][0]["content"])
+    excerpt = candidate_frame["native_body_evidence"]["excerpts"][0]
+    assert excerpt["text"] == ["First café paragraph.\n\n", "Second paragraph.\n"]
+    excerpt["text"] = "".join(excerpt["text"])
+    assert candidate_frame == frame
+    assert candidate | {"input": replay.packet["input"]} == replay.packet
+
+    def send(request):
+        assert json.loads(request.content) == candidate
+        return _writer_response(request)
+
+    w.writer_capture(prepared / "plan.json", tmp_path / "capture", transport=httpx.MockTransport(send))
+
+
+@pytest.mark.parametrize("layout,instructions", [("unknown", None), ("paragraphs", {})])
+def test_writer_rejects_unrecognized_or_combined_paragraph_layout(writer_replay, tmp_path, layout, instructions):
+    replay = writer_replay
+    replay.document.update(body_layout=layout, instructions=instructions)
+    put(replay.spec, replay.document)
+    with pytest.raises(ValueError, match="only replay change"):
+        w.writer_prepare(replay.spec, tmp_path / "prepared")
+
+
 @pytest.mark.parametrize('status,text,refusal',[('incomplete','{"answer":"Partial"}',False),
     ('completed','{',False),('completed','{"wrong":1}',False),('completed','',True)])
 def test_writer_capture_retains_actual_incomplete_invalid_or_refused_reply(writer_replay,tmp_path,status,text,refusal):
