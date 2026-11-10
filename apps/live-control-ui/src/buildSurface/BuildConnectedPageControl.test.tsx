@@ -1,3 +1,6 @@
+import {listWorkspaceDocuments} from '../api/liveApi';
+import {PlanConnectedPageContinuation} from '../shared/PlanConnectedPageContinuation';
+import {ConversationComposerDraftProvider,useConversationComposerDrafts,composerDraftStorageKey} from '../agentInteraction/conversationComposerDrafts';
 import {ConnectedPageReviewControl} from '../shared/ConnectedPageReviewControl';
 import type {ReactElement,ReactNode} from 'react';
 import {SurfaceContextProvider} from '../surfaceInteraction/contextHost/SurfaceContextProvider';
@@ -6,18 +9,18 @@ import {Editor} from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import {webcrypto} from 'node:crypto';
 import {act,cleanup,fireEvent,render as testingRender,screen,waitFor} from '@testing-library/react';
-import {afterEach,beforeAll,beforeEach,expect,it,vi} from 'vitest';
+import {afterEach,beforeAll,beforeEach,describe,expect,it,vi} from 'vitest';
 import {useConnectedPageReviewHost,type ConnectedPageReviewSeed} from '../shared/connectedPageReviewHost';
 import {BuildConnectedPageControl} from './BuildConnectedPageControl';
 import * as api from '../api/connectedPageApi';
 import * as workflow from './connectedPageAuthoring';
 import {ConversationConnectedPageReview} from '../planSurface/components/ConversationConnectedPageReview';
-import {getAgentConnectedPageOrigin,getNativeGraphCatalog,postManagedWorldGraphProjection,getGraphObjectAuthoringKinds} from '../api/liveApi';
+import {getAgentConnectedPageOrigin,listWorkspaceDocuments,getNativeGraphCatalog,postManagedWorldGraphProjection,getGraphObjectAuthoringKinds} from '../api/liveApi';
 import type {ConnectedPageIntent,ConnectedPageOperation} from '../api/connectedPageApi';
 const state=vi.hoisted(()=>({session:null as any,setPaneOpen:vi.fn()}));
 vi.mock('../markdownCanvas/MarkdownCanvasSession',()=>({useOptionalMarkdownCanvasSession:()=>state.session}));
 vi.mock('../agentInteraction/AgentInteractionProvider',()=>({useOptionalAgentInteraction:()=>({setPaneOpen:state.setPaneOpen})}));
-vi.mock('../api/liveApi',async original=>({...await original<typeof import('../api/liveApi')>(),getNativeGraphCatalog:vi.fn(),postManagedWorldGraphProjection:vi.fn(),getAgentConnectedPageOrigin:vi.fn(),getGraphObjectAuthoringKinds:vi.fn()}));
+vi.mock('../api/liveApi',async original=>({...await original<typeof import('../api/liveApi')>(),getNativeGraphCatalog:vi.fn(),postManagedWorldGraphProjection:vi.fn(),getAgentConnectedPageOrigin:vi.fn(),getGraphObjectAuthoringKinds:vi.fn(),listWorkspaceDocuments:vi.fn()}));
 vi.mock('../api/connectedPageApi',async original=>({...await original<typeof import('../api/connectedPageApi')>(),prepareConnectedPage:vi.fn(),confirmConnectedPage:vi.fn(),recoverConnectedPage:vi.fn(),readConnectedPageForPage:vi.fn()}));
 const source='11111111-1111-4111-8111-111111111111',page='22222222-2222-4222-8222-222222222222';
 let editor:Editor;
@@ -43,6 +46,7 @@ beforeEach(()=>{
  editor=new Editor({extensions:[StarterKit],content:'<p><strong>Brin’s Blacksmithy</strong>: Repairs gear.</p>'});
  editor.commands.setTextSelection({from:1,to:1+'Brin’s Blacksmithy'.length});vi.spyOn(editor.view,'coordsAtPos').mockReturnValue({left:100,right:100,top:100,bottom:120});
  state.session={editor,record:{document_id:source,world_id:'elderwyld',campaign_id:'elderwyld',kind:'worldbuilding_source'},snapshot:{loaded_revision:31,content_sha256:'a'.repeat(64)},dirty:true,activeCommand:null};
+ vi.mocked(listWorkspaceDocuments).mockResolvedValue({records:[{document_id:source,world_id:'elderwyld',title:'Edge',kind:'worldbuilding_source',status:'active'}]} as any);
  vi.mocked(getNativeGraphCatalog).mockResolvedValue(catalog([{nodeId:'ent:brin',label:'Brin',kind:'character'}]));
  vi.mocked(api.prepareConnectedPage).mockImplementation(async request=>operation(request));
  vi.mocked(api.confirmConnectedPage).mockImplementation(async value=>operation(value.intent,'complete'));
@@ -256,7 +260,7 @@ it('hands writing to the destination after intentional source-component replacem
 
 
 const plan='33333333-3333-4333-8333-333333333333';
-const planSeed:ConnectedPageReviewSeed={...reviewSeed,ownerDocumentId:plan};
+const planSeed:ConnectedPageReviewSeed={...reviewSeed,ownerDocumentId:plan,origin:{...reviewSeed.origin,document_id:source},originalRequest:'Create Copper Workshop, then update the source page. Develop the workshop later.'};
 function PlanReviewProbe(){const host=useConnectedPageReviewHost('elderwyld',plan);return <button disabled={!host} onClick={()=>host!.open(planSeed)}>Review Plan page proposal</button>;}
 function PlanReview(){return <><ConnectedPageReviewControl surface="plan" worldId="elderwyld" documentId={plan}/><PlanReviewProbe/></>;}
 async function openPlanReview(){
@@ -314,4 +318,60 @@ it('does not confirm a late Plan prepare after the owning document departs',asyn
  expect(api.confirmConnectedPage).not.toHaveBeenCalled();
  expect(workflow.readConnectedPageRecovery('elderwyld',plan)).toEqual(request);
  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
+it('continues a confirmed Plan creation in Build after reload, retaining the original request without repeating creation',async()=>{
+ window.history.replaceState({},'',`/plan?world=elderwyld&documentId=${plan}`);
+ let view=render(<ConversationComposerDraftProvider><PlanReview/></ConversationComposerDraftProvider>);await openPlanReview();
+ fireEvent.click(screen.getByRole('button',{name:'Create page'}));await screen.findByText('Page created. Your Plan is unchanged.');
+ const request=vi.mocked(api.prepareConnectedPage).mock.calls[0][0];view.unmount();
+ vi.mocked(api.recoverConnectedPage).mockResolvedValue(operation(request,'complete'));
+ view=render(<ConversationComposerDraftProvider><PlanReview/></ConversationComposerDraftProvider>);
+ fireEvent.click(await screen.findByRole('button',{name:'Resume page creation'}));
+ await screen.findByRole('option',{name:'Edge'});fireEvent.change(screen.getByLabelText('Continue work on'),{target:{value:source}});
+ fireEvent.click(screen.getByRole('button',{name:'Continue in Build'}));
+ expect(window.location.pathname).toBe('/build');expect(new URLSearchParams(window.location.search).get('documentId')).toBe(source);
+ const drafts=JSON.parse(sessionStorage.getItem(composerDraftStorageKey('elderwyld'))!).drafts;
+ expect(drafts[`build:${source}`]).toContain(planSeed.originalRequest);expect(drafts[`build:${source}`]).toContain('do not recreate or develop it');
+ expect(api.prepareConnectedPage).toHaveBeenCalledTimes(1);expect(api.confirmConnectedPage).toHaveBeenCalledTimes(1);
+ expect(workflow.readConnectedPageRecovery('elderwyld',plan)).toEqual(request);
+});
+
+describe('Plan-to-Build continuation boundaries',()=>{
+const world='elderwyld',plan='plan',source='edge';
+const request='Build a page for The Old Bath House and add New and Old Bath House entries to Edge. Develop the Old Bath House later.';
+const operation={phase:'complete',operation_id:'operation',intent:{world_id:world,title:'The Old Bath House',origin:{kind:'saved_page_excerpt',document_id:source}},page:{world_id:world,document_id:'bath'}} as ConnectedPageOperation;
+function DraftProbe(){const {composerDrafts,setComposerDrafts}=useConversationComposerDrafts(world);return <><output data-testid="drafts">{JSON.stringify(composerDrafts)}</output><button onClick={()=>setComposerDrafts(d=>({...d,'plan:plan':'Keep my Plan thought','build:other':'Keep other Build thought'}))}>Seed drafts</button><button onClick={()=>setComposerDrafts(d=>({...d,'build:edge':'My existing Edge draft'}))}>Seed Edge draft</button></>;}
+function mount(op=operation,originalRequest:string|undefined=request){return render(<ConversationComposerDraftProvider><DraftProbe/><PlanConnectedPageContinuation operation={op} worldId={world} ownerDocumentId={plan} originalRequest={originalRequest}/></ConversationComposerDraftProvider>);}
+beforeEach(()=>{sessionStorage.clear();window.history.replaceState({},'',`/plan?world=${world}&documentId=${plan}`);vi.mocked(listWorkspaceDocuments).mockResolvedValue({records:[{document_id:source,world_id:world,title:'Edge',kind:'worldbuilding_source',status:'active'},{document_id:'bath',world_id:world,title:'The Old Bath House',kind:'worldbuilding_source',status:'active'},{document_id:'foreign',world_id:'other',title:'Foreign',kind:'worldbuilding_source',status:'active'}]} as any);});
+async function chooseEdge(){await screen.findByRole('option',{name:'Edge'});fireEvent.change(screen.getByLabelText('Continue work on'),{target:{value:source}});}
+afterEach(()=>{cleanup();vi.unstubAllGlobals();window.history.replaceState({},'','/');});
+it('hands the remaining request to the author-selected Build composer without sending, overwriting drafts or revisiting creation',async()=>{
+ const fetch=vi.fn();vi.stubGlobal('fetch',fetch);mount();fireEvent.click(screen.getByText('Seed drafts'));
+ await chooseEdge();fireEvent.click(screen.getByRole('button',{name:'Continue in Build'}));
+ expect(screen.queryByRole('option',{name:'Foreign'})).not.toBeInTheDocument();expect(screen.queryByRole('option',{name:'The Old Bath House'})).not.toBeInTheDocument();
+ expect(window.location.pathname).toBe('/build');expect(new URLSearchParams(window.location.search).get('documentId')).toBe(source);
+ const drafts=JSON.parse(screen.getByTestId('drafts').textContent!);expect(drafts['build:edge']).toContain(request);expect(drafts['build:edge']).toContain('do not recreate or develop it');expect(drafts['plan:plan']).toBe('Keep my Plan thought');expect(drafts['build:other']).toBe('Keep other Build thought');
+ expect(JSON.parse(sessionStorage.getItem(composerDraftStorageKey(world))!).drafts).toEqual(drafts);expect(fetch).not.toHaveBeenCalled();
+ cleanup();mount();expect(JSON.parse(screen.getByTestId('drafts').textContent!)['build:edge']).toBe(drafts['build:edge']);
+});
+it('refuses a different unsent Build draft and preserves the Plan route',async()=>{
+ mount();fireEvent.click(screen.getByText('Seed Edge draft'));await chooseEdge();fireEvent.click(screen.getByRole('button',{name:'Continue in Build'}));expect(screen.getByRole('alert')).toHaveTextContent('unsent message');expect(window.location.pathname).toBe('/plan');expect(JSON.parse(screen.getByTestId('drafts').textContent!)['build:edge']).toBe('My existing Edge draft');
+});
+it('refuses stale Plan navigation and unreadable draft recovery',async()=>{
+ mount();window.history.replaceState({},'','/plan?world=other&documentId=plan');await chooseEdge();fireEvent.click(screen.getByRole('button',{name:'Continue in Build'}));expect(screen.getByRole('alert')).toHaveTextContent('destination changed');
+ cleanup();window.history.replaceState({},'',`/plan?world=${world}&documentId=${plan}`);sessionStorage.setItem(composerDraftStorageKey(world),'unreadable');mount();await chooseEdge();fireEvent.click(screen.getByRole('button',{name:'Continue in Build'}));expect(screen.getByRole('alert')).toHaveTextContent('couldn’t be read');expect(sessionStorage.getItem(composerDraftStorageKey(world))).toBe('unreadable');expect(window.location.pathname).toBe('/plan');
+});
+it('loads pages when the original request hydrates and retries a failed page-list read',async()=>{
+ vi.mocked(listWorkspaceDocuments).mockRejectedValueOnce(new Error('offline'));
+ const view=mount(operation,'');expect(listWorkspaceDocuments).not.toHaveBeenCalled();
+ view.rerender(<ConversationComposerDraftProvider><DraftProbe/><PlanConnectedPageContinuation operation={operation} worldId={world} ownerDocumentId={plan} originalRequest={request}/></ConversationComposerDraftProvider>);
+ await screen.findByText('Build pages could not be loaded.');fireEvent.click(screen.getByRole('button',{name:'Retry Build pages'}));await chooseEdge();
+ expect(listWorkspaceDocuments).toHaveBeenLastCalledWith({world_id:world,kind:'worldbuilding_source',status:'active'});expect(window.location.pathname).toBe('/plan');
+});
+it.each(['not-complete','foreign','missing-request'])('offers no continuation for %s',condition=>{
+ const op=condition==='not-complete'?{...operation,phase:'prepared' as const}:condition==='foreign'?{...operation,page:{...operation.page!,world_id:'other'}}:operation;
+ mount(op,condition==='missing-request'?'':request);expect(screen.queryByRole('button',{name:'Continue in Build'})).not.toBeInTheDocument();
+});
+
 });

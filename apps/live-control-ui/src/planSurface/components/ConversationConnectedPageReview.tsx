@@ -16,7 +16,7 @@ export async function connectedReviewOrigin(raw:unknown,worldId:string,turnId:st
  if(start<0||o.selected_text.indexOf(p.quote,start+1)>=0)throw new Error('The proposed quote does not identify one exact saved occurrence.');
  return o as unknown as SavedExcerptOrigin;
 }
-export function ConversationConnectedPageReview({worldId,documentId,turnId,proposal,disabled}:{worldId:string;documentId:string;turnId:string;proposal:ConversationConnectedPageProposal;disabled:boolean}){
+export function ConversationConnectedPageReview({worldId,documentId,turnId,proposal,disabled,originalRequest}:{worldId:string;documentId:string;turnId:string;proposal:ConversationConnectedPageProposal;disabled:boolean;originalRequest?:string}){
  const host=useConnectedPageReviewHost(worldId,documentId),[busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);
  const identity=JSON.stringify([worldId,documentId,turnId,proposal]);const current=useRef<string|null>(identity);current.current=identity;
  useEffect(()=>()=>{current.current=null;},[]);
@@ -25,6 +25,6 @@ export function ConversationConnectedPageReview({worldId,documentId,turnId,propo
   {proposal.person_label&&<p>{proposal.person_label} → {proposal.relationships.join(' and ')} → {proposal.title}</p>}
   <p>Review names, identities and connections before creating the page.</p>
   {error&&<p role="alert">{error}</p>}
-  <button type="button" disabled={disabled||busy||!host||host.worldId!==worldId||host.documentId!==documentId} onClick={()=>{const capturedHost=host,captured=identity;if(!capturedHost)return;setBusy(true);setError(null);void getAgentConnectedPageOrigin(worldId,turnId).then(raw=>connectedReviewOrigin(raw,worldId,turnId,proposal)).then(origin=>{if(current.current!==captured||active.current!==capturedHost)return;capturedHost.open({worldId,ownerDocumentId:documentId,sourceTurnId:turnId,proposal,origin});}).catch(e=>{if(current.current===captured)setError(e instanceof Error?e.message:String(e));}).finally(()=>{if(current.current===captured)setBusy(false);});}}>{busy?'Opening exact source…':'Review new page'}</button>
+  <button type="button" disabled={disabled||busy||!host||host.worldId!==worldId||host.documentId!==documentId} onClick={()=>{const capturedHost=host,captured=identity;if(!capturedHost)return;setBusy(true);setError(null);void getAgentConnectedPageOrigin(worldId,turnId).then(raw=>connectedReviewOrigin(raw,worldId,turnId,proposal)).then(origin=>{if(current.current!==captured||active.current!==capturedHost)return;capturedHost.open({worldId,ownerDocumentId:documentId,sourceTurnId:turnId,proposal,origin,originalRequest});}).catch(e=>{if(current.current===captured)setError(e instanceof Error?e.message:String(e));}).finally(()=>{if(current.current===captured)setBusy(false);});}}>{busy?'Opening exact source…':'Review new page'}</button>
  </section>;
 }

@@ -1,3 +1,4 @@
+import {PlanConnectedPageContinuation} from './PlanConnectedPageContinuation';
 import type {BuildWorkspaceDocumentController} from '../buildSurface/useBuildWorkspaceDocumentController';
 import {BuildRelationshipReview} from '../buildSurface/BuildRelationshipReview';
 import type {RelationshipSeed} from '../buildSurface/buildRelationshipRecovery';
@@ -12,7 +13,7 @@ import {connectedPageIdentities,type ConnectedPageIdentity} from '../buildSurfac
 import {readConnectedPageRecovery,retainConnectedPageRequest,clearConnectedPageRequest,queueConnectedPageBuildOut} from '../buildSurface/connectedPageAuthoring';
 import {publishConnectedPageReviewHost,type ConnectedPageReviewSeed} from './connectedPageReviewHost';
 import {validConnectedPageIntent} from '../api/connectedPageApi';
-import {isCollaboration} from '../shared/sourcePassageProtocol';
+import {canonical,isCollaboration} from '../shared/sourcePassageProtocol';
 import './ConnectedPageReviewControl.css';
 const errorText=(reason:unknown)=>reason instanceof Error?reason.message:'The page request could not finish.';
 type Props={surface:'build';session:MarkdownCanvasSessionValue|null;relationshipsHost?:HTMLElement|null;selectDocument:BuildWorkspaceDocumentController['selectDocument'];refreshDocuments:()=>unknown}
@@ -51,10 +52,11 @@ export function ConnectedPageReviewControl(props:Props){
     try{
       const saved=readConnectedPageRecovery(world,documentId);
       if(saved){if(props.surface==='plan'&&(saved.mode!=='scaffold'||!('kind' in saved.origin)))throw new Error('This retained creation is not a Plan scaffold review. Its request was kept.');setRetained(saved);void recoverConnectedPage(saved).then(result=>{if(active)setOperation(result);}).catch(()=>{/* Unknown outcomes retain the exact request; absence is not cancellation. */});}
-      else {const raw=sessionStorage.getItem('dmb:connected-page-review-draft:v1:'+JSON.stringify([world,documentId]));
+      {const raw=sessionStorage.getItem('dmb:connected-page-review-draft:v1:'+JSON.stringify([world,documentId]));
         if(raw!==null){const v=JSON.parse(raw),seed=v.seed,f=v.fields;
           if(!['dmb_connected_page_review_draft_v1','dmb_connected_page_review_draft_v2'].includes(v.schema)||seed?.worldId!==world||seed?.ownerDocumentId!==documentId||!isCollaboration(seed?.proposal,true)||seed.proposal.kind!=='connected_page'||!f||!validConnectedPageIntent({operation_id:'11111111-1111-4111-8111-111111111111',world_id:world,title:f.title,origin:seed.origin,place:{node_id:null,label:f.title,kind:'location'},person:null,relationships:[],mode:f.mode,instructions:f.instructions})||typeof f.personLabel!=='string'||typeof f.personChoice!=='string'||typeof f.placeChoice!=='string'||!Array.isArray(f.relationships)||f.relationships.some((x:unknown)=>!['owns','operates'].includes(String(x))))throw new Error('The local page review could not be restored; its bytes were kept.');
           if(props.surface==='plan'&&f.mode!=='scaffold')throw new Error('This retained review requests an unavailable Plan action. Its bytes were kept.');
+          if(saved&&canonical(seed.origin)!==canonical(saved.origin))throw new Error('The retained review origin changed; its request was kept.');
           setReviewSeed(seed);setOrigin(seed.origin);setTitle(f.title);setPersonLabel(f.personLabel);setPersonChoice(v.schema==='dmb_connected_page_review_draft_v2'?f.personChoice:'');setPlaceChoice(v.schema==='dmb_connected_page_review_draft_v2'?f.placeChoice:'');setRelationships(f.relationships);setInstructions(f.instructions);setMode(f.mode);void loadCandidates(world);
         }}
     }catch(reason){setError(errorText(reason));setReviewDraftError(errorText(reason));}
@@ -233,7 +235,7 @@ export function ConnectedPageReviewControl(props:Props){
         {reviewDraftError&&reviewSeed&&<button type="button" onClick={()=>{setReviewDraftError('');setError('');}}>Try retaining review again</button>}
         <footer>{operation?.phase!=='complete'&&<button type="submit" disabled={busy||loading||!!reviewDraftError||!origin||(!retained&&(!title.trim()||!placeChoice||relationships.length>0&&(!personLabel.trim()||!personChoice)))}>{busy?'Creating…':retained?'↻ Retry':'Create page'}</button>}
           {operation?.page&&createdPageAction(operation)}
-          {props.surface==='plan'&&operation?.phase==='complete'&&<><p role="status">Page created. Your Plan is unchanged.</p><button type="button" onClick={finishPlanReview}>Done</button></>}
+          {props.surface==='plan'&&operation?.phase==='complete'&&<><p role="status">Page created. Your Plan is unchanged.</p><PlanConnectedPageContinuation operation={operation} worldId={world} ownerDocumentId={documentId} originalRequest={reviewSeed?.originalRequest}/><button type="button" onClick={finishPlanReview}>Done</button></>}
         </footer>
       </form>
     </dialog>,document.body)}

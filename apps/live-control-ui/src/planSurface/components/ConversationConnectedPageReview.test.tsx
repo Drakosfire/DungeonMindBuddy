@@ -14,9 +14,9 @@ beforeEach(()=>{vi.clearAllMocks();vi.stubGlobal('crypto',webcrypto);});
 afterEach(()=>{cleanup();retire();});
 it('opens only the exact source-bound read and derives actual full lines without writing',async()=>{
  const open=vi.fn();retire=publishConnectedPageReviewHost({worldId:'world',documentId:'current',open});vi.mocked(getAgentConnectedPageOrigin).mockResolvedValue(value());
- render(<ConversationConnectedPageReview worldId='world' documentId='current' turnId='turn' proposal={proposal} disabled={false}/>);
+ render(<ConversationConnectedPageReview worldId='world' documentId='current' turnId='turn' proposal={proposal} disabled={false} originalRequest='Create Copper Workshop and update its source page.'/>);
  expect(getAgentConnectedPageOrigin).not.toHaveBeenCalled();fireEvent.click(screen.getByRole('button',{name:'Review new page'}));
- await waitFor(()=>expect(open).toHaveBeenCalledTimes(1));expect(open.mock.calls[0][0]).toMatchObject({ownerDocumentId:'current',origin:{document_id:id,revision:7,line_start:5,line_end:5,selected_text:'| Copper House | Repair lantern |'}});
+ await waitFor(()=>expect(open).toHaveBeenCalledTimes(1));expect(open.mock.calls[0][0]).toMatchObject({ownerDocumentId:'current',originalRequest:'Create Copper Workshop and update its source page.',origin:{document_id:id,revision:7,line_start:5,line_end:5,selected_text:'| Copper House | Repair lantern |'}});
 });
 it('refuses wrong scope, changed bytes, absent and ambiguous quote',async()=>{
  for(const raw of [{...value(),turn_id:'other'},{...value(),origin:{...value().origin,selected_text:'Changed text'}},{...value(),read_id:'other'}])await expect(connectedReviewOrigin(raw,'world','turn',proposal)).rejects.toThrow();
