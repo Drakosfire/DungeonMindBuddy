@@ -1,6 +1,6 @@
 # CONVERSATION: readable captured-request inspection
 
-ACTIVE PRIME serial UI presentation slice on codex/prompt-inspector-readable,
+SETTLED PRIME serial UI presentation slice on codex/prompt-inspector-readable,
 based on7517a42083d7244f8adf6ff3166027b7cfedbdd0 (merged2332). No unmerged parent.
 Existing context-loop checkout/dependencies. User requests nested JSON pretty
 printing/wrapping, clear input-message semantics and reachable collapse controls.
@@ -29,3 +29,10 @@ comparison and unavailable-capture behavior. Run owning tests, exact-source loca
 hosted/build and discovered baseline comparison. Review cumulative changes, merge
 and deliver UI-only under standing authority. Current native browser connection
 is unavailable; DOM tests and served-asset checks are not rendered/scroll proof.
+
+Merged2333 at edc2f7c784e4d0843a3358fff7fe535545837650 and delivered reviewed
+e2c515886 to5202; API447264 unchanged, UI549446.71 owner tests and exact hosted
+passed; full discovered remains red with unchanged164 failures/1pending and
+identical collection errors, five new passes/no removals.Independent bounded
+Bugbot review approved. Served assets/cookie Graph1404 verified, not rendered
+scroll-geometry proof. Raw captures and provider requests unchanged.
