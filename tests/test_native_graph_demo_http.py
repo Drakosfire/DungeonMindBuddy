@@ -370,6 +370,55 @@ class LauncherIsolationTest(unittest.TestCase):
         runner._store_container_id(record, container_id)
         return state, runner
 
+    def make_lifecycle_runner(self, state, status_codes, initial_data=None):
+        class StopBeforeConnection(RuntimeError):
+            pass
+
+        launcher = self.launcher
+
+        class LifecycleRunner:
+            containerized = True
+
+            def __init__(self):
+                self.state = state
+                self.status_codes = iter(status_codes)
+                self.initial_data = initial_data or {}
+                self.started_by_invocation = False
+                self.container_stopped = False
+                self.commands = []
+
+            def prepare(self):
+                for name in ("pgdata", "s"):
+                    (self.state / name).mkdir(mode=0o700)
+                for name, contents in self.initial_data.items():
+                    (self.state / "pgdata" / name).write_text(contents)
+                self.started_by_invocation = True
+
+            def data_directory(self, unused_state):
+                return Path(launcher.PGVECTOR_IMAGE_PGDATA)
+
+            def log_file(self, unused_state):
+                return Path(launcher.PGVECTOR_IMAGE_PGDATA) / "postgres.log"
+
+            def run(self, tool, args, **kwargs):
+                self.commands.append((tool, args))
+                if tool == "pg_ctl" and args[-1] == "status":
+                    return subprocess.CompletedProcess([], next(self.status_codes))
+                if tool == "initdb":
+                    (self.state / "pgdata" / "PG_VERSION").write_text("16\n")
+                    return subprocess.CompletedProcess([], 0)
+                if tool == "pg_ctl" and args[-1] == "start":
+                    raise StopBeforeConnection()
+                return subprocess.CompletedProcess([], 0)
+
+            def stop_container(self):
+                self.container_stopped = True
+                self.started_by_invocation = False
+
+        state = Path(state)
+        launcher.owned_state(state)
+        return LifecycleRunner(), StopBeforeConnection
+
     def container_inspect(self, state, runner, container_id, status="exited"):
         mounts = [
             {
@@ -912,45 +961,89 @@ class LauncherIsolationTest(unittest.TestCase):
             self.assertNotIn("production.invalid", argv)
             self.assertNotIn("secret", argv)
 
-    def test_unexpected_prestart_postmaster_is_never_stopped_or_container_cleaned(self):
-        class ExistingProcessRunner:
-            containerized = True
-            started_by_invocation = True
+    def test_empty_container_pgdata_accepts_preinit_status_four_then_requires_three(
+        self,
+    ):
+        with tempfile.TemporaryDirectory(prefix="nd-") as temporary:
+            state = Path(temporary) / "runtime"
+            runner, interrupted = self.make_lifecycle_runner(state, [4, 3, 3])
+            generator = self.launcher.isolated_database(state, {}, state, runner)
+            with self.assertRaises(interrupted):
+                next(generator)
+            self.assertEqual(
+                [tool for tool, _ in runner.commands],
+                ["pg_ctl", "initdb", "pg_ctl", "pg_ctl", "pg_ctl"],
+            )
+            self.assertEqual(
+                [args[-1] for tool, args in runner.commands if tool == "pg_ctl"],
+                ["status", "status", "start", "status"],
+            )
+            self.assertTrue((state / "pgdata" / "PG_VERSION").is_file())
+            self.assertTrue(runner.container_stopped)
 
-            def __init__(self, status):
-                self.status = status
-                self.commands = []
-                self.container_stopped = False
-
-            def prepare(self):
-                return None
-
-            def data_directory(self, state):
-                return Path("/var/lib/postgresql/data")
-
-            def run(self, tool, args, **kwargs):
-                self.commands.append((tool, args))
-                return subprocess.CompletedProcess([], self.status)
-
-            def stop_container(self):
-                self.container_stopped = True
-
-        for status in (0, 4):
+    def test_container_status_four_refuses_initialized_or_partial_pgdata(self):
+        for initial_data in (
+            {"PG_VERSION": "16\n"},
+            {"unrecognized-entry": "preserve me"},
+        ):
             with (
-                self.subTest(status=status),
+                self.subTest(initial_data=initial_data),
                 tempfile.TemporaryDirectory(prefix="nd-") as temporary,
             ):
-                runner = ExistingProcessRunner(status)
-                generator = self.launcher.isolated_database(
-                    Path(temporary), {}, Path(temporary), runner
+                state = Path(temporary) / "runtime"
+                runner, _ = self.make_lifecycle_runner(
+                    state, [4], initial_data=initial_data
                 )
+                generator = self.launcher.isolated_database(state, {}, state, runner)
                 with self.assertRaises(self.launcher.LaunchBlocked):
                     next(generator)
-                self.assertEqual(
-                    runner.commands,
-                    [("pg_ctl", ["-D", "/var/lib/postgresql/data", "status"])],
+                expected_commands = (
+                    [("pg_ctl", ["-D", self.launcher.PGVECTOR_IMAGE_PGDATA, "status"])]
+                    if "PG_VERSION" in initial_data
+                    else []
                 )
+                self.assertEqual(runner.commands, expected_commands)
                 self.assertFalse(runner.container_stopped)
+                self.assertEqual(
+                    sorted(path.name for path in (state / "pgdata").iterdir()),
+                    sorted(initial_data),
+                )
+
+    def test_post_init_status_four_preserves_cluster_without_starting_or_stopping(self):
+        with tempfile.TemporaryDirectory(prefix="nd-") as temporary:
+            state = Path(temporary) / "runtime"
+            runner, _ = self.make_lifecycle_runner(state, [4, 4, 4])
+            generator = self.launcher.isolated_database(state, {}, state, runner)
+            with self.assertRaises(self.launcher.LaunchBlocked):
+                next(generator)
+            self.assertEqual(
+                [tool for tool, _ in runner.commands],
+                ["pg_ctl", "initdb", "pg_ctl", "pg_ctl"],
+            )
+            self.assertEqual(
+                [args[-1] for tool, args in runner.commands if tool == "pg_ctl"],
+                ["status", "status", "status"],
+            )
+            self.assertEqual((state / "pgdata" / "PG_VERSION").read_text(), "16\n")
+            self.assertFalse(runner.container_stopped)
+
+    def test_container_prestart_status_zero_preserves_running_container(self):
+        with tempfile.TemporaryDirectory(prefix="nd-") as temporary:
+            state = Path(temporary) / "runtime"
+            runner, _ = self.make_lifecycle_runner(state, [0])
+            generator = self.launcher.isolated_database(state, {}, state, runner)
+            with self.assertRaises(self.launcher.LaunchBlocked):
+                next(generator)
+            self.assertEqual(
+                runner.commands,
+                [
+                    (
+                        "pg_ctl",
+                        ["-D", self.launcher.PGVECTOR_IMAGE_PGDATA, "status"],
+                    )
+                ],
+            )
+            self.assertFalse(runner.container_stopped)
 
     def test_ambient_production_and_provider_settings_are_not_inherited(self):
         environment = self.launcher.clean_env(Path("/owned/task"))

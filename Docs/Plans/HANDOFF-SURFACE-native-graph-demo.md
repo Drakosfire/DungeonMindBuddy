@@ -1,6 +1,6 @@
 # SURFACE: demonstrate the native DungeonMind graph
 
-Status: ACTIVE for isolated implementation; durable runtime/browser qualification is blocked until an authorized, dedicated local PostgreSQL runtime is available. No claim of completion or durable save is allowed while that gate remains open.
+Status: ACTIVE for isolated implementation and the authorized dedicated-container runtime proof. Durable restart and browser qualification remain pending. Earlier authorization/tool blockers below are historical and superseded only by the explicit container/publication amendments. No claim of completion or durable save is allowed without the live proof.
 
 ## Authority and topology
 
@@ -129,3 +129,11 @@ The isolation review also requires a private host ownership record of the full c
 The approved already-local runtime image is `sha256:9b05db12a35460fff0587e009f9326e414a53e9484555547f96d214a2ba98ef7`, with repository digest `pgvector/pgvector@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b`. Bind only the owned host PGDATA directory to the image's declared `/var/lib/postgresql/data` target, preventing an anonymous volume. Inspect must prove that exact host-source/container-target mapping, while SQL must report the fixed container data path. The socket bind keeps the same resolved host/container path. Override the image entrypoint and command with an inert process; the image's standard automatic PostgreSQL initialization must never run. Only the bounded exact-ID runner may invoke the pinned PostgreSQL tools after ownership and isolation checks.
 
 Publication gate resolved after Alan explicitly approved opening the draft PR: #2330 (`https://github.com/Drakosfire/DungeonMindBuddy/pull/2330`) is open/draft, targets the unchanged #2326 branch, and initially publishes reviewed head `00779be1b887108476a7d009bf39190d23eb3684`. Continue this same PR for the authorized runtime adaptation. No merge or deployment is authorized.
+
+## First-use lifecycle clarification
+
+Re-anchor before this correction found main `185e07be2557825a8fd7b14477cbe2d819972ad1` (disjoint COMPOSITION #2329), while parent #2326 remains unchanged at `b30833ede97cb4c79acf17a1fe55ff50446c7452`. Keep this stacked lane and its dependency pins; no rebase or dependency update is part of this correction.
+
+Real Docker inspection proved the dedicated runtime's exact four mounts, no-network configuration and pinned image. Docker 29 omits the false `ReadOnly` field on writable mounts and leaves the derived `Mode` empty; validate authoritative `RW`/`ReadOnly` fields with false as the omitted default, retain exact source/target/count checks, and explicitly reject automatic port publishing. Do not relax the readonly identity mounts.
+
+For a first-use cluster, PostgreSQL 16 reports `pg_ctl status` exit 4 rather than the initialized-but-stopped exit 3. The only permitted first-use exception is the exact owned inert container with a verified private, completely empty PGDATA directory. Preserve the actual status code and prove this condition separately. Initialized or nonempty data with exit 4, any already-running PostgreSQL, and uncertain outcomes remain fail-closed. After initialization, exit 3 is still required before starting PostgreSQL. Never remove partially initialized data or recreate a container to make a check pass.

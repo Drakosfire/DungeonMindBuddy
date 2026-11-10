@@ -1002,31 +1002,16 @@ def isolated_database(state: Path, tools, source: Path, runner=None):
     environment = clean_env(state)
     start_requested = False
     prestart_status = None
+    prestart_stopped = False
+    verified_empty_pgdata = False
     try:
         if runner.containerized:
             runner.prepare()
-            prestart = runner.run(
-                "pg_ctl",
-                ["-D", str(data), "status"],
-                env=environment,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            prestart_status = prestart.returncode
-            if prestart_status == 0:
-                raise LaunchBlocked(
-                    "The task container already has a running PostgreSQL process; it was preserved without adoption."
-                )
-            if prestart_status != 3:
-                raise LaunchBlocked(
-                    "The task container PostgreSQL stopped state is unverified; the container was preserved."
-                )
+            host_data = _private_directory(host_data, "PostgreSQL data", create=False)
         else:
             socket.mkdir(mode=0o700, exist_ok=True)
             runner.prepare()
-        if runner.containerized:
-            host_data = _private_directory(host_data, "PostgreSQL data", create=False)
-        else:
+        if not runner.containerized:
             if not host_data.exists():
                 host_data.mkdir(mode=0o700)
             if (
@@ -1049,6 +1034,30 @@ def isolated_database(state: Path, tools, source: Path, runner=None):
             if version_path.read_text().strip() != "16":
                 raise LaunchBlocked(
                     "The retained container database is not PostgreSQL 16."
+                )
+        if runner.containerized:
+            # pg_ctl returns 4 when PGDATA exists but is not yet a cluster. Only
+            # accept that on the exact, privately owned empty first-use directory.
+            verified_empty_pgdata = not any(host_data.iterdir())
+            prestart = runner.run(
+                "pg_ctl",
+                ["-D", str(data), "status"],
+                env=environment,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            prestart_status = prestart.returncode
+            if prestart_status == 0:
+                raise LaunchBlocked(
+                    "The task container already has a running PostgreSQL process; it was preserved without adoption."
+                )
+            if prestart_status == 3:
+                prestart_stopped = True
+            elif prestart_status == 4 and verified_empty_pgdata:
+                prestart_stopped = True
+            else:
+                raise LaunchBlocked(
+                    "The task container PostgreSQL stopped state is unverified; the container was preserved."
                 )
         if not initialized:
             runner.run(
@@ -1200,7 +1209,7 @@ def isolated_database(state: Path, tools, source: Path, runner=None):
         yield url
     finally:
         if runner.containerized and runner.started_by_invocation:
-            if prestart_status != 3:
+            if not prestart_stopped:
                 raise LaunchBlocked(
                     "The container was started, but PostgreSQL stopped state was not proven before setup; the container was preserved."
                 )
@@ -1225,7 +1234,14 @@ def isolated_database(state: Path, tools, source: Path, runner=None):
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
-            if current.returncode != 3:
+            current_stopped = current.returncode == 3
+            if current.returncode == 4 and verified_empty_pgdata:
+                current_stopped = not any(
+                    _private_directory(
+                        host_data, "PostgreSQL data", create=False
+                    ).iterdir()
+                )
+            if not current_stopped:
                 raise LaunchBlocked(
                     "The PostgreSQL shutdown outcome is uncertain; the exact container and all data were preserved."
                 )
