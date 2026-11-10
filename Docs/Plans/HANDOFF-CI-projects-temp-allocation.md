@@ -78,3 +78,20 @@ accepts mixed-case environment aliases, and `--repo` may name a subdirectory.
 Both were reproduced without network access. The repair removes all inherited
 case variants of npm's cache key and resolves the actual Git top-level before
 checking repository-local destinations. Owning regressions cover both paths.
+
+
+## Bounded inventory repair and renewed base
+
+The coordinator explicitly adopts a one-entry split of the shared inventory lease
+for PR2392: add `apps/live-control-ui/src/media/MediaImageWizard.edit.test.tsx`
+to `ci/test-classification.json`'s existing fast lane, beside its sibling test.
+Read-only live PR2288/2298/2299/2302 classification patches affect only other
+entries/config hashes; their local classification files are clean. No overlapping
+media-entry edit exists. This repairs inventory completeness without changing
+selectors, test bodies, contracts or runner commands. It is not a test exemption.
+
+The lane is rebased onto independently verified main
+168d19f983d08e388f8735b426e56ba829eefbbb; intervening QA paths are unrelated.
+The prior inherited failure and original evidence remain historical facts. Run
+the exact updated head's guards/inventory and publish only the narrow repair;
+independent review and merge authority remain separate.
