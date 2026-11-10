@@ -1,6 +1,6 @@
 # QA: replay retained writer evidence as paragraphs
 
-ACTIVE serial slice from Buddy main at 49ac23cebc1194d84ae7bc67d2e7a63cf5060010.
+MERGED in #2391 at 168d19f983d08e388f8735b426e56ba829eefbbb. Write lease released.
 The previous replay slice merged in #2387 and released its write lease.
 This checkout is non-serving. No database, provider, runtime, or primary-state
 write lease is needed. The open #2225 composition change owns product files
