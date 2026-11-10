@@ -1462,6 +1462,59 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(screen.getAllByText(base.user_text,{exact:true})).toHaveLength(1);
   });
 
+  it('keeps Build selection guidance after delayed terminal history confirms the request', async () => {
+    const initial = history();
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(initial);
+    let reject!: (reason: Error) => void;
+    vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise((_, fail) => { reject = fail; }));
+    render(<Harness initial="build" buildBridge={retryBridge()} />);
+    fireEvent.click(await screen.findByRole('button', {name: 'Open', exact: true}));
+    const input = await screen.findByLabelText('Message DungeonBuddy');
+    fireEvent.change(input, {target: {value: 'Revise the existing map description.'}});
+    fireEvent.click(screen.getByRole('button', {name: 'Send message'}));
+    await waitFor(() => expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    const request = vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0];
+    const pendingKey = `dmb:world-play-pending-turn:v1:${encodeURIComponent(WORLD)}`;
+    expect(localStorage.getItem(pendingKey)).not.toBeNull();
+
+    let finishHistory!: (page: WorldAgentConversationHistoryResponse) => void;
+    const delayedHistory = new Promise<WorldAgentConversationHistoryResponse>(resolve => { finishHistory = resolve; });
+    vi.mocked(getWorldAgentConversationHistory).mockReturnValue(delayedHistory);
+    const guidance = 'Select the passage you want Buddy to revise, then send your request again.';
+    await act(async () => reject(new LiveApiError(guidance, 409, {code: 'build_compose_target_unavailable'})));
+    expect(await screen.findByText(guidance)).toBeVisible();
+
+    const base = turn('plan', 1, '');
+    const terminal = {
+      ...base,
+      turn_id: request.turn_id,
+      idempotency_key: await expectedHistoryCorrelationKey(WORLD, request.turn_id),
+      lifecycle_status: 'interrupted' as const,
+      user_text: request.message,
+      provenance: {
+        ...base.provenance,
+        surface_id: 'build',
+        surface_instance_id: request.surface.instance_id,
+        primary_work: {
+          ...base.provenance.primary_work,
+          kind: 'build' as const,
+          object_id: request.primary_work.object_id,
+          revision: String(request.primary_work.expected_revision),
+          content_sha256: request.primary_work.expected_content_sha256,
+        },
+      },
+      retry_context: {
+        world_id: WORLD, conversation_id: initial.conversation_id!, turn_id: request.turn_id,
+        revision: 4, root_id: request.turn_id, predecessor_id: null, successor_id: null,
+        ordinal: 0, eligible: true, reason: 'ready' as const,
+      },
+    };
+    await act(async () => finishHistory({...initial, schema: "dmb_agent_conversation_history_v3", turns: [terminal]}));
+    await waitFor(() => expect(localStorage.getItem(pendingKey)).toBeNull());
+    expect(screen.getByText(guidance)).toBeVisible();
+    expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+  });
+
   it('clears a refused Build retry without overwriting newer writing or dispatching again',async()=>{
     const base=turn('plan',1,''),terminal={...base,lifecycle_status:'interrupted' as const,
       provenance:{...base.provenance,surface_id:'build',primary_work:{...base.provenance.primary_work,object_id:'source-one'}}};

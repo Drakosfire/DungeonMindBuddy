@@ -29,6 +29,10 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
+def test_build_proposal_without_a_target_returns_selection_guidance(lane, tmp_path, monkeypatch):
+    _fresh_case(lane, tmp_path, monkeypatch, "target_unavailable", True, False, True)
+
+
 def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
@@ -237,6 +241,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             if mode:
                 candidate=dict(destination='current_page',target='captured',replacement_markdown='A proposed copper lamp.',
                     summary='Proposed detail.',assumptions=['The lamp is invented.'])
+                if failure == 'target_unavailable':
+                    candidate.update(target='unavailable', replacement_markdown='', summary='Untrusted provider summary.')
                 if mode=='image':
                     candidate=dict(prompt='https://not-an-image.test/directive' if failure=='unsafe_direction' else 'A proposed copper lamp beside an orchid.',alt='Proposed copper lamp illustration',purpose='illustration')
                 text=json.dumps(candidate)
@@ -696,7 +702,14 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         return
     if proposal and failure is not None:
         from application_state.build_proposal.service import BuildProposalService
-        assert response.status_code==503,response.text
+        if failure == 'target_unavailable':
+            assert response.status_code == 409, response.text
+            assert response.json()['detail'] == {
+                'code': 'build_compose_target_unavailable',
+                'message': 'Select the passage you want Buddy to revise, then send your request again.',
+            }
+        else:
+            assert response.status_code == 503, response.text
         assert len(writer.calls)==(0 if failure in {'native_work','rules_frame','used_rules'} else 1)
         assert not classic_calls
         if failure=='used_rules':

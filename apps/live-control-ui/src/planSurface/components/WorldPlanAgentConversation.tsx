@@ -4463,7 +4463,10 @@ export function WorldPlanAgentConversation({
       if (requestRef.current?.token !== token || !latestRef.current.mounted) return;
       const terminalMatches = sharedConversation?.history && await confirmedReadOnlyTurn(sharedConversation.history, stored);
       if (requestRef.current?.token !== token || !latestRef.current.mounted) return;
+      const buildTargetUnavailable = request.surface.surface_id === "build"
+        && reason instanceof LiveApiError && reason.code === "build_compose_target_unavailable";
       if (terminalMatches && sharedConversation) {
+        if (buildTargetUnavailable) setError(reason.message);
         if (clearSavedPlayTurn(stored)) sharedConversation.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
         return;
       }
@@ -4516,13 +4519,14 @@ export function WorldPlanAgentConversation({
       }
       const graphFailure = reason instanceof LiveApiError
         && ["graph_unavailable", "native_binding_invalid", "graph_revision_unavailable", "graph_read_failed"].includes(reason.code ?? "");
-      const notice = rejectedBeforeDispatch
+      const notice = buildTargetUnavailable ? reason.message : rejectedBeforeDispatch
         ? `This message was not sent. ${localOperatorCredentialFailure(reason, "send this message again")
           ?? (reason instanceof Error ? reason.message : "Reopen the saved work.")}`
         : graphFailure
           ? `The World Graph could not be resolved for this message. ${reason.message} Check World history or explicitly retry the exact saved request; Graph context will remain required.`
         : `${reason instanceof Error ? reason.message : "The message outcome is unknown."} Check World history or explicitly retry the saved request with its original IDs.`;
-      uncertainPlayNoticeRef.current = rejectedBeforeDispatch ? null : { turnId: request.turn_id, message: notice };
+      uncertainPlayNoticeRef.current = rejectedBeforeDispatch || buildTargetUnavailable
+        ? null : { turnId: request.turn_id, message: notice };
       setError(notice);
       sharedConversation?.setHistoryRefreshNonce((current) => current + 1);
     } finally {
