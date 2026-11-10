@@ -560,7 +560,14 @@ def _ordinary_native_case(
             frame=next(item for item in frames if set(item)=={'input_status','user_question','native_body_evidence','native_statements','native_assertions'})
             assert len(frames)==3
             assert frames[0 if authoring else -1] == frame
-            assert NATIVE_ANSWER_POLICY in json.loads(req.content)['instructions']
+            body = json.loads(req.content)
+            output_format = body['text']['format']
+            assert output_format['type'] == 'json_schema' and output_format['strict'] is True
+            output_schema = output_format['schema']
+            base_schema = output_schema.get('$defs', {}).get('Base', output_schema)
+            assert base_schema['properties']['schema']['const'] == NATIVE_ANSWER_POLICY
+            if not authoring and not connected_review:
+                assert NATIVE_ANSWER_POLICY not in body['instructions']
             assert 'dmb_surface_evidence_answer_v6' not in json.loads(req.content)['instructions']
             assert BODY not in req.content.decode() and 'span.text' not in req.content.decode()
             rows=frame['native_assertions']['assertions'] if frame['native_assertions'] else []

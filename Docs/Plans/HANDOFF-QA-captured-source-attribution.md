@@ -1,6 +1,16 @@
 # QA: retain exact-source display names through composition
 
-ACTIVE serial slice under the deferred-fundamentals goal. Base
+SETTLED predecessor; lease released. Merged2382 as
+1c238dcaa9d549afc3d292c02709fab9b3dc5b57 from reviewed233c8c2568a376143e7ed34c7ab4ff4f3dad2ca5.
+136 exact owner/fence tests pass; exact local hosted and validate0; independent
+bounded acceptance PASS. Historical catalog/frame/envelope/citation parity is
+retained. Broad query25 and saved-reader5 failures remain red and independently
+reproduced on frozen baseline; no release/semantic acceptance. No paid calls,
+primary writes, operator migration or serving deployment. Evidence:
+source-attribution-delivery/settlement-v1.json in the established external root.
+The successor test-only fixture handoff owns its own bounded lease.
+
+Historical serial slice under the deferred-fundamentals goal. Base
 83877ccab9d0064355225b3d3be40bbe51f11d39; isolated non-serving branch
 codex/qa-captured-source-attribution. No other implementation PR in this lane.
 
