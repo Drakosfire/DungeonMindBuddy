@@ -154,3 +154,15 @@ from `blind-answers.json`, which contains only labels, answers and failure statu
 Model-bearing request/observation files remain audit-only.
 Hosted open-weight runs do not measure local hardware performance. Existing output
 directories are refused, so an interrupted or failed tasting cannot silently replay.
+
+For a controlled presentation experiment, `presentation: flat_native_assertions_v1`
+renders the one exact native evidence frame as tables. Original assertion and
+qualification field paths form shared headers; cells preserve JSON values and `_`
+denotes an absent field. Every fact, qualification, citation handle, original row
+order, scalar type and empty container survives exact host readback. Source
+excerpts and other frame fields remain unchanged. The readback layout is a
+host-only verification artifact, never model context or a new evidence authority.
+The system prompt and native output schema stay fixed. The original `retained_json`
+presentation remains the frozen control; this explicit experiment is not a new
+product default or an error fallback. Reuse retained control outputs and routes
+rather than rerunning retrieval or unchanged baselines.

@@ -736,7 +736,7 @@ def context_tasting(manifest_path, output):
     path = Path(manifest_path).resolve()
     spec = json.loads(path.read_text())
     required = {"schema", "source_request", "context_ready", "models"}
-    if not required <= set(spec) or set(spec) - required - {"endpoint_catalog"} or spec["schema"] != "dmb_context_tasting_v1":
+    if not required <= set(spec) or set(spec) - required - {"endpoint_catalog", "presentation"} or spec["schema"] != "dmb_context_tasting_v1":
         raise ValueError("Unknown context tasting specification")
     envelope = json.loads(read_pin(spec["source_request"], path.parent))
     ready = json.loads(read_pin(spec["context_ready"], path.parent))
@@ -753,6 +753,25 @@ def context_tasting(manifest_path, output):
     if any(set(row) != {"role", "content"} or row["role"] != "user"
            or not isinstance(row["content"], str) for row in packet["input"]):
         raise ValueError("Tasting adapter requires ordered user text messages")
+    presentation = spec.get("presentation", "retained_json")
+    if presentation not in {"retained_json", "flat_native_assertions_v1"}:
+        raise ValueError("Unknown evidence presentation")
+    input_contents = [row["content"] for row in packet["input"]]
+    flat = None
+    if presentation == "flat_native_assertions_v1":
+        from application_state.agent_conversation.native_evidence_presentation import flat_native_evidence
+        positions = []
+        for index, content in enumerate(input_contents):
+            try:
+                if json.loads(content) == frame:
+                    positions.append(index)
+            except json.JSONDecodeError:
+                continue
+        if len(positions) != 1:
+            raise ValueError("Flattening requires one exact retained semantic frame")
+        text, proof = flat_native_evidence(frame)
+        input_contents[positions[0]] = text
+        flat = {"text": text, "readback_proof": proof}
     models = spec["models"]
     if not models or len(models) != len(set(models)) or any(not isinstance(m, str) or "/" not in m for m in models):
         raise ValueError("Tasting requires distinct explicit OpenRouter model identifiers")
@@ -773,12 +792,14 @@ def context_tasting(manifest_path, output):
     directory.mkdir(parents=True, mode=0o700)
     immutable_save(directory, "specification", spec)
     immutable_save(directory, "frozen-packet", packet)
+    if flat is not None:
+        immutable_save(directory, "flat-presentation", flat)
     secrets.SystemRandom().shuffle(models)
     mapping = {chr(65+i): model for i, model in enumerate(models)}
     immutable_save(directory, "identity-key", mapping)
     # GE's public request has one user string. Preserve raw ordered content,
     # rather than JSON-escaping the original message array inside user content.
-    shared = dict(provider="openrouter", user_prompt="\n\n".join(row["content"] for row in packet["input"]),
+    shared = dict(provider="openrouter", user_prompt="\n\n".join(input_contents),
         system_prompt=packet["instructions"], temperature=None,
         json_schema=packet["text"]["format"]["schema"], schema_name=packet["text"]["format"]["name"],
         reasoning_effort=packet["reasoning"]["effort"],
