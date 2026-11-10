@@ -62,6 +62,50 @@ def capture(lane, **options):
         repository=lane.repo, resolve_identity=lambda _: lane.bound, **options)
 
 
+def test_current_acquisition_freezes_one_exact_source_name_snapshot(lane, monkeypatch):
+    from apps.live_control_server.services import native_source_display as display
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import open_native_corpus_member
+    receipt = admit(lane)
+    calls = []
+    def names(access, world):
+        calls.append(world)
+        return {(receipt.source_artifact_id, receipt.source_revision_id,
+                 sha256(BODY.encode()).hexdigest()): 'Session 9 recap'}
+    monkeypatch.setattr(display, 'captured_source_names', names)
+    prepared = prepare_native_source_context(managed_world_id='managed', principal=GM,
+        repository=lane.repo, resolve_identity=lambda _: lane.bound)
+    member, text = open_native_corpus_member(prepared, receipt.bindings[0].evidence_ref_id)
+    monkeypatch.setattr(display, 'captured_source_names', lambda *_: pytest.fail('mutable naming reread'))
+    again, _ = open_native_corpus_member(prepared, receipt.bindings[0].evidence_ref_id)
+    assert member.presentation_name == again.presentation_name == 'Session 9 recap'
+    assert calls == ['managed'] and text == BODY
+
+
+def test_historical_catalog_bytes_remain_omitted_and_name_tampering_breaks_commitment(lane):
+    import json
+    from application_state.agent_conversation import native_corpus as corpus
+    from application_state.agent_conversation.native_statement_input import canonical
+    admit(lane)
+    result = capture(lane)
+    source = result.members[0]
+    assert source.presentation_name == 'Source name unavailable'
+    historical = source.model_dump(mode='json')
+    historical.pop('presentation_name')
+    old = corpus.NativeCorpusMemberV1.model_validate(historical)
+    assert canonical(old) == canonical(historical)
+    catalog = corpus.build_native_body_catalog(result.authority, old, BODY)
+    raw = canonical(catalog)
+    assert 'presentation_name' not in raw
+    assert canonical(corpus.NativeCorpusCatalogV1.model_validate_json(raw)) == raw
+    payload = json.loads(raw)
+    payload['source']['presentation_name'] = 'Session 9 recap'
+    with pytest.raises(ValueError, match='digest differs'):
+        corpus.NativeCorpusCatalogV1.model_validate(payload)
+    for bad in ['', ' ', ' padded ']:
+        with pytest.raises(ValueError):
+            corpus.NativeCorpusMemberV1.model_validate(historical | {'presentation_name': bad})
+
+
 def test_provisioned_source_only_admission_discovers_full_body_without_assertions(lane):
     receipt = admit(lane)
     before = lane.repo.get_head("world:test")

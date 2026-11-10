@@ -33,3 +33,20 @@ def test_old_page_label_stays_qualified_and_missing_names_stay_explicit():
     old=dict(status='available',label='Current page title',campaign_id=None,session_id=None,origin_matches_current_metadata=False)
     assert display.source_display_name(old,'Source')=='Current page title · current page label; selected source is an older revision'
     assert display.source_display_name(None,'Source')=='Source (source name unavailable)'
+
+
+@pytest.mark.parametrize('status,exact,label,expected', [
+    ('available', True, 'Session 9 recap', 'Session 9 recap'),
+    ('available', False, 'New page title', 'Source name unavailable'),
+    ('unavailable', None, None, 'Source name unavailable'),
+])
+def test_captured_names_are_exact_version_labels_without_host_scope_identifiers(
+        monkeypatch, status, exact, label, expected):
+    prepared, member, item = objects()
+    monkeypatch.setattr('dungeonmind.application.vnext.list_admitted_native_text_sources',
+        lambda _: N(sources=[item]))
+    monkeypatch.setattr(display, 'source_display_metadata', lambda *_: [dict(
+        status=status, label=label, campaign_id='private-campaign-id',
+        session_id='private-session-id', origin_matches_current_metadata=exact)])
+    assert display.captured_source_names(prepared.access, 'world') == {
+        ('source', 'revision', 'hash'): expected}
