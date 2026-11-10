@@ -332,6 +332,120 @@ class LauncherIsolationTest(unittest.TestCase):
         cls.launcher = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(cls.launcher)
 
+    def docker_image_metadata(self):
+        return {
+            "id": self.launcher.PGVECTOR_IMAGE_ID,
+            "env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/postgresql/16/bin",
+                "GOSU_VERSION=1.19",
+                "LANG=en_US.utf8",
+                "PG_MAJOR=16",
+                "PG_VERSION=16.15-1.pgdg12+2",
+                f"PGDATA={self.launcher.PGVECTOR_IMAGE_PGDATA}",
+            ],
+        }
+
+    def docker_image_inspect(self):
+        launcher = self.launcher
+        return {
+            "Id": launcher.PGVECTOR_IMAGE_ID,
+            "RepoDigests": [launcher.PGVECTOR_REPO_DIGEST],
+            "RepoTags": [launcher.PGVECTOR_IMAGE_TAG],
+            "Config": {
+                "Entrypoint": ["docker-entrypoint.sh"],
+                "Cmd": ["postgres"],
+                "User": "",
+                "Env": self.docker_image_metadata()["env"],
+                "Volumes": {launcher.PGVECTOR_IMAGE_PGDATA: {}},
+            },
+            "Os": "linux",
+            "Architecture": "amd64",
+        }
+
+    def make_container_runner(self, root, container_id="a" * 64):
+        state = Path(root)
+        self.launcher.owned_state(state)
+        runner = self.launcher.DockerPostgresRunner(state, self.docker_image_metadata())
+        record = runner._create_record()
+        runner._store_container_id(record, container_id)
+        return state, runner
+
+    def container_inspect(self, state, runner, container_id, status="exited"):
+        mounts = [
+            {
+                "Type": "bind",
+                "Source": str((state / "pgdata").resolve()),
+                "Destination": self.launcher.PGVECTOR_IMAGE_PGDATA,
+                "RW": True,
+                "Mode": "rw",
+                "Propagation": "rprivate",
+            },
+            {
+                "Type": "bind",
+                "Source": str((state / "s").resolve()),
+                "Destination": str(state / "s"),
+                "RW": True,
+                "Mode": "rw",
+                "Propagation": "rprivate",
+            },
+            {
+                "Type": "bind",
+                "Source": str((state / "container.passwd").resolve()),
+                "Destination": "/etc/passwd",
+                "RW": False,
+                "Mode": "ro",
+                "Propagation": "rprivate",
+            },
+            {
+                "Type": "bind",
+                "Source": str((state / "container.group").resolve()),
+                "Destination": "/etc/group",
+                "RW": False,
+                "Mode": "ro",
+                "Propagation": "rprivate",
+            },
+        ]
+        return {
+            "Id": container_id,
+            "Name": f"/{runner.name}",
+            "Image": self.launcher.PGVECTOR_IMAGE_ID,
+            "Path": "/bin/sleep",
+            "Args": ["infinity"],
+            "Config": {
+                "Image": self.launcher.PGVECTOR_IMAGE_ID,
+                "User": f"{os.getuid()}:{os.getgid()}",
+                "Entrypoint": ["/bin/sleep"],
+                "Cmd": ["infinity"],
+                "Env": self.docker_image_metadata()["env"],
+                "Labels": runner.labels,
+                "OpenStdin": False,
+                "Tty": False,
+            },
+            "HostConfig": {
+                "NetworkMode": "none",
+                "PortBindings": None,
+                "Privileged": False,
+                "ReadonlyRootfs": True,
+                "CapAdd": None,
+                "CapDrop": ["ALL"],
+                "SecurityOpt": ["no-new-privileges:true"],
+                "PidMode": "",
+                "IpcMode": "private",
+                "UTSMode": "",
+                "UsernsMode": "",
+                "AutoRemove": False,
+                "RestartPolicy": {"Name": "no", "MaximumRetryCount": 0},
+                "Devices": None,
+                "DeviceRequests": None,
+                "Tmpfs": None,
+                "Binds": None,
+                "VolumesFrom": None,
+            },
+            "Mounts": mounts,
+            "State": {"Status": status},
+            "NetworkSettings": {"Networks": {"none": {}}},
+        }
+
     def test_ambient_libpq_settings_are_rejected_before_any_connection(self):
         for name in ("PGHOSTADDR", "PGSERVICE", "PGOPTIONS", "PGPASSFILE"):
             with (
@@ -351,6 +465,432 @@ class LauncherIsolationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="native-demo-tools-") as temporary:
             with self.assertRaises(self.launcher.LaunchBlocked):
                 self.launcher.postgres_tools(Path(temporary))
+
+    def test_docker_cli_forces_local_endpoint_and_discards_context_overrides(self):
+        with tempfile.TemporaryDirectory(prefix="nd-") as temporary:
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {
+                        "DOCKER_HOST": "tcp://untrusted.example:2376",
+                        "DOCKER_CONTEXT": "untrusted",
+                        "PGHOST": "production.invalid",
+                    },
+                ),
+                mock.patch.object(
+                    self.launcher.subprocess,
+                    "run",
+                    return_value=subprocess.CompletedProcess([], 0, "", ""),
+                ) as run,
+            ):
+                self.launcher.docker_run(
+                    ["image", "inspect", "sha256:abc"], home=Path(temporary)
+                )
+            argv = run.call_args.args[0]
+            environment = run.call_args.kwargs["env"]
+            self.assertEqual(argv[1:3], ["--host", self.launcher.DOCKER_ENDPOINT])
+            self.assertEqual(set(environment), {"PATH", "HOME", "LANG"})
+            self.assertEqual(environment["HOME"], temporary)
+
+    def test_pinned_image_check_is_local_and_rejects_identity_drift(self):
+        image = self.docker_image_inspect()
+        result = subprocess.CompletedProcess([], 0, json.dumps([image]), "")
+        with mock.patch.object(self.launcher, "docker_run", return_value=result) as run:
+            verified = self.launcher.verify_docker_image()
+        self.assertEqual(verified, self.docker_image_metadata())
+        self.assertEqual(
+            run.call_args.args[0],
+            ["image", "inspect", self.launcher.PGVECTOR_IMAGE_ID],
+        )
+        self.assertNotIn("pull", run.call_args.args[0])
+
+        image["Config"]["Env"].append("LD_PRELOAD=/tmp/untrusted.so")
+        with (
+            mock.patch.object(
+                self.launcher,
+                "docker_run",
+                return_value=subprocess.CompletedProcess(
+                    [], 0, json.dumps([image]), ""
+                ),
+            ),
+            self.assertRaises(self.launcher.LaunchBlocked),
+        ):
+            self.launcher.verify_docker_image()
+
+    def test_container_create_uses_exact_mounts_inert_command_and_no_host_network(self):
+        with tempfile.TemporaryDirectory(prefix="nd-") as temporary:
+            state = Path(temporary)
+            self.launcher.owned_state(state)
+            runner = self.launcher.DockerPostgresRunner(
+                state, self.docker_image_metadata()
+            )
+            runner._state_dirs(create=True)
+            self.launcher._container_identity_files(state)
+            argv = runner._create_argv()
+            self.assertIn("--network", argv)
+            self.assertEqual(argv[argv.index("--network") + 1], "none")
+            self.assertEqual(argv[argv.index("--pull") + 1], "never")
+            self.assertEqual(argv[argv.index("--restart") + 1], "no")
+            self.assertEqual(argv[argv.index("--entrypoint") + 1], "/bin/sleep")
+            self.assertEqual(argv[-2:], [self.launcher.PGVECTOR_IMAGE_ID, "infinity"])
+            mounts = [
+                argv[i + 1] for i, item in enumerate(argv[:-1]) if item == "--mount"
+            ]
+            self.assertEqual(len(mounts), 4)
+            self.assertTrue(
+                any("target=/var/lib/postgresql/data" in item for item in mounts)
+            )
+            self.assertTrue(
+                any("target=/etc/passwd,readonly" in item for item in mounts)
+            )
+            self.assertTrue(
+                any("target=/etc/group,readonly" in item for item in mounts)
+            )
+            self.assertFalse(
+                any(
+                    item in argv
+                    for item in ("--privileged", "-p", "--publish", "--volume")
+                )
+            )
+
+    def test_existing_unproven_container_is_not_adopted_or_changed(self):
+        with tempfile.TemporaryDirectory(prefix="nd-") as temporary:
+            state = Path(temporary)
+            self.launcher.owned_state(state)
+            runner = self.launcher.DockerPostgresRunner(
+                state, self.docker_image_metadata()
+            )
+            existing = {"Id": "b" * 64}
+            with mock.patch.object(runner, "_inspect", return_value=existing):
+                with self.assertRaises(self.launcher.LaunchBlocked):
+                    runner._ensure_container()
+            self.assertFalse(runner.started_by_invocation)
+            self.assertFalse((state / "container-owner.json").exists())
+
+    def test_inspect_failure_is_not_treated_as_container_absence(self):
+        with tempfile.TemporaryDirectory(prefix="nd-") as temporary:
+            state, runner = self.make_container_runner(temporary)
+            with mock.patch.object(
+                self.launcher,
+                "docker_run",
+                return_value=subprocess.CompletedProcess(
+                    [], 1, "", "permission denied by daemon"
+                ),
+            ):
+                with self.assertRaises(self.launcher.LaunchBlocked):
+                    runner._inspect(runner.container_id)
+
+    def test_running_recorded_container_is_refused_without_stop(self):
+        with tempfile.TemporaryDirectory(prefix="nd-") as temporary:
+            state, runner = self.make_container_runner(temporary)
+            info = self.container_inspect(state, runner, runner.container_id, "running")
+            with mock.patch.object(
+                runner, "_inspect", side_effect=[info, info]
+            ) as inspect:
+                with self.assertRaises(self.launcher.LaunchBlocked):
+                    runner._ensure_container()
+            self.assertEqual(inspect.call_count, 2)
+            self.assertFalse(runner.started_by_invocation)
+
+    def test_container_reuse_requires_exact_environment_network_and_mounts(self):
+        with tempfile.TemporaryDirectory(prefix="nd-") as temporary:
+            state, runner = self.make_container_runner(temporary)
+            cases = []
+            altered_env = self.container_inspect(state, runner, runner.container_id)
+            altered_env["Config"]["Env"].append("LD_PRELOAD=/tmp/injected.so")
+            cases.append(altered_env)
+            altered_network = self.container_inspect(state, runner, runner.container_id)
+            altered_network["NetworkSettings"]["Networks"] = {
+                "none": {},
+                "bridge": {},
+            }
+            cases.append(altered_network)
+            altered_mount = self.container_inspect(state, runner, runner.container_id)
+            altered_mount["Mounts"].append(
+                {
+                    "Type": "volume",
+                    "Source": "unowned",
+                    "Destination": "/extra",
+                    "RW": True,
+                }
+            )
+            cases.append(altered_mount)
+            altered_command = self.container_inspect(state, runner, runner.container_id)
+            altered_command["Args"] = ["--tcp-only"]
+            cases.append(altered_command)
+            for info in cases:
+                with self.subTest(info=info):
+                    with self.assertRaises(self.launcher.LaunchBlocked):
+                        runner._validate_inspect(info, expected_id=runner.container_id)
+
+            (state / "container.passwd").write_text(
+                "different:x:1000:1000::/:/bin/false\n"
+            )
+            with self.assertRaises(self.launcher.LaunchBlocked):
+                runner._load_record()
+
+    def test_stopped_exact_container_is_started_and_stopped_by_full_id(self):
+        with tempfile.TemporaryDirectory(prefix="nd-") as temporary:
+            state, runner = self.make_container_runner(temporary)
+            container_id = runner.container_id
+            stopped = self.container_inspect(state, runner, container_id, "exited")
+            running = self.container_inspect(state, runner, container_id, "running")
+            exited = self.container_inspect(state, runner, container_id, "exited")
+            with (
+                mock.patch.object(
+                    runner,
+                    "_inspect",
+                    side_effect=[stopped, stopped, running, running, exited],
+                ),
+                mock.patch.object(
+                    self.launcher,
+                    "docker_run",
+                    return_value=subprocess.CompletedProcess([], 0, container_id, ""),
+                ) as run,
+            ):
+                runner.prepare()
+                self.assertTrue(runner.started_by_invocation)
+                runner.stop_container()
+            self.assertFalse(runner.started_by_invocation)
+            self.assertEqual(
+                run.call_args_list[0].args[0], ["container", "start", container_id]
+            )
+            self.assertEqual(
+                run.call_args_list[1].args[0],
+                ["container", "stop", "--time", "10", container_id],
+            )
+
+    def test_first_absent_runtime_creates_and_starts_only_pinned_inert_container(self):
+        with tempfile.TemporaryDirectory(prefix="nd-") as temporary:
+            state = Path(temporary)
+            self.launcher.owned_state(state)
+            runner = self.launcher.DockerPostgresRunner(
+                state, self.docker_image_metadata()
+            )
+            container_id = "d" * 64
+            created = self.container_inspect(state, runner, container_id, "created")
+            running = self.container_inspect(state, runner, container_id, "running")
+            with (
+                mock.patch.object(
+                    runner, "_inspect", side_effect=[None, created, created, running]
+                ),
+                mock.patch.object(
+                    self.launcher,
+                    "docker_run",
+                    side_effect=[
+                        subprocess.CompletedProcess([], 0, container_id, ""),
+                        subprocess.CompletedProcess([], 0, container_id, ""),
+                    ],
+                ) as run,
+            ):
+                runner.prepare()
+            record = json.loads((state / "container-owner.json").read_text())
+            self.assertEqual(record["container_id"], container_id)
+            self.assertTrue(runner.started_by_invocation)
+            self.assertEqual(
+                run.call_args_list[0].args[0][-3:],
+                ["/bin/sleep", self.launcher.PGVECTOR_IMAGE_ID, "infinity"],
+            )
+            self.assertEqual(
+                run.call_args_list[1].args[0], ["container", "start", container_id]
+            )
+            runner.started_by_invocation = False
+
+    def test_uncertain_container_start_is_inspected_once_and_never_stopped(self):
+        with tempfile.TemporaryDirectory(prefix="nd-") as temporary:
+            state, runner = self.make_container_runner(temporary)
+            container_id = runner.container_id
+            stopped = self.container_inspect(state, runner, container_id, "exited")
+            running = self.container_inspect(state, runner, container_id, "running")
+            with (
+                mock.patch.object(
+                    runner, "_inspect", side_effect=[stopped, stopped, running]
+                ),
+                mock.patch.object(
+                    self.launcher,
+                    "docker_run",
+                    return_value=subprocess.CompletedProcess(
+                        [], 1, "", "start response lost"
+                    ),
+                ) as run,
+            ):
+                with self.assertRaises(self.launcher.LaunchBlocked):
+                    runner.prepare()
+            self.assertFalse(runner.started_by_invocation)
+            self.assertEqual(run.call_count, 1)
+            self.assertEqual(
+                run.call_args.args[0], ["container", "start", container_id]
+            )
+
+    def test_uncertain_container_stop_is_inspected_once_and_preserved(self):
+        with tempfile.TemporaryDirectory(prefix="nd-") as temporary:
+            state, runner = self.make_container_runner(temporary)
+            container_id = runner.container_id
+            running = self.container_inspect(state, runner, container_id, "running")
+            with (
+                mock.patch.object(runner, "_inspect", side_effect=[running, running]),
+                mock.patch.object(
+                    self.launcher,
+                    "docker_run",
+                    return_value=subprocess.CompletedProcess(
+                        [], 1, "", "stop timed out"
+                    ),
+                ) as run,
+            ):
+                runner.started_by_invocation = True
+                with self.assertRaises(self.launcher.LaunchBlocked):
+                    runner.stop_container()
+            self.assertTrue(runner.started_by_invocation)
+            self.assertEqual(
+                run.call_args.args[0],
+                ["container", "stop", "--time", "10", container_id],
+            )
+
+    def test_uncertain_container_create_is_not_adopted_or_cleaned(self):
+        with tempfile.TemporaryDirectory(prefix="nd-") as temporary:
+            state = Path(temporary)
+            self.launcher.owned_state(state)
+            runner = self.launcher.DockerPostgresRunner(
+                state, self.docker_image_metadata()
+            )
+
+            def docker_result(argv, **kwargs):
+                if argv[0] == "inspect":
+                    return subprocess.CompletedProcess(
+                        argv, 1, "", f"Error: No such object: {argv[-1]}"
+                    )
+                if argv[:2] == ["container", "create"]:
+                    return subprocess.CompletedProcess(argv, 1, "", "connection lost")
+                self.fail(f"unexpected Docker action: {argv}")
+
+            with mock.patch.object(
+                self.launcher, "docker_run", side_effect=docker_result
+            ) as run:
+                with self.assertRaises(self.launcher.LaunchBlocked):
+                    runner._ensure_container()
+            self.assertIsNone(runner.container_id)
+            self.assertFalse(runner.started_by_invocation)
+            self.assertFalse(
+                any(
+                    call.args[0][:2] in (["container", "stop"], ["container", "rm"])
+                    for call in run.call_args_list
+                )
+            )
+
+    def test_successful_create_id_is_recorded_before_inspect(self):
+        with tempfile.TemporaryDirectory(prefix="nd-") as temporary:
+            state = Path(temporary)
+            self.launcher.owned_state(state)
+            runner = self.launcher.DockerPostgresRunner(
+                state, self.docker_image_metadata()
+            )
+            container_id = "c" * 64
+
+            def docker_result(argv, **kwargs):
+                if argv[0] == "inspect" and argv[-1] == runner.name:
+                    return subprocess.CompletedProcess(
+                        argv, 1, "", f"Error: No such object: {runner.name}"
+                    )
+                if argv[:2] == ["container", "create"]:
+                    return subprocess.CompletedProcess(argv, 0, container_id, "")
+                if argv[0] == "inspect" and argv[-1] == container_id:
+                    return subprocess.CompletedProcess(
+                        argv, 1, "", "daemon unavailable"
+                    )
+                self.fail(f"unexpected Docker action: {argv}")
+
+            with mock.patch.object(
+                self.launcher, "docker_run", side_effect=docker_result
+            ) as run:
+                with self.assertRaises(self.launcher.LaunchBlocked):
+                    runner._ensure_container()
+            record = json.loads((state / "container-owner.json").read_text())
+            self.assertEqual(record["container_id"], container_id)
+            self.assertFalse(runner.started_by_invocation)
+            self.assertFalse(
+                any(
+                    call.args[0][:2]
+                    in (
+                        ["container", "start"],
+                        ["container", "stop"],
+                        ["container", "rm"],
+                    )
+                    for call in run.call_args_list
+                )
+            )
+
+    def test_container_start_argv_clears_environment_and_keeps_peer_auth(self):
+        with tempfile.TemporaryDirectory(prefix="nd-") as temporary:
+            state, runner = self.make_container_runner(temporary)
+            runner.started_by_invocation = True
+            with mock.patch.object(
+                self.launcher,
+                "docker_run",
+                return_value=subprocess.CompletedProcess([], 0, "", ""),
+            ) as run:
+                runner.run(
+                    "initdb",
+                    [
+                        "-D",
+                        self.launcher.PGVECTOR_IMAGE_PGDATA,
+                        "--auth-local=peer",
+                        "--auth-host=reject",
+                    ],
+                    env={"PGHOST": "production.invalid", "DATABASE_URL": "secret"},
+                    check=True,
+                )
+            argv = run.call_args.args[0]
+            self.assertEqual(
+                argv[:4],
+                ["exec", "--user", f"{os.getuid()}:{os.getgid()}", runner.container_id],
+            )
+            self.assertIn("/usr/bin/env", argv)
+            self.assertIn("-i", argv)
+            self.assertIn(f"{self.launcher.PGVECTOR_BIN_DIR}/initdb", argv)
+            self.assertIn("--auth-local=peer", argv)
+            self.assertIn("--auth-host=reject", argv)
+            self.assertNotIn("production.invalid", argv)
+            self.assertNotIn("secret", argv)
+
+    def test_unexpected_prestart_postmaster_is_never_stopped_or_container_cleaned(self):
+        class ExistingProcessRunner:
+            containerized = True
+            started_by_invocation = True
+
+            def __init__(self, status):
+                self.status = status
+                self.commands = []
+                self.container_stopped = False
+
+            def prepare(self):
+                return None
+
+            def data_directory(self, state):
+                return Path("/var/lib/postgresql/data")
+
+            def run(self, tool, args, **kwargs):
+                self.commands.append((tool, args))
+                return subprocess.CompletedProcess([], self.status)
+
+            def stop_container(self):
+                self.container_stopped = True
+
+        for status in (0, 4):
+            with (
+                self.subTest(status=status),
+                tempfile.TemporaryDirectory(prefix="nd-") as temporary,
+            ):
+                runner = ExistingProcessRunner(status)
+                generator = self.launcher.isolated_database(
+                    Path(temporary), {}, Path(temporary), runner
+                )
+                with self.assertRaises(self.launcher.LaunchBlocked):
+                    next(generator)
+                self.assertEqual(
+                    runner.commands,
+                    [("pg_ctl", ["-D", "/var/lib/postgresql/data", "status"])],
+                )
+                self.assertFalse(runner.container_stopped)
 
     def test_ambient_production_and_provider_settings_are_not_inherited(self):
         environment = self.launcher.clean_env(Path("/owned/task"))
@@ -459,6 +999,7 @@ class LauncherIsolationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="pg-start-test-") as temporary:
             root = Path(temporary)
             (root / "pgdata").mkdir()
+            (root / "pgdata" / "PG_VERSION").write_text("16\n")
             results = [
                 subprocess.CompletedProcess([], 3),
                 KeyboardInterrupt(),
@@ -481,6 +1022,7 @@ class LauncherIsolationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="pg-existing-test-") as temporary:
             root = Path(temporary)
             (root / "pgdata").mkdir()
+            (root / "pgdata" / "PG_VERSION").write_text("16\n")
             with mock.patch.object(
                 self.launcher.subprocess,
                 "run",
@@ -498,6 +1040,7 @@ class LauncherIsolationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="pg-uncertain-test-") as temporary:
             root = Path(temporary)
             (root / "pgdata").mkdir()
+            (root / "pgdata" / "PG_VERSION").write_text("16\n")
             with mock.patch.object(
                 self.launcher.subprocess,
                 "run",
