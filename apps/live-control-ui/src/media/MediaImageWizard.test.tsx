@@ -24,7 +24,8 @@ async function settings(api: ImageGenerationPort) {
   render(<MediaImageWizard onClose={() => {}} port={api} />);
   fireEvent.change(screen.getByRole('textbox', { name: /What would you like/ }), { target: { value: 'Edge' } });
 
-  await screen.findByRole('option', { name: 'FLUX 2 Pro' });
+  await waitFor(() => expect(screen.getByRole('button', {name: 'Generate image'})).toBeEnabled());
+  fireEvent.click(screen.getByText('Details', {exact: true}));
 }
 describe('MediaImageWizard', () => {
   it('submits only explicit Generate with model-supported controls', async () => {
@@ -68,7 +69,7 @@ describe('MediaImageWizard', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Saved swamp · Saved' }));
     await screen.findByAltText('Saved swamp');
     expect(api.generate).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Create image' }));
+    fireEvent.click(screen.getByText('Details', {exact: true}));
     expect(screen.getByLabelText(/Seed/)).toHaveValue('42');
     expect(screen.getByLabelText('Shape')).toHaveValue('1536x1024');
   });
@@ -104,6 +105,7 @@ describe('MediaImageWizard', () => {
     ], next_cursor: 'next', has_more: true, fetched_at: '2026-10-17T20:00:00Z' });
     render(<MediaImageWizard onClose={() => {}} initialPrompt="Map of Edge" port={api} />);
 
+    fireEvent.click(screen.getByText('Details', {exact: true}));
     await screen.findByRole('option', { name: 'Flare' });
     expect(screen.getByLabelText('Model')).toHaveValue('gpt-image-2.5-flare');
     expect(api.catalog).not.toHaveBeenCalled();
@@ -202,7 +204,7 @@ describe('MediaImageWizard', () => {
     await screen.findByAltText('Edge');
     expect(api.get).toHaveBeenCalledWith('new');
     expect(api.generate).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Create image' }));
+    fireEvent.click(screen.getByText('Details', {exact: true}));
     expect(screen.getByRole('textbox', { name: /What would you like/ })).toHaveValue('Edge');
   });
 
@@ -289,13 +291,15 @@ it('names the actual document placement control in its block instructions', asyn
   await waitFor(()=>expect(screen.getByRole('button',{name:'Generate image'})).toBeEnabled());
   fireEvent.click(screen.getByRole('button',{name:'Generate image'}));
   expect(await screen.findByRole('button',{name:'Place in Plan'})).toBeInTheDocument();
-  expect(screen.getByText(/choose Place in Plan and click a block/)).toBeInTheDocument();
+  expect(screen.queryByText(/click a block/)).not.toBeInTheDocument();
+  expect(screen.getByRole('toolbar', {name:'Image Studio controls'})).toContainElement(screen.getByRole('button',{name:'Place in Plan'}));
   expect(screen.queryByRole('button',{name:'Place on page'})).not.toBeInTheDocument();
 });
 
  it('requires explicit media Save before portrait selection, without page placement or Plan observations',async()=>{
    const api=createPort(),choose=vi.fn();
    render(<MediaImageWizard selectionOnly requireSaved chooseLabel="Use as portrait" initialPrompt="Ooze portrait" port={api} onClose={()=>{}} onChoose={choose}/>);
+   fireEvent.click(screen.getByText('Details', {exact:true}));
    await screen.findByRole('option',{name:'FLUX 2 Pro'});
    expect(api.generate).not.toHaveBeenCalled();
    fireEvent.click(screen.getByRole('button',{name:'Generate image'}));
@@ -324,4 +328,39 @@ it('chooses a ready library portrait without generating or uploading again and r
  expect(api.generate).not.toHaveBeenCalled();expect(api.save).not.toHaveBeenCalled();
  choose.mockResolvedValueOnce(undefined);fireEvent.click(screen.getByRole('button',{name:'Use as portrait'}));
  await waitFor(()=>expect(choose).toHaveBeenCalledTimes(2));
+});
+
+
+it('edits the prompt beside the rendered image and regenerates once from the toolbar', async () => {
+ const api=createPort(); await settings(api);
+ fireEvent.click(screen.getByRole('button',{name:'Generate image'}));
+ await screen.findByRole('img',{name:'Edge'});
+ expect(screen.queryByRole('button',{name:'Create image'})).not.toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Open generated image in library'})).not.toBeInTheDocument();
+ expect(screen.queryByText(/Drag the retained image/)).not.toBeInTheDocument();
+ fireEvent.change(screen.getByRole('textbox',{name:'What would you like to see?'}),{target:{value:'A lantern-lit courtyard'}});
+ vi.mocked(api.generate).mockResolvedValueOnce({images:[{data_url:'data:image/png;base64,AA==',media_type:'image/png',asset_id:'asset-2',state:'staged'}],prompt:'A lantern-lit courtyard',model:'flux-2-pro'});
+ const generate=screen.getByRole('button',{name:'Generate another image'});
+ expect(screen.getByRole('toolbar',{name:'Image Studio controls'})).toContainElement(generate);
+ fireEvent.click(generate);
+ await screen.findByRole('img',{name:'A lantern-lit courtyard'});
+ expect(api.generate).toHaveBeenCalledTimes(2);
+ expect(api.generate).toHaveBeenLastCalledWith(expect.objectContaining({prompt:'A lantern-lit courtyard'}));
+ expect(api.save).not.toHaveBeenCalled();
+});
+
+it('escapes a clipping conversation host and keeps technical copy collapsed', async () => {
+ const api=createPort(); const host=document.createElement('div'); host.style.overflow='hidden';document.body.appendChild(host);
+ try {
+  const mounted=render(<MediaImageWizard onClose={()=>{}} initialPrompt="Courtyard" port={api}/>,{container:host});
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Generate image'})).toBeEnabled());
+  const studio=screen.getByRole('region',{name:'Create an image'});
+  expect(host).not.toContainElement(studio);
+  expect(studio.parentElement).toHaveClass('media-image-wizard-overlay');
+  expect(screen.getByText('Details',{exact:true}).closest('details')).not.toHaveAttribute('open');
+  expect(screen.getByText(/Generation is billed/).closest('details')).toBe(screen.getByText('Details',{exact:true}).closest('details'));
+  expect(screen.getByRole('button',{name:'Image library'})).toHaveAttribute('title','Image library');
+  expect(screen.getByRole('button',{name:'Image library'}).querySelector('svg')).not.toBeNull();
+  mounted.unmount();expect(document.querySelector('.media-image-wizard-overlay')).toBeNull();
+ } finally {host.remove();}
 });
