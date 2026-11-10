@@ -2,14 +2,15 @@
 
 ACTIVE · PRIME · serial · codex/build-author-interaction from 573d72f9a.
 Use the existing buddy-context-loop checkout. This lease covers the Build harness
-notice, agent conversation message and retry projections, their UI decoders,
+notice, Agent turn acceptance, agent conversation message and retry admission/projections,
+their UI decoders,
 Build conversation recovery and placement, and their focused tests.
 
 Project the exact saved missing-target decision as an author interaction.
 Continue only after the author explicitly acts with a new, nonempty passage
 selection from the original page and active conversation. Reuse the existing
 retry admission, original request and references, and proposal review. Keep
-the interrupted attempt and a newer composer draft. No auto-submit, publication
+the interrupted attempt and a newer composer draft. Admission rejects empty or broader edit offers before provider dispatch. No auto-submit, publication
 or new data store. Additional interaction types require a real caller and
 their own admission criteria.
 

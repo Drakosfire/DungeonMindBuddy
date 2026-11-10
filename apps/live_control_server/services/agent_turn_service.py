@@ -19,6 +19,7 @@ from typing import Annotated, Any, Callable, Mapping, Protocol
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from application_state.agent_conversation import AgentConversationService
+from application_state.build_proposal.types import BuildWriteCapability
 from application_state.agent_conversation.native_writer import json_container_count as _json_node_count
 from application_state.agent_conversation.surface_source_answer import SOURCE_ATTRIBUTION_INSTRUCTIONS
 from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
@@ -1508,7 +1509,7 @@ PlanGraphResolver = Callable[
 class AgentTurnExecutionPersistencePort(Protocol):
     """Narrow SERVER-facing APP-STATE seam for guarded Graph execution."""
 
-    def accept_turn(self, submission: TurnSubmission) -> Turn: ...
+    def accept_turn(self, submission: TurnSubmission, *, build_retry_capability: BuildWriteCapability | None = None) -> Turn: ...
 
     def claim_turn(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
@@ -6608,6 +6609,8 @@ def _accept_world_turn(
             play_context_receipt=play_context_receipt,
         )
         try:
+            if isinstance(submitted_intent, BuildGraphIntentV1) and submitted_intent.retry_of is not None:
+                return service.accept_turn(submission, build_retry_capability=request.build_write_capability)
             return service.accept_turn(submission)
         except ApplicationStateConflictError as exc:
             from application_state.agent_conversation.retry import RetryUnavailableError

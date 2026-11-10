@@ -103,6 +103,7 @@ from application_state.errors import (
 from application_state.unit_of_work import unit_of_work
 
 if TYPE_CHECKING:
+    from application_state.build_proposal.types import BuildWriteCapability
     from .rules_authority_types import RulesScopeV1
     from .rules_authority_events import (
         RulesToolAuthorizedV1, RulesProviderAuthorizedV1,
@@ -736,7 +737,9 @@ class AgentConversationService:
                 result_pointer_revision=new_pointer.revision, recorded_at=now,
             )
 
-    def accept_turn(self, submission: TurnSubmission) -> TurnReadModel:
+    def accept_turn(
+        self, submission: TurnSubmission, *, build_retry_capability: BuildWriteCapability | None = None
+    ) -> TurnReadModel:
         # StrictModel/model_copy is mutable. Re-run the submission owner before
         # fingerprints, idempotent replay or any database mutation. JSON mode
         # also checks copied dictionary fields through their actual wire codecs.
@@ -892,7 +895,7 @@ class AgentConversationService:
             if conversation.status != "active":
                 raise ApplicationStateConflictError("conversation is archived")
             from .retry import validate_predecessor, retain_edge
-            retry_parent = validate_predecessor(conn, submission)
+            retry_parent = validate_predecessor(conn, submission, build_retry_capability)
             advanced = repo.advance_conversation_for_turn(
                 conn,
                 world_id=world_id,

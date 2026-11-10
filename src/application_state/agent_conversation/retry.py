@@ -359,7 +359,7 @@ def read_discussion_retry_input(world, conversation, turn_id, revision):
         }
 
 
-def validate_predecessor(conn, submission):
+def validate_predecessor(conn, submission, capability=None):
     intent = submission.submitted_intent_v2
     reference = intent.retry_of if isinstance(intent, BuildGraphIntentV1) else None
     if reference is None:
@@ -387,6 +387,20 @@ def validate_predecessor(conn, submission):
     ):
         raise RetryUnavailableError("Retry requires the same question and Build page")
     validate_reference_retry(parent, intent)
+    if author_interaction(old.surface_id, old.primary_work.kind, parent.status, parent.failure_code) == "select_passage":
+        from .build_draft_context import digest
+        from application_state.build_proposal.types import BuildWriteCapability
+
+        if (
+            not isinstance(capability, BuildWriteCapability)
+            or capability.basis.selection is None
+            or not capability.basis.selection.text.strip()
+            or capability.page_body_offer is not None
+            or capability.page_end_offer is not None
+            or reference.retained_snapshot_sha256 is not None
+            or intent.build_write_capability_sha256 != digest(capability.model_dump(mode="json"))
+        ):
+            raise RetryUnavailableError("Select a passage on the original page before continuing this saved request.")
     if reference.retained_snapshot_sha256 is not None:
         from .build_draft_context import digest
         record = retained_discussion_capture(parent)

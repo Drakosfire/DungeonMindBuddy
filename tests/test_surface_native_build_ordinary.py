@@ -755,7 +755,19 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             resumed['build_draft_context']['expected_pointer_revision'] = pointer
             capability = resumed['build_write_capability']
             capability.update(idempotency_key=str(uuid4()), expected_pointer_revision=pointer)
+            before_calls = len(decisions.calls), len(writer.calls)
+            no_selection = client.post('/api/live/agent/turn', json=resumed)
+            assert no_selection.status_code == 409, no_selection.text
+            assert no_selection.json()['detail']['code'] == 'build_retry_unavailable'
+            assert (len(decisions.calls), len(writer.calls)) == before_calls
             capability['basis']['selection'] = {'end': 18, 'text': 'An unsaved orchid'}
+            for offer in ('page_body_offer', 'page_end_offer'):
+                capability[offer] = {'end': 50}
+                wider = client.post('/api/live/agent/turn', json=resumed)
+                assert wider.status_code == 409, wider.text
+                assert wider.json()['detail']['code'] == 'build_retry_unavailable'
+                assert (len(decisions.calls), len(writer.calls)) == before_calls
+                del capability[offer]
             result = client.post('/api/live/agent/turn', json=resumed)
             assert result.status_code == 200, result.text
             assert len(writer.calls) == 2
