@@ -14,8 +14,8 @@ Coordination remains off;2104 stays held. No provider or primary-data test write
 Fresh Plan already offers the merged connected-page scaffold review. The attached
 Nov8 attempt used an older codec and remains retained unchanged. Do not broaden
 old frozen retries or convert arbitrary different_destination into creation.
-After explicit creation confirmation, carry the original request to the exact
-saved source page in Build so its remaining page edits can use normal generation,
+After explicit creation confirmation, carry the original request to the author-selected
+existing page in Build so its remaining page edits can use normal generation,
 review and Save. Do not recreate or develop the new scaffold. Explicit continuation
 fills the existing Build composer; it does not send, save or publish another action.
 Keep Plan and Build unsent text, completed-operation recovery and saved versions.
@@ -37,9 +37,11 @@ connected-review UI lease is adopted for this bounded successor by PRIME.
 ## Verification
 
 Prove actual prepare/confirm scaffold then explicit Build continuation; original
-request, exact source destination, no auto send/create/generation, Plan draft kept,
+request, exact author-selected destination, no auto send/create/generation, Plan draft kept,
 completed recovery/reload, foreign source and nonempty Build draft refusal. Use the
-existing composer draft owner and same-app navigation. Run owning UI tests/build,
+existing composer draft owner, Build page-list API and same-app navigation.
+Origin provenance never selects the edit destination; require explicit existing-page
+selection and exclude the newly created scaffold and foreign/discarded records. Run owning UI tests/build,
 exact-source hosted verification and meaningful discovered diagnostic comparison.
 Independent cumulative Bugbot review, commit/push/open one PR, then merge/deliver
 under standing authority and satisfied gates. Do not claim browser proof while the
