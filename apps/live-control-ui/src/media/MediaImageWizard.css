@@ -89,3 +89,6 @@
 .media-image-wizard__details > p { line-height: 1.5; }
 .media-image-wizard__result { margin-top: .75rem; }
 @media (max-width: 600px) { .media-image-wizard-overlay { top: .5rem; right: .5rem; max-height: calc(100dvh - 1rem); } .media-image-wizard { max-height: calc(100dvh - 1rem); } }
+
+/* Studio toolbar actions stay visible; document occurrences retain hover disclosure. */
+.media-image-wizard__header .contextual-agent-action__trigger { opacity: 1; }
