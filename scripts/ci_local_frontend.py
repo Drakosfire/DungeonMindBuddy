@@ -50,6 +50,7 @@ def checked_storage(path, expected_uuid):
 
 
 def allocation_paths(args, repo):
+    repo = Path(git(repo, "rev-parse", "--show-toplevel")).resolve()
     expected_uuid = getattr(args, "workspace_uuid", PROJECTS_UUID)
     root = checked_storage(
         getattr(args, "workspace_root", DEFAULT_WORKSPACE_ROOT), expected_uuid
@@ -67,7 +68,12 @@ def allocation_paths(args, repo):
 
 
 def child_environment(run, inherited):
-    env = dict(inherited)
+    # npm normalizes these keys case-insensitively. Remove every inherited alias
+    # before setting the owned cache, including mixed-case spellings.
+    env = {
+        key: value for key, value in inherited.items()
+        if key.lower() != "npm_config_cache"
+    }
     paths = {
         "TMPDIR": run / "scratch",
         "TMP": run / "scratch",

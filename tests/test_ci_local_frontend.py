@@ -560,6 +560,7 @@ def test_default_allocation_ignores_ambient_temp_and_routes_child_storage(
         monkeypatch.setenv("TMPDIR", ambient)
     monkeypatch.setenv("npm_config_cache", "/tmp/inherited-npm-cache")
     monkeypatch.setenv("NPM_CONFIG_CACHE", "/tmp/inherited-uppercase-npm-cache")
+    monkeypatch.setenv("npm_CONFIG_Cache", "/tmp/inherited-mixed-case-npm-cache")
     monkeypatch.setenv("NODE_COMPILE_CACHE", "/tmp/inherited-node-cache")
     monkeypatch.setattr(local.tempfile, "tempdir", "/tmp")
     before = dict(os.environ)
@@ -574,6 +575,9 @@ def test_default_allocation_ignores_ambient_temp_and_routes_child_storage(
                     "UV_CACHE_DIR", "XDG_CACHE_HOME", "NODE_COMPILE_CACHE"):
             path = Path(env[key])
             assert path.is_dir() and path.is_relative_to(run)
+        assert {
+            value for key, value in env.items() if key.lower() == "npm_config_cache"
+        } == {str(run / "cache/npm")}
         # Exercise an actual subprocess's temporary-file choice, not only a dict.
         actual = subprocess.check_output(
             [sys.executable, "-c", "import tempfile; print(tempfile.gettempdir())"],
@@ -689,3 +693,13 @@ def test_filesystem_probe_error_fails_closed_without_allocation(sandbox, monkeyp
         local.verify(args)
     assert not Path(args.output).exists()
     assert not calls
+
+
+@pytest.mark.parametrize("field", ["output", "workspace_root"])
+def test_repo_subdirectory_cannot_hide_repository_local_allocation(sandbox, field):
+    args, _, _ = sandbox
+    repository = Path(args.repo)
+    args.repo = str(repository / "apps")
+    setattr(args, field, str(repository / "ci"))
+    with pytest.raises(ValueError, match="outside the source repository"):
+        local.verify(args)

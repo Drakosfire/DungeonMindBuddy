@@ -53,7 +53,7 @@ settings to Node/npm/Git children. The tiny persistent `/tmp` lock remains the
 same inode/coordination boundary. `--workspace-root` plus `--workspace-uuid`
 provides explicit portability; there is no automatic storage fallback.
 
-Local guard result: 44 passed, including real fixture Git worktrees, a real child
+Local guard result: 46 passed, including real fixture Git worktrees, a real child
 Python temp-path probe, cancellation cleanup and storage failure cases. Actual
 host preflight confirms the expected Projects UUID. AST parsing and diff whitespace
 checks pass. Existing Python plugin deprecation warnings remain.
@@ -71,3 +71,10 @@ No prior data, shared caches or other-task files were removed; reclaimed bytes: 
 Only newly generated fixture worktrees/temp directories were cleaned by their tests.
 The worktree is not on main. After review/publication, request scoped cleanup of
 retained reproducible artifacts; preserve implementation commits and evidence first.
+
+
+Independent review identified two boundary gaps on the first candidate: npm
+accepts mixed-case environment aliases, and `--repo` may name a subdirectory.
+Both were reproduced without network access. The repair removes all inherited
+case variants of npm's cache key and resolves the actual Git top-level before
+checking repository-local destinations. Owning regressions cover both paths.
