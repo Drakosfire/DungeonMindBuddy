@@ -1,6 +1,6 @@
 # SURFACE: demonstrate the native DungeonMind graph
 
-Status: ACTIVE for isolated implementation and the authorized dedicated-container runtime proof. Durable restart and browser qualification remain pending. Earlier authorization/tool blockers below are historical and superseded only by the explicit container/publication amendments. No claim of completion or durable save is allowed without the live proof.
+Status: ACTIVE for the Buddy index integration below. The standalone runner is retained verification scaffolding, not the product path. Earlier topology/runtime sections are historical where superseded by the index integration amendment. No live cutover, migration, merge or deployment is authorized.
 
 ## Authority and topology
 
@@ -137,3 +137,67 @@ Re-anchor before this correction found main `185e07be2557825a8fd7b14477cbe2d8199
 Real Docker inspection proved the dedicated runtime's exact four mounts, no-network configuration and pinned image. Docker 29 omits the false `ReadOnly` field on writable mounts and leaves the derived `Mode` empty; validate authoritative `RW`/`ReadOnly` fields with false as the omitted default, retain exact source/target/count checks, and explicitly reject automatic port publishing. Do not relax the readonly identity mounts.
 
 For a first-use cluster, PostgreSQL 16 reports `pg_ctl status` exit 4 rather than the initialized-but-stopped exit 3. The only permitted first-use exception is the exact owned inert container with a verified private, completely empty PGDATA directory. Preserve the actual status code and prove this condition separately. Initialized or nonempty data with exit 4, any already-running PostgreSQL, and uncertain outcomes remain fail-closed. After initialization, exit 3 is still required before starting PostgreSQL. Never remove partially initialized data or recreate a container to make a check pass.
+
+## Buddy index integration amendment (current authority)
+
+Alan clarified that this is part of Buddy and must use the running DungeonMind instance, then directed: “Place it at the index page, and clean up the index page. Not perfect or anything, we are learning about this idea. The surface we've been building is for the graph presentation, it may also become the landing page if it works and is fun.” The coordinating steward approved a local-first implementation with scoped guest spaces, normal APP-STATE migration in the branch, existing managed-world authentication unchanged, and synthetic isolated verification. No new anonymous hosted API, public deployment, live schema change or runtime cutover is authorized here.
+
+### Re-anchor, lane and supersession
+
+Current main is `7517a42083d7244f8adf6ff3166027b7cfedbdd0`; its APP-STATE migration chain ends at `20261109_0147`. The older stack ended at 0144, so appending a migration there would fork the chain. The steward explicitly approved reconciling the combined graph/index changes onto current main in an isolated integration lane, then retargeting the same draft #2330 after cumulative review and verification. Leave predecessor drafts #2313/#2326 and all their data/refs untouched until separately settled.
+
+- New implementation checkout: `/home/drakosfire/Projects/.codex/native-graph-demo-20261110/worktrees/BuddyIndexIntegration`, branch `codex/buddy-index-native-20261110`. The fourteen feature commits were replayed cleanly onto the verified main; no conflict resolution or unrelated source edits were needed.
+- Original checkout/branch at `8c0d8ce15c6e5acda0b656adff4aff5f9898bde0` is retained. Its standalone 4183 process/container/data remain untouched and are not the Buddy product runtime.
+- Read-only live inventory identifies Buddy API `127.0.0.1:8000`, UI `127.0.0.1:5202`, installed release `76bb8c4b38178158e9a94a4b00cf65773edbda87`, mode `local` / `local_operator`. Buddy already embeds DungeonMind through its configured native repository; there is no separate DungeonMind HTTP app to invent. Existing primary APP-STATE and World data remain untouched.
+- Ownership preflight inspected current open SURFACE drafts, disjoint CONVERSATION/COMPOSITION work and existing registered worktrees. No unpublished edits were found in App.tsx, App.guestEntry.test.tsx, main.py, hosted_auth.py or APP-STATE authority.py. The steward transfers the narrow successor App/index test edits into this integration lane only. Do not edit predecessor checkouts or their handoffs. Existing hosted auth policy remains read-only.
+
+### Bounded product contract and critique
+
+One capability: make Buddy's existing index show the exploratory native graph surface. Reuse WorldGraphCanvas and NativeGraphDemo's reviewed preparation, confirmation and recovery behavior; modestly clean up the index rather than building another product page. Keep client layout/preferences and recoverable drafts where compatible. Existing IndexedDB Worlds/notes are not migrated, overwritten or deleted. Keep any legacy access honest and secondary, not a second claimed native graph authority.
+
+The backend router is `/api/live/index-graph` within Buddy's normal FastAPI app. It uses the existing configured DungeonMind repository and APP-STATE DSN; no arbitrary client DSN, World/space selector, environment fallback or database lifecycle tool. Local/development `local_operator` mode only. The existing global hosted boundary stays intact and no hosted route exemption is added. Production/hosted mode must fail closed before allocation. Existing managed-world routes, principals and permissions are unchanged.
+
+Use a bounded server-owned browser session with a private opaque cookie, exact configured local UI Origin/API Host, unproxied loopback checks and CSRF for mutation. It grants access only to its own synthetic graph, never an operator/managed-world capability. Persist a hash of the cookie credential and its server-owned session identity in APP-STATE, not the raw credential. Separate native allocation IDs and operation namespaces per session; client-supplied graph/space/session selectors cannot establish authority. Preserve session/graph state across ordinary process restart. Cookie loss/expiration must be explained truthfully, with no implicit account sync or promise to recover an unknown browser identity. Bound session issuance and per-graph operations; no automatic deletion/pruning of existing graphs.
+
+API contract for the frontend/backend workers: POST `/session` bootstraps or resumes the cookie-bound session and returns `csrf_token`; GET `/graph`, GET `/operations/{operation_id}`, POST `/prepare` and POST `/confirm` use the existing native DTOs. Unsafe requests require the session CSRF header `X-DMB-Index-Graph-CSRF` and trusted Origin. GETs never accept cross-site access. Cookie name must be profile-namespaced because ports do not scope cookies; path `/api/live/index-graph`, HttpOnly and SameSite Strict. No capability is added to URLs or application logs. The API client is injected into NativeGraphDemo and does not require the standalone HTML capability meta tag.
+
+APP-STATE owns session/binding/command-recovery metadata in a small domain-specific store and normal linear migration `20261110_0148` after `20261109_0147`. DungeonMind remains semantic graph authority. No SQLite product store or new PostgreSQL instance. Reuse the service through an injected store and server-controlled allocation identity, while preserving the standalone default solely for tests. Cross-process serialization must survive journal checkpoints: use a session-scoped database advisory lock on the same connection, not a transaction-only lock that disappears before native dispatch. Native mutations remain separately receipt-verified; unknown-before-dispatch, request/preparation binding, stale parents and duplicate/replay protections must not regress.
+
+Failure cases before dispatch: missing/expired/forged cookie, two guests, operation-ID reuse across guests, forged World selectors, cross-origin/proxy requests, oversized input/session exhaustion, concurrent bootstrap, concurrent prepare/confirm, APP-STATE or native readback outage, process restart between checkpoint and native dispatch, and stale prepared revisions. Reject safely, retain recoverable drafts/data and never infer that an unavailable authority means an operation did not commit. Profile Event and native rename/delete limitations remain explicit; no ontology expansion is authorized.
+
+### Expanded exclusive write lease and worker split
+
+The original eighteen-file lease stays only in this new integration checkout, with the standalone launcher/host frozen. The following additions/narrow successor transfers are authorized:
+
+Frontend worker:
+- `apps/live-control-ui/src/App.tsx`
+- `apps/live-control-ui/src/App.guestEntry.test.tsx`
+- `apps/live-control-ui/src/App.test.tsx` (only affected index expectations/mocks)
+- `apps/live-control-ui/src/nativeGraphDemo/NativeGraphDemo.tsx`
+- `apps/live-control-ui/src/nativeGraphDemo/nativeGraphDemo.css`
+- `apps/live-control-ui/src/nativeGraphDemo/NativeGraphDemo.test.tsx`
+- `apps/live-control-ui/src/nativeGraphDemo/nativeGraphDemoApi.ts` (shared response validation/transport seam only)
+- `apps/live-control-ui/src/nativeGraphDemo/nativeGraphDemoApi.test.ts`
+- `apps/live-control-ui/src/nativeGraphDemo/buddyIndexGraphApi.ts`
+- `apps/live-control-ui/src/nativeGraphDemo/buddyIndexGraphApi.test.ts`
+
+Backend worker:
+- `apps/live_control_server/main.py` (router registration only)
+- `apps/live_control_server/routes/index_graph.py`
+- `apps/live_control_server/services/index_graph.py`
+- `apps/live_control_server/native_graph_demo/service.py` (store/allocation injection only, no semantic redesign)
+- `src/application_state/index_graph/__init__.py`
+- `src/application_state/index_graph/store.py`
+- `src/application_state/index_graph/sessions.py`
+- `src/application_state/migrations/versions/20261110_0148_index_graph.py`
+- `tests/test_native_graph_demo.py` (injection/isolation regressions only)
+- `tests/test_index_graph.py`
+- `tests/test_index_graph_storage.py`
+
+Coordinator only: this handoff and additive test inventory. Any change beyond these files or the narrow stated reasons returns to the steward first. No hosted_auth.py, config/dependency, infrastructure or live-release edits are granted.
+
+### Verification and runtime boundary
+
+Prove two independent guest sessions against synthetic native repositories and disposable APP-STATE fixtures, create/connect/readback and exact replay, cross-guest denial, session resume and fresh-process journal recovery, interrupted confirmation and draft preservation. Test the index itself, not only the standalone entry, including normal App navigation/Back and protected-route authentication. CSS must be scoped so importing the graph does not restyle every Buddy page. Keep source tests, typecheck/build, full discovered comparison and exact-head hosted evidence under the existing shared frontend lock, with independent cumulative review.
+
+The normal migration is code only until runtime cutover is separately assessed and authorized. Do not apply it to primary APP-STATE, restart or replace the running Buddy release, point tests at primary data, or promote a fixture as the running instance. Report the real cutover steps and any required authorization once the integrated branch is verified. No merge/deployment follows from this implementation lease.
