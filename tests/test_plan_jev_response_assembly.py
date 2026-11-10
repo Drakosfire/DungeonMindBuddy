@@ -2,6 +2,7 @@
 import asyncio
 import json
 from types import SimpleNamespace as N
+from uuid import uuid4
 
 import httpx
 from openai import AsyncOpenAI
@@ -9,7 +10,7 @@ import pytest
 
 from application_state.agent_conversation import types as t
 from application_state.agent_conversation.response_prompt import compose_response_prompt
-from apps.live_control_server.services.plan_jev_writer import PlanJevWriter, _ordinary_response_selected
+from apps.live_control_server.services.plan_jev_writer import PlanJevWriter, _conversation_response_task
 from tests.test_surface_native_context import seal
 from tests.test_surface_native_execution import component, controller, decision_prefix, choice, execution, build_resolution
 from tests.test_surface_native_writer import work_submission, with_work_selection
@@ -37,6 +38,9 @@ def staged(surface, *, requested='discuss', rules=False, current_plan=False):
     if surface == 'plan' and requested != 'discuss':
         events = [e.model_copy(update={'requested_work': requested})
                   if isinstance(e, t.PlanRequestedWorkSelectedV2) else e for e in events]
+    if surface == 'build' and requested != 'discuss':
+        events = [build_resolution(record.policy, events[0], e.sequence, requested=requested)
+                  if isinstance(e, t.BuildRequestedWorkResolutionV1) else e for e in events]
     events.append(choice(context, record, active, len(events), 'finish_retrieval'))
     record = with_work_selection(execution(context.context_receipt_sha256, record.policy, events))
     work = work_submission(context, record)
@@ -91,11 +95,11 @@ def test_rules_guidance_requires_actual_supplied_lookup():
     assert plain.instructions != active.instructions
 
 
-def test_clarify_retains_its_capability_contract_instead_of_ordinary_response():
+def test_clarify_uses_only_its_active_task_component():
     writer, record = staged('plan', requested='clarify')
-    assert not _ordinary_response_selected(record)
-    assert writer.prompt_components is None
-    assert 'Ask the specific clarifying question' in writer.instructions
+    assert _conversation_response_task(record) == 'clarify'
+    assert writer.instructions == compose_response_prompt(task='clarify').instructions
+    assert 'image_prompt' not in writer.instructions
 
 
 @pytest.mark.parametrize('requested', ['discuss', 'clarify_request', 'plan', 'prepare_image', 'save_page'])
@@ -105,11 +109,11 @@ def test_build_dispatch_operation_alone_does_not_grant_ordinary_prompt(requested
     selection = build_resolution(record.policy, first, 3, requested=requested)
     # Use the actual closed event type; the work owner validates its resolution.
     record = record.model_copy(update={'events': (selection,)})
-    assert _ordinary_response_selected(record) == (requested == 'discuss')
+    assert _conversation_response_task(record) == ('answer' if requested == 'discuss' else 'explain_capability')
 
 
 def test_frame_like_objects_cannot_select_a_product_response_contract():
-    assert not _ordinary_response_selected(N(policy=N(action=N(surface_id='play')), events=()))
+    assert not _conversation_response_task(N(policy=N(action=N(surface_id='play')), events=()))
 
 
 def test_current_plan_constructor_uses_its_reconstructed_native_work():
@@ -136,5 +140,42 @@ def test_current_native_plan_owner_requires_its_actual_work_selection(requested)
     data = selection.model_dump(); data.update(kind='plan_requested_work_selected_v3', requested_work=requested)
     current = NativePlanRequestedWorkSelectedV3.model_validate(data)
     updated = record.model_copy(update={'policy':record.policy.model_copy(update={'action':action}), 'events':(current,)})
-    assert _ordinary_response_selected(updated) == (requested == 'discuss')
-    assert not _ordinary_response_selected(updated.model_copy(update={'events':(current,current)}))
+    assert _conversation_response_task(updated) == {'discuss': 'answer', 'clarify': 'clarify'}.get(requested)
+    assert not _conversation_response_task(updated.model_copy(update={'events':(current,current)}))
+
+
+@pytest.mark.parametrize('requested', ['clarify_request', 'plan', 'prepare_image', 'save_page'])
+def test_actual_build_limit_explanations_do_not_receive_image_or_authoring_instructions(requested, monkeypatch):
+    from apps.live_control_server.services import plan_jev_writer
+    monkeypatch.setattr(plan_jev_writer, 'INSTRUCTIONS', None)
+    writer, record = staged('build', requested=requested)
+    assert _conversation_response_task(record) == 'explain_capability'
+    assert writer.instructions == compose_response_prompt(task='explain_capability').instructions
+    assert 'image_prompt' not in writer.instructions and 'authoring' not in writer.instructions
+
+
+def test_actual_plan_clarification_skips_legacy_assembly(monkeypatch):
+    from apps.live_control_server.services import plan_jev_writer
+    monkeypatch.setattr(plan_jev_writer, 'INSTRUCTIONS', None)
+    writer, _ = staged('plan', requested='clarify', current_plan=True)
+    assert writer.instructions == compose_response_prompt(task='clarify').instructions
+
+
+def test_reviewed_task_requires_actual_scoped_action_instead_of_frame_words():
+    from application_state.agent_conversation.reviewed_action import ReviewedStepBindingV3
+    _, record = staged('build')
+    step = uuid4()
+    binding = ReviewedStepBindingV3(reference={'conversation_id':uuid4(), 'source_turn_id':uuid4(), 'command_id':uuid4()},
+        step_id=step, kind='discuss', source_answer_sha256='a'*64, dispatch_sha256='b'*64,
+        authored_references=None, scope={'task': {'step_id':step, 'kind':'discuss', 'text':'Discuss the lamp location.'},
+            'objective_context':'Choose a location, then draft later.', 'sibling_context': ()})
+    intent = record.policy.action.intent.model_copy(update={'reviewed_step':binding, 'build_draft_context_sha256':'c'*64})
+    selected = t.BuildReviewedActionSelectionV1(kind='build_reviewed_action_selected_v1',event_id=uuid4(),sequence=0,
+        intent=intent,operation='answer_from_sources',broker_operation_id='selected-discussion',
+        capability_sha256=None,arguments_sha256='d'*64)
+    record = record.model_copy(update={'policy':record.policy.model_copy(update={
+        'action':record.policy.action.model_copy(update={'intent':intent})}), 'events':(selected,)})
+    # Selector-only proof; actual scoped APP admission is separately exercised by
+    # the existing reviewed-step boundary tests, not granted by this fixture.
+    assert _conversation_response_task(record) == 'scoped_discussion'
+    assert not _conversation_response_task(N(reviewed_task=binding.scope))
