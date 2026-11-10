@@ -25,6 +25,10 @@ from apps.live_control_server.services.world_container_registry import get_world
 from apps.live_control_server.config import managed_world_data_root
 from src.model_policy import load_buddy_model_policy
 
+# A written artifact can stream beyond GE's generic 60-second operation budget.
+# This is a host-owned total deadline, not a token limit or model instruction.
+BUILD_PROPOSAL_DEADLINE_MS = 300_000
+
 SYSTEM = '''You are DungeonBuddy helping a GM write worldbuilding on the Build surface.
 Compose an inert Markdown fragment for the captured page target.
 Choose target=page_body only when the instruction explicitly requests revision or
@@ -279,6 +283,7 @@ async def _compose(request: BuildDocumentProposalRequest, *, transport=None, wri
         async for event in client.stream_text(TextRequest(provider="openai", model=model,
             user_prompt=packet, system_prompt=expected["instructions"], temperature=None, max_output_tokens=expected.get("max_output_tokens"),
             reasoning_effort="low", json_schema=schema, schema_name="build_document_proposal",
+            deadline_ms=BUILD_PROPOSAL_DEADLINE_MS,
             max_conformance_retries=0, max_transport_retries=0)):
             if isinstance(event, TextFailed):
                 raise GenerationEngineError(event.failure, event.observation)
