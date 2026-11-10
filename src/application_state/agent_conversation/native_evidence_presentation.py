@@ -5,11 +5,70 @@ Field paths appear once in a header instead of once per nested record. Container
 layouts are host-only readback evidence, never sent as model context.
 """
 from copy import deepcopy
+from hashlib import sha256
 import json
 
 
 def _json(value):
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+
+
+def reviewed_qualification_frame(frame, review):
+    """Apply explicit reviewed data separation, never discover/scrub prose.
+
+    Diagnostic presentation only. Original APP bindings remain about the original
+    frame. Review classifications are human evidence, not machine-proven semantic
+    correctness or a new publication/citation authority.
+    """
+    def fingerprint(value):
+        return sha256(_json(value).encode()).hexdigest()
+    if (not isinstance(review, dict)
+            or set(review) != {"schema", "reviewer", "source_frame_sha256", "records"}
+            or review["schema"] != "dmb_reviewed_qualification_parts_v1"
+            or not isinstance(review["reviewer"], str) or not review["reviewer"].strip()
+            or review["source_frame_sha256"] != fingerprint(frame)
+            or not isinstance(review["records"], list)):
+        raise ValueError("Invalid or misbound qualification review")
+    result = deepcopy(frame)
+    slots = {}
+    for handle, qualification in result["native_assertions"]["qualifications"].items():
+        for index, entry in enumerate(qualification.get("domain_metadata", [])):
+            context = entry.get("world_context") if isinstance(entry, dict) else None
+            if isinstance(context, dict) and "source_qualification" in context:
+                if not isinstance(context["source_qualification"], str):
+                    raise ValueError("Qualification review requires literal text slots")
+                slots[handle, index] = context
+    seen = set()
+    for record in review["records"]:
+        if (not isinstance(record, dict)
+                or set(record) != {"qualification_handle", "domain_index", "original_sha256", "parts"}
+                or not isinstance(record["qualification_handle"], str)
+                or type(record["domain_index"]) is not int
+                or not isinstance(record["parts"], list) or not record["parts"]):
+            raise ValueError("Invalid qualification review record")
+        key = record["qualification_handle"], record["domain_index"]
+        if key not in slots or key in seen:
+            raise ValueError("Unknown or duplicated qualification review slot")
+        seen.add(key)
+        parts = record["parts"]
+        if any(not isinstance(p, dict) or set(p) != {"role", "text"}
+               or not isinstance(p["role"], str) or p["role"] not in {"meaning", "host_audit"}
+               or not isinstance(p["text"], str) or not p["text"] for p in parts):
+            raise ValueError("Unresolved or invalid qualification classification")
+        original = slots[key]["source_qualification"]
+        if ("".join(p["text"] for p in parts) != original
+                or sha256(original.encode()).hexdigest() != record["original_sha256"]):
+            raise ValueError("Qualification parts do not reconstruct original bytes")
+        meaning = "".join(p["text"] for p in parts if p["role"] == "meaning")
+        if not meaning.strip():
+            raise ValueError("Qualification review cannot erase all meaning")
+        slots[key]["source_qualification"] = meaning
+    if seen != set(slots):
+        raise ValueError("Qualification review does not cover every source qualification")
+    return result, {"original_frame_sha256": fingerprint(frame),
+                    "presented_frame_sha256": fingerprint(result),
+                    "review_sha256": fingerprint(review),
+                    "scope": "reviewed diagnostic presentation; original APP authority unchanged"}
 
 
 def _walk(value, path=()):

@@ -179,3 +179,29 @@ and product-owner integration; the current app default is not changed here.
 Do not change prompt and evidence presentation in the same experiment. Known
 bookkeeping leakage in retained legacy qualification prose must be resolved at
 its owner before sending that context in another paid comparison.
+# Reviewed qualification separation in writer experiments
+
+`context-tasting` optionally accepts a `qualification_review` file pin. The closed
+`dmb_reviewed_qualification_parts_v1` artifact names its independent `reviewer`,
+`source_frame_sha256`, and `records`. Each record has `qualification_handle`,
+`domain_index`, `original_sha256`, and ordered `parts` with exactly `role` and
+`text`. Roles are `meaning` or `host_audit`; pending decisions fail closed.
+The frame fingerprint is SHA256 of UTF-8 compact JSON, preserving object order
+(`ensure_ascii=False`, separators `,` and `:`). It is distinct from APP authority.
+
+Every source-qualification slot must be covered exactly once. Parts must reproduce
+its original bytes and digest; at least nonblank meaning remains. Only explicitly
+reviewed audit parts are omitted. No patterns discover roles and no literal facts,
+quotes, citation handles, other metadata or evidence records are changed.
+Independent semantic review is essential: reconstruction cannot prove that a
+reviewer classified a span correctly. A reviewer name is attribution, not a
+cryptographic attestation or automatic approval.
+
+The workflow verifies the original frozen request/context-ready binding before
+applying this diagnostic presentation. `frozen-packet.json` stays original;
+`qualification-review.json` retains the review, derived frame and separate hashes.
+No replacement APP proof, publication or citation receipt is created. This option
+does not clean live records or activate a new product prompt. Future source review
+annotations should keep provenance in existing typed host fields, outside semantic
+qualification prose. Use one change per comparison; combining this option with a
+prompt or flattening change is not a controlled single-variable experiment.
