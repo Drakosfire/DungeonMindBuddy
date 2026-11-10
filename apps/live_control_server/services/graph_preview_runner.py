@@ -178,11 +178,7 @@ def run_recap_production_extraction(
             provider="openrouter",
             model=DEEPSEEK_MODEL,
             max_calls=pass_budget,
-            # Reasoning shares the total output allowance with the JSON result.
-            max_output_tokens=(
-                32768 if selected_profile.qualified_id == "recap_category_v2@2.0" else 16384
-            ),
-            edge_max_output_tokens=32768,
+            # Provider owns model capacity; do not truncate reasoning or JSON.
             per_call_deadline_ms=240_000,
             run_deadline_ms=900_000,
             reasoning_effort="low",
