@@ -1,6 +1,13 @@
 # REFERENCE: preserve retained Plan opening admission
 
-Status: ACTIVE bounded PRIME implementation. Base 73f2d42d755978a95ac1a8d7a253b8c9b852c2d6;
+Status: SOURCE SETTLED. PR2325 merged at 341218a5819ccd9bd7cf279c3cf1348f77f0fb4d
+from independently approved head 1c260c4d6a89a4d35f381a3b1bbde9a9e3195d42.
+All six HTTP retry variants pass; query qualification retained 1188 passed / seven
+pre-existing fixture/assertion failures. Exact-source hosted frontend/build passed
+and evidence validated. No live deployment or original process replacement occurred.
+The implementation lease below is released; protected delivery remains pending.
+
+Historical base 73f2d42d755978a95ac1a8d7a253b8c9b852c2d6;
 branch codex/plan-retained-opening-retry in the existing buddy-context-loop checkout.
 Topology: serial, no unmerged parent. No new runtime, database, provider or external
 resource lease. Original API/UI process hold and surviving database protections remain.

@@ -173,10 +173,10 @@ def test_current_dispatch_owns_new_codec_and_keeps_host_context_private(surface)
     from application_state.agent_conversation.jev_retrieval_contract import (
         NativeRetrievalDecisionInputV2, NativeBuildRetrievalDecisionInputV4, parse_native_retrieval_input,
     )
-    receipt,_=component(surface)
+    receipt,record=component(surface)
     adapter=SimpleNamespace(request=SimpleNamespace(message='Find the requested source.',
         surface=SimpleNamespace(surface_id=surface)),
-        fence=SimpleNamespace(turn=SimpleNamespace(graph_context_receipt=receipt)))
+        fence=SimpleNamespace(turn=SimpleNamespace(graph_context_receipt=receipt, graph_context_execution=record)))
     dispatch=PlanJevDispatch(adapter,driver(query())._native_object_candidates())
     assert type(dispatch.parent) is (NativeBuildRetrievalDecisionInputV4 if surface=='build' else NativeRetrievalDecisionInputV2)
     assert parse_native_retrieval_input(dispatch.parent.model_dump(by_alias=True),surface_id=surface)==dispatch.parent
