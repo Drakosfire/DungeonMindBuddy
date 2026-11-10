@@ -33,42 +33,72 @@ serving/primary change. Prior lease released. Evidence node-evidence-delivery/ u
 out/fundamentals-reconciliation-v1/. Initial interrupted fixture cleanup not fully
 proved; never prune unknown databases.
 
-## Current serial slice — ACTIVE
+## Settled source-order correction predecessor
 
-Base67c8fec544752e2b450e4b029b0233ff40a91974; branch
-codex/ingest-correction-source-order-delivery; same non-serving isolated checkout.
-Root adopts independent design PASS in correction-source-order-delivery/design-review-v1.json.
-Exact historical2144delta de669649dccc33138c54ab4ff81afa0f98462d17 to
-71652b262ec7a7e4e859fa0028b267fe5be448d6 is the recovery reference.
-Current owner probe rejects capability-admitted event/event source order with
-final-candidate-tuple error; parent unchanged. Evidence baseline-rejection-v1.json.
+2375 merged8f47d4701c6c5d333209246c819a8dfe2ed60bad from exact reviewed
+5306e6b5e7535ded2ded08d6d2512f246cf1b554. Saved recap profile capabilities now
+agree across tuple planning, replay and incident-edge checks. Shared event/event
+endpoint rule reused by native preparation; historical v1 exclusion and publication
+selected-description/cycle/evidence guards remain. Corrected children remain held.
+816ingestion-and-review passes,82ownership deselections,52warnings,exit0 clean_after;
+exact localhosted1254tests+build+validatePASS; independent finalreviewPASS.
+Initial standalone native subset stalled and was explicitly terminated. First full
+backendwrapper exited143unknown; no surviving children on audit, fixture cleanup
+unproven. Both preserved, not passes; only unfinished backend contract resumed.
+2144closed superseded. Evidence correction-source-order-delivery/ under existing
+external fundamentals-reconciliation-v1 root. No paidcalls/primary/serving changes,
+no blanket chronology/publication-quality acceptance. Predecessor lease released.
 
-Outcome: align correction planning/replay with the saved recap profile's declared
-predicate capability; shared event/event endpoint rule reused by native preparation.
-Historical v1 has no new capabilities; unknown/non-recap profile refuses. Retain
-incident-edge checks, exact source/quote/revision integrity, held child, DBauthority,
-publication selected-description/event/cycle/evidence guards. No chronology inference
-or automatically accepted/published correction. No producer/prompt/schema/migration.
+## Current serial slice — ACTIVE pass-scoped disposition identity
 
-Exclusive writes:
-- this handoff (includes predecessor settlement)
-- apps/live_control_server/services/recap_semantic_candidate_correction.py
-- apps/live_control_server/services/native_recap_preparation.py
-- src/graph_memory/predicate_catalog.py
-- tests/test_recap_semantic_candidate_correction.py
+Base8f47d4701c6c5d333209246c819a8dfe2ed60bad; branch
+codex/ingest-authority-delivery-audit; isolated non-serving checkout.
+Root adopts design PASS in pass-scoped-disposition-delivery/design-review-v1.json.
+Historical2128range2475ba08dce5a632cea7d4e18cee9f98e7832933 to
+df104a41eea68d34fada0da3b4633072dfa99f92 is recovery reference.
+Current baseline ordinarycomposition→canonical→quoteguard rejects independent
+object/thread D001 decisions as duplicate IDs; baseline-rejection-v1.json retained.
 
-Single serial PR after2372. Open2144 is historical source, not concurrent ACTIVE lane.
-Open CI drafts share classification, not these paths; no classification/CI edit.
-Recover original tests into existing fully gated module, adapting only fixture
-owner/readback references. No new boutique harness. Existing native preparation
-positive/negative tests retain publication boundary proof. Exact-source locked
-Python ingestion-and-review, repo-owned local hosted+validate and independent
-exact-head review required before merge. Dispose only own APP/Core test fixtures;
-primary/retained/operator DBs/services/providers untouched. No paid calls.
+One outcome: deterministic host candidate identity keyed(producer pass,localID),
+without changing rawresponses/localIDs or labels/reasons/exact evidence. Same-pass
+missing/blank/nonstring/duplicate IDs still refuse across ignored/deferred collections.
+Nonrecap identity unchanged. No prompt/schema/provider/model/outputcapacity changes;
+scoped disposition IDs remain host output, not new model context. NodeID2149 is
+separate because current compact inventory exposes IDs; no implicit dependency.
+
+Exclusive six-file lease:
+- this handoff, including truthful predecessor settlement
+- src/graph_memory/extraction/category_candidate_graph_extractor.py
+- tests/test_category_candidate_graph_extractor.py
+- tests/test_recap_object_dispositions.py
+- tests/test_recap_quote_integrity.py
+- ci/contracts.json
+
+Single serial PR; open2128 is historical reference, not concurrent active lane.
+Open CI drafts overlap classification, which this slice does not edit; no open
+ci/contracts ownership conflict found. Whole three existing owning modules added
+existing ingestion-and-review; no new runner/script/classifier or exclusions.
+Exact-current-source locked owner/contract, local hosted+validate and independent
+exact-head review required. Existing disposable APP/Core fixtures only; primary,
+retained/operator DBs, serving services and providers unchanged. No paid calls.
+
+V9 roster-file API is legacy-v1 only, not ordinaryv2 dependency; replacement or
+retirement remains unproven. Audit, do not silently remove its historical replay.
+
+## Updated stage1 closure boundary
+
+User tightened the active objective: freeze a bounded capability inventory, classify
+against current main and serving build, fix only confirmed ordinary DB-owned chain
+blockers, and produce one linked completion record with isolated end-to-end proof.
+Preserve accepted quality baseline; explicitly disposition optional/historical work.
+Do not walk every old PR as an implementation queue. Current pass-ID collision is
+reproduced at the ordinary quote guard and remains in scope. After this slice,
+prioritize inventory/compatible retained chain proof before another implementation.
+All later QA/Mirathorn/collaboration/six-second stages remain in the full objective.
 
 ## Remaining objective
 
-Source-order correction, V9 roster authority, quote-nomination necessity, scoped IDs,
+V9 roster authority, quote-nomination necessity, scoped IDs,
 configuration/evaluation and full ordinary current DB-owned chain still require
 reconciliation. Serving releases separate from main. QA, Mirathorn, collaboration
 and six-second retrieval remain subsequent stages; no goal-complete claim.
