@@ -31,64 +31,46 @@ miss one minor chronology issue. No automatic factual grading or taste inference
 Six answers/one question do not establish general reliability. No writer/retrieval
 reruns. Exact data/code/results pinned under judge-calibration-v1/.
 
-## Slice6 ACTIVE — existing Core owner metadata correction
+## Slice6 settled — existing Core owner metadata correction
 
-Serial after2348. Branch codex/qualification-owner-correction from fetched main
-e988a0374. Repository write lease: this handoff only. Data/operation lease:
-out/response-writing-contract-v1/owner-correction-v1/; source connection from the
-retained private-comparison-v2 native_dsn is READ-ONLY. Never mutate the original
-benchmark_retrieval_c1_native_20261107_v1 or primary data. A separately named clone
-benchmark_writer_qualification_clean_20261110_v1 is the only prospective write
-resource. No ports/services/provider calls/migrations/connection termination.
+Pinned execution authority9cbfefdd5005adcc53ace516f89fe2334cb2eeaf; no further
+writes granted by this settled slice. Preparation, exact allowed diff and Core
+publication were independently reviewed. One publication on the fresh named clone
+benchmark_writer_qualification_clean_20261110_v1 committed child
+rev:a5577d74fae9102ea29342a17a88a82b, payload
+aae3ba761bb9f423b82038663605a9194ae723e8459bbe290d8e31606701426d.
+90same-ID corrections/42slots;2456assertions conserved.375captured assertions
+expand to the approved semantic context with78shared qualifiers. Actual97Core
+source opens match original identities/body hashes/offsets/span hashes. Individual
+source-admission epochs are not the global source-view counter26.
 
-Buddy owns world_context_v1 qualifier/audit meaning; Core owns existing
-KnowledgeContribution→SupersedeAssertion→materialize_governed_revision→
-publish_governed_materialization CAS/receipt contract. No Core/WK implementation
-change, new fact producer, prompt scrubber, registry or parallel correction API.
-Use existing APIs directly; prepared contributions are data, not per-question
-executables. Expected exact parent is rev:673d18b7feea48b47c8740d4018d1442;
-payload222188659348d7c847cbd18da24de8866edc601b6160fc64580b851c52c923bb,
-source authority epoch26. Re-verify live exact parent before clone/publication.
+Original benchmark_retrieval_c1_native_20261107_v1 parent
+rev:673d18b7feea48b47c8740d4018d1442/payload/source counter and primary data remain
+unchanged. All raw audit notes remain in immutable parent/history; existing typed
+adjudication hash binds retained reviewed data. Unproven producer-field promotion
+was skipped. No new correction implementation, fact producer, runtime registry,
+SQL graph patch, providers, migrations, session termination or APP mutation.
 
-97reviewed slots bind375native assertions;42slots contain host text, affecting
-90native assertions. Supersede only those exact originals, retaining assertion IDs,
-subjects/predicates/values, all source refs/quotes/spans, scope/visibility/temporal/
-epistemic/claim/standing and all nonreviewed metadata. Replace source_qualification
-only with approved verbatim meaning fragments. Move known exact run/revision/hash/
-selector data to existing typed host slots only when original provenance proves
-it. Add existing source_qualifier_adjudication_sha256 to bind the retained review.
-Opaque notes stay in immutable parent/history, not invented payload fields.
+Evidence: out/response-writing-contract-v1/owner-correction-v1/, including
+execution-report-v1.json, independent-postpublication-review-v1.json and
+independent-source-readback-v1.json. Source/clone DSNs remain private, uncommitted.
 
-Preserve conditional identity clauses: separating host text does not adopt an
-identity. Mapping,97-source-spans,50ancestors and23publication receipts were
-verified read-only in current-native-owner-correspondence-v1.json. Retain all
-source/review files and immutable receipts; never claim full review payload is
-newly stored in contribution.diagnostics (not persisted by this path).
-
-Before any clone/write: build pure prospective Core materialization from the
-actual parent; inspect complete metadata-only diff and independently review exact
-contribution,dispositions,publication identity and review pins. Reject any extra
-entity/alias/assertion/evidence or nonallowed field change. No superseding IDs may
-be inferred from local aliases alone. Source store remains read-only. Clone must
-be fresh/absent; do not drop/reuse a database or terminate sessions to create it.
-After reviewed clone creation, verify identical parent, publish via exact CAS,
-retain/recover exact receipt on ambiguous outcome (no blind retry), read child
-and evidence back at Core, compare expanded semantic projection to approved
-cleaned context allowing owner-local qualifier alias sharing. Original graph head,
-history and source bodies must remain unchanged. No paid rerun needed.
+Scope checkpoint: broader graph inventory contains864other qualifier occurrences,
+331distinct strings outside the frozen study context.261occurrences exactly match
+five previously approved audit-bearing originals; other strings need source-level
+review, not automatic stripping. These are not all established leaks. Broader
+corpus correction is a separate prospective slice, pending user scope steering;
+no expanded database write lease is active. Original90-record correction is done.
 
 ## Remaining completion gates
 
-- Verify current isolated graph parent/publication correspondence, then correct
- historical mixed qualifications through existing native Core supersession,
- preserving original history/evidence/receipts and typed audit fields. Exact
- 375native-assertion/97qualification mapping is recovered; current head and original
- publication correspondence still unproven. No runtime scrubbing or registry.
+- Settle broader corpus hygiene scope without treating pattern candidates as
+ confirmed leaks or claiming full-world cleanup from the corrected writer frame.
 - Keep capability-specific guidance conditional at its owning assembly, including
  reviewed discussion continuations; do not prebuild superseded ordinary text.
-- Complete native-schema judge calibration against retained reviewed examples;
- report disagreements/abstention/stability before trusting scores. Human prose
- preference stays separate from factual correctness.
+- Judge calibration is completed for the retained six-answer cohort; keep scores
+ untrusted for automatic factual grading and preserve the measured limitations.
+ Human prose preference remains separate and unknown.
 - Audit actual assembly, preserved context/citations, reproducible configuration,
  prompt tradeoffs and remaining limitations. No broad completion claim from helper
  tests, one Q15 answer or successful source-body retrieval alone.
