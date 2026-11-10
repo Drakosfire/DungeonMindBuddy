@@ -34,3 +34,20 @@ or chronology defect. Report resource changes, not causal timing conclusions fro
 one pair. If no positive signal or ordering is ignored, stop; no added instructions
 or retry-until-pass. No production adoption from one Q15 result. Any promising
 result needs a separately bounded repeated comparison before adoption.
+
+## Retained pilot disposition
+
+Actual candidate completed once using code d60334092609cf0f78845af4a83031f06caceb69.
+Raw SDK wire verified citation-first strict schema; all8 returned claim segments
+also placed their handles before text. Exact prompt/context and semantic schema
+constraints/route remain unchanged. Independent assessment:8/9 concepts, missing
+approximate Abyssal-like recovered scroll clue. All8 selected support sets pass;
+prior baseline coercion strengthening absent; chronology/attribution pass.
+
+Baseline versus candidate:45381→45379input tokens,831→742output tokens,
+21.27→17.10seconds,$0.121761→$0.120866reported cost. Single-pair observations,
+not causal speed/quality claims. Pilot fails9/9 acceptance: no retry, additional
+prompting or product adoption. Existing tighter prompt/default stays unchanged.
+Diagnostic schema_order remains explicit tooling, never a product fallback.
+Tooling delivery is PR2357; no merge SHA is preclaimed here. All source/evidence
+and assessments retained under out/response-writing-contract-v1/citation-first-experiment-v1.
