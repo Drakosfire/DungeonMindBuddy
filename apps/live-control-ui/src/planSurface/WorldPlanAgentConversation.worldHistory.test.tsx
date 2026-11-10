@@ -17,6 +17,7 @@ import { webcrypto, createHash } from "node:crypto";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
+import * as buildProposalApi from "../api/buildDocumentProposalApi";
 import * as conversationLibraryApi from "../api/conversationLibraryApi";
 import type {
   AgentInteractionThread,
@@ -5247,6 +5248,30 @@ describe("World Plan conversation consumer", () => {
     await screen.findByRole("region", {name: "Opened source passage"});
     expect(open).toHaveBeenCalledWith(worldId, turnId, 0);
     expect(screen.getByRole("tab", {name: "The Prompt"})).toBeInTheDocument();
+  });
+
+  it("renders retained Build suggestion content in Plan without exposing page-write controls", async () => {
+    const turnId="11111111-1111-4111-8111-111111111111";
+    const acknowledgement="A preview is ready. Review it before inserting it into the page. Nothing has been saved or published.";
+    setupApi(history("conversation-a",1,[makeTurn(1,turnId,"Develop the old bath house.",acknowledgement,"build")]));
+    const list=vi.spyOn(buildProposalApi,"listBuildProposals").mockResolvedValue([{
+      schema_version:'dmb_build_document_proposal_v1',action_id:'proposal',
+      reservation:{idempotency_key:'proposal',conversation_id:'conversation-a',expected_pointer_revision:1,
+        basis:{world_id:worldId,document_id:'original-build-page',registry_revision:1,content_sha256:contentSha256,
+          draft_sha256:'b'.repeat(64),editor_sha256:'e'.repeat(64),visibility:'internal',caret:1,draft_generation:0,selection_generation:0},
+        instruction:'Develop the bath house',origin:{client_turn_id:'client',durable_turn_id:turnId,turn_attempt:1,broker_operation_id:'op',arguments_sha256:'a'.repeat(64)}},
+      request_fingerprint:'c'.repeat(64),after_turn_sequence:1,revision:1,state:'proposed',created_at:'',updated_at:'',claim_expires_at:'',
+      authorization:null,failure_code:null,inserted_in_draft:false,
+      proposal:{replacement_markdown:'## The bath house welcomes you\nThe towel bows politely.',summary:'Bath house',assumptions:[]}
+    }]);
+    await mountComponent();
+    const suggestion=await screen.findByRole('region',{name:'Page suggestion'});
+    expect(within(suggestion).getByText('The towel bows politely.')).toBeInTheDocument();
+    expect(screen.queryByText(acknowledgement)).not.toBeInTheDocument();
+    expect(within(suggestion).getByRole('heading',{name:'The bath house welcomes you'})).toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:'Review suggestion on page'})).not.toBeInTheDocument();
+    expect(within(suggestion).getByText('Open its original page to review this suggestion.')).toBeInTheDocument();
+    expect(list).toHaveBeenCalledTimes(1);
   });
 
   it("rehydrates an owned page proposal without calling it Graph grounded", async () => {

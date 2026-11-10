@@ -16,11 +16,11 @@ import { PreparedRequestInspector } from './PreparedRequestInspector';
 import './BuildComposeProposal.css';
 import { buildProposalMarkdown } from '../../buildSurface/buildProposalMarkdown';
 
-export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, pageDocumentId, onReviewOnPage, onConstructionVisible, sourceKey = '' }: {
+export function useBuildCompose({ worldId, history, bridge, enabled, readHistory = enabled, onHistory, pageDocumentId, onReviewOnPage, onConstructionVisible, sourceKey = '' }: {
   worldId: string; history: WorldAgentConversationHistoryResponse | null; bridge: BuildComposeBridge | null;
-  onReviewOnPage?:()=>void; onConstructionVisible?:()=>void; enabled: boolean; pageDocumentId: string | null; sourceKey?: string; onHistory: (history: WorldAgentConversationHistoryResponse) => void;
+  onReviewOnPage?:()=>void; onConstructionVisible?:()=>void; enabled: boolean; readHistory?: boolean; pageDocumentId: string | null; sourceKey?: string; onHistory: (history: WorldAgentConversationHistoryResponse) => void;
 }) {
-  const scope = enabled ? `${worldId}:${history?.conversation_id ?? ''}` : '';
+  const scope = enabled || readHistory ? `${worldId}:${history?.conversation_id ?? ''}` : '';
   const generation = useRef({ scope, epoch: 0 });
   if (generation.current.scope !== scope) generation.current = { scope, epoch: generation.current.epoch + 1 };
   const current = useRef({ scope, epoch: generation.current.epoch, worldId, history, bridge, enabled, onHistory, pageDocumentId, sourceKey });
@@ -44,9 +44,9 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => {
     setError(null);
-    if (!enabled || !history?.conversation_id) return;
+    if ((!enabled && !readHistory) || !history?.conversation_id) return;
     const controller = new AbortController(); let active = true;
-    listPreparedImages(worldId,history.conversation_id,controller.signal)
+    if (enabled) listPreparedImages(worldId,history.conversation_id,controller.signal)
       .then(values=>{if(active)setImageRecords({scope,values});})
       .catch(()=>{if(active)setError('Earlier image directions could not be loaded.');});
     listBuildProposals(worldId, history.conversation_id, controller.signal)
@@ -55,7 +55,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
           .sort((a, b) => a.created_at.localeCompare(b.created_at)) })); })
       .catch(() => { if (active) setError('Earlier page proposals could not be loaded.'); });
     return () => { active = false; controller.abort(); };
-  }, [scope, worldId, enabled, history?.conversation_id, refreshNonce]);
+  }, [scope, worldId, enabled, readHistory, history?.conversation_id, refreshNonce]);
   function put(record: BuildProposalRecord, ownerScope: string, epoch = current.current.epoch, previousScope?: string) {
     if (mounted.current && ((current.current.scope === ownerScope && current.current.epoch === epoch)
       || (previousScope !== undefined && current.current.scope === previousScope && current.current.epoch === epoch - 1))) setRecords(previous => ({ scope: ownerScope,
@@ -212,12 +212,12 @@ export function useBuildCompose({ worldId, history, bridge, enabled, onHistory, 
         ? <section className="build-compose-proposal" aria-label="Page suggestion">
             <p className="world-plan-agent-conversation__context">Generated suggestion</p>
             <WorldPlanAgentAnswer answer={record.proposal.replacement_markdown}/>
-            {bridge&&record.reservation.basis.editor_sha256&&record.reservation.basis.document_id===pageDocumentId&&!record.inserted_in_draft&&reviewStatus[record.action_id]!=='Suggestion discarded'?<button type="button" onClick={()=>{setOpened(previous=>({action:record.action_id,documentId:record.reservation.basis.document_id,generation:(previous?.generation??0)+1}));onReviewOnPage?.();}}>
+            {enabled&&bridge&&record.reservation.basis.editor_sha256&&record.reservation.basis.document_id===pageDocumentId&&!record.inserted_in_draft&&reviewStatus[record.action_id]!=='Suggestion discarded'?<button type="button" onClick={()=>{setOpened(previous=>({action:record.action_id,documentId:record.reservation.basis.document_id,generation:(previous?.generation??0)+1}));onReviewOnPage?.();}}>
               {reviewStatus[record.action_id]??'Review suggestion on page'}
             </button>:<><p>{record.inserted_in_draft?'Inserted into the draft.':reviewStatus[record.action_id]==='Suggestion discarded'?'Suggestion discarded.':'Open its original page to review this suggestion.'}</p>{!record.reservation.origin&&<EarlierBuildProposal record={record} label={reviewStatus[record.action_id]}/>}</>}
           </section>
         : <EarlierBuildProposal key={record.action_id} record={record} label={reviewStatus[record.action_id]}/>})),
-      ...(imageRecords.scope===scope?imageRecords.values.map(record=>({key:record.action_id,originTurnId:undefined,details:null,afterSequence:Math.max(record.after_turn_sequence,history?.turns.find(turn=>turn.turn_id===record.reservation.origin?.durable_turn_id)?.sequence??record.after_turn_sequence),
+      ...(enabled&&imageRecords.scope===scope?imageRecords.values.map(record=>({key:record.action_id,originTurnId:undefined,details:null,afterSequence:Math.max(record.after_turn_sequence,history?.turns.find(turn=>turn.turn_id===record.reservation.origin?.durable_turn_id)?.sequence??record.after_turn_sequence),
         element:<PreparedBuildImage key={record.action_id} record={record} bridge={bridge}
           active={history?.active_conversation_id===record.reservation.conversation_id&&history.pointer_revision===record.reservation.expected_pointer_revision}/>})):[])]};
 }

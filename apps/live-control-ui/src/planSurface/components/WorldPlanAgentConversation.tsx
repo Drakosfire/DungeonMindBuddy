@@ -3049,7 +3049,7 @@ export function WorldPlanAgentConversation({
   const playCompose = usePlaySceneEdits({ worldId, runId: playMode?.admittedRun?.runId ?? null,
     bridge: playMode?.sceneEditBridge ?? null });
   const buildCompose = useBuildCompose({ worldId, history,
-    bridge: buildMode?.composeBridge ?? null, enabled: visible && isBuild,
+    bridge: buildMode?.composeBridge ?? null, enabled: visible && isBuild, readHistory: visible,
     onReviewOnPage:()=>agent.setPaneOpen(false),
     onConstructionVisible:()=>{
       if(!(composerDraftsRef.current[composerDraftKey]??'').trim())agent.setPaneOpen(false);
@@ -7126,7 +7126,7 @@ export function WorldPlanAgentConversation({
         ) : null}
         {displayedConversation.map(item => item.element)}
         {playMode ? playCompose.review : null}
-        {isBuild && buildCompose.error ? <p role="alert">{buildCompose.error}</p> : null}
+        {buildCompose.error ? <p role="alert">{buildCompose.error}</p> : null}
         {!isReadOnly ? conversationActions.map(renderConsultedAction) : null}
         {!isReadOnly && conversationActionsError ? <p role="alert">{conversationActionsError}</p> : null}
         {unmatchedSubmittedMessage && submittedMessage && !pendingRetryTurnId ? (

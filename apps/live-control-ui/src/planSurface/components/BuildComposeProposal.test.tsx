@@ -347,3 +347,33 @@ it('keeps a generated suggestion readable after insertion without offering anoth
  expect(screen.queryByRole('button',{name:'Review suggestion on page'})).not.toBeInTheDocument();
  expect(bridge.insertProposal).not.toHaveBeenCalled();expect(api.composeBuildProposal).not.toHaveBeenCalled();
 });
+
+it('reads proposal prose without granting Build writes or loading image sidecars', async () => {
+ const record=receipt();
+ record.reservation.origin={client_turn_id:'client',durable_turn_id:'requesting-turn',turn_attempt:1,broker_operation_id:'operation',arguments_sha256:'a'.repeat(64)};
+ vi.mocked(api.listBuildProposals).mockResolvedValue([record]);
+ const hook=renderHook(()=>useBuildCompose({worldId:'world',pageDocumentId:'doc',history,bridge,enabled:false,readHistory:true,onHistory:vi.fn()}));
+ await waitFor(()=>expect(hook.result.current.items).toHaveLength(1));
+ render(<>{hook.result.current.items.map(item=><div key={item.key}>{item.element}</div>)}</>);
+ expect(screen.getByRole('table')).toHaveTextContent('Nella');
+ expect(hook.result.current.items[0].originTurnId).toBe('requesting-turn');
+ expect(screen.queryByRole('button',{name:'Review suggestion on page'})).not.toBeInTheDocument();
+ expect(hook.result.current.pageElement).toBeNull();
+ expect(media.listPreparedImages).not.toHaveBeenCalled();
+ await expect(hook.result.current.submit('Write this')).resolves.toBe(false);
+ await expect(hook.result.current.prepareHarnessTurn('turn')).rejects.toThrow('Open the current page');
+ expect(bridge.capture).not.toHaveBeenCalled();
+ expect(api.composeBuildProposal).not.toHaveBeenCalled();
+});
+
+it.each(['World','conversation','hidden'] as const)('discards delayed readonly proposal history after %s changes',async change=>{
+ let finish!:(records:api.BuildProposalRecord[])=>void;
+ vi.mocked(api.listBuildProposals).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+ const hook=renderHook(({world,conversation,visible})=>useBuildCompose({worldId:world,pageDocumentId:null,
+  history:{...history,world_id:world,conversation_id:conversation},bridge:null,enabled:false,readHistory:visible,onHistory:vi.fn()}),
+  {initialProps:{world:'world',conversation:'conversation',visible:true}});
+ await waitFor(()=>expect(api.listBuildProposals).toHaveBeenCalledTimes(1));
+ hook.rerender({world:change==='World'?'other':'world',conversation:change==='conversation'?'other':'conversation',visible:change!=='hidden'});
+ await act(async()=>{finish([receipt()]);});
+ expect(hook.result.current.items).toHaveLength(0);
+});
