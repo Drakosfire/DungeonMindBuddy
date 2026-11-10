@@ -530,7 +530,8 @@
       "tests/test_ci_local_frontend.py",
       "tests/test_native_evidence_presentation.py",
       "tests/test_ownership_ci_partition.py",
-      "tests/test_response_prompt.py"
+      "tests/test_response_prompt.py",
+      "tests/test_writer_assessment.py"
     ],
     "domain-integration": [
       "tests/application_state/test_agent_conversation_service.py",
