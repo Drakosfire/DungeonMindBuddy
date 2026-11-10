@@ -3,7 +3,8 @@
 ACTIVE · PRIME · serial · codex/build-target-recovery from d043600202a3e0cc5d6b81f88d6eb5019ec7c3c9.
 Use the existing buddy-context-loop checkout. The write lease covers Build Jev
 harness and failure diagnostics, the Build request error handler in
-WorldPlanAgentConversation, the ordinary native Build HTTP test, and this handoff.
+WorldPlanAgentConversation, its mounted integration test, the ordinary native
+Build HTTP test, and this handoff.
 Production delivery uses the owned local API and UI on ports 8000 and 5202.
 Tests use isolated disposable databases and synthetic provider transports.
 

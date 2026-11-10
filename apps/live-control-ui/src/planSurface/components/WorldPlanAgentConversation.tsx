@@ -4525,7 +4525,8 @@ export function WorldPlanAgentConversation({
         : graphFailure
           ? `The World Graph could not be resolved for this message. ${reason.message} Check World history or explicitly retry the exact saved request; Graph context will remain required.`
         : `${reason instanceof Error ? reason.message : "The message outcome is unknown."} Check World history or explicitly retry the saved request with its original IDs.`;
-      uncertainPlayNoticeRef.current = rejectedBeforeDispatch ? null : { turnId: request.turn_id, message: notice };
+      uncertainPlayNoticeRef.current = rejectedBeforeDispatch || buildTargetUnavailable
+        ? null : { turnId: request.turn_id, message: notice };
       setError(notice);
       sharedConversation?.setHistoryRefreshNonce((current) => current + 1);
     } finally {
