@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { App } from "./App";
+import { StrictMode } from "react";
 import { decodeLocalWorldPackageZipV1 } from "./localWorld/localWorldPackageZipV1";
 import { LOCAL_WORLD_NOTES_DOCUMENT_PATH } from "./localWorld/localWorldDocumentAuthoring";
 import { InMemoryLocalWorldRepository, InMemoryLocalWorldStore } from "./localWorld/inMemoryLocalWorldRepository";
@@ -12,6 +13,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const localRepositoryHarness = vi.hoisted(() => ({
   repository: null as InMemoryLocalWorldRepository | null,
 }));
+
+const managedClientHarness = vi.hoisted(() => ({
+  created: [] as Array<{
+    worldId: string;
+    client: { api: { readGraph: () => Promise<unknown> }; invalidate: () => void };
+  }>,
+}));
+
+vi.mock("./nativeGraphDemo/managedNativeGraphApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./nativeGraphDemo/managedNativeGraphApi")>();
+  return {
+    ...actual,
+    createManagedNativeGraphApi: (worldId: string) => {
+      const client = actual.createManagedNativeGraphApi(worldId);
+      managedClientHarness.created.push({ worldId, client });
+      return client;
+    },
+  };
+});
 
 vi.mock("./localWorld/indexedDbLocalWorldRepository", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./localWorld/indexedDbLocalWorldRepository")>();
@@ -189,6 +209,7 @@ describe("canonical local guest entry", () => {
     localStorage.clear();
     sessionStorage.clear();
     localRepositoryHarness.repository = new InMemoryLocalWorldRepository({ store: new InMemoryLocalWorldStore() });
+    managedClientHarness.created = [];
   });
 
   afterEach(() => {
@@ -605,6 +626,60 @@ describe("canonical local guest entry", () => {
     await act(async () => resolveSecondA(Response.json(managedGraphEnvelope("world-a", "Aster late"))));
     expect(screen.getByRole("button", { name: "Bramble, person" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Aster late, person" })).not.toBeInTheDocument();
+  });
+
+  it("owns a fresh managed client through StrictMode replay, World switching, and unmount", async () => {
+    vi.stubEnv("PROD", true);
+    window.history.replaceState({}, "", "/?world=world-a");
+    const fetchMock = managedServerFetch();
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    const mounted = render(<StrictMode><App /></StrictMode>);
+
+    expect(await screen.findByRole("button", { name: "Aster, person" })).toBeInTheDocument();
+    const clientsFor = (worldId: string) => managedClientHarness.created
+      .filter((entry) => entry.worldId === worldId)
+      .map((entry) => entry.client);
+    const worldAClients = clientsFor("world-a");
+    expect(worldAClients.length).toBeGreaterThanOrEqual(2);
+    const replayRetiredA = worldAClients[0];
+    const liveA = worldAClients[worldAClients.length - 1];
+
+    const callsBeforeRetiredRead = fetchMock.mock.calls.length;
+    await expect(replayRetiredA.api.readGraph()).rejects.toMatchObject({
+      name: "NativeGraphDemoApiError",
+      code: "invalid_managed_world_response",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(callsBeforeRetiredRead);
+    await expect(liveA.api.readGraph()).resolves.toMatchObject({
+      world_id: "native-world-a",
+      revision_id: "revision-world-a",
+    });
+
+    await user.click(screen.getByRole("button", { name: "Switch World: World A" }));
+    await user.click(await screen.findByRole("button", { name: "World B" }));
+    expect(await screen.findByRole("button", { name: "Bramble, person" })).toBeInTheDocument();
+    expect(screen.getByText("World · World B")).toBeInTheDocument();
+
+    const worldBClients = clientsFor("world-b");
+    expect(worldBClients.length).toBeGreaterThanOrEqual(2);
+    const liveB = worldBClients[worldBClients.length - 1];
+    for (const retiredA of worldAClients) {
+      await expect(retiredA.api.readGraph()).rejects.toMatchObject({
+        name: "NativeGraphDemoApiError",
+        code: "invalid_managed_world_response",
+      });
+    }
+    await expect(liveB.api.readGraph()).resolves.toMatchObject({
+      world_id: "native-world-b",
+      revision_id: "revision-world-b",
+    });
+
+    mounted.unmount();
+    await expect(liveB.api.readGraph()).rejects.toMatchObject({
+      name: "NativeGraphDemoApiError",
+      code: "invalid_managed_world_response",
+    });
   });
 
   it.each(["/?world=hosted-world", "/?auth_error=cancelled", "/#section", "/unknown-path"]) (

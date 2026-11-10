@@ -99,6 +99,22 @@ function TiptapSpikeRoute() {
   );
 }
 
+function ManagedWorldGraph({ worldId, worldTitle, stateScopeId }: {
+  readonly worldId: string; readonly worldTitle: string; readonly stateScopeId: string;
+}) {
+  const [client, setClient] = useState<ReturnType<typeof createManagedNativeGraphApi> | null>(null);
+  useEffect(() => {
+    // Own the client within the effect lifetime, including StrictMode's setup /
+    // cleanup rehearsal. Never resurrect an invalidated previous client.
+    const owned = createManagedNativeGraphApi(worldId);
+    setClient(owned);
+    return () => owned.invalidate();
+  }, [worldId]);
+  return client
+    ? <NativeGraphDemo api={client.api} embedded mode="managed" worldTitle={worldTitle} stateScopeId={stateScopeId} />
+    : <main className="app-status" role="status">Loading World graph…</main>;
+}
+
 function BuddyIndexPage({
   localOnlyNavigation = false,
   locationSnapshot,
@@ -109,22 +125,13 @@ function BuddyIndexPage({
   const auth = useHostedAuthStatus();
   const selectedWorld = useSelectedWorld();
   const managedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
-  const managedClient = useMemo(() => managedWorldId ? createManagedNativeGraphApi(managedWorldId) : null, [managedWorldId]);
   const playgroundApi = useMemo(() => createBuddyIndexGraphApi(), []);
   const [legacyWorldsOpen, setLegacyWorldsOpen] = useState(false);
 
-  useEffect(() => () => managedClient?.invalidate(), [managedClient]);
-
   let explorer: ReactNode;
-  if (managedClient && selectedWorld.kind === "managed") {
-    explorer = <NativeGraphDemo
-      key={`managed:${selectedWorld.worldId}`}
-      api={managedClient.api}
-      embedded
-      mode="managed"
-      worldTitle={selectedWorld.name}
-      stateScopeId={`managed:${selectedWorld.worldId}`}
-    />;
+  if (managedWorldId && selectedWorld.kind === "managed") {
+    explorer = <ManagedWorldGraph key={`managed:${managedWorldId}`} worldId={managedWorldId}
+      worldTitle={selectedWorld.name} stateScopeId={`managed:${managedWorldId}`} />;
   } else if (auth.status === "local_operator") {
     explorer = <NativeGraphDemo api={playgroundApi} embedded mode="playground" />;
   } else if (auth.status === "signed_out") {

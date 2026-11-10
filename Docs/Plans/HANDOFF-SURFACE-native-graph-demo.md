@@ -570,3 +570,27 @@ focus, and keyboard restoration. Tooltip and placement exits are presentation
 changes, never semantic graph cancellations. Final exact-SHA and browser evidence
 is required before claiming preview acceptance; working-tree focused tests are
 only diagnostics.
+
+### Managed client lifecycle review correction
+
+Independent cumulative review of 1ca2a807 identified an inherited integration
+blocker: BuddyIndexPage memoizes a managed client, then permanently invalidates
+that same client in effect cleanup. Development StrictMode replays cleanup/setup
+without recreating the memo, leaving managed reads unusable. Production-preview
+success is not evidence against this development lifecycle defect.
+
+The hosted owner-access steward explicitly transferred the App.tsx lifecycle
+seam back for this predecessor correction. The lifecycle worker owns only
+`apps/live-control-ui/src/App.tsx` for an effect-owned ManagedWorldGraph helper and
+its local call replacement, and `apps/live-control-ui/src/App.guestEntry.test.tsx`
+for regression tests. Preserve original local World keys and all auth decisions.
+The separate hosted lane retains subject/account and entity-only presentation
+changes; do not import them here. Do not resurrect invalidated clients or weaken
+stale-response rejection. The helper is keyed by managed World, creates a fresh
+client for each effect setup, and invalidates only that setup's client on cleanup.
+
+Verify StrictMode setup/cleanup replay, managed World switching, and final unmount
+with fresh usable clients and permanent invalidation of retired clients. Re-run
+exact-source aggregate checks on the corrected successor and request independent
+review of the material correction. Keep predecessor test reports labeled with
+their actual SHA; do not relabel 1ca2 evidence as successor qualification.
