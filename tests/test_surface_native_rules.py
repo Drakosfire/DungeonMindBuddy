@@ -26,7 +26,7 @@ from tests.test_rules_lookup_broker import execution as initial_rules, lookup, a
 from tests.test_rules_build_input import append
 
 
-async def sdk(frame, rules, candidate, *, work_frame, mutate_request=None):
+async def sdk(frame, rules, candidate, *, work_frame, mutate_request=None, format_version=2):
     sent=[]
     raw=json.dumps(candidate)
     def wire(request):
@@ -38,7 +38,7 @@ async def sdk(frame, rules, candidate, *, work_frame, mutate_request=None):
     inputs=[dict(role='user',content=json.dumps(frame)),
         dict(role='user',content=rules.model_dump_json(by_alias=True)),
         dict(role='user',content=json.dumps(work_frame))]
-    fmt=native_output_format(frame,rules,work_frame)
+    fmt=native_output_format(frame,rules,work_frame,format_version=format_version)
     if mutate_request:
         mutate_request(inputs,fmt)
     async with AsyncOpenAI(api_key='synthetic-not-secret',http_client=httpx.AsyncClient(
@@ -49,7 +49,7 @@ async def sdk(frame, rules, candidate, *, work_frame, mutate_request=None):
     return sent[0],response.output_text
 
 
-def producing_case(lane,surface,*,unused=False,base=True,mutation=None,context_record=None,candidate_mutation=None,work_override=None,semantic=False):
+def producing_case(lane,surface,*,unused=False,base=True,mutation=None,context_record=None,candidate_mutation=None,work_override=None,semantic=False,format_version=2):
     context,record = context_record if context_record is not None else body_case(surface,lane)[:2]
     frame=model_frame(context,record)
     intent=record.policy.action.intent
@@ -92,7 +92,7 @@ def producing_case(lane,surface,*,unused=False,base=True,mutation=None,context_r
             candidate['rules_segments'][0]['support_ids']=['rule_0']
     if candidate_mutation:
         candidate_mutation(candidate)
-    raw_request,raw_output=asyncio.run(sdk(frame,rules,candidate,work_frame=model_work_frame(context,record,**work),mutate_request=mutation))
+    raw_request,raw_output=asyncio.run(sdk(frame,rules,candidate,work_frame=model_work_frame(context,record,**work),mutate_request=mutation,format_version=format_version))
     stored,auth=authorize(context,record,raw_request,frame)
     api_request_id=f'generationengine:{auth.provider_attempt_id}'
     terminal=outcomes(auth,len(stored.events))
@@ -279,4 +279,42 @@ def test_sealed_output_still_needs_each_domain_acceptance(lane,surface,mutation)
             candidate['base_output']['unrecognized_field']='not in contract'
     case=producing_case(lane,surface,candidate_mutation=mutate)
     with pytest.raises(ValueError):
+        normalize(case)
+
+
+@pytest.mark.parametrize('surface', ['plan', 'build'])
+@pytest.mark.parametrize('unused', [False, True])
+def test_retained_native_v1_reply_reads_but_fresh_input_requires_v2(lane, surface, unused):
+    case = producing_case(lane, surface, unused=unused, semantic=True, format_version=1)
+    context, stored, owner, auth, proof, _capture, kwargs = case
+    assert normalize(case).assistant_text
+    submission = {k: v for k, v in kwargs.items() if k != 'trace'}
+    with pytest.raises(ValueError, match='declarations differ'):
+        verify_native_rules_packet_input(owner, context, stored, proof.prepared_request_json,
+            provider_attempt_id=auth.provider_attempt_id,
+            expected_envelope_sha256=auth.envelope_sha256, **submission)
+    verify_native_rules_packet_input(owner, context, stored, proof.prepared_request_json,
+        provider_attempt_id=auth.provider_attempt_id,
+        expected_envelope_sha256=auth.envelope_sha256, allow_retained_format=True, **submission)
+
+
+@pytest.mark.parametrize('surface', ['plan', 'build'])
+@pytest.mark.parametrize('mutation', ['unknown_version', 'modified_historical_enum'])
+def test_retained_format_name_does_not_weaken_exact_schema_proof(lane, surface, mutation):
+    def change(_inputs, fmt):
+        if mutation == 'unknown_version':
+            fmt['name'] = 'surface_native_evidence_selectors_v99'
+        else:
+            def alter(value):
+                if isinstance(value, dict):
+                    if value.get('enum') == ['image_prompt', 'invented_idea']:
+                        value['enum'] = ['invented_idea']
+                    for child in value.values():
+                        alter(child)
+                elif isinstance(value, list):
+                    for child in value:
+                        alter(child)
+            alter(fmt['schema'])
+    case = producing_case(lane, surface, semantic=True, format_version=1, mutation=change)
+    with pytest.raises(ValueError, match='prepared input differs'):
         normalize(case)

@@ -309,3 +309,8 @@ def test_retained_v2_format_is_exact_read_proof_not_current_dispatch():
     changed = deepcopy(body)
     changed["text"]["format"]["schema"]["properties"]["answer_segments"]["minItems"] = 1
     with pytest.raises(ValueError): verify_format(changed, f, rules())
+
+
+def test_legacy_schema_retains_its_existing_image_proposal_contract():
+    candidate = answer({'kind': 'proposal', 'label': 'image_prompt', 'text': 'A visual prompt.'})
+    Draft202012Validator(output_schema(frame(), rules())).validate(candidate)

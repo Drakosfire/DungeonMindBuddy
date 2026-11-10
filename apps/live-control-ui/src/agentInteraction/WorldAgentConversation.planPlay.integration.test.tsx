@@ -3138,7 +3138,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.change(await screen.findByLabelText('Message DungeonBuddy'),{target:{value:'My newer note'}});
     expect(vi.mocked(getWorldAgentConversationHistory).mock.calls.filter(([,options])=>options?.limit===1)).toHaveLength(0);
     expect(readDiscussionRetryInput).not.toHaveBeenCalled();
-    if(hydrated){fireEvent.click(screen.getByText('Details',{selector:'summary'}));await screen.findByText('Retry using this request’s original page context.');}
+    if(hydrated){fireEvent.click(screen.getByText('Details',{selector:'summary'}));await screen.findByText('Retry this saved request.');}
     const retry=await screen.findByRole('button',{name:'Retry question'});fireEvent.click(retry);fireEvent.click(retry);
     await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
     expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0]).toMatchObject({retry_of:{turn_id:id,revision:4},build_authored_references:frozen,message:base.user_text});
@@ -3148,6 +3148,64 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(vi.mocked(getWorldAgentConversationHistory).mock.calls.filter(([,options])=>options?.limit===1)).toHaveLength(1);
     expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0].retry_of).toHaveProperty('retained_snapshot_sha256');
     expect(vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0].build_write_capability).toBeUndefined();
+  });
+
+  it.each([false,true])('captures a fresh same-page authoring retry after the exact host refusal (hydrated: %s)',async hydrated=>{
+    const base=turn('plan',1,''),id='22222222-2222-4222-8222-000000000001',cid=history().conversation_id!;
+    const frozen=authoredReferences([authoredRef('failed-box')]);
+    const terminal={...base,turn_id:id,idempotency_key:'11111111-1111-4111-8111-000000000001',authored_references:frozen,lifecycle_status:'interrupted' as const,
+      provenance:{...base.provenance,surface_id:'build',primary_work:{...base.provenance.primary_work,kind:'build',object_id:'source-one'}},
+      retry_context:{schema:'dmb_turn_retry_context_row_v2' as const,authored_references:frozen,world_id:WORLD,conversation_id:cid,turn_id:id,revision:4,root_id:id,predecessor_id:null,successor_id:null,ordinal:0,eligible:true,reason:'ready' as const}};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history([terminal]),schema:'dmb_agent_conversation_history_v3'});
+    vi.mocked(readDiscussionRetryInput).mockRejectedValue(new LiveApiError('Authoring needs its target',409,{code:'build_authoring_retry_required'}));
+    vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise(()=>{}));
+    const newer=writeComposerReferences(sessionStorage,WORLD,'source-one',null,[authoredRef('newer-box')]);
+    const bridge=retryBridge();render(<Harness initial="build" buildBridge={bridge}/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    const input=await screen.findByLabelText('Message DungeonBuddy');fireEvent.change(input,{target:{value:'Keep my newer note'}});
+    if(hydrated){fireEvent.click(screen.getByText('Details',{selector:'summary'}));await screen.findByText('Retry this saved request.');}
+    const retry=await screen.findByRole('button',{name:'Retry question'});fireEvent.click(retry);fireEvent.click(retry);
+    await waitFor(()=>expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    const request=vi.mocked(postWorldBuildAgentTurn).mock.calls[0][0];
+    expect(request).toMatchObject({message:base.user_text,primary_work:{object_id:'source-one'},retry_of:{turn_id:id,revision:4},build_authored_references:frozen});
+    expect(request.retry_of).not.toHaveProperty('retained_snapshot_sha256');
+    expect(request.build_write_capability).toBeDefined();expect(request.build_draft_context?.snapshot).toEqual(draftSnapshot());
+    expect(bridge.capture).toHaveBeenCalledTimes(1);expect(bridge.captureContext).toHaveBeenCalledTimes(1);
+    expect(input).toHaveValue('Keep my newer note');expect(readComposerReferences(sessionStorage,WORLD,'source-one')).toEqual(newer);
+  });
+
+  it('refuses fresh authoring recovery on a different page without capturing or sending',async()=>{
+    const base=turn('plan',1,''),id='22222222-2222-4222-8222-000000000001',cid=history().conversation_id!;
+    const terminal={...base,turn_id:id,idempotency_key:'11111111-1111-4111-8111-000000000001',lifecycle_status:'interrupted' as const,
+      provenance:{...base.provenance,surface_id:'build',primary_work:{...base.provenance.primary_work,kind:'build',object_id:'source-other'}},
+      retry_context:{world_id:WORLD,conversation_id:cid,turn_id:id,revision:4,root_id:id,predecessor_id:null,successor_id:null,ordinal:0,eligible:true,reason:'ready' as const}};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history([terminal]),schema:'dmb_agent_conversation_history_v3'});
+    vi.mocked(readDiscussionRetryInput).mockRejectedValue(new LiveApiError('Authoring needs its target',409,{code:'build_authoring_retry_required'}));
+    const bridge=retryBridge();render(<Harness initial="build" buildBridge={bridge}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    fireEvent.click(await screen.findByRole('button',{name:'Retry question'}));
+    expect(await screen.findByText('Open the page this request was made from, then retry. Its authoring target needs fresh page context. Nothing was sent.')).toHaveAttribute('role','alert');
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();expect(bridge.capture).not.toHaveBeenCalled();expect(bridge.captureContext).not.toHaveBeenCalled();
+  });
+
+  it.each(['read-world','read-surface','read-page','capture-world','capture-surface','capture-page'] as const)('does not send fresh authoring after a late %s change',async change=>{
+    const base=turn('plan',1,''),id='22222222-2222-4222-8222-000000000001',cid=history().conversation_id!;
+    const terminal={...base,turn_id:id,idempotency_key:'11111111-1111-4111-8111-000000000001',lifecycle_status:'interrupted' as const,
+      provenance:{...base.provenance,surface_id:'build',primary_work:{...base.provenance.primary_work,kind:'build',object_id:'source-one'}},
+      retry_context:{world_id:WORLD,conversation_id:cid,turn_id:id,revision:4,root_id:id,predecessor_id:null,successor_id:null,ordinal:0,eligible:true,reason:'ready' as const}};
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({...history([terminal]),schema:'dmb_agent_conversation_history_v3'});
+    const error=new LiveApiError('Authoring needs its target',409,{code:'build_authoring_retry_required'});
+    let rejectRead!:(reason:Error)=>void, finishCapture!:(value:CapturedBuildInsertion)=>void;
+    const bridge=retryBridge();
+    if(change.startsWith('read-'))vi.mocked(readDiscussionRetryInput).mockImplementation(()=>new Promise((_,reject)=>{rejectRead=reject;}));
+    else {vi.mocked(readDiscussionRetryInput).mockRejectedValue(error);vi.mocked(bridge.capture).mockImplementation(()=>new Promise(resolve=>{finishCapture=resolve;}));}
+    const view=render(<Harness initial="build" buildBridge={bridge}/>);fireEvent.click(await screen.findByRole('button',{name:'Open',exact:true}));
+    fireEvent.click(await screen.findByRole('button',{name:'Retry question'}));
+    await waitFor(()=>expect(change.startsWith('read-')?readDiscussionRetryInput:bridge.capture).toHaveBeenCalledTimes(1));
+    if(change.endsWith('page'))view.rerender(<Harness initial="build" buildBridge={bridge} buildSourceRevision={3}/>);
+    else fireEvent.click(screen.getByRole('button',{name:change.endsWith('world')?'Switch World':'Switch surface'}));
+    await act(async()=>{if(change.startsWith('read-'))rejectRead(error);else finishCapture(insertionCapture());});
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();expect(postWorldPlanAgentTurn).not.toHaveBeenCalled();expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+    if(change.startsWith('read-'))expect(bridge.capture).not.toHaveBeenCalled();
   });
 
   it.each(['details-failure','ineligible','retained-failure','late-world','late-surface'] as const)('keeps a lightweight Build retry unsent after %s',async failure=>{

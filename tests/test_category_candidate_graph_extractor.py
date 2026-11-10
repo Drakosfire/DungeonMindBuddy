@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from typing import Any
 
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
@@ -291,10 +293,12 @@ def test_custom_disposition_pass_id_prompts_and_retains_items() -> None:
     assert "deferred_items" in prompt
     ignored_ids = {item["item_id"] for item in result.candidate_graph.get("ignored_items") or []}
     deferred_ids = {item["item_id"] for item in result.candidate_graph.get("deferred_items") or []}
-    assert "ignored:noise" in ignored_ids
-    assert "deferred:followup" in deferred_ids
-    ignored = next(item for item in result.candidate_graph["ignored_items"] if item["item_id"] == "ignored:noise")
-    deferred = next(item for item in result.candidate_graph["deferred_items"] if item["item_id"] == "deferred:followup")
+    ignored_id = 'recap-model-disposition:["mystery_disposition_pass","ignored:noise"]'
+    deferred_id = 'recap-model-disposition:["mystery_disposition_pass","deferred:followup"]'
+    assert ignored_id in ignored_ids
+    assert deferred_id in deferred_ids
+    ignored = next(item for item in result.candidate_graph["ignored_items"] if item["item_id"] == ignored_id)
+    deferred = next(item for item in result.candidate_graph["deferred_items"] if item["item_id"] == deferred_id)
     assert "node_type" not in ignored
     assert "node_type" not in deferred
     assert ignored["label"] == "Background chatter"
@@ -309,6 +313,11 @@ def test_custom_disposition_pass_id_prompts_and_retains_items() -> None:
     assert "deferred:followup" not in candidate_node_ids
     assert client.raw_disposition_payload["ignored_items"][0]["node_type"] == "mystery"
     assert client.raw_disposition_payload["deferred_items"][0]["node_type"] == "thread"
+    assert client.raw_disposition_payload["ignored_items"][0]["item_id"] == "ignored:noise"
+    assert client.raw_disposition_payload["deferred_items"][0]["item_id"] == "deferred:followup"
+    # Host candidate identities are never introduced into later model requests.
+    assert all("recap-model-disposition:" not in content
+               for content in client.user_contents.values())
 
 
 def test_canonical_injected_clients_keep_source_evidence_contract():
@@ -564,3 +573,118 @@ def test_duplicate_source_local_edge_ids_are_not_hidden_by_payload_deduplication
     assert sum(edge["edge_id"] == "bridge-town" for edge in result.candidate_graph["edges"]) == 2
     with pytest.raises(CandidateGraphMappingError, match="duplicate_edge_id"):
         load_typed_candidate_graph(result.candidate_graph)
+
+
+@pytest.mark.parametrize('collection,id_key', [('nodes', 'node_id'), ('ignored_items', 'item_id'), ('deferred_items', 'item_id')])
+def test_sanitizer_retains_rejected_node_nominations_and_warns_surviving_record(collection, id_key):
+    from copy import deepcopy
+    from src.graph_memory.extraction.category_candidate_graph_extractor import sanitize_parts
+    valid = {'source_span_ref_id': 'paragraph:51-52', 'anchor_quotes': ['the rope was gone']}
+    invalid = {'source_span_ref_id': 'paragraph:52-52', 'anchor_quotes': ['the rope was gone']}
+    record = {id_key: 'rescue', 'description': 'An unchanged observed rescue.', 'evidence_refs': [valid, invalid]}
+    original = deepcopy(record)
+    output, diagnostics = sanitize_parts({collection: [record]}, {'paragraph:51-52'})
+    saved = output[collection][0]
+    assert saved['evidence_refs'] == [valid]
+    assert saved['description'] == record['description']
+    assert saved['warnings'] == ['evidence_ref_rejected:2']
+    assert diagnostics['rejected_node_evidence_refs'] == [{
+        'collection': collection, 'record_id': 'rescue', 'reference_ordinal': 2,
+        'reason': 'unadvertised_or_invalid_span_ref', 'nominated_ref': invalid,
+    }]
+    assert record == original
+
+
+def test_sanitizer_keeps_all_invalid_node_rejection_after_dropping_node():
+    from src.graph_memory.extraction.category_candidate_graph_extractor import sanitize_parts
+    invalid = {'source_span_ref_id': 'paragraph:45', 'anchor_quotes': ['accepted the ride']}
+    output, diagnostics = sanitize_parts({'nodes': [{'node_id': 'ride', 'evidence_refs': [invalid]}]}, {'paragraph:45-45'})
+    assert output['nodes'] == []
+    assert diagnostics['dropped_no_valid_evidence'] == {'nodes': ['ride']}
+    assert diagnostics['rejected_node_evidence_refs'][0]['nominated_ref'] == invalid
+    output, diagnostics = sanitize_parts({'nodes': [{'node_id': 'ride', 'evidence_refs': [{'source_span_ref_id': 'paragraph:45-45', 'anchor_quotes': ['accepted the ride']}]}]}, {'paragraph:45-45'})
+    assert 'warnings' not in output['nodes'][0]
+    assert diagnostics['rejected_node_evidence_refs'] == []
+
+
+def test_order_edges_cannot_inherit_occurrence_evidence_but_other_edges_still_can():
+    import copy
+    from src.graph_memory.predicate_catalog import RECAP_SOURCE_ORDER
+    from src.graph_memory.extraction.category_candidate_graph_extractor import repair_edge_evidence_refs
+    ref = {"source_span_ref_id": "span-order", "anchor_quotes": ["The arrival was before departure."]}
+    for invalid in ([], [{"source_span_ref_id": "not-advertised", "anchor_quotes": ["invented"]}]):
+        parts = {"nodes": [{"node_id": "a", "evidence_refs": [ref]},
+                           {"node_id": "b", "evidence_refs": [ref]}],
+                 "edges": [{"from_node_id": "a", "to_node_id": "b", "relationship_type": kind,
+                            "evidence_refs": copy.deepcopy(invalid)}
+                           for kind in ("precedes", "participates_in")]}
+        repair_edge_evidence_refs(parts, {"span-order"}, predicate_capabilities=(RECAP_SOURCE_ORDER,))
+        assert parts["edges"][0]["evidence_refs"] == []
+        assert parts["edges"][1]["evidence_refs"] == [ref]
+    parts["edges"][0]["evidence_refs"] = [ref]
+    repair_edge_evidence_refs(parts, {"span-order"}, predicate_capabilities=(RECAP_SOURCE_ORDER,))
+    assert parts["edges"][0]["evidence_refs"] == [ref]
+
+
+
+def test_ordinary_producer_projects_two_direct_order_claims_without_inventing_a_total_order():
+    import jsonschema
+    from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
+    source = "An arrival happened. A discussion happened. Both preceded a departure; their relative order is unstated."
+    ref = {"source_span_ref_id": "span-1", "anchor_quotes": [source]}
+    class OrderClient:
+        def run_pass(self, pass_name, *, model_id, instructions, user_content, pass_spec=None):
+            if pass_name == "thread_pass":
+                parsed = {"observation_nodes": [
+                    {"node_id": name, "label": name, "node_type": "event", "description": f"The {name} occurred.",
+                     "importance": "high", "evidence_refs": [ref]}
+                    for name in ("arrival", "discussion", "departure")], "ignored_items": [], "deferred_items": []}
+            elif pass_name == "edge_pass":
+                assert "`precedes`" in user_content
+                parsed = {"observation_edges": [
+                    {"edge_id": name, "from_node_id": name, "to_node_id": "departure", "label": "earlier",
+                     "relationship_type": "precedes", "predicate_family": "temporal_sequence", "evidence_refs": [ref]}
+                    for name in ("arrival", "discussion")]}
+                jsonschema.validate(parsed, schema_for_pass_spec(pass_spec))
+            elif pass_name == "beat_pass":
+                parsed = {"observation_beats": []}
+            else:
+                parsed = {"observation_nodes": [], "ignored_items": [], "deferred_items": []}
+            return {"parsed": parsed, "cost_usd": 0, "usage": {}, "elapsed_ms": 1, "response_id": pass_name}
+    index = _span_index(session_id="session-1")
+    index["spans"][0]["text"] = source
+    result = extract_category_candidate_graph(CategoryGraphExtractionOptions(
+        campaign_id="synthetic", session_id="session-1", session_number=1,
+        source_span_index=index, source_text=source, profile=RECAP_EXTRACTION_PROFILE,
+    ), client=OrderClient())
+    edges = result.candidate_graph["edges"]
+    assert {(edge["from_node_id"], edge["to_node_id"], edge["relationship_type"]) for edge in edges} == {
+        ("arrival", "departure", "precedes"), ("discussion", "departure", "precedes"),
+    }
+    assert all(not any("predicate_validation:" in warning for warning in edge.get("warnings", [])) for edge in edges)
+
+
+def test_worldbuilding_prompt_does_not_adopt_recap_node_handles():
+    from src.graph_memory.extraction.category_candidate_graph_extractor import render_category_pass_prompts
+    from src.graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
+    text = "Ari founded the guild."
+    rows = [{"source_span_ref_id": "s1", "line_start": 1, "line_end": 1, "text": text}]
+    packet = compile_source_sentence_packet(text, rows)
+    prompts = render_category_pass_prompts(rows, profile=WORLDBUILDING_PLUMBING_PROFILE,
+                                          node_source_packet=packet)
+    assert all("source_quote_ids" not in prompt for prompt in prompts.values())
+    assert any("anchor_quotes" in prompt for prompt in prompts.values())
+
+
+def test_encounter_preview_preserves_existing_actor_handles_without_expanding_other_passes():
+    from src.graph_memory.extraction.category_candidate_graph_extractor import render_category_pass_prompts, _source_handle_node_passes
+    from src.graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+    profile = get_extraction_profile("recap_category_encounter_job_preview", "2.0")
+    text = "Ari waited at the gate."
+    rows = [{"source_span_ref_id": "s1", "line_start": 1, "line_end": 1, "text": text}]
+    packet = compile_source_sentence_packet(text, rows)
+    prompts = render_category_pass_prompts(rows, profile=profile, node_source_packet=packet)
+    assert _source_handle_node_passes(profile) == {"actor_pass"}
+    assert "source_quote_ids" in prompts["actor_pass.md"]
+    assert all("source_quote_ids" not in value for key, value in prompts.items() if key != "actor_pass.md")

@@ -19,6 +19,7 @@ from src.graph_memory.predicate_catalog import (
     prompt_markdown as predicate_catalog_prompt_markdown,
     predicate_family_for_type,
     validate_edge_predicate,
+    requires_relationship_evidence,
 )
 from src.graph_memory.extraction.extraction_profile import ExtractionPassSpec, ExtractionProfile
 from src.graph_memory.extraction.recap_extraction_profile import (
@@ -389,11 +390,20 @@ def _source_packet_md(rows: Sequence[dict[str, Any]]) -> str:
     return "\n\n".join(parts)
 
 
+def _source_handle_node_passes(profile: ExtractionProfile) -> frozenset[str]:
+    if profile.admitted_source_domains != frozenset({"recap"}):
+        return frozenset()
+    if profile.qualified_id == RECAP_EXTRACTION_PROFILE.qualified_id:
+        return frozenset(p.pass_id for p in profile.node_passes)
+    # Other recap profiles already used actor handles before this expansion.
+    return frozenset({"actor_pass"})
+
+
 def render_category_pass_prompts(
     source_rows: Sequence[dict[str, Any]],
     *,
     profile: ExtractionProfile | None = None,
-    actor_source_packet: Any | None = None,
+    node_source_packet: Any | None = None,
 ) -> dict[str, str]:
     active_profile = profile or RECAP_EXTRACTION_PROFILE
     evidence_rule = active_profile.evidence_rule
@@ -414,11 +424,12 @@ def render_category_pass_prompts(
                 "Each item: `item_id`, `label`, `reason`, `evidence_refs`; deferred may include `suggested_next_step`."
             )
         pass_source, pass_evidence_rule = src, evidence_rule
-        if pass_name == "actor_pass" and actor_source_packet is not None:
+        if (node_source_packet is not None
+                and pass_name in _source_handle_node_passes(active_profile)):
             from src.graph_memory.extraction.source_sentence_evidence import (
                 SENTENCE_EVIDENCE_RULE, render_source_sentence_packet,
             )
-            pass_source = render_source_sentence_packet(actor_source_packet)
+            pass_source = render_source_sentence_packet(node_source_packet)
             pass_evidence_rule = SENTENCE_EVIDENCE_RULE
         prompts[_prompt_key(pass_name)] = (
             f"# Category Graph Extraction — {pass_name}\n\n{safety}\n\n"
@@ -437,8 +448,8 @@ def render_category_pass_prompts(
             "`beat_id`, `order` (positive int), `title`, `summary`, `involved_node_ids` (may be empty), `evidence_refs`.\n"
             f"{evidence_rule}\n\n## Source Packet\n\n{src}\n"
         )
-    predicate_catalog = predicate_catalog_prompt_markdown()
     edge = active_profile.edge_pass
+    predicate_catalog = predicate_catalog_prompt_markdown(capabilities=edge.predicate_capabilities)
     session_volume = ""
     relationship_sweep = ""
     if active_profile.enable_session_relationship_sweep:
@@ -958,14 +969,15 @@ def _normalize_edge(
     raw: Mapping[str, Any],
     *,
     semantic_state: Mapping[str, str] | None = None,
+    predicate_capabilities: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     relationship_type = str(raw.get("relationship_type") or "").strip().lower()
     predicate_family = str(raw.get("predicate_family") or "").strip()
     if relationship_type and not predicate_family:
-        predicate_family = predicate_family_for_type(relationship_type)
+        predicate_family = predicate_family_for_type(relationship_type, capabilities=predicate_capabilities)
 
     warnings = [str(w) for w in (raw.get("warnings") or [])]
-    for code in validate_edge_predicate(relationship_type, predicate_family):
+    for code in validate_edge_predicate(relationship_type, predicate_family, capabilities=predicate_capabilities):
         marker = f"predicate_validation:{code}"
         if marker not in warnings:
             warnings.append(marker)
@@ -1018,6 +1030,26 @@ def consolidate_category_outputs(
     deferred: list[dict[str, Any]] = []
     encounter_job_diag: dict[str, Any] = {"enabled": False}
 
+    def dispositions(payload, collection, prefix, pass_name, seen_ids):
+        for raw in payload.get(collection) or []:
+            if not isinstance(raw, Mapping):
+                continue
+            item = _normalize_disposition(raw, prefix)
+            if active_profile.admitted_source_domains == frozenset({"recap"}):
+                # Producer IDs are pass-local; never merge two held decisions
+                # merely because independent passes both started at D001.
+                local_id = raw.get("item_id")
+                if not isinstance(local_id, str) or not local_id.strip():
+                    raise ValueError(f"{pass_name} {collection}: missing disposition ID")
+                local_id = local_id.strip()
+                if local_id in seen_ids:
+                    raise ValueError(f"{pass_name} {collection}: duplicate disposition ID")
+                seen_ids.add(local_id)
+                item["item_id"] = "recap-model-disposition:" + json.dumps(
+                    [pass_name, local_id], separators=(",", ":"), ensure_ascii=True,
+                )
+            yield item
+
     for pass_spec in active_profile.node_passes:
         pass_name = pass_spec.pass_id
         default_type = pass_spec.default_node_type or "entity"
@@ -1028,12 +1060,9 @@ def consolidate_category_outputs(
             if isinstance(raw, Mapping):
                 nodes.append(_normalize_node(raw, default_type, semantic_state=semantic_state))
         if pass_spec.include_dispositions:
-            for raw in payload.get("ignored_items") or []:
-                if isinstance(raw, Mapping):
-                    ignored.append(_normalize_disposition(raw, "ignored"))
-            for raw in payload.get("deferred_items") or []:
-                if isinstance(raw, Mapping):
-                    deferred.append(_normalize_disposition(raw, "deferred"))
+            seen_disposition_ids: set[str] = set()
+            ignored.extend(dispositions(payload, "ignored_items", "ignored", pass_name, seen_disposition_ids))
+            deferred.extend(dispositions(payload, "deferred_items", "deferred", pass_name, seen_disposition_ids))
 
     encounter_pass_id = (
         active_profile.encounter_job_pass.pass_id
@@ -1133,7 +1162,8 @@ def consolidate_category_outputs(
     for raw in raw_edges:
         if not isinstance(raw, Mapping):
             continue
-        edge = _normalize_edge(raw, semantic_state=semantic_state)
+        edge = _normalize_edge(raw, semantic_state=semantic_state,
+                               predicate_capabilities=active_profile.edge_pass.predicate_capabilities)
         edge["from_node_id"] = cross_class_remap.get(edge["from_node_id"], edge["from_node_id"])
         edge["to_node_id"] = cross_class_remap.get(edge["to_node_id"], edge["to_node_id"])
         if edge["from_node_id"] in node_ids and edge["to_node_id"] in node_ids:
@@ -1197,6 +1227,7 @@ def repair_edge_evidence_refs(
     allowed_span_refs: set[str],
     *,
     inherit_from_endpoints: bool = True,
+    predicate_capabilities: tuple[str, ...] = (),
 ) -> dict[str, int]:
     """Normalize edge evidence; optionally inherit from endpoints when empty.
 
@@ -1218,7 +1249,9 @@ def repair_edge_evidence_refs(
         if refs:
             edge["evidence_refs"] = refs
             continue
-        if not inherit_from_endpoints:
+        if not inherit_from_endpoints or requires_relationship_evidence(
+            str(edge.get("relationship_type") or ""), capabilities=predicate_capabilities,
+        ):
             edge["evidence_refs"] = []
             continue
         from_id = str(edge.get("from_node_id") or "")
@@ -1242,6 +1275,7 @@ def sanitize_parts(
     drop_empty_evidence_edges: bool = True,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     dropped: dict[str, list[str]] = {}
+    rejected_refs: list[dict[str, Any]] = []
     out: dict[str, Any] = {}
 
     def filter_refs(refs: Any) -> list[dict[str, str]]:
@@ -1253,6 +1287,18 @@ def sanitize_parts(
         for obj in parts.get(key) or []:
             if not isinstance(obj, Mapping):
                 continue
+            rejected_ordinals = []
+            if key in {"nodes", "ignored_items", "deferred_items"}:
+                for ordinal, ref in enumerate(obj.get("evidence_refs") or [], start=1):
+                    if not _normalize_evidence_refs([ref], allowed_span_refs):
+                        rejected_ordinals.append(ordinal)
+                        rejected_refs.append({
+                            "collection": key,
+                            "record_id": obj.get("node_id", obj.get("item_id")),
+                            "reference_ordinal": ordinal,
+                            "reason": "unadvertised_or_invalid_span_ref",
+                            "nominated_ref": deepcopy(ref),
+                        })
             refs = filter_refs(obj.get("evidence_refs"))
             is_context_anchor = bool(obj.get("context_anchor"))
             has_resolved_corpus = (
@@ -1276,6 +1322,10 @@ def sanitize_parts(
                 dropped_ids.append(str(obj.get(id_key, "")))
                 continue
             clone = dict(obj)
+            if rejected_ordinals:
+                clone["warnings"] = list(clone.get("warnings") or []) + [
+                    f"evidence_ref_rejected:{ordinal}" for ordinal in rejected_ordinals
+                ]
             host_excerpt = clone.get("_host_excerpt_text")
             if key == "beats" and isinstance(host_excerpt, str):
                 # Keep the evidence match exact even when the excerpt begins
@@ -1294,7 +1344,10 @@ def sanitize_parts(
         out[key] = kept
         if dropped_ids:
             dropped[key] = dropped_ids
-    return out, {"dropped_no_valid_evidence": dropped}
+    return out, {
+        "dropped_no_valid_evidence": dropped,
+        "rejected_node_evidence_refs": rejected_refs,
+    }
 
 
 def assemble_envelope(
@@ -1844,19 +1897,19 @@ def _run_category_pipeline_impl(
                 if isinstance(val, str):
                     allowed_span_refs.add(val)
 
-    actor_source_packet = None
+    node_source_packet = None
     if (
-        active_profile.admitted_source_domains == frozenset({"recap"})
-        and getattr(original_client, "supports_actor_source_handles", False) is True
+        bool(_source_handle_node_passes(active_profile))
+        and getattr(original_client, "supports_node_source_handles", False) is True
         and options.source_text is not None
         and source_rows
     ):
         from src.graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
-        actor_source_packet = compile_source_sentence_packet(options.source_text, source_rows)
+        node_source_packet = compile_source_sentence_packet(options.source_text, source_rows)
     prompts = render_category_pass_prompts(
         source_rows,
         profile=active_profile,
-        actor_source_packet=actor_source_packet,
+        node_source_packet=node_source_packet,
     )
     later_prompts = (render_category_pass_prompts(compact_context.prompt_rows(), profile=active_profile)
                      if compact_context is not None else prompts)
@@ -1887,8 +1940,8 @@ def _run_category_pipeline_impl(
             instructions=system,
             user_content=node_prompt,
             pass_spec=pass_spec,
-            **({"source_evidence_packet": actor_source_packet}
-               if pass_name == "actor_pass" and actor_source_packet is not None else {}),
+            **({"source_evidence_packet": node_source_packet}
+               if node_source_packet is not None and pass_name in _source_handle_node_passes(active_profile) else {}),
         )
         pass_outputs[pass_name] = result["parsed"]
         pass_telemetry[pass_name] = {
@@ -2044,6 +2097,7 @@ def _run_category_pipeline_impl(
         consolidated,
         allowed_span_refs,
         inherit_from_endpoints=inherit_edge_evidence,
+        predicate_capabilities=active_profile.edge_pass.predicate_capabilities,
     )
     sanitized, sanitize_diag = sanitize_parts(
         consolidated,

@@ -250,3 +250,31 @@ def test_source_gap_retains_failed_receipt_without_granting_source_authority(mut
         with pytest.raises(ValueError,match='not been read successfully'):writer_context(execution)
     else:
         with pytest.raises(ValueError,match='complete exact source support'):validate_execution(execution)
+
+
+@pytest.mark.parametrize('surface', ['build','plan','play'])
+def test_saved_reference_history_accepts_supported_authoring_surfaces(surface):
+    from apps.live_control_server.models.agent_turn import AgentConversationHistoryTurn
+    from tests.test_play_graph_records import retained
+    turn=retained(completed=True)
+    reference=ref().model_copy(update={'managed_world_id':turn.world_id})
+    row=AgentConversationHistoryTurn(turn_id=turn.turn_id,sequence=turn.sequence,
+        lifecycle_status=turn.status,user_text=turn.user_text,assistant_text=turn.assistant_text,
+        provenance=turn.provenance.model_copy(update={'surface_id':surface,
+            **({'primary_work':turn.provenance.selected_object,'supporting_work':()} if surface!='play' else {})}),
+        authored_references=References(references=(reference,)))
+    assert row.authored_references.references==(reference,)
+
+
+@pytest.mark.parametrize('fault', ['foreign_world','unsupported_surface'])
+def test_saved_reference_history_still_rejects_foreign_or_unsupported_owner(fault):
+    from apps.live_control_server.models.agent_turn import AgentConversationHistoryTurn
+    from tests.test_play_graph_records import retained
+    turn=retained(completed=True)
+    reference=ref().model_copy(update={'managed_world_id':turn.world_id if fault!='foreign_world' else 'foreign'})
+    with pytest.raises(ValueError,match='different managed World|actual authoring surface'):
+        AgentConversationHistoryTurn(turn_id=turn.turn_id,sequence=turn.sequence,
+            lifecycle_status=turn.status,user_text=turn.user_text,assistant_text=turn.assistant_text,
+            provenance=turn.provenance.model_copy(update={'surface_id':'index' if fault=='unsupported_surface' else 'play',
+                **({'primary_work':turn.provenance.selected_object,'supporting_work':()} if fault=='unsupported_surface' else {})}),
+            authored_references=References(references=(reference,)))

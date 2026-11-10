@@ -26,3 +26,13 @@ it.each(['foreign','missing','unknown'])('refuses a %s V2 retry reference snapsh
  const saved={...context(),schema:'dmb_turn_retry_context_row_v2',authored_references:kind==='missing'?null:kind==='unknown'?{...refs,extra:true}:{...refs,references:[{...refs.references[0],managed_world_id:'foreign'}]}};
  expect(()=>decodeRetryContext(saved,'world',lineageCid,id)).toThrow();
 });
+
+it('retains only the explicit authoring-required error code for fresh capture',async()=>{
+ vi.mocked(authenticatedApiFetch).mockResolvedValue({response:Response.json({detail:{code:'build_authoring_retry_required',message:'Capture the page again'}},{status:409})} as Awaited<ReturnType<typeof authenticatedApiFetch>>);
+ await expect(readDiscussionRetryInput('world',cid,tid,4)).rejects.toMatchObject({status:409,code:'build_authoring_retry_required',message:'Capture the page again'});
+});
+
+it.each([401,403,500])('does not turn HTTP %s into fresh authoring retry permission',async status=>{
+ vi.mocked(authenticatedApiFetch).mockResolvedValue({response:Response.json({detail:{code:'build_authoring_retry_required',message:'Not admitted'}},{status})} as Awaited<ReturnType<typeof authenticatedApiFetch>>);
+ await expect(readDiscussionRetryInput('world',cid,tid,4)).rejects.toMatchObject({status,code:null});
+});

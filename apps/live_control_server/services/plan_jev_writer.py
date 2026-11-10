@@ -44,16 +44,12 @@ Do not mint object IDs, dmb-node references, playable markers or unknown compone
 Headings, prose, lists and ordinary editable tables are supported; preserve existing protected
 tokens exactly when their captured selected content must be included. No page was saved.
 """
-RULES_INSTRUCTIONS = '''A Rules lookup was performed. Return its answer using exactly this outer object:
-{"kind":"rules_answer","base_output": BASE_OR_NULL,
-"rules_segments":[...],"ordered_refs":[...]}. BASE_OR_NULL follows the Plan answer contract above.
-A Rules claim is {"kind":"rules_claim","text":"prose","support_ids":["exact local support_id"]}.
-Only supports in the Rules frame establish Rules evidence; preserve their applicability.
-Interpretation or gaps use {"kind":"rules_context","text":"prose","category":"interpretation or gap or connective"}.
-Do not turn campaign prose into a Rules claim. Ignore Rules material irrelevant to the question.
-ordered_refs includes {"domain":"base","segment_index":null} once if base_output is present,
-and {"domain":"rules","segment_index":0} for every Rules segment, in reading order.
-'''
+RULES_INSTRUCTIONS = """A Rules lookup was performed. Use only supplied Rules supports for Rules claims,
+preserving their applicability. Keep interpretation and gaps distinct from supported
+Rules claims; campaign prose does not establish Rules. Ignore irrelevant Rules material.
+Use the supplied native schema to combine the campaign response and relevant Rules
+segments in reading order. Every included segment must appear once in that order.
+"""
 
 
 @dataclass(frozen=True)
@@ -238,26 +234,39 @@ def capture_native_reply(adapter,rules,prepared,received,raw):
     return reply
 
 
-def _ordinary_response_selected(execution):
+def _conversation_response_task(execution):
     """An actual work decision selects response guidance; prompt text never does."""
     from application_state.agent_conversation.native_execution import (
         SurfaceNativeExecutionV1, NativePlanActionV1, NativePlanActionV2,
         NativePlayActionV1, NativeBuildActionV1, NATIVE_PLAN_WORK_SELECTION_TYPES)
     if type(execution) is not SurfaceNativeExecutionV1:
-        return False
+        return None
     action = execution.policy.action
     if type(action) is NativePlayActionV1:
-        return True  # This action owns only a read-only Run question.
+        return 'answer'  # This action owns only a read-only Run question.
     if type(action) in (NativePlanActionV1, NativePlanActionV2):
         choices = [e for e in execution.events if isinstance(e, t.PlanRequestedWorkSelectedV2)]
         accepted = NATIVE_PLAN_WORK_SELECTION_TYPES if type(action) is NativePlanActionV2 else (t.PlanRequestedWorkSelectedV2,)
-        return len(choices) == 1 and type(choices[0]) in accepted and choices[0].requested_work == 'discuss'
+        if len(choices) != 1 or type(choices[0]) not in accepted:
+            return None
+        return {'discuss': 'answer', 'clarify': 'clarify',
+                'different_destination': 'different_destination'}.get(choices[0].requested_work)
     if type(action) is NativeBuildActionV1:
-        from application_state.agent_conversation.build_intentional_response import selected_contract
+        from application_state.agent_conversation.build_intentional_response import selected_contract, selected_action
+        selected = selected_action(execution)
+        if isinstance(selected, t.BuildReviewedActionSelectionV1):
+            from application_state.agent_conversation.reviewed_action import writer_scope
+            return 'scoped_discussion' if selected.operation == 'answer_from_sources' and writer_scope(execution) is not None else None
         contract = selected_contract(execution)
-        return (contract is not None and contract['requested_work'] == 'discuss'
-            and contract['purpose'] == 'fulfill' and contract['operation'] == 'answer_from_sources')
-    return False
+        if contract is None or contract['operation'] != 'answer_from_sources':
+            return None
+        if contract['purpose'] == 'explain_capability':
+            return 'explain_capability'
+        if contract['purpose'] == 'clarify':
+            return 'clarify'
+        if contract['purpose'] == 'fulfill' and contract['requested_work'] == 'discuss':
+            return 'answer'
+    return None
 
 
 RELATED_PAGE_RESPONSE = (
@@ -315,12 +324,15 @@ class PlanJevWriter:
             self.output_format=output_format(self.frame,rule_frame)
             frames=(self.frame,rule_frame)
         self.messages=[{'role':'user','content':canonical_bytes(frame).decode()} for frame in frames]
-        self.messages.append({'role':'user','content':'Return JSON.'})
+        if not self.shared:
+            self.messages.append({'role':'user','content':'Return JSON.'})
         self.prompt_components = None
-        if (self.shared and getattr(rules, 'authoring', None) is None
-                and _ordinary_response_selected(adapter._broker_execution())):
+        task = (_conversation_response_task(adapter._broker_execution())
+                if self.shared and getattr(rules, 'authoring', None) is None else None)
+        if task is not None:
             from application_state.agent_conversation.response_prompt import compose_response_prompt
             prompt = compose_response_prompt(
+                task=task,
                 rules_instructions=RULES_INSTRUCTIONS if rule_frame.lookups else None,
                 related_page_instructions=RELATED_PAGE_RESPONSE
                     if self.provider_work.get('related_authored_pages', {}).get('pages') else None)
@@ -374,7 +386,7 @@ class PlanJevWriter:
                     'If no included saved page can supply the origin, leave collaboration null and explain what '
                     'is needed rather than inventing a quote.\n')
             self.instructions = '\n\n'.join((BUDDY_SYSTEM_PROMPT, instructions,
-                RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
+                RULES_INSTRUCTIONS if rule_frame.lookups else '')) + ('' if self.shared or getattr(rules,'authoring',None) is not None else IMAGE_DIRECTION_INSTRUCTIONS)
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
         self.prepared = self.authorization = self.call = self.received_event = None
         self._usage_recorded = False

@@ -52,7 +52,7 @@ their own meanings. A social opener/readiness statement is discuss: it needs an 
 not a fabricated task or a clarifying-question form just because no task has been given yet."""
 
 
-GUIDANCE = _PREVIOUS_GUIDANCE.replace(
+_DESTINATION_GUIDANCE = _PREVIOUS_GUIDANCE.replace(
     "A concrete proposed list, table, section, sentence or revision is current-page writing, including\n"
     "creative names, insects and livelihoods.",
     "Concrete prose, lists, tables and revisions identify the format, not its writing destination.\n"
@@ -63,6 +63,14 @@ GUIDANCE = _PREVIOUS_GUIDANCE.replace(
     "Use connected-page review for creating that different page, including follow-up answers\n"
     "that develop it while the current page remains background context.",
 )
+
+
+GUIDANCE = _DESTINATION_GUIDANCE + """
+Classify the deliverable requested now, separately from its later use. A written design,
+layout, specification or description intended to support a later image or map is writing,
+not a request to prepare that image. Use prepare_image for an image/map or image-prompt
+review requested now. If the current deliverable remains ambiguous after reading the
+conversation, choose clarification rather than guessing its destination or format."""
 
 
 @dataclass(frozen=True)
@@ -392,9 +400,11 @@ MENU_DIGEST = digest(question())
 # Persisted decisions retain their exact producing instructions. Only the
 # current menu is emitted; the previous digest remains an immutable reader.
 _PREVIOUS_MENU_DIGEST = digest(question(guidance=_PREVIOUS_GUIDANCE))
+_DESTINATION_MENU_DIGEST = digest(question(guidance=_DESTINATION_GUIDANCE))
 _MENU_GUIDANCE = MappingProxyType({
     MENU_DIGEST: GUIDANCE,
     _PREVIOUS_MENU_DIGEST: _PREVIOUS_GUIDANCE,
+    _DESTINATION_MENU_DIGEST: _DESTINATION_GUIDANCE,
 })
 RESOLVER_DIGEST = digest(
     {
@@ -626,11 +636,6 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
         raise ValueError(
             "Semantic resolution differs from its actual admitted request/response"
         )
-    if (
-        event.operation == "prepare_build_image"
-        and raw_response["answers"]["requested_work"]["probabilities"][label] < 0.9
-    ):
-        raise ValueError("Image request did not meet its existing admission threshold")
     captured = [
         m
         for o in (trace or {}).get("observations", [])

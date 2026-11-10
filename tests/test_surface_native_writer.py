@@ -83,6 +83,38 @@ def body_case(surface, lane, *, failed=False, full=False, all_sections=False):
     return context, with_work_selection(execution(context.context_receipt_sha256, policy, events)), read
 
 
+@pytest.mark.parametrize('surface', ['build', 'plan'])
+def test_captured_source_name_reaches_actual_sdk_and_same_source_citation(lane, monkeypatch, surface):
+    from apps.live_control_server.services import native_source_display
+    from dungeonmind.application.vnext import list_admitted_native_text_sources
+    def names(access, _world):
+        return {(row.source_artifact.source_artifact_id, row.source_revision.source_revision_id,
+                 row.source_revision.content_sha256): 'Session 9 recap'
+                for row in list_admitted_native_text_sources(access).sources}
+    monkeypatch.setattr(native_source_display, 'captured_source_names', names)
+    context, record, read = body_case(surface, lane)
+    frame = model_frame(context, record)
+    row = frame['native_body_evidence']['excerpts'][0]
+    assert row['source_name'] == 'Session 9 recap' and row['section_title'] == 'Source'
+    assert row['text'] == read.excerpt.text
+    assert row['campaign_scope'] == row['session_scope'] == 'unestablished'
+    work = work_submission(context, record)
+    raw = asyncio.run(actual_sdk_request(frame, work_frame=model_work_frame(context, record, **work)))
+    stored, auth = authorize(context, record, raw, frame)
+    supports = verify_input_records(context, stored, auth, raw, **work)
+    # Replay/reconstruction must never query mutable display metadata.
+    monkeypatch.setattr(native_source_display, 'captured_source_names',
+        lambda *_: pytest.fail('historical naming lookup'))
+    assert model_frame(context, record) == frame
+    support = supports.body_excerpts[0]
+    citation = corpus.body_citation(support, index=0, text='The check revealed an origin beyond this plane.',
+        producer=auth.provider_attempt_id, envelope_sha256=auth.envelope_sha256)
+    assert citation.source_name == row['source_name']
+    assert citation.section_title == row['section_title']
+    assert citation.read_event_id == read.event_id
+    assert citation.excerpt_sha256 == read.excerpt.excerpt_sha256
+
+
 def with_work_selection(record):
     if record.policy.action.surface_id != 'build' or any(isinstance(e,t.BuildWriterEvidenceSelectionV1) for e in record.events):
         return record

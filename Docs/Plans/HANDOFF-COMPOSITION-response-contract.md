@@ -1,6 +1,6 @@
 # COMPOSITION: response-writing contract
 
-ACTIVE objective: one inspectable minimal writer assembly; owner-cleaned evidence
+SETTLED initial objective: one inspectable minimal writer assembly; owner-cleaned evidence
 and shared qualifications; controlled frozen experiments; separate quality axes
 and calibrated judging. Preserve primary data and historical evidence. No
 question-specific executables, unchanged paid reruns or invented perfect scores.
@@ -22,44 +22,191 @@ sample per configuration does not prove variation or general prose preference.
 Evidence/pins: out/response-writing-contract-v1/. Historical write leases and
 implementations remain in pinned Git history, not competing ACTIVE contracts.
 
-## Slice5 ACTIVE — reusable writer judge calibration
+## Slice5 settled — reusable writer judge calibration
 
-Serial after2345. Branch codex/writer-judge-calibration from fetched origin/main
-60d28dda0 (actual parent; main advanced before allocation). Existing isolated
-checkout. Expected exclusive writes:
-- evals/buddy_benchmark/workflow.py
-- evals/buddy_benchmark/writer_assessment.py
-- tests/test_buddy_benchmark_workflow.py
-- tests/test_writer_assessment.py
-- Docs/Guides/ordinary-benchmark-workflow.md
-- this handoff
+PR2348 merged18359e0713763e55d986daa8a7966c3371aa09c5.135local tests;
+four reviewed frozen batches:47/50 agreement with25known human axes shown twice,
+24/25paired stability. One grounding disagreement is ambiguous; two observations
+miss one minor chronology issue. No automatic factual grading or taste inference.
+Six answers/one question do not establish general reliability. No writer/retrieval
+reruns. Exact data/code/results pinned under judge-calibration-v1/.
 
-Inspected open reference/UI/storage work does not overlap. Extend context-tasting,
-not another transport/harness. Explicit versioned judge role plus pinned semantic
-candidate answers, reference concepts and native schema; never transfer hidden
-human grades or model/cost identities. Reject incomplete/wrong-role inputs before
-dispatch. Retain actual requests, raw outputs/failures, costs/timings and separate
-calibration reports. Compare seven axes; unknown human judgments stay unscored.
-No automatic QA acceptance or user-taste inference from judge scores.
+## Slice6 settled — existing Core owner metadata correction
 
-Verify local owner/workflow/mock-native tests and independent exact-head review.
-Then freeze reviewed retained examples and acceptance/stopping rules before any
-calibration call. No new writer or retrieval runs; primary unchanged. No DB writes
-or deployment in this slice. Product metadata repair and capability-specific
-prompt cleanup are not delegated to this diagnostic path.
+Pinned execution authority9cbfefdd5005adcc53ace516f89fe2334cb2eeaf; no further
+writes granted by this settled slice. Preparation, exact allowed diff and Core
+publication were independently reviewed. One publication on the fresh named clone
+benchmark_writer_qualification_clean_20261110_v1 committed child
+rev:a5577d74fae9102ea29342a17a88a82b, payload
+aae3ba761bb9f423b82038663605a9194ae723e8459bbe290d8e31606701426d.
+90same-ID corrections/42slots;2456assertions conserved.375captured assertions
+expand to the approved semantic context with78shared qualifiers. Actual97Core
+source opens match original identities/body hashes/offsets/span hashes. Individual
+source-admission epochs are not the global source-view counter26.
 
-## Remaining completion gates
+Original benchmark_retrieval_c1_native_20261107_v1 parent
+rev:673d18b7feea48b47c8740d4018d1442/payload/source counter and primary data remain
+unchanged. All raw audit notes remain in immutable parent/history; existing typed
+adjudication hash binds retained reviewed data. Unproven producer-field promotion
+was skipped. No new correction implementation, fact producer, runtime registry,
+SQL graph patch, providers, migrations, session termination or APP mutation.
 
-- Verify current isolated graph parent/publication correspondence, then correct
- historical mixed qualifications through existing native Core supersession,
- preserving original history/evidence/receipts and typed audit fields. Exact
- 375native-assertion/97qualification mapping is recovered; current head and original
- publication correspondence still unproven. No runtime scrubbing or registry.
-- Keep capability-specific guidance conditional at its owning assembly, including
- reviewed discussion continuations; do not prebuild superseded ordinary text.
-- Complete native-schema judge calibration against retained reviewed examples;
- report disagreements/abstention/stability before trusting scores. Human prose
- preference stays separate from factual correctness.
-- Audit actual assembly, preserved context/citations, reproducible configuration,
- prompt tradeoffs and remaining limitations. No broad completion claim from helper
- tests, one Q15 answer or successful source-body retrieval alone.
+Evidence: out/response-writing-contract-v1/owner-correction-v1/, including
+execution-report-v1.json, independent-postpublication-review-v1.json and
+independent-source-readback-v1.json. Source/clone DSNs remain private, uncommitted.
+
+Scope checkpoint: broader graph inventory contains864other qualifier occurrences,
+331distinct strings outside the frozen study context.261occurrences exactly match
+five previously approved audit-bearing originals; other strings need source-level
+review, not automatic stripping. These are not all established leaks. Broader
+corpus correction is a separate prospective slice, pending user scope steering;
+no expanded database write lease is active. Original90-record correction is done.
+
+## Slice7 COMPLETE — conversation-only task components
+
+Serial after2351; branch codex/conversation-task-components at exact fetched
+ac2a8a30c544f2456c222541a80882c208607d17. Exclusive writes: this handoff;
+src/application_state/agent_conversation/response_prompt.py;
+apps/live_control_server/services/plan_jev_writer.py;
+tests/test_response_prompt.py; tests/test_plan_jev_response_assembly.py;
+Docs/Guides/ordinary-benchmark-workflow.md. Existing open UI/storage lanes do not
+overlap. No retained/native/corpus/primary database, deployment or paid provider
+effects. Existing APP boundary tests may create/migrate/drop only their generated
+dungeonbuddy_app_state_test_* and dungeonbuddy_app_state_test_template_* databases
+on the retained test cluster. Graph fixtures are in-memory; fixture teardown may
+terminate sessions only in its newly owned disposable names. No existing database
+may be changed or removed.
+
+One shared compiler for actual native conversation tasks: ordinary answer,
+clarification, scoped reviewed discussion and capability-limit/destination
+explanation. Use actual selected work/contract and reviewed-scope owner, never
+model/frame strings for authority. Keep active writing/review/image preparation
+owners unchanged; native response writer does not prepare images (Build image
+preparation has its separate selected owner). Retire superseded helper and
+unconditional image guidance for native conversation. Verify actual work
+reconstruction/SDK bytes, task constraints and inactive-capability exclusion
+locally; independent exact-head review before delivery. Broader corpus priority
+question remains optional/pending; this slice does not expand its write lease.
+
+Slice7 merged as PR2352 at fde9a8040f02ead831f098558dccb167b88d01f6.
+Independent exact-head review passed669c82b752700633bdc966bb996410d57e62699f;
+33 focused tests and3 actual APP reviewed-discussion boundary cases passed locally.
+No deployment is claimed. Retained evidence is under conversation-task-tests.
+
+## Slice8 COMPLETE — native schema is the format authority
+
+Serial after2352; branch codex/native-writer-schema-instruction; base
+fde9a8040f02ead831f098558dccb167b88d01f6. Exclusive writes: this handoff,
+apps/live_control_server/services/plan_jev_writer.py,
+tests/test_plan_jev_response_assembly.py. Existing open UI/storage/CI lanes do not
+overlap. No database, deployment or provider effects in this implementation slice.
+
+Invariant: actual shared native writer calls already send strict native output
+format through the provider API. Remove their redundant terminal user message
+Return JSON. Preserve all evidence/work/rules message bytes and ordering, the
+system compiler and output schema. Non-native legacy behavior is outside this
+slice and remains unchanged. Failure cases: accidentally dropping an evidence
+message, removing format authority, or changing legacy requests. Verify actual
+Plan/Build/Play constructor and serialized SDK input at the owning boundary;
+no paid writer rerun is necessary for this message-only deletion. Independent
+exact-head review, local tests and one bounded PR; no competing format fallback.
+
+Slice8 merged as PR2353 at ba17476a6ef4435facde5c147d680ed2dbb56447;
+exact-head independent review passed7b35c6acf805ccc0a668f4ca2ba32cf519493019,
+and33 local tests passed. No paid calls, database changes or deployment.
+
+## Slice9 COMPLETE — replay-safe native image capability removal
+
+Serial after2353; branch codex/native-writer-active-schema; base
+ba17476a6ef4435facde5c147d680ed2dbb56447. Exclusive writes: this handoff;
+src/application_state/agent_conversation/plan_writer_output_schema.py;
+tests/test_plan_jev_response_assembly.py; tests/test_plan_writer_output_schema.py.
+No overlapping open UI/storage/CI lease. No provider, database or deployment effects.
+
+Invariant: ordinary shared native writer is not the selected image-preparation
+owner. Its schema must not advertise image_prompt. Keep invented_idea proposals
+for requested creative collaboration; preserve all claim/citation variants,
+strict output and dedicated image owner. Existing non-native schema and historical
+output readers remain unchanged. Verify actual Plan/PlanV2/Build/Play native schemas
+reject image_prompt and accept invented_idea, and legacy schema still reads its
+existing shape. Review exact cumulative diff; local verification; one bounded PR.
+This is capability removal, not factual pruning or an answer-quality claim.
+
+Scope checkpoint after exact-head review453c233941e846041d9940e1d7ee839e5a5f4637:
+the existing producer verifier reconstructs the format during admission and reply
+recovery. Extend this same serial PR lease to
+src/application_state/agent_conversation/rules_authority_plan_packet.py,
+src/application_state/agent_conversation/native_rules_output.py,
+src/application_state/agent_conversation/rules_authority_store.py,
+tests/test_surface_native_rules.py. Checked current open UI/storage/CI lanes;
+none owns these files. No DB or provider effects. This transition is indivisible
+from capability removal: keeping unchanged version1 breaks historical readback.
+
+The single schema builder defaults to format version2 without image_prompt;
+version1 is a closed historical grammar. Fresh admission requires version2.
+Already recorded admission replay and captured reply verification may reconstruct
+version1 only from its exact named sealed format. Unknown versions or modified
+enums still fail exact schema/envelope/receipt checks. No repair, heuristic
+fallback or historical producer dispatch. Prove current admission rejects old
+format, historical normalization accepts exact old captures and rejects modified
+old schemas, and current native routes still exclude image capability. Retain
+historical artifacts under their original immutable pins.
+
+Slice9 merged as PR2354 at8739531f4c3c92ebe4f881fc960595040ae17a68.
+Exact-head review2e466c9b67210be7d74ffa652e2e615964a52207 passed;140 local tests
+and8 exact prechange historical schema comparisons passed. Actual locked APP
+DB replay was source-inspected, not newly integration-tested. No deployment.
+
+## Slice10 COMPLETE — self-contained active Rules response guidance
+
+Serial after2354; branch codex/writer-rules-guidance; base
+8739531f4c3c92ebe4f881fc960595040ae17a68. Exclusive writes: this handoff,
+apps/live_control_server/services/plan_jev_writer.py,
+tests/test_plan_jev_response_assembly.py. Current open UI/storage/CI leases checked;
+no overlap. No provider/database/deployment effects. Preserve native output schema,
+Rules/frame bytes, host checks and all inactive-call bytes. Remove the active Rules
+prose JSON template and dangling Plan-contract-above reference; retain support
+attribution, applicability, distinction from interpretation, relevance and ordered
+answer composition. One shared Rules instruction constant, no alternative prompt
+path. Verify actual SDK active/inactive assembly and unchanged strict native
+format. This is prompt simplification, not a claim of measured answer improvement.
+Independent exact-head review and one bounded PR; no paid rerun for this cleanup.
+
+Slice10 merged as PR2355 at ca9576c6d7243223e503e222f79027358bf8738f.
+Exact-head review453b41bbbf439307e5f6176618ada0bff40e08f1 passed;140 local tests.
+The active Rules text is self-contained; native schema and evidence are unchanged.
+
+## Initial response-contract disposition — 2026-11-10
+
+The user selected **Baseline: tighter and more direct** from the retained Q15
+voice comparison. Keep the existing voice component; do not adopt the longer
+briefing variant. This is the user's prose preference, not a factual quality score.
+Both answers cover9/9 concepts. Baseline has one minor prison-coercion overstatement;
+the variant fixes that wording but has one opening-segment citation gap. Neither
+is a perfect-score claim. The baseline remains a defensible initial response prompt,
+not a generally validated best model or prose configuration.
+
+Current ordinary native Plan/Build/Play requests use one response compiler with
+actual-task components and conditional Rules/pages guidance. Strict native formatv2
+omits inactive image preparation; exact historical formatv1 remains a read grammar,
+not a fresh admission option. Repeated complete qualifications are shared by the
+existing owner projection. The isolated corrected frozen context has375assertions
+and78shared qualification entries; wider corpus cleanliness is not established.
+
+The existing context-tasting workflow retains exact composed requests, component
+hashes, answers, assessments, usage, reported cost and time. Fresh baseline versus
+voice-only variant:21.27s/831outputtokens/$0.121761 versus31.69s/1273/$0.13885135.
+One pair does not establish a general latency effect. Calibration remains useful
+for triage and untrusted for automatic factual acceptance. The retrospective runtime
+inventory is explicitly not an execution-time attestation. No deployment is claimed.
+
+No implementation or database write lease remains active in this handoff. Historical
+artifacts/reviews are preserved under out/response-writing-contract-v1.
+current-response-study.md and response-style-decision.md show the current disposition;
+user-prose-preference-v1.json records the explicit choice. The earlier
+completion-evidence-check-v1.json is a pre-decision audit: its pending-preference
+statements are superseded by that decision receipt, not rewritten as past knowledge.
+Broader corpus hygiene and any further style study require a separately bounded
+next slice; neither is an unfinished obligation of this initial frozen-context study.
+This guarded settlement synchronizes merged predecessor authority because no consuming
+implementation is pending; it adds no runtime behavior or experiment scaffolding.

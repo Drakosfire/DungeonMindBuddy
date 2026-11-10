@@ -470,7 +470,8 @@ def admit_native_writer_input_locked(conn, turn, graph_execution, authorization,
         provider_attempt_id=authorization.provider_attempt_id,expected_envelope_sha256=authorization.envelope_sha256,
         idempotency_key=turn.idempotency_key,submitted_intent_fingerprint=turn.submitted_intent_fingerprint_v2,
         world_id=turn.world_id,conversation_id=turn.conversation_id,turn_id=turn.turn_id,attempt=turn.attempt,
-        provenance=turn.provenance,work_proof=work_proof,play_context_receipt=turn.play_context_receipt)
+        provenance=turn.provenance,work_proof=work_proof,play_context_receipt=turn.play_context_receipt,
+        allow_retained_format=replay)
     return (current if replay else _persist_provider_execution_locked(conn,current,updated)), not replay
 
 

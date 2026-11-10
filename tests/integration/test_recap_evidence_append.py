@@ -8,15 +8,11 @@ import subprocess
 import sys
 import time
 from contextlib import contextmanager
-from urllib.parse import urlsplit, urlunsplit
-from uuid import NAMESPACE_URL, uuid4, uuid5
+from uuid import NAMESPACE_URL, uuid5
 
 import psycopg
-from psycopg import sql
 import pytest
 
-from application_state.cli import upgrade_to_head
-from application_state.config import APPLICATION_STATE_DSN_ENV
 from application_state.errors import ApplicationStateConflictError
 from application_state.ingest import service as ingest
 from apps.live_control_server.models.extract_promote import (
@@ -34,35 +30,26 @@ from tests.test_recap_semantic_candidate_correction import (
 )
 
 
-def _component_path(root, run, component):
-    return root / run.components[component].uri.removeprefix("repo://")
+def _component_bytes(root, run, component):
+    # Independent authoritative readback; locator strings are never paths.
+    digest = run.components[component].sha256.removeprefix("sha256:")
+    if component == "source_artifact":
+        from application_state.source.service import get_source_markdown
+        source = get_source_markdown(source_artifact_id=run.source_artifact_id,
+                                     content_sha256=digest)
+        assert source is not None
+        return source.markdown.encode("utf-8")
+    from application_state.ingest.components import get_component_bytes
+    return get_component_bytes(run_id=run.run_id, kind=component,
+                               content_sha256=digest)
 
 
 @pytest.fixture
-def disposable_append_app(monkeypatch):
-    admin = os.environ.get("DMB_RAKE_PG_ADMIN_DSN")
-    if not admin:
-        pytest.fail("DMB_RAKE_PG_ADMIN_DSN must designate disposable PostgreSQL administration")
-    name = "dungeonbuddy_app_state_test_rake_append_" + uuid4().hex[:12]
-    parts = urlsplit(admin)
-    dsn = urlunsplit((parts.scheme, parts.netloc, "/" + name, parts.query, parts.fragment))
-    try:
-        with psycopg.connect(admin, autocommit=True) as conn:
-            conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
-    except psycopg.Error as exc:
-        pytest.fail("disposable database creation failed: " + type(exc).__name__)
-    try:
-        monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, dsn)
-        upgrade_to_head()  # Uses the checked-in Alembic head, including future compatible migrations.
-        yield name
-    finally:
-        with psycopg.connect(admin, autocommit=True) as conn:
-            conn.execute(
-                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
-                "WHERE datname = %s AND pid <> pg_backend_pid()",
-                (name,),
-            )
-            conn.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(name)))
+def disposable_append_app(application_state_dsn):
+    from psycopg.conninfo import conninfo_to_dict
+    name = conninfo_to_dict(application_state_dsn)["dbname"]
+    assert name.startswith("dungeonbuddy_app_state_test_")
+    yield name
 
 
 def test_append_durable_child_fresh_read_retry_and_pc_proof(disposable_append_app, monkeypatch, tmp_path):
@@ -177,7 +164,7 @@ def test_append_durable_child_fresh_read_retry_and_pc_proof(disposable_append_ap
     parent = original_create(
         tmp_path, run_id="parent", source_artifact_id=artifact.source_artifact_id,
         source_domain="recap", campaign_id=artifact.campaign_id,
-        session_id=artifact.session_id, profile_id=correction.PROFILE,
+        session_id=artifact.session_id, profile_id="recap_category_v1@1.0",
         components=components, status=ExtractionRunStatus.DRAFT,
         lineage={"world_campaign_ingest_context": world_context},
     )
@@ -190,6 +177,7 @@ def test_append_durable_child_fresh_read_retry_and_pc_proof(disposable_append_ap
         )
     raw = candidate_bytes
     pc_body.update(
+        profile_id=parent.profile_id,
         parent_run_id=parent.run_id,
         expected_parent_revision=parent.revision,
         parent_candidate_sha256=correction._sha(raw),
@@ -214,17 +202,14 @@ def test_append_durable_child_fresh_read_retry_and_pc_proof(disposable_append_ap
         if derived_root.exists() else set()
     )
 
-    # The frozen run-local source is byte-authoritative. Even line-ending drift
-    # must be rejected before a child row or package is created.
+    # A stale local mirror is not authority. Keep its line-ending drift in place
+    # while correction below reads the exact immutable source from APP.
     source_snapshot.write_bytes(source_bytes.replace(b"\n", b"\r\n"))
-    with pytest.raises(correction.ExtractPromoteError):
-        correction.correct_recap_candidate(RecapCandidateCorrectionRequestV9.model_validate(pc_body))
     assert [run.run_id for run in ingest.list_extraction_runs()] == [parent.run_id]
     assert (
         {path.name for path in derived_root.iterdir() if path.is_dir()}
         if derived_root.exists() else set()
     ) == packages_before
-    source_snapshot.write_bytes(source_bytes)
 
     # create_extraction_run persists the canonical source authority before it
     # inserts the child row. Simulate a process failure after that durable,
@@ -275,8 +260,7 @@ def test_append_durable_child_fresh_read_retry_and_pc_proof(disposable_append_ap
     monkeypatch.setattr(source_service, "persist_source_markdown", original_persist_source_markdown)
     pc_response = correction.correct_recap_candidate(RecapCandidateCorrectionRequestV9.model_validate(pc_body))
     pc_parent = original_get(tmp_path, pc_response.run_id)
-    pc_path = _component_path(tmp_path, pc_parent, "candidate_graph")
-    pc_bytes = pc_path.read_bytes()
+    pc_bytes = _component_bytes(tmp_path, pc_parent, "candidate_graph")
     payload = json.loads(pc_bytes)
     def append_request(run, graph, *, kind="node", identifier="mira", line=2):
         collection, key = ("nodes", "node_id") if kind == "node" else ("edges", "edge_id")
@@ -290,7 +274,7 @@ def test_append_durable_child_fresh_read_retry_and_pc_proof(disposable_append_ap
             "parent_candidate_sha256": run.components["candidate_graph"].sha256.removeprefix("sha256:"),
             "source_revision_sha256": artifact.content_sha256,
             "span_index_sha256": correction._sha(span_bytes),
-            "profile_id": correction.PROFILE,
+            "profile_id": "recap_category_v1@1.0",
             "evidence_appends": [{
                 "record_kind": kind,
                 "record_id": identifier,
@@ -356,12 +340,12 @@ print(json.dumps(result.model_dump(mode='json',by_alias=True)))
     assert responses[0] == responses[1]
     response = RecapCandidateCorrectionResponseV10.model_validate(responses[0])
     child = original_get(tmp_path, response.run_id)
-    actual = json.loads(_component_path(tmp_path, child, "candidate_graph").read_bytes())
+    actual = json.loads(_component_bytes(tmp_path, child, "candidate_graph"))
     for group in ("nodes", "edges"):
         assert actual[group][0]["evidence_refs"][:-1] == payload[group][0]["evidence_refs"]
     assert actual["nodes"][0]["corpus_ref"] == payload["nodes"][0]["corpus_ref"]
-    assert pc_path.read_bytes() == pc_bytes
-    assert _component_path(tmp_path, parent, "candidate_graph").read_bytes() == raw
+    assert _component_bytes(tmp_path, pc_parent, "candidate_graph") == pc_bytes
+    assert _component_bytes(tmp_path, parent, "candidate_graph") == raw
     assert (tmp_path / "source.md").read_bytes() == source_bytes
     assert span_path.read_bytes() == span_bytes
     assert child.lineage["semantic_disposition"]["state"] == "held"
@@ -437,7 +421,7 @@ print(json.dumps({'revision':child.revision,'state':child.lineage['semantic_disp
     legacy_parent = original_create(
         tmp_path, run_id="legacy-parent", source_artifact_id=artifact.source_artifact_id,
         source_domain="recap", campaign_id=artifact.campaign_id,
-        session_id=artifact.session_id, profile_id=correction.PROFILE,
+        session_id=artifact.session_id, profile_id="recap_category_v1@1.0",
         components=legacy_parent_components, status=ExtractionRunStatus.DRAFT,
         lineage={"world_campaign_ingest_context": world_context},
     )
@@ -490,14 +474,14 @@ print(json.dumps({'revision':child.revision,'state':child.lineage['semantic_disp
         provisional = ExtractionRun(
             run_id=legacy_id, source_artifact_id=artifact.source_artifact_id,
             source_domain="recap", campaign_id=artifact.campaign_id,
-            session_id=artifact.session_id, profile_id=correction.PROFILE,
+            session_id=artifact.session_id, profile_id="recap_category_v1@1.0",
             status=ExtractionRunStatus.REVIEWABLE, components=legacy_components,
             lineage=copy.deepcopy(lineage),
         )
         legacy = original_create(
             tmp_path, run_id=legacy_id, source_artifact_id=artifact.source_artifact_id,
             source_domain="recap", campaign_id=artifact.campaign_id,
-            session_id=artifact.session_id, profile_id=correction.PROFILE,
+            session_id=artifact.session_id, profile_id="recap_category_v1@1.0",
             components=legacy_components, status=ExtractionRunStatus.DRAFT,
             lineage=lineage,
         )
@@ -537,22 +521,31 @@ print(json.dumps({'revision':child.revision,'state':child.lineage['semantic_disp
         }
         legacy_id = seed_legacy_v9(request_body, state)
         row_ids_before = {run.run_id for run in ingest.list_extraction_runs()}
-        if state == "exact":
+        orphan_bytes = (tmp_path / "out/graph_memory/derived_candidates" / legacy_id / "candidate_graph.json").read_bytes()
+        if state in {"exact", "orphan"}:
             reused = correction.correct_recap_candidate(
                 RecapCandidateCorrectionRequestV9.model_validate(request_body),
             )
-            assert reused.run_id == legacy_id
+            if state == "exact":
+                assert reused.run_id == legacy_id
+            else:
+                # An unowned file cannot block the DB owner or become evidence.
+                assert reused.run_id != legacy_id
+                assert correction.verify_child_replay(
+                    original_get(tmp_path, reused.run_id), legacy_parent, tmp_path,
+                )
         else:
             with pytest.raises(correction.ExtractPromoteError, match=legacy_id):
                 correction.correct_recap_candidate(
                     RecapCandidateCorrectionRequestV9.model_validate(request_body),
                 )
         row_ids_after = {run.run_id for run in ingest.list_extraction_runs()}
-        assert row_ids_after == row_ids_before
+        assert row_ids_after == (row_ids_before | {reused.run_id} if state == "orphan" else row_ids_before)
+        assert (tmp_path / "out/graph_memory/derived_candidates" / legacy_id / "candidate_graph.json").read_bytes() == orphan_bytes
         assert not (tmp_path / "out/graph_memory/derived_candidates" / legacy_id / "source.md").exists()
 
     # Kill the lock owner after its DRAFT row claim. The kernel must release
-    # flock, and the next exact process must resume the registered row without
+    # the APP parent lease, and the next exact process resumes the row without
     # adopting or deleting a stale temporary file left by its predecessor.
     crash_body = _append_request(pc_parent, payload, index, identifier="bridge", line=2)
     before_crash_rows = {run.run_id for run in ingest.list_extraction_runs()}
@@ -567,12 +560,15 @@ root=Path(sys.argv[1]); body=json.loads(Path(sys.argv[2]).read_text())
 correction.repo_root=lambda:root
 extract_promote._artifact_root=lambda:root
 party_context.CAMPAIGN_CORPUS['c']=(Path('corpus'),'invented')
-def die_after_draft(root, child_id, *, source_bytes, candidate_bytes, allow_existing):
+original_create = correction.create_extraction_run
+def die_after_draft(*args, **kwargs):
+    child = original_create(*args, **kwargs)
+    child_id = child.run_id
     staging=root/'out/graph_memory/derived_candidates/.staging'
     staging.mkdir(parents=True,exist_ok=True)
     (staging/f'{child_id}.prior-owner.tmp').write_bytes(b'preserve crashed owner staging bytes')
     os._exit(77)
-correction._publish_child_package_files=die_after_draft
+correction.create_extraction_run=die_after_draft
 correction.correct_recap_candidate(RecapCandidateCorrectionRequestV10.model_validate(body))
 raise RuntimeError('injected crash point was not reached')
 """
@@ -604,9 +600,9 @@ raise RuntimeError('injected crash point was not reached')
     # V11 keeps the same durable child/retry boundary while adding one source-
     # supported local actor and a bounded endpoint correction.
     actor_parent = original_get(tmp_path, pc_parent.run_id)
-    actor_parent_payload = json.loads(_component_path(
+    actor_parent_payload = json.loads(_component_bytes(
         tmp_path, actor_parent, "candidate_graph",
-    ).read_bytes())
+    ))
     actor_source_text = source_bytes.decode("utf-8")
     actor_body = _actor_recovery_request(
         actor_parent, actor_parent_payload, index, actor_source_text,
@@ -619,9 +615,9 @@ raise RuntimeError('injected crash point was not reached')
     assert (actor_response.introduced_actor_count, actor_response.retargeted_edge_count,
             actor_response.omitted_edge_count) == (1, 1, 0)
     actor_child = original_get(tmp_path, actor_response.run_id)
-    actor_payload = json.loads(_component_path(
+    actor_payload = json.loads(_component_bytes(
         tmp_path, actor_child, "candidate_graph",
-    ).read_bytes())
+    ))
     actor_node = actor_payload["nodes"][-1]
     assert actor_node["label"] == "Lysandro" and actor_node["corpus_ref"] is None
     assert actor_payload["edges"][0]["from_node_id"] == actor_node["node_id"]
@@ -656,7 +652,8 @@ root=Path(sys.argv[1]); correction.repo_root=lambda:root
 party_context.CAMPAIGN_CORPUS['c']=(Path('corpus'),'invented')
 child=get_extraction_run(sys.argv[2]); parent=get_extraction_run(sys.argv[3])
 assert verify_child_replay(child,parent,root)
-candidate=json.loads((root/child.components['candidate_graph'].uri.removeprefix('repo://')).read_bytes())
+from application_state.ingest.components import get_component_bytes
+candidate=json.loads(get_component_bytes(run_id=child.run_id,kind='candidate_graph',content_sha256=child.components['candidate_graph'].sha256))
 assert candidate['nodes'][-1]['label']=='Lysandro'
 print(json.dumps({'run_id':child.run_id,'status':child.status.value,'actor':candidate['nodes'][-1]['label']}))
 """
@@ -684,12 +681,15 @@ from graph_memory import party_context
 root=Path(sys.argv[1]); body=json.loads(Path(sys.argv[2]).read_text())
 correction.repo_root=lambda:root; extract_promote._artifact_root=lambda:root
 party_context.CAMPAIGN_CORPUS['c']=(Path('corpus'),'invented')
-def die_after_draft(root, child_id, *, source_bytes, candidate_bytes, allow_existing):
+original_create = correction.create_extraction_run
+def die_after_draft(*args, **kwargs):
+    child = original_create(*args, **kwargs)
+    child_id = child.run_id
     staging=root/'out/graph_memory/derived_candidates/.staging'
     staging.mkdir(parents=True,exist_ok=True)
     (staging/f'{child_id}.actor-recovery.tmp').write_bytes(b'preserve actor recovery staging')
     os._exit(78)
-correction._publish_child_package_files=die_after_draft
+correction.create_extraction_run=die_after_draft
 correction.correct_recap_candidate(RecapCandidateCorrectionRequestV11.model_validate(body))
 raise RuntimeError('injected actor recovery crash point was not reached')
 """
@@ -822,8 +822,7 @@ def test_production_source_snapshot_correction_and_locked_parent_authority(
         return ingest.get_extraction_run(produced.run.run_id)
 
     def correction_request(parent, replacement):
-        candidate_path = _component_path(tmp_path, parent, "candidate_graph")
-        candidate_bytes = candidate_path.read_bytes()
+        candidate_bytes = _component_bytes(tmp_path, parent, "candidate_graph")
         candidate = json.loads(candidate_bytes)
         node = next(record for record in candidate["nodes"] if record["node_id"] == "mira")
         return RecapCandidateCorrectionRequestV8.model_validate({
@@ -841,14 +840,11 @@ def test_production_source_snapshot_correction_and_locked_parent_authority(
             ).model_dump(mode="json")],
         })
 
-    # The actual producer writes and registers its source.md and span index.
+    # The actual producer persists its source, span index and candidate in APP.
     parent = produce_parent()
-    source_path = _component_path(tmp_path, parent, "source_artifact")
-    span_path = _component_path(tmp_path, parent, "source_span_index")
-    candidate_path = _component_path(tmp_path, parent, "candidate_graph")
-    parent_source_bytes = source_path.read_bytes()
-    parent_span_bytes = span_path.read_bytes()
-    parent_candidate_bytes = candidate_path.read_bytes()
+    parent_source_bytes = _component_bytes(tmp_path, parent, "source_artifact")
+    parent_span_bytes = _component_bytes(tmp_path, parent, "source_span_index")
+    parent_candidate_bytes = _component_bytes(tmp_path, parent, "candidate_graph")
     assert parent_source_bytes == source.source_text.encode("utf-8")
     assert json.loads(parent_span_bytes)["source_artifact_id"] == artifact.source_artifact_id
 
@@ -870,10 +866,10 @@ def test_production_source_snapshot_correction_and_locked_parent_authority(
     basis = fresh_child.lineage["semantic_source_binding_basis_v12"]
     assert basis["source_artifact_id"] == artifact.source_artifact_id
     assert basis["source_revision_sha256"] == artifact.content_sha256
-    assert _component_path(tmp_path, fresh_child, "source_artifact").read_bytes() == parent_source_bytes
-    assert _component_path(tmp_path, parent, "source_artifact").read_bytes() == parent_source_bytes
-    assert _component_path(tmp_path, parent, "source_span_index").read_bytes() == parent_span_bytes
-    assert _component_path(tmp_path, parent, "candidate_graph").read_bytes() == parent_candidate_bytes
+    assert _component_bytes(tmp_path, fresh_child, "source_artifact") == parent_source_bytes
+    assert _component_bytes(tmp_path, parent, "source_artifact") == parent_source_bytes
+    assert _component_bytes(tmp_path, parent, "source_span_index") == parent_span_bytes
+    assert _component_bytes(tmp_path, parent, "candidate_graph") == parent_candidate_bytes
     retry = correction.correct_recap_candidate(request)
     assert retry.run_id == fresh_child.run_id
     assert ingest.get_extraction_run(fresh_child.run_id).revision == fresh_child.revision
@@ -892,9 +888,9 @@ def test_production_source_snapshot_correction_and_locked_parent_authority(
     actor_result = correction.correct_recap_candidate(actor_request)
     assert actor_result.semantic_state == "held"
     actor_child = ingest.get_extraction_run(actor_result.run_id)
-    actor_candidate_bytes = _component_path(
+    actor_candidate_bytes = _component_bytes(
         tmp_path, actor_child, "candidate_graph",
-    ).read_bytes()
+    )
     actor_candidate = json.loads(actor_candidate_bytes)
     actor_node = actor_candidate["nodes"][-1]
     assert actor_node["label"] == "Lysandro"
@@ -917,10 +913,10 @@ def test_production_source_snapshot_correction_and_locked_parent_authority(
     )
     for key in ("beats", "proposed_writes", "ignored_items", "deferred_items"):
         assert actor_candidate.get(key, []) == production_candidate.get(key, [])
-    assert _component_path(tmp_path, actor_child, "source_artifact").read_bytes() == parent_source_bytes
-    assert source_path.read_bytes() == parent_source_bytes
-    assert span_path.read_bytes() == parent_span_bytes
-    assert candidate_path.read_bytes() == parent_candidate_bytes
+    assert _component_bytes(tmp_path, actor_child, "source_artifact") == parent_source_bytes
+    assert _component_bytes(tmp_path, parent, "source_artifact") == parent_source_bytes
+    assert _component_bytes(tmp_path, parent, "source_span_index") == parent_span_bytes
+    assert _component_bytes(tmp_path, parent, "candidate_graph") == parent_candidate_bytes
     actor_assessment = assess_recap_semantics(
         actor_child, parent=parent,
         source_revision_id=artifact.content_sha256, root=tmp_path,
@@ -951,7 +947,8 @@ assessment=assess_recap_semantics(child,parent=parent,source_revision_id=sys.arg
 assert assessment.marked and not assessment.accepted
 basis=RecapSemanticBasisV12.model_validate(assessment.basis,strict=True)
 assert basis.operation_basis.schema_=='dmb_recap_semantic_basis_v13'
-candidate=json.loads((root/child.components['candidate_graph'].uri.removeprefix('repo://')).read_bytes())
+from application_state.ingest.components import get_component_bytes
+candidate=json.loads(get_component_bytes(run_id=child.run_id,kind='candidate_graph',content_sha256=child.components['candidate_graph'].sha256))
 print(json.dumps({'actor':candidate['nodes'][-1]['label'],'held':child.lineage['semantic_disposition']['state']}))
 """
     fresh_actor = subprocess.check_output(
@@ -990,9 +987,9 @@ print(json.dumps({'actor':candidate['nodes'][-1]['label'],'held':child.lineage['
             omission_response.retargeted_edge_count,
             omission_response.omitted_edge_count) == (1, 0, 1)
     omission_child = ingest.get_extraction_run(omission_response.run_id)
-    omission_candidate = json.loads(_component_path(
+    omission_candidate = json.loads(_component_bytes(
         tmp_path, omission_child, "candidate_graph",
-    ).read_bytes())
+    ))
     omission_actor = omission_candidate["nodes"][-1]
     assert omission_actor["label"] == "Lysandro"
     assert omission_candidate["nodes"] == production_candidate["nodes"] + [omission_actor]
@@ -1021,11 +1018,12 @@ print(json.dumps({'actor':candidate['nodes'][-1]['label'],'held':child.lineage['
          parent.run_id, artifact.content_sha256], text=True,
     )
     assert json.loads(fresh_omission) == {"actor": "Lysandro", "held": "held"}
-    assert source_path.read_bytes() == parent_source_bytes
-    assert span_path.read_bytes() == parent_span_bytes
-    assert candidate_path.read_bytes() == parent_candidate_bytes
+    assert _component_bytes(tmp_path, parent, "source_artifact") == parent_source_bytes
+    assert _component_bytes(tmp_path, parent, "source_span_index") == parent_span_bytes
+    assert _component_bytes(tmp_path, parent, "candidate_graph") == parent_candidate_bytes
 
-    original_lock = correction._source_binding_child_lock
+    from application_state.ingest import components as output_store
+    original_lock = output_store.correction_parent_lease
     package_root = tmp_path / "out" / "graph_memory" / "derived_candidates"
 
     def package_names():
@@ -1043,23 +1041,24 @@ print(json.dumps({'actor':candidate['nodes'][-1]['label'],'held':child.lineage['
         rows_before = {run.run_id for run in ingest.list_extraction_runs()}
 
         @contextmanager
-        def transition_after_lock(root, child_id):
-            with original_lock(root, child_id):
+        def transition_after_lock(parent_run_id):
+            assert parent_run_id == parent.run_id
+            with original_lock(parent_run_id):
                 if status == ExtractionRunStatus.SUPERSEDED:
                     registry.supersede_extraction_run(
-                        root, parent.run_id, expected_revision=parent.revision,
+                        tmp_path, parent.run_id, expected_revision=parent.revision,
                     )
                 else:
                     registry.update_extraction_run_status(
-                        root, parent.run_id, status=status,
+                        tmp_path, parent.run_id, status=status,
                         expected_revision=parent.revision,
                     )
                 yield
 
-        monkeypatch.setattr(correction, "_source_binding_child_lock", transition_after_lock)
+        monkeypatch.setattr(output_store, "correction_parent_lease", transition_after_lock)
         with pytest.raises(correction.ExtractPromoteError, match="parent run authority changed"):
             correction.correct_recap_candidate(request)
-        monkeypatch.setattr(correction, "_source_binding_child_lock", original_lock)
+        monkeypatch.setattr(output_store, "correction_parent_lease", original_lock)
 
         rows_after = {run.run_id for run in ingest.list_extraction_runs()}
         new_rows = rows_after - rows_before

@@ -1139,6 +1139,23 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
     if mode=='rules':stored=stored.base_projection.turn
     assert stored.play_context_receipt==sub.play_context_receipt
     assert stored.completion.answer_segments[0].source_kind=='play'
+    # Exercise the actual saved-history consumer, not only execution replay.
+    # Native object/source/mixed Play references must remain readable afterward.
+    from starlette.requests import Request
+    monkeypatch.setattr(agent,'enforce_native_graph_gm',lambda _request:None)
+    monkeypatch.setattr(agent,'_verified_world_id',lambda value:value)
+    monkeypatch.setattr(agent,'_conversation_service',lambda _request:service)
+    history_request=Request({'type':'http','method':'GET','path':'/','headers':[],'query_string':b''})
+    for correlation in (False,True):
+        saved_history=agent.get_world_conversation_history(world,history_request,limit=50,
+            before_sequence=None,include_turn_correlation=correlation)
+        history_row=next(row for row in saved_history.turns if row.turn_id==stored.turn_id)
+        assert history_row.assistant_text==response.answer.text
+        assert history_row.authored_references==request.authored_references
+        if mode!='rules':
+            assert history_row.play_context.receipt==stored.graph_context_receipt
+            assert history_row.play_context.delivery_replay is True
+            assert not hasattr(history_row,'plan_context')
     if mode=='work':
         followup=request.model_copy(update={'turn_id':str(uuid4()),'message':'Continue from my previous request.'})
         next_reply=execute_agent_turn(followup,**kwargs)

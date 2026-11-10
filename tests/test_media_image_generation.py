@@ -415,3 +415,70 @@ async def test_contextual_generation_rejects_unowned_or_corrupt_source(contextua
 async def test_contextual_generation_rejects_untrusted_request_fields(contextual, changes):
     assert (await regenerate(contextual, changes)).status_code == 422
     contextual[0][1].edit_image.assert_not_awaited()
+
+
+@pytest.mark.parametrize('code', ['PROVIDER_REFUSED', 'PROVIDER_ERROR'])
+async def test_generation_failure_discloses_only_normalized_refusal(setup, monkeypatch, code):
+    from generationengine import FailureCode, GenerationEngineError, InferenceFailure
+    from unittest.mock import Mock
+    _, client = setup
+    client.generate_image.side_effect = GenerationEngineError(
+        InferenceFailure.from_code(FailureCode(code), "Synthetic normalized failure."), SimpleNamespace())
+    stage = Mock()
+    monkeypatch.setattr(media_images.media, 'stage_image', stage)
+    response = await submit(setup, {'prompt': 'Synthetic illustration', 'model': 'flux-2-pro'})
+    assert response.status_code == 502
+    detail = response.json()['detail']
+    assert detail['code'] == code
+    if code == 'PROVIDER_REFUSED':
+        assert 'content policy' in detail['message'] and 'Edit the prompt' in detail['message']
+        assert 'existing images are unchanged' in detail['message']
+    else:
+        assert detail['message'] == 'Image generation did not complete. Your previous preview is unchanged.'
+    client.generate_image.assert_awaited_once()
+    client.aclose.assert_awaited_once()
+    stage.assert_not_called()
+
+
+@pytest.mark.parametrize('mode', ['image_to_image', 'new'])
+@pytest.mark.parametrize('code', ['PROVIDER_REFUSED', 'PROVIDER_ERROR'])
+async def test_contextual_failure_preserves_original_and_uses_normalized_refusal(contextual, mode, code):
+    from generationengine import FailureCode, GenerationEngineError, InferenceFailure
+    setup, parent, original, staged = contextual
+    before = dict(parent)
+    operation = setup[1].edit_image if mode == 'image_to_image' else setup[1].generate_image
+    operation.side_effect = GenerationEngineError(
+        InferenceFailure.from_code(FailureCode(code), "Synthetic normalized failure."), SimpleNamespace())
+    response = await regenerate(contextual, {'mode': mode})
+    assert response.status_code == 502
+    detail = response.json()['detail']
+    assert detail['code'] == code
+    assert ('content policy' in detail['message']) == (code == 'PROVIDER_REFUSED')
+    if code == 'PROVIDER_ERROR':
+        assert detail['message'] == 'Generation could not be confirmed. Your original is unchanged; check the library before trying again.'
+    assert parent == before and contextual[2] == original and staged == []
+    operation.assert_awaited_once()
+    setup[1].aclose.assert_awaited_once()
+
+
+async def test_real_sdk_refusal_reaches_image_route_without_retry_or_retention(setup, monkeypatch):
+    from fal_client.client import _raise_for_status
+    from generationengine import GenerationClient
+    from unittest.mock import Mock, patch
+    response = httpx.Response(422, request=httpx.Request('GET', 'https://queue.fal.run/test/model/requests/test'),
+        json={'detail':[{'type':'content_policy_violation','msg':'PRIVATE_PROVIDER_DETAIL','input':'PRIVATE_PROMPT'}]})
+    with pytest.raises(Exception) as captured:
+        _raise_for_status(response)
+    client = GenerationClient(image_provider=media_images.FalProvider(api_key='synthetic-not-secret'))
+    monkeypatch.setattr(media_images, '_image_client', lambda: client)
+    stage = Mock()
+    monkeypatch.setattr(media_images.media, 'stage_image', stage)
+    with patch('generationengine.providers.fal_provider.fal_client.subscribe_async',
+               new=AsyncMock(side_effect=captured.value)) as wire:
+        result = await submit(setup, {'prompt':'Synthetic illustration', 'model':'flux-2-pro'})
+    assert result.status_code == 502
+    assert result.json()['detail']['code'] == 'PROVIDER_REFUSED'
+    assert 'content policy' in result.json()['detail']['message']
+    assert 'PRIVATE_' not in result.text
+    wire.assert_awaited_once()
+    stage.assert_not_called()

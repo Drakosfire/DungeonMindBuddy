@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Query, Request
 from application_state.agent_conversation import library
 from application_state.errors import ApplicationStateError
+from application_state.agent_conversation.retry import AuthoringRetryRequiredError
 from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
 from apps.live_control_server.routes.agent import _verified_world_id, _conversation_service
 from application_state.agent_conversation.types import ReopenCommand, ConversationCommandReceipt, ConversationTrashCommand
@@ -26,6 +27,8 @@ def scope(request, world, allowed):
 def call(function, *args, **kwargs):
     try:
         return function(*args, **kwargs)
+    except AuthoringRetryRequiredError as exc:
+        raise HTTPException(exc.status_code, detail={"code":"build_authoring_retry_required","message":str(exc)}) from exc
     except ApplicationStateError as exc:
         raise HTTPException(exc.status_code, detail=str(exc)) from exc
 

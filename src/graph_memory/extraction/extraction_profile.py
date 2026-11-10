@@ -19,6 +19,7 @@ class ExtractionPassSpec:
     kind: str = "node"  # node | beat | encounter_job | edge | edge_review
     include_dispositions: bool = False
     allowed_node_types: tuple[str, ...] | None = None
+    predicate_capabilities: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

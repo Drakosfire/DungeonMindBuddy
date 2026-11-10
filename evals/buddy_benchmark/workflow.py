@@ -726,7 +726,64 @@ def writer_capture(plan_path, output, *, transport=None):
         "ordinary_delivery": "not_exercised", "semantic_acceptance": "unknown"})
 
 
-def context_tasting(manifest_path, output):
+def native_claim_property_orders(schema):
+    """Ordered native claim fields; arrays survive canonical artifact storage."""
+    selectors = {"native_statement_report": "statement_handles",
+        "native_body_claim": "excerpt_handles", "native_assertion_claim": "assertion_handles"}
+    rows = []
+    def visit(value, path):
+        if isinstance(value, dict):
+            props = value.get("properties", {})
+            kind = props.get("kind", {}).get("const")
+            if kind in selectors and "text" in props and selectors[kind] in props:
+                rows.append({"path": path, "kind": kind, "selector": selectors[kind],
+                    "fields": list(props)})
+            for key, child in value.items():
+                visit(child, [*path, key])
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                visit(child, [*path, index])
+    visit(schema, [])
+    return rows
+
+
+def citation_first_schema(schema):
+    """Reorder native claim properties only; preserve every schema constraint."""
+    from copy import deepcopy
+    result = deepcopy(schema)
+    rows = native_claim_property_orders(result)
+    if not rows:
+        raise ValueError("Citation-first requires native claim variants")
+    for row in rows:
+        node = result
+        for key in row["path"]:
+            node = node[key]
+        props = node["properties"]
+        node["properties"] = {**{key: value for key, value in props.items() if key != "text"},
+            "text": props["text"]}
+    if result != schema:
+        raise ValueError("Citation-first changed schema constraints")
+    return result
+
+
+def verify_citation_first_wire(raw, expected_schema):
+    """Inspect final SDK bytes, not a key-sorted request artifact."""
+    from generationengine.utils.schema_utils import make_schema_strict
+    body = json.loads(raw)
+    fmt = body.get("response_format", {})
+    contract = fmt.get("json_schema", {})
+    expected = make_schema_strict(expected_schema)
+    actual = contract.get("schema")
+    rows = native_claim_property_orders(actual)
+    if (fmt.get("type") != "json_schema" or contract.get("strict") is not True
+            or actual != expected or rows != native_claim_property_orders(expected)
+            or not rows or any(row["fields"].index(row["selector"]) > row["fields"].index("text")
+                for row in rows)):
+        raise ValueError("Citation-first schema order did not reach provider wire")
+    return rows
+
+
+def context_tasting(manifest_path, output, *, transport=None):
     """Provider-only comparison; never resume a product turn or retrieve evidence."""
     import asyncio
     from generationengine import GenerationClient, TextRequest
@@ -736,7 +793,7 @@ def context_tasting(manifest_path, output):
     path = Path(manifest_path).resolve()
     spec = json.loads(path.read_text())
     required = {"schema", "source_request", "context_ready", "models"}
-    if not required <= set(spec) or set(spec) - required - {"endpoint_catalog", "presentation", "instructions", "prompt_components", "qualification_review", "assessment"} or spec["schema"] != "dmb_context_tasting_v1":
+    if not required <= set(spec) or set(spec) - required - {"endpoint_catalog", "presentation", "instructions", "prompt_components", "qualification_review", "assessment", "schema_order"} or spec["schema"] != "dmb_context_tasting_v1":
         raise ValueError("Unknown context tasting specification")
     envelope = json.loads(read_pin(spec["source_request"], path.parent))
     ready = json.loads(read_pin(spec["context_ready"], path.parent))
@@ -808,10 +865,17 @@ def context_tasting(manifest_path, output):
     assessment = None
     output_schema = packet["text"]["format"]["schema"]
     schema_name = packet["text"]["format"]["name"]
+    schema_order = spec.get("schema_order", "retained")
+    if schema_order not in {"retained", "citation_first"}:
+        raise ValueError("Unknown schema order experiment")
+    if schema_order == "citation_first":
+        output_schema = citation_first_schema(output_schema)
     judge_role = prompt_components is not None and prompt_components['contract'] == 'buddy_writer_judge_v1'
     if (spec.get('assessment') is not None) != judge_role:
         raise ValueError('Judge inputs require an explicit versioned judge role; never ordinary writer inputs')
     if judge_role:
+        if schema_order != "retained":
+            raise ValueError("Schema order experiments require writer inputs")
         from .writer_assessment import validate_judge_inputs
         pins = spec['assessment']
         if not isinstance(pins, dict) or set(pins) != {'candidates', 'reference', 'schema'}:
@@ -872,7 +936,31 @@ def context_tasting(manifest_path, output):
                     return {"label": label, "status": "excluded"}
                 immutable_save(target, "request", {**shared, "model": model})
                 started = time.perf_counter()
-                client = GenerationClient()
+                if schema_order == "citation_first" or transport is not None:
+                    import httpx
+                    from openai import AsyncOpenAI
+                    from generationengine.providers.openrouter_text import OpenRouterTextProvider, OPENROUTER_BASE_URL
+                    wire_count = 0
+                    async def retain_wire(request):
+                        nonlocal wire_count
+                        wire_count += 1
+                        raw = request.content
+                        orders = (verify_citation_first_wire(raw, output_schema)
+                            if schema_order == "citation_first" else [])
+                        immutable_save(target, "provider-wire-" + str(wire_count), {
+                            "body_hex": raw.hex(), "body_sha256": sha256(raw).hexdigest(),
+                            "body_size": len(raw), "claim_property_orders": orders,
+                            "citation_first_verified": schema_order == "citation_first"})
+                    api_key = os.environ.get("OPENROUTER_API_KEY")
+                    if not api_key:
+                        if transport is None:
+                            raise ValueError("OPENROUTER_API_KEY is required for tasting")
+                        api_key = "offline-test"
+                    sdk = AsyncOpenAI(api_key=api_key, base_url=OPENROUTER_BASE_URL, max_retries=0,
+                        http_client=httpx.AsyncClient(transport=transport, event_hooks={"request": [retain_wire]}))
+                    client = GenerationClient(text_providers={"openrouter": OpenRouterTextProvider(client=sdk)})
+                else:
+                    client = GenerationClient()
                 async def retain_attempt(event):
                     immutable_save(target, "attempt-" + str(event.ordinal), event.model_dump(mode="json"))
                 try:

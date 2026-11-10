@@ -5,6 +5,10 @@ import { createHash, webcrypto } from "node:crypto";
 import { StrictMode,useLayoutEffect, type ReactElement, type ReactNode } from "react";
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 
+vi.mock("../api/buildDocumentProposalApi", async original => ({
+  ...await original<typeof import("../api/buildDocumentProposalApi")>(), listBuildProposals: async () => [],
+}));
+
 import * as liveApi from "../api/liveApi";
 import * as conversationLibraryApi from "../api/conversationLibraryApi";
 import * as markdownImporter from "../tiptap/markdown/markdownToTiptap";

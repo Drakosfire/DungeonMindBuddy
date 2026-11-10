@@ -211,7 +211,8 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
                 'usage': {'input_tokens': 37, 'output_tokens': 9}})
     class Writer(WriterWire):
         async def handle_async_request(self, req):
-            frames = [json.loads(item['content']) for item in json.loads(req.content)['input'][:-1]]
+            frames = [json.loads(item['content']) for item in json.loads(req.content)['input']
+                      if item['content'] != 'Return JSON.']
             if shared_sdk_receipt:
                 from application_state.agent_conversation.native_evidence_view import is_semantic_frame
                 from application_state.agent_conversation.native_plan_assertions import POLICY

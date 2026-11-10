@@ -145,6 +145,17 @@ than another executable runtime path. New questions add case data and reviewed
 assessment bindings, not another launcher.
 # Frozen-context model tasting
 
+For a controlled citation-first experiment, `schema_order: citation_first` moves
+the selector property before prose in native assertion/body/statement claim
+variants. All schema constraints, prompts and evidence remain unchanged. This
+option is diagnostic only; it does not change the production schema default.
+The workflow inspects final SDK request bytes before HTTP dispatch and refuses
+the send if the strict native schema loses that ordering. `provider-wire-N.json`
+retains raw body hex/hash and explicit property-order arrays, without headers.
+Ordinary artifact dictionaries sort keys, so their printed key order is not wire
+evidence. Inspect returned raw segment order as well: reaching the provider does
+not prove the model used that order. Reuse a retained control; do not rerun retrieval.
+
 `context-tasting --manifest tasting.json --output new-directory` reuses a pinned
 context-ready writer capture through GenerationEngine's OpenRouter adapter. It
 does not retrieve evidence, resume an APP turn, or publish anything. Manifest
@@ -195,8 +206,8 @@ is recomputed and the exact joined texts must equal the final instructions befor
 any dispatch. Manifest data is retained separately, never added to messages.
 `application_state.agent_conversation.response_prompt` compiles the initial
 response-only voice/evidence/citation/output components; Rules guidance is added
-only when active. This compiler is experimental until cleaned-context comparison
-and product-owner integration; the current app default is not changed here.
+only when active. Ordinary native conversation calls use this compiler at their
+product owner; experimental context presentations remain separately selected.
 Do not change prompt and evidence presentation in the same experiment. Known
 bookkeeping leakage in retained legacy qualification prose must be resolved at
 its owner before sending that context in another paid comparison.
@@ -204,9 +215,13 @@ its owner before sending that context in another paid comparison.
 
 Ordinary native Plan/Play/Build writer calls assemble the versioned response
 compiler at `PlanJevWriter` after actual work reconstruction. Plan requires its
-unique ordinary discussion selection; Build requires actual discuss/fulfill/
-answer-from-sources resolution; native Play owns a read-only Run question.
-Clarification, authoring and reviewed collaboration keep their capability owners.
+unique selected work; Build requires its actual answer-from-sources contract or
+reviewed task binding; native Play owns a read-only Run question.
+Actual clarification, reviewed discussion, capability-limit explanation and
+destination explanation select one small task component through the same compiler.
+Reviewed discussion takes only its bound selected task as the assignment; sibling
+tasks remain context. Writing, review execution and image preparation retain
+their capability owners. Native conversational replies carry no image instructions.
 Rules guidance requires a supplied lookup; related-page guidance requires supplied
 saved pages. `writer.prompt_components` is host-only inspectability, never model
 input. Ordinary calls do not first construct the superseded broad instruction
@@ -246,3 +261,22 @@ does not clean live records or activate a new product prompt. Future source revi
 annotations should keep provenance in existing typed host fields, outside semantic
 qualification prose. Use one change per comparison; combining this option with a
 prompt or flattening change is not a controlled single-variable experiment.
+
+# Initial response-contract disposition
+
+The initial Q15 voice-only study retained the tighter, more direct baseline after
+explicit user preference on2026-11-10. This taste judgment remains separate from
+coverage, grounding and citations. Both answers covered9/9 required concepts;
+baseline retains a minor coercion overstatement and the longer variant has a minor
+own-citation gap. Keep these findings rather than treating taste as factual acceptance.
+
+Ordinary native writer requests use strict formatv2 without image_prompt. The
+existing producer verifier retains exact formatv1 reconstruction for recorded
+replies/replay only; fresh admission requires current format. Historical experiment
+requests are not silently upgraded. Native calls omit the redundant Return JSON
+message; active Rules guidance relies on the supplied schema instead of a prose
+JSON template. Conditional related-page and active writing/image owners are unchanged.
+
+Use the existing context-tasting command with pinned prompt components to test the
+next single change. Preserve failed outputs, unknown measurements and judge limits.
+No fresh retrieval or unchanged paid baseline is needed merely to begin a new study.

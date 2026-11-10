@@ -141,14 +141,14 @@ function BuildPresentableSourceView({
     {mediaError&&<p role="alert">{mediaError}</p>}
     {mediaOpen && <aside className="build-media-studio"><MediaImageWizard onClose={() => setMediaOpen(false)} onChoose={async(image,_result,placement)=>{
       const origin=mediaCapture.current;
-      if (!origin || image.state!=='ready' || !composeBridge.pickInsertion) throw new Error('Save this image and open an editable page first.');
+      if (!origin || !['staged','ready'].includes(image.state) || !composeBridge.pickInsertion) throw new Error('Open a retained image and an editable page first.');
       const target=await composeBridge.pickInsertion({...placement,assetId:image.asset_id});
       placement.signal.throwIfAborted();
       if (target.basis.world_id!==origin.basis.world_id || target.basis.document_id!==origin.basis.document_id || target.basis.registry_revision!==origin.basis.registry_revision || target.basis.content_sha256!==origin.basis.content_sha256) throw new Error('The page changed. Open Image Studio again on the intended page.');
       const {response}=await authenticatedApiFetch(`/api/live/media/images/${image.asset_id}/metadata`,{signal:placement.signal});
       const asset=await response.json();
       placement.signal.throwIfAborted();
-      if(!response.ok || asset.asset_id!==image.asset_id || asset.state!=='ready') throw new Error('Save this image before placing it.');
+      if(!response.ok || asset.asset_id!==image.asset_id || !['staged','ready'].includes(asset.state)) throw new Error('The retained image is unavailable. Reopen it before placing it.');
       composeBridge.insert(target,mediaMarkdown(image.asset_id,'Saved artwork'));
       setMediaOpen(false);setMediaError('');
     }} /></aside>}
