@@ -9,6 +9,7 @@ remove the duplicate result tray/tutorial button, move technical copy to Details
 Reuse buddy-context-loop, codex/image-studio-placement-controls. Open PRs checked:
 no media conflict. Lease: MediaImageWizard.tsx/.css/.test.tsx,
 PreparedBuildImage.tsx/.test.tsx, BuildSurfaceShell.tsx and its test,
+guidedTour/GuidedTour.test.tsx (retain mounted-draft proof via external tour control),
 src/application_state/build_proposal/images.py,
 tests/integration/test_build_images_postgres.py, this handoff. No schema/provider
 or dependency change. Existing statblock provider-refusal work remains separate;

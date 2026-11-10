@@ -139,9 +139,9 @@ it('focuses guidance only on opening and restores a usable invoker on explicit C
 it('keeps the actual nonmodal Studio and its typed draft mounted while guidance opens and closes',async()=>{
  const port:ImageGenerationPort={capabilities:vi.fn().mockResolvedValue({configured:true,library_ready:true,storage_configured:false,models:[{id:'model',label:'Model',formats:['png'],controls:[]}]}),generate:vi.fn(),list:vi.fn(),get:vi.fn(),save:vi.fn()};
  render(<GuidedTourProvider worldId='world'><Reopen/><aside className='document-image-studio' aria-label='Image Studio fixture'><MediaImageWizard port={port} onClose={()=>{}}/></aside></GuidedTourProvider>);
- await screen.findByRole('option',{name:'Model'});
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Generate image'})).toBeEnabled());
  const prompt=screen.getByRole('textbox',{name:'What would you like to see?'});fireEvent.change(prompt,{target:{value:'Layer test only; do not generate.'}});
- const invoker=screen.getByRole('button',{name:'Open guided journey'});invoker.focus();fireEvent.click(invoker);
+ const invoker=screen.getByRole('button',{name:'Reopen guide'});invoker.focus();fireEvent.click(invoker);
  expect(screen.getByRole('button',{name:'Close tour panel'})).toHaveFocus();expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
  fireEvent.click(screen.getByRole('button',{name:'Close tour panel'}));
  expect(screen.getByRole('textbox',{name:'What would you like to see?'})).toBe(prompt);expect(prompt).toHaveValue('Layer test only; do not generate.');expect(invoker).toHaveFocus();
