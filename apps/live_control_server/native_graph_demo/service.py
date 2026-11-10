@@ -168,14 +168,29 @@ class NativeGraphDemoService:
     def __init__(
         self,
         repository: object,
-        state_dir: str | Path,
+        state_dir: str | Path | None = None,
         storage_label: str = "postgres",
+        *,
+        store: Any | None = None,
+        allocation_id: str = _DEMO_ALLOCATION_ID,
     ) -> None:
         self._repository = repository
         self._storage_label = storage_label
-        self._store = NativeGraphDemoStore(
-            state_dir, max_operations=MAX_JOURNAL_OPERATIONS
-        )
+        if store is not None and state_dir is not None:
+            raise ValueError("provide either state_dir or store, not both")
+        if store is None and state_dir is None:
+            raise ValueError("state_dir or an injected store is required")
+        if store is not None and allocation_id == _DEMO_ALLOCATION_ID:
+            raise ValueError(
+                "an injected session store requires a unique allocation_id"
+            )
+        if store is None:
+            assert state_dir is not None
+            store = NativeGraphDemoStore(
+                state_dir, max_operations=MAX_JOURNAL_OPERATIONS
+            )
+        self._store = store
+        self._allocation_id = allocation_id
         self._domain = dungeonbuddy_world_domain_contract()
         self._profile = dungeonbuddy_dnd5e_custom_predicate_profile()
         self._space_id: str | None = None
@@ -483,7 +498,7 @@ class NativeGraphDemoService:
         try:
             receipt = create_empty_space(
                 repository=self._repository,
-                allocation_id=_DEMO_ALLOCATION_ID,
+                allocation_id=self._allocation_id,
                 created_at=_now(),
                 domain_contract=self._domain,
                 semantic_profile=self._profile,

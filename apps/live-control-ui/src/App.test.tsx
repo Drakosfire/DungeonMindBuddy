@@ -17,6 +17,17 @@ import { NORTH_GATE_RUNBOOK_TARGET_RELPATH } from "./tiptap/descriptors/tiptapRu
 import { makeCapabilityResponse, makeRollTableArtifact, mockCatalog, mockLayout, mockPlanView, mockState } from "./test/fixtures";
 
 const playShellHarness = vi.hoisted(() => ({ active: false }));
+const indexGraphApiHarness = vi.hoisted(() => ({
+  api: {
+    readGraph: vi.fn(),
+    prepare: vi.fn(),
+    confirm: vi.fn(),
+    readOperation: vi.fn(),
+  },
+}));
+vi.mock("./nativeGraphDemo/buddyIndexGraphApi", () => ({
+  createBuddyIndexGraphApi: () => indexGraphApiHarness.api,
+}));
 vi.mock("./localWorld/indexedDbLocalWorldRepository", async importOriginal => {
   const actual = await importOriginal<typeof import("./localWorld/indexedDbLocalWorldRepository")>();
   const { InMemoryLocalWorldRepository } = await import("./localWorld/inMemoryLocalWorldRepository");
@@ -60,6 +71,20 @@ const stableTiptapEditorTools: AppChromeTools = {
 const stableTiptapEditorToolsGeneration: AppChromeToolsGeneration = {
   target: { kind: "spike", id: "tiptap-callout-spike" },
   tools: stableTiptapEditorTools,
+};
+
+const indexGraph = {
+  world_id: "private-app-test-space",
+  revision_id: "revision-app-test-1",
+  graph_sha256: "sha256:app-test-graph",
+  nodes: [
+    { id: "entity:lina", name: "Lina", kind: "person" },
+    { id: "entity:pike", name: "Pike", kind: "person" },
+  ],
+  edges: [{ id: "assertion:knows", source_id: "entity:lina", target_id: "entity:pike", predicate: "knows" }],
+  storage: "postgres",
+  limitations: ["Event typing is not available in this native profile."],
+  capabilities: { create: true, connect: true, rename: false, delete: false, object_kinds: ["person", "location"] },
 };
 
 vi.mock("./tiptap/TiptapCalloutBridgeSpike", () => ({
@@ -180,6 +205,12 @@ describe("App inspector integration", () => {
     playShellHarness.active = false;
     window.history.pushState({}, "", "/");
     localStorage.clear();
+    indexGraphApiHarness.api.readGraph.mockResolvedValue(indexGraph);
+    indexGraphApiHarness.api.prepare.mockResolvedValue({
+      status: "prepared", operation_id: "app-test-op", parent_revision_id: indexGraph.revision_id, review: { summary: "Create an object." },
+    });
+    indexGraphApiHarness.api.confirm.mockResolvedValue({ status: "committed", graph: indexGraph });
+    indexGraphApiHarness.api.readOperation.mockResolvedValue({ status: "not_found", operation_id: "app-test-op" });
     vi.mocked(liveApi.getSurface).mockResolvedValue({
       catalog: mockCatalog,
       layout: mockLayout,
@@ -296,16 +327,21 @@ describe("App inspector integration", () => {
     );
   });
 
-  it("renders the example graph and Index Agent chrome at the root route", async () => {
+  it("renders the Buddy graph at the root route with older browser Worlds kept secondary", async () => {
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: /buddy surface/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /buddy graph playground/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Lina, person" })).toBeInTheDocument();
+    expect(screen.getByText(/private demo graph is separate from your existing Worlds/i)).toBeInTheDocument();
+    expect(screen.getByText("Existing browser-only Worlds and notes")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "My World" })).not.toBeInTheDocument();
+
+    await userEvent.setup().click(screen.getByText("Existing browser-only Worlds and notes"));
     expect(await screen.findByRole("heading", { name: "My World" })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Mara Venn, person" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create World" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Edit World title" })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Open" })).toBeInTheDocument();
-    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-surface-id", "index");
     const navigation = screen.getByRole("navigation", { name: "Command board navigation" });
     fireEvent.click(within(navigation).getByRole("button", { name: "Open navigation" }));
     expect(within(navigation).getByRole("link", { name: "Plan" })).toHaveAttribute("href", "/plan");

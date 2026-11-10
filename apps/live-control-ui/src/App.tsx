@@ -1,7 +1,7 @@
 import {SavedStatblockProvider} from './statblocks/SavedStatblockSession';
 import {WorldGuidedTour} from './guidedTour/WorldGuidedTour';
 import { DocumentReferenceSurfaceHost } from './documentReference/DocumentReferenceSurfaceHost';
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { getEvents, getJobs, getPlanView, getSurface } from "./api/liveApi";
 import type {
@@ -20,6 +20,8 @@ import { AskPluginSlotProvider } from "./agentInteraction/AskPluginSlot";
 import { AgentInteractionChrome } from "./agentInteraction/AgentInteractionChrome";
 import { IndexAgentConversation } from "./agentInteraction/IndexAgentConversation";
 import { LocalWorldSurface } from "./localWorld/localWorldSurface/LocalWorldSurface";
+import { NativeGraphDemo } from "./nativeGraphDemo/NativeGraphDemo";
+import { createBuddyIndexGraphApi } from "./nativeGraphDemo/buddyIndexGraphApi";
 import { usePublishSurfaceInteraction } from "./agentInteraction/usePublishSurfaceInteraction";
 import {
   ROUTE_COMPATIBILITY_PUBLICATIONS,
@@ -93,6 +95,24 @@ function TiptapSpikeRoute() {
     <AppChrome activeRoute="tiptap-callout-spike" editorTools={editorTools}>
       <TiptapSpikeRouteLeasePublisher />
       <TiptapCalloutBridgeSpike onEditorToolsChange={setEditorTools} />
+    </AppChrome>
+  );
+}
+
+function BuddyIndexPage({ localOnlyNavigation = false }: { readonly localOnlyNavigation?: boolean }) {
+  const api = useMemo(() => createBuddyIndexGraphApi(), []);
+  const [legacyWorldsOpen, setLegacyWorldsOpen] = useState(false);
+
+  return (
+    <AppChrome activeRoute="index" localOnlyNavigation={localOnlyNavigation}>
+      <NativeGraphDemo api={api} embedded />
+      <details className="buddy-index-legacy" onToggle={(event) => setLegacyWorldsOpen(event.currentTarget.open)}>
+        <summary>Existing browser-only Worlds and notes</summary>
+        <p>These older Worlds stay in this browser and remain separate from the private DungeonMind graph above. Opening them does not migrate or publish them.</p>
+        {legacyWorldsOpen
+          ? <LocalWorldSurface>{localOnlyNavigation ? null : <IndexAgentConversation />}</LocalWorldSurface>
+          : null}
+      </details>
     </AppChrome>
   );
 }
@@ -265,13 +285,7 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
   if (!pageAdmitted) {
     content = <main className="app-status" role="status">Verifying page selection…</main>;
   } else if (route === "index") {
-    content = (
-      <AppChrome activeRoute="index">
-        <LocalWorldSurface>
-          <IndexAgentConversation />
-        </LocalWorldSurface>
-      </AppChrome>
-    );
+    content = <BuddyIndexPage />;
   } else if (route === "tiptap-callout-spike") {
     content = <TiptapSpikeRoute />;
   } else if (route === "plan") {
@@ -350,9 +364,7 @@ function LocalGuestEntry() {
     <AgentInteractionProvider>
       <SurfaceContextProvider>
         <PeekRegionProvider>
-          <AppChrome activeRoute="index" localOnlyNavigation>
-            <LocalWorldSurface />
-          </AppChrome>
+          <BuddyIndexPage localOnlyNavigation />
         </PeekRegionProvider>
       </SurfaceContextProvider>
     </AgentInteractionProvider>

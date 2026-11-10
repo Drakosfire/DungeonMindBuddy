@@ -53,8 +53,46 @@ vi.mock("./agentInteraction/IndexAgentConversation", () => ({
   IndexAgentConversation: () => <div data-testid="hosted-index-agent" />,
 }));
 
-function response(status: number, payload: Record<string, string>): Response {
-  return { ok: status >= 200 && status < 300, status, json: async () => payload } as Response;
+function response(status: number, payload: unknown): Response {
+  const make = (): Response => ({
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => payload,
+    clone: make,
+  } as Response);
+  return make();
+}
+
+const guestGraph = {
+  world_id: "private-space-guest",
+  revision_id: "revision-guest-1",
+  graph_sha256: "sha256:guest-graph-1",
+  nodes: [
+    { id: "entity:lina", name: "Lina", kind: "person" },
+    { id: "entity:pike", name: "Pike", kind: "person" },
+    { id: "entity:quay", name: "Amber Quay", kind: "location" },
+  ],
+  edges: [{ id: "assertion:lives", source_id: "entity:lina", target_id: "entity:quay", predicate: "lives_near" }],
+  storage: "postgres",
+  limitations: ["Event typing is not available in this native profile."],
+  capabilities: { create: true, connect: true, rename: false, delete: false, object_kinds: ["person", "location"] },
+};
+
+function nativeIndexFetch(graph = guestGraph) {
+  return vi.fn(async (input: RequestInfo | URL) => {
+    const path = String(input);
+    if (path === "/api/live/index-graph/session") return response(200, { csrf_token: "guest-csrf" });
+    if (path === "/api/live/index-graph/graph") return response(200, graph);
+    return response(404, { error: "Not found.", code: "not_found" });
+  });
+}
+
+function expectOnlyScopedIndexCalls(fetchMock: ReturnType<typeof nativeIndexFetch>): void {
+  expect(fetchMock.mock.calls.map(([path]) => String(path))).toEqual(expect.arrayContaining([
+    "/api/live/index-graph/session",
+    "/api/live/index-graph/graph",
+  ]));
+  expect(fetchMock.mock.calls.every(([path]) => String(path).startsWith("/api/live/index-graph/"))).toBe(true);
 }
 
 const initialCreateObjectURL = Object.getOwnPropertyDescriptor(URL, "createObjectURL");
@@ -73,6 +111,8 @@ describe("canonical local guest entry", () => {
     vi.stubGlobal("crypto", webcrypto as unknown as Crypto);
     vi.stubGlobal("Blob", NodeBlob);
     window.history.replaceState({}, "", "/");
+    localStorage.clear();
+    sessionStorage.clear();
     localRepositoryHarness.repository = new InMemoryLocalWorldRepository({ store: new InMemoryLocalWorldStore() });
   });
 
@@ -84,17 +124,22 @@ describe("canonical local guest entry", () => {
     window.history.replaceState({}, "", "/");
   });
 
-  it("creates, saves, reopens and exports a World without hosted requests", async () => {
-    const fetchMock = vi.fn(async () => response(401, { status: "signed_out" }));
+  it("keeps older browser Worlds available as a secondary surface without hosted requests", async () => {
+    const fetchMock = nativeIndexFetch();
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
     const mounted = render(<App />);
 
-    expect(await screen.findByRole("button", { name: "Mara Venn, person" })).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(await screen.findByRole("button", { name: "Lina, person" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /buddy graph playground/i })).toBeInTheDocument();
     expect(screen.queryByTestId("hosted-index-agent")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Switch World: Choose" })).not.toBeInTheDocument();
-    expect(screen.queryByTestId("app-chrome-world-graph-status")).not.toBeInTheDocument();
+    expectOnlyScopedIndexCalls(fetchMock);
+
+    await user.click(screen.getByText("Existing browser-only Worlds and notes"));
+    expect(await screen.findByRole("button", { name: "Mara Venn, person" })).toBeInTheDocument();
+    expect(screen.queryByTestId("hosted-index-agent")).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.every(([path]) => String(path).startsWith("/api/live/index-graph/"))).toBe(true);
 
     await user.click(screen.getByRole("button", { name: "Edit World title" }));
     await user.clear(screen.getByLabelText("World title"));
@@ -106,7 +151,7 @@ describe("canonical local guest entry", () => {
     fireEvent.change(notes, { target: { value: "A local note written without an account." } });
     await user.click(screen.getByRole("button", { name: "Save in this browser" }));
     expect(await screen.findAllByText("Saved in this browser")).toHaveLength(2);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expectOnlyScopedIndexCalls(fetchMock);
 
     const repository = localRepositoryHarness.repository;
     expect(repository).not.toBeNull();
@@ -121,9 +166,10 @@ describe("canonical local guest entry", () => {
 
     mounted.unmount();
     render(<App />);
+    await user.click(screen.getByText("Existing browser-only Worlds and notes"));
     await user.click(await screen.findByRole("button", { name: /Guest Harbor/ }));
     expect(await screen.findByRole("textbox", { name: "World notes editor" })).toHaveValue("A local note written without an account.");
-    expect(fetchMock).not.toHaveBeenCalled();
+    expectOnlyScopedIndexCalls(fetchMock);
 
     let exported: Blob | null = null;
     Object.defineProperty(URL, "createObjectURL", {
@@ -145,15 +191,17 @@ describe("canonical local guest entry", () => {
       const noteBytes = decoded.parsed.candidate.members.get(LOCAL_WORLD_NOTES_DOCUMENT_PATH);
       expect(noteBytes && new TextDecoder().decode(noteBytes)).toBe("A local note written without an account.\n");
     }
-    expect(fetchMock).not.toHaveBeenCalled();
+    expectOnlyScopedIndexCalls(fetchMock);
   });
 
-  it("edits the local graph from guest root and keeps graph semantics and layout on reopen/export", async () => {
-    const fetchMock = vi.fn(async () => response(401, { status: "signed_out" }));
+  it("keeps older local graph editing and notes separate from the DungeonMind index graph", async () => {
+    const fetchMock = nativeIndexFetch();
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
     const mounted = render(<App />);
 
+    expect(await screen.findByRole("button", { name: "Lina, person" })).toBeInTheDocument();
+    await user.click(screen.getByText("Existing browser-only Worlds and notes"));
     expect(await screen.findByRole("button", { name: "Mara Venn, person" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Edit World title" }));
     await user.clear(screen.getByLabelText("World title"));
@@ -200,6 +248,7 @@ describe("canonical local guest entry", () => {
 
     mounted.unmount();
     render(<App />);
+    await user.click(screen.getByText("Existing browser-only Worlds and notes"));
     await user.click(await screen.findByRole("button", { name: /Guest Graph/ }));
     expect(await screen.findByRole("button", { name: "Mara Vale, person" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Mara Vale travels with Tomas's Cartographer" })).toBeInTheDocument();
@@ -223,30 +272,142 @@ describe("canonical local guest entry", () => {
       expect(decoded.parsed.candidate.record.snapshot.relationships).toHaveLength(5);
       expect(decoded.parsed.candidate.record.layout.positions[renamedObject!.id]).not.toEqual(oldPosition);
     }
-    expect(fetchMock).not.toHaveBeenCalled();
+    expectOnlyScopedIndexCalls(fetchMock);
   });
 
-  it("keeps protected navigation behind sign-in and returns to the local root on Back", async () => {
-    const fetchMock = vi.fn(async () => response(401, { status: "signed_out" }));
+  it("uses the scoped native graph at the guest index, preserves a draft, and reviews a single confirmed operation", async () => {
+    let currentGraph = guestGraph;
+    let resolvePrepare!: (value: Response) => void;
+    const prepareResponse = new Promise<Response>((resolve) => { resolvePrepare = resolve; });
+    const calls: Array<{ path: string; init?: RequestInit }> = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      calls.push({ path, init });
+      if (path === "/api/live/index-graph/session") return response(200, { csrf_token: "guest-csrf" });
+      if (path === "/api/live/index-graph/graph") return response(200, currentGraph);
+      if (path === "/api/live/index-graph/prepare") return prepareResponse;
+      if (path === "/api/live/index-graph/confirm") {
+        const createdGraph = {
+          ...currentGraph,
+          revision_id: "revision-guest-2",
+          graph_sha256: "sha256:guest-graph-2",
+          nodes: [...currentGraph.nodes, { id: "entity:aster", name: "Aster", kind: "person" }],
+        };
+        currentGraph = createdGraph;
+        return response(200, { status: "committed", graph: createdGraph });
+      }
+      return response(404, { error: "Not found.", code: "not_found" });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const operationId = "8e05e7e6-2ec8-43bd-bc4e-63a5b92eb84b";
+    vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue(operationId);
+    const user = userEvent.setup();
+    const mounted = render(<App />, { reactStrictMode: true });
+
+    expect(await screen.findByRole("button", { name: "Lina, person" })).toBeInTheDocument();
+    expect(screen.getByText(/private demo graph is separate from your existing Worlds/i)).toBeInTheDocument();
+    expect(screen.getByText(/Event typing is not supported by this DungeonMind profile yet/)).toBeInTheDocument();
+    expect(screen.getByText("Rename is unavailable")).toBeInTheDocument();
+    expect(screen.getByText("Delete is unavailable")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.filter(([path]) => String(path) === "/api/live/index-graph/session")).toHaveLength(1);
+    expect(fetchMock.mock.calls.some(([path]) => String(path) === "/api/live/index-graph/graph")).toBe(true);
+
+    const name = screen.getByLabelText("Name");
+    await user.type(name, "Aster");
+    mounted.unmount();
+    render(<App />, { reactStrictMode: true });
+    expect(await screen.findByDisplayValue("Aster")).toBeInTheDocument();
+
+    const prepareButton = screen.getByRole("button", { name: "Prepare object" });
+    fireEvent.click(prepareButton);
+    fireEvent.click(prepareButton);
+    await waitFor(() => expect(calls.filter(({ path }) => path.endsWith("/prepare"))).toHaveLength(1));
+    const prepareCall = calls.find(({ path }) => path.endsWith("/prepare"));
+    expect(JSON.parse(String(prepareCall?.init?.body))).toEqual({
+      operation_id: operationId,
+      expected_revision_id: "revision-guest-1",
+      kind: "create_object",
+      name: "Aster",
+      object_kind: "person",
+    });
+    expect(new Headers(prepareCall?.init?.headers).get("X-DMB-Index-Graph-CSRF")).toBe("guest-csrf");
+
+    resolvePrepare(response(200, {
+      status: "prepared",
+      operation_id: operationId,
+      parent_revision_id: "revision-guest-1",
+      review: { summary: "Create Aster as a native person in this private graph." },
+    }));
+    expect(await screen.findByText("Create Aster as a native person in this private graph.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Confirm in DungeonMind" }));
+    expect(await screen.findByRole("button", { name: "Aster, person" })).toBeInTheDocument();
+    expect(calls.filter(({ path }) => path.endsWith("/prepare"))).toHaveLength(1);
+    expect(calls.filter(({ path }) => path.endsWith("/confirm"))).toHaveLength(1);
+    expect(new Headers(calls.find(({ path }) => path.endsWith("/confirm"))?.init?.headers).get("X-DMB-Index-Graph-CSRF")).toBe("guest-csrf");
+    expect(fetchMock.mock.calls.every(([path]) => String(path).startsWith("/api/live/index-graph/"))).toBe(true);
+    expect(screen.queryByRole("button", { name: "Switch World: Choose" })).not.toBeInTheDocument();
+  });
+
+  it("shows recoverable session and malformed-graph errors instead of a browser-local fallback", async () => {
+    let sessionAvailable = false;
+    let graphMalformed = true;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path === "/api/live/index-graph/session") {
+        if (!sessionAvailable) throw new Error("connection refused");
+        return response(200, { csrf_token: "guest-csrf" });
+      }
+      if (path === "/api/live/index-graph/graph") {
+        return response(200, graphMalformed ? { ...guestGraph, capabilities: undefined } : guestGraph);
+      }
+      return response(404, { error: "Not found.", code: "not_found" });
+    });
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
     render(<App />);
-    expect(await screen.findByRole("button", { name: "Mara Venn, person" })).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
+
+    expect(await screen.findByText(/connection refused/)).toBeInTheDocument();
+    expect(fetchMock.mock.calls.map(([path]) => String(path))).toEqual(["/api/live/index-graph/session"]);
+    expect(screen.queryByRole("button", { name: "Lina, person" })).not.toBeInTheDocument();
+    sessionAvailable = true;
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText(/incomplete or unsupported response/)).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([path]) => String(path) === "/api/live/index-graph/graph")).toBe(true);
+    expect(screen.queryByRole("button", { name: "Lina, person" })).not.toBeInTheDocument();
+
+    graphMalformed = false;
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("button", { name: "Lina, person" })).toBeInTheDocument();
+    expect(fetchMock.mock.calls.every(([path]) => String(path).startsWith("/api/live/index-graph/"))).toBe(true);
+  });
+
+  it("keeps protected navigation behind sign-in and returns to the local root on Back", async () => {
+    const indexFetch = nativeIndexFetch();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).startsWith("/api/live/index-graph/")) return indexFetch(input);
+      return response(401, { status: "signed_out" });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<App />);
+    expect(await screen.findByRole("button", { name: "Lina, person" })).toBeInTheDocument();
+    expect(fetchMock.mock.calls.map(([path]) => String(path))).toEqual([
+      "/api/live/index-graph/session",
+      "/api/live/index-graph/graph",
+    ]);
 
     await user.click(screen.getByRole("button", { name: "Open navigation" }));
     await user.click(screen.getByRole("link", { name: "Plan" }));
     const signIn = await screen.findByRole("link", { name: "Sign in with DungeonMind" });
     expect(signIn.getAttribute("href")).toBe("/api/auth/login?return_to=%2Fplan");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/auth/session");
+    expect(fetchMock.mock.calls.filter(([path]) => String(path) === "/api/auth/session")).toHaveLength(1);
 
     await act(async () => {
       window.history.back();
       await waitFor(() => expect(window.location.pathname).toBe("/"));
     });
-    expect(await screen.findByRole("button", { name: "Mara Venn, person" })).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole("button", { name: "Lina, person" })).toBeInTheDocument();
+    expect(fetchMock.mock.calls.filter(([path]) => String(path) === "/api/auth/session")).toHaveLength(1);
   });
 
   it.each(["/?world=hosted-world", "/?auth_error=cancelled", "/#section", "/unknown-path"]) (

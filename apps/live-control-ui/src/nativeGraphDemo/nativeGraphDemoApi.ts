@@ -85,6 +85,11 @@ export type OperationLookupResult =
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 type CapabilityReader = () => string;
+/**
+ * Transport injection keeps the native DTO validation shared while allowing
+ * Buddy to establish its own browser-scoped session and CSRF header.
+ */
+export type NativeGraphDemoTransport = (path: string, init: RequestInit) => Promise<Response>;
 
 export interface NativeGraphDemoApi {
   readGraph(): Promise<NativeGraph>;
@@ -150,33 +155,40 @@ function errorFromBody(body: unknown, status: number): NativeGraphDemoApiError {
 export function createNativeGraphDemoApi(options: {
   readonly fetcher?: FetchLike;
   readonly readCapability?: CapabilityReader;
+  readonly transport?: NativeGraphDemoTransport;
 } = {}): NativeGraphDemoApi {
   const fetcher = options.fetcher ?? ((input, init) => globalThis.fetch(input, init));
   const readCapability = options.readCapability ?? readCapabilityFromDocument;
+  const transport = options.transport;
 
   async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-    const capability = readCapability();
-    if (!capability) {
-      throw new NativeGraphDemoApiError(
-        "The native demo capability is missing from this page. Open the demo from its local DungeonMind service.",
-        "missing_capability",
-        0,
-      );
-    }
-
     const headers = new Headers(init.headers);
     headers.set("Accept", "application/json");
-    headers.set("X-Demo-Capability", capability);
     if (init.body !== undefined) headers.set("Content-Type", "application/json");
+
+    if (!transport) {
+      const capability = readCapability();
+      if (!capability) {
+        throw new NativeGraphDemoApiError(
+          "The native demo capability is missing from this page. Open the demo from its local DungeonMind service.",
+          "missing_capability",
+          0,
+        );
+      }
+      headers.set("X-Demo-Capability", capability);
+    }
 
     let response: Response;
     try {
-      response = await fetcher(path, {
+      const requestInit: RequestInit = {
         ...init,
         headers,
         cache: "no-store",
         credentials: "same-origin",
-      });
+      };
+      response = transport
+        ? await transport(path, requestInit)
+        : await fetcher(path, requestInit);
     } catch (error) {
       throw new NativeGraphDemoApiError(
         error instanceof Error ? error.message : "The native graph service could not be reached.",

@@ -225,9 +225,11 @@ function operationName(operation: PendingNativeOperation): string {
 
 export interface NativeGraphDemoProps {
   readonly api?: NativeGraphDemoApi;
+  /** Render inside Buddy's existing AppChrome frame instead of a standalone page. */
+  readonly embedded?: boolean;
 }
 
-export function NativeGraphDemo({ api: providedApi }: NativeGraphDemoProps) {
+export function NativeGraphDemo({ api: providedApi, embedded = false }: NativeGraphDemoProps) {
   const api = useMemo(() => providedApi ?? createNativeGraphDemoApi(), [providedApi]);
   const [graph, setGraph] = useState<NativeGraph | null>(null);
   const graphRef = useRef<NativeGraph | null>(null);
@@ -727,16 +729,16 @@ export function NativeGraphDemo({ api: providedApi }: NativeGraphDemoProps) {
   }, [graph, layout]);
 
   if (loading && !graph) {
-    return <main className="native-demo-shell"><div className="native-demo-loading" role="status">Opening the DungeonMind graph…</div></main>;
+    return <main className={`native-demo-shell${embedded ? " native-demo-shell--embedded" : ""}`}><div className="native-demo-loading" role="status">Opening the DungeonMind graph…</div></main>;
   }
 
   if (!graph) {
     return (
-      <main className="native-demo-shell">
+      <main className={`native-demo-shell${embedded ? " native-demo-shell--embedded" : ""}`}>
         <section className="native-demo-error-card" aria-labelledby="native-demo-title">
-          <p className="native-demo-kicker">DUNGEONMIND · NATIVE GRAPH</p>
+          <p className="native-demo-kicker">{embedded ? "BUDDY · GRAPH PLAYGROUND" : "DUNGEONMIND · NATIVE GRAPH"}</p>
           <h1 id="native-demo-title">The graph is not available yet</h1>
-          <p role="alert">{notice?.text ?? "The isolated DungeonMind service has not returned a graph."}</p>
+          <p role="alert">{notice?.text ?? (embedded ? "Buddy could not open this private graph right now." : "The isolated DungeonMind service has not returned a graph.")}</p>
           <button className="native-demo-button native-demo-button--light" type="button" onClick={() => void refreshGraph()} disabled={refreshing}>
             {refreshing ? "Checking…" : "Try again"}
           </button>
@@ -746,16 +748,18 @@ export function NativeGraphDemo({ api: providedApi }: NativeGraphDemoProps) {
   }
 
   return (
-    <main className="native-demo-shell">
+    <main className={`native-demo-shell${embedded ? " native-demo-shell--embedded" : ""}`}>
       <div className="native-demo-layout">
         <header className="native-demo-header">
-          <div className="native-demo-brand-mark" aria-hidden="true"><span>DM</span></div>
+          <div className="native-demo-brand-mark" aria-hidden="true"><span>{embedded ? "B" : "DM"}</span></div>
           <div className="native-demo-heading">
-            <p className="native-demo-kicker">A SMALL, REAL GRAPH WORKSPACE</p>
-            <h1>DungeonMind <span>native graph</span></h1>
-            <p>Explore the published World graph, then prepare and review a native change before confirming it.</p>
+            <p className="native-demo-kicker">{embedded ? "BUDDY · GRAPH PLAYGROUND" : "A SMALL, REAL GRAPH WORKSPACE"}</p>
+            <h1>{embedded ? <>Buddy <span>graph playground</span></> : <>DungeonMind <span>native graph</span></>}</h1>
+            <p>{embedded
+              ? "Explore a private synthetic graph backed by DungeonMind. Review each change before it is confirmed."
+              : "Explore the published World graph, then prepare and review a native change before confirming it."}</p>
           </div>
-          <div className="native-demo-storage-pill"><span aria-hidden="true" /> PostgreSQL · server-backed</div>
+          <div className="native-demo-storage-pill"><span aria-hidden="true" /> {embedded ? "Private · DungeonMind" : "PostgreSQL · server-backed"}</div>
         </header>
 
         {notice ? <div className={`native-demo-notice native-demo-notice--${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"}>{notice.text}</div> : null}
@@ -765,8 +769,8 @@ export function NativeGraphDemo({ api: providedApi }: NativeGraphDemoProps) {
           <section className="native-demo-graph-card" aria-labelledby="native-demo-graph-heading">
             <div className="native-demo-card-heading">
               <div>
-                <p className="native-demo-eyebrow">PUBLISHED WORLD</p>
-                <h2 id="native-demo-graph-heading">The living graph</h2>
+                <p className="native-demo-eyebrow">{embedded ? "SYNTHETIC GRAPH" : "PUBLISHED WORLD"}</p>
+                <h2 id="native-demo-graph-heading">{embedded ? "The graph so far" : "The living graph"}</h2>
               </div>
               <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void refreshGraph()} disabled={refreshing}>
                 <span aria-hidden="true">↻</span> {refreshing ? "Refreshing…" : "Refresh"}
@@ -873,7 +877,8 @@ export function NativeGraphDemo({ api: providedApi }: NativeGraphDemoProps) {
         </div>
 
         <footer className="native-demo-footer">
-          <span>DungeonMind is the semantic authority for this graph.</span>
+          <span>{embedded ? "This private demo graph is separate from your existing Worlds." : "DungeonMind is the semantic authority for this graph."}</span>
+          {embedded ? <span>This graph is saved by DungeonMind for this browser session. If the session expires or its cookie is cleared, this browser may lose its link to the graph.</span> : null}
           <span>Graph digest <code>{graph.graph_sha256.slice(0, 16)}…</code></span>
           <span>Browser storage holds only view layout and tab-scoped recoverable drafts.</span>
         </footer>

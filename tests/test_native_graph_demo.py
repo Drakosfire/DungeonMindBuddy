@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from apps.live_control_server.native_graph_demo import DemoError, NativeGraphDemoService
+from apps.live_control_server.native_graph_demo.storage import NativeGraphDemoStore
 from dungeonmind.infrastructure.memory.vnext_sources import (
     InMemoryNativeSourceEvidenceRepository,
 )
@@ -94,6 +95,28 @@ class NativeGraphDemoServiceTests(unittest.TestCase):
         self.assertEqual(stored.graph_payload_sha256, graph["graph_sha256"])
         self.assertTrue(all(node["id"].startswith("ent:") for node in graph["nodes"]))
         self.assertTrue(all(edge["id"].startswith("asrt:") for edge in graph["edges"]))
+
+    def test_injected_store_and_allocation_keep_guest_graphs_separate(self) -> None:
+        first_graph = self.service.graph()
+        second_temp = tempfile.TemporaryDirectory()
+        store = NativeGraphDemoStore(Path(second_temp.name))
+        second = NativeGraphDemoService(
+            self.repository,
+            storage_label="test-memory",
+            store=store,
+            allocation_id="buddy-index-graph:test-session-two",
+        )
+        try:
+            second_graph = second.graph()
+            self.assertNotEqual(first_graph["world_id"], second_graph["world_id"])
+            self.assertEqual(len(first_graph["nodes"]), len(second_graph["nodes"]))
+            first_ids = {node["id"] for node in first_graph["nodes"]}
+            second_ids = {node["id"] for node in second_graph["nodes"]}
+            self.assertTrue(first_ids.isdisjoint(second_ids))
+            self.assertEqual(self.service.graph()["world_id"], first_graph["world_id"])
+        finally:
+            second.close()
+            second_temp.cleanup()
 
     def test_create_prepare_confirm_and_replay_use_exact_native_readback(self) -> None:
         before = self.service.graph()
