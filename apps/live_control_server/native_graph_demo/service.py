@@ -2006,7 +2006,13 @@ class NativeGraphDemoService:
                 "DungeonMind could not verify its saved native evidence. The operation outcome may be uncertain. Check this same operation ID before recovery; do not create a replacement or assume it was committed.",
                 503,
             )
-        if isinstance(exc, (PersistenceUnavailableError, OSError)):
+        if isinstance(exc, PersistenceUnavailableError):
+            return DemoError(
+                "native_authority_unavailable",
+                "DungeonMind native authority is unavailable. A durable reservation or source admission may already exist. Check this same operation ID and use it for recovery; do not create a replacement operation.",
+                503,
+            )
+        if isinstance(exc, OSError):
             return DemoError("native_authority_unavailable", fallback, 503)
         if isinstance(exc, StaleParentRevisionError):
             return DemoError(

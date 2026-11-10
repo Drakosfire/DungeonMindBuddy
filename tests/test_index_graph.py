@@ -401,17 +401,26 @@ def test_native_readback_failure_after_checkpoint_recovers_same_operation(
     assert any(node["name"] == "Nima" for node in committed.json()["graph"]["nodes"])
 
 
-def test_native_integrity_error_during_prepare_retains_reservation_for_recovery(
+@pytest.mark.parametrize(
+    ("native_failure", "expected_code"),
+    [
+        (PersistenceUnavailableError, "native_authority_unavailable"),
+        (PersistenceIntegrityError, "native_authority_integrity_failure"),
+    ],
+)
+def test_native_persistence_error_during_prepare_retains_reservation_for_recovery(
     application_state_dsn: str,
     local_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
+    native_failure: type[Exception],
+    expected_code: str,
 ) -> None:
-    sentinel = "native-integrity-detail-sentinel"
+    sentinel = "native-persistence-detail-sentinel"
     fail_next_prepare = {"enabled": False}
 
     class FaultingRuntime:
         def prepare_change(self, _intent: Any) -> Any:
-            raise PersistenceIntegrityError(sentinel)
+            raise native_failure(sentinel)
 
     class FaultingService(NativeGraphDemoService):
         def _runtime(self, *, prepared_id: str):
@@ -437,7 +446,7 @@ def test_native_integrity_error_during_prepare_retains_reservation_for_recovery(
         json=request,
     )
     assert interrupted.status_code == 503
-    assert interrupted.json()["code"] == "native_authority_integrity_failure"
+    assert interrupted.json()["code"] == expected_code
     assert "same operation ID" in interrupted.json()["error"]
     assert sentinel not in str(interrupted.json())
     assert (
