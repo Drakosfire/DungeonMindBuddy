@@ -157,3 +157,22 @@ def test_thread_disposition_schema_allows_only_optional_string_node_type() -> No
     edge_payload["observation_edges"][0]["node_type"] = "thread"
     with pytest.raises(ValidationError):
         edge_validator.validate(edge_payload)
+
+
+def test_node_evidence_schema_binds_only_advertised_ids_without_mutating_defaults():
+    from src.graph_memory.extraction.category_candidate_graph_schema import node_schema_with_advertised_spans
+    schema = schema_for_pass('thread_pass')
+    original = deepcopy(schema)
+    bound = node_schema_with_advertised_spans(schema, ['paragraph:45-45'])
+    Draft202012Validator.check_schema(bound)
+    ref = {'source_span_ref_id': 'paragraph:45-45', 'anchor_quotes': ['exact words']}
+    item = {'item_id': 'held', 'label': 'Aside', 'reason': 'reported', 'evidence_refs': [ref], 'suggested_next_step': None}
+    payload = {'observation_nodes': [], 'ignored_items': [item], 'deferred_items': []}
+    Draft202012Validator(bound).validate(payload)
+    item['evidence_refs'][0]['source_span_ref_id'] = 'paragraph:45'
+    with pytest.raises(ValidationError):
+        Draft202012Validator(bound).validate(payload)
+    assert schema == original
+    Draft202012Validator(original).validate(payload)  # Unbound/default contract stays unchanged.
+    with pytest.raises(ValueError, match='advertised'):
+        node_schema_with_advertised_spans(schema, [])
