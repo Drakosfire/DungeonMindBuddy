@@ -1202,13 +1202,21 @@ export type SurfaceNativeWorkContextV1 =
   | {surface_id:'build';source_basis:WorldBuildGraphReceiptV1['source_basis']}
   | {surface_id:'plan';plan_basis:WorldPlanGraphContextReceiptV1['plan_basis'];plan_context_policy:WorldPlanContextPolicyV2;playable_target:WorldPlanGraphContextReceiptV1['playable_target']}
   | {surface_id:'play';play_basis:WorldPlayRunContextReceiptV2;play_sources:WorldPlayGraphContextReceiptV1['play_sources'];play_source_frame_sha256:string};
+/** Request admission is not a provider-envelope/token-count witness. */
+export interface NativePlanRequestAdmissionV1 {
+  assembler_version:'native_plan_request_admission_v1';
+  manifest_sha256:string;submitted_intent_sha256:string;dialogue_sha256:string;
+  tokenizer_name:string;tokenizer_version:string;
+  context_window_limit:number|null;output_token_reserve:number;
+}
 export interface SurfaceNativeContextReceiptV1 {
   schema:'dmb_surface_native_context_receipt_v1';receipt_serializer_version:'canonical-json-utf8-v1';
   context_receipt_sha256:string;provenance_sha256:string;work_context:SurfaceNativeWorkContextV1;
   source_authority:PlanSourceContextReceiptV1['source_authority'];
   native_query:NativeGraphQueryV4|NativeGraphQueryV3|NativePlanQueryV2|Extract<PlanNativeContextReceiptV1['native_query'],{schema:'dmb_native_plan_query_unavailable_v1'}>;
   assembled_input:(Omit<PlanSourceContextReceiptV1['assembled_input'],'assembler_version'> & {assembler_version:'surface_native_initial_v1'|'native_build_semantic_initial_v2'})
-    | {assembler_version:'reviewed_author_admission_v1';submitted_intent_sha256:string;assembled_input_sha256:string};
+    | {assembler_version:'reviewed_author_admission_v1';submitted_intent_sha256:string;assembled_input_sha256:string}
+    | NativePlanRequestAdmissionV1;
 }
 export interface SurfaceNativeCompletionV1 {
   schema:'dmb_surface_native_completion_v1';surface_id:'build'|'plan'|'play';context_receipt_sha256:string;

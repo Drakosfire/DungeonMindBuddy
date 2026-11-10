@@ -1,6 +1,12 @@
 # REFERENCE: qualify current Plan opening and retained recovery
 
-Status: ACTIVE bounded PRIME test-only slice. Base 341218a5819ccd9bd7cf279c3cf1348f77f0fb4d;
+Status: SOURCE SETTLED. PR2327 merged at 77006af9a813cf74dde12e35a29341b1d450087e
+from independently approved head be5b5587c1e201f4d0699924f1d42374ff12656b.
+Exact query-and-answer: 1195 passed; exact hosted frontend/build passed and evidence
+validated. The broader Rules diagnostic remains red as recorded below. No live
+service replacement occurred. The implementation lease is released.
+
+Historical bounded PRIME test-only slice. Base 341218a5819ccd9bd7cf279c3cf1348f77f0fb4d;
 branch codex/plan-opening-qualification-fixtures, existing buddy-context-loop checkout.
 Serial successor to merged PR2325; no unmerged parent or runtime resource lease.
 Original API/UI hold, surviving database protections and coordination-off remain.

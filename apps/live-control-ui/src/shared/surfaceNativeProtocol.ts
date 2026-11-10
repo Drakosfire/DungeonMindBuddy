@@ -1,4 +1,4 @@
-import type {SurfaceNativeContextReceiptV1,SurfaceNativeCompletionV1,SurfaceNativeWorkContextV1,PlanSourceContextReceiptV1} from '../api/types';
+import type {SurfaceNativeContextReceiptV1,SurfaceNativeCompletionV1,SurfaceNativeWorkContextV1,PlanSourceContextReceiptV1,NativePlanRequestAdmissionV1} from '../api/types';
 import {exact,canonical,isCollaboration,isDraftReferenceClaim,isRelatedPageClaim,isSavedSourceClaim} from './sourcePassageProtocol';
 import {isNativeGraphQuery,isNativeClauseCitation} from './nativeStatementAnswerProtocol';
 import {isNativeAssertionClaim,isNativeAssertionCitation} from './nativeAssertionProtocol';
@@ -27,6 +27,16 @@ export function isNativeProviderInput(input:unknown,assembler:'surface_native_in
     &&Array.isArray(input.included_history)&&input.included_history.every(pin=>exact(pin,['turn_id','answer_sha256'])&&uuid(pin.turn_id)&&hash(pin.answer_sha256))
     &&new Set(input.included_history.map(pin=>pin.turn_id)).size===input.included_history.length;
 }
+/** Closed presentation only; APP owns the manifest and later SDK authorization. */
+function isNativePlanRequestAdmission(input:unknown):input is NativePlanRequestAdmissionV1 {
+  return exact(input,['assembler_version','manifest_sha256','submitted_intent_sha256','dialogue_sha256',
+    'tokenizer_name','tokenizer_version','context_window_limit','output_token_reserve'])
+    &&input.assembler_version==='native_plan_request_admission_v1'
+    &&[input.manifest_sha256,input.submitted_intent_sha256,input.dialogue_sha256].every(hash)
+    &&[input.tokenizer_name,input.tokenizer_version].every(text)&&integer(input.output_token_reserve)
+    &&(input.context_window_limit===null||integer(input.context_window_limit,1)
+      &&input.output_token_reserve<=input.context_window_limit);
+}
 export function nativeWorkWorld(work:SurfaceNativeWorkContextV1):string {
   return work.surface_id==='build'?work.source_basis.world_id:work.surface_id==='plan'?work.plan_basis.world_id:work.play_basis.world_id;
 }
@@ -37,7 +47,10 @@ export function isSurfaceNativeReceipt(v:unknown,validateWork:(work:unknown)=>wo
   const world=nativeWorkWorld(v.work_context),a=v.source_authority,q=v.native_query;
   if(!isNativeSourceAuthority(a,world)||!isNativeGraphQuery(q,world))return false;
   if(q.schema!=='dmb_native_plan_query_unavailable_v1'&&'schema_version' in a&&['native_world_id','binding_version','revision_id','domain_ref','profile_ref','acquisition_epoch'].some(k=>canonical(a[k as keyof typeof a])!==canonical(q.authority[k as keyof typeof q.authority])))return false;
-  return isNativeProviderInput(v.assembled_input,'surface_native_initial_v1')||v.work_context.surface_id==='build'&&isNativeProviderInput(v.assembled_input,'native_build_semantic_initial_v2')||v.work_context.surface_id==='build'&&exact(v.assembled_input,['assembler_version','submitted_intent_sha256','assembled_input_sha256'])&&v.assembled_input.assembler_version==='reviewed_author_admission_v1'&&hash(v.assembled_input.submitted_intent_sha256)&&hash(v.assembled_input.assembled_input_sha256);
+  return isNativeProviderInput(v.assembled_input,'surface_native_initial_v1')
+    ||v.work_context.surface_id==='plan'&&isNativePlanRequestAdmission(v.assembled_input)
+    ||v.work_context.surface_id==='build'&&isNativeProviderInput(v.assembled_input,'native_build_semantic_initial_v2')
+    ||v.work_context.surface_id==='build'&&exact(v.assembled_input,['assembler_version','submitted_intent_sha256','assembled_input_sha256'])&&v.assembled_input.assembler_version==='reviewed_author_admission_v1'&&hash(v.assembled_input.submitted_intent_sha256)&&hash(v.assembled_input.assembled_input_sha256);
 }
 export function isSurfaceNativeCompletion(v:unknown,r:SurfaceNativeContextReceiptV1):v is SurfaceNativeCompletionV1 {
   if(!exact(v,['schema','surface_id','context_receipt_sha256','producing_provider_attempt_id','answer_basis','answer_context_status','answer_segments','collaboration','saved_source_citations','native_body_citations','native_clause_citations','native_assertion_citations'])

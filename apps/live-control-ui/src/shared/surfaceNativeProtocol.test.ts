@@ -187,3 +187,56 @@ it('accepts only the shared connected-page review on Plan, not other Build colla
  answer.collaboration={kind:'questions',questions:['Which entrance?']};
  expect(isSurfaceNativeCompletion(answer,c.receipt as SurfaceNativeContextReceiptV1)).toBe(false);
 });
+
+
+import openingWire from '../test/surface-native-plan-opening-http.json';
+import playWire from '../test/surface-native-play-http.json';
+it('accepts the actual request-admitted Plan HTTP wire without inventing SDK accounting',()=>{
+  const c=structuredClone(openingWire.context);
+  expect(isSurfaceNativeReceipt(c.receipt,work)).toBe(true);
+  expect(isSurfaceNativeContext(c,work,()=>true)).toBe(true);
+  expect(c.receipt.assembled_input.assembler_version).toBe('native_plan_request_admission_v1');
+  expect(c.receipt.assembled_input).not.toHaveProperty('provider_envelope_input_tokens');
+  expect(c.receipt.assembled_input).not.toHaveProperty('assembled_input_sha256');
+});
+it('keeps finite request-admission capacity coherent',()=>{
+  const c=structuredClone(openingWire.context);
+  Object.assign(c.receipt.assembled_input,{context_window_limit:100,output_token_reserve:10});
+  expect(isSurfaceNativeReceipt(c.receipt,work)).toBe(true);
+  c.receipt.assembled_input.output_token_reserve=101;
+  expect(isSurfaceNativeReceipt(c.receipt,work)).toBe(false);
+});
+it.each(['version','missing','extra','fake-sdk-count','manifest-format','intent-format','dialogue-format',
+  'tokenizer-name','tokenizer-version','negative-reserve','fractional-reserve','zero-limit','negative-limit',
+  'fractional-limit','string-limit','reserve-exceeds-limit','foreign-world','epoch'])(
+  'refuses malformed Plan request admission: %s',change=>{
+  const c=structuredClone(openingWire.context),input=c.receipt.assembled_input;
+  if(change==='version')Object.assign(input,{assembler_version:'unknown-native-request'});
+  else if(change==='missing')Reflect.deleteProperty(input,'manifest_sha256');
+  else if(change==='extra')Object.assign(input,{extra:true});
+  else if(change==='fake-sdk-count')Object.assign(input,{provider_envelope_input_tokens:0});
+  else if(change==='manifest-format')input.manifest_sha256='invalid';
+  else if(change==='intent-format')input.submitted_intent_sha256='invalid';
+  else if(change==='dialogue-format')input.dialogue_sha256='invalid';
+  else if(change==='tokenizer-name')input.tokenizer_name='';
+  else if(change==='tokenizer-version')input.tokenizer_version='';
+  else if(change==='negative-reserve')input.output_token_reserve=-1;
+  else if(change==='fractional-reserve')input.output_token_reserve=0.5;
+  else if(change==='zero-limit')input.context_window_limit=0;
+  else if(change==='negative-limit')input.context_window_limit=-1;
+  else if(change==='fractional-limit')input.context_window_limit=0.5;
+  else if(change==='string-limit')Object.assign(input,{context_window_limit:'100'});
+  else if(change==='reserve-exceeds-limit')Object.assign(input,{context_window_limit:10,output_token_reserve:11});
+  else if(change==='foreign-world')c.receipt.source_authority.managed_world_id='foreign';
+  else c.receipt.native_query.authority.acquisition_epoch++;
+  expect(isSurfaceNativeReceipt(c.receipt,work)).toBe(false);
+});
+it.each(['build','play'] as const)('does not use Plan request admission on %s',surface=>{
+  const receipt=structuredClone(surface==='build'
+    ?buildWire.proposal_wire.response.knowledge_context.receipt:playWire.response.play_context.receipt);
+  const validateWork=(value:unknown):value is SurfaceNativeWorkContextV1=>
+    typeof value==='object'&&value!==null&&'surface_id' in value&&value.surface_id===surface;
+  expect(isSurfaceNativeReceipt(receipt,validateWork)).toBe(true);
+  Object.assign(receipt,{assembled_input:structuredClone(openingWire.context.receipt.assembled_input)});
+  expect(isSurfaceNativeReceipt(receipt,validateWork)).toBe(false);
+});

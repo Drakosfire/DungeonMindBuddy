@@ -188,3 +188,15 @@ def test_request_grant_cannot_change_manifest_query_or_repeat(change):
     with pytest.raises(ValueError):
         events = [grant, request_grant(context, record, sequence=1)] if change == 'duplicate' else [grant.model_copy(update=changes)]
         validate_context_binding(context, execution(context.context_receipt_sha256, record.policy, events))
+
+
+def test_captured_plan_opening_ui_wire_uses_the_current_backend_response_model():
+    from pathlib import Path
+    from apps.live_control_server.models.agent_turn import AgentSurfaceNativeContextResponseV1
+    wire = json.loads((Path(__file__).parents[1] / 'apps/live-control-ui/src/test/surface-native-plan-opening-http.json').read_text())
+    context = AgentSurfaceNativeContextResponseV1.model_validate_json(json.dumps(wire['context']))
+    assert type(context.receipt.assembled_input) is NativePlanRequestAdmissionV1
+    assert context.receipt.work_context.surface_id == 'plan'
+    assert context.completion.native_assertion_citations
+    assert wire['source']['citation'] == context.completion.native_assertion_citations[0].model_dump(mode='json',by_alias=True)
+    assert wire['source']['world_id'] == context.receipt.work_context.plan_basis.world_id
