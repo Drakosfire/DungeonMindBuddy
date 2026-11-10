@@ -12,6 +12,102 @@ from evals.buddy_benchmark import workflow as w
 from evals.buddy_benchmark.artifacts import immutable_save, row_inventory
 
 
+def test_context_tasting_freezes_shared_input_and_retains_failures(tmp_path, monkeypatch):
+    import generationengine
+    from application_state.agent_conversation import native_evidence_view, types
+    frame = {"user_question": "A generic question"}
+    monkeypatch.setattr(native_evidence_view, "semantic_frame_in_request", lambda *a, **k: frame)
+    packet = {"tools": [], "instructions": "Same voice", "input": [{"role": "user", "content": "Evidence"}],
+        "text": {"format": {"schema": {"type": "object"}, "name": "answer"}}, "reasoning": {"effort": "low"}}
+    raw = json.dumps(packet).encode()
+    request = put(tmp_path / "source.json", {"body_hex": raw.hex(), "body_sha256": sha256(raw).hexdigest(), "body_size": len(raw)})
+    ready = put(tmp_path / "ready.json", {"frame_sha256": types.canonical_sha256(frame)})
+    seen = []
+    class Client:
+        async def generate_structured(self, request, **kwargs):
+            seen.append(request)
+            if request.model == "test/failure":
+                raise ValueError("retained failure")
+            return SimpleNamespace(text='{}', parsed={}, observation=SimpleNamespace(model_dump=lambda **k: {"cost_status": "unavailable"}))
+        async def aclose(self):
+            pass
+    monkeypatch.setattr(generationengine, "GenerationClient", Client)
+    manifest = tmp_path / "manifest.json"
+    put(manifest, {"schema": "dmb_context_tasting_v1", "source_request": request, "context_ready": ready,
+        "models": ["test/success", "test/failure"]})
+    output = tmp_path / "output"
+    w.context_tasting(manifest, output)
+    assert len(seen) == 2
+
+    assert {r.system_prompt for r in seen} == {"Same voice"}
+    assert len({r.user_prompt for r in seen}) == 1
+    assert seen[0].user_prompt == "Evidence"
+    cohort = json.loads((output / "cohort.json").read_text())
+    assert {r["status"] for r in cohort["results"]} == {"returned", "failed"}
+    blind = (output / "blind-answers.json").read_text()
+    assert "test/success" not in blind and "test/failure" not in blind
+    assert "observation" not in blind
+    with pytest.raises(FileExistsError):
+        w.context_tasting(manifest, output)
+    assert len(seen) == 2
+
+
+def test_tasting_adapter_actual_sdk_wire_is_common_across_models():
+    import asyncio
+    import httpx
+    from openai import AsyncOpenAI
+    from generationengine import GenerationClient, TextRequest
+    from generationengine.providers.openrouter_text import OpenRouterTextProvider
+    wires = []
+    schema = {"type": "object", "properties": {}, "required": [], "additionalProperties": False}
+    def reply(request):
+        wires.append(json.loads(request.content))
+        return httpx.Response(200, json={"id": "offline-response", "object": "chat.completion",
+            "created": 1, "model": wires[-1]["model"],
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": "{}"}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 12}})
+    async def run():
+        sdk = AsyncOpenAI(api_key="offline", base_url="https://openrouter.ai/api/v1",
+            max_retries=0, http_client=httpx.AsyncClient(transport=httpx.MockTransport(reply)))
+        client = GenerationClient(text_providers={"openrouter": OpenRouterTextProvider(client=sdk)})
+        try:
+            for model in ["test/one", "test/two"]:
+                await client.generate_structured(TextRequest(provider="openrouter", model=model,
+                    system_prompt="Frozen voice", user_prompt="First context\n\nSecond context",
+                    temperature=None, json_schema=schema, schema_name="answer",
+                    max_conformance_retries=0, max_transport_retries=0))
+        finally:
+            await client.aclose()
+    asyncio.run(run())
+    assert len(wires) == 2
+    assert wires[0]["messages"] == wires[1]["messages"] == [
+        {"role": "system", "content": "Frozen voice"},
+        {"role": "user", "content": "First context\n\nSecond context"}]
+    assert all(wire["response_format"] == {"type": "json_schema", "json_schema": {
+        "name": "answer", "strict": True, "schema": schema}} for wire in wires)
+    assert all(wire["provider"]["require_parameters"] is True for wire in wires)
+
+
+def test_tasting_excludes_unsupported_endpoint_without_constructing_provider(tmp_path, monkeypatch):
+    import generationengine
+    from application_state.agent_conversation import native_evidence_view, types
+    frame = {"user_question": "Generic"}
+    monkeypatch.setattr(native_evidence_view, "semantic_frame_in_request", lambda *a, **k: frame)
+    monkeypatch.setattr(generationengine, "GenerationClient", lambda: pytest.fail("Excluded endpoint dispatched"))
+    packet = {"tools": [], "instructions": "Same voice", "input": [{"role": "user", "content": "Evidence"}],
+        "reasoning": {"effort": "low"}, "text": {"format": {"schema": {"type": "object"}, "name": "answer"}}}
+    raw = json.dumps(packet).encode()
+    request = put(tmp_path / "request.json", {"body_hex": raw.hex(), "body_size": len(raw), "body_sha256": sha256(raw).hexdigest()})
+    ready = put(tmp_path / "ready.json", {"frame_sha256": types.canonical_sha256(frame)})
+    catalog = put(tmp_path / "catalog.json", {"fixture/model": {"data": {"id": "fixture/model", "endpoints": [
+        {"tag": "unsupported", "supported_parameters": ["response_format", "reasoning"]}]}}})
+    manifest = tmp_path / "manifest.json"
+    put(manifest, {"schema": "dmb_context_tasting_v1", "models": ["fixture/model"],
+        "source_request": request, "context_ready": ready, "endpoint_catalog": catalog})
+    w.context_tasting(manifest, tmp_path / "output")
+    assert json.loads((tmp_path / "output" / "cohort.json").read_text())["results"] == [{"label": "A", "status": "excluded"}]
+
+
 def put(path, value):
     path.write_text(json.dumps(value))
     return {"path": str(path), "sha256": sha256(path.read_bytes()).hexdigest()}

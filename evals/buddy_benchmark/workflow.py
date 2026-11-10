@@ -726,9 +726,116 @@ def writer_capture(plan_path, output, *, transport=None):
         "ordinary_delivery": "not_exercised", "semantic_acceptance": "unknown"})
 
 
+def context_tasting(manifest_path, output):
+    """Provider-only comparison; never resume a product turn or retrieve evidence."""
+    import asyncio
+    from generationengine import GenerationClient, TextRequest
+    from application_state.agent_conversation.native_evidence_view import semantic_frame_in_request
+    from application_state.agent_conversation.types import canonical_sha256
+
+    path = Path(manifest_path).resolve()
+    spec = json.loads(path.read_text())
+    required = {"schema", "source_request", "context_ready", "models"}
+    if not required <= set(spec) or set(spec) - required - {"endpoint_catalog"} or spec["schema"] != "dmb_context_tasting_v1":
+        raise ValueError("Unknown context tasting specification")
+    envelope = json.loads(read_pin(spec["source_request"], path.parent))
+    ready = json.loads(read_pin(spec["context_ready"], path.parent))
+    raw = bytes.fromhex(envelope["body_hex"])
+    if (sha256(raw).hexdigest() != envelope["body_sha256"]
+            or len(raw) != envelope["body_size"] or ready["frame_sha256"] is None):
+        raise ValueError("Frozen writer request integrity differs")
+    packet = json.loads(raw)
+    frame = semantic_frame_in_request(packet, legacy_schemas=())
+    if frame is None or canonical_sha256(frame) != ready["frame_sha256"]:
+        raise ValueError("Frozen writer context-ready frame differs")
+    if packet["tools"] != [] or not packet["instructions"] or not packet["input"]:
+        raise ValueError("Tasting requires a tool-free retained writer packet")
+    if any(set(row) != {"role", "content"} or row["role"] != "user"
+           or not isinstance(row["content"], str) for row in packet["input"]):
+        raise ValueError("Tasting adapter requires ordered user text messages")
+    models = spec["models"]
+    if not models or len(models) != len(set(models)) or any(not isinstance(m, str) or "/" not in m for m in models):
+        raise ValueError("Tasting requires distinct explicit OpenRouter model identifiers")
+    routes = {}
+    if spec.get("endpoint_catalog") is not None:
+        catalog = json.loads(read_pin(spec["endpoint_catalog"], path.parent))
+        for model in models:
+            entry = catalog.get(model, {}).get("data", {})
+            if entry.get("id") != model:
+                raise ValueError("Endpoint catalog model binding differs")
+            routes[model] = sorted({endpoint["tag"] for endpoint in entry.get("endpoints", [])
+                if isinstance(endpoint.get("tag"), str) and endpoint["tag"]
+                and {"structured_outputs", "response_format"} <= set(endpoint.get("supported_parameters") or [])
+                and (packet["reasoning"]["effort"] is None or "reasoning" in (endpoint.get("supported_parameters") or []))})
+    directory = Path(output).resolve()
+    if directory.exists():
+        raise FileExistsError("Tasting output exists; no automatic replay")
+    directory.mkdir(parents=True, mode=0o700)
+    immutable_save(directory, "specification", spec)
+    immutable_save(directory, "frozen-packet", packet)
+    secrets.SystemRandom().shuffle(models)
+    mapping = {chr(65+i): model for i, model in enumerate(models)}
+    immutable_save(directory, "identity-key", mapping)
+    # GE's public request has one user string. Preserve raw ordered content,
+    # rather than JSON-escaping the original message array inside user content.
+    shared = dict(provider="openrouter", user_prompt="\n\n".join(row["content"] for row in packet["input"]),
+        system_prompt=packet["instructions"], temperature=None,
+        json_schema=packet["text"]["format"]["schema"], schema_name=packet["text"]["format"]["name"],
+        reasoning_effort=packet["reasoning"]["effort"],
+        max_output_tokens=packet.get("max_output_tokens"), max_conformance_retries=0, max_transport_retries=0)
+    immutable_save(directory, "shared-request", shared)
+
+    async def run():
+        semaphore = asyncio.Semaphore(2)
+        async def one(label, model):
+            async with semaphore:
+                target = directory / label
+                if model in routes and not routes[model]:
+                    immutable_save(target, "excluded", {"reason": "No declared native structured-output endpoint with requested parameters", "provider_attempt_count": 0})
+                    return {"label": label, "status": "excluded"}
+                immutable_save(target, "request", {**shared, "model": model})
+                started = time.perf_counter()
+                client = GenerationClient()
+                async def retain_attempt(event):
+                    immutable_save(target, "attempt-" + str(event.ordinal), event.model_dump(mode="json"))
+                try:
+                    parameters = dict(shared)
+                    if model in routes:
+                        from generationengine.types import ProviderRoute
+                        parameters["provider_route"] = ProviderRoute(order=tuple(routes[model]),
+                            allow_fallbacks=False, require_parameters=True)
+                        immutable_save(target, "route", parameters["provider_route"].model_dump(mode="json"))
+                    result = await client.generate_structured(TextRequest(model=model, **parameters),
+                        on_attempt_completed=retain_attempt)
+                    immutable_save(target, "result", {"text": result.text, "parsed": result.parsed,
+                        "observation": result.observation.model_dump(mode="json"),
+                        "elapsed_seconds": time.perf_counter()-started})
+                    return {"label": label, "status": "returned"}
+                except Exception as exc:
+                    observation = getattr(exc, "observation", None)
+                    immutable_save(target, "failure", {"exception_type": type(exc).__name__,
+                        "message": str(exc), "elapsed_seconds": time.perf_counter()-started,
+                        "observation": observation.model_dump(mode="json") if observation is not None else None})
+                    return {"label": label, "status": "failed"}
+                finally:
+                    await client.aclose()
+        return await asyncio.gather(*(one(label, model) for label, model in mapping.items()))
+    immutable_save(directory, "cohort", {"results": asyncio.run(run()),
+        "scope": "provider_only; no retrieval, APP delivery or local hardware measurement"})
+    blind = []
+    for label in mapping:
+        result_path = directory / label / "result.json"
+        if result_path.exists():
+            result = json.loads(result_path.read_text())
+            blind.append({"label": label, "text": result["text"], "parsed": result["parsed"]})
+        else:
+            blind.append({"label": label, "status": "excluded" if (directory / label / "excluded.json").exists() else "failed"})
+    immutable_save(directory, "blind-answers", blind)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("report", "capture", "capture-context", "writer-prepare", "writer-capture"))
+    parser.add_argument("mode", choices=("report", "capture", "capture-context", "writer-prepare", "writer-capture", "context-tasting"))
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--output", required=True)
     args = parser.parse_args(argv)
@@ -740,6 +847,8 @@ def main(argv=None):
         capture(args.manifest, args.output, context_only=True)
     elif args.mode == "writer-prepare":
         writer_prepare(args.manifest, args.output)
+    elif args.mode == "context-tasting":
+        context_tasting(args.manifest, args.output)
     else:
         writer_capture(args.manifest, args.output)
 

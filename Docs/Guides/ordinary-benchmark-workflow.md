@@ -122,3 +122,35 @@ The ad hoc ordinary Q09 launcher is superseded by this workflow after retained
 parity verification. Preserve its hash and nonexecuting provenance text rather
 than another executable runtime path. New questions add case data and reviewed
 assessment bindings, not another launcher.
+# Frozen-context model tasting
+
+`context-tasting --manifest tasting.json --output new-directory` reuses a pinned
+context-ready writer capture through GenerationEngine's OpenRouter adapter. It
+does not retrieve evidence, resume an APP turn, or publish anything. Manifest
+schema `dmb_context_tasting_v1` requires `source_request` and `context_ready`
+file/hash pins and distinct explicit `models`. The request body hash/size and
+semantic frame hash are checked before dispatch.
+
+The retained system prompt, input content, reasoning effort and output schema
+are shared across models. GE accepts a single user string: original ordered user
+message contents are joined with two newlines, without JSON-escaping their text.
+This common message-boundary adaptation and provider-native wrappers differ from
+the original OpenAI Responses wire; this is a provider-only comparison, not exact
+original wire replay. Gold is not added.
+The pinned GE OpenRouter adapter sends native strict JSON Schema in
+`response_format` and requires parameter-supporting endpoints. It does not append
+schema instructions to system/user prose or downgrade to prompt-only JSON.
+Optional `endpoint_catalog` pins a model-keyed public endpoints response snapshot;
+the workflow binds model IDs and allows only tags declaring `structured_outputs`,
+`response_format` and the requested reasoning control. No eligible endpoint means
+excluded, zero provider attempts. Explicit routes disable outside-list fallback.
+The original prompt-only tasting remains retained as a historical diagnostic.
+Models run once each, two concurrently, without transport/conformance retry.
+Returned outputs and failures are retained.
+OpenRouter's reported cost is authoritative when supplied; missing cost is unknown.
+
+Random blind labels are assigned before execution. `identity-key.json` is separate
+from `blind-answers.json`, which contains only labels, answers and failure status.
+Model-bearing request/observation files remain audit-only.
+Hosted open-weight runs do not measure local hardware performance. Existing output
+directories are refused, so an interrupted or failed tasting cannot silently replay.
