@@ -241,7 +241,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             if mode:
                 candidate=dict(destination='current_page',target='captured',replacement_markdown='A proposed copper lamp.',
                     summary='Proposed detail.',assumptions=['The lamp is invented.'])
-                if failure == 'target_unavailable':
+                if failure == 'target_unavailable' and len(self.calls) == 1:
                     candidate.update(target='unavailable', replacement_markdown='', summary='Untrusted provider summary.')
                 if mode=='image':
                     candidate=dict(prompt='https://not-an-image.test/directive' if failure=='unsafe_direction' else 'A proposed copper lamp beside an orchid.',alt='Proposed copper lamp illustration',purpose='illustration')
@@ -706,8 +706,19 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             assert response.status_code == 409, response.text
             assert response.json()['detail'] == {
                 'code': 'build_compose_target_unavailable',
-                'message': 'Select the passage you want Buddy to revise, then send your request again.',
+                'message': 'Select the passage you want Buddy to revise, then continue the saved request.',
             }
+            root = f'/api/live/agent/worlds/{world}/conversations'
+            messages = client.get(root + '/active/messages')
+            assert messages.status_code == 200, messages.text
+            row = messages.json()['messages'][-1]
+            assert row['status'] == 'interrupted'
+            assert row['author_interaction'] == 'select_passage'
+            retry = client.get(root + f"/{messages.json()['conversation_id']}/retry-context",
+                               params={'turn_ids': row['turn_id']})
+            assert retry.status_code == 200, retry.text
+            assert retry.json()['turns'][0]['context']['author_interaction'] == 'select_passage'
+            assert retry.json()['turns'][0]['context']['eligible'] is True
         else:
             assert response.status_code == 503, response.text
         assert len(writer.calls)==(0 if failure in {'native_work','rules_frame','used_rules'} else 1)
@@ -732,6 +743,41 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 assert record.state in {'failed','unknown'} and record.proposal is None
         assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
         assert lane.repo.get_head(world).head_revision_id==current_revision
+        if failure == 'target_unavailable':
+            from copy import deepcopy
+
+            service = AgentConversationService()
+            original = service.inspect_turn(world_id=world, turn_id=UUID(row['turn_id']))
+            resumed = deepcopy(body)
+            resumed['turn_id'] = str(uuid4())
+            resumed['retry_of'] = {'turn_id': row['turn_id'], 'revision': original.revision}
+            pointer = service.get_world_pointer(world).revision
+            resumed['build_draft_context']['expected_pointer_revision'] = pointer
+            capability = resumed['build_write_capability']
+            capability.update(idempotency_key=str(uuid4()), expected_pointer_revision=pointer)
+            before_calls = len(decisions.calls), len(writer.calls)
+            no_selection = client.post('/api/live/agent/turn', json=resumed)
+            assert no_selection.status_code == 409, no_selection.text
+            assert no_selection.json()['detail']['code'] == 'build_retry_unavailable'
+            assert (len(decisions.calls), len(writer.calls)) == before_calls
+            capability['basis']['selection'] = {'end': 18, 'text': 'An unsaved orchid'}
+            for offer in ('page_body_offer', 'page_end_offer'):
+                capability[offer] = {'end': 50}
+                wider = client.post('/api/live/agent/turn', json=resumed)
+                assert wider.status_code == 409, wider.text
+                assert wider.json()['detail']['code'] == 'build_retry_unavailable'
+                assert (len(decisions.calls), len(writer.calls)) == before_calls
+                del capability[offer]
+            result = client.post('/api/live/agent/turn', json=resumed)
+            assert result.status_code == 200, result.text
+            assert len(writer.calls) == 2
+            proposal_record = BuildProposalService().get(world, UUID(capability['idempotency_key']))
+            assert proposal_record.state == 'proposed'
+            assert proposal_record.reservation.basis.selection.text == 'An unsaved orchid'
+            assert not proposal_record.inserted_in_draft
+            assert service.inspect_turn(world_id=world, turn_id=original.turn_id) == original
+            assert get_workspace_document_snapshot(tmp_path,page.document_id) == source
+            assert lane.repo.get_head(world).head_revision_id == current_revision
         return
     assert response.status_code == 200, response.text + str(classic_calls)
     assert not classic_calls and len(writer.calls) == 1

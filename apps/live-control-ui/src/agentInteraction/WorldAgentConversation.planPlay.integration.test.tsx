@@ -15,7 +15,7 @@ vi.mock('../api/conversationLibraryApi',()=>({
  readActiveConversationMessages:vi.fn(async(world:string)=>{
    const page=await getWorldAgentConversationHistory(world);
    return {schema:'dmb_active_conversation_messages_v4',world_id:page.world_id,conversation_state:page.conversation_state,conversation_id:page.conversation_id,active_conversation_id:page.active_conversation_id,pointer_revision:page.pointer_revision,next_before_sequence:page.next_before_sequence,
-     messages:page.turns.map(row=>({turn_id:row.turn_id,sequence:row.sequence,status:row.lifecycle_status,user_text:row.user_text,assistant_text:row.assistant_text,citation_preview:null,reply_object:null,authored_references:row.authored_references??null,revision:'revision' in row?row.revision:1,idempotency_key:'idempotency_key' in row?row.idempotency_key:`11111111-1111-4111-8111-${String(row.sequence).padStart(12,'0')}`,provenance:row.provenance}))};
+     messages:page.turns.map(row=>({turn_id:row.turn_id,sequence:row.sequence,status:row.lifecycle_status,user_text:row.user_text,assistant_text:row.assistant_text,citation_preview:null,reply_object:null,authored_references:row.authored_references??null,author_interaction:row.retry_context?.author_interaction,revision:'revision' in row?row.revision:1,idempotency_key:'idempotency_key' in row?row.idempotency_key:`11111111-1111-4111-8111-${String(row.sequence).padStart(12,'0')}`,provenance:row.provenance}))};
  }),
  listConversations:vi.fn(async(world:string,status:string)=>({schema:'dmb_conversation_library_v1',world_id:world,status,items:[{conversation_id:'33333333-3333-4333-8333-333333333333',world_id:world,title:'Archived named work',status:'archived',name_revision:1,turn_count:1,created_at:'2026-10-24T00:00:00Z',updated_at:'2026-10-24T00:00:00Z'}],next_before:null})),
  readConversationName:vi.fn(async(world:string,id:string)=>({conversation_id:id,world_id:world,title:'Archived named work',status:'archived',name_revision:1,turn_count:1,created_at:'2026-10-24T00:00:00Z',updated_at:'2026-10-24T00:00:00Z'})),
@@ -1467,7 +1467,8 @@ describe("one App-level World conversation host across Plan and Play", () => {
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(initial);
     let reject!: (reason: Error) => void;
     vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise((_, fail) => { reject = fail; }));
-    render(<Harness initial="build" buildBridge={retryBridge()} />);
+    const bridge = retryBridge();
+    const view = render(<Harness initial="build" buildBridge={bridge} />);
     fireEvent.click(await screen.findByRole('button', {name: 'Open', exact: true}));
     const input = await screen.findByLabelText('Message DungeonBuddy');
     fireEvent.change(input, {target: {value: 'Revise the existing map description.'}});
@@ -1480,7 +1481,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     let finishHistory!: (page: WorldAgentConversationHistoryResponse) => void;
     const delayedHistory = new Promise<WorldAgentConversationHistoryResponse>(resolve => { finishHistory = resolve; });
     vi.mocked(getWorldAgentConversationHistory).mockReturnValue(delayedHistory);
-    const guidance = 'Select the passage you want Buddy to revise, then send your request again.';
+    const guidance = 'Select the passage you want Buddy to revise, then continue the saved request.';
     await act(async () => reject(new LiveApiError(guidance, 409, {code: 'build_compose_target_unavailable'})));
     expect(await screen.findByText(guidance)).toBeVisible();
 
@@ -1507,12 +1508,41 @@ describe("one App-level World conversation host across Plan and Play", () => {
         world_id: WORLD, conversation_id: initial.conversation_id!, turn_id: request.turn_id,
         revision: 4, root_id: request.turn_id, predecessor_id: null, successor_id: null,
         ordinal: 0, eligible: true, reason: 'ready' as const,
+        author_interaction: 'select_passage' as const,
       },
     };
-    await act(async () => finishHistory({...initial, schema: "dmb_agent_conversation_history_v3", turns: [terminal]}));
+    const settled = {...initial, schema: "dmb_agent_conversation_history_v3" as const, turns: [terminal]};
+    await act(async () => finishHistory(settled));
     await waitFor(() => expect(localStorage.getItem(pendingKey)).toBeNull());
     expect(screen.getByText(guidance)).toBeVisible();
     expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(settled);
+    view.unmount();
+    render(<Harness initial="build" buildBridge={bridge} />);
+    fireEvent.click(await screen.findByRole('button', {name: 'Open', exact: true}));
+    const resume = await screen.findByRole('button', {name: 'Continue with selection'});
+    expect(screen.getByText('Select the passage on this page that you want Buddy to revise.')).toBeVisible();
+    fireEvent.change(screen.getByLabelText('Message DungeonBuddy'), {target: {value: 'A newer composer draft'}});
+    fireEvent.click(resume);
+    expect(await screen.findByText('Select the passage on the page before continuing. Nothing was sent.')).toBeVisible();
+    expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+
+    const selected = insertionCapture();
+    selected.basis.selection = {end: 13, text: 'Unsaved page'};
+    selected.pageBodyOffer = {end: 17};
+    selected.pageEndOffer = {end: 17};
+    vi.mocked(bridge.capture).mockResolvedValue(selected);
+    vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise(()=>{}));
+    fireEvent.click(resume);
+    await waitFor(() => expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(2));
+    const resumed = vi.mocked(postWorldBuildAgentTurn).mock.calls[1][0];
+    expect(resumed.message).toBe(request.message);
+    expect(resumed.retry_of).toEqual({turn_id: request.turn_id, revision: 4});
+    expect(resumed.build_write_capability?.basis.selection).toEqual(selected.basis.selection);
+    expect(resumed.build_write_capability?.page_body_offer).toBeUndefined();
+    expect(resumed.build_write_capability?.page_end_offer).toBeUndefined();
+    expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('A newer composer draft');
   });
 
   it('clears a refused Build retry without overwriting newer writing or dispatching again',async()=>{

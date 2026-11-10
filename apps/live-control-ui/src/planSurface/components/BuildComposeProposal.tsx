@@ -98,7 +98,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, readHistory
       return false;
     } finally { running.current = false; if (mounted.current) setBusy(false); }
   }
-  async function prepareHarnessTurn(turnId:string,discussionOnly=false) {
+  async function prepareHarnessTurn(turnId:string,discussionOnly=false,requirePassage=false) {
     const start=current.current;
     if(!start.enabled||!start.bridge||!start.history)throw new Error('Open the current page and conversation before sending.');
     const snapshot=await start.bridge.captureContext();
@@ -111,6 +111,8 @@ export function useBuildCompose({ worldId, history, bridge, enabled, readHistory
         ||captured.basis.visibility!==snapshot.visibility||captured.basis.draft_sha256!==snapshot.draft_sha256
         ||captured.basis.editor_sha256!==snapshot.editor_sha256||captured.basis.draft_generation!==snapshot.draft_generation)throw new Error('The page changed while preparing this request. Send again.');
     }
+    if(requirePassage&&!captured?.basis.selection?.text.trim())
+      return {placementError:'Select the passage on the page before continuing. Nothing was sent.'};
     if(!mounted.current||current.current.scope!==start.scope||current.current.epoch!==start.epoch
       ||current.current.bridge!==start.bridge)throw new Error('The page or conversation changed before sending.');
     let pointer=start.history;
@@ -177,7 +179,9 @@ export function useBuildCompose({ worldId, history, bridge, enabled, readHistory
     if(captured)captures.current.set(action,captured);
     return {history:pointer,initializedConversation,draftContext:{snapshot,conversation_id:pointer.conversation_id,expected_pointer_revision:pointer.pointer_revision},
       capability:captured?{idempotency_key:action,conversation_id:pointer.conversation_id,expected_pointer_revision:pointer.pointer_revision,
-        basis:captured.basis,draft_markdown:captured.draftMarkdown,...(captured.pageBodyOffer?{page_body_offer:captured.pageBodyOffer}:{}), ...(captured.pageEndOffer?{page_end_offer:captured.pageEndOffer}:{})}:undefined};
+        basis:captured.basis,draft_markdown:captured.draftMarkdown,
+        ...(!requirePassage&&captured.pageBodyOffer?{page_body_offer:captured.pageBodyOffer}:{}),
+        ...(!requirePassage&&captured.pageEndOffer?{page_end_offer:captured.pageEndOffer}:{})}:undefined};
   }
   const values=records.scope===scope?records.values:[];
   const selected=opened?.documentId===pageDocumentId?opened:null;

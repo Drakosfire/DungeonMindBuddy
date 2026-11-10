@@ -42,6 +42,7 @@ class RetryContext(StrictModel):
     successor_id: UUID | None
     ordinal: int = Field(strict=True, ge=0)
     eligible: bool
+    author_interaction: Literal["select_passage"] | None = None
     reason: Literal[
         "ready",
         "not_terminal",
@@ -188,6 +189,15 @@ def _settled(conn, turn, *, lock=False):
     return "ready"
 
 
+def author_interaction(surface_id, work_kind, status, failure_code):
+    """Project a saved host decision, never provider text or an edit grant."""
+    if (surface_id, work_kind, status, failure_code) == (
+        "build", "build", "interrupted", "build_compose_target_unavailable"
+    ):
+        return "select_passage"
+    return None
+
+
 def context(conn, turn, *, active):
     meta = getattr(turn, "envelope", turn)
     if (
@@ -205,6 +215,10 @@ def context(conn, turn, *, active):
         if isinstance(turn, Turn)
         else "not_terminal"
     )
+    interaction = author_interaction(
+        meta.provenance.surface_id, meta.provenance.primary_work.kind,
+        meta.status, getattr(turn, "failure_code", None),
+    )
     value = RetryContext(
         world_id=meta.world_id,
         conversation_id=meta.conversation_id,
@@ -216,14 +230,17 @@ def context(conn, turn, *, active):
         ordinal=incoming[2] if incoming else 0,
         eligible=reason == "ready",
         reason=reason,
-    ).model_dump(mode="json")
+        author_interaction=interaction,
+    )
+    exclude = {"author_interaction"} if interaction is None else None
     execution = getattr(turn, 'graph_context_execution', None)
     references=(_references(execution) if execution is not None and (_native_action(execution) is not None
         or any(e.kind=='build_authored_references_captured_v1' for e in execution.events)) else None)
     if references is not None:
         # Input retention is neither a successful source read nor a retry grant.
-        return RetryContextV2(**value,authored_references=references).model_dump(mode='json',by_alias=True)
-    return value
+        return RetryContextV2(**value.model_dump(), authored_references=references).model_dump(
+            mode='json', by_alias=True, exclude=exclude)
+    return value.model_dump(mode='json', exclude=exclude)
 
 
 def validate_reference_retry(parent, intent):
@@ -342,7 +359,7 @@ def read_discussion_retry_input(world, conversation, turn_id, revision):
         }
 
 
-def validate_predecessor(conn, submission):
+def validate_predecessor(conn, submission, capability=None):
     intent = submission.submitted_intent_v2
     reference = intent.retry_of if isinstance(intent, BuildGraphIntentV1) else None
     if reference is None:
@@ -370,6 +387,20 @@ def validate_predecessor(conn, submission):
     ):
         raise RetryUnavailableError("Retry requires the same question and Build page")
     validate_reference_retry(parent, intent)
+    if author_interaction(old.surface_id, old.primary_work.kind, parent.status, parent.failure_code) == "select_passage":
+        from .build_draft_context import digest
+        from application_state.build_proposal.types import BuildWriteCapability
+
+        if (
+            not isinstance(capability, BuildWriteCapability)
+            or capability.basis.selection is None
+            or not capability.basis.selection.text.strip()
+            or capability.page_body_offer is not None
+            or capability.page_end_offer is not None
+            or reference.retained_snapshot_sha256 is not None
+            or intent.build_write_capability_sha256 != digest(capability.model_dump(mode="json"))
+        ):
+            raise RetryUnavailableError("Select a passage on the original page before continuing this saved request.")
     if reference.retained_snapshot_sha256 is not None:
         from .build_draft_context import digest
         record = retained_discussion_capture(parent)

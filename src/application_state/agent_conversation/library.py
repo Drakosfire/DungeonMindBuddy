@@ -231,7 +231,7 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
     from . import repository as repo
     from .authored_reference_preview import SELECT as reference_select, project as reference_preview
 
-    presentation = (""",completion,
+    presentation = (""",failure_code,completion,
         CASE WHEN jsonb_typeof(completion->'saved_source_citations')='array'
             AND completion->'saved_source_citations'<>'[]'::jsonb
             THEN graph_context_receipt->'work_context'->'source_basis'
@@ -256,6 +256,7 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
         message["turn_id"] = str(row["turn_id"])
         if metadata:
             from .saved_citation_preview import project
+            from .retry import author_interaction
             provenance=repo.turn_provenance(row,references[row["turn_id"]])
             message.update(
                 reply_object=_message_reply_object(row,provenance,conversation),
@@ -265,6 +266,11 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
                 revision=row["revision"],
                 provenance=provenance.model_dump(mode="json"),
             )
+            interaction = author_interaction(
+                provenance.surface_id, provenance.primary_work.kind, row["status"], row["failure_code"],
+            )
+            if interaction:
+                message["author_interaction"] = interaction
         messages.append(message)
     return messages, page[0]["sequence"] if len(rows) > limit else None
 

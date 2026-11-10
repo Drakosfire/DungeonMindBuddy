@@ -181,7 +181,7 @@ class BuildJevHarness:
                 raise
             if target_unavailable:
                 raise AgentTurnServiceError(
-                    "Select the passage you want Buddy to revise, then send your request again.",
+                    "Select the passage you want Buddy to revise, then continue the saved request.",
                     code="build_compose_target_unavailable", status_code=409,
                 ) from exc
             if self.output_limit_exceeded:
