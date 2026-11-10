@@ -23,7 +23,7 @@ class NativeGraphDemoServiceTests(unittest.TestCase):
         )
 
     def tearDown(self) -> None:
-        self.service._store.close()
+        self.service.close()
         self.temp.cleanup()
 
     def _operation_id(self) -> str:
@@ -245,7 +245,7 @@ class NativeGraphDemoServiceTests(unittest.TestCase):
         maras = [node for node in committed["graph"]["nodes"] if node["name"] == "Mara"]
         self.assertEqual(len(maras), 2)
         self.assertEqual(len({node["id"] for node in maras}), 2)
-        self.service._store.close()
+        self.service.close()
 
         restarted = NativeGraphDemoService(
             self.repository, self.state_dir, storage_label="test-memory"
@@ -256,7 +256,7 @@ class NativeGraphDemoServiceTests(unittest.TestCase):
             ),
             2,
         )
-        restarted._store.close()
+        restarted.close()
 
     def test_lost_response_recovers_native_receipt_before_replay(self) -> None:
         graph = self.service.graph()
@@ -409,6 +409,30 @@ class NativeGraphDemoServiceTests(unittest.TestCase):
             self.repository.get_head(graph["world_id"]).head_revision_id,
             head_after_admission.head_revision_id,
         )
+
+    def test_prepare_persists_reservation_before_native_source_admission(self) -> None:
+        graph = self.service.graph()
+        request = self._create_request(graph, name="Venn")
+        original_admit = self.service._admit_operation_source
+        observations: list[bool] = []
+
+        def check_reserved(request_data: dict[str, str], **kwargs: Any):
+            reservation = self.service._store.get_reservation(request["operation_id"])
+            observations.append(reservation is not None)
+            self.assertIsNone(
+                self.repository.get_native_source_admission_receipt(
+                    graph["world_id"],
+                    "native-graph-demo:operation-source:"
+                    + request["operation_id"].replace("-", ""),
+                )
+            )
+            return original_admit(request_data, **kwargs)
+
+        self.service._admit_operation_source = check_reserved
+        prepared = self.service.prepare(request)
+        self.assertEqual(prepared["status"], "prepared")
+        self.assertEqual(observations, [True])
+        self.assertIsNone(self.service._store.get_reservation(request["operation_id"]))
 
     def test_operation_quota_is_enforced_before_native_source_or_head_change(
         self,

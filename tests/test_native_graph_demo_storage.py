@@ -38,7 +38,7 @@ class NativeGraphDemoStorageTests(unittest.TestCase):
             self.assertEqual(len(recovered["nodes"]), 3)
             self.assertEqual(len(recovered["edges"]), 4)
             self.assertTrue(service._initialized)
-            service._store.close()
+            service.close()
 
     def test_reconstructed_service_recovers_seed_receipt_after_local_write_loss(
         self,
@@ -59,7 +59,7 @@ class NativeGraphDemoStorageTests(unittest.TestCase):
             first._confirm_record = lose_local_result
             with self.assertRaises(DemoError):
                 first.graph()
-            first._store.close()
+            first.close()
 
             restarted = NativeGraphDemoService(
                 repository, temp, storage_label="test-memory"
@@ -68,7 +68,7 @@ class NativeGraphDemoStorageTests(unittest.TestCase):
             self.assertEqual(len(recovered["nodes"]), 3)
             self.assertEqual(len(recovered["edges"]), 4)
             self.assertTrue(restarted._initialized)
-            restarted._store.close()
+            restarted.close()
 
     def test_service_restart_recovers_prepared_command_and_same_native_world(
         self,
@@ -90,7 +90,7 @@ class NativeGraphDemoStorageTests(unittest.TestCase):
             }
             prepared = first_service.prepare(request)
             self.assertEqual(prepared["status"], "prepared")
-            first_service._store.close()
+            first_service.close()
 
             restarted = NativeGraphDemoService(
                 repository, path, storage_label="test-memory"
@@ -101,7 +101,7 @@ class NativeGraphDemoStorageTests(unittest.TestCase):
             self.assertEqual(committed["status"], "committed")
             self.assertEqual(committed["graph"]["world_id"], first_graph["world_id"])
             self.assertIn("Sol", {node["name"] for node in committed["graph"]["nodes"]})
-            restarted._store.close()
+            restarted.close()
 
             final_service = NativeGraphDemoService(
                 repository, path, storage_label="test-memory"
@@ -110,7 +110,7 @@ class NativeGraphDemoStorageTests(unittest.TestCase):
                 final_service.operation(operation_id)["status"], "committed"
             )
             self.assertEqual(final_service.graph()["world_id"], first_graph["world_id"])
-            final_service._store.close()
+            final_service.close()
 
     def test_local_journal_keeps_command_metadata_not_graph_snapshots(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -130,7 +130,7 @@ class NativeGraphDemoStorageTests(unittest.TestCase):
                     "object_kind": "person",
                 }
             )
-            service._store.close()
+            service.close()
 
             connection = sqlite3.connect(path / "native_graph_demo.sqlite3")
             try:
@@ -171,7 +171,7 @@ class NativeGraphDemoStorageTests(unittest.TestCase):
                 storage_label="test-memory",
             )
             original_world = first.graph()["world_id"]
-            first._store.close()
+            first.close()
 
             second = NativeGraphDemoService(
                 InMemoryNativeSourceEvidenceRepository(),
@@ -182,7 +182,7 @@ class NativeGraphDemoStorageTests(unittest.TestCase):
                 second.graph()
             self.assertEqual(mismatch.exception.code, "space_binding_mismatch")
             self.assertNotEqual(original_world, second._space_id)
-            second._store.close()
+            second.close()
 
     def test_operation_payload_digest_fails_closed_after_edit(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

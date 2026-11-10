@@ -1773,12 +1773,19 @@ class NativeGraphDemoService:
                 503,
             )
         assert self._space_id is not None
-        aggregate = self._repository.get_prospective_publication(
-            self._space_id, prepared.dungeonmind_publication_id
-        )
-        receipt = self._repository.get_publication_receipt(
-            self._space_id, prepared.dungeonmind_publication_id
-        )
+        try:
+            aggregate = self._repository.get_prospective_publication(
+                self._space_id, prepared.dungeonmind_publication_id
+            )
+            receipt = self._repository.get_publication_receipt(
+                self._space_id, prepared.dungeonmind_publication_id
+            )
+        except Exception as exc:
+            raise DemoError(
+                "native_authority_unavailable",
+                "The native publication receipt could not be verified.",
+                503,
+            ) from exc
         if (
             aggregate is None
             or receipt is None
@@ -1831,7 +1838,20 @@ class NativeGraphDemoService:
                 503,
             )
         child_id = committed.get("child_revision_id")
-        child = self._repository.get_revision(self._space_id, child_id)
+        if not isinstance(child_id, str):
+            raise DemoError(
+                "journal_integrity_failure",
+                "The committed native child identity is malformed.",
+                503,
+            )
+        try:
+            child = self._repository.get_revision(self._space_id, child_id)
+        except Exception as exc:
+            raise DemoError(
+                "native_authority_unavailable",
+                "The exact committed native child could not be read.",
+                503,
+            ) from exc
         if (
             child is None
             or child.revision.revision_id != child_id
