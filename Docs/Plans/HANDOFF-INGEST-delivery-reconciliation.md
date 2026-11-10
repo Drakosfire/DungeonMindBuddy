@@ -1,77 +1,78 @@
-# INGEST: reconcile deferred delivery — self-contained occurrence claims
+# INGEST: reconcile deferred delivery — temporal evidence closure
 
-ACTIVE serial stage1 slice under the user’s deferred-fundamentals goal; root
-steward/implementation owner. Preserve accepted C1S1–10 evidence/Gold and negative
-findings. Citation/voice experiments remain deferred. No restoration of token caps.
+ACTIVE serial stage1 slice under user deferred-fundamentals goal; root owns design
+and implementation. Accepted C1S1–10 evidence/Gold remain intact; citation/voice
+research stays deferred. Historical token limits never override current None policy.
 
 ## Settled predecessors
 
-2360/af88d3ac recovered2093 source-reference constraints.2362/a17e3f12 removed the
-application output caps mistakenly restored by2361; provider-owned None remains
-current policy, historical study limits are not desired defaults.2364 merged
-2ac251f9d9c594277901359ef0f643a7eb21ded8 from reviewed6b510cc063ba7595d46df2910605dabe301d244b, recovering2079 direct-source precedence.
-Six production blobs match the original.326owner checks,623ingestion-and-review
-(82ownershipdeselected,52warnings), exact-SHA local hosted suite/build and independent
-review PASS. PostgreSQL confirmation/fresh support reads/idempotence proved.
-Old2079 closed only as duplicate code; its actual semantic quality HOLD remains
-preserved. Prior leases released; no serving runtime/primary changes.
-Evidence out/fundamentals-reconciliation-v1/direct-source-precedence-delivery/.
+2360 recovered2093 node evidence;2362/a17e3f12 removed ordinary output caps after
+user correction of2361.2364/2ac251f9 recovered direct-source precedence and retired
+2079 duplicate code while preserving its semantic HOLD.2365 merged8d8c805e999c5a4c33589da4718f78f5960c4dcc from reviewedaa1311b2f74c6c9f4eb36917af9403baecac5f11, recovering coupled2095/2108 occurrence claims.
+327focused tests,623ingestion-and-review (82ownershipdeselected,52warnings), exact
+local hosted verifier/build and independent review PASS. Production profile matches
+original1b505aa74718d28ec5443f98a59e5ea4af181478.2095/2108closed as duplicate delivery;
+original failures and exact-build reviewed S5 success remain scoped. Concurrent
+2363 Play reference history has no overlap with that four-file lease. No full
+merged-main release qualification, serving-runtime or primary change. Leases released.
+Evidence out/fundamentals-reconciliation-v1/occurrence-claims-delivery/.
 
-## Current bounded outcome and lease
+## Current bounded serial authority
 
-Base2ac251f9d9c594277901359ef0f643a7eb21ded8; branch
-codex/ingest-occurrence-claims-delivery; non-serving recorded-names-control checkout.
-No unmerged dependency or overlapping Surface/Storage/CI lease. Historical INGEST
-branches grant no concurrent active lease here. Independent design critique PASS.
+Base8d8c805e999c5a4c33589da4718f78f5960c4dcc; branch
+codex/ingest-temporal-witness-delivery; non-serving recorded-names-control checkout.
+No unmerged dependency; refreshed open Surface/Storage/CI/historical INGEST PRs do
+not own this active write set. Old branch handoffs are evidence, not concurrent
+activation. Independent design critique PASS before this activation.
 
-Recover the coupled producer capability from2095/d121dc9c2b2efaf4a40486e68f5be376fc3f5601
-and2108/1b505aa74718d28ec5443f98a59e5ea4af181478.2095 includes both original commits,
-not only its final four-line delta. Both instructions occur in the immutable accepted
-configuration. Participants/actions/objects/outcomes and explicit relative order
-must survive as self-contained node descriptions. Definite occurred actions needed
-for order are event candidates, not merely clues; uncertainty about object/result
-does not imply uncertainty about occurrence. Preserve actual uncertainty and avoid
-duplicate event/clue identities. No order inferred from paragraph/node/list position.
+Recover final _EXPLICIT_PASSAGE_TRANSITIONS fromad421f8cc7f06cfea90db1732ec6bb70d561a6b7
+covering2111/2116/2120. Byte-for-byte clause occurs in frozen accepted configuration.
+One coherent invariant: resolve temporal antecedents from supported surrounding
+context, name both occurrences and their directed relation, and attach evidence for
+earlier occurrence/later occurrence/connective on the claim itself. Evidence on
+another node cannot close a missing witness. Preserve uncertain antecedents, topic
+changes, concurrency, proposals and unresolved order; no paragraph-order inference,
+total timeline or fictional elapsed time from narrative presentation/flashbacks.
 
-One coherent producer fix: the description-only intermediate retained66facts but
-left chronology unproven. Its dependent event-kind refinement yielded reviewed S5
-publication/readback acceptance on its original pin. Combine the same existing
-instructions instead of re-delivering the known insufficient intermediate. This is
-not a claim of raw extraction precision or current full-session acceptance; original
-failed captures, held alternatives and exact scope of retained successes remain.
+One final instruction only: intermediate variants stay in Git/history. Reuse the
+historical before-whole-block scope fixture and final two owner tests. Do not import
+the redundant intermediate-antecedent restoration test/fixture. No new pass, schema,
+repair, source producer, fallback, corpus example or question-specific rule.
 
 Exclusive expected writes:
 - this handoff
 - src/graph_memory/extraction/recap_extraction_profile.py
 - tests/test_recap_source_faithfulness_profile.py
-- tests/fixtures/recap_prompt_scope_before_occurrence_kinds.json
+- tests/fixtures/recap_prompt_scope_before_explicit_transitions.json
 
-No new pass, schema, repair, representation, producer, corpus example or fallback.
-Worldbuilding and unrelated prompts stay unchanged. Generic instructions only.
-Output policy, route, reasoning, execution controls and source authority unchanged.
+Historical findings stay explicit:2111actual compliance unproven;2116S6finaledge
+retained all5chronology checks but publication HOLD from wrong quote-to-span group
+nomination;2120fresh S6missed contract-before-shopping, quality HOLD, no publication.
+Restoring the accepted reference does not prove causal quality improvement, source
+entailment, correct quote binding or current full-session acceptance. No paid rerun.
 
-## Verification and resources
+## Verification/resources
 
-Check rendered prompt distribution and schemas with exact historical snapshots;
-source rows remain present and unchanged. Existing tests separately account for
-description refinement and thread-only occurrence instruction. Test ordinary SDK
-omits output caps and incomplete responses remain failures. Exact-SHA locked Python
-focused owner tests plus ingestion-and-review; local hosted frontend verifier and
-validate; independent exact-head cumulative review. No frontend change/full
-discovered-release qualification claim. No paid rerun to prove prompt delivery.
+Verify exact parent prompt restoration after removing final clause; all source rows,
+unrelated prompts/worldbuilding and schemas unchanged. Synthetic temporal/topic/
+flashback/proposed/ambiguous/concurrent frames remain source alongside guard rules.
+Include ordinary SDK cap omission and incomplete-output failure tests. Qualify exact
+clean SHA in locked Python focused tests and ingestion-and-review; repo-owned local
+hosted verifier+validate; independent exact-head cumulative review. No frontend
+changes/full discovered-release qualification claim.
 
-Only fresh fixture-owned APP templates/clones dungeonbuddy_app_state_test_* and
-Core dmb_recap_source_test_* DBs on isolated55447, pinned430c Core migrations and
-existing cleanup. No retained/operator DB, foreign sessions, primary state, runtime,
-service, environment, migration/deployment or provider changes. Inert credentials;
-redact diagnostics. One bounded PR; standing full merge authority. Supersede2095/2108
-only after current source parity and owner verification; preserve historical claims.
-Evidence out/fundamentals-reconciliation-v1/occurrence-claims-delivery/.
+Only fresh existing fixture-owned APP dungeonbuddy_app_state_test_* templates/clones
+and Core dmb_recap_source_test_* DBs on55447; pinned430c Core migrations/cleanup.
+No retained/operator DB, foreign sessions, primary state, runtime/service/environment,
+provider, deployment or migration changes. Inert credentials; redact diagnostics.
+Evidence out/fundamentals-reconciliation-v1/temporal-witness-delivery/. One bounded
+PR; full merge rights apply. Retire original duplicate PRs only after current-source
+parity and qualification, preserving all historical HOLDs and downstream boundaries.
 
-## Remaining goal
+## Remaining objective
 
-Reconcile the initial47open INGEST inventory by actual capability/supersession;
-not47assumedbugs. Later configuration/materialization/assessment changes and full
-ordinary current DB-owned ingestion→review→publication remain unproven. Serving
-API76bb8c4b/UI04f5f0ad are not current-main delivery evidence. QA, Mirathorn,
-collaboration and six-second retrieval are subsequent obligations; goal incomplete.
+Initial47open INGEST inventory is not47bugs. Remaining attributed-evaluation prompt
+policy, materialization/configuration/evaluation/publication code and full current
+ordinary DB-owned chain need reconciliation. Serving API76bb8c4b/UI04f5f0ad remain
+separate from main. Subsequent QA, Mirathorn, collaboration and six-second retrieval
+remain active obligations; no whole-goal completion claim.

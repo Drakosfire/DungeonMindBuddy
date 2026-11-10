@@ -141,6 +141,28 @@ DEFAULT_SEMANTIC_STATE = {
     "visibility_state": "gm_private",
 }
 
+_EXPLICIT_PASSAGE_TRANSITIONS = (
+    "Before returning occurrence nodes, check explicit temporal transitions, "
+    "including transitions opening a source passage. Resolve references to "
+    "earlier and later occurrences using the surrounding source context. When "
+    "the source supports the referents and temporal meaning, state the directed "
+    "before/after relationship in an occurrence description with both occurrences "
+    "named. For each before/after claim, attach evidence_refs covering the earlier "
+    "occurrence, the later occurrence, and the source connective that establishes "
+    "their order. One paragraph is sufficient when it supplies all three; "
+    "otherwise cite each needed paragraph on that claim itself. Before returning "
+    "the node, check every ordering clause in its description against its own "
+    "references; evidence on another node cannot close a missing witness. "
+    "Preserve the connective's supported meaning: "
+    "listing both actions, or saying both precede another action, does not retain "
+    "their relative order. If the antecedent is ambiguous, the transition changes "
+    "topic rather than event time, or an action remains merely proposed, preserve "
+    "that limitation rather than asserting completed-event order. Do not derive "
+    "time from passage adjacency alone, complete a total timeline, or turn "
+    "narrative presentation or a flashback into fictional elapsed time. Preserve "
+    "concurrency, future modality and unresolved order. "
+)
+
 _SOURCE_ORDER_OCCURRENCES = (
     "Retain specific occurred events needed to express source-supported before/after "
     "relationships as event nodes. These can be actual discoveries, discussions, "
@@ -150,7 +172,8 @@ _SOURCE_ORDER_OCCURRENCES = (
     "An uncertain object or result does not make a definite occurrence unresolved; "
     "preserve uncertainty about whether an action occurred. Reuse the occurrence "
     "rather than duplicating it as both event and clue solely for categorization. "
-    "Bind each description to its source-supported episode, journey or situation so "
+    + _EXPLICIT_PASSAGE_TRANSITIONS
+    + "Bind each description to its source-supported episode, journey or situation so "
     "relative references remain understandable without paragraph or node order. "
     "Do not turn persistent people, places or topics into events. Keep concurrent "
     "or unresolved occurrences distinct without imposing an order."
