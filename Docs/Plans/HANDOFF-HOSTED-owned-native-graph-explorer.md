@@ -38,6 +38,27 @@ Keep the current entity/relationship canvas and actual loaded managed/native Wor
 
 No write lease to predecessor handoff or frontend currently. The earlier proposal below is reference context only; its prospective paths are NOT active leases. Changes outside this active table return to the coordinating root or explicit owner.
 
+
+## Activated frontend and pinned entity-inspection amendment
+
+The graph coordinator expressly released App.tsx, WorldSelector, liveApi.ts, HostedAuthGate and related tests after its loaded-snapshot assessment. The coordinator retains managedNativeGraphApi/nativeGraphDemoApi and canvas/detail presentation, plus AppChrome graph jump. This lane does not edit those retained files; reconcile their successor before final verification.
+
+The same owner-only capability now includes exact POST `/api/live/native-graph-inspection/read` for world-scoped entity selection only, using the unchanged InspectionRead/InspectionPin response contract. It is required by the user's select-point/inspect request. Hosted catalog and source selections remain denied; no evidence-as-graph-nodes capability. Ownership and full binding are checked before/after read, and the existing inspection service verifies the exact native/revision pin.
+
+Additional exclusive paths activated:
+- `apps/live_control_server/routes/native_graph_inspection.py` (only owner-scoped entity read dependency/guard)
+- `tests/test_native_graph_inspection.py` (preserve local-mode configuration under real dependency)
+- `apps/live-control-ui/src/auth/HostedAuthGate.tsx`
+- `apps/live-control-ui/src/auth/HostedAuthGate.test.tsx`
+- `apps/live-control-ui/src/App.tsx`
+- `apps/live-control-ui/src/App.guestEntry.test.tsx`
+- `apps/live-control-ui/src/selectedWorld/WorldSelector.tsx`
+- `apps/live-control-ui/src/selectedWorld/WorldSelector.test.tsx`
+- `apps/live-control-ui/src/api/liveApi.ts`
+- `apps/live-control-ui/src/api/liveApi.nativeGraphExplorerAuth.test.ts`
+
+Frontend must use same-origin HTTPS cookie auth only for five exact hosted POST paths (four explorer, one entity inspection) and GET world-containers. Never send a local bearer/CSRF to hosted or remote destinations; retain strict local path behavior for all other routes. Authenticated session subject is now returned by backend. Require exact subject to expose authenticated children; remount/invalidate subject-scoped graph/selection state and draft keys on account change/logout. Unsupported hosted new-World creation stays disabled. Auth service refresh failure must not silently expose an old account's graph. No frontend call is ownership authority.
+
 ## Pin and proof
 
 This handoff is committed before implementation. Local unit/auth proof uses scrubbed environment, disabled dotenv/conftest where appropriate and actual current middleware/native functions. Full APP/Core fixture and browser/TS/aggregate proof remain required before deployment readiness, and frontend activation remains pending. Current-source aggregate checks and independent review are required; passing scoped tests alone is not completion. No tests or gates are removed.
