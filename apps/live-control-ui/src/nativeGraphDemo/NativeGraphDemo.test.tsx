@@ -298,6 +298,34 @@ describe("NativeGraphDemo", () => {
     expect(screen.queryByText("This object is unavailable in the selected revision.")).not.toBeInTheDocument();
   });
 
+  it("clears stale focus and canvas selection on snapshot refresh without moving the camera", async () => {
+    const user = userEvent.setup();
+    const revisedGraph = { ...graph, revision_id: "revision-003", graph_sha256: "sha256:graph-003" };
+    const readGraph = vi.fn().mockResolvedValueOnce(graph).mockResolvedValueOnce(revisedGraph);
+    const api = makeApi({ readGraph });
+    vi.stubGlobal("ResizeObserver", undefined);
+    renderEmbeddedDemo({ api });
+    const mara = await screen.findByRole("button", { name: /Mara, npc/i });
+    const scene = screen.getByTestId("graph-scene");
+
+    await user.click(mara);
+    await user.click(screen.getByRole("button", { name: "Focus" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Exit focus" })).toBeInTheDocument());
+    const focusedBeforeRefresh = scene.getAttribute("transform");
+    await user.click(within(screen.getByTestId("surface-context-host")).getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(readGraph).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Exit focus" })).not.toBeInTheDocument());
+    expect(scene.getAttribute("transform")).toBe(focusedBeforeRefresh);
+
+    await user.click(screen.getByRole("button", { name: "Zoom in" }));
+    const cameraBeforeSecondFocus = scene.getAttribute("transform");
+    await user.click(screen.getByRole("button", { name: /Mara, npc/i }));
+    expect(screen.getByRole("heading", { name: "Connections in this loaded snapshot" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Focus" }));
+    await user.click(screen.getByRole("button", { name: "Exit focus" }));
+    await waitFor(() => expect(scene.getAttribute("transform")).toBe(cameraBeforeSecondFocus));
+  });
+
   it("discards managed details when the loaded snapshot changes before inspection returns", async () => {
     const user = userEvent.setup();
     const delayed = deferred<NativeGraphEntity>();
