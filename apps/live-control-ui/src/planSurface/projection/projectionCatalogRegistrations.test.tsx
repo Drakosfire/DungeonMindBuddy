@@ -3,23 +3,15 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useEffect } from "react";
 
-import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
-import { referenceFromGraphNode } from "../../graphReference";
-import type { GraphReferenceResolution } from "../../graphReference/types";
-import type { GraphProjectionNodeView } from "../../api/types";
-import { FIXTURE_DOC_ID, fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
-import { GRAPH_REFERENCE_PROJECTION_ID } from "../../surfaceInteraction/projection/projectionCatalog";
+import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import type { SurfaceConfig } from "../types";
 import { LegacyProjectionHostAdapter } from "./LegacyProjectionHostAdapter";
 import { AgentInteractionProjectionTestHost } from "./projectionTestHost";
 import { useProjection } from "./projectionContext";
-import { useAgentInteraction } from "../../agentInteraction/AgentInteractionProvider";
 import {
   GRAPH_REVIEW_DIAGNOSTICS_BINDING_ID,
   GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID,
   PLAN_CONTEXT_BINDING_ID,
-  PLAN_SURFACE_CONFIG_BINDING_ID,
-  GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
 } from "./projectionBindings";
 import { GraphReviewDiagnosticsProjectionBinding } from "../graphReviewWorkbench/GraphReviewDiagnosticsProjectionBinding";
 import { GraphReviewLiveStateProvider } from "../graphReviewWorkbench/GraphReviewLiveStateContext";
@@ -125,53 +117,6 @@ const ingestSurfaceConfig: SurfaceConfig = {
   theme: {},
 };
 
-const bubblesNode: GraphProjectionNodeView = {
-  node_id: "creature:bubbles",
-  label: "Bubbles the Float Goat",
-  kind: "creature",
-  role: "creature",
-  aliases: [],
-  source_domains: ["recap"],
-  evidence_badges: [],
-  adjacency: [],
-  anchored_to_focus_session: true,
-  summary: "A float goat rescued from the flooded river.",
-};
-
-const northGateNode: GraphProjectionNodeView = {
-  node_id: "location-north-gate",
-  label: "North Reach Gate",
-  kind: "location",
-  role: "location",
-  aliases: [],
-  source_domains: ["recap"],
-  evidence_badges: [],
-  adjacency: [],
-  anchored_to_focus_session: true,
-  summary: "The northern gate of Mireward Reach.",
-};
-
-function OpenReferenceButton({
-  resolution,
-}: {
-  resolution: GraphReferenceResolution;
-}) {
-  const { openGraphReference } = useProjection();
-  return (
-    <button
-      type="button"
-      onClick={() =>
-        openGraphReference({
-          resolution,
-          projectionState: "ready",
-        })
-      }
-    >
-      Open reference
-    </button>
-  );
-}
-
 describe("projection catalog registration inventory", () => {
   it("exports the exact Plan projection definition inventory", () => {
     expect(PLAN_PROJECTION_DEFINITIONS.map((entry) => entry.projectionId)).toEqual([
@@ -181,7 +126,6 @@ describe("projection catalog registration inventory", () => {
       "graph-preview",
       "graph-gold-review",
       "manual-review",
-      GRAPH_REFERENCE_PROJECTION_ID,
     ]);
   });
 
@@ -244,57 +188,6 @@ describe("explicit Plan definition renderer factories", () => {
     for (const other of others) {
       expect(other).not.toHaveBeenCalled();
     }
-  });
-
-  it("renders graph-reference as PlanReferenceObjectCard with memory tools and ingest session link", async () => {
-    const definition = PLAN_PROJECTION_DEFINITIONS.find(
-      (entry) => entry.projectionId === GRAPH_REFERENCE_PROJECTION_ID,
-    );
-    expect(definition).toBeDefined();
-    const resolution = {
-      kind: "resolved_graph",
-      locator: "dmb-node:location-north-gate",
-      reference: referenceFromGraphNode(northGateNode),
-      graphObject: buildGraphObjectCardFromNodeView(northGateNode),
-      graphNodeId: "location-north-gate",
-      projectionState: "ready",
-    } satisfies GraphReferenceResolution;
-    const config = {
-      id: "plan",
-      label: "Plan",
-      context: planContext,
-      sessionDescriptor,
-      tools: [],
-      canvas: { documentId: FIXTURE_DOC_ID },
-      theme: { themeId: "command" },
-    } satisfies SurfaceConfig;
-
-    render(
-      <>
-        {definition!.render({
-          projectionId: GRAPH_REFERENCE_PROJECTION_ID,
-          active: {
-            kind: "content",
-            key: "location-north-gate",
-            size: "wide",
-            title: "North Reach Gate",
-          },
-          bindings: {
-            [PLAN_SURFACE_CONFIG_BINDING_ID]: config,
-            [GRAPH_REFERENCE_RESOLUTION_BINDING_ID]: resolution,
-          },
-        })}
-      </>,
-    );
-
-    expect(await screen.findByLabelText(/North Reach Gate graph object/i)).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Actions" })).not.toBeInTheDocument();
-    expect(screen.getByText("Memory tools")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Review memory in \/ingest/i })).toHaveAttribute(
-      "href",
-      "/ingest?campaign=longmont-c2&session=session-21",
-    );
-    expect(screen.queryByLabelText(/selected object/i)).not.toBeInTheDocument();
   });
 });
 
@@ -365,29 +258,6 @@ describe("PlanProjectionCatalogRegistration integration", () => {
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
     expect(await screen.findByTestId("recap-module")).toBeInTheDocument();
-  });
-
-  it("renders graph-reference content through catalog resolution", async () => {
-    const user = userEvent.setup();
-    render(
-      <AgentInteractionProjectionTestHost config={planSurfaceConfig}>
-        <OpenReferenceButton
-          resolution={{
-            kind: "resolved_graph",
-            locator: `dmb-node:${bubblesNode.node_id}`,
-            reference: referenceFromGraphNode(bubblesNode),
-            graphObject: buildGraphObjectCardFromNodeView(bubblesNode),
-            graphNodeId: bubblesNode.node_id,
-            message: `Resolved graph node ${bubblesNode.label}.`,
-            projectionState: "ready",
-          }}
-        />
-        <LegacyProjectionHostAdapter />
-      </AgentInteractionProjectionTestHost>,
-    );
-
-    await user.click(screen.getByRole("button", { name: "Open reference" }));
-    expect(await screen.findByRole("heading", { level: 4, name: "Bubbles the Float Goat" })).toBeInTheDocument();
   });
 
   it("registers only published tool descriptors", () => {

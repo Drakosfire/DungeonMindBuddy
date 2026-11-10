@@ -1,6 +1,10 @@
 # REFERENCE: retire the unmounted Plan checklist
 
-ACTIVE PRIME serial deletion slice from0af325132b98eb9dba327126df3ae89029a0f644,
+SETTLED: merged #2342 at2254c046adf0bd14ea42077e021e4867da8412a2; UI-only
+delivered from reviewed541b421d74d2ac9917433991c9fb5c973cbbc483 on5202.
+Exact hosted/build and full diagnostic comparison retained; browser proof remains open.
+
+Historical ACTIVE PRIME serial deletion slice from0af325132b98eb9dba327126df3ae89029a0f644,
 branch codex/reference-retire-plan-checklist in existing context-loop checkout.
 CI2341 is merged; no unmerged dependency. User's active goal requires adoption/
 demolition closure. No LocalWorld/Index work; that feedback belongs to another model.
