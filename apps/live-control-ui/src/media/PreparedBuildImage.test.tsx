@@ -4,7 +4,7 @@ import { PreparedBuildImage,type PreparedImage } from './PreparedBuildImage';
 import type { CapturedBuildInsertion } from '../buildSurface/buildComposeBridge';
 const id='ac6c15cc-8c68-4732-8ae2-d9f3f051393a';
 const fixture=vi.hoisted(()=>({calls:[] as string[],selected:{} as Record<string,unknown>}));
-vi.mock('../api/liveApi',()=>({authenticatedApiFetch:vi.fn(async(path:string,init?:RequestInit)=>{
+vi.mock('../api/liveApi',async importOriginal=>({...await importOriginal<typeof import('../api/liveApi')>(),authenticatedApiFetch:vi.fn(async(path:string,init?:RequestInit)=>{
  fixture.calls.push((init?.method??'GET')+' '+path);
  if(path.includes('/preparations/')&&path.endsWith('/asset'))return{response:new Response(JSON.stringify({...fixture.selected,asset_id:id,revision:2}))};
  if(path.includes('/preparations/'))return{response:new Response(JSON.stringify(fixture.selected))};

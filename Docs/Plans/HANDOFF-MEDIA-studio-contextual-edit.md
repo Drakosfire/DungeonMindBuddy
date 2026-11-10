@@ -11,7 +11,9 @@ provider, mode, authority or automatic upload/Save.
 Branch codex/image-studio-contextual-edit, reused buddy-context-loop checkout.
 Open PRs inspected; hosted/Index/ingestion lanes do not claim these media paths.
 Exclusive lease: media/MediaImageWizard.tsx/.css, ImageContextEdit.tsx,
-MediaImageWizard.edit.test.tsx, contextualActions/ContextualAgentMenu.tsx
+MediaImageWizard.edit.test.tsx, PreparedBuildImage.test.tsx (retain real auth
+epoch/event exports in the existing partial network mock),
+contextualActions/ContextualAgentMenu.tsx
 (modal portal ownership only) and this handoff. Existing image API, backend,
 document occurrence application and dependencies read-only.
 Predecessors2370/2371 are merged and delivered, their media write leases released.
