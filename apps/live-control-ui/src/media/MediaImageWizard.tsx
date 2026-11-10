@@ -214,20 +214,16 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
   const phase = placing ? (selectionOnly ? 'Selecting image…' : placeAfterBlock ? 'Click or drop on a block to place the image after it' : 'Click the page or drop the image to place it') : pending ? 'Generating…' : saving ? 'Saving…' : error ? 'Couldn’t finish — expand for details' : completion || result ? 'Image ready' : 'Ready';
   const studio = <section className={'media-image-wizard' + (collapsed ? ' is-collapsed' : '')} aria-label="Create an image" aria-busy={pending}>
     <header className="media-image-wizard__header" role="toolbar" aria-label="Image Studio controls">
-      <div className="media-image-wizard__title-row"><h2>Image Studio</h2>
+      <h2>Image Studio</h2>
         <label className="media-image-wizard__purpose"><span className="sr-only">Creating</span><select aria-label="Image purpose" value={purpose} disabled={pending || placing || saving !== null} onChange={event => setPurpose(event.target.value as 'illustration' | 'map')}><option value="illustration">Illustration</option><option value="map" disabled={!mapFraming}>Map</option></select></label>
-        <div className="media-image-wizard__window-actions">
-          <button type="button" disabled={placing || saving !== null || !libraryReady} aria-label="Image library" title="Image library" onClick={() => { setCollapsed(false); void openLibrary(); }}><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="5" y="3" width="16" height="16" rx="2"/><path d="M3 7v14h14M7 15l4-4 3 3 2-2 3 3"/><circle cx="16" cy="8" r="1"/></svg></button>
-          <button type="button" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Expand image studio' : 'Collapse image studio'} aria-expanded={!collapsed}>{collapsed ? '↗' : '−'}</button>
-          <button type="button" onClick={() => { placementAbort.current?.abort(); onClose(); }} disabled={pending || saving !== null} aria-label="Close image studio">×</button>
-        </div></div>
-      <div className="media-image-wizard__status-row"><p role="status">{phase}</p>
+
+      <p className="media-image-wizard__phase" role="status" title={phase}>{phase}</p>
+      <div className="media-image-wizard__actions">
         {placing && <button type="button" onClick={cancelPlacement}>Cancel placement</button>}
         {libraryOpen && <button type="button" onClick={showCreate}>Back to studio</button>}
-      </div>
       {completion && (collapsed || libraryOpen || !result?.images.some(image => image.asset_id === completion.asset_id)) && <button type="button" disabled={placing || saving !== null} onClick={() => { setCollapsed(false); void reopen(completion.asset_id); }} aria-label="Open generated image in library">View generated image</button>}
-      {!collapsed && !libraryOpen && <div className="media-image-wizard__actions">
-        <button type="button" disabled={pending || placing || saving !== null || !configured || !libraryReady || !model || !prompt.trim()} onClick={submit}>{pending ? 'Generating your image…' : result ? 'Generate another image' : 'Generate image'}</button>
+      {!collapsed && !libraryOpen && <>
+        <button type="button" disabled={pending || placing || saving !== null || !configured || !libraryReady || !model || !prompt.trim()} onClick={submit} aria-label={pending ? 'Generating your image…' : result ? 'Generate another image' : 'Generate image'} title={result ? 'Generate another image' : 'Generate image'}>{pending ? 'Generating…' : result ? 'Regenerate' : 'Generate'}</button>
         {result?.images.map((image, index) => <span className="media-image-wizard__image-actions" key={image.asset_id}>
           {['staged', 'ready'].includes(image.state) && <ImageContextEdit key={image.asset_id} assetId={image.asset_id} previewOnly
             editable={!pending && !placing && saving === null} captureApply={() => {
@@ -246,7 +242,13 @@ export function MediaImageWizard({ onClose, onChoose, initialPrompt = '', initia
           {onChoose && ['staged', 'ready'].includes(image.state) && <button type="button" disabled={pending || placing || saving !== null || !selectable(image)} onClick={() => void choose(image, 'click')}>{placementLabel}</button>}
           <OriginalImageDownload dataUrl={image.data_url} mediaType={image.media_type} filename={`world-image-${index + 1}.${image.media_type.split('/')[1]}`} />
         </span>)}
-      </div>}
+      </>}
+      </div>
+      <div className="media-image-wizard__window-actions">
+          <button type="button" disabled={placing || saving !== null || !libraryReady} aria-label="Image library" title="Image library" onClick={() => { setCollapsed(false); void openLibrary(); }}><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="5" y="3" width="16" height="16" rx="2"/><path d="M3 7v14h14M7 15l4-4 3 3 2-2 3 3"/><circle cx="16" cy="8" r="1"/></svg></button>
+          <button type="button" onClick={() => setCollapsed(value => !value)} aria-label={collapsed ? 'Expand image studio' : 'Collapse image studio'} aria-expanded={!collapsed}>{collapsed ? '↗' : '−'}</button>
+          <button type="button" onClick={() => { placementAbort.current?.abort(); onClose(); }} disabled={pending || saving !== null} aria-label="Close image studio">×</button>
+        </div>
     </header>
     <div className="media-image-wizard__body" hidden={collapsed}>
     {libraryOpen && <section className="media-image-wizard__library" aria-label="Image library"><h3>Your images</h3>
