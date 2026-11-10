@@ -111,8 +111,8 @@ class BuildImageService:
         self, action_id: UUID, asset_id: UUID, owner: str, expected_revision: int
     ) -> BuildImagePreparation:
         asset = media.get_asset(asset_id, owner)
-        if asset["state"] != "ready":
-            raise ApplicationStateConflictError("Save the image before inserting it")
+        if asset["state"] not in {"staged", "ready"}:
+            raise ApplicationStateConflictError("The retained image is unavailable for placement")
         basis = self.get(action_id, owner)
         with unit_of_work(_ready_dsn()) as conn:
             pointer = _lock_pointer(conn, basis.reservation.basis.world_id)
