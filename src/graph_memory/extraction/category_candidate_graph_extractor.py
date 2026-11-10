@@ -19,6 +19,7 @@ from src.graph_memory.predicate_catalog import (
     prompt_markdown as predicate_catalog_prompt_markdown,
     predicate_family_for_type,
     validate_edge_predicate,
+    requires_relationship_evidence,
 )
 from src.graph_memory.extraction.extraction_profile import ExtractionPassSpec, ExtractionProfile
 from src.graph_memory.extraction.recap_extraction_profile import (
@@ -437,8 +438,8 @@ def render_category_pass_prompts(
             "`beat_id`, `order` (positive int), `title`, `summary`, `involved_node_ids` (may be empty), `evidence_refs`.\n"
             f"{evidence_rule}\n\n## Source Packet\n\n{src}\n"
         )
-    predicate_catalog = predicate_catalog_prompt_markdown()
     edge = active_profile.edge_pass
+    predicate_catalog = predicate_catalog_prompt_markdown(capabilities=edge.predicate_capabilities)
     session_volume = ""
     relationship_sweep = ""
     if active_profile.enable_session_relationship_sweep:
@@ -958,14 +959,15 @@ def _normalize_edge(
     raw: Mapping[str, Any],
     *,
     semantic_state: Mapping[str, str] | None = None,
+    predicate_capabilities: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     relationship_type = str(raw.get("relationship_type") or "").strip().lower()
     predicate_family = str(raw.get("predicate_family") or "").strip()
     if relationship_type and not predicate_family:
-        predicate_family = predicate_family_for_type(relationship_type)
+        predicate_family = predicate_family_for_type(relationship_type, capabilities=predicate_capabilities)
 
     warnings = [str(w) for w in (raw.get("warnings") or [])]
-    for code in validate_edge_predicate(relationship_type, predicate_family):
+    for code in validate_edge_predicate(relationship_type, predicate_family, capabilities=predicate_capabilities):
         marker = f"predicate_validation:{code}"
         if marker not in warnings:
             warnings.append(marker)
@@ -1133,7 +1135,8 @@ def consolidate_category_outputs(
     for raw in raw_edges:
         if not isinstance(raw, Mapping):
             continue
-        edge = _normalize_edge(raw, semantic_state=semantic_state)
+        edge = _normalize_edge(raw, semantic_state=semantic_state,
+                               predicate_capabilities=active_profile.edge_pass.predicate_capabilities)
         edge["from_node_id"] = cross_class_remap.get(edge["from_node_id"], edge["from_node_id"])
         edge["to_node_id"] = cross_class_remap.get(edge["to_node_id"], edge["to_node_id"])
         if edge["from_node_id"] in node_ids and edge["to_node_id"] in node_ids:
@@ -1197,6 +1200,7 @@ def repair_edge_evidence_refs(
     allowed_span_refs: set[str],
     *,
     inherit_from_endpoints: bool = True,
+    predicate_capabilities: tuple[str, ...] = (),
 ) -> dict[str, int]:
     """Normalize edge evidence; optionally inherit from endpoints when empty.
 
@@ -1218,7 +1222,9 @@ def repair_edge_evidence_refs(
         if refs:
             edge["evidence_refs"] = refs
             continue
-        if not inherit_from_endpoints:
+        if not inherit_from_endpoints or requires_relationship_evidence(
+            str(edge.get("relationship_type") or ""), capabilities=predicate_capabilities,
+        ):
             edge["evidence_refs"] = []
             continue
         from_id = str(edge.get("from_node_id") or "")
@@ -2064,6 +2070,7 @@ def _run_category_pipeline_impl(
         consolidated,
         allowed_span_refs,
         inherit_from_endpoints=inherit_edge_evidence,
+        predicate_capabilities=active_profile.edge_pass.predicate_capabilities,
     )
     sanitized, sanitize_diag = sanitize_parts(
         consolidated,

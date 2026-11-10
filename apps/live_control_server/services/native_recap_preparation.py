@@ -31,7 +31,11 @@ from apps.live_control_server.services.graph_run_registry import load_reviewable
 from graph_memory.anchor_quotes import find_anchor_quote_matches
 from graph_memory.candidate_document_integrity import classify_candidate_document_integrity
 from graph_memory.candidate_graph_preview import NODE_TYPES
-from graph_memory.vnext.domain_runtime import CAMPAIGN_SCOPE_AXIS
+from graph_memory.vnext.domain_runtime import (
+    CAMPAIGN_SCOPE_AXIS, DUNGEONBUDDY_PROFILE_ID, DUNGEONBUDDY_CUSTOM_PROFILE_REVISION,
+    DungeonBuddyVNextProjectionInput, build_dungeonbuddy_read_context,
+)
+from src.graph_memory.predicate_catalog import SOURCE_PRECEDENCE_PREDICATE
 
 # Product representation only. Classification does not establish role or source truth.
 _KINDS = {kind: f"dungeonbuddy:{kind}" for kind in NODE_TYPES}
@@ -136,6 +140,57 @@ def _fields(kind, record):
     return {"title": record.title, "node_type": "session_beat", "summary": record.summary}
 
 
+def _validate_selected_precedence(pairs, access, space, campaign):
+    """Qualify this selected direct set, not the parent graph's entire timeline."""
+    if not pairs:
+        return
+    graph, indegree = {}, {}
+    durable_ids = set()
+    for earlier, later in pairs:
+        _require(earlier != later, "precedence_canonical_self")
+        for endpoint in (earlier, later):
+            indegree.setdefault(endpoint, 0)
+            if isinstance(endpoint, wk.DurableObjectRef):
+                durable_ids.add(endpoint.durable_object_id)
+        graph.setdefault(earlier, []).append(later)
+        indegree[later] += 1
+    ready = [endpoint for endpoint, count in indegree.items() if count == 0]
+    visited = 0
+    while ready:
+        endpoint = ready.pop()
+        visited += 1
+        for later in graph.get(endpoint, ()):
+            indegree[later] -= 1
+            if indegree[later] == 0:
+                ready.append(later)
+    _require(visited == len(indegree), "precedence_selected_cycle")
+
+    # Core's existing read admission owns standing/scope/evidence. Do not copy
+    # those policies into a second Buddy classifier or inspect excluded facts.
+    incompatible = {_KINDS[k] for k in (
+        "character", "creature", "location", "item", "group", "organization", "faction",
+    )} | {"dnd5e:npc"}
+    candidates = []
+    for identifier, parsed in access.parsed.assertions_by_id.items():
+        if parsed.subject_entity_id not in durable_ids or parsed.predicate != "dnd5e:classification":
+            continue
+        assertion = native.assertion_contract(parsed)
+        value = assertion.value.model_dump(mode="json")
+        if value.get("kind") == "term_ref" and value.get("term") in incompatible:
+            candidates.append(identifier)
+    if candidates:
+        read = build_dungeonbuddy_read_context(
+            parsed_revision=access.parsed,
+            projection_input=DungeonBuddyVNextProjectionInput(
+                world_id=space, revision_id=access.parsed.revision_id,
+                scope_mode="campaign", campaign_id=campaign, role="gm",
+            ),
+            source_reader=access.source_view,
+        )
+        _require(not read.admit_candidates(candidates).admitted_assertion_ids,
+                 "precedence_incompatible_occurrence_identity")
+
+
 def _intent(preview, selections, space, campaign, admitted, data, access, *,
             candidate_sha256, producer=PRODUCER):
     records = {
@@ -222,12 +277,29 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
         if description_selection is not None:
             inventory[-1]["selected_description_extent"] = description_selection
             inventory[-1]["held_description_extents"] = held_description_extents
+    precedences = []
     for index, edge in enumerate(preview.edges):
         selection = by_key.get(("edge", edge.edge_id))
         if selection and selection.action == "create":
             _require(edge.from_node_id in endpoints and edge.to_node_id in endpoints, "selected_edge_endpoint_held")
+            predicate = _predicate(edge.relationship_type)
+            if predicate == _predicate(SOURCE_PRECEDENCE_PREDICATE):
+                _require(producer == PRODUCER, "precedence_requires_recap")
+                profile_ref = access.parsed.semantic_profile_ref
+                # Capability adoption, not a duplicate semantic-profile validator:
+                # access_context already resolves and verifies this immutable ref.
+                _require(profile_ref.profile_id == DUNGEONBUDDY_PROFILE_ID
+                         and profile_ref.profile_revision == DUNGEONBUDDY_CUSTOM_PROFILE_REVISION,
+                         "precedence_profile_not_adopted")
+                for node_id in (edge.from_node_id, edge.to_node_id):
+                    node = records[("node", node_id)]
+                    node_selection = by_key[("node", node_id)]
+                    _require(node.node_type == "event", "precedence_requires_event_occurrence")
+                    _require(any(f.field == "description" for f in node_selection.facts),
+                             "precedence_requires_selected_description")
+                precedences.append((endpoints[edge.from_node_id], endpoints[edge.to_node_id]))
             operations.append(wk.CreateRelationship(
-                f"edge:{index}", endpoints[edge.from_node_id], _predicate(edge.relationship_type),
+                f"edge:{index}", endpoints[edge.from_node_id], predicate,
                 endpoints[edge.to_node_id], _metadata(selection.metadata, campaign,
                     _support_refs(selection.metadata, edge_witnesses[edge.edge_id], access, admitted)),
             ))
@@ -238,6 +310,7 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
             identifier = getattr(row, "item_id", None) or getattr(row, "write_id", None) or row.observation_id
             inventory.append({"kind": kind, "record_id": identifier,
                               "disposition": "held", "reason": "not_an_executable_review_selection"})
+    _validate_selected_precedence(precedences, access, space, campaign)
     return wk.WorldChangeIntent(space, producer, tuple(operations)), inventory
 
 
