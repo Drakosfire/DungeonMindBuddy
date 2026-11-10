@@ -1,6 +1,6 @@
 # REFERENCE: qualify current Plan opening and retained recovery
 
-Status: ACTIVE bounded PRIME test-only slice. Base341218a5819ccd9bd7cf279c3cf1348f77f0fb4d;
+Status: ACTIVE bounded PRIME test-only slice. Base 341218a5819ccd9bd7cf279c3cf1348f77f0fb4d;
 branch codex/plan-opening-qualification-fixtures, existing buddy-context-loop checkout.
 Serial successor to merged PR2325; no unmerged parent or runtime resource lease.
 Original API/UI hold, surviving database protections and coordination-off remain.
@@ -28,7 +28,7 @@ Tests: test_plan_jev_authoring.py, test_native_object_retrieval.py,
 application_state/test_native_storage_owner_migration.py. Documentation: this handoff
 and truthful settlement of HANDOFF-REFERENCE-retained-plan-opening.md.
 No runtime, migration, CI selector/runner, lockfile, user data or provider changes.
-Current open Surface2326/2313/2262, Storage2308 and CI2302/2299/2298/2288 leases were
+Current open Surface 2326/2313/2262, Storage 2308 and CI 2302/2299/2298/2288 leases were
 checked; none owns these backend test files. Existing CI integration fixture lease
 is separate and its files remain untouched.
 
@@ -41,3 +41,11 @@ and independent Bugbot review remain required. Preserve the red base and earlier
 attempts. Review cumulative diff, push/open PR, merge under PRIME standing authority,
 then qualify protected delivery separately. No green test proves browser behavior
 or whole-goal completion.
+
+Broader diagnostic checkpoint: exact base has 104 passed / 24 failed across the
+three affected test files; the repair's working-tree diagnostic has 119 passed /
+nine failed, with no newly failing IDs. The nine retained Rules cases are separate:
+five already reject their synthetic writer schema, and four shared cases now reach
+that later boundary after their opening fixture is corrected. No Rules output or
+runtime code changed. Keep those failures red; this slice does not establish Rules
+qualification or full release readiness. Exact-SHA query and frontend checks follow.
