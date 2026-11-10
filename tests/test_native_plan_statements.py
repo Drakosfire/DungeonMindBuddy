@@ -182,6 +182,7 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
     monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config',
         lambda *_: pytest.fail('Historical native retry changed its reader'))
     examined_inputs = []
+    selected_object_labels = []
     if unavailable_read:
         monkeypatch.setattr(native_query, 'read_selected', lambda context, authorization, principal:
             ((), authorization.statement_ids if hasattr(authorization, 'statement_ids') else authorization.assertion_ids))
@@ -192,6 +193,8 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
             native = {i for i, c in enumerate(candidates) if str(c.get('kind', '')).startswith(
                 'Native Graph object' if shared_sdk_receipt else 'Qualified native')
                 and (not shared_sdk_receipt or c['label'] in expected_native_labels)}
+            if shared_sdk_receipt:
+                selected_object_labels.extend(candidates[i]['label'] for i in native)
             examined_inputs.extend(row for row in body.get('state', {}).get('examined_subjects', [])
                 if row['kind'].startswith('Previously selected native object:' if shared_sdk_receipt else 'Previously selected native statement:'))
             assert BODY not in req.content.decode()
@@ -263,6 +266,7 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
     if shared_sdk_receipt:
         expected_native_labels = {m.label for m in query_record.object_matches if m.entity_id == lane.ids['B']}
         assert len(expected_native_labels) == 1
+        assert sum(m.label in expected_native_labels for m in query_record.object_matches) == 1
     service = AgentConversationService()
     prior = owner._PolicyExecutionAdapter(service=service, request=request,
         world_id=world, work=work, bootstrap=None, playable_target=None,
@@ -319,7 +323,9 @@ def test_historical_native_http_retry_preserves_reader_support_and_citations(lan
     assert wire.adapter.turn.graph_context_receipt == frozen_receipt
     assert native_read_admission_probes
     if shared_sdk_receipt:
-        assert {row['label'] for row in examined_inputs} == expected_native_labels
+        assert set(selected_object_labels) == expected_native_labels
+        # Shared support can mark another object examined without selecting it.
+        assert expected_native_labels <= {row['label'] for row in examined_inputs}
     else:
         assert len(examined_inputs) == 1
         assert examined_inputs[0]['label'].startswith('About B ·')
