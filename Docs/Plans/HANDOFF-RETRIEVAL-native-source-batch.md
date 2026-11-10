@@ -74,8 +74,14 @@ open PRs #143 and #145–150). Recheck active leases before activation.
   transport exceptions fail the entire physical capture before any batch output.
   Prior COMPLETED captures remain durable. No earlier independent read may be
   relabelled as part of an atomic batch to erase its known successful prefix.
-- Specify duplicate-key ordering and detached immutable results. Refresh between
-  calls; no request-spanning cache, compatibility producer or silent fallback.
+- Specify duplicate-key ordering and return detached, strictly reconstructed
+  result snapshots in an ordered tuple. Existing NativeTextSourceAccessV1 DTOs
+  are mutable; do not silently freeze/change them or share mutable result objects
+  between slots. Retain no caller-owned query/record objects in a cache.
+- Preserve the passed context.source_view epoch. Buddy explicitly refreshes the
+  existing context before a new acquisition; singleton delegation must not
+  secretly advance the caller's pinned epoch. No request-spanning cache,
+  compatibility producer or silent fallback.
   Existing singleton calls must retain their refusal and result semantics through
   the same canonical bulk implementation.
 - Prove one-snapshot behavior in actual Postgres, including concurrent changes
@@ -104,6 +110,9 @@ allocation because DungeonMind is not one of this chat's workspace folders. It
 allows only the attached Buddy/visualization folders. Add the Core repository to
 the workspace before activating this slice; do not bypass that boundary using a
 manual checkout or take over another chat's worktree.
+The user confirmed adding Core, but the subsequent managed-tool validation still
+returned the old Buddy-only folder list. The remaining prerequisite is the chat's
+effective workspace binding, not further user authorization for this work.
 
 ## Buddy consuming gates and expected scope
 
