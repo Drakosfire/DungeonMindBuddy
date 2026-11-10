@@ -6273,7 +6273,7 @@ it('shows saved text immediately but keeps Send gated until a retained pending r
   expect(postAsk).toHaveBeenCalledTimes(1);
 });
 
-it('keeps live activity bound to admitted metadata while full receipt refreshes are pending',async()=>{
+it.each(['accepted','running'] as const)('keeps live activity bound to admitted metadata while full receipt refreshes are pending · %s',async lifecycle=>{
   const api=setupApi(history('conversation-a',4,[]),false);
   const pending=deferred<ReturnType<typeof agentResponse>>();
   const post=vi.spyOn(liveApi,'postWorldPlanAgentTurn').mockReturnValue(pending.promise as any);
@@ -6288,7 +6288,7 @@ it('keeps live activity bound to admitted metadata while full receipt refreshes 
   await waitFor(()=>expect(post).toHaveBeenCalledTimes(1));
   const request=post.mock.calls[0][0],durable='44444444-4444-4444-8444-444444444444';
   expect(screen.getByText('Getting things ready…')).toBeInTheDocument();
-  const row={...makeTurn(1,durable,request.message,''),assistant_text:null,lifecycle_status:'running' as const,
+  const row={...makeTurn(1,durable,request.message,''),assistant_text:null,lifecycle_status:lifecycle,
     idempotency_key:await expectedHistoryCorrelationKey(worldId,request.turn_id)};
   api.setCurrent(await historyV3('conversation-a',4,[row]));
   api.getHistory.mockReturnValue(new Promise(()=>{}));
@@ -6297,11 +6297,15 @@ it('keeps live activity bound to admitted metadata while full receipt refreshes 
   await waitFor(()=>expect(read).toHaveBeenCalledWith(worldId,durable,expect.any(AbortSignal)));
   expect(screen.queryByText('Getting things ready…')).toBeNull();
   expect(screen.getByText('Getting the notes together…')).toBeInTheDocument();
+  expect(screen.queryByText('Waiting for this reply…')).not.toBeInTheDocument();
+  expect(document.querySelector('[data-turn-id="'+durable+'"] .world-plan-agent-conversation__message--assistant')).toBeNull();
   const signal=read.mock.calls.at(-1)![2] as AbortSignal;
   fireEvent.click(screen.getByRole('button',{name:'Refresh activity fixture'}));
   await waitFor(()=>expect(api.getMessages.mock.calls.length).toBeGreaterThan(2));
   expect(signal.aborted).toBe(false);
   expect(screen.queryByText('Getting things ready…')).toBeNull();
+  expect(screen.queryByText('Waiting for this reply…')).not.toBeInTheDocument();
+  expect(document.querySelector('[data-turn-id="'+durable+'"] .world-plan-agent-conversation__message--assistant')).toBeNull();
   const reads=read.mock.calls.length;
   await waitFor(()=>expect(read.mock.calls.length).toBeGreaterThan(reads),{timeout:3500});
   expect(post).toHaveBeenCalledTimes(1);
@@ -6535,4 +6539,13 @@ it('retains mixed references through Play submission and pending-request reload'
  await waitFor(()=>expect(post).toHaveBeenCalledTimes(2));
  expect(post.mock.calls[1]![0]).toEqual(post.mock.calls[0]![0]);
  expect(api.getHistory).not.toHaveBeenCalled();
+});
+
+it.each(['failed','interrupted'] as const)('retains the lightweight %s reply notice and recovery controls',async lifecycle=>{
+ const turn={...makeTurn(1,'terminal-empty','Keep the failure visible',null),lifecycle_status:lifecycle};
+ setupApi(history('conversation-a',4,[turn]),false);render(conversationElement());await waitForConversationReady(false);
+ expect(await screen.findByText('This reply did not finish.')).toBeInTheDocument();
+ expect(screen.queryByText('Waiting for this reply…')).not.toBeInTheDocument();
+ expect(document.querySelector('[data-turn-id="terminal-empty"] .world-plan-agent-conversation__message--assistant')).not.toBeNull();
+ expect(screen.getByRole('button',{name:'Retry question'})).toBeInTheDocument();
 });
