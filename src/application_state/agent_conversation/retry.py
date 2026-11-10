@@ -42,6 +42,7 @@ class RetryContext(StrictModel):
     successor_id: UUID | None
     ordinal: int = Field(strict=True, ge=0)
     eligible: bool
+    author_interaction: Literal["select_passage"] | None = None
     reason: Literal[
         "ready",
         "not_terminal",
@@ -188,6 +189,15 @@ def _settled(conn, turn, *, lock=False):
     return "ready"
 
 
+def author_interaction(surface_id, work_kind, status, failure_code):
+    """Project a saved host decision, never provider text or an edit grant."""
+    if (surface_id, work_kind, status, failure_code) == (
+        "build", "build", "interrupted", "build_compose_target_unavailable"
+    ):
+        return "select_passage"
+    return None
+
+
 def context(conn, turn, *, active):
     meta = getattr(turn, "envelope", turn)
     if (
@@ -205,6 +215,10 @@ def context(conn, turn, *, active):
         if isinstance(turn, Turn)
         else "not_terminal"
     )
+    interaction = author_interaction(
+        meta.provenance.surface_id, meta.provenance.primary_work.kind,
+        meta.status, getattr(turn, "failure_code", None),
+    )
     value = RetryContext(
         world_id=meta.world_id,
         conversation_id=meta.conversation_id,
@@ -216,14 +230,17 @@ def context(conn, turn, *, active):
         ordinal=incoming[2] if incoming else 0,
         eligible=reason == "ready",
         reason=reason,
-    ).model_dump(mode="json")
+        author_interaction=interaction,
+    )
+    exclude = {"author_interaction"} if interaction is None else None
     execution = getattr(turn, 'graph_context_execution', None)
     references=(_references(execution) if execution is not None and (_native_action(execution) is not None
         or any(e.kind=='build_authored_references_captured_v1' for e in execution.events)) else None)
     if references is not None:
         # Input retention is neither a successful source read nor a retry grant.
-        return RetryContextV2(**value,authored_references=references).model_dump(mode='json',by_alias=True)
-    return value
+        return RetryContextV2(**value.model_dump(), authored_references=references).model_dump(
+            mode='json', by_alias=True, exclude=exclude)
+    return value.model_dump(mode='json', exclude=exclude)
 
 
 def validate_reference_retry(parent, intent):
