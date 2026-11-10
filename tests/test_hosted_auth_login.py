@@ -119,7 +119,7 @@ def test_login_does_not_follow_a_bad_configured_dms_origin(
 @pytest.mark.parametrize(
     ("resolution", "status_code", "payload"),
     [
-        (SimpleNamespace(status="authenticated", principal=SimpleNamespace(subject="synthetic-user")), 200, {"status": "authenticated"}),
+        (SimpleNamespace(status="authenticated", principal=SimpleNamespace(subject="synthetic-user")), 200, {"status": "authenticated", "subject": "synthetic-user"}),
         (SimpleNamespace(status="signed_out", principal=None), 401, {"status": "signed_out"}),
         (SimpleNamespace(status="unavailable", principal=None), 503, {"status": "unavailable"}),
     ],

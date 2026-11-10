@@ -11,9 +11,12 @@ from apps.live_control_server.models.native_graph_explorer import (
 )
 from apps.live_control_server.services.agent_graph_auth import (
     NativeGraphPrincipal,
-    native_graph_gm_dependency,
 )
 from apps.live_control_server.services import native_graph_explorer as service
+from apps.live_control_server.services.hosted_native_graph_access import (
+    native_graph_explorer_dependency,
+    require_explorer_access,
+)
 
 
 router = APIRouter(
@@ -22,9 +25,15 @@ router = APIRouter(
 )
 
 
-def _call(operation, *args):
+def _call(operation, body, principal):
     try:
-        return operation(*args)
+        require_explorer_access(principal, body.managed_world_id)
+        with service.hosted_response_binding(principal, body.managed_world_id):
+            result = operation(body, principal)
+        require_explorer_access(principal, body.managed_world_id)
+        return result
+    except HTTPException:
+        raise
     except service.NativeGraphExplorerError as exc:
         raise HTTPException(
             status_code=exc.status,
@@ -44,7 +53,9 @@ def _call(operation, *args):
 @router.post("/graph")
 def graph(
     body: NativeGraphExplorerGraphRequest,
-    principal: Annotated[NativeGraphPrincipal, Depends(native_graph_gm_dependency)],
+    principal: Annotated[
+        NativeGraphPrincipal, Depends(native_graph_explorer_dependency)
+    ],
 ):
     return _call(service.graph, body, principal)
 
@@ -52,7 +63,9 @@ def graph(
 @router.post("/prepare")
 def prepare(
     body: NativeGraphExplorerPrepareRequest,
-    principal: Annotated[NativeGraphPrincipal, Depends(native_graph_gm_dependency)],
+    principal: Annotated[
+        NativeGraphPrincipal, Depends(native_graph_explorer_dependency)
+    ],
 ):
     return _call(service.prepare, body, principal)
 
@@ -60,7 +73,9 @@ def prepare(
 @router.post("/confirm")
 def confirm(
     body: NativeGraphExplorerOperationRequest,
-    principal: Annotated[NativeGraphPrincipal, Depends(native_graph_gm_dependency)],
+    principal: Annotated[
+        NativeGraphPrincipal, Depends(native_graph_explorer_dependency)
+    ],
 ):
     return _call(service.confirm, body, principal)
 
@@ -68,6 +83,8 @@ def confirm(
 @router.post("/operations/read")
 def read_operation(
     body: NativeGraphExplorerOperationRequest,
-    principal: Annotated[NativeGraphPrincipal, Depends(native_graph_gm_dependency)],
+    principal: Annotated[
+        NativeGraphPrincipal, Depends(native_graph_explorer_dependency)
+    ],
 ):
     return _call(service.operation, body, principal)

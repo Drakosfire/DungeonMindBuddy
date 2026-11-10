@@ -28,7 +28,16 @@ router = APIRouter(prefix="/api/live", tags=["world-containers"])
 
 
 @router.get("/world-containers", response_model=WorldContainersListResponse)
-def get_world_containers() -> dict[str, Any]:
+def get_world_containers(request: Request = None) -> dict[str, Any]:
+    from apps.live_control_server.services import hosted_auth
+    from apps.live_control_server.services.hosted_native_graph_access import revalidate_hosted_owner_collection
+
+    if hosted_auth.deployment_environment() == hosted_auth.PRODUCTION_ENVIRONMENT:
+        if request is None or not isinstance(getattr(request.state, "hosted_world_collection", None), dict):
+            raise HTTPException(status_code=403, detail={"code": "owned_world_access_required"})
+        # Recheck current records rather than treating middleware's result as a
+        # persistent permission snapshot. No unfiltered local list is exposed.
+        return revalidate_hosted_owner_collection(request)
     try:
         records = list_world_containers(repo_root())
     except WorldContainerRegistryError as exc:

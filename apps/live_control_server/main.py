@@ -116,6 +116,13 @@ from apps.live_control_server.services.hosted_auth import (
     validate_hosted_auth_configuration,
 )
 from apps.live_control_server.services.trusted_cookie_origin import require_cookie_write_origin
+from apps.live_control_server.services.hosted_native_graph_access import (
+    EXPLORER_PREFIX,
+    INSPECTION_READ_PATH,
+    WORLD_COLLECTION_PATH,
+    hosted_owner_collection,
+    resolve_hosted_explorer_world,
+)
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv
 
 load_dungeonmindbuddy_dotenv()
@@ -139,8 +146,15 @@ def _load_graph_preview_router():
     return router
 
 
+HOSTED_WORLD_COLLECTION_AUTHORIZERS = {
+    ("GET", WORLD_COLLECTION_PATH): hosted_owner_collection,
+}
+
 HOSTED_WORLD_SCOPE_RESOLVERS = {
     ("POST", "/api/live/recap-ingest"): resolve_native_recap_hosted_world,
+    ("POST", INSPECTION_READ_PATH): resolve_hosted_explorer_world,
+    **{("POST", f"{EXPLORER_PREFIX}/{suffix}"): resolve_hosted_explorer_world
+       for suffix in ("graph", "prepare", "confirm", "operations/read")},
 }
 
 
@@ -224,7 +238,8 @@ def create_app() -> FastAPI:
     application.include_router(native_graph_explorer_router)
 
     install_hosted_request_boundary(
-        application, world_scope_resolvers=HOSTED_WORLD_SCOPE_RESOLVERS
+        application, world_scope_resolvers=HOSTED_WORLD_SCOPE_RESOLVERS,
+        collection_authorizers=HOSTED_WORLD_COLLECTION_AUTHORIZERS,
     )
 
     @application.get(CURRENT_USER_PATH, include_in_schema=False)
@@ -280,7 +295,7 @@ def create_app() -> FastAPI:
             return JSONResponse(status_code=503, content={"status": "unavailable"})
         result = await resolver.resolve(request)
         if result.status == "authenticated" and result.principal is not None:
-            return JSONResponse(content={"status": "authenticated"})
+            return JSONResponse(content={"status": "authenticated", "subject": result.principal.subject}, headers={"Cache-Control": "no-store"})
         if result.status == "signed_out":
             return JSONResponse(status_code=401, content={"status": "signed_out"})
         return JSONResponse(status_code=503, content={"status": "unavailable"})
