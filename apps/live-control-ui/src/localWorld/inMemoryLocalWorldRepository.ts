@@ -8,6 +8,7 @@ import {
 } from "./localWorldDocumentAuthoring";
 import {
   cloneLocalWorldValue,
+  createInitialLocalWorldRecord,
   type CommitSemanticResult,
   type CommitLocalWorldNotesResult,
   type CreateWorldResult,
@@ -45,7 +46,7 @@ export class InMemoryLocalWorldStore {
   readonly packageData = new Map<LocalWorldId, LocalWorldPackageData>();
 }
 
-export type InMemoryCommitPoint = "create" | "semantic-edit" | "layout" | "package-restore" | "document-edit" | "document-conflict-discard";
+export type InMemoryCommitPoint = "initial-world" | "create" | "semantic-edit" | "layout" | "package-restore" | "document-edit" | "document-conflict-discard";
 export type InMemoryCommitHook = (point: InMemoryCommitPoint) => void | Promise<void>;
 export type LocalIdFactory = () => string;
 
@@ -86,6 +87,20 @@ export class InMemoryLocalWorldRepository implements LocalWorldPackageRepository
     this.store = options.store ?? new InMemoryLocalWorldStore();
     this.idFactory = options.idFactory ?? defaultIdFactory;
     this.beforeCommit = options.beforeCommit ?? (() => undefined);
+  }
+
+  async ensureInitialWorld(): Promise<ListLocalWorldsResult> {
+    try {
+      if (this.store.worlds.size > 0) return this.listWorlds();
+      const record = createInitialLocalWorldRecord(this.idFactory);
+      await this.beforeCommit("initial-world");
+      // Recheck after the asynchronous seam, then publish in one synchronous turn.
+      if (this.store.worlds.size === 0) {
+        this.store.worlds.set(record.snapshot.worldId, cloneLocalWorldValue(record));
+        this.store.conflictCandidates.set(record.snapshot.worldId, []);
+      }
+      return this.listWorlds();
+    } catch (error) { return { status: "error", message: errorMessage(error) }; }
   }
 
   async createWorld(input: { readonly title: string }): Promise<CreateWorldResult> {

@@ -42,6 +42,9 @@ describe("projectLocalWorldGraph", () => {
     expect(graph.edges[0].fromObjectId).toBe(graph.nodes[0].id);
     expect(graph.edges[0].toObjectId).toBe(graph.nodes[1].id);
     expect(graph.nodes.some((node) => node.kind === "world")).toBe(false);
+    expect(new Set(graph.nodes.map((node) => node.y)).size).toBe(2);
+    expect(graph.nodes[1].x - graph.nodes[0].x).toBeGreaterThan(168 + 200);
+    expect(graph.nodes[2].y - graph.nodes[0].y).toBeGreaterThan(76 + 160);
   });
 
   it("preserves parallel relationship IDs and cycles without tree assumptions", async () => {

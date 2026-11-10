@@ -10,7 +10,10 @@ import type { NewLocalGraphObject, NewLocalGraphRelationship } from "./localWorl
 import "./worldGraphCanvas.css";
 
 const WIDTH = 960;
-const HEIGHT = 600;
+const HEIGHT = 520;
+const MIN_ZOOM = 0.15;
+const MAX_ZOOM = 2.5;
+const MAX_NODE_COORDINATE = 6000;
 const NODE_WIDTH = 168;
 const NODE_HEIGHT = 76;
 
@@ -53,6 +56,32 @@ function hasEditorDraft(draft: WorldGraphEditorDraft): boolean {
   return draft.renameId !== null || draft.showObjectForm || draft.objectName.length > 0 || draft.showRelationshipForm || draft.relationshipKind.length > 0;
 }
 
+interface Camera { readonly x: number; readonly y: number; readonly zoom: number }
+interface CanvasGesture {
+  readonly kind: "node" | "pan";
+  readonly captureTarget: Element;
+  readonly pointerId: number;
+  readonly pointerX: number;
+  readonly pointerY: number;
+  readonly camera: Camera;
+  readonly scaleX: number;
+  readonly scaleY: number;
+  readonly node?: { readonly id: LocalObjectId; readonly x: number; readonly y: number };
+  moved: boolean;
+}
+
+function labelLines(value: string): string[] {
+  // Bound visual labels, but retain the full predicate in the accessible name/title.
+  const bounded = value.length > 96 ? `${value.slice(0, 95)}…` : value;
+  return bounded.match(/.{1,24}(?:\s|$)|.{1,24}/g)?.map((line) => line.trim()) ?? [""];
+}
+
+function labelBox(value: string) {
+  const lines = labelLines(value);
+  // One em per UTF-16 unit is conservative for the 12px label font, including wide glyphs.
+  return { lines, width: Math.max(...lines.map((line) => line.length)) * 12 + 20, height: lines.length * 16 + 10 };
+}
+
 interface EdgeGeometry {
   readonly path: string;
   readonly labelX: number;
@@ -64,15 +93,18 @@ function edgeGeometry(
   positions: ReadonlyMap<string, { x: number; y: number }>,
   parallelIndex: number,
   parallelCount: number,
+  labelWidth: number,
+  labelHeight: number,
 ): EdgeGeometry {
   const from = positions.get(edge.fromObjectId)!;
   const to = positions.get(edge.toObjectId)!;
   if (edge.fromObjectId === edge.toObjectId) {
-    const spread = (parallelIndex - (parallelCount - 1) / 2) * 24;
-    const start = { x: from.x + NODE_WIDTH * 0.62, y: from.y + 8 };
-    const end = { x: from.x + NODE_WIDTH * 0.62, y: from.y + NODE_HEIGHT - 8 };
-    const controlOne = { x: from.x + NODE_WIDTH + 76 + Math.abs(spread), y: from.y - 42 + spread };
-    const controlTwo = { x: from.x + NODE_WIDTH + 76 + Math.abs(spread), y: from.y + NODE_HEIGHT + 42 + spread };
+    // Concentric loops put their plates side by side, with no shared label band.
+    const spread = parallelIndex * (labelWidth + 12) * 4 / 3;
+    const start = { x: from.x + NODE_WIDTH + 5, y: from.y + 15 };
+    const end = { x: from.x + NODE_WIDTH + 5, y: from.y + NODE_HEIGHT - 15 };
+    const controlOne = { x: from.x + NODE_WIDTH + 76 + Math.abs(spread), y: from.y - 42 };
+    const controlTwo = { x: from.x + NODE_WIDTH + 76 + Math.abs(spread), y: from.y + NODE_HEIGHT + 42 };
     return {
       path: `M ${start.x} ${start.y} C ${controlOne.x} ${controlOne.y} ${controlTwo.x} ${controlTwo.y} ${end.x} ${end.y}`,
       labelX: (start.x + 3 * controlOne.x + 3 * controlTwo.x + end.x) / 8 + 4,
@@ -87,15 +119,28 @@ function edgeGeometry(
   const dx = laneEnd.x - laneStart.x;
   const dy = laneEnd.y - laneStart.y;
   const length = Math.hypot(dx, dy) || 1;
-  const offset = (parallelIndex - (parallelCount - 1) / 2) * 30;
+  // Quadratic midpoints travel half the control-point offset. Space plate projections
+  // along the lane normal, so vertical, diagonal and wrapped horizontal labels stay disjoint.
+  const plateExtent = labelWidth * Math.abs(dy) / length + labelHeight * Math.abs(dx) / length;
+  const offset = (parallelIndex - (parallelCount - 1) / 2) * 2 * (plateExtent + 12);
   const control = {
     x: (start.x + end.x) / 2 - (dy / length) * offset,
     y: (start.y + end.y) / 2 + (dx / length) * offset,
   };
+  function boundary(center: { x: number; y: number }, toward: { x: number; y: number }) {
+    const vx = toward.x - center.x;
+    const vy = toward.y - center.y;
+    const extent = Math.max(Math.abs(vx) / (NODE_WIDTH / 2 + 5), Math.abs(vy) / (NODE_HEIGHT / 2 + 5));
+    return extent > 0 ? { x: center.x + vx / extent, y: center.y + vy / extent } : center;
+  }
+  const pathStart = boundary(start, control);
+  const pathEnd = boundary(end, control);
+  // Tight, user-arranged nodes need a label outside their overlap rather than hidden under a card.
+  const tight = Math.abs(dx) < NODE_WIDTH + 160 && Math.abs(dy) < NODE_HEIGHT + 70;
   return {
-    path: `M ${start.x} ${start.y} Q ${control.x} ${control.y} ${end.x} ${end.y}`,
+    path: `M ${pathStart.x} ${pathStart.y} Q ${control.x} ${control.y} ${pathEnd.x} ${pathEnd.y}`,
     labelX: (start.x + 2 * control.x + end.x) / 4,
-    labelY: (start.y + 2 * control.y + end.y) / 4,
+    labelY: (start.y + 2 * control.y + end.y) / 4 - (tight ? NODE_HEIGHT + 30 : 0),
   };
 }
 
@@ -153,7 +198,14 @@ export function WorldGraphCanvas({
   const editorDraftRef = useRef<WorldGraphEditorDraft>(initialDraft);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
-  const [drag, setDrag] = useState<{ id: LocalObjectId; pointerX: number; pointerY: number; x: number; y: number } | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [viewport, setViewport] = useState({ width: WIDTH, height: HEIGHT });
+  const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, zoom: 1 });
+  const [dragPreview, setDragPreview] = useState<{ id: LocalObjectId; x: number; y: number } | null>(null);
+  const [isPanning, setIsPanning] = useState(false);
+  const gestureRef = useRef<CanvasGesture | null>(null);
+  const suppressClickRef = useRef<LocalObjectId | null>(null);
+  const manualCameraRef = useRef(false);
   const renameVersionRef = useRef(0);
   const objectNameVersionRef = useRef(0);
   const relationshipKindVersionRef = useRef(0);
@@ -179,9 +231,13 @@ export function WorldGraphCanvas({
     setRelationshipKind(nextDraft.relationshipKind);
     setBusy(false);
     setStatus("");
-    setDrag(null);
+    setDragPreview(null);
+    setIsPanning(false);
+    gestureRef.current = null;
+    suppressClickRef.current = null;
+    manualCameraRef.current = false;
+    setCamera({ x: 0, y: 0, zoom: 1 });
   }
-  const dragMoved = useRef(false);
 
   function publishEditorDraft(patch: Partial<Omit<WorldGraphEditorDraft, "version">>) {
     const current = editorDraftRef.current;
@@ -225,21 +281,79 @@ export function WorldGraphCanvas({
   }, []);
 
   const selectedObject = projection.nodes.find((node) => node.id === selectedIds.at(-1));
-  const canvasWidth = Math.max(WIDTH, ...projection.nodes.map((node) => node.x + NODE_WIDTH + 88));
-  const canvasHeight = Math.max(HEIGHT, ...projection.nodes.map((node) => node.y + NODE_HEIGHT + 72));
-  const positions = new Map(projection.nodes.map((node) => [node.id, { x: node.x, y: node.y }]));
+  const positions = new Map(projection.nodes.map((node) => [node.id,
+    dragPreview?.id === node.id ? { x: dragPreview.x, y: dragPreview.y } : { x: node.x, y: node.y }]));
+
+  function fittedCamera(): Camera {
+    if (!projection.nodes.length) return { x: 0, y: 0, zoom: 1 };
+    const xs = projection.nodes.map((node) => node.x);
+    const ys = projection.nodes.map((node) => node.y);
+    const left = Math.min(...xs) - 72;
+    const top = Math.min(...ys) - 80;
+    const loopGroups = new Map<string, { count: number; width: number }>();
+    for (const edge of projection.edges) {
+      if (edge.fromObjectId !== edge.toObjectId) continue;
+      const previous = loopGroups.get(edge.fromObjectId) ?? { count: 0, width: 0 };
+      loopGroups.set(edge.fromObjectId, { count: previous.count + 1, width: Math.max(previous.width, labelBox(edge.kind).width) });
+    }
+    const rightPadding = Math.max(120, ...[...loopGroups.values()].map(({ count, width }) => 70 + count * (width + 12)));
+    const width = Math.max(...xs) + NODE_WIDTH + rightPadding - left;
+    const height = Math.max(...ys) + NODE_HEIGHT + 80 - top;
+    const zoom = Math.max(MIN_ZOOM, Math.min(1, viewport.width / width, viewport.height / height));
+    return { x: (viewport.width - width * zoom) / 2 - left * zoom,
+      y: (viewport.height - height * zoom) / 2 - top * zoom, zoom };
+  }
+
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+        setViewport({ width: entry.contentRect.width, height: entry.contentRect.height });
+      }
+    });
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!manualCameraRef.current) setCamera(fittedCamera());
+    // Fit initial visibility and responsive size, never re-fit after user pan/zoom or node edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewport.width, viewport.height, record.snapshot.worldId]);
+
+  useEffect(() => {
+    // A new controlled revision invalidates an unfinished drag, rather than saving it over newer layout.
+    gestureRef.current = null;
+    setDragPreview(null);
+    setIsPanning(false);
+  }, [record.snapshot.worldId, record.localRevision, record.layoutRevision]);
+
+  function zoomBy(factor: number) {
+    cancelGesture();
+    manualCameraRef.current = true;
+    setCamera((current) => {
+      const zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, current.zoom * factor));
+      const ratio = zoom / current.zoom;
+      return { zoom, x: viewport.width / 2 - (viewport.width / 2 - current.x) * ratio,
+        y: viewport.height / 2 - (viewport.height / 2 - current.y) * ratio };
+    });
+  }
   const nodeNames = new Map(projection.nodes.map((node) => [node.id, node.name]));
-  const edgeGroupCounts = new Map<string, number>();
+  const edgeGroups = new Map<string, { count: number; width: number; height: number }>();
   for (const edge of projection.edges) {
     const key = [edge.fromObjectId, edge.toObjectId].sort().join("\u0000");
-    edgeGroupCounts.set(key, (edgeGroupCounts.get(key) ?? 0) + 1);
+    const previous = edgeGroups.get(key) ?? { count: 0, width: 0, height: 0 };
+    const box = labelBox(edge.kind);
+    edgeGroups.set(key, { count: previous.count + 1, width: Math.max(previous.width, box.width), height: Math.max(previous.height, box.height) });
   }
   const edgeGroupIndexes = new Map<string, number>();
   const renderedEdges = projection.edges.map((edge) => {
     const key = [edge.fromObjectId, edge.toObjectId].sort().join("\u0000");
     const index = edgeGroupIndexes.get(key) ?? 0;
     edgeGroupIndexes.set(key, index + 1);
-    return { edge, geometry: edgeGeometry(edge, positions, index, edgeGroupCounts.get(key) ?? 1) };
+    const group = edgeGroups.get(key)!;
+    return { edge, box: labelBox(edge.kind), geometry: edgeGeometry(edge, positions, index, group.count, group.width, group.height) };
   });
 
   function selectNode(id: LocalObjectId) {
@@ -301,30 +415,79 @@ export function WorldGraphCanvas({
       }
     } finally {
       if (instanceActiveRef.current && instanceGenerationRef.current === submittedInstanceGeneration &&
-          worldGenerationRef.current === submittedGeneration) setBusy(false);
+          worldGenerationRef.current === submittedGeneration) {
+        setBusy(false);
+        setDragPreview(null);
+      }
+    }
+  }
+
+  function beginGesture(event: PointerEvent, node?: { id: LocalObjectId; x: number; y: number }) {
+    if ((event.button ?? 0) !== 0 || gestureRef.current || (node && (busy || !onMoveObjects))) return;
+    event.preventDefault();
+    event.stopPropagation();
+    suppressClickRef.current = null;
+    const svg = svgRef.current;
+    const rect = svg?.getBoundingClientRect();
+    gestureRef.current = { kind: node ? "node" : "pan", captureTarget: event.currentTarget, pointerId: event.pointerId,
+      pointerX: event.clientX, pointerY: event.clientY, camera,
+      scaleX: rect?.width ? viewport.width / rect.width : 1,
+      scaleY: rect?.height ? viewport.height / rect.height : 1, node, moved: false };
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* Optional in test DOMs. */ }
+  }
+
+  function updateGesture(event: PointerEvent<SVGSVGElement>) {
+    const gesture = gestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    const dx = (event.clientX - gesture.pointerX) * gesture.scaleX;
+    const dy = (event.clientY - gesture.pointerY) * gesture.scaleY;
+    if (Math.abs(event.clientX - gesture.pointerX) + Math.abs(event.clientY - gesture.pointerY) > 4) gesture.moved = true;
+    if (!gesture.moved) return;
+    if (gesture.node) {
+      setDragPreview({ id: gesture.node.id,
+        x: Math.max(0, Math.min(MAX_NODE_COORDINATE, gesture.node.x + dx / gesture.camera.zoom)),
+        y: Math.max(0, Math.min(MAX_NODE_COORDINATE, gesture.node.y + dy / gesture.camera.zoom)) });
+    } else {
+      manualCameraRef.current = true;
+      setIsPanning(true);
+      setCamera({ ...gesture.camera, x: gesture.camera.x + dx, y: gesture.camera.y + dy });
+    }
+  }
+
+  function cancelGesture() {
+    const gesture = gestureRef.current;
+    if (!gesture) return;
+    gestureRef.current = null;
+    if (gesture.node && gesture.moved) suppressClickRef.current = gesture.node.id;
+    if (gesture?.kind === "pan") setCamera(gesture.camera);
+    setDragPreview(null);
+    setIsPanning(false);
+    if (gesture) {
+      try { gesture.captureTarget.releasePointerCapture(gesture.pointerId); } catch { /* Optional in test DOMs. */ }
     }
   }
 
   function finishDrag(event: PointerEvent<SVGSVGElement>) {
-    if (!drag) return;
-    if (dragMoved.current && onMoveObjects) {
-      const rect = event.currentTarget.getBoundingClientRect();
-      const scaleX = rect.width ? canvasWidth / rect.width : 1;
-      const scaleY = rect.height ? canvasHeight / rect.height : 1;
-      const x = Math.max(0, Math.min(canvasWidth - NODE_WIDTH, drag.x + (event.clientX - drag.pointerX) * scaleX));
-      const y = Math.max(0, Math.min(canvasHeight - NODE_HEIGHT, drag.y + (event.clientY - drag.pointerY) * scaleY));
-      void runLayout({ [drag.id]: { x, y } });
-    }
-    setDrag(null);
-    dragMoved.current = false;
+    const gesture = gestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    updateGesture(event);
+    gestureRef.current = null;
+    setIsPanning(false);
+    if (gesture.moved && gesture.node && onMoveObjects) {
+      suppressClickRef.current = gesture.node.id;
+      const x = Math.max(0, Math.min(MAX_NODE_COORDINATE, gesture.node.x + (event.clientX - gesture.pointerX) * gesture.scaleX / gesture.camera.zoom));
+      const y = Math.max(0, Math.min(MAX_NODE_COORDINATE, gesture.node.y + (event.clientY - gesture.pointerY) * gesture.scaleY / gesture.camera.zoom));
+      void runLayout({ [gesture.node.id]: { x, y } });
+    } else setDragPreview(null);
+    try { gesture.captureTarget.releasePointerCapture(event.pointerId); } catch { /* Optional in test DOMs. */ }
   }
 
   function moveSelected(id: LocalObjectId, dx: number, dy: number) {
     if (!onMoveObjects || busy) return;
     const node = projection.nodes.find((candidate) => candidate.id === id);
     if (!node) return;
-    const x = Math.max(0, Math.min(canvasWidth - NODE_WIDTH, node.x + dx));
-    const y = Math.max(0, Math.min(canvasHeight - NODE_HEIGHT, node.y + dy));
+    const x = Math.max(0, Math.min(MAX_NODE_COORDINATE, node.x + dx));
+    const y = Math.max(0, Math.min(MAX_NODE_COORDINATE, node.y + dy));
     void runLayout({ [id]: { x, y } });
   }
 
@@ -432,55 +595,67 @@ export function WorldGraphCanvas({
         </form>
       ) : null}
 
+      <div className="world-graph-canvas__view-tools" aria-label="Graph view controls">
+        <button type="button" aria-label="Zoom out" disabled={camera.zoom <= MIN_ZOOM} onClick={() => zoomBy(1 / 1.25)}>−</button>
+        <span aria-label="Graph zoom">{Math.round(camera.zoom * 100)}%</span>
+        <button type="button" aria-label="Zoom in" disabled={camera.zoom >= MAX_ZOOM} onClick={() => zoomBy(1.25)}>+</button>
+        <button type="button" onClick={() => { cancelGesture(); manualCameraRef.current = true; setCamera(fittedCamera()); }}>Fit graph</button>
+        <button type="button" onClick={() => zoomBy(1 / camera.zoom)}>100%</button>
+      </div>
+      <p className="world-graph-canvas__hint" id={`${markerId}-help`}>Drag the background to pan. Drag an object to move it. Select two objects to connect them. Focus the canvas and use arrow keys to pan, +/− to zoom, or 0 to fit.</p>
       <div className="world-graph-canvas__viewport">
         <svg
-          className="world-graph-canvas__svg"
-          viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
-          style={{ width: `${canvasWidth}px`, height: `${canvasHeight}px` }}
+          ref={svgRef}
+          className={`world-graph-canvas__svg${isPanning ? " is-panning" : ""}`}
+          viewBox={`0 0 ${viewport.width} ${viewport.height}`}
+          tabIndex={0}
+          aria-describedby={`${markerId}-help`}
           role="group"
           aria-label={`${record.snapshot.title} world graph`}
-          onPointerMove={(event) => {
-            if (!drag) return;
-            if (Math.abs(event.clientX - drag.pointerX) + Math.abs(event.clientY - drag.pointerY) > 4) dragMoved.current = true;
-          }}
+          onPointerDown={(event) => { if (event.target === event.currentTarget) beginGesture(event); }}
+          onPointerMove={updateGesture}
           onPointerUp={finishDrag}
-          onPointerCancel={() => { setDrag(null); dragMoved.current = false; }}
+          onPointerCancel={cancelGesture}
+          onLostPointerCapture={cancelGesture}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") { cancelGesture(); return; }
+            if (event.target !== event.currentTarget) return;
+            if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+              event.preventDefault();
+              manualCameraRef.current = true;
+              const amount = event.shiftKey ? 96 : 32;
+              setCamera((current) => ({ ...current,
+                x: current.x + (event.key === "ArrowLeft" ? amount : event.key === "ArrowRight" ? -amount : 0),
+                y: current.y + (event.key === "ArrowUp" ? amount : event.key === "ArrowDown" ? -amount : 0) }));
+            } else if (["+", "=", "-", "0"].includes(event.key)) {
+              event.preventDefault();
+              if (event.key === "0") { cancelGesture(); manualCameraRef.current = true; setCamera(fittedCamera()); }
+              else zoomBy(event.key === "-" ? 1 / 1.25 : 1.25);
+            }
+          }}
         >
           <defs><marker id={markerId} markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 z" /></marker></defs>
-          <g className="world-graph-canvas__edges" aria-label="Relationships">
-            {renderedEdges.map(({ edge, geometry }) => {
-              const label = accessibleRelationshipLabel(edge, nodeNames);
-              return (
-              <g className="world-graph-canvas__edge" key={edge.id} data-edge-id={edge.id} role="img" aria-label={label}>
-                <path d={geometry.path} markerEnd={`url(#${markerId})`} />
-                <text x={geometry.labelX} y={geometry.labelY - 7}>{edge.kind}</text>
-                <title>{label}</title>
-              </g>
-            );})}
-          </g>
+          <g className="world-graph-canvas__scene" data-testid="graph-scene" transform={`translate(${camera.x} ${camera.y}) scale(${camera.zoom})`}>
           <g className="world-graph-canvas__nodes" aria-label="World objects">
             {projection.nodes.map((node) => {
               const selected = selectedIds.includes(node.id);
+              const position = positions.get(node.id)!;
               return (
                 <g
                   key={node.id}
                   className={`world-graph-canvas__node${selected ? " is-selected" : ""}`}
-                  transform={`translate(${node.x} ${node.y})`}
+                  transform={`translate(${position.x} ${position.y})`}
                   role="button"
                   tabIndex={0}
                   aria-pressed={selected}
                   aria-label={`${node.name}, ${node.kind}`}
                   data-node-id={node.id}
-                  onClick={() => { if (!dragMoved.current) selectNode(node.id); }}
-                  onKeyDown={(event) => onNodeKeyDown(event, node.id)}
-                  onPointerDown={(event) => {
-                    if ((event.button ?? 0) !== 0 || !onMoveObjects) return;
-                    dragMoved.current = false;
-                    setDrag({ id: node.id, pointerX: event.clientX, pointerY: event.clientY, x: node.x, y: node.y });
-                    if ("setPointerCapture" in event.currentTarget) {
-                      try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* Pointer capture is optional in test DOMs. */ }
-                    }
+                  onClick={() => {
+                    if (suppressClickRef.current === node.id) { suppressClickRef.current = null; return; }
+                    selectNode(node.id);
                   }}
+                  onKeyDown={(event) => onNodeKeyDown(event, node.id)}
+                  onPointerDown={(event) => { event.stopPropagation(); beginGesture(event, node); }}
                 >
                   <rect width={NODE_WIDTH} height={NODE_HEIGHT} rx="12" />
                   <text className="world-graph-canvas__node-kind" x="14" y="22">{node.kind}</text>
@@ -488,6 +663,24 @@ export function WorldGraphCanvas({
                 </g>
               );
             })}
+          </g>
+          <g className="world-graph-canvas__edges" aria-label="Relationships">
+            {renderedEdges.map(({ edge, geometry, box }) => {
+              const label = accessibleRelationshipLabel(edge, nodeNames);
+              return (
+              <g className="world-graph-canvas__edge" key={edge.id} data-edge-id={edge.id} role="img" aria-label={label}>
+                <path d={geometry.path} markerEnd={`url(#${markerId})`} />
+                <rect className="world-graph-canvas__edge-label" x={geometry.labelX - box.width / 2}
+                  y={geometry.labelY - box.height / 2}
+                  width={box.width}
+                  height={box.height} rx="6" />
+                <text x={geometry.labelX} y={geometry.labelY}>
+                  {box.lines.map((line, index, lines) => <tspan key={index} x={geometry.labelX} y={geometry.labelY + (index - (lines.length - 1) / 2) * 16 + 4}>{line}</tspan>)}
+                </text>
+                <title>{label}</title>
+              </g>
+            );})}
+          </g>
           </g>
         </svg>
       </div>

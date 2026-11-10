@@ -435,10 +435,12 @@ describe("WorldGraphCanvas", () => {
     render(<WorldGraphCanvas record={expandedRecord} onMoveObjects={layout} />);
     const graph = screen.getByRole("group", { name: "The Ember Coast world graph" });
     const mara = screen.getByRole("button", { name: "Mara Venn, person" });
-    vi.spyOn(graph, "getBoundingClientRect").mockReturnValue({ width: 1456, height: 1048, x: 0, y: 0, top: 0, right: 1456, bottom: 1048, left: 0, toJSON: () => ({}) });
+    fireEvent.click(screen.getByRole("button", { name: "100%" }));
+    // The CSS-rendered viewport is twice its SVG viewBox dimensions.
+    vi.spyOn(graph, "getBoundingClientRect").mockReturnValue({ width: 1920, height: 1040, x: 0, y: 0, top: 0, right: 1920, bottom: 1040, left: 0, toJSON: () => ({}) });
     fireEvent(mara, new MouseEvent("pointerdown", { button: 0, clientX: 100, clientY: 100, bubbles: true }));
-    fireEvent(graph, new MouseEvent("pointermove", { clientX: 140, clientY: 125, bubbles: true }));
-    fireEvent(graph, new MouseEvent("pointerup", { clientX: 140, clientY: 125, bubbles: true }));
+    fireEvent(graph, new MouseEvent("pointermove", { clientX: 180, clientY: 150, bubbles: true }));
+    fireEvent(graph, new MouseEvent("pointerup", { clientX: 180, clientY: 150, bubbles: true }));
     expect(await screen.findByText("Canvas layout updated.")).toBeVisible();
     expect(layout).toHaveBeenCalledTimes(1);
     const saved = await repository.readWorld(record.snapshot.worldId);
@@ -447,6 +449,126 @@ describe("WorldGraphCanvas", () => {
       expect(saved.record.localRevision).toBe(record.localRevision);
       expect(saved.record.layoutRevision).toBe(record.layoutRevision + 1);
       expect(saved.record.layout.positions[record.snapshot.objects[0].id]).toEqual({ x: 1240, y: 925 });
+    }
+  });
+
+  it("pans the background and supports zoom/fit without writing graph state", async () => {
+    const { record } = await graphRecord();
+    const layout = vi.fn();
+    render(<WorldGraphCanvas record={record} onMoveObjects={layout} />);
+    const graph = screen.getByRole("group", { name: "The Ember Coast world graph" });
+    const scene = screen.getByTestId("graph-scene");
+    const initial = scene.getAttribute("transform");
+    fireEvent(graph, new MouseEvent("pointerdown", { button: 0, clientX: 20, clientY: 20, bubbles: true }));
+    fireEvent(graph, new MouseEvent("pointermove", { clientX: 120, clientY: 70, bubbles: true }));
+    expect(scene.getAttribute("transform")).not.toBe(initial);
+    fireEvent(graph, new MouseEvent("pointerup", { clientX: 120, clientY: 70, bubbles: true }));
+    const panned = scene.getAttribute("transform");
+    fireEvent.keyDown(graph, { key: "ArrowRight" });
+    expect(scene.getAttribute("transform")).not.toBe(panned);
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+    const zoomed = scene.getAttribute("transform");
+    fireEvent.keyDown(graph, { key: "-" });
+    expect(scene.getAttribute("transform")).not.toBe(zoomed);
+    fireEvent.click(screen.getByRole("button", { name: "Fit graph" }));
+    expect(scene.getAttribute("transform")).toBe(initial);
+    expect(layout).not.toHaveBeenCalled();
+    expect(graph).toHaveAttribute("tabindex", "0");
+  });
+
+  it("previews node movement and edges at zoom, saves once on release and does not select after drag", async () => {
+    const { record } = await graphRecord();
+    const pending = deferred<WriteLayoutResult>();
+    const layout = vi.fn(() => pending.promise);
+    render(<WorldGraphCanvas record={record} onMoveObjects={layout} />);
+    const graph = screen.getByRole("group", { name: "The Ember Coast world graph" });
+    const mara = screen.getByRole("button", { name: "Mara Venn, person" });
+    const edge = graph.querySelector("[data-edge-id] path")!;
+    const initialEdge = edge.getAttribute("d");
+    fireEvent.click(screen.getByRole("button", { name: "100%" }));
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+    fireEvent(mara, new MouseEvent("pointerdown", { button: 0, clientX: 100, clientY: 100, bubbles: true }));
+    fireEvent(graph, new MouseEvent("pointermove", { clientX: 150, clientY: 125, bubbles: true }));
+    expect(mara).toHaveAttribute("transform", "translate(120 100)");
+    expect(edge.getAttribute("d")).not.toBe(initialEdge);
+    expect(layout).not.toHaveBeenCalled();
+    fireEvent(graph, new MouseEvent("pointerup", { clientX: 150, clientY: 125, bubbles: true }));
+    fireEvent.lostPointerCapture(graph);
+    expect(mara).toHaveAttribute("transform", "translate(120 100)");
+    fireEvent.click(mara);
+    expect(mara).toHaveAttribute("aria-pressed", "false");
+    expect(layout).toHaveBeenCalledExactlyOnceWith(record, { [record.snapshot.objects[0].id]: { x: 120, y: 100 } });
+    pending.resolve({ status: "error", message: "Layout could not be saved" });
+    expect(await screen.findByText("Layout could not be saved")).toBeVisible();
+    expect(mara).toHaveAttribute("transform", "translate(80 80)");
+    fireEvent.click(mara);
+    expect(mara).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it.each(["pointercancel", "lostpointercapture", "Escape"])("cancels transient movement on %s without saving", async (reason) => {
+    const { record } = await graphRecord();
+    const layout = vi.fn();
+    render(<WorldGraphCanvas record={record} onMoveObjects={layout} />);
+    const graph = screen.getByRole("group", { name: "The Ember Coast world graph" });
+    const mara = screen.getByRole("button", { name: "Mara Venn, person" });
+    fireEvent(mara, new MouseEvent("pointerdown", { button: 0, clientX: 100, clientY: 100, bubbles: true }));
+    fireEvent(graph, new MouseEvent("pointermove", { clientX: 160, clientY: 140, bubbles: true }));
+    expect(mara.getAttribute("transform")).not.toBe("translate(80 80)");
+    if (reason === "Escape") fireEvent.keyDown(graph, { key: "Escape" });
+    else fireEvent(graph, new MouseEvent(reason, { bubbles: true }));
+    fireEvent(graph, new MouseEvent("pointerup", { clientX: 160, clientY: 140, bubbles: true }));
+    expect(mara).toHaveAttribute("transform", "translate(80 80)");
+    expect(layout).not.toHaveBeenCalled();
+  });
+
+  it("invalidates an active drag on a newer controlled revision and preserves the latest saved positions", async () => {
+    const { record } = await graphRecord();
+    const layout = vi.fn();
+    const view = render(<WorldGraphCanvas record={record} onMoveObjects={layout} />);
+    const graph = screen.getByRole("group", { name: "The Ember Coast world graph" });
+    const mara = screen.getByRole("button", { name: "Mara Venn, person" });
+    fireEvent(mara, new MouseEvent("pointerdown", { button: 0, clientX: 100, clientY: 100, bubbles: true }));
+    fireEvent(graph, new MouseEvent("pointermove", { clientX: 160, clientY: 140, bubbles: true }));
+    const updated = { ...record, layoutRevision: record.layoutRevision + 1, layout: { ...record.layout, positions: { [record.snapshot.objects[0].id]: { x: 900, y: 500 } } } };
+    view.rerender(<WorldGraphCanvas record={updated} onMoveObjects={layout} />);
+    fireEvent(graph, new MouseEvent("pointerup", { clientX: 160, clientY: 140, bubbles: true }));
+    expect(mara).toHaveAttribute("transform", "translate(900 500)");
+    expect(layout).not.toHaveBeenCalled();
+  });
+
+  it("wraps long predicate labels on opaque plates and preserves full accessible text", async () => {
+    const { record } = await graphRecord();
+    const predicate = "has promised to protect during the winter gathering and beyond";
+    const relationship = { ...record.snapshot.relationships[0], kind: predicate };
+    render(<WorldGraphCanvas record={{ ...record, snapshot: { ...record.snapshot, relationships: [relationship] } }} />);
+    const edge = screen.getByRole("img", { name: `Mara Venn ${predicate} Tomas Reed` });
+    expect(edge.querySelector("rect")).toHaveClass("world-graph-canvas__edge-label");
+    expect(edge.querySelectorAll("tspan").length).toBeGreaterThan(1);
+    expect(edge.querySelector("title")?.textContent).toContain(predicate);
+    expect(edge.querySelector("path")?.getAttribute("d")).not.toContain("M 164 118 ");
+  });
+
+  it.each(["vertical reciprocal", "horizontal multiline", "self loops"])("keeps %s predicate plates disjoint", async (shape) => {
+    const { record } = await graphRecord();
+    const [first, second] = record.snapshot.objects;
+    const relationships = [0, 1, 2].map((index) => ({ ...record.snapshot.relationships[0],
+      id: `${record.snapshot.worldId}:relationship:lane-${index}` as LocalWorldRelationship["id"],
+      fromObjectId: shape === "vertical reciprocal" && index === 1 ? second.id : first.id,
+      toObjectId: shape === "self loops" || (shape === "vertical reciprocal" && index === 1) ? first.id : second.id,
+      kind: shape === "horizontal multiline" ? "has promised to protect during the winter gathering and beyond" : "attends",
+    }));
+    const positions = { [first.id]: { x: 100, y: 100 }, [second.id]: shape === "vertical reciprocal" ? { x: 100, y: 500 } : { x: 700, y: 100 } };
+    render(<WorldGraphCanvas record={{ ...record, snapshot: { ...record.snapshot, relationships }, layout: { ...record.layout, positions } }} />);
+    const plates = [...document.querySelectorAll(".world-graph-canvas__edge-label")].map((element) => ({
+      x: Number(element.getAttribute("x")), y: Number(element.getAttribute("y")),
+      width: Number(element.getAttribute("width")), height: Number(element.getAttribute("height")),
+    }));
+    expect(plates).toHaveLength(3);
+    for (let i = 0; i < plates.length; i += 1) {
+      for (let j = i + 1; j < plates.length; j += 1) {
+        const a = plates[i]; const b = plates[j];
+        expect(a.x + a.width < b.x || b.x + b.width < a.x || a.y + a.height < b.y || b.y + b.height < a.y).toBe(true);
+      }
     }
   });
 

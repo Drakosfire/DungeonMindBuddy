@@ -8,6 +8,7 @@ import {
 } from "./localWorldDocumentAuthoring";
 import {
   cloneLocalWorldValue,
+  createInitialLocalWorldRecord,
   validateLocalWorldSnapshot,
   validateLocalWorldPackageData,
   type CommitSemanticResult,
@@ -48,7 +49,7 @@ const CONFLICT_STORE = LOCAL_WORLD_DATABASE_STORES.conflicts;
 const PACKAGE_DATA_STORE = LOCAL_WORLD_DATABASE_STORES.packageData;
 const CONFLICT_WORLD_INDEX = "worldId";
 
-export type IndexedDbCommitPoint = "create" | "semantic-edit" | "layout" | "package-restore" | "document-edit" | "document-edit-after-world" | "document-conflict-discard";
+export type IndexedDbCommitPoint = "initial-world" | "initial-world-after-write" | "create" | "semantic-edit" | "layout" | "package-restore" | "document-edit" | "document-edit-after-world" | "document-conflict-discard";
 export type IndexedDbCommitHook = (point: IndexedDbCommitPoint) => void;
 type IdFactory = () => string;
 type OpenErrorCode =
@@ -294,6 +295,24 @@ export class IndexedDbLocalWorldRepository implements LocalWorldPackageRepositor
 
   get databaseVersion(): number {
     return this.db.version;
+  }
+
+  async ensureInitialWorld(): Promise<ListLocalWorldsResult> {
+    try {
+      return await inTransaction(this.db, WORLD_STORE, "readwrite", async (transaction) => {
+        const worlds = transaction.objectStore(WORLD_STORE);
+        const records = await requestResult<LocalWorldRecord[]>(worlds.getAll());
+        if (records.length === 0) {
+          const record = createInitialLocalWorldRecord(this.idFactory);
+          this.beforeWrite("initial-world");
+          await requestResult(worlds.add(record));
+          this.beforeWrite("initial-world-after-write");
+          records.push(record);
+        }
+        records.sort((left, right) => left.snapshot.title.localeCompare(right.snapshot.title) || left.snapshot.worldId.localeCompare(right.snapshot.worldId));
+        return { status: "found", records: cloneLocalWorldValue(records) };
+      });
+    } catch (error) { return { status: "error", message: errorMessage(error) }; }
   }
 
   async createWorld(input: { readonly title: string }): Promise<CreateWorldResult> {
