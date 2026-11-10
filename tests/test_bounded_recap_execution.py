@@ -215,7 +215,7 @@ def test_deepseek_route_caps_and_unknown_receipt():
     assert request.reasoning_effort == "none" and request.json_object is False
     assert request.json_schema and request.schema_name == "category_graph_actor_pass"
     assert request.max_transport_retries == 0
-    assert (request.max_output_tokens, request.deadline_ms) == (8192, 120000)
+    assert (request.max_output_tokens, request.deadline_ms) == (None, 120000)
     assert "PRIVATE_PROMPT" in request.system_prompt
     assert "PRIVATE_SOURCE" not in request.system_prompt
     assert "one complete JSON object" in request.system_prompt
@@ -300,6 +300,9 @@ def test_deepseek_request_reaches_accepted_ge_openrouter_sdk_kwargs():
     assert "one complete JSON object" in ge_call.system_prompt
     assert "observation_nodes" not in ge_call.system_prompt
     kwargs = completions.calls[0]
+    assert ge_call.max_output_tokens is None
+    assert "max_tokens" not in kwargs and "max_output_tokens" not in kwargs
+    assert "max_completion_tokens" not in kwargs
     from generationengine.utils.schema_utils import make_schema_strict
 
     assert kwargs["response_format"] == {
@@ -644,7 +647,7 @@ def test_provider_model_pair_is_caller_selected(provider, model):
 
 @pytest.mark.parametrize(
     "edge_override,expected_edge_limit",
-    [(None, 8192), (16384, 16384), (32768, 32768)],
+    [(None, None), (16384, 16384), (32768, 32768)],
 )
 def test_edge_output_allowance_applies_only_to_actual_edge_spec(
     edge_override, expected_edge_limit
@@ -706,8 +709,8 @@ def test_edge_output_allowance_applies_only_to_actual_edge_spec(
     )
 
     actor_request, untyped_edge_request, edge_request = engine.requests
-    assert actor_request.max_output_tokens == 8192
-    assert untyped_edge_request.max_output_tokens == 8192
+    assert actor_request.max_output_tokens is None
+    assert untyped_edge_request.max_output_tokens is None
     assert edge_request.max_output_tokens == expected_edge_limit
     for request in engine.requests:
         assert 0 < request.deadline_ms <= 120_000
@@ -727,19 +730,21 @@ def test_edge_output_allowance_applies_only_to_actual_edge_spec(
     assert "authorization ceiling" in ledger["attempt_counts"]["semantics"]
 
 
-@pytest.mark.parametrize("invalid", [0, 32769, True, 1.5, "32768"])
+@pytest.mark.parametrize("invalid", [0, -1, True, 1.5, "32768"])
 def test_edge_output_allowance_rejects_invalid_values(invalid):
     with pytest.raises(ValueError, match="edge_max_output_tokens"):
         RecapExecutionLimits(edge_max_output_tokens=invalid)
 
 
-def test_general_output_allowance_supports_reasoning_headroom_without_changing_default():
-    assert RecapExecutionLimits().max_output_tokens == 8192
+def test_output_capacity_is_provider_owned_unless_explicitly_configured():
+    assert RecapExecutionLimits().max_output_tokens is None
     assert RecapExecutionLimits(max_output_tokens=16384).max_output_tokens == 16384
     assert RecapExecutionLimits(max_output_tokens=32768).max_output_tokens == 32768
+    assert RecapExecutionLimits(max_output_tokens=65536).max_output_tokens == 65536
+    assert RecapExecutionLimits(edge_max_output_tokens=65536).edge_max_output_tokens == 65536
 
 
-@pytest.mark.parametrize("invalid", [0, 32769, True, 1.5, "32768"])
+@pytest.mark.parametrize("invalid", [0, -1, True, 1.5, "32768"])
 def test_general_output_allowance_rejects_invalid_values(invalid):
     with pytest.raises(ValueError, match="max_output_tokens"):
         RecapExecutionLimits(max_output_tokens=invalid)
@@ -757,7 +762,7 @@ def test_owning_request_caps_and_unknown_receipt():
         "gpt-6-luna",
         None,
     )
-    assert (request.max_output_tokens, request.max_transport_retries) == (8192, 0)
+    assert (request.max_output_tokens, request.max_transport_retries) == (None, 0)
     assert 0 < request.deadline_ms <= 120000
     assert request.json_schema and request.schema_name == "category_graph_actor_pass"
     assert result["usage"]["input_tokens"] is None and result["cost_usd"] is None

@@ -215,7 +215,7 @@ class RecapExecutionLimits:
     max_calls: int = 8
     per_call_deadline_ms: int = 120_000
     run_deadline_ms: int = 480_000
-    max_output_tokens: int = 8192
+    max_output_tokens: int | None = None
     edge_max_output_tokens: int | None = None
     reasoning_effort: str | None = None
 
@@ -241,16 +241,17 @@ class RecapExecutionLimits:
         for name, ceiling in (
             ("per_call_deadline_ms", 240_000),
             ("run_deadline_ms", 900_000),
-            ("max_output_tokens", 32_768),
         ):
             value = getattr(self, name)
             if type(value) is not int or not 1 <= value <= ceiling:
                 raise ValueError(f"{name} must be 1..{ceiling}")
-        if self.edge_max_output_tokens is not None and (
-            type(self.edge_max_output_tokens) is not int
-            or not 1 <= self.edge_max_output_tokens <= 32_768
-        ):
-            raise ValueError("edge_max_output_tokens must be None or an int in 1..32768")
+        # Explicit finite settings remain valid for pinned historical/experiment
+        # configurations; ordinary ingestion delegates capacity to the provider.
+        for name in ("max_output_tokens", "edge_max_output_tokens"):
+            value = getattr(self, name)
+            if value is not None and (type(value) is not int or value < 1):
+                raise ValueError(f"{name} must be None or a positive integer")
+
 
 
 def _default_engine_for(provider: str):
