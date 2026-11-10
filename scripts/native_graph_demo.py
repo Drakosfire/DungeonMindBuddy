@@ -397,7 +397,6 @@ class DockerPostgresRunner:
                 str(self.state / "pgdata"),
                 PGVECTOR_IMAGE_PGDATA,
                 True,
-                "rw",
                 "rprivate",
             ),
             (
@@ -405,7 +404,6 @@ class DockerPostgresRunner:
                 str(self.state / "s"),
                 str(self.state / "s"),
                 True,
-                "rw",
                 "rprivate",
             ),
             (
@@ -413,7 +411,6 @@ class DockerPostgresRunner:
                 str(self.state / "container.passwd"),
                 "/etc/passwd",
                 False,
-                "ro",
                 "rprivate",
             ),
             (
@@ -421,7 +418,6 @@ class DockerPostgresRunner:
                 str(self.state / "container.group"),
                 "/etc/group",
                 False,
-                "ro",
                 "rprivate",
             ),
         }
@@ -432,17 +428,59 @@ class DockerPostgresRunner:
                     str(Path(mount["Source"]).resolve(strict=True)),
                     mount["Destination"],
                     mount["RW"],
-                    mount["Mode"],
                     mount["Propagation"],
                 )
                 for mount in info["Mounts"]
             }
+            host_mounts = {
+                (
+                    mount["Type"],
+                    str(Path(mount["Source"]).resolve(strict=True)),
+                    mount["Target"],
+                    mount["ReadOnly"],
+                    (mount.get("BindOptions") or {}).get("Propagation"),
+                )
+                for mount in host["Mounts"]
+            }
+            unexpected_mount_modes = any(
+                mount.get("Mode", "") != "" for mount in info["Mounts"]
+            )
         except (KeyError, OSError, TypeError) as exc:
             raise LaunchBlocked(
                 "The task container mount identity is incomplete."
             ) from exc
         port_bindings = host.get("PortBindings")
         security_options = set(host.get("SecurityOpt") or [])
+        expected_host_mounts = {
+            (
+                "bind",
+                str(self.state / "pgdata"),
+                PGVECTOR_IMAGE_PGDATA,
+                False,
+                "rprivate",
+            ),
+            (
+                "bind",
+                str(self.state / "s"),
+                str(self.state / "s"),
+                False,
+                "rprivate",
+            ),
+            (
+                "bind",
+                str(self.state / "container.passwd"),
+                "/etc/passwd",
+                True,
+                "rprivate",
+            ),
+            (
+                "bind",
+                str(self.state / "container.group"),
+                "/etc/group",
+                True,
+                "rprivate",
+            ),
+        }
         if (
             expected_id is not None
             and container_id != expected_id
@@ -453,7 +491,11 @@ class DockerPostgresRunner:
             or config.get("Cmd") != ["infinity"]
             or config.get("Env") != self.image_env
             or config.get("Labels") != self.labels
+            or len(info["Mounts"]) != len(expected_mounts)
             or actual_mounts != expected_mounts
+            or len(host["Mounts"]) != len(expected_host_mounts)
+            or host_mounts != expected_host_mounts
+            or unexpected_mount_modes
             or host.get("NetworkMode") != "none"
             or port_bindings not in (None, {})
             or host.get("Privileged") is not False
@@ -569,8 +611,7 @@ class DockerPostgresRunner:
         args = [
             "container",
             "create",
-            "--pull",
-            "never",
+            "--pull=never",
             "--name",
             self.name,
             "--user",

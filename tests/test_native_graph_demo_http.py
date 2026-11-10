@@ -377,7 +377,7 @@ class LauncherIsolationTest(unittest.TestCase):
                 "Source": str((state / "pgdata").resolve()),
                 "Destination": self.launcher.PGVECTOR_IMAGE_PGDATA,
                 "RW": True,
-                "Mode": "rw",
+                "Mode": "",
                 "Propagation": "rprivate",
             },
             {
@@ -385,7 +385,7 @@ class LauncherIsolationTest(unittest.TestCase):
                 "Source": str((state / "s").resolve()),
                 "Destination": str(state / "s"),
                 "RW": True,
-                "Mode": "rw",
+                "Mode": "",
                 "Propagation": "rprivate",
             },
             {
@@ -393,7 +393,7 @@ class LauncherIsolationTest(unittest.TestCase):
                 "Source": str((state / "container.passwd").resolve()),
                 "Destination": "/etc/passwd",
                 "RW": False,
-                "Mode": "ro",
+                "Mode": "",
                 "Propagation": "rprivate",
             },
             {
@@ -401,7 +401,7 @@ class LauncherIsolationTest(unittest.TestCase):
                 "Source": str((state / "container.group").resolve()),
                 "Destination": "/etc/group",
                 "RW": False,
-                "Mode": "ro",
+                "Mode": "",
                 "Propagation": "rprivate",
             },
         ]
@@ -440,6 +440,36 @@ class LauncherIsolationTest(unittest.TestCase):
                 "Tmpfs": None,
                 "Binds": None,
                 "VolumesFrom": None,
+                "Mounts": [
+                    {
+                        "Type": "bind",
+                        "Source": str((state / "pgdata").resolve()),
+                        "Target": self.launcher.PGVECTOR_IMAGE_PGDATA,
+                        "ReadOnly": False,
+                        "BindOptions": {"Propagation": "rprivate"},
+                    },
+                    {
+                        "Type": "bind",
+                        "Source": str((state / "s").resolve()),
+                        "Target": str(state / "s"),
+                        "ReadOnly": False,
+                        "BindOptions": {"Propagation": "rprivate"},
+                    },
+                    {
+                        "Type": "bind",
+                        "Source": str((state / "container.passwd").resolve()),
+                        "Target": "/etc/passwd",
+                        "ReadOnly": True,
+                        "BindOptions": {"Propagation": "rprivate"},
+                    },
+                    {
+                        "Type": "bind",
+                        "Source": str((state / "container.group").resolve()),
+                        "Target": "/etc/group",
+                        "ReadOnly": True,
+                        "BindOptions": {"Propagation": "rprivate"},
+                    },
+                ],
             },
             "Mounts": mounts,
             "State": {"Status": status},
@@ -529,7 +559,7 @@ class LauncherIsolationTest(unittest.TestCase):
             argv = runner._create_argv()
             self.assertIn("--network", argv)
             self.assertEqual(argv[argv.index("--network") + 1], "none")
-            self.assertEqual(argv[argv.index("--pull") + 1], "never")
+            self.assertIn("--pull=never", argv)
             self.assertEqual(argv[argv.index("--restart") + 1], "no")
             self.assertEqual(argv[argv.index("--entrypoint") + 1], "/bin/sleep")
             self.assertEqual(argv[-2:], [self.launcher.PGVECTOR_IMAGE_ID, "infinity"])
@@ -615,6 +645,29 @@ class LauncherIsolationTest(unittest.TestCase):
                 }
             )
             cases.append(altered_mount)
+            altered_mount_mode = self.container_inspect(
+                state, runner, runner.container_id
+            )
+            altered_mount_mode["Mounts"][0]["Mode"] = "z"
+            cases.append(altered_mount_mode)
+            altered_host_mount = self.container_inspect(
+                state, runner, runner.container_id
+            )
+            altered_host_mount["HostConfig"]["Mounts"][2]["ReadOnly"] = False
+            cases.append(altered_host_mount)
+            extra_host_mount = self.container_inspect(
+                state, runner, runner.container_id
+            )
+            extra_host_mount["HostConfig"]["Mounts"].append(
+                {
+                    "Type": "bind",
+                    "Source": str((state / "pgdata").resolve()),
+                    "Target": "/extra",
+                    "ReadOnly": False,
+                    "BindOptions": {"Propagation": "rprivate"},
+                }
+            )
+            cases.append(extra_host_mount)
             altered_command = self.container_inspect(state, runner, runner.container_id)
             altered_command["Args"] = ["--tcp-only"]
             cases.append(altered_command)
