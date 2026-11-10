@@ -1,6 +1,7 @@
 import {writeComposerReferences,readComposerReferences} from '../agentInteraction/authoredGraphReferences';
 import {rulesAnswerFixture,fixtureHash} from '../test/rulesAnswerFixture';
 import sharedWire from '../test/surface-native-http.json';
+import openingWire from '../test/surface-native-plan-opening-http.json';
 import {canonical} from '../shared/sourcePassageProtocol';
 import {capturePlanPlacementCatalog} from './agentEdit/planPlacementCatalog';
 import {sealWorldPlanAuthoringTarget} from './agentEdit/planAgentEditProposal';
@@ -5073,17 +5074,19 @@ describe("World Plan conversation consumer", () => {
     expect(open).toHaveBeenCalledWith(worldId,turnId,0);
   });
 
-  it.each(['exact','fresh','provider-capacity','fresh-provider-capacity','producer','revision','extra','provenance','world','interrupted','mixed-approved','mixed-unclaimed','unavailable','question','mixed-approved-question','mixed-unclaimed-question'])("consumes shared native Plan context in ordinary conversation and history: %s",async change=>{
+  it.each(['exact','fresh','provider-capacity','fresh-provider-capacity','request-admission','fresh-request-admission','delayed-request-admission','request-admission-root','producer','revision','extra','provenance','world','interrupted','mixed-approved','mixed-unclaimed','unavailable','question','mixed-approved-question','mixed-unclaimed-question'])("consumes shared native Plan context in ordinary conversation and history: %s",async change=>{
     const old=await planGraphContext('graph_grounded'),turnId='11111111-1111-4111-8111-111111111111';
-    const context=JSON.parse(JSON.stringify(sharedWire.context).replaceAll(sharedWire.context.receipt.work_context.plan_basis.world_id,worldId)) as import('../api/types').PlanSurfaceNativeContextResponseV1;
-    const fresh=change==='fresh'||change==='fresh-provider-capacity';
+    const fixture=change.includes('request-admission')?openingWire:sharedWire;
+    const context=JSON.parse(JSON.stringify(fixture.context).replaceAll(fixture.context.receipt.work_context.plan_basis.world_id,worldId)) as import('../api/types').PlanSurfaceNativeContextResponseV1;
+    const fresh=change==='fresh'||change==='fresh-provider-capacity'||change==='fresh-request-admission';
+    const delayed=change==='delayed-request-admission';
     if(change.endsWith('provider-capacity')){
       context.receipt.assembled_input.context_window_limit=null;
       context.receipt.assembled_input.output_token_reserve=0;
     }
     const work=context.receipt.work_context;
     work.plan_basis=old.receipt.plan_basis;
-    const question=context.receipt.native_query.schema==='dmb_native_plan_query_v2'?context.receipt.native_query.question:'';
+    const question=context.receipt.native_query.schema!=='dmb_native_plan_query_unavailable_v1'?context.receipt.native_query.question:'';
     if(change==='unavailable'){
       context.receipt.native_query={schema:'dmb_native_plan_query_unavailable_v1',managed_world_id:worldId,reason:'native_graph_head_unavailable'};
       context.completion!.answer_context_status='insufficient_evidence';context.completion!.native_assertion_citations=[];
@@ -5099,6 +5102,7 @@ describe("World Plan conversation consumer", () => {
     await seal(turn);
     if(change==='question'||change.endsWith('-question'))turn.user_text='An unrelated question about a different event.';
     const citation=context.completion!.native_assertion_citations[0]!;
+    if(change==='request-admission-root'&&context.receipt.assembled_input.assembler_version==='native_plan_request_admission_v1')context.receipt.assembled_input.manifest_sha256='0'.repeat(64);
     if(change==='producer')citation.provider_attempt_id='00000000-0000-4000-8000-000000000001';
     if(change==='revision')citation.read_revision_id='rev:foreign';
     if(change==='extra')Object.assign(context,{source_open_targets:[]});
@@ -5118,24 +5122,34 @@ describe("World Plan conversation consumer", () => {
       const {plan_context:_,...envelope}=turn;
       page={...history(f.context.accepted_binding.conversation_id,1,[]),schema:'dmb_agent_conversation_history_v4',turns:[{...envelope,schema:'dmb_agent_conversation_history_mixed_turn_v1',idempotency_key:turnId,lifecycle_status:'completed',assistant_text:f.answer,rules_context:f.context}]};
     }
-    const api=setupApi(page);
+    const api=setupApi(page,!delayed);
+    const hydration=deferred<void>();
+    if(delayed){const read=api.getHistory.getMockImplementation()!;api.getHistory.mockImplementation(async(...args)=>{await hydration.promise;return read(...args);});}
     const post=vi.spyOn(liveApi,'postWorldPlanAgentTurn');
     if(fresh)post.mockImplementation(async request=>{
       work.plan_context_policy=request.plan_context_policy as import('../api/types').WorldPlanContextPolicyV2;
       work.plan_basis={...work.plan_basis,object_revision:request.primary_work.expected_revision,revision_n:request.primary_work.expected_revision_n,content_sha256:request.primary_work.expected_content_sha256};
-      if(context.receipt.native_query.schema==='dmb_native_plan_query_v2')context.receipt.native_query.question=request.message;
+      if(context.receipt.native_query.schema!=='dmb_native_plan_query_unavailable_v1')context.receipt.native_query.question=request.message;
       const row=policyHistoryTurn(1,turnId,request.message,answer,context,'completed',request);await seal(row);
       api.setCurrent(await historyV3('conversation-a',1,[withPersistedCorrelation(row,await expectedHistoryCorrelationKey(worldId,request.turn_id),turnId)]));
       return {...await policyResponse(request,'conversation-a',answer),plan_context:context};
     });
-    const open=vi.spyOn(liveApi,'getAgentNativeAssertionSource').mockResolvedValue({...sharedWire.source,world_id:worldId,turn_id:turnId,citation});
-    await mountComponent();
+    const open=vi.spyOn(liveApi,'getAgentNativeAssertionSource').mockResolvedValue({...fixture.source,world_id:worldId,turn_id:turnId,citation});
+    if(delayed){
+      render(conversationElement());await waitForConversationReady(false);
+      expect(await screen.findByText(answer)).toBeInTheDocument();expect(api.getHistory).not.toHaveBeenCalled();
+      fireEvent.change(screen.getByLabelText('Message DungeonBuddy'),{target:{value:'Keep this unsent draft'}});
+      fireEvent.click(screen.getByText('Details',{selector:'summary'}));
+      await waitFor(()=>expect(api.getHistory).toHaveBeenCalledTimes(1));
+      expect(screen.getByText(answer)).toBeInTheDocument();expect(open).not.toHaveBeenCalled();
+      await act(async()=>hydration.resolve());
+    }else await mountComponent();
     if(fresh){
       await screen.findByRole('textbox',{name:'Message DungeonBuddy'});ensureWorldGraphAskEnabled();
       fireEvent.change(screen.getByRole('textbox',{name:'Message DungeonBuddy'}),{target:{value:question}});
       fireEvent.click(screen.getByRole('button',{name:'Send message'}));
     }
-    if(!['exact','fresh','provider-capacity','fresh-provider-capacity','interrupted','mixed-approved','mixed-unclaimed','unavailable'].includes(change)){
+    if(!['exact','fresh','provider-capacity','fresh-provider-capacity','request-admission','fresh-request-admission','delayed-request-admission','interrupted','mixed-approved','mixed-unclaimed','unavailable'].includes(change)){
       await screen.findByText(/invalid Graph-context receipt/);expect(open).not.toHaveBeenCalled();return;
     }
     await screen.findByText(question);
@@ -5158,6 +5172,7 @@ describe("World Plan conversation consumer", () => {
     fireEvent.click(await screen.findByRole('button',{name:'Read Graph assertion source'}));
     await screen.findByRole('region',{name:'Opened source section'});
     expect(open).toHaveBeenCalledWith(worldId,turnId,0);
+    if(delayed){expect(api.getHistory).toHaveBeenCalledTimes(1);expect(screen.getByLabelText('Message DungeonBuddy')).toHaveValue('Keep this unsent draft');}
   });
 
   it("rehydrates a cited session summary with its immutable original instead of a quote",async()=>{
