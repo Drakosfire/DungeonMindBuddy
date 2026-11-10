@@ -296,13 +296,14 @@ describe("App inspector integration", () => {
     );
   });
 
-  it("renders the blank Surface and Index Agent chrome at the root route", async () => {
+  it("renders the example graph and Index Agent chrome at the root route", async () => {
     render(<App />);
 
     expect(screen.getByRole("heading", { name: /buddy surface/i })).toBeInTheDocument();
-    expect(await screen.findByText("No local Worlds yet. Create one when you’re ready.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "My World" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Mara Venn, person" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create World" })).toBeDisabled();
-    expect(screen.getByText("Ready to create a local World")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit World title" })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Open" })).toBeInTheDocument();
     expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-surface-id", "index");
     const navigation = screen.getByRole("navigation", { name: "Command board navigation" });
@@ -313,8 +314,8 @@ describe("App inspector integration", () => {
     expect(screen.queryByRole("link", { name: /live play/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /retrieval/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /tiptap|developer spike/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
     await userEvent.setup().type(screen.getByLabelText("Create a World"), "Chrome-owned World");
     await userEvent.setup().click(screen.getByRole("button", { name: "Create World" }));
     expect(await screen.findByRole("heading", { name: "Chrome-owned World" })).toBeInTheDocument();

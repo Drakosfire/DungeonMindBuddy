@@ -56,11 +56,16 @@
   font: inherit;
 }
 
-.world-graph-canvas__viewport { max-height: min(64vh, 600px); overflow: auto; border: 1px solid #d8ceb8; border-radius: 10px; background: #f8f4eb; }
-.world-graph-canvas__svg { display: block; min-width: 600px; min-height: 360px; touch-action: pan-x pan-y; }
+.world-graph-canvas__viewport { height: clamp(360px, 62vh, 720px); overflow: hidden; border: 1px solid #d8ceb8; border-radius: 10px; background: #f8f4eb; }
+.world-graph-canvas__svg { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; user-select: none; }
+.world-graph-canvas__svg.is-panning { cursor: grabbing; }
+.world-graph-canvas__view-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.world-graph-canvas__hint { color: var(--graph-muted); font-size: 12px; margin: 8px 0; }
+.world-graph-canvas__edges { pointer-events: none; }
+.world-graph-canvas__edge-label { fill: #fffdf7; stroke: #c8b995; stroke-width: 1; }
 .world-graph-canvas__edges path { fill: none; stroke: var(--graph-line); stroke-width: 2.2; }
-.world-graph-canvas__edges marker path { fill: var(--graph-gold); }
-.world-graph-canvas__edge text { fill: #4d4536; stroke: #f8f4eb; stroke-width: 5px; paint-order: stroke; text-anchor: middle; font-size: 12px; }
+.world-graph-canvas marker path { fill: var(--graph-gold); }
+.world-graph-canvas__edge text { fill: #4d4536; stroke: #f8f4eb; stroke-width: 0; text-anchor: middle; font-size: 12px; }
 .world-graph-canvas__edge title { pointer-events: none; }
 .world-graph-canvas__node { cursor: grab; outline: none; touch-action: none; }
 .world-graph-canvas__node:active { cursor: grabbing; }
@@ -80,5 +85,5 @@
 
 @media (max-width: 640px) {
   .world-graph-canvas { padding: 8px; }
-  .world-graph-canvas__svg { min-width: 720px; }
+  .world-graph-canvas__viewport { height: 420px; }
 }

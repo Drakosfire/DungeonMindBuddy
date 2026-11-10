@@ -350,15 +350,41 @@ export function LocalWorldSurface({
       closeRepositoryRef.current = result.close ?? (() => {
         (result.repository as LocalWorldPackageRepository & { close?: () => void }).close?.();
       });
+      const finishPendingWrite = beginPendingLocalWrite();
+      let initial;
+      try {
+        initial = await result.repository.ensureInitialWorld();
+      } finally {
+        finishPendingWrite();
+      }
+      if (!mounted.current || generation !== operationGeneration.current) return;
+      if (initial.status !== "found") {
+        setRepositoryError(initial.message);
+        setStatus("error");
+        return;
+      }
       setRepository(result.repository);
-      const listed = await refreshList(result.repository, generation);
-      if (mounted.current && generation === operationGeneration.current) setStatus(listed ? "saved" : "error");
+      setRecords(initial.records);
+      const first = initial.records[0];
+      if (first) {
+        const pendingDraft = pendingTitleDrafts.get(first.snapshot.worldId);
+        const hasPendingChanges = pendingDraft !== undefined && pendingDraft.value.trim() !== first.snapshot.title;
+        if (pendingDraft && !hasPendingChanges) clearPendingTitleDraft(first.snapshot.worldId, pendingDraft.token);
+        updateActiveRecord(first);
+        rememberGraphRecord(first);
+        setTitleDraft(hasPendingChanges ? pendingDraft.value : first.snapshot.title);
+        setEditing(hasPendingChanges);
+        setNotesStatus("loading");
+        setStatus(hasPendingChanges ? "dirty" : "saved");
+      } else {
+        setStatus("saved");
+      }
     } catch (error) {
       if (!mounted.current || generation !== operationGeneration.current) return;
       setRepositoryError(error instanceof Error ? error.message : "Local storage could not be opened.");
       setStatus("error");
     }
-  }, [openRepository, refreshList]);
+  }, [openRepository, rememberGraphRecord, updateActiveRecord]);
 
   useEffect(() => {
     mounted.current = true;
@@ -741,13 +767,93 @@ export function LocalWorldSurface({
       <header className="local-world-surface__header">
         <p className="local-world-surface__eyebrow">A WORLD, YOURS TO SHAPE</p>
         <h1>Buddy Surface</h1>
-        <p className="local-world-surface__intro">Start with a name. Your work stays in this browser until you choose to export it.</p>
+        <p className="local-world-surface__intro">Explore your graph and make it yours. Your work stays in this browser until you choose to export it.</p>
       </header>
 
-      <div className="local-world-surface__grid">
+      <div className={`local-world-surface__grid${children ? " local-world-surface__grid--with-assistant" : ""}`}>
         <section className="local-world-surface__workspace" aria-labelledby="local-world-heading">
           {status === "loading" && !repository ? <p role="status">Opening local storage…</p> : null}
           {repositoryError ? <div className="local-world-surface__notice local-world-surface__notice--error" role="alert"><p>{repositoryError}</p><button type="button" onClick={() => void openStore()}>Retry storage</button></div> : null}
+
+          {repository ? <section className="local-world-surface__canvas" aria-label="Local World canvas">
+            {record ? <>
+              <div className="local-world-surface__canvas-topline"><span>LOCAL WORLD</span><span>Revision {record.localRevision}</span></div>
+              <div className="local-world-surface__title-row">
+                {editing ? <form onSubmit={(event) => { event.preventDefault(); void saveTitle(); }}>
+                  <label htmlFor="local-world-title">World title</label>
+                  <input id="local-world-title" autoFocus value={titleDraft} maxLength={160} disabled={busy} onChange={(event) => { const nextDraft = event.target.value; setTitleDraft(nextDraft); if (record) setPendingTitleDraft(record.snapshot.worldId, nextDraft, record.snapshot.title); setMessage(null); if (status === "error" || status === "conflict") setStatus("dirty"); }} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); cancelTitleEdit(); } }} />
+                  <div className="local-world-surface__title-actions">
+                    <button type="submit" disabled={busy || !dirty || !titleDraft.trim()}>{busy && status === "saving" ? "Saving…" : "Save title"}</button>
+                    <button type="button" className="local-world-surface__quiet" disabled={busy} onClick={cancelTitleEdit}>Cancel</button>
+                  </div>
+                </form> : <>
+                  <h2>{record.snapshot.title}</h2>
+                  <button type="button" className="local-world-surface__pencil" aria-label="Edit World title" title="Edit World title" disabled={busy} onClick={() => { setTitleDraft(record.snapshot.title); setEditing(true); setStatus("saved"); }}><span aria-hidden="true">✎</span></button>
+                </>}
+              </div>
+              {record.snapshot.objects.length === 0 && record.snapshot.relationships.length === 0 ? (
+                <div className="local-world-surface__empty-canvas" aria-label="Empty World canvas">
+                  <span className="local-world-surface__spark" aria-hidden="true">✦</span>
+                  <p>Your World begins here.</p>
+                  <small>Add connected people, a place and an event in one step. You can then rename, add, connect and move objects.</small>
+                  <div className="local-world-surface__graph-start-actions">
+                    <button type="button" disabled={busy || pendingLocalWrites.size > 0 || !!repositoryError || !!firstObjectName.trim()} onClick={() => void seedStarterGraph()}>Start with an example graph</button>
+                  </div>
+                  {graphAdapter ? <form className="local-world-surface__first-object" onSubmit={(event) => void createFirstObject(event)}>
+                    <label htmlFor="local-world-first-object-name">Or add your first object</label>
+                    <input id="local-world-first-object-name" value={firstObjectName} onChange={(event) => { const name = event.target.value; setFirstObjectName(name); if (record) saveFirstObjectDraft(record.snapshot.worldId, name, firstObjectKind); }} maxLength={160} placeholder="Object name" disabled={busy || pendingLocalWrites.size > 0} />
+                    <label htmlFor="local-world-first-object-kind">Type</label>
+                    <select id="local-world-first-object-kind" value={firstObjectKind} onChange={(event) => { const kind = event.target.value; setFirstObjectKind(kind); if (record) saveFirstObjectDraft(record.snapshot.worldId, firstObjectName, kind); }} disabled={busy || pendingLocalWrites.size > 0}>
+                      <option value="person">Person</option><option value="location">Location</option><option value="event">Event</option><option value="faction">Faction</option>
+                    </select>
+                    <button type="submit" disabled={busy || pendingLocalWrites.size > 0 || !!repositoryError || !firstObjectName.trim()}>Add first object</button>
+                  </form> : null}
+                </div>
+              ) : null}
+              {graphConflict && graphConflict.worldId === record.snapshot.worldId ? (
+                <section className="local-world-surface__graph-conflict" aria-label="Saved graph conflict candidate">
+                  <h3>Graph edit needs review</h3>
+                  <p>{graphConflict.edit.description} was saved as a local conflict candidate based on revision {graphConflict.baseLocalRevision}; the current World is at revision {graphConflict.currentLocalRevision}.</p>
+                  <p>The graph now shows the committed version. The canvas keeps the proposal open so you can review and submit it again against the current World.</p>
+                  <button type="button" className="local-world-surface__quiet" onClick={() => setGraphConflict(null)}>Dismiss this notice</button>
+                </section>
+              ) : null}
+            </> : null}
+            {graphAdapter ? graphSessions.map((sessionRecord) => {
+              const active = record?.snapshot.worldId === sessionRecord.snapshot.worldId;
+              const canvasRecord = active ? record! : sessionRecord;
+              const generation = operationGeneration.current;
+              return <div className="local-world-surface__graph-session" key={sessionRecord.snapshot.worldId} hidden={!active} aria-hidden={!active}>
+                <Suspense fallback={<p className="local-world-surface__graph-loading" role="status">Opening the local graph editor…</p>}>
+                  <WorldGraphCanvas
+                    key={sessionRecord.snapshot.worldId}
+                    record={canvasRecord}
+                    editorDraftState={readGraphEditorDraft(sessionRecord.snapshot.worldId)}
+                    onEditorDraftChange={(draft, version, expectedVersion) => writeGraphEditorDraft(sessionRecord.snapshot.worldId, draft, version, expectedVersion)}
+                    onEditorDraftCommit={(field, submittedToken) => clearGraphEditorDraftSubmission(sessionRecord.snapshot.worldId, field, submittedToken)}
+                    onRenameObject={(submitted, objectId, name) => executeGraphSemantic(submitted, () => graphAdapter.renameObject(submitted, objectId, name))}
+                    onCreateObject={(submitted, input) => executeGraphSemantic(submitted, () => graphAdapter.createObject(submitted, input))}
+                    onCreateRelationship={(submitted, input) => executeGraphSemantic(submitted, () => graphAdapter.createRelationship(submitted, input))}
+                    onMoveObjects={(submitted, positions) => executeGraphLayout(submitted, () => graphAdapter.moveObjects(submitted, positions))}
+                    onSemanticResult={(result) => applyGraphSemanticResult(sessionRecord.snapshot.worldId, generation, result)}
+                    onLayoutResult={(result) => applyGraphLayoutResult(sessionRecord.snapshot.worldId, generation, result)}
+                  />
+                </Suspense>
+              </div>;
+            }) : null}
+            {record ? <LocalWorldNotesEditor
+              repository={repository}
+              record={record}
+              disabled={busy}
+              onRecordChange={onNotesRecordChange}
+              onBusyChange={onNotesBusyChange}
+              onStatusChange={setNotesStatus}
+              onPendingChange={syncBeforeUnloadProtection}
+              beginPendingWrite={beginPendingLocalWrite}
+              registerSaveRequest={registerNotesSaveRequest}
+            /> : null}
+          </section> : null}
+
           {repository ? <>
             <div className="local-world-surface__world-picker">
               <h2 id="local-world-heading">Your local Worlds</h2>
@@ -769,84 +875,6 @@ export function LocalWorldSurface({
               </div>
             </form>
           </> : null}
-
-          {record ? <section className="local-world-surface__canvas" aria-label="Local World canvas">
-            <div className="local-world-surface__canvas-topline"><span>LOCAL WORLD</span><span>Revision {record.localRevision}</span></div>
-            <div className="local-world-surface__title-row">
-              {editing ? <form onSubmit={(event) => { event.preventDefault(); void saveTitle(); }}>
-                <label htmlFor="local-world-title">World title</label>
-                <input id="local-world-title" autoFocus value={titleDraft} maxLength={160} disabled={busy} onChange={(event) => { const nextDraft = event.target.value; setTitleDraft(nextDraft); if (record) setPendingTitleDraft(record.snapshot.worldId, nextDraft, record.snapshot.title); setMessage(null); if (status === "error" || status === "conflict") setStatus("dirty"); }} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); cancelTitleEdit(); } }} />
-                <div className="local-world-surface__title-actions">
-                  <button type="submit" disabled={busy || !dirty || !titleDraft.trim()}>{busy && status === "saving" ? "Saving…" : "Save title"}</button>
-                  <button type="button" className="local-world-surface__quiet" disabled={busy} onClick={cancelTitleEdit}>Cancel</button>
-                </div>
-              </form> : <>
-                <h2>{record.snapshot.title}</h2>
-                <button type="button" className="local-world-surface__pencil" aria-label="Edit World title" title="Edit World title" disabled={busy} onClick={() => { setTitleDraft(record.snapshot.title); setEditing(true); setStatus("saved"); }}><span aria-hidden="true">✎</span></button>
-              </>}
-            </div>
-            {record.snapshot.objects.length === 0 && record.snapshot.relationships.length === 0 ? (
-              <div className="local-world-surface__empty-canvas" aria-label="Empty World canvas">
-                <span className="local-world-surface__spark" aria-hidden="true">✦</span>
-                <p>Your World begins here.</p>
-                <small>Add connected people, a place and an event in one step. You can then rename, add, connect and move objects.</small>
-                <div className="local-world-surface__graph-start-actions">
-                  <button type="button" disabled={busy || pendingLocalWrites.size > 0 || !!repositoryError || !!firstObjectName.trim()} onClick={() => void seedStarterGraph()}>Start with an example graph</button>
-                </div>
-                {graphAdapter ? <form className="local-world-surface__first-object" onSubmit={(event) => void createFirstObject(event)}>
-                  <label htmlFor="local-world-first-object-name">Or add your first object</label>
-                  <input id="local-world-first-object-name" value={firstObjectName} onChange={(event) => { const name = event.target.value; setFirstObjectName(name); if (record) saveFirstObjectDraft(record.snapshot.worldId, name, firstObjectKind); }} maxLength={160} placeholder="Object name" disabled={busy || pendingLocalWrites.size > 0} />
-                  <label htmlFor="local-world-first-object-kind">Type</label>
-                  <select id="local-world-first-object-kind" value={firstObjectKind} onChange={(event) => { const kind = event.target.value; setFirstObjectKind(kind); if (record) saveFirstObjectDraft(record.snapshot.worldId, firstObjectName, kind); }} disabled={busy || pendingLocalWrites.size > 0}>
-                    <option value="person">Person</option><option value="location">Location</option><option value="event">Event</option><option value="faction">Faction</option>
-                  </select>
-                  <button type="submit" disabled={busy || pendingLocalWrites.size > 0 || !!repositoryError || !firstObjectName.trim()}>Add first object</button>
-                </form> : null}
-              </div>
-            ) : null}
-            {graphConflict && graphConflict.worldId === record.snapshot.worldId ? (
-              <section className="local-world-surface__graph-conflict" aria-label="Saved graph conflict candidate">
-                <h3>Graph edit needs review</h3>
-                <p>{graphConflict.edit.description} was saved as a local conflict candidate based on revision {graphConflict.baseLocalRevision}; the current World is at revision {graphConflict.currentLocalRevision}.</p>
-                <p>The graph now shows the committed version. The canvas keeps the proposal open so you can review and submit it again against the current World.</p>
-                <button type="button" className="local-world-surface__quiet" onClick={() => setGraphConflict(null)}>Dismiss this notice</button>
-              </section>
-            ) : null}
-            {repository ? <LocalWorldNotesEditor
-              repository={repository}
-              record={record}
-              disabled={busy}
-              onRecordChange={onNotesRecordChange}
-              onBusyChange={onNotesBusyChange}
-              onStatusChange={setNotesStatus}
-              onPendingChange={syncBeforeUnloadProtection}
-              beginPendingWrite={beginPendingLocalWrite}
-              registerSaveRequest={registerNotesSaveRequest}
-            /> : null}
-          </section> : null}
-
-          {graphAdapter ? graphSessions.map((sessionRecord) => {
-            const active = record?.snapshot.worldId === sessionRecord.snapshot.worldId;
-            const canvasRecord = active ? record! : sessionRecord;
-            const generation = operationGeneration.current;
-            return <div className="local-world-surface__graph-session" key={sessionRecord.snapshot.worldId} hidden={!active} aria-hidden={!active}>
-              <Suspense fallback={<p className="local-world-surface__graph-loading" role="status">Opening the local graph editor…</p>}>
-                <WorldGraphCanvas
-                  key={sessionRecord.snapshot.worldId}
-                  record={canvasRecord}
-                  editorDraftState={readGraphEditorDraft(sessionRecord.snapshot.worldId)}
-                  onEditorDraftChange={(draft, version, expectedVersion) => writeGraphEditorDraft(sessionRecord.snapshot.worldId, draft, version, expectedVersion)}
-                  onEditorDraftCommit={(field, submittedToken) => clearGraphEditorDraftSubmission(sessionRecord.snapshot.worldId, field, submittedToken)}
-                  onRenameObject={(submitted, objectId, name) => executeGraphSemantic(submitted, () => graphAdapter.renameObject(submitted, objectId, name))}
-                  onCreateObject={(submitted, input) => executeGraphSemantic(submitted, () => graphAdapter.createObject(submitted, input))}
-                  onCreateRelationship={(submitted, input) => executeGraphSemantic(submitted, () => graphAdapter.createRelationship(submitted, input))}
-                  onMoveObjects={(submitted, positions) => executeGraphLayout(submitted, () => graphAdapter.moveObjects(submitted, positions))}
-                  onSemanticResult={(result) => applyGraphSemanticResult(sessionRecord.snapshot.worldId, generation, result)}
-                  onLayoutResult={(result) => applyGraphLayoutResult(sessionRecord.snapshot.worldId, generation, result)}
-                />
-              </Suspense>
-            </div>;
-          }) : null}
 
           <details className="local-world-surface__save-menu">
             <summary>Save menu</summary>

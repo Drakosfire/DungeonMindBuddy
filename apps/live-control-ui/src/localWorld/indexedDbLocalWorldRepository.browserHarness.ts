@@ -18,7 +18,7 @@ const checks: string[] = [];
 const repositoryHandles: IndexedDbLocalWorldRepository[] = [];
 const rawDatabaseHandles: IDBDatabase[] = [];
 const testDatabaseNames = [
-  "primary", "migration", "future", "schema", "blocked",
+  "bootstrap", "bootstrap-abort", "bootstrap-existing", "primary", "migration", "future", "schema", "blocked",
   "world-key-path", "world-auto-increment", "conflict-key-path", "conflict-auto-increment",
   "index-key-path", "index-unique", "index-multi-entry",
 ];
@@ -147,6 +147,48 @@ async function openMalformedCurrentSchema(name: string, options: MalformedSchema
 }
 
 async function run(): Promise<void> {
+  const bootstrapA = await openTestRepository(names.bootstrap);
+  const bootstrapB = await openTestRepository(names.bootstrap);
+  assert(bootstrapA.status === "opened" && bootstrapB.status === "opened", "bootstrap independent connections open");
+  if (bootstrapA.status !== "opened" || bootstrapB.status !== "opened") return;
+  const [initialA, initialB] = await Promise.all([
+    bootstrapA.repository.ensureInitialWorld(), bootstrapB.repository.ensureInitialWorld(),
+  ]);
+  assert(initialA.status === "found" && initialB.status === "found", "concurrent bootstrap succeeds");
+  if (initialA.status !== "found" || initialB.status !== "found") return;
+  assert(initialA.records.length === 1 && JSON.stringify(initialA) === JSON.stringify(initialB), "concurrent tabs receive exactly one identical World");
+  assert(initialA.records[0].snapshot.objects.length === 4 && initialA.records[0].snapshot.relationships.length === 4, "bootstrap stores the complete example atomically");
+  assert(initialA.records[0].localRevision === 0 && initialA.records[0].layoutRevision === 0, "bootstrap keeps semantic and layout revision domains independent");
+  bootstrapA.repository.close();
+  bootstrapB.repository.close();
+  const bootstrapReopened = await openTestRepository(names.bootstrap);
+  assert(bootstrapReopened.status === "opened", "bootstrap database reopens");
+  if (bootstrapReopened.status !== "opened") return;
+  assert(JSON.stringify(await bootstrapReopened.repository.ensureInitialWorld()) === JSON.stringify(initialA), "reopening does not duplicate or reseed the World");
+
+  const bootstrapFailure = await openTestRepository(names["bootstrap-abort"], {
+    beforeWrite: (point) => { if (point === "initial-world-after-write") throw new Error("Interrupted bootstrap transaction"); },
+  });
+  assert(bootstrapFailure.status === "opened", "bootstrap abort connection opens");
+  if (bootstrapFailure.status !== "opened") return;
+  assert((await bootstrapFailure.repository.ensureInitialWorld()).status === "error", "failure after initial write reports transaction abort");
+  const afterBootstrapAbort = await bootstrapFailure.repository.listWorlds();
+  assert(afterBootstrapAbort.status === "found" && afterBootstrapAbort.records.length === 0, "aborted bootstrap leaves no half-seeded World");
+  bootstrapFailure.repository.close();
+  const bootstrapRetry = await openTestRepository(names["bootstrap-abort"]);
+  assert(bootstrapRetry.status === "opened", "bootstrap retry connection opens");
+  if (bootstrapRetry.status !== "opened") return;
+  const afterRetry = await bootstrapRetry.repository.ensureInitialWorld();
+  assert(afterRetry.status === "found" && afterRetry.records.length === 1 && afterRetry.records[0].snapshot.objects.length === 4, "retry after abort stores one complete example");
+
+  const existingOpen = await openTestRepository(names["bootstrap-existing"]);
+  assert(existingOpen.status === "opened", "existing World bootstrap connection opens");
+  if (existingOpen.status !== "opened") return;
+  await existingOpen.repository.createWorld({ title: "My existing blank World" });
+  await existingOpen.repository.createWorld({ title: "Another existing blank World" });
+  const beforeExisting = await existingOpen.repository.listWorlds();
+  assert(JSON.stringify(await existingOpen.repository.ensureInitialWorld()) === JSON.stringify(beforeExisting), "bootstrap preserves every existing empty World without seeding");
+
   const unavailable = await openTestRepository(names.primary, { factory: null });
   assert(unavailable.status === "error" && unavailable.code === "unavailable", "unavailable storage is explicit");
 

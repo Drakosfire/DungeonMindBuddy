@@ -90,14 +90,16 @@ describe("canonical local guest entry", () => {
     const user = userEvent.setup();
     const mounted = render(<App />);
 
-    expect(await screen.findByText("No local Worlds yet. Create one when you’re ready.")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Mara Venn, person" })).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(screen.queryByTestId("hosted-index-agent")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Switch World: Choose" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("app-chrome-world-graph-status")).not.toBeInTheDocument();
 
-    await user.type(screen.getByLabelText("Create a World"), "Guest Harbor");
-    await user.click(screen.getByRole("button", { name: "Create World" }));
+    await user.click(screen.getByRole("button", { name: "Edit World title" }));
+    await user.clear(screen.getByLabelText("World title"));
+    await user.type(screen.getByLabelText("World title"), "Guest Harbor");
+    await user.click(screen.getByRole("button", { name: "Save title" }));
     expect(await screen.findByRole("heading", { name: "Guest Harbor" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Start writing" }));
     const notes = await screen.findByRole("textbox", { name: "World notes editor" });
@@ -152,11 +154,12 @@ describe("canonical local guest entry", () => {
     const user = userEvent.setup();
     const mounted = render(<App />);
 
-    expect(await screen.findByText("No local Worlds yet. Create one when you’re ready.")).toBeInTheDocument();
-    await user.type(screen.getByLabelText("Create a World"), "Guest Graph");
-    await user.click(screen.getByRole("button", { name: "Create World" }));
+    expect(await screen.findByRole("button", { name: "Mara Venn, person" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Edit World title" }));
+    await user.clear(screen.getByLabelText("World title"));
+    await user.type(screen.getByLabelText("World title"), "Guest Graph");
+    await user.click(screen.getByRole("button", { name: "Save title" }));
     expect(await screen.findByRole("heading", { name: "Guest Graph" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Start with an example graph" }));
 
     const mara = await screen.findByRole("button", { name: "Mara Venn, person" });
     await user.click(mara);
@@ -228,7 +231,7 @@ describe("canonical local guest entry", () => {
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
     render(<App />);
-    expect(await screen.findByText("No local Worlds yet. Create one when you’re ready.")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Mara Venn, person" })).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Open navigation" }));
@@ -242,7 +245,7 @@ describe("canonical local guest entry", () => {
       window.history.back();
       await waitFor(() => expect(window.location.pathname).toBe("/"));
     });
-    expect(await screen.findByText("No local Worlds yet. Create one when you’re ready.")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Mara Venn, person" })).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
