@@ -155,7 +155,7 @@ Model-bearing request/observation files remain audit-only.
 Hosted open-weight runs do not measure local hardware performance. Existing output
 directories are refused, so an interrupted or failed tasting cannot silently replay.
 
-For a controlled presentation experiment, `presentation: flat_native_assertions_v1`
+For a controlled presentation experiment, `presentation: flat_native_assertions_v2`
 renders the one exact native evidence frame as tables. Original assertion and
 qualification field paths form shared headers; cells preserve JSON values and `_`
 denotes an absent field. Every fact, qualification, citation handle, original row
@@ -180,6 +180,14 @@ Do not change prompt and evidence presentation in the same experiment. Known
 bookkeeping leakage in retained legacy qualification prose must be resolved at
 its owner before sending that context in another paid comparison.
 # Reviewed qualification separation in writer experiments
+
+The current flat experiment uses `flat_native_assertions_v2`. It prints each
+byte-identical complete qualification once, with the full list of its original
+handles. Assertions still reference their original handles; no factual values or
+citation handles change. Host-only readback restores original definition order
+and object structure. Similar wording, different value types, whitespace or
+object ordering do not qualify for grouping. The previous flat format is retired;
+read historical artifacts with their pinned code, not a parallel runtime reader.
 
 `context-tasting` optionally accepts a `qualification_review` file pin. The closed
 `dmb_reviewed_qualification_parts_v1` artifact names its independent `reviewer`,

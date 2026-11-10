@@ -44,6 +44,35 @@ def test_readback_detects_changed_cells():
     assert restore_flat_native_evidence(text.replace('"original"', '"changed"'), proof) != frame
 
 
+def test_shared_qualifications_merge_only_byte_identical_values_and_keep_interleaved_order():
+    same = {"scope": "session", "uncertain": True, "text": "reported, not verified\nquote\t_"}
+    frame = {"native_assertions": {"assertions": [
+        {"assertion_handle": "a0", "assertion": {"qualification": "q3", "literal": "exact quote"}}],
+        "qualifications": {"q0": same, "q1": {**same, "uncertain": False}, "q2": deepcopy(same),
+                           "q3": {"text": same["text"], "uncertain": True, "scope": "session"},
+                           "q4": {**same, "text": same["text"] + " "}}}}
+    original = deepcopy(frame)
+    text, proof = flat_native_evidence(frame)
+    assert len(proof["tables"][1]["layouts"]) == 4
+    assert '["q0","q2"]' in text
+    assert ["qualification_handles"] in proof["tables"][1]["columns"]
+    assert ["qualification_handles", 0] not in proof["tables"][1]["columns"]
+    restored = restore_flat_native_evidence(text, proof)
+    assert json.dumps(restored) == json.dumps(original)
+    assert frame == original
+    restored["native_assertions"]["qualifications"]["q0"]["scope"] = "changed"
+    assert restored["native_assertions"]["qualifications"]["q2"]["scope"] == "session"
+    with pytest.raises(ValueError, match="Duplicate shared"):
+        restore_flat_native_evidence(text.replace('["q0","q2"]', '["q0","q0"]'), proof)
+    with pytest.raises(ValueError, match="handles differ"):
+        restore_flat_native_evidence(text.replace('["q0","q2"]', '["q0","unknown"]'), proof)
+
+
+def test_historical_flat_proof_is_not_a_competing_runtime_reader():
+    with pytest.raises(ValueError, match="pinned renderer"):
+        restore_flat_native_evidence("historical artifact", {"tables": []})
+
+
 @pytest.mark.parametrize("bad", [None, "binding", "pending", "incomplete", "duplicate", "reconstruction", "digest", "erasure"])
 def test_reviewed_qualification_separation_preserves_every_other_value(bad):
     frame = {"native_assertions": {"assertions": [{"assertion_handle": "a0", "literal": "audit-id is an exact quote"}],
