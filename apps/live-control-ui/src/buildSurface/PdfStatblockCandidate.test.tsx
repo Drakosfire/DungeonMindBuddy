@@ -64,3 +64,9 @@ it("shows the printed HP and dice formula together even when they disagree", () 
   fireEvent.click(screen.getByRole("button", {name:"Preview statblock fields"}));
   expect(screen.getByText("18 (2d10+6)")).toBeInTheDocument();
 });
+
+it("rejoins split PDF digits within the HP formula", () => {
+  render(<PdfStatblockCandidate locator={locator} text={"Armor Class 16\nHit Points 75 (1 0d8 + 30)"} />);
+  fireEvent.click(screen.getByRole("button", {name:"Preview statblock fields"}));
+  expect(screen.getByText("75 (10d8 + 30)")).toBeInTheDocument();
+});
