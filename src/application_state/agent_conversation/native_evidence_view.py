@@ -93,7 +93,7 @@ def _domain_meaning(entries):
     return result
 
 
-def semantic_frame(host, *, compact_names=False):
+def semantic_frame(host):
     """Explicit projection of an owner-reconstructed current native host frame.
 
     Literal/domain payloads are context and never recursively scrubbed. Only typed
@@ -264,7 +264,7 @@ def semantic_frame(host, *, compact_names=False):
             "Use those lines as plans. Establish played events from their own evidence."
         )
     name_bindings = {}
-    if compact_names:
+    if host.get("writer_assertion_layout") == "compact_names_v1":
         other_assertions = []
         for row in assertions:
             assertion = row["assertion"]
@@ -423,17 +423,20 @@ def world_context_representation(frame):
     return next(iter(forms), "current")
 
 
-def expected_semantic_frame(host, actual, *, compact_names=False):
+def expected_semantic_frame(host, actual):
     """Reconstruct retained producing bytes by their closed actual slot shape.
 
     Current producers always use semantic_frame. This reader does not try hashes
     or emit alternate prompts; original request and frame bindings remain exact.
     """
-    expected = semantic_frame(host, compact_names=compact_names)
+    expected = semantic_frame(host)
     actual_collection = actual.get('native_assertions')
-    if not compact_names and actual_collection is not None and 'qualifications' not in actual_collection:
+    if (host.get('writer_assertion_layout') is None and actual_collection is not None
+            and 'qualifications' not in actual_collection):
         expected = _inline_qualifications(expected)
     if world_context_representation(actual) == "historical":
+        if host.get("writer_assertion_layout") is not None:
+            raise ValueError("Pinned writer assertion layout cannot use historical qualifications")
         expected = _inline_qualifications(expected)
         collection = expected["native_assertions"]
         for row in collection["assertions"] if collection is not None else []:

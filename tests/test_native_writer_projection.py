@@ -533,13 +533,14 @@ def test_compact_names_keep_exact_assertion_order_and_citation_handles(published
         row['assertion'].update(predicate=predicate, value=dict(kind='literal', value=value))
         rows.append(row)
     plain = semantic_frame(host)
-    compact = semantic_frame(host, compact_names=True)
+    compact_host = host | {'writer_assertion_layout': 'compact_names_v1'}
+    compact = semantic_frame(compact_host)
     table = compact['native_assertions']['entity_name_assertions']
     assert {'Torbin', 'TORBIN'} <= {
         binding[0] for bindings in table['by_subject'].values() for binding in bindings
     }
     assert output_frame(host, compact) == output_frame(host, plain)
-    assert expected_semantic_frame(host, compact, compact_names=True) == compact
+    assert expected_semantic_frame(compact_host, compact) == compact
     assert expected_semantic_frame(host, compact) == plain
 
 
@@ -550,7 +551,8 @@ def test_compact_plan_request_verifies_original_read_records(published_lane):
     work = work_submission(context, record)
     plain = model_input_frame(context, record)
     policy = record.policy.model_copy(update={'writer_assertion_layout': 'compact_names_v1'})
-    record = record.model_copy(update={'policy': policy})
+    from tests.test_surface_native_execution import execution
+    record = execution(context.context_receipt_sha256, policy, record.events)
     compact = model_input_frame(context, record)
     assert compact['native_assertions']['entity_name_assertions']
     assert compact != plain

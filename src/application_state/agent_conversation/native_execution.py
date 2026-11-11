@@ -190,6 +190,8 @@ class SurfaceNativeExecutionPolicyV1(Strict):
     @model_validator(mode="after")
     def exact_roles(self):
         roles, action = self.provider_roles, self.action
+        if self.writer_assertion_layout is not None and not isinstance(action, NativePlanActionV1):
+            raise ValueError("Compact name layout is only enabled for Plan")
         if not isinstance(roles,t.GraphControllerWriterRolesV1):
             raise ValueError('Native surfaces require their actual controller/writer roles')
         if isinstance(action,NativePlayActionV1):
