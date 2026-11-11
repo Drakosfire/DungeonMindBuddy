@@ -458,7 +458,8 @@ def test_oversized_admitted_request_completes_and_reloads(application_state_dsn,
 
 
 
-def test_mixed_cited_answer_with_unbound_gap_reopens(application_state_dsn, published_lane):
+@pytest.mark.parametrize("gap", ["an unbound paraphrase", "occupied space"])
+def test_mixed_cited_answer_keeps_generic_gap_on_reopen(application_state_dsn, published_lane, gap):
     from dataclasses import replace
 
     from application_state.agent_conversation.plan_jev_rules_lookup import rules_candidate
@@ -492,11 +493,12 @@ def test_mixed_cited_answer_with_unbound_gap_reopens(application_state_dsn, publ
                      assertion_handles=[handle])]
 
     case = completed_input(application_state_dsn, used=True, acquired=acquired,
-        answer_rows=cited_rows, gaps=[{"question_phrase": "an unbound paraphrase"}])
+        answer_rows=cited_rows, gaps=[{"question_phrase": gap}])
     base = case.normalized.base_completion
     assert base.native_assertion_citations
     assert any(getattr(s, "code", None) == "missing_requested_details" for s in base.answer_segments)
-    assert "an unbound paraphrase" not in case.normalized.assistant_text
+    assert not any(getattr(s, "question_phrase", None) for s in base.answer_segments)
+    assert f"do not establish: “{gap}”" not in case.normalized.assistant_text
     completed = finish(case)
     assert finish(case) == completed
     assert AgentConversationService().inspect_turn(world_id=case.turn.world_id,

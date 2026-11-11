@@ -257,11 +257,15 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     local_authored = local_authored or (execution.policy.action.surface_id=='play'
         and any(isinstance(s,(t.SurfaceAuthoredExcerptV1,t.SessionSummaryV1)) for s in segments)
         and all(isinstance(s,(t.SurfaceAuthoredExcerptV1,t.SessionSummaryV1,t.PlanWorldGraphProposalSegmentV1)) for s in segments))
-    segments += project_surface_limitations(candidate['limitations'], candidate['requested_detail_gaps'],
+    has_cited_answer = bool(body_cites or statement_cites or assertion_cites or saved_cites)
+    limitations = project_surface_limitations(candidate['limitations'], candidate['requested_detail_gaps'],
         user_question=execution.policy.action.intent.message, derive_missing=True,
         host_partial=evidence.frame['input_status'] == 'partial' and not local_authored,
         empty_answer=not segments and collaboration is None, strict_gap_array=True,
-        allow_generic_gap=bool(body_cites or statement_cites or assertion_cites or saved_cites))
+        allow_generic_gap=has_cited_answer)
+    # A selected question phrase does not establish an absence of evidence.
+    segments.extend(limit for limit in limitations
+        if not has_cited_answer or limit.question_phrase is None)
     completion = SurfaceNativeCompletionV1(surface_id=execution.policy.action.surface_id,
         context_receipt_sha256=receipt.context_receipt_sha256,producing_provider_attempt_id=authorization.provider_attempt_id,
         answer_context_status=status_for(segments) if segments else 'discussion',answer_segments=segments,collaboration=collaboration,saved_source_citations=saved_cites,
