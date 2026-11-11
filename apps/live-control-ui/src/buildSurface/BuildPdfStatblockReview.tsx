@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ThreatDraft } from "../api/types";
-import { authenticatedApiFetch } from "../api/liveApi";
+import type { SavedMechanicsVersionList } from "../statblocks/revision/savedMechanicsRevisionTypes";
+import { authenticatedApiFetch, listSavedMechanicsVersions } from "../api/liveApi";
 import type { PdfLocator } from "../api/retainedPdfRegions";
 import type { StatblockDefinitionV1_Output, ValidationIssueV1 } from "../contracts/dungeonbuddy-statblocks-v1/client";
 import { StatblockDefinitionEditor } from "../statblocks/editor/StatblockDefinitionEditor";
@@ -29,6 +30,80 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   const [acceptOpen, setAcceptOpen] = useState(false);
   const [acceptedLink, setAcceptedLink] = useState("");
 
+  const [versions, setVersions] = useState<SavedMechanicsVersionList>();
+  const [parentId, setParentId] = useState("");
+  const selectedDraft = drafts.find(item => item.draft_id === draftId);
+  const savedParents = versions ? [
+    ...versions.operations.flatMap(operation => operation.state === "committed" && operation.result ? [operation.result] : []),
+    versions.original,
+  ] : [];
+
+  const acceptanceKey = (id: string) =>
+    `buddy:pdf-mechanics-accept:${worldId}:${reviewId}:${review?.revision}:${id}`;
+  const [hasInitialAttempt, setHasInitialAttempt] = useState(false);
+
+  async function chooseDraft(id: string) {
+    setDraftId(id);
+    setAcceptedLink("");
+    setVersions(undefined);
+    setParentId("");
+    setError("");
+    setHasInitialAttempt(Boolean(id && localStorage.getItem(acceptanceKey(id))));
+    if (drafts.find(draft => draft.draft_id === id)?.workflow_state !== "mechanics_saved") return;
+    setPending(true);
+    try {
+      const first = await listSavedMechanicsVersions(id, worldId);
+      const operations = [...first.operations];
+      let offset = first.next_offset;
+      while (offset != null) {
+        const next = await listSavedMechanicsVersions(id, worldId, offset);
+        operations.push(...next.operations);
+        offset = next.next_offset;
+      }
+      setVersions({ ...first, operations });
+    } catch {
+      setError("Could not load saved statblock versions.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function appendMechanics() {
+    const base = savedParents.find(locator => locator.revision_id === parentId);
+    if (!base || !review || !editor || pending || getLocalFingerprint(editor) !== editor.baselineFingerprint) return;
+    setPending(true);
+    setError("");
+    const key = `buddy:pdf-mechanics-append:${worldId}:${reviewId}:${review.revision}:${draftId}:${parentId}`;
+    try {
+      let payload = localStorage.getItem(key);
+      if (!payload) {
+        payload = JSON.stringify({ operation_id: crypto.randomUUID(), expected_revision: review.revision, base });
+        localStorage.setItem(key, payload);
+      }
+      const { response } = await authenticatedApiFetch(
+        `${reviewPath}/append/${encodeURIComponent(draftId)}`, { method: "POST", body: payload },
+      );
+      if (response.status === 409) {
+        setError("The saved review or parent version changed. Reopen the review and check the parent version.");
+        return;
+      }
+      if (!response.ok) throw new Error();
+      const result = await response.json();
+      if (result.state === "refused") {
+        setError("This parent could not be used. Choose a current saved version.");
+        return;
+      }
+      if (result.state !== "committed" || !result.result?.revision_id) throw new Error();
+      setAcceptedLink(`/statblock?${new URLSearchParams({
+        world: worldId, draft: draftId, revision: result.result.revision_id,
+      })}`);
+    } catch {
+      setError("Could not confirm the new revision. Try again to recover the same operation.");
+    } finally {
+      setPending(false);
+    }
+  }
+
   async function openAcceptance() {
     setPending(true);
     setError("");
@@ -52,7 +127,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     if (!draft || !review || !editor || pending || getLocalFingerprint(editor) !== editor.baselineFingerprint) return;
     setPending(true);
     setError("");
-    const key = `buddy:pdf-mechanics-accept:${worldId}:${reviewId}:${review.revision}:${draftId}`;
+    const key = acceptanceKey(draftId);
     try {
       let payload = localStorage.getItem(key);
       if (!payload) {
@@ -207,6 +282,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       const result: Review = await response.json();
       setEditor(createEditorStateFromOutput(result.definition));
       setReview(result);
+      setHasInitialAttempt(false);
       setSaved(true);
     } catch {
       setError("Could not save the review draft.");
@@ -238,13 +314,26 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
           {!acceptOpen && <button type="button" onClick={() => void openAcceptance()}>Choose creature draft</button>}
           {acceptOpen && <>
             <label>Creature draft
-              <select value={draftId} onChange={event => { setDraftId(event.target.value); setAcceptedLink(""); }}>
+              <select value={draftId} onChange={event => void chooseDraft(event.target.value)}>
                 <option value="">Select a draft</option>
                 {drafts.map(draft => <option key={draft.draft_id} value={draft.draft_id}>{draft.name}</option>)}
               </select>
             </label>
-            <button type="button" disabled={!draftId || getLocalFingerprint(editor) !== editor.baselineFingerprint}
-              onClick={() => void acceptMechanics()}>Accept mechanics</button>
+            {selectedDraft?.workflow_state === "mechanics_saved" ? <>
+              <label>Parent statblock version
+                <select value={parentId} onChange={event => { setParentId(event.target.value); setAcceptedLink(""); }}>
+                  <option value="">Select a saved version</option>
+                  {savedParents.map(locator => <option key={locator.revision_id} value={locator.revision_id}>
+                    {locator.revision_id}{locator.revision_id === versions?.original.revision_id ? " (original)" : ""}
+                  </option>)}
+                </select>
+              </label>
+              <button type="button" disabled={!parentId || getLocalFingerprint(editor) !== editor.baselineFingerprint}
+                onClick={() => void appendMechanics()}>Append mechanics revision</button>
+            </> : null}
+            {(selectedDraft?.workflow_state !== "mechanics_saved" || hasInitialAttempt) &&
+              <button type="button" disabled={!draftId || getLocalFingerprint(editor) !== editor.baselineFingerprint}
+              onClick={() => void acceptMechanics()}>{selectedDraft?.workflow_state === "mechanics_saved" ? "Recover initial acceptance" : "Accept mechanics"}</button>}
             {acceptedLink && <a href={acceptedLink}>Open accepted statblock</a>}
           </>}
           {review.regions.map((locator, index) => (
