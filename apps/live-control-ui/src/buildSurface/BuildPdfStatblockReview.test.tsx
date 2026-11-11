@@ -13,10 +13,8 @@ it("reopens a draft and saves edits against the exact retained regions", async (
     page: 2, left: 0, top: 0, right: 1, bottom: 1 }];
   const fetch = vi.mocked(authenticatedApiFetch);
   fetch.mockImplementation(async (path, init) => {
-    if (path.endsWith("/statblock:validate")) {
-      const payload = JSON.parse(String(init?.body));
-      expect(payload.regions).toEqual(regions);
-      expect(payload.definition.identity.name).toBe(definition.identity.name);
+    if (path.endsWith("/validate?expected_revision=4")) {
+      expect(init).toEqual({ method: "POST" });
       return { response: Response.json({ validation: { outcome: "success", validation_receipt: { status: "warnings", issues: [{ severity: "warning", field_path: "/identity/name", message: "Check the printed name" }] } } }) } as Awaited<ReturnType<typeof authenticatedApiFetch>>;
     }
     if (init?.method === "PUT") {
