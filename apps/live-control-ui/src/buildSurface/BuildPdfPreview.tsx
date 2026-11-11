@@ -1,4 +1,4 @@
-import { completePdfTextLines } from "./completePdfTextLines";
+import { completePdfTextLines, hasClippedPdfTextLine } from "./completePdfTextLines";
 import { PdfStatblockCandidate } from "./PdfStatblockCandidate";
 import { pdfRegionKey, readRetainedPdfRegions, retainedPdfKey, type PdfLocator, type PdfReceipt, type RetainedPdf } from "../api/retainedPdfRegions";
 import { authenticatedApiFetch } from "../api/liveApi";
@@ -136,6 +136,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
   const [capture, setCapture] = useState<{ image: string; region: PageRectangle }>();
   const [capturedText, setCapturedText] = useState<string>();
   const [completeLines, setCompleteLines] = useState("");
+  const [clippedText, setClippedText] = useState(false);
   const [textError, setTextError] = useState(false);
   const rectangle = region && {
     left: Math.min(region.start.x, region.end.x),
@@ -165,6 +166,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
       0, 0, crop.width, crop.height);
     setCapturedText(undefined);
     setCompleteLines("");
+    setClippedText(false);
     setTextError(false);
     setCapture({ image: crop.toDataURL(), region: rectangle });
   }
@@ -260,6 +262,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
           setCapturedText(runs.map(run => (run.included ? run.text : " ")
             + (run.endOfLine ? "\n" : "")).join("").trim());
           setCompleteLines(completePdfTextLines(runs));
+          setClippedText(hasClippedPdfTextLine(runs));
         }
       } catch {
         if (!cancelled) setTextError(true);
@@ -336,6 +339,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
                     <textarea readOnly value={capturedText} rows={5} />
                   </label>
                 ) : <p role="status">No PDF text runs were selected. The crop may still contain visible text.</p>}
+              {clippedText && <p role="status">Some PDF text lines are only partly inside the capture. Widen the selection or check the image before using the extracted fields.</p>}
               {receipt && capturedText && <PdfStatblockCandidate
                 key={JSON.stringify([page, capture.region, capturedText])}
                 text={completeLines}
