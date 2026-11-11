@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useHostedAuthStatus } from "../auth/HostedAuthGate";
+
 import { createWorldContainer, listWorldContainers } from "../api/liveApi";
 import { getAppLocationSnapshot, navigatePrimaryAppHref } from "../chrome/appNavigation";
 import type { WorldContainerRecord } from "../api/types";
@@ -7,6 +9,9 @@ import { SELECTED_WORLD_LOCATION_CHANGED_EVENT, useRetrySelectedWorld, useSelect
 import { selectWorldFromLocation, worldScopedSurfaceHref } from "./worldSelectionNavigation";
 
 export function WorldSelector({ compact = false, creationPath = "/plan" }: { compact?: boolean; creationPath?: string } = {}) {
+  const auth = useHostedAuthStatus();
+  const canCreate = auth.status === "local_operator";
+  const canList = canCreate || auth.status === "authenticated" && auth.subject !== null;
   const selected = useSelectedWorld();
   const retrySelection = useRetrySelectedWorld();
   const [open, setOpen] = useState(false);
@@ -17,6 +22,7 @@ export function WorldSelector({ compact = false, creationPath = "/plan" }: { com
   const [creatingWorld, setCreatingWorld] = useState(false);
   const navigationChanged = useRef(false);
   const mounted = useRef(false);
+  const requestSequence = useRef(0);
 
   useEffect(() => {
     mounted.current = true;
@@ -25,23 +31,31 @@ export function WorldSelector({ compact = false, creationPath = "/plan" }: { com
     window.addEventListener(SELECTED_WORLD_LOCATION_CHANGED_EVENT, markNavigation);
     return () => {
       mounted.current = false;
+      requestSequence.current += 1;
       window.removeEventListener("popstate", markNavigation);
       window.removeEventListener(SELECTED_WORLD_LOCATION_CHANGED_EVENT, markNavigation);
     };
   }, []);
 
   const refresh = useCallback(async () => {
+    if (!canList) return;
+    const sequence = ++requestSequence.current;
+    setWorlds([]);
     setStatus("loading");
     setError(null);
     try {
       const response = await listWorldContainers();
+      if (!mounted.current || sequence !== requestSequence.current) return;
       setWorlds(response.records);
       setStatus("ready");
     } catch (reason) {
+      if (!mounted.current || sequence !== requestSequence.current) return;
       setStatus("error");
       setError(reason instanceof Error ? reason.message : "World list is unavailable.");
     }
-  }, []);
+  }, [canList]);
+
+  if (!canList) return null;
 
   const worldLabel = selected.kind === "managed" ? selected.name : selected.kind === "legacy" ? "Choose" : "Unavailable";
   return (
@@ -61,7 +75,7 @@ export function WorldSelector({ compact = false, creationPath = "/plan" }: { com
               <button type="button" onClick={() => void refresh()}>Retry World list</button>
             </div>
           ) : null}
-          {status === "ready" && worlds.length === 0 ? <p>No managed Worlds yet.</p> : null}
+          {status === "ready" && worlds.length === 0 ? <p>{canCreate ? "No managed Worlds yet." : "No existing Worlds owned by this account are available on this deployment."}</p> : null}
           {status === "ready" ? worlds.map((world) => (
             <button
               key={world.world_id}
@@ -77,10 +91,10 @@ export function WorldSelector({ compact = false, creationPath = "/plan" }: { com
               {world.name}
             </button>
           )) : null}
-          <form onSubmit={(event) => {
+          {canCreate ? <form onSubmit={(event) => {
             event.preventDefault();
             const name = newWorldName.trim();
-            if (!name || creatingWorld) return;
+            if (!canCreate || !name || creatingWorld) return;
             const startingLocation = getAppLocationSnapshot();
             navigationChanged.current = false;
             setCreatingWorld(true);
@@ -104,12 +118,14 @@ export function WorldSelector({ compact = false, creationPath = "/plan" }: { com
             <button type="submit" disabled={!newWorldName.trim() || creatingWorld}>
               {creatingWorld ? "Creating…" : creationPath === "/" ? "Create World and open graph" : "Create World and Plan"}
             </button>
-          </form>
-          <a href={worldScopedSurfaceHref("/build", selected.kind === "managed" ? selected.worldId : null)}>
+          </form> : null}
+          {canCreate ? <a href={worldScopedSurfaceHref("/build", selected.kind === "managed" ? selected.worldId : null)}>
             {selected.kind === "managed" ? "Open this World in Build" : "New World in Build"}
-          </a>
+          </a> : null}
           <p className="app-world-selector__hint">
-            Creating a World reserves its identity. Native graph initialization is not available in this explorer yet; compatible existing Worlds can be explored here. Open this World in Build to manage its content.
+            {canCreate
+              ? "Creating a World reserves its identity. Native graph initialization is not available in this explorer yet; compatible existing Worlds can be explored here. Open this World in Build to manage its content."
+              : "Only existing Worlds already owned by your signed-in account and enabled on this deployment are listed. Creating Worlds, assigning ownership, and initializing native graphs are not available here."}
           </p>
           {selected.kind === "error" ? (
             <button type="button" onClick={retrySelection}>Retry selection</button>

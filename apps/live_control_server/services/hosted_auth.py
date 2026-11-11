@@ -28,6 +28,8 @@ from apps.live_control_server.services.trusted_cookie_origin import (
 
 WorldScopeResolver = Callable[[Request], str | None | Awaitable[str | None]]
 WorldScopeResolvers = Mapping[tuple[str, str], WorldScopeResolver]
+WorldCollectionAuthorizer = Callable[[Request], dict | Awaitable[dict]]
+WorldCollectionAuthorizers = Mapping[tuple[str, str], WorldCollectionAuthorizer]
 
 
 DEPLOYMENT_ENVIRONMENT_ENV = "DMB_DEPLOYMENT_ENVIRONMENT"
@@ -437,6 +439,8 @@ async def _resolve_authoritative_world_id(
         result = resolver(request)
         if inspect.isawaitable(result):
             result = await result
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(
             status_code=403,
@@ -466,6 +470,7 @@ def install_hosted_request_boundary(
     application: FastAPI,
     *,
     world_scope_resolvers: WorldScopeResolvers | None = None,
+    collection_authorizers: WorldCollectionAuthorizers | None = None,
 ) -> None:
     """Mount the API boundary with code-owned resource-to-World resolvers.
 
@@ -480,6 +485,14 @@ def install_hosted_request_boundary(
     ):
         raise ValueError("world_scope_resolvers_invalid")
     route_resolvers = dict(world_scope_resolvers or {})
+    collections = dict(collection_authorizers or {})
+    # Collection authorization is an explicit, code-owned read capability. It
+    # is never a prefix exemption or permission for a mutation/list of all data.
+    if any(
+        key != ("GET", "/api/live/world-containers") or not callable(authorizer)
+        for key, authorizer in collections.items()
+    ) or set(collections) & set(route_resolvers):
+        raise ValueError("hosted_collection_policy_invalid")
 
     @application.middleware("http")
     async def hosted_request_boundary(request: Request, call_next):
@@ -545,6 +558,26 @@ def install_hosted_request_boundary(
         if request.url.path in {CURRENT_USER_PATH, LOGOUT_PATH}:
             return await call_next(request)
 
+        collection = collections.get((request.method, request.url.path))
+        if collection is not None:
+            try:
+                # Reuse the bounded/strict body parser even for this GET. The
+                # collection policy itself rejects every selector/body/query.
+                await request_world_ids(request)
+                result = collection(request)
+                if inspect.isawaitable(result):
+                    result = await result
+                if not isinstance(result, dict):
+                    raise ValueError("invalid collection authorization result")
+                request.state.hosted_world_collection = result
+            except HTTPException as exc:
+                return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+            except Exception:
+                return JSONResponse(status_code=503, content={"detail": {"code": "world_authorization_unavailable"}})
+            response = await call_next(request)
+            response.headers["Cache-Control"] = "no-store"
+            return response
+
         resolver = route_resolvers.get((request.method.upper(), request.url.path))
         if resolver is None:
             return JSONResponse(
@@ -568,7 +601,10 @@ def install_hosted_request_boundary(
             )
         except HTTPException as exc:
             return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
-        return await call_next(request)
+        response = await call_next(request)
+        if hasattr(request.state, "hosted_native_graph_world"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
 
 
 __all__ = [

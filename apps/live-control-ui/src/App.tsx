@@ -102,6 +102,7 @@ function TiptapSpikeRoute() {
 function ManagedWorldGraph({ worldId, worldTitle, stateScopeId }: {
   readonly worldId: string; readonly worldTitle: string; readonly stateScopeId: string;
 }) {
+  const auth = useHostedAuthStatus();
   const [client, setClient] = useState<ReturnType<typeof createManagedNativeGraphApi> | null>(null);
   useEffect(() => {
     // Own the client within the effect lifetime, including StrictMode's setup /
@@ -111,7 +112,7 @@ function ManagedWorldGraph({ worldId, worldTitle, stateScopeId }: {
     return () => owned.invalidate();
   }, [worldId]);
   return client
-    ? <NativeGraphDemo api={client.api} embedded mode="managed" worldTitle={worldTitle} stateScopeId={stateScopeId} />
+    ? <NativeGraphDemo api={client.api} embedded mode="managed" worldTitle={worldTitle} stateScopeId={stateScopeId} entityOnlyDetails={auth.status === "authenticated"} />
     : <main className="app-status" role="status">Loading World graph…</main>;
 }
 
@@ -124,14 +125,18 @@ function BuddyIndexPage({
 }) {
   const auth = useHostedAuthStatus();
   const selectedWorld = useSelectedWorld();
-  const managedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
+  const admitted = auth.status === "local_operator" || auth.status === "authenticated" && auth.subject !== null;
+  const managedWorldId = admitted && selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
+  const stateScopeId = auth.status === "authenticated"
+    ? JSON.stringify(["hosted", auth.subject, managedWorldId])
+    : `managed:${managedWorldId}`;
   const playgroundApi = useMemo(() => createBuddyIndexGraphApi(), []);
   const [legacyWorldsOpen, setLegacyWorldsOpen] = useState(false);
 
   let explorer: ReactNode;
   if (managedWorldId && selectedWorld.kind === "managed") {
-    explorer = <ManagedWorldGraph key={`managed:${managedWorldId}`} worldId={managedWorldId}
-      worldTitle={selectedWorld.name} stateScopeId={`managed:${managedWorldId}`} />;
+    explorer = <ManagedWorldGraph key={stateScopeId} worldId={managedWorldId}
+      worldTitle={selectedWorld.name} stateScopeId={stateScopeId} />;
   } else if (auth.status === "local_operator") {
     explorer = <NativeGraphDemo api={playgroundApi} embedded mode="playground" />;
   } else if (auth.status === "signed_out") {

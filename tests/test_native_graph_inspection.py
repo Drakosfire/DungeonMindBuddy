@@ -23,6 +23,8 @@ from tests.test_native_recap_preparation import lane as recap_lane, TOKEN  # noq
 
 @pytest.fixture
 def inspection(request, monkeypatch):
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
     lane = request.getfixturevalue("recap_lane")
     bound = {"managed_world_id": "managed", **lane.bound}
 

@@ -12,6 +12,13 @@ from apps.live_control_server.services.agent_graph_auth import (
     native_graph_gm_dependency,
 )
 from apps.live_control_server.routes.strict_json import StrictJSONRoute
+from apps.live_control_server.services.hosted_native_graph_access import (
+    native_graph_explorer_dependency,
+)
+from apps.live_control_server.services.native_graph_explorer import (
+    NativeGraphExplorerError,
+    hosted_response_binding,
+)
 
 router = APIRouter(
     prefix="/api/live/native-graph-inspection",
@@ -39,5 +46,15 @@ def catalog(body: InspectionScope, principal=Depends(native_graph_gm_dependency)
 
 
 @router.post("/read")
-def inspect(body: InspectionRead, principal=Depends(native_graph_gm_dependency)):
-    return _call(service.inspect, body, principal)
+def inspect(body: InspectionRead, principal=Depends(native_graph_explorer_dependency)):
+    try:
+        with hosted_response_binding(principal, body.scope.managed_world_id):
+            return _call(service.inspect, body, principal)
+    except NativeGraphExplorerError as exc:
+        raise HTTPException(
+            status_code=exc.status,
+            detail={
+                "code": exc.code,
+                "message": "The selected reviewed Graph material is unavailable. Refresh and inspect again.",
+            },
+        ) from None

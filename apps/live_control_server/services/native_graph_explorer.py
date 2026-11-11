@@ -111,6 +111,14 @@ def _parse_operation_id(value: str) -> str:
         ) from None
 
 
+def _require_access(principal: NativeGraphPrincipal, managed_world_id: str) -> None:
+    from apps.live_control_server.services.hosted_native_graph_access import (
+        require_explorer_access,
+    )
+
+    require_explorer_access(principal, managed_world_id)
+
+
 def _require_gm(principal: NativeGraphPrincipal) -> NativeGraphPrincipal:
     try:
         return require_native_graph_gm(principal)
@@ -152,7 +160,8 @@ def _resolve_binding(managed_world_id: str) -> dict[str, Any]:
     return bound
 
 
-def _assert_binding(expected: dict[str, Any]) -> None:
+def _assert_binding(expected: dict[str, Any], principal: NativeGraphPrincipal) -> None:
+    _require_access(principal, expected["managed_world_id"])
     current = _resolve_binding(expected["managed_world_id"])
     if current != expected:
         raise NativeGraphExplorerError(
@@ -160,6 +169,21 @@ def _assert_binding(expected: dict[str, Any]) -> None:
             "The selected World binding changed. Refresh the selection before continuing.",
             409,
         )
+
+
+@contextmanager
+def hosted_response_binding(principal: NativeGraphPrincipal, managed_world_id: str):
+    """Withhold every hosted result if its admitted binding changes mid-request."""
+    _require_access(principal, managed_world_id)
+    expected = (
+        _resolve_binding(managed_world_id)
+        if principal.auth_method == "hosted_owner"
+        else None
+    )
+    yield
+    _require_access(principal, managed_world_id)
+    if expected is not None:
+        _assert_binding(expected, principal)
 
 
 @contextmanager
@@ -480,7 +504,7 @@ def _graph_envelope(
             "The selected native World graph is unavailable or its readback could not be verified.",
             503,
         ) from None
-    _assert_binding(bound)
+    _assert_binding(bound, principal)
     return {
         "schema": "dmb_native_graph_explorer_v1",
         "managed_world_id": bound["managed_world_id"],
@@ -494,6 +518,7 @@ def graph(
     request: NativeGraphExplorerGraphRequest, principal: NativeGraphPrincipal
 ) -> dict[str, Any]:
     _require_gm(principal)
+    _require_access(principal, request.managed_world_id)
     bound = _resolve_binding(request.managed_world_id)
     return _graph_envelope(bound, principal)
 
@@ -935,22 +960,24 @@ def _verify_existing_publication(
         != receipt
     ):
         raise ValueError("native publication changed during exact recovery")
-    _assert_binding(bound)
+    _assert_binding(bound, principal)
 
     # The durable Core receipt is a necessary precondition. The existing WK
     # commit path recompiles this exact prepared value and verifies the full
     # prospective request, result bindings, immutable receipt and child graph;
     # replay of that same publication ID is idempotent and cannot create a new
     # child revision.
-    verified = transport.runtime(
+    recovery_runtime = transport.runtime(
         repo,
         domain,
         profile,
         now=prepared.prepared_at,
         operation_id=prepared.dungeonmind_publication_id,
-    ).commit_prepared_change(prepared, confirmed_by=principal.subject)
+    )
+    _assert_binding(bound, principal)
+    verified = recovery_runtime.commit_prepared_change(prepared, confirmed_by=principal.subject)
     _verify_wk_result_matches(verified, prepared, aggregate)
-    _assert_binding(bound)
+    _assert_binding(bound, principal)
     return verified
 
 
@@ -1214,6 +1241,7 @@ def prepare(
     principal: NativeGraphPrincipal,
 ) -> dict[str, Any]:
     _require_gm(principal)
+    _require_access(principal, request.managed_world_id)
     payload = _normalize_request(request)
     bound = _resolve_binding(payload["managed_world_id"])
     if (
@@ -1316,7 +1344,7 @@ def prepare(
             store.mark_unknown(operation_id, updated_at=_now())
             store.checkpoint()
             try:
-                _assert_binding(bound)
+                _assert_binding(bound, principal)
                 repo = native.repository()
                 source_id = _source_admission_id(operation_id, principal.subject, bound)
                 receipt = repo.get_native_source_admission_receipt(
@@ -1367,7 +1395,7 @@ def prepare(
                             ),
                         ),
                     )
-                    _assert_binding(bound)
+                    _assert_binding(bound, principal)
                     try:
                         receipt = publish_native_text_source_evidence(
                             repository=repo,
@@ -1383,7 +1411,7 @@ def prepare(
                         )
                         if receipt is None:
                             raise
-                _assert_binding(bound)
+                _assert_binding(bound, principal)
                 current_head = repo.get_head(bound["native_world_id"])
                 if (
                     receipt is None
@@ -1431,7 +1459,7 @@ def prepare(
                         "WorldKeeper returned a review that differs from the exact submitted graph change.",
                         503,
                     )
-                _assert_binding(bound)
+                _assert_binding(bound, principal)
                 encoded_prepared = _prepared_json(prepared)
                 receipt_json = canonical_json(receipt_payload)
                 store.mark_prepared(
@@ -1493,6 +1521,7 @@ def confirm(
     principal: NativeGraphPrincipal,
 ) -> dict[str, Any]:
     _require_gm(principal)
+    _require_access(principal, request.managed_world_id)
     operation_id = _parse_operation_id(request.operation_id)
     bound = _resolve_binding(request.managed_world_id)
     with _open_store(principal, request.managed_world_id) as store:
@@ -1577,7 +1606,7 @@ def confirm(
                     "The reviewed source receipt no longer matches this operation.",
                     503,
                 )
-            _assert_binding(bound)
+            _assert_binding(bound, principal)
             domain, profile = native.descriptors(
                 repo, bound["native_world_id"], prepared.expected_parent_revision_id
             )
@@ -1585,13 +1614,15 @@ def confirm(
             store.mark_unknown(operation_id, updated_at=_now())
             store.checkpoint()
             try:
-                result = transport.runtime(
+                commit_runtime = transport.runtime(
                     repo,
                     domain,
                     profile,
                     now=prepared.prepared_at,
                     operation_id=prepared.dungeonmind_publication_id,
-                ).commit_prepared_change(prepared, confirmed_by=principal.subject)
+                )
+                _assert_binding(bound, principal)
+                result = commit_runtime.commit_prepared_change(prepared, confirmed_by=principal.subject)
                 if not result.verification.exact_child_read_back:
                     store.mark_unknown(operation_id, updated_at=_now())
                     return _status_response(
@@ -1617,7 +1648,7 @@ def confirm(
                         "unknown",
                         message="The commit response and exact publication receipt differ. The operation remains uncertain and was not replayed.",
                     )
-                _assert_binding(bound)
+                _assert_binding(bound, principal)
                 return _committed_response(record, bound, principal, aggregate)
             except PreparedChangeStale:
                 rejected = {
@@ -1689,6 +1720,7 @@ def operation(
     principal: NativeGraphPrincipal,
 ) -> dict[str, Any]:
     _require_gm(principal)
+    _require_access(principal, request.managed_world_id)
     operation_id = _parse_operation_id(request.operation_id)
     bound = _resolve_binding(request.managed_world_id)
     with _open_store(principal, request.managed_world_id) as store:

@@ -595,6 +595,7 @@
       "tests/test_hermes_graph_agent.py",
       "tests/test_hosted_auth.py",
       "tests/test_hosted_auth_login.py",
+      "tests/test_hosted_native_graph_access.py",
       "tests/test_index_graph.py",
       "tests/test_index_graph_storage.py",
       "tests/test_ingest_selection_context.py",

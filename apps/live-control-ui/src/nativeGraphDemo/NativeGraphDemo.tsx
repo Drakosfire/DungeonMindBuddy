@@ -410,9 +410,11 @@ export interface NativeGraphDemoProps {
   readonly worldTitle?: string;
   /** Stable managed-world identity used only to isolate browser draft and layout storage. */
   readonly stateScopeId?: string;
+  /** Presentation limit only; does not authorize entity or source access. */
+  readonly entityOnlyDetails?: boolean;
 }
 
-export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "playground", worldTitle, stateScopeId }: NativeGraphDemoProps) {
+export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "playground", worldTitle, stateScopeId, entityOnlyDetails = false }: NativeGraphDemoProps) {
   const graphHelpId = `native-graph-help-${useId().replace(/:/g, "")}`;
   const api = useMemo(() => providedApi ?? (mode === "managed" ? MISSING_MANAGED_API : createNativeGraphDemoApi()), [mode, providedApi]);
   const [graph, setGraph] = useState<NativeGraph | null>(null);
@@ -1542,7 +1544,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       {mode === "managed" ? (
         selectedNodeDetailStatus === "loading" ? <p role="status">Loading this object from the loaded World revision…</p>
           : selectedNodeDetailStatus === "ready" && selectedNodeDetail
-            ? <NativeGraphObjectDetails detail={selectedNodeDetail} entityId={selectedNode.id} label={selectedNode.name} labels={selectedLabels} />
+            ? <NativeGraphObjectDetails detail={selectedNodeDetail} entityId={selectedNode.id} label={selectedNode.name} labels={selectedLabels} entityOnly={entityOnlyDetails} />
             : selectedNodeDetailStatus === "unavailable" || selectedNodeDetailStatus === "error"
               ? <p role={selectedNodeDetailStatus === "error" ? "alert" : "status"}>{selectedNodeDetailError}</p>
               : <p role="status">Select this object to inspect its loaded World revision.</p>

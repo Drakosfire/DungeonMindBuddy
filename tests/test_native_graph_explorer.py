@@ -25,7 +25,9 @@ from apps.live_control_server.routes.native_graph_explorer import router
 from apps.live_control_server.services import native_graph_explorer as service
 from apps.live_control_server.services.agent_graph_auth import (
     NativeGraphPrincipal,
-    native_graph_gm_dependency,
+)
+from apps.live_control_server.services.hosted_native_graph_access import (
+    native_graph_explorer_dependency,
 )
 from graph_memory.vnext.domain_runtime import (
     GM_LABEL,
@@ -204,7 +206,7 @@ def explorer(monkeypatch, request):
     app = FastAPI()
     app.include_router(router)
     principal = NativeGraphPrincipal("local_operator", "gm", "local_operator")
-    app.dependency_overrides[native_graph_gm_dependency] = lambda: principal
+    app.dependency_overrides[native_graph_explorer_dependency] = lambda: principal
     client = TestClient(app, client=("127.0.0.1", 50000))
     return SimpleNamespace(**locals())
 
@@ -631,7 +633,7 @@ def test_operation_id_reuse_and_cross_principal_read_fail_closed(explorer, monke
         operation_id, x.principal.subject, x.bound
     )
     other = NativeGraphPrincipal("other-gm", "gm", "local_operator")
-    x.app.dependency_overrides[native_graph_gm_dependency] = lambda: other
+    x.app.dependency_overrides[native_graph_explorer_dependency] = lambda: other
     not_found = x.client.post(
         "/api/live/native-graph-explorer/operations/read",
         json={"managed_world_id": "managed", "operation_id": operation_id},
@@ -994,8 +996,10 @@ def test_stale_expected_revision_is_rejected_before_operation_reservation(explor
 def test_non_gm_and_unconfigured_auth_cannot_read_or_write(
     explorer, monkeypatch, tmp_path
 ):
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "local")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
     x = explorer
-    x.app.dependency_overrides[native_graph_gm_dependency] = lambda: (
+    x.app.dependency_overrides[native_graph_explorer_dependency] = lambda: (
         NativeGraphPrincipal("player", "player", "local_operator")
     )
     denied = _read(x)

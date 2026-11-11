@@ -1,12 +1,14 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createWorldContainer, listWorldContainers } from "../api/liveApi";
 import { SelectedWorldProvider } from "./SelectedWorldContext";
+import { HostedAuthGate } from "../auth/HostedAuthGate";
 import { WorldSelector } from "./WorldSelector";
 
 vi.mock("../api/liveApi", () => ({
+  invalidateHostedGraphAccess: vi.fn(),
   listWorldContainers: vi.fn(),
   createWorldContainer: vi.fn(),
   getWorkspaceDocument: vi.fn(),
@@ -183,4 +185,42 @@ describe("World selector", () => {
     expect(await screen.findByRole("button", { name: world.name })).toBeInTheDocument();
     expect(window.location.pathname + window.location.search).toBe("/");
   });
+});
+
+beforeEach(() => { vi.clearAllMocks(); });
+afterEach(() => { vi.unstubAllGlobals(); });
+
+it("offers only already-owned existing Worlds in hosted mode, with no creation shortcut", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ status: "authenticated", subject: "owner-a" })));
+  vi.mocked(listWorldContainers).mockResolvedValue({ schema_version: "dmb_world_container_registry_v1", records: [] });
+  render(<HostedAuthGate enabled><SelectedWorldProvider locationSnapshot="/"><WorldSelector /></SelectedWorldProvider></HostedAuthGate>);
+  fireEvent.click(await screen.findByRole("button", { name: "World: Choose" }));
+  await screen.findByText("No existing Worlds owned by this account are available on this deployment.");
+  expect(screen.getByText(/Only existing Worlds already owned/)).toBeInTheDocument();
+  expect(screen.queryByLabelText("New World name")).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "New World in Build" })).not.toBeInTheDocument();
+  expect(createWorldContainer).not.toHaveBeenCalled();
+});
+
+it("discards an old owner's pending World list after the account changes", async () => {
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(Response.json({ status: "authenticated", subject: "owner-a" }))
+    .mockResolvedValueOnce(Response.json({ status: "authenticated", subject: "owner-b" }));
+  vi.stubGlobal("fetch", fetchMock);
+  let resolveOld!: (value: Awaited<ReturnType<typeof listWorldContainers>>) => void;
+  vi.mocked(listWorldContainers)
+    .mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve; }))
+    .mockResolvedValueOnce({ schema_version: "dmb_world_container_registry_v1", records: [] });
+  render(<HostedAuthGate enabled><SelectedWorldProvider locationSnapshot="/"><WorldSelector /></SelectedWorldProvider></HostedAuthGate>);
+  fireEvent.click(await screen.findByRole("button", { name: "World: Choose" }));
+  expect(await screen.findByText("Loading Worlds…")).toBeInTheDocument();
+  await act(async () => { fireEvent(window, new Event("focus")); });
+  expect(screen.queryByText("Loading Worlds…")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "World: Choose" }));
+  await screen.findByText("No existing Worlds owned by this account are available on this deployment.");
+  await act(async () => resolveOld({ schema_version: "dmb_world_container_registry_v1", records: [{
+    schema_version: "dmb_world_container_record_v1", world_id: "secret-a", name: "Owner A secret",
+    source_root_relpath: "corpus/secret-a", created_at: "2026-01-01T00:00:00Z",
+  }] }));
+  expect(screen.queryByText("Owner A secret")).not.toBeInTheDocument();
 });
