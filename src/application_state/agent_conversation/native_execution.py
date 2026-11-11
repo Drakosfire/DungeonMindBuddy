@@ -15,6 +15,7 @@ from application_state.build_proposal.types import BuildWriteCapability
 from . import types as t
 from .build_intentional_response import Capabilities, RESOLVER_DIGEST, known_menu
 from .build_related_pages import PagePointer
+from .build_saved_statblock import BuildSavedStatblockReadV1, validate_read as validate_saved_statblock_read
 from .native_context import (
     SurfaceNativeContextReceiptV1, BuildWorkContextV1, PlanWorkContextV1,
     PlayWorkContextV1, NativeProviderInputV1, NativeReviewedActionInputV1, NativePlanRequestAdmissionV1, work_world_id,
@@ -288,7 +289,7 @@ SurfaceNativeEvent = Annotated[
     | t.BuildSectionReadAuthorizationV1 | t.ValidatedBuildSectionReadV1
     | t.BuildRequestedWorkResolutionV1 | t.BuildReviewedActionSelectionV2 | t.BuildReviewedActionSelectionV1
     | t.BuildWriterEvidenceSelectionV1 | t.BuildWriterEvidenceSelectionV2 | t.BuildPlanOutputContractV2
-    | t.RelatedPagesSelection | t.RelatedPageRead
+    | t.RelatedPagesSelection | t.RelatedPageRead | BuildSavedStatblockReadV1
     | t.BuildAuthoredReferencesCapturedV1 | BuildAuthoredReferenceAuthorizedV2
     | BuildAuthoredReferenceReadV2 | BuildAuthoredReferenceReadV3 | NativePlanAssertionReadObservedV2,
     Field(discriminator="kind"),
@@ -300,7 +301,7 @@ _BUILD_WORK_EVENTS = (
     t.BuildSectionReadAuthorizationV1, t.ValidatedBuildSectionReadV1,
     t.BuildRequestedWorkResolutionV1, t.BuildReviewedActionSelectionV1,
     t.BuildWriterEvidenceSelectionV1, t.BuildPlanOutputContractV2,
-    t.RelatedPagesSelection,
+    t.RelatedPagesSelection, BuildSavedStatblockReadV1,
 )
 _PLAN_WORK_EVENTS = (t.PlanRequestedWorkAuthorizedV2, t.PlanRequestedWorkSelectedV2)
 
@@ -334,6 +335,8 @@ class SurfaceNativeExecutionV1(Strict):
                     raise ValueError('Shared native writer response requires its exact selected output acknowledgement')
             if isinstance(event, _BUILD_WORK_EVENTS) and not isinstance(self.policy.action, NativeBuildActionV1):
                 raise ValueError("Build work event cannot acquire another action family")
+            if isinstance(event, BuildSavedStatblockReadV1):
+                validate_saved_statblock_read(event, self)
             if isinstance(event, t.RelatedPageRead) and type(self.policy.action) not in (NativeBuildActionV1, NativePlanActionV2):
                 raise ValueError("Saved-page read lacks its actual surface capability")
             if isinstance(event, _PLAN_WORK_EVENTS) and not isinstance(self.policy.action, NativePlanActionV1):

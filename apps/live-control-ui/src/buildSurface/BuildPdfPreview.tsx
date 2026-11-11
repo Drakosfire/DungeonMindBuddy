@@ -1,4 +1,5 @@
-import { completePdfTextLines } from "./completePdfTextLines";
+import { StartPdfStatblockReview } from "./StartPdfStatblockReview";
+import { completePdfTextLines, hasClippedPdfTextLine, pdfTextBoundsOverlap } from "./completePdfTextLines";
 import { PdfStatblockCandidate } from "./PdfStatblockCandidate";
 import { pdfRegionKey, readRetainedPdfRegions, retainedPdfKey, type PdfLocator, type PdfReceipt, type RetainedPdf } from "../api/retainedPdfRegions";
 import { authenticatedApiFetch } from "../api/liveApi";
@@ -9,6 +10,19 @@ import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 type PagePoint = { x: number; y: number };
 type PageRectangle = { left: number; top: number; width: number; height: number };
 
+function captureLocator(source: PdfReceipt, page: number, selected: PageRectangle): PdfLocator {
+  return {
+    source_revision_id: source.source_revision_id,
+    content_sha256: source.content_sha256,
+    page,
+    left: selected.left,
+    top: selected.top,
+    right: Math.min(1, selected.left + selected.width),
+    bottom: Math.min(1, selected.top + selected.height),
+  };
+}
+
+
 function pagePoint(event: PointerEvent<HTMLCanvasElement>): PagePoint {
   const bounds = event.currentTarget.getBoundingClientRect();
   const clamp = (value: number) => Math.max(0, Math.min(1, value));
@@ -18,7 +32,7 @@ function pagePoint(event: PointerEvent<HTMLCanvasElement>): PagePoint {
   };
 }
 
-function CropOcr({ worldId, region, hasPdfText }: { worldId: string; region: PdfLocator; hasPdfText: boolean }) {
+export function CropOcr({ worldId, region, hasPdfText }: { worldId: string; region: PdfLocator; hasPdfText: boolean }) {
   const [instruction, setInstruction] = useState("");
   const [review, setReview] = useState(false);
   const [pending, setPending] = useState(false);
@@ -39,6 +53,9 @@ function CropOcr({ worldId, region, hasPdfText }: { worldId: string; region: Pdf
       const result = await response.json();
       if (!response.ok || typeof result.text !== "string") {
         throw new Error(typeof result.detail === "string" ? result.detail : "Could not read the capture.");
+      }
+      if (withBuddy && !Object.entries(region).every(([key, value]) => result.region?.[key] === value)) {
+        throw new Error("Buddy’s reply did not match the selected PDF region.");
       }
       setText(result.text);
     } catch (failure) {
@@ -79,11 +96,6 @@ function PdfPages({ file, worldId, restored, onRetained }: {
     const path = `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources`;
     setSourcePending(true);
     setSourceError("");
-    const locator = (source: PdfReceipt): PdfLocator => ({
-      ...source, page, left: selected.left, top: selected.top,
-      right: Math.min(1, selected.left + selected.width),
-      bottom: Math.min(1, selected.top + selected.height),
-    });
     try {
       if (!receipt) {
         const { response } = await authenticatedApiFetch(`${path}?admission_id=${admission.id}`, {
@@ -93,16 +105,16 @@ function PdfPages({ file, worldId, restored, onRetained }: {
         });
         if (!response.ok) throw new Error();
         const admitted: PdfReceipt = await response.json();
-        onRetained(locator(admitted));
+        onRetained(captureLocator(admitted, page, selected));
         setReceipt(admitted);
       } else {
         const { response } = await authenticatedApiFetch(`${path}/open`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(locator(receipt)),
+          body: JSON.stringify(captureLocator(receipt, page, selected)),
         });
         if (!response.ok) throw new Error();
-        onRetained(locator(receipt));
+        onRetained(captureLocator(receipt, page, selected));
         setSourceFile(new File([await response.blob()], file.name, { type: "application/pdf" }));
       }
     } catch {
@@ -125,6 +137,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
   const [capture, setCapture] = useState<{ image: string; region: PageRectangle }>();
   const [capturedText, setCapturedText] = useState<string>();
   const [completeLines, setCompleteLines] = useState("");
+  const [clippedText, setClippedText] = useState(false);
   const [textError, setTextError] = useState(false);
   const rectangle = region && {
     left: Math.min(region.start.x, region.end.x),
@@ -154,6 +167,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
       0, 0, crop.width, crop.height);
     setCapturedText(undefined);
     setCompleteLines("");
+    setClippedText(false);
     setTextError(false);
     setCapture({ image: crop.toDataURL(), region: rectangle });
   }
@@ -227,28 +241,30 @@ function PdfPages({ file, worldId, restored, onRetained }: {
           const advanceScale = vertical ? Math.hypot(c, d) : Math.hypot(a, b);
           const extent = vertical ? item.height : item.width;
           const advance = advanceScale ? extent / advanceScale : 0;
-          const inside = (along: number, across: number) => {
+          const point = (along: number, across: number): [number, number] => {
             const [viewX, viewY] = viewport.convertToViewportPoint(
               vertical ? x + a * across - c * along : x + a * along + c * across,
               vertical ? y + b * across - d * along : y + b * along + d * across,
             );
-            const nx = viewX / viewport.width;
-            const ny = viewY / viewport.height;
-            return nx >= region.left && nx <= region.left + region.width
-              && ny >= region.top && ny <= region.top + region.height;
+            return [viewX / viewport.width, viewY / viewport.height];
           };
+          const inside = ([nx, ny]: [number, number]) =>
+            nx >= region.left && nx <= region.left + region.width
+              && ny >= region.top && ny <= region.top + region.height;
+          const corners = [point(0, 0), point(advance, 0), point(0, 1), point(advance, 1)];
           return [{
             text: item.str,
             endOfLine: item.hasEOL,
-            included: inside(advance / 2, 0.5),
-            complete: advance > 0 && inside(0, 0) && inside(advance, 0)
-              && inside(0, 1) && inside(advance, 1),
+            included: inside(point(advance / 2, 0.5)),
+            complete: advance > 0 && corners.every(inside),
+            overlaps: advance > 0 && pdfTextBoundsOverlap(corners, region),
           }];
         });
         if (!cancelled) {
           setCapturedText(runs.map(run => (run.included ? run.text : " ")
             + (run.endOfLine ? "\n" : "")).join("").trim());
           setCompleteLines(completePdfTextLines(runs));
+          setClippedText(hasClippedPdfTextLine(runs));
         }
       } catch {
         if (!cancelled) setTextError(true);
@@ -325,24 +341,17 @@ function PdfPages({ file, worldId, restored, onRetained }: {
                     <textarea readOnly value={capturedText} rows={5} />
                   </label>
                 ) : <p role="status">No PDF text runs were selected. The crop may still contain visible text.</p>}
+              {clippedText && <p role="status">Some PDF text lines may extend outside the capture. Widen the selection or check the image before using the extracted fields.</p>}
               {receipt && capturedText && <PdfStatblockCandidate
                 key={JSON.stringify([page, capture.region, capturedText])}
                 text={completeLines}
-                locator={{
-                  source_revision_id: receipt.source_revision_id,
-                  content_sha256: receipt.content_sha256,
-                  page, left: capture.region.left, top: capture.region.top,
-                  right: Math.min(1, capture.region.left + capture.region.width),
-                  bottom: Math.min(1, capture.region.top + capture.region.height),
-                }}
+                locator={captureLocator(receipt, page, capture.region)}
               />}
+              {worldId && receipt && <StartPdfStatblockReview
+                key={pdfRegionKey(captureLocator(receipt, page, capture.region))}
+                worldId={worldId} region={captureLocator(receipt, page, capture.region)} />}
               {worldId && receipt && (textError || capturedText !== undefined) && (
-                <CropOcr key={capture.image} worldId={worldId} region={{
-                  source_revision_id: receipt.source_revision_id, content_sha256: receipt.content_sha256,
-                  page, left: capture.region.left, top: capture.region.top,
-                  right: Math.min(1, capture.region.left + capture.region.width),
-                  bottom: Math.min(1, capture.region.top + capture.region.height),
-                }} hasPdfText={Boolean(capturedText)} />
+                <CropOcr key={capture.image} worldId={worldId} region={captureLocator(receipt, page, capture.region)} hasPdfText={Boolean(capturedText)} />
               )}
             </section>
           )}

@@ -1385,6 +1385,7 @@ class AgentConversationService:
         related_page_proof: dict | None = None,
         requested_work_proof: dict | None = None,
         related_page_materializer=None,
+        saved_statblock_materializer=None,
         authored_object_result_proof=None,
         authored_prepared_request_json=None,
         plan_authoring_reservation=None,
@@ -1523,6 +1524,11 @@ class AgentConversationService:
                 if isinstance(event,RelatedPagesSelection):
                     captured=conn.execute("SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",(turn.turn_id,turn.attempt)).fetchone()
                     validate_related_selection(turn,event,related_page_proof,captured[0] if captured else None)
+                from .build_saved_statblock import BuildSavedStatblockReadV1, validate_read
+                if isinstance(event, BuildSavedStatblockReadV1):
+                    validate_read(event, turn.graph_context_execution)
+                    if not callable(saved_statblock_materializer) or saved_statblock_materializer() != event:
+                        raise ValueError("Saved statblock read lacks its exact mechanics materialization")
                 if isinstance(event,RelatedPageRead):
                     if not callable(related_page_materializer) or related_page_materializer()!=(event.page.model_dump(mode="json")|{"markdown":event.markdown}):
                         raise ValueError("Related page read lacks its exact source-owner materialization")
@@ -2311,6 +2317,15 @@ class AgentConversationService:
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=inclusion, duplicate_key="event_id",
             build_draft_provider_request_json=prepared_request_json)
+
+    def record_build_saved_statblock(self, world_id, conversation_id, turn_id, *,
+                                     expected_revision, expected_attempt, event, materializer):
+        from .build_saved_statblock import BuildSavedStatblockReadV1
+        if not isinstance(event, BuildSavedStatblockReadV1):
+            raise ApplicationStateValidationError("Saved statblock read requires its typed event")
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=event, duplicate_key="event_id", saved_statblock_materializer=materializer)
 
     def record_build_related_pages(self, world_id, conversation_id, turn_id, *, expected_revision, expected_attempt,
                                    event, producer_proof=None, materializer=None):

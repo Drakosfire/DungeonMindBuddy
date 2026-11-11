@@ -11,12 +11,12 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.client import 
 from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import source_definition_digest_from_body
 from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import locator_from_exact_revision,same_mechanics_locator
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import StatblockIntegrationError
-from apps.live_control_server.services.threat_draft_store import get_threat_draft
+from apps.live_control_server.services.threat_draft_store import get_threat_draft, saved_mechanics_draft_ids
 from apps.live_control_server.services.statblock_acceptance_reconciliation import list_acceptance_operations_for_draft
 from apps.live_control_server.services.statblock_definition_validation import validate_definition
 
 
-def _origin(root,world_id,draft_id):
+def _origin_with_proof(root,world_id,draft_id):
     draft=get_threat_draft(root,str(draft_id))
     if draft.schema_name!='dmb_threat_draft_v2' or draft.world_id!=world_id or draft.workflow_state!='mechanics_saved' or draft.accepted_mechanics_ref is None:
         raise ApplicationStateConflictError('Select saved mechanics from this World')
@@ -29,7 +29,12 @@ def _origin(root,world_id,draft_id):
         and op.validation_receipt_digest==ref.definition_digest
         and source_definition_digest_from_body(op.request_body['definition'])==ref.definition_digest)]
     if len(matches)!=1:raise ApplicationStateIntegrityError('Original mechanics have no unique acceptance proof')
-    return draft,MechanicsLocator.model_validate(ref.to_mechanics_locator().model_dump()),matches[0].operation_id
+    return draft,MechanicsLocator.model_validate(ref.to_mechanics_locator().model_dump()),matches[0]
+
+
+def _origin(root, world_id, draft_id):
+    draft, locator, proof = _origin_with_proof(root, world_id, draft_id)
+    return draft, locator, proof.operation_id
 
 
 def _selected(root,world_id,draft_id,revision_id):
@@ -74,6 +79,36 @@ def open_version(root,*,world_id,draft_id,revision_id,client=None):
         return dict(world_id=world_id,draft_id=draft.draft_id,locator=locator.model_dump(mode='json'),resource=exact.model_dump(mode='json'))
     finally:
         if owns:active.close()
+
+
+def iter_saved_mechanics(root, *, world_id):
+    """Yield verified names and exact saved locators without opening mechanics."""
+    for draft_id in saved_mechanics_draft_ids(root, world_id=world_id):
+        draft, locator, proof = _origin_with_proof(root, world_id, draft_id)
+        yield proof.request_body["definition"]["identity"]["name"], draft.draft_id, locator
+
+
+def find_saved_version(root, *, world_id, name, client=None):
+    """Open a uniquely named saved definition within the caller's authorized World."""
+    if not world_id or not name.strip():
+        raise ValueError("World and statblock name are required")
+    normalized_name = " ".join(name.casefold().split())
+    match = None
+    for saved_name, draft_id, locator in iter_saved_mechanics(root, world_id=world_id):
+        if " ".join(saved_name.casefold().split()) != normalized_name:
+            continue
+        if match is not None:
+            return {"status": "ambiguous"}
+        match = (draft_id, locator)
+    if match is None:
+        return {"status": "not_found"}
+    draft_id, locator = match
+    opened = open_version(root, world_id=world_id, draft_id=draft_id,
+                          revision_id=locator.revision_id, client=client)
+    if opened["locator"] != locator.model_dump(mode="json"):
+        raise ApplicationStateIntegrityError("Opened mechanics differ from the selected saved locator")
+    return {"status": "found", **opened}
+
 
 
 def _resume(record,client):

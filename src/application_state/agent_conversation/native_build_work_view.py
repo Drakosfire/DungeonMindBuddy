@@ -4,7 +4,7 @@ from uuid import UUID
 
 _OPTIONAL = frozenset({'working_draft_context', 'response_contract', 'captured_editor',
     'reviewed_discussion_scope', 'plan_output_contract', 'related_authored_pages',
-    'authored_references'})
+    'authored_references', 'saved_statblocks'})
 
 
 def selection_aliases(host):
@@ -119,6 +119,17 @@ def semantic_frame(host, execution):
             for row in related['availability']]
         work['related_page_scope'] = 'Saved active worldbuilding pages in this World, excluding the current page.'
         work['related_page_absence'] = 'This catalog does not prove that other pages do not exist.'
+    if 'saved_statblocks' in host:
+        mechanics_fields = (
+            'identity', 'abilities', 'challenge', 'communication', 'defenses',
+            'flavor_text', 'lair', 'movement', 'phases', 'proficiencies',
+            'resources', 'rule_elements', 'senses', 'vitality',
+        )
+        work['saved_statblocks'] = [
+            {'mechanics': {key: deepcopy(row['definition'][key])
+                           for key in mechanics_fields if key in row['definition']}}
+            for row in host['saved_statblocks']
+        ]
     from .authored_graph_references import model_reference_choices
     references = model_reference_choices(execution)
     if references is not None:

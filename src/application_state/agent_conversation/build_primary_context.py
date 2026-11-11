@@ -203,6 +203,10 @@ def native_work_frame(execution, basis):
     related=project_related(execution)
     if related is not None:
         frame['related_authored_pages']=related
+    from .build_saved_statblock import BuildSavedStatblockReadV1
+    mechanics = [event for event in execution.events if isinstance(event, BuildSavedStatblockReadV1)]
+    if mechanics:
+        frame["saved_statblocks"] = [event.model_dump(mode="json") for event in mechanics]
     return pack_body_aliases(frame) if action.intent.build_draft_context_sha256 is not None else frame
 
 

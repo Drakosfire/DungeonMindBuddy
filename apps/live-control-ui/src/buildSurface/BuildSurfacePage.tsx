@@ -5,6 +5,7 @@ import { announceSelectedWorldLocationChange } from "../selectedWorld/SelectedWo
 import { MarkdownCanvasSessionProvider } from "../markdownCanvas/MarkdownCanvasSession";
 import { BUILD_MARKDOWN_CANVAS } from "./buildMarkdownCanvasAdapter";
 import { BUILD_SAVE_CONFLICTS_WITH } from "./buildDocumentCommands";
+import { BuildPdfStatblockReview } from "./BuildPdfStatblockReview";
 import { BuildIngestToolbar } from "./BuildIngestToolbar";
 import { BuildSurfaceContext } from "./BuildSurfaceContext";
 import { BuildEmptyLanding, BuildSurfaceShell } from "./BuildSurfaceShell";
@@ -25,9 +26,15 @@ export function BuildSurfacePage() {
     }
   }, [controller.activeRecord]);
 
+  const params = new URLSearchParams(window.location.search);
+  const pdfReviewId = params.get("pdfReview");
+  const reviewWorldId = params.get("world");
+
   return (
     <AppChrome activeRoute="build" editorTools={editorTools} editToolboxLayout="dock" workspaceLayout="bounded">
-      {controller.activeDocumentId ? (
+      {pdfReviewId && reviewWorldId ? (
+        <BuildPdfStatblockReview key={`${reviewWorldId}:${pdfReviewId}`} worldId={reviewWorldId} reviewId={pdfReviewId} />
+      ) : controller.activeDocumentId ? (
         <MarkdownCanvasSessionProvider
           key={controller.activeDocumentId}
           documentId={controller.activeDocumentId}
