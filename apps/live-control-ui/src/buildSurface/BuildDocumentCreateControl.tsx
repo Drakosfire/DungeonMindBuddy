@@ -500,7 +500,7 @@ export function BuildDocumentCreateControl({
           />
         }
       >
-        <BuildPdfPreview />
+        <BuildPdfPreview key={resolvedDestination?.kind === "world" ? resolvedDestination.worldId : undefined} worldId={resolvedDestination?.kind === "world" ? resolvedDestination.worldId : undefined} />
         {importForm}
       </SurfaceContextPopover>
     </div>

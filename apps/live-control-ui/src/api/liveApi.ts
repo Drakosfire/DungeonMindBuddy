@@ -346,6 +346,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     "/api/live/native-graph-explorer/operations/read",
     "/api/live/agent/build-pdf-ocr",
   ].includes(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources(?:\/open)?$/.test(pathname)) return true;
   if (pathname === "/api/live/graph-authoring/document-relationship/request") return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/work-plans\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/continue)?$/i.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/active\/messages$/.test(pathname)) return true;
