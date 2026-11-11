@@ -31,7 +31,7 @@ export function PdfStatblockCandidate({text, locator}: {text: string; locator: P
   if (!opened) return <button type="button" onClick={() => setOpened(true)}>Preview statblock fields</button>;
 
   const armor = Array.from(text.matchAll(/^[ \t]*Armor Class[ \t]*:?[ \t]*(\d(?:[ \t]*\d)*)/gim));
-  const hp = Array.from(text.matchAll(/^[ \t]*Hit Points[ \t]*:?[ \t]*(\d(?:[ \t]*\d)*)(?:[ \t]*\(([ \t]*\d+[ \t]*d[ \t]*\d+(?:[ \t]*[+−-][ \t]*\d+)?[ \t]*)\))?/gim));
+  const hp = Array.from(text.matchAll(/^[ \t]*Hit Points[ \t]*:?[ \t]*(\d(?:[ \t]*\d)*)(?:[ \t]*\(([ \t]*\d(?:[ \t]*\d)*[ \t]*d[ \t]*\d(?:[ \t]*\d)*(?:[ \t]*[+−-][ \t]*\d(?:[ \t]*\d)*)?[ \t]*)\))?/gim));
   const scores = readAbilityScores(text);
   const sections = armor.length === 1 && hp.length === 1 ? readRulesSections(text) : [];
   return <section aria-label="Extracted statblock fields">
@@ -39,7 +39,7 @@ export function PdfStatblockCandidate({text, locator}: {text: string; locator: P
     <p>Page {locator.page} · {locator.source_revision_id}</p>
     {armor.length === 1 && hp.length === 1 ? <dl>
       <dt>Armor Class</dt><dd>{armor[0][1].replace(/\s/g, "")}</dd>
-      <dt>Hit Points</dt><dd>{hp[0][1].replace(/\s/g, "")}{hp[0][2] && ` (${hp[0][2].trim()})`}</dd>
+      <dt>Hit Points</dt><dd>{hp[0][1].replace(/\s/g, "")}{hp[0][2] && ` (${hp[0][2].trim().replace(/(\d)[ \t]+(?=\d)/g, "$1")})`}</dd>
       {scores.map((score, index) => <div key={abilities[index]}>
         <dt>{abilities[index]}</dt><dd>{score}</dd>
       </div>)}
