@@ -7,3 +7,5 @@ Reuse the structural planning scanner at the exact native body open boundary. Bi
 Write lease: this handoff, recap_source_authority.py, native_corpus.py, native_evidence_view.py, response_prompt.py if needed for interpreting the new field, the next APP migration, existing source authority, native corpus, writer projection and schema head tests. Work outside these paths requires a scope checkpoint. No serving runtime, primary data, new provider or citation contract change.
 
 Independent design review passed for the excerpt-level boundary. Verify exact old capture replay, current SDK bytes, full and clipped sources, structural markers and existing citation guards on exact source. Review the committed diff independently before delivery.
+
+This slice annotates recaps with a captured, verified numeric session scope. Opaque or unestablished session scopes do not gain planning annotations through this change. Writer admission tests cover current and historical Build and Plan SDK requests, including reconstruction without rescanning source or looking up mutable display metadata.
