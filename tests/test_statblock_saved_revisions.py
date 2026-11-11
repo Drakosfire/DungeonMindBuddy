@@ -419,3 +419,66 @@ def test_selected_successor_association_uses_existing_revision_proof_not_origina
     assert associations.list_current(world_id='elderwyld')[0].proof.locator.revision_id==saved['result']['revision_id']
     assert post(p,selected).json()=={'association':record,'replayed':True}
     assert get_threat_draft(p.root,p.draft.draft_id)==p.draft
+
+
+def test_lookup_opens_exact_saved_revision_in_selected_world(revision_case):
+    p = revision_case
+    from tests.test_threat_draft_store import _update_request
+    from apps.live_control_server.services.threat_draft_store import update_threat_draft
+
+    name = p.revision.definition.identity.name
+    renamed = update_threat_draft(
+        p.root, p.draft.draft_id, _update_request(p.draft, description=p.draft.description).model_copy(update={"name": "Unrelated draft label", "expected_version": get_threat_draft(p.root, p.draft.draft_id).version}),
+    )
+    result = service.find_saved_version(
+        p.root, world_id=p.draft.world_id, name=name.upper(), client=p.manual,
+    )
+    assert result["status"] == "found"
+    assert result["draft_id"] == p.draft.draft_id
+    assert result["locator"] == p.request["base"]
+    assert result["resource"]["definition_digest"] == p.revision.definition_digest
+    for world_id, query in ((p.draft.world_id, renamed.name), ("other-world", name)):
+        assert service.find_saved_version(
+            p.root, world_id=world_id, name=query, client=p.manual,
+        ) == {"status": "not_found"}
+
+
+def test_lookup_does_not_open_an_ambiguous_name(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    rows = [SimpleNamespace(draft_id=str(i), revision_id="rev_test") for i in range(2)]
+    monkeypatch.setattr(service, "saved_mechanics_draft_ids", lambda *a, **kw: tuple(row.draft_id for row in rows))
+    proof = SimpleNamespace(request_body={"definition": {"identity": {"name": "Meat Mind"}}})
+    monkeypatch.setattr(service, "_origin_with_proof", lambda *a: (rows[int(a[-1])], rows[0], proof))
+    assert service.find_saved_version(
+        tmp_path, world_id="elderwyld", name="  meat   mind ",
+    ) == {"status": "ambiguous"}
+
+
+def test_gm_lookup_route_returns_exact_revision(revision_case):
+    p = revision_case
+    response = p.client.get(
+        "/api/live/saved-statblocks/lookup",
+        params={"world_id": p.draft.world_id, "name": p.revision.definition.identity.name},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "found"
+    assert response.json()["locator"] == p.request["base"]
+
+
+def test_gm_lookup_refuses_unauthenticated_request_before_read(revision_case, monkeypatch):
+    p = revision_case
+    p.app.dependency_overrides.clear()
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "development")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", "a" * 40)
+
+    def unexpected_read(*args, **kwargs):
+        pytest.fail("Unauthorized request reached the statblock lookup")
+
+    monkeypatch.setattr(service, "find_saved_version", unexpected_read)
+    response = p.client.get(
+        "/api/live/saved-statblocks/lookup",
+        params={"world_id": p.draft.world_id, "name": p.revision.definition.identity.name},
+    )
+    assert response.status_code == 401, response.text
