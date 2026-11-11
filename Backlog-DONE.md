@@ -730,6 +730,16 @@ C6 + C7 split out into a new `[READY]` `Recap-ingest — wire C6 + C7` entry. De
 
 ## DROPPED
 
+## [DROPPED] Verbatim source phrase grounding vs renderer snippets — captured 2026-08-01, archived 2026-11-10
+
+**Outcome:** The failing `source_phrase` renderer check belongs to the frozen TL01 shadow evaluation. Current recap ingestion derives spans from exact stored bytes (#1941), and native source reads open admitted spans against the stored body (#1965). Keep the original failure as evaluation evidence. File any new exact-span mismatch against the current read path.
+**Refs:** [TL01 close decision](Docs/Design/DECISION-tl01-temporal-prompt-calibration-close.md); #1941, #1965.
+
+## [DROPPED] Dedicated ecology/resource extraction pass — captured 2026-07-18, archived 2026-11-10
+
+**Outcome:** Gazetteer shipped a targeted fix for explicitly owned livestock definitions. It retains their source text on the owning place and defers duplicate event proposals. That covers the demonstrated livestock case. A general ecology pass has no current consuming workflow or demonstrated gap in this ticket. If a different source still misclassifies or duplicates resources, file that concrete case against the existing profile.
+**Refs:** `3a890b9ec`; `src/graph_memory/extraction/worldbuilding_gazetteer_profile.py`; `tests/test_worldbuilding_gazetteer_profile.py`.
+
 ## [DROPPED] CLI ingest vs direct fact-extractor parity gap — dropped 2026-04-20
 
 **Original hypothesis (now falsified by Phase A measurement above; kept for traceability):** CLI ingest yields ~289 facts vs direct ~441 facts → CLI drops 22–34% on same input.

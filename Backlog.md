@@ -72,20 +72,18 @@ Do not infer a current blocker or READY assignment from them.
 **Refs:** Edge source `bba72416-9dfe-49bb-add0-21a346e9a421`; `apps/live-control-ui/src/tiptap/extensions/MediaImageNode.tsx`; `apps/live-control-ui/src/tiptap/MarkdownDocumentAdapter.ts`; conversation `01a0ef89-ca57-7b82-9c9c-215b02d0fc3b`.
 
 
-## [IDEA] Define independent source-artifact archive / restore lifecycle
-**Kind:** DESIGN  
-**Owner:** APP-STATE / source lifecycle  
-**Captured:** 2026-08-11  
-**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`  
-**Depends on:** Stage 2A durable APP-STATE authority on `54331`; immutable `source.artifact` / `source.revision` identity and exact source-Markdown service; local editor discard remains a separate non-destructive concept.
+## [DEFERRED] Define independent source-artifact archive and restore
+**Owner:** APP-STATE / source lifecycle
+**Captured:** 2026-08-11
+**Last verified:** 2026-11-10 @ `8a9ad7902`
+**Trigger:** An operator needs to withdraw or restore an independently admitted source, such as a recap, while preserving exact historical evidence.
 
-**Problem:** Build/Plan/Play now have recoverable Trash (#1445–#1447). Reproduce any remaining need to independently archive source artifacts/revisions before designing another lifecycle. Document Trash, editor draft discard and underlying evidence retention have different meanings; the old missing-delete claim is obsolete.
+**Current boundary:** Workspace Trash handles Build and Plan documents and Play sessions. The source service persists immutable artifact and revision identities and serves their Markdown, metadata and scope. It exposes no independent archive or restore operation.
 
-**Slice:** Define archive, visibility, restore, collision, audit, confirmation, and exact-identity semantics for one APP-STATE durable source. Do not implement local-draft discard in this slice. Do not hard-delete by default without a named contract reason.
+**Next slice on trigger:** Define what source archive changes for discovery, what historical citations can still open, and what exact identity restore preserves. Then identify the owning mutation before adding any UI.
 
-**Exit proof:** One checked-in contract/decision + bounded implementation handoff makes archive vs local discard unambiguous, defines recoverability and exact artifact/revision identity after restore, and identifies the authorized APP-STATE server write boundary.
+**Refs:** `src/application_state/source/service.py`; `apps/live_control_server/routes/workspace_lifecycle.py`; #1445–#1447.
 
-**Refs:** `Docs/Reports/REPORT-application-state-durability-drill.md`; `Docs/Reports/REPORT-stage-2b-c1-c2-repopulation.md`; `src/application_state/source/service.py`; `Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md`.
 
 ---
 
@@ -183,44 +181,18 @@ Freeze a minimal `SpatialWorkspacePort` / spatial-item contract and a theme-pack
 **Refs:** `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md`; `Docs/Design/ui-language/DESIGN-interaction-layer-language.md`; F1–F4 presentation-substrate work; `Drakosfire/Canvas` as Page/Print-layout research ancestry only.
 
 
-## [DEFERRED] Define campaign creation inside an existing World
-**Kind:** DESIGN / CROSS-BOUNDARY AUTHORITY  
-**Owner:** Buddy campaign lifecycle + DungeonMind campaign scope  
-**Captured:** 2026-08-11  
-**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`  
-**Trigger:** creating a genuinely new campaign becomes an immediate product/dogfood need.
+## [DEFERRED] Create a campaign inside an existing World
+**Owner:** Buddy campaign UX + DungeonMind campaign membership
+**Captured:** 2026-08-11
+**Last verified:** 2026-11-10 @ Buddy `8a9ad7902`, DungeonMind `430c1a6d`
+**Trigger:** An operator needs to start a new campaign in an existing World through ordinary controls.
 
-**Problem:** The old READY item predates the completed DungeonMind cutover and assumed a world-container model that no longer describes authority correctly. One World now has one authoritative World Supergraph; campaign is assertion/evidence/chronology/visibility scope, while Buddy owns application/source/work state.
+**Current boundary:** DungeonMind's campaign ingest-context route requires an existing campaign membership. Buddy's #1860 restored two retained memberships via an offline repair. Neither provides a user-facing creation operation.
 
-**Next slice on trigger:** Re-decompose campaign creation into its actual authority boundaries before writing a contract: Buddy campaign/application identity and source/work bindings vs DungeonMind campaign-scoped assertion semantics. Freeze only the independently useful first contract; do not fork or duplicate World identity implicitly.
+**Next slice on trigger:** Define a DungeonMind-owned membership creation operation and the minimal Buddy flow that uses it. Prove the new campaign can be selected and admit its own sources in the existing World.
 
-**Refs:** `Docs/Design/ARCHITECTURE-campaign-supergraph.md`; `Docs/Design/CONTRACT-world-container-v1.md` as historical design evidence; `Docs/Roadmaps/ROADMAP-con-ready.md`.
+**Refs:** [Campaign membership repair](Docs/Plans/HANDOFF-BUILD-elderwyld-campaign-membership.md); `src/dungeonmind/service/api.py` in DungeonMind.
 
-## [DEFERRED] Verbatim `source_phrase` grounding vs renderer snippets
-**Kind:** EVALUATION / EVIDENCE CONTRACT  
-**Owner:** Temporal/grounding evaluation  
-**Captured:** 2026-08-01  
-**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`; no current demo-readiness trigger observed  
-**Trigger:** phrase-level extraction again requires this renderer path.
-
-**Problem:** Development phrase-grounding fails deterministically when the required verbatim phrase is not present in the renderer-produced cited snippet.
-
-**Next slice on trigger:** Prove one known-good smoke case grounds through both lanes before touching cohorts/prompts; keep sealed cohorts/gold unchanged.
-
-**Refs:** `Docs/Design/DECISION-tl01-temporal-prompt-calibration-close.md`; `Docs/Reports/REPORT-tl01g-grounding-path-recovery.md`; PRs #468, #486, #500.
-
-## [DEFERRED] Ecology/resource extraction pass
-**Kind:** DESIGN / EXPERIMENT  
-**Owner:** Graph extraction  
-**Captured:** 2026-07-18  
-**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`; no current demo-readiness trigger observed  
-**Trigger:** current extraction dogfood shows species/flora/fauna/resource duplication materially harms preparation or retrieval.
-
-**Problem:** Ecology/resource concepts repeatedly blur actor/object boundaries, but current product priorities do not justify inventing a new extraction pass without fresh dogfood pressure.
-
-**Next slice on trigger:** Reproduce the defect on the current DungeonMind/Buddy extraction boundary, then design a bounded `ecology_resource_pass` and compare it against the current path before implementation.
-
-**Refs:** `Docs/Reports/GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-MANUAL-REVIEW.md`; `Docs/Plans/HANDOFF-prime-design-graph-memory-extraction-taxonomy.md`.
 
 ---
 
@@ -264,6 +236,8 @@ an old UI repair. Of Conks and other prototype evidence remain reference materia
 a prototype is not a new durable authority.
 
 ## Hygiene history
+
+- 2026-11-10: audited the four oldest active entries against Buddy main `8a9ad7902` and DungeonMind main `430c1a6d`. Archived two retired proposals and reverified two deferred lifecycle gaps.
 
 - 2026-11-10: checked delivery through Buddy main `b0585f6d9`; archived the Build Statblock Workbench launcher, recorded completed image authoring slices, and corrected superseded roadmap pointers.
 
