@@ -52,7 +52,7 @@ def _published_case(case, tmp_path, monkeypatch, *, publish=True):
         root, world_id="publication-managed", campaign_id="publication-managed",
     )
     resolved = resolve_promotable_ingest_run(run_id, root=root)
-    preview = load_typed_candidate_graph(json.loads(resolved.candidate_graph_path.read_text()))
+    preview = load_typed_candidate_graph(json.loads(resolved.data.candidate_bytes))
     parent = case["bundle"].world_graph.get_head(case["world"])
     plan = prepare_worldbuilding(WorldbuildingWritePlanPrepareRequest.model_validate({
         "runId": run_id, "expectedParentRevisionId": parent.head_revision_id,
@@ -181,17 +181,18 @@ def test_current_profile_relationship_and_distinct_observation_facets(
     sentence = "Testport Council governs Testport."
     body = sentence if mode == "governs" else "\n\n".join(row["text"] for row in source())
 
-    def register_source(repo, *, document_id, **kwargs):
-        document = get_workspace_document(repo, document_id)
-        (repo / document.target_relpath).write_text(body + "\n")
-        return register(repo, document_id=document_id, **kwargs)
+    from tests.page_fixtures import save_page
+
+    def register_source(repo, *, document_id, expected_revision):
+        saved = save_page(repo, document_id, body + "\n")
+        return register(repo, document_id=document_id, expected_revision=saved.revision)
 
     monkeypatch.setattr(registry, "create_source_artifact_from_workspace_document", register_source)
     run_id, _ = _write_bld08_reviewable_run(root, world_id="publication-managed",
         campaign_id="publication-managed", profile_id="worldbuilding_gazetteer_v1@1.13")
     resolved = resolve_promotable_ingest_run(run_id, root=root)
-    index = json.loads(resolved.source_span_index_path.read_text())
-    lines = resolved.normalized_recap_path.read_text().splitlines()
+    index = json.loads(resolved.data.span_bytes)
+    lines = resolved.data.source_bytes.decode("utf-8").splitlines()
     rows = [dict(source_span_ref_id=row["source_span_id"], line_start=row["start_line"],
                  line_end=row["end_line"], text="\n".join(lines[row["start_line"]-1:row["end_line"]]))
             for row in index["spans"]]
@@ -229,7 +230,7 @@ def test_current_profile_relationship_and_distinct_observation_facets(
 
     _mutate_extraction_candidate(root, run_id, transform)
     resolved = resolve_promotable_ingest_run(run_id, root=root)
-    preview = load_typed_candidate_graph(json.loads(resolved.candidate_graph_path.read_text()),
+    preview = load_typed_candidate_graph(json.loads(resolved.data.candidate_bytes),
                                          allow_source_observations=True)
     parent = case["bundle"].world_graph.get_head(case["world"])
     plan = prepare_worldbuilding(WorldbuildingWritePlanPrepareRequest.model_validate({

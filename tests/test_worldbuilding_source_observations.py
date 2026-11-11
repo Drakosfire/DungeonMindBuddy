@@ -457,15 +457,12 @@ def test_native_confirm_retains_distinct_observations_sources_and_idempotency(
     )
     original_register = registry.create_source_artifact_from_workspace_document
 
-    def register(repo, *, document_id, **kwargs):
-        document = get_workspace_document(repo, document_id)
-        (repo / document.target_relpath).write_text(
-            "\n\n".join(row["text"] for row in source())
-            + "\nFixture document: "
-            + document_id
-            + "\n"
-        )
-        return original_register(repo, document_id=document_id, **kwargs)
+    from tests.page_fixtures import save_page
+
+    def register(repo, *, document_id, expected_revision):
+        body = "\n\n".join(row["text"] for row in source()) + "\nFixture document: " + document_id + "\n"
+        saved = save_page(repo, document_id, body)
+        return original_register(repo, document_id=document_id, expected_revision=saved.revision)
 
     monkeypatch.setattr(
         registry, "create_source_artifact_from_workspace_document", register
@@ -477,7 +474,7 @@ def test_native_confirm_retains_distinct_observations_sources_and_idempotency(
         world_id="publication-managed",
     )
     resolved = resolve_promotable_ingest_run(run_id, root=root)
-    text = resolved.normalized_recap_path.read_text()
+    text = resolved.data.source_bytes.decode("utf-8")
     lines = text.splitlines()
     index = source_span_index_to_dict(
         registry.load_source_span_index(root, resolved.source_artifact_id)
@@ -519,7 +516,7 @@ def test_native_confirm_retains_distinct_observations_sources_and_idempotency(
 
     _mutate_extraction_candidate(root, run_id, transform)
     refreshed = resolve_promotable_ingest_run(run_id, root=root)
-    data = json.loads(refreshed.candidate_graph_path.read_text())
+    data = json.loads(refreshed.data.candidate_bytes)
     parent = case["bundle"].world_graph.get_head(case["world"])
     decisions = [
         dict(assertionId="place:coast", decision="create_new"),

@@ -37,15 +37,14 @@ def unique_registered_source_bytes(monkeypatch):
     # Content-addressed revisions are global in the disposable source catalog.
     # Distinct registered documents need distinct fixture bytes, not shared hashes.
     from apps.live_control_server.services import source_artifact_registry as registry
-    from apps.live_control_server.services.workspace_document_registry import get_workspace_document
+    from tests.page_fixtures import page_text, save_page
 
     original = registry.create_source_artifact_from_workspace_document
 
-    def register(root, *, document_id, **kwargs):
-        document = get_workspace_document(root, document_id)
-        path = root / document.target_relpath
-        path.write_text(path.read_text() + "\nFixture document: " + document_id + "\n")
-        return original(root, document_id=document_id, **kwargs)
+    def register(root, *, document_id, expected_revision):
+        body = page_text(root, document_id) + "\nFixture document: " + document_id + "\n"
+        saved = save_page(root, document_id, body)
+        return original(root, document_id=document_id, expected_revision=saved.revision)
 
     monkeypatch.setattr(registry, "create_source_artifact_from_workspace_document", register)
 
@@ -79,7 +78,7 @@ def test_registered_build_prepare_admits_exact_world_source_and_confirm_only_pro
 
     resolved = resolve_promotable_ingest_run(run_id, root=root)
     candidate = load_typed_candidate_graph(
-        json.loads(resolved.candidate_graph_path.read_text())
+        json.loads(resolved.data.candidate_bytes)
     )
     parent = case["bundle"].world_graph.get_head(case["world"])
     plan = prepare_worldbuilding(
@@ -136,8 +135,10 @@ def test_registered_build_prepare_admits_exact_world_source_and_confirm_only_pro
     real_admit = publication._prepare_source_admission
     saved_world = get_world("publication-managed").record
 
-    def rebind_after_admission(resolved_run, binding):
-        result = real_admit(resolved_run, binding)
+    def rebind_after_admission(resolved_run, binding, *, expected_head_revision_id):
+        result = real_admit(
+            resolved_run, binding, expected_head_revision_id=expected_head_revision_id,
+        )
         store_world(saved_world.model_copy(update={"native_graph_binding": saved_world.native_graph_binding.model_copy(update={"native_world_id": "other-native-world"})}))
         return result
 
@@ -231,20 +232,20 @@ def test_registered_governance_publishes_and_opens_historical_source(
     )
     register = registry.create_source_artifact_from_workspace_document
 
-    def register_governance(repo, *, document_id, **kwargs):
-        document = get_workspace_document(repo, document_id)
-        path = repo / document.target_relpath
-        path.write_text(path.read_text() + "\n" + sentence + "\n")
-        return register(repo, document_id=document_id, **kwargs)
+    from tests.page_fixtures import page_text, save_page
+
+    def register_governance(repo, *, document_id, expected_revision):
+        saved = save_page(repo, document_id, page_text(repo, document_id) + "\n" + sentence + "\n")
+        return register(repo, document_id=document_id, expected_revision=saved.revision)
 
     monkeypatch.setattr(registry, "create_source_artifact_from_workspace_document", register_governance)
-    run_id, working_source = _write_bld08_reviewable_run(
+    run_id, _ = _write_bld08_reviewable_run(
         root, world_id="publication-managed", campaign_id="publication-managed",
         profile_id="worldbuilding_gazetteer_v1@1.9",
     )
     run = resolve_promotable_ingest_run(run_id, root=root)
-    index = json.loads(run.source_span_index_path.read_text())
-    lines = run.normalized_recap_path.read_text().splitlines()
+    index = json.loads(run.data.span_bytes)
+    lines = run.data.source_bytes.decode("utf-8").splitlines()
     span = next(row for row in index["spans"] if sentence in "\n".join(
         lines[row["start_line"] - 1:row["end_line"]]
     ))
@@ -297,7 +298,8 @@ def test_registered_governance_publishes_and_opens_historical_source(
     assert case["bundle"].world_graph.get_head(case["world"]).head_revision_id == receipt.committed_revision_id
 
     # Fresh services must read the published source after the editable copy changes.
-    working_source.write_text("An edited working copy, absent from the historical publication.\n")
+    save_page(root, run.data.source_artifact.workspace_document_id,
+              "An edited working copy, absent from the historical publication.\n")
     services = direct.direct_services_from_config(case["world"])
     context = {"worldId": case["world"], "campaignId": "", "admissibility": "gm",
                "revisionPin": receipt.committed_revision_id, "scopeMode": "world", "focus": {}}
@@ -346,7 +348,7 @@ def test_registered_build_publication_keeps_typed_worldbuilding_spans(
 
     resolved = resolve_promotable_ingest_run(run_id, root=root)
     candidate = load_typed_candidate_graph(
-        json.loads(resolved.candidate_graph_path.read_text())
+        json.loads(resolved.data.candidate_bytes)
     )
     parent = case["bundle"].world_graph.get_head(case["world"])
     plan = prepare_worldbuilding(
@@ -443,9 +445,13 @@ def test_registered_build_publication_keeps_typed_worldbuilding_spans(
         direct._map_retrieval_context(followup_request, fresh.binding), object_id=node_id,
     )
     assert enriched.object.summary == original_prose
-    assert len(enriched.reviewed_source_observations) == 6
-    assert len({row.assertion_id for row in enriched.reviewed_source_observations}) == 6
+    previous = {row.assertion_id: row for row in native.reviewed_source_observations}
+    current = {row.assertion_id: row for row in enriched.reviewed_source_observations}
+    assert len(current) == len(enriched.reviewed_source_observations)
+    assert {identity: current[identity] for identity in previous} == previous
+    added = [row for identity, row in current.items() if identity not in previous]
+    assert len(added) == 6
     assert all(row.text == "Worldbuilding source for promote."
-               for row in enriched.reviewed_source_observations)
+               for row in added)
     assert all(row.observation_kind == "worldbuilding_observation"
-               for row in enriched.reviewed_source_observations)
+               for row in added)

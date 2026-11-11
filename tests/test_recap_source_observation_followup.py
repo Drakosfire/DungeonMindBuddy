@@ -128,7 +128,7 @@ def observation_case(tmp_path,monkeypatch,application_state_dsn,request):
     monkeypatch.setattr(extract_promote,"resolve_managed_world_binding",lambda *_a,**_k:binding)
     mixed=getattr(request,"param",None)=="source_endpoint"
     body=TEXT+("\nThe Annex hosts festival registration. Clerk Mira works in the Annex.\n" if mixed else "")
-    artifact=create_recap_source_artifact(tmp_path,world_id="fixture-world",campaign_id="longmont-c2",session_id="session-22",
+    artifact=create_recap_source_artifact(tmp_path,world_id=world,campaign_id="longmont-c2",session_id="session-22",
         recap_text=body+"\nSynthetic fixture "+token+".\n")
     span=source_span_index_path(tmp_path,artifact.source_artifact_id)
     from graph_memory.source_span import source_span_index_to_dict
@@ -173,6 +173,13 @@ def observation_case(tmp_path,monkeypatch,application_state_dsn,request):
     run=create_extraction_run(tmp_path,run_id=run_id,source_artifact_id=artifact.source_artifact_id,
         source_domain="recap",campaign_id="longmont-c2",session_id="session-22",
         profile_id="recap_category_v1@1.0",components=components)
+    from application_state.ingest.components import persist_component_payload
+
+    for kind, path in paths.items():
+        persist_component_payload(
+            run_id=run.run_id, expected_revision=run.revision,
+            kind=kind, payload=path.read_bytes(),
+        )
     for status in ("prepared","extracted","validated","reviewable"):
         run=update_extraction_run_status(tmp_path,run_id,status=ExtractionRunStatus(status),
             expected_revision=run.revision)
