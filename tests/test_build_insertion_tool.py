@@ -13,6 +13,7 @@ from application_state.build_proposal.service import BuildProposalService
 from apps.live_control_server.models.build_document_proposal import BuildWriteCapability
 from apps.live_control_server.services.build_insertion_tool import BuildInsertionTool
 from apps.live_control_server.services import build_document_proposal as owner
+from tests.page_fixtures import page_text
 from tests.test_build_document_proposal import request_case as proposal_case, Wire, TABLE
 
 
@@ -64,7 +65,7 @@ def test_tool_uses_real_generator_receipt_and_replays_without_second_call(reques
     assert row.reservation.origin.arguments_sha256 == sha256(json.dumps(message['arguments'], ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     assert row.authorization and row.raw_response and row.observation
     assert json.loads(wire.calls[0].content)['tools'] == []
-    assert (root / source.record.target_relpath).read_text() == source.markdown
+    assert page_text(root, source.record.document_id) == source.markdown
     repeated = tool.dispatch({**message, 'operationId': 'host:g2'})
     assert json.loads(repeated['resultJson']) == reply and len(wire.calls) == 1
     changed = tool.dispatch({**message, 'arguments': {'instruction': 'Replace it with something else'}})

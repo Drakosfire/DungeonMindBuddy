@@ -61,6 +61,19 @@ function entityDetail(scope: unknown) {
 }
 
 describe("managed native graph API", () => {
+  it("preserves a prepare retry action only for the verified managed World and exact operation", async () => {
+    const operationId = "4a4a77ef-4182-4050-86cf-e9c7e06935f8";
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(response(envelope()))
+      .mockResolvedValueOnce(response(envelope({ graph: undefined, operation_id: operationId, status: "unknown", recovery_action: "retry_prepare" })))
+      .mockResolvedValueOnce(response(envelope({ graph: undefined, managed_world_id: "another-world", operation_id: operationId, status: "unknown", recovery_action: "retry_prepare" })));
+    const client = createManagedNativeGraphApi("managed-a", { fetcher });
+    await client.api.readGraph();
+    await expect(client.api.readOperation(operationId)).resolves.toMatchObject({ status: "unknown", recovery_action: "retry_prepare" });
+    await expect(client.api.readOperation(operationId)).rejects.toMatchObject({ code: "invalid_managed_world_response" });
+    client.invalidate();
+  });
+
   it("reads and validates a graph against the selected World and exact binding", async () => {
     const fetcher = vi.fn(async () => response(envelope()));
     const client = createManagedNativeGraphApi("managed-a", { fetcher });

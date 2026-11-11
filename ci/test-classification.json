@@ -199,6 +199,7 @@
       "apps/live-control-ui/src/markdownReader/ReadOnlyBodyContent.test.tsx",
       "apps/live-control-ui/src/media/DocumentImageStudio.test.tsx",
       "apps/live-control-ui/src/media/ImageContextEdit.test.tsx",
+      "apps/live-control-ui/src/media/MediaImageWizard.edit.test.tsx",
       "apps/live-control-ui/src/media/MediaImageWizard.test.tsx",
       "apps/live-control-ui/src/media/OriginalImageDownload.test.tsx",
       "apps/live-control-ui/src/media/PreparedBuildImage.test.tsx",

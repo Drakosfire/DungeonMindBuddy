@@ -675,3 +675,49 @@ runs disable conftest collection explicitly and never request a database fixture
 The offline baseline reproduces all six new regression failures. Final exact-head
 verification, cumulative independent review and renewed source-specific merge
 approval remain required. No previous head's evidence is relabeled as this head.
+
+## Interrupted prepare recovery continuation (2026-11-11)
+
+The coordinator continued this assigned graph lane under Alan's request to finish
+it. Current repository policy accepts this durable pinned branch handoff. The
+owner-access successor remains separate and transfers only the predecessor's
+prepare-recovery seam back to this lane; preserve its access/binding checks when
+restacking. No merge, deployment, retained-database migration or runtime cutover
+is authorized.
+
+Independent review of candidate `91cbec516da32b0c504033ae335913a7a11ff09b`
+found that a durable interrupted preparation (`unknown`, no saved preparation)
+returned prose suggesting an exact retry, while the UI offered status checks
+forever. This continuation repairs that existing native recovery invariant.
+The backend supplies `recovery_action: retry_prepare` only for an intact
+pre-review `reserved`/`unknown` journal with no saved preparation, preparation
+parent, source receipt/admission metadata or committed result. The prepare owner
+still validates the identical request hash, scope, binding and deterministic
+source receipt. A retry is not a graph confirmation and never creates a new ID.
+Unknown publication/confirmation outcomes do not receive this action.
+
+The shared DTO validates the recovery action; the managed adapter retains exact
+World/binding/operation identity checks. The UI exposes an explicit same-ID retry
+only when both that server action and the retained local prepare phase agree.
+Navigation/remount preserves the draft, ID and phase. A recovered review still
+requires explicit confirmation. No automatic retry or fresh-operation escape is
+added.
+
+The bounded write set adds only the existing native explorer service/test,
+NativeGraphDemo component/test, shared API/test, managed API test and this handoff.
+There is no schema, dependency, storage, authentication or profile change.
+Working-tree evidence before current-main composition: 144 focused frontend
+cases and TypeScript/production build pass; 25 native HTTP/service cases pass
+against the real in-memory Core/WorldKeeper fixture. That Python environment's
+GenerationEngine pin differs from the current lock, so this is explicitly
+non-qualifying diagnostic evidence. Twelve offline migration checks pass with
+conftest disabled and two database cases deselected.
+
+Current-main re-anchor is `11505add65802454390dbb48e73ea109925eb655`, independently
+read through the connector. Its intervening BUILD changes merge without graph
+conflicts. Exact final-source aggregate checks and independent review remain
+required. The normal frontend verifier's fresh npm installation was network-policy
+blocked before tests; retain that failed attempt and do not call manual cached
+runs repository-verifier qualification. All new artifacts remain under
+`/home/drakosfire/Projects/.codex/graph-finish-20261111/` on the verified Projects
+filesystem. Prototype databases and earlier source/evidence remain untouched.

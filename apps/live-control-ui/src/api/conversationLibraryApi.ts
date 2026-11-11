@@ -99,7 +99,7 @@ export async function readConversationMessages(world:string,id:string,before?:nu
 export interface ActiveConversationMessages {
   schema: 'dmb_active_conversation_messages_v4'; world_id: string; conversation_state: 'active' | 'absent';
   conversation_id: string | null; active_conversation_id: string | null; pointer_revision: number;
-  messages: (ConversationMessage & { reply_object: LibraryReplyObject | null; authored_references: AuthoredReferenceInput | null; revision: number; idempotency_key: string; provenance: import('./types').AgentConversationTurnProvenanceV1; citation_preview: SavedCitationPreview })[];
+  messages: (ConversationMessage & { author_interaction?: import('./conversationRetryApi').AuthorInteraction; reply_object: LibraryReplyObject | null; authored_references: AuthoredReferenceInput | null; revision: number; idempotency_key: string; provenance: import('./types').AgentConversationTurnProvenanceV1; citation_preview: SavedCitationPreview })[];
   next_before_sequence: number | null;
 }
 export async function readActiveConversationMessages(world: string, before?: number, signal?: AbortSignal): Promise<ActiveConversationMessages> {
@@ -111,9 +111,11 @@ export async function readActiveConversationMessages(world: string, before?: num
     || (v.conversation_state === 'active' ? !uuid(v.conversation_id) || v.active_conversation_id !== v.conversation_id
       : v.conversation_id !== null || v.active_conversation_id !== null || v.messages.length !== 0 || v.next_before_sequence !== null)) throw new Error('Active message page has a different owner.');
   let last = 0; for (const t of v.messages) {
-if (!exactObject(t, ['turn_id', 'sequence', 'status', 'user_text', 'assistant_text', 'revision', 'idempotency_key', 'provenance', 'citation_preview', 'authored_references', 'reply_object'])
+if (!exactObject(t, ['turn_id', 'sequence', 'status', 'user_text', 'assistant_text', 'revision', 'idempotency_key', 'provenance', 'citation_preview', 'authored_references', 'reply_object', ...(Object.hasOwn(t ?? {}, 'author_interaction') ? ['author_interaction'] : [])])
       || !uuid(t.turn_id) || !uuid(t.idempotency_key) || !Number.isSafeInteger(t.revision) || t.revision < 1 || !Number.isSafeInteger(t.sequence) || t.sequence <= last
       || before !== undefined && t.sequence >= before || !['accepted', 'running', 'completed', 'failed', 'interrupted'].includes(t.status)
+      || ('author_interaction' in t && (t.author_interaction !== 'select_passage' || t.status !== 'interrupted'
+        || t.provenance?.surface_id !== 'build' || t.provenance?.primary_work?.kind !== 'build'))
       || typeof t.user_text !== 'string' || !(t.assistant_text === null || typeof t.assistant_text === 'string') || t.provenance?.world_id !== world) throw new Error('Active message metadata is invalid.');
     validateReplyObject(t.reply_object,world,v.conversation_id,t);
     if(t.reply_object&&(t.reply_object.source.surface_id!==t.provenance.surface_id||t.reply_object.source.document_id!==t.provenance.primary_work?.object_id))throw new Error('Saved review differs from its actual surface.');

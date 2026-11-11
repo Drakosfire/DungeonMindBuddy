@@ -557,7 +557,8 @@ def _writer_replay_request(case, source, source_base, summary, *, case_base):
             or set(body["text"]) != {"format"}
             or set(body["text"]["format"]) != {"type", "name", "schema", "strict"}
             or body["text"]["format"]["type"] != "json_schema"
-            or body["text"]["format"]["name"] != "surface_native_evidence_selectors_v1"
+            or body["text"]["format"]["name"] not in (
+                "surface_native_evidence_selectors_v1", "surface_native_evidence_selectors_v2")
             or body["text"]["format"]["strict"] is not True):
         raise ValueError("Unsupported retained native writer packet")
     pending = [body["text"]["format"]["schema"]]
@@ -646,12 +647,41 @@ async def _writer_replay_call(packet, directory=None, *, transport=None, expecte
         await client.aclose()
 
 
+def _present_replay_body_paragraphs(packet):
+    """Change only the presentation of already admitted native body text."""
+    import re
+    from application_state.agent_conversation.native_evidence_view import is_semantic_frame
+    from application_state.agent_conversation.source_writer_output import strict_json
+
+    for message in packet["input"]:
+        try:
+            frame = strict_json(message["content"])
+        except ValueError:
+            continue
+        if not is_semantic_frame(frame):
+            continue
+        excerpts = frame["native_body_evidence"].get("excerpts")
+        if not excerpts:
+            break
+        for excerpt in excerpts:
+            original = excerpt["text"]
+            paragraphs = re.findall(r".+?(?:\n[ \t]*\n+|\Z)", original, re.DOTALL)
+            if not paragraphs or "".join(paragraphs) != original:
+                raise ValueError("Replay paragraphs must preserve the exact admitted text")
+            excerpt["text"] = paragraphs
+        message["content"] = json.dumps(frame, ensure_ascii=False, separators=(",", ":"))
+        return
+    raise ValueError("Paragraph presentation requires retained native body excerpts")
+
+
 def _writer_replay_plan(specification):
     import asyncio
     from copy import deepcopy
     spec, base = load_manifest(specification, schema="dmb_writer_replay_spec_v1")
-    if set(spec) - {"schema", "cases", "runtime", "source_manifest", "instructions", "pins"}:
+    if set(spec) - {"schema", "cases", "runtime", "source_manifest", "instructions", "pins", "body_layout"}:
         raise ValueError("Unknown writer replay specification fields")
+    if "body_layout" in spec and (spec["body_layout"] != "paragraphs" or spec.get("instructions") is not None):
+        raise ValueError("Paragraph presentation must be the only replay change")
     verify_runtime(spec["runtime"], base)
     source_pin = spec["source_manifest"]
     read_pin(source_pin, base)
@@ -672,6 +702,8 @@ def _writer_replay_plan(specification):
         packet = deepcopy(original)
         if override is not None:
             packet["instructions"] = override
+        if "body_layout" in spec:
+            _present_replay_body_paragraphs(packet)
         wire = asyncio.run(_writer_replay_call(packet))
         cases.append({"id": case["id"], "question": case["question"], "source_request": pin,
             "binding": binding, "request_json": json.dumps(packet, ensure_ascii=False), "prepared_wire": wire,

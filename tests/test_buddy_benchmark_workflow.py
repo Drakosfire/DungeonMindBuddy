@@ -653,9 +653,12 @@ def _writer_response(request,*,status='completed',text='{"answer":"Supported."}'
         usage=dict(input_tokens=17,output_tokens=5,total_tokens=22)))
 
 
-def test_writer_prepare_is_offline_and_override_only_changes_shared_instructions(writer_replay,tmp_path,monkeypatch):
+@pytest.mark.parametrize('format_version', [1, 2])
+def test_writer_prepare_is_offline_and_override_only_changes_shared_instructions(writer_replay,tmp_path,monkeypatch,format_version):
     import psycopg
     r=writer_replay
+    r.packet['text']['format']['name']=f'surface_native_evidence_selectors_v{format_version}'
+    _repin_writer_packet(r,r.packet)
     monkeypatch.setattr(psycopg,'connect',lambda *a,**k:pytest.fail('Replay accessed database'))
     override=tmp_path/'instructions.txt';override.write_text('Shared alternative instructions, no new evidence.')
     r.document['instructions']={'path':str(override),'sha256':sha256(override.read_bytes()).hexdigest()};put(r.spec,r.document)
@@ -714,6 +717,45 @@ def test_writer_capture_uses_actual_sdk_gate_and_preserves_raw_diagnostic_only(w
     assert (tmp_path/'capture'/r.case['id']/'sdk-response.json').exists()
     with pytest.raises(FileExistsError):w.writer_capture(tmp_path/'prepared/plan.json',tmp_path/'capture',transport=httpx.MockTransport(send))
     assert len(sent)==1
+
+
+def test_writer_paragraph_layout_changes_only_admitted_body_presentation(writer_replay, tmp_path):
+    import httpx
+    from application_state.agent_conversation.types import canonical_sha256
+
+    replay = writer_replay
+    body = "First café paragraph.\n\nSecond paragraph.\n"
+    frame = json.loads(replay.packet["input"][0]["content"])
+    frame["native_body_evidence"] = {"excerpts": [{"excerpt_handle": "body0", "text": body}]}
+    replay.packet["input"][0]["content"] = json.dumps(frame)
+    replay.ledger["graph_context_execution"]["events"][0]["frame_sha256"] = canonical_sha256(frame)
+    _repin_writer_packet(replay, replay.packet)
+    replay.document["body_layout"] = "paragraphs"
+    put(replay.spec, replay.document)
+    prepared = tmp_path / "prepared"
+    plan = w.writer_prepare(replay.spec, prepared)
+    candidate = json.loads(plan["cases"][0]["request_json"])
+    candidate_frame = json.loads(candidate["input"][0]["content"])
+    excerpt = candidate_frame["native_body_evidence"]["excerpts"][0]
+    assert excerpt["text"] == ["First café paragraph.\n\n", "Second paragraph.\n"]
+    excerpt["text"] = "".join(excerpt["text"])
+    assert candidate_frame == frame
+    assert candidate | {"input": replay.packet["input"]} == replay.packet
+
+    def send(request):
+        assert json.loads(request.content) == candidate
+        return _writer_response(request)
+
+    w.writer_capture(prepared / "plan.json", tmp_path / "capture", transport=httpx.MockTransport(send))
+
+
+@pytest.mark.parametrize("layout,instructions", [("unknown", None), ("paragraphs", {})])
+def test_writer_rejects_unrecognized_or_combined_paragraph_layout(writer_replay, tmp_path, layout, instructions):
+    replay = writer_replay
+    replay.document.update(body_layout=layout, instructions=instructions)
+    put(replay.spec, replay.document)
+    with pytest.raises(ValueError, match="only replay change"):
+        w.writer_prepare(replay.spec, tmp_path / "prepared")
 
 
 @pytest.mark.parametrize('status,text,refusal',[('incomplete','{"answer":"Partial"}',False),
@@ -783,13 +825,14 @@ def _repin_writer_packet(r,packet):
     r.document['cases'][0]['ledger']=put(r.ledger_path,r.ledger);put(r.spec,r.document)
 
 
-@pytest.mark.parametrize('mutation',['extra','tools','stream','tier','schema_ref','schema_id','schema_dynamic_ref'])
+@pytest.mark.parametrize('mutation',['extra','tools','stream','tier','schema_name','schema_ref','schema_id','schema_dynamic_ref'])
 def test_writer_rejects_rebound_unsupported_packet_not_just_bad_pin(writer_replay,tmp_path,mutation):
     r=writer_replay;packet=deepcopy(r.packet)
     if mutation=='extra':packet['temperature']=0
     elif mutation=='tools':packet['tools']=[{'type':'web_search'}]
     elif mutation=='stream':packet['stream']=True
     elif mutation=='tier':packet['service_tier']='auto'
+    elif mutation=='schema_name':packet['text']['format']['name']='surface_native_evidence_selectors_v3'
     else:
         packet['text']['format']['schema'][{'schema_ref':'$ref','schema_id':'$id','schema_dynamic_ref':'$dynamicRef'}[mutation]]='https://example.invalid/schema'
     _repin_writer_packet(r,packet)

@@ -11,7 +11,7 @@ from uuid import UUID
 from .build_jev_dispatch import REQUEST_LIMIT, _json_nodes
 
 PROVIDER = "openai"
-MODEL = "gpt-6.1-sol"
+MODEL = "gpt-6-luna"
 API_MODE = "responses"
 SERIALIZER = "openai-sdk-json-v1"
 ENDPOINT = "https://api.openai.com/v1/responses"

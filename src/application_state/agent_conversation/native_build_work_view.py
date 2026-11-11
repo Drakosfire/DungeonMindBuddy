@@ -87,7 +87,7 @@ def semantic_frame(host, execution):
     if 'captured_editor' in host:
         editor = host['captured_editor']
         if set(editor)-{'idempotency_key','conversation_id','expected_pointer_revision','basis',
-                'instruction','origin','page_body_offer','page_end_offer','draft_markdown'}:
+                'instruction','origin','page_body_offer','page_end_offer','draft_markdown','reference_image_id'}:
             raise ValueError('Unclassified Build editor fields')
         basis = editor['basis']
         if set(basis)-{'world_id','document_id','registry_revision','content_sha256','visibility',

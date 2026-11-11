@@ -753,6 +753,50 @@ describe("NativeGraphDemo", () => {
     expect(api.prepare.mock.calls[0]?.[0]).toEqual(api.prepare.mock.calls[1]?.[0]);
   });
 
+  it("recovers an interrupted saved prepare after remount using the exact draft and operation ID", async () => {
+    const user = userEvent.setup();
+    const operationId = "4a4a77ef-4182-4050-86cf-e9c7e06935f8";
+    const api = makeApi({
+      prepare: vi.fn()
+        .mockRejectedValueOnce(new Error("prepare response lost"))
+        .mockResolvedValueOnce({ status: "prepared", operation_id: operationId, parent_revision_id: graph.revision_id, review: { summary: "Recovered Mira review." } }),
+      readOperation: vi.fn().mockResolvedValue({ status: "unknown", operation_id: operationId, recovery_action: "retry_prepare" }),
+    });
+    const uuid = vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue(operationId);
+    const first = render(<NativeGraphDemo api={api} />);
+    await screen.findByRole("heading", { name: "The living graph" });
+    await user.type(screen.getByLabelText("Name"), "Mira");
+    await user.click(screen.getByRole("button", { name: "Prepare object" }));
+    expect(await screen.findByRole("button", { name: "Retry same operation ID" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Confirm in DungeonMind" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Refresh and start a fresh review" })).not.toBeInTheDocument();
+    first.unmount();
+    render(<NativeGraphDemo api={api} />);
+    await screen.findByRole("button", { name: "Retry same operation ID" });
+    expect(screen.getByDisplayValue("Mira")).toBeDisabled();
+    expect(api.prepare).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: "Retry same operation ID" }));
+    expect(await screen.findByText("Recovered Mira review.")).toBeInTheDocument();
+    expect(api.prepare).toHaveBeenCalledTimes(2);
+    expect(api.prepare.mock.calls[1]?.[0]).toEqual(api.prepare.mock.calls[0]?.[0]);
+    expect(uuid).toHaveBeenCalledTimes(1);
+    expect(api.confirm).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Confirm in DungeonMind" })).toBeInTheDocument();
+  });
+
+  it("does not turn an uncertain prepare without a verified retry action into permission to replay", async () => {
+    const user = userEvent.setup();
+    const api = makeApi({ prepare: vi.fn().mockRejectedValue(new Error("response lost")) });
+    vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue("bb9c10ac-c94a-4693-b7bc-4d001c398770");
+    render(<NativeGraphDemo api={api} />);
+    await screen.findByRole("heading", { name: "The living graph" });
+    await user.type(screen.getByLabelText("Name"), "Mira");
+    await user.click(screen.getByRole("button", { name: "Prepare object" }));
+    await screen.findByText(/DungeonMind recorded an uncertain outcome/);
+    expect(screen.queryByRole("button", { name: "Retry same operation ID" })).not.toBeInTheDocument();
+    expect(api.prepare).toHaveBeenCalledTimes(1);
+  });
+
   it("allows a fresh review only after prepare is definitively rejected stale and its exact ID is not found", async () => {
     const user = userEvent.setup();
     const firstId = "4a4a77ef-4182-4050-86cf-e9c7e06935f8";
@@ -896,6 +940,7 @@ describe("NativeGraphDemo", () => {
     const user = userEvent.setup();
     const api = makeApi({
       confirm: vi.fn().mockResolvedValue({ status: "unknown", message: "Publication receipt is still being reconciled." }),
+      readOperation: vi.fn().mockResolvedValue({ status: "unknown", operation_id: "bb9c10ac-c94a-4693-b7bc-4d001c398770", recovery_action: "retry_prepare" }),
     });
     vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue("bb9c10ac-c94a-4693-b7bc-4d001c398770");
     render(<NativeGraphDemo api={api} />);
@@ -913,6 +958,11 @@ describe("NativeGraphDemo", () => {
     const stored = JSON.parse(sessionStorage.getItem("dungeonmind-native-demo:draft:space%3Anative-demo") ?? "null");
     expect(stored.pending_phase).toBe("confirm");
     expect(stored.pending.operation_id).toBe("bb9c10ac-c94a-4693-b7bc-4d001c398770");
+    await user.click(screen.getByRole("button", { name: "Check status" }));
+    await screen.findByText(/DungeonMind recorded an uncertain outcome/);
+    expect(screen.queryByRole("button", { name: "Retry same operation ID" })).not.toBeInTheDocument();
+    expect(api.prepare).toHaveBeenCalledTimes(1);
+    expect(api.confirm).toHaveBeenCalledTimes(1);
   });
 
   it("does not let a late confirmation from an unmounted instance overwrite a newer tab draft", async () => {

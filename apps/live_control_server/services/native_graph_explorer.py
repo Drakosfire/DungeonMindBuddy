@@ -1089,12 +1089,28 @@ def _operation_lookup(
 ) -> dict[str, Any]:
     if record["status"] == "rejected":
         return _rejected(record)
-    if record["status"] in {"reserved"} or record["prepared"] is None:
-        return _status_response(
+    if record["prepared"] is None:
+        response = _status_response(
             record,
             "unknown",
-            message="This operation was interrupted before a complete review was saved. Retry the exact same request with this operation ID; no replacement was created.",
+            message="This operation has no complete saved review. Keep the exact request and operation ID while recovery is checked.",
         )
+        # Confirmation requires a durably saved preparation. Only an intact
+        # pre-review journal may authorize retrying the exact prepare request.
+        # Source admission may already exist; prepare reuses its scoped ID and
+        # verifies its receipt rather than publishing a replacement operation.
+        if (
+            record["status"] in {"reserved", "unknown"}
+            and record.get("parent_revision_id") is None
+            and record.get("source_admission_id") is None
+            and record.get("source_receipt") is None
+            and record.get("committed") is None
+        ):
+            response["recovery_action"] = "retry_prepare"
+            response["message"] = (
+                "Review preparation was interrupted before a complete review was saved. Retry the exact same request with this operation ID; confirmation is still required before publishing the graph change."
+            )
+        return response
     prepared = _decode_prepared(record, bound)
     state, aggregate = _publication_state(native.read_repository(), bound, prepared)
     if state == "committed" and aggregate is not None:

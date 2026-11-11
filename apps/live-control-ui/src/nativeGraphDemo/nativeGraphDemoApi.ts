@@ -103,7 +103,7 @@ export type OperationLookupResult =
   | { readonly status: "committed"; readonly operation_id: string; readonly graph?: NativeGraph; readonly created_node_id?: string }
   | { readonly status: "not_found"; readonly operation_id: string }
   | { readonly status: "rejected"; readonly operation_id: string; readonly code: string; readonly error: string }
-  | { readonly status: "unknown"; readonly operation_id: string };
+  | { readonly status: "unknown"; readonly operation_id: string; readonly recovery_action?: "retry_prepare" };
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 type CapabilityReader = () => string;
@@ -293,7 +293,10 @@ export function createNativeGraphDemoApi(options: {
           || value.graph !== undefined && !value.graph.nodes.some((node) => node.id === value.created_node_id))) throw invalidResponse();
         return value as unknown as OperationLookupResult;
       }
-      if (value.status === "not_found" || value.status === "unknown") return value as unknown as OperationLookupResult;
+      if (value.status === "not_found") return value as unknown as OperationLookupResult;
+      if (value.status === "unknown" && (value.recovery_action === undefined || value.recovery_action === "retry_prepare")) {
+        return value as unknown as OperationLookupResult;
+      }
       if (value.status === "rejected" && typeof value.code === "string" && typeof value.error === "string") return value as unknown as OperationLookupResult;
       throw invalidResponse();
     },

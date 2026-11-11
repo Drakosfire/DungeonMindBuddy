@@ -229,7 +229,9 @@ class SourceChoices(httpx2.AsyncBaseTransport):
         assert len(self.calls) <= 4, body['state']
         answers = {}
         for name, entry in body['questions'].items():
-            choice = 'discuss' if name == 'requested_work' else 'finish_retrieval' if name == 'operation' else 'exclude'
+            choice = ('discuss' if name == 'requested_work' else
+                      'finish_retrieval' if name == 'operation' else
+                      'review_after_reads' if name == 'post_read_plan' else 'exclude')
             if name.startswith('candidate_'):
                 candidate = body['state']['candidates'][int(name.split('_')[-1])]
                 direct_kind = 'Explicit admitted full-source read; metadata choice, not evidence'
@@ -240,6 +242,7 @@ class SourceChoices(httpx2.AsyncBaseTransport):
                     kinds.add(direct_kind)
                 if candidate['kind'] in kinds:
                     choice = 'include'
+            assert choice in entry['criteria'], (name, choice, entry['criteria'])
             answers[name] = {'type': 'choice', 'choice': choice, 'confidence': 1.0,
                 'probabilities': {key: float(key == choice) for key in entry['criteria']}}
         return httpx2.Response(200, request=request, json={'model': 'jev-1.14.0', 'answers': answers,
@@ -527,7 +530,8 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     choices = SourceChoices(direct=direct)
     class SourceWriter(WriterWire):
         async def handle_async_request(self, request):
-            frames = [json.loads(row['content']) for row in json.loads(request.content)['input'][:-1]]
+            frames = [json.loads(row['content']) for row in json.loads(request.content)['input']
+                      if row['content'] != 'Return JSON.']
             frame = next(row for row in frames if set(row) == {
                 'input_status','user_question','native_body_evidence',
                 'native_statements','native_assertions'})
@@ -569,12 +573,25 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     else:
         assert receipt['native_query']['schema'] == 'dmb_native_plan_query_unavailable_v1'
     assert data['answer']['status'] == 'ok' and not data['answer']['graph_grounded']
-    assert len(wire.calls) == 1 and len(constructions) == 1 and len(choices.calls) == (3 if direct else 4)
+    assert len(wire.calls) == 1 and len(constructions) == 1 and len(choices.calls) == 2
     assert 'max_output_tokens' not in json.loads(wire.calls[0].content)
     turn = wire.adapter.turn
-    from application_state.agent_conversation.native_corpus import NativeDirectSourceObservedV1, NativeBodySearchAuthorizedV1
-    assert any(isinstance(e, NativeDirectSourceObservedV1) for e in turn.graph_context_execution.events)
-    assert any(isinstance(e, NativeBodySearchAuthorizedV1) for e in turn.graph_context_execution.events) == (not direct)
+    from application_state.agent_conversation.native_corpus import (
+        NativeDirectSourceAuthorizedV1, NativeDirectSourceObservedV1,
+        NativeBodySearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1,
+    )
+    events = turn.graph_context_execution.events
+    # Request-owned discovery replaced the extra model search/finish rounds.
+    assert sum(type(e) is NativePlanRequestSearchAuthorizedV1 for e in events) == 1
+    assert not any(type(e) is NativeBodySearchAuthorizedV1 for e in events)
+    reads = [e for e in events if isinstance(e, NativeDirectSourceObservedV1)]
+    grants = [e for e in events if isinstance(e, NativeDirectSourceAuthorizedV1)]
+    assert len(reads) == len(grants) == 1
+    assert reads[0].authorization_event_id == grants[0].event_id
+    assert grants[0].sequence < reads[0].sequence
+    assert reads[0].excerpt.selector_policy == 'native_full_document_v1'
+    assert reads[0].catalog.source.artifact.source_artifact_id == grants[0].source_artifact_id
+    assert reads[0].catalog.source.revision.source_revision_id == grants[0].source_revision_id
     admit(lane, name='head-after-http-answer', body='# Later\n\nAnother event.\n')
     opened = client.get(f'/api/live/agent/worlds/{a.world_id}/conversation/turns/{turn.turn_id}/native-body-excerpts/0')
     assert opened.status_code == 200, opened.text
@@ -583,7 +600,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     assert replay.status_code == 200, replay.text
     assert replay.json()['plan_context']['completion'] == data['plan_context']['completion']
     assert replay.json()['plan_context']['delivery_replay']
-    assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == (3 if direct else 4)
+    assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == 2
     assert graph_calls == [True]  # Original completion reopens without reacquiring current Graph authority.
     history = client.get(f'/api/live/agent/worlds/{a.world_id}/conversation?include_turn_correlation=true')
     assert history.status_code == 200, history.text
@@ -594,7 +611,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     lane.bound = SimpleNamespace(**(vars(lane.bound) | {'binding_version': 2}))
     denied = client.get(target)
     assert denied.status_code == 409 and denied.json()['detail']['code'] == 'native_body_access_unavailable'
-    assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == (3 if direct else 4)
+    assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == 2
 
 
 @pytest.mark.parametrize('source_adapter', [[

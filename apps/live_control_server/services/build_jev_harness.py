@@ -165,10 +165,13 @@ class BuildJevHarness:
         except Exception as exc:
             if adapter.turn is None and not self.calls:
                 logging.getLogger(__name__).exception("Build preparation failed before durable admission or provider dispatch")
+            from .build_failure_diagnostic import failure_code
+            target_unavailable = failure_code(exc) == "build_compose_target_unavailable"
             trace.complete_phase(span, status="error")
             if adapter.turn is not None and not isinstance(adapter.turn, MixedCompletedTurnV1) and adapter.turn.status == "running":
                 _interrupt_policy_delivery(adapter.service, adapter.turn,
-                    output_limit_exceeded=self.output_limit_exceeded)
+                    output_limit_exceeded=self.output_limit_exceeded,
+                    failure_code_override="build_compose_target_unavailable" if target_unavailable else None)
             trace.finalize_and_log(
                 status="error",
                 model_calls=self.calls,
@@ -176,6 +179,11 @@ class BuildJevHarness:
             )
             if isinstance(exc, AgentTurnServiceError):
                 raise
+            if target_unavailable:
+                raise AgentTurnServiceError(
+                    "Select the passage you want Buddy to revise, then continue the saved request.",
+                    code="build_compose_target_unavailable", status_code=409,
+                ) from exc
             if self.output_limit_exceeded:
                 raise AgentTurnServiceError(
                     "Buddy stopped before finishing the reply. Your request and activity are saved.",
@@ -228,6 +236,11 @@ class BuildJevHarness:
             )
             if driver._selection_intent is not None:
                 asyncio.run(self._decide(adapter, driver))
+            capability = adapter.request.build_write_capability
+            if capability is not None and capability.reference_image_id is not None and (
+                driver.operation != "propose_build_insertion" or adapter.native_source_authority is None
+            ):
+                raise ValueError("The image reference requires an edit to the selected passage.")
             self.failure_stage="context_acquisition"
             if type(adapter.fence.turn.graph_context_receipt) is ledger.SurfaceNativeContextReceiptV1:
                 from .native_authored_references import acquire as acquire_authored_references
@@ -815,6 +828,8 @@ class BuildJevHarness:
             from .build_authored_references import writer_material
             inputs=dict(related_authored_pages=related_page_project(adapter._broker_execution()),
                 authored_reference_material=writer_material(adapter))
+        if request.reference_image_id is not None:
+            inputs["_reference_image"] = proposal_owner.load_reference_image(request, adapter.build_image_owner)
         writer_model = adapter._broker_execution().policy.provider_roles.writer.model
         expected = proposal_owner.prepare_writer_request(
             request, writer_model=writer_model, frozen_history=history, **inputs)
