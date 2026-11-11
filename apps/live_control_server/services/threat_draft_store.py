@@ -334,6 +334,8 @@ def list_threat_drafts(
     *,
     campaign_id: str | None = None,
     world_id: str | None = None,
+    exact_name: str | None = None,
+    saved_mechanics_only: bool = False,
     limit: int = DEFAULT_LIST_LIMIT,
     offset: int = 0,
 ) -> tuple[list[ThreatDraftSummary], int]:
@@ -345,6 +347,7 @@ def list_threat_drafts(
     if offset < 0:
         raise ThreatDraftStoreError("offset must be >= 0", status_code=422)
 
+    normalized_name = None if exact_name is None else " ".join(exact_name.casefold().split())
     with _store_lock(root):
         index = _load_index(root)
         summaries: list[ThreatDraftSummary] = []
@@ -361,6 +364,14 @@ def list_threat_drafts(
             if campaign_id and draft.campaign_id != campaign_id:
                 continue
             if world_id and draft.world_id != world_id:
+                continue
+            if normalized_name is not None and " ".join(draft.name.casefold().split()) != normalized_name:
+                continue
+            if saved_mechanics_only and (
+                not isinstance(draft, ThreatDraftV2)
+                or draft.workflow_state != "mechanics_saved"
+                or draft.accepted_mechanics_ref is None
+            ):
                 continue
             summary_model = (
                 ThreatDraftSummaryV2 if isinstance(draft, ThreatDraftV2)

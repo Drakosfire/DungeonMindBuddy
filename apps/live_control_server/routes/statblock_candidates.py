@@ -159,6 +159,16 @@ def _revision_call(callback,**kwargs):
     except StatblockIntegrationError as exc:raise HTTPException(status_code=503,detail="Saved mechanics provider is unavailable") from exc
 
 
+@router.get("/saved-statblocks/lookup", dependencies=[Depends(native_graph_gm_dependency)])
+def lookup_saved_statblock(
+    world_id: Annotated[str, Query(pattern=r"^[a-z][a-z0-9_-]{0,62}$")],
+    name: Annotated[str, Query(min_length=1)],
+):
+    if not name.strip():
+        raise HTTPException(status_code=422, detail="Statblock name is required")
+    return _revision_call(saved_versions.find_saved_version, world_id=world_id, name=name)
+
+
 @router.get('/threat-drafts/{draft_id}/mechanics-revisions',dependencies=[Depends(native_graph_gm_dependency)])
 def list_saved_revisions(draft_id:str,world_id:str,limit:int=Query(50,ge=1,le=100),offset:int=Query(0,ge=0)):
     return _revision_call(saved_versions.list_versions,world_id=world_id,draft_id=draft_id,limit=limit,offset=offset)

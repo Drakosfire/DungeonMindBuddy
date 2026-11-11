@@ -11,7 +11,7 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.client import 
 from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import source_definition_digest_from_body
 from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import locator_from_exact_revision,same_mechanics_locator
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import StatblockIntegrationError
-from apps.live_control_server.services.threat_draft_store import get_threat_draft
+from apps.live_control_server.services.threat_draft_store import get_threat_draft, list_threat_drafts
 from apps.live_control_server.services.statblock_acceptance_reconciliation import list_acceptance_operations_for_draft
 from apps.live_control_server.services.statblock_definition_validation import validate_definition
 
@@ -74,6 +74,23 @@ def open_version(root,*,world_id,draft_id,revision_id,client=None):
         return dict(world_id=world_id,draft_id=draft.draft_id,locator=locator.model_dump(mode='json'),resource=exact.model_dump(mode='json'))
     finally:
         if owns:active.close()
+
+
+def find_saved_version(root, *, world_id, name, client=None):
+    """Open a uniquely named saved definition within the caller's authorized World."""
+    if not world_id or not name.strip():
+        raise ValueError("World and statblock name are required")
+    matches, total = list_threat_drafts(
+        root, world_id=world_id, exact_name=name, saved_mechanics_only=True, limit=1,
+    )
+    if total != 1:
+        return {"status": "ambiguous" if total else "not_found"}
+    draft, origin, _ = _origin(root, world_id, matches[0].draft_id)
+    return {
+        "status": "found",
+        **open_version(root, world_id=world_id, draft_id=draft.draft_id,
+                       revision_id=origin.revision_id, client=client),
+    }
 
 
 def _resume(record,client):
