@@ -24,7 +24,7 @@ function pagePoint(event: PointerEvent<HTMLCanvasElement>): PagePoint {
   };
 }
 
-function CropOcr({ image }: { image: string }) {
+function CropOcr({ image, hasPdfText }: { image: string; hasPdfText: boolean }) {
   const [pending, setPending] = useState(false);
   const [text, setText] = useState("");
   const [error, setError] = useState("");
@@ -52,7 +52,7 @@ function CropOcr({ image }: { image: string }) {
   return (
     <div>
       <button type="button" disabled={pending} onClick={() => void read()}>
-        {pending ? "Reading capture…" : "Read capture with Buddy"}
+        {pending ? "Reading capture…" : hasPdfText ? "Try OCR instead" : "Read capture with OCR"}
       </button>
       {error && <p role="alert">{error}</p>}
       {text && <label>OCR transcription<textarea readOnly rows={8} value={text} /></label>}
@@ -294,7 +294,6 @@ function PdfPages({ file, worldId, restored, onRetained }: {
           {capture && (
             <section aria-label={`Capture from page ${page}`}>
               <img src={capture.image} alt={`Captured region of page ${page}`} style={{ maxWidth: "100%" }} />
-              <CropOcr key={capture.image} image={capture.image} />
               {worldId && <button type="button" disabled={sourcePending}
                 onClick={() => void retainOrReopen(capture.region)}>
                 {receipt ? "Reopen retained region" : "Retain PDF source"}
@@ -309,6 +308,9 @@ function PdfPages({ file, worldId, restored, onRetained }: {
                     <textarea readOnly value={capturedText} rows={5} />
                   </label>
                 ) : <p role="status">No PDF text runs were selected. The crop may still contain visible text.</p>}
+              {(textError || capturedText !== undefined) && (
+                <CropOcr key={capture.image} image={capture.image} hasPdfText={Boolean(capturedText)} />
+              )}
             </section>
           )}
         </>
