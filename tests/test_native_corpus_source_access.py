@@ -395,3 +395,22 @@ def test_selected_read_keeps_unavailable_and_corrupt_source_failures(lane, monke
     with pytest.raises(ValueError, match="original access proof"):
         owner.read_native_corpus_member(authority=original.authority,
             member=original.members[0], principal=GM, prepared=prepared)
+
+
+def test_recap_planning_ranges_use_full_body_before_clipping(lane):
+    from application_state.agent_conversation.native_corpus import (
+        NativeCorpusExcerptV1, build_native_body_catalog, select_native_body_excerpt,
+        select_native_full_document,
+    )
+    body = "# Played\r\nÉphanna waited.\r\n## Looking Ahead\r\nA reward.\r\n### Next scene\r\nThe party returns.\r\n"
+    admit(lane, body=body)
+    captured = capture(lane)
+    member = captured.members[0].model_copy(update={"session_scope": 9})
+    catalog = build_native_body_catalog(captured.authority, member, body)
+    selected = select_native_body_excerpt(catalog, body, catalog.sections[-1].section_id)
+    full = select_native_full_document(catalog, body)
+    assert selected.planning_ranges.lines == ((5, 6),)
+    assert full.planning_ranges.lines == ((3, 6),)
+    assert selected.text == "### Next scene\r\nThe party returns.\r\n"
+    historical = selected.model_dump(mode="json", exclude={"planning_ranges"})
+    assert NativeCorpusExcerptV1.model_validate(historical).model_dump(mode="json") == historical
