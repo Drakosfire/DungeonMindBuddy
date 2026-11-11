@@ -60,6 +60,16 @@ it('admits only scoped active-message metadata without execution or action grant
  response({...v,conversation_state:'absent',conversation_id:null,active_conversation_id:null,messages:[],next_before_sequence:null});expect((await readActiveConversationMessages('world')).conversation_state).toBe('absent');
 });
 
+it('validates saved statblock links as scoped display metadata',async()=>{
+ const reference={name:'Meat Mind',world_id:'world',draft_id:'33333333-3333-4333-8333-333333333333',revision_id:'rev_dda9582a88ad4724997306791736975b'};
+ const v={schema:'dmb_active_conversation_messages_v4',world_id:'world',conversation_state:'active',conversation_id:cid,active_conversation_id:cid,pointer_revision:4,
+  messages:[{turn_id:tid,idempotency_key:tid,revision:2,sequence:3,status:'completed',user_text:'Find the Meat Mind statblock',assistant_text:'Found it',citation_preview:null,reply_object:null,authored_references:null,provenance:{world_id:'world',surface_id:'plan'},saved_statblocks:[reference]}],next_before_sequence:null};
+ response(v);expect((await readActiveConversationMessages('world')).messages[0]?.saved_statblocks).toEqual([reference]);
+ for(const bad of [{...reference,world_id:'foreign'},{...reference,draft_id:'not-a-uuid'},{...reference,revision_id:'latest'},{...reference,extra:true}]){
+  response({...v,messages:[{...v.messages[0],saved_statblocks:[bad]}]});await expect(readActiveConversationMessages('world')).rejects.toThrow('invalid');
+ }
+});
+
 it('loads saved selections in the lightweight contract and rejects foreign or forged input',async()=>{
  const ref={schema:'dmb_authored_graph_reference_v1',managed_world_id:'world',native_world_id:'native',binding_version:1,graph_revision:'pinned',node_id:'node',label:'Selected object'};
  const bundle={schema:'dmb_authored_references_v2',references:[ref]};

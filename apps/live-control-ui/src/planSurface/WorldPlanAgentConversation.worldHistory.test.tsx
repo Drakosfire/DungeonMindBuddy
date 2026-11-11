@@ -6493,6 +6493,17 @@ it.each(['read-failure','foreign-pointer','changed-references','changed-editor']
 });
 
 
+it('renders a saved statblock link from lightweight messages without treating it as history authority',async()=>{
+ const turn=makeTurn(1,'33333333-3333-4333-8333-333333333331','Find the Meat Mind statblock','Found it');
+ const page=history('conversation-a',4,[turn]);const api=setupApi(page,false);
+ const reference={name:'Meat Mind',world_id:worldId,draft_id:'33333333-3333-4333-8333-333333333333',revision_id:'rev_dda9582a88ad4724997306791736975b'};
+ api.getMessages.mockImplementation(async()=>{const light=api.messages(page);return {...light,messages:light.messages.map(row=>({...row,saved_statblocks:[reference]}))} as Awaited<ReturnType<typeof conversationLibraryApi.readActiveConversationMessages>>;});
+ render(conversationElement());await waitForConversationReady(false);
+ expect(screen.getByRole('link',{name:'Open Meat Mind statblock'})).toHaveAttribute('href',expect.stringContaining('revision=rev_dda9582a88ad4724997306791736975b'));
+ expect(screen.queryByRole('group',{name:'World history unavailable'})).not.toBeInTheDocument();
+ expect(api.getHistory).not.toHaveBeenCalled();
+});
+
 it.each(['completed','interrupted'] as const)('renders mixed Play references on initial %s lightweight history without loading receipts',async status=>{
  const {default:wire}=await import('../test/surface-native-play-http.json');
  const selected:import('../api/types').AuthoredReferencesV2=structuredClone(wire.request.authored_references);
