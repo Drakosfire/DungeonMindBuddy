@@ -11,7 +11,7 @@ function readAbilityScores(text: string): string[] {
 }
 
 function readRulesSections(text: string) {
-  const heading = /^[ \t]*(Traits|Actions|Bonus Actions|Reactions|Legendary Actions|Lair Actions(?: \(Cont\.\))?)[ \t]*$/gim;
+  const heading = /^[ \t]*(Traits|Actions|Bonus Actions|Reactions|Legendary Actions|Regional Effects|Lair Actions(?: \(Cont\.\))?)[ \t]*$/gim;
   const headings = [...text.matchAll(heading)];
   return headings.flatMap((match, index) => {
     const start = match.index + match[0].length;
@@ -41,7 +41,7 @@ export function PdfStatblockCandidate({text, locator}: {text: string; locator: P
     </dl> : <p>Select a region with one labeled Armor Class and one labeled Hit Points entry.</p>}
     {sections.map(({ title, body }, index) => (
       <details key={index}>
-        <summary>{title}</summary>
+        <summary>{title} · captured text</summary>
         <p style={{ whiteSpace: "pre-wrap" }}>{body}</p>
       </details>
     ))}
