@@ -149,13 +149,14 @@ def test_installed_migration_revision_ids_are_unique():
 
 def test_graph_migrations_follow_captured_source_reader_fence():
     script = cli.ScriptDirectory.from_config(cli.alembic_config())
-    assert script.get_heads() == ["20261110_0152"]
+    assert script.get_heads() == ["20261111_0153"]
     fence = script.get_revision("20261110_0148")
     assert fence.path.endswith("20261110_0148_captured_source_names.py")
     assert fence.down_revision == "20261109_0147"
     assert script.get_revision("20261110_0150").down_revision == fence.revision
     assert script.get_revision("20261110_0151").down_revision == "20261110_0150"
     assert script.get_revision("20261110_0152").down_revision == "20261110_0151"
+    assert script.get_revision("20261111_0153").down_revision == "20261110_0152"
     revisions = list(script.walk_revisions())
     assert len({row.revision for row in revisions}) == len(revisions)
     assert all(not isinstance(row.down_revision, tuple) for row in revisions)
@@ -192,7 +193,7 @@ def test_graph_migrations_render_once_after_canonical_reader_fence(monkeypatch, 
     assert sql.index("CREATE TABLE application_state.index_graph_sessions") < sql.index(
         "CREATE TABLE application_state.native_graph_explorer_operations"
     )
-    assert sql.index("20261110_0151") < sql.index("20261110_0152")
+    assert sql.index("20261110_0151") < sql.index("20261110_0152") < sql.index("20261111_0153")
     assert "20261110_0149" not in sql
     if start == "20261109_0147":
         assert sql.index("20261110_0148") < sql.index("20261110_0150")
@@ -201,7 +202,7 @@ def test_graph_migrations_render_once_after_canonical_reader_fence(monkeypatch, 
 @pytest.mark.parametrize("prototype", ["20261110_0148", "20261110_0149", "20261110_0151"])
 def test_current_graph_head_refuses_retained_prototype_revision(monkeypatch, prototype):
     # This is a serving-head check, not an upgrade or old-schema-shape guarantee.
-    assert cli._alembic_head() == "20261110_0152"
+    assert cli._alembic_head() == "20261111_0153"
     monkeypatch.setattr(cli, "_read_current_revision", lambda _: prototype)
     with pytest.raises(ApplicationStateMigrationError):
         cli.assert_at_head(dsn="retained-prototype-do-not-open")

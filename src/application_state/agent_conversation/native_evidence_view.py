@@ -251,14 +251,22 @@ def semantic_frame(host):
                 },
             )
         )
+        if "planning_line_ranges" in row:
+            bodies[-1]["planning_line_ranges"] = deepcopy(row["planning_line_ranges"])
+    body_evidence = dict(
+        source_access=host["native_body_evidence"]["source_authority_status"],
+        excerpts=bodies,
+        universal_absence_claimed=False,
+    )
+    if any("planning_line_ranges" in body for body in bodies):
+        body_evidence["planning_line_ranges_meaning"] = (
+            "Inclusive source line ranges identify explicit recap planning. "
+            "Use those lines as plans. Establish played events from their own evidence."
+        )
     return dict(
         input_status=host["input_status"],
         user_question=host["user_question"],
-        native_body_evidence=dict(
-            source_access=host["native_body_evidence"]["source_authority_status"],
-            excerpts=bodies,
-            universal_absence_claimed=False,
-        ),
+        native_body_evidence=body_evidence,
         native_statements=dict(
             status=host["native_statements"]["status"],
             statements=statements,

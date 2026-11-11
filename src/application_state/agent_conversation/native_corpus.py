@@ -141,6 +141,14 @@ class NativeCorpusCatalogV1(Strict):
         return self
 
 
+PositiveLine = Annotated[int, Field(gt=0, strict=True)]
+
+
+class NativeCorpusPlanningRangesV1(Strict):
+    schema_version: Literal["dmb_native_recap_planning_ranges_v1"] = "dmb_native_recap_planning_ranges_v1"
+    lines: tuple[tuple[PositiveLine, PositiveLine], ...]
+
+
 class NativeCorpusExcerptV1(Strict):
     """Selected body text; neither an APP source nor an admitted assertion span."""
     schema_version: Literal["dmb_native_body_excerpt_v1"] = "dmb_native_body_excerpt_v1"
@@ -150,6 +158,9 @@ class NativeCorpusExcerptV1(Strict):
     text: str = Field(min_length=1)
     excerpt_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
+    planning_ranges: NativeCorpusPlanningRangesV1 | None = Field(
+        default=None, exclude_if=lambda value: value is None)
+
     @model_validator(mode="after")
     def exact_excerpt(self):
         raw = self.text.encode("utf-8")
@@ -158,6 +169,12 @@ class NativeCorpusExcerptV1(Strict):
                 or len(raw) != self.section.byte_end - self.section.byte_start
                 or sha256(raw).hexdigest() != self.excerpt_sha256):
             raise ValueError("Native body excerpt differs from its selected extent")
+        if self.planning_ranges is not None:
+            previous = self.section.line_start - 2
+            for start, end in self.planning_ranges.lines:
+                if not previous + 1 < start <= end <= self.section.line_end:
+                    raise ValueError("Native recap planning ranges differ from the selected extent")
+                previous = end
         return self
 
 
@@ -182,6 +199,21 @@ def build_native_body_catalog(authority, source, markdown):
         "catalog_sha256": sha256(canonical(payload).encode()).hexdigest()})
 
 
+def _recap_planning_ranges(catalog, markdown, section):
+    if catalog.source.session_scope == "unestablished":
+        return None
+    from graph_memory.extraction.recap_source_authority import recap_planning_lines
+
+    ranges = []
+    for line in sorted(recap_planning_lines(markdown)):
+        if section.line_start <= line <= section.line_end:
+            if ranges and ranges[-1][1] + 1 == line:
+                ranges[-1] = (ranges[-1][0], line)
+            else:
+                ranges.append((line, line))
+    return NativeCorpusPlanningRangesV1(lines=tuple(ranges))
+
+
 def select_native_body_excerpt(catalog, markdown, section_id):
     """Revalidate the source and catalog before selecting any writer text."""
     actual = build_native_body_catalog(catalog.authority, catalog.source, markdown)
@@ -195,7 +227,8 @@ def select_native_body_excerpt(catalog, markdown, section_id):
     text = markdown[section.char_start:section.char_end]
     return NativeCorpusExcerptV1(catalog_sha256=catalog.catalog_sha256,
         selector_policy="markdown_sections_v1", section=section,
-        text=text, excerpt_sha256=sha256(text.encode()).hexdigest())
+        text=text, excerpt_sha256=sha256(text.encode()).hexdigest(),
+        planning_ranges=_recap_planning_ranges(catalog, markdown, section))
 
 
 def full_document_section(catalog):
@@ -213,9 +246,11 @@ def select_native_full_document(catalog, markdown):
     """Only the explicit full-document action may call this producing selector."""
     if build_native_body_catalog(catalog.authority, catalog.source, markdown) != catalog:
         raise ValueError("Native catalog differs from the exact source body")
+    section = full_document_section(catalog)
     return NativeCorpusExcerptV1(catalog_sha256=catalog.catalog_sha256,
-        selector_policy="native_full_document_v1", section=full_document_section(catalog),
-        text=markdown, excerpt_sha256=sha256(markdown.encode()).hexdigest())
+        selector_policy="native_full_document_v1", section=section,
+        text=markdown, excerpt_sha256=sha256(markdown.encode()).hexdigest(),
+        planning_ranges=_recap_planning_ranges(catalog, markdown, section))
 
 
 class NativeBodyEvent(Strict):
@@ -714,6 +749,8 @@ def model_body_frame_rows(source_authority, pairs, selector, *, search=None, cat
             line_start=excerpt.section.line_start, line_end=excerpt.section.line_end,
             campaign_scope=catalog.source.campaign_scope, session_scope=catalog.source.session_scope,
             text=excerpt.text))
+        if excerpt.planning_ranges and excerpt.planning_ranges.lines:
+            rows[-1]["planning_line_ranges"] = [list(pair) for pair in excerpt.planning_ranges.lines]
     return dict(schema='dmb_native_body_writer_evidence_v1',
         scope='GM whole-World cross-campaign source inspection; not campaign fact publication',
         source_authority_status='available' if isinstance(source_authority, NativeCorpusAuthorityV1) else 'unavailable',

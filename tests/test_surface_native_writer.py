@@ -11,7 +11,7 @@ import pytest
 
 from application_state.agent_conversation import types as t
 from application_state.agent_conversation import native_corpus as corpus
-from application_state.agent_conversation.native_writer import model_frame, model_work_frame, verify_input_records
+from application_state.agent_conversation.native_writer import model_frame, model_input_frame, model_work_frame, verify_input_records
 from tests.test_native_corpus_source_access import lane as lane, admit, capture
 from tests.test_surface_native_context import seal, provenance_for, WORK_MARKDOWN
 from tests.test_surface_native_execution import (
@@ -21,10 +21,10 @@ from tests.test_surface_native_execution import (
 BODY = '# Source\n\nThe check revealed an origin beyond this plane.\n\n## Other scene\nUnselected private context.\n'
 
 
-def body_case(surface, lane, *, failed=False, full=False, all_sections=False):
-    admit(lane, body=BODY)
+def body_case(surface, lane, *, failed=False, full=False, all_sections=False, body=BODY):
+    admit(lane, body=body)
     sources = capture(lane)
-    catalog = corpus.build_native_body_catalog(sources.authority, sources.members[0], BODY)
+    catalog = corpus.build_native_body_catalog(sources.authority, sources.members[0], body)
     context, record = component(surface, unavailable=True)
     data = context.model_dump(mode='json', by_alias=True)
     basis = 'source_basis' if surface == 'build' else 'plan_basis'
@@ -73,8 +73,8 @@ def body_case(surface, lane, *, failed=False, full=False, all_sections=False):
         events.append(read_grant)
         read = corpus.NativeBodyReadObservedV1(event_id=uuid4(), sequence=len(events),
             authorization_event_id=read_grant.event_id,
-            excerpt=None if failed else corpus.select_native_full_document(catalog, BODY) if full else
-                corpus.select_native_body_excerpt(catalog, BODY, section.section_id),
+            excerpt=None if failed else corpus.select_native_full_document(catalog, body) if full else
+                corpus.select_native_body_excerpt(catalog, body, section.section_id),
             failure_code='native_body_unavailable' if failed else None)
         events.append(read)
     active = controller(surface, policy, sequence=len(events), semantic=False)
@@ -84,7 +84,8 @@ def body_case(surface, lane, *, failed=False, full=False, all_sections=False):
 
 
 @pytest.mark.parametrize('surface', ['build', 'plan'])
-def test_captured_source_name_reaches_actual_sdk_and_same_source_citation(lane, monkeypatch, surface):
+@pytest.mark.parametrize('historical', [False, True])
+def test_captured_source_name_reaches_actual_sdk_and_same_source_citation(lane, monkeypatch, surface, historical):
     from apps.live_control_server.services import native_source_display
     from dungeonmind.application.vnext import list_admitted_native_text_sources
     def names(access, _world):
@@ -92,20 +93,33 @@ def test_captured_source_name_reaches_actual_sdk_and_same_source_citation(lane, 
                  row.source_revision.content_sha256): ('Session 9 recap', 9)
                 for row in list_admitted_native_text_sources(access).sources}
     monkeypatch.setattr(native_source_display, 'captured_source_presentation', names)
-    context, record, read = body_case(surface, lane)
-    frame = model_frame(context, record)
+    if historical:
+        monkeypatch.setattr(corpus, "_recap_planning_ranges", lambda *_: None)
+    context, record, read = body_case(
+        surface, lane, body=BODY.replace("## Other scene", "**Looking Ahead:** A future reward.\n\n## Other scene"))
+    frame = model_input_frame(context, record)
     row = frame['native_body_evidence']['excerpts'][0]
     assert row['source_name'] == 'Session 9 recap' and row['section_title'] == 'Source'
     assert row['text'] == read.excerpt.text
     assert row['campaign_scope'] == 'unestablished' and row['session_scope'] == 9
     work = work_submission(context, record)
     raw = asyncio.run(actual_sdk_request(frame, work_frame=model_work_frame(context, record, **work)))
+    sent = json.loads(json.loads(raw)["input"][0]["content"])["native_body_evidence"]
+    if historical:
+        assert "planning_line_ranges" not in sent["excerpts"][0]
+        assert "planning_line_ranges_meaning" not in sent
+    else:
+        assert sent["excerpts"][0]["planning_line_ranges"] == [[5, 5]]
+        assert "explicit recap planning" in sent["planning_line_ranges_meaning"]
     stored, auth = authorize(context, record, raw, frame)
     supports = verify_input_records(context, stored, auth, raw, **work)
     # Replay/reconstruction must never query mutable display metadata.
     monkeypatch.setattr(native_source_display, 'captured_source_presentation',
         lambda *_: pytest.fail('historical naming lookup'))
-    assert model_frame(context, record) == frame
+    monkeypatch.setattr(corpus, "_recap_planning_ranges",
+        lambda *_: pytest.fail('planning scan during replay'))
+    assert model_input_frame(context, record) == frame
+    assert verify_input_records(context, stored, auth, raw, **work) == supports
     support = supports.body_excerpts[0]
     citation = corpus.body_citation(support, index=0, text='The check revealed an origin beyond this plane.',
         producer=auth.provider_attempt_id, envelope_sha256=auth.envelope_sha256)

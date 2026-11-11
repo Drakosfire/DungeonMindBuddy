@@ -25,16 +25,8 @@ _FENCE_OPEN = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 _FENCE_CLOSE = re.compile(r"^ {0,3}(`{3,}|~{3,})[ \t]*$")
 
 
-def partition_recap_source_rows(
-    rows: Sequence[dict[str, Any]], text: str | None,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
-    """Mixed spans are deferred whole; offsets and original text remain frozen.
-
-    This recognizes structural labels only. It does not classify prophecy,
-    quotations, arbitrary future tense or unmarked preparation prose.
-    """
-    if text is None:
-        return list(rows), [], {"checked": False, "reason": "full_source_text_unavailable"}
+def recap_planning_lines(text: str) -> set[int]:
+    """Identify structural planning markers using complete source framing."""
     lines = text.splitlines()
     # CommonMark counts CR/LF lines; source rows use Python splitlines, which
     # also counts Unicode separators. Translate through original character
@@ -119,6 +111,21 @@ def partition_recap_source_rows(
             inline = True
         if section_level is not None or label_section or inline:
             planned.add(number)
+    return planned
+
+
+def partition_recap_source_rows(
+    rows: Sequence[dict[str, Any]], text: str | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
+    """Mixed spans are deferred whole; offsets and original text remain frozen.
+
+    This recognizes structural labels only. It does not classify prophecy,
+    quotations, arbitrary future tense or unmarked preparation prose.
+    """
+    if text is None:
+        return list(rows), [], {"checked": False, "reason": "full_source_text_unavailable"}
+    lines = text.splitlines()
+    planned = recap_planning_lines(text)
     kept, withheld, mixed = [], [], []
     for row in rows:
         substantive = {n for n in range(row["line_start"], row["line_end"] + 1)
