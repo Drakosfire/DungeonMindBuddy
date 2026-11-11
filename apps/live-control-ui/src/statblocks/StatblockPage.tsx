@@ -9,6 +9,7 @@ import {readSavedStatblockTarget,type SavedStatblockTarget} from './savedStatblo
 import './StatblockPage.css';
 import type {ThreatDraftV2} from '../api/types';
 import {NativeThreatCreationPanel} from './NativeThreatCreationPanel';
+import {WorldMechanicsAssociationPanel} from './WorldMechanicsAssociationPanel';
 import {SavedStatblockButton} from './SavedStatblockSession';
 
 function SavedCreatureReview({target,packet}:{target:SavedStatblockTarget;packet:OpenSavedMechanicsVersion}) {
@@ -54,7 +55,7 @@ export function SavedStatblockFullView({target}:{target:SavedStatblockTarget}) {
  const current=state?.key===key?state:null;
  return <main className="saved-statblock-page" aria-label="Full saved statblock">
   {current?.error?<><p role="alert">{current.error}</p><button type="button" onClick={()=>setAttempt(value=>value+1)}>Retry statblock</button></>
-   :current?.packet?<><SavedStatblockButton {...target} label="Edit this version"/><SavedCreatureReview key={key} target={target} packet={current.packet}/><StatblockRenderer revision={current.packet.resource} mode="full" chrome="campaign"/></>
+   :current?.packet?<><SavedStatblockButton {...target} label="Edit this version"/><SavedCreatureReview key={key} target={target} packet={current.packet}/><WorldMechanicsAssociationPanel worldId={target.worldId} draftId={target.draftId} locator={current.packet.locator}/><StatblockRenderer revision={current.packet.resource} mode="full" chrome="campaign"/></>
    :<p role="status">Opening saved statblock…</p>}
  </main>;
 }
