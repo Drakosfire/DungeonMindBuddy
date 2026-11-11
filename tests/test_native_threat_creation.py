@@ -335,8 +335,15 @@ def test_pdf_region_is_bound_to_signed_native_threat_review(creature, monkeypatc
             service.PDF_REVIEW_PROVENANCE: {"world_id": c.draft.world_id, "regions": [region]},
         }})
         monkeypatch.setattr(service, "resolve_saved_source", lambda *args, **kwargs: (
-            c.draft, None, None, None, exact,
+            c.draft, None, "acceptance-id", None, exact,
         ))
+        recorded = deepcopy(exact.provenance)
+        monkeypatch.setattr(service, "get_acceptance_operation", lambda *args, **kwargs: (
+            SimpleNamespace(request_body=recorded)
+        ))
+        exact.provenance = {}
+        assert c.client.post(c.url + "/prepare", json=c.request).status_code == 409
+        exact.provenance = deepcopy(recorded)
     else:
         c.request["pdf_regions"] = [region]
     packet = prepare(c)

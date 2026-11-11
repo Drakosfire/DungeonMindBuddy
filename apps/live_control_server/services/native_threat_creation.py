@@ -20,6 +20,7 @@ from dungeonmind.contracts.vnext.native_source import (
 )
 from worldkeeper.application import contracts as wk
 
+from application_state.mechanics_revisions import service as revision_operations
 from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
 from application_state.errors import ApplicationStateConflictError, ApplicationStateIntegrityError
 from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
@@ -29,6 +30,7 @@ from apps.live_control_server.services.agent_graph_auth import require_native_gr
 from apps.live_control_server.services.graph_object_authoring_prepare import (
     decode_publication_intent, sign_publication_intent,
 )
+from apps.live_control_server.services.statblock_acceptance_reconciliation import get_acceptance_operation
 from apps.live_control_server.services.statblock_saved_revision import resolve_saved_source
 from apps.live_control_server.services.threat_draft_store import get_threat_draft, locked_threat_draft
 from graph_memory.vnext.domain_runtime import GM_LABEL
@@ -158,12 +160,21 @@ def prepare(root, draft_id, request, principal):
     regions = request.pdf_regions
     if request.mechanics_locator is not None:
         require(not regions, "Use the PDF regions recorded on the saved mechanics")
-        verified_draft, _, _, _, exact = resolve_saved_source(
+        verified_draft, _, acceptance_id, revision_id, exact = resolve_saved_source(
             root, world_id=request.world_id, draft_id=str(draft_id), locator=request.mechanics_locator,
         )
         require(verified_draft == draft, "The creature draft changed during review")
         through = (exact.provenance or {}).get("accepted_through") or {}
-        pdf_review = through.get(PDF_REVIEW_PROVENANCE)
+        operation = (
+            revision_operations.read(world_id=request.world_id, draft_id=draft_id, operation_id=revision_id)
+            if revision_id is not None else
+            get_acceptance_operation(root, draft_id=str(draft_id), operation_id=acceptance_id)
+        )
+        require(operation is not None, "The exact saved mechanics operation is unavailable")
+        recorded = operation.request_body.get("accepted_through") or {}
+        pdf_review = recorded.get(PDF_REVIEW_PROVENANCE)
+        require(through.get(PDF_REVIEW_PROVENANCE) == pdf_review,
+                "The saved mechanics PDF provenance differs from its operation")
         if pdf_review is not None:
             require(pdf_review["world_id"] == request.world_id, "The PDF review belongs to another World")
             regions = tuple(NativePdfRegionV1.model_validate(region) for region in pdf_review["regions"])
