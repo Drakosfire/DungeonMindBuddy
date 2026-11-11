@@ -1,6 +1,6 @@
 # GRAPH: full loaded bubble overview
 
-Status: ACTIVE. Alan approved the full-corpus colorful individual-bubble experiment. Root assigned this task bounded design and implementation authority on 2026-11-11. No merge, deployment, provider use or live data changes.
+Status: ACTIVE. Alan approved the full-corpus colorful individual-bubble experiment. Root assigned this task bounded design and implementation authority on 2026-11-11. Alan subsequently authorized shipping this iteration. Merge and frontend-only deployment remain subject to current repository gates and independent review; provider use, live graph writes and backend/data changes remain excluded.
 
 ## 1. Outcome and PR slice
 
@@ -34,10 +34,11 @@ Branch: codex/full-bubble-graph-20261111. Worktree: /home/drakosfire/Projects/.c
 - apps/live-control-ui/src/nativeGraphDemo/NativeGraphDemo.tsx
 - apps/live-control-ui/src/nativeGraphDemo/NativeGraphDemo.test.tsx
 - apps/live-control-ui/src/localWorld/worldGraphCanvas/fullGraphOverview.benchmark.tsx (fixture-only diagnostic if needed)
+- apps/live-control-ui/src/buildSurface/BuildCompose.integration.test.tsx (only the transferred prerequisite fixture repair below)
 
 ## 5. Verification and completion
 
-Focused projection/canvas/native tests; typecheck and build; exact-SHA hosted verifier and validate; one full default-discovered diagnostic at integrated checkpoint, with baseline legacy failures retained red. Fresh locked install is a required gate, copied dependencies only diagnostic. Cumulative base-to-head diff, exact remote publication and short checks, independent exact-head review. Open one draft PR, do not merge or deploy.
+Focused projection/canvas/native tests; typecheck and build; exact-SHA hosted verifier and validate; one full default-discovered diagnostic at integrated checkpoint, with baseline legacy failures retained red. Fresh locked install is a required gate, copied dependencies only diagnostic. Cumulative base-to-head diff, exact remote publication and short checks, independent exact-head review. Keep one draft PR until required qualification and review permit the authorized ship. Do not infer browser acceptance or waive a red release gate.
 
 ## 6. Retention
 
@@ -74,3 +75,34 @@ Independent geometry review found overlapping bubbles in the original ellipse-re
 Fit now reads persisted graph geometry independently of the active drag preview, so keyboard Fit during an unfinished connected-node drag restores the correct camera in one action without saving the drag. A component regression covers that interrupted flow.
 
 Exact current-main copied-dependency diagnostic comparison completed: base 5d116c9d7304b8a91605ebfccf0969bdd77b5f63 has 7224 passing cases, 79 failures and one pending; candidate a087ea7a has 7234 passing cases, the identical 79 failures and one pending. No existing test changed status and no case was removed. Both have the same eight collection failures: seven pdf.worker.min.mjs?url import denials caused by the shared dependency location, plus the existing BuildCompose mock export error. Those are explicit incomplete-collection limits, not a passing full suite. The later contrast, spacing and interrupted-drag corrections require affected final-source checks and renewed review.
+
+
+## Transferred collection prerequisite and integrated qualification
+
+The CI owner explicitly transferred only BuildCompose.integration.test.tsx in
+local pinned commit 231637c726dba5ddf6687e44dadd573c4d72665a on
+codex/ci-buildcompose-lease-transfer, in
+Docs/Plans/HANDOFF-CI-additive-fast-gate.md. It supersedes that one file lease in
+PR #2298 at b1b95d839290cf85bfc8f65376806129cf41f49b; CI retains all other
+paths and responsibilities. Adopt only the test-file diff from
+b237a4179f3963e4c1ca0049a9a22cb307efc21d, parent
+ad540611325bf0e1756654c163f2fa1acfeaba1e. This restores real selected-World
+exports and committed snapshot prerequisites; every test declaration and assertion
+remains unchanged. It does not repair the separate legacy Compose contract failures.
+
+Remote main bcb50c7b05ac5a5fea287617721fbe98e0638b38 and all 52 open PR file
+sets were rechecked before adoption. Only #2298 overlaps the new file, covered by
+the explicit transfer. Historical #2326 is unchanged at b30833ede97cb4c79acf17a1fe55ff50446c7452
+and its old canvas overlap was already reconciled by the predecessor. The new
+current-main saved-statblock and source-gold changes are preserved at integration.
+
+The user-run official verifier produced genuine fresh-install exact-source hosted
+qualification for published 71a990c26552dfe2b1261d83ad402f763188ed2a: 1320 selected
+cases, collection parity, type/build and clean boundaries passed; independent
+artifact audit passed. Full discovery remained red at 7469 passing, 160 failing
+and one pending, with the BuildCompose module export as the sole collection error.
+The original receipt is retained unchanged. Those results do not qualify a later
+source SHA. Reverify the transferred harness on base and candidate, retain all
+legacy failures and omissions, obtain exact-source final qualification and review,
+and do not treat shipping authorization as completed browser acceptance. The agent's
+earlier npm network denial is not retried or bypassed.

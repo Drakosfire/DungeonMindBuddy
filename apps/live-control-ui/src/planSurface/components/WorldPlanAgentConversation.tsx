@@ -1873,9 +1873,13 @@ function isHistoryPlanReceiptBound(value: unknown, provenance: unknown, worldId:
 /** Presentation metadata is kept separate from the verified history used by actions. */
 function messagePresentation(page: ActiveConversationMessages): WorldAgentConversationHistoryResponseV3 {
   return {
-schema: 'dmb_agent_conversation_history_v3', world_id: page.world_id, conversation_state: page.conversation_state,
+    schema: 'dmb_agent_conversation_history_v3', world_id: page.world_id, conversation_state: page.conversation_state,
     conversation_id: page.conversation_id, active_conversation_id: page.active_conversation_id, pointer_revision: page.pointer_revision,
-    next_before_sequence: page.next_before_sequence, turns: page.messages.map(({ status, revision, citation_preview, authored_references, reply_object, author_interaction, ...row }) => ({ ...row, ...(authored_references ? {authored_references} : {}), lifecycle_status: status as import('../../api/types').AgentConversationTurnLifecycleV1 }))
+    next_before_sequence: page.next_before_sequence, turns: page.messages.map(message => {
+      const { status, revision, citation_preview, authored_references, reply_object, author_interaction, saved_statblocks: _savedStatblocks, ...row } = message;
+      // Saved statblock links remain on the source message for display. They are not execution history fields.
+      return { ...row, ...(authored_references ? {authored_references} : {}), lifecycle_status: status as import('../../api/types').AgentConversationTurnLifecycleV1 };
+    })
 };
 }
 function sameSavedMessage(a: WorldAgentConversationHistoryTurn, b: WorldAgentConversationHistoryTurn) {
@@ -6467,6 +6471,9 @@ export function WorldPlanAgentConversation({
     const savedMessage=messagePage&&messageHistory&&messageHistory.world_id===turn.provenance.world_id
       &&history&&sameHistoryPointer(messageHistory,history)&&messageHistory.turns.some(row=>sameSavedMessage(turn,row))
       ?messagePage.messages.find(row=>row.turn_id===turn.turn_id):undefined;
+    const savedStatblockLinks=savedMessage?.saved_statblocks?.map(reference=><p key={reference.draft_id+':'+reference.revision_id}>
+      <a href={savedStatblockHref({worldId:reference.world_id,draftId:reference.draft_id,revisionId:reference.revision_id})}>Open {reference.name} statblock</a>
+    </p>);
     const turnReferences=turn.authored_references??(turn.retry_context?.schema==='dmb_turn_retry_context_row_v2'?turn.retry_context.authored_references:null)??savedMessage?.authored_references;
     const selectPassage = isBuild && (turn.retry_context?.author_interaction ?? savedMessage?.author_interaction)==='select_passage';
     const onOriginalPage = buildMode?.savedSource?.documentId===turn.provenance.primary_work.object_id && !!buildMode?.composeBridge;
@@ -6482,6 +6489,7 @@ export function WorldPlanAgentConversation({
         {hasLightweightReply && <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
           <div className="world-plan-agent-conversation__reply-heading"><span className="world-plan-agent-conversation__speaker">Buddy</span></div>
           {pageSuggestion ? pageSuggestion.element : turn.assistant_text ? savedMessage?.citation_preview?.status === 'ready' ? <SavedCitationAnswer key={`${scopeKey}:${turn.turn_id}`} preview={savedMessage.citation_preview} answer={turn.assistant_text} worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : <WorldPlanAgentAnswer answer={turn.assistant_text}/> : selectPassage ? null : <p>{turn.lifecycle_status === 'completed' ? 'Open Details to inspect this reply.' : 'This reply did not finish.'}</p>}
+          {savedStatblockLinks}
           {!historicalAttempt && (isBuild || !isReadOnly) && !turn.assistant_text
             && ['failed','interrupted'].includes(turn.lifecycle_status)
             && (isBuild ? turn.provenance.surface_id === 'build'
@@ -6557,12 +6565,7 @@ export function WorldPlanAgentConversation({
                 ? graphContextForTurn(turn)!.completion!.answer_segments.map((segment) => segment.text)
                 : undefined}
             />}
-            {savedMessage?.saved_statblocks?.map(reference =>
-              <p key={reference.draft_id + ':' + reference.revision_id}>
-                <a href={savedStatblockHref({worldId: reference.world_id, draftId: reference.draft_id,
-                  revisionId: reference.revision_id})}>Open {reference.name} statblock</a>
-              </p>
-            )}
+            {savedStatblockLinks}
             {!isReadOnly && turn.provenance.surface_id === "plan" && graphContextForTurn(turn)?.completion?.answer_segments
               .filter(segment => segment.kind === "proposal" && segment.label === "image_prompt")
               .map((segment, index) => <SurfaceImagePromptAction key={`${turn.turn_id}:image:${index}`} prompt={segment.text}
