@@ -561,6 +561,15 @@ class AgentTurnConversationResult(BaseModel):
     conversation_id: UUID | None = None
 
 
+class SavedStatblockAnswerReference(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    world_id: str
+    draft_id: UUID
+    revision_id: str
+
+
 class AgentTurnAnswerResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -570,6 +579,7 @@ class AgentTurnAnswerResult(BaseModel):
     message: str | None
     graph_grounded: bool
     trace: dict[str, object]
+    saved_statblocks: tuple[SavedStatblockAnswerReference, ...] = ()
 
 
 class AgentTurnResponse(BaseModel):

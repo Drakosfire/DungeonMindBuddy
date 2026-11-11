@@ -1770,6 +1770,7 @@ class _PolicyExecutionAdapter:
         expected_conversation_id: UUID | None = None,
         native_corpus_context=None,
         native_source_authority=None,
+        native_principal=None,
         native_query_context=None, native_query=None,
     ) -> None:
         self.rules_runtime = None
@@ -1785,6 +1786,7 @@ class _PolicyExecutionAdapter:
         self.bootstrap = bootstrap
         self.native_corpus_context = native_corpus_context
         self.native_source_authority = native_source_authority
+        self.native_principal = native_principal
         self.native_query_context, self.native_query = native_query_context, native_query
         if native_source_authority is not None:
             from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
@@ -5765,6 +5767,19 @@ def _completed_turn_replay(
             "trace": final_trace,
         },
     )
+    if request.surface.surface_id == "build" and turn.graph_context_execution is not None:
+        from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+        from apps.live_control_server.models.agent_turn import SavedStatblockAnswerReference
+        references = tuple(
+            SavedStatblockAnswerReference(
+                name=event.definition["identity"]["name"], world_id=event.world_id,
+                draft_id=event.draft_id, revision_id=event.locator.revision_id,
+            )
+            for event in turn.graph_context_execution.events
+            if isinstance(event, BuildSavedStatblockReadV1)
+        )
+        if references:
+            response.answer.saved_statblocks = references
     from application_state.agent_conversation.native_statement_input import NativeStatementContextReceiptV1
     if not mixed and isinstance(turn.graph_context_receipt, NativeStatementContextReceiptV1):
         from apps.live_control_server.models.agent_turn import AgentNativeStatementTurnResponseV1
@@ -7655,6 +7670,7 @@ def execute_agent_turn(
             expected_conversation_id=policy_conversation_id,
             native_corpus_context=native_corpus_context,
             native_source_authority=native_source_authority,
+            native_principal=native_principal,
             native_query_context=native_query_context, native_query=native_query,
         )
         if isinstance(selected_runtime, BuildJevHarness):

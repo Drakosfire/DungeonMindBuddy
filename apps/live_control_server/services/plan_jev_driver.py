@@ -38,6 +38,22 @@ class PlanJevDriver:
                 self.saved_page_catalog=saved_section_catalog(adapter.work.build_source.markdown,receipt.work_context.source_basis)
         self._refresh_related_catalog()
         self.attempted_related_pages = set()
+        self.saved_statblocks = {}
+        self.attempted_statblocks = set()
+        if (adapter.request.surface.surface_id == "build"
+                and adapter.fence is not None
+                and isinstance(adapter.fence.turn.graph_context_receipt, t.SurfaceNativeContextReceiptV1)
+                and getattr(getattr(adapter, "native_principal", None), "role", None) == "gm"):
+            from apps.live_control_server.routes.statblock_storage import statblock_data_root
+            from .statblock_saved_revision import iter_saved_mechanics
+            self.statblock_root = statblock_data_root(adapter.root)
+            self.statblock_world = adapter.fence.turn.world_id
+            self.saved_statblocks = {
+                f"saved-statblock:{index}": entry
+                for index, entry in enumerate(iter_saved_mechanics(
+                    self.statblock_root, world_id=self.statblock_world
+                ))
+            }
         self.finished = False
         self.calls = []
         self.gaps = []
@@ -109,6 +125,10 @@ class PlanJevDriver:
         result.extend(RetrievalCandidate(handle=handle, label=page.title,
             kind="Saved authored Worldbuilding page; read its exact current saved text, not played truth. New connected-page review needs a relevant saved page origin.")
             for handle,page in self.related_saved_pages.items() if handle not in self.attempted_related_pages)
+        result.extend(RetrievalCandidate(handle=handle, label=entry[0],
+            kind="Saved statblock; open its exact saved mechanics revision")
+            for handle, entry in self.saved_statblocks.items()
+            if handle not in self.attempted_statblocks)
         result.extend(self.native_sources.offered())
         return tuple(result)
 
@@ -232,7 +252,9 @@ class PlanJevDriver:
             for index, handle in enumerate(selected.selected_handles):
                 if handle in handled_sources:
                     continue
-                if handle in self.related_saved_pages:
+                if handle in self.saved_statblocks:
+                    self._read_saved_statblock(handle, dispatch.selection_event)
+                elif handle in self.related_saved_pages:
                     if handle in self.attempted_related_pages:
                         raise ValueError('Related saved page cannot be reacquired')
                     self.attempted_related_pages.add(handle)
@@ -279,6 +301,36 @@ class PlanJevDriver:
                 self.finished = True
             return
         self._read_new_sources(operations)
+
+    def _read_saved_statblock(self, handle, selection):
+        from uuid import UUID, uuid4
+        from application_state.agent_conversation.build_saved_statblock import BuildSavedStatblockReadV1
+        from .agent_turn_service import _require_fresh_execution_append
+        from .statblock_saved_revision import open_version
+
+        if handle in self.attempted_statblocks:
+            raise ValueError("Saved statblock cannot be reacquired")
+        self.attempted_statblocks.add(handle)
+        _, draft_id, locator = self.saved_statblocks[handle]
+        adapter = self.adapter
+        event_id = uuid4()
+        sequence = len(adapter._broker_execution().events)
+
+        def materialize():
+            opened = open_version(self.statblock_root, world_id=self.statblock_world,
+                                  draft_id=draft_id, revision_id=locator.revision_id)
+            if opened["locator"] != locator.model_dump(mode="json"):
+                raise ValueError("Opened statblock differs from its selected saved revision")
+            return BuildSavedStatblockReadV1(
+                event_id=event_id, sequence=sequence, selection_event_id=selection.event_id,
+                handle=handle, world_id=self.statblock_world, draft_id=UUID(str(draft_id)),
+                locator=locator, definition=opened["resource"]["definition"],
+            )
+
+        event = materialize()
+        adapter.turn = _require_fresh_execution_append(adapter.fence.append(
+            "record_build_saved_statblock", "event", event, materializer=materialize,
+        ))
 
     def _read_native(self, record_kind, identities):
         from uuid import uuid4
