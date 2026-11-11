@@ -150,3 +150,33 @@ def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
             item | {"schema_version": "dm_native_pdf_region_v1"} for item in (locator, crop)
         ]
         assert len(validated) == 1
+
+        from application_state import pdf_statblock_review
+
+        stored = {}
+        world_review_id = "00000000-0000-4000-8000-000000000002"
+
+        def save_review(*, world_id, review_id, expected_revision, definition, regions):
+            assert expected_revision == 0
+            record = {"revision": 1, "definition": definition, "regions": regions}
+            stored[world_id, str(review_id)] = record
+            return record
+
+        def read_review(*, world_id, review_id):
+            return stored.get((world_id, str(review_id)))
+
+        monkeypatch.setattr(pdf_statblock_review, "save_review", save_review)
+        monkeypatch.setattr(pdf_statblock_review, "read_review", read_review)
+        review_route = path + "/statblock-reviews/" + world_review_id
+        draft = candidate | {"expected_revision": 0}
+        assert client.put(review_route, json=draft).status_code == 401
+        assert client.put(review_route, json=draft | {"regions": [locator | {"page": 2}]},
+                          headers=auth).status_code == 422
+        assert not stored
+        saved = client.put(review_route, json=draft, headers=auth)
+        assert saved.status_code == 200, saved.text
+        assert client.get(review_route).status_code == 401
+        assert client.get(review_route.replace("world-a", "world-b"), headers=auth).status_code == 404
+        assert client.get(review_route, headers=auth).json() == saved.json()
+        records.clear()
+        assert client.get(review_route, headers=auth).status_code == 404
