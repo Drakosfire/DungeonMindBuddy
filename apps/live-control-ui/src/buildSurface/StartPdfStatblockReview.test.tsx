@@ -24,3 +24,19 @@ it("starts a review with the imported definition and exact capture", async () =>
     { method: "PUT", body: JSON.stringify({ definition, regions: [region], expected_revision: 0 }) },
   );
 });
+
+it("offers the existing draft after an ambiguous save followed by a conflict", async () => {
+  const region = { source_revision_id: "srev:test", content_sha256: "a".repeat(64),
+    page: 1, left: 0, top: 0, right: 1, bottom: 1 };
+  const fetch = vi.mocked(authenticatedApiFetch);
+  fetch.mockClear().mockRejectedValueOnce(new Error("lost response"))
+    .mockResolvedValueOnce({ response: new Response(null, { status: 409 }) } as Awaited<ReturnType<typeof authenticatedApiFetch>>);
+  render(<StartPdfStatblockReview worldId="elderwyld" region={region} />);
+  const input = screen.getByLabelText("Statblock definition JSON");
+  const files = [{ text: async () => '{"identity":{"name":"Creature"}}' }];
+  fireEvent.change(input, { target: { files } });
+  await screen.findByRole("alert");
+  fireEvent.change(input, { target: { files } });
+  await screen.findByRole("link", { name: "Check existing statblock review" });
+  expect(fetch.mock.calls[0]).toEqual(fetch.mock.calls[1]);
+});
