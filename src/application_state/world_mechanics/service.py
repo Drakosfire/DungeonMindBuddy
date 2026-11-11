@@ -118,5 +118,5 @@ def verify_current_slots(conn, *, world_id: str, snapshots) -> None:
         ).fetchone())
         if (record is None or record.association_id != snapshot.association_id
             or record.version != snapshot.association_version or record.proof.locator != snapshot.locator
-            or record.request.target.model_dump() != snapshot.target.model_dump()):
+            or not record.request.target.matches_association_target(snapshot.target)):
             raise ApplicationStateConflictError("Creature mechanics changed; load and confirm again")

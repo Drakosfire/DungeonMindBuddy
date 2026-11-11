@@ -25,6 +25,12 @@ class WorldMechanicsTarget(ImmutableModel):
     role: str
     campaign_scope: str | None
 
+    def matches_association_target(self, other: WorldMechanicsTarget) -> bool:
+        """Match creature identity separately from the Graph snapshot used to verify it."""
+        return self.model_dump(exclude={"graph_revision_id"}) == other.model_dump(
+            exclude={"graph_revision_id"}
+        )
+
 
 class MechanicsLocator(ImmutableModel):
     provider: Literal["dungeonmind"]
