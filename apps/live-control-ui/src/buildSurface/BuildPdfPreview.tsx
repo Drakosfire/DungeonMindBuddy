@@ -121,10 +121,14 @@ function PdfPages({ file }: { file: File }) {
         const text = items.map(item => {
           if (!("str" in item)) return "";
           const [a, b, c, d, x, y] = item.transform;
-          const advance = item.dir === "ttb" ? Math.hypot(c, d) : Math.hypot(a, b);
-          const offset = advance ? item.width / (2 * advance) : 0;
+          const vertical = item.dir === "ttb";
+          const advanceScale = vertical ? Math.hypot(c, d) : Math.hypot(a, b);
+          const extent = vertical ? item.height : item.width;
+          const offset = advanceScale ? extent / (2 * advanceScale) : 0;
+          // Vertical PDF text advances down from its origin in PDF coordinates.
           const [viewX, viewY] = viewport.convertToViewportPoint(
-            x + a * offset + c / 2, y + b * offset + d / 2,
+            vertical ? x + a / 2 - c * offset : x + a * offset + c / 2,
+            vertical ? y + b / 2 - d * offset : y + b * offset + d / 2,
           );
           const nx = viewX / viewport.width;
           const ny = viewY / viewport.height;
