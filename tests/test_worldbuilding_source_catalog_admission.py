@@ -135,8 +135,10 @@ def test_registered_build_prepare_admits_exact_world_source_and_confirm_only_pro
     real_admit = publication._prepare_source_admission
     saved_world = get_world("publication-managed").record
 
-    def rebind_after_admission(resolved_run, binding):
-        result = real_admit(resolved_run, binding)
+    def rebind_after_admission(resolved_run, binding, *, expected_head_revision_id):
+        result = real_admit(
+            resolved_run, binding, expected_head_revision_id=expected_head_revision_id,
+        )
         store_world(saved_world.model_copy(update={"native_graph_binding": saved_world.native_graph_binding.model_copy(update={"native_world_id": "other-native-world"})}))
         return result
 
@@ -443,9 +445,13 @@ def test_registered_build_publication_keeps_typed_worldbuilding_spans(
         direct._map_retrieval_context(followup_request, fresh.binding), object_id=node_id,
     )
     assert enriched.object.summary == original_prose
-    assert len(enriched.reviewed_source_observations) == 6
-    assert len({row.assertion_id for row in enriched.reviewed_source_observations}) == 6
+    previous = {row.assertion_id: row for row in native.reviewed_source_observations}
+    current = {row.assertion_id: row for row in enriched.reviewed_source_observations}
+    assert len(current) == len(enriched.reviewed_source_observations)
+    assert {identity: current[identity] for identity in previous} == previous
+    added = [row for identity, row in current.items() if identity not in previous]
+    assert len(added) == 6
     assert all(row.text == "Worldbuilding source for promote."
-               for row in enriched.reviewed_source_observations)
+               for row in added)
     assert all(row.observation_kind == "worldbuilding_observation"
-               for row in enriched.reviewed_source_observations)
+               for row in added)
