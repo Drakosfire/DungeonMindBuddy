@@ -1,3 +1,4 @@
+import { pdfRegionKey, readRetainedPdfRegions, retainedPdfKey, type PdfLocator, type PdfReceipt, type RetainedPdf } from "../api/retainedPdfRegions";
 import { authenticatedApiFetch } from "../api/liveApi";
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
@@ -5,15 +6,6 @@ import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 type PagePoint = { x: number; y: number };
 type PageRectangle = { left: number; top: number; width: number; height: number };
-
-type PdfReceipt = { source_revision_id: string; content_sha256: string };
-type PdfLocator = PdfReceipt & { page: number; left: number; top: number; right: number; bottom: number };
-
-type RetainedPdf = { name: string; locator: PdfLocator };
-
-function retainedPdfKey(worldId: string) {
-  return `buddy:retained-pdf-region:${encodeURIComponent(worldId)}:`;
-}
 
 function pagePoint(event: PointerEvent<HTMLCanvasElement>): PagePoint {
   const bounds = event.currentTarget.getBoundingClientRect();
@@ -326,30 +318,16 @@ export function BuildPdfPreview({ worldId }: { worldId?: string }) {
   const [selection, setSelection] = useState<{ file: File; version: number; restored?: PdfLocator }>();
   const [reopenError, setReopenError] = useState("");
   const [reopening, setReopening] = useState(false);
-  const [retained, setRetained] = useState<RetainedPdf[]>(() => {
-    try {
-      if (!worldId) return [];
-      const prefix = retainedPdfKey(worldId);
-      return Object.keys(localStorage).filter(key => key.startsWith(prefix)).flatMap(key => {
-        try {
-          const entry = JSON.parse(localStorage.getItem(key) ?? "null") as RetainedPdf | null;
-          return entry?.locator && typeof entry.name === "string" ? [entry] : [];
-        } catch {
-          return [];
-        }
-      });
-    } catch {
-      return [];
-    }
-  });
+  const [retained, setRetained] = useState<RetainedPdf[]>(() =>
+    worldId ? readRetainedPdfRegions(worldId) : []);
   function saveLocator(locator: PdfLocator) {
     if (!worldId || !selection) return;
     const entry = { name: selection.file.name, locator };
     setRetained(previous => [entry, ...previous.filter(
-      saved => saved.locator.source_revision_id !== locator.source_revision_id,
+      saved => pdfRegionKey(saved.locator) !== pdfRegionKey(locator),
     )]);
     try {
-      localStorage.setItem(retainedPdfKey(worldId) + locator.source_revision_id, JSON.stringify(entry));
+      localStorage.setItem(retainedPdfKey(worldId) + pdfRegionKey(locator), JSON.stringify(entry));
     } catch {
       setReopenError("Browser storage is unavailable. This region can be reopened until you leave this view.");
     }
@@ -394,7 +372,7 @@ export function BuildPdfPreview({ worldId }: { worldId?: string }) {
         }} />
       </label>
       {retained.length > 0 && <ul aria-label="Retained PDFs">
-        {retained.map(entry => <li key={entry.locator.source_revision_id}>
+        {retained.map(entry => <li key={pdfRegionKey(entry.locator)}>
           <button type="button" disabled={reopening} onClick={() => void reopen(entry)}>
             {entry.name} · Page {entry.locator.page}
           </button>
