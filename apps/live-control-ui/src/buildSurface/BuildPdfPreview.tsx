@@ -18,7 +18,7 @@ function pagePoint(event: PointerEvent<HTMLCanvasElement>): PagePoint {
   };
 }
 
-function CropOcr({ image, hasPdfText }: { image: string; hasPdfText: boolean }) {
+function CropOcr({ worldId, region, hasPdfText }: { worldId: string; region: PdfLocator; hasPdfText: boolean }) {
   const [pending, setPending] = useState(false);
   const [text, setText] = useState("");
   const imageOnly = /^(?:\s*<\|ref\|>image<\|\/ref\|><\|det\|>\[\[[\d,\s]+\]\]<\|\/det\|>)+\s*$/.test(text);
@@ -29,9 +29,9 @@ function CropOcr({ image, hasPdfText }: { image: string; hasPdfText: boolean }) 
     setError("");
     setText("");
     try {
-      const { response } = await authenticatedApiFetch("/api/live/agent/build-pdf-ocr", {
+      const { response } = await authenticatedApiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources/ocr`, {
         method: "POST",
-        body: JSON.stringify({ png_base64: image.split(",", 2)[1] }),
+        body: JSON.stringify(region),
       });
       const result = await response.json();
       if (!response.ok || typeof result.text !== "string") {
@@ -329,8 +329,13 @@ function PdfPages({ file, worldId, restored, onRetained }: {
                   bottom: Math.min(1, capture.region.top + capture.region.height),
                 }}
               />}
-              {(textError || capturedText !== undefined) && (
-                <CropOcr key={capture.image} image={capture.image} hasPdfText={Boolean(capturedText)} />
+              {worldId && receipt && (textError || capturedText !== undefined) && (
+                <CropOcr key={capture.image} worldId={worldId} region={{
+                  source_revision_id: receipt.source_revision_id, content_sha256: receipt.content_sha256,
+                  page, left: capture.region.left, top: capture.region.top,
+                  right: Math.min(1, capture.region.left + capture.region.width),
+                  bottom: Math.min(1, capture.region.top + capture.region.height),
+                }} hasPdfText={Boolean(capturedText)} />
               )}
             </section>
           )}
