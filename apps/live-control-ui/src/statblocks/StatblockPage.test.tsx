@@ -34,12 +34,12 @@ it('ignores a delayed previous-target read and hides the prior render immediatel
 it.each(['/statblock?world=foreign&draft=d&revision=r','/statblock?world=test-world&draft=d','/statblock?world=test-world&draft=d&revision=r&revision=s'])(
  'does not read an inadmissible page target %s',url=>{window.history.replaceState({},'',url);render(<StatblockPage/>);expect(screen.getByRole('alert')).toBeInTheDocument();expect(api.openSavedMechanicsVersion).not.toHaveBeenCalled();});
 
-it.each([true,false])('opens creature review only for matching accepted mechanics (%s)',async matches=>{
+it.each([true,false])('opens creature review for a saved revision on the matching World draft (%s)',async matches=>{
  const current=packet();
  vi.mocked(api.getThreatDraft).mockResolvedValue({
-  schema:'dmb_threat_draft_v2',world_id:target.worldId,draft_id:target.draftId,version:2,
+  schema:'dmb_threat_draft_v2',world_id:matches?target.worldId:'foreign',draft_id:target.draftId,version:2,
   workflow_state:'mechanics_saved',accepted_mechanics_ref:{
-   ...current.locator,revision_id:matches?target.revisionId:'rev_other',
+   ...current.locator,revision_id:'rev_original',
   },
  } as Awaited<ReturnType<typeof api.getThreatDraft>>);
  render(<SavedStatblockFullView target={target}/>);
@@ -47,6 +47,6 @@ it.each([true,false])('opens creature review only for matching accepted mechanic
  expect(api.getThreatDraft).not.toHaveBeenCalled();
  fireEvent.click(open);
  if(matches) expect(await screen.findByRole('button',{name:'Review creature creation'})).toBeInTheDocument();
- else expect(await screen.findByRole('alert')).toHaveTextContent('Open the original saved mechanics');
+ else expect(await screen.findByRole('alert')).toHaveTextContent('The saved statblock and creature draft no longer match');
  expect(api.getThreatDraft).toHaveBeenCalledExactlyOnceWith(target.draftId);
 });

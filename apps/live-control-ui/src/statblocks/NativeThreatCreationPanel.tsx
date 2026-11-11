@@ -1,25 +1,28 @@
+import type { SavedMechanicsLocator } from "./revision/savedMechanicsRevisionTypes";
 import {pdfRegionKey,readRetainedPdfRegions} from "../api/retainedPdfRegions";
 import {useEffect,useRef,useState} from 'react';
 import {prepareNativeThreat,confirmNativeThreat,getNativeThreat,LiveApiError} from '../api/liveApi';
 import {verifyNativeThreatReply,type PreparedNativeThreat,type PublishedNativeThreat} from '../api/nativeThreatCreation';
 import type {ThreatDraftV2} from '../api/types';
 
-export function NativeThreatCreationPanel({draft}:{draft:ThreatDraftV2}) {
-  return <Creation key={JSON.stringify([draft.world_id,draft.draft_id])} draft={draft}/>;
+type Props = {draft: ThreatDraftV2; mechanics?: SavedMechanicsLocator};
+
+export function NativeThreatCreationPanel({draft, mechanics}:Props) {
+  return <Creation key={JSON.stringify([draft.world_id,draft.draft_id,mechanics?.revision_id])} draft={draft} mechanics={mechanics}/>;
 }
-function Creation({draft}:{draft:ThreatDraftV2}) {
-  const key=`dmb.nativeThreat.review:${draft.world_id}:${draft.draft_id}`;
+function Creation({draft, mechanics}:Props) {
+  const key=`dmb.nativeThreat.review:${draft.world_id}:${draft.draft_id}${mechanics ? ":" + mechanics.revision_id : ""}`;
   const [initial]=useState(()=>{try{return {raw:localStorage.getItem(key),error:''};}catch{return {raw:null,error:'Browser recovery is unavailable. Keep your draft and try another browser.'};}});
   const [raw,setRaw]=useState<string|null>(initial.raw),[packet,setPacket]=useState<PreparedNativeThreat|null>(null);
   const [created,setCreated]=useState<PublishedNativeThreat|null>(null),[ready,setReady]=useState(!initial.raw&&!initial.error);
   const [busy,setBusy]=useState(false),[error,setError]=useState(initial.error),[message,setMessage]=useState(''),[conflict,setConflict]=useState(false);
-  const [regions]=useState(()=>readRetainedPdfRegions(draft.world_id));
+  const [regions]=useState(()=>mechanics ? [] : readRetainedPdfRegions(draft.world_id));
   const [selected,setSelected]=useState<string[]>([]);
   const live=useRef(true),flight=useRef(false);
   useEffect(()=>{
     live.current=true;
     if(initial.raw)void (async()=>{try{
-      const value=await verifyNativeThreatReply(JSON.parse(initial.raw!),draft.world_id,draft.draft_id);
+      const value=await verifyNativeThreatReply(JSON.parse(initial.raw!),draft.world_id,draft.draft_id,mechanics);
       if(value.state!=='prepared')throw new Error('The retained review has an unexpected state.');
       if(live.current){setPacket(value);setReady(true);}
     }catch(e){if(live.current)setError(String(e));}})();
@@ -38,7 +41,7 @@ function Creation({draft}:{draft:ThreatDraftV2}) {
     const captured=packet,expected=raw;
     try {
       const result=action==='prepare'?await prepareNativeThreat(draft.draft_id,draft.world_id,draft.version,
-        selected.length ? regions.filter(entry=>selected.includes(pdfRegionKey(entry.locator))).map(entry=>entry.locator) : undefined)
+        selected.length ? regions.filter(entry=>selected.includes(pdfRegionKey(entry.locator))).map(entry=>entry.locator) : undefined, mechanics)
         :action==='confirm'&&captured?await confirmNativeThreat(captured):await getNativeThreat(draft.draft_id,draft.world_id);
       if(result?.state==='published'){
         // A completed old-scope action may settle only its own retained packet;
