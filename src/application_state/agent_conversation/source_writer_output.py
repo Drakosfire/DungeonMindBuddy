@@ -120,23 +120,28 @@ class CitedSourceAnswerWithGaps(CitedSourceAnswer):
         return self
 
 
+class UnboundRequestedDetailGap(ValueError):
+    """A well-formed gap does not select a unique, disjoint question span."""
+
+
 def gap_messages(answer, packet):
     question = packet.get("user_question")
     if not isinstance(question, str) or not question.strip():
         raise ValueError("Requested-detail gaps require the exact user question")
-    located = []
-    for gap in answer.requested_detail_gaps:
-        phrase = gap.question_phrase
+    phrases = [gap.question_phrase for gap in answer.requested_detail_gaps]
+    for phrase in phrases:
         if (phrase != phrase.strip() or not all(char.isprintable() for char in phrase)
             or not any(char.isalnum() for char in phrase)):
             raise ValueError("Requested-detail gap is not a bounded displayable detail")
+    located = []
+    for phrase in phrases:
         start = question.find(phrase)
         if start < 0 or question.find(phrase, start + 1) >= 0:
-            raise ValueError("Requested-detail phrase must occur exactly once in the original question")
+            raise UnboundRequestedDetailGap("Requested-detail phrase must occur exactly once in the original question")
         located.append((start, start + len(phrase), phrase))
     located.sort()
     if any(left[1] > right[0] for left, right in zip(located, located[1:])):
-        raise ValueError("Requested-detail phrases must be distinct and nonoverlapping")
+        raise UnboundRequestedDetailGap("Requested-detail phrases must be distinct and nonoverlapping")
     messages = []
     for _, _, phrase in located:
         # User text stays literal in the Markdown conversation: no links, media,
@@ -159,7 +164,8 @@ def surface_limitation(code, phrase=None):
 
 
 def project_surface_limitations(codes, raw_gaps, *, user_question,
-                               derive_missing, host_partial, empty_answer, strict_gap_array):
+                               derive_missing, host_partial, empty_answer, strict_gap_array,
+                               allow_generic_gap=False):
     """One parity-preserving projector; callers own acquisition/domain policy.
 
     This validates declared shape and exact question selections, not entailment.
@@ -172,7 +178,14 @@ def project_surface_limitations(codes, raw_gaps, *, user_question,
             or len(codes) != len(set(codes)) or strict_gap_array and not isinstance(raw_gaps, list)):
         raise ValueError('Unknown or duplicate limitation, or invalid gap array')
     gaps = [RequestedDetailGap.model_validate(gap) for gap in raw_gaps]
-    gap_messages(SimpleNamespace(requested_detail_gaps=gaps), {'user_question': user_question})
+    try:
+        gap_messages(SimpleNamespace(requested_detail_gaps=gaps), {'user_question': user_question})
+    except UnboundRequestedDetailGap:
+        if not allow_generic_gap:
+            raise
+        specific_gaps = []
+    else:
+        specific_gaps = gaps
     codes = list(codes)
     if gaps and 'missing_requested_details' not in codes:
         if not derive_missing:
@@ -181,7 +194,7 @@ def project_surface_limitations(codes, raw_gaps, *, user_question,
     if host_partial and 'partial_retrieval' not in codes:
         codes.append('partial_retrieval')
     additions = ([surface_limitation(code) for code in codes]
-        + [surface_limitation('missing_requested_details', gap.question_phrase) for gap in gaps])
+        + [surface_limitation('missing_requested_details', gap.question_phrase) for gap in specific_gaps])
     return additions or ([surface_limitation('missing_requested_details')] if empty_answer else [])
 
 
