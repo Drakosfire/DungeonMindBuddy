@@ -6,6 +6,13 @@ import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 type PagePoint = { x: number; y: number };
 type PageRectangle = { left: number; top: number; width: number; height: number };
 
+type PdfReceipt = { source_revision_id: string; content_sha256: string };
+type PdfLocator = PdfReceipt & { page: number; left: number; top: number; right: number; bottom: number };
+
+function retainedPdfKey(worldId: string) {
+  return `buddy:retained-pdf-region:${worldId}`;
+}
+
 function pagePoint(event: PointerEvent<HTMLCanvasElement>): PagePoint {
   const bounds = event.currentTarget.getBoundingClientRect();
   const clamp = (value: number) => Math.max(0, Math.min(1, value));
@@ -51,10 +58,13 @@ function CropOcr({ image }: { image: string }) {
   );
 }
 
-function PdfPages({ file, worldId }: { file: File; worldId?: string }) {
+function PdfPages({ file, worldId, restored, onRetained }: {
+  file: File; worldId?: string; restored?: PdfLocator;
+  onRetained: (locator: PdfLocator) => void;
+}) {
   const [sourceFile, setSourceFile] = useState(file);
   const [admission] = useState(() => ({ id: crypto.randomUUID(), createdAt: new Date().toISOString() }));
-  const [receipt, setReceipt] = useState<{ source_revision_id: string; content_sha256: string }>();
+  const [receipt, setReceipt] = useState<PdfReceipt | undefined>(restored);
   const [sourcePending, setSourcePending] = useState(false);
   const [sourceError, setSourceError] = useState("");
 
@@ -63,6 +73,11 @@ function PdfPages({ file, worldId }: { file: File; worldId?: string }) {
     const path = `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources`;
     setSourcePending(true);
     setSourceError("");
+    const locator = (source: PdfReceipt): PdfLocator => ({
+      ...source, page, left: selected.left, top: selected.top,
+      right: Math.min(1, selected.left + selected.width),
+      bottom: Math.min(1, selected.top + selected.height),
+    });
     try {
       if (!receipt) {
         const { response } = await authenticatedApiFetch(`${path}?admission_id=${admission.id}`, {
@@ -71,18 +86,17 @@ function PdfPages({ file, worldId }: { file: File; worldId?: string }) {
           body: file,
         });
         if (!response.ok) throw new Error();
-        setReceipt(await response.json());
+        const admitted: PdfReceipt = await response.json();
+        onRetained(locator(admitted));
+        setReceipt(admitted);
       } else {
         const { response } = await authenticatedApiFetch(`${path}/open`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...receipt, page, left: selected.left, top: selected.top,
-            right: Math.min(1, selected.left + selected.width),
-            bottom: Math.min(1, selected.top + selected.height),
-          }),
+          body: JSON.stringify(locator(receipt)),
         });
         if (!response.ok) throw new Error();
+        onRetained(locator(receipt));
         setSourceFile(new File([await response.blob()], file.name, { type: "application/pdf" }));
       }
     } catch {
@@ -94,11 +108,14 @@ function PdfPages({ file, worldId }: { file: File; worldId?: string }) {
 
   const canvas = useRef<HTMLCanvasElement>(null);
   const [document, setDocument] = useState<PDFDocumentProxy>();
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(restored?.page ?? 1);
   const [error, setError] = useState("");
   const [renderedPage, setRenderedPage] = useState<number>();
   const drag = useRef<{ pointerId: number; start: PagePoint } | undefined>(undefined);
-  const [region, setRegion] = useState<{ start: PagePoint; end: PagePoint }>();
+  const [region, setRegion] = useState<{ start: PagePoint; end: PagePoint } | undefined>(
+    restored && { start: { x: restored.left, y: restored.top },
+      end: { x: restored.right, y: restored.bottom } },
+  );
   const [capture, setCapture] = useState<{ image: string; region: PageRectangle }>();
   const [capturedText, setCapturedText] = useState<string>();
   const [textError, setTextError] = useState(false);
@@ -299,7 +316,45 @@ function PdfPages({ file, worldId }: { file: File; worldId?: string }) {
 }
 
 export function BuildPdfPreview({ worldId }: { worldId?: string }) {
-  const [selection, setSelection] = useState<{ file: File; version: number }>();
+  const [selection, setSelection] = useState<{ file: File; version: number; restored?: PdfLocator }>();
+  const [reopenError, setReopenError] = useState("");
+  const [reopening, setReopening] = useState(false);
+  const [retained, setRetained] = useState(() => {
+    try {
+      return worldId ? localStorage.getItem(retainedPdfKey(worldId)) : null;
+    } catch {
+      return null;
+    }
+  });
+  function saveLocator(locator: PdfLocator) {
+    if (!worldId) return;
+    const serialized = JSON.stringify(locator);
+    setRetained(serialized);
+    try {
+      localStorage.setItem(retainedPdfKey(worldId), serialized);
+    } catch {
+      setReopenError("Browser storage is unavailable. This region can be reopened until you leave this view.");
+    }
+  }
+  async function reopen() {
+    if (!worldId || !retained || reopening) return;
+    setReopening(true);
+    setReopenError("");
+    try {
+      const restored: PdfLocator = JSON.parse(retained);
+      const path = `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources/open`;
+      const { response } = await authenticatedApiFetch(path, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: retained,
+      });
+      if (!response.ok) throw new Error();
+      const file = new File([await response.blob()], "Retained PDF", { type: "application/pdf" });
+      setSelection(previous => ({ file, restored, version: (previous?.version ?? 0) + 1 }));
+    } catch {
+      setReopenError("Could not reopen the retained PDF.");
+    } finally {
+      setReopening(false);
+    }
+  }
   function select(file: File) {
     setSelection(previous => ({ file, version: (previous?.version ?? 0) + 1 }));
   }
@@ -321,7 +376,11 @@ export function BuildPdfPreview({ worldId }: { worldId?: string }) {
           event.currentTarget.value = "";
         }} />
       </label>
-      {selection && <PdfPages key={`${worldId ?? ""}:${selection.version}`} file={selection.file} worldId={worldId} />}
+      {retained && <button type="button" disabled={reopening} onClick={() => void reopen()}>
+        Reopen last retained region
+      </button>}
+      {reopenError && <p role="alert">{reopenError}</p>}
+      {selection && <PdfPages key={`${worldId ?? ""}:${selection.version}`} file={selection.file} worldId={worldId} restored={selection.restored} onRetained={saveLocator} />}
     </div>
   );
 }
