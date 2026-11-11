@@ -343,10 +343,12 @@ class PlanJevWriter:
             from application_state.agent_conversation.plan_writer_output_schema import output_format
             self.output_format=output_format(self.frame,rule_frame)
             frames=(self.frame,rule_frame)
+        task = (_conversation_response_task(adapter._broker_execution())
+                if self.shared and getattr(rules, 'authoring', None) is None else None)
         self.messages = [
             {'role': 'user', 'content': (
                 _discussion_evidence_text(frame)
-                if self.shared and getattr(rules, 'authoring', None) is None and frame is self.provider_frame
+                if task in {'answer', 'scoped_discussion'} and frame is self.provider_frame
                 else canonical_bytes(frame).decode()
             )}
             for frame in frames
@@ -354,8 +356,6 @@ class PlanJevWriter:
         if not self.shared:
             self.messages.append({'role':'user','content':'Return JSON.'})
         self.prompt_components = None
-        task = (_conversation_response_task(adapter._broker_execution())
-                if self.shared and getattr(rules, 'authoring', None) is None else None)
         if task is not None:
             from application_state.agent_conversation.response_prompt import compose_response_prompt
             prompt = compose_response_prompt(
