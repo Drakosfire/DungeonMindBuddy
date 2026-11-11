@@ -13,3 +13,10 @@ class SaveMechanicsRevisionRequest(BaseModel):
     definition: StatblockDefinitionV1Input
     change_summary: str=Field(min_length=1)
     portrait_asset_id: UUID | None = None
+
+
+class AppendPdfStatblockReviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    operation_id: UUID
+    expected_revision: int = Field(ge=1, strict=True)
+    base: MechanicsLocatorV1

@@ -5,7 +5,7 @@ from uuid import UUID
 from application_state.errors import ApplicationStateConflictError,ApplicationStateIntegrityError,ApplicationStateUnavailableError
 from application_state import media
 from application_state.mechanics_revisions import service as operations
-from application_state.mechanics_revisions.types import RevisionOperation,digest
+from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE,RevisionOperation,digest
 from application_state.world_mechanics.types import MechanicsLocator
 from apps.live_control_server.integrations.dungeonmind_statblocks.client import build_statblock_v1_client,verify_exact_revision_mechanics_integrity
 from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import source_definition_digest_from_body
@@ -160,9 +160,11 @@ def _asset_bindings(exact,asset_id,owner):
     return [binding.model_dump(mode='json') for binding in [*kept,portrait]]
 
 
-def save(root,*,draft_id,request,client=None,media_owner=None):
+def save(root,*,draft_id,request,client=None,media_owner=None,pdf_review=None):
     # No selection means the existing Save intent, not a new null-valued edit.
     intent=request.model_dump(mode='json',exclude={'portrait_asset_id'} if request.portrait_asset_id is None else set())
+    if pdf_review is not None:
+        intent["pdf_review"] = pdf_review
     existing=operations.read(world_id=request.world_id,draft_id=draft_id,operation_id=request.operation_id)
     if existing and existing.input_digest!=digest(intent):
         raise ApplicationStateConflictError('Save key already belongs to different edits; recover its original outcome')
@@ -190,6 +192,8 @@ def save(root,*,draft_id,request,client=None,media_owner=None):
             raise ApplicationStateIntegrityError('Validation receipt differs from the edited definition')
         from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import AppendRevisionRequestV1
         accepted_through={'buddy_manual_revision':str(request.operation_id)}
+        if pdf_review is not None:
+            accepted_through[PDF_REVIEW_PROVENANCE] = pdf_review
         if request.portrait_asset_id is not None:
             accepted_through['buddy_portrait_asset_id']=str(request.portrait_asset_id)
         body=AppendRevisionRequestV1(idempotency_key=str(request.operation_id),parent_revision_id=base.revision_id,
@@ -205,6 +209,33 @@ def save(root,*,draft_id,request,client=None,media_owner=None):
     finally:
         if owns:active.close()
 
+
+
+def append_pdf_review(root, *, draft_id, world_id, review_id, request, load_review):
+    from apps.live_control_server.models.statblock_saved_revision import SaveMechanicsRevisionRequest
+
+    identity = {"world_id": world_id, "review_id": str(review_id), "revision": request.expected_revision}
+    existing = operations.read(world_id=world_id, draft_id=draft_id, operation_id=request.operation_id)
+    if existing is not None:
+        recorded = existing.request_body["accepted_through"].get(PDF_REVIEW_PROVENANCE, {})
+        if (
+            any(recorded.get(key) != value for key, value in identity.items())
+            or not same_mechanics_locator(existing.base.model_dump(), request.base)
+        ):
+            raise ApplicationStateConflictError("Save key already belongs to a different PDF review or base")
+        return recover(root, world_id=world_id, draft_id=draft_id, operation_id=request.operation_id)
+
+    review = load_review()
+    if review["revision"] != request.expected_revision:
+        raise ApplicationStateConflictError("The saved PDF review changed")
+    return save(
+        root, draft_id=draft_id,
+        request=SaveMechanicsRevisionRequest(
+            operation_id=request.operation_id, world_id=world_id, base=request.base,
+            definition=review["definition"], change_summary="Append saved PDF statblock review",
+        ),
+        pdf_review={**identity, "regions": review["regions"]},
+    )
 
 def recover(root,*,world_id,draft_id,operation_id,client=None):
     record=operations.cancel_if_absent(world_id=world_id,draft_id=draft_id,operation_id=operation_id)

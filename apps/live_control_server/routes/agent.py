@@ -12,6 +12,7 @@ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 from apps.live_control_server.models.statblock_mechanics_acceptance import (
     AcceptPdfStatblockReviewRequestV1,
 )
+from apps.live_control_server.models.statblock_saved_revision import AppendPdfStatblockReviewRequest
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import ValidationError
 
@@ -2334,6 +2335,22 @@ def post_accept_pdf_statblock_review(
             change_summary="Accept saved PDF statblock review",
         ),
         pdf_review={**identity, "regions": review["regions"]},
+    )
+
+
+@router.post("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}/append/{draft_id}")
+def post_append_pdf_statblock_review(
+    world_id: str, review_id: UUID, draft_id: UUID,
+    body: AppendPdfStatblockReviewRequest, request: Request,
+):
+    from apps.live_control_server.routes.statblock_candidates import _revision_call
+    from apps.live_control_server.services.statblock_saved_revision import append_pdf_review
+
+    enforce_native_graph_gm(request)
+    world_id = _verified_world_id(world_id)
+    return _revision_call(
+        append_pdf_review, draft_id=str(draft_id), world_id=world_id, review_id=review_id,
+        request=body, load_review=lambda: get_pdf_statblock_review(world_id, review_id, request),
     )
 
 
