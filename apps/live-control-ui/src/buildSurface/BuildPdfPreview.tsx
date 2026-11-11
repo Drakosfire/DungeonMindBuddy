@@ -9,6 +9,19 @@ import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 type PagePoint = { x: number; y: number };
 type PageRectangle = { left: number; top: number; width: number; height: number };
 
+function captureLocator(source: PdfReceipt, page: number, selected: PageRectangle): PdfLocator {
+  return {
+    source_revision_id: source.source_revision_id,
+    content_sha256: source.content_sha256,
+    page,
+    left: selected.left,
+    top: selected.top,
+    right: Math.min(1, selected.left + selected.width),
+    bottom: Math.min(1, selected.top + selected.height),
+  };
+}
+
+
 function pagePoint(event: PointerEvent<HTMLCanvasElement>): PagePoint {
   const bounds = event.currentTarget.getBoundingClientRect();
   const clamp = (value: number) => Math.max(0, Math.min(1, value));
@@ -82,11 +95,6 @@ function PdfPages({ file, worldId, restored, onRetained }: {
     const path = `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources`;
     setSourcePending(true);
     setSourceError("");
-    const locator = (source: PdfReceipt): PdfLocator => ({
-      ...source, page, left: selected.left, top: selected.top,
-      right: Math.min(1, selected.left + selected.width),
-      bottom: Math.min(1, selected.top + selected.height),
-    });
     try {
       if (!receipt) {
         const { response } = await authenticatedApiFetch(`${path}?admission_id=${admission.id}`, {
@@ -96,16 +104,16 @@ function PdfPages({ file, worldId, restored, onRetained }: {
         });
         if (!response.ok) throw new Error();
         const admitted: PdfReceipt = await response.json();
-        onRetained(locator(admitted));
+        onRetained(captureLocator(admitted, page, selected));
         setReceipt(admitted);
       } else {
         const { response } = await authenticatedApiFetch(`${path}/open`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(locator(receipt)),
+          body: JSON.stringify(captureLocator(receipt, page, selected)),
         });
         if (!response.ok) throw new Error();
-        onRetained(locator(receipt));
+        onRetained(captureLocator(receipt, page, selected));
         setSourceFile(new File([await response.blob()], file.name, { type: "application/pdf" }));
       }
     } catch {
@@ -331,21 +339,10 @@ function PdfPages({ file, worldId, restored, onRetained }: {
               {receipt && capturedText && <PdfStatblockCandidate
                 key={JSON.stringify([page, capture.region, capturedText])}
                 text={completeLines}
-                locator={{
-                  source_revision_id: receipt.source_revision_id,
-                  content_sha256: receipt.content_sha256,
-                  page, left: capture.region.left, top: capture.region.top,
-                  right: Math.min(1, capture.region.left + capture.region.width),
-                  bottom: Math.min(1, capture.region.top + capture.region.height),
-                }}
+                locator={captureLocator(receipt, page, capture.region)}
               />}
               {worldId && receipt && (textError || capturedText !== undefined) && (
-                <CropOcr key={capture.image} worldId={worldId} region={{
-                  source_revision_id: receipt.source_revision_id, content_sha256: receipt.content_sha256,
-                  page, left: capture.region.left, top: capture.region.top,
-                  right: Math.min(1, capture.region.left + capture.region.width),
-                  bottom: Math.min(1, capture.region.top + capture.region.height),
-                }} hasPdfText={Boolean(capturedText)} />
+                <CropOcr key={capture.image} worldId={worldId} region={captureLocator(receipt, page, capture.region)} hasPdfText={Boolean(capturedText)} />
               )}
             </section>
           )}
