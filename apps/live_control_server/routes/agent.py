@@ -2166,7 +2166,7 @@ def post_review_build_pdf_region(world_id: str, body: dict, request: Request):
     pdf, region = _authorized_build_pdf_region(world_id, region_body, request)
     png = _render_build_pdf_region(pdf, region)
     try:
-        text = run_awaitable_sync(review_capture(png, instruction))
+        text = run_awaitable_sync(lambda: review_capture(png, instruction))
     except (GenerationEngineError, ValueError) as exc:
         raise HTTPException(status_code=503, detail="Buddy could not review this capture.") from exc
     return {"text": text, "region": region.model_dump(mode="json")}

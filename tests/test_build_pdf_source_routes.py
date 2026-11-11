@@ -94,3 +94,24 @@ def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
         assert transcription.status_code == 200, transcription.text
         assert transcription.json() == {"text": "Armor Class 16"}
         assert calls == [(body, 1)]
+
+        from apps.live_control_server.services import build_pdf_capture_review
+
+        async def review_capture(png, instruction):
+            assert png == b"fixture PNG"
+            assert instruction == "Extract only AC."
+            return "Armor Class 16"
+
+        monkeypatch.setattr(build_pdf_capture_review, "review_capture", review_capture)
+        calls.clear()
+        review_path = path + "/review"
+        payload = {"region": locator, "instruction": "Extract only AC."}
+        assert client.post(review_path, json=payload).status_code == 401
+        assert client.post(review_path.replace("world-a", "world-b"), json=payload,
+                           headers=auth).status_code == 404
+        assert calls == []
+        review = client.post(review_path, json=payload, headers=auth)
+        assert review.status_code == 200, review.text
+        assert review.json()["text"] == "Armor Class 16"
+        assert all(review.json()["region"][key] == value for key, value in locator.items())
+        assert calls == [(body, 1)]

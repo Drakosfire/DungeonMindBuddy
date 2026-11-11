@@ -86,6 +86,7 @@ const buildPaths = [
   '/api/live/agent/worlds/world%2Fa/build-proposals/action/inserted?expected_revision=5',
   '/api/live/agent/worlds/world%2Fa/build-pdf-sources?admission_id=fixture',
   '/api/live/agent/worlds/world%2Fa/build-pdf-sources/open',
+  '/api/live/agent/worlds/world%2Fa/build-pdf-sources/review',
 ]
 it.each(buildPaths)('guards the exact Build endpoint %s', async path => {
   const api = await setup(); api.setNativeGraphAccessToken('synthetic-build-token')
