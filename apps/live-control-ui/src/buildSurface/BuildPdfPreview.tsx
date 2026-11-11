@@ -12,7 +12,7 @@ type PdfLocator = PdfReceipt & { page: number; left: number; top: number; right:
 type RetainedPdf = { name: string; locator: PdfLocator };
 
 function retainedPdfKey(worldId: string) {
-  return `buddy:retained-pdf-region:${worldId}`;
+  return `buddy:retained-pdf-region:${encodeURIComponent(worldId)}:`;
 }
 
 function pagePoint(event: PointerEvent<HTMLCanvasElement>): PagePoint {
@@ -323,21 +323,28 @@ export function BuildPdfPreview({ worldId }: { worldId?: string }) {
   const [reopening, setReopening] = useState(false);
   const [retained, setRetained] = useState<RetainedPdf[]>(() => {
     try {
-      const raw = worldId && localStorage.getItem(retainedPdfKey(worldId));
-      const saved: unknown = raw ? JSON.parse(raw) : [];
-      return Array.isArray(saved) ? saved : [];
+      if (!worldId) return [];
+      const prefix = retainedPdfKey(worldId);
+      return Object.keys(localStorage).filter(key => key.startsWith(prefix)).flatMap(key => {
+        try {
+          const entry = JSON.parse(localStorage.getItem(key) ?? "null") as RetainedPdf | null;
+          return entry?.locator && typeof entry.name === "string" ? [entry] : [];
+        } catch {
+          return [];
+        }
+      });
     } catch {
       return [];
     }
   });
   function saveLocator(locator: PdfLocator) {
     if (!worldId || !selection) return;
-    const next = [{ name: selection.file.name, locator }, ...retained.filter(
-      entry => entry.locator.source_revision_id !== locator.source_revision_id,
-    )];
-    setRetained(next);
+    const entry = { name: selection.file.name, locator };
+    setRetained(previous => [entry, ...previous.filter(
+      saved => saved.locator.source_revision_id !== locator.source_revision_id,
+    )]);
     try {
-      localStorage.setItem(retainedPdfKey(worldId), JSON.stringify(next));
+      localStorage.setItem(retainedPdfKey(worldId) + locator.source_revision_id, JSON.stringify(entry));
     } catch {
       setReopenError("Browser storage is unavailable. This region can be reopened until you leave this view.");
     }
