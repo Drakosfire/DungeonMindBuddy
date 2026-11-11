@@ -2113,10 +2113,7 @@ async def post_build_pdf_source(world_id: str, admission_id: UUID, request: Requ
             "content_sha256": revision.content_sha256}
 
 
-@router.post("/worlds/{world_id}/build-pdf-sources/open")
-def post_open_build_pdf_source(world_id: str, body: dict, request: Request, render: bool = False):
-    from fastapi.responses import Response
-
+def _authorized_build_pdf_region(world_id: str, body: dict, request: Request):
     from dungeonmind.application.vnext.native_pdf_access import open_native_pdf_region
     from dungeonmind.contracts.vnext.pdf_region import NativePdfRegionV1
     from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import (
@@ -2141,13 +2138,34 @@ def post_open_build_pdf_source(world_id: str, body: dict, request: Request, rend
         raise HTTPException(status_code=422, detail={"code": "invalid_pdf_region"}) from exc
     if pdf is None:
         raise HTTPException(status_code=404, detail={"code": "pdf_source_unavailable"})
-    if render:
-        from apps.live_control_server.services.build_pdf_region_render import render_region
+    return pdf, region
 
-        try:
-            pdf = render_region(pdf, region)
-        except ValueError as exc:
-            raise HTTPException(status_code=503, detail={"code": "pdf_region_render_unavailable"}) from exc
+
+def _render_build_pdf_region(pdf, region):
+    from apps.live_control_server.services.build_pdf_region_render import render_region
+
+    try:
+        return render_region(pdf, region)
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail={"code": "pdf_region_render_unavailable"}) from exc
+
+
+@router.post("/worlds/{world_id}/build-pdf-sources/ocr")
+def post_read_build_pdf_region(world_id: str, body: dict, request: Request):
+    from base64 import b64encode
+
+    pdf, region = _authorized_build_pdf_region(world_id, body, request)
+    png = _render_build_pdf_region(pdf, region)
+    return read_crop(PdfCropRequest(png_base64=b64encode(png).decode("ascii")))
+
+
+@router.post("/worlds/{world_id}/build-pdf-sources/open")
+def post_open_build_pdf_source(world_id: str, body: dict, request: Request, render: bool = False):
+    from fastapi.responses import Response
+
+    pdf, region = _authorized_build_pdf_region(world_id, body, request)
+    if render:
+        pdf = _render_build_pdf_region(pdf, region)
     return Response(
         pdf,
         media_type="image/png" if render else "application/pdf",
