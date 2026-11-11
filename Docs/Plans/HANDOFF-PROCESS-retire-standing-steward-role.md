@@ -23,7 +23,6 @@ Canonical files, edited before their exports:
 - `.cursor/skills/external-agent-pr-loop/SKILL.md`
 - `.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md`
 - `Docs/Plans/README.md`
-- `Backlog.md` (current DEMO destination label only)
 - `Docs/Plans/ANCHOR-dungeonmind-net-platform-refresh.md` (continuing owner/process instructions only)
 - `Docs/Plans/STEWARDS-ANCHOR-application-state.md` (current pickup/owner instructions only; preserve statuses and history)
 - `Docs/Plans/JUMPSTART-docs-relevance-first.md` (superseded pointer only)
@@ -62,7 +61,7 @@ Byte-for-byte export mirrors, updated after canonical sources:
 
 ## Exclusions
 
-Do not change historical embedded evidence, status/sequence judgments, archived copies, historical reports or underlying archived content. On superseded wrappers, change only the current DEMO destination label. Do not change or rename filenames, URLs or technical identifiers. Preserve all unrelated text. Preserve all `agent_steward` literals, preflight script/test names and hash-sensitive values. Do not change runtime, service, provider, database or model settings. This worker must not open a PR, publish externally, or communicate externally. After independently reviewing the committed head, the coordinating owner may publish this bounded slice as a reviewable draft. Do not alter or close existing PRs, and do not merge any PR. Do not introduce legacy `.cursor` rules as policy gates where current `AGENTS.md` says they are not. Do not substitute PRIME (or another agent) as the default owner. Do not weaken independent review, approval gates, explicit assignment scope, or existing limits on merge/runtime/model authority.
+`Backlog.md` is explicitly deferred because open PRs #2389, #2383, and #2087 overlap that path; re-anchor and coordinate after those PRs settle. This deferral does not transfer ownership. Do not change historical embedded evidence, status/sequence judgments, archived copies, historical reports or underlying archived content. On superseded wrappers, change only the current DEMO destination label. Do not change or rename filenames, URLs or technical identifiers. Preserve all unrelated text. Preserve all `agent_steward` literals, preflight script/test names and hash-sensitive values. Do not change runtime, service, provider, database or model settings. This worker must not open a PR, publish externally, or communicate externally. After independently reviewing the committed head, the coordinating owner may publish this bounded slice as a reviewable draft. Do not alter or close existing PRs, and do not merge any PR. Do not introduce legacy `.cursor` rules as policy gates where current `AGENTS.md` says they are not. Do not substitute PRIME (or another agent) as the default owner. Do not weaken independent review, approval gates, explicit assignment scope, or existing limits on merge/runtime/model authority.
 
 ## Acceptance
 
