@@ -13,13 +13,14 @@ from time import perf_counter
 
 from generationengine import GenerationClient
 from generationengine.providers.typesafe_decision import TypeSafeDecisionProvider
-from generationengine.types import ChoiceDecisionAnswer, ChoiceDecisionQuestion, DecisionRequest
+from generationengine.types import BinaryDecisionAnswer, BinaryDecisionQuestion, ChoiceDecisionAnswer, ChoiceDecisionQuestion, DecisionRequest
 
 from application_state.agent_conversation.build_section import exact_saved_section
 from application_state.agent_conversation.native_source_catalog import section_catalog
 from apps.live_control_server.services.build_jev_dispatch import MODEL, PROVIDER
 
 QUESTION = "destination"
+INTENT = "single_page_edit"
 ABSTAIN = "none"
 CLEAR_FIT = 0.9
 
@@ -59,9 +60,17 @@ def prepare(question, pages):
         max_transport_retries=0,
         state={
             "request": question,
+            "headings": len(targets),
             "headings": [[alias, target.title, target.heading] for alias, target in targets.items()],
         },
-        questions=(ChoiceDecisionQuestion(
+        questions=(BinaryDecisionQuestion(
+            name=INTENT,
+            question=(
+                "Does the request explicitly ask to add, remove, or revise text on one existing page? "
+                "An instruction to add a detail under a heading counts even if saving is not mentioned. Say no for discussion, planning, chat-only drafts, new pages, "
+                "or changes that affect multiple pages, including moves."
+            ),
+        ), ChoiceDecisionQuestion(
             name=QUESTION,
             question=(
                 "Which heading is the clearly intended destination for this edit? "
@@ -74,7 +83,14 @@ def prepare(question, pages):
     return request, targets
 
 
-def resolve(answer, targets):
+def resolve(answer, targets, *, intent):
+    if (
+        not isinstance(intent, BinaryDecisionAnswer)
+        or not intent.value
+        or intent.probability_true is None
+        or intent.probability_true < CLEAR_FIT
+    ):
+        return None
     if not isinstance(answer, ChoiceDecisionAnswer) or answer.selected not in targets:
         return None
     scores = answer.probabilities
@@ -95,24 +111,44 @@ CASES = (
     ("In Mothfen, add the new dusk signal to Watch.", "Mothfen", "Watch"),
     ("Add the new supplier to Trade.", None, None),
     ("Add the new rule to Ember Quay's Underground Tunnels.", None, None),
+    ("Should we add another signal under Mothfen's Watch?", None, None),
+    ("Draft an idea for Mothfen's Watch here in chat.", None, None),
+    ("Move the dusk signal from Mothfen's Watch to Ember Quay's Trade.", None, None),
+    ("Update the section on where visitors sleep in Ember Quay.", "Ember Quay", "Lodging"),
+)
+
+LARGE_PAGES = tuple(
+    (name, "## Trade\nTrade body.\n## Watch\nWatch body.\n### Signals\nSignals body.\n## Lodging\nLodging body.")
+    for name in ("Mothfen", "Ember Quay", "Birch Lock", "Gull Ferry", "Rook Bridge",
+                 "Stave Ford", "Otter Weir", "Dove Reach")
+) + (("Tern Abbey", "## Rites\nRites body.\n## Infirmary\nInfirmary body."),)
+LARGE_CASES = (
+    ("Should we add another signal under Mothfen's Watch > Signals?", None, None),
+    ("Draft an idea for Mothfen's Watch > Signals here in chat.", None, None),
+    ("Move the dusk signal from Mothfen's Watch > Signals to Ember Quay's Watch > Signals.", None, None),
+    ("Add the new code under Mothfen's Watch > Signals.", "Mothfen", "Watch › Signals"),
 )
 
 
 async def main():
     client = GenerationClient(decision_providers={PROVIDER: TypeSafeDecisionProvider()})
     passed = True
-    for question, page, heading in CASES:
-        request, targets = prepare(question, PAGES)
+    trials = [(PAGES, *case) for case in CASES] + [(LARGE_PAGES, *case) for case in LARGE_CASES]
+    for pages, question, page, heading in trials:
+        request, targets = prepare(question, pages)
         started = perf_counter()
         result = await client.decide(request)
         answer = result.answers.get(QUESTION)
-        preview = resolve(answer, targets)
+        intent = result.answers.get(INTENT)
+        preview = resolve(answer, targets, intent=intent)
         expected = (page, heading)
         actual = (preview["page"], preview["heading"]) if preview else (None, None)
         passed &= actual == expected
         print(json.dumps({
             "request": question,
+            "headings": len(targets),
             "elapsed_seconds": round(perf_counter() - started, 3),
+            "intent": intent.model_dump(mode="json") if intent else None,
             "decision": answer.model_dump(mode="json") if answer else None,
             "usage": result.observation.model_dump(mode="json").get("usage"),
             "preview": preview,

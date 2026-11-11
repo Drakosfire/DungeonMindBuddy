@@ -27,3 +27,20 @@ Underground Tunnels request selected none. Wall times were 0.394, 0.179 and
 0.148 seconds respectively. The provider returned no token usage. The 0.90
 cutoff is an experiment setting. A larger heading catalog and indirect
 requests remain unmeasured.
+
+## Follow-up benchmark
+
+The heading-only probe produced 7/7 correct destinations and 12/15 correct
+abstentions on 22 synthetic trials. The three false positives were a planning
+question, a draft requested in chat, and a move between pages. In a four-case
+comparison, the existing Build intent menu still classified the chat draft as
+page writing.
+
+The locked probe asks one short intent question and one heading question in
+the same call. It opens a preview only if both scores reach 0.90. This setting
+passed 11/11 live cases with 4 or 34 headings, including all three original
+false positives at 34 headings. Calls took 0.156–0.257 seconds. The larger
+planning question still scored 0.88 for intent and 0.95 for the destination,
+so the result depends on the host guard. The lowest passing edit intent score
+was 0.91. These scores do not establish a calibrated production threshold.
+The provider did not report token usage. The probe does not authorize writes.
