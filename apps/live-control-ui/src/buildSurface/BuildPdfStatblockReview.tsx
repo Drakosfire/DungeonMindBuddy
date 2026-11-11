@@ -3,7 +3,7 @@ import { authenticatedApiFetch } from "../api/liveApi";
 import type { PdfLocator } from "../api/retainedPdfRegions";
 import type { StatblockDefinitionV1_Output, ValidationIssueV1 } from "../contracts/dungeonbuddy-statblocks-v1/client";
 import { StatblockDefinitionEditor } from "../statblocks/editor/StatblockDefinitionEditor";
-import { createEditorStateFromOutput, type StatblockEditorState } from "../statblocks/editor/statblockEditorState";
+import { createEditorStateFromOutput, getLocalFingerprint, type StatblockEditorState } from "../statblocks/editor/statblockEditorState";
 
 type Review = {
   revision: number;
@@ -73,10 +73,17 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     setValidation("");
     setIssues([]);
     try {
-      const { response } = await authenticatedApiFetch(sourcePath + "/statblock:validate", {
-        method: "POST",
-        body: JSON.stringify({ definition: editor.workingCopy, regions: review.regions }),
-      });
+      const unchanged = getLocalFingerprint(editor) === editor.baselineFingerprint;
+      const { response } = unchanged
+        ? await authenticatedApiFetch(`${reviewPath}/validate?expected_revision=${review.revision}`, { method: "POST" })
+        : await authenticatedApiFetch(sourcePath + "/statblock:validate", {
+          method: "POST",
+          body: JSON.stringify({ definition: editor.workingCopy, regions: review.regions }),
+        });
+      if (unchanged && response.status === 409) {
+        setError("This review changed elsewhere. Reload it before validating the saved revision.");
+        return;
+      }
       if (!response.ok) throw new Error();
       const { validation: result } = await response.json();
       const receipt = result?.validation_receipt;
