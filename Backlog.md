@@ -154,6 +154,19 @@ Do not infer a current blocker or READY assignment from them.
 **Refs:** [Campaign membership repair](Docs/Plans/HANDOFF-BUILD-elderwyld-campaign-membership.md); `src/dungeonmind/service/api.py` in DungeonMind.
 
 
+## [DEFERRED] Verbatim source phrase grounding in the frozen TL01 evaluation
+**Owner:** Temporal grounding evaluation
+**Captured:** 2026-08-01
+**Last verified:** 2026-11-10 @ `8a9ad7902`
+**Trigger:** A real product use case selects a temporal capability that consumes this renderer, as required by the TL01 close decision.
+
+**Current boundary:** The original renderer check still fails when its cited snippet lacks the requested verbatim phrase. TL01 evaluation remains frozen. Current recap ingestion and source reads use exact stored spans (#1941, #1965), but those changes do not resolve this separate evaluation defect.
+
+**Next slice on trigger:** Reproduce the retained failure through the selected consumer, then prove a known-good phrase grounds through both relevant lanes before revising cohorts or prompts.
+
+**Refs:** [TL01 close decision](Docs/Design/DECISION-tl01-temporal-prompt-calibration-close.md), section 7; `evals/graph_memory_layer/temporal_shadow_grounding_path.py`; #1941, #1965.
+
+
 ---
 
 # Delegated workstreams — pointers only, no root status
@@ -199,7 +212,7 @@ a prototype is not a new durable authority.
 
 - 2026-11-10: reverified the next four entries. Retained the distinct residuals, removed already-shipped portions, and replaced the proposed controller environment with a comparison through existing native retrieval and evaluation.
 
-- 2026-11-10: audited the four oldest active entries against Buddy main `8a9ad7902` and DungeonMind main `430c1a6d`. Archived two retired proposals and reverified two deferred lifecycle gaps.
+- 2026-11-10: audited the four oldest active entries against Buddy main `8a9ad7902` and DungeonMind main `430c1a6d`. Archived the broad ecology-pass proposal, retained the unresolved frozen TL01 defect, and reverified two deferred lifecycle gaps.
 
 - 2026-11-10: checked delivery through Buddy main `b0585f6d9`; archived the Build Statblock Workbench launcher, recorded completed image authoring slices, and corrected superseded roadmap pointers.
 
