@@ -2242,6 +2242,27 @@ def get_pdf_statblock_review(world_id: str, review_id: UUID, request: Request):
     return review
 
 
+@router.post("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}/validate")
+def post_validate_pdf_statblock_review(
+    world_id: str, review_id: UUID, request: Request,
+    expected_revision: int = Query(ge=1),
+):
+    from apps.live_control_server.services.statblock_definition_validation import (
+        ValidateDefinitionBuddyRequestV1, validate_definition,
+    )
+
+    review = get_pdf_statblock_review(world_id, review_id, request)
+    if review["revision"] != expected_revision:
+        raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
+    candidate = ValidateDefinitionBuddyRequestV1.model_validate({"definition": review["definition"]})
+    validation = validate_definition(definition=candidate.definition)
+    return {
+        "revision": review["revision"],
+        "regions": review["regions"],
+        "validation": validation.model_dump(mode="json", by_alias=True),
+    }
+
+
 @router.post("/worlds/{world_id}/build-pdf-sources/open")
 def post_open_build_pdf_source(world_id: str, body: dict, request: Request, render: bool = False):
     from fastapi.responses import Response

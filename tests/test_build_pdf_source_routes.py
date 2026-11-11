@@ -178,5 +178,15 @@ def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
         assert client.get(review_route).status_code == 401
         assert client.get(review_route.replace("world-a", "world-b"), headers=auth).status_code == 404
         assert client.get(review_route, headers=auth).json() == saved.json()
+        exact_validation = review_route + "/validate"
+        validated.clear()
+        assert client.post(exact_validation + "?expected_revision=1").status_code == 401
+        assert client.post(exact_validation + "?expected_revision=2", headers=auth).status_code == 409
+        assert not validated
+        receipt = client.post(exact_validation + "?expected_revision=1", headers=auth)
+        assert receipt.status_code == 200, receipt.text
+        assert receipt.json()["revision"] == 1
+        assert receipt.json()["regions"] == saved.json()["regions"]
+        assert validated[0].model_dump(mode="json", by_alias=True) == saved.json()["definition"]
         records.clear()
         assert client.get(review_route, headers=auth).status_code == 404
