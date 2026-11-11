@@ -19,6 +19,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [validation, setValidation] = useState("");
   const [region, setRegion] = useState<PdfLocator>();
   const [image, setImage] = useState("");
 
@@ -64,6 +65,34 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     };
   }, [region, sourcePath]);
 
+  async function validate() {
+    if (!review || !editor || pending) return;
+    setPending(true);
+    setError("");
+    setValidation("");
+    try {
+      const { response } = await authenticatedApiFetch(sourcePath + "/statblock:validate", {
+        method: "POST",
+        body: JSON.stringify({ definition: editor.workingCopy, regions: review.regions }),
+      });
+      if (!response.ok) throw new Error();
+      const { validation: result } = await response.json();
+      const receipt = result?.validation_receipt;
+      if (result?.outcome !== "success" || !receipt) throw new Error();
+      if (receipt.status === "valid") {
+        setValidation("Mechanics validated.");
+      } else if (receipt.status === "warnings") {
+        setValidation("Mechanics validated with warnings.");
+      } else {
+        setError("The mechanics did not pass validation.");
+      }
+    } catch {
+      setError("Could not validate the review draft.");
+    } finally {
+      setPending(false);
+    }
+  }
+
   async function save() {
     if (!review || !editor || pending) return;
     setPending(true);
@@ -99,6 +128,8 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       {!review && !error && <p role="status">Opening review…</p>}
       {review && editor && <>
         <fieldset disabled={pending}>
+          <button type="button" onClick={() => void validate()}>Validate mechanics</button>
+          {validation && <span role="status">{validation}</span>}
           <button type="button" onClick={() => void save()}>Save review draft</button>
           {saved && <span role="status">Draft saved</span>}
           {review.regions.map((locator, index) => (
@@ -108,7 +139,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
           ))}
           {image && region && <img src={image} alt={`Exact PDF region on page ${region.page}`} />}
           <StatblockDefinitionEditor output={review.definition} editorState={editor}
-            onEditorStateChange={state => { setEditor(state); setSaved(false); }}
+            onEditorStateChange={state => { setEditor(state); setSaved(false); setValidation(""); }}
             recoveryHint="Save the review draft to keep your edits." />
         </fieldset>
       </>}
