@@ -148,7 +148,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       setAcceptedLink("");
       setAcceptOpen(true);
     } catch (cause) {
-      if (cause instanceof LiveApiError && [404, 422].includes(cause.status)) {
+      if (cause instanceof LiveApiError && [401, 403, 404, 422].includes(cause.status)) {
         localStorage.removeItem(createKey);
         setError(cause.message);
         return;

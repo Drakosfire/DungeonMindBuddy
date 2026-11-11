@@ -127,14 +127,14 @@ it("appends to the explicitly selected saved revision and replays its request", 
   localStorage.clear();
 });
 
-it("retries a refused creature creation and selects the resulting draft", async () => {
+it.each([401, 403, 404, 422])("retries creature creation after HTTP %s and selects the draft", async status => {
   localStorage.clear();
   try {
     vi.mocked(authenticatedApiFetch).mockResolvedValue({
       response: Response.json({ revision: 4, definition: baseCandidateDefinition(), regions: [] }),
     } as Awaited<ReturnType<typeof authenticatedApiFetch>>);
     vi.mocked(createThreatDraft)
-      .mockRejectedValueOnce(new LiveApiError("Review data rejected", 422))
+      .mockRejectedValueOnce(new LiveApiError("Review data rejected", status))
       .mockResolvedValueOnce({
         schema: "dmb_threat_draft_v2", draft_id: "new-creature", world_id: "elderwyld",
         name: "Creature", workflow_state: "drafting",
