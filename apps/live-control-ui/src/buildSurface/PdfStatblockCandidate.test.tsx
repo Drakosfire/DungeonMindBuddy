@@ -58,3 +58,9 @@ it("keeps PDF.js split digits inside their printed score cells", () => {
     ["16", "75", "19", "14", "17", "8", "8", "4"],
   );
 });
+
+it("shows the printed HP and dice formula together even when they disagree", () => {
+  render(<PdfStatblockCandidate locator={locator} text={"Armor Class 11\nHit Points 18 (2d10+6)"} />);
+  fireEvent.click(screen.getByRole("button", {name:"Preview statblock fields"}));
+  expect(screen.getByText("18 (2d10+6)")).toBeInTheDocument();
+});
