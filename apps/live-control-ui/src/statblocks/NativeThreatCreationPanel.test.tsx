@@ -95,6 +95,6 @@ it('sends both selected regions of the same retained PDF to review', async () =>
  await screen.findByRole('list',{name:'Reviewed PDF regions'});
  expect(screen.getByText(/0.1, 0.2, 0.8, 0.9/)).toBeInTheDocument();
  expect(screen.getByText(/0.3, 0.2, 0.8, 0.9/)).toBeInTheDocument();
- expect(api.prepareNativeThreat).toHaveBeenCalledWith(draft.draft_id,draft.world_id,3,[locator,second]);
+ expect(api.prepareNativeThreat).toHaveBeenCalledWith(draft.draft_id,draft.world_id,3,[locator,second],undefined);
  expect(api.confirmNativeThreat).not.toHaveBeenCalled();
 });

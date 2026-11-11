@@ -3319,9 +3319,9 @@ export function readNativeSource(scope:InspectionPin,selection:NativeSourceSelec
  return apiFetch('/api/live/native-source-inspection/read',{method:'POST',cache:'no-store',signal,body:JSON.stringify({scope,...selection})});
 }
 
-export async function prepareNativeThreat(draft:string,world:string,version:number,pdfRegions?:readonly PdfLocator[]):Promise<NativeThreatReply> {
-  const value=await apiFetch<unknown>(`/api/live/threat-drafts/${encodeURIComponent(draft)}/native-creature/prepare`,{method:'POST',body:JSON.stringify({world_id:world,expected_draft_version:version,pdf_regions:pdfRegions})});
-  const reply=await verifyNativeThreatReply(value,world,draft);
+export async function prepareNativeThreat(draft:string,world:string,version:number,pdfRegions?:readonly PdfLocator[], mechanics?:import("../statblocks/revision/savedMechanicsRevisionTypes").SavedMechanicsLocator):Promise<NativeThreatReply> {
+  const value=await apiFetch<unknown>(`/api/live/threat-drafts/${encodeURIComponent(draft)}/native-creature/prepare`,{method:'POST',body:JSON.stringify({world_id:world,expected_draft_version:version,pdf_regions:pdfRegions,mechanics_locator:mechanics})});
+  const reply=await verifyNativeThreatReply(value,world,draft,mechanics);
   if(reply.state==='prepared'&&reply.review.draft_version!==version)throw new Error('The prepared creature uses another draft version.');
   return reply;
 }

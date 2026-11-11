@@ -19,13 +19,11 @@ function SavedCreatureReview({target,packet}:{target:SavedStatblockTarget;packet
   setBusy(true);setError('');
   try {
    const result=await getThreatDraft(target.draftId);
-   const accepted=result.accepted_mechanics_ref;
    if(result.schema!=='dmb_threat_draft_v2'||result.world_id!==target.worldId
     ||result.draft_id!==target.draftId||result.workflow_state!=='mechanics_saved'
-    ||accepted?.revision_id!==packet.locator.revision_id
-    ||accepted.statblock_id!==packet.locator.statblock_id
-    ||accepted.definition_digest!==packet.locator.definition_digest) {
-    throw new Error('Open the original saved mechanics for this creature draft to review Graph creation.');
+    ||packet.world_id!==target.worldId||packet.draft_id!==target.draftId
+    ||packet.locator.revision_id!==target.revisionId) {
+    throw new Error('The saved statblock and creature draft no longer match.');
    }
    setDraft(result);
   } catch(error) {
@@ -34,7 +32,7 @@ function SavedCreatureReview({target,packet}:{target:SavedStatblockTarget;packet
    setBusy(false);
   }
  }
- return draft?<NativeThreatCreationPanel draft={draft}/>:<>
+ return draft?<NativeThreatCreationPanel draft={draft} mechanics={packet.locator}/>:<>
   <button type="button" disabled={busy} onClick={()=>void loadDraft()}>Open creature review</button>
   {error&&<p role="alert">{error}</p>}
  </>;
