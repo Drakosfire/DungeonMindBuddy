@@ -3,6 +3,7 @@ import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 type PagePoint = { x: number; y: number };
+type PageRectangle = { left: number; top: number; width: number; height: number };
 
 function pagePoint(event: PointerEvent<HTMLCanvasElement>): PagePoint {
   const bounds = event.currentTarget.getBoundingClientRect();
@@ -21,7 +22,9 @@ function PdfPages({ file }: { file: File }) {
   const [renderedPage, setRenderedPage] = useState<number>();
   const drag = useRef<{ pointerId: number; start: PagePoint } | undefined>(undefined);
   const [region, setRegion] = useState<{ start: PagePoint; end: PagePoint }>();
-  const [capture, setCapture] = useState<string>();
+  const [capture, setCapture] = useState<{ image: string; region: PageRectangle }>();
+  const [capturedText, setCapturedText] = useState<string>();
+  const [textError, setTextError] = useState(false);
   const rectangle = region && {
     left: Math.min(region.start.x, region.end.x),
     top: Math.min(region.start.y, region.end.y),
@@ -48,7 +51,9 @@ function PdfPages({ file }: { file: File }) {
     context.drawImage(source, rectangle.left * source.width, rectangle.top * source.height,
       rectangle.width * source.width, rectangle.height * source.height,
       0, 0, crop.width, crop.height);
-    setCapture(crop.toDataURL());
+    setCapturedText(undefined);
+    setTextError(false);
+    setCapture({ image: crop.toDataURL(), region: rectangle });
   }
 
   useEffect(() => {
@@ -105,6 +110,41 @@ function PdfPages({ file }: { file: File }) {
     };
   }, [document, page]);
 
+  useEffect(() => {
+    if (!document || !capture) return;
+    let cancelled = false;
+    async function readRegion(pdf: PDFDocumentProxy, region: PageRectangle) {
+      try {
+        const source = await pdf.getPage(page);
+        const viewport = source.getViewport({ scale: 1 });
+        const { items } = await source.getTextContent();
+        const text = items.map(item => {
+          if (!("str" in item)) return "";
+          const [a, b, c, d, x, y] = item.transform;
+          const vertical = item.dir === "ttb";
+          const advanceScale = vertical ? Math.hypot(c, d) : Math.hypot(a, b);
+          const extent = vertical ? item.height : item.width;
+          const offset = advanceScale ? extent / (2 * advanceScale) : 0;
+          // Vertical PDF text advances down from its origin in PDF coordinates.
+          const [viewX, viewY] = viewport.convertToViewportPoint(
+            vertical ? x + a / 2 - c * offset : x + a * offset + c / 2,
+            vertical ? y + b / 2 - d * offset : y + b * offset + d / 2,
+          );
+          const nx = viewX / viewport.width;
+          const ny = viewY / viewport.height;
+          const included = nx >= region.left && nx <= region.left + region.width
+            && ny >= region.top && ny <= region.top + region.height;
+          return (included ? item.str : "") + (item.hasEOL ? "\n" : "");
+        }).join("").replace(/\n{2,}/g, "\n").trim();
+        if (!cancelled) setCapturedText(text);
+      } catch {
+        if (!cancelled) setTextError(true);
+      }
+    }
+    void readRegion(document, capture.region);
+    return () => { cancelled = true; };
+  }, [document, page, capture]);
+
   return (
     <section aria-label="PDF preview">
       <p>{file.name}</p>
@@ -155,7 +195,20 @@ function PdfPages({ file }: { file: File }) {
           {region && <button type="button" onClick={() => { setRegion(undefined); setCapture(undefined); }}>
             Clear selection
           </button>}
-          {capture && <img src={capture} alt={`Captured region of page ${page}`} style={{ maxWidth: "100%" }} /> }
+          {capture && (
+            <section aria-label={`Capture from page ${page}`}>
+              <img src={capture.image} alt={`Captured region of page ${page}`} style={{ maxWidth: "100%" }} />
+              {textError ? <p role="alert">The PDF text layer could not be read.</p>
+                : capturedText === undefined ? <p role="status">Reading the PDF text layer…</p>
+                : capturedText ? (
+                  <label>
+                    Approximate text from the PDF layer
+                    <span>Text can extend beyond the crop or miss partial lines. Check it against the image.</span>
+                    <textarea readOnly value={capturedText} rows={5} />
+                  </label>
+                ) : <p role="status">No PDF text runs were selected. The crop may still contain visible text.</p>}
+            </section>
+          )}
         </>
       )}
     </section>
