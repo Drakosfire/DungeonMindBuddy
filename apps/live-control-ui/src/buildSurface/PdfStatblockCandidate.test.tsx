@@ -35,3 +35,16 @@ it("omits an incomplete ability row", () => {
   fireEvent.click(screen.getByRole("button", {name:"Preview statblock fields"}));
   expect(screen.getAllByRole("definition").map(item => item.textContent)).toEqual(["16", "75"]);
 });
+
+it("keeps printed rules sections separate without rewriting them", () => {
+  const text = [
+    "Armor Class 16", "Hit Points 75", "Actions", "Bite. First line.",
+    "  Second line.", "Lair Actions", "The floor shifts.", "Lair Actions (Cont.)",
+    "The ceiling shifts.",
+  ].join("\n");
+  render(<PdfStatblockCandidate locator={locator} text={text} />);
+  fireEvent.click(screen.getByRole("button", {name:"Preview statblock fields"}));
+  expect(screen.getByText("Actions").nextElementSibling?.textContent).toBe("Bite. First line.\n  Second line.");
+  expect(screen.getByText("Lair Actions").nextElementSibling?.textContent).toBe("The floor shifts.");
+  expect(screen.getByText("Lair Actions (Cont.)").nextElementSibling?.textContent).toBe("The ceiling shifts.");
+});
