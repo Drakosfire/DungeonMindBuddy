@@ -72,20 +72,18 @@ Do not infer a current blocker or READY assignment from them.
 **Refs:** Edge source `bba72416-9dfe-49bb-add0-21a346e9a421`; `apps/live-control-ui/src/tiptap/extensions/MediaImageNode.tsx`; `apps/live-control-ui/src/tiptap/MarkdownDocumentAdapter.ts`; conversation `01a0ef89-ca57-7b82-9c9c-215b02d0fc3b`.
 
 
-## [IDEA] Define independent source-artifact archive / restore lifecycle
-**Kind:** DESIGN  
-**Owner:** APP-STATE / source lifecycle  
-**Captured:** 2026-08-11  
-**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`  
-**Depends on:** Stage 2A durable APP-STATE authority on `54331`; immutable `source.artifact` / `source.revision` identity and exact source-Markdown service; local editor discard remains a separate non-destructive concept.
+## [DEFERRED] Define independent source-artifact archive and restore
+**Owner:** APP-STATE / source lifecycle
+**Captured:** 2026-08-11
+**Last verified:** 2026-11-10 @ `8a9ad7902`
+**Trigger:** An operator needs to withdraw or restore an independently admitted source, such as a recap, while preserving exact historical evidence.
 
-**Problem:** Build/Plan/Play now have recoverable Trash (#1445–#1447). Reproduce any remaining need to independently archive source artifacts/revisions before designing another lifecycle. Document Trash, editor draft discard and underlying evidence retention have different meanings; the old missing-delete claim is obsolete.
+**Current boundary:** Workspace Trash handles Build and Plan documents and Play sessions. The source service persists immutable artifact and revision identities and serves their Markdown, metadata and scope. It exposes no independent archive or restore operation.
 
-**Slice:** Define archive, visibility, restore, collision, audit, confirmation, and exact-identity semantics for one APP-STATE durable source. Do not implement local-draft discard in this slice. Do not hard-delete by default without a named contract reason.
+**Next slice on trigger:** Define what source archive changes for discovery, what historical citations can still open, and what exact identity restore preserves. Then identify the owning mutation before adding any UI.
 
-**Exit proof:** One checked-in contract/decision + bounded implementation handoff makes archive vs local discard unambiguous, defines recoverability and exact artifact/revision identity after restore, and identifies the authorized APP-STATE server write boundary.
+**Refs:** `src/application_state/source/service.py`; `apps/live_control_server/routes/workspace_lifecycle.py`; #1445–#1447.
 
-**Refs:** `Docs/Reports/REPORT-application-state-durability-drill.md`; `Docs/Reports/REPORT-stage-2b-c1-c2-repopulation.md`; `src/application_state/source/service.py`; `Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md`.
 
 ---
 
@@ -102,125 +100,72 @@ Do not infer a current blocker or READY assignment from them.
 
 # IDEA
 
-## [IDEA] Background suggestions for missing World graph relationships — captured 2026-10-13
-**Context:** Mirathorn context-loop dogfooding: the loaded graph has a disconnected Sara node and no Frank node-name match, while corpus recaps describe their operator roles and connections to Mirathorn, Lysandra, and the rockie-talkie network.
-**Insight:** Buddy should suggest additional evidence-backed edges. A low-cost background decision loop could identify candidate relationships in admitted sources, assess whether they are already represented and useful, and surface them only when user review or a decision is needed.
-**Action:** Design bounded candidate generation and triage: preserve source references and proposed endpoints/predicates; deduplicate existing or previously reviewed candidates; distinguish explicit source facts from inference; decide when to stay quiet versus request review. Retain an inspectable record of why a candidate was suppressed or surfaced. Automatic publication is not decided by this idea. Buddy owns suggestions and review UX; canonical relationship publication requires the owning World graph contract.
-**Surfaces when:** Iterating Buddy's conversation context loop, investigating sparse subject neighbourhoods, improving relationship extraction, or designing proactive graph review.
-**Refs:** Mirathorn context-loop discussion and loaded Elderwyld graph inspection, 2026-10-13; `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/sara_mirathorn_operator_character_dossier.md`.
+## [DEFERRED] Background suggestions for missing World graph relationships
+**Owner:** Buddy suggestions and review
+**Captured:** 2026-10-13
+**Last verified:** 2026-11-10 @ `8a9ad7902`
+**Trigger:** The operator selects proactive source-backed suggestions as a product capability.
 
-## [IDEA] Graph exploration controller lab — oracle traces to System One policy
-**Kind:** RESEARCH / EVALUATION / AGENT RETRIEVAL  
-**Owner:** Agent retrieval / DungeonMind graph-read consumer  
-**Captured:** 2026-09-26  
-**Last verified:** 2026-09-26 after review of current Agent graph-query benchmark  
-**Depends on:** the existing Agent graph-query benchmark and a normally product-readable pinned World/revision. This does not own sequencing and must re-anchor against the post-CUTOVER DungeonMind/Buddy read boundary before promotion.
+**Current boundary:** Agent-requested saved-source relationship review already exists (#1751, #1753). It validates exact supporting quotes and requires confirmation before publication. No background candidate scheduler or cross-run suppression workflow was found in current callers. The original Sara/Frank example requires fresh verification before it can serve as a defect.
 
-**Problem:** The existing graph-query benchmark already distinguishes product loadability, oracle retrieval, and real-Agent orchestration, but its oracle layer is manual/scripted. DungeonBuddy has enough real corpus and challenging gold to turn that layer into a constrained graph-navigation game. A strong code agent can play the game using only legal bounded graph actions; its trajectories and failures can reveal the smallest reusable action algebra needed for difficult retrieval. Those state/action traces can later benchmark cheaper policies, including a System One / Jev-style controller.
+**Next slice on trigger:** Reuse the existing candidate/review/publication owners for one opt-in suggestion flow. Define when a suggestion is useful, how prior review suppresses repeats, and when to ask the author.
 
-**Research direction:** Start with a deliberately tiny read-only action set such as resolve, expand, follow, open evidence, and supported/insufficient stop. Record every legal alternative, chosen action, observation, evidence admitted, budget, and termination. Classify failures before adding actions. New actions must be general graph operations, not benchmark-specific semantic shortcuts. Retrieval quality is scored separately from final answer synthesis.
+**Refs:** `src/application_state/agent_conversation/relationship_review.py`; `tests/application_state/test_relationship_review_postgres.py`; #1751, #1753.
 
-**Critical constraints:** No arbitrary repository/corpus search by the explorer; no raw storage/SQL bypass; no visibility/admissibility bypass; no parallel graph authority; no hidden full LLM behind one giant search action; Jev is a later controller experiment, not the first implementation dependency.
+## [DEFERRED] Compare retrieval controllers using existing native actions
+**Owner:** Retrieval evaluation
+**Captured:** 2026-09-26
+**Last verified:** 2026-11-10 @ `8a9ad7902`
+**Trigger:** Independent evaluation identifies controller choice as a measured retrieval bottleneck and the operator selects a comparison.
 
-**Promotion trigger:** The current graph-query benchmark can run against one pinned, product-readable revision and there is a clean seam for exposing legal bounded actions without creating another retrieval backend.
+**Current boundary:** Native retrieval, Jev decision drivers, trace capture and independent benchmark assessment already exist. The old proposal's first step of constructing a new exploration environment must be re-scoped around those owners.
 
-**Likely first slice on promotion:** Build only the bounded read-only graph-exploration environment and deterministic trace contract. Code-agent oracle automation, action-set discovery, and Jev/System One comparison remain successors.
+**Next slice on trigger:** Pin one ordinary request and its admitted evidence. Compare controller decisions through the same existing native actions and benchmark assessment. Measure support, coverage, latency and calls. Determine whether successful traces warrant further controller research.
 
-**Detailed capture:** Docs/Backlog/BACKLOG-graph-exploration-system-one-controller-lab.md  
-**Parent benchmark:** Docs/Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md
+**Refs:** `src/application_state/agent_conversation/native_retrieval.py`; `apps/live_control_server/services/build_jev_driver.py`; `apps/live_control_server/services/plan_jev_driver.py`; `evals/buddy_benchmark/`; [original research capture](Docs/Backlog/BACKLOG-graph-exploration-system-one-controller-lab.md) as historical design input.
+
 
 ---
 
 # DEFERRED
 
-## [DEFERRED] Composable spatial workspace + instant theme packs
-**Kind:** PRODUCT DESIGN / FRONTEND ARCHITECTURE / RESEARCH  
-**Owner:** Buddy presentation layer / future spatial workspace  
-**Captured:** 2026-09-26  
-**Last verified:** 2026-09-26 @ `24e0565145ad578783c3b9ed3b0b672d9f6b3f30` after UI-F1–F4 substrate work merged/reviewed  
-**Trigger:** a basic demo-ready Buddy presentation is accepted and the product can afford exploratory spatial/composable UI work without delaying the demo.
+## [DEFERRED] Composable spatial workspace and selectable themes
+**Owner:** Buddy presentation
+**Captured:** 2026-09-26
+**Last verified:** 2026-11-10 @ `8a9ad7902`
+**Trigger:** The operator selects spatial composition or selectable themes for implementation.
 
-**Problem:** The long-term presentation dream is a fast, composable workspace where the GM can arrange reusable Buddy components freely on a large/infinite spatial surface, save different workspace arrangements, zoom between overview and detail, and swap pre-baked visual themes (for example D&D/fantasy → sci-fi) instantly without changing component semantics, data, or layout ownership. This is intentionally **not** the current demo-readiness priority.
+**Current boundary:** Shared presentation components and graph canvas exist. Current source has no saved multi-object workspace arrangements or selectable theme-pack contract. The shared grid page constructor above owns the separate request for snapping page content into rows and columns.
 
-**Design direction to preserve:**
+**Next slice on trigger:** Select either saved spatial arrangements or selectable themes and bound it independently. For spatial arrangements, investigate existing canvas/projection components and define ownership of positions, sizes and camera state. For themes, investigate existing semantic tokens and define one reversible theme selection. These are separate capabilities.
 
-```text
-Buddy domain / durable state
-        ↓
-presentation model
-        ↓
-Buddy component registry
-        ↓
-presentation engine
-  ├─ Flow
-  ├─ Page / Print
-  └─ Spatial / infinite workspace
+**Refs:** [presentation substrate plan](Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md); `apps/live-control-ui/src/localWorld/worldGraphCanvas/`; shared grid page constructor entry above.
 
-theme pack is orthogonal:
-  component + layout stay the same
-  semantic CSS/theme tokens repaint the workspace
-```
+## [DEFERRED] Create a campaign inside an existing World
+**Owner:** Buddy campaign UX + DungeonMind campaign membership
+**Captured:** 2026-08-11
+**Last verified:** 2026-11-10 @ Buddy `8a9ad7902`, DungeonMind `430c1a6d`
+**Trigger:** An operator needs to start a new campaign in an existing World through ordinary controls.
 
-Keep these concerns independent:
+**Current boundary:** DungeonMind's campaign ingest-context route requires an existing campaign membership. Buddy's #1860 restored two retained memberships via an offline repair. Neither provides a user-facing creation operation.
 
-- **component meaning:** World object, Scene, Runbook, ToolHost, Agent, Combat, note, map, etc.;
-- **spatial layout:** x/y/size/z/collapse/group/camera/workspace preset only;
-- **theme:** semantic paint/typography/radius/border/shadow/icon treatment only;
-- **durable authority:** remains in Buddy/DungeonMind/APP-STATE; the spatial layer references objects and must not copy their bodies into a second truth store.
+**Next slice on trigger:** Define a DungeonMind-owned membership creation operation and the minimal Buddy flow that uses it. Prove the new campaign can be selected and admit its own sources in the existing World.
 
-Performance is a first-class requirement because the ordinary development/client machine may be weak. A future spatial engine should therefore prefer viewport culling, cheap pan/zoom, level-of-detail rendering, stable component identity, and avoiding full expensive component renders when zoomed far out.
-
-**Next slice on trigger:** Design/research only. Re-anchor against the then-current presentation substrate and compare at least:
-
-1. a library-backed spatial engine (tldraw is a current candidate, not a decision);
-2. a deliberately small Buddy-owned spatial engine;
-3. whether the existing `Drakosfire/Canvas` package should remain Page/Print-only rather than serving spatial work.
-
-Freeze a minimal `SpatialWorkspacePort` / spatial-item contract and a theme-pack token contract before implementation. Explicitly decide persistence ownership for workspace arrangement and camera state. Do **not** start by building freeform interaction mechanics, merging Page and Spatial canvas concerns, or coupling themes to domain components.
-
-**Desired eventual experience:** the same ObjectSheet/Scene/Runbook/etc. can be moved around a saved infinite workspace, switch between workspace presets such as “At the Table” and “Worldbuilding,” and instantly change visual language (fantasy, sci-fi, clean, etc.) by swapping theme tokens without rebuilding or reauthoring the components.
-
-**Refs:** `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md`; `Docs/Design/ui-language/DESIGN-interaction-layer-language.md`; F1–F4 presentation-substrate work; `Drakosfire/Canvas` as Page/Print-layout research ancestry only.
+**Refs:** [Campaign membership repair](Docs/Plans/HANDOFF-BUILD-elderwyld-campaign-membership.md); `src/dungeonmind/service/api.py` in DungeonMind.
 
 
-## [DEFERRED] Define campaign creation inside an existing World
-**Kind:** DESIGN / CROSS-BOUNDARY AUTHORITY  
-**Owner:** Buddy campaign lifecycle + DungeonMind campaign scope  
-**Captured:** 2026-08-11  
-**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`  
-**Trigger:** creating a genuinely new campaign becomes an immediate product/dogfood need.
+## [DEFERRED] Verbatim source phrase grounding in the frozen TL01 evaluation
+**Owner:** Temporal grounding evaluation
+**Captured:** 2026-08-01
+**Last verified:** 2026-11-10 @ `8a9ad7902`
+**Trigger:** A real product use case selects a temporal capability that consumes this renderer, as required by the TL01 close decision.
 
-**Problem:** The old READY item predates the completed DungeonMind cutover and assumed a world-container model that no longer describes authority correctly. One World now has one authoritative World Supergraph; campaign is assertion/evidence/chronology/visibility scope, while Buddy owns application/source/work state.
+**Current boundary:** The original renderer check still fails when its cited snippet lacks the requested verbatim phrase. TL01 evaluation remains frozen. Current recap ingestion and source reads use exact stored spans (#1941, #1965), but those changes do not resolve this separate evaluation defect.
 
-**Next slice on trigger:** Re-decompose campaign creation into its actual authority boundaries before writing a contract: Buddy campaign/application identity and source/work bindings vs DungeonMind campaign-scoped assertion semantics. Freeze only the independently useful first contract; do not fork or duplicate World identity implicitly.
+**Next slice on trigger:** Reproduce the retained failure through the selected consumer, then prove a known-good phrase grounds through both relevant lanes before revising cohorts or prompts.
 
-**Refs:** `Docs/Design/ARCHITECTURE-campaign-supergraph.md`; `Docs/Design/CONTRACT-world-container-v1.md` as historical design evidence; `Docs/Roadmaps/ROADMAP-con-ready.md`.
+**Refs:** [TL01 close decision](Docs/Design/DECISION-tl01-temporal-prompt-calibration-close.md), section 7; `evals/graph_memory_layer/temporal_shadow_grounding_path.py`; #1941, #1965.
 
-## [DEFERRED] Verbatim `source_phrase` grounding vs renderer snippets
-**Kind:** EVALUATION / EVIDENCE CONTRACT  
-**Owner:** Temporal/grounding evaluation  
-**Captured:** 2026-08-01  
-**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`; no current demo-readiness trigger observed  
-**Trigger:** phrase-level extraction again requires this renderer path.
-
-**Problem:** Development phrase-grounding fails deterministically when the required verbatim phrase is not present in the renderer-produced cited snippet.
-
-**Next slice on trigger:** Prove one known-good smoke case grounds through both lanes before touching cohorts/prompts; keep sealed cohorts/gold unchanged.
-
-**Refs:** `Docs/Design/DECISION-tl01-temporal-prompt-calibration-close.md`; `Docs/Reports/REPORT-tl01g-grounding-path-recovery.md`; PRs #468, #486, #500.
-
-## [DEFERRED] Ecology/resource extraction pass
-**Kind:** DESIGN / EXPERIMENT  
-**Owner:** Graph extraction  
-**Captured:** 2026-07-18  
-**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`; no current demo-readiness trigger observed  
-**Trigger:** current extraction dogfood shows species/flora/fauna/resource duplication materially harms preparation or retrieval.
-
-**Problem:** Ecology/resource concepts repeatedly blur actor/object boundaries, but current product priorities do not justify inventing a new extraction pass without fresh dogfood pressure.
-
-**Next slice on trigger:** Reproduce the defect on the current DungeonMind/Buddy extraction boundary, then design a bounded `ecology_resource_pass` and compare it against the current path before implementation.
-
-**Refs:** `Docs/Reports/GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-MANUAL-REVIEW.md`; `Docs/Plans/HANDOFF-prime-design-graph-memory-extraction-taxonomy.md`.
 
 ---
 
@@ -265,6 +210,10 @@ a prototype is not a new durable authority.
 
 ## Hygiene history
 
+- 2026-11-10: reverified the next four entries. Retained the distinct residuals, removed already-shipped portions, and replaced the proposed controller environment with a comparison through existing native retrieval and evaluation.
+
+- 2026-11-10: audited the four oldest active entries against Buddy main `8a9ad7902` and DungeonMind main `430c1a6d`. Archived the broad ecology-pass proposal, retained the unresolved frozen TL01 defect, and reverified two deferred lifecycle gaps.
+
 - 2026-11-10: checked delivery through Buddy main `b0585f6d9`; archived the Build Statblock Workbench launcher, recorded completed image authoring slices, and corrected superseded roadmap pointers.
 
 - 2026-08-16 pass 1: 74 active headings → 29; see `Docs/Reports/BACKLOG-HYGIENE-2026-08-16.md`.
@@ -272,9 +221,14 @@ a prototype is not a new durable authority.
 - 2026-09-08 pass 3: re-anchored after PR #694 and the Stage 2A/2B durability work. Status-bearing headings reduced **17 → 7** (`2 READY`, `2 BLOCKED`, `3 DEFERRED`). Demo-Ready/CON-READY/Threat-owned work moved to pointer-only delegation; pre-cutover graph-authority assumptions were corrected; broad durability umbrellas were retired after real APP-STATE/World recovery proof; browser-local statblock persistence was retired as a product durability target.
 
 
-## [IDEA] Route authored facts to their subject's document and Graph provenance — captured 2026-10-16
-**Context:** Operator writing Edge in Build while discussing facts about Mirathorn with the Agent.
-**Insight:** The open document is the current workspace; each new fact may belong to a different subject and source document. The operator wants facts to produce useful nodes and relationships with openable links to their actual source passages.
-**Action:** Design a reviewable authoring proposal that names the destination document/passage and proposed nodes/relationships together. A Mirathorn addition discussed while Edge is open should target the appropriate Mirathorn document, preserve the originating conversation reference, and ask when the subject/destination is ambiguous. Distinguish new authored lore from retrieval of already established facts. Commit source text before deriving admitted Graph knowledge; never silently treat conversation prose as canon or edit the wrong page.
-**Surfaces when:** Build Agent authoring, cross-document edit proposals, selection annotations, and authored-source Graph ingestion.
-**Refs:** Operator Build dogfood, Edge document `6e0e35c4-41d7-48a6-9f57-6adbca2a0c19`; `Docs/Plans/HANDOFF-AGENT-full-prompt-inspection.md` (predecessor only).
+## [DEFERRED] Propose edits to an existing related page from the current workspace
+**Owner:** Build authoring
+**Captured:** 2026-10-16
+**Last verified:** 2026-11-10 @ `8a9ad7902`
+**Trigger:** The operator asks to revise an existing related page while retaining the current workspace.
+
+**Current boundary:** Related saved-page context, connected-page creation and saved-source relationship reviews have shipped. Build text proposals still capture one page as their mutation target. A request for a different page returns a destination mismatch or requires handoff. The broad original ticket's connected-page and relationship portions are already covered.
+
+**Next slice on trigger:** Capture an explicit existing destination document and passage, show an editable proposal through the shared review host, and preserve the originating workspace. After saving, reuse the existing source and reviewed publication flow for any proposed Graph changes.
+
+**Refs:** `apps/live_control_server/services/build_document_proposal.py`; `src/application_state/agent_conversation/collaboration.py`; `src/application_state/agent_conversation/relationship_review.py`; #2127, #2129, #2273.
