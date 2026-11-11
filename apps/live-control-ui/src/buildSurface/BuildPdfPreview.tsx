@@ -1,3 +1,4 @@
+import { PdfStatblockCandidate } from "./PdfStatblockCandidate";
 import { pdfRegionKey, readRetainedPdfRegions, retainedPdfKey, type PdfLocator, type PdfReceipt, type RetainedPdf } from "../api/retainedPdfRegions";
 import { authenticatedApiFetch } from "../api/liveApi";
 import { useEffect, useRef, useState, type PointerEvent } from "react";
@@ -303,6 +304,17 @@ function PdfPages({ file, worldId, restored, onRetained }: {
                     <textarea readOnly value={capturedText} rows={5} />
                   </label>
                 ) : <p role="status">No PDF text runs were selected. The crop may still contain visible text.</p>}
+              {receipt && capturedText && <PdfStatblockCandidate
+                key={JSON.stringify([page, capture.region, capturedText])}
+                text={capturedText}
+                locator={{
+                  source_revision_id: receipt.source_revision_id,
+                  content_sha256: receipt.content_sha256,
+                  page, left: capture.region.left, top: capture.region.top,
+                  right: Math.min(1, capture.region.left + capture.region.width),
+                  bottom: Math.min(1, capture.region.top + capture.region.height),
+                }}
+              />}
               {(textError || capturedText !== undefined) && (
                 <CropOcr key={capture.image} image={capture.image} hasPdfText={Boolean(capturedText)} />
               )}
