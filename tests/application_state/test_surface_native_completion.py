@@ -41,9 +41,10 @@ from tests.application_state.test_surface_native_writers import (
     digest,
 )
 from tests.test_surface_native_execution import execution
+from tests.test_surface_native_writer import published_lane as published_lane
 
 
-def completed_input(dsn, *, used=False, base=True, acquired=None, answer_rows=None):
+def completed_input(dsn, *, used=False, base=True, acquired=None, answer_rows=None, gaps=None):
     case = prepared_case(dsn, used=used, acquired=acquired)
     candidate = json.loads(case.output)
     selection = next(
@@ -62,6 +63,8 @@ def completed_input(dsn, *, used=False, base=True, acquired=None, answer_rows=No
             ]
     else:
         candidate["answer_segments"] = rows
+    if gaps is not None:
+        (candidate["base_output"] if used else candidate)["requested_detail_gaps"] = gaps
     case.output = json.dumps(candidate)
     run_writer(case)
     case.capture = NativeProviderReply(
@@ -449,6 +452,52 @@ def test_oversized_admitted_request_completes_and_reloads(application_state_dsn,
     completed = finish(case)
     assert completed.assistant_text == case.normalized.assistant_text
     assert len(case.writer_calls) == 1
+    assert finish(case) == completed
+    assert AgentConversationService().inspect_turn(world_id=case.turn.world_id,
+        turn_id=case.turn.turn_id) == completed
+
+
+
+def test_mixed_cited_answer_with_unbound_gap_reopens(application_state_dsn, published_lane):
+    from dataclasses import replace
+
+    from application_state.agent_conversation.plan_jev_rules_lookup import rules_candidate
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+    from tests.application_state.test_surface_native_acquisition import host, record_candidates
+    from tests.application_state.test_surface_native_decisions import sdk_case
+    from tests.application_state.test_surface_native_writers import acquire_rules
+    from tests.test_native_plan_statements import query
+    from tests.test_surface_native_writer import published_case
+
+    context, record = published_case("plan", published_lane)
+    record = execution(context.context_receipt_sha256, record.policy)
+    query_context, result = query(published_lane, scope_mode="world")
+
+    question = "Can I end my move in an occupied space?"
+
+    def acquire(case):
+        bound_query = replace(query_context, query=case.turn.graph_context_receipt.native_query)
+        with host(case, query_context=bound_query) as adapter:
+            driver = PlanJevDriver(adapter)
+            driver._read_native("statement", [m.statement_id for m in result.matches])
+            driver._read_native("assertion", [m.assertion_id for m in result.assertion_matches])
+
+    acquired = sdk_case(application_state_dsn, context_record=(context, record), native="current",
+        acquisitions=((record_candidates, acquire), (lambda case: (rules_candidate(),), acquire_rules)),
+        question=question)
+
+    def cited_rows(case):
+        handle = case.frame["native_assertions"]["assertions"][0]["assertion_handle"]
+        return [dict(kind="native_assertion_claim", text="The Graph preserves a provisional report.",
+                     assertion_handles=[handle])]
+
+    case = completed_input(application_state_dsn, used=True, acquired=acquired,
+        answer_rows=cited_rows, gaps=[{"question_phrase": "an unbound paraphrase"}])
+    base = case.normalized.base_completion
+    assert base.native_assertion_citations
+    assert any(getattr(s, "code", None) == "missing_requested_details" for s in base.answer_segments)
+    assert "an unbound paraphrase" not in case.normalized.assistant_text
+    completed = finish(case)
     assert finish(case) == completed
     assert AgentConversationService().inspect_turn(world_id=case.turn.world_id,
         turn_id=case.turn.turn_id) == completed
