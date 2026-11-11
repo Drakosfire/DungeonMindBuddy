@@ -1421,32 +1421,3 @@ def test_interrupted_actual_opening_retains_unknown_attempt_without_provider_rep
         lane, tmp_path, monkeypatch, native_read_admission_probes):
     _ordinary_native_case(lane, tmp_path, monkeypatch, False, False,
         None, 'opening_timeout', False, native_read_admission_probes)
-
-
-def test_writer_name_admission_requires_same_qualifications_and_exact_support(monkeypatch):
-    from application_state.agent_conversation import native_plan_assertions as owner
-
-    class Metadata(dict):
-        def model_dump(self, **kwargs):
-            return dict(self)
-
-    metadata = Metadata(scope=[], epistemic_basis='asserted', claim_mode='fact',
-                        standing='provisional', temporal_scope=None, domain_metadata=[])
-
-    def read(predicate, text, *, qualification=metadata, spans=('source span',)):
-        assertion = SimpleNamespace(predicate=predicate, subject_entity_id='entity',
-                                    value=SimpleNamespace(value=text), metadata=qualification)
-        return SimpleNamespace(assertion=assertion, evidence=('source reference',), spans=spans)
-
-    name = read('dnd5e:name', 'Torbin')
-    summary = read('dnd5e:summary', 'Torbin accepted the agreement.')
-    different_span = read('dnd5e:name', 'Torbin', spans=('other source span',))
-    different_standing = read('dnd5e:name', 'Torbin',
-                              qualification=Metadata(metadata, standing='other'))
-    records = tuple(enumerate((name, summary, different_span, different_standing)))
-    monkeypatch.setattr(owner, 'selected_read_records', lambda _: records)
-
-    historical = SimpleNamespace(policy=SimpleNamespace())
-    current = SimpleNamespace(policy=SimpleNamespace(writer_assertion_admission='redundant_names_v1'))
-    assert owner.writer_read_records(historical) == records
-    assert owner.writer_read_records(current) == records[1:]

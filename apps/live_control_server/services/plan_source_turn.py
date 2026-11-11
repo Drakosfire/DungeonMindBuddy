@@ -249,7 +249,7 @@ def _freeze_native(work_context, action, assembled, authority, native_query, pro
         provider_input_accounting={'kind':'conservative_upper_bound','estimator':budget['estimator']},
         max_provider_attempts=None,max_total_provider_input_tokens=None,max_total_provider_output_tokens=None,
         controller_continuation_accounting=controller_accounting,writer_context_budget=writer_budget,
-        writer_assertion_admission="redundant_names_v1" if isinstance(action, NativePlanActionV1) else None)
+        writer_assertion_layout="compact_names_v1" if isinstance(action, NativePlanActionV1) else None)
     wire = dict(schema='dmb_surface_native_execution_v1',context_receipt_sha256=receipt.context_receipt_sha256,
         policy=policy.model_dump(mode='json',by_alias=True))
     execution = SurfaceNativeExecutionV1.model_validate_json(json.dumps(wire|{'execution_policy_sha256':canonical_sha256(wire),'events':[]}))

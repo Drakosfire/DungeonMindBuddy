@@ -80,9 +80,13 @@ def model_frame(receipt, execution, *, schema=SCHEMA):
             if isinstance(query, assertions.NativePlanQueryV2) else None)
 
 
+def _compact_names(execution):
+    return execution.policy.writer_assertion_layout == 'compact_names_v1'
+
+
 def model_input_frame(receipt,execution):
     from .native_evidence_view import semantic_frame
-    return semantic_frame(model_frame(receipt,execution))
+    return semantic_frame(model_frame(receipt,execution), compact_names=_compact_names(execution))
 
 
 @dataclass(frozen=True)
@@ -280,7 +284,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         raise ValueError('Native writer requires its exact evidence presentation')
     from .native_evidence_view import is_semantic_frame,expected_semantic_frame,output_frame
     host = model_frame(receipt,prefix) if is_semantic_frame(frame) else model_frame(receipt,prefix,schema=frame.get('schema'))
-    expected = expected_semantic_frame(host, frame) if is_semantic_frame(frame) else host
+    expected = expected_semantic_frame(host, frame, compact_names=_compact_names(prefix)) if is_semantic_frame(frame) else host
     schema_frame = output_frame(host,expected)
     from .native_plan_work_view import is_semantic_frame as semantic_work, semantic_frame as plan_work_view
     from .native_play_work import is_semantic_frame as semantic_play, semantic_frame as play_work_view
@@ -335,7 +339,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
         authored=authored,idempotency_key=idempotency_key,
         authored_local=authored_local,build_local=build_local,
         saved_sections=saved_sections,related_pages=related_pages,draft_record=draft_record,
-        **read_evidence_records(prefix,expected))
+        **read_evidence_records(prefix,schema_frame))
 
 
 def read_evidence_records(prefix, frame):
@@ -343,8 +347,7 @@ def read_evidence_records(prefix, frame):
     catalogs = bodies.acquired_body_catalogs(prefix)
     body_reads = bodies.selected_body_reads(prefix)
     statement_reads = statements.selected_read_records(prefix)
-    assertion_reads = (assertions.selected_read_records(prefix) if frame.get("schema") == LEGACY_SCHEMA
-                       else assertions.writer_read_records(prefix))
+    assertion_reads = assertions.selected_read_records(prefix)
     return dict(body_excerpts=tuple(bodies.NativeBodySupport(row['excerpt_handle'], read,
             catalogs[read.excerpt.catalog_sha256]) for row,read in zip(frame['native_body_evidence']['excerpts'],body_reads,strict=True)),
         native_statements=tuple((row['statement_handle'], event, read) for row, (event, read)

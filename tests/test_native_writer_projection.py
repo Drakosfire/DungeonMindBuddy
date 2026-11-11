@@ -513,3 +513,51 @@ def test_play_retrieval_has_one_dialogue_location_and_rejects_divergent_host_cop
     for changed in [[],[dict(role='user',content='Substituted previous request.')]]:
         with pytest.raises(ValueError,match='actual retrieval parent'):
             NativePlayRetrievalDecisionInputV1(**(args|{'play_work':host|{'dialogue':changed}}))
+
+
+def test_compact_names_keep_exact_assertion_order_and_citation_handles(published_lane):
+    from application_state.agent_conversation.native_evidence_view import (
+        expected_semantic_frame, output_frame, semantic_frame,
+    )
+
+    context, record = published_case('plan', published_lane)
+    host = model_frame(context, record)
+    rows = host['native_assertions']['assertions']
+    template = deepcopy(rows[0])
+    for predicate, value in (
+        ('dnd5e:name', 'Torbin'),
+        ('dnd5e:summary', 'She met Torbin.'),
+        ('dnd5e:name', 'TORBIN'),
+    ):
+        row = deepcopy(template)
+        row['assertion'].update(predicate=predicate, value=dict(kind='literal', value=value))
+        rows.append(row)
+    plain = semantic_frame(host)
+    compact = semantic_frame(host, compact_names=True)
+    table = compact['native_assertions']['entity_name_assertions']
+    assert {'Torbin', 'TORBIN'} <= {
+        binding[0] for bindings in table['by_subject'].values() for binding in bindings
+    }
+    assert output_frame(host, compact) == output_frame(host, plain)
+    assert expected_semantic_frame(host, compact, compact_names=True) == compact
+    assert expected_semantic_frame(host, compact) == plain
+
+
+def test_compact_plan_request_verifies_original_read_records(published_lane):
+    from application_state.agent_conversation.native_writer import model_input_frame
+
+    context, record = published_case('plan', published_lane)
+    work = work_submission(context, record)
+    plain = model_input_frame(context, record)
+    policy = record.policy.model_copy(update={'writer_assertion_layout': 'compact_names_v1'})
+    record = record.model_copy(update={'policy': policy})
+    compact = model_input_frame(context, record)
+    assert compact['native_assertions']['entity_name_assertions']
+    assert compact != plain
+    raw = asyncio.run(actual_sdk_request(
+        compact, work_frame=model_work_frame(context, record, **work)))
+    stored, grant = authorize(context, record, raw, compact)
+    evidence = verify_input_records(context, stored, grant, raw, **work)
+    assert [handle for handle, _, _ in evidence.native_assertions] == [
+        row['assertion_handle'] for row in plain['native_assertions']['assertions']
+    ]

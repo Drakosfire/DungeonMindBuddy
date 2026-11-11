@@ -93,7 +93,7 @@ def _domain_meaning(entries):
     return result
 
 
-def semantic_frame(host):
+def semantic_frame(host, *, compact_names=False):
     """Explicit projection of an owner-reconstructed current native host frame.
 
     Literal/domain payloads are context and never recursively scrubbed. Only typed
@@ -263,6 +263,20 @@ def semantic_frame(host):
             "Inclusive source line ranges identify explicit recap planning. "
             "Use those lines as plans. Establish played events from their own evidence."
         )
+    name_bindings = {}
+    if compact_names:
+        other_assertions = []
+        for row in assertions:
+            assertion = row["assertion"]
+            value = assertion["value"]
+            if (assertion["predicate"] == "dnd5e:name" and value["kind"] == "literal"
+                    and isinstance(value["value"], str)):
+                name_bindings.setdefault(assertion["subject"], []).append([
+                    value["value"], assertion["qualification"], row["assertion_handle"],
+                ])
+            else:
+                other_assertions.append(row)
+        assertions = other_assertions
     return dict(
         input_status=host["input_status"],
         user_question=host["user_question"],
@@ -279,6 +293,10 @@ def semantic_frame(host):
             assertions=assertions,
             qualifications=qualifications,
             universal_absence_claimed=False,
+            **({"entity_name_assertions": {
+                "columns": ["exact_name", "qualification", "assertion_handle"],
+                "by_subject": name_bindings,
+            }} if name_bindings else {}),
         ),
     )
 
@@ -286,6 +304,36 @@ def semantic_frame(host):
 def output_frame(host, provider):
     """Transient shape for the existing output-schema owner, never sent as context."""
     return host | _inline_qualifications(provider)
+
+
+def _expanded_assertions(collection):
+    rows = collection["assertions"]
+    if "entity_name_assertions" not in collection:
+        return rows
+    table = collection["entity_name_assertions"]
+    if (not isinstance(table, dict) or set(table) != {"columns", "by_subject"}
+            or table["columns"] != ["exact_name", "qualification", "assertion_handle"]
+            or not isinstance(table["by_subject"], dict) or not table["by_subject"]):
+        raise ValueError("Malformed entity name assertion table")
+    expanded = list(rows)
+    for subject, bindings in table["by_subject"].items():
+        if not isinstance(bindings, list) or not bindings:
+            raise ValueError("Malformed entity name bindings")
+        for binding in bindings:
+            if (not isinstance(binding, list) or len(binding) != 3
+                    or not all(isinstance(value, str) for value in binding)):
+                raise ValueError("Malformed entity name binding")
+            name, qualification, handle = binding
+            expanded.append(dict(assertion_handle=handle, assertion=dict(
+                subject=subject, predicate="dnd5e:name",
+                value=dict(kind="literal", value=name), qualification=qualification,
+            )))
+    by_handle = {row["assertion_handle"]: row for row in expanded}
+    if len(by_handle) != len(expanded) or set(by_handle) != {
+        f"assertion{index}" for index in range(len(expanded))
+    }:
+        raise ValueError("Malformed compact assertion handles")
+    return [by_handle[f"assertion{index}"] for index in range(len(expanded))]
 
 
 def _inline_qualifications(frame):
@@ -301,7 +349,7 @@ def _inline_qualifications(frame):
     if not isinstance(definitions, dict):
         raise ValueError('Malformed context qualification dictionary')
     rows, used = [], set()
-    for row in collection['assertions']:
+    for row in _expanded_assertions(collection):
         assertion = row['assertion']
         alias = assertion.get('qualification')
         if (not isinstance(alias, str) or alias not in definitions
@@ -313,7 +361,7 @@ def _inline_qualifications(frame):
     if used != set(definitions):
         raise ValueError('Unused context qualification')
     return frame | {'native_assertions': {
-        key: value for key, value in collection.items() if key != 'qualifications'
+        key: value for key, value in collection.items() if key not in {'qualifications', 'entity_name_assertions'}
     } | {'assertions': rows}}
 
 
@@ -375,15 +423,15 @@ def world_context_representation(frame):
     return next(iter(forms), "current")
 
 
-def expected_semantic_frame(host, actual):
+def expected_semantic_frame(host, actual, *, compact_names=False):
     """Reconstruct retained producing bytes by their closed actual slot shape.
 
     Current producers always use semantic_frame. This reader does not try hashes
     or emit alternate prompts; original request and frame bindings remain exact.
     """
-    expected = semantic_frame(host)
+    expected = semantic_frame(host, compact_names=compact_names)
     actual_collection = actual.get('native_assertions')
-    if actual_collection is not None and 'qualifications' not in actual_collection:
+    if not compact_names and actual_collection is not None and 'qualifications' not in actual_collection:
         expected = _inline_qualifications(expected)
     if world_context_representation(actual) == "historical":
         expected = _inline_qualifications(expected)

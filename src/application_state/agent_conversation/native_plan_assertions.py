@@ -1,8 +1,6 @@
 """Selected native assertions for Plan; Core owns admission and source provenance."""
 from __future__ import annotations
 
-import re
-from collections import defaultdict
 from dataclasses import dataclass
 from hashlib import sha256
 from typing import Literal
@@ -290,41 +288,6 @@ def selected_read_records(execution):
             else event.assertion_reads if isinstance(event, BuildAuthoredReferenceReadV2) else ()))
 
 
-def writer_read_records(execution):
-    """Admit names only when they add meaning or source evidence."""
-    records = selected_read_records(execution)
-    if getattr(getattr(execution, 'policy', None), 'writer_assertion_admission', None) is None:
-        return records
-
-    def qualifications(read):
-        from .native_evidence_view import _domain_meaning
-        metadata = read.assertion.metadata.model_dump(mode='json')
-        return digest({
-            **{key: metadata[key] for key in (
-                'scope', 'epistemic_basis', 'claim_mode', 'standing', 'temporal_scope')},
-            'domain_metadata': _domain_meaning(metadata['domain_metadata']),
-        })
-
-    summaries = defaultdict(list)
-    for _, read in records:
-        assertion = read.assertion
-        if assertion.predicate == 'dnd5e:summary' and isinstance(getattr(assertion.value, 'value', None), str):
-            summaries[assertion.subject_entity_id, qualifications(read)].append(read)
-
-    def redundant_name(read):
-        assertion = read.assertion
-        name = getattr(assertion.value, 'value', None)
-        if assertion.predicate != 'dnd5e:name' or not isinstance(name, str) or not name.strip():
-            return False
-        pattern = re.compile(r'(?<!\w)' + re.escape(name) + r'(?!\w)', re.IGNORECASE)
-        return any(pattern.search(summary.assertion.value.value)
-            and all(ref in summary.evidence for ref in read.evidence)
-            and all(span in summary.spans for span in read.spans)
-            for summary in summaries[assertion.subject_entity_id, qualifications(read)])
-
-    return tuple((event, read) for event, read in records if not redundant_name(read))
-
-
 def model_frame(turn):
     return model_frame_records(turn.graph_context_receipt.native_query, turn.graph_context_execution)
 
@@ -343,8 +306,7 @@ def model_frame_records(query, execution, *, schema='dmb_plan_native_assertion_f
             **({'evidence': [e.model_dump(mode='json') for e in read.evidence],
                 'supporting_sources': [s.model_dump(exclude={'text'}) for s in read.spans]}
                 if schema == 'dmb_plan_native_assertion_frame_v1' else {})}
-            for event, read in (selected_read_records(execution)
-                if schema == 'dmb_plan_native_assertion_frame_v1' else writer_read_records(execution))]}
+            for event, read in selected_read_records(execution)]}
 
 
 def input_partial(turn):
