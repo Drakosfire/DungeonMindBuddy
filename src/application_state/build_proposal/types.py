@@ -205,7 +205,9 @@ class BuildProviderAuthorization(StrictModel):
     model: str = Field(min_length=1, max_length=128)
     api_mode: Literal["responses"] = "responses"
     payload_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
-    payload_utf8_bytes: int = Field(strict=True, gt=0, le=262144)
+    # This receipt records the size of an already prepared, digest-checked
+    # request. It does not own transport or prompt capture limits.
+    payload_utf8_bytes: int = Field(strict=True, gt=0)
     evidence_id: UUID | None = None
     serializer_version: Literal["openai-sdk-json-v1"] = "openai-sdk-json-v1"
 
