@@ -78,6 +78,7 @@ it('does not attach evidence credentials to a near-miss endpoint', async () => {
 })
 
 const buildPaths = [
+  '/api/live/agent/build-pdf-ocr',
   '/api/live/agent/worlds/world%2Fa/build-proposals',
   '/api/live/agent/worlds/world%2Fa/build-proposals?conversation_id=conversation',
   '/api/live/agent/worlds/world%2Fa/build-proposals/action',
@@ -106,13 +107,13 @@ it('recovers a trusted pre-dispatch session rejection with identical Compose byt
     expect(new Headers(init?.headers).get('X-DMB-Graph-CSRF')).toBe('csrf')
     return calls === 1 ? Response.json({ detail: { code: 'graph_auth_csrf_rejected' } }, { status: 403 }) : Response.json({})
   })
-  await api.authenticatedApiFetch(buildPaths[0], { method: 'POST', body })
+  await api.authenticatedApiFetch(buildPaths[1], { method: 'POST', body })
   expect(calls).toBe(2)
 })
 it('does not repeat Compose after an uncertain network failure', async () => {
   const api = await setup(); api.setNativeGraphAccessToken('synthetic-build-token')
   const fetch = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Unknown outcome'))
-  await expect(api.authenticatedApiFetch(buildPaths[0], { method: 'POST', body: '{}' })).rejects.toThrow('Unknown outcome')
+  await expect(api.authenticatedApiFetch(buildPaths[1], { method: 'POST', body: '{}' })).rejects.toThrow('Unknown outcome')
   expect(fetch).toHaveBeenCalledTimes(1)
 })
 it('does not authorize a near-miss Build endpoint', async () => {
