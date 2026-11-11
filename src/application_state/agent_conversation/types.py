@@ -1058,6 +1058,7 @@ class BuildGraphIntentV1(SubmittedTurnIntentV1):
     retry_of: RetryTurnReference | None = None
     reviewed_step: ReviewedStepBindingV3 | ReviewedStepBinding | None = None
     build_write_capability_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    build_reference_image_id: UUID | None = None
     build_draft_context_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     client_work_state: Literal["saved_clean", "saved_dirty"]
     primary_work: SubmittedPrimaryWorkIntentV1
@@ -1072,10 +1073,17 @@ class BuildGraphIntentV1(SubmittedTurnIntentV1):
         value = serialize(self)
         if self.retry_of is None:
             value.pop("retry_of", None)
+        if self.build_reference_image_id is None:
+            value.pop("build_reference_image_id", None)
         return value
 
     @model_validator(mode="after")
     def validate_build(self) -> "BuildGraphIntentV1":
+        if self.build_reference_image_id is not None and (
+            self.build_write_capability_sha256 is None or self.build_draft_context_sha256 is None
+            or self.reviewed_step is not None
+        ):
+            raise ValueError("The page image requires an ordinary captured Build revision")
         if self.retry_of is not None and (self.reviewed_step is not None or self.build_draft_context_sha256 is None):
             raise ValueError("Retry requires fresh ordinary Build draft context")
         if self.reviewed_step is not None and (self.build_draft_context_sha256 is None or self.reviewed_step.kind == "prepare_insertion" and self.build_write_capability_sha256 is None):

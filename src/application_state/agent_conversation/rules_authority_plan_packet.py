@@ -134,9 +134,11 @@ def build_plan_rules_frame(execution: RulesExecutionV1, call_ids: tuple[str, ...
 
 
 def _frame_in_actual_request(body, *, allow_build=False) -> PlanRulesEvidenceFrameV1 | ModelRulesFrame:
-    if allow_build and isinstance(body,dict) and isinstance(body.get('input'),str):
+    from .build_proposal_input import proposal_packet_text
+    build_text = proposal_packet_text(body) if allow_build and isinstance(body, dict) else None
+    if build_text is not None:
         from .source_writer_output import strict_json
-        packet=strict_json(body['input'])
+        packet=strict_json(build_text)
         if (body.get('tools',[])!=[] or 'messages' in body or body.get('tool_choice') not in (None,'none')
                 or not isinstance(packet,dict) or not (
                     packet.get('schema') in {'dmb_build_compose_input_v1','dmb_build_image_direction_input_v1'} and 'task' not in packet

@@ -167,7 +167,13 @@ def authorize_native_writer(adapter, rules, proof, prepared, expected, frame):
                 or accounting.tokenizer_version != budget.tokenizer_version):
             raise WriterAccountingError('Native writer requires its prepared offline accounting; the retained request was not sent.')
         try:
-            estimate = accounting.estimate(expected)
+            from application_state.agent_conversation.build_proposal_input import proposal_packet_text
+            if isinstance(expected.get('input'), list) and proposal_packet_text(expected) is not None:
+                # The image is encoded as pixels by the provider. Counting its base64
+                # as prose would reject valid images before SDK dispatch.
+                estimate = accounting.estimate({**expected, 'input': proposal_packet_text(expected)}) + 4096
+            else:
+                estimate = accounting.estimate(expected)
         except Exception as exc:
             raise WriterAccountingError('Native writer input could not be counted; the retained request was not sent.') from exc
         input_kind, estimator = 'estimated_token_count', budget.estimator
@@ -179,8 +185,9 @@ def authorize_native_writer(adapter, rules, proof, prepared, expected, frame):
             code='build_writer_context_over_budget', actual=estimate+reserve, limit=limit)
     from application_state.agent_conversation.native_execution import NativeBuildActionV1, NativeBuildWriterAuthorizedV2
     from application_state.agent_conversation.native_build_work_view import frame_in_request, is_semantic_frame
-    work_view = (strict_json(expected['input']).get('surface_work')
-        if isinstance(expected.get('input'),str) else frame_in_request(expected))
+    from application_state.agent_conversation.build_proposal_input import proposal_packet_text
+    build_text = proposal_packet_text(expected)
+    work_view = strict_json(build_text).get('surface_work') if build_text is not None else frame_in_request(expected)
     writer_type, work_commitment = NativeWriterAuthorizedV1, {}
     if type(policy.action) is NativeBuildActionV1 and is_semantic_frame(work_view):
         from application_state.agent_conversation.native_writer import model_work_frame

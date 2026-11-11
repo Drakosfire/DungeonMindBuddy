@@ -43,6 +43,7 @@ class RetryContext(StrictModel):
     ordinal: int = Field(strict=True, ge=0)
     eligible: bool
     author_interaction: Literal["select_passage"] | None = None
+    reference_image_id: UUID | None = None
     reason: Literal[
         "ready",
         "not_terminal",
@@ -219,6 +220,9 @@ def context(conn, turn, *, active):
         meta.provenance.surface_id, meta.provenance.primary_work.kind,
         meta.status, getattr(turn, "failure_code", None),
     )
+    execution = getattr(turn, "graph_context_execution", None)
+    native = _native_action(execution)
+    image_id = native.intent.build_reference_image_id if native is not None else None
     value = RetryContext(
         world_id=meta.world_id,
         conversation_id=meta.conversation_id,
@@ -231,9 +235,9 @@ def context(conn, turn, *, active):
         eligible=reason == "ready",
         reason=reason,
         author_interaction=interaction,
+        reference_image_id=image_id,
     )
-    exclude = {"author_interaction"} if interaction is None else None
-    execution = getattr(turn, 'graph_context_execution', None)
+    exclude = {field for field in ("author_interaction", "reference_image_id") if getattr(value, field) is None}
     references=(_references(execution) if execution is not None and (_native_action(execution) is not None
         or any(e.kind=='build_authored_references_captured_v1' for e in execution.events)) else None)
     if references is not None:
@@ -387,6 +391,10 @@ def validate_predecessor(conn, submission, capability=None):
     ):
         raise RetryUnavailableError("Retry requires the same question and Build page")
     validate_reference_retry(parent, intent)
+    native = _native_action(parent.graph_context_execution)
+    original_image = native.intent.build_reference_image_id if native is not None else None
+    if intent.build_reference_image_id != original_image:
+        raise RetryUnavailableError("Select the passage and use Revise with image above to send an image-grounded revision.")
     if author_interaction(old.surface_id, old.primary_work.kind, parent.status, parent.failure_code) == "select_passage":
         from .build_draft_context import digest
         from application_state.build_proposal.types import BuildWriteCapability
@@ -422,7 +430,6 @@ def validate_predecessor(conn, submission, capability=None):
         "action_capability_sha256",
         None,
     )
-    native=_native_action(parent.graph_context_execution)
     if native is not None:
         previous_capability=native.intent.build_write_capability_sha256
     if (
