@@ -457,7 +457,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [cameraFocusRequest, setCameraFocusRequest] = useState<{ readonly nodeId: LocalObjectId | null; readonly requestId: number; readonly worldId: string; readonly selectNode?: boolean } | undefined>(undefined);
   const cameraFocusRequestIdRef = useRef(0);
-  const [cameraFocusResetRequest, setCameraFocusResetRequest] = useState<number | undefined>(undefined);
+  const [cameraFocusResetRequest, setCameraFocusResetRequest] = useState<{readonly requestId: number; readonly fitView: boolean} | undefined>(undefined);
   const [clearSelectionRequest, setClearSelectionRequest] = useState<number | undefined>(undefined);
   const selectionClearRequestIdRef = useRef(0);
   const [graphHelpOpen, setGraphHelpOpen] = useState(false);
@@ -525,7 +525,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     setObjectPage(0);
     setCameraFocusRequest(undefined);
     cameraFocusRequestIdRef.current += 1;
-    setCameraFocusResetRequest(cameraFocusRequestIdRef.current);
+    setCameraFocusResetRequest({requestId: cameraFocusRequestIdRef.current, fitView: viewFocusId !== null});
     selectionClearRequestIdRef.current += 1;
     setClearSelectionRequest(selectionClearRequestIdRef.current);
     setActivePanel((current) => current === "details" ? null : current);

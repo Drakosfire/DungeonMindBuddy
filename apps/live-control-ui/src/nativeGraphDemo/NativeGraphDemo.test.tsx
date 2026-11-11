@@ -137,21 +137,47 @@ describe("NativeGraphDemo", () => {
     expect(api.confirm).not.toHaveBeenCalled();
   });
 
-  it("finds an isolated final object and clears exploration on revision refresh", async () => {
+  it("frames the overview after fitting a late isolated neighborhood", async () => {
     const corpus = corpusGraph();
+    localStorage.setItem(`dungeonmind-native-demo:layout:${encodeURIComponent(corpus.world_id)}`, JSON.stringify({"entity:1403": {x: 5800, y: 5800}}));
+    vi.stubGlobal("ResizeObserver", undefined);
+    renderEmbeddedDemo({api: makeApi({readGraph: vi.fn().mockResolvedValue(corpus)})});
+    fireEvent.click(await screen.findByText("Find an object · 1404 loaded"));
+    const scene = screen.getByTestId("graph-scene");
+    fireEvent.click(screen.getByRole("button", {name: "Fit graph"}));
+    const overviewCamera = scene.getAttribute("transform");
+    fireEvent.change(screen.getByLabelText("Search loaded objects"), {target: {value: "entity:1403"}});
+    fireEvent.click(screen.getByRole("button", {name: "Explore Object 1403 (entity:1403)"}));
+    fireEvent.click(screen.getByRole("button", {name: "Fit graph"}));
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1);
+    expect(scene.getAttribute("transform")).not.toBe(overviewCamera);
+    fireEvent.click(screen.getByRole("button", {name: "Show overview"}));
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(512);
+    expect(scene.getAttribute("transform")).toBe(overviewCamera);
+  });
+
+  it.each([false, true])("clears and reframes exploration on revision refresh (after Fit: %s)", async (afterFit) => {
+    const corpus = corpusGraph();
+    vi.stubGlobal("ResizeObserver", undefined);
+    localStorage.setItem(`dungeonmind-native-demo:layout:managed%3Aworld-17:${encodeURIComponent(corpus.world_id)}`, JSON.stringify({"entity:1403": {x: 5800, y: 5800}}));
     const revised = {...corpus, revision_id: "revision-003", graph_sha256: "sha256:graph-003"};
     const delayed = deferred<NativeGraphEntity>();
     const api = makeApi({ readGraph: vi.fn().mockResolvedValueOnce(corpus).mockResolvedValueOnce(revised), inspectNode: vi.fn(() => delayed.promise) });
     renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Corpus", stateScopeId: "managed:world-17" });
     fireEvent.click(await screen.findByText("Find an object · 1404 loaded"));
+    fireEvent.click(screen.getByRole("button", {name: "Fit graph"}));
+    const scene = screen.getByTestId("graph-scene");
+    const overviewCamera = scene.getAttribute("transform");
     fireEvent.change(screen.getByLabelText("Search loaded objects"), {target: {value: "Object 1403"}});
     fireEvent.click(screen.getByRole("button", {name: "Explore Object 1403 (entity:1403)"}));
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1);
     expect(document.querySelector('[data-node-id="entity:1403"]')).toBeInTheDocument();
+    if (afterFit) fireEvent.click(screen.getByRole("button", {name: "Fit graph"}));
     fireEvent.click(within(screen.getByTestId("surface-context-host")).getByRole("button", {name: "Refresh"}));
     await waitFor(() => expect(screen.getByLabelText("Search loaded objects")).toHaveValue(""));
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(512);
     expect(screen.queryByRole("group", {name: "Neighborhood controls"})).not.toBeInTheDocument();
+    expect(scene.getAttribute("transform")).toBe(overviewCamera);
     await act(async () => delayed.resolve(entityDetail(corpus.revision_id, false)));
     expect(screen.queryByText("This object is unavailable in the selected revision.")).not.toBeInTheDocument();
     expect(screen.queryByRole("complementary", {name: "Selected object details"})).not.toBeInTheDocument();
@@ -356,7 +382,7 @@ describe("NativeGraphDemo", () => {
     expect(screen.queryByText("This object is unavailable in the selected revision.")).not.toBeInTheDocument();
   });
 
-  it("clears stale focus and canvas selection on snapshot refresh without moving the camera", async () => {
+  it("clears stale focus and refits the overview when refreshing a neighborhood", async () => {
     const user = userEvent.setup();
     const revisedGraph = { ...graph, revision_id: "revision-003", graph_sha256: "sha256:graph-003" };
     const readGraph = vi.fn().mockResolvedValueOnce(graph).mockResolvedValueOnce(revisedGraph);
@@ -365,15 +391,15 @@ describe("NativeGraphDemo", () => {
     renderEmbeddedDemo({ api });
     const mara = await screen.findByRole("button", { name: /Mara, npc/i });
     const scene = screen.getByTestId("graph-scene");
+    const overviewBeforeFocus = scene.getAttribute("transform");
 
     await user.click(mara);
     await user.click(screen.getByRole("button", { name: "Focus" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Exit focus" })).toBeInTheDocument());
-    const focusedBeforeRefresh = scene.getAttribute("transform");
     await user.click(within(screen.getByTestId("surface-context-host")).getByRole("button", { name: "Refresh" }));
     await waitFor(() => expect(readGraph).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.queryByRole("button", { name: "Exit focus" })).not.toBeInTheDocument());
-    expect(scene.getAttribute("transform")).toBe(focusedBeforeRefresh);
+    expect(scene.getAttribute("transform")).toBe(overviewBeforeFocus);
 
     await user.click(screen.getByRole("button", { name: "Zoom in" }));
     const cameraBeforeSecondFocus = scene.getAttribute("transform");

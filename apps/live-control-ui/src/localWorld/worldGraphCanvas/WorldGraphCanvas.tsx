@@ -56,7 +56,7 @@ export interface WorldGraphCanvasProps {
   readonly onConnectRequest?: (intent: CanvasConnectIntent) => void;
   readonly onSelectionChange?: (id: LocalObjectId | null) => void;
   readonly cameraFocusRequest?: { readonly nodeId: LocalObjectId | null; readonly requestId: number; readonly selectNode?: boolean };
-  readonly clearCameraFocusRequest?: number;
+  readonly clearCameraFocusRequest?: number | { readonly requestId: number; readonly fitView: boolean };
   readonly clearSelectionRequest?: number;
   readonly onCameraFocusChange?: (nodeId: LocalObjectId | null) => void;
   readonly interactionDisabled?: boolean;
@@ -485,10 +485,10 @@ export function WorldGraphCanvas({
     if (cameraFocusRequest.nodeId === null) {
       const previousCamera = originalCameraBeforeFocusRef.current;
       originalCameraBeforeFocusRef.current = null;
-      if (previousCamera) {
-        manualCameraRef.current = true;
-        setCamera(previousCamera);
-      }
+      manualCameraRef.current = true;
+      // Fit can end camera focus while a neighborhood is still displayed. In
+      // that case returning to the overview must frame the new projection.
+      setCamera(previousCamera ?? fittedCamera());
       onCameraFocusChange?.(null);
       return;
     }
@@ -518,9 +518,14 @@ export function WorldGraphCanvas({
   }, [camera, cameraFocusRequest, dimensions.height, dimensions.width, onCameraFocusChange, projection.nodes, viewport.height, viewport.width]);
 
   useLayoutEffect(() => {
-    if (clearCameraFocusRequest === undefined || lastCameraFocusClearRequestRef.current === clearCameraFocusRequest) return;
-    lastCameraFocusClearRequestRef.current = clearCameraFocusRequest;
+    const requestId = typeof clearCameraFocusRequest === "object" ? clearCameraFocusRequest.requestId : clearCameraFocusRequest;
+    if (requestId === undefined || lastCameraFocusClearRequestRef.current === requestId) return;
+    lastCameraFocusClearRequestRef.current = requestId;
     originalCameraBeforeFocusRef.current = null;
+    if (typeof clearCameraFocusRequest === "object" && clearCameraFocusRequest.fitView) {
+      manualCameraRef.current = true;
+      setCamera(fittedCamera());
+    }
     onCameraFocusChange?.(null);
   }, [clearCameraFocusRequest, onCameraFocusChange]);
 
