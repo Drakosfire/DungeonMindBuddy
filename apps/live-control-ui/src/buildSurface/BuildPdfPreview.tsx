@@ -27,11 +27,13 @@ function pagePoint(event: PointerEvent<HTMLCanvasElement>): PagePoint {
 function CropOcr({ image, hasPdfText }: { image: string; hasPdfText: boolean }) {
   const [pending, setPending] = useState(false);
   const [text, setText] = useState("");
+  const imageOnly = /^(?:\s*<\|ref\|>image<\|\/ref\|><\|det\|>\[\[[\d,\s]+\]\]<\|\/det\|>)+\s*$/.test(text);
   const [error, setError] = useState("");
 
   async function read() {
     setPending(true);
     setError("");
+    setText("");
     try {
       const { response } = await authenticatedApiFetch("/api/live/agent/build-pdf-ocr", {
         method: "POST",
@@ -55,7 +57,8 @@ function CropOcr({ image, hasPdfText }: { image: string; hasPdfText: boolean }) 
         {pending ? "Reading capture…" : hasPdfText ? "Try OCR instead" : "Read capture with OCR"}
       </button>
       {error && <p role="alert">{error}</p>}
-      {text && <label>OCR transcription<textarea readOnly rows={8} value={text} /></label>}
+      {imageOnly && <p role="status">OCR found an image in this region without transcribing any text.</p>}
+      {text && !imageOnly && <label>OCR transcription<textarea readOnly rows={8} value={text} /></label>}
     </div>
   );
 }
