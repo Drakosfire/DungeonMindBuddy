@@ -430,6 +430,12 @@ def test_lookup_opens_exact_saved_revision_in_selected_world(revision_case):
     renamed = update_threat_draft(
         p.root, p.draft.draft_id, _update_request(p.draft, description=p.draft.description).model_copy(update={"name": "Unrelated draft label", "expected_version": get_threat_draft(p.root, p.draft.draft_id).version}),
     )
+    entries = list(service.iter_saved_mechanics(p.root, world_id=p.draft.world_id))
+    assert [(label, draft_id, locator.model_dump(mode="json")) for label, draft_id, locator in entries] == [
+        (name, p.draft.draft_id, p.request["base"]),
+    ]
+    assert list(service.iter_saved_mechanics(p.root, world_id="other-world")) == []
+
     result = service.find_saved_version(
         p.root, world_id=p.draft.world_id, name=name.upper(), client=p.manual,
     )
@@ -441,6 +447,17 @@ def test_lookup_opens_exact_saved_revision_in_selected_world(revision_case):
         assert service.find_saved_version(
             p.root, world_id=world_id, name=query, client=p.manual,
         ) == {"status": "not_found"}
+
+
+def test_lookup_rejects_a_different_opened_locator(revision_case, monkeypatch):
+    p = revision_case
+    name = p.revision.definition.identity.name
+    monkeypatch.setattr(
+        service, "open_version",
+        lambda *args, **kwargs: {"locator": {**p.request["base"], "revision_id": "rev_other"}},
+    )
+    with pytest.raises(service.ApplicationStateIntegrityError, match="selected saved locator"):
+        service.find_saved_version(p.root, world_id=p.draft.world_id, name=name, client=p.manual)
 
 
 def test_lookup_does_not_open_an_ambiguous_name(tmp_path, monkeypatch):
