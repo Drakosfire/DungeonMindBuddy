@@ -1,3 +1,4 @@
+import { savedStatblockHref } from '../../statblocks/savedStatblockLocation';
 import {SavedCitationAnswer} from './SavedCitationAnswer';
 import {isBuildSourceBasis} from '../../shared/sourcePassageProtocol';
 import { readActiveConversationMessages, type ActiveConversationMessages } from '../../api/conversationLibraryApi';
@@ -6556,6 +6557,12 @@ export function WorldPlanAgentConversation({
                 ? graphContextForTurn(turn)!.completion!.answer_segments.map((segment) => segment.text)
                 : undefined}
             />}
+            {savedMessage?.saved_statblocks?.map(reference =>
+              <p key={reference.draft_id + ':' + reference.revision_id}>
+                <a href={savedStatblockHref({worldId: reference.world_id, draftId: reference.draft_id,
+                  revisionId: reference.revision_id})}>Open {reference.name} statblock</a>
+              </p>
+            )}
             {!isReadOnly && turn.provenance.surface_id === "plan" && graphContextForTurn(turn)?.completion?.answer_segments
               .filter(segment => segment.kind === "proposal" && segment.label === "image_prompt")
               .map((segment, index) => <SurfaceImagePromptAction key={`${turn.turn_id}:image:${index}`} prompt={segment.text}

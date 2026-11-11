@@ -236,6 +236,15 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
             AND completion->'saved_source_citations'<>'[]'::jsonb
             THEN graph_context_receipt->'work_context'->'source_basis'
             ELSE NULL END AS citation_source_basis,
+        CASE WHEN surface_id='build' AND status='completed' THEN (
+            SELECT jsonb_agg(jsonb_build_object(
+                'name', event->'definition'->'identity'->'name',
+                'world_id', event->'world_id', 'draft_id', event->'draft_id',
+                'revision_id', event->'locator'->'revision_id'))
+            FROM jsonb_array_elements(graph_context_execution->'events') AS event
+            WHERE event->>'kind'='build_saved_statblock_read_v1'
+                AND event->>'world_id'=t.world_id
+        ) END AS saved_statblocks,
         t.answer_composition_kind, """ + reference_select + ", " + repo._rules_summary_select("t")) if metadata else ""
     rows = conn.execute(
         f"""SELECT turn_id,sequence,status,user_text,assistant_text,idempotency_key,
@@ -258,6 +267,8 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
             from .saved_citation_preview import project
             from .retry import author_interaction
             provenance=repo.turn_provenance(row,references[row["turn_id"]])
+            if row["saved_statblocks"]:
+                message["saved_statblocks"] = row["saved_statblocks"]
             message.update(
                 reply_object=_message_reply_object(row,provenance,conversation),
                 citation_preview=project(row),

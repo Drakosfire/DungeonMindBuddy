@@ -43,7 +43,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -62,6 +62,22 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         monkeypatch.setattr(native, 'prepare_query', prepare_historical_first)
     publish(lane, qualified=True)
     world = lane.world.world_id
+    if saved_statblock:
+        from apps.live_control_server.services import statblock_saved_revision
+        from application_state.world_mechanics.types import MechanicsLocator
+
+        locator = MechanicsLocator(provider="dungeonmind", statblock_id="sb_meatmind",
+            revision_id="rev_meatmind", contract="dungeonmind.dungeonbuddy-statblocks",
+            contract_version="1.0.0", definition_digest="sha256:" + "a" * 64)
+        draft_id = str(uuid4())
+        definition = {"identity": {"name": "Meat Mind"}, "vitality": {"hit_points": 41}}
+        monkeypatch.setattr(statblock_saved_revision, "iter_saved_mechanics",
+            lambda root, *, world_id: [("Meat Mind", draft_id, locator)] if world_id == world else [])
+        def open_statblock(root, *, world_id, draft_id, revision_id):
+            assert world_id == world and revision_id == locator.revision_id
+            return {"world_id": world_id, "draft_id": draft_id,
+                    "locator": locator.model_dump(mode="json"), "resource": {"definition": definition}}
+        monkeypatch.setattr(statblock_saved_revision, "open_version", open_statblock)
     original_revision = lane.repo.get_head(world).head_revision_id
     page = create_page_fixture(tmp_path, world_id=world, campaign_id=world, title='Working page',
         kind='worldbuilding_source', source_domain='worldbuilding', document_class='lore',
@@ -174,6 +190,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             answers = {}
             candidates=body.get('state',{}).get('candidates',[])
             selected={i for i,c in enumerate(candidates) if (saved and c['kind'].startswith('Saved authored page block'))
+                or (saved_statblock and c['kind'].startswith('Saved statblock'))
                 or (failure=='used_rules' and c['kind']=='public_rules_lookup')
                 or (native_body and c['kind'] in ({'Explicit admitted full-source read; metadata choice, not evidence'} | ({'Source lexical navigation; not evidence or semantic completeness'} if direct_source=='mixed' else set()) if direct_source else {'Source lexical navigation; not evidence or semantic completeness','Explicit full-document read'} | ({'Explicit admitted full-source read; metadata choice, not evidence'} if any(c['kind'].startswith('Navigation scan:') for c in body['state'].get('examined_subjects',[])) else set())))}
             if direct_source == 'covered-batch' and candidates:
@@ -281,6 +298,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert sum(draft.snapshot.draft_markdown in row['content'] for row in body['input'])==1
             handles = [row['assertion_handle'] for row in frame['native_assertions']['assertions']] if frame['native_assertions'] else []
             assert (handles or authored_source=='source_only') and 'DISPLAY ONLY' not in str(frame)
+            if saved_statblock:
+                assert work["saved_statblocks"] == [{"mechanics": definition}]
+                assert locator.revision_id not in req.content.decode()
             sections = work['saved_sections']
             def source_text(row):
                 if 'text' in row:
@@ -1519,3 +1539,16 @@ def test_low_score_valid_image_selection_prepares_review_through_ordinary_http(l
 @pytest.mark.parametrize('mutation',[None,'capability','question','reference','revision'])
 def test_native_unresolved_authoring_retry_requires_fresh_capture_and_preserves_failure(lane,tmp_path,monkeypatch,mutation):
     _fresh_case(lane,tmp_path,monkeypatch,'retry_authoring_selection',True,False,True,retry_mutation=mutation)
+
+
+def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch):
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
+        message="This is a challenging question, now we have to design this meat node and it's abilities, see if you can find the statblock for the meat mind.",
+        saved_statblock=True)
+    root = f"/api/live/agent/worlds/{case.world}/conversations"
+    response = case.client.get(root + "/active/messages")
+    assert response.status_code == 200, response.text
+    references = response.json()["messages"][-1]["saved_statblocks"]
+    assert len(references) == 1
+    assert references[0]["name"] == "Meat Mind"
+    assert references[0]["revision_id"] == "rev_meatmind"
