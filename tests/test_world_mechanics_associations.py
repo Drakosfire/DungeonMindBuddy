@@ -211,3 +211,18 @@ def test_read_only_request_lookup_is_exact_and_world_scoped(prepared,monkeypatch
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT','development')
     monkeypatch.setenv('DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN','a'*40)
     assert p.client.get(path+'?world_id=elderwyld').status_code==401
+
+
+def test_association_target_survives_only_graph_revision_change():
+    target = WorldMechanicsTarget(
+        managed_world_id="elderwyld", native_world_id="space:elderwyld",
+        binding_version=1, graph_revision_id="rev:old", node_id="creature:one",
+        label="Creature", kind="npc", role="", campaign_scope="campaign-c2",
+    )
+    current = target.model_copy(update={"graph_revision_id": "rev:new"})
+    assert target.matches_association_target(current)
+    for field, changed in (
+        ("binding_version", 2), ("node_id", "creature:other"),
+        ("campaign_scope", None), ("kind", "monster"), ("label", "Other creature"),
+    ):
+        assert not target.matches_association_target(current.model_copy(update={field: changed}))

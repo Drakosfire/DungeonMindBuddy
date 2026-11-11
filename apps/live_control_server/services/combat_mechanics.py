@@ -21,7 +21,7 @@ def preview(*, world_id: str, selection: CombatMechanicsSelection, records=None,
     records = associations.list_current(world_id=world_id) if records is None else records
     record = next((r for r in records if r.association_id == selection.association_id), None)
     if (record is None or record.version != selection.association_version
-        or record.request.target.model_dump() != selection.target.model_dump()):
+        or not record.request.target.matches_association_target(selection.target)):
         raise ApplicationStateConflictError("Creature mechanics changed; load and confirm again")
     view = creature_view or creatures.catalog(world_id)
     creatures.require_target(selection.target, view, head=True)

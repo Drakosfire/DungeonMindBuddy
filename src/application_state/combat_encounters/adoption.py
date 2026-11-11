@@ -126,7 +126,7 @@ def _historical_association(conn,world_id,snapshot,row_cache=None):
             raise ApplicationStateConflictError('Historical mechanics association is missing or changed')
         if first is None:
             first=record
-            if record.request.target.model_dump()!=snapshot.target.model_dump() or record.proof.locator!=snapshot.locator:
+            if not record.request.target.matches_association_target(snapshot.target) or record.proof.locator!=snapshot.locator:
                 raise ApplicationStateConflictError('Actor differs from its historical association')
         elif record.request.target.node_id!=first.request.target.node_id:
             raise ApplicationStateIntegrityError('Historical association chain changed target')
