@@ -33,7 +33,7 @@ def test_build_proposal_without_a_target_returns_selection_guidance(lane, tmp_pa
     _fresh_case(lane, tmp_path, monkeypatch, "target_unavailable", True, False, True)
 
 
-@pytest.mark.parametrize("reference_image", ["saved", "unbound", "wrong_same_page"])
+@pytest.mark.parametrize("reference_image", ["saved", "unbound", "wrong_same_page", "saved_large"])
 def test_build_selected_revision_uses_only_the_bound_saved_image(lane, tmp_path, monkeypatch, reference_image):
     _fresh_case(lane, tmp_path, monkeypatch, None, True, False, True, reference_image=reference_image)
 
@@ -73,14 +73,21 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         from application_state import media
 
         original = BytesIO()
-        Image.new("RGB", (64, 48), (217, 22, 67)).save(original, format="PNG")
+        if reference_image == "saved_large":
+            from random import Random
+
+            fixture = Image.frombytes("RGB", (1024, 1024), Random(7).randbytes(1024 * 1024 * 3))
+            fixture.paste((217, 22, 67), (0, 0, 64, 64))
+        else:
+            fixture = Image.new("RGB", (64, 48), (217, 22, 67))
+        fixture.save(original, format="PNG")
         asset = media.stage_image(original.getvalue(), "local_operator", {"fixture": "bath house map"})
         wrong = media.stage_image(original.getvalue(), "local_operator", {"fixture": "unrelated artwork"})
         image_markdown = (f"![Other artwork](dmb-media:{wrong['asset_id']})\n\n"
             + "Unrelated introduction.\n\n"
             + f"![Bath house map](dmb-media:{asset['asset_id']})\n\n")
     save_page(tmp_path, page.document_id, '# Working page\n\n'
-        + (image_markdown if reference_image in {"saved", "wrong_same_page"} else '') + 'A proposed conversation.\n')
+        + (image_markdown if reference_image in {"saved", "wrong_same_page", "saved_large"} else '') + 'A proposed conversation.\n')
     source = get_workspace_document_snapshot(tmp_path, page.document_id)
     draft = None
     if with_draft:
@@ -226,7 +233,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     'message': 'Unsupported reasoning effort for configured writer',
                     'type': 'invalid_request_error', 'param': 'reasoning.effort',
                     'code': 'unsupported_value'}})
-            if reference_image == 'saved':
+            if reference_image in {'saved', 'saved_large'}:
                 from base64 import b64decode
                 from io import BytesIO
                 from PIL import Image
@@ -238,8 +245,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 assert 'attached page image' in body['instructions']
                 prefix, encoded = image['image_url'].split(',', 1)
                 assert prefix == 'data:image/jpeg;base64'
+                expected_size = (1024, 1024) if reference_image == "saved_large" else (64, 48)
+                if reference_image == "saved_large":
+                    assert len(req.content) > 262144
                 with Image.open(BytesIO(b64decode(encoded))) as pixels:
-                    assert pixels.size == (64, 48)
+                    assert pixels.size == expected_size
                     assert all(abs(a-b) < 5 for a,b in zip(pixels.getpixel((20, 20)), (217, 22, 67)))
                 # Only the outgoing transport contains pixels. The unchanged
                 # semantic packet is validated below as for a text-only proposal.
