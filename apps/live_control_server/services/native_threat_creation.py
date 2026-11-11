@@ -134,6 +134,12 @@ def register_pdf_regions(repo, space_id, regions, context, access, created_at):
     return context, access, tuple(evidence_ids)
 
 
+def review_payload(review):
+    # Text-only reviews retain their original signed representation.
+    excluded = {"pdf_evidence_ids"} if not review.pdf_evidence_ids else set()
+    return review.model_dump(mode="json", by_alias=True, exclude=excluded)
+
+
 def prepare(root, draft_id, request, principal):
     require_native_graph_gm(principal)
     draft = owned_draft(root, draft_id, request.world_id)
@@ -189,7 +195,7 @@ def prepare(root, draft_id, request, principal):
         require(native.binding(request.world_id) == bound, "The World binding changed during review")
         encoded = transport.encode_prepared(prepared)
         review = review.model_copy(update={"prepared_digest": transport.digest(encoded)})
-        envelope = review.model_dump(mode="json", by_alias=True)
+        envelope = review_payload(review)
         return dict(state="prepared", source_text=text, review=envelope, prepared=encoded, token=sign_publication_intent(envelope))
 
 
@@ -197,7 +203,7 @@ def confirm(root, draft_id, request, principal):
     require_native_graph_gm(principal)
     review = request.review
     signed = decode_publication_intent(request.token, allow_expired_recovery=True)
-    require(signed == review.model_dump(mode="json", by_alias=True)
+    require(signed == review_payload(review)
             and review.principal == principal.subject and str(review.draft_id) == str(draft_id)
             and review.publication_id == publication_id(draft_id)
             and review.prepared_digest == transport.digest(request.prepared),

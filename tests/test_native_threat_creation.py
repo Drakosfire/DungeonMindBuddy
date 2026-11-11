@@ -67,6 +67,7 @@ def confirm(c, packet):
 def test_native_source_then_explicit_confirmation_and_current_readback(creature):
     c = creature
     packet = prepare(c)
+    assert "pdf_evidence_ids" not in packet["review"]
     assert packet["source_text"] == service.body(c.draft)
     assert service.existing(c.lane.repo, c.bound, c.draft.draft_id) is None
     assert c.client.get(c.url + "?world_id=managed").json() is None
