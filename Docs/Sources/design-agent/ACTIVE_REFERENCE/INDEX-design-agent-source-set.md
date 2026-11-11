@@ -3,7 +3,7 @@
 **Status:** ACTIVE REFERENCE / process index
 **Created:** 2026-08-02
 **Repository authority refresh:** 2026-09-26 DEMO reconciliation (repository adoption; Project Sources unchanged)
-**Repository export refresh:** 2026-11-11 — process/current-pickup exports synchronized from canonical files; this was not a full design/corpus audit, and user-managed Project Sources were not changed
+**Repository export refresh:** 2026-11-11 — process/current-pickup and governance exports synchronized from canonical files; this was not a full design/corpus audit, and user-managed Project Sources were not changed
 **Project Sources snapshot date:** 2026-08-02 — advance only after the operator actually replaces/re-observes the user-managed set
 **Repo-resident export mirror:** [`Docs/Sources/design-agent/`](../Sources/design-agent/)
 **Document class:** curated source index — not architecture or sequencing authority

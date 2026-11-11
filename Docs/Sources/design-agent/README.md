@@ -1,7 +1,7 @@
 # Design Agent / Project Sources Export
 
 **Status:** ACTIVE EXPORT MIRROR — non-authoritative convenience copies
-**Export refreshed:** 2026-11-11 — process/current-pickup copies synchronized from canonical repository files. This was not a full design/corpus audit; user-managed Project Sources were not changed.
+**Export refreshed:** 2026-11-11 — process/current-pickup and governance copies synchronized from canonical repository files. This was not a full design/corpus audit; user-managed Project Sources were not changed.
 **Canonical source-set index:** [`Docs/Design/INDEX-design-agent-source-set.md`](../../Design/INDEX-design-agent-source-set.md)
 
 This directory is the clean pickup point for refreshing ChatGPT immediate /
