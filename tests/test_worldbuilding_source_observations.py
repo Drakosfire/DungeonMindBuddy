@@ -457,15 +457,12 @@ def test_native_confirm_retains_distinct_observations_sources_and_idempotency(
     )
     original_register = registry.create_source_artifact_from_workspace_document
 
-    def register(repo, *, document_id, **kwargs):
-        document = get_workspace_document(repo, document_id)
-        (repo / document.target_relpath).write_text(
-            "\n\n".join(row["text"] for row in source())
-            + "\nFixture document: "
-            + document_id
-            + "\n"
-        )
-        return original_register(repo, document_id=document_id, **kwargs)
+    from tests.page_fixtures import save_page
+
+    def register(repo, *, document_id, expected_revision):
+        body = "\n\n".join(row["text"] for row in source()) + "\nFixture document: " + document_id + "\n"
+        saved = save_page(repo, document_id, body)
+        return original_register(repo, document_id=document_id, expected_revision=saved.revision)
 
     monkeypatch.setattr(
         registry, "create_source_artifact_from_workspace_document", register

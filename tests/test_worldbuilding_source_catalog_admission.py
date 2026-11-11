@@ -37,15 +37,14 @@ def unique_registered_source_bytes(monkeypatch):
     # Content-addressed revisions are global in the disposable source catalog.
     # Distinct registered documents need distinct fixture bytes, not shared hashes.
     from apps.live_control_server.services import source_artifact_registry as registry
-    from apps.live_control_server.services.workspace_document_registry import get_workspace_document
+    from tests.page_fixtures import page_text, save_page
 
     original = registry.create_source_artifact_from_workspace_document
 
-    def register(root, *, document_id, **kwargs):
-        document = get_workspace_document(root, document_id)
-        path = root / document.target_relpath
-        path.write_text(path.read_text() + "\nFixture document: " + document_id + "\n")
-        return original(root, document_id=document_id, **kwargs)
+    def register(root, *, document_id, expected_revision):
+        body = page_text(root, document_id) + "\nFixture document: " + document_id + "\n"
+        saved = save_page(root, document_id, body)
+        return original(root, document_id=document_id, expected_revision=saved.revision)
 
     monkeypatch.setattr(registry, "create_source_artifact_from_workspace_document", register)
 
@@ -231,14 +230,14 @@ def test_registered_governance_publishes_and_opens_historical_source(
     )
     register = registry.create_source_artifact_from_workspace_document
 
-    def register_governance(repo, *, document_id, **kwargs):
-        document = get_workspace_document(repo, document_id)
-        path = repo / document.target_relpath
-        path.write_text(path.read_text() + "\n" + sentence + "\n")
-        return register(repo, document_id=document_id, **kwargs)
+    from tests.page_fixtures import page_text, save_page
+
+    def register_governance(repo, *, document_id, expected_revision):
+        saved = save_page(repo, document_id, page_text(repo, document_id) + "\n" + sentence + "\n")
+        return register(repo, document_id=document_id, expected_revision=saved.revision)
 
     monkeypatch.setattr(registry, "create_source_artifact_from_workspace_document", register_governance)
-    run_id, working_source = _write_bld08_reviewable_run(
+    run_id, _ = _write_bld08_reviewable_run(
         root, world_id="publication-managed", campaign_id="publication-managed",
         profile_id="worldbuilding_gazetteer_v1@1.9",
     )
@@ -297,7 +296,8 @@ def test_registered_governance_publishes_and_opens_historical_source(
     assert case["bundle"].world_graph.get_head(case["world"]).head_revision_id == receipt.committed_revision_id
 
     # Fresh services must read the published source after the editable copy changes.
-    working_source.write_text("An edited working copy, absent from the historical publication.\n")
+    save_page(root, run.data.source_artifact.workspace_document_id,
+              "An edited working copy, absent from the historical publication.\n")
     services = direct.direct_services_from_config(case["world"])
     context = {"worldId": case["world"], "campaignId": "", "admissibility": "gm",
                "revisionPin": receipt.committed_revision_id, "scopeMode": "world", "focus": {}}

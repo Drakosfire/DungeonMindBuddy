@@ -181,10 +181,11 @@ def test_current_profile_relationship_and_distinct_observation_facets(
     sentence = "Testport Council governs Testport."
     body = sentence if mode == "governs" else "\n\n".join(row["text"] for row in source())
 
-    def register_source(repo, *, document_id, **kwargs):
-        document = get_workspace_document(repo, document_id)
-        (repo / document.target_relpath).write_text(body + "\n")
-        return register(repo, document_id=document_id, **kwargs)
+    from tests.page_fixtures import save_page
+
+    def register_source(repo, *, document_id, expected_revision):
+        saved = save_page(repo, document_id, body + "\n")
+        return register(repo, document_id=document_id, expected_revision=saved.revision)
 
     monkeypatch.setattr(registry, "create_source_artifact_from_workspace_document", register_source)
     run_id, _ = _write_bld08_reviewable_run(root, world_id="publication-managed",
