@@ -1,10 +1,10 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { authenticatedApiFetch } from "../api/liveApi";
+import { authenticatedApiFetch, listSavedMechanicsVersions } from "../api/liveApi";
 import { baseCandidateDefinition } from "../statblocks/editor/editorFixtures";
 import { BuildPdfStatblockReview } from "./BuildPdfStatblockReview";
 
-vi.mock("../api/liveApi", () => ({ authenticatedApiFetch: vi.fn() }));
+vi.mock("../api/liveApi", () => ({ authenticatedApiFetch: vi.fn(), listSavedMechanicsVersions: vi.fn() }));
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
 it("reopens a draft and saves edits against the exact retained regions", async () => {
@@ -86,5 +86,41 @@ it.each([false, true])("recovers an acceptance failure (stale draft: %s)", async
     expect(requests[0]).toBe(requests[1]);
   }
   expect(JSON.parse(requests[0])).toMatchObject({ expected_revision: 4, expected_draft_version: 8 });
+  localStorage.clear();
+});
+
+it("appends to the explicitly selected saved revision and replays its request", async () => {
+  localStorage.clear();
+  const base = { revision_id: "rev_base", statblock_id: "sb_a" };
+  vi.mocked(listSavedMechanicsVersions).mockResolvedValue({
+    original: base, operations: [],
+  } as Awaited<ReturnType<typeof listSavedMechanicsVersions>>);
+  const attempts: string[] = [];
+  vi.mocked(authenticatedApiFetch).mockImplementation(async (path, init) => {
+    let data: unknown = { revision: 4, definition: baseCandidateDefinition(), regions: [] };
+    if (path.includes("/threat-drafts?")) {
+      data = { drafts: [{ draft_id: "draft-a", name: "Creature A", workflow_state: "mechanics_saved" }] };
+    } else if (path.endsWith("/append/draft-a")) {
+      attempts.push(String(init?.body));
+      data = attempts.length === 1 ? { state: "outcome_unknown" }
+        : { state: "committed", result: { revision_id: "rev_new" } };
+    }
+    return { response: Response.json(data) } as Awaited<ReturnType<typeof authenticatedApiFetch>>;
+  });
+  render(<BuildPdfStatblockReview worldId="elderwyld" reviewId="review" />);
+  fireEvent.click(await screen.findByRole("button", { name: "Choose creature draft" }));
+  fireEvent.change(await screen.findByRole("combobox", { name: "Creature draft" }), { target: { value: "draft-a" } });
+  await screen.findByRole("option", { name: /rev_base/ });
+  fireEvent.change(screen.getByRole("combobox", { name: "Parent statblock version" }), { target: { value: "rev_base" } });
+  const append = screen.getByRole("button", { name: "Append mechanics revision" });
+  fireEvent.click(append);
+  await screen.findByRole("alert");
+  fireEvent.click(append);
+  expect(await screen.findByRole("link", { name: "Open accepted statblock" })).toHaveAttribute(
+    "href", "/statblock?world=elderwyld&draft=draft-a&revision=rev_new",
+  );
+  expect(attempts).toHaveLength(2);
+  expect(attempts[0]).toBe(attempts[1]);
+  expect(JSON.parse(attempts[0])).toMatchObject({ expected_revision: 4, base });
   localStorage.clear();
 });
