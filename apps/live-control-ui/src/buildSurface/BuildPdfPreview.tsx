@@ -51,7 +51,47 @@ function CropOcr({ image }: { image: string }) {
   );
 }
 
-function PdfPages({ file }: { file: File }) {
+function PdfPages({ file, worldId }: { file: File; worldId?: string }) {
+  const [sourceFile, setSourceFile] = useState(file);
+  const [admission] = useState(() => ({ id: crypto.randomUUID(), createdAt: new Date().toISOString() }));
+  const [receipt, setReceipt] = useState<{ source_revision_id: string; content_sha256: string }>();
+  const [sourcePending, setSourcePending] = useState(false);
+  const [sourceError, setSourceError] = useState("");
+
+  async function retainOrReopen(selected: PageRectangle) {
+    if (!worldId || sourcePending) return;
+    const path = `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources`;
+    setSourcePending(true);
+    setSourceError("");
+    try {
+      if (!receipt) {
+        const { response } = await authenticatedApiFetch(`${path}?admission_id=${admission.id}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/pdf", "X-Pdf-Created-At": admission.createdAt },
+          body: file,
+        });
+        if (!response.ok) throw new Error();
+        setReceipt(await response.json());
+      } else {
+        const { response } = await authenticatedApiFetch(`${path}/open`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...receipt, page, left: selected.left, top: selected.top,
+            right: Math.min(1, selected.left + selected.width),
+            bottom: Math.min(1, selected.top + selected.height),
+          }),
+        });
+        if (!response.ok) throw new Error();
+        setSourceFile(new File([await response.blob()], file.name, { type: "application/pdf" }));
+      }
+    } catch {
+      setSourceError(receipt ? "Could not reopen the retained PDF." : "Could not retain this PDF.");
+    } finally {
+      setSourcePending(false);
+    }
+  }
+
   const canvas = useRef<HTMLCanvasElement>(null);
   const [document, setDocument] = useState<PDFDocumentProxy>();
   const [page, setPage] = useState(1);
@@ -98,7 +138,7 @@ function PdfPages({ file }: { file: File }) {
     let destroy: (() => Promise<void>) | undefined;
     async function load() {
       try {
-        const data = new Uint8Array(await file.arrayBuffer());
+        const data = new Uint8Array(await sourceFile.arrayBuffer());
         if (new TextDecoder().decode(data.subarray(0, 5)) !== "%PDF-") {
           throw new Error("Invalid PDF header");
         }
@@ -118,7 +158,7 @@ function PdfPages({ file }: { file: File }) {
       cancelled = true;
       void destroy?.().catch(() => {});
     };
-  }, [file]);
+  }, [sourceFile]);
 
   useEffect(() => {
     if (!document) return;
@@ -236,6 +276,11 @@ function PdfPages({ file }: { file: File }) {
             <section aria-label={`Capture from page ${page}`}>
               <img src={capture.image} alt={`Captured region of page ${page}`} style={{ maxWidth: "100%" }} />
               <CropOcr key={capture.image} image={capture.image} />
+              {worldId && <button type="button" disabled={sourcePending}
+                onClick={() => void retainOrReopen(capture.region)}>
+                {receipt ? "Reopen retained region" : "Retain PDF source"}
+              </button>}
+              {sourceError && <p role="alert">{sourceError}</p>}
               {textError ? <p role="alert">The PDF text layer could not be read.</p>
                 : capturedText === undefined ? <p role="status">Reading the PDF text layer…</p>
                 : capturedText ? (
@@ -253,7 +298,7 @@ function PdfPages({ file }: { file: File }) {
   );
 }
 
-export function BuildPdfPreview() {
+export function BuildPdfPreview({ worldId }: { worldId?: string }) {
   const [selection, setSelection] = useState<{ file: File; version: number }>();
   function select(file: File) {
     setSelection(previous => ({ file, version: (previous?.version ?? 0) + 1 }));
@@ -276,7 +321,7 @@ export function BuildPdfPreview() {
           event.currentTarget.value = "";
         }} />
       </label>
-      {selection && <PdfPages key={selection.version} file={selection.file} />}
+      {selection && <PdfPages key={`${worldId ?? ""}:${selection.version}`} file={selection.file} worldId={worldId} />}
     </div>
   );
 }

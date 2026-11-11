@@ -2071,6 +2071,83 @@ def post_build_pdf_ocr(body: PdfCropRequest, request: Request):
     return read_crop(body)
 
 
+@router.post("/worlds/{world_id}/build-pdf-sources")
+async def post_build_pdf_source(world_id: str, admission_id: UUID, request: Request):
+    from datetime import datetime
+    from hashlib import sha256
+
+    from starlette.concurrency import run_in_threadpool
+
+    from dungeonmind.contracts.vnext.pdf_region import NativePdfSourceAdmissionV1
+    from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import (
+        NativeWorldSourceAdmissionError, _repository, _source_world_binding,
+    )
+
+    enforce_native_graph_gm(request)
+    verified = _verified_world_id(world_id)
+    if request.headers.get("content-type") != "application/pdf":
+        raise HTTPException(status_code=415, detail={"code": "pdf_required"})
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > 32 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail={"code": "pdf_too_large"})
+        body.extend(chunk)
+    raw = bytes(body)
+    try:
+        binding = _source_world_binding(None, verified)
+        command = NativePdfSourceAdmissionV1.model_validate({
+            "space_id": binding.native_world_id,
+            "admission_id": str(admission_id),
+            "created_at": datetime.fromisoformat(request.headers.get("x-pdf-created-at", "")),
+            "content_sha256": sha256(raw).hexdigest(),
+            "source_classification": "dungeonbuddy.source:worldbuilding",
+            "authority": "primary",
+            "visibility": {"kind": "public"},
+        })
+        revision = await run_in_threadpool(_repository().retain_native_pdf_source, command, raw)
+    except NativeWorldSourceAdmissionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail={"code": "invalid_pdf_source"}) from exc
+    return {"source_revision_id": revision.source_revision_id,
+            "content_sha256": revision.content_sha256}
+
+
+@router.post("/worlds/{world_id}/build-pdf-sources/open")
+def post_open_build_pdf_source(world_id: str, body: dict, request: Request):
+    from fastapi.responses import Response
+
+    from dungeonmind.application.vnext.native_pdf_access import open_native_pdf_region
+    from dungeonmind.contracts.vnext.pdf_region import NativePdfRegionV1
+    from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import (
+        NativeWorldSourceAdmissionError, _repository, _source_world_binding,
+    )
+
+    enforce_native_graph_gm(request)
+    verified = _verified_world_id(world_id)
+    try:
+        binding = _source_world_binding(None, verified)
+        region = NativePdfRegionV1.model_validate(body)
+        pdf = open_native_pdf_region(
+            region,
+            authorized_space_id=binding.native_world_id,
+            audience=frozenset(),
+            declared_labels=frozenset(),
+            load=_repository().get_native_pdf_source,
+        )
+    except NativeWorldSourceAdmissionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code}) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail={"code": "invalid_pdf_region"}) from exc
+    if pdf is None:
+        raise HTTPException(status_code=404, detail={"code": "pdf_source_unavailable"})
+    return Response(
+        pdf,
+        media_type="application/pdf",
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+    )
+
+
 @router.post("/worlds/{world_id}/build-proposals")
 def post_build_document_proposal(world_id: str, body: BuildDocumentProposalRequest, request: Request):
     """Creative authoring proposal only; workspace Save remains a separate owner."""
