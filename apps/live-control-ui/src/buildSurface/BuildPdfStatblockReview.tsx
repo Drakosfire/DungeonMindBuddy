@@ -88,6 +88,12 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       }
       if (!response.ok) throw new Error();
       const result = await response.json();
+      if (result.result_label === "acceptance_blocked" && result.message === "expected draft version mismatch") {
+        localStorage.removeItem(key);
+        await openAcceptance();
+        setError("The creature draft changed before acceptance. Review your draft selection and try again.");
+        return;
+      }
       if (result.result_label !== "mechanics_saved" || !result.locator?.revision_id) {
         setError(result.message || "Mechanics acceptance is unresolved. Select Accept mechanics again to check the same operation.");
         return;
