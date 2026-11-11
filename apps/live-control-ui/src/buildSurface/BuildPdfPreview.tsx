@@ -1,3 +1,4 @@
+import { StartPdfStatblockReview } from "./StartPdfStatblockReview";
 import { completePdfTextLines, hasClippedPdfTextLine, pdfTextBoundsOverlap } from "./completePdfTextLines";
 import { PdfStatblockCandidate } from "./PdfStatblockCandidate";
 import { pdfRegionKey, readRetainedPdfRegions, retainedPdfKey, type PdfLocator, type PdfReceipt, type RetainedPdf } from "../api/retainedPdfRegions";
@@ -346,6 +347,9 @@ function PdfPages({ file, worldId, restored, onRetained }: {
                 text={completeLines}
                 locator={captureLocator(receipt, page, capture.region)}
               />}
+              {worldId && receipt && <StartPdfStatblockReview
+                key={pdfRegionKey(captureLocator(receipt, page, capture.region))}
+                worldId={worldId} region={captureLocator(receipt, page, capture.region)} />}
               {worldId && receipt && (textError || capturedText !== undefined) && (
                 <CropOcr key={capture.image} worldId={worldId} region={captureLocator(receipt, page, capture.region)} hasPdfText={Boolean(capturedText)} />
               )}
