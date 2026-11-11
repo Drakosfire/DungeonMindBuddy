@@ -1028,12 +1028,6 @@ def _write_bld08_reviewable_run(
     session_id: str | None = None,
 ) -> tuple[str, Path]:
     """Adapt the canonical run fixture to the checked-in BLD-08 profile."""
-    from apps.live_control_server.services.graph_run_registry import (
-        get_extraction_run,
-    )
-    from apps.live_control_server.services.promotable_ingest_run import (
-        _resolve_extraction_component_path,
-    )
     from src.graph_memory.extraction.worldbuilding_extraction_profile import (
         DEFAULT_SEMANTIC_STATE,
     )
@@ -1044,46 +1038,34 @@ def _write_bld08_reviewable_run(
         campaign_id=campaign_id,
         world_id=world_id,
     )
-    run = get_extraction_run(repo, resolved_id)
-    candidate_path = _resolve_extraction_component_path(
-        repo,
-        run.components["candidate_graph"].uri,
-        label="candidate_graph",
-    )
-    candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
-    candidate["session_id"] = session_id
-    for index, node in enumerate(candidate.get("nodes") or []):
-        node["node_type"] = "character" if index == 0 else "location"
-        node["semantic_state"] = dict(DEFAULT_SEMANTIC_STATE)
-    for edge in candidate.get("edges") or []:
-        edge["semantic_state"] = dict(DEFAULT_SEMANTIC_STATE)
-    candidate_path.write_text(json.dumps(candidate, indent=2) + "\n", encoding="utf-8")
-    digest = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
-    _reseal_extraction_component_digest(
-        resolved_id, kind="candidate_graph", digest=digest, payload=candidate_path.read_bytes()
-    )
+    def apply_profile(candidate):
+        candidate["session_id"] = session_id
+        for index, node in enumerate(candidate.get("nodes") or []):
+            node["node_type"] = "character" if index == 0 else "location"
+            node["semantic_state"] = dict(DEFAULT_SEMANTIC_STATE)
+        for edge in candidate.get("edges") or []:
+            edge["semantic_state"] = dict(DEFAULT_SEMANTIC_STATE)
+
+    _mutate_extraction_candidate(repo, resolved_id, apply_profile)
     _patch_extraction_run(resolved_id, profile_id=profile_id)
     return resolved_id, source
 
 
 def _mutate_extraction_candidate(repo, run_id: str, mutator) -> None:
     from apps.live_control_server.services.graph_run_registry import get_extraction_run
-    from apps.live_control_server.services.promotable_ingest_run import (
-        _resolve_extraction_component_path,
-    )
-
+    from application_state.ingest.components import get_component_bytes
 
     run = get_extraction_run(repo, run_id)
-    candidate_path = _resolve_extraction_component_path(
-        repo, run.components["candidate_graph"].uri, label="candidate_graph"
-    )
-    payload = json.loads(candidate_path.read_text(encoding="utf-8"))
+    component = run.components["candidate_graph"]
+    payload = json.loads(get_component_bytes(
+        run_id=run_id, kind="candidate_graph", content_sha256=component.sha256,
+    ))
     mutator(payload)
-    candidate_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    candidate_bytes = (json.dumps(payload, indent=2) + "\n").encode("utf-8")
     # Digest must match the component seal or reviewable evidence fails before
     # our span checks. Re-seal the component digest on the registry record.
-    digest = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
-    _reseal_extraction_component_digest(run_id, kind="candidate_graph", digest=digest, payload=candidate_path.read_bytes())
+    digest = hashlib.sha256(candidate_bytes).hexdigest()
+    _reseal_extraction_component_digest(run_id, kind="candidate_graph", digest=digest, payload=candidate_bytes)
 
 
 def _preview_node(

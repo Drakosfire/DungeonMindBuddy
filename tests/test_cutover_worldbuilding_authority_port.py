@@ -733,11 +733,10 @@ def _install_worldbuilding_repo(monkeypatch, tmp_path: Path, native_id=DEFAULT_W
         if components and "source_artifact" in components:
             run = graph_run_registry.get_extraction_run(root, run_id)
             source_component = components["source_artifact"]
-            body = (root / source_component.uri.removeprefix("repo://")).read_text()
-            output_dir = (root / components["candidate_graph"].uri.removeprefix("repo://")).parent
-            frozen_components, _ = _build_prepared_components(root, NormalizedExtractionSource(
-                run.source_artifact_id, "worldbuilding", body, source_component.sha256,
-                source_component.uri, run.campaign_id, None), output_dir, run=run)
+            _artifact, body = graph_run_registry.load_run_source_input(root, run)
+            frozen_components, _ = _build_prepared_components(NormalizedExtractionSource(
+                run.source_artifact_id, "worldbuilding", body.decode("utf-8"), source_component.sha256,
+                source_component.uri, run.campaign_id, None), run=run)
             kwargs["components"] = {**components, **frozen_components}
         return original_update(root, run_id, **kwargs)
     monkeypatch.setattr(graph_run_registry, "update_extraction_run_status", update_with_frozen_source)
@@ -1574,25 +1573,16 @@ def test_recomputed_plan_after_i1_cannot_reuse_prepare_binding(tmp_path, monkeyp
 
 
 def test_bind_existing_native_verify_proves_attribute_and_alias(tmp_path, monkeypatch):
-    import json
-
-
     from apps.live_control_server.models.extract_promote import (
         WorldbuildingWritePlanConfirmRequest,
         WorldbuildingWritePlanPrepareRequest,
-    )
-    from apps.live_control_server.services.graph_run_registry import (
-        get_extraction_run,
-    )
-    from apps.live_control_server.services.promotable_ingest_run import (
-        _resolve_extraction_component_path,
     )
     from apps.live_control_server.services.worldbuilding_graph_publication import (
         confirm_worldbuilding,
         prepare_worldbuilding,
     )
     from tests._cutover_d3a_blocker_safe_fixtures import (
-        _reseal_extraction_component_digest,
+        _mutate_extraction_candidate,
         _write_bld08_reviewable_run,
     )
 
@@ -1622,18 +1612,11 @@ def test_bind_existing_native_verify_proves_attribute_and_alias(tmp_path, monkey
     _install_fake_authority(monkeypatch, fake)
     _explode_buddy_graph_runtime(monkeypatch)
     run_id, _source = _write_bld08_reviewable_run(repo, world_id="publication-managed", campaign_id="publication-managed")
-    run = get_extraction_run(repo, run_id)
-    candidate_path = _resolve_extraction_component_path(
-        repo,
-        run.components["candidate_graph"].uri,
-        label="candidate_graph",
-    )
-    candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
-    candidate["nodes"][0]["aliases"] = ["Witness Alias"]
-    candidate_path.write_text(json.dumps(candidate, indent=2) + "\n", encoding="utf-8")
-    digest = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
-    _reseal_extraction_component_digest(run_id, kind="candidate_graph", digest=digest)
 
+    def add_alias(candidate):
+        candidate["nodes"][0]["aliases"] = ["Witness Alias"]
+
+    _mutate_extraction_candidate(repo, run_id, add_alias)
 
     plan = prepare_worldbuilding(
         WorldbuildingWritePlanPrepareRequest.model_validate(
@@ -1780,13 +1763,15 @@ def test_two_registered_managed_worlds_publish_only_to_their_native_worlds(
     marker_by_managed: dict[str, str] = {}
     register_source = registry.create_source_artifact_from_workspace_document
 
-    def register_with_world_marker(root, *, document_id, **kwargs):
+    from tests.page_fixtures import page_text, save_page
+
+    def register_with_world_marker(root, *, document_id, expected_revision):
         document = get_workspace_document(root, document_id)
+        assert document.revision == expected_revision
         marker = f"World isolation marker: {document.world_id}."
         marker_by_managed[document.world_id] = marker
-        source_path = root / document.target_relpath
-        source_path.write_text(source_path.read_text() + "\n\n" + marker + "\n")
-        return register_source(root, document_id=document_id, **kwargs)
+        saved = save_page(root, document_id, page_text(root, document_id) + "\n\n" + marker + "\n")
+        return register_source(root, document_id=document_id, expected_revision=saved.revision)
 
     monkeypatch.setattr(
         registry,
@@ -1807,7 +1792,7 @@ def test_two_registered_managed_worlds_publish_only_to_their_native_worlds(
         marker = marker_by_managed[managed_id]
         from graph_memory.source_span import source_span_index_to_dict
         index = source_span_index_to_dict(load_source_span_index(repo, artifact.source_artifact_id))
-        source_text = (repo / artifact.uri.removeprefix("repo://")).read_text()
+        source_text = resolved.data.source_bytes.decode("utf-8")
         source_lines = source_text.splitlines()
         marker_span = next(
             span for span in index["spans"]
@@ -1851,7 +1836,7 @@ def test_two_registered_managed_worlds_publish_only_to_their_native_worlds(
 
         resolved = resolve_promotable_ingest_run(run_id, root=repo)
         candidate = load_typed_candidate_graph(
-            json.loads(resolved.candidate_graph_path.read_text())
+            json.loads(resolved.data.candidate_bytes)
         )
         plan = prepare_worldbuilding(
             WorldbuildingWritePlanPrepareRequest.model_validate({
@@ -1877,16 +1862,16 @@ def test_two_registered_managed_worlds_publish_only_to_their_native_worlds(
 
     run_a, source_a = create_run_and_marker(managed_a)
     original_a = resolve_promotable_ingest_run(run_a, root=repo)
-    source_bytes_a = original_a.normalized_recap_path.read_bytes()
-    candidate_bytes_a = original_a.candidate_graph_path.read_bytes()
+    source_bytes_a = original_a.data.source_bytes
+    candidate_bytes_a = original_a.data.candidate_bytes
     run_b, source_b = create_run_and_marker(managed_b)
     resolved_b = resolve_promotable_ingest_run(run_b, root=repo)
     resolved_a = resolve_promotable_ingest_run(run_a, root=repo)
-    source_bytes_b = resolved_b.normalized_recap_path.read_bytes()
-    assert resolved_a.candidate_graph_path != resolved_b.candidate_graph_path
-    assert resolved_a.normalized_recap_path != resolved_b.normalized_recap_path
-    assert resolved_a.candidate_graph_path.read_bytes() == candidate_bytes_a
-    assert resolved_a.normalized_recap_path.read_bytes() == source_bytes_a
+    source_bytes_b = resolved_b.data.source_bytes
+    assert resolved_a.data.run.run_id != resolved_b.data.run.run_id
+    assert resolved_a.source_artifact_id != resolved_b.source_artifact_id
+    assert resolved_a.data.candidate_bytes == candidate_bytes_a
+    assert resolved_a.data.source_bytes == source_bytes_a
     assert source_bytes_a != source_bytes_b
 
     # A corrupted run/source World association must fail before either publication.
@@ -1895,8 +1880,8 @@ def test_two_registered_managed_worlds_publish_only_to_their_native_worlds(
                        replace(resolved_a, world_id=managed_b))
         with pytest.raises(service.ExtractPromoteError) as error:
             prepare_run(run_a, parent_by_native["native-alpha"], managed_a, "native-alpha")
-        assert error.value.code == "worldbuilding_source_binding_missing"
-        assert error.value.status_code == 409
+        assert error.value.code == "run_scope_mismatch", error.value.code
+        assert error.value.status_code == 409, (error.value.code, error.value.status_code)
     assert fake.publish_calls == 0
     assert fake.heads == parent_by_native
 
@@ -1942,7 +1927,7 @@ def test_two_registered_managed_worlds_publish_only_to_their_native_worlds(
     assert fake.heads["native-alpha"] == head_a
     assert DEFAULT_WORLD_ID not in fake.heads
     assert fake.publish_calls == 2
-    assert resolve_promotable_ingest_run(run_a, root=repo).normalized_recap_path.read_bytes() == source_bytes_a
-    assert resolve_promotable_ingest_run(run_b, root=repo).normalized_recap_path.read_bytes() == source_bytes_b
+    assert resolve_promotable_ingest_run(run_a, root=repo).data.source_bytes == source_bytes_a
+    assert resolve_promotable_ingest_run(run_b, root=repo).data.source_bytes == source_bytes_b
 
 pytestmark = pytest.mark.usefixtures("application_state_dsn")
