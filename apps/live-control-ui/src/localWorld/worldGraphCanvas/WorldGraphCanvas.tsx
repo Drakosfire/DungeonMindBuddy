@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from "react";
 import { createPortal } from "react-dom";
 import type {
   CommitSemanticResult,
@@ -6,7 +6,7 @@ import type {
   LocalWorldRecord,
   WriteLayoutResult,
 } from "../localWorldRepository";
-import { projectLocalWorldGraph, type GraphProjectionOptions, type ProjectedGraphEdge } from "./graphProjection";
+import { indexLocalWorldGraph, projectLocalWorldGraph, type GraphProjectionOptions, type ProjectedGraphEdge } from "./graphProjection";
 import type { NewLocalGraphObject, NewLocalGraphRelationship } from "./localWorldGraphAdapter";
 import "./worldGraphCanvas.css";
 
@@ -55,7 +55,7 @@ export interface WorldGraphCanvasProps {
   readonly onCanvasCreateRequest?: (intent: CanvasCreateIntent) => void;
   readonly onConnectRequest?: (intent: CanvasConnectIntent) => void;
   readonly onSelectionChange?: (id: LocalObjectId | null) => void;
-  readonly cameraFocusRequest?: { readonly nodeId: LocalObjectId | null; readonly requestId: number };
+  readonly cameraFocusRequest?: { readonly nodeId: LocalObjectId | null; readonly requestId: number; readonly selectNode?: boolean };
   readonly clearCameraFocusRequest?: number;
   readonly clearSelectionRequest?: number;
   readonly onCameraFocusChange?: (nodeId: LocalObjectId | null) => void;
@@ -319,7 +319,10 @@ export function WorldGraphCanvas({
   showSummaryCounts = true,
   preserveCameraOnResize = false,
 }: WorldGraphCanvasProps) {
-  const projection = projectLocalWorldGraph(record, projectionOptions);
+  const index = useMemo(() => indexLocalWorldGraph(record.snapshot), [record.snapshot]);
+  const projection = useMemo(() => projectLocalWorldGraph(record, projectionOptions, index),
+    [record.snapshot, record.layout, index, projectionOptions?.maxNodes, projectionOptions?.maxEdges,
+      projectionOptions?.focusObjectId, projectionOptions?.neighborhoodDepth]);
   const markerId = `world-graph-arrow-${useId().replace(/:/g, "")}`;
   const initialDraft = editorDraftState?.draft ?? emptyEditorDraft(editorDraftState?.version ?? 0);
   const [selectedIds, setSelectedIds] = useState<LocalObjectId[]>([...initialDraft.selectedIds]);
@@ -503,6 +506,7 @@ export function WorldGraphCanvas({
     if (measuredViewport.width !== viewport.width || measuredViewport.height !== viewport.height) {
       setViewport(measuredViewport);
     }
+    if (cameraFocusRequest.selectNode) setSelectedIds([node.id]);
     if (!originalCameraBeforeFocusRef.current) originalCameraBeforeFocusRef.current = camera;
     const zoom = Math.max(camera.zoom, 1.35);
     const centerX = node.x + dimensions.width / 2;
@@ -1113,11 +1117,10 @@ export function WorldGraphCanvas({
           ? showSummaryCounts ? `${projection.nodes.length}${projection.omittedNodes ? " displayed" : ""} objects · ${projection.edges.length}${projection.omittedEdges ? " displayed" : ""} relationships` : ""
           : "This World has no objects yet. Add an object to begin.")}
       </div>
-      {projection.omittedNodes || projection.omittedEdges ? <p className="world-graph-canvas__diagnostic">Showing a bounded view. {projection.omittedNodes} objects and {projection.omittedEdges} relationships omitted.</p> : null}
+      {projection.omittedNodes || projection.hiddenRelationships ? <p className="world-graph-canvas__diagnostic">Bounded canvas: {projection.nodes.length} of {record.snapshot.objects.length} loaded objects and {projection.edges.length} of {record.snapshot.relationships.length} loaded relationships shown. {projection.omittedNodes} objects and {projection.hiddenRelationships} valid relationships are outside this view.</p> : null}
+      {projection.invalidRelationships ? <p className="world-graph-canvas__diagnostic">{projection.invalidRelationships} relationships reference objects absent from the loaded graph.</p> : null}
       {projection.diagnostics.length ? <ul className="world-graph-canvas__diagnostics" role="status" aria-label="Graph projection diagnostics">{projection.diagnostics.map((message) => <li key={message}>{message}</li>)}</ul> : null}
-      {projection.omittedDiagnostics || projection.unexaminedRelationships ? (
-        <p className="world-graph-canvas__diagnostic">Relationship inspection was bounded: {projection.omittedDiagnostics} additional integrity warnings were not listed and {projection.unexaminedRelationships} relationships were not checked.</p>
-      ) : null}
+      {projection.omittedDiagnostics ? <p className="world-graph-canvas__diagnostic">{projection.omittedDiagnostics} additional missing-endpoint details are not listed.</p> : null}
     </section>
   );
 }

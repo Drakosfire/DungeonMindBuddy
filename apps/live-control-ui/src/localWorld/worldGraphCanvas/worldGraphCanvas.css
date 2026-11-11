@@ -107,3 +107,18 @@
   .world-graph-canvas { padding: 8px; }
   .world-graph-canvas__viewport { height: 420px; }
 }
+
+/* Search is over loaded authority, independent of the bounded SVG. */
+.world-graph-canvas__exploration {
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--border, #6666);
+  max-height: 18rem;
+  overflow: auto;
+}
+.world-graph-canvas__exploration summary { cursor: pointer; font-weight: 600; }
+.world-graph-canvas__exploration label { display: block; margin-top: 0.5rem; }
+.world-graph-canvas__exploration input { max-width: 100%; width: 28rem; }
+.world-graph-canvas__exploration ul { list-style: none; padding: 0; }
+.world-graph-canvas__exploration li button { display: flex; flex-wrap: wrap; gap: 0.5rem; text-align: left; max-width: 100%; overflow-wrap: anywhere; }
+.world-graph-canvas__exploration small { opacity: 0.8; }
+.world-graph-canvas__neighborhood { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; padding: 0.5rem 1rem; }

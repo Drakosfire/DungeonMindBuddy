@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { InMemoryLocalWorldRepository } from "../inMemoryLocalWorldRepository";
 import { createTestWorld, sequenceLocalIds } from "../localWorldContractFixtures";
 import type { LocalWorldRecord, LocalWorldRelationship } from "../localWorldRepository";
-import { projectLocalWorldGraph } from "./graphProjection";
+import { indexLocalWorldGraph, projectLocalWorldGraph } from "./graphProjection";
 
 async function graphRecord(): Promise<LocalWorldRecord> {
   const repo = new InMemoryLocalWorldRepository({ idFactory: sequenceLocalIds() });
@@ -78,11 +78,11 @@ describe("projectLocalWorldGraph", () => {
     const graph = projectLocalWorldGraph({ ...record, snapshot: { ...record.snapshot, relationships: [...record.snapshot.relationships, invalid] } });
     expect(graph.nodes).toHaveLength(4);
     expect(graph.edges.some((edge) => edge.id === invalid.id)).toBe(false);
-    expect(graph.diagnostics).toEqual([`Relationship ${invalid.id} refers to a missing or capped node and was not rendered.`]);
+    expect(graph.diagnostics).toEqual([`Relationship ${invalid.id} refers to an object absent from the loaded graph and was not rendered.`]);
     expect(graph.omittedEdges).toBe(1);
   });
 
-  it("caps malformed relationship inspection and diagnostics", async () => {
+  it("checks every relationship while bounding malformed diagnostics", async () => {
     const record = await graphRecord();
     const invalidRecords = Array.from({ length: 1000 }, (_, index) => ({
       id: `${record.snapshot.worldId}:relationship:broken-${index}` as LocalWorldRelationship["id"],
@@ -95,10 +95,10 @@ describe("projectLocalWorldGraph", () => {
       ...record,
       snapshot: { ...record.snapshot, relationships: invalidRecords },
     }, { maxEdges: 2 });
-    expect(graph.examinedRelationships).toBe(14);
+    expect(graph.examinedRelationships).toBe(1000);
     expect(graph.diagnostics).toHaveLength(12);
-    expect(graph.omittedDiagnostics).toBe(2);
-    expect(graph.unexaminedRelationships).toBe(986);
+    expect(graph.omittedDiagnostics).toBe(988);
+    expect(graph.unexaminedRelationships).toBe(0);
     expect(graph.omittedEdges).toBe(1000);
   });
 
@@ -111,7 +111,8 @@ describe("projectLocalWorldGraph", () => {
     expect(first.edges).toHaveLength(1);
     expect(first.omittedNodes).toBe(1);
     expect(first.omittedEdges).toBe(3);
-    expect(first.diagnostics).toHaveLength(3);
+    expect(first.diagnostics).toHaveLength(0)
+    expect(first.hiddenRelationships).toBe(3);
     const edgeCapped = projectLocalWorldGraph(record, { maxNodes: 4, maxEdges: 2 });
     expect(edgeCapped.edges).toHaveLength(2);
     expect(edgeCapped.omittedEdges).toBe(2);
@@ -142,6 +143,86 @@ describe("projectLocalWorldGraph", () => {
     expect(explorer.edges).toHaveLength(1024);
     expect(explorer.omittedNodes).toBe(1);
     expect(explorer.omittedEdges).toBe(1);
-    expect(explorer.unexaminedRelationships).toBe(1);
+    expect(explorer.unexaminedRelationships).toBe(0);
+  });
+});
+
+
+describe("loaded corpus exploration", () => {
+  async function corpusRecord() {
+    const record = await graphRecord();
+    const objects = Array.from({ length: 1404 }, (_, i) => ({
+      ...record.snapshot.objects[0], id: `object:${i}` as typeof record.snapshot.objects[number]["id"], name: `Object ${i}`,
+    }));
+    // Reproduce the report: 43 visible and 516 valid hidden relationships.
+    const relationships = Array.from({ length: 559 }, (_, i) => ({
+      ...record.snapshot.relationships[0], id: `edge:${i}` as typeof record.snapshot.relationships[number]["id"],
+      fromObjectId: objects[i < 43 ? i : 800 + i - 43].id,
+      toObjectId: objects[i < 43 ? i + 1 : 801 + i - 43].id,
+    }));
+    return { ...record, snapshot: { ...record.snapshot, objects, relationships } };
+  }
+
+  it("reports the 1404/559 corpus as bounded visibility, not 516 integrity failures", async () => {
+    const record = await corpusRecord();
+    const result = projectLocalWorldGraph(record, { maxNodes: 512, maxEdges: 1024 });
+    expect(result.nodes).toHaveLength(512);
+    expect(result.edges).toHaveLength(43);
+    expect(result.omittedNodes).toBe(892);
+    expect(result.hiddenRelationships).toBe(516);
+    expect(result.invalidRelationships).toBe(0);
+    expect(result.diagnostics).toEqual([]);
+    expect(result.examinedRelationships).toBe(559);
+  });
+
+  it("focuses a late ID, expands both directions and preserves disconnected objects", async () => {
+    const record = await corpusRecord();
+    const options = { maxNodes: 512, maxEdges: 1024, focusObjectId: record.snapshot.objects[1000].id };
+    const oneStep = projectLocalWorldGraph(record, options);
+    expect(oneStep.nodes.map(n => n.id)).toEqual(["object:1000", "object:999", "object:1001"]);
+    expect(oneStep.edges).toHaveLength(2);
+    const twoSteps = projectLocalWorldGraph(record, { ...options, neighborhoodDepth: 2 });
+    expect(twoSteps.nodes).toHaveLength(5);
+    expect(twoSteps.edges).toHaveLength(4);
+    expect(projectLocalWorldGraph(record, { ...options, focusObjectId: record.snapshot.objects[1403].id }).nodes.map(n => n.id)).toEqual(["object:1403"]);
+    expect(record.snapshot.objects).toHaveLength(1404);
+  });
+
+  it("separates actual absent endpoints even beyond the render budget", async () => {
+    const record = await corpusRecord();
+    const bad = { ...record.snapshot.relationships[0], id: "invalid" as LocalWorldRelationship["id"], toObjectId: "absent" as LocalWorldRelationship["toObjectId"] };
+    const result = projectLocalWorldGraph({ ...record, snapshot: { ...record.snapshot, relationships: [...record.snapshot.relationships, bad] } }, { maxNodes: 1, maxEdges: 0 });
+    expect(result.hiddenRelationships).toBe(559);
+    expect(result.invalidRelationships).toBe(1);
+    expect(result.diagnostics).toHaveLength(1);
+    expect(result.unexaminedRelationships).toBe(0);
+  });
+
+  it("does not starve visible relationships behind a long valid hidden prefix", async () => {
+    const record = await corpusRecord();
+    const hidden = {...record.snapshot.relationships[43], fromObjectId: record.snapshot.objects[1000].id};
+    const visible = record.snapshot.relationships[0];
+    const result = projectLocalWorldGraph({...record, snapshot: {...record.snapshot,
+      relationships: [...Array.from({length: 2000}, (_, i) => ({...hidden, id: `hidden:${i}` as LocalWorldRelationship["id"]})), visible],
+    }}, {maxNodes: 2, maxEdges: 1});
+    expect(result.edges.map(e => e.id)).toEqual([visible.id]);
+    expect(result.hiddenRelationships).toBe(2000);
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it("bounds dense traversal and rejects an index from a different snapshot", async () => {
+    const record = await corpusRecord();
+    const relationships = Array.from({length: 2000}, (_, i) => ({
+      ...record.snapshot.relationships[0], id: `dense:${i}` as LocalWorldRelationship["id"],
+      fromObjectId: record.snapshot.objects[1403].id, toObjectId: record.snapshot.objects[i % 1404].id,
+    }));
+    const dense = { ...record, snapshot: { ...record.snapshot, relationships } };
+    const index = indexLocalWorldGraph(dense.snapshot);
+    const result = projectLocalWorldGraph(dense, {maxNodes: 48, maxEdges: 96, focusObjectId: dense.snapshot.objects[1403].id, neighborhoodDepth: 1404}, index);
+    expect(result.nodes).toHaveLength(48);
+    expect(result.nodes[0].id).toBe("object:1403");
+    expect(result.edges.length).toBeLessThanOrEqual(96);
+    const other = { ...record, snapshot: { ...record.snapshot, relationships: [] } };
+    expect(projectLocalWorldGraph(other, {}, index).edges).toEqual([]);
   });
 });

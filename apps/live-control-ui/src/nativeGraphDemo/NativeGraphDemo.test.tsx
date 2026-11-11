@@ -99,6 +99,64 @@ describe("NativeGraphDemo", () => {
     vi.restoreAllMocks();
   });
 
+  function corpusGraph(): NativeGraph {
+    const nodes = Array.from({ length: 1404 }, (_, i) => ({ id: `entity:${i}`, name: `Object ${String(i).padStart(4, "0")}`, kind: i % 2 ? "npc" : "location" }));
+    const edges = Array.from({ length: 559 }, (_, i) => ({
+      id: `assertion:${i}`, source_id: nodes[i < 43 ? i : 800 + i - 43].id,
+      target_id: nodes[i < 43 ? i + 1 : 801 + i - 43].id, predicate: "linked_to",
+    }));
+    return { ...graph, nodes, edges };
+  }
+
+  it("searches all 1404 objects and focuses/expands a late object without integrity warnings", async () => {
+    const corpus = corpusGraph();
+    const api = makeApi({ readGraph: vi.fn().mockResolvedValue(corpus), inspectNode: vi.fn().mockResolvedValue(entityDetail(corpus.revision_id, false)) });
+    renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Corpus", stateScopeId: "managed:world-17" });
+    await screen.findByText(/892 objects and 516 valid relationships are outside this view/);
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(512);
+    expect(screen.queryByLabelText("Graph projection diagnostics")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Find an object · 1404 loaded"));
+    expect(within(screen.getByRole("list", {name: "Matching graph objects"})).getAllByRole("button")).toHaveLength(20);
+    fireEvent.click(screen.getByRole("button", {name: "Next objects"}));
+    expect(screen.getByText("Page 2 of 71")).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Explore Object 0020 (entity:20)"})).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Search loaded objects"), {target: {value: "entity:1000"}});
+    fireEvent.click(screen.getByRole("button", {name: "Explore Object 1000 (entity:1000)"}));
+    await waitFor(() => expect(api.inspectNode).toHaveBeenCalledWith(corpus, "entity:1000", expect.any(AbortSignal)));
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(3);
+    expect(screen.getByRole("button", {name: "Object 1000, location"})).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText("Graph zoom")).toHaveTextContent("135%");
+    fireEvent.click(screen.getByRole("button", {name: "Expand neighborhood"}));
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(5);
+    expect(document.querySelector('[data-node-id="entity:1002"]')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "Show overview"}));
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(512);
+    fireEvent.click(screen.getByRole("button", {name: "Explore Object 1000 (entity:1000)"}));
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(3);
+    expect(api.prepare).not.toHaveBeenCalled();
+    expect(api.confirm).not.toHaveBeenCalled();
+  });
+
+  it("finds an isolated final object and clears exploration on revision refresh", async () => {
+    const corpus = corpusGraph();
+    const revised = {...corpus, revision_id: "revision-003", graph_sha256: "sha256:graph-003"};
+    const delayed = deferred<NativeGraphEntity>();
+    const api = makeApi({ readGraph: vi.fn().mockResolvedValueOnce(corpus).mockResolvedValueOnce(revised), inspectNode: vi.fn(() => delayed.promise) });
+    renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Corpus", stateScopeId: "managed:world-17" });
+    fireEvent.click(await screen.findByText("Find an object · 1404 loaded"));
+    fireEvent.change(screen.getByLabelText("Search loaded objects"), {target: {value: "Object 1403"}});
+    fireEvent.click(screen.getByRole("button", {name: "Explore Object 1403 (entity:1403)"}));
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1);
+    expect(document.querySelector('[data-node-id="entity:1403"]')).toBeInTheDocument();
+    fireEvent.click(within(screen.getByTestId("surface-context-host")).getByRole("button", {name: "Refresh"}));
+    await waitFor(() => expect(screen.getByLabelText("Search loaded objects")).toHaveValue(""));
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(512);
+    expect(screen.queryByRole("group", {name: "Neighborhood controls"})).not.toBeInTheDocument();
+    await act(async () => delayed.resolve(entityDetail(corpus.revision_id, false)));
+    expect(screen.queryByText("This object is unavailable in the selected revision.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("complementary", {name: "Selected object details"})).not.toBeInTheDocument();
+  });
+
   it("lets the embedded bounded index graph use the available page width", () => {
     const css = readFileSync(new NodeURL("./nativeGraphDemo.css", import.meta.url), "utf8");
     expect(css).toMatch(/\.app-wrap\[data-workspace-layout="bounded"\]:has\(\.native-demo-shell--embedded\)\s*\{\s*max-width:\s*none;\s*\}/);
@@ -533,9 +591,13 @@ describe("NativeGraphDemo", () => {
     await waitFor(() => expect(JSON.parse(sessionStorage.getItem(keyFor("managed:world-a")) ?? "null").pending.operation_id).toBe(operationA));
   });
 
-  it("retains a canvas placement with its exact operation and applies it only after server readback", async () => {
+  it.each([false, true])("retains exact placement after readback (new node beyond initial canvas: %s)", async (beyondCanvas) => {
     const user = userEvent.setup();
-    const api = makeApi();
+    const readback = beyondCanvas ? { ...createdGraph, nodes: [
+      ...Array.from({length: 600}, (_, i) => ({id: `filler:${i}`, name: `Filler ${i}`, kind: "location"})),
+      ...createdGraph.nodes,
+    ] } : createdGraph;
+    const api = makeApi({confirm: vi.fn().mockResolvedValue({status: "committed", created_node_id: "entity:mira", graph: readback})});
     vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue("bb9c10ac-c94a-4693-b7bc-4d001c398770");
     renderEmbeddedDemo({ api });
 
@@ -569,6 +631,11 @@ describe("NativeGraphDemo", () => {
     expect(afterEscape.placement.operation_id).toBe(prepared.pending.operation_id);
 
     await user.click(screen.getByRole("button", { name: "Confirm in DungeonMind" }));
+    if (beyondCanvas) {
+      fireEvent.click(await screen.findByText("Find an object · 604 loaded"));
+      fireEvent.change(screen.getByLabelText("Search loaded objects"), {target: {value: "entity:mira"}});
+      fireEvent.click(screen.getByRole("button", {name: "Explore Mira (entity:mira)"}));
+    }
     expect(await screen.findByRole("button", { name: "Mira, person" })).toBeInTheDocument();
     await waitFor(() => {
       const saved = JSON.parse(localStorage.getItem(`dungeonmind-native-demo:layout:${encodeURIComponent(graph.world_id)}`) ?? "null");
