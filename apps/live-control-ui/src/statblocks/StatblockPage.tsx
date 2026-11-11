@@ -1,5 +1,5 @@
 import {useEffect,useState,useSyncExternalStore} from 'react';
-import {openSavedMechanicsVersion} from '../api/liveApi';
+import {getThreatDraft,openSavedMechanicsVersion} from '../api/liveApi';
 import {AppChrome} from '../chrome/AppChrome';
 import {getAppLocationSnapshot,subscribeAppLocation} from '../chrome/appNavigation';
 import {useSelectedWorld} from '../selectedWorld/SelectedWorldContext';
@@ -7,7 +7,38 @@ import type {OpenSavedMechanicsVersion} from './revision/savedMechanicsRevisionT
 import {StatblockRenderer} from './render/StatblockRenderer';
 import {readSavedStatblockTarget,type SavedStatblockTarget} from './savedStatblockLocation';
 import './StatblockPage.css';
+import type {ThreatDraftV2} from '../api/types';
+import {NativeThreatCreationPanel} from './NativeThreatCreationPanel';
 import {SavedStatblockButton} from './SavedStatblockSession';
+
+function SavedCreatureReview({target,packet}:{target:SavedStatblockTarget;packet:OpenSavedMechanicsVersion}) {
+ const [draft,setDraft]=useState<ThreatDraftV2>();
+ const [busy,setBusy]=useState(false);
+ const [error,setError]=useState('');
+ async function loadDraft() {
+  setBusy(true);setError('');
+  try {
+   const result=await getThreatDraft(target.draftId);
+   const accepted=result.accepted_mechanics_ref;
+   if(result.schema!=='dmb_threat_draft_v2'||result.world_id!==target.worldId
+    ||result.draft_id!==target.draftId||result.workflow_state!=='mechanics_saved'
+    ||accepted?.revision_id!==packet.locator.revision_id
+    ||accepted.statblock_id!==packet.locator.statblock_id
+    ||accepted.definition_digest!==packet.locator.definition_digest) {
+    throw new Error('Open the original saved mechanics for this creature draft to review Graph creation.');
+   }
+   setDraft(result);
+  } catch(error) {
+   setError(error instanceof Error?error.message:'The creature draft is unavailable.');
+  } finally {
+   setBusy(false);
+  }
+ }
+ return draft?<NativeThreatCreationPanel draft={draft}/>:<>
+  <button type="button" disabled={busy} onClick={()=>void loadDraft()}>Open creature review</button>
+  {error&&<p role="alert">{error}</p>}
+ </>;
+}
 
 /** One exact native read. It never consults the Workbench's selected-version hint. */
 export function SavedStatblockFullView({target}:{target:SavedStatblockTarget}) {
@@ -25,7 +56,7 @@ export function SavedStatblockFullView({target}:{target:SavedStatblockTarget}) {
  const current=state?.key===key?state:null;
  return <main className="saved-statblock-page" aria-label="Full saved statblock">
   {current?.error?<><p role="alert">{current.error}</p><button type="button" onClick={()=>setAttempt(value=>value+1)}>Retry statblock</button></>
-   :current?.packet?<><SavedStatblockButton {...target} label="Edit this version"/><StatblockRenderer revision={current.packet.resource} mode="full" chrome="campaign"/></>
+   :current?.packet?<><SavedStatblockButton {...target} label="Edit this version"/><SavedCreatureReview key={key} target={target} packet={current.packet}/><StatblockRenderer revision={current.packet.resource} mode="full" chrome="campaign"/></>
    :<p role="status">Opening saved statblock…</p>}
  </main>;
 }
