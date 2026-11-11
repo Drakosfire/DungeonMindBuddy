@@ -8,7 +8,7 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
-from generationengine import GenerationClient, GenerationEngineError, ImageOptions, ImageRequest
+from generationengine import FailureCode, GenerationClient, GenerationEngineError, ImageOptions, ImageRequest
 from generationengine.providers.fal_provider import FalProvider
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -111,6 +111,12 @@ async def image_model_catalog(
 
 
 
+def _image_failure_message(error: GenerationEngineError, unavailable: str) -> str:
+    if error.failure.code is FailureCode.PROVIDER_REFUSED:
+        return "The image provider declined this request under its content policy. Edit the prompt before trying again. Your existing images are unchanged."
+    return unavailable
+
+
 @router.post("/generate")
 async def generate_image_preview(body: ImagePreviewRequest, request: Request, response: Response):
     principal = enforce_native_graph_gm(request)
@@ -136,7 +142,7 @@ async def generate_image_preview(body: ImagePreviewRequest, request: Request, re
             num_images=1, options=body.options, deadline_ms=180000,
         ))
     except GenerationEngineError as error:
-        raise HTTPException(502, detail={"code": error.failure.code.value, "message": "Image generation did not complete. Your previous preview is unchanged."}) from error
+        raise HTTPException(502, detail={"code": error.failure.code.value, "message": _image_failure_message(error, "Image generation did not complete. Your previous preview is unchanged.")}) from error
     except (ValueError, ImportError) as error:
         raise HTTPException(503, detail="Image generation is not configured on this server.") from error
     finally:
@@ -201,7 +207,7 @@ async def regenerate_image(asset_id: UUID, body: ContextualImageRequest, request
         result = await (client.edit_image(image_request) if body.mode == 'image_to_image' else client.generate_image(image_request))
     except GenerationEngineError as error:
         raise HTTPException(502, detail={"code": error.failure.code.value,
-            "message": "Generation could not be confirmed. Your original is unchanged; check the library before trying again."}) from error
+            "message": _image_failure_message(error, "Generation could not be confirmed. Your original is unchanged; check the library before trying again.")}) from error
     except (ValueError, ImportError) as error:
         raise HTTPException(503, detail="Image generation is unavailable. Your original is unchanged.") from error
     finally:

@@ -1874,7 +1874,7 @@ function messagePresentation(page: ActiveConversationMessages): WorldAgentConver
   return {
 schema: 'dmb_agent_conversation_history_v3', world_id: page.world_id, conversation_state: page.conversation_state,
     conversation_id: page.conversation_id, active_conversation_id: page.active_conversation_id, pointer_revision: page.pointer_revision,
-    next_before_sequence: page.next_before_sequence, turns: page.messages.map(({ status, revision, citation_preview, authored_references, reply_object, ...row }) => ({ ...row, ...(authored_references ? {authored_references} : {}), lifecycle_status: status as import('../../api/types').AgentConversationTurnLifecycleV1 }))
+    next_before_sequence: page.next_before_sequence, turns: page.messages.map(({ status, revision, citation_preview, authored_references, reply_object, author_interaction, ...row }) => ({ ...row, ...(authored_references ? {authored_references} : {}), lifecycle_status: status as import('../../api/types').AgentConversationTurnLifecycleV1 }))
 };
 }
 function sameSavedMessage(a: WorldAgentConversationHistoryTurn, b: WorldAgentConversationHistoryTurn) {
@@ -3049,7 +3049,7 @@ export function WorldPlanAgentConversation({
   const playCompose = usePlaySceneEdits({ worldId, runId: playMode?.admittedRun?.runId ?? null,
     bridge: playMode?.sceneEditBridge ?? null });
   const buildCompose = useBuildCompose({ worldId, history,
-    bridge: buildMode?.composeBridge ?? null, enabled: visible && isBuild,
+    bridge: buildMode?.composeBridge ?? null, enabled: visible && isBuild, readHistory: visible,
     onReviewOnPage:()=>agent.setPaneOpen(false),
     onConstructionVisible:()=>{
       if(!(composerDraftsRef.current[composerDraftKey]??'').trim())agent.setPaneOpen(false);
@@ -4463,7 +4463,10 @@ export function WorldPlanAgentConversation({
       if (requestRef.current?.token !== token || !latestRef.current.mounted) return;
       const terminalMatches = sharedConversation?.history && await confirmedReadOnlyTurn(sharedConversation.history, stored);
       if (requestRef.current?.token !== token || !latestRef.current.mounted) return;
+      const buildTargetUnavailable = request.surface.surface_id === "build"
+        && reason instanceof LiveApiError && reason.code === "build_compose_target_unavailable";
       if (terminalMatches && sharedConversation) {
+        if (buildTargetUnavailable) setError(reason.message);
         if (clearSavedPlayTurn(stored)) sharedConversation.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
         return;
       }
@@ -4516,13 +4519,14 @@ export function WorldPlanAgentConversation({
       }
       const graphFailure = reason instanceof LiveApiError
         && ["graph_unavailable", "native_binding_invalid", "graph_revision_unavailable", "graph_read_failed"].includes(reason.code ?? "");
-      const notice = rejectedBeforeDispatch
+      const notice = buildTargetUnavailable ? reason.message : rejectedBeforeDispatch
         ? `This message was not sent. ${localOperatorCredentialFailure(reason, "send this message again")
           ?? (reason instanceof Error ? reason.message : "Reopen the saved work.")}`
         : graphFailure
           ? `The World Graph could not be resolved for this message. ${reason.message} Check World history or explicitly retry the exact saved request; Graph context will remain required.`
         : `${reason instanceof Error ? reason.message : "The message outcome is unknown."} Check World history or explicitly retry the saved request with its original IDs.`;
-      uncertainPlayNoticeRef.current = rejectedBeforeDispatch ? null : { turnId: request.turn_id, message: notice };
+      uncertainPlayNoticeRef.current = rejectedBeforeDispatch || buildTargetUnavailable
+        ? null : { turnId: request.turn_id, message: notice };
       setError(notice);
       sharedConversation?.setHistoryRefreshNonce((current) => current + 1);
     } finally {
@@ -4537,12 +4541,26 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  async function retryRetainedDiscussion(retry:TurnRetryContext) {
+  async function retryBuildTurn(turn:WorldAgentConversationHistoryTurn) {
+    const retry=turn.retry_context;
+    if(!retry)return;
     const tourDispatch=guidance?.captureScope()??null;
     if(!isBuild||!visible||!verifiedWorldId||!retry.eligible||composerBusy||requestRef.current||surfacePreparationRef.current
       ||pendingPlayTurn||pendingPlayLoadError||sharedConversation?.pendingTurn) return;
     const world=verifiedWorldId, conversation=historySnapshotRef.current?.conversation_id;
     if(!conversation||conversation!==retry.conversation_id||retry.world_id!==world)throw new Error('The original conversation is no longer active.');
+    const originalHistory=historySnapshotRef.current, placementFence=buildPlacementFenceKey, placementEpoch=buildPlacementEpoch;
+    const continueWithFreshPlacement=async()=>{
+      if(latestRef.current.buildDocumentId!==turn.provenance.primary_work.object_id||!buildMode?.composeBridge)
+        throw new Error('Open the page this request was made from, then retry. Its authoring target needs fresh page context. Nothing was sent.');
+      const references=turn.authored_references??(retry.schema==='dmb_turn_retry_context_row_v2'?retry.authored_references:undefined);
+      await submitPlay(undefined,false,turn.user_text,undefined,{context:retry,references});
+    };
+    if(retry.author_interaction==='select_passage'||retry.reference_image_id){
+      await continueWithFreshPlacement();
+      return;
+    }
+    let authoringRequired=false;
     const token=Symbol('retained-discussion-retry');
     requestRef.current={token,scopeKey,fenceKey:world};
     setSending(true);
@@ -4569,15 +4587,27 @@ export function WorldPlanAgentConversation({
       if(window.localStorage.getItem(storageKey)!==serialized)throw new Error('The exact retry could not be retained. Nothing was sent.');
       stored={storageKey,serialized,request};
       setPendingPlayTurn(stored);
+    } catch(reason) {
+      if(reason instanceof LiveApiError&&reason.code==='build_authoring_retry_required')authoringRequired=true;
+      else throw reason;
     } finally {
       if(requestRef.current?.token===token){requestRef.current=null;setSending(false);}
     }
     // The ordinary persisted sender owns dispatch, outcome recovery and idempotency.
-    // No current editor capture, navigation, draft clearing or write grant is involved.
+    // Retained discussion needs no current editor capture or write grant.
     if(stored)await dispatchSavedPlayTurn(stored,false,tourDispatch);
+    if(authoringRequired){
+      const current=historySnapshotRef.current;
+      if(!latestRef.current.mounted||!surfaceVisibleRef.current||!latestRef.current.buildSurface
+        ||latestRef.current.verifiedWorldId!==world||latestRef.current.buildPlacementFenceKey!==placementFence
+        ||latestRef.current.buildPlacementEpoch!==placementEpoch||!originalHistory||!current||!sameHistoryPointer(originalHistory,current))
+        throw new Error('The page or conversation changed while checking this retry. Nothing was sent.');
+      await continueWithFreshPlacement();
+    }
   }
 
-  async function submitPlay(event?: Pick<FormEvent<HTMLFormElement>, "preventDefault">, discussionOnly = false, questionOverride?: string, explicitRequest?: SurfaceConversationRequest) {
+  async function submitPlay(event?: Pick<FormEvent<HTMLFormElement>, "preventDefault">, discussionOnly = false, questionOverride?: string, explicitRequest?: SurfaceConversationRequest,
+    freshBuildRetry?:{context:TurnRetryContext;references:WorldBuildAgentTurnRequestV1['build_authored_references']}, useImageAbove=false) {
     event?.preventDefault();
     const tourDispatch=guidance?.captureScope()??null;
     if(surfacePreparationRef.current&&!explicitRequest)return;
@@ -4597,16 +4627,21 @@ export function WorldPlanAgentConversation({
       if (!visible || !source || source.worldId !== verifiedWorldId || !historySnapshotRef.current
         || historyLoading || historyError || !message || sending
         || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) return;
+      if(freshBuildRetry&&(!useWorldGraphForAsk||!questionOverride||!freshBuildRetry.context.eligible
+        ||freshBuildRetry.context.world_id!==source.worldId||freshBuildRetry.context.conversation_id!==historySnapshotRef.current.conversation_id
+        ||historySnapshotRef.current.active_conversation_id!==freshBuildRetry.context.conversation_id))
+        throw new Error('The original authoring request is no longer active or World context is unavailable. Nothing was sent.');
       if (discussionOnly && !visibleBuildPlacementFailure) return;
       if(explicitRequest?.reviewedStep&&!useWorldGraphForAsk)throw new Error('Enable World context, then resume this step from its saved plan. Nothing was sent.');
-      if(!explicitRequest&&!composerReferencesReady){setError('The local reference selection needs recovery; no request was sent.');return;}
-      const referenceInput=explicitRequest?explicitRequest.authoredReferences
+      if(!explicitRequest&&!freshBuildRetry&&!composerReferencesReady){setError('The local reference selection needs recovery; no request was sent.');return;}
+      const referenceInput=freshBuildRetry?freshBuildRetry.references:explicitRequest?explicitRequest.authoredReferences
         :composerReferences.length?authoredReferences(composerReferences):undefined;
       if(referenceInput&&!useWorldGraphForAsk){setError('Enable World context to read the selected references. Nothing was sent.');return;}
       const referenceDraftAtSubmit=composerReferenceState.draft;
       const request: WorldBuildAgentTurnRequestV1 = {
         ...(referenceInput?{build_authored_references:referenceInput}:{}),
         ...(explicitRequest?.reviewedStep?{reviewed_step:explicitRequest.reviewedStep}:{}),
+        ...(freshBuildRetry?{retry_of:{turn_id:freshBuildRetry.context.turn_id,revision:freshBuildRetry.context.revision}}:{}),
         schema: "dmb_agent_turn_request_v1", client_thread_id: explicitRequest?.clientThreadId ?? crypto.randomUUID(), turn_id: explicitRequest?.turnId ?? crypto.randomUUID(),
         surface: { surface_id: "build", instance_id: source.surfaceInstanceId },
         owner_scope: { kind: "world", world_id: source.worldId },
@@ -4627,7 +4662,9 @@ export function WorldPlanAgentConversation({
         requestRef.current = { token, scopeKey, fenceKey: fence };
         setSending(true);
         try {
-          const prepared=await buildCompose.prepareHarnessTurn(request.turn_id,discussionOnly||explicitRequest?.reviewedKind==='discuss');
+          const prepared=await buildCompose.prepareHarnessTurn(request.turn_id,discussionOnly||explicitRequest?.reviewedKind==='discuss',
+            freshBuildRetry?.context.author_interaction==='select_passage',useImageAbove||!!freshBuildRetry?.context.reference_image_id,
+            freshBuildRetry?.context.reference_image_id);
           if(prepared.placementError){
             if(latestRef.current.mounted&&latestRef.current.buildPlacementFenceKey===placementFence
               &&latestRef.current.buildPlacementEpoch===epoch&&latestRef.current.buildPlacementBridge===bridge
@@ -4763,7 +4800,7 @@ export function WorldPlanAgentConversation({
       throw new Error('Reply details no longer match this saved message. Refresh the conversation before opening them again.');
     return page.turns[0];
   }
-  async function retrySavedMessage(row: WorldAgentConversationHistoryTurn) {
+  async function retrySavedMessage(row: WorldAgentConversationHistoryTurn, requirePassage = false) {
     const snapshot = messagePageRef.current ? messagePresentation(messagePageRef.current) : null;
     const generation = historyGenerationRef.current, fence = askPresentationFenceKey;
     if ((!isBuild && isReadOnly) || !snapshot || !snapshot.turns.some(item => sameSavedMessage(item, row)))
@@ -4778,11 +4815,13 @@ export function WorldPlanAgentConversation({
       if (full.assistant_text || !['failed','interrupted'].includes(full.lifecycle_status)
         || full.provenance.surface_id !== 'build' || !full.retry_context?.eligible)
         throw new Error('This saved attempt cannot be retried safely. Inspect its result or continue from its reviewed plan. Nothing was sent.');
+      if (requirePassage && full.retry_context.author_interaction !== 'select_passage')
+        throw new Error('The saved request changed. Refresh the conversation before continuing.');
       const originalReferences = full.authored_references ?? (full.retry_context.schema === 'dmb_turn_retry_context_row_v2' ? full.retry_context.authored_references : null);
       if (row.authored_references && canonicalJson(row.authored_references) !== canonicalJson(originalReferences))
         throw new Error('The saved question references could not be verified. Refresh the conversation. Nothing was sent.');
       setRetryPresentationOrigin({scopeKey,turnId:full.turn_id});
-      await retryRetainedDiscussion(full.retry_context);
+      await retryBuildTurn(full);
       return;
     }
     if (full.assistant_text || !['failed','interrupted'].includes(full.lifecycle_status)
@@ -6428,19 +6467,27 @@ export function WorldPlanAgentConversation({
       &&history&&sameHistoryPointer(messageHistory,history)&&messageHistory.turns.some(row=>sameSavedMessage(turn,row))
       ?messagePage.messages.find(row=>row.turn_id===turn.turn_id):undefined;
     const turnReferences=turn.authored_references??(turn.retry_context?.schema==='dmb_turn_retry_context_row_v2'?turn.retry_context.authored_references:null)??savedMessage?.authored_references;
+    const selectPassage = isBuild && (turn.retry_context?.author_interaction ?? savedMessage?.author_interaction)==='select_passage';
+    const onOriginalPage = buildMode?.savedSource?.documentId===turn.provenance.primary_work.object_id && !!buildMode?.composeBridge;
+    const passagePrompt = (onContinue:()=>Promise<void>) => <div className="world-plan-agent-conversation__turn-status">
+      <p>{onOriginalPage ? 'Select the passage on this page that you want Buddy to revise.' : 'Open the original page to select the passage you want Buddy to revise.'}</p>
+      {onOriginalPage && <ConversationRecovery question={turn.user_text} blocked={composerBusy}
+        label="Continue with selection" onRetry={onContinue}/>}
+    </div>;
     const hasLightweightReply = Boolean(pageSuggestion || turn.assistant_text || ['completed','failed','interrupted'].includes(turn.lifecycle_status));
     if (!history?.turns.some(full => sameSavedMessage(full, turn))) return <BuddyTurnInspection key={`world:${turn.turn_id}`} worldId={verifiedWorldId ?? ''} conversationId={history?.conversation_id ?? ''} turnId={turn.turn_id} lifecycle={turn.lifecycle_status}>
       <article className={`world-plan-agent-conversation__turn world-plan-agent-conversation__turn--${turn.assistant_text ? 'complete' : turn.lifecycle_status}`} data-turn-id={turn.turn_id} data-sequence={turn.sequence} tabIndex={-1}>
         <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--user"><span className="world-plan-agent-conversation__speaker">You</span><p>{turn.user_text}</p>{turnReferences&&<SurfaceGraphReferenceInput worldId={verifiedWorldId??''} label="Message references" readOnly value={turnReferences.references} onChange={()=>{}}/>}</div>
         {hasLightweightReply && <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
           <div className="world-plan-agent-conversation__reply-heading"><span className="world-plan-agent-conversation__speaker">Buddy</span></div>
-          {pageSuggestion ? pageSuggestion.element : turn.assistant_text ? savedMessage?.citation_preview?.status === 'ready' ? <SavedCitationAnswer key={`${scopeKey}:${turn.turn_id}`} preview={savedMessage.citation_preview} answer={turn.assistant_text} worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : <WorldPlanAgentAnswer answer={turn.assistant_text}/> : <p>{turn.lifecycle_status === 'completed' ? 'Open Details to inspect this reply.' : 'This reply did not finish.'}</p>}
+          {pageSuggestion ? pageSuggestion.element : turn.assistant_text ? savedMessage?.citation_preview?.status === 'ready' ? <SavedCitationAnswer key={`${scopeKey}:${turn.turn_id}`} preview={savedMessage.citation_preview} answer={turn.assistant_text} worldId={turn.provenance.world_id} turnId={turn.turn_id}/> : <WorldPlanAgentAnswer answer={turn.assistant_text}/> : selectPassage ? null : <p>{turn.lifecycle_status === 'completed' ? 'Open Details to inspect this reply.' : 'This reply did not finish.'}</p>}
           {!historicalAttempt && (isBuild || !isReadOnly) && !turn.assistant_text
             && ['failed','interrupted'].includes(turn.lifecycle_status)
             && (isBuild ? turn.provenance.surface_id === 'build'
               : turn.provenance.surface_id === 'plan' && turn.provenance.primary_work.object_id === documentId)
             && history?.active_conversation_id === history?.conversation_id
-            && <ConversationRecovery question={turn.user_text} blocked={composerBusy} onRetry={() => retrySavedMessage(turn)}/>}
+            && (selectPassage ? passagePrompt(() => retrySavedMessage(turn, true))
+              : <ConversationRecovery question={turn.user_text} blocked={composerBusy} onRetry={() => retrySavedMessage(turn)}/>)}
         </div>}
         <div className="world-plan-agent-conversation__turn-debug">{renderReplyDetails(turn, false, undefined, savedMessage?.citation_preview?.status === 'ready',
             savedMessage?.reply_object?.kind==='page_object'&&savedMessage.reply_object.object_kind==='connected_page'
@@ -6574,8 +6621,10 @@ export function WorldPlanAgentConversation({
           <div className="world-plan-agent-conversation__turn-status">
           {!historicalAttempt && isBuild && turn.provenance.surface_id==='build'
             && turn.retry_context?.eligible
-            ? <><span>Retry using this request’s original page context.</span><ConversationRecovery question={turn.user_text} blocked={composerBusy}
-                onRetry={async()=>{setRetryPresentationOrigin({scopeKey,turnId:turn.turn_id});await retryRetainedDiscussion(turn.retry_context!);}}/></>
+            ? selectPassage
+              ? passagePrompt(async()=>{setRetryPresentationOrigin({scopeKey,turnId:turn.turn_id});await retryBuildTurn(turn);})
+              : <><span>Retry this saved request.</span><ConversationRecovery question={turn.user_text} blocked={composerBusy}
+                onRetry={async()=>{setRetryPresentationOrigin({scopeKey,turnId:turn.turn_id});await retryBuildTurn(turn);}}/></>
             : !historicalAttempt && !isBuild && turn.provenance.surface_id === (isReadOnly ? "play" : "plan")
             && turn.provenance.primary_work.object_id === (isReadOnly ? playMode?.admittedRun?.runId : documentId)
             ? graphContextForTurn(turn)?.receipt.assembled_input.assembler_version==='reviewed_author_admission_v1'
@@ -7126,7 +7175,7 @@ export function WorldPlanAgentConversation({
         ) : null}
         {displayedConversation.map(item => item.element)}
         {playMode ? playCompose.review : null}
-        {isBuild && buildCompose.error ? <p role="alert">{buildCompose.error}</p> : null}
+        {buildCompose.error ? <p role="alert">{buildCompose.error}</p> : null}
         {!isReadOnly ? conversationActions.map(renderConsultedAction) : null}
         {!isReadOnly && conversationActionsError ? <p role="alert">{conversationActionsError}</p> : null}
         {unmatchedSubmittedMessage && submittedMessage && !pendingRetryTurnId ? (
@@ -7288,6 +7337,11 @@ export function WorldPlanAgentConversation({
               </div>
             </details>
           ) : null}
+          {isBuild && useWorldGraphForAsk && buildMode?.composeBridge && composerMessage.trim() &&
+            <button type="button" disabled={composerBusy}
+              onClick={() => { void submitPlay(undefined,false,undefined,undefined,undefined,true); }}>
+              Revise with image above
+            </button>}
           <button
             type="submit"
             aria-label={!isReadOnly && detectedComposerIntent === "propose" ? "Propose edit" : "Send message"}

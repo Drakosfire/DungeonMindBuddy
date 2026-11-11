@@ -192,13 +192,13 @@ def _authored_variants(frame, policy, prose):
                                  "selection_ids": _array(_enum(session_selections), nonempty=True)}))
     return variants
 
-def _answer_schema(variants, policy, rules, prose):
+def _answer_schema(variants, policy, rules, prose, *, proposal_labels=("invented_idea", "image_prompt")):
     variants.append(
         _object(
             {
                 "kind": _literal("proposal"),
                 "text": prose,
-                "label": _enum(["invented_idea", "image_prompt"]),
+                "label": _enum(proposal_labels),
             }
         )
     )
@@ -254,8 +254,10 @@ def _answer_schema(variants, policy, rules, prose):
     return mixed
 
 
-def native_output_format(frame, rules, work_frame, *, build_local=False):
+def native_output_format(frame, rules, work_frame, *, build_local=False, format_version=2):
     from .native_writer import SCHEMA, LEGACY_SCHEMA
+    if type(format_version) is not int or format_version not in {1, 2}:
+        raise ValueError('Unknown native writer output format version')
     if (frame.get('schema') not in {SCHEMA, LEGACY_SCHEMA} or frame.get('answer_policy') != ASSERTION_POLICY
             or not isinstance(rules, (PlanRulesEvidenceFrameV1, ModelRulesFrame))):
         raise ValueError('Shared native output requires its actual evidence and Rules frames')
@@ -280,7 +282,8 @@ def native_output_format(frame, rules, work_frame, *, build_local=False):
         variants.extend(native_variants(work_frame,prose,local=build_local))
     else:
         raise ValueError('Shared output requires its actual supported work frame')
-    schema=_answer_schema(variants,ASSERTION_POLICY,rules,prose)
+    schema=_answer_schema(variants,ASSERTION_POLICY,rules,prose,
+        proposal_labels=("invented_idea", "image_prompt") if format_version == 1 else ("invented_idea",))
     if work_frame.get('schema')==BUILD_WORK_SCHEMA:
         from .build_intentional_response import native_review_enabled, native_review_schema
         if native_review_enabled(work_frame):
@@ -302,7 +305,7 @@ def native_output_format(frame, rules, work_frame, *, build_local=False):
         base['properties']['collaboration']=review
         base['required'].append('collaboration')
     from generationengine.utils.schema_utils import make_schema_strict
-    return {'type': 'json_schema', 'name': 'surface_native_evidence_selectors_v1', 'strict': True,
+    return {'type': 'json_schema', 'name': f'surface_native_evidence_selectors_v{format_version}', 'strict': True,
         'schema':make_schema_strict(schema)}
 
 

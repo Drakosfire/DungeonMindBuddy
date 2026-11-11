@@ -93,6 +93,17 @@ describe("native graph demo API", () => {
     });
   });
 
+  it("accepts only the explicit prepare recovery action for an unknown operation", async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ status: "unknown", operation_id: "op-2", recovery_action: "retry_prepare" }))
+      .mockResolvedValueOnce(jsonResponse({ status: "unknown", operation_id: "op-2", recovery_action: "retry_confirm" }))
+      .mockResolvedValueOnce(jsonResponse({ status: "unknown", operation_id: "another-op", recovery_action: "retry_prepare" }));
+    const api = createNativeGraphDemoApi({ fetcher, readCapability: () => "test-capability" });
+    await expect(api.readOperation("op-2")).resolves.toMatchObject({ recovery_action: "retry_prepare" });
+    await expect(api.readOperation("op-2")).rejects.toBeInstanceOf(NativeGraphDemoApiError);
+    await expect(api.readOperation("op-2")).rejects.toBeInstanceOf(NativeGraphDemoApiError);
+  });
+
   it("keeps a 200 unknown confirm outcome distinct from commit", async () => {
     document.head.innerHTML = '<meta name="native-demo-capability" content="demo">';
     const fetcher = vi.fn(async () => jsonResponse({ status: "unknown", operation_id: "op-2", message: "Native publication outcome is uncertain." }));

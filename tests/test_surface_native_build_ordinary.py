@@ -29,7 +29,21 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False):
+def test_build_proposal_without_a_target_returns_selection_guidance(lane, tmp_path, monkeypatch):
+    _fresh_case(lane, tmp_path, monkeypatch, "target_unavailable", True, False, True)
+
+
+@pytest.mark.parametrize("reference_image", ["saved", "unbound", "wrong_same_page"])
+def test_build_selected_revision_uses_only_the_bound_saved_image(lane, tmp_path, monkeypatch, reference_image):
+    _fresh_case(lane, tmp_path, monkeypatch, None, True, False, True, reference_image=reference_image)
+
+
+def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_path, monkeypatch):
+    _fresh_case(lane, tmp_path, monkeypatch, "target_unavailable", True, False, True,
+        reference_image="saved")
+
+
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -52,7 +66,21 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     page = create_page_fixture(tmp_path, world_id=world, campaign_id=world, title='Working page',
         kind='worldbuilding_source', source_domain='worldbuilding', document_class='lore',
         authority_state='draft', visibility_state='internal')
-    save_page(tmp_path, page.document_id, '# Working page\n\nA proposed conversation.\n')
+    image_markdown = ''
+    if reference_image:
+        from io import BytesIO
+        from PIL import Image
+        from application_state import media
+
+        original = BytesIO()
+        Image.new("RGB", (64, 48), (217, 22, 67)).save(original, format="PNG")
+        asset = media.stage_image(original.getvalue(), "local_operator", {"fixture": "bath house map"})
+        wrong = media.stage_image(original.getvalue(), "local_operator", {"fixture": "unrelated artwork"})
+        image_markdown = (f"![Other artwork](dmb-media:{wrong['asset_id']})\n\n"
+            + "Unrelated introduction.\n\n"
+            + f"![Bath house map](dmb-media:{asset['asset_id']})\n\n")
+    save_page(tmp_path, page.document_id, '# Working page\n\n'
+        + (image_markdown if reference_image in {"saved", "wrong_same_page"} else '') + 'A proposed conversation.\n')
     source = get_workspace_document_snapshot(tmp_path, page.document_id)
     draft = None
     if with_draft:
@@ -61,7 +89,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         service = AgentConversationService()
         conversation = _new(service,world)
         pointer = service.get_world_pointer(world)
-        text = 'An unsaved orchid possibility. Never a played fact. 🌸'
+        text = image_markdown + 'An unsaved orchid possibility. Never a played fact. 🌸'
         snapshot = BuildDraftSnapshotV1(world_id=world,document_id=page.document_id,
             registry_revision=source.loaded_revision,content_sha256=source.content_sha256,visibility='internal',
             draft_markdown=text,draft_sha256=sha256(text.encode()).hexdigest(),editor_sha256='c'*64,draft_generation=3)
@@ -156,7 +184,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     else (native_body if native_body and body['state']['sources'][list(body['state']['sources'])[int(name[1:])]]['kind']=='native_body' else 'direct_support') if name.startswith('s') and name[1:].isdigit() else 'skip')
                 assert chosen in choices, (name, choices)
                 answers[name] = dict(type='choice', choice=chosen, confidence=1,
-                    probabilities={key: float(key == chosen) for key in choices})
+                    probabilities=(selection_probabilities if name=='requested_work' and selection_probabilities is not None else {key: float(key == chosen) for key in choices}))
             return httpx2.Response(200, request=req, json=dict(model='jev-1.14.0', answers=answers,
                 usage=dict(input_tokens=37, output_tokens=9)))
 
@@ -192,12 +220,30 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             if failure=='retry_unknown':
                 raise httpx.ReadTimeout('synthetic unknown writer outcome',request=req)
             body = json.loads(req.content)
-            assert body['model'] == 'gpt-6.1-sol'
+            assert body['model'] == self.adapter._broker_execution().policy.provider_roles.writer.model
             if body.get('reasoning', {}).get('effort') != 'low':
                 return httpx.Response(400, request=req, json={'error': {
                     'message': 'Unsupported reasoning effort for configured writer',
                     'type': 'invalid_request_error', 'param': 'reasoning.effort',
                     'code': 'unsupported_value'}})
+            if reference_image == 'saved':
+                from base64 import b64decode
+                from io import BytesIO
+                from PIL import Image
+
+                assert len(body['input']) == 1 and body['input'][0]['role'] == 'user'
+                packet, image = body['input'][0]['content']
+                assert packet['type'] == 'input_text'
+                assert image['type'] == 'input_image' and image['detail'] == 'high'
+                assert 'attached page image' in body['instructions']
+                prefix, encoded = image['image_url'].split(',', 1)
+                assert prefix == 'data:image/jpeg;base64'
+                with Image.open(BytesIO(b64decode(encoded))) as pixels:
+                    assert pixels.size == (64, 48)
+                    assert all(abs(a-b) < 5 for a,b in zip(pixels.getpixel((20, 20)), (217, 22, 67)))
+                # Only the outgoing transport contains pixels. The unchanged
+                # semantic packet is validated below as for a text-only proposal.
+                body['input'] = packet['text']
             inputs = [json.loads(body['input'])] if isinstance(body['input'], str) else [json.loads(row['content']) for row in body['input'] if row['content'].lstrip().startswith('{')]
             if mode:
                 inputs=[inputs[0]['native_evidence'],inputs[0]['surface_work']]
@@ -237,6 +283,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             if mode:
                 candidate=dict(destination='current_page',target='captured',replacement_markdown='A proposed copper lamp.',
                     summary='Proposed detail.',assumptions=['The lamp is invented.'])
+                if failure == 'target_unavailable' and len(self.calls) == 1:
+                    candidate.update(target='unavailable', replacement_markdown='', summary='Untrusted provider summary.')
                 if mode=='image':
                     candidate=dict(prompt='https://not-an-image.test/directive' if failure=='unsafe_direction' else 'A proposed copper lamp beside an orchid.',alt='Proposed copper lamp illustration',purpose='illustration')
                 text=json.dumps(candidate)
@@ -378,6 +426,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 'content_sha256','visibility','draft_sha256','editor_sha256','draft_generation')},
                 caret=1,selection_generation=0))
         body['build_write_capability']=cap.model_dump(mode='json')
+        if reference_image:
+            body['build_write_capability']['reference_image_id'] = str((wrong if reference_image == 'wrong_same_page' else asset)['asset_id'])
+            body['build_write_capability']['basis']['selection'] = {'end': 3, 'text': 'An'}
         if proposal:
             body['message']=('Add a scene about this: Can I end my move in an occupied space?'
                 if failure=='used_rules' else 'Prepare an illustration of a copper lamp beside the orchid.'
@@ -391,6 +442,50 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             return BuildImageService().get(uuid5(cap.idempotency_key,'image'),writer.adapter.build_image_owner)
         from application_state.build_proposal.service import BuildProposalService
         return BuildProposalService().get(world,cap.idempotency_key)
+    if failure=='retry_authoring_selection':
+        from copy import deepcopy
+        from apps.live_control_server.services.build_jev_driver import BuildJevDriver
+        original_accept=BuildJevDriver.accept_decision
+        def fail_selection(self,*args,**kwargs):
+            raise ValueError('synthetic failure before authoring resolution')
+        monkeypatch.setattr(BuildJevDriver,'accept_decision',fail_selection)
+        refused=client.post('/api/live/agent/turn',json=body)
+        assert refused.status_code==503 and not writer.calls,refused.text
+        monkeypatch.setattr(BuildJevDriver,'accept_decision',original_accept)
+        service=AgentConversationService();failed=service.inspect_turn(world_id=world,turn_id=writer.adapter.turn.turn_id)
+        assert failed.status=='interrupted'
+        assert not any(isinstance(e,t.BuildRequestedWorkResolutionV1) for e in failed.graph_context_execution.events)
+        prefix=f'/api/live/agent/worlds/{world}/conversations/{failed.conversation_id}'
+        eligibility=client.get(prefix+'/retry-context',params={'turn_ids':str(failed.turn_id)})
+        assert eligibility.status_code==200 and eligibility.json()['turns'][0]['context']['eligible']
+        retained=client.get(prefix+f'/turns/{failed.turn_id}/discussion-retry-input',params={'revision':failed.revision})
+        assert retained.status_code==409 and retained.json()['detail']['code']=='build_authoring_retry_required',retained.text
+        retry=deepcopy(body);retry['turn_id']=str(uuid4())
+        retry['retry_of']={'turn_id':str(failed.turn_id),'revision':failed.revision}
+        pointer=service.get_world_pointer(world)
+        retry['build_draft_context']['expected_pointer_revision']=pointer.revision
+        retry['build_write_capability'].update(idempotency_key=str(uuid4()),expected_pointer_revision=pointer.revision)
+        if retry_mutation=='capability':retry['build_write_capability']=body['build_write_capability']
+        elif retry_mutation=='question':retry['message']+=' Changed.'
+        elif retry_mutation=='reference':retry['build_authored_references']=None
+        elif retry_mutation=='revision':retry['retry_of']['revision']+=1
+        before=len(decisions.calls),len(writer.calls)
+        response=client.post('/api/live/agent/turn',json=retry)
+        if retry_mutation:
+            assert response.status_code==409,response.text
+            assert (len(decisions.calls),len(writer.calls))==before
+        else:
+            assert response.status_code==200,response.text
+            assert len(writer.calls)==1
+            context=client.get(prefix+'/retry-context',params={'turn_ids':str(failed.turn_id)})
+            assert context.json()['turns'][0]['context']['successor_id']==str(writer.adapter.turn.turn_id)
+            replay=client.post('/api/live/agent/turn',json=retry)
+            assert replay.status_code==200 and replay.json()['knowledge_context']['delivery_replay'] is True
+            assert len(writer.calls)==1
+        assert service.inspect_turn(world_id=world,turn_id=failed.turn_id)==failed
+        assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
+        assert lane.repo.get_head(world).head_revision_id==current_revision
+        return
     if failure in {'crash_live','crash_expired','crash_interrupted'}:
         from application_state.agent_conversation import types as ledger
         from uuid import uuid5
@@ -652,7 +747,27 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         return
     if proposal and failure is not None:
         from application_state.build_proposal.service import BuildProposalService
-        assert response.status_code==503,response.text
+        if failure == 'target_unavailable':
+            assert response.status_code == 409, response.text
+            assert response.json()['detail'] == {
+                'code': 'build_compose_target_unavailable',
+                'message': 'Select the passage you want Buddy to revise, then continue the saved request.',
+            }
+            root = f'/api/live/agent/worlds/{world}/conversations'
+            messages = client.get(root + '/active/messages')
+            assert messages.status_code == 200, messages.text
+            row = messages.json()['messages'][-1]
+            assert row['status'] == 'interrupted'
+            assert row['author_interaction'] == 'select_passage'
+            retry = client.get(root + f"/{messages.json()['conversation_id']}/retry-context",
+                               params={'turn_ids': row['turn_id']})
+            assert retry.status_code == 200, retry.text
+            assert retry.json()['turns'][0]['context']['author_interaction'] == 'select_passage'
+            assert retry.json()['turns'][0]['context']['eligible'] is True
+            if reference_image:
+                assert retry.json()['turns'][0]['context']['reference_image_id'] == str(asset['asset_id'])
+        else:
+            assert response.status_code == 503, response.text
         assert len(writer.calls)==(0 if failure in {'native_work','rules_frame','used_rules'} else 1)
         assert not classic_calls
         if failure=='used_rules':
@@ -675,6 +790,55 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 assert record.state in {'failed','unknown'} and record.proposal is None
         assert get_workspace_document_snapshot(tmp_path,page.document_id)==source
         assert lane.repo.get_head(world).head_revision_id==current_revision
+        if failure == 'target_unavailable':
+            from copy import deepcopy
+
+            service = AgentConversationService()
+            original = service.inspect_turn(world_id=world, turn_id=UUID(row['turn_id']))
+            resumed = deepcopy(body)
+            resumed['turn_id'] = str(uuid4())
+            resumed['retry_of'] = {'turn_id': row['turn_id'], 'revision': original.revision}
+            pointer = service.get_world_pointer(world).revision
+            resumed['build_draft_context']['expected_pointer_revision'] = pointer
+            capability = resumed['build_write_capability']
+            capability.update(idempotency_key=str(uuid4()), expected_pointer_revision=pointer)
+            before_calls = len(decisions.calls), len(writer.calls)
+            capability['basis'].pop('selection', None)
+            no_selection = client.post('/api/live/agent/turn', json=resumed)
+            assert no_selection.status_code == (422 if reference_image else 409), no_selection.status_code
+            if not reference_image:
+                assert no_selection.json()['detail']['code'] == 'build_retry_unavailable'
+            assert (len(decisions.calls), len(writer.calls)) == before_calls
+            capability['basis']['selection'] = {'end': 18, 'text': 'An unsaved orchid'}
+            for offer in ('page_body_offer', 'page_end_offer'):
+                capability[offer] = {'end': 50}
+                wider = client.post('/api/live/agent/turn', json=resumed)
+                assert wider.status_code == (422 if reference_image else 409), wider.status_code
+                if not reference_image:
+                    assert wider.json()['detail']['code'] == 'build_retry_unavailable'
+                assert (len(decisions.calls), len(writer.calls)) == before_calls
+                del capability[offer]
+            if reference_image:
+                original_id = capability.pop('reference_image_id')
+                text_only = client.post('/api/live/agent/turn', json=resumed)
+                assert text_only.status_code == 409, text_only.text
+                assert (len(decisions.calls), len(writer.calls)) == before_calls
+                capability['reference_image_id'] = original_id
+            result = client.post('/api/live/agent/turn', json=resumed)
+            assert result.status_code == 200, result.text
+            assert len(writer.calls) == 2
+            proposal_record = BuildProposalService().get(world, UUID(capability['idempotency_key']))
+            assert proposal_record.state == 'proposed'
+            assert proposal_record.reservation.basis.selection.text == 'An unsaved orchid'
+            assert not proposal_record.inserted_in_draft
+            assert service.inspect_turn(world_id=world, turn_id=original.turn_id) == original
+            assert get_workspace_document_snapshot(tmp_path,page.document_id) == source
+            assert lane.repo.get_head(world).head_revision_id == current_revision
+        return
+    if reference_image in {'unbound', 'wrong_same_page'}:
+        assert response.status_code == 503, response.text
+        assert not writer.calls
+        assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
         return
     assert response.status_code == 200, response.text + str(classic_calls)
     assert not classic_calls and len(writer.calls) == 1
@@ -1329,3 +1493,19 @@ def test_native_selection_semantic_sdk_wire_and_exact_legacy_v2_reader(lane,tmp_
     monkeypatch.setattr(AgentConversationService,'record_build_writer_evidence_selection',inspect)
     case=_fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,native_body='direct_support')
     assert checked==[True] and case.turn.completion.native_body_citations
+
+
+def test_low_score_valid_image_selection_prepares_review_through_ordinary_http(lane,tmp_path,monkeypatch):
+    # Captured controller shape: unique maximum .40, no response-contract resolution
+    # previously survived the duplicated .90 gate. No image provider is called.
+    scores=dict(build_encounter=0.0,change_mechanics=0.0,clarify_creation=.07,clarify_request=.04,
+        discuss=0.0,other_creation=.27,place_map_coordinates=0.0,plan=.02,prepare_image=.40,
+        publish_relationships=0.0,review_connected_page=.01,review_relationship=0.0,
+        save_page=0.0,write_current_page=.19)
+    _fresh_case(lane,tmp_path,monkeypatch,None,True,False,'image',selection_probabilities=scores,
+        message='Create an interior design detailed enough to generate a map from.')
+
+
+@pytest.mark.parametrize('mutation',[None,'capability','question','reference','revision'])
+def test_native_unresolved_authoring_retry_requires_fresh_capture_and_preserves_failure(lane,tmp_path,monkeypatch,mutation):
+    _fresh_case(lane,tmp_path,monkeypatch,'retry_authoring_selection',True,False,True,retry_mutation=mutation)

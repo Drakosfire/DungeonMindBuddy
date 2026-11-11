@@ -76,6 +76,23 @@ def source_display_name(display, fallback):
     return ' · '.join(parts)
 
 
+def captured_source_names(access, world_id):
+    """Readable names only, captured once; never identifiers or read authority."""
+    from dungeonmind.application.vnext import list_admitted_native_text_sources
+    items = list_admitted_native_text_sources(access).sources
+    displays = source_display_metadata(items, world_id)
+    names = {}
+    for item, display in zip(items, displays, strict=True):
+        # A current page title cannot name a different historical page version.
+        label = (display['label'] if display['status'] == 'available'
+                 and display['origin_matches_current_metadata'] is True else None)
+        key = (item.source_artifact.source_artifact_id,
+               item.source_revision.source_revision_id,
+               item.source_revision.content_sha256)
+        names[key] = label.strip() if isinstance(label, str) and label.strip() else 'Source name unavailable'
+    return names
+
+
 def opened_source_display_label(prepared, member):
     """Optional naming only, after the caller's fresh access/exact-byte check."""
     from dungeonmind.application.vnext import list_admitted_native_text_sources

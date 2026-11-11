@@ -1,22 +1,19 @@
 # REFERENCE: adoption and demolition inventory
 
 Source audit baseline: `a2716bdec99f0020aafe2f3b473d6a1d2f4d78f6`.
-Status: source settlement; the complete goal remains open. Source support,
-source qualification and proof on the running product are distinct below.
-This inventory grants no runtime or product-implementation lease.
+Evidence reconciliation: 2026-11-10, based on merged source
+`113f12de280e0f1d6e814d3e61f44dc3b1153d77`.
+Status: adoption/demolition decisions settled; current delivery and remaining
+technical verification are separated below. The full thread goal remains open.
 
-PRIME owns this serial documentation settlement on
-`codex/reference-final-source-settlement` in the existing buddy-context-loop
-checkout, based on the audit baseline above. Expected writes are this inventory,
-HANDOFF-REFERENCE-unused-selected-card.md and
-HANDOFF-REFERENCE-build-reference-admission.md. No unmerged parent.
-No product, CI manifest, dependency, provider, database or service changes.
-Verify current callers, exact merge records and retained evidence, inspect the
-three-file cumulative diff and obtain independent review before source merge.
-Existing test runs below are pinned historical evidence, not new qualification
-of this documentation commit. The original process hold was explicitly released by the operator; #2104 and
-coordination-off remain. Current delivery evidence below supersedes old hold-era
-readiness statements, without inventing a recovered runtime/session22 backup.
+PRIME owns this serial documentation-only reconciliation on
+`codex/reference-delivery-evidence-settlement` in the existing checkout. Writes:
+this inventory and HANDOFF-REFERENCE-native-play-receipt-validation.md. No
+unmerged dependency, implementation lease, service change or new provider call.
+Verify cited retained artifacts/current source and merged PRs, inspect the two-file
+cumulative diff and obtain independent review. The original process hold is
+released; #2104 and coordination-off remain. Historical proof is not replaced or
+rewritten, and runtime/session22 is not claimed to have been fully recovered.
 
 ## Audited ownership
 
@@ -41,7 +38,8 @@ flowchart TD
   E --> F[One saved editor: popup, inline and full-view entry]
 ```
 
-This is source topology, not a claim that all of it is activated on5202.
+This is the adopted source topology. Delivery proof and remaining operation-level
+verification are scoped below; a source diagram alone proves neither.
 Selecting a reference neither reads it into a model nor publishes a fact.
 APP captures the selection and actual producing input; DungeonMind owns admitted
 identity and source bytes. Browsing filters are navigation, not execution scope.
@@ -57,7 +55,7 @@ UI paths are under `apps/live-control-ui/src`. Service paths are under
 
 | Capability | Current owner / caller | Decision |
 | --- | --- | --- |
-| Build, Plan and Play selection | `surface/SurfaceGraphReferenceInput.tsx`, mounted by `planSurface/components/WorldPlanAgentConversation.tsx` | Adopted shared object/source picker. The composer no longer passes Play's former `sourceOnly` restriction. Mixed native Play selection is source-complete in #2307; the original runtime hold is released. Current cross-surface browser proof remains open. |
+| Build, Plan and Play selection | `surface/SurfaceGraphReferenceInput.tsx`, mounted by `planSurface/components/WorldPlanAgentConversation.tsx` | Adopted shared object/source picker. The composer no longer passes Play's former `sourceOnly` restriction. Mixed native Play selection is source-complete in #2307; the original runtime hold is released. Current browser proof finds the same native object in Build, Plan and Play; the mixed Play execution/history repair is delivered. Exact selected-passage execution in Plan remains to be closed explicitly. |
 | Object and source discovery | `graphLens/NativeGraphInspection.tsx`, `NativeSourceInspection.tsx` and native catalogue APIs | Retain supported search/type/campaign/session and exact-section navigation. No second search protocol. Revision, section and Python-offset checks remain at their existing owners. |
 | Selection and recovery | `agentInteraction/authoredGraphReferences.ts`, conversation pending/retry owners and APP `authored_graph_references.py` | Retain exact snapshots and human indexes through submit/history/replay. Conflicts, invalid recovery copies and newer drafts remain protected. |
 | Native acquisition | `native_authored_references.py`, native Build/Plan/Play harnesses, shared native execution and APP completion | Adopted across the three governed surfaces. #2172 implemented ordinary native Play execution; #2307 enabled object/mixed admission and capture. Do not duplicate the executor or infer a successful live answer from a picker test. |
@@ -84,25 +82,26 @@ this audit adds no unused chronology framework.
 
 ## Requirement-by-requirement proof and remaining work
 
-The latest retained full frontend diagnostic is exact head
-`9b07f7f96c87cc1de2a4a1ac9ea51dcc89355f8a`; its frontend tree equals the audit
-baseline's frontend tree. The named retained cases below pass there; the full
-diagnostic remains red. This is technical source evidence, not proof on the
-current running product. Mock transport and provider-free factory checks are
-labeled; neither establishes real-provider output quality.
+Latest retained full frontend diagnostic: exact source
+`69564cbc8679b61bcac0bcd862793d4c4d4235fb`, deployed UI tree
+`8cef68c39d35995688f1433ff6ef89526e9e5ad3` (verify against its manifest; test-only
+changes distinguish the source from its compiled production preimage).
+The diagnostic records7,376 tests:7,216 pass,159 inherited failures, one pending,
+plus the same inherited BuildCompose collection failure. Its two new tests pass;
+no existing outcome changed versus the retained delivered baseline. Exact hosted
+selection and strict build pass. Full discovery remains red, not whole-product
+release qualification. Later backend-only media adoption does not alter that UI.
 
-| Goal requirement | Existing owning evidence | What remains unproved |
+| Goal requirement | Current authoritative proof | Remaining limit / action |
 | --- | --- | --- |
-| Supported citations on initial lightweight history | `WorldPlanAgentConversation.worldHistory.test.tsx`: “shows native citations on initial lightweight history without opening Details” | Delivered-version initial load and reload must be reverified after recovery. |
-| Delayed hydration, failures, one Details, drafts and direct review | Same suite: uncited text stays mounted during hydration; exact-detail failure/mismatch; single Details; lightweight page-review and retry cases | Current controlled browser proof, including failure handling; old browser reports alone are insufficient. |
-| Objects, recaps, exact passages and supported filters | `SurfaceGraphReferenceInput.test.tsx`12/12; `NativeSourceInspection.test.tsx`23/23; shared native catalogue/body tests | Cross-surface live selection/source-opening journey on the delivered version. |
-| Submit, reload, continuation and exact retry | World-history mixed Play submission/pending reload and saved-selection hydration cases; Plan lightweight retry/refusal cases; Build direct retry owners | Ordinary live replay/continuation with preserved unsent work. Do not turn a positive mounted transport test into a paid-provider claim. |
-| Native Play actual execution and persisted citations | `tests/test_play_authored_source_references.py::test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answer`: provider-free ordinary factory, APP/Core fixtures, work/selected/automatic/memory/Rules/Graph/object/mixed/failure cases. `test_native_play_graph_postgres.py` covers durable admission/reconciliation | The process hold is released and the schema147 reader fence is delivered. Prove supported ordinary delivery; do not treat the former deployment hold as a blocker. The retained pre-deletion Play trace records `plan_writer_completion_rejected` and `play_jev_delivery_failure`; it is not positive answer-delivery proof. |
-| Exact native source opening | `SourceCitationEvidence` / native citation protocol and source-owner tests; native readers remain mounted | Current browser source opening, late/read-error behavior and exact revision on delivered code. |
-| Tool-created threat and mechanics association | Mounted `NativeThreatCreationPanel.test.tsx`10/10; `tests/test_native_threat_creation.py`, `test_world_mechanics_associations.py` and PostgreSQL owners | Read-only retained checks now verify original acceptance, committed revision, association and Core-admitted creature identity. Complete the live create/associate/reopen proof on recoverable state; do not create another identity to manufacture proof. |
-| Popup / surface / conversation / full-view identity | `SavedStatblockSession.test.tsx`27/27, `NativeObjectStatblock.test.tsx`4/4, `NativeGraphObjectPreview.test.tsx`5/5, `StatblockPage.test.tsx`6/6 | Both retained exact versions are readable with matching mechanics digests; the newer revision has its original parent and one asset binding. The controlled cross-entry-point UI journey, caller position and draft preservation remain unproved after recovery. |
-| Portrait generation/selection, Save/reload and stale conflicts | Existing revision editor and portrait owner tests; same editor survives inline/popup moves, unknown Save and version refusal | Current end-to-end generation/review/selection/Save proof and source navigation. Existing portrait or mocked selection is not a new generation witness. |
-| Complete adoption/demolition inventory | Current caller decisions above; #2286/#2310/#2311/#2312 retirements | CI2341 settled the historical-freeze decision. #2342 retired the unmounted checklist; #2344 retired the old card/fallback.  #2346 retired the unmounted resolver/binding and adopted surviving shared dependencies. This source removes the synthetic Plan advertisement with equivalent explicit-native lifecycle coverage. Source adoption/demolition decisions are settled; current browser journey proof remains open. Retain exact classic recovery readers. |
+| Initial lightweight citations, native source opening and Details | Original mixed Play answer restored through ordinary history, native Session29 citation opened/closed, complete Details/timeline loaded and answer survived reload. `play-native-ui-delivered.json` records the delivered UI witness. | Unit/owner tests cover delayed/error hydration and invalid exact recovery; do not describe each negative case as a new live provider run. |
+| Objects, recaps, exact passages and filters | `reference-statblock-browser-resumed-20261110.json`: same retained ooze selected in Build/Plan/Play, C2 session20 filtered to one recap, exact lines12–34 selected, selection survived reload, then probe selection removed. Native source bodies/hash/ranges remain pinned separately. | Catalogue lists59 sources but reports incomplete navigation metadata. Do not infer complete World source coverage from the selector count. |
+| Submit, saved history, continuation and recovery | Original mixed Play request delivered an answer before history failed. #2363 adopted native Play history DTO/projector; #2367 removed only the unrelated legacy whole-packet ceiling. Both full-history modes read200; exact answer and two selections survived ordinary continuation/reload, citation inspection and return to the prior conversation. Original failures remain retained. | No inference was replayed to repair the saved read. Existing exact retry/draft-conflict boundaries retain their owning tests; this is not a newly repeated paid retry witness. |
+| Plan selected-passage execution | Live Plan object/popup and saved selection behavior plus shared native source/admission/execution owner tests are retained. | Close an ordinary exact selected-passage request and cited delivery in Plan, or locate equivalent retained operation-level proof. A picker or automatic-retrieval answer alone does not prove selected-passage execution. |
+| Source adoption/demolition | Decisions above remain settled through #2349; retired callers stay absent. Exact classic recovery readers remain exercised readers, not permission to revive retired producers. | #2104 remains explicitly held. No Only-selected control is offered, so no new restriction framework or unused chronology framework is selected. |
+| Shared statblock entry points | Current browser witness renders the same exact saved version in full view and through Build/Plan/Play object previews; popup preserves caller URL, and HP68→69 survives close/reopen before explicit reversion. Exact association/revision digests are retained. #2359 delivers the shared retained Build-proposal projection instead of a generic acknowledgement. | New mechanics Save/reload and positive generated-portrait selection must be established at their actual owners. Existing assets/reader proof are not a fresh generation witness. |
+| Portrait failure/recovery | Original real image request is retained. Read-only provider request evidence identified content_policy_violation. GE #34 classifies the explicit SDK-wrapped refusal; Buddy #2371 presents its normalized result. Provider-free real-SDK→GE→HTTP replay and immutable-image checks pass; protected API delivery preserves mechanics and association. | No fresh portrait generation was rerun. The earlier separately requested fal transfer approval remains pending; do not imply it was granted by the unrelated media UI sidequest. |
+| Authoring placement/review/layout | Existing authoring fixes remain separate. #2370 adds live ordinary private image placement, autosave/reload, persistent reachable controls and prompt editing; test page was recoverably trashed and the image remains private/staged. | This is image placement proof, not richer agent-directed section editing or a new mechanics revision. |
 
 ## Evidence locations and qualification limits
 
@@ -160,39 +159,32 @@ click being erased by passive initialization. They are qualified separate slices
 
 ## Current delivery evidence and next bounded actions
 
-1. The operator released the original process hold. Protected recovery delivered
-   API76bb8c4b38178158e9a94a4b00cf65773edbda87/schema147; latest verified UI is
-   94f59ccba3ff6be5cf269d512769a5856f22490e (merged #2346), API447264 unchanged.
-   Private `reference-resolver-delivered.json` binds served index/JS and retained
-   Graph access through the normal browser-cookie API flow. Backend-only merged
-   work is not activated by these UI-only deliveries. Both surviving PostgreSQL stores were preserved; no old dump
-   was restored. Original runtime/session22 is not established as fully recovered.
-2. Current live-proxy read witnesses are
-   `goal-reference-native-read-reanchor.json` and
-   `goal-statblock-read-reanchor.json` in the established private Buddy evidence
-   root. Native source enumeration reports59 entries/complete, while navigation
-   metadata reports incomplete. C2S20/S30 exact source bytes/hash and section
-   ranges pass; the retained ooze has one exact association and both original/
-   selected statblock revisions open with matching native definition digests.
-   These are read/identity proofs, not rendered selection, source-click, retry,
-   editing/image-generation, paid answer-quality or cross-entry-point UI proof.
-3. Controlled current-browser verification is still missing. Reinitializing the
-   browser tool returned no browsers and native-pipe unavailable. Do not replace
-   that proof with a mock UI, served-asset hashes or historical browser reports.
-   Other independently verifiable source/API work need not wait on this bridge.
-4. CI2341 makes reviewed `ci/contracts.json` the live command authority while
-   keeping original extraction bytes. Required suite/real-command/path checks,
-   workflow consumers, backend partition guards and full discovery remain. This
-   source follows #2342 checklist, #2344 card/fallback and #2346 resolver/binding
-   retirements by removing implicit Plan capability advertisement. Shared refresh
-   events, reference types, tools and saved statblocks survive. Generic provider
-   safety tests use explicit native declarations rather than retired Plan inference.
-   Source remainder is settled; current browser/runtime journey proof is still
-   required before claiming complete References closure.
-5. Keep #2104's explicit hold and ADVERSARY coordination off. Retrieval and
-   benchmark experiments remain outside this implementation work. The Index
-   feedback was handed by the operator to another model; no LocalWorld edits.
+1. Current API delivery source is
+   `c4581b1b0dedaf8f40fb8cabebc3f0314961bd3a` / schema147. It contains only the
+   reviewed history and media repairs over the retained API lane; unrelated main
+   writer experiments were not activated. It verifies the immutable GE wheel
+   from merged `7c929082bfa9b8c5af9815e6429db5230d9caefe` without mutating the
+   shared runtime environment. UI source remains
+   `69564cbc8679b61bcac0bcd862793d4c4d4235fb`. Both surviving PostgreSQL physical
+   identities, original failed/saved turn and exact statblock association/revision
+   hashes survived protected delivery. No dump was restored over retained data.
+2. Private `play-history-delivered.json`, `play-native-ui-delivered.json`,
+   `image-studio-{api,ui}-delivered.json`, `image-studio-browser-proof.json` and
+   `media-refusal-api-delivered.json` bind source/dependency/assets and retained
+   state. `image-studio-final-discovered-comparison.json` compares exact outcomes.
+   Source/caller inventory and real browser witnesses support different claims;
+   none is a substitute for the other.
+3. The browser bridge is connected and the obsolete bridge blocker is removed.
+   `reference-statblock-browser-resumed-20261110.json` remains a partial earlier
+   witness; later merged/delivered repair evidence supersedes its specific open
+   proposal/history failures, not every item in its `not_proven` list.
+4. Close remaining Plan selected-passage execution and operation-level statblock
+   Save/image proof. Distinguish outstanding evidence from a confirmed product
+   failure. Preserve original failures and do not create another canonical
+   identity merely to manufacture proof.
+5. Keep #2104 held and ADVERSARY coordination off. Retrieval/benchmark experiments
+   and the Index/LocalWorld work owned by another model remain outside this lane.
 
-The complete goal still requires current cross-surface technical journeys,
-remaining adoption/demolition decisions and shared statblock verification.
-Source merges, test counts and this inventory do not establish completion.
+Source adoption/demolition is settled. Remaining goal work is explicit operation-
+level verification and repairs justified by it; this reconciliation does not mark
+References or the full thread goal complete merely because source tests pass.

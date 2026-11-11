@@ -27,6 +27,8 @@ from src.graph_memory.extraction.category_candidate_graph_schema import (
     category_pass_text_format_for_spec,
 )
 
+from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+
 DEEPSEEK_MODEL = "deepseek/deepseek-v4.1-flash-1017"
 SUPPORTED_INGESTION_PROVIDERS = frozenset({"openai", "openrouter", "vercel"})
 
@@ -215,7 +217,7 @@ class RecapExecutionLimits:
     max_calls: int = 8
     per_call_deadline_ms: int = 120_000
     run_deadline_ms: int = 480_000
-    max_output_tokens: int = 8192
+    max_output_tokens: int | None = None
     edge_max_output_tokens: int | None = None
     reasoning_effort: str | None = None
 
@@ -241,16 +243,17 @@ class RecapExecutionLimits:
         for name, ceiling in (
             ("per_call_deadline_ms", 240_000),
             ("run_deadline_ms", 900_000),
-            ("max_output_tokens", 16_384),
         ):
             value = getattr(self, name)
             if type(value) is not int or not 1 <= value <= ceiling:
                 raise ValueError(f"{name} must be 1..{ceiling}")
-        if self.edge_max_output_tokens is not None and (
-            type(self.edge_max_output_tokens) is not int
-            or not 1 <= self.edge_max_output_tokens <= 32_768
-        ):
-            raise ValueError("edge_max_output_tokens must be None or an int in 1..32768")
+        # Explicit finite settings remain valid for pinned historical/experiment
+        # configurations; ordinary ingestion delegates capacity to the provider.
+        for name in ("max_output_tokens", "edge_max_output_tokens"):
+            value = getattr(self, name)
+            if value is not None and (type(value) is not int or value < 1):
+                raise ValueError(f"{name} must be None or a positive integer")
+
 
 
 def _default_engine_for(provider: str):
@@ -276,7 +279,7 @@ def _default_engine_for(provider: str):
 
 
 class BoundedRecapPassClient:
-    supports_actor_source_handles = True
+    supports_node_source_handles = True
 
     def __init__(
         self,
@@ -313,6 +316,7 @@ class BoundedRecapPassClient:
         self.retention_failed = False
         self._request_context_hashes = dict(request_context_hashes or {})
         self.calls: list[dict[str, Any]] = []
+        self._advertised_node_span_ids: tuple[str, ...] | None = None
         self._stopped = False
 
     def bind_to_run(self, run) -> None:
@@ -335,16 +339,22 @@ class BoundedRecapPassClient:
 
     def retain_compact_evidence_context(self, record: Mapping[str, Any]) -> None:
         """Seal the request-local dictionary before any provider dispatch."""
-        if (self.execution_binding is None or self.calls
+        if (self.execution_binding is None or self.calls or self._advertised_node_span_ids is not None
                 or record.get("schema") != "dmb_compact_recap_evidence_context_v1"
                 or record.get("source_sha256") != self.execution_binding["source_sha256"]):
             raise ValueError("compact evidence context differs from prepared source")
+        span_ids = tuple(entry["source_span_ref_id"] for entry in record["entries"])
         self._persist_capture("pass_telemetry", {
             "schema": "dmb_private_compact_evidence_context_v1",
             "capture_id": "context:compact-evidence-v1",
             "execution_binding": dict(self.execution_binding),
             "context": dict(record),
+            "node_evidence_status": "available" if span_ids else "no_advertised_paragraphs",
         })
+        if not span_ids:
+            self._stopped = True
+            raise ValueError("standard recap node passes require advertised source paragraphs")
+        self._advertised_node_span_ids = span_ids
 
     def _persist_capture(self, kind, record):
         from application_state.ingest.components import persist_execution_event
@@ -513,17 +523,28 @@ class BoundedRecapPassClient:
         )["format"]
         canonical_schema = fmt["schema"]
         context_hashes = dict(self._request_context_hashes)
+        advertised_node_schema = (
+            self._advertised_node_span_ids is not None
+            and pass_spec is not None and pass_spec.kind == "node"
+            and source_evidence_packet is None
+        )
+        if advertised_node_schema:
+            from src.graph_memory.extraction.category_candidate_graph_schema import node_schema_with_advertised_spans
+            fmt["schema"] = node_schema_with_advertised_spans(
+                canonical_schema, self._advertised_node_span_ids,
+            )
         if source_evidence_packet is not None:
-            from src.graph_memory.extraction.source_sentence_evidence import actor_wire_schema
-            if pass_name != "actor_pass":
-                raise CategoryGraphExtractionError("source handles require actor pass", pass_name=pass_name)
+            from src.graph_memory.extraction.source_sentence_evidence import node_wire_schema
+            if ((pass_spec is not None and pass_spec.kind != "node")
+                    or pass_name not in {p.pass_id for p in RECAP_EXTRACTION_PROFILE.node_passes}):
+                raise CategoryGraphExtractionError("source handles require a recap node pass", pass_name=pass_name)
             expected_source = context_hashes.get("source_content")
             if expected_source is not None and expected_source != source_evidence_packet.source_sha256:
                 raise CategoryGraphExtractionError("source packet does not match run source", pass_name=pass_name)
-            fmt["schema"] = actor_wire_schema(canonical_schema, source_evidence_packet)
+            fmt["schema"] = node_wire_schema(canonical_schema, source_evidence_packet)
             context_hashes.update(
-                actor_source=source_evidence_packet.source_sha256,
-                actor_source_packet=source_evidence_packet.packet_id,
+                node_source=source_evidence_packet.source_sha256,
+                node_source_packet=source_evidence_packet.packet_id,
             )
         deepseek = (self.limits.provider, self.limits.model) == ("openrouter", DEEPSEEK_MODEL)
         route = None
@@ -702,13 +723,13 @@ class BoundedRecapPassClient:
             parsed = result.parsed if result.parsed is not None else json.loads(result.text or "")
             if not isinstance(parsed, dict):
                 raise NonObjectResponseError("expected JSON object")
-            if deepseek or source_evidence_packet is not None:
+            if deepseek or source_evidence_packet is not None or advertised_node_schema:
                 validate_json_schema(parsed, fmt["schema"])
             if source_evidence_packet is not None:
-                from src.graph_memory.extraction.source_sentence_evidence import materialize_actor_evidence
-                parsed = materialize_actor_evidence(
+                from src.graph_memory.extraction.source_sentence_evidence import materialize_node_evidence
+                parsed = materialize_node_evidence(
                     source_evidence_packet, parsed,
-                    expected_packet_id=context_hashes["actor_source_packet"],
+                    expected_packet_id=context_hashes["node_source_packet"],
                 )
                 validate_json_schema(parsed, canonical_schema)
                 if self.execution_binding is not None:

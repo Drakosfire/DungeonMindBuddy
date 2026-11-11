@@ -653,9 +653,12 @@ def _writer_response(request,*,status='completed',text='{"answer":"Supported."}'
         usage=dict(input_tokens=17,output_tokens=5,total_tokens=22)))
 
 
-def test_writer_prepare_is_offline_and_override_only_changes_shared_instructions(writer_replay,tmp_path,monkeypatch):
+@pytest.mark.parametrize('format_version', [1, 2])
+def test_writer_prepare_is_offline_and_override_only_changes_shared_instructions(writer_replay,tmp_path,monkeypatch,format_version):
     import psycopg
     r=writer_replay
+    r.packet['text']['format']['name']=f'surface_native_evidence_selectors_v{format_version}'
+    _repin_writer_packet(r,r.packet)
     monkeypatch.setattr(psycopg,'connect',lambda *a,**k:pytest.fail('Replay accessed database'))
     override=tmp_path/'instructions.txt';override.write_text('Shared alternative instructions, no new evidence.')
     r.document['instructions']={'path':str(override),'sha256':sha256(override.read_bytes()).hexdigest()};put(r.spec,r.document)
@@ -714,6 +717,45 @@ def test_writer_capture_uses_actual_sdk_gate_and_preserves_raw_diagnostic_only(w
     assert (tmp_path/'capture'/r.case['id']/'sdk-response.json').exists()
     with pytest.raises(FileExistsError):w.writer_capture(tmp_path/'prepared/plan.json',tmp_path/'capture',transport=httpx.MockTransport(send))
     assert len(sent)==1
+
+
+def test_writer_paragraph_layout_changes_only_admitted_body_presentation(writer_replay, tmp_path):
+    import httpx
+    from application_state.agent_conversation.types import canonical_sha256
+
+    replay = writer_replay
+    body = "First café paragraph.\n\nSecond paragraph.\n"
+    frame = json.loads(replay.packet["input"][0]["content"])
+    frame["native_body_evidence"] = {"excerpts": [{"excerpt_handle": "body0", "text": body}]}
+    replay.packet["input"][0]["content"] = json.dumps(frame)
+    replay.ledger["graph_context_execution"]["events"][0]["frame_sha256"] = canonical_sha256(frame)
+    _repin_writer_packet(replay, replay.packet)
+    replay.document["body_layout"] = "paragraphs"
+    put(replay.spec, replay.document)
+    prepared = tmp_path / "prepared"
+    plan = w.writer_prepare(replay.spec, prepared)
+    candidate = json.loads(plan["cases"][0]["request_json"])
+    candidate_frame = json.loads(candidate["input"][0]["content"])
+    excerpt = candidate_frame["native_body_evidence"]["excerpts"][0]
+    assert excerpt["text"] == ["First café paragraph.\n\n", "Second paragraph.\n"]
+    excerpt["text"] = "".join(excerpt["text"])
+    assert candidate_frame == frame
+    assert candidate | {"input": replay.packet["input"]} == replay.packet
+
+    def send(request):
+        assert json.loads(request.content) == candidate
+        return _writer_response(request)
+
+    w.writer_capture(prepared / "plan.json", tmp_path / "capture", transport=httpx.MockTransport(send))
+
+
+@pytest.mark.parametrize("layout,instructions", [("unknown", None), ("paragraphs", {})])
+def test_writer_rejects_unrecognized_or_combined_paragraph_layout(writer_replay, tmp_path, layout, instructions):
+    replay = writer_replay
+    replay.document.update(body_layout=layout, instructions=instructions)
+    put(replay.spec, replay.document)
+    with pytest.raises(ValueError, match="only replay change"):
+        w.writer_prepare(replay.spec, tmp_path / "prepared")
 
 
 @pytest.mark.parametrize('status,text,refusal',[('incomplete','{"answer":"Partial"}',False),
@@ -783,13 +825,14 @@ def _repin_writer_packet(r,packet):
     r.document['cases'][0]['ledger']=put(r.ledger_path,r.ledger);put(r.spec,r.document)
 
 
-@pytest.mark.parametrize('mutation',['extra','tools','stream','tier','schema_ref','schema_id','schema_dynamic_ref'])
+@pytest.mark.parametrize('mutation',['extra','tools','stream','tier','schema_name','schema_ref','schema_id','schema_dynamic_ref'])
 def test_writer_rejects_rebound_unsupported_packet_not_just_bad_pin(writer_replay,tmp_path,mutation):
     r=writer_replay;packet=deepcopy(r.packet)
     if mutation=='extra':packet['temperature']=0
     elif mutation=='tools':packet['tools']=[{'type':'web_search'}]
     elif mutation=='stream':packet['stream']=True
     elif mutation=='tier':packet['service_tier']='auto'
+    elif mutation=='schema_name':packet['text']['format']['name']='surface_native_evidence_selectors_v3'
     else:
         packet['text']['format']['schema'][{'schema_ref':'$ref','schema_id':'$id','schema_dynamic_ref':'$dynamicRef'}[mutation]]='https://example.invalid/schema'
     _repin_writer_packet(r,packet)
@@ -966,3 +1009,66 @@ def test_context_artifact_failure_cannot_be_reported_as_an_issued_stop(tmp_path,
     with stop.install(), pytest.raises(OSError, match='storage unavailable'):
         PlanJevWriter.authorize(writer, prepared)
     assert stop.authorization_calls == 1 and not stop.stop_issued and not list(tmp_path.iterdir())
+
+
+def _native_order_schema():
+    return {'type': 'object', 'properties': {
+        'kind': {'type': 'string', 'const': 'native_assertion_claim'},
+        'text': {'type': 'string'},
+        'assertion_handles': {'type': 'array', 'items': {'type': 'string', 'enum': ['assertion0']}, 'minItems': 1}},
+        'required': ['kind', 'text', 'assertion_handles'], 'additionalProperties': False}
+
+
+def test_citation_first_changes_only_property_order():
+    from copy import deepcopy
+    original = _native_order_schema()
+    before = deepcopy(original)
+    changed = w.citation_first_schema(original)
+    assert changed == before and original == before
+    assert list(original['properties']) == ['kind', 'text', 'assertion_handles']
+    assert list(changed['properties']) == ['kind', 'assertion_handles', 'text']
+    assert changed['required'] == before['required']
+    with pytest.raises(ValueError, match='native claim'):
+        w.citation_first_schema({'type': 'object', 'properties': {}})
+
+
+@pytest.mark.parametrize('lose_order', [False, True])
+def test_context_tasting_checks_actual_wire_before_http(tmp_path, monkeypatch, lose_order):
+    import httpx
+    from application_state.agent_conversation import native_evidence_view, types
+    frame = {'user_question': 'A generic question'}
+    monkeypatch.setattr(native_evidence_view, 'semantic_frame_in_request', lambda *a, **k: frame)
+    packet = {'tools': [], 'instructions': 'Frozen voice', 'input': [{'role': 'user', 'content': 'Frozen evidence'}],
+        'text': {'format': {'schema': _native_order_schema(), 'name': 'answer'}}, 'reasoning': {'effort': 'low'}}
+    raw = json.dumps(packet).encode()
+    source = put(tmp_path/'source.json', {'body_hex': raw.hex(), 'body_sha256': sha256(raw).hexdigest(), 'body_size': len(raw)})
+    ready = put(tmp_path/'ready.json', {'frame_sha256': types.canonical_sha256(frame)})
+    manifest = tmp_path/'manifest.json'
+    put(manifest, {'schema': 'dmb_context_tasting_v1', 'source_request': source, 'context_ready': ready,
+        'models': ['test/model'], 'schema_order': 'citation_first'})
+    if lose_order:
+        monkeypatch.setattr(w, 'citation_first_schema', lambda schema: schema)
+    seen = []
+    def reply(request):
+        body = json.loads(request.content)
+        seen.append(body)
+        output = {'kind': 'native_assertion_claim', 'assertion_handles': ['assertion0'], 'text': 'Supported.'}
+        return httpx.Response(200, json={'id': 'offline', 'object': 'chat.completion', 'created': 1,
+            'model': body['model'], 'choices': [{'index': 0, 'message': {'role': 'assistant',
+            'content': json.dumps(output)}, 'finish_reason': 'stop'}],
+            'usage': {'prompt_tokens': 10, 'completion_tokens': 5, 'total_tokens': 15}})
+    target = tmp_path/'out'
+    w.context_tasting(manifest, target, transport=httpx.MockTransport(reply))
+    if lose_order:
+        assert not seen
+        assert (target/'A/failure.json').exists()
+        assert not (target/'A/provider-wire-1.json').exists()
+    else:
+        assert len(seen) == 1
+        proof = json.loads((target/'A/provider-wire-1.json').read_text())
+        assert proof['citation_first_verified']
+        assert proof['body_sha256'] == sha256(bytes.fromhex(proof['body_hex'])).hexdigest()
+        assert proof['claim_property_orders'][0]['fields'] == ['kind', 'assertion_handles', 'text']
+        assert seen[0]['messages'] == [{'role': 'system', 'content': 'Frozen voice'},
+            {'role': 'user', 'content': 'Frozen evidence'}]
+        assert (target/'A/result.json').exists()

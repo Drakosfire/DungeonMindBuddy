@@ -49,3 +49,16 @@ def test_related_page_guidance_is_an_explicit_separate_component():
     assert 'Quote the supplied page.' not in compose_response_prompt().instructions
     with pytest.raises(ValueError):
         compose_response_prompt(related_page_instructions=' ')
+
+
+@pytest.mark.parametrize('task', ['clarify', 'scoped_discussion', 'explain_capability', 'different_destination'])
+def test_conversation_task_has_a_versioned_component_without_inactive_tools(task):
+    prompt = compose_response_prompt(task=task)
+    assert len(prompt.components) == 5
+    assert len(prompt.instructions) < 3000
+    assert 'image_prompt' not in prompt.instructions
+    assert 'instructions_sha256' not in prompt.instructions
+    if task == 'scoped_discussion':
+        assert 'only assignment' in prompt.instructions and 'siblings are context' in prompt.instructions
+    with pytest.raises(ValueError):
+        compose_response_prompt(task='future_unknown_task')

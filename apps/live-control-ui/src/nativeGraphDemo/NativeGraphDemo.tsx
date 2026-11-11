@@ -74,7 +74,7 @@ interface LayoutState {
   readonly revision: number;
 }
 
-type PendingStatus = "none" | "not_sent" | "preparing" | "checking" | "not_found" | "rejected" | "unknown" | "prepared";
+type PendingStatus = "none" | "prepare_retry" | "not_sent" | "preparing" | "checking" | "not_found" | "rejected" | "unknown" | "prepared";
 type NoticeKind = "success" | "info" | "warning" | "error";
 interface Notice { readonly kind: NoticeKind; readonly text: string }
 
@@ -819,6 +819,13 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       await clearRecoveredOperation(`${operationName(operation)} is committed in DungeonMind. The current graph has been read back from the server.`, owner, operation, committedGraph, true, createdNodeIdFromResult(lookup));
       return;
     }
+    if (lookup.recovery_action === "retry_prepare" && pendingPhaseRef.current === "prepare") {
+      setPendingStatus("prepare_retry");
+      setPendingErrorCode(null);
+      setReviewSummary(null);
+      setNotice({ kind: "warning", text: "DungeonMind verified that review preparation was interrupted before a complete review was saved. Retry the exact draft with the same operation ID. You will still review and confirm before publishing the graph change." });
+      return;
+    }
     setPendingStatus("unknown");
     setPendingErrorCode(priorErrorCode);
     setReviewSummary(null);
@@ -1020,7 +1027,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
 
   async function retrySamePrepare() {
     const operation = pendingRef.current;
-    if (!operation || pendingPhase !== "prepare" || (pendingStatus !== "not_found" && pendingStatus !== "not_sent")
+    if (!operation || pendingPhase !== "prepare" || (pendingStatus !== "not_found" && pendingStatus !== "not_sent" && pendingStatus !== "prepare_retry")
       || pendingStatus === "not_found" && stalePrepareRejectionRef.current) return;
     // The existing ID is already pending, so retry its exact request without allocating or replacing it.
     const owner = mountedOwnerRef.current;
@@ -1477,10 +1484,10 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
           {pendingPhase === "prepare" ? <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void setAsidePreparedForEditing()}>Edit draft (keep review record)</button> : null}
         </>
       ) : null}
-      {pendingStatus === "unknown" || pendingStatus === "not_sent" || pendingStatus === "not_found" || pendingStatus === "rejected" ? (
+      {pendingStatus === "unknown" || pendingStatus === "prepare_retry" || pendingStatus === "not_sent" || pendingStatus === "not_found" || pendingStatus === "rejected" ? (
         <div className="native-demo-recovery-actions">
           {pendingStatus !== "not_sent" ? <button className="native-demo-button native-demo-button--light" type="button" onClick={() => void checkPendingStatus()}>Check status</button> : null}
-          {(pendingStatus === "not_found" && pendingPhase === "prepare" && !stalePrepareRejectionRef.current || pendingStatus === "not_sent") ? <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void retrySamePrepare()}>Retry same operation ID</button> : null}
+          {(pendingStatus === "not_found" && pendingPhase === "prepare" && !stalePrepareRejectionRef.current || pendingStatus === "prepare_retry" && pendingPhase === "prepare" || pendingStatus === "not_sent") ? <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void retrySamePrepare()}>Retry same operation ID</button> : null}
           {(pendingStatus === "rejected" && pendingErrorCode === "stale_revision" || pendingStatus === "not_found" && pendingPhase === "prepare" && pendingErrorCode === "stale_revision" && stalePrepareRejectionRef.current)
             ? <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void startFreshAfterStaleReview()}>Refresh and start a fresh review</button> : null}
           {pendingStatus === "rejected" && pendingErrorCode !== "stale_revision" ? <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => void clearRecoveredOperation("The rejected operation is dismissed. Your form draft is still here; edit it and prepare a new review.")}>Dismiss rejected operation</button> : null}

@@ -89,9 +89,15 @@ class BuildProposalReservation(StrictModel):
     origin: BuildProposalOrigin | None = None
     page_body_offer: BuildPageBodyOffer | None = None
     page_end_offer: BuildPageEndOffer | None = None
+    reference_image_id: UUID | None = None
 
     @model_validator(mode="after")
     def body_requires_exact_editor(self):
+        if self.reference_image_id is not None and (
+            self.basis.selection is None or not self.basis.editor_sha256
+            or self.page_body_offer is not None or self.page_end_offer is not None
+        ):
+            raise ValueError("A reference image requires an exact selected passage")
         if (self.page_body_offer is not None or self.page_end_offer is not None) and not self.basis.editor_sha256:
             raise ValueError("Offered page targets require their exact editor basis")
         return self
@@ -103,6 +109,8 @@ class BuildProposalReservation(StrictModel):
             value.pop("page_body_offer", None)
         if self.page_end_offer is None:
             value.pop("page_end_offer", None)
+        if self.reference_image_id is None:
+            value.pop("reference_image_id", None)
         return value
 
     @property

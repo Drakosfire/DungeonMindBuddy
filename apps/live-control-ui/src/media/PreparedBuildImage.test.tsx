@@ -4,13 +4,13 @@ import { PreparedBuildImage,type PreparedImage } from './PreparedBuildImage';
 import type { CapturedBuildInsertion } from '../buildSurface/buildComposeBridge';
 const id='ac6c15cc-8c68-4732-8ae2-d9f3f051393a';
 const fixture=vi.hoisted(()=>({calls:[] as string[],selected:{} as Record<string,unknown>}));
-vi.mock('../api/liveApi',()=>({authenticatedApiFetch:vi.fn(async(path:string,init?:RequestInit)=>{
+vi.mock('../api/liveApi',async importOriginal=>({...await importOriginal<typeof import('../api/liveApi')>(),authenticatedApiFetch:vi.fn(async(path:string,init?:RequestInit)=>{
  fixture.calls.push((init?.method??'GET')+' '+path);
  if(path.includes('/preparations/')&&path.endsWith('/asset'))return{response:new Response(JSON.stringify({...fixture.selected,asset_id:id,revision:2}))};
  if(path.includes('/preparations/'))return{response:new Response(JSON.stringify(fixture.selected))};
  if(path.endsWith('/capabilities'))return{response:new Response(JSON.stringify({configured:true,library_ready:true,storage_configured:true,map_framing:'Overhead map',models:[{id:'flux-2-pro',label:'FLUX',formats:['png'],controls:[]}]}))};
  if(path.endsWith('/generate'))return{response:new Response(JSON.stringify({prompt:'Prepared Edge',model:'flux-2-pro',images:[{asset_id:id,state:'staged',data_url:'data:image/png;base64,AA==',media_type:'image/png'}]}))};
- return{response:new Response(JSON.stringify({asset_id:id,state:'ready',delivery_url:'https://imagedelivery.net/test/buddy-'+id.replaceAll('-','')+'/public'}))};
+ return{response:new Response(JSON.stringify({asset_id:id,state:'staged',delivery_url:'https://imagedelivery.net/test/buddy-'+id.replaceAll('-','')+'/public'}))};
 })}));
 function setup(){
  fixture.calls=[];
@@ -21,18 +21,18 @@ function setup(){
  const bridge={capture:vi.fn().mockResolvedValue(captured),pickInsertion:vi.fn().mockResolvedValue(captured),insert:vi.fn()};return{record,bridge,captured};
 }
 describe('prepared image conversation action',()=>{
- it('prefills without generation, then generates, saves and explicitly inserts',async()=>{
+ it('prefills, generates and places private retained artwork without CDN Save',async()=>{
   const {record,bridge,captured}=setup();render(<PreparedBuildImage record={record} bridge={bridge} active/>);
   fireEvent.click(screen.getByRole('button',{name:'Open Image Studio'}));
   expect(await screen.findByLabelText('What would you like to see?')).toHaveValue('Prepared Edge');
   expect(fixture.calls.some(item=>item.includes('/generate'))).toBe(false);
   await waitFor(()=>expect(screen.getByRole('button',{name:'Generate image'})).not.toBeDisabled());
   fireEvent.click(screen.getByRole('button',{name:'Generate image'}));
-  fireEvent.click(await screen.findByRole('button',{name:'Save image'}));
   fireEvent.click(await screen.findByRole('button',{name:'Place on page'}));
   await screen.findByText('Image inserted into your draft. Save the page when ready.');
   expect(bridge.insert).toHaveBeenCalledWith(captured,`![Edge at dusk](dmb-media:${id})`);
   expect(fixture.calls.filter(item=>item.includes('/generate'))).toHaveLength(1);
+  expect(fixture.calls.some(item=>item.endsWith('/save'))).toBe(false);
  });
  it('disables archived action and refuses another page',async()=>{
   const {record,bridge}=setup();const view=render(<PreparedBuildImage record={record} bridge={bridge} active={false}/>);

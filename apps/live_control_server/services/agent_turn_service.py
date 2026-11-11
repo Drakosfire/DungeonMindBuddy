@@ -19,6 +19,7 @@ from typing import Annotated, Any, Callable, Mapping, Protocol
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from application_state.agent_conversation import AgentConversationService
+from application_state.build_proposal.types import BuildWriteCapability
 from application_state.agent_conversation.native_writer import json_container_count as _json_node_count
 from application_state.agent_conversation.surface_source_answer import SOURCE_ATTRIBUTION_INSTRUCTIONS
 from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
@@ -1508,7 +1509,7 @@ PlanGraphResolver = Callable[
 class AgentTurnExecutionPersistencePort(Protocol):
     """Narrow SERVER-facing APP-STATE seam for guarded Graph execution."""
 
-    def accept_turn(self, submission: TurnSubmission) -> Turn: ...
+    def accept_turn(self, submission: TurnSubmission, *, build_retry_capability: BuildWriteCapability | None = None) -> Turn: ...
 
     def claim_turn(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
@@ -5299,7 +5300,8 @@ def _submitted_turn_intent(
         return (BuildGraphIntentV2 if request.build_authored_references is not None else BuildGraphIntentV1)(**common,
             **({"authored_references": request.build_authored_references} if request.build_authored_references is not None else {}), retry_of=request.retry_of, reviewed_step=reviewed_step, build_draft_context_sha256=(
             None if request.build_draft_context is None else _canonical_sha256(request.build_draft_context.model_dump(mode="json", by_alias=True))), build_write_capability_sha256=(
-            None if request.build_write_capability is None else _canonical_sha256(request.build_write_capability.model_dump(mode="json"))))
+            None if request.build_write_capability is None else _canonical_sha256(request.build_write_capability.model_dump(mode="json"))),
+            build_reference_image_id=request.build_write_capability.reference_image_id if request.build_write_capability else None)
     if request.surface.surface_id == "play" and primary_work is not None and request.graph_request.mode == "none":
         if request.play_target is None:
             raise AgentTurnServiceError("Rules-only Play requires its exact current target.",
@@ -6608,6 +6610,8 @@ def _accept_world_turn(
             play_context_receipt=play_context_receipt,
         )
         try:
+            if isinstance(submitted_intent, BuildGraphIntentV1) and submitted_intent.retry_of is not None:
+                return service.accept_turn(submission, build_retry_capability=request.build_write_capability)
             return service.accept_turn(submission)
         except ApplicationStateConflictError as exc:
             from application_state.agent_conversation.retry import RetryUnavailableError

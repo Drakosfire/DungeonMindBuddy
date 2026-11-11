@@ -1,7 +1,10 @@
 import type {AuthoredReferenceInput} from './types';
 import {isAuthoredReferences} from '../agentInteraction/authoredGraphReferences';
 import {authenticatedApiFetch,LiveApiError} from './liveApi';
+export type AuthorInteraction = 'select_passage';
 interface TurnRetryContextBase {
+ author_interaction?: AuthorInteraction;
+ reference_image_id?: string;
  world_id:string;conversation_id:string;turn_id:string;revision:number;root_id:string;
  predecessor_id:string|null;successor_id:string|null;ordinal:number;eligible:boolean;
  reason:'ready'|'not_terminal'|'unknown_outcome'|'existing_result'|'reviewed_step'|'retried'|'inactive'|'unverified';
@@ -11,7 +14,9 @@ export const retryUuid=(v:unknown):v is string=>typeof v==='string'&&/^[a-f0-9]{
 const exact=(v:unknown,keys:string[]):v is Record<string,any>=>!!v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
 export function decodeRetryContext(value:unknown,world:string,conversation:string,turn:string):TurnRetryContext|null {
  if(value===null)return null;
- if(!exact(value,['world_id','conversation_id','turn_id','revision','root_id','predecessor_id','successor_id','ordinal','eligible','reason',...(value&&typeof value==='object'&&'schema' in value?['schema','authored_references']:[])])
+ if(!exact(value,['world_id','conversation_id','turn_id','revision','root_id','predecessor_id','successor_id','ordinal','eligible','reason',...(value&&typeof value==='object'&&'schema' in value?['schema','authored_references']:[]),...(value&&typeof value==='object'&&'author_interaction' in value?['author_interaction']:[]),...(value&&typeof value==='object'&&'reference_image_id' in value?['reference_image_id']:[])])
+  ||('author_interaction' in value&&value.author_interaction!=='select_passage')
+  ||('reference_image_id' in value&&!retryUuid(value.reference_image_id))
   ||('schema' in value&&(value.schema!=='dmb_turn_retry_context_row_v2'||!isAuthoredReferences(value.authored_references,world)))
   ||value.world_id!==world||value.conversation_id!==conversation||value.turn_id!==turn
   ||!retryUuid(conversation)||!retryUuid(turn)||!retryUuid(value.root_id)
@@ -52,7 +57,11 @@ export async function readDiscussionRetryInput(world:string,conversation:string,
  if(!retryUuid(conversation)||!retryUuid(turn)||!Number.isSafeInteger(revision)||revision<1)throw new Error('Select a saved failed request.');
  const {response}=await authenticatedApiFetch('/api/live/agent/worlds/'+encodeURIComponent(world)+'/conversations/'+conversation+'/turns/'+turn+'/discussion-retry-input?'+new URLSearchParams({revision:String(revision)}),{cache:'no-store'});
  const v=await response.json();
- if(!response.ok)throw new LiveApiError(typeof v.detail==='string'?v.detail:'The original request context is unavailable.',response.status);
+ if(!response.ok){
+  const detail=v.detail;
+  throw new LiveApiError(typeof detail==='string'?detail:typeof detail?.message==='string'?detail.message:'The original request context is unavailable.',response.status,
+    response.status===409&&detail?.code==='build_authoring_retry_required'?{code:detail.code}:undefined);
+ }
  const sha=(x:unknown):x is string=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
  if(!exact(v,['schema','world_id','conversation_id','turn_id','revision','pointer_revision','surface_instance_id','message','client_work_state','snapshot','snapshot_sha256','authored_references'])
   ||v.schema!=='dmb_build_retained_discussion_retry_input_v1'||v.world_id!==world||v.conversation_id!==conversation||v.turn_id!==turn||v.revision!==revision

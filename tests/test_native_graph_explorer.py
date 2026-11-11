@@ -730,6 +730,96 @@ def test_binding_change_after_prepare_is_unknown_and_never_retargets(
     )
 
 
+def test_interrupted_prepare_retries_exact_request_without_repeating_source_admission(
+    explorer, monkeypatch
+):
+    x = explorer
+    initial = _read(x).json()["graph"]
+    request = {
+        "managed_world_id": "managed",
+        "native_world_id": x.bound["native_world_id"],
+        "binding_version": x.bound["binding_version"],
+        "expected_revision_id": initial["revision_id"],
+        "operation_id": str(uuid4()),
+        "kind": "create_object",
+        "name": "Recovered review",
+        "object_kind": "person",
+    }
+    original = InMemoryExplorerStore.mark_prepared
+
+    def interrupted(*args, **kwargs):
+        raise RuntimeError("lost journal write before review was stored")
+
+    monkeypatch.setattr(InMemoryExplorerStore, "mark_prepared", interrupted)
+    first = x.client.post("/api/live/native-graph-explorer/prepare", json=request)
+    assert first.status_code == 200 and first.json()["status"] == "unknown"
+    after_admission = _snapshot(x.lane.repo)
+    lookup = {"managed_world_id": "managed", "operation_id": request["operation_id"]}
+    for _ in range(2):
+        result = x.client.post(
+            "/api/live/native-graph-explorer/operations/read", json=lookup
+        )
+        assert result.status_code == 200
+        assert result.json()["status"] == "unknown"
+        assert result.json()["recovery_action"] == "retry_prepare"
+    assert _snapshot(x.lane.repo) == after_admission
+    changed = x.client.post(
+        "/api/live/native-graph-explorer/prepare",
+        json={**request, "name": "Different request"},
+    )
+    assert changed.status_code == 409
+    assert changed.json()["detail"]["code"] == "operation_id_conflict"
+    monkeypatch.setattr(InMemoryExplorerStore, "mark_prepared", original)
+    recovered = x.client.post("/api/live/native-graph-explorer/prepare", json=request)
+    assert recovered.status_code == 200 and recovered.json()["status"] == "prepared"
+    assert recovered.json()["operation_id"] == request["operation_id"]
+    assert _snapshot(x.lane.repo) == after_admission
+    row = next(iter(InMemoryExplorerStore.rows.values()))
+    row["status"] = "unknown"
+    uncertain = x.client.post(
+        "/api/live/native-graph-explorer/operations/read", json=lookup
+    )
+    assert uncertain.json()["status"] == "unknown"
+    assert "recovery_action" not in uncertain.json()
+    committed = x.client.post("/api/live/native-graph-explorer/confirm", json=lookup)
+    assert committed.status_code == 200 and committed.json()["status"] == "committed"
+    assert (
+        sum(
+            node["name"] == request["name"]
+            for node in committed.json()["graph"]["graph"]["nodes"]
+        )
+        == 1
+    )
+
+
+@pytest.mark.parametrize(
+    "status,partial",
+    [
+        ("reserved", {}),
+        ("unknown", {}),
+        ("prepared", {}),
+        ("committed", {}),
+        ("unknown", {"parent_revision_id": "saved-review-parent"}),
+        ("unknown", {"source_admission_id": "saved-admission"}),
+        ("unknown", {"source_receipt": {"saved": True}}),
+        ("unknown", {"committed": {"saved": True}}),
+    ],
+)
+def test_prepare_retry_action_requires_an_intact_pre_review_journal(status, partial):
+    record = {
+        "status": status,
+        "prepared": None,
+        "operation_id": "same-operation",
+        "managed_world_id": "managed",
+        "native_world_id": "native",
+        "binding_version": 1,
+        **partial,
+    }
+    result = service._operation_lookup(record, {}, None, None)
+    expected = status in {"reserved", "unknown"} and not partial
+    assert (result.get("recovery_action") == "retry_prepare") is expected
+
+
 def test_lost_commit_response_recovers_receipt_and_same_created_node_id(
     explorer, monkeypatch
 ):

@@ -326,6 +326,51 @@ it('captures real work-plan NodeSelection as discussion context without inventin
 });
 
 
+it('captures the nearest saved image above selected text and offers only the passage', async () => {
+  const {Editor} = await import('@tiptap/core');
+  const {webcrypto} = await import('node:crypto');
+  vi.stubGlobal('crypto', webcrypto);
+  const {DEFAULT_MARKDOWN_EDITOR_EXTENSIONS} = await import('../../tiptap/MarkdownEditorCore');
+  const {createBuildComposeBridge} = await import('../../buildSurface/buildComposeBridge');
+  const {markdownToTiptapDoc} = await import('../../tiptap/markdown/markdownToTiptap');
+  const artwork = '11111111-1111-4111-8111-111111111111';
+  const map = '22222222-2222-4222-8222-222222222222';
+  const markdown = [
+    '![Earlier artwork](dmb-media:' + artwork + ')',
+    '![Saved map](dmb-media:' + map + ')',
+    '## Map plan', 'Original layout.', '## Origin',
+  ].join('\n\n');
+  const doc = markdownToTiptapDoc(markdown).doc;
+  const headingIndex = doc.content!.findIndex(node => node.type === 'heading');
+  doc.content!.splice(headingIndex, 0, {
+    type: 'heading', attrs: {level: 2}, content: [{type: 'text', text: '  '}],
+  });
+  const editor = new Editor({extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: doc});
+  const realBridge = createBuildComposeBridge(() => ({
+    editor, worldId:'world', documentId:'doc', revision:1, contentSha256:'a'.repeat(64),
+    visibility:'internal', draftGeneration:0, selectionGeneration:0, canEdit:true,
+  }), vi.fn());
+  try {
+    const hook = renderHook(() => useBuildCompose({
+      worldId:'world', pageDocumentId:'doc', history, bridge:realBridge, enabled:true, onHistory:vi.fn(),
+    }));
+    const positions = new Map<string, number>();
+    editor.state.doc.descendants((node, pos) => {
+      if (node.isTextblock) positions.set(node.textContent, pos + 1);
+    });
+    editor.commands.setTextSelection({from:positions.get('Map plan')!,
+      to:positions.get('Original layout.')! + 'Original layout.'.length});
+    const prepared = await hook.result.current.prepareHarnessTurn('33333333-3333-4333-8333-333333333333', false, false, true);
+    expect(prepared.capability?.reference_image_id).toBe(map);
+    expect(prepared.capability?.basis.selection?.text).toBe('Map plan\nOriginal layout.');
+    expect(prepared.capability?.page_body_offer).toBeUndefined();
+    expect(prepared.capability?.page_end_offer).toBeUndefined();
+    hook.unmount();
+  } finally {
+    editor.destroy();
+  }
+});
+
 it('carries the frozen page-end offer through ordinary chat preparation without moving the caret',async()=>{
  const frozen={...captured,pageEndOffer:{end:83}};
  vi.mocked(bridge.capture).mockResolvedValue(frozen);
@@ -346,4 +391,34 @@ it('keeps a generated suggestion readable after insertion without offering anoth
  expect(screen.getByRole('table')).toHaveTextContent('Nella');expect(screen.getByText('Inserted into the draft.')).toBeInTheDocument();
  expect(screen.queryByRole('button',{name:'Review suggestion on page'})).not.toBeInTheDocument();
  expect(bridge.insertProposal).not.toHaveBeenCalled();expect(api.composeBuildProposal).not.toHaveBeenCalled();
+});
+
+it('reads proposal prose without granting Build writes or loading image sidecars', async () => {
+ const record=receipt();
+ record.reservation.origin={client_turn_id:'client',durable_turn_id:'requesting-turn',turn_attempt:1,broker_operation_id:'operation',arguments_sha256:'a'.repeat(64)};
+ vi.mocked(api.listBuildProposals).mockResolvedValue([record]);
+ const hook=renderHook(()=>useBuildCompose({worldId:'world',pageDocumentId:'doc',history,bridge,enabled:false,readHistory:true,onHistory:vi.fn()}));
+ await waitFor(()=>expect(hook.result.current.items).toHaveLength(1));
+ render(<>{hook.result.current.items.map(item=><div key={item.key}>{item.element}</div>)}</>);
+ expect(screen.getByRole('table')).toHaveTextContent('Nella');
+ expect(hook.result.current.items[0].originTurnId).toBe('requesting-turn');
+ expect(screen.queryByRole('button',{name:'Review suggestion on page'})).not.toBeInTheDocument();
+ expect(hook.result.current.pageElement).toBeNull();
+ expect(media.listPreparedImages).not.toHaveBeenCalled();
+ await expect(hook.result.current.submit('Write this')).resolves.toBe(false);
+ await expect(hook.result.current.prepareHarnessTurn('turn')).rejects.toThrow('Open the current page');
+ expect(bridge.capture).not.toHaveBeenCalled();
+ expect(api.composeBuildProposal).not.toHaveBeenCalled();
+});
+
+it.each(['World','conversation','hidden'] as const)('discards delayed readonly proposal history after %s changes',async change=>{
+ let finish!:(records:api.BuildProposalRecord[])=>void;
+ vi.mocked(api.listBuildProposals).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+ const hook=renderHook(({world,conversation,visible})=>useBuildCompose({worldId:world,pageDocumentId:null,
+  history:{...history,world_id:world,conversation_id:conversation},bridge:null,enabled:false,readHistory:visible,onHistory:vi.fn()}),
+  {initialProps:{world:'world',conversation:'conversation',visible:true}});
+ await waitFor(()=>expect(api.listBuildProposals).toHaveBeenCalledTimes(1));
+ hook.rerender({world:change==='World'?'other':'world',conversation:change==='conversation'?'other':'conversation',visible:change!=='hidden'});
+ await act(async()=>{finish([receipt()]);});
+ expect(hook.result.current.items).toHaveLength(0);
 });

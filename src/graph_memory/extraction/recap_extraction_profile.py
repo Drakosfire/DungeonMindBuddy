@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from src.graph_memory.predicate_catalog import recap_predicate_meaning_guidance
+from src.graph_memory.predicate_catalog import RECAP_SOURCE_ORDER, recap_predicate_meaning_guidance
 
 from src.graph_memory.extraction.extraction_profile import (
     ExtractionPassSpec,
@@ -38,7 +38,15 @@ _NODE_DESCRIPTION_COVERAGE = (
     "that contribute knowledge about the referent. Retain these observations even "
     "when they also belong in a scene or beat summary. Keep the observations "
     "within their supported referent and scene, using the existing evidence and "
-    "source-faithfulness requirements."
+    "source-faithfulness requirements. State the source-supported participants, "
+    "actions, affected objects, and outcomes explicitly in the description. "
+    "Retain explicit source-supported before/after relationships in descriptions, "
+    "naming the related occurrences sufficiently to understand the order without "
+    "relying on paragraph, node, or list position. Do not impose order on "
+    "concurrent or unresolved actions. "
+    "Do not leave a material detail only in an evidence quote, beat summary, "
+    "or relationship label. Preserve source ambiguity rather than filling "
+    "missing details by inference."
 )
 
 # These instructions belong to recap extraction only. Keep them out of the
@@ -56,12 +64,19 @@ _RECAP_SOURCE_FAITHFULNESS = (
     "possessives, topic proximity, or a shared location as proof that two "
     "mentions identify the same entity. Resolve references only as specifically "
     "as the source supports; do not add unstated membership, identity, or events. "
-    "Distinguish in-world assertions from table presentation and rhetorical language. "
-    "A table handout or figurative mention does not establish a physical object, "
-    "character attribute, possession, or in-world event. Preserve supported table "
-    "observations as such without promoting them into world facts. Parentheses "
-    "alone do not determine authority: retain explicitly narrated in-world "
-    "objects and actions even when parenthetical."
+    "Distinguish in-world assertions, attributed evaluations and comparisons, "
+    "and table presentation. Retain material narrator or character evaluations "
+    "and comparisons as attributed observations about their stated subjects and "
+    "scenes, not objective properties. A figurative description does not establish "
+    "a physical object, literal class, ability, identity, possession, or event by "
+    "itself. A rhetorical question is not its answer. Preserve supported table "
+    "observations as such without promoting them into world facts. Retain "
+    "explicitly narrated in-world objects and actions, including parenthetical "
+    "ones. If the source leaves table material, in-world material, or both "
+    "possible, preserve that uncertainty rather than forcing a category; use the "
+    "existing deferred dispositions where clarification is needed. Parentheses "
+    "alone do not determine authority. Do not invent a world object to retain "
+    "a mention."
 )
 
 _PASS_SOURCE_FAITHFULNESS: dict[str, str] = {
@@ -114,7 +129,7 @@ def _with_recap_source_faithfulness(spec: ExtractionPassSpec) -> ExtractionPassS
     pass_guidance = _PASS_SOURCE_FAITHFULNESS.get(spec.pass_id, "")
     coverage = f"{_NODE_DESCRIPTION_COVERAGE}\n\n" if spec.kind == "node" else ""
     if spec.pass_id == "edge_pass":
-        pass_guidance = f"{pass_guidance}\n\n{recap_predicate_meaning_guidance()}"
+        pass_guidance = f"{pass_guidance}\n\n{recap_predicate_meaning_guidance(capabilities=spec.predicate_capabilities)}"
     return replace(
         spec,
         instruction=(
@@ -132,6 +147,54 @@ DEFAULT_SEMANTIC_STATE = {
     "authority_state": "system_derived",
     "visibility_state": "gm_private",
 }
+
+_EXPLICIT_PASSAGE_TRANSITIONS = (
+    "Before returning occurrence nodes, check explicit temporal transitions, "
+    "including transitions opening a source passage. Resolve references to "
+    "earlier and later occurrences using the surrounding source context. When "
+    "the source supports the referents and temporal meaning, state the directed "
+    "before/after relationship in an occurrence description with both occurrences "
+    "named. For each before/after claim, attach evidence_refs covering the earlier "
+    "occurrence, the later occurrence, and the source connective that establishes "
+    "their order. One paragraph is sufficient when it supplies all three; "
+    "otherwise cite each needed paragraph on that claim itself. Before returning "
+    "the node, check every ordering clause in its description against its own "
+    "references; evidence on another node cannot close a missing witness. "
+    "Preserve the connective's supported meaning: "
+    "listing both actions, or saying both precede another action, does not retain "
+    "their relative order. If the antecedent is ambiguous, the transition changes "
+    "topic rather than event time, or an action remains merely proposed, preserve "
+    "that limitation rather than asserting completed-event order. Do not derive "
+    "time from passage adjacency alone, complete a total timeline, or turn "
+    "narrative presentation or a flashback into fictional elapsed time. Preserve "
+    "concurrency, future modality and unresolved order. "
+)
+
+_SOURCE_ORDER_OCCURRENCES = (
+    "Retain specific occurred events needed to express source-supported before/after "
+    "relationships as event nodes. These can be actual discoveries, discussions, "
+    "decisions or planning acts; a proposed future outcome is a different occurrence. "
+    "For a definitely occurred action needed to express source-supported order, "
+    "emit an event candidate rather than only a clue for what was learned. "
+    "An uncertain object or result does not make a definite occurrence unresolved; "
+    "preserve uncertainty about whether an action occurred. Reuse the occurrence "
+    "rather than duplicating it as both event and clue solely for categorization. "
+    + _EXPLICIT_PASSAGE_TRANSITIONS
+    + "Bind each description to its source-supported episode, journey or situation so "
+    "relative references remain understandable without paragraph or node order. "
+    "Do not turn persistent people, places or topics into events. Keep concurrent "
+    "or unresolved occurrences distinct without imposing an order."
+)
+
+_SOURCE_ORDER_EDGES = (
+    "Retain explicit source-supported occurrence order using the adopted precedence "
+    "predicate and event endpoints. Review linked events systematically, preserving "
+    "attribution and uncertainty; do not derive order from paragraph position, infer "
+    "causation or complete a total timeline. If two events precede a third, their "
+    "relative order may remain unresolved. Supply evidence for each ordering claim "
+    "itself; endpoint evidence cannot substitute."
+)
+
 
 _NODE_PASSES: tuple[ExtractionPassSpec, ...] = (
     ExtractionPassSpec(
@@ -201,7 +264,8 @@ _NODE_PASSES: tuple[ExtractionPassSpec, ...] = (
         default_node_type="mystery",
         instruction=(
             "Extract mysteries, clues, warnings, events, unresolved phenomena, and threads. "
-            "Also emit ignored_items and deferred_items when appropriate."
+            "Also emit ignored_items and deferred_items when appropriate. "
+            + _SOURCE_ORDER_OCCURRENCES
         ),
         progress_label="Extracting mysteries and threads",
         include_dispositions=True,
@@ -228,9 +292,10 @@ _ENCOUNTER_JOB_PASS = ExtractionPassSpec(
 _EDGE_PASS = ExtractionPassSpec(
     pass_id="edge_pass",
     default_node_type=None,
-    instruction="Extract durable relationship edges among consolidated nodes.",
+    instruction="Extract durable relationship edges among consolidated nodes. " + _SOURCE_ORDER_EDGES,
     progress_label="Extracting relationship edges",
     kind="edge",
+    predicate_capabilities=(RECAP_SOURCE_ORDER,),
 )
 
 

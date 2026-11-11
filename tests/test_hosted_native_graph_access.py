@@ -375,6 +375,87 @@ def test_owner_prepare_confirm_recovery_use_native_receipt_and_subject_scope(hos
     assert _snapshot(x.lane.repo) == after
 
 
+
+def _interrupted_owner_prepare(x, monkeypatch):
+    request = _payload(x, "prepare")
+    original = InMemoryExplorerStore.mark_prepared
+
+    def interrupted(*args, **kwargs):
+        raise RuntimeError("synthetic interruption before the review journal write")
+
+    monkeypatch.setattr(InMemoryExplorerStore, "mark_prepared", interrupted)
+    response = x.client.post("prepare", json=request)
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "unknown"
+    monkeypatch.setattr(InMemoryExplorerStore, "mark_prepared", original)
+    return request, {key: request[key] for key in ("managed_world_id", "operation_id")}
+
+
+def test_owner_interrupted_prepare_recovers_exact_draft_without_duplicate_admission(
+    hosted, monkeypatch
+):
+    x = hosted
+    request, lookup = _interrupted_owner_prepare(x, monkeypatch)
+    after_admission = _snapshot(x.lane.repo)
+    result = x.client.post("operations/read", json=lookup)
+    assert result.status_code == 200, result.text
+    assert result.json()["status"] == "unknown"
+    assert result.json()["recovery_action"] == "retry_prepare"
+    assert _snapshot(x.lane.repo) == after_admission
+    changed = x.client.post("prepare", json={**request, "name": "Different request"})
+    assert changed.status_code == 409
+    assert changed.json()["detail"]["code"] == "operation_id_conflict"
+    recovered = x.client.post("prepare", json=request)
+    assert recovered.status_code == 200, recovered.text
+    assert recovered.json()["status"] == "prepared"
+    assert recovered.json()["operation_id"] == request["operation_id"]
+    assert _snapshot(x.lane.repo) == after_admission
+    committed = x.client.post("confirm", json=lookup)
+    assert committed.status_code == 200, committed.text
+    assert committed.json()["status"] == "committed"
+    assert sum(node["name"] == request["name"] for node in committed.json()["graph"]["graph"]["nodes"]) == 1
+
+
+@pytest.mark.parametrize("session", ["other-session", "all-session"])
+def test_nonowner_cannot_discover_or_retry_an_interrupted_owner_prepare(
+    hosted, monkeypatch, session
+):
+    x = hosted
+    request, lookup = _interrupted_owner_prepare(x, monkeypatch)
+    before, journal = _snapshot(x.lane.repo), copy.deepcopy(InMemoryExplorerStore.rows)
+    for operation, body in (("operations/read", lookup), ("prepare", request)):
+        response = x.client.post(operation, session=session, json=body)
+        assert response.status_code == 403, response.text
+        assert "recovery_action" not in response.json()
+        _assert_unchanged(x, before, journal)
+
+
+@pytest.mark.parametrize("revoke", ["owner", "binding"])
+def test_interrupted_prepare_retry_advice_is_withheld_after_midread_revocation(
+    hosted, monkeypatch, revoke
+):
+    x = hosted
+    _, lookup = _interrupted_owner_prepare(x, monkeypatch)
+    before, journal = _snapshot(x.lane.repo), copy.deepcopy(InMemoryExplorerStore.rows)
+    original = InMemoryExplorerStore.get_operation
+    record = x.records["managed"]
+
+    def get_operation_and_revoke(store, operation_id):
+        result = original(store, operation_id)
+        change = {"owner_subject": OTHER_OWNER} if revoke == "owner" else {
+            "native_graph_binding": record.native_graph_binding.model_copy(
+                update={"native_world_id": "native-foreign", "binding_version": 4}
+            )
+        }
+        x.records["managed"] = record.model_copy(update=change)
+        return result
+
+    monkeypatch.setattr(InMemoryExplorerStore, "get_operation", get_operation_and_revoke)
+    response = x.client.post("operations/read", json=lookup)
+    assert response.status_code == (403 if revoke == "owner" else 409), response.text
+    assert "recovery_action" not in response.json() and "status" not in response.json()
+    _assert_unchanged(x, before, journal)
+
 def test_hosted_subject_cannot_recover_local_operator_journal(hosted, monkeypatch):
     x = hosted
     monkeypatch.setenv(DEPLOYMENT_ENVIRONMENT_ENV, "local")

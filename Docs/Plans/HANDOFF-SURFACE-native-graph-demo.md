@@ -620,3 +620,104 @@ The correction re-anchored at main
 changes since af88d3ac do not overlap the three canvas files or agent policy.
 The existing unmerged parent and hosted successor remain separate; no App,
 authorization, production service, database or deployment change is included.
+
+## Active mainline migration reconciliation
+
+Before the authorized merge, main advanced to
+`1c238dcaa9d549afc3d292c02709fab9b3dc5b57` through #2382. Its captured-source
+reader fence owns `20261110_0148` after `20261109_0147`. The published graph
+head `763adc1e2f56f3ab587c36937cec33defda41a31` independently used that same
+revision for index storage. Git merges these different filenames without a
+conflict, but Alembic finds a duplicate revision and multiple heads. Merge is
+held until this bounded reconciliation is verified and separately approved.
+
+Topology remains stacked: this repair updates #2330; #2374 at
+`f622e8eea2bd5bc766bd6cbedf6a1d577eeaca19` remains its separate dependent
+successor. Its branch, auth behavior and retained evidence are not changed here.
+The isolated repair lane is `codex/graph-migration-reconcile-20261110` under
+`/home/drakosfire/Projects/.codex/graph-migration-reconcile-20261110/`.
+It incorporates current main without discarding either lane's source.
+
+This section supersedes the earlier graph-only migration numbers. All open PR
+changed-file lists were inspected at allocation: only #2330 introduces migrations,
+and no other open PR writes the existing schema-head test module. The repository
+uses pinned handoff reservations rather than a central allocator. This lane
+reserves `20261110_0150` for index storage after canonical main `20261110_0148`,
+then `20261110_0151` for native explorer storage. Do not reuse prototype `0149`
+for a different schema. Recheck main and active migration ownership before push.
+
+Exclusive repair write lease:
+- This handoff.
+- Rename `20261110_0148_index_graph.py` to `20261110_0150_index_graph.py` and
+  `20261110_0149_native_graph_explorer.py` to
+  `20261110_0151_native_graph_explorer.py` beneath the existing APP migrations.
+  Only their revision/down-revision assignments change; table operations remain
+  byte-for-byte equivalent.
+- `tests/application_state/test_cli_schema_head.py` for source-level unique IDs,
+  a connected linear chain, offline SQL order/counts and current-head refusal of
+  prototype revisions. The merged reader-fence file remains unchanged.
+
+Retained prototype databases, data, code/runtime pairings and evidence must remain
+untouched. In particular, prototype graph `0148` and canonical main `0148` cannot
+be distinguished by the revision number. Runtime head refusal of `0148`/`0149`
+is not schema-shape detection or upgrade safety proof. Do not upgrade, stamp,
+alias or adopt a retained prototype database with this source. Recovery requires
+a separately approved, data-preserving plan and an inspected exact database.
+No migration, production service change or deployment is authorized here.
+
+Verification uses offline graph/SQL tests with database connections forbidden;
+real database and retained-data upgrade acceptance is not claimed. The first
+baseline pytest attempt unexpectedly entered the repository's automatic
+application-state fixture, created a disposable test database, and failed before
+migration bodies. Its finally cleanup returned without error. Preserve that
+failed log; it does not establish zero database activity. Subsequent offline
+runs disable conftest collection explicitly and never request a database fixture.
+The offline baseline reproduces all six new regression failures. Final exact-head
+verification, cumulative independent review and renewed source-specific merge
+approval remain required. No previous head's evidence is relabeled as this head.
+
+## Interrupted prepare recovery continuation (2026-11-11)
+
+The coordinator continued this assigned graph lane under Alan's request to finish
+it. Current repository policy accepts this durable pinned branch handoff. The
+owner-access successor remains separate and transfers only the predecessor's
+prepare-recovery seam back to this lane; preserve its access/binding checks when
+restacking. No merge, deployment, retained-database migration or runtime cutover
+is authorized.
+
+Independent review of candidate `91cbec516da32b0c504033ae335913a7a11ff09b`
+found that a durable interrupted preparation (`unknown`, no saved preparation)
+returned prose suggesting an exact retry, while the UI offered status checks
+forever. This continuation repairs that existing native recovery invariant.
+The backend supplies `recovery_action: retry_prepare` only for an intact
+pre-review `reserved`/`unknown` journal with no saved preparation, preparation
+parent, source receipt/admission metadata or committed result. The prepare owner
+still validates the identical request hash, scope, binding and deterministic
+source receipt. A retry is not a graph confirmation and never creates a new ID.
+Unknown publication/confirmation outcomes do not receive this action.
+
+The shared DTO validates the recovery action; the managed adapter retains exact
+World/binding/operation identity checks. The UI exposes an explicit same-ID retry
+only when both that server action and the retained local prepare phase agree.
+Navigation/remount preserves the draft, ID and phase. A recovered review still
+requires explicit confirmation. No automatic retry or fresh-operation escape is
+added.
+
+The bounded write set adds only the existing native explorer service/test,
+NativeGraphDemo component/test, shared API/test, managed API test and this handoff.
+There is no schema, dependency, storage, authentication or profile change.
+Working-tree evidence before current-main composition: 144 focused frontend
+cases and TypeScript/production build pass; 25 native HTTP/service cases pass
+against the real in-memory Core/WorldKeeper fixture. That Python environment's
+GenerationEngine pin differs from the current lock, so this is explicitly
+non-qualifying diagnostic evidence. Twelve offline migration checks pass with
+conftest disabled and two database cases deselected.
+
+Current-main re-anchor is `11505add65802454390dbb48e73ea109925eb655`, independently
+read through the connector. Its intervening BUILD changes merge without graph
+conflicts. Exact final-source aggregate checks and independent review remain
+required. The normal frontend verifier's fresh npm installation was network-policy
+blocked before tests; retain that failed attempt and do not call manual cached
+runs repository-verifier qualification. All new artifacts remain under
+`/home/drakosfire/Projects/.codex/graph-finish-20261111/` on the verified Projects
+filesystem. Prototype databases and earlier source/evidence remain untouched.

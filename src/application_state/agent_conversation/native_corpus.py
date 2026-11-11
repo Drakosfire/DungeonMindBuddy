@@ -7,7 +7,7 @@ from hashlib import sha256
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from dungeonmind.contracts.vnext.source import SourceArtifactV3, SourceRevisionV2
 from .native_statement_input import NativeAuthorityRefV1, canonical
 
@@ -53,6 +53,17 @@ class NativeCorpusMemberV1(Strict):
     proof_epoch: int = Field(ge=0, strict=True)
     campaign_scope: Literal["unestablished"] = "unestablished"
     session_scope: Literal["unestablished"] = "unestablished"
+    # Omission preserves already committed historical catalogs and SDK bytes.
+    # Every current acquisition supplies a name or explicit unavailable label.
+    presentation_name: str | None = Field(default=None, min_length=1,
+        exclude_if=lambda value: value is None)
+
+    @field_validator("presentation_name")
+    @classmethod
+    def readable_name(cls, value):
+        if value is not None and (not value.strip() or value != value.strip()):
+            raise ValueError("Captured source name must be nonblank and trimmed")
+        return value
 
     @model_validator(mode="after")
     def exact_source_pair(self):
@@ -681,6 +692,12 @@ def model_body_frame_records(source_authority, execution, selector):
         search=search, catalog_count=len(catalogs))
 
 
+def body_source_name(catalog):
+    # Old records must reconstruct the exact historical producing request.
+    # Current acquisitions always freeze presentation_name before cataloguing.
+    return catalog.source.presentation_name or catalog.sections[0].label
+
+
 def model_body_frame_rows(source_authority, pairs, selector, *, search=None, catalog_count=None):
     """Pure shared presentation of already owner-verified reads, not a read grant.
 
@@ -691,7 +708,7 @@ def model_body_frame_rows(source_authority, pairs, selector, *, search=None, cat
     rows = []
     for read, catalog in pairs:
         excerpt = read.excerpt
-        rows.append(dict(excerpt_handle=selector(read), source_name=catalog.sections[0].label,
+        rows.append(dict(excerpt_handle=selector(read), source_name=body_source_name(catalog),
             section_title=excerpt.section.label,
             extent_kind='full_document' if excerpt.selector_policy == 'native_full_document_v1' else 'section',
             line_start=excerpt.section.line_start, line_end=excerpt.section.line_end,
@@ -769,7 +786,7 @@ def body_citation(support, *, index, text, producer, envelope_sha256):
         native_source_revision_id=catalog.source.revision.source_revision_id,
         content_sha256=catalog.source.revision.content_sha256, excerpt_sha256=excerpt.excerpt_sha256,
         section_id=excerpt.section.section_id, selector_policy=excerpt.selector_policy,
-        source_name=catalog.sections[0].label, section_title=excerpt.section.label,
+        source_name=body_source_name(catalog), section_title=excerpt.section.label,
         line_start=excerpt.section.line_start, line_end=excerpt.section.line_end)
 
 
