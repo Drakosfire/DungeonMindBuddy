@@ -1,4 +1,4 @@
-import { completePdfTextLines, hasClippedPdfTextLine } from "./completePdfTextLines";
+import { completePdfTextLines, hasClippedPdfTextLine, pdfTextBoundsOverlap } from "./completePdfTextLines";
 import { PdfStatblockCandidate } from "./PdfStatblockCandidate";
 import { pdfRegionKey, readRetainedPdfRegions, retainedPdfKey, type PdfLocator, type PdfReceipt, type RetainedPdf } from "../api/retainedPdfRegions";
 import { authenticatedApiFetch } from "../api/liveApi";
@@ -240,22 +240,23 @@ function PdfPages({ file, worldId, restored, onRetained }: {
           const advanceScale = vertical ? Math.hypot(c, d) : Math.hypot(a, b);
           const extent = vertical ? item.height : item.width;
           const advance = advanceScale ? extent / advanceScale : 0;
-          const inside = (along: number, across: number) => {
+          const point = (along: number, across: number): [number, number] => {
             const [viewX, viewY] = viewport.convertToViewportPoint(
               vertical ? x + a * across - c * along : x + a * along + c * across,
               vertical ? y + b * across - d * along : y + b * along + d * across,
             );
-            const nx = viewX / viewport.width;
-            const ny = viewY / viewport.height;
-            return nx >= region.left && nx <= region.left + region.width
-              && ny >= region.top && ny <= region.top + region.height;
+            return [viewX / viewport.width, viewY / viewport.height];
           };
+          const inside = ([nx, ny]: [number, number]) =>
+            nx >= region.left && nx <= region.left + region.width
+              && ny >= region.top && ny <= region.top + region.height;
+          const corners = [point(0, 0), point(advance, 0), point(0, 1), point(advance, 1)];
           return [{
             text: item.str,
             endOfLine: item.hasEOL,
-            included: inside(advance / 2, 0.5),
-            complete: advance > 0 && inside(0, 0) && inside(advance, 0)
-              && inside(0, 1) && inside(advance, 1),
+            included: inside(point(advance / 2, 0.5)),
+            complete: advance > 0 && corners.every(inside),
+            overlaps: advance > 0 && pdfTextBoundsOverlap(corners, region),
           }];
         });
         if (!cancelled) {
@@ -339,7 +340,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
                     <textarea readOnly value={capturedText} rows={5} />
                   </label>
                 ) : <p role="status">No PDF text runs were selected. The crop may still contain visible text.</p>}
-              {clippedText && <p role="status">Some selected text belongs to lines that extend outside the capture. Widen the selection or check the image before using the extracted fields.</p>}
+              {clippedText && <p role="status">Some PDF text lines may extend outside the capture. Widen the selection or check the image before using the extracted fields.</p>}
               {receipt && capturedText && <PdfStatblockCandidate
                 key={JSON.stringify([page, capture.region, capturedText])}
                 text={completeLines}
