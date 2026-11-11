@@ -122,3 +122,34 @@
 .world-graph-canvas__exploration li button { display: flex; flex-wrap: wrap; gap: 0.5rem; text-align: left; max-width: 100%; overflow-wrap: anywhere; }
 .world-graph-canvas__exploration small { opacity: 0.8; }
 .world-graph-canvas__neighborhood { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; padding: 0.5rem 1rem; }
+
+/* Full loaded overview: retain every real stroke; detail changes without rebuilding geometry. */
+.world-graph-canvas--full .world-graph-canvas__node-circle {
+  fill: var(--node-color, var(--graph-card));
+  stroke: #4a4d50;
+  stroke-width: .7;
+  vector-effect: non-scaling-stroke;
+}
+.world-graph-canvas--full .world-graph-canvas__node.is-selected .world-graph-canvas__node-circle,
+.world-graph-canvas--full .world-graph-canvas__node:focus-visible .world-graph-canvas__node-circle {
+  fill: var(--node-color, var(--graph-card));
+  stroke: #23190a;
+  stroke-width: 3;
+}
+.world-graph-canvas--full .world-graph-canvas__edge path { stroke: #7a807e; stroke-width: .75; vector-effect: non-scaling-stroke; }
+.world-graph-canvas--full .world-graph-canvas__edge.is-selected path { stroke: #563b16; stroke-width: 1.7; }
+.world-graph-canvas--full [data-detail="overview"] .world-graph-canvas__node text,
+.world-graph-canvas--full [data-detail="overview"] .world-graph-canvas__node-port,
+.world-graph-canvas--full [data-detail="overview"] .world-graph-canvas__edge-label,
+.world-graph-canvas--full [data-detail="overview"] .world-graph-canvas__edge text,
+.world-graph-canvas--full [data-detail="names"] .world-graph-canvas__edge-label,
+.world-graph-canvas--full [data-detail="names"] .world-graph-canvas__edge text { display: none; }
+.world-graph-canvas--full [data-detail="overview"] .world-graph-canvas__node.is-selected text,
+.world-graph-canvas--full [data-detail="overview"] .world-graph-canvas__node:hover text,
+.world-graph-canvas--full [data-detail="overview"] .world-graph-canvas__node:focus-visible text { display: block; }
+.world-graph-canvas__legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 12px; }
+.world-graph-canvas__legend span { display: inline-flex; align-items: center; gap: 5px; }
+.world-graph-canvas__legend i { width: 10px; height: 10px; border: 1px solid #4a4d50; border-radius: 50%; }
+.world-graph-canvas__overview-note { font-size: 12px; color: var(--graph-muted); margin: 6px 0; }
+
+.world-graph-canvas--full .world-graph-canvas__node-kind { fill: var(--graph-ink); }

@@ -7,6 +7,8 @@ import { createTestWorld, sequenceLocalIds } from "../localWorldContractFixtures
 import type { CommitSemanticResult, LocalWorldRecord, LocalWorldRelationship, WriteLayoutResult } from "../localWorldRepository";
 import { createLocalWorldGraphAdapter } from "./localWorldGraphAdapter";
 import { projectLocalWorldGraph } from "./graphProjection";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import * as projectionModule from "./graphProjection";
 import { WorldGraphCanvas, type WorldGraphEditorDraft } from "./WorldGraphCanvas";
 
@@ -945,4 +947,103 @@ it("does not rebuild the full corpus index or projection when only the camera ch
   expect(index).toHaveBeenCalledTimes(indexed);
   expect(project).toHaveBeenCalledTimes(projected);
   index.mockRestore(); project.mockRestore();
+});
+
+describe("full loaded SVG overview", () => {
+  it("fits persisted geometry when keyboard Fit interrupts a connected-node drag", async () => {
+    const { record } = await graphRecord();
+    const save = vi.fn();
+    render(<WorldGraphCanvas record={record} nodeShape="circle" projectionOptions={{ fullCorpus: true }} onMoveObjects={save} />);
+    const svg = screen.getByRole("group", { name: "The Ember Coast world graph" });
+    captureRect(svg);
+    fireEvent.click(screen.getByRole("button", { name: "Fit graph" }));
+    const camera = screen.getByTestId("graph-scene").getAttribute("transform")!;
+    const first = document.querySelector(`[data-node-id="${record.snapshot.objects[0].id}"]`)!;
+    const position = first.getAttribute("transform")!;
+    dispatchPointer(first, "pointerdown", { pointerId: 14, clientX: 100, clientY: 100, button: 0 });
+    dispatchPointer(svg, "pointermove", { pointerId: 14, clientX: 1100, clientY: 800, buttons: 1 });
+    expect(first.getAttribute("transform")).not.toBe(position);
+    fireEvent.keyDown(svg, { key: "0" });
+    expect(first).toHaveAttribute("transform", position);
+    expect(screen.getByTestId("graph-scene")).toHaveAttribute("transform", camera);
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("keeps revealed kind labels at readable contrast on each bubble palette color", async () => {
+    const { record } = await graphRecord();
+    const kinds = ["person", "location", "event", "faction", "item", "creature", "source", "entity", "constructor", "__proto__"];
+    const objects = kinds.map((kind, i) => ({ ...record.snapshot.objects[0], id: `${record.snapshot.worldId}:contrast:${i}` as LocalWorldRecord["snapshot"]["objects"][number]["id"], name: kind, kind }));
+    render(<WorldGraphCanvas record={{ ...record, snapshot: { ...record.snapshot, objects, relationships: [] } }} nodeShape="circle" projectionOptions={{ fullCorpus: true }} />);
+    const graphStyles = readFileSync(fileURLToPath(import.meta.url).replace(/WorldGraphCanvas\.test\.tsx$/, "worldGraphCanvas.css"), "utf8");
+    expect(graphStyles).toContain(".world-graph-canvas--full .world-graph-canvas__node-kind { fill: var(--graph-ink); }");
+    const ink = graphStyles.match(/--graph-ink: (#[0-9a-f]{6})/)![1];
+    function luminance(hex: string) {
+      const channels = [1, 3, 5].map((offset) => parseInt(hex.slice(offset, offset + 2), 16) / 255).map((value) => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);
+      return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+    }
+    const colors = [...document.querySelectorAll<SVGElement>("[data-node-id]")].map((node) => node.style.getPropertyValue("--node-color"));
+    expect(new Set(colors.slice(0, 3)).size).toBe(3);
+    for (const color of colors) expect((luminance(color) + .05) / (luminance(ink) + .05)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("zooms a compact full graph below Fit until the enabled control reaches its floor", async () => {
+    const { record } = await graphRecord();
+    render(<WorldGraphCanvas record={record} nodeShape="circle" projectionOptions={{ fullCorpus: true }} />);
+    fireEvent.click(screen.getByRole("button", { name: "100%" }));
+    fireEvent.click(screen.getByRole("button", { name: "Zoom out" }));
+    expect(screen.getByLabelText("Graph zoom")).toHaveTextContent("80%");
+    const button = screen.getByRole("button", { name: "Zoom out" });
+    for (let i = 0; i < 20 && !button.hasAttribute("disabled"); i += 1) {
+      const before = cameraFromScene(screen.getByTestId("graph-scene")).zoom;
+      fireEvent.click(button);
+      expect(cameraFromScene(screen.getByTestId("graph-scene")).zoom).toBeLessThan(before);
+    }
+    expect(button).toBeDisabled();
+    expect(screen.getByLabelText("Graph zoom")).toHaveTextContent("15%");
+  });
+
+  it("keeps camera motion out of projection and edge geometry while preserving selection", async () => {
+    const { record } = await graphRecord();
+    const indexSpy = vi.spyOn(projectionModule, "indexLocalWorldGraph");
+    const layoutSpy = vi.spyOn(projectionModule, "createGraphFallbackPositions");
+    const projectionSpy = vi.spyOn(projectionModule, "projectLocalWorldGraph");
+    const geometrySpy = vi.spyOn(Math, "hypot");
+    const view = render(<WorldGraphCanvas record={record} nodeShape="circle" projectionOptions={{ fullCorpus: true }} />);
+    const first = document.querySelector(`[data-node-id="${record.snapshot.objects[0].id}"]`)!;
+    fireEvent.click(first);
+    const scene = screen.getByTestId("graph-scene");
+    const edges = [...document.querySelectorAll("[data-edge-id] path")];
+    const paths = edges.map((edge) => edge.getAttribute("d"));
+    const counts = [indexSpy.mock.calls.length, layoutSpy.mock.calls.length, projectionSpy.mock.calls.length, geometrySpy.mock.calls.length];
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+    fireEvent.keyDown(screen.getByRole("group", { name: "The Ember Coast world graph" }), { key: "ArrowLeft" });
+    expect(first).toHaveAttribute("aria-pressed", "true");
+    expect(document.querySelector(`[data-node-id="${record.snapshot.objects[0].id}"]`)).toBe(first);
+    expect([...document.querySelectorAll("[data-edge-id] path")]).toEqual(edges);
+    expect(edges.map((edge) => edge.getAttribute("d"))).toEqual(paths);
+    expect([indexSpy.mock.calls.length, layoutSpy.mock.calls.length, projectionSpy.mock.calls.length, geometrySpy.mock.calls.length]).toEqual(counts);
+    fireEvent.click(screen.getByRole("button", { name: "100%" }));
+    expect(scene).toHaveAttribute("data-detail", "relationships");
+    expect(first.getAttribute("style")).toContain("--node-color");
+    expect(screen.getByLabelText("Object type colors")).toHaveTextContent("person");
+    view.unmount();
+    vi.restoreAllMocks();
+  });
+
+  it("retains fallback positions and camera on a revision addition without saving layout", async () => {
+    const { record } = await graphRecord();
+    const save = vi.fn();
+    const options = { fullCorpus: true };
+    const view = render(<WorldGraphCanvas record={record} nodeShape="circle" projectionOptions={options} onMoveObjects={save} />);
+    const before = new Map([...document.querySelectorAll("[data-node-id]")].map((node) => [node.getAttribute("data-node-id"), node.getAttribute("transform")]));
+    fireEvent.keyDown(screen.getByRole("group", { name: "The Ember Coast world graph" }), { key: "ArrowRight" });
+    const camera = screen.getByTestId("graph-scene").getAttribute("transform");
+    const added = { ...record.snapshot.objects[0], id: `${record.snapshot.worldId}:object:new` as LocalWorldRecord["snapshot"]["objects"][number]["id"], name: "A new arrival" };
+    const next = { ...record, localRevision: record.localRevision + 1, snapshot: { ...record.snapshot, objects: [added, ...record.snapshot.objects].reverse() } };
+    view.rerender(<WorldGraphCanvas record={next} nodeShape="circle" projectionOptions={options} onMoveObjects={save} />);
+    for (const [id, transform] of before) expect(document.querySelector(`[data-node-id="${id}"]`)).toHaveAttribute("transform", transform!);
+    expect(screen.getByTestId("graph-scene")).toHaveAttribute("transform", camera!);
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(5);
+    expect(save).not.toHaveBeenCalled();
+  });
 });

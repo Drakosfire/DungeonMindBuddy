@@ -1661,7 +1661,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
               <label htmlFor={searchId}>Search loaded objects</label>
               <input id={searchId} type="search" value={objectQuery} placeholder="Name, type or ID"
                 disabled={Boolean(pendingOperation)} onChange={(event) => { setObjectQuery(event.target.value); setObjectPage(0); }} />
-              <p>{matchingObjects.length} matching objects. Search includes objects outside the canvas.</p>
+              <p>{matchingObjects.length} matching objects. Search includes every loaded object.</p>
               <ul aria-label="Matching graph objects">{visibleSearchObjects.map((node) => <li key={node.id}>
                 <button type="button" disabled={Boolean(pendingOperation)} aria-label={`Explore ${node.name} (${node.id})`}
                   onClick={() => { handleCanvasSelectionChange(node.id as LocalObjectId); requestCameraFocus(node.id); }}>
@@ -1676,7 +1676,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
               </div> : null}
             </details> : null}
             {embedded && viewFocusId ? <div className="world-graph-canvas__neighborhood" role="group" aria-label="Neighborhood controls">
-              <span>Neighborhood: {neighborhoodDepth} {neighborhoodDepth === 1 ? "step" : "steps"} from {graph.nodes.find((node) => node.id === viewFocusId)?.name}. Canvas limit: 512 objects.</span>
+              <span>Neighborhood: {neighborhoodDepth} {neighborhoodDepth === 1 ? "step" : "steps"} from {graph.nodes.find((node) => node.id === viewFocusId)?.name}. Focused view limit: 512 objects. The overview shows every loaded object.</span>
               <button type="button" disabled={neighborhoodDepth >= graph.nodes.length || Boolean(pendingOperation)} onClick={() => setNeighborhoodDepth((depth) => depth + 1)}>Expand neighborhood</button>
               <button type="button" disabled={Boolean(pendingOperation)} onClick={() => requestCameraFocus(null)}>Show overview</button>
             </div> : null}
@@ -1688,7 +1688,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                 onMoveObjects={saveLayout}
                 {...(embedded ? {
                   nodeShape: "circle" as const,
-                  projectionOptions: { maxNodes: 512, maxEdges: 1024, focusObjectId: viewFocusId, neighborhoodDepth },
+                  projectionOptions: { fullCorpus: true, maxNodes: 512, maxEdges: 1024, focusObjectId: viewFocusId, neighborhoodDepth },
                   creationKinds,
                   onCanvasCreateRequest: graph.capabilities.create ? handleCanvasCreateRequest : undefined,
                   onConnectRequest: canConnectGraph(graph) ? handleConnectRequest : undefined,

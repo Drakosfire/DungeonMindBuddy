@@ -112,8 +112,10 @@ describe("NativeGraphDemo", () => {
     const corpus = corpusGraph();
     const api = makeApi({ readGraph: vi.fn().mockResolvedValue(corpus), inspectNode: vi.fn().mockResolvedValue(entityDetail(corpus.revision_id, false)) });
     renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Corpus", stateScopeId: "managed:world-17" });
-    await screen.findByText(/892 objects and 516 valid relationships are outside this view/);
-    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(512);
+    await screen.findByText(/1404 loaded objects · 559 real relationships shown/);
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1404);
+    expect(document.querySelectorAll("[data-edge-id]")).toHaveLength(559);
+    expect(screen.getByTestId("graph-scene")).toHaveAttribute("data-detail", "overview");
     expect(screen.queryByLabelText("Graph projection diagnostics")).not.toBeInTheDocument();
     fireEvent.click(screen.getByText("Find an object · 1404 loaded"));
     expect(within(screen.getByRole("list", {name: "Matching graph objects"})).getAllByRole("button")).toHaveLength(20);
@@ -130,7 +132,7 @@ describe("NativeGraphDemo", () => {
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(5);
     expect(document.querySelector('[data-node-id="entity:1002"]')).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", {name: "Show overview"}));
-    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(512);
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1404);
     fireEvent.click(screen.getByRole("button", {name: "Explore Object 1000 (entity:1000)"}));
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(3);
     expect(api.prepare).not.toHaveBeenCalled();
@@ -152,7 +154,7 @@ describe("NativeGraphDemo", () => {
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1);
     expect(scene.getAttribute("transform")).not.toBe(overviewCamera);
     fireEvent.click(screen.getByRole("button", {name: "Show overview"}));
-    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(512);
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1404);
     expect(scene.getAttribute("transform")).toBe(overviewCamera);
   });
 
@@ -175,7 +177,7 @@ describe("NativeGraphDemo", () => {
     if (afterFit) fireEvent.click(screen.getByRole("button", {name: "Fit graph"}));
     fireEvent.click(within(screen.getByTestId("surface-context-host")).getByRole("button", {name: "Refresh"}));
     await waitFor(() => expect(screen.getByLabelText("Search loaded objects")).toHaveValue(""));
-    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(512);
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1404);
     expect(screen.queryByRole("group", {name: "Neighborhood controls"})).not.toBeInTheDocument();
     expect(scene.getAttribute("transform")).toBe(overviewCamera);
     await act(async () => delayed.resolve(entityDetail(corpus.revision_id, false)));
