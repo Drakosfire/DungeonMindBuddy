@@ -52,7 +52,15 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     if (drafts.find(draft => draft.draft_id === id)?.workflow_state !== "mechanics_saved") return;
     setPending(true);
     try {
-      setVersions(await listSavedMechanicsVersions(id, worldId));
+      const first = await listSavedMechanicsVersions(id, worldId);
+      const operations = [...first.operations];
+      let offset = first.next_offset;
+      while (offset != null) {
+        const next = await listSavedMechanicsVersions(id, worldId, offset);
+        operations.push(...next.operations);
+        offset = next.next_offset;
+      }
+      setVersions({ ...first, operations });
     } catch {
       setError("Could not load saved statblock versions.");
     } finally {
@@ -274,6 +282,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       const result: Review = await response.json();
       setEditor(createEditorStateFromOutput(result.definition));
       setReview(result);
+      setHasInitialAttempt(false);
       setSaved(true);
     } catch {
       setError("Could not save the review draft.");

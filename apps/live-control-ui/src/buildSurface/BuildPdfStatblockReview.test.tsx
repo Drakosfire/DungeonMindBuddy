@@ -92,9 +92,10 @@ it.each([false, true])("recovers an acceptance failure (stale draft: %s)", async
 it("appends to the explicitly selected saved revision and replays its request", async () => {
   localStorage.clear();
   const base = { revision_id: "rev_base", statblock_id: "sb_a" };
-  vi.mocked(listSavedMechanicsVersions).mockResolvedValue({
-    original: base, operations: [],
-  } as Awaited<ReturnType<typeof listSavedMechanicsVersions>>);
+  type Versions = Awaited<ReturnType<typeof listSavedMechanicsVersions>>;
+  vi.mocked(listSavedMechanicsVersions)
+    .mockResolvedValueOnce({ original: { ...base, revision_id: "rev_original" }, operations: [], next_offset: 50 } as Versions)
+    .mockResolvedValueOnce({ operations: [{ state: "committed", result: base }], next_offset: null } as Versions);
   const attempts: string[] = [];
   vi.mocked(authenticatedApiFetch).mockImplementation(async (path, init) => {
     let data: unknown = { revision: 4, definition: baseCandidateDefinition(), regions: [] };
@@ -111,6 +112,7 @@ it("appends to the explicitly selected saved revision and replays its request", 
   fireEvent.click(await screen.findByRole("button", { name: "Choose creature draft" }));
   fireEvent.change(await screen.findByRole("combobox", { name: "Creature draft" }), { target: { value: "draft-a" } });
   await screen.findByRole("option", { name: /rev_base/ });
+  expect(listSavedMechanicsVersions).toHaveBeenLastCalledWith("draft-a", "elderwyld", 50);
   fireEvent.change(screen.getByRole("combobox", { name: "Parent statblock version" }), { target: { value: "rev_base" } });
   const append = screen.getByRole("button", { name: "Append mechanics revision" });
   fireEvent.click(append);
