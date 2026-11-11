@@ -1,3 +1,4 @@
+import { BuildPdfPreview } from "./BuildPdfPreview";
 import { SurfaceNavbarIconButton } from "../surfaceInteraction/contextHost/SurfaceNavbarIconButton";
 import { useEffect, useRef, useState } from "react";
 import { BUILD_STUDIO_ACTION, type BuildStudioAction } from "./buildStudioActions";
@@ -499,6 +500,7 @@ export function BuildDocumentCreateControl({
           />
         }
       >
+        <BuildPdfPreview />
         {importForm}
       </SurfaceContextPopover>
     </div>
