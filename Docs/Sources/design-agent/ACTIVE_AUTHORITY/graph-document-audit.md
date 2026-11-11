@@ -19,7 +19,7 @@ and ownership have moved past it.
 |---|---|
 | **ACTIVE AUTHORITY** | Current invariants/ownership; may direct work inside its domain |
 | **ACTIVE REFERENCE** | Current context/contract; cannot invent sequence |
-| **PROCESS** | Repository/steward operating law |
+| **PROCESS** | Repository/bounded-assignment operating law |
 | **SOURCE ANCHOR** | Regenerable path/index grounding |
 | **SETTLEMENT_HOLD** | Known stale authority whose physical retirement is temporarily blocked by an active write lease |
 | **SUPERSEDED** | Replacement exists; path may remain as forwarding stub |
