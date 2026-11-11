@@ -121,7 +121,10 @@ if (!exactObject(t, ['turn_id', 'sequence', 'status', 'user_text', 'assistant_te
     if(t.reply_object&&(t.reply_object.source.surface_id!==t.provenance.surface_id||t.reply_object.source.document_id!==t.provenance.primary_work?.object_id))throw new Error('Saved review differs from its actual surface.');
     if(t.authored_references!==null&&!isAuthoredReferences(t.authored_references,world))throw new Error('Saved references have a different owner.');
     if (t.saved_statblocks !== undefined && (!Array.isArray(t.saved_statblocks)
-      || t.saved_statblocks.some((reference: unknown) => !exactObject(reference, ['name', 'world_id', 'draft_id', 'revision_id'])
+      || t.saved_statblocks.some((reference: unknown) => !reference || typeof reference !== 'object'
+        || !('name' in reference) || !('world_id' in reference)
+        || !('draft_id' in reference) || !('revision_id' in reference)
+        || !exactObject(reference, ['name', 'world_id', 'draft_id', 'revision_id'])
         || typeof reference.name !== 'string' || reference.world_id !== world
         || !uuid(reference.draft_id) || typeof reference.revision_id !== 'string'
         || !/^rev_[a-z0-9]+$/.test(reference.revision_id)))) throw new Error('Saved statblock references are invalid.');
