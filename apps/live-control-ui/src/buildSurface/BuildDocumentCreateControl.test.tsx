@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { BuildDocumentCreateControl } from "./BuildDocumentCreateControl";
@@ -18,6 +18,32 @@ describe("BuildDocumentCreateControl", () => {
     onSubmit: vi.fn(),
     onImportSubmit: vi.fn(),
   };
+
+  it("rejects a renamed PDF and sends valid file text without rewriting it", async () => {
+    const onImportSubmit = vi.fn();
+    render(<BuildDocumentCreateControl {...baseProps} onImportSubmit={onImportSubmit} />);
+    fireEvent.click(screen.getByTestId("build-document-import-open"));
+    fireEvent.change(screen.getByTestId("build-document-create-title"), {
+      target: { value: "Imported" },
+    });
+    const input = screen.getByLabelText("Choose Markdown file");
+    const pick = (value: string) => fireEvent.change(input, {
+      target: { files: [{
+        name: "source.md",
+        arrayBuffer: async () => new TextEncoder().encode(value).buffer,
+      }] },
+    });
+    pick("%PDF-1.7");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Markdown text file");
+    expect(screen.getByTestId("build-document-import-submit")).toBeDisabled();
+    expect(onImportSubmit).not.toHaveBeenCalled();
+
+    const markdown = "# Source\r\n\r\nText without a trailing newline";
+    pick(markdown);
+    await waitFor(() => expect(screen.getByTestId("build-document-import-submit")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("build-document-import-submit"));
+    expect(onImportSubmit).toHaveBeenCalledWith(expect.objectContaining({ markdown }));
+  });
 
   it("blocks empty import submit and disables controls while creating", () => {
     const onImportSubmit = vi.fn();

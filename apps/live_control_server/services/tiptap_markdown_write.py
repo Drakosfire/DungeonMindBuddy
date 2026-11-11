@@ -435,14 +435,20 @@ def _final_content(markdown: str) -> str:
 
 
 def _source_import_content(markdown: str) -> str:
-    if markdown == "":
-        raise TiptapMarkdownWriteError("markdown must not be empty")
+    if not markdown.strip():
+        raise TiptapMarkdownWriteError("Markdown source must not be empty")
+    if (
+        markdown.lstrip("\ufeff").startswith("%PDF-")
+        or any(ord(char) < 32 and char not in "\t\n\r" for char in markdown)
+        or "\x7f" in markdown
+    ):
+        raise TiptapMarkdownWriteError("Expected Markdown text, not a PDF or binary file")
     return markdown
 
 
 def _content_for_write_mode(markdown: str, write_mode: WriteMode) -> str:
     if write_mode == "source_import":
-        return _source_import_content(markdown)
+        return markdown
     return _final_content(markdown)
 
 
@@ -753,8 +759,10 @@ def _commit_plan_postgres(
 def prepare_tiptap_markdown_write(
     *, root: Path, request: TiptapMarkdownWritePrepareRequest
 ) -> TiptapMarkdownWritePrepareResponse:
-    validate_saved_media_references(request.markdown)
     write_mode = _normalize_write_mode(request.write_mode)
+    if write_mode == "source_import":
+        _source_import_content(request.markdown)
+    validate_saved_media_references(request.markdown)
     from application_state.content import pages
     from application_state.errors import ApplicationStateError
 
@@ -777,8 +785,10 @@ def prepare_tiptap_markdown_write(
 def commit_tiptap_markdown_write(
     *, root: Path, request: TiptapMarkdownWriteCommitRequest
 ) -> TiptapMarkdownWriteCommitResponse:
-    validate_saved_media_references(request.markdown)
     write_mode = _normalize_write_mode(request.write_mode)
+    if write_mode == "source_import":
+        _source_import_content(request.markdown)
+    validate_saved_media_references(request.markdown)
     from application_state.content import pages
     from application_state.errors import ApplicationStateError
 
