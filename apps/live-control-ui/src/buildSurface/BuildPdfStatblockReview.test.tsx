@@ -13,6 +13,12 @@ it("reopens a draft and saves edits against the exact retained regions", async (
     page: 2, left: 0, top: 0, right: 1, bottom: 1 }];
   const fetch = vi.mocked(authenticatedApiFetch);
   fetch.mockImplementation(async (path, init) => {
+    if (path.endsWith("/statblock:validate")) {
+      const payload = JSON.parse(String(init?.body));
+      expect(payload.regions).toEqual(regions);
+      expect(payload.definition.identity.name).toBe(definition.identity.name);
+      return { response: Response.json({ validation: { outcome: "success", validation_receipt: { status: "warnings" } } }) } as Awaited<ReturnType<typeof authenticatedApiFetch>>;
+    }
     if (init?.method === "PUT") {
       const payload = JSON.parse(String(init.body));
       expect(payload.expected_revision).toBe(4);
@@ -26,7 +32,10 @@ it("reopens a draft and saves edits against the exact retained regions", async (
 
   render(<BuildPdfStatblockReview worldId="elderwyld" reviewId="review" />);
   const name = await screen.findByRole("textbox", { name: "Creature name" });
+  fireEvent.click(screen.getByRole("button", { name: "Validate mechanics" }));
+  await screen.findByText("Mechanics validated with warnings.");
   fireEvent.change(name, { target: { value: "Revised creature" } });
+  expect(screen.queryByText("Mechanics validated with warnings.")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Save review draft" }));
   await waitFor(() => expect(screen.getByText("Draft saved")).toBeInTheDocument());
   expect(screen.getByRole("button", { name: "Open source region 1 · Page 2" })).toBeInTheDocument();
