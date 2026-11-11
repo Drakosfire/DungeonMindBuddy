@@ -78,7 +78,7 @@ it('does not attach evidence credentials to a near-miss endpoint', async () => {
 })
 
 const buildPaths = [
-  '/api/live/agent/build-pdf-ocr',
+  '/api/live/agent/worlds/world%2Fa/build-pdf-sources/ocr',
   '/api/live/agent/worlds/world%2Fa/build-proposals',
   '/api/live/agent/worlds/world%2Fa/build-proposals?conversation_id=conversation',
   '/api/live/agent/worlds/world%2Fa/build-proposals/action',

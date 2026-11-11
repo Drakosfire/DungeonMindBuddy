@@ -2065,12 +2065,6 @@ def _execute_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, A
         raise
 
 
-@router.post("/build-pdf-ocr")
-def post_build_pdf_ocr(body: PdfCropRequest, request: Request):
-    enforce_native_graph_gm(request)
-    return read_crop(body)
-
-
 @router.post("/worlds/{world_id}/build-pdf-sources")
 async def post_build_pdf_source(world_id: str, admission_id: UUID, request: Request):
     from datetime import datetime
