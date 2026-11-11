@@ -2153,6 +2153,25 @@ def post_read_build_pdf_region(world_id: str, body: dict, request: Request):
     return read_crop(PdfCropRequest(png_base64=b64encode(png).decode("ascii")))
 
 
+@router.post("/worlds/{world_id}/build-pdf-sources/review")
+def post_review_build_pdf_region(world_id: str, body: dict, request: Request):
+    from generationengine import GenerationEngineError
+    from apps.live_control_server.services.build_pdf_capture_review import review_capture
+    from src.llm.generation_sync import run_awaitable_sync
+
+    instruction = body.get("instruction", "")
+    region_body = body.get("region")
+    if not isinstance(instruction, str) or not isinstance(region_body, dict):
+        raise HTTPException(status_code=422, detail={"code": "invalid_pdf_review_request"})
+    pdf, region = _authorized_build_pdf_region(world_id, region_body, request)
+    png = _render_build_pdf_region(pdf, region)
+    try:
+        text = run_awaitable_sync(review_capture(png, instruction))
+    except (GenerationEngineError, ValueError) as exc:
+        raise HTTPException(status_code=503, detail="Buddy could not review this capture.") from exc
+    return {"text": text, "region": region.model_dump(mode="json")}
+
+
 @router.post("/worlds/{world_id}/build-pdf-sources/open")
 def post_open_build_pdf_source(world_id: str, body: dict, request: Request, render: bool = False):
     from fastapi.responses import Response

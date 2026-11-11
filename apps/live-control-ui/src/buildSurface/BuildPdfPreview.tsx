@@ -19,19 +19,22 @@ function pagePoint(event: PointerEvent<HTMLCanvasElement>): PagePoint {
 }
 
 function CropOcr({ worldId, region, hasPdfText }: { worldId: string; region: PdfLocator; hasPdfText: boolean }) {
+  const [instruction, setInstruction] = useState("");
+  const [review, setReview] = useState(false);
   const [pending, setPending] = useState(false);
   const [text, setText] = useState("");
   const imageOnly = /^(?:\s*<\|ref\|>image<\|\/ref\|><\|det\|>\[\[[\d,\s]+\]\]<\|\/det\|>)+\s*$/.test(text);
   const [error, setError] = useState("");
 
-  async function read() {
+  async function read(withBuddy: boolean) {
+    setReview(withBuddy);
     setPending(true);
     setError("");
     setText("");
     try {
-      const { response } = await authenticatedApiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources/ocr`, {
+      const { response } = await authenticatedApiFetch(`/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources/${withBuddy ? "review" : "ocr"}`, {
         method: "POST",
-        body: JSON.stringify(region),
+        body: JSON.stringify(withBuddy ? { region, instruction } : region),
       });
       const result = await response.json();
       if (!response.ok || typeof result.text !== "string") {
@@ -47,12 +50,16 @@ function CropOcr({ worldId, region, hasPdfText }: { worldId: string; region: Pdf
 
   return (
     <div>
-      <button type="button" disabled={pending} onClick={() => void read()}>
+      <button type="button" disabled={pending} onClick={() => void read(false)}>
         {pending ? "Reading capture…" : hasPdfText ? "Try OCR instead" : "Read capture with OCR"}
       </button>
+      <label>Instructions for Buddy (optional)
+        <textarea rows={2} value={instruction} onChange={event => setInstruction(event.target.value)} />
+      </label>
+      <button type="button" disabled={pending} onClick={() => void read(true)}>Ask Buddy about this capture</button>
       {error && <p role="alert">{error}</p>}
       {imageOnly && <p role="status">OCR found an image in this region without transcribing any text.</p>}
-      {text && !imageOnly && <label>OCR transcription<textarea readOnly rows={8} value={text} /></label>}
+      {text && !imageOnly && <label>{review ? `Buddy’s review · Page ${region.page}` : "OCR transcription"}<textarea readOnly rows={8} value={text} /></label>}
     </div>
   );
 }
