@@ -116,7 +116,6 @@ vi.mock("./api/liveApi", async (importOriginal) => {
     getEvents: vi.fn(),
     getJobs: vi.fn(),
     getPlanView: vi.fn(),
-    getGraphIngestRuns: vi.fn(),
     getGoldReviewSessions: vi.fn(),
     getManualReviewBeds: vi.fn(),
     getArtifact: vi.fn(),
@@ -220,11 +219,6 @@ describe("App inspector integration", () => {
     vi.mocked(liveApi.getEvents).mockResolvedValue({ events: [] });
     vi.mocked(liveApi.getJobs).mockResolvedValue({ jobs: [] });
     vi.mocked(liveApi.getPlanView).mockResolvedValue(mockPlanView);
-    vi.mocked(liveApi.getGraphIngestRuns).mockResolvedValue({
-      schema_version: "dmb_graph_ingest_run_registry_v1",
-      version: "test",
-      runs: [],
-    });
     vi.mocked(liveApi.getGoldReviewSessions).mockResolvedValue({
       schema_version: "dmb_graph_gold_review_sessions_v1",
       version: "test",
@@ -424,14 +418,21 @@ describe("App inspector integration", () => {
   });
 
   it("renders the first-use Ingest landing from /ingest", async () => {
-    window.history.pushState({}, "", "/ingest");
-    render(<App />);
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    try {
+      window.history.pushState({}, "", "/ingest");
+      render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Ingest", hidden: true })).toHaveClass("active");
-    expect(screen.queryByRole("heading", { name: "Graph Review Workbench" })).not.toBeInTheDocument();
-    expect(liveApi.getGraphIngestRuns).not.toHaveBeenCalled();
-    expect(liveApi.getGoldReviewSessions).not.toHaveBeenCalled();
+      expect(await screen.findByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Ingest", hidden: true })).toHaveClass("active");
+      expect(screen.queryByRole("heading", { name: "Graph Review Workbench" })).not.toBeInTheDocument();
+      expect(fetchSpy.mock.calls.some(([url]) =>
+        String(url).split("?")[0].endsWith("/graph-preview/graph-ingest/runs"),
+      )).toBe(false);
+      expect(liveApi.getGoldReviewSessions).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 
   it("E1 bare /build: real App shows empty state and New source without auto-create", async () => {

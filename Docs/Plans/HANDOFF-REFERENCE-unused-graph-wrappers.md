@@ -50,3 +50,11 @@ All 49 current open Buddy PR changed-file lists were inspected. Only the five PR
 - Review the exact cumulative base-to-head diff, verify only these seven paths changed, and obtain independent exact-head review. Recheck no retained API/type/backend/data behavior changed.
 - Commit the intended cleanup, publish only its assigned branch and open one draft PR. Report the exact remote head, checks, preserved limits and any blocker. Do not merge, enable auto-merge, deploy, delete retained data or send instructions to external agents.
 - Inventory retained task worktree/scratch/cache/evidence paths and their purpose. No deletion permission is granted; preserve unique work and report cleanup follow-up.
+
+## Author implementation checkpoint
+
+Handoff pin: `776431ade0639ccf741081e8dca9fe712a5e18ff`. The production caller recheck confirmed no callers for the three wrappers. Removed their exclusive helper/interface/imports and obsolete test mocks; retained all shared types and neighboring APIs. The App first-use Ingest and published-World-Graph W10 cases now check the actual fetch boundary for absence of `/graph-preview/graph-ingest/runs` requests.
+
+The same five-file Vitest cohort ran before and after with Node 22.23.0, npm 10.9.8, a fresh offline locked install, four workers and the repository's global resource lock. Baseline: 218 passed, 12 failed, 230 total. Cleanup: 217 passed, the same 12 failed, 229 total. The only removed case is the obsolete `getGraphIngestRuns` query-string serialization test; every retained case has the same status and first failure message. The inherited failures are six conversation-history fixture errors, two App surface expectations and four appNavigation surface expectations. They remain red and outside this write lease. Fresh application TypeScript and production build pass; existing bundle-size warnings remain. Full verifier and independent review results must be reported separately, not inferred from this cohort.
+
+Task-owned worktree, locked dependencies/build outputs, `scratch/`, `cache/npm/` and `evidence/` remain under `/home/drakosfire/Projects/.codex/unused-graph-wrappers-20261111/` for review and reproduction. No user data or primary-checkout edits were touched. Do not remove retained task material until the PR outcome and any active use are checked and cleanup is authorized.

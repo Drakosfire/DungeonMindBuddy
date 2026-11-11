@@ -24,7 +24,6 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     getEvents: vi.fn(),
     getJobs: vi.fn(),
     getPlanView: vi.fn(),
-    getGraphIngestRuns: vi.fn(),
     getGoldReviewSessions: vi.fn(),
     getManualReviewBeds: vi.fn(),
     getCapabilities: vi.fn(),
@@ -158,11 +157,6 @@ describe("App same-document primary navigation", () => {
     vi.mocked(liveApi.getEvents).mockResolvedValue({ events: [] });
     vi.mocked(liveApi.getJobs).mockResolvedValue({ jobs: [] });
     vi.mocked(liveApi.getPlanView).mockResolvedValue(mockPlanView);
-    vi.mocked(liveApi.getGraphIngestRuns).mockResolvedValue({
-      schema_version: "dmb_graph_ingest_run_registry_v1",
-      version: "test",
-      runs: [],
-    });
     vi.mocked(liveApi.getGoldReviewSessions).mockResolvedValue({
       schema_version: "dmb_graph_gold_review_sessions_v1",
       version: "test",
