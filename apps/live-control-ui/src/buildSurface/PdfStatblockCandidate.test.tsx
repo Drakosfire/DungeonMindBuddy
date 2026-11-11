@@ -6,7 +6,7 @@ afterEach(cleanup);
 const locator = {source_revision_id:"srev:test",content_sha256:"a".repeat(64),page:5,left:0,top:0,right:1,bottom:1};
 
 it("previews labeled fields with the source page", () => {
-  render(<PdfStatblockCandidate locator={locator} text={"Bed Dragon Wyrmling\nArmor Class 16\nHit Points 75"} />);
+  render(<PdfStatblockCandidate locator={locator} text={"Bed Dragon Wyrmling\nArmor Class 1 6\nHit Points 75"} />);
   fireEvent.click(screen.getByRole("button", {name:"Preview statblock fields"}));
   expect(screen.getByText("Page 5 · srev:test")).toBeInTheDocument();
   expect(screen.getByText("16")).toBeInTheDocument();
