@@ -76,20 +76,25 @@ it('preserves a competing record when status finds the committed creature',async
 it('sends both selected regions of the same retained PDF to review', async () => {
  const locator={source_revision_id:'srev:fixture',content_sha256:'a'.repeat(64),
    page:1,left:0.1,top:0.2,right:0.8,bottom:0.9};
- const second={...locator,page:2};
+ const second={...locator,left:0.3};
  const prefix='buddy:retained-pdf-region:elderwyld:';
  localStorage.setItem(prefix+'first',JSON.stringify({name:'Creature.pdf',locator}));
  localStorage.setItem(prefix+'second',JSON.stringify({name:'Creature.pdf',locator:second}));
  localStorage.setItem('buddy:retained-pdf-region:other:first',JSON.stringify({name:'Other.pdf',locator}));
  const packet=await threatPacket();
  packet.review.pdf_evidence_ids=['pdf-region:first','pdf-region:second'];
+ packet.review.pdf_regions=[locator,second];
  vi.mocked(api.prepareNativeThreat).mockResolvedValue(packet);
- render(<NativeThreatCreationPanel draft={draft}/>);
+ const view=render(<NativeThreatCreationPanel draft={draft}/>);
  expect(screen.getAllByRole('checkbox')).toHaveLength(2);
- await userEvent.click(screen.getByRole('checkbox',{name:/Page 1/}));
- await userEvent.click(screen.getByRole('checkbox',{name:/Page 2/}));
+ for(const checkbox of screen.getAllByRole('checkbox')) await userEvent.click(checkbox);
  await userEvent.click(screen.getByRole('button',{name:'Review creature creation'}));
- await screen.findByText('PDF regions in review: 2');
+ await screen.findByRole('list',{name:'Reviewed PDF regions'});
+ view.unmount();
+ render(<NativeThreatCreationPanel draft={draft}/>);
+ await screen.findByRole('list',{name:'Reviewed PDF regions'});
+ expect(screen.getByText(/0.1, 0.2, 0.8, 0.9/)).toBeInTheDocument();
+ expect(screen.getByText(/0.3, 0.2, 0.8, 0.9/)).toBeInTheDocument();
  expect(api.prepareNativeThreat).toHaveBeenCalledWith(draft.draft_id,draft.world_id,3,[locator,second]);
  expect(api.confirmNativeThreat).not.toHaveBeenCalled();
 });

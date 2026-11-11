@@ -62,7 +62,7 @@ function Creation({draft}:{draft:ThreatDraftV2}) {
     <h3>Create a proposed creature in the World Graph</h3>
     <p>Review the saved concept before creating its identity. It remains proposed material, not a played event.</p>
     {created?<p role="status">Creature created in the World Graph. Load creatures under “Associate saved mechanics” and choose this creature to connect its statblock.</p>:<>
-      {(!packet||conflict)&&regions.length>0&&<fieldset disabled={busy||!ready}>
+      {(!packet||conflict||(packet.review.pdf_evidence_ids?.length&&!packet.review.pdf_regions?.length))&&regions.length>0&&<fieldset disabled={busy||!ready}>
         <legend>PDF evidence</legend>
         {regions.map(({name,locator})=>{
           const id=pdfRegionKey(locator);
@@ -78,10 +78,20 @@ function Creation({draft}:{draft:ThreatDraftV2}) {
       {!packet&&<button type="button" disabled={busy||!ready} onClick={()=>void run('prepare')}>Review creature creation</button>}
       {packet&&<>
         <h4>{packet.review.label}</h4>
-        {!!packet.review.pdf_evidence_ids?.length&&<p>PDF regions in review: {packet.review.pdf_evidence_ids.length}</p>}
+        {!!packet.review.pdf_regions?.length&&<ul aria-label="Reviewed PDF regions">
+          {packet.review.pdf_regions.map(locator=>{
+            const name=regions.find(entry=>pdfRegionKey(entry.locator)===pdfRegionKey(locator))?.name;
+            return <li key={pdfRegionKey(locator)}>
+              {name??locator.source_revision_id} · Page {locator.page} ·
+              {" "}{[locator.left,locator.top,locator.right,locator.bottom].join(", ")}
+            </li>;
+          })}
+        </ul>}
+        {!!packet.review.pdf_evidence_ids?.length&&!packet.review.pdf_regions?.length&&
+          <p role="alert">This review lacks PDF region details. Prepare a new review to inspect its sources.</p>}
         <blockquote style={{whiteSpace:'pre-wrap'}}>{packet.source_text}</blockquote>
-        <button type="button" disabled={busy} onClick={()=>void run('confirm')}>{error?'Recover same creation':'Create proposed creature'}</button>
-        {conflict&&<button type="button" disabled={busy} onClick={()=>void run('prepare')}>Prepare a new review</button>}
+        <button type="button" disabled={busy||Boolean(packet.review.pdf_evidence_ids?.length&&!packet.review.pdf_regions?.length)} onClick={()=>void run('confirm')}>{error?'Recover same creation':'Create proposed creature'}</button>
+        {(conflict||Boolean(packet.review.pdf_evidence_ids?.length&&!packet.review.pdf_regions?.length))&&<button type="button" disabled={busy} onClick={()=>void run('prepare')}>Prepare a new review</button>}
       </>}
       <button type="button" disabled={busy} onClick={()=>void run('status')}>Check existing creature</button>
     </>}

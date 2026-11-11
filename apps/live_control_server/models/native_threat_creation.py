@@ -31,6 +31,7 @@ class NativeThreatReview(Closed):
     source_artifact_id: str
     source_revision_id: str
     pdf_evidence_ids: tuple[str, ...] = ()
+    pdf_regions: tuple[NativePdfRegionV1, ...] = ()
     prepared_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     principal: str
     expires_at: datetime

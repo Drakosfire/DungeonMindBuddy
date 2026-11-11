@@ -333,6 +333,11 @@ def test_pdf_region_is_bound_to_signed_native_threat_review(creature, monkeypatc
     assert evidence_id.startswith("pdf-region:")
     assert service.existing(c.lane.repo, c.bound, c.draft.draft_id) is None
 
+    assert packet["review"]["pdf_regions"][0]["page"] == 1
+    altered_region = deepcopy(packet)
+    altered_region["review"]["pdf_regions"][0]["left"] = 0.3
+    assert confirm(c, altered_region).status_code == 409
+
     tampered = deepcopy(packet)
     tampered["review"]["pdf_evidence_ids"] = []
     assert confirm(c, tampered).status_code == 409

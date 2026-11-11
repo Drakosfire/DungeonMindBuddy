@@ -106,6 +106,7 @@ def source_matches(access, review):
 
 def register_pdf_regions(repo, space_id, regions, context, access, created_at):
     evidence_ids = []
+    reviewed_regions = []
     for region in regions:
         source_access = dict(
             authorized_space_id=space_id, audience=frozenset(),
@@ -131,12 +132,13 @@ def register_pdf_regions(repo, space_id, regions, context, access, created_at):
                 existing_ref.source_locator == evidence.source_locator,
                 "The registered PDF evidence differs from the selected region")
         evidence_ids.append(evidence.evidence_ref_id)
-    return context, access, tuple(evidence_ids)
+        reviewed_regions.append(region)
+    return context, access, tuple(evidence_ids), tuple(reviewed_regions)
 
 
 def review_payload(review):
     # Text-only reviews retain their original signed representation.
-    excluded = {"pdf_evidence_ids"} if not review.pdf_evidence_ids else set()
+    excluded = {field for field in ("pdf_evidence_ids", "pdf_regions") if not getattr(review, field)}
     return review.model_dump(mode="json", by_alias=True, exclude=excluded)
 
 
@@ -175,7 +177,7 @@ def prepare(root, draft_id, request, principal):
                 and admitted.admission_id == admission_id and len(admitted.bindings) == 1
                 and admitted.bindings[0].client_ref == "whole-draft", "The retained source receipt changed")
         context, access = native.access_context(repo, bound["native_world_id"])
-        context, access, pdf_evidence_ids = register_pdf_regions(
+        context, access, pdf_evidence_ids, pdf_regions = register_pdf_regions(
             repo, bound["native_world_id"], request.pdf_regions, context, access,
             datetime.fromisoformat(draft.updated_at),
         )
@@ -185,7 +187,7 @@ def prepare(root, draft_id, request, principal):
             label=draft.name, body_sha256=digest, binding=bound, publication_id=publication_id(draft_id),
             source_evidence_id=admitted.bindings[0].evidence_ref_id,
             source_artifact_id=admitted.source_artifact_id, source_revision_id=admitted.source_revision_id,
-            pdf_evidence_ids=pdf_evidence_ids,
+            pdf_evidence_ids=pdf_evidence_ids, pdf_regions=pdf_regions,
             prepared_digest="0" * 64, principal=principal.subject, expires_at=now + timedelta(hours=1))
         source_matches(access, review)
         prepared = transport.runtime(repo, domain, profile, now=now,
