@@ -49,3 +49,12 @@ it("keeps printed rules sections separate without rewriting them", () => {
   expect(screen.getByText("Lair Actions (Cont.) · captured text").nextElementSibling?.textContent).toBe("The ceiling shifts.");
   expect(screen.getByText("Regional Effects · captured text").nextElementSibling?.textContent).toBe("Fog gathers.");
 });
+
+it("keeps PDF.js split digits inside their printed score cells", () => {
+  const text = "Armor Class 16\nHit Points 75\nSTR DEX CON INT WIS CHA\n1 9(+4) 1 4(+2) 1 7(+3) 8(-1 ) 8(-1 ) 4(-3)";
+  render(<PdfStatblockCandidate locator={locator} text={text} />);
+  fireEvent.click(screen.getByRole("button", { name: "Preview statblock fields" }));
+  expect(screen.getAllByRole("definition").map(item => item.textContent)).toEqual(
+    ["16", "75", "19", "14", "17", "8", "8", "4"],
+  );
+});
