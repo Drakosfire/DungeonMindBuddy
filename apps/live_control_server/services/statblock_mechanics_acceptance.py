@@ -5,6 +5,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
+
 from apps.live_control_server.integrations.dungeonmind_statblocks.client import (
     DungeonMindStatblockV1Client,
     StatblockV1Client,
@@ -443,9 +445,6 @@ def _finish_acceptance(
         draft_workflow=draft_after.workflow_state,
         draft_accepted=draft_after.accepted_mechanics_ref,
     )
-
-
-PDF_REVIEW_PROVENANCE = "buddy_pdf_statblock_review"
 
 
 def begin_or_resume_acceptance(

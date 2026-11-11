@@ -499,3 +499,33 @@ def test_gm_lookup_refuses_unauthenticated_request_before_read(revision_case, mo
         params={"world_id": p.draft.world_id, "name": p.revision.definition.identity.name},
     )
     assert response.status_code == 401, response.text
+
+
+def test_pdf_append_recovers_exact_review_after_source_changes(revision_case):
+    from apps.live_control_server.models.statblock_saved_revision import AppendPdfStatblockReviewRequest
+    from application_state.errors import ApplicationStateConflictError
+
+    p = revision_case
+    review_id = uuid4()
+    request = AppendPdfStatblockReviewRequest(
+        operation_id=p.request["operation_id"], expected_revision=2, base=p.request["base"],
+    )
+    review = {"revision": 1, "definition": p.request["definition"], "regions": [{"page": 2}]}
+    args = dict(draft_id=p.draft.draft_id, world_id="elderwyld", review_id=review_id,
+                request=request, load_review=lambda: review)
+    with pytest.raises(ApplicationStateConflictError, match="review changed"):
+        service.append_pdf_review(p.root, **args)
+    assert p.manual.appends == 0
+
+    review["revision"] = 2
+    p.manual.timeout = True
+    first = service.append_pdf_review(p.root, **args)
+    assert first["state"] == "outcome_unknown"
+    review["revision"] = 3
+    assert service.append_pdf_review(p.root, **args)["state"] == "committed"
+    assert p.manual.appends == 1
+    body, _ = next(iter(p.manual.keys.values()))
+    assert body["accepted_through"][service.PDF_REVIEW_PROVENANCE] == {
+        "world_id": "elderwyld", "review_id": str(review_id), "revision": 2,
+        "regions": [{"page": 2}],
+    }
