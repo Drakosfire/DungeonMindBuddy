@@ -22,9 +22,7 @@ These rules are intentionally shared across active DungeonMind ecosystem reposit
 
 ## Handoff and lane authority
 
-The designing steward authors or adopts the bounded handoff before dispatch.
-An implementation worker consumes that authority; it may redesign or activate
-it only when explicitly assigned design/stewardship work.
+The designer or owner named in the bounded assignment authors or adopts its handoff before dispatch. Responsibilities derive from that assignment, not a standing Steward role. This wording grants no additional merge, runtime, provider, or model authority. An implementation worker consumes the pinned authority; it may redesign or activate it only when explicitly assigned that design work.
 
 - `BLOCKED` records a concrete design with unresolved gates. It grants no write
   lease and does not allocate an implementation lane.
@@ -39,7 +37,7 @@ it only when explicitly assigned design/stewardship work.
 - Inspect open PRs and active leases before dispatch. Shared routing, registries,
   lockfiles, root configuration, schemas and sequencing documents are collision
   hotspots. Split, serialize or explicitly transfer overlapping ownership.
-- If required paths or contracts exceed the lease, return to the steward before
+- If required paths or contracts exceed the lease, return to the named owner before
   editing. Git conflicts are not an ownership protocol.
 
 Every ACTIVE handoff declares one topology:
@@ -52,7 +50,7 @@ Every ACTIVE handoff declares one topology:
 
 Opening the assigned PR is already part of authorized work. A newly discovered
 capability does not authorize another PR. Fix an in-scope defect in the current
-PR; otherwise the steward decides whether to amend the slice, split it or change
+PR; otherwise the named owner decides whether to amend the slice, split it or change
 its topology. Preserve useful work and evidence when superseding a lane.
 
 ## Git and checkout safety
@@ -157,12 +155,12 @@ an unfinished successor is done.
 
 Facts learned after merge normally travel with the next dependent implementation.
 If no suitable successor exists or delay would leave authority materially
-misleading, perform a guarded steward sync after re-anchoring. Keep the whole sync
+misleading, the owner named in the assignment performs a guarded state sync after re-anchoring. Keep the whole sync
 coherent before dependent dispatch. Stable architecture/reference documents
 change only when their claims change.
 
 Routine status bookkeeping does not need a separate PR. Explicitly requested
-policy changes and steward-designated design/architecture artifacts may have
+policy changes and design/architecture artifacts explicitly requested in the assignment may have
 focused review PRs. `DOCUMENTS` is retired as a generic standalone flow.
 Handoffs use `HANDOFF-<FLOW>-<short-slug>.md`; PR titles use `<FLOW>: <capability>`.
 FLOW names the owning workstream, not a fixed enum. PR numbers are transport

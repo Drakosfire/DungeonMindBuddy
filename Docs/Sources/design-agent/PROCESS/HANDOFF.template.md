@@ -32,11 +32,11 @@ pr_body_template: |
 **PR authorization:** `{{TODO: exactly which implementation PR this worker may open/update without asking; normally “open/update this one assigned PR only; no successor/repair PRs”}}`
 **PR title:** `{{TODO: FLOW: short capability}}`
 
-> Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
+> Repository law: [`AGENTS.md`](../../AGENTS.md). bounded assignment process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 
-> Handoff lifecycle: the designing steward makes this file durably addressable and pins its exact ref/commit before dispatch. It does not have to be on `main`. `BLOCKED` means design authority only—no implementation lane and no active §4 lease. The steward changes `BLOCKED → ACTIVE` only after re-anchoring and verifying the activation gate. The implementation worker consumes the exact pinned ACTIVE handoff and does not materially redesign its own authority document.
+> Handoff lifecycle: the designer named in the bounded assignment makes this file durably addressable and pins its exact ref/commit before dispatch. It does not have to be on `main`. `BLOCKED` means design authority only—no implementation lane and no active §4 lease. The named owner changes `BLOCKED → ACTIVE` only after re-anchoring and verifying the activation gate. The implementation worker consumes the exact pinned ACTIVE handoff and does not materially redesign its own authority document. Responsibilities derive from the bounded assignment; this template grants no additional merge, runtime, provider, or model authority.
 
-> PR authorization rule: once this handoff is ACTIVE, the worker should open the **one assigned implementation PR** without asking the user for another confirmation. That convenience does not let the worker choose PR topology or open successor/repair/cleanup PRs. Unless this handoff explicitly says `stacked` or `parallel-independent` and names the relationship, a newly discovered next defect is a stop/handback to the steward.
+> PR authorization rule: once this handoff is ACTIVE, the worker should open the **one assigned implementation PR** without asking the user for another confirmation. That convenience does not let the worker choose PR topology or open successor/repair/cleanup PRs. Unless this handoff explicitly says `stacked` or `parallel-independent` and names the relationship, a newly discovered next defect is a stop/handback to the named owner.
 
 ## §1 Mission and merge-ready invariant
 
@@ -134,7 +134,7 @@ Allowed path kinds:
 Decision rule:
 ```
 
-Once ACTIVE, a required path outside this lease/exception is a stop report. If another active lane owns it, do not edit it before the steward resolves ownership.
+Once ACTIVE, a required path outside this lease/exception is a stop report. If another active lane owns it, do not edit it before the named owner resolves ownership.
 
 ## §5 Explicitly out of scope / collision boundary
 
@@ -261,7 +261,7 @@ Record:
 
 ## §9 Acceptance rubric
 
-- [ ] This handoff was durably pinned by the steward before implementation dispatch and was ACTIVE/authorized at dispatch.
+- [ ] This handoff was durably pinned by the named owner before implementation dispatch and was ACTIVE/authorized at dispatch.
 - [ ] PR topology was explicit and honored; the worker opened/updated only the PR(s) this handoff actually authorized.
 - [ ] Exactly one independently useful capability from §1 is delivered and proved by §7.
 - [ ] The §1 invariant holds across every claimed §3 path/adversarial sequence.

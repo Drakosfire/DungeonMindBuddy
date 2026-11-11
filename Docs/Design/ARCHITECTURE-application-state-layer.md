@@ -890,7 +890,7 @@ integrity is perfect. Correctness-only migration acceptance is insufficient.
 
 - BF1 Beat-first grammar + v2 manifest remain predecessor truth (PR #628 `b850b9f8…`).
 - BF2/BF3 stay paused from deepening **file-backed** Runtime/cockpit until this
-  persistence direction is implemented or the steward re-sequences.
+  persistence direction is implemented or the explicitly assigned owner re-sequences.
 - This document does not change Beat/Scene/Decision contracts; it maps them
   onto storage.
 
@@ -931,7 +931,7 @@ admitted kind as that kind switches.
 
 | Alternative | Why rejected |
 |---|---|
-| Generic JSON object table | Domain invariants would move into callers; steward seed forbids it |
+| Generic JSON object table | Domain invariants would move into callers; initial design seed forbids it |
 | Everything in DungeonMind schemas | Second World authority / FK coupling; CUTOVER forbids it |
 | Bespoke `play.db` | Other surfaces cannot reuse substrate; Play becomes a snowflake |
 | SQLAlchemy ORM as the product model | Couples domain to ORM; Alembic may use SQLAlchemy as a tool only |

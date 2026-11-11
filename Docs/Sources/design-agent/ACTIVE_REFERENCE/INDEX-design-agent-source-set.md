@@ -3,22 +3,23 @@
 **Status:** ACTIVE REFERENCE / process index
 **Created:** 2026-08-02
 **Repository authority refresh:** 2026-09-26 DEMO reconciliation (repository adoption; Project Sources unchanged)
+**Repository export refresh:** 2026-11-11 — process/current-pickup exports synchronized from canonical files; this was not a full design/corpus audit, and user-managed Project Sources were not changed
 **Project Sources snapshot date:** 2026-08-02 — advance only after the operator actually replaces/re-observes the user-managed set
 **Repo-resident export mirror:** [`Docs/Sources/design-agent/`](../Sources/design-agent/)
 **Document class:** curated source index — not architecture or sequencing authority
 
 ## Purpose
 
-Give a fresh design/review steward the smallest current source set that can
-answer ownership, product direction, and process questions without reviving
-completed construction scaffolds.
+Give the person or agent assigned design or review work the smallest current
+source set that can answer ownership, product direction, and process questions
+without reviving completed construction scaffolds.
 
 ## Authority rule
 
 ```text
 current GitHub main + domain authority
   > active domain reference/contracts
-  > AGENTS.md + STEWARD-CYCLE process
+  > AGENTS.md + bounded assignment process
   > source anchors
   > export mirror
   > historical/superseded/project-source/chat copies
@@ -40,7 +41,7 @@ implementation sequence. Buddy product execution is sequenced by DEMO.
 | Graph/document governance | [`../Reports/graph-document-audit.md`](../Reports/graph-document-audit.md) | `ACTIVE_AUTHORITY/graph-document-audit.md` |
 | Shared interaction/chrome | [`ARCHITECTURE-surface-interaction-layer.md`](ARCHITECTURE-surface-interaction-layer.md) | `ACTIVE_AUTHORITY/ARCHITECTURE-surface-interaction-layer.md` |
 | Source→World authoring ownership | [`DESIGN-source-to-world-authoring-interaction-contract.md`](DESIGN-source-to-world-authoring-interaction-contract.md) | `ACTIVE_AUTHORITY/DESIGN-source-to-world-authoring-interaction-contract.md` |
-| DEMO stewardship | [`../Plans/STEWARDS-HANDOFF-demo.md`](../Plans/STEWARDS-HANDOFF-demo.md) | `ACTIVE_AUTHORITY/STEWARDS-HANDOFF-demo.md` |
+| DEMO bounded assignment | [`../Plans/STEWARDS-HANDOFF-demo.md`](../Plans/STEWARDS-HANDOFF-demo.md) | `ACTIVE_AUTHORITY/STEWARDS-HANDOFF-demo.md` |
 | DEMO product roadmap | [`../Roadmaps/ROADMAP-demo.md`](../Roadmaps/ROADMAP-demo.md) | `ACTIVE_AUTHORITY/ROADMAP-demo.md` |
 | Playable/runtime architecture | [`ARCHITECTURE-playable-material-and-runtime.md`](ARCHITECTURE-playable-material-and-runtime.md) | `ACTIVE_AUTHORITY/ARCHITECTURE-playable-material-and-runtime.md` |
 
@@ -84,7 +85,7 @@ and must not be uploaded as current authority.
 | `STATUS-world-graph-continuity-spine.md` | **HISTORICAL / FROZEN** | August migration snapshot, not current state |
 | `PLAN-surface-interaction-hoist-build-first.md` | **SUPERSEDED** | Construction target landed; DOGFOOD-POLISH closeout owns evidence |
 | `INDEX-hermes-campaign-authoring-foundation.md` | **SUPERSEDED** | Hermes is an AgentRuntime adapter, not product architecture |
-| `JUMPSTART-docs-relevance-first.md` | **SUPERSEDED** | Use STEWARD-CYCLE |
+| `JUMPSTART-docs-relevance-first.md` | **SUPERSEDED** | Use the bounded assignment process |
 | old download-suffixed HANDOFF template | **SUPERSEDED** | Use canonical current template |
 
 These files may remain reachable for historical links. They must not be

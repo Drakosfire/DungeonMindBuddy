@@ -3,7 +3,7 @@
 ## Active Buddy product execution
 
 [`ROADMAP-demo.md`](ROADMAP-demo.md) is the single execution and acceptance
-roadmap for the connected Buddy demonstration. Its steward mandate is
+roadmap for the connected Buddy demonstration. Its bounded assignment is
 [`../Plans/STEWARDS-HANDOFF-demo.md`](../Plans/STEWARDS-HANDOFF-demo.md).
 The [2026-09-26 reconciliation](../Reports/REPORT-DEMO-roadmap-reconciliation-2026-09-26.md)
 records the transfer and ownership boundaries.

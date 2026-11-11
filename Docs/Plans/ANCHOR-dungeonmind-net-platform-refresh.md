@@ -3,7 +3,7 @@
 **Status:** ACTIVE REFERENCE / PARALLEL DESIGN LANE  
 **Created:** 2026-09-25  
 **Cross-repository authority:** `Drakosfire/DungeonOverMind/Docs/roadmaps/ROADMAP-dungeonmind-net-platform-refresh.md`  
-**Steward handoff:** `Drakosfire/DungeonOverMind/Docs/Plans/STEWARDS-HANDOFF-dungeonmind-net-platform-refresh.md`
+**Pinned design authority:** `Drakosfire/DungeonOverMind/Docs/Plans/STEWARDS-HANDOFF-dungeonmind-net-platform-refresh.md`
 
 ## Why this exists
 
@@ -42,7 +42,7 @@ LandingPage / DungeonMind Web remains public web frontend owner.
 
 OverMind owns the cross-repository refresh architecture and sequence.
 
-## Production questions the steward will resolve
+## Production questions for the explicitly assigned platform owner
 
 - authenticated user→World authorization;
 - durable world membership/selection;
@@ -65,6 +65,6 @@ This anchor does **not**:
 - change the OverMind E5 inference sequence;
 - authorize Buddy deployment code.
 
-Platform-refresh implementation begins only from a future bounded Buddy handoff produced by the platform steward.
+Platform-refresh implementation begins only from a future bounded Buddy handoff produced by the owner named in the platform assignment.
 
 The live completion target is an authenticated browser flow that survives refresh, logout/login, and service restart while reopening the same authorized World, published knowledge, generated statblock, and generated image by durable identity.

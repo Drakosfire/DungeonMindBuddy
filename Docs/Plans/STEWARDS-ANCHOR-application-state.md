@@ -1,4 +1,4 @@
-# STEWARD'S ANCHOR — APPLICATION STATE
+# APP-STATE PICKUP — APPLICATION STATE
 
 **Status:** ACTIVE APP-STATE IMPLEMENTATION — WORLD AGENT CONVERSATION STORAGE SERVICE
 **Line of work / flow:** `APP-STATE`  
@@ -161,7 +161,7 @@ successor lease is active.
 
 ## 6. Selecting a future APP-STATE family
 
-A future steward may select an additional candidate only when all are true:
+Candidate-family selection belongs to the owner named in its bounded APP-STATE design assignment and remains subject to these existing criteria:
 
 1. a concrete user-relied-on durable state currently depends on unsafe/local topology;
 2. migration creates one independently useful product outcome;

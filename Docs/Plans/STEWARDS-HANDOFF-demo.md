@@ -1,6 +1,6 @@
-# Steward handoff — DEMO, from preparation to a resumable session
+# DEMO assignment — from preparation to a resumable session
 
-**Status:** ACTIVE mandate; fresh DEMO task appointed after the 2026-09-29 reboot
+**Status:** ACTIVE bounded assignment; fresh DEMO task appointed after the 2026-09-29 reboot
 
 **Owner:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`, appointed by the operator. The prior DEMO tasks `01a0885e-375c-7501-9f6e-a58528b39894` and `01a0edf2-b1e1-7281-9448-1d5524f8d4f8` retain history only; PRIME has frozen their #793 implementation and runtime authority.
 
@@ -19,9 +19,11 @@ Own the complete requested Buddy demonstration until the operator accepts it:
 > and select its image; run the prepared session with fast access to plan, choices,
 > NPCs, statblocks, combat and recorded roll-table results; restart and resume.
 
-The steward is accountable for the connected experience, not for reporting that
-its pieces exist. Preserve the full requested journey. Reduce corpus size and
-number of examples before dropping a requested capability.
+The owner explicitly named for this bounded DEMO assignment is accountable for
+the connected experience, not for reporting that its pieces exist. Preserve the
+full requested journey. Reduce corpus size and number of examples before dropping
+a requested capability. The assignment grants no additional merge, runtime,
+provider, or model authority.
 
 ## Required Surface experience
 
@@ -83,7 +85,7 @@ The operator's 2026-09-27 ecosystem merge-control assignment to PRIME remains in
 
 ## Operating authority after activation
 
-The adopted mandate permits the steward to:
+The adopted bounded assignment permits its named owner to:
 
 - rehearse, inspect, diagnose and prioritize the demo journey;
 - design and land bounded Buddy implementation handoffs under accepted repository
@@ -223,8 +225,9 @@ status pings without new information; inspect/wait on the existing task.
 
 ## Parallel execution
 
-Start with at most three active DEMO implementation lanes, plus stewardship and
-independent review. This is a proposed WIP limit, not a requirement to fill slots.
+Start with at most three active DEMO implementation lanes, plus coordination
+explicitly assigned within the slice and independent review. This is a proposed
+WIP limit, not a requirement to fill slots.
 Default each workstream to serial unless a handoff explicitly names a safe topology.
 
 Possible lanes are Document/Agent, Knowledge consumer, Assets/Generation, and
@@ -233,7 +236,8 @@ Visual alternatives may be explored independently against the same contract.
 
 Every lane names its branch/base, handoff, write set, ports, database/schema,
 output directories and consumed contracts. Serialize shared host/registry/schema/
-lockfile changes. The steward coordinates shared demo environment changes with its designated
+lockfile changes. The named owner coordinates shared demo environment changes
+with its designated
 runtime owner/PRIME; workers do not independently start/stop servers or fix the
 shared database manually to make a witness pass.
 
@@ -272,4 +276,4 @@ hosted production acceptance. Keep completed technical evidence; do not erase
 failed rehearsals or reactivate completed scaffolds as new work.
 
 The roadmap alone owns current milestone status, active leases, delegated blockers
-and next action. This handoff changes only when the steward's mandate changes.
+and next action. This assignment changes only through an explicit update to its scope or owner.

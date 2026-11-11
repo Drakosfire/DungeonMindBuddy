@@ -4,7 +4,7 @@
 **Base:** `ec646dab173deb1ddc6075226a496b400afc8eb5` (DungeonMindBuddy `main`, verified 2026-11-11)
 **Branch:** `codex/retire-standing-steward-role`
 **Owner:** explicitly assigned documentation/policy slice owner
-**Topology:** serial; no PR creation or external publication in this task
+**Topology:** serial implementation; coordinating owner publishes this one reviewable draft after independent review
 
 ## Mission
 
@@ -40,6 +40,7 @@ Canonical files, edited before their exports:
 - `Docs/Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`
 - `Docs/Roadmaps/README.md`
 - `Docs/Design/INDEX-design-agent-source-set.md`
+- `Docs/Reports/graph-document-audit.md` (PROCESS classification row only)
 - `Docs/Plans/STEWARDS-HANDOFF-demo.md` (continuing mandate only; retain historical evidence)
 - `Docs/Roadmaps/ROADMAP-demo.md` (current pickup guidance only)
 - `Docs/Design/ARCHITECTURE-application-state-layer.md` (continuing owner guidance only)
@@ -56,6 +57,7 @@ Byte-for-byte export mirrors, updated after canonical sources:
 - `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-demo.md`
 - `Docs/Sources/design-agent/ACTIVE_AUTHORITY/STEWARDS-HANDOFF-demo.md`
 - `Docs/Sources/design-agent/ACTIVE_REFERENCE/INDEX-design-agent-source-set.md`
+- `Docs/Sources/design-agent/ACTIVE_AUTHORITY/graph-document-audit.md`
 - Other directly corresponding active export copies, only if the canonical file is changed
 
 ## Exclusions

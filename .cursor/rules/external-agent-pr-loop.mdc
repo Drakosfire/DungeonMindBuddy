@@ -5,14 +5,14 @@ alwaysApply: false
 
 # External-agent PR loop — contract
 
-When work lands through a GitHub PR opened by an agent the steward does not directly drive, the development cycle is:
+When work lands through a GitHub PR opened by an agent the named owner does not directly drive, the development cycle is:
 
 ```text
 re-anchor
 → DESIGN
-→ steward lands HANDOFF on main
+→ explicitly assigned designer pins HANDOFF at a durable ref
 → activation gate satisfied
-→ steward marks HANDOFF ACTIVE
+→ after gates resolve, named owner activates HANDOFF
 → PR topology declared
 → CODE HANDOFF
 → external PR
@@ -32,16 +32,16 @@ For in-IDE subagents, follow `subagent-delegation.mdc` instead. Exact fetch/veri
 Every implementation handoff records the exact conversation/workstream identity and the explicit direction:
 
 ```text
-DESIGN steward → CODE agent → reviewer
+assigned designer → CODE agent → independent reviewer
 ```
 
-The DESIGN steward owns that handoff until it is durably checked in on `main`.
+The explicitly assigned designer owns the handoff until it is durably pinned at a ref. Its location does not itself activate the assignment; do not require `main` unless the handoff says so.
 
 - `Status: BLOCKED` is allowed and encouraged when the design is concrete but a predecessor/review/merge/operator activation gate remains false.
 - BLOCKED means durable design authority only: no implementation lane, no §4 lease, no code dispatch.
 - `Status: ACTIVE` is required before an external implementation agent begins work.
 - The implementation agent must not create, land, activate, or materially redesign its own implementation handoff unless the explicitly assigned slice is itself design/architecture work.
-- A predecessor merge does not automatically activate a successor. The steward re-anchors and performs the explicit BLOCKED → ACTIVE transition.
+- A predecessor merge does not automatically activate a successor. The owner named in the assignment re-anchors and performs the explicit BLOCKED → ACTIVE transition.
 - Every ACTIVE handoff declares `PR topology: serial | stacked | parallel-independent` and the one PR action authorized for this worker.
 - The worker opens the one assigned PR without asking for separate confirmation once ACTIVE; it does not infer authority for any additional PR.
 
@@ -85,40 +85,40 @@ HANDOFF §4 is both the expected diff allowlist and the lane's **exclusive expec
 - Other lanes may read leased paths.
 - A second lane must not silently edit them.
 - If a worker discovers a required path outside §4 or owned by another active lane, stop and report it before changing the path.
-- The steward must split the seam, serialize the work, explicitly transfer ownership, or re-brief the slice.
+- The named owner must split the seam, serialize the work, explicitly transfer ownership, or re-brief the slice.
 - Git merge conflicts are not the normal collision detector.
 
 PR topology is separate from permission to execute the assigned PR:
 
-- `serial` is default: one open implementation PR in the workstream; successor repairs return to the steward and do not open until predecessor merge/sync/re-anchor.
+- `serial` is default: one open implementation PR in the workstream; successor repairs return to the owner named in the assignment and do not open until predecessor merge/sync/re-anchor.
 - `stacked` must be explicit: the handoff names the exact unmerged parent and merge/rebase order.
 - `parallel-independent` must be explicit: no unmerged behavioral dependency and safe write/runtime/state ownership.
 - “Do not ask before opening the PR” means open the PR named by the ACTIVE handoff. It never means “open the next PR too.”
-- A new dogfood STOP on a synthetic combined head is evidence for steward re-decomposition, not self-authorizing PR fan-out.
+- A new dogfood STOP on a synthetic combined head is evidence for the named owner to re-decompose, not self-authorizing PR fan-out.
 
 Parallel worktree/checkout source isolation does not prove runtime isolation; shared ports, services, DBs, `out/`, caches, generated state, fixtures, or external resources must be handled separately when relevant.
 
 ## Invariants — do not regress
 
-1. **Design authority is durable before dispatch.** The steward lands the implementation HANDOFF on `main` before any CODE worker is dispatched. If an activation prerequisite is unresolved, land it as BLOCKED rather than keeping it only in chat, a temporary checkout, or the future worker's workspace.
+1. **Design authority is durable before dispatch.** The explicitly assigned designer pins the implementation HANDOFF at a durable ref before any CODE worker is dispatched. If an activation prerequisite is unresolved, mark it BLOCKED rather than keeping it only in chat or a temporary, unpinned checkout. A `main` landing is required only when the handoff says so.
 2. **Critique before activation/dispatch.** Before marking a handoff ACTIVE, falsify the proposed merge-ready invariant and its evidence. Identify adversarial sequences, split when one invariant cannot govern every claimed path, and do not dispatch while proof ownership is unresolved.
 3. **One capability / one invariant.** The slice delivers one independently useful outcome. A second independently useful/revertible public or durable contract is a split signal.
 4. **§4 allowlist / write lease is mandatory for ACTIVE work.** Every expected changed path must be named or covered by a precisely bounded discovery exception. A path outside the lease is a stop report, not a quiet edit. BLOCKED handoffs do not reserve those paths.
 5. **The checked-in ACTIVE HANDOFF and cumulative diff are the merge contract.** The reviewer identifies exact PR/branch/head SHA, nano-commit sequence, changed paths, and evidence. The PR description is transport metadata only.
 6. **Review continues for as many cycles as necessary.** Every finding names the failure/missing proof, affected observable path, owning boundary, and concrete fix/evidence required. Re-review the complete invariant after each changed head; do not verify only the literal patch.
 7. **Evidence must exercise the owning boundary.** Lower-level helper coverage can support but cannot prove a higher-level service/workflow/persistence/concurrency/surface guarantee.
-8. **Use the canonical review tooling.** `scripts/review_external_pr.py {fetch | verify | post | merge}` is the normal external-PR path; do not rebuild the manual `gh + git + sed` dance when the handoff is parseable.
+8. **Review tooling is optional transport support.** `scripts/review_external_pr.py {fetch | verify | post | merge}` may be used when compatible with current `AGENTS.md`, the bounded assignment, and checkout ownership. It is not a required gate; follow current repository law if instructions differ.
 9. **Implementation review and state sync are distinct concerns.** Do not smuggle current-state roadmap/checklist/status edits into implementation fixes merely to make the PR narrative look current.
-10. **Atomic state-authority sync closes the cycle.** After merge or another sequencing transition, identify every mutable workstream document that claims current status, sequence, predecessor, evidence gate, or next action and update the applicable set before dispatching a dependent successor. Prefer one commit/PR transaction. When tooling only supports sequential file writes, the steward holds the transaction boundary: no dependent dispatch or cycle-complete claim occurs between partial writes, and the complete set is re-read/verified before release. `PLAN`, `CHECKLIST`, and HANDOFF status/archive are common members, not a closed set; active roadmaps, trackers, status docs, and indexes join the sync when they carry current state.
-11. **Successor activation is explicit.** A successor may already be durably present on `main` as BLOCKED. When its gate becomes true, re-anchor, record the newly knowable facts, change it to ACTIVE, and only then allocate the external worker lane.
+10. **Atomic state-authority sync closes the cycle.** After merge or another sequencing transition, identify every mutable workstream document that claims current status, sequence, predecessor, evidence gate, or next action and update the applicable set before dispatching a dependent successor. Prefer one commit/PR transaction. When tooling only supports sequential file writes, the owner named in the assignment holds the transaction boundary: no dependent dispatch or cycle-complete claim occurs between partial writes, and the complete set is re-read/verified before release. `PLAN`, `CHECKLIST`, and HANDOFF status/archive are common members, not a closed set; active roadmaps, trackers, status docs, and indexes join the sync when they carry current state.
+11. **Successor activation is explicit.** A successor may already be pinned at a durable ref as BLOCKED. When its gate becomes true, re-anchor, record the newly knowable facts, change it to ACTIVE, and only then allocate the external worker lane.
 12. **Stable authorities change only when their claims change.** Architecture/contracts/reference docs are not mandatory merge bookkeeping.
 13. **The judgment/rubric is a learning surface.** Accepted review findings should tighten future critique, evidence, or repository law when the lesson generalizes. Copying an unchanged rubric forever is a smell.
 14. **Stale-note discipline.** Notes about what a PR did age well; notes about what is still pending age badly. Re-verify temporal claims before quoting them downstream.
-15. **PR topology is not delegated to the CODE worker.** The handoff, authored by the steward, decides whether the assigned PR is serial, stacked, or parallel-independent. If topology is absent/ambiguous, default serial. A worker may open/update its assigned PR without asking, but a new defect, successor, repair, or cleanup does not authorize another PR; stop and return that decision to the steward.
+15. **PR topology is not delegated to the CODE worker.** The handoff, authored by the explicitly assigned designer, decides whether the assigned PR is serial, stacked, or parallel-independent. If topology is absent/ambiguous, default serial. A worker may open/update its assigned PR without asking, but a new defect, successor, repair, or cleanup does not authorize another PR; stop and return that decision to the named owner.
 
 ## Atomic state-authority sync contract
 
-Before the next dependent dispatch, the steward names the applicable sync set. Possible members include:
+Before the next dependent dispatch, the owner named in the assignment names the applicable sync set. Possible members include:
 
 ```text
 PLAN / execution state
@@ -164,7 +164,7 @@ Do not add unrelated architecture churn to satisfy "atomic." Atomic refers to **
 ## References
 
 - Foundational repo law: `AGENTS.md`
-- Steward judgment/process: `Docs/Process/STEWARD-CYCLE.md`
+- assignment judgment/process: `Docs/Process/STEWARD-CYCLE.md`
 - Procedure / runbook: `.cursor/skills/external-agent-pr-loop/SKILL.md`
 - Re-anchor discipline: `.cursor/rules/anchor.mdc`
 - Git/worktree policy: `.cursor/rules/dungeonbuddy-git-workflow.mdc`
