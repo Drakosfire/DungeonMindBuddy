@@ -13,12 +13,14 @@ from dungeonmind.application.vnext import (
 from dungeonmind.application.vnext.native_pdf_access import (
     bind_native_pdf_evidence, register_native_pdf_evidence,
 )
+from dungeonmind.contracts.vnext.pdf_region import NativePdfRegionV1
 from dungeonmind.contracts.vnext.common import LabelsAllVisibility
 from dungeonmind.contracts.vnext.native_source import (
     NativeTextEvidenceSpanRequestV1, NativeTextSourceAdmissionV1, NativeTextSourceOriginV1,
 )
 from worldkeeper.application import contracts as wk
 
+from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
 from application_state.errors import ApplicationStateConflictError, ApplicationStateIntegrityError
 from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
 from apps.live_control_server.integrations.worldkeeper import registry_standing_consumer as transport
@@ -27,6 +29,7 @@ from apps.live_control_server.services.agent_graph_auth import require_native_gr
 from apps.live_control_server.services.graph_object_authoring_prepare import (
     decode_publication_intent, sign_publication_intent,
 )
+from apps.live_control_server.services.statblock_saved_revision import resolve_saved_source
 from apps.live_control_server.services.threat_draft_store import get_threat_draft, locked_threat_draft
 from graph_memory.vnext.domain_runtime import GM_LABEL
 
@@ -138,7 +141,7 @@ def register_pdf_regions(repo, space_id, regions, context, access, created_at):
 
 def review_payload(review):
     # Text-only reviews retain their original signed representation.
-    excluded = {field for field in ("pdf_evidence_ids", "pdf_regions") if not getattr(review, field)}
+    excluded = {field for field in ("pdf_evidence_ids", "pdf_regions", "mechanics_locator") if not getattr(review, field)}
     return review.model_dump(mode="json", by_alias=True, exclude=excluded)
 
 
@@ -152,6 +155,18 @@ def prepare(root, draft_id, request, principal):
         require(native.binding(request.world_id) == bound, "The World binding changed")
         return published(bound, draft_id, prior, replayed=True)
     require(draft.version == request.expected_draft_version, "The creature draft changed; reopen it")
+    regions = request.pdf_regions
+    if request.mechanics_locator is not None:
+        require(not regions, "Use the PDF regions recorded on the saved mechanics")
+        verified_draft, _, _, _, exact = resolve_saved_source(
+            root, world_id=request.world_id, draft_id=str(draft_id), locator=request.mechanics_locator,
+        )
+        require(verified_draft == draft, "The creature draft changed during review")
+        through = (exact.provenance or {}).get("accepted_through") or {}
+        pdf_review = through.get(PDF_REVIEW_PROVENANCE)
+        if pdf_review is not None:
+            require(pdf_review["world_id"] == request.world_id, "The PDF review belongs to another World")
+            regions = tuple(NativePdfRegionV1.model_validate(region) for region in pdf_review["regions"])
     text = body(draft)
     digest = sha256(text.encode()).hexdigest()
     admission_id = f"dmb-threat-source:{draft_id}:{draft.version}:{digest}"
@@ -178,7 +193,7 @@ def prepare(root, draft_id, request, principal):
                 and admitted.bindings[0].client_ref == "whole-draft", "The retained source receipt changed")
         context, access = native.access_context(repo, bound["native_world_id"])
         context, access, pdf_evidence_ids, pdf_regions = register_pdf_regions(
-            repo, bound["native_world_id"], request.pdf_regions, context, access,
+            repo, bound["native_world_id"], regions, context, access,
             datetime.fromisoformat(draft.updated_at),
         )
         domain, profile = native.descriptors(repo, bound["native_world_id"], context["revision_id"])
@@ -188,6 +203,7 @@ def prepare(root, draft_id, request, principal):
             source_evidence_id=admitted.bindings[0].evidence_ref_id,
             source_artifact_id=admitted.source_artifact_id, source_revision_id=admitted.source_revision_id,
             pdf_evidence_ids=pdf_evidence_ids, pdf_regions=pdf_regions,
+            mechanics_locator=request.mechanics_locator,
             prepared_digest="0" * 64, principal=principal.subject, expires_at=now + timedelta(hours=1))
         source_matches(access, review)
         prepared = transport.runtime(repo, domain, profile, now=now,

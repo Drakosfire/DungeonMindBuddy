@@ -300,7 +300,8 @@ def test_other_operator_or_unavailable_support_cannot_confirm(creature, monkeypa
     assert service.existing(c.lane.repo, c.bound, c.draft.draft_id) is None
 
 
-def test_pdf_region_is_bound_to_signed_native_threat_review(creature, monkeypatch):
+@pytest.mark.parametrize("from_saved_mechanics", [False, True])
+def test_pdf_region_is_bound_to_signed_native_threat_review(creature, monkeypatch, from_saved_mechanics):
     from hashlib import sha256
 
     from dungeonmind.application.vnext.native_source_admission import build_native_pdf_source_records
@@ -327,8 +328,23 @@ def test_pdf_region_is_bound_to_signed_native_threat_review(creature, monkeypatc
     monkeypatch.setattr(c.lane.repo, "get_native_pdf_source", load_pdf, raising=False)
     region = dict(source_revision_id=revision.source_revision_id, content_sha256=digest,
                   page=1, left=0.1, top=0.2, right=0.7, bottom=0.8)
-    c.request["pdf_regions"] = [region]
+    if from_saved_mechanics:
+        locator = c.draft.accepted_mechanics_ref.to_mechanics_locator().model_dump(mode="json")
+        c.request["mechanics_locator"] = locator
+        exact = SimpleNamespace(provenance={"accepted_through": {
+            service.PDF_REVIEW_PROVENANCE: {"world_id": c.draft.world_id, "regions": [region]},
+        }})
+        monkeypatch.setattr(service, "resolve_saved_source", lambda *args, **kwargs: (
+            c.draft, None, None, None, exact,
+        ))
+    else:
+        c.request["pdf_regions"] = [region]
     packet = prepare(c)
+    if from_saved_mechanics:
+        assert packet["review"]["mechanics_locator"] == locator
+        changed = deepcopy(packet)
+        changed["review"]["mechanics_locator"]["revision_id"] = "rev_other"
+        assert confirm(c, changed).status_code == 409
     (evidence_id,) = packet["review"]["pdf_evidence_ids"]
     assert evidence_id.startswith("pdf-region:")
     assert service.existing(c.lane.repo, c.bound, c.draft.draft_id) is None
