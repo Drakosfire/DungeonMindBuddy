@@ -461,3 +461,21 @@ def test_gm_lookup_route_returns_exact_revision(revision_case):
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "found"
     assert response.json()["locator"] == p.request["base"]
+
+
+def test_gm_lookup_refuses_unauthenticated_request_before_read(revision_case, monkeypatch):
+    p = revision_case
+    p.app.dependency_overrides.clear()
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "development")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", "a" * 40)
+
+    def unexpected_read(*args, **kwargs):
+        pytest.fail("Unauthorized request reached the statblock lookup")
+
+    monkeypatch.setattr(service, "find_saved_version", unexpected_read)
+    response = p.client.get(
+        "/api/live/saved-statblocks/lookup",
+        params={"world_id": p.draft.world_id, "name": p.draft.name},
+    )
+    assert response.status_code == 401, response.text
