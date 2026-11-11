@@ -199,13 +199,14 @@ function PdfPages({ file }: { file: File }) {
             <section aria-label={`Capture from page ${page}`}>
               <img src={capture.image} alt={`Captured region of page ${page}`} style={{ maxWidth: "100%" }} />
               {textError ? <p role="alert">The PDF text layer could not be read.</p>
-                : capturedText === undefined ? <p role="status">Reading selected text…</p>
+                : capturedText === undefined ? <p role="status">Reading the PDF text layer…</p>
                 : capturedText ? (
                   <label>
-                    Captured text
+                    Approximate text from the PDF layer
+                    <span>Text can extend beyond the crop or miss partial lines. Check it against the image.</span>
                     <textarea readOnly value={capturedText} rows={5} />
                   </label>
-                ) : <p role="status">No selectable text in this region.</p>}
+                ) : <p role="status">No PDF text runs were selected. The crop may still contain visible text.</p>}
             </section>
           )}
         </>
