@@ -79,7 +79,7 @@ def test_registered_build_prepare_admits_exact_world_source_and_confirm_only_pro
 
     resolved = resolve_promotable_ingest_run(run_id, root=root)
     candidate = load_typed_candidate_graph(
-        json.loads(resolved.candidate_graph_path.read_text())
+        json.loads(resolved.data.candidate_bytes)
     )
     parent = case["bundle"].world_graph.get_head(case["world"])
     plan = prepare_worldbuilding(
@@ -243,8 +243,8 @@ def test_registered_governance_publishes_and_opens_historical_source(
         profile_id="worldbuilding_gazetteer_v1@1.9",
     )
     run = resolve_promotable_ingest_run(run_id, root=root)
-    index = json.loads(run.source_span_index_path.read_text())
-    lines = run.normalized_recap_path.read_text().splitlines()
+    index = json.loads(run.data.span_bytes)
+    lines = run.data.source_bytes.decode("utf-8").splitlines()
     span = next(row for row in index["spans"] if sentence in "\n".join(
         lines[row["start_line"] - 1:row["end_line"]]
     ))
@@ -346,7 +346,7 @@ def test_registered_build_publication_keeps_typed_worldbuilding_spans(
 
     resolved = resolve_promotable_ingest_run(run_id, root=root)
     candidate = load_typed_candidate_graph(
-        json.loads(resolved.candidate_graph_path.read_text())
+        json.loads(resolved.data.candidate_bytes)
     )
     parent = case["bundle"].world_graph.get_head(case["world"])
     plan = prepare_worldbuilding(

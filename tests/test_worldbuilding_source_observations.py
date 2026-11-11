@@ -477,7 +477,7 @@ def test_native_confirm_retains_distinct_observations_sources_and_idempotency(
         world_id="publication-managed",
     )
     resolved = resolve_promotable_ingest_run(run_id, root=root)
-    text = resolved.normalized_recap_path.read_text()
+    text = resolved.data.source_bytes.decode("utf-8")
     lines = text.splitlines()
     index = source_span_index_to_dict(
         registry.load_source_span_index(root, resolved.source_artifact_id)
@@ -519,7 +519,7 @@ def test_native_confirm_retains_distinct_observations_sources_and_idempotency(
 
     _mutate_extraction_candidate(root, run_id, transform)
     refreshed = resolve_promotable_ingest_run(run_id, root=root)
-    data = json.loads(refreshed.candidate_graph_path.read_text())
+    data = json.loads(refreshed.data.candidate_bytes)
     parent = case["bundle"].world_graph.get_head(case["world"])
     decisions = [
         dict(assertionId="place:coast", decision="create_new"),
