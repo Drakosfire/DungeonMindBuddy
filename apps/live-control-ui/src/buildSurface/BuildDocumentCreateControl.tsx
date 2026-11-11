@@ -6,6 +6,12 @@ import {
   SurfaceContextPopover,
 } from "../surfaceInteraction/contextHost";
 
+function isMarkdownImportText(value: string): boolean {
+  return Boolean(value.trim())
+    && !/^\uFEFF*%PDF-/.test(value)
+    && !/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(value);
+}
+
 /** Explicit Build destination — never invent campaign/world identity from titles. */
 export type BuildSourceDestinationIntent =
   | { kind: "campaign"; campaignId: string }
@@ -126,6 +132,9 @@ export function BuildDocumentCreateControl({
   const [worldName, setWorldName] = useState("");
   const [title, setTitle] = useState("");
   const [importMarkdown, setImportMarkdown] = useState("");
+  const [importFileError, setImportFileError] = useState<string | null>(null);
+  const [readingImportFile, setReadingImportFile] = useState(false);
+  const importFileRead = useRef(0);
 
   const destinationValue = destinationSelection.value;
 
@@ -194,11 +203,48 @@ export function BuildDocumentCreateControl({
     onSubmit({ title: trimmed, destination: resolvedDestination, starter });
   };
 
+  const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) return;
+    const read = ++importFileRead.current;
+    setReadingImportFile(true);
+    setImportFileError(null);
+    try {
+      if (!/\.(?:md|markdown)$/i.test(file.name)) {
+        throw new Error("Choose a .md or .markdown file.");
+      }
+      let markdown: string;
+      try {
+        markdown = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true })
+          .decode(await file.arrayBuffer());
+      } catch {
+        throw new Error("The file could not be read as UTF-8 text.");
+      }
+      if (!isMarkdownImportText(markdown)) {
+        throw new Error("Choose a non-empty Markdown text file.");
+      }
+      if (read === importFileRead.current) {
+        setImportMarkdown(markdown);
+      }
+    } catch (error) {
+      if (read === importFileRead.current) {
+        setImportFileError(error instanceof Error ? error.message : "Could not read the file.");
+      }
+    } finally {
+      if (read === importFileRead.current) setReadingImportFile(false);
+    }
+  };
+
   const handleImportSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (disabled || creating || !resolvedDestination) return;
     const trimmedTitle = title.trim();
-    if (!trimmedTitle || importMarkdown.trim().length === 0) return;
+    if (readingImportFile || importFileError || !trimmedTitle) return;
+    if (!isMarkdownImportText(importMarkdown)) {
+      setImportFileError("Enter non-empty Markdown text.");
+      return;
+    }
     onImportSubmit({
       title: trimmedTitle,
       destination: resolvedDestination,
@@ -212,6 +258,8 @@ export function BuildDocumentCreateControl({
     !disabled &&
     !creating &&
     Boolean(title.trim()) &&
+    !readingImportFile &&
+    !importFileError &&
     importMarkdown.trim().length > 0 &&
     resolvedDestination != null;
 
@@ -331,12 +379,23 @@ export function BuildDocumentCreateControl({
     >
       <div className="build-document-create__controls">
         {sharedFields}
+        <label className="build-document-create__field">
+          <span>Choose Markdown file</span>
+          <input type="file" accept=".md,.markdown" onChange={handleImportFile}
+            disabled={disabled || creating} />
+        </label>
+        {importFileError && <p role="alert">{importFileError}</p>}
         <label className="build-document-create__field build-document-create__field--markdown">
           <span>Markdown</span>
           <textarea
             data-testid="build-document-import-markdown"
             value={importMarkdown}
-            onChange={(event) => setImportMarkdown(event.target.value)}
+            onChange={(event) => {
+              ++importFileRead.current;
+              setReadingImportFile(false);
+              setImportFileError(null);
+              setImportMarkdown(event.target.value);
+            }}
             placeholder="# Source title&#10;&#10;Paste external Markdown here."
             rows={8}
             disabled={disabled || creating}
@@ -346,7 +405,12 @@ export function BuildDocumentCreateControl({
           <button
             type="button"
             data-testid="build-document-import-cancel"
-            onClick={() => setImportOpen(false)}
+            onClick={() => {
+              ++importFileRead.current;
+              setReadingImportFile(false);
+              setImportFileError(null);
+              setImportOpen(false);
+            }}
             disabled={disabled || creating}
           >
             Cancel
@@ -358,8 +422,14 @@ export function BuildDocumentCreateControl({
             <button
               type="button"
               data-testid="build-document-import-retry"
-              onClick={() => onRetryImport({ markdown: importMarkdown })}
-              disabled={disabled || creating || importMarkdown.trim().length === 0}
+              onClick={() => {
+                if (!isMarkdownImportText(importMarkdown)) {
+                  setImportFileError("Enter non-empty Markdown text.");
+                  return;
+                }
+                onRetryImport({ markdown: importMarkdown });
+              }}
+              disabled={disabled || creating || readingImportFile || Boolean(importFileError) || importMarkdown.trim().length === 0}
             >
               Retry import
             </button>

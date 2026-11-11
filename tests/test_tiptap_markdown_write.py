@@ -446,6 +446,23 @@ def _create_world_scoped_source(root: Path):
     )
 
 
+@pytest.mark.parametrize("markdown", ["%PDF-1.7", "binary\x00content"])
+def test_source_import_rejects_non_markdown_before_document_lookup(tmp_path, monkeypatch, markdown):
+    from application_state.content import pages
+
+    def unexpected_lookup(*args, **kwargs):
+        pytest.fail("Invalid source reached the document store")
+
+    monkeypatch.setattr(pages, "find_page", unexpected_lookup)
+    kwargs = dict(document_id="source", markdown=markdown, expected_revision=1, write_mode="source_import")
+    with pytest.raises(TiptapMarkdownWriteError, match="Markdown|UTF-8"):
+        prepare_tiptap_markdown_write(root=tmp_path, request=TiptapMarkdownWritePrepareRequest(**kwargs))
+    with pytest.raises(TiptapMarkdownWriteError, match="Markdown|UTF-8"):
+        commit_tiptap_markdown_write(root=tmp_path, request=TiptapMarkdownWriteCommitRequest(
+            **kwargs, writer_confirm_token="token",
+        ))
+
+
 def test_source_import_preserves_lossy_markdown_byte_for_byte(tmp_path: Path) -> None:
     record = _create_world_scoped_source(tmp_path)
     prepared = prepare_tiptap_markdown_write(
