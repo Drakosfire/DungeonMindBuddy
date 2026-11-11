@@ -6,7 +6,12 @@ const abilities = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
 function readAbilityScores(text: string): string[] {
   const rows = [...text.matchAll(/^[ 	]*STR[ 	]+DEX[ 	]+CON[ 	]+INT[ 	]+WIS[ 	]+CHA[ 	]*\r?\n([ 	0-9()+-]+)$/gim)];
   if (rows.length !== 1) return [];
-  const scores = rows[0][1].replace(/\([+-]?\d+\)/g, "").trim().split(/[ 	]+/);
+  const row = rows[0][1].trim();
+  const scoredCells = /([0-9](?:[ \t]*[0-9])*)[ \t]*\([ \t]*[+-]?[0-9]+[ \t]*\)/g;
+  const cells = [...row.matchAll(scoredCells)];
+  const scores = cells.length > 0
+    ? (row.replace(scoredCells, "").trim() ? [] : cells.map(cell => cell[1].replace(/[ \t]/g, "")))
+    : row.split(/[ \t]+/);
   return scores.length === abilities.length && scores.every(score => /^\d+$/.test(score)) ? scores : [];
 }
 
