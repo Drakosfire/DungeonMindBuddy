@@ -449,10 +449,15 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const detailRequestGenerationRef = useRef(0);
   const detailAbortRef = useRef<AbortController | null>(null);
   const detailGraphRef = useRef<NativeGraph | null>(null);
+  const searchId = useId();
+  const [objectQuery, setObjectQuery] = useState("");
+  const [objectPage, setObjectPage] = useState(0);
+  const [viewFocusId, setViewFocusId] = useState<LocalObjectId | null>(null);
+  const [neighborhoodDepth, setNeighborhoodDepth] = useState(1);
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
-  const [cameraFocusRequest, setCameraFocusRequest] = useState<{ readonly nodeId: LocalObjectId | null; readonly requestId: number; readonly worldId: string } | undefined>(undefined);
+  const [cameraFocusRequest, setCameraFocusRequest] = useState<{ readonly nodeId: LocalObjectId | null; readonly requestId: number; readonly worldId: string; readonly selectNode?: boolean } | undefined>(undefined);
   const cameraFocusRequestIdRef = useRef(0);
-  const [cameraFocusResetRequest, setCameraFocusResetRequest] = useState<number | undefined>(undefined);
+  const [cameraFocusResetRequest, setCameraFocusResetRequest] = useState<{readonly requestId: number; readonly fitView: boolean} | undefined>(undefined);
   const [clearSelectionRequest, setClearSelectionRequest] = useState<number | undefined>(undefined);
   const selectionClearRequestIdRef = useRef(0);
   const [graphHelpOpen, setGraphHelpOpen] = useState(false);
@@ -514,9 +519,13 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     setSelectedNodeDetailStatus("idle");
     setSelectedNodeDetailError(null);
     setFocusedNodeId(null);
+    setViewFocusId(null);
+    setNeighborhoodDepth(1);
+    setObjectQuery("");
+    setObjectPage(0);
     setCameraFocusRequest(undefined);
     cameraFocusRequestIdRef.current += 1;
-    setCameraFocusResetRequest(cameraFocusRequestIdRef.current);
+    setCameraFocusResetRequest({requestId: cameraFocusRequestIdRef.current, fitView: viewFocusId !== null});
     selectionClearRequestIdRef.current += 1;
     setClearSelectionRequest(selectionClearRequestIdRef.current);
     setActivePanel((current) => current === "details" ? null : current);
@@ -535,8 +544,10 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
 
   const requestCameraFocus = useCallback((nodeId: string | null) => {
     if (!graph) return;
+    setViewFocusId(nodeId as LocalObjectId | null);
+    setNeighborhoodDepth(1);
     cameraFocusRequestIdRef.current += 1;
-    setCameraFocusRequest({ nodeId: nodeId as LocalObjectId | null, requestId: cameraFocusRequestIdRef.current, worldId: graph.world_id });
+    setCameraFocusRequest({ nodeId: nodeId as LocalObjectId | null, requestId: cameraFocusRequestIdRef.current, worldId: graph.world_id, selectNode: true });
   }, [graph]);
 
   const closeSelectedDetails = useCallback(() => {
@@ -713,9 +724,6 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     const created = committedGraph.nodes.find((node) => node.id === createdNodeId);
     if (!created) return "DungeonMind returned the new node ID, but this readback does not include it. The requested position was discarded; refresh the graph and arrange the node manually if it appears.";
     if (created.kind !== operation.object_kind) return `DungeonMind returned the exact new node ID, but its graph type is ${created.kind}, not ${operation.object_kind}. Its requested position was not applied.`;
-    if (!committedGraph.nodes.slice(0, 512).some((node) => node.id === createdNodeId)) {
-      return "DungeonMind returned the new node ID, but it is outside the 512-node canvas view. The requested position was discarded; arrange the node manually if it comes into view.";
-    }
     const currentScopeId = stateScopeIdRef.current;
     const positions = readLayout(committedGraph.world_id, currentScopeId);
     const nextPositions = { ...positions, [createdNodeId]: placement.position };
@@ -1206,7 +1214,16 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     }
   }
 
-  const record = graph ? toCanvasRecord(graph, layout) : null;
+  const record = useMemo(() => graph ? toCanvasRecord(graph, layout) : null, [graph, layout]);
+  const matchingObjects = useMemo(() => {
+    const query = objectQuery.trim().toLocaleLowerCase();
+    return (graph?.nodes ?? []).filter((node) => !query
+      || `${node.name} ${node.kind} ${node.id}`.toLocaleLowerCase().includes(query));
+  }, [graph, objectQuery]);
+  const searchPageSize = 20;
+  const lastObjectPage = Math.max(0, Math.ceil(matchingObjects.length / searchPageSize) - 1);
+  const currentObjectPage = Math.min(objectPage, lastObjectPage);
+  const visibleSearchObjects = matchingObjects.slice(currentObjectPage * searchPageSize, (currentObjectPage + 1) * searchPageSize);
   const limitations = graph ? detailLimitations(graph) : [];
 
   const saveLayout = useCallback(async (_record: LocalWorldRecord, changedPositions: Readonly<Record<string, { readonly x: number; readonly y: number }>>): Promise<WriteLayoutResult> => {
@@ -1639,6 +1656,30 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
               </button>
               <div className="native-demo-canvas-help__tooltip" id={graphHelpId} role="tooltip">{graphHelpText}</div>
             </div> : null}
+            {embedded ? <details className="world-graph-canvas__exploration">
+              <summary>Find an object · {graph.nodes.length} loaded</summary>
+              <label htmlFor={searchId}>Search loaded objects</label>
+              <input id={searchId} type="search" value={objectQuery} placeholder="Name, type or ID"
+                disabled={Boolean(pendingOperation)} onChange={(event) => { setObjectQuery(event.target.value); setObjectPage(0); }} />
+              <p>{matchingObjects.length} matching objects. Search includes objects outside the canvas.</p>
+              <ul aria-label="Matching graph objects">{visibleSearchObjects.map((node) => <li key={node.id}>
+                <button type="button" disabled={Boolean(pendingOperation)} aria-label={`Explore ${node.name} (${node.id})`}
+                  onClick={() => { handleCanvasSelectionChange(node.id as LocalObjectId); requestCameraFocus(node.id); }}>
+                  {node.name} <small>{node.kind} · {node.id}</small>
+                </button>
+              </li>)}</ul>
+              {!matchingObjects.length ? <p>No loaded objects match this search.</p> : null}
+              {lastObjectPage > 0 ? <div role="group" aria-label="Object search pages">
+                <button type="button" disabled={currentObjectPage === 0 || Boolean(pendingOperation)} onClick={() => setObjectPage(currentObjectPage - 1)}>Previous objects</button>
+                <span>Page {currentObjectPage + 1} of {lastObjectPage + 1}</span>
+                <button type="button" disabled={currentObjectPage === lastObjectPage || Boolean(pendingOperation)} onClick={() => setObjectPage(currentObjectPage + 1)}>Next objects</button>
+              </div> : null}
+            </details> : null}
+            {embedded && viewFocusId ? <div className="world-graph-canvas__neighborhood" role="group" aria-label="Neighborhood controls">
+              <span>Neighborhood: {neighborhoodDepth} {neighborhoodDepth === 1 ? "step" : "steps"} from {graph.nodes.find((node) => node.id === viewFocusId)?.name}. Canvas limit: 512 objects.</span>
+              <button type="button" disabled={neighborhoodDepth >= graph.nodes.length || Boolean(pendingOperation)} onClick={() => setNeighborhoodDepth((depth) => depth + 1)}>Expand neighborhood</button>
+              <button type="button" disabled={Boolean(pendingOperation)} onClick={() => requestCameraFocus(null)}>Show overview</button>
+            </div> : null}
             {record ? (
               <WorldGraphCanvas
                 key={graph.world_id}
@@ -1647,7 +1688,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                 onMoveObjects={saveLayout}
                 {...(embedded ? {
                   nodeShape: "circle" as const,
-                  projectionOptions: { maxNodes: 512, maxEdges: 1024 },
+                  projectionOptions: { maxNodes: 512, maxEdges: 1024, focusObjectId: viewFocusId, neighborhoodDepth },
                   creationKinds,
                   onCanvasCreateRequest: graph.capabilities.create ? handleCanvasCreateRequest : undefined,
                   onConnectRequest: canConnectGraph(graph) ? handleConnectRequest : undefined,

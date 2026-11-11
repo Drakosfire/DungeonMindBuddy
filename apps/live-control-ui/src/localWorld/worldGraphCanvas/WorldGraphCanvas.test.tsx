@@ -7,6 +7,7 @@ import { createTestWorld, sequenceLocalIds } from "../localWorldContractFixtures
 import type { CommitSemanticResult, LocalWorldRecord, LocalWorldRelationship, WriteLayoutResult } from "../localWorldRepository";
 import { createLocalWorldGraphAdapter } from "./localWorldGraphAdapter";
 import { projectLocalWorldGraph } from "./graphProjection";
+import * as projectionModule from "./graphProjection";
 import { WorldGraphCanvas, type WorldGraphEditorDraft } from "./WorldGraphCanvas";
 
 async function graphRecord(): Promise<{ repository: InMemoryLocalWorldRepository; record: LocalWorldRecord }> {
@@ -928,4 +929,20 @@ describe("WorldGraphCanvas", () => {
     if (delivered?.status === "conflict") expect(delivered.candidate.proposedSnapshot.objects[0].name).toBe("Mara Candidate");
     expect(screen.getByRole("button", { name: "Mara Venn, person" })).toBeVisible();
   });
+});
+
+
+it("does not rebuild the full corpus index or projection when only the camera changes", async () => {
+  const { record } = await graphRecord();
+  const index = vi.spyOn(projectionModule, "indexLocalWorldGraph");
+  const project = vi.spyOn(projectionModule, "projectLocalWorldGraph");
+  render(<WorldGraphCanvas record={record} />);
+  const indexed = index.mock.calls.length;
+  const projected = project.mock.calls.length;
+  fireEvent.click(screen.getByRole("button", {name: "Zoom in"}));
+  fireEvent.click(screen.getByRole("button", {name: "Zoom out"}));
+  fireEvent.click(screen.getByRole("button", {name: "Fit graph"}));
+  expect(index).toHaveBeenCalledTimes(indexed);
+  expect(project).toHaveBeenCalledTimes(projected);
+  index.mockRestore(); project.mockRestore();
 });
