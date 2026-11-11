@@ -121,6 +121,30 @@ def test_object_catalog_preserves_global_order_overlap_attempts_and_unknowns(ass
     assert object_record_ids(q, (a, b), assertion=assertion) == catalog.record_ids((a, b), assertion=assertion)
 
 
+def test_object_catalog_grants_identity_evidence_only_when_selected():
+    from application_state.agent_conversation.native_plan_assertions import (
+        NativeGraphQueryV4, object_record_catalog, object_record_ids, object_selection_handle,
+    )
+    historical = _object_catalog_query()
+    payload = historical.model_dump(mode='json', by_alias=True)
+    assert 'identity_assertion_ids' not in payload
+    assert NativeGraphQueryV4.model_validate(payload).sha256 == historical.sha256
+
+    query = NativeGraphQueryV4.model_validate(payload | {'identity_assertion_ids': ['assertion:shared']})
+    catalog = object_record_catalog(query)
+    a = object_selection_handle(query, 'A')
+    identity = tuple(unit.handle for unit in catalog.units if unit.identity_evidence)
+    assert len(identity) == 2
+    assert object_record_ids(query, (a,), assertion=True) == ('assertion:a',)
+    assert object_record_ids(query, identity, assertion=True) == ('assertion:shared',)
+    assert object_record_ids(query, identity, assertion=False) == ()
+    assert object_record_ids(query, (a, *identity), assertion=True) == ('assertion:shared', 'assertion:a')
+    assert object_record_ids(query, identity, assertion=True, attempted=('assertion:shared',)) == ()
+    assert object_record_ids(query, (object_selection_handle(historical, 'A'),), assertion=True) == ()
+    with pytest.raises(ValueError, match='Identity evidence differs'):
+        NativeGraphQueryV4.model_validate(payload | {'identity_assertion_ids': ['assertion:forged']})
+
+
 def test_object_catalog_hashes_once_and_does_not_cache_mutable_query_state(monkeypatch):
     from application_state.agent_conversation.native_plan_assertions import object_record_catalog
     from application_state.agent_conversation.native_plan_statements import NativePlanQueryV1

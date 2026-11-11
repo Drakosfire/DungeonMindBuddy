@@ -92,12 +92,18 @@ class NativeGraphQueryV4(NativeGraphQueryV3):
     """Object selection expands to existing, frozen record witness sets."""
     schema_: Literal['dmb_native_graph_query_v4'] = Field(default='dmb_native_graph_query_v4', alias='schema')
     object_matches: tuple[NativeObjectMatchV1, ...]
+    identity_assertion_ids: tuple[str, ...] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode='after')
     def object_closure(self):
         ids = tuple(m.entity_id for m in self.object_matches)
         if len(ids) != len(set(ids)) or set(ids) != set(self.discovered_entity_ids):
             raise ValueError('Native object catalog differs from exact discovered entities')
+        identity_ids = self.identity_assertion_ids
+        if identity_ids is not None and (len(identity_ids) != len(set(identity_ids))
+                or not set(identity_ids) <= {match.assertion_id for match in self.assertion_matches}):
+            raise ValueError('Identity evidence differs from the frozen assertion matches')
         return self
 
 
@@ -117,6 +123,7 @@ class _ObjectRecordUnit:
     label: str
     statement_ids: tuple[str, ...]
     assertion_ids: tuple[str, ...]
+    identity_evidence: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,10 +158,18 @@ def object_record_catalog(query):
                 if entity_id in members:
                     members[entity_id][family].append(identity)
     query_digest = query.sha256
-    return ObjectRecordCatalog(query_digest, tuple(_ObjectRecordUnit(
-        _object_selection_handle(query_digest, match.entity_id), match.label,
-        tuple(members[match.entity_id][0]), tuple(members[match.entity_id][1]))
-        for match in query.object_matches),
+    identity_ids = set(query.identity_assertion_ids or ())
+    units = []
+    for match in query.object_matches:
+        statements, assertions = members[match.entity_id]
+        units.append(_ObjectRecordUnit(
+            _object_selection_handle(query_digest, match.entity_id), match.label,
+            tuple(statements), tuple(identity for identity in assertions if identity not in identity_ids)))
+        identity_witnesses = tuple(identity for identity in assertions if identity in identity_ids)
+        if identity_witnesses:
+            handle = 'native-object:' + digest({'query': query_digest, 'identity_evidence': match.entity_id})
+            units.append(_ObjectRecordUnit(handle, match.label, (), identity_witnesses, identity_evidence=True))
+    return ObjectRecordCatalog(query_digest, tuple(units),
         tuple(match.statement_id for match in query.matches),
         tuple(match.assertion_id for match in query.assertion_matches))
 

@@ -1,0 +1,7 @@
+# Graph assertion admission
+
+Status ACTIVE for the bounded candidate under the user's frozen writer retrieval goal. Root owns the serial slice on codex/graph-assertion-admission at base 2793dba16b02d3ce6892a83f75d73d5bd9fb6b5a. The managed checkout is graph-assertion-admission/DungeonMindBuddy. There is no unmerged parent. PR #2431 is Graph UI and #2225 is a frozen experimental draft. The older object catalog and support changes were delivered in #2324 and #2230.
+
+Writes cover this handoff, native_graph_reads.py, native_plan_assertions.py, plan_jev_driver.py and test_native_plan_assertions.py. The shared catalog remains the read closure for the driver, durable validator and batch completion. Scoped Core query records determine which witnesses are identity evidence. A selected identity unit grants name and classification witnesses. Other object witnesses remain under ordinary object selection. Historical receipts without the new field retain exact serialization and closure. Test missing, forged and stale handles, overlapping witnesses and historical compatibility.
+
+Use the existing isolated benchmark workflow. Allocate dedicated ports and evaluator databases before running ordinary turns. Retain provider request and response evidence in the external graph-assertion-admission evidence directory. Require all 15 contexts and 72 items, ordinary citation and answer regression review, and lower median writer input before adoption.
