@@ -81,28 +81,34 @@ def open_version(root,*,world_id,draft_id,revision_id,client=None):
         if owns:active.close()
 
 
+def iter_saved_mechanics(root, *, world_id):
+    """Yield verified names and exact saved locators without opening mechanics."""
+    for draft_id in saved_mechanics_draft_ids(root, world_id=world_id):
+        draft, locator, proof = _origin_with_proof(root, world_id, draft_id)
+        yield proof.request_body["definition"]["identity"]["name"], draft.draft_id, locator
+
+
 def find_saved_version(root, *, world_id, name, client=None):
     """Open a uniquely named saved definition within the caller's authorized World."""
     if not world_id or not name.strip():
         raise ValueError("World and statblock name are required")
     normalized_name = " ".join(name.casefold().split())
     match = None
-    for draft_id in saved_mechanics_draft_ids(root, world_id=world_id):
-        draft, locator, proof = _origin_with_proof(root, world_id, draft_id)
-        saved_name = proof.request_body["definition"]["identity"]["name"]
+    for saved_name, draft_id, locator in iter_saved_mechanics(root, world_id=world_id):
         if " ".join(saved_name.casefold().split()) != normalized_name:
             continue
         if match is not None:
             return {"status": "ambiguous"}
-        match = (draft.draft_id, locator.revision_id)
+        match = (draft_id, locator)
     if match is None:
         return {"status": "not_found"}
-    draft_id, revision_id = match
-    return {
-        "status": "found",
-        **open_version(root, world_id=world_id, draft_id=draft_id,
-                       revision_id=revision_id, client=client),
-    }
+    draft_id, locator = match
+    opened = open_version(root, world_id=world_id, draft_id=draft_id,
+                          revision_id=locator.revision_id, client=client)
+    if opened["locator"] != locator.model_dump(mode="json"):
+        raise ApplicationStateIntegrityError("Opened mechanics differ from the selected saved locator")
+    return {"status": "found", **opened}
+
 
 
 def _resume(record,client):
