@@ -26,7 +26,7 @@ def read_crop(body: PdfCropRequest) -> dict[str, str]:
         with Image.open(io.BytesIO(raw), formats=["PNG"]) as image:
             if max(image.size) > 1024 or getattr(image, "n_frames", 1) != 1:
                 raise ValueError("Unexpected crop dimensions or frame count")
-            image.verify()
+            image.load()
     except (ValueError, OSError, binascii.Error, Image.DecompressionBombError) as exc:
         raise HTTPException(422, "Provide a valid PNG capture from Build.") from exc
 
