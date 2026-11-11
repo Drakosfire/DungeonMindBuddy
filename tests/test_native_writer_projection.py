@@ -212,6 +212,11 @@ def test_heavy_native_proofs_fit_unchanged_budget_without_losing_facts(published
         for value in [json.loads(message['content'])]
         if set(value) == {'input_status','user_question','native_body_evidence',
             'native_statements','native_assertions'})
+    assert list(actual_frame) == [
+        'input_status', 'native_body_evidence', 'native_assertions',
+        'native_statements', 'user_question',
+    ]
+    assert actual_frame == writer.provider_frame
     stored,grant=authorize(context,record,raw,actual_frame)
     accepted=verify_input_records(context,stored,grant,raw,**work)
     assert len(accepted.native_assertions)==len(writer.frame['native_assertions']['assertions'])

@@ -282,6 +282,19 @@ RELATED_PAGE_RESPONSE = (
     'exact nonblank quotes from that same saved page. Do not ask for a supplied page again.')
 
 
+def _discussion_evidence_text(frame):
+    """Present source excerpts first while keeping each field's encoding canonical."""
+    fields = sorted(frame)
+    assertions = 'native_assertions'
+    excerpts = 'native_body_evidence'
+    fields.remove(excerpts)
+    fields.insert(fields.index(assertions), excerpts)
+    return '{' + ','.join(
+        canonical_bytes(key).decode() + ':' + canonical_bytes(frame[key]).decode()
+        for key in fields
+    ) + '}'
+
+
 class PlanJevWriter:
     def __init__(self, adapter, proof, rules):
         self.adapter, self.proof, self.rules = adapter, proof, rules
@@ -330,7 +343,14 @@ class PlanJevWriter:
             from application_state.agent_conversation.plan_writer_output_schema import output_format
             self.output_format=output_format(self.frame,rule_frame)
             frames=(self.frame,rule_frame)
-        self.messages=[{'role':'user','content':canonical_bytes(frame).decode()} for frame in frames]
+        self.messages = [
+            {'role': 'user', 'content': (
+                _discussion_evidence_text(frame)
+                if self.shared and getattr(rules, 'authoring', None) is None and frame is self.provider_frame
+                else canonical_bytes(frame).decode()
+            )}
+            for frame in frames
+        ]
         if not self.shared:
             self.messages.append({'role':'user','content':'Return JSON.'})
         self.prompt_components = None
