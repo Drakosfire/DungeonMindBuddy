@@ -11,12 +11,12 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.client import 
 from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import source_definition_digest_from_body
 from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import locator_from_exact_revision,same_mechanics_locator
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import StatblockIntegrationError
-from apps.live_control_server.services.threat_draft_store import get_threat_draft, list_threat_drafts
+from apps.live_control_server.services.threat_draft_store import MAX_LIST_LIMIT, get_threat_draft, list_threat_drafts
 from apps.live_control_server.services.statblock_acceptance_reconciliation import list_acceptance_operations_for_draft
 from apps.live_control_server.services.statblock_definition_validation import validate_definition
 
 
-def _origin(root,world_id,draft_id):
+def _origin_with_proof(root,world_id,draft_id):
     draft=get_threat_draft(root,str(draft_id))
     if draft.schema_name!='dmb_threat_draft_v2' or draft.world_id!=world_id or draft.workflow_state!='mechanics_saved' or draft.accepted_mechanics_ref is None:
         raise ApplicationStateConflictError('Select saved mechanics from this World')
@@ -29,7 +29,12 @@ def _origin(root,world_id,draft_id):
         and op.validation_receipt_digest==ref.definition_digest
         and source_definition_digest_from_body(op.request_body['definition'])==ref.definition_digest)]
     if len(matches)!=1:raise ApplicationStateIntegrityError('Original mechanics have no unique acceptance proof')
-    return draft,MechanicsLocator.model_validate(ref.to_mechanics_locator().model_dump()),matches[0].operation_id
+    return draft,MechanicsLocator.model_validate(ref.to_mechanics_locator().model_dump()),matches[0]
+
+
+def _origin(root, world_id, draft_id):
+    draft, locator, proof = _origin_with_proof(root, world_id, draft_id)
+    return draft, locator, proof.operation_id
 
 
 def _selected(root,world_id,draft_id,revision_id):
@@ -80,16 +85,32 @@ def find_saved_version(root, *, world_id, name, client=None):
     """Open a uniquely named saved definition within the caller's authorized World."""
     if not world_id or not name.strip():
         raise ValueError("World and statblock name are required")
-    matches, total = list_threat_drafts(
-        root, world_id=world_id, exact_name=name, saved_mechanics_only=True, limit=1,
-    )
-    if total != 1:
-        return {"status": "ambiguous" if total else "not_found"}
-    draft, origin, _ = _origin(root, world_id, matches[0].draft_id)
+    normalized_name = " ".join(name.casefold().split())
+    match = None
+    offset = 0
+    while True:
+        rows, total = list_threat_drafts(
+            root, world_id=world_id, saved_mechanics_only=True,
+            limit=MAX_LIST_LIMIT, offset=offset,
+        )
+        for row in rows:
+            draft, locator, proof = _origin_with_proof(root, world_id, row.draft_id)
+            saved_name = proof.request_body["definition"]["identity"]["name"]
+            if " ".join(saved_name.casefold().split()) != normalized_name:
+                continue
+            if match is not None:
+                return {"status": "ambiguous"}
+            match = (draft.draft_id, locator.revision_id)
+        offset += len(rows)
+        if not rows or offset >= total:
+            break
+    if match is None:
+        return {"status": "not_found"}
+    draft_id, revision_id = match
     return {
         "status": "found",
-        **open_version(root, world_id=world_id, draft_id=draft.draft_id,
-                       revision_id=origin.revision_id, client=client),
+        **open_version(root, world_id=world_id, draft_id=draft_id,
+                       revision_id=revision_id, client=client),
     }
 
 

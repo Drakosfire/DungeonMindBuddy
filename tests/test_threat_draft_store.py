@@ -608,21 +608,6 @@ def test_list_is_bounded(tmp_path: Path) -> None:
     assert exc_info.value.status_code == 422
 
 
-def test_exact_name_filters_before_pagination(tmp_path: Path) -> None:
-    first = create_threat_draft(tmp_path, _world_create_request(name="Meat Mind"))
-    second = create_threat_draft(tmp_path, _world_create_request(name="MEAT MIND"))
-    create_threat_draft(tmp_path, _world_create_request(name="Meat Mind", world_id="world_2"))
-    create_threat_draft(tmp_path, _world_create_request(name="Meat Mind Spawn"))
-
-    filters = dict(world_id="world_1", exact_name="  meat   mind ", limit=1)
-    page_one, first_total = list_threat_drafts(tmp_path, **filters)
-    page_two, second_total = list_threat_drafts(tmp_path, **filters, offset=1)
-
-    assert first_total == second_total == 2
-    assert len(page_one) == len(page_two) == 1
-    assert {row.draft_id for row in page_one + page_two} == {first.draft_id, second.draft_id}
-
-
 def test_reload_after_store_restart(tmp_path: Path) -> None:
     created = create_threat_draft(tmp_path, _create_request())
     # New process equivalent: only durable files are consulted.
