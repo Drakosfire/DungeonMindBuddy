@@ -72,3 +72,24 @@ it('preserves a competing record when status finds the committed creature',async
  const raw='{broken review';localStorage.setItem(key,raw);let finish!:(value:ReturnType<typeof threatCreated>)=>void;vi.mocked(api.getNativeThreat).mockImplementation(()=>new Promise(resolve=>{finish=resolve}));
  render(<NativeThreatCreationPanel draft={draft}/>);await screen.findByRole('alert');await userEvent.click(screen.getByRole('button',{name:'Check existing creature'}));localStorage.setItem(key,'newer record');await act(async()=>finish(threatCreated()));expect(await screen.findByRole('alert')).toHaveTextContent('Another view');expect(localStorage.getItem(key)).toBe('newer record');expect(api.confirmNativeThreat).not.toHaveBeenCalled();
 });
+
+it('sends both selected regions of the same retained PDF to review', async () => {
+ const locator={source_revision_id:'srev:fixture',content_sha256:'a'.repeat(64),
+   page:1,left:0.1,top:0.2,right:0.8,bottom:0.9};
+ const second={...locator,page:2};
+ const prefix='buddy:retained-pdf-region:elderwyld:';
+ localStorage.setItem(prefix+'first',JSON.stringify({name:'Creature.pdf',locator}));
+ localStorage.setItem(prefix+'second',JSON.stringify({name:'Creature.pdf',locator:second}));
+ localStorage.setItem('buddy:retained-pdf-region:other:first',JSON.stringify({name:'Other.pdf',locator}));
+ const packet=await threatPacket();
+ packet.review.pdf_evidence_ids=['pdf-region:first','pdf-region:second'];
+ vi.mocked(api.prepareNativeThreat).mockResolvedValue(packet);
+ render(<NativeThreatCreationPanel draft={draft}/>);
+ expect(screen.getAllByRole('checkbox')).toHaveLength(2);
+ await userEvent.click(screen.getByRole('checkbox',{name:/Page 1/}));
+ await userEvent.click(screen.getByRole('checkbox',{name:/Page 2/}));
+ await userEvent.click(screen.getByRole('button',{name:'Review creature creation'}));
+ await screen.findByText('PDF regions in review: 2');
+ expect(api.prepareNativeThreat).toHaveBeenCalledWith(draft.draft_id,draft.world_id,3,[locator,second]);
+ expect(api.confirmNativeThreat).not.toHaveBeenCalled();
+});
