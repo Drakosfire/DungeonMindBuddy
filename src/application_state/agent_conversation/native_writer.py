@@ -343,7 +343,8 @@ def read_evidence_records(prefix, frame):
     catalogs = bodies.acquired_body_catalogs(prefix)
     body_reads = bodies.selected_body_reads(prefix)
     statement_reads = statements.selected_read_records(prefix)
-    assertion_reads = assertions.selected_read_records(prefix)
+    assertion_reads = (assertions.selected_read_records(prefix) if frame.get("schema") == LEGACY_SCHEMA
+                       else assertions.writer_read_records(prefix))
     return dict(body_excerpts=tuple(bodies.NativeBodySupport(row['excerpt_handle'], read,
             catalogs[read.excerpt.catalog_sha256]) for row,read in zip(frame['native_body_evidence']['excerpts'],body_reads,strict=True)),
         native_statements=tuple((row['statement_handle'], event, read) for row, (event, read)

@@ -317,11 +317,7 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
     labels = _navigation_labels(_entities,
         scope=((statements.CAMPAIGN_SCOPE_AXIS,campaign_id),) if scope_mode=='campaign' else None)
     objects = [NativeObjectMatchV1(entity_id=identity,label=labels[identity]) for identity in discovered]
-    identity_witnesses = {assertion.assertion_id for entity in _entities.values()
-        for assertion in entity.assertions if assertion.predicate in {'dnd5e:name', 'dnd5e:classification'}}
     query = NativeGraphQueryV4(authority=authority, question=question,
-        identity_assertion_ids=tuple(match.assertion_id for match in assertion_matches
-            if match.assertion_id in identity_witnesses),
         assertion_matches=assertion_matches,
         search_result_sha256=result.result_digest, discovered_entity_ids=discovered,
         matches=tuple(matches), status='partial' if gaps else 'complete', gap_codes=tuple(sorted(set(gaps))),

@@ -237,7 +237,7 @@ def _freeze_native(work_context, action, assembled, authority, native_query, pro
     """One shared root composition; surface work and Core source identity keep their owners."""
     from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, validate_work_context
     from application_state.agent_conversation.native_execution import (
-        SurfaceNativeExecutionPolicyV1, SurfaceNativeExecutionV1, validate_context_binding)
+        NativePlanActionV1, SurfaceNativeExecutionPolicyV1, SurfaceNativeExecutionV1, validate_context_binding)
     from application_state.agent_conversation.rules_authority_types import canonical_sha256
     data = dict(provenance_sha256=canonical_sha256(provenance), work_context=work_context,
         source_authority=authority, native_query=native_query, assembled_input=assembled)
@@ -248,7 +248,8 @@ def _freeze_native(work_context, action, assembled, authority, native_query, pro
         native_query_sha256=canonical_sha256(native_query),provider_roles=budget['providerRoles'],
         provider_input_accounting={'kind':'conservative_upper_bound','estimator':budget['estimator']},
         max_provider_attempts=None,max_total_provider_input_tokens=None,max_total_provider_output_tokens=None,
-        controller_continuation_accounting=controller_accounting,writer_context_budget=writer_budget)
+        controller_continuation_accounting=controller_accounting,writer_context_budget=writer_budget,
+        writer_assertion_admission="redundant_names_v1" if isinstance(action, NativePlanActionV1) else None)
     wire = dict(schema='dmb_surface_native_execution_v1',context_receipt_sha256=receipt.context_receipt_sha256,
         policy=policy.model_dump(mode='json',by_alias=True))
     execution = SurfaceNativeExecutionV1.model_validate_json(json.dumps(wire|{'execution_policy_sha256':canonical_sha256(wire),'events':[]}))

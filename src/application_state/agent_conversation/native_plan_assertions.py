@@ -1,6 +1,8 @@
 """Selected native assertions for Plan; Core owns admission and source provenance."""
 from __future__ import annotations
 
+import re
+from collections import defaultdict
 from dataclasses import dataclass
 from hashlib import sha256
 from typing import Literal
@@ -92,18 +94,12 @@ class NativeGraphQueryV4(NativeGraphQueryV3):
     """Object selection expands to existing, frozen record witness sets."""
     schema_: Literal['dmb_native_graph_query_v4'] = Field(default='dmb_native_graph_query_v4', alias='schema')
     object_matches: tuple[NativeObjectMatchV1, ...]
-    identity_assertion_ids: tuple[str, ...] | None = Field(
-        default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode='after')
     def object_closure(self):
         ids = tuple(m.entity_id for m in self.object_matches)
         if len(ids) != len(set(ids)) or set(ids) != set(self.discovered_entity_ids):
             raise ValueError('Native object catalog differs from exact discovered entities')
-        identity_ids = self.identity_assertion_ids
-        if identity_ids is not None and (len(identity_ids) != len(set(identity_ids))
-                or not set(identity_ids) <= {match.assertion_id for match in self.assertion_matches}):
-            raise ValueError('Identity evidence differs from the frozen assertion matches')
         return self
 
 
@@ -123,7 +119,6 @@ class _ObjectRecordUnit:
     label: str
     statement_ids: tuple[str, ...]
     assertion_ids: tuple[str, ...]
-    identity_evidence: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,18 +153,10 @@ def object_record_catalog(query):
                 if entity_id in members:
                     members[entity_id][family].append(identity)
     query_digest = query.sha256
-    identity_ids = set(query.identity_assertion_ids or ())
-    units = []
-    for match in query.object_matches:
-        statements, assertions = members[match.entity_id]
-        units.append(_ObjectRecordUnit(
-            _object_selection_handle(query_digest, match.entity_id), match.label,
-            tuple(statements), tuple(identity for identity in assertions if identity not in identity_ids)))
-        identity_witnesses = tuple(identity for identity in assertions if identity in identity_ids)
-        if identity_witnesses:
-            handle = 'native-object:' + digest({'query': query_digest, 'identity_evidence': match.entity_id})
-            units.append(_ObjectRecordUnit(handle, match.label, (), identity_witnesses, identity_evidence=True))
-    return ObjectRecordCatalog(query_digest, tuple(units),
+    return ObjectRecordCatalog(query_digest, tuple(_ObjectRecordUnit(
+        _object_selection_handle(query_digest, match.entity_id), match.label,
+        tuple(members[match.entity_id][0]), tuple(members[match.entity_id][1]))
+        for match in query.object_matches),
         tuple(match.statement_id for match in query.matches),
         tuple(match.assertion_id for match in query.assertion_matches))
 
@@ -303,6 +290,41 @@ def selected_read_records(execution):
             else event.assertion_reads if isinstance(event, BuildAuthoredReferenceReadV2) else ()))
 
 
+def writer_read_records(execution):
+    """Admit names only when they add meaning or source evidence."""
+    records = selected_read_records(execution)
+    if getattr(getattr(execution, 'policy', None), 'writer_assertion_admission', None) is None:
+        return records
+
+    def qualifications(read):
+        from .native_evidence_view import _domain_meaning
+        metadata = read.assertion.metadata.model_dump(mode='json')
+        return digest({
+            **{key: metadata[key] for key in (
+                'scope', 'epistemic_basis', 'claim_mode', 'standing', 'temporal_scope')},
+            'domain_metadata': _domain_meaning(metadata['domain_metadata']),
+        })
+
+    summaries = defaultdict(list)
+    for _, read in records:
+        assertion = read.assertion
+        if assertion.predicate == 'dnd5e:summary' and isinstance(getattr(assertion.value, 'value', None), str):
+            summaries[assertion.subject_entity_id, qualifications(read)].append(read)
+
+    def redundant_name(read):
+        assertion = read.assertion
+        name = getattr(assertion.value, 'value', None)
+        if assertion.predicate != 'dnd5e:name' or not isinstance(name, str) or not name.strip():
+            return False
+        pattern = re.compile(r'(?<!\w)' + re.escape(name) + r'(?!\w)', re.IGNORECASE)
+        return any(pattern.search(summary.assertion.value.value)
+            and all(ref in summary.evidence for ref in read.evidence)
+            and all(span in summary.spans for span in read.spans)
+            for summary in summaries[assertion.subject_entity_id, qualifications(read)])
+
+    return tuple((event, read) for event, read in records if not redundant_name(read))
+
+
 def model_frame(turn):
     return model_frame_records(turn.graph_context_receipt.native_query, turn.graph_context_execution)
 
@@ -321,7 +343,8 @@ def model_frame_records(query, execution, *, schema='dmb_plan_native_assertion_f
             **({'evidence': [e.model_dump(mode='json') for e in read.evidence],
                 'supporting_sources': [s.model_dump(exclude={'text'}) for s in read.spans]}
                 if schema == 'dmb_plan_native_assertion_frame_v1' else {})}
-            for event, read in selected_read_records(execution)]}
+            for event, read in (selected_read_records(execution)
+                if schema == 'dmb_plan_native_assertion_frame_v1' else writer_read_records(execution))]}
 
 
 def input_partial(turn):

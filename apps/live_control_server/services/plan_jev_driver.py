@@ -384,8 +384,7 @@ class PlanJevDriver:
             status = 'opened' if keys <= set(opened) else 'partial' if keys & set(opened) else 'unavailable'
             result.append(RetrievalCandidate(handle=unit.handle, label=unit.label,
                 kind=(f'Previously selected native object: {status}; not an answer-sufficiency verdict' if examined else
-                    'Native Graph identity evidence; open reviewed name and classification support'
-                    if unit.identity_evidence else 'Native Graph object; open its admitted statement and other assertion support')))
+                    'Native Graph object; open its complete admitted statement and assertion support')))
         return tuple(result)
 
     def _native_object_examined(self):
