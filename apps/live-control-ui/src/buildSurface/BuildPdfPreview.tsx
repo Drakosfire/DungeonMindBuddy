@@ -18,7 +18,7 @@ function pagePoint(event: PointerEvent<HTMLCanvasElement>): PagePoint {
   };
 }
 
-function CropOcr({ worldId, region, hasPdfText }: { worldId: string; region: PdfLocator; hasPdfText: boolean }) {
+export function CropOcr({ worldId, region, hasPdfText }: { worldId: string; region: PdfLocator; hasPdfText: boolean }) {
   const [instruction, setInstruction] = useState("");
   const [review, setReview] = useState(false);
   const [pending, setPending] = useState(false);
@@ -39,6 +39,9 @@ function CropOcr({ worldId, region, hasPdfText }: { worldId: string; region: Pdf
       const result = await response.json();
       if (!response.ok || typeof result.text !== "string") {
         throw new Error(typeof result.detail === "string" ? result.detail : "Could not read the capture.");
+      }
+      if (withBuddy && !Object.entries(region).every(([key, value]) => result.region?.[key] === value)) {
+        throw new Error("Buddy’s reply did not match the selected PDF region.");
       }
       setText(result.text);
     } catch (failure) {
