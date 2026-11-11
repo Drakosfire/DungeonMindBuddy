@@ -1,17 +1,37 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
-type HostedAuthStatus = "checking" | "authenticated" | "signed_out" | "unavailable" | "local_operator";
+export type HostedAuthStatus = "checking" | "authenticated" | "signed_out" | "unavailable" | "local_operator";
+
+interface HostedAuthContextValue {
+  readonly status: HostedAuthStatus;
+  readonly refreshWarning: boolean;
+}
+
+const HostedAuthContext = createContext<HostedAuthContextValue>({ status: "local_operator", refreshWarning: false });
 
 type HostedAuthGateProps = {
   children: ReactNode;
   enabled: boolean;
+  /** Permit only the canonical index to render its distinct signed-out playground. */
+  allowSignedOutChildren?: boolean;
 };
 
 const SESSION_PATH = "/api/auth/session";
 const LOGIN_PATH = "/api/auth/login";
 const SESSION_REFRESH_MS = 60_000;
 
-export function HostedAuthGate({ children, enabled }: HostedAuthGateProps) {
+export function useHostedAuthStatus(): HostedAuthContextValue {
+  return useContext(HostedAuthContext);
+}
+
+export function dungeonMindLoginHref(locationHref: string): string {
+  const currentLocation = new URL(locationHref, typeof window === "undefined" ? "http://localhost" : window.location.href);
+  currentLocation.searchParams.delete("auth_error");
+  const returnTo = `${currentLocation.pathname}${currentLocation.search}${currentLocation.hash}`;
+  return `${LOGIN_PATH}?return_to=${encodeURIComponent(returnTo)}`;
+}
+
+export function HostedAuthGate({ children, enabled, allowSignedOutChildren = false }: HostedAuthGateProps) {
   const [status, setStatus] = useState<HostedAuthStatus>(enabled ? "checking" : "local_operator");
   const [refreshWarning, setRefreshWarning] = useState(false);
   const confirmedAuthenticated = useRef(false);
@@ -75,16 +95,17 @@ export function HostedAuthGate({ children, enabled }: HostedAuthGateProps) {
     };
   }, [enabled, refreshSession]);
 
-  if (!enabled || status === "authenticated" || status === "local_operator") {
+  if (!enabled || status === "authenticated" || status === "local_operator"
+    || status === "signed_out" && allowSignedOutChildren) {
     return (
-      <>
+      <HostedAuthContext.Provider value={{ status, refreshWarning }}>
         {refreshWarning ? (
           <div role="status" className="hosted-auth-refresh-warning">
             DungeonMind could not refresh your session status. Protected requests may ask you to sign in again.
           </div>
         ) : null}
         {children}
-      </>
+      </HostedAuthContext.Provider>
     );
   }
 
@@ -109,9 +130,7 @@ export function HostedAuthGate({ children, enabled }: HostedAuthGateProps) {
     : authError
       ? "Sign-in did not complete. Please try again."
       : "Sign in with your DungeonMind account to continue.";
-  currentLocation.searchParams.delete("auth_error");
-  const returnTo = `${currentLocation.pathname}${currentLocation.search}${currentLocation.hash}`;
-  const loginHref = `${LOGIN_PATH}?return_to=${encodeURIComponent(returnTo)}`;
+  const loginHref = dungeonMindLoginHref(currentLocation.href);
 
   return (
     <main className="hosted-auth-state" aria-labelledby="hosted-auth-title">

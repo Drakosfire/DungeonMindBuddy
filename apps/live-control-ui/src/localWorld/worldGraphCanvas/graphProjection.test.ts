@@ -42,6 +42,9 @@ describe("projectLocalWorldGraph", () => {
     expect(graph.edges[0].fromObjectId).toBe(graph.nodes[0].id);
     expect(graph.edges[0].toObjectId).toBe(graph.nodes[1].id);
     expect(graph.nodes.some((node) => node.kind === "world")).toBe(false);
+    expect(new Set(graph.nodes.map((node) => node.y)).size).toBe(2);
+    expect(graph.nodes[1].x - graph.nodes[0].x).toBeGreaterThan(168 + 200);
+    expect(graph.nodes[2].y - graph.nodes[0].y).toBeGreaterThan(76 + 160);
   });
 
   it("preserves parallel relationship IDs and cycles without tree assumptions", async () => {
@@ -113,5 +116,32 @@ describe("projectLocalWorldGraph", () => {
     expect(edgeCapped.edges).toHaveLength(2);
     expect(edgeCapped.omittedEdges).toBe(2);
     expect(projectLocalWorldGraph(record, { maxNodes: 0, maxEdges: 0 }).nodes).toEqual([]);
+  });
+
+  it("keeps the legacy default and supports the explicit bounded explorer budget", async () => {
+    const record = await graphRecord();
+    const objects = Array.from({ length: 513 }, (_, index) => ({
+      ...record.snapshot.objects[0], id: `${record.snapshot.worldId}:object:explorer-${index}` as typeof record.snapshot.objects[number]["id"],
+    }));
+    const relationships = Array.from({ length: 1025 }, (_, index) => ({
+      ...record.snapshot.relationships[0],
+      id: `${record.snapshot.worldId}:relationship:explorer-${index}` as typeof record.snapshot.relationships[number]["id"],
+      fromObjectId: objects[0].id,
+      toObjectId: objects[1].id,
+    }));
+    const largeRecord = { ...record, snapshot: { ...record.snapshot, objects, relationships } };
+
+    const legacy = projectLocalWorldGraph(largeRecord);
+    expect(legacy.nodes).toHaveLength(48);
+    expect(legacy.edges).toHaveLength(96);
+    expect(legacy.omittedNodes).toBe(465);
+    expect(legacy.omittedEdges).toBe(929);
+
+    const explorer = projectLocalWorldGraph(largeRecord, { maxNodes: 512, maxEdges: 1024 });
+    expect(explorer.nodes).toHaveLength(512);
+    expect(explorer.edges).toHaveLength(1024);
+    expect(explorer.omittedNodes).toBe(1);
+    expect(explorer.omittedEdges).toBe(1);
+    expect(explorer.unexaminedRelationships).toBe(1);
   });
 });

@@ -5,6 +5,7 @@ import type {
 } from "../localWorldRepository";
 
 export const DEFAULT_GRAPH_LIMITS = Object.freeze({ nodes: 48, edges: 96 });
+export const MAX_GRAPH_LIMITS = Object.freeze({ nodes: 512, edges: 1024 });
 const MAX_GRAPH_COORDINATE = 6000;
 const MAX_ENDPOINT_DIAGNOSTICS = 12;
 
@@ -47,17 +48,17 @@ function boundedLimit(value: number | undefined, ceiling: number): number {
   return Math.max(0, Math.min(ceiling, Math.floor(value)));
 }
 
-function initialPosition(index: number): { x: number; y: number } {
-  const columns = 4;
-  return { x: 96 + (index % columns) * 204, y: 74 + Math.floor(index / columns) * 132 };
+function initialPosition(index: number, total: number): { x: number; y: number } {
+  const columns = total <= 4 ? 2 : Math.ceil(Math.sqrt(total));
+  return { x: 80 + (index % columns) * 520, y: 80 + Math.floor(index / columns) * 300 };
 }
 
 export function projectLocalWorldGraph(
   record: Pick<LocalWorldRecord, "snapshot" | "layout">,
   options: GraphProjectionOptions = {},
 ): GraphProjection {
-  const maxNodes = boundedLimit(options.maxNodes, DEFAULT_GRAPH_LIMITS.nodes);
-  const maxEdges = boundedLimit(options.maxEdges, DEFAULT_GRAPH_LIMITS.edges);
+  const maxNodes = options.maxNodes === undefined ? DEFAULT_GRAPH_LIMITS.nodes : boundedLimit(options.maxNodes, MAX_GRAPH_LIMITS.nodes);
+  const maxEdges = options.maxEdges === undefined ? DEFAULT_GRAPH_LIMITS.edges : boundedLimit(options.maxEdges, MAX_GRAPH_LIMITS.edges);
   const objects = record.snapshot.objects;
   const relationships = record.snapshot.relationships;
   const visibleObjects = objects.slice(0, maxNodes);
@@ -65,7 +66,7 @@ export function projectLocalWorldGraph(
   const diagnostics: string[] = [];
   const nodes = visibleObjects.map((object, index) => {
     const saved = record.layout.positions[object.id];
-    const fallback = initialPosition(index);
+    const fallback = initialPosition(index, visibleObjects.length);
     const x = saved && Number.isFinite(saved.x) ? Math.max(0, Math.min(MAX_GRAPH_COORDINATE, saved.x)) : fallback.x;
     const y = saved && Number.isFinite(saved.y) ? Math.max(0, Math.min(MAX_GRAPH_COORDINATE, saved.y)) : fallback.y;
     return { id: object.id, name: object.name, kind: object.kind, x, y, object };

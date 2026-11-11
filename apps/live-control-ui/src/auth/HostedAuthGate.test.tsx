@@ -35,6 +35,25 @@ describe("HostedAuthGate", () => {
     expect(screen.queryByText("Protected Buddy screen")).not.toBeInTheDocument();
   });
 
+  it("permits signed-out children only when the caller marks the index playground exception", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(401, { status: "signed_out" })));
+
+    render(<HostedAuthGate enabled allowSignedOutChildren><div>Separate playground</div></HostedAuthGate>);
+
+    expect(await screen.findByText("Separate playground")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Sign in with DungeonMind" })).not.toBeInTheDocument();
+  });
+
+  it("keeps unknown session status blocked even when signed-out children are permitted", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(503, { status: "unavailable" })));
+
+    render(<HostedAuthGate enabled allowSignedOutChildren><div>Separate playground</div></HostedAuthGate>);
+
+    expect(await screen.findByText("Sign-in status is unavailable")).toBeInTheDocument();
+    expect(screen.queryByText("Separate playground")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Sign in with DungeonMind" })).not.toBeInTheDocument();
+  });
+
   it("distinguishes a cancelled sign-in from a service outage", async () => {
     window.history.replaceState({}, "", "/play?auth_error=cancelled");
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(401, { status: "signed_out" })));

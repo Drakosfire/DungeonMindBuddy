@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { StrictMode } from "react";
 import { AgentInteractionProvider } from "../../agentInteraction/AgentInteractionProvider";
 import { InMemoryLocalWorldRepository, InMemoryLocalWorldStore } from "../inMemoryLocalWorldRepository";
 import { createPackageTestRecord, packageFixtureAttachmentBytes } from "../localWorldPackageFixtures";
@@ -25,23 +26,16 @@ afterEach(() => {
 });
 
 describe("local World Surface", () => {
-  it("does not create a World on entry and supports explicit create, rename, save and resume", async () => {
+  it("opens an example without a name gate and supports rename, save and resume", async () => {
     const user = userEvent.setup();
     const repository = new InMemoryLocalWorldRepository();
     const { unmount } = renderSurface(repository);
 
-    expect(await screen.findByText("No local Worlds yet. Create one when you’re ready.")).toBeTruthy();
-    const emptyList = await repository.listWorlds();
-    expect(emptyList.status).toBe("found");
-    if (emptyList.status === "found") expect(emptyList.records).toHaveLength(0);
-    await user.click(screen.getByText("Save menu"));
-    expect(screen.getByRole("button", { name: "Save in this browser" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Download World package" })).toBeDisabled();
-
-    await user.type(screen.getByLabelText("Create a World"), "The Lantern Coast");
-    await user.click(screen.getByRole("button", { name: "Create World" }));
-    expect(await screen.findByRole("heading", { name: "The Lantern Coast" })).toBeTruthy();
-    expect(screen.getByText("Saved in this browser")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Mara Venn, person" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "My World" })).toBeVisible();
+    expect(screen.getByLabelText("Buddy Surface").querySelector(".local-world-surface__grid--with-assistant")).toBeNull();
+    const initial = await repository.listWorlds();
+    expect(initial.status === "found" && initial.records).toHaveLength(1);
 
     await user.click(screen.getByRole("button", { name: "Edit World title" }));
     const title = screen.getByLabelText("World title");
@@ -59,6 +53,57 @@ describe("local World Surface", () => {
     renderSurface(repository);
     await user.click(await screen.findByRole("button", { name: /The Ember Coast/ }));
     expect(await screen.findByRole("heading", { name: "The Ember Coast" })).toBeTruthy();
+  });
+
+  it("keeps one complete example through StrictMode, interrupted mounting and fresh repository facades", async () => {
+    const store = new InMemoryLocalWorldStore();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const first = new InMemoryLocalWorldRepository({ store, beforeCommit: async (point) => { if (point === "initial-world") await gate; } });
+    const firstView = renderSurface(first);
+    await waitFor(() => expect(beforeUnloadIsPrevented()).toBe(true));
+    firstView.unmount();
+    const second = new InMemoryLocalWorldRepository({ store });
+    const openRepository = async () => ({ status: "opened" as const, repository: second });
+    const secondView = render(<StrictMode><AgentInteractionProvider><LocalWorldSurface openRepository={openRepository} /></AgentInteractionProvider></StrictMode>);
+    expect(await screen.findByRole("button", { name: "Mara Venn, person" })).toBeVisible();
+    await act(async () => { release(); await gate; });
+    await waitFor(() => expect(beforeUnloadIsPrevented()).toBe(false));
+    const initial = await second.listWorlds();
+    expect(initial.status === "found" && initial.records).toHaveLength(1);
+    secondView.unmount();
+    renderSurface(new InMemoryLocalWorldRepository({ store }));
+    expect(await screen.findByRole("button", { name: "Mara Venn, person" })).toBeVisible();
+    expect(await second.listWorlds()).toEqual(initial);
+  });
+
+  it("shows bootstrap storage failure and retries without leaving an empty World", async () => {
+    let fail = true;
+    const repository = new InMemoryLocalWorldRepository({ beforeCommit: (point) => {
+      if (point === "initial-world" && fail) throw new Error("Initial World storage failed.");
+    } });
+    const user = userEvent.setup();
+    renderSurface(repository);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Initial World storage failed.");
+    expect(await repository.listWorlds()).toEqual({ status: "found", records: [] });
+    expect(screen.queryByRole("button", { name: "Create World" })).toBeNull();
+    fail = false;
+    await user.click(screen.getByRole("button", { name: "Retry storage" }));
+    expect(await screen.findByRole("button", { name: "Mara Venn, person" })).toBeVisible();
+    const retried = await repository.listWorlds();
+    expect(retried.status === "found" && retried.records).toHaveLength(1);
+  });
+
+  it("opens an existing empty World without seeding or changing it", async () => {
+    const repository = new InMemoryLocalWorldRepository();
+    const created = await repository.createWorld({ title: "My own blank World" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+    renderSurface(repository);
+    expect(await screen.findByRole("heading", { name: "My own blank World" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Mara Venn, person" })).toBeNull();
+    expect(await repository.readWorld(created.record.snapshot.worldId)).toEqual({ status: "found", record: created.record });
+    expect(await repository.listWorlds()).toEqual({ status: "found", records: [created.record] });
   });
 
   it("starts an editable connected graph and preserves semantic and layout work through reopen and package round trip", async () => {
@@ -619,7 +664,7 @@ describe("local World Surface", () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
     renderSurface(repository);
-    await user.click(await screen.findByRole("button", { name: /World A/ }));
+    await user.click(await within(await screen.findByRole("list", { name: "Resume a local World" })).findByRole("button", { name: /World A/ }));
     await user.click(screen.getByRole("button", { name: "World A Person, person" }));
     await user.click(screen.getByRole("button", { name: "Rename World A Person" }));
     await user.clear(screen.getByLabelText("New name"));
@@ -639,7 +684,7 @@ describe("local World Surface", () => {
     await user.click(await screen.findByRole("button", { name: /World D/ }));
     expect(confirm).toHaveBeenCalledWith(expect.stringContaining("World A"));
     expect(beforeUnloadIsPrevented()).toBe(false);
-    await user.click(await screen.findByRole("button", { name: /World A/ }));
+    await user.click(await within(await screen.findByRole("list", { name: "Resume a local World" })).findByRole("button", { name: /World A/ }));
     expect(await screen.findByRole("button", { name: "World A Person, person" })).toBeVisible();
     expect(screen.queryByLabelText("New name")).not.toBeInTheDocument();
     expect(beforeUnloadIsPrevented()).toBe(false);
@@ -991,7 +1036,7 @@ describe("local World Surface", () => {
     release();
     expect(await screen.findByRole("heading", { name: "One World" })).toBeTruthy();
     const worlds = await repository.listWorlds();
-    expect(worlds.status === "found" && worlds.records).toHaveLength(1);
+    expect(worlds.status === "found" && worlds.records).toHaveLength(2);
   });
 
 
@@ -1006,8 +1051,8 @@ describe("local World Surface", () => {
     const listed = await repository.listWorlds();
     expect(listed.status).toBe("found");
     if (listed.status !== "found") return;
-    expect(listed.records).toHaveLength(2);
-    expect(new Set(listed.records.map((item) => item.snapshot.worldId)).size).toBe(2);
+    expect(listed.records).toHaveLength(3);
+    expect(new Set(listed.records.map((item) => item.snapshot.worldId)).size).toBe(3);
     expect(screen.getAllByRole("button", { name: /Twin Lanterns/ })).toHaveLength(2);
   });
 

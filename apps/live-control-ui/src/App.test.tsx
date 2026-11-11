@@ -17,6 +17,17 @@ import { NORTH_GATE_RUNBOOK_TARGET_RELPATH } from "./tiptap/descriptors/tiptapRu
 import { makeCapabilityResponse, makeRollTableArtifact, mockCatalog, mockLayout, mockPlanView, mockState } from "./test/fixtures";
 
 const playShellHarness = vi.hoisted(() => ({ active: false }));
+const indexGraphApiHarness = vi.hoisted(() => ({
+  api: {
+    readGraph: vi.fn(),
+    prepare: vi.fn(),
+    confirm: vi.fn(),
+    readOperation: vi.fn(),
+  },
+}));
+vi.mock("./nativeGraphDemo/buddyIndexGraphApi", () => ({
+  createBuddyIndexGraphApi: () => indexGraphApiHarness.api,
+}));
 vi.mock("./localWorld/indexedDbLocalWorldRepository", async importOriginal => {
   const actual = await importOriginal<typeof import("./localWorld/indexedDbLocalWorldRepository")>();
   const { InMemoryLocalWorldRepository } = await import("./localWorld/inMemoryLocalWorldRepository");
@@ -62,6 +73,20 @@ const stableTiptapEditorToolsGeneration: AppChromeToolsGeneration = {
   tools: stableTiptapEditorTools,
 };
 
+const indexGraph = {
+  world_id: "private-app-test-space",
+  revision_id: "revision-app-test-1",
+  graph_sha256: "sha256:app-test-graph",
+  nodes: [
+    { id: "entity:lina", name: "Lina", kind: "person" },
+    { id: "entity:pike", name: "Pike", kind: "person" },
+  ],
+  edges: [{ id: "assertion:knows", source_id: "entity:lina", target_id: "entity:pike", predicate: "knows" }],
+  storage: "postgres",
+  limitations: ["Event typing is not available in this native profile."],
+  capabilities: { create: true, connect: true, rename: false, delete: false, object_kinds: ["person", "location"] },
+};
+
 vi.mock("./tiptap/TiptapCalloutBridgeSpike", () => ({
   TiptapCalloutBridgeSpike({
     onEditorToolsChange,
@@ -100,6 +125,7 @@ vi.mock("./api/liveApi", async (importOriginal) => {
     commitTiptapMarkdownWrite: vi.fn(),
     listWorkspaceDocuments: vi.fn(),
     getWorkspaceDocument: vi.fn(),
+    getWorkspaceDocumentAny: vi.fn(),
     getWorkspaceDocumentSnapshot: vi.fn(),
     getPlayActiveRun: vi.fn(),
     putPlayActiveRun: vi.fn(),
@@ -180,6 +206,12 @@ describe("App inspector integration", () => {
     playShellHarness.active = false;
     window.history.pushState({}, "", "/");
     localStorage.clear();
+    indexGraphApiHarness.api.readGraph.mockResolvedValue(indexGraph);
+    indexGraphApiHarness.api.prepare.mockResolvedValue({
+      status: "prepared", operation_id: "app-test-op", parent_revision_id: indexGraph.revision_id, review: { summary: "Create an object." },
+    });
+    indexGraphApiHarness.api.confirm.mockResolvedValue({ status: "committed", graph: indexGraph });
+    indexGraphApiHarness.api.readOperation.mockResolvedValue({ status: "not_found", operation_id: "app-test-op" });
     vi.mocked(liveApi.getSurface).mockResolvedValue({
       catalog: mockCatalog,
       layout: mockLayout,
@@ -221,6 +253,10 @@ describe("App inspector integration", () => {
       if (documentId === FIXTURE_DOC_ID) {
         return northGateRunbookRecord();
       }
+      return fixtureWorkspaceDocumentRecord({ document_id: documentId });
+    });
+    vi.mocked(liveApi.getWorkspaceDocumentAny).mockImplementation(async (documentId) => {
+      if (documentId === FIXTURE_DOC_ID) return northGateRunbookRecord();
       return fixtureWorkspaceDocumentRecord({ document_id: documentId });
     });
     vi.mocked(liveApi.createWorkspaceDocument).mockImplementation(async (payload) => {
@@ -296,15 +332,23 @@ describe("App inspector integration", () => {
     );
   });
 
-  it("renders the blank Surface and Index Agent chrome at the root route", async () => {
+  it("renders the Buddy graph at the root route with older browser Worlds kept secondary", async () => {
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: /buddy surface/i })).toBeInTheDocument();
-    expect(await screen.findByText("No local Worlds yet. Create one when you’re ready.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /buddy graph playground/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Lina, person" })).toBeInTheDocument();
+    expect(screen.getByText("Buddy playground · private graph")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add object" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Connect" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export snapshot" })).toBeInTheDocument();
+    expect(screen.getByText("Existing browser-only Worlds and notes")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "My World" })).not.toBeInTheDocument();
+
+    await userEvent.setup().click(screen.getByText("Existing browser-only Worlds and notes"));
+    expect(await screen.findByRole("heading", { name: "My World" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Mara Venn, person" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create World" })).toBeDisabled();
-    expect(screen.getByText("Ready to create a local World")).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "Open" })).toBeInTheDocument();
-    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-surface-id", "index");
+    expect(screen.getByRole("button", { name: "Edit World title" })).toBeInTheDocument();
     const navigation = screen.getByRole("navigation", { name: "Command board navigation" });
     fireEvent.click(within(navigation).getByRole("button", { name: "Open navigation" }));
     expect(within(navigation).getByRole("link", { name: "Plan" })).toHaveAttribute("href", "/plan");
@@ -313,13 +357,13 @@ describe("App inspector integration", () => {
     expect(screen.queryByRole("link", { name: /live play/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /retrieval/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /tiptap|developer spike/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("surface-context-module")).getByRole("button", { name: "Add object" })).toBeInTheDocument();
     await userEvent.setup().type(screen.getByLabelText("Create a World"), "Chrome-owned World");
     await userEvent.setup().click(screen.getByRole("button", { name: "Create World" }));
     expect(await screen.findByRole("heading", { name: "Chrome-owned World" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("surface-context-module")).getByRole("button", { name: "Add object" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Projection" })).not.toBeInTheDocument();
     expect(liveApi.getSurface).not.toHaveBeenCalled();
   });

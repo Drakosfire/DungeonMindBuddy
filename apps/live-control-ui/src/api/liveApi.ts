@@ -329,6 +329,12 @@ function isRecapSelectionContextPath(pathname: string): boolean {
 
 function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | undefined): boolean {
   const pathname = path.split("?", 1)[0];
+  if ([
+    "/api/live/native-graph-explorer/graph",
+    "/api/live/native-graph-explorer/prepare",
+    "/api/live/native-graph-explorer/confirm",
+    "/api/live/native-graph-explorer/operations/read",
+  ].includes(pathname)) return true;
   if (pathname === "/api/live/graph-authoring/document-relationship/request") return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/work-plans\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/continue)?$/i.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/active\/messages$/.test(pathname)) return true;
@@ -584,6 +590,13 @@ function canRetryLocalSessionRequest(path: string, init?: RequestInit): boolean 
   if (method !== "POST" || typeof init?.body !== "string") return false;
   const pathname = path.split("?", 1)[0];
   const body = requestBodyRecord(init.body);
+  if (pathname === "/api/live/native-graph-explorer/graph") {
+    return typeof body?.managed_world_id === "string" && Boolean(body.managed_world_id.trim());
+  }
+  if (pathname === "/api/live/native-graph-explorer/operations/read") {
+    return typeof body?.managed_world_id === "string" && Boolean(body.managed_world_id.trim())
+      && typeof body.operation_id === "string" && Boolean(body.operation_id.trim());
+  }
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/new$/.test(pathname)) {
     return typeof body?.command_id === "string" && Boolean(body.command_id)
       && Number.isSafeInteger(body.expected_pointer_revision)
@@ -707,8 +720,16 @@ function isShareableRead(path: string, init?: RequestInit): boolean {
     || /^\/api\/live\/graph-preview\/extraction-runs\/[^/]+\/candidate-projection$/.test(pathname)
     || /^\/api\/live\/media\/images\/[^/]+\/metadata$/.test(pathname)
     || /^\/api\/live\/rules\/(?:catalog|query|passages\/[a-f0-9]{64})$/.test(pathname);
-  return method === "POST" && typeof init?.body === "string"
-    && (isRecapSelectionContextPath(pathname) || [
+  if (method !== "POST" || typeof init?.body !== "string") return false;
+  const payload = requestBodyRecord(init.body);
+  if (pathname === "/api/live/native-graph-explorer/graph") {
+    return typeof payload?.managed_world_id === "string" && Boolean(payload.managed_world_id.trim());
+  }
+  if (pathname === "/api/live/native-graph-explorer/operations/read") {
+    return typeof payload?.managed_world_id === "string" && Boolean(payload.managed_world_id.trim())
+      && typeof payload.operation_id === "string" && Boolean(payload.operation_id.trim());
+  }
+  return isRecapSelectionContextPath(pathname) || [
       "/api/live/world-graph/projection",
       "/api/live/world-graph/managed-projection",
       "/api/live/world-graph/recap-projection",
@@ -716,7 +737,7 @@ function isShareableRead(path: string, init?: RequestInit): boolean {
       "/api/live/world-graph/retrieval/source-anchor/read",
       "/api/live/world-graph/retrieval/recap-context/v2/read",
       "/api/live/graph-preview/existing-object-resolver/candidates",
-    ].includes(pathname));
+    ].includes(pathname);
 }
 
 /** These allowlisted endpoints return JSON; keep admission valid through body consumption. */

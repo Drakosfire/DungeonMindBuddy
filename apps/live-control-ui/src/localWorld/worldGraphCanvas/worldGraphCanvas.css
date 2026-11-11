@@ -22,7 +22,8 @@
   margin-bottom: 10px;
 }
 
-.world-graph-canvas button {
+.world-graph-canvas button,
+.world-graph-canvas__palette button {
   color: var(--graph-ink);
   background: #fffdf7;
   border: 1px solid #b9aa87;
@@ -33,9 +34,12 @@
   cursor: pointer;
 }
 
-.world-graph-canvas button:hover:not(:disabled) { border-color: var(--graph-gold); background: #f7edda; }
-.world-graph-canvas button:disabled { opacity: .55; cursor: wait; }
-.world-graph-canvas :focus-visible { outline: 3px solid #755619; outline-offset: 3px; }
+.world-graph-canvas button:hover:not(:disabled),
+.world-graph-canvas__palette button:hover:not(:disabled) { border-color: var(--graph-gold); background: #f7edda; }
+.world-graph-canvas button:disabled,
+.world-graph-canvas__palette button:disabled { opacity: .55; cursor: wait; }
+.world-graph-canvas :focus-visible,
+.world-graph-canvas__palette :focus-visible { outline: 3px solid #755619; outline-offset: 3px; }
 
 .world-graph-canvas__form label {
   display: grid;
@@ -56,11 +60,16 @@
   font: inherit;
 }
 
-.world-graph-canvas__viewport { max-height: min(64vh, 600px); overflow: auto; border: 1px solid #d8ceb8; border-radius: 10px; background: #f8f4eb; }
-.world-graph-canvas__svg { display: block; min-width: 600px; min-height: 360px; touch-action: pan-x pan-y; }
+.world-graph-canvas__viewport { position: relative; height: clamp(360px, 62vh, 720px); overflow: hidden; border: 1px solid #d8ceb8; border-radius: 10px; background: #f8f4eb; }
+.world-graph-canvas__svg { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; user-select: none; }
+.world-graph-canvas__svg.is-panning { cursor: grabbing; }
+.world-graph-canvas__view-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.world-graph-canvas__hint { color: var(--graph-muted); font-size: 12px; margin: 8px 0; }
+.world-graph-canvas__edges { pointer-events: none; }
+.world-graph-canvas__edge-label { fill: #fffdf7; stroke: #c8b995; stroke-width: 1; }
 .world-graph-canvas__edges path { fill: none; stroke: var(--graph-line); stroke-width: 2.2; }
-.world-graph-canvas__edges marker path { fill: var(--graph-gold); }
-.world-graph-canvas__edge text { fill: #4d4536; stroke: #f8f4eb; stroke-width: 5px; paint-order: stroke; text-anchor: middle; font-size: 12px; }
+.world-graph-canvas marker path { fill: var(--graph-gold); }
+.world-graph-canvas__edge text { fill: #4d4536; stroke: #f8f4eb; stroke-width: 0; text-anchor: middle; font-size: 12px; }
 .world-graph-canvas__edge title { pointer-events: none; }
 .world-graph-canvas__node { cursor: grab; outline: none; touch-action: none; }
 .world-graph-canvas__node:active { cursor: grabbing; }
@@ -68,6 +77,22 @@
 .world-graph-canvas__node:hover rect { stroke: var(--graph-gold); }
 .world-graph-canvas__node.is-selected rect { stroke: #765619; stroke-width: 3; fill: #fff8e8; }
 .world-graph-canvas__node:focus-visible rect { stroke: #5c4210; stroke-width: 4; }
+.world-graph-canvas__node-circle { fill: var(--graph-card); stroke: #c8b995; stroke-width: 1.8; }
+.world-graph-canvas__node:hover .world-graph-canvas__node-circle { stroke: var(--graph-gold); }
+.world-graph-canvas__node.is-selected .world-graph-canvas__node-circle { stroke: #765619; stroke-width: 3; fill: #fff8e8; }
+.world-graph-canvas__node:focus-visible .world-graph-canvas__node-circle { stroke: #5c4210; stroke-width: 4; }
+.world-graph-canvas__node.is-connect-target .world-graph-canvas__node-circle,
+.world-graph-canvas__node.is-connect-target rect { stroke: #9a742f; stroke-width: 4; fill: #f7edda; }
+.world-graph-canvas__node-port { fill: var(--graph-gold); stroke: #fffdf7; stroke-width: 2; cursor: crosshair; }
+.world-graph-canvas__node-port:hover { fill: #755619; stroke-width: 3; }
+.world-graph-canvas__connect-preview { fill: none; stroke: #9a742f; stroke-width: 3; stroke-dasharray: 8 6; pointer-events: none; }
+.world-graph-canvas__palette { --graph-ink: #29251d; --graph-muted: #665e4e; --graph-gold: #9a742f; position: fixed; z-index: 10000; display: flex; flex-direction: column; gap: 6px; box-sizing: border-box; width: max-content; max-width: min(220px, calc(100vw - 16px)); max-height: calc(100vh - 16px); overflow: hidden; padding: 10px; border: 1px solid #b9aa87; border-radius: 10px; background: #fffdf7; box-shadow: 0 8px 24px #29251d2b; color: var(--graph-ink); font: 500 14px/1.45 system-ui, sans-serif; }
+.world-graph-canvas__palette-header { display: grid; flex: 0 0 auto; gap: 6px; min-width: 0; }
+.world-graph-canvas__palette-title { color: var(--graph-muted); font-size: 12px; font-weight: 700; }
+.world-graph-canvas__palette-choices { display: grid; flex: 1 1 auto; gap: 6px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.world-graph-canvas__palette-actions { flex: 0 0 auto; padding-top: 4px; border-top: 1px solid #e5ddca; }
+.world-graph-canvas__palette button { box-sizing: border-box; min-width: 0; max-width: 100%; min-height: 32px; padding: 4px 10px; text-align: left; white-space: normal; font: inherit; }
+.world-graph-canvas__palette-cancel { width: 100%; border-color: #9a742f !important; font-weight: 700 !important; }
 .world-graph-canvas__node-kind { fill: var(--graph-muted); font-size: 11px; text-transform: capitalize; }
 .world-graph-canvas__node-name { fill: var(--graph-ink); font-size: 15px; font-weight: 700; }
 .world-graph-canvas__feedback { min-height: 24px; padding-top: 8px; color: #484130; }
@@ -80,5 +105,5 @@
 
 @media (max-width: 640px) {
   .world-graph-canvas { padding: 8px; }
-  .world-graph-canvas__svg { min-width: 720px; }
+  .world-graph-canvas__viewport { height: 420px; }
 }

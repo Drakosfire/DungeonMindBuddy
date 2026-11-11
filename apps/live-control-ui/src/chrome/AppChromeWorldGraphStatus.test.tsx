@@ -24,11 +24,16 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
-it.each(["index", "plan", "build", "ingest"] as const)("offers the same published Graph on %s without a readiness claim or prefetch", route => {
+it.each(["index", "plan", "build", "ingest"] as const)("offers the route-appropriate Graph control on %s without prefetch", route => {
   render(<AgentInteractionProvider><AskPluginSlotProvider><SurfaceContextProvider><PeekRegionProvider><AppChrome activeRoute={route}><main>page</main></AppChrome></PeekRegionProvider></SurfaceContextProvider></AskPluginSlotProvider></AgentInteractionProvider>);
-  const launcher = screen.getByRole("button", { name: "Explore Elderwyld World graph" });
+  const launcher = route === "index"
+    ? screen.getByRole("button", { name: "Focus Elderwyld graph canvas" })
+    : screen.getByRole("button", { name: "Explore Elderwyld World graph" });
   expect(launcher).toHaveTextContent("Graph");
   expect(launcher).not.toHaveTextContent(/Ready|0 nodes/);
+  if (route === "index") {
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  }
   expect(getNativeGraphCatalog).not.toHaveBeenCalled();
   expect(postManagedWorldGraphProjection).not.toHaveBeenCalled();
   expect(postWorldGraphProjection).not.toHaveBeenCalled();
@@ -41,6 +46,18 @@ it("opens the existing native inspector directly from chrome", async () => {
   expect(screen.getByRole("dialog", { name: "Elderwyld World graph" })).toBeVisible();
   expect(getNativeGraphCatalog).toHaveBeenCalledWith({ managed_world_id: "elderwyld", scope_mode: "world", campaign_id: null }, expect.any(AbortSignal));
   expect(screen.queryByRole("group", { name: "Graph material" })).not.toBeInTheDocument();
+  expect(postManagedWorldGraphProjection).not.toHaveBeenCalled();
+  expect(postWorldGraphProjection).not.toHaveBeenCalled();
+});
+
+it("targets the canvas on the index without opening a separate graph dialog", () => {
+  render(<><AppChromeWorldGraphStatus activeRoute="index" /><main id="loaded-native-graph-canvas" tabIndex={-1}>Loaded graph</main></>);
+  const target = screen.getByRole("button", { name: "Focus Elderwyld graph canvas" });
+  const canvas = document.getElementById("loaded-native-graph-canvas");
+  fireEvent.click(target);
+  expect(canvas).toHaveFocus();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(getNativeGraphCatalog).not.toHaveBeenCalled();
   expect(postManagedWorldGraphProjection).not.toHaveBeenCalled();
   expect(postWorldGraphProjection).not.toHaveBeenCalled();
 });
@@ -58,6 +75,14 @@ it("reports unavailable native authority without showing classic counts or falli
 it("does not invent a World when none is verified", () => {
   selected.world = { kind: "legacy" };
   render(<AppChromeWorldGraphStatus />);
+  expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  expect(getNativeGraphCatalog).not.toHaveBeenCalled();
+});
+
+it("does not advertise a loaded graph workspace while the selected World is unresolved", () => {
+  selected.world = { kind: "loading", requestedWorldId: "elderwyld" };
+  render(<AppChromeWorldGraphStatus activeRoute="index" />);
   expect(screen.queryByRole("button")).not.toBeInTheDocument();
   expect(getNativeGraphCatalog).not.toHaveBeenCalled();
 });

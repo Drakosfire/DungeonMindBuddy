@@ -191,6 +191,8 @@ export type ReadLocalWorldExportSnapshotResult =
 
 /** Optional package restore capability; ordinary editor consumers remain on LocalWorldRepository. */
 export interface LocalWorldPackageRepository extends LocalWorldRepository {
+  /** Atomically returns existing Worlds untouched, or creates one complete example when empty. */
+  ensureInitialWorld(): Promise<ListLocalWorldsResult>;
   listWorlds(): Promise<ListLocalWorldsResult>;
   restorePackage(record: LocalWorldRecord, data: LocalWorldPackageData): Promise<RestoreLocalWorldPackageResult>;
   readPackageData(worldId: LocalWorldId): Promise<ReadLocalWorldPackageDataResult>;
@@ -312,4 +314,32 @@ export function validateLocalWorldSnapshot(
     }
   }
   return null;
+}
+
+/** Shared initial snapshot construction; adapters own the atomic empty-store check and write. */
+export function createInitialLocalWorldRecord(idFactory: () => string): LocalWorldRecord {
+  const worldId = `local-world:${idFactory()}` as LocalWorldId;
+  const objects = [
+    { name: "Mara Venn", kind: "person" },
+    { name: "Tomas Reed", kind: "person" },
+    { name: "Amber Quay", kind: "location" },
+    { name: "Lantern Festival", kind: "event" },
+  ].map((object) => ({ ...object, id: `${worldId}:object:${idFactory()}` as LocalObjectId, properties: {} }));
+  const relationships = [
+    { from: 0, to: 1, kind: "knows" },
+    { from: 0, to: 3, kind: "attends" },
+    { from: 1, to: 3, kind: "attends" },
+    { from: 3, to: 2, kind: "held at" },
+  ].map(({ from, to, kind }) => ({
+    id: `${worldId}:relationship:${idFactory()}` as LocalRelationshipId,
+    fromObjectId: objects[from].id, toObjectId: objects[to].id, kind, properties: {},
+  }));
+  return {
+    snapshot: { worldId, title: "My World", objects, relationships },
+    localRevision: 0, publishedRevisionId: null,
+    layout: { positions: {}, viewport: { x: 0, y: 0, zoom: 1 }, layoutVersion: 1 },
+    layoutRevision: 0,
+    history: [{ id: `local-edit:${idFactory()}` as LocalEditId, localRevision: 0,
+      classification: "buddy-local-only", description: "Created local World with example graph" }],
+  };
 }

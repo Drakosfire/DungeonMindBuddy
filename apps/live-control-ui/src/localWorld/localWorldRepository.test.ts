@@ -43,6 +43,53 @@ describe("IndexedDB adapter availability", () => {
 });
 
 describe("LocalWorldRepository contract with the in-memory reference adapter", () => {
+  it("atomically bootstraps once across concurrent facades and preserves all existing Worlds", async () => {
+    const store = new InMemoryLocalWorldStore();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const first = new InMemoryLocalWorldRepository({ store, beforeCommit: async (point) => { if (point === "initial-world") await gate; } });
+    const second = new InMemoryLocalWorldRepository({ store });
+    const pending = first.ensureInitialWorld();
+    const winner = await second.ensureInitialWorld();
+    release();
+    expect(await pending).toEqual(winner);
+    expect(winner.status).toBe("found");
+    if (winner.status !== "found") return;
+    expect(winner.records).toHaveLength(1);
+    expect(winner.records[0].snapshot.objects).toHaveLength(4);
+    expect(winner.records[0].snapshot.relationships).toHaveLength(4);
+    expect(winner.records[0].localRevision).toBe(0);
+    expect(winner.records[0].layoutRevision).toBe(0);
+    expect(winner.records[0].publishedRevisionId).toBeNull();
+    expect(await new InMemoryLocalWorldRepository({ store }).ensureInitialWorld()).toEqual(winner);
+    await second.createWorld({ title: "Existing empty World" });
+    const existing = await second.listWorlds();
+    expect(await first.ensureInitialWorld()).toEqual(existing);
+  });
+
+  it("does not partially persist a failed bootstrap and retries safely", async () => {
+    const store = new InMemoryLocalWorldStore();
+    const failing = new InMemoryLocalWorldRepository({ store, beforeCommit: (point) => { if (point === "initial-world") throw new Error("Interrupted bootstrap"); } });
+    expect(await failing.ensureInitialWorld()).toEqual({ status: "error", message: "Interrupted bootstrap" });
+    expect(await failing.listWorlds()).toEqual({ status: "found", records: [] });
+    const retried = await new InMemoryLocalWorldRepository({ store }).ensureInitialWorld();
+    expect(retried.status === "found" && retried.records).toHaveLength(1);
+  });
+
+  it("does not seed an existing World created while bootstrap is waiting", async () => {
+    const store = new InMemoryLocalWorldStore();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const first = new InMemoryLocalWorldRepository({ store, beforeCommit: async (point) => { if (point === "initial-world") await gate; } });
+    const second = new InMemoryLocalWorldRepository({ store });
+    const pending = first.ensureInitialWorld();
+    const created = await second.createWorld({ title: "User's blank World" });
+    expect(created.status).toBe("created");
+    if (created.status !== "created") return;
+    release();
+    expect(await pending).toEqual({ status: "found", records: [created.record] });
+  });
+
   it("captures every semantic request header before an asynchronous adapter hook", async () => {
     let holdWrites = false;
     let releaseWrite!: () => void;

@@ -1,7 +1,7 @@
 import {SavedStatblockProvider} from './statblocks/SavedStatblockSession';
 import {WorldGuidedTour} from './guidedTour/WorldGuidedTour';
 import { DocumentReferenceSurfaceHost } from './documentReference/DocumentReferenceSurfaceHost';
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { getEvents, getJobs, getPlanView, getSurface } from "./api/liveApi";
 import type {
@@ -18,8 +18,10 @@ import { AgentInteractionProvider } from "./agentInteraction/AgentInteractionPro
 import { WorldAgentConversation, WorldAgentConversationProvider } from "./agentInteraction/WorldAgentConversation";
 import { AskPluginSlotProvider } from "./agentInteraction/AskPluginSlot";
 import { AgentInteractionChrome } from "./agentInteraction/AgentInteractionChrome";
-import { IndexAgentConversation } from "./agentInteraction/IndexAgentConversation";
 import { LocalWorldSurface } from "./localWorld/localWorldSurface/LocalWorldSurface";
+import { NativeGraphDemo } from "./nativeGraphDemo/NativeGraphDemo";
+import { createBuddyIndexGraphApi } from "./nativeGraphDemo/buddyIndexGraphApi";
+import { createManagedNativeGraphApi } from "./nativeGraphDemo/managedNativeGraphApi";
 import { usePublishSurfaceInteraction } from "./agentInteraction/usePublishSurfaceInteraction";
 import {
   ROUTE_COMPATIBILITY_PUBLICATIONS,
@@ -42,7 +44,7 @@ import {
 
 import type { InspectorPaneState } from "./surface/InspectorPane";
 import { deferredComponent } from "./ui/deferredComponent";
-import { HostedAuthGate } from "./auth/HostedAuthGate";
+import { dungeonMindLoginHref, HostedAuthGate, useHostedAuthStatus } from "./auth/HostedAuthGate";
 
 import type { PaneTarget } from "./surface/targetTypes";
 
@@ -93,6 +95,70 @@ function TiptapSpikeRoute() {
     <AppChrome activeRoute="tiptap-callout-spike" editorTools={editorTools}>
       <TiptapSpikeRouteLeasePublisher />
       <TiptapCalloutBridgeSpike onEditorToolsChange={setEditorTools} />
+    </AppChrome>
+  );
+}
+
+function ManagedWorldGraph({ worldId, worldTitle, stateScopeId }: {
+  readonly worldId: string; readonly worldTitle: string; readonly stateScopeId: string;
+}) {
+  const [client, setClient] = useState<ReturnType<typeof createManagedNativeGraphApi> | null>(null);
+  useEffect(() => {
+    // Own the client within the effect lifetime, including StrictMode's setup /
+    // cleanup rehearsal. Never resurrect an invalidated previous client.
+    const owned = createManagedNativeGraphApi(worldId);
+    setClient(owned);
+    return () => owned.invalidate();
+  }, [worldId]);
+  return client
+    ? <NativeGraphDemo api={client.api} embedded mode="managed" worldTitle={worldTitle} stateScopeId={stateScopeId} />
+    : <main className="app-status" role="status">Loading World graph…</main>;
+}
+
+function BuddyIndexPage({
+  localOnlyNavigation = false,
+  locationSnapshot,
+}: {
+  readonly localOnlyNavigation?: boolean;
+  readonly locationSnapshot: string;
+}) {
+  const auth = useHostedAuthStatus();
+  const selectedWorld = useSelectedWorld();
+  const managedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
+  const playgroundApi = useMemo(() => createBuddyIndexGraphApi(), []);
+  const [legacyWorldsOpen, setLegacyWorldsOpen] = useState(false);
+
+  let explorer: ReactNode;
+  if (managedWorldId && selectedWorld.kind === "managed") {
+    explorer = <ManagedWorldGraph key={`managed:${managedWorldId}`} worldId={managedWorldId}
+      worldTitle={selectedWorld.name} stateScopeId={`managed:${managedWorldId}`} />;
+  } else if (auth.status === "local_operator") {
+    explorer = <NativeGraphDemo api={playgroundApi} embedded mode="playground" />;
+  } else if (auth.status === "signed_out") {
+    explorer = <main className="app-status" aria-labelledby="buddy-playground-title">
+      <p className="module-muted">BUDDY · PLAYGROUND</p>
+      <h1 id="buddy-playground-title">Buddy graph playground</h1>
+      <p>The hosted service does not expose the local-only playground graph. Sign in to load a managed World’s native graph.</p>
+      <a href={dungeonMindLoginHref(locationSnapshot)}>Sign in with DungeonMind</a>
+    </main>;
+  } else {
+    explorer = <main className="app-status" aria-labelledby="buddy-playground-title">
+      <p className="module-muted">BUDDY · PLAYGROUND</p>
+      <h1 id="buddy-playground-title">Buddy graph playground</h1>
+      <p>Choose a managed World in the navigation above to load its native graph. The synthetic playground is available on local Buddy deployments only.</p>
+    </main>;
+  }
+
+  return (
+    <AppChrome activeRoute="index" localOnlyNavigation={localOnlyNavigation} workspaceLayout="bounded">
+      {explorer}
+      <details className="buddy-index-legacy" onToggle={(event) => setLegacyWorldsOpen(event.currentTarget.open)}>
+        <summary>Existing browser-only Worlds and notes</summary>
+        <p>These older Worlds stay in this browser and remain separate from the private DungeonMind graph above. Opening them does not migrate or publish them.</p>
+        {legacyWorldsOpen
+          ? <LocalWorldSurface />
+          : null}
+      </details>
     </AppChrome>
   );
 }
@@ -243,6 +309,7 @@ function LiveControlApp() {
 }
 
 function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
+  const auth = useHostedAuthStatus();
   const selectedWorld = useSelectedWorld();
   const retrySelectedWorld = useRetrySelectedWorld();
   const admission = useSelectedWorldAdmission();
@@ -260,18 +327,18 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
     );
   }
   const route = appRouteFromLocationSnapshot(locationSnapshot);
+  if (route === "index" && selectedWorld.kind === "legacy") {
+    return <IsolatedIndexEntry
+      localOnlyNavigation={auth.status === "signed_out"}
+      locationSnapshot={locationSnapshot}
+    />;
+  }
   const pageAdmitted = admission.kind !== "loading";
   let content;
   if (!pageAdmitted) {
     content = <main className="app-status" role="status">Verifying page selection…</main>;
   } else if (route === "index") {
-    content = (
-      <AppChrome activeRoute="index">
-        <LocalWorldSurface>
-          <IndexAgentConversation />
-        </LocalWorldSurface>
-      </AppChrome>
-    );
+    content = <BuddyIndexPage locationSnapshot={locationSnapshot} />;
   } else if (route === "tiptap-callout-spike") {
     content = <TiptapSpikeRoute />;
   } else if (route === "plan") {
@@ -336,6 +403,33 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
   );
 }
 
+function isCanonicalLocalGuestEntry(locationSnapshot: string): boolean {
+  try {
+    const url = new URL(locationSnapshot, "http://localhost");
+    return url.pathname === "/" && url.search === "" && url.hash === "";
+  } catch {
+    return false;
+  }
+}
+
+function IsolatedIndexEntry({
+  localOnlyNavigation,
+  locationSnapshot,
+}: {
+  readonly localOnlyNavigation: boolean;
+  readonly locationSnapshot: string;
+}) {
+  return (
+    <AgentInteractionProvider>
+      <SurfaceContextProvider>
+        <PeekRegionProvider>
+          <BuddyIndexPage localOnlyNavigation={localOnlyNavigation} locationSnapshot={locationSnapshot} />
+        </PeekRegionProvider>
+      </SurfaceContextProvider>
+    </AgentInteractionProvider>
+  );
+}
+
 export function App() {
   const locationSnapshot = useSyncExternalStore(
     subscribeSelectedWorldLocation,
@@ -343,7 +437,10 @@ export function App() {
     getAppLocationSnapshot,
   );
   return (
-    <HostedAuthGate enabled={import.meta.env.PROD}>
+    <HostedAuthGate
+      enabled={import.meta.env.PROD}
+      allowSignedOutChildren={import.meta.env.PROD && isCanonicalLocalGuestEntry(locationSnapshot)}
+    >
       <SelectedWorldProvider locationSnapshot={locationSnapshot}>
         <SelectedWorldApp locationSnapshot={locationSnapshot} />
       </SelectedWorldProvider>
