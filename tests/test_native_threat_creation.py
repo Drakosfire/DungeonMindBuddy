@@ -67,6 +67,7 @@ def confirm(c, packet):
 def test_native_source_then_explicit_confirmation_and_current_readback(creature):
     c = creature
     packet = prepare(c)
+    assert "pdf_evidence_ids" not in packet["review"]
     assert packet["source_text"] == service.body(c.draft)
     assert service.existing(c.lane.repo, c.bound, c.draft.draft_id) is None
     assert c.client.get(c.url + "?world_id=managed").json() is None
@@ -232,8 +233,33 @@ def test_postgres_publication_survives_fresh_core_repository(creation_core_dsn, 
     from dungeonmind.infrastructure.postgres import PostgresDatabase, PostgresNativeSourceEvidenceRepository
     repo = PostgresNativeSourceEvidenceRepository(PostgresDatabase(creation_core_dsn))
     monkeypatch.setattr(recap_tests, "InMemoryNativeSourceEvidenceRepository", lambda: repo)
-    lane = recap_lane.__wrapped__(monkeypatch, tmp_path)
+    lane = recap_lane.__wrapped__(monkeypatch, tmp_path, SimpleNamespace(param=None))
     case = creature.__wrapped__(SimpleNamespace(getfixturevalue=lambda name: lane), monkeypatch)
+    from hashlib import sha256
+    from io import BytesIO
+
+    from dungeonmind.contracts.vnext.pdf_region import NativePdfSourceAdmissionV1
+    from pypdf import PdfWriter
+
+    writer = PdfWriter()
+    writer.add_blank_page(width=100, height=100)
+    output = BytesIO()
+    writer.write(output)
+    pdf = output.getvalue()
+    digest = sha256(pdf).hexdigest()
+    source = repo.retain_native_pdf_source(
+        NativePdfSourceAdmissionV1(
+            space_id=case.bound["native_world_id"], admission_id="fixture:statblock-pdf",
+            created_at=datetime.now(UTC), content_sha256=digest,
+            source_classification="dungeonbuddy.source:worldbuilding",
+            authority="primary", visibility={"kind": "public"},
+        ),
+        pdf,
+    )
+    case.request["pdf_regions"] = [dict(
+        source_revision_id=source.source_revision_id, content_sha256=digest,
+        page=1, left=0.1, top=0.1, right=0.9, bottom=0.9,
+    )]
     packet = prepare(case)
     response = confirm(case, packet)
     assert response.status_code == 200, response.text
@@ -242,6 +268,18 @@ def test_postgres_publication_survives_fresh_core_repository(creation_core_dsn, 
     monkeypatch.setattr(service.native, "read_repository", lambda: fresh)
     result = case.client.get(case.url + "?world_id=managed")
     assert result.status_code == 200 and result.json()["node_id"] == response.json()["node_id"]
+    from dungeonmind.application.vnext.native_pdf_access import open_native_pdf_region
+    from dungeonmind.contracts.vnext.pdf_region import NativePdfRegionV1
+
+    _, access = service.native.access_context(fresh, case.bound["native_world_id"])
+    (evidence_id,) = packet["review"]["pdf_evidence_ids"]
+    ref = access.parsed.get_evidence(evidence_id)
+    assert ref is not None and ref.source_locator is not None
+    locator = NativePdfRegionV1.model_validate_json(ref.source_locator)
+    assert open_native_pdf_region(
+        locator, authorized_space_id=case.bound["native_world_id"],
+        audience=frozenset(), declared_labels=frozenset(), load=fresh.get_native_pdf_source,
+    ) == pdf
     replay = confirm(case, packet)
     assert replay.status_code == 200 and replay.json()["node_id"] == response.json()["node_id"]
     assert replay.json()["replayed"] is True
@@ -260,3 +298,55 @@ def test_other_operator_or_unavailable_support_cannot_confirm(creature, monkeypa
     response = confirm(c, packet)
     assert response.status_code == 409, response.text
     assert service.existing(c.lane.repo, c.bound, c.draft.draft_id) is None
+
+
+def test_pdf_region_is_bound_to_signed_native_threat_review(creature, monkeypatch):
+    from hashlib import sha256
+
+    from dungeonmind.application.vnext.native_source_admission import build_native_pdf_source_records
+    from dungeonmind.contracts.vnext.pdf_region import NativePdfSourceAdmissionV1
+
+    c = creature
+    space_id = c.bound["native_world_id"]
+    pdf = b"%PDF-1.7\n"
+    digest = sha256(pdf).hexdigest()
+    artifact, revision = build_native_pdf_source_records(
+        NativePdfSourceAdmissionV1(
+            space_id=space_id, admission_id="fixture:pdf", created_at=datetime.now(UTC),
+            source_classification="dungeonbuddy.source:worldbuilding", authority="primary",
+            content_sha256=digest, visibility={"kind": "public"},
+        ),
+        pdf,
+    )
+
+    def load_pdf(space, source):
+        if (space, source) == (space_id, revision.source_revision_id):
+            return artifact, revision, 1, pdf
+        return None
+
+    monkeypatch.setattr(c.lane.repo, "get_native_pdf_source", load_pdf, raising=False)
+    region = dict(source_revision_id=revision.source_revision_id, content_sha256=digest,
+                  page=1, left=0.1, top=0.2, right=0.7, bottom=0.8)
+    c.request["pdf_regions"] = [region]
+    packet = prepare(c)
+    (evidence_id,) = packet["review"]["pdf_evidence_ids"]
+    assert evidence_id.startswith("pdf-region:")
+    assert service.existing(c.lane.repo, c.bound, c.draft.draft_id) is None
+
+    tampered = deepcopy(packet)
+    tampered["review"]["pdf_evidence_ids"] = []
+    assert confirm(c, tampered).status_code == 409
+    assert service.existing(c.lane.repo, c.bound, c.draft.draft_id) is None
+
+    response = confirm(c, packet)
+    assert response.status_code == 200, response.text
+    _, access = service.native.access_context(c.lane.repo, space_id)
+    evidence = access.parsed.get_evidence(evidence_id)
+    assert evidence is not None
+    assert evidence.source_revision_id == revision.source_revision_id
+    assert evidence.source_locator is not None
+    import json
+
+    assert json.loads(evidence.source_locator) == region | {
+        "schema_version": "dm_native_pdf_region_v1",
+    }

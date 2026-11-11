@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
+from dungeonmind.contracts.vnext.pdf_region import NativePdfRegionV1
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -13,6 +14,7 @@ class Closed(BaseModel):
 class PrepareNativeThreat(Closed):
     world_id: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,62}$")
     expected_draft_version: int = Field(ge=1, strict=True)
+    pdf_regions: tuple[NativePdfRegionV1, ...] = ()
 
 
 class NativeThreatReview(Closed):
@@ -28,6 +30,7 @@ class NativeThreatReview(Closed):
     source_evidence_id: str
     source_artifact_id: str
     source_revision_id: str
+    pdf_evidence_ids: tuple[str, ...] = ()
     prepared_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     principal: str
     expires_at: datetime
