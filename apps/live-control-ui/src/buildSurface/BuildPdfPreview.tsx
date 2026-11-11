@@ -1,3 +1,4 @@
+import { authenticatedApiFetch } from "../api/liveApi";
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -12,6 +13,42 @@ function pagePoint(event: PointerEvent<HTMLCanvasElement>): PagePoint {
     x: clamp((event.clientX - bounds.left) / bounds.width),
     y: clamp((event.clientY - bounds.top) / bounds.height),
   };
+}
+
+function CropOcr({ image }: { image: string }) {
+  const [pending, setPending] = useState(false);
+  const [text, setText] = useState("");
+  const [error, setError] = useState("");
+
+  async function read() {
+    setPending(true);
+    setError("");
+    try {
+      const { response } = await authenticatedApiFetch("/api/live/agent/build-pdf-ocr", {
+        method: "POST",
+        body: JSON.stringify({ png_base64: image.split(",", 2)[1] }),
+      });
+      const result = await response.json();
+      if (!response.ok || typeof result.text !== "string") {
+        throw new Error(typeof result.detail === "string" ? result.detail : "Could not read the capture.");
+      }
+      setText(result.text);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not read the capture.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div>
+      <button type="button" disabled={pending} onClick={() => void read()}>
+        {pending ? "Reading capture…" : "Read capture with Buddy"}
+      </button>
+      {error && <p role="alert">{error}</p>}
+      {text && <label>OCR transcription<textarea readOnly rows={8} value={text} /></label>}
+    </div>
+  );
 }
 
 function PdfPages({ file }: { file: File }) {
@@ -198,6 +235,7 @@ function PdfPages({ file }: { file: File }) {
           {capture && (
             <section aria-label={`Capture from page ${page}`}>
               <img src={capture.image} alt={`Captured region of page ${page}`} style={{ maxWidth: "100%" }} />
+              <CropOcr key={capture.image} image={capture.image} />
               {textError ? <p role="alert">The PDF text layer could not be read.</p>
                 : capturedText === undefined ? <p role="status">Reading the PDF text layer…</p>
                 : capturedText ? (

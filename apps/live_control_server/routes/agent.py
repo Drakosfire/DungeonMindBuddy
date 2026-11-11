@@ -28,6 +28,7 @@ from apps.live_control_server.config import (
     session_dir,
     world_graph_root,
 )
+from apps.live_control_server.services.build_pdf_ocr import PdfCropRequest, read_crop
 from apps.live_control_server.models.build_document_proposal import BuildDocumentProposalRequest
 from apps.live_control_server.models.agent_turn import (
     AgentConversationHistoryResponse,
@@ -2062,6 +2063,12 @@ def _execute_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, A
     except Exception:
         _finalize_unlogged_agent_trace(trace, status="error")
         raise
+
+
+@router.post("/build-pdf-ocr")
+def post_build_pdf_ocr(body: PdfCropRequest, request: Request):
+    enforce_native_graph_gm(request)
+    return read_crop(body)
 
 
 @router.post("/worlds/{world_id}/build-proposals")
