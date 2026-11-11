@@ -38,7 +38,7 @@
         "size_type_alignment": "Huge plant, unaligned",
         "armor_class": "11 (natural armor)",
         "hit_points": "39 (6d8+12)",
-        "speed": "—",
+        "speed": "–",
         "ability_scores": {
           "STR": "17 (+3)",
           "DEX": "9 (-1)",
@@ -52,7 +52,7 @@
         "damage_vulnerabilities": "fire",
         "condition_immunities": "charmed",
         "senses": "blindsight 600 ft. (blind beyond this radius), passive Perception 10",
-        "languages": "—",
+        "languages": "–",
         "challenge": "1 (200 XP)"
       },
       "source_note": "The unusual 600 ft. sense is preserved exactly as printed. Do not normalize it to a rules-expected value."

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -9,6 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 GOLD_PATH = ROOT / "evals" / "document_extraction_gold" / "adventure_pdf_source_gold_v1.json"
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
+CANONICAL_GOLD_SHA256 = "95653c04fa511c1c8853d0550413722b4f3d2d37be9cd79112b83e11bc5df8db"
 
 
 def load_gold() -> dict:
@@ -71,3 +73,13 @@ def test_unmatched_map_sources_remain_excluded() -> None:
         and asset["status"] == "not linked to this PDF; withheld from source gold"
         for asset in excluded
     )
+
+
+def test_fixture_matches_the_reviewed_canonical_snapshot() -> None:
+    payload = json.dumps(
+        load_gold(),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    assert hashlib.sha256(payload).hexdigest() == CANONICAL_GOLD_SHA256
