@@ -445,13 +445,24 @@ def _finish_acceptance(
     )
 
 
+PDF_REVIEW_PROVENANCE = "buddy_pdf_statblock_review"
+
+
 def begin_or_resume_acceptance(
     root: Path,
     *,
     draft_id: str,
     request: AcceptThreatDraftMechanicsRequestV1,
     client: StatblockV1Client | None = None,
+    pdf_review: dict[str, Any] | None = None,
 ) -> AcceptThreatDraftMechanicsResponseV1:
+    if PDF_REVIEW_PROVENANCE in (request.accepted_through or {}):
+        return _blocked(draft_id=draft_id, operation_id=request.operation_id,
+                        message="PDF review provenance must come from a saved review")
+    if pdf_review is not None:
+        request = request.model_copy(update={
+            "accepted_through": {PDF_REVIEW_PROVENANCE: pdf_review},
+        })
     # Build the canonical create body before deciding whether validation is required.
     # Existing-operation conflict/resume must be local — zero validation / create calls.
     request_body = _build_create_body(request)

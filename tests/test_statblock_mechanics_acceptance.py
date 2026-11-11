@@ -175,6 +175,35 @@ def test_validation_gate_blocks_without_claim(mock_validate, tmp_path: Path) -> 
 
 
 @patch.object(acceptance, "validate_definition", side_effect=_validate_ok)
+def test_pdf_review_provenance_is_host_owned(mock_validate, tmp_path: Path) -> None:
+    draft = _create_draft(tmp_path)
+    request = _accept_request(draft)
+    provenance = {"world_id": draft.world_id, "review_id": "review-a", "revision": 3, "regions": []}
+    key = acceptance.PDF_REVIEW_PROVENANCE
+    client = FakeStatblockClient(result=_create_result())
+    forged = request.model_copy(update={"accepted_through": {key: provenance}})
+    refused = begin_or_resume_acceptance(
+        tmp_path, draft_id=draft.draft_id, request=forged, client=client,
+    )
+    assert refused.result_label == "acceptance_blocked"
+    assert not client.create_calls
+    accepted = begin_or_resume_acceptance(
+        tmp_path, draft_id=draft.draft_id, request=request, client=client, pdf_review=provenance,
+    )
+    assert accepted.result_label == "mechanics_saved"
+    operation = get_acceptance_operation(
+        tmp_path, draft_id=draft.draft_id, operation_id=request.operation_id,
+    )
+    assert operation.request_body["accepted_through"] == {key: provenance}
+    replay = acceptance.recover_acceptance_operation(
+        tmp_path, draft_id=draft.draft_id, operation_id=request.operation_id, client=client,
+    )
+    assert replay.result_label == "mechanics_saved"
+    assert len(client.create_calls) == 1
+    assert mock_validate.call_count == 1
+
+
+@patch.object(acceptance, "validate_definition", side_effect=_validate_ok)
 def test_success_mechanics_saved(mock_validate, tmp_path: Path) -> None:
     draft = _create_draft(tmp_path)
     request = _accept_request(draft)
