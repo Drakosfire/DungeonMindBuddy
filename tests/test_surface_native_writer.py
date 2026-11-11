@@ -89,21 +89,21 @@ def test_captured_source_name_reaches_actual_sdk_and_same_source_citation(lane, 
     from dungeonmind.application.vnext import list_admitted_native_text_sources
     def names(access, _world):
         return {(row.source_artifact.source_artifact_id, row.source_revision.source_revision_id,
-                 row.source_revision.content_sha256): 'Session 9 recap'
+                 row.source_revision.content_sha256): ('Session 9 recap', 9)
                 for row in list_admitted_native_text_sources(access).sources}
-    monkeypatch.setattr(native_source_display, 'captured_source_names', names)
+    monkeypatch.setattr(native_source_display, 'captured_source_presentation', names)
     context, record, read = body_case(surface, lane)
     frame = model_frame(context, record)
     row = frame['native_body_evidence']['excerpts'][0]
     assert row['source_name'] == 'Session 9 recap' and row['section_title'] == 'Source'
     assert row['text'] == read.excerpt.text
-    assert row['campaign_scope'] == row['session_scope'] == 'unestablished'
+    assert row['campaign_scope'] == 'unestablished' and row['session_scope'] == 9
     work = work_submission(context, record)
     raw = asyncio.run(actual_sdk_request(frame, work_frame=model_work_frame(context, record, **work)))
     stored, auth = authorize(context, record, raw, frame)
     supports = verify_input_records(context, stored, auth, raw, **work)
     # Replay/reconstruction must never query mutable display metadata.
-    monkeypatch.setattr(native_source_display, 'captured_source_names',
+    monkeypatch.setattr(native_source_display, 'captured_source_presentation',
         lambda *_: pytest.fail('historical naming lookup'))
     assert model_frame(context, record) == frame
     support = supports.body_excerpts[0]

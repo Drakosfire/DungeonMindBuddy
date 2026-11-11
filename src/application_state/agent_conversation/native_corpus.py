@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from hashlib import sha256
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -52,7 +52,7 @@ class NativeCorpusMemberV1(Strict):
     access_slice_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     proof_epoch: int = Field(ge=0, strict=True)
     campaign_scope: Literal["unestablished"] = "unestablished"
-    session_scope: Literal["unestablished"] = "unestablished"
+    session_scope: Literal["unestablished"] | Annotated[int, Field(gt=0, strict=True)] = "unestablished"
     # Omission preserves already committed historical catalogs and SDK bytes.
     # Every current acquisition supplies a name or explicit unavailable label.
     presentation_name: str | None = Field(default=None, min_length=1,

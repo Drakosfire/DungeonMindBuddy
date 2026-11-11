@@ -35,18 +35,35 @@ def test_old_page_label_stays_qualified_and_missing_names_stay_explicit():
     assert display.source_display_name(None,'Source')=='Source (source name unavailable)'
 
 
-@pytest.mark.parametrize('status,exact,label,expected', [
-    ('available', True, 'Session 9 recap', 'Session 9 recap'),
-    ('available', False, 'New page title', 'Source name unavailable'),
-    ('unavailable', None, None, 'Source name unavailable'),
-])
-def test_captured_names_are_exact_version_labels_without_host_scope_identifiers(
-        monkeypatch, status, exact, label, expected):
-    prepared, member, item = objects()
+
+@pytest.mark.parametrize('change', ['exact', 'world', 'revision', 'hash', 'kind', 'opaque'])
+def test_captured_session_requires_exact_registered_recap(monkeypatch, change):
+    from application_state.source import service as sources
+
+    prepared, _, item = objects()
+    item.origin = N(namespace='dungeonbuddy.app-recap-source.v1',
+                    object_id='app-artifact', revision_id='app-revision')
+    item.source_artifact.source_classification = (
+        'dungeonbuddy.source:worldbuilding' if change == 'kind' else 'dungeonbuddy.source:session_recap')
+    metadata = dict(
+        source_artifact_id='app-artifact',
+        source_revision_id='other' if change == 'revision' else 'app-revision',
+        content_sha256='other' if change == 'hash' else 'hash',
+        world_id='other' if change == 'world' else 'world',
+        campaign_id='private-campaign-id',
+        session_id='opaque-session' if change == 'opaque' else 'session-9',
+        source_domain='recap',
+        lineage={'source_name': 'Named recap'},
+    )
+
+    def registered(*, bindings, world_id):
+        assert bindings == [('app-artifact', 'hash')]
+        assert world_id == 'world'
+        return [N(**metadata, model_dump=lambda **_: metadata)]
+
+    monkeypatch.setattr(sources, 'get_source_revision_metadata', registered)
     monkeypatch.setattr('dungeonmind.application.vnext.list_admitted_native_text_sources',
-        lambda _: N(sources=[item]))
-    monkeypatch.setattr(display, 'source_display_metadata', lambda *_: [dict(
-        status=status, label=label, campaign_id='private-campaign-id',
-        session_id='private-session-id', origin_matches_current_metadata=exact)])
-    assert display.captured_source_names(prepared.access, 'world') == {
-        ('source', 'revision', 'hash'): expected}
+                        lambda _: N(sources=[item]))
+    name = 'Source name unavailable' if change in {'world', 'revision', 'hash'} else 'Named recap'
+    assert display.captured_source_presentation(prepared.access, 'world') == {
+        ('source', 'revision', 'hash'): (name, 9 if change == 'exact' else 'unestablished')}

@@ -32,9 +32,9 @@ class NativeCorpusContext:
     repository: Any
 
     @cached_property
-    def presentation_names(self):
-        from ...services.native_source_display import captured_source_names
-        return MappingProxyType(captured_source_names(self.access, self.authority.managed_world_id))
+    def source_presentation(self):
+        from ...services.native_source_display import captured_source_presentation
+        return MappingProxyType(captured_source_presentation(self.access, self.authority.managed_world_id))
 
 
 @dataclass(frozen=True)
@@ -114,10 +114,10 @@ def open_native_corpus_member(prepared, evidence_ref_id):
     member.verify_body(opened.body_text)
     # Freeze optional naming only after Core has verified the exact source read.
     # It is not consulted again during replay or citation reconstruction.
-    name = prepared.presentation_names.get(
-        (pair[0], pair[1], revision.content_sha256), 'Source name unavailable')
+    name, session = prepared.source_presentation.get(
+        (pair[0], pair[1], revision.content_sha256), ('Source name unavailable', 'unestablished'))
     member = NativeCorpusMemberV1.model_validate(member.model_dump(mode='json') | {
-        'presentation_name': name})
+        'presentation_name': name, 'session_scope': session})
     if prepared.resolve_identity(authority.managed_world_id) != prepared.binding:
         raise ValueError("Native source ownership changed during opening")
     return member, opened.body_text
