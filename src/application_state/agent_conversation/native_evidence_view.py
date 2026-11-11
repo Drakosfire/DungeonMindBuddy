@@ -263,20 +263,17 @@ def semantic_frame(host):
             "Inclusive source line ranges identify explicit recap planning. "
             "Use those lines as plans. Establish played events from their own evidence."
         )
-    name_bindings = {}
-    if host.get("writer_assertion_layout") == "compact_names_v1":
-        other_assertions = []
-        for row in assertions:
+    if host.get("writer_assertion_layout") == "inline_names_v1":
+        for index, row in enumerate(assertions):
             assertion = row["assertion"]
             value = assertion["value"]
             if (assertion["predicate"] == "dnd5e:name" and value["kind"] == "literal"
                     and isinstance(value["value"], str)):
-                name_bindings.setdefault(assertion["subject"], []).append([
-                    value["value"], assertion["qualification"], row["assertion_handle"],
-                ])
-            else:
-                other_assertions.append(row)
-        assertions = other_assertions
+                assertions[index] = dict(
+                    assertion_handle=row["assertion_handle"],
+                    name_assertion=dict(subject=assertion["subject"], name=value["value"],
+                                        qualification=assertion["qualification"]),
+                )
     return dict(
         input_status=host["input_status"],
         user_question=host["user_question"],
@@ -293,10 +290,7 @@ def semantic_frame(host):
             assertions=assertions,
             qualifications=qualifications,
             universal_absence_claimed=False,
-            **({"entity_name_assertions": {
-                "columns": ["exact_name", "qualification", "assertion_handle"],
-                "by_subject": name_bindings,
-            }} if name_bindings else {}),
+
         ),
     )
 
@@ -306,34 +300,18 @@ def output_frame(host, provider):
     return host | _inline_qualifications(provider)
 
 
-def _expanded_assertions(collection):
-    rows = collection["assertions"]
-    if "entity_name_assertions" not in collection:
-        return rows
-    table = collection["entity_name_assertions"]
-    if (not isinstance(table, dict) or set(table) != {"columns", "by_subject"}
-            or table["columns"] != ["exact_name", "qualification", "assertion_handle"]
-            or not isinstance(table["by_subject"], dict) or not table["by_subject"]):
-        raise ValueError("Malformed entity name assertion table")
-    expanded = list(rows)
-    for subject, bindings in table["by_subject"].items():
-        if not isinstance(bindings, list) or not bindings:
-            raise ValueError("Malformed entity name bindings")
-        for binding in bindings:
-            if (not isinstance(binding, list) or len(binding) != 3
-                    or not all(isinstance(value, str) for value in binding)):
-                raise ValueError("Malformed entity name binding")
-            name, qualification, handle = binding
-            expanded.append(dict(assertion_handle=handle, assertion=dict(
-                subject=subject, predicate="dnd5e:name",
-                value=dict(kind="literal", value=name), qualification=qualification,
-            )))
-    by_handle = {row["assertion_handle"]: row for row in expanded}
-    if len(by_handle) != len(expanded) or set(by_handle) != {
-        f"assertion{index}" for index in range(len(expanded))
-    }:
-        raise ValueError("Malformed compact assertion handles")
-    return [by_handle[f"assertion{index}"] for index in range(len(expanded))]
+def _expand_name_assertion(row):
+    if "name_assertion" not in row:
+        return row
+    name = row["name_assertion"]
+    if (set(row) != {"assertion_handle", "name_assertion"} or not isinstance(name, dict)
+            or set(name) != {"subject", "name", "qualification"}
+            or not all(isinstance(value, str) for value in name.values())):
+        raise ValueError("Malformed compact name assertion")
+    return dict(assertion_handle=row["assertion_handle"], assertion=dict(
+        subject=name["subject"], predicate="dnd5e:name",
+        value=dict(kind="literal", value=name["name"]), qualification=name["qualification"],
+    ))
 
 
 def _inline_qualifications(frame):
@@ -349,7 +327,8 @@ def _inline_qualifications(frame):
     if not isinstance(definitions, dict):
         raise ValueError('Malformed context qualification dictionary')
     rows, used = [], set()
-    for row in _expanded_assertions(collection):
+    for presented in collection["assertions"]:
+        row = _expand_name_assertion(presented)
         assertion = row['assertion']
         alias = assertion.get('qualification')
         if (not isinstance(alias, str) or alias not in definitions
@@ -361,7 +340,7 @@ def _inline_qualifications(frame):
     if used != set(definitions):
         raise ValueError('Unused context qualification')
     return frame | {'native_assertions': {
-        key: value for key, value in collection.items() if key not in {'qualifications', 'entity_name_assertions'}
+        key: value for key, value in collection.items() if key != 'qualifications'
     } | {'assertions': rows}}
 
 

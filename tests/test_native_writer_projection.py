@@ -533,12 +533,15 @@ def test_compact_names_keep_exact_assertion_order_and_citation_handles(published
         row['assertion'].update(predicate=predicate, value=dict(kind='literal', value=value))
         rows.append(row)
     plain = semantic_frame(host)
-    compact_host = host | {'writer_assertion_layout': 'compact_names_v1'}
+    compact_host = host | {'writer_assertion_layout': 'inline_names_v1'}
     compact = semantic_frame(compact_host)
-    table = compact['native_assertions']['entity_name_assertions']
+    compact_rows = compact['native_assertions']['assertions']
     assert {'Torbin', 'TORBIN'} <= {
-        binding[0] for bindings in table['by_subject'].values() for binding in bindings
+        row['name_assertion']['name'] for row in compact_rows if 'name_assertion' in row
     }
+    assert [row['assertion_handle'] for row in compact_rows] == [
+        row['assertion_handle'] for row in plain['native_assertions']['assertions']
+    ]
     assert output_frame(host, compact) == output_frame(host, plain)
     assert expected_semantic_frame(compact_host, compact) == compact
     assert expected_semantic_frame(host, compact) == plain
@@ -549,13 +552,13 @@ def test_compact_plan_request_verifies_original_read_records(published_lane):
 
     from application_state.agent_conversation.native_evidence_view import semantic_frame
 
-    context, record = published_case('plan', published_lane, assertion_layout='compact_names_v1')
+    context, record = published_case('plan', published_lane, assertion_layout='inline_names_v1')
     work = work_submission(context, record)
     host = model_frame(context, record)
     plain = semantic_frame({key: value for key, value in host.items()
                             if key != 'writer_assertion_layout'})
     compact = model_input_frame(context, record)
-    assert compact['native_assertions']['entity_name_assertions']
+    assert any('name_assertion' in row for row in compact['native_assertions']['assertions'])
     assert compact != plain
     raw = asyncio.run(actual_sdk_request(
         compact, work_frame=model_work_frame(context, record, **work)))

@@ -184,7 +184,7 @@ class SurfaceNativeExecutionPolicyV1(Strict):
     controller_continuation_accounting: t.BuildControllerContinuationAccountingV4 | t.BuildControllerContinuationAccountingV3 | None
     writer_context_budget: t.BuildWriterContextBudgetV1 | NativeWriterEstimatedBudgetV1 | None
 
-    writer_assertion_layout: Literal["compact_names_v1"] | None = Field(
+    writer_assertion_layout: Literal["inline_names_v1"] | None = Field(
         default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")

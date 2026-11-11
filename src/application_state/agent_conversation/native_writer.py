@@ -78,8 +78,8 @@ def model_frame(receipt, execution, *, schema=SCHEMA):
         native_assertions=assertions.model_frame_records(query, execution,
             schema='dmb_plan_native_assertion_frame_v1' if schema == LEGACY_SCHEMA else 'dmb_native_assertion_frame_v2')
             if isinstance(query, assertions.NativePlanQueryV2) else None,
-        **({'writer_assertion_layout': 'compact_names_v1'} if schema == SCHEMA
-           and execution.policy.writer_assertion_layout == 'compact_names_v1' else {}))
+        **({'writer_assertion_layout': 'inline_names_v1'} if schema == SCHEMA
+           and execution.policy.writer_assertion_layout == 'inline_names_v1' else {}))
 
 
 def model_input_frame(receipt,execution):

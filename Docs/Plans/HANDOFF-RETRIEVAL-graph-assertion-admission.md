@@ -12,9 +12,9 @@ test_native_writer_projection.py.
 
 Keep every selected Graph record and its original citation handle.
 New Plan turns pin the compact name layout in the execution policy. The writer
-evidence frame groups literal typed names by subject with their exact spelling,
+evidence frame compacts literal typed names in place with their exact subject, spelling,
 qualification, and citation handle. Schema construction and verification expand
-those rows to their original order. Retained shipped executions reconstruct
+those rows in place. Retained shipped executions reconstruct
 their original layouts. Preserve the superseded draft and its captures by SHA.
 
 Verify exact wire and citation reconstruction locally, then compare all 15
