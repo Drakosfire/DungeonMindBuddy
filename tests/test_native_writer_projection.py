@@ -547,12 +547,13 @@ def test_compact_names_keep_exact_assertion_order_and_citation_handles(published
 def test_compact_plan_request_verifies_original_read_records(published_lane):
     from application_state.agent_conversation.native_writer import model_input_frame
 
-    context, record = published_case('plan', published_lane)
+    from application_state.agent_conversation.native_evidence_view import semantic_frame
+
+    context, record = published_case('plan', published_lane, assertion_layout='compact_names_v1')
     work = work_submission(context, record)
-    plain = model_input_frame(context, record)
-    policy = record.policy.model_copy(update={'writer_assertion_layout': 'compact_names_v1'})
-    from tests.test_surface_native_execution import execution
-    record = execution(context.context_receipt_sha256, policy, record.events)
+    host = model_frame(context, record)
+    plain = semantic_frame({key: value for key, value in host.items()
+                            if key != 'writer_assertion_layout'})
     compact = model_input_frame(context, record)
     assert compact['native_assertions']['entity_name_assertions']
     assert compact != plain
