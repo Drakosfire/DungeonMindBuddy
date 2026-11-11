@@ -203,6 +203,46 @@ def test_pdf_review_provenance_is_host_owned(mock_validate, tmp_path: Path) -> N
     assert mock_validate.call_count == 1
 
 
+def test_pdf_acceptance_rejects_stale_review_and_replays_original(tmp_path, monkeypatch):
+    from uuid import UUID
+
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from apps.live_control_server.routes import agent, statblock_storage
+
+    draft = _create_draft(tmp_path)
+    request = _accept_request(draft)
+    review_id = UUID("813957cd-06ce-4a3e-9795-811194409517")
+    review = {"revision": 2, "definition": request.definition.model_dump(mode="json"), "regions": []}
+    client = FakeStatblockClient(result=_create_result())
+    begin = acceptance.begin_or_resume_acceptance
+    recover = acceptance.recover_acceptance_operation
+    monkeypatch.setattr(agent, "enforce_native_graph_gm", lambda _: None)
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world_id: world_id)
+    monkeypatch.setattr(agent, "get_pdf_statblock_review", lambda *_: review)
+    monkeypatch.setattr(statblock_storage, "statblock_data_root", lambda _: tmp_path)
+    monkeypatch.setattr(acceptance, "validate_definition", _validate_ok)
+    monkeypatch.setattr(acceptance, "begin_or_resume_acceptance", lambda *a, **kw: begin(*a, client=client, **kw))
+    monkeypatch.setattr(acceptance, "recover_acceptance_operation", lambda *a, **kw: recover(*a, client=client, **kw))
+    app = FastAPI()
+    app.include_router(agent.router)
+    path = f"/agent/worlds/{draft.world_id}/build-pdf-sources/statblock-reviews/{review_id}/accept/{draft.draft_id}"
+    payload = request.model_dump(mode="json", include={
+        "operation_id", "expected_draft_version", "validation_receipt", "validation_definition_digest",
+    })
+    with TestClient(app) as http:
+        assert http.post(path, json={**payload, "expected_revision": 1}).status_code == 409
+        assert not client.create_calls
+        accepted = http.post(path, json={**payload, "expected_revision": 2})
+        assert accepted.json()["result_label"] == "mechanics_saved", accepted.text
+        review["revision"] = 3
+        assert http.post(path, json={**payload, "expected_revision": 3}).status_code == 409
+        replay = http.post(path, json={**payload, "expected_revision": 2})
+        assert replay.json()["result_label"] == "mechanics_saved", replay.text
+        assert len(client.create_calls) == 1
+
+
 @patch.object(acceptance, "validate_definition", side_effect=_validate_ok)
 def test_success_mechanics_saved(mock_validate, tmp_path: Path) -> None:
     draft = _create_draft(tmp_path)
