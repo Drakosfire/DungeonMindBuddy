@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ThreatDraft } from "../api/types";
 import type { SavedMechanicsVersionList } from "../statblocks/revision/savedMechanicsRevisionTypes";
-import { authenticatedApiFetch, createThreatDraft, listSavedMechanicsVersions } from "../api/liveApi";
+import { authenticatedApiFetch, createThreatDraft, listSavedMechanicsVersions, LiveApiError } from "../api/liveApi";
 import type { PdfLocator } from "../api/retainedPdfRegions";
 import type { StatblockDefinitionV1_Output, ValidationIssueV1 } from "../contracts/dungeonbuddy-statblocks-v1/client";
 import { StatblockDefinitionEditor } from "../statblocks/editor/StatblockDefinitionEditor";
@@ -115,12 +115,19 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     setCreateInFlight(true);
     setError("");
     try {
-      if (localStorage.getItem(createKey)) {
+      if (!navigator.locks) {
+        setError("This browser cannot safely coordinate draft creation across tabs.");
+        return;
+      }
+      const reserved = await navigator.locks.request(createKey, () => {
+        if (localStorage.getItem(createKey)) return false;
+        localStorage.setItem(createKey, "pending");
+        return true;
+      });
+      if (!reserved) {
         setError("Check the creature draft list for the previous creation attempt.");
         return;
       }
-      // The draft create API has no idempotency key. Record uncertainty before dispatch.
-      localStorage.setItem(createKey, "pending");
       const draft = await createThreatDraft({
         scope_mode: "world", world_id: worldId, campaign_id: null, name,
         description: name, threat_kind: "creature", intended_roles: [], tags: [],
@@ -140,7 +147,12 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       setHasInitialAttempt(false);
       setAcceptedLink("");
       setAcceptOpen(true);
-    } catch {
+    } catch (cause) {
+      if (cause instanceof LiveApiError && [404, 422].includes(cause.status)) {
+        localStorage.removeItem(createKey);
+        setError(cause.message);
+        return;
+      }
       setError("Could not confirm draft creation. Check the creature draft list before creating another.");
     } finally {
       setCreateInFlight(false);
