@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 import json
-import shutil
+from hashlib import sha256
 from pathlib import Path
 
 from evals.graph_memory_layer.validate_mirathorn_worldbuilding_query_gold_v1 import (
     GOLD_PATH,
-    REPO_ROOT,
     validate_gold,
 )
 
 
 def _copy_fixture_repo(tmp_path: Path) -> tuple[Path, Path]:
     gold = json.loads(GOLD_PATH.read_text(encoding="utf-8"))
+    snapshot = json.loads(
+        (Path(__file__).parent / "fixtures/mirathorn_gold_source_snapshot.json").read_text()
+    )
+    assert snapshot["gold_sha256"] == sha256(GOLD_PATH.read_bytes()).hexdigest()
     root = tmp_path
     profile = gold["profile_snapshot"]
     relative_paths = {
@@ -25,10 +28,14 @@ def _copy_fixture_repo(tmp_path: Path) -> tuple[Path, Path]:
         gold["graph_contract_snapshot"]["buddy_dependency_source_path"],
         *(item["source_path"] for item in profile["available_profiles"]),
     }
+    files = {row["path"]: row for row in snapshot["files"]}
+    assert set(files) == relative_paths
     for relative_path in relative_paths:
+        data = files[relative_path]["text"].encode("utf-8")
+        assert sha256(data).hexdigest() == files[relative_path]["sha256"]
         destination = root / relative_path
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(REPO_ROOT / relative_path, destination)
+        destination.write_bytes(data)
     gold_path = root / "gold.json"
     gold_path.write_text(json.dumps(gold, ensure_ascii=False), encoding="utf-8")
     return root, gold_path

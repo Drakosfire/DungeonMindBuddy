@@ -1,6 +1,7 @@
 # INGEST: Restore worldbuilding publication fixture verification
 
-ACTIVE serial test slice for the deferred fundamentals goal. Base
+MERGED in #2399 at 59e7621de4cb26784d843ab57f4f091ec5beed43. Write lease released.
+Completed serial test slice for the deferred fundamentals goal. Base
 `8a9ad7902f26ef98c4da4f859361358d08566358`, branch
 `codex/worldbuilding-publication-fixtures` in the recorded-names-control
 checkout. QA PR #2396 closed without adoption. PRs #1163 and #1235 have
