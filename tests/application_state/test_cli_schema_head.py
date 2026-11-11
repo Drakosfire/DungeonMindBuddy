@@ -149,12 +149,13 @@ def test_installed_migration_revision_ids_are_unique():
 
 def test_graph_migrations_follow_captured_source_reader_fence():
     script = cli.ScriptDirectory.from_config(cli.alembic_config())
-    assert script.get_heads() == ["20261110_0151"]
+    assert script.get_heads() == ["20261110_0152"]
     fence = script.get_revision("20261110_0148")
     assert fence.path.endswith("20261110_0148_captured_source_names.py")
     assert fence.down_revision == "20261109_0147"
     assert script.get_revision("20261110_0150").down_revision == fence.revision
     assert script.get_revision("20261110_0151").down_revision == "20261110_0150"
+    assert script.get_revision("20261110_0152").down_revision == "20261110_0151"
     revisions = list(script.walk_revisions())
     assert len({row.revision for row in revisions}) == len(revisions)
     assert all(not isinstance(row.down_revision, tuple) for row in revisions)
@@ -172,15 +173,16 @@ def test_graph_migrations_render_once_after_canonical_reader_fence(monkeypatch, 
     def no_database(*args, **kwargs):
         pytest.fail("Offline migration verification must not open a database")
 
-    monkeypatch.setattr(psycopg, "connect", no_database)
-    monkeypatch.setattr(sqlalchemy, "create_engine", no_database)
-    monkeypatch.setattr(config, "load_runtime_dsn", lambda: (
-        "postgresql://offline@127.0.0.1/dungeonbuddy_app_state_test_offline"
-    ))
-    output = StringIO()
-    cfg = cli.alembic_config()
-    cfg.output_buffer = output
-    cli.command.upgrade(cfg, f"{start}:head", sql=True)
+    with monkeypatch.context() as patch:
+        patch.setattr(psycopg, "connect", no_database)
+        patch.setattr(sqlalchemy, "create_engine", no_database)
+        patch.setattr(config, "load_runtime_dsn", lambda: (
+            "postgresql://offline@127.0.0.1/dungeonbuddy_app_state_test_offline"
+        ))
+        output = StringIO()
+        cfg = cli.alembic_config()
+        cfg.output_buffer = output
+        cli.command.upgrade(cfg, f"{start}:head", sql=True)
     sql = output.getvalue()
     for table in (
         "index_graph_sessions", "index_graph_bindings", "index_graph_operations",
@@ -190,16 +192,16 @@ def test_graph_migrations_render_once_after_canonical_reader_fence(monkeypatch, 
     assert sql.index("CREATE TABLE application_state.index_graph_sessions") < sql.index(
         "CREATE TABLE application_state.native_graph_explorer_operations"
     )
-    assert "20261110_0151" in sql
+    assert sql.index("20261110_0151") < sql.index("20261110_0152")
     assert "20261110_0149" not in sql
     if start == "20261109_0147":
         assert sql.index("20261110_0148") < sql.index("20261110_0150")
 
 
-@pytest.mark.parametrize("prototype", ["20261110_0148", "20261110_0149"])
+@pytest.mark.parametrize("prototype", ["20261110_0148", "20261110_0149", "20261110_0151"])
 def test_current_graph_head_refuses_retained_prototype_revision(monkeypatch, prototype):
     # This is a serving-head check, not an upgrade or old-schema-shape guarantee.
-    assert cli._alembic_head() == "20261110_0151"
+    assert cli._alembic_head() == "20261110_0152"
     monkeypatch.setattr(cli, "_read_current_revision", lambda _: prototype)
     with pytest.raises(ApplicationStateMigrationError):
         cli.assert_at_head(dsn="retained-prototype-do-not-open")

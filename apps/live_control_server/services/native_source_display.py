@@ -76,12 +76,13 @@ def source_display_name(display, fallback):
     return ' · '.join(parts)
 
 
-def captured_source_names(access, world_id):
-    """Readable names only, captured once; never identifiers or read authority."""
+def captured_source_presentation(access, world_id):
+    """Freeze readable names and verified recap numbers, without host IDs."""
+    import re
     from dungeonmind.application.vnext import list_admitted_native_text_sources
     items = list_admitted_native_text_sources(access).sources
     displays = source_display_metadata(items, world_id)
-    names = {}
+    presentation = {}
     for item, display in zip(items, displays, strict=True):
         # A current page title cannot name a different historical page version.
         label = (display['label'] if display['status'] == 'available'
@@ -89,8 +90,13 @@ def captured_source_names(access, world_id):
         key = (item.source_artifact.source_artifact_id,
                item.source_revision.source_revision_id,
                item.source_revision.content_sha256)
-        names[key] = label.strip() if isinstance(label, str) and label.strip() else 'Source name unavailable'
-    return names
+        session = display.get('session_id')
+        match = (re.fullmatch(r'session-([1-9][0-9]{0,8})', session)
+                 if display.get('kind') == 'recap' and display['origin_matches_current_metadata'] is True
+                 and isinstance(session, str) else None)
+        name = label.strip() if isinstance(label, str) and label.strip() else 'Source name unavailable'
+        presentation[key] = (name, int(match[1]) if match else 'unestablished')
+    return presentation
 
 
 def opened_source_display_label(prepared, member):
