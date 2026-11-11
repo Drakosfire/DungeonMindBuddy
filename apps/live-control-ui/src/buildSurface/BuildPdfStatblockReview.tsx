@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { authenticatedApiFetch } from "../api/liveApi";
 import type { PdfLocator } from "../api/retainedPdfRegions";
-import type { StatblockDefinitionV1_Output } from "../contracts/dungeonbuddy-statblocks-v1/client";
+import type { StatblockDefinitionV1_Output, ValidationIssueV1 } from "../contracts/dungeonbuddy-statblocks-v1/client";
 import { StatblockDefinitionEditor } from "../statblocks/editor/StatblockDefinitionEditor";
 import { createEditorStateFromOutput, type StatblockEditorState } from "../statblocks/editor/statblockEditorState";
 
@@ -20,6 +20,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [validation, setValidation] = useState("");
+  const [issues, setIssues] = useState<ValidationIssueV1[]>([]);
   const [region, setRegion] = useState<PdfLocator>();
   const [image, setImage] = useState("");
 
@@ -70,6 +71,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     setPending(true);
     setError("");
     setValidation("");
+    setIssues([]);
     try {
       const { response } = await authenticatedApiFetch(sourcePath + "/statblock:validate", {
         method: "POST",
@@ -79,6 +81,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       const { validation: result } = await response.json();
       const receipt = result?.validation_receipt;
       if (result?.outcome !== "success" || !receipt) throw new Error();
+      setIssues(receipt.issues ?? []);
       if (receipt.status === "valid") {
         setValidation("Mechanics validated.");
       } else if (receipt.status === "warnings") {
@@ -130,6 +133,15 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         <fieldset disabled={pending}>
           <button type="button" onClick={() => void validate()}>Validate mechanics</button>
           {validation && <span role="status">{validation}</span>}
+          {issues.length > 0 && <ul aria-label="Mechanics validation issues">
+            {issues.map((issue, index) => (
+              <li key={index}>
+                <strong>{issue.severity}</strong> {issue.message}
+                {issue.field_path && <div><code>{issue.field_path}</code></div>}
+                {issue.suggested_resolution && <div>{issue.suggested_resolution}</div>}
+              </li>
+            ))}
+          </ul>}
           <button type="button" onClick={() => void save()}>Save review draft</button>
           {saved && <span role="status">Draft saved</span>}
           {review.regions.map((locator, index) => (
@@ -139,7 +151,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
           ))}
           {image && region && <img src={image} alt={`Exact PDF region on page ${region.page}`} />}
           <StatblockDefinitionEditor output={review.definition} editorState={editor}
-            onEditorStateChange={state => { setEditor(state); setSaved(false); setValidation(""); }}
+            onEditorStateChange={state => { setEditor(state); setSaved(false); setValidation(""); setIssues([]); }}
             recoveryHint="Save the review draft to keep your edits." />
         </fieldset>
       </>}

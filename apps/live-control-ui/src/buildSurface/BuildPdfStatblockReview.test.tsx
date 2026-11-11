@@ -17,7 +17,7 @@ it("reopens a draft and saves edits against the exact retained regions", async (
       const payload = JSON.parse(String(init?.body));
       expect(payload.regions).toEqual(regions);
       expect(payload.definition.identity.name).toBe(definition.identity.name);
-      return { response: Response.json({ validation: { outcome: "success", validation_receipt: { status: "warnings" } } }) } as Awaited<ReturnType<typeof authenticatedApiFetch>>;
+      return { response: Response.json({ validation: { outcome: "success", validation_receipt: { status: "warnings", issues: [{ severity: "warning", field_path: "/identity/name", message: "Check the printed name" }] } } }) } as Awaited<ReturnType<typeof authenticatedApiFetch>>;
     }
     if (init?.method === "PUT") {
       const payload = JSON.parse(String(init.body));
@@ -34,8 +34,10 @@ it("reopens a draft and saves edits against the exact retained regions", async (
   const name = await screen.findByRole("textbox", { name: "Creature name" });
   fireEvent.click(screen.getByRole("button", { name: "Validate mechanics" }));
   await screen.findByText("Mechanics validated with warnings.");
+  expect(screen.getByText(/Check the printed name/)).toBeInTheDocument();
   fireEvent.change(name, { target: { value: "Revised creature" } });
   expect(screen.queryByText("Mechanics validated with warnings.")).toBeNull();
+  expect(screen.queryByText(/Check the printed name/)).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Save review draft" }));
   await waitFor(() => expect(screen.getByText("Draft saved")).toBeInTheDocument());
   expect(screen.getByRole("button", { name: "Open source region 1 · Page 2" })).toBeInTheDocument();
