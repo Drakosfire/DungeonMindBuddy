@@ -2172,6 +2172,35 @@ def post_review_build_pdf_region(world_id: str, body: dict, request: Request):
     return {"text": text, "region": region.model_dump(mode="json")}
 
 
+@router.post("/worlds/{world_id}/build-pdf-sources/statblock:validate")
+def post_validate_build_pdf_statblock(world_id: str, body: dict, request: Request):
+    from apps.live_control_server.services.statblock_definition_validation import (
+        ValidateDefinitionBuddyRequestV1,
+        validate_definition,
+    )
+
+    enforce_native_graph_gm(request)
+    regions = body.get("regions")
+    if (
+        set(body) != {"definition", "regions"}
+        or not isinstance(regions, list)
+        or not regions
+        or any(not isinstance(region, dict) for region in regions)
+    ):
+        raise HTTPException(status_code=422, detail={"code": "invalid_pdf_statblock_request"})
+    try:
+        candidate = ValidateDefinitionBuddyRequestV1.model_validate({"definition": body["definition"]})
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail={"code": "invalid_statblock_definition"}) from exc
+
+    authorized_regions = []
+    for locator in regions:
+        _, region = _authorized_build_pdf_region(world_id, locator, request)
+        authorized_regions.append(region.model_dump(mode="json"))
+    validation = validate_definition(definition=candidate.definition)
+    return {"validation": validation.model_dump(mode="json", by_alias=True), "regions": authorized_regions}
+
+
 @router.post("/worlds/{world_id}/build-pdf-sources/open")
 def post_open_build_pdf_source(world_id: str, body: dict, request: Request, render: bool = False):
     from fastapi.responses import Response
