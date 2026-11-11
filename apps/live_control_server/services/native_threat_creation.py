@@ -10,6 +10,9 @@ from dungeonmind.application.vnext import (
     get_prospective_publication, open_admitted_native_text,
     publish_native_text_source_evidence,
 )
+from dungeonmind.application.vnext.native_pdf_access import (
+    bind_native_pdf_evidence, register_native_pdf_evidence,
+)
 from dungeonmind.contracts.vnext.common import LabelsAllVisibility
 from dungeonmind.contracts.vnext.native_source import (
     NativeTextEvidenceSpanRequestV1, NativeTextSourceAdmissionV1, NativeTextSourceOriginV1,
@@ -83,7 +86,7 @@ def intent(review):
     metadata = wk.AssertionMetadata(
         scope=(), visibility=wk.Visibility("labels_any", (GM_LABEL,)),
         epistemic_basis="asserted", claim_mode="dungeonbuddy.claim:plan", standing="provisional",
-        temporal_scope=wk.TemporalScope(kind="unknown"), evidence_ref_ids=(review.source_evidence_id,))
+        temporal_scope=wk.TemporalScope(kind="unknown"), evidence_ref_ids=(review.source_evidence_id, *review.pdf_evidence_ids))
     return wk.WorldChangeIntent(review.binding["native_world_id"], PRODUCER, (
         wk.CreateObject("creature", (
             wk.CreateFact("creature.name", "dnd5e:name", wk.LiteralFactValue(review.label), metadata),
@@ -99,6 +102,36 @@ def source_matches(access, review):
             and opened.span_start_byte == 0 and opened.span_sha256 == review.body_sha256
             and opened.span_end_byte == len(opened.body_text.encode()),
             "The exact proposed creature source is unavailable")
+
+
+def register_pdf_regions(repo, space_id, regions, context, access, created_at):
+    evidence_ids = []
+    for region in regions:
+        source_access = dict(
+            authorized_space_id=space_id, audience=frozenset(),
+            declared_labels=frozenset(), load=repo.get_native_pdf_source,
+        )
+        evidence = bind_native_pdf_evidence(region, **source_access)
+        require(evidence is not None, "The selected PDF region is unavailable")
+        if evidence.evidence_ref_id in evidence_ids:
+            continue
+        existing_ref = access.parsed.get_evidence(evidence.evidence_ref_id)
+        if existing_ref is None:
+            parent = context["revision_id"]
+            register_native_pdf_evidence(
+                region, **source_access, repository=repo,
+                expected_parent_revision_id=parent,
+                publication_id=f"{evidence.evidence_ref_id}:{parent}", created_at=created_at,
+            )
+            context, access = native.access_context(repo, space_id)
+            existing_ref = access.parsed.get_evidence(evidence.evidence_ref_id)
+        require(existing_ref is not None and
+                existing_ref.source_artifact_id == evidence.source_artifact_id and
+                existing_ref.source_revision_id == evidence.source_revision_id and
+                existing_ref.source_locator == evidence.source_locator,
+                "The registered PDF evidence differs from the selected region")
+        evidence_ids.append(evidence.evidence_ref_id)
+    return context, access, tuple(evidence_ids)
 
 
 def prepare(root, draft_id, request, principal):
@@ -136,12 +169,17 @@ def prepare(root, draft_id, request, principal):
                 and admitted.admission_id == admission_id and len(admitted.bindings) == 1
                 and admitted.bindings[0].client_ref == "whole-draft", "The retained source receipt changed")
         context, access = native.access_context(repo, bound["native_world_id"])
+        context, access, pdf_evidence_ids = register_pdf_regions(
+            repo, bound["native_world_id"], request.pdf_regions, context, access,
+            datetime.fromisoformat(draft.updated_at),
+        )
         domain, profile = native.descriptors(repo, bound["native_world_id"], context["revision_id"])
         now = datetime.now(UTC)
         review = NativeThreatReview(world_id=draft.world_id, draft_id=draft_id, draft_version=draft.version,
             label=draft.name, body_sha256=digest, binding=bound, publication_id=publication_id(draft_id),
             source_evidence_id=admitted.bindings[0].evidence_ref_id,
             source_artifact_id=admitted.source_artifact_id, source_revision_id=admitted.source_revision_id,
+            pdf_evidence_ids=pdf_evidence_ids,
             prepared_digest="0" * 64, principal=principal.subject, expires_at=now + timedelta(hours=1))
         source_matches(access, review)
         prepared = transport.runtime(repo, domain, profile, now=now,
