@@ -72,21 +72,6 @@ Do not infer a current blocker or READY assignment from them.
 **Refs:** Edge source `bba72416-9dfe-49bb-add0-21a346e9a421`; `apps/live-control-ui/src/tiptap/extensions/MediaImageNode.tsx`; `apps/live-control-ui/src/tiptap/MarkdownDocumentAdapter.ts`; conversation `01a0ef89-ca57-7b82-9c9c-215b02d0fc3b`.
 
 
-## [IDEA] Publish Statblock Workbench as a Build Tool capability
-**Kind:** CODE  
-**Owner:** Build / Surface Interaction  
-**Captured:** 2026-08-11  
-**Last verified:** 2026-09-08 @ `df15db4c695240ce08b5812d43ca398cd70ff6ac`  
-**Depends on:** shared Tool Host merged in PR #501; native Build Surface Interaction publication merged in PR #506; shared Threat projection/lens merged in PR #512. The Threat/Statblock roadmap still explicitly leaves this capability in root backlog until sequenced elsewhere.
-
-**Problem:** Build can natively publish/search/inspect World Graph capabilities through shared hosts, but Statblock Workbench authoring is not yet an ordinary Build Tool capability.
-
-**Slice:** Publish the existing Workbench launcher/inventory through the active Build Surface Interaction lease. Reuse the shared Tool Host and existing Workbench; do not create Build-local tool chrome or couple Threat viewing to Workbench ownership.
-
-**Exit proof:** From an admitted Build document, the shared Tool Host exposes the Workbench capability, opens the existing Workbench, survives surface/document lease replacement correctly, and leaves Plan behavior and graph/document authority unchanged.
-
-**Refs:** PRs #501, #506, #512; `Docs/Design/ARCHITECTURE-surface-interaction-layer.md`; `Docs/Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`; `apps/live-control-ui/src/surfaceInteraction/`.
-
 ## [IDEA] Define independent source-artifact archive / restore lifecycle
 **Kind:** DESIGN  
 **Owner:** APP-STATE / source lifecycle  
@@ -245,14 +230,14 @@ The rows below preserve discoverability for capabilities removed from root witho
 
 | Capability / residual | Status owner | Root disposition / owner health |
 |---|---|---|
-| C1/C2 historical source coverage, durable provenance, rich recap/object/Threat experience, session navigation, shell residuals, real-material save/reopen, Agent-on-Ingest/cross-surface Agent, observability, off-laptop durable authorities | `Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md` + `Docs/Plans/STEWARDS-ANCHOR-con-ready.md` | Delegated. This is the current execution program; root backlog must not shadow its STOP-driven sequencing. |
+| Remaining C1/C2 source coverage and the authoring, preparation and Play journey | [Buddy product roadmap](Docs/Roadmaps/ROADMAP-demo.md) | The [DEMO steward handoff](Docs/Plans/STEWARDS-HANDOFF-demo.md) describes the mandate. The [old Demo-Ready ladder](Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md) and [CON-READY anchor](Docs/Plans/STEWARDS-ANCHOR-con-ready.md) are historical evidence. |
 | Build ready-state Reload / Discard-local actions | Demo-Ready Stage 6 / current Markdown Canvas ownership | Removed from root READY on 2026-09-08. It belongs with the real-material edit/save/reopen dogfood rather than an independent pre-Stage-6 dispatch. |
 | Hermes optimistic transcript + multiline composer | Demo-Ready Stage 7 Agent work | Removed from root READY on 2026-09-08. Useful UX remains, but Agent-on-Ingest/context/observability sequencing owns when it should ship. |
 | Hermes prompt/configuration quality + revision-aware cross-turn evidence deduplication | Demo-Ready Stage 7 / Agent observability | Removed from root IDEA on 2026-09-08. Reproduce against the assembled cross-surface Agent before creating an independent slice. |
-| First-class statblock and roll-table display across surfaces | Demo-Ready Stage 4 + `Docs/Roadmaps/ROADMAP-threat-statblock-authoring-projection.md` | Removed from root IDEA. Rich-object/Threat dogfood and the Threat owner decide the split; do not build a second cross-surface status lane here. |
+| First-class statblock and roll-table display across surfaces | [Buddy product roadmap](Docs/Roadmaps/ROADMAP-demo.md) and owning Threat/Play contracts | Assess remaining cross-surface behavior there; the Build Workbench launcher is already delivered. |
 | Durable Combat board / easy roster loading | CON-READY / Play + Combat authorities | Removed from root IDEA. Combat remains a real product need, but it is later than current Demo-Ready continuity and must be re-anchored when Play/Combat resumes. |
-| Native Play board usability / Beat-first current moment | `Docs/Plans/STEWARDS-ANCHOR-con-ready.md` + current Play design authorities | Removed from root IDEA. BF3B and further Play work remain parked behind the current continuity program. |
-| Hermes copyable authoring artifact, grounded-answer→Threat authoring, graph chips, Revise UX, mechanic-editor expansion, liveness UX, durable telemetry, statblock presentation/media evolution | `Docs/Plans/PR-TRACKER-threat-statblock-authoring-projection.md` / Threat roadmap | Delegated; that owner remains the status authority for these domain capabilities. |
+| Native Play board usability / Beat-first current moment | [Buddy product roadmap](Docs/Roadmaps/ROADMAP-demo.md) and owning Play design | Re-anchor with DEMO when Play work resumes. |
+| Rich Threat authoring, statblock presentation/media, and related conversation behavior | [Buddy product roadmap](Docs/Roadmaps/ROADMAP-demo.md) and current owning handoffs | The [Threat roadmap](Docs/Roadmaps/ROADMAP-threat-statblock-authoring-projection.md) retains historical design and acceptance wording. |
 | Historical Campaign-Supergraph residual labels such as PR380E/PR380F and exact-run review sequencing | current Demo-Ready/CUTOVER-era authorities, not the old tracker by default | Historical design ancestry only. Do not dispatch directly from stale PR380 labels without re-anchoring against the post-cutover DungeonMind boundary. |
 | Broad “durable database persistence for GM work across worktrees” umbrella | Stage 2A/2B proof + domain-specific successors | Retired as a root umbrella on 2026-09-08. Durable APP-STATE on `54331` and durable DungeonMind World on `54330` now exist and have recovery proof; remaining Combat/statblock/source-coverage/off-laptop work has narrower owners. History remains in Git. |
 | Broad “move durable Buddy runtime state out of checkout-local `out/`” umbrella | Stage 2A/2B + Demo-Ready Stage 2C/8 + domain owners | Retired as a root umbrella on 2026-09-08. Checkout-local `out/` is no longer accepted product authority for the recovered core state; surviving residuals must be named by domain rather than reopening the umbrella. |
@@ -279,6 +264,8 @@ an old UI repair. Of Conks and other prototype evidence remain reference materia
 a prototype is not a new durable authority.
 
 ## Hygiene history
+
+- 2026-11-10: checked delivery through Buddy main `b0585f6d9`; archived the Build Statblock Workbench launcher, recorded completed image authoring slices, and corrected superseded roadmap pointers.
 
 - 2026-08-16 pass 1: 74 active headings → 29; see `Docs/Reports/BACKLOG-HYGIENE-2026-08-16.md`.
 - 2026-08-16 pass 2: converted root backlog from “worth doing” list to strict dispatch inventory; tracker-owned work delegated without duplicate status and READY reduced to seven bounded slices.

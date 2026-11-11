@@ -7,6 +7,21 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Revise selected Build text using the saved page image — completed 2026-11-10
+
+**Outcome:** Build can ask the author for a missing passage selection (#2388, #2390), then use the actual saved image above the selection to stage an editable revision (#2394, #2395). The Old Bath House walkthrough on 5202 used the map and the full “Map-ready interior plan” section. Buddy returned a proposal for review; it was not applied and the page stayed at saved revision 20.
+**Refs:** [#2390](https://github.com/Drakosfire/DungeonMindBuddy/pull/2390), [#2394](https://github.com/Drakosfire/DungeonMindBuddy/pull/2394), [#2395](https://github.com/Drakosfire/DungeonMindBuddy/pull/2395); [image revision handoff](Docs/Plans/HANDOFF-BUILD-image-grounded-revision.md).
+
+## [DONE] Edit Image Studio results and compact the toolbar — completed 2026-11-10
+
+**Outcome:** Image Studio exposes contextual editing on its result (#2377); its controls fit in a single desktop header row (#2384). A dedicated map object, layer editor and coordinate model remain separate.
+**Refs:** [#2377](https://github.com/Drakosfire/DungeonMindBuddy/pull/2377), [#2384](https://github.com/Drakosfire/DungeonMindBuddy/pull/2384).
+
+## [DONE] Publish Statblock Workbench as a Build Tool capability — captured 2026-08-11, completed 2026-10-22
+
+**Outcome:** #1577 exposed the existing World-scoped Statblock Workbench through the shared Build Tool Host. The delivery witness opened it through Build → Tools → Statblocks on 5202. Current Build still registers the shared tool and projection. This closes the launcher item; generation, accepted mechanics and cross-surface presentation have separate owning work.
+**Refs:** [#1577](https://github.com/Drakosfire/DungeonMindBuddy/pull/1577) (`af4298575`); [Build tool handoff](Docs/Plans/HANDOFF-BUILD-statblock-tool.md).
+
 ## [DONE] KERNEL replay-safe alias_remove before alias-package — captured 2026-08-13, done 2026-08-13
 **Context:** PR #577 forensic STOP after PR #576: eight `EVIDENCE_PROVENANCE` alias blockers split into two source-grounded current-node aliases (`Captain`, `Thrin Branchborn`) and six merge-shadow aliases materialized by `merge_identity()` unioning merged-away labels onto survivors. Direct JSON cleanup would not survive replay; classifying the six as `SOURCE_MIGRATION_HISTORY` crossed an explicit STOP.
 **Insight:** This was a missing governed identity-materialization capability, not a six-object data-cleanup problem. `IdentityDecisionKind.alias_remove` was already reserved but append-only.
