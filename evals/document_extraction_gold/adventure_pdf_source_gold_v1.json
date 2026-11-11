@@ -1,0 +1,127 @@
+{
+  "schema_version": "1.0",
+  "title": "Adventure PDF source gold, first slice",
+  "purpose": "Small manually source-checked gold for document structure and extraction. This records what the selected PDF bytes say; it does not correct unusual source values or score an extractor.",
+  "status": {
+    "coverage": "Three reviewed blocks across two exact PDFs; not whole-document coverage.",
+    "evaluation": "Development gold, not a pristine blind holdout. The Sheep PDF was used in earlier OCR work.",
+    "method": "Expected values transcribed from rendered PDF pages and checked against the exact SHA-256-pinned files."
+  },
+  "sources": [
+    {
+      "source_id": "conks",
+      "title": "Of Conks & Cons",
+      "operator_edition_label": "Retained selected source; no edition inferred from file metadata",
+      "pdf_sha256": "9c6458d5c742945e7b0c0abfcaef217384a8a14a6c503458f2ad49e7ee143e8c",
+      "page_count": 19,
+      "edition_evidence": "The PDF metadata has no title or edition marker. The exact byte hash is the source identity for this slice."
+    },
+    {
+      "source_id": "sheep",
+      "title": "The Wild Sheep Chase",
+      "operator_edition_label": "v2, as selected by the operator",
+      "pdf_sha256": "a92a7d6f67432dfacd935161a7c90a6ec9ba7f4fc636a8e8f09537070bbdeeb6",
+      "page_count": 6,
+      "edition_evidence": "The PDF metadata does not encode v2. The operator label plus exact byte hash pins the selected file."
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "conks-grotesque-tree-statblock",
+      "source_id": "conks",
+      "physical_page": 16,
+      "printed_page": 17,
+      "block_type": "statblock",
+      "block_title": "Grotesque Tree",
+      "expected_fields": {
+        "name": "GROTESQUE TREE",
+        "size_type_alignment": "Huge plant, unaligned",
+        "armor_class": "11 (natural armor)",
+        "hit_points": "39 (6d8+12)",
+        "speed": "—",
+        "ability_scores": {
+          "STR": "17 (+3)",
+          "DEX": "9 (-1)",
+          "CON": "15 (+2)",
+          "INT": "7 (-2)",
+          "WIS": "10 (0)",
+          "CHA": "10 (0)"
+        },
+        "damage_immunities": "piercing",
+        "damage_resistances": "bludgeoning",
+        "damage_vulnerabilities": "fire",
+        "condition_immunities": "charmed",
+        "senses": "blindsight 600 ft. (blind beyond this radius), passive Perception 10",
+        "languages": "—",
+        "challenge": "1 (200 XP)"
+      },
+      "source_note": "The unusual 600 ft. sense is preserved exactly as printed. Do not normalize it to a rules-expected value."
+    },
+    {
+      "case_id": "conks-appendix-c-male-villager-names",
+      "source_id": "conks",
+      "physical_page": 18,
+      "printed_page": 19,
+      "block_type": "table",
+      "block_title": "Male Villager Names",
+      "columns": ["1d12", "Name", "Notes"],
+      "rows": [
+        {"roll": 1, "name": "Ryan Burke", "notes": ""},
+        {"roll": 2, "name": "Adam Campbell", "notes": ""},
+        {"roll": 3, "name": "Logan Hunt", "notes": ""},
+        {"roll": 4, "name": "Hans Hertner", "notes": ""},
+        {"roll": 5, "name": "Thorwald Dohna", "notes": ""},
+        {"roll": 6, "name": "Artur Seyler", "notes": ""},
+        {"roll": 7, "name": "Ansgar Wachs", "notes": ""},
+        {"roll": 8, "name": "Roduulf", "notes": ""},
+        {"roll": 9, "name": "Cannabaudes", "notes": ""},
+        {"roll": 10, "name": "Bilimer", "notes": ""},
+        {"roll": 11, "name": "Ebbo", "notes": ""},
+        {"roll": 12, "name": "Haldemarus", "notes": ""}
+      ],
+      "source_note": "The page contains three separate 1d12 tables. This case covers only the Male Villager Names table."
+    },
+    {
+      "case_id": "sheep-ahmed-noke-statblock",
+      "source_id": "sheep",
+      "physical_page": 5,
+      "block_type": "statblock",
+      "block_title": "Ahmed Noke",
+      "expected_fields": {
+        "name": "AHMED NOKE",
+        "size_type_alignment": "Medium Humanoid (Human), neutral evil",
+        "armor_class": "12",
+        "hit_points": "55 (10d8 + 10)",
+        "speed": "30ft.",
+        "ability_scores": {
+          "STR": "9 (-1)",
+          "DEX": "14 (+2)",
+          "CON": "12 (+1)",
+          "INT": "16 (+3)",
+          "WIS": "12 (+1)",
+          "CHA": "10 (+0)"
+        },
+        "saving_throws": "Intelligence +5, Wisdom +4",
+        "skills": "Arcana +6",
+        "senses": "passive perception 11",
+        "languages": "Common, Elven, Draconic",
+        "challenge": "2 (450 XP)"
+      },
+      "source_note": "The expected fields are the statblock header and core statistics; spell lists and actions are outside this first slice."
+    }
+  ],
+  "excluded_asset_lineage": [
+    {
+      "asset_sha256": "b0bbbbae4093af6c8986243ea460d49af1db0909d170135e5b3b2c655dbfc3a1",
+      "declared_source_pdf_sha256": "b85eb98ee60110e90de90fa04574ae8a5a2b19f4e24d42acd998ec34fdffba41",
+      "selected_source_pdf_sha256": "9c6458d5c742945e7b0c0abfcaef217384a8a14a6c503458f2ad49e7ee143e8c",
+      "status": "not linked to this PDF; withheld from source gold"
+    },
+    {
+      "asset_sha256": "68e405fab7ec51655679a0b50285c5a7cc280ec88c6e079ba8287d6761a2b084",
+      "declared_source_pdf_sha256": "b85eb98ee60110e90de90fa04574ae8a5a2b19f4e24d42acd998ec34fdffba41",
+      "selected_source_pdf_sha256": "9c6458d5c742945e7b0c0abfcaef217384a8a14a6c503458f2ad49e7ee143e8c",
+      "status": "not linked to this PDF; withheld from source gold"
+    }
+  ]
+}
