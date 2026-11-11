@@ -173,6 +173,13 @@ def observation_case(tmp_path,monkeypatch,application_state_dsn,request):
     run=create_extraction_run(tmp_path,run_id=run_id,source_artifact_id=artifact.source_artifact_id,
         source_domain="recap",campaign_id="longmont-c2",session_id="session-22",
         profile_id="recap_category_v1@1.0",components=components)
+    from application_state.ingest.components import persist_component_payload
+
+    for kind, path in paths.items():
+        persist_component_payload(
+            run_id=run.run_id, expected_revision=run.revision,
+            kind=kind, payload=path.read_bytes(),
+        )
     for status in ("prepared","extracted","validated","reviewable"):
         run=update_extraction_run_status(tmp_path,run_id,status=ExtractionRunStatus(status),
             expected_revision=run.revision)

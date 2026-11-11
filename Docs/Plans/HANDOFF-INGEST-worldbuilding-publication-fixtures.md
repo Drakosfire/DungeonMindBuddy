@@ -6,11 +6,13 @@ ACTIVE serial test slice for the deferred fundamentals goal. Base
 checkout. QA PR #2396 closed without adoption. PRs #1163 and #1235 have
 disjoint write sets.
 
-Write lease covers this handoff, `tests/test_cutover_worldbuilding_authority_port.py`
+Write lease covers this handoff, `tests/test_cutover_worldbuilding_authority_port.py`,
 `tests/_cutover_d3a_blocker_safe_fixtures.py`, and direct database byte reads in
 `tests/test_worldbuilding_source_observations.py`,
 `tests/test_worldbuilding_publication_discovery.py`, and
-`tests/test_worldbuilding_source_catalog_admission.py`. Exercise registered source
+`tests/test_worldbuilding_source_catalog_admission.py`. Include sealed component
+setup in `tests/test_recap_source_observation_followup.py` for those callers.
+Exercise registered source
 bytes, sealed candidate bytes and committed Page revisions through their
 owners. Check the current stored run-scope rejection for a forged World and
 retain the existing zero-write and cross-World isolation checks.
