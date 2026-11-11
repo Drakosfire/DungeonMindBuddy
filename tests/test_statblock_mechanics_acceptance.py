@@ -240,6 +240,13 @@ def test_pdf_acceptance_rejects_stale_review_and_replays_original(tmp_path, monk
         assert http.post(path, json={**payload, "expected_revision": 3}).status_code == 409
         replay = http.post(path, json={**payload, "expected_revision": 2})
         assert replay.json()["result_label"] == "mechanics_saved", replay.text
+        saved_draft = get_threat_draft(tmp_path, draft.draft_id)
+        refused = http.post(path, json={
+            **payload, "expected_revision": 3, "operation_id": "3d4053fa-8f0f-40f5-98d1-8d48384dfe52",
+            "expected_draft_version": saved_draft.version,
+        })
+        assert refused.status_code == 409, refused.text
+        assert refused.json()["detail"]["code"] == "pdf_statblock_draft_already_has_mechanics"
         assert len(client.create_calls) == 1
 
 

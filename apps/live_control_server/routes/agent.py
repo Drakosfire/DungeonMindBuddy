@@ -2308,6 +2308,17 @@ def post_accept_pdf_statblock_review(
             raise HTTPException(status_code=409, detail={"code": "pdf_statblock_acceptance_conflict"})
         return recover_acceptance_operation(root, draft_id=draft_key, operation_id=body.operation_id)
 
+    if draft.version != body.expected_draft_version:
+        from apps.live_control_server.models.statblock_mechanics_acceptance import (
+            AcceptThreatDraftMechanicsResponseV1,
+        )
+        return AcceptThreatDraftMechanicsResponseV1(
+            draft_id=draft_key, operation_id=body.operation_id,
+            result_label="acceptance_blocked", message="expected draft version mismatch",
+        )
+    if draft.accepted_mechanics_ref is not None:
+        raise HTTPException(status_code=409, detail={"code": "pdf_statblock_draft_already_has_mechanics"})
+
     review = get_pdf_statblock_review(world_id, review_id, request)
     if review["revision"] != body.expected_revision:
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
