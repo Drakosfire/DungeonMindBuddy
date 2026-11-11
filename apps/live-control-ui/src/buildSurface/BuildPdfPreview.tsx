@@ -339,7 +339,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
                     <textarea readOnly value={capturedText} rows={5} />
                   </label>
                 ) : <p role="status">No PDF text runs were selected. The crop may still contain visible text.</p>}
-              {clippedText && <p role="status">Some PDF text lines are only partly inside the capture. Widen the selection or check the image before using the extracted fields.</p>}
+              {clippedText && <p role="status">Some selected text belongs to lines that extend outside the capture. Widen the selection or check the image before using the extracted fields.</p>}
               {receipt && capturedText && <PdfStatblockCandidate
                 key={JSON.stringify([page, capture.region, capturedText])}
                 text={completeLines}
