@@ -2114,7 +2114,7 @@ async def post_build_pdf_source(world_id: str, admission_id: UUID, request: Requ
 
 
 @router.post("/worlds/{world_id}/build-pdf-sources/open")
-def post_open_build_pdf_source(world_id: str, body: dict, request: Request):
+def post_open_build_pdf_source(world_id: str, body: dict, request: Request, render: bool = False):
     from fastapi.responses import Response
 
     from dungeonmind.application.vnext.native_pdf_access import open_native_pdf_region
@@ -2141,9 +2141,16 @@ def post_open_build_pdf_source(world_id: str, body: dict, request: Request):
         raise HTTPException(status_code=422, detail={"code": "invalid_pdf_region"}) from exc
     if pdf is None:
         raise HTTPException(status_code=404, detail={"code": "pdf_source_unavailable"})
+    if render:
+        from apps.live_control_server.services.build_pdf_region_render import render_region
+
+        try:
+            pdf = render_region(pdf, region)
+        except ValueError as exc:
+            raise HTTPException(status_code=503, detail={"code": "pdf_region_render_unavailable"}) from exc
     return Response(
         pdf,
-        media_type="application/pdf",
+        media_type="image/png" if render else "application/pdf",
         headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
     )
 

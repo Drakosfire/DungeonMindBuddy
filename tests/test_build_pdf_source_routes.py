@@ -51,3 +51,26 @@ def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
         assert opened.status_code == 200, opened.text
         assert opened.content == body
         assert opened.headers["cache-control"] == "no-store"
+
+        from apps.live_control_server.services import build_pdf_region_render
+
+        calls = []
+
+        def render_region(pdf, region):
+            calls.append((pdf, region.page))
+            return b"fixture PNG"
+
+        monkeypatch.setattr(build_pdf_region_render, "render_region", render_region)
+        render_path = path + "/open?render=true"
+        assert client.post(render_path, json=locator).status_code == 401
+        assert client.post(render_path.replace("world-a", "world-b"), json=locator,
+                           headers=auth).status_code == 404
+        assert client.post(render_path, json=locator | {"page": 2},
+                           headers=auth).status_code == 422
+        assert calls == []
+        rendered = client.post(render_path, json=locator, headers=auth)
+        assert rendered.status_code == 200, rendered.text
+        assert rendered.headers["content-type"] == "image/png"
+        assert rendered.headers["cache-control"] == "no-store"
+        assert rendered.content == b"fixture PNG"
+        assert calls == [(body, 1)]
