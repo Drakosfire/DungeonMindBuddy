@@ -260,3 +260,55 @@ def test_other_operator_or_unavailable_support_cannot_confirm(creature, monkeypa
     response = confirm(c, packet)
     assert response.status_code == 409, response.text
     assert service.existing(c.lane.repo, c.bound, c.draft.draft_id) is None
+
+
+def test_pdf_region_is_bound_to_signed_native_threat_review(creature, monkeypatch):
+    from hashlib import sha256
+
+    from dungeonmind.application.vnext.native_source_admission import build_native_pdf_source_records
+    from dungeonmind.contracts.vnext.pdf_region import NativePdfSourceAdmissionV1
+
+    c = creature
+    space_id = c.bound["native_world_id"]
+    pdf = b"%PDF-1.7\n"
+    digest = sha256(pdf).hexdigest()
+    artifact, revision = build_native_pdf_source_records(
+        NativePdfSourceAdmissionV1(
+            space_id=space_id, admission_id="fixture:pdf", created_at=datetime.now(UTC),
+            source_classification="dungeonbuddy.source:worldbuilding", authority="primary",
+            content_sha256=digest, visibility={"kind": "public"},
+        ),
+        pdf,
+    )
+
+    def load_pdf(space, source):
+        if (space, source) == (space_id, revision.source_revision_id):
+            return artifact, revision, 1, pdf
+        return None
+
+    monkeypatch.setattr(c.lane.repo, "get_native_pdf_source", load_pdf, raising=False)
+    region = dict(source_revision_id=revision.source_revision_id, content_sha256=digest,
+                  page=1, left=0.1, top=0.2, right=0.7, bottom=0.8)
+    c.request["pdf_regions"] = [region]
+    packet = prepare(c)
+    (evidence_id,) = packet["review"]["pdf_evidence_ids"]
+    assert evidence_id.startswith("pdf-region:")
+    assert service.existing(c.lane.repo, c.bound, c.draft.draft_id) is None
+
+    tampered = deepcopy(packet)
+    tampered["review"]["pdf_evidence_ids"] = []
+    assert confirm(c, tampered).status_code == 409
+    assert service.existing(c.lane.repo, c.bound, c.draft.draft_id) is None
+
+    response = confirm(c, packet)
+    assert response.status_code == 200, response.text
+    _, access = service.native.access_context(c.lane.repo, space_id)
+    evidence = access.parsed.get_evidence(evidence_id)
+    assert evidence is not None
+    assert evidence.source_revision_id == revision.source_revision_id
+    assert evidence.source_locator is not None
+    import json
+
+    assert json.loads(evidence.source_locator) == region | {
+        "schema_version": "dm_native_pdf_region_v1",
+    }
