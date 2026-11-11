@@ -19,3 +19,19 @@ it("asks for a narrower capture when multiple statblocks are present", () => {
   expect(screen.getByText(/Select a region with one labeled/)).toBeInTheDocument();
   expect(screen.queryByText("16")).toBeNull();
 });
+
+it("reads the six printed scores without treating modifiers as scores", () => {
+  const text = "Armor Class 16\nHit Points 75\nSTR DEX CON INT WIS CHA\n19 (+4) 14 (+2) 17 (+3) 8 (-1) 8 (-1) 4 (-3)";
+  render(<PdfStatblockCandidate locator={locator} text={text} />);
+  fireEvent.click(screen.getByRole("button", {name:"Preview statblock fields"}));
+  expect(screen.getAllByRole("definition").map(item => item.textContent)).toEqual(
+    ["16", "75", "19", "14", "17", "8", "8", "4"],
+  );
+});
+
+it("omits an incomplete ability row", () => {
+  const text = "Armor Class 16\nHit Points 75\nSTR DEX CON INT WIS CHA\n19 14 17 8 8";
+  render(<PdfStatblockCandidate locator={locator} text={text} />);
+  fireEvent.click(screen.getByRole("button", {name:"Preview statblock fields"}));
+  expect(screen.getAllByRole("definition").map(item => item.textContent)).toEqual(["16", "75"]);
+});
