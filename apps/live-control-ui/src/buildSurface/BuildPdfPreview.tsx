@@ -3,6 +3,7 @@ import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 type PagePoint = { x: number; y: number };
+type PageRectangle = { left: number; top: number; width: number; height: number };
 
 function pagePoint(event: PointerEvent<HTMLCanvasElement>): PagePoint {
   const bounds = event.currentTarget.getBoundingClientRect();
@@ -21,7 +22,9 @@ function PdfPages({ file }: { file: File }) {
   const [renderedPage, setRenderedPage] = useState<number>();
   const drag = useRef<{ pointerId: number; start: PagePoint } | undefined>(undefined);
   const [region, setRegion] = useState<{ start: PagePoint; end: PagePoint }>();
-  const [capture, setCapture] = useState<string>();
+  const [capture, setCapture] = useState<{ image: string; region: PageRectangle }>();
+  const [capturedText, setCapturedText] = useState<string>();
+  const [textError, setTextError] = useState(false);
   const rectangle = region && {
     left: Math.min(region.start.x, region.end.x),
     top: Math.min(region.start.y, region.end.y),
@@ -48,7 +51,9 @@ function PdfPages({ file }: { file: File }) {
     context.drawImage(source, rectangle.left * source.width, rectangle.top * source.height,
       rectangle.width * source.width, rectangle.height * source.height,
       0, 0, crop.width, crop.height);
-    setCapture(crop.toDataURL());
+    setCapturedText(undefined);
+    setTextError(false);
+    setCapture({ image: crop.toDataURL(), region: rectangle });
   }
 
   useEffect(() => {
@@ -105,6 +110,37 @@ function PdfPages({ file }: { file: File }) {
     };
   }, [document, page]);
 
+  useEffect(() => {
+    if (!document || !capture) return;
+    let cancelled = false;
+    async function readRegion(pdf: PDFDocumentProxy, region: PageRectangle) {
+      try {
+        const source = await pdf.getPage(page);
+        const viewport = source.getViewport({ scale: 1 });
+        const { items } = await source.getTextContent();
+        const text = items.map(item => {
+          if (!("str" in item)) return "";
+          const [a, b, c, d, x, y] = item.transform;
+          const advance = item.dir === "ttb" ? Math.hypot(c, d) : Math.hypot(a, b);
+          const offset = advance ? item.width / (2 * advance) : 0;
+          const [viewX, viewY] = viewport.convertToViewportPoint(
+            x + a * offset + c / 2, y + b * offset + d / 2,
+          );
+          const nx = viewX / viewport.width;
+          const ny = viewY / viewport.height;
+          const included = nx >= region.left && nx <= region.left + region.width
+            && ny >= region.top && ny <= region.top + region.height;
+          return (included ? item.str : "") + (item.hasEOL ? "\n" : "");
+        }).join("").replace(/\n{2,}/g, "\n").trim();
+        if (!cancelled) setCapturedText(text);
+      } catch {
+        if (!cancelled) setTextError(true);
+      }
+    }
+    void readRegion(document, capture.region);
+    return () => { cancelled = true; };
+  }, [document, page, capture]);
+
   return (
     <section aria-label="PDF preview">
       <p>{file.name}</p>
@@ -155,7 +191,19 @@ function PdfPages({ file }: { file: File }) {
           {region && <button type="button" onClick={() => { setRegion(undefined); setCapture(undefined); }}>
             Clear selection
           </button>}
-          {capture && <img src={capture} alt={`Captured region of page ${page}`} style={{ maxWidth: "100%" }} /> }
+          {capture && (
+            <section aria-label={`Capture from page ${page}`}>
+              <img src={capture.image} alt={`Captured region of page ${page}`} style={{ maxWidth: "100%" }} />
+              {textError ? <p role="alert">The PDF text layer could not be read.</p>
+                : capturedText === undefined ? <p role="status">Reading selected text…</p>
+                : capturedText ? (
+                  <label>
+                    Captured text
+                    <textarea readOnly value={capturedText} rows={5} />
+                  </label>
+                ) : <p role="status">No selectable text in this region.</p>}
+            </section>
+          )}
         </>
       )}
     </section>
