@@ -5,8 +5,8 @@ export function PdfStatblockCandidate({text, locator}: {text: string; locator: P
   const [opened, setOpened] = useState(false);
   if (!opened) return <button type="button" onClick={() => setOpened(true)}>Preview statblock fields</button>;
 
-  const armor = Array.from(text.matchAll(/^[ \t]*Armor Class\s*:?\s*(\d(?:[ \t]*\d)*)/gim));
-  const hp = Array.from(text.matchAll(/^[ \t]*Hit Points\s*:?\s*(\d(?:[ \t]*\d)*)/gim));
+  const armor = Array.from(text.matchAll(/^[ \t]*Armor Class[ \t]*:?[ \t]*(\d(?:[ \t]*\d)*)/gim));
+  const hp = Array.from(text.matchAll(/^[ \t]*Hit Points[ \t]*:?[ \t]*(\d(?:[ \t]*\d)*)/gim));
   return <section aria-label="Extracted statblock fields">
     <h4>Statblock candidate</h4>
     <p>Page {locator.page} · {locator.source_revision_id}</p>

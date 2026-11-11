@@ -1,3 +1,4 @@
+import { completePdfTextLines } from "./completePdfTextLines";
 import { PdfStatblockCandidate } from "./PdfStatblockCandidate";
 import { pdfRegionKey, readRetainedPdfRegions, retainedPdfKey, type PdfLocator, type PdfReceipt, type RetainedPdf } from "../api/retainedPdfRegions";
 import { authenticatedApiFetch } from "../api/liveApi";
@@ -116,6 +117,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
   );
   const [capture, setCapture] = useState<{ image: string; region: PageRectangle }>();
   const [capturedText, setCapturedText] = useState<string>();
+  const [completeLines, setCompleteLines] = useState("");
   const [textError, setTextError] = useState(false);
   const rectangle = region && {
     left: Math.min(region.start.x, region.end.x),
@@ -144,6 +146,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
       rectangle.width * source.width, rectangle.height * source.height,
       0, 0, crop.width, crop.height);
     setCapturedText(undefined);
+    setCompleteLines("");
     setTextError(false);
     setCapture({ image: crop.toDataURL(), region: rectangle });
   }
@@ -210,25 +213,36 @@ function PdfPages({ file, worldId, restored, onRetained }: {
         const source = await pdf.getPage(page);
         const viewport = source.getViewport({ scale: 1 });
         const { items } = await source.getTextContent();
-        const text = items.map(item => {
-          if (!("str" in item)) return "";
+        const runs = items.flatMap(item => {
+          if (!("str" in item)) return [];
           const [a, b, c, d, x, y] = item.transform;
           const vertical = item.dir === "ttb";
           const advanceScale = vertical ? Math.hypot(c, d) : Math.hypot(a, b);
           const extent = vertical ? item.height : item.width;
-          const offset = advanceScale ? extent / (2 * advanceScale) : 0;
-          // Vertical PDF text advances down from its origin in PDF coordinates.
-          const [viewX, viewY] = viewport.convertToViewportPoint(
-            vertical ? x + a / 2 - c * offset : x + a * offset + c / 2,
-            vertical ? y + b / 2 - d * offset : y + b * offset + d / 2,
-          );
-          const nx = viewX / viewport.width;
-          const ny = viewY / viewport.height;
-          const included = nx >= region.left && nx <= region.left + region.width
-            && ny >= region.top && ny <= region.top + region.height;
-          return (included ? item.str : "") + (item.hasEOL ? "\n" : "");
-        }).join("").replace(/\n{2,}/g, "\n").trim();
-        if (!cancelled) setCapturedText(text);
+          const advance = advanceScale ? extent / advanceScale : 0;
+          const inside = (along: number, across: number) => {
+            const [viewX, viewY] = viewport.convertToViewportPoint(
+              vertical ? x + a * across - c * along : x + a * along + c * across,
+              vertical ? y + b * across - d * along : y + b * along + d * across,
+            );
+            const nx = viewX / viewport.width;
+            const ny = viewY / viewport.height;
+            return nx >= region.left && nx <= region.left + region.width
+              && ny >= region.top && ny <= region.top + region.height;
+          };
+          return [{
+            text: item.str,
+            endOfLine: item.hasEOL,
+            included: inside(advance / 2, 0.5),
+            complete: advance > 0 && inside(0, 0) && inside(advance, 0)
+              && inside(0, 1) && inside(advance, 1),
+          }];
+        });
+        if (!cancelled) {
+          setCapturedText(runs.map(run => (run.included ? run.text : " ")
+            + (run.endOfLine ? "\n" : "")).join("").trim());
+          setCompleteLines(completePdfTextLines(runs));
+        }
       } catch {
         if (!cancelled) setTextError(true);
       }
@@ -306,7 +320,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
                 ) : <p role="status">No PDF text runs were selected. The crop may still contain visible text.</p>}
               {receipt && capturedText && <PdfStatblockCandidate
                 key={JSON.stringify([page, capture.region, capturedText])}
-                text={capturedText}
+                text={completeLines}
                 locator={{
                   source_revision_id: receipt.source_revision_id,
                   content_sha256: receipt.content_sha256,
