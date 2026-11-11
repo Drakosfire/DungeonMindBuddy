@@ -115,3 +115,38 @@ def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
         assert review.json()["text"] == "Armor Class 16"
         assert all(review.json()["region"][key] == value for key, value in locator.items())
         assert calls == [(body, 1)]
+
+        import json
+        from pathlib import Path
+
+        from apps.live_control_server.services import statblock_definition_validation
+
+        fixtures = Path(__file__).parent / "fixtures" / "statblocks" / "v1"
+        definition = json.loads((fixtures / "candidate-response.json").read_text())["definition"]
+        validated = []
+
+        def validate_definition(*, definition):
+            validated.append(definition)
+            return statblock_definition_validation.ValidateDefinitionBuddyResponseV1(
+                outcome="success", definition_digest="sha256:fixture",
+            )
+
+        monkeypatch.setattr(statblock_definition_validation, "validate_definition", validate_definition)
+        validation_path = path + "/statblock:validate"
+        crop = locator | {"right": 0.5}
+        candidate = {"definition": definition, "regions": [locator, crop]}
+        assert client.post(validation_path, json=candidate).status_code == 401
+        assert client.post(validation_path, json=candidate | {"definition": {}}, headers=auth).status_code == 422
+        assert client.post(validation_path, json=candidate | {"regions": []}, headers=auth).status_code == 422
+        assert client.post(validation_path, json=candidate | {"regions": [locator, crop | {"page": 2}]},
+                           headers=auth).status_code == 422
+        assert client.post(validation_path.replace("world-a", "world-b"), json=candidate,
+                           headers=auth).status_code == 404
+        assert not validated
+        result = client.post(validation_path, json=candidate, headers=auth)
+        assert result.status_code == 200, result.text
+        assert result.json()["validation"]["definition_digest"] == "sha256:fixture"
+        assert result.json()["regions"] == [
+            item | {"schema_version": "dm_native_pdf_region_v1"} for item in (locator, crop)
+        ]
+        assert len(validated) == 1
