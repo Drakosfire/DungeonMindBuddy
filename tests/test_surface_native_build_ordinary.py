@@ -75,7 +75,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             lambda root, *, world_id: [("Meat Mind", draft_id, locator)] if world_id == world else [])
         def open_statblock(root, *, world_id, draft_id, revision_id):
             assert world_id == world and revision_id == locator.revision_id
-            return {"locator": locator.model_dump(mode="json"), "resource": {"definition": definition}}
+            return {"world_id": world_id, "draft_id": draft_id,
+                    "locator": locator.model_dump(mode="json"), "resource": {"definition": definition}}
         monkeypatch.setattr(statblock_saved_revision, "open_version", open_statblock)
     original_revision = lane.repo.get_head(world).head_revision_id
     page = create_page_fixture(tmp_path, world_id=world, campaign_id=world, title='Working page',

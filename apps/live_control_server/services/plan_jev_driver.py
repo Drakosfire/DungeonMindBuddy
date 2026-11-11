@@ -1,5 +1,6 @@
 """Plan parent owns acquisitions; Jev selects semantic catalog entries only."""
 import json
+import re
 from contextlib import nullcontext
 
 from application_state.agent_conversation import types as t
@@ -42,6 +43,7 @@ class PlanJevDriver:
         self.attempted_statblocks = set()
         if (adapter.request.surface.surface_id == "build"
                 and adapter.fence is not None
+                and re.search(r"\b(?:stat[ -]?blocks?|saved mechanics)\b", adapter.request.message, re.IGNORECASE)
                 and isinstance(adapter.fence.turn.graph_context_receipt, t.SurfaceNativeContextReceiptV1)
                 and getattr(getattr(adapter, "native_principal", None), "role", None) == "gm"):
             from apps.live_control_server.routes.statblock_storage import statblock_data_root
@@ -316,20 +318,22 @@ class PlanJevDriver:
         event_id = uuid4()
         sequence = len(adapter._broker_execution().events)
 
-        def materialize():
-            opened = open_version(self.statblock_root, world_id=self.statblock_world,
-                                  draft_id=draft_id, revision_id=locator.revision_id)
-            if opened["locator"] != locator.model_dump(mode="json"):
-                raise ValueError("Opened statblock differs from its selected saved revision")
-            return BuildSavedStatblockReadV1(
-                event_id=event_id, sequence=sequence, selection_event_id=selection.event_id,
-                handle=handle, world_id=self.statblock_world, draft_id=UUID(str(draft_id)),
-                locator=locator, definition=opened["resource"]["definition"],
-            )
-
-        event = materialize()
+        opened = open_version(self.statblock_root, world_id=self.statblock_world,
+                              draft_id=draft_id, revision_id=locator.revision_id)
+        if opened["locator"] != locator.model_dump(mode="json"):
+            raise ValueError("Opened statblock differs from its selected saved revision")
+        event = BuildSavedStatblockReadV1(
+            event_id=event_id, sequence=sequence, selection_event_id=selection.event_id,
+            handle=handle, world_id=self.statblock_world, draft_id=UUID(str(draft_id)),
+            locator=locator, definition=opened["resource"]["definition"],
+        )
         adapter.turn = _require_fresh_execution_append(adapter.fence.append(
-            "record_build_saved_statblock", "event", event, materializer=materialize,
+            "record_build_saved_statblock", "event", event,
+            materializer=lambda: BuildSavedStatblockReadV1(
+                event_id=event_id, sequence=sequence, selection_event_id=selection.event_id,
+                handle=handle, world_id=opened["world_id"], draft_id=UUID(str(opened["draft_id"])),
+                locator=locator, definition=opened["resource"]["definition"],
+            ),
         ))
 
     def _read_native(self, record_kind, identities):
