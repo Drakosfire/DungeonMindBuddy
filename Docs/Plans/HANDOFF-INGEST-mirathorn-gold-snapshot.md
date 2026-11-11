@@ -1,11 +1,14 @@
 # INGEST: Preserve the historical Mirathorn Gold test contract
 
-ACTIVE serial test slice for deferred fundamentals at base
+SETTLED. PR #2400 merged at
+`0d3c5b41373c50181408622b8cd180f12d5b430d`. The fixture write lease is released.
+
+The serial test slice started at base
 `59e7621de4cb26784d843ab57f4f091ec5beed43`, branch
 `codex/mirathorn-historical-gold-fixture` in the recorded-names-control checkout.
 PR #2399 merged and released its fixture lease.
 
-Write lease covers this handoff, its predecessor
+The former write lease covered this handoff, its predecessor
 `HANDOFF-INGEST-worldbuilding-publication-fixtures.md`,
 `tests/test_mirathorn_worldbuilding_query_gold_v1.py`, and the inert fixture
 `tests/fixtures/mirathorn_gold_source_snapshot.json`.
