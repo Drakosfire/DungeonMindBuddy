@@ -9,6 +9,9 @@ from hashlib import sha256
 from typing import Any, Literal, Mapping
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
+from apps.live_control_server.models.statblock_mechanics_acceptance import (
+    AcceptPdfStatblockReviewRequestV1,
+)
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import ValidationError
 
@@ -2261,6 +2264,66 @@ def post_validate_pdf_statblock_review(
         "regions": review["regions"],
         "validation": validation.model_dump(mode="json", by_alias=True),
     }
+
+
+@router.post("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}/accept/{draft_id}")
+def post_accept_pdf_statblock_review(
+    world_id: str, review_id: UUID, draft_id: UUID,
+    body: AcceptPdfStatblockReviewRequestV1, request: Request,
+):
+    from apps.live_control_server.routes.statblock_storage import statblock_data_root
+    from apps.live_control_server.models.statblock_mechanics_acceptance import (
+        AcceptThreatDraftMechanicsRequestV1,
+    )
+    from apps.live_control_server.services.statblock_mechanics_acceptance import (
+        PDF_REVIEW_PROVENANCE, begin_or_resume_acceptance, recover_acceptance_operation,
+    )
+    from apps.live_control_server.services.statblock_acceptance_reconciliation import (
+        get_acceptance_operation,
+    )
+    from apps.live_control_server.services.threat_draft_store import (
+        ThreatDraftStoreError, get_threat_draft,
+    )
+
+    enforce_native_graph_gm(request)
+    world_id = _verified_world_id(world_id)
+    root = statblock_data_root(repo_root())
+    draft_key = str(draft_id)
+    try:
+        draft = get_threat_draft(root, draft_key)
+    except ThreatDraftStoreError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    if draft.world_id != world_id:
+        raise HTTPException(status_code=404, detail={"code": "threat_draft_not_found"})
+
+    identity = {"world_id": world_id, "review_id": str(review_id), "revision": body.expected_revision}
+    existing = get_acceptance_operation(root, draft_id=draft_key, operation_id=body.operation_id)
+    if existing is not None:
+        recorded = (existing.request_body.get("accepted_through") or {}).get(PDF_REVIEW_PROVENANCE, {})
+        if (
+            any(recorded.get(key) != value for key, value in identity.items())
+            or existing.source_draft_version != body.expected_draft_version
+            or existing.validation_receipt_digest != body.validation_definition_digest
+        ):
+            raise HTTPException(status_code=409, detail={"code": "pdf_statblock_acceptance_conflict"})
+        return recover_acceptance_operation(root, draft_id=draft_key, operation_id=body.operation_id)
+
+    review = get_pdf_statblock_review(world_id, review_id, request)
+    if review["revision"] != body.expected_revision:
+        raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
+    return begin_or_resume_acceptance(
+        root,
+        draft_id=draft_key,
+        request=AcceptThreatDraftMechanicsRequestV1(
+            operation_id=body.operation_id,
+            expected_draft_version=body.expected_draft_version,
+            definition=review["definition"],
+            validation_receipt=body.validation_receipt,
+            validation_definition_digest=body.validation_definition_digest,
+            change_summary="Accept saved PDF statblock review",
+        ),
+        pdf_review={**identity, "regions": review["regions"]},
+    )
 
 
 @router.post("/worlds/{world_id}/build-pdf-sources/open")
