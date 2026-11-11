@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ThreatDraft } from "../api/types";
 import type { SavedMechanicsVersionList } from "../statblocks/revision/savedMechanicsRevisionTypes";
-import { authenticatedApiFetch, listSavedMechanicsVersions } from "../api/liveApi";
+import { authenticatedApiFetch, createThreatDraft, listSavedMechanicsVersions } from "../api/liveApi";
 import type { PdfLocator } from "../api/retainedPdfRegions";
 import type { StatblockDefinitionV1_Output, ValidationIssueV1 } from "../contracts/dungeonbuddy-statblocks-v1/client";
 import { StatblockDefinitionEditor } from "../statblocks/editor/StatblockDefinitionEditor";
@@ -100,6 +100,50 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     } catch {
       setError("Could not confirm the new revision. Try again to recover the same operation.");
     } finally {
+      setPending(false);
+    }
+  }
+
+  const createKey = `buddy:pdf-creature-draft:${worldId}:${reviewId}`;
+  const [createInFlight, setCreateInFlight] = useState(false);
+
+  async function createDraft() {
+    if (!review || !editor || pending || createInFlight) return;
+    const name = review.definition.identity.name.trim();
+    if (!name || getLocalFingerprint(editor) !== editor.baselineFingerprint) return;
+    setPending(true);
+    setCreateInFlight(true);
+    setError("");
+    try {
+      if (localStorage.getItem(createKey)) {
+        setError("Check the creature draft list for the previous creation attempt.");
+        return;
+      }
+      // The draft create API has no idempotency key. Record uncertainty before dispatch.
+      localStorage.setItem(createKey, "pending");
+      const draft = await createThreatDraft({
+        scope_mode: "world", world_id: worldId, campaign_id: null, name,
+        description: name, threat_kind: "creature", intended_roles: [], tags: [],
+        generation_intent: {
+          ruleset: review.definition.ruleset, must_include: [], must_avoid: [],
+        },
+        encounter_context: { terrain_notes: [] },
+        graph_context_snapshot: { graph_revision_id: null, selected_node_ids: [], admitted_source_anchor_ids: [] },
+        created_by: "gm",
+      });
+      if (draft.schema !== "dmb_threat_draft_v2" || draft.world_id !== worldId) throw new Error();
+      localStorage.setItem(createKey, draft.draft_id);
+      setDrafts(current => [...current.filter(item => item.draft_id !== draft.draft_id), draft]);
+      setDraftId(draft.draft_id);
+      setVersions(undefined);
+      setParentId("");
+      setHasInitialAttempt(false);
+      setAcceptedLink("");
+      setAcceptOpen(true);
+    } catch {
+      setError("Could not confirm draft creation. Check the creature draft list before creating another.");
+    } finally {
+      setCreateInFlight(false);
       setPending(false);
     }
   }
@@ -311,6 +355,8 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
           </ul>}
           <button type="button" onClick={() => void save()}>Save review draft</button>
           {saved && <span role="status">Draft saved</span>}
+          <button type="button" disabled={createInFlight || getLocalFingerprint(editor) !== editor.baselineFingerprint}
+            onClick={() => void createDraft()}>Create creature draft from review</button>
           {!acceptOpen && <button type="button" onClick={() => void openAcceptance()}>Choose creature draft</button>}
           {acceptOpen && <>
             <label>Creature draft
