@@ -9,6 +9,8 @@ type PageRectangle = { left: number; top: number; width: number; height: number 
 type PdfReceipt = { source_revision_id: string; content_sha256: string };
 type PdfLocator = PdfReceipt & { page: number; left: number; top: number; right: number; bottom: number };
 
+type RetainedPdf = { name: string; locator: PdfLocator };
+
 function retainedPdfKey(worldId: string) {
   return `buddy:retained-pdf-region:${worldId}`;
 }
@@ -319,35 +321,38 @@ export function BuildPdfPreview({ worldId }: { worldId?: string }) {
   const [selection, setSelection] = useState<{ file: File; version: number; restored?: PdfLocator }>();
   const [reopenError, setReopenError] = useState("");
   const [reopening, setReopening] = useState(false);
-  const [retained, setRetained] = useState(() => {
+  const [retained, setRetained] = useState<RetainedPdf[]>(() => {
     try {
-      return worldId ? localStorage.getItem(retainedPdfKey(worldId)) : null;
+      const raw = worldId && localStorage.getItem(retainedPdfKey(worldId));
+      const saved: unknown = raw ? JSON.parse(raw) : [];
+      return Array.isArray(saved) ? saved : [];
     } catch {
-      return null;
+      return [];
     }
   });
   function saveLocator(locator: PdfLocator) {
-    if (!worldId) return;
-    const serialized = JSON.stringify(locator);
-    setRetained(serialized);
+    if (!worldId || !selection) return;
+    const next = [{ name: selection.file.name, locator }, ...retained.filter(
+      entry => entry.locator.source_revision_id !== locator.source_revision_id,
+    )];
+    setRetained(next);
     try {
-      localStorage.setItem(retainedPdfKey(worldId), serialized);
+      localStorage.setItem(retainedPdfKey(worldId), JSON.stringify(next));
     } catch {
       setReopenError("Browser storage is unavailable. This region can be reopened until you leave this view.");
     }
   }
-  async function reopen() {
-    if (!worldId || !retained || reopening) return;
+  async function reopen({ name, locator: restored }: RetainedPdf) {
+    if (!worldId || reopening) return;
     setReopening(true);
     setReopenError("");
     try {
-      const restored: PdfLocator = JSON.parse(retained);
       const path = `/api/live/agent/worlds/${encodeURIComponent(worldId)}/build-pdf-sources/open`;
       const { response } = await authenticatedApiFetch(path, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: retained,
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(restored),
       });
       if (!response.ok) throw new Error();
-      const file = new File([await response.blob()], "Retained PDF", { type: "application/pdf" });
+      const file = new File([await response.blob()], name, { type: "application/pdf" });
       setSelection(previous => ({ file, restored, version: (previous?.version ?? 0) + 1 }));
     } catch {
       setReopenError("Could not reopen the retained PDF.");
@@ -376,9 +381,13 @@ export function BuildPdfPreview({ worldId }: { worldId?: string }) {
           event.currentTarget.value = "";
         }} />
       </label>
-      {retained && <button type="button" disabled={reopening} onClick={() => void reopen()}>
-        Reopen last retained region
-      </button>}
+      {retained.length > 0 && <ul aria-label="Retained PDFs">
+        {retained.map(entry => <li key={entry.locator.source_revision_id}>
+          <button type="button" disabled={reopening} onClick={() => void reopen(entry)}>
+            {entry.name} · Page {entry.locator.page}
+          </button>
+        </li>)}
+      </ul>}
       {reopenError && <p role="alert">{reopenError}</p>}
       {selection && <PdfPages key={`${worldId ?? ""}:${selection.version}`} file={selection.file} worldId={worldId} restored={selection.restored} onRetained={saveLocator} />}
     </div>
