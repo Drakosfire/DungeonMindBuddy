@@ -2174,9 +2174,16 @@ def post_review_build_pdf_region(world_id: str, body: dict, request: Request):
 
 @router.post("/worlds/{world_id}/build-pdf-sources/statblock:validate")
 def post_validate_build_pdf_statblock(world_id: str, body: dict, request: Request):
+    candidate, regions = _authorized_pdf_statblock(world_id, body, request)
+    from apps.live_control_server.services.statblock_definition_validation import validate_definition
+
+    validation = validate_definition(definition=candidate.definition)
+    return {"validation": validation.model_dump(mode="json", by_alias=True), "regions": regions}
+
+
+def _authorized_pdf_statblock(world_id: str, body: dict, request: Request):
     from apps.live_control_server.services.statblock_definition_validation import (
         ValidateDefinitionBuddyRequestV1,
-        validate_definition,
     )
 
     enforce_native_graph_gm(request)
@@ -2197,8 +2204,42 @@ def post_validate_build_pdf_statblock(world_id: str, body: dict, request: Reques
     for locator in regions:
         _, region = _authorized_build_pdf_region(world_id, locator, request)
         authorized_regions.append(region.model_dump(mode="json"))
-    validation = validate_definition(definition=candidate.definition)
-    return {"validation": validation.model_dump(mode="json", by_alias=True), "regions": authorized_regions}
+    return candidate, authorized_regions
+
+
+@router.put("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}")
+def put_pdf_statblock_review(world_id: str, review_id: UUID, body: dict, request: Request):
+    from application_state.errors import ApplicationStateConflictError
+    from application_state.pdf_statblock_review import save_review
+
+    enforce_native_graph_gm(request)
+    expected_revision = body.get("expected_revision")
+    if type(expected_revision) is not int or expected_revision < 0:
+        raise HTTPException(status_code=422, detail={"code": "invalid_review_revision"})
+    candidate, regions = _authorized_pdf_statblock(
+        world_id, {key: value for key, value in body.items() if key != "expected_revision"}, request,
+    )
+    try:
+        return save_review(
+            world_id=_verified_world_id(world_id), review_id=review_id, expected_revision=expected_revision,
+            definition=candidate.definition.model_dump(mode="json", by_alias=True), regions=regions,
+        )
+    except ApplicationStateConflictError as exc:
+        raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"}) from exc
+
+
+@router.get("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}")
+def get_pdf_statblock_review(world_id: str, review_id: UUID, request: Request):
+    from application_state.pdf_statblock_review import read_review
+
+    enforce_native_graph_gm(request)
+    review = read_review(world_id=_verified_world_id(world_id), review_id=review_id)
+    if review is None:
+        raise HTTPException(status_code=404, detail={"code": "pdf_statblock_review_not_found"})
+    _authorized_pdf_statblock(
+        world_id, {"definition": review["definition"], "regions": review["regions"]}, request,
+    )
+    return review
 
 
 @router.post("/worlds/{world_id}/build-pdf-sources/open")
