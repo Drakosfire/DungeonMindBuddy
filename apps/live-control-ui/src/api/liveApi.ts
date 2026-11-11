@@ -423,7 +423,6 @@ const HOSTED_EXPLORER_PATHS = new Set([
   "/api/live/native-graph-explorer/prepare",
   "/api/live/native-graph-explorer/confirm",
   "/api/live/native-graph-explorer/operations/read",
-    "/api/live/agent/build-pdf-ocr",
 ]);
 
 function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
