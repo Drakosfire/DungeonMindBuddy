@@ -329,12 +329,23 @@ def read_committed_draft_version(root: Path, draft_id: str) -> int:
         return _load_draft_unlocked(root, committed_id).version
 
 
+def saved_mechanics_draft_ids(root: Path, *, world_id: str) -> tuple[str, ...]:
+    with _store_lock(root):
+        drafts = (_load_draft_unlocked(root, key) for key in _load_index(root).draft_ids)
+        return tuple(
+            draft.draft_id for draft in drafts
+            if isinstance(draft, ThreatDraftV2)
+            and draft.world_id == world_id
+            and draft.workflow_state == "mechanics_saved"
+            and draft.accepted_mechanics_ref is not None
+        )
+
+
 def list_threat_drafts(
     root: Path,
     *,
     campaign_id: str | None = None,
     world_id: str | None = None,
-    saved_mechanics_only: bool = False,
     limit: int = DEFAULT_LIST_LIMIT,
     offset: int = 0,
 ) -> tuple[list[ThreatDraftSummary], int]:
@@ -362,12 +373,6 @@ def list_threat_drafts(
             if campaign_id and draft.campaign_id != campaign_id:
                 continue
             if world_id and draft.world_id != world_id:
-                continue
-            if saved_mechanics_only and (
-                not isinstance(draft, ThreatDraftV2)
-                or draft.workflow_state != "mechanics_saved"
-                or draft.accepted_mechanics_ref is None
-            ):
                 continue
             summary_model = (
                 ThreatDraftSummaryV2 if isinstance(draft, ThreatDraftV2)

@@ -447,7 +447,7 @@ def test_lookup_does_not_open_an_ambiguous_name(tmp_path, monkeypatch):
     from types import SimpleNamespace
 
     rows = [SimpleNamespace(draft_id=str(i), revision_id="rev_test") for i in range(2)]
-    monkeypatch.setattr(service, "list_threat_drafts", lambda *a, **kw: (rows, 2))
+    monkeypatch.setattr(service, "saved_mechanics_draft_ids", lambda *a, **kw: tuple(row.draft_id for row in rows))
     proof = SimpleNamespace(request_body={"definition": {"identity": {"name": "Meat Mind"}}})
     monkeypatch.setattr(service, "_origin_with_proof", lambda *a: (rows[int(a[-1])], rows[0], proof))
     assert service.find_saved_version(

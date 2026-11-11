@@ -11,7 +11,7 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.client import 
 from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import source_definition_digest_from_body
 from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import locator_from_exact_revision,same_mechanics_locator
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import StatblockIntegrationError
-from apps.live_control_server.services.threat_draft_store import MAX_LIST_LIMIT, get_threat_draft, list_threat_drafts
+from apps.live_control_server.services.threat_draft_store import get_threat_draft, saved_mechanics_draft_ids
 from apps.live_control_server.services.statblock_acceptance_reconciliation import list_acceptance_operations_for_draft
 from apps.live_control_server.services.statblock_definition_validation import validate_definition
 
@@ -87,23 +87,14 @@ def find_saved_version(root, *, world_id, name, client=None):
         raise ValueError("World and statblock name are required")
     normalized_name = " ".join(name.casefold().split())
     match = None
-    offset = 0
-    while True:
-        rows, total = list_threat_drafts(
-            root, world_id=world_id, saved_mechanics_only=True,
-            limit=MAX_LIST_LIMIT, offset=offset,
-        )
-        for row in rows:
-            draft, locator, proof = _origin_with_proof(root, world_id, row.draft_id)
-            saved_name = proof.request_body["definition"]["identity"]["name"]
-            if " ".join(saved_name.casefold().split()) != normalized_name:
-                continue
-            if match is not None:
-                return {"status": "ambiguous"}
-            match = (draft.draft_id, locator.revision_id)
-        offset += len(rows)
-        if not rows or offset >= total:
-            break
+    for draft_id in saved_mechanics_draft_ids(root, world_id=world_id):
+        draft, locator, proof = _origin_with_proof(root, world_id, draft_id)
+        saved_name = proof.request_body["definition"]["identity"]["name"]
+        if " ".join(saved_name.casefold().split()) != normalized_name:
+            continue
+        if match is not None:
+            return {"status": "ambiguous"}
+        match = (draft.draft_id, locator.revision_id)
     if match is None:
         return {"status": "not_found"}
     draft_id, revision_id = match
