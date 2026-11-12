@@ -170,3 +170,81 @@ def test_generic_review_edge_cannot_publish_a_timeline_placement(lane):
     assert response.status_code == 409, response.text
     assert "timeline_edge_requires_reviewed_placement" in response.text
     assert lane.repo.get_head(SPACE_ID).head_revision_id == before
+
+
+@pytest.mark.parametrize("lane", ["source_order"], indirect=True)
+@pytest.mark.parametrize(("scope_mode", "unscoped_predicate"), [
+    ("campaign", None),
+    ("world", None),
+    ("campaign", "dnd5e:classification"),
+    ("campaign", "dungeonbuddy.custom:on_timeline"),
+])
+def test_timeline_search_discovers_placed_event_relationships(lane, monkeypatch, scope_mode, unscoped_predicate):
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    from application_state.agent_conversation.native_plan_assertions import (
+        NativePlanAssertionReadAuthorizedV1,
+    )
+    from apps.live_control_server.services import native_graph_reads
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+
+    _declare_campaign(lane, 1)
+    _select(lane)
+    response = confirm(lane, confirmation(lane))
+    assert response.status_code == 200, response.text
+    revision = response.json()["result"]["child_revision_id"]
+    child = lane.repo.get_revision(SPACE_ID, revision)
+    objects = {row["client_op_id"]: row["durable_object_id"]
+               for row in response.json()["result"]["object_results"]}
+    arrival = objects["record:0"]
+    edge, = [row for row in child.graph_payload["assertions"]
+             if row["predicate"] == "dungeonbuddy.custom:precedes"
+             and row["subject_entity_id"] == arrival]
+
+    if unscoped_predicate:
+        payload = copy.deepcopy(child.graph_payload)
+        assertion, = [row for row in payload["assertions"]
+                      if row["predicate"] == unscoped_predicate
+                      and row["subject_entity_id"] == (
+                          "ent:pippa" if unscoped_predicate == "dnd5e:classification" else arrival
+                      )]
+        assertion["metadata"]["scope"] = []
+        lane.repo.publish_revision(PublishKnowledgeRevisionCommand(
+            space_id=SPACE_ID, parent_revision_id=revision, expected_parent_revision_id=revision,
+            operation_ids=["unscoped-timeline-test"], graph_schema=child.revision.graph_schema,
+            graph_payload=payload, domain_contract_ref=child.revision.domain_contract_ref,
+            semantic_profile_ref=child.revision.semantic_profile_ref, created_at=datetime.now(UTC),
+        ))
+        revision = lane.repo.get_head(SPACE_ID).head_revision_id
+
+    def timeline_search_only(self, context, question):
+        return SimpleNamespace(
+            identity=SimpleNamespace(space_id=SPACE_ID, revision_id=revision),
+            result_digest="a" * 64,
+            completeness=SimpleNamespace(status="complete"),
+            hits=[SimpleNamespace(entity=SimpleNamespace(entity_id="ent:pippa"))],
+        )
+
+    monkeypatch.setattr(native_graph_reads.SearchReadService, "search_entities", timeline_search_only)
+    principal = NativeGraphPrincipal(subject="test:gm", role="gm", auth_method="local_operator")
+    binding = SimpleNamespace(managed_world_id="managed", **lane.bound)
+    context, query = native_graph_reads.prepare_query(
+        "managed", "What happened on the timeline?", principal, repository=lane.repo,
+        resolve_binding=lambda _: binding, scope_mode=scope_mode,
+        campaign_id=CAMPAIGN_ID if scope_mode == "campaign" else None,
+    )
+    ids = {match.assertion_id for match in query.assertion_matches}
+    if scope_mode == "world" or unscoped_predicate:
+        assert edge["assertion_id"] not in ids
+        return
+
+    assert edge["assertion_id"] in ids
+    grant = NativePlanAssertionReadAuthorizedV1(
+        event_id=uuid4(), sequence=0, provider_attempt_id=uuid4(),
+        query_sha256=query.sha256, assertion_ids=(edge["assertion_id"],),
+    )
+    reads, unavailable = native_graph_reads.read_selected(context, grant, principal)
+    assert not unavailable
+    read, = reads
+    assert read.spans
