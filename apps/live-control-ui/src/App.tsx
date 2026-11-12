@@ -18,8 +18,6 @@ import { AgentInteractionProvider } from "./agentInteraction/AgentInteractionPro
 import { WorldAgentConversation, WorldAgentConversationProvider } from "./agentInteraction/WorldAgentConversation";
 import { AskPluginSlotProvider } from "./agentInteraction/AskPluginSlot";
 import { AgentInteractionChrome } from "./agentInteraction/AgentInteractionChrome";
-import { LocalWorldSurface } from "./localWorld/localWorldSurface/LocalWorldSurface";
-import { NativeGraphDemo } from "./nativeGraphDemo/NativeGraphDemo";
 import { createBuddyIndexGraphApi } from "./nativeGraphDemo/buddyIndexGraphApi";
 import { createManagedNativeGraphApi } from "./nativeGraphDemo/managedNativeGraphApi";
 import { usePublishSurfaceInteraction } from "./agentInteraction/usePublishSurfaceInteraction";
@@ -60,6 +58,14 @@ import {
 } from "./selectedWorld/SelectedWorldContext";
 import { WorldSelector } from "./selectedWorld/WorldSelector";
 
+const NativeGraphDemo = deferredComponent(
+  () => import("./nativeGraphDemo/NativeGraphDemo").then(module => ({ default: module.NativeGraphDemo })),
+  "Graph",
+);
+const LocalWorldSurface = deferredComponent(
+  () => import("./localWorld/localWorldSurface/LocalWorldSurface").then(module => ({ default: module.LocalWorldSurface })),
+  "local World",
+);
 const SurfaceShell = deferredComponent(() => import("./surface/SurfaceShell").then(module => ({ default: module.SurfaceShell })), "surface");
 const PlanSurfacePage = deferredComponent(() => import("./planSurface/PlanSurfacePage").then(module => ({ default: module.PlanSurfacePage })), "Plan");
 const PlaySurfacePage = deferredComponent(() => import("./playSurface/PlaySurfacePage").then(module => ({ default: module.PlaySurfacePage })), "Play");
