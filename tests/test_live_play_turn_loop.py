@@ -10,7 +10,7 @@ from jsonschema import Draft202012Validator
 from src.live_play.live_turn import handle_live_turn
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_DIR = ROOT / "evals/c2_live_prep/live/schemas"
+SCHEMA_DIR = ROOT / "schemas/live"
 PACKET_PATH = ROOT / "evals/c2_live_prep/live/session_22/live_packet.json"
 EVENT_LOG = ROOT / "evals/c2_live_prep/live/session_22/event_log.jsonl"
 

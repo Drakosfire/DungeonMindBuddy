@@ -15,7 +15,7 @@ class LiveRowValidationError(ValueError):
 
 @lru_cache(maxsize=2)
 def _validator(schema_name: str) -> Draft202012Validator:
-    schema_dir = Path(__file__).resolve().parents[2] / "evals/c2_live_prep/live/schemas"
+    schema_dir = Path(__file__).resolve().parents[2] / "schemas/live"
     schema = json.loads((schema_dir / schema_name).read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(schema)
     return Draft202012Validator(

@@ -16,7 +16,7 @@ from apps.live_control_server.session_store import load_session
 from src.live_play.projections import build_session_plan_projection
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_PATH = ROOT / "evals/c2_live_prep/live/schemas/plan_view.schema.json"
+SCHEMA_PATH = ROOT / "schemas/live/plan_view.schema.json"
 SAMPLE_PATH = ROOT / "evals/c2_live_prep/live/session_22/plan_view.sample.json"
 SEED_SESSION = ROOT / "evals/c2_live_prep/live/session_22"
 ALLOWED_TARGET_TYPES = {
