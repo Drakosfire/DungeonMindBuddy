@@ -292,7 +292,14 @@ def create_app() -> FastAPI:
             return JSONResponse(status_code=503, content={"status": "unavailable"})
         result = await resolver.resolve(request)
         if result.status == "authenticated" and result.principal is not None:
-            return JSONResponse(content={"status": "authenticated", "subject": result.principal.subject}, headers={"Cache-Control": "no-store"})
+            return JSONResponse(
+                content={
+                    "status": "authenticated",
+                    "subject": result.principal.subject,
+                    "display_name": result.principal.display_name,
+                },
+                headers={"Cache-Control": "no-store"},
+            )
         if result.status == "signed_out":
             return JSONResponse(status_code=401, content={"status": "signed_out"})
         return JSONResponse(status_code=503, content={"status": "unavailable"})

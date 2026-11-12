@@ -726,7 +726,7 @@ describe("canonical local guest entry", () => {
     render(<App />);
 
     expect(await revealIsolatedObject(userEvent.setup(), "Aster")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Account:/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add object" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Connect" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Plan" })).not.toBeInTheDocument();
@@ -738,14 +738,17 @@ describe("canonical local guest entry", () => {
   it("posts sign-out to Buddy and reports a failed response", async () => {
     window.history.replaceState({}, "", "/");
     const fetchMock = vi.fn(async (url: RequestInfo | URL, _init?: RequestInit) => {
-      if (url === "/api/auth/session") return Response.json({ status: "authenticated", subject: "owner" });
+      if (url === "/api/auth/session") return Response.json({ status: "authenticated", subject: "owner", display_name: "Aster Example" });
       if (url === "/api/auth/logout") return Response.json({}, { status: 503 });
       throw new Error(`Unexpected request: ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
     render(<App />);
 
-    await userEvent.setup().click(await screen.findByRole("button", { name: "Sign out" }));
+    const user = userEvent.setup();
+    await user.click(await screen.findByLabelText("Account: Aster Example"));
+    expect(screen.getByRole("button", { name: "Switch World: Choose" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Sign-out failed");
     expect(fetchMock).toHaveBeenCalledWith("/api/auth/logout", expect.objectContaining({
       method: "POST", credentials: "same-origin",

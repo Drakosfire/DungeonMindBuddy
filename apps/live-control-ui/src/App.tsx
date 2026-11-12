@@ -137,10 +137,15 @@ function HostedBuddy({ locationSnapshot }: { readonly locationSnapshot: string }
         </nav>
         {signedIn && <>
           <WorldSelector compact />
-          <button type="button" disabled={signingOut} onClick={() => void signOut()}>
-            {signingOut ? "Signing out…" : "Sign out"}
-          </button>
-          {signOutError && <p role="alert">Sign-out failed. Try again.</p>}
+          <details>
+            <summary aria-label={`Account: ${auth.displayName ?? auth.subject}`}>
+              {auth.displayName ?? auth.subject}
+            </summary>
+            <button type="button" disabled={signingOut} onClick={() => void signOut()}>
+              {signingOut ? "Signing out…" : "Sign out"}
+            </button>
+            {signOutError && <p role="alert">Sign-out failed. Try again.</p>}
+          </details>
         </>}
         <SurfaceContextHost />
       </header>
