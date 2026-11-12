@@ -12,7 +12,9 @@ configure_local_pdf_ocr() {
   local default_checkpoint=""
 
   if [[ -f "${model_cache}/refs/main" ]]; then
-    IFS= read -r model_revision < "${model_cache}/refs/main"
+    # Hugging Face ref files may omit the final newline. Preserve the value
+    # read at EOF without letting strict-mode callers abort configuration.
+    IFS= read -r model_revision < "${model_cache}/refs/main" || true
   fi
   if [[ "${model_revision}" =~ ^[a-f0-9]{40}$ ]]; then
     default_checkpoint="${model_cache}/snapshots/${model_revision}"
@@ -26,10 +28,10 @@ configure_local_pdf_ocr() {
     export BUDDY_OCR_PYTHON="${ocr_python}"
     export BUDDY_OCR_COMMAND="${ocr_command}"
     export BUDDY_OCR_CHECKPOINT="${ocr_checkpoint}"
-    printf '[run] Local PDF OCR configured with the cached DeepSeek OCR 2 model.\n' >&2
+    printf '[run] Local PDF OCR configured with the cached DeepSeek OCR 2 model.\\n' >&2
     return 0
   fi
 
   unset BUDDY_OCR_PYTHON BUDDY_OCR_COMMAND BUDDY_OCR_CHECKPOINT
-  printf '[run] Local PDF OCR unavailable: set BUDDY_OCR_PYTHON, BUDDY_OCR_COMMAND, and BUDDY_OCR_CHECKPOINT to local assets.\n' >&2
+  printf '[run] Local PDF OCR unavailable: set BUDDY_OCR_PYTHON, BUDDY_OCR_COMMAND, and BUDDY_OCR_CHECKPOINT to local assets.\\n' >&2
 }
