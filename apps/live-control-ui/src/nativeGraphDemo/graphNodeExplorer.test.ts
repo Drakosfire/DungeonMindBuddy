@@ -49,7 +49,26 @@ describe('readable node explorer model',()=>{
   expect(m.summaries[0]!.text).toBe('Lieutenant Lysandra now.');
   expect(m.otherRecords[0]!.text).toBe('other:name: {"unknown":true}');
   expect(m.groups[0]!.id).toBe('other');expect(m.groups[0]!.rows[0]!.text).toContain('other:works_with → Unlisted object (missing)');
-  expect(m.summaries[0]!.contexts).toEqual(['Campaign longmont-c2 · Source episode session-22']);
+  expect(m.summaries[0]!.contexts).toEqual(['Campaign 2 · Session 22']);
+ });
+ it('formats only established campaign/session identifiers without mutating source metadata',()=>{
+  const a=assertion('context');
+  a.metadata.temporal_scope={kind:'domain_ref',schema:'dungeonbuddy.time:fictional_anchor_v1',payload:{episode:'session-25',qualified:true}};
+  const original=JSON.stringify(a.metadata);
+  expect(sourceContexts(a)).toEqual(['Campaign 2 · Session 25']);
+  expect(JSON.stringify(a.metadata)).toBe(original);
+ });
+ it('preserves unfamiliar and noncanonical identifiers verbatim',()=>{
+  for (const [campaign,episode] of [['elderwyld','prologue'],['longmont-c02','session-025'],['longmont-c0','session-0'],['other-c2','chapter-25'],['longmont-c2-extra','session-25-extra']]) {
+   const a=assertion('context');
+   a.metadata.scope=[{axis:'dungeonbuddy.scope:campaign',value:campaign!}];
+   a.metadata.temporal_scope={schema:'dungeonbuddy.time:fictional_anchor_v1',payload:{episode}};
+   expect(sourceContexts(a)).toEqual([`Campaign ${campaign} · Source episode ${episode}`]);
+  }
+  const a=assertion('axis');
+  a.metadata.scope=[{axis:'other:campaign',value:'longmont-c2'}];
+  a.metadata.temporal_scope={schema:'other:time',payload:{episode:'session-25'}};
+  expect(sourceContexts(a)).toEqual(['other:campaign: longmont-c2']);
  });
  it('does not invent temporal context from unrecognized structures',()=>{
   const a=assertion('a');a.metadata.scope=[];a.metadata.temporal_scope={episode:'session-99'};

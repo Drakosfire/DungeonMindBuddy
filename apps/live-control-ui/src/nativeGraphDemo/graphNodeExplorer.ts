@@ -29,10 +29,18 @@ function record(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
 export function sourceContexts(a: NativeAssertion): string[] {
-  const scopes = a.metadata.scope.map(s => s.axis === 'dungeonbuddy.scope:campaign' ? `Campaign ${s.value}` : `${s.axis}: ${s.value}`).sort(compare);
+  // Display-only aliases for the established source identifiers. Exact metadata stays on each assertion.
+  const scopes = a.metadata.scope.map(s => {
+    if (s.axis !== 'dungeonbuddy.scope:campaign') return `${s.axis}: ${s.value}`;
+    const campaign = /^longmont-c([1-9][0-9]*)$/.exec(s.value);
+    return `Campaign ${campaign?.[1] ?? s.value}`;
+  }).sort(compare);
   const temporal = record(a.metadata.temporal_scope);
   const payload = record(temporal?.payload);
-  if (temporal?.schema === 'dungeonbuddy.time:fictional_anchor_v1' && typeof payload?.episode === 'string') scopes.push(`Source episode ${payload.episode}`);
+  if (temporal?.schema === 'dungeonbuddy.time:fictional_anchor_v1' && typeof payload?.episode === 'string') {
+    const session = /^session-([1-9][0-9]*)$/.exec(payload.episode);
+    scopes.push(session ? `Session ${session[1]}` : `Source episode ${payload.episode}`);
+  }
   return scopes.length ? [scopes.join(' · ')] : ['Source episode unspecified'];
 }
 const groupTitles = {

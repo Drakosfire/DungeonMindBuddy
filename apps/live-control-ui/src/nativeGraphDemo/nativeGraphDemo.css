@@ -335,9 +335,9 @@
 }
 
 /* Graph dossier: readable relationships first; exact records remain reachable. */
-.graph-node-explorer { font-size: 13px; line-height: 1.5; min-width: 0; overflow-wrap: anywhere; }
-.graph-node-explorer h3 { color: #efe5cf; margin: 20px 0 10px; font-size: 16px; }
-.graph-node-explorer h4 { color: #d7c28d; margin: 16px 0 6px; font-size: 12px; letter-spacing: .04em; }
+.native-demo-object-details .native-node-dossier { font-size: 13px; line-height: 1.5; min-width: 0; overflow-wrap: anywhere; }
+.native-demo-object-details .native-node-dossier h3 { color: #efe5cf; margin: 20px 0 10px; font-size: 16px; }
+.native-demo-object-details .native-node-dossier h4 { color: #d7c28d; margin: 16px 0 6px; font-size: 12px; letter-spacing: .04em; }
 .graph-node-explorer__counts { color: #e6dfd0; margin: 14px 0 8px; }
 .graph-node-explorer__context, .graph-node-explorer__status { color: #b9b8ab; font-size: 11px; margin: 5px 0; }
 .graph-node-explorer__notice { border-left: 2px solid #c7aa68; padding-left: 8px; font-size: 12px; }
@@ -346,9 +346,26 @@
 .graph-node-explorer__relationship { margin: 0; color: #f2ecdf; }
 .graph-node-explorer__link { border: 0; background: transparent; color: #e2c98d; text-decoration: underline; padding: 6px 0; text-align: left; cursor: pointer; font: inherit; }
 .graph-node-explorer__link:disabled { opacity: .5; cursor: default; }
-.graph-node-explorer summary, .graph-node-explorer__names summary { cursor: pointer; color: #cfc3a7; font-size: 12px; padding: 5px 0; }
+.native-demo-object-details .native-node-dossier summary, .graph-node-explorer__names summary { cursor: pointer; color: #cfc3a7; font-size: 12px; padding: 5px 0; }
 .graph-node-explorer__names { margin-bottom: 12px; font-size: 12px; }
 .graph-node-explorer__names p { color: #b9b8ab; }
 .graph-node-explorer__evidence { margin-top: 4px; }
 .graph-node-explorer__evidence pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 10px; }
 .graph-node-explorer__secondary { border-top: 1px solid #42463d; margin-top: 14px; padding-top: 6px; }
+
+/* Explorer-local navbar stays within its own scroll container, not the canvas. */
+.native-demo-object-details .graph-node-explorer__navbar {
+  position: sticky; top: 0; z-index: 3; display: flex; align-items: center;
+  flex-wrap: wrap; gap: 6px 10px; background: #202522; border-bottom: 1px solid #484b40;
+  margin: -18px -18px 10px; padding: 8px 12px; border-radius: 15px 15px 0 0; box-shadow: 0 4px 10px #0002;
+}
+.native-demo-object-details .graph-node-explorer__navbar h2 { flex: 1 1 110px; min-width: 0; font-size: 15px; line-height: 1.3; margin: 0; }
+.native-demo-object-details .graph-node-explorer__navbar nav { display: flex; flex-wrap: wrap; gap: 4px; }
+.native-demo-object-details .graph-node-explorer__navbar button { min-height: 28px; min-width: 28px; padding: 3px 7px; border: 1px solid #62604e; border-radius: 5px; background: #2c3029; color: #e7dec9; font-family: inherit; font-size: 11px; line-height: 1.3; cursor: pointer; }
+.native-demo-object-details .graph-node-explorer__navbar button:focus-visible { outline: 2px solid #dfb65f; outline-offset: 2px; }
+.native-demo-object-details .graph-node-explorer__navbar button:disabled { opacity: .5; cursor: default; }
+.graph-node-explorer__identity { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.graph-node-explorer__identity .graph-node-explorer__names { margin-bottom: 0; }
+.graph-node-explorer__group { border-top: 1px solid #42463d; }
+.graph-node-explorer__group > summary { padding: 11px 0; font-weight: 600; color: #e2d3b0; }
+.graph-node-explorer__group-count { float: right; font-size: 11px; font-weight: 400; color: #b9b8ab; margin-left: 8px; }

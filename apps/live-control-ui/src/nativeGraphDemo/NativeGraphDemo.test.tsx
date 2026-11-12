@@ -421,7 +421,7 @@ describe("NativeGraphDemo", () => {
 
     expect(await screen.findByText("This object is unavailable in the selected revision.")).toBeInTheDocument();
     expect(api.inspectNode).toHaveBeenCalledWith(graph, "entity:mara", expect.any(AbortSignal));
-    expect(screen.getByText("NODE EXPLORER")).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Node explorer controls" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Mara" })).toBeInTheDocument();
   });
 
@@ -432,7 +432,8 @@ describe("NativeGraphDemo", () => {
     const api = makeApi({ inspectNode: vi.fn().mockResolvedValue(detailed) });
     renderEmbeddedDemo({ api, mode: "managed", entityOnlyDetails: true, stateScopeId: "managed:history" });
     await user.click(await screen.findByRole("button", { name: /Mara, npc/i }));
-    await user.click(await screen.findByRole("button", { name: "Explore Lantern Inn" }));
+    await user.click(await screen.findByText(/Places mentioned/));
+    await user.click(screen.getByRole("button", { name: "Explore Lantern Inn" }));
     expect(await screen.findByRole("heading", { name: "Lantern Inn" })).toHaveFocus();
     await user.click(screen.getByRole("button", { name: "Back to Mara" }));
     expect(await screen.findByRole("heading", { name: "Mara" })).toBeInTheDocument();
