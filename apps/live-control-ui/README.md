@@ -109,6 +109,12 @@ npm run build
 
 ## Manual smoke
 
+Hosted Buddy supports signing in, choosing an assigned World, browsing its
+read-only graph, and signing out. Use the
+[production deployment runbook](../../Docs/Runbooks/RUNBOOK-buddy-production-deployment.md)
+for the hosted checks. The smoke steps below use the local operator profile.
+
+
 Play first-time setup is **not** just `uvicorn` plus `npm run dev`. Configure
 `DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL` and run
 `uv run python scripts/bootstrap_local_play.py apply` first. See
