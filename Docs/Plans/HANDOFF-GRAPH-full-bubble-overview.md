@@ -106,3 +106,28 @@ source SHA. Reverify the transferred harness on base and candidate, retain all
 legacy failures and omissions, obtain exact-source final qualification and review,
 and do not treat shipping authorization as completed browser acceptance. The agent's
 earlier npm network denial is not retried or bypassed.
+
+## Browser-feedback navigation correction
+
+Alan reported that navigating by dragging grabs nodes instead of panning. Root
+assigned the bounded correction within this graph slice: full-corpus views default
+to Pan graph, with an explicit Move nodes mode for layout edits. Ordinary clicks
+still select. Node-origin pans do not write layout or start creation; canceled
+pan/move gestures, focused-node keyboard navigation, connector ports, Fit and
+World changes retain their existing safety boundaries. Legacy non-full canvas
+callers keep their direct node-drag behavior. No topology, isolate filtering,
+degree sizing, type mapping, naming repair or live data change belongs to this fix.
+
+Before editing, main bcb50c7 and all 52 open PR path sets were rechecked; only
+unchanged historical #2326 overlaps the already-owned canvas paths. The source
+change requires new exact-head review/qualification and a refreshed preview.
+Earlier caa07661 receipts remain immutable historical evidence, not a pass for the
+new source. Browser feedback is not completion of browser acceptance.
+
+Navigation review corrected capture/click handling on controlled revision and
+World changes, cancellation across disabled/re-enabled editing, and pressed-mode
+button hover/focus contrast. All 156 affected canvas/native tests and production
+TypeScript/build pass with existing dependencies. The native integration witness
+checks that panning does not alter stored positions or call native graph writes,
+while explicit Move nodes still saves presentation positions. These are source
+diagnostics; final exact-SHA qualification and browser recheck remain separate.

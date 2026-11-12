@@ -64,6 +64,12 @@
 .world-graph-canvas__svg { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; user-select: none; }
 .world-graph-canvas__svg.is-panning { cursor: grabbing; }
 .world-graph-canvas__view-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.world-graph-canvas__drag-mode { display: flex; gap: 4px; flex-wrap: wrap; }
+.world-graph-canvas .world-graph-canvas__drag-mode button[aria-pressed="true"],
+.world-graph-canvas .world-graph-canvas__drag-mode button[aria-pressed="true"]:hover,
+.world-graph-canvas .world-graph-canvas__drag-mode button[aria-pressed="true"]:focus-visible { background: var(--graph-ink); color: #fffdf7; border-color: var(--graph-ink); }
+.world-graph-canvas--full [data-drag-mode="move"] .world-graph-canvas__node { cursor: move; }
+.world-graph-canvas__svg.is-panning .world-graph-canvas__node { cursor: grabbing; }
 .world-graph-canvas__hint { color: var(--graph-muted); font-size: 12px; margin: 8px 0; }
 .world-graph-canvas__edges { pointer-events: none; }
 .world-graph-canvas__edge-label { fill: #fffdf7; stroke: #c8b995; stroke-width: 1; }

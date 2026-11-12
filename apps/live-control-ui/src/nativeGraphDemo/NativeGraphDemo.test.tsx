@@ -711,10 +711,38 @@ describe("NativeGraphDemo", () => {
     expect(api.prepare).not.toHaveBeenCalled();
   });
 
+  it("pans over native objects without persisting layout until Move nodes is chosen", async () => {
+    const api = makeApi({ inspectNode: vi.fn().mockResolvedValue(entityDetail(graph.revision_id)) }), scope = "pan-mode-review";
+    const key = `dungeonmind-native-demo:layout:${encodeURIComponent(scope)}:${encodeURIComponent(graph.world_id)}`;
+    const original = JSON.stringify({ "entity:mara": { x: 120, y: 240 } });
+    localStorage.setItem(key, original);
+    renderEmbeddedDemo({ api, stateScopeId: scope });
+    const node = await screen.findByRole("button", { name: /Mara, npc/i });
+    const svg = screen.getByRole("group", { name: "DungeonMind native graph world graph" });
+    vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({ width: 960, height: 520, x: 0, y: 0, top: 0, right: 960, bottom: 520, left: 0, toJSON: () => ({}) });
+    const scene = screen.getByTestId("graph-scene"), camera = scene.getAttribute("transform");
+    const pointer = (target: Element, type: string, x: number, y: number) => {
+      const event = new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: x, clientY: y });
+      Object.defineProperty(event, "pointerId", { value: 81 }); fireEvent(target, event);
+    };
+    pointer(node, "pointerdown", 100, 100); pointer(svg, "pointermove", 150, 140); pointer(svg, "pointerup", 150, 140);
+    fireEvent.click(node);
+    expect(scene.getAttribute("transform")).not.toBe(camera);
+    expect(node).toHaveAttribute("transform", "translate(120 240)");
+    expect(localStorage.getItem(key)).toBe(original);
+    expect(api.inspectNode).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Move nodes" }));
+    pointer(node, "pointerdown", 100, 100); pointer(svg, "pointermove", 150, 140); pointer(svg, "pointerup", 150, 140);
+    await waitFor(() => expect(localStorage.getItem(key)).not.toBe(original));
+    expect(JSON.parse(localStorage.getItem(key) ?? "{}")["entity:mara"]).not.toEqual({ x: 120, y: 240 });
+    expect(api.prepare).not.toHaveBeenCalled(); expect(api.confirm).not.toHaveBeenCalled();
+  });
+
   it("turns connector-dot drags into a relationship draft without preparing automatically", async () => {
     const api = makeApi();
     renderEmbeddedDemo({ api });
     await screen.findByRole("button", { name: /Mara, npc/i });
+    expect(screen.getByRole("button", { name: "Pan graph" })).toHaveAttribute("aria-pressed", "true");
 
     const svg = screen.getByRole("group", { name: "DungeonMind native graph world graph" });
     vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({ width: 960, height: 520, x: 0, y: 0, top: 0, right: 960, bottom: 520, left: 0, toJSON: () => ({}) });
