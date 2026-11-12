@@ -885,16 +885,65 @@ export function WorldGraphCanvas({
     setStatus("Connection draft opened.");
   }
 
-  function zoomBy(factor: number) {
+  function zoomBy(factor: number, anchor: GraphPoint = { x: viewport.width / 2, y: viewport.height / 2 }) {
+    if (!Number.isFinite(factor) || factor <= 0 || !Number.isFinite(anchor.x) || !Number.isFinite(anchor.y)) return;
     cancelGesture();
     manualCameraRef.current = true;
     setCamera((current) => {
       const zoom = Math.max(Math.min(MIN_ZOOM, fullCorpus ? fittedCamera().zoom : MIN_ZOOM, current.zoom), Math.min(MAX_ZOOM, current.zoom * factor));
+      if (zoom === current.zoom) return current;
       const ratio = zoom / current.zoom;
-      return { zoom, x: viewport.width / 2 - (viewport.width / 2 - current.x) * ratio,
-        y: viewport.height / 2 - (viewport.height / 2 - current.y) * ratio };
+      return { zoom, x: anchor.x - (anchor.x - current.x) * ratio,
+        y: anchor.y - (anchor.y - current.y) * ratio };
     });
   }
+  // The root SVG CTM includes CSS scaling, viewBox alignment and transforms.
+  // The fallback mirrors our default xMidYMid meet viewBox, including gutters.
+  function wheelAnchorAt(clientX: number, clientY: number): GraphPoint | null {
+    if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
+    const svg = svgRef.current;
+    if (!svg) return null;
+    try {
+      const matrix = svg.getScreenCTM?.();
+      if (matrix) {
+        const { a, b, c, d, e, f } = matrix;
+        const determinant = a * d - b * c;
+        if ([a, b, c, d, e, f, determinant].every(Number.isFinite) && determinant !== 0) {
+          return { x: (d * (clientX - e) - c * (clientY - f)) / determinant,
+            y: (-b * (clientX - e) + a * (clientY - f)) / determinant };
+        }
+      }
+    } catch { /* Some SVG hosts do not expose a usable screen matrix. */ }
+    const rect = svg.getBoundingClientRect();
+    if (![rect.left, rect.top, rect.width, rect.height].every(Number.isFinite) || rect.width <= 0 || rect.height <= 0) return null;
+    const scale = Math.min(rect.width / viewport.width, rect.height / viewport.height);
+    return { x: (clientX - rect.left - (rect.width - viewport.width * scale) / 2) / scale,
+      y: (clientY - rect.top - (rect.height - viewport.height * scale) / 2) / scale };
+  }
+  const wheelZoomRef = useRef<(event: WheelEvent) => void>(() => undefined);
+  wheelZoomRef.current = (event) => {
+    // Trackpad pinch uses ctrlKey too. Plain scrolling and Meta-wheel stay with
+    // the browser. Only cancel events this graph can actually consume.
+    if (!event.ctrlKey || event.metaKey || event.altKey || event.defaultPrevented || !event.cancelable ||
+        !Number.isFinite(event.deltaY) || event.deltaY === 0) return;
+    const unit = event.deltaMode === 0 ? 1 : event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.height : null;
+    if (unit === null) return;
+    const anchor = wheelAnchorAt(event.clientX, event.clientY);
+    if (!anchor || !Number.isFinite(anchor.x) || !Number.isFinite(anchor.y)) return;
+    const pixels = Math.max(-600, Math.min(600, event.deltaY * unit));
+    event.preventDefault();
+    zoomBy(Math.exp(-pixels * 0.002), anchor);
+  };
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const onWheel = (event: WheelEvent) => wheelZoomRef.current(event);
+    // React's delegated wheel listener may be passive; this listener owns only
+    // this canvas and must be able to suppress browser zoom for Ctrl+wheel.
+    svg.addEventListener("wheel", onWheel, { passive: false });
+    return () => svg.removeEventListener("wheel", onWheel);
+  }, []);
+
   function fitGraph() {
     cancelGesture();
     manualCameraRef.current = true;
@@ -1202,9 +1251,9 @@ export function WorldGraphCanvas({
         </div> : null}</>);
   const cameraTools = (
       <div className="world-graph-canvas__view-tools" aria-label="Graph view controls">
-        <button type="button" aria-label="Zoom out" disabled={camera.zoom <= (fullCorpus ? Math.min(MIN_ZOOM, fittedCamera().zoom) : MIN_ZOOM)} onClick={() => zoomBy(1 / 1.25)}>−</button>
+        <button type="button" aria-label="Zoom out" title="Zoom out (− while the canvas is focused)" disabled={camera.zoom <= (fullCorpus ? Math.min(MIN_ZOOM, fittedCamera().zoom) : MIN_ZOOM)} onClick={() => zoomBy(1 / 1.25)}>−</button>
         <span aria-label="Graph zoom">{Math.round(camera.zoom * 100)}%</span>
-        <button type="button" aria-label="Zoom in" disabled={camera.zoom >= MAX_ZOOM} onClick={() => zoomBy(1.25)}>+</button>
+        <button type="button" aria-label="Zoom in" title="Zoom in (+ or = while the canvas is focused)" disabled={camera.zoom >= MAX_ZOOM} onClick={() => zoomBy(1.25)}>+</button>
         <button type="button" onClick={fitGraph}>Fit graph</button>
         <button type="button" onClick={() => zoomBy(1 / camera.zoom)}>100%</button>
         {!externalControls ? dragModeTools : null}
@@ -1253,7 +1302,7 @@ export function WorldGraphCanvas({
       trigger={<SurfaceContextAction aria-label="Graph view options" aria-expanded={openControl === "view"} aria-haspopup="dialog" onClick={() => setOpenControl(openControl === "view" ? null : "view")}>View{statusNeedsAttention ? " · attention" : hasDiagnostics ? " · limited" : ""} ▾</SurfaceContextAction>}>
       {viewOptions}{diagnostics}
       {status ? <p role="status">{status}</p> : null}
-      <p>Focus the canvas and use arrow keys to pan, +/− to zoom, or 0 to fit. Use Move to rearrange objects. Click a bubble to inspect it; drag its connector to another bubble to connect.</p>
+      <p>Hold Ctrl and scroll over the graph to zoom at the pointer (including trackpad pinch). Plain scroll moves the page; Meta-wheel stays with the browser. Focus the canvas and use arrow keys to pan, +/− to zoom, or 0 to fit. Use Move to rearrange objects. Click a bubble to inspect it; drag its connector to another bubble to connect.</p>
     </SurfaceContextPopover>
   </div>;
 
@@ -1302,7 +1351,7 @@ export function WorldGraphCanvas({
           : "Drag the background to pan. Drag an object to move it. "}
         {onCanvasCreateRequest ? "Click blank canvas to place a node, or use Place node with a keyboard." : "Select two objects to connect them."}
         {onConnectRequest ? " Drag a node's gold connector dot to another node, or select two nodes and use Connect selected nodes." : ""}
-        {" Focus the canvas and use arrow keys to pan, +/− to zoom, or 0 to fit."}
+        {" Hold Ctrl and scroll over the graph to zoom at the pointer (including trackpad pinch). Plain scroll moves the page; Meta-wheel stays with the browser. Focus the canvas and use arrow keys to pan, +/− to zoom, or 0 to fit."}
         {fullCorpus ? " A focused object's arrow keys pan in Pan graph mode, and move that object in Move nodes mode." : ""}
       </p>
       <div className="world-graph-canvas__viewport">
@@ -1313,6 +1362,7 @@ export function WorldGraphCanvas({
           viewBox={`0 0 ${viewport.width} ${viewport.height}`}
           tabIndex={0}
           aria-describedby={`${markerId}-help`}
+          aria-keyshortcuts="= - 0"
           role="group"
           aria-label={`${record.snapshot.title} world graph`}
           onPointerDown={(event) => { if (fullCorpus || event.target === event.currentTarget) beginGesture(event); }}
@@ -1345,6 +1395,7 @@ export function WorldGraphCanvas({
             }
           }}
         >
+          <title>Ctrl+scroll: zoom at pointer. Focus graph: +/− zoom, 0 fit.</title>
           <defs><marker id={markerId} markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 z" /></marker></defs>
           <g className="world-graph-canvas__scene" data-testid="graph-scene" data-all-relationships={allRelationships} data-has-selection={selectedIds.length > 0} data-detail={camera.zoom >= 0.9 ? "relationships" : camera.zoom >= 0.45 ? "names" : "overview"} transform={`translate(${camera.x} ${camera.y}) scale(${camera.zoom})`}>
           <g className="world-graph-canvas__nodes" aria-label="World objects">

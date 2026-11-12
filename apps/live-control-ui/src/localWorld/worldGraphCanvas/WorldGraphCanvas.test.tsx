@@ -1586,3 +1586,80 @@ it("floats one noninteractive type legend without changing fit and shares config
   expect(css).toMatch(/\.world-graph-canvas__legend--overlay\s*\{[^}]*position:\s*absolute;[^}]*pointer-events:\s*none;/s);
   view.unmount(); host.remove();
 });
+
+it("anchors Ctrl-wheel zoom to the pointer through CSS scaling, letterboxing and existing pan", async () => {
+  const { record } = await graphRecord();
+  const onMove = vi.fn(), onSelection = vi.fn();
+  const view = render(<WorldGraphCanvas record={record} nodeShape="circle" projectionOptions={{ fullCorpus: true }}
+    onMoveObjects={onMove} onSelectionChange={onSelection} />);
+  const svg = screen.getByRole("group", { name: /world graph$/ });
+  // viewBox960x520 in1200x520: xMidYMid meet leaves120px gutters.
+  vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({ left: 100, top: 50, width: 1200, height: 520,
+    x: 100, y: 50, right: 1300, bottom: 570, toJSON: () => ({}) });
+  fireEvent.keyDown(svg, { key: "ArrowRight" });
+  fireEvent.keyDown(svg, { key: "ArrowDown" });
+  const before = cameraFromScene(screen.getByTestId("graph-scene"));
+  const anchor = { x: 180, y: 150 }; // client400,200 after letterboxing
+  const point = { x: (anchor.x - before.x) / before.zoom, y: (anchor.y - before.y) / before.zoom };
+  const selectionCalls = onSelection.mock.calls.length;
+  expect(fireEvent.wheel(svg, { ctrlKey: true, clientX: 400, clientY: 200, deltaY: -100 })).toBe(false);
+  const after = cameraFromScene(screen.getByTestId("graph-scene"));
+  expect(after.zoom).toBeGreaterThan(before.zoom);
+  expect(after.x + point.x * after.zoom).toBeCloseTo(anchor.x);
+  expect(after.y + point.y * after.zoom).toBeCloseTo(anchor.y);
+  expect(onSelection).toHaveBeenCalledTimes(selectionCalls);
+  expect(onMove).not.toHaveBeenCalled();
+  // Prefer the screen matrix when available (2x scaling and translated origin).
+  Object.defineProperty(svg, "getScreenCTM", { configurable: true, value: () => ({ a: 2, b: 0, c: 0, d: 2, e: 100, f: 50 }) });
+  const matrixAnchor = { x: 150, y: 75 };
+  const matrixPoint = { x: (matrixAnchor.x - after.x) / after.zoom, y: (matrixAnchor.y - after.y) / after.zoom };
+  expect(fireEvent.wheel(svg, { ctrlKey: true, clientX: 400, clientY: 200, deltaY: -60 })).toBe(false);
+  const matrixAfter = cameraFromScene(screen.getByTestId("graph-scene"));
+  expect(matrixAfter.x + matrixPoint.x * matrixAfter.zoom).toBeCloseTo(matrixAnchor.x);
+  expect(matrixAfter.y + matrixPoint.y * matrixAfter.zoom).toBeCloseTo(matrixAnchor.y);
+  view.unmount();
+  expect(fireEvent.wheel(svg, { ctrlKey: true, deltaY: -1 })).toBe(true); // native listener removed
+});
+
+it("leaves ordinary, Meta, outside and invalid wheel events to the browser", async () => {
+  const { record } = await graphRecord();
+  render(<WorldGraphCanvas record={record} />);
+  const svg = screen.getByRole("group", { name: /world graph$/ });
+  captureRect(svg, 960, 520);
+  const initial = screen.getByTestId("graph-scene").getAttribute("transform");
+  for (const options of [{}, { metaKey: true }, { ctrlKey: true, metaKey: true }, { ctrlKey: true, deltaY: 0 },
+    { ctrlKey: true, deltaMode: 7 }, { ctrlKey: true, cancelable: false }]) {
+    expect(fireEvent.wheel(svg, { clientX: 100, clientY: 100, deltaY: -100, ...options })).toBe(true);
+  }
+  for (const delta of [NaN, Infinity, -Infinity]) {
+    const event = new WheelEvent("wheel", { ctrlKey: true, cancelable: true, clientX: 100, clientY: 100 });
+    Object.defineProperty(event, "deltaY", { value: delta });
+    expect(fireEvent(svg, event)).toBe(true);
+  }
+  expect(fireEvent.wheel(document.body, { ctrlKey: true, deltaY: -100 })).toBe(true);
+  expect(screen.getByTestId("graph-scene")).toHaveAttribute("transform", initial!);
+});
+
+it("normalizes wheel units and clamps zoom without jumping above a fitted subminimum scale", async () => {
+  const { record } = await graphRecord();
+  const objects = record.snapshot.objects.slice(0, 2);
+  const distant = { ...record, snapshot: { ...record.snapshot, objects, relationships: [record.snapshot.relationships[0]] },
+    layout: { ...record.layout, positions: { [objects[0].id]: { x: 0, y: 0 }, [objects[1].id]: { x: 6000, y: 6000 } } } };
+  const view = render(<WorldGraphCanvas record={distant} nodeShape="circle" projectionOptions={{ fullCorpus: true }} />);
+  const svg = screen.getByRole("group", { name: /world graph$/ });
+  captureRect(svg, 960, 520);
+  const initial = cameraFromScene(screen.getByTestId("graph-scene"));
+  expect(initial.zoom).toBeLessThan(0.15);
+  fireEvent.wheel(svg, { ctrlKey: true, clientX: 100, clientY: 100, deltaY: 100000 });
+  expect(cameraFromScene(screen.getByTestId("graph-scene"))).toEqual(initial);
+  const zoomFor = (deltaY: number, deltaMode: number) => {
+    fireEvent.click(screen.getByRole("button", { name: "Fit graph" }));
+    fireEvent.wheel(svg, { ctrlKey: true, clientX: 100, clientY: 100, deltaY, deltaMode });
+    return cameraFromScene(screen.getByTestId("graph-scene")).zoom;
+  };
+  expect(zoomFor(-32, 0)).toBeCloseTo(zoomFor(-2, 1));
+  expect(zoomFor(-520, 0)).toBeCloseTo(zoomFor(-1, 2));
+  for (let i = 0; i < 10; i++) fireEvent.wheel(svg, { ctrlKey: true, clientX: 100, clientY: 100, deltaY: -1e9 });
+  expect(cameraFromScene(screen.getByTestId("graph-scene")).zoom).toBe(2.5);
+  view.unmount();
+});
