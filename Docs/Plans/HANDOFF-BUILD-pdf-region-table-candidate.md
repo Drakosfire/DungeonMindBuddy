@@ -1,9 +1,9 @@
 # HANDOFF — BUILD selected PDF table candidate
 
-Status: ACTIVE, serial, one unstacked PR.
-Base: `origin/main@bcb50c7b05ac5a5fea287617721fbe98e0638b38`.
-Branch: `codex/pdf-table-candidate-review`.
-Checkout: existing `pdf-gold-baseline/DungeonMindBuddy`; do not create another lane.
+Status: SETTLED — merged as PR #2466.
+Reviewed head: `3e1d28e3844d311a049dabb4fcb7e483356d4cc4`.
+Merge commit: `d7b0b1a1796a0777c5d193ccbfaa037d7bf4cf66`.
+The source-located, review-only PDF table preview is now on main. The follow-up OCR/statblock workflow is separately scoped in `HANDOFF-BUILD-local-pdf-ocr-runtime.md`.
 
 ## Outcome
 

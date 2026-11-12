@@ -27,6 +27,9 @@ export DMB_AUTH_MODE="${DMB_AUTH_MODE:-local_operator}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
+source "$ROOT/scripts/local_pdf_ocr_env.sh"
+configure_local_pdf_ocr "$ROOT"
+
 DMS_ROOT="${DUNGEONMIND_SERVER_ROOT:-$ROOT/../DungeonMindServer}"
 DMS_PORT="${DUNGEONMIND_SERVER_PORT:-7860}"
 API_PORT="${BUDDY_API_PORT:-8000}"
