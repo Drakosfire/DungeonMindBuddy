@@ -1,6 +1,8 @@
 import { StartPdfStatblockReview } from "./StartPdfStatblockReview";
 import { completePdfTextLines, hasClippedPdfTextLine, pdfTextBoundsOverlap } from "./completePdfTextLines";
-import { PdfStatblockCandidate } from "./PdfStatblockCandidate";
+import { looksLikePdfStatblock, PdfStatblockCandidate } from "./PdfStatblockCandidate";
+import { PdfTableCandidate } from "./PdfTableCandidate";
+import type { PdfRegionTextRun } from "./parsePdfDiceTable";
 import { pdfRegionKey, readRetainedPdfRegions, retainedPdfKey, type PdfLocator, type PdfReceipt, type RetainedPdf } from "../api/retainedPdfRegions";
 import { authenticatedApiFetch } from "../api/liveApi";
 import { useEffect, useRef, useState, type PointerEvent } from "react";
@@ -136,6 +138,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
   );
   const [capture, setCapture] = useState<{ image: string; region: PageRectangle }>();
   const [capturedText, setCapturedText] = useState<string>();
+  const [capturedRuns, setCapturedRuns] = useState<PdfRegionTextRun[]>([]);
   const [completeLines, setCompleteLines] = useState("");
   const [clippedText, setClippedText] = useState(false);
   const [textError, setTextError] = useState(false);
@@ -166,6 +169,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
       rectangle.width * source.width, rectangle.height * source.height,
       0, 0, crop.width, crop.height);
     setCapturedText(undefined);
+    setCapturedRuns([]);
     setCompleteLines("");
     setClippedText(false);
     setTextError(false);
@@ -252,15 +256,27 @@ function PdfPages({ file, worldId, restored, onRetained }: {
             nx >= region.left && nx <= region.left + region.width
               && ny >= region.top && ny <= region.top + region.height;
           const corners = [point(0, 0), point(advance, 0), point(0, 1), point(advance, 1)];
+          const xs = corners.map(([nx]) => nx);
+          const ys = corners.map(([, ny]) => ny);
           return [{
             text: item.str,
             endOfLine: item.hasEOL,
             included: inside(point(advance / 2, 0.5)),
             complete: advance > 0 && corners.every(inside),
             overlaps: advance > 0 && pdfTextBoundsOverlap(corners, region),
+            bounds: {
+              left: Math.min(...xs),
+              right: Math.max(...xs),
+              top: Math.min(...ys),
+              bottom: Math.max(...ys),
+            },
           }];
         });
         if (!cancelled) {
+          setCapturedRuns(runs.filter(run => run.included && run.text.trim()).map(run => ({
+            text: run.text,
+            ...run.bounds,
+          })));
           setCapturedText(runs.map(run => (run.included ? run.text : " ")
             + (run.endOfLine ? "\n" : "")).join("").trim());
           setCompleteLines(completePdfTextLines(runs));
@@ -347,7 +363,13 @@ function PdfPages({ file, worldId, restored, onRetained }: {
                 text={completeLines}
                 locator={captureLocator(receipt, page, capture.region)}
               />}
-              {worldId && receipt && <StartPdfStatblockReview
+              {receipt && capturedText && <PdfTableCandidate
+                key={JSON.stringify([page, capture.region, capturedText, clippedText])}
+                items={capturedRuns}
+                locator={captureLocator(receipt, page, capture.region)}
+                clipped={clippedText}
+              />}
+              {worldId && receipt && looksLikePdfStatblock(completeLines) && <StartPdfStatblockReview
                 key={pdfRegionKey(captureLocator(receipt, page, capture.region))}
                 worldId={worldId} region={captureLocator(receipt, page, capture.region)} />}
               {worldId && receipt && (textError || capturedText !== undefined) && (
