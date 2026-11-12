@@ -21,9 +21,9 @@ and dated reports provide historical evidence.
 ## Hosted deployment gates
 
 The [production package smoke](https://github.com/Drakosfire/DungeonMindBuddy/pull/2478)
-exercised the built SPA, liveness and readiness, and signed-out and synthetic
-signed-in requests to the World collection. It used disposable databases and
-a DMS fixture. Record the live evidence below against the release image digest
+was rerun on merged main at `d9d4985e5`. It exercised the built SPA, liveness
+and readiness, and signed-out and synthetic signed-in requests to the World
+collection. It used disposable databases and a DMS fixture. Record the live evidence below against the release image digest
 before exposing Buddy at `buddy.dungeonmind.net`.
 
 1. Run the [read-only host inventory](Plans/RUNBOOK-HOSTED-read-only-host-inventory.md).

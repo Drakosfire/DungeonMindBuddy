@@ -67,8 +67,6 @@ evals/mirathorn_vertical_slice/output/parity_experiment_*/cell_*/
 # Corpus PDFs (statblocks, handouts) under corpus/ are tracked, e.g.
 # corpus/eldyrwild-markdown/Longmont Campaign/NPCs/*.pdf — do not add a blanket *.pdf here.
 
-# Eldyrwild corpus: nested ignores under Docs/Eldyrwild and Campaign Context/.gitignore
-
 # Secrets
 serviceAccountKey.json
 secrets.txt
