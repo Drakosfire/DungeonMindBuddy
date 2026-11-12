@@ -55,7 +55,7 @@ export function pathnameFromLocationSnapshot(snapshot: string): string {
 
 export function appRouteFromPathname(pathname: string): AppLocationRoute {
   const path = normalizeAppPathname(pathname);
-  if (path === "/surface" || path === "/live-control") return "surface";
+  if (path === "/surface") return "surface";
   if (path === "/plan") return "plan";
   if (path === "/play") return "play";
   if (path === "/ingest") return "ingest";
