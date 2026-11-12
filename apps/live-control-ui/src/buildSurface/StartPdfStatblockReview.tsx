@@ -16,6 +16,35 @@ export function StartPdfStatblockReview({
   const [error, setError] = useState("");
   const [instruction, setInstruction] = useState("");
 
+  function describeFailure(detail: unknown): string {
+    const record = detail && typeof detail === "object" ? detail as Record<string, unknown> : {};
+    const code = typeof record.code === "string" && /^[a-z0-9][a-z0-9_-]{0,79}$/.test(record.code)
+      ? record.code
+      : null;
+    const suffix = code ? ` (${code})` : "";
+    if (code === "pdf_statblock_extraction_incomplete") {
+      const missing = Array.isArray(record.missing_details)
+        ? record.missing_details.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+        : [];
+      return missing.length
+        ? `The selected regions do not support a complete statblock yet: ${missing.join("; ")}.${suffix}`
+        : `The selected regions do not support a complete statblock yet.${suffix}`;
+    }
+    if (code === "pdf_statblock_output_invalid") {
+      return `Buddy’s response did not match the statblock format.${suffix}`;
+    }
+    if (code === "pdf_statblock_ocr_unavailable") {
+      return `Buddy could not read the selected regions with OCR. Try again later or adjust the regions.${suffix}`;
+    }
+    if (code === "pdf_statblock_generation_unavailable") {
+      return `Buddy could not generate a structured statblock from the selected regions. Try again later.${suffix}`;
+    }
+    if (code === "invalid_pdf_statblock_extraction_request") {
+      return `The selected regions could not be used for this review. Re-select them and try again.${suffix}`;
+    }
+    return `Buddy could not create a statblock review from these regions${suffix}.`;
+  }
+
   async function start() {
     if (!regions.length || pending) return;
     setPending(true);
@@ -32,19 +61,7 @@ export function StartPdfStatblockReview({
       }
       const result = await response.json().catch(() => null);
       if (!response.ok) {
-        const detail = result?.detail;
-        if (detail?.code === "pdf_statblock_extraction_incomplete") {
-          const missing = Array.isArray(detail.missing_details)
-            ? detail.missing_details.filter((item: unknown) => typeof item === "string")
-            : [];
-          throw new Error(missing.length
-            ? `The selected regions do not support a complete statblock yet: ${missing.join("; ")}`
-            : "The selected regions do not support a complete statblock yet.");
-        }
-        if (detail?.code === "pdf_statblock_output_invalid") {
-          throw new Error("Buddy’s response did not match the statblock format. No review was saved.");
-        }
-        throw new Error("Buddy could not create a statblock review from these regions.");
+        throw new Error(describeFailure(result?.detail));
       }
       setSaved(true);
     } catch (failure) {
