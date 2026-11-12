@@ -5,6 +5,7 @@ Status: ACTIVE. User requested a polish pass on 2026-11-12; coordinating root as
 ## Authority and lane
 
 Base: `d87d50f13a22704b00771a542b5aeac1362f010b`, fetched from official remote main through the supported approval route on 2026-11-12. Initial implementation base was `691096d1d04f3d4397fdd75af35f39d58016cedb`; the one successor commit changes only README/runbook documentation and does not overlap this write set. Default-sandbox fetch was initially blocked; explicit supported escalation succeeded after the user requested moving toward merge. No denied transport bypass or object reconstruction.
+Merge integration: current main `867b266c895ca9970bd598b90c91576b97fca7a7` (#2503) landed during qualification. Preserve its hosted read-only prop, hidden authoring controls, disabled canvas create/connect, and draft-recovery suppression. The cumulative change against this new main remains in this allowlist; no upstream backend/auth implementation is modified.
 Branch: `codex/graph-navbar-polish-20261112`.
 Checkout: `/home/drakosfire/Projects/.codex/graph-navbar-polish-20261112/DungeonMindBuddy`.
 Scratch/cache/evidence: siblings under the same retained task directory, verified Projects filesystem UUID `48fa5d10-fe99-4557-9fc9-d8a2a4b41ac8`. No /tmp worktrees, global environment changes or dependency links. Keep lane until release/evidence retention is settled.

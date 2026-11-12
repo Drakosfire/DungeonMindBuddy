@@ -345,6 +345,13 @@ def test_introspected_owner_reads_actual_native_graph_without_writes(hosted):
         == x.lane.repo.get_head(result["native_world_id"]).head_revision_id
     )
     assert result["graph"]["nodes"] == []
+    assert result["graph"]["capabilities"] == {
+        "create": False,
+        "connect": False,
+        "rename": False,
+        "delete": False,
+        "object_kinds": [],
+    }
     assert x.app.dependency_overrides == {}
     assert x.catalog_reads and len(x.client.dms_requests) == 1
     outbound = x.client.dms_requests[0]

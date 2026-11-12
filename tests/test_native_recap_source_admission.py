@@ -604,6 +604,15 @@ def hosted_client(lane, monkeypatch, subject="recap-owner"):
             }
         ),
     )
+    # Exercise the deferred recap policy in isolation. The production launch
+    # boundary excludes this route and has its own app-level regression test.
+    from apps.live_control_server.routes.recap_ingest import resolve_native_recap_hosted_world
+
+    monkeypatch.setitem(
+        main.HOSTED_WORLD_SCOPE_RESOLVERS,
+        ("POST", "/api/live/recap-ingest"),
+        resolve_native_recap_hosted_world,
+    )
     application = main.create_app()
     assert not any(
         getattr(r, "path", "").startswith("/api/live/graph-preview/")

@@ -450,9 +450,10 @@ export interface NativeGraphDemoProps {
   readonly stateScopeId?: string;
   /** Presentation limit only; does not authorize entity or source access. */
   readonly entityOnlyDetails?: boolean;
+  readonly readOnly?: boolean;
 }
 
-export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "playground", worldTitle, stateScopeId, entityOnlyDetails = false }: NativeGraphDemoProps) {
+export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "playground", worldTitle, stateScopeId, entityOnlyDetails = false, readOnly = false }: NativeGraphDemoProps) {
   const api = useMemo(() => providedApi ?? (mode === "managed" ? MISSING_MANAGED_API : createNativeGraphDemoApi()), [mode, providedApi]);
   const [graph, setGraph] = useState<NativeGraph | null>(null);
   const graphRef = useRef<NativeGraph | null>(null);
@@ -908,13 +909,13 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       }
     api.readGraph().then(async (loadedGraph) => {
       if (!installReadGraph(loadedGraph, graphRequest, owner)) return;
-      const saved = safeReadDraft(loadedGraph.world_id, stateScopeId);
+      const saved = readOnly ? null : safeReadDraft(loadedGraph.world_id, stateScopeId);
       const restoredDraft = saved?.draft ?? EMPTY_DRAFT;
       draftRef.current = restoredDraft;
       setDraft(restoredDraft);
       setCustomPredicateMode(Boolean(loadedGraph.capabilities.allows_custom_predicates && restoredDraft.predicate
         && !loadedGraph.capabilities.allowed_predicates?.includes(restoredDraft.predicate)));
-      setDraftReadyWorldId(loadedGraph.world_id);
+      setDraftReadyWorldId(readOnly ? null : loadedGraph.world_id);
       placementIntentRef.current = saved?.placement ?? null;
       setPlacementIntent(saved?.placement ?? null);
       setPendingOperation(saved?.pending ?? null);
@@ -937,7 +938,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     return () => {
       if (mountedOwnerRef.current === owner) mountedOwnerRef.current = null;
     };
-  }, [api, componentScope, recoverOperation, stateScopeId]);
+  }, [api, componentScope, readOnly, recoverOperation, stateScopeId]);
 
   const refreshGraph = useCallback(async () => {
     const owner = mountedOwnerRef.current;
@@ -951,8 +952,8 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       if (nextGraph.world_id !== layout.worldId) {
         const positions = readLayout(nextGraph.world_id, stateScopeId);
         setLayout({ worldId: nextGraph.world_id, positions, revision: 0 });
-        setDraftReadyWorldId(nextGraph.world_id);
-        const saved = safeReadDraft(nextGraph.world_id, stateScopeId);
+        setDraftReadyWorldId(readOnly ? null : nextGraph.world_id);
+        const saved = readOnly ? null : safeReadDraft(nextGraph.world_id, stateScopeId);
         const nextDraft = saved?.draft ?? EMPTY_DRAFT;
         draftRef.current = nextDraft;
         setDraft(nextDraft);
@@ -975,7 +976,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     } finally {
       if (ownsMount(owner)) setRefreshing(false);
     }
-  }, [api, installServerGraph, layout, recoverOperation, refreshing, setPendingOperation, setPendingPhase, stateScopeId]);
+  }, [api, installServerGraph, layout, readOnly, recoverOperation, refreshing, setPendingOperation, setPendingPhase, stateScopeId]);
 
   function updateDraft(patch: Partial<DemoFormDraft>) {
     setDraftAndPersist({ ...draftRef.current, ...patch });
@@ -1726,14 +1727,14 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                   nodeShape: "circle" as const,
                   externalControls: true,
                   controlsHost: canvasControlsHost,
-                  toolActions: <>
+                  toolActions: !readOnly ? <>
                     <SurfaceContextAction disabled={!graph.capabilities.create || !graph.capabilities.object_kinds.length || Boolean(pendingOperation)} onClick={() => handleEmbeddedPanelChange(activePanel === "create" ? null : "create")}>Add object</SurfaceContextAction>
                     <SurfaceContextAction disabled={!canConnectGraph(graph) || Boolean(pendingOperation)} onClick={() => handleEmbeddedPanelChange(activePanel === "connect" ? null : "connect")}>Connect</SurfaceContextAction>
-                  </>,
+                  </> : undefined,
                   projectionOptions: { fullCorpus: true, maxNodes: 512, maxEdges: 1024, focusObjectId: viewFocusId, neighborhoodDepth },
                   creationKinds,
-                  onCanvasCreateRequest: graph.capabilities.create ? handleCanvasCreateRequest : undefined,
-                  onConnectRequest: canConnectGraph(graph) ? handleConnectRequest : undefined,
+                  onCanvasCreateRequest: !readOnly && graph.capabilities.create ? handleCanvasCreateRequest : undefined,
+                  onConnectRequest: !readOnly && canConnectGraph(graph) ? handleConnectRequest : undefined,
                   onSelectionChange: handleCanvasSelectionChange,
                   revealObjectId: createdNodeReveal?.worldId === graph.world_id ? createdNodeReveal.nodeId as LocalObjectId : null,
                   cameraFocusRequest: cameraFocusRequest?.worldId === graph.world_id ? cameraFocusRequest : undefined,

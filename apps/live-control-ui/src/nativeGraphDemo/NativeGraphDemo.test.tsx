@@ -523,6 +523,21 @@ describe("NativeGraphDemo", () => {
     expect(await navbar.findByText("Review ready · partial read")).toBeInTheDocument();
   });
 
+  it("hides authoring in the Tool menu when the hosted read-only boundary is active", async () => {
+    const api = makeApi();
+    const user = userEvent.setup();
+    renderEmbeddedDemo({ api, readOnly: true, mode: "managed", worldTitle: "Elderwyld", stateScopeId: "hosted-read-only" });
+    await screen.findByRole("button", { name: /Mara, npc/i });
+    await user.click(screen.getByRole("button", { name: "Graph tools" }));
+    for (const name of ["Add object", "Connect", "Place node", "Connect selected nodes"]) {
+      expect(screen.queryByRole("button", { name, exact: true })).not.toBeInTheDocument();
+    }
+    expect(screen.getByRole("button", { name: "Pan graph" })).toBeEnabled();
+    expect(document.querySelector(".world-graph-canvas__node-port")).toBeNull();
+    expect(api.prepare).not.toHaveBeenCalled();
+    expect(api.readOperation).not.toHaveBeenCalled();
+  });
+
   it("keeps authoring controls disabled when the selected graph is read-only", async () => {
     const user = userEvent.setup();
     const readOnlyGraph = {

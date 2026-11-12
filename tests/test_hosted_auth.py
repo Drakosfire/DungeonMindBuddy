@@ -17,6 +17,7 @@ from apps.live_control_server.services.hosted_auth import (
     DMS_API_ORIGIN_ENV,
     DEPLOYMENT_ENVIRONMENT_ENV,
     HOSTED_WORLD_ACCESS_ENV,
+    HOSTED_WORLD_ROUTE_POLICY_ERROR,
     LOGOUT_PATH,
     MAX_WORLD_SCOPE_BODY_BYTES,
     TRUSTED_FRONTEND_ORIGINS_ENV,
@@ -698,3 +699,26 @@ def test_world_assignment_is_per_dms_subject_and_does_not_claim_ownership() -> N
     with pytest.raises(HTTPException) as unassigned:
         authorize_world_access("other-managed-user", frozenset({"world-alpha"}), access=assignment)
     assert unassigned.value.status_code == 403
+
+
+def test_hosted_launch_denies_deferred_product_apis(monkeypatch):
+    from apps.live_control_server.main import create_app
+
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "production")
+    monkeypatch.setenv("DMB_AUTH_MODE", "hosted_dms")
+    monkeypatch.setenv("AUTH_TRUSTED_FRONTEND_ORIGINS", "https://buddy.dungeonmind.net")
+    app = create_app()
+    app.state.dms_principal_resolver = _resolver(DmsPrincipal(subject="synthetic-owner"))
+    client = _AsyncASGITestClient(app)
+    for path in (
+        "/api/live/native-graph-explorer/prepare",
+        "/api/live/native-graph-explorer/confirm",
+        "/api/live/native-graph-explorer/operations/read",
+        "/api/live/recap-ingest",
+        "/api/live/query",
+    ):
+        response = client.post(path, json={}, headers={"Origin": "https://buddy.dungeonmind.net"})
+        assert response.status_code == 403, (path, response.text)
+        assert response.json()["detail"]["code"] == HOSTED_WORLD_ROUTE_POLICY_ERROR
+    assert client.get("/api/live/play-runs").status_code == 403
+    assert app.openapi_url is None

@@ -36,10 +36,7 @@ from apps.live_control_server.routes.source_statements import router as source_s
 from apps.live_control_server.routes.native_graph_inspection import router as native_graph_inspection_router
 from apps.live_control_server.routes.native_source_inspection import router as native_source_inspection_router
 from apps.live_control_server.routes.play_prepared_tables import router as play_prepared_tables_router
-from apps.live_control_server.routes.recap_ingest import (
-    router as recap_ingest_router,
-    resolve_native_recap_hosted_world,
-)
+from apps.live_control_server.routes.recap_ingest import router as recap_ingest_router
 from apps.live_control_server.routes.world_graph_bootstrap import (
     router as world_graph_bootstrap_router,
 )
@@ -151,10 +148,8 @@ HOSTED_WORLD_COLLECTION_AUTHORIZERS = {
 }
 
 HOSTED_WORLD_SCOPE_RESOLVERS = {
-    ("POST", "/api/live/recap-ingest"): resolve_native_recap_hosted_world,
     ("POST", INSPECTION_READ_PATH): resolve_hosted_explorer_world,
-    **{("POST", f"{EXPLORER_PREFIX}/{suffix}"): resolve_hosted_explorer_world
-       for suffix in ("graph", "prepare", "confirm", "operations/read")},
+    ("POST", f"{EXPLORER_PREFIX}/graph"): resolve_hosted_explorer_world,
 }
 
 
@@ -192,11 +187,13 @@ async def lifespan(_application: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     graph_preview_router = _load_graph_preview_router()
+    hosted = deployment_environment() == PRODUCTION_ENVIRONMENT
     application = FastAPI(
         title="DungeonMindBuddy Live Control",
         version="0.1.0",
         description="L3 live-play API over file-backed session state (query spine + surface/jobs).",
         lifespan=lifespan,
+        openapi_url=None if hosted else "/openapi.json",
     )
     application.include_router(live_router)
     application.include_router(conversation_library_router)
