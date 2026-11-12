@@ -90,7 +90,7 @@ def test_default_ge_route_and_private_evidence(ordinary, monkeypatch):
     assert len(engine.requests) == 7
     for request in engine.requests:
         assert (request.provider, request.model) == ("openrouter", service.DEEPSEEK_MODEL)
-        assert request.provider_route.order == ("DeepSeek",)
+        assert request.provider_route.order == ("deepinfra/fp8",)
         assert request.provider_route.allow_fallbacks is False
         assert request.max_transport_retries == 0
         assert request.reasoning_effort == "low"

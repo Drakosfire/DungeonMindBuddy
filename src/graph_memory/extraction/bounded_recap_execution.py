@@ -553,7 +553,7 @@ class BoundedRecapPassClient:
             from generationengine.types import ProviderRoute
 
             route = ProviderRoute(
-                order=("DeepSeek",),
+                order=("deepinfra/fp8",),
                 allow_fallbacks=False,
                 require_parameters=True,
             )
