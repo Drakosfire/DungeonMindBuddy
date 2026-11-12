@@ -77,9 +77,11 @@ curl -fsS "$buddy_local/health/ready"
 (
   set -e
   for buddy_path in / /graph /plan /play; do
-    curl -fsS -H 'Accept: text/html' "$buddy_local$buddy_path" -o /dev/null
+    buddy_status=$(curl -fsS -H 'Accept: text/html' -o /dev/null -w '%{http_code}' "$buddy_local$buddy_path")
+    printf '%s %s\n' "$buddy_status" "$buddy_path"
+    test "$buddy_status" = 200
   done
-)
+) &&
 test "$(curl -sS -o /dev/null -w '%{http_code}' "$buddy_local/api/auth/current-user")" = 401
 ```
 
@@ -107,9 +109,11 @@ curl -fsS "$buddy_url/health/ready"
 (
   set -e
   for buddy_path in / /graph /plan /play; do
-    curl -fsS -H 'Accept: text/html' "$buddy_url$buddy_path" -o /dev/null
+    buddy_status=$(curl -fsS -H 'Accept: text/html' -o /dev/null -w '%{http_code}' "$buddy_url$buddy_path")
+    printf '%s %s\n' "$buddy_status" "$buddy_path"
+    test "$buddy_status" = 200
   done
-)
+) &&
 test "$(curl -sS -o /dev/null -w '%{http_code}' "$buddy_url/api/auth/current-user")" = 401
 ```
 
