@@ -12,7 +12,9 @@ configure_local_pdf_ocr() {
   local default_checkpoint=""
 
   if [[ -f "${model_cache}/refs/main" ]]; then
-    IFS= read -r model_revision < "${model_cache}/refs/main"
+    # Hugging Face ref files may omit the final newline. Preserve the value
+    # read at EOF without letting strict-mode callers abort configuration.
+    IFS= read -r model_revision < "${model_cache}/refs/main" || true
   fi
   if [[ "${model_revision}" =~ ^[a-f0-9]{40}$ ]]; then
     default_checkpoint="${model_cache}/snapshots/${model_revision}"
