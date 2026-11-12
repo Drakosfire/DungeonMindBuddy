@@ -41,9 +41,14 @@ function normalizeRepeatedText(value: string): string {
 
 function normalizeRepeatedHeader(value: string): string {
   const cleaned = value.trim().replace(/\s+/g, " ");
-  // Header labels are recognized only after the row has the roll-column shape;
-  // duplicated single-token labels like "NameName" are safe to collapse here.
-  return repeatedHalf(cleaned) ?? normalizeRepeatedText(cleaned);
+  const repeated = repeatedHalf(cleaned);
+  if (!repeated) return cleaned;
+
+  // Only normalize the roll marker and labels this parser recognizes. Unknown
+  // header text can be legitimately repetitive (for example, "NoNo").
+  const label = repeated.toLocaleLowerCase();
+  if (isRollColumn(repeated) || label === "name" || label === "notes") return repeated;
+  return cleaned;
 }
 
 function uniqueRuns(items: PdfRegionTextRun[]): PdfRegionTextRun[] {

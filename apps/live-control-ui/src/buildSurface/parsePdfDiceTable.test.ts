@@ -68,6 +68,26 @@ it("normalizes a duplicated multiword body-cell phrase", () => {
   expect(parsePdfDiceTable(items)?.rows[0]?.[1]).toBe("Ryan Burke");
 });
 
+it.each(["New York New York", "Long Rest Long Rest"])(
+  "preserves a repeated phrase with an explicit word boundary: %s",
+  phrase => {
+    const items = maleVillagerTable();
+    items[5] = run(phrase, 0.2, 0.16, 0.38);
+    items[0] = run(phrase, 0.1, 0.1, 0.45);
+
+    const candidate = parsePdfDiceTable(items);
+    expect(candidate?.rows[0]?.[1]).toBe(phrase);
+    expect(candidate?.title).toBe(phrase);
+  },
+);
+
+it.each(["No No", "NoNo"])("preserves an unknown repeated header label: %s", label => {
+  const items = maleVillagerTable();
+  items[2] = run(label, 0.2, 0.13, 0.3);
+
+  expect(parsePdfDiceTable(items)?.columns[1]).toBe(label);
+});
+
 it("refuses a flattened row that crosses inferred column boundaries", () => {
   const items = maleVillagerTable().filter(item => item.top <= 0.13);
   items.push(run("1 Ryan Burke", 0.1, 0.16, 0.38));
