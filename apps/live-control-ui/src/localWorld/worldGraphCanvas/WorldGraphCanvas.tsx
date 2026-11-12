@@ -611,6 +611,10 @@ export function WorldGraphCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewport.width, viewport.height, viewportMeasured, record.snapshot.worldId, preserveCameraOnResize]);
 
+  // Both effects share the intended reset baseline; setCamera does not update
+  // the following effect's render-time camera closure in the same commit.
+  const resetFitCamera = typeof clearCameraFocusRequest === "object" && clearCameraFocusRequest.fitView
+    && lastCameraFocusClearRequestRef.current !== clearCameraFocusRequest.requestId ? fittedCamera() : null;
   // Revision resets precede a new explicit focus in the same commit.
   useLayoutEffect(() => {
     const requestId = typeof clearCameraFocusRequest === "object" ? clearCameraFocusRequest.requestId : clearCameraFocusRequest;
@@ -619,10 +623,10 @@ export function WorldGraphCanvas({
     originalCameraBeforeFocusRef.current = null;
     if (typeof clearCameraFocusRequest === "object" && clearCameraFocusRequest.fitView) {
       manualCameraRef.current = true;
-      setCamera(fittedCamera());
+      setCamera(resetFitCamera ?? fittedCamera());
     }
     onCameraFocusChange?.(null);
-  }, [clearCameraFocusRequest, onCameraFocusChange]);
+  }, [clearCameraFocusRequest, onCameraFocusChange, resetFitCamera]);
 
   useLayoutEffect(() => {
     if (clearSelectionRequest === undefined || lastSelectionClearRequestRef.current === clearSelectionRequest) return;
@@ -659,15 +663,16 @@ export function WorldGraphCanvas({
       setViewport(measuredViewport);
     }
     if (cameraFocusRequest.selectNode) setSelectedIds([node.id]);
-    if (!originalCameraBeforeFocusRef.current) originalCameraBeforeFocusRef.current = camera;
-    const zoom = Math.max(camera.zoom, 1.35);
+    const focusBaseline = resetFitCamera ?? camera;
+    if (!originalCameraBeforeFocusRef.current) originalCameraBeforeFocusRef.current = focusBaseline;
+    const zoom = Math.max(focusBaseline.zoom, 1.35);
     const centerX = node.x + dimensions.width / 2;
     const centerY = node.y + dimensions.height / 2;
     manualCameraRef.current = true;
     setCamera({ zoom, x: measuredViewport.width / 2 - centerX * zoom,
       y: measuredViewport.height / 2 - centerY * zoom });
     onCameraFocusChange?.(node.id);
-  }, [camera, cameraFocusRequest, dimensions.height, dimensions.width, onCameraFocusChange, projection.nodes, viewport.height, viewport.width]);
+  }, [camera, resetFitCamera, cameraFocusRequest, dimensions.height, dimensions.width, onCameraFocusChange, projection.nodes, viewport.height, viewport.width]);
 
   useLayoutEffect(() => {
     // Release capture and suppress the trailing click before a new revision/authority becomes interactive.

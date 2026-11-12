@@ -1319,6 +1319,14 @@ it("applies revision resets before a simultaneous exact-object reveal and focus"
   const camera = cameraFromScene(screen.getByTestId("graph-scene"));
   expect(camera.x + (x + 56) * camera.zoom).toBeCloseTo(480);
   expect(camera.y + (y + 56) * camera.zoom).toBeCloseTo(260);
+  // A one-node reset overview fits at 100%, not the old focused 135% camera.
+  view.rerender(<WorldGraphCanvas record={next} nodeShape="circle" projectionOptions={{ fullCorpus: true }}
+    revealObjectId={target.id} clearCameraFocusRequest={{ requestId: 1, fitView: true }} clearSelectionRequest={1}
+    cameraFocusRequest={{ nodeId: null, requestId: 3 }} onCameraFocusChange={onCameraFocusChange} />);
+  const restored = cameraFromScene(screen.getByTestId("graph-scene"));
+  expect(restored.zoom).toBe(1);
+  expect(restored.x + (x + 56) * restored.zoom).toBeCloseTo(480);
+  expect(restored.y + (y + 56) * restored.zoom).toBeCloseTo(260);
 });
 
 it("fits post-reset visibility without a previously selected distant isolate", async () => {
