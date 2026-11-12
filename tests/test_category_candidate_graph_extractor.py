@@ -138,8 +138,26 @@ def test_extractor_uses_profile_selected_passes() -> None:
 
 
 def test_recap_profile_still_runs_full_pass_set() -> None:
-    client = RecordingClient()
-    extract_category_candidate_graph(
+    class EventClient(RecordingClient):
+        def run_pass(self, pass_name, **kwargs):
+            response = super().run_pass(pass_name, **kwargs)
+            if pass_name == "event_pass":
+                response["parsed"] = {
+                    "observation_nodes": [{
+                        "node_id": "event:arrival",
+                        "label": "Arrival in Mirathorn",
+                        "node_type": "event",
+                        "description": "Arrival in Mirathorn.",
+                        "evidence_refs": [{
+                            "source_span_ref_id": "span-1",
+                            "anchor_quotes": ["Mirathorn"],
+                        }],
+                    }],
+                }
+            return response
+
+    client = EventClient()
+    result = extract_category_candidate_graph(
         CategoryGraphExtractionOptions(
             campaign_id="longmont-c2",
             session_id="session-24",
@@ -149,15 +167,18 @@ def test_recap_profile_still_runs_full_pass_set() -> None:
         ),
         client=client,
     )
-    assert client.passes[:5] == [
+    assert client.passes == [
         "actor_pass",
         "location_pass",
         "collective_pass",
         "object_pass",
         "thread_pass",
+        "event_pass",
+        "edge_pass",
     ]
-    assert "beat_pass" in client.passes
-    assert client.passes[-1] == "edge_pass"
+
+    event, = [node for node in result.candidate_graph["nodes"] if node["node_type"] == "event"]
+    assert event["node_id"] == "event:arrival"
 
 
 def test_custom_disposition_pass_id_prompts_and_retains_items() -> None:
@@ -358,6 +379,20 @@ def test_extraction_retains_distinct_predicates_with_same_endpoints():
 
 
 def test_beat_call_receives_source_local_inventory_and_keeps_source_associations():
+    from dataclasses import replace
+
+    from src.graph_memory.extraction.extraction_profile import ExtractionPassSpec
+
+    beat_profile = replace(
+        RECAP_EXTRACTION_PROFILE,
+        beat_pass=ExtractionPassSpec(
+            pass_id="beat_pass",
+            default_node_type=None,
+            instruction="Extract source-local beats.",
+            progress_label="Extracting session beats",
+            kind="beat",
+        ),
+    )
     import hashlib
     import json
 
@@ -403,9 +438,9 @@ def test_beat_call_receives_source_local_inventory_and_keeps_source_associations
     client = BeatClient()
     result = extract_category_candidate_graph(CategoryGraphExtractionOptions(
         campaign_id='synthetic-beat-context', session_id=None, session_number=None,
-        source_text=source, source_span_index=index, profile=RECAP_EXTRACTION_PROFILE), client=client)
+        source_text=source, source_span_index=index, profile=beat_profile), client=client)
     assert client.passes == ['actor_pass', 'location_pass', 'collective_pass',
-        'object_pass', 'thread_pass', 'beat_pass', 'edge_pass']
+        'object_pass', 'thread_pass', 'event_pass', 'beat_pass', 'edge_pass']
     beats = result.candidate_graph['beats']
     assert [b['involved_node_ids'] for b in beats] == [['npc:miri'], []]
     assert [b['summary'] for b in beats] == [first, second]

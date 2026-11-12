@@ -1151,12 +1151,16 @@ def test_real_recap_producer_supplies_packet_to_ge_and_receives_canonical_result
     assert '### Q001\nDr. Ari did not enter.' in actor.user_prompt
     assert '### Q002\nShe waited unless Bea returned.' in actor.user_prompt
     assert 'source_quote_ids' in actor.user_prompt
-    for request in engine.requests[:5]:
+    node_requests, edge_request = engine.requests[:-1], engine.requests[-1]
+    assert [request.schema_name for request in node_requests] == [
+        f"category_graph_{spec.pass_id}" for spec in RECAP_EXTRACTION_PROFILE.node_passes
+    ]
+    assert edge_request.schema_name == "category_graph_edge_pass"
+    for request in node_requests:
         refs_schema = request.json_schema['properties']['observation_nodes']['items']['properties']['evidence_refs']['items']
         assert refs_schema['properties']['source_quote_ids']['items']['enum'] == ['Q001', 'Q002']
         assert '### Q001\nDr. Ari did not enter.' in request.user_prompt
-    for request in engine.requests[5:]:
-        assert 'source_quote_ids' not in json.dumps(request.json_schema)
+    assert "source_quote_ids" not in json.dumps(edge_request.json_schema)
     refs = result.pass_outputs['actor_pass']['observation_nodes'][0]['evidence_refs']
     assert refs[0]['anchor_quotes'] == ['Dr. Ari did not enter.']
     assert refs[1]['source_span_ref_id'] == 'span:b'
