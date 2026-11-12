@@ -1,6 +1,6 @@
 # HANDOFF — BUILD local PDF OCR runtime configuration
 
-Status: ACTIVE, serial, one unstacked PR.
+Status: SETTLED — merged as PR #2487.
 Base: `origin/main@20367596680f8a20a478d78ceb6351d90027bb9a`.
 Branch: `codex/real-document-ocr-workflow-20261112`.
 Checkout: existing `DungeonMindBuddy` checkout; no additional worktree.
@@ -40,13 +40,16 @@ observation, not the five-example scored baseline; rendered page captures were
 temporary and have been removed. No Graph writes or source changes occurred.
 Review the complete diff and obtain independent review before merge.
 
-## Next serial slices
+The launcher configuration is delivered. A later fresh worker attempt in the
+current shell failed with `DeepSeek OCR 2 requires a visible CUDA GPU`; the
+shell currently cannot communicate with the NVIDIA driver. Keep the earlier
+MeatMindNode smoke report as historical evidence, not proof that OCR can be
+re-run in this shell. The retained five-region crop run remains available for
+offline scoring without provider calls.
 
-1. Measure the five source-pinned Conks/Sheep regions against the current OCR
-   baseline, keeping classification, transcription, structure, and source
-   location separate.
-2. Add source-located, review-only multi-region/page statblock assembly for the
-   retained Elderwyld Meat Mind source.
-3. Exercise native DungeonMind review/admission/publication and cited Buddy
-   retrieval after the candidate is accurate. These slices are not authorized
-   by this runtime-configuration lease.
+## Successor
+
+The next serial slice is pinned in
+`HANDOFF-BUILD-pdf-region-gold-scorer.md`. It reproduces the five-region
+baseline offline; it does not add a new OCR run, review flow, or publication
+behavior.
