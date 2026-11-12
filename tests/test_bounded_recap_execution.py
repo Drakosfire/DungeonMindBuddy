@@ -839,7 +839,7 @@ def test_remaining_deadline_shrinks_and_zero_usage_is_known():
     "run_deadline_ms,per_call_deadline_ms,elapsed_ms,expected_ms",
     [(480_000, 120_000, 0, 120_000), (480_000, 120_000, 360_000, 120_000),
      (1000, 120_000, 250, 750), (900_000, 240_000, 0, 240_000),
-     (900_000, 240_000, 800_000, 100_000)],
+     (900_000, 240_000, 800_000, 100_000), (None, 240_000, 1_200_000, 240_000)],
 )
 def test_selected_logical_deadline_reaches_request_and_owned_worker(
     monkeypatch, run_deadline_ms, per_call_deadline_ms, elapsed_ms, expected_ms

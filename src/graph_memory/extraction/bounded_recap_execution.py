@@ -216,7 +216,7 @@ class RecapExecutionLimits:
     model: str = "gpt-6-luna"
     max_calls: int = 8
     per_call_deadline_ms: int = 120_000
-    run_deadline_ms: int = 480_000
+    run_deadline_ms: int | None = 480_000
     max_output_tokens: int | None = None
     edge_max_output_tokens: int | None = None
     reasoning_effort: str | None = None
@@ -245,6 +245,8 @@ class RecapExecutionLimits:
             ("run_deadline_ms", 900_000),
         ):
             value = getattr(self, name)
+            if name == "run_deadline_ms" and value is None:
+                continue
             if type(value) is not int or not 1 <= value <= ceiling:
                 raise ValueError(f"{name} must be 1..{ceiling}")
         # Explicit finite settings remain valid for pinned historical/experiment
@@ -493,14 +495,15 @@ class BoundedRecapPassClient:
 
         wall_started = time.monotonic()
 
-        remaining = self.limits.run_deadline_ms - int(
-            (self._clock() - self._started) * 1000
-        )
+        deadline_ms = self.limits.per_call_deadline_ms
+        if self.limits.run_deadline_ms is not None:
+            remaining = self.limits.run_deadline_ms - int((self._clock() - self._started) * 1000)
+            deadline_ms = min(deadline_ms, remaining)
         if (
             self._stopped
             or model_id != self.limits.model
             or len(self.calls) >= self.limits.max_calls
-            or remaining <= 0
+            or deadline_ms <= 0
         ):
             self._stopped = True
             raise CategoryGraphExtractionError(
@@ -578,7 +581,7 @@ class BoundedRecapPassClient:
                 and self.limits.edge_max_output_tokens is not None
                 else self.limits.max_output_tokens
             ),
-            "deadline_ms": min(remaining, self.limits.per_call_deadline_ms),
+            "deadline_ms": deadline_ms,
         }
         if deepseek:
             request_kwargs.update(

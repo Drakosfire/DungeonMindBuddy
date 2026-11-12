@@ -199,7 +199,7 @@ def test_ordinary_passes_delegate_output_capacity_and_preserve_deadlines(ordinar
     assert ledger["limits"]["max_output_tokens"] is None
     assert ledger["limits"]["edge_max_output_tokens"] is None
     assert ledger["limits"]["per_call_deadline_ms"] == 240000
-    assert ledger["limits"]["run_deadline_ms"] == 900000
+    assert ledger["limits"]["run_deadline_ms"] is None
     assert [call["max_output_tokens"] for call in ledger["calls"]] == [None] * 7
     assert ledger['attempt_counts']['provider_attempts']['total'] == 7
     assert ledger['attempt_counts']['conformance_retries']['total'] == 0
