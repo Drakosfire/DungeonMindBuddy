@@ -347,6 +347,7 @@ describe("NativeGraphDemo", () => {
     await user.click(graphAction("Info"));
     expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
     expect(screen.getByText(/This private synthetic graph is backed by DungeonMind/)).toBeInTheDocument();
+    expect(screen.getByText(/With the graph focused,.*hold Ctrl and scroll over the graph/)).toBeInTheDocument();
     expect(screen.getByText("Rename is unavailable")).toBeInTheDocument();
     expect(screen.getByText("Delete is unavailable")).toBeInTheDocument();
     expect(screen.getByText(/Clearing cookies or session expiry loses the link to this graph/)).toBeInTheDocument();

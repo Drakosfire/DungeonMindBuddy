@@ -1,6 +1,8 @@
 # GRAPH: clear canvas and surface controls
 
-Status: ACTIVE. User requested a polish pass on 2026-11-12; coordinating root assigned bounded design and implementation to this lane. Serial successor to merged packed-bubble #2475, not stacked on a draft.
+Status: SETTLED. Merged in PR #2504 at `6464347ec6e478699a1f539778b96f2a2a8801f7`; exact tested head `39699756f544162794dd7a3f8750473c4b4289c8` has the same source tree. Hosted qualification and source review passed; full discovery remains red with165 inherited failures and no new failing IDs. Successor zoom work is separately bounded in `HANDOFF-GRAPH-cursor-zoom.md`.
+
+Original authorization: User requested a polish pass on 2026-11-12; coordinating root assigned bounded design and implementation to this lane. Serial successor to merged packed-bubble #2475, not stacked on a draft.
 
 ## Authority and lane
 
