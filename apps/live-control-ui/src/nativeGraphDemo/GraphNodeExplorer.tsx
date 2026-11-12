@@ -1,4 +1,4 @@
-import { useState, type Ref } from "react";
+import { useState, useRef, useEffect, type Ref } from "react";
 import { type NativeAssertion, type NativeGraphEntity } from "../api/nativeGraphInspection";
 import { nativeObjectEvidenceChoices } from "../graphLens/nativeObjectEvidence";
 import { projectNativeObject } from "../graphLens/nativeObjectProjection";
@@ -17,22 +17,45 @@ export function NativeGraphNodeExplorer({ node, revision, detail, labels, entity
   headingRef?: Ref<HTMLHeadingElement>; mode?: "managed" | "playground"; status?: "idle" | "loading" | "ready" | "unavailable" | "error"; error?: string | null; connections?: readonly NativeGraphEdge[];
 }) {
   const presentation = nativeGraphPresentation(node);
+  const menuRef = useRef<HTMLDetailsElement>(null);
+  const menuTriggerRef = useRef<HTMLElement>(null);
+  useEffect(() => { if (menuRef.current) menuRef.current.open = false; }, [node.id, revision]);
+  const model = mode === "managed" && status === "ready" && detail?.entity.found
+    ? projectNativeObject({ kind: "admitted-native", entityId: node.id, pin: detail.scope }, detail, labels).dossier : null;
+  const isPartial = partial || (detail?.entity.completeness.status !== undefined && detail.entity.completeness.status !== "complete");
   return <section className="native-demo-action-card native-demo-object-details" aria-labelledby="native-demo-selected-object-title">
     <header className="graph-node-explorer__navbar">
       <h2 ref={headingRef} tabIndex={-1} id="native-demo-selected-object-title">{compactNodeLabel(node)}</h2>
       <nav aria-label="Node explorer controls">
         {onBack ? <button type="button" disabled={navigationDisabled} onClick={onBack} aria-label={`Back to ${previousLabel ?? "previous object"}`} title={`Back to ${previousLabel ?? "previous object"}`}>← Back</button> : null}
-        <button type="button" onClick={onFocus}>Focus</button>
-        {onExitFocus ? <button type="button" onClick={onExitFocus}>Exit focus</button> : null}
-        <button type="button" onClick={onClose} aria-label="Close details">Close</button>
+        <button type="button" onClick={onFocus} aria-label="Focus" title="Focus this node"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="12" cy="12" r="6"/><path d="M12 2v5m0 10v5M2 12h5m10 0h5"/></svg></button>
+
+        <details ref={menuRef} className="graph-node-explorer__menu" onKeyDown={(event) => {
+          if (event.key === "Escape" && menuRef.current?.open) { event.preventDefault(); event.stopPropagation(); menuRef.current.open = false; menuTriggerRef.current?.focus(); }
+        }}>
+          <summary ref={menuTriggerRef} aria-label="Node information and actions" title="Node information and actions"><span aria-hidden="true">☰</span></summary>
+          <div className="graph-node-explorer__menu-content">
+            {onExitFocus ? <button type="button" onClick={() => { if (menuRef.current) menuRef.current.open = false; onExitFocus(); }}>Exit focus</button> : null}
+            <p>{presentation.displayKind}</p>
+            {presentation.recordedNames.length > 1 ? <details className="graph-node-explorer__names"><summary>Recorded names ({presentation.recordedNames.length})</summary><p>Display label only, not a preferred name or current title.</p><ul>{presentation.recordedNames.map((name) => <li key={name}>{name}</li>)}</ul></details> : null}
+            {model ? <>
+              <p className="graph-node-explorer__counts"><strong>{model.distinctNeighborCount} connected objects</strong> · {model.relationshipRecordCount} relationship records</p>
+              {isPartial ? <p>Partial view. These counts describe admitted records in the loaded revision, not the whole World.</p> : null}
+              <p>{model.commonStatus ? `Record status: ${model.commonStatus}. Not a statement of current truth.` : "Record qualifications vary. Open evidence for each connection."}</p>
+            </> : null}
+            {entityOnly ? <p>Source excerpts and linked statblocks are not available for this connection.</p> : null}
+            <details><summary>Snapshot revision</summary><code>{revision}</code></details>
+          </div>
+        </details>
+        <button type="button" onClick={onClose} aria-label="Close details" title="Close details"><span aria-hidden="true">×</span></button>
       </nav>
     </header>
     <div className="graph-node-explorer__identity">
-      <span className="native-demo-copy">{presentation.displayKind}</span>
-      {presentation.recordedNames.length > 1 ? <details className="graph-node-explorer__names"><summary>Recorded names ({presentation.recordedNames.length})</summary><p>Display label only, not a preferred name or current title.</p><ul>{presentation.recordedNames.map((name) => <li key={name}>{name}</li>)}</ul></details> : null}
+      <span className="native-demo-copy">{presentation.displayKind === "character (role unspecified)" ? "character" : presentation.displayKind}</span>
+      {isPartial ? <span role="status" className="graph-node-explorer__warning" title="Partial view: additional connections may be missing. Open node information for counts and scope.">Partial view</span> : null}
     </div>
     {mode === "managed" ? status === "loading" ? <p role="status">Loading this object from the loaded World revision…</p>
-      : status === "ready" && detail ? <NodeDossier detail={detail} entityId={node.id} labels={labels} entityOnly={entityOnly} partial={partial} navigationDisabled={navigationDisabled} onExplore={onExplore} />
+      : status === "ready" && detail ? <NodeDossier detail={detail} entityId={node.id} labels={labels} entityOnly={entityOnly} navigationDisabled={navigationDisabled} onExplore={onExplore} />
         : <p role={status === "error" ? "alert" : "status"}>{error ?? "Select this object to inspect its loaded World revision."}</p>
       : <section className="native-demo-object-details__connections" aria-labelledby="native-demo-selected-connections-title">
         <h3 id="native-demo-selected-connections-title">Connections in this loaded snapshot</h3>
@@ -49,7 +72,7 @@ export function NativeGraphNodeExplorer({ node, revision, detail, labels, entity
 }
 
 /** A read-only dossier over admitted records; no canonicalization or inferred biography. */
-function NodeDossier({ detail, entityId, labels, entityOnly = false, partial = false, navigationDisabled = false, onExplore }: {
+function NodeDossier({ detail, entityId, labels, entityOnly = false, navigationDisabled = false, onExplore }: {
   detail: NativeGraphEntity; entityId: string; labels: ReadonlyMap<string, string>;
   entityOnly?: boolean; partial?: boolean; navigationDisabled?: boolean; onExplore: (entityId: string) => void;
 }) {
@@ -57,9 +80,6 @@ function NodeDossier({ detail, entityId, labels, entityOnly = false, partial = f
   const [statblocksOpen, setStatblocksOpen] = useState(false);
   if (!detail.entity.found) return <p>This object is unavailable in the selected revision.</p>;
   return <div className="native-node-dossier">
-    <p className="graph-node-explorer__counts"><strong>{model.distinctNeighborCount} connected objects</strong> · {model.relationshipRecordCount} relationship records</p>
-    {partial || detail.entity.completeness.status !== "complete" ? <p role="status" className="graph-node-explorer__notice">Partial view. These counts describe admitted records in the loaded revision, not the whole World.</p> : null}
-    {model.commonStatus ? <p className="graph-node-explorer__status">Record status: {model.commonStatus}. Not a statement of current truth.</p> : <p className="graph-node-explorer__status">Record qualifications vary. Open evidence for each connection.</p>}
     <section aria-label="Connections">
       <h3>Connections</h3>
       {!model.relationshipRecordCount ? <p>No admitted connections in this view.</p> : null}
@@ -69,7 +89,7 @@ function NodeDossier({ detail, entityId, labels, entityOnly = false, partial = f
         <summary>{group.title} <span className="graph-node-explorer__group-count">{count} {count === 1 ? "node" : "nodes"}</span></summary>
         <ul>{group.rows.map((row) => <li key={row.id}>
           <p className="graph-node-explorer__relationship">{row.text}</p>
-          {!model.commonStatus ? <p className="graph-node-explorer__status">{[...new Set(row.assertions.map(assertionStatus))].join("; ")}</p> : null}
+          <p className="graph-node-explorer__status">{[...new Set(row.assertions.map(assertionStatus))].join("; ")}</p>
           {row.contexts.length ? <p className="graph-node-explorer__context">{row.contexts.join(" · ")}</p> : <p className="graph-node-explorer__context">Source episode not recorded</p>}
           {row.neighborId !== entityId && labels.has(row.neighborId) ? <button type="button" className="graph-node-explorer__link" disabled={navigationDisabled} onClick={() => onExplore(row.neighborId)}>Explore {labels.get(row.neighborId)}</button> : null}
           <Evidence records={row.assertions} detail={detail} entityOnly={entityOnly} commonStatus={model.commonStatus} />
@@ -81,7 +101,7 @@ function NodeDossier({ detail, entityId, labels, entityOnly = false, partial = f
       <p className="graph-node-explorer__context">Recorded summaries, not additional graph connections. Source episodes are not a fictional timeline or a current-state claim.</p>
       {model.summaries.map(({ assertion, text, contexts }) => <article key={assertion.assertion_id}>
         <p className="graph-node-explorer__context">{contexts.length ? contexts.join(" · ") : "Source episode not recorded"}</p>
-        {!model.commonStatus ? <p className="graph-node-explorer__status">{assertionStatus(assertion)}</p> : null}
+        <p className="graph-node-explorer__status">{assertionStatus(assertion)}</p>
         <details><summary>{text.length > 140 ? `${text.slice(0, 140)}…` : text}</summary><p>{text}</p>
         <Evidence records={[assertion]} detail={detail} entityOnly={entityOnly} commonStatus={model.commonStatus} /></details>
       </article>)}
@@ -89,7 +109,7 @@ function NodeDossier({ detail, entityId, labels, entityOnly = false, partial = f
     {model.otherRecords.length ? <details className="graph-node-explorer__secondary"><summary>Other recorded information ({model.otherRecords.length})</summary>
       {model.otherRecords.map(({ assertion, text, contexts }) => <article key={assertion.assertion_id}><p>{text}</p><p className="graph-node-explorer__context">{contexts.join(" · ")}</p><Evidence records={[assertion]} detail={detail} entityOnly={entityOnly} commonStatus={model.commonStatus} /></article>)}
     </details> : null}
-    {entityOnly ? <p className="graph-node-explorer__context">Source excerpts and linked statblocks are not available for this connection.</p> : <details className="graph-node-explorer__secondary" onToggle={(event) => setStatblocksOpen(event.currentTarget.open)}><summary>Linked statblocks</summary>{statblocksOpen ? <NativeObjectStatblock pin={detail.scope} entityId={entityId} /> : null}</details>}
+    {entityOnly ? null : <details className="graph-node-explorer__secondary" onToggle={(event) => setStatblocksOpen(event.currentTarget.open)}><summary>Linked statblocks</summary>{statblocksOpen ? <NativeObjectStatblock pin={detail.scope} entityId={entityId} /> : null}</details>}
     <details className="graph-node-explorer__secondary"><summary>Identity records and revision</summary>
       <p>World revision <code>{detail.scope.revision_id}</code></p><p>Object <code>{entityId}</code></p>
       <p>Names and classifications are preserved as recorded. The compact heading is a display label, not a canonical name.</p>

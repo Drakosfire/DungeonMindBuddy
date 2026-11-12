@@ -49,3 +49,7 @@ The subject key includes World, native binding, revision and scope. Projection
 construction must reject a mismatched pin before exposing records. Evidence uses
 that same pin and is loaded only on demand. Source/citation identity must include
 all pin fields, not merely World and revision. Read projection never grants writes.
+
+## Settlement
+
+Merged in #2510 at ab33d3302444ca072838d9b53c5b9eb9f5894cba. The compact explorer menu successor owns only its declared presentation paths; shared native projection contracts remain unchanged.

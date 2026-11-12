@@ -15,12 +15,32 @@ describe("GraphNodeExplorer", () => {
     render(<GraphNodeExplorer detail={detail} node={{ id: "lysandra", name: "Lysandra", kind: "person" }} revision="rev" onFocus={vi.fn()} onClose={vi.fn()} labels={new Map([["lysandra", "Lysandra"], ["stafl", "Stafl"]])} onExplore={navigate} partial />);
     expect(screen.getByText("1 connected objects")).toBeInTheDocument();
     expect(screen.getByText(/1 relationship records/)).toBeInTheDocument();
-    expect(screen.getByText(/Partial view/)).toBeInTheDocument();
+    expect(screen.getByText("Partial view")).toBeInTheDocument();
     expect(inspect).not.toHaveBeenCalled();
     expect(screen.queryByText("Statblock lookup")).not.toBeInTheDocument();
     fireEvent.click(screen.getByText(/Affiliation and command/));
     fireEvent.click(screen.getByRole("button", { name: "Explore Stafl" }));
     expect(navigate).toHaveBeenCalledWith("stafl");
+  });
+  it("keeps metadata in a dismissible menu and resets it on selection", () => {
+    const focus = vi.fn(); const close = vi.fn();
+    const props = { detail, node: { id: "lysandra", name: "Lysandra", kind: "person" as const }, revision: "rev", onFocus: focus, onClose: close, labels: new Map<string, string>(), onExplore: vi.fn() };
+    const { rerender } = render(<GraphNodeExplorer {...props} />);
+    const trigger = screen.getByLabelText("Node information and actions");
+    const menu = trigger.closest("details")!;
+    expect(screen.getByText("1 connected objects")).not.toBeVisible();
+    fireEvent.click(trigger);
+    expect(menu).toHaveAttribute("open");
+    expect(screen.getByText("1 connected objects")).toBeVisible();
+    fireEvent.keyDown(trigger, { key: "Escape" });
+    expect(menu).not.toHaveAttribute("open");
+    expect(trigger).toHaveFocus();
+    fireEvent.click(trigger);
+    rerender(<GraphNodeExplorer {...props} node={{ ...props.node, id: "stafl", name: "Stafl" }} />);
+    expect(menu).not.toHaveAttribute("open");
+    fireEvent.click(screen.getByRole("button", { name: "Focus" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close details" }));
+    expect(focus).toHaveBeenCalledOnce(); expect(close).toHaveBeenCalledOnce();
   });
   it("loads exact supporting evidence only on request and rejects a newer revision", async () => {
     inspect.mockResolvedValue({ schema: "dmb_native_graph_source_v1", scope: { ...detail.scope, revision_id: "newer" }, source: { text: "Wrong newer text" } });
@@ -39,7 +59,7 @@ describe("GraphNodeExplorer", () => {
     expect(group).toHaveTextContent("1 node");
     expect(screen.getByRole("button", { name: "Explore Stafl" })).not.toBeVisible();
     expect(screen.getByRole("navigation", { name: "Node explorer controls" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Close details" })).toHaveTextContent("Close");
+    expect(screen.getByRole("button", { name: "Close details" })).toHaveTextContent("×");
   });
   it("does not turn two inverse records into two corroborating sources", () => {
     const child = { ...detail.entity.assertions[0]!, predicate: "dungeonbuddy:child_of" };
