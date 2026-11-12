@@ -178,7 +178,12 @@ def test_cross_group_repeated_known_units_emit_once_in_first_seen_order(collecti
     raw = {'observation_nodes': [], 'ignored_items': [], 'deferred_items': []}
     raw[collection] = [item]
     original = deepcopy(raw)
-    validate(raw, node_wire_schema(base, p))
+    wire = node_wire_schema(base, p)
+    validate(raw, wire)
+    from jsonschema import Draft202012Validator
+    without_evidence = deepcopy(raw)
+    without_evidence[collection][0]["evidence_refs"] = []
+    assert Draft202012Validator(wire).is_valid(without_evidence) == (collection != "observation_nodes")
     normalized = materialize_node_evidence(p, raw, expected_packet_id=p.packet_id)
     validate(normalized, base)
     quotes = [r['anchor_quotes'][0] for r in normalized[collection][0]['evidence_refs']]
