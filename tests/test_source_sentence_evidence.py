@@ -143,6 +143,14 @@ def test_node_dispositions_share_exact_handle_wire_and_preserve_empty_refs():
     raw = {"observation_nodes": [node], "ignored_items": [disposition],
            "deferred_items": [{**disposition, "evidence_refs": [{"source_quote_ids": ["Q001"]}]}]}
     validate(raw, wire)
+    from generationengine.utils.schema_utils import make_schema_strict
+    from jsonschema import Draft202012Validator
+
+    without_support = deepcopy(raw)
+    without_support["observation_nodes"][0]["evidence_refs"] = []
+    errors = Draft202012Validator(make_schema_strict(wire)).iter_errors(without_support)
+    assert any(error.validator == "minItems" and list(error.path) ==
+               ["observation_nodes", 0, "evidence_refs"] for error in errors)
     normalized = materialize_node_evidence(p, raw, expected_packet_id=p.packet_id)
     validate(normalized, base)
     assert normalized["observation_nodes"][0]["evidence_refs"][0]["anchor_quotes"] == ["It did have a job board."]
