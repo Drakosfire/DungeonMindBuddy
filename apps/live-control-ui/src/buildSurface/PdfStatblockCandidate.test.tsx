@@ -29,6 +29,41 @@ it("reads the six printed scores without treating modifiers as scores", () => {
   );
 });
 
+it("reads DeepSeek OCR 2 ability scores emitted as an HTML table", () => {
+  const text = [
+    "Bed Dragon Wyrmling",
+    "Medium dragon, lawful evil",
+    "Armor Class 16",
+    "Hit Points 75 (10d8 + 30)",
+    "<table><tr><td>STR</td><td>DEX</td><td>CON</td><td>INT</td><td>WIS</td><td>CHA</td></tr><tr><td>19(+4)</td><td>14(+2)</td><td>17(+3)</td><td>8(-1)</td><td>8(-1)</td><td>4(-3)</td></tr></table>",
+  ].join("\n");
+  render(<PdfStatblockCandidate locator={locator} text={text} />);
+  fireEvent.click(screen.getByRole("button", {name:"Preview statblock fields"}));
+  expect(screen.getByText("Page 5 · srev:test")).toBeInTheDocument();
+  expect(screen.getAllByRole("definition").map(item => item.textContent)).toEqual(
+    ["16", "75 (10d8 + 30)", "19", "14", "17", "8", "8", "4"],
+  );
+});
+
+it("keeps pretty-printed HTML table cells within their ability-score rows", () => {
+  const text = [
+    "Bed Dragon Wyrmling",
+    "Medium dragon, lawful evil",
+    "Armor Class 16",
+    "Hit Points 75",
+    "<table><tr>",
+    "<td>STR</td>", "<td>DEX</td>", "<td>CON</td>", "<td>INT</td>", "<td>WIS</td>", "<td>CHA</td>",
+    "</tr><tr>",
+    "<td>19</td>", "<td>14</td>", "<td>17</td>", "<td>8</td>", "<td>8</td>", "<td>4</td>",
+    "</tr></table>",
+  ].join("\n");
+  render(<PdfStatblockCandidate locator={locator} text={text} />);
+  fireEvent.click(screen.getByRole("button", {name:"Preview statblock fields"}));
+  expect(screen.getAllByRole("definition").map(item => item.textContent)).toEqual(
+    ["16", "75", "19", "14", "17", "8", "8", "4"],
+  );
+});
+
 it("omits an incomplete ability row", () => {
   const text = "Bed Dragon Wyrmling\nMedium dragon, lawful evil\nArmor Class 16\nHit Points 75\nSTR DEX CON INT WIS CHA\n19 14 17 8 8";
   render(<PdfStatblockCandidate locator={locator} text={text} />);
