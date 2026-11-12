@@ -89,3 +89,17 @@ its source is published. Fresh qualification of this integrated candidate and
 independent review remain required. The earlier test-only repair and its red
 receipts are retained. Stable preview remains at 5248 with its approved product
 artifact; no runtime, authentication, or World data is changed by this re-anchor.
+
+### Completed fetch follow-up
+
+Alan's subsequent authorized fetch supplied
+`78c46c64b246b229f4efe8b1726dc171ee26a94b`. Integrate it without graph
+product edits. This includes the previously unavailable cleanup commits and
+#2492's newline-free Hugging Face reference fix. Frontend source, dependency
+manifests, verifier, CI contracts and AGENTS are unchanged from the tested
+6b50 integration. Its installed-dependency diagnostic passed 247 tests and a
+production build; that is not fresh-install qualification. Prior running UI
+and prepared backend overlay use pinned launchers, not the new main `./run`;
+no live launcher or GPU inference was exercised here. Final qualification
+must use the updated baseline rather than declaring the earlier PDF-changing
+baseline equivalent.

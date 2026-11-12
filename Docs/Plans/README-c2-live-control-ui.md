@@ -86,10 +86,10 @@ The UI depends on three backing layers.
 Already landed in PR #72:
 
 ```text
-evals/c2_live_prep/live/schemas/live_packet.schema.json
-evals/c2_live_prep/live/schemas/live_event.schema.json
-evals/c2_live_prep/live/schemas/live_job.schema.json
-evals/c2_live_prep/live/schemas/live_surface_layout.schema.json
+schemas/live/live_packet.schema.json
+schemas/live/live_event.schema.json
+schemas/live/live_job.schema.json
+schemas/live/live_surface_layout.schema.json
 
 evals/c2_live_prep/live/session_22/live_packet.json
 evals/c2_live_prep/live/session_22/surface_layout.json

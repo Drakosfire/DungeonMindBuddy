@@ -23,7 +23,7 @@ from src.live_play.recap_ingestion import ingest_recap_markdown
 from src.live_play.session_paths import live_sessions_root, resolve_allowed_output_dir
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_DIR = ROOT / "evals/c2_live_prep/live/schemas"
+SCHEMA_DIR = ROOT / "schemas/live"
 FIXTURE = ROOT / "tests/fixtures/live_bootstrap/session_22_fresh_recap.md"
 CORPUS_PREP = ROOT / "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/session_22"
 
