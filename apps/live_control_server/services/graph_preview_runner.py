@@ -179,7 +179,7 @@ def run_recap_production_extraction(
             model=DEEPSEEK_MODEL,
             max_calls=pass_budget,
             # Provider owns model capacity; do not truncate reasoning or JSON.
-            per_call_deadline_ms=240_000,
+            per_call_deadline_ms=None,
             run_deadline_ms=None,
             reasoning_effort="low",
         )

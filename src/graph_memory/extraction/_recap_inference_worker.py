@@ -102,7 +102,7 @@ def _execute_in_owned_process(
     factory,
     request: dict[str, Any],
     *,
-    deadline: float,
+    deadline: float | None,
     attempt_evidence: dict[str, Any] | None = None,
 ) -> _WorkerOutcome:
     # Spawn avoids inheriting caller threads, event loops, SDK resources or locks.
@@ -117,16 +117,19 @@ def _execute_in_owned_process(
         )
         terminated = False
         try:
-            if time.monotonic() >= deadline:
+            if deadline is not None and time.monotonic() >= deadline:
                 return _WorkerOutcome(None, True)
             try:
                 process.start()
             except Exception:
                 raise _WorkerStartFailure("inference worker could not start") from None
-            # Reserve time to kill/reap within the configured wall-clock budget.
-            remaining = max(0.0, deadline - time.monotonic())
-            reap_reserve = min(0.05, remaining / 4)
-            process.join(max(0.0, remaining - reap_reserve))
+            if deadline is None:
+                process.join()
+            else:
+                # Reserve time to kill/reap within the configured wall-clock budget.
+                remaining = max(0.0, deadline - time.monotonic())
+                reap_reserve = min(0.05, remaining / 4)
+                process.join(max(0.0, remaining - reap_reserve))
             if process.is_alive():
                 # Kill/reap precisely the owned child. Do not await its async or
                 # thread cleanup after the deadline, and do not redispatch.

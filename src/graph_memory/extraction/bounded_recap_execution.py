@@ -215,7 +215,7 @@ class RecapExecutionLimits:
     provider: str = "openai"
     model: str = "gpt-6-luna"
     max_calls: int = 8
-    per_call_deadline_ms: int = 120_000
+    per_call_deadline_ms: int | None = 120_000
     run_deadline_ms: int | None = 480_000
     max_output_tokens: int | None = None
     edge_max_output_tokens: int | None = None
@@ -245,7 +245,7 @@ class RecapExecutionLimits:
             ("run_deadline_ms", 900_000),
         ):
             value = getattr(self, name)
-            if name == "run_deadline_ms" and value is None:
+            if value is None:
                 continue
             if type(value) is not int or not 1 <= value <= ceiling:
                 raise ValueError(f"{name} must be 1..{ceiling}")
@@ -498,12 +498,12 @@ class BoundedRecapPassClient:
         deadline_ms = self.limits.per_call_deadline_ms
         if self.limits.run_deadline_ms is not None:
             remaining = self.limits.run_deadline_ms - int((self._clock() - self._started) * 1000)
-            deadline_ms = min(deadline_ms, remaining)
+            deadline_ms = remaining if deadline_ms is None else min(deadline_ms, remaining)
         if (
             self._stopped
             or model_id != self.limits.model
             or len(self.calls) >= self.limits.max_calls
-            or deadline_ms <= 0
+            or (deadline_ms is not None and deadline_ms <= 0)
         ):
             self._stopped = True
             raise CategoryGraphExtractionError(
@@ -638,7 +638,10 @@ class BoundedRecapPassClient:
             try:
                 outcome = _execute_in_owned_process(
                     self._engine_factory, request_payload,
-                    deadline=wall_started + request.deadline_ms / 1000,
+                    deadline=(
+                        None if request.deadline_ms is None
+                        else wall_started + request.deadline_ms / 1000
+                    ),
                     attempt_evidence=(
                         {"binding": self.execution_binding,
                          "pass_ordinal": len(self.calls), "pass_name": pass_name,
