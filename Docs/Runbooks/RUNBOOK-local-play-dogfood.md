@@ -61,13 +61,15 @@ schema changes, or when `check` reports `NEEDS BOOTSTRAP`.
 Terminal 1:
 
 ```bash
-uv run uvicorn apps.live_control_server.main:app --reload
+DMB_DEPLOYMENT_ENVIRONMENT=local DMB_AUTH_MODE=local_operator \
+  uv run uvicorn apps.live_control_server.main:app --reload --host 127.0.0.1
 ```
 
 Terminal 2:
 
 ```bash
-pnpm --dir apps/live-control-ui dev
+npm --prefix apps/live-control-ui ci
+npm run dev
 ```
 
 Then open `http://127.0.0.1:5173/`, choose **Play**, or go to
