@@ -1,4 +1,4 @@
-import { memo, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent, type CSSProperties, type RefObject } from "react";
+import { memo, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent, type CSSProperties, type RefObject, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type {
   CommitSemanticResult,
@@ -8,6 +8,7 @@ import type {
 } from "../localWorldRepository";
 import { graphBubbleRadius, createGraphFallbackPositions, indexLocalWorldGraph, projectLocalWorldGraph, type GraphProjectionOptions, type ProjectedGraphEdge, type ProjectedGraphNode } from "./graphProjection";
 import type { NewLocalGraphObject, NewLocalGraphRelationship } from "./localWorldGraphAdapter";
+import { SurfaceContextAction, SurfaceContextPopover } from "../../surfaceInteraction/contextHost";
 import "./worldGraphCanvas.css";
 
 const WIDTH = 960;
@@ -154,6 +155,10 @@ export interface WorldGraphCanvasProps {
   readonly showSummaryCounts?: boolean;
   /** Preserve the current camera on viewport changes after the first measured fit. */
   readonly preserveCameraOnResize?: boolean;
+  /** Render persistent controls in the owning surface navbar, not over the graph. */
+  readonly externalControls?: boolean;
+  readonly controlsHost?: HTMLElement | null;
+  readonly toolActions?: ReactNode;
 }
 
 export interface WorldGraphEditorDraft {
@@ -431,7 +436,11 @@ export function WorldGraphCanvas({
   interactionDisabled = false,
   showSummaryCounts = true,
   preserveCameraOnResize = false,
+  externalControls = false,
+  controlsHost = null,
+  toolActions,
 }: WorldGraphCanvasProps) {
+  const [openControl, setOpenControl] = useState<"tools" | "view" | null>(null);
   const index = useMemo(() => indexLocalWorldGraph(record.snapshot), [record.snapshot]);
   const fullCorpus = projectionOptions?.fullCorpus === true;
   const initialDraft = editorDraftState?.draft ?? emptyEditorDraft(editorDraftState?.version ?? 0);
@@ -484,6 +493,7 @@ export function WorldGraphCanvas({
   const editorDraftRef = useRef<WorldGraphEditorDraft>(initialDraft);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
+  const [statusNeedsAttention, setStatusNeedsAttention] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
   const [viewport, setViewport] = useState({ width: WIDTH, height: HEIGHT });
   const [viewportMeasured, setViewportMeasured] = useState(false);
@@ -530,6 +540,7 @@ export function WorldGraphCanvas({
     setRelationshipKind(nextDraft.relationshipKind);
     setBusy(false);
     setStatus("");
+    setStatusNeedsAttention(false);
     setDragPreview(null);
     setIsPanning(false);
     setMoveNodesMode(false);
@@ -624,18 +635,31 @@ export function WorldGraphCanvas({
       left = Math.min(left, node.x + inset); top = Math.min(top, node.y + inset);
       right = Math.max(right, node.x + dimensions.width - inset); bottom = Math.max(bottom, node.y + dimensions.height - inset);
     }
+    const geometryBounds = { left, top, right, bottom };
     for (const { geometry, box } of persistedEdges) {
+      geometryBounds.left = Math.min(geometryBounds.left, geometry.bounds.left);
+      geometryBounds.top = Math.min(geometryBounds.top, geometry.bounds.top);
+      geometryBounds.right = Math.max(geometryBounds.right, geometry.bounds.right);
+      geometryBounds.bottom = Math.max(geometryBounds.bottom, geometry.bounds.bottom);
       left = Math.min(left, geometry.bounds.left, geometry.labelX - box.width / 2);
       top = Math.min(top, geometry.bounds.top, geometry.labelY - box.height / 2);
       right = Math.max(right, geometry.bounds.right, geometry.labelX + box.width / 2);
       bottom = Math.max(bottom, geometry.bounds.bottom, geometry.labelY + box.height / 2);
     }
-    return { left: left - 56, top: top - 56, width: right - left + 112, height: bottom - top + 112 };
+    return {
+      detail: { left: left - 56, top: top - 56, width: right - left + 112, height: bottom - top + 112 },
+      overview: { left: geometryBounds.left - 24, top: geometryBounds.top - 24,
+        width: geometryBounds.right - geometryBounds.left + 48, height: geometryBounds.bottom - geometryBounds.top + 48 },
+    };
   }, [projection.nodes, persistedPositions, persistedEdges, nodeShape, dimensions.width, dimensions.height]);
 
   function fittedCamera(): Camera {
     if (!projection.nodes.length) return { x: 0, y: 0, zoom: 1 };
-    const { left, top, width, height } = graphBounds;
+    // Predicate plates are hidden below relationship-detail zoom. Do not let
+    // their unrendered dimensions shrink the packed overview.
+    const detailZoom = Math.min(1, viewport.width / graphBounds.detail.width, viewport.height / graphBounds.detail.height);
+    const overviewZoom = Math.min(1, viewport.width / graphBounds.overview.width, viewport.height / graphBounds.overview.height);
+    const { left, top, width, height } = fullCorpus && detailZoom < 0.9 && overviewZoom < 0.9 && (clearingSelection || selectedIds.length === 0 || overviewZoom < 0.45) ? graphBounds.overview : graphBounds.detail;
     // Fit includes every visible edge/plate even when the bounded graph needs a scale below manual zoom-out.
     const initialZoom = Math.min(1, viewport.width / width, viewport.height / height);
     // Overview hub captions use screen-readable text; reserve room at the edges.
@@ -842,7 +866,7 @@ export function WorldGraphCanvas({
     openPalette({
       x: Math.max(0, Math.min(MAX_NODE_COORDINATE, (viewport.width / 2 - camera.x) / camera.zoom)),
       y: Math.max(0, Math.min(MAX_NODE_COORDINATE, (viewport.height / 2 - camera.y) / camera.zoom)),
-    }, document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    }, externalControls ? controlsHost?.querySelector<HTMLButtonElement>('button[aria-label="Graph tools"]') ?? null : document.activeElement instanceof HTMLElement ? document.activeElement : null);
   }
 
   function closePalette(restoreFocus = false) {
@@ -910,11 +934,13 @@ export function WorldGraphCanvas({
       if (isCurrent) {
         onSemanticResult?.(result);
         setStatus(messageForSemanticResult(result));
+        setStatusNeedsAttention(result.status !== "committed");
       }
       return isCurrent ? result : null;
     } catch (error) {
       if (instanceActiveRef.current && instanceGenerationRef.current === submittedInstanceGeneration &&
           currentWorldIdRef.current === submittedWorldId && worldGenerationRef.current === submittedGeneration) {
+        setStatusNeedsAttention(true);
         setStatus(error instanceof Error ? error.message : "The edit could not be saved.");
       }
       return null;
@@ -937,10 +963,12 @@ export function WorldGraphCanvas({
           currentWorldIdRef.current === submittedWorldId && worldGenerationRef.current === submittedGeneration) {
         onLayoutResult?.(result);
         setStatus(messageForLayoutResult(result));
+        setStatusNeedsAttention(result.status !== "written");
       }
     } catch (error) {
       if (instanceActiveRef.current && instanceGenerationRef.current === submittedInstanceGeneration &&
           currentWorldIdRef.current === submittedWorldId && worldGenerationRef.current === submittedGeneration) {
+        setStatusNeedsAttention(true);
         setStatus(error instanceof Error ? error.message : "The canvas layout could not be saved.");
       }
     } finally {
@@ -1138,16 +1166,7 @@ export function WorldGraphCanvas({
               </g>
             );}), [renderedEdges, nodeNames, markerId, selectedIds]);
 
-  return (
-    <section id={canvasId} tabIndex={canvasId ? -1 : undefined} className={`world-graph-canvas${fullCorpus ? " world-graph-canvas--full" : ""}`} aria-label="Local World graph canvas" aria-busy={busy}
-      onKeyDown={(event) => {
-        if (event.key !== "Escape") return;
-        if (!palette && !gestureRef.current) return;
-        cancelGesture();
-        if (palette) closePalette(true);
-        event.preventDefault();
-        event.stopPropagation();
-      }}>
+  const editingTools = (
       <div className="world-graph-canvas__toolbar" aria-label="Graph editing tools">
         {onCanvasCreateRequest && creationKinds?.length ? <button type="button" disabled={busy || interactionDisabled} onClick={openPaletteAtCanvasCenter}>Place node</button> : null}
         {onConnectRequest && selectedIds.length === 2 ? <button type="button" disabled={busy || interactionDisabled}
@@ -1171,6 +1190,90 @@ export function WorldGraphCanvas({
           publishEditorDraft({ renameId: selectedObject.id, renameValue: selectedObject.name });
         }}>Rename {selectedObject.name}</button> : null}
       </div>
+  );
+  function chooseDragMode(moveNodes: boolean) {
+    cancelGesture();
+    setMoveNodesMode(moveNodes);
+    if (externalControls) {
+      setOpenControl(null);
+      // Pan/Move are terminal menu choices. Other tools intentionally transfer
+      // focus into a placement palette or form, so do not restore it globally.
+      queueMicrotask(() => controlsHost?.querySelector<HTMLButtonElement>('button[aria-label="Graph tools"]')?.focus());
+    }
+  }
+  const dragModeTools = (<>        {fullCorpus ? <div className="world-graph-canvas__drag-mode" role="group" aria-label="Graph drag mode">
+          <button type="button" aria-pressed={!moveNodesMode} onClick={() => chooseDragMode(false)}>Pan graph</button>
+          <button type="button" aria-pressed={moveNodesMode} disabled={!onMoveObjects || busy || interactionDisabled}
+            onClick={() => chooseDragMode(true)}>Move nodes</button>
+        </div> : null}</>);
+  const cameraTools = (
+      <div className="world-graph-canvas__view-tools" aria-label="Graph view controls">
+        <button type="button" aria-label="Zoom out" disabled={camera.zoom <= (fullCorpus ? Math.min(MIN_ZOOM, fittedCamera().zoom) : MIN_ZOOM)} onClick={() => zoomBy(1 / 1.25)}>−</button>
+        <span aria-label="Graph zoom">{Math.round(camera.zoom * 100)}%</span>
+        <button type="button" aria-label="Zoom in" disabled={camera.zoom >= MAX_ZOOM} onClick={() => zoomBy(1.25)}>+</button>
+        <button type="button" onClick={fitGraph}>Fit graph</button>
+        <button type="button" onClick={() => zoomBy(1 / camera.zoom)}>100%</button>
+        {!externalControls ? dragModeTools : null}
+      </div>
+  );
+  const viewOptions = (fullCorpus ? <>
+        <label className="world-graph-canvas__visibility"><input type="checkbox" checked={showUnconnected}
+          onChange={(event) => { cancelGesture(); setUnconnectedVisibility({ worldId: record.snapshot.worldId, show: event.target.checked }); }} />
+          Show objects without listed relationships ({projection.hiddenUnconnectedNodes} hidden)
+        </label>
+        <label className="world-graph-canvas__visibility"><input type="checkbox" checked={allRelationships}
+          onChange={(event) => setEdgeVisibility({ worldId: record.snapshot.worldId, all: event.target.checked })} />
+          All relationships
+        </label>
+        {!projection.nodes.length && isolatedCount > 0 ? <p role="status">No connected objects in the loaded snapshot. Show objects without listed relationships to explore them, or find an object with search.</p> : null}
+        <div className="world-graph-canvas__legend" aria-label="Object type colors">{legend.map((kind) => <span key={kind}><i aria-hidden="true" style={{ backgroundColor: kindColor(kind) }} />{kind}</span>)}</div>
+        <p className="world-graph-canvas__overview-note">{projection.nodes.length} shown objects · {projection.edges.length} real relationships. Select a bubble to trace its connections; zoom for details.</p>
+        <details className="world-graph-canvas__display-help"><summary>About this view</summary>
+          <p>Bubble area follows relationships in the loaded snapshot, capped at 40. Color shows explicit type. {isolatedCount} loaded objects have no listed connections. Quiet lines keep every relationship in view; All relationships strengthens them. Unpinned bubbles arrange around connected hubs; position is not semantic distance.</p>
+        </details>
+      </> : null);
+  const diagnostics = (<>
+      {projection.omittedNodes || projection.hiddenRelationships ? <p className="world-graph-canvas__diagnostic">Bounded canvas: {projection.nodes.length} of {record.snapshot.objects.length} loaded objects and {projection.edges.length} of {record.snapshot.relationships.length} loaded relationships shown. {projection.omittedNodes} objects and {projection.hiddenRelationships} valid relationships are outside this view.</p> : null}
+      {projection.invalidRelationships ? <p className="world-graph-canvas__diagnostic">{projection.invalidRelationships} relationships reference objects absent from the loaded graph.</p> : null}
+      {projection.diagnostics.length ? <ul className="world-graph-canvas__diagnostics" role="status" aria-label="Graph projection diagnostics">{projection.diagnostics.map((message) => <li key={message}>{message}</li>)}</ul> : null}
+      {projection.omittedDiagnostics ? <p className="world-graph-canvas__diagnostic">{projection.omittedDiagnostics} additional missing-endpoint details are not listed.</p> : null}
+  </>);
+  const hasDiagnostics = Boolean(projection.omittedNodes || projection.hiddenRelationships || projection.invalidRelationships || projection.omittedDiagnostics || projection.diagnostics.length);
+  const surfaceControls = <div className="world-graph-surface-controls" onKeyDown={(event) => {
+    if (event.key === "Escape" && openControl) {
+      const label = openControl === "tools" ? "Graph tools" : "Graph view options";
+      setOpenControl(null);
+      controlsHost?.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)?.focus();
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }}>
+    <SurfaceContextPopover open={openControl === "tools"} onOpenChange={(open) => setOpenControl(open ? "tools" : null)} title="Graph tools"
+      trigger={<SurfaceContextAction aria-label="Graph tools" aria-expanded={openControl === "tools"} aria-haspopup="dialog" onClick={() => setOpenControl(openControl === "tools" ? null : "tools")}>{moveNodesMode ? "Move" : "Pan"} ▾</SurfaceContextAction>}>
+      <div onClick={(event) => { if ((event.target as HTMLElement).closest("button:not(:disabled)")) setOpenControl(null); }}>{dragModeTools}{editingTools}{toolActions}</div>
+    </SurfaceContextPopover>
+    {cameraTools}
+    <span className="world-graph-surface-controls__counts" title={`${projection.nodes.length} of ${record.snapshot.objects.length} loaded objects shown; ${projection.edges.length} relationships shown`}>{projection.nodes.length}/{record.snapshot.objects.length} objects shown · {projection.edges.length} relationships</span>
+    <SurfaceContextPopover open={openControl === "view"} onOpenChange={(open) => setOpenControl(open ? "view" : null)} title="Graph view"
+      trigger={<SurfaceContextAction aria-label="Graph view options" aria-expanded={openControl === "view"} aria-haspopup="dialog" onClick={() => setOpenControl(openControl === "view" ? null : "view")}>View{statusNeedsAttention ? " · attention" : hasDiagnostics ? " · limited" : ""} ▾</SurfaceContextAction>}>
+      {viewOptions}{diagnostics}
+      {status ? <p role="status">{status}</p> : null}
+      <p>Focus the canvas and use arrow keys to pan, +/− to zoom, or 0 to fit. Use Move to rearrange objects. Click a bubble to inspect it; drag its connector to another bubble to connect.</p>
+    </SurfaceContextPopover>
+  </div>;
+
+  return (
+    <section id={canvasId} tabIndex={canvasId ? -1 : undefined} className={`world-graph-canvas${externalControls ? " world-graph-canvas--external-controls" : ""}${fullCorpus ? " world-graph-canvas--full" : ""}`} aria-label="Local World graph canvas" aria-busy={busy}
+      onKeyDown={(event) => {
+        if (event.key !== "Escape") return;
+        if (!palette && !gestureRef.current) return;
+        cancelGesture();
+        if (palette) closePalette(true);
+        event.preventDefault();
+        event.stopPropagation();
+      }}>
+      {externalControls && controlsHost ? createPortal(surfaceControls, controlsHost) : null}
+      {!externalControls ? editingTools : null}
 
       {showObjectForm && onCreateObject ? (
         <form className="world-graph-canvas__form" onSubmit={submitObject}>
@@ -1195,35 +1298,9 @@ export function WorldGraphCanvas({
         </form>
       ) : null}
 
-      <div className="world-graph-canvas__view-tools" aria-label="Graph view controls">
-        <button type="button" aria-label="Zoom out" disabled={camera.zoom <= (fullCorpus ? Math.min(MIN_ZOOM, fittedCamera().zoom) : MIN_ZOOM)} onClick={() => zoomBy(1 / 1.25)}>−</button>
-        <span aria-label="Graph zoom">{Math.round(camera.zoom * 100)}%</span>
-        <button type="button" aria-label="Zoom in" disabled={camera.zoom >= MAX_ZOOM} onClick={() => zoomBy(1.25)}>+</button>
-        <button type="button" onClick={fitGraph}>Fit graph</button>
-        <button type="button" onClick={() => zoomBy(1 / camera.zoom)}>100%</button>
-        {fullCorpus ? <div className="world-graph-canvas__drag-mode" role="group" aria-label="Graph drag mode">
-          <button type="button" aria-pressed={!moveNodesMode} onClick={() => { cancelGesture(); setMoveNodesMode(false); }}>Pan graph</button>
-          <button type="button" aria-pressed={moveNodesMode} disabled={!onMoveObjects || busy || interactionDisabled}
-            onClick={() => { cancelGesture(); setMoveNodesMode(true); }}>Move nodes</button>
-        </div> : null}
-      </div>
-      {fullCorpus ? <>
-        <label className="world-graph-canvas__visibility"><input type="checkbox" checked={showUnconnected}
-          onChange={(event) => { cancelGesture(); setUnconnectedVisibility({ worldId: record.snapshot.worldId, show: event.target.checked }); }} />
-          Show objects without listed relationships ({projection.hiddenUnconnectedNodes} hidden)
-        </label>
-        <label className="world-graph-canvas__visibility"><input type="checkbox" checked={allRelationships}
-          onChange={(event) => setEdgeVisibility({ worldId: record.snapshot.worldId, all: event.target.checked })} />
-          All relationships
-        </label>
-        {!projection.nodes.length && isolatedCount > 0 ? <p role="status">No connected objects in the loaded snapshot. Show objects without listed relationships to explore them, or find an object with search.</p> : null}
-        <div className="world-graph-canvas__legend" aria-label="Object type colors">{legend.map((kind) => <span key={kind}><i aria-hidden="true" style={{ backgroundColor: kindColor(kind) }} />{kind}</span>)}</div>
-        <p className="world-graph-canvas__overview-note">{projection.nodes.length} loaded objects · {projection.edges.length} real relationships. Select a bubble to trace its connections; zoom for details.</p>
-        <details className="world-graph-canvas__display-help"><summary>About this view</summary>
-          <p>Bubble area follows relationships in the loaded snapshot, capped at 40. Color shows explicit type. {isolatedCount} loaded objects have no listed connections. Quiet lines keep every relationship in view; All relationships strengthens them. Unpinned bubbles arrange around connected hubs; position is not semantic distance.</p>
-        </details>
-      </> : null}
-      <p className="world-graph-canvas__hint" id={`${markerId}-help`}>
+      {!externalControls ? cameraTools : null}
+      {!externalControls ? viewOptions : null}
+      <p className={`world-graph-canvas__hint${externalControls ? " world-graph-canvas__sr-only" : ""}`} id={`${markerId}-help`}>
         {fullCorpus ? moveNodesMode
           ? "Drag an object to move it, or empty canvas to pan. Choose Pan graph to navigate without moving objects. "
           : "Drag anywhere to pan. Click an object to select it. Choose Move nodes to rearrange objects. "
@@ -1316,16 +1393,13 @@ export function WorldGraphCanvas({
           </div>, document.body) : null}
       </div>
 
-      <div className="world-graph-canvas__feedback" role="status" aria-live="polite">
+      <div className={`world-graph-canvas__feedback${externalControls ? " world-graph-canvas__sr-only" : ""}`} role="status" aria-live="polite">
         {status || (projection.nodes.length || projection.omittedNodes
           ? showSummaryCounts ? `${projection.nodes.length}${projection.omittedNodes ? " displayed" : ""} objects · ${projection.edges.length}${projection.omittedEdges ? " displayed" : ""} relationships` : ""
           : projection.hiddenUnconnectedNodes ? `${projection.hiddenUnconnectedNodes} loaded objects without listed relationships are hidden.`
           : "This World has no objects yet. Add an object to begin.")}
       </div>
-      {projection.omittedNodes || projection.hiddenRelationships ? <p className="world-graph-canvas__diagnostic">Bounded canvas: {projection.nodes.length} of {record.snapshot.objects.length} loaded objects and {projection.edges.length} of {record.snapshot.relationships.length} loaded relationships shown. {projection.omittedNodes} objects and {projection.hiddenRelationships} valid relationships are outside this view.</p> : null}
-      {projection.invalidRelationships ? <p className="world-graph-canvas__diagnostic">{projection.invalidRelationships} relationships reference objects absent from the loaded graph.</p> : null}
-      {projection.diagnostics.length ? <ul className="world-graph-canvas__diagnostics" role="status" aria-label="Graph projection diagnostics">{projection.diagnostics.map((message) => <li key={message}>{message}</li>)}</ul> : null}
-      {projection.omittedDiagnostics ? <p className="world-graph-canvas__diagnostic">{projection.omittedDiagnostics} additional missing-endpoint details are not listed.</p> : null}
+      {!externalControls ? diagnostics : null}
     </section>
   );
 }

@@ -1363,7 +1363,7 @@ describe("packed readable overview", () => {
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(513);
     const paths = [...document.querySelectorAll("[data-edge-id] path")];
     expect(paths).toHaveLength(559);
-    expect(document.querySelector(".world-graph-canvas__overview-note")).toHaveTextContent("513 loaded objects · 559 real relationships");
+    expect(document.querySelector(".world-graph-canvas__overview-note")).toHaveTextContent("513 shown objects · 559 real relationships");
     const labels = [...document.querySelectorAll<SVGTextElement>(".world-graph-canvas__overview-label")];
     expect(labels.length).toBeGreaterThan(0);
     expect(labels.length).toBeLessThanOrEqual(8);
@@ -1454,4 +1454,102 @@ it.each([4, 0])("keeps unequal-radius packed connector tangents directed into ta
     expect(Math.hypot(ex - sx, ey - sy)).toBeGreaterThan(0);
     view.unmount();
   }
+});
+
+it("hosts persistent graph controls in the surface rail, not the canvas", async () => {
+  const { record } = await graphRecord();
+  const host = document.createElement("div");
+  document.body.append(host);
+  const onCreate = vi.fn();
+  const view = render(<WorldGraphCanvas record={record} nodeShape="circle" projectionOptions={{ fullCorpus: true }}
+    externalControls controlsHost={host} creationKinds={[{ kind: "person", label: "Person" }]} onCanvasCreateRequest={onCreate}
+    toolActions={<button type="button">Extra graph action</button>} />);
+  const canvas = screen.getByRole("region", { name: "Local World graph canvas" });
+  expect(within(canvas).queryByRole("button", { name: "Fit graph" })).not.toBeInTheDocument();
+  expect(within(host).getByRole("button", { name: "Fit graph" })).toBeInTheDocument();
+  const initial = screen.getByTestId("graph-scene").getAttribute("transform");
+  await userEvent.click(within(host).getByRole("button", { name: "Zoom in" }));
+  expect(screen.getByTestId("graph-scene").getAttribute("transform")).not.toBe(initial);
+  await userEvent.click(within(host).getByRole("button", { name: "Fit graph" }));
+  expect(screen.getByTestId("graph-scene").getAttribute("transform")).toBe(initial);
+  await userEvent.click(within(host).getByRole("button", { name: "Graph view options" }));
+  expect(within(host).getByLabelText(/Show objects without listed relationships/)).toBeInTheDocument();
+  expect(within(canvas).queryByText("About this view")).not.toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+  expect(within(host).getByRole("button", { name: "Graph view options" })).toHaveFocus();
+  await userEvent.click(within(host).getByRole("button", { name: "Graph tools" }));
+  expect(within(host).getByRole("button", { name: "Extra graph action" })).toBeInTheDocument();
+  await userEvent.click(within(host).getByRole("button", { name: "Place node" }));
+  expect(screen.getByRole("button", { name: "Cancel placement" })).toBeInTheDocument();
+  expect(within(host).queryByRole("button", { name: "Place node" })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Cancel placement" }));
+  expect(onCreate).not.toHaveBeenCalled();
+  view.unmount();
+  expect(host).toBeEmptyDOMElement();
+  host.remove();
+});
+
+it("does not flash controls into the canvas while the surface host mounts", async () => {
+  const { record } = await graphRecord();
+  const view = render(<WorldGraphCanvas record={record} externalControls controlsHost={null} />);
+  expect(screen.queryByRole("button", { name: "Fit graph" })).not.toBeInTheDocument();
+  expect(screen.getByTestId("graph-scene")).toBeInTheDocument();
+  const host = document.createElement("div");
+  document.body.append(host);
+  view.rerender(<WorldGraphCanvas record={record} externalControls controlsHost={host} />);
+  expect(within(host).getByRole("button", { name: "Fit graph" })).toBeInTheDocument();
+  view.unmount(); host.remove();
+});
+
+it("fits visible packed geometry without shrinking for hidden predicate plates", async () => {
+  const { record } = await graphRecord();
+  const objects = record.snapshot.objects.slice(0, 2);
+  const relationship = { ...record.snapshot.relationships[0], fromObjectId: objects[0].id, toObjectId: objects[1].id };
+  const wide = { ...record, snapshot: { ...record.snapshot, objects, relationships: [relationship] },
+    layout: { ...record.layout, positions: { [objects[0].id]: { x: 0, y: 0 }, [objects[1].id]: { x: 1500, y: 400 } } } };
+  const view = render(<WorldGraphCanvas record={wide} nodeShape="circle" projectionOptions={{ fullCorpus: true }} preserveCameraOnResize />);
+  const initial = cameraFromScene(screen.getByTestId("graph-scene"));
+  expect(initial.zoom).toBeLessThan(0.9);
+  const radius = projectionModule.graphBubbleRadius(1);
+  for (const point of Object.values(wide.layout.positions)) {
+    expect(initial.x + (point.x + 56 - radius) * initial.zoom).toBeGreaterThanOrEqual(0);
+    expect(initial.x + (point.x + 56 + radius) * initial.zoom).toBeLessThanOrEqual(960);
+    expect(initial.y + (point.y + 56 - radius) * initial.zoom).toBeGreaterThanOrEqual(0);
+    expect(initial.y + (point.y + 56 + radius) * initial.zoom).toBeLessThanOrEqual(520);
+  }
+  fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+  const manual = screen.getByTestId("graph-scene").getAttribute("transform");
+  const longLabel = { ...wide, snapshot: { ...wide.snapshot, relationships: [{ ...relationship, kind: "A long predicate that is hidden at overview zoom" }] } };
+  view.rerender(<WorldGraphCanvas record={longLabel} nodeShape="circle" projectionOptions={{ fullCorpus: true }} preserveCameraOnResize />);
+  expect(screen.getByTestId("graph-scene")).toHaveAttribute("transform", manual!);
+  fireEvent.click(screen.getByRole("button", { name: "Fit graph" }));
+  expect(cameraFromScene(screen.getByTestId("graph-scene"))).toEqual(initial);
+});
+
+
+it("returns keyboard focus to the Tool trigger after choosing Pan or Move", async () => {
+  const { record } = await graphRecord();
+  const host = document.createElement("div");
+  document.body.append(host);
+  const ancestorKeyDown = vi.fn();
+  const view = render(<div onKeyDown={ancestorKeyDown}><WorldGraphCanvas record={record} nodeShape="circle" projectionOptions={{ fullCorpus: true }}
+    externalControls controlsHost={host} onMoveObjects={vi.fn()} /></div>);
+  const trigger = within(host).getByRole("button", { name: "Graph tools" });
+  for (const mode of ["Move nodes", "Pan graph"]) {
+    await userEvent.click(trigger);
+    within(host).getByRole("button", { name: mode }).focus();
+    await userEvent.keyboard("{Enter}");
+    expect(trigger).toHaveFocus();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("group", { name: /world graph$/ })).toHaveAttribute("data-drag-mode", mode === "Move nodes" ? "move" : "pan");
+  }
+  await userEvent.click(trigger);
+  const pan = within(host).getByRole("button", { name: "Pan graph" });
+  pan.focus();
+  ancestorKeyDown.mockClear();
+  expect(fireEvent.keyDown(pan, { key: "Escape" })).toBe(false);
+  expect(ancestorKeyDown).not.toHaveBeenCalled();
+  expect(trigger).toHaveFocus();
+  expect(trigger).toHaveAttribute("aria-expanded", "false");
+  view.unmount(); host.remove();
 });
