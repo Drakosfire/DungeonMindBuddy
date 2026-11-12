@@ -56,10 +56,36 @@ Reuse this existing worktree and task root; no new checkout is needed. Keep immu
 
 ## Scoped visual feedback
 
-Alan said the zoomed-out first density preview looked good and asked whether sizes reflected connections. That is not blanket acceptance. He then requested that bubbles move and adapt around the biggest bubble and called the 26% overview at 942×932 crowded and unparseable. He further asked for much bigger, closer bubbles like other bubble charts. The next checkpoint uses area proportional to loaded incident degree (capped at 40), tight radius-aware spacing, responsive packing and edge clutter reduction; preserve the prior preview/evidence separately. Draft PR creation remains pending explicit approval after its tool denial; do not retry without materially new permission.
+Alan said the zoomed-out first density preview looked good and asked whether sizes reflected connections. That is not blanket acceptance. He then requested that bubbles move and adapt around the biggest bubble and called the 26% overview at 942×932 crowded and unparseable. He further asked for much bigger, closer bubbles like other bubble charts. The next checkpoint uses area proportional to loaded incident degree (capped at 40), tight radius-aware spacing, responsive packing and edge clutter reduction; preserve the prior preview/evidence separately. Alan subsequently approved this preview and shipping; draft PR #2475 was created. Release qualification and runtime verification remain separate gates.
 
 ## Qualification follow-up
 
 The exact packed candidate hosted contract passed. Full discovery remains red and is not waived. Eleven App guest integration tests still selected the intentionally hidden sole isolated fixture object; root authorized a narrow test-action update to explicitly reveal it while preserving all original security, switching, draft, inspection and stale-response assertions. The 58 current PR file sets were checked: only unchanged historical #2262/#2313/#2326 overlap this test, their branches remain untouched, and no dirty overlap was found among 85 registered worktrees. This successor lease is bounded to the test actions, not App routing or auth behavior.
 
 Independent review approved three explicit projection coverage substitutions for the user-requested adaptive layout: disconnected objects still retain identities/real edges and separate placement; fixed saved pins plus radius-aware separation replace freezing unpinned positions across additions; unchanged geometry inputs remain stable while topology/radius changes intentionally recompute unpinned packing. Original removed occurrence names stay recorded in the retained comparison evidence. No test disappears silently and the failing full-discovery receipt is not rewritten.
+
+
+## Main re-anchor after qualification guard
+
+On 2026-11-12 the final user verifier stopped before allocation/install because
+main advanced. The user's fetch supplied main
+`6b50ae999f6f963cde680c57f4541d7820153204`; this lane integrates that exact
+commit without changing graph product code or approved preview behavior. The
+seven intervening PDF/OCR commits touch 24 paths, including frontend tests, so
+the earlier discovered baseline is not relabeled current or reused as an
+unchanged full-suite comparison. Manifest, lockfile, verifier, CI contract and
+AGENTS.md inputs are unchanged.
+
+A fresh GitHub read also observes `d9d4985e52c4c280a55f887ebfab43b4c9cad964`
+with generated `_pytest` workspace cleanup. That commit was not fetched into
+this executor; connector reads were used only to inspect the change, not to
+reconstruct Git objects or bypass the denied direct network operation. No graph
+file overlaps occur in the fetched main integration. Current open PR heads and
+new/changed file sets were checked; historical overlapping graph PR heads are
+unchanged, and no dirty overlap was found among 90 registered worktrees.
+
+Alan explicitly approved the packed preview and shipping. PR #2475 exists;
+its source is published. Fresh qualification of this integrated candidate and
+independent review remain required. The earlier test-only repair and its red
+receipts are retained. Stable preview remains at 5248 with its approved product
+artifact; no runtime, authentication, or World data is changed by this re-anchor.
