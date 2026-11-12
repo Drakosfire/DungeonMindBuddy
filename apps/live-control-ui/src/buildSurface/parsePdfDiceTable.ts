@@ -20,20 +20,30 @@ function median(values: number[]): number {
   return sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0;
 }
 
+function repeatedHalf(value: string): string | undefined {
+  const halfLength = value.length / 2;
+  if (!Number.isInteger(halfLength) || halfLength === 0) return undefined;
+  const first = value.slice(0, halfLength);
+  return first === value.slice(halfLength) ? first.trim() : undefined;
+}
+
 function normalizeRepeatedText(value: string): string {
   const cleaned = value.trim().replace(/\s+/g, " ");
-  const tokens = cleaned.split(" ");
-  const tokenHalf = tokens.length / 2;
-  if (Number.isInteger(tokenHalf) && tokenHalf > 0
-    && tokens.slice(0, tokenHalf).join(" ") === tokens.slice(tokenHalf).join(" ")) {
-    return tokens.slice(0, tokenHalf).join(" ");
-  }
-  const characterHalf = cleaned.length / 2;
-  if (Number.isInteger(characterHalf) && characterHalf > 0
-    && cleaned.slice(0, characterHalf) === cleaned.slice(characterHalf)) {
-    return cleaned.slice(0, characterHalf).trim();
-  }
-  return cleaned;
+  const half = repeatedHalf(cleaned);
+  if (!half) return cleaned;
+
+  // Flattened PDF.js text can repeat a multiword phrase. Preserve ambiguous
+  // one-token repetitions such as "mama", "haha", and "No No".
+  const tokens = half.split(" ").filter(Boolean);
+  const distinctTokens = new Set(tokens.map(token => token.toLocaleLowerCase()));
+  return tokens.length >= 2 && distinctTokens.size >= 2 ? half : cleaned;
+}
+
+function normalizeRepeatedHeader(value: string): string {
+  const cleaned = value.trim().replace(/\s+/g, " ");
+  // Header labels are recognized only after the row has the roll-column shape;
+  // duplicated single-token labels like "NameName" are safe to collapse here.
+  return repeatedHalf(cleaned) ?? normalizeRepeatedText(cleaned);
 }
 
 function uniqueRuns(items: PdfRegionTextRun[]): PdfRegionTextRun[] {
@@ -64,7 +74,11 @@ function groupRows(items: PdfRegionTextRun[]): Row[] {
   return rows.sort((a, b) => a.centerY - b.centerY);
 }
 
-function rowCells(row: Row, gapLimit: number): Cell[] {
+function rowCells(
+  row: Row,
+  gapLimit: number,
+  normalizeText: (value: string) => string = normalizeRepeatedText,
+): Cell[] {
   const sorted = [...row.runs].sort((a, b) => a.left - b.left);
   const cells: Cell[] = [];
   for (const item of sorted) {
@@ -76,7 +90,7 @@ function rowCells(row: Row, gapLimit: number): Cell[] {
       previous.right = Math.max(previous.right, item.right);
     }
   }
-  return cells.map(cell => ({ ...cell, text: normalizeRepeatedText(cell.text) }));
+  return cells.map(cell => ({ ...cell, text: normalizeText(cell.text) }));
 }
 
 function rollValue(value: string): boolean {
@@ -88,7 +102,9 @@ function isRollColumn(value: string): boolean {
 }
 
 function textInCell(runs: PdfRegionTextRun[]): string {
-  return [...runs].sort((a, b) => a.left - b.left).map(item => item.text.trim()).filter(Boolean).join(" ");
+  const text = [...runs].sort((a, b) => a.left - b.left)
+    .map(item => item.text.trim()).filter(Boolean).join(" ");
+  return normalizeRepeatedText(text);
 }
 
 function rowValues(row: Row, anchors: number[]): string[] | undefined {
@@ -112,12 +128,12 @@ export function parsePdfDiceTable(items: PdfRegionTextRun[]): PdfDiceTable | und
   if (!typicalHeight) return undefined;
   const rows = groupRows(runs);
   const headerIndex = rows.findIndex(row => {
-    const cells = rowCells(row, typicalHeight * 1.5);
+    const cells = rowCells(row, typicalHeight * 1.5, normalizeRepeatedHeader);
     return cells.length >= 2 && isRollColumn(cells[0].text);
   });
   if (headerIndex < 1) return undefined;
 
-  const header = rowCells(rows[headerIndex], typicalHeight * 1.5);
+  const header = rowCells(rows[headerIndex], typicalHeight * 1.5, normalizeRepeatedHeader);
   const anchors = header.map(cell => (cell.left + cell.right) / 2);
   if (anchors.length < 2 || anchors.some((anchor, index) => index > 0 && anchor <= anchors[index - 1])) {
     return undefined;

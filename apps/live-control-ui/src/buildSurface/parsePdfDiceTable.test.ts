@@ -51,6 +51,23 @@ it("assigns populated notes only when the run lies in that source column", () =>
   expect(parsePdfDiceTable(items)?.rows[0]).toEqual(["1", "Ryan Burke", "Warden"]);
 });
 
+it.each(["haha", "mama", "abab", "No No"])(
+  "preserves legitimate repeated text in body cells: %s",
+  name => {
+    const items = maleVillagerTable();
+    items[5] = run(name, 0.2, 0.16, 0.38);
+
+    expect(parsePdfDiceTable(items)?.rows[0]?.[1]).toBe(name);
+  },
+);
+
+it("normalizes a duplicated multiword body-cell phrase", () => {
+  const items = maleVillagerTable();
+  items[5] = run("Ryan BurkeRyan Burke", 0.2, 0.16, 0.38);
+
+  expect(parsePdfDiceTable(items)?.rows[0]?.[1]).toBe("Ryan Burke");
+});
+
 it("refuses a flattened row that crosses inferred column boundaries", () => {
   const items = maleVillagerTable().filter(item => item.top <= 0.13);
   items.push(run("1 Ryan Burke", 0.1, 0.16, 0.38));
