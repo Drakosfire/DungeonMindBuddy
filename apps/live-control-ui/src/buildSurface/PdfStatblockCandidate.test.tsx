@@ -81,6 +81,19 @@ it("does not combine isolated armor and hit-point entries into one statblock", (
   expect(screen.queryByText("39")).toBeNull();
 });
 
+it("does not combine fields when the capture contains multiple creature headings", () => {
+  const text = [
+    "Grotesque Tree", "Huge plant, unaligned", "A second creature appears below.",
+    "Meatling", "Medium aberration, chaotic evil", "Armor Class 11", "Hit Points 39",
+    "STR DEX CON INT WIS CHA", "17 9 15 7 10 10",
+  ].join("\n");
+  render(<PdfStatblockCandidate locator={locator} text={text} />);
+  fireEvent.click(screen.getByRole("button", {name:"Preview statblock fields"}));
+  expect(screen.getByText(/Select a region containing a creature type/)).toBeInTheDocument();
+  expect(screen.queryByText("11")).toBeNull();
+  expect(screen.queryByText("39")).toBeNull();
+});
+
 it("does not offer a statblock preview for a captured name table", () => {
   render(<PdfStatblockCandidate locator={locator} text={`Male Villager Names
 1d12 Name Notes

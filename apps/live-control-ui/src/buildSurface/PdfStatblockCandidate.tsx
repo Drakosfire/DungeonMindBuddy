@@ -37,16 +37,19 @@ export function hasRecognizablePdfStatblockStructure(text: string): boolean {
   const armor = Array.from(text.matchAll(/^[ \t]*Armor Class[ \t]*:?[ \t]*\d/gim));
   const hp = Array.from(text.matchAll(/^[ \t]*Hit Points[ \t]*:?[ \t]*\d/gim));
   const creatureType = /^(Tiny|Small|Medium|Large|Huge|Gargantuan)\b.+,\s*[^,]+$/i;
-  const typeLineIndex = lines.findIndex(line => creatureType.test(line));
+  const typeLineIndices = lines.flatMap((line, index) => creatureType.test(line) ? [index] : []);
+  const typeLineIndex = typeLineIndices.length === 1 ? typeLineIndices[0] : -1;
   const armorIndex = lines.findIndex(line => /^Armor Class\s*:?[ \t]*\d/i.test(line));
   const hpIndex = lines.findIndex(line => /^Hit Points\s*:?[ \t]*\d/i.test(line));
+  const abilityIndex = lines.findIndex(line => /^STR\s+DEX\s+CON\s+INT\s+WIS\s+CHA$/i.test(line));
 
   return armor.length === 1
     && hp.length === 1
     && readAbilityScores(text).length === abilities.length
-    && typeLineIndex >= 0
+    && typeLineIndices.length === 1
     && armorIndex > typeLineIndex
-    && hpIndex > armorIndex;
+    && hpIndex > armorIndex
+    && abilityIndex > hpIndex;
 }
 
 export function PdfStatblockCandidate({text, locator}: {text: string; locator: PdfLocator}) {
