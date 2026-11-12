@@ -22,6 +22,8 @@ Fit uses visible geometry and available viewport, initially and on explicit acti
 - This handoff.
 - `apps/live-control-ui/src/nativeGraphDemo/NativeGraphDemo.tsx`
 - `apps/live-control-ui/src/nativeGraphDemo/NativeGraphDemo.test.tsx`
+- `apps/live-control-ui/src/App.guestEntry.test.tsx` (existing real route/auth/World tests: navigate the new menus before unchanged assertions)
+- `apps/live-control-ui/src/App.test.tsx` (only graph route control-location assertions; unrelated mocks/Plan/Build untouched)
 - `apps/live-control-ui/src/nativeGraphDemo/nativeGraphDemo.css`
 - `apps/live-control-ui/src/localWorld/worldGraphCanvas/WorldGraphCanvas.tsx`
 - `apps/live-control-ui/src/localWorld/worldGraphCanvas/WorldGraphCanvas.test.tsx`

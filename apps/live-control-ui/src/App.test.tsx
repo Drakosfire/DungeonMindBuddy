@@ -285,8 +285,10 @@ describe("App inspector integration", () => {
     expect(await screen.findByRole("heading", { name: /buddy graph playground/i })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Lina, person" })).toBeInTheDocument();
     expect(screen.getByText("Buddy playground · private graph")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Graph tools" }));
     expect(screen.getByRole("button", { name: "Add object" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Connect" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "More graph actions" }));
     expect(screen.getByRole("button", { name: "Export snapshot" })).toBeInTheDocument();
     expect(screen.getByText("Existing browser-only Worlds and notes")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "My World" })).not.toBeInTheDocument();
@@ -305,11 +307,13 @@ describe("App inspector integration", () => {
     expect(screen.queryByRole("link", { name: /retrieval/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /tiptap|developer spike/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Graph tools" }));
     expect(within(screen.getByTestId("surface-context-module")).getByRole("button", { name: "Add object" })).toBeInTheDocument();
     await userEvent.setup().type(screen.getByLabelText("Create a World"), "Chrome-owned World");
     await userEvent.setup().click(screen.getByRole("button", { name: "Create World" }));
     expect(await screen.findByRole("heading", { name: "Chrome-owned World" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Graph tools" }));
     expect(within(screen.getByTestId("surface-context-module")).getByRole("button", { name: "Add object" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Projection" })).not.toBeInTheDocument();
     expect(liveApi.getSurface).not.toHaveBeenCalled();
