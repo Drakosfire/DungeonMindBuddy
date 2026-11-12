@@ -30,7 +30,7 @@ import { LegacyProjectionHostAdapter } from "./planSurface/projection/LegacyProj
 import { ToolHost } from "./surfaceInteraction/toolHost/ToolHost";
 import { PeekRegionProvider } from "./surfaceInteraction/peekHost";
 import { SurfaceContextProvider } from "./surfaceInteraction/contextHost";
-import { AppChrome, type AppChromeToolsGeneration } from "./chrome/AppChrome";
+import { AppChrome } from "./chrome/AppChrome";
 import {
   appRouteFromLocationSnapshot,
   getAppLocationSnapshot,
@@ -64,7 +64,6 @@ const BuildSurfacePage = deferredComponent(() => import("./buildSurface/BuildSur
 const StatblockPage = deferredComponent(() => import("./statblocks/StatblockPage").then(module => ({ default: module.StatblockPage })), "Statblock");
 const CombatSurfacePage = deferredComponent(() => import("./combat/CombatSurfacePage").then(module => ({ default: module.CombatSurfacePage })), "Combat");
 const MemoryIngestPage = deferredComponent(() => import("./ingestSurface/MemoryIngestPage").then(module => ({ default: module.MemoryIngestPage })), "Ingest");
-const TiptapCalloutBridgeSpike = deferredComponent(() => import("./tiptap/TiptapCalloutBridgeSpike").then(module => ({ default: module.TiptapCalloutBridgeSpike })), "editor");
 const InspectorPane = deferredComponent(() => import("./surface/InspectorPane").then(module => ({ default: module.InspectorPane })), "inspector");
 
 type LoadStatus = "loading" | "ready" | "error";
@@ -81,22 +80,6 @@ function subscribeSelectedWorldLocation(onChange: () => void): () => void {
 function SurfaceRouteLeasePublisher() {
   usePublishSurfaceInteraction(ROUTE_COMPATIBILITY_PUBLICATIONS.surface);
   return null;
-}
-
-function TiptapSpikeRouteLeasePublisher() {
-  usePublishSurfaceInteraction(ROUTE_COMPATIBILITY_PUBLICATIONS.tiptapCalloutSpike);
-  return null;
-}
-
-function TiptapSpikeRoute() {
-  const [editorTools, setEditorTools] = useState<AppChromeToolsGeneration | null>(null);
-
-  return (
-    <AppChrome activeRoute="tiptap-callout-spike" editorTools={editorTools}>
-      <TiptapSpikeRouteLeasePublisher />
-      <TiptapCalloutBridgeSpike onEditorToolsChange={setEditorTools} />
-    </AppChrome>
-  );
 }
 
 function ManagedWorldGraph({ worldId, worldTitle, stateScopeId }: {
@@ -344,8 +327,6 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
     content = <main className="app-status" role="status">Verifying page selection…</main>;
   } else if (route === "index") {
     content = <BuddyIndexPage locationSnapshot={locationSnapshot} />;
-  } else if (route === "tiptap-callout-spike") {
-    content = <TiptapSpikeRoute />;
   } else if (route === "plan") {
     content = <PlanSurfacePage />;
   } else if (route === "play") {

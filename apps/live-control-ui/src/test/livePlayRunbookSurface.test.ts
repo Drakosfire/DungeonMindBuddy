@@ -13,17 +13,13 @@ describe("Live Play North Gate runbook surface", () => {
     const html = readFileSync(livePlayPath, "utf8");
 
     expect(html).toContain("content/tiptap/north-gate-session-runbook.md");
-    expect(html).toContain("/tiptap-callout-spike");
-    expect(html).not.toMatch(/\/tiptap-callout-spike\?doc=/);
     expect(html).not.toContain("dogfood runbook");
-    expect(html).toContain("Edit runbook");
     expect(html).toContain('data-open-toolbox="ingestion"');
     expect(html).toContain("Ingest recap");
     expect(html).toContain("combat.html");
     expect(html).toContain("roll-tables.html");
     expect(html).toContain("npcs.html");
     expect(html).toContain("statblocks.html");
-    expect(html).toContain("Editing workflow: open editor → import committed Markdown → edit locally → prepare file write → commit reviewed Markdown → reload Live Play.");
   });
 
   it("mounts recap ingestion as the default toolbox tool", () => {

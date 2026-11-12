@@ -18,7 +18,6 @@ import {
   buildAppChromeCompatibilityFragment,
   buildIndexRouteCompatibilityPublication,
   buildSurfaceRouteCompatibilityPublication,
-  buildTiptapCalloutSpikeRouteCompatibilityPublication,
 } from "./surfaceInteractionCompat";
 
 describe("surfaceInteractionCompat", () => {
@@ -387,13 +386,6 @@ describe("surfaceInteractionCompat", () => {
       surfaceId: "surface",
       label: "Live Control",
       identity: ROUTE_COMPATIBILITY_PUBLICATIONS.surface.identity,
-    });
-    expect(buildTiptapCalloutSpikeRouteCompatibilityPublication()).toMatchObject({
-      surfaceId: "tiptap-callout-spike",
-      canvas: {
-        canvasId: "tiptap-callout-spike",
-        workObject: { kind: "spike", id: "tiptap-callout-spike" },
-      },
     });
   });
 });

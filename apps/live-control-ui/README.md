@@ -184,15 +184,6 @@ through AppChrome + Surface Interaction + Surface Context instead.
 Legacy Chat smoke, when specifically needed, still uses `/surface` and the
 existing server live-turn path.
 
-## Tiptap spike routes
-
-The isolated `/tiptap-callout-spike` route remains an experimental exception:
-its editable working-board document is stored only in browser `localStorage`.
-Tiptap JSON is the editable source and semantic Markdown is a derived export.
-The spike performs no backend or corpus writes. See
-[`src/tiptap/state/README.md`](src/tiptap/state/README.md) for that experiment's
-schema and data-flow boundary.
-
 ## Backend regression
 
 From repo root:
