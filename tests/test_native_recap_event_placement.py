@@ -11,13 +11,13 @@ from tests.test_native_recap_preparation import (
 )
 
 
-def _declare_campaign(lane, count, *, existing_npc=False):
+def _declare_campaign(lane, count, *, existing_npc=False, alternate_timeline=False):
     head = lane.repo.get_head(SPACE_ID).head_revision_id
     snapshot = lane.repo.get_revision(SPACE_ID, head)
     payload = copy.deepcopy(snapshot.graph_payload)
     # Reuse existing synthetic object identities; classification is the
     # governed declaration that binds each target to this exact scope.
-    identities = ("ent:location",) if existing_npc else ("ent:pippa", "ent:location")[:count]
+    identities = ("ent:location",) if existing_npc or alternate_timeline else ("ent:pippa", "ent:location")[:count]
     for index, identity in enumerate(identities):
         if identity != "ent:pippa":
             payload["entities"].append({"schema_version": "dm_entity_v1", "entity_id": identity})
@@ -137,3 +137,36 @@ def test_later_review_cannot_place_same_event_again(lane):
     assert response.status_code == 409, response.text
     assert "event_already_placed_on_timeline" in response.text
     assert lane.repo.get_head(SPACE_ID).head_revision_id == result["child_revision_id"]
+
+
+@pytest.mark.parametrize("lane", ["source_order"], indirect=True)
+def test_placement_refuses_conflicting_classification_in_same_review(lane):
+    _declare_campaign(lane, 1, alternate_timeline=True)
+    _select(lane)
+    lane.payload["nodes"][1]["node_type"] = "character"
+    lane.refresh()
+    lane.body["selections"] = [
+        selection for selection in lane.body["selections"] if selection["kind"] != "edge"
+    ]
+    # Declare the timeline on a new identity, leaving the reused object unclassified.
+    lane.body["selections"][0].update(action="use_existing", entity_id="ent:pippa")
+    lane.body["selections"][1] = choice(
+        "discussion", action="use_existing", entity_id="ent:pippa", fields=("node_type",),
+    )
+    before = lane.repo.get_head(SPACE_ID).head_revision_id
+    response = lane.post()
+    assert response.status_code == 409, response.text
+    assert "placement_incompatible_occurrence_identity" in response.text
+    assert lane.repo.get_head(SPACE_ID).head_revision_id == before
+
+
+@pytest.mark.parametrize("lane", ["source_order"], indirect=True)
+def test_generic_review_edge_cannot_publish_a_timeline_placement(lane):
+    _source_order_candidate(lane)
+    lane.payload["edges"][0]["relationship_type"] = "on_timeline"
+    lane.refresh()
+    before = lane.repo.get_head(SPACE_ID).head_revision_id
+    response = lane.post()
+    assert response.status_code == 409, response.text
+    assert "timeline_edge_requires_reviewed_placement" in response.text
+    assert lane.repo.get_head(SPACE_ID).head_revision_id == before

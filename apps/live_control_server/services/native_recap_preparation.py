@@ -170,21 +170,26 @@ def _validate_selected_precedence(pairs, access, space, campaign):
                                     "precedence_incompatible_occurrence_identity")
 
 
+_INCOMPATIBLE_OCCURRENCE_KINDS = {
+    "character", "creature", "location", "item", "group", "organization", "faction",
+}
+_INCOMPATIBLE_OCCURRENCE_TERMS = {
+    _KINDS[kind] for kind in _INCOMPATIBLE_OCCURRENCE_KINDS
+} | {"dnd5e:npc", "dungeonbuddy:campaign"}
+
+
 def _validate_occurrence_identities(durable_ids, access, space, campaign, code):
     if not durable_ids:
         return
     # Core's existing read admission owns standing/scope/evidence. Do not copy
     # those policies into a second Buddy classifier or inspect excluded facts.
-    incompatible = {_KINDS[k] for k in (
-        "character", "creature", "location", "item", "group", "organization", "faction",
-    )} | {"dnd5e:npc", "dungeonbuddy:campaign"}
     candidates = []
     for identifier, parsed in access.parsed.assertions_by_id.items():
         if parsed.subject_entity_id not in durable_ids or parsed.predicate != "dnd5e:classification":
             continue
         assertion = native.assertion_contract(parsed)
         value = assertion.value.model_dump(mode="json")
-        if value.get("kind") == "term_ref" and value.get("term") in incompatible:
+        if value.get("kind") == "term_ref" and value.get("term") in _INCOMPATIBLE_OCCURRENCE_TERMS:
             candidates.append(identifier)
     if candidates:
         read = build_dungeonbuddy_read_context(
@@ -360,6 +365,7 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
         if selection and selection.action == "create":
             _require(edge.from_node_id in endpoints and edge.to_node_id in endpoints, "selected_edge_endpoint_held")
             predicate = _predicate(edge.relationship_type)
+            _require(predicate != TIMELINE_PREDICATE, "timeline_edge_requires_reviewed_placement")
             if predicate == _predicate(SOURCE_PRECEDENCE_PREDICATE):
                 _require(producer == PRODUCER, "precedence_requires_recap")
                 profile_ref = access.parsed.semantic_profile_ref
@@ -406,6 +412,12 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
         _require(endpoint not in placed_endpoints, "duplicate_event_placement")
         placed_endpoints.add(endpoint)
         if isinstance(endpoint, wk.DurableObjectRef):
+            _require(not any(
+                records["node", other_id].node_type in _INCOMPATIBLE_OCCURRENCE_KINDS
+                and any(fact.field == "node_type" for fact in by_key["node", other_id].facts)
+                for other_id, other_endpoint in endpoints.items()
+                if other_endpoint == endpoint
+            ), "placement_incompatible_occurrence_identity")
             _validate_occurrence_identities({endpoint.durable_object_id}, access, space, campaign,
                                             "placement_incompatible_occurrence_identity")
             _validate_unplaced_occurrence(access, space, campaign,
