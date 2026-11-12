@@ -134,9 +134,10 @@ cd apps/live-control-ui
 npm run dev
 ```
 
-**Start at the launcher:** open `http://127.0.0.1:5173/`, then choose the
-surface from the launcher or site nav. Deep links are useful for targeted
-verification but are not the normal product door.
+Open the landing page at `http://127.0.0.1:5173/`. Follow its Graph, Plan, and
+Play links. Then open `/graph`, `/plan`, and `/play` directly in fresh tabs.
+Confirm Graph renders the visualizer and Plan and Play show their respective
+World selection screens when opened without a selected World.
 
 ### Plan smoke
 
