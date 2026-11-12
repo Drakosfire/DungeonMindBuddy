@@ -49,7 +49,6 @@ from src.agent.planner_telemetry import (
 from src.agent.synthesis import _load_api_key
 from src.llm.api_client import DungeonMindApiClient
 
-_planner_logger = logging.getLogger("dmb.planner")
 from src.agent.session_memory_query import (
     dispatch_query_session_memory_json,
     env_session_memory_records_path,
@@ -60,6 +59,8 @@ from src.prompts.corpus_session_planner import (
     STATBLOCK_VIA_RESPONSES_SYSTEM,
     build_corpus_session_planner_instructions,
 )
+
+_planner_logger = logging.getLogger("dmb.planner")
 
 _MAX_FILE_CHARS = 30_000
 _MAX_TOOL_ROUNDS_PER_USER_TURN = 25
@@ -2181,7 +2182,7 @@ def run_planning_turn_with_retrieval_router(
         DECISION_NEED_MORE_CONTEXT,
         run_retrieval_first_decision,
     )
-    from evals.sentence_routing_retrieval_falsification.breadcrumb_natural_scoring import (
+    from src.agent.retrieval_context import (
         build_hit_context_text,
         index_records_by_unit_id,
     )
