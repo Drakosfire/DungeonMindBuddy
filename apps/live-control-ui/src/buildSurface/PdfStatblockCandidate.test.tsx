@@ -70,3 +70,13 @@ it("rejoins split PDF digits within the HP formula", () => {
   fireEvent.click(screen.getByRole("button", {name:"Preview statblock fields"}));
   expect(screen.getByText("75 (10d8 + 30)")).toBeInTheDocument();
 });
+
+it("does not offer a statblock preview for a captured name table", () => {
+  render(<PdfStatblockCandidate locator={locator} text={`Male Villager Names
+1d12 Name Notes
+1 Ryan Burke
+2 Adam Campbell
+3 Logan Hunt`} />);
+  expect(screen.queryByRole("button", {name:"Preview statblock fields"})).toBeNull();
+  expect(screen.queryByRole("region", {name:"Extracted statblock fields"})).toBeNull();
+});

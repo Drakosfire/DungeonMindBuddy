@@ -26,12 +26,19 @@ function readRulesSections(text: string) {
   });
 }
 
+export function looksLikePdfStatblock(text: string): boolean {
+  return /^\s*Armor Class\s*:?[ \t]*\d/im.test(text)
+    || /^\s*Hit Points\s*:?[ \t]*\d/im.test(text)
+    || /^\s*STR\s+DEX\s+CON\s+INT\s+WIS\s+CHA\s*$/im.test(text);
+}
+
 export function PdfStatblockCandidate({text, locator}: {text: string; locator: PdfLocator}) {
   const [opened, setOpened] = useState(false);
-  if (!opened) return <button type="button" onClick={() => setOpened(true)}>Preview statblock fields</button>;
-
   const armor = Array.from(text.matchAll(/^[ \t]*Armor Class[ \t]*:?[ \t]*(\d(?:[ \t]*\d)*)/gim));
   const hp = Array.from(text.matchAll(/^[ \t]*Hit Points[ \t]*:?[ \t]*(\d(?:[ \t]*\d)*)(?:[ \t]*\(([ \t]*\d(?:[ \t]*\d)*[ \t]*d[ \t]*\d(?:[ \t]*\d)*(?:[ \t]*[+−-][ \t]*\d(?:[ \t]*\d)*)?[ \t]*)\))?/gim));
+  if (!looksLikePdfStatblock(text)) return null;
+  if (!opened) return <button type="button" onClick={() => setOpened(true)}>Preview statblock fields</button>;
+
   const scores = readAbilityScores(text);
   const sections = armor.length === 1 && hp.length === 1 ? readRulesSections(text) : [];
   return <section aria-label="Extracted statblock fields">
