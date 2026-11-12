@@ -1,5 +1,6 @@
 export type AppRouteKey =
   | "index"
+  | "graph"
   | "surface"
   | "plan"
   | "play"
@@ -19,7 +20,12 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
   {
     route: "index",
     href: "/",
-    label: "Index",
+    label: "Home",
+  },
+  {
+    route: "graph",
+    href: "/graph",
+    label: "Graph",
   },
   {
     route: "plan",
@@ -49,7 +55,8 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
 ];
 
 export const APP_ROUTE_LABELS: Record<AppRouteKey, string> = {
-  index: "Command Board",
+  index: "Home",
+  graph: "Graph",
   surface: "Live Control",
   plan: "Plan",
   play: "Play",

@@ -11,6 +11,7 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 
 export type AppLocationRoute =
   | "index"
+  | "graph"
   | "surface"
   | "plan"
   | "play"
@@ -19,7 +20,7 @@ export type AppLocationRoute =
   | "combat"
   | "statblock";
 
-const PRIMARY_APP_PATHNAMES = new Set(["/", "/plan", "/play", "/ingest", "/build", "/combat", "/statblock"]);
+const PRIMARY_APP_PATHNAMES = new Set(["/", "/graph", "/plan", "/play", "/ingest", "/build", "/combat", "/statblock"]);
 
 export interface NavigationClickLike {
   defaultPrevented: boolean;
@@ -55,6 +56,7 @@ export function pathnameFromLocationSnapshot(snapshot: string): string {
 
 export function appRouteFromPathname(pathname: string): AppLocationRoute {
   const path = normalizeAppPathname(pathname);
+  if (path === "/graph") return "graph";
   if (path === "/surface") return "surface";
   if (path === "/plan") return "plan";
   if (path === "/play") return "play";

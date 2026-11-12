@@ -21,9 +21,9 @@ describe("compact command-board navigation", () => {
     expect(screen.getByRole("button", { name: "World graph: Elderwyld · Ready" })).toBeVisible();
     expect(screen.getByRole("button", { name: "World graph: Elderwyld · Ready" })).toHaveAttribute("data-active-route", "plan");
   });
-  it("passes the index route so the graph control targets its loaded canvas", () => {
-    render(<CompactAppNavigation activeRoute="index" />);
-    expect(screen.getByRole("button", { name: "World graph: Elderwyld · Ready" })).toHaveAttribute("data-active-route", "index");
+  it("passes the graph route so the graph control targets its loaded canvas", () => {
+    render(<CompactAppNavigation activeRoute="graph" />);
+    expect(screen.getByRole("button", { name: "World graph: Elderwyld · Ready" })).toHaveAttribute("data-active-route", "graph");
   });
   it("reveals World-scoped routes and dismisses them with Escape without navigation", () => {
     render(<CompactAppNavigation activeRoute="plan" />);

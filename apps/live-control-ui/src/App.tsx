@@ -33,10 +33,12 @@ import { SurfaceContextProvider } from "./surfaceInteraction/contextHost";
 import { AppChrome } from "./chrome/AppChrome";
 import {
   appRouteFromLocationSnapshot,
+  interceptPrimaryNavigationClick,
   getAppLocationSnapshot,
   subscribeAppLocation,
 } from "./chrome/appNavigation";
-import { WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID } from "./chrome/appChromeConfig";
+import { worldScopedSurfaceHref } from "./selectedWorld/worldSelectionNavigation";
+import { APP_NAV_ITEMS, WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID } from "./chrome/appChromeConfig";
 import {
   WorldGraphLensProvider,
   WorldGraphLensProjectionProvider,
@@ -99,7 +101,28 @@ function ManagedWorldGraph({ worldId, worldTitle, stateScopeId }: {
     : <main className="app-status" role="status">Loading World graph…</main>;
 }
 
-function BuddyIndexPage({
+function BuddyLandingPage() {
+  const world = useSelectedWorld();
+  const auth = useHostedAuthStatus();
+  return (
+    <AppChrome activeRoute="index" localOnlyNavigation={auth.status === "signed_out"} workspaceLayout="bounded">
+      <main className="app-status">
+        <h1>DungeonMind Buddy</h1>
+        {auth.status === "signed_out" && <a href={dungeonMindLoginHref("/")}>Sign in with DungeonMind</a>}
+        <ul>
+          {APP_NAV_ITEMS.filter((item) => item.route !== "index").map((item) => (
+            <li key={item.href}>
+              <a href={world.kind === "managed" ? worldScopedSurfaceHref(item.href, world.worldId) : item.href}
+                onClick={interceptPrimaryNavigationClick}>{item.label}</a>
+            </li>
+          ))}
+        </ul>
+      </main>
+    </AppChrome>
+  );
+}
+
+function BuddyGraphPage({
   localOnlyNavigation = false,
   locationSnapshot,
 }: {
@@ -138,7 +161,7 @@ function BuddyIndexPage({
   }
 
   return (
-    <AppChrome activeRoute="index" localOnlyNavigation={localOnlyNavigation} workspaceLayout="bounded">
+    <AppChrome activeRoute="graph" localOnlyNavigation={localOnlyNavigation} workspaceLayout="bounded">
       {explorer}
       <details className="buddy-index-legacy" onToggle={(event) => setLegacyWorldsOpen(event.currentTarget.open)}>
         <summary>Existing browser-only Worlds and notes</summary>
@@ -301,6 +324,8 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
   const selectedWorld = useSelectedWorld();
   const retrySelectedWorld = useRetrySelectedWorld();
   const admission = useSelectedWorldAdmission();
+  const route = appRouteFromLocationSnapshot(locationSnapshot);
+  if (route === "index") return <IsolatedEntry><BuddyLandingPage /></IsolatedEntry>;
   if (selectedWorld.kind === "loading") {
     return <main className="app-status" role="status">Verifying World selection…</main>;
   }
@@ -314,19 +339,17 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
       </main>
     );
   }
-  const route = appRouteFromLocationSnapshot(locationSnapshot);
-  if (route === "index" && selectedWorld.kind === "legacy") {
-    return <IsolatedIndexEntry
-      localOnlyNavigation={auth.status === "signed_out"}
-      locationSnapshot={locationSnapshot}
-    />;
+  if (route === "graph" && selectedWorld.kind === "legacy") {
+    return <IsolatedEntry>
+      <BuddyGraphPage localOnlyNavigation={auth.status === "signed_out"} locationSnapshot={locationSnapshot} />
+    </IsolatedEntry>;
   }
   const pageAdmitted = admission.kind !== "loading";
   let content;
   if (!pageAdmitted) {
     content = <main className="app-status" role="status">Verifying page selection…</main>;
-  } else if (route === "index") {
-    content = <BuddyIndexPage locationSnapshot={locationSnapshot} />;
+  } else if (route === "graph") {
+    content = <BuddyGraphPage locationSnapshot={locationSnapshot} />;
   } else if (route === "plan") {
     content = <PlanSurfacePage />;
   } else if (route === "play") {
@@ -358,7 +381,7 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
           <WorldGuidedTour worldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null} worldName={selectedWorld.kind === "managed" ? selectedWorld.name : undefined}>
           <WorldGraphLensProvider
             key={selectedWorld.kind === "managed" ? selectedWorld.worldId : "legacy"}
-            loadFocusOptions={pageAdmitted && route !== "index"}
+            loadFocusOptions={pageAdmitted && route !== "graph"}
             planCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}
             managedWorldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null}
           >
@@ -392,24 +415,18 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
 function isCanonicalLocalGuestEntry(locationSnapshot: string): boolean {
   try {
     const url = new URL(locationSnapshot, "http://localhost");
-    return url.pathname === "/" && url.search === "" && url.hash === "";
+    return (url.pathname === "/" || url.pathname === "/graph") && url.search === "" && url.hash === "";
   } catch {
     return false;
   }
 }
 
-function IsolatedIndexEntry({
-  localOnlyNavigation,
-  locationSnapshot,
-}: {
-  readonly localOnlyNavigation: boolean;
-  readonly locationSnapshot: string;
-}) {
+function IsolatedEntry({ children }: { readonly children: ReactNode }) {
   return (
     <AgentInteractionProvider>
       <SurfaceContextProvider>
         <PeekRegionProvider>
-          <BuddyIndexPage localOnlyNavigation={localOnlyNavigation} locationSnapshot={locationSnapshot} />
+          {children}
         </PeekRegionProvider>
       </SurfaceContextProvider>
     </AgentInteractionProvider>

@@ -4,7 +4,7 @@ React product surfaces for DungeonMindBuddy. The UI talks to the merged FastAPI
 server; it does not treat corpus files, browser state, or surface-local state as
 a substitute for server/graph authority.
 
-The root launcher is the normal product entry. Plan, Ingest / Graph Review,
+The landing page at `/` links to the product surfaces. Open the graph visualizer at `/graph`. Plan, Ingest / Graph Review,
 Build, and Combat Tracker are first-class doors; the older `/surface` Live
 Control module board remains reachable for legacy smoke coverage but is not the
 current product composition model.

@@ -216,7 +216,7 @@ describe("canonical local guest entry", () => {
     vi.stubEnv("PROD", true);
     vi.stubGlobal("crypto", webcrypto as unknown as Crypto);
     vi.stubGlobal("Blob", NodeBlob);
-    window.history.replaceState({}, "", "/");
+    window.history.replaceState({}, "", "/graph");
     localStorage.clear();
     sessionStorage.clear();
     localRepositoryHarness.repository = new InMemoryLocalWorldRepository({ store: new InMemoryLocalWorldStore() });
@@ -228,7 +228,7 @@ describe("canonical local guest entry", () => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
-    window.history.replaceState({}, "", "/");
+    window.history.replaceState({}, "", "/graph");
   });
 
   it("keeps older browser Worlds available as a secondary surface without hosted requests", async () => {
@@ -526,7 +526,7 @@ describe("canonical local guest entry", () => {
 
     await act(async () => {
       window.history.back();
-      await waitFor(() => expect(window.location.pathname).toBe("/"));
+      await waitFor(() => expect(window.location.pathname).toBe("/graph"));
     });
     expect(await screen.findByRole("button", { name: "Lina, person" })).toBeInTheDocument();
     expect(fetchMock.mock.calls.filter(([path]) => String(path) === "/api/auth/session")).toHaveLength(1);
@@ -535,14 +535,14 @@ describe("canonical local guest entry", () => {
   it("shows a distinct hosted signed-out playground and sign-in path without calling the local guest API", async () => {
     const fetchMock = nativeIndexFetch(guestGraph, "signed_out");
     vi.stubGlobal("fetch", fetchMock);
-    window.history.replaceState({}, "", "/");
+    window.history.replaceState({}, "", "/graph");
 
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "Buddy graph playground" })).toBeInTheDocument();
     expect(screen.getByText(/hosted service does not expose the local-only playground graph/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Sign in with DungeonMind" })).toHaveAttribute(
-      "href", "/api/auth/login?return_to=%2F",
+      "href", "/api/auth/login?return_to=%2Fgraph",
     );
     expect(screen.queryByRole("button", { name: "Lina, person" })).not.toBeInTheDocument();
     expect(fetchMock.mock.calls.map(([path]) => String(path))).toEqual(["/api/auth/session"]);
@@ -551,7 +551,7 @@ describe("canonical local guest entry", () => {
   it("never treats an unavailable authentication check as signed out or as a playground", async () => {
     const fetchMock = vi.fn(async () => response(503, { status: "unavailable" }));
     vi.stubGlobal("fetch", fetchMock);
-    window.history.replaceState({}, "", "/");
+    window.history.replaceState({}, "", "/graph");
 
     render(<App />);
 
@@ -565,7 +565,7 @@ describe("canonical local guest entry", () => {
     "loads the real selected World graph and keeps its verified title paired in %s mode",
     async (authStatus) => {
       vi.stubEnv("PROD", true);
-      window.history.replaceState({}, "", "/?world=world-a");
+      window.history.replaceState({}, "", "/graph?world=world-a");
       const fetchMock = managedServerFetch({ authStatus });
       vi.stubGlobal("fetch", fetchMock);
       const user = userEvent.setup();
@@ -584,7 +584,7 @@ describe("canonical local guest entry", () => {
 
   it("keeps an empty authenticated selection in an explicit playground with a World chooser", async () => {
     vi.stubEnv("PROD", true);
-    window.history.replaceState({}, "", "/");
+    window.history.replaceState({}, "", "/graph");
     const fetchMock = managedServerFetch({ authStatus: "authenticated" });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -599,7 +599,7 @@ describe("canonical local guest entry", () => {
 
   it("keeps the selected World title and error when its managed graph cannot be read", async () => {
     vi.stubEnv("PROD", true);
-    window.history.replaceState({}, "", "/?world=world-a");
+    window.history.replaceState({}, "", "/graph?world=world-a");
     const fetchMock = managedServerFetch({
       graphRead: () => Response.json({ error: "Native graph read is unavailable.", code: "graph_read_failed" }, { status: 503 }),
     });
@@ -615,7 +615,7 @@ describe("canonical local guest entry", () => {
 
   it("does not apply a late World A graph response after switching to World B", async () => {
     vi.stubEnv("PROD", true);
-    window.history.replaceState({}, "", "/?world=world-a");
+    window.history.replaceState({}, "", "/graph?world=world-a");
     let resolveSecondA!: (value: Response) => void;
     const secondA = new Promise<Response>((resolve) => { resolveSecondA = resolve; });
     const fetchMock = managedServerFetch({
@@ -644,7 +644,7 @@ describe("canonical local guest entry", () => {
 
   it("owns a fresh managed client through StrictMode replay, World switching, and unmount", async () => {
     vi.stubEnv("PROD", true);
-    window.history.replaceState({}, "", "/?world=world-a");
+    window.history.replaceState({}, "", "/graph?world=world-a");
     const fetchMock = managedServerFetch();
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
@@ -697,7 +697,7 @@ describe("canonical local guest entry", () => {
   });
 
   it("retains existing local-operator managed drafts under their original storage key", async () => {
-    window.history.replaceState({}, "", "/?world=world-a");
+    window.history.replaceState({}, "", "/graph?world=world-a");
     sessionStorage.setItem("dungeonmind-native-demo:draft:managed%3Aworld-a:native-world-a", JSON.stringify({
       version: 1, world_id: "native-world-a", pending: null, pending_phase: "prepare",
       draft: { objectName: "Pre-existing local draft", objectKind: "person", sourceId: "", targetId: "", predicate: "" },
@@ -713,7 +713,7 @@ describe("canonical local guest entry", () => {
   it("loads and explicitly authors an owned World on a hosted HTTPS origin without local credentials", async () => {
     const dom = (globalThis as unknown as { jsdom: { reconfigure: (options: { url: string }) => void } }).jsdom;
     const originalUrl = window.location.href;
-    dom.reconfigure({ url: "https://buddy.example/?world=world-a" });
+    dom.reconfigure({ url: "https://buddy.example/graph?world=world-a" });
     let graph = managedGraphEnvelope("world-a", "Aster");
     let operationId = "";
     const identity = { schema: "dmb_native_graph_explorer_v1", managed_world_id: "world-a", native_world_id: "native-world-a", binding_version: 1 };
@@ -770,7 +770,7 @@ describe("canonical local guest entry", () => {
   it("inspects a hosted canvas point at the exact loaded pin without source or statblock requests", async () => {
     const dom = (globalThis as unknown as { jsdom: { reconfigure: (options: { url: string }) => void } }).jsdom;
     const originalUrl = window.location.href;
-    dom.reconfigure({ url: "https://buddy.example/?world=world-a" });
+    dom.reconfigure({ url: "https://buddy.example/graph?world=world-a" });
     const envelope = managedGraphEnvelope("world-a", "Aster");
     const pin = { managed_world_id: "world-a", native_world_id: "native-world-a", binding_version: 1,
       revision_id: "revision-world-a", scope_mode: "world", campaign_id: null };
@@ -839,7 +839,7 @@ describe("canonical local guest entry", () => {
       return backend(input, init);
     });
     vi.stubGlobal("fetch", fetchMock);
-    window.history.replaceState({}, "", "/?world=world-a");
+    window.history.replaceState({}, "", "/graph?world=world-a");
     const user = userEvent.setup();
     render(<App />);
     await revealIsolatedObject(user, "Aster");
@@ -874,7 +874,7 @@ describe("canonical local guest entry", () => {
       return backend(input, init);
     });
     vi.stubGlobal("fetch", fetchMock);
-    window.history.replaceState({}, "", "/?world=world-a");
+    window.history.replaceState({}, "", "/graph?world=world-a");
     const user = userEvent.setup();
     render(<App />);
     await revealIsolatedObject(user, "Aster");
@@ -900,7 +900,7 @@ describe("canonical local guest entry", () => {
       return Response.json({}, { status: 403 });
     });
     vi.stubGlobal("fetch", fetchMock);
-    window.history.replaceState({}, "", "/?world=world-a");
+    window.history.replaceState({}, "", "/graph?world=world-a");
     render(<App />);
     await screen.findByText("Verifying World selection…");
     await waitFor(() => expect(fetchMock.mock.calls.filter(([path]) => String(path) === "/api/live/world-containers")).toHaveLength(1));
@@ -913,7 +913,7 @@ describe("canonical local guest entry", () => {
     expect(fetchMock.mock.calls.some(([path]) => String(path) === "/api/live/native-graph-explorer/graph")).toBe(false);
   });
 
-  it.each(["/?world=hosted-world", "/?auth_error=cancelled", "/#section", "/unknown-path"]) (
+  it.each(["/graph?world=hosted-world", "/graph?auth_error=cancelled", "/graph#section", "/unknown-path"]) (
     "does not expose a guest surface for %s",
     async (pathname) => {
       window.history.replaceState({}, "", pathname);
