@@ -1,9 +1,7 @@
 # HANDOFF — Authorize Build PDF statblock review requests
 
-Status: ACTIVE; serial; one unstacked PR.
-Base: `origin/main@a88934e4b57c35c88a4927fd7f952b51314a8f19` (re-anchored).
-Branch: `codex/pdf-statblock-review-auth-20261112`.
-Checkout: existing `/home/drakosfire/Projects/.codex/pdf-gold-baseline/DungeonMindBuddy`; reuse it, do not create a worktree.
+Status: SETTLED; implementation merged in PR #2495 as `ee633b5c9e643e53cb4c5db9a5cc59e7b8123a92`.
+The route authorization and trusted local-session retry described here are delivered. The successor diagnostic slice is tracked in `HANDOFF-BUILD-pdf-statblock-review-diagnostics.md`.
 
 ## Outcome
 
