@@ -25,9 +25,20 @@ uv sync --locked
 Set up a local DungeonMindServer checkout beside Buddy, or point
 `DUNGEONMIND_SERVER_ROOT` at it. Configure the database and runtime prerequisites
 in the [local Play runbook](Docs/Runbooks/RUNBOOK-local-play-dogfood.md).
-Then run `./run` and open [the local launcher](http://127.0.0.1:5173/).
+Then run `./run` and open [the Buddy landing page](http://127.0.0.1:5173/).
 The launcher starts the API and Vite UI and installs frontend dependencies
 from the npm lockfile when needed.
+
+| Page | Path |
+| --- | --- |
+| Home and surface navigation | `/` |
+| Graph visualizer | `/graph` |
+| Plan | `/plan` |
+| Play | `/play` |
+| Build, Ingest, and Combat Tracker | `/build`, `/ingest`, and `/combat` |
+
+Plan and Play prompt for a World when none is selected. The legacy Chat smoke
+uses `/surface`. See the [frontend smoke guide](apps/live-control-ui/README.md#manual-smoke).
 
 ## Explore the repository
 

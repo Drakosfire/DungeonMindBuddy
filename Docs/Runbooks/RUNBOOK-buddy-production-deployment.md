@@ -74,7 +74,14 @@ test "$("${buddy_compose[@]}" port buddy 8000)" = "127.0.0.1:$buddy_port"
 buddy_local="http://127.0.0.1:$buddy_port"
 curl -fsS "$buddy_local/health/live"
 curl -fsS "$buddy_local/health/ready"
-curl -fsS -H 'Accept: text/html' "$buddy_local/" -o /dev/null
+(
+  set -e
+  for buddy_path in / /graph /plan /play; do
+    buddy_status=$(curl -fsS -H 'Accept: text/html' -o /dev/null -w '%{http_code}' "$buddy_local$buddy_path")
+    printf '%s %s\n' "$buddy_status" "$buddy_path"
+    test "$buddy_status" = 200
+  done
+) &&
 test "$(curl -sS -o /dev/null -w '%{http_code}' "$buddy_local/api/auth/current-user")" = 401
 ```
 
@@ -99,18 +106,33 @@ openssl s_client -connect "$buddy_domain:443" -servername "$buddy_domain" \
 buddy_url="https://$buddy_domain"
 curl -fsS "$buddy_url/health/live"
 curl -fsS "$buddy_url/health/ready"
-curl -fsS -H 'Accept: text/html' "$buddy_url/" -o /dev/null
+(
+  set -e
+  for buddy_path in / /graph /plan /play; do
+    buddy_status=$(curl -fsS -H 'Accept: text/html' -o /dev/null -w '%{http_code}' "$buddy_url$buddy_path")
+    printf '%s %s\n' "$buddy_status" "$buddy_path"
+    test "$buddy_status" = 200
+  done
+) &&
 test "$(curl -sS -o /dev/null -w '%{http_code}' "$buddy_url/api/auth/current-user")" = 401
 ```
 
 Check a supported streaming action through the public proxy during the authenticated smoke. Require response events to arrive before the stream closes.
 
-## 5. Smoke-test real browser authentication
+The HTTP checks verify that each path serves the app. Use the browser steps to
+verify that each URL renders the intended page.
+
+## 5. Smoke-test real browser authentication and routing
 
 1. Open Buddy in a fresh browser profile and check that `GET /api/auth/current-user` returns `401`.
 2. Use Buddy's sign-in entry point. Complete the real DungeonMind Server sign-in and verify the browser returns to Buddy.
 3. In the browser network panel, require `200` from `GET /api/auth/current-user` and `GET /api/live/world-containers`. Verify the assigned World appears and access matches the approved assignments.
-4. Sign out using Buddy's UI, reload, and require `401` from both endpoints. Record the result and timestamp without saving cookies or credentials.
+4. Open the landing page at `/` and follow its Graph link. Verify `/graph`
+   opens the visualizer for the approved World. Open `/plan` and `/play`
+   directly and record the page or hosted access error. Run the legacy
+   `/surface` Chat smoke in a local operator session using the
+   [frontend guide](../../apps/live-control-ui/README.md#legacy-surface-board).
+5. Sign out using Buddy's UI, reload, and require `401` from both endpoints. Record the result and timestamp without saving cookies or credentials.
 
 ## 6. Close out or roll back
 
