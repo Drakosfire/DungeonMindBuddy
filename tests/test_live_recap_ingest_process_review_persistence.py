@@ -84,6 +84,8 @@ def test_ordinary_process_review_publish_and_fresh_database_readback(
 ):
     """One isolated APP/Core chain; provider fixtures do not claim model quality."""
     from datetime import UTC, datetime
+    from dungeonmind.contracts.vnext.knowledge import PublishKnowledgeRevisionCommand
+    import src.graph_memory.extraction.graph_preview_runner as producer
     from application_state.source import service as sources
     from apps.live_control_server import config
     from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
@@ -103,9 +105,22 @@ def test_ordinary_process_review_publish_and_fresh_database_readback(
         created_at=datetime.now(UTC), domain_contract=dungeonbuddy_world_domain_contract(),
         semantic_profile=dungeonbuddy_dnd5e_custom_predicate_profile(),
     )
+    extract = producer.extract_category_candidate_graph
+
+    def extract_event(*args, **kwargs):
+        result = extract(*args, **kwargs)
+        result.candidate_graph["nodes"][0].update(
+            label="The keeper scouts the road", node_type="event",
+        )
+        return result
+
+    monkeypatch.setattr(producer, "extract_category_candidate_graph", extract_event)
     processed = client.post("/api/live/recap-ingest", json=process_body())
     assert processed.status_code == 200, processed.text
-    run_id = processed.json()["ingest_report"]["graph_preview"]["extraction_run_id"]
+    graph = processed.json()["ingest_report"]["graph_preview"]
+    run_id = graph["extraction_run_id"]
+    proposal, = graph["event_placement_proposals"]
+    assert proposal["status"] == "needs_review"
     data = load_reviewable_extraction_data(root, run_id)
     frozen = (data.source_bytes, data.candidate_bytes, data.span_bytes)
     candidate = json.loads(data.candidate_bytes)
@@ -165,6 +180,27 @@ def test_ordinary_process_review_publish_and_fresh_database_readback(
             "kind": "labels_any", "labels": ["dungeonbuddy.visibility:gm"]},
             "epistemic_basis": "asserted", "claim_mode": "dungeonbuddy.claim:fact",
             "standing": "provisional", "temporal_scope": {"kind": "timeless"}}
+        parent = repo.get_revision(space, context["revision_id"])
+        campaign_object = "ent:campaign-timeline"
+        payload = parent.graph_payload
+        payload["entities"].append({"schema_version": "dm_entity_v1", "entity_id": campaign_object})
+        payload["assertions"].append({
+            "assertion_id": "asrt:campaign-timeline",
+            "subject_entity_id": campaign_object,
+            "predicate": "dnd5e:classification",
+            "value": {"kind": "term_ref", "term": "dungeonbuddy:campaign"},
+            "metadata": metadata | {"scope": [
+                {"axis": "dungeonbuddy.scope:campaign", "value": proposal["campaign_id"]},
+            ]},
+        })
+        repo.publish_revision(PublishKnowledgeRevisionCommand(
+            space_id=space, parent_revision_id=context["revision_id"],
+            expected_parent_revision_id=context["revision_id"],
+            operation_ids=["joined-fixture-campaign"], graph_schema=parent.revision.graph_schema,
+            graph_payload=payload, domain_contract_ref=parent.revision.domain_contract_ref,
+            semantic_profile_ref=parent.revision.semantic_profile_ref, created_at=datetime.now(UTC),
+        ))
+        context, _ = native.access_context(repo, space)
         request = {"managed_world_id": "elderwyld", "campaign_id": "longmont-c2", "run_id": run_id,
             "expected_run_revision": data.run.revision,
             "candidate_sha256": hashlib.sha256(data.candidate_bytes).hexdigest(),
@@ -173,6 +209,16 @@ def test_ordinary_process_review_publish_and_fresh_database_readback(
             "expected_source_authority_epoch": context["source_epoch"],
             "selections": [{"kind": "node", "record_id": node["node_id"], "action": "create",
                 "facts": [{"field": field, "metadata": metadata} for field in ("label", "node_type")]}]}
+        request["selections"].append({
+            "kind": "placement", "record_id": proposal["candidate_node_id"], "action": "create",
+            "metadata": metadata | {
+                "claim_mode": "dungeonbuddy.claim:observed_event",
+                "temporal_scope": {
+                    "kind": "domain_ref", "schema_term": "dungeonbuddy.time:fictional_anchor_v1",
+                    "payload": {"start": proposal["start"]},
+                },
+            },
+        })
         before_prepare = repo.get_head(space)
         prepared_reply = fresh.post("/api/live/extract-promote/native-prepare", json=request)
         assert prepared_reply.status_code == 200, prepared_reply.text
@@ -197,12 +243,17 @@ def test_ordinary_process_review_publish_and_fresh_database_readback(
     assert receipt.expected_parent_revision_id == before_prepare.head_revision_id
     child = reader.get_revision(space, result["child_revision_id"])
     assert reader.get_head(space).head_revision_id == child.revision.revision_id
-    assert {row["predicate"] for row in child.graph_payload["assertions"]} == {
-        "dnd5e:name", "dnd5e:classification"}
-    values = {row["predicate"]: row["value"] for row in child.graph_payload["assertions"]}
+    event_rows = [row for row in child.graph_payload["assertions"]
+                  if row["subject_entity_id"] != campaign_object]
+    assert {row["predicate"] for row in event_rows} == {
+        "dnd5e:name", "dnd5e:classification", "dungeonbuddy.custom:on_timeline"}
+    placement, = [row for row in event_rows if row["predicate"] == "dungeonbuddy.custom:on_timeline"]
+    assert placement["value"] == {"kind": "entity_ref", "entity_id": campaign_object}
+    assert placement["metadata"]["temporal_scope"]["payload"] == {"start": {"session": 8}}
+    values = {row["predicate"]: row["value"] for row in event_rows}
     assert values["dnd5e:name"] == {"kind": "literal", "value": node["label"]}
-    assert values["dnd5e:classification"] == {"kind": "term_ref", "term": "dnd5e:location"}
-    for row in child.graph_payload["assertions"]:
+    assert values["dnd5e:classification"] == {"kind": "term_ref", "term": "dungeonbuddy:event"}
+    for row in event_rows:
         assert row["metadata"]["evidence_ref_ids"] == [evidence_id]
         assert row["metadata"]["scope"] == [
             {"axis": "dungeonbuddy.scope:campaign", "value": "longmont-c2"}]
