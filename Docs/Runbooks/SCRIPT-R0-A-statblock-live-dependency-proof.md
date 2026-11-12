@@ -106,7 +106,7 @@ Paste into the report as **Repository SHA**.
 ## 2. Open the product door
 
 1. Open **http://127.0.0.1:5173/** (launcher). Do not start on a deep link.
-2. Open the Session Board: **http://127.0.0.1:5173/session-board**
+2. Open the full Live Control board: **http://127.0.0.1:5173/surface**
    (URL-reachable; not primary nav — acceptable for this Workbench gate).
 3. In surface layout controls, **enable** module `statblock_workbench`
    (**Statblock Workbench**). It is catalogued but `enabled_by_default: false`.

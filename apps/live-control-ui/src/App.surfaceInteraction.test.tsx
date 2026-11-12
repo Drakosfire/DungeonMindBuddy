@@ -35,7 +35,7 @@ describe("App surface route leases", () => {
         <RouteLeaseProbe publication={ROUTE_COMPATIBILITY_PUBLICATIONS.surface} />
       </AgentInteractionProvider>,
     );
-    expect(screen.getByTestId("lease-probe").textContent).toBe("surface:Session Board");
+    expect(screen.getByTestId("lease-probe").textContent).toBe("surface:Live Control");
   });
 
   it("binds explicit empty lease when publication is null", () => {

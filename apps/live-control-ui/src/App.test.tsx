@@ -278,7 +278,8 @@ describe("App inspector integration", () => {
     );
   });
 
-  it("renders the Buddy graph at the root route with older browser Worlds kept secondary", async () => {
+  it("renders the Buddy graph at /graph with older browser Worlds kept secondary", async () => {
+    window.history.pushState({}, "", "/graph");
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: /buddy graph playground/i })).toBeInTheDocument();
@@ -314,27 +315,32 @@ describe("App inspector integration", () => {
     expect(liveApi.getSurface).not.toHaveBeenCalled();
   });
 
-  it("keeps primary site nav to core product surfaces", () => {
+  it("links the landing page to core product surfaces and opens Graph", async () => {
     render(<App />);
 
     const nav = screen.getByRole("navigation", { name: "Command board navigation" });
     fireEvent.click(within(nav).getByRole("button", { name: "Open navigation" }));
     const links = within(nav).getAllByRole("link");
+    expect(screen.getByRole("heading", { name: "DungeonMind Buddy" })).toBeInTheDocument();
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
       "/",
+      "/graph",
       "/plan",
       "/play",
       "/ingest",
       "/build",
       "/combat",
     ]);
-    expect(within(nav).queryByRole("link", { name: "Session Board" })).not.toBeInTheDocument();
+    expect(within(nav).queryByRole("link", { name: "Live Control" })).not.toBeInTheDocument();
     expect(within(nav).queryByRole("link", { name: "Live play" })).not.toBeInTheDocument();
     expect(within(nav).queryByRole("link", { name: "Tiptap Spike" })).not.toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole("main")).getByRole("link", { name: "Graph" }));
+    expect(window.location.pathname).toBe("/graph");
+    expect(await screen.findByRole("heading", { name: /buddy graph playground/i })).toBeInTheDocument();
   });
   it("opens empty inspector from app chrome control", async () => {
     const user = userEvent.setup();
-    window.history.pushState({}, "", "/session-board");
+    window.history.pushState({}, "", "/surface");
     render(<App />);
 
     await waitFor(() => {

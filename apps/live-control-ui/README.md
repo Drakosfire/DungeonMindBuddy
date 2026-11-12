@@ -4,9 +4,10 @@ React product surfaces for DungeonMindBuddy. The UI talks to the merged FastAPI
 server; it does not treat corpus files, browser state, or surface-local state as
 a substitute for server/graph authority.
 
-The root launcher is the normal product entry. Plan, Ingest / Graph Review,
-Build, and Combat Tracker are first-class doors. The Session Board at
-`/session-board` supports legacy smoke coverage.
+The landing page at `/` links to the product surfaces. Open the graph visualizer at `/graph`. Plan, Ingest / Graph Review,
+Build, and Combat Tracker are first-class doors; the older `/surface` Live
+Control module board remains reachable for legacy smoke coverage but is not the
+current product composition model.
 
 ## Current surface model
 
@@ -173,15 +174,15 @@ It is not the older Live Control React `CombatRosterModule`.
 From `/`, open **Combat Tracker** and confirm the saved/bootstrap combat state
 loads as expected.
 
-## Session Board
+## Legacy `/surface` board
 
-The Session Board at `/session-board` and the old module-layout APIs remain
+The full Live Control board at `/surface` and the old module-layout APIs remain
 reachable for legacy regression coverage. They are not the architecture to
 copy when adding new product capabilities. New Plan/Build composition should go
 through AppChrome + Surface Interaction + Surface Context instead.
 
-Legacy Chat smoke, when specifically needed, uses `/session-board` and the
-existing server live-turn path. Existing `/surface` links also open the board.
+Legacy Chat smoke, when specifically needed, still uses `/surface` and the
+existing server live-turn path.
 
 ## Backend regression
 
