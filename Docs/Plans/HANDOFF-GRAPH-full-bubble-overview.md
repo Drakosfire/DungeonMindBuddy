@@ -1,6 +1,6 @@
 # GRAPH: full loaded bubble overview
 
-Status: ACTIVE. Alan approved the full-corpus colorful individual-bubble experiment. Root assigned this task bounded design and implementation authority on 2026-11-11. Alan subsequently authorized shipping this iteration. Merge and frontend-only deployment remain subject to current repository gates and independent review; provider use, live graph writes and backend/data changes remain excluded.
+Status: COMPLETED predecessor. Merged as #2464 at 77175b77212b35b2c2d0a0507a4ef314dea23b22 on 2026-11-12; its identical reviewed source tree was deployed to the local frontend after positive user pan feedback. Fresh hosted qualification and independent code review passed; inherited red discovery and unperformed responsive/weak-client checks remain limitations. No provider use, live graph writes or backend/data changes occurred. The following sections retain implementation history; the successor is HANDOFF-GRAPH-connected-density.md.
 
 ## 1. Outcome and PR slice
 
