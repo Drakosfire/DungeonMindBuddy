@@ -99,7 +99,15 @@
         "languages": "–",
         "challenge": "1 (200 XP)"
       },
-      "source_note": "The unusual 600 ft. sense is preserved exactly as printed. Do not normalize it to a rules-expected value."
+      "source_note": "The unusual 600 ft. sense is preserved exactly as printed. Do not normalize it to a rules-expected value.",
+      "source_region": {
+        "coordinate_system": "normalized_page_top_left",
+        "x": 0.1,
+        "y": 0.105,
+        "width": 0.36,
+        "height": 0.33,
+        "description": "Left-column Grotesque Tree statblock, from its name through Challenge; excludes the adjacent Guardian statblock."
+      }
     },
     {
       "case_id": "conks-appendix-c-male-villager-names",
@@ -123,7 +131,15 @@
         {"roll": 11, "name": "Ebbo", "notes": ""},
         {"roll": 12, "name": "Haldemarus", "notes": ""}
       ],
-      "source_note": "The page contains three separate 1d12 tables. This case covers only the Male Villager Names table."
+      "source_note": "The page contains three separate 1d12 tables. This case covers only the Male Villager Names table.",
+      "source_region": {
+        "coordinate_system": "normalized_page_top_left",
+        "x": 0.07,
+        "y": 0.08,
+        "width": 0.87,
+        "height": 0.29,
+        "description": "Male Villager Names table from its heading through row 12; excludes the following Female Villager Names table."
+      }
     },
     {
       "case_id": "sheep-ahmed-noke-statblock",
@@ -151,7 +167,15 @@
         "languages": "Common, Elven, Draconic",
         "challenge": "2 (450 XP)"
       },
-      "source_note": "The expected fields are the statblock header and core statistics; spell lists and actions are outside this first slice."
+      "source_note": "The expected fields are the statblock header and core statistics; spell lists and actions are outside this first slice.",
+      "source_region": {
+        "coordinate_system": "normalized_page_top_left",
+        "x": 0.5,
+        "y": 0.04,
+        "width": 0.43,
+        "height": 0.23,
+        "description": "Ahmed Noke statblock from its name through Challenge; excludes the adjacent Bed Dragon Wyrmling block and following prose."
+      }
     }
   ],
   "excluded_asset_lineage": [
