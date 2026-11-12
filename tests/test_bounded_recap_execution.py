@@ -209,7 +209,7 @@ def test_deepseek_route_caps_and_unknown_receipt():
     result = invoke(client, DEEPSEEK_MODEL)
     request = engine.requests[0]
     assert (request.provider, request.model) == ("openrouter", DEEPSEEK_MODEL)
-    assert request.provider_route.order == ("DeepSeek",)
+    assert request.provider_route.order == ("deepinfra/fp8",)
     assert request.provider_route.allow_fallbacks is False
     assert request.provider_route.require_parameters is True
     assert request.reasoning_effort == "none" and request.json_object is False
@@ -225,7 +225,7 @@ def test_deepseek_route_caps_and_unknown_receipt():
     assert "observation_nodes" not in request.system_prompt
     assert result["cost_usd"] is None
     assert client.calls[0]["requested_route"] == {
-        "order": ["DeepSeek"],
+        "order": ["deepinfra/fp8"],
         "allow_fallbacks": False,
         "require_parameters": True,
     }
@@ -317,7 +317,7 @@ def test_deepseek_request_reaches_accepted_ge_openrouter_sdk_kwargs():
     assert sdk_system == ge_call.system_prompt
     assert schema_instruction(ge_call.json_schema) not in sdk_system
     assert kwargs["extra_body"]["provider"] == {
-        "order": ["DeepSeek"],
+        "order": ["deepinfra/fp8"],
         "allow_fallbacks": False,
         "require_parameters": True,
     }
@@ -715,7 +715,7 @@ def test_edge_output_allowance_applies_only_to_actual_edge_spec(
     for request in engine.requests:
         assert 0 < request.deadline_ms <= 120_000
         assert request.max_transport_retries == 0
-        assert request.provider_route.order == ("DeepSeek",)
+        assert request.provider_route.order == ("deepinfra/fp8",)
         assert request.provider_route.allow_fallbacks is False
     assert limits.max_calls == 8
     assert limits.run_deadline_ms == 480_000
