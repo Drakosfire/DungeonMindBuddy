@@ -41,6 +41,18 @@ Do not infer a current blocker or READY assignment from them.
 
 # Independent ideas requiring re-verification
 
+## [IDEA] First-class layered map generation and editor — captured 2026-11-10
+**Kind:** DESIGN → bounded implementation slices
+**Owner:** Buddy media / shared spatial capabilities, with DungeonMind Graph membership
+**Captured:** 2026-11-10
+**Last verified:** 2026-11-10 operator dogfood; implementation completeness not audited.
+**Context:** The Old Bath House image-generation dogfood. The operator wants a fully developed map builder/editor, beyond generating a map-shaped image; existing map generation must not be claimed to provide this whole capability.
+**Insight:** A map should be a dedicated durable media object and a member of the Graph, referenceable from the ordinary surfaces. Generate an unlabeled base map, then create and place the key, legend, locations, NPCs and PCs as separate editable layers rather than baking them into the image.
+**Action:** Audit and adopt existing media, Graph-reference, placement and map prototypes before designing replacements. Develop and evaluate prompt construction that faithfully converts the intended written layout, dimensions, orientation, scale, connections and constraints into a map. Design map identity, persistence, editing and layers together. Reconcile coordinate systems, transforms and placement with future shared spatial machinery so map layers and later coordinate-based features do not grow duplicate implementations. Preserve this as a design direction; do not invent or implement an unused coordinate framework now.
+**Success to define when sequenced:** An unlabeled base map follows the intended layout; independently editable overlays remain aligned through editing, zoom and Save/reload. The same map object is accessible through Graph references and relevant surfaces, with reusable placement/coordinate ownership.
+**Surfaces when:** Selecting map generation/editor work, shared coordinates, spatial placement, or map media/Graph integration. This capture grants no implementation or provider-call authority and does not change current sequencing.
+**Refs:** Old Bath House document `77940b05-c350-428a-88a3-2fc433ad6df0`; current Image Studio dogfood; shared grid page constructor entry below; `Docs/Roadmaps/ROADMAP-demo.md`; conversation `01a0ef89-ca57-7b82-9c9c-215b02d0fc3b`.
+
 ## [IDEA] Resume answer-citation experiments after fundamentals settle — captured 2026-11-10
 **Kind:** RESEARCH / RESPONSE ASSESSMENT
 **Owner:** Buddy response composition
