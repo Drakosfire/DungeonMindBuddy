@@ -92,7 +92,8 @@ export function buildNodeExplorer(detail: NativeGraphEntity, entityId: string, l
       continue;
     }
     const neighborId = own ? a.value.entity_id : a.subject_entity_id;
-    neighbors.add(neighborId); model.relationshipRecordCount++;
+    if (neighborId !== entityId) neighbors.add(neighborId);
+    model.relationshipRecordCount++;
     const direction = neighborId === entityId ? 'self' : own ? 'outgoing' : 'incoming';
     const rule = known ? rules[p] : undefined;
     const neighbor = labels.get(neighborId) ?? `Unlisted object (${neighborId})`;

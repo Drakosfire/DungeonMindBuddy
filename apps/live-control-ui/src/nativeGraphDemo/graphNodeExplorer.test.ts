@@ -59,7 +59,7 @@ describe('readable node explorer model',()=>{
  it('keeps self references and unrelated records without direction inference',()=>{
   const m=buildNodeExplorer(detail([assertion('self','lys','other:x',{kind:'entity_ref',entity_id:'lys'}),assertion('other','guard','other:x',{kind:'entity_ref',entity_id:'father'})]),'lys',labels);
   expect(m.groups[0]!.rows[0]!.direction).toBe('self');expect(m.relationshipRecordCount).toBe(1);
-  expect(m.otherRecords).toHaveLength(1);
+  expect(m.otherRecords).toHaveLength(1);expect(m.distinctNeighborCount).toBe(0);
  });
  it('is stable regardless of API assertion ordering',()=>{
   const a=assertion('2'),b=assertion('1');

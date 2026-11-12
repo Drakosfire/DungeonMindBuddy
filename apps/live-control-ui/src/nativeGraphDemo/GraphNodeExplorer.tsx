@@ -36,6 +36,7 @@ export function GraphNodeExplorer({ detail, entityId, labels, entityOnly = false
       <p className="graph-node-explorer__context">Recorded summaries, not additional graph connections. Source episodes are not a fictional timeline or a current-state claim.</p>
       {model.summaries.map(({ assertion, text, contexts }) => <article key={assertion.assertion_id}>
         <p className="graph-node-explorer__context">{contexts.length ? contexts.join(" · ") : "Source episode not recorded"}</p>
+        {!model.commonStatus ? <p className="graph-node-explorer__status">{assertionStatus(assertion)}</p> : null}
         <details><summary>{text.length > 140 ? `${text.slice(0, 140)}…` : text}</summary><p>{text}</p>
         <Evidence records={[assertion]} detail={detail} entityOnly={entityOnly} commonStatus={model.commonStatus} /></details>
       </article>)}
