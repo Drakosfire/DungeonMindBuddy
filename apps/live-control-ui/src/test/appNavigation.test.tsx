@@ -87,7 +87,7 @@ describe("appNavigation helpers", () => {
 
   it("preserves existing non-primary route fallbacks", () => {
     expect(appRouteFromPathname("/surface")).toBe("surface");
-    expect(appRouteFromPathname("/live-control")).toBe("surface");
+    expect(appRouteFromPathname("/live-control")).toBe("index");
     expect(appRouteFromPathname("/tiptap-callout-spike")).toBe("index");
     expect(appRouteFromPathname("/unknown")).toBe("index");
     expect(appRouteFromPathname("/combat/")).toBe("combat");
