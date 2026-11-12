@@ -32,6 +32,7 @@ Implementation resumes after Alan's explicit instruction to continue bubble grap
 - apps/live-control-ui/src/localWorld/worldGraphCanvas/WorldGraphCanvas.tsx
 - apps/live-control-ui/src/localWorld/worldGraphCanvas/WorldGraphCanvas.test.tsx
 - apps/live-control-ui/src/localWorld/worldGraphCanvas/worldGraphCanvas.css
+- apps/live-control-ui/src/App.guestEntry.test.tsx (narrow explicit isolate-reveal integration actions; retain auth/World/account/draft/stale-response assertions)
 - apps/live-control-ui/src/nativeGraphDemo/NativeGraphDemo.tsx
 - apps/live-control-ui/src/nativeGraphDemo/NativeGraphDemo.test.tsx
 - apps/live-control-ui/src/nativeGraphDemo/nativeGraphPresentation.ts
@@ -56,3 +57,9 @@ Reuse this existing worktree and task root; no new checkout is needed. Keep immu
 ## Scoped visual feedback
 
 Alan said the zoomed-out first density preview looked good and asked whether sizes reflected connections. That is not blanket acceptance. He then requested that bubbles move and adapt around the biggest bubble and called the 26% overview at 942×932 crowded and unparseable. He further asked for much bigger, closer bubbles like other bubble charts. The next checkpoint uses area proportional to loaded incident degree (capped at 40), tight radius-aware spacing, responsive packing and edge clutter reduction; preserve the prior preview/evidence separately. Draft PR creation remains pending explicit approval after its tool denial; do not retry without materially new permission.
+
+## Qualification follow-up
+
+The exact packed candidate hosted contract passed. Full discovery remains red and is not waived. Eleven App guest integration tests still selected the intentionally hidden sole isolated fixture object; root authorized a narrow test-action update to explicitly reveal it while preserving all original security, switching, draft, inspection and stale-response assertions. The 58 current PR file sets were checked: only unchanged historical #2262/#2313/#2326 overlap this test, their branches remain untouched, and no dirty overlap was found among 85 registered worktrees. This successor lease is bounded to the test actions, not App routing or auth behavior.
+
+Independent review approved three explicit projection coverage substitutions for the user-requested adaptive layout: disconnected objects still retain identities/real edges and separate placement; fixed saved pins plus radius-aware separation replace freezing unpinned positions across additions; unchanged geometry inputs remain stable while topology/radius changes intentionally recompute unpinned packing. Original removed occurrence names stay recorded in the retained comparison evidence. No test disappears silently and the failing full-discovery receipt is not rewritten.

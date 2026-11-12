@@ -120,6 +120,17 @@ function expectOnlyScopedIndexCalls(fetchMock: ReturnType<typeof nativeIndexFetc
     || String(path).startsWith("/api/live/index-graph/"))).toBe(true);
 }
 
+// Exercise the connected-only default and its reveal control for isolated
+// fixture objects, without changing their graph or bypassing the real UI.
+async function revealIsolatedObject(user: ReturnType<typeof userEvent.setup>, name: string, hiddenCount = 1) {
+  const reveal = await screen.findByRole("checkbox", { name: `Show objects without listed relationships (${hiddenCount} hidden)` });
+  expect(reveal).not.toBeChecked();
+  expect(screen.queryByRole("button", { name: `${name}, person` })).not.toBeInTheDocument();
+  await user.click(reveal);
+  expect(reveal).toBeChecked();
+  return screen.findByRole("button", { name: `${name}, person` });
+}
+
 function managedWorldRecord(worldId: string, name: string) {
   return {
     schema_version: "dmb_world_container_record_v1",
@@ -441,7 +452,9 @@ describe("canonical local guest entry", () => {
     }));
     expect(await screen.findByText("Create Aster as a native person in this private graph.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Confirm in DungeonMind" }));
-    expect(await screen.findByRole("button", { name: "Aster, person" })).toBeInTheDocument();
+    // This legacy response has no exact created-ID receipt. Reveal the saved
+    // isolate explicitly rather than identifying or selecting it by its name.
+    expect(await revealIsolatedObject(user, "Aster", 2)).toBeInTheDocument();
     expect(calls.filter(({ path }) => path.endsWith("/prepare"))).toHaveLength(1);
     expect(calls.filter(({ path }) => path.endsWith("/confirm"))).toHaveLength(1);
     expect(new Headers(calls.find(({ path }) => path.endsWith("/confirm"))?.init?.headers).get("X-DMB-Index-Graph-CSRF")).toBe("guest-csrf");
@@ -555,10 +568,11 @@ describe("canonical local guest entry", () => {
       window.history.replaceState({}, "", "/?world=world-a");
       const fetchMock = managedServerFetch({ authStatus });
       vi.stubGlobal("fetch", fetchMock);
+      const user = userEvent.setup();
 
       render(<App />, { reactStrictMode: true });
 
-      expect(await screen.findByRole("button", { name: "Aster, person" })).toBeInTheDocument();
+      expect(await revealIsolatedObject(user, "Aster")).toBeInTheDocument();
       expect(screen.getByText("World · World A")).toBeInTheDocument();
       expect(fetchMock.mock.calls.some(([path]) => String(path) === "/api/live/native-graph-explorer/graph")).toBe(true);
       const graphCall = fetchMock.mock.calls.find(([path]) => String(path) === "/api/live/native-graph-explorer/graph");
@@ -613,14 +627,14 @@ describe("canonical local guest entry", () => {
     const user = userEvent.setup();
 
     render(<App />);
-    expect(await screen.findByRole("button", { name: "Aster, person" })).toBeInTheDocument();
+    expect(await revealIsolatedObject(user, "Aster")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Refresh" }));
     await waitFor(() => expect(fetchMock.mock.calls.filter(([path, init]) => String(path) === "/api/live/native-graph-explorer/graph"
       && JSON.parse(String(init?.body)).managed_world_id === "world-a")).toHaveLength(2));
 
     await user.click(screen.getByRole("button", { name: "Switch World: World A" }));
     await user.click(await screen.findByRole("button", { name: "World B" }));
-    expect(await screen.findByRole("button", { name: "Bramble, person" })).toBeInTheDocument();
+    expect(await revealIsolatedObject(user, "Bramble")).toBeInTheDocument();
     expect(screen.getByText("World · World B")).toBeInTheDocument();
 
     await act(async () => resolveSecondA(Response.json(managedGraphEnvelope("world-a", "Aster late"))));
@@ -636,7 +650,7 @@ describe("canonical local guest entry", () => {
     const user = userEvent.setup();
     const mounted = render(<StrictMode><App /></StrictMode>);
 
-    expect(await screen.findByRole("button", { name: "Aster, person" })).toBeInTheDocument();
+    expect(await revealIsolatedObject(user, "Aster")).toBeInTheDocument();
     const clientsFor = (worldId: string) => managedClientHarness.created
       .filter((entry) => entry.worldId === worldId)
       .map((entry) => entry.client);
@@ -658,7 +672,7 @@ describe("canonical local guest entry", () => {
 
     await user.click(screen.getByRole("button", { name: "Switch World: World A" }));
     await user.click(await screen.findByRole("button", { name: "World B" }));
-    expect(await screen.findByRole("button", { name: "Bramble, person" })).toBeInTheDocument();
+    expect(await revealIsolatedObject(user, "Bramble")).toBeInTheDocument();
     expect(screen.getByText("World · World B")).toBeInTheDocument();
 
     const worldBClients = clientsFor("world-b");
@@ -691,7 +705,7 @@ describe("canonical local guest entry", () => {
     vi.stubGlobal("fetch", managedServerFetch());
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByRole("button", { name: "Aster, person" });
+    await revealIsolatedObject(user, "Aster");
     await user.click(screen.getByRole("button", { name: "Add object" }));
     expect(screen.getByLabelText("Name")).toHaveValue("Pre-existing local draft");
   });
@@ -729,7 +743,7 @@ describe("canonical local guest entry", () => {
     const user = userEvent.setup();
     const mounted = render(<App />, { reactStrictMode: true });
     try {
-      await screen.findByRole("button", { name: "Aster, person" });
+      await revealIsolatedObject(user, "Aster");
       await user.click(screen.getByRole("button", { name: "Add object" }));
       await user.type(screen.getByLabelText("Name"), "Hosted creation");
       await user.click(screen.getByRole("button", { name: "Prepare object" }));
@@ -785,7 +799,7 @@ describe("canonical local guest entry", () => {
     const user = userEvent.setup();
     const mounted = render(<App />, { reactStrictMode: true });
     try {
-      const point = await screen.findByRole("button", { name: "Aster, person" });
+      const point = await revealIsolatedObject(user, "Aster");
       expect(fetchMock.mock.calls.some(([path]) => String(path) === "/api/live/native-graph-inspection/read")).toBe(false);
       await user.click(point);
       expect(await screen.findByText("Aster · description: Keeps the observatory charts.")).toBeInTheDocument();
@@ -828,12 +842,12 @@ describe("canonical local guest entry", () => {
     window.history.replaceState({}, "", "/?world=world-a");
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByRole("button", { name: "Aster, person" });
+    await revealIsolatedObject(user, "Aster");
     await user.click(screen.getByRole("button", { name: "Add object" }));
     await user.type(screen.getByLabelText("Name"), "Owner A private draft");
     subject = "owner-b";
     fireEvent(window, new Event("focus"));
-    await screen.findByRole("button", { name: "Bramble, person" });
+    await revealIsolatedObject(user, "Bramble");
     expect(screen.queryByRole("button", { name: "Aster, person" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Add object" }));
     expect(screen.getByLabelText("Name")).toHaveValue("");
@@ -841,7 +855,7 @@ describe("canonical local guest entry", () => {
     await user.type(screen.getByLabelText("Name"), "Owner B private draft");
     subject = "owner-a";
     fireEvent(window, new Event("focus"));
-    await screen.findByRole("button", { name: "Aster, person" });
+    await revealIsolatedObject(user, "Aster");
     await user.click(screen.getByRole("button", { name: "Add object" }));
     expect(screen.getByLabelText("Name")).toHaveValue("Owner A private draft");
     expect(screen.queryByDisplayValue("Owner B private draft")).not.toBeInTheDocument();
@@ -863,7 +877,7 @@ describe("canonical local guest entry", () => {
     window.history.replaceState({}, "", "/?world=world-a");
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByRole("button", { name: "Aster, person" });
+    await revealIsolatedObject(user, "Aster");
     await user.click(screen.getByRole("button", { name: "Refresh" }));
     await waitFor(() => expect(fetchMock.mock.calls.filter(([path]) => String(path) === "/api/live/native-graph-explorer/graph")).toHaveLength(2));
     status = nextStatus;
