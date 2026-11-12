@@ -2,9 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   activateStatblockRetrieval,
-  addGeneratedStatblockToCombat,
-  advanceCombatTurn,
-  applyCombatHpDelta,
   commitTiptapMarkdownWrite,
   commitWorldRunbookMarkdownWrite,
   admitNativeWorldSource,
@@ -55,7 +52,6 @@ import {
   postWorldGraphCompleteObject,
   postWorldGraphSourceAnchorRead,
   setNativeGraphAccessToken,
-  getCurrentCombat,
   getGeneratedStatblock,
   getStatblockWorkbenchDraft,
   getStatblockWorkbenchSample,
@@ -74,13 +70,10 @@ import {
   prepareThreatIdentityCandidates,
   listGeneratedStatblocks,
   listStatblockWorkbenchDrafts,
-  patchCombatEntity,
   postCommand,
   postCitationSource,
   postStatblockWorkbenchCommand,
   prepareTiptapMarkdownWrite,
-  setCombatActiveTurn,
-  sortCombatInitiative,
   storeStatblockWorkbenchDraft,
   verifyStatblockRetrieval,
 } from "./liveApi";
@@ -2064,63 +2057,6 @@ describe("liveApi artifact/capability helpers", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url] = fetchSpy.mock.calls[0];
     expect(String(url)).toBe("/api/live/statblocks/view/generated/statblock%3Adraft%20test");
-  });
-
-  it("getCurrentCombat calls expected current combat endpoint", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({ schema: "dmb_combat_encounter_state_v1", entities: [] }),
-    );
-
-    await getCurrentCombat();
-
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const [url] = fetchSpy.mock.calls[0];
-    expect(String(url)).toBe("/api/live/combat/current");
-  });
-
-  it("combat roster mutation helpers call expected endpoints", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({
-        schema_version: "dmb_combat_mutation_v1",
-        encounter: { entities: [] },
-        diagnostics: [],
-      }),
-    );
-
-    await patchCombatEntity("entity:one", { notes: "bloodied" });
-    await applyCombatHpDelta("entity:one", { action: "damage", amount: 7 });
-    await sortCombatInitiative();
-    await setCombatActiveTurn({ entity_id: "entity:one" });
-    await advanceCombatTurn({ direction: "previous" });
-
-    expect(fetchSpy).toHaveBeenCalledTimes(5);
-    expect(String(fetchSpy.mock.calls[0][0])).toBe(
-      "/api/live/combat/current/entities/entity%3Aone",
-    );
-    expect(fetchSpy.mock.calls[0][1]?.method).toBe("PATCH");
-    expect(String(fetchSpy.mock.calls[1][0])).toBe(
-      "/api/live/combat/current/entities/entity%3Aone/hp-delta",
-    );
-    expect(fetchSpy.mock.calls[1][1]?.method).toBe("POST");
-    expect(String(fetchSpy.mock.calls[2][0])).toBe("/api/live/combat/current/sort-initiative");
-    expect(String(fetchSpy.mock.calls[3][0])).toBe("/api/live/combat/current/active-turn");
-    expect(String(fetchSpy.mock.calls[4][0])).toBe("/api/live/combat/current/turn");
-  });
-
-  it("addGeneratedStatblockToCombat posts encoded add request", async () => {
-    const request = { team: "enemy" as const, count: 2, initiative: 17 };
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({ schema_version: "dmb_add_generated_statblock_to_combat_v1" }),
-    );
-
-    await addGeneratedStatblockToCombat("statblock:draft test", request);
-
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchSpy.mock.calls[0];
-    expect(String(url)).toBe("/api/live/statblocks/view/generated/statblock%3Adraft%20test/combat/add");
-    expect(init?.method).toBe("POST");
-    expect(init?.headers).toEqual({ "Content-Type": "application/json" });
-    expect(JSON.parse(String(init?.body))).toEqual(request);
   });
 
   it("acceptThreatDraftMechanics posts to mechanics:accept", async () => {

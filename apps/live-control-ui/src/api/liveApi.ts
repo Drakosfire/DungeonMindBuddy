@@ -41,19 +41,6 @@ import type {
   WorldPlanActionProjectionPage,
   WorldPlanActionConversationProjectionPage,
   LiveSurfaceResponse,
-  AddGeneratedStatblockCombatRequest,
-  AddGeneratedStatblockCombatResponse,
-  CombatEncounterState,
-  CombatEntityPatchRequest,
-  CombatHpDeltaRequest,
-  CombatMutationResponse,
-  CombatSavesListResponse,
-  CombatSaveSlotResponse,
-  CombatSetActiveRequest,
-  CombatTurnRequest,
-  LoadCombatSaveRequest,
-  NewCombatEncounterRequest,
-  SaveCurrentCombatRequest,
   GeneratedStatblockDetailResponse,
   GeneratedStatblockListResponse,
   IngestionSourceBundle,
@@ -154,7 +141,6 @@ import type {
   ThreatDraft,
   ReviseCandidateFromEditedDefinitionRequestV1,
   ReviseCandidateFromEditedDefinitionResponseV1,
-  WorldGraphBootstrapStatusV1,
   ReadStatblockCandidateResponseV1,
   ValidateDefinitionBuddyRequestV1,
   ValidateDefinitionBuddyResponseV1,
@@ -2095,10 +2081,6 @@ export async function getStatblockIntegrationReadiness(): Promise<StatblockInteg
   return apiFetch<StatblockIntegrationReadinessV1>("/api/live/statblocks/v1/readiness");
 }
 
-export async function getWorldGraphBootstrapStatus(): Promise<WorldGraphBootstrapStatusV1> {
-  return apiFetch<WorldGraphBootstrapStatusV1>("/api/live/world-graph-bootstrap/status");
-}
-
 export async function createThreatDraft(
   request: CreateThreatDraftRequest,
 ): Promise<ThreatDraft> {
@@ -2223,24 +2205,6 @@ export async function getGeneratedStatblock(
 ): Promise<GeneratedStatblockDetailResponse> {
   return apiFetch<GeneratedStatblockDetailResponse>(
     `/api/live/statblocks/view/generated/${encodeURIComponent(artifactId)}`,
-  );
-}
-
-export async function getCurrentCombat(): Promise<CombatEncounterState> {
-  return apiFetch<CombatEncounterState>("/api/live/combat/current");
-}
-
-export async function addGeneratedStatblockToCombat(
-  artifactId: string,
-  request: AddGeneratedStatblockCombatRequest,
-): Promise<AddGeneratedStatblockCombatResponse> {
-  return apiFetch<AddGeneratedStatblockCombatResponse>(
-    `/api/live/statblocks/view/generated/${encodeURIComponent(artifactId)}/combat/add`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request),
-    },
   );
 }
 
@@ -2929,88 +2893,6 @@ export async function verifyStatblockRetrieval(
     `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}/retrieval/verify`,
     { method: "POST", body: JSON.stringify(request) },
   );
-}
-
-export async function patchCombatEntity(
-  entityId: string,
-  request: CombatEntityPatchRequest,
-): Promise<CombatMutationResponse> {
-  return apiFetch<CombatMutationResponse>(
-    `/api/live/combat/current/entities/${encodeURIComponent(entityId)}`,
-    { method: "PATCH", body: JSON.stringify(request) },
-  );
-}
-
-export async function applyCombatHpDelta(
-  entityId: string,
-  request: CombatHpDeltaRequest,
-): Promise<CombatMutationResponse> {
-  return apiFetch<CombatMutationResponse>(
-    `/api/live/combat/current/entities/${encodeURIComponent(entityId)}/hp-delta`,
-    { method: "POST", body: JSON.stringify(request) },
-  );
-}
-
-export async function sortCombatInitiative(): Promise<CombatMutationResponse> {
-  return apiFetch<CombatMutationResponse>("/api/live/combat/current/sort-initiative", {
-    method: "POST",
-    body: JSON.stringify({}),
-  });
-}
-
-export async function setCombatActiveTurn(
-  request: CombatSetActiveRequest,
-): Promise<CombatMutationResponse> {
-  return apiFetch<CombatMutationResponse>("/api/live/combat/current/active-turn", {
-    method: "POST",
-    body: JSON.stringify(request),
-  });
-}
-
-export async function advanceCombatTurn(
-  request: CombatTurnRequest = { direction: "next" },
-): Promise<CombatMutationResponse> {
-  return apiFetch<CombatMutationResponse>("/api/live/combat/current/turn", {
-    method: "POST",
-    body: JSON.stringify(request),
-  });
-}
-
-export async function listCombatSaves(): Promise<CombatSavesListResponse> {
-  return apiFetch<CombatSavesListResponse>("/api/live/combat/saves");
-}
-
-export async function loadCombatSave(
-  request: LoadCombatSaveRequest,
-): Promise<CombatSaveSlotResponse> {
-  return apiFetch<CombatSaveSlotResponse>("/api/live/combat/current/load", {
-    method: "POST",
-    body: JSON.stringify(request),
-  });
-}
-
-export async function unloadCurrentCombat(): Promise<CombatSaveSlotResponse> {
-  return apiFetch<CombatSaveSlotResponse>("/api/live/combat/current/unload", {
-    method: "POST",
-  });
-}
-
-export async function newCombatEncounter(
-  request: NewCombatEncounterRequest = {},
-): Promise<CombatSaveSlotResponse> {
-  return apiFetch<CombatSaveSlotResponse>("/api/live/combat/current/new", {
-    method: "POST",
-    body: JSON.stringify(request),
-  });
-}
-
-export async function saveCurrentCombatAs(
-  request: SaveCurrentCombatRequest,
-): Promise<CombatSaveSlotResponse> {
-  return apiFetch<CombatSaveSlotResponse>("/api/live/combat/saves", {
-    method: "POST",
-    body: JSON.stringify(request),
-  });
 }
 
 export async function getPlayActiveRun(): Promise<PlayActiveRunState> {
