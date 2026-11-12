@@ -18,25 +18,9 @@ Use [the agent instructions](../AGENTS.md) when picking up work. Read the
 owning contract and the active handoff for that assignment. Archived plans
 and dated reports provide historical evidence.
 
-## Hosted deployment gates
+## Hosted deployment
 
-The [production package smoke](https://github.com/Drakosfire/DungeonMindBuddy/pull/2478)
-was rerun on merged main at `d9d4985e5`. It exercised the built SPA, liveness
-and readiness, and signed-out and synthetic signed-in requests to the World
-collection. It used disposable databases and a DMS fixture. Record the live evidence below against the release image digest
-before exposing Buddy at `buddy.dungeonmind.net`.
-
-1. Run the [read-only host inventory](Plans/RUNBOOK-HOSTED-read-only-host-inventory.md).
-   Confirm capacity, the loopback upstream, DNS and TLS, and the
-   [Nginx streaming configuration](../deploy/production/nginx-buddy.conf).
-2. Confirm migration heads and owners for Buddy application state and
-   DungeonMind WorldGraph. Verify the durable managed-World, artifact,
-   session, and WorldGraph roots against the
-   [Compose example](../deploy/production/compose.production.yaml). Rehearse
-   backup restoration and record the previous image digest and rollback owner.
-3. Confirm the approved DMS subjects and managed World assignments. From a
-   browser on the Buddy origin, exercise real DMS login, the landing target,
-   session cookie delivery, the assigned World collection, and logout. Verify
-   signed-out and unauthorized requests are denied.
-4. Check `/health/live`, `/health/ready`, the SPA and a supported signed-in
-   route through the deployed edge. Record results with the release digest.
+Follow the [Buddy production deployment runbook](Runbooks/RUNBOOK-buddy-production-deployment.md)
+for recovery verification, release commands, public edge checks, and the real
+browser sign-in and sign-out smoke. The [local production smoke](https://github.com/Drakosfire/DungeonMindBuddy/pull/2478)
+used disposable databases and a synthetic DMS session.
