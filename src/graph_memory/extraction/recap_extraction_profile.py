@@ -171,11 +171,12 @@ _EXPLICIT_PASSAGE_TRANSITIONS = (
 )
 
 _SOURCE_ORDER_OCCURRENCES = (
-    "Retain specific occurred events needed to express source-supported before/after "
-    "relationships as event nodes. These can be actual discoveries, discussions, "
-    "decisions or planning acts; a proposed future outcome is a different occurrence. "
-    "For a definitely occurred action needed to express source-supported order, "
-    "emit an event candidate rather than only a clue for what was learned. "
+    "Extract each meaningful played occurrence as its own event node. A journey, "
+    "assignment, encounter, discovery, or agreement can contain distinct occurrences "
+    "with different participants, places, or outcomes. Give each occurrence its own "
+    "label and exact evidence, even when the recap leaves their relative order unclear. "
+    "Distinguish a plan made during play from its proposed outcome and from GM notes "
+    "about future play. When a discovery occurs, capture the event and what was learned. "
     "An uncertain object or result does not make a definite occurrence unresolved; "
     "preserve uncertainty about whether an action occurred. Reuse the occurrence "
     "rather than duplicating it as both event and clue solely for categorization. "
