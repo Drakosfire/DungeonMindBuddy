@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "dataset_id": "adventure_pdf_source_gold_v1",
+  "schema_version": "1.1",
   "title": "Adventure PDF source gold, first slice",
   "purpose": "Small manually source-checked gold for document structure and extraction. This records what the selected PDF bytes say; it does not correct unusual source values or score an extractor.",
   "status": {
-    "coverage": "Three reviewed blocks across two exact PDFs; not whole-document coverage.",
+    "coverage": "Five reviewed blocks across two exact PDFs, including prose and map regions; not whole-document coverage.",
     "evaluation": "Development gold, not a pristine blind holdout. The Sheep PDF was used in earlier OCR work.",
-    "method": "Expected values transcribed from rendered PDF pages and checked against the exact SHA-256-pinned files."
+    "method": "Expected prose, visual, and structured values were checked against rendered regions in the exact SHA-256-pinned PDFs."
   },
   "sources": [
     {
@@ -26,6 +27,49 @@
     }
   ],
   "cases": [
+    {
+      "case_id": "conks-greenfields-opening-paragraph",
+      "source_id": "conks",
+      "physical_page": 3,
+      "printed_page": 4,
+      "block_type": "prose_region",
+      "block_title": "The Greenfields — opening paragraph",
+      "source_region": {
+        "coordinate_system": "normalized_page_top_left",
+        "x": 0.07,
+        "y": 0.07,
+        "width": 0.4,
+        "height": 0.17,
+        "description": "Left column, first paragraph below the heading."
+      },
+      "expected_text": "The Greenfields are part of the Western Heartland of Faerûn and lie just south-east of Baldur’s Gate. Not much is known about the Greenfields in terms of official canon. In the south, the Greenfields border the Cloudpeaks, the Snakewood, and the Troll Mountains. In the north lie the river Chionthar and the Wood of Sharp Teeth. The only larger settlement in the Greenfields is known as Greenest, whereas all other settlements spring from my imagination.",
+      "source_note": "Transcribed from the exact rendered PDF region. The retained DeepSeek OCR 2 output reconstructs Greenfields and official; Poppler text extraction splits their embedded ligature glyphs as ‘Green elds’ and ‘o cial’. This is a diagnostic source case, not a claim about PDF.js behavior."
+    },
+    {
+      "case_id": "sheep-house-in-the-woods-map",
+      "source_id": "sheep",
+      "physical_page": 4,
+      "block_type": "map",
+      "block_title": "The House in the Woods compound map",
+      "source_region": {
+        "coordinate_system": "normalized_page_top_left",
+        "x": 0.068,
+        "y": 0.542,
+        "width": 0.862,
+        "height": 0.413,
+        "description": "The framed map below the House in the Woods text."
+      },
+      "expected_visual_features": [
+        "A top-down, square-grid woodland compound map inside a thin rectangular frame.",
+        "The largest feature is a round wooden platform with multiple interior areas.",
+        "A smaller round platform lies to the left and below the central platform, connected by a narrow walkway.",
+        "A larger round platform lies to the right and below the central platform, connected by a narrow walkway.",
+        "Two detached rectangular buildings lie to the far left, with another small rectangular building below the central platform.",
+        "Trees and green foliage surround the buildings, and a path crosses the lower part of the map.",
+        "The map itself has no readable location labels."
+      ],
+      "source_note": "Visual facts were checked against the exact PDF page and map crop. The retained OCR output transcribes the page prose but does not describe the map; text-layer success must not count as visual-map coverage."
+    },
     {
       "case_id": "conks-grotesque-tree-statblock",
       "source_id": "conks",
