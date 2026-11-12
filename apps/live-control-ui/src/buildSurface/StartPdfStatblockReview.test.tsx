@@ -42,7 +42,7 @@ it("shows incomplete extraction details without opening or saving a review", asy
   } }, { status: 422 }) } as Awaited<ReturnType<typeof authenticatedApiFetch>>);
   render(<StartPdfStatblockReview worldId="elderwyld" regions={[first]} onRemoveRegion={vi.fn()} />);
   fireEvent.click(screen.getByRole("button", { name: "Create statblock review" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent("Hit Points; ability scores");
+  expect(await screen.findByRole("alert")).toHaveTextContent("Hit Points; ability scores. (pdf_statblock_extraction_incomplete)");
   expect(screen.queryByRole("link")).not.toBeInTheDocument();
 });
 
@@ -53,8 +53,33 @@ it("explains an invalid structured response without offering a saved review", as
   } }, { status: 502 }) } as Awaited<ReturnType<typeof authenticatedApiFetch>>);
   render(<StartPdfStatblockReview worldId="elderwyld" regions={[first]} onRemoveRegion={vi.fn()} />);
   fireEvent.click(screen.getByRole("button", { name: "Create statblock review" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent("No review was saved");
+  expect(await screen.findByRole("alert")).toHaveTextContent("pdf_statblock_output_invalid");
   expect(screen.queryByRole("link")).not.toBeInTheDocument();
+});
+
+it("surfaces the generation failure code with an actionable explanation", async () => {
+  const fetch = vi.mocked(authenticatedApiFetch);
+  fetch.mockResolvedValue({ response: Response.json({ detail: {
+    code: "pdf_statblock_generation_unavailable",
+  } }, { status: 503 }) } as Awaited<ReturnType<typeof authenticatedApiFetch>>);
+  render(<StartPdfStatblockReview worldId="elderwyld" regions={[first]} onRemoveRegion={vi.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: "Create statblock review" }));
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent("could not generate a structured statblock");
+  expect(alert).toHaveTextContent("pdf_statblock_generation_unavailable");
+  expect(screen.queryByRole("link")).not.toBeInTheDocument();
+});
+
+it("shows a safe unknown error code without exposing server detail", async () => {
+  const fetch = vi.mocked(authenticatedApiFetch);
+  fetch.mockResolvedValue({ response: Response.json({ detail: {
+    code: "pdf_statblock_internal_error", message: "private server details",
+  } }, { status: 500 }) } as Awaited<ReturnType<typeof authenticatedApiFetch>>);
+  render(<StartPdfStatblockReview worldId="elderwyld" regions={[first]} onRemoveRegion={vi.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: "Create statblock review" }));
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent("pdf_statblock_internal_error");
+  expect(alert).not.toHaveTextContent("private server details");
 });
 
 it("offers an existing review after a conflict", async () => {
