@@ -6,6 +6,13 @@ agent policy; slice-specific authority lives in a durable pinned handoff. Legacy
 When consulting historical process material, apply this policy and explicit user
 instructions rather than conflicting legacy requirements.
 
+## Start here
+
+Use the [documentation index](Docs/README.md) to find the owning contract.
+Read the active handoff before implementing, and use the verification standard
+below for the affected boundary. The [lab guide](evals/README.md) points to
+experimental runners and their inputs.
+
 ## Ecosystem execution core — overmind-agent-core-v1
 
 These rules are intentionally shared across active DungeonMind ecosystem repositories. Repository-specific law may add constraints, but it must not weaken this core.

@@ -67,8 +67,6 @@ evals/mirathorn_vertical_slice/output/parity_experiment_*/cell_*/
 # Corpus PDFs (statblocks, handouts) under corpus/ are tracked, e.g.
 # corpus/eldyrwild-markdown/Longmont Campaign/NPCs/*.pdf — do not add a blanket *.pdf here.
 
-# Eldyrwild corpus: nested ignores under Docs/Eldyrwild and Campaign Context/.gitignore
-
 # Secrets
 serviceAccountKey.json
 secrets.txt
@@ -130,3 +128,6 @@ evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/**
 !evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion-v15/
 !evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion-v15/calibration/
 !evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01g/promotion-v15/calibration/aggregate.json
+
+# Installed frontend dependencies and tool caches
+node_modules/

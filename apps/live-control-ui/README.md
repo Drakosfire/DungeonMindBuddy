@@ -93,23 +93,23 @@ server and `MODEL_POLICY.json`; do not put API keys into Vite/client env.
 
 ```bash
 cd apps/live-control-ui
-pnpm install
-pnpm dev        # http://localhost:5173 — proxies /api to the server
-pnpm test       # Vitest
-pnpm build      # typecheck + production bundle
+npm ci
+npm run dev        # http://localhost:5173 — proxies /api to the server
+npm test       # Vitest
+npm run build      # typecheck + production bundle
 ```
 
 Focused verification commonly uses:
 
 ```bash
-pnpm exec vitest run src/workspaceDocument/ src/markdownCanvas/ src/planSurface/ src/buildSurface/
-pnpm exec tsc -b
-pnpm build
+npm exec -- vitest run src/workspaceDocument/ src/markdownCanvas/ src/planSurface/ src/buildSurface/
+npm exec -- tsc -b
+npm run build
 ```
 
 ## Manual smoke
 
-Play first-time setup is **not** just `uvicorn` plus `pnpm dev`. Configure
+Play first-time setup is **not** just `uvicorn` plus `npm run dev`. Configure
 `DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL` and run
 `uv run python scripts/bootstrap_local_play.py apply` first. See
 [`Docs/Runbooks/RUNBOOK-local-play-dogfood.md`](../../Docs/Runbooks/RUNBOOK-local-play-dogfood.md).
@@ -131,7 +131,7 @@ Terminal 2:
 
 ```bash
 cd apps/live-control-ui
-pnpm dev
+npm run dev
 ```
 
 **Start at the launcher:** open `http://127.0.0.1:5173/`, then choose the
