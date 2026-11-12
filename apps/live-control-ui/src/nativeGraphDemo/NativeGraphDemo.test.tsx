@@ -63,6 +63,21 @@ function renderEmbeddedDemo(props: Omit<NativeGraphDemoProps, "embedded"> = {}) 
   </SurfaceContextProvider>);
 }
 
+function graphAction(name: string) {
+  const existing = screen.queryByRole("button", { name, exact: true });
+  if (existing) return existing;
+  const menu = ["Refresh", "Info", "Export snapshot"].includes(name) ? "More graph actions"
+    : ["Show overview", "Expand neighborhood"].includes(name) ? "Focused neighborhood" : "Graph tools";
+  fireEvent.click(screen.getByRole("button", { name: menu, exact: true }));
+  return screen.getByRole("button", { name, exact: true });
+}
+
+function revealControl() {
+  if (!screen.queryByRole("checkbox", { name: /Show objects without listed relationships/ }))
+    fireEvent.click(screen.getByRole("button", { name: "Graph view options", exact: true }));
+  return screen.getByRole("checkbox", { name: /Show objects without listed relationships/ });
+}
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason?: unknown) => void;
@@ -117,7 +132,7 @@ describe("NativeGraphDemo", () => {
     renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:names" });
     await screen.findByRole("button", { name: /Mara, npc/i });
     expect(document.querySelector('[data-node-id="entity:tomas"]')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByText("Find an object · 3 loaded"));
+    fireEvent.click(screen.getByRole("button", { name: "Find an object · 3 loaded" }));
     fireEvent.change(screen.getByLabelText("Search loaded objects"), { target: { value: "Zed" } });
     fireEvent.click(screen.getByRole("button", { name: "Explore Captain Tomas / Tomas (+1 more) (entity:tomas)" }));
     expect(await screen.findByRole("button", { name: "Captain Tomas / Tomas (+1 more), character (role unspecified)" })).toHaveAttribute("data-node-id", "entity:tomas");
@@ -151,12 +166,12 @@ describe("NativeGraphDemo", () => {
     const corpus = corpusGraph();
     const api = makeApi({ readGraph: vi.fn().mockResolvedValue(corpus), inspectNode: vi.fn().mockResolvedValue(entityDetail(corpus.revision_id, false)) });
     renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Corpus", stateScopeId: "managed:world-17" });
-    await screen.findByText(/561 loaded objects · 559 real relationships/);
+    await screen.findByText(/561\/1404 objects shown · 559 relationships/);
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(561);
     expect(document.querySelectorAll("[data-edge-id]")).toHaveLength(559);
     expect(screen.getByTestId("graph-scene")).toHaveAttribute("data-detail", "overview");
     expect(screen.queryByLabelText("Graph projection diagnostics")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByText("Find an object · 1404 loaded"));
+    fireEvent.click(screen.getByRole("button", { name: "Find an object · 1404 loaded" }));
     expect(within(screen.getByRole("list", {name: "Matching graph objects"})).getAllByRole("button")).toHaveLength(20);
     fireEvent.click(screen.getByRole("button", {name: "Next objects"}));
     expect(screen.getByText("Page 2 of 71")).toBeInTheDocument();
@@ -167,11 +182,14 @@ describe("NativeGraphDemo", () => {
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(3);
     expect(screen.getByRole("button", {name: "Object 1000, location"})).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByLabelText("Graph zoom")).toHaveTextContent("135%");
-    fireEvent.click(screen.getByRole("button", {name: "Expand neighborhood"}));
+    fireEvent.click(graphAction("Expand neighborhood"));
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(5);
     expect(document.querySelector('[data-node-id="entity:1002"]')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", {name: "Show overview"}));
+    fireEvent.click(graphAction("Show overview"));
+    expect(screen.getByRole("button", { name: "Find an object · 1404 loaded" })).toHaveFocus();
+    expect(screen.queryByRole("button", { name: "Focused neighborhood" })).not.toBeInTheDocument();
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(561);
+    fireEvent.click(screen.getByRole("button", { name: "Find an object · 1404 loaded" }));
     fireEvent.click(screen.getByRole("button", {name: "Explore Object 1000 (entity:1000)"}));
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(3);
     expect(api.prepare).not.toHaveBeenCalled();
@@ -183,7 +201,7 @@ describe("NativeGraphDemo", () => {
     localStorage.setItem(`dungeonmind-native-demo:layout:${encodeURIComponent(corpus.world_id)}`, JSON.stringify({"entity:1403": {x: 5800, y: 5800}}));
     vi.stubGlobal("ResizeObserver", undefined);
     renderEmbeddedDemo({api: makeApi({readGraph: vi.fn().mockResolvedValue(corpus)})});
-    fireEvent.click(await screen.findByText("Find an object · 1404 loaded"));
+    fireEvent.click(await screen.findByRole("button", { name: "Find an object · 1404 loaded" }));
     const scene = screen.getByTestId("graph-scene");
     fireEvent.click(screen.getByRole("button", {name: "Fit graph"}));
     const overviewCamera = scene.getAttribute("transform");
@@ -192,7 +210,7 @@ describe("NativeGraphDemo", () => {
     fireEvent.click(screen.getByRole("button", {name: "Fit graph"}));
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1);
     expect(scene.getAttribute("transform")).not.toBe(overviewCamera);
-    fireEvent.click(screen.getByRole("button", {name: "Show overview"}));
+    fireEvent.click(graphAction("Show overview"));
     // The explicitly selected isolate remains available alongside the connected overview.
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(562);
     expect(document.querySelector('[data-node-id="entity:1403"]')).toHaveAttribute("aria-pressed", "true");
@@ -209,7 +227,7 @@ describe("NativeGraphDemo", () => {
     const delayed = deferred<NativeGraphEntity>();
     const api = makeApi({ readGraph: vi.fn().mockResolvedValueOnce(corpus).mockResolvedValueOnce(revised), inspectNode: vi.fn(() => delayed.promise) });
     renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Corpus", stateScopeId: "managed:world-17" });
-    fireEvent.click(await screen.findByText("Find an object · 1404 loaded"));
+    fireEvent.click(await screen.findByRole("button", { name: "Find an object · 1404 loaded" }));
     fireEvent.click(screen.getByRole("button", {name: "Fit graph"}));
     const scene = screen.getByTestId("graph-scene");
     const overviewCamera = scene.getAttribute("transform");
@@ -218,8 +236,10 @@ describe("NativeGraphDemo", () => {
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1);
     expect(document.querySelector('[data-node-id="entity:1403"]')).toBeInTheDocument();
     if (afterFit) fireEvent.click(screen.getByRole("button", {name: "Fit graph"}));
-    fireEvent.click(within(screen.getByTestId("surface-context-host")).getByRole("button", {name: "Refresh"}));
-    await waitFor(() => expect(screen.getByLabelText("Search loaded objects")).toHaveValue(""));
+    fireEvent.click(graphAction("Refresh"));
+    await waitFor(() => expect(document.querySelectorAll("[data-node-id]")).toHaveLength(561));
+    fireEvent.click(screen.getByRole("button", { name: "Find an object · 1404 loaded" }));
+    expect(screen.getByLabelText("Search loaded objects")).toHaveValue("");
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(561);
     expect(screen.queryByRole("group", {name: "Neighborhood controls"})).not.toBeInTheDocument();
     expect(scene.getAttribute("transform")).toBe(overviewCamera);
@@ -286,52 +306,45 @@ describe("NativeGraphDemo", () => {
     const navbar = within(screen.getByTestId("surface-context-host"));
     expect(navbar.getByText("Buddy playground · private graph")).toBeInTheDocument();
     expect(navbar.getByText("Saved to DungeonMind")).toBeInTheDocument();
-    expect(navbar.getByRole("button", { name: "Add object" })).toBeEnabled();
-    expect(navbar.getByRole("button", { name: "Connect" })).toBeEnabled();
-    expect(navbar.getByRole("button", { name: "Refresh" })).toBeEnabled();
-    expect(navbar.getByRole("button", { name: "Info" })).toBeEnabled();
-    expect(navbar.getByRole("button", { name: "Export snapshot" })).toBeEnabled();
-    expect(navbar.getByText("3 objects · 1 relationships")).toBeInTheDocument();
+    expect(graphAction("Add object")).toBeEnabled();
+    expect(graphAction("Connect")).toBeEnabled();
+    expect(graphAction("Refresh")).toBeEnabled();
+    expect(graphAction("Info")).toBeEnabled();
+    expect(graphAction("Export snapshot")).toBeEnabled();
+    expect(navbar.getByRole("button", { name: "Fit graph" })).toBeEnabled();
     expect(document.querySelector(".native-demo-graph-meta")).toBeNull();
-    expect(document.querySelector(".world-graph-canvas__feedback")).toBeEmptyDOMElement();
-    expect(document.querySelector(".native-demo-canvas-note")).toBeNull();
-    const helpButton = screen.getByRole("button", { name: "Graph interaction help" });
-    const helpTooltip = document.querySelector(".native-demo-canvas-help__tooltip")!;
-    expect(helpButton).toHaveAttribute("aria-describedby", helpTooltip.id);
-    expect(helpTooltip).toHaveAttribute("role", "tooltip");
-    expect(helpTooltip).toHaveTextContent("Drag anywhere to pan. Choose Move nodes to fix a bubble in place");
-    expect(helpTooltip).toHaveTextContent(/Use Place node to choose where a new node should go/);
-    helpButton.focus();
-    expect(helpButton).toHaveFocus();
-    expect(helpButton).toHaveAttribute("aria-expanded", "false");
-    await user.click(helpButton);
-    expect(helpButton).toHaveAttribute("aria-expanded", "true");
-    await user.click(helpButton);
-    expect(helpButton).toHaveAttribute("aria-expanded", "false");
-    expect(helpButton.parentElement).toHaveAttribute("data-dismissed", "true");
-    await user.click(helpButton);
-    expect(helpButton).toHaveAttribute("aria-expanded", "true");
+    const canvas = screen.getByRole("region", { name: "Local World graph canvas" });
+    expect(within(canvas).queryByRole("button", { name: "Fit graph" })).not.toBeInTheDocument();
+    expect(within(canvas).queryByText(/loaded objects ·/)).not.toBeInTheDocument();
+    expect(document.querySelector(".native-demo-canvas-help")).toBeNull();
     await user.keyboard("{Escape}");
-    expect(helpButton).toHaveAttribute("aria-expanded", "false");
-    expect(helpButton.parentElement).toHaveAttribute("data-dismissed", "true");
-    await user.click(helpButton);
-    expect(helpButton).toHaveAttribute("aria-expanded", "true");
-    const helpCss = readFileSync(new NodeURL("./nativeGraphDemo.css", import.meta.url), "utf8");
-    expect(helpCss).toMatch(/\.native-demo-canvas-help:hover \.native-demo-canvas-help__tooltip,[\s\S]*?\.native-demo-canvas-help:focus-within \.native-demo-canvas-help__tooltip/);
+    await user.click(screen.getByRole("button", { name: /Mara, npc/i }));
+    const find = navbar.getByRole("button", { name: "Find an object · 3 loaded" });
+    await user.click(find);
+    expect(screen.getByLabelText("Search loaded objects")).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(find).toHaveFocus();
+    expect(screen.getByRole("complementary", { name: "Selected object details" })).toBeInTheDocument();
+    const more = navbar.getByRole("button", { name: "More graph actions" });
+    await user.click(more);
+    expect(more).toHaveAttribute("aria-expanded", "true");
+    await user.keyboard("{Escape}");
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    expect(more).toHaveFocus();
     expect(screen.queryByRole("heading", { name: "The graph so far" })).not.toBeInTheDocument();
     expect(screen.getByTestId("graph-scene").querySelector(".world-graph-canvas__node circle")).not.toBeNull();
     expect(document.querySelector(".native-demo-shell--embedded .world-graph-canvas__viewport")).toBeInTheDocument();
 
-    await user.click(navbar.getByRole("button", { name: "Add object" }));
+    await user.click(graphAction("Add object"));
     await user.type(screen.getByLabelText("Name"), "Aster");
-    await user.click(navbar.getByRole("button", { name: "Connect" }));
+    await user.click(graphAction("Connect"));
     expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Relationship")).toBeInTheDocument();
-    await user.click(navbar.getByRole("button", { name: "Add object" }));
+    await user.click(graphAction("Add object"));
     expect(screen.getByLabelText("Name")).toHaveValue("Aster");
     expect(screen.queryByLabelText("Relationship")).not.toBeInTheDocument();
 
-    await user.click(navbar.getByRole("button", { name: "Info" }));
+    await user.click(graphAction("Info"));
     expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
     expect(screen.getByText(/This private synthetic graph is backed by DungeonMind/)).toBeInTheDocument();
     expect(screen.getByText("Rename is unavailable")).toBeInTheDocument();
@@ -422,7 +435,7 @@ describe("NativeGraphDemo", () => {
     await user.click(mara);
     expect(await screen.findByText(/Loading this object from the loaded World revision/)).toBeInTheDocument();
     expect(api.inspectNode).toHaveBeenCalledWith(graph, "entity:mara", expect.any(AbortSignal));
-    await user.click(screen.getByRole("checkbox", { name: /Show objects without listed relationships/ }));
+    await user.click(revealControl());
     await user.click(screen.getByRole("button", { name: /Tomas, npc/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Tomas detail unavailable");
 
@@ -445,7 +458,7 @@ describe("NativeGraphDemo", () => {
     await user.click(mara);
     await user.click(screen.getByRole("button", { name: "Focus" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Exit focus" })).toBeInTheDocument());
-    await user.click(within(screen.getByTestId("surface-context-host")).getByRole("button", { name: "Refresh" }));
+    await user.click(graphAction("Refresh"));
     await waitFor(() => expect(readGraph).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.queryByRole("button", { name: "Exit focus" })).not.toBeInTheDocument());
     expect(scene.getAttribute("transform")).toBe(overviewBeforeFocus);
@@ -468,7 +481,7 @@ describe("NativeGraphDemo", () => {
     renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:world-17" });
     await user.click(await screen.findByRole("button", { name: /Mara, npc/i }));
     expect(await screen.findByText(/Loading this object from the loaded World revision/)).toBeInTheDocument();
-    await user.click(within(screen.getByTestId("surface-context-host")).getByRole("button", { name: "Refresh" }));
+    await user.click(graphAction("Refresh"));
     await waitFor(() => expect(readGraph).toHaveBeenCalledTimes(2));
 
     delayed.resolve(entityDetail(graph.revision_id, false));
@@ -497,13 +510,32 @@ describe("NativeGraphDemo", () => {
     expect(await screen.findByRole("button", { name: /Mara, npc/i })).toBeInTheDocument();
     const navbar = within(screen.getByTestId("surface-context-host"));
     expect(navbar.getByText("Partial native read")).toBeInTheDocument();
-    expect(navbar.getByText("Listed 3 objects · listed 1 relationships")).toBeInTheDocument();
+    expect(navbar.getByText("2/3 objects shown · 1 relationships")).toBeInTheDocument();
     expect(document.querySelector(".native-demo-graph-meta")).toBeNull();
+    expect(document.querySelector(".native-demo-completeness")).toBeNull();
+    await user.click(navbar.getByRole("button", { name: "Partial native read" }));
     expect(screen.getByText(/2 entities omitted, 0 unexamined; 1 assertions omitted, 0 unexamined/)).toBeInTheDocument();
-    expect(document.querySelector(".native-demo-completeness")).toBeInTheDocument();
-    await user.click(within(screen.getByTestId("surface-context-host")).getByRole("button", { name: "Info" }));
     expect(screen.getAllByText("Some entities have no usable name").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Some assertions could not be represented as graph edges").length).toBeGreaterThan(0);
+    await user.click(graphAction("Add object"));
+    await user.type(screen.getByLabelText("Name"), "Partial graph object");
+    await user.click(screen.getByRole("button", { name: "Prepare object" }));
+    expect(await navbar.findByText("Review ready · partial read")).toBeInTheDocument();
+  });
+
+  it("hides authoring in the Tool menu when the hosted read-only boundary is active", async () => {
+    const api = makeApi();
+    const user = userEvent.setup();
+    renderEmbeddedDemo({ api, readOnly: true, mode: "managed", worldTitle: "Elderwyld", stateScopeId: "hosted-read-only" });
+    await screen.findByRole("button", { name: /Mara, npc/i });
+    await user.click(screen.getByRole("button", { name: "Graph tools" }));
+    for (const name of ["Add object", "Connect", "Place node", "Connect selected nodes"]) {
+      expect(screen.queryByRole("button", { name, exact: true })).not.toBeInTheDocument();
+    }
+    expect(screen.getByRole("button", { name: "Pan graph" })).toBeEnabled();
+    expect(document.querySelector(".world-graph-canvas__node-port")).toBeNull();
+    expect(api.prepare).not.toHaveBeenCalled();
+    expect(api.readOperation).not.toHaveBeenCalled();
   });
 
   it("keeps authoring controls disabled when the selected graph is read-only", async () => {
@@ -517,9 +549,9 @@ describe("NativeGraphDemo", () => {
 
     expect(await screen.findByRole("button", { name: /Mara, npc/i })).toBeInTheDocument();
     const navbar = within(screen.getByTestId("surface-context-host"));
-    expect(navbar.getByRole("button", { name: "Add object" })).toBeDisabled();
-    expect(navbar.getByRole("button", { name: "Connect" })).toBeDisabled();
-    await user.click(navbar.getByRole("button", { name: "Info" }));
+    expect(graphAction("Add object")).toBeDisabled();
+    expect(graphAction("Connect")).toBeDisabled();
+    await user.click(graphAction("Info"));
     expect(screen.getByText("Object creation is read-only here")).toBeInTheDocument();
     expect(screen.getByText("Connections are read-only here")).toBeInTheDocument();
   });
@@ -547,7 +579,7 @@ describe("NativeGraphDemo", () => {
     const api = makeApi({ readGraph: vi.fn().mockResolvedValue(managedGraph) });
     renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:world-17" });
     await screen.findByRole("button", { name: /Mara, npc/i });
-    await user.click(within(screen.getByTestId("surface-context-host")).getByRole("button", { name: "Connect" }));
+    await user.click(graphAction("Connect"));
 
     const relationship = screen.getByLabelText("Relationship");
     expect(relationship.tagName).toBe("SELECT");
@@ -573,7 +605,7 @@ describe("NativeGraphDemo", () => {
     const api = makeApi({ readGraph: vi.fn().mockResolvedValue(managedGraph) });
     renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:world-17" });
     await screen.findByRole("button", { name: /Mara, npc/i });
-    await user.click(within(screen.getByTestId("surface-context-host")).getByRole("button", { name: "Connect" }));
+    await user.click(graphAction("Connect"));
 
     const relationship = screen.getByLabelText("Relationship");
     expect(relationship.tagName).toBe("SELECT");
@@ -623,7 +655,7 @@ describe("NativeGraphDemo", () => {
     renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:world-17" });
 
     expect(await screen.findByRole("button", { name: /Mara, npc/i })).toBeInTheDocument();
-    await user.click(within(screen.getByTestId("surface-context-host")).getByRole("button", { name: "Add object" }));
+    await user.click(graphAction("Add object"));
     expect(screen.getByLabelText("Name")).toHaveValue("Managed draft");
     expect(api.readOperation).not.toHaveBeenCalled();
     expect(sessionStorage.getItem(guestKey)).toContain("Guest-only draft");
@@ -681,7 +713,7 @@ describe("NativeGraphDemo", () => {
       await user.click(mara);
       await user.click(screen.getByRole("button", { name: "Focus" }));
     }
-    await user.click(screen.getByRole("button", { name: "Place node" }));
+    await user.click(graphAction("Place node"));
     const palette = screen.getByTestId("node-palette");
     expect(palette).toBeVisible();
     await user.click(within(palette).getByRole("button", { name: "Person" }));
@@ -725,7 +757,7 @@ describe("NativeGraphDemo", () => {
     renderEmbeddedDemo({ api });
     await screen.findByRole("button", { name: /Mara, npc/i });
 
-    await user.click(screen.getByRole("button", { name: "Place node" }));
+    await user.click(graphAction("Place node"));
     await user.click(within(screen.getByTestId("node-palette")).getByRole("button", { name: "Person" }));
     const nameInput = screen.getByLabelText("Name");
     await user.type(nameInput, "Mira");
@@ -745,7 +777,7 @@ describe("NativeGraphDemo", () => {
     });
     expect(api.prepare).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: "Place node" }));
+    await user.click(graphAction("Place node"));
     await user.click(within(screen.getByTestId("node-palette")).getByRole("button", { name: "Person" }));
     await user.keyboard("{Escape}");
     expect(nameInput).toHaveValue("Mira");
@@ -778,7 +810,7 @@ describe("NativeGraphDemo", () => {
     expect(node).toHaveAttribute("transform", "translate(120 240)");
     expect(localStorage.getItem(key)).toBe(original);
     expect(api.inspectNode).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Move nodes" }));
+    fireEvent.click(graphAction("Move nodes"));
     pointer(node, "pointerdown", 100, 100); pointer(svg, "pointermove", 150, 140); pointer(svg, "pointerup", 150, 140);
     await waitFor(() => expect(localStorage.getItem(key)).not.toBe(original));
     expect(JSON.parse(localStorage.getItem(key) ?? "{}")["entity:mara"]).not.toEqual({ x: 120, y: 240 });
@@ -789,9 +821,9 @@ describe("NativeGraphDemo", () => {
     const api = makeApi();
     renderEmbeddedDemo({ api });
     await screen.findByRole("button", { name: /Mara, npc/i });
-    expect(screen.getByRole("button", { name: "Pan graph" })).toHaveAttribute("aria-pressed", "true");
+    expect(graphAction("Pan graph")).toHaveAttribute("aria-pressed", "true");
 
-    fireEvent.click(screen.getByRole("checkbox", { name: /Show objects without listed relationships/ }));
+    fireEvent.click(revealControl());
     const svg = screen.getByRole("group", { name: "DungeonMind native graph world graph" });
     vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({ width: 960, height: 520, x: 0, y: 0, top: 0, right: 960, bottom: 520, left: 0, toJSON: () => ({}) });
     const scene = screen.getByTestId("graph-scene");
@@ -837,7 +869,7 @@ describe("NativeGraphDemo", () => {
     const navbar = within(screen.getByTestId("surface-context-host"));
     expect(navbar.getByText("World · Elderwyld")).toBeInTheDocument();
     expect(navbar.queryByText(/private graph/i)).not.toBeInTheDocument();
-    await user.click(navbar.getByRole("button", { name: "Export snapshot" }));
+    await user.click(graphAction("Export snapshot"));
     expect(await screen.findByText(/not a restorable World backup/)).toBeInTheDocument();
     expect(exported).not.toBeNull();
     const payload = JSON.parse(await exported!.text());

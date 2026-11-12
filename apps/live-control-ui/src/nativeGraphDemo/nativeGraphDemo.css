@@ -311,3 +311,25 @@
   .native-demo-graph-card--embedded .world-graph-canvas { padding: 6px; }
   .native-demo-graph-card--embedded .world-graph-canvas__viewport { min-height: 180px; }
 }
+
+/* Graph surface: the rail owns persistent controls; the canvas owns geometry. */
+.app-chrome-header .surface-context-host .native-demo-context__row { gap: .3rem; }
+.app-chrome-header .surface-context-host .native-demo-context__identity { max-width: 12rem; }
+.native-demo-context__canvas-controls { display: flex; flex: 1 1 auto; align-items: center; gap: .3rem; min-width: 0; }
+.native-demo-context__status-action { white-space: nowrap; }
+.native-demo-context__menu-actions { display: grid; gap: .4rem; }
+.native-demo-context__search { display: grid; gap: .5rem; min-width: 0; }
+.native-demo-context__search input { min-width: 0; width: 100%; }
+.native-demo-context__search p { margin: 0; font-size: .8rem; }
+.native-demo-context__search ul { list-style: none; padding: 0; margin: 0; max-height: min(45vh, 25rem); overflow: auto; }
+.native-demo-context__search li > button { width: 100%; text-align: left; white-space: normal; padding: .45rem; }
+.native-demo-context__search small { display: block; font-size: .7rem; overflow-wrap: anywhere; opacity: .75; }
+.native-demo-context__search [role="group"] { display: flex; align-items: center; gap: .4rem; font-size: .8rem; }
+.native-demo-graph-card.native-demo-graph-card--embedded { padding: 0; border: 0; background: transparent; box-shadow: none; }
+.native-demo-graph-card--embedded .world-graph-canvas { padding: 0; border: 0; background: transparent; }
+.native-demo-graph-card--embedded .world-graph-canvas__viewport { border-radius: 12px; }
+@media (max-width: 640px) {
+  .app-chrome-header .surface-context-host .native-demo-context__identity { flex-basis: auto; max-width: 10rem; }
+  .native-demo-context__canvas-controls { flex: 1 1 auto; }
+  .native-demo-context__status-action { font-size: .72rem; }
+}

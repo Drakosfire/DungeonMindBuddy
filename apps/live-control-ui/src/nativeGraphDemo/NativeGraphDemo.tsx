@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type {
   LocalObjectId,
   LocalRelationshipId,
@@ -27,6 +27,7 @@ import {
   SurfaceContextAction,
   SurfaceContextBadge,
   SurfaceContextModule,
+  SurfaceContextPopover,
   SurfaceContextStatus,
   SurfaceContextValue,
   useSurfaceContextContribution,
@@ -338,14 +339,13 @@ interface NativeGraphDemoContextProps {
   readonly hasPendingOperation: boolean;
   readonly pendingStatus: PendingStatus;
   readonly hasPlacementIntent: boolean;
-  readonly selectedNodeName: string | null;
-  readonly readOnly: boolean;
-  readonly canCreate: boolean;
-  readonly canConnect: boolean;
   readonly onPanelChange: (panel: EmbeddedPanel) => void;
   readonly onRefresh: () => void;
   readonly onExport: () => void;
   readonly canRefresh: boolean;
+  readonly searchContent: ReactNode;
+  readonly neighborhoodContent: ReactNode;
+  readonly onControlsHost: (host: HTMLDivElement | null) => void;
 }
 
 function NativeGraphDemoContext({
@@ -358,15 +358,26 @@ function NativeGraphDemoContext({
   hasPendingOperation,
   pendingStatus,
   hasPlacementIntent,
-  selectedNodeName,
-  readOnly,
-  canCreate,
-  canConnect,
   onPanelChange,
   onRefresh,
   onExport,
   canRefresh,
+  searchContent,
+  neighborhoodContent,
+  onControlsHost,
 }: NativeGraphDemoContextProps) {
+  const controlsRowRef = useRef<HTMLDivElement>(null);
+  const [menu, setMenu] = useState<"find" | "more" | "focus" | null>(null);
+  const dismissMenu = useCallback(() => {
+    if (menu) controlsRowRef.current?.querySelector<HTMLButtonElement>(`[data-graph-menu="${menu}"]`)?.focus();
+    setMenu(null);
+  }, [menu]);
+  useLayoutEffect(() => {
+    if (menu === "focus" && !neighborhoodContent) {
+      setMenu(null);
+      controlsRowRef.current?.querySelector<HTMLButtonElement>('[data-graph-menu="find"]')?.focus();
+    }
+  }, [menu, neighborhoodContent]);
   const surfaceIdentity = useMemo(() => buildSurfaceInteractionIdentity({
     surfaceId: "index",
     instanceParts: ["buddy-native-graph-playground"],
@@ -381,27 +392,43 @@ function NativeGraphDemoContext({
     : "Buddy playground · private graph";
   const content = useMemo(() => (
     <SurfaceContextModule className="native-demo-context">
-      <div className="native-demo-context__row">
+      <div className="native-demo-context__row" ref={controlsRowRef} onKeyDown={(event) => {
+        if (event.key === "Escape" && menu) {
+          controlsRowRef.current?.querySelector<HTMLButtonElement>(`[data-graph-menu="${menu}"]`)?.focus();
+          setMenu(null);
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}>
         <SurfaceContextValue className="native-demo-context__identity" title={identity}>{identity}</SurfaceContextValue>
-        {graph ? <SurfaceContextBadge className="native-demo-context__counts">{completeness?.status === "partial" ? "Listed " : ""}{graph.nodes.length} objects · {completeness?.status === "partial" ? "listed " : ""}{graph.edges.length} relationships</SurfaceContextBadge> : null}
-        {completeness?.status === "partial" ? <SurfaceContextBadge className="native-demo-context__partial">Partial view</SurfaceContextBadge> : null}
-        {selectedNodeName ? <SurfaceContextBadge className="native-demo-context__selection">Selected · {selectedNodeName}</SurfaceContextBadge> : null}
+        <SurfaceContextAction className="native-demo-context__status-action" disabled={!graph} aria-pressed={activePanel === "info"}
+          title={graph ? `${graph.nodes.length} loaded objects · ${graph.edges.length} listed relationships. Open graph information.` : status}
+          onClick={() => onPanelChange(activePanel === "info" ? null : "info")}>
+          <SurfaceContextStatus tone={!graph && !loading ? "error" : hasPendingOperation || completeness?.status === "partial" ? "warning" : "neutral"}>
+            {refreshing ? "Refreshing…" : status}{completeness?.status === "partial" && (refreshing || status !== "Partial native read") ? " · partial read" : ""}
+          </SurfaceContextStatus>
+        </SurfaceContextAction>
         {hasPlacementIntent ? <SurfaceContextBadge className="native-demo-context__placement">Placement ready</SurfaceContextBadge> : null}
-        <SurfaceContextStatus className="native-demo-context__status" tone={!graph && !loading ? "error" : hasPendingOperation || completeness?.status === "partial" ? "warning" : "neutral"}>
-          {refreshing ? "Refreshing…" : status}
-        </SurfaceContextStatus>
-        <div className="native-demo-context__actions" aria-label={mode === "managed" ? "World graph controls" : "Graph playground controls"}>
-          {!readOnly && <>
-            <SurfaceContextAction className="native-demo-context__action" aria-pressed={activePanel === "create"} disabled={!canCreate || hasPendingOperation} title={!canCreate && graph ? "Object creation is read-only for this graph." : undefined} onClick={() => onPanelChange(activePanel === "create" ? null : "create")}>Add object</SurfaceContextAction>
-            <SurfaceContextAction className="native-demo-context__action" aria-pressed={activePanel === "connect"} disabled={!canConnect || hasPendingOperation} title={!canConnect && graph ? "Connections are read-only for this graph." : undefined} onClick={() => onPanelChange(activePanel === "connect" ? null : "connect")}>Connect</SurfaceContextAction>
-          </>}
-          <SurfaceContextAction className="native-demo-context__action" disabled={!canRefresh || loading || refreshing || hasPendingOperation} onClick={onRefresh}>Refresh</SurfaceContextAction>
-          <SurfaceContextAction className="native-demo-context__action" aria-pressed={activePanel === "info"} disabled={!graph || hasPendingOperation} onClick={() => onPanelChange(activePanel === "info" ? null : "info")}>Info</SurfaceContextAction>
-          <SurfaceContextAction className="native-demo-context__action" disabled={!graph} onClick={onExport}>Export snapshot</SurfaceContextAction>
-        </div>
+        <SurfaceContextPopover open={menu === "find"} onOpenChange={(open) => setMenu(open ? "find" : null)} title="Find an object"
+          trigger={<SurfaceContextAction disabled={!graph} aria-haspopup="dialog" data-graph-menu="find" aria-label={`Find an object${graph ? ` · ${graph.nodes.length} loaded` : ""}`} aria-expanded={menu === "find"} onClick={() => setMenu(menu === "find" ? null : "find")}>Find</SurfaceContextAction>}>
+          <div onClick={(event) => { if ((event.target as HTMLElement).closest("[data-graph-search-result]")) dismissMenu(); }}>{searchContent}</div>
+        </SurfaceContextPopover>
+        <div className="native-demo-context__canvas-controls" ref={onControlsHost} />
+        {neighborhoodContent ? <SurfaceContextPopover open={menu === "focus"} onOpenChange={(open) => setMenu(open ? "focus" : null)} title="Focused neighborhood"
+          trigger={<SurfaceContextAction aria-haspopup="dialog" data-graph-menu="focus" aria-label="Focused neighborhood" aria-expanded={menu === "focus"} onClick={() => setMenu(menu === "focus" ? null : "focus")}>Focus</SurfaceContextAction>}>
+          {neighborhoodContent}
+        </SurfaceContextPopover> : null}
+        <SurfaceContextPopover open={menu === "more"} onOpenChange={(open) => setMenu(open ? "more" : null)} title="Graph actions" align="end"
+          trigger={<SurfaceContextAction aria-haspopup="dialog" data-graph-menu="more" aria-label="More graph actions" aria-expanded={menu === "more"} onClick={() => setMenu(menu === "more" ? null : "more")}>More</SurfaceContextAction>}>
+          <div className="native-demo-context__menu-actions">
+            <SurfaceContextAction disabled={!canRefresh || loading || refreshing || hasPendingOperation} onClick={() => { dismissMenu(); onRefresh(); }}>Refresh</SurfaceContextAction>
+            <SurfaceContextAction disabled={!graph || hasPendingOperation} onClick={() => { dismissMenu(); onPanelChange(activePanel === "info" ? null : "info"); }}>Info</SurfaceContextAction>
+            <SurfaceContextAction disabled={!graph} onClick={() => { dismissMenu(); onExport(); }}>Export snapshot</SurfaceContextAction>
+          </div>
+        </SurfaceContextPopover>
       </div>
     </SurfaceContextModule>
-  ), [activePanel, canConnect, canCreate, canRefresh, completeness, graph, hasPendingOperation, hasPlacementIntent, identity, loading, mode, onExport, onPanelChange, onRefresh, pendingStatus, readOnly, refreshing, selectedNodeName, status, worldTitle]);
+  ), [activePanel, canRefresh, completeness, dismissMenu, graph, hasPendingOperation, hasPlacementIntent, identity, loading, menu, neighborhoodContent, onControlsHost, onExport, onPanelChange, onRefresh, refreshing, searchContent, status]);
 
   useSurfaceContextContribution({
     id: "buddy-native-graph-playground",
@@ -427,7 +454,6 @@ export interface NativeGraphDemoProps {
 }
 
 export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "playground", worldTitle, stateScopeId, entityOnlyDetails = false, readOnly = false }: NativeGraphDemoProps) {
-  const graphHelpId = `native-graph-help-${useId().replace(/:/g, "")}`;
   const api = useMemo(() => providedApi ?? (mode === "managed" ? MISSING_MANAGED_API : createNativeGraphDemoApi()), [mode, providedApi]);
   const [graph, setGraph] = useState<NativeGraph | null>(null);
   const graphRef = useRef<NativeGraph | null>(null);
@@ -474,8 +500,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const [cameraFocusResetRequest, setCameraFocusResetRequest] = useState<{readonly requestId: number; readonly fitView: boolean} | undefined>(undefined);
   const [clearSelectionRequest, setClearSelectionRequest] = useState<number | undefined>(undefined);
   const selectionClearRequestIdRef = useRef(0);
-  const [graphHelpOpen, setGraphHelpOpen] = useState(false);
-  const [graphHelpDismissed, setGraphHelpDismissed] = useState(false);
+  const [canvasControlsHost, setCanvasControlsHost] = useState<HTMLDivElement | null>(null);
   const createNameInputRef = useRef<HTMLInputElement | null>(null);
   const focusCreateInputAfterPlacementRef = useRef(false);
   const connectPredicateInputRef = useRef<HTMLInputElement | null>(null);
@@ -1282,8 +1307,6 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const creationKinds = graph?.capabilities.create
     ? graph.capabilities.object_kinds.map((kind) => ({ kind, label: kind.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) }))
     : [];
-  const selectedPresentationNode = graph?.nodes.find((node) => node.id === selectedNodeId);
-  const selectedNodeName = selectedPresentationNode ? nativeGraphPresentation(selectedPresentationNode).displayName : null;
 
   function handleCanvasCreateRequest(intent: { readonly kind: string; readonly position: { readonly x: number; readonly y: number } }) {
     if (!graph || pendingRef.current || !graph.capabilities.create || !isNativeKindSupported(graph, intent.kind as NativeObjectKind)
@@ -1361,6 +1384,30 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   }, [graph, layout, mode, stateScopeId, worldTitle]);
   const refreshFromContext = useCallback(() => { void refreshGraph(); }, [refreshGraph]);
 
+  const searchContent = <div className="native-demo-context__search">
+              <label htmlFor={searchId}>Search loaded objects</label>
+              <input autoFocus id={searchId} type="search" value={objectQuery} placeholder="Name, type or ID"
+                disabled={Boolean(pendingOperation)} onChange={(event) => { setObjectQuery(event.target.value); setObjectPage(0); }} />
+              <p>{matchingObjects.length} matching objects. Search includes every loaded object.</p>
+              <ul aria-label="Matching graph objects">{visibleSearchObjects.map((node) => <li key={node.id}>
+                <button type="button" data-graph-search-result disabled={Boolean(pendingOperation)} aria-label={`Explore ${nativeGraphPresentation(node).displayName} (${node.id})`}
+                  onClick={() => { handleCanvasSelectionChange(node.id as LocalObjectId); requestCameraFocus(node.id); }}>
+                  {nativeGraphPresentation(node).displayName} <small>{nativeGraphPresentation(node).displayKind} · {node.id}</small>
+                </button>
+              </li>)}</ul>
+              {!matchingObjects.length ? <p>No loaded objects match this search.</p> : null}
+              {lastObjectPage > 0 ? <div role="group" aria-label="Object search pages">
+                <button type="button" disabled={currentObjectPage === 0 || Boolean(pendingOperation)} onClick={() => setObjectPage(currentObjectPage - 1)}>Previous objects</button>
+                <span>Page {currentObjectPage + 1} of {lastObjectPage + 1}</span>
+                <button type="button" disabled={currentObjectPage === lastObjectPage || Boolean(pendingOperation)} onClick={() => setObjectPage(currentObjectPage + 1)}>Next objects</button>
+              </div> : null}
+  </div>;
+  const neighborhoodContent = viewFocusId && graph ? <div className="world-graph-canvas__neighborhood" role="group" aria-label="Neighborhood controls">
+              <span>Neighborhood: {neighborhoodDepth} {neighborhoodDepth === 1 ? "step" : "steps"} from {graph.nodes.find((node) => node.id === viewFocusId)?.name}. Focused view limit: 512 objects. The overview shows connected objects; objects without listed connections remain available in search or with the reveal control.</span>
+              <button type="button" disabled={neighborhoodDepth >= graph.nodes.length || Boolean(pendingOperation)} onClick={() => setNeighborhoodDepth((depth) => depth + 1)}>Expand neighborhood</button>
+              <button type="button" disabled={Boolean(pendingOperation)} onClick={() => requestCameraFocus(null)}>Show overview</button>
+            </div> : null;
+
   const embeddedContext = embedded ? (
     <NativeGraphDemoContext
       graph={graph}
@@ -1372,14 +1419,13 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       hasPendingOperation={Boolean(pendingOperation)}
       pendingStatus={pendingStatus}
       hasPlacementIntent={Boolean(placementIntent)}
-      selectedNodeName={selectedNodeName}
-      readOnly={readOnly}
-      canCreate={Boolean(graph?.capabilities.create && graph.capabilities.object_kinds.length)}
-      canConnect={canConnectGraph(graph)}
       onPanelChange={handleEmbeddedPanelChange}
       onRefresh={refreshFromContext}
       onExport={exportSnapshot}
       canRefresh={mode !== "managed" || Boolean(stateScopeId)}
+      searchContent={searchContent}
+      neighborhoodContent={neighborhoodContent}
+      onControlsHost={setCanvasControlsHost}
     />
   ) : null;
 
@@ -1567,6 +1613,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         <li className="is-unavailable">Rename is unavailable</li>
         <li className="is-unavailable">Delete is unavailable</li>
       </ul>
+      <p className="native-demo-copy">{graphHelpText}</p>
       <p className="native-demo-limit-detail">Rename and delete are not part of the native operation contract.</p>
       {completeness?.status === "partial" ? (
         <div className="native-demo-completeness native-demo-completeness--info" role="status">
@@ -1670,55 +1717,6 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                 </button>
               </div>
             )}
-            {embedded ? <div className="native-demo-canvas-help" data-open={graphHelpOpen} data-dismissed={graphHelpDismissed}
-              onMouseEnter={() => setGraphHelpDismissed(false)}>
-              <button className="native-demo-canvas-help__trigger" type="button" aria-label="Graph interaction help" aria-describedby={graphHelpId}
-                aria-expanded={graphHelpOpen}
-                onFocus={() => setGraphHelpDismissed(false)}
-                onClick={() => {
-                  if (graphHelpOpen) {
-                    setGraphHelpOpen(false);
-                    setGraphHelpDismissed(true);
-                  } else {
-                    setGraphHelpDismissed(false);
-                    setGraphHelpOpen(true);
-                  }
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== "Escape" || (!graphHelpOpen && graphHelpDismissed)) return;
-                  setGraphHelpOpen(false);
-                  setGraphHelpDismissed(true);
-                  event.preventDefault();
-                  event.stopPropagation();
-                }}>
-                <span aria-hidden="true">i</span>
-              </button>
-              <div className="native-demo-canvas-help__tooltip" id={graphHelpId} role="tooltip">{graphHelpText}</div>
-            </div> : null}
-            {embedded ? <details className="world-graph-canvas__exploration">
-              <summary>Find an object · {graph.nodes.length} loaded</summary>
-              <label htmlFor={searchId}>Search loaded objects</label>
-              <input id={searchId} type="search" value={objectQuery} placeholder="Name, type or ID"
-                disabled={Boolean(pendingOperation)} onChange={(event) => { setObjectQuery(event.target.value); setObjectPage(0); }} />
-              <p>{matchingObjects.length} matching objects. Search includes every loaded object.</p>
-              <ul aria-label="Matching graph objects">{visibleSearchObjects.map((node) => <li key={node.id}>
-                <button type="button" disabled={Boolean(pendingOperation)} aria-label={`Explore ${nativeGraphPresentation(node).displayName} (${node.id})`}
-                  onClick={() => { handleCanvasSelectionChange(node.id as LocalObjectId); requestCameraFocus(node.id); }}>
-                  {nativeGraphPresentation(node).displayName} <small>{nativeGraphPresentation(node).displayKind} · {node.id}</small>
-                </button>
-              </li>)}</ul>
-              {!matchingObjects.length ? <p>No loaded objects match this search.</p> : null}
-              {lastObjectPage > 0 ? <div role="group" aria-label="Object search pages">
-                <button type="button" disabled={currentObjectPage === 0 || Boolean(pendingOperation)} onClick={() => setObjectPage(currentObjectPage - 1)}>Previous objects</button>
-                <span>Page {currentObjectPage + 1} of {lastObjectPage + 1}</span>
-                <button type="button" disabled={currentObjectPage === lastObjectPage || Boolean(pendingOperation)} onClick={() => setObjectPage(currentObjectPage + 1)}>Next objects</button>
-              </div> : null}
-            </details> : null}
-            {embedded && viewFocusId ? <div className="world-graph-canvas__neighborhood" role="group" aria-label="Neighborhood controls">
-              <span>Neighborhood: {neighborhoodDepth} {neighborhoodDepth === 1 ? "step" : "steps"} from {selectedLabels.get(viewFocusId)}. Focused view limit: 512 objects. The overview shows connected objects; objects without listed connections remain available in search or with the reveal control.</span>
-              <button type="button" disabled={neighborhoodDepth >= graph.nodes.length || Boolean(pendingOperation)} onClick={() => setNeighborhoodDepth((depth) => depth + 1)}>Expand neighborhood</button>
-              <button type="button" disabled={Boolean(pendingOperation)} onClick={() => requestCameraFocus(null)}>Show overview</button>
-            </div> : null}
             {record ? (
               <WorldGraphCanvas
                 key={graph.world_id}
@@ -1727,6 +1725,12 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                 onMoveObjects={saveLayout}
                 {...(embedded ? {
                   nodeShape: "circle" as const,
+                  externalControls: true,
+                  controlsHost: canvasControlsHost,
+                  toolActions: !readOnly ? <>
+                    <SurfaceContextAction disabled={!graph.capabilities.create || !graph.capabilities.object_kinds.length || Boolean(pendingOperation)} onClick={() => handleEmbeddedPanelChange(activePanel === "create" ? null : "create")}>Add object</SurfaceContextAction>
+                    <SurfaceContextAction disabled={!canConnectGraph(graph) || Boolean(pendingOperation)} onClick={() => handleEmbeddedPanelChange(activePanel === "connect" ? null : "connect")}>Connect</SurfaceContextAction>
+                  </> : undefined,
                   projectionOptions: { fullCorpus: true, maxNodes: 512, maxEdges: 1024, focusObjectId: viewFocusId, neighborhoodDepth },
                   creationKinds,
                   onCanvasCreateRequest: !readOnly && graph.capabilities.create ? handleCanvasCreateRequest : undefined,
@@ -1748,7 +1752,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
               <span><strong>{graph.edges.length}</strong> {completeness?.status === "partial" ? "listed relationships" : "relationships"}</span>
               {!embedded ? <span className="native-demo-meta-ellipsis" title={graph.revision_id}>Revision <code>{graph.revision_id}</code></span> : null}
             </div> : null}
-            {partialReadSummary ? <div className="native-demo-completeness" role="status"><strong>Partial native graph read</strong><span>{partialReadSummary}</span>{completeness?.reasons.map((reason) => <span key={reason}>{completenessReasonLabel(reason)}</span>)}</div> : null}
+            {!embedded && partialReadSummary ? <div className="native-demo-completeness" role="status"><strong>Partial native graph read</strong><span>{partialReadSummary}</span>{completeness?.reasons.map((reason) => <span key={reason}>{completenessReasonLabel(reason)}</span>)}</div> : null}
           </section>
 
           {embedded ? (
