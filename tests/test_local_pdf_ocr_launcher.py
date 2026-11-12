@@ -28,6 +28,26 @@ def _layout(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     return buddy, python, command, checkpoint
 
 
+def _nested_project_layout(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
+    projects = tmp_path / "Projects"
+    workspace = projects / "DungeonOverMind"
+    buddy = projects / ".codex" / "pdf-gold-baseline" / "DungeonMindBuddy"
+    python = workspace / "RulesIngestion" / ".venv-deepseek-ocr2" / "bin" / "python"
+    command = workspace / "GenerationEngine" / "GenerationEngine" / "scripts" / "run_local_ocr.py"
+    revision = "b" * 40
+    checkpoint = projects / ".cache" / "huggingface" / "hub" / "models--deepseek-ai--DeepSeek-OCR-2" / "snapshots" / revision
+    buddy.mkdir(parents=True)
+    python.parent.mkdir(parents=True)
+    python.write_text("#!/bin/sh\n")
+    python.chmod(0o755)
+    command.parent.mkdir(parents=True)
+    command.write_text("# local OCR worker\n")
+    (checkpoint.parent.parent / "refs").mkdir(parents=True)
+    (checkpoint.parent.parent / "refs" / "main").write_text(f"{revision}\n")
+    checkpoint.mkdir(parents=True)
+    return buddy, python, command, checkpoint
+
+
 def _configure(buddy: Path, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
     script = f'source "{HELPER}"; configure_local_pdf_ocr "{buddy}"; printf "%s\n" "${{BUDDY_OCR_PYTHON-}}" "${{BUDDY_OCR_COMMAND-}}" "${{BUDDY_OCR_CHECKPOINT-}}"'
     return subprocess.run(["bash", "-e", "-u", "-o", "pipefail", "-c", script], check=True, capture_output=True, text=True, env=env)
@@ -43,6 +63,26 @@ def test_launcher_discovers_existing_local_ocr_2_assets(tmp_path: Path) -> None:
     env.pop("HF_HOME", None)
     env["DUNGEONMIND_WORKSPACE_ROOT"] = str(buddy.parent)
     env["DUNGEONMIND_PROJECTS_ROOT"] = str(tmp_path / "Projects")
+
+    result = _configure(buddy, env)
+
+    assert result.stdout.splitlines() == [str(python), str(command), str(checkpoint)]
+    assert "cached DeepSeek OCR 2 model" in result.stderr
+
+
+def test_launcher_finds_project_assets_from_nested_codex_checkout(tmp_path: Path) -> None:
+    buddy, python, command, checkpoint = _nested_project_layout(tmp_path)
+    env = os.environ.copy()
+    for key in (
+        "BUDDY_OCR_PYTHON",
+        "BUDDY_OCR_COMMAND",
+        "BUDDY_OCR_CHECKPOINT",
+        "DUNGEONMIND_WORKSPACE_ROOT",
+        "DUNGEONMIND_PROJECTS_ROOT",
+        "HF_HUB_CACHE",
+        "HF_HOME",
+    ):
+        env.pop(key, None)
 
     result = _configure(buddy, env)
 
