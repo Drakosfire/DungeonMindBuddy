@@ -136,7 +136,7 @@ describe("NativeGraphDemo", () => {
     fireEvent.change(screen.getByLabelText("Search loaded objects"), { target: { value: "Zed" } });
     fireEvent.click(screen.getByRole("button", { name: "Explore Captain Tomas / Tomas (+1 more) (entity:tomas)" }));
     expect(await screen.findByRole("button", { name: "Captain Tomas / Tomas (+1 more), character (role unspecified)" })).toHaveAttribute("data-node-id", "entity:tomas");
-    expect(screen.getByText(/Recorded names: Captain Tomas \/ Tomas \/ Zed/)).toBeInTheDocument();
+    expect(screen.getByText("Recorded names (3)")).toBeInTheDocument();
     expect(namedGraph.nodes[1].name).toBe("Multiple recorded names · tomas");
     expect(namedGraph.nodes[1].kind).toBe("object");
     expect(api.prepare).not.toHaveBeenCalled();
@@ -421,8 +421,27 @@ describe("NativeGraphDemo", () => {
 
     expect(await screen.findByText("This object is unavailable in the selected revision.")).toBeInTheDocument();
     expect(api.inspectNode).toHaveBeenCalledWith(graph, "entity:mara", expect.any(AbortSignal));
-    expect(screen.getByRole("heading", { name: "Object details" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Node explorer controls" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Mara" })).toBeInTheDocument();
+  });
+
+  it("opens a connected object's dossier, returns Back and preserves the loaded revision", async () => {
+    const user = userEvent.setup();
+    const detailed = entityDetail(graph.revision_id, true);
+    detailed.entity.assertions = [{ assertion_id: "assertion:stays", subject_entity_id: "entity:mara", predicate: "dungeonbuddy.custom:located_in", value: { kind: "entity_ref", entity_id: "entity:inn" }, metadata: { scope: [], visibility: null, epistemic_basis: "asserted", claim_mode: "dungeonbuddy.claim:fact", standing: "provisional", evidence_ref_ids: [], temporal_scope: null, domain_metadata: [] } }];
+    const api = makeApi({ inspectNode: vi.fn().mockResolvedValue(detailed) });
+    renderEmbeddedDemo({ api, mode: "managed", entityOnlyDetails: true, stateScopeId: "managed:history" });
+    await user.click(await screen.findByRole("button", { name: /Mara, npc/i }));
+    await user.click(await screen.findByText(/Places mentioned/));
+    await user.click(screen.getByRole("button", { name: "Explore Lantern Inn" }));
+    expect(await screen.findByRole("heading", { name: "Lantern Inn" })).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "Back to Mara" }));
+    expect(await screen.findByRole("heading", { name: "Mara" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Mara" })).toHaveFocus();
+    expect(screen.queryByRole("button", { name: /^Back to/ })).not.toBeInTheDocument();
+    expect(api.inspectNode).toHaveBeenLastCalledWith(graph, "entity:mara", expect.any(AbortSignal));
+    expect(api.prepare).not.toHaveBeenCalled();
+    expect(api.confirm).not.toHaveBeenCalled();
   });
 
   it("rejects late managed inspection responses after the selected node changes", async () => {
