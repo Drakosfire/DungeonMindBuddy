@@ -79,6 +79,7 @@ export function CropOcr({ worldId, region, hasPdfText }: { worldId: string; regi
       {error && <p role="alert">{error}</p>}
       {imageOnly && <p role="status">OCR found an image in this region without transcribing any text.</p>}
       {text && !imageOnly && <label>{review ? `Buddy’s review · Page ${region.page}` : "OCR transcription"}<textarea readOnly rows={8} value={text} /></label>}
+      {!review && text && !imageOnly && <PdfStatblockCandidate text={text} locator={region} />}
     </div>
   );
 }
