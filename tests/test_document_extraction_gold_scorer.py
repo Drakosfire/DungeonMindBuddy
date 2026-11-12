@@ -97,36 +97,39 @@ class RegionArtifactScorerTests(unittest.TestCase):
         scored = json.loads(completed.stdout)["cases"][0]
         self.assertFalse(scored["source_location"]["region_match"])
 
-    def test_run_manifest_for_another_source_revision_is_rejected(self) -> None:
+    def test_invalid_present_run_manifest_is_rejected(self) -> None:
         gold = json.loads(GOLD.read_text(encoding="utf-8"))
         case = next(item for item in gold["cases"] if item["block_type"] == "prose_region")
         source = next(item for item in gold["sources"] if item["source_id"] == case["source_id"])
 
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            gold_path = root / "gold.json"
-            gold_path.write_text(json.dumps({"dataset_id": gold["dataset_id"], "sources": [source], "cases": [case]}))
-            result_dir = root / case["case_id"]
-            result_dir.mkdir()
-            (root / "run.json").write_text(json.dumps({
-                "input_pdf_sha256": {case["source_id"]: "0" * 64},
-            }))
-            (result_dir / "result.json").write_text(json.dumps({
-                "case_id": case["case_id"],
-                "source_id": case["source_id"],
-                "source_pdf_sha256": source["pdf_sha256"],
-                "page_index": case["physical_page"] - 1,
-                "region": case["source_region"],
-                "text": f"<|ref|>text<|/ref|>\n{case['expected_text']}",
-            }))
-            completed = subprocess.run(
-                [sys.executable, str(SCORER), "--gold", str(gold_path), "--artifact-root", f"{case['source_id']}={root}"],
-                check=False, capture_output=True, text=True,
-            )
+        for manifest_text in (
+            json.dumps({"input_pdf_sha256": {case["source_id"]: "0" * 64}}),
+            json.dumps({"input_pdf_sha256": {}}),
+            "{ invalid json",
+        ):
+            with self.subTest(manifest_text=manifest_text), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                gold_path = root / "gold.json"
+                gold_path.write_text(json.dumps({"dataset_id": gold["dataset_id"], "sources": [source], "cases": [case]}))
+                result_dir = root / case["case_id"]
+                result_dir.mkdir()
+                (root / "run.json").write_text(manifest_text)
+                (result_dir / "result.json").write_text(json.dumps({
+                    "case_id": case["case_id"],
+                    "source_id": case["source_id"],
+                    "source_pdf_sha256": source["pdf_sha256"],
+                    "page_index": case["physical_page"] - 1,
+                    "region": case["source_region"],
+                    "text": f"<|ref|>text<|/ref|>\n{case['expected_text']}",
+                }))
+                completed = subprocess.run(
+                    [sys.executable, str(SCORER), "--gold", str(gold_path), "--artifact-root", f"{case['source_id']}={root}"],
+                    check=False, capture_output=True, text=True,
+                )
 
-        self.assertEqual(completed.returncode, 1)
-        scored = json.loads(completed.stdout)["cases"][0]
-        self.assertFalse(scored["source_location"]["run_manifest_hash_match"])
+                self.assertEqual(completed.returncode, 1)
+                scored = json.loads(completed.stdout)["cases"][0]
+                self.assertFalse(scored["source_location"]["run_manifest_hash_match"])
 
     def test_existing_page_artifact_shape_remains_supported(self) -> None:
         gold = json.loads(GOLD.read_text(encoding="utf-8"))

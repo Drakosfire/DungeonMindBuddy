@@ -120,14 +120,16 @@ def _region_artifact(root: Path, case_id: str) -> tuple[Path, dict[str, Any]] | 
     return matches[0] if matches else None
 
 
-def _region_run_metadata(path: Path) -> dict[str, Any] | None:
-    """Read the run manifest adjacent to a retained region artifact, if present."""
+def _region_run_metadata(path: Path) -> tuple[dict[str, Any] | None, bool]:
+    """Read the adjacent run manifest and report whether a manifest exists."""
     manifest = path.parent.parent / "run.json"
+    if not manifest.exists():
+        return None, False
     try:
         data = json.loads(manifest.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return None
-    return data if isinstance(data, dict) else None
+        return None, True
+    return (data, True) if isinstance(data, dict) else (None, True)
 
 
 def _expected_field_values(value: Any, prefix: str = "") -> list[tuple[str, str]]:
@@ -220,7 +222,7 @@ def _score_region(case: dict[str, Any], path: Path, result: dict[str, Any], expe
             for key in ("coordinate_system", "x", "y", "width", "height")
         )
     )
-    run_metadata = _region_run_metadata(path)
+    run_metadata, run_manifest_present = _region_run_metadata(path)
     run_source_hash = (
         run_metadata.get("input_pdf_sha256", {}).get(case["source_id"])
         if run_metadata and isinstance(run_metadata.get("input_pdf_sha256"), dict)
@@ -238,7 +240,9 @@ def _score_region(case: dict[str, Any], path: Path, result: dict[str, Any], expe
         "classification": {"status": "unavailable", "reason": "OCR region markers are not a reviewed candidate classification"},
         "source_location": {
             "source_hash_match": result.get("source_pdf_sha256") == expected_hash,
-            "run_manifest_hash_match": run_source_hash == expected_hash if run_source_hash else None,
+            "run_manifest_hash_match": (
+                run_source_hash == expected_hash if run_manifest_present else None
+            ),
             "page_match": result.get("page_index") == case["physical_page"] - 1,
             "region_match": region_match,
         },
