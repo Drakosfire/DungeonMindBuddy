@@ -29,3 +29,23 @@ Focused presentation and actual NativeGraphDemo integration tests; strict type/b
 ## User dogfood amendment (same slice, before merge)
 
 User reviewed the retained5248 preview and requested small sticky explorer-local controls, initially collapsed relationship groups with distinct node counts, readable Campaign/Session labels, and a single component owning the explorer. Keep all admitted records/provenance. GraphNodeExplorer now owns its entire frame, identity, control navbar, loading/errors and dossier; NativeGraphDemo only supplies state/callbacks. Narrow known longmont-cN/session-N display mappings preserve unknown fallback and exact raw metadata. Audit found four general-purpose runtime renderers, two specialized inspectors and one story-only study. This slice does not delete/migrate other callers: the two native renderers share contracts and are the first future consolidation candidates; older projection renderers require explicit adapters. Scope styles to the native panel to avoid the old reader's same-name class.
+
+## Shared primitive amendment (authorized 2026-11-12)
+
+The owner approved continuing the shared subject/projection design. Coordinator
+adopts this bounded extension in the same serial PR, reanchored on fetched
+125cdb658. The existing graph dossier and native inspector begin sharing a pinned
+read projection and evidence loader, not a forced universal UI. Existing modal,
+statblock and navigation hosts retain their contracts. Recap prose and unadmitted
+candidate renderers remain separate pending explicit adapters. No new persistence,
+network fan-out, inferred edit authority or rename/delete actions are introduced.
+
+Additional exclusive paths: graphLens/nativeObjectProjection.ts and its tests,
+graphLens/nativeObjectEvidence.ts, graphLens/nodeExplorerModel.ts,
+graphLens/NativeGraphObjectDetails.tsx. The earlier exclusion of shared inspection
+is superseded only for these paths. Native dossier source evidence is consolidated
+with the existing native inspector; graph-specific chrome remains in its host.
+The subject key includes World, native binding, revision and scope. Projection
+construction must reject a mismatched pin before exposing records. Evidence uses
+that same pin and is loaded only on demand. Source/citation identity must include
+all pin fields, not merely World and revision. Read projection never grants writes.

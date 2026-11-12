@@ -1,9 +1,10 @@
 import { useState, type Ref } from "react";
-import { sameInspectionPin, type NativeAssertion, type NativeGraphEntity } from "../api/nativeGraphInspection";
-import { inspectNativeGraph } from "../api/liveApi";
-import { SourceCitationEvidence, type CitationChoice } from "../planSurface/components/SourceCitationEvidence";
+import { type NativeAssertion, type NativeGraphEntity } from "../api/nativeGraphInspection";
+import { nativeObjectEvidenceChoices } from "../graphLens/nativeObjectEvidence";
+import { projectNativeObject } from "../graphLens/nativeObjectProjection";
+import { SourceCitationEvidence } from "../planSurface/components/SourceCitationEvidence";
 import { NativeObjectStatblock } from "../graphLens/NativeObjectStatblock";
-import { assertionStatus, buildNodeExplorer, compactNodeLabel } from "./graphNodeExplorer";
+import { assertionStatus, compactNodeLabel } from "./graphNodeExplorer";
 
 import type { NativeGraphNode, NativeGraphEdge } from "./nativeGraphDemoApi";
 import { nativeGraphPresentation } from "./nativeGraphPresentation";
@@ -52,7 +53,7 @@ function NodeDossier({ detail, entityId, labels, entityOnly = false, partial = f
   detail: NativeGraphEntity; entityId: string; labels: ReadonlyMap<string, string>;
   entityOnly?: boolean; partial?: boolean; navigationDisabled?: boolean; onExplore: (entityId: string) => void;
 }) {
-  const model = buildNodeExplorer(detail, entityId, labels);
+  const model = projectNativeObject({kind: "admitted-native", entityId, pin: detail.scope}, detail, labels).dossier;
   const [statblocksOpen, setStatblocksOpen] = useState(false);
   if (!detail.entity.found) return <p>This object is unavailable in the selected revision.</p>;
   return <div className="native-node-dossier">
@@ -99,16 +100,7 @@ function NodeDossier({ detail, entityId, labels, entityOnly = false, partial = f
 }
 
 function Evidence({ records, detail, entityOnly, commonStatus }: { records: NativeAssertion[]; detail: NativeGraphEntity; entityOnly: boolean; commonStatus: string | null }) {
-  const seenEvidence = new Set<string>();
-  const choices: CitationChoice[] = entityOnly ? [] : records.flatMap((assertion) => detail.entity.evidence
-    .filter((evidence) => evidence.evidence_role === "support" && assertion.metadata.evidence_ref_ids.includes(evidence.evidence_ref_id))
-    .filter((evidence) => { if (seenEvidence.has(evidence.evidence_ref_id)) return false; seenEvidence.add(evidence.evidence_ref_id); return true; })
-    .map((evidence) => ({ key: evidence.evidence_ref_id, number: 0, title: "Supporting source · exact excerpt", label: "Read supporting source", kind: "passage" as const, load: async () => {
-      const packet = await inspectNativeGraph(detail.scope, { kind: "source", assertion_id: assertion.assertion_id, evidence_ref_id: evidence.evidence_ref_id });
-      if (packet.schema !== "dmb_native_graph_source_v1" || !sameInspectionPin(packet.scope, detail.scope)) throw new Error("Source unavailable");
-      return packet.source.text;
-    } })));
-  choices.forEach((choice, index) => { choice.number = index + 1; });
+  const choices = nativeObjectEvidenceChoices(detail, records, entityOnly);
   return <details className="graph-node-explorer__evidence"><summary>Evidence and qualifications{records.length > 1 ? ` · ${records.length} records` : ""}</summary>
     {choices.length ? <><p className="graph-node-explorer__context">{choices.length} supporting {choices.length === 1 ? "source" : "sources"} · {records.length} {records.length === 1 ? "record" : "records"}</p><SourceCitationEvidence identity={JSON.stringify([detail.scope, records.map((a) => a.assertion_id)])} statements={[{ choices }]} /></> : <p className="graph-node-explorer__context">{entityOnly ? "Source excerpts are unavailable for this connection." : "No supporting excerpt is available in this view."}</p>}
     {records.map((assertion) => <section key={assertion.assertion_id} aria-label="Recorded assertion">
