@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ThreatDraft } from "../api/types";
 import type { SavedMechanicsVersionList } from "../statblocks/revision/savedMechanicsRevisionTypes";
 import { authenticatedApiFetch, createThreatDraft, listSavedMechanicsVersions, LiveApiError } from "../api/liveApi";
@@ -6,6 +6,7 @@ import type { PdfLocator } from "../api/retainedPdfRegions";
 import type { StatblockDefinitionV1_Output, ValidationIssueV1 } from "../contracts/dungeonbuddy-statblocks-v1/client";
 import { StatblockDefinitionEditor } from "../statblocks/editor/StatblockDefinitionEditor";
 import { createEditorStateFromOutput, getLocalFingerprint, type StatblockEditorState } from "../statblocks/editor/statblockEditorState";
+import "./BuildPdfStatblockReview.css";
 
 type Review = {
   revision: number;
@@ -25,6 +26,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   const [issues, setIssues] = useState<ValidationIssueV1[]>([]);
   const [region, setRegion] = useState<PdfLocator>();
   const [image, setImage] = useState("");
+  const sourcePreviewRef = useRef<HTMLElement>(null);
   const [drafts, setDrafts] = useState<ThreatDraft[]>([]);
   const [draftId, setDraftId] = useState("");
   const [acceptOpen, setAcceptOpen] = useState(false);
@@ -399,7 +401,12 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
               Open source region {index + 1} · Page {locator.page}
             </button>
           ))}
-          {image && region && <img src={image} alt={`Exact PDF region on page ${region.page}`} />}
+          {image && region && <figure ref={sourcePreviewRef} className="pdf-statblock-review__source-preview"
+            aria-label={`Source evidence · Page ${region.page}`}>
+            <figcaption>Source evidence · Page {region.page}</figcaption>
+            <img src={image} alt={`Exact PDF region on page ${region.page}`}
+              onLoad={() => sourcePreviewRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" })} />
+          </figure>}
           <StatblockDefinitionEditor output={review.definition} editorState={editor}
             onEditorStateChange={state => { setEditor(state); setSaved(false); setValidation(""); setIssues([]); }}
             recoveryHint="Save the review draft to keep your edits." />
