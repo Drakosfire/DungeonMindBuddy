@@ -372,6 +372,12 @@ function NativeGraphDemoContext({
     if (menu) controlsRowRef.current?.querySelector<HTMLButtonElement>(`[data-graph-menu="${menu}"]`)?.focus();
     setMenu(null);
   }, [menu]);
+  useLayoutEffect(() => {
+    if (menu === "focus" && !neighborhoodContent) {
+      setMenu(null);
+      controlsRowRef.current?.querySelector<HTMLButtonElement>('[data-graph-menu="find"]')?.focus();
+    }
+  }, [menu, neighborhoodContent]);
   const surfaceIdentity = useMemo(() => buildSurfaceInteractionIdentity({
     surfaceId: "index",
     instanceParts: ["buddy-native-graph-playground"],

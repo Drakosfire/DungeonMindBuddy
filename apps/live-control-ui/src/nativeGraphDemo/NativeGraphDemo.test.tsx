@@ -186,6 +186,8 @@ describe("NativeGraphDemo", () => {
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(5);
     expect(document.querySelector('[data-node-id="entity:1002"]')).toBeInTheDocument();
     fireEvent.click(graphAction("Show overview"));
+    expect(screen.getByRole("button", { name: "Find an object · 1404 loaded" })).toHaveFocus();
+    expect(screen.queryByRole("button", { name: "Focused neighborhood" })).not.toBeInTheDocument();
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(561);
     fireEvent.click(screen.getByRole("button", { name: "Find an object · 1404 loaded" }));
     fireEvent.click(screen.getByRole("button", {name: "Explore Object 1000 (entity:1000)"}));
