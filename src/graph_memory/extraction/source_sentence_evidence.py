@@ -159,7 +159,10 @@ def node_wire_schema(base_schema: dict, packet: SourceSentencePacket) -> dict:
     for collection in ("observation_nodes", "ignored_items", "deferred_items"):
         if collection not in schema["properties"]:
             continue
-        ref = schema["properties"][collection]["items"]["properties"]["evidence_refs"]["items"]
+        evidence_refs = schema["properties"][collection]["items"]["properties"]["evidence_refs"]
+        if collection == "observation_nodes":
+            evidence_refs["minItems"] = 1
+        ref = evidence_refs["items"]
         ref.clear()
         ref.update({
             "type": "object", "additionalProperties": False,
