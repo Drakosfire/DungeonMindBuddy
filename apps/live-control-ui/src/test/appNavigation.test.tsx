@@ -86,6 +86,7 @@ describe("appNavigation helpers", () => {
   });
 
   it("preserves existing non-primary route fallbacks", () => {
+    expect(appRouteFromPathname("/session-board")).toBe("surface");
     expect(appRouteFromPathname("/surface")).toBe("surface");
     expect(appRouteFromPathname("/live-control")).toBe("index");
     expect(appRouteFromPathname("/tiptap-callout-spike")).toBe("index");

@@ -246,7 +246,7 @@ export function buildIndexRouteCompatibilityPublication(): SurfaceInteractionPub
 export function buildSurfaceRouteCompatibilityPublication(): SurfaceInteractionPublication {
   return {
     surfaceId: "surface",
-    label: "Live Control",
+    label: "Session Board",
     identity: buildSurfaceInteractionIdentity({
       surfaceId: "surface",
       instanceParts: ["surface", "live-control"],

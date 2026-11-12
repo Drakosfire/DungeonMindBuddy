@@ -384,7 +384,7 @@ describe("surfaceInteractionCompat", () => {
     });
     expect(buildSurfaceRouteCompatibilityPublication()).toMatchObject({
       surfaceId: "surface",
-      label: "Live Control",
+      label: "Session Board",
       identity: ROUTE_COMPATIBILITY_PUBLICATIONS.surface.identity,
     });
   });

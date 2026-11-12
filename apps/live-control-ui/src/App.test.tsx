@@ -328,13 +328,13 @@ describe("App inspector integration", () => {
       "/build",
       "/combat",
     ]);
-    expect(within(nav).queryByRole("link", { name: "Live Control" })).not.toBeInTheDocument();
+    expect(within(nav).queryByRole("link", { name: "Session Board" })).not.toBeInTheDocument();
     expect(within(nav).queryByRole("link", { name: "Live play" })).not.toBeInTheDocument();
     expect(within(nav).queryByRole("link", { name: "Tiptap Spike" })).not.toBeInTheDocument();
   });
   it("opens empty inspector from app chrome control", async () => {
     const user = userEvent.setup();
-    window.history.pushState({}, "", "/surface");
+    window.history.pushState({}, "", "/session-board");
     render(<App />);
 
     await waitFor(() => {

@@ -6,7 +6,7 @@ export const AGENT_SURFACE_LABELS: Record<string, string> = {
   plan: "Plan",
   ingest: "Ingest",
   build: "Build",
-  surface: "Live Control",
+  surface: "Session Board",
   play: "Play",
 };
 

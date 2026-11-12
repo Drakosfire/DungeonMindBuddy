@@ -50,7 +50,7 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
 
 export const APP_ROUTE_LABELS: Record<AppRouteKey, string> = {
   index: "Command Board",
-  surface: "Live Control",
+  surface: "Session Board",
   plan: "Plan",
   play: "Play",
   ingest: "Memory Ingest",
