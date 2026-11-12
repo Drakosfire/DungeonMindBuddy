@@ -319,7 +319,7 @@ class DungeonBuddyCLI:
         if self._retrieval_embedding_model is not None and self._retrieval_embedding_model_id == model_id:
             return self._retrieval_embedding_model
         try:
-            from evals.mirathorn_vertical_slice.embedding_scorer import (
+            from src.agent.retrieval_embeddings import (
                 embedding_available,
                 load_embedding_model,
             )

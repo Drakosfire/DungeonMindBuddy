@@ -17,7 +17,7 @@ from src.live_play.surface_layout_invariants import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_DIR = ROOT / "evals/c2_live_prep/live/schemas"
+SCHEMA_DIR = ROOT / "schemas/live"
 SESSION_DIR = ROOT / "evals/c2_live_prep/live/session_22"
 
 

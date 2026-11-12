@@ -14,15 +14,13 @@ dist/
 **/dist/
 out/
 **/out/
-corpus/
-**/corpus/
+# Exclude campaign data at the repository root. Keep the src/corpus package.
+/corpus/
 tests/
 **/tests/
-evals/**
-!evals/c2_live_prep/
-!evals/c2_live_prep/live/
-!evals/c2_live_prep/live/schemas/
-!evals/c2_live_prep/live/schemas/**
+evals/
+/Session 20 Recap.txt
+/session-23-recap.txt
 Docs/
 **/__pycache__/
 **/*.py[cod]

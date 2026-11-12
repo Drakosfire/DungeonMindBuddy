@@ -1,0 +1,23 @@
+.pdf-statblock-review__source-preview {
+  margin: 1rem 0;
+  padding: .75rem;
+  border: 1px solid var(--ui-border-strong, #708097);
+  border-radius: .5rem;
+  background: var(--ui-surface-raised, #202938);
+  scroll-margin-block: 1rem;
+}
+
+.pdf-statblock-review__source-preview figcaption {
+  margin-block-end: .5rem;
+  color: var(--ui-text-secondary, #aab5c5);
+  font-size: .9rem;
+  font-weight: 600;
+}
+
+.pdf-statblock-review__source-preview img {
+  display: block;
+  width: 100%;
+  max-height: min(68vh, 56rem);
+  object-fit: contain;
+  object-position: top center;
+}

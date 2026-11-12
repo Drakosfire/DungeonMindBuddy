@@ -32,6 +32,8 @@ GOLD_PATH = Path(__file__).with_name("adventure_pdf_source_gold_v1.json")
 
 def normalize(value: Any) -> str:
     text = unicodedata.normalize("NFKC", str(value)).casefold()
+    if text.strip() in {"-", "–", "—", "−"}:
+        return "dash"
     return "".join(char for char in text if char.isalnum())
 
 
@@ -100,6 +102,36 @@ def _page_artifact(root: Path, page_index: int) -> tuple[Path, dict[str, Any]] |
     return matches[0] if matches else None
 
 
+def _region_artifact(root: Path, case_id: str) -> tuple[Path, dict[str, Any]] | None:
+    """Find one retained crop result by its gold case id."""
+    matches: list[tuple[Path, dict[str, Any]]] = []
+    for path in sorted(root.glob(f"**/{case_id}/result.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if data.get("case_id") == case_id:
+            matches.append((path, data))
+    if len(matches) > 1:
+        raise ValueError(
+            f"Multiple OCR region artifacts for case_id={case_id!r} under {root}; "
+            "pass a narrower artifact root"
+        )
+    return matches[0] if matches else None
+
+
+def _region_run_metadata(path: Path) -> tuple[dict[str, Any] | None, bool]:
+    """Read the adjacent run manifest and report whether a manifest exists."""
+    manifest = path.parent.parent / "run.json"
+    if not manifest.exists():
+        return None, False
+    try:
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None, True
+    return (data, True) if isinstance(data, dict) else (None, True)
+
+
 def _expected_field_values(value: Any, prefix: str = "") -> list[tuple[str, str]]:
     result: list[tuple[str, str]] = []
     if isinstance(value, dict):
@@ -108,6 +140,12 @@ def _expected_field_values(value: Any, prefix: str = "") -> list[tuple[str, str]
     elif value is not None and str(value).strip():
         result.append((prefix, str(value)))
     return result
+
+
+def _contains_field_value(text: str, value: str) -> bool:
+    if str(value).strip() in {"-", "–", "—", "−"}:
+        return bool(re.search(r"(?<![\w])[-–—−](?![\w])", text))
+    return normalize(value) in normalize(text)
 
 
 def _table_metrics(markdown: str, case: dict[str, Any]) -> dict[str, Any]:
@@ -171,6 +209,109 @@ def _table_metrics(markdown: str, case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _score_region(case: dict[str, Any], path: Path, result: dict[str, Any], expected_hash: str) -> dict[str, Any]:
+    """Score region-level OCR without treating OCR markup as a typed candidate."""
+    text = str(result.get("text", ""))
+    observed_region = result.get("region")
+    expected_region = case.get("source_region")
+    region_match = (
+        isinstance(observed_region, dict)
+        and isinstance(expected_region, dict)
+        and all(
+            observed_region.get(key) == expected_region.get(key)
+            for key in ("coordinate_system", "x", "y", "width", "height")
+        )
+    )
+    run_metadata, run_manifest_present = _region_run_metadata(path)
+    run_source_hash = (
+        run_metadata.get("input_pdf_sha256", {}).get(case["source_id"])
+        if run_metadata and isinstance(run_metadata.get("input_pdf_sha256"), dict)
+        else None
+    )
+    base: dict[str, Any] = {
+        "case_id": case["case_id"],
+        "block_type_expected": case["block_type"],
+        "page_index_expected": case["physical_page"] - 1,
+        "artifact_status": "present",
+        "artifact": str(path),
+        "inference_elapsed_sec": result.get("elapsed_seconds"),
+        "model_id": run_metadata.get("model_id") if run_metadata else None,
+        "model_snapshot": run_metadata.get("model_snapshot") if run_metadata else None,
+        "classification": {"status": "unavailable", "reason": "OCR region markers are not a reviewed candidate classification"},
+        "source_location": {
+            "source_hash_match": result.get("source_pdf_sha256") == expected_hash,
+            "run_manifest_hash_match": (
+                run_source_hash == expected_hash if run_manifest_present else None
+            ),
+            "page_match": result.get("page_index") == case["physical_page"] - 1,
+            "region_match": region_match,
+        },
+    }
+    if result.get("case_id") != case["case_id"] or result.get("source_id") != case["source_id"]:
+        base["artifact_status"] = "identity_mismatch"
+        return base
+
+    markers = {item.casefold() for item in re.findall(r"<\|ref\|>(.*?)<\|/ref\|>", text, flags=re.I)}
+    expected_marker = {"prose_region": "text", "table": "table", "map": "map", "statblock": "statblock"}[case["block_type"]]
+    observed_marker = "image" if "image" in markers else "table" if "table" in markers else "text" if "text" in markers else None
+    if expected_marker in {"text", "table"}:
+        base["classification"] = {
+            "status": "matched" if observed_marker == expected_marker else "mismatched",
+            "observed": observed_marker,
+            "expected": expected_marker,
+            "scope": "OCR region marker only; not a reviewed or typed candidate",
+        }
+    elif expected_marker == "map":
+        base["classification"] = {
+            "status": "mismatched" if observed_marker else "unavailable",
+            "observed": observed_marker,
+            "expected": "map",
+            "reason": "OCR image marker does not distinguish maps from other images",
+        }
+
+    if case["block_type"] == "prose_region":
+        expected_tokens = Counter(tokens(case["expected_text"]))
+        observed_tokens = Counter(tokens(text))
+        matched = sum((expected_tokens & observed_tokens).values())
+        total = sum(expected_tokens.values())
+        base["transcription"] = {
+            "normalized_exact_match": normalize(case["expected_text"]) in normalize(text),
+            "expected_tokens_matched": matched,
+            "expected_tokens_total": total,
+            "scope": "selected OCR region",
+        }
+    elif case["block_type"] == "statblock":
+        fields = _expected_field_values(case["expected_fields"])
+        found = [key for key, value in fields if _contains_field_value(text, value)]
+        missing = [key for key, value in fields if not _contains_field_value(text, value)]
+        base["transcription"] = {
+            "expected_field_values_present": len(found),
+            "expected_field_values_total": len(fields),
+            "missing_field_values": missing,
+            "scope": "selected OCR region",
+            "note": "Presence only; this does not verify value-to-label binding.",
+        }
+        base["structure"] = {
+            "status": "unavailable",
+            "reason": "OCR output is Markdown/HTML; no validated typed statblock candidate",
+        }
+    elif case["block_type"] == "table":
+        table = _table_metrics(text, case)
+        base["structure"] = table
+        base["transcription"] = {
+            "expected_rows_transcribed": table["rows_matched"],
+            "expected_rows_total": table["rows_expected"],
+            "scope": "selected OCR region",
+        }
+    elif case["block_type"] == "map":
+        base["visual_coverage"] = {
+            "status": "unscored",
+            "expected_features": len(case.get("expected_visual_features", [])),
+            "reason": "OCR text output does not describe or score map features",
+        }
+    return base
+
+
 def score_case(case: dict[str, Any], roots: dict[str, Path], sources: dict[str, dict[str, Any]]) -> dict[str, Any]:
     source_id = case["source_id"]
     root = roots.get(source_id)
@@ -184,6 +325,10 @@ def score_case(case: dict[str, Any], roots: dict[str, Path], sources: dict[str, 
     if root is None:
         base["artifact_status"] = "missing_source_root"
         return base
+
+    region = _region_artifact(root, case["case_id"])
+    if region is not None:
+        return _score_region(case, region[0], region[1], sources[source_id]["pdf_sha256"])
 
     artifact = _page_artifact(root, case["physical_page"] - 1)
     if artifact is None:
@@ -223,9 +368,8 @@ def score_case(case: dict[str, Any], roots: dict[str, Path], sources: dict[str, 
         }
     elif case["block_type"] == "statblock":
         fields = _expected_field_values(case["expected_fields"])
-        observed = normalize(markdown)
-        found = [key for key, value in fields if normalize(value) in observed]
-        missing = [key for key, value in fields if normalize(value) not in observed]
+        found = [key for key, value in fields if _contains_field_value(markdown, value)]
+        missing = [key for key, value in fields if not _contains_field_value(markdown, value)]
         base["transcription"] = {
             "expected_field_values_present": len(found),
             "expected_field_values_total": len(fields),
@@ -316,6 +460,8 @@ def main() -> int:
         case.get("artifact_status") != "present"
         or not case.get("source_location", {}).get("source_hash_match")
         or not case.get("source_location", {}).get("page_match")
+        or case.get("source_location", {}).get("region_match") is False
+        or case.get("source_location", {}).get("run_manifest_hash_match") is False
         for case in results
     )
     return 1 if invalid else 0

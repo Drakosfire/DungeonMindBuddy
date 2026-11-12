@@ -2232,6 +2232,72 @@ def put_pdf_statblock_review(world_id: str, review_id: UUID, body: dict, request
         raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"}) from exc
 
 
+@router.post("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}/from-regions")
+def post_extract_pdf_statblock_review(world_id: str, review_id: UUID, body: dict, request: Request):
+    """OCR exact retained regions, draft a complete definition, and open review only."""
+    from application_state.errors import ApplicationStateConflictError
+    from application_state.pdf_statblock_review import read_review, save_review
+    from apps.live_control_server.services.statblock_definition_validation import ValidateDefinitionBuddyRequestV1
+    from apps.live_control_server.services.build_pdf_statblock_extraction import (
+        StatblockExtractionError, extract_statblock,
+    )
+    from src.llm.generation_sync import run_awaitable_sync
+    from base64 import b64encode
+
+    enforce_native_graph_gm(request)
+    instruction = body.get("instruction", "")
+    regions_body = body.get("regions")
+    if (set(body) != {"regions", "instruction"} or not isinstance(instruction, str)
+            or not isinstance(regions_body, list) or not regions_body
+            or any(not isinstance(region, dict) for region in regions_body)):
+        raise HTTPException(status_code=422, detail={"code": "invalid_pdf_statblock_extraction_request"})
+
+    verified_world = _verified_world_id(world_id)
+    existing = read_review(world_id=verified_world, review_id=review_id)
+    if existing is not None:
+        _, authorized_regions = _authorized_pdf_statblock(
+            world_id, {"definition": existing["definition"], "regions": regions_body}, request,
+        )
+        if authorized_regions == existing["regions"]:
+            return existing
+        raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"})
+
+    transcriptions = []
+    authorized_regions = []
+    for locator in regions_body:
+        pdf, region = _authorized_build_pdf_region(world_id, locator, request)
+        png = _render_build_pdf_region(pdf, region)
+        transcription = read_crop(PdfCropRequest(png_base64=b64encode(png).decode("ascii")))
+        text = transcription.get("text") if isinstance(transcription, dict) else None
+        if not isinstance(text, str) or not text.strip():
+            raise HTTPException(status_code=503, detail={"code": "pdf_statblock_ocr_unavailable"})
+        transcriptions.append(text)
+        authorized_regions.append(region.model_dump(mode="json"))
+
+    try:
+        extracted = run_awaitable_sync(lambda: extract_statblock(transcriptions, instruction))
+    except StatblockExtractionError as exc:
+        status_code = 502 if exc.code == "pdf_statblock_output_invalid" else 503
+        raise HTTPException(status_code=status_code, detail={"code": exc.code}) from exc
+    if extracted.status == "incomplete":
+        raise HTTPException(status_code=422, detail={
+            "code": "pdf_statblock_extraction_incomplete",
+            "missing_details": extracted.missing_details,
+        })
+    try:
+        candidate = ValidateDefinitionBuddyRequestV1.model_validate({"definition": extracted.definition})
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail={"code": "pdf_statblock_output_invalid"}) from exc
+    try:
+        return save_review(
+            world_id=verified_world, review_id=review_id, expected_revision=0,
+            definition=candidate.definition.model_dump(mode="json", by_alias=True),
+            regions=authorized_regions,
+        )
+    except ApplicationStateConflictError as exc:
+        raise HTTPException(status_code=409, detail={"code": "pdf_statblock_review_conflict"}) from exc
+
+
 @router.get("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}")
 def get_pdf_statblock_review(world_id: str, review_id: UUID, request: Request):
     from application_state.pdf_statblock_review import read_review

@@ -3,7 +3,22 @@ import type {PdfLocator} from "../api/retainedPdfRegions";
 
 const abilities = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
 
+function normalizeExtractedText(text: string): string {
+  return text
+    .replace(/<\/(?:td|th)\s*>\s*(?=<(?:td|th)\b)/gi, "\t")
+    .replace(/<\/(?:td|th)\s*>/gi, "\t")
+    .replace(/<\/tr\s*>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/\n[ \t]*\n/g, "\n");
+}
+
 function readAbilityScores(text: string): string[] {
+  text = normalizeExtractedText(text);
   const rows = [...text.matchAll(/^[ 	]*STR[ 	]+DEX[ 	]+CON[ 	]+INT[ 	]+WIS[ 	]+CHA[ 	]*\r?\n([ 	0-9()+-]+)$/gim)];
   if (rows.length !== 1) return [];
   const row = rows[0][1].trim();
@@ -32,25 +47,48 @@ export function looksLikePdfStatblock(text: string): boolean {
     || /^\s*STR\s+DEX\s+CON\s+INT\s+WIS\s+CHA\s*$/im.test(text);
 }
 
+export function hasRecognizablePdfStatblockStructure(text: string): boolean {
+  text = normalizeExtractedText(text);
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const armor = Array.from(text.matchAll(/^[ \t]*Armor Class[ \t]*:?[ \t]*\d/gim));
+  const hp = Array.from(text.matchAll(/^[ \t]*Hit Points[ \t]*:?[ \t]*\d/gim));
+  const creatureType = /^(Tiny|Small|Medium|Large|Huge|Gargantuan)\b.+,\s*[^,]+$/i;
+  const typeLineIndices = lines.flatMap((line, index) => creatureType.test(line) ? [index] : []);
+  const typeLineIndex = typeLineIndices.length === 1 ? typeLineIndices[0] : -1;
+  const armorIndex = lines.findIndex(line => /^Armor Class\s*:?[ \t]*\d/i.test(line));
+  const hpIndex = lines.findIndex(line => /^Hit Points\s*:?[ \t]*\d/i.test(line));
+  const abilityIndex = lines.findIndex(line => /^STR\s+DEX\s+CON\s+INT\s+WIS\s+CHA$/i.test(line));
+
+  return armor.length === 1
+    && hp.length === 1
+    && readAbilityScores(text).length === abilities.length
+    && typeLineIndices.length === 1
+    && armorIndex > typeLineIndex
+    && hpIndex > armorIndex
+    && abilityIndex > hpIndex;
+}
+
 export function PdfStatblockCandidate({text, locator}: {text: string; locator: PdfLocator}) {
   const [opened, setOpened] = useState(false);
+  text = normalizeExtractedText(text);
   const armor = Array.from(text.matchAll(/^[ \t]*Armor Class[ \t]*:?[ \t]*(\d(?:[ \t]*\d)*)/gim));
   const hp = Array.from(text.matchAll(/^[ \t]*Hit Points[ \t]*:?[ \t]*(\d(?:[ \t]*\d)*)(?:[ \t]*\(([ \t]*\d(?:[ \t]*\d)*[ \t]*d[ \t]*\d(?:[ \t]*\d)*(?:[ \t]*[+−-][ \t]*\d(?:[ \t]*\d)*)?[ \t]*)\))?/gim));
   if (!looksLikePdfStatblock(text)) return null;
   if (!opened) return <button type="button" onClick={() => setOpened(true)}>Preview statblock fields</button>;
 
   const scores = readAbilityScores(text);
-  const sections = armor.length === 1 && hp.length === 1 ? readRulesSections(text) : [];
+  const structured = hasRecognizablePdfStatblockStructure(text);
+  const sections = structured && armor.length === 1 && hp.length === 1 ? readRulesSections(text) : [];
   return <section aria-label="Extracted statblock fields">
     <h4>Statblock candidate</h4>
     <p>Page {locator.page} · {locator.source_revision_id}</p>
-    {armor.length === 1 && hp.length === 1 ? <dl>
+    {structured ? <dl>
       <dt>Armor Class</dt><dd>{armor[0][1].replace(/\s/g, "")}</dd>
       <dt>Hit Points</dt><dd>{hp[0][1].replace(/\s/g, "")}{hp[0][2] && ` (${hp[0][2].trim().replace(/(\d)[ \t]+(?=\d)/g, "$1")})`}</dd>
       {scores.map((score, index) => <div key={abilities[index]}>
         <dt>{abilities[index]}</dt><dd>{score}</dd>
       </div>)}
-    </dl> : <p>Select a region with one labeled Armor Class and one labeled Hit Points entry.</p>}
+    </dl> : <p>Select a region containing a creature type, Armor Class, Hit Points and all six ability scores.</p>}
     {sections.map(({ title, body }, index) => (
       <details key={index}>
         <summary>{title} · captured text</summary>
