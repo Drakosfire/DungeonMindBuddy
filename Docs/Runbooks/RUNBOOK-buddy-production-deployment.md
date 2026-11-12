@@ -133,7 +133,7 @@ verify that each URL renders the intended page.
    authoring and recap ingestion. Use the
    [frontend guide](../../apps/live-control-ui/README.md#legacy-surface-board)
    for the local operator Chat smoke.
-5. Sign out using Buddy's UI, reload, and require `401` from both endpoints. Record the result and timestamp without saving cookies or credentials.
+5. Verify the navbar identifies the signed-in DungeonMind account and keeps World selection in a separate control. Open the account menu and sign out. Reload and require `401` from both endpoints. Record the result and timestamp without saving cookies or credentials.
 
 ## 6. Close out or roll back
 

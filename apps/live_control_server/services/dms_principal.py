@@ -26,6 +26,7 @@ class DmsPrincipal:
     """Minimal stable identity returned by DungeonMindServer."""
 
     subject: str
+    display_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -163,5 +164,7 @@ class DmsPrincipalResolver:
         subject = payload.get("sub")
         if not isinstance(subject, str) or not subject.strip():
             return DmsPrincipalResolution(status="unavailable")
-        principal = DmsPrincipal(subject=subject)
+        name = payload.get("name")
+        display_name = name.strip() if isinstance(name, str) else ""
+        principal = DmsPrincipal(subject=subject, display_name=display_name or None)
         return DmsPrincipalResolution(status="authenticated", principal=principal)
