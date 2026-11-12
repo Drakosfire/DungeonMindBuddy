@@ -3,7 +3,22 @@ import type {PdfLocator} from "../api/retainedPdfRegions";
 
 const abilities = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
 
+function normalizeExtractedText(text: string): string {
+  return text
+    .replace(/<\/(?:td|th)\s*>\s*(?=<(?:td|th)\b)/gi, "\t")
+    .replace(/<\/(?:td|th)\s*>/gi, "\t")
+    .replace(/<\/tr\s*>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/\n[ \t]*\n/g, "\n");
+}
+
 function readAbilityScores(text: string): string[] {
+  text = normalizeExtractedText(text);
   const rows = [...text.matchAll(/^[ 	]*STR[ 	]+DEX[ 	]+CON[ 	]+INT[ 	]+WIS[ 	]+CHA[ 	]*\r?\n([ 	0-9()+-]+)$/gim)];
   if (rows.length !== 1) return [];
   const row = rows[0][1].trim();
@@ -33,6 +48,7 @@ export function looksLikePdfStatblock(text: string): boolean {
 }
 
 export function hasRecognizablePdfStatblockStructure(text: string): boolean {
+  text = normalizeExtractedText(text);
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   const armor = Array.from(text.matchAll(/^[ \t]*Armor Class[ \t]*:?[ \t]*\d/gim));
   const hp = Array.from(text.matchAll(/^[ \t]*Hit Points[ \t]*:?[ \t]*\d/gim));
@@ -54,6 +70,7 @@ export function hasRecognizablePdfStatblockStructure(text: string): boolean {
 
 export function PdfStatblockCandidate({text, locator}: {text: string; locator: PdfLocator}) {
   const [opened, setOpened] = useState(false);
+  text = normalizeExtractedText(text);
   const armor = Array.from(text.matchAll(/^[ \t]*Armor Class[ \t]*:?[ \t]*(\d(?:[ \t]*\d)*)/gim));
   const hp = Array.from(text.matchAll(/^[ \t]*Hit Points[ \t]*:?[ \t]*(\d(?:[ \t]*\d)*)(?:[ \t]*\(([ \t]*\d(?:[ \t]*\d)*[ \t]*d[ \t]*\d(?:[ \t]*\d)*(?:[ \t]*[+−-][ \t]*\d(?:[ \t]*\d)*)?[ \t]*)\))?/gim));
   if (!looksLikePdfStatblock(text)) return null;
