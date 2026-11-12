@@ -151,7 +151,7 @@ describe("NativeGraphDemo", () => {
     const corpus = corpusGraph();
     const api = makeApi({ readGraph: vi.fn().mockResolvedValue(corpus), inspectNode: vi.fn().mockResolvedValue(entityDetail(corpus.revision_id, false)) });
     renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Corpus", stateScopeId: "managed:world-17" });
-    await screen.findByText(/561 loaded objects · 559 real relationships shown/);
+    await screen.findByText(/561 loaded objects · 559 real relationships/);
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(561);
     expect(document.querySelectorAll("[data-edge-id]")).toHaveLength(559);
     expect(screen.getByTestId("graph-scene")).toHaveAttribute("data-detail", "overview");
@@ -250,6 +250,8 @@ describe("NativeGraphDemo", () => {
     expect(screen.getByRole("option", { name: /Event · unavailable/ })).toBeDisabled();
     expect(document.querySelector(".native-demo-graph-meta")).toHaveTextContent("3 objects");
     expect(document.querySelector(".world-graph-canvas__feedback")).toHaveTextContent("3 objects · 1 relationships");
+    expect(screen.getByText(/Drag the background to pan. Drag an object to move it/)).toBeInTheDocument();
+    expect(screen.queryByText(/Choose Move nodes to fix a bubble in place/)).not.toBeInTheDocument();
     expect(screen.getByText(/Rename is unavailable/)).toBeInTheDocument();
     expect(screen.getByText(/Delete is unavailable/)).toBeInTheDocument();
 
@@ -297,6 +299,7 @@ describe("NativeGraphDemo", () => {
     const helpTooltip = document.querySelector(".native-demo-canvas-help__tooltip")!;
     expect(helpButton).toHaveAttribute("aria-describedby", helpTooltip.id);
     expect(helpTooltip).toHaveAttribute("role", "tooltip");
+    expect(helpTooltip).toHaveTextContent("Drag anywhere to pan. Choose Move nodes to fix a bubble in place");
     expect(helpTooltip).toHaveTextContent(/Use Place node to choose where a new node should go/);
     helpButton.focus();
     expect(helpButton).toHaveFocus();

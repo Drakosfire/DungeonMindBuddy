@@ -161,3 +161,21 @@
 .world-graph-canvas--full .world-graph-canvas__node-kind { fill: var(--graph-ink); }
 .world-graph-canvas__visibility { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 13px; }
 .world-graph-canvas__visibility input { accent-color: var(--graph-ink); }
+
+/* Every relationship remains present. Overview emphasizes structure, not every crossing. */
+.world-graph-canvas--full .world-graph-canvas__edge { opacity: .12; }
+.world-graph-canvas--full [data-detail="names"] .world-graph-canvas__edge { opacity: .22; }
+.world-graph-canvas--full [data-detail="relationships"] .world-graph-canvas__edge { opacity: .35; }
+.world-graph-canvas--full [data-has-selection="true"] .world-graph-canvas__edge:not(.is-selected) { opacity: .04; }
+.world-graph-canvas--full [data-all-relationships="true"] .world-graph-canvas__edge { opacity: .75; }
+.world-graph-canvas--full .world-graph-canvas__scene .world-graph-canvas__edge.is-selected { opacity: 1; }
+.world-graph-canvas--full [data-all-relationships="false"] .world-graph-canvas__edge:not(.is-selected) .world-graph-canvas__edge-label,
+.world-graph-canvas--full [data-all-relationships="false"] .world-graph-canvas__edge:not(.is-selected) text { display: none; }
+.world-graph-canvas--full [data-detail="names"] .world-graph-canvas__edge.is-selected .world-graph-canvas__edge-label,
+.world-graph-canvas--full [data-detail="names"] .world-graph-canvas__edge.is-selected text { display: block; }
+.world-graph-canvas__overview-label { display: none; fill: var(--graph-ink); stroke: #fffdf7; paint-order: stroke; stroke-linejoin: round; font-weight: 700; pointer-events: none; }
+.world-graph-canvas--full [data-detail="overview"] .world-graph-canvas__node[data-important="true"] .world-graph-canvas__overview-label { display: block; }
+.world-graph-canvas--full [data-detail="overview"] .world-graph-canvas__node[data-important="true"] .world-graph-canvas__node-name,
+.world-graph-canvas--full [data-detail="overview"] .world-graph-canvas__node[data-important="true"] .world-graph-canvas__node-kind { display: none; }
+.world-graph-canvas__display-help { font-size: 12px; color: var(--graph-muted); margin: 6px 0; }
+.world-graph-canvas__display-help summary { cursor: pointer; }

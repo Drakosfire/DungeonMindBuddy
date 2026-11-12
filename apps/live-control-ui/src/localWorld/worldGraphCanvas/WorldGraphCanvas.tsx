@@ -6,7 +6,7 @@ import type {
   LocalWorldRecord,
   WriteLayoutResult,
 } from "../localWorldRepository";
-import { createGraphFallbackPositions, indexLocalWorldGraph, projectLocalWorldGraph, type GraphProjectionOptions, type ProjectedGraphEdge, type ProjectedGraphNode } from "./graphProjection";
+import { graphBubbleRadius, createGraphFallbackPositions, indexLocalWorldGraph, projectLocalWorldGraph, type GraphProjectionOptions, type ProjectedGraphEdge, type ProjectedGraphNode } from "./graphProjection";
 import type { NewLocalGraphObject, NewLocalGraphRelationship } from "./localWorldGraphAdapter";
 import "./worldGraphCanvas.css";
 
@@ -19,10 +19,6 @@ const NODE_WIDTH = 168;
 const NODE_HEIGHT = 76;
 const CIRCLE_RADIUS = 56;
 const CIRCLE_DIAMETER = CIRCLE_RADIUS * 2;
-// Area grows logarithmically with loaded degree, saturating at 100 relationships.
-function bubbleRadius(count: number): number {
-  return Math.sqrt(32 ** 2 + (56 ** 2 - 32 ** 2) * Math.min(1, Math.log1p(Math.max(0, count)) / Math.log1p(100)));
-}
 function kindColor(kind: string): string {
   const colors: Record<string, string> = {
     npc: "#77b5d9", pc: "#d68f9f", item: "#d8a17d", event: "#dbb65c",
@@ -68,18 +64,20 @@ interface NodeInteractionHandlers {
 }
 
 // A selection changes only the affected bubbles, not all loaded SVG labels.
-const GraphBubble = memo(function GraphBubble({ node, position, selected, isConnectTarget, nodeShape, fullCorpus, canConnect, handlersRef, suppressClickRef }: {
+const GraphBubble = memo(function GraphBubble({ node, position, selected, isConnectTarget, nodeShape, fullCorpus, important, overviewLabelScale, canConnect, handlersRef, suppressClickRef }: {
   node: ProjectedGraphNode;
   position: { x: number; y: number };
   selected: boolean;
   isConnectTarget: boolean;
   nodeShape: NodeShape;
   fullCorpus: boolean;
+  important: boolean;
+  overviewLabelScale: number;
   canConnect: boolean;
   handlersRef: RefObject<NodeInteractionHandlers>;
   suppressClickRef: RefObject<LocalObjectId | null>;
 }) {
-  const radius = fullCorpus ? bubbleRadius(node.relationshipCount) : CIRCLE_RADIUS;
+  const radius = fullCorpus ? graphBubbleRadius(node.relationshipCount) : CIRCLE_RADIUS;
   const names = recordedNames(node);
   const description = `${node.name}, ${node.kind}${fullCorpus ? `, ${node.relationshipCount} relationships in loaded snapshot` : ""}${names.length ? `. Recorded names: ${names.join("; ")}` : ""}`;
   return (
@@ -94,6 +92,7 @@ const GraphBubble = memo(function GraphBubble({ node, position, selected, isConn
       aria-label={`${node.name}, ${node.kind}`}
       aria-description={description}
       data-node-id={node.id}
+      data-important={important || undefined}
       onClick={() => {
         if (suppressClickRef.current === node.id) { suppressClickRef.current = null; return; }
         handlersRef.current.selectNode(node.id);
@@ -104,10 +103,15 @@ const GraphBubble = memo(function GraphBubble({ node, position, selected, isConn
       <title>{description}</title>
       {nodeShape === "circle" ? <>
         <circle className="world-graph-canvas__node-circle" cx={CIRCLE_RADIUS} cy={CIRCLE_RADIUS} r={radius} />
-        <text className="world-graph-canvas__node-kind" x={CIRCLE_RADIUS} y={CIRCLE_RADIUS - 5} textAnchor="middle">{shortLabel(node.kind, Math.max(7, Math.floor(radius / 3.4)))}</text>
-        <text className="world-graph-canvas__node-name" x={CIRCLE_RADIUS} y={CIRCLE_RADIUS + 17} textAnchor="middle">
+        <text className="world-graph-canvas__node-kind" style={fullCorpus ? { fontSize: Math.min(11, Math.max(8, radius * 0.25)) } : undefined} x={CIRCLE_RADIUS} y={CIRCLE_RADIUS - 5} textAnchor="middle">{shortLabel(node.kind, Math.max(7, Math.floor(radius / 3.4)))}</text>
+        <text className="world-graph-canvas__node-name" style={fullCorpus ? { fontSize: Math.min(15, Math.max(9, radius * 0.35)) } : undefined} x={CIRCLE_RADIUS} y={CIRCLE_RADIUS + 17} textAnchor="middle">
           {shortLabel(node.name, Math.max(7, Math.floor(radius / 4)))}
         </text>
+        {fullCorpus && important ? <text className="world-graph-canvas__overview-label"
+          x={CIRCLE_RADIUS} y={CIRCLE_RADIUS + radius + 14 * overviewLabelScale} textAnchor="middle"
+          style={{ fontSize: 12 * overviewLabelScale, strokeWidth: 3 * overviewLabelScale }}>
+          {shortLabel(node.name, 22)}
+        </text> : null}
       </> : <>
         <rect width={NODE_WIDTH} height={NODE_HEIGHT} rx="12" />
         <text className="world-graph-canvas__node-kind" x="14" y="22">{node.kind}</text>
@@ -301,7 +305,19 @@ function edgeGeometry(
   // Quadratic midpoints travel half the control-point offset. Space plate projections
   // along the lane normal, so vertical, diagonal and wrapped horizontal labels stay disjoint.
   const plateExtent = labelWidth * Math.abs(dy) / length + labelHeight * Math.abs(dx) / length;
-  const offset = (parallelIndex - (parallelCount - 1) / 2) * 2 * (plateExtent + 12);
+  let offset = (parallelIndex - (parallelCount - 1) / 2) * 2 * (plateExtent + 12);
+  const targetRadius = shape === "circle" ? (to.radius ?? CIRCLE_RADIUS) : undefined;
+  const gap = radius === undefined ? Infinity : length - radius - targetRadius!;
+  // Leave a forward segment even when packed bubbles have only a four-unit gap.
+  const padding = Math.min(5, Math.max(0, gap) / 4);
+  const straightCircle = radius !== undefined && offset === 0 && gap > 0.000001;
+  if (radius !== undefined && !straightCircle) {
+    // Touching/overlapping circles need a real arc. Its control must lie outside
+    // both bubbles so the terminal tangent points into, not away from, its target.
+    const clearance = Math.max(radius, targetRadius!) + padding + 1;
+    const minimumOffset = Math.sqrt(Math.max(0, clearance ** 2 - (length / 2) ** 2));
+    offset = (Math.sign(offset) || 1) * Math.max(Math.abs(offset), minimumOffset);
+  }
   const control = {
     x: (start.x + end.x) / 2 - (dy / length) * offset,
     y: (start.y + end.y) / 2 + (dx / length) * offset,
@@ -311,14 +327,19 @@ function edgeGeometry(
     const vy = toward.y - center.y;
     if (endpointRadius !== undefined) {
       const length = Math.hypot(vx, vy) || 1;
-      const extent = endpointRadius + 5;
+      const extent = endpointRadius + padding;
       return { x: center.x + (vx / length) * extent, y: center.y + (vy / length) * extent };
     }
     const extent = Math.max(Math.abs(vx) / (NODE_WIDTH / 2 + 5), Math.abs(vy) / (NODE_HEIGHT / 2 + 5));
     return extent > 0 ? { x: center.x + vx / extent, y: center.y + vy / extent } : center;
   }
   const pathStart = boundary(start, control, radius);
-  const pathEnd = boundary(end, control, shape === "circle" ? (to.radius ?? CIRCLE_RADIUS) : undefined);
+  const pathEnd = boundary(end, control, targetRadius);
+  if (straightCircle) {
+    // A center midpoint can lie inside the larger bubble; use the visible gap.
+    control.x = (pathStart.x + pathEnd.x) / 2;
+    control.y = (pathStart.y + pathEnd.y) / 2;
+  }
   // Tight, user-arranged nodes need a label outside their overlap rather than hidden under a card.
   const tight = Math.abs(dx) < dimensions.width + 160 && Math.abs(dy) < dimensions.height + 70;
   return {
@@ -424,18 +445,33 @@ export function WorldGraphCanvas({
   const revealObjectIds = useMemo(() => [...new Set([...(clearingSelection ? [] : selectedIds), ...(projectionOptions?.revealObjectIds ?? []),
     ...(cameraFocusRequest?.nodeId ? [cameraFocusRequest.nodeId] : []), ...(revealObjectId ? [revealObjectId] : [])])],
     [selectedIds, clearingSelection, projectionOptions?.revealObjectIds, cameraFocusRequest?.nodeId, revealObjectId]);
-  const fallbackRef = useRef<{ worldId: string; positions: ReturnType<typeof createGraphFallbackPositions> } | null>(null);
+  const fallbackRef = useRef<{ worldId: string; signature: string; positions: ReturnType<typeof createGraphFallbackPositions> } | null>(null);
   const fallbackPositions = useMemo(() => {
     if (!fullCorpus) return undefined;
-    const previous = fallbackRef.current?.worldId === record.snapshot.worldId ? fallbackRef.current.positions : undefined;
-    const positions = createGraphFallbackPositions(index, previous);
-    fallbackRef.current = { worldId: record.snapshot.worldId, positions };
+    // Only geometry inputs settle the layout. Names, revisions and view state do not.
+    const signature = JSON.stringify([
+      [...index.objects.keys()].sort(),
+      index.validRelationships.map((edge) => [edge.id, edge.fromObjectId, edge.toObjectId]).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+      Object.entries(record.layout.positions).filter(([id]) => index.objects.has(id as LocalObjectId))
+        .sort(([a], [b]) => a.localeCompare(b)).map(([id, point]) => [id, point.x, point.y]),
+    ]);
+    const previous = fallbackRef.current?.worldId === record.snapshot.worldId ? fallbackRef.current : undefined;
+    if (previous?.signature === signature) return previous.positions;
+    const positions = createGraphFallbackPositions(index, previous?.positions, { savedPositions: record.layout.positions });
+    fallbackRef.current = { worldId: record.snapshot.worldId, signature, positions };
     return positions;
-  }, [fullCorpus, index, record.snapshot.worldId]);
+  }, [fullCorpus, index, record.snapshot.worldId, record.layout.positions]);
   const projection = useMemo(() => projectLocalWorldGraph(record, { ...projectionOptions, fallbackPositions, showUnconnected, revealObjectIds }, index),
     [record.snapshot, record.layout, index, fullCorpus, fallbackPositions, projectionOptions?.maxNodes, projectionOptions?.maxEdges,
       projectionOptions?.focusObjectId, projectionOptions?.neighborhoodDepth, showUnconnected, revealObjectIds]);
   const legend = useMemo(() => [...new Set(record.snapshot.objects.map((object) => object.kind))].sort(), [record.snapshot]);
+  const importantNodeIds = useMemo(() => {
+    const ranked = [...index.relationshipCounts].sort(([a, countA], [b, countB]) => countB - countA || a.localeCompare(b));
+    const threshold = Math.max(2, (ranked[0]?.[1] ?? 0) * 0.2);
+    return new Set(ranked.filter(([, count]) => count >= threshold).slice(0, 8).map(([id]) => id));
+  }, [index]);
+  const [edgeVisibility, setEdgeVisibility] = useState<{ worldId: string; all: boolean } | null>(null);
+  const allRelationships = edgeVisibility?.worldId === record.snapshot.worldId && edgeVisibility.all;
   const isolatedCount = useMemo(() => record.snapshot.objects.filter((object) => !index.relationshipCounts.get(object.id)).length, [index, record.snapshot]);
   const markerId = `world-graph-arrow-${useId().replace(/:/g, "")}`;
   const [renameId, setRenameId] = useState<LocalObjectId | null>(initialDraft.renameId);
@@ -547,13 +583,33 @@ export function WorldGraphCanvas({
   }, []);
 
   const selectedObject = projection.nodes.find((node) => node.id === selectedIds.at(-1));
-  const persistedPositions = useMemo(() => new Map(projection.nodes.map((node) => [node.id, { ...node, radius: fullCorpus ? bubbleRadius(node.relationshipCount) : CIRCLE_RADIUS }])), [projection.nodes, fullCorpus]);
+  const persistedPositions = useMemo(() => new Map(projection.nodes.map((node) => [node.id, { ...node, radius: fullCorpus ? graphBubbleRadius(node.relationshipCount) : CIRCLE_RADIUS }])), [projection.nodes, fullCorpus]);
   const positions = useMemo(() => {
     if (!dragPreview) return persistedPositions;
     const preview = new Map<LocalObjectId, NodePosition>(persistedPositions);
     preview.set(dragPreview.id, { ...persistedPositions.get(dragPreview.id), ...dragPreview });
     return preview;
   }, [persistedPositions, dragPreview]);
+  const overviewLabelNodeIds = useMemo(() => {
+    const visible = new Set<LocalObjectId>();
+    const occupied: { left: number; right: number; top: number; bottom: number }[] = [];
+    // Most recent selections get the readable captions first; keep the rest
+    // bounded to the eight loaded hubs without changing unrelated bubbles.
+    const candidates = new Set([...selectedIds.slice(-2).reverse(), ...importantNodeIds]);
+    for (const id of candidates) {
+      const point = positions.get(id);
+      const object = index.objects.get(id);
+      if (!point || !object) continue;
+      const halfWidth = Math.min(22, object.name.length) * 3.6 + 5;
+      const centerX = (point.x + CIRCLE_RADIUS) * camera.zoom;
+      const baseline = (point.y + CIRCLE_RADIUS + (point.radius ?? CIRCLE_RADIUS)) * camera.zoom + 14;
+      const box = { left: centerX - halfWidth, right: centerX + halfWidth, top: baseline - 14, bottom: baseline + 5 };
+      if (occupied.some((other) => box.left < other.right && box.right > other.left && box.top < other.bottom && box.bottom > other.top)) continue;
+      visible.add(id);
+      occupied.push(box);
+    }
+    return visible;
+  }, [selectedIds, importantNodeIds, positions, index, camera.zoom]);
   const dimensions = nodeDimensions(nodeShape);
   const nodeNames = useMemo(() => new Map(projection.nodes.map((node) => [node.id, node.name])), [projection.nodes]);
   // Geometry has no camera dependency: pan/zoom only changes the scene transform and detail level.
@@ -581,7 +637,11 @@ export function WorldGraphCanvas({
     if (!projection.nodes.length) return { x: 0, y: 0, zoom: 1 };
     const { left, top, width, height } = graphBounds;
     // Fit includes every visible edge/plate even when the bounded graph needs a scale below manual zoom-out.
-    const zoom = Math.min(1, viewport.width / width, viewport.height / height);
+    const initialZoom = Math.min(1, viewport.width / width, viewport.height / height);
+    // Overview hub captions use screen-readable text; reserve room at the edges.
+    const zoom = fullCorpus && initialZoom < 0.45 && importantNodeIds.size > 0
+      ? Math.min(initialZoom, Math.max(1, viewport.width - 160) / width, Math.max(1, viewport.height - 64) / height)
+      : initialZoom;
     return { x: (viewport.width - width * zoom) / 2 - left * zoom,
       y: (viewport.height - height * zoom) / 2 - top * zoom, zoom };
   }
@@ -1060,8 +1120,8 @@ export function WorldGraphCanvas({
   const nodeLayer = useMemo(() => projection.nodes.map((node) => <GraphBubble
     key={node.id} node={node} position={positions.get(node.id)!} selected={selectedIds.includes(node.id)}
     isConnectTarget={connectPreview !== null && connectTargetId === node.id} nodeShape={nodeShape}
-    fullCorpus={fullCorpus} canConnect={Boolean(onConnectRequest)} handlersRef={handlersRef} suppressClickRef={suppressClickRef} />),
-    [projection.nodes, selectedIds, positions, connectPreview !== null, connectTargetId, nodeShape, fullCorpus, Boolean(onConnectRequest)]);
+    fullCorpus={fullCorpus} important={overviewLabelNodeIds.has(node.id)} overviewLabelScale={overviewLabelNodeIds.has(node.id) ? 1 / Math.max(0.001, camera.zoom) : 1} canConnect={Boolean(onConnectRequest)} handlersRef={handlersRef} suppressClickRef={suppressClickRef} />),
+    [projection.nodes, selectedIds, positions, connectPreview !== null, connectTargetId, nodeShape, fullCorpus, overviewLabelNodeIds, camera.zoom, Boolean(onConnectRequest)]);
   const edgeLayer = useMemo(() => renderedEdges.map(({ edge, geometry, box }) => {
               const label = accessibleRelationshipLabel(edge, nodeNames);
               return (
@@ -1152,9 +1212,16 @@ export function WorldGraphCanvas({
           onChange={(event) => { cancelGesture(); setUnconnectedVisibility({ worldId: record.snapshot.worldId, show: event.target.checked }); }} />
           Show objects without listed relationships ({projection.hiddenUnconnectedNodes} hidden)
         </label>
+        <label className="world-graph-canvas__visibility"><input type="checkbox" checked={allRelationships}
+          onChange={(event) => setEdgeVisibility({ worldId: record.snapshot.worldId, all: event.target.checked })} />
+          All relationships
+        </label>
         {!projection.nodes.length && isolatedCount > 0 ? <p role="status">No connected objects in the loaded snapshot. Show objects without listed relationships to explore them, or find an object with search.</p> : null}
         <div className="world-graph-canvas__legend" aria-label="Object type colors">{legend.map((kind) => <span key={kind}><i aria-hidden="true" style={{ backgroundColor: kindColor(kind) }} />{kind}</span>)}</div>
-        <p className="world-graph-canvas__overview-note">{projection.nodes.length} loaded objects · {projection.edges.length} real relationships shown. {isolatedCount} loaded objects have no listed connections. Zoom in for names, relationship labels and connectors. Color shows explicit object type. Bubble area grows logarithmically with relationships in loaded snapshot (radius 32–56, capped at 100 relationships); position is only an arrangement.</p>
+        <p className="world-graph-canvas__overview-note">{projection.nodes.length} loaded objects · {projection.edges.length} real relationships. Select a bubble to trace its connections; zoom for details.</p>
+        <details className="world-graph-canvas__display-help"><summary>About this view</summary>
+          <p>Bubble area follows relationships in the loaded snapshot, capped at 40. Color shows explicit type. {isolatedCount} loaded objects have no listed connections. Quiet lines keep every relationship in view; All relationships strengthens them. Unpinned bubbles arrange around connected hubs; position is not semantic distance.</p>
+        </details>
       </> : null}
       <p className="world-graph-canvas__hint" id={`${markerId}-help`}>
         {fullCorpus ? moveNodesMode
@@ -1207,7 +1274,7 @@ export function WorldGraphCanvas({
           }}
         >
           <defs><marker id={markerId} markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 z" /></marker></defs>
-          <g className="world-graph-canvas__scene" data-testid="graph-scene" data-detail={camera.zoom >= 0.9 ? "relationships" : camera.zoom >= 0.45 ? "names" : "overview"} transform={`translate(${camera.x} ${camera.y}) scale(${camera.zoom})`}>
+          <g className="world-graph-canvas__scene" data-testid="graph-scene" data-all-relationships={allRelationships} data-has-selection={selectedIds.length > 0} data-detail={camera.zoom >= 0.9 ? "relationships" : camera.zoom >= 0.45 ? "names" : "overview"} transform={`translate(${camera.x} ${camera.y}) scale(${camera.zoom})`}>
           <g className="world-graph-canvas__nodes" aria-label="World objects">
             {nodeLayer}
           </g>

@@ -1406,15 +1406,18 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const partialReadSummary = completeness?.status === "partial"
     ? `Partial native graph read: ${completeness.omitted_entities} entities omitted, ${completeness.unexamined_entities} unexamined; ${completeness.omitted_assertions} assertions omitted, ${completeness.unexamined_assertions} unexamined.`
     : null;
+  const graphNavigationHelp = embedded
+    ? "Drag anywhere to pan. Choose Move nodes to fix a bubble in place; unpinned bubbles settle around it."
+    : "Drag the background to pan and nodes to arrange them.";
   const graphHelpText = pendingOperation
     ? "The graph is paused while this review is resolved. Use the review controls above."
     : graph.capabilities.create && canConnectGraph(graph)
-      ? "Drag the background to pan and nodes to arrange this browser-only view. Use Place node to choose where a new node should go, or drag a connector dot to another node to draft a relationship. Use the canvas controls to zoom or fit."
+      ? `${graphNavigationHelp} Use Place node to choose where a new node should go, or drag a connector dot to another node to draft a relationship. Use the canvas controls to zoom or fit.`
       : graph.capabilities.create
-        ? "Drag the background to pan and nodes to arrange this browser-only view. Use Place node to choose where a new node should go, and use the canvas controls to zoom or fit."
+        ? `${graphNavigationHelp} Use Place node to choose where a new node should go, and use the canvas controls to zoom or fit.`
         : canConnectGraph(graph)
-          ? "Drag the background to pan and nodes to arrange this browser-only view. Drag a connector dot to another node to draft a relationship, and use the canvas controls to zoom or fit."
-          : "Drag the background to pan and nodes to arrange this browser-only view. Use the canvas controls to zoom or fit.";
+          ? `${graphNavigationHelp} Drag a connector dot to another node to draft a relationship, and use the canvas controls to zoom or fit.`
+          : `${graphNavigationHelp} Use the canvas controls to zoom or fit.`;
 
   const createPanel = (
     <section className="native-demo-action-card" aria-labelledby="native-demo-create-title">
@@ -1551,7 +1554,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       <p className="native-demo-copy">{mode === "managed"
         ? "This is the selected World graph from DungeonMind. Semantic edits stay behind the native review and confirmation flow."
         : "This private synthetic graph is backed by DungeonMind. It does not edit or publish your account Worlds."}</p>
-      <p className="native-demo-limit-detail">Drag the background to pan, move nodes to arrange this view, and use the canvas controls to zoom or fit. The arrangement is saved in this browser only.</p>
+      <p className="native-demo-limit-detail">{embedded ? "Drag anywhere to pan. Choose Move nodes to fix a bubble in place; unpinned bubbles adapt around saved positions." : "Drag the background to pan and nodes to arrange this view."} Use the canvas controls to zoom or fit. The arrangement is saved in this browser only.</p>
       <ul>
         <li className={graph.capabilities.create ? "is-available" : "is-unavailable"}>{graph.capabilities.create ? `Create ${graph.capabilities.object_kinds.map((kind) => kind.replace(/[_-]+/g, " ")).join(", ") || "supported native objects"}` : "Object creation is read-only here"}</li>
         <li className={canConnectGraph(graph) ? "is-available" : "is-unavailable"}>{!graph.capabilities.connect ? "Connections are read-only here" : !canConnectGraph(graph) ? "No approved relationship labels are available" : finitePredicateOptions ? `Connect using ${allowedPredicates.length} approved relationship label${allowedPredicates.length === 1 ? "" : "s"}` : allowsCustomPredicates ? "Use registered relationship labels or plain labels in DungeonMind’s approved custom namespace" : "Connect objects with a predicate"}</li>

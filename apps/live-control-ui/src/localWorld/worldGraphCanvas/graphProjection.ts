@@ -111,30 +111,41 @@ function coordinate(value: number): number {
   return Math.max(0, Math.min(MAX_GRAPH_COORDINATE, value));
 }
 
+export function graphBubbleRadius(count: number): number {
+  const degree = Number.isFinite(count) ? Math.max(0, count) : count === Infinity ? 40 : 0;
+  return degree === 0 ? 18 : 24 * Math.sqrt(Math.min(degree, 40));
+}
+
+export interface GraphFallbackOptions {
+  readonly savedPositions?: Readonly<Record<string, Readonly<{ x: number; y: number }>>>;
+}
+
 /**
- * Real components occupy consecutive radial bands, ordered hub-first by BFS.
- * Concentric rings have 136-unit nominal center separation, enough for the
- * 112-unit maximum bubble diameter. Isolates follow the real components;
- * radial distance is presentation only, never a semantic or inferred edge.
- * Previous World-local positions win. Finite-domain capacity can reduce spacing
- * for huge corpora; arbitrary retained/pinned positions may still overlap.
+ * Deterministic, one-shot packing around real hubs. Pins are fixed obstacles;
+ * unpinned objects adapt to topology/radius/pin changes, not previous animation
+ * state. The caller caches by those inputs, independently of camera/selection.
+ * Candidate work is bounded. At extreme density or conflicting pins, finite
+ * coordinates/identity take precedence over an impossible separation guarantee.
  */
 export function createGraphFallbackPositions(
   index: LocalWorldGraphIndex,
-  previousPositions?: GraphFallbackPositions,
+  _previousPositions?: GraphFallbackPositions,
+  options: GraphFallbackOptions = {},
 ): GraphFallbackPositions {
+  type Id = LocalWorldObject["id"];
+  type Point = { x: number; y: number };
+  type Bubble = Point & { radius: number; id: Id };
   const ids = [...index.objects.keys()].sort();
-  const adjacency = new Map(ids.map(id => [id, [...new Set(index.neighbors.get(id) ?? [])].filter(other => other !== id).sort()]));
-  const visited = new Set<LocalWorldObject["id"]>();
-  const groups: LocalWorldObject["id"][][] = [];
-  const isolated: LocalWorldObject["id"][] = [];
+  const degree = (id: Id) => index.relationshipCounts.get(id) ?? 0;
+  const radius = (id: Id) => graphBubbleRadius(degree(id));
+  const rank = (a: Id, b: Id) => degree(b) - degree(a) || (a < b ? -1 : a > b ? 1 : 0);
+  const adjacency = new Map(ids.map(id => [id, [...new Set(index.neighbors.get(id) ?? [])].filter(other => other !== id).sort(rank)]));
+  const visited = new Set<Id>();
+  const groups: Id[][] = [];
+  const isolated: Id[] = [];
   for (const id of ids) {
     if (visited.has(id)) continue;
-    if ((index.relationshipCounts.get(id) ?? 0) === 0) {
-      isolated.push(id);
-      visited.add(id);
-      continue;
-    }
+    if (!degree(id)) { isolated.push(id); visited.add(id); continue; }
     const component = [id];
     visited.add(id);
     for (let cursor = 0; cursor < component.length; cursor += 1) {
@@ -142,11 +153,9 @@ export function createGraphFallbackPositions(
         if (!visited.has(neighbor)) { visited.add(neighbor); component.push(neighbor); }
       }
     }
-    // Hub first, then breadth-first neighbors. Stable ID tie breaks ensure source
-    // ordering does not change topology or positions.
-    const root = [...component].sort((a, b) => adjacency.get(b)!.length - adjacency.get(a)!.length || (a < b ? -1 : a > b ? 1 : 0))[0];
-    const ordered = [root];
-    const discovered = new Set([root]);
+    component.sort(rank);
+    const ordered = [component[0]];
+    const discovered = new Set(ordered);
     for (let cursor = 0; cursor < ordered.length; cursor += 1) {
       for (const neighbor of adjacency.get(ordered[cursor])!) {
         if (!discovered.has(neighbor)) { discovered.add(neighbor); ordered.push(neighbor); }
@@ -154,78 +163,136 @@ export function createGraphFallbackPositions(
     }
     groups.push(ordered);
   }
-  // This region asserts no relationship between its individual objects.
-  if (isolated.length) groups.push(isolated);
-  const result = new Map<LocalWorldObject["id"], { x: number; y: number }>();
-  if (!ids.length) return result;
-  const radiusLimit = (MAX_GRAPH_COORDINATE - 160) / 2;
-  // Chord length, not arc length, must accommodate each bubble.
-  const ringSize = (ring: number) => ring === 0 ? 1 : Math.floor(Math.PI / Math.asin(1 / (2 * ring)));
-  let rings = 0;
-  let capacity = 1;
-  // O(sqrt(N)), explicitly bounded even for a singleton graph.
-  while (capacity < ids.length && rings < ids.length) capacity += ringSize(++rings);
-  const spacing = Math.min(136, radiusLimit / Math.max(1, rings));
-  const minimumSeparation = Math.min(128, spacing * 128 / 136);
-  const minimumSquared = minimumSeparation ** 2;
-  type Point = { x: number; y: number };
-  const buckets = new Map<string, Point[]>();
-  const bucketKey = (x: number, y: number) => `${x}:${y}`;
-  function occupy(point: Point) {
-    const key = bucketKey(Math.floor(point.x / minimumSeparation), Math.floor(point.y / minimumSeparation));
-    const bucket = buckets.get(key);
-    if (bucket) bucket.push(point);
-    else buckets.set(key, [point]);
+  groups.sort((a, b) => b.length - a.length || rank(a[0], b[0]));
+  const result = new Map<Id, Point>();
+  const buckets = new Map<string, Bubble[]>();
+  // One neighboring cell covers two maximum radii (~304) plus the 4-unit gap.
+  const cell = 320;
+  const key = (x: number, y: number) => `${x}:${y}`;
+  function occupy(id: Id, point: Point) {
+    result.set(id, point);
+    const k = key(Math.floor(point.x / cell), Math.floor(point.y / cell));
+    const list = buckets.get(k) ?? [];
+    list.push({ ...point, radius: radius(id), id });
+    buckets.set(k, list);
   }
-  function available(point: Point) {
-    const bx = Math.floor(point.x / minimumSeparation);
-    const by = Math.floor(point.y / minimumSeparation);
+  function available(point: Point, r: number): boolean {
+    if (point.x < 0 || point.y < 0 || point.x > MAX_GRAPH_COORDINATE || point.y > MAX_GRAPH_COORDINATE) return false;
+    const bx = Math.floor(point.x / cell), by = Math.floor(point.y / cell);
     for (let x = bx - 1; x <= bx + 1; x += 1) {
       for (let y = by - 1; y <= by + 1; y += 1) {
-        for (const occupied of buckets.get(bucketKey(x, y)) ?? []) {
-          if ((point.x - occupied.x) ** 2 + (point.y - occupied.y) ** 2 < minimumSquared - 0.000001) return false;
+        for (const other of buckets.get(key(x, y)) ?? []) {
+          if ((point.x - other.x) ** 2 + (point.y - other.y) ** 2 < (r + other.radius + 4) ** 2 - 1e-7) return false;
         }
       }
     }
     return true;
   }
   for (const id of ids) {
-    const previous = previousPositions?.get(id);
-    if (previous && Number.isFinite(previous.x) && Number.isFinite(previous.y)) {
-      const point = { x: coordinate(previous.x), y: coordinate(previous.y) };
-      result.set(id, point);
-      occupy(point);
-    }
+    const pin = options.savedPositions?.[id];
+    if (pin && Number.isFinite(pin.x) && Number.isFinite(pin.y)) occupy(id, { x: coordinate(pin.x), y: coordinate(pin.y) });
   }
-  function ringPoints(ringCount: number, center: number): Point[] {
-    const points: Point[] = [];
-    for (let ring = 0; ring <= ringCount; ring += 1) {
-      const count = ringSize(ring);
-      for (let slot = 0; slot < count; slot += 1) {
-        const angle = -Math.PI / 2 + 2 * Math.PI * slot / count;
-        points.push({ x: center + ring * spacing * Math.cos(angle), y: center + ring * spacing * Math.sin(angle) });
-      }
-    }
-    return points;
+  // A separate monotonic emergency grid bounds work even for exhausted domains.
+  let emergencyCursor = 0;
+  const emergencyColumns = Math.max(2, Math.ceil(Math.sqrt(ids.length)));
+  function emergency(): Point {
+    const slot = emergencyCursor++;
+    return { x: 40 + (slot % emergencyColumns) * 5920 / emergencyColumns,
+      y: 40 + Math.floor(slot / emergencyColumns) * 5920 / emergencyColumns };
   }
-  const desiredPoints = ringPoints(rings, 80 + rings * spacing);
-  // Scan spare full-domain slots at most once, rather than searching O(N²).
-  const candidates = [...desiredPoints, ...ringPoints(Math.floor(radiusLimit / spacing), MAX_GRAPH_COORDINATE / 2)];
-  let candidateCursor = 0;
-  let slot = 0;
+  let rootCursor = 0;
+  const origin = { x: 640, y: 640 };
+  function placeRoot(r: number): Point {
+    for (let attempt = 0; attempt < 2048; attempt += 1) {
+      const slot = rootCursor++;
+      const distance = 70 * Math.sqrt(slot);
+      const angle = slot * 2.399963229728653;
+      const point = { x: origin.x + distance * Math.cos(angle), y: origin.y + distance * Math.sin(angle) };
+      if (available(point, r)) return point;
+    }
+    return emergency();
+  }
   for (const group of groups) {
-    for (const id of group) {
-      const desired = desiredPoints[slot++];
+    const rootId = group[0];
+    if (!result.has(rootId)) occupy(rootId, placeRoot(radius(rootId)));
+    const root = result.get(rootId)!;
+    for (const id of group.slice(1)) {
       if (result.has(id)) continue;
-      let point = desired;
-      if (!available(point)) {
-        while (candidateCursor < candidates.length && !available(candidates[candidateCursor])) candidateCursor += 1;
-        // Retention wins if arbitrary previous positions exhaust capacity.
-        point = candidates[candidateCursor++] ?? desired;
+      const neighbors = adjacency.get(id)!.filter(other => result.has(other));
+      const scoringNeighbors = neighbors.slice(0, 32);
+      const anchorId = neighbors[0] ?? rootId;
+      const anchor = result.get(anchorId)!;
+      const r = radius(id);
+      const outward = Math.atan2(anchor.y - root.y, anchor.x - root.x);
+      let chosen: Point | undefined;
+      for (let shell = 0; shell < 16 && !chosen; shell += 1) {
+        const distance = r + radius(anchorId) + 4.1 + shell * 12;
+        let best = Infinity;
+        for (let step = 0; step < 48; step += 1) {
+          const angle = outward + step * 2 * Math.PI / 48;
+          const point = { x: anchor.x + distance * Math.cos(angle), y: anchor.y + distance * Math.sin(angle) };
+          if (!available(point, r)) continue;
+          // All admitted neighbors contribute, with bounded work for dense hubs.
+          let score = 0;
+          for (const neighbor of scoringNeighbors) {
+            const other = result.get(neighbor)!;
+            score += (point.x - other.x) ** 2 + (point.y - other.y) ** 2;
+          }
+          score += 0.02 * ((point.x - root.x) ** 2 + (point.y - root.y) ** 2);
+          if (score < best) { best = score; chosen = point; }
+        }
       }
-      result.set(id, point);
-      occupy(point);
+      occupy(id, chosen ?? placeRoot(r));
     }
+  }
+  // Bounded settling pulls each real component inward without moving pins or
+  // sacrificing radius separation. Rebuild only affected spatial-hash buckets.
+  for (let pass = 0; pass < 24; pass += 1) {
+    let moved = false;
+    for (const group of groups) {
+      const root = result.get(group[0])!;
+      for (const id of group.slice(1).reverse()) {
+        const pin = options.savedPositions?.[id];
+        if (pin && Number.isFinite(pin.x) && Number.isFinite(pin.y)) continue;
+        const point = result.get(id)!;
+        const distance = Math.hypot(point.x - root.x, point.y - root.y);
+        if (distance < 1) continue;
+        const oldKey = key(Math.floor(point.x / cell), Math.floor(point.y / cell));
+        buckets.set(oldKey, buckets.get(oldKey)!.filter(bubble => bubble.id !== id));
+        let settled = point;
+        for (const step of [32, 16, 8, 4]) {
+          if (step >= distance) continue;
+          const candidate = { x: point.x + (root.x - point.x) * step / distance, y: point.y + (root.y - point.y) * step / distance };
+          if (available(candidate, radius(id))) { settled = candidate; moved = true; break; }
+        }
+        occupy(id, settled);
+      }
+    }
+    if (!moved) break;
+  }
+  // Isolates do not set connected-component spacing or placement. Their own
+  // revealable band follows the connected bubbles; extreme counts shrink it.
+  let connectedBottom = 0;
+  for (const [id, point] of result) {
+    if (degree(id) > 0) connectedBottom = Math.max(connectedBottom, point.y + radius(id));
+  }
+  const top = Math.min(5700, connectedBottom + 100);
+  const height = MAX_GRAPH_COORDINATE - top - 40;
+  const columns = Math.max(1, Math.ceil(Math.sqrt(isolated.length * 5920 / height)));
+  const rows = Math.max(1, Math.ceil(isolated.length / columns));
+  const spacing = Math.min(42, 5920 / columns, height / rows);
+  let isolateCursor = 0;
+  for (const id of isolated) {
+    if (result.has(id)) continue;
+    let point: Point = emergency();
+    for (let attempt = 0; attempt < 64; attempt += 1) {
+      const slot = isolateCursor++;
+      const candidate = { x: 40 + (slot % columns) * spacing, y: top + Math.floor(slot / columns) * spacing };
+      if (candidate.y > MAX_GRAPH_COORDINATE) break;
+      point = candidate;
+      if (spacing < 40 || available(candidate, radius(id))) break;
+    }
+    occupy(id, point);
   }
   return result;
 }
@@ -242,7 +309,7 @@ export function projectLocalWorldGraph(
   const objects = record.snapshot.objects;
   const focused = Boolean(options.focusObjectId && index.objects.has(options.focusObjectId));
   const fullOverview = options.fullCorpus && !focused;
-  let fallbackPositions = options.fullCorpus ? options.fallbackPositions ?? createGraphFallbackPositions(index) : undefined;
+  let fallbackPositions = options.fullCorpus ? options.fallbackPositions ?? createGraphFallbackPositions(index, undefined, { savedPositions: record.layout.positions }) : undefined;
   const revealedIds = new Set(options.revealObjectIds ?? []);
   const eligibleObjects = options.showUnconnected === false
     ? objects.filter(object => (index.relationshipCounts.get(object.id) ?? 0) > 0 || revealedIds.has(object.id) || (focused && object.id === options.focusObjectId))
@@ -270,7 +337,7 @@ export function projectLocalWorldGraph(
     const saved = record.layout.positions[object.id];
     let fallback = fallbackPositions?.get(object.id);
     if (options.fullCorpus && (!fallback || !Number.isFinite(fallback.x) || !Number.isFinite(fallback.y))) {
-      fallbackPositions = createGraphFallbackPositions(index, fallbackPositions);
+      fallbackPositions = createGraphFallbackPositions(index, fallbackPositions, { savedPositions: record.layout.positions });
       fallback = fallbackPositions.get(object.id);
     }
     fallback = fallback ? { x: coordinate(fallback.x), y: coordinate(fallback.y) } : initialPosition(position, visibleObjects.length);
