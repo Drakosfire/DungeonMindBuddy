@@ -4,11 +4,27 @@ from pathlib import Path
 
 import httpx
 import pytest
+from generationengine.failures import FailureCode
 
 from apps.live_control_server.services import build_pdf_statblock_extraction as extraction
 
 
+def _inline_openai_platform_lookup(monkeypatch):
+    # The SDK runs this host-only lookup in asyncio.to_thread. The local Python
+    # runtime returns its result but leaves the selector loop asleep, so keep
+    # this unrelated metadata lookup inline in provider-wire tests.
+    import openai._base_client
+
+    def asyncify(function):
+        async def call(*args, **kwargs):
+            return function(*args, **kwargs)
+        return call
+
+    monkeypatch.setattr(openai._base_client, "asyncify", asyncify)
+
+
 def test_model_request_contains_transcriptions_and_guidance_only(monkeypatch):
+    _inline_openai_platform_lookup(monkeypatch)
     monkeypatch.setenv("OPENAI_API_KEY", "fixture-key")
     monkeypatch.setattr(extraction, "_model", lambda: "gpt-6-luna")
     calls = []
@@ -40,6 +56,7 @@ def test_model_request_contains_transcriptions_and_guidance_only(monkeypatch):
 
 
 def test_valid_structured_response_becomes_a_complete_candidate(monkeypatch):
+    _inline_openai_platform_lookup(monkeypatch)
     monkeypatch.setenv("OPENAI_API_KEY", "fixture-key")
     monkeypatch.setattr(extraction, "_model", lambda: "gpt-6-luna")
     from apps.live_control_server.integrations.dungeonmind_statblocks.generated import StatblockDefinitionV1Input
@@ -79,6 +96,43 @@ def test_valid_structured_response_becomes_a_complete_candidate(monkeypatch):
     assert len(calls) == 1
 
 
+@pytest.mark.parametrize("failure_code", list(FailureCode))
+def test_generation_failure_code_is_preserved_without_provider_details(monkeypatch, failure_code):
+    from generationengine import GenerationEngineError
+    from generationengine.failures import InferenceFailure
+    from generationengine.observation import InferenceObservation, ObservationState
+
+    monkeypatch.setenv("OPENAI_API_KEY", "fixture-key")
+    monkeypatch.setattr(extraction, "_model", lambda: "gpt-6-luna")
+    error = GenerationEngineError(
+        InferenceFailure.from_code(failure_code, message="private fixture diagnostic"),
+        InferenceObservation(
+            latency_ms=1, retry_count=0, state=ObservationState.FAILED,
+            failure_code=failure_code,
+        ),
+    )
+
+    class FailedClient:
+        async def generate_structured(self, *_args, **_kwargs):
+            raise error
+
+        async def aclose(self):
+            return None
+
+    monkeypatch.setattr(extraction, "GenerationClient", lambda **_kwargs: FailedClient())
+    with pytest.raises(extraction.StatblockExtractionError) as captured:
+        asyncio.run(extraction.extract_statblock(["OCR text"], "Keep printed values."))
+
+    expected = (
+        "pdf_statblock_output_invalid"
+        if failure_code is FailureCode.STRUCTURED_OUTPUT_INVALID
+        else f"pdf_statblock_generation_{failure_code.value.lower()}"
+    )
+    assert captured.value.code == expected
+    assert str(captured.value) == expected
+    assert "private fixture diagnostic" not in str(captured.value)
+
+
 def test_extraction_prompt_does_not_add_host_locators():
     prompt = extraction.extraction_prompt(["OCR text"], "author note")
     assert json.loads(prompt) == {
@@ -96,11 +150,11 @@ def test_incomplete_output_requires_missing_details():
 
 def test_pdf_regions_create_only_a_source_linked_review_draft(monkeypatch):
     from pathlib import Path
-    from fastapi import FastAPI, HTTPException
-    from fastapi.testclient import TestClient
+    from fastapi import HTTPException
     from application_state import pdf_statblock_review
     from apps.live_control_server.integrations.dungeonmind_statblocks.generated import StatblockDefinitionV1Input
     from apps.live_control_server.routes import agent
+    from uuid import UUID
 
     fixtures = Path(__file__).parent / "fixtures" / "statblocks" / "v1"
     definition = json.loads((fixtures / "candidate-response.json").read_text())["definition"]
@@ -159,10 +213,7 @@ def test_pdf_regions_create_only_a_source_linked_review_draft(monkeypatch):
         lambda *, world_id, review_id: saved.get((world_id, str(review_id))),
     )
 
-    app = FastAPI()
-    app.include_router(agent.router)
     review_id = "00000000-0000-4000-8000-000000000088"
-    path = f"/agent/worlds/world-a/build-pdf-sources/statblock-reviews/{review_id}/from-regions"
     regions = [
         {"source_revision_id": "srev:one", "content_sha256": "a" * 64,
          "page": 1, "left": 0.0, "top": 0.0, "right": 0.5, "bottom": 1.0},
@@ -170,30 +221,40 @@ def test_pdf_regions_create_only_a_source_linked_review_draft(monkeypatch):
          "page": 2, "left": 0.1, "top": 0.0, "right": 0.9, "bottom": 1.0},
     ]
     payload = {"regions": regions, "instruction": "Keep the printed names."}
-    with TestClient(app) as client:
-        assert client.post(path, json=payload).status_code == 401
-        assert calls == []
-        response = client.post(path, json=payload, headers={"Authorization": "Bearer fixture"})
-        assert response.status_code == 200, response.text
-        assert response.json()["revision"] == 1
-        assert response.json()["definition"] == candidate.model_dump(mode="json", by_alias=True)
-        assert response.json()["regions"] == [
-            {"schema_version": "dm_native_pdf_region_v1", **region} for region in regions
-        ]
-        assert calls[:4] == [("open", 1), ("ocr", "dmVyaWZpZWQgY3JvcA=="),
-                             ("open", 2), ("ocr", "dmVyaWZpZWQgY3JvcA==")]
-        assert calls[4] == ("extract", ["OCR for region 2", "OCR for region 4"],
-                            "Keep the printed names.")
-        assert len(saved) == 1
-        assert client.post(path, json=payload, headers={"Authorization": "Bearer fixture"}).json() == response.json()
-        assert len([call for call in calls if call[0] == "extract"]) == 1
+    class Request:
+        def __init__(self, authorization=None):
+            self.headers = {} if authorization is None else {"authorization": authorization}
+
+    with pytest.raises(HTTPException) as unauthorized:
+        agent.post_extract_pdf_statblock_review("world-a", UUID(review_id), payload, Request())
+    assert unauthorized.value.status_code == 401
+    assert calls == []
+
+    response = agent.post_extract_pdf_statblock_review(
+        "world-a", UUID(review_id), payload, Request("Bearer fixture"),
+    )
+    assert response["revision"] == 1
+    assert response["definition"] == candidate.model_dump(mode="json", by_alias=True)
+    assert response["regions"] == [
+        {"schema_version": "dm_native_pdf_region_v1", **region} for region in regions
+    ]
+    assert calls[:4] == [("open", 1), ("ocr", "dmVyaWZpZWQgY3JvcA=="),
+                         ("open", 2), ("ocr", "dmVyaWZpZWQgY3JvcA==")]
+    assert calls[4] == ("extract", ["OCR for region 2", "OCR for region 4"],
+                        "Keep the printed names.")
+    assert len(saved) == 1
+    repeated = agent.post_extract_pdf_statblock_review(
+        "world-a", UUID(review_id), payload, Request("Bearer fixture"),
+    )
+    assert repeated == response
+    assert len([call for call in calls if call[0] == "extract"]) == 1
 
 
 def test_incomplete_pdf_statblock_extraction_does_not_save(monkeypatch):
-    from fastapi import FastAPI, HTTPException
-    from fastapi.testclient import TestClient
+    from fastapi import HTTPException
     from application_state import pdf_statblock_review
     from apps.live_control_server.routes import agent
+    from uuid import UUID
 
     def authorize(request):
         if request.headers.get("authorization") != "Bearer fixture":
@@ -223,24 +284,24 @@ def test_incomplete_pdf_statblock_extraction_does_not_save(monkeypatch):
     monkeypatch.setattr(pdf_statblock_review, "save_review", lambda **kwargs: writes.append(kwargs))
     monkeypatch.setattr(pdf_statblock_review, "read_review", lambda **kwargs: None)
 
-    app = FastAPI()
-    app.include_router(agent.router)
-    path = "/agent/worlds/world-a/build-pdf-sources/statblock-reviews/00000000-0000-4000-8000-000000000089/from-regions"
-    with TestClient(app) as client:
-        response = client.post(path, json={"regions": [locator], "instruction": ""},
-                               headers={"Authorization": "Bearer fixture"})
-    assert response.status_code == 422
-    assert response.json()["detail"] == {
-        "code": "pdf_statblock_extraction_incomplete",
-        "missing_details": ["Hit Points", "ability scores"],
+    class Request:
+        headers = {"authorization": "Bearer fixture"}
+
+    review_id = UUID("00000000-0000-4000-8000-000000000089")
+    with pytest.raises(HTTPException) as response:
+        agent.post_extract_pdf_statblock_review(
+            "world-a", review_id, {"regions": [locator], "instruction": ""}, Request(),
+        )
+    assert response.value.status_code == 422
+    assert response.value.detail == {
+        "code": "pdf_statblock_extraction_incomplete", "missing_details": ["Hit Points", "ability scores"],
     }
     assert writes == []
 
 
 @pytest.mark.parametrize("failure", ["invalid_region", "ocr", "model"])
 def test_pdf_statblock_failures_never_save_a_review(monkeypatch, failure):
-    from fastapi import FastAPI, HTTPException
-    from fastapi.testclient import TestClient
+    from fastapi import HTTPException
     from application_state import pdf_statblock_review
     from apps.live_control_server.routes import agent
 
@@ -276,20 +337,27 @@ def test_pdf_statblock_failures_never_save_a_review(monkeypatch, failure):
 
             async def reject_model(transcriptions, instruction):
                 calls.append("model")
-                raise extraction.StatblockExtractionError("pdf_statblock_generation_unavailable")
+                raise extraction.StatblockExtractionError("pdf_statblock_generation_provider_error")
 
             monkeypatch.setattr(extraction, "extract_statblock", reject_model)
+            from src.llm import generation_sync
+            monkeypatch.setattr(generation_sync, "run_awaitable_sync", lambda factory: asyncio.run(factory()))
 
     writes = []
     monkeypatch.setattr(pdf_statblock_review, "save_review", lambda **kwargs: writes.append(kwargs))
     monkeypatch.setattr(pdf_statblock_review, "read_review", lambda **kwargs: None)
-    app = FastAPI()
-    app.include_router(agent.router)
-    path = "/agent/worlds/world-a/build-pdf-sources/statblock-reviews/00000000-0000-4000-8000-000000000090/from-regions"
+    try:
+        agent.post_extract_pdf_statblock_review(
+            "world-a", "00000000-0000-4000-8000-000000000090",
+            {"regions": [locator], "instruction": ""}, object(),
+        )
+    except HTTPException as response:
+        status_code, detail = response.status_code, response.detail
+    else:
+        pytest.fail("expected the route to reject the failed PDF statblock request")
 
-    with TestClient(app) as client:
-        response = client.post(path, json={"regions": [locator], "instruction": ""})
-
-    assert response.status_code == (403 if failure == "invalid_region" else 503)
+    assert status_code == (403 if failure == "invalid_region" else 503)
     assert writes == []
     assert calls == ({"invalid_region": ["region"], "ocr": ["ocr"], "model": ["model"]}[failure])
+    if failure == "model":
+        assert detail == {"code": "pdf_statblock_generation_provider_error"}

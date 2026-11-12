@@ -47,6 +47,13 @@ class StatblockExtractionError(ValueError):
         self.code = code
 
 
+def _generation_error_code(exc: GenerationEngineError) -> str:
+    """Retain GenerationEngine's safe, provider-neutral failure classification."""
+    if exc.failure.code is FailureCode.STRUCTURED_OUTPUT_INVALID:
+        return "pdf_statblock_output_invalid"
+    return f"pdf_statblock_generation_{exc.failure.code.value.lower()}"
+
+
 def extraction_prompt(transcriptions: list[str], instruction: str) -> str:
     """Compose content-only model input; source locators remain in host-owned storage."""
     return json.dumps({
@@ -110,12 +117,7 @@ async def extract_statblock(
             ),
         })
     except GenerationEngineError as exc:
-        code = (
-            "pdf_statblock_output_invalid"
-            if exc.failure.code is FailureCode.STRUCTURED_OUTPUT_INVALID
-            else "pdf_statblock_generation_unavailable"
-        )
-        raise StatblockExtractionError(code) from exc
+        raise StatblockExtractionError(_generation_error_code(exc)) from exc
     except (ValueError, TypeError) as exc:
         raise StatblockExtractionError("pdf_statblock_generation_unavailable") from exc
     try:
@@ -134,12 +136,7 @@ async def extract_statblock(
     except StatblockExtractionError:
         raise
     except GenerationEngineError as exc:
-        code = (
-            "pdf_statblock_output_invalid"
-            if exc.failure.code is FailureCode.STRUCTURED_OUTPUT_INVALID
-            else "pdf_statblock_generation_unavailable"
-        )
-        raise StatblockExtractionError(code) from exc
+        raise StatblockExtractionError(_generation_error_code(exc)) from exc
     except (ValueError, TypeError) as exc:
         raise StatblockExtractionError("pdf_statblock_generation_unavailable") from exc
     finally:
