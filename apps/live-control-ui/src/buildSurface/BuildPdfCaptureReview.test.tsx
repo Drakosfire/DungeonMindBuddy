@@ -63,6 +63,16 @@ it("does not offer a statblock candidate for ordinary OCR prose", async () => {
   expect(screen.queryByRole("button", {name: "Preview statblock fields"})).toBeNull();
 });
 
+it("does not associate isolated OCR armor and hit-point labels as one statblock", async () => {
+  vi.mocked(authenticatedApiFetch).mockResolvedValueOnce({
+    response: Response.json({text: "Workshop notes\nArmor Class 11\nThe creature had Hit Points 39 in an unrelated caption."}),
+  } as Awaited<ReturnType<typeof authenticatedApiFetch>>);
+  render(<CropOcr worldId="elderwyld" region={region} hasPdfText />);
+  fireEvent.click(screen.getByRole("button", {name: "Try OCR instead"}));
+  expect(await screen.findByLabelText("OCR transcription")).toBeInTheDocument();
+  expect(screen.queryByRole("button", {name: "Preview statblock fields"})).toBeNull();
+});
+
 it("keeps image-only OCR as an image result without a statblock candidate", async () => {
   vi.mocked(authenticatedApiFetch).mockResolvedValueOnce({
     response: Response.json({text: "<|ref|>image<|/ref|><|det|>[[0,0,100,100]]<|/det|>"}),

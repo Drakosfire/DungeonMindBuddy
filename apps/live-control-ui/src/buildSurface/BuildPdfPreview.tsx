@@ -1,6 +1,6 @@
 import { StartPdfStatblockReview } from "./StartPdfStatblockReview";
 import { completePdfTextLines, hasClippedPdfTextLine, pdfTextBoundsOverlap } from "./completePdfTextLines";
-import { looksLikePdfStatblock, PdfStatblockCandidate } from "./PdfStatblockCandidate";
+import { hasRecognizablePdfStatblockStructure, looksLikePdfStatblock, PdfStatblockCandidate } from "./PdfStatblockCandidate";
 import { PdfTableCandidate } from "./PdfTableCandidate";
 import type { PdfRegionTextRun } from "./parsePdfDiceTable";
 import { pdfRegionKey, readRetainedPdfRegions, retainedPdfKey, type PdfLocator, type PdfReceipt, type RetainedPdf } from "../api/retainedPdfRegions";
@@ -79,7 +79,7 @@ export function CropOcr({ worldId, region, hasPdfText }: { worldId: string; regi
       {error && <p role="alert">{error}</p>}
       {imageOnly && <p role="status">OCR found an image in this region without transcribing any text.</p>}
       {text && !imageOnly && <label>{review ? `Buddy’s review · Page ${region.page}` : "OCR transcription"}<textarea readOnly rows={8} value={text} /></label>}
-      {!review && text && !imageOnly && <PdfStatblockCandidate text={text} locator={region} />}
+      {!review && text && !imageOnly && hasRecognizablePdfStatblockStructure(text) && <PdfStatblockCandidate text={text} locator={region} />}
     </div>
   );
 }

@@ -32,6 +32,23 @@ export function looksLikePdfStatblock(text: string): boolean {
     || /^\s*STR\s+DEX\s+CON\s+INT\s+WIS\s+CHA\s*$/im.test(text);
 }
 
+export function hasRecognizablePdfStatblockStructure(text: string): boolean {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const armor = Array.from(text.matchAll(/^[ \t]*Armor Class[ \t]*:?[ \t]*\d/gim));
+  const hp = Array.from(text.matchAll(/^[ \t]*Hit Points[ \t]*:?[ \t]*\d/gim));
+  const creatureType = /^(Tiny|Small|Medium|Large|Huge|Gargantuan)\b.+,\s*[^,]+$/i;
+  const typeLineIndex = lines.findIndex(line => creatureType.test(line));
+  const armorIndex = lines.findIndex(line => /^Armor Class\s*:?[ \t]*\d/i.test(line));
+  const hpIndex = lines.findIndex(line => /^Hit Points\s*:?[ \t]*\d/i.test(line));
+
+  return armor.length === 1
+    && hp.length === 1
+    && readAbilityScores(text).length === abilities.length
+    && typeLineIndex >= 0
+    && armorIndex > typeLineIndex
+    && hpIndex > armorIndex;
+}
+
 export function PdfStatblockCandidate({text, locator}: {text: string; locator: PdfLocator}) {
   const [opened, setOpened] = useState(false);
   const armor = Array.from(text.matchAll(/^[ \t]*Armor Class[ \t]*:?[ \t]*(\d(?:[ \t]*\d)*)/gim));
@@ -40,17 +57,18 @@ export function PdfStatblockCandidate({text, locator}: {text: string; locator: P
   if (!opened) return <button type="button" onClick={() => setOpened(true)}>Preview statblock fields</button>;
 
   const scores = readAbilityScores(text);
-  const sections = armor.length === 1 && hp.length === 1 ? readRulesSections(text) : [];
+  const structured = hasRecognizablePdfStatblockStructure(text);
+  const sections = structured && armor.length === 1 && hp.length === 1 ? readRulesSections(text) : [];
   return <section aria-label="Extracted statblock fields">
     <h4>Statblock candidate</h4>
     <p>Page {locator.page} · {locator.source_revision_id}</p>
-    {armor.length === 1 && hp.length === 1 ? <dl>
+    {structured ? <dl>
       <dt>Armor Class</dt><dd>{armor[0][1].replace(/\s/g, "")}</dd>
       <dt>Hit Points</dt><dd>{hp[0][1].replace(/\s/g, "")}{hp[0][2] && ` (${hp[0][2].trim().replace(/(\d)[ \t]+(?=\d)/g, "$1")})`}</dd>
       {scores.map((score, index) => <div key={abilities[index]}>
         <dt>{abilities[index]}</dt><dd>{score}</dd>
       </div>)}
-    </dl> : <p>Select a region with one labeled Armor Class and one labeled Hit Points entry.</p>}
+    </dl> : <p>Select a region containing a creature type, Armor Class, Hit Points and all six ability scores.</p>}
     {sections.map(({ title, body }, index) => (
       <details key={index}>
         <summary>{title} · captured text</summary>
