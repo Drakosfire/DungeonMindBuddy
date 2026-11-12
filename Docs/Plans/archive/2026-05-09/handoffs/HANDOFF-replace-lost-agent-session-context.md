@@ -32,7 +32,7 @@ with fallback resolution in Buddy—**tests that claim “no API key” behavior
 
 ### Phase A — 10 minutes (orientation)
 
-1. `**report/REPORT-current-status.md`** — current verified commands, gate outcomes, nano experiment caveats, git hygiene notes.
+1. [Historical status report](https://github.com/Drakosfire/DungeonMindBuddy/blob/3fbf800e0f134ba9a1396156c22c18c614c8f72d/report/REPORT-current-status.md) — current verified commands, gate outcomes, nano experiment caveats, git hygiene notes.
 2. `**Docs/Design/DESIGN-ingestion-pipeline-architecture-and-refactor-assessment.md`** — **authoritative pipeline map** (CLI → frontmatter → chunk → entity → fact → stage artifacts → gates → store → projection/`ask`). Includes comparison to RulesIngestion and refactor posture (**incremental**, not rewrite).
 
 ### Phase B — 30 minutes (mission + skepticism)
