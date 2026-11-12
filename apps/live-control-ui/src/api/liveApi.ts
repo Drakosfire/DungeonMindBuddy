@@ -347,7 +347,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     "/api/live/native-graph-explorer/operations/read",
   ].includes(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources(?:\/(?:open|ocr|review|statblock:validate))?$/.test(pathname)) return true;
-  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources\/statblock-reviews\/[^/]+(?:\/validate|\/(?:accept|append)\/[^/]+)?$/.test(pathname)) return true;
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources\/statblock-reviews\/[^/]+(?:\/validate|\/from-regions|\/(?:accept|append)\/[^/]+)?$/.test(pathname)) return true;
   if (pathname === "/api/live/graph-authoring/document-relationship/request") return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/work-plans\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}(?:\/continue)?$/i.test(pathname)) return true;
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversations\/active\/messages$/.test(pathname)) return true;
@@ -665,6 +665,10 @@ function canRetryLocalSessionRequest(path: string, init?: RequestInit): boolean 
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-proposals$/.test(pathname)) {
     return typeof body?.idempotency_key === "string" && Boolean(body.idempotency_key)
       && typeof body.conversation_id === "string" && Number.isSafeInteger(body.expected_pointer_revision);
+  }
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/build-pdf-sources\/statblock-reviews\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/from-regions$/i.test(pathname)) {
+    return Array.isArray(body?.regions) && body.regions.length > 0
+      && typeof body.instruction === "string";
   }
   if (pathname === "/api/live/agent/turn") {
     return typeof body?.client_thread_id === "string" && Boolean(body.client_thread_id)
