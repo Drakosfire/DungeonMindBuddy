@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createNativeGraphDemoApi, NativeGraphDemoApiError } from "./nativeGraphDemoApi";
 import type { NativeGraph } from "./nativeGraphDemoApi";
+import { nativeGraphPresentation } from "./nativeGraphPresentation";
 
 const graph: NativeGraph = {
   world_id: "space-1",
@@ -229,5 +230,69 @@ describe("native graph demo API", () => {
       capabilities: { ...managedGraph.capabilities, allowed_predicates: ["located_in", 7] },
     })) });
     await expect(invalidApi.readGraph()).rejects.toMatchObject({ code: "invalid_response" });
+  });
+});
+
+describe("optional native graph presentation DTO", () => {
+  it.each([undefined, { recorded_names: [], classification_terms: [] },
+    { recorded_names: ["Mira", "Mira", " Mira "], classification_terms: ["dungeonbuddy:character"] },
+  ])("accepts legacy and raw recorded presentation %j", async (presentation) => {
+    const value = { ...graph, nodes: [{ id: "one", name: "Legacy", kind: "object", presentation }] };
+    const api = createNativeGraphDemoApi({ readCapability: () => "demo", fetcher: async () => jsonResponse(value) });
+    expect(await api.readGraph()).toEqual(JSON.parse(JSON.stringify(value)));
+  });
+  it.each([null, [], {}, { recorded_names: [3], classification_terms: [] },
+    { recorded_names: [], classification_terms: [null] },
+    { recorded_names: "Mira", classification_terms: [] },
+    { recorded_names: [], classification_terms: "dnd5e:npc" },
+  ])("rejects malformed optional presentation %j", async (presentation) => {
+    const api = createNativeGraphDemoApi({ readCapability: () => "demo", fetcher: async () => jsonResponse({
+      ...graph, nodes: [{ id: "one", name: "Legacy", kind: "object", presentation }],
+    }) });
+    await expect(api.readGraph()).rejects.toMatchObject({ code: "invalid_response" });
+  });
+});
+
+
+const node = { id: "one", name: "Multiple recorded names", kind: "object" };
+const present = (names: string[], terms: string[]) => nativeGraphPresentation({ ...node,
+  presentation: { recorded_names: names, classification_terms: terms } });
+
+describe("native graph recorded presentation", () => {
+  it("preserves legacy names and kinds without inferring roles", () => {
+    expect(nativeGraphPresentation({ ...node, name: "Mira", kind: "person" })).toEqual({
+      displayName: "Mira", displayKind: "person", recordedNames: [], classificationTerms: [],
+    });
+  });
+  it("shows deterministic meaningful alternatives while retaining all raw distinct values", () => {
+    const names = ["Zed", "Mira", " Ada ", "Mira", "ada", ""];
+    const result = present(names, []);
+    expect(result.displayName).toBe(" Ada  / Mira (+2 more)");
+    expect(result.recordedNames).toEqual(["", " Ada ", "Mira", "Zed", "ada"]);
+    expect(present([...names].reverse(), [])).toEqual(result);
+    expect(present(["   "], []).displayName).toBe(node.name);
+  });
+  it("does not combine separate identities with equal recorded names", () => {
+    const nodes = ["one", "two"].map((id) => ({ ...node, id,
+      presentation: { recorded_names: ["Mira"], classification_terms: [] } }));
+    expect(nodes.map(nativeGraphPresentation).map((result) => result.displayName)).toEqual(["Mira", "Mira"]);
+    expect(nodes.map((entry) => entry.id)).toEqual(["one", "two"]);
+  });
+  it.each([
+    ["dnd5e:npc", "npc"], ["dnd5e:pc", "pc"], ["dnd5e:player_character", "pc"],
+    ["dungeonbuddy:item", "item"], ["dungeonbuddy:event", "event"],
+    ["dnd5e:item", "item"], ["dnd5e:event", "event"], ["dnd5e:location", "location"],
+    ["dungeonbuddy:character", "character (role unspecified)"], ["dungeonbuddy:session_beat", "session beat"],
+  ])("uses only the explicit exact term %s", (term, expected) => {
+    expect(present(["Mira"], [term]).displayKind).toBe(expected);
+  });
+  it.each(["npc", "custom:npc", "dnd5e:NPC", "dnd5e:npc ", "dungeonbuddy:character_npc", "toString"])("keeps unsupported %s neutral", (term) => {
+    expect(present([], [term]).displayKind).toBe("object (unsupported classification)");
+  });
+  it("explains mixed and missing classifications without guessing", () => {
+    expect(present([], ["dnd5e:npc", "dungeonbuddy:character"]).displayKind).toBe("object (mixed classifications)");
+    expect(present([], ["dnd5e:npc", "unknown:term"]).classificationTerms).toEqual(["dnd5e:npc", "unknown:term"]);
+    expect(present([], []).displayKind).toBe("object (classification unspecified)");
+    expect(present([], ["dnd5e:npc", "dnd5e:npc"]).displayKind).toBe("npc");
   });
 });

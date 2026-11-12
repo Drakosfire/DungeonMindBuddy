@@ -20,6 +20,7 @@ import {
   type PrepareResult,
 } from "./nativeGraphDemoApi";
 import type { NativeGraphEntity } from "../api/nativeGraphInspection";
+import { nativeGraphPresentation } from "./nativeGraphPresentation";
 import { NativeGraphObjectDetails } from "../graphLens/NativeGraphObjectDetails";
 import { buildSurfaceInteractionIdentity } from "../surfaceInteraction/surfaceIdentity";
 import {
@@ -229,12 +230,18 @@ function toCanvasRecord(graph: NativeGraph, layout: LayoutState): LocalWorldReco
     snapshot: {
       worldId,
       title: "DungeonMind native graph",
-      objects: graph.nodes.map((node) => ({
-        id: node.id as LocalObjectId,
-        name: node.name,
-        kind: node.kind,
-        properties: {},
-      })),
+      objects: graph.nodes.map((node) => {
+        const presentation = nativeGraphPresentation(node);
+        return {
+          id: node.id as LocalObjectId,
+          name: presentation.displayName,
+          kind: presentation.displayKind,
+          properties: {
+            recordedNames: [...presentation.recordedNames],
+            recordedClassifications: [...presentation.classificationTerms],
+          },
+        };
+      }),
       relationships: graph.edges.map((edge) => ({
         id: edge.id as LocalRelationshipId,
         fromObjectId: edge.source_id as LocalObjectId,
@@ -455,6 +462,8 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const [viewFocusId, setViewFocusId] = useState<LocalObjectId | null>(null);
   const [neighborhoodDepth, setNeighborhoodDepth] = useState(1);
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
+  const [createdNodeReveal, setCreatedNodeReveal] = useState<{ readonly nodeId: string; readonly worldId: string } | null>(null);
+  const pendingCreatedFocusRef = useRef<{ readonly nodeId: string; readonly graph: NativeGraph } | null>(null);
   const [cameraFocusRequest, setCameraFocusRequest] = useState<{ readonly nodeId: LocalObjectId | null; readonly requestId: number; readonly worldId: string; readonly selectNode?: boolean } | undefined>(undefined);
   const cameraFocusRequestIdRef = useRef(0);
   const [cameraFocusResetRequest, setCameraFocusResetRequest] = useState<{readonly requestId: number; readonly fitView: boolean} | undefined>(undefined);
@@ -501,6 +510,8 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     placementIntentRef.current = null;
     setPlacementIntent(null);
     setLayout({ worldId: "", positions: {}, revision: 0 });
+    setCreatedNodeReveal(null);
+    pendingCreatedFocusRef.current = null;
     setSelectedNodeId(null);
     setActivePanel(null);
     setStorageWarning(false);
@@ -529,7 +540,16 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     selectionClearRequestIdRef.current += 1;
     setClearSelectionRequest(selectionClearRequestIdRef.current);
     setActivePanel((current) => current === "details" ? null : current);
-  }, [graph]);
+    setCreatedNodeReveal((current) => current && graph?.world_id === current.worldId
+      && graph.nodes.some((node) => node.id === current.nodeId) ? current : null);
+    const createdFocus = pendingCreatedFocusRef.current;
+    pendingCreatedFocusRef.current = null;
+    if (embedded && graph && createdFocus?.graph === graph) {
+      setCreatedNodeReveal({ nodeId: createdFocus.nodeId, worldId: graph.world_id });
+      cameraFocusRequestIdRef.current += 1;
+      setCameraFocusRequest({ nodeId: createdFocus.nodeId as LocalObjectId, requestId: cameraFocusRequestIdRef.current, worldId: graph.world_id, selectNode: true });
+    }
+  }, [graph, embedded]);
 
   const handleCanvasSelectionChange = useCallback((nodeId: LocalObjectId | null) => {
     selectedNodeIdRef.current = nodeId;
@@ -744,6 +764,11 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   async function clearRecoveredOperation(message: string, owner: number | null = mountedOwnerRef.current, completedOperation?: PendingNativeOperation, committedGraph?: NativeGraph, applyPlacement = true, createdNodeId: string | null = null) {
     if (!ownsMount(owner) || completedOperation && pendingRef.current?.operation_id !== completedOperation.operation_id) return;
     const currentGraph = graphRef.current;
+    if (embedded && applyPlacement && completedOperation?.kind === "create_object" && committedGraph
+      && committedGraph === currentGraph && createdNodeId
+      && committedGraph.nodes.some((node) => node.id === createdNodeId && node.kind === completedOperation.object_kind)) {
+      pendingCreatedFocusRef.current = { nodeId: createdNodeId, graph: committedGraph };
+    }
     let currentDraft = draftRef.current;
     const currentScopeId = stateScopeIdRef.current;
     const savedPlacement = placementIntentRef.current
@@ -1217,8 +1242,10 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const record = useMemo(() => graph ? toCanvasRecord(graph, layout) : null, [graph, layout]);
   const matchingObjects = useMemo(() => {
     const query = objectQuery.trim().toLocaleLowerCase();
-    return (graph?.nodes ?? []).filter((node) => !query
-      || `${node.name} ${node.kind} ${node.id}`.toLocaleLowerCase().includes(query));
+    return (graph?.nodes ?? []).filter((node) => {
+      const presentation = nativeGraphPresentation(node);
+      return !query || `${node.name} ${node.kind} ${node.id} ${presentation.displayName} ${presentation.displayKind} ${presentation.recordedNames.join(" ")}`.toLocaleLowerCase().includes(query);
+    });
   }, [graph, objectQuery]);
   const searchPageSize = 20;
   const lastObjectPage = Math.max(0, Math.ceil(matchingObjects.length / searchPageSize) - 1);
@@ -1250,7 +1277,8 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const creationKinds = graph?.capabilities.create
     ? graph.capabilities.object_kinds.map((kind) => ({ kind, label: kind.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) }))
     : [];
-  const selectedNodeName = graph?.nodes.find((node) => node.id === selectedNodeId)?.name ?? null;
+  const selectedPresentationNode = graph?.nodes.find((node) => node.id === selectedNodeId);
+  const selectedNodeName = selectedPresentationNode ? nativeGraphPresentation(selectedPresentationNode).displayName : null;
 
   function handleCanvasCreateRequest(intent: { readonly kind: string; readonly position: { readonly x: number; readonly y: number } }) {
     if (!graph || pendingRef.current || !graph.capabilities.create || !isNativeKindSupported(graph, intent.kind as NativeObjectKind)
@@ -1378,15 +1406,18 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const partialReadSummary = completeness?.status === "partial"
     ? `Partial native graph read: ${completeness.omitted_entities} entities omitted, ${completeness.unexamined_entities} unexamined; ${completeness.omitted_assertions} assertions omitted, ${completeness.unexamined_assertions} unexamined.`
     : null;
+  const graphNavigationHelp = embedded
+    ? "Drag anywhere to pan. Choose Move nodes to fix a bubble in place; unpinned bubbles settle around it."
+    : "Drag the background to pan and nodes to arrange them.";
   const graphHelpText = pendingOperation
     ? "The graph is paused while this review is resolved. Use the review controls above."
     : graph.capabilities.create && canConnectGraph(graph)
-      ? "Drag the background to pan and nodes to arrange this browser-only view. Use Place node to choose where a new node should go, or drag a connector dot to another node to draft a relationship. Use the canvas controls to zoom or fit."
+      ? `${graphNavigationHelp} Use Place node to choose where a new node should go, or drag a connector dot to another node to draft a relationship. Use the canvas controls to zoom or fit.`
       : graph.capabilities.create
-        ? "Drag the background to pan and nodes to arrange this browser-only view. Use Place node to choose where a new node should go, and use the canvas controls to zoom or fit."
+        ? `${graphNavigationHelp} Use Place node to choose where a new node should go, and use the canvas controls to zoom or fit.`
         : canConnectGraph(graph)
-          ? "Drag the background to pan and nodes to arrange this browser-only view. Drag a connector dot to another node to draft a relationship, and use the canvas controls to zoom or fit."
-          : "Drag the background to pan and nodes to arrange this browser-only view. Use the canvas controls to zoom or fit.";
+          ? `${graphNavigationHelp} Drag a connector dot to another node to draft a relationship, and use the canvas controls to zoom or fit.`
+          : `${graphNavigationHelp} Use the canvas controls to zoom or fit.`;
 
   const createPanel = (
     <section className="native-demo-action-card" aria-labelledby="native-demo-create-title">
@@ -1442,13 +1473,13 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
         <select id="native-demo-source" value={draft.sourceId} required disabled={Boolean(pendingOperation)}
           onChange={(event) => updateDraft({ sourceId: event.target.value })}>
           <option value="">Choose an object</option>
-          {graph.nodes.map((node) => <option key={node.id} value={node.id}>{node.name} · {node.kind}</option>)}
+          {graph.nodes.map((node) => <option key={node.id} value={node.id}>{nativeGraphPresentation(node).displayName} · {nativeGraphPresentation(node).displayKind}</option>)}
         </select>
         <label htmlFor="native-demo-target">To</label>
         <select id="native-demo-target" value={draft.targetId} required disabled={Boolean(pendingOperation)}
           onChange={(event) => updateDraft({ targetId: event.target.value })}>
           <option value="">Choose an object</option>
-          {graph.nodes.map((node) => <option key={node.id} value={node.id}>{node.name} · {node.kind}</option>)}
+          {graph.nodes.map((node) => <option key={node.id} value={node.id}>{nativeGraphPresentation(node).displayName} · {nativeGraphPresentation(node).displayKind}</option>)}
         </select>
         <label htmlFor={showPredicateOptions ? "native-demo-predicate-choice" : "native-demo-predicate"}>Relationship</label>
         {showPredicateOptions ? (
@@ -1523,7 +1554,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       <p className="native-demo-copy">{mode === "managed"
         ? "This is the selected World graph from DungeonMind. Semantic edits stay behind the native review and confirmation flow."
         : "This private synthetic graph is backed by DungeonMind. It does not edit or publish your account Worlds."}</p>
-      <p className="native-demo-limit-detail">Drag the background to pan, move nodes to arrange this view, and use the canvas controls to zoom or fit. The arrangement is saved in this browser only.</p>
+      <p className="native-demo-limit-detail">{embedded ? "Drag anywhere to pan. Choose Move nodes to fix a bubble in place; unpinned bubbles adapt around saved positions." : "Drag the background to pan and nodes to arrange this view."} Use the canvas controls to zoom or fit. The arrangement is saved in this browser only.</p>
       <ul>
         <li className={graph.capabilities.create ? "is-available" : "is-unavailable"}>{graph.capabilities.create ? `Create ${graph.capabilities.object_kinds.map((kind) => kind.replace(/[_-]+/g, " ")).join(", ") || "supported native objects"}` : "Object creation is read-only here"}</li>
         <li className={canConnectGraph(graph) ? "is-available" : "is-unavailable"}>{!graph.capabilities.connect ? "Connections are read-only here" : !canConnectGraph(graph) ? "No approved relationship labels are available" : finitePredicateOptions ? `Connect using ${allowedPredicates.length} approved relationship label${allowedPredicates.length === 1 ? "" : "s"}` : allowsCustomPredicates ? "Use registered relationship labels or plain labels in DungeonMind’s approved custom namespace" : "Connect objects with a predicate"}</li>
@@ -1546,13 +1577,15 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   );
 
   const selectedNode = graph.nodes.find((node) => node.id === selectedNodeId) ?? null;
-  const selectedLabels = new Map(graph.nodes.map((node) => [node.id, node.name]));
+  const selectedLabels = new Map(graph.nodes.map((node) => [node.id, nativeGraphPresentation(node).displayName]));
+  const selectedPresentation = selectedNode ? nativeGraphPresentation(selectedNode) : null;
   const selectedConnections = selectedNode ? graph.edges.filter((edge) => edge.source_id === selectedNode.id || edge.target_id === selectedNode.id) : [];
   const detailsPanel = selectedNode ? (
     <section className="native-demo-action-card native-demo-object-details" aria-labelledby="native-demo-selected-object-title">
       <p className="native-demo-eyebrow">{mode === "managed" ? "LOADED WORLD REVISION" : "LOADED SNAPSHOT"}</p>
-      <h2 id="native-demo-selected-object-title">{mode === "managed" ? "Object details" : selectedNode.name}</h2>
-      <p className="native-demo-copy">{mode === "managed" ? `${selectedNode.name} · ` : ""}{selectedNode.kind} · revision <code>{graph.revision_id}</code></p>
+      <h2 id="native-demo-selected-object-title">{mode === "managed" ? "Object details" : selectedPresentation!.displayName}</h2>
+      <p className="native-demo-copy">{mode === "managed" ? `${selectedPresentation!.displayName} · ` : ""}{selectedPresentation!.displayKind} · revision <code>{graph.revision_id}</code></p>
+      {selectedPresentation!.recordedNames.length > 1 ? <p>Recorded names: {selectedPresentation!.recordedNames.join(" / ")}. These labels refer to this recorded object; no preferred name is inferred.</p> : null}
       <div className="native-demo-object-details__actions">
         <button className="native-demo-button native-demo-button--light" type="button" onClick={() => requestCameraFocus(selectedNode.id)}>Focus</button>
         {focusedNodeId ? <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => requestCameraFocus(null)}>Exit focus</button> : null}
@@ -1561,7 +1594,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       {mode === "managed" ? (
         selectedNodeDetailStatus === "loading" ? <p role="status">Loading this object from the loaded World revision…</p>
           : selectedNodeDetailStatus === "ready" && selectedNodeDetail
-            ? <NativeGraphObjectDetails detail={selectedNodeDetail} entityId={selectedNode.id} label={selectedNode.name} labels={selectedLabels} entityOnly={entityOnlyDetails} />
+            ? <NativeGraphObjectDetails detail={selectedNodeDetail} entityId={selectedNode.id} label={selectedPresentation!.displayName} labels={selectedLabels} entityOnly={entityOnlyDetails} />
             : selectedNodeDetailStatus === "unavailable" || selectedNodeDetailStatus === "error"
               ? <p role={selectedNodeDetailStatus === "error" ? "alert" : "status"}>{selectedNodeDetailError}</p>
               : <p role="status">Select this object to inspect its loaded World revision.</p>
@@ -1572,7 +1605,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
             const outgoing = edge.source_id === selectedNode.id;
             const otherId = outgoing ? edge.target_id : edge.source_id;
             const otherName = selectedLabels.get(otherId) ?? "Unknown object in this snapshot";
-            return <li key={edge.id}>{outgoing ? `${edge.predicate} → ${otherName}` : `${otherName} → ${edge.predicate} → ${selectedNode.name}`}</li>;
+            return <li key={edge.id}>{outgoing ? `${edge.predicate} → ${otherName}` : `${otherName} → ${edge.predicate} → ${selectedPresentation!.displayName}`}</li>;
           })}</ul> : <p>No listed connections for this object in this loaded snapshot.</p>}
           {completeness?.status === "partial" ? <p role="status">This graph read is partial, so additional connections may not be listed.</p> : null}
         </section>
@@ -1663,9 +1696,9 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                 disabled={Boolean(pendingOperation)} onChange={(event) => { setObjectQuery(event.target.value); setObjectPage(0); }} />
               <p>{matchingObjects.length} matching objects. Search includes every loaded object.</p>
               <ul aria-label="Matching graph objects">{visibleSearchObjects.map((node) => <li key={node.id}>
-                <button type="button" disabled={Boolean(pendingOperation)} aria-label={`Explore ${node.name} (${node.id})`}
+                <button type="button" disabled={Boolean(pendingOperation)} aria-label={`Explore ${nativeGraphPresentation(node).displayName} (${node.id})`}
                   onClick={() => { handleCanvasSelectionChange(node.id as LocalObjectId); requestCameraFocus(node.id); }}>
-                  {node.name} <small>{node.kind} · {node.id}</small>
+                  {nativeGraphPresentation(node).displayName} <small>{nativeGraphPresentation(node).displayKind} · {node.id}</small>
                 </button>
               </li>)}</ul>
               {!matchingObjects.length ? <p>No loaded objects match this search.</p> : null}
@@ -1676,7 +1709,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
               </div> : null}
             </details> : null}
             {embedded && viewFocusId ? <div className="world-graph-canvas__neighborhood" role="group" aria-label="Neighborhood controls">
-              <span>Neighborhood: {neighborhoodDepth} {neighborhoodDepth === 1 ? "step" : "steps"} from {graph.nodes.find((node) => node.id === viewFocusId)?.name}. Focused view limit: 512 objects. The overview shows every loaded object.</span>
+              <span>Neighborhood: {neighborhoodDepth} {neighborhoodDepth === 1 ? "step" : "steps"} from {selectedLabels.get(viewFocusId)}. Focused view limit: 512 objects. The overview shows connected objects; objects without listed connections remain available in search or with the reveal control.</span>
               <button type="button" disabled={neighborhoodDepth >= graph.nodes.length || Boolean(pendingOperation)} onClick={() => setNeighborhoodDepth((depth) => depth + 1)}>Expand neighborhood</button>
               <button type="button" disabled={Boolean(pendingOperation)} onClick={() => requestCameraFocus(null)}>Show overview</button>
             </div> : null}
@@ -1693,6 +1726,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
                   onCanvasCreateRequest: graph.capabilities.create ? handleCanvasCreateRequest : undefined,
                   onConnectRequest: canConnectGraph(graph) ? handleConnectRequest : undefined,
                   onSelectionChange: handleCanvasSelectionChange,
+                  revealObjectId: createdNodeReveal?.worldId === graph.world_id ? createdNodeReveal.nodeId as LocalObjectId : null,
                   cameraFocusRequest: cameraFocusRequest?.worldId === graph.world_id ? cameraFocusRequest : undefined,
                   clearCameraFocusRequest: cameraFocusResetRequest,
                   clearSelectionRequest,

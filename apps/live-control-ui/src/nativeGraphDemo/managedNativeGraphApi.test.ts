@@ -476,3 +476,15 @@ describe("managed native graph API", () => {
     expect(authHarness.fetch).toHaveBeenCalledWith("/api/live/native-graph-explorer/graph", expect.objectContaining({ method: "POST" }));
   });
 });
+
+it("preserves read presentation only through the bound managed graph DTO", async () => {
+  const presentation = { recorded_names: ["Lina", "Lina the Bold"], classification_terms: ["dungeonbuddy:character"] };
+  const value = { ...nativeGraph, nodes: [{ ...nativeGraph.nodes[0], presentation }] };
+  const fetcher = vi.fn().mockResolvedValueOnce(response(envelope({ graph: value })))
+    .mockResolvedValueOnce(response(envelope({ graph: { ...value,
+      nodes: [{ ...value.nodes[0], presentation: { ...presentation, classification_terms: [42] } }],
+    } })));
+  const client = createManagedNativeGraphApi("managed-a", { fetcher });
+  expect((await client.api.readGraph()).nodes[0]?.presentation).toEqual(presentation);
+  await expect(client.api.readGraph()).rejects.toMatchObject({ code: "invalid_response" });
+});
