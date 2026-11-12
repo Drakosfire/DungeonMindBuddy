@@ -23,8 +23,8 @@ describe("GraphNodeExplorer", () => {
     expect(navigate).toHaveBeenCalledWith("stafl");
   });
   it("keeps metadata in a dismissible menu and resets it on selection", () => {
-    const focus = vi.fn(); const close = vi.fn();
-    const props = { detail, node: { id: "lysandra", name: "Lysandra", kind: "person" as const }, revision: "rev", onFocus: focus, onClose: close, labels: new Map<string, string>(), onExplore: vi.fn() };
+    const focus = vi.fn(); const close = vi.fn(); const exit = vi.fn();
+    const props = { detail, node: { id: "lysandra", name: "Lysandra", kind: "person" as const }, revision: "rev", onFocus: focus, onClose: close, onExitFocus: exit, labels: new Map<string, string>(), onExplore: vi.fn() };
     const { rerender } = render(<GraphNodeExplorer {...props} />);
     const trigger = screen.getByLabelText("Node information and actions");
     const menu = trigger.closest("details")!;
@@ -32,6 +32,9 @@ describe("GraphNodeExplorer", () => {
     fireEvent.click(trigger);
     expect(menu).toHaveAttribute("open");
     expect(screen.getByText("1 connected objects")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Exit focus" }));
+    expect(trigger).toHaveFocus(); expect(exit).toHaveBeenCalledOnce();
+    fireEvent.click(trigger);
     fireEvent.keyDown(trigger, { key: "Escape" });
     expect(menu).not.toHaveAttribute("open");
     expect(trigger).toHaveFocus();
