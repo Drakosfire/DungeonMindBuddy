@@ -31,9 +31,10 @@ No backend route, schema, storage, OCR runner, statblock definition parser, othe
 
 - Independent review cycle 1 found a false-positive risk from associating unrelated Armor Class and Hit Points labels. The candidate preview now requires one creature-type line, exactly one AC and HP, and a complete six-score row before it offers or associates extracted fields.
 - Independent review cycle 2 found multiple creature-type lines could still make the gate ambiguous. The final gate requires exactly one type line and the ordered type → AC → HP → score row sequence; regression coverage was added.
-- Focused tests: `BuildPdfCaptureReview.test.tsx` and `PdfStatblockCandidate.test.tsx`, 16 passed after the review fix.
-- Exact hosted verification before the review fix passed at `d6c551d573796c85cb33fa5f99b0a2627f3b5aac`: build exit 0; hosted contract test invocation exit 0; evidence validated. Final exact-SHA verification and a new independent review are still required.
-- The discovered-suite diagnostic was red on the pre-review candidate and exact base: 164 failed identities shared, zero candidate-only, build exit 0, cleanup complete. Candidate had 7,670 discovered cases; base had 7,667. Evidence retained under `/home/drakosfire/Projects/.codex/pdf-review-handoff/verify-discovered-d6c551d` and `/home/drakosfire/Projects/.codex/pdf-review-handoff/verify-discovered-main-19d290d`.
+- Focused tests: `BuildPdfCaptureReview.test.tsx` and `PdfStatblockCandidate.test.tsx`, 17 passed on final code at `d63a7fe4d575d8c1bd8fc9b8415e39a98654912c`.
+- Final exact-SHA hosted verification at that head passed: hosted contract groups 1,329 + 4 + 1 cases, zero failures, build exit 0, cleanup complete; evidence validated. The production UI build also passed with existing Vite dynamic-import and large-chunk warnings.
+- Independent review cycle 3 approved the exact `d63a7fe4d575d8c1bd8fc9b8415e39a98654912c` head with no findings.
+- Final discovered-suite diagnostic was red with 164 failures and build exit 0. Exact-base comparison found all 164 identities shared and zero candidate-only; final candidate had 7,673 discovered cases versus 7,667 on base. Collection parity is false because discovery differs from the repository suite manifest. Evidence retained under `/home/drakosfire/Projects/.codex/pdf-review-handoff/verify-discovered-d63a7fe4` and `/home/drakosfire/Projects/.codex/pdf-review-handoff/verify-discovered-main-19d290d`.
 
 ## Dependencies and successor
 
