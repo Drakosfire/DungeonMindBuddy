@@ -153,8 +153,8 @@ DungeonMindBuddy/
 ├── out/                   # Pipeline output artifacts (gitignored)
 ├── specs/                 # Feature specs and handoffs
 ├── Docs/
-│   ├── Design/            # Architecture docs
-│   └── Eldyrwild and Campaign Context/  # Real test corpus (gitignored for size)
+│   └── Design/            # Architecture docs
+├── corpus/                # Tracked campaign and pipeline source material
 ├── _bmad/                 # BMAD framework (committed)
 ├── _bmad-output/          # BMAD planning artifacts
 ├── pyproject.toml
