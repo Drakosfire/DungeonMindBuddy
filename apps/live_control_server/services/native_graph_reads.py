@@ -155,11 +155,7 @@ def _entity_catalog(identities, pinned, *, space, revision_id, scope_mode, campa
         for a in obj.assertions:
             if (a.predicate == statements.mapping.ABOUT
                     and getattr(a.value, 'entity_id', None) == entity_id
-                and belongs_to_campaign(a)
-                and a.metadata.claim_mode == 'dungeonbuddy.claim:observed_event'
-                and getattr(a.metadata.temporal_scope, 'schema_term', None)
-                == 'dungeonbuddy.time:fictional_anchor_v1'
-                    and a.subject_entity_id != entity_id):
+                and a.subject_entity_id != entity_id):
                 routes.setdefault(a.subject_entity_id, []).append((entity_id, [a.assertion_id]))
     matches = []
     scoped_labels = {}
