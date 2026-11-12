@@ -97,7 +97,7 @@ def test_valid_structured_response_becomes_a_complete_candidate(monkeypatch):
 
 
 @pytest.mark.parametrize("failure_code", list(FailureCode))
-def test_generation_failure_code_is_preserved_without_provider_details(monkeypatch, failure_code):
+def test_generation_failure_is_observed_without_exposing_prompt(monkeypatch, caplog, failure_code):
     from generationengine import GenerationEngineError
     from generationengine.failures import InferenceFailure
     from generationengine.observation import InferenceObservation, ObservationState
@@ -107,6 +107,10 @@ def test_generation_failure_code_is_preserved_without_provider_details(monkeypat
     error = GenerationEngineError(
         InferenceFailure.from_code(failure_code, message="private fixture diagnostic"),
         InferenceObservation(
+            provider="openai", requested_model="gpt-6-luna", resolved_model="gpt-6-luna",
+            response_model="gpt-6-luna-2026-10-01", provider_response_id="resp-safe-id",
+            provider_request_id="req-safe-id", provider_transport="openai-responses",
+            provider_attempt_count=1,
             latency_ms=1, retry_count=0, state=ObservationState.FAILED,
             failure_code=failure_code,
         ),
@@ -131,6 +135,16 @@ def test_generation_failure_code_is_preserved_without_provider_details(monkeypat
     assert captured.value.code == expected
     assert str(captured.value) == expected
     assert "private fixture diagnostic" not in str(captured.value)
+    assert f"code={failure_code.value}" in caplog.text
+    assert "provider=openai" in caplog.text
+    assert "requested_model=gpt-6-luna" in caplog.text
+    assert "response_model=gpt-6-luna-2026-10-01" in caplog.text
+    assert "response_id=resp-safe-id" in caplog.text
+    assert "request_id=req-safe-id" in caplog.text
+    assert "provider_transport=openai-responses" in caplog.text
+    assert "provider_attempt_count=1" in caplog.text
+    assert "OCR text" not in caplog.text
+    assert "Keep printed values." not in caplog.text
 
 
 def test_extraction_prompt_does_not_add_host_locators():
