@@ -21,7 +21,7 @@ from apps.live_control_server.session_store import events_since
 from src.live_play.live_store import append_jsonl, load_json, write_json
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_DIR = ROOT / "evals/c2_live_prep/live/schemas"
+SCHEMA_DIR = ROOT / "schemas/live"
 SEED_SESSION = ROOT / "evals/c2_live_prep/live/session_22"
 COMMITTED_EVENT_LOG = SEED_SESSION / "event_log.jsonl"
 COMMITTED_JOB_QUEUE = SEED_SESSION / "job_queue.jsonl"
