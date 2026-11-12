@@ -2,7 +2,7 @@
 
 **Status:** current product execution ledger; reconciled2026-10-27.
 **Last verified delivery anchor:** API `53d4bfd70`, UI `cbb1c264`, ports8000/5202, APP0079/native0017. Protected PR1824 adoption retained3640 APP rows,1096 native rows and40813 files. Revalidate ownership/data before delivery.
-**Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
+**Owner:** DungeonMindBuddy; [bounded assignment](../Plans/STEWARDS-HANDOFF-demo.md).
 
 ## Current operator sequence
 

@@ -1,12 +1,12 @@
-# Steward Cycle — Design, Dispatch, Review, and Re-anchor One Slice
+# Bounded Assignment Cycle — Design, Dispatch, Review, and Re-anchor One Slice
 
 **Status:** ACTIVE PROCESS REFERENCE
-**Use for:** a design/review steward selecting and carrying one implementation capability through merge and state synchronization.
+**Use for:** a person or agent explicitly assigned design or review responsibility for one bounded capability.
 **Foundational law:** [`AGENTS.md`](../../AGENTS.md)
 **External PR mechanics:** [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md)
 **Slice template:** [`.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md`](../../.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md)
 
-This document owns **steward judgment**: what to read, how to decompose work, when parallel lanes are safe, what belongs in one handoff, how to make that handoff durable, how to activate/dispatch it, what PR topology is authorized, how to review findings, and when the next slice may be dispatched.
+Responsibilities derive from the bounded assignment, not a standing Steward role. This wording grants no additional merge, runtime, provider, or model authority. This document covers **assignment judgment**: what to read, how to decompose work, when parallel lanes are safe, what belongs in one handoff, how to make it durable, how to activate/dispatch it, what PR topology is authorized, how to review findings, and when the next slice may be dispatched.
 
 It does not redefine repository law from `AGENTS.md`, provide the exact GitHub command runbook, or carry facts that belong in one slice's HANDOFF.
 
@@ -105,11 +105,11 @@ same invariant + same lease
   → fix/review the current PR
 
 separate capability/repair
-  → steward may design and land a BLOCKED successor handoff
+  → named owner may design and land a BLOCKED successor handoff
   → do not open its PR under serial topology
 
 truly independent or deliberately stacked work
-  → only after the steward records that topology explicitly
+  → only after the named owner records that topology explicitly
 ```
 
 ## 3. Plan lane allocation and PR topology before dispatch
@@ -147,7 +147,7 @@ Use `stacked` only when dependent unmerged work is deliberately worth carrying c
 
 Use `parallel-independent` only when the lanes have no unmerged behavioral dependency and their write/runtime/state ownership is safe. Independent file diffs alone are not enough if one lane's behavior or evidence depends on another's unmerged result.
 
-If multiple dependent PRs have already accumulated without an explicit topology decision, stop dispatch. Freeze new PR creation, author a stewardship recovery handoff, declare a drain order, and turn the existing PRs into a serialized queue. Synthetic combined heads remain diagnostic evidence, not merge authority.
+If multiple dependent PRs have already accumulated without an explicit topology decision, stop dispatch. Freeze new PR creation, author a recovery handoff owned by the current assignment, declare a drain order, and turn the existing PRs into a serialized queue. Synthetic combined heads remain diagnostic evidence, not merge authority.
 
 ### Safe parallelism
 
@@ -193,9 +193,9 @@ uv run python scripts/steward_preflight.py \
 
 Use `--local-only` when GitHub discovery is intentionally unavailable. The JSON snapshot reports candidate write lease, local worktrees, active top-level handoffs, open PR path overlap when available, base relation, declared runtime/state ownership, and explicitly labelled review-cycle judgments.
 
-`pass` means no observed mechanical conflict. `warn` means the steward still has an incomplete or changed fact to judge (for example `main` advanced or GitHub discovery was unavailable). `block` means the candidate is not ACTIVE, has a concrete write-lease overlap, or has an invalid/empty candidate lease.
+`pass` means no observed mechanical conflict. `warn` means the named owner still has an incomplete or changed fact to judge (for example `main` advanced or GitHub discovery was unavailable). `block` means the candidate is not ACTIVE, has a concrete write-lease overlap, or has an invalid/empty candidate lease.
 
-The command never decides whether an activation gate is semantically satisfied, whether PR topology is appropriate, whether a base change invalidates the slice, transfers ownership, authors a handoff, or mutates Git/GitHub. A clean snapshot is evidence for dispatch readiness, not a substitute for the steward's invariant/dependency/topology judgment.
+The command never decides whether an activation gate is semantically satisfied, whether PR topology is appropriate, whether a base change invalidates the slice, transfers ownership, authors a handoff, or mutates Git/GitHub. A clean snapshot is evidence for dispatch readiness, not a substitute for the named owner's invariant/dependency/topology judgment.
 
 ## 4. Handoff-readiness and activation gate
 
@@ -225,7 +225,7 @@ If the mission/invariant/contract itself is unresolved, split, reconnaissance, o
 
 Copy the canonical template and fill §1–§9. The handoff is a **slice payload**, not a tutorial.
 
-The designing steward owns the handoff until its exact content is durably addressable on a pinned ref. The handoff may be on `main`, a branch, a PR, or another durable repository location. The default sequence is:
+The designer explicitly named in the bounded assignment owns the handoff until its exact content is durably addressable on a pinned ref. The handoff may be on `main`, a branch, a PR, or another durable repository location. The default sequence is:
 
 ```text
 author against current authority
@@ -246,7 +246,7 @@ When an activation prerequisite is unresolved:
 - do not treat §4 as an active write lease;
 - do not ask the future code worker to commit or activate its own authority document.
 
-When the gate later becomes true, the steward re-anchors and makes a narrow activation sync: record the newly knowable predecessor/review/merge/current-integration facts, confirm the PR topology is still safe, change `BLOCKED → ACTIVE`, verify the mission/invariant/execution semantics did not drift, then allocate the implementation lane. If satisfying the gate changes the design materially, stop and re-review/rewrite the design rather than calling it metadata activation.
+When the gate later becomes true, the named owner re-anchors and makes a narrow activation sync: record the newly knowable predecessor/review/merge/current-integration facts, confirm the PR topology is still safe, change `BLOCKED → ACTIVE`, verify the mission/invariant/execution semantics did not drift, then allocate the implementation lane. If satisfying the gate changes the design materially, stop and re-review/rewrite the design rather than calling it metadata activation.
 
 The handoff should contain only what changes from slice to slice:
 
@@ -268,7 +268,7 @@ Dispatch requires an explicitly authorized, durably pinned `ACTIVE` handoff.
 
 A BLOCKED handoff is never handed to an implementation worker as authority to begin code. Once the activation gate is satisfied and the handoff is ACTIVE, allocate the branch/worktree from the re-anchored current integration state and give the worker the exact pinned handoff.
 
-At dispatch, the steward should know:
+At dispatch, the named owner should know:
 
 ```text
 exact handoff path + pinned ref/commit
@@ -289,9 +289,9 @@ named successor
 
 The implementation agent consumes this authority. It does not create, land, activate, or materially redesign its own implementation handoff unless the assigned slice is explicitly a design/architecture slice.
 
-The worker should not ask the user for separate permission to open the one implementation PR already authorized by its ACTIVE handoff. It should also **not** open any additional successor/repair/cleanup PR unless the handoff explicitly authorizes that topology and names the relation. A newly discovered next defect is a stop/handback to the steward under serial topology.
+The worker should not ask the user for separate permission to open the one implementation PR already authorized by its ACTIVE handoff. It should also **not** open any additional successor/repair/cleanup PR unless the handoff explicitly authorizes that topology and names the relation. A newly discovered next defect is a stop/handback to the named owner under serial topology.
 
-A worker discovering a new required path/contract/observable workflow stops and reports the scope consequence. The steward decides whether bounded discovery covers it, the current PR owns the fix, a BLOCKED successor should be landed, or topology must be deliberately changed.
+A worker discovering a new required path/contract/observable workflow stops and reports the scope consequence. The named owner decides whether bounded discovery covers it, the current PR owns the fix, a BLOCKED successor should be landed, or topology must be deliberately changed.
 
 ## 7. Review by invariant, not file order
 
@@ -379,7 +379,7 @@ Re-read:
 
 Architecture/contracts change only when their claims changed.
 
-A successor handoff may already exist on any durable pinned ref as BLOCKED. Merging its predecessor does not automatically dispatch it; the steward must re-anchor, activate it truthfully, confirm topology, and only then allocate the successor lane.
+A successor handoff may already exist on any durable pinned ref as BLOCKED. Merging its predecessor does not automatically dispatch it; the named owner must re-anchor, activate it truthfully, confirm topology, and only then allocate the successor lane.
 
 ## 11. Learn, then select the next slice
 
@@ -391,7 +391,7 @@ After close, ask:
 - Was the failure visible during pre-dispatch critique?
 - Did §7 test the wrong boundary?
 - Did parallel ownership need human intervention?
-- Did PR topology drift or fan out without an explicit steward decision?
+- Did PR topology drift or fan out without an explicit named owner decision?
 - Did the handoff carry universal text that belongs upstream?
 - Did the reviewer repeatedly copy or reconstruct something a tool should supply?
 - Did the process accidentally make an implementation worker responsible for creating or activating its own authority document?
@@ -407,9 +407,9 @@ mechanical repetition → script/tool
 
 Then re-anchor before dispatching the next dependent slice.
 
-## Fast steward test
+## Fast assignment check
 
-A healthy process lets a fresh steward answer these without chat history:
+A healthy process lets a fresh named owner answer these without chat history:
 
 1. What is true on `main`?
 2. What one capability is next?

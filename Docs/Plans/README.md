@@ -2,7 +2,7 @@
 
 Execution plans, experiments, audits, and design notes for DungeonMindBuddy.
 
-**Current Buddy demonstration:** [`STEWARDS-HANDOFF-demo.md`](STEWARDS-HANDOFF-demo.md) and [`../Roadmaps/ROADMAP-demo.md`](../Roadmaps/ROADMAP-demo.md) own product execution. The lexical-retrieval plan and checklist below retain their research/rollout history; they do not sequence the DEMO journey.
+**Current Buddy demonstration:** the bounded DEMO assignment in [`STEWARDS-HANDOFF-demo.md`](STEWARDS-HANDOFF-demo.md) and [`../Roadmaps/ROADMAP-demo.md`](../Roadmaps/ROADMAP-demo.md) owns product execution. Responsibilities come from the named assignment, with no additional merge, runtime, or model authority. The lexical-retrieval plan and checklist below retain their research/rollout history; they do not sequence the DEMO journey.
 
 ---
 
