@@ -194,7 +194,7 @@ def test_ordinary_passes_delegate_output_capacity_and_preserve_deadlines(ordinar
     assert len(engine.requests) == 7
     assert [request.max_output_tokens for request in engine.requests] == [None] * 7
     assert all(request.reasoning_effort == 'low' for request in engine.requests)
-    assert all(request.deadline_ms is None for request in engine.requests)
+    assert all(request.deadline_ms == 0 for request in engine.requests)
     ledger = component(result, "pass_telemetry")
     assert ledger["limits"]["max_output_tokens"] is None
     assert ledger["limits"]["edge_max_output_tokens"] is None
@@ -203,4 +203,4 @@ def test_ordinary_passes_delegate_output_capacity_and_preserve_deadlines(ordinar
     assert [call["max_output_tokens"] for call in ledger["calls"]] == [None] * 7
     assert ledger['attempt_counts']['provider_attempts']['total'] == 7
     assert ledger['attempt_counts']['conformance_retries']['total'] == 0
-    assert all(call["deadline_ms"] is None for call in ledger["calls"])
+    assert all(call["deadline_ms"] == 0 for call in ledger["calls"])

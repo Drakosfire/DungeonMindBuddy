@@ -581,7 +581,7 @@ class BoundedRecapPassClient:
                 and self.limits.edge_max_output_tokens is not None
                 else self.limits.max_output_tokens
             ),
-            "deadline_ms": deadline_ms,
+            "deadline_ms": 0 if deadline_ms is None else deadline_ms,
         }
         if deepseek:
             request_kwargs.update(
@@ -639,8 +639,8 @@ class BoundedRecapPassClient:
                 outcome = _execute_in_owned_process(
                     self._engine_factory, request_payload,
                     deadline=(
-                        None if request.deadline_ms is None
-                        else wall_started + request.deadline_ms / 1000
+                        None if deadline_ms is None
+                        else wall_started + deadline_ms / 1000
                     ),
                     attempt_evidence=(
                         {"binding": self.execution_binding,
