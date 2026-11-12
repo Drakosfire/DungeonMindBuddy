@@ -52,6 +52,13 @@ class ReviewRefused(ValueError):
         super().__init__(code)
 
 
+def is_explicit_prep_event(node) -> bool:
+    state = node.semantic_state
+    return state.authority_state == "gm_prep" or state.canon_state in {
+        "planning_scaffold", "worldbuilding_draft",
+    }
+
+
 def _require(condition, code):
     if not condition:
         raise ReviewRefused(code)
@@ -402,7 +409,8 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
         _require(identifier in endpoints and node_selection is not None
                  and {"label", "node_type"} <= {fact.field for fact in node_selection.facts},
                  "placement_requires_reviewed_event_identity")
-        _require(selection.metadata.claim_mode == "dungeonbuddy.claim:observed_event",
+        _require(not is_explicit_prep_event(record)
+                 and selection.metadata.claim_mode == "dungeonbuddy.claim:observed_event",
                  "placement_requires_played_event")
         _validate_placement(selection.metadata, preview.session_id)
         if timeline is None:

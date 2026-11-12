@@ -303,6 +303,8 @@ def _event_placement_proposals(preview, data) -> list[dict[str, Any]]:
         project_candidate_record_evidence,
     )
 
+    from apps.live_control_server.services.native_recap_preparation import is_explicit_prep_event
+
     artifact = data.source_artifact
     session = re.fullmatch(r"session-([1-9][0-9]*)", artifact.session_id or "")
     scope_matches = (
@@ -319,9 +321,7 @@ def _event_placement_proposals(preview, data) -> list[dict[str, Any]]:
         proposal = {"candidate_node_id": node.node_id, "status": "held"}
         if not scope_matches:
             proposal["reason"] = "recap_scope_unverified"
-        elif node.semantic_state.authority_state == "gm_prep" or (
-            node.semantic_state.canon_state in {"planning_scaffold", "worldbuilding_draft"}
-        ):
+        elif is_explicit_prep_event(node):
             proposal["reason"] = "not_played_history"
         else:
             try:

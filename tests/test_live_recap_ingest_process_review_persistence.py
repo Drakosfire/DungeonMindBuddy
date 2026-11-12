@@ -79,8 +79,12 @@ def test_ordinary_process_candidate_evidence_survives_fresh_exact_run_review_cli
         )
 
 
+@pytest.mark.parametrize("prep_state", [
+    None, {"authority_state": "gm_prep"},
+    {"canon_state": "planning_scaffold"}, {"canon_state": "worldbuilding_draft"},
+])
 def test_ordinary_process_review_publish_and_fresh_database_readback(
-    client_env, native_core_dsn, monkeypatch, record_property,
+    client_env, native_core_dsn, monkeypatch, record_property, prep_state,
 ):
     """One isolated APP/Core chain; provider fixtures do not claim model quality."""
     from datetime import UTC, datetime
@@ -112,6 +116,8 @@ def test_ordinary_process_review_publish_and_fresh_database_readback(
         result.candidate_graph["nodes"][0].update(
             label="The keeper scouts the road", node_type="event",
         )
+        if prep_state:
+            result.candidate_graph["nodes"][0]["semantic_state"].update(prep_state)
         return result
 
     monkeypatch.setattr(producer, "extract_category_candidate_graph", extract_event)
@@ -120,7 +126,7 @@ def test_ordinary_process_review_publish_and_fresh_database_readback(
     graph = processed.json()["ingest_report"]["graph_preview"]
     run_id = graph["extraction_run_id"]
     proposal, = graph["event_placement_proposals"]
-    assert proposal["status"] == "needs_review"
+    assert proposal["status"] == ("held" if prep_state else "needs_review")
     data = load_reviewable_extraction_data(root, run_id)
     frozen = (data.source_bytes, data.candidate_bytes, data.span_bytes)
     candidate = json.loads(data.candidate_bytes)
@@ -190,7 +196,7 @@ def test_ordinary_process_review_publish_and_fresh_database_readback(
             "predicate": "dnd5e:classification",
             "value": {"kind": "term_ref", "term": "dungeonbuddy:campaign"},
             "metadata": metadata | {"scope": [
-                {"axis": "dungeonbuddy.scope:campaign", "value": proposal["campaign_id"]},
+                {"axis": "dungeonbuddy.scope:campaign", "value": "longmont-c2"},
             ]},
         })
         repo.publish_revision(PublishKnowledgeRevisionCommand(
@@ -215,12 +221,17 @@ def test_ordinary_process_review_publish_and_fresh_database_readback(
                 "claim_mode": "dungeonbuddy.claim:observed_event",
                 "temporal_scope": {
                     "kind": "domain_ref", "schema_term": "dungeonbuddy.time:fictional_anchor_v1",
-                    "payload": {"start": proposal["start"]},
+                    "payload": {"start": {"session": 8}},
                 },
             },
         })
         before_prepare = repo.get_head(space)
         prepared_reply = fresh.post("/api/live/extract-promote/native-prepare", json=request)
+        if prep_state:
+            assert prepared_reply.status_code == 409, prepared_reply.text
+            assert prepared_reply.json()["detail"]["code"] == "placement_requires_played_event"
+            assert repo.get_head(space) == before_prepare
+            return
         assert prepared_reply.status_code == 200, prepared_reply.text
         assert repo.get_head(space) == before_prepare
         prepared = prepared_reply.json()
