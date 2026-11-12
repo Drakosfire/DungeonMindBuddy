@@ -6,6 +6,10 @@ export interface NativeGraphNode {
   readonly id: string;
   readonly name: string;
   readonly kind: string;
+  readonly presentation?: {
+    readonly recorded_names: readonly string[];
+    readonly classification_terms: readonly string[];
+  };
 }
 
 export interface NativeGraphEdge {
@@ -140,6 +144,13 @@ function record(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function isPresentation(value: unknown): boolean {
+  return record(value) && Array.isArray(value.recorded_names)
+    && value.recorded_names.every((name) => typeof name === "string")
+    && Array.isArray(value.classification_terms)
+    && value.classification_terms.every((term) => typeof term === "string");
+}
+
 function isNativeGraph(value: unknown): value is NativeGraph {
   if (!record(value) || typeof value.world_id !== "string" || !value.world_id
     || typeof value.revision_id !== "string" || !value.revision_id
@@ -147,7 +158,8 @@ function isNativeGraph(value: unknown): value is NativeGraph {
     || !Array.isArray(value.nodes) || !Array.isArray(value.edges) || !Array.isArray(value.limitations)
     || !value.limitations.every((item) => typeof item === "string") || !record(value.capabilities)) return false;
   if (!value.nodes.every((node) => record(node) && typeof node.id === "string" && Boolean(node.id)
-    && typeof node.name === "string" && typeof node.kind === "string")) return false;
+    && typeof node.name === "string" && typeof node.kind === "string"
+    && (node.presentation === undefined || isPresentation(node.presentation)))) return false;
   if (!value.edges.every((edge) => record(edge) && typeof edge.id === "string" && Boolean(edge.id)
     && typeof edge.source_id === "string" && typeof edge.target_id === "string" && typeof edge.predicate === "string")) return false;
   const capabilities = value.capabilities;

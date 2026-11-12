@@ -19,16 +19,29 @@ const NODE_WIDTH = 168;
 const NODE_HEIGHT = 76;
 const CIRCLE_RADIUS = 56;
 const CIRCLE_DIAMETER = CIRCLE_RADIUS * 2;
-const KIND_COLORS = ["#77b5d9", "#d8a17d", "#a4bd78", "#b397d0", "#dbb65c", "#78b9ae", "#d68f9f", "#9da9dc"];
-function kindColor(kind: string): string {
-  const familiarKinds: Record<string, number> = { person: 0, npc: 0, pc: 0, character: 0, location: 2, place: 2, event: 4, faction: 3, group: 3, organization: 3, item: 1, object: 1, creature: 5, source: 6, entity: 7 };
-  const normalized = kind.toLowerCase();
-  const familiar = Object.hasOwn(familiarKinds, normalized) ? familiarKinds[normalized] : undefined;
-  if (familiar !== undefined) return KIND_COLORS[familiar];
-  let hash = 0;
-  for (const character of kind) hash = (Math.imul(hash, 31) + character.charCodeAt(0)) | 0;
-  return KIND_COLORS[(hash >>> 0) % KIND_COLORS.length];
+// Area grows logarithmically with loaded degree, saturating at 100 relationships.
+function bubbleRadius(count: number): number {
+  return Math.sqrt(32 ** 2 + (56 ** 2 - 32 ** 2) * Math.min(1, Math.log1p(Math.max(0, count)) / Math.log1p(100)));
 }
+function kindColor(kind: string): string {
+  const colors: Record<string, string> = {
+    npc: "#77b5d9", pc: "#d68f9f", item: "#d8a17d", event: "#dbb65c",
+    location: "#a4bd78", place: "#a4bd78", character: "#a8b4be",
+    "character (role unspecified)": "#a8b4be", person: "#a8b4be",
+    "session beat": "#b397d0", session_beat: "#b397d0",
+    faction: "#b397d0", group: "#b397d0", organization: "#b397d0",
+  };
+  const key = kind.toLowerCase();
+  return Object.hasOwn(colors, key) ? colors[key] : "#bac0c4";
+}
+function recordedNames(node: ProjectedGraphNode): string[] {
+  const names = node.object.properties.recordedNames;
+  return Array.isArray(names) ? names.filter((name): name is string => typeof name === "string" && name.trim().length > 0) : [];
+}
+function shortLabel(value: string, limit: number): string {
+  return value.length > limit ? `${value.slice(0, limit - 1)}…` : value;
+}
+interface NodePosition { readonly x: number; readonly y: number; readonly radius?: number }
 
 export interface CanvasCreationKind {
   readonly kind: string;
@@ -66,6 +79,9 @@ const GraphBubble = memo(function GraphBubble({ node, position, selected, isConn
   handlersRef: RefObject<NodeInteractionHandlers>;
   suppressClickRef: RefObject<LocalObjectId | null>;
 }) {
+  const radius = fullCorpus ? bubbleRadius(node.relationshipCount) : CIRCLE_RADIUS;
+  const names = recordedNames(node);
+  const description = `${node.name}, ${node.kind}${fullCorpus ? `, ${node.relationshipCount} relationships in loaded snapshot` : ""}${names.length ? `. Recorded names: ${names.join("; ")}` : ""}`;
   return (
     <g
       key={node.id}
@@ -76,6 +92,7 @@ const GraphBubble = memo(function GraphBubble({ node, position, selected, isConn
       tabIndex={0}
       aria-pressed={selected}
       aria-label={`${node.name}, ${node.kind}`}
+      aria-description={description}
       data-node-id={node.id}
       onClick={() => {
         if (suppressClickRef.current === node.id) { suppressClickRef.current = null; return; }
@@ -84,12 +101,12 @@ const GraphBubble = memo(function GraphBubble({ node, position, selected, isConn
       onKeyDown={(event) => handlersRef.current.onNodeKeyDown(event, node.id)}
       onPointerDown={(event) => { event.stopPropagation(); handlersRef.current.beginGesture(event, node); }}
     >
-      <title>{`${node.name}, ${node.kind}`}</title>
+      <title>{description}</title>
       {nodeShape === "circle" ? <>
-        <circle className="world-graph-canvas__node-circle" cx={CIRCLE_RADIUS} cy={CIRCLE_RADIUS} r={CIRCLE_RADIUS} />
-        <text className="world-graph-canvas__node-kind" x={CIRCLE_RADIUS} y={CIRCLE_RADIUS - 5} textAnchor="middle">{node.kind}</text>
+        <circle className="world-graph-canvas__node-circle" cx={CIRCLE_RADIUS} cy={CIRCLE_RADIUS} r={radius} />
+        <text className="world-graph-canvas__node-kind" x={CIRCLE_RADIUS} y={CIRCLE_RADIUS - 5} textAnchor="middle">{shortLabel(node.kind, Math.max(7, Math.floor(radius / 3.4)))}</text>
         <text className="world-graph-canvas__node-name" x={CIRCLE_RADIUS} y={CIRCLE_RADIUS + 17} textAnchor="middle">
-          {node.name.length > 14 ? `${node.name.slice(0, 13)}…` : node.name}
+          {shortLabel(node.name, Math.max(7, Math.floor(radius / 4)))}
         </text>
       </> : <>
         <rect width={NODE_WIDTH} height={NODE_HEIGHT} rx="12" />
@@ -97,7 +114,7 @@ const GraphBubble = memo(function GraphBubble({ node, position, selected, isConn
         <text className="world-graph-canvas__node-name" x="14" y="49">{node.name.length > 22 ? `${node.name.slice(0, 21)}…` : node.name}</text>
       </>}
       {canConnect ? <circle className="world-graph-canvas__node-port" data-testid={`connect-port-${node.id}`}
-        aria-hidden="true" cx={nodeShape === "circle" ? CIRCLE_DIAMETER - 2 : NODE_WIDTH - 3}
+        aria-hidden="true" cx={nodeShape === "circle" ? CIRCLE_RADIUS + radius - 2 : NODE_WIDTH - 3}
         cy={nodeShape === "circle" ? CIRCLE_RADIUS : NODE_HEIGHT / 2} r="7"
         onPointerDown={(event) => handlersRef.current.beginConnectGesture(event, node.id)}
         onClick={(event) => { event.preventDefault(); event.stopPropagation(); }} /> : null}
@@ -123,6 +140,8 @@ export interface WorldGraphCanvasProps {
   readonly onCanvasCreateRequest?: (intent: CanvasCreateIntent) => void;
   readonly onConnectRequest?: (intent: CanvasConnectIntent) => void;
   readonly onSelectionChange?: (id: LocalObjectId | null) => void;
+  /** Keep an exact created/recovered object visible without moving the camera. */
+  readonly revealObjectId?: LocalObjectId | null;
   readonly cameraFocusRequest?: { readonly nodeId: LocalObjectId | null; readonly requestId: number; readonly selectNode?: boolean };
   readonly clearCameraFocusRequest?: number | { readonly requestId: number; readonly fitView: boolean };
   readonly clearSelectionRequest?: number;
@@ -233,7 +252,7 @@ interface EdgeGeometry {
 
 function edgeGeometry(
   edge: ProjectedGraphEdge,
-  positions: ReadonlyMap<string, { x: number; y: number }>,
+  positions: ReadonlyMap<string, NodePosition>,
   parallelIndex: number,
   parallelCount: number,
   labelWidth: number,
@@ -243,10 +262,12 @@ function edgeGeometry(
   const from = positions.get(edge.fromObjectId)!;
   const to = positions.get(edge.toObjectId)!;
   const dimensions = nodeDimensions(shape);
-  const radius = shape === "circle" ? CIRCLE_RADIUS : undefined;
+  const radius = shape === "circle" ? (from.radius ?? CIRCLE_RADIUS) : undefined;
   const fromCenter = { x: from.x + dimensions.width / 2, y: from.y + dimensions.height / 2 };
   const toCenter = { x: to.x + dimensions.width / 2, y: to.y + dimensions.height / 2 };
   if (edge.fromObjectId === edge.toObjectId || (from.x === to.x && from.y === to.y)) {
+    const endRadius = to.radius ?? CIRCLE_RADIUS;
+    const clearanceRadius = Math.max(radius ?? 0, endRadius);
     // Concentric loops put their plates side by side, with no shared label band.
     const spread = parallelIndex * (labelWidth + 12) * 4 / 3;
     const start = radius === undefined
@@ -254,13 +275,13 @@ function edgeGeometry(
       : { x: fromCenter.x + (radius + 5) * Math.cos(-0.72), y: fromCenter.y + (radius + 5) * Math.sin(-0.72) };
     const end = radius === undefined
       ? { x: from.x + NODE_WIDTH + 5, y: from.y + NODE_HEIGHT - 15 }
-      : { x: fromCenter.x + (radius + 5) * Math.cos(0.72), y: fromCenter.y + (radius + 5) * Math.sin(0.72) };
+      : { x: fromCenter.x + (endRadius + 5) * Math.cos(0.72), y: fromCenter.y + (endRadius + 5) * Math.sin(0.72) };
     const controlOne = radius === undefined
       ? { x: from.x + NODE_WIDTH + 76 + Math.abs(spread), y: from.y - 42 }
-      : { x: fromCenter.x + radius + 64 + Math.abs(spread), y: fromCenter.y - radius - 28 };
+      : { x: fromCenter.x + clearanceRadius + 64 + Math.abs(spread), y: fromCenter.y - clearanceRadius - 28 };
     const controlTwo = radius === undefined
       ? { x: from.x + NODE_WIDTH + 76 + Math.abs(spread), y: from.y + NODE_HEIGHT + 42 }
-      : { x: fromCenter.x + radius + 64 + Math.abs(spread), y: fromCenter.y + radius + 28 };
+      : { x: fromCenter.x + clearanceRadius + 64 + Math.abs(spread), y: fromCenter.y + clearanceRadius + 28 };
     return {
       path: `M ${start.x} ${start.y} C ${controlOne.x} ${controlOne.y} ${controlTwo.x} ${controlTwo.y} ${end.x} ${end.y}`,
       labelX: (start.x + 3 * controlOne.x + 3 * controlTwo.x + end.x) / 8 + 4,
@@ -285,19 +306,19 @@ function edgeGeometry(
     x: (start.x + end.x) / 2 - (dy / length) * offset,
     y: (start.y + end.y) / 2 + (dx / length) * offset,
   };
-  function boundary(center: { x: number; y: number }, toward: { x: number; y: number }) {
+  function boundary(center: { x: number; y: number }, toward: { x: number; y: number }, endpointRadius: number | undefined) {
     const vx = toward.x - center.x;
     const vy = toward.y - center.y;
-    if (radius !== undefined) {
+    if (endpointRadius !== undefined) {
       const length = Math.hypot(vx, vy) || 1;
-      const extent = radius + 5;
+      const extent = endpointRadius + 5;
       return { x: center.x + (vx / length) * extent, y: center.y + (vy / length) * extent };
     }
     const extent = Math.max(Math.abs(vx) / (NODE_WIDTH / 2 + 5), Math.abs(vy) / (NODE_HEIGHT / 2 + 5));
     return extent > 0 ? { x: center.x + vx / extent, y: center.y + vy / extent } : center;
   }
-  const pathStart = boundary(start, control);
-  const pathEnd = boundary(end, control);
+  const pathStart = boundary(start, control, radius);
+  const pathEnd = boundary(end, control, shape === "circle" ? (to.radius ?? CIRCLE_RADIUS) : undefined);
   // Tight, user-arranged nodes need a label outside their overlap rather than hidden under a card.
   const tight = Math.abs(dx) < dimensions.width + 160 && Math.abs(dy) < dimensions.height + 70;
   return {
@@ -309,7 +330,7 @@ function edgeGeometry(
   };
 }
 
-function renderEdges(edges: readonly ProjectedGraphEdge[], positions: ReadonlyMap<string, { x: number; y: number }>, shape: NodeShape) {
+function renderEdges(edges: readonly ProjectedGraphEdge[], positions: ReadonlyMap<string, NodePosition>, shape: NodeShape) {
   const edgeGroups = new Map<string, { count: number; width: number; height: number }>();
   for (const edge of edges) {
     const key = [edge.fromObjectId, edge.toObjectId].sort().join("\u0000");
@@ -327,11 +348,11 @@ function renderEdges(edges: readonly ProjectedGraphEdge[], positions: ReadonlyMa
   });
 }
 
-function graphNodeContains(point: GraphPoint, node: { readonly x: number; readonly y: number }, shape: NodeShape): boolean {
+function graphNodeContains(point: GraphPoint, node: NodePosition, shape: NodeShape): boolean {
   if (shape === "circle") {
     const dx = point.x - (node.x + CIRCLE_RADIUS);
     const dy = point.y - (node.y + CIRCLE_RADIUS);
-    return dx * dx + dy * dy <= CIRCLE_RADIUS * CIRCLE_RADIUS;
+    return dx * dx + dy * dy <= (node.radius ?? CIRCLE_RADIUS) ** 2;
   }
   return point.x >= node.x && point.x <= node.x + NODE_WIDTH && point.y >= node.y && point.y <= node.y + NODE_HEIGHT;
 }
@@ -382,6 +403,7 @@ export function WorldGraphCanvas({
   onConnectRequest,
   onSelectionChange,
   cameraFocusRequest,
+  revealObjectId,
   clearCameraFocusRequest,
   clearSelectionRequest,
   onCameraFocusChange,
@@ -391,6 +413,17 @@ export function WorldGraphCanvas({
 }: WorldGraphCanvasProps) {
   const index = useMemo(() => indexLocalWorldGraph(record.snapshot), [record.snapshot]);
   const fullCorpus = projectionOptions?.fullCorpus === true;
+  const initialDraft = editorDraftState?.draft ?? emptyEditorDraft(editorDraftState?.version ?? 0);
+  const [selectedIds, setSelectedIds] = useState<LocalObjectId[]>([...initialDraft.selectedIds]);
+  const lastSelectionClearRequestRef = useRef<number | null>(null);
+  // Fit in the reset commit must already see the post-reset visibility.
+  const clearingSelection = clearSelectionRequest !== undefined && lastSelectionClearRequestRef.current !== clearSelectionRequest;
+  const [unconnectedVisibility, setUnconnectedVisibility] = useState<{ worldId: string; show: boolean } | null>(null);
+  const showUnconnected = unconnectedVisibility?.worldId === record.snapshot.worldId
+    ? unconnectedVisibility.show : (projectionOptions?.showUnconnected ?? !fullCorpus);
+  const revealObjectIds = useMemo(() => [...new Set([...(clearingSelection ? [] : selectedIds), ...(projectionOptions?.revealObjectIds ?? []),
+    ...(cameraFocusRequest?.nodeId ? [cameraFocusRequest.nodeId] : []), ...(revealObjectId ? [revealObjectId] : [])])],
+    [selectedIds, clearingSelection, projectionOptions?.revealObjectIds, cameraFocusRequest?.nodeId, revealObjectId]);
   const fallbackRef = useRef<{ worldId: string; positions: ReturnType<typeof createGraphFallbackPositions> } | null>(null);
   const fallbackPositions = useMemo(() => {
     if (!fullCorpus) return undefined;
@@ -399,14 +432,12 @@ export function WorldGraphCanvas({
     fallbackRef.current = { worldId: record.snapshot.worldId, positions };
     return positions;
   }, [fullCorpus, index, record.snapshot.worldId]);
-  const projection = useMemo(() => projectLocalWorldGraph(record, { ...projectionOptions, fallbackPositions }, index),
+  const projection = useMemo(() => projectLocalWorldGraph(record, { ...projectionOptions, fallbackPositions, showUnconnected, revealObjectIds }, index),
     [record.snapshot, record.layout, index, fullCorpus, fallbackPositions, projectionOptions?.maxNodes, projectionOptions?.maxEdges,
-      projectionOptions?.focusObjectId, projectionOptions?.neighborhoodDepth]);
+      projectionOptions?.focusObjectId, projectionOptions?.neighborhoodDepth, showUnconnected, revealObjectIds]);
   const legend = useMemo(() => [...new Set(record.snapshot.objects.map((object) => object.kind))].sort(), [record.snapshot]);
-  const isolatedCount = useMemo(() => record.snapshot.objects.filter((object) => !index.neighbors.has(object.id)).length, [index, record.snapshot]);
+  const isolatedCount = useMemo(() => record.snapshot.objects.filter((object) => !index.relationshipCounts.get(object.id)).length, [index, record.snapshot]);
   const markerId = `world-graph-arrow-${useId().replace(/:/g, "")}`;
-  const initialDraft = editorDraftState?.draft ?? emptyEditorDraft(editorDraftState?.version ?? 0);
-  const [selectedIds, setSelectedIds] = useState<LocalObjectId[]>([...initialDraft.selectedIds]);
   const [renameId, setRenameId] = useState<LocalObjectId | null>(initialDraft.renameId);
   const [renameValue, setRenameValue] = useState(initialDraft.renameValue);
   const [showObjectForm, setShowObjectForm] = useState(initialDraft.showObjectForm);
@@ -435,7 +466,6 @@ export function WorldGraphCanvas({
   const originalCameraBeforeFocusRef = useRef<Camera | null>(null);
   const lastCameraFocusRequestRef = useRef<number | null>(null);
   const lastCameraFocusClearRequestRef = useRef<number | null>(null);
-  const lastSelectionClearRequestRef = useRef<number | null>(null);
   const initialFitWorldRef = useRef<string | null>(null);
   const suppressClickRef = useRef<LocalObjectId | null>(null);
   const manualCameraRef = useRef(false);
@@ -517,11 +547,11 @@ export function WorldGraphCanvas({
   }, []);
 
   const selectedObject = projection.nodes.find((node) => node.id === selectedIds.at(-1));
-  const persistedPositions = useMemo(() => new Map(projection.nodes.map((node) => [node.id, node])), [projection.nodes]);
+  const persistedPositions = useMemo(() => new Map(projection.nodes.map((node) => [node.id, { ...node, radius: fullCorpus ? bubbleRadius(node.relationshipCount) : CIRCLE_RADIUS }])), [projection.nodes, fullCorpus]);
   const positions = useMemo(() => {
     if (!dragPreview) return persistedPositions;
-    const preview = new Map<LocalObjectId, { x: number; y: number }>(persistedPositions);
-    preview.set(dragPreview.id, dragPreview);
+    const preview = new Map<LocalObjectId, NodePosition>(persistedPositions);
+    preview.set(dragPreview.id, { ...persistedPositions.get(dragPreview.id), ...dragPreview });
     return preview;
   }, [persistedPositions, dragPreview]);
   const dimensions = nodeDimensions(nodeShape);
@@ -533,8 +563,10 @@ export function WorldGraphCanvas({
   const graphBounds = useMemo(() => {
     let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
     for (const node of projection.nodes) {
-      left = Math.min(left, node.x); top = Math.min(top, node.y);
-      right = Math.max(right, node.x + dimensions.width); bottom = Math.max(bottom, node.y + dimensions.height);
+      const radius = persistedPositions.get(node.id)!.radius;
+      const inset = nodeShape === "circle" ? CIRCLE_RADIUS - radius : 0;
+      left = Math.min(left, node.x + inset); top = Math.min(top, node.y + inset);
+      right = Math.max(right, node.x + dimensions.width - inset); bottom = Math.max(bottom, node.y + dimensions.height - inset);
     }
     for (const { geometry, box } of persistedEdges) {
       left = Math.min(left, geometry.bounds.left, geometry.labelX - box.width / 2);
@@ -543,7 +575,7 @@ export function WorldGraphCanvas({
       bottom = Math.max(bottom, geometry.bounds.bottom, geometry.labelY + box.height / 2);
     }
     return { left: left - 56, top: top - 56, width: right - left + 112, height: bottom - top + 112 };
-  }, [projection.nodes, persistedEdges, dimensions.width, dimensions.height]);
+  }, [projection.nodes, persistedPositions, persistedEdges, nodeShape, dimensions.width, dimensions.height]);
 
   function fittedCamera(): Camera {
     if (!projection.nodes.length) return { x: 0, y: 0, zoom: 1 };
@@ -578,6 +610,26 @@ export function WorldGraphCanvas({
     // Fit initial visibility and responsive size, never re-fit after user pan/zoom or node edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewport.width, viewport.height, viewportMeasured, record.snapshot.worldId, preserveCameraOnResize]);
+
+  // Revision resets precede a new explicit focus in the same commit.
+  useLayoutEffect(() => {
+    const requestId = typeof clearCameraFocusRequest === "object" ? clearCameraFocusRequest.requestId : clearCameraFocusRequest;
+    if (requestId === undefined || lastCameraFocusClearRequestRef.current === requestId) return;
+    lastCameraFocusClearRequestRef.current = requestId;
+    originalCameraBeforeFocusRef.current = null;
+    if (typeof clearCameraFocusRequest === "object" && clearCameraFocusRequest.fitView) {
+      manualCameraRef.current = true;
+      setCamera(fittedCamera());
+    }
+    onCameraFocusChange?.(null);
+  }, [clearCameraFocusRequest, onCameraFocusChange]);
+
+  useLayoutEffect(() => {
+    if (clearSelectionRequest === undefined || lastSelectionClearRequestRef.current === clearSelectionRequest) return;
+    lastSelectionClearRequestRef.current = clearSelectionRequest;
+    setSelectedIds([]);
+    onSelectionChange?.(null);
+  }, [clearSelectionRequest, onSelectionChange]);
 
   useLayoutEffect(() => {
     if (!cameraFocusRequest || lastCameraFocusRequestRef.current === cameraFocusRequest.requestId) return;
@@ -616,25 +668,6 @@ export function WorldGraphCanvas({
       y: measuredViewport.height / 2 - centerY * zoom });
     onCameraFocusChange?.(node.id);
   }, [camera, cameraFocusRequest, dimensions.height, dimensions.width, onCameraFocusChange, projection.nodes, viewport.height, viewport.width]);
-
-  useLayoutEffect(() => {
-    const requestId = typeof clearCameraFocusRequest === "object" ? clearCameraFocusRequest.requestId : clearCameraFocusRequest;
-    if (requestId === undefined || lastCameraFocusClearRequestRef.current === requestId) return;
-    lastCameraFocusClearRequestRef.current = requestId;
-    originalCameraBeforeFocusRef.current = null;
-    if (typeof clearCameraFocusRequest === "object" && clearCameraFocusRequest.fitView) {
-      manualCameraRef.current = true;
-      setCamera(fittedCamera());
-    }
-    onCameraFocusChange?.(null);
-  }, [clearCameraFocusRequest, onCameraFocusChange]);
-
-  useEffect(() => {
-    if (clearSelectionRequest === undefined || lastSelectionClearRequestRef.current === clearSelectionRequest) return;
-    lastSelectionClearRequestRef.current = clearSelectionRequest;
-    setSelectedIds([]);
-    onSelectionChange?.(null);
-  }, [clearSelectionRequest, onSelectionChange]);
 
   useLayoutEffect(() => {
     // Release capture and suppress the trailing click before a new revision/authority becomes interactive.
@@ -879,7 +912,7 @@ export function WorldGraphCanvas({
     const source = positions.get(sourceId);
     if (!source) return;
     const portPoint = nodeShape === "circle"
-      ? { x: source.x + CIRCLE_DIAMETER - 2, y: source.y + CIRCLE_RADIUS }
+      ? { x: source.x + CIRCLE_RADIUS + (source.radius ?? CIRCLE_RADIUS) - 2, y: source.y + CIRCLE_RADIUS }
       : { x: source.x + NODE_WIDTH - 3, y: source.y + NODE_HEIGHT / 2 };
     gestureRef.current = {
       worldId: record.snapshot.worldId, kind: "connect", sourceId, captureTarget: event.currentTarget, pointerId: event.pointerId,
@@ -1110,8 +1143,13 @@ export function WorldGraphCanvas({
         </div> : null}
       </div>
       {fullCorpus ? <>
+        <label className="world-graph-canvas__visibility"><input type="checkbox" checked={showUnconnected}
+          onChange={(event) => { cancelGesture(); setUnconnectedVisibility({ worldId: record.snapshot.worldId, show: event.target.checked }); }} />
+          Show objects without listed relationships ({projection.hiddenUnconnectedNodes} hidden)
+        </label>
+        {!projection.nodes.length && isolatedCount > 0 ? <p role="status">No connected objects in the loaded snapshot. Show objects without listed relationships to explore them, or find an object with search.</p> : null}
         <div className="world-graph-canvas__legend" aria-label="Object type colors">{legend.map((kind) => <span key={kind}><i aria-hidden="true" style={{ backgroundColor: kindColor(kind) }} />{kind}</span>)}</div>
-        <p className="world-graph-canvas__overview-note">{projection.nodes.length} loaded objects · {projection.edges.length} real relationships shown. {isolatedCount} loaded objects have no listed connections. Zoom in for names, relationship labels and connectors. Color shows object type; position is only an arrangement.</p>
+        <p className="world-graph-canvas__overview-note">{projection.nodes.length} loaded objects · {projection.edges.length} real relationships shown. {isolatedCount} loaded objects have no listed connections. Zoom in for names, relationship labels and connectors. Color shows explicit object type. Bubble area grows logarithmically with relationships in loaded snapshot (radius 32–56, capped at 100 relationships); position is only an arrangement.</p>
       </> : null}
       <p className="world-graph-canvas__hint" id={`${markerId}-help`}>
         {fullCorpus ? moveNodesMode
@@ -1174,7 +1212,7 @@ export function WorldGraphCanvas({
               const source = positions.get(connectPreview.sourceId);
               if (!source) return null;
               const start = nodeShape === "circle"
-                ? { x: source.x + CIRCLE_DIAMETER - 2, y: source.y + CIRCLE_RADIUS }
+                ? { x: source.x + CIRCLE_RADIUS + (source.radius ?? CIRCLE_RADIUS) - 2, y: source.y + CIRCLE_RADIUS }
                 : { x: source.x + NODE_WIDTH - 3, y: source.y + NODE_HEIGHT / 2 };
               const end = connectPreview.point;
               const bend = Math.max(36, Math.abs(end.x - start.x) * 0.42) * Math.sign(end.x - start.x || 1);
@@ -1209,6 +1247,7 @@ export function WorldGraphCanvas({
       <div className="world-graph-canvas__feedback" role="status" aria-live="polite">
         {status || (projection.nodes.length || projection.omittedNodes
           ? showSummaryCounts ? `${projection.nodes.length}${projection.omittedNodes ? " displayed" : ""} objects · ${projection.edges.length}${projection.omittedEdges ? " displayed" : ""} relationships` : ""
+          : projection.hiddenUnconnectedNodes ? `${projection.hiddenUnconnectedNodes} loaded objects without listed relationships are hidden.`
           : "This World has no objects yet. Add an object to begin.")}
       </div>
       {projection.omittedNodes || projection.hiddenRelationships ? <p className="world-graph-canvas__diagnostic">Bounded canvas: {projection.nodes.length} of {record.snapshot.objects.length} loaded objects and {projection.edges.length} of {record.snapshot.relationships.length} loaded relationships shown. {projection.omittedNodes} objects and {projection.hiddenRelationships} valid relationships are outside this view.</p> : null}

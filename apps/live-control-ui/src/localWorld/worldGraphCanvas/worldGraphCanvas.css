@@ -159,3 +159,5 @@
 .world-graph-canvas__overview-note { font-size: 12px; color: var(--graph-muted); margin: 6px 0; }
 
 .world-graph-canvas--full .world-graph-canvas__node-kind { fill: var(--graph-ink); }
+.world-graph-canvas__visibility { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 13px; }
+.world-graph-canvas__visibility input { accent-color: var(--graph-ink); }

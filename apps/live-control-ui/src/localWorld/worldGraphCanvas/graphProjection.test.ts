@@ -176,6 +176,91 @@ describe("loaded corpus exploration", () => {
     return { ...record, snapshot: { ...record.snapshot, objects, relationships } };
   }
 
+  it("counts distinct valid incident IDs before filters, including parallel, reverse and self edges", async () => {
+    const record = await graphRecord();
+    const [a, b, c] = record.snapshot.objects;
+    const base = record.snapshot.relationships[0];
+    const relationships = [base, base,
+      { ...base, id: "parallel" as typeof base.id },
+      { ...base, id: "reverse" as typeof base.id, fromObjectId: b.id, toObjectId: a.id },
+      { ...base, id: "self" as typeof base.id, toObjectId: a.id },
+      { ...base, id: "invalid" as typeof base.id, toObjectId: "missing" as typeof a.id },
+    ];
+    const snapshot = { ...record.snapshot, relationships };
+    const index = indexLocalWorldGraph(snapshot);
+    expect(index.relationshipCounts.get(a.id)).toBe(4);
+    expect(index.relationshipCounts.get(b.id)).toBe(3);
+    expect(index.relationshipCounts.get(c.id)).toBe(0);
+    const focused = projectLocalWorldGraph({ ...record, snapshot }, {
+      fullCorpus: true, showUnconnected: false, focusObjectId: a.id, maxNodes: 1, maxEdges: 0,
+    }, index);
+    expect(focused.nodes[0].relationshipCount).toBe(4);
+    expect(focused.edges).toEqual([]);
+    expect(focused.hiddenUnconnectedNodes).toBe(2);
+    expect(focused.omittedNodes).toBe(1);
+  });
+
+  it("hides only unconnected objects, keeps all valid edges and separates filtering from budget omissions", async () => {
+    const record = await corpusRecord();
+    const result = projectLocalWorldGraph(record, { fullCorpus: true, showUnconnected: false, maxNodes: 1, maxEdges: 0 });
+    expect(result.nodes).toHaveLength(561);
+    expect(result.edges).toHaveLength(559);
+    expect(result.hiddenUnconnectedNodes).toBe(843);
+    expect(result.omittedNodes).toBe(0);
+    expect(result.hiddenRelationships).toBe(0);
+    expect(result.nodes.every(node => node.relationshipCount > 0)).toBe(true);
+    const bounded = projectLocalWorldGraph(record, { showUnconnected: false, maxNodes: 2 });
+    expect(bounded.hiddenUnconnectedNodes).toBe(843);
+    expect(bounded.omittedNodes).toBe(559);
+    expect(projectLocalWorldGraph(record, { fullCorpus: true }).hiddenUnconnectedNodes).toBe(0);
+  });
+
+  it("reveals exact isolated IDs without changing focus budgets or full-snapshot coordinates", async () => {
+    const record = await corpusRecord();
+    const isolated = record.snapshot.objects[1403];
+    const full = projectLocalWorldGraph(record, { fullCorpus: true });
+    const shown = projectLocalWorldGraph(record, { fullCorpus: true, showUnconnected: false, revealObjectIds: [isolated.id] });
+    expect(shown.nodes).toHaveLength(562);
+    expect(shown.hiddenUnconnectedNodes).toBe(842);
+    expect(shown.nodes.find(node => node.id === isolated.id)).toEqual(full.nodes.find(node => node.id === isolated.id));
+    const focused = projectLocalWorldGraph(record, { fullCorpus: true, showUnconnected: false, focusObjectId: isolated.id });
+    expect(focused.nodes.map(node => node.id)).toEqual([isolated.id]);
+    expect(focused.nodes[0].relationshipCount).toBe(0);
+    const bounded = projectLocalWorldGraph(record, {
+      fullCorpus: true, showUnconnected: false, focusObjectId: record.snapshot.objects[0].id,
+      revealObjectIds: [isolated.id], maxNodes: 1,
+    });
+    expect(bounded.nodes.map(node => node.id)).toEqual([record.snapshot.objects[0].id]);
+  });
+
+  it("keeps all-isolate snapshots accessible through reveal, focus and the legacy default", async () => {
+    const record = await graphRecord();
+    const isolated = { ...record, snapshot: { ...record.snapshot, relationships: [] } };
+    const hidden = projectLocalWorldGraph(isolated, { fullCorpus: true, showUnconnected: false });
+    expect(hidden.nodes).toEqual([]);
+    expect(hidden.hiddenUnconnectedNodes).toBe(4);
+    expect(hidden.omittedNodes).toBe(0);
+    expect(projectLocalWorldGraph(isolated).nodes).toHaveLength(4);
+    const revealed = projectLocalWorldGraph(isolated, { fullCorpus: true, showUnconnected: false, revealObjectIds: [record.snapshot.objects[1].id] });
+    expect(revealed.nodes.map(node => node.id)).toEqual([record.snapshot.objects[1].id]);
+    expect(revealed.hiddenUnconnectedNodes).toBe(3);
+  });
+
+  it("uses multiple concentric rings and starts each real component at its highest-degree hub", async () => {
+    const record = await graphRecord();
+    const objects = Array.from({ length: 40 }, (_, i) => ({ ...record.snapshot.objects[0], id: `ring:${i}` as typeof record.snapshot.objects[number]["id"] }));
+    const relationships = objects.slice(1).map((object, i) => ({
+      ...record.snapshot.relationships[0], id: `ring-edge:${i}` as typeof record.snapshot.relationships[number]["id"],
+      fromObjectId: objects[0].id, toObjectId: object.id,
+    }));
+    const positions = createGraphFallbackPositions(indexLocalWorldGraph({ ...record.snapshot, objects, relationships }));
+    const center = positions.get(objects[0].id)!;
+    const radii = [...positions.values()].map(point => Math.round(Math.hypot(point.x - center.x, point.y - center.y)));
+    expect(new Set(radii).size).toBeGreaterThan(3);
+    expect(radii.every(radius => radius % 136 === 0)).toBe(true);
+    expect(minimumCenterDistance([...positions.values()])).toBeGreaterThanOrEqual(128);
+  });
+
   it("renders all 1404 loaded objects and 559 real edges despite overview budgets", async () => {
     const record = await corpusRecord();
     const result = projectLocalWorldGraph(record, { fullCorpus: true, maxNodes: 1, maxEdges: 0 });
@@ -295,6 +380,20 @@ describe("loaded corpus exploration", () => {
     expect(minimumCenterDistance(result.nodes)).toBeLessThan(144);
   });
 
+  it("terminates with finite unique coordinates for very large disks and singleton self-components", async () => {
+    const record = await graphRecord();
+    const objects = Array.from({ length: 20000 }, (_, i) => ({ ...record.snapshot.objects[0], id: `extreme:${i}` as typeof record.snapshot.objects[number]["id"] }));
+    const positions = createGraphFallbackPositions(indexLocalWorldGraph({ ...record.snapshot, objects, relationships: [] }));
+    expect(positions.size).toBe(objects.length);
+    expect(new Set([...positions.values()].map(({ x, y }) => `${x}:${y}`)).size).toBe(objects.length);
+    expect([...positions.values()].every(({ x, y }) => Number.isFinite(x) && Number.isFinite(y) && x >= 0 && x <= 6000 && y >= 0 && y <= 6000)).toBe(true);
+    const self = { ...record.snapshot.relationships[0], fromObjectId: objects[0].id, toObjectId: objects[0].id };
+    const singleton = projectLocalWorldGraph({ ...record, snapshot: { ...record.snapshot, objects: [objects[0]], relationships: [self] } }, { fullCorpus: true, showUnconnected: false });
+    expect(singleton.nodes).toHaveLength(1);
+    expect(singleton.nodes[0]).toMatchObject({ relationshipCount: 1, x: 80, y: 80 });
+    expect(singleton.edges).toHaveLength(1);
+  });
+
   it("repairs incomplete or non-finite retained fallback maps without a subset grid", async () => {
     const record = await graphRecord();
     const [a, b] = record.snapshot.objects;
@@ -305,14 +404,16 @@ describe("loaded corpus exploration", () => {
     expect(retained.get(b.id)!.x).toBeNaN();
   });
 
-  it("keeps disconnected individuals in a separate region without inventing edges", async () => {
+  it("places disconnected individuals after real components without inventing edges", async () => {
     const record = await graphRecord();
     const [a, b] = record.snapshot.objects;
     const snapshot = { ...record.snapshot, relationships: [{ ...record.snapshot.relationships[0], fromObjectId: a.id, toObjectId: b.id }] };
     const result = projectLocalWorldGraph({ ...record, snapshot }, { fullCorpus: true });
     const connected = result.nodes.filter(node => node.id === a.id || node.id === b.id);
     const isolated = result.nodes.filter(node => node.id !== a.id && node.id !== b.id);
-    expect(Math.max(...connected.map(node => node.y))).toBeLessThan(Math.min(...isolated.map(node => node.y)));
+    const center = connected[0];
+    const radius = (node: { x: number; y: number }) => Math.hypot(node.x - center.x, node.y - center.y);
+    expect(Math.max(...connected.map(radius))).toBeLessThanOrEqual(Math.min(...isolated.map(radius)) + 0.000001);
     expect(result.edges).toHaveLength(1);
     expect(result.nodes).toHaveLength(4);
     const empty = createGraphFallbackPositions(indexLocalWorldGraph({ ...snapshot, objects: [], relationships: [] }));

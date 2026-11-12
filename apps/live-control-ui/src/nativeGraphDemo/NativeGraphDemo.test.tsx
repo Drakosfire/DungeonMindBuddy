@@ -108,12 +108,51 @@ describe("NativeGraphDemo", () => {
     return { ...graph, nodes, edges };
   }
 
+  it("shows recorded names, searches hidden alternatives and leaves native identities and exports intact", async () => {
+    const namedGraph: NativeGraph = { ...graph, nodes: graph.nodes.map((node) => node.id === "entity:tomas" ? {
+      ...node, name: "Multiple recorded names · tomas", kind: "object",
+      presentation: { recorded_names: ["Zed", "Captain Tomas", "Tomas"], classification_terms: ["dungeonbuddy:character"] },
+    } : node) };
+    const api = makeApi({ readGraph: vi.fn().mockResolvedValue(namedGraph) });
+    renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:names" });
+    await screen.findByRole("button", { name: /Mara, npc/i });
+    expect(document.querySelector('[data-node-id="entity:tomas"]')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Find an object · 3 loaded"));
+    fireEvent.change(screen.getByLabelText("Search loaded objects"), { target: { value: "Zed" } });
+    fireEvent.click(screen.getByRole("button", { name: "Explore Captain Tomas / Tomas (+1 more) (entity:tomas)" }));
+    expect(await screen.findByRole("button", { name: "Captain Tomas / Tomas (+1 more), character (role unspecified)" })).toHaveAttribute("data-node-id", "entity:tomas");
+    expect(screen.getByText(/Recorded names: Captain Tomas \/ Tomas \/ Zed/)).toBeInTheDocument();
+    expect(namedGraph.nodes[1].name).toBe("Multiple recorded names · tomas");
+    expect(namedGraph.nodes[1].kind).toBe("object");
+    expect(api.prepare).not.toHaveBeenCalled();
+    expect(api.confirm).not.toHaveBeenCalled();
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("reveals an exact committed create during recovery without guessing the object from its name", async () => {
+    const operationId = "bb9c10ac-c94a-4693-b7bc-4d001c398770";
+    const key = `dungeonmind-native-demo:draft:${encodeURIComponent(graph.world_id)}`;
+    sessionStorage.setItem(key, JSON.stringify({ version: 1, world_id: graph.world_id,
+      draft: { objectName: "Mira", objectKind: "person", sourceId: "", targetId: "", predicate: "" },
+      pending: { operation_id: operationId, expected_revision_id: graph.revision_id, kind: "create_object", name: "Mira", object_kind: "person" },
+      pending_phase: "confirm", placement: null,
+    }));
+    const readback = { ...createdGraph, nodes: [...createdGraph.nodes, { id: "entity:other-mira", name: "Mira", kind: "person" }] };
+    const api = makeApi({ readOperation: vi.fn().mockResolvedValue({ status: "committed", operation_id: operationId, graph: readback, created_node_id: "entity:mira" }) });
+    renderEmbeddedDemo({ api });
+    await waitFor(() => expect(document.querySelector('[data-node-id="entity:mira"]')).toHaveAttribute("aria-pressed", "true"));
+    expect(document.querySelector('[data-node-id="entity:other-mira"]')).not.toBeInTheDocument();
+    expect(api.prepare).not.toHaveBeenCalled();
+    expect(api.confirm).not.toHaveBeenCalled();
+    expect(JSON.parse(sessionStorage.getItem(key) ?? "null").pending).toBeNull();
+  });
+
   it("searches all 1404 objects and focuses/expands a late object without integrity warnings", async () => {
     const corpus = corpusGraph();
     const api = makeApi({ readGraph: vi.fn().mockResolvedValue(corpus), inspectNode: vi.fn().mockResolvedValue(entityDetail(corpus.revision_id, false)) });
     renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Corpus", stateScopeId: "managed:world-17" });
-    await screen.findByText(/1404 loaded objects · 559 real relationships shown/);
-    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1404);
+    await screen.findByText(/561 loaded objects · 559 real relationships shown/);
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(561);
     expect(document.querySelectorAll("[data-edge-id]")).toHaveLength(559);
     expect(screen.getByTestId("graph-scene")).toHaveAttribute("data-detail", "overview");
     expect(screen.queryByLabelText("Graph projection diagnostics")).not.toBeInTheDocument();
@@ -132,7 +171,7 @@ describe("NativeGraphDemo", () => {
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(5);
     expect(document.querySelector('[data-node-id="entity:1002"]')).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", {name: "Show overview"}));
-    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1404);
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(561);
     fireEvent.click(screen.getByRole("button", {name: "Explore Object 1000 (entity:1000)"}));
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(3);
     expect(api.prepare).not.toHaveBeenCalled();
@@ -154,8 +193,12 @@ describe("NativeGraphDemo", () => {
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1);
     expect(scene.getAttribute("transform")).not.toBe(overviewCamera);
     fireEvent.click(screen.getByRole("button", {name: "Show overview"}));
-    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1404);
-    expect(scene.getAttribute("transform")).toBe(overviewCamera);
+    // The explicitly selected isolate remains available alongside the connected overview.
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(562);
+    expect(document.querySelector('[data-node-id="entity:1403"]')).toHaveAttribute("aria-pressed", "true");
+    const revealedOverviewCamera = scene.getAttribute("transform");
+    fireEvent.click(screen.getByRole("button", {name: "Fit graph"}));
+    expect(scene.getAttribute("transform")).toBe(revealedOverviewCamera);
   });
 
   it.each([false, true])("clears and reframes exploration on revision refresh (after Fit: %s)", async (afterFit) => {
@@ -177,7 +220,7 @@ describe("NativeGraphDemo", () => {
     if (afterFit) fireEvent.click(screen.getByRole("button", {name: "Fit graph"}));
     fireEvent.click(within(screen.getByTestId("surface-context-host")).getByRole("button", {name: "Refresh"}));
     await waitFor(() => expect(screen.getByLabelText("Search loaded objects")).toHaveValue(""));
-    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1404);
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(561);
     expect(screen.queryByRole("group", {name: "Neighborhood controls"})).not.toBeInTheDocument();
     expect(scene.getAttribute("transform")).toBe(overviewCamera);
     await act(async () => delayed.resolve(entityDetail(corpus.revision_id, false)));
@@ -376,6 +419,7 @@ describe("NativeGraphDemo", () => {
     await user.click(mara);
     expect(await screen.findByText(/Loading this object from the loaded World revision/)).toBeInTheDocument();
     expect(api.inspectNode).toHaveBeenCalledWith(graph, "entity:mara", expect.any(AbortSignal));
+    await user.click(screen.getByRole("checkbox", { name: /Show objects without listed relationships/ }));
     await user.click(screen.getByRole("button", { name: /Tomas, npc/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Tomas detail unavailable");
 
@@ -629,7 +673,11 @@ describe("NativeGraphDemo", () => {
     vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue("bb9c10ac-c94a-4693-b7bc-4d001c398770");
     renderEmbeddedDemo({ api });
 
-    await screen.findByRole("button", { name: /Mara, npc/i });
+    const mara = await screen.findByRole("button", { name: /Mara, npc/i });
+    if (beyondCanvas) {
+      await user.click(mara);
+      await user.click(screen.getByRole("button", { name: "Focus" }));
+    }
     await user.click(screen.getByRole("button", { name: "Place node" }));
     const palette = screen.getByTestId("node-palette");
     expect(palette).toBeVisible();
@@ -659,12 +707,8 @@ describe("NativeGraphDemo", () => {
     expect(afterEscape.placement.operation_id).toBe(prepared.pending.operation_id);
 
     await user.click(screen.getByRole("button", { name: "Confirm in DungeonMind" }));
-    if (beyondCanvas) {
-      fireEvent.click(await screen.findByText("Find an object · 604 loaded"));
-      fireEvent.change(screen.getByLabelText("Search loaded objects"), {target: {value: "entity:mira"}});
-      fireEvent.click(screen.getByRole("button", {name: "Explore Mira (entity:mira)"}));
-    }
-    expect(await screen.findByRole("button", { name: "Mira, person" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Mira, person" })).toHaveAttribute("aria-pressed", "true");
+    expect(document.querySelector('[data-node-id="entity:tomas"]')).not.toBeInTheDocument();
     await waitFor(() => {
       const saved = JSON.parse(localStorage.getItem(`dungeonmind-native-demo:layout:${encodeURIComponent(graph.world_id)}`) ?? "null");
       expect(saved?.["entity:mira"]).toEqual(placement);
@@ -744,6 +788,7 @@ describe("NativeGraphDemo", () => {
     await screen.findByRole("button", { name: /Mara, npc/i });
     expect(screen.getByRole("button", { name: "Pan graph" })).toHaveAttribute("aria-pressed", "true");
 
+    fireEvent.click(screen.getByRole("checkbox", { name: /Show objects without listed relationships/ }));
     const svg = screen.getByRole("group", { name: "DungeonMind native graph world graph" });
     vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({ width: 960, height: 520, x: 0, y: 0, top: 0, right: 960, bottom: 520, left: 0, toJSON: () => ({}) });
     const scene = screen.getByTestId("graph-scene");

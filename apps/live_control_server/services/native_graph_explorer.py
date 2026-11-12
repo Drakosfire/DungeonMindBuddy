@@ -407,6 +407,12 @@ def _safe_graph_from_catalogue(
                     "id": entity_id,
                     "name": name,
                     "kind": _node_kind(entity_terms),
+                    # Presentation only: retain the exact distinct admitted values
+                    # from this same pinned catalogue, without identity inference.
+                    "presentation": {
+                        "recorded_names": sorted(entity_names),
+                        "classification_terms": sorted(entity_terms),
+                    },
                 }
             )
         omitted_assertions = max(0, len(all_assertion_ids - represented_assertion_ids))

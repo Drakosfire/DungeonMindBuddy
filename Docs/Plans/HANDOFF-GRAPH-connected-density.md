@@ -16,7 +16,7 @@ Implementation resumes after Alan's explicit instruction to continue bubble grap
 
 - Count distinct valid incident relationship IDs across the full loaded snapshot before focus, search or visibility filters. Count a self-loop once for its object; parallel/reverse distinct IDs each count. Missing-endpoint edges do not contribute.
 - Native embedded overview hides objects with zero listed connections by default. Keep a reveal toggle/count, every ID in search/export/connection choices, and saved positions. Search focus and exact-receipt newly created nodes remain accessible, including recovery replay. Filtering is not truncation or deletion; retain partial-read warnings.
-- Full-bubble radius varies by relationship count and is bounded at the existing 56-unit maximum. Preserve the stored-position meaning with a fixed 56-unit center offset. Edge anchors, loops, ports, hit tests, focus and Fit share the same radius. Do not size by focused degree.
+- Full-bubble area grows with log(1 + loaded relationship count), from radius 32 to the existing 56-unit maximum, saturating at 100 relationships. Preserve the stored-position meaning with a fixed 56-unit center offset. Edge anchors, loops, ports, hit tests, focus and Fit share the same radius. Do not size by focused degree.
 - Automatic fallback presentation becomes a deterministic circular arrangement using multiple rings or a packed disk, not one overloaded ring. Preserve pins and prior World-local fallback positions across revisions. Keep all IDs finite within the existing coordinate domain, with graceful crowding at extreme sizes and no invented spacing guarantee for arbitrary user pins. Circular arrangement does not assert semantic distance.
 - Add optional presentation metadata to the existing same-pin explorer response: deterministic recorded names and exact admitted classification terms. Preserve legacy native name/kind fields, auth/binding/revision checks, completeness accounting, payload bounds and all write/recovery contracts. No extra catalogue request or per-node request fan-out.
 - Show meaningful recorded names without choosing an authoritative name, calling alternatives aliases, merging identities or altering assertions. Search includes all recorded names; full alternatives remain inspectable.
@@ -34,7 +34,6 @@ Implementation resumes after Alan's explicit instruction to continue bubble grap
 - apps/live-control-ui/src/nativeGraphDemo/NativeGraphDemo.tsx
 - apps/live-control-ui/src/nativeGraphDemo/NativeGraphDemo.test.tsx
 - apps/live-control-ui/src/nativeGraphDemo/nativeGraphPresentation.ts
-- apps/live-control-ui/src/nativeGraphDemo/nativeGraphPresentation.test.ts
 - apps/live-control-ui/src/nativeGraphDemo/nativeGraphDemoApi.ts
 - apps/live-control-ui/src/nativeGraphDemo/nativeGraphDemoApi.test.ts
 - apps/live-control-ui/src/nativeGraphDemo/managedNativeGraphApi.test.ts

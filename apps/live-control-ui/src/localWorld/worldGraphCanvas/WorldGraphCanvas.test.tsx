@@ -1126,9 +1126,9 @@ describe("full loaded SVG overview", () => {
 
   it("keeps revealed kind labels at readable contrast on each bubble palette color", async () => {
     const { record } = await graphRecord();
-    const kinds = ["person", "location", "event", "faction", "item", "creature", "source", "entity", "constructor", "__proto__"];
+    const kinds = ["npc", "pc", "item", "event", "person", "location", "faction", "item", "creature", "source", "entity", "constructor", "__proto__"];
     const objects = kinds.map((kind, i) => ({ ...record.snapshot.objects[0], id: `${record.snapshot.worldId}:contrast:${i}` as LocalWorldRecord["snapshot"]["objects"][number]["id"], name: kind, kind }));
-    render(<WorldGraphCanvas record={{ ...record, snapshot: { ...record.snapshot, objects, relationships: [] } }} nodeShape="circle" projectionOptions={{ fullCorpus: true }} />);
+    render(<WorldGraphCanvas record={{ ...record, snapshot: { ...record.snapshot, objects, relationships: [] } }} nodeShape="circle" projectionOptions={{ fullCorpus: true, showUnconnected: true }} />);
     const graphStyles = readFileSync(fileURLToPath(import.meta.url).replace(/WorldGraphCanvas\.test\.tsx$/, "worldGraphCanvas.css"), "utf8");
     expect(graphStyles).toContain(".world-graph-canvas--full .world-graph-canvas__node-kind { fill: var(--graph-ink); }");
     // More specific than the generic button:hover:not(:disabled) rule, including its text color.
@@ -1140,7 +1140,7 @@ describe("full loaded SVG overview", () => {
       return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
     }
     const colors = [...document.querySelectorAll<SVGElement>("[data-node-id]")].map((node) => node.style.getPropertyValue("--node-color"));
-    expect(new Set(colors.slice(0, 3)).size).toBe(3);
+    expect(new Set(colors.slice(0, 4)).size).toBe(4);
     for (const color of colors) expect((luminance(color) + .05) / (luminance(ink) + .05)).toBeGreaterThanOrEqual(4.5);
   });
 
@@ -1198,10 +1198,142 @@ describe("full loaded SVG overview", () => {
     const camera = screen.getByTestId("graph-scene").getAttribute("transform");
     const added = { ...record.snapshot.objects[0], id: `${record.snapshot.worldId}:object:new` as LocalWorldRecord["snapshot"]["objects"][number]["id"], name: "A new arrival" };
     const next = { ...record, localRevision: record.localRevision + 1, snapshot: { ...record.snapshot, objects: [added, ...record.snapshot.objects].reverse() } };
-    view.rerender(<WorldGraphCanvas record={next} nodeShape="circle" projectionOptions={options} onMoveObjects={save} />);
+    view.rerender(<WorldGraphCanvas record={next} revealObjectId={added.id} nodeShape="circle" projectionOptions={options} onMoveObjects={save} />);
     for (const [id, transform] of before) expect(document.querySelector(`[data-node-id="${id}"]`)).toHaveAttribute("transform", transform!);
     expect(screen.getByTestId("graph-scene")).toHaveAttribute("transform", camera!);
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(5);
     expect(save).not.toHaveBeenCalled();
   });
+});
+
+describe("loaded relationship density", () => {
+  it("hides isolates by default, reveals exact focus and selection, and offers an all-isolate escape", async () => {
+    const { record } = await graphRecord();
+    const isolated = { ...record, snapshot: { ...record.snapshot, relationships: [] } };
+    const props = { record: isolated, nodeShape: "circle" as const, projectionOptions: { fullCorpus: true } };
+    const view = render(<WorldGraphCanvas {...props} />);
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(0);
+    expect(screen.getByText(/No connected objects in the loaded snapshot/)).toBeVisible();
+    expect(screen.queryByText("This World has no objects yet. Add an object to begin.")).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Show objects without listed relationships \(4 hidden\)/ })).not.toBeChecked();
+    fireEvent.click(screen.getByRole("checkbox"));
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(4);
+    fireEvent.click(screen.getByRole("button", { name: "Mara Venn, person" }));
+    fireEvent.click(screen.getByRole("checkbox"));
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1);
+    view.rerender(<WorldGraphCanvas {...props} cameraFocusRequest={{ nodeId: record.snapshot.objects[1].id, requestId: 1, selectNode: true }} />);
+    expect(screen.getByRole("button", { name: "Tomas Reed, person" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("checkbox", { name: /3 hidden/ })).not.toBeChecked();
+    view.rerender(<WorldGraphCanvas {...props} revealObjectId={record.snapshot.objects[2].id} />);
+    expect(screen.getByRole("button", { name: "The Glass Orchard, location" })).toBeInTheDocument();
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(2);
+  });
+
+  it("uses bounded loaded degree area with stable centers, full names and unequal edge endpoints", async () => {
+    const { record } = await graphRecord();
+    const objects = record.snapshot.objects.slice(0, 3).map((object, i) => ({ ...object,
+      kind: ["npc", "pc", "item"][i], properties: { recordedNames: [object.name, `Full alternative ${i}`] } }));
+    // One connection plus 30 / 100 distinct self-loop IDs gives degrees 1, 31, 100.
+    const relationships = [{ ...record.snapshot.relationships[0], fromObjectId: objects[0].id, toObjectId: objects[1].id },
+      ...[30, 100].flatMap((count, i) => Array.from({ length: count }, (_, j) => ({ ...record.snapshot.relationships[0],
+        id: `density-${i}-${j}` as LocalWorldRelationship["id"], fromObjectId: objects[i + 1].id, toObjectId: objects[i + 1].id })))];
+    const dense = { ...record, snapshot: { ...record.snapshot, objects, relationships },
+      layout: { ...record.layout, positions: Object.fromEntries(objects.map((object, i) => [object.id, { x: i * 500, y: 0 }])) } };
+    const view = render(<WorldGraphCanvas record={dense} nodeShape="circle" projectionOptions={{ fullCorpus: true }} onConnectRequest={vi.fn()} />);
+    const nodes = objects.map((object) => document.querySelector(`[data-node-id="${object.id}"]`)!);
+    const radii = nodes.map((node) => Number(node.querySelector(".world-graph-canvas__node-circle")!.getAttribute("r")));
+    expect(radii[0]).toBeGreaterThanOrEqual(32);
+    expect(radii[1] - radii[0]).toBeGreaterThan(10);
+    expect(radii[2] - radii[1]).toBeGreaterThan(4);
+    expect(radii[2]).toBe(56);
+    nodes.forEach((node, i) => {
+      expect(node.querySelector("circle")).toHaveAttribute("cx", "56");
+      expect(node.querySelector("title")).toHaveTextContent(`Full alternative ${i}`);
+      expect(node).toHaveAttribute("aria-description", expect.stringContaining(`${[1, 31, 100][i]} relationships in loaded snapshot`));
+      expect(Number(node.querySelector(".world-graph-canvas__node-port")!.getAttribute("cx"))).toBeCloseTo(56 + radii[i] - 2);
+    });
+    const path = document.querySelector(`[data-edge-id="${relationships[0].id}"] path`)!.getAttribute("d")!;
+    const values = path.match(/-?\d+(?:\.\d+)?/g)!.map(Number);
+    expect(values[0]).toBeCloseTo(56 + radii[0] + 5);
+    expect(values[4]).toBeCloseTo(556 - radii[1] - 5);
+    expect(document.querySelectorAll("[data-edge-id]")).toHaveLength(131);
+    const loopPath = document.querySelector('[data-edge-id="density-0-0"] path')!.getAttribute("d")!;
+    const loop = loopPath.match(/-?\d+(?:\.\d+)?/g)!.map(Number);
+    expect(Math.hypot(loop[0] - 556, loop[1] - 56)).toBeCloseTo(radii[1] + 5);
+    expect(Math.hypot(loop[6] - 556, loop[7] - 56)).toBeCloseTo(radii[1] + 5);
+    const coincident = { ...dense, layout: { ...dense.layout, positions: { ...dense.layout.positions, [objects[1].id]: { x: 0, y: 0 } } } };
+    view.rerender(<WorldGraphCanvas record={coincident} nodeShape="circle" projectionOptions={{ fullCorpus: true }} />);
+    const coincidentPath = document.querySelector(`[data-edge-id="${relationships[0].id}"] path`)!.getAttribute("d")!;
+    const endpoints = coincidentPath.match(/-?\d+(?:\.\d+)?/g)!.map(Number);
+    expect(Math.hypot(endpoints[0] - 56, endpoints[1] - 56)).toBeCloseTo(radii[0] + 5);
+    expect(Math.hypot(endpoints[6] - 56, endpoints[7] - 56)).toBeCloseTo(radii[1] + 5);
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+    view.rerender(<WorldGraphCanvas record={dense} nodeShape="circle" projectionOptions={{ fullCorpus: true, focusObjectId: objects[0].id, neighborhoodDepth: 0 }} />);
+    expect(Number(document.querySelector(".world-graph-canvas__node-circle")!.getAttribute("r"))).toBe(radii[0]);
+  });
+});
+
+it("hit-tests the weighted radius rather than the old maximum footprint", async () => {
+  const { record } = await graphRecord();
+  const [source, target] = record.snapshot.objects;
+  const placed = { ...record, layout: { ...record.layout, positions: {
+    [source.id]: { x: 0, y: 0 }, [target.id]: { x: 500, y: 0 },
+  } } };
+  const onConnectRequest = vi.fn();
+  render(<WorldGraphCanvas record={placed} nodeShape="circle" projectionOptions={{ fullCorpus: true }} onConnectRequest={onConnectRequest} />);
+  const svg = screen.getByRole("group", { name: "The Ember Coast world graph" });
+  captureRect(svg);
+  const camera = cameraFromScene(screen.getByTestId("graph-scene"));
+  const radius = Number(document.querySelector(`[data-node-id="${target.id}"] .world-graph-canvas__node-circle`)!.getAttribute("r"));
+  const port = screen.getByTestId(`connect-port-${source.id}`);
+  const start = screenPoint(camera, { x: 90, y: 56 });
+  const outside = screenPoint(camera, { x: 556 + radius + 4, y: 56 });
+  dispatchPointer(port, "pointerdown", { button: 0, pointerId: 81, clientX: start.x, clientY: start.y });
+  dispatchPointer(svg, "pointermove", { pointerId: 81, clientX: outside.x, clientY: outside.y });
+  dispatchPointer(svg, "pointerup", { pointerId: 81, clientX: outside.x, clientY: outside.y });
+  expect(onConnectRequest).not.toHaveBeenCalled();
+  const inside = screenPoint(camera, { x: 556 + radius - 2, y: 56 });
+  dispatchPointer(port, "pointerdown", { button: 0, pointerId: 82, clientX: start.x, clientY: start.y });
+  dispatchPointer(svg, "pointermove", { pointerId: 82, clientX: inside.x, clientY: inside.y });
+  dispatchPointer(svg, "pointerup", { pointerId: 82, clientX: inside.x, clientY: inside.y });
+  expect(onConnectRequest).toHaveBeenCalledExactlyOnceWith({ sourceId: source.id, targetId: target.id });
+});
+
+it("applies revision resets before a simultaneous exact-object reveal and focus", async () => {
+  const { record } = await graphRecord();
+  const [old, target] = record.snapshot.objects;
+  const onCameraFocusChange = vi.fn();
+  const view = render(<WorldGraphCanvas record={record} nodeShape="circle"
+    projectionOptions={{ fullCorpus: true, focusObjectId: old.id, neighborhoodDepth: 0 }}
+    cameraFocusRequest={{ nodeId: old.id, requestId: 1, selectNode: true }} onCameraFocusChange={onCameraFocusChange} />);
+  expect(screen.getByRole("button", { name: "Mara Venn, person" })).toHaveAttribute("aria-pressed", "true");
+  onCameraFocusChange.mockClear();
+  const next = { ...record, localRevision: record.localRevision + 1, snapshot: { ...record.snapshot, relationships: [] } };
+  view.rerender(<WorldGraphCanvas record={next} nodeShape="circle" projectionOptions={{ fullCorpus: true }}
+    revealObjectId={target.id} clearCameraFocusRequest={{ requestId: 1, fitView: true }} clearSelectionRequest={1}
+    cameraFocusRequest={{ nodeId: target.id, requestId: 2, selectNode: true }} onCameraFocusChange={onCameraFocusChange} />);
+  expect(screen.getByRole("button", { name: "Tomas Reed, person" })).toHaveAttribute("aria-pressed", "true");
+  expect(onCameraFocusChange).toHaveBeenLastCalledWith(target.id);
+  const node = document.querySelector(`[data-node-id="${target.id}"]`)!;
+  const [x, y] = node.getAttribute("transform")!.match(/-?\d+(?:\.\d+)?/g)!.map(Number);
+  const camera = cameraFromScene(screen.getByTestId("graph-scene"));
+  expect(camera.x + (x + 56) * camera.zoom).toBeCloseTo(480);
+  expect(camera.y + (y + 56) * camera.zoom).toBeCloseTo(260);
+});
+
+it("fits post-reset visibility without a previously selected distant isolate", async () => {
+  const { record } = await graphRecord();
+  const isolate = { ...record.snapshot.objects[0], id: `${record.snapshot.worldId}:distant-isolate` as LocalWorldRecord["snapshot"]["objects"][number]["id"], name: "Distant isolate" };
+  const placed = { ...record, snapshot: { ...record.snapshot, objects: [...record.snapshot.objects, isolate] },
+    layout: { ...record.layout, positions: { ...record.layout.positions, [isolate.id]: { x: 5800, y: 5800 } } } };
+  const props = { nodeShape: "circle" as const, projectionOptions: { fullCorpus: true } };
+  const view = render(<WorldGraphCanvas {...props} record={placed} />);
+  const overviewCamera = screen.getByTestId("graph-scene").getAttribute("transform");
+  view.rerender(<WorldGraphCanvas {...props} record={placed}
+    cameraFocusRequest={{ nodeId: isolate.id, requestId: 1, selectNode: true }} />);
+  expect(screen.getByRole("button", { name: "Distant isolate, person" })).toHaveAttribute("aria-pressed", "true");
+  view.rerender(<WorldGraphCanvas {...props} record={{ ...placed, localRevision: placed.localRevision + 1 }}
+    clearSelectionRequest={1} clearCameraFocusRequest={{ requestId: 1, fitView: true }} />);
+  expect(screen.queryByRole("button", { name: "Distant isolate, person" })).not.toBeInTheDocument();
+  expect(screen.getByTestId("graph-scene")).toHaveAttribute("transform", overviewCamera!);
 });

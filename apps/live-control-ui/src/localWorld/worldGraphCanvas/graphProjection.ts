@@ -16,6 +16,7 @@ export interface ProjectedGraphNode {
   readonly x: number;
   readonly y: number;
   readonly object: LocalWorldObject;
+  readonly relationshipCount: number;
 }
 
 export interface ProjectedGraphEdge {
@@ -32,6 +33,7 @@ export interface GraphProjection {
   readonly edges: readonly ProjectedGraphEdge[];
   readonly diagnostics: readonly string[];
   readonly omittedNodes: number;
+  readonly hiddenUnconnectedNodes: number;
   readonly omittedEdges: number;
   readonly hiddenRelationships: number;
   readonly invalidRelationships: number;
@@ -43,6 +45,9 @@ export interface GraphProjection {
 export interface GraphProjectionOptions {
   /** Overview ignores budgets; an explicit focus still uses bounded exploration. */
   readonly fullCorpus?: boolean;
+  /** Hide zero-degree objects except explicit focus/reveal IDs. */
+  readonly showUnconnected?: boolean;
+  readonly revealObjectIds?: readonly LocalWorldObject["id"][];
   /** World-local fallbacks; persisted positions always win. */
   readonly fallbackPositions?: GraphFallbackPositions;
   readonly maxNodes?: number;
@@ -67,6 +72,7 @@ export interface LocalWorldGraphIndex {
   readonly objects: ReadonlyMap<LocalWorldObject["id"], LocalWorldObject>;
   readonly neighbors: ReadonlyMap<LocalWorldObject["id"], readonly LocalWorldObject["id"][]>;
   readonly validRelationships: readonly LocalWorldRelationship[];
+  readonly relationshipCounts: ReadonlyMap<LocalWorldObject["id"], number>;
   readonly diagnostics: readonly string[];
   readonly invalidRelationships: number;
 }
@@ -75,6 +81,7 @@ export function indexLocalWorldGraph(snapshot: LocalWorldRecord["snapshot"]): Lo
   const objects = new Map(snapshot.objects.map((object) => [object.id, object]));
   const neighbors = new Map<LocalWorldObject["id"], LocalWorldObject["id"][]>();
   const validRelationships: LocalWorldRelationship[] = [];
+  const incidentIds = new Map([...objects.keys()].map(id => [id, new Set<LocalWorldRelationship["id"]>()]));
   const diagnostics: string[] = [];
   let invalidRelationships = 0;
   for (const relationship of snapshot.relationships) {
@@ -86,13 +93,16 @@ export function indexLocalWorldGraph(snapshot: LocalWorldRecord["snapshot"]): Lo
       continue;
     }
     validRelationships.push(relationship);
+    incidentIds.get(relationship.fromObjectId)!.add(relationship.id);
+    incidentIds.get(relationship.toObjectId)!.add(relationship.id);
     for (const [source, target] of [[relationship.fromObjectId, relationship.toObjectId], [relationship.toObjectId, relationship.fromObjectId]]) {
       const adjacent = neighbors.get(source);
       if (adjacent) adjacent.push(target);
       else neighbors.set(source, [target]);
     }
   }
-  return { snapshot, objects, neighbors, validRelationships, diagnostics, invalidRelationships };
+  const relationshipCounts = new Map([...incidentIds].map(([id, incident]) => [id, incident.size]));
+  return { snapshot, objects, neighbors, validRelationships, relationshipCounts, diagnostics, invalidRelationships };
 }
 
 export type GraphFallbackPositions = ReadonlyMap<LocalWorldObject["id"], Readonly<{ x: number; y: number }>>;
@@ -102,13 +112,12 @@ function coordinate(value: number): number {
 }
 
 /**
- * Build once per loaded snapshot, never per camera change or focused subset.
- * Components use only real edges. Isolated objects occupy a separate region,
- * remaining individual objects. Prior World-local fallbacks retain existing
- * positions across revisions/additions; removed IDs are discarded. Automatic
- * 144px staggered slots fit up to 1,927 individuals in the finite domain. Larger
- * corpora reduce spacing, and arbitrary crowded retained layouts may overlap;
- * positions are never hidden or silently moved to claim unlimited capacity.
+ * Real components occupy consecutive radial bands, ordered hub-first by BFS.
+ * Concentric rings have 136-unit nominal center separation, enough for the
+ * 112-unit maximum bubble diameter. Isolates follow the real components;
+ * radial distance is presentation only, never a semantic or inferred edge.
+ * Previous World-local positions win. Finite-domain capacity can reduce spacing
+ * for huge corpora; arbitrary retained/pinned positions may still overlap.
  */
 export function createGraphFallbackPositions(
   index: LocalWorldGraphIndex,
@@ -121,7 +130,7 @@ export function createGraphFallbackPositions(
   const isolated: LocalWorldObject["id"][] = [];
   for (const id of ids) {
     if (visited.has(id)) continue;
-    if (!adjacency.get(id)!.length) {
+    if ((index.relationshipCounts.get(id) ?? 0) === 0) {
       isolated.push(id);
       visited.add(id);
       continue;
@@ -148,27 +157,16 @@ export function createGraphFallbackPositions(
   // This region asserts no relationship between its individual objects.
   if (isolated.length) groups.push(isolated);
   const result = new Map<LocalWorldObject["id"], { x: number; y: number }>();
-  const domain = MAX_GRAPH_COORDINATE - 160;
-  const rowRatio = Math.sqrt(3) / 2;
-  // 144px centers leave 32px between 112px bubbles. The 128px exclusion
-  // distance below also protects additions against arbitrary retained positions.
-  let spacing = 144;
-  const dimensions = () => ({
-    columns: Math.floor((domain - spacing / 2) / spacing) + 1,
-    rows: Math.floor(domain / (spacing * rowRatio)) + 1,
-  });
-  let size = dimensions();
-  // No finite domain can promise fixed separation for unlimited nodes. Beyond
-  // nominal capacity (1,927), reduce spacing, never omit an individual object.
-  for (let attempt = 0; attempt < 8 && size.columns * size.rows < ids.length; attempt += 1) {
-    spacing *= Math.sqrt(size.columns * size.rows / ids.length) * 0.99;
-    size = dimensions();
-  }
-  if (size.columns * size.rows < ids.length) {
-    spacing = domain / (Math.ceil(Math.sqrt(ids.length)) + 1);
-    size = dimensions();
-  }
-  const minimumSeparation = Math.min(128, spacing * 128 / 144);
+  if (!ids.length) return result;
+  const radiusLimit = (MAX_GRAPH_COORDINATE - 160) / 2;
+  // Chord length, not arc length, must accommodate each bubble.
+  const ringSize = (ring: number) => ring === 0 ? 1 : Math.floor(Math.PI / Math.asin(1 / (2 * ring)));
+  let rings = 0;
+  let capacity = 1;
+  // O(sqrt(N)), explicitly bounded even for a singleton graph.
+  while (capacity < ids.length && rings < ids.length) capacity += ringSize(++rings);
+  const spacing = Math.min(136, radiusLimit / Math.max(1, rings));
+  const minimumSeparation = Math.min(128, spacing * 128 / 136);
   const minimumSquared = minimumSeparation ** 2;
   type Point = { x: number; y: number };
   const buckets = new Map<string, Point[]>();
@@ -199,48 +197,35 @@ export function createGraphFallbackPositions(
       occupy(point);
     }
   }
-  const capacity = size.columns * size.rows;
-  const gap = ids.length + (groups.length - 1) * 2 <= capacity ? 2 : 0;
-  const budget = ids.length + Math.max(0, groups.length - 1) * gap;
-  const columns = Math.min(size.columns, Math.max(2, Math.ceil(Math.sqrt(budget * rowRatio)), Math.ceil(budget / size.rows)));
-  function slotPoint(slot: number, width: number): Point {
-    const row = Math.floor(slot / width);
-    const column = row % 2 === 0 ? slot % width : width - 1 - slot % width;
-    return { x: 80 + (column + (row % 2) / 2) * spacing, y: 80 + row * spacing * rowRatio };
-  }
-  const candidates = Array.from({ length: capacity }, (_, slot) => slotPoint(slot, size.columns));
-  let slot = 0;
-  let remaining = ids.length;
-  for (const group of groups) {
-    if (group === isolated && slot > 0) {
-      // A separate final band makes the absence of connections legible, without
-      // inventing an aggregate or a relationship among the isolated individuals.
-      const nextBand = (Math.floor(slot / columns) + 2) * columns;
-      if (nextBand + remaining <= columns * size.rows) slot = nextBand;
-    }
-    for (const id of group) {
-      const desired = slotPoint(slot, columns);
-      if (!result.has(id)) {
-        let point = desired;
-        if (!available(point)) {
-          let nearest: Point | undefined;
-          let distance = Infinity;
-          for (const candidate of candidates) {
-            const squared = (candidate.x - desired.x) ** 2 + (candidate.y - desired.y) ** 2;
-            if (squared < distance && available(candidate)) { nearest = candidate; distance = squared; }
-          }
-          // Arbitrarily crowded retained positions may exhaust the fixed domain.
-          // Retention wins: keep all objects visible rather than moving prior
-          // positions or claiming unlimited collision-free capacity.
-          point = nearest ?? desired;
-        }
-        result.set(id, point);
-        occupy(point);
+  function ringPoints(ringCount: number, center: number): Point[] {
+    const points: Point[] = [];
+    for (let ring = 0; ring <= ringCount; ring += 1) {
+      const count = ringSize(ring);
+      for (let slot = 0; slot < count; slot += 1) {
+        const angle = -Math.PI / 2 + 2 * Math.PI * slot / count;
+        points.push({ x: center + ring * spacing * Math.cos(angle), y: center + ring * spacing * Math.sin(angle) });
       }
-      slot += 1;
-      remaining -= 1;
     }
-    slot += gap;
+    return points;
+  }
+  const desiredPoints = ringPoints(rings, 80 + rings * spacing);
+  // Scan spare full-domain slots at most once, rather than searching O(N²).
+  const candidates = [...desiredPoints, ...ringPoints(Math.floor(radiusLimit / spacing), MAX_GRAPH_COORDINATE / 2)];
+  let candidateCursor = 0;
+  let slot = 0;
+  for (const group of groups) {
+    for (const id of group) {
+      const desired = desiredPoints[slot++];
+      if (result.has(id)) continue;
+      let point = desired;
+      if (!available(point)) {
+        while (candidateCursor < candidates.length && !available(candidates[candidateCursor])) candidateCursor += 1;
+        // Retention wins if arbitrary previous positions exhaust capacity.
+        point = candidates[candidateCursor++] ?? desired;
+      }
+      result.set(id, point);
+      occupy(point);
+    }
   }
   return result;
 }
@@ -258,7 +243,12 @@ export function projectLocalWorldGraph(
   const focused = Boolean(options.focusObjectId && index.objects.has(options.focusObjectId));
   const fullOverview = options.fullCorpus && !focused;
   let fallbackPositions = options.fullCorpus ? options.fallbackPositions ?? createGraphFallbackPositions(index) : undefined;
-  let visibleObjects = fullOverview ? objects : objects.slice(0, maxNodes);
+  const revealedIds = new Set(options.revealObjectIds ?? []);
+  const eligibleObjects = options.showUnconnected === false
+    ? objects.filter(object => (index.relationshipCounts.get(object.id) ?? 0) > 0 || revealedIds.has(object.id) || (focused && object.id === options.focusObjectId))
+    : objects;
+  const hiddenUnconnectedNodes = objects.length - eligibleObjects.length;
+  let visibleObjects = fullOverview ? eligibleObjects : eligibleObjects.slice(0, maxNodes);
   if (maxNodes && options.focusObjectId && index.objects.has(options.focusObjectId)) {
     const depthLimit = boundedLimit(options.neighborhoodDepth ?? 1, objects.length);
     const queue = [{ id: options.focusObjectId, depth: 0 }];
@@ -286,7 +276,7 @@ export function projectLocalWorldGraph(
     fallback = fallback ? { x: coordinate(fallback.x), y: coordinate(fallback.y) } : initialPosition(position, visibleObjects.length);
     const x = saved && Number.isFinite(saved.x) ? Math.max(0, Math.min(MAX_GRAPH_COORDINATE, saved.x)) : fallback.x;
     const y = saved && Number.isFinite(saved.y) ? Math.max(0, Math.min(MAX_GRAPH_COORDINATE, saved.y)) : fallback.y;
-    return { id: object.id, name: object.name, kind: object.kind, x, y, object };
+    return { id: object.id, name: object.name, kind: object.kind, x, y, object, relationshipCount: index.relationshipCounts.get(object.id) ?? 0 };
   });
   const edges: ProjectedGraphEdge[] = [];
   // Scan all valid relationships so an early hidden edge cannot starve later visible edges.
@@ -299,7 +289,8 @@ export function projectLocalWorldGraph(
   return {
     worldId: record.snapshot.worldId, nodes, edges,
     diagnostics: index.diagnostics,
-    omittedNodes: Math.max(0, objects.length - nodes.length),
+    omittedNodes: Math.max(0, eligibleObjects.length - nodes.length),
+    hiddenUnconnectedNodes,
     omittedEdges: record.snapshot.relationships.length - edges.length,
     hiddenRelationships: index.validRelationships.length - edges.length,
     invalidRelationships: index.invalidRelationships,
