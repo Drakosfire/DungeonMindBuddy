@@ -119,3 +119,21 @@ def test_placement_cannot_reuse_incompatible_occurrence_identity(lane):
     assert response.status_code == 409, response.text
     assert "placement_incompatible_occurrence_identity" in response.text
     assert lane.repo.get_head(SPACE_ID).head_revision_id == before
+
+
+@pytest.mark.parametrize("lane", ["source_order"], indirect=True)
+def test_later_review_cannot_place_same_event_again(lane):
+    _declare_campaign(lane, 1)
+    _select(lane)
+    response = confirm(lane, confirmation(lane))
+    assert response.status_code == 200, response.text
+    result = response.json()["result"]
+    existing = next(item["durable_object_id"] for item in result["object_results"]
+                    if item["client_op_id"] == "record:0")
+    lane.body["expected_parent_revision_id"] = result["child_revision_id"]
+    lane.body["selections"] = [s for s in lane.body["selections"] if s["kind"] != "edge"]
+    lane.body["selections"][0].update(action="use_existing", entity_id=existing)
+    response = lane.post()
+    assert response.status_code == 409, response.text
+    assert "event_already_placed_on_timeline" in response.text
+    assert lane.repo.get_head(SPACE_ID).head_revision_id == result["child_revision_id"]

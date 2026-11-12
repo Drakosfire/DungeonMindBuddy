@@ -228,6 +228,27 @@ def _campaign_timeline(access, space, campaign):
     return next(iter(identities))
 
 
+def _validate_unplaced_occurrence(access, space, campaign, event_id, timeline_id):
+    candidates = []
+    for identifier, parsed in access.parsed.assertions_by_id.items():
+        if parsed.subject_entity_id != event_id or parsed.predicate != TIMELINE_PREDICATE:
+            continue
+        value = native.assertion_contract(parsed).value
+        if value.kind == "entity_ref" and value.entity_id == timeline_id:
+            candidates.append(identifier)
+    if candidates:
+        read = build_dungeonbuddy_read_context(
+            parsed_revision=access.parsed,
+            projection_input=DungeonBuddyVNextProjectionInput(
+                world_id=space, revision_id=access.parsed.revision_id,
+                scope_mode="campaign", campaign_id=campaign, role="gm",
+            ),
+            source_reader=access.source_view,
+        )
+        _require(not read.admit_candidates(candidates).admitted_assertion_ids,
+                 "event_already_placed_on_timeline")
+
+
 def _validate_placement(review, session_id):
     temporal = review.temporal_scope
     match = re.fullmatch(r"session-0*([1-9][0-9]*)", session_id or "")
@@ -387,6 +408,8 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
         if isinstance(endpoint, wk.DurableObjectRef):
             _validate_occurrence_identities({endpoint.durable_object_id}, access, space, campaign,
                                             "placement_incompatible_occurrence_identity")
+            _validate_unplaced_occurrence(access, space, campaign,
+                                          endpoint.durable_object_id, timeline)
         operations.append(wk.CreateRelationship(
             f"placement:{index}", endpoint, TIMELINE_PREDICATE, wk.DurableObjectRef(timeline),
             _metadata(selection.metadata, campaign,
