@@ -1,6 +1,6 @@
 import { StartPdfStatblockReview } from "./StartPdfStatblockReview";
 import { completePdfTextLines, hasClippedPdfTextLine, pdfTextBoundsOverlap } from "./completePdfTextLines";
-import { hasRecognizablePdfStatblockStructure, looksLikePdfStatblock, PdfStatblockCandidate } from "./PdfStatblockCandidate";
+import { hasRecognizablePdfStatblockStructure, PdfStatblockCandidate } from "./PdfStatblockCandidate";
 import { PdfTableCandidate } from "./PdfTableCandidate";
 import type { PdfRegionTextRun } from "./parsePdfDiceTable";
 import { pdfRegionKey, readRetainedPdfRegions, retainedPdfKey, type PdfLocator, type PdfReceipt, type RetainedPdf } from "../api/retainedPdfRegions";
@@ -93,6 +93,7 @@ function PdfPages({ file, worldId, restored, onRetained }: {
   const [receipt, setReceipt] = useState<PdfReceipt | undefined>(restored);
   const [sourcePending, setSourcePending] = useState(false);
   const [sourceError, setSourceError] = useState("");
+  const [statblockRegions, setStatblockRegions] = useState<PdfLocator[]>(() => restored ? [restored] : []);
 
   async function retainOrReopen(selected: PageRectangle) {
     if (!worldId || sourcePending) return;
@@ -370,9 +371,16 @@ function PdfPages({ file, worldId, restored, onRetained }: {
                 locator={captureLocator(receipt, page, capture.region)}
                 clipped={clippedText}
               />}
-              {worldId && receipt && looksLikePdfStatblock(completeLines) && <StartPdfStatblockReview
-                key={pdfRegionKey(captureLocator(receipt, page, capture.region))}
-                worldId={worldId} region={captureLocator(receipt, page, capture.region)} />}
+              {worldId && receipt && <button type="button" onClick={() => {
+                const locator = captureLocator(receipt, page, capture.region);
+                setStatblockRegions(current => current.some(region => pdfRegionKey(region) === pdfRegionKey(locator))
+                  ? current : [...current, locator]);
+              }} disabled={statblockRegions.some(region =>
+                pdfRegionKey(region) === pdfRegionKey(captureLocator(receipt, page, capture.region)))}>
+                {statblockRegions.some(region =>
+                  pdfRegionKey(region) === pdfRegionKey(captureLocator(receipt, page, capture.region)))
+                  ? "Region added" : "Add region to statblock"}
+              </button>}
               {worldId && receipt && (textError || capturedText !== undefined) && (
                 <CropOcr key={capture.image} worldId={worldId} region={captureLocator(receipt, page, capture.region)} hasPdfText={Boolean(capturedText)} />
               )}
@@ -380,6 +388,12 @@ function PdfPages({ file, worldId, restored, onRetained }: {
           )}
         </>
       )}
+      {worldId && statblockRegions.length > 0 && <StartPdfStatblockReview
+        worldId={worldId}
+        regions={statblockRegions}
+        onRemoveRegion={removed => setStatblockRegions(current =>
+          current.filter(region => pdfRegionKey(region) !== pdfRegionKey(removed)))}
+      />}
     </section>
   );
 }
