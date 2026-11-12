@@ -173,8 +173,13 @@ def test_generic_review_edge_cannot_publish_a_timeline_placement(lane):
 
 
 @pytest.mark.parametrize("lane", ["source_order"], indirect=True)
-@pytest.mark.parametrize("scope_mode", ["campaign", "world"])
-def test_timeline_search_discovers_placed_event_relationships(lane, monkeypatch, scope_mode):
+@pytest.mark.parametrize(("scope_mode", "unscoped_predicate"), [
+    ("campaign", None),
+    ("world", None),
+    ("campaign", "dnd5e:classification"),
+    ("campaign", "dungeonbuddy.custom:on_timeline"),
+])
+def test_timeline_search_discovers_placed_event_relationships(lane, monkeypatch, scope_mode, unscoped_predicate):
     from types import SimpleNamespace
     from uuid import uuid4
 
@@ -197,6 +202,22 @@ def test_timeline_search_discovers_placed_event_relationships(lane, monkeypatch,
              if row["predicate"] == "dungeonbuddy.custom:precedes"
              and row["subject_entity_id"] == arrival]
 
+    if unscoped_predicate:
+        payload = copy.deepcopy(child.graph_payload)
+        assertion, = [row for row in payload["assertions"]
+                      if row["predicate"] == unscoped_predicate
+                      and row["subject_entity_id"] == (
+                          "ent:pippa" if unscoped_predicate == "dnd5e:classification" else arrival
+                      )]
+        assertion["metadata"]["scope"] = []
+        lane.repo.publish_revision(PublishKnowledgeRevisionCommand(
+            space_id=SPACE_ID, parent_revision_id=revision, expected_parent_revision_id=revision,
+            operation_ids=["unscoped-timeline-test"], graph_schema=child.revision.graph_schema,
+            graph_payload=payload, domain_contract_ref=child.revision.domain_contract_ref,
+            semantic_profile_ref=child.revision.semantic_profile_ref, created_at=datetime.now(UTC),
+        ))
+        revision = lane.repo.get_head(SPACE_ID).head_revision_id
+
     def timeline_search_only(self, context, question):
         return SimpleNamespace(
             identity=SimpleNamespace(space_id=SPACE_ID, revision_id=revision),
@@ -214,7 +235,7 @@ def test_timeline_search_discovers_placed_event_relationships(lane, monkeypatch,
         campaign_id=CAMPAIGN_ID if scope_mode == "campaign" else None,
     )
     ids = {match.assertion_id for match in query.assertion_matches}
-    if scope_mode == "world":
+    if scope_mode == "world" or unscoped_predicate:
         assert edge["assertion_id"] not in ids
         return
 
