@@ -4,6 +4,7 @@ import hashlib
 import json
 import shutil
 
+import pytest
 from fastapi.testclient import TestClient
 
 from apps.live_control_server.main import create_app
@@ -236,3 +237,42 @@ def test_ordinary_process_review_publish_and_fresh_database_readback(
         "idempotent_confirmation_verified": True,
         "APP_source_candidate_and_span_bytes_unchanged": True,
     }, sort_keys=True))
+
+
+@pytest.mark.parametrize("planning", [False, True])
+def test_ordinary_process_proposes_event_placement_from_saved_recap(client_env, monkeypatch, planning):
+    import src.graph_memory.extraction.graph_preview_runner as producer
+
+    client, root = client_env
+    extract = producer.extract_category_candidate_graph
+
+    def extract_event(*args, **kwargs):
+        result = extract(*args, **kwargs)
+        node = result.candidate_graph["nodes"][0]
+        node.update(label="The keeper scouts the road", node_type="event")
+        if planning:
+            node["semantic_state"].update(canon_state="planning_scaffold", authority_state="gm_prep")
+        return result
+
+    monkeypatch.setattr(producer, "extract_category_candidate_graph", extract_event)
+    request = process_body(session=29)
+    response = client.post("/api/live/recap-ingest", json=request)
+    assert response.status_code == 200, response.text
+    graph = response.json()["ingest_report"]["graph_preview"]
+    data = load_reviewable_extraction_data(root, graph["extraction_run_id"])
+    node, = json.loads(data.candidate_bytes)["nodes"]
+    expected = {
+        "candidate_node_id": node["node_id"],
+        "status": "needs_review",
+        "campaign_id": "longmont-c2",
+        "start": {"session": 29},
+        "source_span_ids": [node["evidence_refs"][0]["source_span_ref_id"]],
+    }
+    if planning:
+        expected = {"candidate_node_id": node["node_id"], "status": "held", "reason": "not_played_history"}
+    assert graph["event_placement_proposals"] == [expected]
+    repeated = client.post("/api/live/recap-ingest", json=request)
+    assert repeated.status_code == 200, repeated.text
+    reused = repeated.json()["ingest_report"]["graph_preview"]
+    assert reused["extraction_run_id"] == graph["extraction_run_id"]
+    assert reused["event_placement_proposals"] == graph["event_placement_proposals"]
