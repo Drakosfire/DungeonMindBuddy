@@ -1,6 +1,6 @@
 # HANDOFF — Diagnose Build PDF statblock review failures
 
-Status: ACTIVE; serial; one unstacked PR.
+Status: SETTLED; UI diagnostic slice merged in PR #2500 as 691096d1d04f3d4397fdd75af35f39d58016cedb. API failure classification is continued in HANDOFF-BUILD-pdf-statblock-generation-diagnosis.md.
 Base: `origin/main@ff90b31ea39623e070de5a98bd8a37292e5deb07` (fetched).
 Branch: `codex/pdf-statblock-review-diagnostics-20261112`.
 Checkout: existing `/home/drakosfire/Projects/.codex/pdf-gold-baseline/DungeonMindBuddy`; reuse it, do not create a worktree.
