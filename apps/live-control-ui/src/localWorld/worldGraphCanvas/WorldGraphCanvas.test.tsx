@@ -7,6 +7,8 @@ import { createTestWorld, sequenceLocalIds } from "../localWorldContractFixtures
 import type { CommitSemanticResult, LocalWorldRecord, LocalWorldRelationship, WriteLayoutResult } from "../localWorldRepository";
 import { createLocalWorldGraphAdapter } from "./localWorldGraphAdapter";
 import { projectLocalWorldGraph } from "./graphProjection";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import * as projectionModule from "./graphProjection";
 import { WorldGraphCanvas, type WorldGraphEditorDraft } from "./WorldGraphCanvas";
 
@@ -945,4 +947,261 @@ it("does not rebuild the full corpus index or projection when only the camera ch
   expect(index).toHaveBeenCalledTimes(indexed);
   expect(project).toHaveBeenCalledTimes(projected);
   index.mockRestore(); project.mockRestore();
+});
+
+describe("full loaded SVG overview", () => {
+  it("pans from a bubble by default without moving, selecting, or creating anything", async () => {
+    const { record } = await graphRecord();
+    const save = vi.fn(), select = vi.fn(), create = vi.fn();
+    render(<WorldGraphCanvas record={record} nodeShape="circle" projectionOptions={{ fullCorpus: true }}
+      onMoveObjects={save} onSelectionChange={select} onCanvasCreateRequest={create} creationKinds={[{ kind: "person", label: "Person" }]} />);
+    const svg = screen.getByRole("group", { name: "The Ember Coast world graph" });
+    captureRect(svg);
+    const scene = screen.getByTestId("graph-scene"), before = cameraFromScene(scene);
+    const node = screen.getByRole("button", { name: "Mara Venn, person" }), position = node.getAttribute("transform");
+    expect(select).toHaveBeenCalledExactlyOnceWith(null); select.mockClear();
+    expect(screen.getByRole("button", { name: "Pan graph" })).toHaveAttribute("aria-pressed", "true");
+    dispatchPointer(node, "pointerdown", { pointerId: 91, button: 0, clientX: 100, clientY: 100 });
+    dispatchPointer(svg, "pointermove", { pointerId: 91, clientX: 160, clientY: 140 });
+    dispatchPointer(svg, "pointerup", { pointerId: 91, clientX: 160, clientY: 140 });
+    fireEvent.click(node); // Browser click following a completed drag must not select.
+    expect(cameraFromScene(scene)).toEqual({ ...before, x: before.x + 60, y: before.y + 40 });
+    expect(node).toHaveAttribute("transform", position!);
+    expect(node).toHaveAttribute("aria-pressed", "false");
+    expect(save).not.toHaveBeenCalled(); expect(select).not.toHaveBeenCalled(); expect(create).not.toHaveBeenCalled();
+    expect(screen.queryByText("Place a node here")).not.toBeInTheDocument();
+    dispatchPointer(node, "pointerdown", { pointerId: 92, button: 0, clientX: 160, clientY: 140 });
+    dispatchPointer(svg, "pointerup", { pointerId: 92, clientX: 160, clientY: 140 });
+    fireEvent.click(node);
+    expect(node).toHaveAttribute("aria-pressed", "true");
+    expect(select).toHaveBeenLastCalledWith(record.snapshot.objects[0].id);
+    expect(screen.queryByText("Place a node here")).not.toBeInTheDocument();
+  });
+
+  it("requires Move nodes for pointer edits, then returns to safe keyboard panning", async () => {
+    const { repository, record } = await graphRecord();
+    const adapter = createLocalWorldGraphAdapter(repository);
+    const save = vi.fn((current: LocalWorldRecord, positions: Readonly<Record<string, { x: number; y: number }>>) => adapter.moveObjects(current, positions));
+    render(<WorldGraphCanvas record={record} nodeShape="circle" projectionOptions={{ fullCorpus: true }} onMoveObjects={save} />);
+    const svg = screen.getByRole("group", { name: "The Ember Coast world graph" }); captureRect(svg);
+    const node = screen.getByRole("button", { name: "Mara Venn, person" }), scene = screen.getByTestId("graph-scene");
+    const initial = cameraFromScene(scene), position = node.getAttribute("transform");
+    fireEvent.keyDown(node, { key: "ArrowRight" });
+    expect(cameraFromScene(scene)).toEqual({ ...initial, x: initial.x - 32 });
+    expect(save).not.toHaveBeenCalled(); expect(node).toHaveAttribute("transform", position!);
+    fireEvent.click(screen.getByRole("button", { name: "Move nodes" }));
+    expect(screen.getByRole("button", { name: "Move nodes" })).toHaveAttribute("aria-pressed", "true");
+    const camera = scene.getAttribute("transform");
+    dispatchPointer(node, "pointerdown", { pointerId: 93, button: 0, clientX: 100, clientY: 100 });
+    dispatchPointer(svg, "pointermove", { pointerId: 93, clientX: 130, clientY: 120 });
+    expect(node.getAttribute("transform")).not.toBe(position);
+    dispatchPointer(svg, "pointerup", { pointerId: 93, clientX: 130, clientY: 120 });
+    await screen.findByText("Canvas layout updated.");
+    expect(save).toHaveBeenCalledTimes(1); expect(scene).toHaveAttribute("transform", camera!);
+    fireEvent.click(screen.getByRole("button", { name: "Pan graph" }));
+    fireEvent.keyDown(node, { key: "ArrowLeft" });
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(cameraFromScene(scene).x).toBe(initial.x);
+  });
+
+  it("keeps intentional keyboard node movement in Move nodes mode", async () => {
+    const { repository, record } = await graphRecord();
+    const adapter = createLocalWorldGraphAdapter(repository);
+    const save = vi.fn((current: LocalWorldRecord, positions: Readonly<Record<string, { x: number; y: number }>>) => adapter.moveObjects(current, positions));
+    render(<WorldGraphCanvas record={record} nodeShape="circle" projectionOptions={{ fullCorpus: true }} onMoveObjects={save} />);
+    const node = screen.getByRole("button", { name: "Mara Venn, person" }), scene = screen.getByTestId("graph-scene");
+    const before = scene.getAttribute("transform");
+    const position = node.getAttribute("transform")!.match(/translate\(([-.\d]+) ([-.\d]+)\)/)!;
+    fireEvent.click(screen.getByRole("button", { name: "Move nodes" }));
+    fireEvent.keyDown(node, { key: "ArrowRight", shiftKey: true });
+    await screen.findByText("Canvas layout updated.");
+    expect(save).toHaveBeenCalledExactlyOnceWith(record, { [record.snapshot.objects[0].id]: { x: Number(position[1]) + 24, y: Number(position[2]) } });
+    expect(scene).toHaveAttribute("transform", before!);
+  });
+
+  it.each(["Escape", "pointercancel", "mode change"])("cancels an unfinished node-origin pan on %s without a layout write", async (interruption) => {
+    const { record } = await graphRecord(); const save = vi.fn();
+    render(<WorldGraphCanvas record={record} nodeShape="circle" projectionOptions={{ fullCorpus: true }} onMoveObjects={save} />);
+    const svg = screen.getByRole("group", { name: "The Ember Coast world graph" }); captureRect(svg);
+    const node = screen.getByRole("button", { name: "Mara Venn, person" });
+    const initial = screen.getByTestId("graph-scene").getAttribute("transform");
+    dispatchPointer(node, "pointerdown", { pointerId: 94, button: 0, clientX: 100, clientY: 100 });
+    dispatchPointer(svg, "pointermove", { pointerId: 94, clientX: 170, clientY: 140 });
+    if (interruption === "Escape") fireEvent.keyDown(node, { key: "Escape" });
+    else if (interruption === "pointercancel") dispatchPointer(svg, "pointercancel", { pointerId: 94 });
+    else fireEvent.click(screen.getByRole("button", { name: "Move nodes" }));
+    dispatchPointer(svg, "pointerup", { pointerId: 94, clientX: 170, clientY: 140 });
+    expect(screen.getByTestId("graph-scene")).toHaveAttribute("transform", initial!);
+    expect(save).not.toHaveBeenCalled(); expect(node).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("cancels a node move when switching to Pan and resets to Pan for another World", async () => {
+    const { record } = await graphRecord(); const save = vi.fn();
+    const view = render(<WorldGraphCanvas record={record} nodeShape="circle" projectionOptions={{ fullCorpus: true }} onMoveObjects={save} />);
+    const svg = screen.getByRole("group", { name: "The Ember Coast world graph" }); captureRect(svg);
+    const node = screen.getByRole("button", { name: "Mara Venn, person" }), position = node.getAttribute("transform");
+    fireEvent.click(screen.getByRole("button", { name: "Move nodes" }));
+    dispatchPointer(node, "pointerdown", { pointerId: 95, button: 0, clientX: 100, clientY: 100 });
+    dispatchPointer(svg, "pointermove", { pointerId: 95, clientX: 170, clientY: 140 });
+    fireEvent.click(screen.getByRole("button", { name: "Pan graph" }));
+    dispatchPointer(svg, "pointerup", { pointerId: 95, clientX: 170, clientY: 140 });
+    expect(node).toHaveAttribute("transform", position!); expect(save).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Move nodes" }));
+    view.rerender(<WorldGraphCanvas record={{ ...record, snapshot: { ...record.snapshot, worldId: "other-world" as typeof record.snapshot.worldId } }} nodeShape="circle" projectionOptions={{ fullCorpus: true }} onMoveObjects={save} />);
+    expect(screen.getByRole("button", { name: "Pan graph" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("allows node-origin navigation when layout edits are unavailable", async () => {
+    const { record } = await graphRecord();
+    render(<WorldGraphCanvas record={record} nodeShape="circle" projectionOptions={{ fullCorpus: true }} interactionDisabled />);
+    const svg = screen.getByRole("group", { name: "The Ember Coast world graph" }); captureRect(svg);
+    const node = screen.getByRole("button", { name: "Mara Venn, person" }), scene = screen.getByTestId("graph-scene");
+    const before = scene.getAttribute("transform");
+    expect(screen.getByRole("button", { name: "Move nodes" })).toBeDisabled();
+    dispatchPointer(node, "pointerdown", { pointerId: 96, button: 0, clientX: 100, clientY: 100 });
+    dispatchPointer(svg, "pointerup", { pointerId: 96, clientX: 160, clientY: 140 });
+    expect(scene.getAttribute("transform")).not.toBe(before);
+    fireEvent.keyDown(node, { key: "0" });
+    expect(scene).toHaveAttribute("transform", before!);
+  });
+
+  it.each(["local revision", "layout revision", "World"])("releases node-origin pan capture and suppresses its trailing click across %s changes", async (change) => {
+    const { record } = await graphRecord(); const save = vi.fn();
+    const props = { nodeShape: "circle" as const, projectionOptions: { fullCorpus: true }, onMoveObjects: save };
+    const view = render(<WorldGraphCanvas record={record} {...props} />);
+    const svg = screen.getByRole("group", { name: "The Ember Coast world graph" }); captureRect(svg);
+    const node = screen.getByRole("button", { name: "Mara Venn, person" });
+    const release = vi.fn(); Object.defineProperty(node, "releasePointerCapture", { configurable: true, value: release });
+    dispatchPointer(node, "pointerdown", { pointerId: 97, button: 0, clientX: 100, clientY: 100 });
+    dispatchPointer(svg, "pointermove", { pointerId: 97, clientX: 170, clientY: 140 });
+    const next = change === "local revision" ? { ...record, localRevision: record.localRevision + 1 }
+      : change === "layout revision" ? { ...record, layoutRevision: record.layoutRevision + 1 }
+      : { ...record, snapshot: { ...record.snapshot, worldId: "reused-node-ids" as typeof record.snapshot.worldId } };
+    view.rerender(<WorldGraphCanvas record={next} {...props} />);
+    expect(release).toHaveBeenCalledExactlyOnceWith(97);
+    dispatchPointer(svg, "pointerup", { pointerId: 97, clientX: 170, clientY: 140 });
+    fireEvent.click(screen.getByRole("button", { name: "Mara Venn, person" }));
+    expect(screen.getByRole("button", { name: "Mara Venn, person" })).toHaveAttribute("aria-pressed", "false");
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("cannot finish a stale node move after editing is disabled and enabled again", async () => {
+    const { record } = await graphRecord(); const save = vi.fn();
+    const props = { record, nodeShape: "circle" as const, projectionOptions: { fullCorpus: true }, onMoveObjects: save };
+    const view = render(<WorldGraphCanvas {...props} />);
+    const svg = screen.getByRole("group", { name: "The Ember Coast world graph" }); captureRect(svg);
+    const node = screen.getByRole("button", { name: "Mara Venn, person" }), position = node.getAttribute("transform");
+    const release = vi.fn(); Object.defineProperty(node, "releasePointerCapture", { configurable: true, value: release });
+    fireEvent.click(screen.getByRole("button", { name: "Move nodes" }));
+    dispatchPointer(node, "pointerdown", { pointerId: 98, button: 0, clientX: 100, clientY: 100 });
+    dispatchPointer(svg, "pointermove", { pointerId: 98, clientX: 170, clientY: 140 });
+    view.rerender(<WorldGraphCanvas {...props} interactionDisabled />);
+    expect(release).toHaveBeenCalledExactlyOnceWith(98);
+    expect(node).toHaveAttribute("transform", position!);
+    view.rerender(<WorldGraphCanvas {...props} />);
+    dispatchPointer(svg, "pointerup", { pointerId: 98, clientX: 170, clientY: 140 });
+    fireEvent.click(node);
+    expect(save).not.toHaveBeenCalled(); expect(node).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("fits persisted geometry when keyboard Fit interrupts a connected-node drag", async () => {
+    const { record } = await graphRecord();
+    const save = vi.fn();
+    render(<WorldGraphCanvas record={record} nodeShape="circle" projectionOptions={{ fullCorpus: true }} onMoveObjects={save} />);
+    const svg = screen.getByRole("group", { name: "The Ember Coast world graph" });
+    captureRect(svg);
+    fireEvent.click(screen.getByRole("button", { name: "Move nodes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Fit graph" }));
+    const camera = screen.getByTestId("graph-scene").getAttribute("transform")!;
+    const first = document.querySelector(`[data-node-id="${record.snapshot.objects[0].id}"]`)!;
+    const position = first.getAttribute("transform")!;
+    dispatchPointer(first, "pointerdown", { pointerId: 14, clientX: 100, clientY: 100, button: 0 });
+    dispatchPointer(svg, "pointermove", { pointerId: 14, clientX: 1100, clientY: 800, buttons: 1 });
+    expect(first.getAttribute("transform")).not.toBe(position);
+    fireEvent.keyDown(svg, { key: "0" });
+    expect(first).toHaveAttribute("transform", position);
+    expect(screen.getByTestId("graph-scene")).toHaveAttribute("transform", camera);
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("keeps revealed kind labels at readable contrast on each bubble palette color", async () => {
+    const { record } = await graphRecord();
+    const kinds = ["person", "location", "event", "faction", "item", "creature", "source", "entity", "constructor", "__proto__"];
+    const objects = kinds.map((kind, i) => ({ ...record.snapshot.objects[0], id: `${record.snapshot.worldId}:contrast:${i}` as LocalWorldRecord["snapshot"]["objects"][number]["id"], name: kind, kind }));
+    render(<WorldGraphCanvas record={{ ...record, snapshot: { ...record.snapshot, objects, relationships: [] } }} nodeShape="circle" projectionOptions={{ fullCorpus: true }} />);
+    const graphStyles = readFileSync(fileURLToPath(import.meta.url).replace(/WorldGraphCanvas\.test\.tsx$/, "worldGraphCanvas.css"), "utf8");
+    expect(graphStyles).toContain(".world-graph-canvas--full .world-graph-canvas__node-kind { fill: var(--graph-ink); }");
+    // More specific than the generic button:hover:not(:disabled) rule, including its text color.
+    expect(graphStyles).toContain('.world-graph-canvas .world-graph-canvas__drag-mode button[aria-pressed="true"]:hover,');
+    expect(graphStyles).toContain('.world-graph-canvas .world-graph-canvas__drag-mode button[aria-pressed="true"]:focus-visible { background: var(--graph-ink); color: #fffdf7; border-color: var(--graph-ink); }');
+    const ink = graphStyles.match(/--graph-ink: (#[0-9a-f]{6})/)![1];
+    function luminance(hex: string) {
+      const channels = [1, 3, 5].map((offset) => parseInt(hex.slice(offset, offset + 2), 16) / 255).map((value) => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);
+      return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+    }
+    const colors = [...document.querySelectorAll<SVGElement>("[data-node-id]")].map((node) => node.style.getPropertyValue("--node-color"));
+    expect(new Set(colors.slice(0, 3)).size).toBe(3);
+    for (const color of colors) expect((luminance(color) + .05) / (luminance(ink) + .05)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("zooms a compact full graph below Fit until the enabled control reaches its floor", async () => {
+    const { record } = await graphRecord();
+    render(<WorldGraphCanvas record={record} nodeShape="circle" projectionOptions={{ fullCorpus: true }} />);
+    fireEvent.click(screen.getByRole("button", { name: "100%" }));
+    fireEvent.click(screen.getByRole("button", { name: "Zoom out" }));
+    expect(screen.getByLabelText("Graph zoom")).toHaveTextContent("80%");
+    const button = screen.getByRole("button", { name: "Zoom out" });
+    for (let i = 0; i < 20 && !button.hasAttribute("disabled"); i += 1) {
+      const before = cameraFromScene(screen.getByTestId("graph-scene")).zoom;
+      fireEvent.click(button);
+      expect(cameraFromScene(screen.getByTestId("graph-scene")).zoom).toBeLessThan(before);
+    }
+    expect(button).toBeDisabled();
+    expect(screen.getByLabelText("Graph zoom")).toHaveTextContent("15%");
+  });
+
+  it("keeps camera motion out of projection and edge geometry while preserving selection", async () => {
+    const { record } = await graphRecord();
+    const indexSpy = vi.spyOn(projectionModule, "indexLocalWorldGraph");
+    const layoutSpy = vi.spyOn(projectionModule, "createGraphFallbackPositions");
+    const projectionSpy = vi.spyOn(projectionModule, "projectLocalWorldGraph");
+    const geometrySpy = vi.spyOn(Math, "hypot");
+    const view = render(<WorldGraphCanvas record={record} nodeShape="circle" projectionOptions={{ fullCorpus: true }} />);
+    const first = document.querySelector(`[data-node-id="${record.snapshot.objects[0].id}"]`)!;
+    fireEvent.click(first);
+    const scene = screen.getByTestId("graph-scene");
+    const edges = [...document.querySelectorAll("[data-edge-id] path")];
+    const paths = edges.map((edge) => edge.getAttribute("d"));
+    const counts = [indexSpy.mock.calls.length, layoutSpy.mock.calls.length, projectionSpy.mock.calls.length, geometrySpy.mock.calls.length];
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+    fireEvent.keyDown(screen.getByRole("group", { name: "The Ember Coast world graph" }), { key: "ArrowLeft" });
+    expect(first).toHaveAttribute("aria-pressed", "true");
+    expect(document.querySelector(`[data-node-id="${record.snapshot.objects[0].id}"]`)).toBe(first);
+    expect([...document.querySelectorAll("[data-edge-id] path")]).toEqual(edges);
+    expect(edges.map((edge) => edge.getAttribute("d"))).toEqual(paths);
+    expect([indexSpy.mock.calls.length, layoutSpy.mock.calls.length, projectionSpy.mock.calls.length, geometrySpy.mock.calls.length]).toEqual(counts);
+    fireEvent.click(screen.getByRole("button", { name: "100%" }));
+    expect(scene).toHaveAttribute("data-detail", "relationships");
+    expect(first.getAttribute("style")).toContain("--node-color");
+    expect(screen.getByLabelText("Object type colors")).toHaveTextContent("person");
+    view.unmount();
+    vi.restoreAllMocks();
+  });
+
+  it("retains fallback positions and camera on a revision addition without saving layout", async () => {
+    const { record } = await graphRecord();
+    const save = vi.fn();
+    const options = { fullCorpus: true };
+    const view = render(<WorldGraphCanvas record={record} nodeShape="circle" projectionOptions={options} onMoveObjects={save} />);
+    const before = new Map([...document.querySelectorAll("[data-node-id]")].map((node) => [node.getAttribute("data-node-id"), node.getAttribute("transform")]));
+    fireEvent.keyDown(screen.getByRole("group", { name: "The Ember Coast world graph" }), { key: "ArrowRight" });
+    const camera = screen.getByTestId("graph-scene").getAttribute("transform");
+    const added = { ...record.snapshot.objects[0], id: `${record.snapshot.worldId}:object:new` as LocalWorldRecord["snapshot"]["objects"][number]["id"], name: "A new arrival" };
+    const next = { ...record, localRevision: record.localRevision + 1, snapshot: { ...record.snapshot, objects: [added, ...record.snapshot.objects].reverse() } };
+    view.rerender(<WorldGraphCanvas record={next} nodeShape="circle" projectionOptions={options} onMoveObjects={save} />);
+    for (const [id, transform] of before) expect(document.querySelector(`[data-node-id="${id}"]`)).toHaveAttribute("transform", transform!);
+    expect(screen.getByTestId("graph-scene")).toHaveAttribute("transform", camera!);
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(5);
+    expect(save).not.toHaveBeenCalled();
+  });
 });

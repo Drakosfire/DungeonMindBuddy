@@ -14,7 +14,10 @@ import * as api from '../api/liveApi';
 import * as proposals from '../api/buildDocumentProposalApi';
 import type { WorkspaceDocumentSnapshot, WorldAgentConversationHistoryResponse } from '../api/types';
 import { tiptapJsonToSemanticMarkdown } from '../tiptap/markdown/calloutMarkdown';
-vi.mock('../selectedWorld/SelectedWorldContext', () => ({ useSelectedWorld: () => ({ kind: 'managed', worldId: 'elderwyld' }) }));
+vi.mock('../selectedWorld/SelectedWorldContext', async original => ({
+  ...await original<typeof import('../selectedWorld/SelectedWorldContext')>(),
+  useSelectedWorld: () => ({ kind: 'managed', worldId: 'elderwyld' }),
+}));
 vi.mock('../api/liveApi', async original => ({ ...await original<typeof api>(), getWorkspaceDocumentSnapshot: vi.fn(),
   prepareTiptapMarkdownWrite: vi.fn(), commitTiptapMarkdownWrite: vi.fn(), getBuildSourceNavigation: vi.fn(), getWorldAgentConversationHistory: vi.fn(), postWorldBuildAgentTurn: vi.fn() }));
 vi.mock('../api/buildProposalReviewApi',()=>({proposalReview:vi.fn()}));
@@ -45,7 +48,8 @@ beforeEach(() => {
     document_id: DOC, title: 'Edge', campaign_id: 'elderwyld', world_id: 'elderwyld', target_session: null, kind: 'worldbuilding_source',
     target_relpath: `out/workspace/worldbuilding/${DOC}.md`, status: 'active', content_status: 'committed', revision: 1,
     created_at: '', updated_at: '', source_domain: 'worldbuilding', document_class: 'lore', authority_state: 'draft', visibility_state: 'internal' },
-    markdown: '# Edge\n\nA fort town.\n', content_sha256: 'a'.repeat(64), file_fingerprint: 'fp1', file_exists: true, loaded_revision: 1 };
+    markdown: '# Edge\n\nA fort town.\n', committed_markdown: '# Edge\n\nA fort town.\n',
+    committed_content_sha256: 'a'.repeat(64), content_sha256: 'a'.repeat(64), file_fingerprint: 'fp1', file_exists: true, loaded_revision: 1 };
   vi.mocked(api.getWorkspaceDocumentSnapshot).mockImplementation(async () => structuredClone(stored));
   vi.mocked(proposals.listBuildProposals).mockResolvedValue([]);
   const reviews=new Map<string,BuildProposalReview>();
@@ -70,7 +74,8 @@ beforeEach(() => {
     title: 'Edge', target_relpath: stored.record.target_relpath, target_display_path: 'Edge', registry_revision: 1, file_exists: true,
     writer_ok: true, writer_phase: 'prepare', writer_confirm_token: 'synthetic', writer_diff: request.markdown, warnings: [], diagnostics: [] }));
   vi.mocked(api.commitTiptapMarkdownWrite).mockImplementation(async () => {
-    stored = { ...stored, record: { ...stored.record, revision: 2 }, loaded_revision: 2, markdown: tiptapJsonToSemanticMarkdown(session.editor!.getJSON()),
+    const markdown = tiptapJsonToSemanticMarkdown(session.editor!.getJSON());
+    stored = { ...stored, record: { ...stored.record, revision: 2 }, loaded_revision: 2, markdown, committed_markdown: markdown, committed_content_sha256: 'c'.repeat(64),
       content_sha256: 'c'.repeat(64), file_fingerprint: 'fp2' };
     return { schema_version: 'dmb_tiptap_markdown_write_commit_v1', document_id: DOC, title: 'Edge', target_relpath: stored.record.target_relpath,
       target_display_path: 'Edge', registry_revision: 2, committed_revision: 2, committed_record: stored.record,

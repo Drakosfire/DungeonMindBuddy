@@ -112,8 +112,10 @@ describe("NativeGraphDemo", () => {
     const corpus = corpusGraph();
     const api = makeApi({ readGraph: vi.fn().mockResolvedValue(corpus), inspectNode: vi.fn().mockResolvedValue(entityDetail(corpus.revision_id, false)) });
     renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Corpus", stateScopeId: "managed:world-17" });
-    await screen.findByText(/892 objects and 516 valid relationships are outside this view/);
-    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(512);
+    await screen.findByText(/1404 loaded objects · 559 real relationships shown/);
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1404);
+    expect(document.querySelectorAll("[data-edge-id]")).toHaveLength(559);
+    expect(screen.getByTestId("graph-scene")).toHaveAttribute("data-detail", "overview");
     expect(screen.queryByLabelText("Graph projection diagnostics")).not.toBeInTheDocument();
     fireEvent.click(screen.getByText("Find an object · 1404 loaded"));
     expect(within(screen.getByRole("list", {name: "Matching graph objects"})).getAllByRole("button")).toHaveLength(20);
@@ -130,7 +132,7 @@ describe("NativeGraphDemo", () => {
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(5);
     expect(document.querySelector('[data-node-id="entity:1002"]')).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", {name: "Show overview"}));
-    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(512);
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1404);
     fireEvent.click(screen.getByRole("button", {name: "Explore Object 1000 (entity:1000)"}));
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(3);
     expect(api.prepare).not.toHaveBeenCalled();
@@ -152,7 +154,7 @@ describe("NativeGraphDemo", () => {
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1);
     expect(scene.getAttribute("transform")).not.toBe(overviewCamera);
     fireEvent.click(screen.getByRole("button", {name: "Show overview"}));
-    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(512);
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1404);
     expect(scene.getAttribute("transform")).toBe(overviewCamera);
   });
 
@@ -175,7 +177,7 @@ describe("NativeGraphDemo", () => {
     if (afterFit) fireEvent.click(screen.getByRole("button", {name: "Fit graph"}));
     fireEvent.click(within(screen.getByTestId("surface-context-host")).getByRole("button", {name: "Refresh"}));
     await waitFor(() => expect(screen.getByLabelText("Search loaded objects")).toHaveValue(""));
-    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(512);
+    expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1404);
     expect(screen.queryByRole("group", {name: "Neighborhood controls"})).not.toBeInTheDocument();
     expect(scene.getAttribute("transform")).toBe(overviewCamera);
     await act(async () => delayed.resolve(entityDetail(corpus.revision_id, false)));
@@ -709,10 +711,38 @@ describe("NativeGraphDemo", () => {
     expect(api.prepare).not.toHaveBeenCalled();
   });
 
+  it("pans over native objects without persisting layout until Move nodes is chosen", async () => {
+    const api = makeApi({ inspectNode: vi.fn().mockResolvedValue(entityDetail(graph.revision_id)) }), scope = "pan-mode-review";
+    const key = `dungeonmind-native-demo:layout:${encodeURIComponent(scope)}:${encodeURIComponent(graph.world_id)}`;
+    const original = JSON.stringify({ "entity:mara": { x: 120, y: 240 } });
+    localStorage.setItem(key, original);
+    renderEmbeddedDemo({ api, stateScopeId: scope });
+    const node = await screen.findByRole("button", { name: /Mara, npc/i });
+    const svg = screen.getByRole("group", { name: "DungeonMind native graph world graph" });
+    vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({ width: 960, height: 520, x: 0, y: 0, top: 0, right: 960, bottom: 520, left: 0, toJSON: () => ({}) });
+    const scene = screen.getByTestId("graph-scene"), camera = scene.getAttribute("transform");
+    const pointer = (target: Element, type: string, x: number, y: number) => {
+      const event = new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: x, clientY: y });
+      Object.defineProperty(event, "pointerId", { value: 81 }); fireEvent(target, event);
+    };
+    pointer(node, "pointerdown", 100, 100); pointer(svg, "pointermove", 150, 140); pointer(svg, "pointerup", 150, 140);
+    fireEvent.click(node);
+    expect(scene.getAttribute("transform")).not.toBe(camera);
+    expect(node).toHaveAttribute("transform", "translate(120 240)");
+    expect(localStorage.getItem(key)).toBe(original);
+    expect(api.inspectNode).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Move nodes" }));
+    pointer(node, "pointerdown", 100, 100); pointer(svg, "pointermove", 150, 140); pointer(svg, "pointerup", 150, 140);
+    await waitFor(() => expect(localStorage.getItem(key)).not.toBe(original));
+    expect(JSON.parse(localStorage.getItem(key) ?? "{}")["entity:mara"]).not.toEqual({ x: 120, y: 240 });
+    expect(api.prepare).not.toHaveBeenCalled(); expect(api.confirm).not.toHaveBeenCalled();
+  });
+
   it("turns connector-dot drags into a relationship draft without preparing automatically", async () => {
     const api = makeApi();
     renderEmbeddedDemo({ api });
     await screen.findByRole("button", { name: /Mara, npc/i });
+    expect(screen.getByRole("button", { name: "Pan graph" })).toHaveAttribute("aria-pressed", "true");
 
     const svg = screen.getByRole("group", { name: "DungeonMind native graph world graph" });
     vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({ width: 960, height: 520, x: 0, y: 0, top: 0, right: 960, bottom: 520, left: 0, toJSON: () => ({}) });

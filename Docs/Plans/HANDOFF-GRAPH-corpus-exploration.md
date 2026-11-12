@@ -1,6 +1,6 @@
 # GRAPH: explore every loaded corpus object
 
-Status: ACTIVE. One bounded implementation slice authorized by the user's corpus graph report and coordinating root assignment on 2026-11-11. No merge, deployment, provider use, or live data change.
+Status: COMPLETED predecessor. Merged as #2431 at 5d116c9d7304b8a91605ebfccf0969bdd77b5f63 on 2026-11-11. The following sections retain its implementation and verification history. The successor experiment is HANDOFF-GRAPH-full-bubble-overview.md; it does not inherit merge or deployment authority.
 
 ## 1. Invariant and plan
 

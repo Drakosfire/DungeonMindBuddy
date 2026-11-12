@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent } from "react";
+import { memo, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent, type CSSProperties, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import type {
   CommitSemanticResult,
@@ -6,7 +6,7 @@ import type {
   LocalWorldRecord,
   WriteLayoutResult,
 } from "../localWorldRepository";
-import { indexLocalWorldGraph, projectLocalWorldGraph, type GraphProjectionOptions, type ProjectedGraphEdge } from "./graphProjection";
+import { createGraphFallbackPositions, indexLocalWorldGraph, projectLocalWorldGraph, type GraphProjectionOptions, type ProjectedGraphEdge, type ProjectedGraphNode } from "./graphProjection";
 import type { NewLocalGraphObject, NewLocalGraphRelationship } from "./localWorldGraphAdapter";
 import "./worldGraphCanvas.css";
 
@@ -19,6 +19,16 @@ const NODE_WIDTH = 168;
 const NODE_HEIGHT = 76;
 const CIRCLE_RADIUS = 56;
 const CIRCLE_DIAMETER = CIRCLE_RADIUS * 2;
+const KIND_COLORS = ["#77b5d9", "#d8a17d", "#a4bd78", "#b397d0", "#dbb65c", "#78b9ae", "#d68f9f", "#9da9dc"];
+function kindColor(kind: string): string {
+  const familiarKinds: Record<string, number> = { person: 0, npc: 0, pc: 0, character: 0, location: 2, place: 2, event: 4, faction: 3, group: 3, organization: 3, item: 1, object: 1, creature: 5, source: 6, entity: 7 };
+  const normalized = kind.toLowerCase();
+  const familiar = Object.hasOwn(familiarKinds, normalized) ? familiarKinds[normalized] : undefined;
+  if (familiar !== undefined) return KIND_COLORS[familiar];
+  let hash = 0;
+  for (const character of kind) hash = (Math.imul(hash, 31) + character.charCodeAt(0)) | 0;
+  return KIND_COLORS[(hash >>> 0) % KIND_COLORS.length];
+}
 
 export interface CanvasCreationKind {
   readonly kind: string;
@@ -36,6 +46,64 @@ export interface CanvasConnectIntent {
 }
 
 type NodeShape = "card" | "circle";
+
+interface NodeInteractionHandlers {
+  selectNode(id: LocalObjectId): void;
+  onNodeKeyDown(event: KeyboardEvent<SVGGElement>, id: LocalObjectId): void;
+  beginGesture(event: PointerEvent, node?: { id: LocalObjectId; x: number; y: number }): void;
+  beginConnectGesture(event: PointerEvent, id: LocalObjectId): void;
+}
+
+// A selection changes only the affected bubbles, not all loaded SVG labels.
+const GraphBubble = memo(function GraphBubble({ node, position, selected, isConnectTarget, nodeShape, fullCorpus, canConnect, handlersRef, suppressClickRef }: {
+  node: ProjectedGraphNode;
+  position: { x: number; y: number };
+  selected: boolean;
+  isConnectTarget: boolean;
+  nodeShape: NodeShape;
+  fullCorpus: boolean;
+  canConnect: boolean;
+  handlersRef: RefObject<NodeInteractionHandlers>;
+  suppressClickRef: RefObject<LocalObjectId | null>;
+}) {
+  return (
+    <g
+      key={node.id}
+      className={`world-graph-canvas__node${selected ? " is-selected" : ""}${isConnectTarget ? " is-connect-target" : ""}${nodeShape === "circle" ? " is-circle" : ""}`}
+      style={fullCorpus ? { "--node-color": kindColor(node.kind) } as CSSProperties : undefined}
+      transform={`translate(${position.x} ${position.y})`}
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
+      aria-label={`${node.name}, ${node.kind}`}
+      data-node-id={node.id}
+      onClick={() => {
+        if (suppressClickRef.current === node.id) { suppressClickRef.current = null; return; }
+        handlersRef.current.selectNode(node.id);
+      }}
+      onKeyDown={(event) => handlersRef.current.onNodeKeyDown(event, node.id)}
+      onPointerDown={(event) => { event.stopPropagation(); handlersRef.current.beginGesture(event, node); }}
+    >
+      <title>{`${node.name}, ${node.kind}`}</title>
+      {nodeShape === "circle" ? <>
+        <circle className="world-graph-canvas__node-circle" cx={CIRCLE_RADIUS} cy={CIRCLE_RADIUS} r={CIRCLE_RADIUS} />
+        <text className="world-graph-canvas__node-kind" x={CIRCLE_RADIUS} y={CIRCLE_RADIUS - 5} textAnchor="middle">{node.kind}</text>
+        <text className="world-graph-canvas__node-name" x={CIRCLE_RADIUS} y={CIRCLE_RADIUS + 17} textAnchor="middle">
+          {node.name.length > 14 ? `${node.name.slice(0, 13)}…` : node.name}
+        </text>
+      </> : <>
+        <rect width={NODE_WIDTH} height={NODE_HEIGHT} rx="12" />
+        <text className="world-graph-canvas__node-kind" x="14" y="22">{node.kind}</text>
+        <text className="world-graph-canvas__node-name" x="14" y="49">{node.name.length > 22 ? `${node.name.slice(0, 21)}…` : node.name}</text>
+      </>}
+      {canConnect ? <circle className="world-graph-canvas__node-port" data-testid={`connect-port-${node.id}`}
+        aria-hidden="true" cx={nodeShape === "circle" ? CIRCLE_DIAMETER - 2 : NODE_WIDTH - 3}
+        cy={nodeShape === "circle" ? CIRCLE_RADIUS : NODE_HEIGHT / 2} r="7"
+        onPointerDown={(event) => handlersRef.current.beginConnectGesture(event, node.id)}
+        onClick={(event) => { event.preventDefault(); event.stopPropagation(); }} /> : null}
+    </g>
+  );
+});
 
 export interface WorldGraphCanvasProps {
   readonly canvasId?: string;
@@ -92,6 +160,7 @@ function hasEditorDraft(draft: WorldGraphEditorDraft): boolean {
 
 interface Camera { readonly x: number; readonly y: number; readonly zoom: number }
 interface CanvasGesture {
+  readonly worldId: string;
   readonly kind: "node" | "pan" | "connect";
   readonly captureTarget: Element;
   readonly pointerId: number;
@@ -101,6 +170,7 @@ interface CanvasGesture {
   readonly scaleX: number;
   readonly scaleY: number;
   readonly node?: { readonly id: LocalObjectId; readonly x: number; readonly y: number };
+  readonly originNodeId?: LocalObjectId;
   readonly sourceId?: LocalObjectId;
   moved: boolean;
 }
@@ -320,9 +390,20 @@ export function WorldGraphCanvas({
   preserveCameraOnResize = false,
 }: WorldGraphCanvasProps) {
   const index = useMemo(() => indexLocalWorldGraph(record.snapshot), [record.snapshot]);
-  const projection = useMemo(() => projectLocalWorldGraph(record, projectionOptions, index),
-    [record.snapshot, record.layout, index, projectionOptions?.maxNodes, projectionOptions?.maxEdges,
+  const fullCorpus = projectionOptions?.fullCorpus === true;
+  const fallbackRef = useRef<{ worldId: string; positions: ReturnType<typeof createGraphFallbackPositions> } | null>(null);
+  const fallbackPositions = useMemo(() => {
+    if (!fullCorpus) return undefined;
+    const previous = fallbackRef.current?.worldId === record.snapshot.worldId ? fallbackRef.current.positions : undefined;
+    const positions = createGraphFallbackPositions(index, previous);
+    fallbackRef.current = { worldId: record.snapshot.worldId, positions };
+    return positions;
+  }, [fullCorpus, index, record.snapshot.worldId]);
+  const projection = useMemo(() => projectLocalWorldGraph(record, { ...projectionOptions, fallbackPositions }, index),
+    [record.snapshot, record.layout, index, fullCorpus, fallbackPositions, projectionOptions?.maxNodes, projectionOptions?.maxEdges,
       projectionOptions?.focusObjectId, projectionOptions?.neighborhoodDepth]);
+  const legend = useMemo(() => [...new Set(record.snapshot.objects.map((object) => object.kind))].sort(), [record.snapshot]);
+  const isolatedCount = useMemo(() => record.snapshot.objects.filter((object) => !index.neighbors.has(object.id)).length, [index, record.snapshot]);
   const markerId = `world-graph-arrow-${useId().replace(/:/g, "")}`;
   const initialDraft = editorDraftState?.draft ?? emptyEditorDraft(editorDraftState?.version ?? 0);
   const [selectedIds, setSelectedIds] = useState<LocalObjectId[]>([...initialDraft.selectedIds]);
@@ -342,6 +423,7 @@ export function WorldGraphCanvas({
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, zoom: 1 });
   const [dragPreview, setDragPreview] = useState<{ id: LocalObjectId; x: number; y: number } | null>(null);
   const [isPanning, setIsPanning] = useState(false);
+  const [moveNodesMode, setMoveNodesMode] = useState(false);
   const [palette, setPalette] = useState<CanvasPalette | null>(null);
   const [paletteScreen, setPaletteScreen] = useState<PaletteScreenPosition | null>(null);
   const [connectPreview, setConnectPreview] = useState<{ sourceId: LocalObjectId; point: GraphPoint } | null>(null);
@@ -384,9 +466,9 @@ export function WorldGraphCanvas({
     setStatus("");
     setDragPreview(null);
     setIsPanning(false);
+    setMoveNodesMode(false);
     setPalette(null);
     setConnectPreview(null);
-    gestureRef.current = null;
     suppressClickRef.current = null;
     manualCameraRef.current = false;
     originalCameraBeforeFocusRef.current = null;
@@ -435,19 +517,37 @@ export function WorldGraphCanvas({
   }, []);
 
   const selectedObject = projection.nodes.find((node) => node.id === selectedIds.at(-1));
-  const positions = new Map(projection.nodes.map((node) => [node.id,
-    dragPreview?.id === node.id ? { x: dragPreview.x, y: dragPreview.y } : { x: node.x, y: node.y }]));
+  const persistedPositions = useMemo(() => new Map(projection.nodes.map((node) => [node.id, node])), [projection.nodes]);
+  const positions = useMemo(() => {
+    if (!dragPreview) return persistedPositions;
+    const preview = new Map<LocalObjectId, { x: number; y: number }>(persistedPositions);
+    preview.set(dragPreview.id, dragPreview);
+    return preview;
+  }, [persistedPositions, dragPreview]);
   const dimensions = nodeDimensions(nodeShape);
+  const nodeNames = useMemo(() => new Map(projection.nodes.map((node) => [node.id, node.name])), [projection.nodes]);
+  // Geometry has no camera dependency: pan/zoom only changes the scene transform and detail level.
+  const persistedEdges = useMemo(() => renderEdges(projection.edges, persistedPositions, nodeShape), [projection.edges, persistedPositions, nodeShape]);
+  const renderedEdges = useMemo(() => dragPreview ? renderEdges(projection.edges, positions, nodeShape) : persistedEdges,
+    [projection.edges, positions, nodeShape, dragPreview, persistedEdges]);
+  const graphBounds = useMemo(() => {
+    let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+    for (const node of projection.nodes) {
+      left = Math.min(left, node.x); top = Math.min(top, node.y);
+      right = Math.max(right, node.x + dimensions.width); bottom = Math.max(bottom, node.y + dimensions.height);
+    }
+    for (const { geometry, box } of persistedEdges) {
+      left = Math.min(left, geometry.bounds.left, geometry.labelX - box.width / 2);
+      top = Math.min(top, geometry.bounds.top, geometry.labelY - box.height / 2);
+      right = Math.max(right, geometry.bounds.right, geometry.labelX + box.width / 2);
+      bottom = Math.max(bottom, geometry.bounds.bottom, geometry.labelY + box.height / 2);
+    }
+    return { left: left - 56, top: top - 56, width: right - left + 112, height: bottom - top + 112 };
+  }, [projection.nodes, persistedEdges, dimensions.width, dimensions.height]);
 
   function fittedCamera(): Camera {
     if (!projection.nodes.length) return { x: 0, y: 0, zoom: 1 };
-    const edges = renderEdges(projection.edges, new Map(projection.nodes.map((node) => [node.id, { x: node.x, y: node.y }])), nodeShape);
-    const left = Math.min(...projection.nodes.map((node) => node.x), ...edges.flatMap(({ geometry, box }) => [geometry.bounds.left, geometry.labelX - box.width / 2])) - 56;
-    const top = Math.min(...projection.nodes.map((node) => node.y), ...edges.flatMap(({ geometry, box }) => [geometry.bounds.top, geometry.labelY - box.height / 2])) - 56;
-    const right = Math.max(...projection.nodes.map((node) => node.x + dimensions.width), ...edges.flatMap(({ geometry, box }) => [geometry.bounds.right, geometry.labelX + box.width / 2])) + 56;
-    const bottom = Math.max(...projection.nodes.map((node) => node.y + dimensions.height), ...edges.flatMap(({ geometry, box }) => [geometry.bounds.bottom, geometry.labelY + box.height / 2])) + 56;
-    const width = right - left;
-    const height = bottom - top;
+    const { left, top, width, height } = graphBounds;
     // Fit includes every visible edge/plate even when the bounded graph needs a scale below manual zoom-out.
     const zoom = Math.min(1, viewport.width / width, viewport.height / height);
     return { x: (viewport.width - width * zoom) / 2 - left * zoom,
@@ -536,14 +636,14 @@ export function WorldGraphCanvas({
     onSelectionChange?.(null);
   }, [clearSelectionRequest, onSelectionChange]);
 
-  useEffect(() => {
-    // A new controlled revision invalidates an unfinished drag, rather than saving it over newer layout.
-    gestureRef.current = null;
+  useLayoutEffect(() => {
+    // Release capture and suppress the trailing click before a new revision/authority becomes interactive.
+    cancelGesture();
     setDragPreview(null);
     setIsPanning(false);
     setConnectPreview(null);
     setPalette(null);
-  }, [record.snapshot.worldId, record.localRevision, record.layoutRevision]);
+  }, [record.snapshot.worldId, record.localRevision, record.layoutRevision, interactionDisabled]);
 
   const creationSignature = creationKinds?.map((item) => `${item.kind}:${item.label}`).join("|") ?? "";
 
@@ -673,7 +773,7 @@ export function WorldGraphCanvas({
     cancelGesture();
     manualCameraRef.current = true;
     setCamera((current) => {
-      const zoom = Math.max(Math.min(MIN_ZOOM, current.zoom), Math.min(MAX_ZOOM, current.zoom * factor));
+      const zoom = Math.max(Math.min(MIN_ZOOM, fullCorpus ? fittedCamera().zoom : MIN_ZOOM, current.zoom), Math.min(MAX_ZOOM, current.zoom * factor));
       const ratio = zoom / current.zoom;
       return { zoom, x: viewport.width / 2 - (viewport.width / 2 - current.x) * ratio,
         y: viewport.height / 2 - (viewport.height / 2 - current.y) * ratio };
@@ -686,8 +786,6 @@ export function WorldGraphCanvas({
     setCamera(fittedCamera());
     onCameraFocusChange?.(null);
   }
-  const nodeNames = new Map(projection.nodes.map((node) => [node.id, node.name]));
-  const renderedEdges = renderEdges(projection.edges, positions, nodeShape);
   const connectTargetId = connectPreview ? nodeAt(connectPreview.point) : null;
 
   function selectNode(id: LocalObjectId) {
@@ -757,16 +855,18 @@ export function WorldGraphCanvas({
   }
 
   function beginGesture(event: PointerEvent, node?: { id: LocalObjectId; x: number; y: number }) {
-    if ((event.button ?? 0) !== 0 || gestureRef.current || (node && (busy || !onMoveObjects || interactionDisabled))) return;
+    const movesNode = Boolean(node && (!fullCorpus || moveNodesMode));
+    if ((event.button ?? 0) !== 0 || gestureRef.current || (movesNode && (busy || !onMoveObjects || interactionDisabled))) return;
     event.preventDefault();
     event.stopPropagation();
     suppressClickRef.current = null;
     const svg = svgRef.current;
     const rect = svg?.getBoundingClientRect();
-    gestureRef.current = { kind: node ? "node" : "pan", captureTarget: event.currentTarget, pointerId: event.pointerId,
+    gestureRef.current = { worldId: record.snapshot.worldId, kind: movesNode ? "node" : "pan", captureTarget: event.currentTarget, pointerId: event.pointerId,
       pointerX: event.clientX, pointerY: event.clientY, camera,
       scaleX: rect?.width ? viewport.width / rect.width : 1,
-      scaleY: rect?.height ? viewport.height / rect.height : 1, node, moved: false };
+      scaleY: rect?.height ? viewport.height / rect.height : 1,
+      node: movesNode ? node : undefined, originNodeId: node?.id, moved: false };
     try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* Optional in test DOMs. */ }
   }
 
@@ -782,7 +882,7 @@ export function WorldGraphCanvas({
       ? { x: source.x + CIRCLE_DIAMETER - 2, y: source.y + CIRCLE_RADIUS }
       : { x: source.x + NODE_WIDTH - 3, y: source.y + NODE_HEIGHT / 2 };
     gestureRef.current = {
-      kind: "connect", sourceId, captureTarget: event.currentTarget, pointerId: event.pointerId,
+      worldId: record.snapshot.worldId, kind: "connect", sourceId, captureTarget: event.currentTarget, pointerId: event.pointerId,
       pointerX: event.clientX, pointerY: event.clientY, camera,
       scaleX: rect?.width ? viewport.width / rect.width : 1,
       scaleY: rect?.height ? viewport.height / rect.height : 1,
@@ -816,8 +916,8 @@ export function WorldGraphCanvas({
     const gesture = gestureRef.current;
     if (!gesture) return;
     gestureRef.current = null;
-    if (gesture.node && gesture.moved) suppressClickRef.current = gesture.node.id;
-    if (gesture?.kind === "pan") setCamera(gesture.camera);
+    if (gesture.originNodeId && gesture.moved) suppressClickRef.current = gesture.originNodeId;
+    if (gesture.kind === "pan" && gesture.worldId === currentWorldIdRef.current) setCamera(gesture.camera);
     setDragPreview(null);
     setConnectPreview(null);
     setIsPanning(false);
@@ -833,10 +933,11 @@ export function WorldGraphCanvas({
     gestureRef.current = null;
     setIsPanning(false);
     setConnectPreview(null);
+    if (gesture.moved && gesture.originNodeId) suppressClickRef.current = gesture.originNodeId;
     if (gesture.moved && gesture.kind === "connect" && gesture.sourceId) {
       const targetId = nodeAt(graphPointAt(event.clientX, event.clientY, gesture.camera));
       if (targetId) emitConnectRequest(gesture.sourceId, targetId);
-    } else if (!gesture.moved && gesture.kind === "pan") {
+    } else if (!gesture.moved && gesture.kind === "pan" && !gesture.originNodeId) {
       openPalette(graphPointAt(event.clientX, event.clientY, gesture.camera), svgRef.current);
     } else if (gesture.moved && gesture.node && onMoveObjects && !interactionDisabled) {
       suppressClickRef.current = gesture.node.id;
@@ -861,7 +962,9 @@ export function WorldGraphCanvas({
       event.preventDefault();
       selectNode(id);
     } else if (event.key === "ArrowLeft" || event.key === "ArrowRight" || event.key === "ArrowUp" || event.key === "ArrowDown") {
+      if (fullCorpus && !moveNodesMode) return; // Let the canvas pan, without a layout write.
       event.preventDefault();
+      event.stopPropagation();
       const amount = event.shiftKey ? 24 : 8;
       moveSelected(id, event.key === "ArrowLeft" ? -amount : event.key === "ArrowRight" ? amount : 0,
         event.key === "ArrowUp" ? -amount : event.key === "ArrowDown" ? amount : 0);
@@ -914,8 +1017,31 @@ export function WorldGraphCanvas({
     }
   }
 
+  const handlersRef = useRef({ selectNode, onNodeKeyDown, beginGesture, beginConnectGesture });
+  handlersRef.current = { selectNode, onNodeKeyDown, beginGesture, beginConnectGesture };
+  const nodeLayer = useMemo(() => projection.nodes.map((node) => <GraphBubble
+    key={node.id} node={node} position={positions.get(node.id)!} selected={selectedIds.includes(node.id)}
+    isConnectTarget={connectPreview !== null && connectTargetId === node.id} nodeShape={nodeShape}
+    fullCorpus={fullCorpus} canConnect={Boolean(onConnectRequest)} handlersRef={handlersRef} suppressClickRef={suppressClickRef} />),
+    [projection.nodes, selectedIds, positions, connectPreview !== null, connectTargetId, nodeShape, fullCorpus, Boolean(onConnectRequest)]);
+  const edgeLayer = useMemo(() => renderedEdges.map(({ edge, geometry, box }) => {
+              const label = accessibleRelationshipLabel(edge, nodeNames);
+              return (
+              <g className={`world-graph-canvas__edge${selectedIds.includes(edge.fromObjectId) || selectedIds.includes(edge.toObjectId) ? " is-selected" : ""}`} key={edge.id} data-edge-id={edge.id} role="img" aria-label={label}>
+                <path d={geometry.path} markerEnd={`url(#${markerId})`} />
+                <rect className="world-graph-canvas__edge-label" x={geometry.labelX - box.width / 2}
+                  y={geometry.labelY - box.height / 2}
+                  width={box.width}
+                  height={box.height} rx="6" />
+                <text x={geometry.labelX} y={geometry.labelY}>
+                  {box.lines.map((line, index, lines) => <tspan key={index} x={geometry.labelX} y={geometry.labelY + (index - (lines.length - 1) / 2) * 16 + 4}>{line}</tspan>)}
+                </text>
+                <title>{label}</title>
+              </g>
+            );}), [renderedEdges, nodeNames, markerId, selectedIds]);
+
   return (
-    <section id={canvasId} tabIndex={canvasId ? -1 : undefined} className="world-graph-canvas" aria-label="Local World graph canvas" aria-busy={busy}
+    <section id={canvasId} tabIndex={canvasId ? -1 : undefined} className={`world-graph-canvas${fullCorpus ? " world-graph-canvas--full" : ""}`} aria-label="Local World graph canvas" aria-busy={busy}
       onKeyDown={(event) => {
         if (event.key !== "Escape") return;
         if (!palette && !gestureRef.current) return;
@@ -972,27 +1098,42 @@ export function WorldGraphCanvas({
       ) : null}
 
       <div className="world-graph-canvas__view-tools" aria-label="Graph view controls">
-        <button type="button" aria-label="Zoom out" disabled={camera.zoom <= MIN_ZOOM} onClick={() => zoomBy(1 / 1.25)}>−</button>
+        <button type="button" aria-label="Zoom out" disabled={camera.zoom <= (fullCorpus ? Math.min(MIN_ZOOM, fittedCamera().zoom) : MIN_ZOOM)} onClick={() => zoomBy(1 / 1.25)}>−</button>
         <span aria-label="Graph zoom">{Math.round(camera.zoom * 100)}%</span>
         <button type="button" aria-label="Zoom in" disabled={camera.zoom >= MAX_ZOOM} onClick={() => zoomBy(1.25)}>+</button>
         <button type="button" onClick={fitGraph}>Fit graph</button>
         <button type="button" onClick={() => zoomBy(1 / camera.zoom)}>100%</button>
+        {fullCorpus ? <div className="world-graph-canvas__drag-mode" role="group" aria-label="Graph drag mode">
+          <button type="button" aria-pressed={!moveNodesMode} onClick={() => { cancelGesture(); setMoveNodesMode(false); }}>Pan graph</button>
+          <button type="button" aria-pressed={moveNodesMode} disabled={!onMoveObjects || busy || interactionDisabled}
+            onClick={() => { cancelGesture(); setMoveNodesMode(true); }}>Move nodes</button>
+        </div> : null}
       </div>
+      {fullCorpus ? <>
+        <div className="world-graph-canvas__legend" aria-label="Object type colors">{legend.map((kind) => <span key={kind}><i aria-hidden="true" style={{ backgroundColor: kindColor(kind) }} />{kind}</span>)}</div>
+        <p className="world-graph-canvas__overview-note">{projection.nodes.length} loaded objects · {projection.edges.length} real relationships shown. {isolatedCount} loaded objects have no listed connections. Zoom in for names, relationship labels and connectors. Color shows object type; position is only an arrangement.</p>
+      </> : null}
       <p className="world-graph-canvas__hint" id={`${markerId}-help`}>
-        Drag the background to pan. Drag an object to move it. {onCanvasCreateRequest ? "Click blank canvas to place a node, or use Place node with a keyboard." : "Select two objects to connect them."}
+        {fullCorpus ? moveNodesMode
+          ? "Drag an object to move it, or empty canvas to pan. Choose Pan graph to navigate without moving objects. "
+          : "Drag anywhere to pan. Click an object to select it. Choose Move nodes to rearrange objects. "
+          : "Drag the background to pan. Drag an object to move it. "}
+        {onCanvasCreateRequest ? "Click blank canvas to place a node, or use Place node with a keyboard." : "Select two objects to connect them."}
         {onConnectRequest ? " Drag a node's gold connector dot to another node, or select two nodes and use Connect selected nodes." : ""}
         {" Focus the canvas and use arrow keys to pan, +/− to zoom, or 0 to fit."}
+        {fullCorpus ? " A focused object's arrow keys pan in Pan graph mode, and move that object in Move nodes mode." : ""}
       </p>
       <div className="world-graph-canvas__viewport">
         <svg
           ref={svgRef}
           className={`world-graph-canvas__svg${isPanning ? " is-panning" : ""}`}
+          data-drag-mode={fullCorpus && !moveNodesMode ? "pan" : "move"}
           viewBox={`0 0 ${viewport.width} ${viewport.height}`}
           tabIndex={0}
           aria-describedby={`${markerId}-help`}
           role="group"
           aria-label={`${record.snapshot.title} world graph`}
-          onPointerDown={(event) => { if (event.target === event.currentTarget) beginGesture(event); }}
+          onPointerDown={(event) => { if (fullCorpus || event.target === event.currentTarget) beginGesture(event); }}
           onPointerMove={updateGesture}
           onPointerUp={finishDrag}
           onPointerCancel={cancelGesture}
@@ -1006,7 +1147,8 @@ export function WorldGraphCanvas({
               }
               return;
             }
-            if (event.target !== event.currentTarget) return;
+            const focusedNode = fullCorpus && event.target instanceof Element && event.target.closest("[data-node-id]");
+            if (event.target !== event.currentTarget && !focusedNode) return;
             if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
               event.preventDefault();
               manualCameraRef.current = true;
@@ -1022,65 +1164,12 @@ export function WorldGraphCanvas({
           }}
         >
           <defs><marker id={markerId} markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 z" /></marker></defs>
-          <g className="world-graph-canvas__scene" data-testid="graph-scene" transform={`translate(${camera.x} ${camera.y}) scale(${camera.zoom})`}>
+          <g className="world-graph-canvas__scene" data-testid="graph-scene" data-detail={camera.zoom >= 0.9 ? "relationships" : camera.zoom >= 0.45 ? "names" : "overview"} transform={`translate(${camera.x} ${camera.y}) scale(${camera.zoom})`}>
           <g className="world-graph-canvas__nodes" aria-label="World objects">
-            {projection.nodes.map((node) => {
-              const selected = selectedIds.includes(node.id);
-              const isConnectTarget = connectPreview !== null && connectTargetId === node.id;
-              const position = positions.get(node.id)!;
-              return (
-                <g
-                  key={node.id}
-                  className={`world-graph-canvas__node${selected ? " is-selected" : ""}${isConnectTarget ? " is-connect-target" : ""}${nodeShape === "circle" ? " is-circle" : ""}`}
-                  transform={`translate(${position.x} ${position.y})`}
-                  role="button"
-                  tabIndex={0}
-                  aria-pressed={selected}
-                  aria-label={`${node.name}, ${node.kind}`}
-                  data-node-id={node.id}
-                  onClick={() => {
-                    if (suppressClickRef.current === node.id) { suppressClickRef.current = null; return; }
-                    selectNode(node.id);
-                  }}
-                  onKeyDown={(event) => onNodeKeyDown(event, node.id)}
-                  onPointerDown={(event) => { event.stopPropagation(); beginGesture(event, node); }}
-                >
-                  {nodeShape === "circle" ? <>
-                    <circle className="world-graph-canvas__node-circle" cx={CIRCLE_RADIUS} cy={CIRCLE_RADIUS} r={CIRCLE_RADIUS} />
-                    <text className="world-graph-canvas__node-kind" x={CIRCLE_RADIUS} y={CIRCLE_RADIUS - 5} textAnchor="middle">{node.kind}</text>
-                    <text className="world-graph-canvas__node-name" x={CIRCLE_RADIUS} y={CIRCLE_RADIUS + 17} textAnchor="middle">
-                      {node.name.length > 14 ? `${node.name.slice(0, 13)}…` : node.name}
-                    </text>
-                  </> : <>
-                    <rect width={NODE_WIDTH} height={NODE_HEIGHT} rx="12" />
-                    <text className="world-graph-canvas__node-kind" x="14" y="22">{node.kind}</text>
-                    <text className="world-graph-canvas__node-name" x="14" y="49">{node.name.length > 22 ? `${node.name.slice(0, 21)}…` : node.name}</text>
-                  </>}
-                  {onConnectRequest ? <circle className="world-graph-canvas__node-port" data-testid={`connect-port-${node.id}`}
-                    aria-hidden="true" cx={nodeShape === "circle" ? CIRCLE_DIAMETER - 2 : NODE_WIDTH - 3}
-                    cy={nodeShape === "circle" ? CIRCLE_RADIUS : NODE_HEIGHT / 2} r="7"
-                    onPointerDown={(event) => beginConnectGesture(event, node.id)}
-                    onClick={(event) => { event.preventDefault(); event.stopPropagation(); }} /> : null}
-                </g>
-              );
-            })}
+            {nodeLayer}
           </g>
           <g className="world-graph-canvas__edges" aria-label="Relationships">
-            {renderedEdges.map(({ edge, geometry, box }) => {
-              const label = accessibleRelationshipLabel(edge, nodeNames);
-              return (
-              <g className="world-graph-canvas__edge" key={edge.id} data-edge-id={edge.id} role="img" aria-label={label}>
-                <path d={geometry.path} markerEnd={`url(#${markerId})`} />
-                <rect className="world-graph-canvas__edge-label" x={geometry.labelX - box.width / 2}
-                  y={geometry.labelY - box.height / 2}
-                  width={box.width}
-                  height={box.height} rx="6" />
-                <text x={geometry.labelX} y={geometry.labelY}>
-                  {box.lines.map((line, index, lines) => <tspan key={index} x={geometry.labelX} y={geometry.labelY + (index - (lines.length - 1) / 2) * 16 + 4}>{line}</tspan>)}
-                </text>
-                <title>{label}</title>
-              </g>
-            );})}
+            {edgeLayer}
             {connectPreview ? (() => {
               const source = positions.get(connectPreview.sourceId);
               if (!source) return null;

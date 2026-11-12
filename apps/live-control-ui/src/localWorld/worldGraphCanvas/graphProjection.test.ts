@@ -2,7 +2,17 @@ import { describe, expect, it } from "vitest";
 import { InMemoryLocalWorldRepository } from "../inMemoryLocalWorldRepository";
 import { createTestWorld, sequenceLocalIds } from "../localWorldContractFixtures";
 import type { LocalWorldRecord, LocalWorldRelationship } from "../localWorldRepository";
-import { indexLocalWorldGraph, projectLocalWorldGraph } from "./graphProjection";
+import { createGraphFallbackPositions, indexLocalWorldGraph, projectLocalWorldGraph } from "./graphProjection";
+
+function minimumCenterDistance(points: readonly { x: number; y: number }[]): number {
+  let minimumSquared = Infinity;
+  for (let a = 0; a < points.length; a += 1) {
+    for (let b = a + 1; b < points.length; b += 1) {
+      minimumSquared = Math.min(minimumSquared, (points[a].x - points[b].x) ** 2 + (points[a].y - points[b].y) ** 2);
+    }
+  }
+  return Math.sqrt(minimumSquared);
+}
 
 async function graphRecord(): Promise<LocalWorldRecord> {
   const repo = new InMemoryLocalWorldRepository({ idFactory: sequenceLocalIds() });
@@ -144,6 +154,9 @@ describe("projectLocalWorldGraph", () => {
     expect(explorer.omittedNodes).toBe(1);
     expect(explorer.omittedEdges).toBe(1);
     expect(explorer.unexaminedRelationships).toBe(0);
+    const full = projectLocalWorldGraph(largeRecord, { fullCorpus: true });
+    expect(full.nodes).toHaveLength(513);
+    expect(full.edges).toHaveLength(1025);
   });
 });
 
@@ -162,6 +175,149 @@ describe("loaded corpus exploration", () => {
     }));
     return { ...record, snapshot: { ...record.snapshot, objects, relationships } };
   }
+
+  it("renders all 1404 loaded objects and 559 real edges despite overview budgets", async () => {
+    const record = await corpusRecord();
+    const result = projectLocalWorldGraph(record, { fullCorpus: true, maxNodes: 1, maxEdges: 0 });
+    expect(result.nodes).toHaveLength(1404);
+    expect(result.edges).toHaveLength(559);
+    expect(result.nodes.map(node => node.id)).toEqual(record.snapshot.objects.map(object => object.id));
+    expect(result.edges.map(edge => edge.id)).toEqual(record.snapshot.relationships.map(edge => edge.id));
+    expect(result.omittedNodes).toBe(0);
+    expect(result.hiddenRelationships).toBe(0);
+    expect(result.invalidRelationships).toBe(0);
+    expect(new Set(result.nodes.map(({ x, y }) => `${x}:${y}`)).size).toBe(1404);
+    expect(minimumCenterDistance(result.nodes)).toBeGreaterThanOrEqual(128);
+    for (const { x, y } of result.nodes) {
+      expect(Number.isFinite(x) && Number.isFinite(y)).toBe(true);
+      expect(Math.min(x, y)).toBeGreaterThanOrEqual(0);
+      expect(Math.max(x, y)).toBeLessThanOrEqual(6000);
+    }
+  });
+
+  it("keeps full-corpus geometry stable under reorder and bounded focus", async () => {
+    const record = await corpusRecord();
+    const full = projectLocalWorldGraph(record, { fullCorpus: true });
+    const positions = new Map(full.nodes.map(({ id, x, y }) => [id, { x, y }]));
+    const reordered = { ...record, snapshot: { ...record.snapshot,
+      objects: [...record.snapshot.objects].reverse(), relationships: [...record.snapshot.relationships].reverse(),
+    } };
+    const reversed = projectLocalWorldGraph(reordered, { fullCorpus: true });
+    for (const { id, x, y } of reversed.nodes) expect({ x, y }).toEqual(positions.get(id));
+    const focused = projectLocalWorldGraph(record, { fullCorpus: true, focusObjectId: record.snapshot.objects[1000].id, maxNodes: 3 });
+    expect(focused.nodes).toHaveLength(3);
+    expect(focused.edges).toHaveLength(2);
+    for (const { id, x, y } of focused.nodes) expect({ x, y }).toEqual(positions.get(id));
+    const isolated = projectLocalWorldGraph(record, { fullCorpus: true, focusObjectId: record.snapshot.objects[1403].id });
+    expect(isolated.nodes).toHaveLength(1);
+    expect(isolated.edges).toEqual([]);
+    expect({ x: isolated.nodes[0].x, y: isolated.nodes[0].y }).toEqual(positions.get(isolated.nodes[0].id));
+  });
+
+  it("preserves edge identities, self-loops and endpoint diagnostics in full mode", async () => {
+    const record = await graphRecord();
+    const [a, b] = record.snapshot.objects;
+    const base = record.snapshot.relationships[0];
+    const relationships = [base,
+      { ...base, id: "parallel" as typeof base.id },
+      { ...base, id: "reverse" as typeof base.id, fromObjectId: b.id, toObjectId: a.id },
+      { ...base, id: "self" as typeof base.id, toObjectId: a.id },
+      { ...base, id: "invalid" as typeof base.id, toObjectId: "missing" as typeof a.id },
+    ];
+    const result = projectLocalWorldGraph({ ...record, snapshot: { ...record.snapshot, relationships } }, { fullCorpus: true });
+    expect(result.edges.map(edge => edge.id)).toEqual(relationships.slice(0, 4).map(edge => edge.id));
+    expect(result.nodes).toHaveLength(4);
+    expect(result.invalidRelationships).toBe(1);
+    expect(result.omittedEdges).toBe(1);
+    expect(result.hiddenRelationships).toBe(0);
+    expect(result.diagnostics).toHaveLength(1);
+  });
+
+  it("retains World-local fallbacks across additions while saved positions remain authoritative", async () => {
+    const record = await corpusRecord();
+    const previous = createGraphFallbackPositions(indexLocalWorldGraph(record.snapshot));
+    const added = { ...record.snapshot.objects[0], id: "added" as typeof record.snapshot.objects[number]["id"] };
+    const next = { ...record, snapshot: { ...record.snapshot, objects: [added, ...record.snapshot.objects] } };
+    const retained = createGraphFallbackPositions(indexLocalWorldGraph(next.snapshot), previous);
+    for (const [id, position] of previous) expect(retained.get(id)).toEqual(position);
+    expect(retained.size).toBe(1405);
+    expect(new Set([...retained.values()].map(({ x, y }) => `${x}:${y}`)).size).toBe(1405);
+    expect(minimumCenterDistance([...retained.values()])).toBeGreaterThanOrEqual(128);
+    const [a, b, c] = record.snapshot.objects;
+    const pinned = { ...next, layout: { ...next.layout, positions: {
+      [a.id]: { x: 123, y: 456 }, [b.id]: { x: -10, y: 9000 }, [c.id]: { x: NaN, y: 333 },
+    } } };
+    const graph = projectLocalWorldGraph(pinned, { fullCorpus: true, fallbackPositions: retained });
+    const byId = new Map(graph.nodes.map(node => [node.id, node]));
+    expect(byId.get(a.id)).toMatchObject({ x: 123, y: 456 });
+    expect(byId.get(b.id)).toMatchObject({ x: 0, y: 6000 });
+    expect(byId.get(c.id)).toMatchObject({ x: retained.get(c.id)!.x, y: 333 });
+    const removed = createGraphFallbackPositions(indexLocalWorldGraph(record.snapshot), retained);
+    expect(removed.has(added.id)).toBe(false);
+  });
+
+  it("keeps small full-graph layouts compact enough for useful Fit zoom", async () => {
+    const record = await graphRecord();
+    const graph = projectLocalWorldGraph(record, { fullCorpus: true });
+    expect(Math.max(...graph.nodes.map(node => node.x))).toBeLessThanOrEqual(720);
+    expect(Math.max(...graph.nodes.map(node => node.y))).toBeLessThanOrEqual(720);
+    expect(new Set(graph.nodes.map(({ x, y }) => `${x}:${y}`)).size).toBe(4);
+    expect(minimumCenterDistance(graph.nodes)).toBeGreaterThanOrEqual(128);
+    const xs = graph.nodes.map(node => node.x);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(112);
+  });
+
+  it("keeps small-graph additions away from near collisions with retained positions", async () => {
+    const record = await graphRecord();
+    const [a] = record.snapshot.objects;
+    // This is near a normal slot, but not exactly on it. Exact-coordinate
+    // de-duplication alone would still allow overlapping 112px bubbles.
+    const previous = new Map([[a.id, { x: 90, y: 90 }]]);
+    const positions = createGraphFallbackPositions(indexLocalWorldGraph(record.snapshot), previous);
+    expect(positions.get(a.id)).toEqual({ x: 90, y: 90 });
+    expect(minimumCenterDistance([...positions.values()])).toBeGreaterThanOrEqual(128);
+    const added = { ...a, id: "added-small" as typeof a.id };
+    const next = createGraphFallbackPositions(indexLocalWorldGraph({ ...record.snapshot, objects: [added, ...record.snapshot.objects] }), positions);
+    for (const [id, point] of positions) expect(next.get(id)).toEqual(point);
+    expect(minimumCenterDistance([...next.values()])).toBeGreaterThanOrEqual(128);
+  });
+
+  it("retains every object with finite coordinates when the fixed-spacing domain is exhausted", async () => {
+    const record = await graphRecord();
+    const objects = Array.from({ length: 2500 }, (_, i) => ({ ...record.snapshot.objects[0], id: `large:${i}` as typeof record.snapshot.objects[number]["id"] }));
+    const result = projectLocalWorldGraph({ ...record, snapshot: { ...record.snapshot, objects, relationships: [] } }, { fullCorpus: true });
+    expect(result.nodes).toHaveLength(2500);
+    expect(result.omittedNodes).toBe(0);
+    expect(result.edges).toEqual([]);
+    expect(new Set(result.nodes.map(({ x, y }) => `${x}:${y}`)).size).toBe(2500);
+    expect(result.nodes.every(({ x, y }) => Number.isFinite(x) && Number.isFinite(y) && x >= 0 && x <= 6000 && y >= 0 && y <= 6000)).toBe(true);
+    // Capacity degrades spatial detail, never object identity or loaded count.
+    expect(minimumCenterDistance(result.nodes)).toBeLessThan(144);
+  });
+
+  it("repairs incomplete or non-finite retained fallback maps without a subset grid", async () => {
+    const record = await graphRecord();
+    const [a, b] = record.snapshot.objects;
+    const retained = new Map([[a.id, { x: 101, y: 202 }], [b.id, { x: NaN, y: Infinity }]]);
+    const result = projectLocalWorldGraph(record, { fullCorpus: true, fallbackPositions: retained });
+    expect(result.nodes[0]).toMatchObject({ x: 101, y: 202 });
+    expect(result.nodes.every(({ x, y }) => Number.isFinite(x) && Number.isFinite(y) && x >= 0 && x <= 6000 && y >= 0 && y <= 6000)).toBe(true);
+    expect(retained.get(b.id)!.x).toBeNaN();
+  });
+
+  it("keeps disconnected individuals in a separate region without inventing edges", async () => {
+    const record = await graphRecord();
+    const [a, b] = record.snapshot.objects;
+    const snapshot = { ...record.snapshot, relationships: [{ ...record.snapshot.relationships[0], fromObjectId: a.id, toObjectId: b.id }] };
+    const result = projectLocalWorldGraph({ ...record, snapshot }, { fullCorpus: true });
+    const connected = result.nodes.filter(node => node.id === a.id || node.id === b.id);
+    const isolated = result.nodes.filter(node => node.id !== a.id && node.id !== b.id);
+    expect(Math.max(...connected.map(node => node.y))).toBeLessThan(Math.min(...isolated.map(node => node.y)));
+    expect(result.edges).toHaveLength(1);
+    expect(result.nodes).toHaveLength(4);
+    const empty = createGraphFallbackPositions(indexLocalWorldGraph({ ...snapshot, objects: [], relationships: [] }));
+    expect(empty.size).toBe(0);
+  });
 
   it("reports the 1404/559 corpus as bounded visibility, not 516 integrity failures", async () => {
     const record = await corpusRecord();
