@@ -27,10 +27,13 @@ RUN rm -f /etc/apt/sources.list /etc/apt/sources.list.d/* \
     && apt-get -o Acquire::Check-Valid-Until=false update \
     && apt-get install --yes --no-install-recommends ca-certificates git build-essential \
     && rm -rf /var/lib/apt/lists/*
-COPY --exclude=tests/fixtures/statblocks/v1/candidate-response.json . /app/
+# Build the locked Python environment from its package and patch inputs.
+COPY pyproject.toml uv.lock README.md ./
+COPY src/ ./src/
+COPY scripts/prepare_patched_hermes.py ./scripts/
+COPY patches/hermes-agent/ ./patches/hermes-agent/
 RUN python scripts/prepare_patched_hermes.py \
     && uv sync --locked --no-dev --no-editable
-COPY --from=ui-build /build/apps/live-control-ui/dist /app/apps/live-control-ui/dist
 
 FROM python:3.13.17-slim-trixie@sha256:d98cc29d3266e535dd9da1099688d9cb3ca4753813571e071763d17725460962 AS api
 ARG DEBIAN_SNAPSHOT=20261026
@@ -48,7 +51,17 @@ RUN rm -f /etc/apt/sources.list /etc/apt/sources.list.d/* \
     && rm -rf /var/lib/apt/lists/*
 RUN groupadd --gid 10001 buddy \
     && useradd --uid 10001 --gid buddy --home-dir /nonexistent --shell /usr/sbin/nologin buddy
-COPY --from=dependencies --chown=10001:10001 /app /app
+# The installed environment contains Buddy's packaged migration assets.
+# Keep the source tree too for imports through the src namespace.
+COPY --from=dependencies --chown=10001:10001 /app/.venv /app/.venv
+COPY --from=dependencies --chown=10001:10001 /app/src /app/src
+COPY --chown=10001:10001 apps/live_control_server/ ./apps/live_control_server/
+COPY --chown=10001:10001 schemas/ ./schemas/
+# Runtime imports these helpers from the scripts namespace.
+COPY --chown=10001:10001 scripts/bootstrap_local_play.py scripts/build_ingested_corpus_library.py \
+    scripts/materialize_normalized_recaps.py scripts/materialize_session_memory.py ./scripts/
+COPY --chown=10001:10001 MODEL_POLICY.json ./
+COPY --from=ui-build --chown=10001:10001 /build/apps/live-control-ui/dist ./apps/live-control-ui/dist/
 USER 10001:10001
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
