@@ -11,14 +11,15 @@ from tests.test_native_recap_preparation import (
 )
 
 
-def _declare_campaign(lane, count):
+def _declare_campaign(lane, count, *, existing_npc=False):
     head = lane.repo.get_head(SPACE_ID).head_revision_id
     snapshot = lane.repo.get_revision(SPACE_ID, head)
     payload = copy.deepcopy(snapshot.graph_payload)
     # Reuse existing synthetic object identities; classification is the
     # governed declaration that binds each target to this exact scope.
-    for index, identity in enumerate(("ent:pippa", "ent:location")[:count]):
-        if index == 1:
+    identities = ("ent:location",) if existing_npc else ("ent:pippa", "ent:location")[:count]
+    for index, identity in enumerate(identities):
+        if identity != "ent:pippa":
             payload["entities"].append({"schema_version": "dm_entity_v1", "entity_id": identity})
         payload["assertions"].append({
             "assertion_id": f"asrt:campaign-fixture-{index}",
@@ -28,6 +29,13 @@ def _declare_campaign(lane, count):
             "metadata": copy.deepcopy(META) | {
                 "scope": [{"axis": "dungeonbuddy.scope:campaign", "value": CAMPAIGN_ID}],
             },
+        })
+    if existing_npc:
+        payload["assertions"].append({
+            **payload["assertions"][-1],
+            "assertion_id": "asrt:placement-fixture-npc",
+            "subject_entity_id": "ent:pippa",
+            "value": {"kind": "term_ref", "term": "dnd5e:npc"},
         })
     lane.repo.publish_revision(PublishKnowledgeRevisionCommand(
         space_id=SPACE_ID, parent_revision_id=head, expected_parent_revision_id=head,
@@ -82,4 +90,32 @@ def test_invalid_placement_preserves_head(lane, count, session, code):
     response = lane.post()
     assert response.status_code == 409, response.text
     assert code in response.text
+    assert lane.repo.get_head(SPACE_ID).head_revision_id == before
+
+
+@pytest.mark.parametrize("lane", ["source_order"], indirect=True)
+def test_held_placement_does_not_require_campaign_declaration(lane):
+    _select(lane)
+    lane.body["selections"][-1].update(action="defer", metadata=None)
+    response = lane.post()
+    assert response.status_code == 200, response.text
+    packet = {key: response.json()[key] for key in ("envelope", "prepared", "token")}
+    result = confirm(lane, packet)
+    assert result.status_code == 200, result.text
+    child = lane.repo.get_revision(SPACE_ID, result.json()["result"]["child_revision_id"])
+    assert not any(row["predicate"] == "dungeonbuddy.custom:on_timeline"
+                   for row in child.graph_payload["assertions"])
+
+
+@pytest.mark.parametrize("lane", ["source_order"], indirect=True)
+def test_placement_cannot_reuse_incompatible_occurrence_identity(lane):
+    _declare_campaign(lane, 1, existing_npc=True)
+    _select(lane)
+    # Remove precedence so the placement boundary itself owns the refusal.
+    lane.body["selections"] = [s for s in lane.body["selections"] if s["kind"] != "edge"]
+    lane.body["selections"][0].update(action="use_existing", entity_id="ent:pippa")
+    before = lane.repo.get_head(SPACE_ID).head_revision_id
+    response = lane.post()
+    assert response.status_code == 409, response.text
+    assert "placement_incompatible_occurrence_identity" in response.text
     assert lane.repo.get_head(SPACE_ID).head_revision_id == before

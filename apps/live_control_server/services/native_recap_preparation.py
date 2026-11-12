@@ -166,11 +166,18 @@ def _validate_selected_precedence(pairs, access, space, campaign):
                 ready.append(later)
     _require(visited == len(indegree), "precedence_selected_cycle")
 
+    _validate_occurrence_identities(durable_ids, access, space, campaign,
+                                    "precedence_incompatible_occurrence_identity")
+
+
+def _validate_occurrence_identities(durable_ids, access, space, campaign, code):
+    if not durable_ids:
+        return
     # Core's existing read admission owns standing/scope/evidence. Do not copy
     # those policies into a second Buddy classifier or inspect excluded facts.
     incompatible = {_KINDS[k] for k in (
         "character", "creature", "location", "item", "group", "organization", "faction",
-    )} | {"dnd5e:npc"}
+    )} | {"dnd5e:npc", "dungeonbuddy:campaign"}
     candidates = []
     for identifier, parsed in access.parsed.assertions_by_id.items():
         if parsed.subject_entity_id not in durable_ids or parsed.predicate != "dnd5e:classification":
@@ -189,7 +196,7 @@ def _validate_selected_precedence(pairs, access, space, campaign):
             source_reader=access.source_view,
         )
         _require(not read.admit_candidates(candidates).admitted_assertion_ids,
-                 "precedence_incompatible_occurrence_identity")
+                 code)
 
 
 TIMELINE_PREDICATE = "dungeonbuddy.custom:on_timeline"
@@ -355,6 +362,7 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
                     _support_refs(selection.metadata, edge_witnesses[edge.edge_id], access, admitted)),
             ))
     timeline = None
+    placed_endpoints = set()
     for index, selection in enumerate(placements):
         identifier = selection.record_id
         record = records.get(("node", identifier))
@@ -374,6 +382,11 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
             timeline = _campaign_timeline(access, space, campaign)
         endpoint = endpoints[identifier]
         _require(endpoint != wk.DurableObjectRef(timeline), "placement_canonical_self")
+        _require(endpoint not in placed_endpoints, "duplicate_event_placement")
+        placed_endpoints.add(endpoint)
+        if isinstance(endpoint, wk.DurableObjectRef):
+            _validate_occurrence_identities({endpoint.durable_object_id}, access, space, campaign,
+                                            "placement_incompatible_occurrence_identity")
         operations.append(wk.CreateRelationship(
             f"placement:{index}", endpoint, TIMELINE_PREDICATE, wk.DurableObjectRef(timeline),
             _metadata(selection.metadata, campaign,
