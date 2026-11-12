@@ -3,6 +3,7 @@
 import hashlib
 import hmac
 import json
+import re
 from datetime import UTC, datetime
 from dataclasses import dataclass
 from uuid import uuid4
@@ -191,6 +192,50 @@ def _validate_selected_precedence(pairs, access, space, campaign):
                  "precedence_incompatible_occurrence_identity")
 
 
+TIMELINE_PREDICATE = "dungeonbuddy.custom:on_timeline"
+FICTIONAL_ANCHOR = "dungeonbuddy.time:fictional_anchor_v1"
+
+
+def _campaign_timeline(access, space, campaign):
+    candidates = {}
+    for identifier, parsed in access.parsed.assertions_by_id.items():
+        if parsed.predicate != "dnd5e:classification":
+            continue
+        assertion = native.assertion_contract(parsed)
+        value = assertion.value
+        if (value.kind == "term_ref" and value.term == "dungeonbuddy:campaign"
+                and [(binding.axis, binding.value) for binding in assertion.metadata.scope]
+                == [(CAMPAIGN_SCOPE_AXIS, campaign)]):
+            candidates[identifier] = parsed.subject_entity_id
+    read = build_dungeonbuddy_read_context(
+        parsed_revision=access.parsed,
+        projection_input=DungeonBuddyVNextProjectionInput(
+            world_id=space, revision_id=access.parsed.revision_id,
+            scope_mode="campaign", campaign_id=campaign, role="gm",
+        ),
+        source_reader=access.source_view,
+    )
+    identities = {candidates[key] for key in read.admit_candidates(
+        list(candidates)).admitted_assertion_ids}
+    _require(len(identities) == 1, "campaign_timeline_requires_unique_identity")
+    return next(iter(identities))
+
+
+def _validate_placement(review, session_id):
+    temporal = review.temporal_scope
+    match = re.fullmatch(r"session-0*([1-9][0-9]*)", session_id or "")
+    _require(match and temporal.kind == "domain_ref" and temporal.schema_term == FICTIONAL_ANCHOR
+             and temporal.valid_from is None and temporal.valid_until is None,
+             "event_placement_requires_source_session")
+    payload = temporal.payload
+    _require(isinstance(payload, dict) and set(payload) in ({"start"}, {"start", "stop"}),
+             "event_placement_invalid_bounds")
+    for position in payload.values():
+        _require(isinstance(position, dict) and set(position) == {"session"}
+                 and type(position["session"]) is int and position["session"] == int(match[1]),
+                 "event_placement_requires_source_session")
+
+
 def _intent(preview, selections, space, campaign, admitted, data, access, *,
             candidate_sha256, producer=PRODUCER):
     records = {
@@ -198,9 +243,12 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
         **{("edge", row.edge_id): row for row in preview.edges},
         **{("beat", row.beat_id): row for row in preview.beats},
     }
-    by_key = {(s.kind, s.record_id): s for s in selections}
+    placements = [s for s in selections if s.kind == "placement"]
+    by_key = {(s.kind, s.record_id): s for s in selections if s.kind != "placement"}
+    _require(not placements or (producer == PRODUCER and campaign), "placement_requires_recap")
     _require(set(by_key) <= set(records), "unknown_candidate_selection")
     operations, inventory, endpoints, edge_witnesses = [], [], {}, {}
+    node_witnesses = {}
     for index, (key, record) in enumerate(records.items()):
         kind, identifier = key
         selection = by_key.get(key)
@@ -268,6 +316,7 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
                     endpoint = wk.DurableObjectRef(selection.entity_id)
                 if kind == "node":
                     endpoints[identifier] = endpoint
+                    node_witnesses[identifier] = witness.evidence
         inventory.append({
             "kind": kind, "record_id": identifier, "disposition": action,
             "selected_fields": selected, "unselected_fields": sorted(set(values) - set(selected)),
@@ -305,6 +354,31 @@ def _intent(preview, selections, space, campaign, admitted, data, access, *,
                 endpoints[edge.to_node_id], _metadata(selection.metadata, campaign,
                     _support_refs(selection.metadata, edge_witnesses[edge.edge_id], access, admitted)),
             ))
+    timeline = None
+    for index, selection in enumerate(placements):
+        identifier = selection.record_id
+        record = records.get(("node", identifier))
+        _require(record is not None and record.node_type == "event", "placement_requires_event")
+        inventory.append({"kind": "placement", "record_id": identifier,
+                          "disposition": selection.action})
+        if selection.action != "create":
+            continue
+        node_selection = by_key.get(("node", identifier))
+        _require(identifier in endpoints and node_selection is not None
+                 and {"label", "node_type"} <= {fact.field for fact in node_selection.facts},
+                 "placement_requires_reviewed_event_identity")
+        _require(selection.metadata.claim_mode == "dungeonbuddy.claim:observed_event",
+                 "placement_requires_played_event")
+        _validate_placement(selection.metadata, preview.session_id)
+        if timeline is None:
+            timeline = _campaign_timeline(access, space, campaign)
+        endpoint = endpoints[identifier]
+        _require(endpoint != wk.DurableObjectRef(timeline), "placement_canonical_self")
+        operations.append(wk.CreateRelationship(
+            f"placement:{index}", endpoint, TIMELINE_PREDICATE, wk.DurableObjectRef(timeline),
+            _metadata(selection.metadata, campaign,
+                      _support_refs(selection.metadata, node_witnesses[identifier], access, admitted)),
+        ))
     for kind, collection in (("ignored", preview.ignored_items), ("deferred", preview.deferred_items),
                              ("proposed_write", preview.proposed_writes),
                              ("source_observation", preview.source_observations)):
