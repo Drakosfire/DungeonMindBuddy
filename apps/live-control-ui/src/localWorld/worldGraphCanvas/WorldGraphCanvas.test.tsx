@@ -1553,3 +1553,36 @@ it("returns keyboard focus to the Tool trigger after choosing Pan or Move", asyn
   expect(trigger).toHaveAttribute("aria-expanded", "false");
   view.unmount(); host.remove();
 });
+
+it("floats one noninteractive type legend without changing fit and shares configured bubble colors", async () => {
+  const { record } = await graphRecord();
+  const host = document.createElement("div");
+  document.body.append(host);
+  const props = { record, nodeShape: "circle" as const, projectionOptions: { fullCorpus: true } };
+  const view = render(<WorldGraphCanvas {...props} />);
+  const originalCamera = screen.getByTestId("graph-scene").getAttribute("transform");
+  view.rerender(<WorldGraphCanvas {...props} externalControls controlsHost={host} />);
+  const legend = screen.getByRole("list", { name: "Object type colors" });
+  expect(legend).toHaveClass("world-graph-canvas__legend--overlay");
+  expect(legend.parentElement).toHaveClass("world-graph-canvas__viewport");
+  expect(legend.querySelector("button,input,a,[tabindex]")).toBeNull();
+  expect(screen.getByTestId("graph-scene")).toHaveAttribute("transform", originalCamera!);
+  await userEvent.click(within(host).getByRole("button", { name: "Graph view options" }));
+  expect(screen.getAllByRole("list", { name: "Object type colors" })).toHaveLength(1);
+  expect(host.contains(legend)).toBe(false);
+  const target = record.snapshot.objects[0];
+  const revised = { ...record, snapshot: { ...record.snapshot,
+    objects: record.snapshot.objects.map((object) => object.id === target.id ? { ...object, kind: "ship" } : object) } };
+  view.rerender(<WorldGraphCanvas {...props} record={revised} externalControls controlsHost={host}
+    typeStyles={{ types: { vehicle: { color: "#123456", aliases: ["ship"] } }, fallbackColor: "#abcdef" }} />);
+  const shipKey = within(screen.getByRole("list", { name: "Object type colors" })).getByText("ship");
+  expect(shipKey.querySelector("i")).toHaveStyle({ backgroundColor: "#123456" });
+  expect(document.querySelector(`[data-node-id="${target.id}"]`)).toHaveStyle({ "--node-color": "#123456" });
+  const other = record.snapshot.objects[1];
+  expect(document.querySelector(`[data-node-id="${other.id}"]`)).toHaveStyle({ "--node-color": "#abcdef" });
+  await userEvent.click(within(host).getByRole("button", { name: "Fit graph" }));
+  expect(screen.getByTestId("graph-scene")).toHaveAttribute("transform", originalCamera!);
+  const css = readFileSync(fileURLToPath(import.meta.url).replace(/WorldGraphCanvas\.test\.tsx$/, "worldGraphCanvas.css"), "utf8");
+  expect(css).toMatch(/\.world-graph-canvas__legend--overlay\s*\{[^}]*position:\s*absolute;[^}]*pointer-events:\s*none;/s);
+  view.unmount(); host.remove();
+});

@@ -9,6 +9,7 @@ import type {
 import { graphBubbleRadius, createGraphFallbackPositions, indexLocalWorldGraph, projectLocalWorldGraph, type GraphProjectionOptions, type ProjectedGraphEdge, type ProjectedGraphNode } from "./graphProjection";
 import type { NewLocalGraphObject, NewLocalGraphRelationship } from "./localWorldGraphAdapter";
 import { SurfaceContextAction, SurfaceContextPopover } from "../../surfaceInteraction/contextHost";
+import { DEFAULT_GRAPH_TYPE_STYLES, graphTypeColor, type GraphTypeStyleRegistry } from "./graphTypeStyles";
 import "./worldGraphCanvas.css";
 
 const WIDTH = 960;
@@ -20,17 +21,6 @@ const NODE_WIDTH = 168;
 const NODE_HEIGHT = 76;
 const CIRCLE_RADIUS = 56;
 const CIRCLE_DIAMETER = CIRCLE_RADIUS * 2;
-function kindColor(kind: string): string {
-  const colors: Record<string, string> = {
-    npc: "#77b5d9", pc: "#d68f9f", item: "#d8a17d", event: "#dbb65c",
-    location: "#a4bd78", place: "#a4bd78", character: "#a8b4be",
-    "character (role unspecified)": "#a8b4be", person: "#a8b4be",
-    "session beat": "#b397d0", session_beat: "#b397d0",
-    faction: "#b397d0", group: "#b397d0", organization: "#b397d0",
-  };
-  const key = kind.toLowerCase();
-  return Object.hasOwn(colors, key) ? colors[key] : "#bac0c4";
-}
 function recordedNames(node: ProjectedGraphNode): string[] {
   const names = node.object.properties.recordedNames;
   return Array.isArray(names) ? names.filter((name): name is string => typeof name === "string" && name.trim().length > 0) : [];
@@ -65,8 +55,9 @@ interface NodeInteractionHandlers {
 }
 
 // A selection changes only the affected bubbles, not all loaded SVG labels.
-const GraphBubble = memo(function GraphBubble({ node, position, selected, isConnectTarget, nodeShape, fullCorpus, important, overviewLabelScale, canConnect, handlersRef, suppressClickRef }: {
+const GraphBubble = memo(function GraphBubble({ node, position, selected, isConnectTarget, nodeShape, fullCorpus, important, overviewLabelScale, canConnect, handlersRef, suppressClickRef, typeStyles }: {
   node: ProjectedGraphNode;
+  typeStyles: GraphTypeStyleRegistry;
   position: { x: number; y: number };
   selected: boolean;
   isConnectTarget: boolean;
@@ -85,7 +76,7 @@ const GraphBubble = memo(function GraphBubble({ node, position, selected, isConn
     <g
       key={node.id}
       className={`world-graph-canvas__node${selected ? " is-selected" : ""}${isConnectTarget ? " is-connect-target" : ""}${nodeShape === "circle" ? " is-circle" : ""}`}
-      style={fullCorpus ? { "--node-color": kindColor(node.kind) } as CSSProperties : undefined}
+      style={fullCorpus ? { "--node-color": graphTypeColor(node.kind, typeStyles) } as CSSProperties : undefined}
       transform={`translate(${position.x} ${position.y})`}
       role="button"
       tabIndex={0}
@@ -159,6 +150,8 @@ export interface WorldGraphCanvasProps {
   readonly externalControls?: boolean;
   readonly controlsHost?: HTMLElement | null;
   readonly toolActions?: ReactNode;
+  /** Shared bubble/legend palette; consumers may extend it without changing graph semantics. */
+  readonly typeStyles?: GraphTypeStyleRegistry;
 }
 
 export interface WorldGraphEditorDraft {
@@ -439,6 +432,7 @@ export function WorldGraphCanvas({
   externalControls = false,
   controlsHost = null,
   toolActions,
+  typeStyles = DEFAULT_GRAPH_TYPE_STYLES,
 }: WorldGraphCanvasProps) {
   const [openControl, setOpenControl] = useState<"tools" | "view" | null>(null);
   const index = useMemo(() => indexLocalWorldGraph(record.snapshot), [record.snapshot]);
@@ -1146,10 +1140,10 @@ export function WorldGraphCanvas({
   const handlersRef = useRef({ selectNode, onNodeKeyDown, beginGesture, beginConnectGesture });
   handlersRef.current = { selectNode, onNodeKeyDown, beginGesture, beginConnectGesture };
   const nodeLayer = useMemo(() => projection.nodes.map((node) => <GraphBubble
-    key={node.id} node={node} position={positions.get(node.id)!} selected={selectedIds.includes(node.id)}
+    key={node.id} node={node} typeStyles={typeStyles} position={positions.get(node.id)!} selected={selectedIds.includes(node.id)}
     isConnectTarget={connectPreview !== null && connectTargetId === node.id} nodeShape={nodeShape}
     fullCorpus={fullCorpus} important={overviewLabelNodeIds.has(node.id)} overviewLabelScale={overviewLabelNodeIds.has(node.id) ? 1 / Math.max(0.001, camera.zoom) : 1} canConnect={Boolean(onConnectRequest)} handlersRef={handlersRef} suppressClickRef={suppressClickRef} />),
-    [projection.nodes, selectedIds, positions, connectPreview !== null, connectTargetId, nodeShape, fullCorpus, overviewLabelNodeIds, camera.zoom, Boolean(onConnectRequest)]);
+    [typeStyles, projection.nodes, selectedIds, positions, connectPreview !== null, connectTargetId, nodeShape, fullCorpus, overviewLabelNodeIds, camera.zoom, Boolean(onConnectRequest)]);
   const edgeLayer = useMemo(() => renderedEdges.map(({ edge, geometry, box }) => {
               const label = accessibleRelationshipLabel(edge, nodeNames);
               return (
@@ -1216,6 +1210,7 @@ export function WorldGraphCanvas({
         {!externalControls ? dragModeTools : null}
       </div>
   );
+  const typeLegend = (<div className={`world-graph-canvas__legend${externalControls ? " world-graph-canvas__legend--overlay" : ""}`} role="list" aria-label="Object type colors">{legend.map((kind) => <span key={kind} role="listitem"><i aria-hidden="true" style={{ backgroundColor: graphTypeColor(kind, typeStyles) }} />{kind}</span>)}</div>);
   const viewOptions = (fullCorpus ? <>
         <label className="world-graph-canvas__visibility"><input type="checkbox" checked={showUnconnected}
           onChange={(event) => { cancelGesture(); setUnconnectedVisibility({ worldId: record.snapshot.worldId, show: event.target.checked }); }} />
@@ -1226,7 +1221,7 @@ export function WorldGraphCanvas({
           All relationships
         </label>
         {!projection.nodes.length && isolatedCount > 0 ? <p role="status">No connected objects in the loaded snapshot. Show objects without listed relationships to explore them, or find an object with search.</p> : null}
-        <div className="world-graph-canvas__legend" aria-label="Object type colors">{legend.map((kind) => <span key={kind}><i aria-hidden="true" style={{ backgroundColor: kindColor(kind) }} />{kind}</span>)}</div>
+        {!externalControls ? typeLegend : null}
         <p className="world-graph-canvas__overview-note">{projection.nodes.length} shown objects · {projection.edges.length} real relationships. Select a bubble to trace its connections; zoom for details.</p>
         <details className="world-graph-canvas__display-help"><summary>About this view</summary>
           <p>Bubble area follows relationships in the loaded snapshot, capped at 40. Color shows explicit type. {isolatedCount} loaded objects have no listed connections. Quiet lines keep every relationship in view; All relationships strengthens them. Unpinned bubbles arrange around connected hubs; position is not semantic distance.</p>
@@ -1372,6 +1367,7 @@ export function WorldGraphCanvas({
           </g>
           </g>
         </svg>
+        {externalControls && fullCorpus ? typeLegend : null}
         {palette && paletteScreen && creationKinds?.length && typeof document !== "undefined" ? createPortal(
           <div ref={paletteRef} className="world-graph-canvas__palette" role="group" aria-label="Choose node type"
             style={{ position: "fixed", left: paletteScreen.x, top: paletteScreen.y, maxWidth: paletteScreen.maxWidth, maxHeight: paletteScreen.maxHeight }} data-testid="node-palette"

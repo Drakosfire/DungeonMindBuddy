@@ -201,3 +201,27 @@
   .world-graph-canvas--external-controls .world-graph-canvas__viewport { height: max(360px, calc(100dvh - 190px)); }
   .world-graph-surface-controls__counts { order: 5; }
 }
+
+/* A read-only key floats above the graph without entering its layout or camera bounds. */
+.world-graph-canvas__legend--overlay {
+  position: absolute;
+  inset: auto 12px 12px 12px;
+  width: fit-content;
+  max-width: calc(100% - 24px);
+  margin: 0;
+  padding: 5px 8px;
+  gap: 4px 12px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  background: rgb(248 244 235 / 78%);
+  color: var(--graph-ink);
+  font-size: 11px;
+  line-height: 1.4;
+  pointer-events: none;
+  user-select: none;
+}
+.world-graph-canvas__legend--overlay span { min-width: 0; overflow-wrap: anywhere; }
+.world-graph-canvas__legend--overlay i { flex-shrink: 0; }
+@media (max-width: 480px) {
+  .world-graph-canvas__legend--overlay { inset-inline: 8px; bottom: 8px; max-width: calc(100% - 16px); gap: 3px 8px; }
+}
