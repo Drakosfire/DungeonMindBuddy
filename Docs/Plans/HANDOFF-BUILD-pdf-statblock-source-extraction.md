@@ -1,6 +1,6 @@
 # HANDOFF — Build PDF source-linked statblock extraction
 
-Status: ACTIVE; serial; one unstacked PR.
+Status: SETTLED; implementation merged as `88f47a4093162e6a4f42b035b5f22ccfddd43ba1`. The original implementation lease ended at that merge. The post-merge route authorization correction is tracked in `HANDOFF-BUILD-pdf-statblock-review-auth.md`.
 Base: `origin/main@71bcdf3bbd253ece509a5decdf4909de8bd7581f`.
 Branch: `codex/pdf-statblock-source-extraction-20261112`.
 Checkout: existing `/home/drakosfire/Projects/.codex/pdf-gold-baseline/DungeonMindBuddy`; reuse it, do not create a worktree.
