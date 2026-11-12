@@ -293,6 +293,25 @@ def prepare_query(managed_world_id, question, principal, *, source_context=None,
         raise ValueError('Core search changed query authority')
     gaps = [] if result.completeness.status == 'complete' else ['native_search_partial']
     discovered = tuple(hit.entity.entity_id for hit in result.hits)
+    if scope_mode == 'campaign':
+        from apps.live_control_server.services.native_recap_preparation import TIMELINE_PREDICATE
+
+        timeline_events = []
+        for entity_id in discovered:
+            entity = read_entity(revision_id, entity_id, pinned)
+            if not entity.found or entity.completeness.status != 'complete':
+                continue
+            if not any(a.subject_entity_id == entity_id
+                       and a.predicate == 'dnd5e:classification'
+                       and getattr(a.value, 'term', None) == 'dungeonbuddy:campaign'
+                       for a in entity.assertions):
+                continue
+            timeline_events.extend(
+                a.subject_entity_id for a in entity.assertions
+                if a.predicate == TIMELINE_PREDICATE
+                and getattr(a.value, 'entity_id', None) == entity_id
+            )
+        discovered = tuple(dict.fromkeys((*discovered, *timeline_events)))
     matches, assertion_matches, entity_gaps, _entities = _entity_catalog(discovered, pinned,
         space=space, revision_id=revision_id, scope_mode=scope_mode, campaign_id=campaign_id,
         read_entity=read_entity)
