@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { expect, it } from "vitest";
 import { parsePdfDiceTable, type PdfRegionTextRun } from "./parsePdfDiceTable";
 
-const sourceGold = JSON.parse(readFileSync(new URL("../../../../evals/document_extraction_gold/adventure_pdf_source_gold_v1.json", import.meta.url), "utf8")) as {
+const goldPath = resolve(process.cwd(), "../../evals/document_extraction_gold/adventure_pdf_source_gold_v1.json");
+const sourceGold = JSON.parse(readFileSync(goldPath, "utf8")) as {
   cases: Array<{
     case_id: string; physical_page: number; block_title: string; columns: string[];
     rows: Array<{ roll: number; name: string; notes: string }>;
