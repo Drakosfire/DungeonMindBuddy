@@ -21,7 +21,8 @@ import {
 } from "./nativeGraphDemoApi";
 import type { NativeGraphEntity } from "../api/nativeGraphInspection";
 import { nativeGraphPresentation } from "./nativeGraphPresentation";
-import { NativeGraphObjectDetails } from "../graphLens/NativeGraphObjectDetails";
+import { GraphNodeExplorer } from "./GraphNodeExplorer";
+import { compactNodeLabel } from "./graphNodeExplorer";
 import { buildSurfaceInteractionIdentity } from "../surfaceInteraction/surfaceIdentity";
 import {
   SurfaceContextAction,
@@ -481,6 +482,12 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   const placementIntentRef = useRef<StoredPlacementIntent | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const selectedNodeIdRef = useRef<string | null>(null);
+  const [inspectionHistory, setInspectionHistory] = useState<string[]>([]);
+  const inspectorHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const focusInspectorRef = useRef(false);
+  useLayoutEffect(() => {
+    if (focusInspectorRef.current) { inspectorHeadingRef.current?.focus(); focusInspectorRef.current = false; }
+  }, [selectedNodeId]);
   const [selectedNodeDetail, setSelectedNodeDetail] = useState<NativeGraphEntity | null>(null);
   const [selectedNodeDetailStatus, setSelectedNodeDetailStatus] = useState<"idle" | "loading" | "ready" | "unavailable" | "error">("idle");
   const [selectedNodeDetailError, setSelectedNodeDetailError] = useState<string | null>(null);
@@ -543,6 +550,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     setCreatedNodeReveal(null);
     pendingCreatedFocusRef.current = null;
     setSelectedNodeId(null);
+    setInspectionHistory([]);
     setActivePanel(null);
     setStorageWarning(false);
     setNotice(null);
@@ -556,6 +564,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     detailRequestGenerationRef.current += 1;
     selectedNodeIdRef.current = null;
     setSelectedNodeId(null);
+    setInspectionHistory([]);
     setSelectedNodeDetail(null);
     setSelectedNodeDetailStatus("idle");
     setSelectedNodeDetailError(null);
@@ -582,6 +591,8 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   }, [graph, embedded]);
 
   const handleCanvasSelectionChange = useCallback((nodeId: LocalObjectId | null) => {
+    const previous = selectedNodeIdRef.current;
+    if (nodeId && previous && previous !== nodeId) setInspectionHistory((history) => [...history, previous].slice(-30));
     selectedNodeIdRef.current = nodeId;
     setSelectedNodeId(nodeId);
     setActivePanel((current) => nodeId ? "details" : current === "details" ? null : current);
@@ -605,6 +616,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     const previousSelection = selectedNodeIdRef.current;
     selectedNodeIdRef.current = null;
     setSelectedNodeId(null);
+    setInspectionHistory([]);
     setSelectedNodeDetail(null);
     setSelectedNodeDetailStatus("idle");
     setSelectedNodeDetailError(null);
@@ -1631,16 +1643,25 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   );
 
   const selectedNode = graph.nodes.find((node) => node.id === selectedNodeId) ?? null;
-  const selectedLabels = new Map(graph.nodes.map((node) => [node.id, nativeGraphPresentation(node).displayName]));
+  const selectedLabels = new Map(graph.nodes.map((node) => [node.id, compactNodeLabel(node)]));
   const selectedPresentation = selectedNode ? nativeGraphPresentation(selectedNode) : null;
   const selectedConnections = selectedNode ? graph.edges.filter((edge) => edge.source_id === selectedNode.id || edge.target_id === selectedNode.id) : [];
   const detailsPanel = selectedNode ? (
     <section className="native-demo-action-card native-demo-object-details" aria-labelledby="native-demo-selected-object-title">
-      <p className="native-demo-eyebrow">{mode === "managed" ? "LOADED WORLD REVISION" : "LOADED SNAPSHOT"}</p>
-      <h2 id="native-demo-selected-object-title">{mode === "managed" ? "Object details" : selectedPresentation!.displayName}</h2>
-      <p className="native-demo-copy">{mode === "managed" ? `${selectedPresentation!.displayName} · ` : ""}{selectedPresentation!.displayKind} · revision <code>{graph.revision_id}</code></p>
-      {selectedPresentation!.recordedNames.length > 1 ? <p>Recorded names: {selectedPresentation!.recordedNames.join(" / ")}. These labels refer to this recorded object; no preferred name is inferred.</p> : null}
+      <p className="native-demo-eyebrow">{mode === "managed" ? "NODE EXPLORER" : "LOADED SNAPSHOT"}</p>
+      <h2 ref={inspectorHeadingRef} tabIndex={-1} id="native-demo-selected-object-title">{compactNodeLabel(selectedNode)}</h2>
+      <p className="native-demo-copy">{selectedPresentation!.displayKind}</p>
+      {selectedPresentation!.recordedNames.length > 1 ? <details className="graph-node-explorer__names"><summary>Recorded names ({selectedPresentation!.recordedNames.length})</summary><p>Display label only, not a preferred name or current title.</p><ul>{selectedPresentation!.recordedNames.map((name) => <li key={name}>{name}</li>)}</ul></details> : null}
       <div className="native-demo-object-details__actions">
+        {inspectionHistory.length ? <button className="native-demo-button native-demo-button--quiet" type="button" disabled={Boolean(pendingOperation)} onClick={() => {
+          const previous = inspectionHistory[inspectionHistory.length - 1];
+          if (!previous || !graph.nodes.some((node) => node.id === previous)) return;
+          focusInspectorRef.current = true;
+          setInspectionHistory((history) => history.slice(0, -1));
+          selectedNodeIdRef.current = previous;
+          setSelectedNodeId(previous);
+          requestCameraFocus(previous);
+        }}>Back to {selectedLabels.get(inspectionHistory[inspectionHistory.length - 1]!) ?? "previous object"}</button> : null}
         <button className="native-demo-button native-demo-button--light" type="button" onClick={() => requestCameraFocus(selectedNode.id)}>Focus</button>
         {focusedNodeId ? <button className="native-demo-button native-demo-button--quiet" type="button" onClick={() => requestCameraFocus(null)}>Exit focus</button> : null}
         <button className="native-demo-button native-demo-button--quiet" type="button" onClick={closeSelectedDetails}>Close details</button>
@@ -1648,7 +1669,12 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       {mode === "managed" ? (
         selectedNodeDetailStatus === "loading" ? <p role="status">Loading this object from the loaded World revision…</p>
           : selectedNodeDetailStatus === "ready" && selectedNodeDetail
-            ? <NativeGraphObjectDetails detail={selectedNodeDetail} entityId={selectedNode.id} label={selectedPresentation!.displayName} labels={selectedLabels} entityOnly={entityOnlyDetails} />
+            ? <GraphNodeExplorer key={`${graph.world_id}:${graph.revision_id}:${selectedNode.id}`} detail={selectedNodeDetail} entityId={selectedNode.id} labels={selectedLabels} entityOnly={entityOnlyDetails} partial={completeness?.status === "partial"} navigationDisabled={Boolean(pendingOperation)} onExplore={(nodeId) => {
+                if (pendingOperation || !graph.nodes.some((node) => node.id === nodeId)) return;
+                focusInspectorRef.current = true;
+                handleCanvasSelectionChange(nodeId as LocalObjectId);
+                requestCameraFocus(nodeId);
+              }} />
             : selectedNodeDetailStatus === "unavailable" || selectedNodeDetailStatus === "error"
               ? <p role={selectedNodeDetailStatus === "error" ? "alert" : "status"}>{selectedNodeDetailError}</p>
               : <p role="status">Select this object to inspect its loaded World revision.</p>

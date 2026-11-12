@@ -333,3 +333,22 @@
   .native-demo-context__canvas-controls { flex: 1 1 auto; }
   .native-demo-context__status-action { font-size: .72rem; }
 }
+
+/* Graph dossier: readable relationships first; exact records remain reachable. */
+.graph-node-explorer { font-size: 13px; line-height: 1.5; min-width: 0; overflow-wrap: anywhere; }
+.graph-node-explorer h3 { color: #efe5cf; margin: 20px 0 10px; font-size: 16px; }
+.graph-node-explorer h4 { color: #d7c28d; margin: 16px 0 6px; font-size: 12px; letter-spacing: .04em; }
+.graph-node-explorer__counts { color: #e6dfd0; margin: 14px 0 8px; }
+.graph-node-explorer__context, .graph-node-explorer__status { color: #b9b8ab; font-size: 11px; margin: 5px 0; }
+.graph-node-explorer__notice { border-left: 2px solid #c7aa68; padding-left: 8px; font-size: 12px; }
+.graph-node-explorer__group > ul { list-style: none; padding: 0; margin: 0; }
+.graph-node-explorer__group > ul > li, .graph-node-explorer__summaries article { border-top: 1px solid #42463d; padding: 11px 0; }
+.graph-node-explorer__relationship { margin: 0; color: #f2ecdf; }
+.graph-node-explorer__link { border: 0; background: transparent; color: #e2c98d; text-decoration: underline; padding: 6px 0; text-align: left; cursor: pointer; font: inherit; }
+.graph-node-explorer__link:disabled { opacity: .5; cursor: default; }
+.graph-node-explorer summary, .graph-node-explorer__names summary { cursor: pointer; color: #cfc3a7; font-size: 12px; padding: 5px 0; }
+.graph-node-explorer__names { margin-bottom: 12px; font-size: 12px; }
+.graph-node-explorer__names p { color: #b9b8ab; }
+.graph-node-explorer__evidence { margin-top: 4px; }
+.graph-node-explorer__evidence pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 10px; }
+.graph-node-explorer__secondary { border-top: 1px solid #42463d; margin-top: 14px; padding-top: 6px; }

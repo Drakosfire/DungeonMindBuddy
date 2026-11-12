@@ -1,6 +1,6 @@
 # GRAPH: cursor-anchored zoom
 
-Status: ACTIVE. Separate serial successor to merged #2504. User requested plus/minus shortcuts and Ctrl+scroll zoom next, then continuation toward merge.
+Status: SETTLED. Merged #2506 at 19424706b. Readable-node-explorer work is the separately bounded serial successor. Original slice: separate serial successor to merged #2504. User requested plus/minus shortcuts and Ctrl+scroll zoom next, then continuation toward merge.
 
 ## Lane and authority
 
