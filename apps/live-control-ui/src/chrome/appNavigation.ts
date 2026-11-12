@@ -12,7 +12,6 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 export type AppLocationRoute =
   | "index"
   | "surface"
-  | "tiptap-callout-spike"
   | "plan"
   | "play"
   | "ingest"
@@ -57,7 +56,6 @@ export function pathnameFromLocationSnapshot(snapshot: string): string {
 export function appRouteFromPathname(pathname: string): AppLocationRoute {
   const path = normalizeAppPathname(pathname);
   if (path === "/surface" || path === "/live-control") return "surface";
-  if (path === "/tiptap-callout-spike") return "tiptap-callout-spike";
   if (path === "/plan") return "plan";
   if (path === "/play") return "play";
   if (path === "/ingest") return "ingest";

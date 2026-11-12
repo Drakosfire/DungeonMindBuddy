@@ -260,26 +260,6 @@ export function buildSurfaceRouteCompatibilityPublication(): SurfaceInteractionP
   };
 }
 
-export function buildTiptapCalloutSpikeRouteCompatibilityPublication(): SurfaceInteractionPublication {
-  return {
-    surfaceId: "tiptap-callout-spike",
-    label: "Tiptap Callout Spike",
-    identity: buildSurfaceInteractionIdentity({
-      surfaceId: "tiptap-callout-spike",
-      instanceParts: ["tiptap-callout-spike"],
-    }),
-    canvas: {
-      canvasId: "tiptap-callout-spike",
-      workObject: { kind: "spike", id: "tiptap-callout-spike" },
-    },
-    agentContext: null,
-    tools: [],
-    editCommands: [],
-    projections: [],
-    projectionBindings: [],
-  };
-}
-
 export function assertValidRouteCompatibilityPublication(publication: SurfaceInteractionPublication): void {
   const result = validateSurfaceInteractionPublication(publication);
   if (!result.valid) {
@@ -292,11 +272,9 @@ export function assertValidRouteCompatibilityPublication(publication: SurfaceInt
 export const ROUTE_COMPATIBILITY_PUBLICATIONS = {
   index: buildIndexRouteCompatibilityPublication(),
   surface: buildSurfaceRouteCompatibilityPublication(),
-  tiptapCalloutSpike: buildTiptapCalloutSpikeRouteCompatibilityPublication(),
 } as const;
 
 assertValidRouteCompatibilityPublication(ROUTE_COMPATIBILITY_PUBLICATIONS.index);
 assertValidRouteCompatibilityPublication(ROUTE_COMPATIBILITY_PUBLICATIONS.surface);
-assertValidRouteCompatibilityPublication(ROUTE_COMPATIBILITY_PUBLICATIONS.tiptapCalloutSpike);
 
 export { BLANK_COMMAND_TARGET, LEGACY_APPCHROME_DISABLED, LEGACY_CONTEXT_UNAVAILABLE };

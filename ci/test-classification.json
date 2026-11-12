@@ -485,7 +485,6 @@
       "apps/live-control-ui/src/test/prepReferencePopoverShell.test.ts",
       "apps/live-control-ui/src/tiptap/MarkdownDocumentAdapter.test.ts",
       "apps/live-control-ui/src/tiptap/MarkdownEditorCore.test.tsx",
-      "apps/live-control-ui/src/tiptap/TiptapCalloutBridgeSpike.test.tsx",
       "apps/live-control-ui/src/tiptap/descriptors/tiptapRunbookDescriptors.test.ts",
       "apps/live-control-ui/src/tiptap/extensions/CalloutNode.test.ts",
       "apps/live-control-ui/src/tiptap/extensions/DecisionConsequenceNode.test.ts",
