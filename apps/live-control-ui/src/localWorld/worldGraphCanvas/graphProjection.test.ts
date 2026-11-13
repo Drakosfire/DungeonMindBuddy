@@ -470,10 +470,11 @@ describe("loaded corpus exploration", () => {
 
   it("repairs incomplete or non-finite retained fallback maps without a subset grid", async () => {
     const record = await graphRecord();
-    const [a, b] = record.snapshot.objects;
-    const retained = new Map([[a.id, { x: 101, y: 202 }], [b.id, { x: NaN, y: Infinity }]]);
+    const [a, b, c] = record.snapshot.objects;
+    const retained = new Map([[a.id, { x: 101, y: 202 }], [b.id, { x: NaN, y: Infinity }], [c.id, { x: 303, y: 404 }]]);
     const result = projectLocalWorldGraph(record, { fullCorpus: true, fallbackPositions: retained });
     expect(result.nodes[0]).toMatchObject({ x: 101, y: 202 });
+    expect(result.nodes[2]).toMatchObject({ x: 303, y: 404 });
     expect(result.nodes.every(({ x, y }) => Number.isFinite(x) && Number.isFinite(y) && x >= 0 && x <= 6000 && y >= 0 && y <= 6000)).toBe(true);
     expect(retained.get(b.id)!.x).toBeNaN();
   });

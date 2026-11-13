@@ -305,7 +305,8 @@ export function projectLocalWorldGraph(
   const objects = record.snapshot.objects;
   const focused = Boolean(options.focusObjectId && index.objects.has(options.focusObjectId));
   const fullOverview = options.fullCorpus && !focused;
-  let fallbackPositions = options.fullCorpus ? options.fallbackPositions ?? createGraphFallbackPositions(index, { savedPositions: record.layout.positions }) : undefined;
+  const retainedPositions = options.fullCorpus ? options.fallbackPositions : undefined;
+  let generatedPositions: GraphFallbackPositions | undefined;
   const revealedIds = new Set(options.revealObjectIds ?? []);
   const eligibleObjects = options.showUnconnected === false
     ? objects.filter(object => (index.relationshipCounts.get(object.id) ?? 0) > 0 || revealedIds.has(object.id) || (focused && object.id === options.focusObjectId))
@@ -331,10 +332,10 @@ export function projectLocalWorldGraph(
   const visibleIds = new Set(visibleObjects.map((object) => object.id));
   const nodes = visibleObjects.map((object, position) => {
     const saved = record.layout.positions[object.id];
-    let fallback = fallbackPositions?.get(object.id);
+    let fallback = retainedPositions?.get(object.id);
     if (options.fullCorpus && (!fallback || !Number.isFinite(fallback.x) || !Number.isFinite(fallback.y))) {
-      fallbackPositions = createGraphFallbackPositions(index, { savedPositions: record.layout.positions });
-      fallback = fallbackPositions.get(object.id);
+      generatedPositions ??= createGraphFallbackPositions(index, { savedPositions: record.layout.positions });
+      fallback = generatedPositions.get(object.id);
     }
     fallback = fallback ? { x: coordinate(fallback.x), y: coordinate(fallback.y) } : initialPosition(position, visibleObjects.length);
     const x = saved && Number.isFinite(saved.x) ? Math.max(0, Math.min(MAX_GRAPH_COORDINATE, saved.x)) : fallback.x;
@@ -344,7 +345,7 @@ export function projectLocalWorldGraph(
   const edges: ProjectedGraphEdge[] = [];
   // Scan all valid relationships so an early hidden edge cannot starve later visible edges.
   for (const relationship of index.validRelationships) {
-    if (!fullOverview && edges.length >= maxEdges) break;
+    if (!visibleIds.size || (!fullOverview && edges.length >= maxEdges)) break;
     if (!visibleIds.has(relationship.fromObjectId) || !visibleIds.has(relationship.toObjectId)) continue;
     edges.push({ id: relationship.id, fromObjectId: relationship.fromObjectId,
       toObjectId: relationship.toObjectId, kind: relationship.kind, relationship });
