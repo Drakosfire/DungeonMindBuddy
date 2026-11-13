@@ -321,3 +321,43 @@ override, image tag, and image ID from the release record. Use the same Docker c
 
 If this block fails, inspect the prior service before proceeding. After it
 passes, use the prior release's smoke procedure with the restored proxy.
+
+### Retire superseded release images
+
+After the rollback window closes, the release operator inventories Buddy tags
+and records Docker disk use before and after removing any approved retired tag.
+Docker reports shared layers separately, so use the observed change in disk use
+when recording recovered space.
+
+```bash
+docker image ls dungeonmindbuddy --no-trunc
+docker system df -v
+```
+
+Compare the inventory with the serving and rollback image IDs in the release
+records. Retain both images and their release-scoped configuration. For each
+retired tag, run the following in the deployment Docker context during a window
+with no concurrent release changes. Enter the full image IDs from the verified
+records.
+
+```bash
+(
+  set -e
+  read -r -p 'Retired Buddy image tag: ' retired_tag
+  read -r -p 'Serving image ID: ' serving_id
+  read -r -p 'Rollback image ID: ' rollback_id
+  [[ "$retired_tag" =~ ^dungeonmindbuddy:[0-9a-f]{40}$ ]]
+  [[ "$serving_id" =~ ^sha256:[0-9a-f]{64}$ ]]
+  [[ "$rollback_id" =~ ^sha256:[0-9a-f]{64}$ ]]
+  retired_id=$(docker image inspect --format '{{.Id}}' "$retired_tag")
+  test "$retired_id" != "$serving_id"
+  test "$retired_id" != "$rollback_id"
+  containers=$(docker ps -aq --filter "ancestor=$retired_id")
+  test -z "$containers"
+  docker image rm "$retired_tag"
+)
+```
+
+Repeat the inventory afterward and record the removed tag and measured change.
+Build cache retention belongs to the operator of the builder. Use a dedicated
+Buddy builder or coordinate retention with the owners of a shared builder.
