@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ThreatDraft } from "../api/types";
 import type { SavedMechanicsVersionList } from "../statblocks/revision/savedMechanicsRevisionTypes";
 import { authenticatedApiFetch, createThreatDraft, listSavedMechanicsVersions, LiveApiError } from "../api/liveApi";
@@ -29,7 +29,6 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   const [issues, setIssues] = useState<ValidationIssueV1[]>([]);
   const [region, setRegion] = useState<PdfLocator>();
   const [image, setImage] = useState("");
-  const sourcePreviewRef = useRef<HTMLElement>(null);
   const [drafts, setDrafts] = useState<ThreatDraft[]>([]);
   const [draftId, setDraftId] = useState("");
   const [acceptOpen, setAcceptOpen] = useState(false);
@@ -362,23 +361,30 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   }
 
   return (
-    <section aria-label="PDF statblock review">
-      <h1>PDF statblock review</h1>
+    <section className="pdf-statblock-review" aria-label="PDF statblock review">
+      <header className="pdf-statblock-review__toolbar">
+        <h1>PDF statblock review</h1>
+        {editor && <button type="button" disabled={pending} onClick={() => void save()}>Save review draft</button>}
+        {saved && <span role="status">Draft saved</span>}
+      </header>
       {error && <p role="alert">{error}</p>}
       {!review && !error && <p role="status">Opening review…</p>}
+      <div className="pdf-statblock-review__panes">
+        <section aria-label="PDF source" className="pdf-statblock-review__pane" tabIndex={0}>
       {review && <>
           {review.regions.map((locator, index) => (
             <button type="button" key={index} onClick={() => { setError(""); setRegion(locator); }}>
               Open source region {index + 1} · Page {locator.page}
             </button>
           ))}
-          {image && region && <figure ref={sourcePreviewRef} className="pdf-statblock-review__source-preview"
+          {image && region && <figure className="pdf-statblock-review__source-preview"
             aria-label={`Source evidence · Page ${region.page}`}>
             <figcaption>Source evidence · Page {region.page}</figcaption>
-            <img src={image} alt={`Exact PDF region on page ${region.page}`}
-              onLoad={() => sourcePreviewRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" })} />
+            <img src={image} alt={`Exact PDF region on page ${region.page}`} />
           </figure>}
       </>}
+        </section>
+        <section aria-label="Statblock fields" className="pdf-statblock-review__pane" tabIndex={0}>
       {editor && !editor.workingCopy.movement && <form onSubmit={event => {
         event.preventDefault();
         if (pending) return;
@@ -436,8 +442,6 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
               onChange={event => setSourceChecked(event.target.checked)} />
             I checked the mechanics against the visible PDF regions.
           </label>}
-          <button type="button" onClick={() => void save()}>Save review draft</button>
-          {saved && <span role="status">Draft saved</span>}
           <button type="button" disabled={!mechanicsResolved || createInFlight || getLocalFingerprint(editor) !== editor.baselineFingerprint}
             onClick={() => void createDraft()}>Create creature draft from review</button>
           {!acceptOpen && <button type="button" disabled={!mechanicsResolved} onClick={() => void openAcceptance()}>Choose creature draft</button>}
@@ -470,6 +474,8 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
             recoveryHint="Save the review draft to keep your edits." />
         </fieldset>
       </>}
+        </section>
+      </div>
     </section>
   );
 }
