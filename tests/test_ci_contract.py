@@ -112,16 +112,23 @@ def test_python_runner_propagates_failure_and_stops_following_steps(tmp_path, mo
     assert report["elapsed_seconds"] >= 0
 
 
-def test_changed_discovery_configuration_requires_inventory_review(tmp_path, monkeypatch):
+@pytest.mark.parametrize("omit_playwright", [False, True])
+def test_changed_discovery_configuration_requires_inventory_review(tmp_path, monkeypatch, omit_playwright):
     (tmp_path / "ci").mkdir()
     (tmp_path / "pyproject.toml").write_text('[tool.pytest.ini_options]\ntestpaths = ["tests"]\n')
-    (tmp_path / "vite.config.ts").write_text("changed discovery")
+    ui = tmp_path / "apps/live-control-ui"
+    ui.mkdir(parents=True)
+    (ui / "vite.config.ts").write_text("changed discovery")
+    config = {"apps/live-control-ui/vite.config.ts": "not-the-reviewed-digest"}
+    if not omit_playwright:
+        config["apps/live-control-ui/playwright.ui.config.ts"] = "unused"
     (tmp_path / "ci/test-classification.json").write_text(json.dumps({
         "version": 1, "lanes": {lane: [] for lane in ci.LANES},
-        "discovery_config": {"vite.config.ts": "not-the-reviewed-digest"},
+        "discovery_config": config,
     }))
     monkeypatch.setattr(ci, "discover", lambda root: set())
-    with pytest.raises(ValueError, match="discovery configuration changed"):
+    message = "configuration paths must include" if omit_playwright else "configuration changed"
+    with pytest.raises(ValueError, match=message):
         ci.validate_inventory(tmp_path)
 
 
