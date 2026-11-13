@@ -47,4 +47,6 @@ jobs:
           python-version: '3.13'
       - run: npm ci
         working-directory: apps/live-control-ui
+      - run: npm run typecheck
+        working-directory: apps/live-control-ui
       - run: python scripts/check_frontend_discovery.py

@@ -200,6 +200,9 @@ uv run pytest tests/test_live_control_server.py -q
 
 ### Standalone native Graph build
 
+Run the native Graph tests through the main Vitest configuration with
+`npm test -- nativeGraphDemo worldGraphCanvas`.
+
 From this directory, build the standalone demo with
 `npm exec -- vite build --config native-demo.vite.config.ts`. Its default output
 is `dist-native-demo/`, which the build clears before writing. Git and the Docker
@@ -213,3 +216,11 @@ need an isolated build.
 native_demo_output="$(mktemp -d)"
 NATIVE_DEMO_BUILD_OUTDIR="$native_demo_output" npm exec -- vite build --config native-demo.vite.config.ts
 ```
+
+### Concurrent visual verification
+
+Run `npm run ui:visual` from this directory. To run another verification at
+the same time, set a distinct unused port, for example
+`BUDDY_UI_VISUAL_PORT=5185 npm run ui:visual`. Each port has its own Ladle
+preview build under `out/` at the repository root. Explicit port overrides
+also get a matching `out/ui-visual-playwright-<port>/` artifact directory.

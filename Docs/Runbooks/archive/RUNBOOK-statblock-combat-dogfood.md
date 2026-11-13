@@ -42,7 +42,7 @@ npm run build
 cd ../..
 ```
 
-The UI package declares `@types/node` for Vite config/editor parity, and `tsconfig.node.json` also includes a tiny local `vite.config.env.d.ts` declaration so the build is not blocked by a missing installed Node type package. If package installation cannot reach the npm registry, record the exact install error in the dogfood results and use the focused tests plus dev server as the fallback:
+The Vite config type-check uses the installed Node declarations from the UI lockfile. Run the locked install before building. If package installation cannot reach the npm registry, record the exact install error. With an existing dependency install, use the focused tests and dev server as the fallback:
 
 ```bash
 cd apps/live-control-ui
