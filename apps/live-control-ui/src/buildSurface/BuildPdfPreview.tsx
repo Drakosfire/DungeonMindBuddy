@@ -166,6 +166,8 @@ function PdfPages({ file, worldId, restored, onRetained }: {
     setPage(next);
   }
 
+  const selectedRegion = rectangle?.width && rectangle.height ? rectangle : undefined;
+
   function captureRegion() {
     const source = canvas.current;
     if (!rectangle || !source || !rectangle.width || !rectangle.height) return;
@@ -405,10 +407,11 @@ function PdfPages({ file, worldId, restored, onRetained }: {
       {worldId && <StartPdfStatblockReview
         worldId={worldId}
         regions={statblockRegions}
-        prepareRegions={capture || statblockRegions.length ? async () => {
-          if (!capture) return statblockRegions;
+        prepareRegions={selectedRegion || capture || statblockRegions.length ? async () => {
+          const activeRegion = selectedRegion ?? capture?.region;
+          if (!activeRegion) return statblockRegions;
           if (sourcePending) throw new Error("Wait for the PDF source to finish opening.");
-          const locator = captureLocator(await retainSource(), page, capture.region);
+          const locator = captureLocator(await retainSource(), page, activeRegion);
           onRetained(locator);
           return statblockRegions.some(region => pdfRegionKey(region) === pdfRegionKey(locator))
             ? statblockRegions : [...statblockRegions, locator];
