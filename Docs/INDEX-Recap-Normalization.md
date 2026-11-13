@@ -50,7 +50,7 @@ All prepared files live under `corpus/eldyrwild-markdown/Longmont Campaign/Campa
 
 **Slug derivation:** sessions with non-generic titles reuse the title tail; generic `Session N - Recap` titles use curated slugs in `scripts/materialize_normalized_recaps.py` (`_SLUGS`).
 
-**Breadcrumb + session memory (pilot):** canonical paths under `Session Recaps/_breadcrumbed/` and `_session_memory/` per [`Docs/CONVENTION-Session-Recap-Breadcrumbs-And-Memory.md`](CONVENTION-Session-Recap-Breadcrumbs-And-Memory.md). Resolver: `src/corpus/session_recap_paths.py`.
+**Breadcrumb + session memory (pilot):** canonical paths under `Session Recaps/_breadcrumbed/` and `_session_memory/` per [`Docs/CONVENTION-Session-Recap-Breadcrumbs-Session-Memory-And-Tokens.md`](CONVENTION-Session-Recap-Breadcrumbs-Session-Memory-And-Tokens.md). Resolver: `src/corpus/session_recap_paths.py`.
 
 | Campaign | Session | Breadcrumb (`_breadcrumbed/`) | Session memory (`_session_memory/`) |
 |----------|---------|------------------------------|-----------------------------------|

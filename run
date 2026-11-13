@@ -11,7 +11,7 @@
 #   DUNGEONMIND_SERVER_PORT   default 7860
 #   BUDDY_API_PORT            default 8000
 #   BUDDY_UI_PORT             default 5173
-#   RUN_NO_RELOAD=1           disable --reload / Vite HMR extras
+#   RUN_NO_RELOAD=1           disable Buddy API reload; DungeonMindServer and Vite keep their defaults
 #   DMB_AGENT_GRAPH_LOCAL_PROFILE  opt in to an owner-private local Graph profile
 #   DMB_MANAGED_WORLD_DATA_ROOT    existing stable managed-World root for that profile
 #
