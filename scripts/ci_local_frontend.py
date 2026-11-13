@@ -266,6 +266,7 @@ def inventory_keys(items, frontend):
 def case_parity(expected, result, frontend, argv):
     actual = Counter()
     skipped = Counter()
+    passed = Counter()
     failed = 0
     for file in result["testResults"]:
         for case in file["assertionResults"]:
@@ -276,6 +277,8 @@ def case_parity(expected, result, frontend, argv):
             actual[key] += 1
             if case["status"] in {"skipped", "pending", "todo"}:
                 skipped[key] += 1
+            if case["status"] == "passed":
+                passed[key] += 1
             if case["status"] == "failed":
                 failed += 1
     extra = actual - expected
@@ -294,6 +297,8 @@ def case_parity(expected, result, frontend, argv):
         and (not extra or allowed),
         "reported_unselected_skips": sum(extra.values()) if allowed else 0,
         "failed_cases": failed,
+        "selected_passed_cases": sum((expected & passed).values()),
+        "selected_skipped_cases": sum((expected & skipped).values()),
     }
 
 

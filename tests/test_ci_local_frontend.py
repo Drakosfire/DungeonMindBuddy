@@ -377,6 +377,15 @@ def test_only_declared_hosted_name_filters_allow_unselected_skips(tmp_path, filt
     report = local.case_parity(expected, result, frontend, argv)
     assert report["collection_parity"] == filtered
     assert report["reported_unselected_skips"] == int(filtered)
+    assert report["selected_passed_cases"] == 1
+    assert report["selected_skipped_cases"] == 0
+    selected = result["testResults"][0]["assertionResults"][0]
+    selected["status"] = "skipped"
+    skipped = local.case_parity(expected, result, frontend, argv)
+    assert skipped["collection_parity"] == filtered
+    assert skipped["selected_passed_cases"] == 0
+    assert skipped["selected_skipped_cases"] == 1
+    selected["status"] = "passed"
     result["testResults"][0]["assertionResults"][1]["status"] = "passed"
     assert not local.case_parity(expected, result, frontend, argv)["collection_parity"]
 
