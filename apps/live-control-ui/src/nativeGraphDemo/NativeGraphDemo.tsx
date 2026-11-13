@@ -202,7 +202,7 @@ function readLayout(worldId: string, stateScopeId?: string): Readonly<Record<str
     const positions: Record<string, { x: number; y: number }> = Object.create(null) as Record<string, { x: number; y: number }>;
     // Keep presentation coordinates for temporarily omitted native nodes in partial reads.
     // They remain inert unless a matching node ID appears in a later server readback.
-    for (const [id, value] of Object.entries(parsed).slice(0, 4096)) {
+    for (const [id, value] of Object.entries(parsed)) {
       if (!id || id.length > 512 || id === "__proto__" || id === "constructor" || id === "prototype" || !value || typeof value !== "object") continue;
       const candidate = value as Record<string, unknown>;
       if (typeof candidate.x !== "number" || !Number.isFinite(candidate.x) || typeof candidate.y !== "number" || !Number.isFinite(candidate.y)) continue;
