@@ -329,7 +329,8 @@ export function PlanGraphLensProvider({
       return;
     }
 
-    let cancelled = false;
+    const controller = new AbortController();
+    const { signal } = controller;
     setBundleLoadState({
       ...BUNDLE_LOAD_IDLE,
       selectedCampaignKey,
@@ -341,14 +342,14 @@ export function PlanGraphLensProvider({
       await Promise.all(
         selected.map(async (campaignId) => {
           try {
-            const bundle = await loadSessions(campaignId);
-            if (!cancelled) bundles.set(campaignId, bundle);
+            const bundle = await loadSessions(campaignId, signal);
+            if (!signal.aborted) bundles.set(campaignId, bundle);
           } catch {
-            if (!cancelled) failedCampaignIds.push(campaignId);
+            if (!signal.aborted) failedCampaignIds.push(campaignId);
           }
         }),
       );
-      if (cancelled) return;
+      if (signal.aborted) return;
       setFocusOptions(buildFocusOptionsFromSessions(selected, bundles));
       setBundleLoadState({
         ready: true,
@@ -359,9 +360,7 @@ export function PlanGraphLensProvider({
       });
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [
     bundleReloadToken,
     demandGeneration,
