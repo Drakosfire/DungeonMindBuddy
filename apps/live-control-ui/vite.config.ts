@@ -2,7 +2,7 @@ import react from "@vitejs/plugin-react";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { extname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vitest/config";
+import { defineConfig } from "vite";
 
 const apiTarget = process.env.VITE_LIVE_API_PROXY_TARGET ?? "http://127.0.0.1:8000";
 const appRoot = fileURLToPath(new URL(".", import.meta.url));
@@ -110,10 +110,5 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
-  },
-  test: {
-    environment: "jsdom",
-    setupFiles: ["./src/test/setup.ts"],
-    globals: true,
   },
 });
