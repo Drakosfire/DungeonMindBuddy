@@ -115,7 +115,7 @@ def test_rebase_failure_before_commit_leaves_source_and_writes_no_intent(
             target_playable_revision=target_revision,
             target_playable_content_sha256=target_sha,
         )
-    leftover = get_play_run(tmp_path, RUN_ID_A)
+    leftover = get_play_run(RUN_ID_A)
     assert leftover.playable_revision == created.playable_revision
     assert leftover.run_revision == created.run_revision
     assert leftover.rebased_from_run_revision is None
@@ -137,7 +137,7 @@ def test_stale_rebase_expected_revision_is_409(
             target_playable_content_sha256=target_sha,
         )
     assert exc_info.value.status_code == 409
-    assert get_play_run(tmp_path, RUN_ID_A).run_revision == created.run_revision
+    assert get_play_run(RUN_ID_A).run_revision == created.run_revision
     assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
 
 
@@ -166,7 +166,7 @@ def _assert_cross_grammar_rebase_is_terminal(
             target_playable_content_sha256=target_sha,
         )
     assert exc_info.value.status_code == 409
-    leftover = get_play_run(tmp_path, RUN_ID_A)
+    leftover = get_play_run(RUN_ID_A)
     assert leftover.playable_revision == created.playable_revision
     assert leftover.playable_content_sha256 == created.playable_content_sha256
     assert leftover.run_revision == created.run_revision

@@ -94,7 +94,7 @@ def test_http_propose_review_apply_and_replay_leave_plan_notes_and_other_scenes_
     from apps.live_control_server.services.workspace_document_registry import get_committed_playable_revision
     assert get_committed_playable_revision(str(obj.work_object_id), revision_n=pin.revision_n, expected_sha256=pin.content_sha256, kind=None, expected_world_id=world.world_id).markdown == content.markdown
     from apps.live_control_server.services.play_run_registry import get_world_play_run
-    retained = get_world_play_run(tmp_path, world_id=world.world_id, run_id=run.run_id)
+    retained = get_world_play_run(world_id=world.world_id, run_id=run.run_id)
     assert retained.progress == run.progress and retained.run_revision == run.run_revision
     replay = http(app, "POST", path, request)
     assert replay.json() == record and len(generator.calls) == 1

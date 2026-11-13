@@ -158,7 +158,7 @@ def test_persisted_run_id_must_match_filename_identity(tmp_path: Path) -> None:
     path.replace(mismatched)
 
     with pytest.raises(PlayRunRegistryError) as exc_info:
-        get_play_run(tmp_path, RUN_ID_A)
+        get_play_run(RUN_ID_A)
 
     assert exc_info.value.status_code == 404
     assert mismatched.is_file()

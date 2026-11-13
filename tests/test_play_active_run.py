@@ -114,7 +114,7 @@ def test_valid_selection_is_idempotent_and_survives_re_read(tmp_path: Path) -> N
     assert first.run_id == RUN_ID_A
     assert second == first
     assert get_play_active_run() == first
-    assert get_play_run(tmp_path, RUN_ID_A) == run
+    assert get_play_run(RUN_ID_A) == run
     assert not leftover_active_run_path(tmp_path).exists()
 
 
@@ -128,8 +128,8 @@ def test_different_valid_run_replaces_pointer_without_mutating_runs(tmp_path: Pa
     replaced = set_play_active_run(run_id=run_b.run_id)
 
     assert replaced.run_id == RUN_ID_B
-    assert get_play_run(tmp_path, RUN_ID_A) == run_a
-    assert get_play_run(tmp_path, RUN_ID_B) == run_b
+    assert get_play_run(RUN_ID_A) == run_a
+    assert get_play_run(RUN_ID_B) == run_b
     assert not leftover_active_run_path(tmp_path).exists()
 
 

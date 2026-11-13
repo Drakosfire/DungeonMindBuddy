@@ -350,7 +350,7 @@ def test_new_app_instance_and_different_root_resume_exact_current_moment(
     assert restarted.status_code == 200
     assert restarted.json() == first.json() == selected.model_dump(mode="json")
 
-    run = get_play_run(other_root, RUN_ID_A)
+    run = get_play_run(RUN_ID_A)
     manifest = get_play_run_reference_manifest(RUN_ID_A)
     committed = get_committed_playable_revision(run.playable_artifact_id, kind="runbook")
     assert run.run_revision == progressed.run_revision
@@ -377,10 +377,10 @@ def test_corrupt_selected_run_fails_truthfully_without_fallback(
     )
     assert get_play_active_run() == selected
     with pytest.raises(PlayRunRegistryError) as exc_info:
-        get_play_run(tmp_path, RUN_ID_A)
+        get_play_run(RUN_ID_A)
     assert exc_info.value.status_code == 500
     assert get_play_active_run().run_id == RUN_ID_A
-    assert get_play_run(tmp_path, RUN_ID_B).run_id == RUN_ID_B
+    assert get_play_run(RUN_ID_B).run_id == RUN_ID_B
 
 
 def test_last_explicit_selection_wins_without_cas(
@@ -429,7 +429,7 @@ def test_active_run_latency_samples(tmp_path: Path, application_state_dsn: str) 
     def resume_chain() -> None:
         active = get_play_active_run()
         assert active.run_id is not None
-        run = get_play_run(tmp_path, active.run_id)
+        run = get_play_run(active.run_id)
         manifest = get_play_run_reference_manifest(active.run_id)
         committed = get_committed_playable_revision(run.playable_artifact_id, kind="runbook")
         assert manifest.run_id == run.run_id

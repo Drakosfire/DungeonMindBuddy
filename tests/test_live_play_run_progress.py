@@ -213,7 +213,7 @@ def test_missing_manifest_is_409(client: TestClient, root: Path) -> None:
     snapshot = _create_committed_runbook(root)
     created = client.put(f"/api/live/play-runs/{RUN_ID_A}", json=_run_request(snapshot))
     assert created.status_code == 200
-    record_before = get_play_run(root, RUN_ID_A)
+    record_before = get_play_run(RUN_ID_A)
 
     response = client.put(
         f"/api/live/play-runs/{RUN_ID_A}/progress",
@@ -222,7 +222,7 @@ def test_missing_manifest_is_409(client: TestClient, root: Path) -> None:
 
     assert response.status_code == 200
     assert response.json()["run_revision"] == 2
-    assert get_play_run(root, RUN_ID_A).run_revision == 2
+    assert get_play_run(RUN_ID_A).run_revision == 2
     assert record_before.run_revision == 1
     assert not leftover_manifest_path(root, RUN_ID_A).exists()
 
@@ -234,7 +234,7 @@ def test_http_noop_and_lost_response_replay(client: TestClient, root: Path) -> N
         json=_progress_body(),
     )
     assert first.status_code == 200
-    record_after = get_play_run(root, RUN_ID_A)
+    record_after = get_play_run(RUN_ID_A)
 
     noop = client.put(
         f"/api/live/play-runs/{RUN_ID_A}/progress",
@@ -242,7 +242,7 @@ def test_http_noop_and_lost_response_replay(client: TestClient, root: Path) -> N
     )
     assert noop.status_code == 200
     assert noop.json() == first.json()
-    assert get_play_run(root, RUN_ID_A) == record_after
+    assert get_play_run(RUN_ID_A) == record_after
 
     replay = client.put(
         f"/api/live/play-runs/{RUN_ID_A}/progress",
@@ -250,7 +250,7 @@ def test_http_noop_and_lost_response_replay(client: TestClient, root: Path) -> N
     )
     assert replay.status_code == 200
     assert replay.json() == first.json()
-    assert get_play_run(root, RUN_ID_A) == record_after
+    assert get_play_run(RUN_ID_A) == record_after
 
 
 def test_stale_different_state_is_409(client: TestClient, root: Path) -> None:
@@ -344,7 +344,7 @@ def test_native_ready_get_preflights_then_seeds_empty_v2_run(
     assert replayed.status_code == 200
     assert replayed.json()["run_revision"] == 2
     assert replayed.json()["progress"]["current_beat_id"] == "beat:z-opening"
-    persisted = get_play_run(root, RUN_ID_A)
+    persisted = get_play_run(RUN_ID_A)
     assert persisted.progress.current_beat_id == "beat:z-opening"
 
 
@@ -440,7 +440,7 @@ def test_native_ready_get_converges_when_rebase_changes_structure_during_first_a
     assert seeded.status_code == 200
     assert seeded.json()["progress"]["current_beat_id"] == "beat:new-opening"
     assert seeded.json()["playable_content_sha256"] == committed.content_sha256
-    persisted = get_play_run(root, RUN_ID_A)
+    persisted = get_play_run(RUN_ID_A)
     assert persisted.progress.current_beat_id == "beat:new-opening"
     assert persisted.progress.current_beat_id != "beat:z-opening"
     assert persisted.playable_revision == committed.revision_n

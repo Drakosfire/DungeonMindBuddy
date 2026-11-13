@@ -191,14 +191,14 @@ def test_identical_put_replay_is_exact_and_does_not_rewrite_file(
     snapshot = _create_committed_runbook(root, name="replay")
     first = client.put(f"/api/live/play-runs/{RUN_ID_A}", json=_request(snapshot))
     assert first.status_code == 200
-    record_before = get_play_run(root, RUN_ID_A)
+    record_before = get_play_run(RUN_ID_A)
 
     second = client.put(f"/api/live/play-runs/{RUN_ID_A}", json=_request(snapshot))
 
     assert second.status_code == 200
     assert second.json() == first.json()
     assert second.json()["run_revision"] == 1
-    assert get_play_run(root, RUN_ID_A) == record_before
+    assert get_play_run(RUN_ID_A) == record_before
     assert not leftover_run_path(root, RUN_ID_A).exists()
 
 
@@ -235,7 +235,7 @@ def test_same_run_uuid_different_binding_returns_409_and_preserves_original(
         json=_request(first_snapshot),
     )
     assert first.status_code == 200
-    record_before = get_play_run(root, RUN_ID_A)
+    record_before = get_play_run(RUN_ID_A)
 
     conflict = client.put(
         f"/api/live/play-runs/{RUN_ID_A}",
@@ -244,7 +244,7 @@ def test_same_run_uuid_different_binding_returns_409_and_preserves_original(
 
     assert conflict.status_code == 409
     assert client.get(f"/api/live/play-runs/{RUN_ID_A}").json() == first.json()
-    assert get_play_run(root, RUN_ID_A) == record_before
+    assert get_play_run(RUN_ID_A) == record_before
 
 
 def test_stale_revision_after_workspace_advance_returns_409_and_no_file(

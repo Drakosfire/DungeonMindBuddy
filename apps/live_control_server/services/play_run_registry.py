@@ -500,7 +500,7 @@ def compare_run_manifest_binding(record: PlayRunRecord, manifest: object) -> str
 def _run_generation_moved(root: Path, run_id: str, prior: PlayRunRecord) -> bool:
     """True when the durable Run generation/binding changed after preflight."""
     try:
-        current = get_play_run(root, run_id)
+        current = get_play_run(run_id)
     except PlayRunRegistryError:
         return False
     return (
@@ -730,8 +730,7 @@ def _admit_progress(
     return canonical
 
 
-def get_play_run(root: Path, run_id: str) -> PlayRunRecord:
-    del root
+def get_play_run(run_id: str) -> PlayRunRecord:
     from application_state.errors import ApplicationStateError
     from application_state.play.service import get_play_run_aggregate
 
@@ -764,8 +763,7 @@ def list_play_runs(
     return [_record_from_play_run(aggregate.run) for aggregate in aggregates]
 
 
-def get_world_play_run(root: Path, *, world_id: str, run_id: str) -> WorldPlayRunRecord:
-    del root
+def get_world_play_run(*, world_id: str, run_id: str) -> WorldPlayRunRecord:
     from application_state.errors import ApplicationStateError
     from application_state.play.service import get_world_play_run_aggregate
 

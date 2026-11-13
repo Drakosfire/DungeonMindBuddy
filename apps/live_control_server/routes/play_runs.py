@@ -185,7 +185,7 @@ def get_play_run_route(
         if ensure_native_ready:
             record = ensure_v2_native_ready(repo_root(), run_id)
         else:
-            record = get_play_run(repo_root(), run_id)
+            record = get_play_run(run_id)
     except PlayRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return _record_response(record)
@@ -272,7 +272,7 @@ def get_world_play_run_v2(
     world_id: Annotated[str, Query(min_length=1)],
 ) -> dict[str, Any]:
     try:
-        record = get_world_play_run(repo_root(), world_id=world_id, run_id=run_id)
+        record = get_world_play_run(world_id=world_id, run_id=run_id)
     except PlayRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return record.model_dump(mode="json")

@@ -321,7 +321,7 @@ def test_surviving_refs_rebase_replaces_binding_and_manifest(tmp_path: Path) -> 
         expected_run_revision=1,
         progress=_progress(),
     )
-    source_run = _record_snapshot(get_play_run(tmp_path, RUN_ID_A))
+    source_run = _record_snapshot(get_play_run(RUN_ID_A))
     source_manifest = _manifest_snapshot(tmp_path)
     target = _advance(tmp_path, source, SURVIVING_TARGET_MARKDOWN)
 
@@ -336,7 +336,7 @@ def test_surviving_refs_rebase_replaces_binding_and_manifest(tmp_path: Path) -> 
     assert rebased.playable_content_sha256 == target.content_sha256
     assert rebased.run_revision == 3
     assert rebased.rebased_from_run_revision == 2
-    assert _record_snapshot(get_play_run(tmp_path, RUN_ID_A)) != source_run
+    assert _record_snapshot(get_play_run(RUN_ID_A)) != source_run
     assert _manifest_snapshot(tmp_path) != source_manifest
     assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
     assert not leftover_run_path(tmp_path, RUN_ID_A).exists()
@@ -374,7 +374,7 @@ def test_removed_refs_block_before_intent(tmp_path: Path) -> None:
         expected_run_revision=1,
         progress=_progress(),
     )
-    run_before = _record_snapshot(get_play_run(tmp_path, RUN_ID_A))
+    run_before = _record_snapshot(get_play_run(RUN_ID_A))
     manifest_before = _manifest_snapshot(tmp_path)
     target = _advance(tmp_path, source, REPLACED_TARGET_MARKDOWN)
 
@@ -382,7 +382,7 @@ def test_removed_refs_block_before_intent(tmp_path: Path) -> None:
         _rebase(tmp_path, target, expected_run_revision=2)
     assert exc_info.value.status_code == 409
     assert "current_scene_id" in str(exc_info.value)
-    assert _record_snapshot(get_play_run(tmp_path, RUN_ID_A)) == run_before
+    assert _record_snapshot(get_play_run(RUN_ID_A)) == run_before
     assert _manifest_snapshot(tmp_path) == manifest_before
     assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
 
@@ -459,7 +459,7 @@ def test_missing_source_manifest_with_progress_is_409(tmp_path: Path) -> None:
 
 def test_intent_write_failure_leaves_source_pair(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     created, source_manifest, target, real_replace = _rebase_failure_leaves_source(tmp_path, monkeypatch)
-    assert get_play_run(tmp_path, RUN_ID_A).run_revision == created.run_revision
+    assert get_play_run(RUN_ID_A).run_revision == created.run_revision
     assert get_play_run_reference_manifest(RUN_ID_A) == source_manifest
     assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
     monkeypatch.setattr("application_state.play.repository.replace_manifest", real_replace)
@@ -485,7 +485,7 @@ def test_completed_replay_proves_target_pair(tmp_path: Path) -> None:
     leftover.write_text("{}\n", encoding="utf-8")
     again = _rebase(tmp_path, target, expected_run_revision=1)
     assert again == first
-    assert get_play_run(tmp_path, RUN_ID_A) == first
+    assert get_play_run(RUN_ID_A) == first
     assert leftover.is_file()
 
 
@@ -604,14 +604,14 @@ def test_each_progress_field_blocks_before_intent(
         expected_run_revision=1,
         progress=progress,
     )
-    run_before = _record_snapshot(get_play_run(tmp_path, RUN_ID_A))
+    run_before = _record_snapshot(get_play_run(RUN_ID_A))
     manifest_before = _manifest_snapshot(tmp_path)
     target = _advance(tmp_path, source, markdown)
     with pytest.raises(PlayRunRebaseError) as exc_info:
         _rebase(tmp_path, target, expected_run_revision=2)
     assert exc_info.value.status_code == 409
     assert needle in str(exc_info.value) or "current_scene_id" in str(exc_info.value) or "current_beat_id" in str(exc_info.value) or "resolved_beat_ids" in str(exc_info.value) or "selections" in str(exc_info.value) or "notes_by_element_id" in str(exc_info.value)
-    assert _record_snapshot(get_play_run(tmp_path, RUN_ID_A)) == run_before
+    assert _record_snapshot(get_play_run(RUN_ID_A)) == run_before
     assert _manifest_snapshot(tmp_path) == manifest_before
     assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
 
@@ -623,7 +623,7 @@ def test_malformed_target_markdown_is_409_before_intent(tmp_path: Path) -> None:
     with pytest.raises(PlayRunRebaseError) as exc_info:
         _rebase(tmp_path, target, expected_run_revision=created.run_revision)
     assert exc_info.value.status_code == 409
-    assert get_play_run(tmp_path, RUN_ID_A) == created
+    assert get_play_run(RUN_ID_A) == created
     assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
 
 
@@ -670,7 +670,7 @@ def test_progress_and_rebase_linearize_on_run_lock(tmp_path: Path) -> None:
     assert len(results) == 1
     assert len(errors) == 1
     assert getattr(errors[0], "status_code", None) == 409
-    current = get_play_run(tmp_path, RUN_ID_A)
+    current = get_play_run(RUN_ID_A)
     assert current.run_revision == 2
     assert not leftover_rebase_intent_path(tmp_path, RUN_ID_A).exists()
 
@@ -706,7 +706,7 @@ def test_deleted_target_manifest_blocks_completed_replay(tmp_path: Path) -> None
     leftover.write_text("{}\n", encoding="utf-8")
     again = _rebase(tmp_path, target, expected_run_revision=1)
     assert again == first
-    assert get_play_run(tmp_path, RUN_ID_A) == first
+    assert get_play_run(RUN_ID_A) == first
     assert leftover.is_file()
 
 
@@ -774,14 +774,14 @@ def test_progress_mutation_is_not_completed_rebase_replay(tmp_path: Path) -> Non
     )
     assert progressed.run_revision == 2
     assert progressed.rebased_from_run_revision is None
-    run_before = get_play_run(tmp_path, RUN_ID_A)
+    run_before = get_play_run(RUN_ID_A)
     with pytest.raises(PlayRunRebaseError) as exc_info:
         _rebase(tmp_path, source, expected_run_revision=1)
     assert exc_info.value.status_code == 409
-    assert get_play_run(tmp_path, RUN_ID_A) == run_before
+    assert get_play_run(RUN_ID_A) == run_before
     noop = _rebase(tmp_path, source, expected_run_revision=2)
     assert noop.run_revision == 2
-    assert get_play_run(tmp_path, RUN_ID_A) == noop
+    assert get_play_run(RUN_ID_A) == noop
 
 
 
