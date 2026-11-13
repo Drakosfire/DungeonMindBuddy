@@ -57,8 +57,6 @@ Provision a protected Compose environment file outside the checkout with the var
 ```bash
 read -r -p 'Approved release commit: ' buddy_release
 read -r -p 'Absolute path to the protected Compose environment file: ' buddy_env
-read -r -p 'Host loopback port from that file [8080]: ' buddy_port
-buddy_port=${buddy_port:-8080}
 read -r -p 'Compose project [buddy]: ' buddy_project
 buddy_project=${buddy_project:-buddy}
 test -z "$(git status --porcelain)" && \
@@ -162,8 +160,12 @@ Apply only the production migrations confirmed in step 2 through their owning pr
     exit 1
   fi
   actual_binding=$("${buddy_compose[@]}" port buddy 8000)
-  test "$actual_binding" = "127.0.0.1:$buddy_port"
-  buddy_local="http://127.0.0.1:$buddy_port"
+  if [[ ! "$actual_binding" =~ ^127\.0\.0\.1:([1-9][0-9]{0,4})$ ]] || (( BASH_REMATCH[1] > 65535 )); then
+    printf 'Expected a single Buddy loopback binding, found %s\n' "$actual_binding" >&2
+    exit 1
+  fi
+  buddy_local="http://$actual_binding"
+  printf 'Verified Buddy upstream: %s\n' "$buddy_local"
   curl -fsS "$buddy_local/health/live"
   curl -fsS "$buddy_local/health/ready"
   bash scripts/check_hosted_spa.sh "$buddy_local"
@@ -203,7 +205,7 @@ to recent startup logs on a disposable stack before exposing Buddy publicly.
 
 ## 4. Verify DNS, TLS, and the proxy
 
-Record the existing Nginx configuration. Install the [streaming proxy fragment](../../deploy/production/nginx-buddy.conf) in the selected Buddy TLS virtual host and match its upstream port to step 3. Use the edge owner's DNS and certificate procedures for records, issuance, and renewal.
+Record the existing Nginx configuration. Install the [streaming proxy fragment](../../deploy/production/nginx-buddy.conf) in the selected Buddy TLS virtual host and match its upstream to the verified URL printed in step 3. Use the edge owner's DNS and certificate procedures for records, issuance, and renewal.
 
 ```bash
 sudo nginx -t && sudo systemctl reload nginx
