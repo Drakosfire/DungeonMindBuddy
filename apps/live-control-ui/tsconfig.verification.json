@@ -6,6 +6,7 @@
   "include": [
     "src/**/*.stories.tsx",
     ".ladle/**/*.tsx",
+    "vitest.config.ts",
     "src/nativeGraphDemo/nativeGraphDemoEntry.tsx",
     "src/localWorld/**/*.browserHarness.ts",
     "src/localWorld/**/*.browserHarness.tsx",
