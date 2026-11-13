@@ -4,6 +4,21 @@
 **Last verified delivery anchor:** API `53d4bfd70`, UI `cbb1c264`, ports8000/5202, APP0079/native0017. Protected PR1824 adoption retained3640 APP rows,1096 native rows and40813 files. Revalidate ownership/data before delivery.
 **Owner:** DungeonMindBuddy; [steward mandate](../Plans/STEWARDS-HANDOFF-demo.md).
 
+## Verify the historical DEMO-J1 input
+
+An operator with access to the purchased specimen bundle can locate
+`specimens/01-cleaned-single-column.md` under their local bundle directory.
+Keep the bundle outside Git. Set `DEMO_INPUT_ROOT` to that directory, then
+verify the pinned input before using it.
+
+```bash
+input="${DEMO_INPUT_ROOT:?Set DEMO_INPUT_ROOT}/specimens/01-cleaned-single-column.md"
+printf '%s  %s\n' '7a379fc9025635b1862b6af7eb5a43dd1ee9387b51cf63ba505491fffe7e68f1' "$input" | sha256sum --check
+```
+
+This pin identifies human-normalized Markdown. Production PDF parsing requires
+its own evidence.
+
 ## Current operator sequence
 
 Current priority: audit/freeze diverse real-corpus gold before further prompt/schema/model experiments. PR1823 exact-edge dedup and PR1824 generated-identity beat input are delivered. One unchanged ingestion sample improves actor associations but retains semantic errors; no Graph-quality pass. Q10 final-answer consumer adoption is an independent provider-free delivery repair, not a new model experiment.
