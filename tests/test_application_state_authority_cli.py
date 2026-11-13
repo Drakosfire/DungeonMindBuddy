@@ -63,3 +63,62 @@ def test_recovery_client_version_errors_include_actionable_guidance():
     assert authority._postgres_client_error("pg_restore", "connection refused", dsn) == (
         "pg_restore failed: connection refused"
     )
+
+
+def test_backup_stages_and_preserves_existing_set(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    import pytest
+    from application_state import authority
+
+    out = tmp_path / "backup.dump"
+    dsn = "postgresql://user@localhost/dungeonbuddy_app_state_test"
+    fingerprint = SimpleNamespace(digest="before", to_json=lambda: "{}")
+    monkeypatch.setattr(authority, "_require_postgres_client", lambda command: command)
+    monkeypatch.setattr(authority, "compute_fingerprint", lambda dsn: fingerprint)
+
+    def dump(args, **kwargs):
+        staged = out.parent / args[args.index("--file") + 1]
+        assert staged.parent != out.parent
+        assert not out.exists()
+        staged.write_bytes(b"dump bytes")
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(authority.subprocess, "run", dump)
+    original_dump = dump
+
+    def changed_source(args, **kwargs):
+        result = original_dump(args, **kwargs)
+        fingerprint.digest = "before"
+        monkeypatch.setattr(
+            authority, "compute_fingerprint", lambda dsn: SimpleNamespace(digest="after"),
+        )
+        return result
+
+    monkeypatch.setattr(authority.subprocess, "run", changed_source)
+    with pytest.raises(authority.ApplicationStateIntegrityError, match="changed during backup"):
+        authority.backup_authority(source_dsn=dsn, out_path=out)
+    assert list(tmp_path.iterdir()) == []
+
+    monkeypatch.setattr(authority, "compute_fingerprint", lambda dsn: fingerprint)
+    monkeypatch.setattr(authority.subprocess, "run", original_dump)
+    link = type(out).hardlink_to
+
+    def fail_second_link(path, target):
+        if path == authority.fingerprint_sidecar_path(out):
+            assert authority.sha256_sidecar_path(out).is_file()
+            raise OSError("synthetic publication failure")
+        link(path, target)
+
+    with monkeypatch.context() as publication:
+        publication.setattr(type(out), "hardlink_to", fail_second_link)
+        with pytest.raises(OSError, match="synthetic publication failure"):
+            authority.backup_authority(source_dsn=dsn, out_path=out)
+    assert list(tmp_path.iterdir()) == []
+
+    record = authority.backup_authority(source_dsn=dsn, out_path=out)
+    assert authority.verify_backup_digest(out) == record.backup_sha256
+    before = {path: path.read_bytes() for path in tmp_path.iterdir()}
+    with pytest.raises(authority.ApplicationStateIntegrityError, match="destination already exists"):
+        authority.backup_authority(source_dsn=dsn, out_path=out)
+    assert {path: path.read_bytes() for path in tmp_path.iterdir()} == before

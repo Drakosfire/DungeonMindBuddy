@@ -31,6 +31,7 @@ import json
 import os
 import shutil
 import subprocess
+import tempfile
 from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from decimal import Decimal
@@ -465,37 +466,52 @@ def backup_authority(*, source_dsn: str, out_path: str | Path) -> BackupRecord:
     out = Path(out_path)
     executable = _require_postgres_client("pg_dump")
     env = _pg_env(source_dsn)
-    before = compute_fingerprint(source_dsn)
-    result = subprocess.run(
-        [
-            executable,
-            "--format=custom",
-            "--no-owner",
-            "--file",
-            str(out),
-            "--dbname",
-            _pg_conninfo(env),
-        ],
-        env=env,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode != 0:
-        raise ApplicationStateUnavailableError(
-            _postgres_client_error("pg_dump", result.stderr, source_dsn)
+    destinations = (sha256_sidecar_path(out), fingerprint_sidecar_path(out), out)
+    if any(path.exists() or path.is_symlink() for path in destinations):
+        raise ApplicationStateIntegrityError("backup destination already exists; choose a fresh output path")
+    with tempfile.TemporaryDirectory(prefix=".app-state-backup-", dir=out.parent) as directory:
+        staged = Path(directory) / out.name
+        before = compute_fingerprint(source_dsn)
+        result = subprocess.run(
+            [
+                executable,
+                "--format=custom",
+                "--no-owner",
+                "--file",
+                str(staged),
+                "--dbname",
+                _pg_conninfo(env),
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
         )
-    after = compute_fingerprint(source_dsn)
-    if before.digest != after.digest:
-        raise ApplicationStateIntegrityError(
-            "source APP-STATE changed during backup; recapture required — "
-            "never claim a stale dump is current authority"
+        if result.returncode != 0:
+            raise ApplicationStateUnavailableError(
+                _postgres_client_error("pg_dump", result.stderr, source_dsn)
+            )
+        after = compute_fingerprint(source_dsn)
+        if before.digest != after.digest:
+            raise ApplicationStateIntegrityError(
+                "source APP-STATE changed during backup; recapture required — "
+                "never claim a stale dump is current authority"
+            )
+        backup_sha = _sha256_file(staged)
+        sha256_sidecar_path(staged).write_text(
+            f"{backup_sha}  {out.name}\n", encoding="utf-8"
         )
-    backup_sha = _sha256_file(out)
-    sha256_sidecar_path(out).write_text(
-        f"{backup_sha}  {out.name}\n", encoding="utf-8"
-    )
-    fingerprint_sidecar_path(out).write_text(before.to_json(), encoding="utf-8")
+        fingerprint_sidecar_path(staged).write_text(before.to_json(), encoding="utf-8")
+        published: list[Path] = []
+        try:
+            # Publish the dump last so the default restore inputs are present first.
+            for path in destinations:
+                path.hardlink_to(staged.parent / path.name)
+                published.append(path)
+        except BaseException:
+            for path in reversed(published):
+                path.unlink()
+            raise
     return BackupRecord(
         backup_path=str(out),
         backup_sha256=backup_sha,
