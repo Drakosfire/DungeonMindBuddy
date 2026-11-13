@@ -233,17 +233,7 @@ def _message_reply_object(row, provenance, conversation):
     return _reply_object_projection(completion,provenance,row['world_id'],conversation,row['turn_id'])
 
 
-def _message_page(conn, world, conversation, limit, before_sequence, *, metadata=False):
-    """Bounded message display; never load execution or a full context receipt."""
-    from . import repository as repo
-    from .authored_reference_preview import SELECT as reference_select, project as reference_preview
-
-    presentation = (""",failure_code,completion,
-        CASE WHEN jsonb_typeof(completion->'saved_source_citations')='array'
-            AND completion->'saved_source_citations'<>'[]'::jsonb
-            THEN graph_context_receipt->'work_context'->'source_basis'
-            ELSE NULL END AS citation_source_basis,
-        CASE WHEN surface_id='build' AND status='completed' THEN (
+_SAVED_STATBLOCK_PREVIEW_SELECT = """CASE WHEN surface_id='build' AND status='completed' THEN (
             SELECT jsonb_agg(jsonb_build_object(
                 'name', event->'definition'->'identity'->'name',
                 'world_id', event->'world_id', 'draft_id', event->'draft_id',
@@ -262,7 +252,20 @@ def _message_page(conn, world, conversation, limit, before_sequence, *, metadata
             FROM jsonb_array_elements(graph_context_execution->'events') AS event
             WHERE event->>'kind'='build_saved_statblock_read_v1'
                 AND event->>'world_id'=t.world_id
-        ) END AS saved_statblocks,
+        ) END AS saved_statblocks"""
+
+
+def _message_page(conn, world, conversation, limit, before_sequence, *, metadata=False):
+    """Bounded message display; never load execution or a full context receipt."""
+    from . import repository as repo
+    from .authored_reference_preview import SELECT as reference_select, project as reference_preview
+
+    presentation = (""",failure_code,completion,
+        CASE WHEN jsonb_typeof(completion->'saved_source_citations')='array'
+            AND completion->'saved_source_citations'<>'[]'::jsonb
+            THEN graph_context_receipt->'work_context'->'source_basis'
+            ELSE NULL END AS citation_source_basis,
+        """ + _SAVED_STATBLOCK_PREVIEW_SELECT + """,
         t.answer_composition_kind, """ + reference_select + ", " + repo._rules_summary_select("t")) if metadata else ""
     rows = conn.execute(
         f"""SELECT turn_id,sequence,status,user_text,assistant_text,idempotency_key,
