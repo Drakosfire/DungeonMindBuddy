@@ -630,6 +630,8 @@ export function WorldGraphCanvas({
   }, [selectedIds, importantNodeIds, positions, index, camera.zoom]);
   const dimensions = nodeDimensions(nodeShape);
   const nodeNames = useMemo(() => new Map(projection.nodes.map((node) => [node.id, node.name])), [projection.nodes]);
+  const edgeLabels = useMemo(() => new Map(projection.edges.map(edge =>
+    [edge, accessibleRelationshipLabel(edge, nodeNames)])), [projection.edges, nodeNames]);
   // Geometry has no camera dependency: pan/zoom only changes the scene transform and detail level.
   const preparedEdges = useMemo(() => prepareEdges(projection.edges), [projection.edges]);
   const persistedEdges = useMemo(() => preparedEdges.map(({ edge, box, index, group }) => ({
@@ -1255,7 +1257,7 @@ export function WorldGraphCanvas({
       }
     }
     return renderedEdges.map(({ edge, geometry }) => {
-      const label = accessibleRelationshipLabel(edge, nodeNames);
+      const label = edgeLabels.get(edge)!;
       const caption = captions.get(edge.id);
       return <g className={`world-graph-canvas__edge${selected(edge) ? " is-selected" : ""}`} key={edge.id} data-edge-id={edge.id} role="img" aria-label={label}
         tabIndex={!fullCorpus || selected(edge) ? 0 : -1}
@@ -1268,7 +1270,7 @@ export function WorldGraphCanvas({
         <title>{label}</title>
       </g>;
     });
-  }, [renderedEdges, nodeNames, markerId, selectedIds, positions, nodeShape, dimensions.width, dimensions.height, fullCorpus, allRelationships, edgeLabelDetail, edgeLabelScale]);
+  }, [renderedEdges, edgeLabels, markerId, selectedIds, positions, nodeShape, dimensions.width, dimensions.height, fullCorpus, allRelationships, edgeLabelDetail, edgeLabelScale]);
 
   const editingTools = (
       <div className="world-graph-canvas__toolbar" aria-label="Graph editing tools">
