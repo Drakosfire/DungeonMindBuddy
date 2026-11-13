@@ -27,6 +27,8 @@ services:
       - type: bind
         source: ${BUDDY_PERSISTENT_ROOT:?set an existing durable host directory}
         target: /var/lib/buddy
+        bind:
+          create_host_path: false
     healthcheck:
       test:
         - CMD
