@@ -4,7 +4,7 @@ Run from the root of the reviewed Buddy checkout on the selected deployment host
 
 ## 1. Prepare the release record
 
-Record the host and SSH alias, release commit, image ID or registry digest, Compose project, host bind port, Nginx virtual host, DNS records, certificate owner, and rollback owner. Record the approved DMS test account and expected World, both database owners and migration heads, and the backup and restore evidence. Keep credentials and session cookies in their designated stores.
+Record the host and SSH alias, release commit, image ID or registry digest, Compose project, host bind port, approved absolute persistent root, Nginx virtual host, DNS records, certificate owner, and rollback owner. Record the approved DMS test account and expected World, both database owners and migration heads, and the backup and restore evidence. Keep credentials and session cookies in their designated stores.
 
 Run the [host inventory](../Plans/RUNBOOK-HOSTED-read-only-host-inventory.md).
 
@@ -130,6 +130,13 @@ Apply only the production migrations confirmed in step 2 through their owning pr
   buddy_container=$("${buddy_compose[@]}" ps -q buddy)
   actual_image=$(docker inspect "$buddy_container" --format '{{.Image}}')
   test "$actual_image" = "$buddy_image_id"
+  read -r -p 'Approved absolute persistent root from the release record: ' approved_root
+  test "${approved_root:0:1}" = /
+  actual_root=$(docker inspect --format '{{range .Mounts}}{{if and (eq .Type "bind") (eq .Destination "/var/lib/buddy")}}{{.Source}}{{end}}{{end}}' "$buddy_container")
+  if [[ "$actual_root" != "$approved_root" ]]; then
+    printf 'Buddy persistent mount mismatch: expected %s, found %s\n' "$approved_root" "$actual_root" >&2
+    exit 1
+  fi
   actual_binding=$("${buddy_compose[@]}" port buddy 8000)
   test "$actual_binding" = "127.0.0.1:$buddy_port"
   buddy_local="http://127.0.0.1:$buddy_port"
