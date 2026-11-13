@@ -266,10 +266,16 @@ def report_case(case, base):
             for name, path in paths.items()}}
 
 
-def report(manifest_path):
+def report(manifest_path, *, oracle=None, citation_readback=None):
     manifest, base = load_manifest(manifest_path)
     rows = [report_case(case, base) for case in manifest["cases"]]
-    return {"schema": "dmb_ordinary_benchmark_report_v1", "cases": rows,
+    if (oracle is None) != (citation_readback is None):
+        raise ValueError("Oracle scoring requires both Gold and citation readback")
+    analytics = {}
+    if oracle is not None:
+        from .retrieval_oracle import score
+        analytics["retrieval_analytics"] = score(oracle, citation_readback, manifest, base)
+    return {**analytics, "schema": "dmb_ordinary_benchmark_report_v1", "cases": rows,
         "limits": ["Semantic dispositions are pinned reviewer judgments, not inferred from HTTP success.",
             "No new calls or database access. Historical failures remain failures.",
             "Billing and missing measurements remain unknown; no estimated price is billed cost."]}
@@ -1035,9 +1041,13 @@ def main(argv=None):
     parser.add_argument("mode", choices=("report", "capture", "capture-context", "writer-prepare", "writer-capture", "context-tasting"))
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--oracle", help="Private Gold JSON for offline report mode")
+    parser.add_argument("--citation-readback", help="Retained excerpt citation readback JSONL")
     args = parser.parse_args(argv)
+    if args.mode != "report" and (args.oracle or args.citation_readback):
+        parser.error("Oracle and citation readback are available only in report mode")
     if args.mode == "report":
-        immutable_save(Path(args.output), "report", report(args.manifest))
+        immutable_save(Path(args.output), "report", report(args.manifest, oracle=args.oracle, citation_readback=args.citation_readback))
     elif args.mode == "capture":
         capture(args.manifest, args.output)
     elif args.mode == "capture-context":
