@@ -730,7 +730,23 @@ function validateAttachmentMembers(
 }
 
 /** Parse and validate a normalized member map. This performs no repository mutation. */
-export async function parseLocalWorldPackageV1(inputMembers: ReadonlyMap<string, Uint8Array>): Promise<ParseLocalWorldPackageV1Result> {
+type PackageValidationResult = { status: "valid" } | Extract<ParseLocalWorldPackageV1Result, { status: "error" }>;
+
+export function parseLocalWorldPackageV1(inputMembers: ReadonlyMap<string, Uint8Array>): Promise<ParseLocalWorldPackageV1Result> {
+  return inspectPackageMembers(inputMembers, "parse");
+}
+
+/** Validate private buffers that the caller will keep unchanged until validation completes. */
+export function validateOwnedLocalWorldPackageV1(members: ReadonlyMap<string, Uint8Array>): Promise<PackageValidationResult> {
+  return inspectPackageMembers(members, "validate");
+}
+
+function inspectPackageMembers(inputMembers: ReadonlyMap<string, Uint8Array>, mode: "parse"): Promise<ParseLocalWorldPackageV1Result>;
+function inspectPackageMembers(inputMembers: ReadonlyMap<string, Uint8Array>, mode: "validate"): Promise<PackageValidationResult>;
+async function inspectPackageMembers(
+  inputMembers: ReadonlyMap<string, Uint8Array>,
+  mode: "parse" | "validate",
+): Promise<ParseLocalWorldPackageV1Result | PackageValidationResult> {
   let capturedEntries: Array<[string, Uint8Array]>;
   try {
     // Preflight advertised count/path/byte bounds before copying any member buffers.
@@ -752,7 +768,9 @@ export async function parseLocalWorldPackageV1(inputMembers: ReadonlyMap<string,
       if (advertisedBytes > LOCAL_WORLD_PACKAGE_V1.limits.totalBytes) fail("limit-exceeded", "Package exceeds the 16 MiB total byte limit.");
     }
     // No await occurred: copy now, so later caller mutation cannot change parsing.
-    capturedEntries = inputEntries.map(([path, bytes]) => [path, new Uint8Array(bytes as Uint8Array)]);
+    capturedEntries = mode === "parse"
+      ? inputEntries.map(([path, bytes]) => [path, new Uint8Array(bytes)])
+      : inputEntries;
   } catch (error) {
     const problem = error instanceof PackageProblem ? error : new PackageProblem("invalid-package", "Package members could not be captured.");
     return { status: "error", code: problem.code, message: problem.message };
@@ -804,6 +822,7 @@ export async function parseLocalWorldPackageV1(inputMembers: ReadonlyMap<string,
       history,
     };
     validateRecord(record);
+    if (mode === "validate") return { status: "valid" };
     return {
       status: "staged",
       candidate: {
