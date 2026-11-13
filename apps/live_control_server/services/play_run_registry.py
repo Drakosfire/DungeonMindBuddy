@@ -583,7 +583,6 @@ def ensure_v2_native_ready(root: Path, run_id: str, *, conflict_depth: int = 0) 
         return record
     try:
         return replace_play_run_progress(
-            root,
             run_id=run_id,
             expected_run_revision=record.run_revision,
             progress=PlayRunProgress(
@@ -823,14 +822,12 @@ def create_or_replay_world_play_run(root: Path, *, world_id: str, run_id: str, r
 
 
 def replace_world_play_run_progress(
-    root: Path,
     *,
     world_id: str,
     run_id: str,
     expected_run_revision: int,
     progress: PlayRunProgress,
 ) -> WorldPlayRunRecord:
-    del root
     from application_state.errors import ApplicationStateError
     from application_state.play.service import replace_world_play_run_progress as replace_progress
 
@@ -883,13 +880,11 @@ def create_or_replay_play_run(
 
 
 def replace_play_run_progress(
-    root: Path,
     *,
     run_id: str,
     expected_run_revision: int,
     progress: PlayRunProgress,
 ) -> PlayRunRecord:
-    del root
     from application_state.errors import ApplicationStateError
     from application_state.play.service import replace_play_run_progress as replace_progress
 

@@ -150,7 +150,6 @@ def put_play_run_progress_route(
 ) -> dict[str, Any]:
     try:
         record = replace_play_run_progress(
-            repo_root(),
             run_id=run_id,
             expected_run_revision=body.expected_run_revision,
             progress=body.progress,
@@ -288,7 +287,6 @@ def put_world_play_run_progress_v2(
 ) -> dict[str, Any]:
     try:
         record = replace_world_play_run_progress(
-            repo_root(),
             world_id=world_id,
             run_id=run_id,
             expected_run_revision=body.expected_run_revision,

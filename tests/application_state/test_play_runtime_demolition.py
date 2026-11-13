@@ -163,7 +163,6 @@ def _exercise_full_play_chain(root: Path) -> dict:
     assert listed == [loaded]
     assert loaded.run_id == created.run_id
     progressed = replace_play_run_progress(
-        root,
         run_id=RUN_ID_A,
         expected_run_revision=created.run_revision,
         progress=gate_progress(),
@@ -271,7 +270,6 @@ def test_hostile_play_sentinel_is_untouched(
     snapshot = create_committed_runbook(tmp_path, name="as5-hostile")
     created = create_run(tmp_path, snapshot)
     replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=created.run_revision,
         progress=gate_progress(),

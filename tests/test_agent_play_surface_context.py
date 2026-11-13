@@ -749,7 +749,7 @@ def _create_real_world_play_context(root: Path, *, kind: str = "plan", historica
         )
         run=WorldPlayRunRecord.model_validate(created['run'])
     run = replace_world_play_run_progress(
-        root, world_id=world.world_id, run_id=run.run_id,
+        world_id=world.world_id, run_id=run.run_id,
         expected_run_revision=run.run_revision,
         progress=PlayRunProgress(current_beat_id="beat:hold-the-gate",
                                  current_scene_id="scene:gate-line",
@@ -796,7 +796,7 @@ def test_real_world_play_pin_survives_plan_edits_and_run_progress(
     assert new_receipt.runbook_content_sha256 == receipt.runbook_content_sha256
     assert new_receipt.runbook_object_revision > receipt.runbook_object_revision
     replace_world_play_run_progress(
-        tmp_path, world_id=world.world_id, run_id=run.run_id,
+        world_id=world.world_id, run_id=run.run_id,
         expected_run_revision=run.run_revision,
         progress=run.progress.model_copy(update={"current_scene_id": None}),
     )
@@ -841,7 +841,7 @@ def test_saved_session_turn_admits_exact_edition_and_scene_note_then_reconstruct
         "notes_by_element_id": {"scene:gate-line": "The eastern lantern is dark."},
     })
     run = replace_world_play_run_progress(
-        tmp_path, world_id=world.world_id, run_id=run.run_id,
+        world_id=world.world_id, run_id=run.run_id,
         expected_run_revision=run.run_revision, progress=with_note,
     )
     current = read_content(run_id=run.run_id, world_id=world.world_id)
@@ -903,7 +903,7 @@ def test_saved_session_turn_admits_exact_edition_and_scene_note_then_reconstruct
             run_revision=run.run_revision, content_basis=basis,
         )
     changed = replace_world_play_run_progress(
-        tmp_path, world_id=world.world_id, run_id=run.run_id,
+        world_id=world.world_id, run_id=run.run_id,
         expected_run_revision=run.run_revision,
         progress=run.progress.model_copy(update={
             "notes_by_element_id": {"scene:gate-line": "A later note."},
@@ -960,7 +960,7 @@ def test_revision_zero_history_uses_original_pin_after_run_rebase(
     assert application_state_dsn
     world, obj, _revision, run = _create_real_world_play_context(tmp_path, kind="runbook", historical_session=True)
     run = replace_world_play_run_progress(
-        tmp_path, world_id=world.world_id, run_id=run.run_id,
+        world_id=world.world_id, run_id=run.run_id,
         expected_run_revision=run.run_revision,
         progress=run.progress.model_copy(update={
             "notes_by_element_id": {"scene:gate-line": "Note before the first edit."},

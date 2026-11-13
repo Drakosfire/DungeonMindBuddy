@@ -152,7 +152,6 @@ def test_progress_cas_one_winner_exact_retry_and_stale_conflict(
         try:
             results.append(
                 replace_play_run_progress(
-                    tmp_path,
                     run_id=RUN_ID_A,
                     expected_run_revision=1,
                     progress=progress,
@@ -176,7 +175,6 @@ def test_progress_cas_one_winner_exact_retry_and_stale_conflict(
     winner = results[0]
     assert winner.run_revision == 2
     retry = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=winner.progress,
@@ -184,7 +182,6 @@ def test_progress_cas_one_winner_exact_retry_and_stale_conflict(
     assert retry == winner
     with pytest.raises(PlayRunRegistryError) as stale:
         replace_play_run_progress(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=1,
             progress=empty_progress(),
@@ -208,7 +205,6 @@ def test_file_absence_progress_and_rebase_still_work(
     target = playable_of(get_workspace_document_snapshot(tmp_path, snapshot.record.document_id))
     with hidden_legacy_runtime_dirs(tmp_path):
         updated = replace_play_run_progress(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=later.run_revision,
             progress=empty_progress(),
@@ -228,7 +224,6 @@ def test_get_and_list_reject_corrupt_persisted_progress(
 ) -> None:
     create_run(tmp_path, create_committed_runbook(tmp_path))
     replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=gate_progress(),
@@ -255,7 +250,6 @@ def test_progress_write_does_not_repair_corrupt_stored_progress(
 ) -> None:
     create_run(tmp_path, create_committed_runbook(tmp_path))
     replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=gate_progress(),
@@ -272,7 +266,6 @@ def test_progress_write_does_not_repair_corrupt_stored_progress(
         before = fetch_play_runtime_state(application_state_dsn, RUN_ID_A)
         with pytest.raises(PlayRunRegistryError) as exc_info:
             replace_play_run_progress(
-                tmp_path,
                 run_id=RUN_ID_A,
                 expected_run_revision=before["run"]["run_revision"],
                 progress=gate_progress(),
@@ -336,7 +329,6 @@ def test_play_runtime_latency_samples(
     def cas() -> None:
         current = get_play_run(RUN_ID_A)
         replace_play_run_progress(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=current.run_revision,
             progress=gate_progress().model_copy(
@@ -345,7 +337,6 @@ def test_play_runtime_latency_samples(
         )
 
     replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=durable.run_revision,
         progress=gate_progress(),
@@ -416,7 +407,6 @@ def test_v2_empty_progress_seed_persists_first_spine_from_document_order(
     opening = derive_v2_opening_beat_id(snapshot.markdown)
     assert opening == "beat:z-opening"
     seeded = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_v2_seed_progress(opening),
@@ -437,7 +427,6 @@ def test_v2_no_spine_seeds_first_beat(tmp_path: Path) -> None:
     opening = derive_v2_opening_beat_id(snapshot.markdown)
     assert opening == "beat:optional-first"
     seeded = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_v2_seed_progress(opening),
@@ -459,7 +448,6 @@ def test_v2_historical_revision_remains_authority_after_newer_commit(
     created = create_run(tmp_path, snapshot)
     opening = derive_v2_opening_beat_id(snapshot.markdown)
     seeded = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_v2_seed_progress(opening),
@@ -483,14 +471,12 @@ def test_v2_stale_cas_cannot_overwrite_newer_position(tmp_path: Path) -> None:
     )
     create_run(tmp_path, snapshot)
     first = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=_v2_seed_progress("beat:z-opening"),
     )
     with pytest.raises(PlayRunRegistryError) as exc_info:
         replace_play_run_progress(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=1,
             progress=_v2_seed_progress("beat:a-later"),
@@ -510,7 +496,6 @@ def test_v2_equivalent_first_seeds_converge(tmp_path: Path) -> None:
     def worker() -> None:
         try:
             replace_play_run_progress(
-                tmp_path,
                 run_id=RUN_ID_A,
                 expected_run_revision=1,
                 progress=progress,
@@ -537,7 +522,6 @@ def test_v2_reread_preserves_exact_current_beat_and_scene(tmp_path: Path) -> Non
     )
     create_run(tmp_path, snapshot)
     persisted = replace_play_run_progress(
-        tmp_path,
         run_id=RUN_ID_A,
         expected_run_revision=1,
         progress=PlayRunProgress(
@@ -598,7 +582,6 @@ def test_v2_native_first_admission_seeds_after_pinned_preflight(
     assert replayed.progress.current_beat_id == "beat:z-opening"
     with pytest.raises(PlayRunRegistryError) as exc_info:
         replace_play_run_progress(
-            tmp_path,
             run_id=RUN_ID_A,
             expected_run_revision=seeded.run_revision,
             progress=empty_play_run_progress(),
