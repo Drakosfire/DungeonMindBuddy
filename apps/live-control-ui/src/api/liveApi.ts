@@ -104,10 +104,6 @@ import type {
   GraphReviewExistingObjectResolverResponse,
   GraphObjectAuthoringCommitRequest,
   GraphObjectAuthoringCommitResponse,
-  GraphMergeReconciliationApplyRequest,
-  GraphMergeReconciliationApplyResponse,
-  GraphMergeReconciliationPrepareRequest,
-  GraphMergeReconciliationPrepareResponse,
   GraphObjectAuthoringPrepareRequest,
   GraphObjectAuthoringPrepareResponse,
   GoldReviewCompareResponse,
@@ -1690,24 +1686,6 @@ export async function commitGraphObjectAuthoringWrite(
 ): Promise<GraphObjectAuthoringCommitResponse> {
   return apiFetch<GraphObjectAuthoringCommitResponse>(
     "/api/live/graph-authoring/commit",
-    { method: "POST", body: JSON.stringify(request) },
-  );
-}
-
-export async function prepareGraphMergeReconciliationMaterialization(
-  request: GraphMergeReconciliationPrepareRequest,
-): Promise<GraphMergeReconciliationPrepareResponse> {
-  return apiFetch<GraphMergeReconciliationPrepareResponse>(
-    "/api/live/graph-authoring/merge-reconciliation/prepare",
-    { method: "POST", body: JSON.stringify(request) },
-  );
-}
-
-export async function applyGraphMergeReconciliationMaterialization(
-  request: GraphMergeReconciliationApplyRequest,
-): Promise<GraphMergeReconciliationApplyResponse> {
-  return apiFetch<GraphMergeReconciliationApplyResponse>(
-    "/api/live/graph-authoring/merge-reconciliation/apply",
     { method: "POST", body: JSON.stringify(request) },
   );
 }
