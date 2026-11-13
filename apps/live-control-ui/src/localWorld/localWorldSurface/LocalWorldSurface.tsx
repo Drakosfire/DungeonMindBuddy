@@ -1,5 +1,5 @@
 import { downloadBlob } from "../../shared/downloadBlob";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
 import { usePublishSurfaceInteraction } from "../../agentInteraction/usePublishSurfaceInteraction";
 import { buildSurfaceInteractionIdentity } from "../../surfaceInteraction/surfaceIdentity";
@@ -11,7 +11,9 @@ import type { WorldGraphEditorDraft, WorldGraphEditorDraftField } from "../world
 import { LocalWorldNotesEditor } from "./LocalWorldNotesEditor";
 import "./localWorldSurface.css";
 
-const WorldGraphCanvas = lazy(() => import("../worldGraphCanvas/WorldGraphCanvas").then((module) => ({ default: module.WorldGraphCanvas })));
+import { deferredComponent } from "../../ui/deferredComponent";
+
+const WorldGraphCanvas = deferredComponent(() => import("../worldGraphCanvas/WorldGraphCanvas").then((module) => ({ default: module.WorldGraphCanvas })), "local graph editor");
 
 // Keep unsaved title candidates while App routes/components remount in this tab.
 // This is deliberately volatile presentation state, not a second durable ledger.
@@ -808,7 +810,6 @@ export function LocalWorldSurface({
               const canvasRecord = active ? record! : sessionRecord;
               const generation = operationGeneration.current;
               return <div className="local-world-surface__graph-session" key={sessionRecord.snapshot.worldId} hidden={!active} aria-hidden={!active}>
-                <Suspense fallback={<p className="local-world-surface__graph-loading" role="status">Opening the local graph editor…</p>}>
                   <WorldGraphCanvas
                     key={sessionRecord.snapshot.worldId}
                     record={canvasRecord}
@@ -822,7 +823,6 @@ export function LocalWorldSurface({
                     onSemanticResult={(result) => applyGraphSemanticResult(sessionRecord.snapshot.worldId, generation, result)}
                     onLayoutResult={(result) => applyGraphLayoutResult(sessionRecord.snapshot.worldId, generation, result)}
                   />
-                </Suspense>
               </div>;
             }) : null}
             {record ? <LocalWorldNotesEditor
