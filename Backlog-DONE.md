@@ -21,7 +21,7 @@ Duplicate of **Check design-agent upload bundle freshness against canonical sour
 
 ## [DROPPED] Update the recap normalization index convention link
 
-Duplicate of **Repair recap documentation links after file moves** in [Backlog.md](Backlog.md).
+Duplicate of [Repair recap documentation links after file moves](#done-repair-recap-documentation-links-after-file-moves).
 
 ## [DONE] Explain unreadable local verifier test reports
 
