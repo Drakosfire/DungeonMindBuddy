@@ -3,6 +3,21 @@
 Companion plan: `Docs/Plans/EXPERIMENT-Sentence-Routing-Retrieval-Falsification.md`
 Operational guardrails: `Docs/Plans/GUARDRAILS-Sentence-Grounded-Ingestion-Vision.md`
 
+## Quick start
+
+From the Buddy repository root, run the deterministic capture and fixture-backed
+routing checks. Both commands use `gold/scenario_mini.json` by default. They
+require the Buddy Python environment and leave run artifacts untouched.
+
+```bash
+uv run python -m evals.sentence_routing_retrieval_falsification.step1_capture_run --no-writes
+uv run python -m evals.sentence_routing_retrieval_falsification.step2_route_run --no-llm --no-writes
+```
+
+Use the [pipeline reference](#pipeline-steps-read-this-first) for model runs,
+cohorts, and output names. The [breadcrumb ablation guide](BREADCRUMB_QUERY_ABLATIONS.md)
+covers retrieval comparisons.
+
 ## Pipeline steps (read this first)
 
 **Explicit names** (what each step is for) and **legacy letter labels** (still used in filenames and JSON keys for compatibility):
