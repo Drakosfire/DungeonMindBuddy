@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TextIO
 
-from scripts.materialize_normalized_recaps import (
+from src.live_play.normalized_recaps import (
     _build_normalized_content,
     _clean_body,
     _extract_recap_raw,
