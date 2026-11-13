@@ -57,7 +57,7 @@ interface NodeInteractionHandlers {
 }
 
 // A selection changes only the affected bubbles, not all loaded SVG labels.
-const GraphBubble = memo(function GraphBubble({ node, position, selected, isConnectTarget, nodeShape, fullCorpus, canConnect, handlersRef, suppressClickRef, typeStyles }: {
+const GraphBubble = memo(function GraphBubble({ node, position, selected, isConnectTarget, nodeShape, fullCorpus, showLabels, canConnect, handlersRef, suppressClickRef, typeStyles }: {
   node: ProjectedGraphNode;
   typeStyles: GraphTypeStyleRegistry;
   position: { x: number; y: number };
@@ -65,10 +65,13 @@ const GraphBubble = memo(function GraphBubble({ node, position, selected, isConn
   isConnectTarget: boolean;
   nodeShape: NodeShape;
   fullCorpus: boolean;
+  showLabels: boolean;
   canConnect: boolean;
   handlersRef: RefObject<NodeInteractionHandlers>;
   suppressClickRef: RefObject<LocalObjectId | null>;
 }) {
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
   const radius = fullCorpus ? graphBubbleRadius(node.relationshipCount) : CIRCLE_RADIUS;
   const names = recordedNames(node);
   const description = `${node.name}, ${node.kind}${fullCorpus ? `, ${node.relationshipCount} relationships in loaded snapshot` : ""}${names.length ? `. Recorded names: ${names.join("; ")}` : ""}`;
@@ -84,6 +87,10 @@ const GraphBubble = memo(function GraphBubble({ node, position, selected, isConn
       aria-label={`${node.name}, ${node.kind}`}
       aria-description={description}
       data-node-id={node.id}
+      onPointerEnter={fullCorpus && nodeShape === "circle" ? () => setHovered(true) : undefined}
+      onPointerLeave={fullCorpus && nodeShape === "circle" ? () => setHovered(false) : undefined}
+      onFocus={fullCorpus && nodeShape === "circle" ? () => setFocused(true) : undefined}
+      onBlur={fullCorpus && nodeShape === "circle" ? () => setFocused(false) : undefined}
       onClick={() => {
         if (suppressClickRef.current === node.id) { suppressClickRef.current = null; return; }
         handlersRef.current.selectNode(node.id);
@@ -94,10 +101,12 @@ const GraphBubble = memo(function GraphBubble({ node, position, selected, isConn
       <title>{description}</title>
       {nodeShape === "circle" ? <>
         <circle className="world-graph-canvas__node-circle" cx={CIRCLE_RADIUS} cy={CIRCLE_RADIUS} r={radius} />
-        <text className="world-graph-canvas__node-kind" style={fullCorpus ? { fontSize: Math.min(11, Math.max(8, radius * 0.25)) } : undefined} x={CIRCLE_RADIUS} y={CIRCLE_RADIUS - 5} textAnchor="middle">{shortLabel(node.kind, Math.max(7, Math.floor(radius / 3.4)))}</text>
-        <text className="world-graph-canvas__node-name" style={fullCorpus ? { fontSize: Math.min(15, Math.max(9, radius * 0.35)) } : undefined} x={CIRCLE_RADIUS} y={CIRCLE_RADIUS + 17} textAnchor="middle">
-          {shortLabel(node.name, Math.max(7, Math.floor(radius / 4)))}
-        </text>
+        {(showLabels || selected || hovered || focused) && <>
+          <text className="world-graph-canvas__node-kind" style={fullCorpus ? { fontSize: Math.min(11, Math.max(8, radius * 0.25)) } : undefined} x={CIRCLE_RADIUS} y={CIRCLE_RADIUS - 5} textAnchor="middle">{shortLabel(node.kind, Math.max(7, Math.floor(radius / 3.4)))}</text>
+          <text className="world-graph-canvas__node-name" style={fullCorpus ? { fontSize: Math.min(15, Math.max(9, radius * 0.35)) } : undefined} x={CIRCLE_RADIUS} y={CIRCLE_RADIUS + 17} textAnchor="middle">
+            {shortLabel(node.name, Math.max(7, Math.floor(radius / 4)))}
+          </text>
+        </>}
       </> : <>
         <rect width={NODE_WIDTH} height={NODE_HEIGHT} rx="12" />
         <text className="world-graph-canvas__node-kind" x="14" y="22">{node.kind}</text>
@@ -1279,11 +1288,13 @@ export function WorldGraphCanvas({
 
   const handlersRef = useRef({ selectNode, onNodeKeyDown, beginGesture, beginConnectGesture });
   handlersRef.current = { selectNode, onNodeKeyDown, beginGesture, beginConnectGesture };
+  const initialFitReady = !preserveCameraOnResize || initialFitWorldRef.current === record.snapshot.worldId;
+  const showLabels = !fullCorpus || Boolean(focusedLayoutId) || (initialFitReady && camera.zoom >= .45);
   const nodeLayer = useMemo(() => projection.nodes.map((node) => <GraphBubble
     key={node.id} node={node} typeStyles={typeStyles} position={positions.get(node.id)!} selected={selectedIds.includes(node.id)}
     isConnectTarget={connectPreview !== null && connectTargetId === node.id} nodeShape={nodeShape}
-    fullCorpus={fullCorpus} canConnect={Boolean(onConnectRequest)} handlersRef={handlersRef} suppressClickRef={suppressClickRef} />),
-    [typeStyles, projection.nodes, selectedIds, positions, connectPreview !== null, connectTargetId, nodeShape, fullCorpus, Boolean(onConnectRequest)]);
+    fullCorpus={fullCorpus} showLabels={showLabels} canConnect={Boolean(onConnectRequest)} handlersRef={handlersRef} suppressClickRef={suppressClickRef} />),
+    [typeStyles, projection.nodes, selectedIds, positions, connectPreview !== null, connectTargetId, nodeShape, fullCorpus, showLabels, Boolean(onConnectRequest)]);
   const edgeLabelDetail = focusedLayoutId || !fullCorpus || camera.zoom >= .9 ? "all" : camera.zoom >= .45 ? "selected" : "none";
   const edgeLabelScale = focusedLayoutId ? Math.min(2.5, Math.max(1, 1 / camera.zoom)) : 1;
   const edgeLayer = useMemo(() => {
