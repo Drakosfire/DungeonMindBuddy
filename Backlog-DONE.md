@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Repair the Plans directory index links
+
+Repaired ten stale relative links to the relocated guides, designs, archived experiment documents, naming convention, and entity audit data. Verified all relative link targets resolve in the checkout.
+
 ## [DONE] Restore the historical Of Conks evidence link in the stewardship handoff
 
 Pinned the [Of Conks evidence ledger](https://github.com/Drakosfire/DungeonMindBuddy/blob/b40d893f58f4aeeb0de605b7b13a3b18389a0908/Docs/Reports/REPORT-of-conks-end-to-end-dogfood.md) to the historical in-progress revision. GitHub resolved the report at that commit.
