@@ -2348,32 +2348,61 @@ def _pdf_review_creature_draft_id(world_id: str, review_id: UUID) -> UUID:
 
 @router.get("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}/publication")
 def get_pdf_statblock_publication(world_id: str, review_id: UUID, request: Request):
+    from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
     from application_state.pdf_statblock_review import read_review
     from application_state.world_mechanics.service import list_current
-
+    from apps.live_control_server.routes.statblock_storage import statblock_data_root
     from apps.live_control_server.services import native_threat_creation as creature
+    from apps.live_control_server.services.statblock_saved_revision import resolve_saved_source
 
     enforce_native_graph_gm(request)
     world_id = _verified_world_id(world_id)
-    if read_review(world_id=world_id, review_id=review_id) is None:
+    review = read_review(world_id=world_id, review_id=review_id)
+    if review is None:
         raise HTTPException(status_code=404, detail={"code": "pdf_statblock_review_not_found"})
-    draft_id = _pdf_review_creature_draft_id(world_id, review_id)
+    expected_draft = _pdf_review_creature_draft_id(world_id, review_id)
     bound = creature.native.binding(world_id)
-    prior = creature.existing(creature.native.read_repository(), bound, draft_id)
-    if prior is None:
-        return None
-    published = creature.published(bound, draft_id, prior, replayed=True)
+    repository = creature.native.read_repository()
     associations = [
         association for association in list_current(world_id=world_id)
-        if str(association.request.draft_id) == str(draft_id)
-        and association.request.target.campaign_scope is None
-        and association.request.target.node_id == published["node_id"]
-        and association.request.target.native_world_id == published["native_world_id"]
-        and association.request.target.binding_version == published["binding_version"]
+        if association.request.target.campaign_scope is None
+        and association.request.target.native_world_id == bound["native_world_id"]
+        and association.request.target.binding_version == bound["binding_version"]
     ]
-    if len(associations) != 1 or creature.native.binding(world_id) != bound:
-        return None
-    return {"draft_id": draft_id, "revision_id": associations[0].proof.locator.revision_id}
+
+    def find_publication(candidates, *, require_review_proof):
+        matches = []
+        for association in candidates:
+            draft_id = UUID(str(association.request.draft_id))
+            prior = creature.existing(repository, bound, draft_id)
+            if prior is None:
+                continue
+            published = creature.published(bound, draft_id, prior, replayed=True)
+            if association.request.target.node_id != published["node_id"]:
+                continue
+            locator = association.proof.locator
+            if require_review_proof:
+                *_, exact = resolve_saved_source(
+                    statblock_data_root(repo_root()), world_id=world_id,
+                    draft_id=str(draft_id), locator=locator,
+                )
+                through = (exact.provenance or {}).get("accepted_through") or {}
+                proof = through.get(PDF_REVIEW_PROVENANCE) or {}
+                if proof.get("world_id") != world_id or proof.get("review_id") != str(review_id):
+                    continue
+            matches.append({"draft_id": draft_id, "revision_id": locator.revision_id})
+        return matches
+
+    matches = find_publication(
+        (item for item in associations if str(item.request.draft_id) == str(expected_draft)),
+        require_review_proof=False,
+    )
+    if not matches:
+        matches = find_publication(
+            (item for item in associations if str(item.request.draft_id) != str(expected_draft)),
+            require_review_proof=True,
+        )
+    return matches[0] if len(matches) == 1 and creature.native.binding(world_id) == bound else None
 
 
 @router.post("/worlds/{world_id}/build-pdf-sources/statblock-reviews/{review_id}/creature-draft")
