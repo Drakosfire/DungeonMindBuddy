@@ -1333,13 +1333,19 @@ def test_hosted_owner_opens_exact_admitted_source_span(hosted):
         lane.bound["native_world_id"], "fixture", (
             wk.CreateObject("fixture", (
                 wk.CreateFact("name", "dnd5e:name", wk.LiteralFactValue("Fixture"), meta),
+                wk.CreateFact("classification", "dnd5e:classification", wk.TermRefFactValue("dungeonbuddy:event"), meta),
             )),
         ),
     )
     result = runtime.commit_prepared_change(runtime.prepare_change(intent), confirmed_by="local_operator")
     body = _inspection_payload(hosted)
+    chronology = hosted.client.request(
+        "POST", INSPECTION, json={**body, "selection": {"kind": "chronology"}},
+    )
+    assert chronology.status_code == 200, chronology.text
+    assert any(row["predicate"] == "dnd5e:name" for row in chronology.json()["assertions"])
     body["selection"] = {
-        "kind": "source", "assertion_id": result.assertion_results[0].durable_assertion_id,
+        "kind": "source", "assertion_id": next(row.durable_assertion_id for row in result.assertion_results if row.client_op_id == "name"),
         "evidence_ref_id": evidence_id,
     }
     response = hosted.client.request("POST", INSPECTION, json=body)
