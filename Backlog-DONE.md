@@ -11,6 +11,8 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Document who restarts Buddy after a host reboot. The [deployment runbook](Docs/Runbooks/RUNBOOK-buddy-production-deployment.md#hand-off-restart-ownership) requires the owner and mechanism to be recorded, verifies that any existing service unit uses the saved release configuration, and specifies the isolated recovery checks. Target-host ownership and rehearsal remain with the release operator.
+
 - Link production restore gates to owned procedures. The [deployment runbook](Docs/Runbooks/RUNBOOK-buddy-production-deployment.md#2-verify-both-databases-and-restore-evidence) links the application-state recovery procedure and requires named owners, approved procedure references, a consistent backup set, and isolated restore evidence for WorldGraph and associated files. The approved host procedures and restore results remain under **Verify owned WorldGraph and file restores for the approved backup set**.
 
 - Bound disk usage from superseded Buddy releases. The [deployment runbook](Docs/Runbooks/RUNBOOK-buddy-production-deployment.md) inventories release tags and guards removal. Five recorded shell fixtures rejected the serving ID, rollback ID, a container-referenced image, and a malformed tag, and admitted the eligible retired tag. Actual removal and disk measurement remain with the release operator.
