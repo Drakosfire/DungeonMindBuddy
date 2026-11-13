@@ -13,7 +13,7 @@ def test_manifest():
     assert m['source_fixture_id']=='graph-memory:session-23-recap-ingest:v0'
     for k in ('source_manifest_path','source_span_seed_refs_path','candidate_graph_gold_path'):
         assert not Path(m[k]).is_absolute() and '..' not in Path(m[k]).parts
-    assert m['candidate_graph_gold_path']==GOLD_GRAPH_PATH
+    assert m['candidate_graph_gold_path']== LEGACY_GOLD_GRAPH_PATH
     assert all(v is False for k,v in m['diagnostics'].items() if k!='manual_gold_fixture')
 
 
