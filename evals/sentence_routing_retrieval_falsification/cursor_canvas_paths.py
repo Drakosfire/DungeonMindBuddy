@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 
 def _repo_root_from_eval_file() -> Path:
@@ -82,3 +83,36 @@ def replace_generated_block(
     if stop < start:
         raise ValueError("Generated block end marker precedes its begin marker")
     return text[:start] + block + text[stop + len(end):]
+
+
+def patch_candidate_canvas_paths(
+    block: str, paths: list[Path], *, begin: str, end: str
+) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for canvas_path in paths:
+        p = canvas_path.expanduser().resolve()
+        try:
+            ensure_canvas_file_for_patch(p)
+            text = p.read_text(encoding="utf-8")
+        except OSError as exc:
+            out.append({"path": str(p), "error": f"{type(exc).__name__}: {exc}"})
+            continue
+        if begin not in text or end not in text:
+            out.append(
+                {
+                    "path": str(p),
+                    "error": f"ValueError: Canvas must contain {begin!r} and {end!r}",
+                }
+            )
+            continue
+        pre, rest = text.split(begin, 1)
+        _mid, post = rest.split(end, 1)
+        if post.startswith("\n\n"):
+            post = post[1:]
+        new_text = pre + block + post
+        if new_text != text:
+            p.write_text(new_text, encoding="utf-8")
+            out.append({"canvas_updated": str(p)})
+        else:
+            out.append({"canvas_unchanged": str(p)})
+    return out

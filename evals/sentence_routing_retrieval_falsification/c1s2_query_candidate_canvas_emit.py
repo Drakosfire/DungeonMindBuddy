@@ -20,7 +20,7 @@ from typing import Any
 
 from evals.sentence_routing_retrieval_falsification.cursor_canvas_paths import (
     default_cursor_canvas_path,
-    ensure_canvas_file_for_patch,
+    patch_candidate_canvas_paths,
 )
 
 BLOCK_BEGIN = "// BEGIN GENERATED C1S2_CANDIDATE_DETAIL"
@@ -54,34 +54,7 @@ def build_c1s2_candidate_canvas_block(candidates_doc: dict[str, Any]) -> str:
 
 
 def patch_c1s2_candidate_canvas_paths(block: str, paths: list[Path]) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
-    for canvas_path in paths:
-        p = canvas_path.expanduser().resolve()
-        try:
-            ensure_canvas_file_for_patch(p)
-            text = p.read_text(encoding="utf-8")
-        except OSError as exc:
-            out.append({"path": str(p), "error": f"{type(exc).__name__}: {exc}"})
-            continue
-        if BLOCK_BEGIN not in text or BLOCK_END not in text:
-            out.append(
-                {
-                    "path": str(p),
-                    "error": f"ValueError: Canvas must contain {BLOCK_BEGIN!r} and {BLOCK_END!r}",
-                }
-            )
-            continue
-        pre, rest = text.split(BLOCK_BEGIN, 1)
-        _mid, post = rest.split(BLOCK_END, 1)
-        if post.startswith("\n\n"):
-            post = post[1:]
-        new_text = pre + block + post
-        if new_text != text:
-            p.write_text(new_text, encoding="utf-8")
-            out.append({"canvas_updated": str(p)})
-        else:
-            out.append({"canvas_unchanged": str(p)})
-    return out
+    return patch_candidate_canvas_paths(block, paths, begin=BLOCK_BEGIN, end=BLOCK_END)
 
 
 def refresh_c1s2_candidate_canvases(
