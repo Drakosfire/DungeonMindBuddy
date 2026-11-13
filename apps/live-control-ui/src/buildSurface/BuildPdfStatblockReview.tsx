@@ -372,13 +372,14 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     const abort = new AbortController();
     const timer = window.setTimeout(async () => {
       try {
-        const { response } = await authenticatedApiFetch(sourcePath + "/statblock:validate", {
+        const { response } = await authenticatedApiFetch("/api/live/statblock-definitions:validate", {
           method: "POST",
           signal: abort.signal,
-          body: JSON.stringify({ definition: editor.workingCopy, regions: review.regions }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ definition: editor.workingCopy }),
         });
         if (!response.ok) return;
-        const { validation: result } = await response.json();
+        const result = await response.json();
         if (!abort.signal.aborted && result?.outcome === "success" && result.validation_receipt) {
           setIssues(result.validation_receipt.issues ?? []);
         }
@@ -390,7 +391,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       window.clearTimeout(timer);
       abort.abort();
     };
-  }, [editor, review, sourcePath, published, pending]);
+  }, [editor, review, published, pending]);
 
   const publishBlockers = editor && review ? [
     ...(getLocalFingerprint(editor) !== editor.baselineFingerprint ? ["Save your edits."] : []),
@@ -442,6 +443,8 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
           key: "walk", mode: "walk" as const, distance: { unit: "feet" as const, value: Number(speed) },
         }] } })));
         setSaved(false);
+        setIssues([]);
+        setValidation("");
       }}>
         <p>Movement is unspecified. You can publish with movement unspecified.</p>
         <label>Walking speed (feet)
