@@ -39,6 +39,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from evals.sentence_routing_retrieval_falsification.cursor_canvas_paths import replace_generated_block
+
 from evals.sentence_routing_retrieval_falsification.cursor_canvas_paths import (
     default_cursor_canvas_path,
     ensure_canvas_file_for_patch,
@@ -1039,16 +1041,9 @@ def render_generated_block(payload: dict[str, Any]) -> str:
 
 
 def update_canvas_text(canvas_text: str, generated_block: str) -> str:
-    """Replace the generated block region in ``canvas_text`` with ``generated_block``."""
-    if CANVAS_BLOCK_BEGIN not in canvas_text or CANVAS_BLOCK_END not in canvas_text:
-        raise ValueError(
-            "canvas is missing the generated-block markers "
-            f"({CANVAS_BLOCK_BEGIN!r} / {CANVAS_BLOCK_END!r}); "
-            "insert them once around the canvasData declaration and rerun."
-        )
-    start = canvas_text.index(CANVAS_BLOCK_BEGIN)
-    end = canvas_text.index(CANVAS_BLOCK_END, start) + len(CANVAS_BLOCK_END)
-    return canvas_text[:start] + generated_block + canvas_text[end:]
+    return replace_generated_block(
+        canvas_text, generated_block, begin=CANVAS_BLOCK_BEGIN, end=CANVAS_BLOCK_END
+    )
 
 
 # ---------------------------------------------------------------------------
