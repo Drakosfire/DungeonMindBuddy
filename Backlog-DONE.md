@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Retire or re-anchor two legacy Graph projection dogfood runners
+
+[PR #2745](https://github.com/Drakosfire/DungeonMindBuddy/pull/2745) removed the two runners that imported the retired adapter. Historical references point to the pinned revision containing both runners and their adapter. The caller scan found only pinned links and test inventory passed. The generated output directory conventions and captured fixtures were preserved for the other consumers named in the audit.
+
 ## [DONE] Move developer tooling out of the production Python environment
 
 [#2735](https://github.com/Drakosfire/DungeonMindBuddy/pull/2735) moved pytest, pytest-cov, and Ruff to the default dev group. Image size fell from 504,139,064 to 471,742,157 bytes. The candidate passed application-state migration and schema checks, hosted liveness and SPA asset checks, and signed-out HTTP 401.
