@@ -52,9 +52,10 @@ export function hasRecognizablePdfStatblockStructure(text: string): boolean {
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   const armor = Array.from(text.matchAll(/^[ \t]*Armor Class[ \t]*:?[ \t]*\d/gim));
   const hp = Array.from(text.matchAll(/^[ \t]*Hit Points[ \t]*:?[ \t]*\d/gim));
+  const armorIndex = lines.findIndex(line => /^Armor Class\s*:?[ \t]*\d/i.test(line));
   const creatureType = /^(\w+)\b.+,\s*[^,]+$/i;
   const sizes = ["tiny", "small", "medium", "large", "huge", "gargantuan"];
-  const typeLineIndices = lines.flatMap((line, index) => {
+  const typeLineIndices = lines.slice(0, Math.max(0, armorIndex)).flatMap((line, index) => {
     const size = creatureType.exec(line)?.[1].toLowerCase();
     if (!size) return [];
     return sizes.some(expected => expected.length === size.length &&
@@ -62,7 +63,6 @@ export function hasRecognizablePdfStatblockStructure(text: string): boolean {
       ? [index] : [];
   });
   const typeLineIndex = typeLineIndices.length === 1 ? typeLineIndices[0] : -1;
-  const armorIndex = lines.findIndex(line => /^Armor Class\s*:?[ \t]*\d/i.test(line));
   const hpIndex = lines.findIndex(line => /^Hit Points\s*:?[ \t]*\d/i.test(line));
   const abilityIndex = lines.findIndex(line => /^STR\s+DEX\s+CON\s+INT\s+WIS\s+CHA$/i.test(line));
 

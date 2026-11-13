@@ -142,5 +142,6 @@ it("does not offer a statblock preview for a captured name table", () => {
 it("recognizes a single OCR substitution in size when the mechanics agree", () => {
   const text = "Example tree\nHuqe plant, unaligned\nArmor Class 11\nHit Points 39\nSTR DEX CON INT WIS CHA\n17 9 15 7 10 10";
   expect(hasRecognizablePdfStatblockStructure(text)).toBe(true);
+  expect(hasRecognizablePdfStatblockStructure(text + "\nSmell the flowers, then move away.")).toBe(true);
   expect(hasRecognizablePdfStatblockStructure(text.replace("Hit Points 39\n", ""))).toBe(false);
 });
