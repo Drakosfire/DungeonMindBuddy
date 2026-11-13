@@ -254,8 +254,11 @@ describe("managed native graph API", () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
     await expect(client.api.inspectNode?.(graph, "entity:lina")).rejects.toMatchObject({ code: "invalid_managed_world_response" });
     expect(calls).toHaveLength(1);
-    (graph.nodes as Array<{ id: string; name: string; kind: string }>).push({ id: "entity:altered", name: "Altered", kind: "person" });
-    await expect(client.api.inspectNode?.(graph, "entity:lina")).rejects.toMatchObject({ code: "invalid_managed_world_response" });
+    expect(Object.isFrozen(graph.nodes[0])).toBe(true);
+    expect(() => {
+      (graph.nodes as Array<{ id: string; name: string; kind: string }>).push({ id: "entity:altered", name: "Altered", kind: "person" });
+    }).toThrow(TypeError);
+    expect(graph.nodes.map(node => node.id)).toEqual(["entity:lina"]);
     expect(calls).toHaveLength(1);
   });
 
