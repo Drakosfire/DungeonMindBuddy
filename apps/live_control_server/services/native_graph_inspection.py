@@ -7,11 +7,9 @@ from dungeonmind.application.vnext import (
     EvidenceReadService,
     open_admitted_native_text,
 )
-from dungeonmind.application.vnext.native_pdf_access import open_native_pdf_region
-from dungeonmind.contracts.vnext.pdf_region import NativePdfRegionV1
 from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import _repository
-from apps.live_control_server.services.build_pdf_region_render import render_region
 from fastapi.encoders import jsonable_encoder
+from apps.live_control_server.services.native_pdf_evidence import render_admitted_pdf_evidence
 from apps.live_control_server.integrations.dungeonmind import (
     native_registry_source as native,
 )
@@ -109,19 +107,9 @@ def inspect(request, principal):
     evidence = access.parsed.get_evidence(selection.evidence_ref_id)
     if evidence is not None and evidence.evidence_ref_id.startswith("pdf-region:"):
         try:
-            region = NativePdfRegionV1.model_validate_json(evidence.source_locator)
-            if region.source_revision_id != evidence.source_revision_id:
-                raise ValueError("PDF evidence revision differs from its locator")
-            pdf = open_native_pdf_region(
-                region,
-                authorized_space_id=pin.native_world_id,
-                audience=frozenset(),
-                declared_labels=frozenset(),
-                load=_repository().get_native_pdf_source,
+            region, image = render_admitted_pdf_evidence(
+                evidence, space_id=pin.native_world_id, load=_repository().get_native_pdf_source,
             )
-            if pdf is None:
-                raise ValueError("Retained PDF unavailable")
-            image = render_region(pdf, region)
         except ValueError as exc:
             raise InspectionUnavailable("native_inspection_source_unavailable") from exc
         return _response(
