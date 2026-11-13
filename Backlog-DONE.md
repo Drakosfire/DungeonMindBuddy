@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Reconcile frontend Web Locks test doubles
+
+[PR #2772](https://github.com/Drakosfire/DungeonMindBuddy/pull/2772) shared exclusive lock queue and ifAvailable behavior between global test setup and Combat, with a fresh manager per test. TypeScript passed. The expanded comparison reported 705 passes, one skip, and the same failures as the base. Combat recovery and Build shell tests passed again on merged main.
+
 ## [DONE] Verify statblock transcript manifest inventories and digests
 
 [PR #2770](https://github.com/Drakosfire/DungeonMindBuddy/pull/2770) checks the exact revise manifest keys and verifies all nine create fixture digests from disk. Ten transcript tests passed on main. Disposable mutations verified rejection of an omitted revise entry and modified create fixture. GitHub inventory and frontend discovery passed.
