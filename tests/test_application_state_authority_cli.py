@@ -102,6 +102,20 @@ def test_backup_stages_and_preserves_existing_set(tmp_path, monkeypatch):
 
     monkeypatch.setattr(authority, "compute_fingerprint", lambda dsn: fingerprint)
     monkeypatch.setattr(authority.subprocess, "run", original_dump)
+    link = type(out).hardlink_to
+
+    def fail_second_link(path, target):
+        if path == authority.fingerprint_sidecar_path(out):
+            assert authority.sha256_sidecar_path(out).is_file()
+            raise OSError("synthetic publication failure")
+        link(path, target)
+
+    with monkeypatch.context() as publication:
+        publication.setattr(type(out), "hardlink_to", fail_second_link)
+        with pytest.raises(OSError, match="synthetic publication failure"):
+            authority.backup_authority(source_dsn=dsn, out_path=out)
+    assert list(tmp_path.iterdir()) == []
+
     record = authority.backup_authority(source_dsn=dsn, out_path=out)
     assert authority.verify_backup_digest(out) == record.backup_sha256
     before = {path: path.read_bytes() for path in tmp_path.iterdir()}
