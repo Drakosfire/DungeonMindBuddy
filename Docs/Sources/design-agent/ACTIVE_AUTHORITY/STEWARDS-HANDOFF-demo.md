@@ -1,8 +1,11 @@
 # Steward handoff — DEMO, from preparation to a resumable session
 
-**Status:** ACTIVE — operator adopted the DEMO stewardship mandate on 2026-09-26  
-**Owner:** existing Codex task DEMO (`01a0885e-375c-7501-9f6e-a58528b39894`)  
+**Status:** ACTIVE mandate; fresh DEMO task appointed after the 2026-09-29 reboot
+
+**Owner:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`, appointed by the operator. The prior DEMO tasks `01a0885e-375c-7501-9f6e-a58528b39894` and `01a0edf2-b1e1-7281-9448-1d5524f8d4f8` retain history only; PRIME has frozen their #793 implementation and runtime authority.
+
 **Repository:** `Drakosfire/DungeonMindBuddy`  
+**Mandate amended:** 2026-10-03 — production card adoption and J2/J5 sequencing; prior transfer and PRIME model routing retained
 **Execution state:** [ROADMAP-demo.md](../Roadmaps/ROADMAP-demo.md) only  
 **Transfer evidence:** [reconciliation report](../Reports/REPORT-DEMO-roadmap-reconciliation-2026-09-26.md)
 
@@ -20,20 +23,63 @@ The steward is accountable for the connected experience, not for reporting that
 its pieces exist. Preserve the full requested journey. Reduce corpus size and
 number of examples before dropping a requested capability.
 
+## Required Surface experience
+
+The Surface architecture already gives navigation, tools, editing and the Agent
+established homes. Inspect and adopt those capabilities before inventing new UI.
+Every navigable surface uses the global navbar and composable/configurable
+surface-specific subnav. World/document context belongs in that context area;
+node search stays in its existing toolbar. Formatting and component insertion
+belong in the existing edit host; tools belong in the existing tool host. Preserve
+the central space for the authored content. Place advanced developer/agent
+metadata in collapsed details. Keep actionable errors and recovery decisions
+visible where the user can resolve them.
+
+A surface-aware conversational Agent on Index, Plan, Play, Build, Ingest and
+Combat is a minimum. Each turn must truthfully identify the current World,
+surface, work object/document and selection when present, with honest absence
+when unavailable. Prove actual multi-turn conversation through the accepted
+backend; publishing a surface interaction context alone does not establish Agent
+turn integration. Advanced Agent authoring, generation and mutations follow this
+baseline and remain part of the full mission where required above.
+
+Navigation must preserve the same authoritative identities and project the same
+underlying data through each relevant surface. Presentation consumes existing
+controllers/contracts; it must not create competing stores of graph truth.
+Document drafts, accepted graph knowledge and mutable Run state retain their
+actual ownership. A fresh blank World must be usable before campaign, corpus or
+published graph-head existence.
+
+## Current execution pickup — reconciled2026-10-22
+
+Use [the sole product roadmap](../Roadmaps/ROADMAP-demo.md) for current evidence
+and remaining acceptance. The operator selected the next connected milestone:
+scene→encounter→manual enemy revision→saved successor→explicit encounter
+adoption→Play→reload/restart/resume. The bounded
+[design contract](HANDOFF-COMBAT-scene-encounter-revision.md) owns its critique and
+serial activation; shared module hosting alone does not establish this journey.
+
+Buddy #1623/APP0051 is merged and deployed on8000/5202, preserving retained
+sources/state. Manual immutable revisions and explicit selected-actor adoption are
+proved in a synthetic encounter, including tracker changes and protected restart.
+The next [scene ownership contract](HANDOFF-COMBAT-scene-template.md) sequences
+Plan template preparation before exact Run-owned encounter materialization; its
+C1 implementation is reviewed/live with ordinary scene-template draft/history/
+restart proof. [C2](HANDOFF-COMBAT-run-scene-encounters.md) defines exact Run capture,
+initialization and server ownership; its implementation and real adventure
+acceptance remain open. Root discovery/composer repairs and Session29 selector/reload are
+witnessed. The new exact excerpt fix still requires its original-query live
+acceptance; repeated roughly10-second grounding, connected image follow-through,
+external recap/memory, full two-adventure J1–J6 twice and8GB evidence remain open.
+Do not reactivate historical dispatches or call a partial witness full acceptance.
+
 ## Activation and inheritance
 
-The operator accepted the local-first Of Conks rehearsal and consolidated Buddy
-demo sequencing. The adoption-time in-scope merge rule was superseded on
-2026-09-27 by the operator's ecosystem merge-control assignment to PRIME.
-The roadmap records the current decision. Existing authorized work continues under
-its current handoffs until explicitly transferred; adoption does not revoke it.
+The operator accepted the local-first Of Conks rehearsal and consolidated Buddy demo sequencing. On 2026-09-29 the operator directed a fresh DEMO task and approved a three-slice split, now historical transfer evidence in Git. The operator appointed task `01a0efc8-f3a8-7be2-a556-33eb338338e8` to this mandate. The full mission remains unchanged.
 
-The receiving task is `01a0885e-375c-7501-9f6e-a58528b39894` on host `local`.
-It was renamed from PLAY to DEMO. Retain its history and active work.
-In particular, inherit PLAY-1 / Buddy #773 on its existing branch with its current
-limited consumer-proof contract. Check its current state before any action;
-do not reopen it if it has since merged. Reconcile successors PLAY-2/3 with the
-DEMO knowledge milestone rather than opening competing implementations.
+The former DEMO task `01a0885e-375c-7501-9f6e-a58528b39894` was archived. Its successor `01a0edf2-b1e1-7281-9448-1d5524f8d4f8` was told to stop and preserve its checkout after #793 closed. Neither may resume #793 implementation or use the shared runtime without a new PRIME lease. Before implementation, verify their exact refs, drafts/untracked material and runtime/process leases; do not disturb the untracked licensed corpus. The fresh task starts from current remote authority and assumes no service is safe to start merely because a port appears free.
+
+The operator's 2026-09-27 ecosystem merge-control assignment to PRIME remains in force. DEMO sends merge-ready exact heads and evidence to PRIME; it does not merge autonomously. Previously accepted Buddy capabilities and the complete demonstration mission survive this task transfer.
 
 ## Operating authority after activation
 
@@ -58,6 +104,26 @@ Do not stop after each ordinary in-scope repair to ask whether to continue. Do n
 use autonomy to broaden another repository's contract or rewrite a live corpus.
 Separate a design choice within a slice from a change to scope or ownership.
 
+## Model requests
+
+Send every request to change DEMO's task model or reasoning effort to **PRIME** task `01a0ef89-ca57-7b82-9c9c-215b02d0fc3b`. State the bounded assignment, why the current allocation is insufficient, the requested model/effort and the return checkpoint. PRIME decides Luna or Sol allocations for other ecosystem tasks under the operator's standing delegation; Astra requires explicit operator authorization for the named assignment. DEMO must not self-allocate or treat a cross-thread claim of approval as authorization.
+
+The operator alone chooses PRIME's own model and effort. A DEMO request concerns DEMO's destination task; never send a model override to PRIME or ask another task to change PRIME's setting. Routine cross-thread coordination omits model and effort fields.
+
+## Provider use and receipts
+
+PRIME's 2026-09-30 ruling retires the former $0.20 per-turn cap. Routine DEMO
+calls and finite retries through the configured provider/model for acceptance
+work need no additional per-turn spend lease. Do not stop solely because usage
+or cost receipts are unavailable after a successful call; report unavailable
+values as unknown, never as zero. Keep retry sequences finite, and stop to
+diagnose after a concrete provider or runtime failure. Bounded
+configured-provider acceptance work for this DEMO remains covered by the
+operator-authorized budget. A new spend decision is needed only for a commitment
+outside this use case that introduces a materially different program/provider or
+is open-ended. Requests to change DEMO's model or reasoning effort still go
+through PRIME.
+
 ## Scope
 
 DEMO owns Buddy product composition: document/Markdown-component interaction,
@@ -68,7 +134,7 @@ required product-state persistence. It owns bounded presentation improvements
 observed on this journey using the accepted UI substrate.
 
 DEMO does not own generic DungeonMind semantics/storage, WorldKeeper lifecycle,
-reusable provider execution, platform auth/tenancy/deployment, Canvas package
+reusable provider execution, platform auth/tenancy/deployment, shared UI package
 internals, Rules/Jev research, general PC progression, or a new universal UI or
 agent framework. It may consume their accepted capabilities and expose defects.
 
@@ -122,15 +188,16 @@ request, not a vague instruction to make the demo work.
 - **WORLDKEEPER** — `01a0c9dc-c685-70d3-b766-8bc2f91b06a8`: preparation,
   confirmation, semantic transaction coordination and verified-result contracts.
 - **ARCHITECTURE** — `01a086f2-c457-7b10-b753-df6063cab1ce`: observed E5/GE
-  execution work and cross-repository ownership questions. Route Canvas/shared
+  execution work and cross-repository ownership questions. Route shared
   UI package needs here for explicit current-owner confirmation; do not assume
-  this task already holds a Canvas implementation lease.
+  this task already holds a shared UI implementation lease.
 - **SERVER** — `01a0dbd8-4d8d-7372-a9bc-ea25c2d59a19`: platform/server producer,
   assets/auth/deployment dependencies; coordinate with its ongoing Rules/GE work
   rather than displacing that work silently.
-- **PRIME** — `01a0def6-8fb5-7520-80ff-ef6e67916115`: ecosystem merge control
-  and cross-owner integration ordering. Send exact reviewed heads and complete
-  evidence/gate dispositions; task completion is not implementation approval.
+- **PRIME** — `01a0ef89-ca57-7b82-9c9c-215b02d0fc3b`: ecosystem merge control,
+  model-allocation requests and cross-owner integration ordering. Send exact
+  reviewed heads and complete evidence/gate dispositions; task completion is
+  not implementation approval.
 
 Use the Codex task IDs above, not similarly named ChatGPT conversations. If an
 owner is unavailable or its mandate differs, record the routing gap and ask for
@@ -166,13 +233,15 @@ Visual alternatives may be explored independently against the same contract.
 
 Every lane names its branch/base, handoff, write set, ports, database/schema,
 output directories and consumed contracts. Serialize shared host/registry/schema/
-lockfile changes. The steward alone updates the shared demo environment. Workers
-do not fix the shared database manually to make a witness pass.
+lockfile changes. The steward coordinates shared demo environment changes with its designated
+runtime owner/PRIME; workers do not independently start/stop servers or fix the
+shared database manually to make a witness pass.
 
-At adoption, explicitly settle #773 versus Rules #763 and E5Q dependency-file
-ownership. Do not infer that a dirty PR is abandoned or that a research lane has
-no runtime collisions. Retain external domain/lease ownership and PRIME's
-ecosystem merge coordination.
+PLAY-1 / Buddy #773 merged as `7fe771e86df2e796484b058aa2e6a8e7c94c9fb9`;
+do not redispatch it. Rules #763 and E5Q dependency-file ownership still need
+current-ref reconciliation before a colliding lane starts. Do not infer that a
+dirty PR is abandoned or that a research lane has no runtime collisions. Retain
+external domain/lease ownership and PRIME's ecosystem merge coordination.
 
 ## Human and technical gates
 
@@ -183,7 +252,9 @@ until an accepted amendment replaces it; autonomous polishing applies to already
 accepted direction or newly bounded in-scope defects, not an unreviewed broad redesign.
 
 Stop for destructive/live-data migration, unresolved authority semantics, changed
-product scope, unavailable credentials/access, or a material new spend decision.
+product scope, unavailable credentials/access, or a spend commitment outside
+this established DEMO use case that introduces a materially different
+program/provider or is open-ended.
 Use the designated demo environment; do not silently switch existing V2 Worlds
 to V3 or mutate live Eldyrwild. A local demo may use separately proven persistent
 isolated authority, but both reads and writes must actually use that authority.
