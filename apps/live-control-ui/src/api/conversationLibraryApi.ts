@@ -46,6 +46,9 @@ export function decodeLibraryTurns(value:any,world:string,id:string,before?:numb
  if(!exactObject(value,['schema','world_id','conversation_id','turns','next_before_sequence'])||value.schema!=='dmb_conversation_library_turns_v3'||value.world_id!==world||value.conversation_id!==id||!Array.isArray(value.turns)||value.turns.length>50
   ||!(value.next_before_sequence===null||Number.isInteger(value.next_before_sequence)&&value.next_before_sequence>0))throw new Error('Transcript differs from the selected conversation.');
  let last=0;for(const t of value.turns){if(!exactObject(t,['turn_id','sequence','status','user_text','assistant_text','reply_object','retry_context',...(Object.hasOwn(t,'authored_references')?['authored_references']:[])])||!uuid(t.turn_id)||!Number.isInteger(t.sequence)||t.sequence<=last||(before!==undefined&&t.sequence>=before)||typeof t.user_text!=='string'||typeof t.status!=='string'||!(t.assistant_text===null||typeof t.assistant_text==='string'))throw new Error('Transcript order or content is invalid.');if(Object.hasOwn(t,'authored_references')&&!isAuthoredReferences(t.authored_references,world))throw new Error('Transcript reference input is invalid.');validateReplyObject(t.reply_object,world,id,t);decodeRetryContext(t.retry_context,world,id,t.turn_id);last=t.sequence;}
+ if (value.next_before_sequence !== null && value.next_before_sequence !== value.turns[0]?.sequence) {
+  throw new Error('Transcript cursor differs from its page.');
+ }
  return value as LibraryTurns;
 }
 

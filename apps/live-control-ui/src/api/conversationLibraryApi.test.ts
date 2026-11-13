@@ -95,3 +95,15 @@ it('admits a scoped Plan connected-page descriptor but rejects other surfaces or
  const {reply_object:_,...old}=row;response({...page,messages:[old]});await expect(readActiveConversationMessages('world')).rejects.toThrow();
  response({...page,schema:'dmb_active_conversation_messages_v3'});await expect(readActiveConversationMessages('world')).rejects.toThrow();
 });
+
+it('requires the transcript cursor to advance to the first turn of a nonempty page', async () => {
+ const value = page();
+ response({...value, next_before_sequence: 1});
+ expect((await readConversationTurns('world', cid, 2)).next_before_sequence).toBe(1);
+ response({...value, next_before_sequence: 2});
+ await expect(readConversationTurns('world', cid, 2)).rejects.toThrow('Transcript cursor');
+ response({...value, turns: [], next_before_sequence: 2});
+ await expect(readConversationTurns('world', cid, 2)).rejects.toThrow('Transcript cursor');
+ response({...value, turns: []});
+ expect((await readConversationTurns('world', cid, 2)).turns).toEqual([]);
+});
