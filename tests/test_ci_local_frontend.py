@@ -280,6 +280,18 @@ def test_contract_drift_fails_closed_and_hosted_filters_preserved(sandbox):
         local.frontend_plan(catalog, "discovered")
 
 
+@pytest.mark.parametrize("suite", ["hosted", "discovered"])
+@pytest.mark.parametrize("order", [(1, 0, 2), (0, 2, 1)])
+def test_misordered_contract_is_rejected(sandbox, suite, order):
+    args, _, _ = sandbox
+    catalog = json.loads((Path(args.repo) / "ci/contracts.json").read_text())
+    contract = catalog["contracts"]["hosted-frontend"]
+    steps = contract["steps"]
+    contract["steps"] = [steps[index] for index in order]
+    with pytest.raises(ValueError, match="misordered"):
+        local.frontend_plan(catalog, suite)
+
+
 def test_interrupted_command_kills_child_and_removes_worktree(sandbox, monkeypatch):
     args, _, _ = sandbox
 

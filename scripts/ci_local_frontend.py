@@ -235,25 +235,23 @@ def frontend_plan(catalog, suite):
         step["cwd"] != "apps/live-control-ui" for step in steps
     ):
         raise ValueError("unsupported frontend contract")
-    install = [step["argv"] for step in steps if step["argv"] == ["npm", "ci"]]
-    build = [step["argv"] for step in steps if step["argv"] == ["npm", "run", "build"]]
-    tests = [
-        step["argv"] for step in steps if step["argv"][:3] == ["npm", "test", "--"]
-    ]
+    commands = [step["argv"] for step in steps]
+    tests = commands[1:-1]
     if (
-        len(install) != 1
-        or len(build) != 1
-        or len(tests) + 2 != len(steps)
-        or not tests
+        not tests
+        or commands[0] != ["npm", "ci"]
+        or commands[-1] != ["npm", "run", "build"]
+        or any(command[:3] != ["npm", "test", "--"] for command in tests)
     ):
         raise ValueError(
-            "unclassified shared frontend command; update the verifier before running"
+            "unclassified or misordered shared frontend command; "
+            "expected install, tests, then build"
         )
     # Default discovery uses the SAME npm test script, without hosted allowlist filters.
     return (
-        install[0],
-        ([["npm", "test", "--"]] if suite == "discovered" else tests),
-        build[0],
+        commands[0],
+        [["npm", "test", "--"]] if suite == "discovered" else tests,
+        commands[-1],
     )
 
 
