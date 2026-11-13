@@ -756,3 +756,29 @@ def test_play_surface_context_block_parity_with_hermes_renderer() -> None:
     assert block in instructions
     hermes_block = map_invocation_to_hermes_request(invocation).surface_context_block
     assert hermes_block == block
+
+
+def test_world_threat_hydration_uses_authoritative_scope_without_campaign(monkeypatch):
+    from dataclasses import replace
+
+    from apps.live_control_server.services import hermes_graph_interaction_tools as tools
+
+    invocation = _invocation()
+    context = invocation.context_packet
+    scope = replace(context.world_scope, campaign_id="", scope_mode="world")
+    invocation = replace(invocation, context_packet=replace(context, world_scope=scope))
+    args = inject_authoritative_tool_args(
+        "query_threat_mechanics_hydration",
+        {"queryText": "Example creature", "scopeMode": "campaign", "campaignId": "foreign"},
+        invocation,
+    )
+
+    def query(request, *, root):
+        assert request.scope_mode == "world"
+        assert request.campaign_id is None
+        assert request.world_id == scope.world_id
+        assert request.revision_pin == scope.revision_id
+        return type("Result", (), {"model_dump": lambda self, **kwargs: {"checked": True}})()
+
+    monkeypatch.setattr(tools, "query_threats_with_hydration", query)
+    assert tools.execute_query_threat_mechanics_hydration(args) == {"checked": True}

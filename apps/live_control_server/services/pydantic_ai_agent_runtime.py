@@ -152,10 +152,12 @@ def inject_authoritative_tool_args(
         if scope is None:
             raise ValueError("Threat hydration requires an authoritative graph scope")
         args["worldId"] = scope.world_id
-        args["campaignId"] = scope.campaign_id
+        args["campaignId"] = scope.campaign_id if scope.scope_mode == "campaign" else None
+        args["scopeMode"] = scope.scope_mode
         args["revisionPin"] = scope.revision_id
         args.pop("world_id", None)
         args.pop("campaign_id", None)
+        args.pop("scope_mode", None)
         args.pop("revision_pin", None)
     if tool_name in GRAPH_SESSION_TOOLS and retrieval is not None:
         args["retrievalSessionId"] = retrieval.session_id
