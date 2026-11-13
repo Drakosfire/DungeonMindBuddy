@@ -11,6 +11,8 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Check the unused statblock terminal proof summary helper. [#2860](https://github.com/Drakosfire/DungeonMindBuddy/pull/2860) removed the unused summary and non-terminal tuple after a caller, operator documentation, and open PR scan. [#2862](https://github.com/Drakosfire/DungeonMindBuddy/pull/2862) made the inventory type private and removed the unread category field after checking local branches and sibling checkouts. The live classifier and fixture evidence were preserved, and all 62 client tests passed.
+
 - Consolidate generated Canvas block replacement. C1S4 and breadcrumb emitters share the ordered marker splice. C1S2 and C1S3 share the file-patching loop, [result aggregation](https://github.com/Drakosfire/DungeonMindBuddy/pull/2857), and [schema loading](https://github.com/Drakosfire/DungeonMindBuddy/pull/2858). The dedicated tests passed, and both CLIs updated scratch Canvases with valid inputs and rejected invalid documents. Existing command names, markers, and whitespace behavior were preserved.
 
 - Measure full job queue rewrites on completion. **Measured.** Median completion over five synthetic runs was 0.15 ms at 1 row, 4.07 ms at 100, 40.05 ms at 1,000, and 408.87 ms at 10,000. The largest discovered local queue was a 408-byte test artifact. [#2828](https://github.com/Drakosfire/DungeonMindBuddy/pull/2828) fixed the independently reproduced lost append with a shared writer lock. Four focused tests passed. Reopen storage optimization if representative operator queues show material completion latency.
