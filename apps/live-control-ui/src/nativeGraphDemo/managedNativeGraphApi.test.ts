@@ -61,6 +61,18 @@ function entityDetail(scope: unknown) {
 }
 
 describe("managed native graph API", () => {
+  it("consumes the wire body once and returns the decoded graph", async () => {
+    const wireResponse = response(envelope());
+    const parsed = envelope();
+    const json = vi.spyOn(wireResponse, "json").mockResolvedValue(parsed);
+    const clone = vi.spyOn(wireResponse, "clone");
+    const client = createManagedNativeGraphApi("managed-a", { fetcher: vi.fn().mockResolvedValue(wireResponse) });
+
+    await expect(client.api.readGraph()).resolves.toBe(parsed.graph);
+    expect(json).toHaveBeenCalledTimes(1);
+    expect(clone).not.toHaveBeenCalled();
+  });
+
   it("preserves a prepare retry action only for the verified managed World and exact operation", async () => {
     const operationId = "4a4a77ef-4182-4050-86cf-e9c7e06935f8";
     const fetcher = vi.fn()
@@ -267,7 +279,6 @@ describe("managed native graph API", () => {
     const fetcher = vi.fn(async (path: RequestInfo | URL, init?: RequestInit) => {
       if (String(path).endsWith("/graph")) return response(graphEnvelope("revision-1"));
       const result = response({});
-      vi.spyOn(result, "clone").mockReturnValue(result);
       vi.spyOn(result, "json").mockImplementation(() => new Promise((_resolve, reject) => {
         init?.signal?.addEventListener("abort", () => {
           bodyAborted();
