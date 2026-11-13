@@ -38,3 +38,22 @@ def test_registry_counts_manifest_once_when_search_roots_overlap(tmp_path, monke
     health = inspect_graph_ingest_registry_health(tmp_path, include_eval_roots=True)
     assert health.manifest_files_found == health.invalid_manifests == 1
     assert discover_graph_ingest_runs(tmp_path, include_eval_roots=True) == []
+
+
+def test_latest_preview_matches_ranked_discovery(monkeypatch):
+    from types import SimpleNamespace
+
+    from apps.live_control_server.services import graph_ingest_run_registry as registry
+
+    candidates = [
+        (SimpleNamespace(updated_at="2026-01-01", created_at="", manifest_path="a"), 99),
+        (SimpleNamespace(updated_at="2026-02-01", created_at="", manifest_path="b"), 10),
+        (SimpleNamespace(updated_at="2026-02-01", created_at="", manifest_path="a"), 10),
+        (SimpleNamespace(updated_at="2026-02-01", created_at="", manifest_path="c"), 1),
+    ]
+    monkeypatch.setattr(registry, "_iter_ingest_candidates", lambda *a, **kw: iter(candidates))
+    ranked = registry.discover_graph_ingest_runs(require_preview_union_store=True)
+    assert ranked[0].manifest_path == "a"
+    assert registry.resolve_latest_preview_union_graph_ingest_run(
+        campaign_id="campaign", session_id="session"
+    ) is ranked[0]

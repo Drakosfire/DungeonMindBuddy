@@ -200,13 +200,42 @@ def discover_graph_ingest_runs(
 ) -> list[GraphIngestRunSummary]:
     """Discover valid graph-ingest manifests from bounded roots."""
 
+    candidates = _iter_ingest_candidates(
+        root, campaign_id=campaign_id, session_id=session_id,
+        source_recap_path=source_recap_path, source_recap_sha256=source_recap_sha256,
+        status=status, require_preview_union_store=require_preview_union_store,
+        include_eval_roots=include_eval_roots,
+    )
+    return [summary for summary, _ in sorted(candidates, key=_ingest_rank, reverse=True)]
+
+
+def _ingest_rank(item: tuple[GraphIngestRunSummary, float]):
+    summary, modified_at = item
+    return (
+        summary.updated_at or "",
+        summary.created_at or "",
+        modified_at,
+        _reverse_path_key(summary.manifest_path),
+    )
+
+
+def _iter_ingest_candidates(
+    root: Path | None,
+    *,
+    campaign_id: str | None,
+    session_id: str | None,
+    source_recap_path: str | None,
+    source_recap_sha256: str | None,
+    status: str | None,
+    require_preview_union_store: bool,
+    include_eval_roots: bool,
+):
     repo = artifact_data_root(root or repo_root())
     if status is not None and status not in ALLOWED_STATUS_FILTERS:
         raise GraphIngestRunRegistryError(
             f"invalid status filter: {status}", status_code=422
         )
 
-    summaries: list[tuple[GraphIngestRunSummary, float]] = []
     for manifest_path in _iter_manifest_paths(repo, include_eval_roots=include_eval_roots):
         summarized = _summarize_manifest(
             repo,
@@ -238,18 +267,7 @@ def discover_graph_ingest_runs(
             modified_at = manifest_path.stat().st_mtime
         except FileNotFoundError:
             continue
-        summaries.append((summary, modified_at))
-
-    summaries.sort(
-        key=lambda item: (
-            item[0].updated_at or "",
-            item[0].created_at or "",
-            item[1],
-            _reverse_path_key(item[0].manifest_path),
-        ),
-        reverse=True,
-    )
-    return [summary for summary, _mtime in summaries]
+        yield summary, modified_at
 
 
 def resolve_latest_preview_union_graph_ingest_run(
@@ -261,22 +279,24 @@ def resolve_latest_preview_union_graph_ingest_run(
     source_recap_sha256: str | None = None,
     include_eval_roots: bool = True,
 ) -> GraphIngestRunSummary:
-    runs = discover_graph_ingest_runs(
+    candidates = _iter_ingest_candidates(
         root,
         campaign_id=campaign_id,
         session_id=session_id,
         source_recap_path=source_recap_path,
         source_recap_sha256=source_recap_sha256,
+        status=None,
         require_preview_union_store=True,
         include_eval_roots=include_eval_roots,
     )
-    if not runs:
+    latest = max(candidates, key=_ingest_rank, default=None)
+    if latest is None:
         raise GraphIngestRunRegistryError(
             "no preview_union_store_ready graph-ingest run found for "
             f"{campaign_id}/{session_id}",
             status_code=404,
         )
-    return runs[0]
+    return latest[0]
 
 
 def _manifest_matches_source_recap(
