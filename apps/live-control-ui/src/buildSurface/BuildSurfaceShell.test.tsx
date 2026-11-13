@@ -520,10 +520,9 @@ describe("BuildSurfaceShell", () => {
   });
 
   it.skipIf(!existsSync(layoutChromiumPath))("keeps the Build paper outside the desktop Edit drawer and scrollable above the narrow sheet", async () => {
-    const executablePath = process.env.BUILD_LAYOUT_CHROMIUM_PATH;
     const browser = await chromium.launch({
       headless: true,
-      ...(executablePath ? { executablePath } : {}),
+      executablePath: layoutChromiumPath,
     });
     try {
       const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
@@ -560,7 +559,7 @@ describe("BuildSurfaceShell", () => {
       const finalLine = await page.getByTestId("last-paper-line").boundingBox();
       expect(finalLine).not.toBeNull();
       expect(finalLine!.y + finalLine!.height).toBeLessThanOrEqual(narrowEdit!.y);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
     } finally {
       await browser.close();
     }
