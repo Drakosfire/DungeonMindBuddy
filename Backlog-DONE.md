@@ -11,6 +11,8 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Skip missing objects in Graph inspector history. Already resolved by the snapshot-change reset introduced in [60e1c4b4](https://github.com/Drakosfire/DungeonMindBuddy/commit/60e1c4b4). Both accepted GETs and confirmed server readbacks replace the snapshot through the state setter, and the layout effect clears selection and Back history before paint. A local same-World refresh with a removed history node confirmed that history was cleared. The existing 41-test inspector suite passed.
+
 - Remove the unused previous-position argument from Graph layout. [#2906](https://github.com/Drakosfire/DungeonMindBuddy/pull/2906) removed it from the solver and updated callers. All 179 projection and canvas tests passed, including saved pins and deterministic geometry. GitHub inventory and frontend discovery passed.
 
 - Profile selected-attempt hydration and retry-history page plans. [#2903](https://github.com/Drakosfire/DungeonMindBuddy/pull/2903) reduced preflight from four reads to one scoped projection. [#2904](https://github.com/Drakosfire/DungeonMindBuddy/pull/2904) selects successors by lineage root using existing indexes. With 100,000 synthetic turns and 100 successors, median PostgreSQL selection time across seven runs per query fell from 12.46 to 0.085 ms near the end and 12.41 to 0.078 ms at the midpoint. Ordered IDs matched at both cursors. The benchmark used temporary tables and excluded endpoint hydration. All 17 PostgreSQL library tests and the PR checks passed.
