@@ -58,20 +58,11 @@ from src.graph_memory.vocabulary import (
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_REPORT_PATH = (
-    REPO_ROOT / "Docs" / "Reports" / "GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-EXPANDED-BEDS.md"
-)
-DEFAULT_JSON_ARTIFACT_PATH = (
-    REPO_ROOT
-    / "evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/expanded_beds_vocabulary_ablation.json"
-)
-DEFAULT_PROMPT_REVIEW_PATH = (
-    REPO_ROOT
-    / "evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/expanded_beds_prompt_review.json"
-)
-DEFAULT_PROMPT_REVIEW_REPORT_PATH = (
-    REPO_ROOT / "Docs" / "Reports" / "GRAPH-MEMORY-VOCABULARY-ABLATION-PROMPT-REVIEW.md"
-)
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "out/graph_memory/vocabulary_ablation"
+DEFAULT_REPORT_PATH = DEFAULT_OUTPUT_DIR / "GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-EXPANDED-BEDS.md"
+DEFAULT_JSON_ARTIFACT_PATH = DEFAULT_OUTPUT_DIR / "expanded_beds_vocabulary_ablation.json"
+DEFAULT_PROMPT_REVIEW_PATH = DEFAULT_OUTPUT_DIR / "expanded_beds_prompt_review.json"
+DEFAULT_PROMPT_REVIEW_REPORT_PATH = DEFAULT_OUTPUT_DIR / "GRAPH-MEMORY-VOCABULARY-ABLATION-PROMPT-REVIEW.md"
 DEFAULT_MANUAL_REVIEW_DIR = (
     REPO_ROOT / "evals/graph_memory_layer/examples/vocabulary_ablation/manual_review"
 )
