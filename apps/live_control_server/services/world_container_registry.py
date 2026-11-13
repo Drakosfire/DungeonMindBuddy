@@ -125,8 +125,7 @@ def _stored_world(world_id: str) -> StoredWorld:
     return stored
 
 
-def list_world_containers(root: Path) -> list[WorldContainerRecord]:
-    del root  # Artifact paths cannot select a different metadata catalog.
+def list_world_containers() -> list[WorldContainerRecord]:
     try:
         records = [stored.record for stored in catalog.list_worlds()]
     except ApplicationStateError as exc:
@@ -143,7 +142,7 @@ def find_world_container_by_normalized_name(root: Path, name: str) -> WorldConta
     needle = normalize_world_name_for_compare(name)
     if not needle:
         return None
-    for record in list_world_containers(root):
+    for record in list_world_containers():
         if normalize_world_name_for_compare(record.name) == needle:
             return record
     return None

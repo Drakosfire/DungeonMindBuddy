@@ -32,7 +32,7 @@ def test_create_world_persists_exact_identity_without_source_folder(root):
     assert created.name == "The Glass Orchard"
     assert created.source_root_relpath == "corpus/the-glass-orchard-markdown"
     assert created.schema_version == "dmb_world_container_record_v3"
-    assert list_world_containers(root) == [created]
+    assert list_world_containers() == [created]
     assert get_world_container(root, created.world_id) == created
     assert not legacy_world_catalog_path(root).exists()
     assert not (root / created.source_root_relpath).exists()
@@ -40,7 +40,7 @@ def test_create_world_persists_exact_identity_without_source_folder(root):
 
 def test_reload_from_another_checkout_uses_the_same_database(root):
     created = create_world_container(root / "checkout-a", name="One-Shot Vale")
-    assert list_world_containers(root / "checkout-b") == [created]
+    assert list_world_containers() == [created]
     assert get_world_container(root / "does-not-exist", created.world_id) == created
 
 
@@ -49,14 +49,14 @@ def test_empty_and_whitespace_names_fail_closed(root):
         with pytest.raises(WorldContainerRegistryError) as error:
             create_world_container(root, name=bad)
         assert error.value.status_code == 422
-    assert list_world_containers(root) == []
+    assert list_world_containers() == []
 
 
 def test_same_normalized_name_is_idempotent(root):
     first = create_world_container(root, name="The Glass Orchard")
     second = create_world_container(root, name="  the   glass   orchard  ")
     assert second == first
-    assert len(list_world_containers(root)) == 1
+    assert len(list_world_containers()) == 1
     assert normalize_world_name_for_compare(first.name) == normalize_world_name_for_compare("THE GLASS ORCHARD")
 
 
@@ -65,7 +65,7 @@ def test_different_name_slug_collision_fails_409(root):
     with pytest.raises(WorldContainerRegistryError) as error:
         create_world_container(root, name="Glass-Orchard")
     assert error.value.status_code == 409
-    assert list_world_containers(root) == [first]
+    assert list_world_containers() == [first]
 
 
 def test_existing_directory_is_preserved_without_becoming_a_source_or_identity(root):
@@ -73,7 +73,7 @@ def test_existing_directory_is_preserved_without_becoming_a_source_or_identity(r
     directory.mkdir(parents=True)
     notes = directory / "notes.md"
     notes.write_text("original source\n")
-    assert list_world_containers(root) == []
+    assert list_world_containers() == []
     created = create_world_container(root, name="Stolen Path")
     assert created.world_id == "stolen-path"
     assert notes.read_text() == "original source\n"
@@ -87,7 +87,7 @@ def test_missing_malformed_and_old_world_files_never_select_metadata(root, conte
     path.parent.mkdir(parents=True)
     path.write_text(content)
     original = path.read_bytes()
-    assert list_world_containers(root) == [created]
+    assert list_world_containers() == [created]
     with pytest.raises(WorldContainerRegistryError) as error:
         get_world_container(root, "shadow")
     assert error.value.status_code == 404
@@ -105,7 +105,7 @@ def test_database_failure_cannot_fall_back_to_a_file_or_expose_details(root, mon
         raise ApplicationStateUnavailableError("private database details")
     monkeypatch.setattr(registry.catalog, "list_worlds", unavailable)
     with pytest.raises(WorldContainerRegistryError) as error:
-        list_world_containers(root)
+        list_world_containers()
     assert error.value.status_code == 503
     assert "private" not in str(error.value)
     assert path.read_text() == '{"records":[]}'
@@ -229,4 +229,4 @@ def test_concurrent_fresh_world_create_reuses_one_reservation(root: Path) -> Non
     with ThreadPoolExecutor(max_workers=4) as executor:
         records = list(executor.map(lambda _: create_world_container(root, name="Concurrent World"), range(8)))
     assert all(record == records[0] for record in records)
-    assert len(list_world_containers(root)) == 1
+    assert len(list_world_containers()) == 1

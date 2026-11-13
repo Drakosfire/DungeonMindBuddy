@@ -183,7 +183,7 @@ def revalidate_hosted_owner_collection(request: Request) -> dict:
     subject = _hosted_subject(request)
     access = hosted_auth.hosted_world_access()
     try:
-        records = list_world_containers(repo_root())
+        records = list_world_containers()
         permitted = [
             WorldContainerPublicRecord.from_record(world)
             for world in records
