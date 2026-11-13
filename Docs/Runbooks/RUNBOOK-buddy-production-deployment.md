@@ -161,7 +161,7 @@ and document the mapping before proceeding.
       buddy-worldgraph) db_variable=DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL ;;
     esac
     expected=$(psql "service=$db_service" -XAt -v ON_ERROR_STOP=1 -c "$identity_sql")
-    actual=$("${buddy_compose[@]}" run --rm --no-deps --no-build --pull never -T \
+    actual=$("${buddy_compose[@]}" run --rm --no-deps --pull never -T \
       --entrypoint python buddy -c '
 import os
 import sys
@@ -188,7 +188,7 @@ the release image's default user. This checks permissions without writing files
 or starting the application.
 
 ```bash
-"${buddy_compose[@]}" run --rm --no-deps --no-build --pull never --entrypoint /bin/sh buddy -ec '
+"${buddy_compose[@]}" run --rm --no-deps --pull never --entrypoint /bin/sh buddy -ec '
   test "$(id -u):$(id -g)" = 10001:10001
   for directory in managed artifacts sessions worldgraph; do
     path="/var/lib/buddy/$directory"
