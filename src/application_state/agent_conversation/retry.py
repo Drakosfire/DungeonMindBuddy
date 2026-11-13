@@ -203,14 +203,47 @@ def author_interaction(surface_id, work_kind, status, failure_code):
     return None
 
 
+def _supports_context(meta):
+    return meta.provenance.surface_id == "build" and meta.provenance.primary_work.kind == "build"
+
+
+def library_contexts(conn, world, conversation, turns):
+    metadata = [getattr(turn, "envelope", turn) for turn in turns]
+    ids = [meta.turn_id for meta in metadata if _supports_context(meta)]
+    edges = {}
+    if ids:
+        edges = {
+            turn_id: (
+                (root, predecessor, ordinal) if root is not None else None,
+                (successor,) if successor is not None else None,
+            )
+            for turn_id, root, predecessor, ordinal, successor in conn.execute(
+                """
+                SELECT page.id, i.root_id, i.predecessor_id, i.ordinal, o.successor_id
+                FROM unnest(%s::uuid[]) AS page(id)
+                LEFT JOIN agent.turn_retry i
+                  ON i.successor_id = page.id AND i.world_id = %s AND i.conversation_id = %s
+                LEFT JOIN agent.turn_retry o
+                  ON o.predecessor_id = page.id AND o.world_id = %s AND o.conversation_id = %s
+                """,
+                (ids, world, conversation, world, conversation),
+            ).fetchall()
+        }
+    return [
+        _context(conn, turn, meta, *edges[meta.turn_id], active=False)
+        if meta.turn_id in edges else None
+        for turn, meta in zip(turns, metadata, strict=True)
+    ]
+
+
 def context(conn, turn, *, active):
     meta = getattr(turn, "envelope", turn)
-    if (
-        meta.provenance.surface_id != "build"
-        or meta.provenance.primary_work.kind != "build"
-    ):
+    if not _supports_context(meta):
         return None
-    incoming, outgoing = _edges(conn, meta)
+    return _context(conn, turn, meta, *_edges(conn, meta), active=active)
+
+
+def _context(conn, turn, meta, incoming, outgoing, *, active):
     reason = (
         "inactive"
         if not active

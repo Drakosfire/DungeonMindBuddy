@@ -410,12 +410,13 @@ def read_turns(
         world, conversation, limit=limit, before_sequence=before_sequence
     )
     rows = [_turn_row(turn, world, conversation) for turn in turns]
-    from .retry import context
+    from .retry import library_contexts
 
     with unit_of_work(_ready_dsn()) as conn:
         conn.execute("SET TRANSACTION READ ONLY")
-        for row, turn in zip(rows, turns, strict=True):
-            row["retry_context"] = context(conn, turn, active=False)
+        contexts = library_contexts(conn, world, conversation, turns)
+        for row, retry_context in zip(rows, contexts, strict=True):
+            row["retry_context"] = retry_context
     return {
         "schema": "dmb_conversation_library_turns_v3",
         "world_id": world,
@@ -431,7 +432,7 @@ def read_retry_attempts(
     world, conversation, turn_id, *, limit=50, before_sequence=None
 ):
     from . import repository as repo
-    from .retry import context, _incoming_edge
+    from .retry import library_contexts, _incoming_edge
 
     if not 1 <= limit <= 50 or before_sequence is not None and before_sequence < 1:
         raise ApplicationStateValidationError("Invalid retry history cursor")
@@ -455,9 +456,10 @@ def read_retry_attempts(
             conn, world, conversation, root, before_sequence=before, limit=limit
         )
         rows = []
-        for item in turns:
+        contexts = library_contexts(conn, world, conversation, turns)
+        for item, retry_context in zip(turns, contexts, strict=True):
             row = _turn_row(item, world, conversation)
-            row["retry_context"] = context(conn, item, active=False)
+            row["retry_context"] = retry_context
             rows.append(row)
         return {
             "schema": "dmb_conversation_library_turns_v3",
