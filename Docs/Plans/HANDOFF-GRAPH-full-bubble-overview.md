@@ -48,7 +48,14 @@ Task owns the worktree/scratch/cache/verification root above; retain until revie
 
 The native embedded overview opts into uncapped loaded-snapshot projection. Default callers and explicit focused neighborhoods keep their existing budgets. The index/layout/edge geometry and SVG layers are independent of camera transforms; memoized bubbles avoid rerendering every label on selection. Individual types have stable colors with a text legend. Names appear at 45% zoom, predicates at 90%, and existing keyboard/inspection/edit authority remains. Saved layout wins; World-local fallback positions survive revision additions. No backend API or completeness changes.
 
-Working-tree diagnostics: 98 focused tests across projection/canvas/native integration pass, and TypeScript passes. The synthetic 1404/559 fixture verifies all individual objects and real edge identities, cached camera geometry, stable revision positions, repeated focus/Fit/overview, and preserved native draft/placement behavior. The standalone diagnostic benchmark is excluded from ordinary test discovery; use a temporary Vitest config with include selecting fullGraphOverview.benchmark.tsx and the usual jsdom/setup configuration, under the shared lock.
+Working-tree diagnostics: 98 focused tests across projection/canvas/native integration pass, and TypeScript passes. The synthetic 1404/559 fixture verifies all individual objects and real edge identities, cached camera geometry, stable revision positions, repeated focus/Fit/overview, and preserved native draft/placement behavior. The standalone benchmark runs on demand from `apps/live-control-ui` with the locked frontend dependencies installed:
+
+```bash
+flock "/tmp/dungeonmind-frontend-verification-$(id -u).lock" \
+  npm test -- --config graph-overview.vitest.config.ts
+```
+
+The output reports development React CPU timings in jsdom. Browser frame rates and device performance require separate measurement.
 
 Development React/jsdom CPU diagnostic (synthetic topology, not real World geometry): index+layout+projection median 1.30 ms / p95 3.29 ms (30 samples); full SVG initial mount 152 ms (one sample), camera-pan commit median 0.26 ms / p95 0.38 ms (30), zoom 0.26 ms / p95 0.32 ms (30), selection 9.47 ms / p95 10.21 ms (6). Full view contains 1404 nodes, 559 edges and 10380 SVG elements. The comparison is 512/43 on the same optimized component, not a before/after historical browser benchmark. No browser paint, frame-rate or weak-client claim follows from these timings.
 
