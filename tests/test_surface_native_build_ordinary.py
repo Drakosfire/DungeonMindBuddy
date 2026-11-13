@@ -121,6 +121,28 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     selected = AuthoredGraphReferencesV1(references=(AuthoredGraphReferenceV1(managed_world_id=world,
         native_world_id=world, binding_version=1, graph_revision=original_revision,
         node_id=lane.ids['B'], label='DISPLAY ONLY: never evidence'),))
+    if saved_statblock == "associated":
+        from application_state.world_mechanics import service as associations
+        from application_state.world_mechanics.types import WorldMechanicsTarget
+        from apps.live_control_server.services import world_creature_selection
+
+        target = WorldMechanicsTarget(
+            managed_world_id=world, native_world_id=world, binding_version=1,
+            graph_revision_id=original_revision, node_id=lane.ids["B"],
+            label="Meat Mind", kind="creature", role="", campaign_scope=None,
+        )
+        record = SimpleNamespace(
+            request=SimpleNamespace(target=target, draft_id=draft_id),
+            proof=SimpleNamespace(locator=locator),
+        )
+        monkeypatch.setattr(associations, "list_current", lambda **kwargs: [record])
+        monkeypatch.setattr(world_creature_selection, "catalog", lambda *args, **kwargs: SimpleNamespace(
+            native_world_id=world, binding_version=1, revision_id=original_revision, head_revision_id=original_revision, targets=(target,),
+        ))
+        monkeypatch.setattr(statblock_saved_revision, "iter_saved_mechanics", lambda *args, **kwargs: [
+            ("Meat Mind", str(uuid4()), locator.model_copy(update={"revision_id": "rev_wrong"})),
+            ("Meat Mind", draft_id, locator),
+        ])
     if failure in {'revision','node','reference_world'}:
         field,value = {'revision':('graph_revision','rev:missing'), 'node':('node_id','ent:missing'),
             'reference_world':('managed_world_id','foreign-world')}[failure]
@@ -1541,10 +1563,11 @@ def test_native_unresolved_authoring_retry_requires_fresh_capture_and_preserves_
     _fresh_case(lane,tmp_path,monkeypatch,'retry_authoring_selection',True,False,True,retry_mutation=mutation)
 
 
-def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch):
+@pytest.mark.parametrize("mode", [True, "associated"])
+def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode):
     case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
         message="This is a challenging question, now we have to design this meat node and it's abilities, see if you can find the statblock for the meat mind.",
-        saved_statblock=True)
+        saved_statblock=mode)
     root = f"/api/live/agent/worlds/{case.world}/conversations"
     response = case.client.get(root + "/active/messages")
     assert response.status_code == 200, response.text
@@ -1552,3 +1575,25 @@ def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch):
     assert len(references) == 1
     assert references[0]["name"] == "Meat Mind"
     assert references[0]["revision_id"] == "rev_meatmind"
+
+
+def test_referenced_statblock_excludes_historical_graph_reference(monkeypatch):
+    from application_state.world_mechanics import service as associations
+    from apps.live_control_server.services import world_creature_selection
+    from apps.live_control_server.services.plan_jev_driver import PlanJevDriver
+
+    driver = object.__new__(PlanJevDriver)
+    driver.statblock_world = "fixture-world"
+    target = SimpleNamespace(node_id="ent:fixture", matches_association_target=lambda _: True)
+    record = SimpleNamespace(request=SimpleNamespace(target=target, draft_id="draft"),
+                             proof=SimpleNamespace(locator="current mechanics"))
+    monkeypatch.setattr(associations, "list_current", lambda **kwargs: [record])
+    monkeypatch.setattr(world_creature_selection, "catalog", lambda *args, **kwargs: SimpleNamespace(
+        native_world_id="fixture-world", binding_version=1, revision_id="rev:old",
+        head_revision_id="rev:current", targets=(target,),
+    ))
+    reference = AuthoredGraphReferenceV1(
+        managed_world_id="fixture-world", native_world_id="fixture-world", binding_version=1,
+        graph_revision="rev:old", node_id="ent:fixture", label="Fixture",
+    )
+    assert driver._referenced_statblocks((reference,)) == []

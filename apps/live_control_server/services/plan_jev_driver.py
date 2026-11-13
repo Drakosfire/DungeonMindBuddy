@@ -50,11 +50,13 @@ class PlanJevDriver:
             from .statblock_saved_revision import iter_saved_mechanics
             self.statblock_root = statblock_data_root(adapter.root)
             self.statblock_world = adapter.fence.turn.world_id
+            from application_state.agent_conversation.authored_graph_references import object_selections
+            references = object_selections(adapter.request.build_authored_references)
+            entries = self._referenced_statblocks(references) if references else None
+            if entries is None:
+                entries = iter_saved_mechanics(self.statblock_root, world_id=self.statblock_world)
             self.saved_statblocks = {
-                f"saved-statblock:{index}": entry
-                for index, entry in enumerate(iter_saved_mechanics(
-                    self.statblock_root, world_id=self.statblock_world
-                ))
+                f"saved-statblock:{index}": entry for index, entry in enumerate(entries)
             }
         self.finished = False
         self.calls = []
@@ -303,6 +305,39 @@ class PlanJevDriver:
                 self.finished = True
             return
         self._read_new_sources(operations)
+
+    def _referenced_statblocks(self, references):
+        from application_state.world_mechanics.service import list_current
+        from .world_creature_selection import catalog
+
+        records = list_current(world_id=self.statblock_world)
+        selected_nodes = {ref.node_id for ref in references if ref.managed_world_id == self.statblock_world}
+        records = [record for record in records if record.request.target.node_id in selected_nodes]
+        if not records:
+            return None
+
+        entries = []
+        for ref in references:
+            if ref.managed_world_id != self.statblock_world or not any(
+                record.request.target.node_id == ref.node_id for record in records
+            ):
+                continue
+            view = catalog(self.statblock_world, revision_id=ref.graph_revision)
+            if view.revision_id != view.head_revision_id:
+                continue
+            if (view.native_world_id, view.binding_version, view.revision_id) != (
+                ref.native_world_id, ref.binding_version, ref.graph_revision
+            ):
+                continue
+            matches = [
+                (target, record)
+                for target in view.targets if target.node_id == ref.node_id
+                for record in records if record.request.target.matches_association_target(target)
+            ]
+            if len(matches) == 1:
+                target, record = matches[0]
+                entries.append((target.label, record.request.draft_id, record.proof.locator))
+        return entries
 
     def _read_saved_statblock(self, handle, selection):
         from uuid import UUID, uuid4
