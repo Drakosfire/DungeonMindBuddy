@@ -169,20 +169,15 @@ def inspect_graph_ingest_registry_health(
     invalid_manifests = 0
     issues: list[GraphIngestManifestHealthIssue] = []
 
-    for search_root in _graph_ingest_search_roots(
-        repo, include_eval_roots=include_eval_roots
-    ):
-        if not search_root.exists():
+    for manifest_path in _iter_manifest_paths(repo, include_eval_roots=include_eval_roots):
+        manifest_files_found += 1
+        issue = _manifest_health_issue(repo, manifest_path)
+        if issue is None:
+            valid_manifests += 1
             continue
-        for manifest_path in sorted(search_root.rglob(GRAPH_INGEST_MANIFEST_NAME)):
-            manifest_files_found += 1
-            issue = _manifest_health_issue(repo, manifest_path)
-            if issue is None:
-                valid_manifests += 1
-                continue
-            invalid_manifests += 1
-            if len(issues) < max_issues:
-                issues.append(issue)
+        invalid_manifests += 1
+        if len(issues) < max_issues:
+            issues.append(issue)
 
     return GraphIngestRegistryHealth(
         manifest_files_found=manifest_files_found,
@@ -212,39 +207,34 @@ def discover_graph_ingest_runs(
         )
 
     summaries: list[tuple[GraphIngestRunSummary, float]] = []
-    for search_root in _graph_ingest_search_roots(
-        repo, include_eval_roots=include_eval_roots
-    ):
-        if not search_root.exists():
+    for manifest_path in _iter_manifest_paths(repo, include_eval_roots=include_eval_roots):
+        summarized = _summarize_manifest(
+            repo,
+            manifest_path,
+        )
+        if summarized is None:
             continue
-        for manifest_path in sorted(search_root.rglob(GRAPH_INGEST_MANIFEST_NAME)):
-            summarized = _summarize_manifest(
-                repo,
-                manifest_path,
-            )
-            if summarized is None:
-                continue
-            summary, payload = summarized
-            if campaign_id is not None and summary.campaign_id != campaign_id:
-                continue
-            if session_id is not None and summary.session_id != session_id:
-                continue
-            if (
-                source_recap_path is not None or source_recap_sha256 is not None
-            ) and not _manifest_matches_source_recap(
-                repo,
-                payload,
-                source_recap_path=source_recap_path,
-                source_recap_sha256=source_recap_sha256,
-            ):
-                continue
-            if status is not None and summary.status != status:
-                continue
-            if require_preview_union_store and not _has_ready_preview_union_store(
-                summary
-            ):
-                continue
-            summaries.append((summary, manifest_path.stat().st_mtime))
+        summary, payload = summarized
+        if campaign_id is not None and summary.campaign_id != campaign_id:
+            continue
+        if session_id is not None and summary.session_id != session_id:
+            continue
+        if (
+            source_recap_path is not None or source_recap_sha256 is not None
+        ) and not _manifest_matches_source_recap(
+            repo,
+            payload,
+            source_recap_path=source_recap_path,
+            source_recap_sha256=source_recap_sha256,
+        ):
+            continue
+        if status is not None and summary.status != status:
+            continue
+        if require_preview_union_store and not _has_ready_preview_union_store(
+            summary
+        ):
+            continue
+        summaries.append((summary, manifest_path.stat().st_mtime))
 
     summaries.sort(
         key=lambda item: (
@@ -381,6 +371,19 @@ def _graph_ingest_search_roots(
         _resolve_repo_contained_path(Path(value), repo, must_exist=False)
         for value in values
     ]
+
+
+def _iter_manifest_paths(repo: Path, *, include_eval_roots: bool):
+    seen: set[Path] = set()
+    for root in _graph_ingest_search_roots(repo, include_eval_roots=include_eval_roots):
+        for path in sorted(root.rglob(GRAPH_INGEST_MANIFEST_NAME)):
+            try:
+                identity = _resolve_repo_contained_path(path, repo)
+            except (OSError, RuntimeError, ValueError):
+                identity = path
+            if identity not in seen:
+                seen.add(identity)
+                yield path
 
 
 def _manifest_health_issue(
