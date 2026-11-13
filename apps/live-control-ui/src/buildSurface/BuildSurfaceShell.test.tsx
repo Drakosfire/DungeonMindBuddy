@@ -61,6 +61,11 @@ const ARTIFACT_ID = "artifact-glass-hesta";
 const SPAN_ID = "span-hesta-gate-passage";
 const OTHER_DOC_ID = "22222222-2222-4222-8222-222222222222";
 const layoutChromiumPath = process.env.BUILD_LAYOUT_CHROMIUM_PATH ?? chromium.executablePath();
+const layoutChromiumAvailable = existsSync(layoutChromiumPath);
+
+if (!layoutChromiumAvailable) {
+  console.info("Build layout Chromium unavailable. Install Playwright Chromium or set BUILD_LAYOUT_CHROMIUM_PATH to a Chromium or headless shell executable.");
+}
 
 function readBuildSurfaceCss() {
   return readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "buildSurface.css"), "utf8");
@@ -519,12 +524,13 @@ describe("BuildSurfaceShell", () => {
     expect(screen.queryByTestId("build-autosave-status")).not.toBeInTheDocument();
   });
 
-  it.skipIf(!existsSync(layoutChromiumPath))("keeps the Build paper outside the desktop Edit drawer and scrollable above the narrow sheet", async () => {
+  it.skipIf(!layoutChromiumAvailable)("keeps the Build paper outside the desktop Edit drawer and scrollable above the narrow sheet", async () => {
     const browser = await chromium.launch({
       headless: true,
       executablePath: layoutChromiumPath,
     });
     try {
+      console.info(`Build layout Chromium version: ${browser.version()}`);
       const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
       await page.setContent(buildEditGeometryFixture());
       const editHost = page.getByTestId("edit-host");
