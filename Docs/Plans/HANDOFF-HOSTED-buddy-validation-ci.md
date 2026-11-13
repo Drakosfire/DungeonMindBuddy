@@ -1,5 +1,16 @@
 # HANDOFF-HOSTED-buddy-validation-ci
 
+## Current workflow invocation
+
+Hosted validation on `main` starts only through manual dispatch. To validate a specific branch, select it in the Actions tab or run:
+
+```bash
+gh workflow run hosted-validation.yml --repo Drakosfire/DungeonMindBuddy --ref <branch>
+```
+
+Replace `<branch>` with the published branch you want to validate. The original PR-triggered lane and its evidence are recorded below for historical reference.
+
+
 **Status:** ACTIVE — authorized validation-only CI lane; no merge, deployment, World-policy change, or Actions settings change.  
 **Date:** 2026-10-27 UTC  
 **Owning repository:** Drakosfire/DungeonMindBuddy  
