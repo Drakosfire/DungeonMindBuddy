@@ -13,7 +13,7 @@ from evals.graph_memory_layer.report_encounter_job_dogfood_projection import ren
 DEFAULT_OUT_DIR = Path("evals/graph_memory_layer/artifacts/encounter_job_dogfood_projection")
 ARTIFACT_NAME = "c1s1_glowkindle_fixture_candidate_graph.json"
 REPORT_NAME = "c1s1_glowkindle_fixture_report.md"
-EXPECTED_FALSE = {"has_duplicate_pc_nodes", "has_invalid_predicate_issues", "has_dropped_edges"}
+EXPECTED_FALSE = {"has_party_pursues_quest", "has_duplicate_pc_nodes", "has_invalid_predicate_issues", "has_dropped_edges"}
 
 
 def build_payload() -> dict[str, Any]:
@@ -27,7 +27,9 @@ def validate_payload(payload: dict[str, Any] | None = None, *, compare_artifact:
     if failures:
         raise AssertionError(f"Encounter/job dogfood checks failed: {failures}")
     path = artifact_path or DEFAULT_OUT_DIR / ARTIFACT_NAME
-    if compare_artifact and path.exists():
+    if compare_artifact:
+        if not path.is_file():
+            raise FileNotFoundError(f"Comparison fixture is missing: {path}")
         checked_in = json.loads(path.read_text(encoding="utf-8"))
         if checked_in != payload:
             raise AssertionError(f"Checked-in artifact is stale: {path}")
