@@ -144,6 +144,15 @@ type StoredPackageData = Omit<LocalWorldPackageData, "bundledMembers"> & {
   readonly bundledMembers: Readonly<Record<string, readonly number[] | Uint8Array>>;
 };
 
+function packAttachmentBytes(data: LocalWorldPackageData): StoredPackageData {
+  return {
+    ...data,
+    bundledMembers: Object.fromEntries(
+      Object.entries(data.bundledMembers).map(([path, bytes]) => [path, Uint8Array.from(bytes)]),
+    ),
+  };
+}
+
 function unpackAttachmentBytes(data: StoredPackageData): LocalWorldPackageData {
   return {
     ...data,
@@ -523,7 +532,7 @@ export class IndexedDbLocalWorldRepository implements LocalWorldPackageRepositor
         this.beforeWrite("package-restore");
         await requestResult(worlds.add(record));
         this.beforeWrite("package-restore");
-        await requestResult(transaction.objectStore(PACKAGE_DATA_STORE).add(data));
+        await requestResult(transaction.objectStore(PACKAGE_DATA_STORE).add(packAttachmentBytes(data)));
         return { status: "restored", record: cloneLocalWorldValue(record) };
       });
     } catch (error) { return { status: "error", message: errorMessage(error) }; }
@@ -642,7 +651,7 @@ export class IndexedDbLocalWorldRepository implements LocalWorldPackageRepositor
         this.beforeWrite("document-edit");
         await requestResult(worlds.put(nextRecord));
         this.beforeWrite("document-edit-after-world");
-        await requestResult(packageStore.put(nextData.data));
+        await requestResult(packageStore.put(packAttachmentBytes(nextData.data)));
         return { status: "committed", record: cloneLocalWorldValue(nextRecord) };
       });
     } catch (error) { return { status: "error", message: errorMessage(error) }; }
