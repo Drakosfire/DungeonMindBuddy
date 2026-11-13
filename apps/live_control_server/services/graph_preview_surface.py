@@ -12,6 +12,7 @@ from graph_memory.projection.markdown_mentions import markdown_protected_ranges
 from pydantic import BaseModel, Field
 
 from apps.live_control_server.config import repo_root
+from apps.live_control_server.services.corpus_normalized_recap import frontmatter_end_line
 from apps.live_control_server.services.recap_artifacts import (
     GraphRunRef,
     RecapArtifactRecord,
@@ -432,22 +433,14 @@ CANONICAL_LABEL_OVERRIDES = {
 
 
 def _strip_yaml_frontmatter_lines(lines: list[str]) -> list[str]:
-    if not lines or lines[0].strip() != "---":
-        return lines
-    for index in range(1, len(lines)):
-        if lines[index].strip() == "---":
-            return lines[index + 1 :]
-    return lines
+    end = frontmatter_end_line(lines)
+    return lines if end is None else lines[end + 1 :]
 
 
 def _frontmatter_text(markdown: str) -> str:
     lines = markdown.splitlines()
-    if not lines or lines[0].strip() != "---":
-        return ""
-    for index in range(1, len(lines)):
-        if lines[index].strip() == "---":
-            return "\n".join(lines[1:index])
-    return ""
+    end = frontmatter_end_line(lines)
+    return "" if end is None else "\n".join(lines[1:end])
 
 
 def _session_from_recap_path(path: str | None) -> int | None:
@@ -1009,18 +1002,22 @@ def build_recap_graph_presentation(
         aliases.extend(alias for alias in seeded_aliases.get(object_id, [node.label]) if alias not in aliases)
 
     source = "\n".join(recap_lines)
-    protected_ranges = markdown_protected_ranges(source)
     line_offsets = [0]
     for line in recap_lines:
         line_offsets.append(line_offsets[-1] + len(line) + 1)
+    fence_end = frontmatter_end_line(recap_lines)
+    body_start = 0 if fence_end is None else line_offsets[fence_end + 1]
+    protected_ranges = [(0, body_start)] if body_start else []
+    protected_ranges.extend(
+        (start + body_start, end + body_start)
+        for start, end in markdown_protected_ranges(source[body_start:])
+    )
     edits: list[tuple[int, int, RecapGraphLink]] = []
     matchers = _prepare_node_matchers(nodes, aliases_by_node)
     within_two_edits = lru_cache(maxsize=4096)(_levenshtein_at_most_two)
     all_links: list[RecapGraphLink] = []
     for span_ref_id, span in span_lookup.items():
         paragraph = _paragraph_text_for_span(recap_lines, span)
-        if paragraph.lstrip().startswith("---"):
-            continue
         start, _ = _span_line_bounds(span)
         if not paragraph:
             continue

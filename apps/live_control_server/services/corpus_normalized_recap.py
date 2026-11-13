@@ -31,14 +31,19 @@ class CorpusNormalizedRecapLoadError(ValueError):
         self.status_code = status_code
 
 
+def frontmatter_end_line(lines: list[str]) -> int | None:
+    """Return the zero-based closing fence index for a complete leading block."""
+    if lines and lines[0].strip() == "---":
+        for index in range(1, len(lines)):
+            if lines[index].strip() == "---":
+                return index
+    return None
+
+
 def _strip_yaml_frontmatter(markdown: str) -> str:
     lines = markdown.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-    if not lines or lines[0].strip() != "---":
-        return markdown
-    for index in range(1, len(lines)):
-        if lines[index].strip() == "---":
-            return "\n".join(lines[index + 1 :]).lstrip("\n")
-    return markdown
+    end = frontmatter_end_line(lines)
+    return markdown if end is None else "\n".join(lines[end + 1 :]).lstrip("\n")
 
 
 def _normalized_recap_candidates(*, campaign_id: str, session_id: str) -> list[Path]:

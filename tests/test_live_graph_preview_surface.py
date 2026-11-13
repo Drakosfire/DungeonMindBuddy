@@ -206,10 +206,11 @@ def test_recap_presentation_reuses_preview_source_snapshot(tmp_path, monkeypatch
     bundle = tmp_path / "bundle"
     bundle.mkdir()
     index_path = bundle / "source_span_index.json"
-    index_path.write_text(dumps({"spans": [{"span_id": "span", "line_start": 1, "line_end": 1},
-                                                {"span_id": "span", "start_line": 3, "end_line": 3},
-                                                {"span_id": "first", "line_start": 1, "line_end": 2},
-                                                {"span_id": "overlap", "line_start": 2, "line_end": 2}]}))
+    index_path.write_text(dumps({"spans": [{"span_id": "span", "line_start": 5, "line_end": 5},
+                                                {"span_id": "span", "start_line": 7, "end_line": 7},
+                                                {"span_id": "first", "line_start": 5, "line_end": 6},
+                                                {"span_id": "overlap", "line_start": 6, "line_end": 6},
+                                                {"span_id": "metadata", "line_start": 2, "line_end": 2}]}))
     record = SimpleNamespace(default_graph_run_uri="run", run_bundle_uri="bundle", source_recap_path=None)
     read = Mock(wraps=graph_preview_surface._load_json)
     class CountedRecap(str):
@@ -219,7 +220,7 @@ def test_recap_presentation_reuses_preview_source_snapshot(tmp_path, monkeypatch
             self.splits += 1
             return super().splitlines(keepends)
 
-    source = CountedRecap("First line.\r\nSee Mara.\r\nAsk The Navigator. [Mara](https://example.test/Mara) and `Mara`.\r\n")
+    source = CountedRecap("---\r\ntitle: Mara\r\n---\r\n\r\n---\r\nSee Mara.\r\nAsk The Navigator. [Mara](https://example.test/Mara) and `Mara`.\r\n")
     recap = Mock(return_value=(source, "recap.md"))
     monkeypatch.setattr(graph_preview_surface, "_resolve_recap_artifact", lambda *args, **kwargs: record)
     monkeypatch.setattr(graph_preview_surface, "_resolve_run_dir", lambda root, name: root / name)
@@ -234,8 +235,8 @@ def test_recap_presentation_reuses_preview_source_snapshot(tmp_path, monkeypatch
 
     payload = build_recap_graph_presentation(tmp_path)
 
-    assert payload.markdown == "First line.\nSee [Mara](dmb-node:npc_mara).\nAsk [The Navigator](dmb-node:npc_mara). [Mara](https://example.test/Mara) and `Mara`."
-    assert [(link.source_span_ref_id, link.char_start, link.char_end) for link in payload.links] == [("first", 16, 20), ("span", 4, 17)]
+    assert payload.markdown == "---\nSee [Mara](dmb-node:npc_mara).\nAsk [The Navigator](dmb-node:npc_mara). [Mara](https://example.test/Mara) and `Mara`."
+    assert [(link.source_span_ref_id, link.char_start, link.char_end) for link in payload.links] == [("first", 8, 12), ("span", 4, 17)]
     assert payload.nodes["npc_mara"].label == "Mara"
     assert payload.recap_source_path == "recap.md"
     assert sum(call.args == (index_path,) for call in read.call_args_list) == 1
@@ -270,6 +271,13 @@ def test_recap_seed_session_uses_filename(path, session):
 ])
 def test_recap_evidence_session_from_known_span_ids(span_id, session):
     assert graph_preview_surface._session_from_span_ref(span_id) == session
+
+
+def test_normalized_recap_frontmatter_preserves_unclosed_input():
+    from apps.live_control_server.services.corpus_normalized_recap import _strip_yaml_frontmatter
+
+    assert _strip_yaml_frontmatter("---\r\ntitle: Mara\r\n---\r\n\r\nBody\r\n") == "Body\n"
+    assert _strip_yaml_frontmatter("---\r\ntitle: Mara\r\n") == "---\r\ntitle: Mara\r\n"
 
 
 def test_build_recap_graph_presentation_links_node_labels() -> None:
