@@ -11,6 +11,8 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Bound disk usage from superseded Buddy releases. The [deployment runbook](Docs/Runbooks/RUNBOOK-buddy-production-deployment.md) inventories release tags and guards removal. Five recorded shell fixtures rejected the serving ID, rollback ID, a container-referenced image, and a malformed tag, and admitted the eligible retired tag. Actual removal and disk measurement remain with the release operator.
+
 - Scope streaming proxy settings to routes that stream. [#2717](https://github.com/Drakosfire/DungeonMindBuddy/pull/2717) updated the hosted template for ordinary proxy traffic. Disposable Nginx syntax validation passed, and a Graph request reached the upstream with the expected forwarded headers. Effective-host checks and any future Agent streaming rehearsal remain with the edge owner.
 
 - Use one source for the Buddy deployment bind port. The [deployment runbook](Docs/Runbooks/RUNBOOK-buddy-production-deployment.md) validates the resolved loopback TCP binding, compares it to the running binding, and uses it for local smoke and the expected Nginx upstream. Recorded fixtures covered six smoke cases, seven preflight cases, and binding drift. The release operator will rehearse default and custom ports under **Verify Compose interpolation on the release host**.
