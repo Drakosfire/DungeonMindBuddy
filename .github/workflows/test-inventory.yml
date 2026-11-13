@@ -7,6 +7,7 @@ on:
       - .github/workflows/test-inventory.yml
       - ci/test-classification.json
       - scripts/ci_contract.py
+      - scripts/check_frontend_discovery.py
       - pyproject.toml
       - tests/**/test_*.py
       - tests/**/*_test.py
@@ -14,6 +15,7 @@ on:
       - apps/live-control-ui/**/*.spec.*
       - apps/live-control-ui/tests/**/*.pw.ts
       - apps/live-control-ui/package.json
+      - apps/live-control-ui/package-lock.json
       - apps/live-control-ui/vite.config.ts
       - apps/live-control-ui/playwright.ui.config.ts
 concurrency:
@@ -33,3 +35,16 @@ jobs:
         with:
           python-version: '3.13'
       - run: python scripts/ci_contract.py inventory
+  frontend-discovery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.13'
+      - run: npm ci
+        working-directory: apps/live-control-ui
+      - run: python scripts/check_frontend_discovery.py
