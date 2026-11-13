@@ -221,14 +221,15 @@ def _remove_draft_file(root: Path, draft_id: str) -> None:
 
 
 def create_threat_draft(
-    root: Path, request: CreateThreatDraftRequest | CreateWorldThreatDraftRequest
+    root: Path, request: CreateThreatDraftRequest | CreateWorldThreatDraftRequest,
+    *, stable_id: uuid.UUID | None = None,
 ) -> ThreatDraft:
     now = _utc_now_iso()
     world_owned = isinstance(request, CreateWorldThreatDraftRequest)
     draft_model = ThreatDraftV2 if world_owned else ThreatDraftV1
     draft = draft_model(
         **({"scope_mode": "world"} if world_owned else {}),
-        draft_id=str(uuid.uuid4()),
+        draft_id=str(stable_id or uuid.uuid4()),
         version=1,
         world_id=request.world_id,
         campaign_id=request.campaign_id,
@@ -251,6 +252,14 @@ def create_threat_draft(
     )
     with _store_lock(root):
         index = _load_index(root)
+        if stable_id is not None and _draft_path(root, draft.draft_id).exists():
+            existing = _load_draft_unlocked(root, draft.draft_id)
+            if existing.world_id != draft.world_id or type(existing) is not type(draft):
+                raise ThreatDraftStoreError("Draft creation identity belongs to another scope", status_code=409)
+            if draft.draft_id not in index.draft_ids:
+                index.draft_ids.append(draft.draft_id)
+                _save_index(root, index)
+            return existing
         if draft.draft_id in index.draft_ids:
             raise ThreatDraftStoreError(
                 "draft_id collision",
