@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from fastapi.testclient import TestClient
 
 from apps.live_control_server.config import SESSION_DIR_ENV, repo_root
 from apps.live_control_server.main import create_app
+from apps.live_control_server.services import graph_preview_surface
 from apps.live_control_server.services.graph_preview_surface import (
     build_graph_preview_surface,
     build_latest_graph_preview_surface,
@@ -81,6 +84,34 @@ def test_build_graph_preview_surface_enriches_paragraph_evidence() -> None:
     has_spref = any(ref.source_span_ref_id for c in with_evidence for ref in c.evidence_refs)
     if has_spref:
         assert any(ref.paragraph_text for c in with_evidence for ref in c.evidence_refs)
+
+
+@pytest.mark.parametrize("pinned_uri", [None, "pinned-run"])
+def test_latest_surface_discovers_only_when_unpinned(tmp_path, monkeypatch, pinned_uri) -> None:
+    record = SimpleNamespace(
+        artifact_id="artifact", campaign_id="campaign", session_id="session",
+        run_bundle_uri="bundle", default_graph_run_uri=pinned_uri,
+    )
+    discovery = Mock(return_value=[SimpleNamespace(run_dir="discovered-run", canonical_ir_valid=True)])
+    build = Mock()
+    monkeypatch.setattr(graph_preview_surface, "_resolve_recap_artifact", Mock(return_value=record))
+    monkeypatch.setattr(graph_preview_surface, "discover_graph_preview_runs", discovery)
+    monkeypatch.setattr(graph_preview_surface, "build_graph_preview_surface", build)
+
+    assert build_latest_graph_preview_surface(tmp_path) is build.return_value
+    build.assert_called_once_with(
+        tmp_path, pinned_uri or "discovered-run", run_bundle_dir=tmp_path / "bundle", artifact_record=record,
+    )
+    if pinned_uri:
+        discovery.assert_not_called()
+    else:
+        discovery.assert_called_once_with(
+            tmp_path, artifact_id="artifact", campaign_id="campaign", session_id="session",
+        )
+        discovery.return_value = []
+        with pytest.raises(graph_preview_surface.GraphPreviewSurfaceError) as error:
+            build_latest_graph_preview_surface(tmp_path)
+        assert error.value.status_code == 404
 
 
 def test_latest_surface_prefers_resolvable_run() -> None:

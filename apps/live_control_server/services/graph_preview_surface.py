@@ -912,14 +912,14 @@ def build_latest_graph_preview_surface(
         campaign_id=campaign_id,
         session_id=session_id,
     )
-    runs = discover_graph_preview_runs(
-        base,
-        artifact_id=record.artifact_id,
-        campaign_id=record.campaign_id,
-        session_id=record.session_id,
-    )
     run_dir = record.default_graph_run_uri
     if not run_dir:
+        runs = discover_graph_preview_runs(
+            base,
+            artifact_id=record.artifact_id,
+            campaign_id=record.campaign_id,
+            session_id=record.session_id,
+        )
         picked = _pick_latest_run(base, runs)
         if picked is None:
             raise GraphPreviewSurfaceError("no graph preview runs discovered", status_code=404)
