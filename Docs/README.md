@@ -9,9 +9,9 @@
 - [Local Play runbook](Runbooks/RUNBOOK-local-play-dogfood.md) covers first-time
   state setup. [State recovery](Runbooks/RUNBOOK-application-state-authority-recovery.md)
   covers recovery and verification.
-- [Production package example](../deploy/production/compose.production.yaml)
-  shows required configuration and persistent paths. Host and edge setup
-  are deployment work.
+- [Verification standard](../AGENTS.md#review-and-verification) explains how
+  to select the owning test suite. The [frontend guide](../apps/live-control-ui/README.md)
+  lists local commands and manual smoke workflows.
 - [Lab and evaluation guide](../evals/README.md) points to harnesses and evidence.
 
 Use [the agent instructions](../AGENTS.md) when picking up work. Read the
@@ -22,5 +22,6 @@ and dated reports provide historical evidence.
 
 Follow the [Buddy production deployment runbook](Runbooks/RUNBOOK-buddy-production-deployment.md)
 for recovery verification, release commands, public edge checks, and the real
-browser sign-in and sign-out smoke. The [local production smoke](https://github.com/Drakosfire/DungeonMindBuddy/pull/2478)
+browser sign-in and sign-out smoke. The [Compose example](../deploy/production/compose.production.yaml)
+shows the runtime configuration and persistent paths. The [local production smoke](https://github.com/Drakosfire/DungeonMindBuddy/pull/2478)
 used disposable databases and a synthetic DMS session.
