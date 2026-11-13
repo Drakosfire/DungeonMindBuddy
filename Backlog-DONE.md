@@ -11,6 +11,8 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Cancel obsolete conversation library reads on filter changes. [#2890](https://github.com/Drakosfire/DungeonMindBuddy/pull/2890) cancels superseded list reads. [#2891](https://github.com/Drakosfire/DungeonMindBuddy/pull/2891) cancels retry-history reads and checks request identity across A→B→A. [#2892](https://github.com/Drakosfire/DungeonMindBuddy/pull/2892) cancels obsolete detail reads while preserving name saves. Focused suites verified cancellation, stale response handling, and pagination.
+
 - Share Graph connection option labels. [#2888](https://github.com/Drakosfire/DungeonMindBuddy/pull/2888) derives labels once per node-list update and preserves independent From and To selections. All 41 demo tests passed. A synthetic 10,000-node Node benchmark measured median label generation at 8.7 ms before and 2.3 ms after, with identical ordered labels. Browser render time was not measured.
 
 - Share the Graph object-name byte limit check. [#2886](https://github.com/Drakosfire/DungeonMindBuddy/pull/2886) reduced render-time encoding from two calls to one and retained submit-time validation through the same predicate. All 41 demo tests passed, including acceptance at a trimmed 128 bytes and rejection at 130 bytes.
