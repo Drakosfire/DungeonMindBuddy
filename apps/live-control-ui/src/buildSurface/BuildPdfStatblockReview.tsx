@@ -385,6 +385,11 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
       </>}
         </section>
         <section aria-label="Statblock fields" className="pdf-statblock-review__pane" tabIndex={0}>
+      {editor && !mechanicsResolved && <ul aria-label="Fields needed before publishing">
+        {!editor.workingCopy.movement && <li>Movement is unresolved. Enter the walking speed from the crop.</li>}
+        {editor.workingCopy.challenge.proficiency_bonus == null &&
+          <li>Proficiency bonus is missing. Enter the bonus for the reviewed ruleset.</li>}
+      </ul>}
       {editor && !editor.workingCopy.movement && <form onSubmit={event => {
         event.preventDefault();
         if (pending) return;
