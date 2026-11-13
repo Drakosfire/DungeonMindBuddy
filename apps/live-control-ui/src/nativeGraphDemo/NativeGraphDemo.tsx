@@ -469,6 +469,8 @@ export interface NativeGraphDemoProps {
 export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "playground", worldTitle, stateScopeId, entityOnlyDetails = false, readOnly = false }: NativeGraphDemoProps) {
   const api = useMemo(() => providedApi ?? (mode === "managed" ? MISSING_MANAGED_API : createNativeGraphDemoApi()), [mode, providedApi]);
   const [graph, setGraph] = useState<NativeGraph | null>(null);
+  const graphNodes = graph?.nodes;
+  const nodesById = useMemo(() => new Map(graphNodes?.map((node) => [node.id, node])), [graphNodes]);
   const graphRef = useRef<NativeGraph | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -592,7 +594,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     setClearSelectionRequest(selectionClearRequestIdRef.current);
     setActivePanel((current) => current === "details" ? null : current);
     setCreatedNodeReveal((current) => current && graph?.world_id === current.worldId
-      && graph.nodes.some((node) => node.id === current.nodeId) ? current : null);
+      && nodesById.has(current.nodeId) ? current : null);
     const createdFocus = pendingCreatedFocusRef.current;
     pendingCreatedFocusRef.current = null;
     if (embedded && graph && createdFocus?.graph === graph) {
@@ -600,7 +602,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       cameraFocusRequestIdRef.current += 1;
       setCameraFocusRequest({ nodeId: createdFocus.nodeId as LocalObjectId, requestId: cameraFocusRequestIdRef.current, worldId: graph.world_id, selectNode: true });
     }
-  }, [graph, embedded]);
+  }, [graph, embedded, nodesById]);
 
   const handleCanvasSelectionChange = useCallback((nodeId: LocalObjectId | null) => {
     const previous = selectedNodeIdRef.current;
@@ -1098,7 +1100,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
   async function submitConnect(event: FormEvent) {
     event.preventDefault();
     if (!graph || pendingRef.current || !canConnectGraph(graph)) return;
-    if (!graph.nodes.some((node) => node.id === draft.sourceId) || !graph.nodes.some((node) => node.id === draft.targetId)) return;
+    if (!nodesById.has(draft.sourceId) || !nodesById.has(draft.targetId)) return;
     const predicate = draft.predicate.trim();
     if (!predicate || !isPredicateAllowed(graph, predicate)) return;
     if (embedded) setActivePanel(null);
@@ -1298,8 +1300,6 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     () => graph && canvasSnapshot ? toCanvasRecord(graph, canvasSnapshot, layout) : null,
     [graph, canvasSnapshot, layout],
   );
-  const graphNodes = graph?.nodes;
-  const allowedLayoutIds = useMemo(() => new Set(graphNodes?.map((node) => node.id)), [graphNodes]);
   const connectionOptions = useMemo(() => graph?.nodes.map((node) => {
     const { displayName, displayKind } = nativeGraphPresentation(node);
     return { id: node.id, label: `${displayName} · ${displayKind}` };
@@ -1328,7 +1328,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     const current = layout.worldId === graph.world_id ? layout : { worldId: graph.world_id, positions: {}, revision: 0 };
     const mergedPositions: Record<string, { x: number; y: number }> = { ...current.positions };
     for (const [id, position] of Object.entries(changedPositions)) {
-      if (!allowedLayoutIds.has(id) || !Number.isFinite(position.x) || !Number.isFinite(position.y)) continue;
+      if (!nodesById.has(id) || !Number.isFinite(position.x) || !Number.isFinite(position.y)) continue;
       mergedPositions[id] = {
         x: Math.max(0, Math.min(MAX_COORDINATE, position.x)),
         y: Math.max(0, Math.min(MAX_COORDINATE, position.y)),
@@ -1341,7 +1341,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       return { status: "error", message: "This arrangement is visible for now, but the browser could not save its presentation-only layout." };
     }
     return { status: "written", record: nextRecord };
-  }, [graph, canvasSnapshot, allowedLayoutIds, layout, stateScopeId]);
+  }, [graph, canvasSnapshot, nodesById, layout, stateScopeId]);
 
   const creationKinds = graph?.capabilities.create
     ? graph.capabilities.object_kinds.map((kind) => ({ kind, label: kind.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) }))
@@ -1386,8 +1386,8 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
 
   function handleConnectRequest(intent: { readonly sourceId: string; readonly targetId: string }) {
     if (!graph || pendingRef.current || !canConnectGraph(graph)
-      || !graph.nodes.some((node) => node.id === intent.sourceId)
-      || !graph.nodes.some((node) => node.id === intent.targetId)) return;
+      || !nodesById.has(intent.sourceId)
+      || !nodesById.has(intent.targetId)) return;
     updateDraft({ sourceId: intent.sourceId, targetId: intent.targetId });
     setActivePanel("connect");
     setNotice({ kind: "info", text: "Add a relationship label, then review it with DungeonMind before confirming." });
@@ -1442,7 +1442,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
               </div> : null}
   </div>;
   const neighborhoodContent = viewFocusId && graph ? <div className="world-graph-canvas__neighborhood" role="group" aria-label="Neighborhood controls">
-              <span>Neighborhood: {neighborhoodDepth} {neighborhoodDepth === 1 ? "step" : "steps"} from {graph.nodes.find((node) => node.id === viewFocusId)?.name}. Focused view limit: 512 objects. The overview shows connected objects; objects without listed connections remain available in search or with the reveal control.</span>
+              <span>Neighborhood: {neighborhoodDepth} {neighborhoodDepth === 1 ? "step" : "steps"} from {nodesById.get(viewFocusId)?.name}. Focused view limit: 512 objects. The overview shows connected objects; objects without listed connections remain available in search or with the reveal control.</span>
               <button type="button" disabled={neighborhoodDepth >= graph.nodes.length || Boolean(pendingOperation)} onClick={() => setNeighborhoodDepth((depth) => depth + 1)}>Expand neighborhood</button>
               <button type="button" disabled={Boolean(pendingOperation)} onClick={() => requestCameraFocus(null)}>Show overview</button>
             </div> : null;
@@ -1670,7 +1670,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     </section>
   );
 
-  const selectedNode = graph.nodes.find((node) => node.id === selectedNodeId) ?? null;
+  const selectedNode = selectedNodeId ? nodesById.get(selectedNodeId) ?? null : null;
   const selectedLabels = new Map(graph.nodes.map((node) => [node.id, compactNodeLabel(node)]));
   const selectedConnections = selectedNode ? graph.edges.filter((edge) => edge.source_id === selectedNode.id || edge.target_id === selectedNode.id) : [];
   const detailsPanel = selectedNode ? <NativeGraphNodeExplorer
@@ -1683,7 +1683,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     previousLabel={selectedLabels.get(inspectionHistory[inspectionHistory.length - 1]!)}
     onBack={inspectionHistory.length ? () => {
       const previous = inspectionHistory[inspectionHistory.length - 1];
-      if (!previous || pendingOperation || !graph.nodes.some((node) => node.id === previous)) return;
+      if (!previous || pendingOperation || !nodesById.has(previous)) return;
       focusInspectorRef.current = true;
       setInspectionHistory((history) => history.slice(0, -1));
       selectedNodeIdRef.current = previous;
@@ -1691,7 +1691,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
       requestCameraFocus(previous);
     } : undefined}
     onExplore={(nodeId) => {
-      if (pendingOperation || !graph.nodes.some((node) => node.id === nodeId)) return;
+      if (pendingOperation || !nodesById.has(nodeId)) return;
       focusInspectorRef.current = true;
       handleCanvasSelectionChange(nodeId as LocalObjectId);
       requestCameraFocus(nodeId);
