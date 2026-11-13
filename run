@@ -190,16 +190,28 @@ start_buddy_api() {
   PID_FILES+=("$RUN_DIR/buddy-api.pid")
 }
 
+prepare_buddy_ui_dependencies() {
+  if port_listening "$UI_PORT"; then
+    return 0
+  fi
+  local ui="$ROOT/apps/live-control-ui"
+  local stamp="$ui/node_modules/.buddy-package-lock.sha256"
+  local fingerprint
+  fingerprint=$(sha256sum "$ui/package-lock.json") || die "cannot fingerprint UI lockfile"
+  if [[ -f "$stamp" && "$(<"$stamp")" == "$fingerprint" ]]; then
+    return 0
+  fi
+  log "installing UI deps (npm ci)…"
+  npm --prefix "$ui" ci || die "UI dependency installation failed"
+  printf '%s\n' "$fingerprint" >"$stamp"
+}
+
 start_buddy_ui() {
   if port_listening "$UI_PORT"; then
     log "DungeonBuddy UI already listening on :$UI_PORT — leaving it alone"
     return 0
   fi
   log "starting DungeonBuddy UI on :$UI_PORT"
-  if [[ ! -d "$ROOT/apps/live-control-ui/node_modules" ]]; then
-    log "installing UI deps (npm ci)…"
-    npm --prefix "$ROOT/apps/live-control-ui" ci
-  fi
   (
     cd "$ROOT/apps/live-control-ui"
     # Polling avoids ENOSPC/inotify watch exhaustion on busy Linux hosts.
@@ -234,6 +246,7 @@ wait_http() {
 log "Buddy root: $ROOT"
 log "DungeonMindServer: $DMS_ROOT"
 
+prepare_buddy_ui_dependencies
 start_dms
 start_buddy_api
 start_buddy_ui
