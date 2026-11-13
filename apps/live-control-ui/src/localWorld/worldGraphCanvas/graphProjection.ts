@@ -74,6 +74,16 @@ export interface LocalWorldGraphIndex {
   readonly invalidRelationships: number;
 }
 
+const orderedNeighbors = new WeakMap<readonly LocalWorldObject["id"][], readonly LocalWorldObject["id"][]>();
+
+function lexicographicNeighbors(neighbors: readonly LocalWorldObject["id"][]): readonly LocalWorldObject["id"][] {
+  const cached = orderedNeighbors.get(neighbors);
+  if (cached) return cached;
+  const sorted = [...neighbors].sort();
+  orderedNeighbors.set(neighbors, sorted);
+  return sorted;
+}
+
 export function indexLocalWorldGraph(snapshot: LocalWorldRecord["snapshot"]): LocalWorldGraphIndex {
   const objects = new Map(snapshot.objects.map((object) => [object.id, object]));
   const neighbors = new Map<LocalWorldObject["id"], LocalWorldObject["id"][]>();
@@ -320,7 +330,9 @@ export function projectLocalWorldGraph(
     for (let cursor = 0; cursor < queue.length && queue.length < maxNodes; cursor += 1) {
       const { id, depth } = queue[cursor];
       if (depth >= depthLimit) continue;
-      for (const neighbor of options.fullCorpus ? [...(index.neighbors.get(id) ?? [])].sort() : index.neighbors.get(id) ?? []) {
+      const neighbors = index.neighbors.get(id);
+      if (!neighbors) continue;
+      for (const neighbor of options.fullCorpus ? lexicographicNeighbors(neighbors) : neighbors) {
         if (visited.has(neighbor)) continue;
         visited.add(neighbor);
         queue.push({ id: neighbor, depth: depth + 1 });
