@@ -41,10 +41,17 @@ R0-A needs:
 | Buddy live-control API | `http://127.0.0.1:8000` | ThreatDraft, candidates, validate, accept orchestration |
 | Live Control UI | `http://127.0.0.1:5173` | Workbench surface |
 
+Set these absolute paths in each terminal where you run a command below. The checkouts can be in separate directories.
+
+```bash
+export SERVER_ROOT="/path/to/DungeonMindServer"
+export BUDDY_ROOT="/path/to/DungeonMindBuddy"
+```
+
 ### 1.1 DungeonMindServer
 
 ```bash
-cd /home/drakosfire/Projects/DungeonOverMind/DungeonMindServer
+cd "${SERVER_ROOT:?Set SERVER_ROOT}" || exit 1
 uv run uvicorn app:app --host 127.0.0.1 --port 7860
 ```
 
@@ -57,7 +64,7 @@ curl -fsS http://127.0.0.1:7860/api/internal/dungeonbuddy/v1/statblocks/health/l
 ### 1.2 Buddy live-control API
 
 ```bash
-cd /home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy
+cd "${BUDDY_ROOT:?Set BUDDY_ROOT}" || exit 1
 export DUNGEONMIND_LIVE_SESSION_DIR=evals/c2_live_prep/live/session_22
 uv run uvicorn apps.live_control_server.main:app --reload --host 127.0.0.1 --port 8000
 ```
@@ -83,7 +90,7 @@ If `available: false` with `downstream_unavailable`, stop and record
 ### 1.3 Live Control UI
 
 ```bash
-cd /home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/apps/live-control-ui
+cd "${BUDDY_ROOT:?Set BUDDY_ROOT}/apps/live-control-ui" || exit 1
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
@@ -96,7 +103,7 @@ curl -fsS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:5173/
 ### 1.4 Record repository SHA
 
 ```bash
-cd /home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy
+cd "${BUDDY_ROOT:?Set BUDDY_ROOT}" || exit 1
 git rev-parse HEAD
 git show -s --format='%h %s' HEAD
 ```
