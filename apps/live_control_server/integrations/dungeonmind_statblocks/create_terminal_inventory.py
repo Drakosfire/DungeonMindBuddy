@@ -22,7 +22,6 @@ FixtureKind = Literal["server", "synthetic"]
 TerminalProof = Literal["yes", "no"]
 
 __all__ = [
-    "CreateOutcomeSpec",
     "CREATE_OUTCOME_INVENTORY",
     "TERMINAL_NON_BEGIN_SPECS",
     "is_changed_body_idempotency_conflict",
@@ -58,7 +57,7 @@ def is_invalid_request_terminal_non_begin(error: StatblockIntegrationError) -> b
 
 
 @dataclass(frozen=True, slots=True)
-class CreateOutcomeSpec:
+class _CreateOutcomeSpec:
     """One create/read adapter outcome with fixture provenance."""
 
     name: str
@@ -66,50 +65,45 @@ class CreateOutcomeSpec:
     http_status: int | None
     fixture: str | None
     fixture_kind: FixtureKind
-    buddy_category: str
     terminal_non_begin: TerminalProof
     proof: str
     terminal_predicate: Callable[[StatblockIntegrationError], bool] | None = None
 
 
-CREATE_OUTCOME_INVENTORY: tuple[CreateOutcomeSpec, ...] = (
-    CreateOutcomeSpec(
+CREATE_OUTCOME_INVENTORY: tuple[_CreateOutcomeSpec, ...] = (
+    _CreateOutcomeSpec(
         name="create_success",
         server_error_code=None,
         http_status=200,
         fixture="create-response.json",
         fixture_kind="server",
-        buddy_category="create_success",
         terminal_non_begin="no",
         proof="Successful create returns an exact six-field locator; observed Server commitment, not terminal failure.",
     ),
-    CreateOutcomeSpec(
+    _CreateOutcomeSpec(
         name="same_key_same_body_replay",
         server_error_code=None,
         http_status=200,
         fixture="server_transcripts/same_key_same_body_replay.json",
         fixture_kind="server",
-        buddy_category="create_replay",
         terminal_non_begin="no",
         proof="Server returns the same logical statblock/revision/digest for same-key same-body replay.",
     ),
-    CreateOutcomeSpec(
+    _CreateOutcomeSpec(
         name="same_key_changed_body_conflict",
         server_error_code="idempotency_conflict",
         http_status=409,
         fixture="server_transcripts/same_key_changed_body_conflict.json",
         fixture_kind="server",
-        buddy_category="downstream_conflict",
         terminal_non_begin="no",
         proof="Changed-body conflict rejects the new attempt only; original same-key operation may already be committed and must remain recoverable.",
     ),
-    CreateOutcomeSpec(
+    _CreateOutcomeSpec(
         name="persistence_validation_failed",
         server_error_code="validation_failed",
         http_status=422,
         fixture="create-persistence-validation-failed.json",
         fixture_kind="server",
-        buddy_category="downstream_validation_failed",
         terminal_non_begin="yes",
         proof=(
             "Server PersistenceValidationError emits validation_failed with "
@@ -117,13 +111,12 @@ CREATE_OUTCOME_INVENTORY: tuple[CreateOutcomeSpec, ...] = (
         ),
         terminal_predicate=is_persistence_validation_terminal_non_begin,
     ),
-    CreateOutcomeSpec(
+    _CreateOutcomeSpec(
         name="request_validation_failed",
         server_error_code="invalid_request",
         http_status=422,
         fixture="create-invalid-request.json",
         fixture_kind="server",
-        buddy_category="downstream_validation_failed",
         terminal_non_begin="yes",
         proof=(
             "DungeonMindServer v1 RequestValidationError / open-provenance rejection "
@@ -131,69 +124,63 @@ CREATE_OUTCOME_INVENTORY: tuple[CreateOutcomeSpec, ...] = (
         ),
         terminal_predicate=is_invalid_request_terminal_non_begin,
     ),
-    CreateOutcomeSpec(
+    _CreateOutcomeSpec(
         name="transport_timeout",
         server_error_code=None,
         http_status=None,
         fixture=None,
         fixture_kind="synthetic",
-        buddy_category="downstream_timeout",
         terminal_non_begin="no",
         proof="Timeout does not prove persistence did not begin; retain dispatched_unknown at orchestration.",
     ),
-    CreateOutcomeSpec(
+    _CreateOutcomeSpec(
         name="transport_unavailable",
         server_error_code=None,
         http_status=None,
         fixture=None,
         fixture_kind="synthetic",
-        buddy_category="downstream_unavailable",
         terminal_non_begin="no",
         proof="Connection interruption does not prove non-begin.",
     ),
-    CreateOutcomeSpec(
+    _CreateOutcomeSpec(
         name="auth_failure_without_non_begin_proof",
         server_error_code=None,
         http_status=401,
         fixture=None,
         fixture_kind="synthetic",
-        buddy_category="downstream_authentication_failed",
         terminal_non_begin="no",
         proof="401/403 without a durable non-begin fixture remains auth uncertainty.",
     ),
-    CreateOutcomeSpec(
+    _CreateOutcomeSpec(
         name="malformed_success_response",
         server_error_code=None,
         http_status=200,
         fixture=None,
         fixture_kind="synthetic",
-        buddy_category="downstream_unexpected",
         terminal_non_begin="no",
         proof="Malformed/partial success is response integrity failure; do not invent a locator or declare terminal non-begin.",
     ),
-    CreateOutcomeSpec(
+    _CreateOutcomeSpec(
         name="exact_read_dependency_failure",
         server_error_code=None,
         http_status=None,
         fixture=None,
         fixture_kind="synthetic",
-        buddy_category="downstream_unavailable",
         terminal_non_begin="no",
         proof="Exact-read unavailability retains any already-observed locator at later layers; not terminal.",
     ),
-    CreateOutcomeSpec(
+    _CreateOutcomeSpec(
         name="unrecognized_server_error",
         server_error_code=None,
         http_status=None,
         fixture=None,
         fixture_kind="synthetic",
-        buddy_category="downstream_unexpected",
         terminal_non_begin="no",
         proof="Unrecognized Server errors remain non-terminal until a fixture proves non-begin.",
     ),
 )
 
-TERMINAL_NON_BEGIN_SPECS: tuple[CreateOutcomeSpec, ...] = tuple(
+TERMINAL_NON_BEGIN_SPECS: tuple[_CreateOutcomeSpec, ...] = tuple(
     spec for spec in CREATE_OUTCOME_INVENTORY if spec.terminal_non_begin == "yes"
 )
 
