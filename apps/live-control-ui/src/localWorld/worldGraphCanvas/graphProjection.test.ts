@@ -120,10 +120,8 @@ describe("projectLocalWorldGraph", () => {
       ...record,
       snapshot: { ...record.snapshot, relationships: invalidRecords },
     }, { maxEdges: 2 });
-    expect(graph.examinedRelationships).toBe(1000);
     expect(graph.diagnostics).toHaveLength(12);
     expect(graph.omittedDiagnostics).toBe(988);
-    expect(graph.unexaminedRelationships).toBe(0);
     expect(graph.omittedEdges).toBe(1000);
   });
 
@@ -168,7 +166,6 @@ describe("projectLocalWorldGraph", () => {
     expect(explorer.edges).toHaveLength(1024);
     expect(explorer.omittedNodes).toBe(1);
     expect(explorer.omittedEdges).toBe(1);
-    expect(explorer.unexaminedRelationships).toBe(0);
     const full = projectLocalWorldGraph(largeRecord, { fullCorpus: true });
     expect(full.nodes).toHaveLength(513);
     expect(full.edges).toHaveLength(1025);
@@ -507,7 +504,6 @@ describe("loaded corpus exploration", () => {
     expect(result.hiddenRelationships).toBe(516);
     expect(result.invalidRelationships).toBe(0);
     expect(result.diagnostics).toEqual([]);
-    expect(result.examinedRelationships).toBe(559);
   });
 
   it("focuses a late ID, expands both directions and preserves disconnected objects", async () => {
@@ -530,7 +526,6 @@ describe("loaded corpus exploration", () => {
     expect(result.hiddenRelationships).toBe(559);
     expect(result.invalidRelationships).toBe(1);
     expect(result.diagnostics).toHaveLength(1);
-    expect(result.unexaminedRelationships).toBe(0);
   });
 
   it("does not starve visible relationships behind a long valid hidden prefix", async () => {

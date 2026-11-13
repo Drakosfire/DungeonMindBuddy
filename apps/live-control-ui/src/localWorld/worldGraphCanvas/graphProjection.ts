@@ -37,9 +37,7 @@ export interface GraphProjection {
   readonly omittedEdges: number;
   readonly hiddenRelationships: number;
   readonly invalidRelationships: number;
-  readonly examinedRelationships: number;
   readonly omittedDiagnostics: number;
-  readonly unexaminedRelationships: number;
 }
 
 export interface GraphProjectionOptions {
@@ -361,8 +359,6 @@ export function projectLocalWorldGraph(
     omittedEdges: record.snapshot.relationships.length - edges.length,
     hiddenRelationships: index.validRelationships.length - edges.length,
     invalidRelationships: index.invalidRelationships,
-    examinedRelationships: record.snapshot.relationships.length,
     omittedDiagnostics: Math.max(0, index.invalidRelationships - index.diagnostics.length),
-    unexaminedRelationships: 0,
   };
 }
