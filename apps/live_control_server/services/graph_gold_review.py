@@ -113,7 +113,7 @@ _GOLD_SESSIONS: tuple[dict[str, Any], ...] = (
         "gold_fixture_id": S1_GOLD_FIXTURE_ID,
         "load_gold_manifest": load_s1_gold_manifest,
         "load_gold_graph_dict": load_s1_gold_graph_dict,
-        "gold_dir_rel": "evals/graph_memory_layer/examples/session_1_candidate_graph_gold",
+        "gold_dir_rel": "evals/graph_benchmark_gold/candidate_graph/longmont-c1/session-01",
     },
     {
         "fixture_key": "session-22",
@@ -123,7 +123,7 @@ _GOLD_SESSIONS: tuple[dict[str, Any], ...] = (
         "gold_fixture_id": S22_GOLD_FIXTURE_ID,
         "load_gold_manifest": load_s22_gold_manifest,
         "load_gold_graph_dict": load_s22_gold_graph_dict,
-        "gold_dir_rel": "evals/graph_memory_layer/examples/session_22_candidate_graph_gold",
+        "gold_dir_rel": "evals/graph_benchmark_gold/candidate_graph/longmont-c2/session-22",
     },
     {
         "fixture_key": "session-23",
@@ -133,7 +133,7 @@ _GOLD_SESSIONS: tuple[dict[str, Any], ...] = (
         "gold_fixture_id": S23_GOLD_FIXTURE_ID,
         "load_gold_manifest": load_s23_gold_manifest,
         "load_gold_graph_dict": load_s23_gold_graph_dict,
-        "gold_dir_rel": "evals/graph_memory_layer/examples/session_23_candidate_graph_gold",
+        "gold_dir_rel": "evals/graph_benchmark_gold/candidate_graph/longmont-c2/session-23",
     },
     {
         "fixture_key": "mirathorn-city",
@@ -143,7 +143,7 @@ _GOLD_SESSIONS: tuple[dict[str, Any], ...] = (
         "gold_fixture_id": MIRATHORN_GOLD_FIXTURE_ID,
         "load_gold_manifest": load_mirathorn_gold_manifest,
         "load_gold_graph_dict": load_mirathorn_gold_graph_dict,
-        "gold_dir_rel": "evals/graph_memory_layer/examples/mirathorn_city_candidate_graph_gold",
+        "gold_dir_rel": "evals/graph_benchmark_gold/candidate_graph/world/eldyrwild/mirathorn-city",
     },
 )
 
@@ -292,7 +292,6 @@ def compare_gold_review(
             status_code=422,
         )
 
-    gold_manifest = entry["load_gold_manifest"]()
     gold_graph = entry["load_gold_graph_dict"]()
     gold_parts = parts_from_raw_graph(gold_graph)
 
@@ -328,7 +327,7 @@ def compare_gold_review(
         campaign_id=campaign_id,
         gold_fixture_id=entry["gold_fixture_id"],
         gold_manifest_path=_gold_manifest_rel_path(entry),
-        gold_graph_path=str(gold_manifest["candidate_graph_gold_path"]),
+        gold_graph_path=str(entry["gold_dir_rel"]) + "/candidate_graph_gold.json",
         live_run=live_run,
         comparison=comparison,
         object_index=object_index,
@@ -527,15 +526,7 @@ def _session_entry(session_id: str) -> dict[str, Any]:
 
 def _gold_manifest_rel_path(entry: dict[str, Any]) -> str:
     gold_dir_rel = str(entry["gold_dir_rel"])
-    fixture_key = str(entry["fixture_key"])
-    if fixture_key == "mirathorn-city":
-        return f"{gold_dir_rel}/mirathorn_city_candidate_graph_gold_manifest.json"
-    session_number = entry["session_number"]
-    if session_number is None:
-        raise GraphGoldReviewError(f"no gold manifest path for fixture: {fixture_key}", status_code=500)
-    return (
-        f"{gold_dir_rel}/session_{session_number}_candidate_graph_gold_manifest.json"
-    )
+    return f"{gold_dir_rel}/source_manifest.json"
 
 
 def _resolve_run_summary(repo: Path, manifest_path: str) -> GraphIngestRunSummary:
