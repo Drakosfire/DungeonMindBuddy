@@ -66,3 +66,19 @@ def ensure_canvas_file_for_patch(canvas_path: Path) -> Path:
         f"--canvas-tsx to an existing .canvas.tsx. Default directory: {path.parent} "
         f"(override parent with DMB_CURSOR_CANVAS_DIR)."
     )
+
+
+
+def replace_generated_block(
+    text: str, block: str, *, begin: str, end: str
+) -> str:
+    """Replace one ordered marker pair, preserving all surrounding text."""
+    if begin not in text or end not in text:
+        raise ValueError(f"canvas is missing the generated-block markers ({begin!r} / {end!r})")
+    if text.count(begin) != 1 or text.count(end) != 1:
+        raise ValueError(f"Expected one generated block marker pair ({begin!r} / {end!r})")
+    start = text.index(begin)
+    stop = text.index(end)
+    if stop < start:
+        raise ValueError("Generated block end marker precedes its begin marker")
+    return text[:start] + block + text[stop + len(end):]
