@@ -1215,6 +1215,37 @@ def test_native_reviewed_step_preserves_the_author_choice(lane,tmp_path,monkeypa
     assert (len(case.decisions.calls),len(case.writer.calls))==after
     assert get_workspace_document_snapshot(tmp_path,case.page.document_id)==case.source
 
+    if output_review == "questions":
+        from application_state.agent_conversation import library
+
+        page = library.read_turns(actual.world_id, actual.conversation_id)
+        assert page["schema"] == "dmb_conversation_library_turns_v3"
+        row = next(row for row in page["turns"] if row["turn_id"] == str(actual.turn_id))
+        assert row["assistant_text"] == actual.assistant_text
+        assert row["reply_object"] == {
+            **case.writer.review,
+            "source": {
+                "world_id": actual.world_id,
+                "conversation_id": str(actual.conversation_id),
+                "turn_id": str(actual.turn_id),
+                "document_id": case.page.document_id,
+                "surface_id": "build",
+            },
+        }
+        pointer = case.service.get_world_pointer(actual.world_id)
+        case.service.new_conversation(t.ConversationCommand(
+            world_id=actual.world_id,
+            command_id=uuid4(),
+            expected_pointer_revision=pointer.revision,
+            expected_active_conversation_id=actual.conversation_id,
+        ))
+        archived_pointer = case.service.get_world_pointer(actual.world_id)
+        assert library.read_turns(actual.world_id, actual.conversation_id) == page
+        assert case.service.get_world_pointer(actual.world_id) == archived_pointer
+        assert case.service.inspect_turn(world_id=actual.world_id, turn_id=actual.turn_id) == actual
+        assert library._reply_object(actual, "foreign-world", actual.conversation_id) is None
+        assert library._reply_object(actual, actual.world_id, uuid4()) is None
+
 
 @pytest.mark.parametrize('proposal',[True,'image'])
 @pytest.mark.parametrize('state',['live','expired','interrupted'])

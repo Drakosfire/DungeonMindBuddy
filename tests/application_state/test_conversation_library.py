@@ -262,30 +262,6 @@ def test_additive_name_table_keeps_existing_agent_rows(
         )
 
 
-def test_persisted_object_only_questions_survive_archived_readback_without_pointer_write(
-    tmp_path, monkeypatch, application_state_dsn
-):
-    from tests.test_build_intentional_response import run_no_editor
-    turn, service, _, _ = run_no_editor(tmp_path, monkeypatch, application_state_dsn, "clarify_request")
-    page = library.read_turns(turn.world_id, turn.conversation_id)
-    assert page["schema"] == "dmb_conversation_library_turns_v3"
-    row = page["turns"][0]
-    assert row["assistant_text"] == ""
-    assert row["reply_object"] == {
-        "kind": "questions", "questions": [{"text": "Which shop should we develop?"}],
-        "source": {"world_id": turn.world_id, "conversation_id": str(turn.conversation_id),
-                   "turn_id": str(turn.turn_id), "document_id": turn.provenance.primary_work.object_id,
-                   "surface_id": "build"},
-    }
-    new(service, turn.world_id)
-    pointer = service.get_world_pointer(turn.world_id)
-    assert library.read_turns(turn.world_id, turn.conversation_id) == page
-    assert service.get_world_pointer(turn.world_id) == pointer
-    assert service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id) == turn
-    assert library._reply_object(turn, "foreign-world", turn.conversation_id) is None
-    assert library._reply_object(turn, turn.world_id, uuid4()) is None
-
-
 @pytest.mark.parametrize("approved", [False, True])
 def test_actual_mixed_library_keeps_accepted_prose_and_only_approved_base_object(
     tmp_path, monkeypatch, application_state_dsn, approved
