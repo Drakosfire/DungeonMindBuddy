@@ -735,12 +735,12 @@ for run_id in (RUN_A, RUN_B):
         expected_playable_revision=committed.revision_n,
         expected_playable_content_sha256=committed.content_sha256,
     )
-set_play_active_run(run_id=RUN_A)
-get_p50, get_p95 = measure(lambda: get_play_active_run())
+set_play_active_run(root, run_id=RUN_A)
+get_p50, get_p95 = measure(lambda: get_play_active_run(root))
 
 def switch():
-    current = get_play_active_run()
-    set_play_active_run(run_id=RUN_B if current.run_id == RUN_A else RUN_A)
+    current = get_play_active_run(root)
+    set_play_active_run(root, run_id=RUN_B if current.run_id == RUN_A else RUN_A)
 
 put_p50, put_p95 = measure(switch)
 print(json.dumps({
