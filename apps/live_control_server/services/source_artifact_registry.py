@@ -187,17 +187,13 @@ def get_source_artifacts(
 ) -> dict[str, GraphMemorySourceArtifact]:
     """Exact metadata lookup from APP; no source bodies or filesystem discovery."""
     try:
-        rows = source_service.get_source_input_descriptors(
+        return source_service.get_source_input_descriptors(
             source_artifact_ids=sorted(source_artifact_ids)
         )
     except ApplicationStateError as exc:
         raise SourceArtifactRegistryError(
             str(exc), status_code=exc.status_code
         ) from exc
-    return {
-        key: GraphMemorySourceArtifact.model_validate(value)
-        for key, value in rows.items()
-    }
 
 
 def get_source_artifact(

@@ -282,7 +282,7 @@ def test_conflicting_world_assignment_is_serialized(application_state_dsn, monke
     if original is not None:
         assert current.model_copy(update={'world_id': None}) == original
     descriptor = sources.get_source_input_descriptors(source_artifact_ids=[artifact.source_artifact_id])[artifact.source_artifact_id]
-    assert descriptor['world_id'] == winner[1]
+    assert descriptor.world_id == winner[1]
     with psycopg.connect(application_state_dsn) as conn:
         assert conn.execute('SELECT count(*) FROM source.artifact').fetchone() == (1,)
         assert conn.execute('SELECT count(*) FROM source.revision').fetchone() == (1,)
