@@ -410,13 +410,15 @@ def read_turns(
         world, conversation, limit=limit, before_sequence=before_sequence
     )
     rows = [_turn_row(turn, world, conversation) for turn in turns]
-    from .retry import library_contexts
+    from .retry import _supports_context, library_contexts
 
-    with unit_of_work(_ready_dsn()) as conn:
-        conn.execute("SET TRANSACTION READ ONLY")
-        contexts = library_contexts(conn, world, conversation, turns)
-        for row, retry_context in zip(rows, contexts, strict=True):
-            row["retry_context"] = retry_context
+    contexts = [None] * len(turns)
+    if any(_supports_context(getattr(turn, "envelope", turn)) for turn in turns):
+        with unit_of_work(_ready_dsn()) as conn:
+            conn.execute("SET TRANSACTION READ ONLY")
+            contexts = library_contexts(conn, world, conversation, turns)
+    for row, retry_context in zip(rows, contexts, strict=True):
+        row["retry_context"] = retry_context
     return {
         "schema": "dmb_conversation_library_turns_v3",
         "world_id": world,
