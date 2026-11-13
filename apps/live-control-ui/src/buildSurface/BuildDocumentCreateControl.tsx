@@ -195,7 +195,7 @@ export function BuildDocumentCreateControl({
       provenance: "derived",
     });
     setCreateOpen(false);
-    setImportOpen(false);
+    closeImport();
   }, [
     activationError,
     createError,
