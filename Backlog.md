@@ -75,7 +75,6 @@ Do not infer a current blocker or READY assignment from them.
 
 | Candidate | Owner | Evidence and next check |
 | --- | --- | --- |
-| Repair relative links in the design-agent source set | Buddy documentation | The ACTIVE_REFERENCE source-set index contains unresolved links to the root README, AGENTS, and demo roadmap. A separate source-set index remains under Docs/Design. Check the source-set packaging boundary and decide which links should resolve inside the bundle and which should point to pinned repository sources. Verify navigation from both the repository and the distributed source set. |
 | Remove historical files from the active design-agent upload directory | Buddy documentation | Every README-listed upload file exists. ACTIVE_AUTHORITY also contains three explicitly excluded historical copies: ROADMAP-con-ready.md, ROADMAP-playable-hoist-dungeonmind-kernel.md, and STEWARDS-ANCHOR-con-ready.md. A tracked search finds 16 handoffs naming the export paths. The Playable roadmap and CON-READY steward anchor match their archived Git blobs, but the exported CON-READY roadmap records the August 31 checkpoint and its archive records the September 7 checkpoint. Git commit 19424706b02166aec8592fd17fd66b36c20835d3 contains the exact exported bytes. Use the verified archive copies where appropriate and pin the exact exported CON-READY roadmap revision for references that depend on it before removal. Verify the directory inventory then matches the upload list exactly. |
 | Make the README synthetic recap example runnable | Buddy contributor onboarding | The README describes a sealed-door recap moving from Build to Plan but supplies no input or walkthrough for that example. Link an existing synthetic fixture if it exercises the same workflow, or document a minimal pasteable recap with World setup, expected Build review, and Plan readback. Verify the sequence in local mode from a fresh World using synthetic data. |
 | Make the active demo input pin checkout-independent | Buddy demo documentation | ROADMAP-demo.md identifies a purchased input through a maintainer Downloads path. No tracked file has that basename. Document how an authorized operator locates the input and verifies the existing digest, and move the machine-specific checkpoint detail to historical evidence if the roadmap still needs to cite it. Keep the purchased material outside Git and preserve the distinction between the normalized Markdown input and production PDF parsing evidence. |
@@ -455,6 +454,8 @@ an old UI repair. Of Conks and other prototype evidence remain reference materia
 a prototype is not a new durable authority.
 
 ## Hygiene history
+
+- 2026-11-13: #2698 repaired the exported design-agent index to link to bundled documents. Every relative index target resolved in the repository and in a standalone copy of the export.
 
 - 2026-11-13: #2696 removed the unused 1,441,393-byte launcher PNG from active checkouts. The performance handoff pins the original and records the Pillow settings that regenerated the shipped WebP byte for byte. All seven launcher tests passed.
 
