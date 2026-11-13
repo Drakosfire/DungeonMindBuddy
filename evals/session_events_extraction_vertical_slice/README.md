@@ -72,6 +72,16 @@ uv run python -m evals.session_events_extraction_vertical_slice.step1_session_ev
 
 ### Recap-to-events -> events-to-timeline chained run
 
+Use `--runs-root` to place new timeline reports on an approved storage volume.
+Replace the example path with a writable directory on that volume. The runner
+creates a dated subdirectory there. Keep earlier runs cited by reports
+retrievable at their documented paths.
+
+```bash
+DUNGEONMIND_PLANNER_ALLOW_WRITES=1 uv run python -m evals.session_events_extraction_vertical_slice.step2_timeline_from_events_run \
+  --n 5 --model gpt-5.4-mini --runs-root /mnt/storage/buddy-evals/timeline-runs
+```
+
 ```bash
 export DUNGEONMIND_PLANNER_ALLOW_WRITES=1
 # Campaign 2 Session 20 (default recap-to-events + default timeline-pass gold)
