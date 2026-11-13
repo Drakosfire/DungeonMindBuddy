@@ -203,7 +203,7 @@ If there is a `uv.lock`, update only if needed. If the environment still fails u
 Create:
 
 ```text
-Docs/Runbooks/RUNBOOK-statblock-combat-dogfood.md
+Docs/Runbooks/archive/RUNBOOK-statblock-combat-dogfood.md
 ```
 
 If `Docs/Runbooks/` does not exist, create it.

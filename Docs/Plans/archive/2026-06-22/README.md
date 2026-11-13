@@ -28,4 +28,4 @@ Canonical active execution remains at `Docs/Plans/` root (PLAN + CHECKLIST pairs
 | C2S23 retrieval dogfood | `HANDOFF-self-continuity-2026-06-02-c2s23-hub-world-dogfood.md` |
 | Plan surface + ingest | `HANDOFF-plan-mode-command-board-jumpstart.md`, `Docs/Experiments/PLAN-SURFACE-LADDER-TRACKING.md` |
 | Live control L5+ | `CHECKLIST-c2-live-control-surface-query-pane.md` |
-| Statblock / combat roadmap | `PLAN-command-board-combat-statblock-generator-roadmap.md`, `Docs/Runbooks/RUNBOOK-statblock-combat-dogfood.md` |
+| Statblock / combat roadmap | `PLAN-command-board-combat-statblock-generator-roadmap.md`, `Docs/Runbooks/archive/RUNBOOK-statblock-combat-dogfood.md` |
