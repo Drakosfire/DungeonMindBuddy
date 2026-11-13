@@ -60,7 +60,7 @@ Later PRs must use manual review surfaces, not aggregate metrics alone. The voca
 | Manual Review UI | `/plan` → Plan toolbox → Vocabulary Review | Qualitative side-by-side inspection of baseline vs variant graph extraction. |
 | Graph Gold Review | `/api/live/graph-preview/gold-review/...` and corresponding UI module if present | Quantitative gold comparison, miss tables, scorecards, and evidence diffs. |
 | Rendered recap projection | `/plan` recap projection / campaign review picker | Final check that extracted graph structure is actually useful when rendered as recap pills. |
-| Static/manual artifacts | `evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review/` | Checked-in review artifacts used by the Manual Review UI. |
+| Static/manual artifacts | `evals/graph_memory_layer/examples/vocabulary_ablation/manual_review/` | Checked-in review artifacts used by the Manual Review UI. |
 | Vocabulary-ablation runner | `evals/graph_memory_layer/run_vocabulary_ablation_expanded_beds_dogfood.py` | Reference runner for expanded-bed vocabulary dogfood; later PRs may compare against its artifacts but should not run LLM extraction in this anchor. |
 | Session 1 projection dogfood runner | [historical Session 1 runner](https://github.com/Drakosfire/DungeonMindBuddy/blob/30008dc473bd80144a46c035d09b56ad1deb2928/evals/graph_memory_layer/run_session_1_projection_dogfood.py) | Reference projection dogfood runner for C1S1; later projection PRs should use comparable rendered-review evidence. |
 

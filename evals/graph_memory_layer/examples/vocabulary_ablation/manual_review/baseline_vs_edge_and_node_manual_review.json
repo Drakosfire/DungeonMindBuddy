@@ -2209,7 +2209,7 @@
             "status": "preview",
             "version": "0.1"
           },
-          "candidate_graph_path": "evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review/c1s1-stonebridge_baseline_candidate_graph.json",
+          "candidate_graph_path": "evals/graph_memory_layer/examples/vocabulary_ablation/manual_review/c1s1-stonebridge_baseline_candidate_graph.json",
           "cost_usd": 0.046659,
           "diagnostics": {
             "collision_diagnostics": {
@@ -4737,7 +4737,7 @@
             "status": "preview",
             "version": "0.1"
           },
-          "candidate_graph_path": "evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review/c1s1-stonebridge_edge_and_node_packet_candidate_graph.json",
+          "candidate_graph_path": "evals/graph_memory_layer/examples/vocabulary_ablation/manual_review/c1s1-stonebridge_edge_and_node_packet_candidate_graph.json",
           "cost_usd": 0.042651,
           "diagnostics": {
             "collision_diagnostics": {
@@ -9204,7 +9204,7 @@
             "status": "preview",
             "version": "0.1"
           },
-          "candidate_graph_path": "evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review/mirathorn-city_baseline_candidate_graph.json",
+          "candidate_graph_path": "evals/graph_memory_layer/examples/vocabulary_ablation/manual_review/mirathorn-city_baseline_candidate_graph.json",
           "cost_usd": 0.120289,
           "diagnostics": {
             "collision_diagnostics": {
@@ -14175,7 +14175,7 @@
             "status": "preview",
             "version": "0.1"
           },
-          "candidate_graph_path": "evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review/mirathorn-city_edge_and_node_packet_candidate_graph.json",
+          "candidate_graph_path": "evals/graph_memory_layer/examples/vocabulary_ablation/manual_review/mirathorn-city_edge_and_node_packet_candidate_graph.json",
           "cost_usd": 0.108935,
           "diagnostics": {
             "collision_diagnostics": {

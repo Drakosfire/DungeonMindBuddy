@@ -147,7 +147,7 @@ Raised by the operator, not yet explored: when ingesting session N+1, the pipeli
 - `GET /api/live/graph-preview/manual-review/beds/{bed_id}`
 
 Reads the checked-in artifact directly — **no new LLM calls, read-only, no writes**:
-`evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review/baseline_vs_edge_and_node_manual_review.json`
+`evals/graph_memory_layer/examples/vocabulary_ablation/manual_review/baseline_vs_edge_and_node_manual_review.json`
 
 **Deliberately not built yet** (flagged as v2 if the pass-level view proves useful): accept/reject/retype persistence controls (needs a write-safety design decision — this UI must not casually mutate corpus or graph state), and a third+ variant column for `node_packet`-only/`edge_packet`-only comparison.
 
