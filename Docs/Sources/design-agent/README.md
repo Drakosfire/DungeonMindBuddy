@@ -68,5 +68,8 @@ Never repair an export copy in place. Repair the canonical document first, then
 refresh its mapped export copy byte-for-byte. The canonical source index owns
 the mapping.
 
-The old CON-READY and Playable sequence copies still on disk are historical
-2026-09-25 exports; exclude them from the current upload set.
+The historical 2026-09-25 exports remain available at these pinned links.
+
+- [ROADMAP-con-ready.md](https://github.com/Drakosfire/DungeonMindBuddy/blob/19424706b02166aec8592fd17fd66b36c20835d3/Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-con-ready.md)
+- [ROADMAP-playable-hoist-dungeonmind-kernel.md](https://github.com/Drakosfire/DungeonMindBuddy/blob/19424706b02166aec8592fd17fd66b36c20835d3/Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-playable-hoist-dungeonmind-kernel.md)
+- [STEWARDS-ANCHOR-con-ready.md](https://github.com/Drakosfire/DungeonMindBuddy/blob/19424706b02166aec8592fd17fd66b36c20835d3/Docs/Sources/design-agent/ACTIVE_AUTHORITY/STEWARDS-ANCHOR-con-ready.md)
