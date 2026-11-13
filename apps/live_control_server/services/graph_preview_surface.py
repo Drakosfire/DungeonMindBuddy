@@ -400,6 +400,9 @@ def _object_kind(section: str, obj: Mapping[str, Any]) -> str:
 def _session_from_span_ref(span_ref_id: str | None) -> int | None:
     if not span_ref_id:
         return None
+    compact = re.match(r"spref:c[0-9]+s([0-9]+)(?:-recap)?(?=:|$)", span_ref_id)
+    if compact:
+        return int(compact.group(1))
     marker = "session-"
     if marker not in span_ref_id:
         return None
