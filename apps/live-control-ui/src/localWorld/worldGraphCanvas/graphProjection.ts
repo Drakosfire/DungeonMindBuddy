@@ -322,16 +322,20 @@ export function projectLocalWorldGraph(
   const fullOverview = options.fullCorpus && !focused;
   const retainedPositions = options.fullCorpus ? options.fallbackPositions : undefined;
   let generatedPositions: GraphFallbackPositions | undefined;
+  const focusId = options.focusObjectId;
+  const useNeighborhood = maxNodes > 0 && focusId && focused;
   const revealedIds = new Set(options.revealObjectIds ?? []);
-  const eligibleObjects = options.showUnconnected === false
-    ? objects.filter(object => (index.relationshipCounts.get(object.id) ?? 0) > 0 || revealedIds.has(object.id) || (focused && object.id === options.focusObjectId))
-    : objects;
-  const hiddenUnconnectedNodes = objects.length - eligibleObjects.length;
-  let visibleObjects = fullOverview ? eligibleObjects : eligibleObjects.slice(0, maxNodes);
-  if (maxNodes && options.focusObjectId && index.objects.has(options.focusObjectId)) {
+  const isEligible = (object: LocalWorldObject) =>
+    (index.relationshipCounts.get(object.id) ?? 0) > 0 || revealedIds.has(object.id) || (focused && object.id === focusId);
+  let eligibleCount: number;
+  let visibleObjects: readonly LocalWorldObject[];
+  if (useNeighborhood) {
+    eligibleCount = options.showUnconnected === false
+      ? objects.reduce((count, object) => count + Number(isEligible(object)), 0)
+      : objects.length;
     const depthLimit = boundedLimit(options.neighborhoodDepth ?? 1, objects.length);
-    const queue = [{ id: options.focusObjectId, depth: 0 }];
-    const visited = new Set([options.focusObjectId]);
+    const queue = [{ id: focusId, depth: 0 }];
+    const visited = new Set([focusId]);
     for (let cursor = 0; cursor < queue.length && queue.length < maxNodes; cursor += 1) {
       const { id, depth } = queue[cursor];
       if (depth >= depthLimit) continue;
@@ -345,6 +349,10 @@ export function projectLocalWorldGraph(
       }
     }
     visibleObjects = queue.map(({ id }) => index.objects.get(id)!);
+  } else {
+    const eligibleObjects = options.showUnconnected === false ? objects.filter(isEligible) : objects;
+    eligibleCount = eligibleObjects.length;
+    visibleObjects = fullOverview ? eligibleObjects : eligibleObjects.slice(0, maxNodes);
   }
   const visibleIds = new Set(visibleObjects.map((object) => object.id));
   const nodes = visibleObjects.map((object, position) => {
@@ -378,8 +386,8 @@ export function projectLocalWorldGraph(
   return {
     nodes, edges,
     diagnostics: index.diagnostics,
-    omittedNodes: Math.max(0, eligibleObjects.length - nodes.length),
-    hiddenUnconnectedNodes,
+    omittedNodes: Math.max(0, eligibleCount - nodes.length),
+    hiddenUnconnectedNodes: objects.length - eligibleCount,
     omittedEdges: record.snapshot.relationships.length - edges.length,
     hiddenRelationships: index.validRelationships.length - edges.length,
     invalidRelationships: index.invalidRelationships,
