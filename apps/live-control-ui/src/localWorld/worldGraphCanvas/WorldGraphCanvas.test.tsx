@@ -795,12 +795,14 @@ describe("WorldGraphCanvas", () => {
     expect(mara).toHaveAttribute("transform", "translate(120 100)");
     expect(edge.getAttribute("d")).not.toBe(initialEdge);
     expect(layout).not.toHaveBeenCalled();
-    fireEvent(graph, new MouseEvent("pointerup", { clientX: 150, clientY: 125, bubbles: true }));
-    fireEvent.lostPointerCapture(graph);
+    fireEvent(graph, new MouseEvent("pointermove", { clientX: 160, clientY: 130, bubbles: true }));
     expect(mara).toHaveAttribute("transform", "translate(120 100)");
+    fireEvent(graph, new MouseEvent("pointerup", { clientX: 175, clientY: 150, bubbles: true }));
+    fireEvent.lostPointerCapture(graph);
+    expect(mara).toHaveAttribute("transform", "translate(140 120)");
     fireEvent.click(mara);
     expect(mara).toHaveAttribute("aria-pressed", "false");
-    expect(layout).toHaveBeenCalledExactlyOnceWith(record, { [record.snapshot.objects[0].id]: { x: 120, y: 100 } });
+    expect(layout).toHaveBeenCalledExactlyOnceWith(record, { [record.snapshot.objects[0].id]: { x: 140, y: 120 } });
     pending.resolve({ status: "error", message: "Layout could not be saved" });
     expect(await screen.findByText("Layout could not be saved")).toBeVisible();
     expect(mara).toHaveAttribute("transform", "translate(80 80)");

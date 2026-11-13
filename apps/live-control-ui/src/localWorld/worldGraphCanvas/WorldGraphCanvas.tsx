@@ -514,6 +514,9 @@ export function WorldGraphCanvas({
   const [viewportMeasured, setViewportMeasured] = useState(false);
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, zoom: 1 });
   const [dragPreview, setDragPreview] = useState<{ id: LocalObjectId; x: number; y: number } | null>(null);
+  const dragFrameRef = useRef<number | null>(null);
+  const pendingDragRef = useRef<typeof dragPreview>(null);
+
   const [isPanning, setIsPanning] = useState(false);
   const [moveNodesMode, setMoveNodesMode] = useState(false);
   const [palette, setPalette] = useState<CanvasPalette | null>(null);
@@ -604,6 +607,7 @@ export function WorldGraphCanvas({
     instanceGenerationRef.current += 1;
     instanceActiveRef.current = true;
     return () => {
+      clearDragFrame();
       instanceActiveRef.current = false;
       instanceGenerationRef.current += 1;
     };
@@ -1129,7 +1133,7 @@ export function WorldGraphCanvas({
       setConnectPreview({ sourceId: gesture.sourceId, point: graphPointAt(event.clientX, event.clientY, gesture.camera) });
     } else if (gesture.node) {
       const { x: dx, y: dy } = gestureDelta(gesture, event);
-      setDragPreview({ id: gesture.node.id,
+      queueDragPreview({ id: gesture.node.id,
         x: Math.max(0, Math.min(MAX_NODE_COORDINATE, gesture.node.x + dx / gesture.camera.zoom)),
         y: Math.max(0, Math.min(MAX_NODE_COORDINATE, gesture.node.y + dy / gesture.camera.zoom)) });
     } else {
@@ -1140,7 +1144,31 @@ export function WorldGraphCanvas({
     }
   }
 
+  function clearDragFrame() {
+    if (dragFrameRef.current !== null) cancelAnimationFrame(dragFrameRef.current);
+    dragFrameRef.current = null;
+    pendingDragRef.current = null;
+  }
+
+  function queueDragPreview(point: NonNullable<typeof dragPreview>) {
+    if (dragFrameRef.current !== null) {
+      pendingDragRef.current = point;
+      return;
+    }
+    setDragPreview(point);
+    dragFrameRef.current = requestAnimationFrame(function flushDragPreview() {
+      const pending = pendingDragRef.current;
+      pendingDragRef.current = null;
+      dragFrameRef.current = null;
+      if (pending) {
+        setDragPreview(pending);
+        dragFrameRef.current = requestAnimationFrame(flushDragPreview);
+      }
+    });
+  }
+
   function cancelGesture() {
+    clearDragFrame();
     const gesture = gestureRef.current;
     if (!gesture) return;
     gestureRef.current = null;
@@ -1159,6 +1187,7 @@ export function WorldGraphCanvas({
     if (!gesture || gesture.pointerId !== event.pointerId) return;
     if (gesture.kind === "pan") updateGesture(event);
     else if (Math.abs(event.clientX - gesture.pointerX) + Math.abs(event.clientY - gesture.pointerY) > 4) gesture.moved = true;
+    clearDragFrame();
     gestureRef.current = null;
     setIsPanning(false);
     setConnectPreview(null);
@@ -1173,6 +1202,7 @@ export function WorldGraphCanvas({
       const { x: dx, y: dy } = gestureDelta(gesture, event);
       const x = Math.max(0, Math.min(MAX_NODE_COORDINATE, gesture.node.x + dx / gesture.camera.zoom));
       const y = Math.max(0, Math.min(MAX_NODE_COORDINATE, gesture.node.y + dy / gesture.camera.zoom));
+      setDragPreview({ id: gesture.node.id, x, y });
       void runLayout({ [gesture.node.id]: { x, y } });
     } else setDragPreview(null);
     try { gesture.captureTarget.releasePointerCapture(event.pointerId); } catch { /* Optional in test DOMs. */ }
