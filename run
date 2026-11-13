@@ -90,15 +90,17 @@ cleanup() {
   local pid
   log "stopping services…"
   for pid in "${PIDS[@]:-}"; do
-    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-      kill "$pid" 2>/dev/null || true
+    if [[ -n "$pid" ]]; then
+      # The child may still be starting and have no separate group yet.
+      kill -- "-$pid" 2>/dev/null || kill -- "$pid" 2>/dev/null || true
     fi
   done
   # Give children a moment; then force if needed.
   sleep 1
   for pid in "${PIDS[@]:-}"; do
-    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-      kill -9 "$pid" 2>/dev/null || true
+    if [[ -n "$pid" ]]; then
+      # The child may still be starting and have no separate group yet.
+      kill -9 -- "-$pid" 2>/dev/null || kill -9 -- "$pid" 2>/dev/null || true
     fi
   done
   rm -f "$RUN_DIR"/*.pid
@@ -109,6 +111,7 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
+require_cmd setsid
 require_cmd python3
 require_cmd uv
 require_cmd npm
@@ -150,9 +153,9 @@ start_dms() {
     cd "$DMS_ROOT"
     # Prefer the repo's uv-managed env; fall back to python if needed.
     if [[ -f dev_server.py ]]; then
-      exec uv run python dev_server.py
+      exec setsid uv run python dev_server.py
     else
-      exec uv run uvicorn app:app --host 127.0.0.1 --port "$DMS_PORT" --reload
+      exec setsid uv run uvicorn app:app --host 127.0.0.1 --port "$DMS_PORT" --reload
     fi
   ) {launch_lock}>&- > >(python3 "$ROOT/scripts/rotate_launcher_log.py" "$RUN_DIR/dungeonmind-server.log") 2>&1 &
   local pid=$!
@@ -172,7 +175,7 @@ start_buddy_api() {
   fi
   (
     cd "$ROOT"
-    exec uv run uvicorn apps.live_control_server.main:app \
+    exec setsid uv run uvicorn apps.live_control_server.main:app \
       --host 127.0.0.1 \
       --port "$API_PORT" \
       "${reload_args[@]}"
@@ -198,7 +201,7 @@ start_buddy_ui() {
     export CHOKIDAR_USEPOLLING="${CHOKIDAR_USEPOLLING:-1}"
     export CHOKIDAR_INTERVAL="${CHOKIDAR_INTERVAL:-2000}"
     export VITE_LIVE_API_PROXY_TARGET="${VITE_LIVE_API_PROXY_TARGET:-http://127.0.0.1:${API_PORT}}"
-    exec npm run dev -- --host 127.0.0.1 --port "$UI_PORT" --strictPort
+    exec setsid npm run dev -- --host 127.0.0.1 --port "$UI_PORT" --strictPort
   ) {launch_lock}>&- > >(python3 "$ROOT/scripts/rotate_launcher_log.py" "$RUN_DIR/buddy-ui.log") 2>&1 &
   local pid=$!
   PIDS+=("$pid")
