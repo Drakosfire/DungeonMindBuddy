@@ -236,6 +236,7 @@ def _iter_ingest_candidates(
             f"invalid status filter: {status}", status_code=422
         )
 
+    descriptor_digests: dict[str, str | None] = {}
     for manifest_path in _iter_manifest_paths(repo, include_eval_roots=include_eval_roots):
         summarized = _summarize_manifest(
             repo,
@@ -253,6 +254,7 @@ def _iter_ingest_candidates(
         ) and not _manifest_matches_source_recap(
             repo,
             payload,
+            descriptor_digests=descriptor_digests,
             source_recap_path=source_recap_path,
             source_recap_sha256=source_recap_sha256,
         ):
@@ -303,6 +305,7 @@ def _manifest_matches_source_recap(
     repo: Path,
     payload: dict[str, Any],
     *,
+    descriptor_digests: dict[str, str | None],
     source_recap_path: str | None,
     source_recap_sha256: str | None,
 ) -> bool:
@@ -342,12 +345,18 @@ def _manifest_matches_source_recap(
                 get_source_artifact,
             )
 
-            try:
-                artifact = get_source_artifact(artifact_id)
-            except SourceArtifactRegistryError:
-                return False
-            if normalize_content_digest(artifact.content_sha256) == requested_digest:
-                return True
+            if artifact_id not in descriptor_digests:
+                try:
+                    artifact = get_source_artifact(artifact_id)
+                except SourceArtifactRegistryError as exc:
+                    if exc.status_code != 404:
+                        return False
+                    descriptor_digests[artifact_id] = None
+                else:
+                    descriptor_digests[artifact_id] = normalize_content_digest(
+                        artifact.content_sha256
+                    )
+            return descriptor_digests[artifact_id] == requested_digest
         return False
     if not source_recap_path:
         return False
