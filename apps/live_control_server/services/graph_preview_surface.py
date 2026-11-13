@@ -825,6 +825,20 @@ def build_graph_preview_surface(
     artifact_record: RecapArtifactRecord | None = None,
     _loaded_run: _LoadedRun | None = None,
 ) -> GraphPreviewSurfaceResponse:
+    surface, _, _ = _build_graph_preview_surface(
+        root, run_dir, run_bundle_dir=run_bundle_dir, artifact_record=artifact_record, _loaded_run=_loaded_run,
+    )
+    return surface
+
+
+def _build_graph_preview_surface(
+    root: Path,
+    run_dir: str,
+    *,
+    run_bundle_dir: Path | None = None,
+    artifact_record: RecapArtifactRecord | None = None,
+    _loaded_run: _LoadedRun | None = None,
+) -> tuple[GraphPreviewSurfaceResponse, dict[str, Mapping[str, Any]], str]:
     if _loaded_run is None:
         resolved_run = _resolve_run_dir(root, run_dir)
         validation, graph = _load_run_graph(resolved_run)
@@ -895,13 +909,14 @@ def build_graph_preview_surface(
 
     bundle_rel = bundle.relative_to(root.resolve()).as_posix() if bundle.is_relative_to(root.resolve()) else str(bundle)
 
-    return GraphPreviewSurfaceResponse(
+    surface = GraphPreviewSurfaceResponse(
         run_dir=rel_run_dir,
         run_bundle_dir=bundle_rel,
         recap_source_path=recap_path,
         health=health,
         candidates=candidates,
     )
+    return surface, span_lookup, recap_text
 
 
 def build_latest_graph_preview_surface(
@@ -984,25 +999,12 @@ def build_recap_graph_presentation(
         run, loaded_run = picked
         selected_run = run.run_dir
 
-    surface = build_graph_preview_surface(
+    surface, span_lookup, recap_text = _build_graph_preview_surface(
         root,
         selected_run,
         run_bundle_dir=bundle,
         artifact_record=record,
         _loaded_run=loaded_run,
-    )
-    span_index = _load_json(bundle / "source_span_index.json")
-    span_lookup = {
-        key: sp
-        for sp in span_index.get("spans", [])
-        if isinstance(sp, Mapping)
-        for key in [_span_lookup_key(sp)]
-        if key is not None
-    }
-    recap_text, _ = _recap_text_for_run_bundle(
-        root,
-        bundle,
-        source_recap_path=record.source_recap_path,
     )
     nodes, aliases_by_node = _recap_graph_nodes_for_candidates(surface.candidates)
     seeded_nodes, seeded_aliases = _route_seed_nodes(root, surface.recap_source_path)
