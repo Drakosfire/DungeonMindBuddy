@@ -6364,7 +6364,7 @@ it.each(['conversation','turn'])('does not open another %s reply when inspecting
 });
 
 it('shows native citations on initial lightweight history without opening Details',async()=>{
-  const {savedCitationPreviewFixture}=await import('../testSupport/savedCitationPreviewFixture');
+  const {savedCitationPreviewFixture}=await import('../test/savedCitationPreviewFixture');
   const {preview,answer,body,citation}=await savedCitationPreviewFixture('plan');
   const turn=makeTurn(1,'saved-native-turn','Which bridge?',answer);
   const page=history('conversation-a',4,[turn]);const api=setupApi(page,false);

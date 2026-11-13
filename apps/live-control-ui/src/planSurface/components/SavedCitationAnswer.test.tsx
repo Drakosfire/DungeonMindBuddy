@@ -5,7 +5,7 @@ import {canonical} from '../../shared/sourcePassageProtocol';
 import {sessionSummaryMarkdown} from '../../shared/sessionEvidenceCitation';
 import {SavedCitationAnswer} from './SavedCitationAnswer';
 import {readSavedCitationPreview} from '../../api/savedCitationPreview';
-import {savedCitationPreviewFixture} from '../../testSupport/savedCitationPreviewFixture';
+import {savedCitationPreviewFixture} from '../../test/savedCitationPreviewFixture';
 import * as api from '../../api/liveApi';
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
 
