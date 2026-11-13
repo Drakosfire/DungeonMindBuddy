@@ -76,7 +76,25 @@ prepare_buddy_release
 Continue only if release preparation succeeds. Save the override with the release record. Apply only the production migrations confirmed in step 2 through their owning procedures. Buddy expects the database to be ready at startup.
 
 ```bash
-"${buddy_compose[@]}" up -d --no-build --pull never --wait --wait-timeout 330 buddy
+(
+  set -e
+  "${buddy_compose[@]}" up -d --no-build --pull never --wait --wait-timeout 330 buddy
+  buddy_container=$("${buddy_compose[@]}" ps -q buddy)
+  actual_image=$(docker inspect "$buddy_container" --format '{{.Image}}')
+  test "$actual_image" = "$buddy_image_id"
+  actual_binding=$("${buddy_compose[@]}" port buddy 8000)
+  test "$actual_binding" = "127.0.0.1:$buddy_port"
+  buddy_local="http://127.0.0.1:$buddy_port"
+  curl -fsS "$buddy_local/health/live"
+  curl -fsS "$buddy_local/health/ready"
+  for buddy_path in / /graph; do
+    buddy_status=$(curl -fsS -H 'Accept: text/html' -o /dev/null -w '%{http_code}' "$buddy_local$buddy_path")
+    printf '%s %s\n' "$buddy_status" "$buddy_path"
+    test "$buddy_status" = 200
+  done
+  buddy_status=$(curl -sS -o /dev/null -w '%{http_code}' "$buddy_local/api/auth/current-user")
+  test "$buddy_status" = 401
+)
 ```
 
 The 330-second wait allows for the 90-second health start period, three
