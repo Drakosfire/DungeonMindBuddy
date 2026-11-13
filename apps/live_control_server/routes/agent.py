@@ -2318,9 +2318,8 @@ def get_pdf_statblock_review(world_id: str, review_id: UUID, request: Request):
     review = read_review(world_id=_verified_world_id(world_id), review_id=review_id)
     if review is None:
         raise HTTPException(status_code=404, detail={"code": "pdf_statblock_review_not_found"})
-    _authorized_pdf_statblock(
-        world_id, {"definition": review["definition"], "regions": review["regions"]}, request,
-    )
+    for locator in review["regions"]:
+        _authorized_build_pdf_region(world_id, locator, request)
     return review
 
 

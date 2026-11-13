@@ -267,6 +267,7 @@ def test_pdf_regions_create_only_a_source_linked_review_draft(monkeypatch):
         "world-a", UUID(review_id), payload, Request("Bearer fixture"),
     )
     assert repeated == response
+    assert agent.get_pdf_statblock_review("world-a", UUID(review_id), Request("Bearer fixture")) == response
     assert len([call for call in calls if call[0] == "extract"]) == 1
 
 
