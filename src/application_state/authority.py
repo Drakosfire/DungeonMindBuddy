@@ -29,6 +29,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 from dataclasses import asdict, dataclass
 from datetime import date, datetime
@@ -434,6 +435,15 @@ def load_fingerprint_sidecar(backup_path: str | Path) -> ApplicationStateFingerp
     )
 
 
+def _require_postgres_client(command: str) -> str:
+    executable = shutil.which(command)
+    if executable is None:
+        raise ApplicationStateIntegrityError(
+            f"{command} is required on PATH for APP-STATE recovery. Install PostgreSQL client tools."
+        )
+    return executable
+
+
 def backup_authority(*, source_dsn: str, out_path: str | Path) -> BackupRecord:
     """External custom-format backup of the APP-STATE authority.
 
@@ -444,11 +454,12 @@ def backup_authority(*, source_dsn: str, out_path: str | Path) -> BackupRecord:
     assert_safe_application_state_dsn(source_dsn)
     assert_dsn_is_not_world_graph(source_dsn, world_dsns=_world_dsns_from_env())
     out = Path(out_path)
+    executable = _require_postgres_client("pg_dump")
     env = _pg_env(source_dsn)
     before = compute_fingerprint(source_dsn)
     result = subprocess.run(
         [
-            "pg_dump",
+            executable,
             "--format=custom",
             "--no-owner",
             "--file",
@@ -507,6 +518,7 @@ def restore_authority(
     backup = Path(backup_path)
     verify_backup_digest(backup, expected_sha256=expected_sha256)
     trusted = expect_fingerprint or load_fingerprint_sidecar(backup)
+    executable = _require_postgres_client("pg_restore")
     if database_has_app_state_schema(target_dsn):
         raise ApplicationStateIntegrityError(
             "restore target already contains APP-STATE schemas; "
@@ -515,7 +527,7 @@ def restore_authority(
     env = _pg_env(target_dsn)
     result = subprocess.run(
         [
-            "pg_restore",
+            executable,
             "--no-owner",
             "--no-privileges",
             "--dbname",
