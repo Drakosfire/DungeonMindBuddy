@@ -1,6 +1,6 @@
 # Deploy Buddy to buddy.dungeonmind.net
 
-Run from the root of the reviewed Buddy checkout on the selected deployment host. Use one Bash session for the command blocks. Run the public checks from a separate client. Advance only when the expected result for the current step is recorded.
+Run from the root of the reviewed Buddy checkout on the selected deployment host. Use one Bash session for the command blocks. Run the public checks from a separate client using the helper from the same reviewed Buddy checkout or a copy of that helper from the release commit. Advance only when the expected result for the current step is recorded.
 
 ## 1. Prepare the release record
 
