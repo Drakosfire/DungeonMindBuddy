@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Restore the historical Of Conks evidence link in the stewardship handoff
+
+Pinned the [Of Conks evidence ledger](https://github.com/Drakosfire/DungeonMindBuddy/blob/b40d893f58f4aeeb0de605b7b13a3b18389a0908/Docs/Reports/REPORT-of-conks-end-to-end-dogfood.md) to the historical in-progress revision. GitHub resolved the report at that commit.
+
 ## [DONE] Verify the unused frontend fetch mock helper for removal
 
 [PR #2788](https://github.com/Drakosfire/DungeonMindBuddy/pull/2788) removed the unused test helper after checking main, registered worktree heads, and open PR additions for callers. The Vitest file list was identical before and after removal. All 737 frontend API tests passed locally. GitHub reported no checks for this change.
