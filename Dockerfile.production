@@ -61,10 +61,11 @@ COPY --chown=10001:10001 schemas/ ./schemas/
 # Runtime imports these helpers from the scripts namespace.
 COPY --chown=10001:10001 scripts/bootstrap_local_play.py scripts/build_ingested_corpus_library.py \
     scripts/materialize_normalized_recaps.py scripts/materialize_session_memory.py ./scripts/
+COPY --chown=10001:10001 scripts/probe_buddy_health.py ./scripts/
 COPY --chown=10001:10001 MODEL_POLICY.json ./
 COPY --from=ui-build --chown=10001:10001 /build/apps/live-control-ui/dist ./apps/live-control-ui/dist/
 USER 10001:10001
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=3)" || exit 1
+    CMD ["python", "/app/scripts/probe_buddy_health.py", "live", "3"]
 CMD ["uvicorn", "apps.live_control_server.main:app", "--host", "0.0.0.0", "--port", "8000"]
