@@ -143,12 +143,52 @@ print(f"127.0.0.1:{published}")
 
 Require the mount and port checks to pass before continuing.
 
+Before applying production migrations, compare the aliases from step 2
+with the actual connections from the release image. Run this from the host
+where the aliases were verified, using TCP aliases. A mismatch stops the release. If a proxy or
+replica changes the reported server address, have the database owner verify
+and document the mapping before proceeding.
+
+```bash
+(
+  set -e
+  identity_sql="SELECT json_build_array(current_database(), current_user,
+    host(inet_server_addr()), inet_server_port(),
+    (SELECT oid FROM pg_database WHERE datname = current_database()))::text"
+  for db_service in buddy-app buddy-worldgraph; do
+    case "$db_service" in
+      buddy-app) db_variable=DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL ;;
+      buddy-worldgraph) db_variable=DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL ;;
+    esac
+    expected=$(psql "service=$db_service" -XAt -v ON_ERROR_STOP=1 -c "$identity_sql")
+    actual=$("${buddy_compose[@]}" run --rm --no-deps --pull never -T \
+      --entrypoint python buddy -c '
+import os
+import sys
+
+import psycopg
+
+try:
+    with psycopg.connect(os.environ[sys.argv[1]], connect_timeout=5) as connection:
+        print(connection.execute(sys.argv[2]).fetchone()[0])
+except (KeyError, psycopg.Error, ValueError):
+    sys.exit("Could not read the release database identity")
+' "$db_variable" "$identity_sql")
+    if [[ -z "$expected" || "$expected" != "$actual" ]]; then
+      printf 'Database identity mismatch for %s\n' "$db_service" >&2
+      exit 1
+    fi
+    printf 'Verified database identity for %s\n' "$db_service"
+  done
+)
+```
+
 Before applying migrations or starting Buddy, check the configured mount with
 the release image's default user. This checks permissions without writing files
 or starting the application.
 
 ```bash
-"${buddy_compose[@]}" run --rm --no-deps --no-build --pull never --entrypoint /bin/sh buddy -ec '
+"${buddy_compose[@]}" run --rm --no-deps --pull never --entrypoint /bin/sh buddy -ec '
   test "$(id -u):$(id -g)" = 10001:10001
   for directory in managed artifacts sessions worldgraph; do
     path="/var/lib/buddy/$directory"
