@@ -42,3 +42,9 @@ tests/fixtures/statblocks/*
 !tests/fixtures/statblocks/v1/
 tests/fixtures/statblocks/v1/*
 !tests/fixtures/statblocks/v1/candidate-response.json
+
+# Local UI build outputs, caches, and overrides.
+apps/live-control-ui/build/
+apps/live-control-ui/.npm-cache/
+apps/live-control-ui/**/*.tsbuildinfo
+apps/live-control-ui/**/*.local
