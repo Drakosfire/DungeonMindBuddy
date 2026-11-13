@@ -259,6 +259,22 @@ describe("managed native graph API", () => {
     expect(calls).toHaveLength(1);
   });
 
+  it("skips snapshot serialization and network work for pre-aborted inspection", async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce(response(envelope()));
+    const { api } = createManagedNativeGraphApi("managed-a", { fetcher });
+    const graph = await api.readGraph();
+    const caller = new AbortController();
+    caller.abort();
+    const serialize = vi.spyOn(JSON, "stringify");
+    try {
+      await expect(api.inspectNode?.(graph, "entity:lina", caller.signal)).rejects.toMatchObject({ name: "AbortError" });
+      expect(serialize.mock.calls.some(([value]) => value === graph)).toBe(false);
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    } finally {
+      serialize.mockRestore();
+    }
+  });
+
   it("aborts pending inspection and rejects results from an invalidated client", async () => {
     let graphReads = 0;
     const fetcher = vi.fn(async (path: RequestInfo | URL, init?: RequestInit) => {

@@ -470,8 +470,8 @@ export function createManagedNativeGraphApi(
       return result;
     },
     async inspectNode(graph, nodeId, signal) {
-      const pin = assertCurrentSnapshot(graph, nodeId);
       if (signal?.aborted) throw abortError();
+      const pin = assertCurrentSnapshot(graph, nodeId);
       const startedGeneration = generation;
       let result: Awaited<ReturnType<typeof send>>;
       try {
