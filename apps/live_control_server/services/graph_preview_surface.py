@@ -4,8 +4,9 @@ from __future__ import annotations
 import json
 import os
 import re
+from functools import lru_cache
 from pathlib import Path
-from typing import Any, Literal, Mapping, NamedTuple
+from typing import Any, Callable, Literal, Mapping, NamedTuple
 
 from pydantic import BaseModel, Field
 
@@ -622,6 +623,7 @@ def _span_links_for_nodes(
     paragraph: str,
     span_ref_id: str,
     matchers: list[tuple[RecapGraphNode, list[re.Pattern[str]], list[str]]],
+    within_two_edits: Callable[[str, str], bool],
 ) -> list[RecapGraphLink]:
     link_candidates: list[tuple[int, int, int, RecapGraphLink]] = []
     words = None
@@ -654,7 +656,7 @@ def _span_links_for_nodes(
             for alias in fuzzy_aliases:
                 if word == alias or word[0].lower() != alias[0].lower():
                     continue
-                if _levenshtein_at_most_two(word, alias):
+                if within_two_edits(word, alias):
                     link_candidates.append(
                         (
                             word_match.start(),
@@ -1023,12 +1025,13 @@ def build_recap_graph_presentation(
 
     lines = recap_lines.copy()
     matchers = _prepare_node_matchers(nodes, aliases_by_node)
+    within_two_edits = lru_cache(maxsize=4096)(_levenshtein_at_most_two)
     all_links: list[RecapGraphLink] = []
     for span_ref_id, span in span_lookup.items():
         paragraph = _paragraph_text_for_span(recap_lines, span)
         if paragraph.lstrip().startswith("---"):
             continue
-        span_links = _span_links_for_nodes(paragraph, span_ref_id, matchers)
+        span_links = _span_links_for_nodes(paragraph, span_ref_id, matchers, within_two_edits)
         if not span_links:
             continue
         start = int(span["line_start"])
