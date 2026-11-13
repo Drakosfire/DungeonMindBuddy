@@ -64,7 +64,7 @@ EVIDENCE_SCHEMA = "dmb_graph_gold_review_evidence_v1"
 VOCABULARY_ABLATION_SCHEMA = "dmb_vocabulary_ablation_dogfood_v1"
 
 DEFAULT_VOCABULARY_ABLATION_ARTIFACT = (
-    "evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/c2s23_mireward_vocabulary_ablation.json"
+    "evals/graph_memory_layer/examples/vocabulary_ablation/c2s23_mireward_vocabulary_ablation.json"
 )
 
 _VOCABULARY_ABLATION_BY_SESSION: dict[str, str] = {
