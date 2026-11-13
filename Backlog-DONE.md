@@ -11,6 +11,8 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Narrow statblock response validation exception handlers. [#2864](https://github.com/Drakosfire/DungeonMindBuddy/pull/2864) narrowed all four model validation catches to Pydantic ValidationError. All 62 client tests passed, including both readiness response shapes, malformed responses, and redaction checks.
+
 - Check the unused statblock terminal proof summary helper. [#2860](https://github.com/Drakosfire/DungeonMindBuddy/pull/2860) removed the unused summary and non-terminal tuple after a caller, operator documentation, and open PR scan. [#2862](https://github.com/Drakosfire/DungeonMindBuddy/pull/2862) made the inventory type private and removed the unread category field after checking local branches and sibling checkouts. The live classifier and fixture evidence were preserved, and all 62 client tests passed.
 
 - Consolidate generated Canvas block replacement. C1S4 and breadcrumb emitters share the ordered marker splice. C1S2 and C1S3 share the file-patching loop, [result aggregation](https://github.com/Drakosfire/DungeonMindBuddy/pull/2857), and [schema loading](https://github.com/Drakosfire/DungeonMindBuddy/pull/2858). The dedicated tests passed, and both CLIs updated scratch Canvases with valid inputs and rejected invalid documents. Existing command names, markers, and whitespace behavior were preserved.
