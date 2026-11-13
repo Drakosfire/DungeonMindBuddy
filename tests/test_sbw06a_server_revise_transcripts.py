@@ -36,6 +36,17 @@ def test_manifest_cites_server_commit_fingerprint_and_fixture_hashes() -> None:
     assert server["openapi_fingerprint"] == OPENAPI_FINGERPRINT
     assert manifest["buddy_vendored_openapi_fingerprint"] == OPENAPI_FINGERPRINT
     assert manifest["openapi_fingerprint_match"] is True
+    snapshot = (
+        Path(__file__).resolve().parents[1]
+        / "apps/live_control_server/integrations/dungeonmind_statblocks/openapi"
+        / "dungeonbuddy-statblocks-v1.json"
+    )
+    assert "sha256:" + hashlib.sha256(snapshot.read_bytes()).hexdigest() == OPENAPI_FINGERPRINT
+    assert {
+        "revise-request",
+        "revise-replay-response",
+        "revise-conflict-response",
+    } <= manifest["transcripts"].keys()
     for key, digest in manifest["transcripts"].items():
         path = TRANSCRIPT_DIR / f"{key}.json"
         assert path.is_file()
