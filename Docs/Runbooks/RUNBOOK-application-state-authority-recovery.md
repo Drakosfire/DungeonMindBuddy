@@ -69,7 +69,8 @@ client subprocess. The default leaves the client deadline unset. The option
 does not time database inspection or fingerprinting. Ctrl-C during the client
 call reports an interruption. After a timeout or interruption, use a fresh
 backup output path or discard and recreate the disposable restore target
-before retrying. A timed-out restore can have applied part of the dump.
+before retrying. Restore replays in one transaction. A timeout may occur
+after the database commits but before the client reports success.
 
 ## Routine backup
 
@@ -131,7 +132,8 @@ Set `DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL` in `.env` to the durable coord
 | `check` exits 0, OBSERVED | reachable and at head; not a READY claim | capture `--expect-fingerprint` before treating it as recovered |
 | `check` exits 2, unreachable | authority container down or wrong DSN | start the compose service; verify coordinates |
 | `check` exits 2, behind head | schema not migrated | explicit `apply` with the target DSN configured |
-| `check` / `restore` exits 2, NOT_READY | live fingerprint does not match expected | do not bless the target; investigate per-domain mismatch output |
+| Restore replay fails or is interrupted | target state needs verification | discard and recreate the disposable target before retrying |
+| `check` / `restore` exits 2, NOT_READY | live fingerprint does not match expected | investigate per-domain mismatches and recreate the disposable target before retrying |
 | `restore` refuses SHA-256 mismatch / missing sidecar | dump bytes are unverified or tampered | recapture; never restore an unverified dump |
 | `restore` refuses non-empty target | target already holds APP-STATE | use a second clean target; destructive restore is out of scope |
 | `backup` reports source changed | writes during dump | recapture; never claim a stale dump |

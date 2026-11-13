@@ -574,6 +574,7 @@ def restore_authority(
             executable,
             "--no-owner",
             "--no-privileges",
+            "--single-transaction",
             "--dbname",
             _pg_conninfo(env),
             str(backup),
