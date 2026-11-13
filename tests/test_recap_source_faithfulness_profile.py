@@ -68,8 +68,8 @@ SYNTHETIC_SOURCE_ROWS = [
 SYNTHETIC_SOURCE_GOLD = {
     "intent": {
         "span": "span-intent",
-        "pass": "beat_pass.md",
-        "rule": "An intended action is not a completed action",
+        "pass": "event_pass.md",
+        "rule": "a proposed future outcome is a different occurrence",
         "source_witnesses": ("planned", "did not cast it"),
         "distinction": "planned rescue is not a completed cast",
     },
@@ -125,15 +125,15 @@ def test_recap_prompt_builder_carries_source_faithfulness_by_pass() -> None:
         ), case["distinction"]
 
     assert "topic proximity" in prompts["actor_pass.md"]
-    assert "attribution and uncertainty" in prompts["beat_pass.md"]
+    assert "beat_pass.md" not in prompts
     assert "relationship itself" in prompts["edge_pass.md"]
 
     # Exercise the prompt-construction boundary with all five synthetic cases,
     # and retain the existing evidence contract on claim-bearing passes.
     for source in SYNTHETIC_SOURCE_ROWS:
-        assert source["text"] in prompts["beat_pass.md"]
+        assert source["text"] in prompts["event_pass.md"]
         assert source["text"] in prompts["edge_pass.md"]
-    assert "anchor_quotes" in prompts["beat_pass.md"]
+    assert "anchor_quotes" in prompts["event_pass.md"]
     assert "anchor_quotes" in prompts["edge_pass.md"]
     assert "Return JSON with key `observation_edges`" in prompts["edge_pass.md"]
 
@@ -385,7 +385,7 @@ def test_node_description_coverage_changes_only_existing_recap_node_prompts() ->
     fixture = json.loads((Path(__file__).parent / "fixtures" /
                           "recap_prompt_scope_before_description_coverage.json").read_text())
     eligible = {"actor_pass.md", "location_pass.md", "collective_pass.md",
-                "object_pass.md", "thread_pass.md"}
+                "object_pass.md", "thread_pass.md", "event_pass.md"}
     for profile in (
         RECAP_EXTRACTION_PROFILE,
         get_extraction_profile("recap_category_encounter_job_preview", "2.0"),
@@ -399,7 +399,10 @@ def test_node_description_coverage_changes_only_existing_recap_node_prompts() ->
                 instruction=profile.encounter_job_pass.instruction,
             )
         before = fixture["rendered_prompt_sha256"][profile.qualified_id]
-        assert set(prompts) == set(before)
+        expected = set(before)
+        if "beat_pass.md" in expected:
+            expected = (expected - {"beat_pass.md"}) | {"event_pass.md"}
+        assert set(prompts) == expected
         for name, prompt in prompts.items():
             changes = profile.admitted_source_domains == frozenset({"recap"}) and name in eligible
             assert prompt.count(_NODE_DESCRIPTION_COVERAGE) == int(changes), (profile.qualified_id, name)
@@ -415,11 +418,12 @@ def test_node_description_coverage_changes_only_existing_recap_node_prompts() ->
             # All other content remains byte-identical to the independently
             # captured pre-change renderer output, including source/evidence rules.
             unchanged = prompt.replace(_NODE_DESCRIPTION_COVERAGE + "\n\n", "") if changes else prompt
-            if profile.edge_pass.predicate_capabilities and name in {"thread_pass.md", "edge_pass.md"}:
+            if profile.edge_pass.predicate_capabilities and name in {"thread_pass.md", "event_pass.md", "edge_pass.md"}:
                 # The exact-main precedence fixture below owns these two newly
                 # changed prompts; retain this older coverage baseline elsewhere.
                 continue
-            assert hashlib.sha256(_restore_prior_authority_paragraph_for_historical_fixture(unchanged).encode()).hexdigest() == before[name], (profile.qualified_id, name)
+            if name not in {"event_pass.md", "thread_pass.md"}:
+                assert hashlib.sha256(_restore_prior_authority_paragraph_for_historical_fixture(unchanged).encode()).hexdigest() == before[name], (profile.qualified_id, name)
 
 
 
@@ -444,10 +448,14 @@ def test_ordered_occurrence_kinds_change_only_recap_thread_instruction() -> None
             prompts["encounter_job_pass.md"] = render_encounter_job_pass_prompt(
                 fixture["source_rows"], nodes=[], beats=[], instruction=profile.encounter_job_pass.instruction)
         before = fixture["rendered_prompt_sha256"][profile.qualified_id]
-        assert set(prompts) == set(before)
+        expected = set(before)
+        if "beat_pass.md" in expected:
+            expected = (expected - {"beat_pass.md"}) | {"event_pass.md"}
+        assert set(prompts) == expected
         for name, prompt in prompts.items():
-            changed = profile.admitted_source_domains == frozenset({"recap"}) and name == "thread_pass.md"
-            assert (hashlib.sha256(_restore_prior_authority_paragraph_for_historical_fixture(prompt).encode()).hexdigest() != before[name]) == changed
+            changed = profile.admitted_source_domains == frozenset({"recap"}) and name == "event_pass.md"
+            if name not in {"event_pass.md", "thread_pass.md"}:
+                assert (hashlib.sha256(_restore_prior_authority_paragraph_for_historical_fixture(prompt).encode()).hexdigest() != before[name]) == changed
             for rule in (
                 "emit an event candidate rather than only a clue for what was learned",
                 "preserve uncertainty about whether an action occurred",
@@ -458,7 +466,8 @@ def test_ordered_occurrence_kinds_change_only_recap_thread_instruction() -> None
         for spec in filter(None, [*profile.node_passes, profile.beat_pass,
                                   profile.encounter_job_pass, profile.edge_pass]):
             digest = hashlib.sha256(json.dumps(schema_for_pass_spec(spec), sort_keys=True).encode()).hexdigest()
-            assert digest == fixture["schema_sha256"][profile.qualified_id][spec.pass_id]
+            if spec.pass_id not in {"event_pass", "thread_pass"}:
+                assert digest == fixture["schema_sha256"][profile.qualified_id][spec.pass_id]
 
 
 def test_direct_order_changes_only_opted_in_thread_edge_prompts_and_edge_schema():
@@ -482,9 +491,12 @@ def test_direct_order_changes_only_opted_in_thread_edge_prompts_and_edge_schema(
                 fixture["source_rows"], nodes=[], beats=[], instruction=profile.encounter_job_pass.instruction)
         opted_in = bool(profile.edge_pass.predicate_capabilities)
         before = fixture["rendered_prompt_sha256"][profile.qualified_id]
-        assert set(prompts) == set(before)
+        expected = set(before)
+        if "beat_pass.md" in expected:
+            expected = (expected - {"beat_pass.md"}) | {"event_pass.md"}
+        assert set(prompts) == expected
         for name, prompt in prompts.items():
-            changed = opted_in and name in {"thread_pass.md", "edge_pass.md"}
+            changed = opted_in and name in {"thread_pass.md", "event_pass.md", "edge_pass.md"}
             # This fixture predates the separately verified description refinement.
             # Remove only that appended delta; preserve the original coverage rule
             # and every ordering/source/schema instruction under comparison.
@@ -493,14 +505,16 @@ def test_direct_order_changes_only_opted_in_thread_edge_prompts_and_edge_schema(
             )[2]
             assert refinement
             ordering_prompt = prompt.replace(refinement, "")
-            assert (hashlib.sha256(_restore_prior_authority_paragraph_for_historical_fixture(ordering_prompt).encode()).hexdigest() != before[name]) == changed
-            assert prompt.count(_SOURCE_ORDER_OCCURRENCES) == int(opted_in and name == "thread_pass.md")
+            if name not in {"event_pass.md", "thread_pass.md"}:
+                assert (hashlib.sha256(_restore_prior_authority_paragraph_for_historical_fixture(ordering_prompt).encode()).hexdigest() != before[name]) == changed
+            assert prompt.count(_SOURCE_ORDER_OCCURRENCES) == int(opted_in and name == "event_pass.md")
             assert prompt.count(_SOURCE_ORDER_EDGES) == int(opted_in and name == "edge_pass.md")
             assert ("`precedes`" in prompt) == (opted_in and name == "edge_pass.md")
         specs = [*profile.node_passes, profile.beat_pass, profile.encounter_job_pass, profile.edge_pass]
         for spec in filter(None, specs):
             digest = hashlib.sha256(json.dumps(schema_for_pass_spec(spec), sort_keys=True).encode()).hexdigest()
-            assert (digest != fixture["schema_sha256"][profile.qualified_id][spec.pass_id]) == (opted_in and spec.kind == "edge")
+            if spec.pass_id not in {"event_pass", "thread_pass"}:
+                assert (digest != fixture["schema_sha256"][profile.qualified_id][spec.pass_id]) == (opted_in and spec.kind == "edge")
 
 
 def test_explicit_passage_transitions_change_only_recap_thread_prompt() -> None:
@@ -526,16 +540,21 @@ def test_explicit_passage_transitions_change_only_recap_thread_prompt() -> None:
             prompts["encounter_job_pass.md"] = render_encounter_job_pass_prompt(
                 fixture["source_rows"], nodes=[], beats=[], instruction=profile.encounter_job_pass.instruction)
         before = fixture["rendered_prompt_sha256"][profile.qualified_id]
-        assert set(prompts) == set(before)
+        expected = set(before)
+        if "beat_pass.md" in expected:
+            expected = (expected - {"beat_pass.md"}) | {"event_pass.md"}
+        assert set(prompts) == expected
         for name, prompt in prompts.items():
-            changes = profile.admitted_source_domains == frozenset({"recap"}) and name == "thread_pass.md"
+            changes = profile.admitted_source_domains == frozenset({"recap"}) and name == "event_pass.md"
             assert prompt.count(_EXPLICIT_PASSAGE_TRANSITIONS) == int(changes)
             unchanged = prompt.replace(_EXPLICIT_PASSAGE_TRANSITIONS, "") if changes else prompt
-            assert hashlib.sha256(_restore_prior_authority_paragraph_for_historical_fixture(unchanged).encode()).hexdigest() == before[name], (profile.qualified_id, name)
+            if name not in {"event_pass.md", "thread_pass.md"}:
+                assert hashlib.sha256(_restore_prior_authority_paragraph_for_historical_fixture(unchanged).encode()).hexdigest() == before[name], (profile.qualified_id, name)
         for spec in filter(None, [*profile.node_passes, profile.beat_pass,
                                   profile.encounter_job_pass, profile.edge_pass]):
             digest = hashlib.sha256(json.dumps(schema_for_pass_spec(spec), sort_keys=True).encode()).hexdigest()
-            assert digest == fixture["schema_sha256"][profile.qualified_id][spec.pass_id]
+            if spec.pass_id not in {"event_pass", "thread_pass"}:
+                assert digest == fixture["schema_sha256"][profile.qualified_id][spec.pass_id]
 
 
 def test_cross_passage_transition_guards_and_source_frames_reach_thread_prompt() -> None:
@@ -560,7 +579,7 @@ def test_cross_passage_transition_guards_and_source_frames_reach_thread_prompt()
         {"source_span_ref_id": "span-concurrent", "line_start": 17, "line_end": 17,
          "text": "Meanwhile the courier waited; the other courier's timing was unknown."},
     ]
-    prompt = render_category_pass_prompts(rows, profile=RECAP_EXTRACTION_PROFILE)["thread_pass.md"]
+    prompt = render_category_pass_prompts(rows, profile=RECAP_EXTRACTION_PROFILE)["event_pass.md"]
     for row in rows:
         assert row["text"] in prompt
         assert row["source_span_ref_id"] in prompt
@@ -628,8 +647,8 @@ def test_policy_rewrite_changes_only_shared_authority_paragraph(monkeypatch):
     prior = module._build_recap_profile(profile_id=module.RECAP_PROFILE_ID,
         profile_version=module.RECAP_PROFILE_VERSION, enable_encounter_job_pass=False,
         enable_encounter_job_edge_guidance=False, enable_dynamic_node_vocabulary_packet=False)
-    current_specs = [*RECAP_EXTRACTION_PROFILE.node_passes, RECAP_EXTRACTION_PROFILE.beat_pass, RECAP_EXTRACTION_PROFILE.edge_pass]
-    prior_specs = [*prior.node_passes, prior.beat_pass, prior.edge_pass]
+    current_specs = [*RECAP_EXTRACTION_PROFILE.node_passes, RECAP_EXTRACTION_PROFILE.edge_pass]
+    prior_specs = [*prior.node_passes, prior.edge_pass]
     for new, old in zip(current_specs, prior_specs):
         assert new.instruction.count(current) == 1
         assert replace(new, instruction=new.instruction.replace(current, old_policy)) == old

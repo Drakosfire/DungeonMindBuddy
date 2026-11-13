@@ -100,11 +100,6 @@ _PASS_SOURCE_FAITHFULNESS: dict[str, str] = {
         "labels match. Preserve continuity when the source supports that these "
         "are the same participants."
     ),
-    "beat_pass": (
-        "Describe what happened separately from what was intended or planned. "
-        "An intended action is not a completed action; retain the source's "
-        "attribution and uncertainty in the beat summary."
-    ),
     "encounter_job_pass": (
         "Do not describe an intended or proposed encounter action as having "
         "occurred unless the source says it occurred."
@@ -258,27 +253,30 @@ _NODE_PASSES: tuple[ExtractionPassSpec, ...] = (
     ExtractionPassSpec(
         pass_id="thread_pass",
         allowed_node_types=(
-            "event", "clue", "thread", "mystery", "warning", "promise",
+            "clue", "thread", "mystery", "warning", "promise",
             "debt", "rumor", "unknown_important",
         ),
         default_node_type="mystery",
         instruction=(
-            "Extract mysteries, clues, warnings, events, unresolved phenomena, and threads. "
-            "Also emit ignored_items and deferred_items when appropriate. "
-            + _SOURCE_ORDER_OCCURRENCES
+            "Extract mysteries, clues, warnings, unresolved phenomena, and threads. "
+            "Also emit ignored_items and deferred_items when appropriate."
         ),
         progress_label="Extracting mysteries and threads",
         include_dispositions=True,
     ),
+    ExtractionPassSpec(
+        pass_id="event_pass",
+        allowed_node_types=("event",),
+        default_node_type="event",
+        instruction=(
+            "Extract meaningful played occurrences even when their relative order is unknown. "
+            "Keep distinct actions, discoveries, and agreements separate when the recap supports them. "
+            + _SOURCE_ORDER_OCCURRENCES
+        ),
+        progress_label="Extracting played events",
+    ),
 )
 
-_BEAT_PASS = ExtractionPassSpec(
-    pass_id="beat_pass",
-    default_node_type=None,
-    instruction="Extract source-local beats (scenes, topic shifts, durable claims).",
-    progress_label="Extracting session beats",
-    kind="beat",
-)
 
 _ENCOUNTER_JOB_PASS = ExtractionPassSpec(
     pass_id="encounter_job_pass",
@@ -313,7 +311,7 @@ def _build_recap_profile(
         admitted_source_domains=frozenset({"recap"}),
         admitted_document_classes=None,
         node_passes=tuple(_with_recap_source_faithfulness(spec) for spec in _NODE_PASSES),
-        beat_pass=_with_recap_source_faithfulness(_BEAT_PASS),
+        beat_pass=None,
         encounter_job_pass=(
             _with_recap_source_faithfulness(_ENCOUNTER_JOB_PASS)
             if enable_encounter_job_pass

@@ -30,8 +30,10 @@ def test_recap_profile_preserves_pass_order_and_instructions() -> None:
         "collective_pass",
         "object_pass",
         "thread_pass",
+        "event_pass",
     ]
-    assert profile.beat_pass is not None
+    assert profile.beat_pass is None
+    assert profile.node_passes[-1].allowed_node_types == ("event",)
     assert profile.edge_pass.pass_id == "edge_pass"
     assert "evidence_refs" in profile.evidence_rule
     assert profile.allow_null_session is False

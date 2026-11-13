@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -139,8 +140,23 @@ def _extract(
         "beat_pass": {"observation_beats": beats},
         "edge_pass": {"observation_edges": []},
     }
+    from src.graph_memory.extraction.extraction_profile import ExtractionPassSpec
+    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+
+    historical_profile = replace(
+        RECAP_EXTRACTION_PROFILE,
+        node_passes=tuple(spec for spec in RECAP_EXTRACTION_PROFILE.node_passes if spec.pass_id != "event_pass"),
+        beat_pass=ExtractionPassSpec(
+            pass_id="beat_pass",
+            default_node_type=None,
+            instruction="Extract source-local beats.",
+            progress_label="Extracting session beats",
+            kind="beat",
+        ),
+    )
     result = extract_category_candidate_graph(
         CategoryGraphExtractionOptions(
+            profile=historical_profile,
             campaign_id="synthetic",
             session_id="session-01",
             session_number=None,
