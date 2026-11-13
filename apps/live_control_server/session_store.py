@@ -69,7 +69,16 @@ def append_events_and_jobs(
 
 
 def refresh_current_state(base: Path) -> dict[str, Any]:
-    packet, layout, events, jobs = load_session(base)
+    return refresh_loaded_current_state(base, *load_session(base))
+
+
+def refresh_loaded_current_state(
+    base: Path,
+    packet: dict[str, Any],
+    layout: dict[str, Any],
+    events: list[dict[str, Any]],
+    jobs: list[dict[str, Any]],
+) -> dict[str, Any]:
     derived = derive_current_state_fields(packet, layout, events, jobs)
     state = {
         "schema_version": "0.1.0",

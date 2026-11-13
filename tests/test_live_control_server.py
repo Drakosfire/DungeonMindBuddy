@@ -2192,3 +2192,24 @@ def test_event_and_job_routes_read_only_their_logs(tmp_path, monkeypatch):
     assert live.get_live_events(since="one") == {"events": [{"id": "two"}]}
     assert live.get_live_events(since="unknown") == {"events": []}
     assert live.get_live_jobs() == {"jobs": [{"id": "job"}]}
+
+
+def test_surface_refresh_reads_each_artifact_once(isolated_session, monkeypatch):
+    from apps.live_control_server.routes import live
+
+    reads = []
+
+    def count(reader):
+        def read(path):
+            reads.append(path.name)
+            return reader(path)
+        return read
+
+    monkeypatch.setattr(session_store, "load_json", count(session_store.load_json))
+    monkeypatch.setattr(session_store, "iter_jsonl", count(session_store.iter_jsonl))
+    result = live.get_live_surface()
+
+    assert reads == ["live_packet.json", "surface_layout.json", "event_log.jsonl", "job_queue.jsonl"]
+    assert result["state"] == load_json(isolated_session / "current_state.json")
+    assert result["catalog"] == load_json(isolated_session / "live_packet.json")["surface_catalog"]
+    assert result["layout"] == load_json(isolated_session / "surface_layout.json")

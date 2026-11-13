@@ -72,6 +72,7 @@ from apps.live_control_server.session_store import (
     load_session_jobs,
     queue_packet_rebuild_job,
     refresh_current_state,
+    refresh_loaded_current_state,
     validate_and_save_layout,
 )
 from src.live_play.projections import (
@@ -1057,11 +1058,11 @@ def get_live_jobs() -> dict[str, Any]:
 @router.get("/surface")
 def get_live_surface() -> dict[str, Any]:
     base = session_dir()
-    packet, layout, _, _ = load_session(base)
+    packet, layout, events, jobs = load_session(base)
     return {
         "catalog": packet["surface_catalog"],
         "layout": layout,
-        "state": refresh_current_state(base),
+        "state": refresh_loaded_current_state(base, packet, layout, events, jobs),
     }
 
 
