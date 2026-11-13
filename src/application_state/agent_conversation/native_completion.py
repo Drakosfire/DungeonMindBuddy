@@ -24,10 +24,21 @@ from .source_writer_output import require_captured_answer, strict_json, surface_
 from .surface_evidence_answer import (native_fact_segment, status_for,
     authored_block_index, authored_selected_segment, validate_authored_shape)
 
+from .build_saved_statblock import SavedStatblockPdfPin
+
+
+class StatblockPdfClaim(Strict):
+    kind: Literal['statblock_pdf_claim']
+    text: str
+    scope: SavedStatblockPdfPin
+    assertion_id: str
+    evidence_ref_id: str
+
+
 NativeSegment = Annotated[
     t.SourcePassageClaimV1 | t.NativeAssertionClaimV1 | t.SurfaceAuthoredExcerptV1 | t.SessionSummaryV1
     | t.DraftReferenceClaimV1 | t.RelatedPageClaim | t.SavedSourceClaimV1 | DraftDiscussionV1
-    | t.PlanWorldGraphProposalSegmentV1 | t.SurfaceLimitationV1,
+    | t.PlanWorldGraphProposalSegmentV1 | t.SurfaceLimitationV1 | StatblockPdfClaim,
     Field(discriminator='kind'),
 ]
 
@@ -49,7 +60,7 @@ class SurfaceNativeCompletionV1(Strict):
     @model_validator(mode='after')
     def supported_shape(self):
         validate_authored_shape(self.answer_segments)
-        build=[s for s in self.answer_segments if isinstance(s,(t.DraftReferenceClaimV1,t.SavedSourceClaimV1,DraftDiscussionV1))]
+        build=[s for s in self.answer_segments if isinstance(s,(t.DraftReferenceClaimV1,t.SavedSourceClaimV1,DraftDiscussionV1,StatblockPdfClaim))]
         related = any(isinstance(s,t.RelatedPageClaim) for s in self.answer_segments)
         if related and self.surface_id not in {'build','plan'}:
             raise ValueError('Saved authored claims require their actual authoring surface')
@@ -200,7 +211,7 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     blocks,selectors=authored_block_index(evidence.authored,str(evidence.idempotency_key),local=evidence.authored_local)
     selected_blocks=set()
     for row in candidate['answer_segments']:
-        if (not isinstance(row,dict) or row.get('kind') != 'authored_excerpt'
+        if (not isinstance(row,dict) or row.get('kind') not in {'authored_excerpt', 'statblock_pdf_claim'}
                 and (not isinstance(row.get('text'),str) or not row['text'].strip())):
             raise ValueError('Native completion contains an invalid segment')
         if row.get('kind') in {'draft_reference_claim','related_page_claim','saved_source_claim','discussion'}:
@@ -219,6 +230,16 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
             segments.append(segment)
             if citation is not None:
                 saved_cites.append(citation)
+        elif row.get('kind') == 'statblock_pdf_claim':
+            from .native_build_work_view import resolve_statblock_pdf_quote
+
+            if (execution.policy.action.surface_id != 'build' or not evidence.build_local
+                    or set(row) != {'kind', 'source', 'quote'}):
+                raise ValueError('PDF claim requires the producing Build work frame')
+            scope, assertion_id, evidence_ref_id = resolve_statblock_pdf_quote(
+                evidence.work_frame, row['source'], row['quote'])
+            segments.append(StatblockPdfClaim(kind='statblock_pdf_claim', text=row['quote'],
+                scope=scope, assertion_id=assertion_id, evidence_ref_id=evidence_ref_id))
         elif row.get('kind') in {'authored_excerpt','session_summary'}:
             segments.append(authored_selected_segment(row,blocks=blocks,selectors=selectors,selected_blocks=selected_blocks))
         elif row.get('kind') == 'proposal':
@@ -257,7 +278,8 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     local_authored = local_authored or (execution.policy.action.surface_id=='play'
         and any(isinstance(s,(t.SurfaceAuthoredExcerptV1,t.SessionSummaryV1)) for s in segments)
         and all(isinstance(s,(t.SurfaceAuthoredExcerptV1,t.SessionSummaryV1,t.PlanWorldGraphProposalSegmentV1)) for s in segments))
-    has_cited_answer = bool(body_cites or statement_cites or assertion_cites or saved_cites)
+    has_cited_answer = bool(body_cites or statement_cites or assertion_cites or saved_cites
+                            or any(isinstance(s, StatblockPdfClaim) for s in segments))
     limitations = project_surface_limitations(candidate['limitations'], candidate['requested_detail_gaps'],
         user_question=execution.policy.action.intent.message, derive_missing=True,
         host_partial=evidence.frame['input_status'] == 'partial' and not local_authored,

@@ -8,6 +8,26 @@ from application_state.world_mechanics.types import MechanicsLocator
 from .native_statement_input import Strict
 
 
+class SavedStatblockPdfCrop(Strict):
+    assertion_id: str = Field(min_length=1)
+    evidence_ref_id: str = Field(pattern=r"^pdf-region:.+$")
+    text: str
+
+
+class SavedStatblockPdfPin(Strict):
+    managed_world_id: str
+    native_world_id: str
+    binding_version: int = Field(gt=0)
+    revision_id: str
+    scope_mode: Literal["world"]
+    campaign_id: None
+
+
+class SavedStatblockPdfSupport(Strict):
+    scope: SavedStatblockPdfPin
+    support: list[SavedStatblockPdfCrop]
+
+
 class BuildSavedStatblockReadV1(Strict):
     kind: Literal["build_saved_statblock_read_v1"] = "build_saved_statblock_read_v1"
     event_id: UUID
@@ -18,6 +38,7 @@ class BuildSavedStatblockReadV1(Strict):
     draft_id: UUID
     locator: MechanicsLocator
     definition: dict[str, JsonValue]
+    pdf_support: SavedStatblockPdfSupport | None = None
 
 
 def validate_read(event, execution):
@@ -26,6 +47,16 @@ def validate_read(event, execution):
 
     if not isinstance(execution.policy.action, NativeBuildActionV1):
         raise ValueError("Saved statblock reads require native Build")
+    if event.pdf_support is not None:
+        from .authored_graph_references import native_references, object_selections
+
+        pin = event.pdf_support.scope
+        if pin.managed_world_id != event.world_id or not any(
+            (ref.managed_world_id, ref.native_world_id, ref.binding_version, ref.graph_revision)
+            == (pin.managed_world_id, pin.native_world_id, pin.binding_version, pin.revision_id)
+            for ref in object_selections(native_references(execution))
+        ):
+            raise ValueError("Saved statblock PDF support differs from its authored Graph pin")
     prior_events = execution.events[:event.sequence]
     selections = [entry for entry in prior_events if isinstance(entry, native_selection_types())]
     if (not selections or selections[-1].event_id != event.selection_event_id

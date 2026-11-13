@@ -13,7 +13,6 @@ from dungeonmind.application.vnext import (
 from dungeonmind.application.vnext.native_pdf_access import (
     bind_native_pdf_evidence, register_native_pdf_evidence,
 )
-from dungeonmind.contracts.vnext.pdf_region import NativePdfRegionV1
 from dungeonmind.contracts.vnext.common import LabelsAllVisibility
 from dungeonmind.contracts.vnext.native_source import (
     NativeTextEvidenceSpanRequestV1, NativeTextSourceAdmissionV1, NativeTextSourceOriginV1,
@@ -21,6 +20,7 @@ from dungeonmind.contracts.vnext.native_source import (
 from worldkeeper.application import contracts as wk
 
 from application_state.mechanics_revisions import service as revision_operations
+from .native_pdf_evidence import reviewed_pdf_regions
 from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
 from application_state.errors import ApplicationStateConflictError, ApplicationStateIntegrityError
 from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
@@ -175,9 +175,7 @@ def prepare(root, draft_id, request, principal):
         pdf_review = recorded.get(PDF_REVIEW_PROVENANCE)
         require(through.get(PDF_REVIEW_PROVENANCE) == pdf_review,
                 "The saved mechanics PDF provenance differs from its operation")
-        if pdf_review is not None:
-            require(pdf_review["world_id"] == request.world_id, "The PDF review belongs to another World")
-            regions = tuple(NativePdfRegionV1.model_validate(region) for region in pdf_review["regions"])
+        regions = reviewed_pdf_regions({"provenance": exact.provenance}, world_id=request.world_id)
     text = body(draft)
     digest = sha256(text.encode()).hexdigest()
     admission_id = f"dmb-threat-source:{draft_id}:{draft.version}:{digest}"

@@ -125,11 +125,15 @@ def semantic_frame(host, execution):
             'flavor_text', 'lair', 'movement', 'phases', 'proficiencies',
             'resources', 'rule_elements', 'senses', 'vitality',
         )
-        work['saved_statblocks'] = [
-            {'mechanics': {key: deepcopy(row['definition'][key])
-                           for key in mechanics_fields if key in row['definition']}}
-            for row in host['saved_statblocks']
-        ]
+        work['saved_statblocks'] = []
+        for statblock_index, row in enumerate(host['saved_statblocks']):
+            statblock = {'mechanics': {key: deepcopy(row['definition'][key])
+                                      for key in mechanics_fields if key in row['definition']}}
+            excerpts = [excerpt for index, excerpt in statblock_pdf_excerpts(host)
+                        if index == statblock_index]
+            if excerpts:
+                statblock['reviewed_pdf_excerpts'] = excerpts
+            work['saved_statblocks'].append(statblock)
     from .authored_graph_references import model_reference_choices
     references = model_reference_choices(execution)
     if references is not None:
@@ -160,3 +164,27 @@ def frame_in_request(body):
     if len(frames) > 1 or frames and historical:
         raise ValueError('Ambiguous Build work carriers')
     return frames[0] if frames else None
+
+
+def statblock_pdf_excerpts(work_frame):
+    for statblock_index, row in enumerate(work_frame.get('saved_statblocks', ())):
+        for crop_index, crop in enumerate((row.get('pdf_support') or {}).get('support', ())):
+            if crop['text'].strip():
+                yield statblock_index, {'source': f'pdf{statblock_index}:{crop_index}', 'text': crop['text']}
+
+
+def resolve_statblock_pdf_quote(work_frame, alias, quote):
+    """Return the pinned crop only when the writer quotes that exact excerpt."""
+    from .source_quote_binding import CURRENT_POLICY, validate_selected_quotes
+
+    if not isinstance(alias, str) or not isinstance(quote, str):
+        raise ValueError("A PDF citation requires a source selector and exact quote")
+    for statblock_index, row in enumerate(work_frame.get('saved_statblocks', ())):
+        support = row.get('pdf_support') or {}
+        for crop_index, crop in enumerate(support.get('support', ())):
+            if alias != f'pdf{statblock_index}:{crop_index}' or not crop['text'].strip():
+                continue
+            validate_selected_quotes([alias], [quote], {alias: crop['text']},
+                                     policy=CURRENT_POLICY)
+            return support['scope'], crop['assertion_id'], crop['evidence_ref_id']
+    raise ValueError("PDF citation was not offered to this writer")

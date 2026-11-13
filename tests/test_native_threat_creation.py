@@ -280,6 +280,39 @@ def test_postgres_publication_survives_fresh_core_repository(creation_core_dsn, 
         locator, authorized_space_id=case.bound["native_world_id"],
         audience=frozenset(), declared_labels=frozenset(), load=fresh.get_native_pdf_source,
     ) == pdf
+    from apps.live_control_server.services import native_graph_inspection
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+    from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1
+
+    monkeypatch.setattr(native_graph_inspection, "_repository", lambda: fresh)
+    creature_ref = AuthoredGraphReferenceV1(
+        managed_world_id="managed", native_world_id=case.bound["native_world_id"],
+        binding_version=case.bound["binding_version"],
+        graph_revision=fresh.get_head(case.bound["native_world_id"]).head_revision_id,
+        node_id=result.json()["node_id"], label="Fixture creature",
+    )
+    principal = NativeGraphPrincipal("local_operator", "gm", "local_operator")
+    support = native_graph_inspection.statblock_pdf_support(creature_ref, (locator,), principal)
+    assert [item["evidence_ref_id"] for item in support["support"]] == [evidence_id]
+    from base64 import b64decode
+    from PIL import Image
+    from apps.live_control_server.models.native_graph_inspection import InspectionRead
+
+    (selected,) = support["support"]
+    request = InspectionRead.model_validate({
+        "scope": support["scope"],
+        "selection": {"kind": "source", "assertion_id": selected["assertion_id"],
+                      "evidence_ref_id": selected["evidence_ref_id"]},
+    })
+    reopened = native_graph_inspection.inspect(request, principal)
+    assert reopened["schema"] == "dmb_native_graph_pdf_region_v1"
+    assert reopened["region"] == locator.model_dump(mode="json")
+    with Image.open(BytesIO(b64decode(reopened["png_base64"]))) as image:
+        assert image.size == (800, 800)
+    other_crop = locator.model_copy(update={"left": 0.2})
+    assert native_graph_inspection.statblock_pdf_support(
+        creature_ref, (other_crop,), principal,
+    )["support"] == []
     replay = confirm(case, packet)
     assert replay.status_code == 200 and replay.json()["node_id"] == response.json()["node_id"]
     assert replay.json()["replayed"] is True

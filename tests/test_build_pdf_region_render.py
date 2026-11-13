@@ -51,3 +51,20 @@ def test_graph_pdf_crop_rejects_locator_revision_mismatch():
 
     with pytest.raises(ValueError, match="PDF evidence revision differs from its locator"):
         render_admitted_pdf_evidence(evidence, space_id="fixture-world", load=load)
+
+
+def test_statblock_pdf_quote_must_match_the_selected_crop():
+    from application_state.agent_conversation.native_build_work_view import resolve_statblock_pdf_quote
+
+    pin = {"revision_id": "rev:fixture"}
+    work = {"saved_statblocks": [{"pdf_support": {"scope": pin, "support": [
+        {"text": "Hit Points 207", "assertion_id": "assertion:fixture", "evidence_ref_id": "pdf-region:hp"},
+        {"text": "Seeping Miasma", "assertion_id": "assertion:fixture", "evidence_ref_id": "pdf-region:action"},
+    ]}}]}
+    assert resolve_statblock_pdf_quote(work, "pdf0:0", "Hit Points 207") == (
+        pin, "assertion:fixture", "pdf-region:hp",
+    )
+    with pytest.raises(ValueError):
+        resolve_statblock_pdf_quote(work, "pdf0:1", "Hit Points 207")
+    with pytest.raises(ValueError, match="not offered"):
+        resolve_statblock_pdf_quote(work, "pdf0:2", "Hit Points 207")
