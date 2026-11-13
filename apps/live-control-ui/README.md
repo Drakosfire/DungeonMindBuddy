@@ -200,6 +200,9 @@ uv run pytest tests/test_live_control_server.py -q
 
 ### Standalone native Graph build
 
+Run the native Graph tests through the main Vitest configuration with
+`npm test -- nativeGraphDemo worldGraphCanvas`.
+
 From this directory, build the standalone demo with
 `npm exec -- vite build --config native-demo.vite.config.ts`. Its default output
 is `dist-native-demo/`, which the build clears before writing. Git and the Docker
