@@ -99,7 +99,7 @@ def test_directory_does_not_claim_world_identity_over_http(client: TestClient, r
 
 
 def test_service_create_visible_to_http_list(client: TestClient, root: Path) -> None:
-    create_world_container(root, name="Seeded")
+    create_world_container(name="Seeded")
     body = client.get("/api/live/world-containers").json()
     assert len(body["records"]) == 1
     assert body["records"][0]["name"] == "Seeded"
@@ -110,7 +110,7 @@ def test_http_list_uses_explicit_operator_root_across_checkouts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     operator = tmp_path / "operator"
-    create_world_container(operator, name="Operator World")
+    create_world_container(name="Operator World")
     monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(operator))
 
     response = client.get("/api/live/world-containers")

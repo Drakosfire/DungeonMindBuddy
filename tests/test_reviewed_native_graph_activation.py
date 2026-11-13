@@ -21,7 +21,7 @@ from apps.live_control_server.services.world_graph_binding import (
 
 
 def _fixture(root):
-    world = create_world_container(root, name="Activation proof")
+    world = create_world_container(name="Activation proof")
     reservation = world.native_graph_binding
     target = FirstWorldNativeTarget(
         native_world_id=reservation.native_world_id,
@@ -171,7 +171,7 @@ def test_other_world_change_during_validation_does_not_block_activation(tmp_path
     world, target, receipt, _, _, services = _fixture(tmp_path)
 
     def concurrent_write(_):
-        create_world_container(tmp_path, name="Concurrent legitimate World")
+        create_world_container(name="Concurrent legitimate World")
         return services
 
     active = _activate(tmp_path, world, target, receipt, services, concurrent_write)

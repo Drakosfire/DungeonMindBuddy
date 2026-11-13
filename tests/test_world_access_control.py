@@ -25,7 +25,7 @@ def root(tmp_path: Path) -> Path:
 
 
 def test_owner_has_normal_world_use_and_new_world_is_private(root: Path) -> None:
-    world = create_world_container(root, name="Owner Test", owner_subject="subject:owner")
+    world = create_world_container(name="Owner Test", owner_subject="subject:owner")
 
     assert world.owner_subject == "subject:owner"
     assert world.access_grants == []
@@ -50,11 +50,11 @@ def test_owner_has_normal_world_use_and_new_world_is_private(root: Path) -> None
 def test_same_display_name_does_not_merge_creators_or_legacy_unowned_worlds(
     root: Path,
 ) -> None:
-    legacy = create_world_container(root, name="Test Realm")
-    first = create_world_container(root, name="Test Realm", owner_subject="subject:one")
-    second = create_world_container(root, name="Test Realm", owner_subject="subject:two")
+    legacy = create_world_container(name="Test Realm")
+    first = create_world_container(name="Test Realm", owner_subject="subject:one")
+    second = create_world_container(name="Test Realm", owner_subject="subject:two")
     first_retry = create_world_container(
-        root, name="  TEST REALM  ", owner_subject="subject:one"
+        name="  TEST REALM  ", owner_subject="subject:one"
     )
 
     assert len({legacy.world_id, first.world_id, second.world_id}) == 3
@@ -70,7 +70,7 @@ def test_same_display_name_does_not_merge_creators_or_legacy_unowned_worlds(
 
 
 def test_read_only_grant_cannot_write_manage_or_share(root: Path) -> None:
-    world = create_world_container(root, name="Read Only", owner_subject="subject:owner")
+    world = create_world_container(name="Read Only", owner_subject="subject:owner")
     grant_world_access(
         world.world_id,
         actor_subject="subject:owner",
@@ -89,7 +89,7 @@ def test_read_only_grant_cannot_write_manage_or_share(root: Path) -> None:
 
 
 def test_write_and_manage_grants_do_not_imply_other_actions(root: Path) -> None:
-    world = create_world_container(root, name="Independent Actions", owner_subject="subject:owner")
+    world = create_world_container(name="Independent Actions", owner_subject="subject:owner")
     grant_world_access(
         world.world_id,
         actor_subject="subject:owner",
@@ -121,7 +121,7 @@ def test_write_and_manage_grants_do_not_imply_other_actions(root: Path) -> None:
 
 
 def test_permissions_are_explicit_and_unknown_values_deny(root: Path) -> None:
-    world = create_world_container(root, name="Explicit Actions", owner_subject="subject:owner")
+    world = create_world_container(name="Explicit Actions", owner_subject="subject:owner")
     with pytest.raises(WorldAccessDenied):
         authorize_world_access(
             root, world.world_id, subject="subject:owner", permission="admin"
@@ -140,7 +140,7 @@ def test_permissions_are_explicit_and_unknown_values_deny(root: Path) -> None:
 
 
 def test_delegated_sharing_is_bounded_and_revocation_cascades(root: Path) -> None:
-    world = create_world_container(root, name="Sharing Boundaries", owner_subject="subject:owner")
+    world = create_world_container(name="Sharing Boundaries", owner_subject="subject:owner")
     grant_world_access(
         world.world_id,
         actor_subject="subject:owner",
@@ -236,7 +236,7 @@ def test_delegated_sharing_is_bounded_and_revocation_cascades(root: Path) -> Non
 
 
 def test_non_owner_can_only_revoke_grants_they_created(root: Path) -> None:
-    world = create_world_container(root, name="Grant Provenance", owner_subject="subject:owner")
+    world = create_world_container(name="Grant Provenance", owner_subject="subject:owner")
     grant_world_access(
         world.world_id,
         actor_subject="subject:owner",
@@ -270,8 +270,8 @@ def test_non_owner_can_only_revoke_grants_they_created(root: Path) -> None:
 def test_resource_world_mismatch_denies_even_when_subject_owns_requested_world(
     root: Path,
 ) -> None:
-    owned = create_world_container(root, name="Owned Resource", owner_subject="subject:owner")
-    other = create_world_container(root, name="Other Resource", owner_subject="subject:someone")
+    owned = create_world_container(name="Owned Resource", owner_subject="subject:owner")
+    other = create_world_container(name="Other Resource", owner_subject="subject:someone")
 
     with pytest.raises(WorldAccessDenied):
         authorize_world_access(
@@ -286,7 +286,7 @@ def test_resource_world_mismatch_denies_even_when_subject_owns_requested_world(
 def test_owner_grants_serialize_as_v3_and_concurrent_updates_do_not_overwrite(
     root: Path,
 ) -> None:
-    world = create_world_container(root, name="Concurrent Grants", owner_subject="subject:owner")
+    world = create_world_container(name="Concurrent Grants", owner_subject="subject:owner")
     subjects = [f"subject:reader-{index}" for index in range(8)]
 
     def add_grant(subject: str) -> None:
@@ -314,7 +314,7 @@ def test_owner_grants_serialize_as_v3_and_concurrent_updates_do_not_overwrite(
 def test_stale_world_cas_cannot_overwrite_serialized_access_state(root):
     from application_state.world_catalog import service as catalog
     from application_state.errors import ApplicationStateConflictError
-    world = create_world_container(root, name="CAS Grant State", owner_subject="subject:owner")
+    world = create_world_container(name="CAS Grant State", owner_subject="subject:owner")
     initial = catalog.get_world(world.world_id)
     grant_world_access(world.world_id, actor_subject="subject:owner",
                        subject="subject:reader", permissions=["read"])

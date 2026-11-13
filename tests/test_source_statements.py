@@ -61,7 +61,7 @@ def make_lane(tmp_path, monkeypatch, *, repo=None, narrow=False, multiple=False)
     from apps.live_control_server.services.world_container_registry import (
         create_world_container,
     )
-    world = create_world_container(tmp_path, name="Statement fixture " + uuid4().hex)
+    world = create_world_container(name="Statement fixture " + uuid4().hex)
     world, record = _committed_source(tmp_path, markdown=BODY, world=world)
     domain = dungeonbuddy_world_domain_contract()
     profile = dungeonbuddy_dnd5e_custom_predicate_profile()

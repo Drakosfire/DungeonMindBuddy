@@ -574,7 +574,7 @@ def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
 
     assert application_state_dsn
     monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: SimpleNamespace(subject="test-operator"))
-    managed = create_world_container(tmp_path, name="Play Graph World")
+    managed = create_world_container(name="Play Graph World")
     assert managed.world_id != NATIVE_ID
     (tmp_path / world_source_root_relpath(managed.world_id)).mkdir(parents=True, exist_ok=True)
     binding = NativeGraphBindingRecord(
@@ -1281,7 +1281,7 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         _receipt, _seed_sources,
     )
 
-    managed = create_world_container(tmp_path, name="Managed World")
+    managed = create_world_container(name="Managed World")
     assert managed.world_id != NATIVE_ID
     (tmp_path / world_source_root_relpath(managed.world_id)).mkdir(
         parents=True, exist_ok=True
@@ -3820,7 +3820,7 @@ def test_plan_agent_route_dispatches_only_atomic_committed_content(
         create_world_container,
     )
 
-    managed_world = create_world_container(tmp_path, name="Plan Ask World")
+    managed_world = create_world_container(name="Plan Ask World")
     markdown = "# Saved Plan\n\nThe keeper waits below the black arch.\n"
     basis = {
         "world_id": managed_world.world_id,
@@ -3908,7 +3908,7 @@ def test_plan_agent_route_rejects_stale_pin_before_runtime_dispatch(
         create_world_container,
     )
 
-    managed_world = create_world_container(tmp_path, name="Stale Plan Ask World")
+    managed_world = create_world_container(name="Stale Plan Ask World")
 
     def stale_read(*_args: Any, **_kwargs: Any) -> Any:
         raise agent_route.WorkspaceDocumentRegistryError(
@@ -3965,7 +3965,7 @@ def test_plan_agent_route_reads_actual_committed_content_and_excludes_divergent_
     )
 
     assert application_state_dsn
-    managed_world = create_world_container(tmp_path, name="Atomic Plan Ask World")
+    managed_world = create_world_container(name="Atomic Plan Ask World")
     created = create_world_plan(
         title="Atomic Plan Ask",
         world_id=managed_world.world_id,
@@ -4074,7 +4074,7 @@ def test_campaign_id_equal_to_world_id_is_not_world_plan_ownership(
         create_world_container,
     )
 
-    managed_world = create_world_container(tmp_path, name="World Alias Test")
+    managed_world = create_world_container(name="World Alias Test")
     monkeypatch.setattr(agent_route, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(
         agent_route,
@@ -4310,7 +4310,7 @@ def test_verified_world_projection_reaches_runtime_through_full_http_route(
         _seed_sources,
     )
 
-    managed_world = create_world_container(tmp_path, name="Agent Projection Test World")
+    managed_world = create_world_container(name="Agent Projection Test World")
     world_root = tmp_path / "isolated-world-root"
     auth_token = "test-local-operator-token-with-adequate-length"
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
@@ -4443,7 +4443,7 @@ def _selected_consumer_context(tmp_path, monkeypatch, *, unavailable=False, lega
     from apps.live_control_server.services import world_container_registry as registry
     from apps.live_control_server.services.agent_turn_service import _freeze_policy_receipt, _plan_message
     services, request, revision = _selected_native_fixture(unrelated=0 if legacy else 513, unavailable=unavailable, claims=claims, neighbor=neighbor)
-    managed = registry.create_world_container(tmp_path, name="Selected consumer fixture")
+    managed = registry.create_world_container(name="Selected consumer fixture")
     (tmp_path / managed.source_root_relpath).mkdir(parents=True, exist_ok=True)
     binding = registry.NativeGraphBindingRecord(native_world_id=request.world_id, binding_version=1,
         status="active", validated_at="2026-10-08T00:00:00Z", validated_head_revision_id=revision)

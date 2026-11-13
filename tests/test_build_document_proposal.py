@@ -24,7 +24,7 @@ TABLE = '| NPC | Job | Detail |\n| --- | --- | --- |\n| Nia | Baker | Keeps a bl
 
 @pytest.fixture
 def request_case(tmp_path,monkeypatch,application_state_dsn):
-    create_world_container(tmp_path,name='Elderwyld')
+    create_world_container(name='Elderwyld')
     record=create_page_fixture(tmp_path,title='Edge',campaign_id='elderwyld',world_id='elderwyld',
         kind='worldbuilding_source',source_domain='worldbuilding',document_class='lore',authority_state='draft',visibility_state='internal')
     record = save_page(tmp_path, record.document_id, '## Edge\nA fort town at the edge of a swamp.\n')

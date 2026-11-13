@@ -148,9 +148,8 @@ def find_world_container_by_normalized_name(root: Path, name: str) -> WorldConta
     return None
 
 
-def create_world_container(root: Path, *, name: str, owner_subject: str | None = None) -> WorldContainerRecord:
+def create_world_container(*, name: str, owner_subject: str | None = None) -> WorldContainerRecord:
     """Create/reconcile exact metadata and reservation; never adopt a directory."""
-    del root
     try:
         return catalog.create_world(name=name, owner_subject=owner_subject).record
     except ApplicationStateError as exc:

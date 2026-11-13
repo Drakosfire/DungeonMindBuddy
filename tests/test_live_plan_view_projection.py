@@ -100,7 +100,7 @@ def test_managed_world_plan_context_v2_has_no_campaign_or_session_sentinel(
     from apps.live_control_server.routes import live
     from apps.live_control_server.services.world_container_registry import create_world_container
 
-    world = create_world_container(tmp_path, name="Context Test World")
+    world = create_world_container(name="Context Test World")
     monkeypatch.setattr(live, "repo_root", lambda: tmp_path)
 
     response = client.get(
@@ -138,7 +138,7 @@ def test_plan_view_reopens_operator_world_from_separate_code_checkout(
     code_root = tmp_path / "clean-checkout"
     code_root.mkdir()
     operator_root = tmp_path / "operator-data"
-    world = create_world_container(operator_root, name="Existing World")
+    world = create_world_container(name="Existing World")
     original = world_snapshot()
     monkeypatch.setattr(live, "repo_root", lambda: code_root)
     monkeypatch.setenv(MANAGED_WORLD_DATA_ROOT_ENV, str(operator_root))

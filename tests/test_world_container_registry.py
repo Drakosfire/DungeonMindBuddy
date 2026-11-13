@@ -27,7 +27,7 @@ def root(tmp_path):
 
 
 def test_create_world_persists_exact_identity_without_source_folder(root):
-    created = create_world_container(root, name="The Glass Orchard")
+    created = create_world_container(name="The Glass Orchard")
     assert created.world_id == "the-glass-orchard"
     assert created.name == "The Glass Orchard"
     assert created.source_root_relpath == "corpus/the-glass-orchard-markdown"
@@ -39,7 +39,7 @@ def test_create_world_persists_exact_identity_without_source_folder(root):
 
 
 def test_reload_from_another_checkout_uses_the_same_database(root):
-    created = create_world_container(root / "checkout-a", name="One-Shot Vale")
+    created = create_world_container(name="One-Shot Vale")
     assert list_world_containers() == [created]
     assert get_world_container(root / "does-not-exist", created.world_id) == created
 
@@ -47,23 +47,23 @@ def test_reload_from_another_checkout_uses_the_same_database(root):
 def test_empty_and_whitespace_names_fail_closed(root):
     for bad in ("", "   ", "\n\t"):
         with pytest.raises(WorldContainerRegistryError) as error:
-            create_world_container(root, name=bad)
+            create_world_container(name=bad)
         assert error.value.status_code == 422
     assert list_world_containers() == []
 
 
 def test_same_normalized_name_is_idempotent(root):
-    first = create_world_container(root, name="The Glass Orchard")
-    second = create_world_container(root, name="  the   glass   orchard  ")
+    first = create_world_container(name="The Glass Orchard")
+    second = create_world_container(name="  the   glass   orchard  ")
     assert second == first
     assert len(list_world_containers()) == 1
     assert normalize_world_name_for_compare(first.name) == normalize_world_name_for_compare("THE GLASS ORCHARD")
 
 
 def test_different_name_slug_collision_fails_409(root):
-    first = create_world_container(root, name="Glass Orchard")
+    first = create_world_container(name="Glass Orchard")
     with pytest.raises(WorldContainerRegistryError) as error:
-        create_world_container(root, name="Glass-Orchard")
+        create_world_container(name="Glass-Orchard")
     assert error.value.status_code == 409
     assert list_world_containers() == [first]
 
@@ -74,7 +74,7 @@ def test_existing_directory_is_preserved_without_becoming_a_source_or_identity(r
     notes = directory / "notes.md"
     notes.write_text("original source\n")
     assert list_world_containers() == []
-    created = create_world_container(root, name="Stolen Path")
+    created = create_world_container(name="Stolen Path")
     assert created.world_id == "stolen-path"
     assert notes.read_text() == "original source\n"
     assert not (root / "out/workspace").exists()
@@ -82,7 +82,7 @@ def test_existing_directory_is_preserved_without_becoming_a_source_or_identity(r
 
 @pytest.mark.parametrize("content", ["not json", '{"schema_version":"dmb_world_container_registry_v1","records":[]}', '{"records":[{"world_id":"shadow"}]}'])
 def test_missing_malformed_and_old_world_files_never_select_metadata(root, content):
-    created = create_world_container(root, name="Actual World")
+    created = create_world_container(name="Actual World")
     path = legacy_world_catalog_path(root)
     path.parent.mkdir(parents=True)
     path.write_text(content)
@@ -124,7 +124,7 @@ def _page(root, world_id):
 
 
 def test_registered_world_allows_page_without_a_corpus_folder(root):
-    world = create_world_container(root, name="Composable World")
+    world = create_world_container(name="Composable World")
     created = _page(root, world.world_id)
     assert created.world_id == world.world_id
     assert created.target_relpath is None
@@ -139,7 +139,7 @@ def test_unregistered_directory_cannot_authorize_a_page(root):
 
 
 def test_database_page_save_ignores_unrelated_source_directory_symlink(root, tmp_path):
-    world = create_world_container(root, name="Escaped World")
+    world = create_world_container(name="Escaped World")
     outside = tmp_path.parent / (tmp_path.name + "-outside")
     outside.mkdir()
     target = root / world.source_root_relpath
@@ -161,14 +161,14 @@ def test_fresh_world_reservation_is_durable_private_and_unique(root: Path) -> No
     from apps.live_control_server.services.world_container_registry import (
         NativeGraphProvisioningRecord, WorldContainerPublicRecord,
     )
-    first = create_world_container(root, name="First fresh World")
+    first = create_world_container(name="First fresh World")
     reserved = first.native_graph_binding
     assert isinstance(reserved, NativeGraphProvisioningRecord)
     assert reserved.native_world_id != first.world_id
     assert "validated_head_revision_id" not in reserved.model_dump()
     assert get_world_container(root, first.world_id).native_graph_binding == reserved
-    assert create_world_container(root, name="first fresh world") == first
-    other = create_world_container(root, name="Second fresh World")
+    assert create_world_container(name="first fresh world") == first
+    other = create_world_container(name="Second fresh World")
     assert other.native_graph_binding.native_world_id != reserved.native_world_id
     assert other.native_graph_binding.provisioning_id != reserved.provisioning_id
     public = WorldContainerPublicRecord.from_record(first).model_dump_json()
@@ -187,7 +187,7 @@ def test_reservation_grants_source_identity_without_graph_read_or_binding_author
     )
     from apps.live_control_server.services.first_world_graph import first_world_native_target
 
-    world = create_world_container(root, name="Reserved sources")
+    world = create_world_container(name="Reserved sources")
     reserved = world.native_graph_binding
     source = resolve_managed_source_identity(world.world_id, root=root)
     assert source.native_world_id == reserved.native_world_id
@@ -208,8 +208,8 @@ def test_reservation_grants_source_identity_without_graph_read_or_binding_author
 def test_reservation_cannot_be_duplicated_in_registry(root: Path) -> None:
     from apps.live_control_server.services.world_container_registry import WorldContainerRegistryDocument
     from pydantic import ValidationError
-    first = create_world_container(root, name="Reserved first")
-    second = create_world_container(root, name="Reserved second")
+    first = create_world_container(name="Reserved first")
+    second = create_world_container(name="Reserved second")
     with pytest.raises(ValidationError):
         WorldContainerRegistryDocument(records=[first, second.model_copy(update={
             "native_graph_binding": first.native_graph_binding,
@@ -217,16 +217,16 @@ def test_reservation_cannot_be_duplicated_in_registry(root: Path) -> None:
 
 
 def test_reconcile_existing_unbound_world_does_not_allocate_or_rewrite(root):
-    world = create_world_container(root, name="Retained unbound")
+    world = create_world_container(name="Retained unbound")
     retained = store_world(world.model_copy(update={"native_graph_binding": None}))
     before = world_snapshot()
-    assert create_world_container(root, name="retained unbound") == retained
+    assert create_world_container(name="retained unbound") == retained
     assert world_snapshot() == before
 
 
 def test_concurrent_fresh_world_create_reuses_one_reservation(root: Path) -> None:
     from concurrent.futures import ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=4) as executor:
-        records = list(executor.map(lambda _: create_world_container(root, name="Concurrent World"), range(8)))
+        records = list(executor.map(lambda _: create_world_container(name="Concurrent World"), range(8)))
     assert all(record == records[0] for record in records)
     assert len(list_world_containers()) == 1

@@ -13,7 +13,7 @@ from apps.live_control_server.services.world_container_registry import create_wo
 def test_managed_plan_view_is_grounded_and_contains_no_c2_session(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    world = create_world_container(tmp_path, name="Of Conks")
+    world = create_world_container(name="Of Conks")
     monkeypatch.setattr("apps.live_control_server.routes.live.repo_root", lambda: tmp_path)
     body = live.get_live_plan_view(world_id=world.world_id)
     assert body["schema_version"] == "dmb_managed_world_plan_context_v1"

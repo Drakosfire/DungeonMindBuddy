@@ -110,7 +110,7 @@ class RulesOnlyProvider(FakeRuntime):
 
 
 def case(tmp_path, monkeypatch, surface, *, note="Preserve my saved note.", historical_session=False):
-    managed = create_world_container(tmp_path, name="Rules-only World")
+    managed = create_world_container(name="Rules-only World")
     world = managed.world_id
     plan = create_world_plan(title="Keep this Plan", world_id=world)
     obj, revision = commit_plan(str(plan.work_object_id), V2_SOURCE_MARKDOWN, expected_world_id=world)

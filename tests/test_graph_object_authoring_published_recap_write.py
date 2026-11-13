@@ -314,7 +314,7 @@ def real_dungeonmind_recap_authority(
 
     from apps.live_control_server.services.world_container_registry import create_world_container
 
-    create_world_container(repo, name="Eldyrwild")
+    create_world_container(name="Eldyrwild")
     client = TestClient(create_app(), client=("127.0.0.1", 50000))
     run_id, _ = _write_bld08_reviewable_run(
         repo,

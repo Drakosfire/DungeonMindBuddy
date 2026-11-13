@@ -45,7 +45,7 @@ def test_mounted_prompt_reads_require_authentication_and_exact_world_selector(mo
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", "x" * 40)
     from apps.live_control_server.services.world_container_registry import create_world_container
-    create_world_container(tmp_path, name="World A")
+    create_world_container(name="World A")
     monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(tmp_path / "missing-files"))
     reference = ref()
     called = []

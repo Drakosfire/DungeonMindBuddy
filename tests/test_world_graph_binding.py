@@ -32,7 +32,7 @@ def _existing_unbound_world(
 ):
     """Explicit retained unbound fixture for the existing-Graph binding contract."""
     created = _create_provisioned_world(
-        root, name=name, owner_subject=owner_subject
+        name=name, owner_subject=owner_subject
     )
     return store_world(created.model_copy(update={"native_graph_binding": None}))
 
@@ -533,7 +533,7 @@ def test_successful_bind_route_returns_redacted_status_and_deactivation_skips_mi
 
 
 def test_existing_graph_binding_cannot_steal_a_reserved_native_identity(root: Path) -> None:
-    reserved = _create_provisioned_world(root, name="Reserved owner")
+    reserved = _create_provisioned_world(name="Reserved owner")
     other = _existing_unbound_world(root, name="Existing other")
     native_id = reserved.native_graph_binding.native_world_id
     before = world_snapshot()

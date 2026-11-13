@@ -107,7 +107,7 @@ def test_mounted_diagnostic_read_requires_auth_owner_and_exact_selector(applicat
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "local")
     monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", "x" * 40)
     from apps.live_control_server.services.world_container_registry import create_world_container
-    create_world_container(tmp_path, name="Synthetic World")
+    create_world_container(name="Synthetic World")
     monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(tmp_path / "missing-files"))
     app = FastAPI(); app.include_router(live.router)
     client = TestClient(app, client=("127.0.0.1", 12345))

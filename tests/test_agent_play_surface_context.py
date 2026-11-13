@@ -729,7 +729,7 @@ def _create_real_world_play_context(root: Path, *, kind: str = "plan", historica
         create_or_replay_world_play_run, replace_world_play_run_progress,
     )
 
-    world = create_world_container(root, name="Agent pin test")
+    world = create_world_container(name="Agent pin test")
     create = create_world_plan if kind == "plan" else create_world_runbook
     commit = commit_plan if kind == "plan" else commit_runbook
     obj = create(title="Pinned opening", world_id=world.world_id)

@@ -30,7 +30,7 @@ def _committed_source(
     provisioned: bool = False,
 ):
     if world is None:
-        world = create_world_container(root, name="J1 Test World")
+        world = create_world_container(name="J1 Test World")
     if not provisioned:
         world = store_world(world.model_copy(update={"native_graph_binding": {
             "native_world_id": world.world_id, "binding_version": 1,

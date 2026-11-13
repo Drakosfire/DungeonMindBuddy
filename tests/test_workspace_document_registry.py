@@ -328,7 +328,7 @@ def test_worldbuilding_source_succeeds_without_world_directory(
         create_world_container,
     )
 
-    world = create_world_container(root, name="Managed Compose World")
+    world = create_world_container(name="Managed Compose World")
     assert not (root / world.source_root_relpath).exists()
     created = create_page_fixture(
         root,
