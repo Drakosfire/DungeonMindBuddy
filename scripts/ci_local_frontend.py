@@ -229,7 +229,7 @@ def verified_command(report, argv, cwd, log, env):
     return step
 
 
-def frontend_plan(catalog, suite):
+def frontend_plan(catalog, suite, *, repo=None, sha=None):
     steps = catalog["contracts"]["hosted-frontend"]["steps"]
     if catalog["version"] != 1 or any(
         step["cwd"] != "apps/live-control-ui" for step in steps
@@ -247,6 +247,16 @@ def frontend_plan(catalog, suite):
             "unclassified or misordered shared frontend command; "
             "expected install, tests, then build"
         )
+    if repo is not None:
+        entries = git(repo, "ls-tree", "-r", "-t", "--name-only", sha, "--", "apps/live-control-ui")
+        tracked = set(entries.splitlines())
+        for command in tests:
+            selectors = [arg for arg in command[3:] if arg.startswith("src/")]
+            if not selectors:
+                raise ValueError("shared frontend test command has no source selector")
+            for selector in selectors:
+                if f"apps/live-control-ui/{selector.rstrip('/')}" not in tracked:
+                    raise ValueError(f"missing pinned frontend test selector: {selector}")
     # Default discovery uses the SAME npm test script, without hosted allowlist filters.
     return (
         commands[0],
@@ -357,7 +367,9 @@ def validate(report_path, expected_sha, suite, max_age=86400):
         or hashlib.sha256(raw_lock).hexdigest() != report["package_lock_sha256"]
     ):
         raise ValueError("source contract/lockfile mismatch")
-    install, planned_tests, build = frontend_plan(json.loads(raw_catalog), suite)
+    install, planned_tests, build = frontend_plan(
+        json.loads(raw_catalog), suite, repo=ROOT, sha=expected_sha
+    )
     if len(planned_tests) != len(report["tests"]) or report["build"]["argv"] != build:
         raise ValueError("source command plan mismatch")
     workers = [f"--maxWorkers={report['workers']}", f"--minWorkers={report['workers']}"]
@@ -561,6 +573,8 @@ def verify(args):
                     install, tests, build = frontend_plan(
                         json.loads((source / "ci/contracts.json").read_text()),
                         args.suite,
+                        repo=repo,
+                        sha=args.sha,
                     )
                     (out / "source-provenance.json").write_text(
                         json.dumps(

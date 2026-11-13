@@ -28,6 +28,8 @@ def sandbox(tmp_path, monkeypatch):
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
     ui = repo / "apps/live-control-ui"
     ui.mkdir(parents=True)
+    (ui / "src").mkdir()
+    (ui / "src/owner.test.ts").touch()
     (ui / "package-lock.json").write_text('{"lockfileVersion":3}')
     (repo / ".gitignore").write_text("node_modules/\n")
     (repo / "ci").mkdir()
@@ -290,6 +292,17 @@ def test_misordered_contract_is_rejected(sandbox, suite, order):
     contract["steps"] = [steps[index] for index in order]
     with pytest.raises(ValueError, match="misordered"):
         local.frontend_plan(catalog, suite)
+
+
+def test_frontend_selector_must_exist_in_pinned_tree(sandbox):
+    args, _, _ = sandbox
+    repo = Path(args.repo)
+    catalog = json.loads((repo / "ci/contracts.json").read_text())
+    step = catalog["contracts"]["hosted-frontend"]["steps"][1]
+    step["argv"][3] = "src/stale.test.ts"
+    (repo / "apps/live-control-ui/src/stale.test.ts").touch()
+    with pytest.raises(ValueError, match="missing pinned frontend test selector"):
+        local.frontend_plan(catalog, "hosted", repo=repo, sha=args.sha)
 
 
 def test_interrupted_command_kills_child_and_removes_worktree(sandbox, monkeypatch):
