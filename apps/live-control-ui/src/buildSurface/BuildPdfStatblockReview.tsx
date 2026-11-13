@@ -1,3 +1,4 @@
+import { publishPdfStatblock } from "./publishPdfStatblock";
 import { useEffect, useState } from "react";
 import type { ThreatDraft } from "../api/types";
 import type { SavedMechanicsVersionList } from "../statblocks/revision/savedMechanicsRevisionTypes";
@@ -32,6 +33,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   const [drafts, setDrafts] = useState<ThreatDraft[]>([]);
   const [draftId, setDraftId] = useState("");
   const [acceptOpen, setAcceptOpen] = useState(false);
+  const [published, setPublished] = useState(false);
   const [acceptedLink, setAcceptedLink] = useState("");
 
   const [versions, setVersions] = useState<SavedMechanicsVersionList>();
@@ -113,6 +115,32 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   const createKey = `buddy:pdf-creature-draft:${worldId}:${reviewId}`;
   const [createInFlight, setCreateInFlight] = useState(false);
 
+  async function recoverDraft(revision: number) {
+    const previousDraft = localStorage.getItem(createKey);
+    if (previousDraft === "pending") {
+      throw new Error("Choose the previously created creature draft before continuing.");
+    }
+    let id = previousDraft;
+    if (!id) {
+      const { response } = await authenticatedApiFetch(
+        `${reviewPath}/creature-draft?expected_revision=${revision}`,
+        { method: "POST" },
+      );
+      if (!response.ok) {
+        const failure = await response.json().catch(() => null);
+        throw new Error(typeof failure?.detail === "string" ? failure.detail :
+          failure?.detail?.code === "pdf_statblock_review_conflict" ? "This review changed. Reopen it before creating a creature." :
+          "Could not create the creature draft. Check the source confirmation and try again.");
+      }
+      const result = await response.json();
+      if (typeof result.draft_id !== "string" || !result.draft_id) throw new Error();
+      id = result.draft_id as string;
+    }
+    const draft = await getThreatDraft(id);
+    if (draft.schema !== "dmb_threat_draft_v2" || draft.world_id !== worldId || draft.draft_id !== id) throw new Error();
+    return draft;
+  }
+
   async function createDraft() {
     if (!review || !editor || pending || createInFlight) return;
     const name = review.definition.identity.name.trim();
@@ -121,31 +149,9 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     setCreateInFlight(true);
     setError("");
     try {
-      const previousDraft = localStorage.getItem(createKey);
-      if (previousDraft === "pending") {
-        setError("Choose the previously created creature draft before continuing.");
-        return;
-      }
-      let id = previousDraft;
-      if (!id) {
-        const { response } = await authenticatedApiFetch(
-          `${reviewPath}/creature-draft?expected_revision=${review.revision}`,
-          { method: "POST" },
-        );
-        if (!response.ok) {
-          const failure = await response.json().catch(() => null);
-          throw new Error(typeof failure?.detail === "string" ? failure.detail :
-            failure?.detail?.code === "pdf_statblock_review_conflict" ? "This review changed. Reopen it before creating a creature." :
-            "Could not create the creature draft. Check the source confirmation and try again.");
-        }
-        const result = await response.json();
-        if (typeof result.draft_id !== "string" || !result.draft_id) throw new Error();
-        id = result.draft_id as string;
-      }
-      const draft = await getThreatDraft(id);
-      if (draft.schema !== "dmb_threat_draft_v2" || draft.world_id !== worldId || draft.draft_id !== id) throw new Error();
+      const draft = await recoverDraft(review.revision);
       if (draft.workflow_state === "mechanics_saved") {
-        setDrafts(current => [...current.filter(item => item.draft_id !== id), draft]);
+        setDrafts(current => [...current.filter(item => item.draft_id !== draft.draft_id), draft]);
         setAcceptOpen(true);
         await chooseDraft(draft.draft_id, draft);
         return;
@@ -184,13 +190,15 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     }
   }
 
-  async function acceptMechanics() {
-    const draft = drafts.find(item => item.draft_id === draftId);
-    if (!draft || !review || !editor || pending || getLocalFingerprint(editor) !== editor.baselineFingerprint) return;
+  async function acceptMechanics(publish = false) {
+    if (!review || !editor || pending || getLocalFingerprint(editor) !== editor.baselineFingerprint) return;
     setPending(true);
     setError("");
-    const key = acceptanceKey(draftId);
     try {
+      const draft = drafts.find(item => item.draft_id === draftId)
+        ?? (publish ? await recoverDraft(review.revision) : undefined);
+      if (!draft) return;
+      const key = acceptanceKey(draft.draft_id);
       let payload = localStorage.getItem(key);
       if (!payload) {
         const { response } = await authenticatedApiFetch(
@@ -217,7 +225,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         localStorage.setItem(key, payload);
       }
       const { response } = await authenticatedApiFetch(
-        `${reviewPath}/accept/${encodeURIComponent(draftId)}`, { method: "POST", body: payload },
+        `${reviewPath}/accept/${encodeURIComponent(draft.draft_id)}`, { method: "POST", body: payload },
       );
       if (response.status === 409) {
         setError("The saved review or acceptance changed. Reopen the review to check its current state.");
@@ -235,11 +243,18 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         setError(result.message || "Mechanics acceptance is unresolved. Select Accept mechanics again to check the same operation.");
         return;
       }
+      if (publish) {
+        const current = await getThreatDraft(draft.draft_id);
+        await publishPdfStatblock(worldId, draft.draft_id, current.version, result.locator);
+        setPublished(true);
+      }
       setAcceptedLink(`/statblock?${new URLSearchParams({
-        world: worldId, draft: draftId, revision: result.locator.revision_id,
+        world: worldId, draft: draft.draft_id, revision: result.locator.revision_id,
       })}`);
-    } catch {
-      setError("Could not confirm mechanics acceptance. Try again to recover the same operation.");
+    } catch (failure) {
+      setError(publish
+        ? (failure instanceof Error ? failure.message : "Publication stopped. Retry Publish to resume.")
+        : "Could not confirm mechanics acceptance. Try again to recover the same operation.");
     } finally {
       setPending(false);
     }
@@ -366,6 +381,11 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         <h1>PDF statblock review</h1>
         {editor && <button type="button" disabled={pending} onClick={() => void save()}>Save review draft</button>}
         {saved && <span role="status">Draft saved</span>}
+        {editor && review && <button type="button" disabled={pending || published || !mechanicsResolved
+          || getLocalFingerprint(editor) !== editor.baselineFingerprint
+          || Boolean(review.source_confirmation_required && !review.source_confirmed)}
+          onClick={() => void acceptMechanics(true)}>Publish</button>}
+        {published && <span role="status">Creature and statblock published</span>}
       </header>
       {error && <p role="alert">{error}</p>}
       {!review && !error && <p role="status">Opening review…</p>}
