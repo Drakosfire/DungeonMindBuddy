@@ -26,6 +26,18 @@ Set up a local DungeonMindServer checkout beside Buddy, or point
 `DUNGEONMIND_SERVER_ROOT` at it. Configure the database and runtime prerequisites
 in the [local Play runbook](Docs/Runbooks/RUNBOOK-local-play-dogfood.md).
 Then run `./run` and open [the Buddy landing page](http://127.0.0.1:5173/).
+
+If Buddy's statblock client is enabled and uses the local DungeonMindServer,
+set both values when choosing a nondefault Server port:
+
+```bash
+DUNGEONMIND_SERVER_PORT=7861 \
+DUNGEONMIND_STATBLOCKS_BASE_URL=http://127.0.0.1:7861 \
+./run
+```
+
+If the statblock client uses a remote DungeonMindServer, keep its configured
+remote URL. The launcher port controls the local Server process.
 The launcher starts the API and Vite UI and installs frontend dependencies
 from the npm lockfile when needed.
 
