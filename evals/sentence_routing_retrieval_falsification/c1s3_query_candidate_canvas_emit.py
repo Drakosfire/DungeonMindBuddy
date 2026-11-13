@@ -20,6 +20,7 @@ from typing import Any
 
 from evals.sentence_routing_retrieval_falsification.cursor_canvas_paths import (
     default_cursor_canvas_path,
+    load_candidate_canvas_document,
     patch_candidate_canvas_paths,
     summarize_candidate_canvas_results,
 )
@@ -80,9 +81,7 @@ def main() -> None:
         help=f"Target canvas (repeatable). Default: {_DEFAULT_CANVAS}",
     )
     args = p.parse_args()
-    doc = json.loads(args.candidates.read_text(encoding="utf-8"))
-    if str(doc.get("schema") or "") != "dmb_breadcrumb_query_candidates_v1":
-        raise SystemExit("candidates file must declare schema dmb_breadcrumb_query_candidates_v1")
+    doc = load_candidate_canvas_document(args.candidates)
     targets = [x.expanduser().resolve() for x in (args.canvas_tsx_list or [_DEFAULT_CANVAS])]
     res = refresh_c1s3_candidate_canvases(candidates_doc=doc, canvas_paths=list(targets))
     if res["errors"]:

@@ -15,6 +15,7 @@ existing path); there is **no** repo-local ``canvases/`` bootstrap copy.
 from __future__ import annotations
 
 import os
+import json
 from pathlib import Path
 from typing import Any
 
@@ -131,3 +132,10 @@ def summarize_candidate_canvas_results(
         "unchanged": unchanged,
         "errors": errors,
     }
+
+
+def load_candidate_canvas_document(path: Path) -> dict[str, Any]:
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(doc, dict) or doc.get("schema") != "dmb_breadcrumb_query_candidates_v1":
+        raise SystemExit("candidates file must declare schema dmb_breadcrumb_query_candidates_v1")
+    return doc
