@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Literal, Mapping, NamedTuple
 
 from graph_memory.projection.markdown_mentions import markdown_protected_ranges
+import yaml
 from pydantic import BaseModel, Field
 
 from apps.live_control_server.config import repo_root
@@ -463,17 +464,6 @@ def _label_from_slug(slug: str) -> str:
     return " ".join(part.capitalize() for part in slug.split("_") if part)
 
 
-def _clean_seed_value(value: str) -> str:
-    return value.strip().strip("'\"")
-
-
-def _parse_inline_aliases(value: str) -> list[str]:
-    raw = value.strip()
-    if not raw.startswith("[") or not raw.endswith("]"):
-        return []
-    return [_clean_seed_value(part) for part in raw[1:-1].split(",") if _clean_seed_value(part)]
-
-
 def _candidate_aliases(label: str, slug: str | None = None, extra_aliases: list[str] | None = None) -> list[str]:
     aliases: list[str] = []
     for alias in [label, *(extra_aliases or [])]:
@@ -489,56 +479,32 @@ def _candidate_aliases(label: str, slug: str | None = None, extra_aliases: list[
 
 
 def _parse_seed_entities(seed_markdown: str) -> list[dict[str, Any]]:
-    frontmatter = _frontmatter_text(seed_markdown)
+    try:
+        metadata = yaml.safe_load(_frontmatter_text(seed_markdown))
+    except yaml.YAMLError as exc:
+        raise GraphPreviewSurfaceError("invalid recap seed frontmatter") from exc
+    index = metadata.get("entity_index") if isinstance(metadata, Mapping) else None
+    if not isinstance(index, Mapping):
+        return []
+
     entities: list[dict[str, Any]] = []
-    current_section: str | None = None
-    current: dict[str, Any] | None = None
-    collecting_aliases = False
-
-    def flush() -> None:
-        nonlocal current
-        if current and current.get("slug"):
-            entities.append(current)
-        current = None
-
-    for raw_line in frontmatter.splitlines():
-        stripped = raw_line.strip()
-        if not stripped:
+    for section, rows in index.items():
+        if not isinstance(rows, list):
             continue
-        if raw_line.startswith("  ") and not raw_line.startswith("    ") and stripped.endswith(":"):
-            current_section = stripped[:-1]
-            collecting_aliases = False
-            continue
-        if stripped.startswith("- slug:"):
-            flush()
-            slug = _clean_seed_value(stripped.split(":", 1)[1])
-            role = ENTITY_SECTION_ROLES.get(current_section or "", "node")
-            current = {"slug": slug, "role": role, "aliases": []}
-            collecting_aliases = False
-            continue
-        if current is None:
-            continue
-        if stripped.startswith("route:"):
-            current["route"] = _clean_seed_value(stripped.split(":", 1)[1])
-            collecting_aliases = False
-            continue
-        if stripped.startswith("proposed_route:"):
-            current["route"] = _clean_seed_value(stripped.split(":", 1)[1])
-            collecting_aliases = False
-            continue
-        if stripped.startswith("subject_type:"):
-            current["role"] = _clean_seed_value(stripped.split(":", 1)[1])
-            collecting_aliases = False
-            continue
-        if stripped.startswith("aliases_in_recap:"):
-            current["aliases"].extend(_parse_inline_aliases(stripped.split(":", 1)[1]))
-            collecting_aliases = True
-            continue
-        if collecting_aliases and stripped.startswith("- "):
-            current["aliases"].append(_clean_seed_value(stripped[2:]))
-            continue
-        collecting_aliases = False
-    flush()
+        for row in rows:
+            if not isinstance(row, Mapping) or not isinstance(row.get("slug"), str) or not row["slug"].strip():
+                continue
+            aliases = row.get("aliases_in_recap")
+            entity = {
+                "slug": row["slug"].strip(),
+                "role": row.get("subject_type", ENTITY_SECTION_ROLES.get(section, "node")),
+                "aliases": [alias.strip() for alias in aliases if isinstance(alias, str) and alias.strip()]
+                if isinstance(aliases, list) else [],
+            }
+            for key, value in row.items():
+                if key in ("route", "proposed_route"):
+                    entity["route"] = value
+            entities.append(entity)
     return entities
 
 

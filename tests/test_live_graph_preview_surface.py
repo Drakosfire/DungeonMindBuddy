@@ -280,6 +280,30 @@ def test_normalized_recap_frontmatter_preserves_unclosed_input():
     assert _strip_yaml_frontmatter("---\r\ntitle: Mara\r\n") == "---\r\ntitle: Mara\r\n"
 
 
+def test_recap_seed_parser_reads_only_entity_index():
+    seed = """---
+entity_index:
+  npcs:
+    - slug: mara
+      route: original
+      proposed_route: updated
+      aliases_in_recap: ["Mara, the Navigator"]
+      context:
+        route: unrelated
+  parties:
+    group:
+      slug: ignored_mapping
+other_metadata:
+  - slug: ignored_metadata
+---
+"""
+    assert graph_preview_surface._parse_seed_entities(seed) == [
+        {"slug": "mara", "role": "npc", "aliases": ["Mara, the Navigator"], "route": "updated"},
+    ]
+    with pytest.raises(graph_preview_surface.GraphPreviewSurfaceError, match="invalid recap seed frontmatter"):
+        graph_preview_surface._parse_seed_entities("---\nentity_index: [\n---")
+
+
 def test_build_recap_graph_presentation_links_node_labels() -> None:
     sync_recap_artifacts_registry(repo_root())
     payload = build_recap_graph_presentation(
