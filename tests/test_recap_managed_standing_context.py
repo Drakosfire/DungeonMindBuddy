@@ -79,12 +79,13 @@ def test_actual_registered_producer_does_not_read_or_inject_roster(tmp_path, mon
     assert result.failure_kind is None, result.diagnostics
     expected_profile = "recap_category_v2@2.0" if profile == "category_baseline" else "recap_category_encounter_job_preview@2.0"
     assert result.run.profile_id == expected_profile
-    expected_calls = ["actor_pass","location_pass","collective_pass","object_pass","thread_pass","beat_pass"]
+    expected_calls = ["actor_pass","location_pass","collective_pass","object_pass","thread_pass","event_pass"]
     if profile == "category_encounter_job_preview":
         expected_calls.append("encounter_job_pass")
     assert [name for name, _ in calls] == expected_calls + ["edge_pass"]
     graph = result.candidate_graph
-    assert [node["node_id"] for node in graph["nodes"]] == ["candidate:mira"]
+    expected_id = 'recap-model-node:["actor_pass","candidate:mira"]' if profile == "category_baseline" else "candidate:mira"
+    assert [node["node_id"] for node in graph["nodes"]] == [expected_id]
     mira = graph["nodes"][0]
     assert mira["node_type"] == "character" and mira.get("corpus_ref") is None
     assert mira["evidence_refs"][0]["anchor_quotes"] == ["Mira guards the gate."]

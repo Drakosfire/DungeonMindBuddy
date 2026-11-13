@@ -723,3 +723,22 @@ def test_encounter_preview_preserves_existing_actor_handles_without_expanding_ot
     assert _source_handle_node_passes(profile) == {"actor_pass"}
     assert "source_quote_ids" in prompts["actor_pass.md"]
     assert all("source_quote_ids" not in value for key, value in prompts.items() if key != "actor_pass.md")
+
+
+def test_recap_event_and_object_can_share_a_producer_local_id():
+    from src.graph_memory.extraction.category_candidate_graph_extractor import consolidate_category_outputs
+
+    outputs = {
+        "object_pass": {"observation_nodes": [
+            {"node_id": "N001", "label": "Map", "node_type": "item"},
+        ]},
+        "event_pass": {"observation_nodes": [
+            {"node_id": "N001", "label": "Arrival", "node_type": "event"},
+        ]},
+    }
+    graph = consolidate_category_outputs(outputs, campaign_id="synthetic", session=1)
+    bindings = graph["consolidation_diagnostics"]["node_id_bindings"]
+    assert {(row["pass_id"], row["local_node_id"]) for row in bindings} == {
+        ("object_pass", "N001"), ("event_pass", "N001"),
+    }
+    assert len({node["node_id"] for node in graph["nodes"]}) == 2
