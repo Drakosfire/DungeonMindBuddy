@@ -122,16 +122,17 @@ From an external client, compare both DNS address families against the expected 
 buddy_domain=buddy.dungeonmind.net
 dig +short A "$buddy_domain"
 dig +short AAAA "$buddy_domain"
-openssl s_client -connect "$buddy_domain:443" -servername "$buddy_domain" \
-  -verify_hostname "$buddy_domain" -verify_return_error -brief </dev/null
-buddy_url="https://$buddy_domain"
-curl -fsS "$buddy_url/health/live"
-curl -fsS "$buddy_url/health/ready"
 (
   set -e
+  openssl s_client -connect "$buddy_domain:443" -servername "$buddy_domain" \
+    -verify_hostname "$buddy_domain" -verify_return_error -brief </dev/null
+  buddy_url="https://$buddy_domain"
+  curl -fsS "$buddy_url/health/live"
+  curl -fsS "$buddy_url/health/ready"
   bash scripts/check_hosted_spa.sh "$buddy_url"
-) &&
-test "$(curl -sS -o /dev/null -w '%{http_code}' "$buddy_url/api/auth/current-user")" = 401
+  buddy_status=$(curl -sS -o /dev/null -w '%{http_code}' "$buddy_url/api/auth/current-user")
+  test "$buddy_status" = 401
+)
 ```
 
 The HTTP checks verify that each path serves the app. Use the browser steps to
