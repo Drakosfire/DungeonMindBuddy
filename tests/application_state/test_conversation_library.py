@@ -440,3 +440,21 @@ def test_retry_history_hydrates_populated_page(application_state_dsn):
     assert all(context["reason"] == "inactive" for context in contexts)
     transcript = library.read_turns(world, cid)
     assert transcript["turns"][:2] == page["turns"]
+
+
+def test_transcript_without_build_turns_skips_retry_transaction(
+    application_state_dsn, monkeypatch,
+):
+    conversation = archive(AgentConversationService(), 1)
+
+    def unexpected_retry_transaction(*args, **kwargs):
+        pytest.fail("opened a retry transaction without a Build turn")
+
+    monkeypatch.setattr(library, "unit_of_work", unexpected_retry_transaction)
+    page = library.read_turns("world-one", conversation)
+    row, = page["turns"]
+    assert row["retry_context"] is None
+
+    empty = library.read_turns("world-one", conversation, before_sequence=1)
+    assert empty["turns"] == []
+    assert empty["next_before_sequence"] is None
