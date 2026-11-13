@@ -260,6 +260,37 @@ describe("managed native graph API", () => {
     await expect(invalidatedInspection).rejects.toMatchObject({ code: "invalid_managed_world_response" });
   });
 
+  it.each(["caller", "World"] as const)("aborts a stalled inspection body on %s cancellation", async (owner) => {
+    let startBody!: () => void;
+    const bodyStarted = new Promise<void>(resolve => { startBody = resolve; });
+    const bodyAborted = vi.fn();
+    const fetcher = vi.fn(async (path: RequestInfo | URL, init?: RequestInit) => {
+      if (String(path).endsWith("/graph")) return response(graphEnvelope("revision-1"));
+      const result = response({});
+      vi.spyOn(result, "clone").mockReturnValue(result);
+      vi.spyOn(result, "json").mockImplementation(() => new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          bodyAborted();
+          reject(new DOMException("Aborted", "AbortError"));
+        }, { once: true });
+        startBody();
+      }));
+      return result;
+    });
+    const client = createManagedNativeGraphApi("managed-a", { fetcher });
+    const graph = await client.api.readGraph();
+    const caller = new AbortController();
+    const pending = client.api.inspectNode?.(graph, "entity:lina", caller.signal);
+    const outcome = expect(pending).rejects.toMatchObject(owner === "caller"
+      ? { name: "AbortError" }
+      : { code: "invalid_managed_world_response" });
+    await bodyStarted;
+    if (owner === "caller") caller.abort();
+    else client.invalidate();
+    expect(bodyAborted).toHaveBeenCalledTimes(1);
+    await outcome;
+  });
+
   it("binds prepare, confirm, and operation reads to the graph’s verified World", async () => {
     const operationId = "f01d8ed1-9886-4fd5-8b9f-f6c8b788084d";
     const fetcher = vi.fn(async (path: RequestInfo | URL, init?: RequestInit) => {
