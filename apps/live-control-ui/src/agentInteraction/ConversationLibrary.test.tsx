@@ -167,3 +167,15 @@ it('cancels a pending detail read when the library closes', async () => {
  unmount();
  expect(pendingSignal?.aborted).toBe(true);
 });
+
+it('loads each view without refetching the selected conversation name',async()=>{
+ render(<ConversationLibrary worldId="world-one" onClose={()=>{}}/>);
+ await screen.findByText('Current question');
+ fireEvent.click(screen.getByRole('button',{name:'Load saved details'}));
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Show message preview'})).toBeEnabled());
+ expect(api.readConversationTurns).toHaveBeenCalledTimes(1);
+ fireEvent.click(screen.getByRole('button',{name:'Show message preview'}));
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Load saved details'})).toBeEnabled());
+ expect(api.readConversationMessages).toHaveBeenCalledTimes(2);
+ expect(api.readConversationName).not.toHaveBeenCalled();
+});
