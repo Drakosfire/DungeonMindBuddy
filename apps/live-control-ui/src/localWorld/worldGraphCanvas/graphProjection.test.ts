@@ -376,15 +376,15 @@ describe("loaded corpus exploration", () => {
     const hub = [...index.relationshipCounts].sort((a, b) => b[1] - a[1])[0][0];
     const other = record.snapshot.objects.find(object => object.id !== hub)!;
     const savedPositions: Record<string, { x: number; y: number }> = { [hub]: { x: 1400, y: 1500 }, [other.id]: { x: 500, y: 550 } };
-    const positions = createGraphFallbackPositions(index, original, { savedPositions });
+    const positions = createGraphFallbackPositions(index, { savedPositions });
     for (const [id, pin] of Object.entries(savedPositions)) expect(positions.get(id as typeof hub)).toEqual(pin);
     expect(minimumBubbleGap(positionedNodes(index, positions))).toBeGreaterThanOrEqual(4 - 1e-6);
     expect([...positions].some(([id, point]) => !savedPositions[id] && JSON.stringify(point) !== JSON.stringify(original.get(id)))).toBe(true);
-    expect(createGraphFallbackPositions(index, positions, { savedPositions })).toEqual(positions);
+    expect(createGraphFallbackPositions(index, { savedPositions })).toEqual(positions);
     const graph = projectLocalWorldGraph({ ...record, layout: { ...record.layout, positions: savedPositions } }, { fullCorpus: true });
     for (const node of graph.nodes) expect({ x: node.x, y: node.y }).toEqual(positions.get(node.id));
     expect(minimumBubbleGap(graph.nodes)).toBeGreaterThanOrEqual(4 - 1e-6);
-    expect(createGraphFallbackPositions(index, positions)).toEqual(original);
+    expect(createGraphFallbackPositions(index)).toEqual(original);
   });
 
   it("recomputes unpinned packing for topology and radius changes, not stale fallback hints", async () => {
@@ -396,9 +396,8 @@ describe("loaded corpus exploration", () => {
       id: `new:${i}` as LocalWorldRelationship["id"], fromObjectId: a.id, toObjectId: b.id,
     }));
     const changed = indexLocalWorldGraph({ ...record.snapshot, relationships: [...record.snapshot.relationships, ...more] });
-    const adapted = createGraphFallbackPositions(changed, original);
+    const adapted = createGraphFallbackPositions(changed);
     expect(adapted).not.toEqual(original);
-    expect(adapted).toEqual(createGraphFallbackPositions(changed));
     expect(minimumBubbleGap(positionedNodes(changed, adapted))).toBeGreaterThanOrEqual(4 - 1e-6);
     expect(graphBubbleRadius(changed.relationshipCounts.get(a.id)!)).toBe(24 * Math.sqrt(40));
   });
