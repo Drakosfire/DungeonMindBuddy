@@ -89,9 +89,14 @@ export function StartPdfStatblockReview({
         </button>
       </li>)}
     </ul>
-    {saved && inline ? <div style={{height: "min(70vh, 48rem)"}}><BuildPdfStatblockReview worldId={worldId} reviewId={id} /></div> : saved || conflict ? <a target="_blank" rel="noopener" href={`/build?${new URLSearchParams({ world: worldId, pdfReview: id }).toString()}`}>
-      {conflict ? "Open existing statblock review" : "Open statblock review"}
-    </a> : <>
+    {saved || conflict ? <>
+      <a target="_blank" rel="noopener" href={`/build?${new URLSearchParams({ world: worldId, pdfReview: id }).toString()}`}>
+        {conflict ? "Open existing statblock review" : inline ? "Open saved statblock in a new tab" : "Open statblock review"}
+      </a>
+      {saved && inline && <div style={{height: "min(70vh, 48rem)"}}>
+        <BuildPdfStatblockReview worldId={worldId} reviewId={id} />
+      </div>}
+    </> : <>
       <label>D&D edition (optional)
         <select value={edition} onChange={event => setEdition(event.target.value)} disabled={pending}>
           <option value="">Use source edition</option>

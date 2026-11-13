@@ -37,8 +37,7 @@ export async function collectConversationExport(world:string,id:string,format:Co
    diagnostics.push({turn_id:turn.turn_id,trace,prompts,prompt_capture:prompts.length?'See each captured payload or unavailable reason.':'No retained prompt references; exact prompts unavailable.',...(!trace.attempts.length?{unavailable:'No retained trace attempts.'}:{})});
   }catch(error){signal?.throwIfAborted();checkOwner();diagnostics.push({turn_id:turn.turn_id,unavailable:errorText(error)});}
  }
- const finalTurns=await readAllTurns(world,id,meta.turn_count,checkOwner,signal);
- if(JSON.stringify(finalTurns)!==JSON.stringify(turns))throw new Error('A reply changed during export. Retry to collect the latest saved reply.');
+ await readAllTurns(world,id,meta.turn_count,checkOwner,signal,turns);
  const after=await readConversationName(world,id,signal);signal?.throwIfAborted();checkOwner();
  if(!sameConversation(meta,after))throw new Error('The conversation changed during export. Retry to collect its latest history.');
  const finishedAt=new Date().toISOString();
@@ -49,21 +48,24 @@ export async function collectConversationExport(world:string,id:string,format:Co
  },null,2)};
  return {filename:`buddy-conversation-${id}.md`,mime:'text/markdown;charset=utf-8',content:readable(meta,turns,startedAt,finishedAt)};
 }
-async function readAllTurns(world:string,id:string,count:number,checkOwner:()=>void,signal?:AbortSignal){
+async function readAllTurns(world:string,id:string,count:number,checkOwner:()=>void,signal?:AbortSignal,expectedTurns?:LibraryTurn[]){
  const turns:LibraryTurn[]=[],ids=new Set<string>(),sequences=new Set<number>();let before:number|undefined;
  do {
   const page=await readConversationTurns(world,id,before,signal);signal?.throwIfAborted();checkOwner();
   if(page.world_id!==world||page.conversation_id!==id)throw new Error('Transcript differs from the selected conversation.');
   for(const turn of page.turns){
    if(ids.has(turn.turn_id)||sequences.has(turn.sequence)||turn.sequence<1||(before!==undefined&&turn.sequence>=before))throw new Error('Transcript pagination repeated or skipped its ordering boundary.');
-   ids.add(turn.turn_id);sequences.add(turn.sequence);turns.push(turn);
+   ids.add(turn.turn_id);sequences.add(turn.sequence);
+   if(expectedTurns){
+    if(JSON.stringify(turn)!==JSON.stringify(expectedTurns[turn.sequence-1]))throw new Error('A reply changed during export. Retry to collect the latest saved reply.');
+   }else turns.push(turn);
   }
   const next=page.next_before_sequence;
   if(next!==null&&(!page.turns.length||next!==Math.min(...page.turns.map(t=>t.sequence))||(before!==undefined&&next>=before)))throw new Error('Transcript pagination did not advance.');
   before=next??undefined;
  }while(before!==undefined);
  turns.sort((a,b)=>a.sequence-b.sequence);
- if(turns.length!==count||turns.some((turn,index)=>turn.sequence!==index+1))throw new Error('The complete retained transcript could not be confirmed. Retry export.');
+ if(sequences.size!==count||!Array.from(sequences).every(sequence=>Number.isInteger(sequence)&&sequence<=count))throw new Error('The complete retained transcript could not be confirmed. Retry export.');
  return turns;
 }
 function readable(meta:ConversationSummary,turns:LibraryTurn[],start:string,end:string){

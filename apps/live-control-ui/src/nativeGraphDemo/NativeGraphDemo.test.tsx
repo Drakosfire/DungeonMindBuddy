@@ -32,6 +32,8 @@ function expectFocusedNeighborhoodInViewport(): void {
   }
 }
 
+import { createManagedNativeGraphApi } from "./managedNativeGraphApi";
+
 const graph: NativeGraph = {
   world_id: "space:native-demo",
   revision_id: "revision-001",
@@ -260,6 +262,26 @@ describe("NativeGraphDemo", () => {
     expect(scene.getAttribute("transform")).toBe(revealedOverviewCamera);
   });
 
+  it("aborts an active graph refresh on unmount", async () => {
+    const graph = corpusGraph();
+    const stalled = deferred<NativeGraph>();
+    const readGraph = vi.fn<(signal?: AbortSignal) => Promise<NativeGraph>>()
+      .mockResolvedValueOnce(graph)
+      .mockReturnValueOnce(stalled.promise);
+    const view = renderEmbeddedDemo({ api: makeApi({ readGraph }), mode: "managed", worldTitle: "Corpus", stateScopeId: "managed:world-17" });
+    await screen.findByRole("button", { name: "Find an object · 1404 loaded" });
+    const refresh = graphAction("Refresh");
+    act(() => {
+      refresh.click();
+      refresh.click();
+    });
+    expect(readGraph).toHaveBeenCalledTimes(2);
+    const signal = readGraph.mock.calls[1][0];
+    expect(signal?.aborted).toBe(false);
+    view.unmount();
+    expect(signal?.aborted).toBe(true);
+  });
+
   it.each([false, true])("clears and reframes exploration on revision refresh (after Fit: %s)", async (afterFit) => {
     const corpus = corpusGraph();
     vi.stubGlobal("ResizeObserver", undefined);
@@ -457,6 +479,30 @@ describe("NativeGraphDemo", () => {
     expect(api.inspectNode).toHaveBeenCalledWith(graph, "entity:mara", expect.any(AbortSignal));
     expect(screen.getByRole("navigation", { name: "Node explorer controls" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Mara" })).toBeInTheDocument();
+  });
+
+  it("keeps the inspector open without re-reading an equivalent managed snapshot", async () => {
+    const fetcher = vi.fn(async (path: RequestInfo | URL) => {
+      if (String(path).endsWith("/graph")) {
+        return Response.json({
+          schema: "dmb_native_graph_explorer_v1",
+          managed_world_id: "managed:world-17",
+          native_world_id: graph.world_id,
+          binding_version: 1,
+          graph,
+        });
+      }
+      return Response.json(entityDetail(graph.revision_id));
+    });
+    const { api } = createManagedNativeGraphApi("managed:world-17", { fetcher });
+    const inspect = vi.spyOn(api, "inspectNode");
+    renderEmbeddedDemo({ api, mode: "managed", worldTitle: "Elderwyld", stateScopeId: "managed:world-17" });
+    await userEvent.click(await screen.findByRole("button", { name: /Mara, npc/i }));
+    await screen.findByText("This object is unavailable in the selected revision.");
+    fireEvent.click(graphAction("Refresh"));
+    await screen.findByText(/Latest graph revision loaded/);
+    expect(screen.getByRole("heading", { name: "Mara" })).toBeInTheDocument();
+    expect(inspect).toHaveBeenCalledTimes(1);
   });
 
   it("opens a connected object's dossier, returns Back and preserves the loaded revision", async () => {

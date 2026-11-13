@@ -117,12 +117,12 @@ def glowkindle_fixture_pass_outputs() -> dict[str, dict[str, Any]]:
         "collective_pass": {"observation_nodes": [{"node_id": "node:heroes-party", "label": "Heroes / party", "node_type": "character", "description": "Deterministic party-collective anchor for the synthetic fixture.", "importance": "high", "evidence_refs": _evidence("spref:glowkindle:001", "the party"), "warnings": ["context_anchor_no_session_evidence", "party_name_binding_deferred"], "context_anchor": True}]},
         "object_pass": {"observation_nodes": []},
         "thread_pass": {"observation_nodes": [], "ignored_items": [], "deferred_items": []},
-        "beat_pass": {
-            "observation_beats": [
-                {"beat_id": "beat_001_job_offered", "order": 1, "title": "Job offered", "summary": "Glowkindle asks the party to clear rats from the cellar.", "involved_node_ids": ["npc_glowkindle", "loc_glowkindle_cellar"], "evidence_refs": _evidence("spref:glowkindle:001", "clear rats from the cellar")},
-                {"beat_id": "beat_002_cellar_context", "order": 2, "title": "Cellar context", "summary": "The cellar is beneath Glowkindle's brewery and contains damaged stores.", "involved_node_ids": ["loc_glowkindle_cellar", "loc_glowkindle_brewery"], "evidence_refs": _evidence("spref:glowkindle:002", "beneath Glowkindle's brewery")},
-                {"beat_id": "beat_003_rat_fight", "order": 3, "title": "Rat fight", "summary": "The party fights a swarm of rats in the cellar.", "involved_node_ids": ["creature_rat_swarm", "loc_glowkindle_cellar"], "evidence_refs": _evidence("spref:glowkindle:003", "fights a swarm of rats")},
-                {"beat_id": "beat_004_cellar_safe", "order": 4, "title": "Cellar safe", "summary": "The stores are safe enough for Glowkindle to reopen the cellar.", "involved_node_ids": ["npc_glowkindle", "loc_glowkindle_cellar"], "evidence_refs": _evidence("spref:glowkindle:004", "safe enough for Glowkindle")},
+        "event_pass": {
+            "observation_nodes": [
+                {"node_id": "beat_001_job_offered", "label": "Job offered", "description": "Glowkindle asks the party to clear rats from the cellar.", "node_type": "event", "importance": "medium", "evidence_refs": _evidence("spref:glowkindle:001", "clear rats from the cellar")},
+                {"node_id": "beat_002_cellar_context", "label": "Cellar context", "description": "The cellar is beneath Glowkindle's brewery and contains damaged stores.", "node_type": "event", "importance": "medium", "evidence_refs": _evidence("spref:glowkindle:002", "beneath Glowkindle's brewery")},
+                {"node_id": "beat_003_rat_fight", "label": "Rat fight", "description": "The party fights a swarm of rats in the cellar.", "node_type": "event", "importance": "medium", "evidence_refs": _evidence("spref:glowkindle:003", "fights a swarm of rats")},
+                {"node_id": "beat_004_cellar_safe", "label": "Cellar safe", "description": "The stores are safe enough for Glowkindle to reopen the cellar.", "node_type": "event", "importance": "medium", "evidence_refs": _evidence("spref:glowkindle:004", "safe enough for Glowkindle")},
             ]
         },
         "encounter_job_pass": {
@@ -133,6 +133,7 @@ def glowkindle_fixture_pass_outputs() -> dict[str, dict[str, Any]]:
         },
         "edge_pass": {
             "observation_edges": [
+                _edge("edge:party-participates-in-encounter", "node:heroes-party", "enc_glowkindle_cellar_rats", "participates_in", "participation", "Party fights the rats", "spref:glowkindle:003", "the party fights a swarm of rats"),
                 _edge("edge:cellar-located-in-brewery", "loc_glowkindle_cellar", "loc_glowkindle_brewery", "located_in", "location_hierarchy", "Cellar located in brewery", "spref:glowkindle:002", "beneath Glowkindle's brewery"),
                 _edge("edge:encounter-located-in-cellar", "enc_glowkindle_cellar_rats", "loc_glowkindle_cellar", "located_in", "location_hierarchy", "Encounter located in cellar", "spref:glowkindle:003", "In the cellar"),
                 _edge("edge:rat-swarm-participates-in-encounter", "creature_rat_swarm", "enc_glowkindle_cellar_rats", "participates_in", "participation", "Rat swarm participates in encounter", "spref:glowkindle:003", "swarm of rats"),
@@ -149,6 +150,8 @@ def run_glowkindle_encounter_job_dogfood() -> CategoryGraphExtractionResult:
         CategoryGraphExtractionOptions(
             campaign_id="longmont-c2",
             session_id="synthetic-glowkindle-c1s1",
+            source_artifact_id="synthetic-glowkindle-c1s1",
+            source_ref_id="synthetic-glowkindle-c1s1-recap",
             session_number=1,
             source_span_index=glowkindle_source_span_index(),
             model_id="fixture-no-llm",

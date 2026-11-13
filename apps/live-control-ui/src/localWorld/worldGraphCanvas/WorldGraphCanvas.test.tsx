@@ -795,12 +795,14 @@ describe("WorldGraphCanvas", () => {
     expect(mara).toHaveAttribute("transform", "translate(120 100)");
     expect(edge.getAttribute("d")).not.toBe(initialEdge);
     expect(layout).not.toHaveBeenCalled();
-    fireEvent(graph, new MouseEvent("pointerup", { clientX: 150, clientY: 125, bubbles: true }));
-    fireEvent.lostPointerCapture(graph);
+    fireEvent(graph, new MouseEvent("pointermove", { clientX: 160, clientY: 130, bubbles: true }));
     expect(mara).toHaveAttribute("transform", "translate(120 100)");
+    fireEvent(graph, new MouseEvent("pointerup", { clientX: 175, clientY: 150, bubbles: true }));
+    fireEvent.lostPointerCapture(graph);
+    expect(mara).toHaveAttribute("transform", "translate(140 120)");
     fireEvent.click(mara);
     expect(mara).toHaveAttribute("aria-pressed", "false");
-    expect(layout).toHaveBeenCalledExactlyOnceWith(record, { [record.snapshot.objects[0].id]: { x: 120, y: 100 } });
+    expect(layout).toHaveBeenCalledExactlyOnceWith(record, { [record.snapshot.objects[0].id]: { x: 140, y: 120 } });
     pending.resolve({ status: "error", message: "Layout could not be saved" });
     expect(await screen.findByText("Layout could not be saved")).toBeVisible();
     expect(mara).toHaveAttribute("transform", "translate(80 80)");
@@ -1337,6 +1339,7 @@ describe("loaded relationship density", () => {
     const { record } = await graphRecord();
     const isolated = { ...record, snapshot: { ...record.snapshot, relationships: [] } };
     const props = { record: isolated, nodeShape: "circle" as const, projectionOptions: { fullCorpus: true } };
+    const project = vi.spyOn(projectionModule, "projectLocalWorldGraph");
     const view = render(<WorldGraphCanvas {...props} />);
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(0);
     expect(screen.getByText(/No connected objects in the loaded snapshot/)).toBeVisible();
@@ -1344,7 +1347,10 @@ describe("loaded relationship density", () => {
     expect(screen.getByRole("checkbox", { name: /Show objects without listed relationships \(4 hidden\)/ })).not.toBeChecked();
     fireEvent.click(screen.getByRole("checkbox", { name: /Show objects without listed relationships/ }));
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(4);
+    const projected = project.mock.calls.length;
     fireEvent.click(screen.getByRole("button", { name: "Mara Venn, person" }));
+    expect(screen.getByRole("button", { name: "Mara Venn, person" })).toHaveAttribute("aria-pressed", "true");
+    expect(project).toHaveBeenCalledTimes(projected);
     fireEvent.click(screen.getByRole("checkbox", { name: /Show objects without listed relationships/ }));
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(1);
     view.rerender(<WorldGraphCanvas {...props} cameraFocusRequest={{ nodeId: record.snapshot.objects[1].id, requestId: 1, selectNode: true }} />);
@@ -1353,6 +1359,7 @@ describe("loaded relationship density", () => {
     view.rerender(<WorldGraphCanvas {...props} revealObjectId={record.snapshot.objects[2].id} />);
     expect(screen.getByRole("button", { name: "The Glass Orchard, location" })).toBeInTheDocument();
     expect(document.querySelectorAll("[data-node-id]")).toHaveLength(2);
+    project.mockRestore();
   });
 
   it("uses bounded loaded degree area with stable centers, full names and unequal edge endpoints", async () => {
@@ -1493,11 +1500,16 @@ describe("packed readable overview", () => {
     const labels = [...document.querySelectorAll<SVGTextElement>(".world-graph-canvas__overview-label")];
     expect(labels.length).toBeGreaterThan(0);
     expect(labels.length).toBeLessThanOrEqual(8);
-    const camera = cameraFromScene(scene);
-    for (const label of labels) expect(parseFloat(label.style.fontSize) * camera.zoom).toBeCloseTo(12);
+    const nodeLayer = labels[0].closest<SVGGElement>(".world-graph-canvas__overview-captions")!;
+    const labelSize = () => parseFloat(nodeLayer.style.getPropertyValue("--overview-label-size"));
+    expect(labelSize() * cameraFromScene(scene).zoom).toBeCloseTo(12);
+    const focusedBubble = screen.getByRole("button", { name: "Recorded object 0, person" });
+    act(() => focusedBubble.focus());
     bubbleRenderReads = 0;
     fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
-    expect(bubbleRenderReads).toBeLessThanOrEqual(16); // Only bounded hub captions, not all 513 memoized bubbles.
+    expect(labelSize() * cameraFromScene(scene).zoom).toBeCloseTo(12);
+    expect(bubbleRenderReads).toBe(0);
+    expect(focusedBubble).toHaveFocus();
     expect([...document.querySelectorAll("[data-edge-id] path")]).toEqual(paths);
     fireEvent.click(screen.getByRole("checkbox", { name: "All relationships" }));
     expect(scene).toHaveAttribute("data-all-relationships", "true");
@@ -1508,12 +1520,11 @@ describe("packed readable overview", () => {
     expect(selected.sort()).toEqual(relationships.filter((edge) => edge.fromObjectId === objects[0].id || edge.toObjectId === objects[0].id).map((edge) => edge.id).sort());
     expect(document.querySelectorAll("[data-edge-id]")).toHaveLength(559);
     const small = screen.getByRole("button", { name: "Recorded object 512, person" });
-    expect(small.querySelector(".world-graph-canvas__overview-label")).toBeNull();
+    expect(document.querySelector(`[data-caption-node-id="${objects[512].id}"]`)).toBeNull();
     fireEvent.click(small);
-    const smallCaption = small.querySelector<SVGTextElement>(".world-graph-canvas__overview-label")!;
+    const smallCaption = document.querySelector<SVGTextElement>(`[data-caption-node-id="${objects[512].id}"]`)!;
     expect(smallCaption).not.toBeNull();
-    expect(small).toHaveAttribute("data-important", "true");
-    expect(parseFloat(smallCaption.style.fontSize) * cameraFromScene(scene).zoom).toBeCloseTo(12);
+    expect(labelSize() * cameraFromScene(scene).zoom).toBeCloseTo(12);
     expect(document.querySelectorAll(".world-graph-canvas__overview-label").length).toBeLessThanOrEqual(10);
     expect([...document.querySelectorAll("[data-edge-id] path")]).toEqual(paths);
     const css = readFileSync(fileURLToPath(import.meta.url).replace(/WorldGraphCanvas\.test\.tsx$/, "worldGraphCanvas.css"), "utf8");

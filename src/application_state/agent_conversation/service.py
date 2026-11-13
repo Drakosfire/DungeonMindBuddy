@@ -1060,6 +1060,21 @@ class AgentConversationService:
         limit: int = 50,
         before_sequence: int | None = None,
     ) -> list[TurnReadModel]:
+        turns, _ = self.list_turn_page(
+            world_id, conversation_id, limit=limit, before_sequence=before_sequence,
+            lookahead=False,
+        )
+        return turns
+
+    def list_turn_page(
+        self,
+        world_id: str,
+        conversation_id: UUID,
+        *,
+        limit: int,
+        before_sequence: int | None,
+        lookahead: bool = True,
+    ) -> tuple[list[TurnReadModel], bool]:
         world_id = _world_id(world_id)
         if not 1 <= limit <= 100:
             raise ApplicationStateValidationError("turn page limit must be between 1 and 100")
@@ -1069,12 +1084,13 @@ class AgentConversationService:
         with unit_of_work(dsn) as conn:
             if repo.get_conversation(conn, world_id, conversation_id) is None:
                 raise ApplicationStateNotFoundError("conversation not found in verified World")
-            return repo.list_turns(
+            return repo.list_turn_page(
                 conn,
                 world_id,
                 conversation_id,
                 limit=limit,
                 before_sequence=before_sequence,
+                lookahead=lookahead,
             )
 
     def retained_graph_navigation(self, *, world_id, conversation_id, authority, previous_turns):

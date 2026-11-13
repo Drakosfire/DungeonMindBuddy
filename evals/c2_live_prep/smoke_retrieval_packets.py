@@ -264,7 +264,7 @@ def main() -> int:
         default=ROOT / "evals" / "c2_live_prep" / "artifacts" / "runs" / date.today().isoformat(),
     )
     args = parser.parse_args()
-    out_dir: Path = args.output_dir
+    out_dir = args.output_dir.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
     combined, records_by_unit_id, sources = load_c2_combined_records((20, 21))
@@ -294,7 +294,7 @@ def main() -> int:
     )
     _write_markdown_report(out_dir / "c2s22_smoke_report.md", summaries, meta)
 
-    print(json.dumps({"ok": True, "output_dir": str(out_dir.relative_to(ROOT)), "summaries": summaries}, indent=2))
+    print(json.dumps({"ok": True, "output_dir": str(out_dir.relative_to(ROOT) if out_dir.is_relative_to(ROOT) else out_dir), "summaries": summaries}, indent=2))
     return 0
 
 

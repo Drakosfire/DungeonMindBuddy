@@ -1265,6 +1265,37 @@ def test_foreign_or_missing_entity_cannot_be_opened_from_owned_world_pin(hosted)
     _assert_unchanged(x, before, {})
 
 
+def test_hosted_entity_read_returns_pdf_reference_without_rendering(hosted, monkeypatch):
+    from types import SimpleNamespace
+
+    entity_id = "ent:pdf-backed"
+    evidence_id = "pdf-region:fixture"
+    request = _inspection_payload(hosted, entity_id)
+
+    def pinned(scope, principal):
+        return inspection_service.native.binding(scope.managed_world_id), None, None, scope
+
+    class FixtureEntityReader:
+        def list_entities(self, read):
+            return SimpleNamespace(entities=[SimpleNamespace(entity_id=entity_id)])
+
+        def get_complete_entity(self, read, selected_id):
+            assert selected_id == entity_id
+            return {"evidence": [{"evidence_ref_id": evidence_id, "evidence_role": "support"}]}
+
+    def forbidden_render(*args, **kwargs):
+        pytest.fail("Hosted entity inspection must not render PDF evidence")
+
+    monkeypatch.setattr(inspection_service, "_pinned", pinned)
+    monkeypatch.setattr(inspection_service, "EntityReadService", FixtureEntityReader)
+    monkeypatch.setattr(inspection_service, "render_admitted_pdf_evidence", forbidden_render)
+
+    response = hosted.client.request("POST", INSPECTION, json=request)
+    assert response.status_code == 200, response.text
+    assert response.json()["entity"]["evidence"][0]["evidence_ref_id"] == evidence_id
+
+
+
 def test_source_selection_is_denied_before_any_source_or_catalog_read(
     hosted, monkeypatch
 ):

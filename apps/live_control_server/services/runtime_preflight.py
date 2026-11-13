@@ -31,7 +31,7 @@ from dungeonmind.infrastructure.postgres import PostgresDatabase, PostgresReposi
 from apps.live_control_server.services.graph_ingest_run_registry import (
     GRAPH_INGEST_RUNS_ENV,
 )
-from scripts.bootstrap_local_play import inspect_readiness
+from application_state.local_play_bootstrap import inspect_readiness
 
 RuntimePreflightStatus = Literal[
     "READY",
@@ -94,10 +94,10 @@ def run_runtime_preflight(
     include_runbooks: bool = True,
     include_operator_diagnostics: bool = True,
 ) -> RuntimePreflightReport:
-    checks = (
-        _check_app_state(load_env=load_env, include_runbooks=include_runbooks),
-        _check_dungeonmind_world(require_world=require_world),
-    )
+    checks = (_check_app_state(load_env=load_env, include_runbooks=include_runbooks),)
+    if not include_operator_diagnostics and overall_status(checks) != "READY":
+        return RuntimePreflightReport(status="NOT READY", checks=checks)
+    checks += (_check_dungeonmind_world(require_world=require_world),)
     if include_operator_diagnostics:
         checks += (
             _check_campaign_registry(),

@@ -44,8 +44,8 @@ The immediate sub-workstream that produced this handoff is **contextual vocabula
 
 1. Contextual vocabulary layer designed and built (`Docs/Design/DESIGN-contextual-vocabulary-layer.md`, `src/graph_memory/vocabulary/`) — compiles source-derived names/types/aliases/containment/do-not-merge hints into a packet, renders it into node- and edge-pass prompts.
 2. Four-variant ablation harness built (`baseline`, `node_packet`, `edge_packet`, `edge_and_node_packet`) and run across two hand-authored gold beds:
-   - **C1S1** — Campaign 1 Session 1 recap ("Stonebridge and Glowkindle Rats"), gold at `evals/graph_memory_layer/examples/session_1_candidate_graph_gold/`.
-   - **Mirathorn** — a worldbuilding document (`corpus/.../Cities and Towns/Mirathorn/The City of Mirathorn.docx` → `evals/graph_memory_layer/examples/mirathorn_city_world_doc/`), gold at `evals/graph_memory_layer/examples/mirathorn_city_candidate_graph_gold/`.
+   - **C1S1** — Campaign 1 Session 1 recap ("Stonebridge and Glowkindle Rats"), gold at `evals/graph_benchmark_gold/candidate_graph/longmont-c1/session-01/`.
+   - **Mirathorn** — a worldbuilding document (`corpus/.../Cities and Towns/Mirathorn/The City of Mirathorn.docx` → `evals/graph_memory_layer/examples/mirathorn_city_world_doc/`), gold at `evals/graph_benchmark_gold/candidate_graph/world/eldyrwild/mirathorn-city/`.
 3. First ablation run appeared to show vocabulary "recovering party continuity" — **this was a bug, not a finding**: the C1S1 run had no `_party_registry.json`, so party anchors were empty for every variant. Corrected rerun (after adding `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_party_registry.json`) falsified that claim. See `Docs/Reports/GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-MANUAL-REVIEW.md` §3.5. **Lesson embedded in process now**: any session-recap ablation bed must have a party registry before results are trusted.
 4. Aggregate recall-metric reports (`Docs/Reports/GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-EXPANDED-BEDS*.md`) were judged **insufficient** by the operator — they compress real graph behavior into counts and hid the actual signal. This triggered building a manual, qualitative review process and a UI for it (§5).
 5. Manual review of baseline vs. `edge_and_node_packet` candidate graphs, pass-by-pass, produced the bulk of the durable findings in this handoff (§3, §4).
@@ -147,7 +147,7 @@ Raised by the operator, not yet explored: when ingesting session N+1, the pipeli
 - `GET /api/live/graph-preview/manual-review/beds/{bed_id}`
 
 Reads the checked-in artifact directly — **no new LLM calls, read-only, no writes**:
-`evals/graph_memory_layer/artifacts/vocabulary_ablation_dogfood/manual_review/baseline_vs_edge_and_node_manual_review.json`
+`evals/graph_memory_layer/examples/vocabulary_ablation/manual_review/baseline_vs_edge_and_node_manual_review.json`
 
 **Deliberately not built yet** (flagged as v2 if the pass-level view proves useful): accept/reject/retype persistence controls (needs a write-safety design decision — this UI must not casually mutate corpus or graph state), and a third+ variant column for `node_packet`-only/`edge_packet`-only comparison.
 
@@ -236,8 +236,8 @@ From `Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` and `Docs/Exp
 - `Backlog.md` → search `## [DOING] Graph memory vocabulary ablation` — most current single source of "what's still open"
 
 **Gold fixtures:**
-- `evals/graph_memory_layer/examples/session_1_candidate_graph_gold/`
-- `evals/graph_memory_layer/examples/mirathorn_city_candidate_graph_gold/`
+- `evals/graph_benchmark_gold/candidate_graph/longmont-c1/session-01/`
+- `evals/graph_benchmark_gold/candidate_graph/world/eldyrwild/mirathorn-city/`
 - `evals/graph_memory_layer/examples/session_1_recap_ingest/`, `mirathorn_city_world_doc/`
 
 **Party registry (deterministic, not vocabulary):**

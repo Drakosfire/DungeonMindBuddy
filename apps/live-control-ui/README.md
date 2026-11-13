@@ -224,3 +224,25 @@ the same time, set a distinct unused port, for example
 `BUDDY_UI_VISUAL_PORT=5185 npm run ui:visual`. Each port has its own Ladle
 preview build under `out/` at the repository root. Explicit port overrides
 also get a matching `out/ui-visual-playwright-<port>/` artifact directory.
+
+### Legacy Mireward prep viewer
+
+From this directory, run `BUDDY_MIREWARD_PREP=1 npm run dev -- --host 127.0.0.1 --port 5187 --strictPort`
+and open `http://127.0.0.1:5187/index.html`. Use a separate loopback port
+because the viewer owns legacy page paths, including `/index.html`, and serves
+supporting files from the checkout.
+
+## Statblock v1 upstream contract test
+
+From this UI directory, point the test at a DungeonMindServer checkout or export
+at commit `7273be812c0158b8e4aa645d0ff19acc0e1639b1`. This revision supplies
+the generated client, OpenAPI schema, and the vendored human-adjudicated fixture. Update the
+pin when refreshing the vendored contract.
+
+```bash
+DMB_STATBLOCK_CONTRACT_SERVER_ROOT=/absolute/path/to/pinned/DungeonMindServer \
+  npm exec -- vitest run src/contracts/dungeonbuddy-statblocks-v1/dungeonbuddyStatblockV1Contract.test.ts
+```
+
+The two fixture tests run from the Buddy checkout. Set the override to also run
+the generated-client and OpenAPI comparison against Server.

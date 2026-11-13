@@ -115,10 +115,11 @@ type CapabilityReader = () => string;
  * Transport injection keeps the native DTO validation shared while allowing
  * Buddy to establish its own browser-scoped session and CSRF header.
  */
-export type NativeGraphDemoTransport = (path: string, init: RequestInit) => Promise<Response>;
+export type NativeGraphDecodedResponse = { status: number; ok: boolean; body: unknown };
+export type NativeGraphDemoTransport = (path: string, init: RequestInit) => Promise<Response | NativeGraphDecodedResponse>;
 
 export interface NativeGraphDemoApi {
-  readGraph(): Promise<NativeGraph>;
+  readGraph(signal?: AbortSignal): Promise<NativeGraph>;
   /** Read native records from this exact returned graph snapshot, when supported. */
   readChronology?(graph: NativeGraph, signal: AbortSignal): Promise<NativeGraphCatalog>;
   inspectNode?(graph: NativeGraph, nodeId: string, signal?: AbortSignal): Promise<NativeGraphEntity>;
@@ -236,7 +237,7 @@ export function createNativeGraphDemoApi(options: {
       headers.set("X-Demo-Capability", capability);
     }
 
-    let response: Response;
+    let response: Response | NativeGraphDecodedResponse;
     try {
       const requestInit: RequestInit = {
         ...init,
@@ -255,15 +256,15 @@ export function createNativeGraphDemoApi(options: {
       );
     }
 
-    const body: unknown = await response.json().catch(() => null);
+    const body: unknown = "json" in response ? await response.json().catch(() => null) : response.body;
     if (!response.ok) throw errorFromBody(body, response.status);
     if (body === null) throw new NativeGraphDemoApiError("The native graph service returned an unreadable response.", "invalid_response", response.status);
     return body as T;
   }
 
   return {
-    async readGraph() {
-      const value = await request<unknown>("/api/graph");
+    async readGraph(signal) {
+      const value = await request<unknown>("/api/graph", { signal });
       if (!isNativeGraph(value)) throw invalidResponse();
       return value;
     },

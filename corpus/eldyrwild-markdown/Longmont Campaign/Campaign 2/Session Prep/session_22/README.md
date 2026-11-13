@@ -82,7 +82,7 @@ Full agent runbook: `DungeonMindBuddy/Docs/Plans/archive/2026-06-22/handoffs/HAN
 | **P2a** | Planning anchor | `Session Prep/session_22/session_22_planning_anchor.md` | **ready** | n/a | Where-we-are snapshot |
 | **P2b** | **Travel → Mireward runbook** | `Session Prep/session_22/session_22_travel_to_mireward_runbook.md` | **ready** | n/a | Roll registry §6 + §7 procedure; player rolls R5/R6 + tables below |
 | **P3** | Retrieval smoke report | `evals/c2_live_prep/artifacts/runs/2026-05-23/c2s22_smoke_report.md` | ready | n/a | Repo artifact; optional link in proof ledger |
-| **P3b** | Targeted probes (Lysandra, Thrin, storm) | `evals/c2_live_prep/artifacts/runs/2026-05-23/{lysandra_state_probe,thrin_foreground,storm_travel}.json` | ready | n/a | Follow-on smoke; index in `c2s22_probe_index.json` |
+| **P3b** | Targeted probes (Lysandra, Thrin, storm) | [Targeted probe captures](https://github.com/Drakosfire/DungeonMindBuddy/tree/6fdc5cdeeed2af21424b85c6a9a464ea87d841a6/evals/c2_live_prep/artifacts/runs/2026-05-23) | ready | n/a | Follow-on smoke; [Probe index](https://github.com/Drakosfire/DungeonMindBuddy/blob/6fdc5cdeeed2af21424b85c6a9a464ea87d841a6/evals/c2_live_prep/artifacts/runs/2026-05-23/c2s22_probe_index.json) |
 | **P4** | Agent live-play handoff | `Docs/Plans/archive/2026-06-22/handoffs/HANDOFF-s22-live-play-agent.md` | **ready** | n/a | Primary agent entry for S22 play + lookup |
 | **P4b** | Legacy agent index | `Docs/Plans/HANDOFF-session-22-travel-north-active-NPCs.md` | draft | n/a | Superseded by P4 for retrieval/corpus ladder |
 | **R1** | Journey tracker | `Journey - Mireward Reach (Campaign 2).md` | draft | promote_after_play | Update distances / camp location after play |
@@ -114,7 +114,7 @@ Full agent runbook: `DungeonMindBuddy/Docs/Plans/archive/2026-06-22/handoffs/HAN
 | Phase | Goal | Status | Evidence |
 |-------|------|--------|----------|
 | **A** | Ingest Session 21 → recap + session memory | done | S21 recap + JSONL on disk; `--check` OK |
-| **B-smoke** | PR58–67 retrieval over S20+S21 memory | done | `evals/c2_live_prep/artifacts/runs/2026-05-23/` |
+| **B-smoke** | PR58–67 retrieval over S20+S21 memory | done | [May 23 capture set](https://github.com/Drakosfire/DungeonMindBuddy/tree/6fdc5cdeeed2af21424b85c6a9a464ea87d841a6/evals/c2_live_prep/artifacts/runs/2026-05-23) |
 | **B-prep** | Prep brief + proof ledger | **done** | P2 `session_22_prep_brief.md` |
 | **B-comms** | T-COMMS Mirathorn retry d100 | **done** | `travel_mirathorn_comms_d100.md` |
 | **Play** | Run Session 22 at table | pending | C3 missing |

@@ -14,7 +14,7 @@ import {SavedStatblockFullView} from './StatblockPage';
 function SessionHost(props:{worldId:string;draftId:string;revisionId?:string}) {return <SavedStatblockProvider worldId={props.worldId}><SavedStatblockButton {...props}/></SavedStatblockProvider>;}
 const guidance=vi.hoisted(()=>({readings:[] as any[],captureMechanicsScope:vi.fn(()=>null)}));
 vi.mock('../guidedTour/GuidedTour',async(importOriginal)=>({...await importOriginal<typeof import('../guidedTour/GuidedTour')>(),useGuidedTour:()=>({captureScope:()=>null,captureMechanicsScope:guidance.captureMechanicsScope}),useTourOwnerReading:(reading:unknown)=>{if(reading)guidance.readings.push(reading);}}));
-vi.mock('../media/MediaImageWizard',()=>({MediaImageWizard:({onClose}:{onClose:()=>void})=><button onClick={onClose}>Close portrait studio</button>}));
+vi.mock('../media/DeferredMediaImageWizard',()=>({DeferredMediaImageWizard:({onClose}:{onClose:()=>void})=><button onClick={onClose}>Close portrait studio</button>}));
 vi.mock('../api/liveApi',()=>({inspectNativeGraph:vi.fn(),listWorldMechanicsAssociations:vi.fn(),listSavedMechanicsVersions:vi.fn(),openSavedMechanicsVersion:vi.fn(),saveMechanicsRevision:vi.fn(),recoverMechanicsRevision:vi.fn(),inspectMechanicsRevision:vi.fn(),validateStatblockDefinition:vi.fn()}));
 const world='world',draft='11111111-1111-4111-8111-111111111111',resource=revisionFixture as StatblockRevisionResourceV1;
 const locator={provider:'dungeonmind' as const,statblock_id:resource.statblock_id,revision_id:resource.revision_id,contract:resource.contract,contract_version:resource.contract_version,definition_digest:resource.definition_digest};

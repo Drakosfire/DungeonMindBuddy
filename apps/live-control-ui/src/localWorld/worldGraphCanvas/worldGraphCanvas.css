@@ -173,10 +173,8 @@
 .world-graph-canvas--full [data-all-relationships="false"] .world-graph-canvas__edge:not(.is-selected) text { display: none; }
 .world-graph-canvas--full [data-detail="names"] .world-graph-canvas__edge.is-selected .world-graph-canvas__edge-label,
 .world-graph-canvas--full [data-detail="names"] .world-graph-canvas__edge.is-selected text { display: block; }
-.world-graph-canvas__overview-label { display: none; fill: var(--graph-ink); stroke: #fffdf7; paint-order: stroke; stroke-linejoin: round; font-weight: 700; pointer-events: none; }
-.world-graph-canvas--full [data-detail="overview"] .world-graph-canvas__node[data-important="true"] .world-graph-canvas__overview-label { display: block; }
-.world-graph-canvas--full [data-detail="overview"] .world-graph-canvas__node[data-important="true"] .world-graph-canvas__node-name,
-.world-graph-canvas--full [data-detail="overview"] .world-graph-canvas__node[data-important="true"] .world-graph-canvas__node-kind { display: none; }
+.world-graph-canvas__overview-label { display: none; font-size: var(--overview-label-size, 12px); stroke-width: 0.25em; fill: var(--graph-ink); stroke: #fffdf7; paint-order: stroke; stroke-linejoin: round; font-weight: 700; pointer-events: none; }
+.world-graph-canvas--full [data-detail="overview"] .world-graph-canvas__overview-label { display: block; }
 .world-graph-canvas__display-help { font-size: 12px; color: var(--graph-muted); margin: 6px 0; }
 .world-graph-canvas__display-help summary { cursor: pointer; }
 

@@ -6,6 +6,7 @@ import {
   type NativeGraph,
   type NativeGraphDemoApi,
   type NativeGraphDemoTransport,
+  type NativeGraphDecodedResponse,
   type NativePrepareRequest,
 } from "./nativeGraphDemoApi";
 
@@ -46,19 +47,23 @@ function nonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function jsonResponse(value: unknown, status = 200): Response {
-  return new Response(JSON.stringify(value), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
+// Managed snapshots come from JSON, so nested values are plain objects or arrays.
+function freezeSnapshot(value: unknown): void {
+  if (value === null || typeof value !== "object" || Object.isFrozen(value)) return;
+  for (const child of Object.values(value)) freezeSnapshot(child);
+  Object.freeze(value);
 }
 
-function invalidResponse(message = "The managed graph response did not match the selected World."): Response {
-  return jsonResponse({ error: message, code: "invalid_managed_world_response" }, 502);
+function decodedResponse(body: unknown, status = 200): NativeGraphDecodedResponse {
+  return { body, status, ok: status >= 200 && status < 300 };
 }
 
-function errorFromResponse(response: Response, body: unknown): Response {
-  if (isRecord(body) && nonEmptyString(body.error) && nonEmptyString(body.code)) return response;
+function invalidResponse(message = "The managed graph response did not match the selected World."): NativeGraphDecodedResponse {
+  return decodedResponse({ error: message, code: "invalid_managed_world_response" }, 502);
+}
+
+function errorFromResponse(response: Pick<Response, "ok" | "status">, body: unknown): NativeGraphDecodedResponse {
+  if (isRecord(body) && nonEmptyString(body.error) && nonEmptyString(body.code)) return decodedResponse(body, response.status);
   const detail = isRecord(body) ? body.detail : null;
   const message = isRecord(detail) && nonEmptyString(detail.message)
     ? detail.message
@@ -72,11 +77,11 @@ function errorFromResponse(response: Response, body: unknown): Response {
     : isRecord(body) && nonEmptyString(body.code)
       ? body.code
       : "managed_graph_error";
-  return jsonResponse({ error: message, code }, response.status);
+  return decodedResponse({ error: message, code }, response.status);
 }
 
 async function responseBody(response: Response): Promise<unknown> {
-  return response.clone().json().catch(() => null);
+  return response.json().catch(() => null);
 }
 
 function isInspectionPin(value: unknown): value is InspectionPin {
@@ -222,6 +227,7 @@ export function createManagedNativeGraphApi(
   let binding: ManagedBinding | null = null;
   let generation = 0;
   let invalidated = false;
+  let lastSnapshot: NativeGraph | null = null;
   const activeControllers = new Set<AbortController>();
   const snapshotPins = new WeakMap<NativeGraph, {
     readonly pin: InspectionPin;
@@ -233,7 +239,7 @@ export function createManagedNativeGraphApi(
     return new NativeGraphDemoApiError(message, "invalid_managed_world_response", 502);
   }
 
-  function registerSnapshot(graph: NativeGraph, startedGeneration: number): NativeGraph {
+  function registerSnapshot(graph: NativeGraph, startedGeneration: number, reuse = false): NativeGraph {
     if (invalidated || startedGeneration !== generation) {
       throw invalidManagedGraph("The selected World changed before this graph snapshot could be used.");
     }
@@ -248,11 +254,21 @@ export function createManagedNativeGraphApi(
       campaign_id: null,
       revision_id: graph.revision_id,
     });
+    const serializedGraph = JSON.stringify(graph);
+    if (reuse && lastSnapshot) {
+      const previous = snapshotPins.get(lastSnapshot);
+      if (previous && sameInspectionPin(previous.pin, pin)
+        && previous.serializedGraph === serializedGraph) {
+        return lastSnapshot;
+      }
+    }
+    freezeSnapshot(graph);
     snapshotPins.set(graph, {
       pin,
       nodeIds: new Set(graph.nodes.map((node) => node.id)),
-      serializedGraph: JSON.stringify(graph),
+      serializedGraph,
     });
+    lastSnapshot = graph;
     return graph;
   }
 
@@ -260,15 +276,6 @@ export function createManagedNativeGraphApi(
     if (invalidated) throw invalidManagedGraph("The selected World changed before this graph inspection completed.");
     const snapshot = snapshotPins.get(graph);
     if (!snapshot) throw invalidManagedGraph("This graph was not read from the currently selected managed World client.");
-    let serializedGraph: string;
-    try {
-      serializedGraph = JSON.stringify(graph);
-    } catch {
-      throw invalidManagedGraph("The graph snapshot was modified after it was loaded.");
-    }
-    if (serializedGraph !== snapshot.serializedGraph) {
-      throw invalidManagedGraph("The graph snapshot was modified after it was loaded.");
-    }
     if (!binding || !sameInspectionPin(snapshot.pin, {
       managed_world_id: managedWorldId,
       native_world_id: binding.nativeWorldId,
@@ -285,8 +292,8 @@ export function createManagedNativeGraphApi(
     return snapshot.pin;
   }
 
-  async function throwInspectionResponseError(response: Response, body: unknown): Promise<never> {
-    const normalized = await responseBody(errorFromResponse(response, body));
+  async function throwInspectionResponseError(response: Pick<Response, "ok" | "status">, body: unknown): Promise<never> {
+    const normalized = errorFromResponse(response, body).body;
     const message = isRecord(normalized) && nonEmptyString(normalized.error)
       ? normalized.error
       : `The managed graph service returned HTTP ${response.status}.`;
@@ -294,9 +301,10 @@ export function createManagedNativeGraphApi(
     throw new NativeGraphDemoApiError(message, code, response.status);
   }
 
-  async function send(path: string, init: RequestInit, startedGeneration: number): Promise<Response> {
+  async function send(path: string, init: RequestInit, startedGeneration: number): Promise<{ response: Pick<Response, "ok" | "status">; body: unknown }> {
     if (invalidated || startedGeneration !== generation) {
-      return invalidResponse("The selected World changed before this managed graph request completed.");
+      const response = invalidResponse("The selected World changed before this managed graph request completed.");
+      return { response, body: response.body };
     }
     const controller = new AbortController();
     const externalSignal = init.signal;
@@ -311,10 +319,13 @@ export function createManagedNativeGraphApi(
         cache: "no-store",
         redirect: "error",
       });
+      const body = await responseBody(response);
       if (invalidated || startedGeneration !== generation) {
-        return invalidResponse("The selected World changed before this managed graph response was applied.");
+        const stale = invalidResponse("The selected World changed before this managed graph response was applied.");
+        return { response: stale, body: stale.body };
       }
-      return response;
+      if (controller.signal.aborted) throw abortError();
+      return { response, body };
     } finally {
       externalSignal?.removeEventListener("abort", abortFromCaller);
       activeControllers.delete(controller);
@@ -325,13 +336,12 @@ export function createManagedNativeGraphApi(
     const startedGeneration = generation;
     const method = (init.method ?? "GET").toUpperCase();
     if (path === "/api/graph" && method === "GET") {
-      const response = await send(GRAPH_PATH, {
+      const { response, body } = await send(GRAPH_PATH, {
         method: "POST",
         headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({ managed_world_id: managedWorldId }),
         signal: init.signal,
       }, startedGeneration);
-      const body = await responseBody(response);
       if (!response.ok) return errorFromResponse(response, body);
       const envelope = graphEnvelope(body, managedWorldId);
       if (!envelope) return invalidResponse();
@@ -340,7 +350,7 @@ export function createManagedNativeGraphApi(
         return invalidResponse("The selected World’s native binding changed. Reload the World selection before continuing.");
       }
       binding = receivedBinding;
-      return jsonResponse(envelope.graph, response.status);
+      return decodedResponse(envelope.graph, response.status);
     }
 
     if (path === "/api/prepare" && method === "POST") {
@@ -350,7 +360,7 @@ export function createManagedNativeGraphApi(
         return invalidResponse("The managed World must be read before a write can be prepared.");
       }
       const input = body as unknown as NativePrepareRequest;
-      const response = await send(PREPARE_PATH, {
+      const { response, body: value } = await send(PREPARE_PATH, {
         method: "POST",
         headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -361,22 +371,21 @@ export function createManagedNativeGraphApi(
         }),
         signal: init.signal,
       }, startedGeneration);
-      const value = await responseBody(response);
       if (!response.ok) return errorFromResponse(response, value);
       if (!isRecord(value)) return invalidResponse();
       if (value.status === "prepared") {
         if (value.operation_id !== input.operation_id
           || !operationIdentityMatches(value, managedWorldId, binding)) return invalidResponse();
-        return jsonResponse(value, response.status);
+        return decodedResponse(value, response.status);
       }
       if (value.status === "already_exists") {
         const mapped = withGraph(value, managedWorldId, binding);
-        return mapped && value.operation_id === input.operation_id ? jsonResponse(mapped, response.status) : invalidResponse();
+        return mapped && value.operation_id === input.operation_id ? decodedResponse(mapped, response.status) : invalidResponse();
       }
       if (value.status === "committed") {
         const mapped = withGraph(value, managedWorldId, binding);
         if (!mapped || value.operation_id !== input.operation_id) return invalidResponse();
-        return jsonResponse({
+        return decodedResponse({
           error: "This operation is already committed. Checking the exact operation ID for its saved receipt.",
           code: "operation_already_committed",
         }, 409);
@@ -390,22 +399,21 @@ export function createManagedNativeGraphApi(
       if (!body || !binding || !nonEmptyString(operationId)) {
         return invalidResponse("The selected World is not verified for this operation.");
       }
-      const response = await send(CONFIRM_PATH, {
+      const { response, body: value } = await send(CONFIRM_PATH, {
         method: "POST",
         headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({ managed_world_id: managedWorldId, operation_id: operationId }),
         signal: init.signal,
       }, startedGeneration);
-      const value = await responseBody(response);
       if (!response.ok) return errorFromResponse(response, value);
       if (!isRecord(value) || value.operation_id !== operationId
         || !operationIdentityMatches(value, managedWorldId, binding)) return invalidResponse();
       if (value.status === "committed") {
         const mapped = withGraph(value, managedWorldId, binding);
-        return mapped ? jsonResponse(mapped, response.status) : invalidResponse();
+        return mapped ? decodedResponse(mapped, response.status) : invalidResponse();
       }
       if (value.status === "unknown" || value.status === "rejected") {
-        return jsonResponse(value, response.status);
+        return decodedResponse(value, response.status);
       }
       return invalidResponse("The managed graph service returned an unsupported confirmation result.");
     }
@@ -413,34 +421,33 @@ export function createManagedNativeGraphApi(
     const operationId = decodeOperationId(path);
     if (operationId && method === "GET") {
       if (!binding) return invalidResponse("The selected World is not verified for this operation.");
-      const response = await send(OPERATIONS_READ_PATH, {
+      const { response, body: value } = await send(OPERATIONS_READ_PATH, {
         method: "POST",
         headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({ managed_world_id: managedWorldId, operation_id: operationId }),
         signal: init.signal,
       }, startedGeneration);
-      const value = await responseBody(response);
       if (!response.ok) return errorFromResponse(response, value);
       if (!isRecord(value) || value.operation_id !== operationId
         || !operationIdentityMatches(value, managedWorldId, binding)) return invalidResponse();
       if (value.graph !== undefined) {
         const mapped = withGraph(value, managedWorldId, binding);
-        return mapped ? jsonResponse(mapped, response.status) : invalidResponse();
+        return mapped ? decodedResponse(mapped, response.status) : invalidResponse();
       }
       if (["prepared", "committed", "unknown", "rejected", "not_found"].includes(String(value.status))) {
-        return jsonResponse(value, response.status);
+        return decodedResponse(value, response.status);
       }
       return invalidResponse("The managed graph service returned an unsupported operation status.");
     }
 
-    return jsonResponse({ error: "The managed graph request is unsupported.", code: "unsupported_request" }, 400);
+    return decodedResponse({ error: "The managed graph request is unsupported.", code: "unsupported_request" }, 400);
   };
 
   const baseApi = createNativeGraphDemoApi({ transport });
   const api: NativeGraphDemoApi = {
-    async readGraph() {
+    async readGraph(signal) {
       const startedGeneration = generation;
-      return registerSnapshot(await baseApi.readGraph(), startedGeneration);
+      return registerSnapshot(await baseApi.readGraph(signal), startedGeneration, true);
     },
     async prepare(input) {
       const startedGeneration = generation;
@@ -473,12 +480,12 @@ export function createManagedNativeGraphApi(
       return catalogue;
     },
     async inspectNode(graph, nodeId, signal) {
-      const pin = assertCurrentSnapshot(graph, nodeId);
       if (signal?.aborted) throw abortError();
+      const pin = assertCurrentSnapshot(graph, nodeId);
       const startedGeneration = generation;
-      let response: Response;
+      let result: Awaited<ReturnType<typeof send>>;
       try {
-        response = await send(INSPECTION_READ_PATH, {
+        result = await send(INSPECTION_READ_PATH, {
           method: "POST",
           headers: { Accept: "application/json", "Content-Type": "application/json" },
           body: JSON.stringify({ scope: pin, selection: { kind: "entity", entity_id: nodeId } }),
@@ -496,7 +503,7 @@ export function createManagedNativeGraphApi(
           0,
         );
       }
-      const body = await responseBody(response);
+      const { response, body } = result;
       if (signal?.aborted) throw abortError();
       if (invalidated || startedGeneration !== generation) {
         throw invalidManagedGraph("The selected World changed before this graph inspection could be applied.");
@@ -515,6 +522,7 @@ export function createManagedNativeGraphApi(
       invalidated = true;
       generation += 1;
       binding = null;
+      lastSnapshot = null;
       for (const controller of activeControllers) controller.abort();
       activeControllers.clear();
     },

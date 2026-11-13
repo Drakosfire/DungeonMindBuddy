@@ -61,6 +61,34 @@ function entityDetail(scope: unknown) {
 }
 
 describe("managed native graph API", () => {
+  it("reuses only equivalent snapshots from the same managed client", async () => {
+    const changed = { ...nativeGraph, limitations: ["partial coverage"] };
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(response(envelope()))
+      .mockResolvedValueOnce(response(envelope()))
+      .mockResolvedValueOnce(response(envelope({ graph: changed })));
+    const client = createManagedNativeGraphApi("managed-a", { fetcher });
+    const first = await client.api.readGraph();
+    await expect(client.api.readGraph()).resolves.toBe(first);
+    const third = await client.api.readGraph();
+    expect(third).not.toBe(first);
+    expect(third.limitations).toEqual(changed.limitations);
+    client.invalidate();
+    await expect(client.api.readGraph()).rejects.toMatchObject({ code: "invalid_managed_world_response" });
+  });
+
+  it("consumes the wire body once and returns the decoded graph", async () => {
+    const wireResponse = response(envelope());
+    const parsed = envelope();
+    const json = vi.spyOn(wireResponse, "json").mockResolvedValue(parsed);
+    const clone = vi.spyOn(wireResponse, "clone");
+    const client = createManagedNativeGraphApi("managed-a", { fetcher: vi.fn().mockResolvedValue(wireResponse) });
+
+    await expect(client.api.readGraph()).resolves.toBe(parsed.graph);
+    expect(json).toHaveBeenCalledTimes(1);
+    expect(clone).not.toHaveBeenCalled();
+  });
+
   it("preserves a prepare retry action only for the verified managed World and exact operation", async () => {
     const operationId = "4a4a77ef-4182-4050-86cf-e9c7e06935f8";
     const fetcher = vi.fn()
@@ -226,9 +254,28 @@ describe("managed native graph API", () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
     await expect(client.api.inspectNode?.(graph, "entity:lina")).rejects.toMatchObject({ code: "invalid_managed_world_response" });
     expect(calls).toHaveLength(1);
-    (graph.nodes as Array<{ id: string; name: string; kind: string }>).push({ id: "entity:altered", name: "Altered", kind: "person" });
-    await expect(client.api.inspectNode?.(graph, "entity:lina")).rejects.toMatchObject({ code: "invalid_managed_world_response" });
+    expect(Object.isFrozen(graph.nodes[0])).toBe(true);
+    expect(() => {
+      (graph.nodes as Array<{ id: string; name: string; kind: string }>).push({ id: "entity:altered", name: "Altered", kind: "person" });
+    }).toThrow(TypeError);
+    expect(graph.nodes.map(node => node.id)).toEqual(["entity:lina"]);
     expect(calls).toHaveLength(1);
+  });
+
+  it("skips snapshot serialization and network work for pre-aborted inspection", async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce(response(envelope()));
+    const { api } = createManagedNativeGraphApi("managed-a", { fetcher });
+    const graph = await api.readGraph();
+    const caller = new AbortController();
+    caller.abort();
+    const serialize = vi.spyOn(JSON, "stringify");
+    try {
+      await expect(api.inspectNode?.(graph, "entity:lina", caller.signal)).rejects.toMatchObject({ name: "AbortError" });
+      expect(serialize.mock.calls.some(([value]) => value === graph)).toBe(false);
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    } finally {
+      serialize.mockRestore();
+    }
   });
 
   it("aborts pending inspection and rejects results from an invalidated client", async () => {
@@ -258,6 +305,36 @@ describe("managed native graph API", () => {
     const invalidatedInspection = nextClient.api.inspectNode?.(nextGraph, "entity:lina");
     nextClient.invalidate();
     await expect(invalidatedInspection).rejects.toMatchObject({ code: "invalid_managed_world_response" });
+  });
+
+  it.each(["caller", "World"] as const)("aborts a stalled inspection body on %s cancellation", async (owner) => {
+    let startBody!: () => void;
+    const bodyStarted = new Promise<void>(resolve => { startBody = resolve; });
+    const bodyAborted = vi.fn();
+    const fetcher = vi.fn(async (path: RequestInfo | URL, init?: RequestInit) => {
+      if (String(path).endsWith("/graph")) return response(graphEnvelope("revision-1"));
+      const result = response({});
+      vi.spyOn(result, "json").mockImplementation(() => new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          bodyAborted();
+          reject(new DOMException("Aborted", "AbortError"));
+        }, { once: true });
+        startBody();
+      }));
+      return result;
+    });
+    const client = createManagedNativeGraphApi("managed-a", { fetcher });
+    const graph = await client.api.readGraph();
+    const caller = new AbortController();
+    const pending = client.api.inspectNode?.(graph, "entity:lina", caller.signal);
+    const outcome = expect(pending).rejects.toMatchObject(owner === "caller"
+      ? { name: "AbortError" }
+      : { code: "invalid_managed_world_response" });
+    await bodyStarted;
+    if (owner === "caller") caller.abort();
+    else client.invalidate();
+    expect(bodyAborted).toHaveBeenCalledTimes(1);
+    await outcome;
   });
 
   it("binds prepare, confirm, and operation reads to the graph’s verified World", async () => {

@@ -69,7 +69,7 @@ Graph steps must **not** require `breadcrumb_found` or `session_memory_materiali
    - Wire `run_category_pipeline` from `category_graph_model_study.py` into `graph_preview_runner.py`.
    - Passes: `actor_pass`, `location_pass`, `collective_pass`, `object_pass`, `thread_pass`, `beat_pass`, `edge_pass`.
    - Default model: `gpt-5.4-mini` (anchor_quote_n3 cohort). Party anchors from `PartyContext`, not model discovery.
-   - Compare against `evals/graph_memory_layer/examples/session_23_candidate_graph_gold/candidate_graph_gold.json` after wiring.
+   - Compare against `evals/graph_benchmark_gold/candidate_graph/longmont-c2/session-23/candidate_graph_gold.json` after wiring.
 
 4. **Multi-pass contract (reference only)**
    - Broader 9-pass design: `evals/graph_memory_layer/examples/multi_pass_extraction_contract/`

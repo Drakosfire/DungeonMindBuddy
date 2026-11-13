@@ -1,13 +1,17 @@
 """Tests for graph preview surface API."""
 from __future__ import annotations
 
+from json import JSONDecodeError, dumps
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from fastapi.testclient import TestClient
 
 from apps.live_control_server.config import SESSION_DIR_ENV, repo_root
 from apps.live_control_server.main import create_app
+from apps.live_control_server.services import graph_preview_surface
 from apps.live_control_server.services.graph_preview_surface import (
     build_graph_preview_surface,
     build_latest_graph_preview_surface,
@@ -83,6 +87,95 @@ def test_build_graph_preview_surface_enriches_paragraph_evidence() -> None:
         assert any(ref.paragraph_text for c in with_evidence for ref in c.evidence_refs)
 
 
+@pytest.mark.parametrize("pinned_uri", [None, "pinned-run"])
+def test_latest_surface_discovers_only_when_unpinned(tmp_path, monkeypatch, pinned_uri) -> None:
+    record = SimpleNamespace(
+        artifact_id="artifact", campaign_id="campaign", session_id="session",
+        run_bundle_uri="bundle", default_graph_run_uri=pinned_uri,
+    )
+    discovery = Mock(return_value=[SimpleNamespace(run_dir="discovered-run", canonical_ir_valid=True)])
+    build = Mock()
+    monkeypatch.setattr(graph_preview_surface, "_resolve_recap_artifact", Mock(return_value=record))
+    monkeypatch.setattr(graph_preview_surface, "discover_graph_preview_runs", discovery)
+    monkeypatch.setattr(graph_preview_surface, "build_graph_preview_surface", build)
+
+    assert build_latest_graph_preview_surface(tmp_path) is build.return_value
+    build.assert_called_once_with(
+        tmp_path, pinned_uri or "discovered-run", run_bundle_dir=tmp_path / "bundle", artifact_record=record, _loaded_run=None,
+    )
+    if pinned_uri:
+        discovery.assert_not_called()
+    else:
+        discovery.assert_called_once_with(
+            tmp_path, artifact_id="artifact", campaign_id="campaign", session_id="session",
+        )
+        discovery.return_value = []
+        with pytest.raises(graph_preview_surface.GraphPreviewSurfaceError) as error:
+            build_latest_graph_preview_surface(tmp_path)
+        assert error.value.status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("canonical", "evidence", "winner", "probed"),
+    [
+        ({0, 2}, {0, 2, 3}, 2, [3, 2]),
+        ({0, 2}, {1, 3}, 3, [3, 2, 0]),
+        ({0, 2}, set(), 2, [3, 2, 1, 0]),
+        (set(), set(), 3, [3, 2, 1, 0]),
+    ],
+)
+def test_preview_ranking_probes_only_runs_that_can_win(tmp_path, monkeypatch, canonical, evidence, winner, probed):
+    runs = [SimpleNamespace(run_dir=str(i), canonical_ir_valid=i in canonical) for i in range(4)]
+    graph = {"nodes": [{"evidence_refs": [{"source_span_ref_id": "source"}]}]}
+    probe = Mock(side_effect=lambda path: ({}, graph if int(path.name) in evidence else None))
+    monkeypatch.setattr(graph_preview_surface, "_resolve_run_dir", lambda root, name: root / name)
+    monkeypatch.setattr(graph_preview_surface, "_load_run_graph", probe)
+    picked = graph_preview_surface._pick_latest_run(tmp_path, runs)
+    assert picked[0] is runs[winner]
+    assert [int(call.args[0].name) for call in probe.call_args_list] == probed
+
+
+def test_preview_ranking_skips_malformed_older_artifact_after_top_tier_match(tmp_path, monkeypatch):
+    older = SimpleNamespace(run_dir="older", canonical_ir_valid=True)
+    newer = SimpleNamespace(run_dir="newer", canonical_ir_valid=True)
+    malformed = JSONDecodeError("malformed fixture", "{", 1)
+
+    def probe(path):
+        if path.name == older.run_dir:
+            raise malformed
+        return {}, {"nodes": [{"evidence_refs": [{"source_span_ref_id": "source"}]}]}
+
+    monkeypatch.setattr(graph_preview_surface, "_resolve_run_dir", lambda root, name: root / name)
+    monkeypatch.setattr(graph_preview_surface, "_load_run_graph", probe)
+    assert graph_preview_surface._pick_latest_run(tmp_path, [older, newer])[0] is newer
+    with pytest.raises(JSONDecodeError):
+        graph_preview_surface._pick_latest_run(tmp_path, [older])
+
+
+@pytest.mark.parametrize(("filename", "key"), [
+    ("validation_report.json", "reconciled_candidate_graph"),
+    ("candidate_output.json", "candidate_graph"),
+])
+def test_latest_surface_decodes_winning_graph_once(tmp_path, monkeypatch, filename, key):
+    run = tmp_path / "run"
+    run.mkdir()
+    artifact = run / filename
+    artifact.write_text(dumps({key: {"nodes": [{"evidence_refs": [{"source_span_ref_id": "source"}]}]}}))
+    record = SimpleNamespace(
+        artifact_id="artifact", campaign_id="campaign", session_id="session",
+        run_bundle_uri="missing-bundle", default_graph_run_uri=None,
+    )
+    load = Mock(wraps=graph_preview_surface._load_json)
+    monkeypatch.setattr(graph_preview_surface, "_resolve_recap_artifact", lambda *args, **kwargs: record)
+    monkeypatch.setattr(graph_preview_surface, "discover_graph_preview_runs",
+                        lambda *args, **kwargs: [SimpleNamespace(run_dir="run", canonical_ir_valid=True)])
+    monkeypatch.setattr(graph_preview_surface, "_resolve_run_dir", lambda root, name: root / name)
+    monkeypatch.setattr(graph_preview_surface, "_load_json", load)
+    with pytest.raises(graph_preview_surface.GraphPreviewSurfaceError, match="run bundle not found"):
+        build_latest_graph_preview_surface(tmp_path)
+    load.assert_called_once_with(artifact)
+
+
 def test_latest_surface_prefers_resolvable_run() -> None:
     runs = discover_graph_preview_runs(repo_root())
     if not runs:
@@ -102,6 +195,42 @@ def test_latest_surface_prefers_resolvable_run() -> None:
             break
     if any_resolvable:
         assert payload.health.resolvable_evidence_ref_count > 0
+
+
+def test_recap_presentation_reuses_preview_source_snapshot(tmp_path, monkeypatch):
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "candidate_output.json").write_text(dumps({"nodes": [{"node_id": "npc_mara", "node_type": "npc", "label": "Mara"}]}))
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    index_path = bundle / "source_span_index.json"
+    index_path.write_text(dumps({"spans": [{"span_id": "span", "line_start": 1, "line_end": 1},
+                                                {"span_id": "span", "line_start": 2, "line_end": 2}]}))
+    record = SimpleNamespace(default_graph_run_uri="run", run_bundle_uri="bundle", source_recap_path=None)
+    read = Mock(wraps=graph_preview_surface._load_json)
+    class CountedRecap(str):
+        splits = 0
+
+        def splitlines(self, keepends=False):
+            self.splits += 1
+            return super().splitlines(keepends)
+
+    source = CountedRecap("First line.\r\nAsk Mara.\r\n")
+    recap = Mock(return_value=(source, "recap.md"))
+    monkeypatch.setattr(graph_preview_surface, "_resolve_recap_artifact", lambda *args, **kwargs: record)
+    monkeypatch.setattr(graph_preview_surface, "_resolve_run_dir", lambda root, name: root / name)
+    monkeypatch.setattr(graph_preview_surface, "_load_json", read)
+    monkeypatch.setattr(graph_preview_surface, "_recap_text_for_run_bundle", recap)
+    monkeypatch.setattr(graph_preview_surface, "_route_seed_nodes", lambda *args: ({}, {}))
+
+    payload = build_recap_graph_presentation(tmp_path)
+
+    assert payload.markdown == "First line.\nAsk [Mara](dmb-node:npc_mara)."
+    assert [(link.source_span_ref_id, link.char_start, link.char_end) for link in payload.links] == [("span", 4, 8)]
+    assert payload.recap_source_path == "recap.md"
+    assert sum(call.args == (index_path,) for call in read.call_args_list) == 1
+    assert source.splits == 1
+    recap.assert_called_once_with(tmp_path, bundle, source_recap_path=None)
 
 
 def test_build_recap_graph_presentation_links_node_labels() -> None:

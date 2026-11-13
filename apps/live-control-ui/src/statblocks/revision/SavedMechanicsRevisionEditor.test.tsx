@@ -14,7 +14,7 @@ import type {OpenSavedMechanicsVersion,RevisionSaveOutcome,SavedMechanicsVersion
 vi.mock('../../api/liveApi',()=>({listSavedMechanicsVersions:vi.fn(),openSavedMechanicsVersion:vi.fn(),saveMechanicsRevision:vi.fn(),recoverMechanicsRevision:vi.fn(),inspectMechanicsRevision:vi.fn(),validateStatblockDefinition:vi.fn(),listWorldCreatures:vi.fn(),listWorldMechanicsAssociations:vi.fn(),getThreatDraft:vi.fn(),associateWorldMechanics:vi.fn(),findWorldMechanicsAssociationRequest:vi.fn()}));
 const portrait='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const studio=vi.hoisted(()=>({props:null as any}));
-vi.mock('../../media/MediaImageWizard',()=>({MediaImageWizard:(props:any)=>{
+vi.mock('../../media/DeferredMediaImageWizard',()=>({DeferredMediaImageWizard:(props:any)=>{
  studio.props=props;
  return <section aria-label="Portrait studio"><p>{props.initialPrompt}</p><button onClick={()=>props.onChoose({asset_id:portrait},null,{signal:new AbortController().signal,mode:'click'})}>Choose saved portrait</button><button onClick={props.onClose}>Close studio</button></section>;
 }}));

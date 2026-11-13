@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from scripts.build_ingested_corpus_library import build_library, discover_campaign_sessions, load_retrieval_manifests
+from src.live_play.ingested_corpus_library import build_library, discover_campaign_sessions, load_retrieval_manifests
 
 
 class OpaqueLocator(BaseModel):

@@ -451,6 +451,22 @@ def _join_context_binding(context, execution):
         from .build_world_context import validate_work_intent
         validate_work_intent(work.source_basis, action.intent)
         for event in execution.events:
+            if isinstance(event, BuildSavedStatblockReadV1) and event.pdf_support is not None:
+                from .authored_graph_references import native_references, object_selections
+                from .native_corpus import NativeCorpusAuthorityV1
+
+                pin = event.pdf_support.scope
+                identity = (pin.managed_world_id, pin.native_world_id, pin.binding_version, pin.revision_id)
+                authority = context.source_authority
+                source_matches = isinstance(authority, NativeCorpusAuthorityV1) and identity == (
+                    authority.managed_world_id, authority.native_world_id,
+                    authority.binding_version, authority.revision_id,
+                )
+                if not source_matches and not any(
+                    identity == (ref.managed_world_id, ref.native_world_id, ref.binding_version, ref.graph_revision)
+                    for ref in object_selections(native_references(execution))
+                ):
+                    raise ValueError("Saved statblock PDF support differs from its admitted Graph pin")
             if isinstance(event,t.BuildDraftContextCapturedV1) and event.record.snapshot.saved_basis() != work.source_basis.model_dump(mode='json',by_alias=True):
                 raise ValueError('Working draft differs from its frozen Build source basis')
             if isinstance(event,(t.BuildSectionReadAuthorizationV1,t.ValidatedBuildSectionReadV1)) and event.source_basis != work.source_basis:

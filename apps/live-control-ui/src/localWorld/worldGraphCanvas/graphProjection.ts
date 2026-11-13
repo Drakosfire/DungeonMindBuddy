@@ -68,15 +68,27 @@ export interface LocalWorldGraphIndex {
   readonly snapshot: LocalWorldRecord["snapshot"];
   readonly objects: ReadonlyMap<LocalWorldObject["id"], LocalWorldObject>;
   readonly neighbors: ReadonlyMap<LocalWorldObject["id"], readonly LocalWorldObject["id"][]>;
+  readonly outgoingRelationshipOffsets: ReadonlyMap<LocalWorldObject["id"], readonly number[]>;
   readonly validRelationships: readonly LocalWorldRelationship[];
   readonly relationshipCounts: ReadonlyMap<LocalWorldObject["id"], number>;
   readonly diagnostics: readonly string[];
   readonly invalidRelationships: number;
 }
 
+const orderedNeighbors = new WeakMap<readonly LocalWorldObject["id"][], readonly LocalWorldObject["id"][]>();
+
+function lexicographicNeighbors(neighbors: readonly LocalWorldObject["id"][]): readonly LocalWorldObject["id"][] {
+  const cached = orderedNeighbors.get(neighbors);
+  if (cached) return cached;
+  const sorted = [...neighbors].sort();
+  orderedNeighbors.set(neighbors, sorted);
+  return sorted;
+}
+
 export function indexLocalWorldGraph(snapshot: LocalWorldRecord["snapshot"]): LocalWorldGraphIndex {
   const objects = new Map(snapshot.objects.map((object) => [object.id, object]));
   const neighbors = new Map<LocalWorldObject["id"], LocalWorldObject["id"][]>();
+  const outgoingRelationshipOffsets = new Map<LocalWorldObject["id"], number[]>();
   const validRelationships: LocalWorldRelationship[] = [];
   const incidentIds = new Map([...objects.keys()].map(id => [id, new Set<LocalWorldRelationship["id"]>()]));
   const diagnostics: string[] = [];
@@ -89,6 +101,9 @@ export function indexLocalWorldGraph(snapshot: LocalWorldRecord["snapshot"]): Lo
       }
       continue;
     }
+    const outgoing = outgoingRelationshipOffsets.get(relationship.fromObjectId);
+    if (outgoing) outgoing.push(validRelationships.length);
+    else outgoingRelationshipOffsets.set(relationship.fromObjectId, [validRelationships.length]);
     validRelationships.push(relationship);
     incidentIds.get(relationship.fromObjectId)!.add(relationship.id);
     incidentIds.get(relationship.toObjectId)!.add(relationship.id);
@@ -99,7 +114,7 @@ export function indexLocalWorldGraph(snapshot: LocalWorldRecord["snapshot"]): Lo
     }
   }
   const relationshipCounts = new Map([...incidentIds].map(([id, incident]) => [id, incident.size]));
-  return { snapshot, objects, neighbors, validRelationships, relationshipCounts, diagnostics, invalidRelationships };
+  return { snapshot, objects, neighbors, outgoingRelationshipOffsets, validRelationships, relationshipCounts, diagnostics, invalidRelationships };
 }
 
 export type GraphFallbackPositions = ReadonlyMap<LocalWorldObject["id"], Readonly<{ x: number; y: number }>>;
@@ -307,20 +322,26 @@ export function projectLocalWorldGraph(
   const fullOverview = options.fullCorpus && !focused;
   const retainedPositions = options.fullCorpus ? options.fallbackPositions : undefined;
   let generatedPositions: GraphFallbackPositions | undefined;
+  const focusId = options.focusObjectId;
+  const useNeighborhood = maxNodes > 0 && focusId && focused;
   const revealedIds = new Set(options.revealObjectIds ?? []);
-  const eligibleObjects = options.showUnconnected === false
-    ? objects.filter(object => (index.relationshipCounts.get(object.id) ?? 0) > 0 || revealedIds.has(object.id) || (focused && object.id === options.focusObjectId))
-    : objects;
-  const hiddenUnconnectedNodes = objects.length - eligibleObjects.length;
-  let visibleObjects = fullOverview ? eligibleObjects : eligibleObjects.slice(0, maxNodes);
-  if (maxNodes && options.focusObjectId && index.objects.has(options.focusObjectId)) {
+  const isEligible = (object: LocalWorldObject) =>
+    (index.relationshipCounts.get(object.id) ?? 0) > 0 || revealedIds.has(object.id) || (focused && object.id === focusId);
+  let eligibleCount: number;
+  let visibleObjects: readonly LocalWorldObject[];
+  if (useNeighborhood) {
+    eligibleCount = options.showUnconnected === false
+      ? objects.reduce((count, object) => count + Number(isEligible(object)), 0)
+      : objects.length;
     const depthLimit = boundedLimit(options.neighborhoodDepth ?? 1, objects.length);
-    const queue = [{ id: options.focusObjectId, depth: 0 }];
-    const visited = new Set([options.focusObjectId]);
+    const queue = [{ id: focusId, depth: 0 }];
+    const visited = new Set([focusId]);
     for (let cursor = 0; cursor < queue.length && queue.length < maxNodes; cursor += 1) {
       const { id, depth } = queue[cursor];
       if (depth >= depthLimit) continue;
-      for (const neighbor of options.fullCorpus ? [...(index.neighbors.get(id) ?? [])].sort() : index.neighbors.get(id) ?? []) {
+      const neighbors = index.neighbors.get(id);
+      if (!neighbors) continue;
+      for (const neighbor of options.fullCorpus ? lexicographicNeighbors(neighbors) : neighbors) {
         if (visited.has(neighbor)) continue;
         visited.add(neighbor);
         queue.push({ id: neighbor, depth: depth + 1 });
@@ -328,6 +349,10 @@ export function projectLocalWorldGraph(
       }
     }
     visibleObjects = queue.map(({ id }) => index.objects.get(id)!);
+  } else {
+    const eligibleObjects = options.showUnconnected === false ? objects.filter(isEligible) : objects;
+    eligibleCount = eligibleObjects.length;
+    visibleObjects = fullOverview ? eligibleObjects : eligibleObjects.slice(0, maxNodes);
   }
   const visibleIds = new Set(visibleObjects.map((object) => object.id));
   const nodes = visibleObjects.map((object, position) => {
@@ -343,8 +368,16 @@ export function projectLocalWorldGraph(
     return { id: object.id, name: object.name, kind: object.kind, x, y, object, relationshipCount: index.relationshipCounts.get(object.id) ?? 0 };
   });
   const edges: ProjectedGraphEdge[] = [];
-  // Scan all valid relationships so an early hidden edge cannot starve later visible edges.
-  for (const relationship of index.validRelationships) {
+  let candidates = index.validRelationships;
+  if (focused && maxEdges > 0) {
+    const outgoing = visibleObjects.map(({ id }) => index.outgoingRelationshipOffsets.get(id) ?? []);
+    const candidateCount = outgoing.reduce((count, offsets) => count + offsets.length, 0);
+    // Prefer the snapshot scan when collecting and sorting candidates would cost more.
+    if (candidateCount * Math.log2(Math.max(2, candidateCount)) < candidates.length) {
+      candidates = outgoing.flat().sort((a, b) => a - b).map(offset => index.validRelationships[offset]);
+    }
+  }
+  for (const relationship of candidates) {
     if (!visibleIds.size || (!fullOverview && edges.length >= maxEdges)) break;
     if (!visibleIds.has(relationship.fromObjectId) || !visibleIds.has(relationship.toObjectId)) continue;
     edges.push({ id: relationship.id, fromObjectId: relationship.fromObjectId,
@@ -353,8 +386,8 @@ export function projectLocalWorldGraph(
   return {
     nodes, edges,
     diagnostics: index.diagnostics,
-    omittedNodes: Math.max(0, eligibleObjects.length - nodes.length),
-    hiddenUnconnectedNodes,
+    omittedNodes: Math.max(0, eligibleCount - nodes.length),
+    hiddenUnconnectedNodes: objects.length - eligibleCount,
     omittedEdges: record.snapshot.relationships.length - edges.length,
     hiddenRelationships: index.validRelationships.length - edges.length,
     invalidRelationships: index.invalidRelationships,

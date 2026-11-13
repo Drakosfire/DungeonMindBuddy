@@ -194,6 +194,7 @@
       "apps/live-control-ui/src/localWorld/localWorldPackageZipV1.test.ts",
       "apps/live-control-ui/src/localWorld/localWorldRepository.test.ts",
       "apps/live-control-ui/src/localWorld/localWorldSurface/LocalWorldNotesEditor.test.tsx",
+      "apps/live-control-ui/src/localWorld/localWorldSurface/LocalWorldSurface.loading.test.tsx",
       "apps/live-control-ui/src/localWorld/localWorldSurface/LocalWorldSurface.test.tsx",
       "apps/live-control-ui/src/localWorld/worldGraphCanvas/WorldGraphCanvas.test.tsx",
       "apps/live-control-ui/src/localWorld/worldGraphCanvas/edgeCaption.test.ts",

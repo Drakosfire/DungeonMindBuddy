@@ -9,7 +9,7 @@ import { createDocumentMediaBridge } from './documentMediaBridge';
 import { DocumentImageStudio } from './DocumentImageStudio';
 import { SavedMediaImage } from './SavedMediaImage';
 const wizard=vi.hoisted(()=>({props:null as any}));
-vi.mock('./MediaImageWizard',()=>({MediaImageWizard:(props:any)=>{wizard.props=props;return null;}}));
+vi.mock('./DeferredMediaImageWizard',()=>({DeferredMediaImageWizard:(props:any)=>{wizard.props=props;return null;}}));
 vi.mock('../guidedTour/ImageObservations',()=>({useTourImage:()=>null}));
 const id='ac6c15cc-8c68-4732-8ae2-d9f3f051393a';
 afterEach(()=>{cleanup();vi.restoreAllMocks();});

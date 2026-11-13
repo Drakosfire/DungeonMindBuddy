@@ -95,6 +95,7 @@ jobs:
         run: >-
           docker run --rm
           --env GITHUB_SHA="${GITHUB_SHA}"
+          --env VITE_BUDDY_HOSTED_BUILD=1
           --volume "$GITHUB_WORKSPACE:/workspace"
           --workdir /workspace/apps/live-control-ui
           "$UI_BUILD_IMAGE"

@@ -29,7 +29,7 @@ Read these S23 files and mirror their structure exactly, renaming `23`→`1`,
 - `evals/graph_memory_layer/validate_session_23_candidate_graph_gold_fixture.py`
 - `evals/graph_memory_layer/report_session_23_candidate_graph_gold_fixture.py`
 - `evals/graph_memory_layer/examples/session_23_recap_ingest/` (all JSON + md)
-- `evals/graph_memory_layer/examples/session_23_candidate_graph_gold/` (gold + manifest)
+- `evals/graph_benchmark_gold/candidate_graph/longmont-c2/session-23/` (gold + manifest)
 - `tests/test_graph_memory_session_23_recap_ingest_fixture.py`
 - `tests/test_graph_memory_session_23_candidate_graph_gold_fixture.py`
 - `apps/live_control_server/services/graph_gold_review.py` (`_GOLD_SESSIONS`, `_resolve_session_seed_refs`)
@@ -45,8 +45,8 @@ Data files:
 4. `evals/graph_memory_layer/examples/session_1_recap_ingest/source_span_seed_refs.json`
 5. `evals/graph_memory_layer/examples/session_1_recap_ingest/session_1_recap_ingest_manifest.json`
 6. `evals/graph_memory_layer/examples/session_1_recap_ingest/README.md` (short, mirror S23 README tone)
-7. `evals/graph_memory_layer/examples/session_1_candidate_graph_gold/candidate_graph_gold.json`
-8. `evals/graph_memory_layer/examples/session_1_candidate_graph_gold/session_1_candidate_graph_gold_manifest.json`
+7. `evals/graph_benchmark_gold/candidate_graph/longmont-c1/session-01/candidate_graph_gold.json`
+8. `evals/graph_benchmark_gold/candidate_graph/longmont-c1/session-01/source_manifest.json`
 
 Python loaders + CLIs (mirror S23 byte-for-byte structure, renamed):
 9. `evals/graph_memory_layer/session_1_recap_ingest_fixture.py`
