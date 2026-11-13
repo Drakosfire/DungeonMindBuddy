@@ -15,7 +15,7 @@ Write lease: this handoff, `HANDOFF-GRAPH-explorer-menu.md` settlement, and
 `apps/live-control-ui/src/localWorld/worldGraphCanvas/` files
 `WorldGraphCanvas.tsx`, `WorldGraphCanvas.test.tsx`, `worldGraphCanvas.css`,
 `edgeCaption.ts`, `edgeCaption.test.ts`, `focusedGraphLayout.ts`, and
-`focusedGraphLayout.test.ts`.
+`focusedGraphLayout.test.ts`, and `apps/live-control-ui/src/nativeGraphDemo/NativeGraphDemo.test.tsx` integration coverage (explicit coordinator extension on 2026-11-13).
 
 ## Invariants
 
