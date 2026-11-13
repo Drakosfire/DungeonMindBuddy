@@ -2423,6 +2423,27 @@ export async function listWorldOwnedPlans(worldId: string): Promise<WorldOwnedPl
   );
 }
 
+export type WorldPlanInventoryPage = WorldOwnedPlansResponseV2 & {
+  next_before_updated_at: string | null;
+  next_before_document_id: string | null;
+};
+
+export function listWorldPlanInventoryPage(
+  worldId: string,
+  before?: { updatedAt: string; documentId: string },
+  signal?: AbortSignal,
+): Promise<WorldPlanInventoryPage> {
+  const query = new URLSearchParams({ world_id: worldId });
+  if (before) {
+    query.set("before_updated_at", before.updatedAt);
+    query.set("before_document_id", before.documentId);
+  }
+  return apiFetch<WorldPlanInventoryPage>(
+    `/api/live/workspace-documents/world-plans/page?${query}`,
+    { signal },
+  );
+}
+
 export async function createWorldOwnedPlan(request: {
   schema_version: "dmb_workspace_document_create_v2";
   scope_mode: "world";
