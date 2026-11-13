@@ -102,7 +102,31 @@ and base Compose path, the Compose project name, and the absolute paths to
 the saved override and protected environment file. Keep a release-specific
 protected copy of the environment file or a reference to an immutable
 version in the approved secret store. Record the image tag and verified
-image ID together. Keep credential values in the protected store. Before applying migrations or starting Buddy, check the configured mount with
+image ID together. Keep credential values in the protected store.
+
+Before probing permissions, verify the resolved bind source against the
+approved release record. This requires Python 3 on the deployment host.
+
+```bash
+(
+  set -e -o pipefail
+  read -r -p 'Approved absolute persistent root from the release record: ' approved_root
+  test "${approved_root:0:1}" = /
+  "${buddy_compose[@]}" config --format json | python3 -c '
+import json
+import sys
+
+volumes = json.load(sys.stdin)["services"]["buddy"].get("volumes", [])
+mounts = [mount for mount in volumes if mount.get("target") == "/var/lib/buddy"]
+if len(mounts) != 1 or mounts[0].get("type") != "bind" or mounts[0].get("source") != sys.argv[1]:
+    sys.exit("Resolved Buddy persistent mount does not match the approved path")
+' "$approved_root"
+)
+```
+
+Require the mount identity check to pass before continuing.
+
+Before applying migrations or starting Buddy, check the configured mount with
 the release image's default user. This checks permissions without writing files
 or starting the application.
 
