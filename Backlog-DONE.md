@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Reconcile legacy Agent import CI triggers with what the job verifies
+
+[PR #2760](https://github.com/Drakosfire/DungeonMindBuddy/pull/2760) added the inventory and locked dependency inputs to the legacy import trigger while retaining import, idempotence, and rollback verification. The [inventory-only draft](https://github.com/Drakosfire/DungeonMindBuddy/pull/2761) passed both the standalone inventory and legacy import workflows. The draft was closed without merging.
+
 ## [DONE] Check design-agent upload bundle freshness against canonical sources
 
 [PR #2750](https://github.com/Drakosfire/DungeonMindBuddy/pull/2750) added a read-only check of mapped files, mirror bytes, and bundled index links. [PR #2751](https://github.com/Drakosfire/DungeonMindBuddy/pull/2751) refreshed five stale mirrors from the revision recorded in the bundle README. The checker passed for all 22 mapped exports on main. The user-managed Project Sources upload has its own snapshot date.
