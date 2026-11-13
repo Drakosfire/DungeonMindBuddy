@@ -9,7 +9,7 @@ _SCHEMA_DIR = Path(__file__).resolve().parent.parent / "schemas" / "v0.1"
 _EXAMPLE = _SCHEMA_DIR / "examples" / "corpus_entity_profile.example.json"
 _BONOGO = _SCHEMA_DIR / "examples" / "corpus_entity_profile.bonogo_exemplar.json"
 _ENTITY_PROFILE_DIR = (
-    Path(__file__).resolve().parent.parent / "Docs" / "Plans" / "entity_profiles"
+    Path(__file__).resolve().parent.parent / "Docs" / "data" / "entity-audit" / "entity_profiles"
 )
 
 
@@ -23,7 +23,7 @@ def test_corpus_entity_profile_bonogo_exemplar_validates() -> None:
     validate_instance(payload, "corpus_entity_profile.schema.json")
 
 
-def test_entity_audit_profiles_in_docs_plans_validate() -> None:
+def test_entity_audit_profiles_validate() -> None:
     paths = sorted(_ENTITY_PROFILE_DIR.glob("corpus_entity_profile.*.json"))
     assert paths, f"expected profiles under {_ENTITY_PROFILE_DIR}"
     for path in paths:
