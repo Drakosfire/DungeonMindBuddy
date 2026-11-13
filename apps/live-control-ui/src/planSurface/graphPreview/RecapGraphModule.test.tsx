@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as liveApi from "../../api/liveApi";
 import type { RecapArtifactRecord } from "../../api/types";
 import { RecapGraphModule } from "./RecapGraphModule";
-import { session23WorldGraphRecapFixture } from "./worldGraphRecapFixture";
+import { session23WorldGraphRecapFixture } from "../../test/worldGraphRecapFixture";
 
 const context = {
   campaignId: "longmont-c2",

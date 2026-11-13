@@ -6,7 +6,7 @@ import * as candidateApi from "../api/exactRunCandidateProjectionApi";
 import * as rawApi from "../api/recapIngestApi";
 import type {ExactRunCandidateProjection} from "../api/exactRunCandidateProjectionApi";
 import type {HistoricalRecapWorldProjectionResponse,RecapIngestStatus} from "../api/types";
-import {session23WorldGraphRecapFixture} from "../planSurface/graphPreview/worldGraphRecapFixture";
+import {session23WorldGraphRecapFixture} from "../test/worldGraphRecapFixture";
 import {IngestionModule} from "./IngestionModule";
 const selected=vi.hoisted(()=>({value:{kind:"managed",worldId:"elderwyld",name:"Elderwyld",documentId:null} as any}));
 vi.mock("../selectedWorld/SelectedWorldContext",()=>({useSelectedWorld:()=>selected.value}));

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
+import { session23WorldGraphRecapFixture } from "../test/worldGraphRecapFixture";
 import { adaptWorldGraphNodeView } from "../worldGraph/worldGraphNodeViewAdapter";
 import { GraphObjectProjectionCard, resolveExactProjectedNode } from "./GraphObjectProjectionCard";
 

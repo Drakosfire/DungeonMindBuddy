@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { WorldGraphProjectionNodeView } from "../api/types";
 import { buildGraphObjectCardFromNodeView } from "../graphObjectCard/buildGraphObjectCardFromNodeView";
-import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
+import { session23WorldGraphRecapFixture } from "../test/worldGraphRecapFixture";
 import { adaptWorldGraphNodeView } from "./worldGraphNodeViewAdapter";
 
 const provenanceNode: WorldGraphProjectionNodeView = {
