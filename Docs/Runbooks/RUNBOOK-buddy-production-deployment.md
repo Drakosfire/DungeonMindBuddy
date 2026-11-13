@@ -10,9 +10,12 @@ Run the [host inventory](../Plans/RUNBOOK-HOSTED-read-only-host-inventory.md).
 
 ```bash
 bash scripts/host_inventory.sh
-docker compose version
+docker compose version &&
+docker buildx version &&
 docker info --format '{{.DockerRootDir}}'
 ```
+
+Require both Compose and Buildx to report versions before proceeding.
 
 Check free space on the Docker filesystem and the persistent data filesystem. Confirm the selected loopback port is available for a first deploy or is owned by the Buddy service for an upgrade. The checked-in defaults are host loopback port 8080 and container port 8000.
 
