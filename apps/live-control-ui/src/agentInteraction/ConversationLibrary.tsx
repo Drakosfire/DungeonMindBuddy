@@ -21,6 +21,7 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
  useEffect(()=>{pendingResume.current=null;pendingOperation.current=null;continueInFlight.current=false;setContinuing(false);},[worldId]);
  const dialog=useRef<HTMLDialogElement>(null),mounted=useRef(true),scope=useRef({worldId});
  if(scope.current.worldId!==worldId)scope.current={worldId};
+ const detailRequest=useRef<AbortController|null>(null);
  const listRequest=useRef<AbortController|null>(null);
  const listEpoch=useRef(0),detailEpoch=useRef(0),pageBusy=useRef(false);
  const [filter,setFilter]=useState<'all'|'archived'|'trashed'>('all'),[items,setItems]=useState<ConversationSummary[]>([]),[listOwner,setListOwner]=useState(worldId);
@@ -30,18 +31,25 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
  const [title,setTitle]=useState(''),[saving,setSaving]=useState(false),[notice,setNotice]=useState('');
  useEffect(()=>{mounted.current=true;dialog.current?.showModal();return()=>{mounted.current=false;listEpoch.current++;detailEpoch.current++;};},[]);
  const alive=(owner:typeof scope.current)=>mounted.current&&scope.current===owner;
- async function readPage(id:string,before?:number,details=fullDetails){
-  if(details)return readConversationTurns(worldId,id,before);
-  const page=await readConversationMessages(worldId,id,before);
+ function startDetailRead(){
+  detailRequest.current?.abort();
+  const request=new AbortController();
+  detailRequest.current=request;
+  return request;
+ }
+ async function readPage(id:string,before?:number,details=fullDetails,signal?:AbortSignal){
+  if(details)return readConversationTurns(worldId,id,before,signal);
+  const page=await readConversationMessages(worldId,id,before,signal);
   return {turns:page.messages.map(row=>({...row,reply_object:null,retry_context:null})),next_before_sequence:page.next_before_sequence};
  }
  async function select(id:string,details=fullDetails){
   const owner=scope.current,epoch=++detailEpoch.current;
   setSelected(id);setRenaming(false);if(id!==selected||detail?.world_id!==worldId)setDetail(null);setTurns([]);setBefore(null);setLoading(true);setSaving(false);setError('');setNotice('');
-  try{const [meta,page]=await Promise.all([readConversationName(worldId,id),readPage(id,undefined,details)]);
+  const request=startDetailRead();
+  try{const [meta,page]=await Promise.all([readConversationName(worldId,id,request.signal),readPage(id,undefined,details,request.signal)]);
    if(!alive(owner)||epoch!==detailEpoch.current)return;setDetail(meta);setTitle(meta.title);setTurns(page.turns);setBefore(page.next_before_sequence);
   }catch(reason){if(alive(owner)&&epoch===detailEpoch.current)setError(message(reason));}
-  finally{if(alive(owner)&&epoch===detailEpoch.current)setLoading(false);}
+  finally{if(detailRequest.current===request){request.abort();detailRequest.current=null;}if(alive(owner)&&epoch===detailEpoch.current)setLoading(false);}
  }
  async function loadList(older=false){
   if(older&&pageBusy.current)return;
@@ -56,11 +64,12 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
   }catch(reason){if(alive(owner)&&epoch===listEpoch.current)setListError(message(reason));}
   finally{if(listRequest.current===request)listRequest.current=null;if(alive(owner)&&epoch===listEpoch.current){setListing(false);pageBusy.current=false;}}
  }
- useEffect(()=>{detailEpoch.current++;setItems([]);setSelected(null);setDetail(null);setTurns([]);setNext(null);void loadList();return()=>{listEpoch.current++;detailEpoch.current++;listRequest.current?.abort();};},[worldId,filter]);
+ useEffect(()=>{detailEpoch.current++;setItems([]);setSelected(null);setDetail(null);setTurns([]);setNext(null);void loadList();return()=>{listEpoch.current++;detailEpoch.current++;listRequest.current?.abort();detailRequest.current?.abort();};},[worldId,filter]);
  async function olderTurns(){
   if(!selected||before===null||loading)return;
   const owner=scope.current,epoch=detailEpoch.current,id=selected,cursor=before;setLoading(true);setError('');
-  try{const page=await readPage(id,cursor);if(!alive(owner)||epoch!==detailEpoch.current)return;
+  const request=startDetailRead();
+  try{const page=await readPage(id,cursor,fullDetails,request.signal);if(!alive(owner)||epoch!==detailEpoch.current)return;
    setTurns(old => {
     const incomingIds = new Set(page.turns.map(turn => turn.turn_id));
     if (
@@ -79,7 +88,7 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
    });
    setBefore(page.next_before_sequence);
   }catch(reason){if(alive(owner)&&epoch===detailEpoch.current)setError(message(reason));}
-  finally{if(alive(owner)&&epoch===detailEpoch.current)setLoading(false);}
+  finally{if(detailRequest.current===request){request.abort();detailRequest.current=null;}if(alive(owner)&&epoch===detailEpoch.current)setLoading(false);}
  }
  async function save(){
   if(!detail||saving)return;
@@ -91,8 +100,11 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
  }
  async function reloadName(){
   if(!selected)return;const owner=scope.current,epoch=++detailEpoch.current,id=selected;setSaving(false);setError('');setNotice('');
-  try{const meta=await readConversationName(worldId,id);if(alive(owner)&&epoch===detailEpoch.current){setDetail(meta);setTitle(meta.title);}}
+  const request=startDetailRead();
+  setLoading(false);
+  try{const meta=await readConversationName(worldId,id,request.signal);if(alive(owner)&&epoch===detailEpoch.current){setDetail(meta);setTitle(meta.title);}}
   catch(reason){if(alive(owner)&&epoch===detailEpoch.current)setError(message(reason));}
+  finally{if(detailRequest.current===request)detailRequest.current=null;}
  }
  async function continueSelected(operation:'reopen'|ConversationLifecycleOperation='reopen'){
   if(!detail||!pointer||continueInFlight.current||continuing||continueDisabledReason)return;
