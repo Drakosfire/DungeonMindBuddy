@@ -25,6 +25,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [sourceChecked, setSourceChecked] = useState(false);
+  const [developerTools, setDeveloperTools] = useState(false);
   const [saved, setSaved] = useState(false);
   const [validation, setValidation] = useState("");
   const [issues, setIssues] = useState<ValidationIssueV1[]>([]);
@@ -471,8 +472,6 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
                 setIssues([]);
               }} />
           </label>
-          <button type="button" disabled={!mechanicsResolved} onClick={() => void validate()}>Validate mechanics</button>
-          {validation && <span role="status">{validation}</span>}
           {issues.length > 0 && <ul aria-label="Mechanics validation issues">
             {issues.map((issue, index) => (
               <li key={index}>
@@ -494,33 +493,39 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
               onChange={event => setSourceChecked(event.target.checked)} />
             I checked the mechanics against the visible PDF regions.
           </label>}
-          <button type="button" disabled={!mechanicsResolved || createInFlight || getLocalFingerprint(editor) !== editor.baselineFingerprint}
-            onClick={() => void createDraft()}>Create creature draft from review</button>
-          {!acceptOpen && <button type="button" disabled={!mechanicsResolved} onClick={() => void openAcceptance()}>Choose creature draft</button>}
-          {acceptOpen && <>
-            <label>Creature draft
-              <select value={draftId} onChange={event => void chooseDraft(event.target.value)}>
-                <option value="">Select a draft</option>
-                {drafts.map(draft => <option key={draft.draft_id} value={draft.draft_id}>{draft.name}</option>)}
-              </select>
-            </label>
-            {selectedDraft?.workflow_state === "mechanics_saved" ? <>
-              <label>Parent statblock version
-                <select value={parentId} onChange={event => { setParentId(event.target.value); setAcceptedLink(""); }}>
-                  <option value="">Select a saved version</option>
-                  {savedParents.map(locator => <option key={locator.revision_id} value={locator.revision_id}>
-                    {locator.revision_id}{locator.revision_id === versions?.original.revision_id ? " (original)" : ""}
-                  </option>)}
+          <button type="button" aria-expanded={developerTools}
+            onClick={() => setDeveloperTools(!developerTools)}>Developer tools</button>
+          {developerTools && <section aria-label="Developer tools">
+            <button type="button" disabled={!mechanicsResolved} onClick={() => void validate()}>Validate mechanics</button>
+            {validation && <span role="status">{validation}</span>}
+            <button type="button" disabled={!mechanicsResolved || createInFlight || getLocalFingerprint(editor) !== editor.baselineFingerprint}
+              onClick={() => void createDraft()}>Create creature draft from review</button>
+            {!acceptOpen && <button type="button" disabled={!mechanicsResolved} onClick={() => void openAcceptance()}>Choose creature draft</button>}
+            {acceptOpen && <>
+              <label>Creature draft
+                <select value={draftId} onChange={event => void chooseDraft(event.target.value)}>
+                  <option value="">Select a draft</option>
+                  {drafts.map(draft => <option key={draft.draft_id} value={draft.draft_id}>{draft.name}</option>)}
                 </select>
               </label>
-              <button type="button" disabled={!mechanicsResolved || !parentId || getLocalFingerprint(editor) !== editor.baselineFingerprint}
-                onClick={() => void appendMechanics()}>Append mechanics revision</button>
-            </> : null}
-            {(selectedDraft?.workflow_state !== "mechanics_saved" || hasInitialAttempt) &&
-              <button type="button" disabled={!mechanicsResolved || !draftId || getLocalFingerprint(editor) !== editor.baselineFingerprint}
-              onClick={() => void acceptMechanics()}>{selectedDraft?.workflow_state === "mechanics_saved" ? "Recover initial acceptance" : "Accept mechanics"}</button>}
-            {acceptedLink && <a href={acceptedLink}>Open accepted statblock</a>}
-          </>}
+              {selectedDraft?.workflow_state === "mechanics_saved" ? <>
+                <label>Parent statblock version
+                  <select value={parentId} onChange={event => { setParentId(event.target.value); setAcceptedLink(""); }}>
+                    <option value="">Select a saved version</option>
+                    {savedParents.map(locator => <option key={locator.revision_id} value={locator.revision_id}>
+                      {locator.revision_id}{locator.revision_id === versions?.original.revision_id ? " (original)" : ""}
+                    </option>)}
+                  </select>
+                </label>
+                <button type="button" disabled={!mechanicsResolved || !parentId || getLocalFingerprint(editor) !== editor.baselineFingerprint}
+                  onClick={() => void appendMechanics()}>Append mechanics revision</button>
+              </> : null}
+              {(selectedDraft?.workflow_state !== "mechanics_saved" || hasInitialAttempt) &&
+                <button type="button" disabled={!mechanicsResolved || !draftId || getLocalFingerprint(editor) !== editor.baselineFingerprint}
+                onClick={() => void acceptMechanics()}>{selectedDraft?.workflow_state === "mechanics_saved" ? "Recover initial acceptance" : "Accept mechanics"}</button>}
+              {acceptedLink && <a href={acceptedLink}>Open accepted statblock</a>}
+            </>}
+          </section>}
           <StatblockDefinitionEditor editRuleMechanics output={review.definition} editorState={editor}
             onEditorStateChange={state => { setSourceChecked(false); setEditor(state); setSaved(false); setValidation(""); setIssues([]); }}
             recoveryHint="Save the review draft to keep your edits." />
