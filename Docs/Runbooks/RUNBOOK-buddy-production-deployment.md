@@ -86,7 +86,12 @@ prepare_buddy_release() {
     -u DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL
     docker compose --project-name "$buddy_project" --env-file "$buddy_env"
     -f deploy/production/compose.production.yaml -f "$buddy_override")
-  "${candidate_compose[@]}" config --quiet || return
+  local configured_image
+  configured_image=$("${candidate_compose[@]}" config --images buddy) || return
+  if [[ "$configured_image" != "$buddy_tag" ]]; then
+    printf 'Compose did not resolve the built Buddy image tag\n' >&2
+    return 1
+  fi
   buddy_compose=("${candidate_compose[@]}")
   printf 'Release image ID %s\n' "$buddy_image_id"
 }
