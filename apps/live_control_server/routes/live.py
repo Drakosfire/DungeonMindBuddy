@@ -68,6 +68,8 @@ from apps.live_control_server.session_store import (
     complete_job,
     events_since,
     load_session,
+    load_session_events,
+    load_session_jobs,
     queue_packet_rebuild_job,
     refresh_current_state,
     validate_and_save_layout,
@@ -1043,15 +1045,13 @@ def get_live_state() -> dict[str, Any]:
 @router.get("/events")
 def get_live_events(since: str | None = Query(default=None)) -> dict[str, Any]:
     base = session_dir()
-    _, _, events, _ = load_session(base)
-    return {"events": events_since(events, since)}
+    return {"events": events_since(load_session_events(base), since)}
 
 
 @router.get("/jobs")
 def get_live_jobs() -> dict[str, Any]:
     base = session_dir()
-    _, _, _, jobs = load_session(base)
-    return {"jobs": jobs}
+    return {"jobs": load_session_jobs(base)}
 
 
 @router.get("/surface")

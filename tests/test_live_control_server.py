@@ -2177,3 +2177,18 @@ def test_live_query_http_rejects_surface_context_on_live_backend(
     assert response.status_code == 422
     body = response.json()
     assert body.get("code") == "surface_context_unsupported"
+
+
+def test_event_and_job_routes_read_only_their_logs(tmp_path, monkeypatch):
+    from apps.live_control_server.routes import live
+
+    monkeypatch.setattr(live, "session_dir", lambda: tmp_path)
+    assert live.get_live_events(since=None) == {"events": []}
+    assert live.get_live_jobs() == {"jobs": []}
+
+    (tmp_path / "event_log.jsonl").write_text('{"id":"one"}\n{"id":"two"}\n')
+    (tmp_path / "job_queue.jsonl").write_text('{"id":"job"}\n')
+    assert live.get_live_events(since=None) == {"events": [{"id": "one"}, {"id": "two"}]}
+    assert live.get_live_events(since="one") == {"events": [{"id": "two"}]}
+    assert live.get_live_events(since="unknown") == {"events": []}
+    assert live.get_live_jobs() == {"jobs": [{"id": "job"}]}
