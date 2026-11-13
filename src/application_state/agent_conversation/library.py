@@ -46,12 +46,12 @@ class ConversationSummary(BaseModel):
 
 _SELECT = """SELECT c.conversation_id,c.world_id,c.status,c.created_at,c.updated_at,
     c.next_turn_sequence-1 AS turn_count,COALESCE(n.revision,0) AS name_revision,
-    COALESCE(n.title,left(regexp_replace(first_turn.user_text,'[[:space:]]+',' ','g'),160),'') AS title
-    FROM agent.conversation c
-    LEFT JOIN agent.conversation_name n USING(conversation_id,world_id)
-    LEFT JOIN LATERAL (SELECT user_text FROM agent.turn t
+    COALESCE(n.title,(SELECT left(regexp_replace(t.user_text,'[[:space:]]+',' ','g'),160)
+        FROM agent.turn t
         WHERE t.world_id=c.world_id AND t.conversation_id=c.conversation_id
-        ORDER BY sequence LIMIT 1) first_turn ON TRUE"""
+        ORDER BY sequence LIMIT 1),'') AS title
+    FROM agent.conversation c
+    LEFT JOIN agent.conversation_name n USING(conversation_id,world_id)"""
 
 
 def _summary(row):
