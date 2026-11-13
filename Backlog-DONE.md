@@ -11,6 +11,8 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Bound disk use from local launcher logs. [#2866](https://github.com/Drakosfire/DungeonMindBuddy/pull/2866) caps the three service logs at two 4 MiB files each. A synthetic 12 MiB stream retained about 4 MiB with the final diagnostic. Two concurrent writers respected the cap starting from a 10 MiB legacy log. Stubbed launcher shutdown and UI startup failure preserved diagnostics and removed PID files.
+
 - Narrow statblock response validation exception handlers. [#2864](https://github.com/Drakosfire/DungeonMindBuddy/pull/2864) narrowed all four model validation catches to Pydantic ValidationError. All 62 client tests passed, including both readiness response shapes, malformed responses, and redaction checks.
 
 - Check the unused statblock terminal proof summary helper. [#2860](https://github.com/Drakosfire/DungeonMindBuddy/pull/2860) removed the unused summary and non-terminal tuple after a caller, operator documentation, and open PR scan. [#2862](https://github.com/Drakosfire/DungeonMindBuddy/pull/2862) made the inventory type private and removed the unread category field after checking local branches and sibling checkouts. The live classifier and fixture evidence were preserved, and all 62 client tests passed.
