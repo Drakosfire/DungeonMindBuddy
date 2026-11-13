@@ -448,7 +448,6 @@ dependencies = [
     { name = "jsonschema" },
     { name = "markdown-it-py" },
     { name = "openai" },
-    { name = "paramiko" },
     { name = "pillow" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
@@ -468,6 +467,7 @@ embedding = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "paramiko" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
@@ -486,7 +486,6 @@ requires-dist = [
     { name = "markdown-it-py", specifier = "==4.0.0" },
     { name = "numpy", marker = "extra == 'embedding'", specifier = ">=2.0.0" },
     { name = "openai", specifier = "==2.24.0" },
-    { name = "paramiko", specifier = ">=4.0.0" },
     { name = "pillow", specifier = ">=10" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pydantic", specifier = ">=2.0.0" },
@@ -502,6 +501,7 @@ provides-extras = ["embedding"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "paramiko", specifier = ">=4.0.0" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-cov", specifier = ">=7.0.0" },
     { name = "ruff", specifier = ">=0.15.7" },
