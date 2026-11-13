@@ -228,6 +228,10 @@ describe("BuildSurfacePage", () => {
     fireEvent.drop(canvas, {dataTransfer: {files: [new File(["%PDF"], "creature.pdf", {type: "application/pdf"})]}});
     expect(await screen.findByText("creature.pdf")).toBeInTheDocument();
     expect(screen.getByRole("combobox", {name: "World"})).toBeInTheDocument();
+    fireEvent.mouseDown(canvas);
+    expect(screen.getByText("creature.pdf")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "Close PDF import"}));
+    expect(screen.queryByText("creature.pdf")).not.toBeInTheDocument();
   });
 
   it("E2: bare /build shows a framed landing and shared conversation dock without creating", async () => {

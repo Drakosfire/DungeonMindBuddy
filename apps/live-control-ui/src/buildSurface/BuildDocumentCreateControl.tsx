@@ -263,6 +263,7 @@ export function BuildDocumentCreateControl({
 
   const pdfWorldId = resolvedDestination?.kind === "world" ? resolvedDestination.worldId : undefined;
   const pdfPreviewKey = JSON.stringify([pdfWorldId, droppedPdf?.sequence]);
+  const pdfWorkspaceOpen = Boolean(droppedPdf) || openPdfPreviewKey === pdfPreviewKey;
   useEffect(() => {
     setOpenPdfPreviewKey(undefined);
   }, [pdfPreviewKey]);
@@ -534,7 +535,10 @@ export function BuildDocumentCreateControl({
       </SurfaceContextPopover>
       <SurfaceContextPopover
         open={importOpen}
-        onOpenChange={open => { if (open) setImportOpen(true); else closeImport(); }}
+        onOpenChange={open => {
+          if (open) setImportOpen(true);
+          else if (!pdfWorkspaceOpen) closeImport();
+        }}
         title="Import source"
         align="end"
         placement="below"
@@ -547,6 +551,7 @@ export function BuildDocumentCreateControl({
           />
         }
       >
+        {pdfWorkspaceOpen && <button type="button" onClick={closeImport}>Close PDF import</button>}
         {worldFields}
         <BuildPdfPreview
           key={pdfPreviewKey}
@@ -554,7 +559,7 @@ export function BuildDocumentCreateControl({
           initialFile={droppedPdf?.file}
           onPdfOpen={() => setOpenPdfPreviewKey(pdfPreviewKey)}
         />
-        {!droppedPdf && openPdfPreviewKey !== pdfPreviewKey && importForm}
+        {!pdfWorkspaceOpen && importForm}
       </SurfaceContextPopover>
     </div>
   );
