@@ -350,3 +350,80 @@ def test_active_message_pointer_and_rows_are_one_snapshot(
         and absent["messages"] == []
         and absent["pointer_revision"] == 0
     )
+
+
+def test_retry_history_excludes_unrelated_turns(application_state_dsn):
+    service = AgentConversationService()
+    cid = archive(service, keep_active=True)
+    selected = service.list_turns("world-one", cid)[-1]
+    page = library.read_retry_attempts("world-one", cid, selected.turn_id, limit=1)
+
+    assert page["turns"] == []
+    assert page["next_before_sequence"] is None
+
+
+def test_retry_history_hydrates_populated_page(application_state_dsn):
+    from application_state.agent_conversation.types import TurnFailure, TurnSubmission
+    from tests.application_state.test_agent_conversation_service import _submitted_intent
+
+    world = "world-one"
+    service = AgentConversationService()
+    cid = new(service)
+    provenance = _provenance().model_copy(update={"surface_id": "build"})
+
+    def accept():
+        return service.accept_turn(
+            TurnSubmission(
+                world_id=world,
+                conversation_id=cid,
+                idempotency_key=uuid4(),
+                expected_conversation_revision=service.get_conversation(world, cid).revision,
+                user_text="Workshop project",
+                provenance=provenance,
+                submitted_intent_v1=_submitted_intent(world, "Workshop project", surface_id="build"),
+            )
+        )
+
+    def interrupt(turn):
+        running = service.begin_turn(world, cid, turn.turn_id, expected_revision=turn.revision)
+        return service.fail_turn(
+            TurnFailure(
+                world_id=world,
+                conversation_id=cid,
+                turn_id=turn.turn_id,
+                expected_revision=running.revision,
+                failure_code="synthetic_before_dispatch",
+            ),
+            interrupted=True,
+        )
+
+    root = interrupt(accept())
+    middle = accept()
+
+    def link(previous, successor, ordinal):
+        with psycopg.connect(application_state_dsn) as conn:
+            conn.execute(
+                """INSERT INTO agent.turn_retry
+                   (predecessor_id, successor_id, root_id, world_id, conversation_id,
+                    predecessor_revision, ordinal) VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+                (previous.turn_id, successor.turn_id, root.turn_id, world, cid,
+                 previous.revision, ordinal),
+            )
+
+    link(root, middle, 1)
+    middle = interrupt(middle)
+    selected = accept()
+    link(middle, selected, 2)
+
+    page = library.read_retry_attempts(world, cid, selected.turn_id, limit=2)
+    assert [row["turn_id"] for row in page["turns"]] == [
+        str(root.turn_id), str(middle.turn_id)
+    ]
+    first = library.read_retry_attempts(world, cid, selected.turn_id, limit=1)
+    assert first["turns"] == page["turns"][1:]
+    assert first["next_before_sequence"] == middle.sequence
+    older = library.read_retry_attempts(
+        world, cid, selected.turn_id, limit=1, before_sequence=middle.sequence
+    )
+    assert older["turns"] == page["turns"][:1]
+    assert older["next_before_sequence"] is None
