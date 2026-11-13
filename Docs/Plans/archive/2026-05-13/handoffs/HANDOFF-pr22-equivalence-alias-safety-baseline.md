@@ -106,7 +106,7 @@ Read these before writing code:
 | Modify | `evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s1_to_c1s3_v1.json` | Refresh L3 question-delta for tight cohort. |
 | Modify | `evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_natural_v1.json` | Refresh L3 question-delta for natural cohort. |
 | Modify | `evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_question_delta_c1s13_v1.json` | Refresh L3 question-delta for C1S13. |
-| Modify | `evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_scenario_report_c1s13_v1_baseline.json` | Refresh C1S13 holdout scenario report if the existing generator/check path rewrites it. |
+| Modify | [cohort_l3_ab_scenario_report_c1s13_v1_baseline.json](https://github.com/Drakosfire/DungeonMindBuddy/blob/b4d157e0f02983e00968eebcb4f19e9146115906/evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_scenario_report_c1s13_v1_baseline.json) | Refresh C1S13 holdout scenario report if the existing generator/check path rewrites it. |
 | Modify | `evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_scenario_report_c1s13_v1_equivalence.json` | Refresh C1S13 holdout scenario report if the existing generator/check path rewrites it. |
 | Modify | `canvases/cohort-l3-ab-question-deep-dive.canvas.tsx` | Regenerate only if question-delta refresh makes the committed canvas stale under existing emitter behavior. |
 | Modify | `canvases/cohort-l3-ab-question-deep-dive-natural-v1.canvas.tsx` | Regenerate only if question-delta refresh makes the committed canvas stale under existing emitter behavior. |

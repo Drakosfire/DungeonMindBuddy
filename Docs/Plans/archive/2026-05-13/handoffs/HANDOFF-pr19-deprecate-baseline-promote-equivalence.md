@@ -74,7 +74,7 @@ Make route-equivalence ranking the default cohort baseline lane, deprecate legac
 | Modify | `evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_baseline_c1s1_to_c1s3_v2.json` | Refresh committed baseline artifact to promoted-default lane output. |
 | Modify | `evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_baseline_natural_v1.json` | Refresh committed baseline artifact to promoted-default lane output. |
 | Modify | `evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_baseline_c1s13_v1.json` | Refresh committed baseline artifact to promoted-default lane output. |
-| Modify | `evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_scenario_report_c1s13_v1_baseline.json` | Keep C1S13 deep-dive scenario report aligned with promoted-vs-legacy labeling contract. |
+| Modify | [cohort_l3_ab_scenario_report_c1s13_v1_baseline.json](https://github.com/Drakosfire/DungeonMindBuddy/blob/b4d157e0f02983e00968eebcb4f19e9146115906/evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_scenario_report_c1s13_v1_baseline.json) | Keep C1S13 deep-dive scenario report aligned with promoted-vs-legacy labeling contract. |
 | Modify | `evals/sentence_routing_retrieval_falsification/artifacts/baselines/cohort_l3_ab_scenario_report_c1s13_v1_equivalence.json` | Keep C1S13 deep-dive scenario report aligned with promoted-vs-legacy labeling contract. |
 
 > The agent's expected `git diff --stat` MUST be expressible from this allowlist. If a path is not in this table, the worker will be told to revert it during review.
