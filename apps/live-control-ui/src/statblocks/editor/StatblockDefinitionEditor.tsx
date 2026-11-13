@@ -206,6 +206,18 @@ export function StatblockDefinitionEditor<D extends EditableStatblockDefinition>
                       ? { ...rule, mechanic: { ...rule.mechanic, reach: null } }
                       : rule),
                 })))}>Remove typed reach from {element.name}</button>}
+              {"attack_type" in element.mechanic && element.mechanic.hit_effects?.map((effect, index) =>
+                "phase_key" in effect && !workingCopy.phases?.some(phase => phase.key === effect.phase_key) &&
+                <button key={index} type="button" onClick={() => commit(updateWorkingCopy(state, current => ({
+                  ...current,
+                  rule_elements: current.rule_elements.map(rule =>
+                    rule.key === element.key && "attack_type" in rule.mechanic
+                      ? { ...rule, mechanic: { ...rule.mechanic, hit_effects: rule.mechanic.hit_effects?.filter(
+                        (_, effectIndex) => effectIndex !== index,
+                      ) } }
+                      : rule),
+                })))}>Remove unresolved phase “{effect.phase_key}” from {element.name}</button>
+              )}
             </>}
             <label>
               Rules text
