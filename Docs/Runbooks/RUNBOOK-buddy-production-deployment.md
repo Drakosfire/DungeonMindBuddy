@@ -140,8 +140,8 @@ verify that each URL renders the intended page.
 4. Open the landing page at `/`, select the approved World, and follow its
    Graph link. Verify `/graph` renders the graph and opens object details. Check
    that the viewer offers read controls and that a direct link to an unassigned
-   World is denied. Open `/plan`, `/play`, and `/surface` directly and confirm
-   they show the hosted unavailable page. Verify the hosted API denies graph
+   World is denied. Open `/plan`, `/play`, `/surface`, `/build`, `/ingest`, and
+   `/combat` directly and confirm they show the hosted unavailable page. Verify the hosted API denies graph
    authoring and recap ingestion. Use the
    [frontend guide](../../apps/live-control-ui/README.md#legacy-surface-board)
    for the local operator Chat smoke.
