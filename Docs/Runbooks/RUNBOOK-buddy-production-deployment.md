@@ -87,7 +87,12 @@ prepare_buddy_release() {
 prepare_buddy_release
 ```
 
-Continue only if release preparation succeeds. Save the override with the release record. Apply only the production migrations confirmed in step 2 through their owning procedures. Buddy expects the database to be ready at startup.
+Continue only if release preparation succeeds. Save the override with the release record. Record the exact checkout commit
+and base Compose path, the Compose project name, and the absolute paths to
+the saved override and protected environment file. Keep a release-specific
+protected copy of the environment file or a reference to an immutable
+version in the approved secret store. Record the image tag and verified
+image ID together. Keep credential values in the protected store. Apply only the production migrations confirmed in step 2 through their owning procedures. Buddy expects the database to be ready at startup.
 
 ```bash
 (
