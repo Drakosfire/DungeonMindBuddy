@@ -204,3 +204,20 @@ uv run pytest tests/test_session_events_grader.py tests/test_step2_timeline_from
 6. **Robustness against unseen recaps** — current evidence is N=5 on a single recap (Session 20) the prompts were tuned against. A blind run on Campaign 1 Session 1 would tell us whether the contracts generalize.
 
 7. **NPC + Location ingestion expansion** — same events-first scaffold should extend to NPC and Location updates, not just timelines.
+
+### Restore April 22, 2026 evidence
+
+The local Storage drive holds the 243 files cited by the historical session
+synthesis and timeline reports. With the Storage drive mounted, run from the
+repository root to restore the original report paths without replacing files.
+
+```bash
+(
+  set -euo pipefail
+  archive=/media/drakosfire/STORAGE/Projects/DungeonMindBuddy-Archive/session-events/2026-04-22.tar.gz
+  runs=evals/session_events_extraction_vertical_slice/artifacts/runs
+  printf '%s  %s\n' 3f37bddf7d89cc86ce9e05eaab617159e8895386fc0e16b317d7cfd132c79660 "$archive" | sha256sum --check
+  mkdir -p "$runs"
+  tar --skip-old-files -xzf "$archive" -C "$runs"
+)
+```
