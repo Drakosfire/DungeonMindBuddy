@@ -322,6 +322,19 @@ override, image tag, and image ID from the release record. Use the same Docker c
 If this block fails, inspect the prior service before proceeding. After it
 passes, use the prior release's smoke procedure with the restored proxy.
 
+### Hand off restart ownership
+
+Before closing the release, record who restarts Buddy after a Docker daemon or
+host reboot and which service unit or operator procedure they use. The example
+Compose service has no restart policy. If the host already manages Buddy
+through a service unit, verify that the unit uses the saved release checkout,
+Compose project, and protected configuration.
+
+The restart owner rehearses recovery on an isolated stack before relying on
+the procedure. After restarting, verify the serving image ID, approved
+persistent mount, loopback binding, and readiness. Record the result with the
+release evidence.
+
 ### Retire superseded release images
 
 After the rollback window closes, the release operator inventories Buddy tags
