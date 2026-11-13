@@ -259,7 +259,7 @@ def test_append_durable_child_fresh_read_retry_and_pc_proof(disposable_append_ap
         )
     monkeypatch.setattr(source_service, "persist_source_markdown", original_persist_source_markdown)
     pc_response = correction.correct_recap_candidate(RecapCandidateCorrectionRequestV9.model_validate(pc_body))
-    pc_parent = original_get(tmp_path, pc_response.run_id)
+    pc_parent = original_get(pc_response.run_id)
     pc_bytes = _component_bytes(tmp_path, pc_parent, "candidate_graph")
     payload = json.loads(pc_bytes)
     def append_request(run, graph, *, kind="node", identifier="mira", line=2):
@@ -339,7 +339,7 @@ print(json.dumps(result.model_dump(mode='json',by_alias=True)))
     responses = [json.loads(output[0]) for output in outputs]
     assert responses[0] == responses[1]
     response = RecapCandidateCorrectionResponseV10.model_validate(responses[0])
-    child = original_get(tmp_path, response.run_id)
+    child = original_get(response.run_id)
     actual = json.loads(_component_bytes(tmp_path, child, "candidate_graph"))
     for group in ("nodes", "edges"):
         assert actual[group][0]["evidence_refs"][:-1] == payload[group][0]["evidence_refs"]
@@ -398,8 +398,8 @@ print(json.dumps({'revision':child.revision,'state':child.lineage['semantic_disp
         with pytest.raises(correction.ExtractPromoteError):
             correction.correct_recap_candidate(RecapCandidateCorrectionRequestV10.model_validate(bad))
         assert len(ingest.list_extraction_runs()) == 3
-    assert original_get(tmp_path, child.run_id).revision == child.revision
-    assert original_get(tmp_path, child.run_id).lineage["semantic_disposition"]["state"] == "held"
+    assert original_get(child.run_id).revision == child.revision
+    assert original_get(child.run_id).lineage["semantic_disposition"]["state"] == "held"
 
     # Historical legacy rows are checked against their deterministic old ID
     # before the new V11 child can be claimed. Use a canonical-source parent so
@@ -532,7 +532,7 @@ print(json.dumps({'revision':child.revision,'state':child.lineage['semantic_disp
                 # An unowned file cannot block the DB owner or become evidence.
                 assert reused.run_id != legacy_id
                 assert correction.verify_child_replay(
-                    original_get(tmp_path, reused.run_id), legacy_parent, tmp_path,
+                    original_get(reused.run_id), legacy_parent, tmp_path,
                 )
         else:
             with pytest.raises(correction.ExtractPromoteError, match=legacy_id):
@@ -582,7 +582,7 @@ raise RuntimeError('injected crash point was not reached')
     after_crash_rows = {run.run_id for run in ingest.list_extraction_runs()}
     assert len(after_crash_rows - before_crash_rows) == 1
     stranded_id = (after_crash_rows - before_crash_rows).pop()
-    stranded = original_get(tmp_path, stranded_id)
+    stranded = original_get(stranded_id)
     assert stranded.status == ExtractionRunStatus.DRAFT
     assert not (tmp_path / "out/graph_memory/derived_candidates" / stranded_id).exists()
     abandoned_staging = (
@@ -594,12 +594,12 @@ raise RuntimeError('injected crash point was not reached')
         RecapCandidateCorrectionRequestV10.model_validate(crash_body),
     )
     assert recovered.run_id == stranded_id
-    assert original_get(tmp_path, stranded_id).status == ExtractionRunStatus.REVIEWABLE
+    assert original_get(stranded_id).status == ExtractionRunStatus.REVIEWABLE
     assert abandoned_staging.read_bytes() == b"preserve crashed owner staging bytes"
 
     # V11 keeps the same durable child/retry boundary while adding one source-
     # supported local actor and a bounded endpoint correction.
-    actor_parent = original_get(tmp_path, pc_parent.run_id)
+    actor_parent = original_get(pc_parent.run_id)
     actor_parent_payload = json.loads(_component_bytes(
         tmp_path, actor_parent, "candidate_graph",
     ))
@@ -614,7 +614,7 @@ raise RuntimeError('injected crash point was not reached')
     assert isinstance(actor_response, RecapCandidateCorrectionResponseV11)
     assert (actor_response.introduced_actor_count, actor_response.retargeted_edge_count,
             actor_response.omitted_edge_count) == (1, 1, 0)
-    actor_child = original_get(tmp_path, actor_response.run_id)
+    actor_child = original_get(actor_response.run_id)
     actor_payload = json.loads(_component_bytes(
         tmp_path, actor_child, "candidate_graph",
     ))
@@ -701,15 +701,15 @@ raise RuntimeError('injected actor recovery crash point was not reached')
     new_actor_rows = {run.run_id for run in ingest.list_extraction_runs()} - before_actor_crash
     assert len(new_actor_rows) == 1
     stranded_actor_id = next(iter(new_actor_rows))
-    stranded_actor = original_get(tmp_path, stranded_actor_id)
+    stranded_actor = original_get(stranded_actor_id)
     assert stranded_actor.status == ExtractionRunStatus.DRAFT
     recovered_actor = correction.correct_recap_candidate(
         RecapCandidateCorrectionRequestV11.model_validate(crash_actor_body, strict=True),
     )
     assert recovered_actor.run_id == stranded_actor_id
-    assert original_get(tmp_path, stranded_actor_id).status == ExtractionRunStatus.REVIEWABLE
+    assert original_get(stranded_actor_id).status == ExtractionRunStatus.REVIEWABLE
     assert correction.verify_child_replay(
-        original_get(tmp_path, stranded_actor_id), actor_parent, tmp_path,
+        original_get(stranded_actor_id), actor_parent, tmp_path,
     )
 
 

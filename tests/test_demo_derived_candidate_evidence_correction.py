@@ -84,7 +84,7 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bo
     parent._test_span_index = span_index
     child_store: dict[str, SimpleNamespace] = {}
 
-    def get_run(_repo, run_id):
+    def get_run(run_id):
         if run_id == "parent":
             return parent
         if run_id in child_store:
