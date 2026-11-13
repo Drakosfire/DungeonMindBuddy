@@ -86,6 +86,7 @@ trap 'exit 143' TERM
 
 require_cmd uv
 require_cmd npm
+require_cmd curl
 
 [[ -d "$DMS_ROOT" ]] || die "DungeonMindServer not found at $DMS_ROOT (set DUNGEONMIND_SERVER_ROOT)"
 [[ -f "$ROOT/apps/live_control_server/main.py" ]] || die "not a DungeonMindBuddy checkout: $ROOT"
@@ -185,7 +186,7 @@ wait_http() {
   local tries="${3:-40}"
   local i
   for ((i = 1; i <= tries; i++)); do
-    if curl -fsS -o /dev/null "$url" 2>/dev/null; then
+    if curl -fsS --max-time 1 -o /dev/null "$url" 2>/dev/null; then
       log "$label ready ($url)"
       return 0
     fi
