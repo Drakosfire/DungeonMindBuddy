@@ -84,8 +84,7 @@ def test_actual_registered_producer_does_not_read_or_inject_roster(tmp_path, mon
         expected_calls.append("encounter_job_pass")
     assert [name for name, _ in calls] == expected_calls + ["edge_pass"]
     graph = result.candidate_graph
-    expected_id = 'recap-model-node:["actor_pass","candidate:mira"]' if profile == "category_baseline" else "candidate:mira"
-    assert [node["node_id"] for node in graph["nodes"]] == [expected_id]
+    assert [node["node_id"] for node in graph["nodes"]] == ["candidate:mira"]
     mira = graph["nodes"][0]
     assert mira["node_type"] == "character" and mira.get("corpus_ref") is None
     assert mira["evidence_refs"][0]["anchor_quotes"] == ["Mira guards the gate."]

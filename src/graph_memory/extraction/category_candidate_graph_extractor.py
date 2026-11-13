@@ -1032,6 +1032,13 @@ def consolidate_category_outputs(
 
     scoped_node_ids = active_profile.qualified_id == RECAP_EXTRACTION_PROFILE.qualified_id
     node_id_bindings: list[dict[str, str]] = []
+    local_id_counts: dict[str, int] = {}
+    if scoped_node_ids:
+        for spec in active_profile.node_passes:
+            for raw in pass_outputs.get(spec.pass_id, {}).get("observation_nodes") or []:
+                if isinstance(raw, Mapping) and isinstance(raw.get("node_id"), str):
+                    local_id = raw["node_id"].strip()
+                    local_id_counts[local_id] = local_id_counts.get(local_id, 0) + 1
 
     def composed_node(raw, default_type, pass_name, seen):
         node = _normalize_node(raw, default_type, semantic_state=semantic_state)
@@ -1043,9 +1050,11 @@ def consolidate_category_outputs(
             if local_id in seen:
                 raise ValueError(f"{pass_name}: duplicate node ID")
             seen.add(local_id)
-            candidate_id = "recap-model-node:" + json.dumps(
-                [pass_name, local_id], separators=(",", ":"), ensure_ascii=True,
-            )
+            candidate_id = local_id
+            if local_id_counts[local_id] > 1 or local_id.startswith("recap-model-node:"):
+                candidate_id = "recap-model-node:" + json.dumps(
+                    [pass_name, local_id], separators=(",", ":"), ensure_ascii=True,
+                )
             node["node_id"] = candidate_id
             node_id_bindings.append({"pass_id": pass_name, "local_node_id": local_id,
                                      "candidate_node_id": candidate_id})

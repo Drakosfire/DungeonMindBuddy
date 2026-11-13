@@ -541,24 +541,9 @@ def test_source_local_distinctions_reach_later_passes_and_keep_exact_edge_endpoi
     ]
 
 
-def test_duplicate_source_local_ids_are_exposed_to_existing_preview_validation():
-    from src.graph_memory.candidate_graph_preview import (
-        candidate_graph_preview_from_dict, validate_candidate_graph_preview,
-    )
-
-    result = _extract_source_local_identity(SourceLocalIdentityClient(duplicate_id=True))
-    # Do not mask malformed provider identity reuse with label-based deduplication.
-    assert sum(node["node_id"] == "town" for node in result.candidate_graph["nodes"]) == 2
-    report = validate_candidate_graph_preview(candidate_graph_preview_from_dict(result.candidate_graph))
-    assert any(issue.code == "duplicate_node_id" and issue.severity == "error" for issue in report.issues)
-    import pytest
-    from src.graph_memory.candidate_graph_to_contribution import (
-        CandidateGraphMappingError, load_typed_candidate_graph,
-    )
-
-    with pytest.raises(CandidateGraphMappingError, match="duplicate_node_id"):
-        load_typed_candidate_graph(result.candidate_graph)
-
+def test_duplicate_ids_within_one_pass_fail_before_relationship_extraction():
+    with pytest.raises(ValueError, match="location_pass: duplicate node ID"):
+        _extract_source_local_identity(SourceLocalIdentityClient(duplicate_id=True))
 
 
 def test_same_label_endpoints_do_not_collapse_separate_relationships():
