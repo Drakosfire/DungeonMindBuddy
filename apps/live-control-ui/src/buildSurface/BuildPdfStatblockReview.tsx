@@ -111,6 +111,8 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     }
   }
 
+  const returnToBuild = new URL(window.location.href);
+  returnToBuild.searchParams.delete("pdfReview");
   const createKey = `buddy:pdf-creature-draft:${worldId}:${reviewId}`;
   const [createInFlight, setCreateInFlight] = useState(false);
 
@@ -405,6 +407,7 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
     <section className="pdf-statblock-review" aria-label="PDF statblock review">
       <header className="pdf-statblock-review__toolbar">
         <h1>PDF statblock review</h1>
+        <a href={returnToBuild.pathname + returnToBuild.search + returnToBuild.hash}>Back to Build</a>
         {editor && <button type="button" disabled={pending} onClick={() => void save()}>Save review draft</button>}
         {saved && <span role="status">Draft saved</span>}
         {editor && review && <button type="button" disabled={pending || published || publishBlockers.length > 0}
