@@ -45,6 +45,23 @@ uv run python scripts/application_state_authority.py check
 uv run python scripts/application_state_authority.py fingerprint --out out/application_state/birth.fingerprint.json
 ```
 
+## PostgreSQL client prerequisites
+
+The local Compose service pins PostgreSQL 16. Use PostgreSQL 16 client tools on
+the host that runs the recovery CLI, with PostgreSQL 16 on both the backup
+source and the restore target. Verify the clients before starting a recovery.
+
+```bash
+pg_dump --version
+pg_restore --version
+```
+
+Both commands should report major version 16. Install the PostgreSQL 16 client
+tools and adjust PATH if either command is missing or resolves to another major.
+The CLI checks that the required executable exists. This procedure covers
+same-major recovery. Qualify cross-major restores independently before using
+them for APP-STATE.
+
 ## Routine backup
 
 ```bash
