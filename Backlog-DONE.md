@@ -7,6 +7,18 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Keep local Buddy startup available when OCR workspace discovery fails
+
+[PR #2538](https://github.com/Drakosfire/DungeonMindBuddy/pull/2538). Seven launcher tests passed on main, including stale workspace fallback and complete explicit OCR settings.
+
+## [DONE] Align local launcher reload documentation with its actual scope
+
+[PR #2542](https://github.com/Drakosfire/DungeonMindBuddy/pull/2542). The current launcher describes the Buddy API scope. The original fix changed comments only, and Bash syntax still passes.
+
+## [DONE] Distinguish listener detection failure from a free port
+
+[PR #2562](https://github.com/Drakosfire/DungeonMindBuddy/pull/2562). The original seven stubbed checks covered occupied and free ports, probe errors, and missing tools. The current launcher retains the checked ss and lsof branches and fails explicitly when neither tool exists.
+
 ## [DONE] Keep hosted runtime mode defaults in sync
 
 The production image defines both hosted mode defaults. A direct container and a disposable Compose 2.40.3 launch of the slim production image both resolved `production` and `hosted_dms` through Buddy’s runtime auth helpers.
