@@ -605,7 +605,7 @@ export function WorldGraphCanvas({
   }, [projection.nodes, fullCorpus, focusedLayoutId, focusLayoutKey, temporaryFocusMoves]);
   const positions = useMemo(() => {
     if (!dragPreview) return persistedPositions;
-    const preview = new Map<LocalObjectId, NodePosition>(persistedPositions);
+    const preview = new Map<string, NodePosition>(persistedPositions);
     preview.set(dragPreview.id, { ...persistedPositions.get(dragPreview.id), ...dragPreview });
     return preview;
   }, [persistedPositions, dragPreview]);
