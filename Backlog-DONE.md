@@ -7,6 +7,12 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Move developer tooling out of the production Python environment
+
+[#2735](https://github.com/Drakosfire/DungeonMindBuddy/pull/2735) moved pytest, pytest-cov, and Ruff to the default dev group. Image size fell from 504,139,064 to 471,742,157 bytes. The candidate passed application-state migration and schema checks, hosted liveness and SPA asset checks, and signed-out HTTP 401.
+
+[#2737](https://github.com/Drakosfire/DungeonMindBuddy/pull/2737) moved Paramiko to the same group after tracing its sole direct caller to the remote corpus inventory CLI. The CLI help smoke passed and the 464,082,908-byte candidate imported the API without Paramiko, bcrypt, invoke, or PyNaCl. GitHub inventory passed for both PRs.
+
 ## [DONE] Give the Graph explorer component and helper distinct module names
 
 Renamed the helper to `graphNodeExplorerModel` and updated all callers and test classification. All 123 focused Graph tests passed and CI inventory classified 1,527 test files. The prior explorer lane merged in #2510.
