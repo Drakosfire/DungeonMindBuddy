@@ -9,7 +9,15 @@ from dungeonmind.application.vnext.native_source_admission import build_native_p
 
 
 def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
+    from apps.live_control_server.services import build_pdf_admission
+
     records = {}
+
+    def validate(body):
+        if body != b"%PDF-1.7\n":
+            raise ValueError("Invalid structure")
+
+    monkeypatch.setattr(build_pdf_admission, "validate_pdf_structure", validate)
 
     class Repository:
         def retain_native_pdf_source(self, command, body):
@@ -39,6 +47,11 @@ def test_pdf_upload_and_reopen_use_verified_world(monkeypatch):
     auth = {"Authorization": "Bearer fixture"}
     with TestClient(app) as client:
         assert client.post(upload, content=body).status_code == 401
+        rejected = client.post(upload, content=body + b"invalid", headers={
+            **auth, "Content-Type": "application/pdf", "X-Pdf-Created-At": "2026-11-11T00:00:00Z",
+        })
+        assert rejected.status_code == 422
+        assert records == {}
         admitted = client.post(upload, content=body, headers={
             **auth, "Content-Type": "application/pdf", "X-Pdf-Created-At": "2026-11-11T00:00:00Z",
         })
