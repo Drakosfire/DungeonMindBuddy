@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Verify whether World catalog listing needs two ordering passes
+
+Retained both orderings. The application-state catalog's PostgreSQL adoption test asserts World-ID order from `list_worlds()`. The registry applies a separate display order by case-folded name and World ID. Verified both contracts in [the catalog test](tests/application_state/test_world_catalog_postgres.py) and [the registry](apps/live_control_server/services/world_container_registry.py).
+
 ## [DONE] Reuse verified migration status in local bootstrap reports
 
 [PR #2545](https://github.com/Drakosfire/DungeonMindBuddy/pull/2545) made bootstrap consume the revision already verified by the migration, reducing explicit post-upgrade target revision reads from two to one. Stubbed matching, older, and missing revision cases each performed one read. All 20 local Play bootstrap tests passed against disposable PostgreSQL 16 during implementation.
