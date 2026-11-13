@@ -1146,7 +1146,7 @@ export function WorldGraphCanvas({
 
   function moveSelected(id: LocalObjectId, dx: number, dy: number) {
     if (!onMoveObjects || busy) return;
-    const node = positions.get(id);
+    const node = persistedPositions.get(id);
     if (!node) return;
     const x = Math.max(0, Math.min(MAX_NODE_COORDINATE, node.x + dx));
     const y = Math.max(0, Math.min(MAX_NODE_COORDINATE, node.y + dy));
