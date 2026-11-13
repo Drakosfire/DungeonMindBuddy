@@ -1493,11 +1493,16 @@ describe("packed readable overview", () => {
     const labels = [...document.querySelectorAll<SVGTextElement>(".world-graph-canvas__overview-label")];
     expect(labels.length).toBeGreaterThan(0);
     expect(labels.length).toBeLessThanOrEqual(8);
-    const camera = cameraFromScene(scene);
-    for (const label of labels) expect(parseFloat(label.style.fontSize) * camera.zoom).toBeCloseTo(12);
+    const nodeLayer = labels[0].closest<SVGGElement>(".world-graph-canvas__overview-captions")!;
+    const labelSize = () => parseFloat(nodeLayer.style.getPropertyValue("--overview-label-size"));
+    expect(labelSize() * cameraFromScene(scene).zoom).toBeCloseTo(12);
+    const focusedBubble = screen.getByRole("button", { name: "Recorded object 0, person" });
+    act(() => focusedBubble.focus());
     bubbleRenderReads = 0;
     fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
-    expect(bubbleRenderReads).toBeLessThanOrEqual(16); // Only bounded hub captions, not all 513 memoized bubbles.
+    expect(labelSize() * cameraFromScene(scene).zoom).toBeCloseTo(12);
+    expect(bubbleRenderReads).toBe(0);
+    expect(focusedBubble).toHaveFocus();
     expect([...document.querySelectorAll("[data-edge-id] path")]).toEqual(paths);
     fireEvent.click(screen.getByRole("checkbox", { name: "All relationships" }));
     expect(scene).toHaveAttribute("data-all-relationships", "true");
@@ -1508,12 +1513,11 @@ describe("packed readable overview", () => {
     expect(selected.sort()).toEqual(relationships.filter((edge) => edge.fromObjectId === objects[0].id || edge.toObjectId === objects[0].id).map((edge) => edge.id).sort());
     expect(document.querySelectorAll("[data-edge-id]")).toHaveLength(559);
     const small = screen.getByRole("button", { name: "Recorded object 512, person" });
-    expect(small.querySelector(".world-graph-canvas__overview-label")).toBeNull();
+    expect(document.querySelector(`[data-caption-node-id="${objects[512].id}"]`)).toBeNull();
     fireEvent.click(small);
-    const smallCaption = small.querySelector<SVGTextElement>(".world-graph-canvas__overview-label")!;
+    const smallCaption = document.querySelector<SVGTextElement>(`[data-caption-node-id="${objects[512].id}"]`)!;
     expect(smallCaption).not.toBeNull();
-    expect(small).toHaveAttribute("data-important", "true");
-    expect(parseFloat(smallCaption.style.fontSize) * cameraFromScene(scene).zoom).toBeCloseTo(12);
+    expect(labelSize() * cameraFromScene(scene).zoom).toBeCloseTo(12);
     expect(document.querySelectorAll(".world-graph-canvas__overview-label").length).toBeLessThanOrEqual(10);
     expect([...document.querySelectorAll("[data-edge-id] path")]).toEqual(paths);
     const css = readFileSync(fileURLToPath(import.meta.url).replace(/WorldGraphCanvas\.test\.tsx$/, "worldGraphCanvas.css"), "utf8");

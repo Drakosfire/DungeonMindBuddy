@@ -57,7 +57,7 @@ interface NodeInteractionHandlers {
 }
 
 // A selection changes only the affected bubbles, not all loaded SVG labels.
-const GraphBubble = memo(function GraphBubble({ node, position, selected, isConnectTarget, nodeShape, fullCorpus, important, overviewLabelScale, canConnect, handlersRef, suppressClickRef, typeStyles }: {
+const GraphBubble = memo(function GraphBubble({ node, position, selected, isConnectTarget, nodeShape, fullCorpus, canConnect, handlersRef, suppressClickRef, typeStyles }: {
   node: ProjectedGraphNode;
   typeStyles: GraphTypeStyleRegistry;
   position: { x: number; y: number };
@@ -65,8 +65,6 @@ const GraphBubble = memo(function GraphBubble({ node, position, selected, isConn
   isConnectTarget: boolean;
   nodeShape: NodeShape;
   fullCorpus: boolean;
-  important: boolean;
-  overviewLabelScale: number;
   canConnect: boolean;
   handlersRef: RefObject<NodeInteractionHandlers>;
   suppressClickRef: RefObject<LocalObjectId | null>;
@@ -86,7 +84,6 @@ const GraphBubble = memo(function GraphBubble({ node, position, selected, isConn
       aria-label={`${node.name}, ${node.kind}`}
       aria-description={description}
       data-node-id={node.id}
-      data-important={important || undefined}
       onClick={() => {
         if (suppressClickRef.current === node.id) { suppressClickRef.current = null; return; }
         handlersRef.current.selectNode(node.id);
@@ -101,11 +98,6 @@ const GraphBubble = memo(function GraphBubble({ node, position, selected, isConn
         <text className="world-graph-canvas__node-name" style={fullCorpus ? { fontSize: Math.min(15, Math.max(9, radius * 0.35)) } : undefined} x={CIRCLE_RADIUS} y={CIRCLE_RADIUS + 17} textAnchor="middle">
           {shortLabel(node.name, Math.max(7, Math.floor(radius / 4)))}
         </text>
-        {fullCorpus && important ? <text className="world-graph-canvas__overview-label"
-          x={CIRCLE_RADIUS} y={CIRCLE_RADIUS + radius + 14 * overviewLabelScale} textAnchor="middle"
-          style={{ fontSize: 12 * overviewLabelScale, strokeWidth: 3 * overviewLabelScale }}>
-          {shortLabel(node.name, 22)}
-        </text> : null}
       </> : <>
         <rect width={NODE_WIDTH} height={NODE_HEIGHT} rx="12" />
         <text className="world-graph-canvas__node-kind" x="14" y="22">{node.kind}</text>
@@ -1220,8 +1212,8 @@ export function WorldGraphCanvas({
   const nodeLayer = useMemo(() => projection.nodes.map((node) => <GraphBubble
     key={node.id} node={node} typeStyles={typeStyles} position={positions.get(node.id)!} selected={selectedIds.includes(node.id)}
     isConnectTarget={connectPreview !== null && connectTargetId === node.id} nodeShape={nodeShape}
-    fullCorpus={fullCorpus} important={overviewLabelNodeIds.has(node.id)} overviewLabelScale={overviewLabelNodeIds.has(node.id) ? 1 / Math.max(0.001, camera.zoom) : 1} canConnect={Boolean(onConnectRequest)} handlersRef={handlersRef} suppressClickRef={suppressClickRef} />),
-    [typeStyles, projection.nodes, selectedIds, positions, connectPreview !== null, connectTargetId, nodeShape, fullCorpus, overviewLabelNodeIds, camera.zoom, Boolean(onConnectRequest)]);
+    fullCorpus={fullCorpus} canConnect={Boolean(onConnectRequest)} handlersRef={handlersRef} suppressClickRef={suppressClickRef} />),
+    [typeStyles, projection.nodes, selectedIds, positions, connectPreview !== null, connectTargetId, nodeShape, fullCorpus, Boolean(onConnectRequest)]);
   const edgeLabelDetail = focusedLayoutId || !fullCorpus || camera.zoom >= .9 ? "all" : camera.zoom >= .45 ? "selected" : "none";
   const edgeLabelScale = focusedLayoutId ? Math.min(2.5, Math.max(1, 1 / camera.zoom)) : 1;
   const edgeLayer = useMemo(() => {
@@ -1473,9 +1465,24 @@ export function WorldGraphCanvas({
             })() : null}
           </g>
           {/* Nodes own hit testing above crossing edge strokes, including connector ports. */}
-          <g className="world-graph-canvas__nodes" aria-label="World objects">
+          <g className="world-graph-canvas__nodes" aria-label="World objects" id={`${markerId}-nodes`}>
             {nodeLayer}
           </g>
+          {fullCorpus && nodeShape === "circle" && overviewLabelNodeIds.size > 0 ? (
+            <g className="world-graph-canvas__overview-captions" aria-hidden="true"
+              style={{ "--overview-label-size": `${12 / Math.max(0.001, camera.zoom)}px` } as CSSProperties}>
+              <style>{[...overviewLabelNodeIds].map((id) => {
+                const escaped = Array.from(id, (char) => `\\${char.codePointAt(0)!.toString(16)} `).join("");
+                return `[data-detail="overview"] [id="${markerId}-nodes"] [data-node-id="${escaped}"] text { display: none; }`;
+              }).join("\n")}</style>
+              {[...overviewLabelNodeIds].map((id) => {
+                const point = positions.get(id)!;
+                return <text key={id} data-caption-node-id={id} className="world-graph-canvas__overview-label"
+                  x={point.x + CIRCLE_RADIUS} y={point.y + CIRCLE_RADIUS + (point.radius ?? CIRCLE_RADIUS)}
+                  dy="1.1666666667em" textAnchor="middle">{shortLabel(nodeNames.get(id)!, 22)}</text>;
+              })}
+            </g>
+          ) : null}
           </g>
         </svg>
         {externalControls && fullCorpus ? typeLegend : null}
