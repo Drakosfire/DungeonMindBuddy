@@ -77,6 +77,8 @@ uv run --locked python scripts/ci_contract.py commands
 uv run --locked python scripts/ci_contract.py run full-regression
 ```
 
+Full regression includes the Playwright visual suite, which requires its browser dependencies. The broad Vitest run can also run the Build layout case when full Chromium is installed or `BUILD_LAYOUT_CHROMIUM_PATH` points to a Chromium executable. The hosted frontend catalog does not select that Build layout case.
+
 Prepare pinned Hermes, locked Python/npm dependencies and Playwright Chromium;
 provide disposable PostgreSQL fixtures with no operator credentials, provider keys
 or live state. Full regression runs all default pytest testpaths, all Vitest tests,
