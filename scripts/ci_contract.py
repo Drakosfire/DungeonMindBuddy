@@ -83,8 +83,9 @@ def emit(report: dict) -> None:
     print(json.dumps(report, sort_keys=True), flush=True)
 
 
-def execute(name: str, root: Path = ROOT) -> int:
-    catalog = contracts(root)
+def execute(name: str, root: Path = ROOT, *, catalog: dict | None = None) -> int:
+    if catalog is None:
+        catalog = contracts(root)
     if name == "full-regression":
         validate_inventory(root)
         steps = [
@@ -131,9 +132,10 @@ def main() -> int:
             for step in contract.get("steps", [contract]):
                 print(name, step["cwd"], shlex.join(step["argv"]), sep="\t")
         return 0
-    if args.contract not in {*contracts(), "full-regression"}:
+    catalog = contracts()
+    if args.contract not in {*catalog, "full-regression"}:
         parser.error("run requires a named contract (see commands) or full-regression")
-    return execute(args.contract)
+    return execute(args.contract, catalog=catalog)
 
 
 if __name__ == "__main__":
