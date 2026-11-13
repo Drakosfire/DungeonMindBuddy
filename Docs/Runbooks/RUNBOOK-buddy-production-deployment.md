@@ -90,11 +90,7 @@ Continue only if release preparation succeeds. Save the override with the releas
   buddy_local="http://127.0.0.1:$buddy_port"
   curl -fsS "$buddy_local/health/live"
   curl -fsS "$buddy_local/health/ready"
-  for buddy_path in / /graph; do
-    buddy_status=$(curl -fsS -H 'Accept: text/html' -o /dev/null -w '%{http_code}' "$buddy_local$buddy_path")
-    printf '%s %s\n' "$buddy_status" "$buddy_path"
-    test "$buddy_status" = 200
-  done
+  bash scripts/check_hosted_spa.sh "$buddy_local"
   buddy_status=$(curl -sS -o /dev/null -w '%{http_code}' "$buddy_local/api/auth/current-user")
   test "$buddy_status" = 401
 )
@@ -133,11 +129,7 @@ curl -fsS "$buddy_url/health/live"
 curl -fsS "$buddy_url/health/ready"
 (
   set -e
-  for buddy_path in / /graph; do
-    buddy_status=$(curl -fsS -H 'Accept: text/html' -o /dev/null -w '%{http_code}' "$buddy_url$buddy_path")
-    printf '%s %s\n' "$buddy_status" "$buddy_path"
-    test "$buddy_status" = 200
-  done
+  bash scripts/check_hosted_spa.sh "$buddy_url"
 ) &&
 test "$(curl -sS -o /dev/null -w '%{http_code}' "$buddy_url/api/auth/current-user")" = 401
 ```
