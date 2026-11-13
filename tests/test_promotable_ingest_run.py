@@ -525,3 +525,26 @@ def test_resolve_carries_run_pinned_noncanonical_span_index_path(tmp_path: Path)
         for span in load_source_span_index(repo, resolved.source_artifact_id).spans
     }
     assert pinned_ids.isdisjoint(canonical_ids)
+
+
+def test_historical_discovery_matches_recap_from_one_manifest_read(tmp_path, monkeypatch):
+    from apps.live_control_server.services.graph_ingest_run_registry import discover_graph_ingest_runs
+
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
+    _, _, source = _write_promotable_run(tmp_path)
+    original_read = Path.read_text
+    manifest_reads = []
+
+    def read_text(path, *args, **kwargs):
+        content = original_read(path, *args, **kwargs)
+        if path.name == "graph_ingest_run_manifest.json":
+            manifest_reads.append(path)
+            path.write_text("[]", encoding="utf-8")
+        return content
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+    rows = discover_graph_ingest_runs(
+        tmp_path, source_recap_path=source.relative_to(tmp_path).as_posix()
+    )
+    assert len(rows) == 1
+    assert len(manifest_reads) == 1

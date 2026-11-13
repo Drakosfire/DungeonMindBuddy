@@ -218,12 +218,13 @@ def discover_graph_ingest_runs(
         if not search_root.exists():
             continue
         for manifest_path in sorted(search_root.rglob(GRAPH_INGEST_MANIFEST_NAME)):
-            summary = _summarize_manifest(
+            summarized = _summarize_manifest(
                 repo,
                 manifest_path,
             )
-            if summary is None:
+            if summarized is None:
                 continue
+            summary, payload = summarized
             if campaign_id is not None and summary.campaign_id != campaign_id:
                 continue
             if session_id is not None and summary.session_id != session_id:
@@ -232,7 +233,7 @@ def discover_graph_ingest_runs(
                 source_recap_path is not None or source_recap_sha256 is not None
             ) and not _manifest_matches_source_recap(
                 repo,
-                manifest_path,
+                payload,
                 source_recap_path=source_recap_path,
                 source_recap_sha256=source_recap_sha256,
             ):
@@ -286,7 +287,7 @@ def resolve_latest_preview_union_graph_ingest_run(
 
 def _manifest_matches_source_recap(
     repo: Path,
-    manifest_path: Path,
+    payload: dict[str, Any],
     *,
     source_recap_path: str | None,
     source_recap_sha256: str | None,
@@ -303,10 +304,6 @@ def _manifest_matches_source_recap(
     if source_recap_sha256 == UNUSABLE_SOURCE_RECAP_DIGEST:
         return False
 
-    try:
-        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return False
     source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
     requested_digest = normalize_content_digest(source_recap_sha256)
     if requested_digest:
@@ -442,7 +439,7 @@ def _manifest_health_rel_path(repo: Path, manifest_path: Path) -> str:
 def _summarize_manifest(
     repo: Path,
     manifest_path: Path,
-) -> GraphIngestRunSummary | None:
+) -> tuple[GraphIngestRunSummary, dict[str, Any]] | None:
     try:
         safe_manifest_path = _resolve_repo_contained_path(manifest_path, repo)
         payload = json.loads(safe_manifest_path.read_text(encoding="utf-8"))
@@ -457,7 +454,7 @@ def _summarize_manifest(
     metadata = _extract_graph_run_metadata(
         manifest, payload, safe_manifest_path, repo, preview_path
     )
-    return GraphIngestRunSummary(
+    summary = GraphIngestRunSummary(
         manifest_path=_repo_relative(safe_manifest_path, repo),
         run_dir=_repo_relative(safe_manifest_path.parent, repo),
         campaign_id=manifest.campaign_id,
@@ -475,6 +472,7 @@ def _summarize_manifest(
         promotable_reason="Historical file manifests are inspection-only; promotion requires an exact database ExtractionRun.",
         **metadata,
     )
+    return summary, payload
 
 
 ScalarSummaryValue = str | int | float | bool | None
