@@ -201,6 +201,8 @@ def test_recap_presentation_reuses_preview_source_snapshot(tmp_path, monkeypatch
     run = tmp_path / "run"
     run.mkdir()
     (run / "candidate_output.json").write_text(dumps({"nodes": [{"node_id": "npc_mara", "node_type": "npc", "label": "Mara"}]}))
+    summary = run / "run_summary.json"
+    summary.write_text("{", encoding="utf-8")
     bundle = tmp_path / "bundle"
     bundle.mkdir()
     index_path = bundle / "source_span_index.json"
@@ -231,6 +233,13 @@ def test_recap_presentation_reuses_preview_source_snapshot(tmp_path, monkeypatch
     assert sum(call.args == (index_path,) for call in read.call_args_list) == 1
     assert source.splits == 1
     recap.assert_called_once_with(tmp_path, bundle, source_recap_path=None)
+    assert all(call.args != (summary,) for call in read.call_args_list)
+    with pytest.raises(JSONDecodeError):
+        build_graph_preview_surface(tmp_path, "run", run_bundle_dir=bundle)
+    index_path.unlink()
+    with pytest.raises(FileNotFoundError, match="source_span_index.json"):
+        build_recap_graph_presentation(tmp_path)
+
 
 
 def test_build_recap_graph_presentation_links_node_labels() -> None:

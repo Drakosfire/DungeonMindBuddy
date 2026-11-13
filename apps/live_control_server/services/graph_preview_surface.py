@@ -816,40 +816,9 @@ def _build_candidates(
     return rows
 
 
-def build_graph_preview_surface(
-    root: Path,
-    run_dir: str,
-    *,
-    run_bundle_dir: Path | None = None,
-    artifact_record: RecapArtifactRecord | None = None,
-    _loaded_run: _LoadedRun | None = None,
-) -> GraphPreviewSurfaceResponse:
-    surface, _, _ = _build_graph_preview_surface(
-        root, run_dir, run_bundle_dir=run_bundle_dir, artifact_record=artifact_record, _loaded_run=_loaded_run,
-    )
-    return surface
-
-
-def _build_graph_preview_surface(
-    root: Path,
-    run_dir: str,
-    *,
-    run_bundle_dir: Path | None = None,
-    artifact_record: RecapArtifactRecord | None = None,
-    _loaded_run: _LoadedRun | None = None,
-) -> tuple[GraphPreviewSurfaceResponse, dict[str, Mapping[str, Any]], list[str]]:
-    if _loaded_run is None:
-        resolved_run = _resolve_run_dir(root, run_dir)
-        validation, graph = _load_run_graph(resolved_run)
-    else:
-        resolved_run, validation, graph = _loaded_run
-    rel_run_dir = resolved_run.relative_to(root.resolve()).as_posix()
-    run_summary_path = resolved_run / "run_summary.json"
-    run_summary = _load_json(run_summary_path) if run_summary_path.is_file() else {}
-
-    if graph is None:
-        raise GraphPreviewSurfaceError(f"no graph artifact in run_dir: {rel_run_dir}")
-
+def _prepare_preview_source(
+    root: Path, run_bundle_dir: Path | None, artifact_record: RecapArtifactRecord | None,
+) -> tuple[Path, dict[str, Mapping[str, Any]], list[str], str]:
     bundle = run_bundle_dir
     if bundle is None and artifact_record is not None:
         bundle = root / artifact_record.run_bundle_uri
@@ -872,13 +841,31 @@ def _build_graph_preview_surface(
         source_recap_path=artifact_record.source_recap_path if artifact_record else None,
     )
 
-    recap_lines = recap_text.splitlines()
-    candidates = _build_candidates(
-        graph,
-        span_lookup=span_lookup,
-        recap_lines=recap_lines,
-        recap_path=recap_path,
-    )
+    return bundle, span_lookup, recap_text.splitlines(), recap_path
+
+
+def build_graph_preview_surface(
+    root: Path,
+    run_dir: str,
+    *,
+    run_bundle_dir: Path | None = None,
+    artifact_record: RecapArtifactRecord | None = None,
+    _loaded_run: _LoadedRun | None = None,
+) -> GraphPreviewSurfaceResponse:
+    if _loaded_run is None:
+        resolved_run = _resolve_run_dir(root, run_dir)
+        validation, graph = _load_run_graph(resolved_run)
+    else:
+        resolved_run, validation, graph = _loaded_run
+    rel_run_dir = resolved_run.relative_to(root.resolve()).as_posix()
+    run_summary_path = resolved_run / "run_summary.json"
+    run_summary = _load_json(run_summary_path) if run_summary_path.is_file() else {}
+
+    if graph is None:
+        raise GraphPreviewSurfaceError(f"no graph artifact in run_dir: {rel_run_dir}")
+
+    bundle, span_lookup, recap_lines, recap_path = _prepare_preview_source(root, run_bundle_dir, artifact_record)
+    candidates = _build_candidates(graph, span_lookup=span_lookup, recap_lines=recap_lines, recap_path=recap_path)
 
     evidence_ref_count = sum(len(c.evidence_refs) for c in candidates)
     resolvable = sum(
@@ -909,14 +896,14 @@ def _build_graph_preview_surface(
 
     bundle_rel = bundle.relative_to(root.resolve()).as_posix() if bundle.is_relative_to(root.resolve()) else str(bundle)
 
-    surface = GraphPreviewSurfaceResponse(
+    return GraphPreviewSurfaceResponse(
         run_dir=rel_run_dir,
         run_bundle_dir=bundle_rel,
         recap_source_path=recap_path,
         health=health,
         candidates=candidates,
     )
-    return surface, span_lookup, recap_lines
+
 
 
 def build_latest_graph_preview_surface(
@@ -999,15 +986,20 @@ def build_recap_graph_presentation(
         run, loaded_run = picked
         selected_run = run.run_dir
 
-    surface, span_lookup, recap_lines = _build_graph_preview_surface(
-        root,
-        selected_run,
-        run_bundle_dir=bundle,
-        artifact_record=record,
-        _loaded_run=loaded_run,
+    if loaded_run is None:
+        resolved_run = _resolve_run_dir(root, selected_run)
+        _, graph = _load_run_graph(resolved_run)
+    else:
+        resolved_run, _, graph = loaded_run
+    rel_run_dir = resolved_run.relative_to(root.resolve()).as_posix()
+    if graph is None:
+        raise GraphPreviewSurfaceError(f"no graph artifact in run_dir: {rel_run_dir}")
+    _, span_lookup, recap_lines, recap_path = _prepare_preview_source(root, bundle, record)
+    candidates = _build_candidates(
+        {"nodes": graph.get("nodes")}, span_lookup=span_lookup, recap_lines=recap_lines, recap_path=recap_path,
     )
-    nodes, aliases_by_node = _recap_graph_nodes_for_candidates(surface.candidates)
-    seeded_nodes, seeded_aliases = _route_seed_nodes(root, surface.recap_source_path)
+    nodes, aliases_by_node = _recap_graph_nodes_for_candidates(candidates)
+    seeded_nodes, seeded_aliases = _route_seed_nodes(root, recap_path)
     for object_id, node in seeded_nodes.items():
         nodes.setdefault(object_id, node)
         aliases_by_node.setdefault(object_id, seeded_aliases.get(object_id, [node.label]))
@@ -1028,8 +1020,8 @@ def build_recap_graph_presentation(
     display_lines = _strip_yaml_frontmatter_lines(lines)
 
     return RecapGraphPresentationResponse(
-        run_dir=surface.run_dir,
-        recap_source_path=surface.recap_source_path,
+        run_dir=rel_run_dir,
+        recap_source_path=recap_path,
         markdown="\n".join(display_lines).strip(),
         nodes=nodes,
         links=sorted(all_links, key=lambda link: (link.source_span_ref_id, link.char_start, link.object_id)),
