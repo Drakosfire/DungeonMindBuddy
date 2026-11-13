@@ -262,9 +262,7 @@ def test_pdf_regions_create_only_a_source_linked_review_draft(monkeypatch, unres
     )
     assert response["revision"] == 1
     assert response["definition"] == definition
-    with pytest.raises(HTTPException) as rejected:
-        agent._require_resolved_pdf_statblock(response)
-    assert rejected.value.detail["code"] == f"pdf_statblock_{unresolved}_unresolved"
+    assert agent._require_confirmed_pdf_statblock(response) == response
     assert response["regions"] == [
         {"schema_version": "dm_native_pdf_region_v1", **region} for region in regions
     ]
