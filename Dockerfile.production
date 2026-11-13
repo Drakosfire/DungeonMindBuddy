@@ -11,7 +11,7 @@ COPY apps/live-control-ui/index.html apps/live-control-ui/vite.config.ts ./
 COPY apps/live-control-ui/tsconfig.json apps/live-control-ui/tsconfig.app.json apps/live-control-ui/tsconfig.node.json ./
 COPY apps/live-control-ui/src/ ./src/
 COPY apps/live-control-ui/public/ ./public/
-RUN npm run build
+RUN VITE_BUDDY_HOSTED_BUILD=1 npm run build
 
 FROM ghcr.io/astral-sh/uv:0.13.5@sha256:32a7bb39b496babbd997b0a39a4d66c126bdaf5661b302bf6f06abda8deca6ff AS uv-tool
 

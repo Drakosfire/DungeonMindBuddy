@@ -17,14 +17,14 @@ import { SurfaceContextHost } from "./surfaceInteraction/contextHost";
 import { deferredComponent } from "./ui/deferredComponent";
 import { IsolatedEntry, ManagedWorldGraph } from "./appEntryShared";
 
-const LocalBuddyApp = deferredComponent(
+const LocalBuddyApp = import.meta.env.VITE_BUDDY_HOSTED_BUILD !== "1" ? deferredComponent(
   () => import("./LocalBuddyApp").then(module => ({ default: module.LocalBuddyApp })),
   "local Buddy",
-);
+) : null;
 
 function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
   const auth = useHostedAuthStatus();
-  return auth.status === "local_operator"
+  return LocalBuddyApp && auth.status === "local_operator"
     ? <LocalBuddyApp locationSnapshot={locationSnapshot} />
     : <IsolatedEntry><HostedBuddy locationSnapshot={locationSnapshot} /></IsolatedEntry>;
 }
