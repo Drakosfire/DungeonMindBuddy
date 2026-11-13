@@ -10,9 +10,9 @@ import type { NativeGraphNode, NativeGraphEdge } from "./nativeGraphDemoApi";
 import { nativeGraphPresentation } from "./nativeGraphPresentation";
 
 /** Single owner of graph explorer chrome, identity, loading and evidence presentation. */
-export function NativeGraphNodeExplorer({ node, revision, detail, labels, entityOnly = false, partial = false, navigationDisabled = false, onExplore, onFocus, onClose, onExitFocus, onBack, previousLabel, headingRef, mode = "managed", status = "ready", error, connections = [] }: {
+export function NativeGraphNodeExplorer({ node, revision, detail, labels, entityOnly = false, sourceReads = false, partial = false, navigationDisabled = false, onExplore, onFocus, onClose, onExitFocus, onBack, previousLabel, headingRef, mode = "managed", status = "ready", error, connections = [] }: {
   node: NativeGraphNode; revision: string; detail: NativeGraphEntity | null; labels: ReadonlyMap<string, string>;
-  entityOnly?: boolean; partial?: boolean; navigationDisabled?: boolean; onExplore: (entityId: string) => void;
+  entityOnly?: boolean; sourceReads?: boolean; partial?: boolean; navigationDisabled?: boolean; onExplore: (entityId: string) => void;
   onFocus: () => void; onClose: () => void; onExitFocus?: () => void; onBack?: () => void; previousLabel?: string;
   headingRef?: Ref<HTMLHeadingElement>; mode?: "managed" | "playground"; status?: "idle" | "loading" | "ready" | "unavailable" | "error"; error?: string | null; connections?: readonly NativeGraphEdge[];
 }) {
@@ -43,7 +43,7 @@ export function NativeGraphNodeExplorer({ node, revision, detail, labels, entity
               {isPartial ? <p>Partial view. These counts describe admitted records in the loaded revision, not the whole World.</p> : null}
               <p>{model.commonStatus ? `Record status: ${model.commonStatus}. Not a statement of current truth.` : "Record qualifications vary. Open evidence for each connection."}</p>
             </> : null}
-            {entityOnly ? <p>Source excerpts and linked statblocks are not available for this connection.</p> : null}
+            {entityOnly ? <p>{sourceReads ? "Linked statblocks are unavailable for this connection." : "Source excerpts and linked statblocks are not available for this connection."}</p> : null}
             <details><summary>Snapshot revision</summary><code>{revision}</code></details>
           </div>
         </details>
@@ -56,7 +56,7 @@ export function NativeGraphNodeExplorer({ node, revision, detail, labels, entity
     </div>
     {mode === "managed" ? status === "loading" ? <p role="status">Loading this object from the loaded World revision…</p>
       : status === "ready" && detail && !detail.entity.found ? <p>This object is unavailable in the selected revision.</p>
-      : status === "ready" && detail && model ? <NodeDossier model={model} detail={detail} entityId={node.id} labels={labels} entityOnly={entityOnly} navigationDisabled={navigationDisabled} onExplore={onExplore} />
+      : status === "ready" && detail && model ? <NodeDossier model={model} detail={detail} entityId={node.id} labels={labels} entityOnly={entityOnly} sourceReads={sourceReads} navigationDisabled={navigationDisabled} onExplore={onExplore} />
         : <p role={status === "error" ? "alert" : "status"}>{error ?? "Select this object to inspect its loaded World revision."}</p>
       : <section className="native-demo-object-details__connections" aria-labelledby="native-demo-selected-connections-title">
         <h3 id="native-demo-selected-connections-title">Connections in this loaded snapshot</h3>
@@ -73,9 +73,9 @@ export function NativeGraphNodeExplorer({ node, revision, detail, labels, entity
 }
 
 /** A read-only dossier over admitted records; no canonicalization or inferred biography. */
-function NodeDossier({ model, detail, entityId, labels, entityOnly = false, navigationDisabled = false, onExplore }: {
+function NodeDossier({ model, detail, entityId, labels, entityOnly = false, sourceReads = false, navigationDisabled = false, onExplore }: {
   model: ReturnType<typeof projectNativeObject>["dossier"]; detail: NativeGraphEntity; entityId: string; labels: ReadonlyMap<string, string>;
-  entityOnly?: boolean; partial?: boolean; navigationDisabled?: boolean; onExplore: (entityId: string) => void;
+  entityOnly?: boolean; sourceReads?: boolean; partial?: boolean; navigationDisabled?: boolean; onExplore: (entityId: string) => void;
 }) {
   const [statblocksOpen, setStatblocksOpen] = useState(false);
   if (!detail.entity.found) return <p>This object is unavailable in the selected revision.</p>;
@@ -92,7 +92,7 @@ function NodeDossier({ model, detail, entityId, labels, entityOnly = false, navi
           <p className="graph-node-explorer__status">{[...new Set(row.assertions.map(assertionStatus))].join("; ")}</p>
           {row.contexts.length ? <p className="graph-node-explorer__context">{row.contexts.join(" · ")}</p> : <p className="graph-node-explorer__context">Source episode not recorded</p>}
           {row.neighborId !== entityId && labels.has(row.neighborId) ? <button type="button" className="graph-node-explorer__link" disabled={navigationDisabled} onClick={() => onExplore(row.neighborId)}>Explore {labels.get(row.neighborId)}</button> : null}
-          <Evidence records={row.assertions} detail={detail} entityOnly={entityOnly} commonStatus={model.commonStatus} />
+          <Evidence records={row.assertions} detail={detail} entityOnly={entityOnly && !sourceReads} commonStatus={model.commonStatus} />
         </li>)}</ul>
       </details>; })}
     </section>
@@ -103,17 +103,17 @@ function NodeDossier({ model, detail, entityId, labels, entityOnly = false, navi
         <p className="graph-node-explorer__context">{contexts.length ? contexts.join(" · ") : "Source episode not recorded"}</p>
         <p className="graph-node-explorer__status">{assertionStatus(assertion)}</p>
         <details><summary>{text.length > 140 ? `${text.slice(0, 140)}…` : text}</summary><p>{text}</p>
-        <Evidence records={[assertion]} detail={detail} entityOnly={entityOnly} commonStatus={model.commonStatus} /></details>
+        <Evidence records={[assertion]} detail={detail} entityOnly={entityOnly && !sourceReads} commonStatus={model.commonStatus} /></details>
       </article>)}
     </section> : null}
     {model.otherRecords.length ? <details className="graph-node-explorer__secondary"><summary>Other recorded information ({model.otherRecords.length})</summary>
-      {model.otherRecords.map(({ assertion, text, contexts }) => <article key={assertion.assertion_id}><p>{text}</p><p className="graph-node-explorer__context">{contexts.join(" · ")}</p><Evidence records={[assertion]} detail={detail} entityOnly={entityOnly} commonStatus={model.commonStatus} /></article>)}
+      {model.otherRecords.map(({ assertion, text, contexts }) => <article key={assertion.assertion_id}><p>{text}</p><p className="graph-node-explorer__context">{contexts.join(" · ")}</p><Evidence records={[assertion]} detail={detail} entityOnly={entityOnly && !sourceReads} commonStatus={model.commonStatus} /></article>)}
     </details> : null}
     {entityOnly ? null : <details className="graph-node-explorer__secondary" onToggle={(event) => setStatblocksOpen(event.currentTarget.open)}><summary>Linked statblocks</summary>{statblocksOpen ? <NativeObjectStatblock pin={detail.scope} entityId={entityId} /> : null}</details>}
     <details className="graph-node-explorer__secondary"><summary>Identity records and revision</summary>
       <p>World revision <code>{detail.scope.revision_id}</code></p><p>Object <code>{entityId}</code></p>
       <p>Names and classifications are preserved as recorded. The compact heading is a display label, not a canonical name.</p>
-      {model.identityAssertions.map((assertion) => <Evidence key={assertion.assertion_id} records={[assertion]} detail={detail} entityOnly={entityOnly} commonStatus={null} />)}
+      {model.identityAssertions.map((assertion) => <Evidence key={assertion.assertion_id} records={[assertion]} detail={detail} entityOnly={entityOnly && !sourceReads} commonStatus={null} />)}
       {!detail.entity.assertions.length ? <p>No admitted records for this object in this view.</p> : null}
     </details>
   </div>;

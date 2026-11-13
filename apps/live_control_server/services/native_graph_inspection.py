@@ -86,6 +86,19 @@ def catalog(scope, principal):
 def inspect(request, principal):
     bound, read, access, pin = _pinned(request.scope, principal)
     selection = request.selection
+    if selection.kind == "chronology":
+        listing = EntityReadService().list_entities(read)
+        assertions = []
+        for identity in listing.admitted_assertion_ids:
+            parsed = access.parsed.get_assertion(identity)
+            if parsed.predicate != "dungeonbuddy.custom:on_timeline":
+                continue
+            assertions.append(native.assertion_contract(parsed).model_dump(mode="json"))
+        return _response(
+            bound, pin, schema="dmb_native_graph_chronology_v1",
+            assertions=assertions,
+            completeness=jsonable_encoder(listing.completeness),
+        )
     if selection.kind == "entity":
         listing = EntityReadService().list_entities(read)
         if selection.entity_id not in {entity.entity_id for entity in listing.entities}:

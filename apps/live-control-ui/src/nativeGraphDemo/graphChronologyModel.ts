@@ -1,4 +1,4 @@
-import type { NativeAssertion, NativeGraphCatalog } from "../api/nativeGraphInspection";
+import type { NativeAssertion, NativeGraphChronology } from "../api/nativeGraphInspection";
 import type { NativeGraph } from "./nativeGraphDemoApi";
 import { nativeGraphPresentation } from "./nativeGraphPresentation";
 
@@ -24,7 +24,7 @@ function occurrenceLabel(value: unknown): string {
   return field(occurrence.raw_expression) || (start && end ? `${start} to ${end}` : start || end);
 }
 
-export function buildGraphChronology(graph: NativeGraph, catalogue: NativeGraphCatalog) {
+export function buildGraphChronology(graph: NativeGraph, catalogue: NativeGraphChronology) {
   const assertionsByEntity = new Map<string, NativeAssertion[]>();
   for (const assertion of catalogue.assertions) {
     const assertions = assertionsByEntity.get(assertion.subject_entity_id);

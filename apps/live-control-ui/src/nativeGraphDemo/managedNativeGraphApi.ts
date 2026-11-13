@@ -1,5 +1,5 @@
-import { authenticatedApiFetch, getNativeGraphCatalog } from "../api/liveApi";
-import { isCatalogForWorld, sameInspectionPin, type InspectionPin, type NativeGraphEntity } from "../api/nativeGraphInspection";
+import { authenticatedApiFetch } from "../api/liveApi";
+import { sameInspectionPin, type InspectionPin, type NativeGraphChronology, type NativeGraphEntity } from "../api/nativeGraphInspection";
 import {
   createNativeGraphDemoApi,
   NativeGraphDemoApiError,
@@ -469,15 +469,23 @@ export function createManagedNativeGraphApi(
     },
     async readChronology(graph, signal) {
       const pin = assertCurrentSnapshot(graph);
-      const catalogue = await getNativeGraphCatalog({
-        managed_world_id: pin.managed_world_id, scope_mode: "world", campaign_id: null,
-      }, signal);
+      const response = await send(INSPECTION_READ_PATH, {
+        method: "POST",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ scope: pin, selection: { kind: "chronology" } }),
+        signal,
+      }, generation);
+      const body = await responseBody(response);
       if (signal.aborted) throw abortError();
       assertCurrentSnapshot(graph);
-      if (!isCatalogForWorld(catalogue, pin.managed_world_id) || !sameInspectionPin(pin, catalogue.scope)) {
+      if (!response.ok) await throwInspectionResponseError(response, body);
+      if (!record(body) || body.schema !== "dmb_native_graph_chronology_v1"
+        || !record(body.scope) || !sameInspectionPin(pin, body.scope as InspectionPin)
+        || !Array.isArray(body.assertions) || !body.assertions.every(isNativeAssertion) || !record(body.completeness)
+        || !["complete", "partial"].includes(String(body.completeness.status))) {
         throw invalidManagedGraph("Chronology does not match the selected graph revision. Refresh the graph and try again.");
       }
-      return catalogue;
+      return body as unknown as NativeGraphChronology;
     },
     async inspectNode(graph, nodeId, signal) {
       if (signal?.aborted) throw abortError();

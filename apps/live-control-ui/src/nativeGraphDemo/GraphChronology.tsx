@@ -19,7 +19,7 @@ export function GraphChronology({ graph, read, relatedTo, onExplore }: {
     void read(graph, abort.signal).then(catalogue => {
       if (!abort.signal.aborted) setResult({
         graph, events: buildGraphChronology(graph, catalogue),
-        partial: catalogue.catalogue.completeness.status === "partial",
+        partial: catalogue.completeness.status === "partial",
       });
     }).catch(() => {
       if (!abort.signal.aborted) setResult({ graph, events: null });

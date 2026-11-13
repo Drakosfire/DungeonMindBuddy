@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
-import type { NativeAssertion, NativeGraphCatalog } from "../api/nativeGraphInspection";
+import type { NativeAssertion, NativeGraphChronology } from "../api/nativeGraphInspection";
 import { GraphChronology } from "./GraphChronology";
 import type { NativeGraph } from "./nativeGraphDemoApi";
 
@@ -27,8 +27,8 @@ it("orders reviewed Campaign placements and opens the selected Event", async () 
   }
   const catalogue = {
     assertions: [placement("late", 12), placement("early", 2)],
-    catalogue: { completeness: { status: "complete" } },
-  } as NativeGraphCatalog;
+    completeness: { status: "complete" },
+  } as NativeGraphChronology;
   const explore = vi.fn();
   render(<GraphChronology graph={graph} read={async () => catalogue} onExplore={explore} />);
   await screen.findByRole("option", { name: "Elderwyld Campaign" });

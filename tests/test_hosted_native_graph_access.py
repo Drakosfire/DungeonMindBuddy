@@ -1296,7 +1296,20 @@ def test_hosted_entity_read_returns_pdf_reference_without_rendering(hosted, monk
 
 
 
-def test_source_selection_is_denied_before_any_source_or_catalog_read(
+@pytest.mark.parametrize(("session", "status"), [("owner-session", 200), ("other-session", 403)])
+def test_hosted_chronology_requires_world_owner(hosted, session, status):
+    body = _inspection_payload(hosted)
+    body["selection"] = {"kind": "chronology"}
+    response = hosted.client.request("POST", INSPECTION, session=session, json=body)
+    assert response.status_code == status, response.text
+    if status == 200:
+        packet = response.json()
+        assert packet["scope"] == body["scope"]
+        assert packet["schema"] == "dmb_native_graph_chronology_v1"
+        assert packet["assertions"] == []
+
+
+def test_guessed_source_selection_cannot_open_source(
     hosted, monkeypatch
 ):
     x = hosted
@@ -1308,13 +1321,13 @@ def test_source_selection_is_denied_before_any_source_or_catalog_read(
     }
 
     def forbidden_source_open(*_, **__):
-        pytest.fail("Hosted source body opening is not an authorized capability")
+        pytest.fail("Guessed evidence must not reach the source reader")
 
     monkeypatch.setattr(
         inspection_service, "open_admitted_native_text", forbidden_source_open
     )
     response = x.client.request("POST", INSPECTION, json=body)
-    assert response.status_code == 403, response.text
+    assert response.status_code == 409, response.text
     assert x.catalog_reads == []
     assert "source" not in response.json()
 

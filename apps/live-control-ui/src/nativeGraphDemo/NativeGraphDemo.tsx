@@ -1719,7 +1719,7 @@ export function NativeGraphDemo({ api: providedApi, embedded = false, mode = "pl
     key={`${graph.world_id}:${graph.revision_id}:${selectedNode.id}`}
     node={selectedNode} revision={graph.revision_id} detail={selectedNodeDetail} labels={selectedLabels}
     mode={mode} status={selectedNodeDetailStatus} error={selectedNodeDetailError} connections={selectedConnections}
-    entityOnly={entityOnlyDetails} partial={completeness?.status === "partial"} navigationDisabled={Boolean(pendingOperation)}
+    entityOnly={entityOnlyDetails} sourceReads={Boolean(api.readChronology)} partial={completeness?.status === "partial"} navigationDisabled={Boolean(pendingOperation)}
     headingRef={inspectorHeadingRef} onFocus={() => requestCameraFocus(selectedNode.id)}
     onExitFocus={focusedNodeId ? () => requestCameraFocus(null) : undefined} onClose={closeSelectedDetails}
     previousLabel={selectedLabels.get(inspectionHistory[inspectionHistory.length - 1]!)}

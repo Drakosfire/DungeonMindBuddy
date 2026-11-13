@@ -1,4 +1,4 @@
-import type { NativeGraphCatalog, NativeGraphEntity } from "../api/nativeGraphInspection";
+import type { NativeGraphChronology, NativeGraphEntity } from "../api/nativeGraphInspection";
 
 export type NativeObjectKind = "person" | "location" | "event";
 
@@ -121,7 +121,7 @@ export type NativeGraphDemoTransport = (path: string, init: RequestInit) => Prom
 export interface NativeGraphDemoApi {
   readGraph(signal?: AbortSignal): Promise<NativeGraph>;
   /** Read native records from this exact returned graph snapshot, when supported. */
-  readChronology?(graph: NativeGraph, signal: AbortSignal): Promise<NativeGraphCatalog>;
+  readChronology?(graph: NativeGraph, signal: AbortSignal): Promise<NativeGraphChronology>;
   inspectNode?(graph: NativeGraph, nodeId: string, signal?: AbortSignal): Promise<NativeGraphEntity>;
   prepare(input: NativePrepareRequest): Promise<PrepareResult>;
   confirm(operationId: string): Promise<ConfirmResult>;
