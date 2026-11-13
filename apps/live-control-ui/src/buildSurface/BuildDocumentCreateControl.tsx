@@ -138,11 +138,11 @@ export function BuildDocumentCreateControl({
     return () => window.removeEventListener(BUILD_STUDIO_ACTION, open);
   }, [disabled, creating]);
   const [importOpen, setImportOpen] = useState(false);
-  const [pdfOpen, setPdfOpen] = useState(false);
+  const [openPdfPreviewKey, setOpenPdfPreviewKey] = useState<string>();
   function closeImport() {
     setImportOpen(false);
     setDroppedPdf(undefined);
-    setPdfOpen(false);
+    setOpenPdfPreviewKey(undefined);
   }
   const [destinationSelection, setDestinationSelection] = useState<DestinationSelection>(() => ({
     value: normalizeDestinationValue(suggestedDestinationValue, destinationOptions),
@@ -261,6 +261,9 @@ export function BuildDocumentCreateControl({
     ?.trim().replace(/^#{1,6}\s+/, "").slice(0, 120) ?? "";
   const importTitle = title.trim() || suggestedImportTitle;
 
+  const pdfWorldId = resolvedDestination?.kind === "world" ? resolvedDestination.worldId : undefined;
+  const pdfPreviewKey = JSON.stringify([pdfWorldId, droppedPdf?.sequence]);
+
   const handleImportSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (disabled || creating || !resolvedDestination) return;
@@ -296,7 +299,6 @@ export function BuildDocumentCreateControl({
           data-testid="build-document-create-destination"
           value={destinationValue}
           onChange={(event) => {
-            setPdfOpen(false);
             setDestinationSelection({
               value: event.target.value,
               provenance: "explicit",
@@ -543,8 +545,13 @@ export function BuildDocumentCreateControl({
         }
       >
         {worldFields}
-        <BuildPdfPreview onPdfOpen={() => setPdfOpen(true)} initialFile={droppedPdf?.file} key={JSON.stringify([resolvedDestination?.kind === "world" ? resolvedDestination.worldId : null, droppedPdf?.sequence])} worldId={resolvedDestination?.kind === "world" ? resolvedDestination.worldId : undefined} />
-        {!droppedPdf && !pdfOpen && importForm}
+        <BuildPdfPreview
+          key={pdfPreviewKey}
+          worldId={pdfWorldId}
+          initialFile={droppedPdf?.file}
+          onPdfOpen={() => setOpenPdfPreviewKey(pdfPreviewKey)}
+        />
+        {!droppedPdf && openPdfPreviewKey !== pdfPreviewKey && importForm}
       </SurfaceContextPopover>
     </div>
   );
