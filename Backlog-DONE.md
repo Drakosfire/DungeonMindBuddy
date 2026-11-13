@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Avoid resorting accumulated conversation history on each older page
+
+[#2800](https://github.com/Drakosfire/DungeonMindBuddy/pull/2800) aligned the transcript cursor check with preview and rejected repeated or empty nonterminal cursors. [#2801](https://github.com/Drakosfire/DungeonMindBuddy/pull/2801) prepends disjoint ordered pages and retains the existing merge for duplicates and overlap. All 101 targeted tests passed locally. In a synthetic Node benchmark with 5,000 loaded turns and 50 older turns, the revised merge produced identical output and reduced the median from 0.233 ms to 0.161 ms. GitHub reported no checks for #2801.
+
 ## [DONE] Repair links inside relocated evaluation documentation
 
 Restored nine clickable corpus citations in the relocated entity audit. Both Timeline Pass report links already point to the archived report. Verified all relative Markdown targets in both documents against tracked paths. The separate evidence-retention decision remains in the backlog.
