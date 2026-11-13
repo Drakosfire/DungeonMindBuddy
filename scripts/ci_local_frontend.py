@@ -619,8 +619,17 @@ def verify(args):
                                     result["argv"],
                                 )
                             )
-                        except (OSError, ValueError, KeyError):
+                        except (OSError, ValueError, KeyError, TypeError) as exc:
                             result["collection_parity"] = False
+                            if isinstance(exc, FileNotFoundError):
+                                reason = "missing"
+                            elif isinstance(exc, OSError):
+                                reason = "unreadable"
+                            elif isinstance(exc, (json.JSONDecodeError, UnicodeDecodeError)):
+                                reason = "invalid JSON"
+                            else:
+                                reason = "unexpected report structure"
+                            result["results_error"] = reason
                         report["tests"].append(result)
                     # Even assertion failures must not suppress build/type evidence.
                     report["build"] = command(build, frontend, out / "build.log", env)
