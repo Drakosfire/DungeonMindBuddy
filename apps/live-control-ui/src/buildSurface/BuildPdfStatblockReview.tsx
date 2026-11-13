@@ -31,7 +31,8 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
   const [drafts, setDrafts] = useState<ThreatDraft[]>([]);
   const [draftId, setDraftId] = useState("");
   const [acceptOpen, setAcceptOpen] = useState(false);
-  const [published, setPublished] = useState(false);
+  const [publishedLink, setPublishedLink] = useState("");
+  const published = Boolean(publishedLink);
   const [acceptedLink, setAcceptedLink] = useState("");
 
   const [versions, setVersions] = useState<SavedMechanicsVersionList>();
@@ -241,14 +242,16 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         setError(result.message || "Mechanics acceptance is unresolved. Select Accept mechanics again to check the same operation.");
         return;
       }
+      const link = `/statblock?${new URLSearchParams({
+        world: worldId, draft: draft.draft_id, revision: result.locator.revision_id,
+      })}`;
       if (publish) {
         const current = await getThreatDraft(draft.draft_id);
         await publishPdfStatblock(worldId, draft.draft_id, current.version, result.locator);
-        setPublished(true);
+        setPublishedLink(link);
+      } else {
+        setAcceptedLink(link);
       }
-      setAcceptedLink(`/statblock?${new URLSearchParams({
-        world: worldId, draft: draft.draft_id, revision: result.locator.revision_id,
-      })}`);
     } catch (failure) {
       setError(publish
         ? (failure instanceof Error ? failure.message : "Publication stopped. Retry Publish to resume.")
@@ -406,7 +409,10 @@ export function BuildPdfStatblockReview({ worldId, reviewId }: { worldId: string
         {saved && <span role="status">Draft saved</span>}
         {editor && review && <button type="button" disabled={pending || published || publishBlockers.length > 0}
           onClick={() => void acceptMechanics(true)}>Publish</button>}
-        {published && <span role="status">Creature and statblock published</span>}
+        {published && <>
+          <span role="status">Creature and statblock published</span>
+          <a href={publishedLink}>Open published statblock</a>
+        </>}
       </header>
       {!published && publishBlockers.length > 0 && <ul aria-label="What blocks publication">
         {publishBlockers.map((blocker, index) => <li key={index}>{blocker}</li>)}
