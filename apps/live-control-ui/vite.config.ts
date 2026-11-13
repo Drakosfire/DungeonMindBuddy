@@ -102,7 +102,7 @@ function mirewardPrepStaticPlugin() {
 }
 
 export default defineConfig({
-  plugins: [mirewardPrepStaticPlugin(), react()],
+  plugins: [react(), ...(process.env.BUDDY_MIREWARD_PREP === "1" ? [mirewardPrepStaticPlugin()] : [])],
   server: {
     proxy: {
       "/api": {
