@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { authenticatedApiFetch } from '../api/liveApi';
 import type { BuildComposeBridge, CapturedBuildInsertion } from '../buildSurface/buildComposeBridge';
 import type { BuildProposalBasis } from '../api/buildDocumentProposalApi';
-import { MediaImageWizard, type GeneratedMediaImage } from './MediaImageWizard';
+import type { GeneratedMediaImage } from './MediaImageWizard';
+import { DeferredMediaImageWizard } from './DeferredMediaImageWizard';
 import { mediaMarkdown } from './mediaReferences';
 
 export type PreparedImage = {schema_version:'dmb_build_image_preparation_v2';action_id:string;prompt:string;alt:string;purpose?:'illustration'|'map'|null;revision:number;
@@ -75,7 +76,7 @@ export function PreparedBuildImage({record,bridge,active}: {record:PreparedImage
     {inserted ? <p role="status">Image inserted into your draft. Save the page when ready.</p>
       : <button type="button" disabled={!active || !bridge} onClick={()=>void showStudio()}>Open Image Studio</button>}
     {error&&<p role="alert">{error}</p>}
-    {open&&active&&<aside className="build-media-studio"><MediaImageWizard initialPrompt={prepared.prompt} initialPurpose={prepared.purpose??'illustration'} preparationId={prepared.action_id}
+    {open&&active&&<aside className="build-media-studio"><DeferredMediaImageWizard initialPrompt={prepared.prompt} initialPurpose={prepared.purpose??'illustration'} preparationId={prepared.action_id}
       onClose={()=>{studioEpoch.current++;captured.current=null;setOpen(false);}} onChoose={(image,_result,placement)=>insert(image,placement)} /></aside>}
   </article>;
 }
