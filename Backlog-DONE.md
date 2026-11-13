@@ -7,6 +7,10 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DROPPED] Derive the proxy upstream from the effective Buddy bind port
+
+Duplicate of **Use one source for the Buddy deployment bind port** in [Backlog.md](Backlog.md). That item records the resolved Compose preflight and running binding checks, plus the release operator’s remaining default- and custom-port rehearsals through Nginx.
+
 ## [DONE] Explain unreadable local verifier test reports
 
 Verifier evidence identifies the results filename and records a bounded reason for report read, decoding, or structural failures. End-to-end verifier tests cover missing files, invalid JSON, and malformed reports, including rejection by the evidence validator.
