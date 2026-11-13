@@ -11,6 +11,10 @@ Sort newest → oldest within each status.
 
 These links trace original cleanup findings to the change that removed or replaced each row. Any replacement work remains tracked in the active backlog.
 
+- Rehearse the production image rollback commands. [#2564](https://github.com/Drakosfire/DungeonMindBuddy/pull/2564) added image identity checks. Stub rehearsals rejected configured-tag mismatch, local image mismatch, failed startup, and running image mismatch, and accepted matching inputs. The full host exercise remains under **Rehearse rollback of an approved Buddy release**.
+
+- Record the full rollback configuration for each Buddy release. [#2566](https://github.com/Drakosfire/DungeonMindBuddy/pull/2566) documented the release-scoped inputs. [#2600](https://github.com/Drakosfire/DungeonMindBuddy/pull/2600) recorded a disposable Compose 2.40.3 rehearsal that restored the prior configuration, verified both running image IDs, and received HTTP 200 from liveness on both releases. Readiness and proxy checks remain with the release operator.
+
 - Align the release wait deadline with the Compose health schedule. The [deployment runbook](Docs/Runbooks/RUNBOOK-buddy-production-deployment.md) uses 330 seconds for deployment and rollback. The recorded disposable Compose 2.40.3 rehearsal used the production schedule with synthetic probes. Healthy startup took 5.6 seconds and persistent failure reached unhealthy in 221.2 seconds. The release operator owns target-host verification.
 
 - Verify persistent storage access as the release container user. Compose disables automatic bind-source creation. The runbook requires an approved absolute root and probes access as UID/GID 10001. [#2720](https://github.com/Drakosfire/DungeonMindBuddy/pull/2720) recorded a disposable Compose 2.40.3 rehearsal that rejected a missing root without creating it, rejected an unwritable root, and accepted writable directories. The release operator owns the host check.
