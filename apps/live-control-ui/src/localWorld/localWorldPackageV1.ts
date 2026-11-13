@@ -811,7 +811,7 @@ export async function parseLocalWorldPackageV1(inputMembers: ReadonlyMap<string,
         record: cloneLocalWorldValue(record),
         documents: cloneLocalWorldValue(semantic.documents),
         assets: cloneLocalWorldValue(semantic.assets),
-        members: new Map([...memberMap].map(([path, bytes]) => [path, new Uint8Array(bytes)])),
+        members: memberMap,
       },
     };
   } catch (error) {
