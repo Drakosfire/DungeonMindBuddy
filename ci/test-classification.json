@@ -1397,6 +1397,7 @@
       "tests/test_runtime_preflight.py",
       "tests/test_s28_native_predicate_adoption.py",
       "tests/test_sbw06a_server_revise_transcripts.py",
+      "tests/test_sbw07a_capture_output.py",
       "tests/test_sbw07a_server_transcripts.py",
       "tests/test_scene_beat_memory.py",
       "tests/test_scope_b_grader.py",
